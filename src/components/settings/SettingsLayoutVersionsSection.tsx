@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useDashboardSecurity } from '../../security/dashboardAccess';
 import { useSensitiveActionGate } from '../../security/SensitiveActionGate';
+import { useI18n } from '../../i18n/I18nProvider';
 import {
   summarizeDashboardRevision,
   type DashboardRevisionHistoryStatus,
@@ -26,21 +27,23 @@ export type SettingsLayoutVersionsSectionProps = {
   onRestore: (revision: number) => Promise<DashboardLayoutSaveResult>;
 };
 
-function formatRevisionDate(value: string) {
+type Translate = ReturnType<typeof useI18n>['t'];
+
+function formatRevisionDate(value: string, locale: string, t: Translate) {
   const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return 'Data non disponibile';
+  if (!Number.isFinite(date.getTime())) return t('settings.versions.dateUnavailable');
   const today = new Date();
   const isToday = date.toDateString() === today.toDateString();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
   const isYesterday = date.toDateString() === yesterday.toDateString();
-  const time = new Intl.DateTimeFormat('it-IT', {
+  const time = new Intl.DateTimeFormat(locale, {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
-  if (isToday) return `Oggi, ${time}`;
-  if (isYesterday) return `Ieri, ${time}`;
-  return new Intl.DateTimeFormat('it-IT', {
+  if (isToday) return t('settings.versions.today', { time });
+  if (isYesterday) return t('settings.versions.yesterday', { time });
+  return new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'short',
     year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric',
@@ -49,16 +52,16 @@ function formatRevisionDate(value: string) {
   }).format(date);
 }
 
-function summaryParts(summary: DashboardRevisionSummary | null) {
-  if (!summary) return ['Prima versione conservata'];
+function summaryParts(summary: DashboardRevisionSummary | null, t: Translate) {
+  if (!summary) return [t('settings.versions.first')];
   const parts: string[] = [];
-  if (summary.addedWidgets) parts.push(`${summary.addedWidgets} card aggiunt${summary.addedWidgets === 1 ? 'a' : 'e'}`);
-  if (summary.removedWidgets) parts.push(`${summary.removedWidgets} card rimoss${summary.removedWidgets === 1 ? 'a' : 'e'}`);
-  if (summary.changedWidgets) parts.push(`${summary.changedWidgets} card modificat${summary.changedWidgets === 1 ? 'a' : 'e'}`);
-  if (summary.movedWidgets) parts.push(`${summary.movedWidgets} card riposizionat${summary.movedWidgets === 1 ? 'a' : 'e'}`);
-  if (summary.changedSections) parts.push(`${summary.changedSections} sezion${summary.changedSections === 1 ? 'e' : 'i'} aggiornate`);
-  if (summary.changedBreakpoints.length) parts.push(`Layout ${summary.changedBreakpoints.join(', ').toUpperCase()}`);
-  return parts.length ? parts : ['Aggiornamento della configurazione'];
+  if (summary.addedWidgets) parts.push(t('settings.versions.added', { count: summary.addedWidgets }));
+  if (summary.removedWidgets) parts.push(t('settings.versions.removed', { count: summary.removedWidgets }));
+  if (summary.changedWidgets) parts.push(t('settings.versions.changed', { count: summary.changedWidgets }));
+  if (summary.movedWidgets) parts.push(t('settings.versions.moved', { count: summary.movedWidgets }));
+  if (summary.changedSections) parts.push(t('settings.versions.sectionsChanged', { count: summary.changedSections }));
+  if (summary.changedBreakpoints.length) parts.push(t('settings.versions.layout', { breakpoints: summary.changedBreakpoints.join(', ').toUpperCase() }));
+  return parts.length ? parts : [t('settings.versions.configurationUpdate')];
 }
 
 function hasSummaryChanges(summary: DashboardRevisionSummary) {
@@ -70,12 +73,12 @@ function hasSummaryChanges(summary: DashboardRevisionSummary) {
     summary.changedBreakpoints.length > 0;
 }
 
-function errorMessage(result: DashboardLayoutSaveResult) {
+function errorMessage(result: DashboardLayoutSaveResult, t: Translate) {
   if (result.ok === true) return '';
-  if (result.code === 'server_conflict') return 'Esiste una versione più recente. Aggiorna la cronologia e riprova.';
-  if (result.code === 'server_unauthorized') return 'Home Assistant non consente il ripristino con questo account.';
-  if (result.code === 'server_unsupported') return 'Il panel installato non supporta ancora la cronologia.';
-  return 'Home Assistant non ha confermato il ripristino.';
+  if (result.code === 'server_conflict') return t('settings.versions.errorConflict');
+  if (result.code === 'server_unauthorized') return t('settings.versions.errorUnauthorized');
+  if (result.code === 'server_unsupported') return t('settings.versions.errorUnsupported');
+  return t('settings.versions.errorGeneric');
 }
 
 export function SettingsLayoutVersionsSection({
@@ -85,10 +88,11 @@ export function SettingsLayoutVersionsSection({
   onRefresh,
   onRestore,
 }: SettingsLayoutVersionsSectionProps) {
+  const { locale, t } = useI18n();
   const security = useDashboardSecurity();
   const sensitiveGate = useSensitiveActionGate();
   const [busyRevision, setBusyRevision] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState('');
+  const [feedback, setFeedback] = useState<{ message: string; success: boolean } | null>(null);
   const authorNames = useMemo(() => new Map(
     houseMembers.flatMap((member) => {
       const ids = [member.id, member.userId].filter((id): id is string => Boolean(id));
@@ -109,17 +113,20 @@ export function SettingsLayoutVersionsSection({
     const authorized = await sensitiveGate.authorize({
       action: 'restore_backup',
       capability: 'restore_backup',
-      title: `Ripristinare la versione ${revision.revision}?`,
-      description: 'Il layout corrente verrà conservato e il ripristino creerà una nuova versione condivisa.',
+      title: t('settings.versions.restorePrompt', { revision: revision.revision }),
+      description: t('settings.versions.restoreDescription'),
     });
     if (!authorized) return;
     setBusyRevision(revision.revision);
-    setFeedback('');
+    setFeedback(null);
     const result = await onRestore(revision.revision);
     setBusyRevision(null);
-    setFeedback(result.ok
-      ? `Versione ${revision.revision} ripristinata come nuova revisione.`
-      : errorMessage(result));
+    setFeedback({
+      message: result.ok
+        ? t('settings.versions.restored', { revision: revision.revision })
+        : errorMessage(result, t),
+      success: result.ok,
+    });
   };
 
   if (status === 'loading' && revisions.length === 0) {
@@ -127,7 +134,7 @@ export function SettingsLayoutVersionsSection({
       <section className="dashboard-content-surface flex min-h-52 items-center justify-center rounded-[1.5rem] p-6">
         <div className="text-center text-[color:var(--ui-text-secondary)]">
           <LoaderCircle size={24} className="mx-auto animate-spin" />
-          <p className="mt-3 text-sm font-medium">Caricamento versioni…</p>
+          <p className="mt-3 text-sm font-medium">{t('settings.versions.loading')}</p>
         </div>
       </section>
     );
@@ -137,13 +144,13 @@ export function SettingsLayoutVersionsSection({
     return (
       <section className="dashboard-content-surface rounded-[1.5rem] p-5 sm:p-6">
         <History size={22} className="text-[color:var(--ui-text-secondary)]" />
-        <h2 className="mt-3 text-base font-semibold">Cronologia non disponibile</h2>
+        <h2 className="mt-3 text-base font-semibold">{t('settings.versions.unavailable')}</h2>
         <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
           {status === 'offline'
-            ? 'Riconnetti Home Assistant per recuperare le versioni del layout.'
+            ? t('settings.versions.offline')
             : status === 'unsupported'
-              ? 'Aggiorna il pannello Domus UI per utilizzare questa funzione.'
-              : 'Home Assistant non ha restituito un archivio valido.'}
+              ? t('settings.versions.unsupported')
+              : t('settings.versions.invalidArchive')}
         </p>
         <button
           type="button"
@@ -151,7 +158,7 @@ export function SettingsLayoutVersionsSection({
           className="liquid-glass-control mt-4 inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold"
         >
           <RefreshCw size={16} />
-          Riprova
+          {t('settings.versions.retry')}
         </button>
       </section>
     );
@@ -161,13 +168,13 @@ export function SettingsLayoutVersionsSection({
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3 px-1">
         <p className="text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-          Conserviamo la versione corrente e le quattro precedenti. Stati live e dati sensibili sono esclusi.
+          {t('settings.versions.retention')}
         </p>
         <button
           type="button"
           onClick={() => void onRefresh()}
           disabled={status === 'loading' || busyRevision !== null}
-          aria-label="Aggiorna versioni"
+          aria-label={t('settings.versions.refresh')}
           className="liquid-glass-control flex h-11 w-11 shrink-0 items-center justify-center rounded-full disabled:opacity-50"
         >
           <RefreshCw size={16} className={status === 'loading' ? 'animate-spin' : ''} />
@@ -176,12 +183,12 @@ export function SettingsLayoutVersionsSection({
 
       {currentRow ? (() => {
         const { revision, summary } = currentRow;
-        const parts = summaryParts(summary);
-        const author = authorNames.get(revision.createdByUserId) || 'Utente Home Assistant';
+        const parts = summaryParts(summary, t);
+        const author = authorNames.get(revision.createdByUserId) || t('settings.versions.haUser');
         return (
           <div>
             <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-tertiary)]">
-              Versione attuale
+              {t('settings.versions.currentVersion')}
             </p>
             <article className="relative overflow-hidden rounded-[1.5rem] border border-[color:rgb(var(--ui-accent-rgb)/0.38)] bg-[linear-gradient(135deg,rgb(var(--ui-accent-rgb)/0.16),var(--ui-surface-glass-soft)_58%)] p-5 shadow-[0_18px_44px_var(--ui-shadow-soft),inset_0_1px_0_rgb(255_255_255/0.12)] backdrop-blur-2xl sm:p-6">
               <div className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-[color:rgb(var(--ui-accent-rgb)/0.14)] blur-3xl" />
@@ -191,18 +198,18 @@ export function SettingsLayoutVersionsSection({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-base font-semibold">Versione {revision.revision}</h2>
+                    <h2 className="text-base font-semibold">{t('settings.versions.version', { revision: revision.revision })}</h2>
                     <span className="rounded-full border border-[color:rgb(var(--ui-accent-rgb)/0.22)] bg-[color:rgb(var(--ui-accent-rgb)/0.14)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ui-accent)]">
-                      Attuale
+                      {t('settings.versions.current')}
                     </span>
                     {revision.source === 'rollback' ? (
                       <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ui-text-tertiary)]">
-                        Ripristino {revision.restoredFromRevision ? `della ${revision.restoredFromRevision}` : ''}
+                        {t('settings.versions.rollback', { revision: revision.restoredFromRevision ?? '' })}
                       </span>
                     ) : null}
                   </div>
                   <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">
-                    {formatRevisionDate(revision.createdAt)} · {author}
+                    {formatRevisionDate(revision.createdAt, locale, t)} · {author}
                   </p>
                   <p className="mt-2 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
                     {parts.slice(0, 3).join(' · ')}
@@ -229,11 +236,11 @@ export function SettingsLayoutVersionsSection({
       <div>
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-tertiary)]">
-            Disponibili per il ripristino
+            {t('settings.versions.availableToRestore')}
           </p>
           {restorableRows.length ? (
             <span className="text-[11px] font-medium text-[color:var(--ui-text-tertiary)]">
-              {restorableRows.length} {restorableRows.length === 1 ? 'versione' : 'versioni'}
+              {t('settings.versions.count', { count: restorableRows.length })}
             </span>
           ) : null}
         </div>
@@ -244,8 +251,8 @@ export function SettingsLayoutVersionsSection({
               const matchesCurrent = revisions[0]
                 ? !hasSummaryChanges(summarizeDashboardRevision(revision.dashboard, revisions[0].dashboard))
                 : false;
-              const parts = summaryParts(summary);
-              const author = authorNames.get(revision.createdByUserId) || 'Utente Home Assistant';
+              const parts = summaryParts(summary, t);
+              const author = authorNames.get(revision.createdByUserId) || t('settings.versions.haUser');
               return (
                 <article
                   key={revision.revision}
@@ -257,15 +264,15 @@ export function SettingsLayoutVersionsSection({
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <h2 className="text-sm font-semibold">Versione {revision.revision}</h2>
+                        <h2 className="text-sm font-semibold">{t('settings.versions.version', { revision: revision.revision })}</h2>
                         {revision.source === 'rollback' ? (
                           <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ui-text-tertiary)]">
-                            Ripristino {revision.restoredFromRevision ? `della ${revision.restoredFromRevision}` : ''}
+                            {t('settings.versions.rollback', { revision: revision.restoredFromRevision ?? '' })}
                           </span>
                         ) : null}
                       </div>
                       <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">
-                        {formatRevisionDate(revision.createdAt)} · {author}
+                        {formatRevisionDate(revision.createdAt, locale, t)} · {author}
                       </p>
                       <p className="mt-2 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
                         {parts.slice(0, 3).join(' · ')}
@@ -285,7 +292,7 @@ export function SettingsLayoutVersionsSection({
                     </div>
                     {matchesCurrent ? (
                       <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ui-text-tertiary)]">
-                        Già applicato
+                        {t('settings.versions.alreadyApplied')}
                       </span>
                     ) : security.can('restore_backup') ? (
                       <button
@@ -297,7 +304,7 @@ export function SettingsLayoutVersionsSection({
                         {busyRevision === revision.revision
                           ? <LoaderCircle size={15} className="animate-spin" />
                           : <RotateCcw size={15} />}
-                        <span className="hidden sm:inline">Ripristina</span>
+                        <span className="hidden sm:inline">{t('settings.versions.restore')}</span>
                       </button>
                     ) : null}
                   </div>
@@ -308,17 +315,17 @@ export function SettingsLayoutVersionsSection({
         ) : (
           <div className="rounded-[1.5rem] border border-dashed border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] px-5 py-6 text-center">
             <History size={20} className="mx-auto text-[color:var(--ui-text-tertiary)]" />
-            <p className="mt-2 text-sm font-medium">Nessuna versione precedente</p>
+            <p className="mt-2 text-sm font-medium">{t('settings.versions.noPrevious')}</p>
             <p className="mt-1 text-xs leading-5 text-[color:var(--ui-text-tertiary)]">
-              Comparirà qui dopo il prossimo salvataggio del layout.
+              {t('settings.versions.noPreviousDescription')}
             </p>
           </div>
         )}
       </div>
 
       {feedback ? (
-        <p role="status" className={`px-1 text-xs font-medium ${feedback.includes('ripristinata') ? 'text-emerald-500' : 'text-rose-500'}`}>
-          {feedback}
+        <p role="status" className={`px-1 text-xs font-medium ${feedback.success ? 'text-emerald-500' : 'text-rose-500'}`}>
+          {feedback.message}
         </p>
       ) : null}
     </section>

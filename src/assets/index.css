@@ -1,35 +1,21 @@
 @import "tailwindcss";
 @config "../../tailwind.config.js";
 
-@font-face {
-  font-family: "SF Pro Text";
-  src:
-    local("SF Pro Text"),
-    local("Segoe UI Variable Text"),
-    local("Segoe UI"),
-    local("Roboto");
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: "SF Pro Display";
-  src:
-    local("SF Pro Display"),
-    local("Segoe UI Variable Display"),
-    local("Segoe UI"),
-    local("Roboto");
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
+:root {
+  /* Native UI typeface on every platform. `-apple-system` is intentionally
+     first: Safari and Home Assistant's iOS WKWebView resolve it to San
+     Francisco without downloading or impersonating a web font. */
+  --ui-font-system: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --ui-font-display: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
 }
 
 @theme {
-  --font-sans: "SF Pro Text";
-  --font-display: "SF Pro Display";
-  --font-serif: "SF Pro Text";
-  --font-mono: "SF Pro Text";
+  --font-sans: var(--ui-font-system);
+  --font-display: var(--ui-font-display);
+  --font-serif: var(--ui-font-system);
+  --font-mono: var(--ui-font-system);
 }
 
 @layer base {
@@ -59,7 +45,8 @@
   }
 
   html {
-    font-family: "SF Pro Text";
+    font-family: var(--ui-font-system);
+    -webkit-text-size-adjust: 100%;
   }
 
   body,
@@ -71,7 +58,7 @@
   kbd,
   samp,
   pre {
-    font-family: "SF Pro Text";
+    font-family: var(--ui-font-system);
   }
 
   h1,
@@ -80,7 +67,7 @@
   h4,
   h5,
   h6 {
-    font-family: "SF Pro Display";
+    font-family: var(--ui-font-display);
   }
 }
 
@@ -1200,7 +1187,7 @@ body {
   margin: 0;
   background: var(--ui-bg-canvas, var(--ui-boot-bg, #000000));
   color: var(--ui-text-primary, var(--ui-boot-text, #f5f5f7));
-  font-family: "SF Pro Text";
+  font-family: var(--ui-font-system);
   touch-action: manipulation;
   /* Premium typographic baseline (Apple-like): crisp rendering, optical sizing,
      and tabular figures so live numbers/versions don't jitter as they change. */
@@ -1223,7 +1210,8 @@ body {
      Apple-like ramp: size / line-height / optical tracking. Use `--ui-font-display`
      for large titles, `--ui-fs-*` for consistent sizes, and the tracking tokens
      to keep large text tight and all-caps eyebrows open. Adopt gradually. */
-  --ui-font-display: "SF Pro Display", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+  --ui-font-display: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
   --ui-fs-2xs: 0.6875rem; /* 11px */
   --ui-fs-xs: 0.75rem; /* 12 */
   --ui-fs-sm: 0.8125rem; /* 13 */
@@ -1884,7 +1872,7 @@ body {
 }
 
 .editor-theme {
-  font-family: "SF Pro Text";
+  font-family: var(--ui-font-system);
   --editor-accent: #3d5afe;
 }
 
@@ -2022,7 +2010,7 @@ body {
 
 .runtime-theme {
   --runtime-accent: #3d5afe;
-  font-family: "SF Pro Text";
+  font-family: var(--ui-font-system);
 }
 
 .runtime-theme .runtime-panel-surface {

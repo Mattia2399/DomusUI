@@ -1,6 +1,7 @@
 import { Redo2, TriangleAlert, Undo2 } from 'lucide-react';
 import type { DashboardLayoutSaveStatus } from '../../hooks/useDashboardLayoutPersistence';
 import { DashboardSaveIndicator } from './DashboardSaveIndicator';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type DashboardEditToolbarProps = {
   saveStatus: DashboardLayoutSaveStatus;
@@ -23,20 +24,21 @@ export function DashboardEditToolbar({
   remoteRevision = null,
   onRemoteUpdateClick,
 }: DashboardEditToolbarProps) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-2">
       <div
         className={`${embedded ? '' : 'liquid-glass-control shadow-xl'} flex min-h-11 items-center rounded-full p-1`}
         role={embedded ? 'group' : 'toolbar'}
-        aria-label="Cronologia modifiche"
+        aria-label={t('dashboard.history')}
       >
         <button
           type="button"
           onClick={onUndo}
           disabled={!canUndo}
           className="flex min-h-9 min-w-11 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label="Annulla ultima modifica"
-          title="Annulla (Ctrl o Cmd + Z)"
+          aria-label={t('common.undo')}
+          title={t('dashboard.undo.title')}
         >
           <Undo2 size={15} aria-hidden />
         </button>
@@ -46,8 +48,8 @@ export function DashboardEditToolbar({
           onClick={onRedo}
           disabled={!canRedo}
           className="flex min-h-9 min-w-11 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
-          aria-label="Ripeti ultima modifica"
-          title="Ripeti (Ctrl o Cmd + Shift + Z)"
+          aria-label={t('common.redo')}
+          title={t('dashboard.redo.title')}
         >
           <Redo2 size={15} aria-hidden />
         </button>
@@ -58,11 +60,11 @@ export function DashboardEditToolbar({
           type="button"
           onClick={onRemoteUpdateClick}
           className={`${embedded ? 'bg-amber-500/12' : 'liquid-glass-control shadow-xl'} flex min-h-11 items-center gap-2 rounded-full px-3 text-amber-500 transition hover:brightness-110 active:scale-[0.98]`}
-          aria-label={`Versione ${remoteRevision} disponibile da Home Assistant`}
+          aria-label={t('dashboard.remoteVersion.aria', { revision: remoteRevision })}
         >
           <TriangleAlert size={15} aria-hidden />
           <span className="hidden whitespace-nowrap text-xs font-semibold sm:inline">
-            Versione {remoteRevision} disponibile
+            {t('dashboard.remoteVersion.label', { revision: remoteRevision })}
           </span>
           <span className="text-xs font-semibold sm:hidden">v{remoteRevision}</span>
         </button>

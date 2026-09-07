@@ -8,6 +8,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
+import { useI18n } from '../../i18n/I18nProvider';
 import { validateHassUrl } from '../../services/haLive';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import GlassToggle from '../ui/GlassToggle';
@@ -29,12 +30,6 @@ export type SettingsHomeAssistantSectionProps = {
   isOAuthBusy: boolean;
 };
 
-function normalizeError(error: unknown) {
-  return error instanceof Error && error.message
-    ? error.message
-    : 'Operazione non riuscita. Riprova.';
-}
-
 export function SettingsHomeAssistantSection({
   appearance,
   haUrl,
@@ -51,6 +46,7 @@ export function SettingsHomeAssistantSection({
   onStartOAuth,
   isOAuthBusy,
 }: SettingsHomeAssistantSectionProps) {
+  const { locale, t } = useI18n();
   const [showToken, setShowToken] = useState(false);
   const [manualTokenDraft, setManualTokenDraft] = useState('');
   const [haActionError, setHaActionError] = useState<string | null>(null);
@@ -63,7 +59,22 @@ export function SettingsHomeAssistantSection({
   const canStartOAuth = !haManagedByParent && haUrl.trim().length > 0;
   const canConnect =
     !haManagedByParent && haUrl.trim().length > 0 && haToken.trim().length > 0;
-  const haErrorMessage = haActionError ?? haError;
+  const haErrorMessage = haActionError ?? (haError
+    ? (locale === 'it' ? haError : t('settings.connection.operationFailed'))
+    : '');
+  const validationError = haUrlValidation?.ok === false
+    ? t(haUrlValidation.error.includes('obbligatorio')
+      ? 'settings.connection.urlRequired'
+      : haUrlValidation.error.includes('completo')
+        ? 'settings.connection.urlComplete'
+        : haUrlValidation.error.includes('http o https')
+          ? 'settings.connection.urlProtocol'
+          : haUrlValidation.error.includes('credenziali')
+            ? 'settings.connection.urlCredentials'
+            : haUrlValidation.error.includes('query')
+              ? 'settings.connection.urlQuery'
+              : 'settings.connection.urlHttps')
+    : '';
   const errorTextClass = appearance === 'light' ? 'text-rose-700' : 'text-rose-200';
 
   const sectionShellClass = 'pb-6';
@@ -101,7 +112,9 @@ export function SettingsHomeAssistantSection({
     try {
       await onStartOAuth();
     } catch (error) {
-      setHaActionError(normalizeError(error));
+      setHaActionError(locale === 'it' && error instanceof Error && error.message
+        ? error.message
+        : t('settings.connection.operationFailed'));
     }
   };
 
@@ -128,12 +141,12 @@ export function SettingsHomeAssistantSection({
             />
             {haUrlValidation?.ok && haUrlValidation.warning ? (
               <span className="mt-1 block text-[11px] text-amber-500/85">
-                {haUrlValidation.warning}
+                {t('settings.connection.localHttpWarning')}
               </span>
             ) : null}
             {haUrlValidation?.ok === false ? (
               <span className="mt-1 block text-[11px] text-rose-500/85">
-                {haUrlValidation.error}
+                {validationError}
               </span>
             ) : null}
           </div>
@@ -154,8 +167,8 @@ export function SettingsHomeAssistantSection({
               }}
               placeholder={
                 isRememberedTokenStored
-                  ? 'Token salvato su questo dispositivo'
-                  : 'Incolla il token di Home Assistant'
+                  ? t('settings.connection.tokenSavedPlaceholder')
+                  : t('settings.connection.tokenPlaceholder')
               }
               disabled={haManagedByParent}
               className="mt-1 w-full bg-transparent text-sm text-[color:var(--ui-text-secondary)] outline-none placeholder:text-[color:var(--ui-text-secondary)]/70"
@@ -163,14 +176,14 @@ export function SettingsHomeAssistantSection({
           </div>
           {isRememberedTokenStored ? (
             <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-600">
-              Salvato
+              {t('dashboard.save.saved')}
             </span>
           ) : (
             <button
               type="button"
               onClick={() => setShowToken((current) => !current)}
               className={`${touchMotionClass} ${iconButtonClass}`}
-              aria-label={showToken ? 'Nascondi token' : 'Mostra token'}
+              aria-label={showToken ? t('settings.connection.hideToken') : t('settings.connection.showToken')}
             >
               {showToken ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
@@ -182,16 +195,16 @@ export function SettingsHomeAssistantSection({
         <div className={settingsRowClass}>
           {renderSettingsIcon(Eye)}
           <div className="min-w-0 flex-1">
-            <p className={settingsTitleClass}>Ricorda token</p>
+            <p className={settingsTitleClass}>{t('settings.connection.rememberToken')}</p>
             <p className={settingsSubtitleClass}>
-              Se attivo, il token resta salvato solo in questo browser.
+              {t('settings.connection.rememberTokenDescription')}
             </p>
           </div>
           <GlassToggle
             checked={haRememberToken}
             onChange={onRememberTokenChange}
             disabled={haManagedByParent}
-            label="Ricorda token"
+            label={t('settings.connection.rememberToken')}
           />
           <button
             type="button"
@@ -199,7 +212,7 @@ export function SettingsHomeAssistantSection({
             disabled={haManagedByParent}
             className={`text-xs font-semibold ${buttonMotionClass} ${clearButtonClass}`}
           >
-            Clear
+            {t('settings.connection.clear')}
           </button>
         </div>
       </div>
@@ -209,7 +222,7 @@ export function SettingsHomeAssistantSection({
           <div className={settingsRowClass}>
             {renderSettingsIcon(Link2)}
             <p className={`text-xs ${subtleTextClass}`}>
-              Connessione live gestita automaticamente dal pannello Home Assistant (iframe).
+              {t('settings.connection.managedByPanel')}
             </p>
           </div>
         ) : (
@@ -223,7 +236,7 @@ export function SettingsHomeAssistantSection({
               {renderSettingsIcon(KeyRound)}
               <div className="min-w-0 flex-1">
                 <p className={settingsTitleClass}>
-                  {isOAuthBusy ? 'OAuth...' : 'Accedi con OAuth'}
+                  {isOAuthBusy ? t('settings.connection.oauthBusy') : t('settings.connection.oauthLogin')}
                 </p>
               </div>
               <ChevronRight size={16} className={subtleTextClass} />
@@ -239,7 +252,7 @@ export function SettingsHomeAssistantSection({
               >
                 {renderSettingsIcon(RotateCcw)}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-rose-500">Disconnetti</p>
+                  <p className="text-sm font-medium text-rose-500">{t('settings.connection.disconnect')}</p>
                 </div>
               </button>
             ) : (
@@ -252,7 +265,7 @@ export function SettingsHomeAssistantSection({
                 {renderSettingsIcon(Link2)}
                 <div className="min-w-0 flex-1">
                   <p className={settingsTitleClass}>
-                    {isConnecting ? 'Connessione...' : 'Connetti'}
+                    {isConnecting ? t('settings.connection.connecting') : t('settings.connection.connect')}
                   </p>
                 </div>
                 <ChevronRight size={16} className={subtleTextClass} />
@@ -263,15 +276,12 @@ export function SettingsHomeAssistantSection({
       </div>
 
       <p className={`mt-3 text-xs ${subtleTextClass}`}>
-        Stato HA: {haStatus}. OAuth e il metodo consigliato; il token manuale resta un fallback
-        meno sicuro perche vive nel browser.
+        {t('settings.connection.statusNote', { status: haStatus })}
       </p>
 
       {!haManagedByParent && haToken.trim().length > 0 ? (
         <div className={`mt-3 ${infoCardClass}`}>
-          I backup e la condivisione configurazione non esportano i token Home Assistant. Se
-          abiliti &quot;Ricorda token&quot;, trattalo comunque come un segreto locale del
-          dispositivo.
+          {t('settings.connection.tokenSecurityNote')}
         </div>
       ) : null}
 

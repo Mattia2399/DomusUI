@@ -17,7 +17,6 @@ import {
 import {
   formatVacuumOption,
   normalizeVacuumState,
-  translateVacuumState,
 } from '../widgets/vacuumCardModel';
 import type {
   VacuumDeviceInfo,
@@ -31,6 +30,14 @@ import GlassSegmentSelect from '../ui/GlassSegmentSelect';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { ContextSecondaryPage } from './ContextSecondaryPage';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
+
+const VACUUM_STATE_KEYS: Record<ReturnType<typeof normalizeVacuumState>, TranslationKey> = {
+  docked: 'vacuum.state.docked', cleaning: 'vacuum.state.cleaning', paused: 'vacuum.state.paused',
+  error: 'vacuum.state.error', returning: 'vacuum.state.returning', idle: 'vacuum.state.idle',
+  unavailable: 'vacuum.state.unavailable', unknown: 'vacuum.state.unknown',
+};
 
 export type VacuumRelatedEntityActionRequest = {
   entityId: string;
@@ -79,8 +86,8 @@ type VacuumControlsProps = {
   onSecondaryPageChange?: (open: boolean) => void;
 };
 
-function formatDuration(minutes: number | undefined) {
-  if (minutes === undefined || !Number.isFinite(minutes)) return 'N/D';
+function formatDuration(minutes: number | undefined, unavailable: string) {
+  if (minutes === undefined || !Number.isFinite(minutes)) return unavailable;
   const rounded = Math.max(0, Math.round(minutes));
   if (rounded < 60) return `${rounded} min`;
   const hours = Math.floor(rounded / 60);
@@ -88,8 +95,8 @@ function formatDuration(minutes: number | undefined) {
   return rest ? `${hours} h ${rest} min` : `${hours} h`;
 }
 
-function formatRelatedValue(entity: VacuumRelatedEntityInfo) {
-  const value = entity.stateLabel || entity.state || 'N/D';
+function formatRelatedValue(entity: VacuumRelatedEntityInfo, unavailable: string) {
+  const value = entity.stateLabel || entity.state || unavailable;
   return entity.unit && !value.endsWith(entity.unit) ? `${value} ${entity.unit}` : value;
 }
 
@@ -104,9 +111,10 @@ function VacuumHero({
   mapUrl?: string;
   batteryLevel?: number;
 }) {
+  const { t } = useI18n();
   return (
     <div className="relative aspect-[4/3] min-h-[13rem] overflow-hidden rounded-[1.55rem] border border-white/10 bg-slate-950/30 shadow-[inset_0_18px_44px_rgba(0,0,0,0.25)]">
-      {mapUrl ? <img src={mapUrl} alt={`Mappa di ${name}`} className="absolute inset-0 h-full w-full object-cover opacity-90" /> : null}
+      {mapUrl ? <img src={mapUrl} alt={t('vacuum.map.alt', { name })} className="absolute inset-0 h-full w-full object-cover opacity-90" /> : null}
       {!mapUrl ? (
         <div className="absolute inset-0 opacity-45 [background-image:linear-gradient(rgba(255,255,255,.07)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.07)_1px,transparent_1px)] [background-size:26px_26px]" />
       ) : null}
@@ -117,7 +125,7 @@ function VacuumHero({
       </div>
       <div className="absolute inset-x-3 bottom-3 flex items-end justify-between gap-2">
         <span className="min-w-0 rounded-full border border-white/12 bg-black/28 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-xl">
-          {translateVacuumState(state)}
+          {t(VACUUM_STATE_KEYS[state])}
         </span>
         {batteryLevel !== undefined ? (
           <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-white/12 bg-black/28 px-2.5 py-1.5 text-[11px] font-semibold text-white/75 backdrop-blur-xl">
@@ -136,6 +144,7 @@ function RelatedControl({
   entity: VacuumRelatedEntityInfo;
   onAction?: VacuumControlsProps['onRelatedEntityAction'];
 }) {
+  const { t } = useI18n();
   const [draftNumber, setDraftNumber] = useState(Number(entity.state) || entity.min || 0);
   useEffect(() => setDraftNumber(Number(entity.state) || entity.min || 0), [entity.entityId, entity.min, entity.state]);
 
@@ -145,7 +154,7 @@ function RelatedControl({
       <div
         className="dashboard-content-surface flex w-full items-center justify-between gap-3 rounded-2xl px-3 py-2.5 text-left"
       >
-        <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{entity.name}</span><span className="mt-0.5 block text-[11px] text-[color:var(--ui-text-tertiary)]">{enabled ? 'Attivo' : 'Disattivato'}</span></span>
+        <span className="min-w-0"><span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{entity.name}</span><span className="mt-0.5 block text-[11px] text-[color:var(--ui-text-tertiary)]">{enabled ? t('vacuum.related.active') : t('vacuum.related.inactive')}</span></span>
         <GlassToggle
           checked={enabled}
           label={entity.name}
@@ -207,7 +216,7 @@ function RelatedControl({
   return (
     <div className="dashboard-content-surface min-w-0 rounded-2xl p-3">
       <p className="truncate text-[11px] font-medium text-[color:var(--ui-text-tertiary)]">{entity.name}</p>
-      <p className="mt-1 truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{formatRelatedValue(entity)}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{formatRelatedValue(entity, t('vacuum.na'))}</p>
     </div>
   );
 }
@@ -226,6 +235,7 @@ export function VacuumControls({
   onRelatedEntityAction,
   onSecondaryPageChange,
 }: VacuumControlsProps) {
+  const { t } = useI18n();
   const state = normalizeVacuumState(vacuum.state);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [fanSpeed, setFanSpeed] = useState(vacuum.fanSpeed ?? '');
@@ -250,9 +260,9 @@ export function VacuumControls({
   if (detailsOpen) {
     return (
       <ContextSecondaryPage
-        title="Dispositivo e manutenzione"
-        subtitle={`Controlli associati a ${vacuum.name}`}
-        backLabel="Robot"
+        title={t('vacuum.details.title')}
+        subtitle={t('vacuum.details.subtitle', { name: vacuum.name })}
+        backLabel={t('vacuum.robot')}
         icon={<Wrench size={18} />}
         iconClassName="text-teal-200"
         onBack={() => setDetailsOpen(false)}
@@ -260,29 +270,29 @@ export function VacuumControls({
 
         {configurationEntities.length > 0 ? (
           <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-primary)]"><SlidersHorizontal size={16} className="text-[color:var(--ui-accent)]" /> Configurazione</div>
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-primary)]"><SlidersHorizontal size={16} className="text-[color:var(--ui-accent)]" /> {t('vacuum.details.configuration')}</div>
             <div className="grid gap-2.5">{configurationEntities.map((entity) => <RelatedControl key={entity.entityId} entity={entity} onAction={onRelatedEntityAction} />)}</div>
           </div>
         ) : null}
 
         {diagnosticEntities.length > 0 ? (
           <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-            <p className="mb-3 text-sm font-semibold text-[color:var(--ui-text-primary)]">Manutenzione e diagnostica</p>
+            <p className="mb-3 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('vacuum.details.maintenance')}</p>
             <div className="grid grid-cols-2 gap-2">{diagnosticEntities.map((entity) => <RelatedControl key={entity.entityId} entity={entity} onAction={onRelatedEntityAction} />)}</div>
           </div>
         ) : null}
 
         {vacuum.supportsLocate ? (
-          <button type="button" onClick={onLocate} className="glass-button flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold text-[color:var(--ui-text-primary)] transition"><LocateFixed size={16} /> Localizza robot</button>
+          <button type="button" onClick={onLocate} className="glass-button flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold text-[color:var(--ui-text-primary)] transition"><LocateFixed size={16} /> {t('vacuum.details.locate')}</button>
         ) : null}
 
         {vacuum.deviceInfo ? (
           <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Informazioni</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('vacuum.details.info')}</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-              <span className="text-[color:var(--ui-text-tertiary)]">Produttore</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{vacuum.deviceInfo.manufacturer ?? 'N/D'}</span>
-              <span className="text-[color:var(--ui-text-tertiary)]">Modello</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{vacuum.deviceInfo.model ?? 'N/D'}</span>
-              <span className="text-[color:var(--ui-text-tertiary)]">Firmware</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{vacuum.deviceInfo.swVersion ?? 'N/D'}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('vacuum.details.manufacturer')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{vacuum.deviceInfo.manufacturer ?? t('vacuum.na')}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('vacuum.details.model')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{vacuum.deviceInfo.model ?? t('vacuum.na')}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('vacuum.details.firmware')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{vacuum.deviceInfo.swVersion ?? t('vacuum.na')}</span>
             </div>
           </div>
         ) : null}
@@ -293,14 +303,14 @@ export function VacuumControls({
   const showPrimaryStart = (state === 'docked' || state === 'idle' || state === 'paused') && vacuum.supportsStart;
   const showPause = state === 'cleaning' && vacuum.supportsPause;
   const stats = [
-    { label: 'Batteria', value: vacuum.batteryLevel === undefined ? 'N/D' : `${Math.round(vacuum.batteryLevel)}%` },
-    { label: 'Area', value: vacuum.cleanedArea === undefined ? 'N/D' : `${Math.round(vacuum.cleanedArea * 10) / 10} ${vacuum.cleanedAreaUnit ?? 'm²'}` },
-    { label: 'Tempo', value: formatDuration(vacuum.cleaningMinutes) },
+    { label: t('vacuum.stat.battery'), value: vacuum.batteryLevel === undefined ? t('vacuum.na') : `${Math.round(vacuum.batteryLevel)}%` },
+    { label: t('vacuum.stat.area'), value: vacuum.cleanedArea === undefined ? t('vacuum.na') : `${Math.round(vacuum.cleanedArea * 10) / 10} ${vacuum.cleanedAreaUnit ?? 'm²'}` },
+    { label: t('vacuum.stat.time'), value: formatDuration(vacuum.cleaningMinutes, t('vacuum.na')) },
   ];
 
   return (
     <div className={CONTEXT_PANEL_LAYOUT.shell}>
-      <ContextPanelHeader title={vacuum.name} subtitle={vacuum.status?.trim() || translateVacuumState(state)} icon={<Bot size={21} />} fallbackTitle="Robot aspirapolvere" />
+      <ContextPanelHeader title={vacuum.name} subtitle={vacuum.status?.trim() || t(VACUUM_STATE_KEYS[state])} icon={<Bot size={21} />} fallbackTitle={t('vacuum.fallback')} />
 
       <div className={`${CONTEXT_PANEL_LAYOUT.section} p-2 sm:p-2.5`}>
         <VacuumHero name={vacuum.name} state={state} mapUrl={vacuum.mapUrl} batteryLevel={vacuum.batteryLevel} />
@@ -310,38 +320,38 @@ export function VacuumControls({
       </div>
 
       <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-        <p className="mb-3 text-sm font-semibold text-[color:var(--ui-text-primary)]">Controlli</p>
+        <p className="mb-3 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('vacuum.controls')}</p>
         <div className="grid grid-flow-col auto-cols-fr gap-2">
-          {showPrimaryStart ? <button type="button" onClick={onStart} className="liquid-glass-selection flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-[color:var(--ui-border-strong)] text-xs font-semibold text-[color:var(--ui-accent)]"><Play size={16} /> <span className="truncate">{state === 'paused' ? 'Riprendi' : 'Avvia'}</span></button> : null}
-          {showPause ? <button type="button" onClick={onPause} className="glass-button flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl text-xs font-semibold text-[color:var(--ui-text-primary)]"><Pause size={16} /> Pausa</button> : null}
-          {vacuum.supportsStop ? <button type="button" onClick={onStop} disabled={!['cleaning', 'paused', 'returning'].includes(state)} className="glass-button flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl text-xs font-semibold text-[color:var(--ui-text-secondary)] disabled:opacity-35"><Square size={14} /> Stop</button> : null}
-          {vacuum.supportsReturnToBase ? <button type="button" onClick={onReturnToBase} disabled={state === 'docked' || state === 'unavailable'} className="glass-button flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl text-xs font-semibold text-[color:var(--ui-text-secondary)] disabled:opacity-35"><Home size={15} /> Base</button> : null}
+          {showPrimaryStart ? <button type="button" onClick={onStart} className="liquid-glass-selection flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-[color:var(--ui-border-strong)] text-xs font-semibold text-[color:var(--ui-accent)]"><Play size={16} /> <span className="truncate">{state === 'paused' ? t('vacuum.action.resume') : t('vacuum.action.start')}</span></button> : null}
+          {showPause ? <button type="button" onClick={onPause} className="glass-button flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl text-xs font-semibold text-[color:var(--ui-text-primary)]"><Pause size={16} /> {t('vacuum.action.pause')}</button> : null}
+          {vacuum.supportsStop ? <button type="button" onClick={onStop} disabled={!['cleaning', 'paused', 'returning'].includes(state)} className="glass-button flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl text-xs font-semibold text-[color:var(--ui-text-secondary)] disabled:opacity-35"><Square size={14} /> {t('vacuum.action.stop')}</button> : null}
+          {vacuum.supportsReturnToBase ? <button type="button" onClick={onReturnToBase} disabled={state === 'docked' || state === 'unavailable'} className="glass-button flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl text-xs font-semibold text-[color:var(--ui-text-secondary)] disabled:opacity-35"><Home size={15} /> {t('vacuum.action.base')}</button> : null}
         </div>
       </div>
 
       {(vacuum.supportsCleanArea || vacuum.supportsCleanSpot) ? (
         <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-          <div className="mb-3 flex items-center justify-between gap-3"><span><p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Pulizia mirata</p><p className="mt-0.5 text-[11px] text-[color:var(--ui-text-tertiary)]">Scegli una o più aree mappate</p></span><MapIcon size={17} className="text-[color:var(--ui-accent)]" /></div>
+          <div className="mb-3 flex items-center justify-between gap-3"><span><p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('vacuum.target.title')}</p><p className="mt-0.5 text-[11px] text-[color:var(--ui-text-tertiary)]">{t('vacuum.target.subtitle')}</p></span><MapIcon size={17} className="text-[color:var(--ui-accent)]" /></div>
           {vacuum.supportsCleanArea && areaOptions.length > 0 ? (
             <div className="grid grid-cols-2 gap-2">
               {areaOptions.map((area) => {
                 const selected = selectedAreas.includes(area.id);
-                return <button key={area.id} type="button" aria-pressed={selected} onClick={() => setSelectedAreas((current) => selected ? current.filter((id) => id !== area.id) : [...current, area.id])} className={`min-w-0 rounded-2xl border px-3 py-3 text-left transition ${selected ? 'border-[color:rgb(var(--ui-accent-rgb)/0.38)] bg-[color:rgb(var(--ui-accent-rgb)/0.16)] text-[color:var(--ui-text-primary)]' : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)]'}`}><span className="block truncate text-xs font-semibold">{area.name}</span>{area.segmentIds?.length ? <span className="mt-1 block text-[10px] opacity-55">{area.segmentIds.length} {area.segmentIds.length === 1 ? 'segmento' : 'segmenti'}</span> : null}</button>;
+                return <button key={area.id} type="button" aria-pressed={selected} onClick={() => setSelectedAreas((current) => selected ? current.filter((id) => id !== area.id) : [...current, area.id])} className={`min-w-0 rounded-2xl border px-3 py-3 text-left transition ${selected ? 'border-[color:rgb(var(--ui-accent-rgb)/0.38)] bg-[color:rgb(var(--ui-accent-rgb)/0.16)] text-[color:var(--ui-text-primary)]' : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)]'}`}><span className="block truncate text-xs font-semibold">{area.name}</span>{area.segmentIds?.length ? <span className="mt-1 block text-[10px] opacity-55">{area.segmentIds.length} {area.segmentIds.length === 1 ? t('vacuum.target.segmentOne') : t('vacuum.target.segmentMany')}</span> : null}</button>;
               })}
             </div>
-          ) : vacuum.supportsCleanArea ? <p className="dashboard-content-surface rounded-2xl p-3 text-xs leading-relaxed text-[color:var(--ui-text-tertiary)]">Configura la mappatura delle aree nell’entità Vacuum di Home Assistant per abilitarne la selezione.</p> : null}
+          ) : vacuum.supportsCleanArea ? <p className="dashboard-content-surface rounded-2xl p-3 text-xs leading-relaxed text-[color:var(--ui-text-tertiary)]">{t('vacuum.target.setup')}</p> : null}
           <div className="mt-3 grid grid-flow-col auto-cols-fr gap-2">
-            {vacuum.supportsCleanArea && selectedAreas.length > 0 ? <button type="button" onClick={() => onCleanArea(selectedAreas)} className="liquid-glass-selection flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-[color:var(--ui-border-strong)] px-3 text-xs font-semibold text-[color:var(--ui-accent)]"><Sparkles size={15} /><span className="truncate">Pulisci {selectedAreas.length} {selectedAreas.length === 1 ? 'area' : 'aree'}</span></button> : null}
-            {vacuum.supportsCleanSpot ? <button type="button" onClick={onCleanSpot} className="glass-button flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-xs font-semibold text-[color:var(--ui-text-secondary)]"><Sparkles size={15} /> Pulizia spot</button> : null}
+            {vacuum.supportsCleanArea && selectedAreas.length > 0 ? <button type="button" onClick={() => onCleanArea(selectedAreas)} className="liquid-glass-selection flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-[color:var(--ui-border-strong)] px-3 text-xs font-semibold text-[color:var(--ui-accent)]"><Sparkles size={15} /><span className="truncate">{t(selectedAreas.length === 1 ? 'vacuum.target.cleanOne' : 'vacuum.target.cleanMany', { count: selectedAreas.length })}</span></button> : null}
+            {vacuum.supportsCleanSpot ? <button type="button" onClick={onCleanSpot} className="glass-button flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl px-3 text-xs font-semibold text-[color:var(--ui-text-secondary)]"><Sparkles size={15} /> {t('vacuum.target.spot')}</button> : null}
           </div>
         </div>
       ) : null}
 
       {vacuum.supportsFanSpeed && fanSpeedOptions.length > 0 ? (
         <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-          <div className="mb-3 flex items-center justify-between gap-3"><p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Potenza aspirazione</p><span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{formatVacuumOption(fanSpeed) ?? 'N/D'}</span></div>
+          <div className="mb-3 flex items-center justify-between gap-3"><p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('vacuum.power')}</p><span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{formatVacuumOption(fanSpeed) ?? t('vacuum.na')}</span></div>
           <GlassSegmentSelect
-            ariaLabel="Potenza aspirazione"
+            ariaLabel={t('vacuum.power')}
             options={fanSpeedOptions.map((option) => ({ value: option, label: formatVacuumOption(option) }))}
             value={fanSpeedOptions.find((option) => option.toLowerCase() === fanSpeed.toLowerCase())}
             onChange={(option) => { setFanSpeed(option); onSetFanSpeed(option); }}
@@ -352,7 +362,7 @@ export function VacuumControls({
       ) : null}
 
       <button type="button" onClick={() => setDetailsOpen(true)} className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} flex w-full items-center justify-between gap-3 text-left transition hover:bg-[color:var(--ui-fill-secondary)]`}>
-        <span className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-accent)]"><SlidersHorizontal size={16} /></span><span className="min-w-0"><span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">Dispositivo e manutenzione</span><span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{relatedControls.length} entità associate</span></span></span><ChevronRight size={17} className="shrink-0 text-[color:var(--ui-text-tertiary)]" />
+        <span className="flex min-w-0 items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-accent)]"><SlidersHorizontal size={16} /></span><span className="min-w-0"><span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('vacuum.details.title')}</span><span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{t('vacuum.details.related', { count: relatedControls.length })}</span></span></span><ChevronRight size={17} className="shrink-0 text-[color:var(--ui-text-tertiary)]" />
       </button>
     </div>
   );

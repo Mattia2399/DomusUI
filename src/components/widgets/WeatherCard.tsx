@@ -5,6 +5,7 @@ import { getWeatherVisual } from '../../utils/weatherVisual';
 import type { ForecastDensity, WeatherSecondaryInfo } from '../../types/dashboardModels';
 import { AnimatedWeatherIcon } from './AnimatedWeatherIcon';
 import { useCardSize } from './useCardSize';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type WeatherCardProps = {
   weather: DashboardStateShape['weather'];
@@ -156,6 +157,7 @@ export function WeatherCard({
   conditionOverride,
   clampTypography = false,
 }: WeatherCardProps) {
+  const { t } = useI18n();
   const { ref: cardRef, density: cardDensity, width: cardWidth, height: cardHeight, hasSize: hasCardSize } = useCardSize({
     tinyWidth: 270,
     tinyHeight: 165,
@@ -180,11 +182,11 @@ export function WeatherCard({
         <CloudOff size={mode === 'chip' ? 24 : 30} strokeWidth={1.6} aria-hidden="true" />
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
-            {isOffline ? 'Meteo non disponibile' : 'Meteo non configurato'}
+            {isOffline ? t('controls.weather.unavailable') : t('controls.weather.notConfigured')}
           </p>
           {mode === 'card' ? (
             <p className="mt-0.5 truncate text-xs text-[color:var(--ui-text-tertiary)]">
-              {isOffline ? 'Home Assistant è offline' : 'Seleziona un’entità weather.*'}
+              {isOffline ? t('controls.weather.offline') : t('controls.weather.selectEntity')}
             </p>
           ) : null}
         </div>
@@ -216,27 +218,27 @@ export function WeatherCard({
   const infoMap: Partial<Record<SecondaryInfoKey, string>> = {
     precipitation:
       showPrecipitation && precipitationValue !== undefined
-        ? `Pioggia ${Math.round(Math.max(0, precipitationValue))}%`
+        ? t('controls.weather.rain', { value: Math.round(Math.max(0, precipitationValue)) })
         : undefined,
     wind:
       showWind && windValue !== undefined
-        ? `Vento ${Math.round(Math.max(0, windValue))} ${windUnit}`
+        ? t('controls.weather.wind', { value: Math.round(Math.max(0, windValue)), unit: windUnit })
         : undefined,
-    humidity: humidityValue !== undefined ? `Umidita ${Math.round(Math.max(0, humidityValue))}%` : undefined,
+    humidity: humidityValue !== undefined ? t('controls.weather.humidity', { value: Math.round(Math.max(0, humidityValue)) }) : undefined,
     pressure:
       pressureValue !== undefined
-        ? `Pressione ${Math.round(Math.max(0, pressureValue))} ${pressureUnit}`
+        ? t('controls.weather.pressure', { value: Math.round(Math.max(0, pressureValue)), unit: pressureUnit })
         : undefined,
     visibility:
       visibilityValue !== undefined
-        ? `Visibilita ${Math.max(0, visibilityValue).toFixed(visibilityValue < 10 ? 1 : 0)} ${visibilityUnit}`
+        ? t('controls.weather.visibility', { value: Math.max(0, visibilityValue).toFixed(visibilityValue < 10 ? 1 : 0), unit: visibilityUnit })
         : undefined,
-    uv_index: uvValue !== undefined ? `UV ${Math.round(Math.max(0, uvValue))}` : undefined,
+    uv_index: uvValue !== undefined ? t('controls.weather.uv', { value: Math.round(Math.max(0, uvValue)) }) : undefined,
     cloud_coverage:
       cloudCoverageValue !== undefined
-        ? `Nuvole ${Math.round(Math.max(0, cloudCoverageValue))}%`
+        ? t('controls.weather.clouds', { value: Math.round(Math.max(0, cloudCoverageValue)) })
         : undefined,
-    dew_point: dewPointValue !== undefined ? `Dew point ${Math.round(displayDewPoint)}\u00B0` : undefined,
+    dew_point: dewPointValue !== undefined ? t('controls.weather.dewPoint', { value: Math.round(displayDewPoint) }) : undefined,
     condition: showCondition && visual.label.trim().length > 0 ? visual.label : undefined,
     range: rangeLabel,
   };

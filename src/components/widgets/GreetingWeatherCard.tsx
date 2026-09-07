@@ -3,6 +3,7 @@ import type { DashboardStateShape } from '../../hooks/useDashboardState';
 import type { ForecastDensity, WeatherSecondaryInfo } from '../../types/dashboardModels';
 import { GreetingCard } from './GreetingCard';
 import { WeatherCard } from './WeatherCard';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type GreetingWeatherCardProps = {
   state: DashboardStateShape;
@@ -45,6 +46,7 @@ export function GreetingWeatherCard({
   weatherForecastType = 'daily',
   weatherConditionOverride,
 }: GreetingWeatherCardProps) {
+  const { t } = useI18n();
   const shouldShowChip = weatherLayout !== 'card';
   const shouldShowCard = weatherLayout !== 'chip';
   const handleWeatherClick = () => {
@@ -75,7 +77,7 @@ export function GreetingWeatherCard({
             className={`h-full w-[clamp(9rem,30%,14rem)] min-w-[9rem] max-w-[14rem] min-h-0 min-w-0 overflow-hidden rounded-2xl px-3 py-2 text-left ${
               weatherLayout === 'auto' ? 'min-[996px]:hidden' : ''
             } ${isEditMode ? 'cursor-default' : 'cursor-pointer'}`}
-            aria-label="Apri pannello meteo"
+            aria-label={t('home.weather.open')}
           >
             <WeatherCard
               weather={state.weather}
@@ -102,7 +104,7 @@ export function GreetingWeatherCard({
             className={`h-full w-[clamp(15rem,36%,20rem)] min-w-[15rem] max-w-[20rem] min-h-0 min-w-0 overflow-hidden rounded-2xl px-2.5 py-1.5 text-left ${
               weatherLayout === 'auto' ? 'hidden min-[996px]:block' : ''
             } ${isEditMode ? 'cursor-default' : 'cursor-pointer'}`}
-            aria-label="Apri pannello meteo"
+            aria-label={t('home.weather.open')}
           >
             <WeatherCard
               weather={state.weather}

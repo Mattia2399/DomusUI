@@ -58,7 +58,7 @@ test('App Library apps use a contextual bottom bar on mobile', async ({ page }) 
 
   await expect(page.getByTestId('app-workspace-shell')).toBeVisible();
   await expect(page.getByTestId('app-workspace-sidebar')).toBeHidden();
-  await expect(page.getByRole('navigation', { name: 'Navigazione Piscina & Spa' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Navigazione Piscina e Spa' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Torna alla libreria' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Acqua pronta, sempre' })).toBeVisible();
   await expect(page.getByText('Disponibile prossimamente')).toBeVisible();

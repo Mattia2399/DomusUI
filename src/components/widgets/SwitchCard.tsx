@@ -8,6 +8,7 @@ import {
   resolveSwitchPixelDisplayVariant,
   type WidgetDisplayMetrics,
 } from './widgetDisplayVariant';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type SwitchCardProps = {
   widget: Widget;
@@ -30,14 +31,15 @@ export function SwitchCard({
   consumptionEntity,
   onDisplayMetricsChange,
 }: SwitchCardProps) {
+  const { locale } = useI18n();
   const { ref: cardRef, size: observedSize } = useObservedElementSize<HTMLDivElement>(widget.id);
   const measuredSize = observedSize?.identity === widget.id ? observedSize : null;
   const measuredVariant = measuredSize
     ? resolveSwitchPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : null;
   const model = useMemo(
-    () => buildSwitchCardModel({ widget, liveEntity, consumptionEntity }),
-    [consumptionEntity, liveEntity, widget],
+    () => buildSwitchCardModel({ widget, liveEntity, consumptionEntity, locale }),
+    [consumptionEntity, liveEntity, locale, widget],
   );
 
   useEffect(() => {

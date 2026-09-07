@@ -17,7 +17,7 @@ function installCompletedDemo(page) {
 }
 
 async function enterEditMode(page) {
-  const directEditButton = page.locator('button[aria-label="Toggle edit mode"]:visible').first();
+  const directEditButton = page.locator('button[aria-label="Attiva o disattiva modalità modifica"]:visible').first();
   await directEditButton.waitFor({ state: 'visible' });
   await directEditButton.click();
   await page.getByRole('button', { name: 'Attiva', exact: true }).click();

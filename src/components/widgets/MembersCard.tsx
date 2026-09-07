@@ -6,6 +6,7 @@ import {
   type GridEngineBreakpoint,
 } from '../dashboard/dashboardBreakpointConfig';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type HouseMemberCardItem = {
   id: string;
@@ -47,6 +48,7 @@ export function MembersCard({
   gridBreakpoint,
   displayVariant,
 }: MembersCardProps) {
+  const { t, locale } = useI18n();
   const canOpenMembersPanel = !isEditMode && typeof onOpenMembersPanel === 'function';
   const cardDensity = resolveCardDensityByBreakpoint(gridBreakpoint);
   const isTinyCard = cardDensity === 'tiny' || cardDensity === 'compact';
@@ -58,11 +60,11 @@ export function MembersCard({
     if (second.isCurrent === true && first.isCurrent !== true) {
       return 1;
     }
-    return first.name.localeCompare(second.name, 'it-IT');
+    return first.name.localeCompare(second.name, locale);
   });
   const visibleMembers = sortedMembers.slice(0, 4);
   const hiddenMembersCount = Math.max(0, sortedMembers.length - visibleMembers.length);
-  const titleLabel = widget.title?.trim() || 'Members';
+  const titleLabel = widget.title?.trim() || t('home.members.title');
 
   return (
     <div
@@ -103,8 +105,8 @@ export function MembersCard({
                   ? 'btn-premium hover:bg-[color:var(--ui-fill-secondary)]'
                   : 'cursor-default opacity-60'
               }`}
-              aria-label="Apri pannello membri"
-              title="Apri pannello membri"
+              aria-label={t('home.members.open')}
+              title={t('home.members.open')}
             >
               <ChevronRight size={15} />
             </button>
@@ -121,7 +123,7 @@ export function MembersCard({
                   {member.avatarUrl ? (
                     <img
                       src={member.avatarUrl}
-                      alt={`Membro ${member.name}`}
+                      alt={t('home.members.avatar', { name: member.name })}
                       className={`${isTinyCard ? 'h-8 w-8' : 'h-9 w-9'} rounded-full border-2 border-[color:var(--ui-surface-glass-strong)] object-cover`}
                     />
                   ) : (
@@ -145,7 +147,7 @@ export function MembersCard({
               ) : null}
             </div>
           ) : (
-            <p className="mt-3 text-xs text-[color:var(--ui-text-secondary)]">Nessun membro disponibile.</p>
+            <p className="mt-3 text-xs text-[color:var(--ui-text-secondary)]">{t('home.members.empty')}</p>
           )}
         </div>
       </div>
@@ -172,7 +174,7 @@ export function MembersCard({
           }
         }}
         className={`absolute inset-0 z-10 ${cardRadiusClass} widget-card-handle ${isEditMode ? 'cursor-grab' : 'cursor-pointer'}`}
-        aria-label={`Apri ${titleLabel}`}
+        aria-label={t('home.card.open', { name: titleLabel })}
       />
     </div>
   );

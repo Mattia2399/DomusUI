@@ -1,5 +1,6 @@
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
+import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 
 export const VACUUM_FEATURE_PAUSE = 4;
 export const VACUUM_FEATURE_STOP = 8;
@@ -96,15 +97,8 @@ export function normalizeVacuumState(value: string | undefined): VacuumUiState {
   return 'unknown';
 }
 
-export function translateVacuumState(state: VacuumUiState) {
-  if (state === 'docked') return 'Alla base';
-  if (state === 'cleaning') return 'Pulizia in corso';
-  if (state === 'paused') return 'In pausa';
-  if (state === 'error') return 'Richiede attenzione';
-  if (state === 'returning') return 'Ritorno alla base';
-  if (state === 'idle') return 'Pronto';
-  if (state === 'unavailable') return 'Non disponibile';
-  return 'Stato sconosciuto';
+export function translateVacuumState(state: VacuumUiState, locale: AppLocale = 'it') {
+  return translateForLocale(locale, `vacuum.state.${state}`);
 }
 
 export function formatVacuumOption(value: string | undefined) {
@@ -156,37 +150,41 @@ function formatDuration(minutes: number | undefined) {
   return remainder > 0 ? `${hours} h ${remainder} min` : `${hours} h`;
 }
 
-function resolvePrimaryAction(state: VacuumUiState, capabilities: VacuumCapabilities) {
+function resolvePrimaryAction(state: VacuumUiState, capabilities: VacuumCapabilities, locale: AppLocale) {
+  const action = (key: 'error' | 'pause' | 'cleaning' | 'resume' | 'start' | 'controls' | 'returning' | 'unavailable') =>
+    translateForLocale(locale, `vacuum.action.${key}`);
   if (state === 'error') {
-    return { action: 'details' as const, label: 'Mostra errore', enabled: true };
+    return { action: 'details' as const, label: action('error'), enabled: true };
   }
   if (state === 'cleaning') {
     return capabilities.supportsPause
-      ? { action: 'pause' as const, label: 'Pausa', enabled: true }
-      : { action: 'none' as const, label: 'In pulizia', enabled: false };
+      ? { action: 'pause' as const, label: action('pause'), enabled: true }
+      : { action: 'none' as const, label: action('cleaning'), enabled: false };
   }
   if (state === 'paused') {
     return capabilities.supportsStart
-      ? { action: 'resume' as const, label: 'Riprendi', enabled: true }
-      : { action: 'none' as const, label: 'In pausa', enabled: false };
+      ? { action: 'resume' as const, label: action('resume'), enabled: true }
+      : { action: 'none' as const, label: action('pause'), enabled: false };
   }
   if (state === 'docked' || state === 'idle') {
     return capabilities.supportsStart
-      ? { action: 'start' as const, label: 'Avvia pulizia', enabled: true }
-      : { action: 'none' as const, label: 'Apri controlli', enabled: true };
+      ? { action: 'start' as const, label: action('start'), enabled: true }
+      : { action: 'none' as const, label: action('controls'), enabled: true };
   }
   if (state === 'returning') {
-    return { action: 'none' as const, label: 'Ritorno in corso', enabled: false };
+    return { action: 'none' as const, label: action('returning'), enabled: false };
   }
-  return { action: 'none' as const, label: 'Non disponibile', enabled: false };
+  return { action: 'none' as const, label: action('unavailable'), enabled: false };
 }
 
 export function buildVacuumCardModel({
   widget,
   liveEntity,
+  locale = 'it',
 }: {
   widget: Widget;
   liveEntity?: MockEntityState;
+  locale?: AppLocale;
 }): VacuumCardModel {
   const attributes = liveEntity?.rawAttributes ?? {};
   const state = normalizeVacuumState(
@@ -230,8 +228,8 @@ export function buildVacuumCardModel({
     toVacuumString(attributes.error) ??
     toVacuumString(attributes.error_description) ??
     toVacuumString(attributes.error_code);
-  const stateLabel = translateVacuumState(state);
-  const primary = resolvePrimaryAction(state, capabilities);
+  const stateLabel = translateVacuumState(state, locale);
+  const primary = resolvePrimaryAction(state, capabilities, locale);
   const subtitle = state === 'error' && errorLabel ? errorLabel : stateLabel;
   const commandPhase = toVacuumString(attributes.__dashboard_command_phase);
 

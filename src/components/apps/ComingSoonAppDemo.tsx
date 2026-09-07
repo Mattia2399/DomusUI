@@ -14,6 +14,7 @@ import {
   Waves,
   Zap,
 } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
 
 const POOL_PREVIEW_IMAGE = new URL('../../assets/pool-spa-preview.jpg', import.meta.url).href;
 const TECHNICAL_PREVIEW_IMAGE = new URL('../../assets/technical-room-preview.jpg', import.meta.url).href;
@@ -85,7 +86,38 @@ const DEMO_DEFINITIONS: Record<ComingSoonAppDemoVariant, DemoDefinition> = {
 };
 
 export function ComingSoonAppDemo({ variant }: { variant: ComingSoonAppDemoVariant }) {
-  const definition = DEMO_DEFINITIONS[variant];
+  const { t } = useI18n();
+  const baseDefinition = DEMO_DEFINITIONS[variant];
+  const translationKeys = variant === 'pool'
+    ? {
+        metrics: ['preview.pool.m1', 'preview.pool.m2', 'preview.pool.m3'],
+        titles: ['preview.pool.s1', 'preview.pool.s2', 'preview.pool.s3'],
+        values: ['preview.pool.v1', 'preview.pool.v2', 'preview.pool.v3'],
+        details: ['preview.pool.d1', 'preview.pool.d2', 'preview.pool.d3'],
+      } as const
+    : {
+        metrics: ['preview.technical.m1', 'preview.technical.m2', 'preview.technical.m3'],
+        titles: ['preview.technical.s1', 'preview.technical.s2', 'preview.technical.s3'],
+        values: ['preview.technical.v1', 'preview.technical.v2', 'preview.technical.v3'],
+        details: ['preview.technical.d1', 'preview.technical.d2', 'preview.technical.d3'],
+      } as const;
+  const definition: DemoDefinition = {
+    ...baseDefinition,
+    imageAlt: t(`preview.${variant}.alt`),
+    eyebrow: t(`preview.${variant}.eyebrow`),
+    headline: t(`preview.${variant}.headline`),
+    summary: t(`preview.${variant}.summary`),
+    metrics: baseDefinition.metrics.map((metric, index) => ({
+      ...metric,
+      label: t(translationKeys.metrics[index] ?? translationKeys.metrics[0]),
+    })),
+    statuses: baseDefinition.statuses.map((status, index) => ({
+      ...status,
+      title: t(translationKeys.titles[index] ?? translationKeys.titles[0]),
+      value: t(translationKeys.values[index] ?? translationKeys.values[0]),
+      detail: t(translationKeys.details[index] ?? translationKeys.details[0]),
+    })),
+  };
   const rootRef = useRef<HTMLDivElement>(null);
   const usesCollapsingHero = variant === 'pool';
 
@@ -167,9 +199,9 @@ export function ComingSoonAppDemo({ variant }: { variant: ComingSoonAppDemoVaria
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="rounded-full border border-white/25 bg-black/25 px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.16em] backdrop-blur-xl">
-                  Demo
+                  {t('preview.demo')}
                 </span>
-                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/65">Anteprima non interattiva</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/65">{t('preview.nonInteractive')}</span>
               </div>
               <p className="mt-5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">{definition.eyebrow}</p>
               <h1 className="mt-1 max-w-xl text-[2rem] font-semibold leading-[0.98] tracking-[-0.045em] sm:text-[2.8rem]">
@@ -221,11 +253,11 @@ export function ComingSoonAppDemo({ variant }: { variant: ComingSoonAppDemoVaria
         ) : null}
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">Dati dimostrativi</p>
-            <h2 className="mt-1 text-xl font-semibold tracking-[-0.035em] text-[color:var(--ui-text-primary)]">Panoramica sistema</h2>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('preview.data')}</p>
+            <h2 className="mt-1 text-xl font-semibold tracking-[-0.035em] text-[color:var(--ui-text-primary)]">{t('preview.overview')}</h2>
           </div>
           <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
-            Demo
+            {t('preview.demo')}
           </span>
         </div>
 
@@ -247,10 +279,10 @@ export function ComingSoonAppDemo({ variant }: { variant: ComingSoonAppDemoVaria
           <div className="rounded-[1.25rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-3.5">
             <div className="flex items-center gap-2 text-[color:var(--ui-text-primary)]">
               <Clock3 className="h-4 w-4 text-[color:var(--coming-soon-accent)]" />
-              <p className="text-xs font-semibold">Disponibile prossimamente</p>
+              <p className="text-xs font-semibold">{t('preview.comingSoon')}</p>
             </div>
             <p className="mt-1.5 text-[10px] leading-4 text-[color:var(--ui-text-secondary)]">
-              Questa è solo una dimostrazione visiva. Valori e controlli non sono collegati a Home Assistant.
+              {t('preview.disclaimer')}
             </p>
           </div>
         </div>

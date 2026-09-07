@@ -420,6 +420,44 @@ Done quando:
 - i temi superano l'audit contrasto concordato;
 - le card condividono lo stesso linguaggio visivo senza duplicazioni CSS evitabili.
 
+#### P7.1 - Internazionalizzazione dell'interfaccia
+
+Priorita: P1 per la crescita internazionale successiva alla prima beta pubblica.
+
+Stato: infrastruttura e prima migrazione avviate il 2 settembre 2026. Le lingue supportate sono italiano, inglese e francese. Al primo accesso Domus UI usa la lingua comunicata da Home Assistant e, se non disponibile o non supportata, quella del browser; l'italiano resta il fallback finale. Il Profilo espone soltanto le lingue disponibili e una scelta esplicita viene salvata esclusivamente sul dispositivo corrente. Non esiste una voce `Auto`: l'automatismo opera solo finche l'utente non effettua una scelta manuale.
+
+Regole:
+
+- mantenere chiavi tipizzate e cataloghi completi per `it`, `en` e `fr`;
+- non tradurre nomi di entita, stanze, persone, scene e altri contenuti forniti dall'utente o da Home Assistant;
+- formattare numeri, date, orari e unita con `Intl` usando la lingua attiva;
+- applicare subito il cambio lingua senza refresh;
+- mantenere roadmap tecnica, checklist interne, note di audit e commenti operativi in italiano;
+- non salvare la preferenza linguistica nel layout condiviso della casa o nei backup della dashboard.
+
+Migrazione UI:
+
+- [x] provider centrale, rilevamento HA/browser, persistenza locale e attributo `lang` dinamico;
+- [x] selettore Profilo con Italiano, English e Français;
+- [x] Profilo e shell di navigazione principale;
+- [x] onboarding, setup, organizzazione e riconnessione;
+- [ ] Home, card, Builder e pannelli contestuali;
+- [x] Rooms;
+- [ ] Security, Consumi e App Gallery;
+- [ ] Impostazioni, supporto, notifiche e stati di errore;
+- [ ] audit automatico delle stringhe UI residue e collaudo visuale nei tre cataloghi.
+
+Checkpoint beta essenziale (2026-09-02): oltre al primo accesso sono tradotti nelle tre lingue il saluto dinamico della Home, il centro notifiche, la barra Undo/Redo, gli stati di salvataggio, le azioni principali dell'Edit Mode e il dialogo francese dell'integrazione Home Assistant. Le voci incomplete sopra restano aperte fino alla migrazione delle card e delle route avanzate.
+
+Scope minimo della prima release multilingua: `/home`, `/rooms` e `/settings` devono essere complete end-to-end, incluse pagine nidificate, pannelli, popup, stati vuoti ed errori. Le route non ancora supportate non devono mostrare interfacce miste: quando la lingua attiva non è l'italiano useranno una pagina localizzata "disponibile prossimamente" finché la relativa migrazione non sarà conclusa.
+
+Done quando:
+
+- nessuna route pubblica mescola lingue diverse;
+- tutte le chiavi esistono nei tre cataloghi e il type-check impedisce cataloghi incompleti;
+- selezione esplicita, lingua HA, fallback browser e fallback italiano sono coperti da test;
+- i testi lunghi inglesi e francesi non introducono clipping nei breakpoint supportati.
+
 ### P8 - Livello Domus UI
 
 Priorita: P1 dopo la stabilizzazione.

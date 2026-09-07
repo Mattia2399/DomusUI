@@ -1,5 +1,6 @@
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
+import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 
 export type LockCardState =
   | 'locked'
@@ -95,16 +96,8 @@ export function normalizeLockCardState(value: string | undefined): LockCardState
   return 'unknown';
 }
 
-export function translateLockCardState(state: LockCardState) {
-  if (state === 'locked') return 'Bloccata';
-  if (state === 'unlocked') return 'Sbloccata';
-  if (state === 'locking') return 'Blocco...';
-  if (state === 'unlocking') return 'Sblocco...';
-  if (state === 'opening') return 'Apertura...';
-  if (state === 'open') return 'Aperta';
-  if (state === 'jammed') return 'Inceppata';
-  if (state === 'unavailable') return 'Non disponibile';
-  return 'Sconosciuta';
+export function translateLockCardState(state: LockCardState, locale: AppLocale = 'it') {
+  return translateForLocale(locale, `controls.lock.state.${state}`);
 }
 
 function resolvePendingAction(value: unknown): LockPendingAction | undefined {
@@ -124,16 +117,11 @@ function resolveSupportedFeatures(liveEntity: MockEntityState | undefined, rawAt
   return toFiniteNumber(rawAttributes?.supported_features);
 }
 
-function resolveCaption(state: LockCardState, supportsOpen: boolean) {
-  if (state === 'locked') return supportsOpen ? 'Protezione attiva, scrocco chiuso' : 'Protezione attiva';
-  if (state === 'unlocked') return 'Accesso consentito';
-  if (state === 'open') return 'Varco aperto';
-  if (state === 'opening') return 'Apertura dello scrocco in corso';
-  if (state === 'locking') return 'Chiusura in corso';
-  if (state === 'unlocking') return 'Sblocco in corso';
-  if (state === 'jammed') return 'Controlla la serratura';
-  if (state === 'unavailable') return 'Entita non raggiungibile';
-  return 'Stato non disponibile';
+function resolveCaption(state: LockCardState, supportsOpen: boolean, locale: AppLocale) {
+  if (state === 'locked' && supportsOpen) {
+    return translateForLocale(locale, 'card.lock.caption.lockedWithLatch');
+  }
+  return translateForLocale(locale, `card.lock.caption.${state}`);
 }
 
 function resolveTone(state: LockCardState): LockCardTone {
@@ -147,6 +135,7 @@ function resolveTone(state: LockCardState): LockCardTone {
 export function buildLockCardModel(
   widget: Widget,
   liveEntity?: MockEntityState,
+  locale: AppLocale = 'it',
 ): LockCardModel {
   const rawAttributes = liveEntity?.rawAttributes;
   const pendingAction = resolvePendingAction(rawAttributes?.[LOCK_PENDING_ATTRIBUTE_KEY]);
@@ -158,7 +147,7 @@ export function buildLockCardModel(
   const state = pendingAction ? resolvePendingState(pendingAction) : entityState;
   const supportedFeatures = resolveSupportedFeatures(liveEntity, rawAttributes);
   const supportsOpen = typeof supportedFeatures === 'number' && (supportedFeatures & LOCK_FEATURE_OPEN) !== 0;
-  const stateLabel = translateLockCardState(state);
+  const stateLabel = translateLockCardState(state, locale);
   const isTransitioning = state === 'locking' || state === 'unlocking' || state === 'opening';
   const isLocked = state === 'locked' || state === 'locking';
   const isOpen = state === 'open' || state === 'opening';
@@ -172,19 +161,19 @@ export function buildLockCardModel(
         ? 'unlock'
         : 'lock';
   const changedBy = toTrimmedString(rawAttributes?.changed_by);
-  const caption = resolveCaption(state, supportsOpen);
+  const caption = resolveCaption(state, supportsOpen, locale);
 
   return {
-    title: widget.title || toTrimmedString(rawAttributes?.friendly_name) || 'Serratura',
+    title: widget.title || toTrimmedString(rawAttributes?.friendly_name) || translateForLocale(locale, 'controls.lock.title'),
     state,
     stateLabel,
-    compactStateLabel: state === 'locked' ? 'Protetta' : stateLabel,
+    compactStateLabel: state === 'locked' ? translateForLocale(locale, 'card.lock.protected') : stateLabel,
     caption,
     hint:
       primaryAction === 'unlock'
-        ? 'Tieni premuto per sbloccare'
+        ? translateForLocale(locale, 'card.lock.holdUnlock')
         : primaryAction === 'lock'
-          ? 'Tocca per bloccare'
+          ? translateForLocale(locale, 'card.lock.tapLock')
           : caption,
     changedBy,
     supportsOpen,
@@ -198,17 +187,17 @@ export function buildLockCardModel(
     primaryAction,
     primaryActionLabel:
       primaryAction === 'unlock'
-        ? 'Sblocca'
+        ? translateForLocale(locale, 'card.lock.unlock')
         : primaryAction === 'lock'
-          ? 'Blocca'
-          : 'Non disponibile',
+          ? translateForLocale(locale, 'card.lock.lock')
+          : translateForLocale(locale, 'card.sensor.unavailableShort'),
     primaryActionHint:
       primaryAction === 'unlock'
-        ? 'Richiede conferma'
+        ? translateForLocale(locale, 'card.lock.confirmationRequired')
         : primaryAction === 'lock'
-          ? 'Blocco rapido'
+          ? translateForLocale(locale, 'card.lock.quickLock')
           : caption,
-    secondaryActionLabel: supportsOpen ? 'Apri scrocco' : undefined,
+    secondaryActionLabel: supportsOpen ? translateForLocale(locale, 'card.lock.openLatch') : undefined,
     tone: resolveTone(state),
   };
 }

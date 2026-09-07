@@ -1,7 +1,10 @@
-import { act, cleanup, render } from '@testing-library/react';
+import { act, cleanup, render as renderUi } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CameraCardView } from './CameraCardView';
 import type { CameraCardModel } from './cameraCardModel';
+import { I18nProvider } from '../../i18n/I18nProvider';
+
+const render = (ui: React.ReactElement) => renderUi(<I18nProvider>{ui}</I18nProvider>);
 
 const cameraModel: CameraCardModel = {
   title: 'Ingresso',

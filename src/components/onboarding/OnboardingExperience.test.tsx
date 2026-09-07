@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SetupJourney } from '../../services/setupJourney';
 import { OnboardingExperience } from './OnboardingExperience';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 
 const panelCallApi = vi.fn(async (_message?: Record<string, unknown>) => null as unknown);
 const panelConnect = vi.fn(async () => undefined);
@@ -43,6 +44,7 @@ vi.mock('../../hooks/useHaPanelBridgeConnection', () => ({
 describe('OnboardingExperience panel discovery', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
     vi.clearAllMocks();
     panelCallApi.mockImplementation(async () => null);
   });
@@ -59,7 +61,9 @@ describe('OnboardingExperience panel discovery', () => {
 
     render(
       <MemoryRouter initialEntries={['/setup']}>
-        <OnboardingExperience journey={journey} onJourneyChange={onJourneyChange} />
+        <I18nProvider>
+          <OnboardingExperience journey={journey} onJourneyChange={onJourneyChange} />
+        </I18nProvider>
       </MemoryRouter>,
     );
 
@@ -141,7 +145,7 @@ describe('OnboardingExperience panel discovery', () => {
 
     render(
       <MemoryRouter initialEntries={['/setup']}>
-        <Harness />
+        <I18nProvider><Harness /></I18nProvider>
       </MemoryRouter>,
     );
 

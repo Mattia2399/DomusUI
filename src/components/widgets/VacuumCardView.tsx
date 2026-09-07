@@ -3,6 +3,18 @@ import { AlertTriangle, Battery, Bot, Home, Pause, Play, RotateCw, Square } from
 import type { VacuumCardModel } from './vacuumCardModel';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import './VacuumCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
+
+const VACUUM_STATE_KEYS: Record<VacuumCardModel['state'], TranslationKey> = {
+  docked: 'vacuum.state.docked', cleaning: 'vacuum.state.cleaning', paused: 'vacuum.state.paused',
+  error: 'vacuum.state.error', returning: 'vacuum.state.returning', idle: 'vacuum.state.idle',
+  unavailable: 'vacuum.state.unavailable', unknown: 'vacuum.state.unknown',
+};
+const VACUUM_ACTION_KEYS: Record<VacuumCardModel['primaryAction'], TranslationKey> = {
+  start: 'vacuum.action.start', pause: 'vacuum.action.pause', resume: 'vacuum.action.resume',
+  details: 'vacuum.action.error', none: 'vacuum.action.unavailable',
+};
 
 type VacuumCardViewProps = {
   model: VacuumCardModel;
@@ -35,6 +47,14 @@ export function VacuumCardView({
   onStop,
   onReturnToBase,
 }: VacuumCardViewProps) {
+  const { t } = useI18n();
+  const stateLabel = t(VACUUM_STATE_KEYS[model.state]);
+  const primaryActionLabel = model.primaryAction === 'none'
+    ? model.state === 'cleaning' ? t('vacuum.action.cleaning')
+      : model.state === 'paused' ? t('vacuum.state.paused')
+        : model.state === 'returning' ? t('vacuum.action.returning')
+          : model.primaryActionEnabled ? t('vacuum.action.controls') : t('vacuum.action.unavailable')
+    : t(VACUUM_ACTION_KEYS[model.primaryAction]);
   const handlePrimaryAction = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
     if (isEditMode || !model.primaryActionEnabled) return;
@@ -46,9 +66,9 @@ export function VacuumCardView({
   };
 
   const stats = [
-    model.cleanedAreaLabel ? { label: 'Area', value: model.cleanedAreaLabel } : null,
-    model.cleaningTimeLabel ? { label: 'Tempo', value: model.cleaningTimeLabel } : null,
-    model.fanSpeedLabel ? { label: 'Potenza', value: model.fanSpeedLabel } : null,
+    model.cleanedAreaLabel ? { label: t('vacuum.stat.area'), value: model.cleanedAreaLabel } : null,
+    model.cleaningTimeLabel ? { label: t('vacuum.stat.time'), value: model.cleaningTimeLabel } : null,
+    model.fanSpeedLabel ? { label: t('vacuum.stat.power'), value: model.fanSpeedLabel } : null,
   ].filter((item): item is { label: string; value: string } => item !== null);
 
   return (
@@ -72,11 +92,11 @@ export function VacuumCardView({
 
         <div className="vacuum-card__meta">
           <p className="vacuum-card__title">{model.title}</p>
-          <p className="vacuum-card__subtitle">{model.subtitle}</p>
+          <p className="vacuum-card__subtitle">{model.state === 'error' && model.errorLabel ? model.errorLabel : stateLabel}</p>
         </div>
 
         {model.batteryLevel !== undefined ? (
-          <div className="vacuum-card__battery" aria-label={`Batteria ${model.batteryLevel}%`}>
+          <div className="vacuum-card__battery" aria-label={`${t('vacuum.stat.battery')} ${model.batteryLevel}%`}>
             <Battery size={11} />
             <span>{model.batteryLevel}%</span>
           </div>
@@ -110,10 +130,10 @@ export function VacuumCardView({
             className="vacuum-card__primary"
             disabled={!model.primaryActionEnabled}
             onClick={handlePrimaryAction}
-            aria-label={`${model.primaryActionLabel}: ${model.title}`}
+            aria-label={`${primaryActionLabel}: ${model.title}`}
           >
             <PrimaryIcon model={model} />
-            <span>{model.primaryActionLabel}</span>
+            <span>{primaryActionLabel}</span>
           </button>
 
           {(layoutVariant === 'standard' || layoutVariant === 'full') && model.supportsReturnHome ? (
@@ -125,10 +145,10 @@ export function VacuumCardView({
                 event.stopPropagation();
                 if (!isEditMode) onReturnToBase?.();
               }}
-              aria-label={`Torna alla base: ${model.title}`}
+              aria-label={t('vacuum.action.returnHome', { name: model.title })}
             >
               <Home size={15} />
-              <span>Base</span>
+              <span>{t('vacuum.action.base')}</span>
             </button>
           ) : null}
 
@@ -141,10 +161,10 @@ export function VacuumCardView({
                 event.stopPropagation();
                 if (!isEditMode) onStop?.();
               }}
-              aria-label={`Ferma: ${model.title}`}
+              aria-label={t('vacuum.action.stopAria', { name: model.title })}
             >
               <Square size={13} />
-              <span>Stop</span>
+              <span>{t('vacuum.action.stop')}</span>
             </button>
           ) : null}
         </div>
@@ -155,7 +175,7 @@ export function VacuumCardView({
           role="button"
           tabIndex={0}
           className="vacuum-card__edit-handle widget-card-handle"
-          aria-label={`Apri ${model.title}`}
+          aria-label={t('vacuum.action.open', { name: model.title })}
           onClick={(event) => {
             event.stopPropagation();
             onOpen();

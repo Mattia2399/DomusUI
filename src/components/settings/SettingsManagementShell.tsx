@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft, X } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type SettingsManagementShellProps = {
   presentation?: 'overlay' | 'embedded';
@@ -96,7 +97,8 @@ export function SettingsManagementShell({
   navigation,
   children,
 }: SettingsManagementShellProps) {
-  const avatarLabel = avatarAlt ? `Profilo ${avatarAlt}` : 'Profilo utente';
+  const { t } = useI18n();
+  const avatarLabel = avatarAlt ? t('settings.management.profile', { name: avatarAlt }) : t('settings.management.userProfile');
 
   if (presentation === 'embedded') {
     return <div className="w-full text-[color:var(--ui-text-primary)]">{children}</div>;
@@ -110,7 +112,7 @@ export function SettingsManagementShell({
             type="button"
             onClick={onBack}
             className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] transition-transform active:scale-[0.96]"
-            aria-label={showDetailOnCompact ? `Torna a ${menuTitle}` : 'Torna alla dashboard'}
+            aria-label={showDetailOnCompact ? t('settings.management.backTo', { title: menuTitle }) : t('settings.management.backDashboard')}
           >
             <ChevronLeft size={18} />
           </button>
@@ -136,7 +138,7 @@ export function SettingsManagementShell({
               onAvatarError={onAvatarError}
             />
             <p className="mb-2 mt-6 px-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">
-              Sezioni
+              {t('settings.management.sections')}
             </p>
             {navigation}
           </div>
@@ -157,7 +159,7 @@ export function SettingsManagementShell({
         type="button"
         onClick={onClose}
         className="absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-lg"
-        aria-label="Chiudi impostazioni"
+        aria-label={t('settings.management.closeSettings')}
       />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-5 lg:p-8">
         <section className="liquid-glass-panel pointer-events-auto grid h-[min(90dvh,840px)] w-full max-w-[1160px] grid-cols-[18.5rem_minmax(0,1fr)] overflow-hidden rounded-[2.35rem] border border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)] shadow-[0_36px_100px_var(--ui-shadow)]">
@@ -177,7 +179,7 @@ export function SettingsManagementShell({
               {navigation}
             </nav>
             <p className="border-t border-[color:var(--ui-separator)] px-2 pt-4 text-[11px] leading-5 text-[color:var(--ui-text-secondary)]">
-              Le modifiche rispettano il ruolo e i permessi verificati da Home Assistant.
+              {t('settings.management.permissionsNote')}
             </p>
           </aside>
 
@@ -195,7 +197,7 @@ export function SettingsManagementShell({
                 type="button"
                 onClick={onClose}
                 className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] transition-transform hover:brightness-110 active:scale-[0.96]"
-                aria-label="Chiudi"
+                aria-label={t('settings.management.close')}
               >
                 <X size={18} />
               </button>

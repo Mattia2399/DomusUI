@@ -2,6 +2,12 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OnboardingOrganizer } from './OnboardingOrganizer';
+import { I18nProvider } from '../../i18n/I18nProvider';
+
+function renderOrganizer(ui: React.ReactNode) {
+  window.localStorage.setItem('domusui.language.v1', 'it');
+  return render(<I18nProvider>{ui}</I18nProvider>);
+}
 
 describe('OnboardingOrganizer', () => {
   afterEach(cleanup);
@@ -26,7 +32,7 @@ describe('OnboardingOrganizer', () => {
       }
     });
     const onComplete = vi.fn();
-    const { findByLabelText, getByRole } = render(
+    const { findByLabelText, getByRole } = renderOrganizer(
       <OnboardingOrganizer callApi={callApi as never} canManage onBack={vi.fn()} onComplete={onComplete} onReconnect={vi.fn()} />,
     );
 
@@ -43,7 +49,7 @@ describe('OnboardingOrganizer', () => {
 
   it('does not read or mutate registries without administrative permission', async () => {
     const callApi = vi.fn(async () => null);
-    const { findByText } = render(
+    const { findByText } = renderOrganizer(
       <OnboardingOrganizer callApi={callApi} canManage={false} onBack={vi.fn()} onComplete={vi.fn()} onReconnect={vi.fn()} />,
     );
 
@@ -54,7 +60,7 @@ describe('OnboardingOrganizer', () => {
   it('offers registry retry and full reconnection when organization data cannot be loaded', async () => {
     const callApi = vi.fn(async () => null);
     const onReconnect = vi.fn();
-    const { container, findByRole } = render(
+    const { container, findByRole } = renderOrganizer(
       <OnboardingOrganizer
         callApi={callApi}
         canManage
@@ -97,7 +103,7 @@ describe('OnboardingOrganizer', () => {
       }
     });
 
-    render(
+    renderOrganizer(
       <OnboardingOrganizer
         callApi={callApi as never}
         canManage

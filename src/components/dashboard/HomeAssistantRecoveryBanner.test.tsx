@@ -1,10 +1,12 @@
 import React from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeAssistantRecoveryBanner } from './HomeAssistantRecoveryBanner';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 
 describe('HomeAssistantRecoveryBanner', () => {
-  afterEach(cleanup);
+  beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+  afterEach(() => { cleanup(); window.localStorage.removeItem(LANGUAGE_STORAGE_KEY); });
 
   it('offers both transient retry and a new authentication flow', () => {
     const onRetry = vi.fn();
@@ -16,6 +18,7 @@ describe('HomeAssistantRecoveryBanner', () => {
         onRetry={onRetry}
         onReconnect={onReconnect}
       />,
+      { wrapper: I18nProvider },
     );
 
     expect(getByRole('alert').textContent).toContain('Sessione scaduta');
@@ -35,6 +38,7 @@ describe('HomeAssistantRecoveryBanner', () => {
         onReconnect={onReconnect}
         lastUpdatedAt={Date.now()}
       />,
+      { wrapper: I18nProvider },
     );
 
     expect(getByRole('alert').textContent).toContain('non raggiungibile');

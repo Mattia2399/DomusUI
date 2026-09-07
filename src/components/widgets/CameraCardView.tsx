@@ -3,6 +3,7 @@ import { Camera, Radio } from 'lucide-react';
 import type { CameraCardModel } from './cameraCardModel';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import './CameraCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type CameraCardViewProps = {
   model: CameraCardModel;
@@ -32,6 +33,7 @@ export function CameraCardView({
   snapshotRefreshIntervalMs = 0,
   imageLoading = 'eager',
 }: CameraCardViewProps) {
+  const { t } = useI18n();
   const [streamFailed, setStreamFailed] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -114,7 +116,7 @@ export function CameraCardView({
           ) : (
             <div className="camera-card__placeholder">
               <Camera className="camera-card__placeholder-icon" />
-              <span>Immagine non disponibile</span>
+              <span>{t('camera.imageUnavailable')}</span>
             </div>
           )}
           <div className="camera-card__scrim" />
@@ -139,11 +141,11 @@ export function CameraCardView({
         </div>
 
         {hasDetails ? (
-          <div className="camera-card__details" aria-label="Dettagli camera">
+          <div className="camera-card__details" aria-label={t('camera.details')}>
             {model.isMotionEnabled ? (
               <span className="camera-card__detail">
                 <Radio />
-                <span>Motion</span>
+                <span>{t('camera.motion')}</span>
               </span>
             ) : null}
             {model.brand || model.model ? (
@@ -170,7 +172,7 @@ export function CameraCardView({
                 onOpen();
               }
             }}
-            aria-label={`Apri ${model.title}`}
+            aria-label={t('camera.open', { name: model.title })}
           />
         ) : null}
       </div>

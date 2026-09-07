@@ -2,6 +2,7 @@ import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../service
 import type { MockEntityStateMap } from '../../types/ha';
 import type { Widget } from '../../types/dashboardModels';
 import { buildDeviceHealthSnapshots } from '../settings/deviceHealthModel';
+import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 
 export type HomeAttentionSeverity = 'critical' | 'warning' | 'info';
 
@@ -47,6 +48,7 @@ export type BuildHomeAttentionItemsOptions = {
   now?: number;
   batteryWarningThreshold?: number;
   openingWarningMinutes?: number;
+  locale?: AppLocale;
 };
 
 const SAFETY_DEVICE_CLASSES = new Set([
@@ -147,25 +149,27 @@ function createItem(
   };
 }
 
-export function createDemoHomeAttentionItems(now = Date.now()): HomeAttentionItem[] {
+export function createDemoHomeAttentionItems(now = Date.now(), locale: AppLocale = 'it'): HomeAttentionItem[] {
+  const t = (key: Parameters<typeof translateForLocale>[1], parameters?: Parameters<typeof translateForLocale>[2]) =>
+    translateForLocale(locale, key, parameters);
   return [
     createItem({
       source: 'demo',
       severity: 'warning',
       category: 'opening',
-      title: 'Finestra studio aperta',
-      description: 'L’apertura è rimasta rilevata.',
+      title: t('attention.demo.windowTitle'),
+      description: t('attention.openingDescription'),
       entityId: 'binary_sensor.studio_window',
       areaId: 'studio',
-      areaName: 'Studio',
+      areaName: t('attention.demo.windowArea'),
       activeSince: now - 18 * 60_000,
     }),
     createItem({
       source: 'demo',
       severity: 'warning',
       category: 'availability',
-      title: 'Nest Wifi non raggiungibile',
-      description: 'Il dispositivo non sta aggiornando il proprio stato.',
+      title: t('attention.demo.wifiTitle'),
+      description: t('attention.connectionDescription'),
       entityId: 'sensor.nest_wifi_download',
       deviceName: 'Nest Wifi',
       activeSince: now - 7 * 60_000,
@@ -174,11 +178,11 @@ export function createDemoHomeAttentionItems(now = Date.now()): HomeAttentionIte
       source: 'demo',
       severity: 'info',
       category: 'battery',
-      title: 'Batteria sensore umidità',
-      description: 'Livello batteria al 12%.',
+      title: t('attention.demo.batteryTitle'),
+      description: t('attention.batteryDescription', { level: 12 }),
       entityId: 'sensor.living_room_humidity',
       areaId: 'living_room',
-      areaName: 'Soggiorno',
+      areaName: t('attention.demo.batteryArea'),
       value: 12,
     }),
   ];
@@ -195,9 +199,12 @@ export function buildHomeAttentionItems({
   now = Date.now(),
   batteryWarningThreshold = 20,
   openingWarningMinutes = 10,
+  locale = 'it',
 }: BuildHomeAttentionItemsOptions): HomeAttentionItem[] {
+  const t = (key: Parameters<typeof translateForLocale>[1], parameters?: Parameters<typeof translateForLocale>[2]) =>
+    translateForLocale(locale, key, parameters);
   if (runtimeMode === 'demo') {
-    return createDemoHomeAttentionItems(now);
+    return createDemoHomeAttentionItems(now, locale);
   }
   if (!connected) {
     return [];
@@ -231,6 +238,7 @@ export function buildHomeAttentionItems({
     areas,
     widgets,
     batteryWarningThreshold,
+    locale,
   });
   const processedBatteryEntityIds = new Set<string>();
   const processedConnectionEntityIds = new Set<string>();
@@ -249,8 +257,8 @@ export function buildHomeAttentionItems({
       emit(createItem({
         severity: device.batteryLevel <= 10 ? 'warning' : 'info',
         category: 'battery',
-        title: `Batteria ${name}`,
-        description: `Livello batteria al ${device.batteryLevel}%.`,
+        title: t('attention.batteryTitle', { name }),
+        description: t('attention.batteryDescription', { level: device.batteryLevel }),
         entityId,
         deviceId: device.id,
         deviceName: device.name,
@@ -275,8 +283,8 @@ export function buildHomeAttentionItems({
       emit(createItem({
         severity: 'warning',
         category: 'availability',
-        title: `${name} non raggiungibile`,
-        description: 'Il dispositivo segnala assenza di connessione.',
+        title: t('attention.unreachableTitle', { name }),
+        description: t('attention.connectionDescription'),
         entityId,
         deviceId: device.id,
         deviceName: device.name,
@@ -317,20 +325,20 @@ export function buildHomeAttentionItems({
     if (domain === 'binary_sensor' && SAFETY_DEVICE_CLASSES.has(deviceClass) && ACTIVE_BINARY_STATES.has(state)) {
       const safetyLabel =
         deviceClass === 'moisture'
-          ? 'Possibile perdita rilevata'
+          ? t('attention.safety.moisture')
           : deviceClass === 'smoke'
-            ? 'Fumo rilevato'
+            ? t('attention.safety.smoke')
             : deviceClass === 'carbon monoxide' || deviceClass === 'carbon_monoxide' || deviceClass === 'co'
-              ? 'Monossido di carbonio rilevato'
+              ? t('attention.safety.co')
               : deviceClass === 'gas'
-                ? 'Gas rilevato'
-                : 'Condizione di sicurezza rilevata';
+                ? t('attention.safety.gas')
+                : t('attention.safety.generic');
       emit(createItem({
         ...base,
         severity: 'critical',
         category: 'safety',
         title: safetyLabel,
-        description: `${name} richiede un controllo immediato.`,
+        description: t('attention.safetyDescription', { name }),
       }));
       return;
     }
@@ -340,8 +348,8 @@ export function buildHomeAttentionItems({
         ...base,
         severity: 'warning',
         category: 'security',
-        title: `${name} segnala un problema`,
-        description: 'Il dispositivo richiede una verifica.',
+        title: t('attention.problemTitle', { name }),
+        description: t('attention.problemDescription'),
       }));
     }
 
@@ -357,8 +365,8 @@ export function buildHomeAttentionItems({
           ...base,
           severity: 'warning',
           category: 'opening',
-          title: `Apertura rilevata · ${name}`,
-          description: 'L’apertura è rimasta rilevata.',
+          title: t('attention.openingTitle', { name }),
+          description: t('attention.openingDescription'),
         }));
       }
     }
@@ -373,8 +381,8 @@ export function buildHomeAttentionItems({
         ...base,
         severity: 'warning',
         category: 'availability',
-        title: `${name} non raggiungibile`,
-        description: 'Il dispositivo segnala assenza di connessione.',
+        title: t('attention.unreachableTitle', { name }),
+        description: t('attention.connectionDescription'),
       }));
     }
 
@@ -383,8 +391,8 @@ export function buildHomeAttentionItems({
         ...base,
         severity: 'warning',
         category: 'security',
-        title: `${name} sbloccata`,
-        description: 'La serratura risulta sbloccata.',
+        title: t('attention.unlockedTitle', { name }),
+        description: t('attention.unlockedDescription'),
       }));
     }
 
@@ -393,8 +401,8 @@ export function buildHomeAttentionItems({
         ...base,
         severity: 'critical',
         category: 'security',
-        title: `${name} bloccata`,
-        description: 'La serratura segnala un inceppamento.',
+        title: t('attention.jammedTitle', { name }),
+        description: t('attention.jammedDescription'),
       }));
     }
 
@@ -403,8 +411,8 @@ export function buildHomeAttentionItems({
         ...base,
         severity: 'critical',
         category: 'security',
-        title: `${name} in allarme`,
-        description: 'Home Assistant segnala un allarme attivo.',
+        title: t('attention.alarmTitle', { name }),
+        description: t('attention.alarmDescription'),
       }));
     }
 
@@ -420,8 +428,8 @@ export function buildHomeAttentionItems({
           ...base,
           severity: roundedLevel <= 10 ? 'warning' : 'info',
           category: 'battery',
-          title: `Batteria ${name}`,
-          description: `Livello batteria al ${roundedLevel}%.`,
+          title: t('attention.batteryTitle', { name }),
+          description: t('attention.batteryDescription', { level: roundedLevel }),
           value: roundedLevel,
         }));
       }
@@ -432,8 +440,8 @@ export function buildHomeAttentionItems({
         ...base,
         severity: 'warning',
         category: 'availability',
-        title: `${name} non disponibile`,
-        description: 'L’entità usata nella dashboard non sta rispondendo.',
+        title: t('attention.unavailableTitle', { name }),
+        description: t('attention.unavailableDescription'),
       }));
     }
   });
@@ -447,8 +455,8 @@ export function buildHomeAttentionItems({
     emit(createItem({
       severity: 'info',
       category: 'configuration',
-      title: `${widget.title || fallbackName(entityId)} non trovata`,
-      description: 'L’entità configurata non è stata restituita da Home Assistant.',
+      title: t('attention.missingTitle', { name: widget.title || fallbackName(entityId) }),
+      description: t('attention.missingDescription'),
       entityId,
       deviceId: context.deviceId,
       deviceName: context.deviceName,

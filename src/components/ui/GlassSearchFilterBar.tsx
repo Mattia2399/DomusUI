@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { SlidersHorizontal, Search, X } from 'lucide-react';
 import GlassDropdown, { type GlassDropdownOption } from './GlassDropdown';
 import GlassBottomSheet from './GlassBottomSheet';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type GlassSearchFilterOption = GlassDropdownOption;
 
@@ -41,10 +42,13 @@ export function GlassSearchFilterBar({
   filters,
   resultCount,
   onReset,
-  placeholder = 'Cerca',
-  resultLabel = (count) => `${count} risultati`,
+  placeholder,
+  resultLabel,
   className,
 }: GlassSearchFilterBarProps) {
+  const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t('common.search');
+  const resolvedResultLabel = resultLabel ?? ((count: number) => t('common.results', { count }));
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const activeFilters = filters.filter(isFilterActive);
   const hasFilters = filters.length > 0;
@@ -64,8 +68,8 @@ export function GlassSearchFilterBar({
               type="search"
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder={placeholder}
-              aria-label={placeholder}
+              placeholder={resolvedPlaceholder}
+              aria-label={resolvedPlaceholder}
               autoComplete="off"
               className="min-w-0 flex-1 appearance-none bg-transparent text-sm text-[color:var(--ui-text-primary)] outline-none placeholder:text-[color:var(--ui-text-tertiary)] [&::-webkit-search-cancel-button]:hidden"
             />
@@ -74,7 +78,7 @@ export function GlassSearchFilterBar({
                 type="button"
                 onClick={() => onQueryChange('')}
                 className="glass-icon-button -mr-1 h-8 w-8 shrink-0"
-                aria-label="Cancella ricerca"
+                aria-label={t('common.clearSearch')}
               >
                 <X size={14} />
               </button>
@@ -88,8 +92,8 @@ export function GlassSearchFilterBar({
               className="liquid-glass-control relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[color:var(--ui-text-primary)] md:hidden"
               aria-label={
                 activeFilters.length > 0
-                  ? `Filtri, ${activeFilters.length} attivi`
-                  : 'Apri filtri'
+                  ? t('common.filtersActive', { count: activeFilters.length })
+                  : t('common.openFilters')
               }
             >
               <SlidersHorizontal size={18} />
@@ -118,7 +122,7 @@ export function GlassSearchFilterBar({
                 onClick={onReset}
                 className="liquid-glass-control min-h-11 shrink-0 rounded-2xl px-3.5 text-xs font-semibold text-[color:var(--ui-text-secondary)]"
               >
-                Azzera
+                {t('common.reset')}
               </button>
             ) : null}
           </div> : null}
@@ -135,7 +139,7 @@ export function GlassSearchFilterBar({
                     filter.onChange(filter.defaultValue ?? filter.options[0]?.id ?? '')
                   }
                   className="liquid-glass-control inline-flex min-h-8 shrink-0 items-center gap-1.5 rounded-full px-3 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]"
-                  aria-label={`Rimuovi filtro ${filter.label}`}
+                  aria-label={t('common.removeFilter', { label: filter.label })}
                 >
                   {selectedOption(filter)?.name ?? filter.label}
                   <X size={12} />
@@ -149,7 +153,7 @@ export function GlassSearchFilterBar({
             aria-live="polite"
             className="shrink-0 text-[11px] font-semibold text-[color:var(--ui-text-tertiary)]"
           >
-            {resultLabel(resultCount)}
+            {resolvedResultLabel(resultCount)}
           </span>
         </div>
       </div>
@@ -157,8 +161,8 @@ export function GlassSearchFilterBar({
       {hasFilters ? <GlassBottomSheet
         isOpen={isFilterSheetOpen}
         onClose={() => setIsFilterSheetOpen(false)}
-        title="Filtri"
-        description="Affina i risultati senza perdere la ricerca corrente."
+        title={t('common.filters')}
+        description={t('common.filtersDescription')}
         className="md:hidden"
         bodyClassName="space-y-4 !overflow-visible"
         footerClassName="!grid w-full grid-cols-[auto_minmax(0,1fr)]"
@@ -170,14 +174,14 @@ export function GlassSearchFilterBar({
               disabled={!hasActiveCriteria}
               className="liquid-glass-control min-h-12 rounded-2xl px-4 text-sm font-semibold text-[color:var(--ui-text-secondary)] disabled:opacity-40"
             >
-              Azzera
+              {t('common.reset')}
             </button>
             <button
               type="button"
               onClick={() => setIsFilterSheetOpen(false)}
               className="liquid-glass-selection min-h-12 min-w-0 rounded-2xl px-4 text-sm font-semibold"
             >
-              {resultLabel(resultCount)}
+              {resolvedResultLabel(resultCount)}
             </button>
           </>
         }

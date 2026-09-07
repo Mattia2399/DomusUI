@@ -76,7 +76,7 @@
   background: transparent;
   box-shadow: none;
   color: #ffffff;
-  font-family: "SF Pro Display";
+  font-family: var(--ui-font-display);
   font-size: 16px;
   line-height: 1.2;
   font-weight: 400;
@@ -95,7 +95,7 @@
 }
 
 .ha-metric-card__value {
-  font-family: "SF Pro Display";
+  font-family: var(--ui-font-display);
   font-size: clamp(1.55rem, 14cqw, 2.35rem);
   line-height: 0.9;
   font-weight: 800;
@@ -110,7 +110,7 @@
 
 .ha-metric-card__unit {
   margin-bottom: 3px;
-  font-family: "SF Pro Text";
+  font-family: var(--ui-font-system);
   font-size: 0.78rem;
   line-height: 1;
   font-weight: 600;
@@ -120,7 +120,7 @@
 }
 
 .ha-metric-card__name {
-  font-family: "SF Pro Text";
+  font-family: var(--ui-font-system);
   font-size: 12px;
   line-height: 1.2;
   font-weight: 500;

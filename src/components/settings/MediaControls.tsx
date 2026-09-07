@@ -27,7 +27,9 @@ import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { ContextSecondaryPage } from './ContextSecondaryPage';
 import GlassSlider from '../ui/GlassSlider';
-import { translateMediaPlayerState } from '../../utils/mediaPlayerState';
+import { normalizeMediaPlayerStateKey } from '../../utils/mediaPlayerState';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 interface MediaOutputDevice {
   id: string;
@@ -141,46 +143,14 @@ function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
 
-function formatMediaContentTypeLabel(value: string | undefined) {
+function normalizeMediaContentType(value: string | undefined) {
   const raw = value?.trim();
-  if (!raw) {
-    return 'Media';
-  }
+  if (!raw) return 'media';
   const normalized = raw.toLowerCase().replace(/[_-]+/g, ' ');
-  if (normalized === 'music') return 'Musica';
-  if (normalized === 'playlist') return 'Playlist';
-  if (normalized === 'channel') return 'Canale';
-  if (normalized === 'episode') return 'Episodio';
-  if (normalized === 'announcement') return 'Annuncio';
-  if (normalized === 'movie') return 'Film';
-  if (normalized === 'tvshow' || normalized === 'tv show' || normalized === 'series') return 'Serie TV';
-  if (normalized === 'app') return 'App';
-  if (normalized === 'video') return 'Video';
-  if (normalized === 'podcast') return 'Podcast';
-  if (normalized === 'album') return 'Album';
-  if (normalized === 'track' || normalized === 'song') return 'Brano';
+  if (normalized === 'tv show' || normalized === 'series') return 'tvshow';
+  if (normalized === 'song') return 'track';
+  if (['music', 'playlist', 'channel', 'episode', 'announcement', 'movie', 'tvshow', 'app', 'video', 'podcast', 'album', 'track'].includes(normalized)) return normalized;
   return raw;
-}
-
-function formatSoundModeLabel(value: string) {
-  const normalized = value.trim().toLowerCase().replace(/[_-]+/g, ' ');
-  if (normalized === 'music') return 'Musica';
-  if (normalized === 'movie') return 'Film';
-  if (normalized === 'night') return 'Notte';
-  if (normalized === 'speech') return 'Voce';
-  if (normalized === 'game') return 'Gioco';
-  if (normalized === 'standard') return 'Standard';
-  if (normalized === 'stereo') return 'Stereo';
-  if (normalized === 'surround') return 'Surround';
-  if (normalized === 'auto') return 'Auto';
-  if (normalized === 'off') return 'Spento';
-  return value;
-}
-
-function formatRepeatButtonLabel(mode: MediaRepeatMode) {
-  if (mode === 'one') return 'Ripeti: uno';
-  if (mode === 'all') return 'Ripeti: tutti';
-  return 'Ripeti: disattivato';
 }
 
 function toTrimmedString(value: unknown) {
@@ -318,8 +288,8 @@ function SecondaryAction({
 }
 
 export function MediaControlsPanel({
-  name = 'Diffusore',
-  status = 'Connesso',
+  name,
+  status,
   isPlaying,
   progress,
   positionSeconds,
@@ -371,6 +341,7 @@ export function MediaControlsPanel({
   onToggleMultiroomDevice,
   onSecondaryPageChange,
 }: MediaControlsProps) {
+  const { t } = useI18n();
   const VOLUME_DEBOUNCE_MS = 120;
   const volumeDebounceRef = useRef<number | null>(null);
   const safeProgress = Math.max(0, Math.min(100, Math.round(progress)));
@@ -396,13 +367,14 @@ export function MediaControlsPanel({
   const selectedOutputDeviceId = selectedOutputDeviceIdProp ?? localOutputDeviceId;
   const resolvedShuffleEnabled = Boolean(shuffleEnabled);
   const resolvedRepeatMode: MediaRepeatMode = repeatMode === 'one' || repeatMode === 'all' ? repeatMode : 'off';
-  const repeatButtonLabel = formatRepeatButtonLabel(resolvedRepeatMode);
+  const repeatButtonLabel = t(`controls.media.repeat${resolvedRepeatMode === 'one' ? 'One' : resolvedRepeatMode === 'all' ? 'All' : 'Off'}`);
   const safeVolumePercent = Math.max(0, Math.min(100, volumeDraft));
   const elapsed = useMemo(() => formatTimeFromSeconds(livePosition), [livePosition]);
   const total = useMemo(() => formatTimeFromProgress(100, safeDuration), [safeDuration]);
-  const resolvedTrackTitle = trackTitle.trim() || 'Nessun brano in riproduzione';
-  const resolvedTrackArtist = trackArtist.trim() || 'Nessun artista';
-  const translatedStatus = translateMediaPlayerState(status, status || 'Sconosciuto');
+  const resolvedTrackTitle = trackTitle.trim() || t('controls.media.noTrack');
+  const resolvedTrackArtist = trackArtist.trim() || t('controls.media.noArtist');
+  const translatedStatus = t(`controls.media.state.${normalizeMediaPlayerStateKey(status)}`);
+  const resolvedName = name?.trim() || t('controls.media.title');
   const albumArt = coverUrl && coverUrl.trim().length > 0 ? coverUrl : DEFAULT_ALBUM_ART;
   const metadataDetails = [
     toTrimmedString(rawAttributes?.media_album_name),
@@ -455,18 +427,18 @@ export function MediaControlsPanel({
     [availableMultiroomDevices, groupedDeviceIds],
   );
   const multiroomSummary = !supportsGrouping
-    ? 'Non disponibile'
+    ? t('controls.media.unavailable')
     : availableMultiroomDevices.length === 0
-      ? 'Nessun player disponibile'
+      ? t('controls.media.noPlayers')
       : groupedMultiroomDevices.length === 0
-        ? 'Solo questo player'
+        ? t('controls.media.thisPlayerOnly')
         : groupedMultiroomDevices.length === 1
-          ? '1 dispositivo collegato'
-          : `${groupedMultiroomDevices.length} dispositivi collegati`;
+          ? t('controls.media.deviceConnected')
+          : t('controls.media.devicesConnected', { count: groupedMultiroomDevices.length });
   const multiroomDetail = groupedMultiroomDevices.length > 0
     ? groupedMultiroomDevices.map((device) => device.name).slice(0, 2).join(', ') +
       (groupedMultiroomDevices.length > 2 ? ` +${groupedMultiroomDevices.length - 2}` : '')
-    : 'Aggiungi speaker, TV o cast compatibili.';
+    : t('controls.media.addDevices');
 
   useEffect(() => {
     setVolumeDraft(Math.max(0, Math.min(100, Math.round(volumeLevel))));
@@ -569,9 +541,9 @@ export function MediaControlsPanel({
   if (multiroomPageOpen) {
     return (
       <ContextSecondaryPage
-        title="Riproduci anche su"
+        title={t('controls.media.playOn')}
         subtitle={multiroomSummary}
-        backLabel="Player"
+        backLabel={t('controls.media.player')}
         icon={<Speaker size={18} />}
         iconClassName="text-cyan-200"
         onBack={() => setMultiroomPageOpen(false)}
@@ -579,8 +551,8 @@ export function MediaControlsPanel({
         <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} min-w-0 max-w-full overflow-hidden`}>
           <div className="mb-3 flex items-center justify-between gap-3">
             <span>
-              <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Dispositivi disponibili</p>
-              <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-tertiary)]">Scegli speaker, TV o cast da collegare</p>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('controls.media.availableDevices')}</p>
+              <p className="mt-0.5 text-[11px] text-[color:var(--ui-text-tertiary)]">{t('controls.media.chooseDevices')}</p>
             </span>
             <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{availableMultiroomDevices.length}</span>
           </div>
@@ -606,7 +578,7 @@ export function MediaControlsPanel({
                     </span>
                     <span className="min-w-0 flex-1 overflow-hidden">
                       <span className="block truncate text-sm font-semibold">{device.name}</span>
-                      <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{isGrouped ? 'Collegato' : device.subtitle ?? 'Disponibile'}</span>
+                      <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{isGrouped ? t('controls.media.connected') : device.subtitle ?? t('controls.media.available')}</span>
                     </span>
                   </span>
                   {isGrouped ? <Check size={16} className="shrink-0 text-[color:var(--ui-accent)]" /> : <ChevronRight size={15} className="shrink-0 text-[color:var(--ui-text-tertiary)]" />}
@@ -617,7 +589,7 @@ export function MediaControlsPanel({
         </div>
 
         <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-          <p className="text-xs leading-relaxed text-[color:var(--ui-text-tertiary)]">Il player corrente rimane il leader del gruppo. Puoi aggiungere o rimuovere dispositivi in qualsiasi momento.</p>
+          <p className="text-xs leading-relaxed text-[color:var(--ui-text-tertiary)]">{t('controls.media.leaderNote')}</p>
         </div>
       </ContextSecondaryPage>
     );
@@ -625,7 +597,7 @@ export function MediaControlsPanel({
 
   return (
     <div className={`${CONTEXT_PANEL_LAYOUT.shell} relative`}>
-      <ContextPanelHeader title={name} subtitle={translatedStatus} icon={<Speaker size={22} />} fallbackTitle="Diffusore" />
+      <ContextPanelHeader title={resolvedName} subtitle={translatedStatus} icon={<Speaker size={22} />} fallbackTitle={t('controls.media.title')} />
 
       <div className={`relative overflow-hidden ${CONTEXT_PANEL_LAYOUT.sectionSoft} mb-1`}>
         <div
@@ -637,7 +609,7 @@ export function MediaControlsPanel({
         <div className="relative z-10">
           <img
             src={albumArt}
-            alt="Copertina album"
+            alt={t('controls.media.albumCover')}
             className="w-full aspect-square object-cover rounded-2xl shadow-2xl shadow-black/50"
           />
 
@@ -678,8 +650,8 @@ export function MediaControlsPanel({
                   : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)]'
               } ${supportsShuffle ? 'hover:bg-[color:var(--ui-fill-secondary)]' : 'cursor-not-allowed opacity-45'}`}
               disabled={!supportsShuffle}
-              aria-label="Riproduzione casuale"
-              title={resolvedShuffleEnabled ? 'Casuale attivo' : 'Casuale disattivato'}
+              aria-label={t('controls.media.shuffle')}
+              title={resolvedShuffleEnabled ? t('controls.media.shuffleOn') : t('controls.media.shuffleOff')}
               aria-pressed={resolvedShuffleEnabled}
               onClick={() => {
                 if (!supportsShuffle) {
@@ -696,7 +668,7 @@ export function MediaControlsPanel({
               className={`flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)] transition-colors ${
                 supportsPreviousTrack ? 'hover:bg-[color:var(--ui-fill-secondary)]' : 'cursor-not-allowed opacity-45'
               }`}
-              aria-label="Traccia precedente"
+              aria-label={t('controls.media.previous')}
               disabled={!supportsPreviousTrack}
               onClick={() => onPreviousTrack?.()}
             >
@@ -707,7 +679,7 @@ export function MediaControlsPanel({
               type="button"
               className="liquid-glass-selection flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] text-[color:var(--ui-accent)] shadow-[0_0_18px_rgb(var(--ui-accent-rgb)/0.12)] transition-colors"
               onClick={onTogglePlayback}
-              aria-label={isPlaying ? 'Metti in pausa' : 'Riproduci'}
+              aria-label={isPlaying ? t('controls.media.pause') : t('controls.media.play')}
             >
               {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
             </button>
@@ -717,7 +689,7 @@ export function MediaControlsPanel({
               className={`flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)] transition-colors ${
                 supportsNextTrack ? 'hover:bg-[color:var(--ui-fill-secondary)]' : 'cursor-not-allowed opacity-45'
               }`}
-              aria-label="Traccia successiva"
+              aria-label={t('controls.media.next')}
               disabled={!supportsNextTrack}
               onClick={() => onNextTrack?.()}
             >
@@ -756,7 +728,7 @@ export function MediaControlsPanel({
                 className={`flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)] transition-colors ${
                   onStop ? 'hover:bg-[color:var(--ui-fill-secondary)]' : 'cursor-not-allowed opacity-45'
                 }`}
-                aria-label="Interrompi riproduzione"
+                aria-label={t('controls.media.stop')}
                 disabled={!onStop}
                 onClick={() => onStop?.()}
               >
@@ -778,7 +750,7 @@ export function MediaControlsPanel({
                 onClick={() => onClearPlaylist?.()}
               >
                 <ListX size={13} />
-                Svuota playlist
+                {t('controls.media.clearPlaylist')}
               </button>
             </div>
           ) : null}
@@ -789,7 +761,7 @@ export function MediaControlsPanel({
         <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1 w-full`}>
           <div className="px-3 pb-2 pt-1">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ui-text-tertiary)]">
-              Libreria media
+              {t('controls.media.library')}
             </p>
           </div>
 
@@ -801,8 +773,8 @@ export function MediaControlsPanel({
                   value={mediaSearchQuery}
                   onChange={(event) => setMediaSearchQuery(event.target.value)}
                   className="ui-input h-10 w-full rounded-2xl pl-9 pr-3 text-sm"
-                  placeholder="Cerca media"
-                  aria-label="Cerca media"
+                  placeholder={t('controls.media.search')}
+                  aria-label={t('controls.media.search')}
                 />
               </label>
             ) : null}
@@ -830,7 +802,12 @@ export function MediaControlsPanel({
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-medium text-[color:var(--ui-text-primary)]">{item.title}</span>
                           <span className="block truncate text-[11px] text-[color:var(--ui-text-tertiary)]">
-                            {item.subtitle ?? formatMediaContentTypeLabel(item.mediaContentType)}
+                            {item.subtitle ?? (() => {
+                              const type = normalizeMediaContentType(item.mediaContentType);
+                              return ['media', 'music', 'playlist', 'channel', 'episode', 'announcement', 'movie', 'tvshow', 'app', 'video', 'podcast', 'album', 'track'].includes(type)
+                                ? t(`controls.media.type.${type}` as TranslationKey)
+                                : type;
+                            })()}
                           </span>
                         </span>
                       </span>
@@ -840,8 +817,8 @@ export function MediaControlsPanel({
                           disabled={!canPlayMedia}
                           onClick={() => submitPlayMedia(item, 'play')}
                           className="glass-button inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-colors disabled:cursor-not-allowed disabled:text-[color:var(--ui-text-disabled)]"
-                          aria-label={`Riproduci ${item.title}`}
-                          title="Riproduci"
+                          aria-label={t('controls.media.playItem', { item: item.title })}
+                          title={t('controls.media.play')}
                         >
                           <Play size={13} />
                         </button>
@@ -851,8 +828,8 @@ export function MediaControlsPanel({
                             disabled={!canPlayMedia}
                             onClick={() => submitPlayMedia(item, 'enqueue')}
                             className="glass-button inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-colors disabled:cursor-not-allowed disabled:text-[color:var(--ui-text-disabled)]"
-                            aria-label={`Aggiungi alla coda ${item.title}`}
-                            title="Aggiungi alla coda"
+                            aria-label={t('controls.media.enqueueItem', { item: item.title })}
+                            title={t('controls.media.enqueue')}
                           >
                             <Plus size={13} />
                           </button>
@@ -863,8 +840,8 @@ export function MediaControlsPanel({
                             disabled={!canPlayMedia}
                             onClick={() => submitPlayMedia(item, 'announce')}
                             className="glass-button inline-flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-colors disabled:cursor-not-allowed disabled:text-[color:var(--ui-text-disabled)]"
-                            aria-label={`Annuncia ${item.title}`}
-                            title="Annuncia"
+                            aria-label={t('controls.media.announceItem', { item: item.title })}
+                            title={t('controls.media.announce')}
                           >
                             <Bell size={13} />
                           </button>
@@ -874,7 +851,7 @@ export function MediaControlsPanel({
                   ))
                 ) : (
                   <div className="dashboard-content-surface rounded-2xl px-3 py-3 text-sm text-[color:var(--ui-text-tertiary)]">
-                    Nessun media disponibile.
+                    {t('controls.media.noMedia')}
                   </div>
                 )}
               </div>
@@ -885,7 +862,7 @@ export function MediaControlsPanel({
 
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1 w-full`}>
         <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ui-text-tertiary)]">
-          Dispositivo di uscita
+          {t('controls.media.outputDevice')}
         </p>
 
         {availableOutputDevices.length > 0 ? (
@@ -936,7 +913,7 @@ export function MediaControlsPanel({
           </div>
         ) : (
           <p className="px-3 py-3 text-sm text-[color:var(--ui-text-tertiary)]">
-            Nessun dispositivo di uscita disponibile.
+            {t('controls.media.noOutput')}
           </p>
         )}
       </div>
@@ -944,7 +921,7 @@ export function MediaControlsPanel({
       {supportsSelectSoundMode || soundModes.length > 0 ? (
         <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1 w-full`}>
           <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ui-text-tertiary)]">
-            Modalita audio
+            {t('controls.media.soundMode')}
           </p>
 
           {soundModes.length > 0 ? (
@@ -969,14 +946,14 @@ export function MediaControlsPanel({
                     }`}
                     aria-pressed={active}
                   >
-                    {formatSoundModeLabel(mode)}
+                    {mode}
                   </button>
                 );
               })}
             </div>
           ) : (
             <p className="px-3 py-3 text-sm text-[color:var(--ui-text-tertiary)]">
-              Nessuna modalita audio disponibile.
+              {t('controls.media.noSoundMode')}
             </p>
           )}
         </div>
@@ -984,7 +961,7 @@ export function MediaControlsPanel({
 
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1 w-full`}>
         <p className="px-3 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-[color:var(--ui-text-tertiary)]">
-          Riproduci anche su
+          {t('controls.media.playOn')}
         </p>
 
         <button
@@ -996,7 +973,7 @@ export function MediaControlsPanel({
               ? 'bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-secondary)]'
               : 'cursor-not-allowed bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-disabled)]'
           }`}
-          aria-label="Gestisci gruppo multiroom"
+          aria-label={t('controls.media.manageMultiroom')}
         >
           <span className="flex min-w-0 items-center gap-3">
             <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
@@ -1015,18 +992,18 @@ export function MediaControlsPanel({
         {!supportsGrouping ? (
           <div className="mt-2 rounded-xl border border-amber-200/25 bg-amber-400/10 px-3 py-2.5">
             <p className="text-xs font-medium text-amber-100">
-              Multiroom non disponibile con questo player.
+              {t('controls.media.multiroomUnavailable')}
             </p>
             <p className="mt-1.5 flex items-start gap-1.5 text-[11px] leading-snug text-amber-100/80">
-              <span title="Suggerimento multiroom">
+              <span title={t('controls.media.multiroomHintTitle')}>
                 <Info
                   size={13}
                   className="mt-[1px] shrink-0"
                   aria-hidden="true"
                 />
               </span>
-              <span title="Per il multiroom usa un player leader compatibile come Sonos, Google Cast o Music Assistant.">
-                Per usare al meglio il multiroom serve un player leader compatibile (es. Sonos, Google Cast o Music Assistant).
+              <span title={t('controls.media.multiroomHint')}>
+                {t('controls.media.multiroomHint')}
               </span>
             </p>
           </div>
@@ -1035,7 +1012,7 @@ export function MediaControlsPanel({
 
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionSoft} mb-1`}>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">Volume</p>
+          <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{t('controls.media.volume')}</p>
           <div className="flex items-center gap-1.5">
             {supportsVolumeStep ? (
               <>
@@ -1044,7 +1021,7 @@ export function MediaControlsPanel({
                   disabled={!supportsVolume || !onVolumeChange}
                   onClick={() => stepVolume(-1)}
                   className="glass-button inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold text-[color:var(--ui-text-secondary)] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Abbassa volume"
+                  aria-label={t('controls.media.volumeDown')}
                   title={`-${volumeStepPercent}%`}
                 >
                   -
@@ -1054,7 +1031,7 @@ export function MediaControlsPanel({
                   disabled={!supportsVolume || !onVolumeChange}
                   onClick={() => stepVolume(1)}
                   className="glass-button inline-flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold text-[color:var(--ui-text-secondary)] transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                  aria-label="Alza volume"
+                  aria-label={t('controls.media.volumeUp')}
                   title={`+${volumeStepPercent}%`}
                 >
                   +
@@ -1068,8 +1045,8 @@ export function MediaControlsPanel({
                   ? 'liquid-glass-selection border-[color:var(--ui-border-strong)] text-[color:var(--ui-accent)]'
                   : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)]'
               } ${supportsMute ? '' : 'opacity-45 cursor-not-allowed'}`}
-              aria-label={muted ? 'Riattiva audio' : 'Silenzia audio'}
-              title={muted ? 'Riattiva audio' : 'Silenzia audio'}
+              aria-label={muted ? t('controls.media.unmute') : t('controls.media.mute')}
+              title={muted ? t('controls.media.unmute') : t('controls.media.mute')}
               disabled={!supportsMute}
               onClick={() => onToggleMute?.()}
             >
@@ -1126,16 +1103,16 @@ export function MediaControlsPanel({
               }, VOLUME_DEBOUNCE_MS);
             }}
             className="absolute inset-0 z-20 w-full h-full opacity-0 cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-moz-range-thumb]:appearance-none [&::-webkit-slider-runnable-track]:appearance-none [&::-moz-range-track]:appearance-none"
-            aria-label="Volume uscita audio"
+            aria-label={t('controls.media.outputVolume')}
           />
         </div>
       </div>
 
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionSoft} mb-1 opacity-55 pointer-events-none`} aria-disabled="true">
         <div className="flex flex-wrap items-center justify-center gap-3">
-          <SecondaryAction icon={<Cast size={22} />} label="Trasmetti a" disabled />
-          <SecondaryAction icon={<Mic size={22} />} label={muted ? 'Muto' : 'Premi per parlare'} disabled />
-          <SecondaryAction icon={<Settings2 size={22} />} label="Impostazioni" disabled />
+          <SecondaryAction icon={<Cast size={22} />} label={t('controls.media.castTo')} disabled />
+          <SecondaryAction icon={<Mic size={22} />} label={muted ? t('controls.media.muted') : t('controls.media.talk')} disabled />
+          <SecondaryAction icon={<Settings2 size={22} />} label={t('controls.media.settings')} disabled />
         </div>
       </div>
 

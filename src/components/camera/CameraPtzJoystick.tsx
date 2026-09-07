@@ -10,6 +10,7 @@ import {
   ArrowUpRight,
   Square,
 } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type CameraPtzDirection =
   | 'up'
@@ -34,6 +35,7 @@ export function CameraPtzJoystick({
   onDirectionStop,
   compact = false,
 }: CameraPtzJoystickProps) {
+  const { t } = useI18n();
   const bindDirection = (direction: CameraPtzDirection) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
       event.preventDefault();
@@ -60,15 +62,15 @@ export function CameraPtzJoystick({
   return (
     <div className="flex w-full justify-center">
       <div className={`dashboard-content-surface-soft grid grid-cols-3 ${compact ? 'gap-1.5 rounded-[1.35rem] p-1.5' : 'gap-2 rounded-[1.6rem] p-2'}`}>
-        <button type="button" className={buttonClass('up_left')} aria-label="PTZ in alto a sinistra" {...bindDirection('up_left')}><ArrowUpLeft size={15} /></button>
-        <button type="button" className={buttonClass('up')} aria-label="PTZ in alto" {...bindDirection('up')}><ArrowUp size={16} /></button>
-        <button type="button" className={buttonClass('up_right')} aria-label="PTZ in alto a destra" {...bindDirection('up_right')}><ArrowUpRight size={15} /></button>
-        <button type="button" className={buttonClass('left')} aria-label="PTZ a sinistra" {...bindDirection('left')}><ArrowLeft size={16} /></button>
-        <button type="button" className={`glass-button flex ${sizeClass} items-center justify-center text-[color:var(--ui-text-secondary)] transition active:scale-95`} aria-label="Ferma movimento PTZ" onClick={onDirectionStop}><Square size={14} /></button>
-        <button type="button" className={buttonClass('right')} aria-label="PTZ a destra" {...bindDirection('right')}><ArrowRight size={16} /></button>
-        <button type="button" className={buttonClass('down_left')} aria-label="PTZ in basso a sinistra" {...bindDirection('down_left')}><ArrowDownLeft size={15} /></button>
-        <button type="button" className={buttonClass('down')} aria-label="PTZ in basso" {...bindDirection('down')}><ArrowDown size={16} /></button>
-        <button type="button" className={buttonClass('down_right')} aria-label="PTZ in basso a destra" {...bindDirection('down_right')}><ArrowDownRight size={15} /></button>
+        <button type="button" className={buttonClass('up_left')} aria-label={t('camera.ptz.upLeft')} {...bindDirection('up_left')}><ArrowUpLeft size={15} /></button>
+        <button type="button" className={buttonClass('up')} aria-label={t('camera.ptz.up')} {...bindDirection('up')}><ArrowUp size={16} /></button>
+        <button type="button" className={buttonClass('up_right')} aria-label={t('camera.ptz.upRight')} {...bindDirection('up_right')}><ArrowUpRight size={15} /></button>
+        <button type="button" className={buttonClass('left')} aria-label={t('camera.ptz.left')} {...bindDirection('left')}><ArrowLeft size={16} /></button>
+        <button type="button" className={`glass-button flex ${sizeClass} items-center justify-center text-[color:var(--ui-text-secondary)] transition active:scale-95`} aria-label={t('camera.ptz.stop')} onClick={onDirectionStop}><Square size={14} /></button>
+        <button type="button" className={buttonClass('right')} aria-label={t('camera.ptz.right')} {...bindDirection('right')}><ArrowRight size={16} /></button>
+        <button type="button" className={buttonClass('down_left')} aria-label={t('camera.ptz.downLeft')} {...bindDirection('down_left')}><ArrowDownLeft size={15} /></button>
+        <button type="button" className={buttonClass('down')} aria-label={t('camera.ptz.down')} {...bindDirection('down')}><ArrowDown size={16} /></button>
+        <button type="button" className={buttonClass('down_right')} aria-label={t('camera.ptz.downRight')} {...bindDirection('down_right')}><ArrowDownRight size={15} /></button>
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen, waitFor } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import {
   DashboardSecurityProvider,
   createDashboardSecurityValue,
@@ -7,7 +9,12 @@ import {
 import { SensitiveActionGateProvider } from '../../security/SensitiveActionGate';
 import SettingsDataBackupSection from './SettingsDataBackupSection';
 
-afterEach(cleanup);
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+afterEach(() => {
+  cleanup();
+  window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
+});
 
 const ownerSecurity = createDashboardSecurityValue({
   runtimeMode: 'real',

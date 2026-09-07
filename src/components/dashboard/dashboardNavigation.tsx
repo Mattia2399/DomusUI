@@ -23,12 +23,22 @@ import {
   isPathActiveForCurrentLocation,
   isPathActiveForLocation,
 } from '../../utils/navigationPathMatch';
+import type { TranslationKey } from '../../i18n/translations';
 
 export const PRIMARY_DASHBOARD_ROUTE_IDS = ['home', 'rooms', 'security', 'consumi'] as const;
 export const TOOL_DASHBOARD_ROUTE_IDS = ['automation', 'appgallery'] as const;
 
 const DASHBOARD_NAVIGATION_LABELS: Partial<Record<ApplicationRouteId, string>> = {
   home: 'Dashboard',
+};
+
+const DASHBOARD_NAVIGATION_TRANSLATION_KEYS: Record<ApplicationRouteId, TranslationKey> = {
+  appgallery: 'navigation.appGallery',
+  home: 'navigation.dashboard',
+  rooms: 'navigation.rooms',
+  automation: 'navigation.automations',
+  security: 'navigation.security',
+  consumi: 'navigation.consumption',
 };
 
 const DASHBOARD_NAVIGATION_ICONS: Record<SidebarQuickPathIconKey, LucideIcon> = {
@@ -57,6 +67,7 @@ export function normalizeDashboardNavigationPath(path: string) {
 export function resolveDashboardNavigationEntries(
   quickPaths: SidebarQuickPath[],
   routeIds: readonly ApplicationRouteId[],
+  translate?: (key: TranslationKey) => string,
 ) {
   const configuredByPath = new Map(
     quickPaths.map((entry) => [normalizeDashboardNavigationPath(entry.path), entry] as const),
@@ -67,7 +78,9 @@ export function resolveDashboardNavigationEntries(
     const configured = configuredByPath.get(normalizeDashboardNavigationPath(fallback.path));
     return {
       ...(configured ?? fallback),
-      label: configured?.label ?? DASHBOARD_NAVIGATION_LABELS[routeId] ?? fallback.label,
+      label: translate
+        ? translate(DASHBOARD_NAVIGATION_TRANSLATION_KEYS[routeId])
+        : configured?.label ?? DASHBOARD_NAVIGATION_LABELS[routeId] ?? fallback.label,
     };
   });
 }

@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.1.0-beta.14 - 2026-09-07
+
+### Added
+
+- Essential multilingual experience in Italian, English, and French, with the
+  initial language detected from Home Assistant or the browser and an explicit
+  per-device language selector in Profile.
+- Complete translations for onboarding and reconnection, Home, Rooms,
+  Settings, App Library, and the Irrigation workspace, including their nested
+  pages, dialogs, empty states, errors, and accessible labels.
+- Localized `Coming soon` protection for routes that are not ready to offer a
+  consistent translated experience yet.
+- English release notes generated automatically for GitHub and the HACS update
+  preview, plus a French Home Assistant Config Flow translation.
+
+### Improved
+
+- Home Assistant entity states, dates, times, and numbers now follow the active
+  language without changing user-defined entity, device, area, or person names.
+- Apple devices now use the native system font stack consistently with Windows
+  and Android.
+- App Library and Irrigation navigation, configuration, calendar, consumption,
+  zone management, and demo previews now share the same localization contract.
+- Release checks now audit untranslated strings and test a deterministic Italian
+  browser locale while retaining explicit English and French coverage.
+
+### Fixed
+
+- Compatibility with Home Assistant versions that do not expose
+  `frontend.async_panel_exists` through the same API.
+- Tablet navigation no longer maps the App Library icon to the Home route when
+  the sidebar switches to its compact layout.
+- Legacy test selectors and accessibility contracts now follow the localized
+  navigation and control labels.
+
 ## 0.1.0-beta.13 - 2026-09-01
 
 ### Added

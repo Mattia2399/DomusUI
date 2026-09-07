@@ -2,6 +2,7 @@ import React from 'react';
 import { Area, AreaChart, Bar, BarChart, Line, LineChart, ResponsiveContainer } from 'recharts';
 import type { MicroWidget } from '../../../types/dashboardModels';
 import type { MockEntityState } from '../../../types/ha';
+import { useI18n } from '../../../i18n/I18nProvider';
 
 type MicroSuperChartProps = {
   widget: MicroWidget;
@@ -105,6 +106,7 @@ function renderChart(type: 'line' | 'area' | 'bar', data: ChartPoint[]) {
 }
 
 export function MicroSuperChart({ widget, state, history }: MicroSuperChartProps) {
+  const { t } = useI18n();
   const label = widget.label?.trim() || state?.rawAttributes?.friendly_name?.toString() || widget.entity;
   const unit =
     (state?.unit ?? state?.rawAttributes?.unit_of_measurement ?? state?.rawAttributes?.native_unit_of_measurement)?.toString() ??
@@ -127,7 +129,7 @@ export function MicroSuperChart({ widget, state, history }: MicroSuperChartProps
               {renderChart(chartType, series)}
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-[11px] text-[color:var(--ui-text-tertiary)]">Nessun dato</div>
+            <div className="flex h-full w-full items-center justify-center text-[11px] text-[color:var(--ui-text-tertiary)]">{t('card.noData')}</div>
           )}
         </div>
       </div>

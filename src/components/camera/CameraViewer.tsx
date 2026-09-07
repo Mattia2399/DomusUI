@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import GlassModal from '../ui/GlassModal';
 import CameraPtzJoystick, { type CameraPtzDirection } from './CameraPtzJoystick';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type CameraViewerItem = {
   entityId: string;
@@ -60,6 +61,7 @@ export function CameraViewer({
   onPtzMove,
   onPtzStop,
 }: CameraViewerProps) {
+  const { t } = useI18n();
   const stageRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -116,7 +118,7 @@ export function CameraViewer({
     else onClose();
   }, [activeEntityId, cameras, isOpen, onActiveEntityChange, onClose]);
 
-  const cameraPositionLabel = cameras.length > 1 ? `${activeIndex + 1} di ${cameras.length}` : undefined;
+  const cameraPositionLabel = cameras.length > 1 ? t('camera.viewer.position', { current: activeIndex + 1, total: cameras.length }) : undefined;
   const statusDescription = useMemo(() => {
     if (!activeCamera) return undefined;
     return [activeCamera.statusLabel, activeCamera.subtitle, cameraPositionLabel].filter(Boolean).join(' · ');
@@ -133,7 +135,7 @@ export function CameraViewer({
     setIsPaused(nextPaused);
     if (activeVideoUrl && videoRef.current) {
       if (nextPaused) videoRef.current.pause();
-      else void videoRef.current.play().catch(() => setFeedback('Riproduzione non disponibile'));
+      else void videoRef.current.play().catch(() => setFeedback(t('camera.viewer.playbackUnavailable')));
     }
   };
 
@@ -141,7 +143,7 @@ export function CameraViewer({
     setStreamFailed(false);
     setSnapshotFailed(false);
     setRefreshNonce(Date.now());
-    setFeedback('Anteprima aggiornata');
+    setFeedback(t('camera.viewer.refreshed'));
   };
 
   const toggleNativeFullscreen = async () => {
@@ -151,14 +153,14 @@ export function CameraViewer({
       if (document.fullscreenElement) await document.exitFullscreen?.();
       else await target.requestFullscreen?.();
     } catch {
-      setFeedback('Schermo intero non disponibile in questo browser');
+      setFeedback(t('camera.viewer.fullscreenUnavailable'));
     }
   };
 
   const downloadSnapshot = async () => {
     const url = activeCamera?.snapshotUrl ?? activeCamera?.streamUrl;
     if (!url || !activeCamera || isSnapshotBusy) {
-      setFeedback('Snapshot non disponibile');
+      setFeedback(t('camera.viewer.snapshotUnavailable'));
       return;
     }
     setIsSnapshotBusy(true);
@@ -173,9 +175,9 @@ export function CameraViewer({
       link.rel = 'noopener';
       link.click();
       URL.revokeObjectURL(objectUrl);
-      setFeedback('Snapshot salvato');
+      setFeedback(t('camera.viewer.snapshotSaved'));
     } catch {
-      setFeedback('Snapshot non disponibile');
+      setFeedback(t('camera.viewer.snapshotUnavailable'));
     } finally {
       setIsSnapshotBusy(false);
     }
@@ -199,12 +201,12 @@ export function CameraViewer({
     <GlassModal
       isOpen={isOpen}
       onClose={onClose}
-      eyebrow="Videosorveglianza"
-      title={activeCamera?.name ?? 'Telecamera'}
+      eyebrow={t('camera.viewer.eyebrow')}
+      title={activeCamera?.name ?? t('camera.fallback')}
       description={statusDescription}
       variant="fullscreen"
       zIndex={310}
-      closeLabel="Chiudi telecamera"
+      closeLabel={t('camera.viewer.close')}
       panelClassName="bg-[color:var(--ui-page-bg)]"
       bodyClassName="flex min-h-0 flex-1 overflow-hidden rounded-[1.5rem] bg-black p-0 sm:rounded-[2rem]"
     >
@@ -223,7 +225,7 @@ export function CameraViewer({
           ) : (
             <img
               src={visualUrl}
-              alt={`Anteprima ${activeCamera.name}`}
+              alt={t('camera.viewer.previewAlt', { name: activeCamera.name })}
               className="absolute inset-0 h-full w-full object-contain"
               onError={() => {
                 if (activeStreamUrl) setStreamFailed(true);
@@ -234,8 +236,8 @@ export function CameraViewer({
         ) : (
           <div className="flex max-w-sm flex-col items-center px-6 text-center text-white/62">
             {activeCamera?.isOffline ? <WifiOff className="h-10 w-10" /> : <Camera className="h-10 w-10" />}
-            <p className="mt-4 text-sm font-semibold text-white/84">{activeCamera?.isOffline ? 'Telecamera non raggiungibile' : 'Anteprima non disponibile'}</p>
-            <p className="mt-1 text-xs leading-relaxed text-white/48">Controlla lo stato della camera e la connessione con Home Assistant.</p>
+            <p className="mt-4 text-sm font-semibold text-white/84">{activeCamera?.isOffline ? t('camera.events.cameraOffline') : t('camera.viewer.previewUnavailable')}</p>
+            <p className="mt-1 text-xs leading-relaxed text-white/48">{t('camera.viewer.checkConnection')}</p>
           </div>
         )}
 
@@ -243,8 +245,8 @@ export function CameraViewer({
 
         {cameras.length > 1 ? (
           <>
-            <button type="button" className={`${controlClass} absolute left-3 top-1/2 z-20 -translate-y-1/2 sm:left-5`} onClick={() => selectRelativeCamera(-1)} aria-label="Telecamera precedente"><ChevronLeft size={20} /></button>
-            <button type="button" className={`${controlClass} absolute right-3 top-1/2 z-20 -translate-y-1/2 sm:right-5`} onClick={() => selectRelativeCamera(1)} aria-label="Telecamera successiva"><ChevronRight size={20} /></button>
+            <button type="button" className={`${controlClass} absolute left-3 top-1/2 z-20 -translate-y-1/2 sm:left-5`} onClick={() => selectRelativeCamera(-1)} aria-label={t('camera.viewer.previous')}><ChevronLeft size={20} /></button>
+            <button type="button" className={`${controlClass} absolute right-3 top-1/2 z-20 -translate-y-1/2 sm:right-5`} onClick={() => selectRelativeCamera(1)} aria-label={t('camera.viewer.next')}><ChevronRight size={20} /></button>
           </>
         ) : null}
 
@@ -256,13 +258,13 @@ export function CameraViewer({
 
         <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-1.5 overflow-x-auto rounded-full border border-white/12 bg-black/28 p-1.5 shadow-[0_14px_38px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
           {canUseAudio ? (
-            <button type="button" className={controlClass} onClick={() => setIsMuted((value) => !value)} aria-label={isMuted ? 'Attiva audio' : 'Disattiva audio'}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
+          <button type="button" className={controlClass} onClick={() => setIsMuted((value) => !value)} aria-label={isMuted ? t('camera.preview.audioOn') : t('camera.preview.audioOff')}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
           ) : null}
-          <button type="button" className={controlClass} onClick={togglePlayback} disabled={!activeCamera || activeCamera.isOffline || (!activeCamera.streamUrl && !activeCamera.videoUrl)} aria-label={isPaused ? 'Riproduci' : 'Pausa'}>{isPaused ? <Play size={16} /> : <Pause size={16} />}</button>
-          {activeCamera?.supportsPtz ? <button type="button" className={controlClass} onClick={() => setIsPtzVisible((value) => !value)} disabled={!canUsePtz} aria-label={isPtzVisible ? 'Nascondi controllo PTZ' : 'Mostra controllo PTZ'}><SlidersHorizontal size={16} /></button> : null}
-          <button type="button" className={controlClass} onClick={refreshVisual} disabled={!activeCamera || activeCamera.isOffline} aria-label="Aggiorna anteprima"><RefreshCw size={16} /></button>
-          <button type="button" className={controlClass} onClick={() => void downloadSnapshot()} disabled={!activeCamera || activeCamera.isOffline || isSnapshotBusy} aria-label="Salva snapshot"><Download size={16} /></button>
-          <button type="button" className={controlClass} onClick={() => void toggleNativeFullscreen()} aria-label="Schermo intero nativo"><Expand size={16} /></button>
+          <button type="button" className={controlClass} onClick={togglePlayback} disabled={!activeCamera || activeCamera.isOffline || (!activeCamera.streamUrl && !activeCamera.videoUrl)} aria-label={isPaused ? t('camera.preview.play') : t('camera.preview.pause')}>{isPaused ? <Play size={16} /> : <Pause size={16} />}</button>
+          {activeCamera?.supportsPtz ? <button type="button" className={controlClass} onClick={() => setIsPtzVisible((value) => !value)} disabled={!canUsePtz} aria-label={isPtzVisible ? t('camera.preview.hidePtz') : t('camera.preview.showPtz')}><SlidersHorizontal size={16} /></button> : null}
+          <button type="button" className={controlClass} onClick={refreshVisual} disabled={!activeCamera || activeCamera.isOffline} aria-label={t('camera.viewer.refresh')}><RefreshCw size={16} /></button>
+          <button type="button" className={controlClass} onClick={() => void downloadSnapshot()} disabled={!activeCamera || activeCamera.isOffline || isSnapshotBusy} aria-label={t('camera.viewer.saveSnapshot')}><Download size={16} /></button>
+          <button type="button" className={controlClass} onClick={() => void toggleNativeFullscreen()} aria-label={t('camera.viewer.nativeFullscreen')}><Expand size={16} /></button>
         </div>
 
         {feedback ? <div role="status" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-white/12 bg-black/42 px-4 py-2 text-xs font-semibold text-white/80 shadow-[0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-2xl">{feedback}</div> : null}

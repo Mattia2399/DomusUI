@@ -4,6 +4,7 @@ import GlassSlider from '../ui/GlassSlider';
 import type { CoverCardModel } from './coverCardModel';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import './CoverCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type CoverCardViewProps = {
   model: CoverCardModel;
@@ -68,6 +69,7 @@ export function CoverCardView({
   onStopCover,
   onCloseCover,
 }: CoverCardViewProps) {
+  const { t } = useI18n();
   const [controlMode, setControlMode] = useState<CoverCardControlMode>('position');
   const [draftPosition, setDraftPosition] = useState<number | null>(null);
   const pointerActiveRef = useRef(false);
@@ -101,7 +103,7 @@ export function CoverCardView({
   );
   const subtitle =
     model.isAvailable
-      ? `${model.stateLabel} • ${model.position}% apertura`
+      ? `${model.stateLabel} • ${t('card.openingPercent', { value: model.position })}`
       : model.stateLabel;
 
   useEffect(() => {
@@ -123,7 +125,7 @@ export function CoverCardView({
   };
 
   const renderTiltSegments = () => (
-    <div className="cover-card__tilt-segments" role="group" aria-label={`Inclinazione lamelle ${model.title}`}>
+    <div className="cover-card__tilt-segments" role="group" aria-label={t('card.editTilt', { name: model.title })}>
       {TILT_PRESETS.map((option) => {
         const active = option.value === activeTiltPreset.value;
         return (
@@ -137,7 +139,7 @@ export function CoverCardView({
               onTiltPositionChange?.(option.value);
             }}
             aria-pressed={active}
-            aria-label={`Imposta inclinazione lamelle a ${option.ariaLabel}`}
+            aria-label={t('controls.cover.setTilt', { degrees: option.ariaLabel })}
           >
             {option.label}
           </button>
@@ -158,8 +160,8 @@ export function CoverCardView({
         step={COVER_POSITION_STEP}
         value={sliderInputValue}
         disabled={!canUsePosition}
-        aria-label={`Posizione ${model.title}`}
-        aria-valuetext={`${sliderValue}% apertura`}
+        aria-label={t('card.editPositionAria', { name: model.title })}
+        aria-valuetext={t('card.openingPercent', { value: sliderValue })}
         onPointerDown={(event) => {
           event.stopPropagation();
           pointerActiveRef.current = true;
@@ -197,7 +199,7 @@ export function CoverCardView({
   );
 
   const renderQuickActions = () => (
-    <div className="cover-card__quick-actions" role="group" aria-label={`Comandi rapidi ${model.title}`}>
+    <div className="cover-card__quick-actions" role="group" aria-label={t('card.quickCommands', { name: model.title })}>
       <button
         type="button"
         className="cover-card__quick-action"
@@ -208,7 +210,7 @@ export function CoverCardView({
           onOpenCover?.();
         }}
       >
-        Apri
+        {t('controls.cover.open')}
       </button>
       <button
         type="button"
@@ -220,7 +222,7 @@ export function CoverCardView({
           onStopCover?.();
         }}
       >
-        Stop
+        {t('controls.cover.stop')}
       </button>
       <button
         type="button"
@@ -232,7 +234,7 @@ export function CoverCardView({
           onCloseCover?.();
         }}
       >
-        Chiudi
+        {t('controls.cover.close')}
       </button>
     </div>
   );
@@ -278,12 +280,12 @@ export function CoverCardView({
               setDraftPosition(null);
               setControlMode((current) => current === 'position' ? 'tilt' : 'position');
             }}
-            aria-label={controlMode === 'position' ? 'Passa al controllo lamelle' : 'Torna al controllo posizione'}
-            title={controlMode === 'position' ? 'Lamelle' : 'Posizione'}
+            aria-label={t(controlMode === 'position' ? 'card.editSlats' : 'card.editPosition')}
+            title={controlMode === 'position' ? t('card.slats') : t('card.cover.position')}
           >
             {controlMode === 'position' ? <Blinds /> : <SlidersHorizontal />}
             <span className="cover-card__mode-label">
-              {controlMode === 'position' ? 'Lamelle' : 'Posizione'}
+              {controlMode === 'position' ? t('card.slats') : t('card.cover.position')}
             </span>
           </button>
         ) : null}
@@ -327,7 +329,7 @@ export function CoverCardView({
               onOpen();
             }
           }}
-          aria-label={`Configura ${model.title}`}
+          aria-label={t('card.configure', { name: model.title })}
         />
       ) : null}
     </div>

@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
+import { useI18n } from '../../i18n/I18nProvider';
 
 const REPOSITORY_URL = 'https://github.com/Mattia2399/DomusUI';
 
@@ -78,19 +79,20 @@ function ChannelCard({
   );
 }
 
-function connectionLabel(status: HaConnectionStatus) {
-  if (status === 'connected') return 'Home Assistant connesso';
-  if (status === 'connecting' || status === 'reconnecting') return 'Connessione in corso';
-  if (status === 'reauth_required') return 'Nuovo accesso richiesto';
-  return 'Home Assistant non connesso';
-}
-
 export default function SupportFeedbackSection({
   appVersion,
   haStatus,
   onDownloadDiagnostics,
   diagnosticsFeedback,
 }: SupportFeedbackSectionProps) {
+  const { t } = useI18n();
+  const connectionLabel = haStatus === 'connected'
+    ? t('settings.support.connected')
+    : haStatus === 'connecting' || haStatus === 'reconnecting'
+      ? t('settings.support.connecting')
+      : haStatus === 'reauth_required'
+        ? t('settings.support.reauth')
+        : t('settings.support.disconnected');
   return (
     <div className="space-y-4 sm:space-y-5">
       <section className="dashboard-content-surface relative overflow-hidden rounded-[1.65rem] p-5 sm:p-7">
@@ -101,22 +103,21 @@ export default function SupportFeedbackSection({
         <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="max-w-2xl">
             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
-              Domus UI · beta pubblica
+              {t('settings.support.publicBeta')}
             </p>
             <h2 className="mt-2 text-xl font-semibold tracking-[-0.035em] sm:text-2xl">
-              Il tuo feedback costruisce la prossima versione
+              {t('settings.support.heroTitle')}
             </h2>
             <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              Scegli il canale corretto: i problemi riproducibili diventano issue, mentre idee e
-              domande restano conversazioni aperte alla community.
+              {t('settings.support.heroDescription')}
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2 sm:max-w-[15rem] sm:justify-end">
             <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
-              Versione {appVersion}
+              {t('settings.preview.version', { version: appVersion })}
             </span>
             <span className="inline-flex min-h-8 items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
-              {connectionLabel(haStatus)}
+              {connectionLabel}
             </span>
           </div>
         </div>
@@ -125,30 +126,30 @@ export default function SupportFeedbackSection({
       <div className="grid gap-4 md:grid-cols-2">
         <ChannelCard
           icon={Bug}
-          eyebrow="Problemi"
-          title="Segnala un bug"
-          description="Usa il modulo guidato per descrivere il problema, i passaggi per riprodurlo e il dispositivo coinvolto."
+          eyebrow={t('settings.support.problems')}
+          title={t('settings.support.reportBug')}
+          description={t('settings.support.reportBugDescription')}
         >
           <SupportLink
             href={`${REPOSITORY_URL}/issues/new?template=bug_report.yml`}
-            label="Apri una segnalazione"
+            label={t('settings.support.openReport')}
           />
-          <SupportLink href={`${REPOSITORY_URL}/issues`} label="Controlla i bug noti" />
+          <SupportLink href={`${REPOSITORY_URL}/issues`} label={t('settings.support.knownBugs')} />
         </ChannelCard>
 
         <ChannelCard
           icon={MessagesSquare}
-          eyebrow="Community"
-          title="Idee e domande"
-          description="Proponi una funzione, confrontati su un flusso o chiedi aiuto senza trasformare subito la conversazione in un bug."
+          eyebrow={t('settings.support.community')}
+          title={t('settings.support.ideasQuestions')}
+          description={t('settings.support.ideasDescription')}
         >
           <SupportLink
             href={`${REPOSITORY_URL}/discussions/new?category=ideas`}
-            label="Proponi un’idea"
+            label={t('settings.support.proposeIdea')}
           />
           <SupportLink
             href={`${REPOSITORY_URL}/discussions/new?category=q-a`}
-            label="Chiedi aiuto"
+            label={t('settings.support.askHelp')}
           />
         </ChannelCard>
       </div>
@@ -161,12 +162,11 @@ export default function SupportFeedbackSection({
             </span>
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-tertiary)]">
-                Diagnostica locale
+                {t('settings.support.localDiagnostics')}
               </p>
-              <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em]">Allega un contesto sicuro</h2>
+              <h2 className="mt-1 text-lg font-semibold tracking-[-0.025em]">{t('settings.support.safeContext')}</h2>
               <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                Il file contiene versione, stato della connessione e soli conteggi aggregati. Non
-                include token, PIN, URL, nomi di entità, stanze o valori della casa.
+                {t('settings.support.diagnosticsDescription')}
               </p>
             </div>
           </div>
@@ -177,11 +177,11 @@ export default function SupportFeedbackSection({
               className="liquid-glass-selection flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[color:var(--ui-border-strong)] px-4 text-sm font-semibold"
             >
               <FileJson size={16} aria-hidden="true" />
-              Scarica diagnostica
+              {t('settings.advanced.downloadDiagnostics')}
             </button>
             <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
               <LockKeyhole size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-              Il download resta sul dispositivo e non viene inviato automaticamente.
+              {t('settings.support.localDownload')}
             </p>
             {diagnosticsFeedback ? (
               <p role="status" className="mt-2 text-xs font-medium text-emerald-500">
@@ -197,24 +197,23 @@ export default function SupportFeedbackSection({
           <div className="flex max-w-2xl items-start gap-3.5">
             <ShieldAlert size={21} className="mt-0.5 shrink-0 text-rose-500" aria-hidden="true" />
             <div>
-              <h2 className="font-semibold text-[color:var(--ui-text-primary)]">Problema di sicurezza?</h2>
+              <h2 className="font-semibold text-[color:var(--ui-text-primary)]">{t('settings.support.securityIssue')}</h2>
               <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                Non pubblicare vulnerabilità, token o dati sensibili nelle issue. Invia una
-                segnalazione privata direttamente ai maintainer.
+                {t('settings.support.securityDescription')}
               </p>
             </div>
           </div>
           <SupportLink
             href={`${REPOSITORY_URL}/security/advisories/new`}
-            label="Segnala in privato"
+            label={t('settings.support.reportPrivately')}
             tone="danger"
           />
         </div>
       </section>
 
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-1 text-xs text-[color:var(--ui-text-secondary)]">
-        <span className="inline-flex items-center gap-1.5"><HelpCircle size={14} /> Supporto pubblico e trasparente</span>
-        <span className="inline-flex items-center gap-1.5"><Lightbulb size={14} /> Idee discusse prima dello sviluppo</span>
+        <span className="inline-flex items-center gap-1.5"><HelpCircle size={14} /> {t('settings.support.publicTransparent')}</span>
+        <span className="inline-flex items-center gap-1.5"><Lightbulb size={14} /> {t('settings.support.ideasFirst')}</span>
       </div>
     </div>
   );

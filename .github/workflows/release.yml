@@ -44,9 +44,14 @@ jobs:
       - name: Create release packages
         run: npm run release:package
 
+      - name: Create English release notes
+        run: npm run release:notes
+
       - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
+          name: Domus UI ${{ github.ref_name }}
+          body_path: release-artifacts/RELEASE_NOTES.md
           generate_release_notes: true
           # HACS excludes GitHub prereleases unless every user enables beta
           # versions. Domus UI keeps the beta channel explicit in the SemVer

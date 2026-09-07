@@ -17,6 +17,8 @@ import type { DashboardStateShape } from '../../hooks/useDashboardState';
 import { getWeatherVisual } from '../../utils/weatherVisual';
 import { AnimatedWeatherIcon } from '../widgets/AnimatedWeatherIcon';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 type WeatherControlsProps = {
   weather: DashboardStateShape['weather'];
@@ -76,13 +78,13 @@ function toDateValue(value: unknown): Date | undefined {
   return undefined;
 }
 
-function formatClock(value: unknown) {
+function formatClock(value: unknown, locale: string) {
   const date = toDateValue(value);
   if (!date) {
     return '--:--';
   }
   try {
-    return new Intl.DateTimeFormat('it-IT', {
+    return new Intl.DateTimeFormat(locale, {
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
@@ -97,13 +99,15 @@ function normalizeForecastLabel(
   isDaytime: boolean | undefined,
   index: number,
   forecastType: 'daily' | 'hourly' | 'twice_daily',
+  locale: string,
+  t: (key: TranslationKey, parameters?: Record<string, string | number>) => string,
 ) {
   if (forecastType === 'hourly') {
     if (datetime) {
       const parsed = new Date(datetime);
       if (Number.isFinite(parsed.getTime())) {
         try {
-          return new Intl.DateTimeFormat('it-IT', { hour: '2-digit' }).format(parsed);
+          return new Intl.DateTimeFormat(locale, { hour: '2-digit' }).format(parsed);
         } catch {
           return `${String(parsed.getHours()).padStart(2, '0')}:00`;
         }
@@ -117,53 +121,53 @@ function normalizeForecastLabel(
       const parsed = new Date(datetime);
       if (Number.isFinite(parsed.getTime())) {
         try {
-          const day = new Intl.DateTimeFormat('it-IT', { weekday: 'short' }).format(parsed);
-          const slot = isDaytime === undefined ? '' : isDaytime ? ' Giorno' : ' Notte';
+          const day = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(parsed);
+          const slot = isDaytime === undefined ? '' : isDaytime ? ` ${t('controls.weather.day')}` : ` ${t('controls.weather.night')}`;
           return `${day}${slot}`;
         } catch {
-          return isDaytime === false ? 'Notte' : 'Giorno';
+          return isDaytime === false ? t('controls.weather.night') : t('controls.weather.day');
         }
       }
     }
     if (index === 0) {
-      return 'Oggi Giorno';
+      return t('controls.weather.todayDay');
     }
-    return isDaytime === false ? 'Notte' : `Slot ${index + 1}`;
+    return isDaytime === false ? t('controls.weather.night') : t('controls.weather.slot', { count: index + 1 });
   }
 
   const raw = (label ?? '').trim();
   if (raw.length > 0) {
     if (index === 0) {
-      return 'Oggi';
+      return t('controls.weather.today');
     }
     return raw.length > 4 ? raw.slice(0, 3) : raw;
   }
   if (index === 0) {
-    return 'Oggi';
+    return t('controls.weather.today');
   }
   try {
     const day = new Date();
     day.setDate(day.getDate() + index);
-    return new Intl.DateTimeFormat('it-IT', { weekday: 'short' }).format(day);
+    return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(day);
   } catch {
     return `G${index + 1}`;
   }
 }
 
-function uvDescriptor(value: number) {
+function uvDescriptor(value: number, t: (key: TranslationKey) => string) {
   if (value <= 2) {
-    return 'Basso';
+    return t('controls.weather.uv.low');
   }
   if (value <= 5) {
-    return 'Moderato';
+    return t('controls.weather.uv.moderate');
   }
   if (value <= 7) {
-    return 'Alto';
+    return t('controls.weather.uv.high');
   }
   if (value <= 10) {
-    return 'Molto alto';
+    return t('controls.weather.uv.veryHigh');
   }
-  return 'Estremo';
+  return t('controls.weather.uv.extreme');
 }
 
 function getPanelAtmosphere(condition: string | undefined) {
@@ -229,6 +233,7 @@ export function WeatherControlsPanel({
   showPrecipitation = true,
   showWind = true,
 }: WeatherControlsProps) {
+  const { t, locale } = useI18n();
   const [selectedForecastIndex, setSelectedForecastIndex] = React.useState(0);
   const condition = conditionOverride ?? weather.condition;
   const visual = getWeatherVisual(condition);
@@ -267,8 +272,8 @@ export function WeatherControlsPanel({
   const windBearingValue = formatBearing(
     (readFirst(attrs, ['wind_bearing']) as string | number | undefined) ?? weather.windBearing,
   );
-  const sunriseValue = formatClock(readFirst(attrs, ['sunrise', 'next_rising', 'next_dawn']));
-  const sunsetValue = formatClock(readFirst(attrs, ['sunset', 'next_setting', 'next_dusk']));
+  const sunriseValue = formatClock(readFirst(attrs, ['sunrise', 'next_rising', 'next_dawn']), locale);
+  const sunsetValue = formatClock(readFirst(attrs, ['sunset', 'next_setting', 'next_dusk']), locale);
 
   const forecastCount = Math.max(1, Math.min(8, forecastDays ?? 5));
   const forecast = weather.forecast.slice(0, forecastCount);
@@ -287,12 +292,12 @@ export function WeatherControlsPanel({
             <CloudOff size={26} strokeWidth={1.6} aria-hidden="true" />
           </span>
           <h2 className="mt-4 text-lg font-semibold text-[color:var(--ui-text-primary)]">
-            {isOffline ? 'Meteo non disponibile' : 'Meteo non configurato'}
+            {isOffline ? t('controls.weather.unavailable') : t('controls.weather.notConfigured')}
           </h2>
           <p className="mt-1 max-w-xs text-sm text-[color:var(--ui-text-secondary)]">
             {isOffline
-              ? 'Riconnetti Home Assistant per aggiornare condizioni e previsioni.'
-              : 'Seleziona un’entità weather.* nelle impostazioni della sezione per mostrare condizioni e previsioni reali.'}
+              ? t('controls.weather.offlineDescription')
+              : t('controls.weather.selectEntityDescription')}
           </p>
         </div>
       </div>
@@ -312,14 +317,12 @@ export function WeatherControlsPanel({
 
   const forecastTitle =
     forecast.length === 0
-      ? 'PREVISIONI NON DISPONIBILI'
+      ? t('controls.weather.forecastUnavailable')
       : forecastType === 'hourly'
-      ? `PREVISIONI ${forecast.length} ORE`
+      ? t('controls.weather.forecastHours', { count: forecast.length })
       : forecastType === 'twice_daily'
-        ? `PREVISIONI ${forecast.length} SLOT`
-        : forecast.length === 5
-          ? 'PREVISIONI 5 GIORNI'
-          : `PREVISIONI ${forecast.length} GIORNI`;
+        ? t('controls.weather.forecastSlots', { count: forecast.length })
+        : t('controls.weather.forecastDays', { count: forecast.length });
 
   return (
     <div className={CONTEXT_PANEL_LAYOUT.shell}>
@@ -346,7 +349,7 @@ export function WeatherControlsPanel({
         <p className="mb-3 text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{forecastTitle}</p>
         {forecast.length === 0 ? (
           <p className="text-sm text-[color:var(--ui-text-secondary)]">
-            Home Assistant non ha restituito previsioni per questa entità.
+            {t('controls.weather.noForecast')}
           </p>
         ) : (
           <div className="flex items-start justify-between gap-2">
@@ -359,6 +362,8 @@ export function WeatherControlsPanel({
               entry.isDaytime,
               index,
               forecastType,
+              locale,
+              t,
             );
             return (
               <div key={`${entry.label}-${index}`} className="flex min-w-0 flex-1 flex-col items-center text-center">
@@ -385,7 +390,7 @@ export function WeatherControlsPanel({
 
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1`}>
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">VISIBILITA</p>
+          <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.metric.visibility')}</p>
           <div className="flex items-center gap-2 text-sm text-[color:var(--ui-text-secondary)]">
             <Eye size={15} />
             <span>{`${Math.round(visibilityValue)} ${visibilityUnit}`}</span>
@@ -402,23 +407,23 @@ export function WeatherControlsPanel({
       <div className="mb-1 grid grid-cols-2 gap-3">
         <WeatherMetricCard
           icon={<SunMedium size={15} />}
-          title="INDICE UV"
+          title={t('controls.weather.metric.uv')}
           value={`${uvValue}`}
-          subtext={uvDescriptor(uvValue)}
+          subtext={uvDescriptor(uvValue, t)}
         />
         <WeatherMetricCard
           icon={<Droplets size={15} />}
-          title="UMIDITA"
+          title={t('controls.weather.metric.humidity')}
           value={`${humidityValue}%`}
         />
         <WeatherMetricCard
           icon={<Flag size={15} />}
-          title="VENTO"
+          title={t('controls.weather.metric.wind')}
           value={showWind ? `${windValue} ${windUnit}` : '--'}
         />
         <WeatherMetricCard
           icon={<CloudRain size={15} />}
-          title="PIOGGIA"
+          title={t('controls.weather.metric.rain')}
           value={showPrecipitation ? `${rainProbabilityValue}%` : '--'}
           subtext={showPrecipitation ? `${rainAmountValue.toFixed(1)} ${precipUnit}` : undefined}
         />
@@ -427,36 +432,36 @@ export function WeatherControlsPanel({
       <div className="mb-1 grid grid-cols-2 gap-3">
         <WeatherMetricCard
           icon={<Gauge size={15} />}
-          title="PRESSIONE"
+          title={t('controls.weather.metric.pressure')}
           value={`${pressureValue} ${pressureUnit}`}
         />
         <WeatherMetricCard
           icon={<Cloud size={15} />}
-          title="NUVOLE"
+          title={t('controls.weather.metric.clouds')}
           value={`${cloudCoverageValue}%`}
         />
         <WeatherMetricCard
           icon={<Thermometer size={15} />}
-          title="DEW POINT"
+          title={t('controls.weather.metric.dewPoint')}
           value={formatTemp(dewPointValue)}
         />
         <WeatherMetricCard
           icon={<Wind size={15} />}
-          title="RAFFICHE"
+          title={t('controls.weather.metric.gusts')}
           value={`${windGustValue} ${windUnit}`}
-          subtext={`Dir. ${windBearingValue}`}
+          subtext={t('controls.weather.metric.direction', { value: windBearingValue })}
         />
       </div>
 
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1`}>
-        <p className="mb-3 text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">DETTAGLI SLOT SELEZIONATO</p>
+        <p className="mb-3 text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.slotDetails')}</p>
         <div className="grid grid-cols-2 gap-3 text-xs text-[color:var(--ui-text-secondary)]">
           <div className="dashboard-content-surface rounded-2xl p-3">
-            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Temperatura percepita</p>
+            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.apparentTemperature')}</p>
             <p className="mt-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">{formatTemp(selectedForecast?.apparentTemperature)}</p>
           </div>
           <div className="dashboard-content-surface rounded-2xl p-3">
-            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Precipitazioni</p>
+            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.precipitation')}</p>
             <p className="mt-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">
               {selectedForecast?.precipitationProbability === undefined
                 ? '--'
@@ -469,22 +474,22 @@ export function WeatherControlsPanel({
             </p>
           </div>
           <div className="dashboard-content-surface rounded-2xl p-3">
-            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Dew point / Umidita</p>
+            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.dewHumidity')}</p>
             <p className="mt-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">{`${formatTemp(selectedForecast?.dewPoint)} • ${selectedForecast?.humidity === undefined ? '--' : `${Math.round(selectedForecast.humidity)}%`}`}</p>
           </div>
           <div className="dashboard-content-surface rounded-2xl p-3">
-            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Pressione / UV</p>
+            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.pressureUv')}</p>
             <p className="mt-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">{`${selectedForecast?.pressure === undefined ? '--' : `${Math.round(selectedForecast.pressure)} ${pressureUnit}`} • ${selectedForecast?.uvIndex === undefined ? '--' : `${Math.round(selectedForecast.uvIndex)}`}`}</p>
           </div>
           <div className="dashboard-content-surface rounded-2xl p-3">
-            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Vento</p>
+            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.metric.wind')}</p>
             <p className="mt-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">{`${selectedForecast?.windSpeed === undefined ? '--' : `${Math.round(selectedForecast.windSpeed)} ${windUnit}`}`}</p>
-            <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">{`Raffiche ${selectedForecast?.windGustSpeed === undefined ? '--' : `${Math.round(selectedForecast.windGustSpeed)} ${windUnit}`}`}</p>
+            <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.gustValue', { value: selectedForecast?.windGustSpeed === undefined ? '--' : `${Math.round(selectedForecast.windGustSpeed)} ${windUnit}` })}</p>
           </div>
           <div className="dashboard-content-surface rounded-2xl p-3">
-            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Direzione / Slot</p>
-            <p className="mt-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">{`${formatBearing(selectedForecast?.windBearing)} • ${selectedForecast?.isDaytime === undefined ? '--' : selectedForecast.isDaytime ? 'Giorno' : 'Notte'}`}</p>
-            <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">{`${selectedForecast?.cloudCoverage === undefined ? '--' : `${Math.round(selectedForecast.cloudCoverage)}%`} nuvole`}</p>
+            <p className="uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.directionSlot')}</p>
+            <p className="mt-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">{`${formatBearing(selectedForecast?.windBearing)} • ${selectedForecast?.isDaytime === undefined ? '--' : selectedForecast.isDaytime ? t('controls.weather.day') : t('controls.weather.night')}`}</p>
+            <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">{t('controls.weather.cloudValue', { value: selectedForecast?.cloudCoverage === undefined ? '--' : `${Math.round(selectedForecast.cloudCoverage)}%` })}</p>
           </div>
         </div>
       </div>
@@ -494,14 +499,14 @@ export function WeatherControlsPanel({
           <div className="dashboard-content-surface rounded-2xl p-3">
             <div className="flex items-center gap-2 text-[color:var(--ui-text-secondary)]">
               <Sunrise size={15} />
-              <span className="text-[10px] uppercase tracking-[0.16em]">ALBA</span>
+              <span className="text-[10px] uppercase tracking-[0.16em]">{t('controls.weather.sunrise')}</span>
             </div>
             <p className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--ui-text-primary)]">{sunriseValue}</p>
           </div>
           <div className="dashboard-content-surface rounded-2xl p-3">
             <div className="flex items-center gap-2 text-[color:var(--ui-text-secondary)]">
               <Sunset size={15} />
-              <span className="text-[10px] uppercase tracking-[0.16em]">TRAMONTO</span>
+              <span className="text-[10px] uppercase tracking-[0.16em]">{t('controls.weather.sunset')}</span>
             </div>
             <p className="mt-2 text-xl font-semibold tracking-tight text-[color:var(--ui-text-primary)]">{sunsetValue}</p>
           </div>

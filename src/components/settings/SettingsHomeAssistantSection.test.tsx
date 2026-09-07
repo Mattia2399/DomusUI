@@ -1,8 +1,15 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import SettingsHomeAssistantSection from './SettingsHomeAssistantSection';
 
-afterEach(cleanup);
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+afterEach(() => {
+  cleanup();
+  window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
+});
 
 const baseProps = {
   appearance: 'dark' as const,
@@ -65,7 +72,7 @@ describe('SettingsHomeAssistantSection', () => {
     expect(tokenInput.getAttribute('value')).toBe('');
     expect(screen.getByText('Salvato')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancella' }));
     expect(onTokenChange).toHaveBeenCalledWith('');
     expect(onRememberTokenChange).toHaveBeenCalledWith(false);
   });

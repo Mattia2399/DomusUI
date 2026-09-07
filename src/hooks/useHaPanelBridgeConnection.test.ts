@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isValidPanelRequestId,
   parsePanelBridgeCapabilities,
+  parsePanelLocale,
   resolvePanelBridgeHeartbeatStatus,
   validatePanelApiMessage,
   validatePanelServiceRequest,
@@ -127,5 +128,12 @@ describe('Home Assistant panel bridge schema', () => {
       42,
     ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker']);
     expect(parsePanelBridgeCapabilities(null)).toEqual([]);
+  });
+
+  it('reads the Home Assistant locale from both current and legacy payload shapes', () => {
+    expect(parsePanelLocale('en-GB')).toBe('en-GB');
+    expect(parsePanelLocale({ language: 'fr-FR' })).toBe('fr-FR');
+    expect(parsePanelLocale({ language: '' })).toBeNull();
+    expect(parsePanelLocale(null)).toBeNull();
   });
 });

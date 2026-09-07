@@ -1,14 +1,19 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../i18n/I18nProvider';
 import {
   DashboardSecurityProvider,
   createDashboardSecurityValue,
 } from '../security/dashboardAccess';
 import SettingsDashboard from './SettingsDashboard';
 
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+
 beforeEach(() => {
   vi.stubGlobal('__APP_VERSION__', 'test');
   window.localStorage.clear();
+  window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
 });
 
 afterEach(() => {
@@ -46,6 +51,18 @@ const baseProps = {
 };
 
 describe('SettingsDashboard', () => {
+  it('renders the overview in English when selected on this device', () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Home settings' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Home\b/ })).toBeTruthy();
+  });
+
   it('uses a navigable bento overview for house settings', () => {
     const onNavigate = vi.fn();
     render(
@@ -143,7 +160,7 @@ describe('SettingsDashboard', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Avvisi e attenzione' })).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'Mostra Centro Attenzione' })).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Mostra il Centro Attenzione' })).toBeTruthy();
   });
 
   it('renders managed settings inside the routed page instead of opening a popup', () => {

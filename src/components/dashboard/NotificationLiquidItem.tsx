@@ -10,6 +10,8 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 export type DashboardNotification = {
   id: string;
@@ -29,7 +31,7 @@ type NotificationContextId =
   | 'system';
 
 type NotificationContextMeta = {
-  label: string;
+  labelKey: TranslationKey | null;
   Icon: LucideIcon;
   iconClassName: string;
   orbClassName: string;
@@ -38,65 +40,55 @@ type NotificationContextMeta = {
 
 const CONTEXT_META: Record<NotificationContextId, NotificationContextMeta> = {
   'home-assistant': {
-    label: 'Home Assistant',
+    labelKey: null,
     Icon: MonitorSmartphone,
     iconClassName: 'text-sky-500',
     orbClassName: 'border-sky-300/45 bg-sky-400/16 shadow-[0_14px_32px_rgba(14,165,233,0.22)]',
     ringClassName: 'bg-sky-400/18',
   },
   security: {
-    label: 'Sicurezza',
+    labelKey: 'notifications.context.security',
     Icon: ShieldCheck,
     iconClassName: 'text-rose-500',
     orbClassName: 'border-rose-300/45 bg-rose-400/16 shadow-[0_14px_32px_rgba(244,63,94,0.22)]',
     ringClassName: 'bg-rose-400/18',
   },
   automation: {
-    label: 'Automazioni',
+    labelKey: 'notifications.context.automation',
     Icon: Rocket,
     iconClassName: 'text-violet-500',
     orbClassName: 'border-violet-300/45 bg-violet-400/16 shadow-[0_14px_32px_rgba(139,92,246,0.22)]',
     ringClassName: 'bg-violet-400/18',
   },
   devices: {
-    label: 'Dispositivi',
+    labelKey: 'notifications.context.devices',
     Icon: Lightbulb,
     iconClassName: 'text-amber-500',
     orbClassName: 'border-amber-300/50 bg-amber-400/18 shadow-[0_14px_32px_rgba(245,158,11,0.22)]',
     ringClassName: 'bg-amber-400/18',
   },
   energy: {
-    label: 'Consumi',
+    labelKey: 'notifications.context.energy',
     Icon: BarChart3,
     iconClassName: 'text-emerald-500',
     orbClassName: 'border-emerald-300/45 bg-emerald-400/16 shadow-[0_14px_32px_rgba(16,185,129,0.22)]',
     ringClassName: 'bg-emerald-400/18',
   },
   home: {
-    label: 'Casa',
+    labelKey: 'notifications.context.home',
     Icon: Home,
     iconClassName: 'text-cyan-500',
     orbClassName: 'border-cyan-300/45 bg-cyan-400/16 shadow-[0_14px_32px_rgba(6,182,212,0.2)]',
     ringClassName: 'bg-cyan-400/18',
   },
   system: {
-    label: 'Sistema',
+    labelKey: 'notifications.context.system',
     Icon: Settings,
     iconClassName: 'text-slate-500',
     orbClassName: 'border-slate-300/45 bg-slate-400/16 shadow-[0_14px_32px_rgba(100,116,139,0.2)]',
     ringClassName: 'bg-slate-400/18',
   },
 };
-
-function formatNotificationTime(value: number | undefined) {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return '';
-  }
-  return new Intl.DateTimeFormat('it-IT', {
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(value);
-}
 
 export function resolveNotificationContext(notification: DashboardNotification): NotificationContextId {
   const message = notification.message?.toLowerCase() ?? '';
@@ -133,12 +125,15 @@ export function NotificationLiquidItem({
   onRead,
   onRemove,
 }: NotificationLiquidItemProps) {
+  const { t, formatDate } = useI18n();
   const notificationId = String(notification.id);
   const context = resolveNotificationContext(notification);
   const meta = CONTEXT_META[context] ?? CONTEXT_META.system;
   const Icon = meta.Icon;
-  const message = notification.message?.trim() || 'Hai una nuova notifica.';
-  const timeLabel = formatNotificationTime(notification.createdAt);
+  const message = notification.message?.trim() || t('notifications.item.default');
+  const timeLabel = typeof notification.createdAt === 'number' && Number.isFinite(notification.createdAt)
+    ? formatDate(notification.createdAt, { hour: '2-digit', minute: '2-digit' })
+    : '';
   const isRead = notification.read === true;
 
   return (
@@ -150,7 +145,7 @@ export function NotificationLiquidItem({
           type="button"
           onClick={() => onRead?.(notificationId)}
           className="flex min-h-[4.75rem] w-full items-center gap-3 py-3 pl-3 pr-12 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[color:var(--ui-focus-ring)]"
-          aria-label={`${isRead ? 'Apri' : 'Segna come letta'}: ${message}`}
+          aria-label={`${isRead ? t('notifications.item.open') : t('notifications.item.markRead')}: ${message}`}
         >
           <span
             className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border backdrop-blur-2xl ${meta.orbClassName}`}
@@ -162,11 +157,11 @@ export function NotificationLiquidItem({
           <span className="min-w-0 flex-1">
             <span className="flex min-w-0 items-center gap-2">
               <span className="truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)]">
-                {meta.label}
+                {meta.labelKey ? t(meta.labelKey) : 'Home Assistant'}
               </span>
               {notification.type === 'alert' ? (
                 <span className="shrink-0 rounded-full bg-[color:color-mix(in_srgb,var(--ui-danger)_14%,transparent)] px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--ui-danger)]">
-                  Avviso
+                  {t('notifications.item.alert')}
                 </span>
               ) : null}
               {!isRead ? (
@@ -192,7 +187,7 @@ export function NotificationLiquidItem({
               onRemove(notificationId);
             }}
             className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] text-[color:var(--ui-text-secondary)] shadow-[inset_0_1px_0_var(--ui-border)] backdrop-blur-xl transition-colors hover:bg-[color:var(--ui-fill-primary)] hover:text-[color:var(--ui-text-primary)]"
-            aria-label="Rimuovi notifica"
+            aria-label={t('notifications.item.remove')}
           >
             <X size={15} />
           </button>

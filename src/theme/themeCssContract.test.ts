@@ -21,6 +21,13 @@ function readComponentSources(directory: string): string[] {
 }
 
 describe('semantic theme CSS contract', () => {
+  it('uses the native operating-system font stack, including iOS WebKit', () => {
+    expect(css).toMatch(/--ui-font-system:\s*-apple-system,\s*BlinkMacSystemFont,\s*system-ui/);
+    expect(css).toContain('font-family: var(--ui-font-system)');
+    expect(css).toContain('-webkit-text-size-adjust: 100%');
+    expect(css).not.toContain('@font-face');
+  });
+
   it.each([
     '--ui-bg-canvas',
     '--ui-bg-elevated',

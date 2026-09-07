@@ -1,16 +1,24 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { BottomBarNav } from './BottomBarNav';
 
+const renderNavigation = (node: ReactElement) => render(node, { wrapper: I18nProvider });
+
 describe('BottomBarNav', () => {
-  afterEach(cleanup);
+  beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+  afterEach(() => {
+    cleanup();
+    window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
+  });
 
   it('uses the adaptive navigation material and exposes the active route', () => {
     window.history.replaceState({}, '', '/home');
     const onPathClick = vi.fn();
     const onPrefetchRoute = vi.fn();
 
-    const { container } = render(
+    const { container } = renderNavigation(
       <BottomBarNav
         isEditMode={false}
         quickPaths={[]}
@@ -34,7 +42,7 @@ describe('BottomBarNav', () => {
   it('uses the internal route when the dashboard runs inside the Home Assistant iframe', () => {
     window.history.replaceState({}, '', '/local/ha-dashboard-builder/index.html?dashboard_mode=embedded');
 
-    render(
+    renderNavigation(
       <BottomBarNav
         isEditMode={false}
         quickPaths={[]}
@@ -49,7 +57,7 @@ describe('BottomBarNav', () => {
   });
 
   it('exposes Settings as the active destination', () => {
-    render(
+    renderNavigation(
       <BottomBarNav
         isEditMode={false}
         quickPaths={[]}
@@ -60,7 +68,7 @@ describe('BottomBarNav', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Apri impostazioni' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'Apri Impostazioni' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Apri Dashboard' }).getAttribute('aria-current')).toBeNull();
   });
 });

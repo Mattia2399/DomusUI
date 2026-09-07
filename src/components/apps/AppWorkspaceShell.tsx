@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import { LogOut, type LucideIcon } from 'lucide-react';
 import clsx from 'clsx';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type AppWorkspaceNavigationItem = {
   id: string;
@@ -48,8 +49,10 @@ export function AppWorkspaceShell({
   mobileHeaderHidden = false,
   mobileBackInNavigation = false,
   mobileNavigationHidden = false,
-  backLabel = 'Torna a Domus UI',
+  backLabel,
 }: AppWorkspaceShellProps) {
+  const { t } = useI18n();
+  const resolvedBackLabel = backLabel ?? t('apps.shell.back');
   const shellStyle = {
     '--app-workspace-accent': accentColor,
   } as CSSProperties;
@@ -99,7 +102,7 @@ export function AppWorkspaceShell({
       <aside
         data-testid="app-workspace-sidebar"
         className="liquid-glass-panel relative z-50 hidden h-full min-h-0 w-[3.75rem] shrink-0 flex-col items-center py-5 md:flex lg:w-[4.25rem] 2xl:w-20 2xl:py-7"
-        aria-label={`${appName}, barra laterale`}
+        aria-label={t('apps.shell.sidebar', { app: appName })}
       >
         <div
           className="mb-6 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] shadow-[var(--ui-shadow-control)] 2xl:mb-10"
@@ -109,7 +112,7 @@ export function AppWorkspaceShell({
           <AppIcon className="h-[1.15rem] w-[1.15rem] text-[color:var(--app-workspace-accent)] 2xl:h-5 2xl:w-5" strokeWidth={1.9} />
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto hide-scrollbar 2xl:gap-6" aria-label={`Navigazione ${appName}`}>
+        <nav className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto hide-scrollbar 2xl:gap-6" aria-label={t('apps.shell.navigation', { app: appName })}>
           {primaryNavigationItems.map(renderDesktopNavigationItem)}
         </nav>
 
@@ -131,8 +134,8 @@ export function AppWorkspaceShell({
           type="button"
           onClick={onBack}
           className="group flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] hover:text-[color:var(--ui-text-primary)] 2xl:h-12 2xl:w-12 2xl:rounded-2xl"
-          aria-label={backLabel}
-          title={backLabel}
+          aria-label={resolvedBackLabel}
+          title={resolvedBackLabel}
         >
           <LogOut className="h-[1.15rem] w-[1.15rem] transition-transform group-hover:translate-x-0.5 2xl:h-5 2xl:w-5" />
         </button>
@@ -154,7 +157,7 @@ export function AppWorkspaceShell({
               'liquid-glass-control flex h-11 w-11 shrink-0 items-center justify-center rounded-full',
               mobileHeaderOverlay && '!border-white/25 !bg-black/20 !text-white',
             )}
-            aria-label={backLabel}
+            aria-label={resolvedBackLabel}
           >
             <LogOut className="h-[1.1rem] w-[1.1rem]" />
           </button> : null}
@@ -185,7 +188,7 @@ export function AppWorkspaceShell({
           {children}
         </main>
 
-        {!mobileNavigationHidden ? <nav className="liquid-glass-navigation absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.65rem)] z-30 grid min-h-14 grid-flow-col auto-cols-fr rounded-[1.35rem] p-1.5 md:hidden" aria-label={`Navigazione ${appName}`}>
+        {!mobileNavigationHidden ? <nav className="liquid-glass-navigation absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.65rem)] z-30 grid min-h-14 grid-flow-col auto-cols-fr rounded-[1.35rem] p-1.5 md:hidden" aria-label={t('apps.shell.navigation', { app: appName })}>
           {mobileNavigationItems.map((item) => {
             const ItemIcon = item.icon;
             const isActive = item.id === activeNavigationId;
@@ -214,11 +217,11 @@ export function AppWorkspaceShell({
             <button
               type="button"
               onClick={onBack}
-              aria-label={backLabel}
+              aria-label={resolvedBackLabel}
               className="flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-[1rem] px-1 py-1.5 text-[10px] font-semibold text-[color:var(--ui-text-secondary)] transition-all active:scale-95"
             >
               <LogOut className="h-[1.05rem] w-[1.05rem]" strokeWidth={2} />
-              <span className="max-w-full truncate">Libreria</span>
+              <span className="max-w-full truncate">{t('apps.shell.library')}</span>
             </button>
           ) : null}
         </nav> : null}

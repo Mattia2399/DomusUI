@@ -4,14 +4,9 @@ import { useNotifications } from '../../context/NotificationProvider';
 import DashboardSidePanel from '../ui/DashboardSidePanel';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
 import { NotificationLiquidItem } from './NotificationLiquidItem';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type NotificationFilter = 'all' | 'unread' | 'alert';
-
-const NOTIFICATION_FILTERS: Array<{ value: NotificationFilter; label: string }> = [
-  { value: 'all', label: 'Tutte' },
-  { value: 'unread', label: 'Non lette' },
-  { value: 'alert', label: 'Avvisi' },
-];
 
 type DashboardNotificationsPanelProps = {
   isOpen: boolean;
@@ -22,6 +17,12 @@ export function DashboardNotificationsPanel({
   isOpen,
   onClose,
 }: DashboardNotificationsPanelProps) {
+  const { t } = useI18n();
+  const notificationFilters: Array<{ value: NotificationFilter; label: string }> = [
+    { value: 'all', label: t('notifications.filter.all') },
+    { value: 'unread', label: t('notifications.filter.unread') },
+    { value: 'alert', label: t('notifications.filter.alerts') },
+  ];
   const [filter, setFilter] = React.useState<NotificationFilter>('all');
   const {
     notifications,
@@ -38,26 +39,33 @@ export function DashboardNotificationsPanel({
     return true;
   });
   const emptyTitle = notifications.length === 0
-    ? 'Nessuna notifica'
+    ? t('notifications.empty.none')
     : filter === 'unread'
-      ? 'Tutto letto'
+      ? t('notifications.empty.read')
       : filter === 'alert'
-        ? 'Nessun avviso'
-        : 'Nessuna notifica';
+        ? t('notifications.empty.alerts')
+        : t('notifications.empty.none');
   const emptyDescription = notifications.length === 0
-    ? 'Quando arriverà qualcosa di nuovo lo troverai qui.'
-    : 'Non ci sono elementi per il filtro selezionato.';
+    ? t('notifications.empty.description')
+    : t('notifications.empty.filtered');
+  const alertsSummary = alertCount > 0
+    ? ` · ${alertCount} ${t(alertCount === 1 ? 'notifications.status.alert.one' : 'notifications.status.alert.many')}`
+    : '';
 
   return (
     <DashboardSidePanel
       isOpen={isOpen}
       onClose={onClose}
-      eyebrow="Centro notifiche"
-      title="Notifiche"
+      eyebrow={t('notifications.eyebrow')}
+      title={t('notifications.title')}
       description={unreadCount > 0
-        ? `${unreadCount} non ${unreadCount === 1 ? 'letta' : 'lette'}${alertCount > 0 ? ` · ${alertCount} ${alertCount === 1 ? 'avviso' : 'avvisi'}` : ''}`
-        : 'Tutto aggiornato'}
-      closeLabel="Chiudi notifiche"
+        ? t('notifications.status.summary', {
+            unread: unreadCount,
+            readLabel: t(unreadCount === 1 ? 'notifications.status.read.one' : 'notifications.status.read.many'),
+            alerts: alertsSummary,
+          })
+        : t('notifications.status.updated')}
+      closeLabel={t('notifications.close')}
       zIndex={220}
       headerActions={
         <>
@@ -67,7 +75,7 @@ export function DashboardNotificationsPanel({
               onClick={markAllAsRead}
               className="liquid-glass-control h-10 rounded-full px-3 text-xs font-bold text-[color:var(--ui-text-primary)]"
             >
-              Segna lette
+              {t('notifications.markAllRead')}
             </button>
           ) : null}
           {notifications.length > 0 ? (
@@ -75,7 +83,7 @@ export function DashboardNotificationsPanel({
               type="button"
               onClick={clearNotifications}
               className="glass-icon-button h-10 w-10"
-              aria-label="Cancella tutte le notifiche"
+              aria-label={t('notifications.clearAll')}
             >
               <Trash2 size={16} />
             </button>
@@ -84,8 +92,8 @@ export function DashboardNotificationsPanel({
       }
       headerAfter={
         <GlassSegmentSelect<NotificationFilter>
-          ariaLabel="Filtra notifiche"
-          options={NOTIFICATION_FILTERS}
+          ariaLabel={t('notifications.filter.aria')}
+          options={notificationFilters}
           value={filter}
           onChange={setFilter}
           optionClassName="h-auto py-2 font-bold"

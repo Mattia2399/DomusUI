@@ -10,6 +10,7 @@ import { SensorHeroVisual } from './SensorHeroVisual';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
 import { BatteryLevelGlyph, parseBatteryPercentage } from './DeviceMetadataCard';
 import { DeviceTelemetryStrip, type DeviceTelemetryStripItem } from './DeviceTelemetryStrip';
+import { useI18n } from '../../i18n/I18nProvider';
 
 interface SensorControlsProps {
   name: string;
@@ -104,10 +105,11 @@ function normalizeTrendLinePoints(values: number[], width: number, height: numbe
 }
 
 function TrendLine({ values }: { values: number[] }) {
+  const { t } = useI18n();
   if (values.length < 2) {
     return (
       <div className="dashboard-content-surface-soft flex h-[clamp(8.5rem,28vw,10rem)] items-center justify-center rounded-[clamp(0.9rem,3vw,1rem)] p-[clamp(0.6rem,2.2vw,0.95rem)]">
-        <p className="text-[clamp(0.66rem,1.8vw,0.76rem)] text-[color:var(--ui-text-tertiary)]">Nessun dato storico disponibile</p>
+        <p className="text-[clamp(0.66rem,1.8vw,0.76rem)] text-[color:var(--ui-text-tertiary)]">{t('controls.common.noHistory')}</p>
       </div>
     );
   }
@@ -148,6 +150,7 @@ function TrendLine({ values }: { values: number[] }) {
 }
 
 function TrendBars({ values }: { values: number[] }) {
+  const { t } = useI18n();
   const normalizedHeights = useMemo(() => {
     if (values.length === 0) {
       return [];
@@ -164,7 +167,7 @@ function TrendBars({ values }: { values: number[] }) {
   if (normalizedHeights.length === 0) {
     return (
       <div className="dashboard-content-surface-soft flex h-[clamp(8.5rem,28vw,10rem)] items-center justify-center rounded-[clamp(0.9rem,3vw,1rem)] p-[clamp(0.6rem,2.2vw,0.95rem)]">
-        <p className="text-[clamp(0.66rem,1.8vw,0.76rem)] text-[color:var(--ui-text-tertiary)]">Nessun dato storico disponibile</p>
+        <p className="text-[clamp(0.66rem,1.8vw,0.76rem)] text-[color:var(--ui-text-tertiary)]">{t('controls.common.noHistory')}</p>
       </div>
     );
   }
@@ -232,6 +235,7 @@ export function SensorControlsPanel({
   connection,
   connectionState,
 }: SensorControlsProps) {
+  const { t } = useI18n();
   const sensorValue = formatSensorNumericValue(value, displayPrecision) ?? '—';
   const [historyHours, setHistoryHours] = useState<(typeof SENSOR_HISTORY_WINDOWS)[number]>(24);
   const hasSensorValue = typeof value === 'number' && Number.isFinite(value);
@@ -252,18 +256,18 @@ export function SensorControlsPanel({
       : null;
   const averageLabel =
     average !== null
-      ? `Media ${formatSensorNumericValue(average, displayPrecision)}${unit && unit.trim().length > 0 ? ` ${unit}` : ''}`
-      : 'Media --';
+      ? t('controls.sensor.average', { value: `${formatSensorNumericValue(average, displayPrecision)}${unit && unit.trim().length > 0 ? ` ${unit}` : ''}` })
+      : t('controls.sensor.noAverage');
   const batteryValue = battery && battery.trim().length > 0 ? battery : 'N/D';
   const resolvedConnectionState = connectionState ?? 'unknown';
   const connectionLabel =
     connection && connection.trim().length > 0
       ? connection.trim()
       : resolvedConnectionState === 'offline'
-        ? 'Disconnesso'
+        ? t('controls.sensor.disconnected')
         : resolvedConnectionState === 'online'
-          ? 'Connesso'
-          : 'Stato sconosciuto';
+          ? t('controls.sensor.connected')
+          : t('controls.common.unknown');
   const connectionSubtitleClass =
     resolvedConnectionState === 'offline'
       ? 'text-rose-200/90'
@@ -276,7 +280,7 @@ export function SensorControlsPanel({
     {
       id: 'battery',
       icon: <BatteryLevelGlyph percentage={batteryPercent} compact />,
-      label: 'Batteria',
+      label: t('controls.sensor.battery'),
       value: batteryValue,
       tone:
         batteryPercent === undefined
@@ -290,7 +294,7 @@ export function SensorControlsPanel({
     {
       id: 'connection',
       icon: resolvedConnectionState === 'offline' ? <WifiOff size={15} /> : <Wifi size={15} />,
-      label: 'Connessione',
+      label: t('controls.sensor.connection'),
       value: connectionValue,
       tone:
         resolvedConnectionState === 'online'
@@ -299,14 +303,14 @@ export function SensorControlsPanel({
             ? 'danger'
             : 'neutral',
     },
-  ], [batteryPercent, batteryValue, connectionValue, resolvedConnectionState]);
+  ], [batteryPercent, batteryValue, connectionValue, resolvedConnectionState, t]);
   return (
     <div className={`${CONTEXT_PANEL_LAYOUT.shell} gap-[clamp(0.7rem,2.4vw,1rem)]`}>
       <ContextPanelHeader
         title={name}
         subtitle={connectionLabel}
         icon={<Droplets size={22} />}
-        fallbackTitle="Sensore"
+        fallbackTitle={t('controls.sensor.title')}
         iconClassName="text-cyan-200"
         subtitleClassName={connectionSubtitleClass}
       />
@@ -329,17 +333,17 @@ export function SensorControlsPanel({
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
           <span className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-tertiary)]">
             <Clock3 size={14} />
-            Andamento
+            {t('controls.sensor.trend')}
           </span>
           <span className="shrink-0 text-xs font-semibold text-[color:var(--ui-text-secondary)]">{averageLabel}</span>
         </div>
 
         <GlassSegmentSelect<(typeof SENSOR_HISTORY_WINDOWS)[number]>
-          ariaLabel="Intervallo storico sensore"
+          ariaLabel={t('controls.sensor.historyRange')}
           options={SENSOR_HISTORY_WINDOWS.map((hours) => ({
             value: hours,
             label: `${hours}h`,
-            ariaLabel: `Mostra ultime ${hours} ore`,
+            ariaLabel: t('controls.sensor.lastHours', { hours }),
           }))}
           value={historyHours}
           onChange={setHistoryHours}
@@ -364,7 +368,7 @@ export function SensorControlsPanel({
             </ResponsiveContainer>
           ) : (
             <div className="flex h-full items-center justify-center px-4 text-center text-xs text-[color:var(--ui-text-tertiary)]">
-              Nessun dato storico disponibile
+              {t('controls.common.noHistory')}
             </div>
           )}
         </div>

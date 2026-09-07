@@ -2,6 +2,7 @@ import { CloudOff, KeyRound, LogIn, RefreshCw, WifiOff } from 'lucide-react';
 import type { HaConnectionStatus } from '../../services/haConnectionState';
 import GlassButton from '../ui/GlassButton';
 import GlassModal from '../ui/GlassModal';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type HomeAssistantRecoveryBannerProps = {
   status: HaConnectionStatus;
@@ -20,25 +21,26 @@ export function HomeAssistantRecoveryBanner({
   onRetry,
   onReconnect,
 }: HomeAssistantRecoveryBannerProps) {
+  const { formatDate, t } = useI18n();
   const needsAuthentication = status === 'reauth_required';
   const isOffline = status === 'offline';
   const isReconnecting = status === 'reconnecting';
   const title = needsAuthentication
-    ? 'Sessione Home Assistant scaduta'
+    ? t('home.connection.expiredTitle')
     : isOffline
-      ? 'Home Assistant non raggiungibile'
+      ? t('home.connection.offlineTitle')
       : isReconnecting
-        ? 'Riconnessione a Home Assistant'
-        : 'Connessione Home Assistant interrotta';
+        ? t('home.connection.reconnectingTitle')
+        : t('home.connection.interruptedTitle');
   const fallbackMessage = needsAuthentication
-    ? 'Per proteggere la tua casa è necessario effettuare nuovamente l’accesso.'
+    ? t('home.connection.expiredDescription')
     : isOffline
-      ? 'Manteniamo visibili gli ultimi dati ricevuti, ma i controlli sono temporaneamente bloccati.'
+      ? t('home.connection.offlineDescription')
       : isReconnecting
-        ? 'La connessione è instabile. Il ripristino automatico è già in corso.'
-        : 'Riprova la connessione oppure effettua nuovamente l’accesso.';
+        ? t('home.connection.reconnectingDescription')
+        : t('home.connection.interruptedDescription');
   const lastUpdateLabel = lastUpdatedAt
-    ? new Intl.DateTimeFormat('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(lastUpdatedAt)
+    ? formatDate(lastUpdatedAt, { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : null;
   const StatusIcon = needsAuthentication ? KeyRound : isOffline ? CloudOff : WifiOff;
   const showRetry = !needsAuthentication;
@@ -52,23 +54,23 @@ export function HomeAssistantRecoveryBanner({
         dismissible={false}
         showCloseButton={false}
         size="sm"
-        eyebrow="Connessione protetta"
-        title="Accedi di nuovo"
-        description="La sessione Home Assistant non è più valida. Dashboard e configurazione resteranno al sicuro durante il nuovo accesso."
+        eyebrow={t('home.connection.protected')}
+        title={t('home.connection.loginAgain')}
+        description={t('home.connection.reauthDescription')}
         backdropClassName="!bg-black/55 !backdrop-blur-3xl"
         footer={(
           <GlassButton size="md" variant="primary" onClick={onReconnect} className="w-full justify-center">
             <LogIn size={16} />
-            Accedi di nuovo
+            {t('home.connection.loginAgain')}
           </GlassButton>
         )}
       >
         <div className="onboarding-notice onboarding-notice-danger">
           <span className="onboarding-notice-icon"><KeyRound size={17} /></span>
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Sessione scaduta</div>
+            <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('home.connection.expired')}</div>
             <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              I comandi e le modifiche sono bloccati finché l’identità non viene verificata nuovamente.
+              {t('home.connection.blocked')}
             </p>
           </div>
         </div>
@@ -93,7 +95,7 @@ export function HomeAssistantRecoveryBanner({
           </p>
           {lastUpdateLabel && !needsAuthentication ? (
             <p className="mt-1 text-[10px] font-medium text-[color:var(--ui-text-disabled)]">
-              Ultimo aggiornamento: {lastUpdateLabel}
+              {t('home.connection.lastUpdate', { time: lastUpdateLabel })}
             </p>
           ) : null}
         </div>
@@ -102,13 +104,13 @@ export function HomeAssistantRecoveryBanner({
         {showRetry ? (
           <GlassButton size="sm" onClick={onRetry} disabled={isRetrying || isReconnecting} className="w-full justify-center">
             <RefreshCw size={14} className={isRetrying || isReconnecting ? 'animate-spin' : ''} />
-            {isRetrying || isReconnecting ? 'Riconnessione…' : 'Riprova'}
+            {isRetrying || isReconnecting ? t('home.connection.retrying') : t('home.connection.retry')}
           </GlassButton>
         ) : null}
         {showReconnect ? (
           <GlassButton size="sm" variant="primary" onClick={onReconnect} className="w-full justify-center">
             <LogIn size={14} />
-            Accedi di nuovo
+            {t('home.connection.loginAgain')}
           </GlassButton>
         ) : null}
       </div>

@@ -2,8 +2,10 @@ import React from 'react';
 import { Bell } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationProvider';
 import { DashboardNotificationsPanel } from './DashboardNotificationsPanel';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export function XsNotificationBell() {
+  const { t } = useI18n();
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLButtonElement | null>(null);
   const { unreadCount } = useNotifications();
@@ -16,7 +18,7 @@ export function XsNotificationBell() {
         type="button"
         onClick={() => setIsNotificationsOpen(true)}
         className="liquid-glass-control relative inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-all hover:brightness-110 active:scale-95"
-        aria-label="Apri notifiche"
+        aria-label={t('navigation.notifications.open')}
         aria-expanded={isNotificationsOpen}
       >
         <Bell size={17} />

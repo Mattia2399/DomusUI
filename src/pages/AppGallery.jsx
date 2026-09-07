@@ -35,6 +35,7 @@ import {
   IRRIGATION_CONFIGURATION_CACHE_KEY,
 } from '../services/haAppConfigurationsRepository';
 import { loadHassAuthTokensFromStorage, normalizeHassUrl } from '../services/haLive';
+import { useI18n } from '../i18n/I18nProvider';
 import {
   ChevronRight,
   CalendarDays,
@@ -176,6 +177,13 @@ const IRRIGATION_SECTION_ROUTES = {
   calendar: '/appgallery/irrigation/calendar',
   usage: '/appgallery/irrigation/consumption',
   configuration: '/appgallery/irrigation/settings',
+};
+
+const IRRIGATION_DEMO_ZONE_NAME_KEYS = {
+  'north-lawn': 'irrigation.demoZone.north-lawn',
+  'entry-flowerbeds': 'irrigation.demoZone.entry-flowerbeds',
+  'smart-garden': 'irrigation.demoZone.smart-garden',
+  'perimeter-hedge': 'irrigation.demoZone.perimeter-hedge',
 };
 
 const COMING_SOON_WORKSPACE_NAVIGATION = [
@@ -776,10 +784,10 @@ function findNextIrrigationSlot(days, startTimes, nowDate = new Date()) {
   return null;
 }
 
-function formatNextIrrigationLabel(days, startTimes, nowDate = new Date()) {
+function formatNextIrrigationLabel(days, startTimes, nowDate = new Date(), locale = 'it') {
   const nextSlot = findNextIrrigationSlot(days, startTimes, nowDate);
   if (!nextSlot) {
-    return 'non programmata';
+    return ({ it: 'non programmata', en: 'not scheduled', fr: 'non programmée' })[locale] ?? 'not scheduled';
   }
 
   const startOfToday = new Date(nowDate);
@@ -789,12 +797,12 @@ function formatNextIrrigationLabel(days, startTimes, nowDate = new Date()) {
   const daysDistance = Math.round((startOfSlotDay.getTime() - startOfToday.getTime()) / 86400000);
 
   if (daysDistance === 0) {
-    return `oggi ${nextSlot.timeToken}`;
+    return `${new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'day')} ${nextSlot.timeToken}`;
   }
   if (daysDistance === 1) {
-    return `domani ${nextSlot.timeToken}`;
+    return `${new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(1, 'day')} ${nextSlot.timeToken}`;
   }
-  return `${IRRIGATION_WEEKDAY_SHORT_NAMES[nextSlot.dayToken]} ${nextSlot.timeToken}`;
+  return `${new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(nextSlot.date)} ${nextSlot.timeToken}`;
 }
 
 function buildZoneConfigFromZone(zone, index) {
@@ -1064,6 +1072,7 @@ function navigateTo(path) {
 }
 
 function PortalCard({ portal, onNavigate = navigateTo }) {
+  const { t } = useI18n();
   const Icon = portal.icon;
 
   return (
@@ -1105,7 +1114,7 @@ function PortalCard({ portal, onNavigate = navigateTo }) {
       </div>
 
       <div className="relative z-10 ml-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/30 px-3 py-1.5 text-xs text-white/70 transition-colors duration-300 group-hover:border-white/25 group-hover:text-white">
-        <span>Apri</span>
+        <span>{t('apps.gallery.open')}</span>
         <ChevronRight className="h-3.5 w-3.5" />
       </div>
     </motion.button>
@@ -1113,6 +1122,7 @@ function PortalCard({ portal, onNavigate = navigateTo }) {
 }
 
 function CreateDashboardPlaceholder() {
+  const { t } = useI18n();
   return (
     <motion.div
       variants={cardVariants}
@@ -1123,10 +1133,10 @@ function CreateDashboardPlaceholder() {
           <Plus className="h-6 w-6" />
         </span>
         <div>
-          <p className="text-lg font-semibold text-[color:var(--ui-text-primary)]">Nuova Plancia</p>
-          <p className="mt-1 text-sm text-[color:var(--ui-text-tertiary)]">Dashboard personalizzate in arrivo</p>
+          <p className="text-lg font-semibold text-[color:var(--ui-text-primary)]">{t('apps.gallery.newDashboard')}</p>
+          <p className="mt-1 text-sm text-[color:var(--ui-text-tertiary)]">{t('apps.gallery.newDashboardSoon')}</p>
           <span className="mt-3 inline-flex rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">
-            Prossimamente
+            {t('apps.gallery.soon')}
           </span>
         </div>
       </div>
@@ -1145,18 +1155,19 @@ function ZoneConfigModal({
   onRemoveStartTime,
   onBaseDurationChange,
 }) {
+  const { t } = useI18n();
   if (!zoneConfig) return null;
 
   return (
     <GlassModal
       isOpen={isOpen}
       onClose={onClose}
-      eyebrow="Programmazione zona"
+      eyebrow={t('irrigation.program.eyebrow')}
       title={zoneConfig.name}
-      description="Le entità tecniche arrivano dalla configurazione Edit Mode."
+      description={t('irrigation.program.description')}
       size="lg"
       zIndex={170}
-      closeLabel="Chiudi programmazione zona"
+      closeLabel={t('irrigation.program.close')}
       backdropClassName="bg-black/70 backdrop-blur-sm"
       footer={
         <>
@@ -1165,21 +1176,21 @@ function ZoneConfigModal({
             onClick={onClose}
             className="rounded-xl border border-white/12 bg-white/[0.03] px-4 py-2 text-sm text-white/75 transition-colors hover:bg-white/[0.08] hover:text-white"
           >
-            Annulla
+            {t('irrigation.program.cancel')}
           </button>
           <button
             type="button"
             onClick={onSave}
             className="rounded-xl border border-cyan-300/40 bg-cyan-500/25 px-5 py-2 text-sm font-semibold text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.28)] transition-colors hover:bg-cyan-500/35"
           >
-            Salva programma
+            {t('irrigation.program.save')}
           </button>
         </>
       }
     >
       <div className="space-y-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-white/55">Giorni Attivi</p>
+                <p className="text-xs uppercase tracking-[0.16em] text-white/55">{t('irrigation.program.activeDays')}</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {IRRIGATION_WEEKDAY_TOKENS.map((day) => {
                     const active = zoneConfig.days.includes(day);
@@ -1194,7 +1205,7 @@ function ZoneConfigModal({
                             : 'border-white/12 bg-white/[0.03] text-white/65 hover:text-white'
                         }`}
                       >
-                        {IRRIGATION_WEEKDAY_LABELS[day]}
+                        {t(`irrigation.weekday.${day}`)}
                       </button>
                     );
                   })}
@@ -1203,14 +1214,14 @@ function ZoneConfigModal({
 
               <div>
                 <div className="flex items-center justify-between gap-3">
-                  <p className="text-xs uppercase tracking-[0.16em] text-white/55">Orari di Avvio</p>
+                  <p className="text-xs uppercase tracking-[0.16em] text-white/55">{t('irrigation.program.startTimes')}</p>
                   <button
                     type="button"
                     onClick={onAddStartTime}
                     className="inline-flex items-center gap-1 rounded-lg border border-cyan-300/35 bg-cyan-400/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-cyan-100 transition-colors hover:bg-cyan-400/25"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    <span>Aggiungi</span>
+                    <span>{t('irrigation.program.add')}</span>
                   </button>
                 </div>
 
@@ -1227,7 +1238,7 @@ function ZoneConfigModal({
                         type="button"
                         onClick={() => onRemoveStartTime(index)}
                         className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/12 bg-white/[0.03] text-white/65 transition-colors hover:text-white"
-                        aria-label={`Rimuovi orario ${index + 1}`}
+                        aria-label={t('irrigation.program.removeTime', { count: index + 1 })}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -1237,7 +1248,7 @@ function ZoneConfigModal({
               </div>
 
               <label className="block">
-                <span className="text-xs uppercase tracking-[0.16em] text-white/55">Durata (minuti)</span>
+                <span className="text-xs uppercase tracking-[0.16em] text-white/55">{t('irrigation.program.duration')}</span>
                 <GlassSlider
                   min={1}
                   max={IRRIGATION_ABSOLUTE_MAX_DURATION_MIN}
@@ -1245,7 +1256,7 @@ function ZoneConfigModal({
                   onChange={(event) => onBaseDurationChange(event.target.value)}
                   className="mt-2"
                   tone="cyan"
-                  aria-label="Durata irrigazione in minuti"
+                  aria-label={t('irrigation.program.durationA11y')}
                 />
                 <div className="mt-2 inline-flex items-center gap-2 rounded-full border border-white/12 bg-black/30 px-3 py-1 text-sm font-semibold text-cyan-100">
                   <Clock3 className="h-4 w-4" />
@@ -1258,6 +1269,12 @@ function ZoneConfigModal({
 }
 
 function LauncherView({ onNavigate = navigateTo }) {
+  const { t } = useI18n();
+  const portalKeys = {
+    'technical-room': ['apps.portal.technical.title', 'apps.portal.technical.description'],
+    'smart-irrigation': ['apps.portal.irrigation.title', 'apps.portal.irrigation.description'],
+    'pool-spa': ['apps.portal.pool.title', 'apps.portal.pool.description'],
+  };
   return (
     <div className="dashboard-page-content dashboard-page-content-wide gap-10 pb-8">
       <motion.header
@@ -1266,19 +1283,19 @@ function LauncherView({ onNavigate = navigateTo }) {
         transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className="space-y-2"
       >
-        <p className="dashboard-page-eyebrow">App Launcher</p>
-        <h1 className="dashboard-page-title">App Library</h1>
+        <p className="dashboard-page-eyebrow">{t('apps.gallery.eyebrow')}</p>
+        <h1 className="dashboard-page-title">{t('apps.gallery.title')}</h1>
         <p className="dashboard-page-subtitle">
-          Accedi alle plance immersive dedicate alla tua Smart Home premium.
+          {t('apps.gallery.subtitle')}
         </p>
       </motion.header>
 
       <section className="space-y-5">
         <div className="space-y-1">
           <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-secondary)]">
-            Sistema & Plance Dedicate
+            {t('apps.gallery.systemTitle')}
           </h2>
-          <p className="text-sm text-[color:var(--ui-text-tertiary)]">Portali diretti verso dashboard tecniche specializzate.</p>
+          <p className="text-sm text-[color:var(--ui-text-tertiary)]">{t('apps.gallery.systemSubtitle')}</p>
         </div>
 
         <motion.div
@@ -1287,16 +1304,17 @@ function LauncherView({ onNavigate = navigateTo }) {
           animate="visible"
           className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
         >
-          {SYSTEM_PORTALS.map((portal) => (
-            <PortalCard key={portal.id} portal={portal} onNavigate={onNavigate} />
-          ))}
+          {SYSTEM_PORTALS.map((portal) => {
+            const [titleKey, descriptionKey] = portalKeys[portal.id];
+            return <PortalCard key={portal.id} portal={{ ...portal, title: t(titleKey), description: t(descriptionKey) }} onNavigate={onNavigate} />;
+          })}
         </motion.div>
       </section>
 
       <section className="space-y-5">
         <div className="space-y-1">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-secondary)]">Le Tue Dashboard</h2>
-          <p className="text-sm text-[color:var(--ui-text-tertiary)]">Spazio riservato alle plance create da te.</p>
+          <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-secondary)]">{t('apps.gallery.personalTitle')}</h2>
+          <p className="text-sm text-[color:var(--ui-text-tertiary)]">{t('apps.gallery.personalSubtitle')}</p>
         </div>
 
         <motion.div
@@ -1342,6 +1360,7 @@ function IrrigationDashboardView({
   navigationRoute = '',
   onNavigate = navigateTo,
 }) {
+  const { locale, t } = useI18n();
   // App settings live in the dedicated house-wide configuration page.
   // Keep the legacy inline editor unreachable until its markup is removed.
   const isEditMode = false;
@@ -1386,6 +1405,10 @@ function IrrigationDashboardView({
   const configuredConsumptionEntityId = normalizeEntityId(irrigationConfig.waterUsageEntityId);
   const configuredConsumptionEntity = configuredConsumptionEntityId ? haStates[configuredConsumptionEntityId] : null;
   const configuredConsumptionUnit = getEntityAttributes(configuredConsumptionEntity).unit_of_measurement ?? '';
+  const resolveConfiguredZoneName = React.useCallback((zone, index) => {
+    const demoKey = runtimeMode === 'demo' ? IRRIGATION_DEMO_ZONE_NAME_KEYS[zone?.id] : null;
+    return demoKey ? t(demoKey) : zone?.name?.trim() || t('irrigation.summary.zoneNumber', { count: index + 1 });
+  }, [runtimeMode, t]);
 
   React.useEffect(() => {
     if (!navigationRoute) return;
@@ -1750,58 +1773,58 @@ function IrrigationDashboardView({
   const weatherEntity = weatherEntityId ? haStates[weatherEntityId] : null;
   const rainForecastInfo = resolveRainForecastInfo(weatherEntity);
   const rainForecastProbability = rainForecastInfo?.probability;
-  const rainForecastDayLabel = rainForecastInfo?.dayLabel ?? 'oggi';
+  const rainForecastDayLabel = rainForecastInfo?.dayLabel ?? new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'day');
   const rainSensorEntity = rainSensorEntityId ? haStates[rainSensorEntityId] : null;
   const rainSensorActive = resolveBooleanEntityValue(haStates, rainSensorEntityId, true);
   const rainSensorUnavailable = Boolean(
     rainSensorEntityId && (!rainSensorEntity || isEntityUnavailableState(rainSensorEntity.state)),
   );
   const rainStatusLabel = !rainSensorEnabled
-    ? 'Bypass meteo attivo'
+    ? t('irrigation.summary.bypassStatus')
     : !rainSensorEntityId
-      ? 'Sensore non configurato'
+      ? t('irrigation.summary.sensorMissing')
       : rainSensorUnavailable
-        ? 'Sensore non disponibile'
+        ? t('irrigation.summary.sensorUnavailable')
         : rainSensorActive
-          ? 'Pioggia rilevata'
-          : 'Sensore operativo';
+          ? t('irrigation.summary.rainDetected')
+          : t('irrigation.summary.sensorReady');
   let rainSummaryTitle = '';
   let rainSummaryDescription = '';
 
   if (!rainSensorEnabled) {
-    rainSummaryTitle = 'Sensore pioggia in bypass manuale';
+    rainSummaryTitle = t('irrigation.summary.bypass');
     rainSummaryDescription =
       rainForecastProbability !== undefined
-        ? `Forecast stimato ${rainForecastProbability}% ${rainForecastDayLabel}, ma la logica meteo e disattivata.`
-        : 'Riattiva il toggle per riabilitare la sospensione automatica su pioggia.';
+        ? t('irrigation.summary.forecast', { probability: rainForecastProbability, day: rainForecastDayLabel })
+        : t('irrigation.rain.disabled');
   } else if (rainSensorUnavailable) {
-    rainSummaryTitle = 'Sensore pioggia non disponibile';
+    rainSummaryTitle = t('irrigation.summary.unavailable');
     rainSummaryDescription = rainSensorEntityId
-      ? `Controlla la disponibilita di ${rainSensorEntityId} in Home Assistant.`
-      : 'Configura una entita binary_sensor per il rilevamento pioggia.';
+      ? `${t('irrigation.summary.sensorUnavailable')}: ${rainSensorEntityId}`
+      : t('irrigation.summary.configureRain');
   } else if (rainSensorActive) {
-    rainSummaryTitle = 'Pioggia rilevata: irrigazione in pausa';
+    rainSummaryTitle = t('irrigation.summary.pausedRain');
     rainSummaryDescription =
       rainForecastProbability !== undefined
-        ? `Previsione ${rainForecastProbability}% ${rainForecastDayLabel} dalla sorgente meteo configurata.`
-        : 'Il sensore segnala pioggia in corso: i cicli vengono sospesi automaticamente.';
+        ? t('irrigation.summary.forecast', { probability: rainForecastProbability, day: rainForecastDayLabel })
+        : t('irrigation.calendar.rainDescription');
   } else if (rainForecastProbability !== undefined) {
-    rainSummaryTitle = `Probabilita pioggia ${rainForecastProbability}% ${rainForecastDayLabel}`;
+    rainSummaryTitle = t('irrigation.summary.forecast', { probability: rainForecastProbability, day: rainForecastDayLabel });
     if (rainForecastProbability >= 70) {
-      rainSummaryDescription = 'Rischio alto: la logica irrigazione potrebbe sospendere i cicli programmati.';
+      rainSummaryDescription = t('irrigation.summary.highRisk');
     } else if (rainForecastProbability >= 35) {
-      rainSummaryDescription = 'Rischio moderato: il sistema monitora sensore e meteo prima di avviare.';
+      rainSummaryDescription = t('irrigation.summary.mediumRisk');
     } else {
-      rainSummaryDescription = 'Rischio basso: i cicli programmati restano in esecuzione salvo nuove variazioni.';
+      rainSummaryDescription = t('irrigation.summary.lowRisk');
     }
   } else if (weatherEntityId) {
-    rainSummaryTitle = 'Previsioni pioggia non disponibili';
+    rainSummaryTitle = t('irrigation.summary.forecastUnavailable');
     rainSummaryDescription =
-      'La sorgente meteo configurata non espone la probabilita di precipitazioni nel forecast.';
+      t('irrigation.consumption.historyUnavailable');
   } else {
-    rainSummaryTitle = 'Nessuna sorgente meteo configurata';
+    rainSummaryTitle = t('irrigation.summary.noWeather');
     rainSummaryDescription =
-      'In Edit Mode imposta una entita weather.* per mostrare probabilita e trend di pioggia.';
+      t('irrigation.configure');
   }
 
   const humidityValue = clamp(
@@ -1817,10 +1840,10 @@ function IrrigationDashboardView({
   );
   const moistureText =
     moisturePct < 35
-      ? 'Terreno secco nella zona orto'
+      ? t('irrigation.moisture.dry')
       : moisturePct > 70
-        ? 'Terreno ben idratato'
-        : 'Umidita terreno nel range ideale';
+        ? t('irrigation.moisture.wet')
+        : t('irrigation.moisture.ideal');
   const waterUsageLiters = Math.max(
     0,
     Math.round(resolveNumericEntityValue(haStates, irrigationConfig.waterUsageEntityId, 1240)),
@@ -1832,7 +1855,7 @@ function IrrigationDashboardView({
   const savingsPct = Math.round(((waterAverageLiters - waterUsageLiters) / waterAverageLiters) * 100);
   const isPositiveSavings = savingsPct >= 0;
   const savingsLabel = `${isPositiveSavings ? '-' : '+'}${Math.abs(savingsPct)}% ${
-    isPositiveSavings ? 'Risparmio' : 'Consumo'
+    isPositiveSavings ? t('irrigation.usage.saving') : t('irrigation.usage.consumption')
   }`;
   const configuredZonesCount = irrigationConfig.zones.filter((zone) => normalizeEntityId(zone.entityId)).length;
   const consumptionTotalLiters = consumptionHistory.status === 'available'
@@ -1864,7 +1887,7 @@ function IrrigationDashboardView({
     return sum + daysCount * startsCount * duration;
   }, 0);
   const consumptionZoneBreakdown = irrigationConfig.zones
-    .map((zone) => {
+    .map((zone, index) => {
       const daysCount = Array.isArray(zone.days) ? zone.days.length : 0;
       const startsCount = Array.isArray(zone.startTimes) ? zone.startTimes.length : 0;
       const duration = clamp(Math.round(toNumberOrUndefined(zone.baseDuration) ?? 0), 0, IRRIGATION_ABSOLUTE_MAX_DURATION_MIN);
@@ -1872,7 +1895,7 @@ function IrrigationDashboardView({
       const share = plannedWeeklyMinutes > 0 ? Math.round((plannedMinutes / plannedWeeklyMinutes) * 100) : 0;
       return {
         id: zone.id,
-        name: zone.name?.trim() || 'Zona irrigazione',
+        name: resolveConfiguredZoneName(zone, index),
         plannedMinutes,
         share,
         liters: consumptionTotalLiters === null ? null : Math.round(consumptionTotalLiters * share) / 100,
@@ -1881,14 +1904,14 @@ function IrrigationDashboardView({
     .filter((zone) => zone.plannedMinutes > 0)
     .sort((first, second) => second.plannedMinutes - first.plannedMinutes);
   const consumptionDataSourceLabel = runtimeMode === 'demo'
-    ? 'Dati dimostrativi'
+    ? t('irrigation.source.demo')
     : consumptionHistory.isRefreshing
-      ? 'Aggiornamento in corso'
+      ? t('irrigation.source.updating')
       : consumptionHistory.isStale
-        ? 'Ultimi dati disponibili'
+        ? t('irrigation.source.latest')
         : consumptionHistory.status === 'available'
-          ? 'Storico Home Assistant'
-          : 'Dato non disponibile';
+          ? t('irrigation.source.history')
+          : t('irrigation.source.unavailable');
 
   const zones = React.useMemo(
     () =>
@@ -1910,16 +1933,16 @@ function IrrigationDashboardView({
         const manualRemainingSeconds = manualSession
           ? Math.max(0, Math.ceil((manualSession.endAt - manualNowTs) / 1000))
           : 0;
-        const nextIrrigationLabel = formatNextIrrigationLabel(zone.days, zone.startTimes);
+        const nextIrrigationLabel = formatNextIrrigationLabel(zone.days, zone.startTimes, new Date(), locale);
 
         if (entityId) {
           if (hasUnavailableEntity && haConnected) {
             status = 'alert';
-            detail = 'Entita non disponibile';
+            detail = t('irrigation.summary.entityUnavailable');
             progress = 0;
           } else if (entity) {
             status = enabled ? 'active' : 'idle';
-            detail = `Stato: ${formatIrrigationEntityStateLabel(entity.stateLabel ?? entity.state ?? 'off')}`;
+            detail = t('irrigation.summary.state', { state: formatIrrigationEntityStateLabel(entity.stateLabel ?? entity.state ?? 'off', locale) });
             const liveProgress = toNumberOrUndefined(entity.progress);
             if (liveProgress !== undefined) {
               progress = clamp(Math.round(liveProgress), 0, 100);
@@ -1929,22 +1952,24 @@ function IrrigationDashboardView({
 
         if (manualSession) {
           status = 'active';
-          detail = 'Irrigazione in corso...';
+          detail = t('irrigation.summary.running');
           progress = clamp(Math.round((manualRemainingSeconds / (manualDurationMin * 60)) * 100), 0, 100);
         }
 
         if (status !== 'alert') {
-          detail = enabled ? 'Irrigazione in corso...' : `Chiusa | Prossima irrigazione: ${nextIrrigationLabel}`;
+          detail = enabled ? t('irrigation.summary.running') : t('irrigation.summary.closedNext', { next: nextIrrigationLabel });
         }
 
-        const fallbackName = `Zona ${index + 1}`;
-        const displayName = zone.name?.trim() || resolveEntityDisplayName(entityId, entity, fallbackName);
+        const fallbackName = t('irrigation.summary.zoneNumber', { count: index + 1 });
+        const displayName = runtimeMode === 'demo'
+          ? resolveConfiguredZoneName(zone, index)
+          : zone.name?.trim() || resolveEntityDisplayName(entityId, entity, fallbackName);
         const Icon = IRRIGATION_ZONE_ICON_COMPONENTS[zone.iconKey] ?? Droplets;
 
         return {
           ...zone,
           name: displayName,
-          detail: detail || `Chiusa | Prossima irrigazione: ${nextIrrigationLabel}`,
+          detail: detail || t('irrigation.summary.closedNext', { next: nextIrrigationLabel }),
           status: status || 'idle',
           progress: clamp(Math.round(progress ?? 0), 0, 100),
           enabled,
@@ -1957,7 +1982,7 @@ function IrrigationDashboardView({
           isCommandPending: Boolean(zoneCommandPending[zone.id]),
         };
       }),
-    [haConnected, haStates, irrigationConfig.maximumManualDurationMin, irrigationConfig.zones, manualNowTs, manualZoneSessions, zoneCommandPending, zoneEnabled],
+    [haConnected, haStates, irrigationConfig.maximumManualDurationMin, irrigationConfig.zones, locale, manualNowTs, manualZoneSessions, resolveConfiguredZoneName, runtimeMode, zoneCommandPending, zoneEnabled],
   );
 
   const calendarZones = React.useMemo(
@@ -1989,10 +2014,10 @@ function IrrigationDashboardView({
       .filter((entry) => entry.slot)
       .sort((left, right) => left.slot.date.getTime() - right.slot.date.getTime())[0];
 
-    if (!nextZone) return 'Nessun ciclo programmato';
-    const displayName = nextZone.zone.name?.trim() || 'Zona irrigazione';
-    return `${displayName} · ${formatNextIrrigationLabel(nextZone.zone.days, nextZone.zone.startTimes)}`;
-  }, [irrigationConfig.zones]);
+    if (!nextZone) return t('irrigation.summary.noCycle');
+    const displayName = resolveConfiguredZoneName(nextZone.zone, irrigationConfig.zones.indexOf(nextZone.zone));
+    return `${displayName} · ${formatNextIrrigationLabel(nextZone.zone.days, nextZone.zone.startTimes, new Date(), locale)}`;
+  }, [irrigationConfig.zones, locale, resolveConfiguredZoneName, t]);
 
   const overviewScheduleItems = React.useMemo(() => irrigationConfig.zones
     .filter((zone) => zone.enabled !== false)
@@ -2006,14 +2031,14 @@ function IrrigationDashboardView({
     .slice(0, 3)
     .map(({ zone, index }) => ({
       id: zone.id,
-      name: zone.name?.trim() || `Zona ${index + 1}`,
-      when: formatNextIrrigationLabel(zone.days, zone.startTimes),
+      name: resolveConfiguredZoneName(zone, index),
+      when: formatNextIrrigationLabel(zone.days, zone.startTimes, new Date(), locale),
       durationMin: clamp(
         Math.round(toNumberOrUndefined(zone.baseDuration) ?? DEFAULT_ZONE_BASE_DURATION),
         1,
         irrigationConfig.maximumManualDurationMin,
       ),
-    })), [irrigationConfig.maximumManualDurationMin, irrigationConfig.zones]);
+    })), [irrigationConfig.maximumManualDurationMin, irrigationConfig.zones, locale, resolveConfiguredZoneName]);
 
   const updateConfigField = (field, value) => {
     setIrrigationConfig((current) => ({
@@ -2202,7 +2227,7 @@ function IrrigationDashboardView({
 
     if (!normalizeEntityId(zone.entityId)) {
       if (typeof onNotify === 'function') {
-        onNotify('warning', 'Configurazione incompleta nell\'Edit Mode');
+        onNotify('warning', t('irrigation.notify.incomplete'));
       }
       return;
     }
@@ -2287,7 +2312,7 @@ function IrrigationDashboardView({
     const automationId = typeof automationPayload?.id === 'string' ? automationPayload.id.trim() : '';
     if (!automationId) {
       if (notifyError && typeof onNotify === 'function') {
-        onNotify('alert', 'Impossibile salvare: automation_id mancante.');
+        onNotify('alert', t('irrigation.notify.automationMissing'));
       }
       return false;
     }
@@ -2315,7 +2340,7 @@ function IrrigationDashboardView({
         automation_id: automationId,
       });
       if (notifySuccess && typeof onNotify === 'function') {
-        onNotify('info', `Automazione salvata su Home Assistant: ${automationId}`);
+        onNotify('info', t('irrigation.notify.automationSaved', { id: automationId }));
       }
       return true;
     } catch (error) {
@@ -2327,7 +2352,7 @@ function IrrigationDashboardView({
         : rawMessage;
 
       if (notifyError && typeof onNotify === 'function') {
-        onNotify('alert', `Salvataggio automazione non riuscito: ${detailMessage}`);
+        onNotify('alert', `${t('irrigation.notify.automationFailed')} ${detailMessage}`);
       }
 
       console.warn(
@@ -2398,7 +2423,7 @@ function IrrigationDashboardView({
       normalizeEntityId(editingZoneConfig.entityId) || irrigationState.zoneEntityById[editingZoneConfig.id] || '';
     if (!resolvedZoneEntityId) {
       if (typeof onNotify === 'function') {
-        onNotify('warning', 'Configurazione incompleta nell\'Edit Mode');
+        onNotify('warning', t('irrigation.notify.incomplete'));
       }
       return;
     }
@@ -2456,7 +2481,7 @@ function IrrigationDashboardView({
 
     if (!haConnected) {
       if (typeof onNotify === 'function') {
-        onNotify('warning', 'Sensore pioggia aggiornato in locale. Connetti HA per sincronizzare le automazioni.');
+        onNotify('warning', t('irrigation.notify.rainLocal'));
       }
       return;
     }
@@ -2469,12 +2494,12 @@ function IrrigationDashboardView({
       if (result.failed > 0) {
         onNotify(
           'alert',
-          `Sensore pioggia aggiornato, ma ${result.failed} automazioni non sono state salvate.`,
+          t('irrigation.notify.rainSyncFailed', { count: result.failed }),
         );
       } else {
         onNotify(
           'info',
-          `Automazioni aggiornate (${result.saved} salvate${result.skipped ? `, ${result.skipped} saltate` : ''}).`,
+          t('irrigation.notify.rainSyncDone', { saved: result.saved, skipped: result.skipped }),
         );
       }
     }
@@ -2503,7 +2528,7 @@ function IrrigationDashboardView({
 
     if (!haConnected || typeof onCallService !== 'function') {
       if (typeof onNotify === 'function') {
-        onNotify('error', 'Home Assistant non è raggiungibile. Nessun comando è stato eseguito.');
+        onNotify('error', t('irrigation.notify.offline'));
       }
       return false;
     }
@@ -2528,13 +2553,13 @@ function IrrigationDashboardView({
       }
 
       if (!ok) {
-        if (typeof onNotify === 'function') onNotify('error', 'Home Assistant ha rifiutato il comando alla zona.');
+        if (typeof onNotify === 'function') onNotify('error', t('irrigation.notify.commandRejected'));
         return false;
       }
 
       const confirmed = await waitForZoneStateConfirmation(entityId, shouldTurnOn);
       if (!confirmed) {
-        if (typeof onNotify === 'function') onNotify('warning', 'Comando inviato, ma lo stato della zona non è stato confermato.');
+        if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.unconfirmed'));
         return false;
       }
       setZoneEnabled((current) => ({ ...current, [zone.id]: shouldTurnOn }));
@@ -2573,17 +2598,17 @@ function IrrigationDashboardView({
     }
     if (!normalizeEntityId(zone.entityId)) {
       if (typeof onNotify === 'function') {
-        onNotify('warning', 'Configurazione incompleta nell\'Edit Mode');
+        onNotify('warning', t('irrigation.notify.incomplete'));
       }
       return;
     }
 
     if (runtimeMode !== 'demo' && rainSensorEnabled && rainSensorActive) {
-      if (typeof onNotify === 'function') onNotify('warning', 'Avvio bloccato: il sensore segnala pioggia.');
+      if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.raining'));
       return;
     }
     if (runtimeMode !== 'demo' && rainSensorEnabled && rainSensorUnavailable && irrigationConfig.blockOnRainSensorUnavailable) {
-      if (typeof onNotify === 'function') onNotify('warning', 'Avvio bloccato: il sensore pioggia non è verificabile.');
+      if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.rainBlocked'));
       return;
     }
 
@@ -2627,7 +2652,11 @@ function IrrigationDashboardView({
 
   const masterIsStopped = masterControlState === 'stopped';
   const masterIsRunning = masterControlState === 'running';
-  const masterTitle = masterIsRunning ? 'Sistema Attivo' : masterIsStopped ? 'Sistema Fermo' : 'Sistema in Pausa';
+  const masterTitle = masterIsRunning
+    ? t('irrigation.summary.systemActive')
+    : masterIsStopped
+      ? t('irrigation.summary.systemStopped')
+      : t('irrigation.summary.systemPaused');
   const handleMasterPrimaryAction = () => {
     setMasterControlState((current) => (current === 'running' ? 'paused' : 'running'));
   };
@@ -2653,7 +2682,7 @@ function IrrigationDashboardView({
     if (blockingIssues.length > 0) {
       setConfigurationStatus('ready');
       if (typeof onNotify === 'function') {
-        onNotify('warning', `Correggi ${blockingIssues.length} problemi prima di salvare la configurazione.`);
+        onNotify('warning', t('irrigation.config.errors', { count: blockingIssues.length }));
       }
       return;
     }
@@ -2670,17 +2699,17 @@ function IrrigationDashboardView({
       setConfigurationRevision(result.document.revision);
       setPersistedConfigurationSignature(JSON.stringify(normalized));
       setConfigurationStatus('saved');
-      if (typeof onNotify === 'function') onNotify('success', 'Configurazione irrigazione salvata per tutta la casa.');
+      if (typeof onNotify === 'function') onNotify('success', t('irrigation.notify.saved'));
       return;
     }
     if (result.status === 'conflict') {
       setConfigurationRevision(result.current?.revision ?? null);
       setConfigurationStatus('conflict');
-      if (typeof onNotify === 'function') onNotify('warning', 'La configurazione è cambiata su un altro dispositivo. Controlla e salva nuovamente.');
+      if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.conflict'));
       return;
     }
     setConfigurationStatus(result.status);
-    if (typeof onNotify === 'function') onNotify('error', 'Impossibile salvare la configurazione irrigazione su Home Assistant.');
+    if (typeof onNotify === 'function') onNotify('error', t('irrigation.notify.saveFailed'));
   };
 
   const handleWorkspaceNavigation = (sectionId) => {
@@ -2697,27 +2726,31 @@ function IrrigationDashboardView({
     });
   };
 
-  const workspaceNavigationItems = canConfigureApps
+  const workspaceNavigationItems = (canConfigureApps
     ? IRRIGATION_WORKSPACE_NAVIGATION
-    : IRRIGATION_WORKSPACE_NAVIGATION.filter((item) => item.id !== 'configuration');
+    : IRRIGATION_WORKSPACE_NAVIGATION.filter((item) => item.id !== 'configuration'))
+    .map((item) => ({
+      ...item,
+      label: t(`irrigation.nav.${item.id === 'configuration' ? 'settings' : item.id}`),
+    }));
 
   return (
     <AppWorkspaceShell
-      appName="Irrigazione Smart"
-      appSubtitle="Giardino e zone"
+      appName={t('irrigation.appName')}
+      appSubtitle={t('irrigation.appSubtitle')}
       appIcon={Sprout}
       accentColor="#34d399"
       navigationItems={workspaceNavigationItems}
       activeNavigationId={activeWorkspaceSection === 'zonesManagement' ? 'zones' : activeWorkspaceSection}
       onNavigationChange={handleWorkspaceNavigation}
       onBack={() => onNavigate('/appgallery')}
-      statusLabel={haConnected ? 'Home Assistant connesso' : 'Dati locali'}
+      statusLabel={haConnected ? t('irrigation.status.connected') : t('irrigation.status.local')}
       mobileHeaderOverlay={!isEditMode && !['configuration', 'zonesManagement'].includes(activeWorkspaceSection)}
       mobileHeaderHidden
       mobileBackInNavigation
       mobileNavigationHidden={activeWorkspaceSection === 'configuration' || activeWorkspaceSection === 'zonesManagement'}
       contentClassName="bg-[color:var(--ui-bg-grouped)] md:bg-transparent"
-      backLabel="Torna alla libreria"
+      backLabel={t('irrigation.backLibrary')}
     >
       {activeWorkspaceSection === 'configuration' ? (
         <IrrigationConfigurationPage
@@ -2913,13 +2946,13 @@ function IrrigationDashboardView({
 
           {activeWorkspaceSection === 'zones' ? (
             <IrrigationRouteHeader
-              eyebrow="Irrigazione Smart"
-              title="Zone irrigazione"
-              description="Controlla ogni settore, avvia un ciclo manuale oppure apri la relativa programmazione."
+              eyebrow={t('irrigation.route.eyebrow')}
+              title={t('irrigation.route.zonesTitle')}
+              description={t('irrigation.route.zonesDescription')}
               action={canConfigureApps ? (
-                <button type="button" onClick={() => handleWorkspaceNavigation('zonesManagement')} className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-xs font-semibold" aria-label="Gestisci zone irrigazione">
+                <button type="button" onClick={() => handleWorkspaceNavigation('zonesManagement')} className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full px-3.5 text-xs font-semibold" aria-label={t('irrigation.action.manageZones')}>
                   <Settings2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Gestisci</span>
+                  <span className="hidden sm:inline">{t('irrigation.action.manage')}</span>
                 </button>
               ) : null}
             />
@@ -2928,11 +2961,11 @@ function IrrigationDashboardView({
           {activeWorkspaceSection === 'calendar' ? (
             <>
               <IrrigationRouteHeader
-                eyebrow="Programmazione"
-                title="Calendario irrigazione"
-                description="Una vista settimanale dei cicli realmente configurati nelle zone della casa."
+                eyebrow={t('irrigation.calendar.programming')}
+                title={t('irrigation.route.calendarTitle')}
+                description={t('irrigation.route.calendarDescription')}
                 action={canConfigureApps ? (
-                  <button type="button" onClick={() => handleWorkspaceNavigation('configuration')} className="liquid-glass-control flex h-10 w-10 items-center justify-center rounded-full" aria-label="Configura irrigazione">
+                  <button type="button" onClick={() => handleWorkspaceNavigation('configuration')} className="liquid-glass-control flex h-10 w-10 items-center justify-center rounded-full" aria-label={t('irrigation.configure')}>
                     <Settings2 className="h-4 w-4" />
                   </button>
                 ) : null}
@@ -2951,9 +2984,9 @@ function IrrigationDashboardView({
 
           {activeWorkspaceSection === 'usage' ? (
             <IrrigationRouteHeader
-              eyebrow="Risorse"
-              title="Consumi irrigazione"
-              description="Acqua utilizzata, confronto con la media e andamento settimanale del giardino."
+              eyebrow={t('irrigation.usage.water')}
+              title={t('irrigation.route.usageTitle')}
+              description={t('irrigation.route.usageDescription')}
             />
           ) : null}
 
@@ -3133,8 +3166,8 @@ function IrrigationDashboardView({
               <div>
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">Settori</p>
-                    <h2 className="mt-0.5 text-xl font-semibold tracking-[-0.035em] text-[color:var(--ui-text-primary)]">Le tue zone</h2>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.route.sectors')}</p>
+                    <h2 className="mt-0.5 text-xl font-semibold tracking-[-0.035em] text-[color:var(--ui-text-primary)]">{t('irrigation.route.yourZones')}</h2>
                   </div>
                   <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[10px] font-semibold text-[color:var(--ui-text-secondary)]">
                     {configuredZonesCount}
@@ -3410,29 +3443,34 @@ function IrrigationDashboardView({
 }
 
 function ComingSoonPortalView({ view, onNavigate = navigateTo }) {
+  const { t } = useI18n();
   const titleByView = {
-    technical: 'Locale Tecnico',
-    pool: 'Piscina & Spa',
+    technical: t('apps.portal.technical.title'),
+    pool: t('apps.portal.pool.title'),
   };
-  const title = titleByView[view] ?? 'Plancia';
-  const portal = SYSTEM_PORTALS.find((entry) => entry.route.endsWith(`/${view}`));
+  const title = titleByView[view] ?? t('apps.gallery.board');
+  const description = view === 'pool'
+    ? t('apps.portal.pool.description')
+    : view === 'technical'
+      ? t('apps.portal.technical.description')
+      : t('apps.gallery.domusBoard');
   const PortalIcon = view === 'pool' ? Waves : Cpu;
 
   return (
     <AppWorkspaceShell
       appName={title}
-      appSubtitle={portal?.description ?? 'Plancia Domus UI'}
+      appSubtitle={description}
       appIcon={PortalIcon}
       accentColor={view === 'pool' ? '#22d3ee' : '#38bdf8'}
-      navigationItems={COMING_SOON_WORKSPACE_NAVIGATION}
+      navigationItems={COMING_SOON_WORKSPACE_NAVIGATION.map((item) => ({ ...item, label: t('irrigation.nav.overview') }))}
       activeNavigationId="overview"
       onNavigationChange={() => undefined}
       onBack={() => onNavigate('/appgallery')}
-      statusLabel="Demo · Prossimamente"
+      statusLabel={t('apps.gallery.demoSoon')}
       mobileHeaderHidden
       mobileBackInNavigation
       contentClassName="bg-[color:var(--ui-bg-grouped)]"
-      backLabel="Torna alla libreria"
+      backLabel={t('irrigation.backLibrary')}
     >
       <ComingSoonAppDemo variant={view === 'pool' ? 'pool' : 'technical'} />
     </AppWorkspaceShell>

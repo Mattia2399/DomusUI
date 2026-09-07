@@ -28,6 +28,8 @@ import GlassSlider from '../ui/GlassSlider';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { ContextSecondaryPage } from './ContextSecondaryPage';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 export type CameraRelatedEntityCategory =
   | 'detection'
@@ -463,41 +465,33 @@ function isCameraNumberEntity(entity: CameraRelatedEntityInfo) {
   return entity.domain === 'number' || entity.domain === 'input_number';
 }
 
-function formatCameraActionLabel(entity: CameraRelatedEntityInfo) {
+function formatCameraActionLabel(entity: CameraRelatedEntityInfo, t: (key: TranslationKey) => string) {
   if (isCameraButtonEntity(entity)) {
-    return 'Esegui';
+    return t('camera.action.run');
   }
   if (!isCameraToggleEntity(entity)) {
-    return 'Gestisci';
+    return t('camera.action.manage');
   }
   const active = isRelatedEntityActive(entity);
   if (entity.domain === 'siren') {
-    return active ? 'Spegni sirena' : 'Attiva sirena';
+    return active ? t('camera.action.sirenOff') : t('camera.action.sirenOn');
   }
-  return active ? 'Disattiva' : 'Attiva';
+  return active ? t('camera.action.disable') : t('camera.action.enable');
 }
 
-function formatEntityKind(entity: CameraRelatedEntityInfo) {
+function formatEntityKind(entity: CameraRelatedEntityInfo, t: (key: TranslationKey) => string) {
   const deviceClass = entity.deviceClass?.replaceAll('_', ' ').trim();
   if (deviceClass) {
     return deviceClass.charAt(0).toUpperCase() + deviceClass.slice(1);
   }
   const labels: Record<string, string> = {
-    binary_sensor: 'Sensore',
-    sensor: 'Informazione',
-    switch: 'Interruttore',
-    input_boolean: 'Interruttore',
-    light: 'Luce',
-    fan: 'Ventola',
-    siren: 'Sirena',
-    button: 'Azione',
-    input_button: 'Azione',
-    select: 'Scelta',
-    input_select: 'Scelta',
-    number: 'Regolazione',
-    input_number: 'Regolazione',
+    binary_sensor: t('camera.entity.sensor'), sensor: t('camera.entity.information'),
+    switch: t('camera.entity.switch'), input_boolean: t('camera.entity.switch'), light: t('camera.entity.light'),
+    fan: t('camera.entity.fan'), siren: t('camera.entity.siren'), button: t('camera.entity.action'),
+    input_button: t('camera.entity.action'), select: t('camera.entity.choice'), input_select: t('camera.entity.choice'),
+    number: t('camera.entity.adjustment'), input_number: t('camera.entity.adjustment'),
   };
-  return labels[entity.domain] ?? 'Entità associata';
+  return labels[entity.domain] ?? t('camera.entity.related');
 }
 
 function CameraAppleSwitch({
@@ -535,6 +529,7 @@ function RelatedEntityGrid({
   entities: CameraRelatedEntityInfo[];
   kind: 'detection' | 'diagnostic';
 }) {
+  const { t } = useI18n();
   if (entities.length === 0) {
     return null;
   }
@@ -546,7 +541,7 @@ function RelatedEntityGrid({
         <div>
           <p className="text-[13px] font-semibold text-[color:var(--ui-text-primary)]">{title}</p>
           <p className="mt-0.5 text-[10px] font-medium text-[color:var(--ui-text-secondary)]">
-            {kind === 'detection' ? 'Eventi rilevati dal dispositivo' : 'Stato e integrità della camera'}
+            {kind === 'detection' ? t('camera.section.detectedEvents') : t('camera.section.health')}
           </p>
         </div>
         <span className="text-[10px] font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">{entities.length}</span>
@@ -575,7 +570,7 @@ function RelatedEntityGrid({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-semibold text-[color:var(--ui-text-primary)]">{entity.name}</span>
-                <span className="mt-0.5 block truncate text-[10px] text-[color:var(--ui-text-secondary)]">{formatEntityKind(entity)}</span>
+                <span className="mt-0.5 block truncate text-[10px] text-[color:var(--ui-text-secondary)]">{formatEntityKind(entity, t)}</span>
               </span>
               <span className={`max-w-[38%] truncate text-right text-[11px] font-semibold ${unavailable ? 'text-[color:var(--ui-text-secondary)]' : active ? 'text-[color:rgb(var(--ui-accent-rgb)/0.95)]' : 'text-[color:var(--ui-text-primary)]'}`}>
                 {formatRelatedEntityValue(entity)}
@@ -672,6 +667,7 @@ function RelatedEntityControlList({
   busyEntityId: string | null;
   onAction: (request: CameraRelatedEntityActionRequest) => void;
 }) {
+  const { t } = useI18n();
   if (entities.length === 0) {
     return null;
   }
@@ -681,7 +677,7 @@ function RelatedEntityControlList({
       <div className="mb-2.5 flex items-end justify-between gap-3 px-1">
         <div>
           <p className="text-[13px] font-semibold text-[color:var(--ui-text-primary)]">{title}</p>
-          <p className="mt-0.5 text-[10px] font-medium text-[color:var(--ui-text-secondary)]">Funzioni esposte da Home Assistant</p>
+          <p className="mt-0.5 text-[10px] font-medium text-[color:var(--ui-text-secondary)]">{t('camera.action.exposedFunctions')}</p>
         </div>
         <span className="text-[10px] font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">{entities.length}</span>
       </div>
@@ -724,7 +720,7 @@ function RelatedEntityControlList({
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs font-semibold text-[color:var(--ui-text-primary)]">{entity.name}</p>
                   <p className="mt-0.5 truncate text-[10px] text-[color:var(--ui-text-secondary)]">
-                    {canSelect ? 'Seleziona un valore' : canSetNumber ? 'Regola il valore' : formatEntityKind(entity)}
+                    {canSelect ? t('camera.action.selectValue') : canSetNumber ? t('camera.action.adjustValue') : formatEntityKind(entity, t)}
                   </p>
                 </div>
                 {canToggle ? (
@@ -732,7 +728,7 @@ function RelatedEntityControlList({
                     checked={active}
                     disabled={unavailable}
                     busy={busy}
-                    label={`${entity.name}: ${active ? 'attivo' : 'disattivo'}`}
+                    label={`${entity.name}: ${active ? t('camera.action.active') : t('camera.action.inactive')}`}
                     onChange={() => onAction({ entity, action: 'toggle' })}
                   />
                 ) : canPress ? (
@@ -743,7 +739,7 @@ function RelatedEntityControlList({
                     className="inline-flex min-w-[68px] items-center justify-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] px-3 py-1.5 text-[11px] font-semibold text-[color:rgb(var(--ui-accent-rgb)/0.96)] shadow-[inset_0_1px_0_rgba(255,255,255,0.10)] transition active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     {busy ? <Loader2 size={12} className="animate-spin" /> : null}
-                    Esegui
+                    {t('camera.action.run')}
                   </button>
                 ) : canSelect ? (
                   <GlassDropdown
@@ -769,7 +765,7 @@ function RelatedEntityControlList({
               ) : null}
 
               {!canToggle && !canPress && !canSelect && !canSetNumber ? (
-                <p className="mt-2 text-[10px] text-[color:var(--ui-text-secondary)]">Entità collegata ma non controllabile da qui.</p>
+                <p className="mt-2 text-[10px] text-[color:var(--ui-text-secondary)]">{t('camera.action.notControllable')}</p>
               ) : null}
             </div>
           );
@@ -798,12 +794,13 @@ function TimelineSelector({
   loading: boolean;
   onRefresh?: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Cronologia</p>
-          <p className="mt-0.5 text-[10px] font-medium text-[color:var(--ui-text-tertiary)]">Ultime 24 ore</p>
+          <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('camera.timeline.title')}</p>
+          <p className="mt-0.5 text-[10px] font-medium text-[color:var(--ui-text-tertiary)]">{t('camera.events.last24Hours')}</p>
         </div>
         {onRefresh ? (
           <button
@@ -811,8 +808,8 @@ function TimelineSelector({
             onClick={onRefresh}
             disabled={loading}
             className="glass-button flex h-8 w-8 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition disabled:opacity-45"
-            aria-label="Aggiorna cronologia"
-            title="Aggiorna cronologia"
+            aria-label={t('camera.timeline.refresh')}
+            title={t('camera.timeline.refresh')}
           >
             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -849,7 +846,7 @@ function TimelineSelector({
               className={`flex min-w-[4.25rem] shrink-0 flex-col items-center gap-1.5 rounded-2xl px-2 py-2.5 text-center transition ${
                 isActive ? 'bg-[color:var(--ui-fill-primary)]' : 'hover:bg-[color:var(--ui-fill-tertiary)]'
               }`}
-              aria-label={`Seleziona orario ${item.label}`}
+              aria-label={t('camera.timeline.selectTime', { time: item.label })}
             >
               <span className={`text-xs font-medium ${isActive ? 'text-[color:var(--ui-text-primary)]' : 'text-[color:var(--ui-text-tertiary)]'}`}>
                 {item.label}
@@ -882,6 +879,7 @@ function EventRow({
   isActive?: boolean;
   onPlay?: () => void;
 }) {
+  const { t } = useI18n();
   const isSound = event.type === 'sound';
   const hasClip = Boolean(event.clipUrl);
   const hasSnapshot = Boolean(event.thumbnailUrl);
@@ -913,7 +911,7 @@ function EventRow({
             ? 'border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-secondary)] text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-primary)]'
             : 'cursor-not-allowed border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-disabled)]'
         }`}
-        aria-label={`${hasClip ? 'Riproduci clip' : 'Apri snapshot'} ${event.time}`}
+        aria-label={hasClip ? t('camera.event.playClip', { time: event.time }) : t('camera.event.openSnapshot', { time: event.time })}
         onClick={onPlay}
         disabled={!hasMedia}
       >
@@ -944,6 +942,7 @@ export function CameraControlsPanel({
   onSecondaryPageChange,
   commandsEnabled = true,
 }: CameraControlsProps) {
+  const { t } = useI18n();
   const clipVideoRef = useRef<HTMLVideoElement | null>(null);
   const refreshResetTimeoutRef = useRef<number | null>(null);
   const [selectedTimelineId, setSelectedTimelineId] = useState('');
@@ -1015,7 +1014,7 @@ export function CameraControlsPanel({
   const liveVisualUrl = streamFailed ? fallbackVisual ?? '' : resolvedStreamUrl ?? fallbackVisual ?? '';
   const hasLiveVisual = liveVisualUrl.length > 0;
   const snapshotCaptureUrl = cameraProxySnapshotUrl ?? fallbackVisual ?? (hasLiveVisual ? liveVisualUrl : undefined);
-  const subtitle = isOffline ? 'Disconnesso' : status?.trim() || 'Connesso';
+  const subtitle = isOffline ? t('camera.disconnected') : status?.trim() || t('camera.connected');
   const subtitleClass = isOffline ? 'text-rose-200/90' : 'text-emerald-200/90';
   const detectionEntities = useMemo(
     () => relatedEntities.filter((entity) => entity.category === 'detection'),
@@ -1032,8 +1031,8 @@ export function CameraControlsPanel({
   const settingsEntityCount = controlEntities.length + detectionEntities.length + diagnosticEntities.length;
   const settingsSummary =
     settingsEntityCount > 0
-      ? `${settingsEntityCount} entità collegate`
-      : 'Nessun controllo secondario disponibile';
+      ? t('camera.settings.relatedCount', { count: settingsEntityCount })
+      : t('camera.settings.noSecondary');
   const hasDeviceMetadata = Boolean(
     deviceInfo?.manufacturer ||
       deviceInfo?.model ||
@@ -1045,11 +1044,11 @@ export function CameraControlsPanel({
   const deviceSummary =
     [deviceInfo?.manufacturer, deviceInfo?.model].filter(Boolean).join(' • ') ||
     deviceInfo?.name ||
-    'ND';
+    t('camera.notAvailable');
   const deviceDetail = [
     deviceInfo?.swVersion ? `FW ${deviceInfo.swVersion}` : undefined,
     deviceInfo?.hwVersion ? `HW ${deviceInfo.hwVersion}` : undefined,
-    relatedEntities.length > 0 ? `${relatedEntities.length} entità` : undefined,
+    relatedEntities.length > 0 ? t('camera.settings.relatedCount', { count: relatedEntities.length }) : undefined,
   ]
     .filter((entry): entry is string => Boolean(entry))
     .join(' • ');
@@ -1177,7 +1176,7 @@ export function CameraControlsPanel({
     setClipFailed(false);
     setRefreshNonce(Date.now());
     setIsRefreshing(true);
-    setActionFeedback('Stream aggiornato');
+    setActionFeedback(t('camera.feedback.streamRefreshed'));
     if (refreshResetTimeoutRef.current !== null) {
       window.clearTimeout(refreshResetTimeoutRef.current);
     }
@@ -1189,7 +1188,7 @@ export function CameraControlsPanel({
 
   const captureSnapshot = async () => {
     if (!snapshotCaptureUrl || isSnapshotBusy) {
-      setActionFeedback('Snapshot non disponibile');
+      setActionFeedback(t('camera.feedback.snapshotUnavailable'));
       return;
     }
     setIsSnapshotBusy(true);
@@ -1212,9 +1211,9 @@ export function CameraControlsPanel({
       window.setTimeout(() => {
         URL.revokeObjectURL(objectUrl);
       }, 800);
-      setActionFeedback(`Snapshot salvata (${fileName})`);
+      setActionFeedback(t('camera.feedback.snapshotSaved', { fileName }));
     } catch {
-      setActionFeedback('Errore durante lo snapshot');
+      setActionFeedback(t('camera.feedback.snapshotError'));
     } finally {
       setIsSnapshotBusy(false);
     }
@@ -1232,12 +1231,12 @@ export function CameraControlsPanel({
       setClipFailed(false);
       return;
     }
-    setActionFeedback('Nessuna clip disponibile per questo evento');
+    setActionFeedback(t('camera.feedback.noClipForEvent'));
   };
 
   const navigateClips = (step: -1 | 1) => {
     if (!clipEvents.length) {
-      setActionFeedback('Nessuna clip disponibile');
+      setActionFeedback(t('camera.feedback.noClip'));
       return;
     }
     const currentIndex = clipEvents.findIndex((entry) => entry.id === selectedClipEvent?.id);
@@ -1252,7 +1251,7 @@ export function CameraControlsPanel({
 
   const toggleClipPlayback = () => {
     if (!clipEvents.length) {
-      setActionFeedback('Nessuna clip disponibile');
+      setActionFeedback(t('camera.feedback.noClip'));
       return;
     }
     if (!isClipMode) {
@@ -1295,7 +1294,7 @@ export function CameraControlsPanel({
 
   const runRelatedEntityAction = async (request: CameraRelatedEntityActionRequest) => {
     if (!onRelatedEntityAction) {
-      setActionFeedback('Controllo non disponibile');
+      setActionFeedback(t('camera.feedback.controlUnavailable'));
       return;
     }
     if (relatedActionBusyId) {
@@ -1305,12 +1304,12 @@ export function CameraControlsPanel({
     try {
       const success = await onRelatedEntityAction(request);
       if (success === false) {
-        setActionFeedback(`Comando non riuscito: ${request.entity.name}`);
+        setActionFeedback(t('camera.feedback.commandFailed', { name: request.entity.name }));
         return;
       }
-      setActionFeedback(`Comando inviato: ${request.entity.name}`);
+      setActionFeedback(t('camera.feedback.commandSent', { name: request.entity.name }));
     } catch {
-      setActionFeedback(`Errore comando: ${request.entity.name}`);
+      setActionFeedback(t('camera.feedback.commandError', { name: request.entity.name }));
     } finally {
       setRelatedActionBusyId(null);
     }
@@ -1328,9 +1327,9 @@ export function CameraControlsPanel({
   if (settingsPageOpen) {
     return (
       <ContextSecondaryPage
-        title="Impostazioni camera"
-        subtitle={`Controlli associati a ${name}`}
-        backLabel="Camera"
+        title={t('camera.settings.title')}
+        subtitle={t('camera.settings.subtitle', { name })}
+        backLabel={t('camera.settings.back')}
         icon={<Settings2 size={18} />}
         iconClassName="text-cyan-200"
         onBack={() => setSettingsPageOpen(false)}
@@ -1338,7 +1337,7 @@ export function CameraControlsPanel({
         {controlEntities.length > 0 ? (
           <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
             <RelatedEntityControlList
-              title="Controlli"
+              title={t('camera.settings.controls')}
               entities={controlEntities}
               busyEntityId={relatedActionBusyId}
               onAction={(request) => {
@@ -1350,30 +1349,30 @@ export function CameraControlsPanel({
 
         {detectionEntities.length > 0 ? (
           <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-            <RelatedEntityGrid title="Rilevamenti" kind="detection" entities={detectionEntities} />
+            <RelatedEntityGrid title={t('camera.settings.detections')} kind="detection" entities={detectionEntities} />
           </div>
         ) : null}
 
         {diagnosticEntities.length > 0 ? (
           <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-            <RelatedEntityGrid title="Diagnostica" kind="diagnostic" entities={diagnosticEntities} />
+            <RelatedEntityGrid title={t('camera.settings.diagnostics')} kind="diagnostic" entities={diagnosticEntities} />
           </div>
         ) : null}
 
         {hasDeviceMetadata ? (
           <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Informazioni</p>
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('camera.settings.info')}</p>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-xs">
-              <span className="text-[color:var(--ui-text-tertiary)]">Stato</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{isOffline ? 'Non raggiungibile' : 'Online'}</span>
-              <span className="text-[color:var(--ui-text-tertiary)]">Produttore</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.manufacturer ?? 'N/D'}</span>
-              <span className="text-[color:var(--ui-text-tertiary)]">Modello</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.model ?? 'N/D'}</span>
-              <span className="text-[color:var(--ui-text-tertiary)]">Firmware</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.swVersion ?? 'N/D'}</span>
-              <span className="text-[color:var(--ui-text-tertiary)]">Hardware</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.hwVersion ?? 'N/D'}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('camera.info.status')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{isOffline ? t('camera.unreachable') : t('camera.online')}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('camera.info.manufacturer')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.manufacturer ?? t('camera.notAvailable')}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('camera.info.model')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.model ?? t('camera.notAvailable')}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('camera.info.firmware')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.swVersion ?? t('camera.notAvailable')}</span>
+              <span className="text-[color:var(--ui-text-tertiary)]">{t('camera.info.hardware')}</span><span className="text-right font-semibold text-[color:var(--ui-text-secondary)]">{deviceInfo?.hwVersion ?? t('camera.notAvailable')}</span>
             </div>
             {relatedEntities.length > 0 ? (
               <details className="mt-3 border-t border-[color:var(--ui-separator)] pt-3">
                 <summary className="cursor-pointer list-none text-xs font-semibold text-cyan-200/78 [&::-webkit-details-marker]:hidden">
-                  {relatedEntities.length} entità associate
+                  {t('camera.settings.relatedCount', { count: relatedEntities.length })}
                 </summary>
                 <div className="mt-2 space-y-1.5">
                   {relatedEntities.map((entity) => <p key={entity.entityId} className="break-all text-[10px] leading-snug text-[color:var(--ui-text-tertiary)]">{entity.entityId}</p>)}
@@ -1393,7 +1392,7 @@ export function CameraControlsPanel({
         title={name}
         subtitle={subtitle}
         icon={<Webcam size={22} />}
-        fallbackTitle="Videocamera"
+        fallbackTitle={t('camera.fallback')}
         subtitleClassName={subtitleClass}
       />
 
@@ -1411,18 +1410,18 @@ export function CameraControlsPanel({
                 playsInline
                 onError={() => {
                   setClipFailed(true);
-                  setActionFeedback('Clip non riproducibile, ritorno al live');
+                  setActionFeedback(t('camera.feedback.clipFailed'));
                 }}
               />
             ) : (
               <img
                 src={activeVisualUrl}
-                alt={name || 'Camera stream'}
+                alt={name || t('camera.fallback')}
                 className="absolute inset-0 h-full w-full object-cover"
                 onError={() => {
                   if (showClipVisual) {
                     setClipFailed(true);
-                    setActionFeedback('Clip non disponibile, ritorno al live');
+                    setActionFeedback(t('camera.feedback.clipUnavailable'));
                     return;
                   }
                   if (!streamFailed && fallbackVisual && activeVisualUrl !== fallbackVisual) {
@@ -1437,7 +1436,7 @@ export function CameraControlsPanel({
             <>
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(59,130,246,0.28),transparent_62%)]" />
               <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-xs text-gray-400">Live stream non disponibile</p>
+                <p className="text-xs text-gray-400">{t('camera.preview.streamUnavailable')}</p>
               </div>
             </>
           )}
@@ -1458,8 +1457,8 @@ export function CameraControlsPanel({
                     ? 'border-white/10 bg-white/10 text-white/72 hover:bg-white/15'
                     : 'border-[color:rgb(var(--ui-accent-rgb)/0.42)] bg-[color:rgb(var(--ui-accent-rgb)/0.22)] text-white'
                 }`}
-                aria-label={isAudioMuted ? 'Attiva audio' : 'Disattiva audio'}
-                title={isAudioMuted ? 'Attiva audio' : 'Disattiva audio'}
+                aria-label={isAudioMuted ? t('camera.preview.audioOn') : t('camera.preview.audioOff')}
+                title={isAudioMuted ? t('camera.preview.audioOn') : t('camera.preview.audioOff')}
                 onClick={() => setIsAudioMuted((value) => !value)}
               >
                 {isAudioMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
@@ -1472,8 +1471,8 @@ export function CameraControlsPanel({
                       ? 'border-[color:rgb(var(--ui-accent-rgb)/0.42)] bg-[color:rgb(var(--ui-accent-rgb)/0.22)] text-white'
                       : 'border-white/10 bg-white/10 text-white/72 hover:bg-white/15'
                   }`}
-                  aria-label={isPtzVisible ? 'Nascondi controllo PTZ' : 'Mostra controllo PTZ'}
-                  title={isPtzVisible ? 'Nascondi PTZ' : 'Mostra PTZ'}
+                  aria-label={isPtzVisible ? t('camera.preview.hidePtz') : t('camera.preview.showPtz')}
+                  title={isPtzVisible ? t('camera.preview.hidePtzShort') : t('camera.preview.showPtzShort')}
                   onClick={() => setIsPtzVisible((value) => !value)}
                 >
                   <SlidersHorizontal size={14} />
@@ -1482,8 +1481,8 @@ export function CameraControlsPanel({
               <button
                 type="button"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/72 transition-colors hover:bg-white/15"
-                aria-label="Schermo intero"
-                title="Schermo intero"
+                aria-label={t('camera.preview.fullscreen')}
+                title={t('camera.preview.fullscreen')}
                 onClick={() => setIsViewerOpen(true)}
               >
                 <Expand size={14} />
@@ -1491,8 +1490,8 @@ export function CameraControlsPanel({
               <button
                 type="button"
                 className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white/72 transition-colors hover:bg-white/15"
-                aria-label={showingSnapshot ? 'Torna al live' : previewIsPlaying ? 'Pausa' : 'Riproduci'}
-                title={showingSnapshot ? 'Torna al live' : previewIsPlaying ? 'Pausa' : 'Riproduci'}
+                aria-label={showingSnapshot ? t('camera.preview.backToLive') : previewIsPlaying ? t('camera.preview.pause') : t('camera.preview.play')}
+                title={showingSnapshot ? t('camera.preview.backToLive') : previewIsPlaying ? t('camera.preview.pause') : t('camera.preview.play')}
                 onClick={togglePreviewPlayback}
               >
                 {showingSnapshot ? <Webcam size={14} /> : previewIsPlaying ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
@@ -1511,9 +1510,9 @@ export function CameraControlsPanel({
       {canUsePtz && isPtzVisible ? (
         <div className={`${CONTEXT_PANEL_LAYOUT.section} mb-1`}>
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">Controllo PTZ</p>
+            <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{t('camera.preview.ptz')}</p>
             <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">
-              Tieni premuto
+              {t('camera.preview.hold')}
             </span>
           </div>
           <CameraPtzJoystick
@@ -1542,7 +1541,7 @@ export function CameraControlsPanel({
       {visibleEventLogs.length > 0 ? (
         <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1`}>
           <div className="mb-3 flex items-center justify-between gap-3 px-1">
-            <p className="text-xs font-semibold text-[color:var(--ui-text-secondary)]">Eventi</p>
+            <p className="text-xs font-semibold text-[color:var(--ui-text-secondary)]">{t('camera.events.title')}</p>
             <span className="text-[10px] font-medium tabular-nums text-[color:var(--ui-text-tertiary)]">{visibleEventLogs.length}</span>
           </div>
           <div className="space-y-3">
@@ -1557,7 +1556,7 @@ export function CameraControlsPanel({
           </div>
           {historyStatus === 'error' ? (
             <p className="mt-3 px-1 text-[10px] leading-relaxed text-amber-100/62">
-              {historyError ?? 'Cronologia non disponibile.'} Sono mostrati gli eventi forniti direttamente dalla camera.
+              {historyError ?? t('camera.events.historyUnavailable')} {t('camera.events.attributeFallback')}
             </p>
           ) : null}
         </div>
@@ -1567,28 +1566,28 @@ export function CameraControlsPanel({
             {historyStatus === 'loading' || historyStatus === 'idle' ? (
               <GlassLoader
                 size="sm"
-                label="Carico la cronologia"
-                description="Recupero gli eventi delle ultime 24 ore."
+                label={t('camera.events.loading')}
+                description={t('camera.events.loadingDescription')}
               />
             ) : historyStatus === 'error' ? (
               <>
-                <p className="text-sm font-semibold text-[color:var(--ui-text-secondary)]">Cronologia non disponibile</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-[color:var(--ui-text-tertiary)]">{historyError ?? 'Home Assistant non ha restituito gli eventi.'}</p>
+                <p className="text-sm font-semibold text-[color:var(--ui-text-secondary)]">{t('camera.events.historyUnavailable')}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[color:var(--ui-text-tertiary)]">{historyError ?? t('camera.events.haUnavailable')}</p>
                 {onRefreshHistory ? (
                   <button type="button" onClick={onRefreshHistory} className="glass-button mt-3 rounded-full px-4 py-2 text-[11px] font-semibold text-[color:var(--ui-text-secondary)] transition">
-                    Riprova
+                    {t('camera.events.retry')}
                   </button>
                 ) : null}
               </>
             ) : historyStatus === 'offline' ? (
               <>
-                <p className="text-sm font-semibold text-[color:var(--ui-text-secondary)]">Camera non raggiungibile</p>
-                <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">La cronologia tornerà disponibile alla riconnessione.</p>
+                <p className="text-sm font-semibold text-[color:var(--ui-text-secondary)]">{t('camera.events.cameraOffline')}</p>
+                <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">{t('camera.events.reconnectHint')}</p>
               </>
             ) : (
               <>
-                <p className="text-sm font-semibold text-[color:var(--ui-text-secondary)]">Nessuna attività recente</p>
-                <p className="mt-1 text-[11px] leading-relaxed text-[color:var(--ui-text-tertiary)]">Non risultano rilevamenti nelle ultime 24 ore.</p>
+                <p className="text-sm font-semibold text-[color:var(--ui-text-secondary)]">{t('camera.events.empty')}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-[color:var(--ui-text-tertiary)]">{t('camera.events.emptyDescription')}</p>
               </>
             )}
           </div>
@@ -1601,14 +1600,14 @@ export function CameraControlsPanel({
             type="button"
             onClick={() => setSettingsPageOpen(true)}
             className="flex w-full items-center justify-between gap-3 rounded-2xl px-2 py-1 text-left transition active:scale-[0.99]"
-            aria-label="Apri impostazioni camera"
+            aria-label={t('camera.settings.open')}
           >
             <span className="flex min-w-0 items-center gap-3">
               <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
                 <Settings2 size={17} />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">Impostazioni camera</span>
+                <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('camera.settings.title')}</span>
                 <span className="mt-0.5 block truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{settingsSummary}</span>
               </span>
             </span>
@@ -1621,7 +1620,7 @@ export function CameraControlsPanel({
         <div className="dashboard-content-surface-soft mb-1 rounded-[clamp(1rem,3vw,1.45rem)] px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <span className="min-w-0">
-              <span className="block text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Dispositivo</span>
+              <span className="block text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('camera.settings.device')}</span>
               <span className="mt-1 block truncate text-xs font-semibold text-[color:var(--ui-text-secondary)]">{deviceSummary}</span>
             </span>
             {deviceDetail ? (

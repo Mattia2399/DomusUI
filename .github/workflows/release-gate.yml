@@ -45,6 +45,9 @@ jobs:
       - name: Audit dipendenze release
         run: npm run audit:release
 
+      - name: Verifica note release in inglese
+        run: npm run release:notes:check
+
       - name: Installa Chromium per Playwright
         run: npx playwright install --with-deps chromium
 
@@ -52,7 +55,9 @@ jobs:
         run: npm run test:e2e
 
       - name: Crea pacchetto beta
-        run: node scripts/package-release.mjs
+        run: |
+          node scripts/package-release.mjs
+          npm run release:notes
 
       - name: Salva pacchetto beta verificato
         uses: actions/upload-artifact@v4

@@ -93,7 +93,7 @@ async function expectContainedAndFitted(page, { title = 'Stack automatico', card
 }
 
 async function enterEditMode(page) {
-  const editButton = page.locator('button[aria-label="Toggle edit mode"]:visible').first();
+  const editButton = page.locator('button[aria-label="Attiva o disattiva modalità modifica"]:visible').first();
   await editButton.click();
   await page.getByRole('button', { name: 'Attiva', exact: true }).click();
   await page.waitForSelector('.sections-grid.is-editing');

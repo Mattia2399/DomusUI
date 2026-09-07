@@ -1,8 +1,19 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import ModernProfilePage from './ModernProfilePage';
 
-afterEach(cleanup);
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+
+beforeEach(() => {
+  window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
+});
+
+afterEach(() => {
+  cleanup();
+  window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
+});
 
 const baseProps = {
   isOpen: true,
@@ -123,6 +134,25 @@ describe('ModernProfilePage', () => {
       />,
     );
     expect(screen.getByRole('heading', { name: 'I miei dispositivi' })).toBeTruthy();
+  });
+
+  it('offers only the supported languages and stores an explicit device preference', () => {
+    render(<ModernProfilePage {...baseProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: /Lingua/ }));
+
+    expect(screen.getByRole('heading', { name: 'Lingua' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Italiano/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /English/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Français/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Auto/ })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /English/ }));
+
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+    expect(screen.getByRole('heading', { name: 'Language', level: 1 })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
   });
 
   it('opens the support center from the profile overview', () => {

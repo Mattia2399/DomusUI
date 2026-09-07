@@ -11,6 +11,7 @@ import {
   type WidgetDisplayMetrics,
   type WidgetDisplayVariant,
 } from './widgetDisplayVariant';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type CoverCardProps = {
   widget: Widget;
@@ -43,6 +44,7 @@ export function CoverCard({
   onStopCover,
   onCloseCover,
 }: CoverCardProps) {
+  const { locale } = useI18n();
   const fallbackVariant = displayVariant ?? resolveWidgetDisplayVariant({
     kind: 'cover',
     breakpoint: gridBreakpoint,
@@ -54,7 +56,7 @@ export function CoverCard({
   const layoutVariant = measuredSize
     ? resolveCoverPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : fallbackVariant;
-  const model = useMemo(() => buildCoverCardModel({ widget, liveEntity }), [liveEntity, widget]);
+  const model = useMemo(() => buildCoverCardModel({ widget, liveEntity, locale }), [liveEntity, locale, widget]);
 
   useEffect(() => {
     if (!measuredSize || !onDisplayMetricsChange) {

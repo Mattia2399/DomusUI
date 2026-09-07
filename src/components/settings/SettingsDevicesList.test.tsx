@@ -1,6 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { SettingsDeviceDetail, SettingsDevicesList } from './SettingsDevicesList';
+
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+
+beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+afterEach(() => window.localStorage.removeItem(LANGUAGE_STORAGE_KEY));
 
 const states = {
   'light.kitchen': {

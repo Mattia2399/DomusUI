@@ -5,6 +5,7 @@ import { useObservedElementSize } from '../../hooks/useObservedElementSize';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
 import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
+import { useI18n } from '../../i18n/I18nProvider';
 import {
   CLIMATE_FEATURE_TARGET_HUMIDITY,
   climateFeatureEnabled,
@@ -150,14 +151,6 @@ function formatFanModeLabel(mode: string) {
     return 'Off';
   }
   return mode.length ? mode.toUpperCase() : '--';
-}
-
-function formatClimateOptionLabel(mode: string) {
-  const normalized = normalizeMode(mode).replace(/[_-]+/g, ' ');
-  if (!normalized) return '--';
-  if (normalized === 'none') return 'Nessuno';
-  if (normalized === 'off') return 'Fermo';
-  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
 function resolveNextClimateOption(modes: string[], currentMode: string) {
@@ -462,6 +455,46 @@ export function ClimateCard({
   displayVariant,
   onDisplayMetricsChange,
 }: ClimateCardProps) {
+  const { t } = useI18n();
+  const localizedModeLabel = (mode: string) => {
+    const normalized = normalizeMode(mode);
+    if (normalized === 'heat') return t('controls.climate.label.heating');
+    if (normalized === 'cool') return t('controls.climate.label.cooling');
+    if (normalized === 'heat_cool' || normalized === 'auto' || normalized === 'automatic') return t('controls.climate.label.automatic');
+    if (normalized === 'dry' || normalized === 'drying' || normalized === 'dehumidify') return t('controls.climate.label.dry');
+    if (normalized === 'fan' || normalized === 'fan_only' || normalized === 'ventilate') return t('controls.climate.label.ventilation');
+    if (normalized === 'off') return t('controls.climate.label.off');
+    if (normalized === 'unavailable') return t('controls.climate.label.unavailable');
+    if (normalized === 'on') return t('controls.common.on');
+    return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1).replace(/[_-]+/g, ' ') : t('controls.climate.label.inactive');
+  };
+  const localizedModeChip = (mode: string) => {
+    const normalized = normalizeMode(mode);
+    if (normalized === 'heat') return t('controls.climate.label.heat');
+    if (normalized === 'cool') return t('controls.climate.label.cool');
+    if (normalized === 'heat_cool' || normalized === 'auto') return t('controls.climate.label.auto');
+    if (normalized === 'dry') return t('controls.climate.label.dry');
+    if (normalized === 'fan_only') return t('controls.climate.label.fan');
+    if (normalized === 'off') return t('controls.climate.label.off');
+    return normalized ? normalized.replace(/[_-]+/g, ' ') : t('controls.climate.mode');
+  };
+  const localizedOptionLabel = (mode: string) => {
+    const normalized = normalizeMode(mode).replace(/[_-]+/g, ' ');
+    if (!normalized) return '--';
+    if (normalized === 'none') return t('controls.climate.label.none');
+    if (normalized === 'off') return t('controls.climate.label.stopped');
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  };
+  const localizedFanLabel = (mode: string) => {
+    const normalized = normalizeMode(mode);
+    if (normalized === 'low') return t('controls.climate.label.low');
+    if (normalized === 'medium' || normalized === 'med') return t('controls.climate.label.medium');
+    if (normalized === 'high') return t('controls.climate.label.high');
+    if (normalized === 'quiet') return t('controls.climate.label.quiet');
+    if (normalized === 'on') return t('controls.common.on');
+    if (normalized === 'off') return t('controls.common.off');
+    return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : '--';
+  };
   const fallbackVariant = displayVariant ?? resolveWidgetDisplayVariant({
     kind: 'climate',
     breakpoint: gridBreakpoint,
@@ -479,17 +512,16 @@ export function ClimateCard({
   const isDemoClimate = !liveEntity && widget.dataSource === 'mock' && widget.entityId === 'climate.air_conditioner';
   const rawAttributes = liveEntity?.rawAttributes;
   const activeMode = resolveActiveMode(liveEntity, widget, state);
-  const fallbackStatus = modeToLabel(activeMode);
-  const statusLine = translateClimateStatus(
+  const fallbackStatus = localizedModeLabel(activeMode);
+  const rawStatus =
     toTrimmedString(liveEntity?.stateLabel) ??
       toTrimmedString(liveEntity?.hvacAction) ??
       toTrimmedString(rawAttributes?.hvac_action) ??
       toTrimmedString(liveEntity?.hvacMode) ??
       toTrimmedString(rawAttributes?.hvac_mode) ??
       toTrimmedString(liveEntity?.state) ??
-      (isDemoClimate ? toTrimmedString(state.climate.status) ?? toTrimmedString(state.climate.mode) : undefined),
-    fallbackStatus,
-  );
+      (isDemoClimate ? toTrimmedString(state.climate.status) ?? toTrimmedString(state.climate.mode) : undefined);
+  const statusLine = rawStatus ? localizedModeLabel(rawStatus) : fallbackStatus;
   const currentTemp =
     toFiniteNumber(liveEntity?.currentValue) ??
     toFiniteNumber(rawAttributes?.current_temperature) ??
@@ -886,12 +918,12 @@ export function ClimateCard({
                   event.stopPropagation();
                   setIsModeMenuOpen((current) => !current);
                 }}
-                aria-label={`Modalita clima: ${modeToLabel(selectedHvacMode)}`}
-                title={`Modalita clima: ${modeToLabel(selectedHvacMode)}`}
+                aria-label={`${t('controls.climate.mode')}: ${localizedModeLabel(selectedHvacMode)}`}
+                title={`${t('controls.climate.mode')}: ${localizedModeLabel(selectedHvacMode)}`}
               >
                 {modeControlIcon(selectedHvacMode, isDenseCard ? 14 : 15)}
                 {!isDenseCard ? (
-                  <span className="min-w-0 truncate font-semibold leading-none">{modeChipLabel(selectedHvacMode)}</span>
+                  <span className="min-w-0 truncate font-semibold leading-none">{localizedModeChip(selectedHvacMode)}</span>
                 ) : null}
               </button>
             </div>
@@ -922,7 +954,7 @@ export function ClimateCard({
                   onTemperatureChange(next);
                 }
               }}
-              aria-label="Diminuisci temperatura target"
+              aria-label={t('controls.climate.decreaseTemperature')}
             >
               <Minus size={controlIconSize} />
             </button>
@@ -954,7 +986,7 @@ export function ClimateCard({
                   onTemperatureChange(next);
                 }
               }}
-              aria-label="Aumenta temperatura target"
+              aria-label={t('controls.climate.increaseTemperature')}
             >
               <Plus size={controlIconSize} />
             </button>
@@ -972,7 +1004,7 @@ export function ClimateCard({
                 setLocalHumidity(next);
                 onTargetHumidityChange?.(next);
               }}
-              aria-label="Diminuisci umidita target"
+              aria-label={t('controls.climate.decreaseHumidity')}
             >
               <Minus size={controlIconSize} />
             </button>
@@ -989,7 +1021,7 @@ export function ClimateCard({
                 setLocalHumidity(next);
                 onTargetHumidityChange?.(next);
               }}
-              aria-label="Aumenta umidita target"
+              aria-label={t('controls.climate.increaseHumidity')}
             >
               <Plus size={controlIconSize} />
             </button>
@@ -999,9 +1031,9 @@ export function ClimateCard({
         {primaryControl === 'dry-status' ? (
           <div className="relative mt-auto flex min-w-0 flex-col items-center justify-center text-center">
             <Droplets className="mb-1.5 h-7 w-7 text-[#64D2FF]/85" strokeWidth={1.7} />
-            <p className="truncate text-sm font-semibold text-white/88">Deumidifica</p>
+            <p className="truncate text-sm font-semibold text-white/88">{t('controls.climate.dehumidify')}</p>
             <p className="mt-0.5 truncate text-[0.68rem] text-white/58">
-              {currentHumidity !== undefined ? `Umidita ${Math.round(currentHumidity)}%` : 'Target non regolabile'}
+              {currentHumidity !== undefined ? t('controls.climate.humidity', { value: Math.round(currentHumidity) }) : t('controls.climate.targetUnavailable')}
             </p>
           </div>
         ) : null}
@@ -1010,9 +1042,9 @@ export function ClimateCard({
           <div className="relative mt-auto flex min-w-0 flex-col items-center justify-center text-center">
             <Fan className={`mb-1.5 h-7 w-7 text-white/88 ${fanPending ? 'animate-pulse' : ''}`} strokeWidth={1.7} />
             <p className="max-w-full truncate text-sm font-semibold text-white/90">
-              {localFanMode ? formatFanModeLabel(localFanMode) : 'Ventola'}
+              {localFanMode ? localizedFanLabel(localFanMode) : t('controls.climate.label.fan')}
             </p>
-            <p className="mt-0.5 text-[0.68rem] text-white/56">Velocita ventola</p>
+            <p className="mt-0.5 text-[0.68rem] text-white/56">{t('controls.climate.fanSpeed')}</p>
           </div>
         ) : null}
 
@@ -1025,7 +1057,7 @@ export function ClimateCard({
                 event.stopPropagation();
                 onPowerToggle?.();
               }}
-              aria-label="Accendi clima"
+              aria-label={t('controls.climate.turnOn')}
             >
               <Power size={isDenseCard ? 17 : 20} />
             </button>
@@ -1042,7 +1074,7 @@ export function ClimateCard({
                 {fanModes.map((entry, index) => {
                   const normalized = normalizeMode(entry);
                   const active = localFanMode === normalized;
-                  const label = formatFanModeLabel(normalized);
+                  const label = localizedFanLabel(normalized);
                   const activeStyle = fanPending
                     ? {
                         backgroundColor: toRgba(surface.fanAccent, 0.16),
@@ -1067,7 +1099,7 @@ export function ClimateCard({
                         setLocalFanMode(normalized);
                         onFanModeChange?.(normalized);
                       }}
-                      aria-label={`Imposta fan mode ${label}`}
+                      aria-label={t('card.climate.setFan', { mode: label })}
                       title={`Fan mode: ${label}`}
                     >
                       {index === fanModeIconIndex ? (
@@ -1104,11 +1136,11 @@ export function ClimateCard({
                   setLocalPresetMode(nextMode);
                   onPresetModeChange?.(nextMode);
                 }}
-                aria-label={`Cambia preset, attuale ${formatClimateOptionLabel(localPresetMode)}`}
+                aria-label={`${t('controls.climate.preset')}: ${localizedOptionLabel(localPresetMode)}`}
               >
                 <Sparkles size={12} className="shrink-0 text-white/58" />
                 <span className="min-w-0 truncate text-[0.62rem] font-semibold">
-                  {formatClimateOptionLabel(localPresetMode)}
+                  {localizedOptionLabel(localPresetMode)}
                 </span>
               </button>
             ) : <span />}
@@ -1123,11 +1155,11 @@ export function ClimateCard({
                   if (!nextMode) return;
                   setFullDetailSwingMode(nextMode);
                 }}
-                aria-label={`Cambia swing, attuale ${formatClimateOptionLabel(fullDetailSwingMode)}`}
+                aria-label={`${t('controls.climate.swing')}: ${localizedOptionLabel(fullDetailSwingMode)}`}
               >
                 <Wind size={12} className="shrink-0 text-white/58" />
                 <span className="min-w-0 truncate text-[0.62rem] font-semibold">
-                  {formatClimateOptionLabel(fullDetailSwingMode)}
+                  {localizedOptionLabel(fullDetailSwingMode)}
                 </span>
               </button>
             ) : <span />}
@@ -1145,7 +1177,7 @@ export function ClimateCard({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Scegli la funzionalita"
+            aria-label={t('card.climate.choose')}
             tabIndex={-1}
             className={`absolute inset-0 z-40 flex min-h-0 flex-col overflow-hidden ${cardRadiusClass} border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-surface-glass-strong)] ${isDenseCard ? 'p-2' : 'p-3'} text-[color:var(--ui-text-primary)] shadow-[inset_0_1px_0_rgb(var(--ui-glass-highlight-rgb)/0.22),0_18px_44px_var(--ui-shadow)] backdrop-blur-[30px] backdrop-saturate-[1.45]`}
             onClick={(event) => event.stopPropagation()}
@@ -1156,7 +1188,7 @@ export function ClimateCard({
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_68%_at_12%_0%,rgb(var(--ui-glass-highlight-rgb)/0.18),transparent_58%)]" />
             <div aria-hidden="true" className="pointer-events-none absolute -left-[12%] -top-[34%] h-[62%] w-[72%] rotate-[-10deg] rounded-[50%] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] blur-[1px]" />
             <div className={`${isDenseCard ? 'mb-1.5' : 'mb-2.5'} relative z-10 flex items-center justify-between gap-3`}>
-              <p className={`min-w-0 truncate font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] ${isDenseCard ? 'text-xs' : 'text-sm'}`}>Scegli la funzionalità:</p>
+              <p className={`min-w-0 truncate font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] ${isDenseCard ? 'text-xs' : 'text-sm'}`}>{t('card.climate.choose')}</p>
               <button
                 type="button"
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] shadow-[0_5px_16px_var(--ui-shadow-soft)] backdrop-blur-xl transition hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)] active:scale-95"
@@ -1164,7 +1196,7 @@ export function ClimateCard({
                   event.stopPropagation();
                   setIsModeMenuOpen(false);
                 }}
-                aria-label="Chiudi selezione modalita"
+                aria-label={t('card.climate.closeModes')}
               >
                 <X size={15} />
               </button>
@@ -1187,10 +1219,10 @@ export function ClimateCard({
                       onModeChange?.(mode);
                     }}
                     aria-pressed={active}
-                    aria-label={`Imposta modalita ${modeToLabel(mode)}`}
+                    aria-label={t('card.climate.setMode', { mode: localizedModeLabel(mode) })}
                   >
                     <span className="flex h-5 w-5 items-center justify-center">{modeControlIcon(mode, 17)}</span>
-                    <span className="max-w-full truncate text-[0.64rem] font-semibold">{modeChipLabel(mode)}</span>
+                    <span className="max-w-full truncate text-[0.64rem] font-semibold">{localizedModeChip(mode)}</span>
                   </button>
                 );
               })}
@@ -1215,7 +1247,7 @@ export function ClimateCard({
             }
           }}
           className={`absolute inset-0 ${cardRadiusClass} widget-card-handle cursor-grab`}
-          aria-label={`Apri ${widget.title}`}
+          aria-label={t('card.open', { name: widget.title })}
         />
       ) : null}
     </div>

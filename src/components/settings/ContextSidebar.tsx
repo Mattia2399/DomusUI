@@ -36,6 +36,7 @@ import type { DashboardStateShape } from '../../hooks/useDashboardState';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { AlarmActionAuthOptions } from '../../utils/alarmSecurityPolicy';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type MediaRepeatMode = 'off' | 'all' | 'one';
 type MediaOutputKind = 'speaker' | 'tv' | 'cast';
@@ -439,6 +440,7 @@ export function ContextSidebar({
   onAuthorizeAlarmDeviceAuth,
   actions: providedActions,
 }: ContextSidebarProps) {
+  const { t } = useI18n();
   const actions = useMemo<ContextSidebarProps['actions']>(() => {
     if (commandsEnabled) {
       return providedActions;
@@ -507,8 +509,8 @@ export function ContextSidebar({
           type="button"
           onClick={onClose}
           className="glass-icon-button absolute z-30 h-9 w-9 right-[calc(clamp(0.75rem,2.8vw,1.5rem)+0.5rem)] top-[calc(clamp(0.75rem,2.8vw,1.5rem)+0.4rem)]"
-          aria-label="Chiudi pannello contestuale"
-          title="Chiudi"
+          aria-label={t('builder.closeContext')}
+          title={t('builder.closeContext')}
         >
           <X size={16} />
         </button>
@@ -520,8 +522,8 @@ export function ContextSidebar({
             <span className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
               <Lightbulb size={22} />
             </span>
-            <p className="text-lg font-semibold text-[color:var(--ui-text-primary)]">Nessuna card selezionata</p>
-            <p className="mt-2 text-sm text-[color:var(--ui-text-secondary)]">Clicca una card per vedere le informazioni</p>
+            <p className="text-lg font-semibold text-[color:var(--ui-text-primary)]">{t('home.sidebar.empty')}</p>
+            <p className="mt-2 text-sm text-[color:var(--ui-text-secondary)]">{t('home.sidebar.emptyDescription')}</p>
           </div>
         </div>
       ) : null}
@@ -800,7 +802,7 @@ export function ContextSidebar({
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-[color:var(--ui-text-secondary)]">
                   <MapPin size={18} />
-                  <p className="text-xs">Nessuna coordinata disponibile per i membri.</p>
+                  <p className="text-xs">{t('context.members.noCoordinates')}</p>
                 </div>
               )}
               <button
@@ -808,11 +810,11 @@ export function ContextSidebar({
                 onClick={centerMapOnCurrentMember}
                 disabled={!currentMemberMapPoint}
                 className="glass-icon-button absolute right-2 top-2 z-20 h-8 w-8 disabled:cursor-not-allowed disabled:opacity-45"
-                aria-label="Centra sulla mia posizione"
+                aria-label={t('context.members.center')}
                 title={
                   currentMemberMapPoint
-                    ? 'Centra sulla mia posizione'
-                    : 'Posizione utente connesso non disponibile'
+                    ? t('context.members.center')
+                    : t('context.members.positionUnavailable')
                 }
               >
                 <LocateFixed size={15} />
@@ -890,7 +892,7 @@ export function ContextSidebar({
       {activeDevice ? (
         <div className="px-[clamp(0.75rem,2.8vw,1.5rem)] pb-1">
           <div className="context-content-surface mb-1 rounded-2xl p-[clamp(0.8rem,2.4vw,1.15rem)] shadow-lg">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Dispositivi correlati</p>
+            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{t('context.members.related')}</p>
             <div className={`mt-3 ${CONTEXT_PANEL_LAYOUT.adaptiveGridTwo}`}>
               {microWidgets.map((microWidget) => {
                 const state = resolveEntityStateById(haStates, microWidget.entity);
@@ -983,7 +985,7 @@ export function ContextSidebar({
               })}
               {microWidgets.length === 0 ? (
                 <div className="context-content-surface-soft col-span-full rounded-2xl px-3 py-3 text-sm text-[color:var(--ui-text-tertiary)]">
-                  Nessun dispositivo correlato.
+                  {t('context.members.noRelated')}
                 </div>
               ) : null}
             </div>

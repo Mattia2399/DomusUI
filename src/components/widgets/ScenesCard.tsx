@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { SceneIconKey, SceneKey } from '../../types/dashboardModels';
 import { useCardSize } from './useCardSize';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type SceneItem = {
   id: SceneKey;
@@ -244,6 +245,7 @@ export function ScenesCard({
   onAddScene,
   onSceneTrigger,
 }: ScenesCardProps) {
+  const { t } = useI18n();
   const [runningProgress, setRunningProgress] = useState(0);
   const runningProgressRef = useRef(0);
   const runningAnimationFrameRef = useRef<number | null>(null);
@@ -450,7 +452,7 @@ export function ScenesCard({
                 <Plus size={iconSize} />
               </span>
               <span className={`w-full min-w-0 text-center ${labelClass}`}>
-                Aggiungi
+                {t('card.add')}
               </span>
             </button>
           ))}

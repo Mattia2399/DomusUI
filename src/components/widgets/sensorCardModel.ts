@@ -6,6 +6,7 @@ import {
   resolveSensorDisplayPrecision,
   resolveSensorNumericValue,
 } from '../../utils/sensorValue';
+import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 
 const SENSOR_MIN_ATTRIBUTE_KEYS = ['min', 'min_value', 'min_level', 'min_db', 'minimum'];
 const SENSOR_MAX_ATTRIBUTE_KEYS = ['max', 'max_value', 'max_level', 'max_db', 'maximum'];
@@ -47,6 +48,7 @@ export type SensorCardModel = {
 };
 
 type BuildSensorCardModelInput = {
+  locale?: AppLocale;
   widget: Widget;
   value?: number;
   sensorHistory?: number[];
@@ -156,11 +158,12 @@ function resolveStatus(
   batteryEntity: MockEntityState | undefined,
   liveEntity: MockEntityState | undefined,
   available: boolean,
+  locale: AppLocale,
 ) {
   if (!hasBatteryEntity) {
     return {
       activeBars: available ? 3 : 0,
-      label: available ? 'Sensore disponibile' : 'Sensore non disponibile',
+      label: translateForLocale(locale, available ? 'card.sensor.available' : 'card.sensor.unavailable'),
     };
   }
   const percentage =
@@ -169,20 +172,20 @@ function resolveStatus(
     parseBatteryPercentage(liveEntity?.rawAttributes?.battery_level) ??
     parseBatteryPercentage(liveEntity?.rawAttributes?.battery);
   if (percentage === undefined) {
-    return { activeBars: 0, label: 'Batteria non disponibile', color: '#8f96aa' };
+    return { activeBars: 0, label: translateForLocale(locale, 'card.sensor.batteryUnavailable'), color: '#8f96aa' };
   }
   if (percentage <= 20) {
-    return { activeBars: 1, label: `Batteria ${percentage}%`, color: '#fb7185' };
+    return { activeBars: 1, label: translateForLocale(locale, 'card.sensor.batteryLevel', { value: percentage }), color: '#fb7185' };
   }
   if (percentage <= 50) {
-    return { activeBars: 2, label: `Batteria ${percentage}%`, color: '#f59e0b' };
+    return { activeBars: 2, label: translateForLocale(locale, 'card.sensor.batteryLevel', { value: percentage }), color: '#f59e0b' };
   }
-  return { activeBars: 3, label: `Batteria ${percentage}%`, color: '#22c55e' };
+  return { activeBars: 3, label: translateForLocale(locale, 'card.sensor.batteryLevel', { value: percentage }), color: '#22c55e' };
 }
 
-function resolveTrend(value: number | undefined, history: number[], rangeSpan: number, precision: number) {
+function resolveTrend(value: number | undefined, history: number[], rangeSpan: number, precision: number, locale: AppLocale) {
   if (value === undefined || history.length < 2) {
-    return { direction: 'none' as const, label: value === undefined ? 'Non disponibile' : 'Disponibile' };
+    return { direction: 'none' as const, label: translateForLocale(locale, value === undefined ? 'card.sensor.unavailableShort' : 'card.sensor.availableShort') };
   }
   const lastHistoryValue = history[history.length - 1];
   const previousValue = lastHistoryValue === value && history.length > 1
@@ -191,12 +194,12 @@ function resolveTrend(value: number | undefined, history: number[], rangeSpan: n
   const delta = value - previousValue;
   const threshold = Math.max(rangeSpan * 0.01, 10 ** -Math.max(0, precision));
   if (Math.abs(delta) <= threshold) {
-    return { direction: 'stable' as const, label: 'Stabile', deltaText: '0' };
+    return { direction: 'stable' as const, label: translateForLocale(locale, 'card.sensor.stable'), deltaText: '0' };
   }
   const deltaText = `${delta > 0 ? '+' : ''}${formatSensorNumericValue(delta, Math.min(precision, 2)) ?? '0'}`;
   return delta > 0
-    ? { direction: 'up' as const, label: 'In aumento', deltaText }
-    : { direction: 'down' as const, label: 'In calo', deltaText };
+    ? { direction: 'up' as const, label: translateForLocale(locale, 'card.sensor.increasing'), deltaText }
+    : { direction: 'down' as const, label: translateForLocale(locale, 'card.sensor.decreasing'), deltaText };
 }
 
 export function buildSensorCardModel({
@@ -205,6 +208,7 @@ export function buildSensorCardModel({
   sensorHistory,
   liveEntity,
   batteryEntity,
+  locale = 'it',
 }: BuildSensorCardModelInput): SensorCardModel {
   const numericValue = resolveSensorNumericValue(value, liveEntity);
   const available = numericValue !== undefined;
@@ -233,7 +237,7 @@ export function buildSensorCardModel({
   const deviceClass = liveEntity?.rawAttributes?.device_class;
 
   return {
-    title: widget.title.trim() || 'Sensore',
+    title: widget.title.trim() || translateForLocale(locale, 'controls.sensor.title'),
     available,
     valueText: formatSensorNumericValue(numericValue, precision) ?? '—',
     compactValueText: formatCompactValue(numericValue, precision),
@@ -252,9 +256,9 @@ export function buildSensorCardModel({
       averageText: formatSensorNumericValue(statAverage, precision) ?? '—',
       maxText: formatSensorNumericValue(statMax, precision) ?? '—',
     },
-    trend: resolveTrend(numericValue, history, rangeSpan, precision),
+    trend: resolveTrend(numericValue, history, rangeSpan, precision, locale),
     history,
     visualization: history.length >= 2 ? 'sparkline' : 'range',
-    status: resolveStatus(Boolean(widget.sensorBatteryEntityId?.trim()), batteryEntity, liveEntity, available),
+    status: resolveStatus(Boolean(widget.sensorBatteryEntityId?.trim()), batteryEntity, liveEntity, available, locale),
   };
 }

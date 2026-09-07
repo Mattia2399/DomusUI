@@ -20,6 +20,8 @@ describe('Home Assistant panel distribution contract', () => {
     expect(installation).toContain('You do not need to edit `configuration.yaml`');
     expect(integrationConstants).toContain(`PANEL_WEB_COMPONENT = "${PANEL_ELEMENT_NAME}"`);
     expect(integrationSetup).toContain('await panel_custom.async_register_panel(');
+    expect(integrationSetup).toContain('getattr(frontend, "async_panel_exists", None)');
+    expect(integrationSetup).not.toContain('if frontend.async_panel_exists(');
     expect(integrationSetup).toContain('"app_url": f"{STATIC_URL_PATH}/index.html?v={VERSION}"');
     expect(hacsManifest).toMatchObject({
       zip_release: true,

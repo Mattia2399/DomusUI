@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Keyboard, Mic, MicOff, PencilLine, SendHorizontal, Sparkles, X } from 'lucide-react';
 import type { AssistantAgentClient } from '../../services/assistant/agentClients';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type FavoritesDrawerProps = {
   isOpen: boolean;
@@ -335,6 +336,7 @@ function MicReactiveLines({ isListening }: MicReactiveLinesProps) {
 }
 
 export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntityIds = [] }: FavoritesDrawerProps) {
+  const { t, locale } = useI18n();
   const [dragging, setDragging] = useState(false);
   const [dragTranslate, setDragTranslate] = useState<number | null>(null);
   const [command, setCommand] = useState('');
@@ -356,8 +358,8 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
       id: createChatMessageId(),
       role: 'assistant',
       text: agentClient.isReady
-        ? `${agentClient.label} pronto. Dimmi cosa vuoi fare in casa.`
-        : 'Home Assistant non e connesso. Posso restare in modalita demo finche non colleghi Assist.',
+        ? t('assistant.ready', { agent: agentClient.label })
+        : t('assistant.offline'),
     },
   ]);
   const startXRef = useRef(0);
@@ -497,10 +499,10 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
 
   useEffect(() => {
     const infoText = agentClient.isReady
-      ? `Agente attivo: ${agentClient.label}.`
-      : 'Agente non disponibile: collega Home Assistant per usare Assist.';
+      ? t('assistant.agentActive', { agent: agentClient.label })
+      : t('assistant.agentUnavailable');
     appendSystemMessage(infoText);
-  }, [agentClient.id, agentClient.isReady, agentClient.label, appendSystemMessage]);
+  }, [agentClient.id, agentClient.isReady, agentClient.label, appendSystemMessage, t]);
 
   useEffect(() => {
     const viewport = conversationViewportRef.current;
@@ -574,7 +576,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
         const message =
           error instanceof Error && error.message.trim().length > 0
             ? error.message
-            : 'Errore durante invio comando.';
+            : t('assistant.sendError');
         appendSystemMessage(message);
         return false;
       } finally {
@@ -582,7 +584,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
         isSendingRef.current = false;
       }
     },
-    [agentClient, appendSystemMessage],
+    [agentClient, appendSystemMessage, t],
   );
 
   const drainVoiceQueue = React.useCallback(async () => {
@@ -661,13 +663,13 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
 
     const SpeechRecognitionCtor = getSpeechRecognitionCtor();
     if (!SpeechRecognitionCtor) {
-      appendSystemMessage('Trascrizione vocale non supportata in questo browser.');
+      appendSystemMessage(t('assistant.transcriptionUnsupported'));
       setIsListening(false);
       return;
     }
 
     const recognition = new SpeechRecognitionCtor();
-    recognition.lang = 'it-IT';
+    recognition.lang = locale === 'fr' ? 'fr-FR' : locale === 'en' ? 'en-US' : 'it-IT';
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
@@ -709,12 +711,12 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
         return;
       }
       if (errorCode === 'not-allowed' || errorCode === 'service-not-allowed') {
-        appendSystemMessage('Permesso microfono negato: abilitalo per usare la trascrizione vocale.');
+        appendSystemMessage(t('assistant.micDenied'));
         setIsListening(false);
         return;
       }
       if (errorCode.length > 0) {
-        appendSystemMessage(`Trascrizione vocale interrotta (${errorCode}).`);
+        appendSystemMessage(t('assistant.transcriptionInterrupted', { error: errorCode }));
       }
     };
 
@@ -733,7 +735,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
     try {
       recognition.start();
     } catch {
-      appendSystemMessage('Impossibile avviare la trascrizione vocale in questo momento.');
+      appendSystemMessage(t('assistant.transcriptionStartError'));
       setIsListening(false);
     }
 
@@ -753,7 +755,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
       }
       flushVoiceDraft();
     };
-  }, [appendSystemMessage, clearVoiceCommitTimer, flushVoiceDraft, isListening]);
+  }, [appendSystemMessage, clearVoiceCommitTimer, flushVoiceDraft, isListening, locale, t]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -787,7 +789,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
             onClick={onOpen}
             className="liquid-glass-control ai-assistant-swipe-hint fixed right-2 top-1/2 h-16 w-2 -translate-y-1/2"
             style={{ zIndex: 59 }}
-            aria-label="Apri assistente AI"
+            aria-label={t('assistant.open')}
           />
         ) : (
           <button
@@ -795,7 +797,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
             onClick={onOpen}
             className="glass-button fixed right-4 bottom-24 border-cyan-200/35 px-3.5 py-2.5 text-xs uppercase tracking-[0.14em] text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.24)]"
             style={{ zIndex: 59 }}
-            aria-label="Apri assistente AI"
+            aria-label={t('assistant.open')}
           >
             <Sparkles size={14} />
             Assist
@@ -841,8 +843,8 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                     ? 'border-cyan-300/35 bg-cyan-400/18 text-cyan-100'
                     : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)]'
                 }`}
-                aria-label="Attiva modifica entita conversation"
-                title="Modifica entita conversation"
+                aria-label={t('assistant.editEntity')}
+                title={t('assistant.editEntity')}
               >
                 <PencilLine size={15} />
               </button>
@@ -850,21 +852,21 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                 type="button"
                 onClick={onClose}
                 className="glass-icon-button h-9 w-9"
-                aria-label="Chiudi pannello assistente"
-                title="Chiudi"
+                aria-label={t('assistant.close')}
+                title={t('assistant.close')}
               >
                 <X size={16} />
               </button>
             </div>
 
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">Assistente Casa</p>
-              <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">AI Control Center</h3>
+              <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">{t('assistant.eyebrow')}</p>
+              <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">{t('assistant.title')}</h3>
             </div>
 
             {isConversationEntityEditMode ? (
               <div className="liquid-glass-card mt-4 p-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Entita conversation</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">{t('assistant.entity')}</p>
                 <input
                   list={conversationEntityDatalistId}
                   value={conversationEntityId}
@@ -880,8 +882,8 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <p className="text-[11px] text-white/45">
                     {conversationEntitySuggestions.length > 0
-                      ? 'Suggerimenti da Home Assistant.'
-                      : 'Nessuna entita suggerita disponibile.'}
+                      ? t('assistant.suggestions')
+                      : t('assistant.noSuggestions')}
                   </p>
                   {conversationEntityId.trim().length > 0 ? (
                     <button
@@ -889,7 +891,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                       onClick={() => setConversationEntityId('')}
                       className="text-[11px] uppercase tracking-[0.12em] text-cyan-100/80 hover:text-cyan-50"
                     >
-                      Usa default
+                      {t('assistant.useDefault')}
                     </button>
                   ) : null}
                 </div>
@@ -898,7 +900,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
 
             <div className="liquid-glass-card mt-5 rounded-3xl p-4">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/55">Microfono</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/55">{t('assistant.microphone')}</p>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -916,8 +918,8 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                         ? 'border-cyan-200/45 bg-[radial-gradient(circle_at_30%_25%,rgba(255,255,255,0.35),rgba(255,255,255,0.1)_42%,rgba(2,6,23,0.72)_100%)] text-cyan-50 shadow-[0_8px_24px_rgba(56,189,248,0.45)]'
                         : 'border-white/15 bg-white/5 text-white/60 hover:bg-white/10'
                     }`}
-                    aria-label={isListening ? 'Disattiva microfono' : 'Attiva microfono'}
-                    title={isListening ? 'Microfono attivo' : 'Microfono disattivo'}
+                    aria-label={isListening ? t('assistant.disableMic') : t('assistant.enableMic')}
+                    title={isListening ? t('assistant.micOn') : t('assistant.micOff')}
                   >
                     {isListening ? <Mic size={16} /> : <MicOff size={16} />}
                     <span
@@ -944,8 +946,8 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                         ? 'border-cyan-300/35 bg-cyan-400/20 text-cyan-100'
                         : 'border-white/15 bg-white/5 text-white/70 hover:bg-white/10'
                     }`}
-                    title="Apri input tastiera"
-                    aria-label="Attiva input tastiera"
+                    title={t('assistant.openKeyboard')}
+                    aria-label={t('assistant.enableKeyboard')}
                   >
                     <Keyboard size={14} />
                   </button>
@@ -955,7 +957,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
 
             <div className="mt-5 flex-1 min-h-0 flex flex-col overflow-hidden">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Conversation</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">{t('assistant.conversation')}</p>
                 <p className="text-[10px] uppercase tracking-[0.12em] text-white/45">
                   {conversationEntityId.trim().length > 0 ? conversationEntityId.trim() : agentClient.label}
                 </p>
@@ -999,7 +1001,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                   <input
                     value={command}
                     onChange={(event) => setCommand(event.target.value)}
-                    placeholder="Scrivi un comando per Assist..."
+                    placeholder={t('assistant.commandPlaceholder')}
                     className="h-10 min-w-0 flex-1 rounded-xl bg-transparent px-3 text-sm text-white placeholder:text-white/45 outline-none disabled:opacity-60"
                     disabled={isSending}
                   />
@@ -1009,7 +1011,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                     disabled={isSending}
                   >
                     <SendHorizontal size={14} />
-                    {isSending ? 'Invio...' : 'Invia'}
+                    {isSending ? t('assistant.sending') : t('assistant.send')}
                   </button>
                 </div>
                 <p className="mt-2 flex items-center gap-1 text-[11px] uppercase tracking-[0.14em] text-white/45">
@@ -1022,8 +1024,8 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                 <MicReactiveLines isListening={isListening} />
                 <p className="px-1 text-[11px] text-white/62 min-h-[1.15rem]">
                   {isListening
-                    ? liveTranscript || (isSpeechRecognitionSupported ? 'Parla ora...' : 'Trascrizione non supportata dal browser.')
-                    : 'Microfono in pausa.'}
+                    ? liveTranscript || (isSpeechRecognitionSupported ? t('assistant.speakNow') : t('assistant.transcriptionUnsupportedShort'))
+                    : t('assistant.micPaused')}
                 </p>
               </div>
             )}

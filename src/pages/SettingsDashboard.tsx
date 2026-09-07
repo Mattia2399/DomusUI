@@ -77,6 +77,7 @@ import type {
   DashboardRevisionRecord,
 } from '../services/dashboardRevisionHistory';
 import type { DashboardLayoutSaveResult } from '../services/dashboardStorage';
+import { useI18n } from '../i18n/I18nProvider';
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -142,10 +143,10 @@ type UpdateEntityMatch = {
 
 type MetricTone = 'ok' | 'warn' | 'danger';
 
-const TONE: Record<MetricTone, { barColor: string; accentColor: string; label: string }> = {
-  ok: { barColor: 'rgb(34,197,94)', accentColor: 'rgb(220,252,231)', label: 'Ottimale' },
-  warn: { barColor: 'rgb(251,146,60)', accentColor: 'rgb(255,247,237)', label: 'Elevato' },
-  danger: { barColor: 'rgb(239,68,68)', accentColor: 'rgb(254,242,242)', label: 'Critico' },
+const TONE: Record<MetricTone, { barColor: string }> = {
+  ok: { barColor: 'rgb(34,197,94)' },
+  warn: { barColor: 'rgb(251,146,60)' },
+  danger: { barColor: 'rgb(239,68,68)' },
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -201,8 +202,8 @@ function formatEntityValue(entity: MockEntityState) {
   return `${rounded}${entity.unit ? ` ${entity.unit}` : ''}`;
 }
 
-function formatDateTime(value: Date) {
-  return new Intl.DateTimeFormat('it-IT', {
+function formatDateTime(value: Date, locale: string) {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: 'short',
     hour: '2-digit',
@@ -210,28 +211,28 @@ function formatDateTime(value: Date) {
   }).format(value);
 }
 
-function formatEntityTimestamp(entity: MockEntityState): string | null {
+function formatEntityTimestamp(entity: MockEntityState, locale: string): string | null {
   const rawState = normalizeText(entity.state);
   const rawDeviceClass = normalizeLower(entity.rawAttributes?.device_class);
   const parsedDate = Date.parse(rawState);
   if ((rawDeviceClass === 'timestamp' || rawState.includes('T')) && Number.isFinite(parsedDate)) {
-    return formatDateTime(new Date(parsedDate));
+    return formatDateTime(new Date(parsedDate), locale);
   }
   return null;
 }
 
-function formatDurationFromMs(deltaMs: number) {
+function formatDurationFromMs(deltaMs: number, t: ReturnType<typeof useI18n>['t']) {
   const totalMinutes = Math.max(0, Math.floor(deltaMs / 60000));
   const days = Math.floor(totalMinutes / 1440);
   const hours = Math.floor((totalMinutes % 1440) / 60);
   const minutes = totalMinutes % 60;
   if (days > 0) {
-    return `${days}g ${hours}h`;
+    return t('settings.system.durationDays', { days, hours });
   }
   if (hours > 0) {
-    return `${hours}h ${minutes}m`;
+    return t('settings.system.durationHours', { hours, minutes });
   }
-  return `${minutes}m`;
+  return t('settings.system.durationMinutes', { minutes });
 }
 
 // Uptime can be exposed either as a boot timestamp (device_class timestamp)
@@ -378,26 +379,26 @@ function collectUpdateEntities(haStates: MockEntityStateMap): UpdateEntityMatch[
     .sort((first, second) => Number(second.available) - Number(first.available) || first.title.localeCompare(second.title));
 }
 
-function statusLabel(status: HaConnectionStatus) {
+function statusLabel(status: HaConnectionStatus, t: ReturnType<typeof useI18n>['t']) {
   if (status === 'connected') {
-    return 'Online';
+    return t('settings.status.online');
   }
   if (status === 'connecting') {
-    return 'Connessione';
+    return t('settings.status.connecting');
   }
   if (status === 'reconnecting') {
-    return 'Riconnessione';
+    return t('settings.status.reconnecting');
   }
   if (status === 'reauth_required') {
-    return 'Accesso richiesto';
+    return t('settings.status.reauth');
   }
   if (status === 'disconnected_by_user') {
-    return 'Disconnesso';
+    return t('settings.status.disconnected');
   }
   if (status === 'error') {
-    return 'Errore';
+    return t('settings.status.error');
   }
-  return 'Offline';
+  return t('settings.status.offline');
 }
 
 function statusToneClass(status: HaConnectionStatus) {
@@ -559,11 +560,12 @@ function VitalMeter({
 }
 
 function MiniSparkline({ id, data }: { id: string; data: number[] }) {
+  const { t } = useI18n();
   const chartData = useMemo(() => data.slice(-24).map((value, index) => ({ index, value })), [data]);
   if (chartData.length < 2) {
     return (
       <div className="flex h-full w-full items-center justify-center rounded-lg bg-[color:var(--ui-surface-glass)] text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
-        Dati insufficienti
+        {t('settings.system.insufficientData')}
       </div>
     );
   }
@@ -818,7 +820,7 @@ function SettingsDetailShell({
   title,
   subtitle,
   onBack,
-  backLabel = 'Impostazioni',
+  backLabel,
   children,
 }: {
   title: string;
@@ -827,12 +829,13 @@ function SettingsDetailShell({
   backLabel?: string;
   children: React.ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <div className="dashboard-page-scroll !p-0 text-[color:var(--ui-text-primary)]">
       <NestedPageHeader
         title={title}
         subtitle={subtitle}
-        backLabel={backLabel}
+        backLabel={backLabel ?? t('settings.back')}
         onBack={onBack}
         contentClassName="lg:!px-10"
       />
@@ -872,6 +875,7 @@ export default function SettingsDashboard({
   onNavigate,
   managedSectionContent,
 }: SettingsDashboardProps) {
+  const { locale, t } = useI18n();
   const security = useDashboardSecurity();
   const sensitiveGate = useSensitiveActionGate();
   const {
@@ -949,23 +953,23 @@ export default function SettingsDashboard({
       ? `${Math.round(memoryUseValue)} / ${Math.round(memoryTotalValue)} ${memoryUse?.entity.unit ?? 'MB'}`
       : undefined;
   const diskHint = diskUse
-    ? `Usato ${formatEntityValue(diskUse.entity)}${diskFree ? ` · libero ${formatEntityValue(diskFree.entity)}` : ''}`
+    ? t('settings.system.diskUsed', { used: formatEntityValue(diskUse.entity), free: diskFree ? formatEntityValue(diskFree.entity) : '—' })
     : diskFree
-      ? `Libero ${formatEntityValue(diskFree.entity)}`
+      ? t('settings.system.diskFree', { free: formatEntityValue(diskFree.entity) })
       : undefined;
 
   // --- Network & uptime ---
   const bootTimeMs = resolveBootTimeMs(uptime);
-  const uptimeLabel = bootTimeMs === null ? '—' : formatDurationFromMs(nowTick - bootTimeMs);
-  const uptimeSince = bootTimeMs === null ? 'Non disponibile' : `Dal ${formatDateTime(new Date(bootTimeMs))}`;
+  const uptimeLabel = bootTimeMs === null ? '—' : formatDurationFromMs(nowTick - bootTimeMs, t);
+  const uptimeSince = bootTimeMs === null ? t('settings.common.unavailable') : t('settings.system.since', { date: formatDateTime(new Date(bootTimeMs), locale) });
   const lastRestartLabel =
-    bootTimeMs === null ? 'Ultimo riavvio non disponibile' : `Ultimo riavvio ${formatDateTime(new Date(bootTimeMs))}`;
+    bootTimeMs === null ? t('settings.system.restartUnavailable') : t('settings.system.lastRestart', { date: formatDateTime(new Date(bootTimeMs), locale) });
   const ipLabel = ipAddress ? normalizeText(ipAddress.entity.state) || '—' : '—';
   const latencyValue = latency ? parseNumericState(latency.entity) : null;
 
   // --- Backup ---
   const lastBackupLabel = backupTimestamp
-    ? formatEntityTimestamp(backupTimestamp.entity) ?? formatEntityValue(backupTimestamp.entity)
+    ? formatEntityTimestamp(backupTimestamp.entity, locale) ?? formatEntityValue(backupTimestamp.entity)
     : null;
   const backupSizeLabel = backupSize ? formatEntityValue(backupSize.entity) : null;
 
@@ -976,7 +980,7 @@ export default function SettingsDashboard({
       await action();
       setActionFeedback(successText);
     } catch (error) {
-      setActionFeedback(error instanceof Error ? error.message : 'Azione non completata.');
+      setActionFeedback(error instanceof Error ? error.message : t('settings.system.actionFailed'));
     } finally {
       setIsActionBusy(false);
     }
@@ -985,36 +989,36 @@ export default function SettingsDashboard({
   const handleRefreshSystemSensors = () => {
     void runQuickAction(async () => {
       if (systemEntityIds.length === 0) {
-        throw new Error('Nessun sensore server disponibile.');
+        throw new Error(t('settings.system.noServerSensors'));
       }
       const success = await onCallService('homeassistant', 'update_entity', { entity_id: systemEntityIds });
       if (!success) {
-        throw new Error('Aggiornamento sensori non riuscito.');
+        throw new Error(t('settings.system.sensorUpdateFailed'));
       }
-    }, 'Sensori server aggiornati.');
+    }, t('settings.system.sensorsUpdated'));
   };
 
   const handleUpdateAll = () => {
     void runQuickAction(async () => {
       if (availableUpdates.length === 0) {
-        throw new Error('Nessun aggiornamento disponibile.');
+        throw new Error(t('settings.system.noAvailableUpdates'));
       }
       for (const update of availableUpdates) {
         const success = await onCallService('update', 'install', { entity_id: update.entityId });
         if (!success) {
-          throw new Error(`Aggiornamento non avviato per ${update.title}.`);
+          throw new Error(t('settings.system.updateNotStarted', { name: update.title }));
         }
       }
-    }, 'Aggiornamenti avviati.');
+    }, t('settings.system.updatesStarted'));
   };
 
   const handleForceBackup = () => {
     void runQuickAction(async () => {
       const success = await onCallService('backup', 'create', {});
       if (!success) {
-        throw new Error('Backup non avviato.');
+        throw new Error(t('settings.system.backupNotStarted'));
       }
-    }, 'Backup avviato su Home Assistant.');
+    }, t('settings.system.backupStarted'));
   };
 
   const handleRestoreBackup = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1026,8 +1030,8 @@ export default function SettingsDashboard({
     const authorized = await sensitiveGate.authorize({
       action: 'restore_backup',
       capability: 'restore_backup',
-      title: 'Ripristinare questo backup?',
-      description: `${file.name} · ${Math.max(1, Math.round(file.size / 1024))} KB. La configurazione corrente verrà sostituita.`,
+      title: t('settings.backup.restorePrompt'),
+      description: t('settings.backup.restoreDescription', { file: file.name, size: Math.max(1, Math.round(file.size / 1024)) }),
     });
     if (!authorized) {
       return;
@@ -1036,9 +1040,9 @@ export default function SettingsDashboard({
     setActionFeedback('');
     try {
       await onRestoreBackup(file);
-      setActionFeedback('Backup ripristinato.');
+      setActionFeedback(t('settings.system.backupRestored'));
     } catch (error) {
-      setActionFeedback(error instanceof Error ? error.message : 'Ripristino non riuscito.');
+      setActionFeedback(error instanceof Error ? error.message : t('settings.system.restoreFailed'));
     } finally {
       setIsRestoreBusy(false);
     }
@@ -1051,27 +1055,27 @@ export default function SettingsDashboard({
     void runQuickAction(async () => {
       const success = await onCallService('homeassistant', 'restart', {});
       if (!success) {
-        throw new Error('Riavvio server non avviato.');
+        throw new Error(t('settings.system.restartNotStarted'));
       }
-    }, 'Riavvio Home Assistant avviato.');
+    }, t('settings.system.restartStarted'));
   };
 
   const handleRebootHost = () => {
     void runQuickAction(async () => {
       const success = await onCallService('hassio', 'host_reboot', {});
       if (!success) {
-        throw new Error('Riavvio hardware non avviato.');
+        throw new Error(t('settings.system.hostRestartNotStarted'));
       }
-    }, 'Riavvio hardware avviato.');
+    }, t('settings.system.hostRestartStarted'));
   };
 
   const handleShutdownHost = () => {
     void runQuickAction(async () => {
       const success = await onCallService('hassio', 'host_shutdown', {});
       if (!success) {
-        throw new Error('Spegnimento non avviato.');
+        throw new Error(t('settings.system.shutdownNotStarted'));
       }
-    }, 'Spegnimento sistema avviato.');
+    }, t('settings.system.shutdownStarted'));
   };
 
   const visibleUpdates = updateEntities.slice(0, 3);
@@ -1085,15 +1089,16 @@ export default function SettingsDashboard({
     (value) => value !== null,
   );
   const healthLabel = !hasSystemTelemetry
-    ? 'Telemetria non disponibile'
+    ? t('settings.system.telemetryUnavailable')
     : worstTone === 'danger'
-      ? 'Richiede attenzione'
+      ? t('settings.devices.needsAttention')
       : worstTone === 'warn'
-        ? 'Da controllare'
-        : 'Operativo';
+        ? t('settings.devices.needsAttention')
+        : t('settings.system.operational');
   const deviceHealthSnapshots = useMemo(
     () =>
       buildDeviceHealthSnapshots({
+        locale,
         connected: isConnected,
         states: haStates,
         entityRegistry: haEntityRegistry,
@@ -1104,6 +1109,7 @@ export default function SettingsDashboard({
       }),
     [
       attentionPreferences.batteryWarningThreshold,
+      locale,
       haAreas,
       haDeviceRegistry,
       haEntityRegistry,
@@ -1154,7 +1160,7 @@ export default function SettingsDashboard({
     anchor.download = createSupportDiagnosticsFilename(report.generatedAt);
     anchor.click();
     window.setTimeout(() => revokeObjectUrl(objectUrl), 0);
-    setActionFeedback('Diagnostica scaricata. Puoi allegarla alla richiesta di supporto.');
+    setActionFeedback(t('settings.system.diagnosticsDownloaded'));
   };
   const previewMembers: SettingsPreviewMember[] = houseMembers.map((member) => {
     const memberState = normalizeLower(haStates[member.id]?.state);
@@ -1188,10 +1194,10 @@ export default function SettingsDashboard({
   if (settingsPath === '/support') {
     return (
       <SettingsDetailShell
-        title="Supporto e feedback"
-        subtitle="Segnala problemi, condividi idee e prepara una diagnostica sicura."
+        title={t('settings.support.title')}
+        subtitle={t('settings.support.subtitle')}
         onBack={() => navigateTo('/profile')}
-        backLabel="Profilo"
+        backLabel={t('settings.profile.back')}
       >
         <SupportFeedbackSection
           appVersion={__APP_VERSION__}
@@ -1211,9 +1217,9 @@ export default function SettingsDashboard({
         <header className="dashboard-page-content-wide">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
-              <h1 className="dashboard-page-title">Impostazioni Casa</h1>
+              <h1 className="dashboard-page-title">{t('settings.title')}</h1>
               <p className="dashboard-page-subtitle">
-                Configura la casa, la dashboard e i servizi condivisi.
+                {t('settings.subtitle')}
               </p>
             </div>
             <span className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-4 py-2 text-xs font-semibold text-[color:var(--ui-text-secondary)] backdrop-blur-2xl">
@@ -1226,7 +1232,7 @@ export default function SettingsDashboard({
                       : 'bg-rose-500'
                 }`}
               />
-              Home Assistant · {statusLabel(haStatus)}
+              Home Assistant · {statusLabel(haStatus, t)}
             </span>
           </div>
         </header>
@@ -1235,8 +1241,8 @@ export default function SettingsDashboard({
           <div className="grid auto-rows-[minmax(10.5rem,auto)] grid-cols-2 gap-3 sm:auto-rows-[minmax(11rem,auto)] sm:gap-5 xl:grid-cols-6">
             <SettingsHubCard
               icon={House}
-              title="Casa"
-              subtitle="Identità della casa, piani, stanze e dispositivi"
+              title={t('settings.home.title')}
+              subtitle={t('settings.home.subtitle')}
               className="col-span-2 !min-h-[7.5rem] xl:col-span-4 xl:!min-h-[15rem]"
               iconClassName="text-[color:rgb(var(--ui-accent-rgb)/0.95)]"
               accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(56,189,248,0.16),transparent_58%)]"
@@ -1246,8 +1252,8 @@ export default function SettingsDashboard({
             {security.can('manage_rooms') ? (
               <SettingsHubCard
                 icon={UserRoundCog}
-                title="Persone e accessi"
-                subtitle="Ruoli, ospiti e autorizzazioni"
+                title={t('settings.access.title')}
+                subtitle={t('settings.access.subtitle')}
                 className="sm:col-span-1 xl:col-span-2 xl:min-h-[15rem]"
                 accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(168,85,247,0.15),transparent_58%)]"
                 onClick={() => openConfiguration('/settings/access')}
@@ -1259,8 +1265,8 @@ export default function SettingsDashboard({
             {canConfigureDashboard ? (
               <SettingsHubCard
                 icon={LayoutDashboard}
-                title="Dashboard"
-                subtitle="Layout condiviso, avvio e comportamento"
+                title={t('settings.dashboard.title')}
+                subtitle={t('settings.dashboard.subtitle')}
                 className="sm:col-span-1 xl:col-span-3"
                 accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(99,102,241,0.16),transparent_58%)]"
                 onClick={() => navigateTo('/settings/dashboard')}
@@ -1277,8 +1283,8 @@ export default function SettingsDashboard({
             {canConfigureDashboard ? (
               <SettingsHubCard
                 icon={BellRing}
-                title="Avvisi e attenzione"
-                subtitle="Categorie, soglie e promemoria della Home"
+                title={t('settings.attention.title')}
+                subtitle={t('settings.attention.subtitle')}
                 className="sm:col-span-1 xl:col-span-3"
                 accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]"
                 onClick={() => navigateTo('/settings/attention')}
@@ -1289,8 +1295,8 @@ export default function SettingsDashboard({
 
             <SettingsHubCard
               icon={Link2}
-              title="Connessioni"
-              subtitle="Home Assistant, OAuth e accesso locale"
+              title={t('settings.connections.title')}
+              subtitle={t('settings.connections.subtitle')}
               className="sm:col-span-1 xl:col-span-3"
               accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(6,182,212,0.15),transparent_58%)]"
               onClick={() => openConfiguration('/settings/connections')}
@@ -1298,15 +1304,15 @@ export default function SettingsDashboard({
               <SettingsCardPreview
                 variant="connection"
                 connected={isConnected}
-                statusLabel={statusLabel(haStatus)}
+                statusLabel={statusLabel(haStatus, t)}
               />
             </SettingsHubCard>
 
             {security.can('manage_security_config') ? (
               <SettingsHubCard
                 icon={LockKeyhole}
-                title="Sicurezza"
-                subtitle="Alarm, Lock e conferme sensibili"
+                title={t('settings.security.title')}
+                subtitle={t('settings.security.subtitle')}
                 className="sm:col-span-1 xl:col-span-2"
                 accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(16,185,129,0.14),transparent_58%)]"
                 onClick={() => navigateTo('/settings/security')}
@@ -1324,8 +1330,8 @@ export default function SettingsDashboard({
             {security.can('download_backup') ? (
               <SettingsHubCard
                 icon={Database}
-                title="Dati e backup"
-                subtitle="Esportazione, ripristino e reset"
+                title={t('settings.data.title')}
+                subtitle={t('settings.data.subtitle')}
                 className="sm:col-span-1 xl:col-span-2"
                 accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]"
                 onClick={() => openConfiguration('/settings/data')}
@@ -1340,8 +1346,8 @@ export default function SettingsDashboard({
 
             <SettingsHubCard
               icon={Activity}
-              title="Sistema"
-              subtitle="Home Assistant, aggiornamenti e diagnostica"
+              title={t('settings.system.title')}
+              subtitle={t('settings.system.cardSubtitle')}
               className="sm:col-span-1 xl:col-span-2"
               accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(20,184,166,0.14),transparent_58%)]"
               onClick={() => navigateTo('/settings/system')}
@@ -1358,8 +1364,8 @@ export default function SettingsDashboard({
             {security.can('developer_mode') ? (
               <SettingsHubCard
                 icon={Wrench}
-                title="Avanzate"
-                subtitle="Developer mode, versione e strumenti"
+                title={t('settings.advanced.title')}
+                subtitle={t('settings.advanced.subtitle')}
                 className="col-span-2 xl:col-span-6 xl:min-h-[9.5rem]"
                 accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(148,163,184,0.13),transparent_58%)]"
                 onClick={() => navigateTo('/settings/advanced')}
@@ -1380,29 +1386,29 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings/home') {
     return (
       <SettingsDetailShell
-        title="Casa"
-        subtitle="Organizza spazi, dispositivi ed entità di Home Assistant."
+        title={t('settings.home.title')}
+        subtitle={t('settings.home.pageSubtitle')}
         onBack={() => navigateTo('/settings')}
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <SettingsDestination
             icon={Layers3}
-            title="Piani e stanze"
-            subtitle="Organizza la struttura della casa"
+            title={t('settings.home.floors')}
+            subtitle={t('settings.home.floorsSubtitle')}
             onClick={() => navigateTo('/rooms')}
           />
           <SettingsDestination
             icon={Router}
-            title="Dispositivi"
-            subtitle={`${haDeviceRegistry.length} dispositivi${
-              deviceAttentionCount > 0 ? ` · ${deviceAttentionCount} da controllare` : ''
+            title={t('settings.devices.title')}
+            subtitle={`${t('settings.devices.count', { count: haDeviceRegistry.length })}${
+              deviceAttentionCount > 0 ? ` · ${t('settings.devices.attention', { count: deviceAttentionCount })}` : ''
             }`}
             onClick={() => navigateTo('/settings/devices')}
           />
           <SettingsDestination
             icon={Box}
-            title="Entità"
-            subtitle={`${Object.keys(haStates).length} entità Home Assistant disponibili`}
+            title={t('settings.entities.title')}
+            subtitle={t('settings.entities.count', { count: Object.keys(haStates).length })}
             onClick={() => navigateTo('/settings/entities')}
           />
         </div>
@@ -1413,8 +1419,8 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings/devices') {
     return (
       <SettingsDetailShell
-        title="Dispositivi"
-        subtitle="Stato, telemetria ed entità raggruppati per dispositivo."
+        title={t('settings.devices.title')}
+        subtitle={t('settings.devices.subtitle')}
         onBack={() => navigateTo('/settings/home')}
       >
         <SettingsDevicesList
@@ -1444,8 +1450,8 @@ export default function SettingsDashboard({
     const device = deviceHealthSnapshots.find((entry) => entry.id === deviceId);
     return (
       <SettingsDetailShell
-        title={device?.name || 'Dispositivo'}
-        subtitle="Dettagli e diagnostica del dispositivo."
+        title={device?.name || t('settings.devices.fallback')}
+        subtitle={t('settings.devices.detailSubtitle')}
         onBack={() => navigateTo('/settings/devices')}
       >
         {device ? (
@@ -1462,9 +1468,9 @@ export default function SettingsDashboard({
               size={23}
               className="mx-auto text-[color:var(--ui-text-tertiary)]"
             />
-            <h2 className="mt-3 text-sm font-semibold">Dispositivo non trovato</h2>
+            <h2 className="mt-3 text-sm font-semibold">{t('settings.devices.notFound')}</h2>
             <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">
-              Il dispositivo potrebbe essere stato rimosso o non essere più disponibile.
+              {t('settings.devices.notFoundSubtitle')}
             </p>
           </section>
         )}
@@ -1475,8 +1481,8 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings/entities') {
     return (
       <SettingsDetailShell
-        title="Entità"
-        subtitle="Consulta e filtra tutte le entità disponibili in Home Assistant."
+        title={t('settings.entities.title')}
+        subtitle={t('settings.entities.subtitle')}
         onBack={() => navigateTo('/settings/home')}
       >
         <SettingsEntitiesList
@@ -1492,20 +1498,19 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings/dashboard') {
     return (
       <SettingsDetailShell
-        title="Dashboard"
-        subtitle="Impostazioni condivise del layout e dell’esperienza Home."
+        title={t('settings.dashboard.title')}
+        subtitle={t('settings.dashboard.pageSubtitle')}
         onBack={() => navigateTo('/settings')}
       >
         <div className="grid gap-4 sm:grid-cols-3">
-          <StatTile icon={Layers3} label="Sezioni" value={sections.length} />
-          <StatTile icon={Box} label="Card" value={widgets.length} />
-          <StatTile icon={LayoutDashboard} label="Breakpoint" value={currentLayoutId?.toUpperCase() || 'Auto'} />
+          <StatTile icon={Layers3} label={t('settings.dashboard.sections')} value={sections.length} />
+          <StatTile icon={Box} label={t('settings.dashboard.cards')} value={widgets.length} />
+          <StatTile icon={LayoutDashboard} label={t('settings.dashboard.breakpoint')} value={currentLayoutId?.toUpperCase() || 'Auto'} />
         </div>
         <section className="dashboard-content-surface mt-5 rounded-[1.5rem] p-5 sm:p-6">
-          <h2 className="text-base font-semibold tracking-[-0.02em]">Personalizza dalla Home</h2>
+          <h2 className="text-base font-semibold tracking-[-0.02em]">{t('settings.dashboard.customize')}</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-            Posizione, dimensione e contenuto delle card restano accanto al canvas, dove puoi vedere subito
-            il risultato. Qui raccoglieremo soltanto le regole condivise e il layout iniziale.
+            {t('settings.dashboard.customizeDescription')}
           </p>
           <button
             type="button"
@@ -1513,7 +1518,7 @@ export default function SettingsDashboard({
             className="liquid-glass-selection mt-5 inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold"
           >
             <LayoutDashboard size={16} />
-            Apri la Home
+            {t('settings.dashboard.openHome')}
           </button>
         </section>
       </SettingsDetailShell>
@@ -1523,8 +1528,8 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings/attention') {
     return (
       <SettingsDetailShell
-        title="Avvisi e attenzione"
-        subtitle="Scegli quali situazioni devono emergere nella Home."
+        title={t('settings.attention.title')}
+        subtitle={t('settings.attention.pageSubtitle')}
         onBack={() => navigateTo('/settings')}
       >
         {!canConfigureDashboard ? (
@@ -1535,10 +1540,9 @@ export default function SettingsDashboard({
                 className="mt-0.5 shrink-0 text-[color:var(--ui-text-secondary)]"
               />
               <div>
-                <h2 className="font-semibold">Accesso non disponibile</h2>
+                <h2 className="font-semibold">{t('settings.accessUnavailable')}</h2>
                 <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                  La configurazione condivisa del Centro Attenzione richiede un account Owner o
-                  Amministratore verificato.
+                  {t('settings.attention.denied')}
                 </p>
               </div>
             </div>
@@ -1559,8 +1563,8 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings/security') {
     return (
       <SettingsDetailShell
-        title="Sicurezza della casa"
-        subtitle="Politiche condivise per Alarm, Lock e operazioni sensibili."
+        title={t('settings.security.pageTitle')}
+        subtitle={t('settings.security.pageSubtitle')}
         onBack={() => navigateTo('/settings')}
       >
         <section className="dashboard-content-surface rounded-[1.5rem] p-5 sm:p-6">
@@ -1569,10 +1573,9 @@ export default function SettingsDashboard({
               <ShieldCheck size={21} />
             </span>
             <div>
-              <h2 className="font-semibold">Home Assistant resta l’autorità finale</h2>
+              <h2 className="font-semibold">{t('settings.security.authority')}</h2>
               <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                La dashboard gestisce conferme e codici locali, mentre ruoli e comandi vengono sempre
-                verificati dal server.
+                {t('settings.security.authorityDescription')}
               </p>
             </div>
           </div>
@@ -1582,7 +1585,7 @@ export default function SettingsDashboard({
             className="liquid-glass-selection mt-5 inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold"
           >
             <LockKeyhole size={16} />
-            Apri il centro sicurezza
+            {t('settings.security.open')}
           </button>
         </section>
       </SettingsDetailShell>
@@ -1592,30 +1595,30 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings/advanced') {
     return (
       <SettingsDetailShell
-        title="Avanzate"
-        subtitle="Strumenti tecnici e informazioni dell’installazione."
+        title={t('settings.advanced.title')}
+        subtitle={t('settings.advanced.pageSubtitle')}
         onBack={() => navigateTo('/settings')}
       >
         <section className="dashboard-content-surface rounded-[1.5rem] p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <h2 className="font-semibold">Modalità sviluppatore</h2>
+              <h2 className="font-semibold">{t('settings.advanced.developer')}</h2>
               <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">
-                Mostra diagnostica e informazioni aggiuntive.
+                {t('settings.advanced.developerSubtitle')}
               </p>
             </div>
             <GlassToggle
               checked={developerMode}
               onChange={onDeveloperModeChange}
-              label="Modalità sviluppatore"
+              label={t('settings.advanced.developer')}
             />
           </div>
           <div className="mt-5 border-t border-[color:var(--ui-separator)] pt-5">
-            <InfoRow icon={Info} title="Versione dashboard" subtitle={__APP_VERSION__} />
+            <InfoRow icon={Info} title={t('settings.advanced.version')} subtitle={__APP_VERSION__} />
             <InfoRow
               icon={Database}
-              title="Entità disponibili"
-              subtitle={`${Object.keys(haStates).length} entità rilevate`}
+              title={t('settings.advanced.entities')}
+              subtitle={t('settings.advanced.entitiesDetected', { count: Object.keys(haStates).length })}
             />
           </div>
         </section>
@@ -1626,10 +1629,9 @@ export default function SettingsDashboard({
               className="mt-0.5 shrink-0 text-[color:var(--ui-text-secondary)]"
             />
             <div className="min-w-0 flex-1">
-              <h2 className="font-semibold">Supporto e diagnostica</h2>
+              <h2 className="font-semibold">{t('settings.advanced.support')}</h2>
               <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                Scarica un report tecnico con versioni, stato della connessione e soli conteggi
-                aggregati. Non include URL, token, PIN, nomi di entità, stanze o valori della casa.
+                {t('settings.advanced.supportDescription')}
               </p>
               <button
                 type="button"
@@ -1637,7 +1639,7 @@ export default function SettingsDashboard({
                 className="liquid-glass-selection mt-4 inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold"
               >
                 <FileJson size={16} />
-                Scarica diagnostica
+                {t('settings.advanced.downloadDiagnostics')}
               </button>
               {actionFeedback.startsWith('Diagnostica') ? (
                 <p
@@ -1661,8 +1663,8 @@ export default function SettingsDashboard({
       Boolean(onRestoreLayoutRevision);
     return (
       <SettingsDetailShell
-        title="Versioni del layout"
-        subtitle="Controlla e ripristina gli ultimi cinque salvataggi pubblicati."
+        title={t('settings.history.title')}
+        subtitle={t('settings.history.subtitle')}
         onBack={() => navigateTo('/settings/data')}
       >
         {!canOpenHistory ? (
@@ -1670,9 +1672,9 @@ export default function SettingsDashboard({
             <div className="flex items-start gap-3">
               <LockKeyhole size={20} className="mt-0.5 shrink-0 text-[color:var(--ui-text-secondary)]" />
               <div>
-                <h2 className="font-semibold">Accesso non disponibile</h2>
+                <h2 className="font-semibold">{t('settings.accessUnavailable')}</h2>
                 <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                  La cronologia può essere gestita soltanto da Owner e Amministratori verificati.
+                  {t('settings.history.denied')}
                 </p>
               </div>
             </div>
@@ -1705,17 +1707,17 @@ export default function SettingsDashboard({
     const managedPage =
       settingsPath === '/settings/access'
         ? {
-            title: 'Persone e accessi',
-            subtitle: 'Membri, ruoli, ospiti e autorizzazioni della casa.',
+            title: t('settings.access.title'),
+            subtitle: t('settings.access.pageSubtitle'),
           }
         : settingsPath === '/settings/connections'
           ? {
-              title: 'Connessioni',
-              subtitle: 'Collegamento Home Assistant, OAuth e accesso locale.',
+              title: t('settings.connections.title'),
+              subtitle: t('settings.connections.pageSubtitle'),
             }
           : {
-              title: 'Dati e backup',
-              subtitle: 'Esportazione, ripristino e gestione dei dati condivisi.',
+              title: t('settings.data.title'),
+              subtitle: t('settings.data.pageSubtitle'),
             };
     return (
       <SettingsDetailShell
@@ -1728,16 +1730,16 @@ export default function SettingsDashboard({
             <div className="flex items-start gap-3">
               <LockKeyhole size={20} className="mt-0.5 shrink-0 text-[color:var(--ui-text-secondary)]" />
               <div>
-                <h2 className="font-semibold">Accesso non disponibile</h2>
+                <h2 className="font-semibold">{t('settings.accessUnavailable')}</h2>
                 <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                  Questa configurazione richiede un account Owner o Amministratore verificato.
+                  {t('settings.managed.denied')}
                 </p>
               </div>
             </div>
           </section>
         ) : managedSectionContent ?? (
           <section className="dashboard-content-surface rounded-[1.5rem] p-5 text-sm text-[color:var(--ui-text-secondary)] sm:p-6">
-            Configurazione non disponibile nel contesto corrente.
+            {t('settings.managed.unavailable')}
           </section>
         )}
       </SettingsDetailShell>
@@ -1753,12 +1755,12 @@ export default function SettingsDashboard({
           className="liquid-glass-control mb-5 inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold text-[color:var(--ui-text-primary)]"
         >
           <ChevronRight size={16} className="rotate-180" />
-          Impostazioni
+          {t('settings.back')}
         </button>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="dashboard-page-title">Stato del sistema</h1>
-            <p className="dashboard-page-subtitle">Home Assistant e hardware · {lastRestartLabel}</p>
+            <h1 className="dashboard-page-title">{t('settings.system.pageTitle')}</h1>
+            <p className="dashboard-page-subtitle">{t('settings.system.subtitle', { restart: lastRestartLabel })}</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -1774,13 +1776,13 @@ export default function SettingsDashboard({
                         : 'bg-gray-400'
                 }`}
               />
-              Home Assistant · {statusLabel(haStatus)}
+              Home Assistant · {statusLabel(haStatus, t)}
             </span>
             {security.can('developer_mode') ? (
               <span className="inline-flex min-h-10 items-center gap-2.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3.5 py-2 text-xs font-semibold text-[color:var(--ui-text-secondary)] backdrop-blur-xl">
                 <Gauge size={14} />
                 Developer
-                <GlassToggle checked={developerMode} onChange={onDeveloperModeChange} label="Modalità sviluppatore" />
+              <GlassToggle checked={developerMode} onChange={onDeveloperModeChange} label={t('settings.advanced.developer')} />
               </span>
             ) : null}
           </div>
@@ -1793,8 +1795,8 @@ export default function SettingsDashboard({
           {/* 1 — Vitalità di Sistema */}
           <BentoCard
             icon={Activity}
-            title="Vitalità di Sistema"
-            subtitle="Telemetria hardware in tempo reale"
+            title={t('settings.system.vitality')}
+            subtitle={t('settings.system.vitalitySubtitle')}
             className="sm:col-span-2 lg:col-span-4"
           >
             <div className="flex flex-1 flex-col gap-5">
@@ -1808,7 +1810,7 @@ export default function SettingsDashboard({
                 <SimpleMeterDisplay
                   value={tempValue === null ? '--' : `${Math.round(tempValue)}°`}
                   percent={tempValue === null ? null : (tempValue / 90) * 100}
-                  label="Temperatura"
+                    label={t('settings.system.temperature')}
                   tone={tempTone}
                 />
               </div>
@@ -1824,7 +1826,7 @@ export default function SettingsDashboard({
                 />
                 <VitalMeter
                   icon={HardDrive}
-                  label="Disco"
+                    label={t('settings.system.disk')}
                   value={diskPercent === null ? '--' : `${Math.round(diskPercent)}%`}
                   hint={diskHint}
                   percent={diskPercent}
@@ -1833,7 +1835,7 @@ export default function SettingsDashboard({
               </div>
 
               <div className="mt-auto">
-                <p className="text-xs font-medium text-[color:var(--ui-text-secondary)]">Andamento CPU ultimi 24 punti dati</p>
+                  <p className="text-xs font-medium text-[color:var(--ui-text-secondary)]">{t('settings.system.cpuTrend')}</p>
                 <div className="mt-2 h-14 min-w-0">
                   <MiniSparkline id="settings-cpu-trend" data={processorUseHistory} />
                 </div>
@@ -1844,8 +1846,8 @@ export default function SettingsDashboard({
           {/* 2 — Centro Aggiornamenti */}
           <BentoCard
             icon={DownloadCloud}
-            title="Centro Aggiornamenti"
-            subtitle={updateEntities.length > 0 ? `${updateEntities.length} componenti monitorati` : 'Nessuna entità update'}
+            title={t('settings.system.updates')}
+              subtitle={updateEntities.length > 0 ? t('settings.system.monitoredComponents', { count: updateEntities.length }) : t('settings.system.noUpdateEntities')}
             className="sm:col-span-2 lg:col-span-2"
             onTitleClick={updateEntities.length > 0 ? () => setUpdatesPageOpen(true) : undefined}
             headerRight={
@@ -1861,7 +1863,7 @@ export default function SettingsDashboard({
               <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
                 {visibleUpdates.length === 0 ? (
                   <p className="rounded-xl bg-[color:var(--ui-surface-glass)] px-3 py-6 text-center text-xs font-medium text-[color:var(--ui-text-secondary)]">
-                    Nessun componente update rilevato.
+                    {t('settings.system.noUpdates')}
                   </p>
                 ) : (
                   visibleUpdates.map((update) => (
@@ -1879,7 +1881,7 @@ export default function SettingsDashboard({
                         <p className="truncate text-[10px] text-[color:var(--ui-text-secondary)]">
                           {update.available && update.latest
                             ? `${update.installed || '—'} → ${update.latest}`
-                            : update.installed || 'Aggiornato'}
+                            : update.installed || t('settings.system.updated')}
                         </p>
                       </div>
                     </div>
@@ -1892,7 +1894,7 @@ export default function SettingsDashboard({
                   disabled={!isConnected || availableUpdates.length === 0 || isActionBusy}
                 >
                   <DownloadCloud size={16} />
-                  {availableUpdates.length > 0 ? `Aggiorna Tutto (${availableUpdates.length})` : 'Tutto aggiornato'}
+                  {availableUpdates.length > 0 ? t('settings.system.updateAll', { count: availableUpdates.length }) : t('settings.system.allUpdated')}
                 </LiquidButton>
               </div>
             </div>
@@ -1901,21 +1903,21 @@ export default function SettingsDashboard({
           {/* 3 — Rete & Uptime */}
           <BentoCard
             icon={Network}
-            title="Rete & Uptime"
-            subtitle="Connettività e disponibilità"
+            title={t('settings.system.network')}
+            subtitle={t('settings.system.networkSubtitle')}
             className="sm:col-span-1 lg:col-span-3"
           >
             <div className="flex flex-1 flex-col gap-3">
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                    <Wifi size={13} /> IP Locale
+                    <Wifi size={13} /> {t('settings.system.localIp')}
                   </p>
                   <p className="mt-1.5 truncate text-lg font-semibold tracking-[-0.02em] text-[color:var(--ui-text-primary)]">{ipLabel}</p>
                 </div>
                 <div className="rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3">
                   <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                    <Clock size={13} /> Uptime
+                    <Clock size={13} /> {t('settings.system.uptime')}
                   </p>
                   <p className="mt-1.5 truncate text-lg font-semibold tracking-[-0.02em] text-[color:var(--ui-text-primary)]">{uptimeLabel}</p>
                   <p className="mt-0.5 truncate text-[11px] font-medium text-[color:var(--ui-text-secondary)]">{uptimeSince}</p>
@@ -1923,7 +1925,7 @@ export default function SettingsDashboard({
               </div>
               <div className="flex min-h-0 flex-1 flex-col rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">Latenza</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">{t('settings.system.latency')}</p>
                   <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">
                     {latencyValue === null ? '—' : `${Math.round(latencyValue)}${latency?.entity.unit ? ` ${latency.entity.unit}` : ' ms'}`}
                   </p>
@@ -1938,8 +1940,8 @@ export default function SettingsDashboard({
           {/* 4 — Sicurezza & Backup */}
           <BentoCard
             icon={ShieldCheck}
-            title="Sicurezza &amp; Backup"
-            subtitle="Snapshot e ripristino"
+            title={t('settings.system.backup')}
+            subtitle={t('settings.system.backupSubtitle')}
             className="sm:col-span-1 lg:col-span-3"
           >
             <div className="flex flex-1 flex-col gap-3">
@@ -1947,10 +1949,10 @@ export default function SettingsDashboard({
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                      Ultimo snapshot
+                  {t('settings.system.lastSnapshot')}
                     </p>
                     <p className="mt-1 truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                      {lastBackupLabel ?? 'Nessun backup rilevato'}
+                    {lastBackupLabel ?? t('settings.system.noBackupDetected')}
                     </p>
                   </div>
                   {backupSizeLabel ? (
@@ -1964,7 +1966,7 @@ export default function SettingsDashboard({
               <div className="mt-auto space-y-2.5">
                 <LiquidButton onClick={handleForceBackup} disabled={!isConnected || isActionBusy}>
                   <ShieldCheck size={16} />
-                  Forza Backup Ora
+                    {t('settings.system.forceBackup')}
                 </LiquidButton>
                 <div className="flex flex-wrap gap-2">
                   {security.can('download_backup') ? (
@@ -1973,7 +1975,7 @@ export default function SettingsDashboard({
                       onClick={onDownloadBackup}
                       className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)]"
                     >
-                      <Download size={14} /> Esporta config
+                      <Download size={14} /> {t('settings.system.exportConfig')}
                     </button>
                   ) : null}
                   {security.can('restore_backup') ? (
@@ -1983,7 +1985,7 @@ export default function SettingsDashboard({
                       disabled={isRestoreBusy}
                       className="inline-flex min-h-9 flex-1 items-center justify-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)] disabled:cursor-not-allowed disabled:opacity-45"
                     >
-                      <Upload size={14} /> Ripristina
+                      <Upload size={14} /> {t('settings.system.restore')}
                     </button>
                   ) : null}
                 </div>
@@ -1993,7 +1995,7 @@ export default function SettingsDashboard({
                     onClick={() => navigateTo('/settings/data')}
                     className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)]"
                   >
-                    <Database size={14} /> Apri Dati e backup
+                  <Database size={14} /> {t('settings.system.openDataBackup')}
                   </button>
                 ) : null}
               </div>
@@ -2003,8 +2005,8 @@ export default function SettingsDashboard({
           {/* 5 — Danger Zone / Power */}
           <BentoCard
             icon={AlertTriangle}
-            title="Danger Zone · Power"
-            subtitle="Azioni con conferma a 5 secondi"
+            title={t('settings.system.power')}
+            subtitle={t('settings.system.powerSubtitle')}
             className="sm:col-span-2 lg:col-span-6"
             headerRight={
               <button
@@ -2013,7 +2015,7 @@ export default function SettingsDashboard({
                 disabled={!isConnected || systemEntityIds.length === 0 || isActionBusy}
                 className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)] disabled:cursor-not-allowed disabled:opacity-45"
               >
-                <RefreshCw size={14} /> Aggiorna sensori
+                  <RefreshCw size={14} /> {t('settings.system.refreshSensors')}
               </button>
             }
           >
@@ -2021,23 +2023,23 @@ export default function SettingsDashboard({
               {security.can('restart_home_assistant') ? (
                 <DangerButton
                   icon={RotateCcw}
-                  label="Riavvia Home Assistant"
-                  hint="Riavvia il core software"
+                label={t('settings.system.restartHa')}
+                hint={t('settings.system.restartHaHint')}
                   disabled={!isConnected || isActionBusy}
                   onConfirm={handleRestartServer}
                 />
               ) : null}
               <DangerButton
                 icon={Server}
-                label="Riavvia Hardware"
-                hint="Reboot del sistema host"
+                label={t('settings.system.restartHost')}
+                hint={t('settings.system.restartHostHint')}
                 disabled={!isConnected || isActionBusy}
                 onConfirm={handleRebootHost}
               />
               <DangerButton
                 icon={Power}
-                label="Spegni Sistema"
-                hint="Host shutdown completo"
+                label={t('settings.system.shutdown')}
+                hint={t('settings.system.shutdownHint')}
                 disabled={!isConnected || isActionBusy}
                 onConfirm={handleShutdownHost}
               />
@@ -2070,7 +2072,7 @@ export default function SettingsDashboard({
 
         {developerMode ? (
           <p className="mt-3 flex items-center gap-2 px-1 text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
-            <Database size={12} /> {Object.keys(haStates).length} entità · {systemSensors.length} sensori di sistema · debug attivo
+              <Database size={12} /> {t('settings.system.debugSummary', { entities: Object.keys(haStates).length, sensors: systemSensors.length })}
           </p>
         ) : null}
       </div>

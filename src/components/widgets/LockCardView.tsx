@@ -3,6 +3,7 @@ import { AlertTriangle, ChevronRight, DoorOpen, Lock, Unlock } from 'lucide-reac
 import type { LockCardModel } from './lockCardModel';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import './LockCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type LockCardViewProps = {
   model: LockCardModel;
@@ -41,6 +42,7 @@ export function LockCardView({
   onEndHold,
   onResetHold,
 }: LockCardViewProps) {
+  const { t } = useI18n();
   const MiniIcon = model.isJammed || model.isUnavailable ? AlertTriangle : model.isLocked ? Lock : Unlock;
   const SliderIcon = model.primaryAction === 'lock' ? Lock : model.primaryAction === 'unlock' ? Unlock : MiniIcon;
   const canAct = !isEditMode && model.primaryAction !== 'none';
@@ -351,11 +353,11 @@ export function LockCardView({
 
         <span className="lock-card__details">
           <span>
-            <small>Modifica</small>
+            <small>{t('card.edit')}</small>
             <strong>{model.changedBy ?? 'Sincronizzata'}</strong>
           </span>
           <span>
-            <small>Scrocco</small>
+            <small>{t('card.lock.latch')}</small>
             <strong>{model.supportsOpen ? 'Supportato' : 'Non esposto'}</strong>
           </span>
         </span>

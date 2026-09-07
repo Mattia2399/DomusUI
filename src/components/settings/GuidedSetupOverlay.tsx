@@ -10,6 +10,7 @@ import {
   SetupSecondaryButton,
   useDeviceAppearance,
 } from '../onboarding/OnboardingGlass';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type GuidedSetupStep = {
   id?: string;
@@ -174,12 +175,6 @@ export function resolveCoachmarkPlacement({
   };
 }
 
-const FALLBACK_STEP: GuidedSetupStep = {
-  title: 'Guida rapida',
-  description: 'Nessun passaggio configurato.',
-  icon: Sparkles,
-};
-
 function findVisibleTarget(selector: string) {
   try {
     return Array.from(document.querySelectorAll<HTMLElement>(selector)).find((element) => {
@@ -258,12 +253,17 @@ export function GuidedSetupOverlay({
   completeLabel = 'Fine guida',
   skipLabel = 'Salta guida',
 }: GuidedSetupOverlayProps) {
+  const { t } = useI18n();
   const appearance = useDeviceAppearance();
   const [stepIndex, setStepIndex] = useState(0);
   const [targetSnapshot, setTargetSnapshot] = useState<TargetSnapshot | null>(null);
   const [coachmarkSize, setCoachmarkSize] = useState<CoachmarkSize>({ width: 0, height: 0 });
   const coachmarkRef = useRef<HTMLElement | null>(null);
-  const safeSteps = useMemo(() => (steps.length > 0 ? steps : [FALLBACK_STEP]), [steps]);
+  const safeSteps = useMemo(() => (steps.length > 0 ? steps : [{
+    title: t('settings.guide.quick'),
+    description: t('settings.guide.noSteps'),
+    icon: Sparkles,
+  }]), [steps, t]);
 
   useEffect(() => {
     if (isOpen) setStepIndex(0);

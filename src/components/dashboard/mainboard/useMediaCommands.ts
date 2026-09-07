@@ -2,6 +2,7 @@ import type { Widget, GridItem } from '../../../types/dashboardModels';
 import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import type { useDashboardState } from '../../../hooks/useDashboardState';
 import type { MediaPlayRequest } from '../../settings/MediaControls';
+import { useI18n } from '../../../i18n/I18nProvider';
 import {
   MEDIA_COMMAND_TTL_MS,
   resolveMediaState,
@@ -90,6 +91,7 @@ export function useMediaCommands({
   isSpeakerPlaying: boolean;
   speakerActions: SpeakerActions;
 }) {
+  const { t } = useI18n();
   const toggleMediaPlayback = (widget?: Widget) => {
     const targetWidget = widget ?? activeWidget;
     const entityId = targetWidget?.kind === 'media' ? targetWidget.entityId : undefined;
@@ -106,7 +108,7 @@ export function useMediaCommands({
           confirm: (entity) => !['off', 'standby', 'unavailable', 'unknown'].includes(resolveMediaState(
             toTrimmedString(entity?.state) ?? toTrimmedString(entity?.stateLabel),
           )),
-          errorMessage: 'Il dispositivo multimediale non ha confermato l’accensione.',
+          errorMessage: t('command.media.power'),
         });
         return;
       }
@@ -120,7 +122,7 @@ export function useMediaCommands({
         confirm: (entity) => resolveMediaState(
           toTrimmedString(entity?.state) ?? toTrimmedString(entity?.stateLabel),
         ) === expectedState,
-        errorMessage: 'Il dispositivo multimediale non ha confermato la riproduzione.',
+        errorMessage: t('command.media.playback'),
       });
       return;
     }
@@ -162,7 +164,7 @@ export function useMediaCommands({
             ? !['off', 'standby', 'unavailable', 'unknown'].includes(nextState)
             : ['off', 'standby'].includes(nextState);
         },
-        errorMessage: 'Il dispositivo multimediale non ha confermato il nuovo stato.',
+        errorMessage: t('command.media.state'),
       });
       return;
     }
@@ -185,7 +187,7 @@ export function useMediaCommands({
         service: 'media_previous_track',
         timeoutMs: MEDIA_COMMAND_TTL_MS,
         confirmation: 'service_response',
-        errorMessage: 'Il dispositivo multimediale non ha accettato la traccia precedente.',
+        errorMessage: t('command.media.previous'),
       });
       return;
     }
@@ -208,7 +210,7 @@ export function useMediaCommands({
         service: 'media_next_track',
         timeoutMs: MEDIA_COMMAND_TTL_MS,
         confirmation: 'service_response',
-        errorMessage: 'Il dispositivo multimediale non ha accettato la traccia successiva.',
+        errorMessage: t('command.media.next'),
       });
       return;
     }
@@ -233,7 +235,7 @@ export function useMediaCommands({
         confirm: (entity) => ['idle', 'off', 'standby'].includes(resolveMediaState(
           toTrimmedString(entity?.state) ?? toTrimmedString(entity?.stateLabel),
         )),
-        errorMessage: 'Il dispositivo multimediale non ha confermato l’arresto.',
+        errorMessage: t('command.media.stop'),
       });
       return;
     }
@@ -266,7 +268,7 @@ export function useMediaCommands({
         service: 'clear_playlist',
         timeoutMs: MEDIA_COMMAND_TTL_MS,
         confirmation: 'service_response',
-        errorMessage: 'Il dispositivo multimediale non ha accettato la pulizia della playlist.',
+        errorMessage: t('command.media.clear'),
       });
     }
   };
@@ -305,7 +307,7 @@ export function useMediaCommands({
           safePosition,
           4,
         ),
-        errorMessage: 'Il dispositivo multimediale non ha confermato la nuova posizione.',
+        errorMessage: t('command.media.seek'),
       });
       return;
     }
@@ -337,7 +339,7 @@ export function useMediaCommands({
           safeVolume,
           1,
         ),
-        errorMessage: 'Il dispositivo multimediale non ha confermato il volume.',
+        errorMessage: t('command.media.volume'),
       });
       return;
     }
@@ -368,7 +370,7 @@ export function useMediaCommands({
             : toBoolean(entity?.rawAttributes?.is_volume_muted);
           return muted === nextMuted;
         },
-        errorMessage: 'Il dispositivo multimediale non ha confermato il mute.',
+        errorMessage: t('command.media.mute'),
       });
       return;
     }
@@ -405,7 +407,7 @@ export function useMediaCommands({
             : toBoolean(entity?.rawAttributes?.shuffle);
           return shuffle === nextShuffle;
         },
-        errorMessage: 'Il dispositivo multimediale non ha confermato la riproduzione casuale.',
+        errorMessage: t('command.media.shuffle'),
       });
       return;
     }
@@ -443,7 +445,7 @@ export function useMediaCommands({
         confirm: (entity) => resolveMediaRepeatMode(
           entity?.repeatMode ?? entity?.rawAttributes?.repeat,
         ) === nextRepeatMode,
-        errorMessage: 'Il dispositivo multimediale non ha confermato la modalità di ripetizione.',
+        errorMessage: t('command.media.repeat'),
       });
       return;
     }
@@ -474,7 +476,7 @@ export function useMediaCommands({
         confirm: (entity) => normalizeLower(
           toTrimmedString(entity?.source) ?? toTrimmedString(entity?.rawAttributes?.source),
         ) === normalizeLower(selectedSource),
-        errorMessage: 'Il dispositivo multimediale non ha confermato la sorgente.',
+        errorMessage: t('command.media.source'),
       });
       return;
     }
@@ -504,7 +506,7 @@ export function useMediaCommands({
         confirm: (entity) => normalizeLower(
           toTrimmedString(entity?.soundMode) ?? toTrimmedString(entity?.rawAttributes?.sound_mode),
         ) === normalizeLower(selectedSoundMode),
-        errorMessage: 'Il dispositivo multimediale non ha confermato la modalità audio.',
+        errorMessage: t('command.media.soundMode'),
       });
     }
   };
@@ -551,7 +553,7 @@ export function useMediaCommands({
           const mediaState = resolveMediaState(toTrimmedString(entity?.state) ?? toTrimmedString(entity?.stateLabel));
           return confirmedContentId === mediaContentId || mediaState === 'playing';
         },
-        errorMessage: 'Il dispositivo multimediale non ha confermato il contenuto.',
+        errorMessage: t('command.media.content'),
       });
       return;
     }
@@ -588,7 +590,7 @@ export function useMediaCommands({
             const members = entity?.groupMembers ?? toStringArray(entity?.rawAttributes?.group_members);
             return members.includes(normalizedMemberId);
           },
-          errorMessage: 'Il dispositivo non ha confermato il collegamento al gruppo.',
+          errorMessage: t('command.media.join'),
         });
         return;
       }
@@ -602,7 +604,7 @@ export function useMediaCommands({
           const members = entity?.groupMembers ?? toStringArray(entity?.rawAttributes?.group_members);
           return !members.includes(leaderEntityId) && members.length <= 1;
         },
-        errorMessage: 'Il dispositivo non ha confermato l’uscita dal gruppo.',
+        errorMessage: t('command.media.leave'),
       });
       return;
     }

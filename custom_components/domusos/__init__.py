@@ -27,6 +27,18 @@ from .const import (
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
+def _panel_exists(hass: HomeAssistant, frontend_url_path: str) -> bool:
+    """Return whether a panel exists across supported Home Assistant versions."""
+    panel_exists = getattr(frontend, "async_panel_exists", None)
+    if callable(panel_exists):
+        return bool(panel_exists(hass, frontend_url_path))
+
+    panels_key = getattr(frontend, "DATA_PANELS", None)
+    if panels_key is None:
+        return False
+    return frontend_url_path in hass.data.get(panels_key, {})
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Domus UI."""
     return True
@@ -58,7 +70,7 @@ async def async_setup_entry(
         )
         domain_data["static_registered"] = True
 
-    if frontend.async_panel_exists(hass, PANEL_URL_PATH):
+    if _panel_exists(hass, PANEL_URL_PATH):
         raise ConfigEntryError(
             "The 'domusos' panel path is already in use. Remove the legacy "
             "panel_custom entry before setting up the HACS integration."
@@ -94,7 +106,7 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
     """Unload Domus UI and remove its sidebar panel."""
-    if frontend.async_panel_exists(hass, PANEL_URL_PATH):
+    if _panel_exists(hass, PANEL_URL_PATH):
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
     return True
 

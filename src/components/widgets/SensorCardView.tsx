@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import type { SensorCardModel, SensorTrendDirection } from './sensorCardModel';
 import './SensorCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type SensorCardViewProps = {
   model: SensorCardModel;
@@ -61,6 +62,7 @@ export function SensorCardView({
   onClick,
   rootRef,
 }: SensorCardViewProps) {
+  const { t } = useI18n();
   const sparklinePoints = useMemo(() => buildSparklinePoints(model.history), [model.history]);
   const levelPosition = `${(model.levelRatio * 100).toFixed(1)}%`;
   const rootStyle = {
@@ -135,9 +137,9 @@ export function SensorCardView({
         </div>
 
         <div className="sensor-card__stats" aria-label="Statistiche sensore">
-          <span><small>Min</small><strong>{model.stats.minText}</strong></span>
-          <span><small>Media</small><strong>{model.stats.averageText}</strong></span>
-          <span><small>Max</small><strong>{model.stats.maxText}</strong></span>
+          <span><small>{t('card.sensor.minimum')}</small><strong>{model.stats.minText}</strong></span>
+          <span><small>{t('card.sensor.average')}</small><strong>{model.stats.averageText}</strong></span>
+          <span><small>{t('card.sensor.maximum')}</small><strong>{model.stats.maxText}</strong></span>
         </div>
       </div>
 
@@ -156,7 +158,7 @@ export function SensorCardView({
           }
         }}
         className={`sensor-card__handle widget-card-handle ${isEditMode ? 'cursor-grab' : 'cursor-pointer'}`}
-        aria-label={`Apri ${model.title}`}
+        aria-label={t('card.open', { name: model.title })}
       />
     </div>
   );

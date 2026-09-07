@@ -2,10 +2,16 @@ import React from 'react';
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DashboardSaveIndicator } from './DashboardSaveIndicator';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
+
+function renderIndicator(node: React.ReactNode) {
+  window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
+  return render(<I18nProvider>{node}</I18nProvider>);
+}
 
 describe('DashboardSaveIndicator', () => {
   it('shows a pending draft before the edit session is committed', () => {
-    const { getByRole } = render(<DashboardSaveIndicator status={{ phase: 'dirty' }} />);
+    const { getByRole } = renderIndicator(<DashboardSaveIndicator status={{ phase: 'dirty' }} />);
 
     expect(getByRole('status').textContent).toContain('Modifiche non salvate');
     expect(getByRole('status').getAttribute('title')).toContain('uscirai');
@@ -15,7 +21,7 @@ describe('DashboardSaveIndicator', () => {
 
   it('shows the successful-save label briefly while keeping an accessible status', () => {
     vi.useFakeTimers();
-    const { getByRole, getByText, queryByText } = render(
+    const { getByRole, getByText, queryByText } = renderIndicator(
       <DashboardSaveIndicator status={{ phase: 'saved', savedAt: Date.now() }} />,
     );
 
@@ -31,7 +37,7 @@ describe('DashboardSaveIndicator', () => {
   });
 
   it('exposes storage failures as an assertive alert', () => {
-    const { getByRole } = render(
+    const { getByRole } = renderIndicator(
       <DashboardSaveIndicator
         status={{ phase: 'error', attemptedAt: Date.now(), code: 'quota_exceeded' }}
       />,

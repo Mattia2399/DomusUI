@@ -1,5 +1,6 @@
 import { Settings } from 'lucide-react';
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
+import { useI18n } from '../../i18n/I18nProvider';
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
@@ -32,16 +33,18 @@ export function BottomBarNav({
   onOpenSettings,
   onPrefetchRoute,
 }: BottomBarNavProps) {
+  const { t } = useI18n();
   const primaryActions = resolveDashboardNavigationEntries(
     quickPaths,
     PRIMARY_DASHBOARD_ROUTE_IDS,
+    t,
   ).map((entry) => ({ entry }) satisfies BottomBarPrimaryAction);
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
       <nav
         className="liquid-glass-navigation pointer-events-auto relative mx-auto max-w-xl"
-        aria-label="Navigazione principale"
+        aria-label={t('navigation.main')}
       >
           <div className="relative grid grid-cols-5 gap-1 p-1.5">
             {primaryActions.map((action) => {
@@ -68,7 +71,7 @@ export function BottomBarNav({
                       ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
                       : 'text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-tertiary)] hover:text-[color:var(--ui-text-primary)]'
                   }`}
-                  aria-label={`Apri ${entry.label}`}
+                  aria-label={t('navigation.open', { label: entry.label })}
                   aria-current={active ? 'page' : undefined}
                 >
                   <span
@@ -101,13 +104,13 @@ export function BottomBarNav({
                   ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
                   : 'text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-tertiary)] hover:text-[color:var(--ui-text-primary)]'
               }`}
-              aria-label="Apri impostazioni"
+              aria-label={t('navigation.open', { label: t('navigation.settings') })}
               aria-current={isSettingsActive ? 'page' : undefined}
             >
               <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-transparent transition-all group-hover:bg-[color:var(--ui-fill-tertiary)]">
                 <Settings size={16} strokeWidth={isSettingsActive ? 1.85 : 2} className="transition-transform group-hover:scale-105" />
               </span>
-              <span className="max-w-full truncate text-[9.5px] font-medium leading-none tracking-[0.01em]">Impostazioni</span>
+              <span className="max-w-full truncate text-[9.5px] font-medium leading-none tracking-[0.01em]">{t('navigation.settings')}</span>
             </button>
           </div>
       </nav>

@@ -1,0 +1,14 @@
+{
+  "title": "Domus UI",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configurer Domus UI",
+        "description": "Ajoutez Domus UI à la barre latérale. L’application utilise le compte Home Assistant actuel pour l’identité, les autorisations et les commandes."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Domus UI est déjà configuré."
+    }
+  }
+}

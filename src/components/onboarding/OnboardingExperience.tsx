@@ -71,6 +71,8 @@ import {
   WizardShell,
 } from './OnboardingGlass';
 import { OnboardingOrganizer } from './OnboardingOrganizer';
+import { useI18n } from '../../i18n/I18nProvider';
+import { translateOnboarding, type OnboardingTranslationKey } from '../../i18n/onboardingTranslations';
 
 const HA_OAUTH_CALLBACK_PARAM = 'ha_oauth_callback';
 const HA_OAUTH_SESSION_STATE_KEY = 'ha.dashboard.oauth.state';
@@ -168,21 +170,23 @@ async function probeSharedHouseConfiguration(
 }
 
 function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+  const { locale } = useI18n();
+  const ot = (key: OnboardingTranslationKey) => translateOnboarding(locale, key);
   return (
     <SetupBackdrop>
       <section className="onboarding-window grid w-full max-w-6xl !min-h-0 gap-0 lg:grid-cols-[0.88fr_1.12fr]">
         <div className="flex flex-col justify-center p-6 sm:p-9 lg:p-12">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:rgb(var(--ui-accent-rgb))]">
-            La tua casa, finalmente personale
+            {ot('welcome.eyebrow')}
           </p>
           <h1 className="mt-4 text-[clamp(2.45rem,7vw,4.5rem)] font-semibold leading-[0.94] tracking-[-0.06em] text-[color:var(--ui-text-primary)]">
-            Tutta la casa.<br />Un solo gesto.
+            {ot('welcome.title').split('\n').map((line, index) => <span key={line}>{index > 0 ? <br /> : null}{line}</span>)}
           </h1>
           <p className="mt-5 max-w-lg text-sm leading-6 text-[color:var(--ui-text-secondary)] sm:text-base sm:leading-7">
-            Un&apos;esperienza Home Assistant fluida e adattiva, progettata intorno alle tue stanze e ai dispositivi che usi davvero.
+            {ot('welcome.description')}
           </p>
           <div className="mt-8 max-w-xs sm:max-w-none">
-            <SetupActionButton onClick={onContinue}>Inizia ora</SetupActionButton>
+            <SetupActionButton onClick={onContinue}>{ot('welcome.start')}</SetupActionButton>
           </div>
         </div>
 
@@ -191,14 +195,14 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
             <div aria-hidden className="absolute inset-0 bg-[radial-gradient(circle_at_70%_12%,rgb(var(--ui-accent-rgb)/0.16),transparent_35%),radial-gradient(circle_at_16%_90%,rgb(var(--ui-accent-secondary-rgb)/0.12),transparent_38%)]" />
             <div className="relative flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <div className="text-[11px] font-medium text-[color:var(--ui-text-secondary)]">Buon pomeriggio</div>
-                <div className="mt-0.5 truncate text-xl font-semibold tracking-[-0.035em] text-[color:var(--ui-text-primary)] sm:text-2xl">La tua casa è pronta</div>
+                <div className="text-[11px] font-medium text-[color:var(--ui-text-secondary)]">{ot('welcome.preview.greeting')}</div>
+                <div className="mt-0.5 truncate text-xl font-semibold tracking-[-0.035em] text-[color:var(--ui-text-primary)] sm:text-2xl">{ot('welcome.preview.ready')}</div>
               </div>
               <div className="onboarding-pill shrink-0 gap-2 px-3 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)]"><CloudSun size={15} /> 22°</div>
             </div>
 
             <div className="relative mt-6 flex gap-2 overflow-hidden">
-              {['Arrivo', 'Relax', 'Notte'].map((scene, index) => (
+              {[ot('welcome.preview.arrival'), ot('welcome.preview.relax'), ot('welcome.preview.night')].map((scene, index) => (
                 <div key={scene} className="onboarding-pill min-w-0 flex-1 gap-1.5 px-2.5 py-2 text-[11px] font-medium text-[color:var(--ui-text-primary)]">
                   <Sparkles size={12} style={{ color: `rgb(var(--ui-accent-rgb${index === 2 ? '-2' : ''}))` }} />
                   <span className="truncate">{scene}</span>
@@ -208,10 +212,10 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
 
             <div className="relative mt-4 grid grid-cols-2 gap-2.5 sm:gap-3">
               {[
-                { title: 'Luci soggiorno', value: 'Accese · 64%', icon: Lightbulb, tone: 'rgb(61 90 254 / 0.3)' },
-                { title: 'Porta ingresso', value: 'Chiusa', icon: DoorClosed, tone: 'rgb(45 212 191 / 0.22)' },
-                { title: 'Temperatura', value: '21,5°', icon: CloudSun, tone: 'rgb(251 146 60 / 0.28)' },
-                { title: 'Sicurezza', value: 'Protetta', icon: ShieldCheck, tone: 'rgb(52 211 153 / 0.22)' },
+                { title: ot('welcome.preview.lights'), value: ot('welcome.preview.lightsValue'), icon: Lightbulb, tone: 'rgb(61 90 254 / 0.3)' },
+                { title: ot('welcome.preview.door'), value: ot('welcome.preview.closed'), icon: DoorClosed, tone: 'rgb(45 212 191 / 0.22)' },
+                { title: ot('welcome.preview.temperature'), value: '21.5°', icon: CloudSun, tone: 'rgb(251 146 60 / 0.28)' },
+                { title: ot('welcome.preview.security'), value: ot('welcome.preview.protected'), icon: ShieldCheck, tone: 'rgb(52 211 153 / 0.22)' },
               ].map(({ title, value, icon: Icon, tone }) => (
                 <div key={title} className="onboarding-card min-h-[92px] p-3 sm:min-h-[118px] sm:p-4" style={{ background: `linear-gradient(145deg, ${tone}, var(--ui-surface-glass-soft))` }}>
                   <span className="onboarding-choice-icon !h-8 !w-8 !rounded-full"><Icon size={15} /></span>
@@ -228,6 +232,8 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
 }
 
 function ChoiceStep({ onDemo, onConfigure, onBack }: { onDemo: () => void; onConfigure: () => void; onBack: () => void }) {
+  const { locale } = useI18n();
+  const ot = (key: OnboardingTranslationKey) => translateOnboarding(locale, key);
   return (
     <SetupBackdrop>
       <section className="onboarding-window w-full max-w-4xl !min-h-0 flex-col p-5 sm:p-8 lg:p-10">
@@ -235,21 +241,21 @@ function ChoiceStep({ onDemo, onConfigure, onBack }: { onDemo: () => void; onCon
           <SetupBackButton onClick={onBack} />
         </div>
         <div className="mt-8 max-w-2xl">
-          <h1 className="text-[clamp(2rem,6vw,3.15rem)] font-semibold leading-none tracking-[-0.05em] text-[color:var(--ui-text-primary)]">Come vuoi iniziare?</h1>
-          <p className="mt-3 text-sm leading-6 text-[color:var(--ui-text-secondary)] sm:text-base">Esplora subito l&apos;esperienza oppure collega la tua casa reale.</p>
+          <h1 className="text-[clamp(2rem,6vw,3.15rem)] font-semibold leading-none tracking-[-0.05em] text-[color:var(--ui-text-primary)]">{ot('choice.title')}</h1>
+          <p className="mt-3 text-sm leading-6 text-[color:var(--ui-text-secondary)] sm:text-base">{ot('choice.description')}</p>
         </div>
         <div className="mt-7 grid gap-3 md:grid-cols-2">
           <button type="button" onClick={onDemo} className="onboarding-choice-card group">
             <span className="onboarding-choice-icon"><Sparkles size={20} /></span>
-            <h2 className="mt-6 text-xl font-semibold tracking-[-0.025em] text-[color:var(--ui-text-primary)]">Esplora la Demo</h2>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-secondary)]">Home e Stanze già pronte, con dispositivi simulati e nessun server necessario.</p>
-            <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[color:rgb(var(--ui-accent-rgb))]">Apri la casa Demo <ChevronRight size={15} /></span>
+            <h2 className="mt-6 text-xl font-semibold tracking-[-0.025em] text-[color:var(--ui-text-primary)]">{ot('choice.demo.title')}</h2>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('choice.demo.description')}</p>
+            <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[color:rgb(var(--ui-accent-rgb))]">{ot('choice.demo.action')} <ChevronRight size={15} /></span>
           </button>
           <button type="button" onClick={onConfigure} className="onboarding-choice-card onboarding-choice-card-active group">
             <span className="onboarding-choice-icon"><Network size={20} /></span>
-            <h2 className="mt-6 text-xl font-semibold tracking-[-0.025em] text-[color:var(--ui-text-primary)]">Collega la tua casa</h2>
-            <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-secondary)]">Cerchiamo prima una sessione Home Assistant disponibile, poi analizziamo i dispositivi e prepariamo il tuo spazio.</p>
-            <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[color:rgb(var(--ui-accent-rgb))]">Cerca Home Assistant <ChevronRight size={15} /></span>
+            <h2 className="mt-6 text-xl font-semibold tracking-[-0.025em] text-[color:var(--ui-text-primary)]">{ot('choice.connect.title')}</h2>
+            <p className="mt-2 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('choice.connect.description')}</p>
+            <span className="mt-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[color:rgb(var(--ui-accent-rgb))]">{ot('choice.connect.action')} <ChevronRight size={15} /></span>
           </button>
         </div>
       </section>
@@ -273,6 +279,12 @@ function hasCategorizedSetupSummary(summary: SetupScanSummary | undefined) {
 }
 
 export function OnboardingExperience({ journey, onJourneyChange, forceConfiguration = false }: Props) {
+  const { locale, setHomeAssistantLocale, formatDate } = useI18n();
+  const ot = useCallback(
+    (key: OnboardingTranslationKey, parameters?: Record<string, string | number>) =>
+      translateOnboarding(locale, key, parameters),
+    [locale],
+  );
   const navigate = useNavigate();
   const isEmbedded = useMemo(() => window.parent !== window, []);
   const navigateInsideApp = useCallback(
@@ -289,12 +301,15 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
   const [flowError, setFlowError] = useState<string | null>(null);
   const [scanBusy, setScanBusy] = useState(false);
   const [scanProgress, setScanProgress] = useState(8);
-  const [scanStage, setScanStage] = useState('Connessione sicura a Home Assistant…');
+  const [scanStage, setScanStage] = useState(() => ot('scan.stage.secure'));
   const [scanProbeError, setScanProbeError] = useState<string | null>(null);
   const [scanRetryKey, setScanRetryKey] = useState(0);
   const oauthExchangePromiseRef = useRef<ReturnType<typeof exchangeHaOAuthCode> | null>(null);
   const connection = useHaLiveConnection({ url: hassUrl, token: '' });
   const panelConnection = useHaPanelBridgeConnection();
+  useEffect(() => {
+    setHomeAssistantLocale(panelConnection.isManagedByParent ? panelConnection.locale : null);
+  }, [panelConnection.isManagedByParent, panelConnection.locale, setHomeAssistantLocale]);
   const panelReady =
     panelConnection.isManagedByParent && panelConnection.status === 'connected';
   const panelReadyRef = useRef(panelReady);
@@ -402,7 +417,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
 
     if (!validation.ok || !code) {
       window.sessionStorage.removeItem(HA_OAUTH_SESSION_STATE_KEY);
-      setFlowError('La verifica OAuth è scaduta o non valida. Avvia nuovamente l’accesso.');
+      setFlowError(ot('connection.error.oauthState'));
       cleanup();
       return;
     }
@@ -444,7 +459,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
       } catch (error) {
         if (!cancelled) {
           window.sessionStorage.removeItem(HA_OAUTH_SESSION_STATE_KEY);
-          setFlowError(error instanceof Error ? error.message : 'Accesso Home Assistant non riuscito.');
+          setFlowError(ot('connection.error.oauth'));
           persistJourney({
             phase: 'server',
             mode: 'real',
@@ -457,7 +472,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     };
     void exchange();
     return () => { cancelled = true; };
-  }, [isEmbedded, navigateInsideApp, onJourneyChange]);
+  }, [isEmbedded, navigateInsideApp, onJourneyChange, ot]);
 
   useEffect(() => {
     if (!scanBusy) return;
@@ -490,7 +505,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     setScanBusy(true);
     setScanProbeError(null);
     setScanProgress(12);
-    setScanStage('Ricerca di una configurazione Domus UI condivisa…');
+    setScanStage(ot('scan.stage.sharedSearch'));
     let cancelled = false;
     const scan = async () => {
       const sharedConfiguration = await probeSharedHouseConfiguration(activeConnection.callApi);
@@ -498,7 +513,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
       if (sharedConfiguration.status === 'found') {
         const { document } = sharedConfiguration;
         setScanProgress(100);
-        setScanStage('Configurazione Domus UI trovata');
+        setScanStage(ot('scan.stage.sharedFound'));
         persistJourney({
           phase: 'existing',
           mode: 'real',
@@ -517,15 +532,15 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
       if (sharedConfiguration.status === 'invalid' || sharedConfiguration.status === 'unavailable') {
         setScanProbeError(
           sharedConfiguration.status === 'invalid'
-            ? 'Home Assistant contiene una configurazione Domus UI non riconosciuta. Non verrà sostituita automaticamente.'
-            : 'Non siamo riusciti a verificare se questa casa usa già Domus UI. Controlla la connessione e riprova.',
+            ? ot('scan.error.invalidShared')
+            : ot('scan.error.sharedUnavailable'),
         );
         setScanBusy(false);
         return;
       }
 
       setScanProgress((current) => Math.max(current, 18));
-      setScanStage('Lettura dei registri di Home Assistant…');
+      setScanStage(ot('scan.stage.registries'));
       const [currentUserPayload, entityRegistryDisplay, deviceRegistryDisplay, areaRegistry] = await Promise.all([
         settleSetupRequest(activeConnection.callApi<unknown>({ type: 'auth/current_user' }, { reportError: false })),
         settleSetupRequest(activeConnection.callApi<unknown>({ type: 'config/entity_registry/list_for_display' }, { reportError: false })),
@@ -534,7 +549,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
       ]);
       if (cancelled) return;
       setScanProgress((current) => Math.max(current, 58));
-      setScanStage('Verifica di entità, dispositivi e stanze…');
+      setScanStage(ot('scan.stage.verification'));
       const [entityRegistry, deviceRegistry] = await Promise.all([
         countRegistryEntries(entityRegistryDisplay, 'entities') > 0
           ? Promise.resolve(entityRegistryDisplay)
@@ -545,7 +560,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
       ]);
       if (cancelled) return;
       setScanProgress((current) => Math.max(current, 82));
-      setScanStage('Classificazione dei dispositivi per categoria…');
+      setScanStage(ot('scan.stage.classification'));
       const currentUser = currentUserPayload && typeof currentUserPayload === 'object'
         ? currentUserPayload as Record<string, unknown>
         : {};
@@ -569,7 +584,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
         canManageHa: currentUser.is_owner === true || currentUser.is_admin === true,
       };
       setScanProgress(100);
-      setScanStage('Riepilogo completato');
+      setScanStage(ot('scan.stage.complete'));
       persistJourney({
         phase: 'scan',
         mode: 'real',
@@ -591,6 +606,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     hassUrl,
     journey.summary,
     onJourneyChange,
+    ot,
     panelConnection.hassUrl,
     scanRetryKey,
     usesPanelConnection,
@@ -654,11 +670,11 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     return (
       <WizardShell
         stepIndex={0}
-        title={showDetectedHome ? 'Abbiamo trovato la tua casa' : 'Cerchiamo la tua casa'}
+        title={showDetectedHome ? ot('discovery.found.title') : ot('discovery.search.title')}
         description={
           showDetectedHome
-            ? 'Il pannello ha già verificato questa sessione. Conferma la casa rilevata per continuare con analisi, layout e organizzazione.'
-            : 'Controlliamo automaticamente se questa installazione dispone già di una sessione Home Assistant sicura.'
+            ? ot('discovery.found.description')
+            : ot('discovery.search.description')
         }
         onBack={() => updateJourney({
           phase: 'choice',
@@ -675,7 +691,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                    Casa collegata tramite pannello
+                    {ot('discovery.connected')}
                   </div>
                   <div className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">
                     {panelConnection.hassUrl || window.location.origin}
@@ -683,22 +699,22 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
                 </div>
                 <span className="onboarding-pill shrink-0 gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-[color:var(--ui-text-primary)]">
                   <Check size={13} />
-                  Verificata
+                  {ot('discovery.verified')}
                 </span>
               </div>
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="onboarding-card p-3.5">
                   <div className="text-xl font-semibold text-[color:var(--ui-text-primary)]">{detectedEntityCount}</div>
-                  <div className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">Entità rilevate</div>
+                  <div className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">{ot('discovery.entities')}</div>
                 </div>
                 <div className="onboarding-card p-3.5">
                   <div className="text-xl font-semibold text-[color:var(--ui-text-primary)]">{detectedAreaCount}</div>
-                  <div className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">Stanze rilevate</div>
+                  <div className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">{ot('discovery.rooms')}</div>
                 </div>
               </div>
               <div className="mt-4">
-                <SetupNotice icon={<ShieldCheck size={16} />} title="Sessione gestita da Home Assistant">
-                  La dashboard userà il bridge del pannello e non salverà un token manuale.
+                <SetupNotice icon={<ShieldCheck size={16} />} title={ot('discovery.session.title')}>
+                  {ot('discovery.session.description')}
                 </SetupNotice>
               </div>
             </>
@@ -706,18 +722,18 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
             <div className="flex min-h-56 flex-col items-center justify-center text-center">
               <GlassLoader
                 size="md"
-                label="Rilevamento della casa"
-                description="Cerchiamo una sessione Home Assistant già disponibile."
+                label={ot('discovery.loading.label')}
+                description={ot('discovery.loading.description')}
               />
             </div>
           )}
         </div>
         <WizardActions>
           <SetupSecondaryButton onClick={chooseManualConnection}>
-            Configura manualmente
+            {ot('discovery.manual')}
           </SetupSecondaryButton>
           {showDetectedHome ? (
-            <SetupActionButton onClick={confirmDetectedHome}>Usa questa casa</SetupActionButton>
+            <SetupActionButton onClick={confirmDetectedHome}>{ot('discovery.use')}</SetupActionButton>
           ) : null}
         </WizardActions>
       </WizardShell>
@@ -728,7 +744,18 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     const startOAuth = () => {
       const validation = validateHassUrl(hassUrl);
       if (validation.ok === false) {
-        setUrlError(validation.error);
+        const errorKey = validation.error.includes('obbligatorio')
+          ? 'connection.error.required'
+          : validation.error.includes('completo')
+            ? 'connection.error.complete'
+            : validation.error.includes('http o https')
+              ? 'connection.error.protocol'
+              : validation.error.includes('credenziali')
+                ? 'connection.error.credentials'
+                : validation.error.includes('query')
+                  ? 'connection.error.query'
+                  : 'connection.error.https';
+        setUrlError(ot(errorKey));
         return;
       }
       const normalizedUrl = validation.url;
@@ -768,7 +795,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     };
     const connectionContent = (
       <>
-        <label htmlFor="onboarding-ha-url" className="block text-xs font-semibold text-[color:var(--ui-text-secondary)]">Indirizzo del server</label>
+        <label htmlFor="onboarding-ha-url" className="block text-xs font-semibold text-[color:var(--ui-text-secondary)]">{ot('connection.serverAddress')}</label>
         <div className="onboarding-input-shell mt-2">
           <Server size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[color:var(--ui-text-secondary)]" />
           <input
@@ -789,20 +816,20 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
           </div>
         ) : null}
         <div className="mt-4">
-          <SetupNotice icon={<ShieldCheck size={16} />} title="Accesso protetto da Home Assistant">
-            La password resta sul tuo server. L’app riceve soltanto una sessione revocabile.
+          <SetupNotice icon={<ShieldCheck size={16} />} title={ot('connection.secure.title')}>
+            {ot('connection.secure.description')}
           </SetupNotice>
         </div>
         <WizardActions>
-          <SetupActionButton onClick={startOAuth}>{forceConfiguration ? 'Accedi di nuovo' : 'Continua su Home Assistant'}</SetupActionButton>
+          <SetupActionButton onClick={startOAuth}>{forceConfiguration ? ot('connection.signInAgain') : ot('connection.continueHa')}</SetupActionButton>
         </WizardActions>
       </>
     );
     if (forceConfiguration) {
       return (
         <ReconnectShell
-          title="Riconnetti Home Assistant"
-          description="La sessione non è più valida. Effettua nuovamente l’accesso: dashboard, layout e preferenze resteranno invariati."
+          title={ot('connection.reconnect.title')}
+          description={ot('connection.reconnect.description')}
           onBack={handleConnectionBack}
         >
           {connectionContent}
@@ -812,8 +839,8 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     return (
       <WizardShell
         stepIndex={0}
-        title="Collega Home Assistant"
-        description="Inserisci l’indirizzo del server. L’accesso avverrà direttamente sulla pagina sicura del tuo Home Assistant."
+        title={ot('connection.connect.title')}
+        description={ot('connection.connect.description')}
         onBack={handleConnectionBack}
       >
         {connectionContent}
@@ -834,21 +861,21 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
       ? listSetupEntityGroups(summary.groups ?? groupLegacySetupDomains(summary.domains))
       : [];
     return (
-      <WizardShell stepIndex={1} title={summary ? `Casa trovata${summary.userName ? `, ${summary.userName}` : ''}` : 'Prepariamo la tua casa'} description={summary ? 'Questo è un riepilogo in sola lettura: nulla è stato rinominato o spostato.' : 'Verifichiamo account, stanze, dispositivi ed entità disponibili.'}>
+      <WizardShell stepIndex={1} title={summary ? ot('scan.found', { name: summary.userName ? `, ${summary.userName}` : '' }) : ot('scan.preparing')} description={summary ? ot('scan.summaryDescription') : ot('scan.preparingDescription')}>
         {!summary ? (
           <div className="onboarding-card flex min-h-60 flex-col items-center justify-center p-6 text-center">
             {connectionHasFailed ? (
               <span className="onboarding-choice-icon !h-14 !w-14 !rounded-full"><LockKeyhole size={23} /></span>
             ) : (
-              <GlassLoader size="md" ariaLabel="Preparazione della casa in corso" />
+              <GlassLoader size="md" ariaLabel={ot('scan.preparation')} />
             )}
-            <div className="mt-5 text-sm font-semibold text-[color:var(--ui-text-primary)]">{requiresNewAccess ? 'Sessione scaduta' : connectionHasFailed ? 'Connessione interrotta' : 'Preparazione della casa'}</div>
+            <div className="mt-5 text-sm font-semibold text-[color:var(--ui-text-primary)]">{requiresNewAccess ? ot('scan.expired') : connectionHasFailed ? ot('scan.interrupted') : ot('scan.preparation')}</div>
             <div className="mt-2 max-w-sm text-xs leading-5 text-[color:var(--ui-text-secondary)]">{activeConnection.error || scanProbeError || scanStage}</div>
             {!connectionHasFailed ? (
               <div className="mt-6 w-full max-w-md">
                 <div
                   role="progressbar"
-                  aria-label="Avanzamento analisi Home Assistant"
+                  aria-label={ot('scan.progressAria')}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={Math.round(scanProgress)}
@@ -860,7 +887,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
                   />
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                  <span>Analisi in corso</span>
+                  <span>{ot('scan.inProgress')}</span>
                   <span className="text-[color:var(--ui-text-primary)]">{Math.round(scanProgress)}%</span>
                 </div>
               </div>
@@ -874,8 +901,8 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
                     return;
                   }
                   void activeConnection.connect();
-                }} className="w-full sm:w-auto"><RefreshCw size={14} /> Riprova</SetupSecondaryButton> : null}
-                <SetupActionButton onClick={returnToConnection} trailingArrow={false} className="w-full sm:w-auto"><LockKeyhole size={14} /> Torna alla connessione</SetupActionButton>
+                }} className="w-full sm:w-auto"><RefreshCw size={14} /> {ot('common.retry')}</SetupSecondaryButton> : null}
+                <SetupActionButton onClick={returnToConnection} trailingArrow={false} className="w-full sm:w-auto"><LockKeyhole size={14} /> {ot('scan.backConnection')}</SetupActionButton>
               </div>
             ) : null}
           </div>
@@ -883,17 +910,17 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
-                ['Entità', summary.entities],
-                ['Dispositivi', summary.devices],
-                ['Stanze', summary.areas],
-                ['Non disponibili', summary.unavailable],
+                [ot('common.entities'), summary.entities],
+                [ot('common.devices'), summary.devices],
+                [ot('common.rooms'), summary.areas],
+                [ot('scan.unavailable'), summary.unavailable],
               ].map(([label, value]) => <div key={label} className="onboarding-card min-w-0 p-3.5 sm:p-4"><div className="truncate text-2xl font-semibold tracking-[-0.035em] text-[color:var(--ui-text-primary)]">{value}</div><div className="mt-1 truncate text-[11px] text-[color:var(--ui-text-secondary)] sm:text-xs">{label}</div></div>)}
             </div>
             {entityGroups.length ? (
               <div className="mt-6">
                 <div className="mb-3 flex items-center justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Entità per gruppo</h2>
-                  <span className="text-[11px] text-[color:var(--ui-text-secondary)]">{entityGroups.length} categorie</span>
+                  <h2 className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{ot('scan.groups')}</h2>
+                  <span className="text-[11px] text-[color:var(--ui-text-secondary)]">{ot('scan.categories', { count: entityGroups.length })}</span>
                 </div>
                 <div className="onboarding-summary-groups glass-scrollbar grid gap-2 pr-1 sm:grid-cols-2 lg:grid-cols-3">
                   {entityGroups.map((group) => {
@@ -903,7 +930,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
                         <span className="onboarding-choice-icon !h-8 !w-8 !rounded-[0.7rem]">
                           <GroupIcon size={15} strokeWidth={2} />
                         </span>
-                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-[color:var(--ui-text-primary)]">{group.label}</span>
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium text-[color:var(--ui-text-primary)]">{ot(`group.${group.id}` as OnboardingTranslationKey)}</span>
                         <span className="onboarding-pill min-w-8 shrink-0 px-2 py-1 text-[11px] font-semibold text-[color:var(--ui-text-primary)]">{group.count}</span>
                       </div>
                     );
@@ -911,7 +938,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
                 </div>
               </div>
             ) : null}
-            <WizardActions><SetupActionButton onClick={() => updateJourney({ phase: 'compose' })}>Continua</SetupActionButton></WizardActions>
+            <WizardActions><SetupActionButton onClick={() => updateJourney({ phase: 'compose' })}>{ot('common.continue')}</SetupActionButton></WizardActions>
           </>
         )}
       </WizardShell>
@@ -920,15 +947,15 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
 
   if (effectivePhase === 'existing' && journey.existingConfiguration) {
     const existing = journey.existingConfiguration;
-    const updatedLabel = new Intl.DateTimeFormat('it-IT', {
+    const updatedLabel = formatDate(new Date(existing.updatedAt), {
       dateStyle: 'medium',
       timeStyle: 'short',
-    }).format(new Date(existing.updatedAt));
+    });
     return (
       <WizardShell
         stepIndex={1}
-        title="Domus UI è già configurato"
-        description="Questa casa possiede già una configurazione condivisa. Puoi usarla su questo dispositivo senza ricreare layout, stanze o card."
+        title={ot('existing.title')}
+        description={ot('existing.description')}
         onBack={returnToConnection}
       >
         <div className="onboarding-card overflow-hidden p-5 sm:p-6">
@@ -937,20 +964,20 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
               <Layers3 size={20} />
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Configurazione condivisa trovata</div>
+              <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{ot('existing.found')}</div>
               <div className="mt-1 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                Versione {existing.revision} · aggiornata {updatedLabel}
+                {ot('existing.version', { revision: existing.revision, date: updatedLabel })}
               </div>
             </div>
             <span className="onboarding-pill shrink-0 gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-[color:var(--ui-text-primary)]">
-              <Check size={13} /> Pronta
+              <Check size={13} /> {ot('common.ready')}
             </span>
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="onboarding-card p-3.5">
               <div className="text-xl font-semibold text-[color:var(--ui-text-primary)]">{existing.sections}</div>
-              <div className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">Sezioni</div>
+              <div className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">{ot('existing.sections')}</div>
             </div>
             <div className="onboarding-card p-3.5">
               <div className="text-xl font-semibold text-[color:var(--ui-text-primary)]">{existing.widgets}</div>
@@ -959,8 +986,8 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
           </div>
 
           <div className="mt-4">
-            <SetupNotice icon={<ShieldCheck size={16} />} title="La casa resta sincronizzata">
-              Layout e configurazione comune verranno letti da Home Assistant. Tema, passkey e preferenze del dispositivo resteranno locali.
+            <SetupNotice icon={<ShieldCheck size={16} />} title={ot('existing.sync.title')}>
+              {ot('existing.sync.description')}
             </SetupNotice>
           </div>
         </div>
@@ -973,7 +1000,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
             }, onJourneyChange);
             navigateInsideApp('/home');
           }}>
-            Usa questa configurazione
+            {ot('existing.use')}
           </SetupActionButton>
         </WizardActions>
       </WizardShell>
@@ -982,19 +1009,19 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
 
   if (effectivePhase === 'compose') {
     return (
-      <WizardShell stepIndex={2} title="Scegli il punto di partenza" description="Parti da una base curata e personalizzala in Edit Mode. La composizione automatica arriverà in un aggiornamento dedicato." onBack={() => updateJourney({ phase: 'scan' })}>
+      <WizardShell stepIndex={2} title={ot('compose.title')} description={ot('compose.description')} onBack={() => updateJourney({ phase: 'scan' })}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="onboarding-choice-card onboarding-choice-card-active"><span className="onboarding-choice-icon"><Layers3 size={18} /></span><div className="mt-5 font-semibold text-[color:var(--ui-text-primary)]">Layout iniziale</div><div className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">Una base pronta da personalizzare in Edit Mode.</div><div className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[color:rgb(var(--ui-accent-rgb))]"><Check size={14} /> Selezionato</div></div>
-          <div aria-disabled="true" className="onboarding-choice-card opacity-60"><span className="onboarding-step-chip absolute right-4 top-4">Prossimamente</span><span className="onboarding-choice-icon"><WandSparkles size={18} /></span><div className="mt-5 font-semibold text-[color:var(--ui-text-primary)]">Crea automaticamente</div><div className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">Genererà stanze, stack e varianti in base ai dispositivi.</div></div>
+          <div className="onboarding-choice-card onboarding-choice-card-active"><span className="onboarding-choice-icon"><Layers3 size={18} /></span><div className="mt-5 font-semibold text-[color:var(--ui-text-primary)]">{ot('compose.initial')}</div><div className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('compose.initialDescription')}</div><div className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[color:rgb(var(--ui-accent-rgb))]"><Check size={14} /> {ot('compose.selected')}</div></div>
+          <div aria-disabled="true" className="onboarding-choice-card opacity-60"><span className="onboarding-step-chip absolute right-4 top-4">{ot('compose.soon')}</span><span className="onboarding-choice-icon"><WandSparkles size={18} /></span><div className="mt-5 font-semibold text-[color:var(--ui-text-primary)]">{ot('compose.auto')}</div><div className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('compose.autoDescription')}</div></div>
         </div>
-        <WizardActions><SetupActionButton onClick={() => updateJourney({ phase: journey.summary?.canManageHa ? 'organize' : 'complete' })}>Continua</SetupActionButton></WizardActions>
+        <WizardActions><SetupActionButton onClick={() => updateJourney({ phase: journey.summary?.canManageHa ? 'organize' : 'complete' })}>{ot('common.continue')}</SetupActionButton></WizardActions>
       </WizardShell>
     );
   }
 
   if (effectivePhase === 'organize') {
     return (
-      <WizardShell stepIndex={3} title="Organizza la tua casa" description="Prepara piani, stanze ed entità in una bozza. Home Assistant verrà modificato soltanto dopo la conferma finale." onBack={() => updateJourney({ phase: 'compose' })}>
+      <WizardShell stepIndex={3} title={ot('organize.title')} description={ot('organize.description')} onBack={() => updateJourney({ phase: 'compose' })}>
         <OnboardingOrganizer
           callApi={activeConnection.callApi}
           canManage={journey.summary?.canManageHa === true}
@@ -1007,22 +1034,25 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
   }
 
   return (
-    <WizardShell stepIndex={4} stepLabel="Completato" title="La tua casa è pronta" description="Connessione verificata e spazio reale separato dalla Demo. Ora puoi iniziare a personalizzare la dashboard." compact>
-      <div className="onboarding-card flex flex-col items-center px-5 py-8 text-center"><span className="flex h-20 w-20 items-center justify-center rounded-full border border-emerald-200/24 bg-emerald-400/14 text-emerald-100 shadow-[0_20px_70px_rgba(16,185,129,0.18)]"><Check size={34} /></span><div className="mt-6 text-lg font-semibold text-[color:var(--ui-text-primary)]">Connessione completata</div><div className="mt-2 max-w-sm text-sm leading-6 text-[color:var(--ui-text-secondary)]">Troverai il Builder in Edit Mode e potrai cambiare ogni dettaglio in qualsiasi momento.</div></div>
-      <WizardActions><SetupActionButton onClick={() => { persistJourney({ ...journey, phase: 'done', mode: 'real' }, onJourneyChange); navigateInsideApp('/home'); }}>Apri la dashboard</SetupActionButton></WizardActions>
+    <WizardShell stepIndex={4} stepLabel={ot('complete.label')} title={ot('complete.title')} description={ot('complete.description')} compact>
+      <div className="onboarding-card flex flex-col items-center px-5 py-8 text-center"><span className="flex h-20 w-20 items-center justify-center rounded-full border border-emerald-200/24 bg-emerald-400/14 text-emerald-100 shadow-[0_20px_70px_rgba(16,185,129,0.18)]"><Check size={34} /></span><div className="mt-6 text-lg font-semibold text-[color:var(--ui-text-primary)]">{ot('complete.connected')}</div><div className="mt-2 max-w-sm text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('complete.builder')}</div></div>
+      <WizardActions><SetupActionButton onClick={() => { persistJourney({ ...journey, phase: 'done', mode: 'real' }, onJourneyChange); navigateInsideApp('/home'); }}>{ot('complete.open')}</SetupActionButton></WizardActions>
     </WizardShell>
   );
 }
 
 export function DemoLockedRoute({ pathname, onConnect }: { pathname: string; onConnect: () => void }) {
+  const { locale } = useI18n();
+  const ot = (key: OnboardingTranslationKey, parameters?: Record<string, string | number>) =>
+    translateOnboarding(locale, key, parameters);
   return (
     <SetupBackdrop>
       <section className="onboarding-window w-full max-w-xl !min-h-0 flex-col items-center p-6 text-center sm:p-10">
         <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-amber-200/22 bg-amber-400/12 text-amber-100"><LockKeyhole size={25} /></span>
-        <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-100/72">Modalità Demo</div>
-        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--ui-text-primary)]">Questa sezione richiede una casa collegata</h1>
-        <p className="mt-3 text-sm leading-6 text-[color:var(--ui-text-secondary)]">Nella Demo puoi esplorare Home e Stanze. Collega Home Assistant per sbloccare {pathname.replace('/', '') || 'questa funzione'}.</p>
-        <div className="mt-8 flex w-full flex-col-reverse justify-center gap-2 sm:w-auto sm:flex-row"><SetupSecondaryButton onClick={() => window.location.assign('/home')}>Torna a Home</SetupSecondaryButton><SetupActionButton onClick={onConnect}>Collega Home Assistant</SetupActionButton></div>
+        <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-100/72">{ot('demoLocked.label')}</div>
+        <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--ui-text-primary)]">{ot('demoLocked.title')}</h1>
+        <p className="mt-3 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('demoLocked.description', { section: pathname.replace('/', '') || 'Home' })}</p>
+        <div className="mt-8 flex w-full flex-col-reverse justify-center gap-2 sm:w-auto sm:flex-row"><SetupSecondaryButton onClick={() => window.location.assign('/home')}>{ot('demoLocked.back')}</SetupSecondaryButton><SetupActionButton onClick={onConnect}>{ot('demoLocked.connect')}</SetupActionButton></div>
       </section>
     </SetupBackdrop>
   );

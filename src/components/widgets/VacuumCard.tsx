@@ -11,6 +11,7 @@ import {
   type WidgetDisplayMetrics,
   type WidgetDisplayVariant,
 } from './widgetDisplayVariant';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type VacuumCardProps = {
   widget: Widget;
@@ -39,6 +40,7 @@ export function VacuumCard({
   displayVariant,
   onDisplayMetricsChange,
 }: VacuumCardProps) {
+  const { locale } = useI18n();
   const fallbackVariant = displayVariant ?? resolveWidgetDisplayVariant({
     kind: 'vacuum',
     breakpoint: gridBreakpoint,
@@ -50,7 +52,7 @@ export function VacuumCard({
   const layoutVariant = measuredSize
     ? resolveVacuumPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : fallbackVariant;
-  const model = useMemo(() => buildVacuumCardModel({ widget, liveEntity }), [liveEntity, widget]);
+  const model = useMemo(() => buildVacuumCardModel({ widget, liveEntity, locale }), [liveEntity, locale, widget]);
 
   useEffect(() => {
     if (!measuredSize || !onDisplayMetricsChange) return;

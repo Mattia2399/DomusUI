@@ -18,11 +18,11 @@ import {
   resolveCoverPositionAttribute,
   resolveCoverTiltAttribute,
   resolveCoverTiltPosition,
-  translateCoverState,
 } from '../../utils/coverUtils';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { normalizeCoverDeviceClass } from '../widgets/coverCardModel';
 import '../widgets/CoverCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type CoverControlsProps = {
   cover: {
@@ -81,6 +81,7 @@ export function CoverControls({
   onStopTilt,
   onSetTiltPosition,
 }: CoverControlsProps) {
+  const { t } = useI18n();
   const normalizedState = normalizeCoverState(cover.state);
   const supportedFeatures = cover.supportedFeatures;
   const supportsOpen =
@@ -132,8 +133,11 @@ export function CoverControls({
   }, [resolvedTiltPosition, cover.name]);
 
   const displayStatus = useMemo(() => {
-    return `${translateCoverState(normalizedState)} | ${currentPosition}%`;
-  }, [currentPosition, normalizedState]);
+    const stateKey = ['open', 'closed', 'opening', 'closing', 'stopped', 'unavailable'].includes(normalizedState)
+      ? `controls.cover.state.${normalizedState}` as const
+      : 'controls.cover.state.unknown';
+    return `${t(stateKey)} | ${currentPosition}%`;
+  }, [currentPosition, normalizedState, t]);
 
   const blindCoverage = 100 - currentPosition;
   const tiltDegrees = Math.round((tiltPosition / 100) * 90);
@@ -214,7 +218,7 @@ export function CoverControls({
 
   return (
     <div className={CONTEXT_PANEL_LAYOUT.shell}>
-      <ContextPanelHeader title={cover.name} subtitle={displayStatus} icon={<Blinds size={21} />} fallbackTitle="Tapparella" />
+      <ContextPanelHeader title={cover.name} subtitle={displayStatus} icon={<Blinds size={21} />} fallbackTitle={t('controls.cover.title')} />
 
       <div className={CONTEXT_PANEL_LAYOUT.section}>
         <div className="grid gap-4">
@@ -240,7 +244,7 @@ export function CoverControls({
                   className={`absolute inset-0 z-20 opacity-0 appearance-none ${
                     supportsSetPosition ? 'cursor-grab active:cursor-grabbing' : 'cursor-not-allowed'
                   } [writing-mode:vertical-lr] [-webkit-appearance:slider-vertical]`}
-                  aria-label="Posizione tapparella"
+                  aria-label={t('controls.cover.position')}
                 />
               </span>
             </div>
@@ -260,8 +264,8 @@ export function CoverControls({
               className={`glass-button flex h-12 min-w-0 items-center justify-center rounded-2xl px-2 text-xs font-semibold transition-all active:scale-95 ${
                 supportsOpen ? 'text-[color:var(--ui-text-primary)]' : 'cursor-not-allowed text-[color:var(--ui-text-disabled)]'
               }`}
-              aria-label="Apri"
-              title="Apri"
+              aria-label={t('controls.cover.open')}
+              title={t('controls.cover.open')}
             >
               <ArrowUp size={16} />
             </button>
@@ -274,8 +278,8 @@ export function CoverControls({
                   ? 'text-[color:var(--ui-text-primary)]'
                   : 'cursor-not-allowed text-[color:var(--ui-text-disabled)]'
               }`}
-              aria-label="Stop"
-              title="Stop"
+              aria-label={t('controls.cover.stop')}
+              title={t('controls.cover.stop')}
             >
               <Square size={14} />
             </button>
@@ -292,8 +296,8 @@ export function CoverControls({
               className={`glass-button flex h-12 min-w-0 items-center justify-center rounded-2xl px-2 text-xs font-semibold transition-all active:scale-95 ${
                 supportsClose ? 'text-[color:var(--ui-text-primary)]' : 'cursor-not-allowed text-[color:var(--ui-text-disabled)]'
               }`}
-              aria-label="Chiudi"
-              title="Chiudi"
+              aria-label={t('controls.cover.close')}
+              title={t('controls.cover.close')}
             >
               <ArrowDown size={16} />
             </button>
@@ -303,15 +307,15 @@ export function CoverControls({
             <div className="dashboard-content-surface-soft rounded-[1.65rem] p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Inclinazione lamelle</p>
+                  <p className="truncate text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('controls.cover.tilt')}</p>
                 </div>
                 {supportsStopTilt ? (
                   <button
                     type="button"
                     onClick={onStopTilt}
                     className="glass-button flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-all active:scale-95"
-                    aria-label="Stop tilt"
-                    title="Stop tilt"
+                    aria-label={t('controls.cover.stopTilt')}
+                    title={t('controls.cover.stopTilt')}
                   >
                     <Square size={13} />
                   </button>
@@ -319,12 +323,12 @@ export function CoverControls({
               </div>
 
               <GlassSegmentSelect
-                ariaLabel="Inclinazione lamelle"
+                ariaLabel={t('controls.cover.tilt')}
                 minOptionWidth="2rem"
                 options={TILT_PRESETS.map((option) => ({
                   value: option.value,
                   label: option.label,
-                  ariaLabel: `Imposta inclinazione lamelle a ${option.ariaLabel}`,
+                  ariaLabel: t('controls.cover.setTilt', { degrees: option.ariaLabel }),
                   disabled: !canUseTiltPreset(option.value),
                 }))}
                 value={activeTiltPreset.value}

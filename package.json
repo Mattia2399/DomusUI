@@ -1,7 +1,7 @@
 {
   "name": "domusos",
   "private": true,
-  "version": "0.1.0-beta.13",
+  "version": "0.1.0-beta.14",
   "description": "Domus UI — premium responsive dashboard and visual builder for Home Assistant",
   "type": "module",
   "engines": {
@@ -15,9 +15,12 @@
     "check": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "audit:release": "node scripts/audit-release.mjs",
+    "i18n:audit": "node scripts/check-i18n-scope.mjs",
     "build:budget": "node scripts/check-bundle-budget.mjs",
+    "release:notes": "node scripts/generate-release-notes.mjs",
+    "release:notes:check": "node scripts/generate-release-notes.mjs --check",
     "release:package": "npm run build && node scripts/package-release.mjs",
-    "release:gate": "npm run runtime:check && npm run check && npm run test:unit && npm run build && npm run build:budget && npm run audit:release && npm run test:e2e",
+    "release:gate": "npm run runtime:check && npm run release:notes:check && npm run check && npm run test:unit && npm run build && npm run build:budget && npm run audit:release && npm run test:e2e",
     "test": "npm run test:unit",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",

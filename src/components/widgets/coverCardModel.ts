@@ -1,5 +1,6 @@
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
+import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 import {
   COVER_FEATURE_CLOSE,
   COVER_FEATURE_CLOSE_TILT,
@@ -138,18 +139,8 @@ export function normalizeCoverDeviceClass(value: unknown, fallbackText?: string)
   return 'cover';
 }
 
-export function translateCoverDeviceClass(deviceClass: CoverDeviceClass) {
-  if (deviceClass === 'awning') return 'Tenda da sole';
-  if (deviceClass === 'blind') return 'Veneziana';
-  if (deviceClass === 'curtain') return 'Tenda';
-  if (deviceClass === 'damper') return 'Serranda aria';
-  if (deviceClass === 'door') return 'Porta';
-  if (deviceClass === 'garage') return 'Garage';
-  if (deviceClass === 'gate') return 'Cancello';
-  if (deviceClass === 'shade') return 'Tenda oscurante';
-  if (deviceClass === 'shutter') return 'Tapparella';
-  if (deviceClass === 'window') return 'Finestra';
-  return 'Copertura';
+export function translateCoverDeviceClass(deviceClass: CoverDeviceClass, locale: AppLocale = 'it') {
+  return translateForLocale(locale, `card.cover.deviceClass.${deviceClass}`);
 }
 
 function resolveCaption(
@@ -157,15 +148,12 @@ function resolveCaption(
   position: number,
   deviceClassLabel: string,
   pending: boolean,
+  locale: AppLocale,
 ) {
-  if (pending) return 'Comando inviato, attendo conferma';
-  if (state === 'opening') return 'Apertura in corso';
-  if (state === 'closing') return 'Chiusura in corso';
-  if (state === 'open') return `${deviceClassLabel} aperta`;
-  if (state === 'closed') return `${deviceClassLabel} chiusa`;
-  if (state === 'stopped') return `Fermata al ${position}%`;
-  if (state === 'unavailable') return 'Entita non raggiungibile';
-  return 'Stato non disponibile';
+  if (pending) return translateForLocale(locale, 'card.cover.pending');
+  if (state === 'open' || state === 'closed') return translateForLocale(locale, `card.cover.caption.${state}`, { type: deviceClassLabel });
+  if (state === 'stopped') return translateForLocale(locale, 'card.cover.caption.stopped', { position });
+  return translateForLocale(locale, `card.cover.caption.${state}`);
 }
 
 function resolveTone(state: NormalizedCoverState): CoverCardTone {
@@ -185,7 +173,7 @@ function formatFeatureSummary(model: Pick<
   | 'supportsCloseTilt'
   | 'supportsSetTiltPosition'
   | 'supportsStopTilt'
->) {
+>, locale: AppLocale) {
   const count = [
     model.supportsOpen,
     model.supportsClose,
@@ -197,17 +185,19 @@ function formatFeatureSummary(model: Pick<
     model.supportsStopTilt,
   ].filter(Boolean).length;
 
-  if (count >= 8) return 'Complete';
-  if (count >= 4) return 'Estese';
-  return 'Base';
+  if (count >= 8) return translateForLocale(locale, 'card.cover.features.complete');
+  if (count >= 4) return translateForLocale(locale, 'card.cover.features.extended');
+  return translateForLocale(locale, 'card.cover.features.basic');
 }
 
 export function buildCoverCardModel({
   widget,
   liveEntity,
+  locale = 'it',
 }: {
   widget: Widget;
   liveEntity?: MockEntityState;
+  locale?: AppLocale;
 }): CoverCardModel {
   const rawAttributes = liveEntity?.rawAttributes;
   const rawState =
@@ -244,14 +234,14 @@ export function buildCoverCardModel({
   const title =
     widget.title ||
     toTrimmedString(rawAttributes?.friendly_name) ||
-    'Tapparella';
+    translateForLocale(locale, 'controls.cover.title');
   const deviceClass = normalizeCoverDeviceClass(rawAttributes?.device_class, `${title} ${widget.entityId}`);
-  const deviceClassLabel = translateCoverDeviceClass(deviceClass);
-  const stateLabel = translateCoverState(state);
+  const deviceClassLabel = translateCoverDeviceClass(deviceClass, locale);
+  const stateLabel = translateForLocale(locale, `controls.cover.state.${state}`);
   const compactStateLabel =
     state === 'unavailable' || state === 'unknown'
       ? stateLabel
-      : `${position}% aperta`;
+      : translateForLocale(locale, 'card.cover.positionOpen', { position });
   const tone = resolveTone(state);
   const capabilityModel = {
     supportsOpen,
@@ -265,9 +255,9 @@ export function buildCoverCardModel({
   };
 
   const detailItems: CoverCardDetailItem[] = [
-    { label: 'Tipo', value: deviceClassLabel },
-    { label: 'Posizione', value: `${position}%` },
-    { label: 'Comandi', value: formatFeatureSummary(capabilityModel) },
+    { label: translateForLocale(locale, 'card.cover.type'), value: deviceClassLabel },
+    { label: translateForLocale(locale, 'card.cover.position'), value: `${position}%` },
+    { label: translateForLocale(locale, 'card.cover.commands'), value: formatFeatureSummary(capabilityModel, locale) },
   ];
 
   return {
@@ -275,7 +265,7 @@ export function buildCoverCardModel({
     state,
     stateLabel,
     compactStateLabel,
-    caption: resolveCaption(state, position, deviceClassLabel, pending),
+    caption: resolveCaption(state, position, deviceClassLabel, pending, locale),
     position,
     coverage: clampPercent(100 - position),
     tiltPosition,

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type ContextPanelHeaderProps = {
   title: string;
@@ -16,12 +17,13 @@ export function ContextPanelHeader({
   title,
   subtitle,
   icon,
-  fallbackTitle = 'Dispositivo',
+  fallbackTitle,
   className,
   iconClassName,
   subtitleClassName,
 }: ContextPanelHeaderProps) {
-  const displayTitle = title.trim() || fallbackTitle;
+  const { t } = useI18n();
+  const displayTitle = title.trim() || fallbackTitle || t('builder.device');
 
   return (
     <div className={clsx('context-panel-header', CONTEXT_PANEL_LAYOUT.section, 'mb-1', className)}>

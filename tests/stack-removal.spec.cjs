@@ -64,7 +64,7 @@ async function openRemovalChoice(page) {
   );
 
   await page.goto('/?view=home');
-  await page.locator('button[aria-label="Toggle edit mode"]:visible').first().click();
+  await page.locator('button[aria-label="Attiva o disattiva modalità modifica"]:visible').first().click();
   await page.getByRole('button', { name: 'Attiva', exact: true }).click();
   await page.waitForSelector('.sections-grid.is-editing');
   await page.getByRole('group', { name: 'Sezione Stack da rimuovere' }).click({ position: { x: 20, y: 20 } });

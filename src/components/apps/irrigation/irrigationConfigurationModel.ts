@@ -59,14 +59,14 @@ function entityAttributes(entity: IrrigationEntityState | null | undefined) {
   return entity?.rawAttributes ?? entity?.attributes ?? {};
 }
 
-export function formatIrrigationEntityStateLabel(value: unknown) {
+export function formatIrrigationEntityStateLabel(value: unknown, locale = 'it') {
   const source = `${value ?? ''}`.trim();
   if (!source) return 'N/D';
   const normalized = source.replace(',', '.');
   if (!/^[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?$/i.test(normalized)) return source;
   const numericValue = Number(normalized);
   if (!Number.isFinite(numericValue)) return source;
-  return numericValue.toLocaleString('it-IT', {
+  return numericValue.toLocaleString(locale, {
     maximumFractionDigits: 2,
     useGrouping: true,
   });

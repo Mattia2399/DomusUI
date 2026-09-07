@@ -22,7 +22,7 @@ export const SETTINGS_MANAGEMENT_SECTIONS:
     {
       id: 'ha',
       label: 'Home Assistant',
-      hint: 'Connessione live',
+      hint: 'Connessione live', // i18n-audit-ignore: registry fallback localized by the settings shell.
       icon: 'ha',
     },
     {

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
+import { useI18n } from '../../i18n/I18nProvider';
 import type { DashboardResetProgressReporter } from '../../services/dashboardReset';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
@@ -60,10 +61,10 @@ export type SettingsManagementPanelProps = {
 const SETTINGS_BREAKPOINT_PX = 768;
 const DEFAULT_SETTINGS_AVATAR_URL = '/icons/icon-192.png';
 
-function resolveMembersTitle(view: HouseAccessView) {
-  if (view === 'members') return 'Membri casa';
-  if (view === 'guest') return 'Accessi ospiti';
-  if (view === 'share') return 'Condivisione';
+function resolveMembersTitle(view: HouseAccessView, t: ReturnType<typeof useI18n>['t']) {
+  if (view === 'members') return t('settings.management.members');
+  if (view === 'guest') return t('settings.management.guests');
+  if (view === 'share') return t('settings.management.sharing');
   return '';
 }
 
@@ -98,6 +99,12 @@ export function SettingsManagementPanel({
   onResetAll,
   onOpenLayoutVersions,
 }: SettingsManagementPanelProps) {
+  const { t } = useI18n();
+  const localizedSections = SETTINGS_MANAGEMENT_SECTIONS.map((section) => ({
+    ...section,
+    label: section.id === 'members' ? t('settings.management.homeAccess') : section.id === 'ha' ? 'Home Assistant' : t('settings.data.title'),
+    hint: section.id === 'members' ? t('settings.management.homeAccessHint') : section.id === 'ha' ? t('settings.management.haHint') : t('settings.management.dataHint'),
+  }));
   const resolvedInitialSection =
     resolveSettingsManagementSection(initialSection);
   const [activeSection, setActiveSection] =
@@ -153,11 +160,10 @@ export function SettingsManagementPanel({
   }
 
   const activeSectionMeta =
-    SETTINGS_MANAGEMENT_SECTIONS.find(
+    localizedSections.find(
       (section) => section.id === activeSection,
     ) ?? SETTINGS_MANAGEMENT_SECTIONS[0];
-  const membersTitle =
-    activeSection === 'members' ? resolveMembersTitle(houseAccessView) : '';
+  const membersTitle = activeSection === 'members' ? resolveMembersTitle(houseAccessView, t) : '';
   const detailTitle = membersTitle || activeSectionMeta.label;
   const detailSubtitle = membersTitle
     ? activeSectionMeta.label
@@ -166,9 +172,9 @@ export function SettingsManagementPanel({
     presentation === 'embedded' || isCompactDetailOpen;
   const showMenuOnCompact =
     presentation !== 'embedded' && !isCompactDetailOpen;
-  const displayName = userAvatarAlt?.trim() || 'Utente';
-  const displayEmail = userEmail?.trim() || 'Email non disponibile';
-  const displayRole = userRoleLabel?.trim() || 'Utente';
+  const displayName = userAvatarAlt?.trim() || t('settings.management.user');
+  const displayEmail = userEmail?.trim() || t('settings.management.emailUnavailable');
+  const displayRole = userRoleLabel?.trim() || t('settings.management.user');
 
   const handleSectionSelect = (section: SettingsManagementSectionId) => {
     setActiveSection(resolveSettingsManagementSection(section));
@@ -196,8 +202,8 @@ export function SettingsManagementPanel({
       isCompactViewport={isCompactViewport}
       showMenuOnCompact={showMenuOnCompact}
       showDetailOnCompact={showDetailOnCompact}
-      menuTitle="Impostazioni"
-      menuSubtitle="Dashboard e casa"
+      menuTitle={t('settings.back')}
+      menuSubtitle={t('settings.management.menuSubtitle')}
       detailTitle={detailTitle}
       detailSubtitle={detailSubtitle}
       displayName={displayName}
@@ -210,7 +216,7 @@ export function SettingsManagementPanel({
       onClose={onClose}
       navigation={
         <SettingsSectionNavigation
-          sections={SETTINGS_MANAGEMENT_SECTIONS}
+          sections={localizedSections}
           activeSection={activeSection}
           isCompactViewport={isCompactViewport}
           onSelect={handleSectionSelect}
@@ -221,8 +227,8 @@ export function SettingsManagementPanel({
         <React.Suspense
           fallback={
             <DeferredGlassLoader
-              label="Caricamento casa"
-              description="Prepariamo membri e accessi."
+              label={t('settings.management.loadingHome')}
+              description={t('settings.management.loadingHomeDescription')}
             />
           }
         >
@@ -240,8 +246,8 @@ export function SettingsManagementPanel({
         <React.Suspense
           fallback={
             <DeferredGlassLoader
-              label="Caricamento connessione"
-              description="Prepariamo gli strumenti Home Assistant."
+              label={t('settings.management.loadingConnection')}
+              description={t('settings.management.loadingConnectionDescription')}
             />
           }
         >
@@ -268,8 +274,8 @@ export function SettingsManagementPanel({
         <React.Suspense
           fallback={
             <DeferredGlassLoader
-              label="Caricamento dati"
-              description="Prepariamo backup e strumenti del dispositivo."
+              label={t('settings.management.loadingData')}
+              description={t('settings.management.loadingDataDescription')}
             />
           }
         >

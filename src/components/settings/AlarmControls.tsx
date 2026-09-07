@@ -9,7 +9,6 @@ import {
   ALARM_FEATURE_ARM_VACATION,
   ALARM_FEATURE_TRIGGER,
   alarmSupportsFeature,
-  getAlarmStateLabel,
   normalizeAlarmState,
 } from '../../utils/alarmUtils';
 import {
@@ -29,17 +28,26 @@ import {
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 type AlarmActionResult = boolean | void | Promise<boolean | void>;
 
 type AlarmModeId = 'home' | 'away' | 'night' | 'vacation' | 'custom_bypass';
 
-const ALARM_MODE_DESCRIPTIONS: Record<AlarmModeId, string> = {
-  home: 'Perimetro e accessi principali',
-  away: 'Protezione completa',
-  night: 'Protezione silenziosa',
-  vacation: 'Sorveglianza prolungata',
-  custom_bypass: 'Zone escluse manualmente',
+const MODE_LABEL_KEYS: Record<AlarmModeId, TranslationKey> = {
+  home: 'alarm.mode.home', away: 'alarm.mode.away', night: 'alarm.mode.night',
+  vacation: 'alarm.mode.vacation', custom_bypass: 'alarm.mode.customBypass',
+};
+const MODE_DESCRIPTION_KEYS: Record<AlarmModeId, TranslationKey> = {
+  home: 'alarm.modeDescription.home', away: 'alarm.modeDescription.away', night: 'alarm.modeDescription.night',
+  vacation: 'alarm.modeDescription.vacation', custom_bypass: 'alarm.modeDescription.customBypass',
+};
+const STATE_KEYS: Record<string, TranslationKey> = {
+  disarmed: 'alarm.state.disarmed', armed_home: 'alarm.state.armedHome', armed_away: 'alarm.state.armedAway',
+  armed_night: 'alarm.state.armedNight', armed_vacation: 'alarm.state.armedVacation', armed_custom_bypass: 'alarm.state.armedCustomBypass',
+  pending: 'alarm.state.pending', arming: 'alarm.state.arming', disarming: 'alarm.state.disarming',
+  triggered: 'alarm.state.triggered', unavailable: 'alarm.state.unavailable', unknown: 'alarm.state.unknown',
 };
 
 interface AlarmControlsProps {
@@ -191,13 +199,6 @@ function resolveAlarmVisual(state: string) {
   };
 }
 
-function formatTimeLabel(date: Date) {
-  return date.toLocaleTimeString('it-IT', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
 export function AlarmControls({
   alarm,
   onAuthorizeDeviceAuth,
@@ -209,6 +210,7 @@ export function AlarmControls({
   onArmCustomBypass,
   onTrigger,
 }: AlarmControlsProps) {
+  const { t, formatDate } = useI18n();
   const [pendingAction, setPendingAction] = useState<PendingAlarmAction | null>(null);
   const [authCode, setAuthCode] = useState('');
   const [authSubmissionError, setAuthSubmissionError] = useState('');
@@ -223,7 +225,7 @@ export function AlarmControls({
   }, [alarm.activityLogLimit]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>(() => (alarm.activityTimeline ?? []).slice(0, maxTimelineEntries));
   const normalizedState = normalizeAlarmState(alarm.state || alarm.status);
-  const translatedState = getAlarmStateLabel(normalizedState);
+  const translatedState = t(STATE_KEYS[normalizedState] ?? 'alarm.state.unknown');
   const changedBy = alarm.changedBy?.trim();
   const codeRequired = Boolean(alarm.codeArmRequired);
   const codeFormat = typeof alarm.rawAttributes?.code_format === 'string'
@@ -244,7 +246,7 @@ export function AlarmControls({
       })
     : null;
   const numericCodeMode = pendingSecurityRequirement?.codeFormat !== 'text';
-  const alarmCodeTypeLabel = pendingSecurityRequirement?.inputLabel ?? 'PIN allarme';
+  const alarmCodeTypeLabel = localExtraCodeActive ? t('alarm.auth.combinedPin') : t('alarm.auth.pin');
   const trimmedCode = authCode.trim();
   const pendingNeedsCode = Boolean(pendingSecurityRequirement?.needsCodeInput);
   const pendingPrefersDeviceAuth = Boolean(pendingSecurityRequirement?.allowsDeviceAuth && onAuthorizeDeviceAuth);
@@ -254,7 +256,7 @@ export function AlarmControls({
   const HeaderIcon = resolveHeaderIcon(normalizedState);
   const stateVisual = resolveAlarmVisual(normalizedState);
   const codeLengthLimit = 12;
-  const timelineActor = changedBy || 'Sistema';
+  const timelineActor = changedBy || t('alarm.system');
   const shouldUseLocalTimeline = !alarm.activityTimelineStatus || alarm.activityTimelineStatus === 'offline';
   const isTransitioning = normalizedState === 'pending' || normalizedState === 'arming' || normalizedState === 'disarming';
   const isUnavailable = normalizedState === 'unavailable' || normalizedState === 'unknown';
@@ -262,12 +264,12 @@ export function AlarmControls({
   const [selectedModeId, setSelectedModeId] = useState<AlarmModeId | undefined>(undefined);
   const activeBadgeLabel =
     normalizedState === 'triggered'
-      ? 'Allarme'
+      ? t('alarm.badge.alarm')
       : normalizedState === 'disarmed'
-        ? 'Disattivo'
+        ? t('alarm.badge.inactive')
         : isTransitioning
-          ? 'In corso'
-          : 'Attiva';
+          ? t('alarm.badge.pending')
+          : t('alarm.badge.active');
 
   useEffect(() => {
     const incoming = (alarm.activityTimeline ?? []).slice(0, maxTimelineEntries);
@@ -287,7 +289,7 @@ export function AlarmControls({
     () => [
       {
         id: 'home',
-        label: 'Casa',
+        label: t('alarm.mode.home'),
         state: 'armed_home',
         feature: ALARM_FEATURE_ARM_HOME,
         icon: <Home size={15} />,
@@ -295,7 +297,7 @@ export function AlarmControls({
       },
       {
         id: 'away',
-        label: 'Fuori',
+        label: t('alarm.mode.away'),
         state: 'armed_away',
         feature: ALARM_FEATURE_ARM_AWAY,
         icon: <Shield size={15} />,
@@ -303,7 +305,7 @@ export function AlarmControls({
       },
       {
         id: 'night',
-        label: 'Notte',
+        label: t('alarm.mode.night'),
         state: 'armed_night',
         feature: ALARM_FEATURE_ARM_NIGHT,
         icon: <Moon size={15} />,
@@ -311,7 +313,7 @@ export function AlarmControls({
       },
       {
         id: 'vacation',
-        label: 'Vacanza',
+        label: t('alarm.mode.vacation'),
         state: 'armed_vacation',
         feature: ALARM_FEATURE_ARM_VACATION,
         icon: <Plane size={15} />,
@@ -319,14 +321,14 @@ export function AlarmControls({
       },
       {
         id: 'custom_bypass',
-        label: 'Bypass',
+        label: t('alarm.mode.customBypass'),
         state: 'armed_custom_bypass',
         feature: ALARM_FEATURE_ARM_CUSTOM_BYPASS,
         icon: <ShieldPlus size={15} />,
         onPress: onArmCustomBypass,
       },
     ],
-    [onArmAway, onArmCustomBypass, onArmHome, onArmNight, onArmVacation],
+    [onArmAway, onArmCustomBypass, onArmHome, onArmNight, onArmVacation, t],
   );
 
   const supportedFeatures = alarm.supportedFeatures;
@@ -344,20 +346,20 @@ export function AlarmControls({
   const selectedMode = supportedModes.find((mode) => mode.id === selectedModeId) ?? activeMode ?? defaultArmMode;
   const currentModeLabel =
     normalizedState === 'disarmed'
-      ? 'Disinserito'
+      ? t('alarm.state.disarmed')
       : activeMode?.label ?? translatedState;
   const currentModeCaption =
     normalizedState === 'triggered'
-      ? 'Richiede attenzione immediata'
+      ? t('alarm.caption.triggered')
       : normalizedState === 'disarmed'
-        ? 'Sistema non inserito'
+        ? t('alarm.caption.disarmed')
         : isUnavailable
-          ? 'Connessione al sistema non disponibile'
+          ? t('alarm.caption.unavailable')
         : isTransitioning
-          ? 'Cambio modalità in corso'
+          ? t('alarm.caption.modeChanging')
           : activeMode
-          ? ALARM_MODE_DESCRIPTIONS[activeMode.id]
-          : 'Protezione in corso';
+          ? t(MODE_DESCRIPTION_KEYS[activeMode.id])
+          : t('alarm.caption.protected');
 
   useEffect(() => {
     setSelectedModeId((current) => {
@@ -375,11 +377,11 @@ export function AlarmControls({
     () => [
       {
         id: 'disarm',
-        label: 'Disinserito',
+        label: t('alarm.state.disarmed'),
         state: 'disarmed',
         icon: <LockOpen size={15} />,
         onPress: onDisarm,
-        timelineText: `${timelineActor} ha disinserito ${formatTimeLabel(new Date())}`,
+        timelineText: t('alarm.timeline.disarmed', { timelineActor, actor: timelineActor, time: formatDate(new Date(), { hour: '2-digit', minute: '2-digit' }) }),
         variant: 'safe',
       },
       ...supportedModes.map((mode) => ({
@@ -388,25 +390,25 @@ export function AlarmControls({
         state: mode.state,
         icon: mode.icon,
         onPress: mode.onPress,
-        timelineText: `${timelineActor} ha inserito ${mode.label} ${formatTimeLabel(new Date())}`,
+        timelineText: t('alarm.timeline.armed', { actor: timelineActor, mode: mode.label, time: formatDate(new Date(), { hour: '2-digit', minute: '2-digit' }) }),
         variant: 'default' as const,
       })),
     ],
-    [onDisarm, supportedModes, timelineActor],
+    [formatDate, onDisarm, supportedModes, t, timelineActor],
   );
   const triggerAction = useMemo<PendingAlarmAction | null>(
     () =>
       triggerSupported
         ? {
             id: 'trigger',
-            label: 'Trigger allarme',
+            label: t('alarm.action.trigger'),
             state: 'triggered',
             icon: <AlertTriangle size={15} />,
             onPress: onTrigger,
             variant: 'danger',
           }
         : null,
-    [onTrigger, triggerSupported],
+    [onTrigger, t, triggerSupported],
   );
   const disarmAction = modeActions.find((mode) => mode.id === 'disarm');
   const selectedArmAction = selectedMode ? modeActions.find((mode) => mode.id === selectedMode.id) : undefined;
@@ -421,61 +423,61 @@ export function AlarmControls({
           : selectedArmAction;
   const primaryActionLabel =
     isTransitioning
-      ? 'Comando in corso'
+      ? t('alarm.action.pending')
       : isUnavailable || !primaryAction
-        ? 'Non disponibile'
+        ? t('alarm.action.unavailable')
         : normalizedState === 'triggered'
-          ? 'Disattiva allarme'
+          ? t('alarm.action.disableAlarm')
           : normalizedState === 'disarmed'
-            ? `Inserisci ${selectedMode?.label ?? 'sistema'}`
+            ? t('alarm.action.armNamed', { mode: selectedMode?.label ?? t('alarm.system') })
             : selectedIsActive
-              ? 'Disinserisci'
-              : `Passa a ${selectedMode?.label ?? 'modalità'}`;
+              ? t('alarm.action.disarm')
+              : t('alarm.action.switchTo', { mode: selectedMode?.label ?? t('alarm.panel.mode') });
   const primaryActionCaption =
     isTransitioning
-      ? 'Attendi il completamento dello stato corrente.'
+      ? t('alarm.panel.wait')
       : isUnavailable
-        ? 'Il sistema non è raggiungibile.'
+        ? t('alarm.panel.unreachable')
         : normalizedState === 'disarmed'
-          ? 'Conferma la modalità selezionata.'
+          ? t('alarm.panel.confirmMode')
           : selectedIsActive
-            ? 'Rimuove la protezione attiva.'
-            : 'Cambia modalità senza passare dal disinserimento.';
+            ? t('alarm.panel.removeProtection')
+            : t('alarm.panel.changeMode');
   const primaryActionEyebrow =
     isTransitioning
-      ? 'Operazione'
+      ? t('alarm.panel.operation')
       : isUnavailable
-        ? 'Stato sistema'
+        ? t('alarm.card.systemStatus')
         : normalizedState === 'triggered'
-          ? 'Allarme attivo'
+          ? t('alarm.state.triggered')
           : selectedIsActive && selectedMode
-            ? `${selectedMode.label} attiva`
+            ? t('alarm.panel.modeActive', { mode: selectedMode.label })
             : normalizedState === 'disarmed'
-              ? 'Modalita selezionata'
-              : 'Cambio modalita';
+              ? t('alarm.panel.selectedMode')
+              : t('alarm.panel.changingMode');
   const primaryActionDescription =
     selectedIsActive && selectedMode && normalizedState !== 'triggered'
-      ? `${ALARM_MODE_DESCRIPTIONS[selectedMode.id]} · Tocca per disinserire.`
+      ? t('alarm.panel.tapToDisarm', { description: t(MODE_DESCRIPTION_KEYS[selectedMode.id]) })
       : selectedMode
-        ? ALARM_MODE_DESCRIPTIONS[selectedMode.id]
+        ? t(MODE_DESCRIPTION_KEYS[selectedMode.id])
         : primaryActionCaption;
   const primaryActionDisabled = isTransitioning || isUnavailable || !primaryAction;
   const activityUnavailableMessage = useMemo(() => {
     const historyHours = Math.max(1, Math.round(Number(alarm.activityLogHours) || 24));
     if (alarm.activityTimelineStatus === 'loading') {
-      return 'Caricamento attività reali da Home Assistant...';
+      return t('alarm.activity.loading');
     }
     if (alarm.activityTimelineStatus === 'empty') {
-      return `Nessuna attività reale trovata nelle ultime ${historyHours} ore.`;
+      return t('alarm.activity.empty', { hours: historyHours });
     }
     if (alarm.activityTimelineStatus === 'unavailable') {
-      return 'Attività reale non disponibile: il logbook di Home Assistant non ha risposto.';
+      return t('alarm.activity.unavailable');
     }
     if (alarm.activityTimelineStatus === 'offline') {
-      return 'Connetti Home Assistant per vedere attività reali dell’allarme.';
+      return t('alarm.activity.offline');
     }
-    return 'Nessuna attività reale disponibile per questo allarme.';
-  }, [alarm.activityLogHours, alarm.activityTimelineStatus]);
+    return t('alarm.activity.none');
+  }, [alarm.activityLogHours, alarm.activityTimelineStatus, t]);
 
   const pushTimeline = (text: string) => {
     setTimeline((prev) => [
@@ -504,7 +506,7 @@ export function AlarmControls({
     try {
       const didRun = await action.onPress(code, options);
       if (didRun === false) {
-        setAuthSubmissionError('Comando non autorizzato o non completato.');
+        setAuthSubmissionError(t('alarm.auth.unauthorized'));
         return false;
       }
       if (action.timelineText && shouldUseLocalTimeline) {
@@ -552,8 +554,8 @@ export function AlarmControls({
     if (!verified) {
       appendSecurityAuditEvent({
         tone: 'warning',
-        message: 'Autenticazione dispositivo allarme non riuscita.',
-        context: alarm.name || 'Allarme',
+        message: t('alarm.audit.deviceFailed'),
+        context: alarm.name || t('alarm.fallback'),
       });
       return false;
     }
@@ -564,8 +566,8 @@ export function AlarmControls({
 
     appendSecurityAuditEvent({
       tone: 'success',
-      message: 'Comando allarme autorizzato con autenticazione dispositivo.',
-      context: alarm.name || 'Allarme',
+      message: t('alarm.audit.deviceAuthorized'),
+      context: alarm.name || t('alarm.fallback'),
     });
     const didRun = await runAlarmAction(
       pendingAction,
@@ -586,8 +588,8 @@ export function AlarmControls({
     if (rateLimitStatus.isLocked) {
       appendSecurityAuditEvent({
         tone: 'warning',
-        message: 'Conferma allarme bloccata temporaneamente.',
-        context: alarm.name || 'Allarme',
+        message: t('alarm.audit.temporarilyLocked'),
+        context: alarm.name || t('alarm.fallback'),
       });
       return;
     }
@@ -598,16 +600,16 @@ export function AlarmControls({
       requiresCode: pendingSecurityRequirement.needsCodeInput,
     });
     if (manualCodeSubmission.ok === false && manualCodeSubmission.reason === 'missing') {
-      setAuthSubmissionError(`Inserisci ${alarmCodeTypeLabel.toLowerCase()} per confermare.`);
+      setAuthSubmissionError(t('alarm.auth.enterCode', { label: alarmCodeTypeLabel.toLocaleLowerCase() }));
       return;
     }
     if (manualCodeSubmission.ok === false) {
-      setAuthSubmissionError('Impossibile autorizzare il comando.');
+      setAuthSubmissionError(t('alarm.auth.failed'));
       setAuthAttemptState(recordAuthFailure(authAttemptState));
       appendSecurityAuditEvent({
         tone: 'warning',
-        message: 'Tentativo PIN allarme non valido.',
-        context: alarm.name || 'Allarme',
+        message: t('alarm.audit.invalidPin'),
+        context: alarm.name || t('alarm.fallback'),
       });
       return;
     }
@@ -621,8 +623,8 @@ export function AlarmControls({
     setAuthAttemptState(recordAuthSuccess());
     appendSecurityAuditEvent({
       tone: 'success',
-      message: 'PIN allarme verificato.',
-      context: alarm.name || 'Allarme',
+      message: t('alarm.audit.pinVerified'),
+      context: alarm.name || t('alarm.fallback'),
     });
   };
 
@@ -651,7 +653,7 @@ export function AlarmControls({
         subtitle={translatedState}
         icon={<HeaderIcon className={isTransitioning ? 'animate-spin' : ''} size={21} />}
         iconClassName={stateVisual.icon}
-        fallbackTitle="Allarme"
+        fallbackTitle={t('alarm.fallback')}
       />
 
       <div className={`${CONTEXT_PANEL_LAYOUT.section} relative mb-1 overflow-hidden`}>
@@ -681,18 +683,18 @@ export function AlarmControls({
 
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1`}>
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">Modalità</span>
+          <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('alarm.panel.mode')}</span>
           <span className="ml-auto max-w-[9rem] truncate text-xs font-semibold text-[color:var(--ui-text-secondary)]">
             {selectedMode?.label ?? currentModeLabel}
           </span>
         </div>
 
         <GlassSegmentSelect<AlarmModeId>
-          ariaLabel="Modalità allarme"
+          ariaLabel={t('alarm.card.modeAria')}
           options={supportedModes.map((mode) => ({
             value: mode.id,
             label: <span className="shrink-0">{mode.icon}</span>,
-            ariaLabel: `Seleziona ${mode.label}`,
+            ariaLabel: t('alarm.panel.selectModeAria', { mode: mode.label }),
             title: mode.label,
           }))}
           value={selectedMode?.id}
@@ -735,9 +737,9 @@ export function AlarmControls({
           onClick={() => openActionDialog(triggerAction)}
           disabled={normalizedState === 'triggered' || isTransitioning || isUnavailable}
           className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1 flex min-h-[4.75rem] w-full items-center justify-center text-center text-sm font-bold uppercase tracking-[0.14em] text-[color:var(--ui-danger)] transition hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-fill-secondary)] active:scale-[0.99] disabled:cursor-default disabled:opacity-45`}
-          aria-label="Attiva SOS emergenza"
+          aria-label={t('alarm.panel.activateSosAria')}
         >
-          SOS Emergenza
+          {t('alarm.action.sos')}
         </button>
       ) : null}
 
@@ -745,15 +747,15 @@ export function AlarmControls({
         isOpen={Boolean(pendingAction)}
         pendingAlarmState={pendingAction?.state ?? null}
         pendingStateRequiresCode={pendingNeedsCode}
-        title={pendingSecurityRequirement?.title}
-        description={pendingSecurityRequirement?.description}
+        title={pendingAction ? t('home.security.commandTitle') : undefined}
+        description={pendingSecurityRequirement?.needsCodeInput ? t('home.security.alarmDescription') : t('home.security.deviceDescription')}
         authError={authError}
         isAuthBusy={isAuthBusy}
         isAlarmCodeNumeric={numericCodeMode}
         alarmCodeTypeLabel={alarmCodeTypeLabel}
         authPinInput={authCode}
         preferDeviceAuth={pendingPrefersDeviceAuth}
-        deviceAuthLabel="Verifica dispositivo"
+        deviceAuthLabel={t('alarm.auth.deviceVerify')}
         onVerifyWithDevice={pendingPrefersDeviceAuth ? confirmPendingDeviceAuth : undefined}
         onPinInputChange={(value) => {
           setAuthSubmissionError('');
@@ -774,8 +776,8 @@ export function AlarmControls({
       <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">Attività recente</p>
-            <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">Eventi reali Home Assistant quando disponibili.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{t('alarm.activity.title')}</p>
+            <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">{t('alarm.activity.hint')}</p>
           </div>
           <span className="text-[11px] font-medium text-[color:var(--ui-text-tertiary)]">{timeline.length}/{maxTimelineEntries}</span>
         </div>

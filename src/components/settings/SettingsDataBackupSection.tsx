@@ -16,6 +16,7 @@ import type {
   DashboardResetStage,
 } from '../../services/dashboardReset';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
+import { useI18n } from '../../i18n/I18nProvider';
 import GlassLoader from '../ui/GlassLoader';
 import GlassModal from '../ui/GlassModal';
 import GlassToggle from '../ui/GlassToggle';
@@ -45,10 +46,10 @@ type ActionFeedback = {
   text: string;
 };
 
-function normalizeError(error: unknown) {
+function normalizeError(error: unknown, fallback: string) {
   return error instanceof Error && error.message
     ? error.message
-    : 'Operazione non riuscita. Riprova.';
+    : fallback;
 }
 
 export function SettingsDataBackupSection({
@@ -70,6 +71,7 @@ export function SettingsDataBackupSection({
   onUnlinkCurrentDevice,
   onRelinkCurrentDevice,
 }: SettingsDataBackupSectionProps) {
+  const { t } = useI18n();
   const dashboardSecurity = useDashboardSecurity();
   const sensitiveGate = useSensitiveActionGate();
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
@@ -126,7 +128,7 @@ export function SettingsDataBackupSection({
     try {
       onDownloadBackup();
     } catch (error) {
-      setActionError(normalizeError(error));
+      setActionError(normalizeError(error, t('settings.connection.operationFailed')));
     }
   };
 
@@ -140,11 +142,11 @@ export function SettingsDataBackupSection({
     const authorized = await sensitiveGate.authorize({
       action: 'restore_backup',
       capability: 'restore_backup',
-      title: 'Ripristinare questo backup?',
-      description: `${file.name} · ${Math.max(
-        1,
-        Math.round(file.size / 1024),
-      )} KB. La configurazione corrente verrà sostituita.`,
+      title: t('settings.backup.restorePrompt'),
+      description: t('settings.backup.restoreDescription', {
+        file: file.name,
+        size: Math.max(1, Math.round(file.size / 1024)),
+      }),
     });
     if (!authorized) {
       return;
@@ -155,7 +157,7 @@ export function SettingsDataBackupSection({
     try {
       await onRestoreBackup(file);
     } catch (error) {
-      setActionError(normalizeError(error));
+      setActionError(normalizeError(error, t('settings.connection.operationFailed')));
     } finally {
       setIsActionBusy(false);
     }
@@ -168,8 +170,8 @@ export function SettingsDataBackupSection({
     const authorized = await sensitiveGate.authorize({
       action: 'reset_dashboard',
       capability: 'reset_dashboard',
-      title: 'Ripristinare Domus UI?',
-      description: 'Verranno eliminati il layout condiviso, le cinque versioni disponibili, le preferenze e i dati Domus UI presenti su questo dispositivo. Gli utenti collegati alla stessa casa perderanno il layout attuale. Entità, dispositivi e configurazione di Home Assistant non verranno modificati. Questa azione non può essere annullata.',
+      title: t('settings.backup.resetPrompt'),
+      description: t('settings.backup.resetDescription'),
       confirmationPhrase: 'RESET',
     });
     if (!authorized) {
@@ -183,7 +185,7 @@ export function SettingsDataBackupSection({
       await onResetAll(setResetStage);
     } catch (error) {
       setResetStage(null);
-      setActionError(normalizeError(error));
+      setActionError(normalizeError(error, t('settings.connection.operationFailed')));
     } finally {
       setIsActionBusy(false);
     }
@@ -206,36 +208,36 @@ export function SettingsDataBackupSection({
             : 100;
   const resetCopy: Record<DashboardResetStage, { label: string; description: string }> = {
     preparing: {
-      label: 'Preparazione del reset',
-      description: 'Verifichiamo autorizzazione e connessione alla casa.',
+      label: t('settings.backup.reset.preparing'),
+      description: t('settings.backup.reset.preparingDescription'),
     },
     publishing_reset: {
-      label: 'Sincronizzazione del reset',
-      description: 'Informiamo tutti i dispositivi collegati che la configurazione sta per essere azzerata.',
+      label: t('settings.backup.reset.publishing'),
+      description: t('settings.backup.reset.publishingDescription'),
     },
     clearing_history: {
-      label: 'Eliminazione delle versioni',
-      description: 'Rimuoviamo la cronologia dei layout da Home Assistant.',
+      label: t('settings.backup.reset.history'),
+      description: t('settings.backup.reset.historyDescription'),
     },
     clearing_shared_configuration: {
-      label: 'Eliminazione del layout condiviso',
-      description: 'Rimuoviamo la configurazione Domus UI condivisa dalla casa.',
+      label: t('settings.backup.reset.shared'),
+      description: t('settings.backup.reset.sharedDescription'),
     },
     verifying_server: {
-      label: 'Verifica con Home Assistant',
-      description: 'Attendiamo la conferma che i dati siano stati rimossi.',
+      label: t('settings.backup.reset.verifying'),
+      description: t('settings.backup.reset.verifyingDescription'),
     },
     finalizing_reset: {
-      label: 'Conferma del reset condiviso',
-      description: 'Rendiamo definitivo il reset per tutti i dispositivi della casa.',
+      label: t('settings.backup.reset.finalizing'),
+      description: t('settings.backup.reset.finalizingDescription'),
     },
     clearing_device: {
-      label: 'Pulizia del dispositivo',
-      description: 'Eliminiamo preferenze, cache e credenziali locali Domus UI.',
+      label: t('settings.backup.reset.device'),
+      description: t('settings.backup.reset.deviceDescription'),
     },
     restarting: {
-      label: 'Reset completato',
-      description: 'Domus UI sta tornando alla schermata iniziale.',
+      label: t('settings.backup.reset.complete'),
+      description: t('settings.backup.reset.completeDescription'),
     },
   };
 
@@ -250,7 +252,7 @@ export function SettingsDataBackupSection({
     onRelinkCurrentDevice(normalizedCurrentUserId, normalizedDeviceId);
     setDeviceLayoutFeedback({
       tone: 'success',
-      text: 'Questo schermo ora usa il layout principale.',
+      text: t('settings.backup.mainLayoutApplied'),
     });
   };
 
@@ -265,16 +267,14 @@ export function SettingsDataBackupSection({
     onUnlinkCurrentDevice(normalizedCurrentUserId, normalizedDeviceId);
     setDeviceLayoutFeedback({
       tone: 'success',
-      text: 'Creato un layout dedicato per questo schermo.',
+      text: t('settings.backup.dedicatedLayoutCreated'),
     });
   };
 
   return (
     <section className={sectionShellClass}>
       <p className={`text-xs leading-5 ${subduedTextClass}`}>
-        Esporta la configurazione corrente in JSON, ripristinala da file o azzera tutto. Dopo
-        ripristino/reset la pagina viene ricaricata. Backup e restore scartano token, passkey, PIN
-        locali e codici salvati nei widget.
+        {t('settings.backup.description')}
       </p>
 
       {enterpriseControlsEnabled ? (
@@ -283,24 +283,24 @@ export function SettingsDataBackupSection({
             <div className={settingsRowClass}>
               {renderSettingsIcon(Smartphone)}
               <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>ID dispositivo</p>
+                <p className={settingsTitleClass}>{t('settings.backup.deviceId')}</p>
               </div>
               <span className="max-w-[48%] truncate text-right text-xs font-medium text-[color:var(--ui-text-secondary)]">
-                {normalizedDeviceId || 'non disponibile'}
+                {normalizedDeviceId || t('settings.common.unavailable')}
               </span>
             </div>
             <div className={settingsDividerClass} />
             <div className={settingsRowClass}>
               {renderSettingsIcon(Download)}
               <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>Storage config</p>
+                <p className={settingsTitleClass}>{t('settings.backup.storage')}</p>
               </div>
               <span className="max-w-[48%] truncate text-right text-xs font-medium text-[color:var(--ui-text-secondary)]">
                 {dashboardConfigSyncMode === 'shared'
-                  ? 'Condiviso HA'
+                  ? t('settings.backup.storageShared')
                   : dashboardConfigSyncMode === 'user_data'
-                    ? 'Per-account (fallback)'
-                    : 'Rilevamento...'}
+                    ? t('settings.backup.storagePerAccount')
+                    : t('settings.backup.storageDetecting')}
               </span>
             </div>
             {dashboardCurrentLayoutId ? (
@@ -309,7 +309,7 @@ export function SettingsDataBackupSection({
                 <div className={settingsRowClass}>
                   {renderSettingsIcon(Route)}
                   <div className="min-w-0 flex-1">
-                    <p className={settingsTitleClass}>Layout corrente</p>
+                    <p className={settingsTitleClass}>{t('settings.backup.currentLayout')}</p>
                   </div>
                   <span className="max-w-[48%] truncate text-right text-xs font-medium text-[color:var(--ui-text-secondary)]">
                     {dashboardCurrentLayoutId}
@@ -329,8 +329,8 @@ export function SettingsDataBackupSection({
             >
               {renderSettingsIcon(Route)}
               <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>Usa layout principale</p>
-                <p className={settingsSubtitleClass}>Responsivo e condiviso.</p>
+                <p className={settingsTitleClass}>{t('settings.backup.useMainLayout')}</p>
+                <p className={settingsSubtitleClass}>{t('settings.backup.useMainLayoutDescription')}</p>
               </div>
               {!isCurrentDeviceDetached ? (
                 <span
@@ -355,8 +355,8 @@ export function SettingsDataBackupSection({
             >
               {renderSettingsIcon(Smartphone)}
               <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>Layout dedicato</p>
-                <p className={settingsSubtitleClass}>Specifico per questo dispositivo.</p>
+                <p className={settingsTitleClass}>{t('settings.backup.dedicatedLayout')}</p>
+                <p className={settingsSubtitleClass}>{t('settings.backup.dedicatedLayoutDescription')}</p>
               </div>
               {isCurrentDeviceDetached ? (
                 <span
@@ -374,7 +374,7 @@ export function SettingsDataBackupSection({
             </button>
             {dashboardCurrentUserIsMirror ? (
               <p className={`px-3.5 pb-3 text-[11px] ${subduedTextClass}`}>
-                Layout corrente in modalità specchio: sola lettura sincronizzata.
+                {t('settings.backup.mirrorLayout')}
               </p>
             ) : null}
             {deviceLayoutFeedback.text ? (
@@ -397,8 +397,8 @@ export function SettingsDataBackupSection({
           <div className={settingsRowClass}>
             {renderSettingsIcon(KeyRound)}
             <div className="min-w-0 flex-1">
-              <p className={settingsTitleClass}>Modalità sviluppatore</p>
-              <p className={settingsSubtitleClass}>Mostra debug colonne e righe.</p>
+              <p className={settingsTitleClass}>{t('settings.advanced.developer')}</p>
+              <p className={settingsSubtitleClass}>{t('settings.backup.developerDescription')}</p>
             </div>
             <GlassToggle
               checked={developerMode}
@@ -407,7 +407,7 @@ export function SettingsDataBackupSection({
                   onDeveloperModeChange(nextValue);
                 }
               }}
-              label="Modalità sviluppatore"
+              label={t('settings.advanced.developer')}
             />
           </div>
         </div>
@@ -424,8 +424,8 @@ export function SettingsDataBackupSection({
             >
               {renderSettingsIcon(History)}
               <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>Versioni del layout</p>
-                <p className={settingsSubtitleClass}>Ultimi cinque salvataggi pubblicati.</p>
+                <p className={settingsTitleClass}>{t('settings.history.title')}</p>
+                <p className={settingsSubtitleClass}>{t('settings.backup.lastFive')}</p>
               </div>
               <ChevronRight size={16} className={subtleTextClass} />
             </button>
@@ -441,7 +441,7 @@ export function SettingsDataBackupSection({
           >
             {renderSettingsIcon(Download)}
             <div className="min-w-0 flex-1">
-              <p className={settingsTitleClass}>Scarica backup</p>
+              <p className={settingsTitleClass}>{t('settings.backup.download')}</p>
             </div>
             <ChevronRight size={16} className={subtleTextClass} />
           </button>
@@ -458,7 +458,7 @@ export function SettingsDataBackupSection({
             >
               {renderSettingsIcon(Upload)}
               <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>Ripristina da file</p>
+                <p className={settingsTitleClass}>{t('settings.backup.restoreFile')}</p>
               </div>
               <ChevronRight size={16} className={subtleTextClass} />
             </button>
@@ -478,7 +478,7 @@ export function SettingsDataBackupSection({
             >
               {renderSettingsIcon(RotateCcw)}
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-rose-500">Reset totale</p>
+                <p className="text-sm font-medium text-rose-500">{t('settings.backup.totalReset')}</p>
               </div>
               <ChevronRight size={16} className={subtleTextClass} />
             </button>
@@ -501,9 +501,9 @@ export function SettingsDataBackupSection({
       <GlassModal
         isOpen={resetStage !== null}
         onClose={() => undefined}
-        eyebrow="Reset totale"
-        title="Ripristino di Domus UI"
-        description="Non chiudere la pagina e non interrompere la connessione."
+        eyebrow={t('settings.backup.totalReset')}
+        title={t('settings.backup.resetting')}
+        description={t('settings.backup.doNotClose')}
         variant="responsive"
         size="sm"
         dismissible={false}
@@ -521,7 +521,7 @@ export function SettingsDataBackupSection({
             <div
               className="mt-7 h-1.5 w-full overflow-hidden rounded-full bg-[color:var(--ui-fill-tertiary)]"
               role="progressbar"
-              aria-label="Avanzamento reset"
+              aria-label={t('settings.backup.resetProgress')}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={resetProgress}

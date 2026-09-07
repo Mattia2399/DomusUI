@@ -5,6 +5,7 @@ import type { MockEntityState } from '../../types/ha';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
+import { useI18n } from '../../i18n/I18nProvider';
 
 const SWITCH_TOGGLE_PENDING_ATTRIBUTE_KEY = '__dashboard_pending_switch_toggle';
 
@@ -61,27 +62,27 @@ function toFiniteNumber(value: unknown) {
   return undefined;
 }
 
-function formatConsumptionValue(value: number) {
+function formatConsumptionValue(value: number, formatNumber: ReturnType<typeof useI18n>['formatNumber']) {
   const absoluteValue = Math.abs(value);
   if (absoluteValue >= 100) {
-    return Math.round(value).toLocaleString('it-IT');
+    return formatNumber(Math.round(value));
   }
   if (absoluteValue >= 10) {
-    return value.toLocaleString('it-IT', { maximumFractionDigits: 1 });
+    return formatNumber(value, { maximumFractionDigits: 1 });
   }
-  return value.toLocaleString('it-IT', { maximumFractionDigits: 2 });
+  return formatNumber(value, { maximumFractionDigits: 2 });
 }
 
-function resolveConsumptionLabel(entity: MockEntityState | undefined) {
+function resolveConsumptionKind(entity: MockEntityState | undefined) {
   const deviceClass = String(entity?.rawAttributes?.device_class ?? '').trim().toLowerCase();
   const unit = (entity?.unit ?? String(entity?.rawAttributes?.unit_of_measurement ?? '')).trim().toLowerCase();
   if (deviceClass === 'power' || ['w', 'kw', 'mw'].includes(unit)) {
-    return 'Potenza';
+    return 'power';
   }
   if (deviceClass === 'energy' || ['wh', 'kwh', 'mwh'].includes(unit)) {
-    return 'Energia';
+    return 'energy';
   }
-  return 'Consumo';
+  return 'consumption';
 }
 
 export function SwitchControls({
@@ -94,6 +95,7 @@ export function SwitchControls({
   consumptionHistory,
   onToggle,
 }: SwitchControlsProps) {
+  const { formatNumber, t } = useI18n();
   const [historyHours, setHistoryHours] = useState<(typeof CONSUMPTION_HISTORY_WINDOWS)[number]>(24);
   const pendingTarget = resolvePendingTarget(entity?.rawAttributes?.[SWITCH_TOGGLE_PENDING_ATTRIBUTE_KEY]);
   const resolvedState = normalizeSwitchState(
@@ -108,22 +110,22 @@ export function SwitchControls({
   const isPending = pendingTarget !== undefined;
   const stateLabel = isUnavailable
     ? resolvedState === 'unavailable'
-      ? 'Non disponibile'
-      : 'Stato sconosciuto'
+      ? t('controls.common.unavailable')
+      : t('controls.common.unknown')
     : isPending
       ? pendingTarget
-        ? 'Accensione in corso'
-        : 'Spegnimento in corso'
+        ? t('controls.switch.turningOn')
+        : t('controls.switch.turningOff')
       : isOn
-        ? 'Acceso'
-        : 'Spento';
+        ? t('controls.common.on')
+        : t('controls.common.off');
   const deviceClass = String(entity?.rawAttributes?.device_class ?? '').trim().toLowerCase();
   const deviceSearchText = `${entityId ?? ''} ${name}`.trim().toLowerCase();
   const isOutlet =
     deviceClass === 'outlet' ||
     ['outlet', 'socket', 'plug', 'presa'].some((token) => deviceSearchText.includes(token));
   const HeaderIcon = isOutlet ? Plug : ToggleRight;
-  const deviceTypeLabel = isOutlet ? 'Presa' : 'Interruttore';
+  const deviceTypeLabel = isOutlet ? t('controls.switch.outlet') : t('controls.switch.switch');
   const consumptionValue =
     toFiniteNumber(consumptionEntity?.numericValue) ?? toFiniteNumber(consumptionEntity?.state);
   const consumptionUnit =
@@ -150,12 +152,12 @@ export function SwitchControls({
         title={name}
         subtitle={stateLabel}
         icon={<HeaderIcon size={21} />}
-        fallbackTitle="Switch"
+          fallbackTitle={t('controls.switch.switch')}
       />
 
       <div className={`${CONTEXT_PANEL_LAYOUT.section} mb-1`}>
         <div className="mb-3 flex items-center justify-between gap-3 px-1">
-          <span className="text-sm font-medium text-[color:var(--ui-text-secondary)]">Stato</span>
+          <span className="text-sm font-medium text-[color:var(--ui-text-secondary)]">{t('controls.common.status')}</span>
           <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{stateLabel}</span>
         </div>
         <button
@@ -167,7 +169,7 @@ export function SwitchControls({
               ? 'liquid-glass-selection border-[color:rgb(var(--ui-accent-rgb)/0.34)] shadow-[0_14px_35px_var(--ui-shadow-soft)]'
               : 'dashboard-content-surface-soft border-[color:var(--ui-border)]'
           } ${isUnavailable ? 'opacity-55' : 'hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-fill-secondary)]'}`}
-          aria-label={isOn ? `Spegni ${name}` : `Accendi ${name}`}
+          aria-label={isOn ? t('controls.switch.turnOff', { name }) : t('controls.switch.turnOn', { name })}
         >
           <span className="flex min-w-0 items-center gap-3">
             <span
@@ -201,7 +203,7 @@ export function SwitchControls({
           <div className="mb-3 flex items-center justify-between gap-3 px-1">
             <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-[color:var(--ui-text-secondary)]">
               <Zap size={15} className="text-[color:var(--ui-warning)]" />
-              {resolveConsumptionLabel(consumptionEntity)}
+              {t(`controls.switch.${resolveConsumptionKind(consumptionEntity)}`)}
             </span>
             <span className="max-w-[9rem] truncate text-xs text-[color:var(--ui-text-tertiary)]">
               {consumptionName || consumptionEntityId}
@@ -211,14 +213,14 @@ export function SwitchControls({
             {consumptionValue !== undefined ? (
               <div className="flex items-end gap-2">
                 <span className="text-[2.65rem] font-light leading-none text-[color:var(--ui-text-primary)]">
-                  {formatConsumptionValue(consumptionValue)}
+                  {formatConsumptionValue(consumptionValue, formatNumber)}
                 </span>
                 {consumptionUnit ? (
                   <span className="pb-1 text-sm font-semibold text-[color:var(--ui-text-secondary)]">{consumptionUnit}</span>
                 ) : null}
               </div>
             ) : (
-              <p className="text-sm font-medium text-[color:var(--ui-text-secondary)]">Dato non disponibile</p>
+              <p className="text-sm font-medium text-[color:var(--ui-text-secondary)]">{t('controls.switch.noData')}</p>
             )}
             <p className="mt-2 truncate text-xs text-[color:var(--ui-text-tertiary)]">{consumptionEntityId}</p>
           </div>
@@ -226,22 +228,22 @@ export function SwitchControls({
           <div className="mt-3 flex items-center justify-between gap-3 px-1">
             <span className="inline-flex min-w-0 items-center gap-2 text-xs font-semibold text-[color:var(--ui-text-tertiary)]">
               <Clock3 size={14} />
-              Andamento
+              {t('controls.switch.trend')}
             </span>
             <span className="shrink-0 text-xs font-semibold text-[color:var(--ui-text-secondary)]">
               {consumptionAverage !== undefined
-                ? `Media ${formatConsumptionValue(consumptionAverage)}${consumptionUnit ? ` ${consumptionUnit}` : ''}`
-                : 'Media --'}
+                ? t('controls.switch.average', { value: `${formatConsumptionValue(consumptionAverage, formatNumber)}${consumptionUnit ? ` ${consumptionUnit}` : ''}` })
+                : t('controls.switch.noAverage')}
             </span>
           </div>
 
           <GlassSegmentSelect<(typeof CONSUMPTION_HISTORY_WINDOWS)[number]>
-            ariaLabel="Intervallo storico consumi"
+            ariaLabel={t('controls.switch.historyRange')}
             className="mt-2"
             options={CONSUMPTION_HISTORY_WINDOWS.map((hours) => ({
               value: hours,
               label: `${hours}h`,
-              ariaLabel: `Mostra ultime ${hours} ore`,
+              ariaLabel: t('controls.switch.lastHours', { hours }),
             }))}
             value={historyHours}
             onChange={setHistoryHours}
@@ -266,7 +268,7 @@ export function SwitchControls({
               </ResponsiveContainer>
             ) : (
               <div className="flex h-full items-center justify-center px-4 text-center text-xs text-[color:var(--ui-text-tertiary)]">
-                Nessun dato storico disponibile
+                {t('controls.common.noHistory')}
               </div>
             )}
           </div>

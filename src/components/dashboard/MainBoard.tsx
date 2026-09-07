@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '../../i18n/I18nProvider';
 import type { ActiveDevice, SensorConnectionState } from '../settings/types';
 import { useLocation, useNavigate } from 'react-router';
 import { useDashboardState } from '../../hooks/useDashboardState';
@@ -424,16 +425,17 @@ function prefetchDashboardWorkspace(path: string) {
 }
 
 function SecondaryWorkspaceLoading({
-  label = 'Apertura sezione…',
+  label,
   overlay = false,
 }: {
   label?: string;
   overlay?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <DeferredGlassLoader
-      label={label}
-      description="Carichiamo soltanto gli strumenti necessari."
+      label={label ?? t('home.loading.section')}
+      description={t('home.loading.tools')}
       overlay={overlay}
     />
   );
@@ -538,7 +540,6 @@ const ALARM_PENDING_ATTRIBUTE_KEY = '__dashboard_pending_alarm_action';
 const COVER_PENDING_ATTRIBUTE_KEY = '__dashboard_pending_cover';
 const COVER_PENDING_TILT_ATTRIBUTE_KEY = '__dashboard_pending_cover_tilt';
 const DEVICE_COMMAND_PHASE_ATTRIBUTE_KEY = '__dashboard_command_phase';
-const DEFAULT_ACTIVITY_ACTOR = 'Sistema';
 const MAIN_GUIDED_SETUP_STORAGE_KEYS = {
   welcome: 'ha.dashboard.onboarding.welcome.v1',
   context: 'ha.dashboard.onboarding.context.v1',
@@ -612,7 +613,7 @@ type LockQuickAuthAction = {
 
 type MainGuidedSetupKind = keyof typeof MAIN_GUIDED_SETUP_STORAGE_KEYS;
 
-const MAIN_GUIDED_SETUP_CONTENT: Record<
+function createMainGuidedSetupContent(t: ReturnType<typeof useI18n>['t']): Record<
   MainGuidedSetupKind,
   {
     tag: string;
@@ -622,117 +623,86 @@ const MAIN_GUIDED_SETUP_CONTENT: Record<
     completeLabel?: string;
     skipLabel?: string;
   }
-> = {
+> {
+ return {
   welcome: {
-    tag: 'Primo accesso',
-    heading: 'La tua nuova Home è pronta',
-    description: 'Una guida rapida per orientarti e aggiungere la prima card collegata alla tua casa.',
+    tag: t('home.guide.welcome.tag'), heading: t('home.guide.welcome.heading'), description: t('home.guide.welcome.description'),
     steps: [
       {
         id: 'overview',
-        title: 'Tutto ciò che conta, subito',
-        description:
-          'La Home riunisce scene, preferiti e dispositivi. La navigazione resta sempre disponibile e si adatta automaticamente a desktop, tablet e mobile.',
-        hint: 'Puoi iniziare a controllare la casa immediatamente: Home Assistant è già collegato.',
+        title: t('home.guide.overview.title'), description: t('home.guide.overview.description'), hint: t('home.guide.overview.hint'),
         icon: LayoutDashboard,
       },
       {
         id: 'edit-mode',
-        title: 'Personalizza il layout',
-        description:
-          'Attiva la modalità Edit dal pulsante con la matita. Potrai trascinare le card, riordinarle e scegliere una dimensione diversa per ogni breakpoint.',
-        hint: 'Il layout viene salvato automaticamente e ogni modifica resta separata tra Demo e casa reale.',
+        title: t('home.guide.edit.title'), description: t('home.guide.edit.description'), hint: t('home.guide.edit.hint'),
         icon: PencilRuler,
         target: '[data-tour-target="edit-mode"]',
-        actionLabel: 'Attiva Edit Mode',
+        actionLabel: t('home.guide.edit.action'),
       },
       {
         id: 'widget-catalog',
-        title: 'Apri il catalogo delle card',
-        description:
-          'In Edit Mode apri il catalogo per scegliere quale componente inserire e in quale area della dashboard posizionarlo.',
-        hint: 'Useremo una card Luce come esempio: lo stesso flusso vale per tutte le altre card.',
+        title: t('home.guide.catalog.title'), description: t('home.guide.catalog.description'), hint: t('home.guide.catalog.hint'),
         icon: Plus,
         target: '[data-tour-target="widget-catalog"]',
-        actionLabel: 'Apri il Catalogo',
+        actionLabel: t('home.guide.catalog.action'),
         advanceOnTargetClick: true,
       },
       {
         id: 'catalog-light',
-        title: 'Scegli la card Luce',
-        description:
-          'Il catalogo organizza le card per famiglia. Seleziona Luce per aggiungere un controllo illuminazione alla dashboard.',
-        hint: 'Puoi usare la ricerca quando il catalogo contiene molti componenti.',
+        title: t('home.guide.light.title'), description: t('home.guide.light.description'), hint: t('home.guide.light.hint'),
         icon: Lightbulb,
         target: '[data-tour-target="catalog-light"]',
-        actionLabel: 'Seleziona Luce',
+        actionLabel: t('home.guide.light.action'),
         advanceOnTargetClick: true,
       },
       {
         id: 'catalog-add-light',
-        title: 'Aggiungila alla dashboard',
-        description:
-          'Conferma la destinazione scelta. La nuova card verrà inserita nel canvas e selezionata automaticamente per la configurazione.',
-        hint: 'In futuro potrai scegliere anche uno stack come destinazione.',
+        title: t('home.guide.add.title'), description: t('home.guide.add.description'), hint: t('home.guide.add.hint'),
         icon: Plus,
         target: '[data-tour-target="catalog-confirm"]',
-        actionLabel: 'Aggiungi al canvas',
+        actionLabel: t('home.guide.add.action'),
         advanceOnTargetClick: true,
       },
       {
         id: 'catalog-finish',
-        title: 'Passa alla configurazione',
-        description:
-          'La card Luce è stata aggiunta. Chiudi il catalogo per visualizzare il relativo Builder senza perdere la selezione.',
+        title: t('home.guide.finish.title'), description: t('home.guide.finish.description'),
         icon: PanelRightOpen,
         target: '[data-tour-target="catalog-finish"]',
-        actionLabel: 'Apri il Builder',
+        actionLabel: t('home.guide.finish.action'),
         advanceOnTargetClick: true,
       },
       {
         id: 'builder-entity',
-        title: 'Collega l’entità Home Assistant',
-        description:
-          'Nel tab Setting trovi il campo Entità. Da qui scegli la luce reale che la card dovrà mostrare e controllare.',
-        hint: 'Il Builder propone automaticamente soltanto entità compatibili, ma puoi anche digitare un entity_id.',
+        title: t('home.guide.entity.title'), description: t('home.guide.entity.description'), hint: t('home.guide.entity.hint'),
         icon: Settings2,
         target: '[data-tour-target="builder-entity"]',
-        actionLabel: 'Fine guida',
+        actionLabel: t('home.guide.entity.action'),
         actionBehavior: 'continue',
       },
     ],
-    completeLabel: 'Esplora la Home',
-    skipLabel: 'Chiudi guida',
+    completeLabel: t('home.guide.welcome.complete'), skipLabel: t('home.guide.closeGuide'),
   },
   context: {
-    tag: 'Pannello contestuale',
-    heading: 'Guida rapida ai controlli live',
-    description: 'Il pannello contestuale raccoglie azioni, stato e funzioni avanzate del dispositivo selezionato.',
+    tag: t('home.guide.context.tag'), heading: t('home.guide.context.heading'), description: t('home.guide.context.description'),
     steps: [
       {
-        title: 'Seleziona una card',
-        description:
-          'Fuori dalla modalità Edit, seleziona una card per aprire i controlli live del dispositivo senza lasciare la Home.',
+        title: t('home.guide.context.select.title'), description: t('home.guide.context.select.description'),
         icon: MousePointerClick,
       },
       {
-        title: 'Controlli e informazioni',
-        description:
-          'Qui trovi azioni immediate, stato dettagliato, grafici e funzionalità specifiche supportate dall’entità Home Assistant.',
-        hint: 'Le funzioni non supportate dal dispositivo non vengono mostrate.',
+        title: t('home.guide.context.info.title'), description: t('home.guide.context.info.description'), hint: t('home.guide.context.info.hint'),
         icon: PanelRightOpen,
       },
       {
-        title: 'Passa a un altro dispositivo',
-        description:
-          'Seleziona una card diversa per aggiornare il pannello. Chiudilo quando vuoi tornare alla vista completa della dashboard.',
+        title: t('home.guide.context.change.title'), description: t('home.guide.context.change.description'),
         icon: LayoutDashboard,
       },
     ],
-    completeLabel: 'Ho capito',
-    skipLabel: 'Chiudi',
+    completeLabel: t('home.guide.context.complete'), skipLabel: t('home.guide.close'),
   },
-};
+ };
+}
 
 function almostEqual(value: number | undefined, expected: number | undefined, tolerance = 0.15) {
   if (!Number.isFinite(value) || !Number.isFinite(expected)) {
@@ -882,22 +852,25 @@ function normalizeMovementLocationKey(value: string | undefined) {
   return normalized;
 }
 
-function formatMovementLocationLabel(state: string | undefined) {
+function formatMovementLocationLabel(
+  state: string | undefined,
+  labels: { unknown: string; home: string; away: string; generic: string },
+) {
   const normalized = normalizeLower(state);
   if (!normalized) {
-    return 'Posizione sconosciuta';
+    return labels.unknown;
   }
   if (normalized === 'home') {
-    return 'Casa';
+    return labels.home;
   }
   if (normalized === 'not_home') {
-    return 'Fuori casa';
+    return labels.away;
   }
   return state
     ?.replace(/[_-]+/g, ' ')
     .trim()
     .replace(/\s+/g, ' ')
-    .replace(/\b\w/g, (chunk) => chunk.toUpperCase()) ?? 'Posizione';
+    .replace(/\b\w/g, (chunk) => chunk.toUpperCase()) ?? labels.generic;
 }
 
 type MemberTrackerDeviceKind = 'smartwatch' | 'tablet' | 'smartphone';
@@ -1022,7 +995,7 @@ function resolveActivityActor(
   if (contextUserId && userNamesById[contextUserId]) {
     return userNamesById[contextUserId];
   }
-  return fallbackActor?.trim() || DEFAULT_ACTIVITY_ACTOR;
+  return fallbackActor?.trim() || '';
 }
 
 function resolveLockActivityVerb(event: HaLogbookEvent) {
@@ -1620,6 +1593,7 @@ function resolveClimateCapabilities(entity?: MockEntityState) {
 }
 
 export function MainBoard() {
+  const { locale, setHomeAssistantLocale, t, formatDate } = useI18n();
   const navigate = useNavigate();
   const routerLocation = useLocation();
   const canUseBrowserRouteNavigation = useMemo(shouldUseBrowserRouteNavigation, []);
@@ -1668,6 +1642,9 @@ export function MainBoard() {
     callApi: rawCallHaApi,
   } = activeHaConnection;
   const { addNotification, removeNotification } = useNotifications();
+  useEffect(() => {
+    setHomeAssistantLocale(isHaManagedByParent ? panelHaBridgeConnection.locale : null);
+  }, [isHaManagedByParent, panelHaBridgeConnection.locale, setHomeAssistantLocale]);
   const isHaConnected = haStatus === 'connected';
   const [runtimeMode] = useState<DashboardRuntimeMode | null>(() =>
     resolveInitialDashboardRuntimeMode({
@@ -1750,13 +1727,13 @@ export function MainBoard() {
     ): Promise<TResponse | null> => {
       if (effectiveRuntimeMode !== 'real') {
         if (options?.throwOnError) {
-          return Promise.reject(new Error('API Home Assistant non disponibile in modalità Demo.'));
+          return Promise.reject(new Error(t('home.api.demoUnavailable')));
         }
         return Promise.resolve(null);
       }
       if (shouldBlockMockEntityApiRequest(message, explicitMockEntityIdsRef.current)) {
         if (options?.throwOnError) {
-          return Promise.reject(new Error('Le entità mock non possono usare API Home Assistant.'));
+          return Promise.reject(new Error(t('home.api.mockUnavailable')));
         }
         return Promise.resolve(null);
       }
@@ -1931,7 +1908,7 @@ export function MainBoard() {
     trackerEntityIds.forEach((entityId) => trackedEntityIds.add(entityId));
 
     const formatMovementDateTime = (timestampMs: number) =>
-      new Date(timestampMs).toLocaleString('it-IT', {
+      formatDate(timestampMs, {
         day: '2-digit',
         month: '2-digit',
         hour: '2-digit',
@@ -1957,7 +1934,12 @@ export function MainBoard() {
         latitude: coordinates.latitude,
         longitude: coordinates.longitude,
         label: friendlyName,
-        zoneLabel: formatMovementLocationLabel(stateLabel),
+        zoneLabel: formatMovementLocationLabel(stateLabel, {
+          unknown: t('home.location.unknown'),
+          home: t('home.location.home'),
+          away: t('home.location.away'),
+          generic: t('home.location.generic'),
+        }),
         timestampLabel: formatMovementDateTime(timestampMs),
         timestampMs,
         isCurrent: isCurrent === true,
@@ -1976,7 +1958,9 @@ export function MainBoard() {
 
     const baseTimeline: ProfileMovementTimelineEntry[] = dedupedPoints.map((point, index) => ({
       id: `current-${point.id}-${index}`,
-      title: point.zoneLabel ? `Presenza: ${point.zoneLabel}` : 'Posizione corrente',
+      title: point.zoneLabel
+        ? t('home.location.presence', { zone: point.zoneLabel })
+        : t('home.location.current'),
       subtitle: point.label,
       timestampLabel: point.timestampLabel,
       timestampMs: point.timestampMs,
@@ -1990,7 +1974,7 @@ export function MainBoard() {
       basePoints: dedupedPoints,
       baseTimeline,
     };
-  }, [haCurrentUser?.email, haCurrentUser?.id, haCurrentUser?.name, haCurrentUser?.username, haStates]);
+  }, [formatDate, haCurrentUser?.email, haCurrentUser?.id, haCurrentUser?.name, haCurrentUser?.username, haStates, t]);
 
   const baseHaStatesForUi = useMemo<MockEntityStateMap>(() => {
     if (!isHaConnected) {
@@ -3605,6 +3589,7 @@ export function MainBoard() {
   );
   const activeWidget = selectedWidget;
   const activeWidgetSecrets = useWidgetSecrets(activeWidget?.id);
+  const mainGuidedSetupContent = useMemo(() => createMainGuidedSetupContent(t), [t]);
   const shouldShowWelcomeGuide = !completedMainGuides.welcome;
   const shouldShowContextGuide =
     !completedMainGuides.context &&
@@ -3618,7 +3603,7 @@ export function MainBoard() {
     : shouldShowContextGuide
       ? 'context'
       : null;
-  const activeMainGuide = activeMainGuideKind ? MAIN_GUIDED_SETUP_CONTENT[activeMainGuideKind] : null;
+  const activeMainGuide = activeMainGuideKind ? mainGuidedSetupContent[activeMainGuideKind] : null;
   const activeMainGuideSteps = activeMainGuideKind === 'welcome' && !canToggleEditMode
     ? activeMainGuide?.steps.filter((step) => !step.target) ?? []
     : activeMainGuide?.steps ?? [];
@@ -4298,7 +4283,7 @@ export function MainBoard() {
           name: friendlyName,
           subtitle: translateMediaPlayerState(
             toTrimmedString(entity.state) ?? toTrimmedString(entity.stateLabel),
-            toTrimmedString(entity.stateLabel) ?? toTrimmedString(entity.state) ?? 'Disponibile',
+            toTrimmedString(entity.stateLabel) ?? toTrimmedString(entity.state) ?? t('home.available'),
           ),
           kind: inferMediaOutputKind(friendlyName),
         });
@@ -4310,7 +4295,7 @@ export function MainBoard() {
         candidateMap.set(entityId, {
           id: entityId,
           name: formatMediaPlayerEntityLabel(entityId),
-          subtitle: 'Disponibile',
+          subtitle: t('home.available'),
           kind: 'speaker',
         });
       });
@@ -4520,14 +4505,14 @@ export function MainBoard() {
     const activityTimelineStatus = !useMockAlarm && isHaConnected
       ? alarmActivityStatusByEntity[activeWidget.entityId] ?? 'loading'
       : 'offline';
-    const timelineActor = activityTimeline.find((entry) => entry.actor && entry.actor !== DEFAULT_ACTIVITY_ACTOR)?.actor;
+    const timelineActor = activityTimeline.find((entry) => entry.actor && entry.actor !== t('home.system'))?.actor;
     const changedBy = toTrimmedString(rawAttributes?.changed_by) ?? timelineActor ?? haCurrentUser?.name;
     const codeArmRequired = typeof rawAttributes?.code_arm_required === 'boolean' ? rawAttributes.code_arm_required : false;
     return {
       name:
         activeWidget.title ||
         toTrimmedString(rawAttributes?.friendly_name) ||
-        'Allarme',
+        t('alarm.fallback'),
       state: resolvedState,
       status: getAlarmStateLabel(resolvedState),
       codeArmRequired,
@@ -4542,12 +4527,12 @@ export function MainBoard() {
       activityTimelineStatus,
       rawAttributes,
     };
-  }, [activeWidget, activeWidgetSecrets.values, alarmActivityStatusByEntity, alarmTimelineByEntity, haCurrentUser?.name, haStates, haStatesForUi, isHaConnected]);
+  }, [activeWidget, activeWidgetSecrets.values, alarmActivityStatusByEntity, alarmTimelineByEntity, haCurrentUser?.name, haStates, haStatesForUi, isHaConnected, t]);
 
   const contextLock = useMemo(() => {
     if (activeWidget?.kind !== 'lock') {
       return {
-        name: 'Serratura',
+        name: t('home.lock'),
         state: 'unknown',
         status: translateLockState('unknown'),
         changedBy: undefined as string | undefined,
@@ -4587,7 +4572,7 @@ export function MainBoard() {
     const activityTimelineStatus = isHaConnected
       ? lockActivityStatusByEntity[activeWidget.entityId] ?? 'loading'
       : 'offline';
-    const timelineActor = activityTimeline.find((entry) => entry.actor && entry.actor !== DEFAULT_ACTIVITY_ACTOR)?.actor;
+    const timelineActor = activityTimeline.find((entry) => entry.actor && entry.actor !== t('home.system'))?.actor;
     const changedBy = toTrimmedString(rawAttributes?.changed_by) ?? timelineActor ?? haCurrentUser?.name;
     const telemetryEntities = resolveDeviceTelemetryEntities({
       mainEntityId: activeWidget.entityId,
@@ -4603,7 +4588,7 @@ export function MainBoard() {
       name:
         activeWidget.title ||
         toTrimmedString(rawAttributes?.friendly_name) ||
-        'Serratura',
+        t('home.lock'),
       state: stateValue,
       status: translateLockState(stateValue),
       changedBy,
@@ -4617,7 +4602,7 @@ export function MainBoard() {
       rawAttributes,
       lockCode: activeWidgetSecrets.values.lockCode?.trim() || undefined,
     };
-  }, [activeWidget, activeWidgetSecrets.values, haCurrentUser?.name, haEntityRegistry, haStatesForUi, isHaConnected, lockActivityStatusByEntity, lockTimelineByEntity]);
+  }, [activeWidget, activeWidgetSecrets.values, haCurrentUser?.name, haEntityRegistry, haStatesForUi, isHaConnected, lockActivityStatusByEntity, lockTimelineByEntity, t]);
 
   const contextCover = useMemo(() => {
     if (activeWidget?.kind !== 'cover') {
@@ -5019,7 +5004,12 @@ export function MainBoard() {
           isCurrent: member.isCurrent === true,
           roleLabel: member.roleLabel,
           avatarUrl: personMeta?.avatarUrl ?? member.avatarUrl,
-          locationLabel: formatMovementLocationLabel(personMeta?.stateLabel),
+          locationLabel: formatMovementLocationLabel(personMeta?.stateLabel, {
+            unknown: t('home.location.unknown'),
+            home: t('home.location.home'),
+            away: t('home.location.away'),
+            generic: t('home.location.generic'),
+          }),
           devices,
         };
       })
@@ -5031,9 +5021,9 @@ export function MainBoard() {
         if (second.isCurrent === true && first.isCurrent !== true) {
           return 1;
         }
-        return first.name.localeCompare(second.name, 'it-IT');
+        return first.name.localeCompare(second.name, locale);
       });
-  }, [haStates, haUrl, profileHouseMembers]);
+  }, [haStates, haUrl, locale, profileHouseMembers, t]);
 
   const contextState = useMemo(
     () => ({
@@ -5246,11 +5236,11 @@ export function MainBoard() {
     setProfileMovementPoints(profileMovementSource.basePoints);
     setProfileMovementTimeline(profileMovementSource.baseTimeline);
     if (profileMovementSource.baseTimeline.length > 0) {
-      setProfileMovementUpdatedLabel(`Aggiornato alle ${profileMovementSource.baseTimeline[0].timestampLabel}`);
+      setProfileMovementUpdatedLabel(t('home.updatedAt', { time: profileMovementSource.baseTimeline[0].timestampLabel }));
       return;
     }
     setProfileMovementUpdatedLabel('');
-  }, [profileMovementSource.basePoints, profileMovementSource.baseTimeline]);
+  }, [profileMovementSource.basePoints, profileMovementSource.baseTimeline, t]);
 
   useEffect(() => {
     if (!isProfileOpen || !isHaConnected || profileMovementSource.trackedEntityIds.length === 0) {
@@ -5283,9 +5273,14 @@ export function MainBoard() {
             return null;
           }
           const rawState = toTrimmedString(event.state);
-          const locationLabel = formatMovementLocationLabel(rawState);
+          const locationLabel = formatMovementLocationLabel(rawState, {
+            unknown: t('home.location.unknown'),
+            home: t('home.location.home'),
+            away: t('home.location.away'),
+            generic: t('home.location.generic'),
+          });
           const actorLabel = toTrimmedString(event.name) ?? eventEntityId;
-          const timestampLabel = new Date(timestampMs).toLocaleString('it-IT', {
+          const timestampLabel = formatDate(timestampMs, {
             day: '2-digit',
             month: '2-digit',
             hour: '2-digit',
@@ -5317,7 +5312,7 @@ export function MainBoard() {
 
       const nextTimeline: ProfileMovementTimelineEntry[] = events.map((event, index) => ({
         id: `profile-movement-${event.id}`,
-        title: `Posizione: ${event.locationLabel}`,
+        title: t('home.location.event', { location: event.locationLabel }),
         subtitle: event.actorLabel,
         timestampLabel: event.timestampLabel,
         timestampMs: event.timestampMs,
@@ -5352,9 +5347,9 @@ export function MainBoard() {
 
       setProfileMovementTimeline(nextTimeline);
       setProfileMovementPoints(enrichedMapPoints);
-      setProfileMovementUpdatedLabel(
-        `Aggiornato alle ${new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`,
-      );
+      setProfileMovementUpdatedLabel(t('home.updatedAt', {
+        time: formatDate(Date.now(), { hour: '2-digit', minute: '2-digit' }),
+      }));
     };
 
     void loadProfileMovementData();
@@ -5366,11 +5361,11 @@ export function MainBoard() {
       cancelled = true;
       window.clearInterval(refreshIntervalId);
     };
-  }, [callHaApi, isHaConnected, isProfileOpen, profileMovementSource]);
+  }, [callHaApi, formatDate, isHaConnected, isProfileOpen, profileMovementSource, t]);
 
   const activeActivityKind = activeActivityTarget?.kind;
   const activeActivityEntityId = activeActivityTarget?.entityId;
-  const activeActivityEntityName = activeActivityTarget?.entityName ?? activeActivityEntityId ?? 'Serratura';
+  const activeActivityEntityName = activeActivityTarget?.entityName ?? activeActivityEntityId ?? t('home.lock');
   const activeActivityWindowHours = activeActivityTarget?.activityWindowHours ?? DEFAULT_ACTIVITY_WINDOW_HOURS;
   const activeActivityMaxEntries = activeActivityTarget?.activityMaxEntries ?? DEFAULT_ACTIVITY_MAX_ENTRIES;
   const activeActivityFallbackActor = activeActivityTarget?.fallbackActor;
@@ -5464,8 +5459,8 @@ export function MainBoard() {
             event,
             haUserNamesById,
             activeActivityKind === 'lock' || activeActivityKind === 'alarm'
-              ? undefined
-              : activeActivityFallbackActor ?? haCurrentUser?.name,
+              ? t('home.system')
+              : activeActivityFallbackActor ?? haCurrentUser?.name ?? t('home.system'),
           ),
         activeActivityKind === 'lock' ? resolveLockActivityVerb : resolveAlarmActivityVerb,
         activeActivityMaxEntries,
@@ -5529,6 +5524,7 @@ export function MainBoard() {
     haCurrentUser?.name,
     haUserNamesById,
     isHaConnected,
+    t,
   ]);
 
   useEffect(() => {
@@ -5577,7 +5573,7 @@ export function MainBoard() {
             statusLabel = normalizeLower(liveEntity.stateLabel ?? liveEntity.state) === 'on' ? 'on' : 'off';
           } else if (widget.kind === 'sensor') {
             value = typeof liveEntity.numericValue === 'number' ? liveEntity.numericValue : undefined;
-            statusLabel = resolveSensorMeta(widget, liveEntity, haStatesForUi).status;
+            statusLabel = resolveSensorMeta(widget, liveEntity, haStatesForUi, locale).status;
           } else if (widget.kind === 'media') {
             statusLabel = translateMediaPlayerState(
               liveEntity.state ?? liveEntity.stateLabel ?? widget.status,
@@ -6214,7 +6210,7 @@ export function MainBoard() {
       addNotification(
         'alert',
         dashboardSecurity.identityStatus === 'resolving'
-          ? 'Verifica identità Home Assistant in corso. Modifiche sospese.'
+          ? t('home.edit.identityResolving')
           : 'Sessione di modifica chiusa: servono i permessi Owner o Admin.',
       );
     }
@@ -6272,7 +6268,7 @@ export function MainBoard() {
 
     if (!stateValidation.ok) {
       window.sessionStorage.removeItem(HA_OAUTH_SESSION_STATE_KEY);
-      setOAuthFlowError('Verifica sicurezza OAuth non riuscita o scaduta. Riprova.');
+      setOAuthFlowError(t('home.oauth.invalid'));
       cleanupUrl();
       return;
     }
@@ -6460,7 +6456,7 @@ export function MainBoard() {
     lastNotifiedRemoteRevisionRef.current = pendingRevision;
     addNotification(
       'warning',
-      `È disponibile la versione ${pendingRevision} del layout. La tua bozza resta protetta.`,
+      t('home.remote.draftProtected', { revision: pendingRevision }),
     );
   }, [addNotification, haDashboardLayoutPersistence.pendingRemoteUpdate?.revision]);
 
@@ -7200,7 +7196,7 @@ export function MainBoard() {
         ) === normalizedMode,
         onRollback: (reason) => reportUnconfirmedCommand(
           reason,
-          'Il climatizzatore non ha confermato la nuova modalità.',
+          t('home.command.climateUnconfirmed'),
         ),
       });
       return;
@@ -7704,7 +7700,7 @@ export function MainBoard() {
 
     const targetWidget = widget.kind === 'alarm' ? widget : undefined;
     if (!targetWidget) {
-      addNotification('alert', 'Allarme non trovato. Riprova dalla card.');
+      addNotification('alert', t('home.security.alarmMissing'));
       return false;
     }
 
@@ -7787,11 +7783,11 @@ export function MainBoard() {
     });
     if (needsManualCode) {
       if (manualCodeSubmission.ok === false && manualCodeSubmission.reason === 'missing') {
-        setQuickAlarmSubmissionError(`Inserisci ${quickAction.credentialKind === 'combined_code' ? 'pin allarme + extra' : 'pin allarme'} per confermare.`);
+        setQuickAlarmSubmissionError(t('home.security.enterCode'));
         return;
       }
       if (manualCodeSubmission.ok === false) {
-        setQuickAlarmSubmissionError('Impossibile autorizzare il comando.');
+      setQuickAlarmSubmissionError(t('home.security.authFailed'));
         setQuickAlarmAuthAttemptState(recordAuthFailure(quickAlarmAuthAttemptState));
         appendSecurityAuditEvent({
           tone: 'warning',
@@ -8025,14 +8021,14 @@ export function MainBoard() {
 
     const targetWidget = widget.kind === 'lock' ? widget : undefined;
     if (!targetWidget) {
-      addNotification('alert', 'Serratura non trovata. Riprova dalla card.');
+      addNotification('alert', t('home.security.lockMissing'));
       return false;
     }
 
     const configuredCode = code?.trim() || getWidgetSecrets(targetWidget.id).lockCode?.trim() || '';
     const showCodeFallback = () => {
       if (!configuredCode) {
-        addNotification('warning', 'Conferma dispositivo non disponibile e nessun codice serratura configurato.');
+        addNotification('warning', t('home.command.lockConfirmationUnavailable'));
         return false;
       }
       void loadSecurityAuthModal();
@@ -8056,7 +8052,7 @@ export function MainBoard() {
     if (!available || !deviceAuth.isEnrolled) {
       appendSecurityAuditEvent({
         tone: 'warning',
-        message: 'Conferma dispositivo serratura non disponibile: richiesto il codice di fallback.',
+        message: t('home.command.lockFallbackRequired'),
         context: targetWidget.entityId || targetWidget.title,
       });
       return showCodeFallback();
@@ -8064,11 +8060,11 @@ export function MainBoard() {
 
     setIsLockAuthBusy(true);
     try {
-      const verified = await deviceAuth.authenticate('Serratura');
+      const verified = await deviceAuth.authenticate(t('home.lock'));
       if (!verified) {
         appendSecurityAuditEvent({
           tone: 'warning',
-          message: 'Conferma dispositivo serratura annullata o non riuscita: richiesto il codice di fallback.',
+          message: t('home.command.lockConfirmationCancelled'),
           context: targetWidget.entityId || targetWidget.title,
         });
         return showCodeFallback();
@@ -8466,11 +8462,11 @@ export function MainBoard() {
     }
     const submittedCode = quickAlarmAuthCode.trim();
     if (!submittedCode) {
-      setQuickAlarmSubmissionError('Inserisci il codice per confermare.');
+      setQuickAlarmSubmissionError(t('home.security.enterCode'));
       return false;
     }
     if (submittedCode !== quickAction.unlockCode) {
-      setQuickAlarmSubmissionError('Comando non autorizzato o non completato.');
+      setQuickAlarmSubmissionError(t('home.security.unauthorized'));
       setQuickLockAuthAttemptState(recordAuthFailure(quickLockAuthAttemptState));
       appendSecurityAuditEvent({
         tone: 'warning',
@@ -8602,13 +8598,13 @@ export function MainBoard() {
         service: 'press',
         timeoutMs: MEDIA_COMMAND_TTL_MS,
         confirmation: 'service_response',
-        errorMessage: 'Il comando rapido non è stato accettato.',
+        errorMessage: t('home.command.quickRejected'),
       });
       return;
     }
 
     if (domain === 'lock' && !nextActive) {
-      addNotification('warning', 'Apri la serratura dalla relativa card per completare la verifica di sicurezza.');
+      addNotification('warning', t('home.command.openLockCard'));
       return;
     }
 
@@ -9292,7 +9288,7 @@ export function MainBoard() {
         status:
           membersLiveMapPoints.length > 0
             ? `${membersLiveMapPoints.length} posizioni rilevate`
-            : 'Nessuna posizione disponibile',
+            : t('home.location.none'),
         membersMapPoints: membersLiveMapPoints,
       });
       return;
@@ -9319,7 +9315,7 @@ export function MainBoard() {
     }
 
     if (widget.kind === 'sensor') {
-      const sensorMeta = resolveSensorMeta(widget, liveEntity, haStatesForUi);
+      const sensorMeta = resolveSensorMeta(widget, liveEntity, haStatesForUi, locale);
       const sensorHistory = sensorHistoryByEntity[widget.entityId] ?? [];
       setActiveDevice({
         id: widget.id,
@@ -9397,7 +9393,7 @@ export function MainBoard() {
               ? 'Spento'
               : stateValue === 'unavailable'
                 ? 'Non disponibile'
-                : 'Stato sconosciuto',
+                : t('home.state.unknown'),
         switchEntityId: widget.entityId,
         switchConsumptionEntityId: widget.switchConsumptionEntityId,
       });
@@ -9478,7 +9474,7 @@ export function MainBoard() {
         name:
           widget.title ||
           toTrimmedString(rawAttributes?.friendly_name) ||
-          'Serratura',
+          t('home.lock'),
         microWidgets,
         status: translateLockState(stateValue),
         lockState: stateValue,
@@ -9687,7 +9683,7 @@ export function MainBoard() {
 
     const configuredScript = actionConfig?.scriptEntityId?.trim() ?? section.sceneScripts?.[sceneId]?.trim() ?? '';
     if (!configuredScript) {
-      addNotification('warning', `Nessuno script collegato alla scena "${sceneLabel}".`);
+      addNotification('warning', t('home.scene.noScript', { scene: sceneLabel }));
       return;
     }
 
@@ -10219,8 +10215,8 @@ export function MainBoard() {
     if ((payload.scope ?? 'real') !== effectiveRuntimeMode) {
       throw new Error(
         effectiveRuntimeMode === 'demo'
-          ? 'Seleziona un backup creato nello spazio Demo.'
-          : 'Un backup Demo non può sostituire la dashboard reale.',
+          ? t('home.backup.selectDemo')
+          : t('home.backup.demoCannotReplace'),
       );
     }
     restoreDashboardBackup(payload, window.localStorage, effectiveRuntimeMode);
@@ -10242,7 +10238,7 @@ export function MainBoard() {
       );
       if (resetResult.status !== 'reset') {
         const message = resetResult.status === 'offline'
-          ? 'Home Assistant non è raggiungibile. Il reset non è stato eseguito.'
+          ? t('home.reset.offline')
           : resetResult.status === 'unauthorized'
             ? 'Non hai i permessi necessari per eliminare la configurazione condivisa.'
             : resetResult.status === 'unsupported'
@@ -10332,7 +10328,7 @@ export function MainBoard() {
     if (!draft || !dashboardSecurity.can('edit_dashboard') || typeof window === 'undefined') return;
     const recoveryResult = createDashboardRecoverySnapshot(effectiveRuntimeMode, window.localStorage);
     if (!recoveryResult.ok) {
-      addNotification('alert', 'Impossibile preparare il recupero della bozza.');
+      addNotification('alert', t('home.draft.prepareFailed'));
       return;
     }
     editSessionBaselineRef.current = cloneDashboardEditorSnapshot(dashboardEditorSnapshot);
@@ -10442,18 +10438,18 @@ export function MainBoard() {
         const bridgeNeedsUpgrade = isHaManagedByParent &&
           panelHaBridgeConnection.bridgeProtocolVersion === null;
         const failureMessage = baselineSaveResult.code === 'server_unsupported'
-          ? 'Il panel bridge installato non supporta il salvataggio condiviso. Aggiorna anche ha-dashboard-builder-panel.js e riavvia Home Assistant.'
+          ? t('home.persistence.bridgeOutdated')
           : baselineSaveResult.code === 'server_unauthorized'
-            ? 'Home Assistant ha rifiutato il salvataggio: accedi con un account Owner o Admin.'
+            ? t('home.persistence.unauthorized')
             : baselineSaveResult.code === 'server_conflict'
-              ? 'Esiste già una configurazione più recente su Home Assistant. Ricarica la pagina prima di riprovare.'
+              ? t('home.persistence.newerExists')
               : baselineSaveResult.code === 'migration_required'
-                ? 'L’archivio condiviso non è ancora inizializzato. Riprova il trasferimento del layout.'
+                ? t('home.persistence.notInitialized')
                 : bridgeNeedsUpgrade
-                  ? 'App e panel bridge non risultano allineati. Copia anche ha-dashboard-builder-panel.js della stessa release, aggiorna module_url e riavvia Home Assistant.'
+                  ? t('home.persistence.bridgeMismatch')
                   : isHaManagedByParent
-                    ? 'Il panel bridge non ha confermato il salvataggio. Controlla la console e la configurazione module_url del pannello.'
-                    : 'Home Assistant non ha confermato il salvataggio. Controlla la connessione e riprova.';
+                    ? t('home.persistence.bridgeUnconfirmed')
+                    : t('home.persistence.unconfirmed');
         addNotification(
           'alert',
           failureMessage,
@@ -10463,7 +10459,7 @@ export function MainBoard() {
       }
       const recoveryResult = createDashboardRecoverySnapshot(effectiveRuntimeMode, window.localStorage);
       if (!recoveryResult.ok) {
-        addNotification('alert', 'Impossibile creare la copia di recupero. Edit Mode non attivato.');
+        addNotification('alert', t('home.draft.copyFailed'));
         setEditConfirm(null);
         return;
       }
@@ -10490,7 +10486,7 @@ export function MainBoard() {
           addNotification(
             'alert',
             saveResult.code === 'server_conflict'
-              ? 'Il layout è stato modificato da un altro dispositivo. Le tue modifiche restano aperte.'
+              ? t('home.persistence.changedElsewhere')
               : 'Home Assistant non ha confermato il salvataggio. Le modifiche restano aperte e non sono state perse.',
           );
           setEditConfirm(null);
@@ -10753,8 +10749,8 @@ export function MainBoard() {
   );
   const quickAlarmCodeTypeLabel =
     pendingQuickAlarmAction?.credentialKind === 'combined_code'
-      ? 'PIN allarme + extra'
-      : 'PIN allarme';
+      ? t('home.security.combinedCode')
+      : t('home.security.alarmCode');
   const quickAlarmRateLimitStatus = getAuthRateLimitStatus(quickAlarmAuthAttemptState);
   const quickAlarmRateLimitMessage = formatAuthRateLimitMessage(quickAlarmRateLimitStatus);
   const quickAlarmAuthError = quickAlarmRateLimitMessage || quickAlarmSubmissionError;
@@ -10818,10 +10814,10 @@ export function MainBoard() {
                   data-tour-target="widget-catalog"
                   onClick={() => setIsCatalogOpen(true)}
                   className="flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
-                  aria-label="Apri catalogo componenti"
+                  aria-label={t('dashboard.catalog.open')}
                 >
                   <Plus size={15} aria-hidden />
-                  <span className="hidden text-xs font-semibold sm:inline">Catalogo</span>
+                  <span className="hidden text-xs font-semibold sm:inline">{t('dashboard.catalog')}</span>
                 </button>
               }
               desktopActions={
@@ -10847,7 +10843,7 @@ export function MainBoard() {
           onClick={() => navigateWithinDashboard('/setup')}
           className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] right-3 top-auto z-[210] rounded-full border border-amber-200/30 bg-amber-400/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100 shadow-lg backdrop-blur-2xl transition hover:bg-amber-400/22 sm:bottom-auto sm:top-3"
         >
-          Demo · Collega la tua casa
+          {t('dashboard.demo.connect')}
         </button>
       ) : null}
 
@@ -10866,7 +10862,7 @@ export function MainBoard() {
         <>
           <div
             role={isEditMode ? 'toolbar' : undefined}
-            aria-label={isEditMode ? 'Cronologia modifiche' : undefined}
+            aria-label={isEditMode ? t('dashboard.history') : undefined}
             className={`fixed top-0 z-[174] md:hidden ${
             isEditMode
               ? 'liquid-glass-navigation left-3 right-3 mt-[calc(env(safe-area-inset-top)+0.5rem)] flex items-center gap-1 p-1'
@@ -10880,10 +10876,10 @@ export function MainBoard() {
                   data-tour-target="widget-catalog"
                   onClick={() => setIsCatalogOpen(true)}
                   className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:scale-95"
-                  aria-label="Apri catalogo componenti"
+                  aria-label={t('dashboard.catalog.open')}
                 >
                   <Plus size={17} aria-hidden />
-                  <span className="text-xs font-semibold">Catalogo</span>
+                  <span className="text-xs font-semibold">{t('dashboard.catalog')}</span>
                 </button>
                 <div className="flex min-w-0 flex-1 justify-center overflow-hidden">
                   <DashboardEditToolbar
@@ -10901,7 +10897,7 @@ export function MainBoard() {
                   type="button"
                   onClick={requestToggleEditMode}
                   className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:scale-95"
-                  aria-label="Esci dalla modalita modifica"
+                  aria-label={t('dashboard.edit.exit')}
                 >
                   <X size={18} />
                 </button>
@@ -10912,7 +10908,7 @@ export function MainBoard() {
                   type="button"
                   onClick={() => setIsMobileSidebarOpen(true)}
                   className="liquid-glass-control inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-all hover:brightness-110 active:scale-95"
-                  aria-label="Apri menu laterale"
+                  aria-label={t('dashboard.menu.open')}
                   aria-expanded={isMobileSidebarOpen}
                 >
                   <Menu size={18} />
@@ -11521,7 +11517,7 @@ export function MainBoard() {
             type="button"
             onClick={() => setSelectedConsumptionCardId(null)}
             className="fixed inset-0 z-[218] bg-black/60 backdrop-blur-sm"
-            aria-label="Chiudi configurazione consumi"
+            aria-label={t('home.consumption.closeConfiguration')}
           />
           <div className="liquid-glass-sheet fixed inset-x-0 bottom-0 z-[219] flex max-h-[92dvh] min-h-[18rem] w-full flex-col p-3 py-2 transition-all duration-250">
             <div className="mb-2 flex justify-center">
@@ -11602,32 +11598,32 @@ export function MainBoard() {
       ) : null}
 
       {isQuickSecurityAuthOpen || hasMountedQuickSecurityAuth ? (
-        <React.Suspense fallback={<SecondaryWorkspaceLoading label="Preparazione verifica…" overlay />}>
+        <React.Suspense fallback={<SecondaryWorkspaceLoading label={t('home.security.prepare')} overlay />}>
           <SecurityAuthModal
             isOpen={isQuickSecurityAuthOpen}
             pendingAlarmState={pendingQuickAlarmAction?.state ?? null}
             pendingStateRequiresCode={quickAlarmRequiresCode || quickLockRequiresCode}
             title={
               pendingQuickLockAction
-                ? 'Conferma sblocco'
+                ? t('home.security.unlockTitle')
                 : pendingQuickAlarmAction?.requiresBiometric
-                ? 'Verifica dispositivo'
-                : 'Conferma comando'
+                ? t('home.security.deviceTitle')
+                : t('home.security.commandTitle')
             }
             description={
               pendingQuickLockAction
-                ? 'Inserisci il codice serratura. Ad Home Assistant verrà inviato soltanto dopo la conferma.'
+                ? t('home.security.lockDescription')
                 : quickAlarmRequiresCode
-                ? 'Inserisci il PIN allarme per continuare.'
-                : 'Verifica il dispositivo per continuare.'
+                ? t('home.security.alarmDescription')
+                : t('home.security.deviceDescription')
             }
             authError={quickSecurityAuthError}
             isAuthBusy={isQuickAlarmAuthBusy || isLockAuthBusy}
             isAlarmCodeNumeric={pendingQuickLockAction?.numericCodeMode ?? pendingQuickAlarmAction?.numericCodeMode ?? true}
-            alarmCodeTypeLabel={pendingQuickLockAction ? 'Codice serratura' : quickAlarmCodeTypeLabel}
+            alarmCodeTypeLabel={pendingQuickLockAction ? t('home.security.lockCode') : quickAlarmCodeTypeLabel}
             authPinInput={quickAlarmAuthCode}
             preferDeviceAuth={Boolean(pendingQuickAlarmAction?.requiresBiometric)}
-            deviceAuthLabel="Verifica dispositivo"
+            deviceAuthLabel={t('home.security.deviceVerify')}
             onVerifyWithDevice={
               pendingQuickAlarmAction?.requiresBiometric
                 ? async () => Boolean(await confirmQuickAlarmAuth(true))
@@ -11663,10 +11659,10 @@ export function MainBoard() {
       <GlassModal
         isOpen={Boolean(pendingStackRemoval)}
         onClose={() => setPendingStackRemovalId(null)}
-        eyebrow="Rimozione stack"
-        title={`Rimuovere “${pendingStackRemoval?.section.title || 'Stack'}”?`}
+        eyebrow={t('home.stack.removeEyebrow')}
+        title={t('home.stack.removeTitle', { name: pendingStackRemoval?.section.title || t('home.stack.fallbackName') })}
         description={pendingStackRemoval
-          ? `Lo stack contiene ${pendingStackRemoval.cardCount} card. Scegli se conservarle nel canvas oppure eliminarle insieme allo stack.`
+          ? t('home.stack.removeDescription', { count: pendingStackRemoval.cardCount })
           : undefined}
         variant="responsive"
         size="md"
@@ -11682,7 +11678,7 @@ export function MainBoard() {
               onClick={() => setPendingStackRemovalId(null)}
               className="glass-button w-full rounded-xl px-4 py-2.5 text-sm text-[color:var(--ui-text-secondary)] sm:w-auto"
             >
-              Annulla
+              {t('home.stack.cancel')}
             </button>
             <button
               type="button"
@@ -11694,7 +11690,7 @@ export function MainBoard() {
               }}
               className="glass-button w-full rounded-xl border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26 sm:w-auto"
             >
-              Elimina anche le card
+              {t('home.stack.deleteCards')}
             </button>
             <button
               type="button"
@@ -11706,7 +11702,7 @@ export function MainBoard() {
               }}
               className="glass-button w-full rounded-xl border-blue-300/45 bg-blue-500/16 px-4 py-2.5 text-sm font-semibold text-blue-100 hover:bg-blue-500/26 sm:w-auto"
             >
-              Sposta le card nel canvas
+              {t('home.stack.moveCards')}
             </button>
           </>
         }
@@ -11717,20 +11713,20 @@ export function MainBoard() {
         onClose={() => {
           if (!isDashboardSaveBusy) setEditConfirm(null);
         }}
-        eyebrow={editConfirm === 'enter' ? 'Modalità edit' : editConfirm === 'refresh' ? 'Ricarica pagina' : 'Uscita edit'}
-        title={editConfirm === 'enter' ? 'Attivare la modalità modifica?' : editConfirm === 'refresh' ? 'Ricaricare la pagina?' : 'Uscire dalla modalità modifica?'}
+        eyebrow={editConfirm === 'enter' ? t('dashboard.edit.eyebrow.enter') : editConfirm === 'refresh' ? t('dashboard.edit.eyebrow.refresh') : t('dashboard.edit.eyebrow.exit')}
+        title={editConfirm === 'enter' ? t('dashboard.edit.title.enter') : editConfirm === 'refresh' ? t('dashboard.edit.title.refresh') : t('dashboard.edit.title.exit')}
         description={
           editConfirm === 'enter'
             ? requiresDashboardLayoutMigration
-              ? 'Il layout corrente è salvato solo su questo dispositivo. Verrà trasferito su Home Assistant e diventerà disponibile anche sugli altri dispositivi.'
-              : 'Potrai trascinare e configurare tutte le card della dashboard.'
+              ? t('dashboard.edit.description.migration')
+              : t('dashboard.edit.description.enter')
             : editConfirm === 'refresh'
               ? hasUnsavedDashboardEdits
-                ? 'Le modifiche non sono ancora state salvate. Premi Annulla per continuare a modificare.'
-                : 'Non ci sono modifiche da perdere.'
+                ? t('dashboard.edit.description.refreshDirty')
+                : t('dashboard.edit.description.refreshClean')
               : hasUnsavedDashboardEdits
-                ? 'Le modifiche verranno salvate una sola volta su Home Assistant prima di uscire.'
-                : 'Non sono state effettuate modifiche durante questa sessione.'
+                ? t('dashboard.edit.description.exitDirty')
+                : t('dashboard.edit.description.exitClean')
         }
         variant="responsive"
         size="md"
@@ -11741,7 +11737,7 @@ export function MainBoard() {
         footer={
           <>
             <button type="button" disabled={isDashboardSaveBusy} onClick={() => setEditConfirm(null)} className="glass-button rounded-xl px-4 py-2 text-sm text-white/70 disabled:opacity-45">
-              Annulla
+              {t('dashboard.edit.cancel')}
             </button>
             {editConfirm === 'exit' && hasUnsavedDashboardEdits ? (
               <button
@@ -11750,7 +11746,7 @@ export function MainBoard() {
                 onClick={discardDashboardEditSession}
                 className="glass-button rounded-xl px-4 py-2 text-sm font-semibold text-[color:var(--ui-text-secondary)]"
               >
-                Scarta modifiche
+                {t('dashboard.edit.discard')}
               </button>
             ) : null}
             <button
@@ -11764,16 +11760,16 @@ export function MainBoard() {
               }`}
             >
               {isDashboardSaveBusy
-                ? 'Salvataggio…'
+                ? t('dashboard.save.saving')
                 : editConfirm === 'enter'
                 ? requiresDashboardLayoutMigration
-                  ? 'Trasferisci e attiva'
-                  : 'Attiva'
+                  ? t('dashboard.edit.transfer')
+                  : t('dashboard.edit.activate')
                 : editConfirm === 'refresh'
-                  ? 'Ricarica'
+                  ? t('dashboard.edit.reload')
                   : hasUnsavedDashboardEdits
-                    ? 'Salva ed esci'
-                    : 'Esci'}
+                    ? t('dashboard.edit.saveExit')
+                    : t('dashboard.edit.exitShort')}
             </button>
           </>
         }
@@ -11782,15 +11778,15 @@ export function MainBoard() {
       <GlassModal
         isOpen={isDashboardConflictOpen}
         onClose={() => setIsDashboardConflictOpen(false)}
-        eyebrow={haDashboardLayoutPersistence.pendingRemoteUpdate ? 'Aggiornamento layout' : 'Conflitto layout'}
+        eyebrow={haDashboardLayoutPersistence.pendingRemoteUpdate ? t('home.remote.updateEyebrow') : t('home.remote.conflictEyebrow')}
         title={haDashboardLayoutPersistence.pendingRemoteUpdate
-          ? `È disponibile la versione ${haDashboardLayoutPersistence.pendingRemoteUpdate.revision}`
-          : 'Il layout è cambiato su un altro dispositivo'}
+          ? t('home.remote.availableTitle', { revision: haDashboardLayoutPersistence.pendingRemoteUpdate.revision })
+          : t('home.remote.changedTitle')}
         description={haDashboardLayoutPersistence.pendingRemoteUpdate
           ? hasUnsavedDashboardEdits
-            ? 'La tua bozza non verrà sovrascritta. Puoi continuare a modificarla oppure scartarla e applicare direttamente la nuova versione.'
-            : 'Puoi applicare direttamente la nuova versione senza ricaricare la pagina.'
-          : 'La tua bozza è stata conservata in questa scheda. Ricarica la versione Home Assistant e potrai scegliere se riprendere la bozza locale.'}
+            ? t('home.remote.draftDescription')
+            : t('home.remote.applyDescription')
+          : t('home.remote.conflictDescription')}
         variant="responsive"
         size="md"
         zIndex={240}
@@ -11804,7 +11800,7 @@ export function MainBoard() {
               onClick={() => setIsDashboardConflictOpen(false)}
               className="glass-button rounded-xl px-4 py-2 text-sm text-[color:var(--ui-text-secondary)]"
             >
-              {hasUnsavedDashboardEdits ? 'Continua a modificare' : 'Più tardi'}
+              {hasUnsavedDashboardEdits ? t('home.remote.continue') : t('home.remote.later')}
             </button>
             <button
               type="button"
@@ -11815,16 +11811,16 @@ export function MainBoard() {
             >
               {haDashboardLayoutPersistence.pendingRemoteUpdate
                 ? hasUnsavedDashboardEdits
-                  ? 'Scarta bozza e applica'
-                  : 'Applica aggiornamento'
-                : 'Carica da Home Assistant'}
+                  ? t('home.remote.discardApply')
+                  : t('home.remote.apply')
+                : t('home.remote.loadHa')}
             </button>
           </>
         }
       />
 
       {visibleDashboardRecovery ? (
-        <React.Suspense fallback={<SecondaryWorkspaceLoading label="Verifica recupero…" overlay />}>
+        <React.Suspense fallback={<SecondaryWorkspaceLoading label={t('home.remote.recoveryLoading')} overlay />}>
           <DashboardRecoveryModal
             snapshot={visibleDashboardRecovery}
             onKeepCurrent={() => {
@@ -11833,7 +11829,7 @@ export function MainBoard() {
               }
               const result = discardDashboardRecoverySnapshot(effectiveRuntimeMode, window.localStorage);
               if (!result.ok) {
-                addNotification('alert', 'Impossibile eliminare la copia di recupero.');
+                addNotification('alert', t('home.remote.recoveryDeleteFailed'));
                 return;
               }
               setPendingDashboardRecovery(null);
@@ -11844,7 +11840,7 @@ export function MainBoard() {
               }
               const result = restoreDashboardRecoverySnapshot(effectiveRuntimeMode, window.localStorage);
               if (!result.ok) {
-                addNotification('alert', 'Ripristino del layout non riuscito. La copia è stata conservata.');
+                addNotification('alert', t('home.restore.failed'));
                 return;
               }
               window.location.reload();

@@ -8,6 +8,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useDashboardSecurity } from '../../security/dashboardAccess';
+import { useI18n } from '../../i18n/I18nProvider';
 import {
   applyDashboardUserDataPayload,
   buildDashboardUserDataPayload,
@@ -18,7 +19,6 @@ import {
   normalizeHouseMembers,
   parseDashboardRoleSharePayload,
   resolveDashboardShareRoleKey,
-  resolveDashboardShareRoleLabel,
   type HouseAccessView,
   type ProfileHouseMember,
 } from './settingsHouseAccessModel';
@@ -54,6 +54,7 @@ export function SettingsHouseAccessSection({
   currentUserName,
   currentUserRole,
 }: SettingsHouseAccessSectionProps) {
+  const { t } = useI18n();
   const dashboardSecurity = useDashboardSecurity();
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [shareFeedback, setShareFeedback] = useState<Feedback>({
@@ -65,7 +66,13 @@ export function SettingsHouseAccessSection({
   const visibleMembers = members.slice(0, 4);
   const hiddenMembersCount = Math.max(0, members.length - visibleMembers.length);
   const currentRoleKey = resolveDashboardShareRoleKey(currentUserRole);
-  const currentRoleLabel = resolveDashboardShareRoleLabel(currentRoleKey);
+  const currentRoleLabel = t(
+    currentRoleKey === 'creator'
+      ? 'settings.access.role.creator'
+      : currentRoleKey === 'admin'
+        ? 'settings.access.role.admin'
+        : 'settings.access.role.member',
+  );
   const canManageDashboardData = dashboardSecurity.can('edit_dashboard');
 
   useEffect(() => {
@@ -133,11 +140,11 @@ export function SettingsHouseAccessSection({
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
-      setShareFeedback({ tone: 'success', text: 'File JSON esportato.' });
+      setShareFeedback({ tone: 'success', text: t('settings.access.exported') });
     } catch {
       setShareFeedback({
         tone: 'error',
-        text: 'Impossibile esportare il file di condivisione.',
+        text: t('settings.access.exportFailed'),
       });
     }
   };
@@ -152,13 +159,13 @@ export function SettingsHouseAccessSection({
     try {
       const parsedSharePayload = parseDashboardRoleSharePayload(await file.text());
       if (!parsedSharePayload) {
-        setShareFeedback({ tone: 'error', text: 'File JSON non valido o corrotto.' });
+        setShareFeedback({ tone: 'error', text: t('settings.access.invalidFile') });
         return;
       }
       if (parsedSharePayload.roleKey !== currentRoleKey) {
         setShareFeedback({
           tone: 'error',
-          text: `Questo file è per ruolo ${parsedSharePayload.roleLabel}. Utente corrente: ${currentRoleLabel}.`,
+          text: t('settings.access.roleMismatch', { fileRole: parsedSharePayload.roleLabel, currentRole: currentRoleLabel }),
         });
         return;
       }
@@ -166,7 +173,7 @@ export function SettingsHouseAccessSection({
       if (!parsedDashboardPayload) {
         setShareFeedback({
           tone: 'error',
-          text: 'Il file non contiene una configurazione dashboard valida.',
+          text: t('settings.access.invalidDashboard'),
         });
         return;
       }
@@ -175,18 +182,18 @@ export function SettingsHouseAccessSection({
         window.localStorage,
       );
       if (!applyResult.changed) {
-        setShareFeedback({ tone: 'success', text: 'Configurazione già aggiornata.' });
+        setShareFeedback({ tone: 'success', text: t('settings.access.alreadyUpdated') });
         return;
       }
       setShareFeedback({
         tone: 'success',
-        text: 'Configurazione applicata. Ricarico la dashboard...',
+        text: t('settings.access.appliedReloading'),
       });
       window.setTimeout(() => window.location.reload(), 320);
     } catch {
       setShareFeedback({
         tone: 'error',
-        text: 'Impossibile leggere il file selezionato.',
+        text: t('settings.access.readFailed'),
       });
     }
   };
@@ -198,7 +205,7 @@ export function SettingsHouseAccessSection({
       className={`mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)] ${buttonMotionClass}`}
     >
       <ChevronLeft size={16} />
-      Casa e accessi
+      {t('settings.management.homeAccess')}
     </button>
   );
 
@@ -207,10 +214,10 @@ export function SettingsHouseAccessSection({
       <section className="pb-6">
         {backButton}
         <h4 className="text-base font-semibold text-[color:var(--ui-text-primary)]">
-          Membri della casa
+          {t('settings.access.membersTitle')}
         </h4>
         <p className={`mt-1 text-xs ${subtleTextClass}`}>
-          Account e persone rilevate dalla configurazione Home Assistant.
+          {t('settings.access.membersDescription')}
         </p>
 
         {members.length > 0 ? (
@@ -235,11 +242,11 @@ export function SettingsHouseAccessSection({
                       {member.name}
                     </p>
                     <p className={settingsSubtitleClass}>
-                      {member.isCurrent ? 'Account corrente' : 'Utente registrato'}
+                      {member.isCurrent ? t('settings.access.currentAccount') : t('settings.access.registeredUser')}
                     </p>
                   </div>
                   <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                    {member.roleLabel?.trim() || 'Membro'}
+                    {member.roleLabel?.trim() || t('settings.access.member')}
                   </span>
                 </div>
               </div>
@@ -247,7 +254,7 @@ export function SettingsHouseAccessSection({
           </div>
         ) : (
           <div className={`mt-4 ${settingsGroupClass} px-4 py-6 text-center text-xs ${subtleTextClass}`}>
-            Nessun membro disponibile.
+            {t('settings.access.noMembers')}
           </div>
         )}
       </section>
@@ -263,16 +270,14 @@ export function SettingsHouseAccessSection({
             <Clock3 size={21} />
           </span>
           <h4 className="mt-4 text-base font-semibold text-[color:var(--ui-text-primary)]">
-            Accessi temporanei in preparazione
+            {t('settings.access.guestsComing')}
           </h4>
           <p className={`mx-auto mt-2 max-w-md text-xs leading-5 ${subtleTextClass}`}>
-            La beta non genera link ospite: un accesso sicuro richiede credenziali Home Assistant
-            verificabili e revocabili dal server. La funzione verrà attivata quando sarà disponibile
-            questa integrazione.
+            {t('settings.access.guestsDescription')}
           </p>
           <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
             <ShieldCheck size={14} />
-            Nessun accesso simulato o basato soltanto sull’URL
+            {t('settings.access.noSimulatedAccess')}
           </div>
         </div>
       </section>
@@ -284,14 +289,13 @@ export function SettingsHouseAccessSection({
       <section className="pb-6">
         {backButton}
         <h4 className="text-base font-semibold text-[color:var(--ui-text-primary)]">
-          Condivisione dashboard
+          {t('settings.access.sharingTitle')}
         </h4>
         <p className={`mt-2 text-xs ${subtleTextClass}`}>
-          Esporta un file JSON e importalo su un altro dispositivo associato allo stesso ruolo.
-          Token, passkey e codici sensibili non vengono inclusi.
+          {t('settings.access.sharingDescription')}
         </p>
         <p className={`mt-2 text-[11px] ${subtleTextClass}`}>
-          Ruolo corrente:{' '}
+          {t('settings.access.currentRole')}{' '}
           <span className="font-semibold text-[color:var(--ui-text-primary)]">
             {currentRoleLabel}
           </span>
@@ -305,14 +309,14 @@ export function SettingsHouseAccessSection({
                 onClick={handleDownloadDashboardShare}
                 className={`min-h-[2.75rem] rounded-xl border px-3 py-2.5 text-xs font-semibold ${buttonMotionClass} ${accentButtonClass}`}
               >
-                Scarica JSON
+                {t('settings.access.downloadJson')}
               </button>
               <button
                 type="button"
                 onClick={() => importInputRef.current?.click()}
                 className={`min-h-[2.75rem] rounded-xl border px-3 py-2.5 text-xs font-semibold ${buttonMotionClass} ${neutralButtonClass}`}
               >
-                Importa JSON
+                {t('settings.access.importJson')}
               </button>
               <input
                 ref={importInputRef}
@@ -325,12 +329,12 @@ export function SettingsHouseAccessSection({
               />
             </div>
             <div className={`mt-3 rounded-xl px-3 py-2.5 text-[11px] ${subtleTextClass}`}>
-              L’importazione applica la configurazione locale e ricarica la dashboard.
+              {t('settings.access.importNote')}
             </div>
           </>
         ) : (
           <div className={`mt-4 ${settingsGroupClass} px-4 py-4 text-xs ${subtleTextClass}`}>
-            Servono i permessi di modifica della dashboard per esportare o importare configurazioni.
+            {t('settings.access.permissionsRequired')}
           </div>
         )}
 
@@ -350,7 +354,7 @@ export function SettingsHouseAccessSection({
   return (
     <section className="pb-6">
       <p className={`text-xs leading-5 ${subtleTextClass}`}>
-        Persone, accessi temporanei e trasferimento della configurazione.
+        {t('settings.access.overviewDescription')}
       </p>
 
       <div className={`mt-4 ${settingsGroupClass}`}>
@@ -361,11 +365,11 @@ export function SettingsHouseAccessSection({
         >
           {renderSettingsIcon(Users)}
           <div className="min-w-0 flex-1">
-            <p className={settingsTitleClass}>Membri</p>
+            <p className={settingsTitleClass}>{t('settings.management.members')}</p>
             <p className={settingsSubtitleClass}>
               {members.length > 0
-                ? `${members.length} ${members.length === 1 ? 'persona disponibile' : 'persone disponibili'}`
-                : 'Nessun membro disponibile'}
+                ? t(members.length === 1 ? 'settings.access.personAvailable' : 'settings.access.peopleAvailable', { count: members.length })
+                : t('settings.access.noMembers')}
             </p>
           </div>
           {visibleMembers.length > 0 ? (
@@ -410,8 +414,8 @@ export function SettingsHouseAccessSection({
         >
           {renderSettingsIcon(Clock3)}
           <div className="min-w-0 flex-1">
-            <p className={settingsTitleClass}>Accessi ospiti</p>
-            <p className={settingsSubtitleClass}>In preparazione per una versione successiva.</p>
+            <p className={settingsTitleClass}>{t('settings.access.guestAccess')}</p>
+            <p className={settingsSubtitleClass}>{t('settings.access.comingLater')}</p>
           </div>
           <ChevronRight size={16} className={subtleTextClass} />
         </button>
@@ -425,8 +429,8 @@ export function SettingsHouseAccessSection({
         >
           {renderSettingsIcon(Upload)}
           <div className="min-w-0 flex-1">
-            <p className={settingsTitleClass}>Condividi dashboard</p>
-            <p className={settingsSubtitleClass}>Esporta o importa una configurazione JSON.</p>
+            <p className={settingsTitleClass}>{t('settings.access.shareDashboard')}</p>
+            <p className={settingsSubtitleClass}>{t('settings.access.shareDashboardDescription')}</p>
           </div>
           <ChevronRight size={16} className={subtleTextClass} />
         </button>

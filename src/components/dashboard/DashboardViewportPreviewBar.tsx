@@ -3,39 +3,7 @@ import { Monitor, Scan, Smartphone, Tablet } from 'lucide-react';
 import type { DashboardGridBreakpoint } from '../../types/widgetTypeLayout';
 import GlassSegmentSelect, { type GlassSegmentOption } from '../ui/GlassSegmentSelect';
 import type { DashboardViewportPreviewMode } from './dashboardViewport';
-
-const PREVIEW_OPTIONS: readonly GlassSegmentOption<DashboardViewportPreviewMode>[] = [
-  {
-    value: 'auto',
-    label: 'Auto',
-    ariaLabel: 'Anteprima automatica',
-    title: 'Usa tutto lo spazio disponibile',
-  },
-  {
-    value: 'desktop',
-    label: 'Desktop',
-    ariaLabel: 'Anteprima desktop',
-    title: 'Simula un canvas desktop',
-  },
-  {
-    value: 'tablet',
-    label: 'Tablet',
-    ariaLabel: 'Anteprima tablet',
-    title: 'Simula un canvas tablet',
-  },
-  {
-    value: 'compact',
-    label: 'Verticale',
-    ariaLabel: 'Anteprima tablet verticale',
-    title: 'Simula il breakpoint compatto SM',
-  },
-  {
-    value: 'mobile',
-    label: 'Mobile',
-    ariaLabel: 'Anteprima mobile',
-    title: 'Simula un canvas mobile',
-  },
-];
+import { useI18n } from '../../i18n/I18nProvider';
 
 const PREVIEW_ICONS = {
   auto: Scan,
@@ -62,18 +30,26 @@ export function DashboardViewportPreviewBar({
   primaryAction,
   desktopActions,
 }: DashboardViewportPreviewBarProps) {
+  const { t } = useI18n();
+  const options: readonly GlassSegmentOption<DashboardViewportPreviewMode>[] = [
+    { value: 'auto', label: t('home.preview.auto'), ariaLabel: t('home.preview.autoAria'), title: t('home.preview.autoTitle') },
+    { value: 'desktop', label: t('home.preview.desktop'), ariaLabel: t('home.preview.desktopAria'), title: t('home.preview.desktopTitle') },
+    { value: 'tablet', label: t('home.preview.tablet'), ariaLabel: t('home.preview.tabletAria'), title: t('home.preview.tabletTitle') },
+    { value: 'compact', label: t('home.preview.compact'), ariaLabel: t('home.preview.compactAria'), title: t('home.preview.compactTitle') },
+    { value: 'mobile', label: t('home.preview.mobile'), ariaLabel: t('home.preview.mobileAria'), title: t('home.preview.mobileTitle') },
+  ];
   const previewOptions = availableModes
-    ? PREVIEW_OPTIONS.filter((option) => availableModes.includes(option.value))
-    : PREVIEW_OPTIONS;
+    ? options.filter((option) => availableModes.includes(option.value))
+    : options;
 
   return (
     <div
       className="liquid-glass-navigation flex max-w-[calc(100vw-1rem)] items-center gap-1.5 overflow-visible rounded-[1.4rem] p-1.5 shadow-2xl sm:gap-2 sm:rounded-full"
       role="toolbar"
-      aria-label="Anteprima responsive della dashboard"
+      aria-label={t('home.preview.toolbar')}
     >
       <GlassSegmentSelect
-        ariaLabel="Dimensione anteprima"
+        ariaLabel={t('home.preview.size')}
         options={previewOptions}
         value={previewMode}
         onChange={onPreviewModeChange}
@@ -96,10 +72,10 @@ export function DashboardViewportPreviewBar({
 
       <span
         className="liquid-glass-control flex h-9 shrink-0 items-center rounded-full px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]"
-        aria-label={`Breakpoint visualizzato ${canvasBreakpoint.toUpperCase()}`}
-        title="Il breakpoint visualizzato è anche quello modificato"
+        aria-label={t('home.preview.breakpointAria', { breakpoint: canvasBreakpoint.toUpperCase() })}
+        title={t('home.preview.breakpointTitle')}
       >
-        <span className="hidden sm:inline">Vista&nbsp;</span>
+        <span className="hidden sm:inline">{t('home.preview.view')}&nbsp;</span>
         <strong className="text-[color:var(--ui-text-primary)]">{canvasBreakpoint.toUpperCase()}</strong>
       </span>
 

@@ -11,6 +11,7 @@ import {
   type WidgetDisplayMetrics,
   type WidgetDisplayVariant,
 } from './widgetDisplayVariant';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type MediaCardProps = {
   widget: Widget;
@@ -49,6 +50,7 @@ export function MediaCard({
   displayVariant,
   onDisplayMetricsChange,
 }: MediaCardProps) {
+  const { t } = useI18n();
   const [nowMs, setNowMs] = useState(() => Date.now());
   const fallbackVariant = displayVariant ?? resolveWidgetDisplayVariant({
     kind: 'media',
@@ -181,7 +183,7 @@ export function MediaCard({
             }
           }}
           className="absolute inset-0 rounded-3xl widget-card-handle cursor-grab"
-          aria-label={`Apri ${widget.title}`}
+          aria-label={t('card.open', { name: widget.title })}
         />
       ) : null}
     </div>

@@ -1,5 +1,6 @@
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
+import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 
 const SWITCH_TOGGLE_PENDING_ATTRIBUTE_KEY = '__dashboard_pending_switch_toggle';
 
@@ -37,6 +38,7 @@ export type SwitchCardModel = {
 };
 
 type BuildSwitchCardModelInput = {
+  locale?: AppLocale;
   widget: Widget;
   liveEntity?: MockEntityState;
   consumptionEntity?: MockEntityState;
@@ -78,27 +80,27 @@ function toFiniteNumber(value: unknown) {
   return undefined;
 }
 
-function formatConsumptionValue(value: number) {
+function formatConsumptionValue(value: number, locale: AppLocale) {
   const absoluteValue = Math.abs(value);
   const maximumFractionDigits = absoluteValue >= 100 ? 0 : absoluteValue >= 10 ? 1 : 2;
-  return value.toLocaleString('it-IT', { maximumFractionDigits });
+  return value.toLocaleString(locale, { maximumFractionDigits });
 }
 
 function resolveConsumptionLabel(unit: string | undefined) {
   const normalized = (unit ?? '').trim().toLowerCase();
-  if (['w', 'kw', 'mw'].includes(normalized)) return 'Potenza';
-  if (['wh', 'kwh', 'mwh'].includes(normalized)) return 'Energia';
-  if (['a', 'ma'].includes(normalized)) return 'Corrente';
-  return 'Consumo';
+  if (['w', 'kw', 'mw'].includes(normalized)) return 'power';
+  if (['wh', 'kwh', 'mwh'].includes(normalized)) return 'energy';
+  if (['a', 'ma'].includes(normalized)) return 'current';
+  return 'consumption';
 }
 
 function resolveConsumptionFromSwitchAttributes(liveEntity: MockEntityState | undefined) {
   const attributes = liveEntity?.rawAttributes;
   if (!attributes) return undefined;
-  const candidates: Array<{ keys: string[]; unit: string; label: string }> = [
-    { keys: ['power', 'current_power', 'current_power_w', 'load_power', 'power_consumption'], unit: 'W', label: 'Potenza' },
-    { keys: ['energy', 'total_energy', 'energy_consumption'], unit: 'kWh', label: 'Energia' },
-    { keys: ['current', 'current_a'], unit: 'A', label: 'Corrente' },
+  const candidates: Array<{ keys: string[]; unit: string; label: 'power' | 'energy' | 'current' }> = [
+    { keys: ['power', 'current_power', 'current_power_w', 'load_power', 'power_consumption'], unit: 'W', label: 'power' },
+    { keys: ['energy', 'total_energy', 'energy_consumption'], unit: 'kWh', label: 'energy' },
+    { keys: ['current', 'current_a'], unit: 'A', label: 'current' },
   ];
   for (const candidate of candidates) {
     for (const key of candidate.keys) {
@@ -151,6 +153,7 @@ export function buildSwitchCardModel({
   widget,
   liveEntity,
   consumptionEntity,
+  locale = 'it',
 }: BuildSwitchCardModelInput): SwitchCardModel {
   const rawState = typeof liveEntity?.toggleOn === 'boolean'
     ? liveEntity.toggleOn ? 'on' : 'off'
@@ -173,11 +176,12 @@ export function buildSwitchCardModel({
   const consumptionUnit = relatedConsumptionValue !== undefined
     ? relatedConsumptionUnit
     : attributeConsumption?.unit;
-  const consumptionLabel = relatedConsumptionValue !== undefined
+  const consumptionLabelId = relatedConsumptionValue !== undefined
     ? resolveConsumptionLabel(consumptionUnit)
-    : attributeConsumption?.label ?? 'Consumo';
+    : attributeConsumption?.label ?? 'consumption';
+  const consumptionLabel = translateForLocale(locale, `card.switch.${consumptionLabelId}`);
   const consumptionAvailable = consumptionValue !== undefined;
-  const formattedConsumptionValue = consumptionAvailable ? formatConsumptionValue(consumptionValue) : '—';
+  const formattedConsumptionValue = consumptionAvailable ? formatConsumptionValue(consumptionValue, locale) : '—';
   const consumption = {
     available: consumptionAvailable,
     valueText: formattedConsumptionValue,
@@ -189,14 +193,14 @@ export function buildSwitchCardModel({
     helperText: consumptionAvailable
       ? undefined
       : widget.switchConsumptionEntityId?.trim()
-        ? 'Dato non disponibile'
-        : 'Configura entità consumo',
+        ? translateForLocale(locale, 'card.switch.dataUnavailable')
+        : translateForLocale(locale, 'card.switch.configureConsumption'),
   };
   const statusLabel = !available
-    ? 'Non disponibile'
+    ? translateForLocale(locale, 'builder.unavailable')
     : pending
-      ? pendingTargetOn ? 'Accensione…' : 'Spegnimento…'
-      : isOn ? 'Acceso' : 'Spento';
+      ? pendingTargetOn ? translateForLocale(locale, 'card.switch.turningOn') : translateForLocale(locale, 'card.switch.turningOff')
+      : isOn ? translateForLocale(locale, 'builder.on') : translateForLocale(locale, 'builder.off');
 
   return {
     title: widget.title || 'Switch',

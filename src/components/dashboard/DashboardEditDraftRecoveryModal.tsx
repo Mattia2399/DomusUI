@@ -2,6 +2,7 @@ import { FileClock, RotateCcw, Trash2 } from 'lucide-react';
 import type { DashboardEditDraft } from '../../services/dashboardEditDraft';
 import GlassButton from '../ui/GlassButton';
 import GlassModal from '../ui/GlassModal';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type DashboardEditDraftRecoveryModalProps = {
   draft: DashboardEditDraft | null;
@@ -16,11 +17,12 @@ export default function DashboardEditDraftRecoveryModal({
   onResume,
   onDiscard,
 }: DashboardEditDraftRecoveryModalProps) {
+  const { formatDate, t } = useI18n();
   if (!draft) return null;
-  const time = new Intl.DateTimeFormat('it-IT', {
+  const time = formatDate(draft.updatedAt, {
     dateStyle: 'medium',
     timeStyle: 'short',
-  }).format(draft.updatedAt);
+  });
 
   return (
     <GlassModal
@@ -28,12 +30,12 @@ export default function DashboardEditDraftRecoveryModal({
       dismissible={false}
       showCloseButton={false}
       onClose={() => {}}
-      eyebrow="Recupero modifica"
-      title="Hai una bozza non salvata"
+      eyebrow={t('home.draft.eyebrow')}
+      title={t('home.draft.title')}
       description={
         hasRevisionConflict
-          ? 'Nel frattempo il layout su Home Assistant è cambiato. Puoi riprendere la bozza, ma controllala prima di salvarla.'
-          : 'La precedente sessione Edit non è stata chiusa correttamente.'
+          ? t('home.draft.conflictDescription')
+          : t('home.draft.description')
       }
       variant="responsive"
       size="md"
@@ -44,11 +46,11 @@ export default function DashboardEditDraftRecoveryModal({
         <>
           <GlassButton size="md" onClick={onDiscard} className="w-full justify-center">
             <Trash2 size={16} />
-            Elimina bozza
+            {t('home.draft.delete')}
           </GlassButton>
           <GlassButton size="md" variant="primary" onClick={onResume} className="w-full justify-center">
             <RotateCcw size={16} />
-            Riprendi modifica
+            {t('home.draft.resume')}
           </GlassButton>
         </>
       }
@@ -56,8 +58,8 @@ export default function DashboardEditDraftRecoveryModal({
       <div className="onboarding-notice">
         <span className="onboarding-notice-icon"><FileClock size={17} /></span>
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Ultima bozza</div>
-          <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">Aggiornata il {time}</p>
+          <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('home.draft.last')}</div>
+          <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">{t('home.draft.updatedAt', { date: time })}</p>
         </div>
       </div>
     </GlassModal>

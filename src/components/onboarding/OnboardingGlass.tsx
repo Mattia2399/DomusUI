@@ -10,12 +10,14 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { GlassButton } from '../ui/GlassButton';
+import { useI18n } from '../../i18n/I18nProvider';
+import { translateOnboarding } from '../../i18n/onboardingTranslations';
 
 const SETUP_STEPS = [
-  { label: 'Connessione', icon: Link2 },
-  { label: 'Analisi', icon: ListChecks },
-  { label: 'Layout', icon: PanelsTopLeft },
-  { label: 'Organizza', icon: Sparkles },
+  { labelKey: 'wizard.connection', icon: Link2 },
+  { labelKey: 'wizard.analysis', icon: ListChecks },
+  { labelKey: 'wizard.layout', icon: PanelsTopLeft },
+  { labelKey: 'wizard.organize', icon: Sparkles },
 ] as const;
 
 type DeviceAppearance = 'dark' | 'light';
@@ -127,6 +129,7 @@ export function SetupSecondaryButton({ className, children, ...props }: ButtonHT
 }
 
 export function SetupBackButton({ onClick, className }: { onClick: () => void; className?: string }) {
+  const { locale } = useI18n();
   return (
     <button
       type="button"
@@ -137,7 +140,7 @@ export function SetupBackButton({ onClick, className }: { onClick: () => void; c
       )}
     >
       <ArrowLeft size={16} />
-      Indietro
+      {translateOnboarding(locale, 'common.back')}
     </button>
   );
 }
@@ -169,6 +172,9 @@ export function WizardShell({
   onBack,
   compact = false,
 }: WizardShellProps) {
+  const { locale } = useI18n();
+  const ot = (key: Parameters<typeof translateOnboarding>[1], parameters?: Record<string, string | number>) =>
+    translateOnboarding(locale, key, parameters);
   const safeStep = Math.max(0, Math.min(stepIndex, SETUP_STEPS.length));
   const displayStep = safeStep >= SETUP_STEPS.length ? SETUP_STEPS.length : safeStep + 1;
   const progress = safeStep >= SETUP_STEPS.length ? 100 : ((safeStep + 1) / SETUP_STEPS.length) * 100;
@@ -184,7 +190,7 @@ export function WizardShell({
               const active = safeStep === index;
               return (
                 <div
-                  key={entry.label}
+                  key={entry.labelKey}
                   className={clsx(
                     'onboarding-step-item',
                     active && 'onboarding-step-item-active',
@@ -196,23 +202,23 @@ export function WizardShell({
                   </span>
                   <span>
                     <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] opacity-50">
-                      Passaggio {index + 1}
+                      {ot('wizard.step', { step: index + 1 })}
                     </span>
-                    <span className="mt-0.5 block text-sm font-semibold">{entry.label}</span>
+                    <span className="mt-0.5 block text-sm font-semibold">{ot(entry.labelKey)}</span>
                   </span>
                 </div>
               );
             })}
           </div>
           <p className="mt-auto text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-            Puoi tornare indietro senza perdere i passaggi già completati.
+            {ot('wizard.backHint')}
           </p>
         </aside>
 
         <div className="min-w-0 flex-1">
           <header className="onboarding-mobile-header lg:hidden">
             <span className="col-start-2 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
-              {stepLabel ?? `${displayStep} di ${SETUP_STEPS.length}`}
+              {stepLabel ?? ot('wizard.counter', { current: displayStep, total: SETUP_STEPS.length })}
             </span>
             <div className="onboarding-progress-track" aria-hidden>
               <span style={{ width: `${progress}%` }} />
@@ -223,7 +229,7 @@ export function WizardShell({
             <div className="hidden items-center justify-between gap-4 lg:flex">
               {onBack ? <SetupBackButton onClick={onBack} /> : <span />}
               <span className="onboarding-step-chip">
-                {stepLabel ?? `${displayStep} di ${SETUP_STEPS.length}`}
+                {stepLabel ?? ot('wizard.counter', { current: displayStep, total: SETUP_STEPS.length })}
               </span>
             </div>
             {onBack ? <SetupBackButton onClick={onBack} className="mb-3 lg:hidden" /> : null}
@@ -256,12 +262,13 @@ export function ReconnectShell({
   children: ReactNode;
   onBack: () => void;
 }) {
+  const { locale } = useI18n();
   return (
     <SetupBackdrop>
       <section className="onboarding-window flex w-full max-w-2xl !min-h-0 flex-col p-5 sm:p-8 lg:p-10">
         <div className="flex items-center justify-between gap-4">
           <SetupBackButton onClick={onBack} />
-          <span className="onboarding-step-chip">Riconnessione</span>
+          <span className="onboarding-step-chip">{translateOnboarding(locale, 'wizard.reconnection')}</span>
         </div>
         <div className="mt-8 max-w-xl sm:mt-10">
           <h1 className="text-[clamp(2rem,6vw,3.15rem)] font-semibold leading-none tracking-[-0.05em] text-[color:var(--ui-text-primary)]">

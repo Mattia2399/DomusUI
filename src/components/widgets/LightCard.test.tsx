@@ -50,7 +50,7 @@ describe('LightCard', () => {
     expect(container.querySelector('.light-card__controls')).not.toBeNull();
     expect(container.querySelector('.light-card__details')).not.toBeNull();
     expect(container.firstElementChild?.hasAttribute('data-light-variant')).toBe(false);
-    fireEvent.click(getByRole('button', { name: 'Passa al controllo colore' }));
+    fireEvent.click(getByRole('button', { name: 'Colore' }));
     expect(container.firstElementChild?.getAttribute('data-light-mode')).toBe('color');
     expect(getByRole('slider').getAttribute('max')).toBe('360');
   });

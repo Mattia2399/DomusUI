@@ -3,9 +3,10 @@ import { AlertTriangle, DoorOpen, Lock, Unlock, Wifi, WifiOff } from 'lucide-rea
 import { useHoldToConfirm } from '../../hooks/useHoldToConfirm';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
-import { normalizeLockCardState, translateLockCardState } from '../widgets/lockCardModel';
+import { normalizeLockCardState } from '../widgets/lockCardModel';
 import { BatteryLevelGlyph } from './DeviceMetadataCard';
 import { DeviceTelemetryStrip, type DeviceTelemetryStripItem } from './DeviceTelemetryStrip';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type LockControlsProps = {
   lock: {
@@ -85,6 +86,7 @@ export function LockControls({
   onUnlock,
   onOpen,
 }: LockControlsProps) {
+  const { t, formatDate } = useI18n();
   const actionCode = lock.lockCode?.trim() || undefined;
   const [simulatedState, setSimulatedState] = useState(normalizeLockCardState(lock.state));
   const maxTimelineEntries = useMemo(() => {
@@ -95,7 +97,7 @@ export function LockControls({
     return Math.max(1, Math.min(30, Math.round(parsed)));
   }, [lock.activityLogLimit]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>(() => (lock.activityTimeline ?? []).slice(0, maxTimelineEntries));
-  const timelineActor = lock.changedBy?.trim() || 'Sistema';
+  const timelineActor = lock.changedBy?.trim() || t('controls.lock.system');
   const shouldUseLocalTimeline = !lock.activityTimelineStatus || lock.activityTimelineStatus === 'offline';
 
   useEffect(() => {
@@ -130,7 +132,7 @@ export function LockControls({
       items.push({
         id: 'battery',
         icon: <BatteryLevelGlyph percentage={batteryLevel} compact />,
-        label: 'Batteria',
+        label: t('controls.lock.battery'),
         value: `${batteryLevel}%`,
         tone: batteryLevel <= 20 ? 'danger' : batteryLevel <= 50 ? 'warning' : 'success',
       });
@@ -139,13 +141,13 @@ export function LockControls({
       items.push({
         id: 'connection',
         icon: connection.state === 'offline' ? <WifiOff size={15} /> : <Wifi size={15} />,
-        label: 'Connessione',
+        label: t('controls.lock.connection'),
         value: connection.label,
         tone: connection.state === 'online' ? 'success' : connection.state === 'offline' ? 'danger' : 'neutral',
       });
     }
     return items;
-  }, [batteryLevel, connection]);
+  }, [batteryLevel, connection, t]);
   const isLocked = simulatedState === 'locked' || simulatedState === 'locking';
   const isUnlocked = simulatedState === 'unlocked' || simulatedState === 'open' || simulatedState === 'opening';
   const isOpen = simulatedState === 'open' || simulatedState === 'opening';
@@ -155,7 +157,7 @@ export function LockControls({
   const canLock = isUnlocked && !isTransitioning && !isUnavailable;
   const canUnlock = isLocked && !isTransitioning && !isUnavailable;
   const canOpen = supportsOpen && !isTransitioning && !isJammed && !isUnavailable;
-  const statusLabel = translateLockCardState(simulatedState);
+  const statusLabel = t(`controls.lock.state.${simulatedState}`);
   const HeaderIcon = isJammed || isUnavailable ? AlertTriangle : isOpen ? DoorOpen : isLocked ? Lock : Unlock;
 
   const pushTimeline = (text: string) => {
@@ -184,7 +186,7 @@ export function LockControls({
       }
       setSimulatedState('unlocked');
       if (shouldUseLocalTimeline) {
-        pushTimeline(`${timelineActor} ha sbloccato ${formatTimeLabel(new Date())}`);
+        pushTimeline(t('controls.lock.unlockedBy', { actor: timelineActor, time: formatDate(new Date(), { hour: '2-digit', minute: '2-digit' }) }));
       }
     },
   });
@@ -200,19 +202,19 @@ export function LockControls({
   const activityUnavailableMessage = useMemo(() => {
     const historyHours = Math.max(1, Math.round(Number(lock.activityLogHours) || 24));
     if (lock.activityTimelineStatus === 'loading') {
-      return 'Caricamento attività reali da Home Assistant...';
+      return t('controls.lock.loadingActivity');
     }
     if (lock.activityTimelineStatus === 'empty') {
-      return `Nessuna attività reale trovata nelle ultime ${historyHours} ore.`;
+      return t('controls.lock.emptyActivity', { hours: historyHours });
     }
     if (lock.activityTimelineStatus === 'unavailable') {
-      return 'Attività reale non disponibile: il logbook di Home Assistant non ha risposto.';
+      return t('controls.lock.unavailableActivity');
     }
     if (lock.activityTimelineStatus === 'offline') {
-      return 'Connetti Home Assistant per vedere attività reali della serratura.';
+      return t('controls.lock.offlineActivity');
     }
-    return 'Nessuna attività reale disponibile per questa serratura.';
-  }, [lock.activityLogHours, lock.activityTimelineStatus]);
+    return t('controls.lock.noActivity');
+  }, [lock.activityLogHours, lock.activityTimelineStatus, t]);
 
   return (
     <div className={CONTEXT_PANEL_LAYOUT.shell}>
@@ -220,7 +222,7 @@ export function LockControls({
         title={lock.name}
         subtitle={statusLabel}
         icon={<HeaderIcon size={21} />}
-        fallbackTitle="Serratura"
+        fallbackTitle={t('controls.lock.title')}
       />
 
       <div className={`${CONTEXT_PANEL_LAYOUT.section} mb-1`}>
@@ -278,11 +280,11 @@ export function LockControls({
           </div>
           <p className="mt-3 text-[11px] uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">
             {canUnlock
-              ? 'Tenere premuto per sbloccare'
+              ? t('controls.lock.holdUnlock')
               : canLock
-                ? 'Serratura pronta al blocco'
+                ? t('controls.lock.readyLock')
                 : isJammed
-                  ? 'Intervento richiesto'
+                  ? t('controls.lock.actionRequired')
                   : statusLabel}
           </p>
         </div>
@@ -297,7 +299,7 @@ export function LockControls({
               setSimulatedState('locked');
               onLock(actionCode);
               if (shouldUseLocalTimeline) {
-                pushTimeline(`${timelineActor} ha bloccato ${formatTimeLabel(new Date())}`);
+                pushTimeline(t('controls.lock.lockedBy', { actor: timelineActor, time: formatDate(new Date(), { hour: '2-digit', minute: '2-digit' }) }));
               }
             }}
             disabled={!canLock}
@@ -308,7 +310,7 @@ export function LockControls({
             }`}
           >
             <Lock size={16} />
-            BLOCCA
+            {t('controls.lock.lock')}
           </button>
           <button
             type="button"
@@ -322,7 +324,7 @@ export function LockControls({
               }
               setSimulatedState('unlocked');
               if (shouldUseLocalTimeline) {
-                pushTimeline(`${timelineActor} ha sbloccato ${formatTimeLabel(new Date())}`);
+                pushTimeline(t('controls.lock.unlockedBy', { actor: timelineActor, time: formatDate(new Date(), { hour: '2-digit', minute: '2-digit' }) }));
               }
             }}
             disabled={!canUnlock}
@@ -333,7 +335,7 @@ export function LockControls({
             }`}
           >
             <Unlock size={16} />
-            SBLOCCA
+            {t('controls.lock.unlock')}
           </button>
           {supportsOpen ? (
             <button
@@ -345,7 +347,7 @@ export function LockControls({
                 setSimulatedState('opening');
                 onOpen();
                 if (shouldUseLocalTimeline) {
-                  pushTimeline(`${timelineActor} ha aperto lo scrocco ${formatTimeLabel(new Date())}`);
+                  pushTimeline(t('controls.lock.openedBy', { actor: timelineActor, time: formatDate(new Date(), { hour: '2-digit', minute: '2-digit' }) }));
                 }
               }}
               disabled={!canOpen}
@@ -356,7 +358,7 @@ export function LockControls({
               }`}
             >
               <DoorOpen size={16} />
-              APRI
+              {t('controls.lock.open')}
             </button>
           ) : null}
         </div>
@@ -366,7 +368,7 @@ export function LockControls({
       <DeviceTelemetryStrip items={telemetryItems} />
 
       <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
-        <p className="text-[11px] font-semibold tracking-[0.2em] text-[color:var(--ui-text-secondary)]">ATTIVITÀ RECENTE</p>
+        <p className="text-[11px] font-semibold tracking-[0.2em] text-[color:var(--ui-text-secondary)]">{t('controls.lock.recentActivity')}</p>
         <div className="mt-3 space-y-2.5">
           {timeline.length > 0 ? (
             timeline.map((entry) => (

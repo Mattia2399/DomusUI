@@ -45,7 +45,7 @@ describe('buildCoverCardModel', () => {
     });
 
     expect(model.state).toBe('opening');
-    expect(model.stateLabel).toBe('In apertura');
+    expect(model.stateLabel).toBe('Apertura…');
     expect(model.position).toBe(42);
     expect(model.coverage).toBe(58);
     expect(model.tiltDegrees).toBe(23);

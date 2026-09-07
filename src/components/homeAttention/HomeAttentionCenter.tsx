@@ -42,6 +42,7 @@ import {
   useHomeAttentionSuppressions,
   type HomeAttentionSnoozePreset,
 } from './homeAttentionSuppressions';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type HomeAttentionCenterProps = {
   runtimeMode: 'real' | 'demo';
@@ -57,7 +58,6 @@ type HomeAttentionCenterProps = {
 const SEVERITY_META: Record<
   HomeAttentionSeverity,
   {
-    label: string;
     Icon: LucideIcon;
     orbClassName: string;
     iconClassName: string;
@@ -65,21 +65,18 @@ const SEVERITY_META: Record<
   }
 > = {
   critical: {
-    label: 'Urgente',
     Icon: ShieldAlert,
     orbClassName: 'border-[color:var(--ui-danger)]/35 bg-[color:var(--ui-danger)]/14',
     iconClassName: 'text-[color:var(--ui-danger)]',
     accentClassName: 'bg-[color:var(--ui-danger)]',
   },
   warning: {
-    label: 'Da controllare',
     Icon: TriangleAlert,
     orbClassName: 'border-[color:var(--ui-warning)]/35 bg-[color:var(--ui-warning)]/14',
     iconClassName: 'text-[color:var(--ui-warning)]',
     accentClassName: 'bg-[color:var(--ui-warning)]',
   },
   info: {
-    label: 'Manutenzione',
     Icon: CircleAlert,
     orbClassName: 'border-[color:var(--ui-accent)]/30 bg-[color:var(--ui-accent)]/12',
     iconClassName: 'text-[color:var(--ui-accent)]',
@@ -97,14 +94,7 @@ const CATEGORY_ICON: Record<HomeAttentionCategory, LucideIcon> = {
 };
 
 const SEVERITY_ORDER: HomeAttentionSeverity[] = ['critical', 'warning', 'info'];
-const SNOOZE_OPTIONS: Array<{
-  id: HomeAttentionSnoozePreset;
-  name: string;
-}> = [
-  { id: 'hour', name: 'Tra 1 ora' },
-  { id: 'evening', name: 'Questa sera' },
-  { id: 'tomorrow', name: 'Domani' },
-];
+const SNOOZE_OPTIONS: HomeAttentionSnoozePreset[] = ['hour', 'evening', 'tomorrow'];
 
 function resolveContextLabel(item: HomeAttentionItem) {
   return item.areaName || item.deviceName || item.entityId;
@@ -117,12 +107,18 @@ function AttentionSnoozeMenu({
   item: HomeAttentionItem;
   onSelect: (preset: HomeAttentionSnoozePreset) => void;
 }) {
+  const { t } = useI18n();
+  const optionLabels = {
+    hour: t('attention.snooze.hour'),
+    evening: t('attention.snooze.evening'),
+    tomorrow: t('attention.snooze.tomorrow'),
+  };
   return (
     <Menu>
       <MenuButton
         className="glass-icon-button h-9 w-9 shrink-0"
-        aria-label={`Ricordamelo più tardi: ${item.title}`}
-        title="Ricordamelo più tardi"
+        aria-label={t('attention.snooze.aria', { title: item.title })}
+        title={t('attention.snooze.title')}
       >
         <Clock3 size={14} aria-hidden />
       </MenuButton>
@@ -141,18 +137,18 @@ function AttentionSnoozeMenu({
           className="liquid-glass-navigation z-[400] w-44 origin-top-right rounded-2xl p-1.5 text-sm text-[color:var(--ui-text-primary)] outline-none"
         >
           {SNOOZE_OPTIONS.map((option) => (
-            <MenuItem key={option.id}>
+            <MenuItem key={option}>
               {({ focus }) => (
                 <button
                   type="button"
-                  onClick={() => onSelect(option.id)}
+                  onClick={() => onSelect(option)}
                   className={clsx(
                     'flex min-h-10 w-full items-center gap-2 rounded-xl px-3 text-left text-sm font-medium text-[color:var(--ui-text-secondary)] transition-colors',
                     focus && 'bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]',
                   )}
                 >
                   <Clock3 size={14} aria-hidden />
-                  {option.name}
+                  {optionLabels[option]}
                 </button>
               )}
             </MenuItem>
@@ -176,6 +172,7 @@ function AttentionItemRow({
   onSnooze?: (item: HomeAttentionItem, preset: HomeAttentionSnoozePreset) => void;
   onIgnore?: (item: HomeAttentionItem) => void;
 }) {
+  const { t } = useI18n();
   const meta = SEVERITY_META[item.severity];
   const Icon = CATEGORY_ICON[item.category] ?? meta.Icon;
   const duration = formatHomeAttentionDuration(item.activeSince, now);
@@ -213,7 +210,7 @@ function AttentionItemRow({
         </p>
         {!canSuppress ? (
           <span className="shrink-0 px-1.5 text-[9px] font-semibold text-[color:var(--ui-danger)]">
-            Sempre visibile
+            {t('attention.alwaysVisible')}
           </span>
         ) : null}
         {canSuppress && onSnooze ? (
@@ -228,8 +225,8 @@ function AttentionItemRow({
             variant="ghost"
             onClick={() => onIgnore(item)}
             className="!h-9 !w-9 shrink-0"
-            aria-label={`Ignora finché cambia stato: ${item.title}`}
-            title="Nascondi finché Home Assistant non segnala un nuovo stato"
+            aria-label={t('attention.ignore.aria', { title: item.title })}
+            title={t('attention.ignore.title')}
           >
             <EyeOff size={14} aria-hidden />
           </GlassButton>
@@ -240,9 +237,9 @@ function AttentionItemRow({
             variant="ghost"
             onClick={() => onOpen(item)}
             className="shrink-0 !min-h-9 !rounded-full !px-2.5"
-            aria-label={`Controlla ${item.title}`}
+            aria-label={t('attention.check.aria', { title: item.title })}
           >
-            Controlla
+            {t('attention.check')}
             <ChevronRight size={13} aria-hidden />
           </GlassButton>
         ) : null}
@@ -261,6 +258,7 @@ export function HomeAttentionCenter({
   widgets = [],
   onOpenItem,
 }: HomeAttentionCenterProps) {
+  const { locale, t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const { preferences } = useHomeAttentionPreferences(runtimeMode);
@@ -289,6 +287,7 @@ export function HomeAttentionCenter({
             now,
             batteryWarningThreshold: preferences.batteryWarningThreshold,
             openingWarningMinutes: preferences.openingWarningMinutes,
+            locale,
           }).filter((item) => preferences.categories[item.category])
         : [],
     [
@@ -296,6 +295,7 @@ export function HomeAttentionCenter({
       connected,
       deviceRegistry,
       entityRegistry,
+      locale,
       now,
       preferences,
       runtimeMode,
@@ -335,7 +335,14 @@ export function HomeAttentionCenter({
       items: items.filter((item) => item.severity === severity),
     }))
     .filter((group) => group.items.length > 0);
-  const attentionLabel = items.length === 1 ? '1 attenzione' : `${items.length} attenzioni`;
+  const attentionLabel = items.length === 1
+    ? t('attention.count.one')
+    : t('attention.count.many', { count: items.length });
+  const severityLabels: Record<HomeAttentionSeverity, string> = {
+    critical: t('attention.severity.critical'),
+    warning: t('attention.severity.warning'),
+    info: t('attention.severity.info'),
+  };
 
   const handleOpenItem = (item: HomeAttentionItem) => {
     setIsOpen(false);
@@ -361,7 +368,7 @@ export function HomeAttentionCenter({
         type="button"
         onClick={() => setIsOpen(true)}
         className="liquid-glass-control group flex min-h-[4.25rem] w-full items-center gap-3 rounded-[1.45rem] px-3.5 py-2.5 text-left shadow-[0_14px_34px_var(--ui-shadow-soft)] transition-transform hover:brightness-105 active:scale-[0.99] sm:px-4"
-        aria-label={`Apri Centro Attenzione: ${attentionLabel}`}
+        aria-label={t('attention.open.aria', { count: attentionLabel })}
         aria-expanded={isOpen}
       >
         <span
@@ -375,7 +382,7 @@ export function HomeAttentionCenter({
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-2">
             <span className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
-              Richiede attenzione
+              {t('attention.requiresAttention')}
             </span>
             {runtimeMode === 'demo' ? (
               <span className="shrink-0 rounded-full bg-[color:var(--ui-warning)]/12 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[color:var(--ui-warning)]">
@@ -404,18 +411,18 @@ export function HomeAttentionCenter({
       <DashboardSidePanel
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        title="Centro Attenzione"
+        title={t('attention.center')}
         description={
           runtimeMode === 'demo'
-            ? 'Anteprima simulata: nessuno di questi avvisi proviene dalla tua casa.'
-            : 'Situazioni della casa che potrebbero richiedere un controllo.'
+            ? t('attention.demoDescription')
+            : t('attention.description')
         }
-        closeLabel="Chiudi Centro Attenzione"
+        closeLabel={t('attention.close')}
         bodyClassName="space-y-5"
       >
         {runtimeMode === 'demo' ? (
           <div className="rounded-[1.15rem] border border-[color:var(--ui-warning)]/25 bg-[color:var(--ui-warning)]/10 px-3.5 py-3 text-xs leading-relaxed text-[color:var(--ui-text-secondary)]">
-            Questi dati servono soltanto a mostrare come funzionerà il Centro Attenzione con Home Assistant.
+            {t('attention.demoNotice')}
           </div>
         ) : null}
 
@@ -428,7 +435,7 @@ export function HomeAttentionCenter({
                   id={`attention-group-${group.severity}`}
                   className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]"
                 >
-                  {meta.label}
+                  {severityLabels[group.severity]}
                 </h3>
                 <span className="text-[11px] font-semibold text-[color:var(--ui-text-tertiary)]">
                   {group.items.length}

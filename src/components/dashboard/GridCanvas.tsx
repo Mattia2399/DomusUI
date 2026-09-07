@@ -38,6 +38,8 @@ import {
 import { StackGrid } from './StackGrid';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
 import type { MockEntityStateMap } from '../../types/ha';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 import type {
   DashboardSection,
   GridItem,
@@ -171,49 +173,38 @@ type GridCanvasProps = {
   onWidgetDisplayMetricsChange?: (metrics: WidgetDisplayMetrics) => void;
 };
 
-const SECTION_LABELS: Record<SectionKind, string> = {
-  greeting: 'Titolo',
-  weather: 'Meteo',
-  scenes: 'Scenari',
-  'stack-vertical': 'Vertical Stack',
-  'stack-horizontal': 'Horizontal Stack',
-  'stack-grid': 'Grid Stack',
+const SECTION_LABEL_KEYS: Record<SectionKind, TranslationKey> = {
+  greeting: 'home.catalog.section.greeting',
+  weather: 'home.catalog.section.weather',
+  scenes: 'home.catalog.section.scenes',
+  'stack-vertical': 'home.catalog.section.verticalStack',
+  'stack-horizontal': 'home.catalog.section.horizontalStack',
+  'stack-grid': 'home.catalog.section.gridStack',
 };
 type CatalogTab = 'cards' | 'sections';
-type CatalogWidgetFamily = 'Controlli' | 'Comfort' | 'Sicurezza' | 'Intrattenimento' | 'Servizi';
+type CatalogWidgetFamily = 'controls' | 'comfort' | 'security' | 'entertainment' | 'services';
 
 const CATALOG_WIDGET_FAMILIES: CatalogWidgetFamily[] = [
-  'Controlli',
-  'Comfort',
-  'Sicurezza',
-  'Intrattenimento',
-  'Servizi',
+  'controls', 'comfort', 'security', 'entertainment', 'services',
 ];
+
+const CATALOG_FAMILY_KEYS: Record<CatalogWidgetFamily, TranslationKey> = {
+  controls: 'home.catalog.family.controls', comfort: 'home.catalog.family.comfort', security: 'home.catalog.family.security', entertainment: 'home.catalog.family.entertainment', services: 'home.catalog.family.services',
+};
+
+const WIDGET_LABEL_KEYS: Record<WidgetKind, TranslationKey> = {
+  light: 'home.catalog.widget.light', switch: 'home.catalog.widget.switch', climate: 'home.catalog.widget.climate', camera: 'home.catalog.widget.camera', sensor: 'home.catalog.widget.sensor', media: 'home.catalog.widget.media', alarm: 'home.catalog.widget.alarm', vacuum: 'home.catalog.widget.vacuum', lock: 'home.catalog.widget.lock', cover: 'home.catalog.widget.cover', members: 'home.catalog.widget.members',
+};
 
 const WIDGET_CATALOG_META: Record<
   WidgetKind,
-  { description: string; family: CatalogWidgetFamily; icon: LucideIcon }
+  { descriptionKey: TranslationKey; family: CatalogWidgetFamily; icon: LucideIcon }
 > = {
-  light: { description: 'Luci, luminosità e colore', family: 'Controlli', icon: Lightbulb },
-  switch: { description: 'Prese, relè e consumi', family: 'Controlli', icon: ToggleRight },
-  cover: { description: 'Tapparelle, tende e aperture', family: 'Controlli', icon: Blinds },
-  lock: { description: 'Serrature e accessi protetti', family: 'Controlli', icon: LockKeyhole },
-  climate: { description: 'Temperatura e climatizzazione', family: 'Comfort', icon: Thermometer },
-  sensor: { description: 'Valori, qualità e misurazioni', family: 'Comfort', icon: Activity },
-  alarm: { description: 'Stato e controllo del sistema', family: 'Sicurezza', icon: Shield },
-  camera: { description: 'Video, eventi e controlli', family: 'Sicurezza', icon: Camera },
-  media: { description: 'Riproduzione e multiroom', family: 'Intrattenimento', icon: Music2 },
-  vacuum: { description: 'Pulizia, mappa e routine', family: 'Servizi', icon: Bot },
-  members: { description: 'Persone e presenza in casa', family: 'Servizi', icon: Users },
+  light: { descriptionKey: 'home.catalog.description.light', family: 'controls', icon: Lightbulb }, switch: { descriptionKey: 'home.catalog.description.switch', family: 'controls', icon: ToggleRight }, cover: { descriptionKey: 'home.catalog.description.cover', family: 'controls', icon: Blinds }, lock: { descriptionKey: 'home.catalog.description.lock', family: 'controls', icon: LockKeyhole }, climate: { descriptionKey: 'home.catalog.description.climate', family: 'comfort', icon: Thermometer }, sensor: { descriptionKey: 'home.catalog.description.sensor', family: 'comfort', icon: Activity }, alarm: { descriptionKey: 'home.catalog.description.alarm', family: 'security', icon: Shield }, camera: { descriptionKey: 'home.catalog.description.camera', family: 'security', icon: Camera }, media: { descriptionKey: 'home.catalog.description.media', family: 'entertainment', icon: Music2 }, vacuum: { descriptionKey: 'home.catalog.description.vacuum', family: 'services', icon: Bot }, members: { descriptionKey: 'home.catalog.description.members', family: 'services', icon: Users },
 };
 
-const SECTION_CATALOG_META: Record<SectionKind, { description: string; icon: LucideIcon }> = {
-  greeting: { description: 'Titolo, saluto e riepilogo', icon: Type },
-  weather: { description: 'Meteo e previsioni', icon: CloudSun },
-  scenes: { description: 'Azioni e scenari rapidi', icon: Sparkles },
-  'stack-vertical': { description: 'Card ordinate in verticale', icon: Rows3 },
-  'stack-horizontal': { description: 'Card ordinate in orizzontale', icon: MoreHorizontal },
-  'stack-grid': { description: 'Card organizzate in una griglia', icon: LayoutGrid },
+const SECTION_CATALOG_META: Record<SectionKind, { descriptionKey: TranslationKey; icon: LucideIcon }> = {
+  greeting: { descriptionKey: 'home.catalog.description.greeting', icon: Type }, weather: { descriptionKey: 'home.catalog.description.weather', icon: CloudSun }, scenes: { descriptionKey: 'home.catalog.description.scenes', icon: Sparkles }, 'stack-vertical': { descriptionKey: 'home.catalog.description.verticalStack', icon: Rows3 }, 'stack-horizontal': { descriptionKey: 'home.catalog.description.horizontalStack', icon: MoreHorizontal }, 'stack-grid': { descriptionKey: 'home.catalog.description.gridStack', icon: LayoutGrid },
 };
 
 const isStackSection = (section: DashboardSection) =>
@@ -1185,6 +1176,9 @@ export function GridCanvas({
   houseMembers = [],
   onWidgetDisplayMetricsChange,
 }: GridCanvasProps) {
+  const { t } = useI18n();
+  const sectionLabel = useCallback((kind: SectionKind) => t(SECTION_LABEL_KEYS[kind]), [t]);
+  const widgetLabel = useCallback((kind: WidgetKind) => t(WIDGET_LABEL_KEYS[kind]), [t]);
   const isCanvasInteractingRef = useRef(false);
   const xsLongPressTimerRef = useRef<number | null>(null);
   const xsLongPressPointerIdRef = useRef<number | null>(null);
@@ -2004,7 +1998,7 @@ export function GridCanvas({
       { id: 'canvas', name: 'Dashboard principale' },
       ...stackSections.map((section) => {
         const cardsCount = widgets.filter((widget) => widget.parentSectionId === section.id).length;
-        const sectionName = section.title?.trim() || SECTION_LABELS[section.kind];
+        const sectionName = section.title?.trim() || sectionLabel(section.kind);
         return {
           id: section.id,
           name: `${sectionName} · ${cardsCount} card`,
@@ -2023,7 +2017,7 @@ export function GridCanvas({
       WIDGET_CATALOG.filter((item) => {
         if (!normalizedCatalogQuery) return true;
         const meta = WIDGET_CATALOG_META[item.kind];
-        return `${item.label} ${meta.description} ${meta.family}`.toLocaleLowerCase('it').includes(normalizedCatalogQuery);
+        return `${widgetLabel(item.kind)} ${t(meta.descriptionKey)} ${t(CATALOG_FAMILY_KEYS[meta.family])}`.toLocaleLowerCase().includes(normalizedCatalogQuery);
       }),
     [normalizedCatalogQuery],
   );
@@ -2032,35 +2026,33 @@ export function GridCanvas({
       SECTION_CATALOG.filter((item) => {
         if (!normalizedCatalogQuery) return true;
         const meta = SECTION_CATALOG_META[item.kind];
-        return `${item.label} ${meta.description}`.toLocaleLowerCase('it').includes(normalizedCatalogQuery);
+        return `${sectionLabel(item.kind)} ${t(meta.descriptionKey)}`.toLocaleLowerCase().includes(normalizedCatalogQuery);
       }),
     [normalizedCatalogQuery],
   );
-  const selectedCatalogDestinationName = selectedCatalogDestinationOption?.name ?? 'Dashboard principale';
+  const selectedCatalogDestinationName = selectedCatalogDestinationOption?.name ?? t('home.catalog.mainDashboard');
   const selectedCatalogItemLabel =
     catalogTab === 'cards'
-      ? WIDGET_CATALOG.find((item) => item.kind === selectedCatalogWidgetKind)?.label
-      : SECTION_CATALOG.find((item) => item.kind === selectedCatalogSectionKind)?.label;
+      ? (selectedCatalogWidgetKind ? widgetLabel(selectedCatalogWidgetKind) : undefined)
+      : (selectedCatalogSectionKind ? sectionLabel(selectedCatalogSectionKind) : undefined);
   const canConfirmCatalogSelection = catalogTab === 'cards' ? Boolean(selectedCatalogWidgetKind) : Boolean(selectedCatalogSectionKind);
   const catalogConfirmLabel = catalogTab === 'sections'
-    ? 'Crea sezione nel canvas'
+    ? t('home.catalog.createSection')
     : catalogDestination.type === 'stack'
-      ? `Aggiungi a ${selectedCatalogDestinationOption?.name.split(' · ')[0] ?? 'stack'}`
-      : 'Aggiungi al canvas';
+      ? t('home.catalog.addTo', { destination: selectedCatalogDestinationOption?.name.split(' · ')[0] ?? 'stack' })
+      : t('home.catalog.addToCanvas');
   const confirmCatalogSelection = useCallback(() => {
     if (catalogTab === 'cards') {
       if (!selectedCatalogWidgetKind) return;
-      const item = WIDGET_CATALOG.find((entry) => entry.kind === selectedCatalogWidgetKind);
       onAddWidget(selectedCatalogWidgetKind, catalogDestination);
-      setCatalogFeedback(`${item?.label ?? 'Card'} aggiunta a ${selectedCatalogDestinationName}.`);
+      setCatalogFeedback(t('home.catalog.cardAdded', { item: widgetLabel(selectedCatalogWidgetKind) || t('home.catalog.fallbackCard'), destination: selectedCatalogDestinationName }));
       setSelectedCatalogWidgetKind(null);
       return;
     }
 
     if (!selectedCatalogSectionKind) return;
-    const item = SECTION_CATALOG.find((entry) => entry.kind === selectedCatalogSectionKind);
     onAddSection(selectedCatalogSectionKind);
-    setCatalogFeedback(`${item?.label ?? 'Sezione'} creata nella dashboard principale.`);
+    setCatalogFeedback(t('home.catalog.sectionCreated', { item: sectionLabel(selectedCatalogSectionKind) || t('home.catalog.fallbackSection') }));
     setSelectedCatalogSectionKind(null);
   }, [
     catalogDestination,
@@ -2482,7 +2474,7 @@ export function GridCanvas({
         typeof sectionTitle === 'string' &&
         sectionTitle.trim().length > 0;
       const showCompactSectionMenu = isCompactEditCardMenuMode && (isScenesSection || isStack);
-      const compactSectionMenuLabel = sectionTitle || SECTION_LABELS[section.kind] || 'sezione';
+      const compactSectionMenuLabel = sectionTitle || sectionLabel(section.kind) || t('home.catalog.fallbackSection');
       const hideEditModeBadges =
         section.kind === 'greeting' || section.kind === 'weather' || section.kind === 'scenes' || isStack;
       const sectionPaddingClass = isStack
@@ -2559,7 +2551,7 @@ export function GridCanvas({
                   onSelectSection(section.id);
                 }}
               >
-                {SECTION_LABELS[section.kind]}
+                {sectionLabel(section.kind)}
               </button>
             </div>
           ) : null}
@@ -2605,7 +2597,7 @@ export function GridCanvas({
                   <div className="flex shrink-0 items-center gap-2">
                     {isEditMode && selectedSectionId === section.id && !showCompactSectionMenu ? (
                       <span className="text-[10px] uppercase tracking-[0.2em] text-blue-200/80 border border-blue-300/30 bg-blue-500/15 px-2 py-1 rounded-full">
-                        Stack attivo
+                        {t('home.catalog.activeStack')}
                       </span>
                     ) : null}
                     {showCompactSectionMenu ? (
@@ -2620,8 +2612,8 @@ export function GridCanvas({
                           onSelectSection(section.id);
                           onSelectWidget(null);
                         }}
-                        aria-label={`Configura ${compactSectionMenuLabel}`}
-                        title="Configura sezione"
+                        aria-label={t('builder.configureNamed', { name: compactSectionMenuLabel })}
+                        title={t('builder.configureSection')}
                       >
                         <MoreHorizontal size={18} aria-hidden="true" />
                       </button>
@@ -2717,8 +2709,8 @@ export function GridCanvas({
                 onSelectSection(section.id);
                 onSelectWidget(null);
               }}
-              aria-label={`Configura ${compactSectionMenuLabel}`}
-              title="Configura sezione"
+              aria-label={t('builder.configureNamed', { name: compactSectionMenuLabel })}
+              title={t('builder.configureSection')}
             >
               <MoreHorizontal size={18} aria-hidden="true" />
             </button>
@@ -2822,7 +2814,7 @@ export function GridCanvas({
           {isEditMode ? (
             <>
               <p id="dashboard-grid-keyboard-help" className="sr-only">
-                Usa le frecce per spostare. Usa Maiuscole più frecce per ridimensionare.
+                {t('home.catalog.keyboardHelp')}
               </p>
               <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
                 {keyboardLayoutAnnouncement}
@@ -2945,7 +2937,7 @@ export function GridCanvas({
                     role={isEditMode ? 'group' : undefined}
                     aria-label={
                       isEditMode
-                        ? `Sezione ${section.title?.trim() || SECTION_LABELS[section.kind]}`
+                        ? `${t('home.catalog.fallbackSection')} ${section.title?.trim() || sectionLabel(section.kind)}`
                         : undefined
                     }
                     aria-describedby={isEditMode ? 'dashboard-grid-keyboard-help' : undefined}
@@ -2967,7 +2959,7 @@ export function GridCanvas({
                       handleCanvasItemKeyDown(
                         event,
                         section.id,
-                        section.title?.trim() || SECTION_LABELS[section.kind],
+                        section.title?.trim() || sectionLabel(section.kind),
                       )
                     }
                   >
@@ -3010,7 +3002,7 @@ export function GridCanvas({
                     key={widget.id}
                     tabIndex={isEditMode ? 0 : undefined}
                     role={isEditMode ? 'group' : undefined}
-                    aria-label={isEditMode ? `Card ${widget.title?.trim() || widget.id}` : undefined}
+                    aria-label={isEditMode ? t('home.catalog.editCardAria', { name: widget.title?.trim() || widget.id }) : undefined}
                     aria-describedby={isEditMode ? 'dashboard-grid-keyboard-help' : undefined}
                     className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden ${
                       isCompactEditCardMenuMode ? 'compact-edit-hold-target' : ''
@@ -3165,8 +3157,8 @@ export function GridCanvas({
                           onSelectWidget(widget.id);
                           onSelectSection(null);
                         }}
-                        aria-label={`Configura ${widget.title || widget.id}`}
-                        title="Configura card"
+                        aria-label={t('builder.configureNamed', { name: widget.title || widget.id })}
+                        title={t('builder.configureCard')}
                       >
                         <MoreHorizontal size={18} aria-hidden="true" />
                       </button>
@@ -3184,13 +3176,13 @@ export function GridCanvas({
         <GlassModal
           isOpen={isCatalogOpen}
           onClose={onCloseCatalog}
-          eyebrow="Builder"
-          title="Aggiungi componenti"
-          description="Scegli cosa inserire e dove posizionarlo. Puoi aggiungere più elementi senza chiudere il catalogo."
+          eyebrow={t('home.catalog.eyebrow')}
+          title={t('home.catalog.title')}
+          description={t('home.catalog.description')}
           variant="responsive"
           size="xl"
           zIndex={120}
-          closeLabel="Chiudi catalogo componenti"
+          closeLabel={t('home.catalog.closeAria')}
           backdropClassName="!bg-[color:var(--ui-scrim)] !backdrop-blur-3xl"
           bodyClassName="space-y-5 pb-1"
           footerClassName="border-t border-[color:var(--ui-separator)]"
@@ -3198,7 +3190,7 @@ export function GridCanvas({
             <>
               <div className="mr-auto hidden min-w-0 sm:block">
                 <p className="truncate text-xs font-medium text-[color:var(--ui-text-secondary)]">
-                  {selectedCatalogItemLabel ? `Selezionato: ${selectedCatalogItemLabel}` : 'Seleziona un elemento dal catalogo'}
+                  {selectedCatalogItemLabel ? t('home.catalog.selected', { item: selectedCatalogItemLabel }) : t('home.catalog.selectItem')}
                 </p>
               </div>
               <button
@@ -3207,7 +3199,7 @@ export function GridCanvas({
                 data-tour-target="catalog-finish"
                 className="liquid-glass-control h-11 rounded-2xl px-5 text-sm font-semibold text-[color:var(--ui-text-secondary)] transition hover:brightness-110 hover:text-[color:var(--ui-text-primary)]"
               >
-                Fine
+                {t('home.catalog.done')}
               </button>
               <button
                 type="button"
@@ -3225,12 +3217,12 @@ export function GridCanvas({
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p id="catalog-destination-title" className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">
-                  Destinazione
+                  {t('home.catalog.destination')}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed text-[color:var(--ui-text-secondary)]">
                   {catalogTab === 'cards'
-                    ? 'La card verrà inserita esattamente nella posizione scelta.'
-                    : 'Le nuove sezioni vengono create nella dashboard principale.'}
+                    ? t('home.catalog.destinationCardDescription')
+                    : t('home.catalog.destinationSectionDescription')}
                 </p>
               </div>
             </div>
@@ -3241,7 +3233,7 @@ export function GridCanvas({
                 setCatalogDestination(option.id === 'canvas' ? { type: 'canvas' } : { type: 'stack', sectionId: option.id });
                 setCatalogFeedback(null);
               }}
-              ariaLabel="Destinazione della nuova card"
+              ariaLabel={t('home.catalog.destinationAria')}
               disabled={catalogTab === 'sections'}
             />
           </section>
@@ -3254,10 +3246,10 @@ export function GridCanvas({
                 setCatalogFeedback(null);
               }}
               options={[
-                { value: 'cards', label: 'Card' },
-                { value: 'sections', label: 'Sezioni' },
+                { value: 'cards', label: t('home.catalog.cards') },
+                { value: 'sections', label: t('home.catalog.sections') },
               ]}
-              ariaLabel="Tipo di componente da aggiungere"
+              ariaLabel={t('home.catalog.componentTypeAria')}
               className="w-full"
             />
 
@@ -3267,8 +3259,8 @@ export function GridCanvas({
               filters={[]}
               resultCount={catalogTab === 'cards' ? filteredWidgetCatalog.length : filteredSectionCatalog.length}
               onReset={() => setCatalogQuery('')}
-              placeholder={catalogTab === 'cards' ? 'Cerca una card' : 'Cerca una sezione'}
-              resultLabel={(count) => `${count} ${count === 1 ? 'risultato' : 'risultati'}`}
+              placeholder={catalogTab === 'cards' ? t('home.catalog.searchCard') : t('home.catalog.searchSection')}
+              resultLabel={(count) => t(count === 1 ? 'home.catalog.resultOne' : 'home.catalog.resultMany', { count })}
             />
           </div>
 
@@ -3280,7 +3272,7 @@ export function GridCanvas({
                 return (
                   <section key={family} aria-labelledby={`catalog-family-${family}`}>
                     <h3 id={`catalog-family-${family}`} className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">
-                      {family}
+                      {t(CATALOG_FAMILY_KEYS[family])}
                     </h3>
                     <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                       {familyItems.map((item) => {
@@ -3309,8 +3301,8 @@ export function GridCanvas({
                               <Icon size={18} aria-hidden="true" />
                             </span>
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{item.label}</span>
-                              <span className="mt-0.5 block truncate text-xs text-[color:var(--ui-text-secondary)]">{meta.description}</span>
+                              <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{widgetLabel(item.kind)}</span>
+                              <span className="mt-0.5 block truncate text-xs text-[color:var(--ui-text-secondary)]">{t(meta.descriptionKey)}</span>
                             </span>
                             <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
                               isSelected ? 'border-[color:rgb(var(--ui-accent-rgb)/0.36)] bg-[color:rgb(var(--ui-accent-rgb)/0.14)] text-[color:var(--ui-accent)]' : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-tertiary)]'
@@ -3327,7 +3319,7 @@ export function GridCanvas({
             ) : (
               <section aria-labelledby="catalog-sections-title">
                 <h3 id="catalog-sections-title" className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">
-                  Struttura dashboard
+                  {t('home.catalog.structure')}
                 </h3>
                 <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                   {filteredSectionCatalog.map((item) => {
@@ -3355,8 +3347,8 @@ export function GridCanvas({
                           <Icon size={18} aria-hidden="true" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{item.label}</span>
-                          <span className="mt-0.5 block truncate text-xs text-[color:var(--ui-text-secondary)]">{meta.description}</span>
+                          <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{sectionLabel(item.kind)}</span>
+                          <span className="mt-0.5 block truncate text-xs text-[color:var(--ui-text-secondary)]">{t(meta.descriptionKey)}</span>
                         </span>
                         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border ${
                           isSelected ? 'border-[color:rgb(var(--ui-accent-rgb)/0.36)] bg-[color:rgb(var(--ui-accent-rgb)/0.14)] text-[color:var(--ui-accent)]' : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-tertiary)]'
@@ -3372,8 +3364,8 @@ export function GridCanvas({
 
             {(catalogTab === 'cards' ? filteredWidgetCatalog.length : filteredSectionCatalog.length) === 0 ? (
               <div className="liquid-glass-card rounded-2xl px-4 py-8 text-center">
-                <p className="text-sm font-medium text-[color:var(--ui-text-primary)]">Nessun risultato</p>
-                <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">Prova con un nome o una categoria diversa.</p>
+                <p className="text-sm font-medium text-[color:var(--ui-text-primary)]">{t('home.catalog.noResults')}</p>
+                <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">{t('home.catalog.noResultsDescription')}</p>
               </div>
             ) : null}
 

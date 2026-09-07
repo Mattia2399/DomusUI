@@ -19,6 +19,7 @@ import {
   SWITCH_TOGGLE_PENDING_TTL_MS,
 } from './useLightSwitchPendingController';
 import { normalizeLower, toFiniteNumber, toTrimmedString } from './mainBoardValueUtils';
+import { useI18n } from '../../../i18n/I18nProvider';
 
 const LIGHT_BRIGHTNESS_DEBOUNCE_MS = 120;
 
@@ -111,6 +112,7 @@ export function useLightSwitchCommands({
   resolveAutoWidgetLayoutChanges: (previous: Widget[], next: Widget[]) => Widget[];
   sameLayout: (left: GridItem, right: GridItem) => boolean;
 }) {
+  const { t } = useI18n();
   const lightBrightnessDebounceRef = useRef<Record<string, number>>({});
 
   const clearBrightnessDebounce = (entityId?: string) => {
@@ -186,7 +188,7 @@ export function useLightSwitchCommands({
           }
           reportUnconfirmedCommand(
             reason,
-            'La luce non ha confermato la nuova luminosità.',
+            t('command.light.brightness'),
           );
         },
       });
@@ -241,7 +243,7 @@ export function useLightSwitchCommands({
               ? entity.toggleOn
               : normalizeLower(entity?.state) === 'on';
           applyLocalToggle(confirmedOn);
-          reportUnconfirmedCommand(reason, 'La luce non ha confermato il nuovo stato.');
+          reportUnconfirmedCommand(reason, t('command.light.state'));
         },
       });
       return;
@@ -323,7 +325,7 @@ export function useLightSwitchCommands({
           applyLocalToggle(confirmedOn);
           reportUnconfirmedCommand(
             reason,
-            'Il dispositivo non ha confermato il nuovo stato.',
+            t('command.device.state'),
           );
         },
       });
@@ -452,7 +454,7 @@ export function useLightSwitchCommands({
           }
           reportUnconfirmedCommand(
             reason,
-            'La luce non ha confermato la temperatura colore.',
+            t('command.light.temperature'),
           );
         },
       });
@@ -511,7 +513,7 @@ export function useLightSwitchCommands({
           if (reason !== 'superseded') {
             pending.clearLightCommandPending(entityId, { color: true, toggle: true });
           }
-          reportUnconfirmedCommand(reason, 'La luce non ha confermato il nuovo colore.');
+          reportUnconfirmedCommand(reason, t('command.light.color'));
         },
       });
       return;
@@ -569,7 +571,7 @@ export function useLightSwitchCommands({
           }
           reportUnconfirmedCommand(
             reason,
-            'La luce non ha confermato il nuovo livello del bianco.',
+            t('command.light.white'),
           );
         },
       });
@@ -619,7 +621,7 @@ export function useLightSwitchCommands({
           if (reason !== 'superseded') {
             pending.clearLightCommandPending(entityId, { toggle: true });
           }
-          reportUnconfirmedCommand(reason, 'La luce non ha confermato il nuovo effetto.');
+          reportUnconfirmedCommand(reason, t('command.light.effect'));
         },
       });
       return;
@@ -652,7 +654,7 @@ export function useLightSwitchCommands({
           flash: mode,
         }),
       onRollback: (reason) =>
-        reportUnconfirmedCommand(reason, 'La luce non ha accettato il comando flash.'),
+        reportUnconfirmedCommand(reason, t('command.light.flash')),
     });
   };
 

@@ -7,6 +7,7 @@ import {
   toHistoryTimestampMs,
   toTrimmedString,
 } from './mainBoardValueUtils';
+import { translateForLocale, type AppLocale } from '../../../i18n/I18nProvider';
 
 const SENSOR_BATTERY_ATTRIBUTE_KEYS = [
   'battery_level',
@@ -102,8 +103,12 @@ function normalizeConnectionState(value: unknown): SensorConnectionState {
   return 'unknown';
 }
 
-function normalizeConnectionLabel(state: SensorConnectionState): string {
-  return state === 'offline' ? 'Disconnesso' : state === 'online' ? 'Connesso' : 'Stato sconosciuto';
+function normalizeConnectionLabel(state: SensorConnectionState, locale: AppLocale): string {
+  return state === 'offline'
+    ? translateForLocale(locale, 'controls.sensor.disconnected')
+    : state === 'online'
+      ? translateForLocale(locale, 'controls.sensor.connected')
+      : translateForLocale(locale, 'builder.unknownState');
 }
 
 function downsampleNumberSeries(values: number[], maxPoints: number) {
@@ -204,6 +209,7 @@ export function resolveSensorMeta(
   widget: Widget,
   liveEntity: MockEntityState | undefined,
   haEntityMap: Record<string, MockEntityState>,
+  locale: AppLocale = 'it',
 ) {
   const statusEntityId = widget.sensorStatusEntityId?.trim();
   const batteryEntityId = widget.sensorBatteryEntityId?.trim();
@@ -249,7 +255,7 @@ export function resolveSensorMeta(
   return {
     status,
     battery: batteryFromEntity ?? batteryFromAttributes,
-    connection: normalizeConnectionLabel(connectionState),
+    connection: normalizeConnectionLabel(connectionState, locale),
     connectionState,
   };
 }

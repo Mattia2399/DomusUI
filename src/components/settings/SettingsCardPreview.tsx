@@ -12,6 +12,7 @@ import {
   UserRound,
   Wrench,
 } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type SettingsPreviewMember = {
   id: string;
@@ -83,6 +84,7 @@ function PreviewFrame({
 }
 
 function MemberPreviewAvatar({ member }: { member: SettingsPreviewMember }) {
+  const { t } = useI18n();
   const [imageFailed, setImageFailed] = useState(false);
   const initials =
     member.name
@@ -93,7 +95,7 @@ function MemberPreviewAvatar({ member }: { member: SettingsPreviewMember }) {
       .join('') || '?';
 
   return (
-    <span className="relative shrink-0" title={`${member.name} · ${member.presence === 'home' ? 'Casa' : member.presence === 'away' ? 'Fuori' : 'Stato non disponibile'}`}>
+    <span className="relative shrink-0" title={`${member.name} · ${member.presence === 'home' ? t('settings.preview.home') : member.presence === 'away' ? t('settings.preview.away') : t('settings.preview.presenceUnavailable')}`}>
       <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border-2 border-[color:var(--ui-bg-elevated)] bg-[color:var(--ui-fill-secondary)] text-[9px] font-semibold text-[color:var(--ui-text-primary)] shadow-[0_7px_16px_var(--ui-shadow-soft)] sm:h-10 sm:w-10 sm:text-[10px]">
         {member.avatarUrl && !imageFailed ? (
           <img
@@ -144,6 +146,7 @@ function MiniMetricBar({
 }
 
 export function SettingsCardPreview(props: SettingsCardPreviewProps) {
+  const { t } = useI18n();
   if (props.variant === 'home') {
     return (
       <PreviewFrame className="items-center gap-3">
@@ -164,13 +167,13 @@ export function SettingsCardPreview(props: SettingsCardPreviewProps) {
             ))
           ) : (
             <span className="col-span-3 text-xs text-[color:var(--ui-text-secondary)]">
-              Nessuna stanza configurata
+              {t('settings.preview.noRooms')}
             </span>
           )}
         </span>
         <span className="shrink-0 text-right">
           <span className="block text-base font-semibold text-[color:var(--ui-text-primary)]">{props.entityCount}</span>
-          <span className="block text-[9px] uppercase tracking-[0.1em] text-[color:var(--ui-text-secondary)]">Entità</span>
+          <span className="block text-[9px] uppercase tracking-[0.1em] text-[color:var(--ui-text-secondary)]">{t('settings.preview.entities')}</span>
         </span>
       </PreviewFrame>
     );
@@ -188,13 +191,13 @@ export function SettingsCardPreview(props: SettingsCardPreviewProps) {
           ) : (
             <span className="flex items-center gap-2 text-xs text-[color:var(--ui-text-secondary)]">
               <UserRound size={15} />
-              Nessun membro
+              {t('settings.preview.noMembers')}
             </span>
           )}
         </span>
         <span className="shrink-0 text-right">
           <span className="block text-base font-semibold text-[color:var(--ui-text-primary)]">{homeCount}</span>
-          <span className="block text-[9px] uppercase tracking-[0.1em] text-[color:var(--ui-text-secondary)]">A casa</span>
+          <span className="block text-[9px] uppercase tracking-[0.1em] text-[color:var(--ui-text-secondary)]">{t('settings.preview.atHome')}</span>
         </span>
       </PreviewFrame>
     );
@@ -218,7 +221,7 @@ export function SettingsCardPreview(props: SettingsCardPreviewProps) {
           </span>
         ) : (
           <span className="min-w-0 flex-1 text-xs text-[color:var(--ui-text-secondary)]">
-            Canvas vuoto
+            {t('settings.preview.emptyCanvas')}
           </span>
         )}
         <span className="shrink-0 rounded-full bg-[color:var(--ui-surface-glass)] px-1.5 py-1 text-[9px] font-semibold text-[color:var(--ui-text-secondary)] sm:px-2.5 sm:text-[10px]">
@@ -264,7 +267,7 @@ export function SettingsCardPreview(props: SettingsCardPreviewProps) {
         <PreviewFrame className="items-center gap-3">
           <ShieldCheck size={18} className="shrink-0 text-[color:var(--ui-text-secondary)]" />
           <span className="text-xs text-[color:var(--ui-text-secondary)]">
-            Nessuna entità Alarm o Lock disponibile
+            {t('settings.preview.noSecurityEntities')}
           </span>
         </PreviewFrame>
       );
@@ -285,13 +288,13 @@ export function SettingsCardPreview(props: SettingsCardPreviewProps) {
             <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">
               {props.alarmCount > 0 ? `${props.armedAlarmCount}/${props.alarmCount}` : 'ND'}
             </span>
-            <span className="block text-[9px] uppercase tracking-[0.08em] text-[color:var(--ui-text-secondary)]">Allarmi inseriti</span>
+            <span className="block text-[9px] uppercase tracking-[0.08em] text-[color:var(--ui-text-secondary)]">{t('settings.preview.armedAlarms')}</span>
           </span>
           <span>
             <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">
               {props.lockCount > 0 ? `${props.lockedLockCount}/${props.lockCount}` : 'ND'}
             </span>
-            <span className="block text-[9px] uppercase tracking-[0.08em] text-[color:var(--ui-text-secondary)]">Serrature chiuse</span>
+            <span className="block text-[9px] uppercase tracking-[0.08em] text-[color:var(--ui-text-secondary)]">{t('settings.preview.lockedLocks')}</span>
           </span>
         </span>
       </PreviewFrame>
@@ -311,10 +314,10 @@ export function SettingsCardPreview(props: SettingsCardPreviewProps) {
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-xs font-semibold text-[color:var(--ui-text-primary)]">
-            {props.lastBackupLabel ?? 'Backup non rilevato'}
+            {props.lastBackupLabel ?? t('settings.preview.noBackup')}
           </span>
           <span className="mt-0.5 block truncate text-[10px] text-[color:var(--ui-text-secondary)]">
-            {props.backupSizeLabel ?? 'Dimensione non disponibile'}
+            {props.backupSizeLabel ?? t('settings.preview.sizeUnavailable')}
           </span>
         </span>
         <Cloud size={15} className="hidden shrink-0 text-[color:var(--ui-text-tertiary)] sm:block" />
@@ -353,10 +356,10 @@ export function SettingsCardPreview(props: SettingsCardPreviewProps) {
       <Wrench size={17} className="shrink-0 text-[color:var(--ui-text-secondary)]" />
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold text-[color:var(--ui-text-primary)]">
-          Versione {props.version}
+          {t('settings.preview.version', { version: props.version })}
         </span>
         <span className="mt-0.5 block text-[10px] text-[color:var(--ui-text-secondary)]">
-          Strumenti tecnici e diagnostica
+          {t('settings.preview.technicalTools')}
         </span>
       </span>
       <span

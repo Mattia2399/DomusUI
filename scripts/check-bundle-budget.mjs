@@ -8,7 +8,9 @@ const budgets = {
   '.css': { warning: 550_000, blocking: 700_000 },
 };
 
-const totalBudget = { warning: 4_100_000, blocking: 4_800_000 };
+// The total includes every lazy route and the complete IT/EN/FR catalog. Keep
+// per-chunk limits strict; allow the deliberate multilingual payload globally.
+const totalBudget = { warning: 4_800_000, blocking: 5_400_000 };
 
 const formatBytes = (bytes) => `${(bytes / 1_000_000).toFixed(2)} MB`;
 

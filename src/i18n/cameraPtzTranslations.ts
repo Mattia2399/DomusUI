@@ -1,0 +1,5 @@
+export const cameraPtzTranslations = {
+  it: { 'camera.ptz.upLeft': 'PTZ in alto a sinistra', 'camera.ptz.up': 'PTZ in alto', 'camera.ptz.upRight': 'PTZ in alto a destra', 'camera.ptz.left': 'PTZ a sinistra', 'camera.ptz.stop': 'Ferma movimento PTZ', 'camera.ptz.right': 'PTZ a destra', 'camera.ptz.downLeft': 'PTZ in basso a sinistra', 'camera.ptz.down': 'PTZ in basso', 'camera.ptz.downRight': 'PTZ in basso a destra' },
+  en: { 'camera.ptz.upLeft': 'PTZ up and left', 'camera.ptz.up': 'PTZ up', 'camera.ptz.upRight': 'PTZ up and right', 'camera.ptz.left': 'PTZ left', 'camera.ptz.stop': 'Stop PTZ movement', 'camera.ptz.right': 'PTZ right', 'camera.ptz.downLeft': 'PTZ down and left', 'camera.ptz.down': 'PTZ down', 'camera.ptz.downRight': 'PTZ down and right' },
+  fr: { 'camera.ptz.upLeft': 'PTZ en haut à gauche', 'camera.ptz.up': 'PTZ vers le haut', 'camera.ptz.upRight': 'PTZ en haut à droite', 'camera.ptz.left': 'PTZ vers la gauche', 'camera.ptz.stop': 'Arrêter le mouvement PTZ', 'camera.ptz.right': 'PTZ vers la droite', 'camera.ptz.downLeft': 'PTZ en bas à gauche', 'camera.ptz.down': 'PTZ vers le bas', 'camera.ptz.downRight': 'PTZ en bas à droite' },
+} as const;

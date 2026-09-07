@@ -1,9 +1,16 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { DEFAULT_HOME_ATTENTION_PREFERENCES } from '../homeAttention/homeAttentionPreferences';
 import SettingsAttentionSection from './SettingsAttentionSection';
 
-afterEach(cleanup);
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+afterEach(() => {
+  cleanup();
+  window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
+});
 
 describe('SettingsAttentionSection', () => {
   it('updates a category without changing unrelated preferences', () => {

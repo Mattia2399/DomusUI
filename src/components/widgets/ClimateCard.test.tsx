@@ -56,11 +56,11 @@ describe('ClimateCard mode-aware controls', () => {
       />,
     );
 
-    fireEvent.click(getByRole('button', { name: 'Modalita clima: Riscaldamento' }));
-    expect(getByRole('dialog', { name: 'Scegli la funzionalita' })).not.toBeNull();
-    fireEvent.click(getByRole('button', { name: 'Imposta modalita Raffrescamento' }));
+    fireEvent.click(getByRole('button', { name: 'Modalità: Riscaldamento' }));
+    expect(getByRole('dialog', { name: 'Scegli la funzionalità' })).not.toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Imposta modalità Raffrescamento' }));
     expect(onModeChange).toHaveBeenCalledWith('cool');
-    expect(queryByRole('dialog', { name: 'Scegli la funzionalita' })).toBeNull();
+    expect(queryByRole('dialog', { name: 'Scegli la funzionalità' })).toBeNull();
   });
 
   it('uses humidity controls in dry mode', () => {
@@ -87,7 +87,7 @@ describe('ClimateCard mode-aware controls', () => {
     );
 
     expect(queryByRole('button', { name: 'Aumenta temperatura target' })).toBeNull();
-    fireEvent.click(getByRole('button', { name: 'Aumenta umidita target' }));
+    fireEvent.click(getByRole('button', { name: 'Aumenta umidità target' }));
     expect(onTargetHumidityChange).toHaveBeenCalledWith(61);
   });
 
@@ -104,7 +104,7 @@ describe('ClimateCard mode-aware controls', () => {
       />,
     );
 
-    expect(getByText('Velocita ventola')).not.toBeNull();
+    expect(getByText('Velocità ventola')).not.toBeNull();
     expect(queryByRole('button', { name: 'Aumenta temperatura target' })).toBeNull();
 
     rerender(
@@ -151,7 +151,7 @@ describe('ClimateCard mode-aware controls', () => {
       />,
     );
 
-    expect(getByRole('button', { name: 'Aumenta umidita target' })).not.toBeNull();
+    expect(getByRole('button', { name: 'Aumenta umidità target' })).not.toBeNull();
     expect(queryByRole('button', { name: 'Aumenta temperatura target' })).toBeNull();
   });
 
@@ -185,8 +185,8 @@ describe('ClimateCard mode-aware controls', () => {
       />,
     );
 
-    expect(queryByRole('button', { name: 'Imposta fan mode Auto' })).toBeNull();
-    expect(queryByRole('button', { name: 'Cambia preset, attuale Comfort' })).toBeNull();
+    expect(queryByRole('button', { name: 'Imposta modalità ventola Auto' })).toBeNull();
+    expect(queryByRole('button', { name: 'Preset: Comfort' })).toBeNull();
 
     rerender(
       <ClimateCard
@@ -202,9 +202,9 @@ describe('ClimateCard mode-aware controls', () => {
       />,
     );
 
-    expect(getByRole('button', { name: 'Imposta fan mode Auto' })).not.toBeNull();
-    fireEvent.click(getByRole('button', { name: 'Cambia preset, attuale Comfort' }));
-    fireEvent.click(getByRole('button', { name: 'Cambia swing, attuale Fermo' }));
+    expect(getByRole('button', { name: 'Imposta modalità ventola Auto' })).not.toBeNull();
+    fireEvent.click(getByRole('button', { name: 'Preset: Comfort' }));
+    fireEvent.click(getByRole('button', { name: 'Oscillazione: Ferma' }));
     expect(onPresetModeChange).toHaveBeenCalledWith('eco');
     expect(onSwingModeChange).toHaveBeenCalledWith('vertical');
   });
@@ -222,6 +222,6 @@ describe('ClimateCard mode-aware controls', () => {
       />,
     );
 
-    expect(getByRole('button', { name: 'Modalita clima: Riscaldamento' }).textContent).toBe('');
+    expect(getByRole('button', { name: 'Modalità: Riscaldamento' }).textContent).toBe('');
   });
 });

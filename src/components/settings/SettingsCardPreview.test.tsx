@@ -1,10 +1,18 @@
-import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, render as renderTestingLibrary, screen } from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import SettingsCardPreview from './SettingsCardPreview';
 
-afterEach(cleanup);
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+
+afterEach(() => {
+  cleanup();
+  window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
+});
 
 describe('SettingsCardPreview', () => {
+  beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
   it('uses real member images and exposes their presence', () => {
     render(
       <SettingsCardPreview

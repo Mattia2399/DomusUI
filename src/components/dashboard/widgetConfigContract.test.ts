@@ -24,10 +24,10 @@ describe('widget configuration contract', () => {
     );
 
     expect(source).toContain("GlassSegmentSelect<'title' | 'weather'>");
-    expect(source).toContain("label: 'Titolo e info'");
+    expect(source).toContain("label: bt('Titolo e info')");
     expect(source).toContain("label: 'Meteo'");
     expect(source).toContain("greetingConfigTab === 'title'");
-    expect(source).toContain('label="Mostra il meteo nella card saluto"');
+    expect(source).toContain("label={bt('Mostra il meteo nella card saluto')}");
     expect(source).toContain('checked={Boolean(showWeather)}');
   });
 });

@@ -1,9 +1,15 @@
 import React from 'react';
-import { cleanup, fireEvent, render } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderUi } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Widget } from '../../types/dashboardModels';
 import { AlarmCard } from './AlarmCard';
 import { createHomeAlarmMock } from './alarmMock';
+import { I18nProvider } from '../../i18n/I18nProvider';
+
+const render = (ui: React.ReactElement) => {
+  window.localStorage.setItem('domusui.language.v1', 'it');
+  return renderUi(<I18nProvider>{ui}</I18nProvider>);
+};
 
 const widget: Widget = {
   id: 'alarm.test',

@@ -1,9 +1,11 @@
 import React from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardViewportPreviewBar } from './DashboardViewportPreviewBar';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 
-afterEach(cleanup);
+beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+afterEach(() => { cleanup(); window.localStorage.removeItem(LANGUAGE_STORAGE_KEY); });
 
 describe('DashboardViewportPreviewBar', () => {
   it('changes the active preview mode through one responsive control', () => {
@@ -17,6 +19,7 @@ describe('DashboardViewportPreviewBar', () => {
         primaryAction={<button type="button">Catalogo</button>}
         desktopActions={<button type="button">Annulla</button>}
       />,
+      { wrapper: I18nProvider },
     );
 
     fireEvent.click(getByRole('radio', { name: 'Anteprima mobile' }));

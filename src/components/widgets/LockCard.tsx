@@ -12,6 +12,7 @@ import {
   type WidgetDisplayMetrics,
   type WidgetDisplayVariant,
 } from './widgetDisplayVariant';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type LockCardProps = {
   widget: Widget;
@@ -38,6 +39,7 @@ export function LockCard({
   displayVariant,
   onDisplayMetricsChange,
 }: LockCardProps) {
+  const { locale } = useI18n();
   const fallbackVariant = displayVariant ?? resolveWidgetDisplayVariant({
     kind: 'lock',
     breakpoint: gridBreakpoint,
@@ -49,7 +51,7 @@ export function LockCard({
   const layoutVariant = measuredSize
     ? resolveLockPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : fallbackVariant;
-  const model = useMemo(() => buildLockCardModel(widget, liveEntity), [liveEntity, widget]);
+  const model = useMemo(() => buildLockCardModel(widget, liveEntity, locale), [liveEntity, locale, widget]);
   const suppressNextClickRef = useRef(false);
 
   const runPrimaryAction = () => {

@@ -4,8 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Delete, Fingerprint, KeyRound, RotateCcw, ShieldCheck, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { getAlarmStateLabel } from '../../utils/alarmUtils';
 import GlassLoader from '../ui/GlassLoader';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type DeviceAuthPhase = 'idle' | 'verifying' | 'failed' | 'success';
 
@@ -48,7 +48,7 @@ export function SecurityAuthModal({
   alarmCodeTypeLabel,
   authPinInput,
   preferDeviceAuth = false,
-  deviceAuthLabel = 'Conferma dispositivo',
+  deviceAuthLabel,
   onVerifyWithDevice,
   onPinInputChange,
   onVerifyWithPin,
@@ -58,6 +58,7 @@ export function SecurityAuthModal({
   onClose,
   usePortal = false,
 }: SecurityAuthModalProps) {
+  const { t } = useI18n();
   const overlayTransition = { duration: 0.18, ease: [0.22, 1, 0.36, 1] } as const;
   const panelTransition = { duration: 0.24, ease: [0.22, 1, 0.36, 1] } as const;
   const [devicePhase, setDevicePhase] = useState<DeviceAuthPhase>('idle');
@@ -70,11 +71,12 @@ export function SecurityAuthModal({
   const shouldShowDeviceStage = canTryDeviceAuth && !showPinFallback;
   const shouldShowPinStage = pendingStateRequiresCode && (!canTryDeviceAuth || showPinFallback);
   const pinSlots = Array.from({ length: Math.max(4, Math.min(8, authPinInput.length || 4)) });
-  const resolvedTitle = title ?? `Autorizza${pendingAlarmState ? `: ${getAlarmStateLabel(pendingAlarmState)}` : ''}`;
+  const resolvedDeviceAuthLabel = deviceAuthLabel ?? t('auth.deviceConfirmation');
+  const resolvedTitle = title ?? t('auth.authorize', { state: pendingAlarmState ? t('auth.stateSuffix', { state: pendingAlarmState }) : '' });
   const resolvedDescription = description ?? (
     pendingStateRequiresCode
-      ? `${alarmCodeTypeLabel} richiesto per autorizzare l'azione.`
-      : 'Conferma dispositivo richiesta per continuare.'
+      ? t('auth.codeRequired', { label: alarmCodeTypeLabel })
+      : t('auth.deviceRequired')
   );
 
   useEffect(() => {
@@ -141,14 +143,14 @@ export function SecurityAuthModal({
 
   const deviceSubtitle =
     devicePhase === 'verifying'
-      ? 'Conferma con Windows Hello, Face ID, Touch ID o passkey.'
+      ? t('auth.verifyingDevice')
       : devicePhase === 'failed'
         ? pendingStateRequiresCode
-          ? 'Inserisci il PIN allarme.'
-          : 'Verifica non riuscita o annullata.'
+          ? t('auth.enterAlarmPin')
+          : t('auth.verificationFailed')
         : devicePhase === 'success'
-          ? 'Verifica completata.'
-          : 'Preparazione verifica sicura.';
+          ? t('auth.verificationComplete')
+          : t('auth.preparing');
 
   const modal = (
     <AnimatePresence>
@@ -164,7 +166,7 @@ export function SecurityAuthModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Chiudi autenticazione"
+            aria-label={t('auth.close')}
             className="absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-3xl"
           />
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgb(var(--ui-glass-highlight-rgb)/0.10),transparent_30%),radial-gradient(circle_at_52%_100%,rgb(var(--ui-accent-rgb)/0.08),transparent_38%)]" />
@@ -181,13 +183,13 @@ export function SecurityAuthModal({
               type="button"
               onClick={onClose}
               className="glass-icon-button absolute right-4 top-4 h-8 w-8"
-              aria-label="Chiudi"
+              aria-label={t('auth.closeShort')}
             >
               <X className="h-4 w-4" />
             </button>
 
             <div className="pr-10">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[color:var(--ui-text-tertiary)]">Conferma sicura</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[color:var(--ui-text-tertiary)]">{t('auth.secureConfirmation')}</p>
               <h3 className="mt-1 text-xl font-semibold leading-tight tracking-[-0.04em] text-[color:var(--ui-text-primary)]">{resolvedTitle}</h3>
               <p className="mt-2 text-sm leading-snug text-[color:var(--ui-text-secondary)]">{resolvedDescription}</p>
             </div>
@@ -219,7 +221,7 @@ export function SecurityAuthModal({
                     ) : null}
                     <span className="relative flex h-20 w-20 items-center justify-center rounded-full border border-white/[0.22] bg-black/42 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.20),0_16px_36px_rgba(0,0,0,0.32)]">
                       {devicePhase === 'verifying' ? (
-                        <GlassLoader size="sm" ariaLabel="Conferma dispositivo in corso" />
+                        <GlassLoader size="sm" ariaLabel={t('auth.inProgress')} />
                       ) : devicePhase === 'success' ? (
                         <Check className="h-8 w-8 text-emerald-100" strokeWidth={2.1} />
                       ) : devicePhase === 'failed' ? (
@@ -229,11 +231,11 @@ export function SecurityAuthModal({
                       )}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-white/86">{deviceAuthLabel}</p>
+                  <p className="mt-2 text-sm font-semibold text-white/86">{resolvedDeviceAuthLabel}</p>
                   <p className="mt-1 max-w-[18rem] text-xs leading-snug text-white/45">{deviceSubtitle}</p>
                   {devicePhase === 'failed' && !pendingStateRequiresCode ? (
                     <div className="mt-5 rounded-[1.25rem] border border-amber-200/20 bg-amber-950/52 px-4 py-3 text-sm text-amber-50/82">
-                      Verifica dispositivo non disponibile.
+                      {t('auth.deviceUnavailable')}
                     </div>
                   ) : null}
                 </motion.div>
@@ -261,7 +263,7 @@ export function SecurityAuthModal({
                           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-white/[0.13] bg-white/[0.09] px-2.5 text-[0.64rem] font-semibold uppercase tracking-[0.10em] text-white/58 transition hover:bg-white/[0.13] hover:text-white/80"
                         >
                           <RotateCcw className="h-3 w-3" />
-                          Riprova
+                          {t('auth.retry')}
                         </button>
                       ) : null}
                     </div>
@@ -274,7 +276,7 @@ export function SecurityAuthModal({
                         'mt-4 w-full rounded-[1.2rem] border border-white/[0.14] bg-black/32 px-4 py-3 text-center text-lg font-semibold tracking-[0.26em] text-white outline-none placeholder:tracking-normal placeholder:text-sm placeholder:font-medium placeholder:text-white/38 focus:border-white/34',
                         isAlarmCodeNumeric ? 'sr-only' : '',
                       )}
-                      placeholder={isAlarmCodeNumeric ? 'Inserisci PIN' : 'Inserisci codice'}
+                      placeholder={isAlarmCodeNumeric ? t('auth.enterPin') : t('auth.enterCode')}
                       aria-label={alarmCodeTypeLabel}
                       inputMode={isAlarmCodeNumeric ? 'numeric' : 'text'}
                     />
@@ -310,7 +312,7 @@ export function SecurityAuthModal({
                             onClick={onClearPin}
                             className="h-[3.25rem] rounded-full border border-transparent bg-transparent text-[0.67rem] font-semibold uppercase tracking-[0.12em] text-white/48 transition hover:bg-white/[0.08] hover:text-white/68 active:scale-[0.96]"
                           >
-                            Cancella
+                            {t('auth.clear')}
                           </button>
                           <button
                             type="button"
@@ -323,7 +325,7 @@ export function SecurityAuthModal({
                             type="button"
                             onClick={onPopPinDigit}
                             className="flex h-[3.25rem] items-center justify-center rounded-full border border-transparent bg-transparent text-white/52 transition hover:bg-white/[0.08] hover:text-white/72 active:scale-[0.96]"
-                            aria-label="Cancella ultima cifra"
+                            aria-label={t('auth.deleteLast')}
                           >
                             <Delete className="h-5 w-5" />
                           </button>
@@ -341,7 +343,7 @@ export function SecurityAuthModal({
                       isAuthBusy ? 'cursor-default opacity-45' : '',
                     )}
                   >
-                    {isAuthBusy ? 'Verifica in corso...' : 'Conferma'}
+                    {isAuthBusy ? t('auth.checking') : t('auth.confirm')}
                   </button>
                 </motion.div>
               ) : (
@@ -353,7 +355,7 @@ export function SecurityAuthModal({
                   transition={panelTransition}
                   className="mt-5 rounded-[1.35rem] border border-amber-200/20 bg-amber-950/52 px-4 py-3 text-sm text-amber-50/84"
                 >
-                  Verifica non disponibile.
+                  {t('auth.unavailable')}
                 </motion.div>
               )}
             </AnimatePresence>

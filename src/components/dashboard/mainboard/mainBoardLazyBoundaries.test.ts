@@ -95,6 +95,6 @@ describe('MainBoard lazy boundaries', () => {
     expect(mainBoardSource).toContain(
       '<React.Suspense fallback={<SecondaryWorkspaceLoading />}>',
     );
-    expect(mainBoardSource).toContain('Carichiamo soltanto gli strumenti necessari.');
+    expect(mainBoardSource).toContain("description={t('home.loading.tools')}");
   });
 });

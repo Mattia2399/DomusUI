@@ -8,6 +8,7 @@ import {
   resolveSensorPixelDisplayVariant,
   type WidgetDisplayMetrics,
 } from './widgetDisplayVariant';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type SensorCardProps = {
   widget: Widget;
@@ -32,14 +33,15 @@ export function SensorCard({
   batteryEntity,
   onDisplayMetricsChange,
 }: SensorCardProps) {
+  const { locale } = useI18n();
   const { ref: cardRef, size: observedSize } = useObservedElementSize<HTMLDivElement>(widget.id);
   const measuredSize = observedSize?.identity === widget.id ? observedSize : null;
   const measuredVariant = measuredSize
     ? resolveSensorPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : null;
   const model = useMemo(
-    () => buildSensorCardModel({ widget, value, sensorHistory, liveEntity, batteryEntity }),
-    [batteryEntity, liveEntity, sensorHistory, value, widget],
+    () => buildSensorCardModel({ widget, value, sensorHistory, liveEntity, batteryEntity, locale }),
+    [batteryEntity, liveEntity, locale, sensorHistory, value, widget],
   );
 
   useEffect(() => {

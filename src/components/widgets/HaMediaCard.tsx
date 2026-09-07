@@ -4,7 +4,8 @@ import GlassSlider from '../ui/GlassSlider';
 import './HaMediaCard.css';
 import type { MediaCardCapabilities, MediaPlayerRuntimeState } from './mediaCardModel';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
-import { translateMediaPlayerState } from '../../utils/mediaPlayerState';
+import { normalizeMediaPlayerStateKey } from '../../utils/mediaPlayerState';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export interface HaMediaCardProps {
   entityId?: string;
@@ -195,6 +196,7 @@ export function HaMediaCard({
   hideHeader = false,
   commandPending = false,
 }: HaMediaCardProps) {
+  const { t } = useI18n();
   const longPressTimerRef = useRef<number | null>(null);
   const coverCandidate = attributes.entity_picture ?? attributes.media_image_url ?? attributes.entity_picture_local;
   const hasCover = typeof coverCandidate === 'string' && coverCandidate.trim().length > 0;
@@ -224,7 +226,7 @@ export function HaMediaCard({
   const primaryTrackText = mediaTitle || mediaArtist;
   const secondaryTrackText = mediaTitle ? fallbackSecondary : undefined;
   const playerContext = attributes.app_name?.trim() || attributes.source?.trim() || name;
-  const stateLabel = attributes.state_label?.trim() || translateMediaPlayerState(state);
+  const stateLabel = attributes.state_label?.trim() || t(`controls.media.state.${normalizeMediaPlayerStateKey(state)}`);
   const headerMediaSubtitle = [mediaArtist, name].filter(Boolean).join(' \u2022 ') || name;
   const headerTitle = mediaTitle || (state === 'idle' ? primaryTrackText : undefined) || name;
   const headerSubtitle =
@@ -268,21 +270,27 @@ export function HaMediaCard({
   const shuffleActive = attributes.shuffle === true;
   const repeatMode = (attributes.repeat ?? 'off').trim().toLowerCase();
   const repeatActive = repeatMode !== '' && repeatMode !== 'off' && repeatMode !== 'none';
-  const repeatLabel = formatRepeatLabel(repeatMode);
+  const repeatLabel = !repeatMode || repeatMode === 'off' || repeatMode === 'none'
+    ? t('controls.media.repeatOff')
+    : repeatMode === 'one' || repeatMode === 'single' || repeatMode === 'track'
+      ? t('controls.media.repeatOne')
+      : repeatMode === 'all' || repeatMode === 'playlist'
+        ? t('controls.media.repeatAll')
+        : `${t('controls.media.repeatAll')}: ${repeatMode}`;
   const activeSource = normalizeSourceName(attributes.source ?? '');
   const audioCastSources = uniqueSourceNames([activeSource, ...(attributes.source_list ?? [])]).slice(0, 6);
   const showAudioCast = audioCastSources.length > 0;
   const canSelectSource = Boolean(onSelectSource) && state !== 'unavailable' && capabilities?.canSelectSource !== false;
   const ActionIcon = state === 'playing' || state === 'buffering' ? Pause : Play;
-  const actionLabel = state === 'playing' || state === 'buffering' ? 'Pausa' : 'Riproduci';
+  const actionLabel = state === 'playing' || state === 'buffering' ? t('controls.media.pause') : t('controls.media.play');
   const supportsLongPress = Boolean(onLongPress && entityId);
   const useCoverBackground = hasCover && state !== 'unavailable';
   const metadataChips = buildMetadataChips(attributes);
   const showMetadata = !isMini && metadataChips.length > 0;
   const DeviceIcon = resolveDeviceIcon(attributes.device_class);
   const stateBadges = [
-    attributes.is_volume_muted === true ? 'Muto' : volumeLevel !== undefined ? `${volumeLevel}%` : undefined,
-    (attributes.group_members?.length ?? 0) > 1 ? `Gruppo ${attributes.group_members!.length}` : undefined,
+    attributes.is_volume_muted === true ? t('controls.media.muted') : volumeLevel !== undefined ? `${volumeLevel}%` : undefined,
+    (attributes.group_members?.length ?? 0) > 1 ? t('controls.media.devicesConnected', { count: attributes.group_members!.length }) : undefined,
   ].filter((badge): badge is string => Boolean(badge));
   const showStateBadges = !isMini && stateBadges.length > 0;
 
@@ -374,7 +382,7 @@ export function HaMediaCard({
                   ) : null}
                 </div>
                 {showStateBadges ? (
-                  <div className="ha-media-card__state-rail" aria-label="Indicatori media">
+                  <div className="ha-media-card__state-rail" aria-label={t('controls.media.title')}>
                     {stateBadges.map((badge, index) => (
                       <span
                         key={badge}
@@ -403,7 +411,7 @@ export function HaMediaCard({
                     <div className="ha-media-card__track">
                       <div className="ha-media-card__art">
                         {hasCover ? (
-                          <img className="ha-media-card__art-image" src={coverUrl} alt={`Copertina ${name}`} />
+                          <img className="ha-media-card__art-image" src={coverUrl} alt={t('controls.media.albumCover')} />
                         ) : (
                           <Speaker className="ha-media-card__art-fallback" aria-hidden="true" />
                         )}
@@ -419,7 +427,7 @@ export function HaMediaCard({
                   ) : null}
 
                   {showMetadata ? (
-                    <div className="ha-media-card__meta-rail" aria-label="Dettagli media">
+                    <div className="ha-media-card__meta-rail" aria-label={t('controls.media.settings')}>
                       {metadataChips.map((chip) => (
                         <span key={chip} className="ha-media-card__meta-chip" title={chip}>
                           {chip}
@@ -430,7 +438,7 @@ export function HaMediaCard({
 
                   {showAudioCast && !isCompact ? (
                     <div className="ha-media-card__cast-rail">
-                      <p className="ha-media-card__cast-label">Uscite audio</p>
+                      <p className="ha-media-card__cast-label">{t('controls.media.outputDevice')}</p>
                       <div className="ha-media-card__cast-list">
                         {audioCastSources.map((source) => {
                           const isActive = activeSource ? isSameSource(source, activeSource) : audioCastSources.length === 1;
@@ -480,7 +488,7 @@ export function HaMediaCard({
                         }}
                         disabled={!canShuffle}
                         aria-pressed={shuffleActive}
-                        aria-label="Riproduzione casuale"
+                        aria-label={t('controls.media.shuffle')}
                       >
                         <Shuffle className="ha-media-card__transport-icon" />
                       </button>
@@ -495,7 +503,7 @@ export function HaMediaCard({
                           onPreviousTrack?.();
                         }}
                         disabled={!canPrevious}
-                        aria-label="Brano precedente"
+                        aria-label={t('controls.media.previous')}
                       >
                         <SkipBack className="ha-media-card__transport-icon" />
                       </button>
@@ -525,7 +533,7 @@ export function HaMediaCard({
                           onNextTrack?.();
                         }}
                         disabled={!canNext}
-                        aria-label="Brano successivo"
+                        aria-label={t('controls.media.next')}
                       >
                         <SkipForward className="ha-media-card__transport-icon" />
                       </button>
@@ -583,7 +591,7 @@ export function HaMediaCard({
                             ['--ha-media-progress' as string]: `${progress}%`,
                           } as React.CSSProperties
                         }
-                        aria-label={`Posizione ${name}`}
+                        aria-label={`${t('controls.media.play')} ${name}`}
                         aria-valuemin={0}
                         aria-valuemax={duration > 0 ? duration : 100}
                         aria-valuenow={duration > 0 ? position : 0}

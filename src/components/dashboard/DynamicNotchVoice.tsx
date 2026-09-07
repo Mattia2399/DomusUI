@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Loader2, Mic } from 'lucide-react';
 import type { AssistantAgentClient } from '../../services/assistant/agentClients';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type AssistantState = 'idle' | 'listening' | 'processing';
 
@@ -119,17 +120,8 @@ function stopRecognitionSafely(recognition: SpeechRecognitionLike | null) {
   }
 }
 
-function buildAriaLabel(state: AssistantState, statusMessage: string) {
-  if (state === 'listening') {
-    return 'Assistente in ascolto, tocca per inviare';
-  }
-  if (state === 'processing') {
-    return 'Assistente in elaborazione';
-  }
-  return statusMessage || 'Attiva assistente vocale';
-}
-
 export function DynamicNotchVoice({ agentClient }: DynamicNotchVoiceProps) {
+  const { t } = useI18n();
   const [assistantState, setAssistantState] = useState<AssistantState>('idle');
   const [liveTranscript, setLiveTranscript] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
@@ -232,14 +224,14 @@ export function DynamicNotchVoice({ agentClient }: DynamicNotchVoiceProps) {
         const message =
           error instanceof Error && error.message.trim().length > 0
             ? error.message
-            : 'Errore durante invio comando.';
+            : t('assistant.sendError');
         setStatusMessage(message);
       } finally {
         resetVoiceDraft();
         settleBackToIdle();
       }
     },
-    [agentClient, resetVoiceDraft, settleBackToIdle],
+    [agentClient, resetVoiceDraft, settleBackToIdle, t],
   );
 
   const commitCurrentVoiceDraft = React.useCallback(() => {
@@ -358,7 +350,7 @@ export function DynamicNotchVoice({ agentClient }: DynamicNotchVoiceProps) {
       setAssistantState('listening');
     } catch {
       stopRecognitionSafely(recognition);
-      setStatusMessage('Impossibile avviare la trascrizione vocale.');
+      setStatusMessage(t('assistant.transcriptionStartError'));
       setAssistantState('idle');
     }
   }, [
@@ -521,6 +513,12 @@ export function DynamicNotchVoice({ agentClient }: DynamicNotchVoiceProps) {
     };
   }, [completeDrag, settleDrag, updateDragOffset]);
 
+  const assistantAriaLabel = assistantState === 'listening'
+    ? t('assistant.micOn')
+    : assistantState === 'processing'
+      ? t('assistant.sending')
+      : statusMessage || t('assistant.open');
+
   return (
     <div className="pointer-events-none fixed inset-y-0 right-0 z-[260] flex items-center justify-end">
       <svg aria-hidden className="absolute h-0 w-0">
@@ -540,10 +538,10 @@ export function DynamicNotchVoice({ agentClient }: DynamicNotchVoiceProps) {
         ref={triggerRef}
         type="button"
         className="pointer-events-auto relative flex h-72 w-24 cursor-grab touch-none items-center justify-end bg-transparent p-0 outline-none active:cursor-grabbing sm:h-80 sm:w-28"
-        aria-label={buildAriaLabel(assistantState, statusMessage)}
+        aria-label={assistantAriaLabel}
         data-assistant-state={assistantState}
         data-drag-offset={Math.round(dragOffset)}
-        title={statusMessage || (isSpeechRecognitionSupported ? 'Assist' : 'Trascrizione non supportata')}
+        title={statusMessage || (isSpeechRecognitionSupported ? 'Assist' : t('assistant.transcriptionUnsupportedShort'))}
         style={{ scale: 1 }}
       >
         <div

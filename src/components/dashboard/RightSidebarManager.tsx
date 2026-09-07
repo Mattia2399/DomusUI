@@ -119,6 +119,8 @@ import { useDashboardSecurity } from '../../security/dashboardAccess';
 import { useSensitiveActionGate } from '../../security/SensitiveActionGate';
 import { resolveCardDataSource } from '../../security/mockSourcePolicy';
 import { DASHBOARD_SIDEBAR_WIDTH_CLASS } from './DashboardSidebarPlaceholder';
+import { useI18n } from '../../i18n/I18nProvider';
+import { translateBuilderDetail } from '../../i18n/builderDetailCopy';
 
 const BUILDER_INPUT_CLASS = 'ui-input w-full rounded-xl px-3 py-2.5 text-sm';
 const BUILDER_TEXTAREA_CLASS = `${BUILDER_INPUT_CLASS} resize-none`;
@@ -926,6 +928,8 @@ export function RightSidebarManager({
   onRemoveSection,
   onRemoveSidebarPath,
 }: RightSidebarManagerProps) {
+  const { locale, t } = useI18n();
+  const bt = (value: string) => translateBuilderDetail(locale, value);
   const sidebarWidthClass = DASHBOARD_SIDEBAR_WIDTH_CLASS;
   const [isContextSheetDragging, setIsContextSheetDragging] = React.useState(false);
   const [contextSheetDragOffset, setContextSheetDragOffset] = React.useState(0);
@@ -1105,7 +1109,7 @@ export function RightSidebarManager({
     selectedWidget,
   ]);
 
-  const contextDeviceTitle = activeDevice?.name?.trim() || 'Dispositivo';
+  const contextDeviceTitle = activeDevice?.name?.trim() || t('builder.device');
   const contextSwitchEntity =
     activeDevice?.type === 'switch'
       ? resolveEntityStateById(haStates, activeDevice.switchEntityId)
@@ -1124,15 +1128,15 @@ export function RightSidebarManager({
         )
       : activeDevice?.type === 'switch' && contextSwitchState
         ? contextSwitchState === 'on'
-          ? 'Acceso'
+          ? t('builder.on')
           : contextSwitchState === 'off'
-            ? 'Spento'
+            ? t('builder.off')
             : contextSwitchState === 'unavailable'
-              ? 'Non disponibile'
-              : activeDevice.status ?? 'Stato sconosciuto'
+              ? t('builder.unavailable')
+              : activeDevice.status ?? t('builder.unknownState')
       : typeof activeDevice?.status === 'string' && activeDevice.status.trim().length > 0
         ? activeDevice.status.trim()
-        : 'Controlli dispositivo';
+        : t('builder.deviceControls');
   const renderAppleSwitch = ({
     checked,
     onChange,
@@ -1209,7 +1213,7 @@ export function RightSidebarManager({
                 transition={{ duration: 0.2 }}
                 onClick={onCloseContextSidebar}
                 className="fixed inset-0 z-[188] bg-[color:var(--ui-scrim)] backdrop-blur-sm transition-opacity"
-                aria-label="Chiudi pannello contestuale"
+                aria-label={t('builder.closeContext')}
               />
 
               <div className="fixed inset-0 z-[189] pointer-events-none flex items-end">
@@ -1249,7 +1253,7 @@ export function RightSidebarManager({
                           type="button"
                           onClick={onCloseContextSidebar}
                           className="glass-icon-button h-8 w-8"
-                          aria-label="Chiudi popup dispositivo"
+                          aria-label={t('builder.closeDevice')}
                         >
                           <X size={16} />
                         </button>
@@ -1326,9 +1330,19 @@ export function RightSidebarManager({
   const weatherForecastDays = selectedSection?.weatherForecastDays ?? 4;
   const weatherSecondaryInfo = selectedSection?.weatherSecondaryInfo ?? 'auto';
   const weatherSecondaryInfoOptions = resolveWeatherSecondaryInfoOptions(state.weather);
+  const localizedWeatherForecastTypeOptions = WEATHER_FORECAST_TYPE_OPTIONS.map((option) => ({ ...option, name: bt(option.name) }));
+  const localizedSceneActionTypeOptions = SCENE_ACTION_TYPE_OPTIONS.map((option) => ({ ...option, name: bt(option.name) }));
+  const localizedSensorPrecisionOptions = SENSOR_DISPLAY_PRECISION_OPTIONS.map((option) => ({
+    ...option,
+    name: option.id === 'auto'
+      ? bt(option.name)
+      : option.id === '1'
+        ? bt('1 decimale')
+        : `${option.id} ${bt('decimali')}`,
+  }));
   const weatherSecondaryDropdownOptions = weatherSecondaryInfoOptions.map((option) => ({
     id: option.value,
-    name: option.label,
+    name: bt(option.label),
   }));
   const weatherSecondaryInfoValues = new Set(weatherSecondaryInfoOptions.map((option) => option.value));
   const safeWeatherSecondaryInfo = weatherSecondaryInfoValues.has(weatherSecondaryInfo)
@@ -1339,7 +1353,7 @@ export function RightSidebarManager({
   const weatherForecastDayOptions = (weatherForecastType === 'hourly' ? [1, 2, 3, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7]).map(
     (days) => ({
       id: String(days),
-      name: `${days} ${weatherForecastType === 'hourly' ? 'ore' : 'giorni'}`,
+      name: `${days} ${bt(weatherForecastType === 'hourly' ? 'ore' : 'giorni')}`,
     }),
   );
   const isStackGridSection = selectedSection?.kind === 'stack-grid';
@@ -1349,7 +1363,7 @@ export function RightSidebarManager({
     const option = STACK_SECTION_MIN_COLUMNS + index;
     return {
       id: String(option),
-      name: `${option} colonne`,
+      name: `${option} ${bt('colonne')}`,
     };
   });
   const stackColumnsAutoMode = isStackGridSection && selectedSection?.stackColumnsMode !== 'manual';
@@ -1357,7 +1371,7 @@ export function RightSidebarManager({
     ? [
         {
           id: 'auto',
-          name: 'Auto (da contenuto)',
+          name: bt('Auto (da contenuto)'),
         },
         ...stackManualColumnOptions,
       ]
@@ -2197,14 +2211,14 @@ export function RightSidebarManager({
       const hasValidPayload = isValidScenePayloadJson(actionConfig.payloadJson);
       if (!hasService) {
         return {
-          label: 'Manca servizio',
+          label: bt('Manca servizio'),
           className: 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]',
           dotClassName: 'bg-amber-200/72',
         };
       }
       if (!hasValidPayload) {
         return {
-          label: 'JSON non valido',
+          label: bt('JSON non valido'),
           className: 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]',
           dotClassName: 'bg-rose-200/72',
         };
@@ -2224,7 +2238,7 @@ export function RightSidebarManager({
           dotClassName: 'bg-emerald-200/72',
         }
       : {
-          label: 'Manca script',
+          label: bt('Manca script'),
           className: 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]',
           dotClassName: 'bg-amber-200/72',
         };
@@ -2330,7 +2344,7 @@ export function RightSidebarManager({
             transition={{ duration: 0.2 }}
             onClick={onCloseContextSidebar}
             className="fixed inset-0 z-[218] bg-[color:var(--ui-scrim)] backdrop-blur-sm transition-opacity"
-            aria-label="Chiudi pannello configurazione"
+            aria-label={t('builder.closeConfiguration')}
           />
         ) : null}
       </AnimatePresence>
@@ -2349,15 +2363,15 @@ export function RightSidebarManager({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">Builder</p>
-          <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">Card Properties</h3>
+          <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">{t('builder.title')}</h3>
         </div>
         {hasEditSelection ? (
           <button
             type="button"
             onClick={onCloseContextSidebar}
             className="glass-icon-button -mr-1 -mt-1 h-9 w-9 active:scale-95"
-            aria-label="Chiudi pannello contestuale"
-            title="Chiudi"
+            aria-label={t('builder.closeContext')}
+            title={t('builder.closeContext')}
           >
             <X size={15} />
           </button>
@@ -2365,17 +2379,13 @@ export function RightSidebarManager({
       </div>
       {!selectedWidget && !selectedSection && !selectedSidebarPath ? (
         <div className="dashboard-content-surface-soft mt-5 flex flex-1 items-center justify-center rounded-2xl border-dashed p-6 text-center">
-          <p className="text-sm text-[color:var(--ui-text-secondary)]">
-            Seleziona una card, sezione o path
-            <br />
-            per configurarne le proprieta.
-          </p>
+          <p className="text-sm text-[color:var(--ui-text-secondary)]">{t('builder.empty')}</p>
         </div>
       ) : selectedSidebarPath ? (
         <div className="flex-1 mt-5 flex flex-col min-h-0">
           <div className="space-y-4 overflow-y-auto glass-scrollbar pr-1">
             <label className="block">
-              <p className={BUILDER_LABEL_CLASS}>Nome Path</p>
+              <p className={BUILDER_LABEL_CLASS}>{t('builder.pathName')}</p>
               <input
                 value={selectedSidebarPath.label}
                 onChange={(event) =>
@@ -2387,16 +2397,14 @@ export function RightSidebarManager({
               />
             </label>
             <div className="block">
-              <p className={BUILDER_LABEL_CLASS}>Destinazione</p>
+              <p className={BUILDER_LABEL_CLASS}>{t('builder.destination')}</p>
               <div className={`${BUILDER_INPUT_CLASS} cursor-default select-none text-[color:var(--ui-text-secondary)]`}>
                 {selectedSidebarPath.path}
               </div>
-              <p className={BUILDER_HELPER_CLASS}>
-                Destinazione di sistema protetta. Puoi personalizzare nome, icona e visibilita, ma non il percorso.
-              </p>
+              <p className={BUILDER_HELPER_CLASS}>{t('builder.protectedDestination')}</p>
             </div>
             <div className="block">
-              <p className={BUILDER_LABEL_CLASS}>Icona</p>
+              <p className={BUILDER_LABEL_CLASS}>{t('builder.icon')}</p>
               <div className="grid grid-cols-5 gap-2">
                 {SIDEBAR_PATH_ICON_KEYS.map((iconKey) => {
                   const Icon = SIDEBAR_PATH_ICON_MAP[iconKey] ?? LayoutGrid;
@@ -2416,7 +2424,7 @@ export function RightSidebarManager({
                           : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]'
                       }`}
                       title={iconKey}
-                      aria-label={`Imposta icona ${iconKey}`}
+                      aria-label={t('builder.setIcon', { icon: iconKey })}
                     >
                       <Icon size={16} />
                     </button>
@@ -2431,7 +2439,7 @@ export function RightSidebarManager({
             className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26"
           >
             <X size={16} />
-            Nascondi dalla barra
+            {t('builder.hideFromBar')}
           </button>
         </div>
       ) : selectedSection ? (
@@ -2442,7 +2450,7 @@ export function RightSidebarManager({
                 ariaLabel="Sezione configurazione saluto"
                 className="mb-3 shrink-0"
                 options={[
-                  { value: 'title' as const, label: 'Titolo e info' },
+                  { value: 'title' as const, label: bt('Titolo e info') },
                   { value: 'weather' as const, label: 'Meteo' },
                 ]}
                 value={greetingConfigTab}
@@ -2453,7 +2461,7 @@ export function RightSidebarManager({
                 {greetingConfigTab === 'title' ? (
                   <>
                     <label className="block">
-                      <p className={BUILDER_LABEL_CLASS}>Nome utente</p>
+                      <p className={BUILDER_LABEL_CLASS}>{bt('Nome utente')}</p>
                       <input
                         value={state.userName}
                         onChange={(event) => onUpdateUserName(event.target.value)}
@@ -2463,13 +2471,13 @@ export function RightSidebarManager({
                       />
                       <p className={BUILDER_HELPER_CLASS}>
                         {haConnected
-                          ? 'Con Home Assistant connesso, il saluto usa automaticamente l utente autenticato.'
-                          : 'Usato nei saluti automatici.'}
+                          ? bt('Con Home Assistant connesso, il saluto usa automaticamente l utente autenticato.')
+                          : bt('Usato nei saluti automatici.')}
                       </p>
                     </label>
                     <label className="block">
                       <div className="mb-2 flex items-center justify-between">
-                        <p className={BUILDER_LABEL_CLASS}>Titolo</p>
+                        <p className={BUILDER_LABEL_CLASS}>{bt('Titolo')}</p>
                         <button
                           type="button"
                           onClick={() =>
@@ -2510,7 +2518,7 @@ export function RightSidebarManager({
                     </label>
                     <label className="block">
                       <div className="mb-2 flex items-center justify-between">
-                        <p className={BUILDER_LABEL_CLASS}>Sottotitolo</p>
+                        <p className={BUILDER_LABEL_CLASS}>{bt('Sottotitolo')}</p>
                         <button
                           type="button"
                           onClick={() =>
@@ -2555,10 +2563,10 @@ export function RightSidebarManager({
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">
-                          Meteo nella card
+                          {bt('Meteo nella card')}
                         </p>
                         <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">
-                          Mostra il widget meteo dentro la card saluto.
+                          {bt('Mostra il widget meteo dentro la card saluto.')}
                         </p>
                       </div>
                       <GlassToggle
@@ -2569,20 +2577,20 @@ export function RightSidebarManager({
                             showWeather: nextChecked,
                           }))
                         }
-                        label="Mostra il meteo nella card saluto"
+                        label={bt('Mostra il meteo nella card saluto')}
                         tone="green"
                       />
                     </div>
                     {showWeather ? (
                       <div className="space-y-3 border-t border-[color:var(--ui-separator)] pt-3">
                       <div className="dashboard-content-surface-soft rounded-xl px-3 py-2.5">
-                        <p className="text-[11px] font-medium text-[color:var(--ui-text-primary)]">Layout meteo responsive</p>
+                        <p className="text-[11px] font-medium text-[color:var(--ui-text-primary)]">{bt('Layout meteo responsive')}</p>
                         <p className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">
-                          In questa card unificata il meteo usa chip su xs/sm e card previsioni su md/lg.
+                          {bt('In questa card unificata il meteo usa chip su xs/sm e card previsioni su md/lg.')}
                         </p>
                       </div>
                       <label className="block">
-                        <p className={BUILDER_LABEL_CLASS}>Unita</p>
+                        <p className={BUILDER_LABEL_CLASS}>{bt('Unita')}</p>
                         <GlassDropdown
                           options={WEATHER_UNIT_OPTIONS}
                           selected={findDropdownOption(WEATHER_UNIT_OPTIONS, weatherUnit)}
@@ -2595,7 +2603,7 @@ export function RightSidebarManager({
                         />
                       </label>
                       <label className="block">
-                        <p className={BUILDER_LABEL_CLASS}>Entita meteo</p>
+                        <p className={BUILDER_LABEL_CLASS}>{bt('Entita meteo')}</p>
                         <GlassCombobox
                           value={weatherEntityId}
                           options={weatherEntitySuggestions}
@@ -2609,7 +2617,7 @@ export function RightSidebarManager({
                         />
                       </label>
                       <label className="block">
-                        <p className={BUILDER_LABEL_CLASS}>Seconda info</p>
+                        <p className={BUILDER_LABEL_CLASS}>{bt('Seconda info')}</p>
                         <GlassDropdown
                           options={weatherSecondaryDropdownOptions}
                           selected={findDropdownOption(weatherSecondaryDropdownOptions, safeWeatherSecondaryInfo)}
@@ -2620,14 +2628,14 @@ export function RightSidebarManager({
                             }))
                           }
                         />
-                        <p className="mt-2 text-[11px] text-[color:var(--ui-text-secondary)]">{weatherSelectedInfoMeta.description}</p>
+                        <p className="mt-2 text-[11px] text-[color:var(--ui-text-secondary)]">{bt(weatherSelectedInfoMeta.description)}</p>
                       </label>
                       <label className="block">
-                        <p className={BUILDER_LABEL_CLASS}>Forecast</p>
+                        <p className={BUILDER_LABEL_CLASS}>{bt('Forecast')}</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <GlassDropdown
-                            options={WEATHER_FORECAST_TYPE_OPTIONS}
-                            selected={findDropdownOption(WEATHER_FORECAST_TYPE_OPTIONS, weatherForecastType)}
+                            options={localizedWeatherForecastTypeOptions}
+                            selected={findDropdownOption(localizedWeatherForecastTypeOptions, weatherForecastType)}
                             onChange={(option) =>
                               onUpdateSection(selectedSection.id, (section) => ({
                                 ...section,
@@ -2665,14 +2673,14 @@ export function RightSidebarManager({
                 className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26"
               >
                 <X size={16} />
-                Rimuovi Titolo
+                {t('builder.removeTitle')}
               </button>
             </>
           ) : selectedSection.kind === 'weather' ? (
             <>
             <div className="space-y-4 overflow-y-auto glass-scrollbar pr-1">
               <label className="block">
-                <p className={BUILDER_LABEL_CLASS}>Layout</p>
+                <p className={BUILDER_LABEL_CLASS}>{bt('Layout')}</p>
                 <GlassDropdown
                   options={WEATHER_LAYOUT_OPTIONS}
                   selected={findDropdownOption(WEATHER_LAYOUT_OPTIONS, weatherLayout)}
@@ -2684,8 +2692,8 @@ export function RightSidebarManager({
                   }
                 />
                 <div className="dashboard-content-surface-soft mt-2 rounded-xl px-3 py-2.5">
-                  <p className="text-[11px] font-medium text-[color:var(--ui-text-primary)]">{weatherLayoutPreview.title}</p>
-                  <p className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">{weatherLayoutPreview.description}</p>
+                  <p className="text-[11px] font-medium text-[color:var(--ui-text-primary)]">{bt(weatherLayoutPreview.title)}</p>
+                  <p className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">{bt(weatherLayoutPreview.description)}</p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {weatherLayoutPreview.chips.map((chip) => (
                       <span
@@ -2699,7 +2707,7 @@ export function RightSidebarManager({
                 </div>
               </label>
               <label className="block">
-                <p className={BUILDER_LABEL_CLASS}>Unita</p>
+                <p className={BUILDER_LABEL_CLASS}>{bt('Unita')}</p>
                 <GlassDropdown
                   options={WEATHER_UNIT_OPTIONS}
                   selected={findDropdownOption(WEATHER_UNIT_OPTIONS, weatherUnit)}
@@ -2712,7 +2720,7 @@ export function RightSidebarManager({
                 />
               </label>
               <label className="block">
-                <p className={BUILDER_LABEL_CLASS}>Entita meteo</p>
+                <p className={BUILDER_LABEL_CLASS}>{bt('Entita meteo')}</p>
                 <GlassCombobox
                   value={weatherEntityId}
                   options={weatherEntitySuggestions}
@@ -2726,11 +2734,11 @@ export function RightSidebarManager({
                 />
                 <p className={BUILDER_HELPER_CLASS}>
                   {haConnected && weatherEntitySuggestions.length > 0
-                    ? 'Suggerimenti live dalle entita weather.* di Home Assistant.'
-                    : 'Inserisci manualmente l\'entity id weather.* da usare per questa card.'}
+                    ? bt('Suggerimenti live dalle entita weather.* di Home Assistant.')
+                    : bt('Inserisci manualmente l\'entity id weather.* da usare per questa card.')}
                 </p>
                 <div className="mt-2 flex items-center gap-2 text-[11px] text-[color:var(--ui-text-secondary)]">
-                  <span>Consiglio provider</span>
+                  <span>{bt('Consiglio provider')}</span>
                   <span className="group relative inline-flex items-center">
                     <button
                       type="button"
@@ -2755,7 +2763,7 @@ export function RightSidebarManager({
                 </div>
               </label>
               <label className="block">
-                <p className={BUILDER_LABEL_CLASS}>Seconda info</p>
+                <p className={BUILDER_LABEL_CLASS}>{bt('Seconda info')}</p>
                 <GlassDropdown
                   options={weatherSecondaryDropdownOptions}
                   selected={findDropdownOption(weatherSecondaryDropdownOptions, safeWeatherSecondaryInfo)}
@@ -2766,14 +2774,14 @@ export function RightSidebarManager({
                     }))
                   }
                 />
-                <p className="mt-2 text-[11px] text-[color:var(--ui-text-secondary)]">{weatherSelectedInfoMeta.description}</p>
+                <p className="mt-2 text-[11px] text-[color:var(--ui-text-secondary)]">{bt(weatherSelectedInfoMeta.description)}</p>
               </label>
               <label className="block">
-                <p className={BUILDER_LABEL_CLASS}>Forecast</p>
+                <p className={BUILDER_LABEL_CLASS}>{bt('Forecast')}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <GlassDropdown
-                    options={WEATHER_FORECAST_TYPE_OPTIONS}
-                    selected={findDropdownOption(WEATHER_FORECAST_TYPE_OPTIONS, weatherForecastType)}
+                    options={localizedWeatherForecastTypeOptions}
+                    selected={findDropdownOption(localizedWeatherForecastTypeOptions, weatherForecastType)}
                     onChange={(option) =>
                       onUpdateSection(selectedSection.id, (section) => ({
                         ...section,
@@ -2810,7 +2818,7 @@ export function RightSidebarManager({
               className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26"
             >
               <X size={16} />
-              Rimuovi Meteo
+              {t('builder.removeWeather')}
             </button>
             </>
           ) : selectedSection.kind === 'scenes' ? (
@@ -2830,7 +2838,7 @@ export function RightSidebarManager({
               {sectionConfigTab === 'layout' ? (
                 <div className="space-y-4 overflow-y-auto glass-scrollbar pr-1">
                   <label className="block">
-                    <p className={BUILDER_LABEL_CLASS}>Titolo</p>
+                    <p className={BUILDER_LABEL_CLASS}>{bt('Titolo')}</p>
                     <input
                       value={selectedSection.title ?? 'Scenari'}
                       onChange={(event) =>
@@ -2845,7 +2853,7 @@ export function RightSidebarManager({
                   </label>
 
                   <div className="space-y-2">
-                    <p className={BUILDER_LABEL_CLASS}>Anteprima</p>
+                    <p className={BUILDER_LABEL_CLASS}>{bt('Anteprima')}</p>
                     <div className="dashboard-content-surface overflow-hidden rounded-[1.5rem] p-0">
                       <div className="h-[7rem] w-full">
                         <ScenesCard
@@ -2896,7 +2904,7 @@ export function RightSidebarManager({
 
                   <div className={BUILDER_CONTENT_CARD_CLASS}>
                     <div className="flex items-center justify-between gap-3">
-                      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Scene visibili</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{bt('Scene visibili')}</p>
                       <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-xs font-semibold text-[color:var(--ui-text-primary)]">
                         {scenesSelected.length}/{SCENES_CATALOG.length}
                       </span>
@@ -2907,7 +2915,7 @@ export function RightSidebarManager({
                 <div className="space-y-4 overflow-y-auto glass-scrollbar pr-1">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-3">
-                      <p className={BUILDER_LABEL_CLASS}>Scene</p>
+                      <p className={BUILDER_LABEL_CLASS}>{bt('Scene')}</p>
                       <span className="text-[11px] text-[color:var(--ui-text-tertiary)]">{scenesSelected.length} visibili</span>
                     </div>
                     <div className="space-y-2">
@@ -2949,8 +2957,8 @@ export function RightSidebarManager({
                             </button>
                             <button
                               type="button"
-                              aria-label={isActive ? `Nascondi ${displayLabel}` : `Mostra ${displayLabel}`}
-                              title={isActive ? 'Nascondi scena' : 'Mostra scena'}
+                              aria-label={t(isActive ? 'builder.hideNamed' : 'builder.showNamed', { name: displayLabel })}
+                              title={isActive ? bt('Nascondi scena') : bt('Mostra scena')}
                               onClick={() => {
                                 setSelectedSceneConfigId(scene.id);
                                 onUpdateSection(selectedSection.id, (section) => {
@@ -3013,7 +3021,7 @@ export function RightSidebarManager({
                         </div>
 
                         <label className="block">
-                          <p className={BUILDER_LABEL_CLASS}>Nome scena</p>
+                          <p className={BUILDER_LABEL_CLASS}>{bt('Nome scena')}</p>
                           <input
                             value={sceneLabels[scene.id] ?? ''}
                             onChange={(event) => {
@@ -3028,7 +3036,7 @@ export function RightSidebarManager({
                         </label>
 
                         <label className="block">
-                          <p className={BUILDER_LABEL_CLASS}>Icona</p>
+                          <p className={BUILDER_LABEL_CLASS}>{bt('Icona')}</p>
                           <GlassDropdown
                             options={iconOptions}
                             selected={findDropdownOption(iconOptions, sceneIcons[scene.id] ?? '')}
@@ -3042,10 +3050,10 @@ export function RightSidebarManager({
                         </label>
 
                         <label className="block">
-                          <p className={BUILDER_LABEL_CLASS}>Tipo azione</p>
+                          <p className={BUILDER_LABEL_CLASS}>{bt('Tipo azione')}</p>
                           <GlassDropdown
-                            options={SCENE_ACTION_TYPE_OPTIONS}
-                            selected={findDropdownOption(SCENE_ACTION_TYPE_OPTIONS, actionType)}
+                            options={localizedSceneActionTypeOptions}
+                            selected={findDropdownOption(localizedSceneActionTypeOptions, actionType)}
                             onChange={(option) => {
                               const nextType = option.id as SceneActionType;
                               onUpdateSection(selectedSection.id, (section) =>
@@ -3079,7 +3087,7 @@ export function RightSidebarManager({
                         ) : (
                           <div className="space-y-2">
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Servizio</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Servizio')}</p>
                               <GlassCombobox
                                 value={actionConfig.service ?? ''}
                                 options={SCENE_ACTION_SERVICE_SUGGESTIONS}
@@ -3096,7 +3104,7 @@ export function RightSidebarManager({
                               />
                             </label>
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Entity ID</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Entity ID')}</p>
                               <GlassCombobox
                                 value={actionConfig.entityId ?? ''}
                                 options={haEntityIds}
@@ -3113,7 +3121,7 @@ export function RightSidebarManager({
                               />
                             </label>
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Payload JSON</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Payload JSON')}</p>
                               <textarea
                                 rows={2}
                                 value={actionConfig.payloadJson ?? ''}
@@ -3145,7 +3153,7 @@ export function RightSidebarManager({
                 className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26"
               >
                 <X size={16} />
-                Rimuovi Scenari
+                {t('builder.removeScenes')}
               </button>
             </>
           ) : selectedSection.kind === 'stack-vertical' ||
@@ -3154,7 +3162,7 @@ export function RightSidebarManager({
             <>
               <div className="space-y-4 overflow-y-auto glass-scrollbar pr-1">
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Titolo</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Titolo')}</p>
                   <input
                     value={isFavoritesGridTitleLocked ? FAVORITES_GRID_TITLE : selectedSection.title ?? ''}
                     onChange={(event) => {
@@ -3177,7 +3185,7 @@ export function RightSidebarManager({
                 </label>
                 {selectedSection.kind !== 'stack-vertical' ? (
                   <label className="block">
-                    <p className={BUILDER_LABEL_CLASS}>Colonne</p>
+                    <p className={BUILDER_LABEL_CLASS}>{bt('Colonne')}</p>
                     <GlassDropdown
                       options={stackCanvasColumnOptions}
                       selected={findDropdownOption(stackCanvasColumnOptions, stackCanvasColumnSelectionId)}
@@ -3219,9 +3227,9 @@ export function RightSidebarManager({
                     <p className="mt-2 text-[11px] text-[color:var(--ui-text-secondary)]">
                       {selectedSection.kind === 'stack-grid'
                         ? stackColumnsAutoMode
-                          ? 'Auto: la larghezza viene calcolata dalle card interne.'
-                          : 'Manuale: imposta quante colonne canvas deve occupare lo stack.'
-                        : 'Imposta quante colonne canvas deve occupare lo stack.'}
+                          ? bt('Auto: la larghezza viene calcolata dalle card interne.')
+                          : bt('Manuale: imposta quante colonne canvas deve occupare lo stack.')
+                        : t('builder.stackColumns')}
                     </p>
                   </label>
                 ) : null}
@@ -3304,12 +3312,12 @@ export function RightSidebarManager({
                 ) : null}
                 <p className="text-[11px] text-[color:var(--ui-text-tertiary)]">
                   {selectedSection.kind === 'stack-vertical'
-                    ? 'Stack verticale con una sola colonna.'
+                    ? bt('Stack verticale con una sola colonna.')
                     : selectedSection.kind === 'stack-horizontal'
-                      ? 'Stack orizzontale: usa la griglia derivata dal canvas.'
+                      ? bt('Stack orizzontale: usa la griglia derivata dal canvas.')
                       : stackColumnsAutoMode
-                        ? 'Stack a griglia: larghezza automatica derivata dalle card interne.'
-                        : 'Stack a griglia: larghezza manuale impostata dal pannello.'}
+                        ? bt('Stack a griglia: larghezza automatica derivata dalle card interne.')
+                        : bt('Stack a griglia: larghezza manuale impostata dal pannello.')}
                 </p>
               </div>
               <button
@@ -3318,12 +3326,12 @@ export function RightSidebarManager({
                 className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26"
               >
                 <X size={16} />
-                Rimuovi Stack
+                {t('builder.removeStack')}
               </button>
             </>
           ) : (
             <div className="dashboard-content-surface-soft flex flex-1 items-center justify-center rounded-2xl border-dashed p-6 text-center">
-              <p className="text-sm text-[color:var(--ui-text-secondary)]">Questa sezione non e configurabile.</p>
+              <p className="text-sm text-[color:var(--ui-text-secondary)]">{bt('Questa sezione non e configurabile.')}</p>
             </div>
           )}
         </div>
@@ -3347,7 +3355,7 @@ export function RightSidebarManager({
               <div className={BUILDER_CONTENT_CARD_CLASS}>
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
-                    <p className={BUILDER_LABEL_CLASS}>Preview live</p>
+                    <p className={BUILDER_LABEL_CLASS}>{bt('Preview live')}</p>
                     <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">
                       Dimensione attuale: {layoutPickerWidth} × {layoutPickerHeight}
                       {selectedWidgetCanvasMetrics
@@ -3403,7 +3411,7 @@ export function RightSidebarManager({
 
               <div className={BUILDER_CONTENT_CARD_CLASS}>
                 <div className="mb-3">
-                  <p className={BUILDER_LABEL_CLASS}>Dimensione</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Dimensione')}</p>
                   <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">
                     La dimensione decide automaticamente quali elementi mostrare.
                   </p>
@@ -3505,7 +3513,7 @@ export function RightSidebarManager({
                           </span>
                         </span>
                         <span className="mt-0.5 block truncate text-[10px] text-[color:var(--ui-text-tertiary)]">
-                          {option.isAvailable ? option.description : 'Non disponibile qui'}
+                          {option.isAvailable ? t(option.descriptionKey) : t('builder.variant.unavailable')}
                         </span>
                       </button>
                     ))}
@@ -3515,7 +3523,7 @@ export function RightSidebarManager({
                 {selectedWidget.kind === 'light' ? (
                   <div className="mt-3 flex items-center justify-between gap-3 border-t border-[color:var(--ui-separator)] pt-3">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">Espansione automatica</p>
+                      <p className="text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">{bt('Espansione automatica')}</p>
                       <p className="mt-0.5 text-[10px] text-[color:var(--ui-text-tertiary)]">
                         {selectedLightAutoExpand
                           ? `Spenta ${layoutPickerWidth}×${selectedLightOffHeight} → Accesa ${layoutPickerWidth}×${selectedLightOnHeight}`
@@ -3525,19 +3533,19 @@ export function RightSidebarManager({
                     {renderAppleSwitch({
                       checked: selectedLightAutoExpand,
                       onChange: handleLightAutoExpandChange,
-                      label: 'Espansione automatica luce',
+                      label: bt('Espansione automatica luce'),
                     })}
                   </div>
                 ) : null}
 
                 <div className="mt-3 flex items-center gap-2 border-t border-[color:var(--ui-separator)] pt-3">
-                  <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-tertiary)]">Applica a</span>
+                  <span className="shrink-0 text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-tertiary)]">{bt('Applica a')}</span>
                   <GlassSegmentSelect
                     ariaLabel="Applica dimensione"
                     className="min-w-0 flex-1"
                     options={[
-                      { value: 'widget' as const, label: <span className="block truncate">Questa card</span>, ariaLabel: 'Applica solo alla card selezionata' },
-                      { value: 'type' as const, label: <span className="block truncate">Tutte</span>, ariaLabel: 'Applica a tutte le card dello stesso tipo' },
+                      { value: 'widget' as const, label: <span className="block truncate">{bt('Questa card')}</span>, ariaLabel: bt('Applica solo alla card selezionata') },
+                      { value: 'type' as const, label: <span className="block truncate">{bt('Tutte')}</span>, ariaLabel: bt('Applica a tutte le card dello stesso tipo') },
                     ]}
                     value={layoutApplyScope}
                     onChange={handleLayoutApplyScopeChange}
@@ -3549,8 +3557,8 @@ export function RightSidebarManager({
               <details className="dashboard-content-surface group rounded-2xl p-3">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-2xl px-1 py-1 text-left [&::-webkit-details-marker]:hidden">
                   <span>
-                    <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Avanzato</span>
-                    <span className="mt-1 block text-[11px] text-[color:var(--ui-text-tertiary)]">Controllo manuale colonne × righe</span>
+                    <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{bt('Avanzato')}</span>
+                    <span className="mt-1 block text-[11px] text-[color:var(--ui-text-tertiary)]">{bt('Controllo manuale colonne × righe')}</span>
                   </span>
                   <span className="liquid-glass-control inline-flex h-11 w-11 shrink-0 items-center justify-center text-[color:var(--ui-text-secondary)] transition group-open:rotate-180">
                     <ChevronDown size={14} strokeWidth={2.2} />
@@ -3560,7 +3568,7 @@ export function RightSidebarManager({
                   <div className={`${BUILDER_CONTENT_CARD_SOFT_CLASS} space-y-3`}>
                     <div>
                       <div className="mb-2">
-                        <span className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Colonne</span>
+                        <span className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{bt('Colonne')}</span>
                       </div>
                       <div
                         className="grid w-full gap-1.5"
@@ -3587,7 +3595,7 @@ export function RightSidebarManager({
                                     ? 'border-[color:rgb(var(--ui-accent-rgb)/0.32)] bg-[color:rgb(var(--ui-accent-rgb)/0.18)]'
                                     : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-fill-secondary)]'
                               }`}
-                              aria-label={`Imposta larghezza ${nextWidth} colonne`}
+                        aria-label={t('builder.setWidth', { count: nextWidth })}
                             />
                           );
                         })}
@@ -3596,7 +3604,7 @@ export function RightSidebarManager({
 
                     <div>
                       <div className="mb-2">
-                        <span className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Righe</span>
+                        <span className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{bt('Righe')}</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {WIDGET_LAYOUT_HEIGHT_SCALE_OPTIONS.map((option) => {
@@ -3612,7 +3620,7 @@ export function RightSidebarManager({
                                   : 'liquid-segmented-option-inactive border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-fill-secondary)]'
                               }`}
                               aria-pressed={active}
-                              aria-label={`Imposta altezza ${option.label}`}
+                        aria-label={t('builder.setHeight', { height: option.label })}
                             >
                               {option.label}
                             </button>
@@ -3639,7 +3647,7 @@ export function RightSidebarManager({
           <div className={widgetConfigTab === 'settings' ? 'contents' : 'hidden'}>
           <div className="space-y-4 overflow-y-auto glass-scrollbar pr-1">
             <label className="block">
-              <p className={BUILDER_LABEL_CLASS}>Titolo</p>
+              <p className={BUILDER_LABEL_CLASS}>{bt('Titolo')}</p>
               <input
                 value={selectedWidget.title}
                 onChange={(event) =>
@@ -3652,7 +3660,7 @@ export function RightSidebarManager({
               />
             </label>
             <label className="block" data-tour-target="builder-entity">
-              <p className={BUILDER_LABEL_CLASS}>Entita</p>
+              <p className={BUILDER_LABEL_CLASS}>{bt('Entita')}</p>
               <GlassCombobox
                 value={selectedWidget.entityId}
                 options={entitySuggestions}
@@ -3671,15 +3679,15 @@ export function RightSidebarManager({
               />
               <p className={BUILDER_HELPER_CLASS}>
                 {haConnected && liveEntitySuggestions.length > 0
-                  ? 'Suggerimenti live dalle entita disponibili in Home Assistant.'
+                  ? bt('Suggerimenti live dalle entita disponibili in Home Assistant.')
                   : staticSuggestions.length > 0
-                    ? 'Entita dimostrative disponibili esclusivamente nella Demo.'
-                    : 'Digita un entity ID oppure verifica la connessione a Home Assistant.'}
+                    ? bt('Entita dimostrative disponibili esclusivamente nella Demo.')
+                    : bt('Digita un entity ID oppure verifica la connessione a Home Assistant.')}
               </p>
             </label>
             {selectedWidget.kind === 'switch' ? (
               <label className="block">
-                <p className={BUILDER_LABEL_CLASS}>Entita consumo</p>
+                <p className={BUILDER_LABEL_CLASS}>{bt('Entita consumo')}</p>
                 <GlassCombobox
                   value={selectedWidget.switchConsumptionEntityId ?? ''}
                   options={switchConsumptionSuggestions}
@@ -3696,11 +3704,11 @@ export function RightSidebarManager({
             {selectedWidget.kind === 'sensor' ? (
               <>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Decimali visualizzati</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Decimali visualizzati')}</p>
                   <GlassDropdown
-                    options={SENSOR_DISPLAY_PRECISION_OPTIONS}
+                    options={localizedSensorPrecisionOptions}
                     selected={findDropdownOption(
-                      SENSOR_DISPLAY_PRECISION_OPTIONS,
+                      localizedSensorPrecisionOptions,
                       typeof selectedWidget.sensorDisplayPrecision === 'number'
                         ? String(selectedWidget.sensorDisplayPrecision)
                         : 'auto',
@@ -3714,17 +3722,16 @@ export function RightSidebarManager({
                     }
                   />
                   <p className={BUILDER_HELPER_CLASS}>
-                    Automatico usa la precisione suggerita da Home Assistant o il default del device class.
+                    {bt('Automatico usa la precisione suggerita da Home Assistant o il default del device class.')}
                   </p>
                 </label>
                 <div className={BUILDER_CONTENT_CARD_SOFT_CLASS}>
                   <p className="text-[11px] text-[color:var(--ui-text-secondary)]">
-                    Entita opzionali per metadati sensore. Se lasci vuoto, il pannello contestuale prova a leggere
-                    batteria, stato e connessione dagli attributi dell&apos;entita principale.
+                    {bt('Entita opzionali per metadati sensore. Se lasci vuoto, il pannello contestuale prova a leggere batteria, stato e connessione dagli attributi dell\'entita principale.')}
                   </p>
                 </div>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Entita batteria</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Entita batteria')}</p>
                   <GlassCombobox
                     value={selectedWidget.sensorBatteryEntityId ?? ''}
                     options={sensorBatterySuggestions}
@@ -3738,7 +3745,7 @@ export function RightSidebarManager({
                   />
                 </label>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Entita stato</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Entita stato')}</p>
                   <GlassCombobox
                     value={selectedWidget.sensorStatusEntityId ?? ''}
                     options={sensorMetaSuggestions}
@@ -3752,7 +3759,7 @@ export function RightSidebarManager({
                   />
                 </label>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Entita connessione</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Entita connessione')}</p>
                   <GlassCombobox
                     value={selectedWidget.sensorConnectionEntityId ?? ''}
                     options={sensorMetaSuggestions}
@@ -3770,13 +3777,10 @@ export function RightSidebarManager({
             {selectedWidget.kind === 'lock' ? (
               <>
                 <div className={BUILDER_CONTENT_CARD_SOFT_CLASS}>
-                  <p className="text-[11px] text-[color:var(--ui-text-secondary)]">
-                    Batteria e connessione vengono trovate automaticamente negli attributi o tra le entita dello
-                    stesso dispositivo Home Assistant. Usa questi campi soltanto per scegliere un&apos;entita diversa.
-                  </p>
+                  <p className="text-[11px] text-[color:var(--ui-text-secondary)]">{t('builder.autoTelemetry')}</p>
                 </div>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Override batteria</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Override batteria')}</p>
                   <GlassCombobox
                     value={selectedWidget.lockBatteryEntityId ?? ''}
                     options={sensorBatterySuggestions}
@@ -3790,7 +3794,7 @@ export function RightSidebarManager({
                   />
                 </label>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Override connessione</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Override connessione')}</p>
                   <GlassCombobox
                     value={selectedWidget.lockConnectionEntityId ?? ''}
                     options={sensorMetaSuggestions}
@@ -3814,28 +3818,28 @@ export function RightSidebarManager({
                   void sensitiveGate.authorize({
                     action: 'view_security_codes',
                     capability: 'manage_security_config',
-                    title: 'Sbloccare i codici di sicurezza?',
-                    description: 'I codici resteranno accessibili soltanto fino al refresh o alla chiusura della pagina.',
+                    title: bt('Sbloccare i codici di sicurezza?'),
+                    description: bt('I codici resteranno accessibili soltanto fino al refresh o alla chiusura della pagina.'),
                   });
                 }}
                 className="dashboard-content-surface w-full rounded-2xl p-4 text-left transition hover:border-[color:var(--ui-border-strong)]"
               >
-                <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">Sblocca configurazione sicurezza</span>
+                <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">{bt('Sblocca configurazione sicurezza')}</span>
                 <span className="mt-1 block text-[11px] leading-snug text-[color:var(--ui-text-tertiary)]">
-                  Usa Conferma dispositivo se disponibile, altrimenti una conferma locale esplicita.
+                  {t('builder.deviceConfirmationHint')}
                 </span>
               </button>
             ) : null}
             {selectedWidget.kind === 'alarm' && sensitiveGate.isUnlocked ? (
               <div className="space-y-3">
                 <div className={BUILDER_CONTENT_CARD_SOFT_CLASS}>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Come funziona</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{bt('Come funziona')}</p>
                   <p className={BUILDER_HELPER_CLASS}>
-                    Di base la dashboard usa il PIN Home Assistant. Se aggiungi un codice extra locale, nel popup inserirai PIN HA + codice extra: ad Home Assistant verra inviato solo il PIN HA. L&apos;autenticazione dispositivo, se attiva, viene provata per prima.
+                    {bt('Di base la dashboard usa il PIN Home Assistant. Se aggiungi un codice extra locale, nel popup inserirai PIN HA + codice extra: ad Home Assistant verra inviato solo il PIN HA. L\'autenticazione dispositivo, se attiva, viene provata per prima.')}
                   </p>
                 </div>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>PIN Home Assistant</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('PIN Home Assistant')}</p>
                   <input
                     type="password"
                     autoComplete="new-password"
@@ -3851,11 +3855,11 @@ export function RightSidebarManager({
                     className={BUILDER_INPUT_CLASS}
                   />
                   <p className={BUILDER_HELPER_CLASS}>
-                    Conservato solo fino al refresh. Puoi scegliere sotto se ricordarlo su questo dispositivo.
+                    {bt('Conservato solo fino al refresh. Puoi scegliere sotto se ricordarlo su questo dispositivo.')}
                   </p>
                 </label>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Codice extra locale</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Codice extra locale')}</p>
                   <input
                     type="password"
                     autoComplete="new-password"
@@ -3871,19 +3875,19 @@ export function RightSidebarManager({
                     className={BUILDER_INPUT_CLASS}
                   />
                   <p className={BUILDER_HELPER_CLASS}>
-                    Se compilato, il popup richiede PIN HA + extra. È una conferma locale, non un secondo fattore server.
+                    {t('builder.extraCodeHint')}
                   </p>
                 </label>
                 <div className="dashboard-content-surface-soft flex items-center justify-between gap-3 rounded-2xl px-3 py-3">
                   <span className="min-w-0">
-                    <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Conferma dispositivo</span>
+                    <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{t('builder.deviceConfirmation')}</span>
                     <span className="mt-1 block text-[11px] leading-snug text-[color:var(--ui-text-tertiary)]">
-                      Usa Windows Hello, Face ID, impronta o passkey come metodo rapido prima del PIN allarme.
+                      {bt('Usa Windows Hello, Face ID, impronta o passkey come metodo rapido prima del PIN allarme.')}
                     </span>
                   </span>
                   {renderAppleSwitch({
                     checked: selectedWidget.alarmRequireAuthToDisarm ?? false,
-                    label: 'Attiva Conferma dispositivo per allarme',
+                    label: t('builder.enableAlarmConfirmation'),
                     onChange: (nextChecked) =>
                       onUpdateWidget(selectedWidget.id, (widget) => ({
                         ...widget,
@@ -3896,7 +3900,7 @@ export function RightSidebarManager({
             {selectedWidget.kind === 'lock' && sensitiveGate.isUnlocked ? (
               <div className="space-y-3">
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Codice Home Assistant serratura</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Codice Home Assistant serratura')}</p>
                   <input
                     type="password"
                     autoComplete="new-password"
@@ -3912,19 +3916,19 @@ export function RightSidebarManager({
                     className={BUILDER_INPUT_CLASS}
                   />
                   <p className={BUILDER_HELPER_CLASS}>
-                    Viene inviato ad Home Assistant solo quando richiesto. Per default si cancella al refresh.
+                    {bt('Viene inviato ad Home Assistant solo quando richiesto. Per default si cancella al refresh.')}
                   </p>
                 </label>
                 <div className="dashboard-content-surface-soft flex items-center justify-between gap-3 rounded-2xl px-3 py-3">
                   <span className="min-w-0">
-                    <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Conferma dispositivo</span>
+                    <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{t('builder.deviceConfirmation')}</span>
                     <span className="mt-1 block text-[11px] leading-snug text-[color:var(--ui-text-tertiary)]">
-                      Prova prima Face ID, impronta, PIN dispositivo o passkey; se non riesce, richiede il codice serratura configurato.
+                      {bt('Prova prima Face ID, impronta, PIN dispositivo o passkey; se non riesce, richiede il codice serratura configurato.')}
                     </span>
                   </span>
                   {renderAppleSwitch({
                     checked: selectedWidget.lockRequireAuthToUnlock ?? false,
-                    label: 'Attiva Conferma dispositivo per lo sblocco',
+                    label: t('builder.enableLockConfirmation'),
                     onChange: (nextChecked) =>
                       onUpdateWidget(selectedWidget.id, (widget) => ({
                         ...widget,
@@ -3937,14 +3941,14 @@ export function RightSidebarManager({
             {(selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock') && sensitiveGate.isUnlocked ? (
               <div className="dashboard-content-surface-soft flex items-center justify-between gap-3 rounded-2xl px-3 py-3">
                 <span className="min-w-0">
-                  <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Ricorda su questo dispositivo</span>
+                  <span className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{bt('Ricorda su questo dispositivo')}</span>
                   <span className="mt-1 block text-[11px] leading-snug text-[color:var(--ui-text-tertiary)]">
-                    Salva i codici nel browser in chiaro. Non è un vault e non viene incluso in backup o sync.
+                    {t('builder.localCodeWarning')}
                   </span>
                 </span>
                 {renderAppleSwitch({
                   checked: selectedWidgetSecrets.rememberOnDevice,
-                  label: 'Ricorda i codici di questa card sul dispositivo',
+                  label: bt('Ricorda i codici di questa card sul dispositivo'),
                   onChange: (nextChecked) =>
                     setWidgetSecretsRemembered(
                       selectedWidget.id,
@@ -3956,9 +3960,9 @@ export function RightSidebarManager({
             ) : null}
             {selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' ? (
               <div className={`${BUILDER_CONTENT_CARD_CLASS} space-y-3`}>
-                <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Attivita recente</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{bt('Attivita recente')}</p>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Elementi visibili</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Elementi visibili')}</p>
                   <input
                     type="number"
                     min={MIN_ACTIVITY_LOG_ENTRIES}
@@ -3975,7 +3979,7 @@ export function RightSidebarManager({
                   />
                 </label>
                 <label className="block">
-                  <p className={BUILDER_LABEL_CLASS}>Finestra storico (ore)</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Finestra storico (ore)')}</p>
                   <input
                     type="number"
                     min={MIN_ACTIVITY_LOG_HOURS}
@@ -3992,8 +3996,7 @@ export function RightSidebarManager({
                   />
                 </label>
                 <p className="text-[11px] text-[color:var(--ui-text-tertiary)]">
-                  Scegli quante righe mostrare e quante ore interrogare dal Logbook reale di Home Assistant.
-                  Se i dati non sono disponibili, il pannello lo indichera chiaramente.
+                  {t('builder.historyHint')}
                 </p>
               </div>
             ) : null}
@@ -4004,21 +4007,21 @@ export function RightSidebarManager({
             className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26"
           >
             <X size={16} />
-            Rimuovi Card
+            {t('builder.removeCard')}
           </button>
         </div>
           {widgetConfigTab === 'related' ? (
             <div className="flex-1 space-y-4 overflow-y-auto glass-scrollbar pr-1">
               <div className={BUILDER_CONTENT_CARD_CLASS}>
                 <div>
-                  <p className={BUILDER_LABEL_CLASS}>Dispositivi correlati</p>
+                  <p className={BUILDER_LABEL_CLASS}>{bt('Dispositivi correlati')}</p>
                   <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">
-                    Aggiungi widget dal catalogo, con anteprima uguale alla modalita live.
+                    {t('builder.micro.addDescription')}
                   </p>
                 </div>
 
                 <div className="dashboard-content-surface-soft mt-3 rounded-2xl p-3">
-                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Anteprima pannello live</p>
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{bt('Anteprima pannello live')}</p>
                   <div className="mt-2 grid grid-cols-1 min-[420px]:grid-cols-2 gap-2.5">
                     {microWidgets.map((microWidget, microWidgetIndex) => {
                       const fallbackLabel = microWidget.label?.trim() || `Widget ${microWidgetIndex + 1}`;
@@ -4037,8 +4040,8 @@ export function RightSidebarManager({
                           className={`relative w-full text-left transition-all ${
                             isSelected ? 'scale-[1.01]' : 'hover:scale-[1.005]'
                           }`}
-                          aria-label={`Configura ${fallbackLabel}`}
-                          title={`Configura ${fallbackLabel}`}
+                          aria-label={t('builder.configureNamed', { name: fallbackLabel })}
+                          title={t('builder.configureNamed', { name: fallbackLabel })}
                         >
                           <div
                             className={`${previewFrameRadius} overflow-hidden transition-all ${
@@ -4067,8 +4070,8 @@ export function RightSidebarManager({
                           ? 'liquid-glass-selection border-[color:var(--ui-border-strong)]'
                           : 'border-[color:var(--ui-border)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]'
                       }`}
-                      aria-label="Apri catalogo micro-widget"
-                      title="Apri catalogo micro-widget"
+                            aria-label={t('builder.micro.openCatalog')}
+                            title={t('builder.micro.openCatalog')}
                     >
                       <span className="flex h-full items-center justify-center">
                         <Plus size={18} />
@@ -4079,7 +4082,7 @@ export function RightSidebarManager({
 
                 {microWidgets.length > 0 ? (
                   <div className="mt-3 space-y-3">
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Configurazione widget selezionato</p>
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{bt('Configurazione widget selezionato')}</p>
                     {selectedMicroWidget ? (
                       <div key={selectedMicroWidget.id} className={BUILDER_CONTENT_CARD_SOFT_CLASS}>
                         <div className="mb-3 flex items-center justify-between gap-2">
@@ -4103,8 +4106,8 @@ export function RightSidebarManager({
                               });
                             }}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-300/30 bg-rose-500/12 text-rose-100 transition-colors hover:bg-rose-500/20"
-                            aria-label="Rimuovi micro-widget"
-                            title="Rimuovi micro-widget"
+                            aria-label={t('builder.micro.remove')}
+                            title={t('builder.micro.remove')}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -4113,7 +4116,7 @@ export function RightSidebarManager({
                         <div className="grid grid-cols-1 gap-3">
                           {selectedMicroWidget.type === 'micro_button' ? (
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Funzione</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Funzione')}</p>
                               <GlassSegmentSelect
                                 ariaLabel="Funzione micro pulsante"
                                 options={[
@@ -4149,7 +4152,7 @@ export function RightSidebarManager({
 
                           {selectedMicroButtonMode !== 'page' ? (
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Entita</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Entita')}</p>
                               <GlassCombobox
                                 value={selectedMicroWidget.entity}
                                 options={microWidgetEntityOptions}
@@ -4170,7 +4173,7 @@ export function RightSidebarManager({
 
                           {selectedMicroButtonMode === 'push' ? (
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Invio segnale</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Invio segnale')}</p>
                               <div className="dashboard-content-surface-soft flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2.5">
                                 <span className="text-left text-sm text-[color:var(--ui-text-primary)]">
                                   Mantieni il segnale finche il dito resta premuto
@@ -4195,7 +4198,7 @@ export function RightSidebarManager({
 
                           {selectedMicroButtonMode === 'page' ? (
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Pagina destinazione</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Pagina destinazione')}</p>
                               <div className="dashboard-content-surface-soft rounded-xl p-2">
                                 <div className="max-h-32 overflow-y-auto glass-scrollbar space-y-1">
                                   {microWidgetPageOptions.map((path) => {
@@ -4250,7 +4253,7 @@ export function RightSidebarManager({
 
                           {selectedMicroWidget.type === 'micro_slider' ? (
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Invio valore</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Invio valore')}</p>
                               <div className="dashboard-content-surface-soft flex min-h-11 items-center justify-between gap-3 rounded-xl px-3 py-2.5">
                                 <span className="text-left text-sm text-[color:var(--ui-text-primary)]">
                                   Invia solo al rilascio
@@ -4275,7 +4278,7 @@ export function RightSidebarManager({
 
                           {selectedMicroWidget.type === 'micro_superchart' ? (
                             <label className="block">
-                              <p className={BUILDER_LABEL_CLASS}>Tipo grafico</p>
+                              <p className={BUILDER_LABEL_CLASS}>{bt('Tipo grafico')}</p>
                               <GlassSegmentSelect
                                 ariaLabel="Tipo grafico"
                                 options={[
@@ -4321,7 +4324,7 @@ export function RightSidebarManager({
                       </div>
                     ) : (
                       <div className="dashboard-content-surface-soft rounded-2xl border-dashed px-3 py-3 text-sm text-[color:var(--ui-text-secondary)]">
-                        Seleziona un widget dalla preview live per aprire la sua configurazione.
+                        {t('builder.micro.selectPreview')}
                       </div>
                     )}
                   </div>
@@ -4337,16 +4340,16 @@ export function RightSidebarManager({
           isOpen={isMicroWidgetCatalogOpen}
           onClose={() => setIsMicroWidgetCatalogOpen(false)}
           eyebrow="Catalogo micro-widget"
-          title="Aggiungi dispositivo correlato"
+          title={t('builder.micro.addRelated')}
           variant="responsive"
           size="xl"
           zIndex={220}
-          closeLabel="Chiudi catalogo micro-widget"
+          closeLabel={t('builder.micro.closeCatalog')}
           bodyClassName="pr-1"
         >
                 <div>
                   <label className="block">
-                    <p className={BUILDER_LABEL_CLASS}>Entita da associare</p>
+                    <p className={BUILDER_LABEL_CLASS}>{bt('Entita da associare')}</p>
                     <input
                       value={microWidgetCatalogEntity}
                       onChange={(event) => setMicroWidgetCatalogEntity(event.target.value)}
@@ -4413,7 +4416,7 @@ export function RightSidebarManager({
                         })
                       ) : (
                         <div className="dashboard-content-surface-soft rounded-lg px-2.5 py-2 text-xs text-[color:var(--ui-text-secondary)]">
-                          Nessuna entita trovata con questi filtri.
+                          {t('builder.micro.noEntities')}
                         </div>
                       )}
                     </div>
@@ -4425,7 +4428,7 @@ export function RightSidebarManager({
 
                   {!hasCatalogEntitySelection ? (
                     <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-500/12 px-3 py-2 text-xs text-amber-100/90">
-                      Seleziona prima un&apos;entita per abilitare il pulsante Aggiungi.
+                      {t('builder.micro.selectEntityHint')}
                     </div>
                   ) : null}
 
@@ -4477,10 +4480,10 @@ export function RightSidebarManager({
                             <div className="mt-2 flex items-center justify-between gap-3 px-1">
                               <div className="min-w-0">
                                 <p className="truncate text-xs font-semibold text-[color:var(--ui-text-primary)]">{catalogItem.label}</p>
-                                <p className="truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{catalogItem.description}</p>
+                                <p className="truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{bt(catalogItem.description)}</p>
                               </div>
                               <span className="inline-flex shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
-                                {hasCatalogEntitySelection ? 'Aggiungi' : 'Seleziona entita'}
+                                {hasCatalogEntitySelection ? t('builder.micro.add') : t('builder.micro.selectEntity')}
                               </span>
                             </div>
                           </div>
@@ -4488,7 +4491,7 @@ export function RightSidebarManager({
                       })
                     ) : (
                       <div className="dashboard-content-surface-soft rounded-2xl px-3 py-3 text-sm text-[color:var(--ui-text-secondary)] md:col-span-2">
-                        Nessun widget compatibile con questa entita. Prova un&apos;entita diversa.
+                        {t('builder.micro.noCompatible')}
                       </div>
                     )}
                   </div>

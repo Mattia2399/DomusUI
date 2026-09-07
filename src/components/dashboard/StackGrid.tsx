@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import GridLayout from 'react-grid-layout/legacy';
 import { MoreHorizontal } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
 import { WidgetCardRenderer } from '../widgets/CardRenderer';
 import type { WidgetDisplayMetrics } from '../widgets/widgetDisplayVariant';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
@@ -837,6 +838,7 @@ function StackGridComponent({
   onCompactDragStop,
   onWidgetDisplayMetricsChange,
 }: StackGridProps) {
+  const { t } = useI18n();
   const isStackInteractingRef = useRef(false);
   const xsLongPressTimerRef = useRef<number | null>(null);
   const xsLongPressPointerIdRef = useRef<number | null>(null);
@@ -1821,7 +1823,7 @@ function StackGridComponent({
         <>
           <div className="pointer-events-none absolute inset-0 rounded-[1.5rem] bg-[radial-gradient(#93c5fd3f_1px,transparent_1px)] bg-[size:16px_16px]" />
           <p id={`stack-grid-keyboard-help-${section.id}`} className="sr-only">
-            Usa le frecce per spostare. Usa Maiuscole più frecce per ridimensionare.
+            {t('stack.keyboardHelp')}
           </p>
           <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
             {keyboardLayoutAnnouncement}
@@ -1838,9 +1840,9 @@ function StackGridComponent({
           {isGridStack && (section.stackUseFavoritesGrid ?? false) && stackWidgets.length === 0 ? (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center px-5 text-center">
               <div className="max-w-sm">
-                <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Nessun preferito</p>
+                <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('stack.noFavorites')}</p>
                 <p className="mt-1 text-xs leading-relaxed text-[color:var(--ui-text-tertiary)]">
-                  Assegna in Home Assistant la label Preferiti oppure aggiungi qui una card dal Catalogo.
+                  {t('stack.noFavoritesDescription')}
                 </p>
               </div>
             </div>
@@ -2249,8 +2251,8 @@ function StackGridComponent({
                             onSelectWidget(item.i);
                             onSelectSection(null);
                           }}
-                          aria-label={`Configura ${overlayWidget?.title || item.i}`}
-                          title="Configura card"
+                          aria-label={t('builder.configureNamed', { name: overlayWidget?.title || item.i })}
+                          title={t('builder.configureCard')}
                         >
                           <MoreHorizontal size={18} aria-hidden="true" />
                         </button>

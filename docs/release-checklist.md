@@ -41,12 +41,15 @@ npm run release:gate
 
 ## Pacchetto e documentazione
 
+- [x] La versione corrente ha una sezione completa e in inglese in `CHANGELOG.md`.
+- [x] `npm run release:notes` genera `release-artifacts/RELEASE_NOTES.md` con contenuto verificato.
+- [x] L'anteprima aggiornamento HACS mostra note della release e il confronto completo.
 - [x] README coerente con lo scope reale.
 - [x] Istruzioni HACS come unico canale beta distribuito.
 - [x] Procedura aggiornamento e rollback.
 - [x] Pagina Sicurezza e privacy.
 - [x] Roadmap pubblica e limiti dichiarati.
-- [x] Numero versione tecnica `0.1.0-beta.13`.
+- [x] Numero versione tecnica `0.1.0-beta.14`.
 - [x] Versione leggibile nella pagina Impostazioni.
 - [x] Archivio release riproducibile, manifest file e checksum SHA-256.
 - [x] Diagnostica supporto aggregata e priva di segreti.

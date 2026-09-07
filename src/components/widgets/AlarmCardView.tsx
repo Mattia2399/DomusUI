@@ -14,6 +14,8 @@ import {
 import type { AlarmArmMode, AlarmCardModel, AlarmCardTone } from './alarmCardModel';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 type AlarmCardViewProps = {
   model: AlarmCardModel;
@@ -32,12 +34,19 @@ type AlarmCardViewProps = {
   onArm: (mode: AlarmArmMode) => void;
 };
 
-const MODE_DESCRIPTIONS: Record<AlarmArmMode, string> = {
-  home: 'Protezione perimetrale',
-  away: 'Protezione completa',
-  night: 'Protezione silenziosa',
-  vacation: 'Protezione prolungata',
-  custom_bypass: 'Esclusioni attive',
+const MODE_LABEL_KEYS: Record<AlarmArmMode, TranslationKey> = {
+  home: 'alarm.mode.home', away: 'alarm.mode.away', night: 'alarm.mode.night',
+  vacation: 'alarm.mode.vacation', custom_bypass: 'alarm.mode.customBypass',
+};
+const MODE_DESCRIPTION_KEYS: Record<AlarmArmMode, TranslationKey> = {
+  home: 'alarm.modeDescription.home', away: 'alarm.modeDescription.away', night: 'alarm.modeDescription.night',
+  vacation: 'alarm.modeDescription.vacation', custom_bypass: 'alarm.modeDescription.customBypass',
+};
+const STATE_KEYS: Record<string, TranslationKey> = {
+  disarmed: 'alarm.state.disarmed', armed_home: 'alarm.state.armedHome', armed_away: 'alarm.state.armedAway',
+  armed_night: 'alarm.state.armedNight', armed_vacation: 'alarm.state.armedVacation', armed_custom_bypass: 'alarm.state.armedCustomBypass',
+  pending: 'alarm.state.pending', arming: 'alarm.state.arming', disarming: 'alarm.state.disarming',
+  triggered: 'alarm.state.triggered', unavailable: 'alarm.state.unavailable', unknown: 'alarm.state.unknown',
 };
 
 function resolveStateIcon(model: AlarmCardModel) {
@@ -99,13 +108,13 @@ function resolveAccent(tone: AlarmCardTone) {
   };
 }
 
-function stateCaption(model: AlarmCardModel) {
-  if (model.isTriggered) return 'Richiede attenzione immediata';
-  if (model.isTransitioning) return 'Aggiornamento del sistema in corso';
-  if (model.isUnavailable) return 'Connessione al sistema non disponibile';
+function stateCaption(model: AlarmCardModel, t: (key: TranslationKey) => string) {
+  if (model.isTriggered) return t('alarm.caption.triggered');
+  if (model.isTransitioning) return t('alarm.caption.transitioning');
+  if (model.isUnavailable) return t('alarm.caption.unavailable');
   const active = model.supportedModes.find((mode) => mode.id === model.activeMode);
-  if (active) return MODE_DESCRIPTIONS[active.id];
-  return 'Sistema non inserito';
+  if (active) return t(MODE_DESCRIPTION_KEYS[active.id]);
+  return t('alarm.caption.disarmed');
 }
 
 export function AlarmCardView({
@@ -124,6 +133,7 @@ export function AlarmCardView({
   onDisarm,
   onArm,
 }: AlarmCardViewProps) {
+  const { t } = useI18n();
   const isCompact = layoutVariant === 'compact' || layoutVariant === 'mini';
   const isFull = layoutVariant === 'full';
   const StateIcon = resolveStateIcon(model);
@@ -136,20 +146,22 @@ export function AlarmCardView({
   const secondaryTextClass = usesSemanticSurface ? 'text-[color:var(--ui-text-secondary)]' : 'text-white/58';
   const tertiaryTextClass = usesSemanticSurface ? 'text-[color:var(--ui-text-tertiary)]' : 'text-white/42';
   const neutralFillClass = usesSemanticSurface ? 'bg-[color:var(--ui-fill-tertiary)]' : 'bg-white/[0.055]';
+  const localizedState = t(STATE_KEYS[model.state] ?? 'alarm.state.unknown');
+  const localizedModeLabel = (mode?: AlarmArmMode) => mode ? t(MODE_LABEL_KEYS[mode]) : t('alarm.system');
 
   const actionLabel = model.isTriggered
-    ? 'Disattiva'
+    ? t('alarm.action.disable')
     : model.isTransitioning
-      ? 'Comando in corso'
+      ? t('alarm.action.pending')
       : model.isUnavailable || model.primaryAction === 'none'
-        ? 'Non disponibile'
+        ? t('alarm.action.unavailable')
         : model.state === 'disarmed'
           ? isFull
-            ? `Inserisci ${selectedMode?.label ?? 'sistema'}`
-            : 'Inserisci'
+            ? t('alarm.action.armNamed', { mode: localizedModeLabel(selectedMode?.id) })
+            : t('alarm.action.arm')
           : isFull && selectedArmMode && !selectedIsActive
-            ? `Passa a ${selectedMode?.label ?? 'modalità'}`
-            : 'Disinserisci';
+            ? t('alarm.action.switchTo', { mode: localizedModeLabel(selectedMode?.id) })
+            : t('alarm.action.disarm');
 
   const runAction = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation();
@@ -186,7 +198,7 @@ export function AlarmCardView({
         event.stopPropagation();
         onOpen();
       }}
-      aria-label={`${model.title}, ${model.stateLabel}`}
+      aria-label={`${model.title}, ${localizedState}`}
       aria-busy={model.isTransitioning || undefined}
     >
       <div className={`relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border border-[color:var(--ui-border)] ${accent.surface} shadow-[inset_0_1px_0_rgb(var(--ui-glass-highlight-rgb)/0.16),0_14px_34px_var(--ui-shadow-soft)] backdrop-blur-[28px] backdrop-saturate-[1.35] ${radiusClass} ${isCompact ? 'p-3' : 'p-3.5'} ${isEditMode ? 'pointer-events-none' : ''}`}>
@@ -208,7 +220,7 @@ export function AlarmCardView({
               </div>
               <div className="min-w-0">
                 <h2 className={`truncate text-[0.86rem] font-semibold leading-tight tracking-[-0.01em] ${primaryTextClass}`}>{model.title}</h2>
-                <p className={`mt-0.5 truncate text-[0.68rem] font-medium ${model.isTriggered ? 'text-rose-200' : tertiaryTextClass}`}>{model.stateLabel}</p>
+                <p className={`mt-0.5 truncate text-[0.68rem] font-medium ${model.isTriggered ? 'text-rose-200' : tertiaryTextClass}`}>{localizedState}</p>
               </div>
             </div>
             <div className="relative z-10 mt-auto">{actionButton(true)}</div>
@@ -223,25 +235,25 @@ export function AlarmCardView({
                     : `text-[0.86rem] font-semibold tracking-[-0.01em] ${primaryTextClass}`
                 }`}
               >
-                {isFull ? 'Stato sistema' : model.title}
+                {isFull ? t('alarm.card.systemStatus') : model.title}
               </span>
               <StateIcon size={17} className={`shrink-0 ${accent.icon} ${model.isTransitioning ? 'animate-pulse' : ''}`} />
             </div>
 
             <div className={`relative z-10 ${isFull ? 'mt-2.5' : 'my-auto'} min-w-0`}>
-              <p className={`${isFull ? 'text-[1.48rem]' : 'text-[1.35rem]'} truncate font-bold leading-none tracking-[-0.035em] ${primaryTextClass}`}>{model.stateLabel.toUpperCase()}</p>
-              <p className={`${isFull ? 'mt-1' : 'mt-1.5'} truncate text-[0.68rem] font-medium ${tertiaryTextClass}`}>{stateCaption(model)}</p>
+              <p className={`${isFull ? 'text-[1.48rem]' : 'text-[1.35rem]'} truncate font-bold leading-none tracking-[-0.035em] ${primaryTextClass}`}>{localizedState.toLocaleUpperCase()}</p>
+              <p className={`${isFull ? 'mt-1' : 'mt-1.5'} truncate text-[0.68rem] font-medium ${tertiaryTextClass}`}>{stateCaption(model, t)}</p>
             </div>
 
             {isFull && !model.isTriggered && !model.isUnavailable && model.supportedModes.length > 0 ? (
               <div className="relative z-10 mt-2.5" onClick={(event) => event.stopPropagation()}>
                 <GlassSegmentSelect
-                  ariaLabel="Modalità allarme"
+                  ariaLabel={t('alarm.card.modeAria')}
                   options={model.supportedModes.map((mode) => ({
                     value: mode.id,
                     label: resolveModeIcon(mode.id, 15),
-                    ariaLabel: `Seleziona modalità ${mode.label}`,
-                    title: mode.label,
+                    ariaLabel: t('alarm.card.selectModeAria', { mode: localizedModeLabel(mode.id) }),
+                    title: localizedModeLabel(mode.id),
                   }))}
                   value={selectedArmMode}
                   onChange={onSelectArmMode}
@@ -255,8 +267,8 @@ export function AlarmCardView({
 
             {isFull && !model.isTriggered ? (
               <div className={`relative z-10 mt-2 space-y-1 text-[0.6rem] leading-tight ${tertiaryTextClass}`}>
-                <p className="truncate"><span className={secondaryTextClass}>Ultima modifica:</span> {model.changedBy ?? 'Sincronizzato'}</p>
-                <p className="truncate"><span className={secondaryTextClass}>Sicurezza:</span> {model.armActionLocked || model.disarmActionLocked ? 'Autorizzazione richiesta' : 'Accesso rapido'}</p>
+                <p className="truncate"><span className={secondaryTextClass}>{t('alarm.card.lastChanged')}</span> {model.changedBy ?? t('alarm.card.synchronized')}</p>
+                <p className="truncate"><span className={secondaryTextClass}>{t('alarm.card.security')}</span> {model.armActionLocked || model.disarmActionLocked ? t('alarm.card.authorizationRequired') : t('alarm.card.quickAccess')}</p>
               </div>
             ) : null}
 
@@ -268,7 +280,7 @@ export function AlarmCardView({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Scegli modalità allarme"
+            aria-label={t('alarm.card.chooseModeAria')}
             tabIndex={-1}
             className={`absolute inset-0 z-40 flex min-h-0 flex-col overflow-hidden ${radiusClass} border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-surface-glass-strong)] p-2 text-[color:var(--ui-text-primary)] shadow-[inset_0_1px_0_rgb(var(--ui-glass-highlight-rgb)/0.22),0_18px_44px_var(--ui-shadow)] backdrop-blur-[30px] backdrop-saturate-[1.45]`}
             onClick={(event) => event.stopPropagation()}
@@ -279,7 +291,7 @@ export function AlarmCardView({
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(90%_68%_at_12%_0%,rgb(var(--ui-glass-highlight-rgb)/0.18),transparent_58%)]" />
             <div aria-hidden="true" className="pointer-events-none absolute -left-[12%] -top-[34%] h-[62%] w-[72%] rotate-[-10deg] rounded-[50%] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] blur-[1px]" />
             <div className="relative z-10 mb-1.5 flex items-center justify-between gap-3">
-              <p className="min-w-0 truncate text-xs font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)]">Scegli la modalità:</p>
+              <p className="min-w-0 truncate text-xs font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)]">{t('alarm.card.chooseMode')}</p>
               <button
                 type="button"
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] shadow-[0_5px_16px_var(--ui-shadow-soft)] backdrop-blur-xl transition hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)] active:scale-95"
@@ -287,7 +299,7 @@ export function AlarmCardView({
                   event.stopPropagation();
                   onCloseModeMenu();
                 }}
-                aria-label="Chiudi modalità allarme"
+                aria-label={t('alarm.card.closeModeAria')}
               >
                 <X size={15} />
               </button>
@@ -310,10 +322,10 @@ export function AlarmCardView({
                       onArm(mode.id);
                     }}
                     aria-pressed={active}
-                    aria-label={`Inserisci modalità ${mode.label}`}
+                    aria-label={t('alarm.card.armModeAria', { mode: localizedModeLabel(mode.id) })}
                   >
                     <span className="flex h-5 w-5 items-center justify-center">{resolveModeIcon(mode.id, 17)}</span>
-                    <span className="max-w-full truncate text-[0.64rem] font-semibold">{mode.label}</span>
+                    <span className="max-w-full truncate text-[0.64rem] font-semibold">{localizedModeLabel(mode.id)}</span>
                   </button>
                 );
               })}
@@ -338,7 +350,7 @@ export function AlarmCardView({
               onOpen();
             }
           }}
-          aria-label={`Apri ${model.title}`}
+          aria-label={t('alarm.card.openAria', { name: model.title })}
         />
       ) : null}
     </div>

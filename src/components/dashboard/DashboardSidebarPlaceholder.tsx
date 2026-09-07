@@ -1,5 +1,6 @@
 import { Lightbulb } from 'lucide-react';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export const DASHBOARD_SIDEBAR_WIDTH_CLASS =
   'w-[clamp(17.5rem,46vw,22.5rem)] md:w-[clamp(18rem,34vw,24rem)] lg:w-[clamp(18rem,28vw,23rem)] xl:w-[clamp(18.5rem,25vw,24rem)] h-full min-h-0 shrink-0';
@@ -13,11 +14,12 @@ export function DashboardSidebarPlaceholder({
   isCompactViewport,
   loading = false,
 }: DashboardSidebarPlaceholderProps) {
+  const { t } = useI18n();
   if (isCompactViewport) {
     return loading ? (
       <DeferredGlassLoader
-        label="Apertura controlli…"
-        description="Carichiamo il pannello richiesto."
+        label={t('home.sidebar.opening')}
+        description={t('home.sidebar.loadingDescription')}
         overlay
       />
     ) : null;
@@ -31,8 +33,8 @@ export function DashboardSidebarPlaceholder({
       <aside className="context-sidebar relative h-full min-h-0 w-full shrink-0 overflow-hidden">
         {loading ? (
           <DeferredGlassLoader
-            label="Apertura controlli…"
-            description="Carichiamo il pannello richiesto."
+            label={t('home.sidebar.opening')}
+            description={t('home.sidebar.loadingDescription')}
           />
         ) : (
           <div className="context-content-surface flex h-full min-h-0 items-center justify-center rounded-[2rem] p-8 text-center">
@@ -41,10 +43,10 @@ export function DashboardSidebarPlaceholder({
                 <Lightbulb size={22} />
               </span>
               <p className="text-lg font-semibold text-[color:var(--ui-text-primary)]">
-                Nessuna card selezionata
+                {t('home.sidebar.empty')}
               </p>
               <p className="mt-2 text-sm text-[color:var(--ui-text-secondary)]">
-                Clicca una card per vedere le informazioni
+                {t('home.sidebar.emptyDescription')}
               </p>
             </div>
           </div>

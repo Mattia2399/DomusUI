@@ -31,7 +31,7 @@ describe('LightControlsPanel', () => {
       />,
     );
 
-    const slider = getByRole('slider', { name: 'Luminosita lampada' });
+    const slider = getByRole('slider', { name: 'Luminosità lampada' });
     fireEvent.pointerDown(slider);
     fireEvent.change(slider, { target: { value: '37' } });
 

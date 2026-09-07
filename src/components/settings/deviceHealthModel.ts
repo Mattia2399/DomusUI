@@ -5,6 +5,7 @@ import type {
 } from '../../services/haRegistryPresentation';
 import type { MockEntityState, MockEntityStateMap } from '../../types/ha';
 import type { Widget } from '../../types/dashboardModels';
+import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 
 export type DeviceHealthStatus = 'operational' | 'warning' | 'offline' | 'unknown';
 
@@ -60,6 +61,7 @@ export type DeviceHealthSnapshot = {
 };
 
 export type BuildDeviceHealthOptions = {
+  locale?: AppLocale;
   connected: boolean;
   states: MockEntityStateMap;
   entityRegistry?: HaEntityRegistryEntry[];
@@ -126,8 +128,8 @@ function resolveEntityName(
   );
 }
 
-function resolveEntityValue(state: MockEntityState | undefined) {
-  if (!state) return 'Non disponibile';
+function resolveEntityValue(state: MockEntityState | undefined, locale: AppLocale) {
+  if (!state) return translateForLocale(locale, 'settings.common.unavailable');
   const stateLabel = text(state.stateLabel);
   if (stateLabel) return stateLabel;
   const value = text(state.state) || 'Sconosciuto';
@@ -243,11 +245,8 @@ function resolveLastDataUpdate(
   return timestamps.length > 0 ? Math.max(...timestamps) : undefined;
 }
 
-function statusLabel(status: DeviceHealthStatus) {
-  if (status === 'operational') return 'Operativo';
-  if (status === 'warning') return 'Da controllare';
-  if (status === 'offline') return 'Non disponibile';
-  return 'Dati insufficienti';
+function statusLabel(status: DeviceHealthStatus, locale: AppLocale) {
+  return translateForLocale(locale, `settings.devices.status.${status}`);
 }
 
 export function buildDeviceHealthSnapshots({
@@ -258,6 +257,7 @@ export function buildDeviceHealthSnapshots({
   areas = [],
   widgets = [],
   batteryWarningThreshold = 20,
+  locale = 'it',
 }: BuildDeviceHealthOptions): DeviceHealthSnapshot[] {
   const areaById = new Map(areas.map((area) => [area.area_id, area.name]));
   const entriesByDevice = new Map<string, HaEntityRegistryEntry[]>();
@@ -283,7 +283,7 @@ export function buildDeviceHealthSnapshots({
             id: entry.entityId,
             domain: entityDomain(entry.entityId),
             name: resolveEntityName(entry.entityId, state, entry),
-            value: resolveEntityValue(state),
+            value: resolveEntityValue(state, locale),
             unavailable: isUnavailable(state),
             diagnostic: normalize(entry.entityCategory) === 'diagnostic',
           };
@@ -304,15 +304,15 @@ export function buildDeviceHealthSnapshots({
       if (!connected) {
         issues.push({
           code: 'connection_unavailable',
-          label: 'Connessione non verificabile',
-          detail: 'Riconnetti Home Assistant per aggiornare lo stato del dispositivo.',
+          label: translateForLocale(locale, 'settings.devices.issue.connectionUnavailable'),
+          detail: translateForLocale(locale, 'settings.devices.issue.connectionUnavailableDetail'),
         });
       } else {
         if (connection?.state === 'offline') {
           issues.push({
             code: 'connectivity_off',
-            label: 'Dispositivo non raggiungibile',
-            detail: 'L’entità di connettività segnala che il dispositivo è disconnesso.',
+            label: translateForLocale(locale, 'settings.devices.issue.connectivityOff'),
+            detail: translateForLocale(locale, 'settings.devices.issue.connectivityOffDetail'),
           });
         } else if (
           primaryEntities.length > 0 &&
@@ -320,35 +320,35 @@ export function buildDeviceHealthSnapshots({
         ) {
           issues.push({
             code: 'entities_unavailable',
-            label: 'Dati non disponibili',
-            detail: 'Tutte le entità principali del dispositivo risultano non disponibili.',
+            label: translateForLocale(locale, 'settings.devices.issue.entitiesUnavailable'),
+            detail: translateForLocale(locale, 'settings.devices.issue.entitiesUnavailableDetail'),
           });
         } else if (unavailableEntityCount > 0) {
           issues.push({
             code: 'entity_unavailable',
-            label: 'Disponibilità parziale',
-            detail: `${unavailableEntityCount} ${
-              unavailableEntityCount === 1 ? 'entità risulta' : 'entità risultano'
-            } non disponibili.`,
+            label: translateForLocale(locale, 'settings.devices.issue.entityUnavailable'),
+            detail: translateForLocale(locale, 'settings.devices.issue.entityUnavailableDetail', { count: unavailableEntityCount }),
           });
         }
 
         if (battery && battery.level <= batteryWarningThreshold) {
           issues.push({
             code: 'battery_low',
-            label: `Batteria al ${battery.level}%`,
-            detail: 'Il livello è inferiore alla soglia configurata nel Centro Attenzione.',
+            label: translateForLocale(locale, 'settings.devices.issue.batteryLow', { level: battery.level }),
+            detail: translateForLocale(locale, 'settings.devices.issue.batteryLowDetail'),
           });
         }
         if (availableUpdates.length > 0) {
           issues.push({
             code: 'update_available',
-            label: 'Aggiornamento disponibile',
-            detail: `${
+            label: translateForLocale(locale, 'settings.devices.issue.updateAvailable'),
+            detail: translateForLocale(
+              locale,
               availableUpdates.length === 1
-                ? 'È disponibile un aggiornamento firmware.'
-                : `Sono disponibili ${availableUpdates.length} aggiornamenti.`
-            }`,
+                ? 'settings.devices.issue.updateAvailableOneDetail'
+                : 'settings.devices.issue.updateAvailableManyDetail',
+              { count: availableUpdates.length },
+            ),
           });
         }
       }
@@ -369,14 +369,14 @@ export function buildDeviceHealthSnapshots({
 
       return {
         id: device.id,
-        name: text(device.nameByUser) || text(device.name) || 'Dispositivo senza nome',
+        name: text(device.nameByUser) || text(device.name) || translateForLocale(locale, 'settings.devices.unnamed'),
         manufacturer: text(device.manufacturer) || undefined,
         model: text(device.model) || undefined,
         swVersion: text(device.swVersion) || undefined,
         areaId: device.areaId || undefined,
         areaName: device.areaId ? areaById.get(device.areaId) ?? device.areaId : undefined,
         status,
-        statusLabel: statusLabel(status),
+        statusLabel: statusLabel(status, locale),
         issues,
         entities,
         entityCount: entities.length,

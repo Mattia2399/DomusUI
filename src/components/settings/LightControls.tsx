@@ -6,14 +6,16 @@ import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import GlassSlider from '../ui/GlassSlider';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 const COLOR_PICKER_DEBOUNCE_MS = 160;
 
 const QUICK_COLOR_PRESETS = [
-  { label: 'Ambra', hue: 32, saturation: 94 },
-  { label: 'Blu', hue: 225, saturation: 68 },
-  { label: 'Verde', hue: 152, saturation: 72 },
-  { label: 'Viola', hue: 272, saturation: 70 },
+  { labelKey: 'controls.light.color.amber' as TranslationKey, hue: 32, saturation: 94 },
+  { labelKey: 'controls.light.color.blue' as TranslationKey, hue: 225, saturation: 68 },
+  { labelKey: 'controls.light.color.green' as TranslationKey, hue: 152, saturation: 72 },
+  { labelKey: 'controls.light.color.purple' as TranslationKey, hue: 272, saturation: 70 },
 ] as const;
 
 function clamp(value: number, min: number, max: number) {
@@ -144,6 +146,7 @@ export function LightControlsPanel({
   onEffectChange,
   onFlash,
 }: LightControlsProps) {
+  const { t } = useI18n();
   const colorDebounceRef = useRef<number | null>(null);
   const skipNextBrightnessBlurCommitRef = useRef(false);
   const [isPickerOpen, setIsPickerOpen] = useState(false);
@@ -166,18 +169,18 @@ export function LightControlsPanel({
   const presets = useMemo<Array<{ label: string; kelvin: number }>>(() => {
     const range = Math.max(0, colorTempMax - colorTempMin);
     return [
-      { label: 'Warm', kelvin: colorTempMin },
-      { label: 'Neutral', kelvin: Math.round(colorTempMin + range * 0.38) },
-      { label: 'Cool', kelvin: Math.round(colorTempMin + range * 0.68) },
-      { label: 'Day', kelvin: colorTempMax },
+      { label: t('controls.light.preset.warm'), kelvin: colorTempMin },
+      { label: t('controls.light.preset.neutral'), kelvin: Math.round(colorTempMin + range * 0.38) },
+      { label: t('controls.light.preset.cool'), kelvin: Math.round(colorTempMin + range * 0.68) },
+      { label: t('controls.light.preset.day'), kelvin: colorTempMax },
     ];
-  }, [colorTempMax, colorTempMin]);
+  }, [colorTempMax, colorTempMin, t]);
   const effectOptions = useMemo(() => {
     const entries = (lamp.effectList ?? []).map((entry) => entry.trim()).filter(Boolean);
     const hasOff = entries.some((entry) => ['off', 'none'].includes(entry.toLowerCase()));
     return hasOff ? entries : ['off', ...entries];
   }, [lamp.effectList]);
-  const currentStateLabel = lamp.isOn ? 'Accesa' : 'Spenta';
+  const currentStateLabel = lamp.isOn ? t('controls.common.onFeminine') : t('controls.common.offFeminine');
   const activeEffect = (lamp.effect?.trim() || 'off').toLowerCase();
   const hasAdvancedControls = supportsWhite || (supportsEffects && effectOptions.length > 0) || supportsFlash || supportsTransition;
 
@@ -280,7 +283,7 @@ export function LightControlsPanel({
       <div className={`${CONTEXT_PANEL_LAYOUT.section} mb-1`}>
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <span className="text-sm text-[color:var(--ui-text-secondary)]">{supportsBrightness ? 'Luminosita' : 'Stato'}</span>
+            <span className="text-sm text-[color:var(--ui-text-secondary)]">{supportsBrightness ? t('controls.light.brightness') : t('controls.common.status')}</span>
             <p className="mt-0.5 text-xs text-[color:var(--ui-text-tertiary)]">{currentStateLabel}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2.5">
@@ -293,8 +296,8 @@ export function LightControlsPanel({
                   ? 'border-[color:rgb(var(--ui-accent-rgb)/0.58)] bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)] shadow-[0_8px_24px_rgb(var(--ui-accent-rgb)/0.22)]'
                   : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]'
               }`}
-              aria-label="Accendi o spegni luce"
-              title="Accendi o spegni luce"
+              aria-label={t('controls.light.toggle')}
+              title={t('controls.light.toggle')}
             >
               <Power size={17} />
             </button>
@@ -351,7 +354,7 @@ export function LightControlsPanel({
                   commitBrightness(Number(event.currentTarget.value));
                 }
               }}
-              aria-label="Luminosita lampada"
+              aria-label={t('controls.light.brightnessAria')}
               aria-valuetext={`${Math.round(displayedBrightness)}%`}
             />
           </div>
@@ -363,12 +366,12 @@ export function LightControlsPanel({
           <div className="mb-4 flex items-center justify-between gap-3 text-[color:var(--ui-text-secondary)]">
             <span className="inline-flex min-w-0 items-center gap-2">
               <Sun size={16} />
-              <span className="text-sm text-[color:var(--ui-text-secondary)]">Temperatura colore</span>
+              <span className="text-sm text-[color:var(--ui-text-secondary)]">{t('controls.light.colorTemperature')}</span>
             </span>
           </div>
 
           <GlassSegmentSelect
-            ariaLabel="Temperatura colore"
+            ariaLabel={t('controls.light.colorTemperature')}
             options={presets.map((preset) => ({ value: preset.kelvin, label: preset.label }))}
             value={presets[activeTempIndex]?.kelvin}
             onChange={(kelvin) => onColorTempChange(kelvin, commandOptions)}
@@ -383,7 +386,7 @@ export function LightControlsPanel({
             <div className="flex min-w-0 items-center gap-2 text-[color:var(--ui-text-secondary)]">
               <Palette size={16} />
               <div className="min-w-0">
-                <p className="text-sm font-medium text-[color:var(--ui-text-secondary)]">Colore</p>
+                <p className="text-sm font-medium text-[color:var(--ui-text-secondary)]">{t('controls.light.color')}</p>
               </div>
             </div>
             <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-xs font-medium text-[color:var(--ui-text-secondary)]">
@@ -399,7 +402,7 @@ export function LightControlsPanel({
           <div className="grid grid-cols-4 gap-2.5">
             {QUICK_COLOR_PRESETS.map((preset, index) => (
               <button
-                key={preset.label}
+                key={preset.labelKey}
                 type="button"
                 onClick={() => {
                   clearPendingColorDebounce();
@@ -410,8 +413,8 @@ export function LightControlsPanel({
                     ? 'liquid-glass-selection border-[color:var(--ui-border-strong)] shadow-[inset_0_1px_0_rgb(var(--ui-glass-highlight-rgb)/0.14)]'
                     : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] hover:bg-[color:var(--ui-fill-secondary)]'
                 }`}
-                aria-label={`Imposta colore ${preset.label}`}
-                title={preset.label}
+                aria-label={t('controls.light.setColor', { color: t(preset.labelKey) })}
+                title={t(preset.labelKey)}
               >
                 <span
                   className={`h-9 w-9 rounded-full border transition-transform group-hover:scale-105 ${
@@ -422,7 +425,7 @@ export function LightControlsPanel({
                   style={{ backgroundColor: `hsl(${preset.hue} ${preset.saturation}% 52%)` }}
                   aria-hidden="true"
                 />
-                <span className="max-w-full truncate text-[11px] font-semibold leading-none text-[color:var(--ui-text-secondary)]">{preset.label}</span>
+                <span className="max-w-full truncate text-[11px] font-semibold leading-none text-[color:var(--ui-text-secondary)]">{t(preset.labelKey)}</span>
               </button>
             ))}
           </div>
@@ -435,12 +438,12 @@ export function LightControlsPanel({
               }}
               className="flex min-h-11 w-full items-center justify-between gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-secondary)] active:scale-[0.99]"
               aria-expanded={isPickerOpen}
-              aria-label="Colore personalizzato"
+              aria-label={t('controls.light.customColor')}
             >
               <span className="flex min-w-0 items-center gap-3">
                 <span className="ha-light-spectrum-swatch h-10 w-10 shrink-0 rounded-full border border-[#fff]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_10px_20px_var(--ui-shadow-soft)]" />
                 <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">Personalizzato</span>
+                  <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('controls.light.custom')}</span>
                   <span className="mt-0.5 block truncate text-xs text-[color:var(--ui-text-tertiary)]">{pickerColor.toUpperCase()}</span>
                 </span>
               </span>
@@ -462,7 +465,7 @@ export function LightControlsPanel({
                     onChange={handlePickerChange}
                     prefixed
                     className="ha-light-color-picker__input"
-                    aria-label="Colore HEX"
+                    aria-label={t('controls.light.hex')}
                   />
                   <span
                     className="ha-light-color-picker__swatch"
@@ -480,13 +483,13 @@ export function LightControlsPanel({
         <div className={`${CONTEXT_PANEL_LAYOUT.section} mt-auto space-y-4`}>
           <div className="flex items-center gap-2 text-[color:var(--ui-text-secondary)]">
             <Sparkles size={16} />
-            <span className="text-sm font-medium text-[color:var(--ui-text-secondary)]">Funzioni</span>
+            <span className="text-sm font-medium text-[color:var(--ui-text-secondary)]">{t('controls.light.functions')}</span>
           </div>
 
           {supportsWhite ? (
             <div className="dashboard-content-surface-soft rounded-2xl p-3.5">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="min-w-0 text-sm font-medium text-[color:var(--ui-text-primary)]">Bianco</span>
+                <span className="min-w-0 text-sm font-medium text-[color:var(--ui-text-primary)]">{t('controls.light.white')}</span>
                 <span className="shrink-0 text-xs font-semibold text-[color:var(--ui-text-secondary)]">{Math.round(displayedWhite)}%</span>
               </div>
               <GlassSlider
@@ -499,7 +502,7 @@ export function LightControlsPanel({
                   setWhiteDraft(nextValue);
                   onWhiteChange(nextValue, commandOptions);
                 }}
-                aria-label="Canale bianco"
+                aria-label={t('controls.light.whiteChannel')}
                 tone="accent"
               />
             </div>
@@ -508,14 +511,14 @@ export function LightControlsPanel({
           {supportsEffects && effectOptions.length > 0 ? (
             <div className="dashboard-content-surface-soft rounded-2xl p-3.5">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span className="min-w-0 text-sm font-medium text-[color:var(--ui-text-primary)]">Effetti</span>
+                <span className="min-w-0 text-sm font-medium text-[color:var(--ui-text-primary)]">{t('controls.light.effects')}</span>
                 <span className="truncate text-xs text-[color:var(--ui-text-tertiary)]">{lamp.effect || 'off'}</span>
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {effectOptions.map((effectName) => {
                   const normalizedEffect = effectName.toLowerCase();
                   const isActive = normalizedEffect === activeEffect;
-                  const label = ['off', 'none'].includes(normalizedEffect) ? 'Nessuno' : effectName;
+                  const label = ['off', 'none'].includes(normalizedEffect) ? t('controls.light.noEffect') : effectName;
                   return (
                     <button
                       key={effectName}
@@ -547,7 +550,7 @@ export function LightControlsPanel({
                   className="glass-button min-h-11 rounded-2xl px-3 py-3 text-sm font-semibold active:scale-[0.97]"
                 >
                   <Zap size={15} />
-                  Breve
+                  {t('controls.light.short')}
                 </button>
                 <button
                   type="button"
@@ -555,7 +558,7 @@ export function LightControlsPanel({
                   className="glass-button min-h-11 rounded-2xl px-3 py-3 text-sm font-semibold active:scale-[0.97]"
                 >
                   <Zap size={15} />
-                  Lungo
+                  {t('controls.light.long')}
                 </button>
               </div>
             </div>
@@ -566,7 +569,7 @@ export function LightControlsPanel({
               <div className="mb-3 flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-2 text-sm font-medium text-[color:var(--ui-text-primary)]">
                   <Timer size={15} />
-                  Transizione
+                  {t('controls.light.transition')}
                 </span>
                 <span className="text-xs font-semibold text-[color:var(--ui-text-secondary)]">{transitionSeconds.toFixed(transitionSeconds % 1 === 0 ? 0 : 1)}s</span>
               </div>
@@ -576,7 +579,7 @@ export function LightControlsPanel({
                 step={0.5}
                 value={transitionSeconds}
                 onChange={(event) => setTransitionSeconds(clamp(Number(event.target.value), 0, 10))}
-                aria-label="Durata transizione"
+                aria-label={t('controls.light.transitionDuration')}
                 tone="accent"
               />
             </div>

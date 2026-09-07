@@ -10,6 +10,7 @@ import {
   Home,
   KeyRound,
   Laptop,
+  Languages,
   LifeBuoy,
   MapPin,
   MonitorSmartphone,
@@ -24,6 +25,8 @@ import {
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
+import { SUPPORTED_LOCALES, useI18n, type AppLocale } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { useDeviceAuth } from '../../hooks/useDeviceAuth';
 import { appendSecurityAuditEvent } from '../../services/securityAuth';
@@ -41,7 +44,7 @@ import type {
 } from './profileModels';
 import type { ProfileHouseMember } from './settingsHouseAccessModel';
 
-type ProfileView = 'overview' | 'personal' | 'activity' | 'devices' | 'security' | 'themes';
+type ProfileView = 'overview' | 'personal' | 'activity' | 'devices' | 'security' | 'themes' | 'language';
 
 type ModernProfilePageProps = {
   isOpen: boolean;
@@ -75,13 +78,13 @@ type ProfileRowProps = {
   tone?: 'default' | 'success' | 'warning';
 };
 
-const statusLabelByConnection: Partial<Record<HaConnectionStatus, string>> = {
-  connected: 'Connessa',
-  connecting: 'Connessione…',
-  reconnecting: 'Riconnessione…',
-  reauth_required: 'Accesso richiesto',
-  error: 'Non disponibile',
-  disconnected: 'Disconnessa',
+const statusLabelKeyByConnection: Partial<Record<HaConnectionStatus, TranslationKey>> = {
+  connected: 'profile.status.connected',
+  connecting: 'profile.status.connecting',
+  reconnecting: 'profile.status.reconnecting',
+  reauth_required: 'profile.status.reauth',
+  error: 'profile.status.unavailable',
+  disconnected: 'profile.status.disconnected',
 };
 
 const backgroundPreviewClassById: Record<DashboardBackgroundPreset, string> = {
@@ -112,6 +115,7 @@ function resolveProfileViewFromRoute(route: string | undefined): ProfileView | n
   if (path === '/profile/devices') return 'devices';
   if (path === '/profile/security') return 'security';
   if (path === '/profile/themes') return 'themes';
+  if (path === '/profile/language') return 'language';
   return path === '/profile' ? 'overview' : null;
 }
 
@@ -122,6 +126,7 @@ const profilePathByView: Record<ProfileView, string> = {
   devices: '/profile/devices',
   security: '/profile/security',
   themes: '/profile/themes',
+  language: '/profile/language',
 };
 
 function ProfileRow({
@@ -203,6 +208,7 @@ function ProfileOverviewHeader({
   onAvatarError,
   isConnected,
   connectionLabel,
+  backLabel,
   onBack,
 }: {
   collapseProgress: number;
@@ -214,6 +220,7 @@ function ProfileOverviewHeader({
   onAvatarError: () => void;
   isConnected: boolean;
   connectionLabel: string;
+  backLabel: string;
   onBack: () => void;
 }) {
   const collapsed = collapseProgress >= 0.98;
@@ -238,7 +245,7 @@ function ProfileOverviewHeader({
           type="button"
           onClick={onBack}
           className="liquid-glass-control flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] transition-transform active:scale-[0.96]"
-          aria-label="Indietro"
+          aria-label={backLabel}
         >
           <ArrowLeft size={18} />
         </button>
@@ -308,6 +315,7 @@ export function ModernProfilePage({
   navigationRoute,
   onNavigate,
 }: ModernProfilePageProps) {
+  const { locale, setLocale, t } = useI18n();
   const [view, setView] = useState<ProfileView>(
     () => resolveProfileViewFromRoute(navigationRoute) ?? resolveInitialView(initialSection),
   );
@@ -328,9 +336,9 @@ export function ModernProfilePage({
       houseMembers[0],
     [currentUserId, houseMembers],
   );
-  const displayName = userAvatarAlt?.trim() || currentMember?.name?.trim() || 'Utente Home';
-  const displayEmail = userEmail?.trim() || 'Account Home Assistant';
-  const displayRole = userRoleLabel?.trim() || currentMember?.roleLabel?.trim() || 'Utente';
+  const displayName = userAvatarAlt?.trim() || currentMember?.name?.trim() || t('profile.fallback.name');
+  const displayEmail = userEmail?.trim() || t('profile.fallback.account');
+  const displayRole = userRoleLabel?.trim() || currentMember?.roleLabel?.trim() || t('profile.fallback.role');
   const displayInitials =
     displayName
       .split(/\s+/)
@@ -338,7 +346,7 @@ export function ModernProfilePage({
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join('') || 'U';
-  const connectionLabel = statusLabelByConnection[haStatus] ?? 'Non disponibile';
+  const connectionLabel = t(statusLabelKeyByConnection[haStatus] ?? 'profile.status.unavailable');
   const isConnected = haStatus === 'connected';
   const latestMovement = movementTimeline[0];
   const deviceAuth = useDeviceAuth({
@@ -412,29 +420,29 @@ export function ModernProfilePage({
     setSecurityFeedback(null);
     const wasEnrolled = deviceAuth.isEnrolled;
     try {
-      const verified = await deviceAuth.verifyOrEnroll('Conferma dispositivo del profilo');
+      const verified = await deviceAuth.verifyOrEnroll(t('profile.deviceConfirmation.title'));
       if (!verified) {
         appendSecurityAuditEvent({
           tone: 'warning',
-          message: 'Conferma dispositivo annullata o non riuscita.',
-          context: 'Profilo',
+          message: t('profile.deviceConfirmation.failed'),
+          context: t('profile.title'),
         });
         setSecurityFeedback({
           tone: 'error',
-          text: 'La verifica è stata annullata o non è riuscita.',
+          text: t('profile.deviceConfirmation.failed'),
         });
         return;
       }
       appendSecurityAuditEvent({
         tone: 'success',
-        message: wasEnrolled ? 'Conferma dispositivo verificata.' : 'Conferma dispositivo configurata.',
-        context: 'Profilo',
+        message: wasEnrolled ? t('profile.deviceConfirmation.verified') : t('profile.deviceConfirmation.enrolled'),
+        context: t('profile.title'),
       });
       setSecurityFeedback({
         tone: 'success',
         text: wasEnrolled
-          ? 'Dispositivo verificato correttamente.'
-          : 'Conferma dispositivo configurata su questo browser.',
+          ? t('profile.deviceConfirmation.verified')
+          : t('profile.deviceConfirmation.enrolled'),
       });
     } finally {
       setSecurityBusy(false);
@@ -445,21 +453,19 @@ export function ModernProfilePage({
     if (!deviceAuth.isEnrolled) {
       return;
     }
-    const confirmed = window.confirm(
-      'Rimuovere la conferma dispositivo da questo browser? Le azioni sensibili useranno il metodo di fallback configurato.',
-    );
+    const confirmed = window.confirm(t('profile.deviceConfirmation.removePrompt'));
     if (!confirmed) {
       return;
     }
     deviceAuth.clearCredential();
     appendSecurityAuditEvent({
       tone: 'warning',
-      message: 'Conferma dispositivo rimossa dal browser.',
-      context: 'Profilo',
+      message: t('profile.deviceConfirmation.removed'),
+      context: t('profile.title'),
     });
     setSecurityFeedback({
       tone: 'success',
-      text: 'Conferma dispositivo rimossa da questo browser.',
+      text: t('profile.deviceConfirmation.removed'),
     });
   };
 
@@ -473,17 +479,20 @@ export function ModernProfilePage({
         <NestedPageHeader
           title={
             view === 'personal'
-              ? 'Informazioni personali'
+              ? t('profile.view.personal')
               : view === 'activity'
-              ? 'Attività e spostamenti'
+              ? t('profile.view.activity')
               : view === 'devices'
-                ? 'I miei dispositivi'
+                ? t('profile.view.devices')
               : view === 'security'
-                ? 'Accesso e sicurezza'
-                : 'Temi colorati'
+                ? t('profile.view.security')
+                : view === 'themes'
+                  ? t('profile.view.themes')
+                  : t('language.page.title')
           }
           subtitle={displayName}
-          backLabel="Profilo"
+          backLabel={t('profile.title')}
+          backAriaLabel={t('profile.back')}
           onBack={handleBack}
           scrollContainerRef={scrollContainerRef}
           maxWidthClassName="max-w-[48rem]"
@@ -499,6 +508,7 @@ export function ModernProfilePage({
           onAvatarError={() => setAvatarFailed(true)}
           isConnected={isConnected}
           connectionLabel={connectionLabel}
+          backLabel={t('profile.back')}
           onBack={handleBack}
         />
       )}
@@ -512,7 +522,7 @@ export function ModernProfilePage({
       >
         {view === 'overview' ? (
           <div className="space-y-6">
-            <h1 className="sr-only">Profilo</h1>
+            <h1 className="sr-only">{t('profile.title')}</h1>
             <section className="flex items-center gap-4 px-1 py-1 sm:gap-5">
               <div className="relative shrink-0">
                 <span className="flex h-[4.75rem] w-[4.75rem] items-center justify-center overflow-hidden rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-secondary)] text-xl font-semibold text-[color:var(--ui-text-primary)] shadow-[0_14px_34px_var(--ui-shadow)] sm:h-20 sm:w-20">
@@ -553,99 +563,106 @@ export function ModernProfilePage({
               </div>
             </section>
 
-            <ProfileGroup title="Profilo">
+            <ProfileGroup title={t('profile.group.profile')}>
               <ProfileRow
                 icon={UserRound}
-                title="Informazioni personali"
+                title={t('profile.personal.title')}
                 subtitle={displayEmail}
                 value={displayRole}
                 onClick={() => openView('personal')}
               />
               <ProfileRow
                 icon={Home}
-                title="Casa associata"
-                subtitle="Identità e permessi verificati da Home Assistant"
+                title={t('profile.personal.homeTitle')}
+                subtitle={t('profile.personal.homeSubtitle')}
                 value={connectionLabel}
                 tone={isConnected ? 'success' : 'warning'}
               />
               <ProfileRow
                 icon={Route}
-                title="Attività e spostamenti"
-                subtitle={latestMovement?.title ?? 'Nessun movimento recente'}
+                title={t('profile.activity.title')}
+                subtitle={latestMovement?.title ?? t('profile.activity.emptyRecent')}
                 value={movementUpdatedLabel || undefined}
                 onClick={() => openView('activity')}
               />
             </ProfileGroup>
 
-            <ProfileGroup title="Preferenze su questo dispositivo">
+            <ProfileGroup title={t('profile.group.devicePreferences')}>
               <div className="px-4 py-4">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
                     <Sparkles size={17} />
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">Aspetto</span>
+                    <span className="block text-sm font-semibold">{t('profile.appearance.title')}</span>
                     <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                      Preferenza personale salvata in questo browser
+                      {t('profile.appearance.description')}
                     </span>
                   </span>
                 </div>
                 <GlassSegmentSelect
-                  ariaLabel="Tema del dispositivo"
+                  ariaLabel={t('profile.appearance.aria')}
                   className="mt-3"
                   value={appearanceMode}
                   onChange={onAppearanceModeChange}
                   options={[
-                    { value: 'auto', label: 'Sistema' },
-                    { value: 'light', label: 'Chiaro' },
-                    { value: 'dark', label: 'Scuro' },
+                    { value: 'auto', label: t('profile.appearance.system') },
+                    { value: 'light', label: t('profile.appearance.light') },
+                    { value: 'dark', label: t('profile.appearance.dark') },
                   ]}
                 />
               </div>
 
               <ProfileRow
+                icon={Languages}
+                title={t('language.selector.label')}
+                subtitle={t('language.selector.description')}
+                value={t(`language.name.${locale}` as TranslationKey)}
+                onClick={() => openView('language')}
+              />
+
+              <ProfileRow
                 icon={Sparkles}
-                title="Temi colorati"
-                subtitle="Scegli il colore dello sfondo personale"
+                title={t('profile.themes.title')}
+                subtitle={t('profile.themes.subtitle')}
                 value={DASHBOARD_BACKGROUND_PRESETS.find((preset) => preset.id === background)?.label}
                 onClick={() => openView('themes')}
               />
             </ProfileGroup>
 
-            <ProfileGroup title="Sicurezza">
+            <ProfileGroup title={t('profile.group.security')}>
               <ProfileRow
                 icon={Smartphone}
-                title="Dispositivi personali"
-                subtitle="Tracker associati al tuo profilo"
+                title={t('profile.devices.title')}
+                subtitle={t('profile.devices.subtitle')}
                 value={`${userOwnedDeviceCount}`}
                 onClick={() => openView('devices')}
               />
               <ProfileRow
                 icon={ShieldCheck}
-                title="Accesso e sicurezza"
+                title={t('profile.security.title')}
                 subtitle={
                   deviceAuth.isEnrolled
-                    ? 'Conferma dispositivo configurata'
-                    : 'Proteggi le azioni sensibili'
+                    ? t('profile.security.configured')
+                    : t('profile.security.protect')
                 }
-                value={deviceAuth.isEnrolled ? 'Attiva' : undefined}
+                value={deviceAuth.isEnrolled ? t('profile.security.active') : undefined}
                 onClick={() => openView('security')}
                 tone={deviceAuth.isEnrolled ? 'success' : 'default'}
               />
             </ProfileGroup>
 
-            <ProfileGroup title="Aiuto">
+            <ProfileGroup title={t('profile.group.help')}>
               <ProfileRow
                 icon={LifeBuoy}
-                title="Supporto e feedback"
-                subtitle="Segnala problemi, proponi idee o scarica la diagnostica"
+                title={t('profile.support.title')}
+                subtitle={t('profile.support.subtitle')}
                 onClick={() => onNavigate?.('/support')}
               />
             </ProfileGroup>
 
             <p className="px-1 text-center text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-              Le preferenze visive restano sul dispositivo. Membri, connessioni, backup e impostazioni della
-              casa sono condivisi e si gestiscono dalla pagina Impostazioni.
+              {t('profile.preferences.note')}
             </p>
           </div>
         ) : null}
@@ -671,30 +688,30 @@ export function ModernProfilePage({
               </div>
             </section>
 
-            <ProfileGroup title="Account">
+            <ProfileGroup title={t('profile.account.group')}>
               <ProfileRow
                 icon={UserRound}
-                title="Nome visualizzato"
-                subtitle="Fornito da Home Assistant"
+                title={t('profile.account.displayName')}
+                subtitle={t('profile.account.displayNameSource')}
                 value={displayName}
               />
               <ProfileRow
                 icon={BadgeCheck}
-                title="Ruolo nella casa"
-                subtitle="Determina le operazioni disponibili"
+                title={t('profile.account.role')}
+                subtitle={t('profile.account.roleSubtitle')}
                 value={displayRole}
               />
               <ProfileRow
                 icon={Home}
-                title="Casa associata"
-                subtitle="Identità e permessi verificati dal server"
+                title={t('profile.personal.homeTitle')}
+                subtitle={t('profile.account.homeSubtitle')}
                 value={connectionLabel}
                 tone={isConnected ? 'success' : 'warning'}
               />
             </ProfileGroup>
 
             <p className="px-1 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-              Le informazioni dell’account vengono gestite da Home Assistant e non sono duplicate localmente.
+              {t('profile.account.managedNote')}
             </p>
           </div>
         ) : null}
@@ -703,20 +720,20 @@ export function ModernProfilePage({
           <div className="space-y-7">
             <section className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
-                <p className="text-xs text-[color:var(--ui-text-secondary)]">Ultima posizione</p>
-                <p className="mt-1 truncate font-semibold">{movementPoints[0]?.zoneLabel || movementPoints[0]?.label || 'Non disponibile'}</p>
+                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.lastPosition')}</p>
+                <p className="mt-1 truncate font-semibold">{movementPoints[0]?.zoneLabel || movementPoints[0]?.label || t('profile.status.unavailable')}</p>
               </div>
               <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
-                <p className="text-xs text-[color:var(--ui-text-secondary)]">Dispositivi</p>
+                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.devices')}</p>
                 <p className="mt-1 font-semibold">{userOwnedDeviceCount}</p>
               </div>
               <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
-                <p className="text-xs text-[color:var(--ui-text-secondary)]">Aggiornamento</p>
-                <p className="mt-1 truncate font-semibold">{movementUpdatedLabel || 'Nessun dato recente'}</p>
+                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.updated')}</p>
+                <p className="mt-1 truncate font-semibold">{movementUpdatedLabel || t('profile.activity.noRecentData')}</p>
               </div>
             </section>
 
-            <ProfileGroup title="Cronologia recente">
+            <ProfileGroup title={t('profile.activity.history')}>
               {movementTimeline.length > 0 ? (
                 movementTimeline.slice(0, 12).map((entry) => (
                   <ProfileRow
@@ -731,9 +748,9 @@ export function ModernProfilePage({
               ) : (
                 <div className="px-5 py-10 text-center">
                   <MapPin size={24} className="mx-auto text-[color:var(--ui-text-tertiary)]" />
-                  <p className="mt-3 text-sm font-semibold">Nessuna attività disponibile</p>
+                  <p className="mt-3 text-sm font-semibold">{t('profile.activity.emptyTitle')}</p>
                   <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">
-                    Home Assistant non ha restituito spostamenti per questo profilo.
+                    {t('profile.activity.emptySubtitle')}
                   </p>
                 </div>
               )}
@@ -744,10 +761,9 @@ export function ModernProfilePage({
         {view === 'themes' ? (
           <div className="space-y-6">
             <p className="px-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              Scegli una variante colorata per lo sfondo di questo dispositivo. La modalità Chiaro o Scuro
-              resta indipendente e viene scelta nella pagina principale del Profilo.
+              {t('profile.themes.description')}
             </p>
-            <ProfileGroup title="Tema del dispositivo">
+            <ProfileGroup title={t('profile.themes.group')}>
               {DASHBOARD_BACKGROUND_PRESETS.map((preset) => {
                 const selected = background === preset.id;
                 return (
@@ -785,6 +801,43 @@ export function ModernProfilePage({
           </div>
         ) : null}
 
+        {view === 'language' ? (
+          <div className="space-y-6">
+            <p className="px-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
+              {t('language.page.description')}
+            </p>
+            <ProfileGroup title={t('language.page.group')}>
+              {SUPPORTED_LOCALES.map((language) => {
+                const selected = locale === language;
+                const label = t(`language.name.${language}` as TranslationKey);
+                return (
+                  <button
+                    key={language}
+                    type="button"
+                    onClick={() => setLocale(language as AppLocale)}
+                    aria-pressed={selected}
+                    className="flex min-h-[4.4rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold uppercase text-[color:var(--ui-text-secondary)]">
+                      {language}
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">
+                      {label}
+                    </span>
+                    {selected ? (
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-accent-strong)] text-[color:var(--ui-accent-contrast)]">
+                        <Check size={15} strokeWidth={2.5} />
+                      </span>
+                    ) : (
+                      <span className="h-7 w-7 shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
+            </ProfileGroup>
+          </div>
+        ) : null}
+
         {view === 'devices' ? (
           <div className="space-y-6">
             <section className="rounded-[1.65rem] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-surface-glass-soft)] p-5 shadow-[0_18px_42px_var(--ui-shadow-soft)] backdrop-blur-3xl sm:p-6">
@@ -793,28 +846,27 @@ export function ModernProfilePage({
                   <MonitorSmartphone size={21} />
                 </span>
                 <div>
-                  <p className="font-semibold">Dispositivi del profilo</p>
+                  <p className="font-semibold">{t('profile.devices.heroTitle')}</p>
                   <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                    Tracker e browser associati alla tua presenza. La disponibilità dipende dalle entità
-                    esposte da Home Assistant.
+                    {t('profile.devices.heroSubtitle')}
                   </p>
                 </div>
               </div>
             </section>
 
-            <ProfileGroup title="Dispositivi disponibili">
+            <ProfileGroup title={t('profile.devices.group')}>
               {userOwnedDeviceCount > 0 ? (
                 <ProfileRow
                   icon={Smartphone}
-                  title="Tracker personali"
-                  subtitle="Entità associate al profilo corrente"
+                  title={t('profile.devices.trackers')}
+                  subtitle={t('profile.devices.trackersSubtitle')}
                   value={`${userOwnedDeviceCount}`}
                 />
               ) : (
                 <ProfileRow
                   icon={Laptop}
-                  title="Nessun tracker disponibile"
-                  subtitle="Non sono state trovate entità associate a questo utente"
+                  title={t('profile.devices.empty')}
+                  subtitle={t('profile.devices.emptySubtitle')}
                 />
               )}
             </ProfileGroup>
@@ -835,10 +887,11 @@ export function ModernProfilePage({
                   <Fingerprint size={25} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-lg font-semibold tracking-[-0.025em]">Conferma dispositivo</p>
+                  <p className="text-lg font-semibold tracking-[-0.025em]">{t('profile.deviceConfirmation.title')}</p>
                   <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                    Usa la passkey locale del browser per confermare codici e azioni sensibili. Home Assistant
-                    continua a verificare identità e permessi.
+                    {deviceAuth.isEnrolled
+                      ? t('profile.deviceConfirmation.enrolledDescription')
+                      : t('profile.deviceConfirmation.availableDescription')}
                   </p>
                 </div>
               </div>
@@ -852,10 +905,10 @@ export function ModernProfilePage({
                 >
                   <KeyRound size={16} />
                   {securityBusy
-                    ? 'Verifica…'
+                    ? t('profile.deviceConfirmation.verifying')
                     : deviceAuth.isEnrolled
-                      ? 'Verifica dispositivo'
-                      : 'Configura dispositivo'}
+                      ? t('profile.deviceConfirmation.verify')
+                      : t('profile.deviceConfirmation.configure')}
                 </button>
                 {deviceAuth.isEnrolled ? (
                   <button
@@ -864,14 +917,14 @@ export function ModernProfilePage({
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-rose-400/25 bg-rose-500/[0.07] px-5 text-sm font-semibold text-rose-500"
                   >
                     <Trash2 size={16} />
-                    Rimuovi
+                    {t('profile.deviceConfirmation.remove')}
                   </button>
                 ) : null}
               </div>
 
               {!securityAvailable ? (
                 <p className="mt-4 text-xs leading-5 text-amber-500">
-                  La conferma dispositivo non è disponibile in questo browser o nel contesto corrente.
+                  {t('profile.deviceConfirmation.unavailable')}
                 </p>
               ) : null}
 
@@ -891,18 +944,18 @@ export function ModernProfilePage({
               ) : null}
             </section>
 
-            <ProfileGroup title="Stato sicurezza">
+            <ProfileGroup title={t('profile.deviceConfirmation.statusGroup')}>
               <ProfileRow
                 icon={Fingerprint}
-                title="Passkey locale"
-                subtitle="Memorizzata soltanto per questo profilo e browser"
-                value={deviceAuth.isEnrolled ? 'Configurata' : 'Non configurata'}
+                title={t('profile.deviceConfirmation.passkey')}
+                subtitle={t('profile.deviceConfirmation.passkeySubtitle')}
+                value={deviceAuth.isEnrolled ? t('profile.deviceConfirmation.configured') : t('profile.deviceConfirmation.notConfigured')}
                 tone={deviceAuth.isEnrolled ? 'success' : 'default'}
               />
               <ProfileRow
                 icon={ShieldCheck}
-                title="Autorità dei permessi"
-                subtitle="I comandi finali sono sempre verificati dal server"
+                title={t('profile.deviceConfirmation.authority')}
+                subtitle={t('profile.deviceConfirmation.authoritySubtitle')}
                 value="Home Assistant"
               />
             </ProfileGroup>

@@ -1,6 +1,7 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Camera } from 'lucide-react';
 import './HaCameraCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export interface HaCameraCardProps {
   entityId?: string;
@@ -24,6 +25,7 @@ export function HaCameraCard({
   compact = false,
   isLive = true,
 }: HaCameraCardProps) {
+  const { t } = useI18n();
   const longPressTimerRef = useRef<number | null>(null);
   const [streamFailed, setStreamFailed] = useState(false);
   const [fallbackFailed, setFallbackFailed] = useState(false);
@@ -62,7 +64,7 @@ export function HaCameraCard({
     : isLive
       ? ''
       : 'ha-camera-card__live-dot--offline';
-  const statusLabel = showLoadingOverlay ? 'In caricamento' : isLive ? 'Online' : 'Offline';
+  const statusLabel = showLoadingOverlay ? t('camera.events.loading') : isLive ? t('camera.online') : t('camera.disconnected');
 
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current !== null) {
@@ -144,7 +146,7 @@ export function HaCameraCard({
         ) : (
           <div className="ha-camera-card__placeholder">
             <Camera className="ha-camera-card__placeholder-icon" />
-            <div className="ha-camera-card__placeholder-text">Immagine non disponibile</div>
+            <div className="ha-camera-card__placeholder-text">{t('camera.imageUnavailable')}</div>
           </div>
         )}
 
@@ -157,8 +159,8 @@ export function HaCameraCard({
         <div className="ha-camera-card__scrim" aria-hidden="true" />
 
         <div className="ha-camera-card__footer">
-          <div className="ha-camera-card__name">{name || cameraEntityId || 'Camera'}</div>
-          <div className={`ha-camera-card__status ${statusClass}`} aria-label={`Stato camera: ${statusLabel}`}>
+          <div className="ha-camera-card__name">{name || cameraEntityId || t('camera.fallback')}</div>
+          <div className={`ha-camera-card__status ${statusClass}`} aria-label={t('card.cameraStatus', { status: statusLabel })}>
             <span className={`ha-camera-card__live-dot ${dotStateClass}`} aria-hidden="true" />
             <span className="ha-camera-card__status-label">{statusLabel}</span>
           </div>

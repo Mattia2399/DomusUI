@@ -28,6 +28,8 @@ import {
 } from 'lucide-react';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { CircularTemperatureSlider, snapTemperatureToStep } from './CircularTemperatureSlider';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 import { GlassButton } from '../ui/GlassButton';
 import GlassSlider from '../ui/GlassSlider';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
@@ -349,7 +351,7 @@ function fanActionIcon(mode: string, className = 'h-4 w-4') {
 function presetActionLabel(mode: string) {
   const normalized = normalizeMode(mode);
   if (normalized === 'none') {
-    return 'Nessuno';
+    return 'Nessuno'; // i18n-audit-ignore: canonical label translated by localizedClimateLabel.
   }
   if (normalized === 'eco') {
     return 'Eco';
@@ -512,6 +514,15 @@ export function translateClimateStatus(status: string | undefined, fallback: str
   return raw;
 }
 
+const CLIMATE_LABEL_KEYS: Record<string, TranslationKey> = {
+    Spento: 'controls.climate.label.off', Caldo: 'controls.climate.label.heat', Freddo: 'controls.climate.label.cool', Auto: 'controls.climate.label.auto', Ventola: 'controls.climate.label.fan', Dry: 'controls.climate.label.dry', Bassa: 'controls.climate.label.low', Media: 'controls.climate.label.medium', Alta: 'controls.climate.label.high', Turbo: 'controls.climate.label.turbo', Silenziosa: 'controls.climate.label.quiet', Nessuno: 'controls.climate.label.none', Eco: 'controls.climate.label.eco', Comfort: 'controls.climate.label.comfort', 'Fuori casa': 'controls.climate.label.away', Notte: 'controls.climate.label.night', Boost: 'controls.climate.label.boost', Casa: 'controls.climate.label.home', Attivita: 'controls.climate.label.activity', Ferma: 'controls.climate.label.stopped', Attiva: 'controls.climate.label.active', Verticale: 'controls.climate.label.vertical', Orizzontale: 'controls.climate.label.horizontal', Entrambe: 'controls.climate.label.both', Riscaldamento: 'controls.climate.label.heating', Raffrescamento: 'controls.climate.label.cooling', Automatico: 'controls.climate.label.automatic', Ventilazione: 'controls.climate.label.ventilation', Deumidifica: 'controls.climate.label.dry', Inattivo: 'controls.climate.label.inactive', 'Non disponibile': 'controls.climate.label.unavailable', Acceso: 'controls.common.on', Mode: 'controls.climate.mode', // i18n-audit-ignore: lookup keys are translated immediately below.
+};
+
+function localizeClimateLabel(t: ReturnType<typeof useI18n>['t'], label: string) {
+  const key = CLIMATE_LABEL_KEYS[label];
+  return key ? t(key) : label;
+}
+
 export function ClimateControlsPanel({
   climate,
   onTogglePower,
@@ -530,6 +541,7 @@ export function ClimateControlsPanel({
   hideHeader = false,
   density = 'default',
 }: ClimateControlsProps) {
+  const { t } = useI18n();
   void onRefreshCurrent;
 
   const unit = climate.temperatureUnit?.trim() || '\u00B0C';
@@ -705,10 +717,10 @@ export function ClimateControlsPanel({
         ? 'drop-shadow(0 0 15px rgba(10,132,255,0.35))'
         : 'drop-shadow(0 0 10px rgba(50,215,75,0.26))';
 
-  const translatedStatus = translateClimateStatus(
+  const translatedStatus = localizeClimateLabel(t, translateClimateStatus(
     climate.status ?? climate.hvacAction ?? climate.mode,
     formatModeLabel(mode),
-  );
+  ));
   const isCompact = density === 'compact';
   const shellClass = isCompact
     ? 'flex flex-col gap-2 px-2.5 pt-2.5 pb-2.5 sm:gap-2.5 sm:px-3 sm:pt-3 sm:pb-3'
@@ -804,7 +816,7 @@ export function ClimateControlsPanel({
               <div className="mb-2 flex items-center justify-between gap-3 px-1">
                 <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{label}</span>
                 <span className="ml-auto max-w-[7.5rem] truncate text-xs font-semibold text-[color:var(--ui-text-secondary)]">
-                  {formatLabel(activeValue) || 'Non impostata'}
+                  {localizeClimateLabel(t, formatLabel(activeValue)) || t('controls.climate.notSet')}
                 </span>
                 {trailingNode}
               </div>
@@ -813,8 +825,8 @@ export function ClimateControlsPanel({
                 options={options.map((entry) => ({
                   value: entry,
                   label: getIcon(entry, 'h-4 w-4 sm:h-[1.05rem] sm:w-[1.05rem]'),
-                  ariaLabel: formatLabel(entry),
-                  title: formatLabel(entry),
+                  ariaLabel: localizeClimateLabel(t, formatLabel(entry)),
+                  title: localizeClimateLabel(t, formatLabel(entry)),
                 }))}
                 value={options.find((entry) => {
                   const normalized = normalizeMode(entry);
@@ -850,7 +862,7 @@ export function ClimateControlsPanel({
           ? 'liquid-glass-selection border-[color:var(--ui-border-strong)] text-[color:var(--ui-accent)]'
           : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)]'
       }`}
-      aria-label={climate.isOn ? 'Spegni clima' : 'Accendi clima'}
+      aria-label={climate.isOn ? t('controls.climate.turnOff') : t('controls.climate.turnOn')}
     >
       <Power size={15} />
     </button>
@@ -859,17 +871,17 @@ export function ClimateControlsPanel({
     humidityPresetTargets.length > 0 ? (
       <div>
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">Target rapido</span>
+          <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('controls.climate.quickTarget')}</span>
           <span className="ml-auto max-w-[7.5rem] truncate text-xs font-semibold text-[color:var(--ui-text-secondary)]">
-            {activeHumidityPreset !== undefined ? `${Math.round(activeHumidityPreset)}%` : 'Personalizzato'}
+            {activeHumidityPreset !== undefined ? `${Math.round(activeHumidityPreset)}%` : t('controls.climate.custom')}
           </span>
         </div>
         <GlassSegmentSelect
-          ariaLabel="Target rapido umidità"
+          ariaLabel={t('controls.climate.humidityQuickTarget')}
           options={humidityPresetTargets.map((value) => ({
             value,
             label: `${value}%`,
-            ariaLabel: `Imposta umidità target ${value}%`,
+            ariaLabel: t('controls.climate.setHumidity', { value }),
           }))}
           value={activeHumidityPreset}
           onChange={(value) => applyHumidityValue(value)}
@@ -881,7 +893,7 @@ export function ClimateControlsPanel({
     <div>
       {showRangeLabel ? (
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
-          <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">Personalizzato</span>
+          <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('controls.climate.custom')}</span>
           <span className="shrink-0 text-xs font-semibold text-[color:var(--ui-text-tertiary)]">
             {Math.round(humidityMin)}-{Math.round(humidityMax)}%
           </span>
@@ -893,7 +905,7 @@ export function ClimateControlsPanel({
             type="button"
             className="flex h-10 min-w-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-all hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)] active:scale-[0.95] sm:h-11"
             onClick={() => updateHumidityByStep(-1)}
-            aria-label="Diminuisci umidita target"
+            aria-label={t('controls.climate.decreaseHumidity')}
           >
             <Minus size={18} />
           </button>
@@ -908,7 +920,7 @@ export function ClimateControlsPanel({
               step={humidityStep > 0 ? humidityStep : 1}
               value={humidityValue}
               onChange={(event) => applyHumidityValue(Number(event.target.value))}
-              aria-label="Umidita target"
+              aria-label={t('controls.climate.humidityTarget')}
               aria-valuetext={`${Math.round(humidityValue)}%`}
             />
           </div>
@@ -917,7 +929,7 @@ export function ClimateControlsPanel({
             type="button"
             className="flex h-10 min-w-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-all hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)] active:scale-[0.95] sm:h-11"
             onClick={() => updateHumidityByStep(1)}
-            aria-label="Aumenta umidita target"
+            aria-label={t('controls.climate.increaseHumidity')}
           >
             <Plus size={18} />
           </button>
@@ -928,7 +940,7 @@ export function ClimateControlsPanel({
   return (
     <div className={shellClass}>
       {!hideHeader ? (
-        <ContextPanelHeader title={climate.name} subtitle={translatedStatus} icon={modeIcon(mode, 20)} fallbackTitle="Clima" />
+        <ContextPanelHeader title={climate.name} subtitle={translatedStatus} icon={modeIcon(mode, 20)} fallbackTitle={t('controls.climate.title')} />
       ) : null}
 
       <div className={sectionClass}>
@@ -964,7 +976,7 @@ export function ClimateControlsPanel({
                   <span className={`${targetUnitClass} transition-colors duration-200 ${isTargetPending ? 'text-[color:var(--ui-text-disabled)]' : 'text-[color:var(--ui-text-secondary)]'}`}>{unit}</span>
                 </div>
                 <p className={`${currentTempClass} text-[color:var(--ui-text-tertiary)]`}>
-                  {currentTemp !== undefined ? `Attuale ${currentTemp.toFixed(1)}${unit}` : 'Attuale non disponibile'}
+                  {currentTemp !== undefined ? t('controls.climate.current', { value: `${currentTemp.toFixed(1)}${unit}` }) : t('controls.climate.currentUnavailable')}
                 </p>
               </div>
             </CircularTemperatureSlider>
@@ -976,7 +988,7 @@ export function ClimateControlsPanel({
                     type="button"
                     className="flex h-10 min-w-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-all hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)] active:scale-[0.95] sm:h-11"
                     onClick={() => updatePanelTargetByStep(-1)}
-                    aria-label="Diminuisci temperatura target"
+                    aria-label={t('controls.climate.decreaseTemperature')}
                   >
                     <Minus size={18} />
                   </button>
@@ -992,14 +1004,14 @@ export function ClimateControlsPanel({
                       onAutoAdjust();
                     }}
                   >
-                    Align
+                    {t('controls.climate.align')}
                   </button>
 
                   <button
                     type="button"
                     className="flex h-10 min-w-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-all hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)] active:scale-[0.95] sm:h-11"
                     onClick={() => updatePanelTargetByStep(1)}
-                    aria-label="Aumenta temperatura target"
+                    aria-label={t('controls.climate.increaseTemperature')}
                   >
                     <Plus size={18} />
                   </button>
@@ -1017,7 +1029,7 @@ export function ClimateControlsPanel({
               max={humidityMax}
               step={humidityStep > 0 ? humidityStep : 1}
               unit="%"
-              label="Umidita target"
+              label={t('controls.climate.humidityTarget')}
               accentColor="#64D2FF"
               glowFilter="drop-shadow(0 0 14px rgba(100,210,255,0.34))"
               pending={humidityPending}
@@ -1034,7 +1046,7 @@ export function ClimateControlsPanel({
                   <span className={`${targetUnitClass} text-[color:var(--ui-text-secondary)]`}>%</span>
                 </div>
                 <p className={`${currentTempClass} text-[color:var(--ui-text-tertiary)]`}>
-                  {currentHumidity !== undefined ? `Attuale ${Math.round(currentHumidity)}%` : 'Attuale non disponibile'}
+                  {currentHumidity !== undefined ? t('controls.climate.current', { value: `${Math.round(currentHumidity)}%` }) : t('controls.climate.currentUnavailable')}
                 </p>
               </div>
             </CircularTemperatureSlider>
@@ -1050,24 +1062,24 @@ export function ClimateControlsPanel({
               <div className="flex h-[72%] w-[72%] flex-col items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-secondary)] px-4 text-center shadow-[0_18px_40px_var(--ui-shadow-soft)]">
                 <Fan className="mb-3 h-9 w-9 text-[color:var(--ui-text-secondary)]" strokeWidth={1.6} />
                 <span className="max-w-full truncate text-lg font-semibold text-[color:var(--ui-text-primary)]">
-                  {localFanMode ? fanActionLabel(localFanMode) : 'Ventola'}
+                  {localFanMode ? localizeClimateLabel(t, fanActionLabel(localFanMode)) : t('controls.climate.fan')}
                 </span>
                 <p className={`${currentTempClass} text-[color:var(--ui-text-tertiary)]`}>
-                  {fanPending ? 'Aggiorno' : 'Velocita ventola'}
+                  {fanPending ? t('controls.climate.updating') : t('controls.climate.fanSpeed')}
                 </p>
               </div>
             </div>
             {supportsFanMode && fanModes.length > 0 ? (
               <div className={isCompact ? 'mt-1' : 'mt-1.5'}>
                 {renderIconSegmentedControl(
-                  'Ventola',
+                  t('controls.climate.fan'),
                   fanModes,
                   localFanMode,
                   applyFanMode,
                   fanActionIcon,
-                  fanActionLabel,
+                  (value) => localizeClimateLabel(t, fanActionLabel(value)),
                   undefined,
-                  fanPending ? <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">Aggiorno</span> : null,
+                  fanPending ? <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('controls.climate.updating')}</span> : null,
                   fanModes.length > 4,
                 )}
               </div>
@@ -1080,9 +1092,9 @@ export function ClimateControlsPanel({
             <div className="absolute inset-[6%] rounded-full border-[0.7rem] border-[#64D2FF]/12 shadow-[0_16px_38px_rgba(100,210,255,0.06)]" />
             <div className="flex h-[72%] w-[72%] flex-col items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-secondary)] px-4 text-center">
               <Droplets className="mb-3 h-9 w-9 text-[#64D2FF]/78" strokeWidth={1.6} />
-              <span className="text-lg font-semibold text-[color:var(--ui-text-primary)]">Deumidifica</span>
+              <span className="text-lg font-semibold text-[color:var(--ui-text-primary)]">{t('controls.climate.dehumidify')}</span>
               <p className={`${currentTempClass} text-[color:var(--ui-text-tertiary)]`}>
-                {currentHumidity !== undefined ? `Umidita ${Math.round(currentHumidity)}%` : 'Target non regolabile'}
+                {currentHumidity !== undefined ? t('controls.climate.humidity', { value: Math.round(currentHumidity) }) : t('controls.climate.targetUnavailable')}
               </p>
             </div>
           </div>
@@ -1093,9 +1105,9 @@ export function ClimateControlsPanel({
             <div className="absolute inset-[6%] rounded-full border-[0.7rem] border-[color:var(--ui-border)]" />
             <div className="flex h-[72%] w-[72%] flex-col items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-secondary)] px-4 text-center">
               <Power className="mb-3 h-9 w-9 text-[color:var(--ui-text-tertiary)]" strokeWidth={1.5} />
-              <span className="text-lg font-semibold text-[color:var(--ui-text-primary)]">Spento</span>
+              <span className="text-lg font-semibold text-[color:var(--ui-text-primary)]">{t('controls.climate.label.off')}</span>
               <p className={`${currentTempClass} text-[color:var(--ui-text-tertiary)]`}>
-                {currentTemp !== undefined ? `Ambiente ${currentTemp.toFixed(1)}${unit}` : 'Clima non attivo'}
+                {currentTemp !== undefined ? t('controls.climate.room', { value: `${currentTemp.toFixed(1)}${unit}` }) : t('controls.climate.inactive')}
               </p>
             </div>
           </div>
@@ -1106,17 +1118,17 @@ export function ClimateControlsPanel({
         <div className={sectionClass}>
           {hvacModes.length > 0 ? (
             renderIconSegmentedControl(
-              'Modalita',
+              t('controls.climate.mode'),
               hvacModes,
               mode,
               onSetMode,
               modeSegmentIcon,
-              modeActionChipLabel,
+              (value) => localizeClimateLabel(t, modeActionChipLabel(value)),
               isEquivalentClimateMode,
             )
           ) : (
             <div className="flex items-center justify-between gap-3">
-              <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">Alimentazione</span>
+              <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('controls.climate.power')}</span>
               {climatePowerButton}
             </div>
           )}
@@ -1126,14 +1138,14 @@ export function ClimateControlsPanel({
       {supportsFanMode && fanModes.length > 0 && primaryControl !== 'fan' && primaryControl !== 'off' ? (
         <div className={sectionClass}>
           {renderIconSegmentedControl(
-            'Ventola',
+            t('controls.climate.fan'),
             fanModes,
             localFanMode,
             applyFanMode,
             fanActionIcon,
-            fanActionLabel,
+            (value) => localizeClimateLabel(t, fanActionLabel(value)),
             undefined,
-            fanPending ? <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">Aggiorno</span> : null,
+            fanPending ? <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('controls.climate.updating')}</span> : null,
             fanModes.length > 4,
           )}
         </div>
@@ -1142,12 +1154,12 @@ export function ClimateControlsPanel({
       {supportsPresetMode && presetModes.length > 0 && primaryControl !== 'off' ? (
         <div className={sectionClass}>
           {renderIconSegmentedControl(
-            'Preset',
+            t('controls.climate.preset'),
             presetModes,
             activePresetMode,
             onSetPresetMode,
             presetActionIcon,
-            presetActionLabel,
+            (value) => localizeClimateLabel(t, presetActionLabel(value)),
           )}
         </div>
       ) : null}
@@ -1157,28 +1169,28 @@ export function ClimateControlsPanel({
           <div className="flex items-center justify-between gap-3">
             <span className="inline-flex min-w-0 items-center gap-2 text-sm font-medium text-[color:var(--ui-text-primary)]">
               <Wind size={15} className="text-[#64D2FF]" />
-              Oscillazione
+              {t('controls.climate.swing')}
             </span>
-            {isSwingPending ? <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">Aggiorno</span> : null}
+            {isSwingPending ? <span className="text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('controls.climate.updating')}</span> : null}
           </div>
           {hasSwingModeControl
             ? renderIconSegmentedControl(
-                'Direzione',
+                t('controls.climate.direction'),
                 swingModes,
                 activeSwingMode,
                 onSetSwingMode,
                 swingDirectionIcon,
-                swingActionLabel,
+                (value) => localizeClimateLabel(t, swingActionLabel(value)),
               )
             : null}
           {hasSwingHorizontalControl
             ? renderIconSegmentedControl(
-                hasSwingModeControl ? 'Alette orizzontali' : 'Orizzontale',
+                hasSwingModeControl ? t('controls.climate.horizontalLouvers') : t('controls.climate.horizontal'),
                 swingHorizontalModes,
                 activeSwingHorizontalMode,
                 onSetSwingHorizontalMode,
                 swingHorizontalIcon,
-                swingActionLabel,
+                (value) => localizeClimateLabel(t, swingActionLabel(value)),
               )
             : null}
         </div>
@@ -1202,6 +1214,7 @@ export function RoomClimateCard({
 }: ClimateControlsProps) {
   void onAutoAdjust;
   void onRefreshCurrent;
+  const { t } = useI18n();
 
   const unit = climate.temperatureUnit?.trim() || '\u00B0C';
   const rawAttributes = climate.rawAttributes;
@@ -1268,10 +1281,10 @@ export function RoomClimateCard({
       : mode === 'cool'
         ? 'drop-shadow(0 0 15px rgba(10,132,255,0.35))'
         : 'drop-shadow(0 0 10px rgba(50,215,75,0.26))';
-  const translatedStatus = translateClimateStatus(
+  const translatedStatus = localizeClimateLabel(t, translateClimateStatus(
     climate.status ?? climate.hvacAction ?? climate.mode,
     formatModeLabel(mode),
-  );
+  ));
   const hvacActions = useMemo<RoomClimateAction[]>(
     () =>
       hvacModes
@@ -1281,13 +1294,13 @@ export function RoomClimateCard({
           return {
             id: `hvac:${normalized}`,
             value: entry,
-            label: modeActionChipLabel(normalized),
+            label: localizeClimateLabel(t, modeActionChipLabel(normalized)),
             icon: modeSelectorIcon(normalized, 18),
             active: isEquivalentClimateMode(mode, normalized),
             iconClassName: modeAccentIconClass(normalized),
           };
         }),
-    [hvacModes, mode],
+    [hvacModes, mode, t],
   );
   const fanActions = useMemo<RoomClimateAction[]>(
     () =>
@@ -1297,12 +1310,12 @@ export function RoomClimateCard({
         .map(({ entry, normalized }) => ({
           id: `fan:${normalized}`,
           value: entry,
-          label: fanActionLabel(entry),
+          label: localizeClimateLabel(t, fanActionLabel(entry)),
           icon: <Wind size={18} />,
           active: fanMode === normalized,
           iconClassName: 'text-[#64D2FF]',
         })),
-    [fanMode, fanModes],
+    [fanMode, fanModes, t],
   );
   const targetValue = localRange
     ? `${Math.round(localRange.low)}-${Math.round(localRange.high)}`
@@ -1372,10 +1385,10 @@ export function RoomClimateCard({
           className="[@container_(min-width:_19rem)]:flex-1"
           options={actions.map((action) => ({
             value: action.value,
-            label: label === 'Ventilazione' && /^[0-9]+$/.test(action.label)
+            label: /^[0-9]+$/.test(action.label)
               ? <span className="min-w-4 text-center text-xs font-bold tracking-tight">{action.label}</span>
               : <span>{action.icon}</span>,
-            ariaLabel: `Imposta ${action.label}`,
+            ariaLabel: t('controls.climate.setAction', { action: action.label }),
             title: action.label,
           }))}
           value={actions.find((action) => action.active)?.value}
@@ -1390,7 +1403,7 @@ export function RoomClimateCard({
       <div className="flex min-w-0 items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 className="line-clamp-2 text-[clamp(0.92rem,4.8cqw,1.05rem)] font-semibold leading-[1.12] tracking-tight text-[color:var(--ui-text-primary)]">
-            {climate.name || 'Termostato'}
+            {climate.name || t('controls.climate.thermostat')}
           </h2>
           <p className="mt-1 truncate text-xs font-medium text-[color:var(--ui-text-secondary)]">{translatedStatus}</p>
         </div>
@@ -1419,7 +1432,7 @@ export function RoomClimateCard({
               <span className={`mt-[0.3em] text-[clamp(0.88rem,5.2cqw,1.25rem)] transition-colors duration-200 ${isTargetPending ? 'text-[color:var(--ui-text-tertiary)]' : 'text-[color:var(--ui-text-secondary)]'}`}>{displayUnit}</span>
             </div>
             <p className="mt-1 max-w-full truncate text-[clamp(0.62rem,3.4cqw,0.75rem)] font-semibold tracking-tight text-[color:var(--ui-text-tertiary)]">
-              {currentTemp !== undefined ? `Attuale ${currentTemp.toFixed(1)}${unit}` : 'Attuale non disponibile'}
+              {currentTemp !== undefined ? t('controls.climate.current', { value: `${currentTemp.toFixed(1)}${unit}` }) : t('controls.climate.currentUnavailable')}
             </p>
           </div>
         </CircularTemperatureSlider>
@@ -1429,7 +1442,7 @@ export function RoomClimateCard({
             size="icon"
             className="h-10 w-10 rounded-full border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
             onClick={() => updateTargetByStep(-1)}
-            aria-label="Diminuisci temperatura target"
+            aria-label={t('controls.climate.decreaseTemperature')}
           >
             <Minus size={18} />
           </GlassButton>
@@ -1437,7 +1450,7 @@ export function RoomClimateCard({
             size="icon"
             className="h-10 w-10 rounded-full border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
             onClick={() => updateTargetByStep(1)}
-            aria-label="Aumenta temperatura target"
+            aria-label={t('controls.climate.increaseTemperature')}
           >
             <Plus size={18} />
           </GlassButton>
@@ -1446,9 +1459,9 @@ export function RoomClimateCard({
 
       {hvacActions.length > 0 || fanActions.length > 0 ? (
         <div className="mt-[clamp(0.1rem,0.55cqh,0.35rem)] shrink-0 rounded-[1.35rem] border border-white/[0.06] bg-white/[0.035] p-[clamp(0.65rem,3.2cqw,0.85rem)] shadow-[inset_0_1px_0_rgba(255,255,255,0.07),0_18px_42px_rgba(0,0,0,0.14)] backdrop-blur-2xl">
-          {renderActionRail('Modalità', hvacActions, onSetMode)}
+          {renderActionRail(t('controls.climate.mode'), hvacActions, onSetMode)}
           {hvacActions.length > 0 && fanActions.length > 0 ? <div className="my-2 h-px w-full bg-white/[0.055]" /> : null}
-          {renderActionRail('Ventilazione', fanActions, onSetFanMode)}
+          {renderActionRail(t('controls.climate.label.ventilation'), fanActions, onSetFanMode)}
         </div>
       ) : null}
     </div>

@@ -54,8 +54,8 @@ describe('MediaCard', () => {
     expect(container.querySelector('.ha-media-card__status')?.textContent).toContain('Dashboard Artist \u2022 Living Room TV');
     expect(container.querySelector('.ha-media-card__track')).toBeNull();
     expect((getByLabelText('Riproduci') as HTMLButtonElement).disabled).toBe(false);
-    expect((getByLabelText('Brano precedente') as HTMLButtonElement).disabled).toBe(true);
-    expect((getByLabelText('Brano successivo') as HTMLButtonElement).disabled).toBe(true);
+    expect((getByLabelText('Traccia precedente') as HTMLButtonElement).disabled).toBe(true);
+    expect((getByLabelText('Traccia successiva') as HTMLButtonElement).disabled).toBe(true);
     expect((getByLabelText('Riproduzione casuale') as HTMLButtonElement).disabled).toBe(true);
     expect((getByLabelText('Ripeti: disattivato') as HTMLButtonElement).disabled).toBe(true);
   });
@@ -87,8 +87,8 @@ describe('MediaCard', () => {
 
     expect(container.querySelector('.ha-media-card__transport')).not.toBeNull();
     expect((getByLabelText('Riproduci') as HTMLButtonElement).disabled).toBe(false);
-    expect((getByLabelText('Brano precedente') as HTMLButtonElement).disabled).toBe(true);
-    expect((getByLabelText('Brano successivo') as HTMLButtonElement).disabled).toBe(true);
+    expect((getByLabelText('Traccia precedente') as HTMLButtonElement).disabled).toBe(true);
+    expect((getByLabelText('Traccia successiva') as HTMLButtonElement).disabled).toBe(true);
     expect((getByLabelText('Riproduzione casuale') as HTMLButtonElement).disabled).toBe(true);
     expect((getByLabelText('Ripeti: disattivato') as HTMLButtonElement).disabled).toBe(true);
   });

@@ -39,7 +39,7 @@ describe('global accessibility contract', () => {
     const stack = read('src/components/dashboard/StackGrid.tsx');
 
     expect(canvas).toContain('handleCanvasItemKeyDown');
-    expect(canvas).toContain('Maiuscole più frecce per ridimensionare');
+    expect(canvas).toContain("t('home.catalog.keyboardHelp')");
     expect(stack).toContain('handleStackItemKeyDown');
     expect(stack).toContain('role="status"');
   });

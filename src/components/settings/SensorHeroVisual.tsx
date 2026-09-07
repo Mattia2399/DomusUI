@@ -82,7 +82,7 @@ function SvgValue({ value, unit, presentation }: SvgValueProps) {
         x="160"
         y={valueY}
         fill="white"
-        fontFamily="SF Pro Display, system-ui, sans-serif"
+        fontFamily="-apple-system, BlinkMacSystemFont, system-ui, sans-serif"
         fontSize={valueFontSize}
         fontWeight="250"
         letterSpacing="-1.4"
@@ -94,7 +94,7 @@ function SvgValue({ value, unit, presentation }: SvgValueProps) {
           x="160"
           y={unitY}
           fill="rgba(226,232,240,0.78)"
-          fontFamily="SF Pro Text, system-ui, sans-serif"
+          fontFamily="-apple-system, BlinkMacSystemFont, system-ui, sans-serif"
           fontSize={unitLabel.length > 10 ? 11 : 15}
           fontWeight="450"
         >
@@ -118,7 +118,7 @@ function SvgValue({ value, unit, presentation }: SvgValueProps) {
             y="15.5"
             textAnchor="start"
             fill="rgba(255,255,255,0.88)"
-            fontFamily="SF Pro Text, system-ui, sans-serif"
+            fontFamily="-apple-system, BlinkMacSystemFont, system-ui, sans-serif"
             fontSize="11"
             fontWeight="600"
           >
@@ -131,7 +131,7 @@ function SvgValue({ value, unit, presentation }: SvgValueProps) {
           x="160"
           y={presentation.status ? 218 : 202}
           fill="rgba(226,232,240,0.66)"
-          fontFamily="SF Pro Text, system-ui, sans-serif"
+          fontFamily="-apple-system, BlinkMacSystemFont, system-ui, sans-serif"
           fontSize={trendFontSize}
           fontWeight="500"
           letterSpacing="0.1"

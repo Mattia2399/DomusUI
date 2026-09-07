@@ -93,6 +93,21 @@ export function parsePanelBridgeCapabilities(value: unknown) {
   );
 }
 
+export function parsePanelLocale(value: unknown): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+  if (
+    value &&
+    typeof value === 'object' &&
+    typeof (value as { language?: unknown }).language === 'string' &&
+    (value as { language: string }).language.trim().length > 0
+  ) {
+    return (value as { language: string }).language.trim();
+  }
+  return null;
+}
+
 export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'auth/current_user',
   'auth/list',
@@ -264,6 +279,7 @@ export function useHaPanelBridgeConnection() {
   const [isPaused, setIsPaused] = useState(false);
   const [bridgeProtocolVersion, setBridgeProtocolVersion] = useState<number | null>(null);
   const [bridgeCapabilities, setBridgeCapabilities] = useState<string[]>([]);
+  const [locale, setLocale] = useState<string | null>(null);
   const hassUrlRef = useRef<string>(typeof window !== 'undefined' ? window.location.origin : '');
   const rawStatesRef = useRef<Record<string, unknown>>({});
   const pendingRequestsRef = useRef<Map<string, PendingRequestRecord>>(new Map());
@@ -445,6 +461,7 @@ export function useHaPanelBridgeConnection() {
             : null,
         );
         setBridgeCapabilities(parsePanelBridgeCapabilities(contextPayload.capabilities));
+        setLocale(parsePanelLocale(contextPayload.locale));
         setIsManagedByParent(true);
         if (!isPaused) {
           setStatus('connecting');
@@ -465,6 +482,7 @@ export function useHaPanelBridgeConnection() {
             : null,
         );
         setBridgeCapabilities(parsePanelBridgeCapabilities(snapshotPayload.capabilities));
+        setLocale(parsePanelLocale(snapshotPayload.locale));
         applySnapshot(snapshotPayload);
         setStatus('connected');
         setError(null);
@@ -587,6 +605,7 @@ export function useHaPanelBridgeConnection() {
     setLastUpdatedAt(null);
     setBridgeProtocolVersion(null);
     setBridgeCapabilities([]);
+    setLocale(null);
   }, []);
 
   const callService = useCallback(
@@ -649,6 +668,7 @@ export function useHaPanelBridgeConnection() {
     isManagedByParent,
     bridgeProtocolVersion,
     bridgeCapabilities,
+    locale,
     supportsSharedConfiguration: bridgeCapabilities.includes('shared_configuration'),
     supportsAppConfigurations: bridgeCapabilities.includes('app_configurations'),
     hassUrl: hassUrlRef.current,

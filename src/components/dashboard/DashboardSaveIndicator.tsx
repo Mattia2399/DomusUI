@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react';
 import { Check, RefreshCw, Save, SaveOff } from 'lucide-react';
 import type { DashboardLayoutSaveStatus } from '../../hooks/useDashboardLayoutPersistence';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type DashboardSaveIndicatorProps = {
   status: DashboardLayoutSaveStatus;
   embedded?: boolean;
 };
 
-const ERROR_LABELS: Record<Extract<DashboardLayoutSaveStatus, { phase: 'error' }>['code'], string> = {
-  storage_unavailable: 'Archivio non disponibile',
-  server_unavailable: 'Home Assistant non raggiungibile',
-  server_unauthorized: 'Permessi insufficienti per salvare',
-  server_unsupported: 'Archivio Home Assistant non supportato',
-  server_conflict: 'Layout modificato da un altro dispositivo',
-  migration_required: 'Layout da trasferire su Home Assistant',
-  quota_exceeded: 'Spazio di salvataggio esaurito',
-  security_error: 'Salvataggio bloccato dal browser',
-  serialization_error: 'Layout non salvabile',
-  unknown: 'Salvataggio non riuscito',
+const ERROR_KEYS: Record<Extract<DashboardLayoutSaveStatus, { phase: 'error' }>['code'], import('../../i18n/translations').TranslationKey> = {
+  storage_unavailable: 'dashboard.save.error.storage_unavailable',
+  server_unavailable: 'dashboard.save.error.server_unavailable',
+  server_unauthorized: 'dashboard.save.error.server_unauthorized',
+  server_unsupported: 'dashboard.save.error.server_unsupported',
+  server_conflict: 'dashboard.save.error.server_conflict',
+  migration_required: 'dashboard.save.error.migration_required',
+  quota_exceeded: 'dashboard.save.error.quota_exceeded',
+  security_error: 'dashboard.save.error.security_error',
+  serialization_error: 'dashboard.save.error.serialization_error',
+  unknown: 'dashboard.save.error.unknown',
 };
 
 function SaveCheckIcon() {
@@ -34,6 +35,7 @@ function SaveCheckIcon() {
 }
 
 export function DashboardSaveIndicator({ status, embedded = false }: DashboardSaveIndicatorProps) {
+  const { t, formatDate } = useI18n();
   const [showSavedLabel, setShowSavedLabel] = useState(false);
 
   useEffect(() => {
@@ -57,10 +59,10 @@ export function DashboardSaveIndicator({ status, embedded = false }: DashboardSa
   const isError = status.phase === 'error';
   const isDirty = status.phase === 'dirty';
   const label = isSaving
-    ? 'Salvataggio…'
+    ? t('dashboard.save.saving')
     : isError || isDirty
-      ? 'Modifiche non salvate'
-      : 'Salvato';
+      ? t('dashboard.save.dirty')
+      : t('dashboard.save.saved');
   const showLabel = isSaving || isError || isDirty || showSavedLabel;
 
   return (
@@ -79,11 +81,11 @@ export function DashboardSaveIndicator({ status, embedded = false }: DashboardSa
       aria-label={label}
       title={
         status.phase === 'saved'
-          ? `Layout salvato alle ${new Date(status.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+          ? t('dashboard.save.savedAt', { time: formatDate(status.savedAt, { hour: '2-digit', minute: '2-digit' }) })
           : status.phase === 'error'
-            ? ERROR_LABELS[status.code]
+            ? t(ERROR_KEYS[status.code])
             : status.phase === 'dirty'
-              ? 'Le modifiche verranno salvate quando uscirai dalla modalità Edit'
+              ? t('dashboard.save.onExit')
             : label
       }
     >

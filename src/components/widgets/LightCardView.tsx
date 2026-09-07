@@ -3,6 +3,7 @@ import { Clock3, Lightbulb, Palette, Sparkles, Sun, Thermometer } from 'lucide-r
 import GlassSlider from '../ui/GlassSlider';
 import type { LightCardModel } from './lightCardModel';
 import './LightCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type LightCardViewProps = {
   model: LightCardModel;
@@ -29,6 +30,7 @@ export function LightCardView({
   onColorChange,
   rootRef,
 }: LightCardViewProps) {
+  const { t } = useI18n();
   const [sliderMode, setSliderMode] = useState<SliderMode>('brightness');
   const [draftValue, setDraftValue] = useState<number | null>(null);
   const pointerActiveRef = useRef(false);
@@ -40,7 +42,7 @@ export function LightCardView({
   const sliderMaximum = sliderMode === 'color' ? 360 : 100;
   const progress = (sliderValue / sliderMaximum) * 100;
   const statusLabel = sliderMode === 'brightness' && draftValue !== null && model.available && model.isOn
-    ? `Accesa · ${Math.round(sliderValue)}%`
+    ? `${t('controls.common.onFeminine')} · ${Math.round(sliderValue)}%`
     : model.statusLabel;
   const effectiveSaturation = Math.max(72, model.saturation);
   const accentRgb = (model.supportsColor ? model.rgb : [61, 90, 254]).join(' ');
@@ -76,13 +78,13 @@ export function LightCardView({
 
   const detailItems = [
     model.supportsColor
-      ? { id: 'color', icon: <Palette />, label: 'Colore', value: `${model.hue}°`, swatch: true }
+      ? { id: 'color', icon: <Palette />, label: t('controls.light.color'), value: `${model.hue}°`, swatch: true }
       : null,
     model.supportsColorTemp && model.colorTempKelvin
-      ? { id: 'temperature', icon: <Thermometer />, label: 'Temperatura', value: `${model.colorTempKelvin} K` }
+      ? { id: 'temperature', icon: <Thermometer />, label: t('controls.light.colorTemperature'), value: `${model.colorTempKelvin} K` }
       : null,
     model.effect
-      ? { id: 'effect', icon: <Sparkles />, label: 'Effetto', value: model.effect }
+      ? { id: 'effect', icon: <Sparkles />, label: t('card.editEffect'), value: model.effect }
       : null,
   ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
   const hasTopActions = model.timerActive || model.supportsColor;
@@ -119,15 +121,15 @@ export function LightCardView({
                   setDraftValue(null);
                   setSliderMode((current) => current === 'brightness' ? 'color' : 'brightness');
                 }}
-                aria-label={sliderMode === 'brightness' ? 'Passa al controllo colore' : 'Torna al controllo luminosità'}
-                title={sliderMode === 'brightness' ? 'Colore' : 'Luminosità'}
+                aria-label={sliderMode === 'brightness' ? t('controls.light.color') : t('controls.light.brightness')}
+                title={sliderMode === 'brightness' ? t('controls.light.color') : t('controls.light.brightness')}
               >
                 {sliderMode === 'brightness' ? <Palette /> : <Sun />}
               </button>
             ) : null}
 
             {model.timerActive ? (
-              <span className="light-card__timer" title="Timer attivo" aria-label="Timer attivo">
+              <span className="light-card__timer" title={t('card.timerActive')} aria-label={t('card.timerActive')}>
                 <Clock3 />
               </span>
             ) : null}
@@ -146,8 +148,8 @@ export function LightCardView({
             step={1}
             value={sliderValue}
             disabled={sliderMode === 'color' ? !canUseColor : !canUseBrightness}
-            aria-label={sliderMode === 'color' ? `Colore ${model.title}` : `Luminosità ${model.title}`}
-            aria-valuetext={sliderMode === 'color' ? `${Math.round(sliderValue)} gradi` : `${Math.round(sliderValue)}%`}
+            aria-label={sliderMode === 'color' ? `${t('controls.light.color')} ${model.title}` : `${t('controls.light.brightness')} ${model.title}`}
+            aria-valuetext={sliderMode === 'color' ? t('card.degrees', { value: Math.round(sliderValue) }) : `${Math.round(sliderValue)}%`}
             onPointerDown={(event) => {
               event.stopPropagation();
               pointerActiveRef.current = true;
@@ -183,7 +185,7 @@ export function LightCardView({
           </div>
         </div>
 
-        <div className="light-card__details" aria-label="Dettagli luce">
+        <div className="light-card__details" aria-label={t('card.details', { name: model.title })}>
           {detailItems.map((item) => (
             <span key={item.id} className="light-card__detail">
               <span className={`light-card__detail-icon ${item.swatch ? 'light-card__detail-icon--swatch' : ''}`}>{item.icon}</span>
@@ -211,7 +213,7 @@ export function LightCardView({
                 onToggle();
               }
             }}
-            aria-label={`Configura ${model.title}`}
+            aria-label={t('card.configure', { name: model.title })}
           />
         ) : (
           <button
@@ -220,7 +222,7 @@ export function LightCardView({
             onClick={onToggle}
             disabled={!model.available}
             aria-pressed={model.isOn}
-            aria-label={`${model.isOn ? 'Spegni' : 'Accendi'} ${model.title}`}
+            aria-label={t(model.isOn ? 'card.turnOff' : 'card.turnOn', { name: model.title })}
           />
         )}
       </div>

@@ -68,8 +68,10 @@ import { useDashboardState } from '../hooks/useDashboardState';
 import type { HaArea } from '../hooks/useHaLiveConnection';
 import type { DashboardSection, SceneKey, Widget, WidgetKind } from '../types/dashboardModels';
 import type { MockEntityState, MockEntityStateMap } from '../types/ha';
-import { translateMediaPlayerState } from '../utils/mediaPlayerState';
+import { normalizeMediaPlayerStateKey } from '../utils/mediaPlayerState';
 import type { DashboardRuntimeMode } from '../security/dashboardAccess';
+import { useRoomsTranslations, type RoomsTranslator } from '../i18n/roomsTranslations';
+import { useI18n } from '../i18n/I18nProvider';
 
 const CUSTOM_ROOMS_STORAGE_KEY = 'ha.dashboard.rooms.customRooms.v1';
 const ACTIVE_ROOM_STORAGE_KEY = 'ha.dashboard.rooms.activeRoomId.v1';
@@ -619,9 +621,9 @@ function buildFloorDraft(floor: HaFloorEntry): FloorDraft {
   };
 }
 
-function formatFloorTabLabel(floor: HaFloorEntry | undefined) {
+function formatFloorTabLabel(floor: HaFloorEntry | undefined, rt: RoomsTranslator) {
   if (!floor) {
-    return 'Tutti i Piani';
+    return rt('allFloors');
   }
   if (typeof floor.level === 'number') {
     if (floor.level === 0) {
@@ -819,89 +821,80 @@ function resolveWidgetKindFromEntityId(entityId: string): WidgetKind | null {
   return null;
 }
 
-function formatRoomDeviceCount(count: number) {
-  return `${count} ${count === 1 ? 'dispositivo' : 'dispositivi'}`;
-}
-
-function formatSelectedDeviceCount(count: number) {
-  return `${formatRoomDeviceCount(count)} ${count === 1 ? 'selezionato' : 'selezionati'}`;
-}
-
-function formatDomainLabel(domain: string) {
-  if (domain === 'media_player') return 'Media';
-  if (domain === 'binary_sensor') return 'Sensore';
-  if (domain === 'input_boolean') return 'Interruttore';
-  if (domain === 'light') return 'Luce';
-  if (domain === 'climate') return 'Clima';
-  if (domain === 'switch') return 'Interruttore';
-  if (domain === 'fan') return 'Ventola';
-  if (domain === 'sensor') return 'Sensore';
-  if (domain === 'lock') return 'Serratura';
-  if (domain === 'camera') return 'Videocamera';
-  if (domain === 'cover') return 'Tapparella';
-  if (domain === 'weather') return 'Meteo';
-  if (domain === 'scene') return 'Scena';
+function formatDomainLabel(domain: string, rt: RoomsTranslator) {
+  if (domain === 'media_player') return rt('domainMedia');
+  if (domain === 'binary_sensor' || domain === 'sensor') return rt('domainSensor');
+  if (domain === 'input_boolean' || domain === 'switch') return rt('domainSwitch');
+  if (domain === 'light') return rt('domainLight');
+  if (domain === 'climate') return rt('domainClimate');
+  if (domain === 'fan') return rt('domainFan');
+  if (domain === 'lock') return rt('domainLock');
+  if (domain === 'camera') return rt('domainCamera');
+  if (domain === 'cover') return rt('domainCover');
+  if (domain === 'weather') return rt('domainWeather');
+  if (domain === 'scene') return rt('domainScene');
   return toTitleCase(domain);
 }
 
-function translateEntityStateValue(domain: string, value: string) {
+function translateEntityStateValue(domain: string, value: string, rt: RoomsTranslator) {
   const normalized = value.trim().toLowerCase();
   if (!normalized) {
     return null;
   }
-  if (normalized === 'unavailable') return 'Non disponibile';
-  if (normalized === 'unknown') return 'Sconosciuto';
+  if (normalized === 'unavailable') return rt('unavailable');
+  if (normalized === 'unknown') return rt('unknown');
   if (domain === 'light') {
-    if (normalized === 'on') return 'Accesa';
-    if (normalized === 'off') return 'Spenta';
+    if (normalized === 'on') return rt('stateOnFeminine');
+    if (normalized === 'off') return rt('stateOffFeminine');
   }
   if (domain === 'switch' || domain === 'input_boolean') {
-    if (normalized === 'on') return 'Acceso';
-    if (normalized === 'off') return 'Spento';
+    if (normalized === 'on') return rt('stateOnMasculine');
+    if (normalized === 'off') return rt('stateOffMasculine');
   }
   if (domain === 'fan') {
-    if (normalized === 'on') return 'Accesa';
-    if (normalized === 'off') return 'Spenta';
+    if (normalized === 'on') return rt('stateOnFeminine');
+    if (normalized === 'off') return rt('stateOffFeminine');
   }
   if (domain === 'media_player') {
-    const label = translateMediaPlayerState(value, normalized === 'unknown' ? 'Sconosciuto' : '');
-    return label || null;
+    const mediaState = normalizeMediaPlayerStateKey(value);
+    const mediaStateKeys = { playing: 'statePlaying', paused: 'statePaused', idle: 'stateInactive', buffering: 'stateBuffering', on: 'stateOnMasculine', off: 'stateOffMasculine', standby: 'stateStandby', unavailable: 'unavailable', unknown: 'unknown' } as const;
+    return rt(mediaStateKeys[mediaState]);
   }
   if (domain === 'cover') {
-    if (normalized === 'open') return 'Aperta';
-    if (normalized === 'closed') return 'Chiusa';
-    if (normalized === 'opening') return 'In apertura';
-    if (normalized === 'closing') return 'In chiusura';
+    if (normalized === 'open') return rt('stateOpen');
+    if (normalized === 'closed') return rt('stateClosed');
+    if (normalized === 'opening') return rt('stateOpening');
+    if (normalized === 'closing') return rt('stateClosing');
   }
   if (domain === 'lock') {
-    if (normalized === 'locked') return 'Bloccata';
-    if (normalized === 'unlocked') return 'Sbloccata';
-    if (normalized === 'open') return 'Aperta';
+    if (normalized === 'locked') return rt('stateLocked');
+    if (normalized === 'unlocked') return rt('stateUnlocked');
+    if (normalized === 'open') return rt('stateOpen');
   }
   if (domain === 'binary_sensor') {
-    if (normalized === 'on') return 'Attivo';
-    if (normalized === 'off') return 'Inattivo';
+    if (normalized === 'on') return rt('stateActive');
+    if (normalized === 'off') return rt('stateInactive');
   }
   if (domain === 'climate') {
-    if (normalized === 'heat') return 'Riscaldamento';
-    if (normalized === 'cool') return 'Raffrescamento';
-    if (normalized === 'dry') return 'Deumidificazione';
-    if (normalized === 'fan_only') return 'Ventilazione';
-    if (normalized === 'auto') return 'Automatico';
-    if (normalized === 'off') return 'Spento';
+    if (normalized === 'heat') return rt('stateHeating');
+    if (normalized === 'cool') return rt('stateCooling');
+    if (normalized === 'dry') return rt('stateDrying');
+    if (normalized === 'fan_only') return rt('stateFanOnly');
+    if (normalized === 'auto') return rt('stateAutomatic');
+    if (normalized === 'off') return rt('stateOffMasculine');
   }
   return null;
 }
 
-function formatEntityStateLabel(entityId: string, entity?: MockEntityState) {
+function formatEntityStateLabel(entityId: string, entity: MockEntityState | undefined, rt: RoomsTranslator) {
   const domain = entityId.split('.')[0];
   const stateLabel = `${entity?.stateLabel ?? ''}`.trim();
   const rawState = `${entity?.state ?? ''}`.trim();
-  const translatedStateLabel = translateEntityStateValue(domain, stateLabel);
+  const translatedStateLabel = translateEntityStateValue(domain, stateLabel, rt);
   if (translatedStateLabel) {
     return translatedStateLabel;
   }
-  const translatedRawState = translateEntityStateValue(domain, rawState);
+  const translatedRawState = translateEntityStateValue(domain, rawState, rt);
   if (translatedRawState) {
     return translatedRawState;
   }
@@ -929,7 +922,7 @@ function formatEntityStateLabel(entityId: string, entity?: MockEntityState) {
     return unit ? `${formattedValue} ${unit}` : formattedValue;
   }
   if (!rawState) {
-    return 'Stato non disponibile';
+    return rt('stateUnavailable');
   }
   return toTitleCase(rawState);
 }
@@ -940,7 +933,7 @@ function hasDistinctDeviceName(target: RoomSectionDeviceTarget) {
 
 function formatGroupTitle(value: string) {
   const normalized = value.trim();
-  return normalized ? `${normalized[0].toLocaleUpperCase('it-IT')}${normalized.slice(1)}` : normalized;
+  return normalized ? `${normalized[0].toLocaleUpperCase()}${normalized.slice(1)}` : normalized;
 }
 
 function doesEntityMatchRoomSection(entityId: string, sectionId: string) {
@@ -1807,6 +1800,8 @@ export function RoomsDashboard({
   onCameraPtzMove,
   onCameraPtzStop,
 }: RoomsDashboardProps) {
+  const rt = useRoomsTranslations();
+  const { formatDate } = useI18n();
   const prefersReducedMotion = useReducedMotion();
   const roomTitleScrollerRef = React.useRef<HTMLDivElement | null>(null);
   const roomTitleDragRef = React.useRef<FloorCarouselDragState | null>(null);
@@ -2020,8 +2015,8 @@ export function RoomsDashboard({
     [effectiveHaAreas],
   );
   const currentFloor = selectedFloorId === 'all' ? undefined : floorById.get(selectedFloorId);
-  const currentFloorLabel = selectedFloorId === 'all' ? 'Tutti i Piani' : currentFloor?.name ?? 'Tutti i Piani';
-  const currentFloorTabLabel = formatFloorTabLabel(currentFloor);
+  const currentFloorLabel = selectedFloorId === 'all' ? rt('allFloors') : currentFloor?.name ?? rt('allFloors');
+  const currentFloorTabLabel = formatFloorTabLabel(currentFloor, rt);
   const CurrentFloorIcon = getFloorIcon(currentFloor);
   const roomCountByFloorId = React.useMemo<Record<string, number>>(() => {
     return effectiveHaAreas.reduce<Record<string, number>>((acc, area) => {
@@ -2080,7 +2075,7 @@ export function RoomsDashboard({
     () => roomTabs.find((tab) => tab.id === activeRoomId) ?? roomTabs[0] ?? null,
     [activeRoomId, roomTabs],
   );
-  const activeRoomTitle = activeRoomTab?.name ?? (selectedFloorId === 'all' ? 'Stanze' : currentFloorLabel);
+  const activeRoomTitle = activeRoomTab?.name ?? (selectedFloorId === 'all' ? rt('rooms') : currentFloorLabel);
   const activeRoomTitleKey = `${activeRoomTab?.id ?? 'default-room'}:${activeRoomTitle}`;
   const temperatureEntityOptions = React.useMemo(
     () =>
@@ -2354,7 +2349,7 @@ export function RoomsDashboard({
           await onCallApi(areaCreatePayload),
         );
         if (!createdArea) {
-          setRoomCreateError('Non sono riuscito a creare l\'area su Home Assistant.');
+          setRoomCreateError(rt('areaCreateFailed'));
           return;
         }
         setCreatedHaAreas((current) => {
@@ -2365,7 +2360,7 @@ export function RoomsDashboard({
         resetRoomForm();
         return;
       } catch {
-        setRoomCreateError('Non sono riuscito a creare l\'area su Home Assistant.');
+        setRoomCreateError(rt('areaCreateFailed'));
         return;
       } finally {
         setIsCreatingRoom(false);
@@ -2418,7 +2413,7 @@ export function RoomsDashboard({
     }
     const nextName = normalizeRoomName(newRoomName);
     if (!nextName) {
-      setRoomCreateError('Inserisci un nome per la stanza.');
+      setRoomCreateError(rt('roomNameRequired'));
       return;
     }
 
@@ -2434,7 +2429,7 @@ export function RoomsDashboard({
     }
 
     if (!onCallApi) {
-      setRoomCreateError('Home Assistant non e disponibile in questo momento.');
+      setRoomCreateError(rt('haUnavailable'));
       return;
     }
 
@@ -2460,7 +2455,7 @@ export function RoomsDashboard({
         }),
       );
       if (!updatedArea) {
-        setRoomCreateError('Non sono riuscito a salvare l\'area su Home Assistant.');
+        setRoomCreateError(rt('areaSaveFailed'));
         return;
       }
       setCreatedHaAreas((current) => {
@@ -2471,7 +2466,7 @@ export function RoomsDashboard({
       setActiveRoomId(updatedArea.area_id);
       resetRoomForm();
     } catch {
-      setRoomCreateError('Non sono riuscito a salvare l\'area su Home Assistant.');
+      setRoomCreateError(rt('areaSaveFailed'));
     } finally {
       setAreaActionById((current) => {
         const next = { ...current };
@@ -2498,7 +2493,7 @@ export function RoomsDashboard({
     }
     const confirmed =
       typeof window === 'undefined' ||
-      window.confirm(`Vuoi eliminare la stanza "${roomName}"?`);
+      window.confirm(rt('roomDeleteConfirm', { name: roomName }));
     if (!confirmed) {
       return;
     }
@@ -2518,7 +2513,7 @@ export function RoomsDashboard({
     }
     const confirmed =
       typeof window === 'undefined' ||
-      window.confirm(`Vuoi eliminare l'area "${areaName}" da Home Assistant?`);
+      window.confirm(rt('areaDeleteConfirm', { name: areaName }));
     if (!confirmed) {
       return;
     }
@@ -2538,7 +2533,7 @@ export function RoomsDashboard({
       if (result === null) {
         setAreaErrorById((current) => ({
           ...current,
-          [areaId]: 'Non sono riuscito a eliminare l\'area su Home Assistant.',
+          [areaId]: rt('areaDeleteFailed'),
         }));
         return;
       }
@@ -2554,7 +2549,7 @@ export function RoomsDashboard({
     } catch {
       setAreaErrorById((current) => ({
         ...current,
-        [areaId]: 'Non sono riuscito a eliminare l\'area su Home Assistant.',
+        [areaId]: rt('areaDeleteFailed'),
       }));
     } finally {
       setAreaActionById((current) => {
@@ -2586,12 +2581,12 @@ export function RoomsDashboard({
 
   const createHaFloor = async () => {
     if (!canManageRooms || !onCallApi) {
-      setFloorCreateError('Home Assistant non e disponibile in questo momento.');
+      setFloorCreateError(rt('haUnavailable'));
       return;
     }
     const nextName = normalizeRoomName(newFloorDraft.name);
     if (!nextName) {
-      setFloorCreateError('Inserisci un nome per il piano.');
+      setFloorCreateError(rt('floorNameRequired'));
       return;
     }
     const nextLevel = parseOptionalInteger(newFloorDraft.level);
@@ -2618,7 +2613,7 @@ export function RoomsDashboard({
         await onCallApi(floorCreatePayload),
       );
       if (!createdFloor) {
-        setFloorCreateError('Non sono riuscito a creare il piano su Home Assistant.');
+        setFloorCreateError(rt('floorCreateFailed'));
         return;
       }
       setCreatedHaFloors((current) => {
@@ -2630,7 +2625,7 @@ export function RoomsDashboard({
       resetFloorCreateForm();
       setIsFloorLayerOpen(false);
     } catch {
-      setFloorCreateError('Non sono riuscito a creare il piano su Home Assistant.');
+      setFloorCreateError(rt('floorCreateFailed'));
     } finally {
       setIsCreatingFloor(false);
     }
@@ -2646,7 +2641,7 @@ export function RoomsDashboard({
     }
     const nextName = normalizeRoomName(draft.name);
     if (!nextName) {
-      setFloorErrorById((current) => ({ ...current, [floorId]: 'Inserisci un nome per il piano.' }));
+      setFloorErrorById((current) => ({ ...current, [floorId]: rt('floorNameRequired') }));
       return;
     }
     const nextLevel = parseOptionalInteger(draft.level);
@@ -2676,7 +2671,7 @@ export function RoomsDashboard({
       if (!updatedFloor) {
         setFloorErrorById((current) => ({
           ...current,
-          [floorId]: 'Non sono riuscito a salvare il piano su Home Assistant.',
+          [floorId]: rt('floorSaveFailed'),
         }));
         return;
       }
@@ -2689,7 +2684,7 @@ export function RoomsDashboard({
     } catch {
       setFloorErrorById((current) => ({
         ...current,
-        [floorId]: 'Non sono riuscito a salvare il piano su Home Assistant.',
+        [floorId]: rt('floorSaveFailed'),
       }));
     } finally {
       setFloorActionById((current) => {
@@ -2729,7 +2724,7 @@ export function RoomsDashboard({
     } catch {
       setFloorErrorById((current) => ({
         ...current,
-        [floorId]: 'Non sono riuscito a riordinare i piani su Home Assistant.',
+        [floorId]: rt('floorReorderFailed'),
       }));
     } finally {
       setFloorActionById((current) => {
@@ -2774,7 +2769,7 @@ export function RoomsDashboard({
     } catch {
       setFloorErrorById((current) => ({
         ...current,
-        [floor.floor_id]: 'Non sono riuscito a eliminare il piano su Home Assistant.',
+        [floor.floor_id]: rt('floorDeleteFailed'),
       }));
     } finally {
       setFloorActionById((current) => {
@@ -2951,7 +2946,7 @@ export function RoomsDashboard({
     return [
       {
         id: 'demo-light',
-        title: 'Luce',
+        title: rt('light'),
         domain: 'light',
         isOn: demoToggleById['demo-light'] ?? true,
         icon: <Lightbulb size={18} />,
@@ -2960,7 +2955,7 @@ export function RoomsDashboard({
       },
       {
         id: 'demo-stereo',
-        title: 'Stereo',
+        title: rt('stereo'),
         domain: 'media_player',
         isOn: demoToggleById['demo-stereo'] ?? false,
         icon: <Speaker size={18} />,
@@ -2969,7 +2964,7 @@ export function RoomsDashboard({
       },
       {
         id: 'demo-tv',
-        title: 'Televisione',
+        title: rt('television'),
         domain: 'switch',
         isOn: demoToggleById['demo-tv'] ?? false,
         icon: <Tv size={18} />,
@@ -2978,7 +2973,7 @@ export function RoomsDashboard({
       },
       {
         id: 'demo-monitoring',
-        title: 'Monitoraggio',
+        title: rt('monitoring'),
         domain: 'switch',
         isOn: demoToggleById['demo-monitoring'] ?? true,
         icon: <Video size={18} />,
@@ -2993,6 +2988,7 @@ export function RoomsDashboard({
     visibleActiveBuckets.lights,
     visibleActiveBuckets.medias,
     visibleActiveBuckets.switches,
+    rt,
   ]);
 
   const mediaEntityIds = React.useMemo(
@@ -3029,8 +3025,8 @@ export function RoomsDashboard({
 
   const mediaEntityId = selectedMediaEntityId || mediaEntityIds[0] || null;
   const mediaEntity = mediaEntityId ? haStates[mediaEntityId] : undefined;
-  const mediaTitle = mediaEntity?.mediaTitle ?? mediaEntity?.nowPlaying ?? (isDemoSeedRoom ? 'COFFIN (feat. Eminem)' : 'Lettore multimediale');
-  const mediaArtist = mediaEntity?.mediaArtist ?? (isDemoSeedRoom ? 'Jessie Reyez, Eminem' : 'In pausa');
+  const mediaTitle = mediaEntity?.mediaTitle ?? mediaEntity?.nowPlaying ?? (isDemoSeedRoom ? 'COFFIN (feat. Eminem)' : rt('mediaPlayer'));
+  const mediaArtist = mediaEntity?.mediaArtist ?? (isDemoSeedRoom ? 'Jessie Reyez, Eminem' : rt('paused'));
   const mediaDuration = toNumber(mediaEntity?.mediaDuration) ?? (isDemoSeedRoom ? 212 : 1);
   const mediaPosition = toNumber(mediaEntity?.mediaPosition) ?? (isDemoSeedRoom ? 131 : 0);
   const mediaProgress = Math.min(1, Math.max(0, mediaDuration > 0 ? mediaPosition / mediaDuration : 0.4));
@@ -3093,11 +3089,8 @@ export function RoomsDashboard({
 
   const registryUpdatedLabel =
     registryLoadAt > 0
-      ? `Registro aggiornato ${new Date(registryLoadAt).toLocaleTimeString('it-IT', {
-          hour: '2-digit',
-          minute: '2-digit',
-        })}`
-      : 'Registro in attesa';
+      ? rt('registryUpdated', { time: formatDate(registryLoadAt, { hour: '2-digit', minute: '2-digit' }) })
+      : rt('registryWaiting');
 
   const roomAmbientSubtitle = React.useMemo(() => {
     const temperatureEntityId = activeRoomArea?.temperature_entity_id ?? null;
@@ -3108,16 +3101,16 @@ export function RoomsDashboard({
     const humidityLabel = typeof humidityValue === 'number' ? formatAmbientHumidity(humidityValue) : null;
 
     if (temperatureLabel && humidityLabel) {
-      return `Ambiente a ${temperatureLabel} con umidita al ${humidityLabel}`;
+      return rt('ambientBoth', { temperature: temperatureLabel, humidity: humidityLabel });
     }
     if (temperatureLabel) {
-      return `Ambiente a ${temperatureLabel}`;
+      return rt('ambientTemperature', { temperature: temperatureLabel });
     }
     if (humidityLabel) {
-      return `Ambiente con umidita al ${humidityLabel}`;
+      return rt('ambientHumidity', { humidity: humidityLabel });
     }
-    return 'Nessun sensore';
-  }, [activeRoomArea, haStates]);
+    return rt('noSensor');
+  }, [activeRoomArea, haStates, rt]);
   const resolveOptimisticEntityIsOn = React.useCallback(
     (entityId: string, entity?: MockEntityState) => {
       const optimisticState = optimisticRoomToggleByEntityId[entityId];
@@ -3241,13 +3234,13 @@ export function RoomsDashboard({
     if (!isDemoSeedRoom) {
       return [];
     }
-    return ['Relax', 'Film', 'Concentrazione', 'Fuori casa'].map((label) => ({
+    return ['Relax', 'Film', rt('sceneFocus'), rt('sceneAway')].map((label) => ({
       id: `demo-scene-${label.toLowerCase()}`,
       label,
       entityId: undefined,
       isLive: false,
     }));
-  }, [haStates, isDemoSeedRoom, sceneEntityIds]);
+  }, [haStates, isDemoSeedRoom, rt, sceneEntityIds]);
   const activeRoomKey = activeRoomTab?.id ?? 'default-room';
   const activeSceneName =
     sceneByRoomId[activeRoomKey] && sceneOptions.some((scene) => scene.label === sceneByRoomId[activeRoomKey])
@@ -3277,7 +3270,6 @@ export function RoomsDashboard({
       const domain = entityId.split('.')[0];
       const state = haStates[entityId];
       const isOn = isEntityOn(entityId, state);
-      const status = state?.stateLabel ?? state?.secondary ?? state?.state ?? 'Pronto';
       const icon =
         domain === 'cover' ? (
           <ChevronRight size={18} />
@@ -3294,27 +3286,27 @@ export function RoomsDashboard({
       return {
         id: entityId,
         title: getEntityFriendlyName(entityId, state),
-        status: toTitleCase(status),
+        status: formatEntityStateLabel(entityId, state, rt) || rt('ready'),
         entityId,
         domain,
         icon,
         isOn,
       };
     });
-  }, [haStates, visibleActiveBuckets.covers, visibleActiveBuckets.others, visibleActiveBuckets.weathers]);
+  }, [haStates, rt, visibleActiveBuckets.covers, visibleActiveBuckets.others, visibleActiveBuckets.weathers]);
   const ambientSummaryParts = React.useMemo(() => {
     const parts: string[] = [];
     if (hasLightsCard) {
-      parts.push(primaryLightPct !== undefined ? `Luce ${primaryLightPct}%` : 'Luce accesa');
+      parts.push(primaryLightPct !== undefined ? rt('lightPercentage', { value: primaryLightPct }) : rt('lightOn'));
     }
     if (hasClimateCard) {
-      parts.push(`Clima ${Math.round(climateCurrentTemp)}\u00b0`);
+      parts.push(rt('climateSummary', { value: Math.round(climateCurrentTemp) }));
     }
     if (activeSceneName) {
-      parts.push(`Scena ${activeSceneName}`);
+      parts.push(rt('sceneSummary', { name: activeSceneName }));
     }
     return parts;
-  }, [activeSceneName, climateCurrentTemp, hasClimateCard, hasLightsCard, primaryLightPct]);
+  }, [activeSceneName, climateCurrentTemp, hasClimateCard, hasLightsCard, primaryLightPct, rt]);
   const setRoomScene = async (sceneLabel: string, entityId?: string) => {
     if (entityId && onCallService) {
       await onCallService('scene', 'turn_on', { entity_id: entityId });
@@ -3402,15 +3394,15 @@ export function RoomsDashboard({
         : entity?.unit;
 
     return {
-      name: resolvedEntityId ? getEntityFriendlyName(resolvedEntityId, entity) : 'Clima stanza',
+      name: resolvedEntityId ? getEntityFriendlyName(resolvedEntityId, entity) : rt('roomClimate'),
       mode,
       isOn: !['off', 'unavailable', 'unknown'].includes(mode),
       status:
         typeof entity?.stateLabel === 'string'
           ? entity.stateLabel
           : mode === 'off'
-            ? 'Spento'
-            : 'Clima attivo',
+            ? rt('stateOffMasculine')
+            : rt('climateActive'),
       currentTemp,
       targetTemp,
       minTemp: toNumber(entity?.minTemp) ?? toNumber(rawAttributes.min_temp) ?? 16,
@@ -3455,7 +3447,7 @@ export function RoomsDashboard({
       temperatureUnit,
       rawAttributes,
     };
-  }, [haStates, isDemoSeedRoom]);
+  }, [haStates, isDemoSeedRoom, rt]);
   const climateControlModel = React.useMemo(
     () => buildClimateControlModel(climateEntityId),
     [buildClimateControlModel, climateEntityId],
@@ -3716,10 +3708,10 @@ export function RoomsDashboard({
             h: 2,
           })
         : demoWidgets.security;
-    if (resolvedLightWidgets.length > 0) clusters.push({ id: 'lights', label: 'Luci', widgets: resolvedLightWidgets });
-    if (resolvedSwitchWidgets.length > 0) clusters.push({ id: 'switches', label: 'Interruttori', widgets: resolvedSwitchWidgets });
-    if (sensorWidgets.length > 0) clusters.push({ id: 'sensors', label: 'Sensori', widgets: sensorWidgets });
-    if (securityWidgets.length > 0) clusters.push({ id: 'security', label: 'Sicurezza', widgets: securityWidgets });
+    if (resolvedLightWidgets.length > 0) clusters.push({ id: 'lights', label: rt('lights'), widgets: resolvedLightWidgets });
+    if (resolvedSwitchWidgets.length > 0) clusters.push({ id: 'switches', label: rt('switches'), widgets: resolvedSwitchWidgets });
+    if (sensorWidgets.length > 0) clusters.push({ id: 'sensors', label: rt('sensors'), widgets: sensorWidgets });
+    if (securityWidgets.length > 0) clusters.push({ id: 'security', label: rt('security'), widgets: securityWidgets });
     return clusters;
   }, [
     applyOptimisticRoomWidgetState,
@@ -3731,6 +3723,7 @@ export function RoomsDashboard({
     visibleActiveBuckets.locks,
     visibleActiveBuckets.sensors,
     visibleActiveBuckets.switches,
+    rt,
   ]);
 
   const mediaRoomWidget = React.useMemo<Widget | null>(() => {
@@ -3878,7 +3871,7 @@ export function RoomsDashboard({
                 entityId,
                 name: getEntityFriendlyName(entityId, state),
                 domain,
-                status: formatEntityStateLabel(entityId, state),
+                status: formatEntityStateLabel(entityId, state, rt),
                 isVisible: !hiddenActiveRoomEntityIds.has(entityId),
               } satisfies RoomSectionDeviceEntityTarget;
             })
@@ -3890,10 +3883,10 @@ export function RoomsDashboard({
             draft.kind === 'device' && deviceLabel
               ? deviceLabel
               : registryEntity?.originalName?.trim() || registryEntity?.name?.trim() || firstEntityId;
-          const domainLabel = domains.map(formatDomainLabel).join(' / ');
+          const domainLabel = domains.map((domain) => formatDomainLabel(domain, rt)).join(' / ');
           const subtitle =
             draft.entityIds.length > 1
-              ? `${draft.entityIds.length} entita - ${domainLabel}`
+              ? rt('entityCount', { count: draft.entityIds.length, domain: domainLabel })
               : domainLabel;
           const areaId =
             registryEntity?.areaId ??
@@ -3915,7 +3908,7 @@ export function RoomsDashboard({
         })
         .sort((left, right) => left.name.localeCompare(right.name));
     },
-    [entityAreaByEntityId, haStates, hiddenActiveRoomEntityIds, registryDeviceById, registryEntityByEntityId],
+    [entityAreaByEntityId, haStates, hiddenActiveRoomEntityIds, registryDeviceById, registryEntityByEntityId, rt],
   );
 
   const startEditRoomSection = React.useCallback(
@@ -3982,13 +3975,13 @@ export function RoomsDashboard({
         target.deviceName,
         target.subtitle,
         target.entityIds.join(' '),
-        target.areaId ? areaById.get(target.areaId)?.name ?? '' : 'nessuna stanza',
+        target.areaId ? areaById.get(target.areaId)?.name ?? '' : rt('unassignedRoom'),
       ]
         .join(' ')
         .toLowerCase();
       return haystack.includes(query);
     });
-  }, [areaById, sectionAddCandidates, sectionDeviceSearch]);
+  }, [areaById, rt, sectionAddCandidates, sectionDeviceSearch]);
   const selectedSectionAddTargets = React.useMemo(
     () => sectionAddCandidates.filter((target) => selectedSectionAddTargetIds[target.id]),
     [sectionAddCandidates, selectedSectionAddTargetIds],
@@ -4131,7 +4124,7 @@ export function RoomsDashboard({
         void refreshRegistrySnapshot().catch(() => undefined);
         return true;
       } catch {
-        setSectionActionError('Non sono riuscito ad aggiornare i dispositivi su Home Assistant.');
+        setSectionActionError(rt('devicesUpdateFailed'));
         return false;
       } finally {
         setSectionActionBusy(false);
@@ -4529,7 +4522,7 @@ export function RoomsDashboard({
       >
         {entityIds.map((entityId, index) => {
           const state = haStates[entityId];
-          const label = getEntityFriendlyName(entityId, state) || `Entita ${index + 1}`;
+          const label = getEntityFriendlyName(entityId, state) || rt('entityFallback', { count: index + 1 });
           const isSelected = selectedEntityId === entityId;
           return (
             <button
@@ -4568,21 +4561,21 @@ export function RoomsDashboard({
           type="button"
           onClick={options.onOpen}
           className="group min-w-0 text-left transition-all active:scale-[0.99]"
-          aria-label={`Mostra tutti i dispositivi in ${label}`}
+          aria-label={rt('showAllInSection', { section: label })}
         >
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="truncate text-sm font-semibold leading-tight tracking-normal text-[color:var(--ui-text-primary)]">{label}</span>
             <ChevronRight size={14} className="shrink-0 text-[color:var(--ui-text-tertiary)] transition-transform group-hover:translate-x-0.5 group-hover:text-[color:var(--ui-text-primary)]" />
           </span>
           <span className="mt-0.5 block text-[0.72rem] font-medium leading-tight text-[color:var(--ui-text-tertiary)]">
-            {formatRoomDeviceCount(count)}
+            {rt(count === 1 ? 'deviceCountOne' : 'deviceCountMany', { count })}
           </span>
         </button>
       ) : (
         <div className="min-w-0">
           <h2 className="truncate text-sm font-semibold leading-tight tracking-normal text-[color:var(--ui-text-primary)]">{label}</h2>
           <p className="mt-0.5 text-[0.72rem] font-medium leading-tight text-[color:var(--ui-text-tertiary)]">
-            {formatRoomDeviceCount(count)}
+            {rt(count === 1 ? 'deviceCountOne' : 'deviceCountMany', { count })}
           </p>
         </div>
       )}
@@ -4592,8 +4585,8 @@ export function RoomsDashboard({
           onClick={options.onEdit}
           disabled={options.editDisabled}
           className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-tertiary)] transition-all hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-25"
-          aria-label={`Modifica sezione ${label}`}
-          title={options.editDisabled ? 'Disponibile con una stanza Home Assistant connessa' : `Modifica ${label}`}
+          aria-label={rt('editSection', { section: label })}
+          title={options.editDisabled ? rt('connectedRoomRequired') : rt('editSectionShort', { section: label })}
         >
           <Pencil size={13} />
         </button>
@@ -4613,8 +4606,8 @@ export function RoomsDashboard({
           'absolute right-2 top-2 z-20 inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/22 text-white/56 shadow-sm backdrop-blur-md transition-all hover:bg-white/[0.08] hover:text-white active:scale-95',
           className,
         )}
-        aria-label={`Modifica sezione ${target.label}`}
-        title={`Modifica ${target.label}`}
+        aria-label={rt('editSection', { section: target.label })}
+        title={rt('editSectionShort', { section: target.label })}
       >
         <Pencil size={13} />
       </button>
@@ -4635,7 +4628,7 @@ export function RoomsDashboard({
   const renderEmptyRoomArea = (
     gridArea: string,
     title: string,
-    description = 'Aggiungi entita a questa stanza da Home Assistant per popolare automaticamente il riquadro.',
+    description = rt('emptySectionDescription'),
     className?: string,
     editTarget?: RoomSectionEditTarget,
     options?: { mobileOutsideGrid?: boolean },
@@ -4662,7 +4655,7 @@ export function RoomsDashboard({
             })}
           </div>
         ) : (
-          <p className="mb-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">Non configurato</p>
+          <p className="mb-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">{rt('sectionNotConfigured')}</p>
         )}
         <div className="relative flex min-h-[8.5rem] flex-1 items-center justify-center overflow-hidden rounded-[1.25rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-4 py-5 text-center">
           <div aria-hidden="true" className="absolute inset-0 opacity-45">
@@ -4680,9 +4673,9 @@ export function RoomsDashboard({
                 type="button"
                 onClick={() => openSectionDeviceAddSheet(editTarget)}
                 className="mt-4 inline-flex items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] px-3.5 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] shadow-sm backdrop-blur-md transition-all hover:bg-[color:var(--ui-fill-primary)] active:scale-95"
-                title="Aggiungi dispositivi"
+                title={rt('addDevices')}
               >
-                Aggiungi dispositivi
+                {rt('addDevices')}
               </button>
             ) : (
               <div className="mt-4 h-1.5 w-14 rounded-full bg-white/[0.06]" />
@@ -4732,10 +4725,10 @@ export function RoomsDashboard({
       const allAccessoryEntityIds = getRoomSectionEntityIds('accessories', activeBuckets);
       return renderEmptyRoomArea(
         'accessories',
-        'Nessun accessorio configurato per questa stanza',
-        'Qui compariranno cover, scene, meteo e accessori secondari non inclusi nelle sezioni principali.',
+        rt('noAccessories'),
+        rt('accessoriesDescription'),
         undefined,
-        { kind: 'accessories', id: 'accessories', label: 'Accessori', entityIds: allAccessoryEntityIds },
+        { kind: 'accessories', id: 'accessories', label: rt('accessories'), entityIds: allAccessoryEntityIds },
       );
     }
     const visibleAccessories = accessoryCards.slice(0, ROOM_ACCESSORY_PREVIEW_LIMIT);
@@ -4745,7 +4738,7 @@ export function RoomsDashboard({
     const accessoryEditTarget = {
       kind: 'accessories' as const,
       id: 'accessories',
-      label: 'Accessori',
+      label: rt('accessories'),
       entityIds: allAccessoryEntityIds,
     };
     return (
@@ -4755,7 +4748,7 @@ export function RoomsDashboard({
       >
         <div className="mb-3">
           {renderRoomSectionHeader(
-            'Accessori',
+            rt('accessories'),
             accessoryDeviceCount,
             {
               onOpen: canOpenActiveHaRoomSection ? () => startEditRoomSection(accessoryEditTarget) : undefined,
@@ -4813,7 +4806,7 @@ export function RoomsDashboard({
       if (isMobileRoomsGrid && !options?.suppressMobileEmpty && options?.label && options.sectionId) {
         return renderEmptyRoomArea(
           options.gridArea ?? options.sectionId,
-          options.emptyTitle ?? `Nessun dispositivo configurato in ${options.label}`,
+          options.emptyTitle ?? rt('noDevicesInSection', { section: options.label }),
           options.emptyDescription,
           options.emptyClassName,
           { kind: 'widgets', id: options.sectionId, label: options.label, entityIds: uniqueStrings(options.allEntityIds ?? []) },
@@ -4848,7 +4841,7 @@ export function RoomsDashboard({
                 : undefined,
             })}
             <p className="text-xs font-medium text-[color:var(--ui-text-tertiary)]">
-              {hiddenDeviceCount === 1 ? '1 dispositivo nascosto' : `${hiddenDeviceCount} dispositivi nascosti`}
+              {rt(hiddenDeviceCount === 1 ? 'hiddenDeviceOne' : 'hiddenDeviceMany', { count: hiddenDeviceCount })}
             </p>
           </section>
         );
@@ -4960,8 +4953,8 @@ export function RoomsDashboard({
     if (!mediaRoomWidget || mediaRoomWidgets.length === 0) {
       return renderEmptyRoomArea(
         'media',
-        'Nessun media configurato per questa stanza',
-        'TV, speaker e player multimediali associati alla stanza verranno mostrati qui.',
+        rt('noMedia'),
+        rt('mediaEmptyDescription'),
         undefined,
         mediaEditTarget,
       );
@@ -4999,7 +4992,7 @@ export function RoomsDashboard({
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-semibold leading-tight text-white">{playerLabel}</p>
                         <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-white/52">
-                          Nessuna riproduzione
+                          {rt('noPlayback')}
                         </p>
                       </div>
                       <button
@@ -5034,7 +5027,7 @@ export function RoomsDashboard({
                         setSelectedMediaEntityId(widget.entityId);
                         scrollToMediaSlide(index);
                       }}
-                      aria-label={`Mostra ${widget.title}`}
+                      aria-label={rt('showItem', { name: widget.title })}
                     />
                   );
                 })}
@@ -5082,7 +5075,7 @@ export function RoomsDashboard({
                         setSelectedMediaEntityId(widget.entityId);
                         scrollToMediaSlide(index);
                       }}
-                      aria-label={`Mostra ${widget.title}`}
+                      aria-label={rt('showItem', { name: widget.title })}
                     />
                   );
                 })}
@@ -5103,8 +5096,8 @@ export function RoomsDashboard({
       !climateControlModel
         ? renderEmptyRoomArea(
             'clima-empty',
-            'Nessun clima configurato per questa stanza',
-            'Associa un termostato, una stufa o un climatizzatore alla stanza per controllarlo da qui.',
+            rt('noClimate'),
+            rt('climateEmptyDescription'),
             undefined,
             {
               kind: 'widgets',
@@ -5118,8 +5111,8 @@ export function RoomsDashboard({
       !lightsCluster
         ? renderEmptyRoomArea(
             'lights-empty',
-            'Nessuna luce configurata per questa stanza',
-            'Aggiungi una o piu luci per mostrarle di nuovo in questa sezione.',
+            rt('noLights'),
+            rt('lightsEmptyDescription'),
             undefined,
             {
               kind: 'widgets',
@@ -5133,8 +5126,8 @@ export function RoomsDashboard({
       !switchesCluster
         ? renderEmptyRoomArea(
             'switches-empty',
-            'Nessun interruttore configurato per questa stanza',
-            'Aggiungi switch, prese o input boolean per mostrarli di nuovo in questa sezione.',
+            rt('noSwitches'),
+            rt('switchesEmptyDescription'),
             undefined,
             {
               kind: 'widgets',
@@ -5148,8 +5141,8 @@ export function RoomsDashboard({
       !sensorsCluster
         ? renderEmptyRoomArea(
             'sensors-empty',
-            'Nessun sensore configurato per questa stanza',
-            'Temperatura, umidita e altri sensori ambientali appariranno in questa area.',
+            rt('noSensors'),
+            rt('sensorsEmptyDescription'),
             undefined,
             {
               kind: 'widgets',
@@ -5163,13 +5156,13 @@ export function RoomsDashboard({
       !securityCluster
         ? renderEmptyRoomArea(
             'security-empty',
-            'Nessuna sicurezza configurata per questa stanza',
-            'Serrature, camere e dispositivi di sicurezza collegati alla stanza saranno raccolti qui.',
+            rt('noSecurity'),
+            rt('securityEmptyDescription'),
             undefined,
             {
               kind: 'widgets',
               id: 'security',
-              label: 'Sicurezza',
+              label: rt('security'),
               entityIds: getRoomSectionEntityIds('security', activeBuckets),
             },
             { mobileOutsideGrid: true },
@@ -5178,8 +5171,8 @@ export function RoomsDashboard({
       !mediaRoomWidget || mediaRoomWidgets.length === 0
         ? renderEmptyRoomArea(
             'media-empty',
-            'Nessun media configurato per questa stanza',
-            'TV, speaker e player multimediali associati alla stanza verranno mostrati qui.',
+            rt('noMedia'),
+            rt('mediaEmptyDescription'),
             undefined,
             {
               kind: 'widgets',
@@ -5193,13 +5186,13 @@ export function RoomsDashboard({
       accessoryCards.length === 0
         ? renderEmptyRoomArea(
             'accessories-empty',
-            'Nessun accessorio configurato per questa stanza',
-            'Qui compariranno cover, scene, meteo e accessori secondari non inclusi nelle sezioni principali.',
+            rt('noAccessories'),
+            rt('accessoriesDescription'),
             undefined,
             {
               kind: 'accessories',
               id: 'accessories',
-              label: 'Accessori',
+              label: rt('accessories'),
               entityIds: getRoomSectionEntityIds('accessories', activeBuckets),
             },
             { mobileOutsideGrid: true },
@@ -5252,7 +5245,7 @@ export function RoomsDashboard({
               type="button"
               onClick={toggleSelectedMediaPlayback}
               className="min-w-0 flex-1 text-left"
-              aria-label="Riproduci o metti in pausa"
+              aria-label={rt('playPause')}
             >
               <p className="truncate text-sm font-semibold leading-tight text-white">{mediaTitle}</p>
               <p className="mt-0.5 truncate text-[11px] font-medium leading-tight text-white/58">{mediaArtist}</p>
@@ -5271,7 +5264,7 @@ export function RoomsDashboard({
                 type="button"
                 onClick={skipSelectedMediaPrevious}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/72 transition-colors active:scale-95"
-                aria-label="Brano precedente"
+                aria-label={rt('previousTrack')}
               >
                 <SkipBack size={15} />
               </button>
@@ -5279,7 +5272,7 @@ export function RoomsDashboard({
                 type="button"
                 onClick={toggleSelectedMediaPlayback}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-white text-zinc-950 shadow-[0_8px_20px_rgba(255,255,255,0.18)] transition-transform active:scale-95"
-                aria-label={mediaIsPlaying ? 'Pausa' : 'Riproduci'}
+                aria-label={mediaIsPlaying ? rt('pause') : rt('play')}
               >
                 {mediaIsPlaying ? <Pause size={16} /> : <Play size={16} />}
               </button>
@@ -5287,7 +5280,7 @@ export function RoomsDashboard({
                 type="button"
                 onClick={skipSelectedMediaNext}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/72 transition-colors active:scale-95"
-                aria-label="Brano successivo"
+                aria-label={rt('nextTrack')}
               >
                 <SkipForward size={15} />
               </button>
@@ -5347,7 +5340,7 @@ export function RoomsDashboard({
         max: 100,
         step: 1,
         accent: 'rgb(250 204 21 / 0.24)',
-        label: 'Luminosita',
+        label: rt('brightness'),
         onChange: (value: number) => {
           const nextBrightness = Math.round(value);
           if (nextBrightness <= 0) {
@@ -5537,7 +5530,7 @@ export function RoomsDashboard({
       : 0;
     const showToggle = canQuickToggleEntity(entity) || isSectionTargetSelectionMode;
     const isSwitchQuickCard = entity.domain === 'switch' || entity.domain === 'input_boolean';
-    const secondaryLabel = target.kind === 'device' && hasDistinctDeviceName(target) ? target.name : formatDomainLabel(entity.domain);
+    const secondaryLabel = target.kind === 'device' && hasDistinctDeviceName(target) ? target.name : formatDomainLabel(entity.domain, rt);
     const iconSize = options?.compact ? 24 : 30;
     const toggleSizeClass = options?.compact ? 'h-9 w-9' : 'h-11 w-11';
 
@@ -5611,8 +5604,8 @@ export function RoomsDashboard({
                 )}
                 aria-label={
                   isSectionTargetSelectionMode
-                    ? `${entity.isVisible ? 'Nascondi' : 'Mostra'} ${entity.name}`
-                    : `${isOn ? 'Spegni' : 'Accendi'} ${entity.name}`
+                    ? rt(entity.isVisible ? 'hideItem' : 'showNamedItem', { name: entity.name })
+                    : rt(isOn ? 'turnOff' : 'turnOn', { name: entity.name })
                 }
               >
                 {isPoweringOn ? (
@@ -5679,13 +5672,13 @@ export function RoomsDashboard({
     const selectedAddCount = selectedSectionAddTargets.length;
     const canMove = selectedCount > 0 && Boolean(sectionMoveTargetAreaId) && sectionMoveTargetAreaId !== activeRoomTab?.id;
     const canAddSelectedTargets = activeRoomTab?.source === 'ha' && selectedAddCount > 0;
-    const moveLabel = selectedCount === 1 ? 'Sposta il dispositivo' : 'Sposta i dispositivi';
+    const moveLabel = rt(selectedCount === 1 ? 'moveDeviceOne' : 'moveDevices');
     const addLabel =
       selectedAddCount === 0
-        ? 'Seleziona dispositivi'
+        ? rt('selectDevices')
         : selectedAddCount === 1
-          ? 'Aggiungi 1 dispositivo'
-          : `Aggiungi ${selectedAddCount} dispositivi`;
+          ? rt('addDeviceOne')
+          : rt('addDeviceMany', { count: selectedAddCount });
 
     return (
       <GlassBottomSheet
@@ -5696,7 +5689,7 @@ export function RoomsDashboard({
             setSelectedSectionAddTargetIds({});
           }
         }}
-        title={sectionDeviceSheetMode === 'add' ? 'Aggiungi dispositivo' : 'Sposta dispositivi'}
+        title={sectionDeviceSheetMode === 'add' ? rt('addDevice') : rt('moveDevices')}
         position="container"
         usePortal={false}
         dismissible={!sectionActionBusy}
@@ -5709,7 +5702,7 @@ export function RoomsDashboard({
                 <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] text-[color:var(--ui-text-primary)] shadow-[0_12px_24px_var(--ui-shadow-soft)]">
                   <Plus size={22} />
                 </span>
-                <h3 className="mt-3 text-lg font-bold tracking-normal text-[color:var(--ui-text-primary)]">Aggiungi dispositivo</h3>
+                <h3 className="mt-3 text-lg font-bold tracking-normal text-[color:var(--ui-text-primary)]">{rt('addDevice')}</h3>
                 <p className="mt-0.5 text-sm font-medium text-[color:var(--ui-text-secondary)]">{editingRoomSection.label}</p>
               </div>
               <label className="mt-5 flex items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3.5 py-2 text-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]">
@@ -5718,13 +5711,13 @@ export function RoomsDashboard({
                   value={sectionDeviceSearch}
                   onChange={(event) => setSectionDeviceSearch(event.target.value)}
                   className="min-w-0 flex-1 bg-transparent text-sm font-medium text-[color:var(--ui-text-primary)] outline-none placeholder:text-[color:var(--ui-text-secondary)]"
-                  placeholder="Cerca dispositivo"
+                  placeholder={rt('searchDevice')}
                 />
               </label>
               {selectedAddCount > 0 ? (
                 <div className="mt-3 flex items-center justify-between gap-3 px-1">
                   <p className="truncate text-xs font-semibold text-[color:rgb(var(--ui-accent-rgb)/0.96)]">
-                    {formatSelectedDeviceCount(selectedAddCount)}
+                    {rt(selectedAddCount === 1 ? 'selectedOne' : 'selectedMany', { count: selectedAddCount })}
                   </p>
                   <button
                     type="button"
@@ -5735,7 +5728,7 @@ export function RoomsDashboard({
                     disabled={sectionActionBusy}
                     className="shrink-0 text-xs font-semibold text-[color:var(--ui-text-secondary)] transition-colors hover:text-[color:var(--ui-text-primary)] disabled:cursor-wait disabled:opacity-55"
                   >
-                    Cancella
+                    {rt('clear')}
                   </button>
                 </div>
               ) : null}
@@ -5743,7 +5736,7 @@ export function RoomsDashboard({
                 {visibleSectionAddCandidates.length > 0 ? (
                   <div className="grid gap-2">
                     {visibleSectionAddCandidates.map((target) => {
-                      const areaLabel = target.areaId ? areaById.get(target.areaId)?.name ?? 'Altra stanza' : 'Nessuna stanza';
+                      const areaLabel = target.areaId ? areaById.get(target.areaId)?.name ?? rt('otherRoom') : rt('noRoom');
                       const isSelected = Boolean(selectedSectionAddTargetIds[target.id]);
                       return (
                         <button
@@ -5794,9 +5787,9 @@ export function RoomsDashboard({
                   </div>
                 ) : (
                   <div className="px-4 py-8 text-center">
-                    <p className="text-sm font-bold text-[color:var(--ui-text-primary)]">Nessun dispositivo disponibile</p>
+                    <p className="text-sm font-bold text-[color:var(--ui-text-primary)]">{rt('noDevicesAvailable')}</p>
                     <p className="mt-1 text-xs font-semibold text-[color:var(--ui-text-secondary)]">
-                      Prova con un'altra ricerca o verifica le entita disponibili.
+                      {rt('noDevicesSearchDescription')}
                     </p>
                   </div>
                 )}
@@ -5817,7 +5810,7 @@ export function RoomsDashboard({
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[color:rgb(var(--ui-accent-rgb)/0.45)] bg-[linear-gradient(135deg,rgb(var(--ui-accent-rgb)/0.88)_0%,rgb(var(--ui-accent-secondary-rgb)/0.72)_100%)] px-5 py-3 text-sm font-bold text-slate-950 shadow-[0_14px_30px_var(--ui-shadow-soft)] transition-all hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:border-[color:var(--ui-border)] disabled:bg-[color:var(--ui-surface-glass)] disabled:text-[color:var(--ui-text-secondary)] disabled:shadow-none disabled:brightness-100 disabled:opacity-60"
               >
                 <Plus size={16} />
-                {sectionActionBusy ? 'Aggiungo...' : addLabel}
+                {sectionActionBusy ? rt('adding') : addLabel}
               </button>
             </>
           ) : (
@@ -5826,8 +5819,8 @@ export function RoomsDashboard({
                 <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] text-[color:var(--ui-text-primary)] shadow-[0_12px_24px_var(--ui-shadow-soft)]">
                   <Move size={22} />
                 </span>
-                <h3 className="mt-3 text-lg font-bold tracking-normal text-[color:var(--ui-text-primary)]">Sposta</h3>
-                <p className="mt-0.5 text-sm font-medium text-[color:var(--ui-text-secondary)]">{formatSelectedDeviceCount(selectedCount)}</p>
+                <h3 className="mt-3 text-lg font-bold tracking-normal text-[color:var(--ui-text-primary)]">{rt('move')}</h3>
+                <p className="mt-0.5 text-sm font-medium text-[color:var(--ui-text-secondary)]">{rt(selectedCount === 1 ? 'selectedOne' : 'selectedMany', { count: selectedCount })}</p>
               </div>
               {selectedSectionTargets.length > 0 ? (
                 <div className="mt-5 flex justify-center gap-2 overflow-hidden">
@@ -5880,7 +5873,7 @@ export function RoomsDashboard({
                 type="button"
                 onClick={async () => {
                   if (!canMove) {
-                    setSectionActionError('Seleziona una stanza di destinazione.');
+                    setSectionActionError(rt('destinationRequired'));
                     return;
                   }
                   const success = await assignSectionTargetsToArea(selectedSectionTargets, sectionMoveTargetAreaId);
@@ -5893,7 +5886,7 @@ export function RoomsDashboard({
                 className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[color:rgb(var(--ui-accent-rgb)/0.45)] bg-[linear-gradient(135deg,rgb(var(--ui-accent-rgb)/0.88)_0%,rgb(var(--ui-accent-secondary-rgb)/0.72)_100%)] px-5 py-3 text-sm font-bold text-slate-950 shadow-[0_14px_30px_var(--ui-shadow-soft)] transition-all hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:border-[color:var(--ui-border)] disabled:bg-[color:var(--ui-surface-glass)] disabled:text-[color:var(--ui-text-secondary)] disabled:shadow-none disabled:brightness-100 disabled:opacity-60"
               >
                 <Move size={16} />
-                {sectionActionBusy ? 'Sposto...' : moveLabel}
+                {sectionActionBusy ? rt('moving') : moveLabel}
               </button>
             </>
           )}
@@ -5986,7 +5979,7 @@ export function RoomsDashboard({
             </p>
             <p className="mt-1 truncate text-[11px] font-semibold leading-tight text-white/38">
               {hasDistinctDeviceName(target) ? `${target.deviceName} - ` : ''}
-              {targetVisibleCount}/{target.entities.length} visibili - {target.domains.map(formatDomainLabel).join(' / ')}
+              {rt('visibleCount', { visible: targetVisibleCount, total: target.entities.length })} - {target.domains.map((domain) => formatDomainLabel(domain, rt)).join(' / ')}
             </p>
           </div>
           <div className="mt-3 min-w-0 border-t border-white/[0.08] pt-3">
@@ -6017,7 +6010,7 @@ export function RoomsDashboard({
               <button
                 type="button"
                 onClick={() => setIsSectionInteractionGuideOpen((current) => !current)}
-                aria-label={isSectionInteractionGuideOpen ? 'Nascondi guida gestione dispositivi' : 'Mostra guida gestione dispositivi'}
+                aria-label={rt(isSectionInteractionGuideOpen ? 'hideGuide' : 'showGuide')}
                 aria-expanded={isSectionInteractionGuideOpen}
                 className="absolute left-0 top-0 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/58 transition-all hover:bg-white/10 hover:text-white active:scale-95"
               >
@@ -6029,10 +6022,12 @@ export function RoomsDashboard({
                 {isSectionTargetSelectionMode ? <Pencil size={20} /> : <Layers size={20} />}
               </span>
               <h2 className="mt-3 text-lg font-bold tracking-normal">
-                {isSectionTargetSelectionMode ? 'Modifica' : editingRoomSection.label}
+                {isSectionTargetSelectionMode ? rt('edit') : editingRoomSection.label}
               </h2>
               <p className="mt-0.5 text-sm font-medium text-white/38">
-                {isSectionTargetSelectionMode ? formatSelectedDeviceCount(selectedCount) : formatRoomDeviceCount(sectionDeviceCount)}
+                {isSectionTargetSelectionMode
+                  ? rt(selectedCount === 1 ? 'selectedOne' : 'selectedMany', { count: selectedCount })
+                  : rt(sectionDeviceCount === 1 ? 'deviceCountOne' : 'deviceCountMany', { count: sectionDeviceCount })}
               </p>
             </div>
             <button
@@ -6047,7 +6042,7 @@ export function RoomsDashboard({
               disabled={sectionActionBusy}
               className="absolute right-0 top-0 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold text-white transition-all hover:bg-white/10 active:scale-95 disabled:cursor-wait disabled:opacity-55"
             >
-              Fine
+              {rt('done')}
             </button>
           </header>
 
@@ -6080,12 +6075,12 @@ export function RoomsDashboard({
                   }}
                   disabled={sectionActionBusy}
                   className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.07] text-white/78 transition-all hover:bg-white/[0.12] hover:text-white active:scale-95 disabled:cursor-wait disabled:opacity-55"
-                  aria-label="Aggiungi dispositivo"
-                  title="Aggiungi dispositivo"
+                  aria-label={rt('addDevice')}
+                  title={rt('addDevice')}
                 >
                   <Plus size={20} />
                 </button>
-                <span className="text-[10px] font-semibold leading-none text-white/48">Aggiungi</span>
+                <span className="text-[10px] font-semibold leading-none text-white/48">{rt('add')}</span>
               </div>
               <span aria-hidden="true" className="mt-1 h-12 w-px bg-white/[0.08]" />
               <div className="flex flex-col items-center gap-1.5">
@@ -6093,20 +6088,20 @@ export function RoomsDashboard({
                   type="button"
                   onClick={async () => {
                     if (!hasSelectedSectionTargets) {
-                      setSectionActionError('Seleziona almeno un dispositivo.');
+                      setSectionActionError(rt('selectionRequired'));
                       return;
                     }
                     await assignSectionTargetsToArea(selectedSectionTargets, null);
                   }}
                   disabled={!hasSelectedSectionTargets || sectionActionBusy}
                   className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-red-400/10 bg-red-500/12 text-red-200 transition-all hover:bg-red-500/18 hover:text-red-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
-                  aria-label="Rimuovi dalla stanza"
-                  title="Rimuovi dalla stanza"
+                  aria-label={rt('removeFromRoom')}
+                  title={rt('removeFromRoom')}
                 >
                   <Trash2 size={18} />
                 </button>
                 <span className={cn('text-[10px] font-semibold leading-none', hasSelectedSectionTargets ? 'text-red-100/58' : 'text-white/24')}>
-                  Rimuovi
+                  {rt('remove')}
                 </span>
               </div>
               <div className="flex flex-col items-center gap-1.5">
@@ -6114,7 +6109,7 @@ export function RoomsDashboard({
                   type="button"
                   onClick={() => {
                     if (!hasSelectedSectionTargets) {
-                      setSectionActionError('Seleziona almeno un dispositivo.');
+                      setSectionActionError(rt('selectionRequired'));
                       return;
                     }
                     setSectionDeviceSheetMode('move');
@@ -6123,13 +6118,13 @@ export function RoomsDashboard({
                   }}
                   disabled={!hasSelectedSectionTargets || sectionActionBusy || effectiveHaAreas.length <= 1}
                   className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.07] text-white/78 transition-all hover:bg-white/[0.12] hover:text-white active:scale-95 disabled:cursor-not-allowed disabled:opacity-35"
-                  aria-label="Sposta dispositivo"
-                  title="Sposta dispositivo"
+                  aria-label={rt('moveDevice')}
+                  title={rt('moveDevice')}
                 >
                   <Move size={18} />
                 </button>
                 <span className={cn('text-[10px] font-semibold leading-none', hasSelectedSectionTargets ? 'text-white/48' : 'text-white/24')}>
-                  Sposta
+                  {rt('move')}
                 </span>
               </div>
               <span aria-hidden="true" className="mt-1 h-12 w-px bg-white/[0.08]" />
@@ -6139,12 +6134,12 @@ export function RoomsDashboard({
                   onClick={cancelSectionTargetSelection}
                   disabled={sectionActionBusy}
                   className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.07] text-white/78 transition-all hover:bg-white/[0.12] hover:text-white active:scale-95 disabled:cursor-wait disabled:opacity-55"
-                  aria-label="Annulla selezione"
-                  title="Annulla selezione"
+                  aria-label={rt('cancelSelection')}
+                  title={rt('cancelSelection')}
                 >
                   <X size={18} />
                 </button>
-                <span className="text-[10px] font-semibold leading-none text-white/48">Annulla</span>
+                <span className="text-[10px] font-semibold leading-none text-white/48">{rt('cancel')}</span>
               </div>
             </div>
           ) : null}
@@ -6187,9 +6182,9 @@ export function RoomsDashboard({
                 onPointerCancel={clearSectionTargetLongPress}
                 onPointerLeave={clearSectionTargetLongPress}
               >
-                <p className="text-sm font-semibold text-white/72">Nessun dispositivo in questa sezione</p>
+                <p className="text-sm font-semibold text-white/72">{rt('emptySection')}</p>
                 <p className="mt-2 max-w-sm text-xs leading-relaxed text-white/38">
-                  Aggiungi dispositivi compatibili per popolare questa sezione della stanza.
+                  {rt('emptySectionAction')}
                 </p>
                 <button
                   type="button"
@@ -6204,7 +6199,7 @@ export function RoomsDashboard({
                   className="mt-5 inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.06] px-4 py-2 text-xs font-semibold text-white/78 shadow-sm transition-all hover:bg-white/[0.1] hover:text-white active:scale-95 disabled:cursor-wait disabled:opacity-55"
                 >
                   <Plus size={15} />
-                  Aggiungi dispositivo
+                  {rt('addDevice')}
                 </button>
               </div>
             )}
@@ -6222,23 +6217,23 @@ export function RoomsDashboard({
     : isCreatingRoom;
   const canUseHaAreaForm = Boolean(canManageRooms && haConnected && onCallApi);
   const showAreaDetailsControl = canUseHaAreaForm && (!isEditingRoom || isEditingHaRoom);
-  const roomFormTitle = isEditingRoom ? 'Modifica stanza' : 'Nuova stanza';
+  const roomFormTitle = isEditingRoom ? rt('editRoom') : rt('newRoom');
   const roomFormBadge = isEditingRoom
     ? isEditingHaRoom
-      ? 'Area Home Assistant'
-      : 'Locale'
+      ? rt('areaHa')
+      : rt('local')
     : canUseHaAreaForm
-      ? 'Area Home Assistant'
-      : 'Locale';
+      ? rt('areaHa')
+      : rt('local');
   const roomFormPrimaryLabel = isEditingRoom
     ? isRoomFormBusy
-      ? 'Salvo...'
-      : 'Salva'
+      ? rt('saving')
+      : rt('save')
     : isRoomFormBusy
-      ? 'Creo...'
+      ? rt('creating')
       : canUseHaAreaForm
-      ? 'Crea'
-      : 'Aggiungi';
+      ? rt('create')
+      : rt('add');
 
   const handleRoomTitlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     const scroller = roomTitleScrollerRef.current;
@@ -6601,7 +6596,7 @@ export function RoomsDashboard({
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035]">
                   <FloorIcon size={14} />
                 </span>
-                <p className="text-[11px] uppercase tracking-[0.22em]">Piano</p>
+                <p className="text-[11px] uppercase tracking-[0.22em]">{rt('floor')}</p>
               </div>
               {isEditingFloor ? (
                 <div
@@ -6617,7 +6612,7 @@ export function RoomsDashboard({
                       }))
                     }
                     className={ROOM_MODAL_INPUT_CLASS}
-                    placeholder="Nome piano"
+                    placeholder={rt('floorName')}
                     autoFocus
                   />
                   <input
@@ -6629,7 +6624,7 @@ export function RoomsDashboard({
                       }))
                     }
                     className={ROOM_MODAL_INPUT_CLASS}
-                    placeholder="Alias vocali"
+                    placeholder={rt('voiceAliases')}
                   />
                   <input
                     value={floorDraft.level}
@@ -6641,7 +6636,7 @@ export function RoomsDashboard({
                       }))
                     }
                     className={ROOM_MODAL_INPUT_CLASS}
-                    placeholder="Livello, es. 1"
+                    placeholder={rt('floorLevel')}
                   />
                   <div className="mt-3 flex items-center gap-2">
                     <button
@@ -6653,14 +6648,14 @@ export function RoomsDashboard({
                       className={ROOM_MODAL_PRIMARY_BUTTON_CLASS}
                     >
                       <Save size={14} />
-                      Salva
+                    {rt('save')}
                     </button>
                     <button
                       type="button"
                       onClick={() => setEditingFloorId(null)}
                       disabled={floorAction === 'saving'}
                       className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/35 transition-all hover:bg-white/[0.06] hover:text-white active:scale-95"
-                      aria-label="Annulla modifica piano"
+                      aria-label={rt('cancelFloorEdit')}
                     >
                       <X size={15} />
                     </button>
@@ -6693,7 +6688,7 @@ export function RoomsDashboard({
                 }}
                 disabled={Boolean(floorAction)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/30 transition-all hover:text-white/70 active:scale-95 disabled:cursor-wait disabled:opacity-45"
-                aria-label="Modifica piano"
+                aria-label={rt('editFloor')}
               >
                 <Pencil size={15} />
               </button>
@@ -6705,7 +6700,7 @@ export function RoomsDashboard({
                 }}
                 disabled={Boolean(floorAction)}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full text-red-500/35 transition-all hover:text-red-500 active:scale-95 disabled:cursor-wait disabled:opacity-45"
-                aria-label="Elimina piano"
+                aria-label={rt('deleteFloor')}
               >
                 <MinusCircle size={16} />
               </button>
@@ -6717,7 +6712,7 @@ export function RoomsDashboard({
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="text-4xl font-semibold leading-none text-white/90">{floorRoomCount}</p>
-            <p className="mt-1 text-xs font-medium text-white/36">{floorRoomCount === 1 ? 'stanza' : 'stanze'}</p>
+            <p className="mt-1 text-xs font-medium text-white/36">{rt(floorRoomCount === 1 ? 'roomOne' : 'roomMany')}</p>
           </div>
           {canManageRooms ? <div className="flex items-center gap-2">
               <button
@@ -6728,7 +6723,7 @@ export function RoomsDashboard({
                 }}
                 disabled={!canMoveFloorLeft || Boolean(floorAction)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.06] bg-white/[0.025] text-white/34 transition-all hover:bg-white/[0.06] hover:text-white/78 active:scale-95 disabled:cursor-not-allowed disabled:opacity-25"
-                aria-label="Sposta piano a sinistra"
+                aria-label={rt('moveFloorLeft')}
               >
                 <ChevronLeft size={20} />
               </button>
@@ -6740,7 +6735,7 @@ export function RoomsDashboard({
                 }}
                 disabled={!canMoveFloorRight || Boolean(floorAction)}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.06] bg-white/[0.025] text-white/34 transition-all hover:bg-white/[0.06] hover:text-white/78 active:scale-95 disabled:cursor-not-allowed disabled:opacity-25"
-                aria-label="Sposta piano a destra"
+                aria-label={rt('moveFloorRight')}
               >
                 <ChevronRight size={20} />
               </button>
@@ -6759,8 +6754,8 @@ export function RoomsDashboard({
         <div className="dashboard-page-content dashboard-page-content-wide flex min-h-[calc(100dvh-5rem)] items-center justify-center">
           <GlassLoader
             size="lg"
-            label="Carico stanze"
-            description="Sincronizzo aree e dispositivi"
+            label={rt('loadingRooms')}
+            description={rt('syncingRooms')}
           />
         </div>
       </div>
@@ -6776,10 +6771,10 @@ export function RoomsDashboard({
               <House size={24} />
             </span>
             <h1 className="mt-5 text-2xl font-semibold tracking-tight text-[color:var(--ui-text-primary)]">
-              Nessuna stanza configurata
+                {rt('noRooms')}
             </h1>
             <p className="mt-2 max-w-md text-sm leading-relaxed text-[color:var(--ui-text-secondary)]">
-              Domus UI mostrerà qui soltanto le aree realmente disponibili nella tua casa Home Assistant.
+                {rt('noRoomsDescription')}
             </p>
             <p className="mt-5 text-xs font-medium text-[color:var(--ui-text-tertiary)]">
               Crea o assegna le aree da Home Assistant, quindi torna qui per visualizzarle.
@@ -6838,7 +6833,7 @@ export function RoomsDashboard({
                   style={roomTitleMaskStyle}
                   className="ml-3 flex min-w-0 flex-1 cursor-default touch-auto select-none items-baseline overflow-x-auto overscroll-x-contain pb-1 pr-5 hide-scrollbar sm:pr-4"
                 >
-                  <nav aria-label="Seleziona stanza" className="flex min-w-max items-center gap-1 sm:gap-2">
+                  <nav aria-label={rt('selectRoom')} className="flex min-w-max items-center gap-1 sm:gap-2">
                     {roomTabs
                       .filter((tab) => tab.id !== activeRoomTab?.id)
                       .map((tab) => (
@@ -6859,7 +6854,7 @@ export function RoomsDashboard({
                   'liquid-glass-control inline-flex shrink-0 cursor-pointer items-center justify-center p-0 text-xs font-semibold tracking-tight transition-all active:scale-95 sm:w-auto sm:gap-1 sm:px-4',
                   isRoomsHeaderCompact ? 'h-9 w-9' : 'h-11 w-11',
                 )}
-                aria-label={`Apri lista piani: ${currentFloorLabel}`}
+                aria-label={rt('openFloors', { floor: currentFloorLabel })}
                 title={currentFloorLabel}
               >
                 <CurrentFloorIcon className="h-3.5 w-3.5 shrink-0 sm:h-3 sm:w-3" />
@@ -6944,7 +6939,7 @@ export function RoomsDashboard({
                               setSelectedClimateEntityId(widget.entityId);
                               scrollToMobileClimateSlide(index);
                             }}
-                            aria-label={`Mostra ${widget.title}`}
+                            aria-label={rt('showItem', { name: widget.title })}
                           />
                         );
                       })}
@@ -7051,7 +7046,7 @@ export function RoomsDashboard({
                               setSelectedClimateEntityId(entityId);
                               scrollToMobileClimateSlide(index);
                             }}
-                            aria-label={`Mostra ${model.name}`}
+                            aria-label={rt('showItem', { name: model.name })}
                           />
                         );
                       })}
@@ -7063,13 +7058,13 @@ export function RoomsDashboard({
           ) : (
             renderEmptyRoomArea(
               'clima',
-              'Nessun clima configurato per questa stanza',
-              'Associa un termostato, una stufa o un climatizzatore alla stanza per controllarlo da qui.',
+              rt('noClimate'),
+              rt('climateEmptyDescription'),
               undefined,
               {
                 kind: 'widgets',
                 id: 'clima',
-                label: 'Clima',
+                label: rt('climate'),
                 entityIds: getRoomSectionEntityIds('clima', activeBuckets),
               },
             )
@@ -7077,21 +7072,21 @@ export function RoomsDashboard({
 
         {renderWidgetCluster(sensorsCluster, {
           sectionId: 'sensors',
-          label: 'Sensori',
+          label: rt('sensors'),
           allEntityIds: getRoomSectionEntityIds('sensors', activeBuckets),
           gridArea: 'sensors',
-          emptyTitle: 'Nessun sensore configurato per questa stanza',
-          emptyDescription: 'Temperatura, umidita e altri sensori ambientali appariranno in questa area.',
+          emptyTitle: rt('noSensors'),
+          emptyDescription: rt('sensorsEmptyDescription'),
           previewLimit: resolveRoomSensorPreviewLimit(roomsGridBreakpoint),
         })}
 
         {renderWidgetCluster(securityCluster, {
           sectionId: 'security',
-          label: 'Sicurezza',
+          label: rt('security'),
           allEntityIds: getRoomSectionEntityIds('security', activeBuckets),
           gridArea: 'security_cams',
-          emptyTitle: 'Nessuna sicurezza configurata per questa stanza',
-          emptyDescription: 'Serrature, camere e dispositivi di sicurezza collegati alla stanza saranno raccolti qui.',
+          emptyTitle: rt('noSecurity'),
+          emptyDescription: rt('securityEmptyDescription'),
         })}
 
         {lightsCluster || switchesCluster ? (
@@ -7101,13 +7096,13 @@ export function RoomsDashboard({
           >
             {renderWidgetCluster(lightsCluster, {
               sectionId: 'lights',
-              label: 'Luci',
+              label: rt('lights'),
               allEntityIds: getRoomSectionEntityIds('lights', activeBuckets),
               suppressMobileEmpty: true,
             })}
             {renderWidgetCluster(switchesCluster, {
               sectionId: 'switches',
-              label: 'Interruttori',
+              label: rt('switches'),
               allEntityIds: getRoomSectionEntityIds('switches', activeBuckets),
               suppressMobileEmpty: true,
             })}
@@ -7115,13 +7110,13 @@ export function RoomsDashboard({
         ) : !isMobileRoomsGrid ? (
           renderEmptyRoomArea(
             'lights_switches',
-            'Nessuna luce o interruttore configurato per questa stanza',
-            'Collega luci, interruttori o ventole all area per controllarli da questa sezione.',
+            rt('noLightsSwitches'),
+            rt('lightsSwitchesDescription'),
             undefined,
             {
               kind: 'widgets',
               id: 'lights_switches',
-              label: 'Luci e interruttori',
+              label: rt('lightsAndSwitches'),
               entityIds: getRoomSectionEntityIds('lights_switches', activeBuckets),
             },
           )
@@ -7144,8 +7139,8 @@ export function RoomsDashboard({
           </button>
 
           <div className="mb-2 w-full max-w-5xl px-12">
-            <p className="text-[11px] uppercase tracking-[0.24em] text-white/40">Piani</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-normal text-white">Scegli un livello</h2>
+            <p className="text-[11px] uppercase tracking-[0.24em] text-white/40">{rt('floors')}</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-normal text-white">{rt('chooseFloor')}</h2>
           </div>
 
           <div
@@ -7181,16 +7176,16 @@ export function RoomsDashboard({
                     <span className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.035]">
                       <Layers size={14} />
                     </span>
-                    <p className="text-[11px] uppercase tracking-[0.22em]">Vista</p>
+                    <p className="text-[11px] uppercase tracking-[0.22em]">{rt('view')}</p>
                   </div>
-                  <h3 className="mt-3 text-2xl font-semibold tracking-normal text-white">Tutti i Piani</h3>
+                  <h3 className="mt-3 text-2xl font-semibold tracking-normal text-white">{rt('allFloors')}</h3>
                   <p className="mt-3 text-sm leading-relaxed text-white/42">
-                    Mostra tutte le stanze, indipendentemente dal piano assegnato.
+                    {rt('allFloorsDescription')}
                   </p>
                 </div>
                 <div>
                   <p className="text-4xl font-semibold leading-none text-white/90">{allRoomTabs.length}</p>
-                  <p className="mt-1 text-xs font-medium text-white/36">{allRoomTabs.length === 1 ? 'stanza' : 'stanze'}</p>
+                  <p className="mt-1 text-xs font-medium text-white/36">{rt(allRoomTabs.length === 1 ? 'roomOne' : 'roomMany')}</p>
                 </div>
               </div>
 
@@ -7199,14 +7194,14 @@ export function RoomsDashboard({
               {canManageRooms ? <div className={FLOOR_ADD_CARD_CLASS}>
                 {isAddingFloor ? (
                   <div className="w-full" onClick={(event) => event.stopPropagation()}>
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-white/36">Nuovo piano</p>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-white/36">{rt('newFloor')}</p>
                     <input
                       value={newFloorDraft.name}
                       onChange={(event) => {
                         setNewFloorDraft((current) => ({ ...current, name: event.target.value }));
                         setFloorCreateError(null);
                       }}
-                      placeholder="Esempio: Primo piano"
+                      placeholder={rt('floorExample')}
                       className={cn(ROOM_MODAL_INPUT_CLASS, 'mt-3')}
                       autoFocus
                     />
@@ -7216,7 +7211,7 @@ export function RoomsDashboard({
                         setNewFloorDraft((current) => ({ ...current, aliases: event.target.value }));
                         setFloorCreateError(null);
                       }}
-                      placeholder="Alias vocali"
+                      placeholder={rt('voiceAliases')}
                       className={cn(ROOM_MODAL_INPUT_CLASS, 'mt-2')}
                     />
                     <input
@@ -7226,7 +7221,7 @@ export function RoomsDashboard({
                         setNewFloorDraft((current) => ({ ...current, level: event.target.value }));
                         setFloorCreateError(null);
                       }}
-                      placeholder="Livello, es. 1"
+                      placeholder={rt('floorLevel')}
                       className={cn(ROOM_MODAL_INPUT_CLASS, 'mt-2')}
                     />
                     {floorCreateError ? (
@@ -7249,7 +7244,7 @@ export function RoomsDashboard({
                         onClick={resetFloorCreateForm}
                         disabled={isCreatingFloor}
                         className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/35 transition-all hover:bg-white/[0.06] hover:text-white active:scale-95 disabled:cursor-wait disabled:opacity-45"
-                        aria-label="Annulla nuovo piano"
+                        aria-label={rt('cancel')}
                       >
                         <X size={15} />
                       </button>
@@ -7263,7 +7258,7 @@ export function RoomsDashboard({
                   >
                     <Plus size={42} className="text-white/20 transition-all group-hover:scale-110 group-hover:text-white/60" />
                     <span className="text-xs font-medium text-white/30 transition-colors group-hover:text-white/60">
-                      Aggiungi un piano
+                      {rt('addFloor')}
                     </span>
                   </button>
                 )}
@@ -7280,16 +7275,16 @@ export function RoomsDashboard({
               className="mt-1 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/70 shadow-sm backdrop-blur-md transition-all hover:bg-white/[0.08] hover:text-white active:scale-95"
             >
               <Plus size={14} />
-              Gestisci o Aggiungi Stanza
+                {rt('manageRoomsAction')}
             </button>
           ) : null}
           {floorDeleteCandidate ? (
             <GlassModal
               isOpen
               onClose={() => setFloorDeleteCandidate(null)}
-              eyebrow="Elimina piano"
+              eyebrow={rt('deleteFloorTitle')}
               title={floorDeleteCandidate.name}
-              description="Il piano verrà rimosso da Home Assistant. Le stanze associate non verranno eliminate."
+              description={rt('deleteFloorDescription')}
               size="sm"
               zIndex={70}
               usePortal={false}
@@ -7307,7 +7302,7 @@ export function RoomsDashboard({
                     disabled={floorActionById[floorDeleteCandidate.floor_id] === 'deleting'}
                     className="inline-flex min-w-0 items-center justify-center rounded-full border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-xs font-semibold text-white/70 transition-all hover:bg-white/[0.08] hover:text-white active:scale-95 disabled:cursor-wait disabled:opacity-50"
                   >
-                    Annulla
+                  {rt('cancel')}
                   </button>
                   <button
                     type="button"
@@ -7316,7 +7311,7 @@ export function RoomsDashboard({
                     className="inline-flex min-w-0 items-center justify-center gap-2 rounded-full border border-red-400/20 bg-red-500/10 px-4 py-2.5 text-xs font-bold text-red-200 transition-all hover:bg-red-500/15 hover:text-red-100 active:scale-95 disabled:cursor-wait disabled:opacity-55"
                   >
                     <MinusCircle size={14} />
-                    {floorActionById[floorDeleteCandidate.floor_id] === 'deleting' ? 'Elimino...' : 'Elimina'}
+                  {floorActionById[floorDeleteCandidate.floor_id] === 'deleting' ? rt('deleting') : rt('delete')}
                   </button>
                 </>
               }
@@ -7334,21 +7329,21 @@ export function RoomsDashboard({
             type="button"
             className="absolute inset-0 bg-black/70 backdrop-blur-xl"
             onClick={() => setIsManageOpen(false)}
-            aria-label="Chiudi gestione stanze"
+            aria-label={rt('closeRoomManagement')}
           />
           <section className="liquid-glass-panel relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden rounded-none border-0 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] md:h-[calc(100dvh-4rem)] md:max-h-[46rem] md:max-w-3xl md:rounded-[2rem] md:border md:p-6">
             <button
               type="button"
               onClick={() => setIsManageOpen(false)}
               className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full text-white/45 transition-all hover:bg-white/[0.06] hover:text-white active:scale-95"
-              aria-label="Chiudi"
+              aria-label={rt('close')}
             >
               <X size={16} />
             </button>
 
             <div className="shrink-0">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-white/58">Gestisci stanze</p>
-              <h2 className="mt-2 text-2xl font-semibold text-white">Schede stanza</h2>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-white/58">{rt('manageRooms')}</p>
+              <h2 className="mt-2 text-2xl font-semibold text-white">{rt('roomCards')}</h2>
             </div>
 
             <div className="mt-4 max-h-[45dvh] shrink-0 overflow-y-auto overscroll-contain rounded-[1.5rem] border border-white/[0.06] bg-white/[0.025] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_18px_48px_rgba(0,0,0,0.16)] backdrop-blur-2xl glass-scrollbar md:max-h-[min(42dvh,28rem)]">
@@ -7365,7 +7360,7 @@ export function RoomsDashboard({
                     setNewRoomName(event.target.value);
                     setRoomCreateError(null);
                   }}
-                  placeholder="Esempio: Studio"
+                  placeholder={rt('roomExample')}
                   className={cn(ROOM_MODAL_INPUT_CLASS, 'flex-1')}
                 />
                 <div className={cn('flex gap-2', isEditingRoom ? 'flex-row' : 'flex-col sm:flex-row')}>
@@ -7388,7 +7383,7 @@ export function RoomsDashboard({
                     className={cn(ROOM_MODAL_SECONDARY_BUTTON_CLASS, 'flex-1')}
                   >
                     <X size={15} />
-                    Annulla
+                    {rt('cancel')}
                   </button>
                 ) : null}
                 </div>
@@ -7405,23 +7400,23 @@ export function RoomsDashboard({
                       size={15}
                       className={cn('transition-transform', isAreaCreateDetailsOpen && 'rotate-90')}
                     />
-                    Dettagli area
+                    {rt('areaDetails')}
                   </button>
                   {isAreaCreateDetailsOpen ? (
                     <div className="mt-3 grid gap-3">
                       <div className="grid gap-2 sm:grid-cols-2">
                         <div className="block min-w-0">
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">Piano</span>
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">{rt('floor')}</span>
                           <GlassDropdown
-                            ariaLabel="Piano"
+                            ariaLabel={rt('floor')}
                             options={[
-                              { id: '', name: 'Nessun piano' },
+                              { id: '', name: rt('noFloor') },
                               ...effectiveHaFloors.map<GlassDropdownOption>((floor) => ({ id: floor.floor_id, name: floor.name })),
                             ]}
                             selected={
                               areaCreationDraft.floorId
                                 ? { id: areaCreationDraft.floorId, name: effectiveHaFloors.find((floor) => floor.floor_id === areaCreationDraft.floorId)?.name ?? areaCreationDraft.floorId }
-                                : { id: '', name: 'Nessun piano' }
+                                : { id: '', name: rt('noFloor') }
                             }
                             onChange={(option) =>
                               setAreaCreationDraft((current) => ({ ...current, floorId: option.id }))
@@ -7430,7 +7425,7 @@ export function RoomsDashboard({
                           />
                         </div>
                         <label className="block min-w-0">
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">Icona</span>
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">{rt('icon')}</span>
                           <input
                             value={areaCreationDraft.icon}
                             onChange={(event) =>
@@ -7444,7 +7439,7 @@ export function RoomsDashboard({
 
                       <div className="grid gap-2 sm:grid-cols-2">
                         <label className="block min-w-0">
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">Alias</span>
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">{rt('aliases')}</span>
                           <input
                             value={areaCreationDraft.aliases}
                             onChange={(event) =>
@@ -7454,11 +7449,11 @@ export function RoomsDashboard({
                             className={cn(ROOM_MODAL_INPUT_CLASS, 'mt-1')}
                           />
                           <span className="mt-1 block text-xs leading-relaxed text-white/42">
-                            Gli alias sono nomi alternativi usati negli assistenti vocali per fare riferimento a quest'area.
+                            {rt('aliasesDescription')}
                           </span>
                         </label>
                         <label className="block min-w-0">
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">Immagine</span>
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">{rt('image')}</span>
                           <input
                             value={areaCreationDraft.picture}
                             onChange={(event) =>
@@ -7472,7 +7467,7 @@ export function RoomsDashboard({
 
                       <div className="grid gap-2 sm:grid-cols-2">
                         <label className="block min-w-0">
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">Entita temperatura</span>
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">{rt('temperatureEntity')}</span>
                           <input
                             list="room-temperature-entities"
                             value={areaCreationDraft.temperatureEntityId}
@@ -7487,7 +7482,7 @@ export function RoomsDashboard({
                           />
                         </label>
                         <label className="block min-w-0">
-                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">Entita umidita</span>
+                          <span className="text-[11px] uppercase tracking-[0.14em] text-white/45">{rt('humidityEntity')}</span>
                           <input
                             list="room-humidity-entities"
                             value={areaCreationDraft.humidityEntityId}
@@ -7512,13 +7507,13 @@ export function RoomsDashboard({
                 <p className="mt-2 text-xs text-white/42">
                   {isEditingRoom
                     ? isEditingHaRoom
-                      ? 'Le modifiche verranno salvate su Home Assistant.'
-                      : 'Le modifiche resteranno salvate solo in questo browser.'
+                      ? rt('currentHaArea')
+                      : rt('browserEditStorage')
                     : canUseHaAreaForm
                       ? isLoadingAreaMetadata
-                        ? 'Carico i piani disponibili da Home Assistant.'
-                        : 'La nuova stanza verra salvata come area Home Assistant.'
-                      : 'Offline: la stanza resta salvata solo in questo browser.'}
+                              ? rt('loadingFloors')
+                              : rt('roomSavedToHa')
+                            : rt('roomSavedOffline')}
                 </p>
               )}
             </div>
@@ -7544,7 +7539,7 @@ export function RoomsDashboard({
 
             <div className="mt-4 flex min-h-[11rem] flex-1 flex-col overflow-hidden sm:min-h-[14rem]">
               <div className="flex shrink-0 items-center justify-between gap-3">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Stanze esistenti</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">{rt('existingRooms')}</p>
                 <span className="text-xs text-white/40">{allRoomTabs.length}</span>
               </div>
               <div className="mt-2 min-h-0 flex-1 overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-1 backdrop-blur-md">
@@ -7562,11 +7557,11 @@ export function RoomsDashboard({
                       return (
                         <div key={`manager-${tab.id}`} className={rowClassName}>
                           <div className="min-w-0 flex-1">
-                            <p className="text-[11px] uppercase tracking-[0.14em] text-white/42">Area HA</p>
+                            <p className="text-[11px] uppercase tracking-[0.14em] text-white/42">{rt('haAreaShort')}</p>
                             <p className="truncate text-sm font-semibold text-white/92">{tab.name}</p>
                             {areaAction ? (
                               <p className="mt-1 text-xs text-white/38">
-                                {areaAction === 'saving' ? 'Salvataggio area...' : 'Eliminazione area...'}
+                            {areaAction === 'saving' ? rt('savingArea') : rt('deletingArea')}
                               </p>
                             ) : null}
                             {areaError ? <p className="mt-1 text-xs text-rose-200/80">{areaError}</p> : null}
@@ -7580,7 +7575,7 @@ export function RoomsDashboard({
                                 'inline-flex h-8 w-8 items-center justify-center rounded-full text-white/40 transition-all hover:text-white/80 active:scale-95 disabled:cursor-wait disabled:opacity-45',
                                 isEditingThisRoom && 'text-white/85',
                               )}
-                              aria-label="Modifica area Home Assistant"
+                              aria-label={rt('editHaArea')}
                             >
                               <Pencil size={15} />
                             </button>
@@ -7591,7 +7586,7 @@ export function RoomsDashboard({
                               }}
                               disabled={Boolean(areaAction)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/30 transition-all hover:text-red-400 active:scale-95 disabled:cursor-wait disabled:opacity-45"
-                              aria-label="Elimina area Home Assistant"
+                              aria-label={rt('deleteHaArea')}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -7603,14 +7598,14 @@ export function RoomsDashboard({
                       <div key={`manager-${tab.id}`} className={rowClassName}>
                         <div className="min-w-0 flex-1">
                           <p className="text-[11px] uppercase tracking-[0.14em] text-white/42">
-                            {isHaTab ? 'Area HA' : isDemoTab ? 'Demo' : 'Locale'}
+                            {isHaTab ? rt('haAreaShort') : isDemoTab ? rt('demo') : rt('local')}
                           </p>
                           <p className="truncate text-sm font-semibold text-white/92">{tab.name}</p>
                         </div>
                         {isDemoTab ? (
                           <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] px-2.5 py-1 text-[11px] text-white/52 backdrop-blur-md">
                             <Lock size={12} />
-                            Predefinita
+                            {rt('defaultRoom')}
                           </span>
                         ) : (
                           <div className="flex shrink-0 items-center gap-1.5">
@@ -7621,7 +7616,7 @@ export function RoomsDashboard({
                                 'inline-flex h-8 w-8 items-center justify-center rounded-full text-white/40 transition-all hover:text-white/80 active:scale-95',
                                 isEditingThisRoom && 'text-white/85',
                               )}
-                              aria-label="Modifica stanza"
+                              aria-label={rt('editRoom')}
                             >
                               <Pencil size={15} />
                             </button>
@@ -7629,7 +7624,7 @@ export function RoomsDashboard({
                               type="button"
                               onClick={() => removeCustomRoom(tab.id, tab.name)}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full text-white/30 transition-all hover:text-red-400 active:scale-95"
-                              aria-label="Elimina stanza"
+                              aria-label={rt('deleteRoom')}
                             >
                               <Trash2 size={15} />
                             </button>
@@ -7641,7 +7636,7 @@ export function RoomsDashboard({
                 </div>
               </div>
               <p className="mt-4 hidden shrink-0 text-xs text-white/50 sm:block">
-                Le aree Home Assistant possono essere modificate o eliminate da qui. Le stanze locali restano salvate solo in questo browser.
+                {rt('roomStorageDescription')}
               </p>
             </div>
           </section>

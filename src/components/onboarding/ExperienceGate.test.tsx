@@ -11,7 +11,9 @@ describe('ExperienceGate setup routing', () => {
   });
 
   it('uses the quick reconnection flow only after onboarding was completed', () => {
-    expect(shouldForceCompletedConfiguration('/setup', 'done')).toBe(true);
+    expect(shouldForceCompletedConfiguration('/setup', 'done')).toBe(false);
+    expect(shouldForceCompletedConfiguration('/setup', 'done', '?reconnect=1')).toBe(true);
+    expect(shouldForceCompletedConfiguration('/setup', 'done', '?panel=1')).toBe(false);
     expect(shouldForceCompletedConfiguration('/home', 'done')).toBe(false);
   });
 });

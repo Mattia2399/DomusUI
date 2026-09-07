@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
+import { useI18n } from '../../i18n/I18nProvider';
+import { italianTranslations, type TranslationKey } from '../../i18n/translations';
 import { useCardSize } from './useCardSize';
 
 export type GreetingDefaults = {
@@ -13,12 +15,22 @@ export type GreetingResponsiveDensity = 'tiny' | 'compact' | 'regular';
 
 const GREETING_REFRESH_MS = 60000;
 
-function resolveTimeGreetingLabel(now: Date) {
+type GreetingTranslator = (key: TranslationKey, parameters?: Record<string, string | number>) => string;
+
+const defaultGreetingTranslator: GreetingTranslator = (key, parameters) => {
+  const message = italianTranslations[key];
+  if (!parameters) return message;
+  return message.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, parameter: string) =>
+    Object.prototype.hasOwnProperty.call(parameters, parameter) ? String(parameters[parameter]) : match,
+  );
+};
+
+function resolveTimeGreetingLabel(now: Date, t: GreetingTranslator) {
   const hour = now.getHours();
-  if (hour >= 5 && hour < 11) return 'Buongiorno';
-  if (hour >= 11 && hour < 17) return 'Buon pomeriggio';
-  if (hour >= 17 && hour < 22) return 'Buonasera';
-  return 'Bentornato';
+  if (hour >= 5 && hour < 11) return t('greeting.morning');
+  if (hour >= 11 && hour < 17) return t('greeting.afternoon');
+  if (hour >= 17 && hour < 22) return t('greeting.evening');
+  return t('greeting.welcomeBack');
 }
 
 function isWeekend(now: Date) {
@@ -26,18 +38,18 @@ function isWeekend(now: Date) {
   return day === 0 || day === 6;
 }
 
-function resolveGreetingLabel(state: DashboardStateShape, now: Date) {
-  const baseGreeting = resolveTimeGreetingLabel(now);
+function resolveGreetingLabel(state: DashboardStateShape, now: Date, t: GreetingTranslator) {
+  const baseGreeting = resolveTimeGreetingLabel(now, t);
   const hour = now.getHours();
-  if (hour >= 22 || hour < 5) return 'Buonanotte';
-  if (state.livingRoomMasterOff) return 'Bentornato';
-  if (isWeekend(now) && (baseGreeting === 'Buongiorno' || baseGreeting === 'Buon pomeriggio')) {
-    return 'Buon weekend';
+  if (hour >= 22 || hour < 5) return t('greeting.night');
+  if (state.livingRoomMasterOff) return t('greeting.welcomeBack');
+  if (isWeekend(now) && (baseGreeting === t('greeting.morning') || baseGreeting === t('greeting.afternoon'))) {
+    return t('greeting.weekend');
   }
   return baseGreeting;
 }
 
-function buildHomeSummary(state: DashboardStateShape, now: Date) {
+function buildHomeSummary(state: DashboardStateShape, now: Date, t: GreetingTranslator) {
   const lines: string[] = [];
   const activeFavorites = state.favorites.filter((device) => device.isOn).length;
   const activePrimaryFunctions = [
@@ -51,38 +63,42 @@ function buildHomeSummary(state: DashboardStateShape, now: Date) {
     activeFavorites === 0;
 
   if (isHouseQuiet) {
-    lines.push('Casa in quiete.');
+    lines.push(t('greeting.home.quiet'));
   } else if (activeFavorites > 0) {
     lines.push(
       activeFavorites === 1
-        ? 'Casa pronta. Un preferito è attivo.'
-        : `Casa pronta. ${activeFavorites} preferiti attivi.`,
+        ? t('greeting.home.favorite.one')
+        : t('greeting.home.favorite.many', { count: activeFavorites }),
     );
   } else if (activePrimaryFunctions > 0) {
     lines.push(
       activePrimaryFunctions === 1
-        ? 'Una funzione principale è attiva.'
-        : `${activePrimaryFunctions} funzioni principali attive.`,
+        ? t('greeting.home.function.one')
+        : t('greeting.home.function.many', { count: activePrimaryFunctions }),
     );
   } else {
-    lines.push('Tutto tranquillo. Nessuna attività rilevante.');
+    lines.push(t('greeting.home.calm'));
   }
 
   if (state.lamp.activeTimerEnd) {
     const remainingMs = Math.max(0, state.lamp.activeTimerEnd - now.getTime());
     const remainingMinutes = Math.max(1, Math.round(remainingMs / 60000));
-    lines.push(`Timer luce attivo per altri ${remainingMinutes} min.`);
+    lines.push(t('greeting.home.lightTimer', { minutes: remainingMinutes }));
   }
 
   return lines.slice(0, 2);
 }
 
-export function getGreetingDefaults(state: DashboardStateShape, now = new Date()): GreetingDefaults {
-  const greeting = resolveGreetingLabel(state, now);
+export function getGreetingDefaults(
+  state: DashboardStateShape,
+  now = new Date(),
+  t: GreetingTranslator = defaultGreetingTranslator,
+): GreetingDefaults {
+  const greeting = resolveGreetingLabel(state, now, t);
   const name = state.userName.trim();
   return {
     title: name ? `${greeting}, ${name}!` : `${greeting}!`,
-    subtitle: buildHomeSummary(state, now).join('\n'),
+    subtitle: buildHomeSummary(state, now, t).join('\n'),
     greeting,
     name,
   };
@@ -127,6 +143,7 @@ export function GreetingCard({
   compact = false,
   clampTitle = false,
 }: GreetingCardProps) {
+  const { t } = useI18n();
   const {
     ref: cardRef,
     width: cardWidth,
@@ -146,7 +163,7 @@ export function GreetingCard({
   }, []);
 
   const now = useMemo(() => new Date(clock), [clock]);
-  const defaults = useMemo(() => getGreetingDefaults(state, now), [state, now]);
+  const defaults = useMemo(() => getGreetingDefaults(state, now, t), [state, now, t]);
   const resolvedTitle = (!titleAuto ? title ?? '' : defaults.title)
     .replace(/\s*\n+\s*/g, ' ')
     .replace(/\s{2,}/g, ' ')

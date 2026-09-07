@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { NotificationProvider, useNotifications } from '../../context/NotificationProvider';
 import { DashboardNotificationsPanel } from './DashboardNotificationsPanel';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 
 afterEach(cleanup);
 
@@ -20,10 +21,13 @@ function NotificationPanelHarness() {
 
 describe('DashboardNotificationsPanel', () => {
   it('does not mark notifications as read merely by opening the center', () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
     render(
-      <NotificationProvider>
-        <NotificationPanelHarness />
-      </NotificationProvider>,
+      <I18nProvider>
+        <NotificationProvider>
+          <NotificationPanelHarness />
+        </NotificationProvider>
+      </I18nProvider>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Crea notifica' }));
@@ -34,10 +38,13 @@ describe('DashboardNotificationsPanel', () => {
   });
 
   it('marks every visible notification as read only after explicit confirmation', () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
     render(
-      <NotificationProvider>
-        <NotificationPanelHarness />
-      </NotificationProvider>,
+      <I18nProvider>
+        <NotificationProvider>
+          <NotificationPanelHarness />
+        </NotificationProvider>
+      </I18nProvider>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Crea notifica' }));

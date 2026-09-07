@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, ChevronDown, Clock, DownloadCloud, Loader2 } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type UpdateEntity = {
   entityId: string;
@@ -49,6 +50,7 @@ export function UpdatesCenterModal({
   onSkip,
   onUpdateAll,
 }: UpdatesCenterModalProps) {
+  const { t } = useI18n();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
   const [itemError, setItemError] = useState<{ id: string; message: string } | null>(null);
@@ -99,7 +101,7 @@ export function UpdatesCenterModal({
       setPending(null);
       setItemError({
         id,
-        message: action === 'install' ? 'Aggiornamento non avviato.' : 'Impossibile rimandare l’aggiornamento.',
+        message: action === 'install' ? t('settings.updates.installFailed') : t('settings.updates.skipFailed'),
       });
       return;
     }
@@ -128,7 +130,7 @@ export function UpdatesCenterModal({
           <motion.div
             role="dialog"
             aria-modal="true"
-            aria-label="Centro Aggiornamenti"
+            aria-label={t('settings.updates.title')}
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.985 }}
@@ -143,7 +145,7 @@ export function UpdatesCenterModal({
                 className="glass-button min-h-10 w-fit rounded-full px-3 text-xs font-semibold"
               >
                 <ArrowLeft size={15} />
-                <span className="truncate">Indietro</span>
+                <span className="truncate">{t('settings.updates.back')}</span>
               </button>
 
               <div className="mt-4 flex items-center gap-3">
@@ -151,11 +153,11 @@ export function UpdatesCenterModal({
                   <DownloadCloud size={18} />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate text-base font-semibold text-[color:var(--ui-text-primary)]">Centro Aggiornamenti</p>
+                  <p className="truncate text-base font-semibold text-[color:var(--ui-text-primary)]">{t('settings.updates.title')}</p>
                   <p className="mt-0.5 truncate text-xs text-[color:var(--ui-text-secondary)]">
                     {count > 0
-                      ? `${count} ${count === 1 ? 'aggiornamento disponibile' : 'aggiornamenti disponibili'}`
-                      : 'Tutto aggiornato'}
+                      ? t(count === 1 ? 'settings.updates.one' : 'settings.updates.many', { count })
+                      : t('settings.updates.current')}
                   </p>
                 </div>
               </div>
@@ -168,8 +170,8 @@ export function UpdatesCenterModal({
                   <span className="grid h-11 w-11 place-items-center rounded-full bg-emerald-500/12 text-emerald-400">
                     <DownloadCloud size={20} />
                   </span>
-                  <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Tutto aggiornato</p>
-                  <p className="text-xs text-[color:var(--ui-text-secondary)]">Nessun aggiornamento disponibile al momento.</p>
+                  <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('settings.updates.current')}</p>
+                  <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('settings.updates.none')}</p>
                 </div>
               ) : (
                 updates.map((update) => {
@@ -195,7 +197,7 @@ export function UpdatesCenterModal({
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium text-[color:var(--ui-text-primary)]">{update.title}</p>
                               <p className="truncate text-[11px] text-[color:rgb(var(--ui-accent-rgb)/0.9)]">
-                                {pct != null ? `Aggiornamento in corso · ${Math.round(pct)}%` : 'Aggiornamento in corso…'}
+                                {pct != null ? t('settings.updates.progressPercent', { value: Math.round(pct) }) : t('settings.updates.progress')}
                               </p>
                             </div>
                             {pct != null ? (
@@ -229,7 +231,7 @@ export function UpdatesCenterModal({
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium text-[color:var(--ui-text-primary)]">{update.title}</p>
                               <p className="truncate text-[11px] text-[color:var(--ui-text-secondary)]">
-                                {update.latest ? `${update.installed || '—'} → ${update.latest}` : update.installed || 'Aggiornamento disponibile'}
+                                {update.latest ? `${update.installed || '—'} → ${update.latest}` : update.installed || t('settings.updates.available')}
                               </p>
                             </div>
                             <ChevronDown
@@ -257,7 +259,7 @@ export function UpdatesCenterModal({
                                       className="glass-button flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full text-xs font-semibold disabled:cursor-default disabled:opacity-45"
                                     >
                                       {isSkipping ? <Loader2 size={14} className="animate-spin" /> : <Clock size={14} />}
-                                      {isSkipping ? 'Rimando…' : 'Rimanda'}
+                                      {isSkipping ? t('settings.updates.skipping') : t('settings.updates.skip')}
                                     </button>
                                     <button
                                       type="button"
@@ -266,13 +268,13 @@ export function UpdatesCenterModal({
                                       className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-full bg-[color:var(--ui-accent)] text-xs font-semibold text-[color:var(--ui-accent-contrast)] shadow-[0_6px_20px_-6px_rgb(var(--ui-accent-rgb)/0.55)] transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-45"
                                     >
                                       <DownloadCloud size={14} />
-                                      Aggiorna
+                                      {t('settings.updates.install')}
                                     </button>
                                   </div>
                                   {err ? <p className="mt-2 text-[11px] font-medium text-rose-300">{err}</p> : null}
                                   {!isConnected ? (
                                     <p className="mt-2 text-[11px] text-[color:var(--ui-text-secondary)]">
-                                      Connessione Home Assistant non disponibile.
+                                      {t('settings.updates.offline')}
                                     </p>
                                   ) : null}
                                 </div>
@@ -297,7 +299,7 @@ export function UpdatesCenterModal({
                   className="glass-button flex min-h-12 w-full items-center justify-center gap-2 rounded-full text-sm font-semibold disabled:cursor-default disabled:opacity-45"
                 >
                   <DownloadCloud size={16} />
-                  {`Aggiorna tutto (${count})`}
+                  {t('settings.updates.installAll', { count })}
                 </button>
               </div>
             ) : null}

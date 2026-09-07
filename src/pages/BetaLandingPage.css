@@ -1,6 +1,6 @@
 .landing-site {
-  --font-sans: "SF Pro Text", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "SF Pro Display", "SF Pro Text", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   background-color: #05070d;
   color: #fff;
   font-family: var(--font-sans);

@@ -7,6 +7,7 @@ import {
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { useNotifications } from '../../context/NotificationProvider';
+import { useI18n } from '../../i18n/I18nProvider';
 import { DashboardProfileAvatar } from './DashboardProfileAvatar';
 import { DashboardNotificationsPanel } from './DashboardNotificationsPanel';
 import {
@@ -57,6 +58,7 @@ export function LeftSidebar({
   onPrefetchRoute,
   onPrefetchEditMode,
 }: LeftSidebarProps) {
+  const { t } = useI18n();
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
   const [isCompactSidebar, setIsCompactSidebar] = React.useState(false);
   const { unreadCount } = useNotifications();
@@ -75,7 +77,7 @@ export function LeftSidebar({
   }, []);
 
   const badgeValue = unreadCount > 99 ? '99+' : `${unreadCount}`;
-  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, SIDEBAR_ROUTE_IDS);
+  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, SIDEBAR_ROUTE_IDS, t);
   const isPathEntryActive = (entry: SidebarQuickPath) =>
     isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute });
   const sidebarWidthClass = isCompactSidebar ? 'w-14 sm:w-[3.75rem] lg:w-[4.25rem]' : 'w-14 sm:w-16 lg:w-20';
@@ -104,7 +106,7 @@ export function LeftSidebar({
           onFocus={() => onPrefetchRoute?.('/profile')}
           onClick={onOpenProfile}
           className={`relative h-9 w-9 overflow-visible rounded-full sm:h-10 sm:w-10 ${profileMarginClass} focus:outline-none focus:ring-2 focus:ring-[color:var(--ui-focus-ring)]`}
-          aria-label="Apri profilo"
+          aria-label={t('navigation.profile.open')}
           title={`Home Assistant: ${haStatus}`}
         >
           <DashboardProfileAvatar
@@ -133,7 +135,7 @@ export function LeftSidebar({
                     ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
                     : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]'
                 }`}
-                aria-label={`Apri ${entry.label}`}
+                aria-label={t('navigation.open', { label: entry.label })}
               >
                 <Icon
                   size={iconSize}
@@ -155,14 +157,14 @@ export function LeftSidebar({
             onFocus={onPrefetchEditMode}
             onClick={onToggleEditMode}
             disabled={!canToggleEditMode}
-            aria-label="Toggle edit mode"
+            aria-label={t('navigation.edit.toggle')}
             aria-pressed={isEditMode}
             title={
               canToggleEditMode
                 ? isEditMode
-                  ? 'Esci da modifica'
-                  : 'Modalita modifica'
-                : 'Modifica disponibile su Home, Consumi, App Gallery e Sicurezza'
+                  ? t('navigation.edit.exit')
+                  : t('navigation.edit.enter')
+                : t('navigation.edit.unavailable')
             }
             className={`${navButtonSizeClass} flex items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-35 ${
               isEditMode
@@ -185,7 +187,7 @@ export function LeftSidebar({
                 ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
                 : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]'
             }`}
-            aria-label="Apri notifiche"
+            aria-label={t('navigation.notifications.open')}
           >
             <Bell size={utilityIconSize} />
             {unreadCount > 0 ? (
@@ -207,9 +209,9 @@ export function LeftSidebar({
               ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
               : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]'
           }`}
-          aria-label="Apri impostazioni"
+          aria-label={t('navigation.settings.open')}
           aria-current={isSettingsActive ? 'page' : undefined}
-          title="Impostazioni"
+          title={t('navigation.settings')}
         >
           <Settings size={utilityIconSize} />
         </button>

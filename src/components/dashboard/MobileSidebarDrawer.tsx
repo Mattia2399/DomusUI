@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
+import { useI18n } from '../../i18n/I18nProvider';
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
@@ -62,14 +63,15 @@ export function MobileSidebarDrawer({
   onPrefetchRoute,
   onPrefetchEditMode,
 }: MobileSidebarDrawerProps) {
+  const { t } = useI18n();
   const drawerRef = React.useRef<HTMLElement | null>(null);
   const editButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const [isAccountChipOpen, setIsAccountChipOpen] = React.useState(false);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = React.useState(false);
   const routeGroups = [
-    { id: 'home', label: 'Casa', entries: resolveDashboardNavigationEntries(quickPaths, PRIMARY_DASHBOARD_ROUTE_IDS) },
-    { id: 'tools', label: 'Strumenti', entries: resolveDashboardNavigationEntries(quickPaths, TOOL_DASHBOARD_ROUTE_IDS) },
+    { id: 'home', label: t('navigation.section.home'), entries: resolveDashboardNavigationEntries(quickPaths, PRIMARY_DASHBOARD_ROUTE_IDS, t) },
+    { id: 'tools', label: t('navigation.section.tools'), entries: resolveDashboardNavigationEntries(quickPaths, TOOL_DASHBOARD_ROUTE_IDS, t) },
   ];
   const displayUserName = userAvatarAlt?.trim() || 'Utente';
   const displayUserEmail = userEmail?.trim() || 'Email non disponibile';
@@ -176,7 +178,7 @@ export function MobileSidebarDrawer({
         onClick={onClose}
         tabIndex={isOpen ? 0 : -1}
         aria-hidden={!isOpen}
-        aria-label="Chiudi menu laterale"
+        aria-label={t('navigation.menu.close')}
         className={`fixed inset-0 z-[176] bg-[color:var(--ui-scrim)] backdrop-blur-md transition-opacity duration-200 md:hidden ${
           isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
@@ -186,7 +188,7 @@ export function MobileSidebarDrawer({
         ref={drawerRef}
         role="dialog"
         aria-modal="true"
-        aria-label="Menu principale"
+        aria-label={t('navigation.menu.main')}
         tabIndex={-1}
         inert={!isOpen}
         className={`liquid-glass-panel fixed left-0 top-0 z-[181] flex h-[100dvh] w-[min(84vw,21rem)] max-w-[21rem] flex-col overflow-hidden rounded-none border-y-0 border-l-0 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-[calc(env(safe-area-inset-top)+1rem)] text-[color:var(--ui-text-primary)] shadow-[24px_0_70px_var(--ui-glass-shadow)] transition-transform duration-250 ease-out md:hidden ${
@@ -203,7 +205,7 @@ export function MobileSidebarDrawer({
               onFocus={() => onPrefetchRoute?.('/profile')}
               onClick={handleOpenProfile}
               className="flex min-w-0 flex-1 items-center gap-2 rounded-[1.05rem] p-1 text-left transition-colors hover:bg-[color:var(--ui-surface-glass-strong)]"
-              aria-label="Apri profilo"
+              aria-label={t('navigation.profile.open')}
             >
               <span className="relative flex h-10 w-10 shrink-0">
                 <DashboardProfileAvatar
@@ -223,7 +225,7 @@ export function MobileSidebarDrawer({
               type="button"
               onClick={() => setIsAccountChipOpen((current) => !current)}
               className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-soft)]"
-              aria-label={isAccountChipOpen ? 'Chiudi menu account' : 'Apri menu account'}
+              aria-label={isAccountChipOpen ? t('navigation.account.closeMenu') : t('navigation.account.openMenu')}
               aria-expanded={isAccountChipOpen}
             >
               <ChevronDown
@@ -246,7 +248,7 @@ export function MobileSidebarDrawer({
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[color:rgb(var(--ui-accent-rgb)/0.14)] text-[color:rgb(var(--ui-accent-rgb)/0.98)]">
                   <Plus size={16} />
                 </span>
-                Aggiungi account
+                {t('navigation.account.add')}
               </button>
             </div>
           </div>
@@ -312,9 +314,9 @@ export function MobileSidebarDrawer({
           <div className="mt-5 border-t border-[color:var(--ui-border)] pt-4">
             {isLogoutConfirmOpen ? (
               <div className="mb-3 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3 shadow-[0_14px_36px_var(--ui-shadow-soft)]">
-                <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Disconnettere Home Assistant?</p>
+                <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('navigation.logout.title')}</p>
                 <p className="mt-1 text-xs font-medium text-[color:var(--ui-text-secondary)]">
-                  La dashboard perdera la connessione finche non effettui un nuovo accesso.
+                  {t('navigation.logout.description')}
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button
@@ -322,14 +324,14 @@ export function MobileSidebarDrawer({
                     onClick={() => setIsLogoutConfirmOpen(false)}
                     className="rounded-xl border border-[color:var(--ui-border)] px-3 py-2 text-xs font-bold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)]"
                   >
-                    Annulla
+                    {t('navigation.logout.cancel')}
                   </button>
                   <button
                     type="button"
                     onClick={handleLogoutConfirm}
                     className="rounded-xl bg-[color:var(--ui-danger)] px-3 py-2 text-xs font-bold text-[color:var(--ui-danger-contrast)] shadow-[0_10px_22px_color-mix(in_srgb,var(--ui-danger)_28%,transparent)] transition-colors hover:brightness-110"
                   >
-                    Esci
+                    {t('navigation.logout.confirm')}
                   </button>
                 </div>
               </div>
@@ -350,7 +352,7 @@ export function MobileSidebarDrawer({
               }`}
             >
               <PencilLine size={17} />
-              {isEditMode ? 'Esci da modifica' : 'Modalita modifica'}
+              {isEditMode ? t('navigation.edit.exit') : t('navigation.edit.enter')}
             </button>
             <button
               type="button"
@@ -366,7 +368,7 @@ export function MobileSidebarDrawer({
               aria-current={isSettingsActive ? 'page' : undefined}
             >
               <Settings size={17} />
-              Impostazioni
+              {t('navigation.settings')}
             </button>
             <button
               type="button"

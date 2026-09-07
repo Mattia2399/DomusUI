@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { HomeAttentionCategory } from '../homeAttention/homeAttentionEngine';
 import type { HomeAttentionPreferences } from '../homeAttention/homeAttentionPreferences';
+import { useI18n } from '../../i18n/I18nProvider';
 import GlassDropdown, { type GlassDropdownOption } from '../ui/GlassDropdown';
 import GlassToggle from '../ui/GlassToggle';
 
@@ -29,56 +30,39 @@ type SettingsAttentionSectionProps = {
 
 type CategoryOption = {
   id: HomeAttentionCategory;
+  icon: LucideIcon;
+};
+
+type LocalizedCategoryOption = CategoryOption & {
   title: string;
   description: string;
-  icon: LucideIcon;
 };
 
 const CATEGORY_OPTIONS: CategoryOption[] = [
   {
     id: 'safety',
-    title: 'Sicurezza critica',
-    description: 'Fumo, gas, monossido e possibili perdite.',
     icon: ShieldAlert,
   },
   {
     id: 'security',
-    title: 'Allarme e serrature',
-    description: 'Allarmi attivi, serrature aperte o inceppate.',
     icon: LockKeyhole,
   },
   {
     id: 'opening',
-    title: 'Aperture prolungate',
-    description: 'Porte, finestre e garage rimasti aperti.',
     icon: DoorOpen,
   },
   {
     id: 'availability',
-    title: 'Dispositivi non raggiungibili',
-    description: 'Perdita di connessione o entità della dashboard non disponibili.',
     icon: WifiOff,
   },
   {
     id: 'battery',
-    title: 'Batterie basse',
-    description: 'Sensori e dispositivi sotto la soglia configurata.',
     icon: BatteryLow,
   },
   {
     id: 'configuration',
-    title: 'Problemi di configurazione',
-    description: 'Entità configurate nella dashboard ma non più restituite da Home Assistant.',
     icon: Wrench,
   },
-];
-
-const OPENING_OPTIONS: GlassDropdownOption[] = [
-  { id: '5', name: 'Dopo 5 minuti' },
-  { id: '10', name: 'Dopo 10 minuti' },
-  { id: '15', name: 'Dopo 15 minuti' },
-  { id: '30', name: 'Dopo 30 minuti' },
-  { id: '60', name: 'Dopo 1 ora' },
 ];
 
 const BATTERY_OPTIONS: GlassDropdownOption[] = [
@@ -95,11 +79,12 @@ function PreferenceRow({
   disabled,
   onChange,
 }: {
-  option: CategoryOption;
+  option: LocalizedCategoryOption;
   checked: boolean;
   disabled: boolean;
   onChange: (checked: boolean) => void;
 }) {
+  const { t } = useI18n();
   const Icon = option.icon;
   return (
     <div className="flex min-h-[5.25rem] items-center gap-3 border-t border-[color:var(--ui-separator)] py-3.5 first:border-t-0">
@@ -119,7 +104,7 @@ function PreferenceRow({
       <GlassToggle
         checked={checked}
         onChange={onChange}
-        label={`Mostra ${option.title.toLowerCase()}`}
+        label={t('settings.attention.showCategory', { category: option.title.toLocaleLowerCase() })}
         disabled={disabled}
         size="compact"
         tone={option.id === 'safety' ? 'accent' : 'green'}
@@ -133,6 +118,7 @@ export function SettingsAttentionPreview({
 }: {
   preferences: HomeAttentionPreferences;
 }) {
+  const { t } = useI18n();
   const activeCount = Object.values(preferences.categories).filter(Boolean).length;
   return (
     <span className="relative flex min-h-[4.4rem] w-full items-center gap-3 overflow-hidden rounded-[1rem] bg-[color:var(--ui-fill-tertiary)] px-3 py-2.5 sm:min-h-[4.9rem] sm:rounded-[1.15rem] sm:px-3.5">
@@ -144,10 +130,10 @@ export function SettingsAttentionPreview({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-semibold text-[color:var(--ui-text-primary)]">
-          {preferences.enabled ? `${activeCount} categorie attive` : 'Centro disattivato'}
+          {preferences.enabled ? t('settings.attention.activeCategories', { count: activeCount }) : t('settings.attention.disabled')}
         </span>
         <span className="mt-0.5 block truncate text-[10px] text-[color:var(--ui-text-secondary)]">
-          Aperture {preferences.openingWarningMinutes} min · Batterie {preferences.batteryWarningThreshold}%
+          {t('settings.attention.previewThresholds', { minutes: preferences.openingWarningMinutes, battery: preferences.batteryWarningThreshold })}
         </span>
       </span>
     </span>
@@ -161,10 +147,18 @@ export function SettingsAttentionSection({
   suppressedCount = 0,
   onClearSuppressions,
 }: SettingsAttentionSectionProps) {
+  const { t } = useI18n();
+  const categoryOptions = CATEGORY_OPTIONS.map((option) => ({
+    ...option,
+    title: t(`settings.attention.category.${option.id}.title` as Parameters<typeof t>[0]),
+    description: t(`settings.attention.category.${option.id}.description` as Parameters<typeof t>[0]),
+  }));
+  const openingOptions: GlassDropdownOption[] = [5, 10, 15, 30].map((minutes) => ({ id: String(minutes), name: t('settings.attention.afterMinutes', { count: minutes }) }));
+  openingOptions.push({ id: '60', name: t('settings.attention.afterHour') });
   const selectedOpening =
-    OPENING_OPTIONS.find(
+    openingOptions.find(
       (option) => Number(option.id) === preferences.openingWarningMinutes,
-    ) ?? OPENING_OPTIONS[1];
+    ) ?? openingOptions[1];
   const selectedBattery =
     BATTERY_OPTIONS.find(
       (option) => Number(option.id) === preferences.batteryWarningThreshold,
@@ -191,16 +185,16 @@ export function SettingsAttentionSection({
           />
           <div className="min-w-0 flex-1">
             <h2 className="font-semibold text-[color:var(--ui-text-primary)]">
-              Mostra il Centro Attenzione
+              {t('settings.attention.show')}
             </h2>
             <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              La fascia appare nella Home soltanto quando esiste qualcosa da controllare.
+              {t('settings.attention.showDescription')}
             </p>
           </div>
           <GlassToggle
             checked={preferences.enabled}
             onChange={(enabled) => onChange((current) => ({ ...current, enabled }))}
-            label="Mostra Centro Attenzione"
+            label={t('settings.attention.show')}
             tone="accent"
           />
         </div>
@@ -211,28 +205,27 @@ export function SettingsAttentionSection({
           role="status"
           className="rounded-[1.25rem] border border-[color:var(--ui-warning)]/25 bg-[color:var(--ui-warning)]/10 px-4 py-3 text-sm leading-6 text-[color:var(--ui-text-secondary)]"
         >
-          Il Centro è disattivato: nessuna categoria verrà mostrata nella Home.
+          {t('settings.attention.disabledDescription')}
         </div>
       ) : !preferences.categories.safety ? (
         <div
           role="status"
           className="rounded-[1.25rem] border border-[color:var(--ui-danger)]/25 bg-[color:var(--ui-danger)]/10 px-4 py-3 text-sm leading-6 text-[color:var(--ui-text-secondary)]"
         >
-          Gli avvisi critici di fumo, gas, monossido e perdite sono nascosti. I sistemi Home Assistant
-          continuano comunque a funzionare.
+          {t('settings.attention.criticalHidden')}
         </div>
       ) : null}
 
       <section className="dashboard-content-surface rounded-[1.5rem] px-5 py-2 sm:px-6">
         <div className="pb-2 pt-4">
           <h2 className="font-semibold text-[color:var(--ui-text-primary)]">
-            Cosa mostrare
+            {t('settings.attention.whatToShow')}
           </h2>
           <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">
-            Scegli quali situazioni devono comparire nel riepilogo.
+            {t('settings.attention.whatToShowDescription')}
           </p>
         </div>
-        {CATEGORY_OPTIONS.map((option) => (
+        {categoryOptions.map((option) => (
           <PreferenceRow
             key={option.id}
             option={option}
@@ -245,15 +238,15 @@ export function SettingsAttentionSection({
 
       <section className="dashboard-content-surface rounded-[1.5rem] p-5 sm:p-6">
         <h2 className="font-semibold text-[color:var(--ui-text-primary)]">
-          Quando avvisare
+          {t('settings.attention.when')}
         </h2>
         <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-          Regola soltanto le soglie del riepilogo, senza modificare Home Assistant.
+          {t('settings.attention.whenDescription')}
         </p>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <GlassDropdown
-            label="Apertura prolungata"
-            options={OPENING_OPTIONS}
+            label={t('settings.attention.opening')}
+            options={openingOptions}
             selected={selectedOpening}
             disabled={!preferences.enabled || !preferences.categories.opening}
             onChange={(option) =>
@@ -264,7 +257,7 @@ export function SettingsAttentionSection({
             }
           />
           <GlassDropdown
-            label="Batteria bassa"
+            label={t('settings.attention.lowBattery')}
             options={BATTERY_OPTIONS}
             selected={selectedBattery}
             disabled={!preferences.enabled || !preferences.categories.battery}
@@ -288,12 +281,12 @@ export function SettingsAttentionSection({
             />
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold text-[color:var(--ui-text-primary)]">
-                Avvisi rimandati
+                {t('settings.attention.snoozed')}
               </h2>
               <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
                 {suppressedCount === 1
-                  ? 'Un avviso è temporaneamente nascosto.'
-                  : `${suppressedCount} avvisi sono temporaneamente nascosti.`}
+                  ? t('settings.attention.snoozedOne')
+                  : t('settings.attention.snoozedMany', { count: suppressedCount })}
               </p>
             </div>
             <button
@@ -301,7 +294,7 @@ export function SettingsAttentionSection({
               onClick={onClearSuppressions}
               className="liquid-glass-selection inline-flex min-h-11 shrink-0 items-center justify-center rounded-full px-4 text-sm font-semibold"
             >
-              Mostra di nuovo
+              {t('settings.attention.showAgain')}
             </button>
           </div>
         </section>
@@ -309,8 +302,7 @@ export function SettingsAttentionSection({
 
       <div className="flex flex-col-reverse items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <p className="max-w-2xl text-xs leading-5 text-[color:var(--ui-text-tertiary)]">
-          Queste preferenze controllano soltanto la visualizzazione del Centro Attenzione. Non
-          disattivano allarmi, automazioni o notifiche configurate in Home Assistant.
+          {t('settings.attention.disclaimer')}
         </p>
         <button
           type="button"
@@ -318,7 +310,7 @@ export function SettingsAttentionSection({
           className="liquid-glass-control inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-[color:var(--ui-text-primary)]"
         >
           <RotateCcw size={16} />
-          Ripristina consigliate
+          {t('settings.attention.restoreRecommended')}
         </button>
       </div>
     </div>

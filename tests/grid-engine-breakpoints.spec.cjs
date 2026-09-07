@@ -115,7 +115,7 @@ async function dragBy(page, locator, dx, dy) {
 }
 
 async function enterEditMode(page) {
-  const directEditButton = page.locator('button[aria-label="Toggle edit mode"]:visible').first();
+  const directEditButton = page.locator('button[aria-label="Attiva o disattiva modalità modifica"]:visible').first();
   await directEditButton.waitFor({ state: 'visible' });
   await directEditButton.click();
   await page.getByRole('button', { name: 'Attiva', exact: true }).click();
@@ -437,14 +437,14 @@ test('Demo keeps an edited root layout across route changes and refresh', async 
   await page.locator('.sections-grid > .react-grid-item').filter({ hasText: 'Root Light A' }).first().click({ position: { x: 100, y: 28 } });
   await page.getByRole('radio', { name: 'Layout', exact: true }).click();
   await page.getByRole('button', { name: /Mini, 1 per 1/ }).click();
-  await page.getByLabel('Toggle edit mode').filter({ visible: true }).first().click();
+  await page.getByLabel('Attiva o disattiva modalità modifica').filter({ visible: true }).first().click();
   await page.getByRole('button', { name: 'Salva ed esci', exact: true }).click();
   await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
 
   const beforeNavigation = await readRootPositions(page);
   await page.getByLabel('Apri Stanze').filter({ visible: true }).first().click();
   await expect(page).toHaveURL(/\/rooms/);
-  await page.getByLabel('Apri Home').filter({ visible: true }).first().click();
+  await page.getByLabel('Apri Dashboard').filter({ visible: true }).first().click();
   await expect(page).toHaveURL(/\/home/);
   await page.waitForSelector('.sections-grid > .react-grid-item');
   const afterRouteChange = await readRootPositions(page);

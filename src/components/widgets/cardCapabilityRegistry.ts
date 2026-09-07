@@ -1,5 +1,6 @@
 import type { GridItem, WidgetKind } from '../../types/dashboardModels';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
+import type { TranslationKey } from '../../i18n/translations';
 
 export type CardCapabilityBreakpoint = '2xl' | 'xl' | 'lg' | 'md' | 'sm' | 'xs';
 export type CardLayoutVariant = 'mini' | 'standard' | 'expanded';
@@ -8,7 +9,7 @@ export type CardVariantOption = {
   id: CardLayoutVariant;
   previewVariant: WidgetDisplayVariant;
   label: string;
-  description: string;
+  descriptionKey: TranslationKey;
 };
 
 export type CardVariantTargetContext = {
@@ -130,9 +131,9 @@ export const SENSOR_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'sensor',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Valore, unità e stato' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Valore, trend e grafico' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Grafico e statistiche' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.sensor.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.sensor.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.sensor.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 3 },
@@ -187,9 +188,9 @@ export const LIGHT_CARD_CAPABILITY: ExpandableCardCapability = {
   skeleton: 'light',
   supportsAutoExpand: true,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Icona, titolo e stato' },
-    { id: 'standard', previewVariant: 'compact', label: 'Standard', description: 'Stato e controllo rapido' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Controlli e dettagli completi' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.light.mini' },
+    { id: 'standard', previewVariant: 'compact', label: 'Standard', descriptionKey: 'builder.variant.light.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.light.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 2, hOff: 1, hOn: 2 },
@@ -239,9 +240,9 @@ export const SWITCH_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'switch',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Icona, titolo e stato' },
-    { id: 'standard', previewVariant: 'compact', label: 'Standard', description: 'Stato, toggle e consumo rapido' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Controllo e dettagli completi' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.switch.mini' },
+    { id: 'standard', previewVariant: 'compact', label: 'Standard', descriptionKey: 'builder.variant.switch.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.switch.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 1 },
@@ -284,9 +285,9 @@ export const CLIMATE_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'climate',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'compact', label: 'Mini', description: 'Header, modalità e target' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Target e velocità ventola' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Preset, swing e dati ambiente' },
+    { id: 'mini', previewVariant: 'compact', label: 'Mini', descriptionKey: 'builder.variant.climate.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.climate.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.climate.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 3, h: 3 },
@@ -329,9 +330,9 @@ export const ALARM_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'alarm',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'compact', label: 'Mini', description: 'Stato e apertura pannello' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Stato e azione principale' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Modalità e dettagli sicurezza' },
+    { id: 'mini', previewVariant: 'compact', label: 'Mini', descriptionKey: 'builder.variant.alarm.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.alarm.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.alarm.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 3, h: 3 },
@@ -365,9 +366,9 @@ export const LOCK_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'lock',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Solo stato sicuro' },
-    { id: 'standard', previewVariant: 'compact', label: 'Standard', description: 'Stato e azione rapida' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Dettagli e scrocco' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.lock.mini' },
+    { id: 'standard', previewVariant: 'compact', label: 'Standard', descriptionKey: 'builder.variant.lock.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.lock.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 3 },
@@ -412,9 +413,9 @@ export const COVER_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'cover',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Titolo, stato e posizione' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Posizione e inclinazione' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Dettagli e capability' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.cover.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.cover.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.cover.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 3 },
@@ -469,9 +470,9 @@ export const MEDIA_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'media',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Titolo e play rapido' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Controlli e avanzamento' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Uscite audio e dettagli' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.media.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.media.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.media.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 3 },
@@ -515,9 +516,9 @@ export const CAMERA_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'camera',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Preview essenziale e stato' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Preview e dettagli rapidi' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Preview ampia e badge completi' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.camera.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.camera.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.camera.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 4, h: 3 },
@@ -570,9 +571,9 @@ export const VACUUM_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'vacuum',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Stato e azione principale' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Mappa e dati della sessione' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Mappa, statistiche e controlli' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.vacuum.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.vacuum.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.vacuum.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 3 },
@@ -623,9 +624,9 @@ export const MEMBERS_CARD_CAPABILITY: StaticCardCapability = {
   skeleton: 'members',
   supportsAutoExpand: false,
   variants: [
-    { id: 'mini', previewVariant: 'mini', label: 'Mini', description: 'Presenza essenziale' },
-    { id: 'standard', previewVariant: 'standard', label: 'Standard', description: 'Membri e stato presenza' },
-    { id: 'expanded', previewVariant: 'full', label: 'Expanded', description: 'Membri e accesso ai dettagli' },
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.members.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.members.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.members.expanded' },
   ],
   defaultSpans: {
     '2xl': { w: 3, h: 2 },
