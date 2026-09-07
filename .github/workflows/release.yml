@@ -52,7 +52,7 @@ jobs:
         with:
           name: Domus UI ${{ github.ref_name }}
           body_path: release-artifacts/RELEASE_NOTES.md
-          generate_release_notes: true
+          generate_release_notes: false
           # HACS excludes GitHub prereleases unless every user enables beta
           # versions. Domus UI keeps the beta channel explicit in the SemVer
           # tag while publishing an ordinary GitHub Release for direct HACS
