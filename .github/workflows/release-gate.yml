@@ -54,12 +54,12 @@ jobs:
       - name: End-to-end test
         run: npm run test:e2e
 
-      - name: Crea pacchetto beta
+      - name: Crea pacchetto release
         run: |
           node scripts/package-release.mjs
           npm run release:notes
 
-      - name: Salva pacchetto beta verificato
+      - name: Salva pacchetto verificato
         uses: actions/upload-artifact@v4
         with:
           name: domusos-${{ github.sha }}

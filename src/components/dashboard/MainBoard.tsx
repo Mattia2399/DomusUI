@@ -10245,6 +10245,21 @@ export function MainBoard() {
     setEditConfirm(isEditMode ? 'exit' : 'enter');
   };
 
+  const standaloneHomeAssistantUrl = !isHaManagedByParent && effectiveRuntimeMode === 'real'
+    ? normalizeHassUrl(haUrl)
+    : '';
+  const showHomeAssistantReturn = panelHaBridgeConnection.supportsHostNavigation || Boolean(standaloneHomeAssistantUrl);
+  const returnToHomeAssistant = useCallback(() => {
+    if (isEditMode) return;
+    if (panelHaBridgeConnection.supportsHostNavigation) {
+      panelHaBridgeConnection.returnToHomeAssistant();
+      return;
+    }
+    if (standaloneHomeAssistantUrl && typeof window !== 'undefined') {
+      window.location.assign(`${standaloneHomeAssistantUrl}/lovelace`);
+    }
+  }, [isEditMode, panelHaBridgeConnection, standaloneHomeAssistantUrl]);
+
   const startHomeAssistantOAuth = async () => {
     if (typeof window === 'undefined') {
       return;
@@ -11058,6 +11073,9 @@ export function MainBoard() {
             onToggleEditMode={requestToggleEditMode}
             onOpenProfile={() => openProfileRoute('members')}
             onOpenSettings={openSettingsRoute}
+            showHomeAssistantReturn={showHomeAssistantReturn}
+            canReturnToHomeAssistant={!isEditMode}
+            onReturnToHomeAssistant={returnToHomeAssistant}
             onDisconnectHomeAssistant={disconnectHa}
             onClose={() => setIsMobileSidebarOpen(false)}
             onPrefetchRoute={prefetchDashboardWorkspace}
@@ -11081,6 +11099,9 @@ export function MainBoard() {
           onToggleEditMode={requestToggleEditMode}
           onOpenProfile={() => openProfileRoute('members')}
           onOpenSettings={openSettingsRoute}
+          showHomeAssistantReturn={showHomeAssistantReturn}
+          canReturnToHomeAssistant={!isEditMode}
+          onReturnToHomeAssistant={returnToHomeAssistant}
           onPrefetchRoute={prefetchDashboardWorkspace}
           onPrefetchEditMode={() => void loadRightSidebarManager()}
           isSettingsActive={isSettingsView}
@@ -11678,6 +11699,7 @@ export function MainBoard() {
             onClose={closeProfileRoute}
             initialSection={profileInitialSection}
             currentUserId={deviceAuthUser.id}
+            haUserId={haCurrentUser?.id}
             userAvatarUrl={currentUserAvatarUrl}
             userAvatarAlt={stateWithConnectedUser.userName}
             userEmail={profileUserEmail}
@@ -11694,6 +11716,9 @@ export function MainBoard() {
             onBackgroundChange={setBackground}
             navigationRoute={activeNavigationRoute}
             onNavigate={navigateWithinDashboard}
+            runtimeMode={effectiveRuntimeMode}
+            onCallApi={callHaApi}
+            onNotify={addNotification}
           />
         </React.Suspense>
       ) : null}

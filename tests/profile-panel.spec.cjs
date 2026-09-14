@@ -24,7 +24,7 @@ test('Profile is a personal desktop page without administrative settings', async
   await installCompletedRealWorkspace(page);
   await page.goto('/profile');
 
-  await expect(page.getByText('Preferenze su questo dispositivo')).toBeVisible();
+  await expect(page.getByText('Preferenze personali')).toBeVisible();
   await expect(
     page.getByRole('button', {
       name: /Informazioni personali Account Home Assistant/,
@@ -46,7 +46,7 @@ test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) =
   await installCompletedRealWorkspace(page);
   await page.goto('/profile');
 
-  await expect(page.getByText('Preferenze su questo dispositivo')).toBeVisible();
+  await expect(page.getByText('Preferenze personali')).toBeVisible();
   const securityButton = page.getByRole('button', { name: /Accesso e sicurezza/ });
   await expect(securityButton).toBeVisible();
   await securityButton.click();
@@ -55,7 +55,7 @@ test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) =
   await expect(page.getByText('Conferma dispositivo', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Indietro' }).click();
-  await expect(page.getByText('Preferenze su questo dispositivo')).toBeVisible();
+  await expect(page.getByText('Preferenze personali')).toBeVisible();
   await expect(page.getByRole('button', { name: /Accesso e sicurezza/ })).toBeVisible();
 
   await page.getByRole('button', { name: /Temi colorati/ }).click();

@@ -98,6 +98,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'revision_history',
   'dashboard_reset_marker',
   'irrigation_core',
+  'host_navigation',
 ]);
 
 export function parsePanelBridgeCapabilities(value: unknown) {
@@ -148,6 +149,9 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'config/floor_registry/update',
   'config/floor_registry/reorder',
   'config/floor_registry/delete',
+  'get_panels',
+  'frontend/get_user_data',
+  'frontend/set_user_data',
   'frontend/get_system_data',
   'frontend/set_system_data',
   'domusos/irrigation/get_config',
@@ -198,6 +202,27 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});
+  }
+  if (message.type === 'get_panels') {
+    return Object.keys(message).every((key) => key === 'type');
+  }
+  if (message.type === 'frontend/get_user_data') {
+    return message.key === 'core' && Object.keys(message).every((key) => key === 'type' || key === 'key');
+  }
+  if (message.type === 'frontend/set_user_data') {
+    if (message.key !== 'core' || !isRecord(message.value) || Object.keys(message.value).length > 128) {
+      return false;
+    }
+    if (message.value.default_panel !== undefined &&
+        (typeof message.value.default_panel !== 'string' ||
+          !/^[a-z0-9][a-z0-9_-]{0,127}$/i.test(message.value.default_panel.trim()))) {
+      return false;
+    }
+    try {
+      return JSON.stringify(message.value).length <= 100_000;
+    } catch {
+      return false;
+    }
   }
   if (message.type === 'frontend/get_system_data') {
     return message.key === HA_SHARED_HOUSE_CONFIGURATION_KEY ||
@@ -667,6 +692,17 @@ export function useHaPanelBridgeConnection() {
     setLocale(null);
   }, []);
 
+  const returnToHomeAssistant = useCallback(() => {
+    if (
+      !isInIframe ||
+      !isManagedByParent ||
+      !bridgeCapabilities.includes('host_navigation')
+    ) {
+      return false;
+    }
+    return postToParent({ type: 'ha-panel-navigate-home' });
+  }, [bridgeCapabilities, isInIframe, isManagedByParent, postToParent]);
+
   const callService = useCallback(
     async (domain: string, service: string, serviceData: Record<string, unknown>) => {
       if (!validatePanelServiceRequest(domain, service, serviceData)) {
@@ -766,6 +802,7 @@ export function useHaPanelBridgeConnection() {
     locale,
     supportsSharedConfiguration: bridgeCapabilities.includes('shared_configuration'),
     supportsAppConfigurations: bridgeCapabilities.includes('app_configurations'),
+    supportsHostNavigation: bridgeCapabilities.includes('host_navigation'),
     hassUrl: hassUrlRef.current,
     status,
     error,
@@ -774,6 +811,7 @@ export function useHaPanelBridgeConnection() {
     lastUpdatedAt,
     connect,
     disconnect,
+    returnToHomeAssistant,
     callService,
     callApi,
     subscribeApi,

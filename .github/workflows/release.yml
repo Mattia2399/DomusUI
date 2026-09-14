@@ -53,10 +53,9 @@ jobs:
           name: Domus UI ${{ github.ref_name }}
           body_path: release-artifacts/RELEASE_NOTES.md
           generate_release_notes: false
-          # HACS excludes GitHub prereleases unless every user enables beta
-          # versions. Domus UI keeps the beta channel explicit in the SemVer
-          # tag while publishing an ordinary GitHub Release for direct HACS
-          # installation.
+          # Preview channels remain explicit in SemVer. Installable tags are
+          # published as ordinary GitHub Releases so HACS can always resolve
+          # the attached domusos.zip package.
           prerelease: false
           make_latest: true
           files: |

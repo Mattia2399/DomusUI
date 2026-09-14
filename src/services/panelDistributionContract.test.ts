@@ -31,6 +31,8 @@ describe('Home Assistant panel distribution contract', () => {
     expect(bridge).toContain('"config/area_registry/list"');
     expect(bridge).toContain('const toBridgeErrorMessage = (error, fallback) =>');
     expect(bridge).toContain('toBridgeErrorMessage(error, "Richiesta API Home Assistant fallita.")');
+    expect(bridge).toContain('if (payload.type === "ha-panel-navigate-home")');
+    expect(bridge).toContain('window.history.pushState({ from: currentPath }, "", "/lovelace")');
     expect(viteConfig).toContain("fileName: 'ha-dashboard-builder-panel.js'");
   });
 });

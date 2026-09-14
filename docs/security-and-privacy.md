@@ -53,7 +53,7 @@ Restore also sanitizes legacy or manipulated backups before writing any data.
 
 Image, media, iframe, and Home Assistant server URLs pass through shared validation. Production builds apply a Content Security Policy without `unsafe-eval`; production server headers must preserve an equivalent policy.
 
-Cameras, media, and maps may still display personal data supplied by the home. The beta does not send product telemetry by default.
+Cameras, media, and maps may still display personal data supplied by the home. Domus UI does not send product telemetry by default.
 
 ## Support diagnostics
 

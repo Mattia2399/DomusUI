@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   ChevronDown,
+  ExternalLink,
   LogOut,
   PencilLine,
   Plus,
@@ -35,6 +36,9 @@ type MobileSidebarDrawerProps = {
   onToggleEditMode: () => void;
   onOpenProfile: () => void;
   onOpenSettings: () => void;
+  showHomeAssistantReturn?: boolean;
+  canReturnToHomeAssistant?: boolean;
+  onReturnToHomeAssistant?: () => void;
   onDisconnectHomeAssistant: () => void | Promise<void>;
   onClose: () => void;
   onPrefetchRoute?: (path: string) => void;
@@ -58,6 +62,9 @@ export function MobileSidebarDrawer({
   onToggleEditMode,
   onOpenProfile,
   onOpenSettings,
+  showHomeAssistantReturn = false,
+  canReturnToHomeAssistant = true,
+  onReturnToHomeAssistant,
   onDisconnectHomeAssistant,
   onClose,
   onPrefetchRoute,
@@ -93,6 +100,12 @@ export function MobileSidebarDrawer({
 
   const handleOpenProfile = () => {
     onOpenProfile();
+    onClose();
+  };
+
+  const handleReturnToHomeAssistant = () => {
+    if (!canReturnToHomeAssistant) return;
+    onReturnToHomeAssistant?.();
     onClose();
   };
 
@@ -370,6 +383,20 @@ export function MobileSidebarDrawer({
               <Settings size={17} />
               {t('navigation.settings')}
             </button>
+            {showHomeAssistantReturn ? (
+              <button
+                type="button"
+                onClick={handleReturnToHomeAssistant}
+                disabled={!canReturnToHomeAssistant}
+                className="mb-2 flex w-full items-center justify-center gap-2 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-4 py-3 text-sm font-bold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)] disabled:cursor-not-allowed disabled:opacity-45"
+                title={canReturnToHomeAssistant
+                  ? t('navigation.homeAssistant.return')
+                  : t('navigation.homeAssistant.finishEditing')}
+              >
+                <ExternalLink size={17} />
+                {t('navigation.homeAssistant.return')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setIsLogoutConfirmOpen(true)}

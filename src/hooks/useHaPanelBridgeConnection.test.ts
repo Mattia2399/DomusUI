@@ -20,6 +20,20 @@ describe('Home Assistant panel bridge schema', () => {
     expect(validatePanelApiMessage({ type: 'auth/current_user' })).toBe(true);
     expect(validatePanelApiMessage({ type: 'config/area_registry/list' })).toBe(true);
     expect(validatePanelApiMessage({ type: 'config/area_registry/update', area_id: 'living' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'get_panels' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'get_panels', secret: true })).toBe(false);
+    expect(validatePanelApiMessage({ type: 'frontend/get_user_data', key: 'core' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'frontend/get_user_data', key: 'other' })).toBe(false);
+    expect(validatePanelApiMessage({
+      type: 'frontend/set_user_data',
+      key: 'core',
+      value: { default_panel: 'domusos', vibrate: true },
+    })).toBe(true);
+    expect(validatePanelApiMessage({
+      type: 'frontend/set_user_data',
+      key: 'core',
+      value: { default_panel: '../config' },
+    })).toBe(false);
     expect(validatePanelApiMessage({ type: 'unknown/admin_command' })).toBe(false);
     expect(validatePanelApiMessage({
       type: 'frontend/get_system_data',
@@ -129,9 +143,10 @@ describe('Home Assistant panel bridge schema', () => {
       'revision_history',
       'dashboard_reset_marker',
       'irrigation_core',
+      'host_navigation',
       'unknown_capability',
       42,
-    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core']);
+    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'host_navigation']);
     expect(parsePanelBridgeCapabilities(null)).toEqual([]);
   });
 

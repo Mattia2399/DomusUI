@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Bell,
+  ExternalLink,
   PencilLine,
   Settings,
 } from 'lucide-react';
@@ -33,6 +34,9 @@ type LeftSidebarProps = {
   onToggleEditMode: () => void;
   onOpenProfile: () => void;
   onOpenSettings: () => void;
+  showHomeAssistantReturn?: boolean;
+  canReturnToHomeAssistant?: boolean;
+  onReturnToHomeAssistant?: () => void;
   onPrefetchRoute?: (path: string) => void;
   onPrefetchEditMode?: () => void;
 };
@@ -55,6 +59,9 @@ export function LeftSidebar({
   onToggleEditMode,
   onOpenProfile,
   onOpenSettings,
+  showHomeAssistantReturn = false,
+  canReturnToHomeAssistant = true,
+  onReturnToHomeAssistant,
   onPrefetchRoute,
   onPrefetchEditMode,
 }: LeftSidebarProps) {
@@ -215,6 +222,21 @@ export function LeftSidebar({
         >
           <Settings size={utilityIconSize} />
         </button>
+
+        {showHomeAssistantReturn ? (
+          <button
+            type="button"
+            onClick={onReturnToHomeAssistant}
+            disabled={!canReturnToHomeAssistant}
+            className={`mt-2 ${navButtonSizeClass} flex items-center justify-center text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] hover:text-[color:var(--ui-text-primary)] disabled:cursor-not-allowed disabled:opacity-35`}
+            aria-label={t('navigation.homeAssistant.return')}
+            title={canReturnToHomeAssistant
+              ? t('navigation.homeAssistant.return')
+              : t('navigation.homeAssistant.finishEditing')}
+          >
+            <ExternalLink size={utilityIconSize} />
+          </button>
+        ) : null}
 
       </div>
       </aside>

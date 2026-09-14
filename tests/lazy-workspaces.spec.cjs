@@ -47,7 +47,7 @@ test('secondary workspaces load on demand without replacing the dashboard shell'
 
   await page.goto('/profile');
   await expect(page.locator('.dashboard-shell')).toBeVisible();
-  await expect(page.getByText('Preferenze su questo dispositivo')).toBeVisible();
+  await expect(page.getByText('Preferenze personali')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Indietro' })).toBeVisible();
   await expect(page.getByText('Carichiamo soltanto gli strumenti necessari.')).toHaveCount(0);
 });

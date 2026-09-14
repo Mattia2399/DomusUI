@@ -14,7 +14,7 @@ body:
     attributes:
       label: Domus UI version
       description: Find it in Support & feedback or Settings > Advanced.
-      placeholder: 0.1.0-beta.13
+      placeholder: 0.1.0
     validations:
       required: true
   - type: input

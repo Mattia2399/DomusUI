@@ -2,23 +2,29 @@
 
 Se installi la dashboard come `panel_custom` in Home Assistant, puoi evitare token/OAuth dentro l'iframe e usare direttamente la sessione HA gia autenticata del parent.
 
+Il messaggio `ha-panel-navigate-home` porta l'utente alla panoramica nativa `/lovelace`: cambia soltanto la route corrente e non modifica la preferenza personale `default_panel`.
+Durante lo sviluppo standalone, Domus UI offre la stessa azione quando è collegata in modalità reale e apre `/lovelace` sull'URL Home Assistant configurato.
+
 Il valore `name` in `configuration.yaml` deve essere esattamente `ha-dashboard-builder-panel`, perché deve coincidere con il nome registrato tramite `customElements.define`.
 
 ## Panel JS aggiornato
 
 ```js
-const PANEL_BRIDGE_PROTOCOL_VERSION = 3;
+const PANEL_BRIDGE_PROTOCOL_VERSION = 4;
 const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "shared_configuration",
   "app_configurations",
   "revision_history",
   "dashboard_reset_marker",
   "irrigation_core",
+  "host_navigation",
 ]);
 const ALLOWED_WS_TYPES = new Set([
   "auth/current_user", "auth/list", "config/auth/list", "get_services",
   "weather/get_forecasts", "call_service", "history/history_during_period",
-  "logbook/get_events", "frontend/get_system_data", "frontend/set_system_data",
+  "logbook/get_events", "get_panels",
+  "frontend/get_user_data", "frontend/set_user_data",
+  "frontend/get_system_data", "frontend/set_system_data",
   "config/entity_registry/list",
   "config/entity_registry/list_for_display", "config/entity_registry/update",
   "config/device_registry/list", "config/device_registry/list_for_display",
@@ -101,8 +107,29 @@ const isValidAppConfigurations = (value) =>
   typeof value.updatedAt === "string" && Number.isFinite(Date.parse(value.updatedAt)) &&
   typeof value.updatedByUserId === "string" &&
   isRecord(value.apps);
+const isValidFrontendCoreUserData = (value) => {
+  if (!isRecord(value) || Object.keys(value).length > 128) return false;
+  if (value.default_panel !== undefined &&
+      (typeof value.default_panel !== "string" ||
+       !/^[a-z0-9][a-z0-9_-]{0,127}$/i.test(value.default_panel.trim()))) return false;
+  try {
+    return JSON.stringify(value).length <= 100000;
+  } catch {
+    return false;
+  }
+};
 const isValidWsMessage = (message) => {
   if (!isRecord(message) || typeof message.type !== "string" || !ALLOWED_WS_TYPES.has(message.type)) return false;
+  if (message.type === "get_panels") {
+    return Object.keys(message).every((key) => key === "type");
+  }
+  if (message.type === "frontend/get_user_data") {
+    return message.key === "core" &&
+      Object.keys(message).every((key) => key === "type" || key === "key");
+  }
+  if (message.type === "frontend/set_user_data") {
+    return message.key === "core" && isValidFrontendCoreUserData(message.value);
+  }
   if (message.type === "frontend/get_system_data") {
     return message.key === SHARED_HOUSE_KEY || message.key === DASHBOARD_REVISIONS_KEY ||
       message.key === DASHBOARD_RESET_MARKER_KEY || message.key === APP_CONFIGURATIONS_KEY;
@@ -309,6 +336,15 @@ class HaDashboardBuilderPanel extends HTMLElement {
       return;
     }
 
+    if (payload.type === "ha-panel-navigate-home") {
+      const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      window.history.pushState({ from: currentPath }, "", "/lovelace");
+      window.dispatchEvent(new CustomEvent("location-changed", {
+        detail: { replace: false },
+      }));
+      return;
+    }
+
     if (payload.type === "ha-panel-subscribe-api") {
       const requestId = typeof payload.requestId === "string" ? payload.requestId : "";
       try {
@@ -390,6 +426,7 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
 - Iframe -> parent:
   - `ha-panel-ready`
   - `ha-panel-request-sync`
+  - `ha-panel-navigate-home`
   - `ha-panel-call-service`
   - `ha-panel-call-api`
   - `ha-panel-subscribe-api`

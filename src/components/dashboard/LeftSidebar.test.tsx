@@ -49,4 +49,32 @@ describe('LeftSidebar tablet density', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apri App Gallery' }));
     expect(onPathClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'appgallery' }));
   });
+
+  it('offers a separate Home Assistant return action only when the host bridge supports it', () => {
+    setViewport(1280, 800);
+    const onReturnToHomeAssistant = vi.fn();
+
+    render(
+      <I18nProvider>
+        <NotificationProvider>
+          <LeftSidebar
+            isEditMode={false}
+            haStatus="connected"
+            quickPaths={createDefaultSidebarPaths()}
+            activeRoute="/home"
+            canToggleEditMode
+            onPathClick={vi.fn()}
+            onToggleEditMode={vi.fn()}
+            onOpenProfile={vi.fn()}
+            onOpenSettings={vi.fn()}
+            showHomeAssistantReturn
+            onReturnToHomeAssistant={onReturnToHomeAssistant}
+          />
+        </NotificationProvider>
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Torna in Home Assistant' }));
+    expect(onReturnToHomeAssistant).toHaveBeenCalledTimes(1);
+  });
 });

@@ -1,8 +1,8 @@
 # HACS installation
 
-Updated: 2026-09-02
+Updated: 2026-09-14
 
-HACS is the only distributed installation channel for the Domus UI public beta. The future official app will become the second supported method. Previous manual `/www` and `panel_custom` installations are considered legacy and are not part of the public installation path.
+HACS is the supported installation channel for Domus UI. The future official app will become the second supported method. Previous manual `/www` and `panel_custom` installations are considered legacy and are not part of the public installation path.
 
 ## Requirements
 
@@ -34,6 +34,10 @@ HACS is the only distributed installation channel for the Domus UI public beta. 
 
 The integration registers the panel and frontend files automatically. You do not need to edit `configuration.yaml`, create a token, or copy files to `/config/www`.
 
+### Optional startup panel
+
+Each Home Assistant user can open **Domus UI -> Profile -> Personal preferences** and enable **Open Domus UI on startup**. Domus UI updates only that authenticated user's Home Assistant frontend preference and preserves the other frontend settings. When disabled, it restores the previously selected panel if that panel still exists; otherwise it safely returns to the Home Assistant system default. The remembered previous panel is browser-local and contains only its URL path.
+
 ## First launch
 
 1. The welcome screen with `Get started` must appear.
@@ -52,7 +56,7 @@ The integration registers the panel and frontend files automatically. You do not
 
 HACS installs published GitHub Releases, not standalone Git tags. The `Publish release` workflow generates and attaches `domusos.zip` when a tag matching the version in `package.json` is published.
 
-Public beta versions keep the SemVer `-beta.N` suffix but are published as standard GitHub Releases. This lets HACS select `domusos.zip` instead of attempting to install a commit from the default branch.
+Stable versions use standard SemVer tags and are published as GitHub Releases. Preview builds keep an explicit prerelease suffix. Every installable release includes `domusos.zip`, so HACS never needs to install a raw commit from the default branch.
 
 ## Rollback
 

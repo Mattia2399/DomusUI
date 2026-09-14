@@ -1,5 +1,55 @@
 # Changelog
 
+## 0.1.0 - 2026-09-14
+
+### Stable scope
+
+- Domus UI reaches its first stable release for the Home dashboard and visual
+  builder, Rooms, Security, Consumption, Profile, Settings, shared layouts,
+  backups, revision history, and the HACS installation lifecycle.
+- Italian, English, and French remain supported across the stable routes,
+  onboarding, dialogs, contextual controls, errors, and accessible labels.
+- Incomplete workspaces remain unavailable behind an explicit `Coming later`
+  screen instead of exposing partial controls.
+
+### Added
+
+- A per-user Home Assistant startup preference in Profile. Users can choose to
+  open Domus UI after signing in without changing other frontend preferences;
+  disabling it restores the previous available panel or the Home Assistant
+  system default.
+- A separate `Return to Home Assistant` action in the desktop/tablet sidebar
+  and mobile drawer. It opens the native Home Assistant Overview without
+  disabling the Domus UI startup preference or disconnecting the account.
+- The same return action is available during local development when Domus UI is
+  connected to a real Home Assistant instance.
+
+### Improved
+
+- The panel bridge now exposes an explicit, allowlisted host-navigation
+  capability and keeps iframe navigation separate from WebSocket commands and
+  stored frontend preferences.
+- Public documentation, installation guidance, release notes, and feature
+  status now distinguish the stable Domus UI surface from features that are
+  still in Beta or planned.
+
+### Validation
+
+- TypeScript, unit tests, production build, bundle budget, dependency audit,
+  release packaging, and Chromium end-to-end tests are required by the release
+  workflow before GitHub and HACS assets are published.
+- The Home Assistant panel bridge distribution contract verifies that the
+  navigation action is present in the generated HACS frontend bundle.
+
+### Known limitations
+
+- Domus Core Irrigation remains explicitly in Beta while additional real-world
+  actuator and failure-path validation continues. It is not part of the stable
+  unattended-operation guarantee.
+- Automations, Utility Room, Pool & Spa, Calendar, Map, Lists, QR sharing,
+  device profiles, and Domus Core Security remain planned or `Coming later`.
+- Domus UI is not a certified alarm, security, irrigation, or safety system.
+
 ## 0.1.0-beta.15 - 2026-09-14
 
 ### Added

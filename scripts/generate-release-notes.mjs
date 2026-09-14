@@ -26,6 +26,7 @@ const releaseChanges = changelog
   .slice(sectionStart, sectionEnd)
   .trim()
   .replace(/^### /gm, '## ');
+const isPrerelease = version.includes('-');
 
 if (!releaseChanges) {
   console.error(`The ${version} release section in CHANGELOG.md is empty.`);
@@ -35,8 +36,15 @@ if (!releaseChanges) {
 const releaseNotes = [
   `# v${version} - Domus UI v${version}`,
   '',
-  '> Domus UI is currently in public beta. Back up important Home Assistant',
-  '> configuration before installing an update.',
+  ...(isPrerelease
+    ? [
+      '> This is a Domus UI preview release. Back up important Home Assistant',
+      '> configuration before installing an update.',
+    ]
+    : [
+      '> This is a stable Domus UI release. Features explicitly marked Beta or',
+      '> Coming later keep their documented limitations.',
+    ]),
   '',
   releaseChanges,
   '',

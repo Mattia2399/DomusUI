@@ -7,7 +7,7 @@
 [![Release](https://img.shields.io/github/v/release/Mattia2399/DomusUI?include_prereleases&style=flat-square)](https://github.com/Mattia2399/DomusUI/releases)
 [![Release gate](https://img.shields.io/github/actions/workflow/status/Mattia2399/DomusUI/release-gate.yml?branch=main&label=release%20gate&style=flat-square)](https://github.com/Mattia2399/DomusUI/actions/workflows/release-gate.yml)
 [![HACS validation](https://img.shields.io/github/actions/workflow/status/Mattia2399/DomusUI/hacs.yml?branch=main&label=HACS&style=flat-square)](https://github.com/Mattia2399/DomusUI/actions/workflows/hacs.yml)
-![Beta](https://img.shields.io/badge/status-public%20beta-f5a623?style=flat-square)
+![Stable](https://img.shields.io/badge/status-stable-2f855a?style=flat-square)
 ![Responsive](https://img.shields.io/badge/desktop%20%C2%B7%20tablet%20%C2%B7%20mobile-responsive-1473e6?style=flat-square)
 [![License GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-2f855a?style=flat-square)](LICENSE)
 </div>
@@ -34,6 +34,7 @@
 - A visual builder with catalog, stacks, breakpoint-aware sizing, and related-device configuration.
 - Light and dark themes, glass surfaces, and touch-friendly controls.
 - Centralized permissions: Home Assistant remains the authority for identity, roles, and commands.
+- An optional per-user startup preference can open Domus UI after Home Assistant sign-in; disabling it restores the previous available panel or the Home Assistant system default.
 
 <div align="center">
   <img src="https://raw.githubusercontent.com/Mattia2399/DomusUI/main/docs/images/domusos-mobile.jpg" width="390" alt="Domus UI on a smartphone" />
@@ -41,7 +42,7 @@
 
 ## Install with HACS
 
-HACS is the only distributed installation method for the public beta. The future official app will become the second supported channel.
+HACS is the supported installation method for Domus UI. The future official app will become the second supported channel.
 
 [![Open the repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Mattia2399&repository=DomusUI&category=integration)
 
@@ -57,7 +58,7 @@ No `configuration.yaml` changes, manual tokens, or `/www` copies are required. S
 
 ## Feature status
 
-| Area                     | Beta status  | Notes                                                                          |
+| Area                     | Status       | Notes                                                                          |
 | ------------------------ | ------------ | ------------------------------------------------------------------------------ |
 | Home and Builder         | Operational  | Shared layout, Edit Mode, catalog, stacks, versions, and recovery              |
 | Rooms                    | Operational  | Floors, rooms, devices, and controls authorized by HA                          |
@@ -66,7 +67,7 @@ No `configuration.yaml` changes, manual tokens, or `/www` copies are required. S
 | Profile and Settings     | Operational  | Personal preferences separated from home-wide configuration                    |
 | App Gallery              | Partial      | Irrigation is in beta; Utility Room and Pool & Spa are in development          |
 | Automations              | Coming later | The incomplete interface is not exposed as a usable feature                    |
-| Calendar, Map, and Lists | Planned      | Scheduled after the first beta cycle                                           |
+| Calendar, Map, and Lists | Planned      | Scheduled for future releases                                                  |
 
 Detailed status and verified hardware limitations are documented in [Feature status](docs/feature-status.md).
 
@@ -87,9 +88,9 @@ Sensor, Light, Switch, Climate, Alarm, Lock, Cover, Camera, Media Player, Vacuum
 - Structural changes are restricted to Owner/Admin users and fail closed.
 - Home Assistant still performs final server-side authorization for commands.
 - WebAuthn device confirmation is a local safeguard, not a certified server-side second factor.
-- Domus UI beta is not a certified alarm, security, or safety system.
+- Domus UI is not a certified alarm, security, or safety system.
 
-Read [Security and privacy](docs/security-and-privacy.md) and the [beta security checklist](docs/security-beta-checklist.md) before using Domus UI in a real home.
+Read [Security and privacy](docs/security-and-privacy.md) and the [release checklist](docs/release-checklist.md) before using Domus UI in a real home.
 
 ## Support and feedback
 

@@ -28,6 +28,8 @@ import {
 import { SUPPORTED_LOCALES, useI18n, type AppLocale } from '../../i18n/I18nProvider';
 import type { TranslationKey } from '../../i18n/translations';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
+import type { DashboardRuntimeMode } from '../../security/dashboardAccess';
+import type { HaFrontendPreferencesCallApi } from '../../services/haFrontendPreferences';
 import { useDeviceAuth } from '../../hooks/useDeviceAuth';
 import { appendSecurityAuditEvent } from '../../services/securityAuth';
 import {
@@ -37,6 +39,7 @@ import {
 } from '../../theme/dashboardTheme';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
 import NestedPageHeader from '../ui/NestedPageHeader';
+import ProfileStartupPanelPreference from './ProfileStartupPanelPreference';
 import type {
   ProfileMovementMapPoint,
   ProfileMovementTimelineEntry,
@@ -51,6 +54,7 @@ type ModernProfilePageProps = {
   onClose: () => void;
   initialSection?: ProfileSectionId;
   currentUserId?: string;
+  haUserId?: string;
   userAvatarUrl?: string;
   userAvatarAlt?: string;
   userEmail?: string;
@@ -67,6 +71,9 @@ type ModernProfilePageProps = {
   onBackgroundChange: (background: DashboardBackgroundPreset) => void;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
+  runtimeMode?: DashboardRuntimeMode;
+  onCallApi?: HaFrontendPreferencesCallApi;
+  onNotify?: (type: 'info' | 'warning' | 'alert', message: string) => unknown;
 };
 
 type ProfileRowProps = {
@@ -298,6 +305,7 @@ export function ModernProfilePage({
   onClose,
   initialSection,
   currentUserId,
+  haUserId,
   userAvatarUrl,
   userAvatarAlt,
   userEmail,
@@ -314,6 +322,9 @@ export function ModernProfilePage({
   onBackgroundChange,
   navigationRoute,
   onNavigate,
+  runtimeMode = 'demo',
+  onCallApi,
+  onNotify,
 }: ModernProfilePageProps) {
   const { locale, setLocale, t } = useI18n();
   const [view, setView] = useState<ProfileView>(
@@ -612,6 +623,14 @@ export function ModernProfilePage({
                   ]}
                 />
               </div>
+
+              <ProfileStartupPanelPreference
+                runtimeMode={runtimeMode}
+                haStatus={haStatus}
+                haUserId={haUserId}
+                onCallApi={onCallApi}
+                onNotify={onNotify}
+              />
 
               <ProfileRow
                 icon={Languages}
