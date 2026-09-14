@@ -55,6 +55,7 @@ export type SettingsManagementPanelProps = {
   onDownloadBackup: () => void;
   onRestoreBackup: (file: File) => Promise<void>;
   onResetAll: (reportProgress?: DashboardResetProgressReporter) => Promise<void>;
+  onRestoreStarterTemplate?: () => Promise<void>;
   onOpenLayoutVersions?: () => void;
 };
 
@@ -97,6 +98,7 @@ export function SettingsManagementPanel({
   onDownloadBackup,
   onRestoreBackup,
   onResetAll,
+  onRestoreStarterTemplate,
   onOpenLayoutVersions,
 }: SettingsManagementPanelProps) {
   const { t } = useI18n();
@@ -286,6 +288,7 @@ export function SettingsManagementPanel({
             onDownloadBackup={onDownloadBackup}
             onRestoreBackup={onRestoreBackup}
             onResetAll={onResetAll}
+            onRestoreStarterTemplate={onRestoreStarterTemplate}
             onOpenLayoutVersions={onOpenLayoutVersions}
           />
         </React.Suspense>

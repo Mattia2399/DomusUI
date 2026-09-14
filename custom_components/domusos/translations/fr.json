@@ -10,5 +10,18 @@
     "abort": {
       "single_instance_allowed": "Domus UI est déjà configuré."
     }
+  },
+  "services": {
+    "start_irrigation_zone": { "name": "Démarrer une zone d'irrigation", "description": "Démarre ou met en file une zone avec une minuterie de sécurité côté serveur.", "fields": { "zone_id": { "name": "ID de zone", "description": "Identifiant stable de la zone configurée dans Domus UI." }, "duration_min": { "name": "Durée", "description": "Durée en minutes ; si elle est omise, la durée configurée est utilisée." }, "request_id": { "name": "ID de requête", "description": "Clé d’idempotence facultative pour les clients externes et les automatisations." } } },
+    "stop_irrigation_zone": { "name": "Arrêter une zone d'irrigation", "description": "Ferme une zone et annule sa session.", "fields": { "zone_id": { "name": "ID de zone", "description": "Identifiant stable de la zone configurée dans Domus UI." } } },
+    "pause_irrigation": { "name": "Mettre l'irrigation en pause", "description": "Ferme les zones actives et conserve leur temps restant." },
+    "resume_irrigation": { "name": "Reprendre l'irrigation", "description": "Reprend explicitement les sessions en pause." },
+    "stop_all_irrigation": { "name": "Arrêter toute l'irrigation", "description": "Ferme toutes les zones, vide la file et arrête les programmations." }
+  },
+  "issues": {
+    "irrigation_close_failed": {
+      "title": "La zone d'irrigation ne s'est pas fermée",
+      "description": "Domus Core n'a pas pu confirmer la fermeture de {zone} après plusieurs tentatives ({reason}). Vérifiez l'actionneur et fermez l'arrivée d'eau manuellement si nécessaire."
+    }
   }
 }

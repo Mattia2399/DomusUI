@@ -31,6 +31,7 @@ type GuidedSetupOverlayProps = {
   description?: string;
   steps: GuidedSetupStep[];
   onDismiss: () => void;
+  onComplete?: () => void;
   onStepChange?: (step: GuidedSetupStep, index: number) => void;
   isStepComplete?: (step: GuidedSetupStep, index: number) => boolean;
   completeLabel?: string;
@@ -248,6 +249,7 @@ export function GuidedSetupOverlay({
   description = 'Scopri le funzioni essenziali e inizia a personalizzare la tua esperienza.',
   steps,
   onDismiss,
+  onComplete,
   onStepChange,
   isStepComplete,
   completeLabel = 'Fine guida',
@@ -283,11 +285,11 @@ export function GuidedSetupOverlay({
   const goBack = useCallback(() => setStepIndex((current) => Math.max(0, current - 1)), []);
   const goForward = useCallback(() => {
     if (isLastStep) {
-      onDismiss();
+      (onComplete ?? onDismiss)();
       return;
     }
     setStepIndex((current) => Math.min(safeSteps.length - 1, current + 1));
-  }, [isLastStep, onDismiss, safeSteps.length]);
+  }, [isLastStep, onComplete, onDismiss, safeSteps.length]);
 
   useEffect(() => {
     if (!isOpen) return;

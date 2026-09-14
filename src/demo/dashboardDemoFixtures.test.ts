@@ -9,7 +9,7 @@ import {
 
 describe('dashboard Demo fixture isolation', () => {
   it('starts a real dashboard without Demo sections, cards or catalog entities', () => {
-    expect(getInitialDashboardFixtures('real')).toEqual({ sections: [], widgets: [] });
+    expect(getInitialDashboardFixtures('real')).toEqual({ sections: [], widgets: [], responsiveLayouts: {} });
     expect(Object.values(getEntityOptionsForRuntime('real')).every((options) => options.length === 0)).toBe(true);
   });
 
@@ -19,6 +19,7 @@ describe('dashboard Demo fixture isolation', () => {
     expect(fixtures.sections.length).toBeGreaterThan(0);
     expect(fixtures.widgets.length).toBe(DEMO_INITIAL_WIDGETS.length);
     expect(fixtures.widgets.every((widget) => widget.dataSource === 'mock')).toBe(true);
+    expect(Object.keys(fixtures.responsiveLayouts.root ?? {})).toHaveLength(6);
     expect(Object.values(getEntityOptionsForRuntime('demo')).some((options) => options.length > 0)).toBe(true);
   });
 

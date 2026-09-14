@@ -150,8 +150,8 @@ test('Irrigation uses the hero as mobile header and keeps the library exit in th
   const headerOpacityAfter = Number.parseFloat(await heroHeader.evaluate((element) => getComputedStyle(element).opacity));
   const backdropOpacityAfter = Number.parseFloat(await sheetBackdrop.evaluate((element) => getComputedStyle(element).opacity));
 
-  expect(heroBefore?.height).toBeGreaterThanOrEqual(400);
-  expect(heroBefore?.height).toBeLessThanOrEqual(461);
+  expect(heroBefore?.height).toBeGreaterThanOrEqual(320);
+  expect(heroBefore?.height).toBeLessThanOrEqual(370);
   expect(Math.abs((heroAfter?.y ?? 0) - (heroBefore?.y ?? 0))).toBeLessThan(3);
   expect(sheetAfter?.y).toBeLessThan((sheetBefore?.y ?? 0) - 150);
   expect(headerOpacityAfter).toBeLessThan(0.2);

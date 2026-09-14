@@ -29,6 +29,8 @@ describe('Home Assistant panel distribution contract', () => {
     });
     expect(bridge).toContain(`customElements.define("${PANEL_ELEMENT_NAME}"`);
     expect(bridge).toContain('"config/area_registry/list"');
+    expect(bridge).toContain('const toBridgeErrorMessage = (error, fallback) =>');
+    expect(bridge).toContain('toBridgeErrorMessage(error, "Richiesta API Home Assistant fallita.")');
     expect(viteConfig).toContain("fileName: 'ha-dashboard-builder-panel.js'");
   });
 });

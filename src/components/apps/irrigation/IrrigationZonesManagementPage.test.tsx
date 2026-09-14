@@ -8,6 +8,9 @@ const config = {
   rainSensorEnabled: true,
   blockOnRainSensorUnavailable: true,
   maximumManualDurationMin: 30,
+  maxConcurrentZones: 1,
+  parallelSafetyAcknowledged: false,
+  rainDuringCycle: 'stop_immediately' as const,
   rainSensorEntityId: 'binary_sensor.rain',
   weatherEntityId: 'weather.home',
   humidityEntityId: 'sensor.humidity',
@@ -89,5 +92,29 @@ describe('IrrigationZonesManagementPage', () => {
     expect(screen.getByText(/Solo Owner e Admin/)).toBeTruthy();
     expect((screen.getByRole('button', { name: 'Aggiungi zona' }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getAllByRole('button', { name: 'Salva zone' })[0] as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('explains which edits remain safe during an active cycle', () => {
+    render(
+      <IrrigationZonesManagementPage
+        config={config}
+        canConfigure
+        status="ready"
+        hasUnsavedChanges={false}
+        activeSessionCount={1}
+        sensorOptions={[]}
+        zoneEntityOptions={[]}
+        entityStates={{}}
+        onZoneChange={vi.fn()}
+        onAddZone={vi.fn()}
+        onRemoveZone={vi.fn()}
+        onMoveZone={vi.fn()}
+        onSave={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Alcune zone stanno irrigando')).toBeTruthy();
+    expect(screen.getByText(/Puoi aggiungere nuove zone/)).toBeTruthy();
   });
 });

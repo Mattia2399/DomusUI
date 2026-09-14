@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import GlassToggle from '../components/ui/GlassToggle';
 import GlassSlider from '../components/ui/GlassSlider';
 import GlassModal from '../components/ui/GlassModal';
+import GlassBottomSheet from '../components/ui/GlassBottomSheet';
 import AppWorkspaceShell from '../components/apps/AppWorkspaceShell';
 import ComingSoonAppDemo from '../components/apps/ComingSoonAppDemo';
 import {
@@ -17,6 +18,9 @@ import {
 import IrrigationConfigurationPage from '../components/apps/irrigation/IrrigationConfigurationPage';
 import IrrigationCalendarPage from '../components/apps/irrigation/IrrigationCalendarPage';
 import IrrigationConsumptionPage from '../components/apps/irrigation/IrrigationConsumptionPage';
+import IrrigationActivityPage, {
+  IrrigationActivitySnapshotCard,
+} from '../components/apps/irrigation/IrrigationActivityPage';
 import IrrigationZonesManagementPage from '../components/apps/irrigation/IrrigationZonesManagementPage';
 import {
   buildIrrigationConsumptionSeries,
@@ -33,8 +37,18 @@ import {
 import {
   createHaAppConfigurationsRepository,
   IRRIGATION_CONFIGURATION_CACHE_KEY,
+  IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY,
 } from '../services/haAppConfigurationsRepository';
 import { loadHassAuthTokensFromStorage, normalizeHassUrl } from '../services/haLive';
+import {
+  IRRIGATION_CORE_TYPES,
+  callIrrigationCoreCommand,
+  fromIrrigationCoreDocument,
+  getIrrigationCoreConfig,
+  getIrrigationCoreState,
+  isIrrigationCoreState,
+  saveIrrigationCoreConfig,
+} from '../services/irrigationCoreClient';
 import { useI18n } from '../i18n/I18nProvider';
 import {
   ChevronRight,
@@ -45,6 +59,7 @@ import {
   Droplets,
   Flower2,
   Gauge,
+  History,
   Leaf,
   LeafyGreen,
   LayoutDashboard,
@@ -57,6 +72,7 @@ import {
   Settings2,
   TreePine,
   Trees,
+  TriangleAlert,
   Waves,
   X,
 } from 'lucide-react';
@@ -167,6 +183,7 @@ const IRRIGATION_WORKSPACE_NAVIGATION = [
   { id: 'zones', label: 'Zone', icon: Sprout },
   { id: 'calendar', label: 'Calendario', icon: CalendarDays },
   { id: 'usage', label: 'Consumi', icon: Gauge },
+  { id: 'activity', label: 'Attività', icon: History, mobileHidden: true },
   { id: 'configuration', label: 'Impostazioni', icon: Settings2, placement: 'footer', mobileHidden: true },
 ];
 
@@ -176,6 +193,7 @@ const IRRIGATION_SECTION_ROUTES = {
   zonesManagement: '/appgallery/irrigation/zones/manage',
   calendar: '/appgallery/irrigation/calendar',
   usage: '/appgallery/irrigation/consumption',
+  activity: '/appgallery/irrigation/activity',
   configuration: '/appgallery/irrigation/settings',
 };
 
@@ -267,6 +285,7 @@ const DEFAULT_IRRIGATION_ZONES = [
 
 const WATER_USAGE_BARS = [52, 74, 63, 100, 47, 65, 32];
 const IRRIGATION_CONSUMPTION_CACHE_TTL_MS = 5 * 60 * 1000;
+const IRRIGATION_CONSUMPTION_SESSION_CACHE_PREFIX = 'domusui.irrigation.consumption-history.v1:';
 const IRRIGATION_WEEKDAY_TOKENS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const IRRIGATION_WEEKDAY_LABELS = {
   mon: 'L',
@@ -296,6 +315,9 @@ const DEFAULT_IRRIGATION_CONFIG = {
   rainSensorEnabled: true,
   blockOnRainSensorUnavailable: true,
   maximumManualDurationMin: 30,
+  maxConcurrentZones: 1,
+  parallelSafetyAcknowledged: false,
+  rainDuringCycle: 'stop_immediately',
   rainSensorEntityId: 'binary_sensor.rain_sensor',
   weatherEntityId: '',
   humidityEntityId: 'sensor.outdoor_humidity',
@@ -305,26 +327,6 @@ const DEFAULT_IRRIGATION_CONFIG = {
   waterAverageEntityId: 'sensor.irrigation_water_average_l',
   zones: DEFAULT_IRRIGATION_ZONES.map((zone) => ({ ...zone })),
 };
-
-async function readHaErrorResponse(response) {
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch {
-    payload = null;
-  }
-
-  if (payload && typeof payload === 'object') {
-    if (typeof payload.message === 'string' && payload.message.trim()) {
-      return payload.message.trim();
-    }
-    if (typeof payload.error === 'string' && payload.error.trim()) {
-      return payload.error.trim();
-    }
-  }
-
-  return `HTTP ${response.status}`;
-}
 
 function toErrorMessage(error, fallback) {
   if (error instanceof Error && error.message.trim()) {
@@ -358,6 +360,36 @@ function clamp(value, min, max) {
 
 function normalizeEntityId(value) {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+function getIrrigationRuntimeConfigurationConflict(currentConfig, nextConfig, sessions, t) {
+  if (!Array.isArray(sessions) || sessions.length === 0) return null;
+  if (
+    currentConfig.maxConcurrentZones !== nextConfig.maxConcurrentZones ||
+    currentConfig.parallelSafetyAcknowledged !== nextConfig.parallelSafetyAcknowledged
+  ) {
+    return t('irrigation.notify.activeConcurrencyBlocked');
+  }
+  if (
+    currentConfig.rainSensorEnabled !== nextConfig.rainSensorEnabled ||
+    currentConfig.rainSensorEntityId !== nextConfig.rainSensorEntityId ||
+    currentConfig.blockOnRainSensorUnavailable !== nextConfig.blockOnRainSensorUnavailable ||
+    currentConfig.rainDuringCycle !== nextConfig.rainDuringCycle
+  ) {
+    return t('irrigation.notify.activeRainProtectionBlocked');
+  }
+  const currentZones = new Map(currentConfig.zones.map((zone) => [zone.id, zone]));
+  const nextZones = new Map(nextConfig.zones.map((zone) => [zone.id, zone]));
+  for (const session of sessions) {
+    const currentZone = currentZones.get(session.zoneId);
+    const nextZone = nextZones.get(session.zoneId);
+    const name = currentZone?.name || session.zoneId || t('irrigation.summary.zoneFallback');
+    if (!nextZone) return t('irrigation.notify.activeZoneRemovalBlocked', { name });
+    if (currentZone?.entityId !== nextZone.entityId) {
+      return t('irrigation.notify.activeZoneActuatorBlocked', { name });
+    }
+  }
+  return null;
 }
 
 function normalizeZoneName(value, fallback) {
@@ -519,6 +551,13 @@ function normalizeIrrigationConfig(raw) {
       IRRIGATION_MINIMUM_MAX_DURATION_MIN,
       IRRIGATION_ABSOLUTE_MAX_DURATION_MIN,
     ),
+    maxConcurrentZones: clamp(
+      Math.round(toNumberOrUndefined(source.maxConcurrentZones) ?? 1),
+      1,
+      Math.max(1, zones.filter((zone) => normalizeEntityId(zone.entityId)).length),
+    ),
+    parallelSafetyAcknowledged: source.parallelSafetyAcknowledged === true,
+    rainDuringCycle: source.rainDuringCycle === 'finish_active' ? 'finish_active' : 'stop_immediately',
     rainSensorEntityId: normalizeEntityId(
       source.rainSensorEntityId ?? source.globalRainSensor ?? DEFAULT_IRRIGATION_CONFIG.rainSensorEntityId,
     ),
@@ -542,18 +581,27 @@ function normalizeIrrigationConfig(raw) {
   };
 }
 
-function readStoredIrrigationConfig() {
+function readStoredIrrigationConfig(runtimeMode = 'real') {
+  const fallback = runtimeMode === 'demo'
+    ? cloneDefaultIrrigationConfig()
+    : cloneEmptyRealIrrigationConfig();
   if (typeof window === 'undefined') {
-    return cloneDefaultIrrigationConfig();
+    return fallback;
   }
-  const raw = window.localStorage.getItem(IRRIGATION_CONFIGURATION_CACHE_KEY);
+  const cacheKey = runtimeMode === 'demo'
+    ? IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY
+    : IRRIGATION_CONFIGURATION_CACHE_KEY;
+  const raw = window.localStorage.getItem(cacheKey);
   if (!raw) {
-    return cloneDefaultIrrigationConfig();
+    return fallback;
   }
   try {
-    return normalizeIrrigationConfig(JSON.parse(raw));
+    const normalized = normalizeIrrigationConfig(JSON.parse(raw));
+    return runtimeMode !== 'demo' && isUntouchedIrrigationDemoConfig(normalized)
+      ? cloneEmptyRealIrrigationConfig()
+      : normalized;
   } catch {
-    return cloneDefaultIrrigationConfig();
+    return fallback;
   }
 }
 
@@ -805,6 +853,49 @@ function formatNextIrrigationLabel(days, startTimes, nowDate = new Date(), local
   return `${new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(nextSlot.date)} ${nextSlot.timeToken}`;
 }
 
+function cloneEmptyRealIrrigationConfig() {
+  return {
+    ...cloneDefaultIrrigationConfig(),
+    rainSensorEnabled: false,
+    rainSensorEntityId: '',
+    weatherEntityId: '',
+    humidityEntityId: '',
+    outdoorTempEntityId: '',
+    soilMoistureEntityId: '',
+    waterUsageEntityId: '',
+    waterAverageEntityId: '',
+    zones: [],
+  };
+}
+
+function prepareLegacyIrrigationConfigForCore(config) {
+  const normalized = normalizeIrrigationConfig(config);
+  const zones = normalized.zones.map((zone) => /^(valve|switch)\./.test(zone.entityId)
+    ? zone
+    : { ...zone, entityId: '', enabled: false });
+  const maxConcurrentZones = Math.min(
+    normalized.maxConcurrentZones,
+    Math.max(1, zones.filter((zone) => zone.entityId).length),
+  );
+  return {
+    ...normalized,
+    zones,
+    maxConcurrentZones,
+    parallelSafetyAcknowledged: maxConcurrentZones > 1
+      ? normalized.parallelSafetyAcknowledged
+      : false,
+  };
+}
+
+function isUntouchedIrrigationDemoConfig(config) {
+  const normalized = normalizeIrrigationConfig(config);
+  return normalized.zones.length === DEFAULT_IRRIGATION_ZONES.length &&
+    normalized.zones.every((zone, index) => zone.entityId === DEFAULT_IRRIGATION_ZONES[index]?.entityId) &&
+    normalized.rainSensorEntityId === DEFAULT_IRRIGATION_CONFIG.rainSensorEntityId &&
+    normalized.humidityEntityId === DEFAULT_IRRIGATION_CONFIG.humidityEntityId &&
+    normalized.outdoorTempEntityId === DEFAULT_IRRIGATION_CONFIG.outdoorTempEntityId;
+}
+
 function buildZoneConfigFromZone(zone, index) {
   return {
     id: zone?.id ?? `zone_${index + 1}`,
@@ -840,66 +931,6 @@ function buildIrrigationState(irrigationConfig) {
     ),
   };
 }
-
-function buildIrrigationConditionTemplate(irrigationState) {
-  const conditions = [];
-
-  if (irrigationState.rainSensorEnabled && irrigationState.globalRainSensor) {
-    conditions.push(`is_state('${irrigationState.globalRainSensor}', 'off')`);
-  }
-  if (irrigationState.soilMoistureSensor) {
-    conditions.push(`states('${irrigationState.soilMoistureSensor}') | float(0) < 60`);
-  }
-  if (irrigationState.globalHumiditySensor) {
-    conditions.push(`states('${irrigationState.globalHumiditySensor}') | float(0) < 85`);
-  }
-  if (irrigationState.globalTempSensor) {
-    conditions.push(`states('${irrigationState.globalTempSensor}') | float(0) > 3`);
-  }
-
-  if (conditions.length === 0) {
-    return '{{ true }}';
-  }
-  return `{{ ${conditions.join(' and ')} }}`;
-}
-
-function resolveZoneTurnService(entityId, shouldTurnOn) {
-  const domain = normalizeEntityId(entityId).split('.')[0];
-  if (domain === 'switch' || domain === 'input_boolean') {
-    return `${domain}.${shouldTurnOn ? 'turn_on' : 'turn_off'}`;
-  }
-  if (domain === 'valve') {
-    return `valve.${shouldTurnOn ? 'open_valve' : 'close_valve'}`;
-  }
-  return `homeassistant.${shouldTurnOn ? 'turn_on' : 'turn_off'}`;
-}
-
-const generateZoneAutomation = (zoneConfig, irrigationState) => {
-  const zoneEntityId = normalizeEntityId(zoneConfig.entityId) || irrigationState.zoneEntityById[zoneConfig.id] || '';
-  const startService = resolveZoneTurnService(zoneEntityId, true);
-  const stopService = resolveZoneTurnService(zoneEntityId, false);
-
-  return {
-    id: `irrigation_${zoneConfig.id}`,
-    alias: `Irrigazione Smart: ${zoneConfig.name}`,
-    description: 'Generata da Dashboard Lumina',
-    mode: 'single',
-    trigger: zoneConfig.startTimes.map((time) => ({ platform: 'time', at: time })),
-    condition: [
-      { condition: 'time', weekday: zoneConfig.days },
-      {
-        alias: 'Verifica Pioggia e Umidita',
-        condition: 'template',
-        value_template: buildIrrigationConditionTemplate(irrigationState),
-      },
-    ],
-    action: [
-      { service: startService, target: { entity_id: zoneEntityId } },
-      { delay: { minutes: zoneConfig.baseDuration } },
-      { service: stopService, target: { entity_id: zoneEntityId } },
-    ],
-  };
-};
 
 function formatCountdownLabel(totalSeconds) {
   const clampedSeconds = Math.max(0, Math.floor(totalSeconds));
@@ -985,6 +1016,44 @@ function buildDemoConsumptionSeries(period) {
   }));
 }
 
+function buildConsumptionSnapshotBars(points) {
+  const values = Array.isArray(points)
+    ? points.slice(-7).map((point) => Math.max(0, Number(point?.value) || 0))
+    : [];
+  if (!values.length) return [];
+  const maximum = Math.max(...values, 0);
+  const normalized = values.map((value) => maximum > 0 ? Math.round((value / maximum) * 100) : 0);
+  return [...Array(Math.max(0, 7 - normalized.length)).fill(0), ...normalized];
+}
+
+function readConsumptionHistorySessionCache(cacheKey) {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(`${IRRIGATION_CONSUMPTION_SESSION_CACHE_PREFIX}${cacheKey}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!Number.isFinite(parsed?.updatedAt) || !Array.isArray(parsed?.points)) return null;
+    const points = parsed.points
+      .filter((point) => point && typeof point.key === 'string' && typeof point.label === 'string' && Number.isFinite(point.value))
+      .map((point) => ({ key: point.key, label: point.label, value: point.value }));
+    return points.length ? { points, updatedAt: parsed.updatedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeConsumptionHistorySessionCache(cacheKey, value) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(
+      `${IRRIGATION_CONSUMPTION_SESSION_CACHE_PREFIX}${cacheKey}`,
+      JSON.stringify(value),
+    );
+  } catch {
+    // A disabled or full browser cache must never block live HA data.
+  }
+}
+
 function resolveIrrigationSectionFromTarget(pathLike) {
   const fallback = 'overview';
   try {
@@ -1005,6 +1074,7 @@ function resolveIrrigationSectionFromTarget(pathLike) {
       }
       if (token === 'calendar' || token === 'schedule') return 'calendar';
       if (token === 'consumption' || token === 'usage' || token === 'consumi') return 'usage';
+      if (token === 'activity' || token === 'history' || token === 'registro') return 'activity';
       if (token === 'settings' || token === 'configuration' || token === 'config') return 'configuration';
     }
   } catch {
@@ -1356,6 +1426,7 @@ function IrrigationDashboardView({
   haToken = '',
   onCallService,
   onCallApi,
+  onSubscribeApi,
   onNotify,
   navigationRoute = '',
   onNavigate = navigateTo,
@@ -1371,9 +1442,9 @@ function IrrigationDashboardView({
     return ['configuration', 'zonesManagement'].includes(initialSection) && !canConfigureApps ? 'overview' : initialSection;
   });
   const [masterControlState, setMasterControlState] = React.useState('stopped');
-  const [irrigationConfig, setIrrigationConfig] = React.useState(() => readStoredIrrigationConfig());
+  const [irrigationConfig, setIrrigationConfig] = React.useState(() => readStoredIrrigationConfig(runtimeMode));
   const [irrigationConfigurationDraft, setIrrigationConfigurationDraft] = React.useState(
-    () => readStoredIrrigationConfig(),
+    () => readStoredIrrigationConfig(runtimeMode),
   );
   const [zoneEnabled, setZoneEnabled] = React.useState(() =>
     Object.fromEntries(irrigationConfig.zones.map((zone) => [zone.id, Boolean(zone.enabled)])),
@@ -1389,6 +1460,13 @@ function IrrigationDashboardView({
   const [zoneCommandPending, setZoneCommandPending] = React.useState({});
   const [configurationStatus, setConfigurationStatus] = React.useState(haConnected ? 'loading' : 'offline');
   const [configurationRevision, setConfigurationRevision] = React.useState(null);
+  const [irrigationCoreStatus, setIrrigationCoreStatus] = React.useState(
+    runtimeMode === 'demo' ? 'demo' : 'loading',
+  );
+  const [irrigationCoreState, setIrrigationCoreState] = React.useState(null);
+  const [legacyMigrationGuideOpen, setLegacyMigrationGuideOpen] = React.useState(false);
+  const [legacyRemovalPreparing, setLegacyRemovalPreparing] = React.useState(false);
+  const [irrigationActionFeedback, setIrrigationActionFeedback] = React.useState(null);
   const [persistedConfigurationSignature, setPersistedConfigurationSignature] = React.useState('');
   const [consumptionPeriod, setConsumptionPeriod] = React.useState('7d');
   const [consumptionHistory, setConsumptionHistory] = React.useState({
@@ -1400,11 +1478,53 @@ function IrrigationDashboardView({
   });
   const consumptionHistoryCacheRef = React.useRef(new Map());
   const manualZoneTimeoutsRef = React.useRef({});
+  const irrigationActionFeedbackTimerRef = React.useRef(null);
+  const synchronizedCoreRevisionRef = React.useRef(null);
   const haStatesRef = React.useRef(haStates);
   const irrigationProgressRootRef = React.useRef(null);
   const configuredConsumptionEntityId = normalizeEntityId(irrigationConfig.waterUsageEntityId);
   const configuredConsumptionEntity = configuredConsumptionEntityId ? haStates[configuredConsumptionEntityId] : null;
   const configuredConsumptionUnit = getEntityAttributes(configuredConsumptionEntity).unit_of_measurement ?? '';
+  const publishIrrigationActionFeedback = React.useCallback((type, message) => {
+    const normalizedMessage = String(message ?? '').trim();
+    if (!normalizedMessage) return;
+    if (typeof onNotify === 'function') {
+      onNotify(type === 'error' ? 'alert' : type, normalizedMessage);
+    }
+    setIrrigationActionFeedback({ type, message: normalizedMessage, id: Date.now() });
+    if (irrigationActionFeedbackTimerRef.current) {
+      window.clearTimeout(irrigationActionFeedbackTimerRef.current);
+    }
+    irrigationActionFeedbackTimerRef.current = window.setTimeout(() => {
+      setIrrigationActionFeedback(null);
+      irrigationActionFeedbackTimerRef.current = null;
+    }, 5000);
+  }, [onNotify]);
+
+  const applyIrrigationCoreState = React.useCallback((state) => {
+    if (!isIrrigationCoreState(state)) return;
+    setIrrigationCoreState(state);
+    setMasterControlState(state.mode === 'enabled' ? 'running' : state.mode);
+    const now = Date.now();
+    setManualZoneSessions(Object.fromEntries(state.sessions.map((session) => {
+      const parsedDeadline = session.deadline ? Date.parse(session.deadline) : Number.NaN;
+      const remainingSeconds = Math.max(0, Number(session.remainingSeconds) || 0);
+      return [session.zoneId, {
+        startedAt: session.startedAt ? Date.parse(session.startedAt) : now,
+        endAt: Number.isFinite(parsedDeadline) ? parsedDeadline : now + remainingSeconds * 1000,
+        durationMin: session.durationMin,
+        remainingSeconds,
+        state: session.state,
+      }];
+    })));
+    setManualNowTs(now);
+  }, []);
+
+  React.useEffect(() => () => {
+    if (irrigationActionFeedbackTimerRef.current) {
+      window.clearTimeout(irrigationActionFeedbackTimerRef.current);
+    }
+  }, []);
   const resolveConfiguredZoneName = React.useCallback((zone, index) => {
     const demoKey = runtimeMode === 'demo' ? IRRIGATION_DEMO_ZONE_NAME_KEYS[zone?.id] : null;
     return demoKey ? t(demoKey) : zone?.name?.trim() || t('irrigation.summary.zoneNumber', { count: index + 1 });
@@ -1461,7 +1581,7 @@ function IrrigationDashboardView({
   }, [haStates]);
 
   React.useEffect(() => {
-    if (activeWorkspaceSection !== 'usage') return undefined;
+    if (!['overview', 'usage'].includes(activeWorkspaceSection)) return undefined;
 
     if (runtimeMode === 'demo') {
       setConsumptionHistory({
@@ -1475,8 +1595,13 @@ function IrrigationDashboardView({
     }
 
     const entityId = configuredConsumptionEntityId;
-    const cacheKey = `${entityId}|${configuredConsumptionUnit}|${consumptionPeriod}`;
-    const cached = consumptionHistoryCacheRef.current.get(cacheKey) ?? null;
+    const cacheScope = `${normalizeHassUrl(haUrl) || (typeof window !== 'undefined' ? window.location.origin : 'embedded')}|${currentUserId ?? 'anonymous'}`;
+    const cacheKey = `${cacheScope}|${entityId}|${configuredConsumptionUnit}|${consumptionPeriod}`;
+    let cached = consumptionHistoryCacheRef.current.get(cacheKey) ?? null;
+    if (!cached) {
+      cached = readConsumptionHistorySessionCache(cacheKey);
+      if (cached) consumptionHistoryCacheRef.current.set(cacheKey, cached);
+    }
 
     if (!haConnected) {
       setConsumptionHistory(cached
@@ -1565,7 +1690,9 @@ function IrrigationDashboardView({
       const points = buildIrrigationConsumptionSeries(payload, entityId, consumptionPeriod, multiplier);
       if (points.length) {
         const updatedAt = Date.now();
-        consumptionHistoryCacheRef.current.set(cacheKey, { points, updatedAt });
+        const cacheValue = { points, updatedAt };
+        consumptionHistoryCacheRef.current.set(cacheKey, cacheValue);
+        writeConsumptionHistorySessionCache(cacheKey, cacheValue);
         setConsumptionHistory({ status: 'available', points, isRefreshing: false, isStale: false, updatedAt });
       } else if (cached) {
         setConsumptionHistory({ status: 'available', points: cached.points, isRefreshing: false, isStale: true, updatedAt: cached.updatedAt });
@@ -1578,7 +1705,7 @@ function IrrigationDashboardView({
     return () => {
       cancelled = true;
     };
-  }, [activeWorkspaceSection, configuredConsumptionEntityId, Boolean(configuredConsumptionEntity), configuredConsumptionUnit, consumptionPeriod, haConnected, haToken, haUrl, onCallApi, runtimeMode]);
+  }, [activeWorkspaceSection, configuredConsumptionEntityId, Boolean(configuredConsumptionEntity), configuredConsumptionUnit, consumptionPeriod, currentUserId, haConnected, haToken, haUrl, onCallApi, runtimeMode]);
   const appConfigurationsRepository = React.useMemo(
     () => typeof onCallApi === 'function'
       ? createHaAppConfigurationsRepository({
@@ -1599,47 +1726,145 @@ function IrrigationDashboardView({
     if (typeof window === 'undefined') {
       return;
     }
-    window.localStorage.setItem(IRRIGATION_CONFIGURATION_CACHE_KEY, JSON.stringify(irrigationConfig));
-  }, [irrigationConfig]);
+    const cacheKey = runtimeMode === 'demo'
+      ? IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY
+      : IRRIGATION_CONFIGURATION_CACHE_KEY;
+    window.localStorage.setItem(cacheKey, JSON.stringify(irrigationConfig));
+  }, [irrigationConfig, runtimeMode]);
 
   React.useEffect(() => {
-    if (!haConnected || !appConfigurationsRepository) {
+    if (runtimeMode === 'demo') {
+      setIrrigationCoreStatus('demo');
+      setConfigurationStatus('ready');
+      return undefined;
+    }
+    if (!haConnected || !appConfigurationsRepository || typeof onCallApi !== 'function') {
+      setIrrigationCoreStatus(haConnected ? 'unavailable' : 'offline');
       setConfigurationStatus('offline');
       return undefined;
     }
 
     let cancelled = false;
     setConfigurationStatus('loading');
-    const loadSharedConfiguration = async () => {
-      const result = await appConfigurationsRepository.load();
-      if (cancelled) return;
-      if (result.status === 'found') {
-        const storedIrrigation = result.document.apps.irrigation;
-        setConfigurationRevision(result.document.revision);
-        if (storedIrrigation && typeof storedIrrigation === 'object') {
-          const normalized = normalizeIrrigationConfig(storedIrrigation);
-          setIrrigationConfig(normalized);
-          setIrrigationConfigurationDraft(normalized);
-          setPersistedConfigurationSignature(JSON.stringify(normalized));
-        } else {
-          setPersistedConfigurationSignature('');
+    setIrrigationCoreStatus('loading');
+    const loadCoreConfiguration = async () => {
+      try {
+        let coreDocument = await getIrrigationCoreConfig(onCallApi);
+        if (coreDocument.revision === 0) {
+          const legacyResult = await appConfigurationsRepository.load();
+          const legacyConfig = legacyResult.status === 'found'
+            ? legacyResult.document.apps.irrigation
+            : null;
+          if (legacyConfig && typeof legacyConfig === 'object' && !isUntouchedIrrigationDemoConfig(legacyConfig)) {
+            coreDocument = await saveIrrigationCoreConfig(
+              onCallApi,
+              prepareLegacyIrrigationConfigForCore(legacyConfig),
+              0,
+              true,
+            );
+          }
         }
+        if (cancelled) return;
+        const normalized = coreDocument.revision === 0 && coreDocument.zones.length === 0
+          ? cloneEmptyRealIrrigationConfig()
+          : normalizeIrrigationConfig(fromIrrigationCoreDocument(coreDocument));
+        setIrrigationConfig(normalized);
+        setIrrigationConfigurationDraft(normalized);
+        setConfigurationRevision(coreDocument.revision);
+        synchronizedCoreRevisionRef.current = coreDocument.revision;
+        setPersistedConfigurationSignature(JSON.stringify(normalized));
+        setMasterControlState(coreDocument.mode === 'enabled' ? 'running' : coreDocument.mode);
+        setIrrigationCoreStatus('ready');
         setConfigurationStatus('ready');
-        return;
+      } catch (error) {
+        if (cancelled) return;
+        console.warn('[Domus Core Irrigation] Backend unavailable', error);
+        setIrrigationCoreStatus('unavailable');
+        setConfigurationStatus('unsupported');
       }
-      if (result.status === 'empty') {
-        setConfigurationRevision(null);
-        setPersistedConfigurationSignature('');
-        setConfigurationStatus('ready');
-        return;
-      }
-      setConfigurationStatus(result.status);
     };
-    void loadSharedConfiguration();
+    void loadCoreConfiguration();
     return () => {
       cancelled = true;
     };
-  }, [appConfigurationsRepository, haConnected]);
+  }, [appConfigurationsRepository, haConnected, onCallApi, runtimeMode]);
+
+  React.useEffect(() => {
+    if (
+      runtimeMode === 'demo' ||
+      irrigationCoreStatus !== 'ready' ||
+      !haConnected ||
+      typeof onCallApi !== 'function'
+    ) {
+      return undefined;
+    }
+    let cancelled = false;
+    let unsubscribe = null;
+    const connectState = async () => {
+      try {
+        if (!cancelled) applyIrrigationCoreState(await getIrrigationCoreState(onCallApi));
+        if (typeof onSubscribeApi === 'function') {
+          unsubscribe = await onSubscribeApi(
+            { type: IRRIGATION_CORE_TYPES.subscribe },
+            (state) => {
+              if (!cancelled) applyIrrigationCoreState(state);
+            },
+          );
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('[Domus Core Irrigation] State subscription failed', error);
+          setIrrigationCoreStatus('unavailable');
+        }
+      }
+    };
+    void connectState();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [applyIrrigationCoreState, haConnected, irrigationCoreStatus, onCallApi, onSubscribeApi, runtimeMode]);
+
+  React.useEffect(() => {
+    const announcedRevision = irrigationCoreState?.revision;
+    if (
+      runtimeMode === 'demo' ||
+      irrigationCoreStatus !== 'ready' ||
+      !haConnected ||
+      typeof onCallApi !== 'function' ||
+      !Number.isInteger(announcedRevision) ||
+      announcedRevision <= (synchronizedCoreRevisionRef.current ?? -1)
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const synchronizeConfiguration = async () => {
+      try {
+        const document = await getIrrigationCoreConfig(onCallApi);
+        if (cancelled || document.revision < announcedRevision) return;
+        const confirmed = document.revision === 0 && document.zones.length === 0
+          ? cloneEmptyRealIrrigationConfig()
+          : normalizeIrrigationConfig(fromIrrigationCoreDocument(document));
+        const signature = JSON.stringify(confirmed);
+        synchronizedCoreRevisionRef.current = document.revision;
+        setIrrigationConfig(confirmed);
+        setPersistedConfigurationSignature(signature);
+        if (!hasUnsavedConfigurationChanges) {
+          setIrrigationConfigurationDraft(confirmed);
+          setConfigurationRevision(document.revision);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('[Domus Core Irrigation] Configuration synchronization failed', error);
+        }
+      }
+    };
+    void synchronizeConfiguration();
+    return () => {
+      cancelled = true;
+    };
+  }, [haConnected, hasUnsavedConfigurationChanges, irrigationCoreState?.revision, irrigationCoreStatus, onCallApi, runtimeMode]);
 
   React.useEffect(() => {
     if (configurationStatus === 'saved' && hasUnsavedConfigurationChanges) {
@@ -1752,10 +1977,10 @@ function IrrigationDashboardView({
       sortedEntityIds.filter(
         (entityId) =>
           entityId.startsWith('switch.') ||
-          entityId.startsWith('input_boolean.') ||
-          entityId.startsWith('valve.'),
+          entityId.startsWith('valve.') ||
+          (runtimeMode === 'demo' && entityId.startsWith('input_boolean.')),
       ),
-    [sortedEntityIds],
+    [runtimeMode, sortedEntityIds],
   );
   const editingZoneConfig = React.useMemo(
     () => zonesConfig.find((zoneConfig) => zoneConfig.id === editingZone) ?? null,
@@ -1767,7 +1992,9 @@ function IrrigationDashboardView({
   );
 
   const rainSensorEntityId = normalizeEntityId(irrigationConfig.rainSensorEntityId);
-  const rainSensorEnabled = irrigationConfig.rainSensorEnabled !== false;
+  const rainSensorEnabled = runtimeMode !== 'demo' && typeof irrigationCoreState?.rain?.enabled === 'boolean'
+    ? irrigationCoreState.rain.enabled
+    : irrigationConfig.rainSensorEnabled !== false;
   const configuredWeatherEntityId = normalizeEntityId(irrigationConfig.weatherEntityId);
   const weatherEntityId = configuredWeatherEntityId || weatherOptions[0] || '';
   const weatherEntity = weatherEntityId ? haStates[weatherEntityId] : null;
@@ -1775,10 +2002,12 @@ function IrrigationDashboardView({
   const rainForecastProbability = rainForecastInfo?.probability;
   const rainForecastDayLabel = rainForecastInfo?.dayLabel ?? new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(0, 'day');
   const rainSensorEntity = rainSensorEntityId ? haStates[rainSensorEntityId] : null;
-  const rainSensorActive = resolveBooleanEntityValue(haStates, rainSensorEntityId, true);
-  const rainSensorUnavailable = Boolean(
-    rainSensorEntityId && (!rainSensorEntity || isEntityUnavailableState(rainSensorEntity.state)),
-  );
+  const rainSensorActive = runtimeMode !== 'demo' && irrigationCoreState
+    ? irrigationCoreState.rain.active
+    : resolveBooleanEntityValue(haStates, rainSensorEntityId, true);
+  const rainSensorUnavailable = runtimeMode !== 'demo' && irrigationCoreState
+    ? irrigationCoreState.rain.enabled && !irrigationCoreState.rain.available
+    : Boolean(rainSensorEntityId && (!rainSensorEntity || isEntityUnavailableState(rainSensorEntity.state)));
   const rainStatusLabel = !rainSensorEnabled
     ? t('irrigation.summary.bypassStatus')
     : !rainSensorEntityId
@@ -1827,36 +2056,23 @@ function IrrigationDashboardView({
       t('irrigation.configure');
   }
 
-  const humidityValue = clamp(
-    Math.round(resolveNumericEntityValue(haStates, irrigationConfig.humidityEntityId, 88)),
-    0,
-    100,
-  );
-  const outdoorTempValue = resolveNumericEntityValue(haStates, irrigationConfig.outdoorTempEntityId, 18);
-  const moisturePct = clamp(
-    Math.round(resolveNumericEntityValue(haStates, irrigationConfig.soilMoistureEntityId, 45)),
-    0,
-    100,
-  );
-  const moistureText =
-    moisturePct < 35
+  const humidityRaw = resolveOptionalNumericEntityValue(haStates, irrigationConfig.humidityEntityId);
+  const humidityValue = runtimeMode === 'demo'
+    ? clamp(Math.round(humidityRaw ?? 88), 0, 100)
+    : humidityRaw === null ? null : clamp(Math.round(humidityRaw), 0, 100);
+  const outdoorTempRaw = resolveOptionalNumericEntityValue(haStates, irrigationConfig.outdoorTempEntityId);
+  const outdoorTempValue = runtimeMode === 'demo' ? outdoorTempRaw ?? 18 : outdoorTempRaw;
+  const moistureRaw = resolveOptionalNumericEntityValue(haStates, irrigationConfig.soilMoistureEntityId);
+  const moisturePct = runtimeMode === 'demo'
+    ? clamp(Math.round(moistureRaw ?? 45), 0, 100)
+    : moistureRaw === null ? null : clamp(Math.round(moistureRaw), 0, 100);
+  const moistureText = moisturePct === null
+    ? t('irrigation.consumption.historyUnavailable')
+    : moisturePct < 35
       ? t('irrigation.moisture.dry')
       : moisturePct > 70
         ? t('irrigation.moisture.wet')
         : t('irrigation.moisture.ideal');
-  const waterUsageLiters = Math.max(
-    0,
-    Math.round(resolveNumericEntityValue(haStates, irrigationConfig.waterUsageEntityId, 1240)),
-  );
-  const waterAverageLiters = Math.max(
-    1,
-    Math.round(resolveNumericEntityValue(haStates, irrigationConfig.waterAverageEntityId, 1450)),
-  );
-  const savingsPct = Math.round(((waterAverageLiters - waterUsageLiters) / waterAverageLiters) * 100);
-  const isPositiveSavings = savingsPct >= 0;
-  const savingsLabel = `${isPositiveSavings ? '-' : '+'}${Math.abs(savingsPct)}% ${
-    isPositiveSavings ? t('irrigation.usage.saving') : t('irrigation.usage.consumption')
-  }`;
   const configuredZonesCount = irrigationConfig.zones.filter((zone) => normalizeEntityId(zone.entityId)).length;
   const consumptionTotalLiters = consumptionHistory.status === 'available'
     ? Math.round(consumptionHistory.points.reduce((sum, point) => sum + point.value, 0) * 10) / 10
@@ -1880,6 +2096,11 @@ function IrrigationDashboardView({
   const consumptionComparisonPct = consumptionTotalLiters === null || consumptionReferenceLiters === null || consumptionReferenceLiters <= 0
     ? null
     : Math.round(((consumptionTotalLiters - consumptionReferenceLiters) / consumptionReferenceLiters) * 100);
+  const consumptionSnapshotBars = buildConsumptionSnapshotBars(consumptionHistory.points);
+  const hasPositiveConsumptionComparison = consumptionComparisonPct === null || consumptionComparisonPct <= 0;
+  const consumptionSnapshotComparisonLabel = consumptionComparisonPct === null ? null : `${consumptionComparisonPct > 0 ? '+' : '-'}${Math.abs(consumptionComparisonPct)}% ${
+    hasPositiveConsumptionComparison ? t('irrigation.usage.saving') : t('irrigation.usage.consumption')
+  }`;
   const plannedWeeklyMinutes = irrigationConfig.zones.reduce((sum, zone) => {
     const daysCount = Array.isArray(zone.days) ? zone.days.length : 0;
     const startsCount = Array.isArray(zone.startTimes) ? zone.startTimes.length : 0;
@@ -1931,7 +2152,9 @@ function IrrigationDashboardView({
         );
         const manualSession = manualZoneSessions[zone.id];
         const manualRemainingSeconds = manualSession
-          ? Math.max(0, Math.ceil((manualSession.endAt - manualNowTs) / 1000))
+          ? ['paused', 'queued'].includes(manualSession.state)
+            ? Math.max(0, Math.ceil(manualSession.remainingSeconds ?? 0))
+            : Math.max(0, Math.ceil((manualSession.endAt - manualNowTs) / 1000))
           : 0;
         const nextIrrigationLabel = formatNextIrrigationLabel(zone.days, zone.startTimes, new Date(), locale);
 
@@ -1951,12 +2174,16 @@ function IrrigationDashboardView({
         }
 
         if (manualSession) {
-          status = 'active';
-          detail = t('irrigation.summary.running');
-          progress = clamp(Math.round((manualRemainingSeconds / (manualDurationMin * 60)) * 100), 0, 100);
+          status = ['running', 'opening', 'closing'].includes(manualSession.state) ? 'active' : 'scheduled';
+          detail = manualSession.state === 'queued'
+            ? t('irrigation.summary.queued')
+            : manualSession.state === 'paused'
+              ? t('irrigation.summary.paused')
+              : t('irrigation.summary.running');
+          progress = clamp(Math.round((manualRemainingSeconds / (Math.max(1, manualSession.durationMin ?? manualDurationMin) * 60)) * 100), 0, 100);
         }
 
-        if (status !== 'alert') {
+        if (status !== 'alert' && !manualSession) {
           detail = enabled ? t('irrigation.summary.running') : t('irrigation.summary.closedNext', { next: nextIrrigationLabel });
         }
 
@@ -1979,6 +2206,7 @@ function IrrigationDashboardView({
           maximumManualDurationMin: irrigationConfig.maximumManualDurationMin,
           manualRemainingSeconds,
           isManualActive: Boolean(manualSession),
+          manualSessionState: manualSession?.state,
           isCommandPending: Boolean(zoneCommandPending[zone.id]),
         };
       }),
@@ -2003,6 +2231,26 @@ function IrrigationDashboardView({
     })),
     [haConnected, haStates, irrigationConfig.maximumManualDurationMin, irrigationConfig.zones, runtimeMode, zones],
   );
+
+  const irrigationActivityItems = React.useMemo(() => {
+    const history = Array.isArray(irrigationCoreState?.history) ? irrigationCoreState.history : [];
+    const zoneNames = new Map(irrigationConfig.zones.map((zone, index) => [
+      String(zone.id ?? ''),
+      resolveConfiguredZoneName(zone, index),
+    ]));
+    return [...history].reverse().map((entry, index) => {
+      const zoneId = String(entry?.zoneId ?? '').trim();
+      const timestamp = Date.parse(String(entry?.at ?? ''));
+      return {
+        id: `${String(entry?.sessionId || zoneId || 'system')}-${String(entry?.at ?? index)}-${index}`,
+        zoneName: zoneNames.get(zoneId) ?? (zoneId || t('irrigation.activity.system')),
+        state: String(entry?.state ?? 'completed'),
+        reason: String(entry?.reason ?? ''),
+        source: String(entry?.source ?? 'manual'),
+        occurredAt: timestamp,
+      };
+    });
+  }, [irrigationConfig.zones, irrigationCoreState?.history, resolveConfiguredZoneName, t]);
 
   const overviewNextCycleLabel = React.useMemo(() => {
     const nextZone = irrigationConfig.zones
@@ -2048,18 +2296,30 @@ function IrrigationDashboardView({
   };
 
   const updateConfigurationDraftField = (field, value) => {
-    setIrrigationConfigurationDraft((current) => ({
-      ...current,
-      [field]: field === 'rainSensorEnabled' || field === 'blockOnRainSensorUnavailable'
-        ? Boolean(value)
-        : field === 'maximumManualDurationMin'
-          ? clamp(
-              Math.round(toNumberOrUndefined(value) ?? current.maximumManualDurationMin),
-              IRRIGATION_MINIMUM_MAX_DURATION_MIN,
-              IRRIGATION_ABSOLUTE_MAX_DURATION_MIN,
-            )
-          : normalizeEntityId(value),
-    }));
+    setIrrigationConfigurationDraft((current) => {
+      let normalizedValue;
+      if (field === 'rainSensorEnabled' || field === 'blockOnRainSensorUnavailable' || field === 'parallelSafetyAcknowledged') {
+        normalizedValue = Boolean(value);
+      } else if (field === 'maximumManualDurationMin') {
+        normalizedValue = clamp(
+          Math.round(toNumberOrUndefined(value) ?? current.maximumManualDurationMin),
+          IRRIGATION_MINIMUM_MAX_DURATION_MIN,
+          IRRIGATION_ABSOLUTE_MAX_DURATION_MIN,
+        );
+      } else if (field === 'maxConcurrentZones') {
+        const configuredZoneCount = current.zones.filter((zone) => normalizeEntityId(zone.entityId)).length;
+        normalizedValue = clamp(
+          Math.round(toNumberOrUndefined(value) ?? current.maxConcurrentZones),
+          1,
+          Math.max(1, configuredZoneCount),
+        );
+      } else if (field === 'rainDuringCycle') {
+        normalizedValue = value === 'finish_active' ? 'finish_active' : 'stop_immediately';
+      } else {
+        normalizedValue = normalizeEntityId(value);
+      }
+      return { ...current, [field]: normalizedValue };
+    });
   };
 
   const applySuggestedIrrigationConfiguration = (nextConfig) => {
@@ -2307,111 +2567,51 @@ function IrrigationDashboardView({
     }));
   };
 
-  const saveAutomationToHA = async (automationPayload, options = {}) => {
-    const { notifySuccess = true, notifyError = true } = options;
-    const automationId = typeof automationPayload?.id === 'string' ? automationPayload.id.trim() : '';
-    if (!automationId) {
-      if (notifyError && typeof onNotify === 'function') {
-        onNotify('alert', t('irrigation.notify.automationMissing'));
-      }
+  const persistIrrigationConfiguration = async (configSnapshot) => {
+    const normalized = normalizeIrrigationConfig(configSnapshot);
+    if (runtimeMode === 'demo') {
+      setIrrigationConfig(normalized);
+      setIrrigationConfigurationDraft(normalized);
+      setPersistedConfigurationSignature(JSON.stringify(normalized));
+      return true;
+    }
+    if (
+      irrigationCoreStatus !== 'ready' ||
+      !haConnected ||
+      typeof onCallApi !== 'function' ||
+      !canConfigureApps
+    ) {
+      publishIrrigationActionFeedback('error', t('irrigation.notify.saveFailed'));
       return false;
     }
-
+    const runtimeConflict = getIrrigationRuntimeConfigurationConflict(
+      irrigationConfig,
+      normalized,
+      irrigationCoreState?.sessions,
+      t,
+    );
+    if (runtimeConflict) {
+      publishIrrigationActionFeedback('warning', runtimeConflict);
+      return false;
+    }
     try {
-      const { baseUrl, token } = await resolveHaApiContext(haUrl, haToken);
-      const response = await fetch(
-        `${baseUrl}/api/config/automation/config/${encodeURIComponent(automationId)}`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(automationPayload),
-        },
+      const document = await saveIrrigationCoreConfig(
+        onCallApi,
+        normalized,
+        configurationRevision,
       );
-
-      if (!response.ok) {
-        const errorMessage = await readHaErrorResponse(response);
-        throw new Error(`HTTP ${response.status}: ${errorMessage}`);
-      }
-
-      console.log('[Irrigation] Automation saved via Home Assistant REST API', {
-        automation_id: automationId,
-      });
-      if (notifySuccess && typeof onNotify === 'function') {
-        onNotify('info', t('irrigation.notify.automationSaved', { id: automationId }));
-      }
+      const confirmed = normalizeIrrigationConfig(fromIrrigationCoreDocument(document));
+      setIrrigationConfig(confirmed);
+      setIrrigationConfigurationDraft(confirmed);
+      setConfigurationRevision(document.revision);
+      synchronizedCoreRevisionRef.current = document.revision;
+      setPersistedConfigurationSignature(JSON.stringify(confirmed));
       return true;
     } catch (error) {
-      const rawMessage = toErrorMessage(error, 'Errore sconosciuto');
-      const networkLikeFailure =
-        error instanceof TypeError && /fetch/i.test(rawMessage.toLowerCase());
-      const detailMessage = networkLikeFailure
-        ? 'Richiesta REST non riuscita (possibile CORS/rete).'
-        : rawMessage;
-
-      if (notifyError && typeof onNotify === 'function') {
-        onNotify('alert', `${t('irrigation.notify.automationFailed')} ${detailMessage}`);
-      }
-
-      console.warn(
-        `[Irrigation] ${haConnected ? 'Failed' : 'Offline'} REST save automation config`,
-        {
-          automation_id: automationId,
-          error: rawMessage,
-        },
-      );
+      console.warn('[Domus Core Irrigation] Configuration save failed', error);
+      publishIrrigationActionFeedback('error', toErrorMessage(error, t('irrigation.notify.saveFailed')));
       return false;
     }
-  };
-
-  const saveZoneAutomation = async (
-    zoneConfig,
-    irrigationStateOverride = irrigationState,
-    saveOptions = {},
-  ) => {
-    const automationJson = generateZoneAutomation(zoneConfig, irrigationStateOverride);
-    return saveAutomationToHA(automationJson, saveOptions);
-  };
-
-  const syncZoneAutomationsForConfig = async (configSnapshot) => {
-    const snapshot = normalizeIrrigationConfig(configSnapshot);
-    const snapshotIrrigationState = buildIrrigationState(snapshot);
-    let saved = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    for (let index = 0; index < snapshot.zones.length; index += 1) {
-      const zone = snapshot.zones[index];
-      const normalizedZoneConfig = {
-        ...buildZoneConfigFromZone(zone, index),
-        name: normalizeZoneName(zone?.name, `Zona ${index + 1}`),
-        entityId:
-          normalizeEntityId(zone?.entityId) ||
-          snapshotIrrigationState.zoneEntityById[zone?.id] ||
-          '',
-      };
-
-      if (!normalizedZoneConfig.entityId) {
-        skipped += 1;
-        continue;
-      }
-
-      const ok = await saveZoneAutomation(
-        normalizedZoneConfig,
-        snapshotIrrigationState,
-        { notifySuccess: false, notifyError: false },
-      );
-
-      if (ok) {
-        saved += 1;
-      } else {
-        failed += 1;
-      }
-    }
-
-    return { saved, skipped, failed };
   };
 
   const handleSaveZoneProgramming = async () => {
@@ -2448,9 +2648,9 @@ function IrrigationDashboardView({
       ),
     );
 
-    setIrrigationConfig((current) => ({
-      ...current,
-      zones: current.zones.map((zone) =>
+    const nextConfig = normalizeIrrigationConfig({
+      ...irrigationConfig,
+      zones: irrigationConfig.zones.map((zone) =>
         zone.id === normalizedZoneConfig.id
           ? {
               ...zone,
@@ -2461,60 +2661,25 @@ function IrrigationDashboardView({
               startTimes: [...normalizedZoneConfig.startTimes],
               baseDuration: normalizedZoneConfig.baseDuration,
             }
-          : zone,
-      ),
-    }));
-
-    const isSaved = await saveZoneAutomation(normalizedZoneConfig);
+          : zone),
+    });
+    const isSaved = await persistIrrigationConfiguration(nextConfig);
     if (isSaved) {
       closeZoneConfigModal();
     }
   };
 
   const handleRainSensorToggle = async () => {
+    if (!canConfigureApps) return;
     const nextConfig = normalizeIrrigationConfig({
       ...irrigationConfig,
       rainSensorEnabled: !rainSensorEnabled,
     });
 
-    setIrrigationConfig(nextConfig);
-
-    if (!haConnected) {
-      if (typeof onNotify === 'function') {
-        onNotify('warning', t('irrigation.notify.rainLocal'));
-      }
-      return;
-    }
-
     setIsRainSensorSyncing(true);
-    const result = await syncZoneAutomationsForConfig(nextConfig);
+    const saved = await persistIrrigationConfiguration(nextConfig);
     setIsRainSensorSyncing(false);
-
-    if (typeof onNotify === 'function') {
-      if (result.failed > 0) {
-        onNotify(
-          'alert',
-          t('irrigation.notify.rainSyncFailed', { count: result.failed }),
-        );
-      } else {
-        onNotify(
-          'info',
-          t('irrigation.notify.rainSyncDone', { saved: result.saved, skipped: result.skipped }),
-        );
-      }
-    }
-  };
-
-  const waitForZoneStateConfirmation = async (entityId, shouldTurnOn, timeoutMs = 6000) => {
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() <= deadline) {
-      const entity = haStatesRef.current?.[entityId];
-      if (entity && !isEntityUnavailableState(entity.state) && isEntityOnState(entity.state) === shouldTurnOn) {
-        return true;
-      }
-      await new Promise((resolve) => window.setTimeout(resolve, 150));
-    }
-    return false;
+    if (saved && typeof onNotify === 'function') onNotify('success', t('irrigation.notify.saved'));
   };
 
   const setZonePowerState = async (zone, shouldTurnOn) => {
@@ -2526,44 +2691,26 @@ function IrrigationDashboardView({
       return true;
     }
 
-    if (!haConnected || typeof onCallService !== 'function') {
-      if (typeof onNotify === 'function') {
-        onNotify('error', t('irrigation.notify.offline'));
-      }
+    if (!haConnected || typeof onCallApi !== 'function' || irrigationCoreStatus !== 'ready') {
+      publishIrrigationActionFeedback('error', t('irrigation.notify.offline'));
       return false;
     }
 
     setZoneCommandPending((current) => ({ ...current, [zone.id]: true }));
     try {
-      const domain = entityId.split('.')[0];
-      let ok = false;
-
-      if (domain === 'switch' || domain === 'input_boolean') {
-        ok = await onCallService(domain, shouldTurnOn ? 'turn_on' : 'turn_off', {
-          entity_id: entityId,
-        });
-      } else if (domain === 'valve') {
-        ok = await onCallService('valve', shouldTurnOn ? 'open_valve' : 'close_valve', {
-          entity_id: entityId,
-        });
-      } else {
-        ok = await onCallService('homeassistant', shouldTurnOn ? 'turn_on' : 'turn_off', {
-          entity_id: entityId,
-        });
-      }
-
-      if (!ok) {
-        if (typeof onNotify === 'function') onNotify('error', t('irrigation.notify.commandRejected'));
-        return false;
-      }
-
-      const confirmed = await waitForZoneStateConfirmation(entityId, shouldTurnOn);
-      if (!confirmed) {
-        if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.unconfirmed'));
-        return false;
-      }
-      setZoneEnabled((current) => ({ ...current, [zone.id]: shouldTurnOn }));
+      const requestId = globalThis.crypto?.randomUUID?.() ?? `irrigation-${Date.now()}-${zone.id}`;
+      await callIrrigationCoreCommand(
+        onCallApi,
+        shouldTurnOn ? IRRIGATION_CORE_TYPES.startZone : IRRIGATION_CORE_TYPES.stopZone,
+        shouldTurnOn
+          ? { zone_id: zone.id, duration_min: zone.manualDurationMin, request_id: requestId }
+          : { zone_id: zone.id },
+      );
       return true;
+    } catch (error) {
+      console.warn('[Domus Core Irrigation] Zone command rejected', error);
+      publishIrrigationActionFeedback('error', toErrorMessage(error, t('irrigation.notify.commandRejected')));
+      return false;
     } finally {
       setZoneCommandPending((current) => ({ ...current, [zone.id]: false }));
     }
@@ -2587,7 +2734,7 @@ function IrrigationDashboardView({
   };
 
   const stopZoneManualMode = async (zone) => {
-    clearManualSession(zone.id);
+    if (runtimeMode === 'demo') clearManualSession(zone.id);
     await setZonePowerState(zone, false);
     setManualNowTs(Date.now());
   };
@@ -2597,18 +2744,16 @@ function IrrigationDashboardView({
       return;
     }
     if (!normalizeEntityId(zone.entityId)) {
-      if (typeof onNotify === 'function') {
-        onNotify('warning', t('irrigation.notify.incomplete'));
-      }
+      publishIrrigationActionFeedback('warning', t('irrigation.notify.incomplete'));
       return;
     }
 
     if (runtimeMode !== 'demo' && rainSensorEnabled && rainSensorActive) {
-      if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.raining'));
+      publishIrrigationActionFeedback('warning', t('irrigation.notify.raining'));
       return;
     }
     if (runtimeMode !== 'demo' && rainSensorEnabled && rainSensorUnavailable && irrigationConfig.blockOnRainSensorUnavailable) {
-      if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.rainBlocked'));
+      publishIrrigationActionFeedback('warning', t('irrigation.notify.rainBlocked'));
       return;
     }
 
@@ -2623,6 +2768,7 @@ function IrrigationDashboardView({
 
     const started = await setZonePowerState(zone, true);
     if (!started) return;
+    if (runtimeMode !== 'demo') return;
     clearManualSession(zone.id);
 
     setManualZoneSessions((current) => ({
@@ -2652,17 +2798,83 @@ function IrrigationDashboardView({
 
   const masterIsStopped = masterControlState === 'stopped';
   const masterIsRunning = masterControlState === 'running';
-  const masterTitle = masterIsRunning
+  const masterIsPaused = masterControlState === 'paused';
+  const masterTitle = masterControlState === 'fault'
+    ? t('irrigation.core.faultMode')
+    : masterIsRunning
     ? t('irrigation.summary.systemActive')
     : masterIsStopped
       ? t('irrigation.summary.systemStopped')
       : t('irrigation.summary.systemPaused');
-  const handleMasterPrimaryAction = () => {
-    setMasterControlState((current) => (current === 'running' ? 'paused' : 'running'));
+  const handleMasterPrimaryAction = async () => {
+    const nextState = masterIsRunning ? 'paused' : 'running';
+    if (runtimeMode === 'demo') {
+      setMasterControlState(nextState);
+      return;
+    }
+    if (irrigationCoreStatus !== 'ready' || typeof onCallApi !== 'function') return;
+    try {
+      const result = await callIrrigationCoreCommand(
+        onCallApi,
+        masterIsRunning ? IRRIGATION_CORE_TYPES.pause : IRRIGATION_CORE_TYPES.resume,
+      );
+      if (isIrrigationCoreState(result)) {
+        applyIrrigationCoreState(result);
+      }
+    } catch (error) {
+      publishIrrigationActionFeedback('error', toErrorMessage(error, t('irrigation.notify.commandRejected')));
+    }
   };
 
-  const handleMasterStop = () => {
-    setMasterControlState('stopped');
+  const handleMasterStop = async () => {
+    if (runtimeMode === 'demo') {
+      setMasterControlState('stopped');
+      return;
+    }
+    if (irrigationCoreStatus !== 'ready' || typeof onCallApi !== 'function') return;
+    try {
+      const result = await callIrrigationCoreCommand(onCallApi, IRRIGATION_CORE_TYPES.stopAll);
+      if (isIrrigationCoreState(result)) {
+        applyIrrigationCoreState(result);
+      }
+    } catch (error) {
+      publishIrrigationActionFeedback('error', toErrorMessage(error, t('irrigation.notify.commandRejected')));
+    }
+  };
+
+  const handleLegacyRemovalAction = async () => {
+    if (irrigationCoreState?.legacyAutomationsReadyForRemoval) {
+      window.open(
+        new URL('/config/automation/dashboard', window.location.origin).toString(),
+        '_blank',
+        'noopener,noreferrer',
+      );
+      return;
+    }
+    if (legacyRemovalPreparing || typeof onCallApi !== 'function') return;
+    setLegacyRemovalPreparing(true);
+    try {
+      const result = await callIrrigationCoreCommand(
+        onCallApi,
+        IRRIGATION_CORE_TYPES.prepareLegacyRemoval,
+      );
+      if (isIrrigationCoreState(result)) {
+        applyIrrigationCoreState(result);
+        publishIrrigationActionFeedback(
+          'success',
+          result.legacyAutomationsRequireRestart
+            ? t('irrigation.core.guideRestartFeedback')
+            : t('irrigation.core.guidePreparedFeedback'),
+        );
+      }
+    } catch (error) {
+      publishIrrigationActionFeedback(
+        'error',
+        toErrorMessage(error, t('irrigation.core.guidePrepareError')),
+      );
+    } finally {
+      setLegacyRemovalPreparing(false);
+    }
   };
 
   const removeZone = (zoneId) => {
@@ -2672,12 +2884,18 @@ function IrrigationDashboardView({
   };
 
   const saveSharedIrrigationConfiguration = async () => {
-    if (!canConfigureApps || !appConfigurationsRepository || !haConnected || !currentUserId) {
+    if (
+      !canConfigureApps ||
+      !haConnected ||
+      (runtimeMode !== 'demo' && (typeof onCallApi !== 'function' || irrigationCoreStatus !== 'ready'))
+    ) {
       setConfigurationStatus(haConnected ? 'error' : 'offline');
       return;
     }
     const normalized = normalizeIrrigationConfig(irrigationConfigurationDraft);
-    const blockingIssues = validateIrrigationConfiguration(normalized, haStates)
+    const blockingIssues = validateIrrigationConfiguration(normalized, haStates, {
+      allowDemoActuators: runtimeMode === 'demo',
+    })
       .filter((issue) => issue.severity === 'error');
     if (blockingIssues.length > 0) {
       setConfigurationStatus('ready');
@@ -2687,29 +2905,15 @@ function IrrigationDashboardView({
       return;
     }
     setConfigurationStatus('saving');
-    const result = await appConfigurationsRepository.saveAppConfiguration(
-      'irrigation',
-      normalized,
-      configurationRevision,
-      currentUserId,
-    );
-    if (result.status === 'saved') {
-      setIrrigationConfig(normalized);
-      setIrrigationConfigurationDraft(normalized);
-      setConfigurationRevision(result.document.revision);
-      setPersistedConfigurationSignature(JSON.stringify(normalized));
+    const saved = await persistIrrigationConfiguration(normalized);
+    if (saved) {
       setConfigurationStatus('saved');
       if (typeof onNotify === 'function') onNotify('success', t('irrigation.notify.saved'));
       return;
     }
-    if (result.status === 'conflict') {
-      setConfigurationRevision(result.current?.revision ?? null);
-      setConfigurationStatus('conflict');
-      if (typeof onNotify === 'function') onNotify('warning', t('irrigation.notify.conflict'));
-      return;
-    }
-    setConfigurationStatus(result.status);
-    if (typeof onNotify === 'function') onNotify('error', t('irrigation.notify.saveFailed'));
+    // Keep the draft editable after a rejected save (for example while a
+    // protected zone is running); the snackbar already explains the reason.
+    setConfigurationStatus('ready');
   };
 
   const handleWorkspaceNavigation = (sectionId) => {
@@ -2752,18 +2956,78 @@ function IrrigationDashboardView({
       contentClassName="bg-[color:var(--ui-bg-grouped)] md:bg-transparent"
       backLabel={t('irrigation.backLibrary')}
     >
+      <GlassBottomSheet
+        isOpen={legacyMigrationGuideOpen}
+        onClose={() => setLegacyMigrationGuideOpen(false)}
+        title={t('irrigation.core.guideTitle')}
+        description={t('irrigation.core.guideDescription')}
+        showCloseButton
+        footer={<div className="flex w-full gap-2"><button type="button" onClick={() => setLegacyMigrationGuideOpen(false)} className="liquid-glass-control min-h-11 flex-1 rounded-full px-4 text-sm font-semibold">{t('irrigation.core.guideLater')}</button><button type="button" disabled={legacyRemovalPreparing} onClick={handleLegacyRemovalAction} className="min-h-11 flex-1 rounded-full bg-[color:var(--ui-accent)] px-4 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">{legacyRemovalPreparing ? t('irrigation.core.guidePreparing') : irrigationCoreState?.legacyAutomationsReadyForRemoval ? t('irrigation.core.guideOpen') : t('irrigation.core.guidePrepare')}</button></div>}
+      >
+        <ol className="space-y-3 text-sm text-[color:var(--ui-text-secondary)]">
+          {[1, 2, 3].map((step) => <li key={step} className="flex gap-3"><span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold text-[color:var(--ui-text-primary)]">{step}</span><span>{t(`irrigation.core.guideStep${step}`)}</span></li>)}
+        </ol>
+        {irrigationCoreState?.legacyAutomations?.length > 0 ? (
+          <div className="mt-4 rounded-[1.1rem] bg-[color:var(--ui-fill-tertiary)] p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.core.guideDetected')}</p>
+            <div className="mt-2 space-y-1.5">
+              {irrigationCoreState.legacyAutomations.map((entityId) => <code key={entityId} className="block select-all break-all rounded-lg bg-[color:var(--ui-fill-secondary)] px-2.5 py-2 text-[11px] text-[color:var(--ui-text-primary)]">{entityId}</code>)}
+            </div>
+          </div>
+        ) : null}
+      </GlassBottomSheet>
+      {irrigationActionFeedback ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.75rem)] z-[180] flex justify-center px-3 md:bottom-6">
+          <div
+            role={irrigationActionFeedback.type === 'error' ? 'alert' : 'status'}
+            aria-live={irrigationActionFeedback.type === 'error' ? 'assertive' : 'polite'}
+            className={`pointer-events-auto flex w-full max-w-md items-center gap-3 rounded-[1.15rem] border px-4 py-3 text-sm shadow-2xl backdrop-blur-2xl ${irrigationActionFeedback.type === 'error' ? 'border-rose-500/35 bg-rose-950/85 text-rose-50' : 'border-amber-400/35 bg-neutral-950/85 text-white'}`}
+          >
+            <TriangleAlert className={`h-4 w-4 shrink-0 ${irrigationActionFeedback.type === 'error' ? 'text-rose-300' : 'text-amber-300'}`} />
+            <p className="min-w-0 flex-1 font-medium leading-5">{irrigationActionFeedback.message}</p>
+            <button
+              type="button"
+              onClick={() => setIrrigationActionFeedback(null)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-white/75 transition-colors hover:bg-white/15 hover:text-white"
+              aria-label={t('irrigation.notify.dismiss')}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+      {runtimeMode !== 'demo' && irrigationCoreStatus === 'unavailable' ? (
+        <div className="mx-3 mt-3 hidden items-start gap-3 rounded-[1.25rem] border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)] md:mx-6 md:flex lg:mx-8 xl:mx-10">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <div><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.updateTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.core.updateDescription')}</p></div>
+        </div>
+      ) : null}
+      {runtimeMode !== 'demo' && irrigationCoreState?.legacyAutomations?.length > 0 ? (
+        <div className="mx-3 mt-3 hidden items-start gap-3 rounded-[1.25rem] border border-sky-500/25 bg-sky-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)] md:mx-6 md:flex lg:mx-8 xl:mx-10">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
+          <div className="min-w-0 flex-1"><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.legacyTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.core.legacyDescription', { count: irrigationCoreState.legacyAutomations.length })}</p><p className="mt-1 truncate text-[10px] font-medium">{irrigationCoreState.legacyAutomations.join(' · ')}</p><button type="button" onClick={() => setLegacyMigrationGuideOpen(true)} className="liquid-glass-control mt-3 min-h-9 rounded-full px-3 text-xs font-semibold">{t('irrigation.core.guideAction')}</button></div>
+        </div>
+      ) : null}
+      {runtimeMode !== 'demo' && irrigationCoreState?.mode === 'fault' ? (
+        <div role="alert" className="mx-3 mt-3 hidden items-start gap-3 rounded-[1.25rem] border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)] md:mx-6 md:flex lg:mx-8 xl:mx-10">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
+          <div><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.faultTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.core.faultDescription')}</p></div>
+        </div>
+      ) : null}
       {activeWorkspaceSection === 'configuration' ? (
         <IrrigationConfigurationPage
           config={irrigationConfigurationDraft}
           canConfigure={canConfigureApps}
           status={configurationStatus}
           revision={configurationRevision}
+          activeSessionCount={irrigationCoreState?.sessions?.length ?? 0}
           hasUnsavedChanges={hasUnsavedConfigurationChanges}
           binarySensorOptions={binarySensorOptions}
           weatherOptions={weatherOptions}
           sensorOptions={sensorOptions}
           zoneEntityOptions={zoneEntityOptions}
           entityStates={haStates}
+          allowDemoActuators={runtimeMode === 'demo'}
           onFieldChange={updateConfigurationDraftField}
           onApplySuggestedConfiguration={applySuggestedIrrigationConfiguration}
           onSave={() => {
@@ -2777,6 +3041,7 @@ function IrrigationDashboardView({
           canConfigure={canConfigureApps}
           status={configurationStatus}
           hasUnsavedChanges={hasUnsavedConfigurationChanges}
+          activeSessionCount={irrigationCoreState?.sessions?.length ?? 0}
           sensorOptions={sensorOptions}
           zoneEntityOptions={zoneEntityOptions}
           entityStates={haStates}
@@ -2885,6 +3150,7 @@ function IrrigationDashboardView({
               masterTitle={masterTitle}
               masterIsRunning={masterIsRunning}
               masterIsStopped={masterIsStopped}
+              masterIsPaused={masterIsPaused}
               temperature={outdoorTempValue}
               humidity={humidityValue}
               rainProbability={rainForecastProbability}
@@ -2893,6 +3159,7 @@ function IrrigationDashboardView({
               rainSummaryDescription={rainSummaryDescription}
               rainSensorEnabled={rainSensorEnabled}
               rainSensorSyncing={isRainSensorSyncing}
+              rainSensorEditable={canConfigureApps}
               onRainSensorToggle={() => {
                 void handleRainSensorToggle();
               }}
@@ -2922,11 +3189,30 @@ function IrrigationDashboardView({
             style={{ opacity: 'calc(var(--irrigation-scroll-progress) * 0.96)' }}
           /> : null}
 
-          {activeWorkspaceSection === 'overview' ? <div className="relative z-10 mx-3 mb-3 md:hidden">
+          {activeWorkspaceSection === 'overview' ? <div className="relative z-10 mx-3 mb-3 space-y-3 md:hidden">
+            {runtimeMode !== 'demo' && irrigationCoreStatus === 'unavailable' ? (
+              <section className="relative rounded-[1.55rem] border border-amber-500/30 bg-amber-500/[0.09] p-4 text-[color:var(--ui-text-secondary)] shadow-[var(--ui-shadow-card)]">
+                <TriangleAlert className="absolute right-4 top-4 h-4 w-4 text-amber-600 dark:text-amber-300" />
+                <div className="min-w-0"><p className="pr-7 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.updateTitle')}</p><p className="mt-1 text-[11px] leading-4">{t('irrigation.core.updateDescription')}</p></div>
+              </section>
+            ) : null}
+            {runtimeMode !== 'demo' && irrigationCoreState?.legacyAutomations?.length > 0 ? (
+              <section className="relative rounded-[1.55rem] border border-sky-500/30 bg-sky-500/[0.09] p-4 text-[color:var(--ui-text-secondary)] shadow-[var(--ui-shadow-card)]">
+                <TriangleAlert className="absolute right-4 top-4 h-4 w-4 text-sky-600 dark:text-sky-300" />
+                <div className="min-w-0"><p className="pr-7 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.legacyTitle')}</p><p className="mt-1 text-[11px] leading-4">{t('irrigation.core.legacyDescription', { count: irrigationCoreState.legacyAutomations.length })}</p><p className="mt-1 truncate text-[10px] font-medium">{irrigationCoreState.legacyAutomations.join(' · ')}</p><button type="button" onClick={() => setLegacyMigrationGuideOpen(true)} className="liquid-glass-control mt-3 min-h-9 rounded-full px-3 text-xs font-semibold">{t('irrigation.core.guideAction')}</button></div>
+              </section>
+            ) : null}
+            {runtimeMode !== 'demo' && irrigationCoreState?.mode === 'fault' ? (
+              <section role="alert" className="relative rounded-[1.55rem] border border-rose-500/30 bg-rose-500/[0.09] p-4 text-[color:var(--ui-text-secondary)] shadow-[var(--ui-shadow-card)]">
+                <TriangleAlert className="absolute right-4 top-4 h-4 w-4 text-rose-600 dark:text-rose-300" />
+                <div className="min-w-0"><p className="pr-7 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.faultTitle')}</p><p className="mt-1 text-[11px] leading-4">{t('irrigation.core.faultDescription')}</p></div>
+              </section>
+            ) : null}
             <IrrigationMobileOverview
               masterTitle={masterTitle}
               masterIsRunning={masterIsRunning}
               masterIsStopped={masterIsStopped}
+              masterIsPaused={masterIsPaused}
               temperature={outdoorTempValue}
               humidity={humidityValue}
               rainProbability={rainForecastProbability}
@@ -2935,6 +3221,7 @@ function IrrigationDashboardView({
               rainSummaryDescription={rainSummaryDescription}
               rainSensorEnabled={rainSensorEnabled}
               rainSensorSyncing={isRainSensorSyncing}
+              rainSensorEditable={canConfigureApps}
               onRainSensorToggle={() => {
                 void handleRainSensorToggle();
               }}
@@ -2990,6 +3277,14 @@ function IrrigationDashboardView({
             />
           ) : null}
 
+          {activeWorkspaceSection === 'activity' ? (
+            <IrrigationRouteHeader
+              eyebrow={t('irrigation.activity.eyebrow')}
+              title={t('irrigation.route.activityTitle')}
+              description={t('irrigation.route.activityDescription')}
+            />
+          ) : null}
+
         <motion.section
           variants={cardVariants}
           className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-4 ${isEditMode ? 'mx-3 mb-3 rounded-[2rem] border border-white/10 bg-[#071723] p-6 text-center text-white backdrop-blur-3xl md:mx-0 md:mb-0 lg:p-8' : 'mx-3 mb-3 md:mx-0 md:mb-0'}`}
@@ -3024,7 +3319,7 @@ function IrrigationDashboardView({
               </label>
             </div>
           ) : (
-            <div className="h-full xl:grid xl:grid-rows-2 xl:gap-5">
+            <div className="h-full xl:grid xl:h-[28rem] xl:min-h-0 xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-5">
               <IrrigationMoistureCard value={moisturePct} description={moistureText} />
               <div className="hidden min-h-0 xl:block">
                 <IrrigationScheduleSnapshotCard
@@ -3052,12 +3347,23 @@ function IrrigationDashboardView({
           className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} mx-3 mb-3 md:mx-0 md:mb-0 xl:col-span-4`}
         >
           <IrrigationConsumptionSnapshotCard
-            usage={waterUsageLiters}
-            average={waterAverageLiters}
-            savingsLabel={savingsLabel}
-            positiveSavings={isPositiveSavings}
-            bars={WATER_USAGE_BARS}
+            usage={consumptionTotalLiters}
+            average={consumptionReferenceLiters}
+            savingsLabel={consumptionSnapshotComparisonLabel}
+            positiveSavings={hasPositiveConsumptionComparison}
+            bars={consumptionSnapshotBars}
+            loading={consumptionHistory.status === 'loading'}
             onOpen={() => handleWorkspaceNavigation('usage')}
+          />
+        </motion.section>
+
+        <motion.section
+          variants={cardVariants}
+          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} mx-3 mb-3 md:mx-0 md:mb-0 xl:col-span-12`}
+        >
+          <IrrigationActivitySnapshotCard
+            items={irrigationActivityItems}
+            onOpen={() => handleWorkspaceNavigation('activity')}
           />
         </motion.section>
 
@@ -3420,6 +3726,14 @@ function IrrigationDashboardView({
             onManageZones={canConfigureApps ? () => handleWorkspaceNavigation('zonesManagement') : undefined}
           />
         </motion.section>
+
+        <motion.section
+          id="irrigation-activity"
+          variants={cardVariants}
+          className={`scroll-mt-5 ${activeWorkspaceSection !== 'activity' ? 'hidden' : ''} xl:col-span-12`}
+        >
+          <IrrigationActivityPage items={irrigationActivityItems} />
+        </motion.section>
         </div>
       </motion.div>
 
@@ -3491,6 +3805,7 @@ function ComingSoonPortalView({ view, onNavigate = navigateTo }) {
  * @property {string=} haToken
  * @property {(domain: string, service: string, serviceData?: Record<string, unknown>) => Promise<unknown>} [onCallService]
  * @property {(message: Record<string, unknown>, options?: { reportError?: boolean }) => Promise<unknown>} [onCallApi]
+ * @property {(message: Record<string, unknown>, callback: (event: unknown) => void) => Promise<() => void>} [onSubscribeApi]
  * @property {(notification: unknown) => void} [onNotify]
  * @property {(path: string) => void} [onNavigate]
  */
@@ -3511,6 +3826,7 @@ export function AppGallery({
   haToken = '',
   onCallService,
   onCallApi,
+  onSubscribeApi,
   onNotify,
   onNavigate: externalOnNavigate,
 } = {}) {
@@ -3578,6 +3894,7 @@ export function AppGallery({
           haToken={haToken}
           onCallService={onCallService}
           onCallApi={onCallApi}
+          onSubscribeApi={onSubscribeApi}
           onNotify={onNotify}
           navigationRoute={navigationRoute}
           onNavigate={handleNavigate}

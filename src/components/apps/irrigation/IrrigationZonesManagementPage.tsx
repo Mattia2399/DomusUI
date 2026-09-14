@@ -35,6 +35,7 @@ type IrrigationZonesManagementPageProps = {
   canConfigure: boolean;
   status: ConfigurationStatus;
   hasUnsavedChanges: boolean;
+  activeSessionCount?: number;
   sensorOptions: string[];
   zoneEntityOptions: string[];
   entityStates: Record<string, IrrigationEntityState>;
@@ -59,6 +60,7 @@ export function IrrigationZonesManagementPage({
   canConfigure,
   status,
   hasUnsavedChanges,
+  activeSessionCount = 0,
   sensorOptions,
   zoneEntityOptions,
   entityStates,
@@ -111,6 +113,13 @@ export function IrrigationZonesManagementPage({
       {!canConfigure ? (
         <div className="mt-5 flex items-start gap-3 rounded-[1.4rem] border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)]">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />{t('irrigation.zones.readOnly')}
+        </div>
+      ) : null}
+
+      {activeSessionCount > 0 ? (
+        <div role="status" className="mt-3 flex items-start gap-3 rounded-[1.4rem] border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)]">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <div><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.zones.activeNoticeTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.zones.activeNoticeDescription')}</p></div>
         </div>
       ) : null}
 

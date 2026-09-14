@@ -28,6 +28,7 @@ export type SettingsDataBackupSectionProps = {
   onDownloadBackup: () => void;
   onRestoreBackup: (file: File) => Promise<void>;
   onResetAll: (reportProgress?: DashboardResetProgressReporter) => Promise<void>;
+  onRestoreStarterTemplate?: () => Promise<void>;
   onOpenLayoutVersions?: () => void;
   enterpriseControlsEnabled?: boolean;
   dashboardDeviceId?: string;
@@ -59,6 +60,7 @@ export function SettingsDataBackupSection({
   onDownloadBackup,
   onRestoreBackup,
   onResetAll,
+  onRestoreStarterTemplate,
   onOpenLayoutVersions,
   enterpriseControlsEnabled = false,
   dashboardDeviceId,
@@ -76,6 +78,7 @@ export function SettingsDataBackupSection({
   const sensitiveGate = useSensitiveActionGate();
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [isActionBusy, setIsActionBusy] = useState(false);
   const [resetStage, setResetStage] = useState<DashboardResetStage | null>(null);
   const [deviceLayoutFeedback, setDeviceLayoutFeedback] = useState<ActionFeedback>({
@@ -185,6 +188,29 @@ export function SettingsDataBackupSection({
       await onResetAll(setResetStage);
     } catch (error) {
       setResetStage(null);
+      setActionError(normalizeError(error, t('settings.connection.operationFailed')));
+    } finally {
+      setIsActionBusy(false);
+    }
+  };
+
+  const handleRestoreStarterTemplate = async () => {
+    if (!onRestoreStarterTemplate || !dashboardSecurity.can('restore_backup')) return;
+    const authorized = await sensitiveGate.authorize({
+      action: 'restore_backup',
+      capability: 'restore_backup',
+      title: t('settings.backup.starterPrompt'),
+      description: t('settings.backup.starterPromptDescription'),
+    });
+    if (!authorized) return;
+
+    setActionError(null);
+    setActionSuccess(null);
+    setIsActionBusy(true);
+    try {
+      await onRestoreStarterTemplate();
+      setActionSuccess(t('settings.backup.starterRestored'));
+    } catch (error) {
       setActionError(normalizeError(error, t('settings.connection.operationFailed')));
     } finally {
       setIsActionBusy(false);
@@ -414,6 +440,24 @@ export function SettingsDataBackupSection({
       ) : null}
 
       <div className={`mt-4 ${settingsGroupClass}`}>
+        {dashboardSecurity.can('restore_backup') && onRestoreStarterTemplate ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void handleRestoreStarterTemplate()}
+              disabled={isActionBusy}
+              className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
+            >
+              {renderSettingsIcon(Route)}
+              <div className="min-w-0 flex-1">
+                <p className={settingsTitleClass}>{t('settings.backup.starterTitle')}</p>
+                <p className={settingsSubtitleClass}>{t('settings.backup.starterDescription')}</p>
+              </div>
+              <ChevronRight size={16} className={subtleTextClass} />
+            </button>
+            <div className={settingsDividerClass} />
+          </>
+        ) : null}
         {dashboardSecurity.can('edit_dashboard') && onOpenLayoutVersions ? (
           <>
             <button
@@ -497,6 +541,7 @@ export function SettingsDataBackupSection({
       />
 
       {actionError ? <p className={`mt-3 ${errorTextClass}`}>{actionError}</p> : null}
+      {actionSuccess ? <p className="mt-3 text-xs text-emerald-500">{actionSuccess}</p> : null}
 
       <GlassModal
         isOpen={resetStage !== null}

@@ -8,6 +8,9 @@ const config: IrrigationConfigurationModel = {
   rainSensorEnabled: true,
   blockOnRainSensorUnavailable: true,
   maximumManualDurationMin: 30,
+  maxConcurrentZones: 1,
+  parallelSafetyAcknowledged: false,
+  rainDuringCycle: 'stop_immediately',
   rainSensorEntityId: 'binary_sensor.rain',
   weatherEntityId: 'weather.home',
   humidityEntityId: 'sensor.humidity',
@@ -55,7 +58,7 @@ describe('IrrigationConfigurationPage', () => {
 
     expect(screen.getByRole('heading', { name: 'Impostazioni irrigazione' })).toBeTruthy();
     expect(screen.getByText('7/7')).toBeTruthy();
-    expect(screen.getByText('1/1')).toBeTruthy();
+    expect(screen.getAllByText('1/1').length).toBeGreaterThan(0);
     expect(screen.getByRole('slider', { name: 'Durata massima irrigazione manuale' }).getAttribute('max')).toBe('60');
     expect(screen.getByTestId('irrigation-mobile-save-dock').className).toContain('fixed');
 
@@ -108,5 +111,27 @@ describe('IrrigationConfigurationPage', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Salva configurazione' })[0]!);
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText(/problemi da correggere/)).toBeTruthy();
+  });
+
+  it('changes the concurrent-zone limit with explicit stepper controls', () => {
+    const onFieldChange = vi.fn();
+    renderPage({
+      config: {
+        ...config,
+        zones: [
+          config.zones[0]!,
+          { ...config.zones[0]!, id: 'terrace', name: 'Terrazzo', entityId: 'switch.terrace' },
+        ],
+      },
+      zoneEntityOptions: ['switch.garden', 'switch.terrace'],
+      entityStates: {
+        'switch.garden': { state: 'off', rawAttributes: { friendly_name: 'Giardino' } },
+        'switch.terrace': { state: 'off', rawAttributes: { friendly_name: 'Terrazzo' } },
+      },
+      onFieldChange,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aumenta zone simultanee' }));
+    expect(onFieldChange).toHaveBeenCalledWith('maxConcurrentZones', 2);
   });
 });

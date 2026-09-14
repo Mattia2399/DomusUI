@@ -35,6 +35,7 @@ const baseProps = {
   onDownloadBackup: vi.fn(),
   onRestoreBackup: vi.fn(async () => undefined),
   onResetAll: vi.fn(async () => undefined),
+  onRestoreStarterTemplate: undefined as (() => Promise<void>) | undefined,
   onOpenLayoutVersions: undefined as (() => void) | undefined,
 };
 
@@ -113,6 +114,19 @@ describe('SettingsDataBackupSection', () => {
     fireEvent.click(confirmButton);
 
     await waitFor(() => expect(onResetAll).toHaveBeenCalledTimes(1));
+  });
+
+  it('restores the starter template only after sensitive confirmation', async () => {
+    const onRestoreStarterTemplate = vi.fn(async () => undefined);
+    renderSection({ props: { onRestoreStarterTemplate } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Ripristina layout iniziale/ }));
+    expect(await screen.findByRole('heading', { name: 'Ripristinare il layout iniziale?' })).toBeTruthy();
+    expect(onRestoreStarterTemplate).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Conferma' }));
+    await waitFor(() => expect(onRestoreStarterTemplate).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('Layout iniziale ripristinato.')).toBeTruthy();
   });
 
   it('shows non-dismissible reset progress reported by the persistence layer', async () => {

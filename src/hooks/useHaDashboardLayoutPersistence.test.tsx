@@ -1,5 +1,5 @@
-import { act, renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useHaDashboardLayoutPersistence } from './useHaDashboardLayoutPersistence';
 import {
   createNextSharedHouseConfiguration,
@@ -37,6 +37,8 @@ function buildDocument(dashboard = buildDashboard()): SharedHouseConfiguration {
 }
 
 describe('useHaDashboardLayoutPersistence', () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -113,6 +115,7 @@ describe('useHaDashboardLayoutPersistence', () => {
     const onAuthoritativeReset = vi.fn();
     const { result } = renderHook(() => useHaDashboardLayoutPersistence({
       active: true,
+      autoSaveEnabled: false,
       isConnected: true,
       canManage: true,
       userId: 'owner',
@@ -586,6 +589,39 @@ describe('useHaDashboardLayoutPersistence', () => {
     expect(stored?.dashboard.sections[0]?.title).toBe('Local layout');
   });
 
+  it('can initialize HA with an explicitly supplied dashboard', async () => {
+    let stored: SharedHouseConfiguration | null = null;
+    let resetMarker: unknown = null;
+    const callApi = vi.fn(async (message: Record<string, unknown>) => {
+      if (message.type === 'frontend/get_system_data') {
+        return { value: message.key === HA_DASHBOARD_RESET_MARKER_KEY ? resetMarker : stored };
+      }
+      if (message.type === 'frontend/set_system_data') {
+        if (message.key === HA_DASHBOARD_RESET_MARKER_KEY) resetMarker = message.value;
+        else stored = message.value as SharedHouseConfiguration;
+        return undefined;
+      }
+      return null;
+    });
+    const { result } = renderHook(() => useHaDashboardLayoutPersistence({
+      active: true,
+      autoSaveEnabled: false,
+      isConnected: true,
+      canManage: true,
+      userId: 'owner',
+      callApi,
+      dashboard: buildDashboard('Local layout'),
+      onHydrate: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.loadStatus).toBe('migration_required'));
+    await act(async () => {
+      await expect(result.current.initializeDashboard(buildDashboard('Starter layout')))
+        .resolves.toMatchObject({ ok: true });
+    });
+    expect(stored?.dashboard.sections[0]?.title).toBe('Starter layout');
+  });
+
   it('keeps edits local until saveNow when continuous autosave is disabled', async () => {
     let stored = buildDocument();
     let storedHistory: unknown = null;
@@ -631,6 +667,47 @@ describe('useHaDashboardLayoutPersistence', () => {
     });
     expect(stored.dashboard.sections[0]?.title).toBe('Draft');
     expect(callApi.mock.calls.some(([message]) => message.type === 'frontend/set_system_data')).toBe(true);
+  });
+
+  it('persists an explicitly empty dashboard without waiting for React state', async () => {
+    let stored = buildDocument(buildDashboard('Existing dashboard'));
+    let storedHistory: unknown = null;
+    const callApi = vi.fn(async (message: Record<string, unknown>) => {
+      if (message.type === 'frontend/get_system_data') {
+        return { value: message.key === HA_DASHBOARD_REVISION_HISTORY_KEY ? storedHistory : stored };
+      }
+      if (message.type === 'frontend/set_system_data') {
+        if (message.key === HA_DASHBOARD_REVISION_HISTORY_KEY) storedHistory = message.value;
+        else stored = message.value as SharedHouseConfiguration;
+        return undefined;
+      }
+      return null;
+    });
+    const { result } = renderHook(() => useHaDashboardLayoutPersistence({
+      active: true,
+      autoSaveEnabled: false,
+      isConnected: true,
+      canManage: true,
+      userId: 'owner',
+      callApi,
+      dashboard: buildDashboard('Local dashboard'),
+      onHydrate: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    const emptyDashboard: DashboardLayoutConfiguration = {
+      ...buildDashboard(),
+      sections: [],
+      widgets: [],
+    };
+
+    await act(async () => {
+      await expect(result.current.saveDashboard(emptyDashboard)).resolves.toMatchObject({ ok: true });
+    });
+
+    expect(stored.revision).toBe(2);
+    expect(stored.dashboard.sections).toEqual([]);
+    expect(stored.dashboard.widgets).toEqual([]);
   });
 
   it('restores an archived layout as a new increasing revision', async () => {

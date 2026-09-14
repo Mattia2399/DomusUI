@@ -73,6 +73,8 @@ import {
 import { OnboardingOrganizer } from './OnboardingOrganizer';
 import { useI18n } from '../../i18n/I18nProvider';
 import { translateOnboarding, type OnboardingTranslationKey } from '../../i18n/onboardingTranslations';
+import { createStarterDashboardTemplate } from '../../templates/starterDashboardTemplate';
+import { saveDashboardLayout } from '../../services/dashboardStorage';
 
 const HA_OAUTH_CALLBACK_PARAM = 'ha_oauth_callback';
 const HA_OAUTH_SESSION_STATE_KEY = 'ha.dashboard.oauth.state';
@@ -304,6 +306,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
   const [scanStage, setScanStage] = useState(() => ot('scan.stage.secure'));
   const [scanProbeError, setScanProbeError] = useState<string | null>(null);
   const [scanRetryKey, setScanRetryKey] = useState(0);
+  const [templateSaveError, setTemplateSaveError] = useState<string | null>(null);
   const oauthExchangePromiseRef = useRef<ReturnType<typeof exchangeHaOAuthCode> | null>(null);
   const connection = useHaLiveConnection({ url: hassUrl, token: '' });
   const panelConnection = useHaPanelBridgeConnection();
@@ -341,6 +344,25 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
       },
       onJourneyChange,
     );
+  };
+
+  const openPreparedDashboard = () => {
+    const template = createStarterDashboardTemplate('real', latestHaStatesRef.current);
+    const saved = saveDashboardLayout(
+      template.sections,
+      template.widgets,
+      {},
+      template.responsiveLayouts,
+      {},
+      'real',
+    );
+    if (!saved.ok) {
+      setTemplateSaveError(ot('complete.templateError'));
+      return;
+    }
+    setTemplateSaveError(null);
+    persistJourney({ ...journey, phase: 'done', mode: 'real' }, onJourneyChange);
+    navigateInsideApp('/home');
   };
 
   const returnToConnection = () => {
@@ -1036,7 +1058,8 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
   return (
     <WizardShell stepIndex={4} stepLabel={ot('complete.label')} title={ot('complete.title')} description={ot('complete.description')} compact>
       <div className="onboarding-card flex flex-col items-center px-5 py-8 text-center"><span className="flex h-20 w-20 items-center justify-center rounded-full border border-emerald-200/24 bg-emerald-400/14 text-emerald-100 shadow-[0_20px_70px_rgba(16,185,129,0.18)]"><Check size={34} /></span><div className="mt-6 text-lg font-semibold text-[color:var(--ui-text-primary)]">{ot('complete.connected')}</div><div className="mt-2 max-w-sm text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('complete.builder')}</div></div>
-      <WizardActions><SetupActionButton onClick={() => { persistJourney({ ...journey, phase: 'done', mode: 'real' }, onJourneyChange); navigateInsideApp('/home'); }}>{ot('complete.open')}</SetupActionButton></WizardActions>
+      {templateSaveError ? <SetupNotice icon={<RefreshCw size={16} />} tone="danger">{templateSaveError}</SetupNotice> : null}
+      <WizardActions><SetupActionButton onClick={openPreparedDashboard}>{ot('complete.open')}</SetupActionButton></WizardActions>
     </WizardShell>
   );
 }

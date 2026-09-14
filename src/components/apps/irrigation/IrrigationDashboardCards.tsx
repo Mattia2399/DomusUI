@@ -10,6 +10,7 @@ import {
   Pause,
   Play,
   Plus,
+  Settings,
   Settings2,
   Square,
   Thermometer,
@@ -27,14 +28,16 @@ type IrrigationHeroProps = {
   masterTitle: string;
   masterIsRunning: boolean;
   masterIsStopped: boolean;
-  temperature: number;
-  humidity: number;
+  masterIsPaused: boolean;
+  temperature: number | null;
+  humidity: number | null;
   rainProbability?: number;
   rainStatusLabel: string;
   rainSummaryTitle: string;
   rainSummaryDescription: string;
   rainSensorEnabled: boolean;
   rainSensorSyncing: boolean;
+  rainSensorEditable?: boolean;
   onRainSensorToggle: () => void;
   onPrimaryAction: () => void;
   onStop: () => void;
@@ -44,6 +47,7 @@ export function IrrigationHero({
   masterTitle,
   masterIsRunning,
   masterIsStopped,
+  masterIsPaused,
   temperature,
   humidity,
   rainProbability,
@@ -52,6 +56,7 @@ export function IrrigationHero({
   rainSummaryDescription,
   rainSensorEnabled,
   rainSensorSyncing,
+  rainSensorEditable = true,
   onRainSensorToggle,
   onPrimaryAction,
   onStop,
@@ -60,7 +65,7 @@ export function IrrigationHero({
   return (
     <div
       data-testid="irrigation-progressive-hero"
-      className="relative flex h-[52svh] min-h-[25rem] max-h-[28.75rem] flex-col overflow-hidden rounded-none text-white md:h-auto md:max-h-none md:min-h-[28rem] md:rounded-[2rem]"
+      className="relative flex h-[40svh] min-h-[20.5rem] max-h-[22.5rem] flex-col overflow-hidden rounded-none text-white md:h-auto md:max-h-none md:min-h-[28rem] md:rounded-[2rem]"
     >
       <img
         src={IRRIGATION_HERO_IMAGE}
@@ -97,15 +102,15 @@ export function IrrigationHero({
             <p className="mt-2 line-clamp-1 text-xs text-white/72 sm:text-sm">{rainSummaryTitle}</p>
           </div>
           <div className="shrink-0 text-right">
-            <p className="text-[2.55rem] font-light leading-none tracking-[-0.06em] sm:text-5xl">{`${temperature.toFixed(0)}°`}</p>
+            <p className="text-[2.55rem] font-light leading-none tracking-[-0.06em] sm:text-5xl">{temperature === null ? 'N/D' : `${temperature.toFixed(0)}°`}</p>
             <p className="mt-1 text-[11px] font-medium text-white/75">{rainStatusLabel}</p>
           </div>
         </div>
 
         <div className="mt-auto hidden pt-5 md:block">
           <div className="grid grid-cols-3 gap-2">
-            <HeroMetric icon={Thermometer} label={t('irrigation.metric.temperature')} value={`${temperature.toFixed(1)}°C`} />
-            <HeroMetric icon={Droplets} label={t('irrigation.metric.humidity')} value={`${humidity}%`} />
+            <HeroMetric icon={Thermometer} label={t('irrigation.metric.temperature')} value={temperature === null ? 'N/D' : `${temperature.toFixed(1)}°C`} />
+            <HeroMetric icon={Droplets} label={t('irrigation.metric.humidity')} value={humidity === null ? 'N/D' : `${humidity}%`} />
             <HeroMetric icon={CloudRain} label={t('irrigation.metric.rain')} value={rainProbability === undefined ? 'N/D' : `${rainProbability}%`} />
           </div>
 
@@ -113,7 +118,13 @@ export function IrrigationHero({
           <div className="order-1 min-w-0 flex-1 px-1">
             <p className="truncate text-sm font-semibold">{masterTitle}</p>
             <p className="mt-0.5 truncate text-[10px] text-white/60">
-              {masterIsRunning ? t('irrigation.manual.running') : t('irrigation.manual.ready')}
+              {masterIsRunning
+                ? t('irrigation.manual.running')
+                : masterIsPaused
+                  ? t('irrigation.manual.paused')
+                  : masterIsStopped
+                    ? t('irrigation.manual.stopped')
+                    : t('irrigation.manual.ready')}
             </p>
           </div>
           <div className="order-4 mt-1 flex w-full items-center justify-between gap-3 border-t border-white/12 pt-3">
@@ -127,6 +138,7 @@ export function IrrigationHero({
               checked={rainSensorEnabled}
               label={t('irrigation.rain.toggle')}
               onChange={onRainSensorToggle}
+              disabled={!rainSensorEditable}
               busy={rainSensorSyncing}
               size="compact"
             />
@@ -146,7 +158,7 @@ export function IrrigationHero({
             onClick={onPrimaryAction}
             aria-pressed={masterIsRunning}
             className="order-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-lime-100/40 bg-lime-300 text-[#16320d] shadow-[0_8px_24px_rgba(163,230,53,0.3)] transition-transform active:scale-95"
-            aria-label={masterIsRunning ? t('irrigation.action.pause') : t('irrigation.action.start')}
+            aria-label={masterIsRunning ? t('irrigation.action.pause') : masterIsPaused ? t('irrigation.action.resume') : t('irrigation.action.start')}
           >
             {masterIsRunning ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
           </button>
@@ -165,11 +177,13 @@ export function IrrigationMobileOverview({
   masterTitle,
   masterIsRunning,
   masterIsStopped,
+  masterIsPaused,
   temperature,
   humidity,
   rainProbability,
   rainSensorEnabled,
   rainSensorSyncing,
+  rainSensorEditable = true,
   onRainSensorToggle,
   onPrimaryAction,
   onStop,
@@ -179,40 +193,49 @@ export function IrrigationMobileOverview({
   return (
     <div data-testid="irrigation-mobile-overview" className="space-y-3 md:hidden">
       <section className="rounded-[1.55rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-4 text-[color:var(--ui-text-primary)] shadow-[var(--ui-shadow-card)]">
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <p className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.system')}</p>
-              {onConfigure ? (
-                <button type="button" onClick={onConfigure} className="liquid-glass-control flex h-8 w-8 shrink-0 items-center justify-center rounded-full" aria-label={t('irrigation.configure')}>
-                  <Settings2 className="h-3.5 w-3.5" />
-                </button>
-              ) : null}
-            </div>
-            <h2 className="mt-1 truncate text-lg font-semibold tracking-[-0.03em]">{masterTitle}</h2>
-            <p className="mt-0.5 truncate text-[10px] text-[color:var(--ui-text-secondary)]">
-              {masterIsRunning ? t('irrigation.manual.running') : t('irrigation.manual.ready')}
-            </p>
-          </div>
-          {!masterIsStopped ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-rose-400/25 bg-rose-500/85 text-white shadow-[0_8px_22px_rgba(190,24,93,0.2)] transition-transform active:scale-95"
-              aria-label={t('irrigation.action.stop')}
-            >
-              <Square className="h-4 w-4" fill="currentColor" />
+        <div className="flex items-center justify-between gap-3">
+          <p className="min-w-0 flex-1 truncate text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.system')}</p>
+          {onConfigure ? (
+            <button type="button" onClick={onConfigure} className="liquid-glass-control flex h-8 w-8 shrink-0 items-center justify-center rounded-full" aria-label={t('irrigation.configure')}>
+              <Settings className="h-3.5 w-3.5" />
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={onPrimaryAction}
-            aria-pressed={masterIsRunning}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-lime-500/30 bg-lime-400 text-[#16320d] shadow-[0_8px_24px_rgba(132,204,22,0.24)] transition-transform active:scale-95"
-            aria-label={masterIsRunning ? t('irrigation.action.pause') : t('irrigation.action.start')}
-          >
-            {masterIsRunning ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
-          </button>
+        </div>
+
+        <div className="mt-1.5 flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="mt-1 truncate text-lg font-semibold tracking-[-0.03em]">{masterTitle}</h2>
+            <p className="mt-0.5 truncate text-[10px] text-[color:var(--ui-text-secondary)]">
+              {masterIsRunning
+                ? t('irrigation.manual.running')
+                : masterIsPaused
+                  ? t('irrigation.manual.paused')
+                  : masterIsStopped
+                    ? t('irrigation.manual.stopped')
+                  : t('irrigation.manual.ready')}
+            </p>
+          </div>
+          <div className="flex shrink-0 translate-y-1 items-center gap-2">
+            {!masterIsStopped ? (
+              <button
+                type="button"
+                onClick={onStop}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-rose-400/25 bg-rose-500/85 text-white shadow-[0_8px_22px_rgba(190,24,93,0.2)] transition-transform active:scale-95"
+                aria-label={t('irrigation.action.stop')}
+              >
+                <Square className="h-4 w-4" fill="currentColor" />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={onPrimaryAction}
+              aria-pressed={masterIsRunning}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-lime-500/30 bg-lime-400 text-[#16320d] shadow-[0_8px_24px_rgba(132,204,22,0.24)] transition-transform active:scale-95"
+              aria-label={masterIsRunning ? t('irrigation.action.pause') : masterIsPaused ? t('irrigation.action.resume') : t('irrigation.action.start')}
+            >
+              {masterIsRunning ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
+            </button>
+          </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-[color:var(--ui-separator)] pt-3">
@@ -226,6 +249,7 @@ export function IrrigationMobileOverview({
             checked={rainSensorEnabled}
             label={t('irrigation.rain.toggle')}
             onChange={onRainSensorToggle}
+            disabled={!rainSensorEditable}
             busy={rainSensorSyncing}
             size="compact"
           />
@@ -233,8 +257,8 @@ export function IrrigationMobileOverview({
       </section>
 
       <div className="grid grid-cols-3 gap-2">
-        <SheetMetric icon={Thermometer} label={t('irrigation.metric.temperature')} value={`${temperature.toFixed(1)}°C`} />
-        <SheetMetric icon={Droplets} label={t('irrigation.metric.humidity')} value={`${humidity}%`} />
+        <SheetMetric icon={Thermometer} label={t('irrigation.metric.temperature')} value={temperature === null ? 'N/D' : `${temperature.toFixed(1)}°C`} />
+        <SheetMetric icon={Droplets} label={t('irrigation.metric.humidity')} value={humidity === null ? 'N/D' : `${humidity}%`} />
         <SheetMetric icon={CloudRain} label={t('irrigation.metric.rain')} value={rainProbability === undefined ? 'N/D' : `${rainProbability}%`} />
       </div>
     </div>
@@ -262,21 +286,22 @@ function HeroMetric({ icon: Icon, label, value }: { icon: LucideIcon; label: str
 }
 
 type MoistureCardProps = {
-  value: number;
+  value: number | null;
   description: string;
 };
 
 export function IrrigationMoistureCard({ value, description }: MoistureCardProps) {
   const { t } = useI18n();
-  const tone = value < 35 ? '#f59e0b' : value > 70 ? '#22c55e' : '#84cc16';
+  const tone = value === null ? 'var(--ui-text-tertiary)' : value < 35 ? '#f59e0b' : value > 70 ? '#22c55e' : '#84cc16';
+  const gaugeValue = value ?? 0;
   return (
     <div className="flex h-full items-center gap-4 rounded-[1.65rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-4 text-[color:var(--ui-text-primary)] shadow-[var(--ui-shadow-card)] sm:p-5">
       <div
         className="relative flex h-[5.25rem] w-[5.25rem] shrink-0 items-center justify-center rounded-full"
-        style={{ background: `conic-gradient(${tone} ${value * 3.6}deg, var(--ui-fill-secondary) 0deg)` }}
+        style={{ background: `conic-gradient(${tone} ${gaugeValue * 3.6}deg, var(--ui-fill-secondary) 0deg)` }}
       >
         <span className="absolute inset-[7px] rounded-full bg-[color:var(--ui-surface-primary)]" />
-        <span className="relative text-lg font-semibold tracking-[-0.04em]">{value}%</span>
+        <span className="relative text-lg font-semibold tracking-[-0.04em]">{value === null ? 'N/D' : `${value}%`}</span>
       </div>
       <div className="min-w-0">
         <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.soil.health')}</p>
@@ -298,6 +323,7 @@ export type IrrigationZoneCardModel = {
   maximumManualDurationMin?: number;
   manualRemainingSeconds: number;
   isManualActive: boolean;
+  manualSessionState?: 'queued' | 'opening' | 'running' | 'closing' | 'paused';
   isCommandPending?: boolean;
   entityId: string;
 };
@@ -318,6 +344,10 @@ export function IrrigationZoneCard({ zone, onProgram, onDurationChange, onManual
   const incomplete = !zone.entityId;
   const accent = isAlert ? '#fb7185' : isScheduled ? '#f59e0b' : '#65a30d';
   const progress = zone.isManualActive ? zone.progress : isActive ? Math.max(12, zone.progress) : 0;
+  const hasSession = zone.isManualActive;
+  const remainingMinutes = Math.floor(zone.manualRemainingSeconds / 60);
+  const remainingSeconds = Math.max(0, zone.manualRemainingSeconds % 60);
+  const remainingLabel = `${remainingMinutes}:${String(remainingSeconds).padStart(2, '0')}`;
 
   return (
     <article className="flex min-h-[12.25rem] flex-col rounded-[1.45rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-3.5 text-[color:var(--ui-text-primary)] shadow-[var(--ui-shadow-card)] sm:min-h-[13rem] sm:p-4">
@@ -348,11 +378,11 @@ export function IrrigationZoneCard({ zone, onProgram, onDurationChange, onManual
           <Clock3 className="h-3.5 w-3.5" />
         </button>
         <div className="flex h-9 min-w-0 flex-1 items-center justify-between rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-1">
-          <button type="button" onClick={() => onDurationChange(zone.manualDurationMin - 1)} disabled={zone.manualDurationMin <= 1 || isAlert} className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-30" aria-label={t('irrigation.zone.timerDecrease', { name: zone.name })}>
+          <button type="button" onClick={() => onDurationChange(zone.manualDurationMin - 1)} disabled={zone.manualDurationMin <= 1 || isAlert || hasSession} className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-30" aria-label={t('irrigation.zone.timerDecrease', { name: zone.name })}>
             <Minus className="h-3 w-3" />
           </button>
-          <span className="text-[10px] font-semibold tabular-nums">{zone.isManualActive ? `${Math.ceil(zone.manualRemainingSeconds / 60)}m` : `${zone.manualDurationMin}m`}</span>
-          <button type="button" onClick={() => onDurationChange(zone.manualDurationMin + 1)} disabled={zone.manualDurationMin >= (zone.maximumManualDurationMin ?? IRRIGATION_ABSOLUTE_MAX_DURATION_MIN) || isAlert} className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-30" aria-label={t('irrigation.zone.timerIncrease', { name: zone.name })}>
+          <span className="text-[10px] font-semibold tabular-nums">{hasSession ? remainingLabel : `${zone.manualDurationMin}m`}</span>
+          <button type="button" onClick={() => onDurationChange(zone.manualDurationMin + 1)} disabled={zone.manualDurationMin >= (zone.maximumManualDurationMin ?? IRRIGATION_ABSOLUTE_MAX_DURATION_MIN) || isAlert || hasSession} className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-30" aria-label={t('irrigation.zone.timerIncrease', { name: zone.name })}>
             <Plus className="h-3 w-3" />
           </button>
         </div>
@@ -361,7 +391,8 @@ export function IrrigationZoneCard({ zone, onProgram, onDurationChange, onManual
           onClick={onManualToggle}
           disabled={isAlert || incomplete || zone.isCommandPending}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-sm disabled:opacity-35 ${zone.isManualActive ? 'bg-rose-500' : 'bg-lime-600'}`}
-          aria-label={zone.isCommandPending ? t('irrigation.zone.pending', { name: zone.name }) : zone.isManualActive ? t('irrigation.zone.stop', { name: zone.name }) : t('irrigation.zone.start', { name: zone.name })}
+          aria-label={zone.isCommandPending ? t('irrigation.zone.pending', { name: zone.name }) : hasSession ? t('irrigation.zone.stopReset', { name: zone.name }) : t('irrigation.zone.start', { name: zone.name })}
+          title={hasSession ? t('irrigation.zone.stopReset', { name: zone.name }) : undefined}
         >
           {zone.isCommandPending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : zone.isManualActive ? <Square className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
         </button>
@@ -371,9 +402,9 @@ export function IrrigationZoneCard({ zone, onProgram, onDurationChange, onManual
 }
 
 type UsageCardProps = {
-  usage: number;
-  average: number;
-  savingsLabel: string;
+  usage: number | null;
+  average: number | null;
+  savingsLabel: string | null;
   positiveSavings: boolean;
   bars: readonly number[];
 };
@@ -496,6 +527,7 @@ export function IrrigationScheduleSnapshotCard({ items, onOpen }: ScheduleSnapsh
 
 type ConsumptionSnapshotCardProps = UsageCardProps & {
   onOpen: () => void;
+  loading?: boolean;
 };
 
 export function IrrigationConsumptionSnapshotCard({
@@ -505,6 +537,7 @@ export function IrrigationConsumptionSnapshotCard({
   positiveSavings,
   bars,
   onOpen,
+  loading = false,
 }: ConsumptionSnapshotCardProps) {
   const { t, formatNumber } = useI18n();
   return (
@@ -517,16 +550,18 @@ export function IrrigationConsumptionSnapshotCard({
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.usage.week')}</p>
-          <p className="mt-1 text-2xl font-semibold tracking-[-0.045em]">{formatNumber(usage)} L</p>
+          <p className="mt-1 text-2xl font-semibold tracking-[-0.045em]">{loading ? <span className="inline-block h-7 w-24 animate-pulse rounded-lg bg-[color:var(--ui-fill-secondary)]" aria-label={t('irrigation.consumption.loadingValue')} /> : usage === null ? 'N/D' : `${formatNumber(usage)} L`}</p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${positiveSavings ? 'bg-lime-500/14 text-lime-700 dark:text-lime-300' : 'bg-rose-500/14 text-rose-600 dark:text-rose-300'}`}>{savingsLabel}</span>
+        {savingsLabel ? <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${positiveSavings ? 'bg-lime-500/14 text-lime-700 dark:text-lime-300' : 'bg-rose-500/14 text-rose-600 dark:text-rose-300'}`}>{savingsLabel}</span> : null}
       </div>
 
-      <div className="mt-4 flex min-h-[4rem] flex-1 flex-col" aria-hidden="true">
+      <div className="mt-4 flex h-[4.75rem] shrink-0 flex-col" aria-hidden="true">
         <div className="flex min-h-0 flex-1 items-end gap-1.5">
-          {bars.map((value, index) => (
+          {loading ? [35, 58, 44, 76, 52, 68, 40].map((value, index) => (
+            <span key={`loading-${index}`} className="block min-w-0 flex-1 animate-pulse rounded-full bg-[color:var(--ui-fill-secondary)]" style={{ height: `${value}%` }} />
+          )) : bars.length ? bars.map((value, index) => (
             <span key={`${value}-${index}`} className="block min-w-0 flex-1 rounded-full bg-lime-500/25" style={{ height: `${Math.max(14, value)}%`, opacity: index === 3 ? 1 : 0.55 }} />
-          ))}
+          )) : <span className="m-auto text-[10px] text-[color:var(--ui-text-tertiary)]">N/D</span>}
         </div>
         <div className="mt-2 hidden grid-cols-7 text-center text-[8px] font-semibold text-[color:var(--ui-text-tertiary)] xl:grid">
           {['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
@@ -534,7 +569,7 @@ export function IrrigationConsumptionSnapshotCard({
       </div>
 
       <div className="mt-auto flex items-end justify-between gap-3 pt-3">
-        <div><p className="text-[10px] text-[color:var(--ui-text-tertiary)]">{t('irrigation.usage.averageWeek')}</p><p className="mt-0.5 text-xs font-semibold">{formatNumber(average)} L</p></div>
+        <div><p className="text-[10px] text-[color:var(--ui-text-tertiary)]">{t('irrigation.usage.averageWeek')}</p><p className="mt-0.5 text-xs font-semibold">{loading ? '—' : average === null ? 'N/D' : `${formatNumber(average)} L`}</p></div>
         <span className="text-[10px] font-semibold text-[color:var(--app-workspace-accent)]">{t('irrigation.usage.openDetail')}</span>
       </div>
     </button>
@@ -543,7 +578,7 @@ export function IrrigationConsumptionSnapshotCard({
 
 export function IrrigationUsageCard({ usage, average, savingsLabel, positiveSavings, bars }: UsageCardProps) {
   const { t, formatNumber } = useI18n();
-  const usageVsAverage = Math.max(
+  const usageVsAverage = usage === null || average === null ? null : Math.max(
     0,
     Math.min(999, Math.round((usage / Math.max(average, 1)) * 100)),
   );
@@ -552,12 +587,12 @@ export function IrrigationUsageCard({ usage, average, savingsLabel, positiveSavi
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.usage.weekly')}</p>
-          <p className="mt-1 text-2xl font-semibold tracking-[-0.04em]">{usageVsAverage}%</p>
+          <p className="mt-1 text-2xl font-semibold tracking-[-0.04em]">{usageVsAverage === null ? 'N/D' : `${usageVsAverage}%`}</p>
           <p className="text-[10px] text-[color:var(--ui-text-muted)]">{t('irrigation.usage.ofAverage')}</p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${positiveSavings ? 'bg-lime-500/14 text-lime-700 dark:text-lime-300' : 'bg-rose-500/14 text-rose-600 dark:text-rose-300'}`}>
+        {savingsLabel ? <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${positiveSavings ? 'bg-lime-500/14 text-lime-700 dark:text-lime-300' : 'bg-rose-500/14 text-rose-600 dark:text-rose-300'}`}>
           {savingsLabel}
-        </span>
+        </span> : null}
       </div>
       <div className="mt-4 flex h-14 items-end gap-1">
         {bars.map((value, index) => (
@@ -567,9 +602,9 @@ export function IrrigationUsageCard({ usage, average, savingsLabel, positiveSavi
       <div className="mt-3 flex items-end justify-between gap-3">
         <div>
           <p className="text-[10px] text-[color:var(--ui-text-tertiary)]">{t('irrigation.usage.water')}</p>
-          <p className="mt-0.5 text-lg font-semibold">{usage.toLocaleString('it-IT')} L</p>
+          <p className="mt-0.5 text-lg font-semibold">{usage === null ? 'N/D' : `${formatNumber(usage)} L`}</p>
         </div>
-        <p className="text-right text-[10px] text-[color:var(--ui-text-secondary)]">{t('irrigation.usage.averageWeek')}<br />{formatNumber(average)} L</p>
+        <p className="text-right text-[10px] text-[color:var(--ui-text-secondary)]">{t('irrigation.usage.averageWeek')}<br />{average === null ? 'N/D' : `${formatNumber(average)} L`}</p>
       </div>
     </div>
   );

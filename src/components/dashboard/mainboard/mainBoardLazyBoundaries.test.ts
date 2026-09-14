@@ -62,6 +62,7 @@ describe('MainBoard lazy boundaries', () => {
   it('loads rare dashboard overlays only when their flows are requested', () => {
     const overlayModules = [
       ['loadGuidedSetupOverlay', '../settings/GuidedSetupOverlay'],
+      ['loadStarterLayoutChoiceModal', '../onboarding/StarterLayoutChoiceModal'],
       ['loadSecurityAuthModal', '../security/SecurityAuthModal'],
       ['loadDashboardRecoveryModal', './DashboardRecoveryModal'],
     ];
@@ -96,5 +97,15 @@ describe('MainBoard lazy boundaries', () => {
       '<React.Suspense fallback={<SecondaryWorkspaceLoading />}>',
     );
     expect(mainBoardSource).toContain("description={t('home.loading.tools')}");
+  });
+
+  it('passes the live browser route to App Gallery', () => {
+    const appGalleryRender = mainBoardSource.slice(
+      mainBoardSource.indexOf('<AppGallery'),
+      mainBoardSource.indexOf('</div>', mainBoardSource.indexOf('<AppGallery')),
+    );
+
+    expect(appGalleryRender).toContain('navigationRoute={activeNavigationRoute}');
+    expect(appGalleryRender).not.toContain('navigationRoute={internalNavigationRoute}');
   });
 });

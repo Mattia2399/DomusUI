@@ -1,0 +1,33 @@
+start_irrigation_zone:
+  fields:
+    zone_id:
+      required: true
+      example: garden
+      selector:
+        text:
+    duration_min:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: min
+          mode: box
+    request_id:
+      required: false
+      selector:
+        text:
+
+stop_irrigation_zone:
+  fields:
+    zone_id:
+      required: true
+      example: garden
+      selector:
+        text:
+
+pause_irrigation: {}
+
+resume_irrigation: {}
+
+stop_all_irrigation: {}

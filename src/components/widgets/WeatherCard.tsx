@@ -1,11 +1,12 @@
 ﻿import React from 'react';
 import { CloudOff } from 'lucide-react';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
-import { getWeatherVisual } from '../../utils/weatherVisual';
 import type { ForecastDensity, WeatherSecondaryInfo } from '../../types/dashboardModels';
+import { getWeatherBackdrop, getWeatherConditionLabel } from '../../utils/weatherPresentation';
 import { AnimatedWeatherIcon } from './AnimatedWeatherIcon';
 import { useCardSize } from './useCardSize';
 import { useI18n } from '../../i18n/I18nProvider';
+import type { TranslationKey } from '../../i18n/translations';
 
 type WeatherCardProps = {
   weather: DashboardStateShape['weather'];
@@ -22,6 +23,7 @@ type WeatherCardProps = {
   forecastType?: 'daily' | 'hourly' | 'twice_daily';
   conditionOverride?: string;
   clampTypography?: boolean;
+  showAtmosphericBackground?: boolean;
 };
 
 type WeatherDisplayMode = 'chip' | 'card';
@@ -41,13 +43,15 @@ function normalizeForecastLabel(
   isDaytime: boolean | undefined,
   index: number,
   forecastType: 'daily' | 'hourly' | 'twice_daily',
+  locale: string,
+  t: (key: TranslationKey, parameters?: Record<string, string | number>) => string,
 ) {
   if (forecastType === 'hourly') {
     if (datetime) {
       const parsed = new Date(datetime);
       if (Number.isFinite(parsed.getTime())) {
         try {
-          return new Intl.DateTimeFormat('it-IT', { hour: '2-digit' }).format(parsed);
+          return new Intl.DateTimeFormat(locale, { hour: '2-digit' }).format(parsed);
         } catch {
           return `${String(parsed.getHours()).padStart(2, '0')}:00`;
         }
@@ -60,29 +64,41 @@ function normalizeForecastLabel(
       const parsed = new Date(datetime);
       if (Number.isFinite(parsed.getTime())) {
         try {
-          const day = new Intl.DateTimeFormat('it-IT', { weekday: 'short' }).format(parsed);
-          const slot = isDaytime === undefined ? '' : isDaytime ? ' Giorno' : ' Notte';
+          const day = new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(parsed);
+          const slot = isDaytime === undefined ? '' : isDaytime ? ` ${t('controls.weather.day')}` : ` ${t('controls.weather.night')}`;
           return `${day}${slot}`;
         } catch {
-          return isDaytime === false ? 'Notte' : 'Giorno';
+          return isDaytime === false ? t('controls.weather.night') : t('controls.weather.day');
         }
       }
     }
-    return isDaytime === false ? 'Notte' : index === 0 ? 'Oggi Giorno' : `Slot ${index + 1}`;
+    return isDaytime === false
+      ? t('controls.weather.night')
+      : index === 0
+        ? t('controls.weather.todayDay')
+        : t('controls.weather.slot', { count: index + 1 });
+  }
+  if (index === 0) return t('controls.weather.today');
+  if (datetime) {
+    const parsed = new Date(datetime);
+    if (Number.isFinite(parsed.getTime())) {
+      try {
+        return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(parsed);
+      } catch {
+        // Continue with the label supplied by Home Assistant.
+      }
+    }
   }
   const trimmed = (label ?? '').trim();
   if (trimmed.length > 0) {
-    return index === 0 ? 'Oggi' : trimmed.length > 4 ? trimmed.slice(0, 3) : trimmed;
-  }
-  if (index === 0) {
-    return 'Oggi';
+    return trimmed.length > 4 ? trimmed.slice(0, 3) : trimmed;
   }
   try {
     const day = new Date();
     day.setDate(day.getDate() + index);
-    return new Intl.DateTimeFormat('it-IT', { weekday: 'short' }).format(day);
+    return new Intl.DateTimeFormat(locale, { weekday: 'short' }).format(day);
   } catch {
-    return `G${index + 1}`;
+    return t('controls.weather.slot', { count: index + 1 });
   }
 }
 
@@ -156,8 +172,9 @@ export function WeatherCard({
   forecastType = 'daily',
   conditionOverride,
   clampTypography = false,
+  showAtmosphericBackground = true,
 }: WeatherCardProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { ref: cardRef, density: cardDensity, width: cardWidth, height: cardHeight, hasSize: hasCardSize } = useCardSize({
     tinyWidth: 270,
     tinyHeight: 165,
@@ -194,7 +211,7 @@ export function WeatherCard({
     );
   }
 
-  const visual = getWeatherVisual(condition);
+  const conditionLabel = getWeatherConditionLabel(condition, t);
   const displayTemp = unit === 'F' ? toFahrenheit(weather.temperature) : weather.temperature;
   const displayHigh = unit === 'F' ? toFahrenheit(weather.high) : weather.high;
   const displayLow = unit === 'F' ? toFahrenheit(weather.low) : weather.low;
@@ -239,7 +256,7 @@ export function WeatherCard({
         ? t('controls.weather.clouds', { value: Math.round(Math.max(0, cloudCoverageValue)) })
         : undefined,
     dew_point: dewPointValue !== undefined ? t('controls.weather.dewPoint', { value: Math.round(displayDewPoint) }) : undefined,
-    condition: showCondition && visual.label.trim().length > 0 ? visual.label : undefined,
+    condition: showCondition && conditionLabel.trim().length > 0 ? conditionLabel : undefined,
     range: rangeLabel,
   };
 
@@ -295,6 +312,12 @@ export function WeatherCard({
     overflow: 'hidden',
   };
   const forecastUnavailable = forecastEntries.length === 0;
+  const atmosphericClass = showAtmosphericBackground
+    ? 'weather-condition-visual weather-condition-card isolate rounded-[2rem]'
+    : '';
+  const atmosphere = showAtmosphericBackground
+    ? <div className="weather-condition-atmosphere" aria-hidden="true" />
+    : null;
 
   if (mode === 'chip') {
     const chipTempClass = isTinyCard ? 'text-[1.84rem]' : isCompactCard ? 'text-[2.08rem]' : 'text-[2.3rem]';
@@ -320,7 +343,8 @@ export function WeatherCard({
     const chipRowAlignClass = clampTypography ? 'justify-end min-[996px]:justify-start' : '';
     const chipTextAlignClass = clampTypography ? 'text-right min-[996px]:text-left' : '';
     return (
-      <div ref={cardRef} className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden flex items-center ${chipGapClass}`}>
+      <div ref={cardRef} className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden flex items-center ${chipGapClass} ${atmosphericClass} ${showAtmosphericBackground ? 'px-4 py-2.5' : ''}`} data-weather={showAtmosphericBackground ? getWeatherBackdrop(condition) : undefined}>
+        {atmosphere}
         <div className={`min-w-0 flex w-full flex-col justify-center ${chipContentAlignClass}`}>
           <div className={`min-w-0 flex items-center gap-2 ${chipRowAlignClass}`}>
             <p
@@ -361,7 +385,8 @@ export function WeatherCard({
     };
 
     return (
-      <div ref={cardRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden flex flex-col justify-between gap-1">
+      <div ref={cardRef} className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden flex flex-col justify-between gap-1 ${atmosphericClass} ${showAtmosphericBackground ? 'px-4 py-2.5' : ''}`} data-weather={showAtmosphericBackground ? getWeatherBackdrop(condition) : undefined}>
+        {atmosphere}
         <div className="min-w-0 flex items-center justify-between gap-2">
           <div className="min-w-0 flex items-center gap-1.5">
             <p
@@ -382,7 +407,7 @@ export function WeatherCard({
 
         {forecastUnavailable ? (
           <p className="truncate text-[10px] font-medium text-[color:var(--ui-text-tertiary)]">
-            Previsioni non disponibili
+            {t('controls.weather.forecastUnavailable')}
           </p>
         ) : (
           <div
@@ -404,7 +429,7 @@ export function WeatherCard({
                       isToday ? `${compactTodayLabelClass} text-[color:var(--ui-text-primary)]` : `${compactDayLabelClass} text-[color:var(--ui-text-tertiary)]`
                     }`}
                   >
-                    {normalizeForecastLabel(entry.label, entry.datetime, entry.isDaytime, index, forecastType)}
+                    {normalizeForecastLabel(entry.label, entry.datetime, entry.isDaytime, index, forecastType, locale, t)}
                   </p>
                   <div className={`mt-0.5 flex items-center ${isToday ? 'gap-1' : 'gap-0.5'}`}>
                     <span className="shrink-0 text-[color:var(--ui-text-primary)] leading-none">
@@ -516,7 +541,8 @@ export function WeatherCard({
   const forecastMarginTopClass = compactForecast ? 'mt-1.5' : 'mt-2';
 
   return (
-    <div ref={cardRef} className="relative h-full w-full min-h-0 min-w-0 overflow-hidden flex flex-col justify-between">
+    <div ref={cardRef} className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden flex flex-col justify-between ${atmosphericClass} ${showAtmosphericBackground ? 'p-4' : ''}`} data-weather={showAtmosphericBackground ? getWeatherBackdrop(condition) : undefined}>
+      {atmosphere}
       <div className={`min-w-0 flex items-center ${headerGapClass}`}>
         <div className="min-w-0 flex flex-col">
           <p className={`${cardTempClass} shrink-0 leading-none font-semibold tracking-tight text-[color:var(--ui-text-primary)] drop-shadow-[0_2px_7px_var(--ui-shadow-soft)]`}>
@@ -533,7 +559,7 @@ export function WeatherCard({
 
       {forecastUnavailable ? (
         <p className={`${forecastMarginTopClass} text-xs font-medium text-[color:var(--ui-text-tertiary)]`}>
-          Previsioni non disponibili
+          {t('controls.weather.forecastUnavailable')}
         </p>
       ) : (
         <div
@@ -546,7 +572,7 @@ export function WeatherCard({
             return (
               <div key={`${entry.label}-${index}`} className="min-w-0 flex flex-1 flex-col items-center text-center">
                 <p className={`${forecastLabelClass} font-medium text-[color:var(--ui-text-secondary)]`}>
-                  {normalizeForecastLabel(entry.label, entry.datetime, entry.isDaytime, index, forecastType)}
+                  {normalizeForecastLabel(entry.label, entry.datetime, entry.isDaytime, index, forecastType, locale, t)}
                 </p>
                 <span className="mt-1 text-[color:var(--ui-text-primary)]">
                   <AnimatedWeatherIcon condition={entry.condition} size={forecastIconSize} />

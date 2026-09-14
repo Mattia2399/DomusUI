@@ -1,7 +1,7 @@
 {
   "name": "domusos",
   "private": true,
-  "version": "0.1.0-beta.14",
+  "version": "0.1.0-beta.15",
   "description": "Domus UI — premium responsive dashboard and visual builder for Home Assistant",
   "type": "module",
   "engines": {
@@ -37,9 +37,9 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "home-assistant-js-websocket": "^9.6.0",
-    "js-yaml": "^4.3.1",
+    "js-yaml": "^4.3.2",
     "lucide-react": "^0.546.0",
-    "maplibre-gl": "^5.24.0",
+    "maplibre-gl": "^6.9.0",
     "matter-js": "^0.20.0",
     "react": "^19.2.7",
     "react-colorful": "^5.6.1",

@@ -177,8 +177,14 @@ import {
   normalizeWidgetsForRuntime,
 } from '../../demo/dashboardDemoFixtures';
 import {
+  addStarterLightResponsiveLayout,
+  createStarterDashboardTemplate,
+  isStarterDashboardTemplate,
+} from '../../templates/starterDashboardTemplate';
+import {
   DASHBOARD_LAYOUT_STORAGE_VERSION,
   loadDashboardLayout,
+  saveDashboardLayout,
 } from '../../services/dashboardStorage';
 import type {
   DashboardResponsiveLayouts,
@@ -394,6 +400,7 @@ const loadSettingsManagementPanel = () =>
     default: module.SettingsManagementPanel,
   }));
 const loadGuidedSetupOverlay = () => import('../settings/GuidedSetupOverlay');
+const loadStarterLayoutChoiceModal = () => import('../onboarding/StarterLayoutChoiceModal');
 const loadSecurityAuthModal = () => import('../security/SecurityAuthModal');
 const loadDashboardRecoveryModal = () => import('./DashboardRecoveryModal');
 
@@ -408,6 +415,7 @@ const RightSidebarManager = React.lazy(loadRightSidebarManager);
 const ModernProfilePage = React.lazy(loadModernProfilePage);
 const SettingsManagementPanel = React.lazy(loadSettingsManagementPanel);
 const GuidedSetupOverlay = React.lazy(loadGuidedSetupOverlay);
+const StarterLayoutChoiceModal = React.lazy(loadStarterLayoutChoiceModal);
 const SecurityAuthModal = React.lazy(loadSecurityAuthModal);
 const DashboardRecoveryModal = React.lazy(loadDashboardRecoveryModal);
 
@@ -1640,6 +1648,7 @@ export function MainBoard() {
     disconnect: disconnectHa,
     callService: rawCallHaService,
     callApi: rawCallHaApi,
+    subscribeApi: subscribeHaApi,
   } = activeHaConnection;
   const { addNotification, removeNotification } = useNotifications();
   useEffect(() => {
@@ -2451,6 +2460,9 @@ export function MainBoard() {
     context: isOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS.context),
   }));
   const [activeMainGuideStepId, setActiveMainGuideStepId] = useState<string | null>(null);
+  const [isStarterLayoutChoiceOpen, setIsStarterLayoutChoiceOpen] = useState(false);
+  const [isStarterLayoutChoiceBusy, setIsStarterLayoutChoiceBusy] = useState(false);
+  const [starterLayoutChoiceError, setStarterLayoutChoiceError] = useState<string | null>(null);
 
   const nextWidgetIdRef = useRef(1);
   const nextSectionIdRef = useRef(1);
@@ -3598,7 +3610,7 @@ export function MainBoard() {
     !isAutomationView &&
     !isAppGalleryView &&
     Boolean(activeDevice);
-  const activeMainGuideKind: MainGuidedSetupKind | null = shouldShowWelcomeGuide
+  const activeMainGuideKind: MainGuidedSetupKind | null = shouldShowWelcomeGuide && !isStarterLayoutChoiceOpen
     ? 'welcome'
     : shouldShowContextGuide
       ? 'context'
@@ -3619,17 +3631,19 @@ export function MainBoard() {
     }
   }, [isCompactViewport, isGuidedEditTargetActive]);
 
-  const dismissActiveMainGuide = () => {
-    if (!activeMainGuideKind) {
-      return;
-    }
-    markOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS[activeMainGuideKind]);
+  const completeMainGuide = (kind: MainGuidedSetupKind) => {
+    markOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS[kind]);
     setCompletedMainGuides((current) => ({
       ...current,
-      [activeMainGuideKind]: true,
+      [kind]: true,
     }));
     setActiveMainGuideStepId(null);
     setIsMobileSidebarOpen(false);
+  };
+
+  const dismissActiveMainGuide = () => {
+    if (!activeMainGuideKind) return;
+    completeMainGuide(activeMainGuideKind);
   };
 
   useEffect(() => {
@@ -6535,6 +6549,100 @@ export function MainBoard() {
       current && snapshot.sections.some((section) => section.id === current) ? current : null,
     );
   }, []);
+
+  const finishStarterLayoutChoice = () => {
+    editSessionBaselineRef.current = null;
+    editSessionCreatedAtRef.current = null;
+    editSessionRouteRef.current = null;
+    if (typeof window !== 'undefined') {
+      discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
+    }
+    setHasUnsavedDashboardEdits(false);
+    setIsCatalogOpen(false);
+    setSelectedWidgetId(null);
+    setSelectedSectionId(null);
+    setSelectedSidebarPathId(null);
+    setIsEditMode(false);
+    setEditConfirm(null);
+    setStarterLayoutChoiceError(null);
+    setIsStarterLayoutChoiceOpen(false);
+    completeMainGuide('welcome');
+  };
+
+  const keepStarterDashboard = async () => {
+    if (isStarterLayoutChoiceBusy) return;
+    setIsStarterLayoutChoiceBusy(true);
+    setStarterLayoutChoiceError(null);
+    const result = isEditMode && hasUnsavedDashboardEdits
+      ? await saveDashboardLayoutNow()
+      : { ok: true as const };
+    setIsStarterLayoutChoiceBusy(false);
+    if (result.ok === false) {
+      setStarterLayoutChoiceError(t('home.layoutChoice.saveError'));
+      return;
+    }
+    finishStarterLayoutChoice();
+  };
+
+  const startWithEmptyDashboard = async () => {
+    if (isStarterLayoutChoiceBusy || !dashboardSecurity.can('edit_dashboard')) return;
+    setIsStarterLayoutChoiceBusy(true);
+    setStarterLayoutChoiceError(null);
+
+    const emptyDashboard: DashboardLayoutConfiguration = {
+      storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
+      sections: [],
+      widgets: [],
+      widgetTypeLayoutOverrides: {},
+      responsiveLayouts: {},
+      widgetLayoutOverrides: {},
+    };
+    const result = effectiveRuntimeMode === 'real'
+      ? await haDashboardLayoutPersistence.saveDashboard(emptyDashboard)
+      : saveDashboardLayout([], [], {}, {}, {}, 'demo');
+
+    setIsStarterLayoutChoiceBusy(false);
+    if (result.ok === false) {
+      setStarterLayoutChoiceError(t('home.layoutChoice.saveError'));
+      return;
+    }
+
+    applyDashboardEditorSnapshot({
+      sections: [],
+      widgets: [],
+      widgetTypeLayoutOverrides: {},
+      responsiveLayouts: {},
+      widgetLayoutOverrides: {},
+    });
+    finishStarterLayoutChoice();
+  };
+
+  const restoreStarterDashboardTemplate = async () => {
+    if (!dashboardSecurity.can('restore_backup')) return;
+    const template = createStarterDashboardTemplate(effectiveRuntimeMode, haStates);
+    const dashboard: DashboardLayoutConfiguration = {
+      storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
+      sections: template.sections,
+      widgets: template.widgets,
+      widgetTypeLayoutOverrides: {},
+      responsiveLayouts: template.responsiveLayouts,
+      widgetLayoutOverrides: {},
+    };
+    const result = effectiveRuntimeMode === 'real'
+      ? haDashboardLayoutPersistence.loadStatus === 'migration_required'
+        ? await haDashboardLayoutPersistence.initializeDashboard(dashboard)
+        : await haDashboardLayoutPersistence.saveDashboard(dashboard)
+      : saveDashboardLayout(
+          dashboard.sections,
+          dashboard.widgets,
+          {},
+          dashboard.responsiveLayouts,
+          {},
+          'demo',
+        );
+    if (!result.ok) throw new Error(t('home.layoutChoice.saveError'));
+    applyDashboardEditorSnapshot(dashboard);
+  };
   const {
     beginMutation: beginDashboardEditorHistoryMutation,
     undo: undoDashboardEdit,
@@ -9809,6 +9917,11 @@ export function MainBoard() {
         : widgetBaseHeight;
     const defaultEntityId = entityOptions[kind][0] ?? '';
     const isVacuumDemo = effectiveRuntimeMode === 'demo' && kind === 'vacuum' && isDemoVacuumEntity(defaultEntityId);
+    const shouldUseStarterLightSlot =
+      kind === 'light' &&
+      destination.type === 'canvas' &&
+      !widgets.some((widget) => widget.kind === 'light') &&
+      isStarterDashboardTemplate(sections, widgets);
     setWidgets((prev) => {
       const baseLayout: GridItem = { i: id, x: 0, y: 0, w: widgetWidth, h: widgetHeight };
 
@@ -9917,6 +10030,9 @@ export function MainBoard() {
       return [...prev, newWidget];
     });
     setSelectedWidgetId(id);
+    if (shouldUseStarterLightSlot) {
+      setResponsiveLayouts((current) => addStarterLightResponsiveLayout(current, id));
+    }
     setSelectedSectionId(null);
     return id;
   };
@@ -11027,7 +11143,7 @@ export function MainBoard() {
               currentUserId={haCurrentUser?.id ?? null}
               runtimeMode={effectiveRuntimeMode}
               suppressBrowserNavigation={!canUseBrowserRouteNavigation}
-              navigationRoute={internalNavigationRoute}
+              navigationRoute={activeNavigationRoute}
               haConnected={isHaConnected}
               haStates={haStatesForUi}
               haEntityIds={haEntityIds}
@@ -11035,6 +11151,7 @@ export function MainBoard() {
               haToken={haToken}
               onCallService={callHaService}
               onCallApi={callHaApi}
+              onSubscribeApi={subscribeHaApi}
               onNavigate={navigateWithinDashboard}
               onNotify={addNotification}
             />
@@ -11137,6 +11254,7 @@ export function MainBoard() {
                       onDownloadBackup={downloadConfigurationBackup}
                       onRestoreBackup={restoreConfigurationFromFile}
                       onResetAll={resetAllConfiguration}
+                      onRestoreStarterTemplate={restoreStarterDashboardTemplate}
                       onOpenLayoutVersions={() => navigateWithinDashboard('/settings/data/history')}
                     />
                   </React.Suspense>
@@ -11589,10 +11707,33 @@ export function MainBoard() {
             description={activeMainGuide.description}
             steps={activeMainGuideSteps}
             onDismiss={dismissActiveMainGuide}
+            onComplete={() => {
+              if (activeMainGuideKind === 'welcome') {
+                setStarterLayoutChoiceError(null);
+                setIsStarterLayoutChoiceOpen(true);
+                return;
+              }
+              dismissActiveMainGuide();
+            }}
             onStepChange={(step) => setActiveMainGuideStepId(step.id ?? null)}
             isStepComplete={(step) => step.id === 'edit-mode' && isEditMode}
             completeLabel={activeMainGuide.completeLabel}
             skipLabel={activeMainGuide.skipLabel}
+          />
+        </React.Suspense>
+      ) : null}
+
+      {isStarterLayoutChoiceOpen ? (
+        <React.Suspense fallback={<SecondaryWorkspaceLoading label={t('home.loading.tools')} overlay />}>
+          <StarterLayoutChoiceModal
+            isOpen
+            sectionCount={sections.length}
+            widgetCount={widgets.length}
+            canStartEmpty={dashboardSecurity.can('edit_dashboard')}
+            busy={isStarterLayoutChoiceBusy}
+            error={starterLayoutChoiceError}
+            onKeep={() => void keepStarterDashboard()}
+            onStartEmpty={() => void startWithEmptyDashboard()}
           />
         </React.Suspense>
       ) : null}

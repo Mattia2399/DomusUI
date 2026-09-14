@@ -2425,3 +2425,147 @@ button:not(:disabled):active,
     transform: scale(1.035);
   }
 }
+@keyframes weather-humidity-wave-drift {
+  from {
+    transform: translate3d(0, var(--weather-wave-y, -92%), 0);
+  }
+
+  to {
+    transform: translate3d(-50%, var(--weather-wave-y, -92%), 0);
+  }
+}
+
+.weather-humidity-wave {
+  --weather-wave-y: -92%;
+  animation: weather-humidity-wave-drift 7s linear infinite;
+  will-change: transform;
+}
+
+.weather-humidity-wave-secondary {
+  --weather-wave-y: -78%;
+  animation-direction: reverse;
+  animation-duration: 10s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weather-humidity-wave {
+    animation: none;
+    transform: translate3d(0, var(--weather-wave-y, -92%), 0);
+  }
+}
+
+.weather-condition-visual {
+  border-color: rgb(255 255 255 / 0.18);
+  background: linear-gradient(145deg, #344054, #151922);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.14);
+  transition: background 420ms ease, border-color 420ms ease;
+}
+
+.weather-condition-hero {
+  min-height: 10.25rem;
+}
+
+.weather-condition-card {
+  --ui-text-primary: rgb(255 255 255 / 0.98);
+  --ui-text-secondary: rgb(255 255 255 / 0.76);
+  --ui-text-tertiary: rgb(255 255 255 / 0.58);
+  --ui-text-disabled: rgb(255 255 255 / 0.38);
+  --ui-fill-tertiary: rgb(255 255 255 / 0.14);
+  --ui-shadow-soft: rgb(0 0 0 / 0.22);
+  border: 1px solid rgb(255 255 255 / 0.16);
+}
+
+.weather-condition-card > :not(.weather-condition-atmosphere) {
+  position: relative;
+  z-index: 1;
+}
+
+.weather-condition-visual::before,
+.weather-condition-atmosphere {
+  position: absolute;
+  pointer-events: none;
+  content: '';
+}
+
+.weather-condition-visual::before {
+  z-index: -1;
+  width: 10rem;
+  height: 10rem;
+  top: -5.5rem;
+  right: -3rem;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.18);
+  filter: blur(18px);
+}
+
+.weather-condition-atmosphere {
+  z-index: -1;
+  inset: 0;
+  opacity: 0.55;
+}
+
+.weather-condition-visual[data-weather='sunny'] {
+  background: linear-gradient(145deg, #1565a8 0%, #318bd0 52%, #f2a33b 135%);
+}
+
+.weather-condition-visual[data-weather='sunny']::before {
+  background: #ffd56a;
+  box-shadow: 0 0 44px 16px rgb(255 190 72 / 0.3);
+}
+
+.weather-condition-visual[data-weather='partly-cloudy'] {
+  background: linear-gradient(145deg, #47758f 0%, #547e96 48%, #8e9ca4 100%);
+}
+
+.weather-condition-visual[data-weather='partly-cloudy'] .weather-condition-atmosphere,
+.weather-condition-visual[data-weather='cloudy'] .weather-condition-atmosphere {
+  background:
+    radial-gradient(ellipse at 82% 42%, rgb(255 255 255 / 0.28) 0 18%, transparent 19%),
+    radial-gradient(ellipse at 63% 22%, rgb(255 255 255 / 0.2) 0 22%, transparent 23%);
+}
+
+.weather-condition-visual[data-weather='cloudy'] {
+  background: linear-gradient(145deg, #455563, #66717a 58%, #3a424b);
+}
+
+.weather-condition-visual[data-weather='rainy'] {
+  background: linear-gradient(150deg, #203a56, #315b74 48%, #182b3b);
+}
+
+.weather-condition-visual[data-weather='rainy'] .weather-condition-atmosphere {
+  background-image: repeating-linear-gradient(112deg, transparent 0 14px, rgb(200 231 255 / 0.22) 15px, transparent 17px 28px);
+}
+
+.weather-condition-visual[data-weather='storm'] {
+  background: linear-gradient(145deg, #151a2d, #38365c 55%, #121827);
+}
+
+.weather-condition-visual[data-weather='storm'] .weather-condition-atmosphere {
+  background: linear-gradient(128deg, transparent 54%, rgb(226 220 255 / 0.28) 55%, transparent 57%);
+}
+
+.weather-condition-visual[data-weather='snowy'] {
+  background: linear-gradient(145deg, #65869b, #a4bac6 65%, #d2e2e8);
+}
+
+.weather-condition-visual[data-weather='snowy'] .weather-condition-atmosphere {
+  background-image: radial-gradient(circle, rgb(255 255 255 / 0.65) 0 1.5px, transparent 2px);
+  background-size: 22px 22px;
+}
+
+.weather-condition-visual[data-weather='night'] {
+  background: linear-gradient(145deg, #101a37, #292650 58%, #11182e);
+}
+
+.weather-condition-visual[data-weather='night'] .weather-condition-atmosphere {
+  background-image: radial-gradient(circle, rgb(255 255 255 / 0.75) 0 1px, transparent 1.5px);
+  background-size: 27px 27px;
+}
+
+.weather-condition-visual[data-weather='windy'] {
+  background: linear-gradient(145deg, #286474, #4f8c96 58%, #315665);
+}
+
+.weather-condition-visual[data-weather='windy'] .weather-condition-atmosphere {
+  background-image: repeating-linear-gradient(172deg, transparent 0 18px, rgb(255 255 255 / 0.13) 19px, transparent 21px 38px);
+}

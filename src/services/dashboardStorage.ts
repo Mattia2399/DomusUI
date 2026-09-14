@@ -62,6 +62,8 @@ type StoredLayout = {
   version: number;
   sections: DashboardSection[];
   widgets: Widget[];
+  /** Distinguishes an intentionally empty canvas from missing/corrupt storage. */
+  emptyIntentional?: boolean;
   widgetTypeLayoutOverrides?: WidgetTypeLayoutOverrides;
   widgetLayoutOverrides?: WidgetLayoutOverrides;
   responsiveLayouts?: DashboardResponsiveLayouts;
@@ -1143,7 +1145,7 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
       widgets: initial.widgets,
       widgetTypeLayoutOverrides: {},
       widgetLayoutOverrides: {},
-      responsiveLayouts: createInitialResponsiveLayouts(initial.sections, initial.widgets),
+      responsiveLayouts: initial.responsiveLayouts,
     };
   }
 
@@ -1154,7 +1156,7 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
       widgets: initial.widgets,
       widgetTypeLayoutOverrides: {},
       widgetLayoutOverrides: {},
-      responsiveLayouts: createInitialResponsiveLayouts(initial.sections, initial.widgets),
+      responsiveLayouts: initial.responsiveLayouts,
     };
   }
   const migratedV2 = parsed.version === 1 ? migrateStoredLayoutV1ToV2(parsed) : parsed;
@@ -1176,7 +1178,7 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
       widgets: initial.widgets,
       widgetTypeLayoutOverrides: {},
       widgetLayoutOverrides: {},
-      responsiveLayouts: createInitialResponsiveLayouts(initial.sections, initial.widgets),
+      responsiveLayouts: initial.responsiveLayouts,
     };
   }
 
@@ -1209,13 +1211,13 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
       : stripWidgetSecretsFromWidgets(normalizedWidgets);
   const widgets = normalizeWidgetsForRuntime(widgetsWithSecrets, runtimeMode);
 
-  if (!sections.length && !widgets.length) {
+  if (!sections.length && !widgets.length && hydrated.emptyIntentional !== true) {
     return {
       sections: initial.sections,
       widgets: initial.widgets,
       widgetTypeLayoutOverrides: {},
       widgetLayoutOverrides: {},
-      responsiveLayouts: createInitialResponsiveLayouts(initial.sections, initial.widgets),
+      responsiveLayouts: initial.responsiveLayouts,
     };
   }
 
@@ -1255,6 +1257,7 @@ export function saveDashboardLayout(
     widgets: stripWidgetSecretsFromWidgets(
       widgets.map((widget) => stripWidgetRuntimeState(widget, true)),
     ),
+    emptyIntentional: sections.length === 0 && widgets.length === 0,
     widgetTypeLayoutOverrides: normalizeWidgetTypeLayoutOverrides(widgetTypeLayoutOverrides),
     widgetLayoutOverrides: normalizeWidgetLayoutOverrides(widgetLayoutOverrides),
     responsiveLayouts: normalizeResponsiveLayouts(responsiveLayouts),

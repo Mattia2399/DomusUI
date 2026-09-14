@@ -1,0 +1,44 @@
+name: Domus Core Irrigation
+
+on:
+  push:
+    branches:
+      - main
+      - 'release/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-irrigation-core:
+    name: Home Assistant ${{ matrix.home_assistant }} backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - home_assistant: '2025.1'
+            python: '3.12'
+            test_package: '0.13.201'
+            test_target: 'tests_python/test_irrigation_models.py tests_python/test_irrigation_manager.py'
+          - home_assistant: '2026.2.3'
+            python: '3.13'
+            test_package: '0.13.316'
+            test_target: 'tests_python'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install test dependencies
+        run: pip install pytest-homeassistant-custom-component==${{ matrix.test_package }}
+      - name: Test Domus Core Irrigation
+        # The HA 2025.1 websocket test fixture leaves its own aiohttp shutdown
+        # thread alive on modern GitHub runners. Core lifecycle compatibility is
+        # still covered there; the complete websocket contract runs on current HA.
+        run: pytest -q ${{ matrix.test_target }}

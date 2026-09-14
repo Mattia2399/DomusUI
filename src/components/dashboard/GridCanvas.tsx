@@ -2467,7 +2467,6 @@ export function GridCanvas({
           ? 'border border-white/10'
           : 'border border-transparent';
       const isWeatherClickable = !isEditMode && section.kind === 'weather';
-      const isCompactWeatherSection = isWeatherSection && sectionSpanH <= ROOT_CANVAS_ROW_UNITS;
       const stackHeaderVisible =
         isStack &&
         section.stackShowHeader !== false &&
@@ -2481,10 +2480,8 @@ export function GridCanvas({
         ? 'p-0'
         : isGreetingSection
           ? 'px-0 pt-0 pb-1 md:py-2.5'
-        : isCompactWeatherSection
-          ? isTabletCanvas
-            ? 'px-3 py-2 sm:px-4 sm:py-2.5'
-            : 'px-4 py-2 sm:px-5 sm:py-2.5'
+        : isWeatherSection
+          ? 'p-0'
           : isScenesSection
             ? 'p-0'
             : isTabletCanvas

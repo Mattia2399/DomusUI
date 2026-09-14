@@ -13,6 +13,9 @@ export type IrrigationConfigurationModel = {
   rainSensorEnabled: boolean;
   blockOnRainSensorUnavailable: boolean;
   maximumManualDurationMin: number;
+  maxConcurrentZones: number;
+  parallelSafetyAcknowledged: boolean;
+  rainDuringCycle: 'stop_immediately' | 'finish_active';
   rainSensorEntityId: string;
   weatherEntityId: string;
   humidityEntityId: string;
@@ -33,7 +36,16 @@ export type IrrigationEntityState = {
   [key: string]: unknown;
 };
 
-export type IrrigationConfigurationField = Exclude<keyof IrrigationConfigurationModel, 'zones' | 'rainSensorEnabled' | 'blockOnRainSensorUnavailable' | 'maximumManualDurationMin'>;
+export type IrrigationConfigurationField = Exclude<
+  keyof IrrigationConfigurationModel,
+  | 'zones'
+  | 'rainSensorEnabled'
+  | 'blockOnRainSensorUnavailable'
+  | 'maximumManualDurationMin'
+  | 'maxConcurrentZones'
+  | 'parallelSafetyAcknowledged'
+  | 'rainDuringCycle'
+>;
 
 export type IrrigationConfigurationIssue = {
   severity: 'error' | 'warning';
@@ -228,6 +240,7 @@ export function applyIrrigationEntitySuggestions(
 export function validateIrrigationConfiguration(
   config: IrrigationConfigurationModel,
   states: Record<string, IrrigationEntityState>,
+  options: { allowDemoActuators?: boolean } = {},
 ): IrrigationConfigurationIssue[] {
   const issues: IrrigationConfigurationIssue[] = [];
   if (
@@ -239,6 +252,13 @@ export function validateIrrigationConfiguration(
   }
   if (config.rainSensorEnabled && !config.rainSensorEntityId.trim()) {
     issues.push({ severity: 'error', code: 'missing_rain_sensor', field: 'rainSensorEntityId', message: 'La protezione pioggia richiede un sensore associato.' });
+  }
+  const configuredActuators = config.zones.filter((zone) => zone.entityId.trim()).length;
+  if (!Number.isInteger(config.maxConcurrentZones) || config.maxConcurrentZones < 1 || config.maxConcurrentZones > Math.max(1, configuredActuators)) {
+    issues.push({ severity: 'error', code: 'invalid_concurrency', message: 'Il numero di zone simultanee supera le zone collegate.' });
+  }
+  if (config.maxConcurrentZones > 1 && !config.parallelSafetyAcknowledged) {
+    issues.push({ severity: 'error', code: 'missing_parallel_ack', message: 'Conferma che l’impianto supporti la portata richiesta da più zone simultanee.' });
   }
 
   const expectedDomains: Record<IrrigationConfigurationField, string> = {
@@ -269,7 +289,10 @@ export function validateIrrigationConfiguration(
       issues.push({ severity: 'error', code: 'missing_zone_entity', zoneId: zone.id, message: `${zone.name || `Zona ${index + 1}`}: associa una valvola o uno switch.` });
       return;
     }
-    if (!/^(valve|switch|input_boolean)\./.test(entityId)) {
+    const actuatorPattern = options.allowDemoActuators
+      ? /^(valve|switch|input_boolean)\./
+      : /^(valve|switch)\./;
+    if (!actuatorPattern.test(entityId)) {
       issues.push({ severity: 'error', code: 'invalid_zone_domain', zoneId: zone.id, message: `${zone.name || `Zona ${index + 1}`}: il dominio ${entityId.split('.')[0] || 'sconosciuto'} non può controllare una zona.` });
     }
     if (configuredZoneEntities.has(entityId)) {

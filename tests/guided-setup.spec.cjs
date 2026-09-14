@@ -77,6 +77,11 @@ async function completeInteractiveGuide(page) {
   await expectCoachmarkNotToCoverTarget(entityCoach, entityTarget);
   await entityCoach.getByRole('button', { name: 'Fine guida' }).click();
 
+  const starterChoice = page.getByRole('dialog', { name: 'Scegli il tuo punto di partenza' });
+  await expect(starterChoice).toBeVisible();
+  await starterChoice.getByRole('button', { name: 'Mantieni dashboard' }).click();
+  await expect(starterChoice).toBeHidden();
+
   await expect.poll(() => page.evaluate(() => localStorage.getItem('ha.dashboard.onboarding.welcome.v1'))).toBe('done');
 }
 

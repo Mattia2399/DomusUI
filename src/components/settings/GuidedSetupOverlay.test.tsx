@@ -92,6 +92,27 @@ describe('GuidedSetupOverlay', () => {
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
+  it('distinguishes completing the guide from skipping it', () => {
+    const onDismiss = vi.fn();
+    const onComplete = vi.fn();
+    render(
+      <GuidedSetupOverlay
+        isOpen
+        tag="Guida"
+        heading="Configurazione"
+        steps={[steps[0]]}
+        onDismiss={onDismiss}
+        onComplete={onComplete}
+        completeLabel="Fine"
+        skipLabel="Salta"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fine' }));
+    expect(onComplete).toHaveBeenCalledOnce();
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
   it('anchors a dynamic step to the visible breakpoint target and uses the real control', async () => {
     const onDismiss = vi.fn();
     const targetClick = vi.fn();

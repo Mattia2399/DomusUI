@@ -75,7 +75,7 @@ test('mobile Attention Center stays inside the viewport and opens a matching car
 
   await page.getByRole('button', { name: 'Controlla Batteria sensore umidità' }).click();
   await expect(dialog).toBeHidden();
-  const contextPanel = page.locator('aside:visible').filter({ hasText: 'Humidity Sensor' });
+  const contextPanel = page.locator('aside:visible').filter({ hasText: 'Sensor' });
   await expect(contextPanel).toBeVisible();
   await expect(contextPanel).toContainText('Andamento');
 });

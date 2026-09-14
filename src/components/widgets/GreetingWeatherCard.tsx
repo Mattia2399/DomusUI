@@ -94,6 +94,7 @@ export function GreetingWeatherCard({
               showPrecipitation={weatherShowPrecipitation}
               showWind={weatherShowWind}
               conditionOverride={weatherConditionOverride}
+              showAtmosphericBackground={false}
             />
           </button>
         ) : null}
@@ -119,6 +120,7 @@ export function GreetingWeatherCard({
               showPrecipitation={weatherShowPrecipitation}
               showWind={weatherShowWind}
               conditionOverride={weatherConditionOverride}
+              showAtmosphericBackground={false}
             />
           </button>
         ) : null}

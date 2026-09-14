@@ -23,6 +23,7 @@ describe('Irrigation dashboard cards', () => {
         masterTitle="Sistema fermo"
         masterIsRunning={false}
         masterIsStopped
+        masterIsPaused={false}
         temperature={18}
         humidity={54}
         rainProbability={12}
@@ -44,6 +45,44 @@ describe('Irrigation dashboard cards', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Avvia irrigazione' }));
     expect(onPrimaryAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a paused session with a frozen precise countdown and a resume action', () => {
+    render(
+      <>
+        <IrrigationHero
+          masterTitle="Sistema in pausa"
+          masterIsRunning={false}
+          masterIsStopped={false}
+          masterIsPaused
+          temperature={18}
+          humidity={54}
+          rainStatusLabel="Sereno"
+          rainSummaryTitle="Nessuna pioggia"
+          rainSummaryDescription="Sensore disponibile"
+          rainSensorEnabled={false}
+          rainSensorSyncing={false}
+          onRainSensorToggle={vi.fn()}
+          onPrimaryAction={vi.fn()}
+          onStop={vi.fn()}
+        />
+        <IrrigationZoneCard
+          zone={{
+            id: 'north', name: 'Prato Nord', detail: 'Ciclo in pausa', status: 'scheduled',
+            progress: 78, icon: Sprout, manualDurationMin: 5, manualRemainingSeconds: 279,
+            isManualActive: true, manualSessionState: 'paused', entityId: 'switch.prato_nord',
+          }}
+          onProgram={vi.fn()}
+          onDurationChange={vi.fn()}
+          onManualToggle={vi.fn()}
+        />
+      </>,
+    );
+
+    expect(screen.getByText('Ciclo sospeso · tempo residuo conservato')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Riprendi irrigazione' })).toBeTruthy();
+    expect(screen.getByText('4:39')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Arresta Prato Nord e azzera il tempo residuo' })).toBeTruthy();
   });
 
   it('keeps zone, moisture and usage data explicit without inventing measurements', () => {

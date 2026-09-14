@@ -65,6 +65,19 @@ type HaPanelCallApiResultPayload = HaPanelPayloadBase & {
   result?: unknown;
 };
 
+type HaPanelSubscribeApiResultPayload = HaPanelPayloadBase & {
+  type: 'ha-panel-subscribe-api-result';
+  requestId?: unknown;
+  ok?: unknown;
+  error?: unknown;
+};
+
+type HaPanelSubscribeApiEventPayload = HaPanelPayloadBase & {
+  type: 'ha-panel-subscribe-api-event';
+  requestId?: unknown;
+  event?: unknown;
+};
+
 type PendingRequestRecord = {
   resolve: (payload: unknown) => void;
   reject: (error: Error) => void;
@@ -77,13 +90,14 @@ const BRIDGE_RECONNECTING_AFTER_MS = 20_000;
 const BRIDGE_OFFLINE_AFTER_MS = 40_000;
 const HA_NAME_PATTERN = /^[a-z0-9_]+$/;
 const HA_ENTITY_ID_PATTERN = /^[a-z0-9_]+\.[a-z0-9_]+$/;
-const REQUEST_ID_PATTERN = /^ha-panel-call-(?:service|api)-\d{10,}-[a-z0-9]+$/;
+const REQUEST_ID_PATTERN = /^ha-panel-(?:call-(?:service|api)|subscribe-api)-\d{10,}-[a-z0-9]+$/;
 const MAX_BRIDGE_STATES = 20_000;
 const PANEL_BRIDGE_CAPABILITIES = new Set([
   'shared_configuration',
   'app_configurations',
   'revision_history',
   'dashboard_reset_marker',
+  'irrigation_core',
 ]);
 
 export function parsePanelBridgeCapabilities(value: unknown) {
@@ -136,6 +150,16 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'config/floor_registry/delete',
   'frontend/get_system_data',
   'frontend/set_system_data',
+  'domusos/irrigation/get_config',
+  'domusos/irrigation/save_config',
+  'domusos/irrigation/get_state',
+  'domusos/irrigation/subscribe',
+  'domusos/irrigation/start_zone',
+  'domusos/irrigation/stop_zone',
+  'domusos/irrigation/pause',
+  'domusos/irrigation/resume',
+  'domusos/irrigation/stop_all',
+  'domusos/irrigation/prepare_legacy_removal',
 ]);
 
 export function resolvePanelBridgeHeartbeatStatus(elapsedMs: number): 'connected' | 'reconnecting' | 'offline' {
@@ -283,6 +307,7 @@ export function useHaPanelBridgeConnection() {
   const hassUrlRef = useRef<string>(typeof window !== 'undefined' ? window.location.origin : '');
   const rawStatesRef = useRef<Record<string, unknown>>({});
   const pendingRequestsRef = useRef<Map<string, PendingRequestRecord>>(new Map());
+  const subscriptionCallbacksRef = useRef<Map<string, (event: unknown) => void>>(new Map());
   const lastBridgeMessageAtRef = useRef(Date.now());
 
   const isInIframe = useMemo(() => {
@@ -535,6 +560,36 @@ export function useHaPanelBridgeConnection() {
               : 'Richiesta Home Assistant fallita.';
           rejectPendingRequest(requestId, new Error(message));
         }
+        return;
+      }
+
+      if (payload.type === 'ha-panel-subscribe-api-result') {
+        const resultPayload = payload as HaPanelSubscribeApiResultPayload;
+        const requestId = resultPayload.requestId;
+        if (!isValidPanelRequestId(requestId) || !pendingRequestsRef.current.has(requestId)) {
+          return;
+        }
+        if (resultPayload.ok === true) {
+          resolvePendingRequest(requestId, true);
+        } else {
+          subscriptionCallbacksRef.current.delete(requestId);
+          rejectPendingRequest(
+            requestId,
+            new Error(
+              typeof resultPayload.error === 'string' && resultPayload.error.trim()
+                ? resultPayload.error
+                : 'Sottoscrizione Home Assistant fallita.',
+            ),
+          );
+        }
+        return;
+      }
+
+      if (payload.type === 'ha-panel-subscribe-api-event') {
+        const eventPayload = payload as HaPanelSubscribeApiEventPayload;
+        const requestId = eventPayload.requestId;
+        if (!isValidPanelRequestId(requestId)) return;
+        subscriptionCallbacksRef.current.get(requestId)?.(eventPayload.event);
       }
     };
 
@@ -580,8 +635,12 @@ export function useHaPanelBridgeConnection() {
         globalThis.clearTimeout(pending.timeoutId);
         pending.reject(new Error('Bridge Home Assistant chiuso.'));
       });
+      subscriptionCallbacksRef.current.forEach((_callback, requestId) => {
+        postToParent({ type: 'ha-panel-unsubscribe-api', requestId });
+      });
+      subscriptionCallbacksRef.current.clear();
     };
-  }, []);
+  }, [postToParent]);
 
   const connect = useCallback(async () => {
     if (!isInIframe || !isManagedByParent) {
@@ -664,6 +723,42 @@ export function useHaPanelBridgeConnection() {
     [sendRequest],
   );
 
+  const subscribeApi = useCallback(
+    async <TEvent = unknown>(
+      message: Record<string, unknown>,
+      callback: (event: TEvent) => void,
+    ) => {
+      if (!validatePanelApiMessage(message) || message.type !== 'domusos/irrigation/subscribe') {
+        throw new Error('Sottoscrizione Home Assistant non ammessa dal bridge.');
+      }
+      if (!isInIframe || !isManagedByParent || isPaused || status !== 'connected') {
+        throw new Error('Bridge Home Assistant non disponibile.');
+      }
+      const requestId = createRequestId('ha-panel-subscribe-api');
+      subscriptionCallbacksRef.current.set(requestId, callback as (event: unknown) => void);
+      await new Promise<void>((resolve, reject) => {
+        const timeoutId = globalThis.setTimeout(() => {
+          subscriptionCallbacksRef.current.delete(requestId);
+          rejectPendingRequest(requestId, new Error('Timeout sottoscrizione Home Assistant.'));
+        }, REQUEST_TIMEOUT_MS);
+        pendingRequestsRef.current.set(requestId, {
+          resolve: () => resolve(),
+          reject,
+          timeoutId,
+        });
+        if (!postToParent({ type: 'ha-panel-subscribe-api', requestId, message })) {
+          subscriptionCallbacksRef.current.delete(requestId);
+          rejectPendingRequest(requestId, new Error('Invio sottoscrizione al pannello fallito.'));
+        }
+      });
+      return () => {
+        subscriptionCallbacksRef.current.delete(requestId);
+        postToParent({ type: 'ha-panel-unsubscribe-api', requestId });
+      };
+    },
+    [isInIframe, isManagedByParent, isPaused, postToParent, rejectPendingRequest, status],
+  );
+
   return {
     isManagedByParent,
     bridgeProtocolVersion,
@@ -681,6 +776,7 @@ export function useHaPanelBridgeConnection() {
     disconnect,
     callService,
     callApi,
+    subscribeApi,
   };
 }
 

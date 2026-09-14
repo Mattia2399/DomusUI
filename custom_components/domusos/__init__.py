@@ -23,6 +23,8 @@ from .const import (
     STATIC_URL_PATH,
     VERSION,
 )
+from .irrigation import IrrigationManager
+from .irrigation.api import async_register_irrigation_api
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -41,6 +43,7 @@ def _panel_exists(hass: HomeAssistant, frontend_url_path: str) -> bool:
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Domus UI."""
+    await async_register_irrigation_api(hass)
     return True
 
 
@@ -94,7 +97,16 @@ async def async_setup_entry(
     ).parameters:
         panel_options["handle_safe_area"] = True
 
-    await panel_custom.async_register_panel(hass=hass, **panel_options)
+    manager = IrrigationManager(hass)
+    await manager.async_setup()
+    try:
+        await panel_custom.async_register_panel(hass=hass, **panel_options)
+    except Exception:
+        await manager.async_shutdown()
+        raise
+
+    entry.runtime_data = manager
+    domain_data["irrigation_manager"] = manager
 
     entry.async_on_unload(
         entry.add_update_listener(_async_update_listener)
@@ -108,6 +120,12 @@ async def async_unload_entry(
     """Unload Domus UI and remove its sidebar panel."""
     if _panel_exists(hass, PANEL_URL_PATH):
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
+    manager = getattr(entry, "runtime_data", None)
+    if isinstance(manager, IrrigationManager):
+        await manager.async_shutdown()
+        domain_data = hass.data.get(DOMAIN, {})
+        if domain_data.get("irrigation_manager") is manager:
+            domain_data.pop("irrigation_manager", None)
     return True
 
 

@@ -66,6 +66,15 @@ describe('dashboard storage widget secrets', () => {
     }
   });
 
+  it('keeps an intentionally empty canvas empty after reload', () => {
+    expect(saveDashboardLayout([], [], {}, {}, {}, 'demo').ok).toBe(true);
+
+    const restored = loadDashboardLayout('demo');
+
+    expect(restored.sections).toEqual([]);
+    expect(restored.widgets).toEqual([]);
+  });
+
   it('reports exhausted browser storage without throwing', () => {
     const setItemSpy = vi
       .spyOn(Storage.prototype, 'setItem')

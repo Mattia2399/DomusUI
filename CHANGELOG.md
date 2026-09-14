@@ -1,5 +1,110 @@
 # Changelog
 
+## 0.1.0-beta.15 - 2026-09-14
+
+### Added
+
+- **Domus Core Irrigation**, an authoritative server-side irrigation engine
+  built directly into the Domus UI Home Assistant integration. Schedules,
+  safety timers, queues, and active sessions now continue to run when every
+  browser and Domus UI screen is closed.
+- A versioned Home Assistant Store for irrigation configuration and runtime
+  state, with optimistic revisions and idempotent command identifiers.
+- Authenticated WebSocket commands and native Home Assistant actions for
+  starting or stopping a zone, stopping the complete system, and pausing or
+  resuming irrigation. Action descriptions are available in Italian, English,
+  and French.
+- A server-owned scheduler using Home Assistant local time, duplicate-run
+  protection across daylight-saving transitions, configurable concurrency,
+  and a FIFO queue when all available slots are occupied.
+- A compact activity card on the Irrigation overview and a dedicated Activity
+  page for completed, stopped, skipped, interrupted, and failed sessions.
+- A guided migration for configurations created by earlier Domus UI betas. Only
+  recognizable legacy irrigation automations are disabled and presented for
+  review and manual removal.
+- A localized end-of-onboarding choice between keeping the prepared starter
+  dashboard and beginning with an intentionally empty canvas, plus an explicit
+  starter-template restore action in Settings.
+- A redesigned contextual Weather experience with hourly or daily temperature,
+  animated humidity, pressure, UV, wind, sunrise/sunset, localized conditions,
+  and capability-based modules that disappear when data is unavailable.
+
+### Safety and reliability
+
+- Real irrigation zones accept only `valve.*` and `switch.*` actuators;
+  `input_boolean.*` remains isolated to Demo mode.
+- Manual and scheduled sessions have a server-side deadline and watchdog, with
+  configurable durations from 5 to 60 minutes.
+- Parallel operation defaults to one zone and requires an explicit hydraulic
+  capacity acknowledgement before a higher limit can be saved.
+- Rain protection is fail-closed when enabled: an unavailable rain sensor blocks
+  new starts and closes active zones. Rain during a cycle can either stop it
+  immediately or allow the active cycle to finish.
+- Pause closes active actuators while preserving remaining time for an explicit
+  resume. Stop closes everything, clears queued work, and blocks schedules until
+  the system is enabled again.
+- Failed actuator confirmation is retried; an unconfirmed close moves the engine
+  to `fault` and creates a persistent Home Assistant Repair issue.
+- Integration reloads and Home Assistant restarts never resume old cycles:
+  previously active actuators are closed and their sessions are recorded as
+  interrupted.
+- Owner/Admin permissions protect configuration changes, while every operational
+  command re-checks the Home Assistant user's permission for its actuator.
+
+### Improved
+
+- Irrigation configuration, rain-protection changes, sessions, countdowns,
+  queue state, and anomalies synchronize between open clients through push
+  updates instead of browser polling.
+- New zones can be prepared while other zones are running; changes that would
+  affect an active actuator or live safety policy are rejected with a clear,
+  localized explanation.
+- Manual zone controls now expose queued, opening, running, closing, and paused
+  states consistently with the server, including remaining-time countdowns.
+- Consumption history is loaded on the overview as well as the detailed page.
+  Its chart now has stable dimensions and uses a per-user, per-server session
+  cache so known data renders immediately while stale values refresh in the
+  background.
+- Irrigation overview spacing, warning banners, configuration access, calendar,
+  zone cards, activity history, and responsive mobile/desktop layouts have been
+  refined.
+
+### Fixed
+
+- Opening Irrigation now always starts from the Overview instead of reusing a
+  stale nested route such as Consumption.
+- Rain-protection changes now propagate live to other open Domus UI clients.
+- Paused sessions retain their backend remaining time instead of resetting the
+  zone timer in the interface.
+- Safe zone additions are no longer blocked merely because another zone is
+  currently irrigating.
+- Irrigation command failures now surface the reason returned by Home Assistant
+  instead of a generic API error.
+- The overview consumption bars no longer collapse inside an auto-sized card.
+
+### Validation performed
+
+- Real Home Assistant checks completed with a `switch.*` actuator and a binary
+  rain sensor: configuration persistence, reload, manual start/stop, rain block,
+  rain interruption, single-slot FIFO queue, parallel capacity, global
+  pause/resume, and live multi-client rain-setting synchronization.
+- Automated backend coverage includes Store normalization, revisions,
+  idempotency, WebSocket and action routing, permissions, scheduling, queueing,
+  rain policies, actuator timeouts, close retries, fault recovery, reload, and
+  restart safety.
+- Frontend coverage includes migration, unavailable backend, configuration
+  conflicts, active-session editing, countdown behavior, activity history,
+  consumption caching, and Italian/English/French interface contracts.
+
+### Known limitations
+
+- This first Core release does not yet include pump control, flow monitoring,
+  weather- or soil-based automatic adjustment, Cycle & Soak, or robot lawn
+  mower support.
+- A host power outage cannot close a powered valve while Home Assistant is
+  offline. Critical installations still require a hardware auto-off or local
+  watchdog and should not rely solely on beta software.
+
 ## 0.1.0-beta.14 - 2026-09-07
 
 ### Added

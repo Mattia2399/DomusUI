@@ -469,6 +469,26 @@ export function useHaLiveConnection({ url, token }: HaLiveConnectionOptions) {
     [],
   );
 
+  const subscribeApi = useCallback(
+    async <TEvent = unknown>(
+      message: Record<string, unknown>,
+      callback: (event: TEvent) => void,
+    ) => {
+      if (
+        statusRef.current !== 'connected' ||
+        !connectionRef.current ||
+        !connectionRef.current.connected
+      ) {
+        throw new Error('Connessione Home Assistant non disponibile.');
+      }
+      return connectionRef.current.subscribeMessage(
+        callback as (event: unknown) => void,
+        message as never,
+      );
+    },
+    [],
+  );
+
   useEffect(() => () => {
     manualDisconnectRef.current = true;
     teardownConnection(false);
@@ -484,5 +504,6 @@ export function useHaLiveConnection({ url, token }: HaLiveConnectionOptions) {
     disconnect,
     callService,
     callApi,
+    subscribeApi,
   };
 }

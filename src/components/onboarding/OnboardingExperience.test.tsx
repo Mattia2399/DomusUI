@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 
 import { useState } from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SetupJourney } from '../../services/setupJourney';
 import { OnboardingExperience } from './OnboardingExperience';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
+import { loadDashboardLayout } from '../../services/dashboardStorage';
 
 const panelCallApi = vi.fn(async (_message?: Record<string, unknown>) => null as unknown);
 const panelConnect = vi.fn(async () => undefined);
@@ -42,6 +43,8 @@ vi.mock('../../hooks/useHaPanelBridgeConnection', () => ({
 }));
 
 describe('OnboardingExperience panel discovery', () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     window.localStorage.clear();
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
@@ -162,5 +165,32 @@ describe('OnboardingExperience panel discovery', () => {
         mode: 'real',
       });
     });
+  });
+
+  it('stores the responsive real starter template before opening Home', () => {
+    const journey: SetupJourney = {
+      version: 2,
+      phase: 'complete',
+      mode: 'real',
+      connectionMethod: 'panel',
+      hassUrl: 'https://ha.example.test',
+      updatedAt: Date.now(),
+    };
+
+    render(
+      <MemoryRouter initialEntries={['/setup']}>
+        <I18nProvider>
+          <OnboardingExperience journey={journey} onJourneyChange={vi.fn()} />
+        </I18nProvider>
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Apri la dashboard' }));
+    const layout = loadDashboardLayout('real');
+    expect(layout.sections).toHaveLength(2);
+    expect(layout.widgets).toHaveLength(7);
+    expect(layout.widgets.some((widget) => widget.kind === 'light')).toBe(false);
+    expect(layout.widgets.find((widget) => widget.kind === 'lock')?.entityId).toBe('lock.front_door');
+    expect(Object.keys(layout.responsiveLayouts.root ?? {})).toHaveLength(6);
   });
 });

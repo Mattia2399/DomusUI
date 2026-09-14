@@ -7,12 +7,13 @@ Il valore `name` in `configuration.yaml` deve essere esattamente `ha-dashboard-b
 ## Panel JS aggiornato
 
 ```js
-const PANEL_BRIDGE_PROTOCOL_VERSION = 2;
+const PANEL_BRIDGE_PROTOCOL_VERSION = 3;
 const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "shared_configuration",
   "app_configurations",
   "revision_history",
   "dashboard_reset_marker",
+  "irrigation_core",
 ]);
 const ALLOWED_WS_TYPES = new Set([
   "auth/current_user", "auth/list", "config/auth/list", "get_services",
@@ -28,14 +29,32 @@ const ALLOWED_WS_TYPES = new Set([
   "config/floor_registry/list", "config/floor_registry/create",
   "config/floor_registry/update", "config/floor_registry/reorder",
   "config/floor_registry/delete",
+  "domusos/irrigation/get_config", "domusos/irrigation/save_config",
+  "domusos/irrigation/get_state", "domusos/irrigation/subscribe",
+  "domusos/irrigation/start_zone", "domusos/irrigation/stop_zone",
+  "domusos/irrigation/pause", "domusos/irrigation/resume",
+  "domusos/irrigation/stop_all", "domusos/irrigation/prepare_legacy_removal",
 ]);
 const HA_NAME = /^[a-z0-9_]+$/;
-const REQUEST_ID = /^ha-panel-call-(?:service|api)-\d{10,}-[a-z0-9]+$/;
+const REQUEST_ID = /^ha-panel-(?:call-(?:service|api)|subscribe-api)-\d{10,}-[a-z0-9]+$/;
 const SHARED_HOUSE_KEY = "premium-home.shared-house.v1";
 const DASHBOARD_REVISIONS_KEY = "premium-home.dashboard-revisions.v1";
 const DASHBOARD_RESET_MARKER_KEY = "premium-home.dashboard-reset.v1";
 const APP_CONFIGURATIONS_KEY = "domusos.app-configurations.v1";
 const isRecord = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const toBridgeErrorMessage = (error, fallback) => {
+  const candidate = isRecord(error) && isRecord(error.error) ? error.error : error;
+  const message = typeof candidate === "string"
+    ? candidate.trim()
+    : isRecord(candidate) && typeof candidate.message === "string"
+      ? candidate.message.trim()
+      : "";
+  const code = isRecord(candidate) && typeof candidate.code === "string"
+    ? candidate.code.trim()
+    : "";
+  if (message && code && !message.includes(code)) return `${message} [${code}]`;
+  return message || code || fallback;
+};
 const isValidService = (domain, service, data) =>
   typeof domain === "string" && HA_NAME.test(domain) &&
   typeof service === "string" && HA_NAME.test(service) && isRecord(data);
@@ -111,6 +130,7 @@ class HaDashboardBuilderPanel extends HTMLElement {
     this._iframe = null;
     this._lastStates = {};
     this._areas = null;
+    this._apiSubscriptions = new Map();
     this._onMessage = this._onMessage.bind(this);
   }
 
@@ -134,6 +154,8 @@ class HaDashboardBuilderPanel extends HTMLElement {
 
   disconnectedCallback() {
     window.removeEventListener("message", this._onMessage);
+    for (const unsubscribe of this._apiSubscriptions.values()) unsubscribe();
+    this._apiSubscriptions.clear();
   }
 
   _render() {
@@ -273,7 +295,47 @@ class HaDashboardBuilderPanel extends HTMLElement {
           type: "ha-panel-call-service-result",
           requestId,
           ok: false,
-          error: error instanceof Error ? error.message : "Servizio Home Assistant fallito.",
+          error: toBridgeErrorMessage(error, "Servizio Home Assistant fallito."),
+        });
+      }
+      return;
+    }
+
+    if (payload.type === "ha-panel-unsubscribe-api") {
+      const requestId = typeof payload.requestId === "string" ? payload.requestId : "";
+      const unsubscribe = this._apiSubscriptions.get(requestId);
+      if (unsubscribe) unsubscribe();
+      this._apiSubscriptions.delete(requestId);
+      return;
+    }
+
+    if (payload.type === "ha-panel-subscribe-api") {
+      const requestId = typeof payload.requestId === "string" ? payload.requestId : "";
+      try {
+        const message = payload.message;
+        if (!REQUEST_ID.test(requestId) || message?.type !== "domusos/irrigation/subscribe" || !isValidWsMessage(message)) {
+          throw new Error("Sottoscrizione API non ammessa.");
+        }
+        if (!this._hass?.connection?.subscribeMessage) {
+          throw new Error("Canale sottoscrizioni Home Assistant non disponibile.");
+        }
+        const previous = this._apiSubscriptions.get(requestId);
+        if (previous) previous();
+        const unsubscribe = await this._hass.connection.subscribeMessage((subscriptionEvent) => {
+          this._postToIframe({
+            type: "ha-panel-subscribe-api-event",
+            requestId,
+            event: subscriptionEvent,
+          });
+        }, message);
+        this._apiSubscriptions.set(requestId, unsubscribe);
+        this._postToIframe({ type: "ha-panel-subscribe-api-result", requestId, ok: true });
+      } catch (error) {
+        this._postToIframe({
+          type: "ha-panel-subscribe-api-result",
+          requestId,
+          ok: false,
+          error: toBridgeErrorMessage(error, "Sottoscrizione Home Assistant fallita."),
         });
       }
       return;
@@ -305,7 +367,7 @@ class HaDashboardBuilderPanel extends HTMLElement {
           type: "ha-panel-call-api-result",
           requestId,
           ok: false,
-          error: error instanceof Error ? error.message : "Richiesta API Home Assistant fallita.",
+          error: toBridgeErrorMessage(error, "Richiesta API Home Assistant fallita."),
         });
       }
     }
@@ -323,11 +385,15 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
   - `ha-panel-state-changed`
   - `ha-panel-call-service-result`
   - `ha-panel-call-api-result`
+  - `ha-panel-subscribe-api-result`
+  - `ha-panel-subscribe-api-event`
 - Iframe -> parent:
   - `ha-panel-ready`
   - `ha-panel-request-sync`
   - `ha-panel-call-service`
   - `ha-panel-call-api`
+  - `ha-panel-subscribe-api`
+  - `ha-panel-unsubscribe-api`
 
 Il bridge accetta messaggi soltanto dal `contentWindow` dell’iframe e dallo stesso origin, valida request ID, domain, service, payload e una allowlist dei tipi WebSocket effettivamente usati. L’identità e i ruoli non vengono accettati dal payload del parent: la dashboard li richiede con `auth/current_user`, lasciando a Home Assistant l’autorità finale. Timeout e correlazione richiesta/risposta restano obbligatori anche se il browser e il parent sono controllati dallo stesso utente.
 

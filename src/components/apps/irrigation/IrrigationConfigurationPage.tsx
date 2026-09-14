@@ -1,11 +1,12 @@
 import {
   BadgeCheck, CheckCircle2, ChevronLeft, CloudRain, Droplets, Gauge, LoaderCircle, Save,
-  ShieldCheck, Sparkles, Sprout, Thermometer, TriangleAlert,
+  Minus, Plus, ShieldCheck, Sparkles, Sprout, Thermometer, TriangleAlert,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useMemo, useState } from 'react';
 import GlassCombobox from '../../ui/GlassCombobox';
 import GlassSlider from '../../ui/GlassSlider';
+import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import GlassToggle from '../../ui/GlassToggle';
 import {
   applyIrrigationEntitySuggestions,
@@ -29,12 +30,14 @@ type IrrigationConfigurationPageProps = {
   canConfigure: boolean;
   status: ConfigurationStatus;
   revision: number | null;
+  activeSessionCount?: number;
   hasUnsavedChanges: boolean;
   binarySensorOptions: string[];
   weatherOptions: string[];
   sensorOptions: string[];
   zoneEntityOptions: string[];
   entityStates: Record<string, IrrigationEntityState>;
+  allowDemoActuators?: boolean;
   onFieldChange: (field: keyof Omit<IrrigationConfigurationModel, 'zones'>, value: string | boolean | number) => void;
   onApplySuggestedConfiguration: (config: IrrigationConfigurationModel) => void;
   onSave: () => void;
@@ -73,16 +76,22 @@ function StatusPill({ status, revision }: { status: ConfigurationStatus; revisio
 export function IrrigationConfigurationPage({
   config, canConfigure, status, revision, hasUnsavedChanges, binarySensorOptions,
   weatherOptions, sensorOptions, zoneEntityOptions, entityStates, onFieldChange,
-  onApplySuggestedConfiguration, onSave, onBack,
+  onApplySuggestedConfiguration, onSave, onBack, allowDemoActuators = false,
+  activeSessionCount = 0,
 }: IrrigationConfigurationPageProps) {
   const { t } = useI18n();
   const [showVerification, setShowVerification] = useState(false);
   const configuredGlobals = GLOBAL_FIELDS.filter(({ field }) => Boolean(config[field]?.trim())).length;
   const configuredZones = config.zones.filter((zone) => Boolean(zone.entityId.trim())).length;
+  const concurrentZonesMaximum = Math.max(1, configuredZones);
+  const concurrentZonesValue = Math.min(Math.max(1, config.maxConcurrentZones), concurrentZonesMaximum);
   const isBusy = status === 'loading' || status === 'saving';
   const saveDisabled = !canConfigure || isBusy || !hasUnsavedChanges || ['offline', 'unsupported', 'error'].includes(status);
   const optionsBySource = { binary: binarySensorOptions, weather: weatherOptions, sensor: sensorOptions };
-  const validationIssues = useMemo(() => validateIrrigationConfiguration(config, entityStates), [config, entityStates]);
+  const validationIssues = useMemo(
+    () => validateIrrigationConfiguration(config, entityStates, { allowDemoActuators }),
+    [allowDemoActuators, config, entityStates],
+  );
   const errorCount = validationIssues.filter((issue) => issue.severity === 'error').length;
   const warningCount = validationIssues.length - errorCount;
   const optionLabel = (entityId: string) => getIrrigationEntityMetadata(entityId, entityStates).friendlyName;
@@ -100,6 +109,9 @@ export function IrrigationConfigurationPage({
     }, entityStates);
     onApplySuggestedConfiguration({ ...suggested, zones: config.zones });
     setShowVerification(true);
+  };
+  const setConcurrentZones = (value: number) => {
+    onFieldChange('maxConcurrentZones', Math.min(concurrentZonesMaximum, Math.max(1, value)));
   };
 
   return (
@@ -132,6 +144,13 @@ export function IrrigationConfigurationPage({
         </div>
       )}
 
+      {activeSessionCount > 0 ? (
+        <div role="status" className="mt-3 flex items-start gap-3 rounded-[1.4rem] border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)]">
+          <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+          <div><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.config.activeNoticeTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.config.activeNoticeDescription')}</p></div>
+        </div>
+      ) : null}
+
       <section className="mt-5 grid grid-cols-3 gap-2 sm:gap-3" aria-label={t('irrigation.config.status')}>
         <ConfigurationSummary value={`${configuredGlobals}/${GLOBAL_FIELDS.length}`} label={t('irrigation.config.globalData')} icon={Droplets} complete={configuredGlobals === GLOBAL_FIELDS.length} />
         <ConfigurationSummary value={`${configuredZones}/${config.zones.length}`} label={t('irrigation.config.connectedZones')} icon={Sprout} complete={configuredZones === config.zones.length && config.zones.length > 0} />
@@ -156,7 +175,27 @@ export function IrrigationConfigurationPage({
         <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
           <ProtectionToggle title={t('irrigation.config.blockRain')} description={t('irrigation.config.blockRainDescription')} checked={config.rainSensorEnabled} disabled={!canConfigure} onChange={(checked) => onFieldChange('rainSensorEnabled', checked)} />
           <ProtectionToggle title={t('irrigation.config.failSafe')} description={t('irrigation.config.failSafeDescription')} checked={config.blockOnRainSensorUnavailable} disabled={!canConfigure || !config.rainSensorEnabled} onChange={(checked) => onFieldChange('blockOnRainSensorUnavailable', checked)} />
+          <div className="rounded-[1.25rem] bg-[color:var(--ui-fill-tertiary)] p-4 lg:col-span-2">
+            <p className="text-sm font-semibold">{t('irrigation.config.rainPolicy')}</p>
+            <p className="mt-0.5 text-xs text-[color:var(--ui-text-secondary)]">{t('irrigation.config.rainPolicyDescription')}</p>
+            <GlassSegmentSelect className="mt-3" ariaLabel={t('irrigation.config.rainPolicy')} value={config.rainDuringCycle} disabled={!canConfigure} options={[
+              { value: 'stop_immediately', label: t('irrigation.config.rainStop') },
+              { value: 'finish_active', label: t('irrigation.config.rainFinish') },
+            ]} onChange={(value) => onFieldChange('rainDuringCycle', value)} />
+          </div>
           <div className="rounded-[1.25rem] bg-[color:var(--ui-fill-tertiary)] p-4 lg:col-span-2"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold">{t('irrigation.config.maxDuration')}</p><p className="mt-0.5 text-xs text-[color:var(--ui-text-secondary)]">{t('irrigation.config.maxDurationDescription')}</p></div><span className="shrink-0 text-sm font-semibold tabular-nums">{config.maximumManualDurationMin} min</span></div><GlassSlider className="mt-4" min={IRRIGATION_MINIMUM_MAX_DURATION_MIN} max={IRRIGATION_ABSOLUTE_MAX_DURATION_MIN} step={5} value={config.maximumManualDurationMin} disabled={!canConfigure} tone="green" aria-label={t('irrigation.config.maxDurationA11y')} onChange={(event) => onFieldChange('maximumManualDurationMin', Number(event.target.value))} /></div>
+          <div className="rounded-[1.25rem] bg-[color:var(--ui-fill-tertiary)] p-4 lg:col-span-2">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-sm font-semibold">{t('irrigation.config.concurrency')}</p><p className="mt-0.5 text-xs text-[color:var(--ui-text-secondary)]">{t('irrigation.config.concurrencyDescription')}</p></div>
+              <span className="shrink-0 text-sm font-semibold tabular-nums">{concurrentZonesValue}/{concurrentZonesMaximum}</span>
+            </div>
+            <div className="mt-4 flex items-center gap-2">
+              <button type="button" aria-label={t('irrigation.config.concurrencyDecrease')} onClick={() => setConcurrentZones(concurrentZonesValue - 1)} disabled={!canConfigure || concurrentZonesValue <= 1} className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-35"><Minus className="h-4 w-4" /></button>
+              <GlassSlider className="min-w-0 flex-1" min={1} max={concurrentZonesMaximum} step={1} value={concurrentZonesValue} disabled={!canConfigure || configuredZones < 2} tone="green" aria-label={t('irrigation.config.concurrency')} onChange={(event) => setConcurrentZones(Number(event.target.value))} />
+              <button type="button" aria-label={t('irrigation.config.concurrencyIncrease')} onClick={() => setConcurrentZones(concurrentZonesValue + 1)} disabled={!canConfigure || configuredZones < 2 || concurrentZonesValue >= concurrentZonesMaximum} className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-35"><Plus className="h-4 w-4" /></button>
+            </div>
+          </div>
+          {config.maxConcurrentZones > 1 ? <div className="lg:col-span-2"><ProtectionToggle title={t('irrigation.config.hydraulicAck')} description={t('irrigation.config.hydraulicAckDescription')} checked={config.parallelSafetyAcknowledged} disabled={!canConfigure} onChange={(checked) => onFieldChange('parallelSafetyAcknowledged', checked)} /></div> : null}
         </div>
       </section>
 
@@ -185,6 +224,8 @@ function VerificationResults({ issues, errorCount, warningCount }: { issues: Irr
   const { locale, t } = useI18n();
   const issueKeys = {
     invalid_max_duration: 'irrigation.validation.invalid_max_duration',
+    invalid_concurrency: 'irrigation.validation.invalid_concurrency',
+    missing_parallel_ack: 'irrigation.validation.missing_parallel_ack',
     missing_rain_sensor: 'irrigation.validation.missing_rain_sensor',
     invalid_global_domain: 'irrigation.validation.invalid_global_domain',
     missing_zone_entity: 'irrigation.validation.missing_zone_entity',

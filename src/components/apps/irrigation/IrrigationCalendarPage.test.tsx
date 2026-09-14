@@ -32,7 +32,9 @@ describe('IrrigationCalendarPage', () => {
 
     expect(screen.getAllByText('Prato Nord')).toHaveLength(2);
     expect(screen.getAllByText('Programmato')).toHaveLength(2);
-    expect(screen.getByText('14')).toBeTruthy();
+    const dayTabs = screen.getAllByRole('tab');
+    expect(dayTabs).toHaveLength(7);
+    expect(dayTabs.filter((tab) => tab.getAttribute('aria-selected') === 'true')).toHaveLength(1);
     fireEvent.click(screen.getAllByText('Prato Nord')[0]);
     expect(onOpenProgram).toHaveBeenCalledWith('north');
   });

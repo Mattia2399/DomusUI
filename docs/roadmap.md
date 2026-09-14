@@ -1,6 +1,6 @@
 # Domus UI roadmap
 
-Aggiornata: 2026-08-31
+Aggiornata: 2026-09-08
 
 ## Obiettivo
 
@@ -424,7 +424,7 @@ Done quando:
 
 Priorita: P1 per la crescita internazionale successiva alla prima beta pubblica.
 
-Stato: infrastruttura e prima migrazione avviate il 2 settembre 2026. Le lingue supportate sono italiano, inglese e francese. Al primo accesso Domus UI usa la lingua comunicata da Home Assistant e, se non disponibile o non supportata, quella del browser; l'italiano resta il fallback finale. Il Profilo espone soltanto le lingue disponibili e una scelta esplicita viene salvata esclusivamente sul dispositivo corrente. Non esiste una voce `Auto`: l'automatismo opera solo finche l'utente non effettua una scelta manuale.
+Stato: scope essenziale pubblicato nella Beta 14 il 7 settembre 2026. Le lingue supportate sono italiano, inglese e francese. Al primo accesso Domus UI usa la lingua comunicata da Home Assistant e, se non disponibile o non supportata, quella del browser; l'italiano resta il fallback finale. Il Profilo espone soltanto le lingue disponibili e una scelta esplicita viene salvata esclusivamente sul dispositivo corrente. Non esiste una voce `Auto`: l'automatismo opera solo finche l'utente non effettua una scelta manuale. Ogni nuova funzione utente deve introdurre contestualmente testi, formati e test essenziali nelle tre lingue, senza creare nuovo debito di traduzione.
 
 Regole:
 
@@ -441,13 +441,15 @@ Migrazione UI:
 - [x] selettore Profilo con Italiano, English e Français;
 - [x] Profilo e shell di navigazione principale;
 - [x] onboarding, setup, organizzazione e riconnessione;
-- [ ] Home, card, Builder e pannelli contestuali;
+- [x] Home, card, Builder e pannelli contestuali;
 - [x] Rooms;
-- [ ] Security, Consumi e App Gallery;
-- [ ] Impostazioni, supporto, notifiche e stati di errore;
-- [ ] audit automatico delle stringhe UI residue e collaudo visuale nei tre cataloghi.
+- [x] App Gallery e workspace Irrigazione;
+- [x] Impostazioni, supporto, notifiche e stati di errore dello scope essenziale;
+- [ ] Security e Consumi completi; fino alla migrazione restano protetti dal gate localizzato fuori dall'italiano;
+- [x] audit automatico delle stringhe UI residue nel release gate;
+- [ ] collaudo visuale completo nei tre cataloghi per le route che verranno migrate in seguito.
 
-Checkpoint beta essenziale (2026-09-02): oltre al primo accesso sono tradotti nelle tre lingue il saluto dinamico della Home, il centro notifiche, la barra Undo/Redo, gli stati di salvataggio, le azioni principali dell'Edit Mode e il dialogo francese dell'integrazione Home Assistant. Le voci incomplete sopra restano aperte fino alla migrazione delle card e delle route avanzate.
+Checkpoint Beta 14 (2026-09-07): primo accesso, Home, Rooms, Settings, Profilo, App Gallery e Irrigazione sono tradotti end-to-end nelle tre lingue. Le route ancora fuori scope mostrano un gate localizzato invece di un'interfaccia mista. Il release gate include l'audit automatico delle stringhe residue.
 
 Scope minimo della prima release multilingua: `/home`, `/rooms` e `/settings` devono essere complete end-to-end, incluse pagine nidificate, pannelli, popup, stati vuoti ed errori. Le route non ancora supportate non devono mostrare interfacce miste: quando la lingua attiva non è l'italiano useranno una pagina localizzata "disponibile prossimamente" finché la relativa migrazione non sarà conclusa.
 
@@ -772,44 +774,63 @@ Done quando:
 
 ### Aggiornamento post-beta prioritario - Domus Core Irrigation
 
-Stato: pianificato come primo intervento strutturale dopo la beta pubblica.
-La UI Irrigazione, la configurazione condivisa, il calendario, i consumi e i
-comandi supervisionati sono disponibili nella beta. La programmazione autonoma
-non viene ancora presentata come motore affidabile per utilizzo non presidiato:
-le automazioni generate e i timer del browser verranno sostituiti da un'unica
-autorita residente nell'integrazione HACS Domus UI.
+Stato: Core implementato nell'integrazione HACS e collegato alla UI. Sono
+completati manager server-side, Store versionato, scheduler in ora locale,
+sessioni con scadenza, coda FIFO, concorrenza configurabile, pausa/ripresa,
+arresto, politiche pioggia, watchdog di chiusura, Repair persistente, permessi,
+azioni HA, API WebSocket e aggiornamenti push. La Demo resta isolata e i timer
+browser sono disattivati nel runtime reale.
 
-Architettura prevista:
+Lo storico operativo del Core è esposto nella UI: la Panoramica mostra gli
+ultimi eventi in una card compatta e la route `Irrigazione > Attività` presenta
+gli ultimi 50 eventi autorizzati, distinguendo completamenti, arresti, eventi
+saltati, anomalie e interruzioni dovute a reload o riavvio.
 
-- aggiungere un `IrrigationManager` Python all'integrazione HACS gia installata,
-  senza richiedere componenti, add-on o configurazioni YAML aggiuntive;
-- conservare zone, programmi, soglie, stato pausa e sessioni attive nello
-  storage versionato di Home Assistant, lasciando il browser come sola cache;
-- pianificare i cicli nel processo Home Assistant e ricostruirli dopo ogni
-  riavvio, gestendo fuso orario e cambio ora;
-- eseguire apertura e chiusura attraverso i servizi ufficiali `valve` e
-  `switch`, verificando lo stato restituito dal dispositivo;
-- applicare un watchdog server-side e un limite massimo autorevole a ogni
-  sessione manuale o programmata;
-- in caso di riavvio, sessione incoerente o stato non verificabile, chiudere le
-  valvole configurate e segnalare l'anomalia;
-- rendere pioggia, disponibilita sensori, umidita terreno e temperatura
-  condizioni fail-closed configurabili, controllate subito prima dell'avvio e
-  durante il ciclo;
-- impedire sovrapposizioni non consentite e predisporre il supporto a pompa
-  principale, ritardi idraulici e politica una/piu zone simultanee;
-- registrare azioni HA `domusos.start_irrigation_zone`,
-  `domusos.stop_irrigation_zone`, `domusos.stop_all_irrigation`,
-  `domusos.pause_irrigation` e `domusos.resume_irrigation`;
-- esporre comandi WebSocket tipizzati per configurazione, stato live, timer,
-  cronologia e sottoscrizione push della UI;
-- applicare nel backend i permessi Owner/Admin per la configurazione e i
-  permessi HA effettivi per ogni comando;
-- migrare i programmi correnti e rilevare le vecchie automazioni
-  `automation.irrigation_*`, impedendo l'esecuzione contemporanea dei due
-  motori;
-- aggiungere diagnostica, Repairs e test per riavvio HA, browser chiuso,
-  sensori offline, timeout, pioggia durante il ciclo e valvole senza conferma.
+La migrazione importa la configurazione precedente, accetta come attuatori
+reali soltanto `valve.*` e `switch.*`, disabilita le sole automazioni legacy
+riconoscibili e guida l'utente alla loro rimozione. Se la disabilitazione non è
+confermata, il nuovo scheduler non viene attivato. Dopo reload o riavvio le
+sessioni precedenti vengono chiuse e marcate interrotte, mai riprese.
+
+La prima release Core non include pompa principale, portata, regolazione meteo
+avanzata, terreno automatico, `Cycle & Soak` o robot tagliaerba. Per impianti
+critici resta necessario un auto-off o watchdog hardware: un blackout dell'host
+non può garantire la chiusura mentre manca alimentazione.
+
+Gate ancora aperti prima dell'uso reale non presidiato:
+
+- suite Linux completata il 10 settembre 2026: Store, manager e lifecycle verdi
+  su Home Assistant 2025.1; suite completa, incluso il contratto WebSocket,
+  verde su Home Assistant 2026.2.3;
+- collaudare su un'istanza reale una `valve`, uno `switch`, il sensore pioggia,
+  la chiusura a browser spento, il reload e il riavvio di Home Assistant;
+- verificare su hardware il comportamento di timeout e mancata conferma della
+  chiusura, incluso il Repair persistente;
+- pubblicare il Core soltanto dopo il superamento completo di questi gate.
+
+Vista Robot tagliaerba prevista per una futura versione stabile:
+
+- aggiungere alla mini-app Irrigazione una route dedicata al robot tagliaerba,
+  distinta da Panoramica, Zone, Calendario e Consumi;
+- rilevare e configurare soltanto robot ed entita realmente esposti da Home
+  Assistant, senza mostrare dispositivi o telemetria dimostrativa nel runtime
+  reale;
+- mostrare stato operativo, batteria, connessione, attivita corrente, ultimo
+  ciclo e prossima programmazione soltanto quando supportati;
+- offrire comandi contestuali per avvio, pausa, arresto e ritorno alla base,
+  rispettando disponibilita, capability e permessi verificati da Home
+  Assistant;
+- prevedere una vista dell'area o del percorso solo quando il dispositivo
+  espone dati geografici affidabili, nascondendola negli altri casi;
+- integrare programmazione, condizioni meteo, sospensione per pioggia e
+  cronologia con il futuro backend autorevole `Domus Core Irrigation`;
+- mantenere la stessa shell responsive della mini-app, con navigazione
+  contestuale desktop/tablet e bottom navigation mobile;
+- aggiungere stati loading, offline, non configurato e comando non confermato,
+  insieme a test capability-driven e collaudo su dispositivi reali.
+
+Priorita vista Robot tagliaerba: versione stabile successiva alla beta; non
+blocca il rilascio corrente.
 
 Done quando:
 
@@ -926,7 +947,7 @@ Priorita: P1 prima della distribuzione del panel bridge.
 
 #### Scelta del layout al termine della guida iniziale
 
-Stato: pianificato il 27 luglio 2026.
+Stato: completato l'8 settembre 2026. Il completamento della guida apre una scelta localizzata tra mantenere il layout preparato e salvare un canvas intenzionalmente vuoto. La chiusura anticipata della guida resta distinta dalla conferma finale. Il salvataggio è fail-closed, rispetta i permessi HA, chiude correttamente l'Edit Mode e conserva la revisione precedente nella cronologia autorevole della casa reale. Lo storage locale marca esplicitamente il vuoto intenzionale, evitando il ripristino del template dopo refresh o cambio route.
 
 Al termine della guida della Home mostrare una scelta conclusiva, semplice e non ambigua:
 
@@ -943,7 +964,7 @@ Nota tecnica: il loader attuale interpreta `sezioni vuote + widget vuoti` come a
 
 #### Template dimostrativo iniziale
 
-Stato: da rifinire prima della beta pubblica.
+Stato: completato il 8 settembre 2026. Il template `v1` vive in un modulo dedicato, non contiene la Light usata dalla guida e definisce coordinate esplicite e prive di collisioni per `2xl`, `xl`, `lg`, `md`, `sm` e `xs`. La Demo usa sette card mock dichiarate; il primo setup reale crea gli stessi slot con sorgente HA e collega automaticamente soltanto l'unica entità disponibile e compatibile per dominio. In presenza di più candidati, entità non disponibili o nessuna corrispondenza, la card resta volutamente da configurare. La Light aggiunta durante la guida occupa uno slot deterministico su ogni breakpoint. Da `Impostazioni > Dati e backup` Owner/Admin possono ripristinare esplicitamente il template dopo conferma sensibile; nella casa reale il salvataggio crea una nuova revisione e conserva quella precedente nella cronologia.
 
 - separare il contenuto dimostrativo dai tipi del dominio, spostando `INITIAL_WIDGETS` e `INITIAL_SECTIONS` in un modulo dedicato e versionato, ad esempio `starterDashboardTemplate.ts`;
 - definire in quel modulo card, entità mock, testi, sezioni e coordinate del mockup ufficiale;
@@ -997,11 +1018,11 @@ Risultato Greeting e meteo:
 
 #### Pannello contestuale Meteo - moduli ambientali evoluti
 
-Stato: pianificato post-beta. Il riferimento visuale ricevuto il 28 agosto 2026 introduce una composizione modulare di card ambientali compatte, da reinterpretare con il design system Domus UI e non da replicare come immagine statica.
+Stato: nucleo completato l'8 settembre 2026. Il pannello usa una griglia modulare con andamento temperatura orario/giornaliero, umidita animata, pressione, UV, vento e alba/tramonto. Pannello e `WeatherCard` condividono traduzioni, categorie atmosferiche e sfondi dinamici. I moduli privi di una sorgente reale vengono rimossi senza mostrare valori `N/D`; il precedente blocco tecnico `Dettagli slot selezionato` e stato eliminato. Il riferimento visuale ricevuto il 28 agosto 2026 viene reinterpretato con il design system Domus UI e non replicato come immagine statica.
 
 Moduli previsti:
 
-- andamento orario della temperatura, con curva, ore e valori allineati senza spostamenti di layout;
+- andamento della temperatura con due granularita: vista oraria e vista giornaliera, mantenendo curva, intervalli e valori allineati senza spostamenti di layout;
 - umidita con livello visivo morbido e classificazione testuale accessibile;
 - pressione atmosferica con indicatore semicircolare e valore in `hPa`;
 - indice UV con fascia cromatica, posizione corrente e livello di rischio espresso anche tramite testo;
@@ -1012,14 +1033,26 @@ Regole di implementazione:
 
 - usare esclusivamente dati reali disponibili da `weather.*`, dalle entita `sensor.*` correlate e da `sun.sun`; ogni modulo non supportato viene nascosto o mostra uno stato non configurato esplicito, senza valori inventati;
 - consentire nel pannello di configurazione l'associazione automatica tramite Device/Entity Registry e la selezione manuale delle sole sorgenti mancanti;
+- aggiungere nelle impostazioni Meteo la preferenza `Orario | Giornaliero`; la scelta definisce la vista iniziale del grafico e resta modificabile senza ricreare la card;
+- usare il forecast `hourly` o `daily` esposto da Home Assistant in base alla preferenza, con fallback esplicito alla granularita disponibile e senza sintetizzare dati mancanti;
 - mantenere una gerarchia responsive: temperatura e arco solare possono occupare tutta la larghezza, mentre i moduli quadrati si dispongono in una griglia adattiva;
 - usare container query per densita, tipografia e quantita di dettagli, evitando varianti dipendenti soltanto dal breakpoint della viewport;
 - rispettare tema, contrasto, `prefers-reduced-motion`, unita HA, localizzazione e formati orari dell'utente;
 - rendere grafici e indicatori comprensibili anche senza colore tramite etichette, valori e descrizioni accessibili;
-- condividere modello dati e componenti con una futura `WeatherCard` autonoma, evitando duplicazioni con Greeting e pannello contestuale;
+- mantenere condivisi modello dati, traduzioni e presentazione atmosferica tra `WeatherCard`, Greeting e pannello contestuale;
 - aggiungere skeleton fedeli, stati loading/stale/offline, test Demo/Reale e test per capability parziali.
 
 Priorita: P1 post-beta, dopo la stabilizzazione della prima distribuzione pubblica.
+
+Evoluzione prevista per una futura versione stabile, non bloccante per la beta:
+
+- rendere disponibili nel catalogo dashboard i singoli moduli del pannello come card meteo indipendenti: temperatura, umidita, pressione, indice UV, vento e alba/tramonto;
+- riutilizzare gli stessi componenti visuali e lo stesso modello dati del pannello, senza creare implementazioni parallele;
+- permettere di aggiungere soltanto le card supportate dalle informazioni realmente esposte dall'entita meteo o dai sensori correlati;
+- integrare le card nel registry, nella persistenza condivisa, nel Builder e nelle future varianti `mini / standard / expanded`;
+- mantenere sfondi atmosferici, localizzazione, unita Home Assistant, accessibilita e comportamento responsive coerenti con la `WeatherCard` principale.
+
+Priorita delle card meteo modulari: versione stabile successiva alla beta pubblica.
 
 #### Centro notifiche post-beta
 

@@ -27,6 +27,17 @@ const unavailableWeather: DashboardStateShape['weather'] = {
   forecast: [],
 };
 
+const availableWeather: DashboardStateShape['weather'] = {
+  ...unavailableWeather,
+  available: true,
+  source: 'mock',
+  location: 'Casa',
+  condition: 'pouring',
+  temperature: 18,
+  high: 20,
+  low: 14,
+};
+
 describe('WeatherCard data truth', () => {
   afterEach(cleanup);
 
@@ -36,5 +47,14 @@ describe('WeatherCard data truth', () => {
 
     expect(screen.getByRole('status').textContent).toContain('Meteo non configurato');
     expect(screen.getByText('Seleziona un’entità weather.*')).toBeTruthy();
+  });
+
+  it('shares the translated atmospheric presentation used by the weather panel', () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
+    render(<I18nProvider><WeatherCard weather={availableWeather} layout="card" secondaryInfo="condition" /></I18nProvider>);
+
+    const surface = screen.getByText('Pioggia intensa').closest('[data-weather]');
+    expect(surface?.getAttribute('data-weather')).toBe('rainy');
+    expect(surface?.className).toContain('weather-condition-card');
   });
 });

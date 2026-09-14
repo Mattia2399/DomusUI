@@ -2,6 +2,7 @@ import type { DashboardHaApiCaller } from './haDashboardConfigurationRepository'
 
 export const HA_APP_CONFIGURATIONS_KEY = 'domusos.app-configurations.v1';
 export const IRRIGATION_CONFIGURATION_CACHE_KEY = 'ha.dashboard.appgallery.irrigation.config.v1';
+export const IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY = 'ha.dashboard.appgallery.irrigation.demo-config.v1';
 export const APP_CONFIGURATIONS_SCHEMA = 'domusos-app-configurations';
 export const APP_CONFIGURATIONS_VERSION = 1;
 

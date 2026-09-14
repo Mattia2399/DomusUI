@@ -102,6 +102,10 @@ describe('Home Assistant panel bridge schema', () => {
       value: { schema: 'wrong' },
     })).toBe(false);
     expect(validatePanelApiMessage({ type: 'call_service', domain: 'light', service: 'turn_on', service_data: {} })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/irrigation/get_config' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/irrigation/subscribe' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/irrigation/prepare_legacy_removal' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/irrigation/delete_everything' })).toBe(false);
     expect(validatePanelApiMessage({ type: 'call_service', domain: 'light!', service: 'turn_on' })).toBe(false);
   });
 
@@ -124,9 +128,10 @@ describe('Home Assistant panel bridge schema', () => {
       'app_configurations',
       'revision_history',
       'dashboard_reset_marker',
+      'irrigation_core',
       'unknown_capability',
       42,
-    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker']);
+    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core']);
     expect(parsePanelBridgeCapabilities(null)).toEqual([]);
   });
 

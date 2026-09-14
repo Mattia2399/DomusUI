@@ -91,6 +91,8 @@ See [Updates and rollback](update-and-rollback.md) for the complete procedure.
 - The layout is saved to Home Assistant and loaded by a second device.
 - Home and Rooms navigate without reloading the document.
 - Real commands are blocked while the connection is offline.
+- Domus Core Irrigation remains stopped after installation or restart until it
+  is explicitly enabled, and its configured actuators are confirmed closed.
 - Backups and layout versions do not expose tokens, PINs, or codes.
 
 ## Building from source

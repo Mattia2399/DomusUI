@@ -27,6 +27,9 @@ const emptyConfig: IrrigationConfigurationModel = {
   rainSensorEnabled: true,
   blockOnRainSensorUnavailable: true,
   maximumManualDurationMin: 30,
+  maxConcurrentZones: 1,
+  parallelSafetyAcknowledged: false,
+  rainDuringCycle: 'stop_immediately',
   rainSensorEntityId: '',
   weatherEntityId: '',
   humidityEntityId: '',
@@ -102,5 +105,21 @@ describe('irrigation configuration intelligence', () => {
         rawAttributes: { unit_of_measurement: 'L' },
       },
     }).stateLabel).toBe('1.234,57');
+  });
+
+  it('accepts input booleans only for the isolated Demo runtime', () => {
+    const demoConfig = {
+      ...emptyConfig,
+      rainSensorEnabled: false,
+      zones: [{ ...emptyConfig.zones[0], entityId: 'input_boolean.demo_valve' }],
+    };
+    expect(validateIrrigationConfiguration(demoConfig, {}).some(
+      (issue) => issue.code === 'invalid_zone_domain',
+    )).toBe(true);
+    expect(validateIrrigationConfiguration(
+      demoConfig,
+      {},
+      { allowDemoActuators: true },
+    ).some((issue) => issue.code === 'invalid_zone_domain')).toBe(false);
   });
 });

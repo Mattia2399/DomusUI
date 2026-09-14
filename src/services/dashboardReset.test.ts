@@ -16,7 +16,10 @@ import {
 } from './dashboardRuntime';
 import { getDashboardEditDraftKey } from './dashboardEditDraft';
 import { SHARED_HOUSE_CONFIGURATION_CACHE_KEY } from './localDashboardConfigurationCache';
-import { IRRIGATION_CONFIGURATION_CACHE_KEY } from './haAppConfigurationsRepository';
+import {
+  IRRIGATION_CONFIGURATION_CACHE_KEY,
+  IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY,
+} from './haAppConfigurationsRepository';
 import { SETUP_JOURNEY_STORAGE_KEY } from './setupJourney';
 import {
   LEGACY_WIDGET_SECRETS_STORAGE_KEY,
@@ -55,6 +58,7 @@ describe('remote authoritative reset invalidation', () => {
       WIDGET_SECRETS_STORAGE_KEY,
       LEGACY_WIDGET_SECRETS_STORAGE_KEY,
       IRRIGATION_CONFIGURATION_CACHE_KEY,
+      IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY,
     ];
     staleKeys.forEach((key) => window.localStorage.setItem(key, 'stale'));
     window.sessionStorage.setItem(getDashboardEditDraftKey('real'), 'stale-draft');

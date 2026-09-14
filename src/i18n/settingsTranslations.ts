@@ -3,6 +3,11 @@ import { settingsExtraTranslations } from './settingsExtraTranslations';
 export const settingsTranslations = {
   it: {
     ...settingsExtraTranslations.it,
+    'settings.backup.starterTitle': 'Ripristina layout iniziale',
+    'settings.backup.starterDescription': 'Sostituisce la dashboard con il template responsive di Domus UI.',
+    'settings.backup.starterPrompt': 'Ripristinare il layout iniziale?',
+    'settings.backup.starterPromptDescription': 'La dashboard attuale verrà sostituita. Nella casa reale, la versione corrente resterà disponibile nella cronologia.',
+    'settings.backup.starterRestored': 'Layout iniziale ripristinato.',
     'settings.devices.unnamed': 'Dispositivo senza nome',
     'settings.common.unavailable': 'Non disponibile',
     'settings.common.unknown': 'Sconosciuto',
@@ -83,6 +88,11 @@ export const settingsTranslations = {
   },
   en: {
     ...settingsExtraTranslations.en,
+    'settings.backup.starterTitle': 'Restore starter layout',
+    'settings.backup.starterDescription': 'Replaces the dashboard with the responsive Domus UI template.',
+    'settings.backup.starterPrompt': 'Restore the starter layout?',
+    'settings.backup.starterPromptDescription': 'The current dashboard will be replaced. In a real home, the current version will remain available in history.',
+    'settings.backup.starterRestored': 'Starter layout restored.',
     'settings.devices.unnamed': 'Unnamed device',
     'settings.common.unavailable': 'Unavailable', 'settings.common.unknown': 'Unknown', 'settings.common.now': 'Now', 'settings.common.minutesAgo': '{count} min ago', 'settings.common.hoursAgo': '{count} h ago',
     'settings.domains.alarm_control_panel': 'Alarms', 'settings.domains.automation': 'Automations', 'settings.domains.binary_sensor': 'Binary sensors', 'settings.domains.button': 'Buttons', 'settings.domains.calendar': 'Calendars', 'settings.domains.camera': 'Cameras', 'settings.domains.climate': 'Climate', 'settings.domains.cover': 'Covers', 'settings.domains.device_tracker': 'Trackers', 'settings.domains.fan': 'Fans', 'settings.domains.humidifier': 'Humidifiers', 'settings.domains.light': 'Lights', 'settings.domains.lock': 'Locks', 'settings.domains.media_player': 'Media players', 'settings.domains.person': 'People', 'settings.domains.scene': 'Scenes', 'settings.domains.script': 'Scripts', 'settings.domains.select': 'Selectors', 'settings.domains.sensor': 'Sensors', 'settings.domains.siren': 'Sirens', 'settings.domains.sun': 'Sun', 'settings.domains.switch': 'Switches', 'settings.domains.update': 'Updates', 'settings.domains.vacuum': 'Vacuums', 'settings.domains.weather': 'Weather', 'settings.domains.zone': 'Zones',
@@ -110,6 +120,11 @@ export const settingsTranslations = {
   },
   fr: {
     ...settingsExtraTranslations.fr,
+    'settings.backup.starterTitle': 'Restaurer la disposition initiale',
+    'settings.backup.starterDescription': 'Remplace le tableau de bord par le modèle adaptatif Domus UI.',
+    'settings.backup.starterPrompt': 'Restaurer la disposition initiale ?',
+    'settings.backup.starterPromptDescription': 'Le tableau de bord actuel sera remplacé. Dans un domicile réel, la version actuelle restera disponible dans l’historique.',
+    'settings.backup.starterRestored': 'Disposition initiale restaurée.',
     'settings.devices.unnamed': 'Appareil sans nom',
     'settings.common.unavailable': 'Indisponible', 'settings.common.unknown': 'Inconnu', 'settings.common.now': 'Maintenant', 'settings.common.minutesAgo': 'il y a {count} min', 'settings.common.hoursAgo': 'il y a {count} h',
     'settings.domains.alarm_control_panel': 'Alarmes', 'settings.domains.automation': 'Automatisations', 'settings.domains.binary_sensor': 'Capteurs binaires', 'settings.domains.button': 'Boutons', 'settings.domains.calendar': 'Calendriers', 'settings.domains.camera': 'Caméras', 'settings.domains.climate': 'Climatisation', 'settings.domains.cover': 'Volets', 'settings.domains.device_tracker': 'Traqueurs', 'settings.domains.fan': 'Ventilateurs', 'settings.domains.humidifier': 'Humidificateurs', 'settings.domains.light': 'Lumières', 'settings.domains.lock': 'Serrures', 'settings.domains.media_player': 'Lecteurs multimédias', 'settings.domains.person': 'Personnes', 'settings.domains.scene': 'Scènes', 'settings.domains.script': 'Scripts', 'settings.domains.select': 'Sélecteurs', 'settings.domains.sensor': 'Capteurs', 'settings.domains.siren': 'Sirènes', 'settings.domains.sun': 'Soleil', 'settings.domains.switch': 'Interrupteurs', 'settings.domains.update': 'Mises à jour', 'settings.domains.vacuum': 'Aspirateurs', 'settings.domains.weather': 'Météo', 'settings.domains.zone': 'Zones',

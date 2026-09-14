@@ -1,12 +1,11 @@
 import type { DashboardRuntimeMode } from '../security/dashboardAccess';
 import {
-  ROOT_CANVAS_COLS,
-  SCENES_SECTION_ROWS,
-  WEATHER_SECTION_CARD_ROWS,
   type DashboardSection,
   type Widget,
   type WidgetKind,
 } from '../types/dashboardModels';
+import { createStarterDashboardTemplate } from '../templates/starterDashboardTemplate';
+import type { DashboardResponsiveLayouts } from '../types/widgetTypeLayout';
 
 /**
  * All dashboard fixtures that are allowed to appear without Home Assistant
@@ -91,93 +90,11 @@ export const EMPTY_ENTITY_OPTIONS: Record<WidgetKind, string[]> = {
   members: [],
 };
 
-export const DEMO_INITIAL_WIDGETS: Widget[] = [
-  {
-    id: 'sensor.nest_wifi_download',
-    kind: 'sensor',
-    title: 'Nest Wifi',
-    entityId: 'sensor.nest_wifi_download',
-    dataSource: 'mock',
-    status: 'Connected',
-    isOn: true,
-    value: 97,
-    unit: 'Mbps',
-    layout: { i: 'sensor.nest_wifi_download', x: 0, y: 0, w: 2, h: 4 },
-  },
-  {
-    id: 'light.living_room_lamp',
-    kind: 'light',
-    title: 'Lamp',
-    entityId: 'light.living_room_lamp',
-    dataSource: 'mock',
-    status: 'Opening',
-    isOn: true,
-    value: 62,
-    unit: '%',
-    layout: { i: 'light.living_room_lamp', x: 2, y: 0, w: 2, h: 2 },
-  },
-  {
-    id: 'climate.air_conditioner',
-    kind: 'climate',
-    title: 'Air Conditioner',
-    entityId: 'climate.air_conditioner',
-    dataSource: 'mock',
-    status: 'Opening',
-    isOn: true,
-    value: 24,
-    unit: 'C',
-    layout: { i: 'climate.air_conditioner', x: 4, y: 0, w: 2, h: 2 },
-  },
-  {
-    id: 'camera.front_door',
-    kind: 'camera',
-    title: 'Front Door Cam',
-    entityId: 'camera.front_door',
-    dataSource: 'mock',
-    status: 'Online',
-    isOn: true,
-    layout: { i: 'camera.front_door', x: 0, y: 2, w: 2, h: 4 },
-  },
-  {
-    id: 'sensor.living_room_humidity',
-    kind: 'sensor',
-    title: 'Humidity Sensor',
-    entityId: 'sensor.living_room_humidity',
-    dataSource: 'mock',
-    status: 'Tracking',
-    isOn: true,
-    value: 48,
-    unit: '%',
-    layout: { i: 'sensor.living_room_humidity', x: 4, y: 2, w: 2, h: 4 },
-  },
-];
+const DEMO_STARTER_TEMPLATE = createStarterDashboardTemplate('demo');
 
-export const DEMO_INITIAL_SECTIONS: DashboardSection[] = [
-  {
-    id: 'section-greeting',
-    kind: 'greeting',
-    layout: { i: 'section-greeting', x: 0, y: 0, w: ROOT_CANVAS_COLS, h: WEATHER_SECTION_CARD_ROWS },
-    showWeather: true,
-    weatherLayout: 'auto',
-    weatherUnit: 'C',
-    weatherShowCondition: true,
-    weatherShowPrecipitation: true,
-    weatherShowWind: true,
-    weatherForecastType: 'daily',
-    weatherForecastDays: 4,
-    weatherForecastDensity: 'comfortable',
-    weatherSecondaryInfo: 'auto',
-  },
-  {
-    id: 'section-scenes',
-    kind: 'scenes',
-    layout: { i: 'section-scenes', x: 0, y: 2, w: ROOT_CANVAS_COLS, h: SCENES_SECTION_ROWS },
-    scenes: ['music', 'going-out', 'night', 'movie'],
-    scenesShowBackground: true,
-    scenesShowBorder: true,
-    title: 'Scenari',
-  },
-];
+export const DEMO_INITIAL_WIDGETS: Widget[] = DEMO_STARTER_TEMPLATE.widgets;
+
+export const DEMO_INITIAL_SECTIONS: DashboardSection[] = DEMO_STARTER_TEMPLATE.sections;
 
 export function getEntityOptionsForRuntime(runtimeMode: DashboardRuntimeMode) {
   return runtimeMode === 'demo' ? DEMO_ENTITY_OPTIONS : EMPTY_ENTITY_OPTIONS;
@@ -186,14 +103,17 @@ export function getEntityOptionsForRuntime(runtimeMode: DashboardRuntimeMode) {
 export function getInitialDashboardFixtures(runtimeMode: DashboardRuntimeMode): {
   sections: DashboardSection[];
   widgets: Widget[];
+  responsiveLayouts: DashboardResponsiveLayouts;
 } {
   if (runtimeMode === 'demo') {
+    const template = createStarterDashboardTemplate('demo');
     return {
       sections: DEMO_INITIAL_SECTIONS.map((section) => ({ ...section, layout: { ...section.layout } })),
       widgets: DEMO_INITIAL_WIDGETS.map((widget) => ({ ...widget, layout: { ...widget.layout } })),
+      responsiveLayouts: template.responsiveLayouts,
     };
   }
-  return { sections: [], widgets: [] };
+  return { sections: [], widgets: [], responsiveLayouts: {} };
 }
 
 export function normalizeWidgetsForRuntime(

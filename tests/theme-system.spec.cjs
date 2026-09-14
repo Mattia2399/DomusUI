@@ -108,7 +108,7 @@ test('Builder uses the shared glass shell and semantic controls', async ({ page 
 
   const configurableCard = page
     .locator('.sections-grid > .react-grid-item')
-    .filter({ has: page.locator('.light-card') })
+    .filter({ has: page.locator('.sensor-card__handle') })
     .first();
   await configurableCard.click({ position: { x: 32, y: 24 } });
   const semanticControl = builder.locator('.dashboard-content-surface, .dashboard-content-surface-soft, .ui-input').first();

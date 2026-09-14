@@ -40,6 +40,8 @@ export interface DashboardStateShape {
     pressureUnit?: string;
     visibilityUnit?: string;
     windSpeedUnit?: string;
+    sunrise?: string | number;
+    sunset?: string | number;
     forecast: Array<{
       label: string;
       datetime?: string;
@@ -1382,6 +1384,21 @@ function useDashboardStateInternal(options?: UseDashboardStateOptions) {
     const weatherVisibility =
       toNumberOrUndefined(liveWeather?.rawAttributes?.visibility) ??
       30;
+    const sunAttributes = haStates['sun.sun']?.rawAttributes;
+    const mockSunrise = useMockWeather ? new Date() : undefined;
+    mockSunrise?.setHours(6, 58, 0, 0);
+    const mockSunset = useMockWeather ? new Date() : undefined;
+    mockSunset?.setHours(20, 21, 0, 0);
+    const weatherSunrise =
+      sunAttributes?.next_rising ??
+      liveWeather?.rawAttributes?.sunrise ??
+      liveWeather?.rawAttributes?.next_rising ??
+      mockSunrise?.toISOString();
+    const weatherSunset =
+      sunAttributes?.next_setting ??
+      liveWeather?.rawAttributes?.sunset ??
+      liveWeather?.rawAttributes?.next_setting ??
+      mockSunset?.toISOString();
 
     return {
       userName,
@@ -1411,6 +1428,8 @@ function useDashboardStateInternal(options?: UseDashboardStateOptions) {
         pressureUnit: weatherPressureUnit,
         visibilityUnit: weatherVisibilityUnit,
         windSpeedUnit: weatherWindSpeedUnit,
+        sunrise: weatherSunrise as string | number | undefined,
+        sunset: weatherSunset as string | number | undefined,
         forecast: weatherForecast,
         rawAttributes: liveWeather?.rawAttributes,
       },

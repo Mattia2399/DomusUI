@@ -10,5 +10,18 @@
     "abort": {
       "single_instance_allowed": "Domus UI is already configured."
     }
+  },
+  "services": {
+    "start_irrigation_zone": { "name": "Start irrigation zone", "description": "Starts or queues a zone with a server-side safety timer.", "fields": { "zone_id": { "name": "Zone ID", "description": "Stable zone identifier configured in Domus UI." }, "duration_min": { "name": "Duration", "description": "Duration in minutes; the configured zone duration is used when omitted." }, "request_id": { "name": "Request ID", "description": "Optional idempotency key for external clients and automations." } } },
+    "stop_irrigation_zone": { "name": "Stop irrigation zone", "description": "Closes one zone and cancels its session.", "fields": { "zone_id": { "name": "Zone ID", "description": "Stable zone identifier configured in Domus UI." } } },
+    "pause_irrigation": { "name": "Pause irrigation", "description": "Closes active zones and preserves their remaining time." },
+    "resume_irrigation": { "name": "Resume irrigation", "description": "Resumes explicitly paused sessions." },
+    "stop_all_irrigation": { "name": "Stop all irrigation", "description": "Closes all zones, clears the queue and stops schedules." }
+  },
+  "issues": {
+    "irrigation_close_failed": {
+      "title": "Irrigation zone did not close",
+      "description": "Domus Core could not confirm that {zone} closed after multiple attempts ({reason}). Check the actuator and close the water supply manually if necessary."
+    }
   }
 }

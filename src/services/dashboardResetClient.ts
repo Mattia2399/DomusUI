@@ -10,7 +10,10 @@ import {
   WIDGET_SECRETS_STORAGE_KEY,
 } from './widgetSecrets';
 import type { DashboardResetMarker } from './dashboardReset';
-import { IRRIGATION_CONFIGURATION_CACHE_KEY } from './haAppConfigurationsRepository';
+import {
+  IRRIGATION_CONFIGURATION_CACHE_KEY,
+  IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY,
+} from './haAppConfigurationsRepository';
 
 export const DASHBOARD_RESET_ACK_STORAGE_KEY = 'domusos.dashboard-reset-ack.v1';
 
@@ -46,6 +49,7 @@ export function invalidateLocalDashboardAfterAuthoritativeReset(
     WIDGET_SECRETS_STORAGE_KEY,
     LEGACY_WIDGET_SECRETS_STORAGE_KEY,
     IRRIGATION_CONFIGURATION_CACHE_KEY,
+    IRRIGATION_DEMO_CONFIGURATION_CACHE_KEY,
   ];
   removedKeys.forEach((key) => storage.removeItem(key));
   if (sessionStorage) discardDashboardEditDraft(sessionStorage, 'real');

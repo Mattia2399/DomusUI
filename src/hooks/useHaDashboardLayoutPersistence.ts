@@ -504,6 +504,7 @@ export function useHaDashboardLayoutPersistence({
   const persist = useCallback((
     nextDashboard: DashboardLayoutConfiguration,
     publication: { source: DashboardRevisionSource; restoredFromRevision?: number } = { source: 'edit' },
+    explicit = false,
   ): Promise<DashboardLayoutSaveResult> => {
     const run = async (): Promise<DashboardLayoutSaveResult> => {
       if (!active || !connectionRef.current) {
@@ -521,7 +522,9 @@ export function useHaDashboardLayoutPersistence({
       const signature = dashboardSignature(nextDashboard);
       const current = documentRef.current;
       if (awaitingHydrationRef.current) {
-        if (signature && signature === persistedSignatureRef.current) {
+        if (explicit && current) {
+          awaitingHydrationRef.current = false;
+        } else if (signature && signature === persistedSignatureRef.current) {
           awaitingHydrationRef.current = false;
           console.info('[DomusUI:persistence] hydrate:confirmed');
         } else if (signature && current) {
@@ -675,7 +678,13 @@ export function useHaDashboardLayoutPersistence({
     return persist(dashboard);
   }, [dashboard, persist]);
 
-  const initializeFromCurrentDashboard = useCallback(async (): Promise<DashboardLayoutSaveResult> => {
+  const saveDashboard = useCallback((nextDashboard: DashboardLayoutConfiguration) => (
+    persist(nextDashboard, { source: 'edit' }, true)
+  ), [persist]);
+
+  const initializeDashboard = useCallback(async (
+    nextDashboard: DashboardLayoutConfiguration,
+  ): Promise<DashboardLayoutSaveResult> => {
     console.info('[DomusUI:persistence] initialize:start', {
       active,
       connected: connectionRef.current,
@@ -704,14 +713,14 @@ export function useHaDashboardLayoutPersistence({
       console.info('[DomusUI:persistence] initialize:document-already-present', {
         revision: documentRef.current.revision,
       });
-      return persist(dashboard);
+      return persist(nextDashboard, { source: 'migration' }, true);
     }
 
     setStatus({ phase: 'saving' });
     const initialDocument = createSharedHouseConfiguration({
       updatedByUserId: userId,
       publication: { source: 'migration', originClientId: clientIdRef.current },
-      dashboard,
+      dashboard: nextDashboard,
       security: {
         alarmEntityId: null,
         visibleSensorEntityIds: null,
@@ -755,11 +764,11 @@ export function useHaDashboardLayoutPersistence({
     // on this best-effort cleanup.
     void repository.clearDashboardResetMarker();
     saveDashboardLayout(
-      dashboard.sections,
-      dashboard.widgets,
-      dashboard.widgetTypeLayoutOverrides,
-      dashboard.responsiveLayouts,
-      dashboard.widgetLayoutOverrides,
+      nextDashboard.sections,
+      nextDashboard.widgets,
+      nextDashboard.widgetTypeLayoutOverrides,
+      nextDashboard.responsiveLayouts,
+      nextDashboard.widgetLayoutOverrides,
       'real',
     );
     setLoadStatus('ready');
@@ -771,7 +780,11 @@ export function useHaDashboardLayoutPersistence({
     };
     setStatus(statusFromResult(result));
     return result;
-  }, [active, cache, dashboard, loadStatus, persist, repository, userId]);
+  }, [active, cache, loadStatus, persist, repository, userId]);
+
+  const initializeFromCurrentDashboard = useCallback(() => (
+    initializeDashboard(dashboard)
+  ), [dashboard, initializeDashboard]);
 
   useEffect(() => {
     if (!active || !autoSaveEnabled || !canManage || loadStatus !== 'ready' || conflictRef.current) return;
@@ -876,6 +889,8 @@ export function useHaDashboardLayoutPersistence({
     pendingRemoteUpdate,
     lastAppliedRemoteRevision,
     saveNow,
+    saveDashboard,
+    initializeDashboard,
     initializeFromCurrentDashboard,
     refreshRevisionHistory,
     restoreRevision,

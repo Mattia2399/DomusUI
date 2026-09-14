@@ -70,10 +70,11 @@ No `configuration.yaml` changes, manual tokens, or `/www` copies are required. S
 
 Detailed status and verified hardware limitations are documented in [Feature status](docs/feature-status.md).
 
-> **Irrigation:** overview, configuration, calendar, consumption, and supervised
-> commands are available. The server-side engine with watchdog and restart
-> recovery is planned for the next development cycle. Until then, do not use
-> beta scheduling as the only safeguard for unattended irrigation.
+> **Irrigation:** overview, configuration, calendar, consumption, and the first
+> Domus Core server-side scheduler are available. Real cycles use bounded
+> server timers, actuator confirmation, a close watchdog, and safe restart
+> recovery. Complete the documented hardware validation before relying on
+> unattended scheduling.
 
 ## Available cards
 
@@ -124,6 +125,7 @@ Packaging creates both the diagnostic web-app archive and `release-artifacts/dom
 - [Updates and rollback](docs/update-and-rollback.md)
 - [Feature status](docs/feature-status.md)
 - [Security and privacy](docs/security-and-privacy.md)
+- [Domus Core Irrigation](docs/irrigation-core.md)
 - [Roadmap](docs/roadmap.md)
 - [Release checklist](docs/release-checklist.md)
 - [Changelog](CHANGELOG.md)
