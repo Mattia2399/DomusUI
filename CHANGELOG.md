@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.1.0 - 2026-09-21
+
+### Added
+
+- Developer-only **Adaptive card sizing** option in Advanced settings. The
+  preference is stored locally per device, defaults to Adaptive, and can switch
+  supported cards back to the Legacy sizing engine without changing shared
+  Home Assistant layout data.
+
+### Improved
+
+- Light Card preset sizing now uses the selected runtime engine only when the
+  user explicitly applies Mini, Standard, or Expanded. Existing cards, manual
+  resize values, stacks, and saved dashboards are left untouched.
+- Unsupported card types remain on the Legacy sizing path even when Adaptive is
+  enabled, preparing a conservative one-card-at-a-time rollout.
+
+### Fixed
+
+- Domus UI now survives shared layouts saved by a newer local development build
+  when an older Home Assistant installation does not yet know a widget kind or
+  card capability. Unknown card kinds fall back to safe Sensor sizing instead
+  of crashing with `resolveDisplayVariant` errors.
+- Invalid local card-sizing preferences are repaired safely to Adaptive.
+
+### Validation
+
+- Added unit coverage for local card-sizing preferences, Developer Mode
+  visibility, runtime engine selection, unsupported-card fallback, missing-grid
+  fallback, and future widget-kind compatibility.
+- Verified targeted unit tests, TypeScript check, and production build.
+
 ## 0.1.0 - 2026-09-14
 
 ### Stable scope
