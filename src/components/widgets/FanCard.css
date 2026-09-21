@@ -1,0 +1,71 @@
+.fan-card {
+  container-name: fan-card;
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 1.55rem;
+  padding: 0;
+  container-type: size;
+  color: var(--ui-text-primary);
+}
+.fan-card__surface { box-sizing: border-box; display: flex; width: 100%; height: 100%; min-width: 0; min-height: 0; flex-direction: column; gap: 0.45rem; padding: 0.25rem 0.45rem; border-radius: inherit; }
+
+.fan-card[data-fan-state='on'] .fan-card__surface {
+  background-image: linear-gradient(145deg, rgb(var(--ui-accent-rgb) / 0.2), rgb(var(--ui-accent-rgb) / 0.08));
+}
+
+.fan-card[data-fan-state='on'] .device-control-card__toggle {
+  background: rgb(var(--ui-accent-rgb) / 0.16);
+  color: var(--ui-text-primary);
+  box-shadow: 0 0 14px rgb(var(--ui-accent-rgb) / 0.28);
+}
+
+.fan-card[data-fan-state='unavailable'] { opacity: 0.65; }
+
+.fan-card .card-control-track--segments { --ui-segment-active: rgb(var(--ui-accent-rgb) / 0.3); }
+
+.fan-card__speed-label { display: none; min-width: 0; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: clamp(0.65rem, 3.5cqw, 0.8rem); color: var(--ui-text-secondary); }
+.fan-card__speed-label strong { color: var(--ui-text-primary); }
+.fan-card__edit { position: absolute; inset: 0; background: transparent; cursor: pointer; }
+
+.fan-card .device-control-card__meta small,
+.fan-card .device-control-card__secondary,
+.fan-card__controls { display: none; }
+.fan-card .device-control-card__toggle { box-sizing: border-box; width: 1.8rem; height: 1.8rem; padding: 0; }
+.fan-card .device-control-card__meta { min-height: 1.8rem; }
+.fan-card__controls { min-width: 0; width: 100%; margin-top: auto; gap: 0.4rem; }
+.fan-card__control { display: none; min-width: 0; }
+
+@container fan-card (min-width: 132px) and (min-height: 48px) {
+  .fan-card .device-control-card__meta small { display: block; }
+}
+@container fan-card (min-width: 92px) and (min-height: 110px) {
+  .fan-card .device-control-card__meta small { display: block; }
+}
+@container fan-card (min-width: 180px) and (min-height: 108px) {
+  .fan-card__surface { padding: 0.68rem 0.78rem; }
+  .fan-card .device-control-card__toggle { width: 2.15rem; height: 2.15rem; }
+  .fan-card .device-control-card__meta { min-height: 2.15rem; }
+  .fan-card__controls { display: grid; }
+  .fan-card__control[data-active='true'] { display: block; }
+  .fan-card .device-control-card__secondary { display: inline-flex; }
+}
+@container fan-card (min-width: 310px) and (min-height: 240px) {
+  .fan-card__speed-label { display: flex; grid-column: 1 / -1; }
+  .fan-card__controls { grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: end; }
+  .fan-card__control { display: block !important; }
+  .fan-card__control--speed { grid-column: 1 / -1; }
+  .fan-card .device-control-card__secondary { display: none; }
+}
+@container fan-card (min-width: 190px) and (min-height: 290px) and (max-width: 309px) {
+  .fan-card__speed-label { display: flex; }
+  .fan-card__controls { grid-template-columns: minmax(0, 1fr); align-content: end; }
+  .fan-card__control { display: block !important; }
+  .fan-card__control--speed { grid-column: auto; }
+  .fan-card .device-control-card__secondary { display: none; }
+}

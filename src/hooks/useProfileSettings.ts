@@ -16,6 +16,12 @@ import {
   type SidebarQuickPath,
   type SidebarQuickPathCustomization,
 } from '../navigation/applicationRoutes';
+import {
+  DEFAULT_CARD_SIZING_ENGINE,
+  readStoredCardSizingEngine,
+  writeStoredCardSizingEngine,
+  type CardSizingEngine,
+} from '../services/cardSizingEngine';
 
 export {
   DASHBOARD_BACKGROUND_PRESETS,
@@ -76,6 +82,13 @@ function readStoredDeveloperMode(): boolean {
   return stored === '1' || stored === 'true';
 }
 
+function readInitialCardSizingEngine(): CardSizingEngine {
+  if (typeof window === 'undefined') {
+    return DEFAULT_CARD_SIZING_ENGINE;
+  }
+  return readStoredCardSizingEngine(window.localStorage);
+}
+
 function readStoredSidebarPaths(): SidebarQuickPath[] {
   if (typeof window === 'undefined') {
     return createDefaultSidebarPaths();
@@ -100,6 +113,7 @@ export function useProfileSettings() {
   const [appearance, setAppearanceState] = useState<DashboardAppearance>(() => resolveThemeMode(initialThemePreferences.appearanceMode));
   const [background, setBackgroundState] = useState<DashboardBackgroundPreset>(initialThemePreferences.background);
   const [developerMode, setDeveloperModeState] = useState<boolean>(readStoredDeveloperMode);
+  const [cardSizingEngine, setCardSizingEngineState] = useState<CardSizingEngine>(readInitialCardSizingEngine);
   const [haUrl, setHaUrlState] = useState<string>(initialHaConfig.url);
   const [haToken, setHaTokenState] = useState<string>(initialHaConfig.token);
   const [haRememberToken, setHaRememberTokenState] = useState<boolean>(initialHaConfig.rememberToken);
@@ -119,6 +133,10 @@ export function useProfileSettings() {
 
   const setDeveloperMode = (next: boolean) => {
     setDeveloperModeState(Boolean(next));
+  };
+
+  const setCardSizingEngine = (next: CardSizingEngine) => {
+    setCardSizingEngineState(next === 'legacy' ? 'legacy' : 'adaptive');
   };
 
   const setHaToken = (next: string) => {
@@ -214,6 +232,13 @@ export function useProfileSettings() {
   }, [developerMode]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    writeStoredCardSizingEngine(cardSizingEngine, window.localStorage);
+  }, [cardSizingEngine]);
+
+  useEffect(() => {
     saveHaLiveConfig({
       url: haUrl,
       token: haToken,
@@ -236,6 +261,8 @@ export function useProfileSettings() {
     setBackground,
     developerMode,
     setDeveloperMode,
+    cardSizingEngine,
+    setCardSizingEngine,
     haUrl,
     setHaUrl,
     haToken,

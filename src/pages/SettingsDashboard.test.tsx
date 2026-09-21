@@ -48,6 +48,8 @@ const baseProps = {
   onRestoreBackup: vi.fn(async () => undefined),
   onResetAll: vi.fn(async () => undefined),
   onCallService: vi.fn(async () => true),
+  cardSizingEngine: 'adaptive' as const,
+  onCardSizingEngineChange: vi.fn(),
 };
 
 describe('SettingsDashboard', () => {
@@ -276,6 +278,39 @@ describe('SettingsDashboard', () => {
     expect(
       screen.getByText(/Diagnostica scaricata/),
     ).toBeTruthy();
+  });
+
+  it('hides the card sizing engine selector from Advanced settings until Developer Mode is enabled', () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/advanced"
+          developerMode={false}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.queryByRole('switch', { name: /Dimensionamento adattivo/ })).toBeNull();
+  });
+
+  it('lets developers switch the local card sizing engine from Advanced settings', () => {
+    const onCardSizingEngineChange = vi.fn();
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/advanced"
+          developerMode
+          cardSizingEngine="adaptive"
+          onCardSizingEngineChange={onCardSizingEngineChange}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('switch', { name: /Dimensionamento adattivo/ }));
+
+    expect(onCardSizingEngineChange).toHaveBeenCalledWith('legacy');
   });
 
   it('renders the routed support center with separate public and private channels', () => {

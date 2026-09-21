@@ -7,6 +7,8 @@ import {
   Camera,
   Check,
   CloudSun,
+  Fan,
+  Droplets,
   LayoutGrid,
   Lightbulb,
   LockKeyhole,
@@ -107,7 +109,7 @@ type GridCanvasProps = {
   previewGridWidth?: number;
   developerMode: boolean;
   isXsViewport: boolean;
-  onActiveBreakpointChange?: (breakpoint: GridBreakpoint) => void;
+  onActiveBreakpointChange?: (breakpoint: GridBreakpoint, gridWidth: number) => void;
   topRightOverlay?: React.ReactNode;
   state: DashboardStateShape;
   sections: DashboardSection[];
@@ -127,6 +129,14 @@ type GridCanvasProps = {
   onWidgetClick: (widget: Widget) => void;
   onWidgetLightToggle: (widget: Widget) => void;
   onWidgetSwitchToggle: (widget: Widget) => void;
+  onWidgetFanToggle: (widget: Widget) => void;
+  onWidgetFanPercentageChange: (widget: Widget, percentage: number) => void;
+  onWidgetFanPresetChange: (widget: Widget, mode: string) => void;
+  onWidgetFanOscillationChange: (widget: Widget, oscillating: boolean) => void;
+  onWidgetFanDirectionChange: (widget: Widget, direction: 'forward' | 'reverse') => void;
+  onWidgetHumidifierToggle: (widget: Widget) => void;
+  onWidgetHumidifierTargetHumidityChange: (widget: Widget, humidity: number) => void;
+  onWidgetHumidifierModeChange: (widget: Widget, mode: string) => void;
   onWidgetBrightnessChange: (widget: Widget, value: number) => void;
   onWidgetLightColorChange: (widget: Widget, hs: [number, number]) => void;
   onWidgetClimateTargetTempChange: (widget: Widget, value: number) => void;
@@ -193,14 +203,14 @@ const CATALOG_FAMILY_KEYS: Record<CatalogWidgetFamily, TranslationKey> = {
 };
 
 const WIDGET_LABEL_KEYS: Record<WidgetKind, TranslationKey> = {
-  light: 'home.catalog.widget.light', switch: 'home.catalog.widget.switch', climate: 'home.catalog.widget.climate', camera: 'home.catalog.widget.camera', sensor: 'home.catalog.widget.sensor', media: 'home.catalog.widget.media', alarm: 'home.catalog.widget.alarm', vacuum: 'home.catalog.widget.vacuum', lock: 'home.catalog.widget.lock', cover: 'home.catalog.widget.cover', members: 'home.catalog.widget.members',
+  light: 'home.catalog.widget.light', switch: 'home.catalog.widget.switch', fan: 'home.catalog.widget.fan', humidifier: 'home.catalog.widget.humidifier', climate: 'home.catalog.widget.climate', camera: 'home.catalog.widget.camera', sensor: 'home.catalog.widget.sensor', media: 'home.catalog.widget.media', alarm: 'home.catalog.widget.alarm', vacuum: 'home.catalog.widget.vacuum', lock: 'home.catalog.widget.lock', cover: 'home.catalog.widget.cover', members: 'home.catalog.widget.members',
 };
 
 const WIDGET_CATALOG_META: Record<
   WidgetKind,
   { descriptionKey: TranslationKey; family: CatalogWidgetFamily; icon: LucideIcon }
 > = {
-  light: { descriptionKey: 'home.catalog.description.light', family: 'controls', icon: Lightbulb }, switch: { descriptionKey: 'home.catalog.description.switch', family: 'controls', icon: ToggleRight }, cover: { descriptionKey: 'home.catalog.description.cover', family: 'controls', icon: Blinds }, lock: { descriptionKey: 'home.catalog.description.lock', family: 'controls', icon: LockKeyhole }, climate: { descriptionKey: 'home.catalog.description.climate', family: 'comfort', icon: Thermometer }, sensor: { descriptionKey: 'home.catalog.description.sensor', family: 'comfort', icon: Activity }, alarm: { descriptionKey: 'home.catalog.description.alarm', family: 'security', icon: Shield }, camera: { descriptionKey: 'home.catalog.description.camera', family: 'security', icon: Camera }, media: { descriptionKey: 'home.catalog.description.media', family: 'entertainment', icon: Music2 }, vacuum: { descriptionKey: 'home.catalog.description.vacuum', family: 'services', icon: Bot }, members: { descriptionKey: 'home.catalog.description.members', family: 'services', icon: Users },
+  light: { descriptionKey: 'home.catalog.description.light', family: 'controls', icon: Lightbulb }, switch: { descriptionKey: 'home.catalog.description.switch', family: 'controls', icon: ToggleRight }, fan: { descriptionKey: 'home.catalog.description.fan', family: 'controls', icon: Fan }, humidifier: { descriptionKey: 'home.catalog.description.humidifier', family: 'comfort', icon: Droplets }, cover: { descriptionKey: 'home.catalog.description.cover', family: 'controls', icon: Blinds }, lock: { descriptionKey: 'home.catalog.description.lock', family: 'controls', icon: LockKeyhole }, climate: { descriptionKey: 'home.catalog.description.climate', family: 'comfort', icon: Thermometer }, sensor: { descriptionKey: 'home.catalog.description.sensor', family: 'comfort', icon: Activity }, alarm: { descriptionKey: 'home.catalog.description.alarm', family: 'security', icon: Shield }, camera: { descriptionKey: 'home.catalog.description.camera', family: 'security', icon: Camera }, media: { descriptionKey: 'home.catalog.description.media', family: 'entertainment', icon: Music2 }, vacuum: { descriptionKey: 'home.catalog.description.vacuum', family: 'services', icon: Bot }, members: { descriptionKey: 'home.catalog.description.members', family: 'services', icon: Users },
 };
 
 const SECTION_CATALOG_META: Record<SectionKind, { descriptionKey: TranslationKey; icon: LucideIcon }> = {
@@ -439,18 +449,23 @@ function enforceLightWidgetSpan(
         ? Math.min(safeCols, Math.max(1, Math.round(span.w)))
         : Math.min(safeCols, currentW);
       const currentH = Math.max(1, Math.round(item.h));
-      const configuredH = Math.max(1, Math.round(lightIsOn ? span.hOn : span.hOff));
+      const collapsedH = Math.max(1, Math.round(span.hOff ?? span.h ?? 1));
       const autoExpand = span.autoExpand ?? true;
+      const canAutoExpand = autoExpand && collapsedH <= 1;
+      const expandedH = Math.max(2, Math.round(span.hOn ?? Math.max(2, collapsedH + 1)));
+      const configuredH = canAutoExpand
+        ? Math.max(1, lightIsOn ? expandedH : collapsedH)
+        : collapsedH;
       const forcedH = useExplicitLightSpan
-        ? autoExpand && lightIsOn && configuredH <= 1
-          ? Math.max(2, Math.round(span.hOn))
+        ? canAutoExpand && lightIsOn && configuredH <= 1
+          ? expandedH
           : configuredH
-        : autoExpand && lightIsOn
+        : canAutoExpand && lightIsOn
         ? currentH <= 1
-          ? Math.max(2, Math.round(span.hOn))
+          ? expandedH
           : currentH
-        : autoExpand && currentH <= 2
-          ? Math.max(1, Math.round(span.hOff))
+        : canAutoExpand && currentH <= 2
+          ? collapsedH
           : currentH;
       return {
         ...item,
@@ -765,13 +780,15 @@ function enforceWidgetLayoutOverrides(
       }
       const lightIsOn = lightWidgetStateById.get(item.i);
       const autoExpand = override.autoExpand ?? true;
+      const collapsedH = Math.max(1, Math.round(override.hOff ?? override.h ?? 1));
+      const canAutoExpand = autoExpand && collapsedH <= 1;
       const rawH =
         lightIsOn === undefined
           ? override.h ?? override.hOn ?? override.hOff
-          : !autoExpand
+          : !canAutoExpand
             ? override.h ?? override.hOff ?? override.hOn
-            : lightIsOn
-            ? override.hOn ?? override.h
+          : lightIsOn
+            ? override.hOn ?? override.h ?? Math.max(2, collapsedH + 1)
             : override.hOff ?? override.h;
       const minimumW = coverWidgetIds.has(item.i) && breakpoint !== 'xs' && breakpoint !== 'sm'
         ? Math.min(safeCols, 2)
@@ -780,7 +797,7 @@ function enforceWidgetLayoutOverrides(
         ? Math.min(safeCols, Math.max(minimumW, Math.round(override.w)))
         : Math.min(safeCols, Math.max(minimumW, Math.round(item.w)));
       const nextH = rawH
-        ? autoExpand && lightIsOn && rawH <= 1
+        ? canAutoExpand && lightIsOn && rawH <= 1
           ? Math.max(2, Math.round(rawH))
           : Math.max(1, Math.round(rawH))
         : Math.max(1, Math.round(item.h));
@@ -1132,6 +1149,14 @@ export function GridCanvas({
   onWidgetClick,
   onWidgetLightToggle,
   onWidgetSwitchToggle,
+  onWidgetFanToggle,
+  onWidgetFanPercentageChange,
+  onWidgetFanPresetChange,
+  onWidgetFanOscillationChange,
+  onWidgetFanDirectionChange,
+  onWidgetHumidifierToggle,
+  onWidgetHumidifierTargetHumidityChange,
+  onWidgetHumidifierModeChange,
   onWidgetBrightnessChange,
   onWidgetLightColorChange,
   onWidgetClimateTargetTempChange,
@@ -1259,7 +1284,7 @@ export function GridCanvas({
     if (!onActiveBreakpointChange || runtimeGridWidth <= 0) {
       return;
     }
-    onActiveBreakpointChange(gridEngineActiveBreakpoint);
+    onActiveBreakpointChange(gridEngineActiveBreakpoint, runtimeGridWidth);
   }, [gridEngineActiveBreakpoint, onActiveBreakpointChange, runtimeGridWidth]);
   const [gridEngineLayouts, setGridEngineLayouts] = useState<GridLayouts>({});
   const [synchronizedLayoutRevision, setSynchronizedLayoutRevision] = useState(layoutRevision);
@@ -2651,6 +2676,14 @@ export function GridCanvas({
                 onWidgetClick={onWidgetClick}
                 onWidgetLightToggle={onWidgetLightToggle}
                 onWidgetSwitchToggle={onWidgetSwitchToggle}
+                onWidgetFanToggle={onWidgetFanToggle}
+                onWidgetFanPercentageChange={onWidgetFanPercentageChange}
+                onWidgetFanPresetChange={onWidgetFanPresetChange}
+                onWidgetFanOscillationChange={onWidgetFanOscillationChange}
+                onWidgetFanDirectionChange={onWidgetFanDirectionChange}
+                onWidgetHumidifierToggle={onWidgetHumidifierToggle}
+                onWidgetHumidifierTargetHumidityChange={onWidgetHumidifierTargetHumidityChange}
+                onWidgetHumidifierModeChange={onWidgetHumidifierModeChange}
                 onWidgetBrightnessChange={onWidgetBrightnessChange}
                 onWidgetLightColorChange={onWidgetLightColorChange}
                 onWidgetClimateTargetTempChange={onWidgetClimateTargetTempChange}
@@ -2738,6 +2771,14 @@ export function GridCanvas({
       onWidgetClick,
       onWidgetLightToggle,
       onWidgetSwitchToggle,
+      onWidgetFanToggle,
+      onWidgetFanPercentageChange,
+      onWidgetFanPresetChange,
+      onWidgetFanOscillationChange,
+      onWidgetFanDirectionChange,
+      onWidgetHumidifierToggle,
+      onWidgetHumidifierTargetHumidityChange,
+      onWidgetHumidifierModeChange,
       onWidgetClimateFanModeChange,
       onWidgetClimateModeChange,
       onWidgetClimatePresetModeChange,
@@ -3097,6 +3138,14 @@ export function GridCanvas({
                       onLightBrightnessChange={onWidgetBrightnessChange}
                       onLightColorChange={onWidgetLightColorChange}
                       onSwitchToggle={onWidgetSwitchToggle}
+                      onFanToggle={onWidgetFanToggle}
+                      onFanPercentageChange={onWidgetFanPercentageChange}
+                      onFanPresetChange={onWidgetFanPresetChange}
+                      onFanOscillationChange={onWidgetFanOscillationChange}
+                      onFanDirectionChange={onWidgetFanDirectionChange}
+                      onHumidifierToggle={onWidgetHumidifierToggle}
+                      onHumidifierTargetHumidityChange={onWidgetHumidifierTargetHumidityChange}
+                      onHumidifierModeChange={onWidgetHumidifierModeChange}
                       onClimateTargetTempChange={onWidgetClimateTargetTempChange}
                       onClimateTargetRangeChange={onWidgetClimateTargetRangeChange}
                       onClimateTargetHumidityChange={onWidgetClimateTargetHumidityChange}

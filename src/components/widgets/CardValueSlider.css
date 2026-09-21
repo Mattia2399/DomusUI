@@ -1,0 +1,89 @@
+.card-control-track {
+  --card-control-radius: 0.96rem;
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: clamp(2.7rem, 18cqi, 3.25rem);
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--card-control-radius);
+  background: linear-gradient(180deg, rgb(var(--ui-glass-highlight-rgb) / 0.045), var(--ui-shadow-soft)), var(--ui-fill-tertiary);
+  box-shadow: inset 0 1px 3px var(--ui-shadow-soft), inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.2);
+}
+.liquid-segmented-control.card-control-track--segments {
+  display: flex;
+  align-items: stretch;
+  padding: 0.2rem;
+}
+.card-control-track--segments .segmented-options {
+  height: 100%;
+  align-items: stretch;
+}
+.card-control-track--segments .segmented-options > button {
+  height: 100%;
+  overflow: hidden;
+  border-radius: calc(var(--card-control-radius) - 0.2rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-control-track--segments:focus-within {
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: 2px;
+}
+.card-value-slider__fill {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: var(--card-value-progress);
+  border-right: 1px solid rgb(255 255 255 / 0.38);
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.22), transparent 48%, rgb(0 0 0 / 0.12)), linear-gradient(90deg, var(--ui-accent), var(--ui-accent));
+  box-shadow: 8px 0 16px rgb(15 23 42 / 0.16);
+  transition: width 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-value-slider[data-tone='humidity'] .card-value-slider__fill {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.26), transparent 48%, rgb(0 0 0 / 0.12)), linear-gradient(90deg, #32ade6, #64d2ff);
+}
+.card-value-slider__segments {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent calc(100% - 2px), rgb(0 0 0 / 0.28) calc(100% - 2px));
+  background-size: calc(100% / var(--card-value-segments)) 100%;
+  pointer-events: none;
+}
+.card-value-slider__handle,
+.card-value-slider__marker {
+  position: absolute;
+  inset-block: 0.35rem;
+  width: 0.2rem;
+  border-radius: 999px;
+  pointer-events: none;
+}
+.card-value-slider__handle {
+  left: clamp(0.16rem, calc(var(--card-value-progress) - 0.1rem), calc(100% - 0.36rem));
+  background: rgb(255 255 255 / 0.86);
+  box-shadow: 0 0 10px rgb(255 255 255 / 0.35), 0 2px 8px rgb(0 0 0 / 0.2);
+  transition: left 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-value-slider__marker {
+  left: clamp(0.16rem, calc(var(--card-value-marker) - 0.1rem), calc(100% - 0.36rem));
+  z-index: 1;
+  background: var(--ui-text-primary);
+  box-shadow: 0 0 0 2px rgb(0 0 0 / 0.5);
+  opacity: 0.75;
+}
+.card-value-slider__input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  touch-action: none;
+}
+.card-value-slider__input:disabled { cursor: not-allowed; }
+.card-value-slider:has(.card-value-slider__input:disabled) { opacity: 0.48; }
+.card-value-slider:focus-within { outline: 2px solid var(--ui-focus-ring); outline-offset: 2px; }

@@ -83,6 +83,7 @@ function getRoomsRuntimeStorageKey(baseKey: string, runtimeMode: DashboardRuntim
 const ROOM_ID_CUSTOM_PREFIX = 'custom:';
 const ROOM_TITLE_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] } as const;
 const ROOM_HEADER_COMPACT_SCROLL_PX = 48;
+const ROOM_HEADER_EXPAND_SCROLL_PX = 32;
 const ROOM_MODAL_INPUT_CLASS =
   'ui-input min-h-10 w-full rounded-xl px-4 py-2.5 text-sm transition-all focus:outline-none';
 const ROOM_MODAL_PRIMARY_BUTTON_CLASS =
@@ -286,6 +287,7 @@ type RoomStatusChip = {
 type RoomOptimisticToggleState = {
   isOn: boolean;
   brightnessPct?: number;
+  fanPercentage?: number;
   expiresAt: number;
 };
 
@@ -816,7 +818,9 @@ function resolveWidgetKindFromEntityId(entityId: string): WidgetKind | null {
   if (domain === 'media_player') return 'media';
   if (domain === 'lock') return 'lock';
   if (domain === 'cover') return 'cover';
-  if (domain === 'switch' || domain === 'input_boolean' || domain === 'fan') return 'switch';
+  if (domain === 'switch' || domain === 'input_boolean') return 'switch';
+  if (domain === 'fan') return 'fan';
+  if (domain === 'humidifier') return 'humidifier';
   if (domain === 'sensor' || domain === 'binary_sensor') return 'sensor';
   return null;
 }
@@ -828,6 +832,7 @@ function formatDomainLabel(domain: string, rt: RoomsTranslator) {
   if (domain === 'light') return rt('domainLight');
   if (domain === 'climate') return rt('domainClimate');
   if (domain === 'fan') return rt('domainFan');
+  if (domain === 'humidifier') return 'Humidifier';
   if (domain === 'lock') return rt('domainLock');
   if (domain === 'camera') return rt('domainCamera');
   if (domain === 'cover') return rt('domainCover');
@@ -854,6 +859,10 @@ function translateEntityStateValue(domain: string, value: string, rt: RoomsTrans
   if (domain === 'fan') {
     if (normalized === 'on') return rt('stateOnFeminine');
     if (normalized === 'off') return rt('stateOffFeminine');
+  }
+  if (domain === 'humidifier') {
+    if (normalized === 'on') return rt('stateOnMasculine');
+    if (normalized === 'off') return rt('stateOffMasculine');
   }
   if (domain === 'media_player') {
     const mediaState = normalizeMediaPlayerStateKey(value);
@@ -948,7 +957,7 @@ function doesEntityMatchRoomSection(entityId: string, sectionId: string) {
     return domain === 'light' || domain === 'switch' || domain === 'input_boolean' || domain === 'fan';
   }
   if (sectionId === 'clima') {
-    return domain === 'climate';
+    return domain === 'climate' || domain === 'humidifier';
   }
   if (sectionId === 'media') {
     return domain === 'media_player';
@@ -1006,6 +1015,12 @@ function resolveRoomWidgetSpan(widget: Widget, breakpoint: GridEngineBreakpoint)
   }
   if (widget.kind === 'switch') {
     return resolveWidgetTypeLayoutSpan('switch', breakpoint, {});
+  }
+  if (widget.kind === 'fan') {
+    return resolveWidgetTypeLayoutSpan('fan', breakpoint, {});
+  }
+  if (widget.kind === 'humidifier') {
+    return resolveWidgetTypeLayoutSpan('humidifier', breakpoint, {});
   }
   if (widget.kind === 'lock') {
     return resolveWidgetTypeLayoutSpan('lock', breakpoint, {});
@@ -1313,7 +1328,7 @@ function bucketEntityId(entityId: string, buckets: RoomEntityBuckets) {
     buckets.lights.push(entityId);
     return;
   }
-  if (domain === 'climate') {
+  if (domain === 'climate' || domain === 'humidifier') {
     buckets.climates.push(entityId);
     return;
   }
@@ -1925,7 +1940,10 @@ export function RoomsDashboard({
         Object.entries(current).forEach(([entityId, optimisticState]) => {
           const liveEntity = haStates[entityId];
           const liveIsOn = isEntityOn(entityId, liveEntity);
-          if (optimisticState.expiresAt <= now || liveIsOn === optimisticState.isOn) {
+          const livePercentage = toNumber(liveEntity?.rawAttributes?.percentage);
+          const percentageConfirmed = optimisticState.fanPercentage === undefined ||
+            (livePercentage !== undefined && Math.abs(livePercentage - optimisticState.fanPercentage) <= 2);
+          if (optimisticState.expiresAt <= now || (liveIsOn === optimisticState.isOn && percentageConfirmed)) {
             delete next[entityId];
             changed = true;
           }
@@ -2149,8 +2167,10 @@ export function RoomsDashboard({
   }, [roomTitleScrollEdges.end, roomTitleScrollEdges.start]);
 
   const handleRoomsPageScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
-    const nextCompact = event.currentTarget.scrollTop >= ROOM_HEADER_COMPACT_SCROLL_PX;
-    setIsRoomsHeaderCompact((current) => (current === nextCompact ? current : nextCompact));
+    const scrollTop = event.currentTarget.scrollTop;
+    setIsRoomsHeaderCompact((current) =>
+      current ? scrollTop > ROOM_HEADER_EXPAND_SCROLL_PX : scrollTop >= ROOM_HEADER_COMPACT_SCROLL_PX,
+    );
   }, []);
 
   React.useEffect(() => {
@@ -2837,7 +2857,10 @@ export function RoomsDashboard({
   }, [haStates, isDemoSeedRoom, visibleActiveBuckets.weathers]);
 
   const climateEntityIds = React.useMemo(
-    () => (visibleActiveBuckets.climates.length > 0 ? visibleActiveBuckets.climates : isDemoSeedRoom ? ['climate.air_conditioner'] : []),
+    () => {
+      const climateEntities = visibleActiveBuckets.climates.filter((entityId) => entityId.startsWith('climate.'));
+      return climateEntities.length > 0 ? climateEntities : isDemoSeedRoom ? ['climate.air_conditioner'] : [];
+    },
     [isDemoSeedRoom, visibleActiveBuckets.climates],
   );
 
@@ -3132,7 +3155,7 @@ export function RoomsDashboard({
     (widget: Widget): MockEntityState | undefined => {
       const liveEntity = haStates[widget.entityId];
       const optimisticState = resolveOptimisticRoomToggleState(widget.entityId);
-      if (!optimisticState || (widget.kind !== 'light' && widget.kind !== 'switch')) {
+      if (!optimisticState || (widget.kind !== 'light' && widget.kind !== 'switch' && widget.kind !== 'fan')) {
         return liveEntity;
       }
 
@@ -3147,7 +3170,10 @@ export function RoomsDashboard({
           }
         }
       } else {
-        rawAttributes[SWITCH_TOGGLE_PENDING_ATTRIBUTE_KEY] = optimisticState.isOn;
+        rawAttributes[widget.kind === 'fan' ? '__dashboard_pending_fan' : SWITCH_TOGGLE_PENDING_ATTRIBUTE_KEY] =
+          widget.kind === 'fan'
+            ? { isOn: optimisticState.isOn, percentage: optimisticState.fanPercentage }
+            : optimisticState.isOn;
       }
 
       return {
@@ -3650,7 +3676,7 @@ export function RoomsDashboard({
 
   const applyOptimisticRoomWidgetState = React.useCallback(
     (widget: Widget) => {
-      if (widget.kind !== 'light' && widget.kind !== 'switch') {
+      if (widget.kind !== 'light' && widget.kind !== 'switch' && widget.kind !== 'fan') {
         return widget;
       }
       const optimisticState = resolveOptimisticRoomToggleState(widget.entityId);
@@ -3663,7 +3689,7 @@ export function RoomsDashboard({
           ? nextIsOn
             ? optimisticState.brightnessPct ?? resolveLightBrightnessPercent(haStates[widget.entityId])
             : widget.value
-          : widget.value;
+          : widget.kind === 'fan' ? optimisticState.fanPercentage ?? widget.value : widget.value;
       return {
         ...widget,
         isOn: nextIsOn,
@@ -3683,7 +3709,7 @@ export function RoomsDashboard({
     const switchWidgets =
       visibleActiveBuckets.switches.length > 0
         ? visibleActiveBuckets.switches.map((entityId) =>
-            buildRoomWidget(entityId, 'switch', haStates[entityId], {
+            buildRoomWidget(entityId, entityId.startsWith('fan.') ? 'fan' : 'switch', haStates[entityId], {
               i: entityId,
               x: 0,
               y: 0,
@@ -4370,6 +4396,50 @@ export function RoomsDashboard({
         void onCallService?.('light', 'turn_on', {
           entity_id: nextWidget.entityId,
           brightness_pct: Math.max(1, Math.min(100, Math.round(value))),
+        });
+      }}
+      onFanToggle={(nextWidget) => {
+        const entity = haStates[nextWidget.entityId];
+        const isOn = entity?.toggleOn ?? entity?.state === 'on';
+        setOptimisticRoomToggleByEntityId((current) => ({ ...current, [nextWidget.entityId]: {
+          isOn: !isOn,
+          expiresAt: Date.now() + ROOM_LIGHT_OPTIMISTIC_TTL_MS,
+        } }));
+        void onCallService?.('fan', isOn ? 'turn_off' : 'turn_on', { entity_id: nextWidget.entityId }).then((success) => {
+          if (success === false) setOptimisticRoomToggleByEntityId((current) => {
+            const next = { ...current };
+            delete next[nextWidget.entityId];
+            return next;
+          });
+        });
+      }}
+      onFanPercentageChange={(nextWidget, percentage) => {
+        const target = Math.max(0, Math.min(100, Math.round(percentage)));
+        setOptimisticRoomToggleByEntityId((current) => ({ ...current, [nextWidget.entityId]: {
+          isOn: target > 0,
+          fanPercentage: target,
+          expiresAt: Date.now() + 9000,
+        } }));
+        void onCallService?.('fan', 'set_percentage', {
+          entity_id: nextWidget.entityId,
+          percentage: target,
+        }).then((success) => {
+          if (success === false) setOptimisticRoomToggleByEntityId((current) => {
+            const next = { ...current };
+            delete next[nextWidget.entityId];
+            return next;
+          });
+        });
+      }}
+      onHumidifierToggle={(nextWidget) => {
+        const entity = haStates[nextWidget.entityId];
+        const isOn = entity?.toggleOn ?? entity?.state === 'on';
+        void onCallService?.('humidifier', isOn ? 'turn_off' : 'turn_on', { entity_id: nextWidget.entityId });
+      }}
+      onHumidifierTargetHumidityChange={(nextWidget, humidity) => {
+        void onCallService?.('humidifier', 'set_humidity', {
+          entity_id: nextWidget.entityId,
+          humidity,
         });
       }}
       onClimateTargetTempChange={(nextWidget, value) => {

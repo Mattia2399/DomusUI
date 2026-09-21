@@ -27,6 +27,7 @@ type CircularTemperatureSliderProps = {
   glowFilter?: string;
   pending?: boolean;
   disabled?: boolean;
+  segmentCount?: number;
   className?: string;
   children?: React.ReactNode;
   onChange?: (value: number) => void;
@@ -105,6 +106,7 @@ export function CircularTemperatureSlider({
   glowFilter,
   pending = false,
   disabled = false,
+  segmentCount,
   className = '',
   children,
   onChange,
@@ -117,6 +119,12 @@ export function CircularTemperatureSlider({
     canUseSlider && value !== undefined ? snapTemperatureToStep(clamp(value, min, max), step, min) : undefined;
   const arcProgress = getArcProgressFromValue(snappedValue, min, max);
   const sliderTrackPath = getSliderArcPath(SLIDER_ARC_START, SLIDER_ARC_END);
+  const discreteSegments = segmentCount !== undefined && Number.isFinite(segmentCount) && segmentCount > 1 && segmentCount <= 12
+    ? Math.round(segmentCount)
+    : 0;
+  const activeSegments = discreteSegments && snappedValue !== undefined && min !== undefined && max !== undefined
+    ? Math.round(((snappedValue - min) / (max - min)) * discreteSegments)
+    : 0;
   const activeArcDistance = getProgressDistanceFromStart(arcProgress);
   const sliderActivePath =
     activeArcDistance > 0.001 ? getSliderArcPath(SLIDER_ARC_START, arcProgress) : null;
@@ -231,6 +239,7 @@ export function CircularTemperatureSlider({
       aria-valuemax={max}
       aria-valuenow={snappedValue}
       aria-valuetext={snappedValue !== undefined ? `${snappedValue}${unit}` : undefined}
+      data-slider-segments={discreteSegments || undefined}
       aria-disabled={!canUseSlider}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
@@ -241,7 +250,7 @@ export function CircularTemperatureSlider({
       title={canUseSlider && min !== undefined && max !== undefined ? `Scorri per impostare da ${min}${unit} a ${max}${unit}` : undefined}
     >
       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 200 200" aria-hidden="true">
-        {Array.from({ length: SLIDER_TICK_COUNT }).map((_, index) => {
+        {!discreteSegments && Array.from({ length: SLIDER_TICK_COUNT }).map((_, index) => {
           const tickProgress = index / SLIDER_TICK_COUNT;
           if (!isProgressOnSliderArc(tickProgress)) {
             return null;
@@ -260,8 +269,14 @@ export function CircularTemperatureSlider({
             />
           );
         })}
-        <path d={sliderTrackPath} fill="none" stroke="var(--ui-fill-secondary)" strokeWidth="18" strokeLinecap="round" />
-        {sliderActivePath ? (
+        {discreteSegments ? Array.from({ length: discreteSegments }, (_, index) => {
+          const segmentSpan = SLIDER_ARC_SPAN / discreteSegments;
+          const gap = Math.min(0.012, segmentSpan * 0.16);
+          const start = SLIDER_ARC_START + segmentSpan * index + gap / 2;
+          const end = SLIDER_ARC_START + segmentSpan * (index + 1) - gap / 2;
+          return <path key={index} d={getSliderArcPath(start, end)} fill="none" stroke={index < activeSegments ? accentColor : 'var(--ui-fill-secondary)'} strokeWidth="18" strokeLinecap="round" style={index < activeSegments ? { filter: glowFilter } : undefined} />;
+        }) : <path d={sliderTrackPath} fill="none" stroke="var(--ui-fill-secondary)" strokeWidth="18" strokeLinecap="round" />}
+        {!discreteSegments && sliderActivePath ? (
           <path
             d={sliderActivePath}
             fill="none"

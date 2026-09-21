@@ -15,6 +15,7 @@ import {
 } from './CameraControls';
 import { MediaControls, type MediaPlayRequest } from './MediaControls';
 import { SensorControls } from './SensorControls';
+import { BinarySensorControls } from './BinarySensorControls';
 import { WeatherControls } from './WeatherControls';
 import { AlarmControls } from './AlarmControls';
 import { VacuumControls, type VacuumRelatedEntityActionRequest } from './VacuumControls';
@@ -22,6 +23,8 @@ import type { VacuumDeviceInfo, VacuumMappedArea, VacuumRelatedEntityInfo } from
 import { LockControls } from './LockControls';
 import { CoverControls } from './CoverControls';
 import { SwitchControls } from './SwitchControls';
+import { FanControls } from './FanControls';
+import { HumidifierControls } from './HumidifierControls';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { StatusGlow } from '../widgets/micro/StatusGlow';
@@ -284,6 +287,14 @@ interface ContextSidebarProps {
   actions: {
     toggleLamp: () => void;
     toggleSwitch: () => void;
+    toggleFan: () => void;
+    setFanPercentage: (percentage: number) => void;
+    setFanPreset: (mode: string) => void;
+    setFanOscillation: (oscillating: boolean) => void;
+    setFanDirection: (direction: 'forward' | 'reverse') => void;
+    toggleHumidifier: () => void;
+    setHumidifierTargetHumidity: (humidity: number) => void;
+    setHumidifierMode: (mode: string) => void;
     setLampBrightness: (value: number, options?: { transition?: number }) => void;
     setLampColorTemp: (kelvin: number, options?: { transition?: number }) => void;
     setLampHsColor: (hs: [number, number], options?: { transition?: number }) => void;
@@ -578,6 +589,30 @@ export function ContextSidebar({
         />
       ) : null}
 
+      {activeDevice?.type === 'fan' ? (
+        <FanControls
+          name={activeDevice.name}
+          entity={resolveEntityStateById(haStates, activeDevice.fanEntityId)}
+          commandsEnabled={commandsEnabled && !isEditMode}
+          onPowerToggle={actions.toggleFan}
+          onPercentageChange={actions.setFanPercentage}
+          onPresetChange={actions.setFanPreset}
+          onOscillationChange={actions.setFanOscillation}
+          onDirectionChange={actions.setFanDirection}
+        />
+      ) : null}
+
+      {activeDevice?.type === 'humidifier' ? (
+        <HumidifierControls
+          name={activeDevice.name}
+          entity={resolveEntityStateById(haStates, activeDevice.humidifierEntityId)}
+          commandsEnabled={commandsEnabled && !isEditMode}
+          onPowerToggle={actions.toggleHumidifier}
+          onTargetHumidityChange={actions.setHumidifierTargetHumidity}
+          onModeChange={actions.setHumidifierMode}
+        />
+      ) : null}
+
       {activeDevice?.type === 'camera' ? (
         <CameraControls
           name={activeDevice.name}
@@ -662,7 +697,14 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'sensor' ? (
+      {activeDevice?.type === 'sensor' && activeDevice.sensorEntityId?.startsWith('binary_sensor.') ? (
+        <BinarySensorControls
+          name={activeDevice.name}
+          rawState={activeDevice.sensorRawState}
+          deviceClass={activeDevice.sensorDeviceClass}
+          battery={activeDevice.sensorBattery}
+        />
+      ) : activeDevice?.type === 'sensor' ? (
         <SensorControls
           name={activeDevice.name}
           status={activeDevice.status}

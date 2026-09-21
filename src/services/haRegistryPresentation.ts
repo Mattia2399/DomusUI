@@ -157,13 +157,19 @@ export function resolveWidgetKindFromEntityId(entityId: string): WidgetKind | nu
   if (domain === 'climate') return 'climate';
   if (domain === 'camera') return 'camera';
   if (domain === 'sensor' || domain === 'binary_sensor') return 'sensor';
-  if (domain === 'switch' || domain === 'input_boolean' || domain === 'fan') return 'switch';
+  if (domain === 'switch' || domain === 'input_boolean') return 'switch';
+  if (domain === 'fan') return 'fan';
+  if (domain === 'humidifier') return 'humidifier';
   if (domain === 'media_player') return 'media';
   if (domain === 'alarm_control_panel') return 'alarm';
   if (domain === 'vacuum') return 'vacuum';
   if (domain === 'lock') return 'lock';
   if (domain === 'cover') return 'cover';
   return null;
+}
+
+export function filterEntityIdsForWidgetKind(kind: WidgetKind, entityIds: string[]): string[] {
+  return entityIds.filter((entityId) => resolveWidgetKindFromEntityId(entityId) === kind);
 }
 
 export function fallbackTitleFromEntityId(entityId: string) {

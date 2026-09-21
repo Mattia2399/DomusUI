@@ -12,8 +12,9 @@ describe('LightCard container contract', () => {
     expect(lightCss).toContain('@container light-card (min-width: 132px) and (min-height: 44px)');
     expect(lightCss).toContain('@container light-card (min-width: 88px) and (min-height: 96px)');
     expect(lightCss).toContain('@container light-card (min-width: 170px) and (min-height: 104px)');
-    expect(lightCss).toContain('@container light-card (min-width: 260px) and (min-height: 104px)');
+    expect(lightCss).toContain('@container light-card (min-width: 320px) and (min-height: 104px)');
     expect(lightCss).toContain('@container light-card (min-width: 176px) and (min-height: 160px)');
+    expect(lightCss).not.toContain('@media');
   });
 
   it('keeps state and feature attributes without a JS-owned visual variant', () => {
@@ -22,5 +23,7 @@ describe('LightCard container contract', () => {
     expect(lightView).toContain('data-light-state');
     expect(lightView).toContain('data-light-mode');
     expect(lightView).toContain('data-light-has-details');
+    expect(lightView).toContain('data-light-has-slider');
+    expect(lightView).not.toContain('displayVariant');
   });
 });

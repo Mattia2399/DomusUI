@@ -62,6 +62,22 @@ describe('SensorCard view contract', () => {
     expect(markup).toContain('data-sensor-available="false"');
     expect(markup).toContain('aria-label="—"');
   });
+
+  it('renders binary sensor states without numeric charts or statistics', () => {
+    const markup = renderToStaticMarkup(
+      <SensorCard
+        widget={{ ...widget, entityId: 'binary_sensor.garage_door', title: 'Porta garage' }}
+        isSelected={false}
+        isEditMode={false}
+        onClick={() => undefined}
+        liveEntity={{ state: 'on', rawAttributes: { device_class: 'garage_door' } }}
+      />,
+    );
+    expect(markup).toContain('data-binary-state="on"');
+    expect(markup).toContain('Aperta');
+    expect(markup).not.toContain('sensor-card__visual');
+    expect(markup).not.toContain('sensor-card__stats');
+  });
 });
 
 describe('SensorCard pixel reporting', () => {

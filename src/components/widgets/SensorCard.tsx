@@ -3,7 +3,9 @@ import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
 import { useObservedElementSize } from '../../hooks/useObservedElementSize';
 import { SensorCardView } from './SensorCardView';
+import { BinarySensorCardView } from './BinarySensorCardView';
 import { buildSensorCardModel } from './sensorCardModel';
+import { resolveBinarySensorPresentation } from './binarySensorPresentation';
 import {
   resolveSensorPixelDisplayVariant,
   type WidgetDisplayMetrics,
@@ -39,9 +41,20 @@ export function SensorCard({
   const measuredVariant = measuredSize
     ? resolveSensorPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : null;
+  const isBinarySensor = widget.entityId.startsWith('binary_sensor.');
   const model = useMemo(
-    () => buildSensorCardModel({ widget, value, sensorHistory, liveEntity, batteryEntity, locale }),
-    [batteryEntity, liveEntity, locale, sensorHistory, value, widget],
+    () => isBinarySensor ? null : buildSensorCardModel({ widget, value, sensorHistory, liveEntity, batteryEntity, locale }),
+    [batteryEntity, isBinarySensor, liveEntity, locale, sensorHistory, value, widget],
+  );
+  const binaryPresentation = useMemo(
+    () => isBinarySensor
+      ? resolveBinarySensorPresentation(
+          liveEntity?.state ?? (widget.dataSource === 'mock' ? undefined : 'unavailable'),
+          liveEntity?.rawAttributes?.device_class,
+          locale,
+        )
+      : null,
+    [isBinarySensor, liveEntity, locale, widget.dataSource],
   );
 
   useEffect(() => {
@@ -56,7 +69,16 @@ export function SensorCard({
     });
   }, [measuredSize, measuredVariant, onDisplayMetricsChange, widget.id]);
 
-  return (
+  return binaryPresentation ? (
+    <BinarySensorCardView
+      title={widget.title}
+      presentation={binaryPresentation}
+      isSelected={isSelected}
+      isEditMode={isEditMode}
+      onClick={onClick}
+      rootRef={cardRef}
+    />
+  ) : model ? (
     <SensorCardView
       model={model}
       isSelected={isSelected}
@@ -64,5 +86,5 @@ export function SensorCard({
       onClick={onClick}
       rootRef={cardRef}
     />
-  );
+  ) : null;
 }

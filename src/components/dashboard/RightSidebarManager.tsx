@@ -49,6 +49,8 @@ import {
   CAMERA_CARD_CAPABILITY,
   CLIMATE_CARD_CAPABILITY,
   COVER_CARD_CAPABILITY,
+  FAN_CARD_CAPABILITY,
+  HUMIDIFIER_CARD_CAPABILITY,
   getCardCapability,
   LIGHT_CARD_CAPABILITY,
   LOCK_CARD_CAPABILITY,
@@ -79,6 +81,7 @@ import type { VacuumRelatedEntityActionRequest } from '../settings/VacuumControl
 import type { VacuumDeviceInfo, VacuumMappedArea, VacuumRelatedEntityInfo } from '../widgets/vacuumDeviceModel';
 import type { MockEntityState, MockEntityStateMap } from '../../types/ha';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
+import { filterEntityIdsForWidgetKind } from '../../services/haRegistryPresentation';
 import type {
   DashboardSection,
   SceneActionConfig,
@@ -102,6 +105,12 @@ import { getGreetingDefaults } from '../widgets/GreetingCard';
 import { ScenesCard, getSceneIconNode, SCENE_ICON_OPTIONS, SCENES_CATALOG } from '../widgets/ScenesCard';
 import { GRID_ENGINE_COLS, GRID_ENGINE_GAP_PX, GRID_ENGINE_ROW_UNIT_PX } from './DashboardGrid';
 import { resolveWidgetTypeLayoutSpan } from './dashboardBreakpointConfig';
+import {
+  CARD_SIZING_ENGINE,
+  LIGHT_ADAPTIVE_SIZING_PROFILE,
+  resolveCardPresetSizing,
+} from './adaptiveCardSizing';
+import type { CardSizingEngine } from '../../services/cardSizingEngine';
 import type {
   DashboardGridBreakpoint,
   WidgetLayoutOverrides,
@@ -132,6 +141,14 @@ const BUILDER_CONTENT_CARD_SOFT_CLASS = 'dashboard-content-surface-soft rounded-
 type ContextSidebarActions = {
   toggleLamp: () => void;
   toggleSwitch: () => void;
+  toggleFan: () => void;
+  setFanPercentage: (percentage: number) => void;
+  setFanPreset: (mode: string) => void;
+  setFanOscillation: (oscillating: boolean) => void;
+  setFanDirection: (direction: 'forward' | 'reverse') => void;
+  toggleHumidifier: () => void;
+  setHumidifierTargetHumidity: (humidity: number) => void;
+  setHumidifierMode: (mode: string) => void;
   setLampBrightness: (value: number, options?: { transition?: number }) => void;
   setLampColorTemp: (kelvin: number, options?: { transition?: number }) => void;
   setLampHsColor: (hs: [number, number], options?: { transition?: number }) => void;
@@ -259,6 +276,14 @@ const SCENE_ACTION_SERVICE_SUGGESTIONS = [
   'vacuum.start',
 ];
 const GRID_LAYOUT_PREVIEW_MAX_ROWS = 6;
+const GRID_ENGINE_ROOT_HORIZONTAL_PADDING: Record<DashboardGridBreakpoint, number> = {
+  '2xl': 0,
+  xl: 0,
+  lg: 0,
+  md: 0,
+  sm: 0,
+  xs: 2,
+};
 const WIDGET_LAYOUT_HEIGHT_SCALE_OPTIONS = [
   { label: '0.5x', h: 1 },
   { label: '1x', h: 2 },
@@ -299,6 +324,59 @@ function isValidScenePayloadJson(payloadJson: string | undefined) {
 
 function clampGridSpan(value: number, max: number) {
   return Math.max(1, Math.min(max, Math.round(value)));
+}
+
+function createLightLayoutOverride(
+  width: number,
+  collapsedHeight: number,
+  options: { allowAutoExpand?: boolean } = {},
+): WidgetTypeBreakpointLayoutOverride {
+  const safeHeight = Math.max(1, Math.round(collapsedHeight));
+  const canAutoExpand = options.allowAutoExpand !== false && safeHeight <= 1;
+  if (!canAutoExpand) {
+    return { w: width, h: safeHeight, hOff: safeHeight, hOn: safeHeight, autoExpand: false };
+  }
+  return { w: width, hOff: safeHeight, hOn: 2, autoExpand: true };
+}
+
+function resolveLightPresetTarget(
+  variant: Parameters<typeof LIGHT_CARD_CAPABILITY.resolveVariantTarget>[0],
+  {
+    activeGridBreakpoint,
+    activeGridWidth,
+    cardSizingEngine,
+    cols,
+    isInsideStack,
+  }: {
+    activeGridBreakpoint: DashboardGridBreakpoint;
+    activeGridWidth: number;
+    cardSizingEngine: CardSizingEngine;
+    cols: number;
+    isInsideStack: boolean;
+  },
+) {
+  const legacy = LIGHT_CARD_CAPABILITY.resolveVariantTarget(variant, {
+    cols,
+    breakpoint: activeGridBreakpoint,
+    isInsideStack,
+  });
+  return resolveCardPresetSizing({
+    kind: 'light',
+    preset: variant,
+    engine: cardSizingEngine,
+    profile: LIGHT_ADAPTIVE_SIZING_PROFILE,
+    legacy,
+    isInsideStack,
+    geometry: {
+      containerWidth: activeGridWidth,
+      cols,
+      columnGap: GRID_ENGINE_GAP_PX,
+      rowHeight: GRID_ENGINE_ROW_UNIT_PX,
+      rowGap: GRID_ENGINE_GAP_PX,
+      horizontalPadding: GRID_ENGINE_ROOT_HORIZONTAL_PADDING[activeGridBreakpoint] ?? 0,
+      maxCols: cols,
+    },
+  });
 }
 
 const WEATHER_LAYOUT_PREVIEWS: Record<
@@ -588,6 +666,8 @@ type RightSidebarManagerProps = {
   sidebarPaths?: SidebarQuickPath[];
   weatherConfig: DashboardSection | null;
   activeGridBreakpoint: DashboardGridBreakpoint;
+  activeGridWidth?: number;
+  cardSizingEngine?: CardSizingEngine;
   widgetTypeLayoutOverrides?: WidgetTypeLayoutOverrides;
   widgetLayoutOverrides?: WidgetLayoutOverrides;
   entityOptions: Record<WidgetKind, string[]>;
@@ -913,6 +993,8 @@ export function RightSidebarManager({
   sidebarPaths = [],
   weatherConfig,
   activeGridBreakpoint,
+  activeGridWidth = 0,
+  cardSizingEngine = CARD_SIZING_ENGINE,
   widgetTypeLayoutOverrides = {},
   widgetLayoutOverrides = {},
   entityOptions,
@@ -1064,11 +1146,9 @@ export function RightSidebarManager({
       const lightAutoExpand = lightWidgetOverride?.autoExpand ?? lightTypeOverride?.autoExpand ?? true;
       const nextOverride =
         selectedWidget.kind === 'light'
-          ? lightAutoExpand
-            ? selectedWidget.isOn
-              ? { w: safeW, hOn: safeH, hOff: Math.max(1, safeH - 1), autoExpand: true }
-              : { w: safeW, hOff: safeH, hOn: Math.min(GRID_LAYOUT_PREVIEW_MAX_ROWS, safeH + 1), autoExpand: true }
-            : { w: safeW, h: safeH, hOn: safeH, hOff: safeH, autoExpand: false }
+          ? createLightLayoutOverride(safeW, safeH, {
+              allowAutoExpand: lightAutoExpand,
+            })
           : {
               w: safeW,
               h: safeH,
@@ -1155,9 +1235,20 @@ export function RightSidebarManager({
       label={label}
     />
   );
+  const activeDeviceForPanel = activeDevice?.type === 'sensor' && activeDevice.sensorEntityId?.startsWith('binary_sensor.')
+    ? {
+        ...activeDevice,
+        sensorRawState: !haConnected && activeDevice.sensorDataSource !== 'mock'
+          ? 'unavailable'
+          : haStates[activeDevice.sensorEntityId]?.state ?? activeDevice.sensorRawState,
+        sensorDeviceClass: typeof haStates[activeDevice.sensorEntityId]?.rawAttributes?.device_class === 'string'
+          ? haStates[activeDevice.sensorEntityId].rawAttributes?.device_class as string
+          : activeDevice.sensorDeviceClass,
+      }
+    : activeDevice;
   const contextSidebarPanel = (
     <ContextSidebar
-      activeDevice={activeDevice}
+      activeDevice={activeDeviceForPanel}
       isEditMode={isEditMode}
       theme={theme}
       onClose={onCloseContextSidebar}
@@ -1275,7 +1366,7 @@ export function RightSidebarManager({
     return (
       <div className={`liquid-glass-panel ${sidebarWidthClass} overflow-hidden`}>
         <ContextSidebar
-          activeDevice={activeDevice}
+          activeDevice={activeDeviceForPanel}
           isEditMode={isEditMode}
           theme={theme}
           onClose={onCloseContextSidebar}
@@ -1470,11 +1561,6 @@ export function RightSidebarManager({
     clampGridSpan(selectedWidgetLayoutSpan?.w ?? 1, layoutEditorCols),
   );
   const layoutPickerHeight = clampGridSpan(selectedWidgetLayoutSpan?.h ?? 1, GRID_LAYOUT_PREVIEW_MAX_ROWS);
-  const selectedLightAutoExpand = selectedWidget?.kind === 'light'
-    ? layoutApplyScope === 'type'
-      ? selectedWidgetTypeOverride?.autoExpand ?? true
-      : selectedWidgetLayoutOverride?.autoExpand ?? selectedWidgetTypeOverride?.autoExpand ?? true
-    : false;
   const selectedLightOffHeight = selectedWidget?.kind === 'light'
     ? clampGridSpan(
         layoutApplyScope === 'type'
@@ -1484,6 +1570,13 @@ export function RightSidebarManager({
         GRID_LAYOUT_PREVIEW_MAX_ROWS,
       )
     : layoutPickerHeight;
+  const selectedLightAutoExpand = selectedWidget?.kind === 'light'
+    ? (layoutApplyScope === 'type'
+      ? selectedWidgetTypeOverride?.autoExpand ?? true
+      : selectedWidgetLayoutOverride?.autoExpand ?? selectedWidgetTypeOverride?.autoExpand ?? true) &&
+        selectedLightOffHeight <= 1
+    : false;
+  const canSelectedLightAutoExpand = selectedWidget?.kind === 'light' && selectedLightOffHeight <= 1;
   const selectedLightOnHeight = selectedWidget?.kind === 'light'
     ? clampGridSpan(
         layoutApplyScope === 'type'
@@ -1493,6 +1586,11 @@ export function RightSidebarManager({
         GRID_LAYOUT_PREVIEW_MAX_ROWS,
       )
     : layoutPickerHeight;
+  const selectedLightAutoExpandDescription = selectedLightAutoExpand
+    ? `Spenta ${layoutPickerWidth}×${selectedLightOffHeight} → Accesa ${layoutPickerWidth}×${selectedLightOnHeight}`
+    : canSelectedLightAutoExpand
+      ? `Dimensione fissa ${layoutPickerWidth}×${layoutPickerHeight}`
+      : `Disponibile solo per il formato Mini ${layoutPickerWidth}×1`;
   const handleLayoutApplyScopeChange = (nextScope: 'widget' | 'type') => {
     if (!selectedWidget || nextScope === layoutApplyScope) {
       return;
@@ -1500,12 +1598,9 @@ export function RightSidebarManager({
     if (nextScope === 'type') {
       const nextOverride =
         selectedWidget.kind === 'light'
-          ? {
-              w: layoutPickerWidth,
-              ...(selectedLightAutoExpand
-                ? { hOn: selectedLightOnHeight, hOff: selectedLightOffHeight, autoExpand: true }
-                : { h: layoutPickerHeight, hOn: layoutPickerHeight, hOff: layoutPickerHeight, autoExpand: false }),
-            }
+          ? createLightLayoutOverride(layoutPickerWidth, selectedLightOffHeight, {
+              allowAutoExpand: selectedLightAutoExpand,
+            })
           : {
               w: layoutPickerWidth,
               h: layoutPickerHeight,
@@ -1519,12 +1614,7 @@ export function RightSidebarManager({
     if (selectedWidget?.kind !== 'light') return;
     const safeW = clampGridSpan(nextW, layoutEditorCols);
     const safeOffH = clampGridSpan(collapsedH, GRID_LAYOUT_PREVIEW_MAX_ROWS);
-    const safeOnH = selectedLightAutoExpand
-      ? clampGridSpan(safeOffH + 1, GRID_LAYOUT_PREVIEW_MAX_ROWS)
-      : safeOffH;
-    const nextOverride: WidgetTypeBreakpointLayoutOverride = selectedLightAutoExpand
-      ? { w: safeW, hOff: safeOffH, hOn: safeOnH, autoExpand: true }
-      : { w: safeW, h: safeOffH, hOff: safeOffH, hOn: safeOffH, autoExpand: false };
+    const nextOverride = createLightLayoutOverride(safeW, safeOffH);
     if (layoutApplyScope === 'widget') {
       onUpdateWidgetLayoutOverride(selectedWidget.id, activeGridBreakpoint, nextOverride);
     } else {
@@ -1533,12 +1623,9 @@ export function RightSidebarManager({
   };
   const handleLightAutoExpandChange = (nextAutoExpand: boolean) => {
     if (selectedWidget?.kind !== 'light') return;
-    const fixedHeight = layoutPickerHeight;
-    const nextOverride: WidgetTypeBreakpointLayoutOverride = nextAutoExpand
-      ? selectedWidget.isOn
-        ? { w: layoutPickerWidth, hOn: fixedHeight, hOff: Math.max(1, fixedHeight - 1), autoExpand: true }
-        : { w: layoutPickerWidth, hOff: fixedHeight, hOn: Math.min(GRID_LAYOUT_PREVIEW_MAX_ROWS, fixedHeight + 1), autoExpand: true }
-      : { w: layoutPickerWidth, h: fixedHeight, hOn: fixedHeight, hOff: fixedHeight, autoExpand: false };
+    const nextOverride = createLightLayoutOverride(layoutPickerWidth, selectedLightOffHeight, {
+      allowAutoExpand: nextAutoExpand,
+    });
     if (layoutApplyScope === 'widget') {
       onUpdateWidgetLayoutOverride(selectedWidget.id, activeGridBreakpoint, nextOverride);
     } else {
@@ -1604,9 +1691,11 @@ export function RightSidebarManager({
   const lightDisplayVariantOptions =
     selectedWidget?.kind === 'light'
       ? LIGHT_CARD_CAPABILITY.variants.map((option) => {
-          const target = LIGHT_CARD_CAPABILITY.resolveVariantTarget(option.id, {
+          const target = resolveLightPresetTarget(option.id, {
+            activeGridBreakpoint,
+            activeGridWidth,
+            cardSizingEngine,
             cols: layoutEditorCols,
-            breakpoint: activeGridBreakpoint,
             isInsideStack: Boolean(selectedWidget.parentSectionId),
           });
           const targetW = clampGridSpan(target.w, layoutEditorCols);
@@ -1656,6 +1745,56 @@ export function RightSidebarManager({
             isAvailable:
               resolveCardLayoutVariant(SWITCH_CARD_CAPABILITY, resolvedTargetVariant) ===
               option.id,
+          };
+        })
+      : [];
+  const fanDisplayVariantOptions =
+    selectedWidget?.kind === 'fan'
+      ? FAN_CARD_CAPABILITY.variants.map((option) => {
+          const target = FAN_CARD_CAPABILITY.resolveVariantTarget(option.id, {
+            cols: layoutEditorCols,
+            breakpoint: activeGridBreakpoint,
+            isInsideStack: Boolean(selectedWidget.parentSectionId),
+          });
+          const targetW = clampGridSpan(target.w, layoutEditorCols);
+          const targetH = clampGridSpan(target.h, GRID_LAYOUT_PREVIEW_MAX_ROWS);
+          const resolvedTargetVariant = resolveWidgetDisplayVariant({
+            kind: 'fan',
+            breakpoint: activeGridBreakpoint,
+            layout: { w: targetW, h: targetH },
+            parentSectionId: selectedWidget.parentSectionId,
+          });
+          return {
+            ...option,
+            targetW,
+            targetH,
+            isActive: selectedWidgetLayoutVariant === option.id,
+            isAvailable: resolveCardLayoutVariant(FAN_CARD_CAPABILITY, resolvedTargetVariant) === option.id,
+          };
+        })
+      : [];
+  const humidifierDisplayVariantOptions =
+    selectedWidget?.kind === 'humidifier'
+      ? HUMIDIFIER_CARD_CAPABILITY.variants.map((option) => {
+          const target = HUMIDIFIER_CARD_CAPABILITY.resolveVariantTarget(option.id, {
+            cols: layoutEditorCols,
+            breakpoint: activeGridBreakpoint,
+            isInsideStack: Boolean(selectedWidget.parentSectionId),
+          });
+          const targetW = clampGridSpan(target.w, layoutEditorCols);
+          const targetH = clampGridSpan(target.h, GRID_LAYOUT_PREVIEW_MAX_ROWS);
+          const resolvedTargetVariant = resolveWidgetDisplayVariant({
+            kind: 'humidifier',
+            breakpoint: activeGridBreakpoint,
+            layout: { w: targetW, h: targetH },
+            parentSectionId: selectedWidget.parentSectionId,
+          });
+          return {
+            ...option,
+            targetW,
+            targetH,
+            isActive: selectedWidgetLayoutVariant === option.id,
+            isAvailable: resolveCardLayoutVariant(HUMIDIFIER_CARD_CAPABILITY, resolvedTargetVariant) === option.id,
           };
         })
       : [];
@@ -1864,8 +2003,12 @@ export function RightSidebarManager({
     ? sensorDisplayVariantOptions
     : selectedWidget?.kind === 'light'
       ? lightDisplayVariantOptions
-      : selectedWidget?.kind === 'switch'
-        ? switchDisplayVariantOptions
+    : selectedWidget?.kind === 'switch'
+      ? switchDisplayVariantOptions
+      : selectedWidget?.kind === 'fan'
+        ? fanDisplayVariantOptions
+        : selectedWidget?.kind === 'humidifier'
+          ? humidifierDisplayVariantOptions
         : selectedWidget?.kind === 'climate'
           ? climateDisplayVariantOptions
           : selectedWidget?.kind === 'alarm'
@@ -1923,6 +2066,8 @@ export function RightSidebarManager({
     selectedWidget?.kind === 'sensor' ||
     selectedWidget?.kind === 'light' ||
     selectedWidget?.kind === 'switch' ||
+    selectedWidget?.kind === 'fan' ||
+    selectedWidget?.kind === 'humidifier' ||
     selectedWidget?.kind === 'climate' ||
     selectedWidget?.kind === 'alarm' ||
     selectedWidget?.kind === 'lock' ||
@@ -1982,19 +2127,8 @@ export function RightSidebarManager({
       ? activeCardLayoutLabel ?? `${layoutPickerWidth}×${layoutPickerHeight}`
       : `${layoutPickerWidth}×${layoutPickerHeight}`;
 
-  const entityDomains = selectedWidget
-    ? selectedWidget.kind === 'media'
-      ? ['media_player.']
-      : selectedWidget.kind === 'alarm'
-        ? ['alarm_control_panel.']
-        : selectedWidget.kind === 'switch'
-          ? ['switch.', 'input_boolean.', 'fan.']
-          : [`${selectedWidget.kind}.`]
-    : [];
-  const liveEntitySuggestions = haConnected
-    ? haEntityIds.filter((entityId) =>
-        entityDomains.length > 0 ? entityDomains.some((domain) => entityId.startsWith(domain)) : true,
-      )
+  const liveEntitySuggestions = haConnected && selectedWidget
+    ? filterEntityIdsForWidgetKind(selectedWidget.kind, haEntityIds)
     : [];
   const staticSuggestions = selectedWidget ? entityOptions[selectedWidget.kind] ?? [] : [];
   const entitySuggestions = Array.from(new Set([...liveEntitySuggestions, ...staticSuggestions]));
@@ -3416,7 +3550,7 @@ export function RightSidebarManager({
                     La dimensione decide automaticamente quali elementi mostrare.
                   </p>
                 </div>
-                {(selectedWidget.kind === 'sensor' || selectedWidget.kind === 'light' || selectedWidget.kind === 'switch' || selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum') && selectedDisplayVariantOptions.length > 0 ? (
+                {(selectedWidget.kind === 'sensor' || selectedWidget.kind === 'light' || selectedWidget.kind === 'switch' || selectedWidget.kind === 'fan' || selectedWidget.kind === 'humidifier' || selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum') && selectedDisplayVariantOptions.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
                     {selectedDisplayVariantOptions.map((option) => (
                       <button
@@ -3525,14 +3659,13 @@ export function RightSidebarManager({
                     <div className="min-w-0">
                       <p className="text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">{bt('Espansione automatica')}</p>
                       <p className="mt-0.5 text-[10px] text-[color:var(--ui-text-tertiary)]">
-                        {selectedLightAutoExpand
-                          ? `Spenta ${layoutPickerWidth}×${selectedLightOffHeight} → Accesa ${layoutPickerWidth}×${selectedLightOnHeight}`
-                          : `Dimensione fissa ${layoutPickerWidth}×${layoutPickerHeight}`}
+                        {selectedLightAutoExpandDescription}
                       </p>
                     </div>
                     {renderAppleSwitch({
                       checked: selectedLightAutoExpand,
                       onChange: handleLightAutoExpandChange,
+                      disabled: !canSelectedLightAutoExpand,
                       label: bt('Espansione automatica luce'),
                     })}
                   </div>

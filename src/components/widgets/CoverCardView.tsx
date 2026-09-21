@@ -2,13 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Blinds, DoorOpen, SlidersHorizontal, Square } from 'lucide-react';
 import GlassSlider from '../ui/GlassSlider';
 import type { CoverCardModel } from './coverCardModel';
-import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import './CoverCard.css';
 import { useI18n } from '../../i18n/I18nProvider';
 
 type CoverCardViewProps = {
   model: CoverCardModel;
-  layoutVariant: WidgetDisplayVariant;
   isSelected: boolean;
   isEditMode: boolean;
   rootRef?: React.Ref<HTMLDivElement>;
@@ -58,7 +56,6 @@ function resolveDeviceIcon(model: CoverCardModel) {
 
 export function CoverCardView({
   model,
-  layoutVariant,
   isSelected,
   isEditMode,
   rootRef,
@@ -77,11 +74,11 @@ export function CoverCardView({
   const DeviceIcon = resolveDeviceIcon(model);
   const canUsePosition = model.isAvailable && model.supportsSetPosition && Boolean(onPositionChange);
   const canUseTilt = model.isAvailable && model.hasTilt && model.supportsSetTiltPosition && Boolean(onTiltPositionChange);
-  const usesStackedControls = canUseTilt && (layoutVariant === 'standard' || layoutVariant === 'full');
-  const usesQuickActions = layoutVariant === 'full';
   const canOpenCover = model.isAvailable && model.supportsOpen && Boolean(onOpenCover);
   const canStopCover = model.isAvailable && model.supportsStop && Boolean(onStopCover);
   const canCloseCover = model.isAvailable && model.supportsClose && Boolean(onCloseCover);
+  const hasQuickActions = model.supportsOpen || model.supportsStop || model.supportsClose;
+  const effectiveControlMode = controlMode === 'tilt' && model.supportsSetTiltPosition ? 'tilt' : model.supportsSetPosition ? 'position' : 'tilt';
   const activeTiltPreset = findNearestTiltPreset(model.tiltPosition);
   const sliderValue = draftPosition ?? snapPosition(model.position);
   const sliderCoverage = clamp(100 - sliderValue, 0, 100);
@@ -102,7 +99,7 @@ export function CoverCardView({
     [model.coverage, model.position, model.tiltPosition, sliderCoverage],
   );
   const subtitle =
-    model.isAvailable
+    model.isAvailable && model.supportsSetPosition
       ? `${model.stateLabel} • ${t('card.openingPercent', { value: model.position })}`
       : model.stateLabel;
 
@@ -133,6 +130,7 @@ export function CoverCardView({
             key={option.value}
             type="button"
             className={`cover-card__tilt-option ${active ? 'cover-card__tilt-option--active' : ''}`}
+            disabled={!canUseTilt || isEditMode || model.pending}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
@@ -159,7 +157,7 @@ export function CoverCardView({
         max={100}
         step={COVER_POSITION_STEP}
         value={sliderInputValue}
-        disabled={!canUsePosition}
+        disabled={!canUsePosition || isEditMode || model.pending}
         aria-label={t('card.editPositionAria', { name: model.title })}
         aria-valuetext={t('card.openingPercent', { value: sliderValue })}
         onPointerDown={(event) => {
@@ -200,10 +198,10 @@ export function CoverCardView({
 
   const renderQuickActions = () => (
     <div className="cover-card__quick-actions" role="group" aria-label={t('card.quickCommands', { name: model.title })}>
-      <button
+      {model.supportsOpen ? <button
         type="button"
         className="cover-card__quick-action"
-        disabled={!canOpenCover}
+        disabled={!canOpenCover || isEditMode || model.pending}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
@@ -211,11 +209,11 @@ export function CoverCardView({
         }}
       >
         {t('controls.cover.open')}
-      </button>
-      <button
+      </button> : null}
+      {model.supportsStop ? <button
         type="button"
         className="cover-card__quick-action cover-card__quick-action--stop"
-        disabled={!canStopCover}
+        disabled={!canStopCover || isEditMode || model.pending}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
@@ -223,11 +221,11 @@ export function CoverCardView({
         }}
       >
         {t('controls.cover.stop')}
-      </button>
-      <button
+      </button> : null}
+      {model.supportsClose ? <button
         type="button"
         className="cover-card__quick-action"
-        disabled={!canCloseCover}
+        disabled={!canCloseCover || isEditMode || model.pending}
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation();
@@ -235,7 +233,7 @@ export function CoverCardView({
         }}
       >
         {t('controls.cover.close')}
-      </button>
+      </button> : null}
     </div>
   );
 
@@ -245,11 +243,13 @@ export function CoverCardView({
       className={`cover-card ${isSelected ? 'selection-corners' : ''}`}
       data-cover-state={model.state}
       data-cover-tone={model.tone}
-      data-cover-variant={layoutVariant}
       data-cover-device={model.deviceClass}
       data-cover-available={model.isAvailable ? 'true' : 'false'}
       data-cover-tilt={model.hasTilt ? 'true' : 'false'}
-      data-cover-control-mode={controlMode}
+      data-cover-has-tilt-control={model.supportsSetTiltPosition ? 'true' : 'false'}
+      data-cover-has-position={model.supportsSetPosition ? 'true' : 'false'}
+      data-cover-has-actions={hasQuickActions ? 'true' : 'false'}
+      data-cover-control-mode={effectiveControlMode}
       data-cover-pending={model.pending ? 'true' : 'false'}
       style={style}
       onClick={(event) => {
@@ -257,7 +257,7 @@ export function CoverCardView({
         event.stopPropagation();
         onOpen();
       }}
-      aria-label={`${model.title}, ${model.stateLabel}, ${model.position}%`}
+      aria-label={`${model.title}, ${model.stateLabel}${model.supportsSetPosition ? `, ${model.position}%` : ''}`}
       aria-busy={model.isMoving || model.pending || undefined}
     >
       <div className="liquid-glass-card cover-card__surface">
@@ -270,10 +270,11 @@ export function CoverCardView({
           <span className="cover-card__subtitle" title={subtitle}>{subtitle}</span>
         </span>
 
-        {canUseTilt && !usesStackedControls ? (
+        {model.supportsSetPosition && model.supportsSetTiltPosition ? (
           <button
             type="button"
             className="cover-card__mode-button"
+            disabled={!model.isAvailable || isEditMode || model.pending}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
@@ -291,25 +292,12 @@ export function CoverCardView({
         ) : null}
 
         <div
-          className={`cover-card__controls ${usesStackedControls ? 'cover-card__controls--stacked' : ''} ${
-            usesQuickActions ? 'cover-card__controls--with-actions' : ''
-          }`}
+          className="cover-card__controls"
           onClick={(event) => event.stopPropagation()}
         >
-          {usesStackedControls ? (
-            <>
-              {renderTiltSegments()}
-              {renderPositionSlider()}
-              {usesQuickActions ? renderQuickActions() : null}
-            </>
-          ) : controlMode === 'tilt' && canUseTilt ? (
-            renderTiltSegments()
-          ) : (
-            <>
-              {renderPositionSlider()}
-              {usesQuickActions ? renderQuickActions() : null}
-            </>
-          )}
+          {model.supportsSetPosition ? renderPositionSlider() : null}
+          {model.supportsSetTiltPosition ? renderTiltSegments() : null}
+          {hasQuickActions ? renderQuickActions() : null}
         </div>
       </div>
 

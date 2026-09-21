@@ -22,11 +22,15 @@ import { appGalleryTranslations } from './appGalleryTranslations';
 import { irrigationConfigTranslations } from './irrigationConfigTranslations';
 import { appGalleryExtraTranslations } from './appGalleryExtraTranslations';
 import { comingSoonAppTranslations } from './comingSoonAppTranslations';
+import { fanTranslations } from './fanTranslations';
+import { humidifierTranslations } from './humidifierTranslations';
 
 export const homeTranslations = {
   it: {
     ...homeGuideTranslations.it,
     ...contextPanelTranslations.it,
+    ...fanTranslations.it,
+    ...humidifierTranslations.it,
     ...routeTranslations.it,
     ...devicePanelTranslations.it,
     ...homeSurfaceTranslations.it,
@@ -111,6 +115,8 @@ export const homeTranslations = {
   en: {
     ...homeGuideTranslations.en,
     ...contextPanelTranslations.en,
+    ...fanTranslations.en,
+    ...humidifierTranslations.en,
     ...routeTranslations.en,
     ...devicePanelTranslations.en,
     ...homeSurfaceTranslations.en,
@@ -151,6 +157,8 @@ export const homeTranslations = {
   fr: {
     ...homeGuideTranslations.fr,
     ...contextPanelTranslations.fr,
+    ...fanTranslations.fr,
+    ...humidifierTranslations.fr,
     ...routeTranslations.fr,
     ...devicePanelTranslations.fr,
     ...homeSurfaceTranslations.fr,

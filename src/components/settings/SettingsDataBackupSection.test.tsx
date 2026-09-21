@@ -37,6 +37,8 @@ const baseProps = {
   onResetAll: vi.fn(async () => undefined),
   onRestoreStarterTemplate: undefined as (() => Promise<void>) | undefined,
   onOpenLayoutVersions: undefined as (() => void) | undefined,
+  cardSizingEngine: 'adaptive' as const,
+  onCardSizingEngineChange: vi.fn(),
 };
 
 function renderSection({
@@ -75,6 +77,36 @@ describe('SettingsDataBackupSection', () => {
 
     expect(onDownloadBackup).toHaveBeenCalledTimes(1);
     expect(onDeveloperModeChange).toHaveBeenCalledWith(true);
+  });
+
+  it('hides the card sizing engine control until Developer Mode is enabled', () => {
+    renderSection();
+
+    expect(screen.queryByRole('switch', { name: /Dimensionamento adattivo/ })).toBeNull();
+  });
+
+  it('lets developers switch the local card sizing engine from data settings', () => {
+    const onCardSizingEngineChange = vi.fn();
+    renderSection({
+      props: {
+        developerMode: true,
+        cardSizingEngine: 'adaptive',
+        onCardSizingEngineChange,
+      },
+    });
+
+    fireEvent.click(screen.getByRole('switch', { name: /Dimensionamento adattivo/ }));
+
+    expect(onCardSizingEngineChange).toHaveBeenCalledWith('legacy');
+  });
+
+  it('does not expose the card sizing engine control to limited users', () => {
+    renderSection({
+      security: limitedSecurity,
+      props: { developerMode: true },
+    });
+
+    expect(screen.queryByRole('switch', { name: /Dimensionamento adattivo/ })).toBeNull();
   });
 
   it('opens the shared layout version history from data settings', () => {

@@ -2,6 +2,8 @@ import React from 'react';
 import { ClimateCard } from './ClimateCard';
 import { LightCard } from './LightCard';
 import { SwitchCard } from './SwitchCard';
+import { FanCard } from './FanCard';
+import { HumidifierCard } from './HumidifierCard';
 import { CameraCard } from './CameraCard';
 import { SensorCard } from './SensorCard';
 import { MediaCard } from './MediaCard';
@@ -42,6 +44,14 @@ type WidgetCardRendererProps = {
   onLightBrightnessChange?: (widget: Widget, value: number) => void;
   onLightColorChange?: (widget: Widget, hs: [number, number]) => void;
   onSwitchToggle?: (widget: Widget) => void;
+  onFanToggle?: (widget: Widget) => void;
+  onFanPercentageChange?: (widget: Widget, percentage: number) => void;
+  onFanPresetChange?: (widget: Widget, mode: string) => void;
+  onFanOscillationChange?: (widget: Widget, oscillating: boolean) => void;
+  onFanDirectionChange?: (widget: Widget, direction: 'forward' | 'reverse') => void;
+  onHumidifierToggle?: (widget: Widget) => void;
+  onHumidifierTargetHumidityChange?: (widget: Widget, humidity: number) => void;
+  onHumidifierModeChange?: (widget: Widget, mode: string) => void;
   onClimateTargetTempChange?: (widget: Widget, value: number) => void;
   onClimateTargetRangeChange?: (widget: Widget, low: number, high: number) => void;
   onClimateTargetHumidityChange?: (widget: Widget, value: number) => void;
@@ -92,6 +102,14 @@ function WidgetCardRendererComponent({
   onLightBrightnessChange,
   onLightColorChange,
   onSwitchToggle,
+  onFanToggle,
+  onFanPercentageChange,
+  onFanPresetChange,
+  onFanOscillationChange,
+  onFanDirectionChange,
+  onHumidifierToggle,
+  onHumidifierTargetHumidityChange,
+  onHumidifierModeChange,
   onClimateTargetTempChange,
   onClimateTargetRangeChange,
   onClimateTargetHumidityChange,
@@ -186,6 +204,40 @@ function WidgetCardRendererComponent({
         onToggleSwitch={controlsEnabled && onSwitchToggle ? () => onSwitchToggle(widget) : undefined}
         liveEntity={liveEntity}
         consumptionEntity={switchConsumptionEntity}
+        onDisplayMetricsChange={onDisplayMetricsChange}
+      />
+    );
+  }
+
+  if (widget.kind === 'fan') {
+    return (
+      <FanCard
+        widget={widget}
+        entity={liveEntity}
+        isSelected={isSelected}
+        isEditMode={isEditMode}
+        onOpen={onClick}
+        onPowerToggle={controlsEnabled && onFanToggle ? () => onFanToggle(widget) : undefined}
+        onPercentageChange={controlsEnabled && onFanPercentageChange ? (percentage) => onFanPercentageChange(widget, percentage) : undefined}
+        onPresetChange={controlsEnabled && onFanPresetChange ? (mode) => onFanPresetChange(widget, mode) : undefined}
+        onOscillationChange={controlsEnabled && onFanOscillationChange ? (oscillating) => onFanOscillationChange(widget, oscillating) : undefined}
+        onDirectionChange={controlsEnabled && onFanDirectionChange ? (direction) => onFanDirectionChange(widget, direction) : undefined}
+        onDisplayMetricsChange={onDisplayMetricsChange}
+      />
+    );
+  }
+
+  if (widget.kind === 'humidifier') {
+    return (
+      <HumidifierCard
+        widget={widget}
+        entity={liveEntity}
+        isSelected={isSelected}
+        isEditMode={isEditMode}
+        onOpen={onClick}
+        onPowerToggle={controlsEnabled && onHumidifierToggle ? () => onHumidifierToggle(widget) : undefined}
+        onTargetHumidityChange={controlsEnabled && onHumidifierTargetHumidityChange ? (humidity) => onHumidifierTargetHumidityChange(widget, humidity) : undefined}
+        onModeChange={controlsEnabled && onHumidifierModeChange ? (mode) => onHumidifierModeChange(widget, mode) : undefined}
         onDisplayMetricsChange={onDisplayMetricsChange}
       />
     );
@@ -399,6 +451,18 @@ function areWidgetCardRendererPropsEqual(prevProps: WidgetCardRendererProps, nex
     return false;
   }
   if (prevProps.onLightColorChange !== nextProps.onLightColorChange) {
+    return false;
+  }
+  if (prevProps.onFanToggle !== nextProps.onFanToggle ||
+      prevProps.onFanPercentageChange !== nextProps.onFanPercentageChange ||
+      prevProps.onFanPresetChange !== nextProps.onFanPresetChange ||
+      prevProps.onFanOscillationChange !== nextProps.onFanOscillationChange ||
+      prevProps.onFanDirectionChange !== nextProps.onFanDirectionChange) {
+    return false;
+  }
+  if (prevProps.onHumidifierToggle !== nextProps.onHumidifierToggle ||
+      prevProps.onHumidifierTargetHumidityChange !== nextProps.onHumidifierTargetHumidityChange ||
+      prevProps.onHumidifierModeChange !== nextProps.onHumidifierModeChange) {
     return false;
   }
   if (prevProps.onCoverPositionChange !== nextProps.onCoverPositionChange) {

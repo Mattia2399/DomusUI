@@ -224,7 +224,7 @@ export const LIGHT_CARD_CAPABILITY: ExpandableCardCapability = {
   resolvePixelDisplayVariant({ width, height }) {
     const safeWidth = Math.max(0, Number.isFinite(width) ? width : 0);
     const safeHeight = Math.max(0, Number.isFinite(height) ? height : 0);
-    if ((safeWidth >= 260 && safeHeight >= 104) || (safeWidth >= 176 && safeHeight >= 160)) {
+    if ((safeWidth >= 320 && safeHeight >= 104) || (safeWidth >= 176 && safeHeight >= 160)) {
       return 'full';
     }
     if (safeWidth >= 170 && safeHeight >= 104) return 'standard';
@@ -276,6 +276,70 @@ export const SWITCH_CARD_CAPABILITY: StaticCardCapability = {
     if ((safeWidth >= 132 && safeHeight >= 44) || (safeWidth >= 88 && safeHeight >= 96)) {
       return 'compact';
     }
+    return 'mini';
+  },
+};
+
+export const FAN_CARD_CAPABILITY: StaticCardCapability = {
+  kind: 'fan',
+  skeleton: 'fan',
+  supportsAutoExpand: false,
+  variants: [
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.fan.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.fan.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.fan.expanded' },
+  ],
+  defaultSpans: {
+    '2xl': { w: 2, h: 1 }, xl: { w: 2, h: 1 }, lg: { w: 2, h: 1 },
+    md: { w: 2, h: 1 }, sm: { w: 2, h: 1 }, xs: { w: 2, h: 1 },
+  },
+  resolveVariantTarget(variant, { cols, isInsideStack }) {
+    const safeCols = Math.max(1, Math.round(cols));
+    if (variant === 'mini') return { w: 1, h: 1 };
+    if (variant === 'standard') return safeCols >= 2 ? { w: 2, h: 1 } : { w: 1, h: 2 };
+    return { w: Math.min(safeCols, isInsideStack ? 2 : 3), h: 2 };
+  },
+  resolveDisplayVariant({ layout }) {
+    if (layout.w <= 1 && layout.h <= 1) return 'mini';
+    if (layout.w >= 2 && layout.h >= 2) return 'full';
+    return 'standard';
+  },
+  resolvePixelDisplayVariant({ width, height }) {
+    if ((width >= 310 && height >= 240) || (width >= 190 && height >= 290)) return 'full';
+    if (width >= 180 && height >= 108) return 'standard';
+    if ((width >= 132 && height >= 48) || (width >= 92 && height >= 110)) return 'compact';
+    return 'mini';
+  },
+};
+
+export const HUMIDIFIER_CARD_CAPABILITY: StaticCardCapability = {
+  kind: 'humidifier',
+  skeleton: 'humidifier',
+  supportsAutoExpand: false,
+  variants: [
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.humidifier.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.humidifier.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.humidifier.expanded' },
+  ],
+  defaultSpans: {
+    '2xl': { w: 2, h: 1 }, xl: { w: 2, h: 1 }, lg: { w: 2, h: 1 },
+    md: { w: 2, h: 1 }, sm: { w: 2, h: 1 }, xs: { w: 2, h: 1 },
+  },
+  resolveVariantTarget(variant, { cols, isInsideStack }) {
+    const safeCols = Math.max(1, Math.round(cols));
+    if (variant === 'mini') return { w: 1, h: 1 };
+    if (variant === 'standard') return safeCols >= 2 ? { w: 2, h: 1 } : { w: 1, h: 2 };
+    return { w: Math.min(safeCols, isInsideStack ? 2 : 3), h: 2 };
+  },
+  resolveDisplayVariant({ layout }) {
+    if (layout.w <= 1 && layout.h <= 1) return 'mini';
+    if (layout.w >= 2 && layout.h >= 2) return 'full';
+    return 'standard';
+  },
+  resolvePixelDisplayVariant({ width, height }) {
+    if ((width >= 300 && height >= 225) || (width >= 190 && height >= 250)) return 'full';
+    if (width >= 180 && height >= 108) return 'standard';
+    if ((width >= 132 && height >= 48) || (width >= 92 && height >= 110)) return 'compact';
     return 'mini';
   },
 };
@@ -454,7 +518,7 @@ export const COVER_CARD_CAPABILITY: StaticCardCapability = {
   resolvePixelDisplayVariant({ width, height }) {
     const safeWidth = Math.max(0, Number.isFinite(width) ? width : 0);
     const safeHeight = Math.max(0, Number.isFinite(height) ? height : 0);
-    if ((safeWidth >= 350 && safeHeight >= 160) || (safeWidth >= 176 && safeHeight >= 212)) {
+    if ((safeWidth >= 300 && safeHeight >= 235) || (safeWidth >= 176 && safeHeight >= 250)) {
       return 'full';
     }
     if (safeWidth >= 170 && safeHeight >= 148) return 'standard';
@@ -669,6 +733,8 @@ const CARD_CAPABILITY_REGISTRY: Record<WidgetKind, CardCapability> = {
   sensor: SENSOR_CARD_CAPABILITY,
   light: LIGHT_CARD_CAPABILITY,
   switch: SWITCH_CARD_CAPABILITY,
+  fan: FAN_CARD_CAPABILITY,
+  humidifier: HUMIDIFIER_CARD_CAPABILITY,
   climate: CLIMATE_CARD_CAPABILITY,
   alarm: ALARM_CARD_CAPABILITY,
   lock: LOCK_CARD_CAPABILITY,
@@ -679,12 +745,12 @@ const CARD_CAPABILITY_REGISTRY: Record<WidgetKind, CardCapability> = {
   members: MEMBERS_CARD_CAPABILITY,
 };
 
-export function getCardCapability(kind: WidgetKind): CardCapability {
-  return CARD_CAPABILITY_REGISTRY[kind];
+export function getCardCapability(kind: WidgetKind | string): CardCapability {
+  return CARD_CAPABILITY_REGISTRY[kind as WidgetKind] ?? SENSOR_CARD_CAPABILITY;
 }
 
 export function resolveCardDisplayVariant(
-  kind: WidgetKind,
+  kind: WidgetKind | string,
   context: CardDisplayVariantContext,
 ): WidgetDisplayVariant {
   return getCardCapability(kind).resolveDisplayVariant(context);

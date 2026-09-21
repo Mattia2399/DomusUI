@@ -75,6 +75,12 @@ import {
   useLightSwitchPendingController,
 } from './mainboard/useLightSwitchPendingController';
 import { useLightSwitchCommands } from './mainboard/useLightSwitchCommands';
+import { useFanCommands, enrichFanPending } from './mainboard/useFanCommands';
+import { createFanStateMocks } from '../widgets/fanMock';
+import { resolveFanModel, type FanPending } from '../widgets/fanModel';
+import { useHumidifierCommands, enrichHumidifierPending } from './mainboard/useHumidifierCommands';
+import { createHumidifierStateMocks } from '../widgets/humidifierMock';
+import { resolveHumidifierModel, type HumidifierPending } from '../widgets/humidifierModel';
 import {
   CLIMATE_PENDING_TTL_MS,
   hasClimatePendingValues,
@@ -1613,6 +1619,8 @@ export function MainBoard() {
     setBackground,
     developerMode,
     setDeveloperMode,
+    cardSizingEngine,
+    setCardSizingEngine,
     haUrl: profileHaUrl,
     setHaUrl: setProfileHaUrl,
     haToken,
@@ -1792,6 +1800,10 @@ export function MainBoard() {
   const [lockStateMocks] = useState<MockEntityStateMap>(createLockStateMocks);
   const [cameraStateMocks, setCameraStateMocks] = useState<MockEntityStateMap>(createCameraStateMocks);
   const [vacuumStateMocks, setVacuumStateMocks] = useState<MockEntityStateMap>(createVacuumStateMocks);
+  const [fanStateMocks, setFanStateMocks] = useState<MockEntityStateMap>(createFanStateMocks);
+  const [fanPendingByEntity, setFanPendingByEntity] = useState<Record<string, FanPending>>({});
+  const [humidifierStateMocks, setHumidifierStateMocks] = useState<MockEntityStateMap>(createHumidifierStateMocks);
+  const [humidifierPendingByEntity, setHumidifierPendingByEntity] = useState<Record<string, HumidifierPending>>({});
   const {
     lightTogglePendingByEntity,
     lightBrightnessPendingByEntity,
@@ -1997,6 +2009,8 @@ export function MainBoard() {
         ...lockStateMocks,
         ...cameraStateMocks,
         ...vacuumStateMocks,
+        ...fanStateMocks,
+        ...humidifierStateMocks,
         [CLIMATE_LIVING_ROOM_MOCK_ENTITY_ID]: livingRoomClimateMock,
         [HOME_ALARM_MOCK_ENTITY_ID]: homeAlarmMock,
       };
@@ -2256,6 +2270,16 @@ export function MainBoard() {
       };
     });
 
+    Object.entries(fanPendingByEntity).forEach(([entityId, pending]) => {
+      const entity = resolveBaseEntity(entityId);
+      if (entity) ensureNextStates()[entityId] = enrichFanPending(entity, pending);
+    });
+
+    Object.entries(humidifierPendingByEntity).forEach(([entityId, pending]) => {
+      const entity = resolveBaseEntity(entityId);
+      if (entity) ensureNextStates()[entityId] = enrichHumidifierPending(entity, pending);
+    });
+
     Object.entries(lockPendingByEntity).forEach(([entityId, pending]) => {
       const entity = resolveBaseEntity(entityId);
       if (!entity) {
@@ -2297,7 +2321,7 @@ export function MainBoard() {
       if (!haStates[HOME_ALARM_MOCK_ENTITY_ID]) {
         ensureNextStates()[HOME_ALARM_MOCK_ENTITY_ID] = homeAlarmMock;
       }
-      [mediaPlayerStateMocks, coverStateMocks, lockStateMocks, cameraStateMocks, vacuumStateMocks]
+      [mediaPlayerStateMocks, coverStateMocks, lockStateMocks, cameraStateMocks, vacuumStateMocks, fanStateMocks, humidifierStateMocks]
         .forEach((fixtureMap) => {
           Object.entries(fixtureMap).forEach(([entityId, entity]) => {
             if (!haStates[entityId]) {
@@ -2308,7 +2332,7 @@ export function MainBoard() {
     }
 
     return nextStates ?? haStates;
-  }, [alarmPendingByEntity, cameraStateMocks, climatePendingByEntity, coverPendingByEntity, coverStateMocks, effectiveRuntimeMode, haStates, homeAlarmMock, isHaConnected, lightBrightnessPendingByEntity, lightColorPendingByEntity, lightTogglePendingByEntity, livingRoomClimateMock, lockPendingByEntity, lockStateMocks, mediaPlayerStateMocks, switchTogglePendingByEntity, vacuumStateMocks]);
+  }, [alarmPendingByEntity, cameraStateMocks, climatePendingByEntity, coverPendingByEntity, coverStateMocks, effectiveRuntimeMode, fanPendingByEntity, fanStateMocks, haStates, homeAlarmMock, humidifierPendingByEntity, humidifierStateMocks, isHaConnected, lightBrightnessPendingByEntity, lightColorPendingByEntity, lightTogglePendingByEntity, livingRoomClimateMock, lockPendingByEntity, lockStateMocks, mediaPlayerStateMocks, switchTogglePendingByEntity, vacuumStateMocks]);
   const haStatesForUi = useMemo<MockEntityStateMap>(() => {
     let enrichedStates: MockEntityStateMap | null = null;
     Object.values(commandCoordinator.statuses)
@@ -2426,6 +2450,7 @@ export function MainBoard() {
   const [isCompactViewport, setIsCompactViewport] = useState(isCompactViewportNow);
   const [isDesktopViewport, setIsDesktopViewport] = useState(isDesktopViewportNow);
   const [canvasGridBreakpoint, setCanvasGridBreakpoint] = useState<DashboardGridBreakpoint>(resolveGridBreakpointNow);
+  const [canvasGridWidth, setCanvasGridWidth] = useState(0);
   const [viewportPreviewMode, setViewportPreviewMode] = useState<DashboardViewportPreviewMode>('auto');
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
   const [selectedWidgetDisplayMetrics, setSelectedWidgetDisplayMetrics] = useState<WidgetDisplayMetrics | null>(null);
@@ -2884,16 +2909,23 @@ export function MainBoard() {
     const typeOverride = widgetTypeLayoutOverrides.light?.[canvasGridBreakpoint];
     const widgetOverride = widgetLayoutOverrides[widget.id]?.[canvasGridBreakpoint];
     const autoExpand = widgetOverride?.autoExpand ?? typeOverride?.autoExpand ?? true;
-    const configuredHeight = autoExpand
+    const collapsedHeight =
+      widgetOverride?.hOff ?? widgetOverride?.h ?? typeOverride?.hOff ?? typeOverride?.h;
+    const canAutoExpand =
+      autoExpand &&
+      (typeof collapsedHeight === 'number' && Number.isFinite(collapsedHeight)
+        ? Math.round(collapsedHeight) <= 1
+        : currentHeight <= LIGHT_WIDGET_HEIGHT_OFF);
+    const configuredHeight = canAutoExpand
       ? nextIsOn
         ? widgetOverride?.hOn ?? widgetOverride?.h ?? typeOverride?.hOn ?? typeOverride?.h
-        : widgetOverride?.hOff ?? widgetOverride?.h ?? typeOverride?.hOff ?? typeOverride?.h
+        : collapsedHeight
       : widgetOverride?.h ?? widgetOverride?.hOff ?? widgetOverride?.hOn ??
         typeOverride?.h ?? typeOverride?.hOff ?? typeOverride?.hOn;
     if (typeof configuredHeight === 'number' && Number.isFinite(configuredHeight)) {
       return Math.max(1, Math.round(configuredHeight));
     }
-    if (!autoExpand) {
+    if (!canAutoExpand) {
       return currentHeight;
     }
     if (nextIsOn && currentHeight <= LIGHT_WIDGET_HEIGHT_OFF) {
@@ -5555,7 +5587,7 @@ export function MainBoard() {
                 ? liveEntity.state !== 'off'
               : widget.kind === 'media'
                 ? ['playing', 'paused', 'buffering', 'on'].includes(resolveMediaState(liveEntity.state ?? liveEntity.stateLabel))
-                : widget.kind === 'switch'
+                : widget.kind === 'switch' || widget.kind === 'fan' || widget.kind === 'humidifier'
                   ? normalizeLower(liveEntity.stateLabel ?? liveEntity.state) === 'on'
                 : widget.kind === 'alarm'
                     ? isAlarmArmedState(liveEntity.stateLabel ?? liveEntity.state ?? widget.status)
@@ -5585,6 +5617,14 @@ export function MainBoard() {
                   : value;
           } else if (widget.kind === 'switch') {
             statusLabel = normalizeLower(liveEntity.stateLabel ?? liveEntity.state) === 'on' ? 'on' : 'off';
+          } else if (widget.kind === 'fan') {
+            const fan = resolveFanModel(liveEntity);
+            statusLabel = fan.available ? (fan.isOn ? 'on' : 'off') : 'unavailable';
+            value = fan.percentage;
+          } else if (widget.kind === 'humidifier') {
+            const humidifier = resolveHumidifierModel(liveEntity);
+            statusLabel = humidifier.available ? (humidifier.isOn ? 'on' : 'off') : 'unavailable';
+            value = humidifier.targetHumidity;
           } else if (widget.kind === 'sensor') {
             value = typeof liveEntity.numericValue === 'number' ? liveEntity.numericValue : undefined;
             statusLabel = resolveSensorMeta(widget, liveEntity, haStatesForUi, locale).status;
@@ -6448,6 +6488,10 @@ export function MainBoard() {
     );
     window.location.reload();
   }, []);
+  const handleCanvasGridGeometryChange = useCallback((breakpoint: DashboardGridBreakpoint, gridWidth: number) => {
+    setCanvasGridBreakpoint(breakpoint);
+    setCanvasGridWidth((current) => (Math.abs(current - gridWidth) <= 1 ? current : gridWidth));
+  }, []);
   const haDashboardLayoutPersistence = useHaDashboardLayoutPersistence({
     active: effectiveRuntimeMode === 'real',
     autoSaveEnabled: false,
@@ -7169,6 +7213,32 @@ export function MainBoard() {
     resolveSwitchLayout,
     resolveAutoWidgetLayoutChanges,
     sameLayout,
+  });
+
+  const { toggleFan, setFanPercentage, setFanPreset, setFanOscillation, setFanDirection } = useFanCommands({
+    activeWidget,
+    isEditMode,
+    isHaConnected,
+    isDemo: effectiveRuntimeMode === 'demo',
+    haStatesForUi,
+    commandCoordinator,
+    callHaService,
+    addNotification,
+    setFanPendingByEntity,
+    setFanStateMocks,
+  });
+
+  const { toggleHumidifier, setHumidifierTargetHumidity, setHumidifierMode } = useHumidifierCommands({
+    activeWidget,
+    isEditMode,
+    isHaConnected,
+    isDemo: effectiveRuntimeMode === 'demo',
+    haStatesForUi,
+    commandCoordinator,
+    callHaService,
+    addNotification,
+    setPendingByEntity: setHumidifierPendingByEntity,
+    setStateMocks: setHumidifierStateMocks,
   });
 
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
@@ -9340,7 +9410,7 @@ export function MainBoard() {
       new Set(
         [
           ...widgets
-          .filter((widget) => widget.kind === 'sensor')
+          .filter((widget) => widget.kind === 'sensor' && !widget.entityId.startsWith('binary_sensor.'))
           .map((widget) => widget.entityId.trim())
           .filter((entityId) => entityId.length > 0),
           ...widgets.flatMap((widget) =>
@@ -9437,6 +9507,8 @@ export function MainBoard() {
             : undefined,
         sensorUnit: liveEntity?.unit ?? widget.unit,
         sensorEntityId: widget.entityId,
+        sensorRawState: liveEntity?.state,
+        sensorDataSource: widget.dataSource,
         sensorDeviceClass:
           typeof liveEntity?.rawAttributes?.device_class === 'string'
             ? liveEntity.rawAttributes.device_class
@@ -9451,7 +9523,7 @@ export function MainBoard() {
         sensorConnection: sensorMeta.connection,
         sensorConnectionState: sensorMeta.connectionState,
       });
-      if (isHaConnected) {
+      if (isHaConnected && !widget.entityId.startsWith('binary_sensor.')) {
         void loadSensorHistory(widget.entityId).then((nextHistory) => {
           if (!nextHistory) {
             return;
@@ -9504,6 +9576,30 @@ export function MainBoard() {
                 : t('home.state.unknown'),
         switchEntityId: widget.entityId,
         switchConsumptionEntityId: widget.switchConsumptionEntityId,
+      });
+      return;
+    }
+    if (widget.kind === 'fan') {
+      const fan = resolveFanModel(liveEntity);
+      setActiveDevice({
+        id: widget.id,
+        type: 'fan',
+        name: widget.title || toTrimmedString(liveEntity?.rawAttributes?.friendly_name) || t('home.catalog.widget.fan'),
+        microWidgets,
+        status: fan.available ? (fan.isOn ? t('fan.state.on') : t('fan.state.off')) : t('fan.state.unavailable'),
+        fanEntityId: widget.entityId,
+      });
+      return;
+    }
+    if (widget.kind === 'humidifier') {
+      const humidifier = resolveHumidifierModel(liveEntity);
+      setActiveDevice({
+        id: widget.id,
+        type: 'humidifier',
+        name: widget.title || toTrimmedString(liveEntity?.rawAttributes?.friendly_name) || t('home.catalog.widget.humidifier'),
+        microWidgets,
+        status: humidifier.available ? (humidifier.isOn ? t('humidifier.state.on') : t('humidifier.state.off')) : t('humidifier.state.unavailable'),
+        humidifierEntityId: widget.entityId,
       });
       return;
     }
@@ -11221,6 +11317,7 @@ export function MainBoard() {
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <SettingsDashboard
               developerMode={developerMode}
+              cardSizingEngine={cardSizingEngine}
               haStatus={haStatus}
               haError={oauthFlowError ?? haError}
               haStates={haStatesForUi}
@@ -11233,6 +11330,7 @@ export function MainBoard() {
               currentLayoutId={canvasGridBreakpoint}
               sensorHistoryByEntity={sensorHistoryByEntity}
               onDeveloperModeChange={handleDeveloperModeChange}
+              onCardSizingEngineChange={setCardSizingEngine}
               onDownloadBackup={downloadConfigurationBackup}
               onRestoreBackup={restoreConfigurationFromFile}
               layoutRevisions={haDashboardLayoutPersistence.revisions}
@@ -11259,6 +11357,8 @@ export function MainBoard() {
                       appearance={appearance}
                       developerMode={developerMode}
                       onDeveloperModeChange={handleDeveloperModeChange}
+                      cardSizingEngine={cardSizingEngine}
+                      onCardSizingEngineChange={setCardSizingEngine}
                       haUrl={haUrl}
                       onUrlChange={setHaUrl}
                       haToken={haToken}
@@ -11304,7 +11404,7 @@ export function MainBoard() {
               previewGridWidth={viewportPreviewGridWidth}
               developerMode={developerMode}
               isXsViewport={isXsViewport}
-              onActiveBreakpointChange={setCanvasGridBreakpoint}
+              onActiveBreakpointChange={handleCanvasGridGeometryChange}
               state={stateWithConnectedUser}
               houseMembers={profileHouseMembers}
               sections={sections}
@@ -11347,6 +11447,14 @@ export function MainBoard() {
                 }
                 toggleSwitchEntity(widget);
               }}
+              onWidgetFanToggle={toggleFan}
+              onWidgetFanPercentageChange={(widget, percentage) => setFanPercentage(percentage, widget)}
+              onWidgetFanPresetChange={(widget, mode) => setFanPreset(mode, widget)}
+              onWidgetFanOscillationChange={(widget, oscillating) => setFanOscillation(oscillating, widget)}
+              onWidgetFanDirectionChange={(widget, direction) => setFanDirection(direction, widget)}
+              onWidgetHumidifierToggle={toggleHumidifier}
+              onWidgetHumidifierTargetHumidityChange={(widget, humidity) => setHumidifierTargetHumidity(humidity, widget)}
+              onWidgetHumidifierModeChange={(widget, mode) => setHumidifierMode(mode, widget)}
               onWidgetBrightnessChange={handleWidgetBrightnessChange}
               onWidgetLightColorChange={(widget, hs) => setLightHsColor(hs, undefined, widget)}
               onWidgetClimateTargetTempChange={(widget, nextValue) => {
@@ -11535,6 +11643,14 @@ export function MainBoard() {
               actions={{
                 toggleLamp: () => toggleLightEntity(),
                 toggleSwitch: () => toggleSwitchEntity(),
+                toggleFan: () => toggleFan(),
+                setFanPercentage: (percentage) => setFanPercentage(percentage),
+                setFanPreset: (mode) => setFanPreset(mode),
+                setFanOscillation: (oscillating) => setFanOscillation(oscillating),
+                setFanDirection: (direction) => setFanDirection(direction),
+                toggleHumidifier: () => toggleHumidifier(),
+                setHumidifierTargetHumidity: (humidity) => setHumidifierTargetHumidity(humidity),
+                setHumidifierMode: (mode) => setHumidifierMode(mode),
                 setLampBrightness: (value, options) => setLightBrightness(value, options),
                 setLampColorTemp: (kelvin, options) => setLightColorTemp(kelvin, options),
                 setLampHsColor: (hs, options) => setLightHsColor(hs, options),
@@ -11620,6 +11736,8 @@ export function MainBoard() {
               sidebarPaths={visibleSidebarPaths}
               weatherConfig={weatherSection}
               activeGridBreakpoint={canvasGridBreakpoint}
+              activeGridWidth={canvasGridWidth}
+              cardSizingEngine={cardSizingEngine}
               widgetTypeLayoutOverrides={widgetTypeLayoutOverrides}
               widgetLayoutOverrides={widgetLayoutOverrides}
               entityOptions={entityOptions}

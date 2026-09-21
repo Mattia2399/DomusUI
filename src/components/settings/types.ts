@@ -3,6 +3,8 @@ import type { MicroWidget } from '../../types/dashboardModels';
 export type ActiveDeviceType =
   | 'light'
   | 'switch'
+  | 'fan'
+  | 'humidifier'
   | 'climate'
   | 'camera'
   | 'sensor'
@@ -24,6 +26,8 @@ export interface ActiveDevice {
   sensorValue?: number;
   sensorUnit?: string;
   sensorEntityId?: string;
+  sensorRawState?: string;
+  sensorDataSource?: 'ha' | 'mock';
   sensorDeviceClass?: string;
   sensorDisplayPrecision?: number;
   sensorHistory?: number[];
@@ -31,6 +35,8 @@ export interface ActiveDevice {
   sensorConnection?: string;
   sensorConnectionState?: SensorConnectionState;
   switchEntityId?: string;
+  fanEntityId?: string;
+  humidifierEntityId?: string;
   switchConsumptionEntityId?: string;
   alarmState?: string;
   alarmCodeRequired?: boolean;

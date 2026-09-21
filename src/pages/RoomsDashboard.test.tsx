@@ -27,7 +27,15 @@ describe('RoomsDashboard permissions', () => {
     expect(header.getAttribute('data-compact')).toBe('false');
     expect(titleScroller.className).toContain('touch-auto');
 
+    dashboard!.scrollTop = 40;
+    fireEvent.scroll(dashboard!);
+    expect(header.getAttribute('data-compact')).toBe('false');
+
     dashboard!.scrollTop = 64;
+    fireEvent.scroll(dashboard!);
+    expect(header.getAttribute('data-compact')).toBe('true');
+
+    dashboard!.scrollTop = 40;
     fireEvent.scroll(dashboard!);
     expect(header.getAttribute('data-compact')).toBe('true');
 

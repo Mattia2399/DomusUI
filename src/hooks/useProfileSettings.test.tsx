@@ -2,6 +2,7 @@
 
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CARD_SIZING_ENGINE_STORAGE_KEY } from '../services/cardSizingEngine';
 import { useProfileSettings } from './useProfileSettings';
 
 function installSystemAppearance(initialTheme: 'light' | 'dark') {
@@ -141,5 +142,55 @@ describe('useProfileSettings system defaults', () => {
       path: '/home',
       icon: 'home',
     });
+  });
+
+  it('defaults the local card sizing engine to Adaptive and persists it', async () => {
+    installSystemAppearance('dark');
+
+    const { result } = renderHook(() => useProfileSettings());
+
+    expect(result.current.cardSizingEngine).toBe('adaptive');
+    await waitFor(() =>
+      expect(localStorage.getItem(CARD_SIZING_ENGINE_STORAGE_KEY)).toBe('adaptive'),
+    );
+  });
+
+  it.each(['legacy', 'adaptive'] as const)('respects a saved %s card sizing engine', (engine) => {
+    localStorage.setItem(CARD_SIZING_ENGINE_STORAGE_KEY, engine);
+    installSystemAppearance('dark');
+
+    const { result } = renderHook(() => useProfileSettings());
+
+    expect(result.current.cardSizingEngine).toBe(engine);
+  });
+
+  it('repairs an invalid card sizing engine to Adaptive', async () => {
+    localStorage.setItem(CARD_SIZING_ENGINE_STORAGE_KEY, 'broken');
+    installSystemAppearance('dark');
+
+    const { result } = renderHook(() => useProfileSettings());
+
+    expect(result.current.cardSizingEngine).toBe('adaptive');
+    await waitFor(() =>
+      expect(localStorage.getItem(CARD_SIZING_ENGINE_STORAGE_KEY)).toBe('adaptive'),
+    );
+  });
+
+  it('persists card sizing engine changes on this device only', async () => {
+    installSystemAppearance('dark');
+
+    const { result } = renderHook(() => useProfileSettings());
+
+    act(() => result.current.setCardSizingEngine('legacy'));
+    expect(result.current.cardSizingEngine).toBe('legacy');
+    await waitFor(() =>
+      expect(localStorage.getItem(CARD_SIZING_ENGINE_STORAGE_KEY)).toBe('legacy'),
+    );
+
+    act(() => result.current.setCardSizingEngine('adaptive'));
+    expect(result.current.cardSizingEngine).toBe('adaptive');
+    await waitFor(() =>
+      expect(localStorage.getItem(CARD_SIZING_ENGINE_STORAGE_KEY)).toBe('adaptive'),
+    );
   });
 });

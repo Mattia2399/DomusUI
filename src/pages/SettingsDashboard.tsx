@@ -78,9 +78,11 @@ import type {
 } from '../services/dashboardRevisionHistory';
 import type { DashboardLayoutSaveResult } from '../services/dashboardStorage';
 import { useI18n } from '../i18n/I18nProvider';
+import type { CardSizingEngine } from '../services/cardSizingEngine';
 
 type SettingsDashboardProps = {
   developerMode: boolean;
+  cardSizingEngine?: CardSizingEngine;
   haStatus: HaConnectionStatus;
   haError: string | null;
   haStates: MockEntityStateMap;
@@ -93,6 +95,7 @@ type SettingsDashboardProps = {
   currentLayoutId?: string;
   sensorHistoryByEntity?: Record<string, number[]>;
   onDeveloperModeChange: (value: boolean) => void;
+  onCardSizingEngineChange?: (value: CardSizingEngine) => void;
   onDownloadBackup: () => void;
   onRestoreBackup: (file: File) => Promise<void>;
   layoutRevisions?: DashboardRevisionRecord[];
@@ -852,6 +855,7 @@ function SettingsDetailShell({
 
 export default function SettingsDashboard({
   developerMode,
+  cardSizingEngine = 'adaptive',
   haStatus,
   haError,
   haStates,
@@ -864,6 +868,7 @@ export default function SettingsDashboard({
   currentLayoutId,
   sensorHistoryByEntity,
   onDeveloperModeChange,
+  onCardSizingEngineChange,
   onDownloadBackup,
   onRestoreBackup,
   layoutRevisions = [],
@@ -1613,6 +1618,35 @@ export default function SettingsDashboard({
               label={t('settings.advanced.developer')}
             />
           </div>
+          {developerMode && security.can('developer_mode') ? (
+            <div className="mt-5 border-t border-[color:var(--ui-separator)] pt-5">
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-semibold">{t('settings.advanced.cardSizing.title')}</h2>
+                    <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-tertiary)]">
+                      {cardSizingEngine === 'adaptive'
+                        ? t('settings.advanced.cardSizing.adaptive')
+                        : t('settings.advanced.cardSizing.legacy')}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">
+                    {t('settings.advanced.cardSizing.description')}
+                  </p>
+                  <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">
+                    {t('settings.advanced.cardSizing.note')}
+                  </p>
+                </div>
+                <GlassToggle
+                  checked={cardSizingEngine === 'adaptive'}
+                  onChange={(nextValue) => {
+                    onCardSizingEngineChange?.(nextValue ? 'adaptive' : 'legacy');
+                  }}
+                  label={t('settings.advanced.cardSizing.title')}
+                />
+              </div>
+            </div>
+          ) : null}
           <div className="mt-5 border-t border-[color:var(--ui-separator)] pt-5">
             <InfoRow icon={Info} title={t('settings.advanced.version')} subtitle={__APP_VERSION__} />
             <InfoRow

@@ -1,3 +1,4 @@
+/* Base / Mini: one stable DOM, with richer slots hidden until its own container grows. */
 .light-card {
   --light-accent-rgb: 61 90 254;
   --light-control-height: clamp(2.7rem, 18cqi, 3.25rem);
@@ -116,6 +117,7 @@
 }
 
 .light-card__status {
+  display: none;
   margin-top: 0;
   color: var(--ui-text-tertiary);
   font-size: 0.55rem;
@@ -130,7 +132,7 @@
 .light-card__timer {
   position: relative;
   z-index: 2;
-  display: inline-flex;
+  display: none;
   width: 1.35rem;
   height: 1.35rem;
   align-items: center;
@@ -145,7 +147,7 @@
   grid-area: timer;
   position: relative;
   z-index: 3;
-  display: inline-flex;
+  display: none;
   min-width: 0;
   align-items: center;
   justify-content: flex-end;
@@ -155,7 +157,7 @@
 }
 
 .light-card__mode-button {
-  display: inline-flex;
+  display: none;
   width: var(--light-mode-chip-height);
   height: var(--light-mode-chip-height);
   flex: 0 0 var(--light-mode-chip-height);
@@ -175,6 +177,11 @@
 
 .light-card__mode-button:active {
   transform: scale(0.92);
+}
+
+.light-card__mode-button:focus-visible {
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: 2px;
 }
 
 .light-card__mode-button:disabled {
@@ -204,8 +211,73 @@
   display: none;
 }
 
+.light-card[data-light-has-slider='false'] .light-card__controls {
+  display: none;
+}
+
 .light-card[data-light-has-details='false'] .light-card__details {
   display: none;
+}
+
+.light-card__detail {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.3rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.65rem;
+  background: var(--ui-fill-tertiary);
+}
+
+.light-card__detail-icon {
+  display: inline-flex;
+  width: 0.85rem;
+  height: 0.85rem;
+  flex: 0 0 0.85rem;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-secondary);
+}
+
+.light-card__detail-icon--swatch {
+  border-radius: 999px;
+  background: rgb(var(--light-accent-rgb));
+  color: transparent;
+  box-shadow: 0 0 8px rgb(var(--light-accent-rgb) / 0.4);
+}
+
+.light-card__detail-icon svg {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.light-card__detail-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.light-card__detail-copy small,
+.light-card__detail-copy strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.light-card__detail-copy small {
+  display: none;
+  color: var(--ui-text-tertiary);
+  font-size: 0.62rem;
+}
+
+.light-card__detail-copy strong {
+  color: var(--ui-text-secondary);
+  font-size: 0.66rem;
+  font-weight: 620;
 }
 
 .light-card__toggle {
@@ -234,6 +306,7 @@
   outline-offset: -3px;
 }
 
+/* Compact horizontal: metadata and an active timer, but no advanced controls. */
 @container light-card (min-width: 132px) and (min-height: 44px) {
   .light-card__surface {
     align-items: center;
@@ -261,7 +334,12 @@
   }
 
   .light-card__status {
+    display: block;
     font-size: clamp(0.58rem, 3.7cqi, 0.68rem);
+  }
+
+  .light-card__top-actions {
+    display: inline-flex;
   }
 
   .light-card__timer {
@@ -269,6 +347,7 @@
   }
 }
 
+/* At overlapping compact sizes the vertical composition deliberately wins. */
 @container light-card (min-width: 88px) and (min-height: 96px) {
   .light-card__surface {
     grid-template-columns: minmax(0, 1fr) auto;
@@ -292,7 +371,12 @@
   }
 
   .light-card__status {
+    display: block;
     font-size: 0.62rem;
+  }
+
+  .light-card__top-actions {
+    display: inline-flex;
   }
 
   .light-card__timer {
@@ -300,6 +384,7 @@
   }
 }
 
+/* Standard: the first size with a usable slider and optional palette. */
 @container light-card (min-width: 170px) and (min-height: 104px) {
   .light-card__surface {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -308,8 +393,8 @@
       'icon meta timer'
       'controls controls controls';
     align-items: center;
-    gap: 0.65rem 0.7rem;
-    padding: 0.75rem 0.85rem;
+    gap: 0.35rem 0.7rem;
+    padding: 0.5rem 0.85rem;
     border-radius: 1.55rem;
   }
 
@@ -320,6 +405,10 @@
 
   .light-card__meta {
     min-height: 2.15rem;
+  }
+
+  .light-card__mode-button {
+    display: inline-flex;
   }
 
   .light-card__controls {
@@ -420,19 +509,58 @@
     opacity: 0.36;
   }
 
-  .light-card__controls > .light-card__mode-button {
-    display: none;
+  .light-card__slider:has(.light-card__slider-input:focus-visible) {
+    outline: 2px solid var(--ui-focus-ring);
+    outline-offset: 2px;
+  }
+
+  .light-card[data-light-has-slider='false'] .light-card__surface {
+    grid-template-rows: 1fr;
+    grid-template-areas: 'icon meta timer';
   }
 }
 
-@container light-card (min-width: 260px) and (min-height: 104px) {
+/* Keep the name readable at the narrow edge of Standard, even with a timer. */
+@container light-card (min-width: 170px) and (max-width: 219px) and (min-height: 104px) {
+  .light-card__surface {
+    column-gap: 0.35rem;
+    padding-inline: 0.55rem;
+  }
+
+  .light-card__icon-shell {
+    width: 1.85rem;
+    height: 1.85rem;
+  }
+
+  .light-card__meta {
+    min-height: 1.85rem;
+  }
+
+  .light-card__top-actions {
+    gap: 0.2rem;
+  }
+
+  .light-card__mode-button {
+    width: 1.8rem;
+    height: 1.8rem;
+    flex-basis: 1.8rem;
+  }
+
+  .light-card__timer {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+}
+
+/* Wide full: wait for enough horizontal room before sharing the control row. */
+@container light-card (min-width: 320px) and (min-height: 104px) {
   .light-card__surface {
     grid-template-columns: auto minmax(0, 0.42fr) minmax(0, 0.58fr) auto;
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas:
       'icon meta meta timer'
       'controls controls details details';
-    gap: 0.65rem 0.85rem;
+    gap: 0.35rem 0.85rem;
     border-radius: 2rem;
   }
 
@@ -452,69 +580,36 @@
   }
 
   .light-card__detail {
-    display: flex;
-    min-width: 0;
-    flex: 1 1 0;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.3rem 0.4rem;
-    border: 1px solid var(--ui-border);
-    border-radius: 0.65rem;
-    background: var(--ui-fill-tertiary);
-    overflow: hidden;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.2rem;
   }
 
   .light-card__detail-icon {
-    display: inline-flex;
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 1rem;
-    align-items: center;
-    justify-content: center;
-    color: var(--ui-text-secondary);
-  }
-
-  .light-card__detail-icon--swatch {
-    border-radius: 999px;
-    background: rgb(var(--light-accent-rgb));
-    color: transparent;
-    box-shadow: 0 0 8px rgb(var(--light-accent-rgb) / 0.4);
-  }
-
-  .light-card__detail-icon svg {
-    width: 0.7rem;
-    height: 0.7rem;
+    width: 0.85rem;
+    height: 0.85rem;
+    flex-basis: 0.85rem;
   }
 
   .light-card__detail-copy {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
+    width: 100%;
+    align-items: center;
   }
 
-  .light-card__detail-copy small,
-  .light-card__detail-copy strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .light-card[data-light-has-slider='false'][data-light-has-details='true'] .light-card__surface {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'icon meta meta timer'
+      'details details details details';
   }
 
-  .light-card__detail-copy small {
-    color: var(--ui-text-tertiary);
-    font-size: 0.42rem;
-  }
-
-  .light-card__detail-copy strong {
-    color: var(--ui-text-secondary);
-    font-size: 0.52rem;
-    font-weight: 620;
-  }
-
-  .light-card__detail-copy small {
-    display: none;
+  .light-card[data-light-has-slider='false'][data-light-has-details='false'] .light-card__surface {
+    grid-template-rows: 1fr;
+    grid-template-areas: 'icon meta meta timer';
   }
 }
 
+/* Tall full wins where both full queries match; details move below the slider. */
 @container light-card (min-width: 176px) and (min-height: 160px) {
   .light-card__surface {
     grid-template-columns: auto minmax(0, 1fr) auto;
@@ -524,7 +619,8 @@
       'controls controls controls'
       'details details details';
     align-items: center;
-    padding: 0.9rem;
+    gap: 0.45rem 0.7rem;
+    padding: 0.7rem 0.8rem;
     border-radius: 2rem;
   }
 
@@ -533,9 +629,8 @@
     position: relative;
     z-index: 2;
     align-self: end;
-    display: grid;
+    display: flex;
     min-width: 0;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.4rem;
   }
 
@@ -543,68 +638,48 @@
     grid-column: 1 / -1;
   }
 
+  .light-card[data-light-has-details='false'][data-light-has-slider='true'] .light-card__surface {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'icon meta timer'
+      'controls controls controls';
+  }
 
   .light-card__detail {
-    display: flex;
-    min-width: 0;
-    overflow: hidden;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0.2rem;
-    padding: 0.4rem;
-    border: 1px solid var(--ui-border);
-    border-radius: 0.65rem;
-    background: var(--ui-fill-tertiary);
-  }
-
-  .light-card__detail-icon {
-    display: inline-flex;
-    width: 1rem;
-    height: 1rem;
-    flex: 0 0 1rem;
     align-items: center;
-    justify-content: center;
-    color: var(--ui-text-secondary);
-  }
-
-  .light-card__detail-icon--swatch {
-    border-radius: 999px;
-    background: rgb(var(--light-accent-rgb));
-    color: transparent;
-    box-shadow: 0 0 8px rgb(var(--light-accent-rgb) / 0.4);
-  }
-
-  .light-card__detail-icon svg {
-    width: 0.7rem;
-    height: 0.7rem;
+    gap: 0.1rem;
+    padding: 0.2rem;
   }
 
   .light-card__detail-copy {
-    display: flex;
-    min-width: 0;
     width: 100%;
-    flex-direction: column;
+    align-items: center;
   }
 
-  .light-card__detail-copy small,
-  .light-card__detail-copy strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .light-card[data-light-has-slider='false'][data-light-has-details='true'] .light-card__surface {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'icon meta timer'
+      'details details details';
   }
 
+  .light-card[data-light-has-slider='false'][data-light-has-details='false'] .light-card__surface {
+    grid-template-rows: 1fr;
+    grid-template-areas: 'icon meta timer';
+  }
+}
+
+/* Extra height makes room for descriptive labels without shrinking their type. */
+@container light-card (min-width: 176px) and (min-height: 200px) {
   .light-card__detail-copy small {
     display: block;
-    color: var(--ui-text-tertiary);
-    font-size: 0.42rem;
-    font-weight: 500;
+    max-width: 100%;
   }
 
-  .light-card__detail-copy strong {
-    color: var(--ui-text-secondary);
-    font-size: 0.52rem;
-    font-weight: 620;
+  .light-card__detail {
+    gap: 0.2rem;
+    padding: 0.35rem;
   }
 }
 

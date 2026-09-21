@@ -19,4 +19,8 @@ describe('light layout overrides', () => {
     expect(normalizeWidgetTypeLayoutOverrides({ light: { xl: { autoExpand: false } } }))
       .toEqual({ light: { xl: { autoExpand: false } } });
   });
+
+  it('falls back to safe sensor spans for widget kinds saved by newer builds', () => {
+    expect(resolveWidgetTypeLayoutSpan('future-widget' as never, 'xl')).toEqual({ w: 2, h: 3 });
+  });
 });

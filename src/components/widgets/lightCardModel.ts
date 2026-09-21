@@ -131,13 +131,19 @@ export function buildLightCardModel({
   );
   const supportedModes = readSupportedModes(liveEntity);
   const colorModes = ['hs', 'xy', 'rgb', 'rgbw', 'rgbww'];
-  const supportsColor = supportedModes.some((mode) => colorModes.includes(mode)) ||
-    Boolean(liveEntity?.hsColor ?? liveEntity?.hs_color ?? liveEntity?.rgbColor ?? liveEntity?.rgb_color ?? fallbackHsColor);
-  const supportsColorTemp = supportedModes.includes('color_temp') ||
-    Number.isFinite(liveEntity?.colorTempKelvin ?? liveEntity?.color_temp_kelvin ?? fallbackColorTempKelvin);
-  const supportsBrightness = supportedModes.length === 0 ||
-    supportedModes.some((mode) => mode !== 'onoff') ||
-    Number.isFinite(liveEntity?.brightness ?? widget.value ?? fallbackBrightness);
+  // Explicit HA color modes are authoritative; stale widget values must not
+  // turn an on/off-only lamp into a dimmable one.
+  const supportsColor = supportedModes.length > 0
+    ? supportedModes.some((mode) => colorModes.includes(mode))
+    : Boolean(liveEntity?.hsColor ?? liveEntity?.hs_color ?? liveEntity?.rgbColor ?? liveEntity?.rgb_color ?? fallbackHsColor);
+  const supportsColorTemp = supportedModes.length > 0
+    ? supportedModes.includes('color_temp')
+    : Number.isFinite(liveEntity?.colorTempKelvin ?? liveEntity?.color_temp_kelvin ?? fallbackColorTempKelvin);
+  const supportsBrightness = supportedModes.length > 0
+    ? supportedModes.some((mode) => mode !== 'onoff')
+    : liveEntity
+      ? Number.isFinite(liveEntity.brightness)
+      : Number.isFinite(widget.value ?? fallbackBrightness);
   const explicitRgb = normalizeRgb(liveEntity?.rgbColor ?? liveEntity?.rgb_color);
   const explicitHs = normalizeHs(liveEntity?.hsColor ?? liveEntity?.hs_color ?? fallbackHsColor);
   const [hue, saturation] = explicitHs ?? (explicitRgb ? rgbToHs(explicitRgb) : [42, 18]);

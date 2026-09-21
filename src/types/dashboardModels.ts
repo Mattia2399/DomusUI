@@ -1,6 +1,8 @@
 export type WidgetKind =
   | 'light'
   | 'switch'
+  | 'fan'
+  | 'humidifier'
   | 'climate'
   | 'camera'
   | 'sensor'
@@ -174,6 +176,8 @@ export type DashboardSection = {
 export const WIDGET_CATALOG: Array<{ kind: WidgetKind; label: string }> = [
   { kind: 'light', label: 'Luce' },
   { kind: 'switch', label: 'Switch' },
+  { kind: 'fan', label: 'Ventilatore' },
+  { kind: 'humidifier', label: 'Umidificatore' },
   { kind: 'climate', label: 'Clima' },
   { kind: 'camera', label: 'Camera' },
   { kind: 'sensor', label: 'Sensore' },

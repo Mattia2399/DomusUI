@@ -15,6 +15,7 @@ import type {
   DashboardResetProgressReporter,
   DashboardResetStage,
 } from '../../services/dashboardReset';
+import type { CardSizingEngine } from '../../services/cardSizingEngine';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import { useI18n } from '../../i18n/I18nProvider';
 import GlassLoader from '../ui/GlassLoader';
@@ -25,6 +26,8 @@ export type SettingsDataBackupSectionProps = {
   appearance: DashboardAppearance;
   developerMode: boolean;
   onDeveloperModeChange: (value: boolean) => void;
+  cardSizingEngine?: CardSizingEngine;
+  onCardSizingEngineChange?: (value: CardSizingEngine) => void;
   onDownloadBackup: () => void;
   onRestoreBackup: (file: File) => Promise<void>;
   onResetAll: (reportProgress?: DashboardResetProgressReporter) => Promise<void>;
@@ -57,6 +60,8 @@ export function SettingsDataBackupSection({
   appearance,
   developerMode,
   onDeveloperModeChange,
+  cardSizingEngine = 'adaptive',
+  onCardSizingEngineChange,
   onDownloadBackup,
   onRestoreBackup,
   onResetAll,
@@ -436,6 +441,37 @@ export function SettingsDataBackupSection({
               label={t('settings.advanced.developer')}
             />
           </div>
+          {developerMode ? (
+            <>
+              <div className={settingsDividerClass} />
+              <div className={settingsRowClass}>
+                {renderSettingsIcon(Route)}
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className={settingsTitleClass}>{t('settings.advanced.cardSizing.title')}</p>
+                    <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-tertiary)]">
+                      {cardSizingEngine === 'adaptive'
+                        ? t('settings.advanced.cardSizing.adaptive')
+                        : t('settings.advanced.cardSizing.legacy')}
+                    </span>
+                  </div>
+                  <p className={settingsSubtitleClass}>{t('settings.advanced.cardSizing.description')}</p>
+                  <p className="mt-1 text-[11px] leading-snug text-[color:var(--ui-text-tertiary)]">
+                    {t('settings.advanced.cardSizing.note')}
+                  </p>
+                </div>
+                <GlassToggle
+                  checked={cardSizingEngine === 'adaptive'}
+                  onChange={(nextValue) => {
+                    if (dashboardSecurity.can('developer_mode')) {
+                      onCardSizingEngineChange?.(nextValue ? 'adaptive' : 'legacy');
+                    }
+                  }}
+                  label={t('settings.advanced.cardSizing.title')}
+                />
+              </div>
+            </>
+          ) : null}
         </div>
       ) : null}
 

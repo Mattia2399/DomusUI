@@ -902,6 +902,60 @@ Registrato il 23 luglio 2026.
 
 #### Nuove entita e card
 
+##### Inventario di copertura del Builder (15 settembre 2026)
+
+Questo inventario riguarda i **domini**, non il numero di entita presenti nella
+casa di un utente. La fonte per le card del catalogo e `WIDGET_CATALOG` in
+`src/types/dashboardModels.ts`; il riconoscimento automatico delle entita e
+`resolveWidgetKindFromEntityId` in `src/services/haRegistryPresentation.ts`.
+Una card presente non implica che ogni `device_class`, attributo o servizio del
+dominio sia gia supportato o collaudato su hardware reale.
+
+| Copertura attuale | Domini Home Assistant | Nota |
+| --- | --- | --- |
+| Card dedicata nel Builder | `light`, `switch`, `fan`, `humidifier`, `climate`, `camera`, `sensor`, `media_player`, `alarm_control_panel`, `vacuum`, `lock`, `cover` | Dodici famiglie di card disponibili; Fan e Humidifier sono da collaudare su entita HA reali. |
+| Card esistente, ma riuso parziale | `input_boolean` -> Switch | Restano da valutare UX dedicata, servizi e feature specifiche. |
+| Variante dedicata nella famiglia Sensor | `binary_sensor` | Selezione, etichette e icone per `device_class`, stato binario read-only e pannello senza statistiche numeriche completati il 15 settembre 2026; collaudo su entita HA reali ancora da eseguire. |
+| Sezione/esperienza, non card per entita | `weather` nel meteo della Home; `scene`/`script` come azioni della sezione Scenari; `person` nell'aggregato Membri | Non conteggiare come card autonome selezionabili dal catalogo. |
+| Funzione verticale, non card generica | `valve`/`switch` come attuatori di Domus Core Irrigation | Il supporto nel motore irrigazione non equivale a una card Valve nel Builder. |
+
+Domini riconosciuti nell'analisi del setup ma **senza card autonoma nel
+Builder**: `water_heater`, `siren`, `button`, `input_button`,
+`select`, `input_select`, `number`, `input_number`, `remote`, `lawn_mower`,
+`person`, `device_tracker`, `zone`, `automation`, `sun`, `update`.
+Gia richiesti nella roadmap: `calendar`, `todo` e Mappa (basata su presenza e
+zone). Altri domini da valutare in base alla diffusione nelle case reali:
+`text`, `input_text`, `date`, `time`, `datetime`, `timer`, `counter`, `schedule`,
+`event` e gli eventuali domini restituiti nel gruppo `other` del setup.
+
+Ordine di lavoro proposto, da confermare dopo il censimento delle entita reali:
+
+1. **Correggere le compatibilita parziali:** variante `binary_sensor` nella
+   Sensor completata nel codice, da collaudare su sensori reali e nei diversi
+   formati della card; card Fan dedicata implementata nel codice, da collaudare
+   su hardware reale con velocita, oscillazione e preset; card Humidifier dedicata
+   completata con accensione, target, modalita, pending e pannello contestuale,
+   da collaudare su hardware reale; distinguere `input_boolean` da
+   `switch` senza perdere i controlli gia funzionanti.
+2. **Controlli riutilizzabili:** famiglie dedicate o generiche per
+   `button`/`input_button`, `number`/`input_number`,
+   `select`/`input_select`; poi `water_heater` e `valve` con
+   comandi e protezioni adatti al dominio, non un toggle indistinto.
+3. **Card informative e di servizio:** `calendar`, `todo`, Mappa/
+   `person`/`device_tracker`/`zone`, quindi `siren`, `remote`, `lawn_mower`,
+   `update`, `automation` e gli altri domini solo se offrono un'esperienza
+   utile e sicura. `weather` puo diventare card autonoma riusando i moduli del
+   pannello meteo, senza duplicare la sezione attuale.
+
+Prima di dichiarare completa la copertura: mostrare in `Impostazioni > Casa >
+Entita` un conteggio per dominio di card dedicate, compatibilita parziali e
+domini non coperti della **casa collegata**; prevedere fallback informativo
+per gli sconosciuti, senza inviare servizi arbitrari. Ogni nuova famiglia
+richiede capability/feature detection, stati indisponibile/offline, permessi
+HA, Demo isolata, varianti responsive, pannello contestuale, testi IT/EN/FR
+e test automatici. Non serve una card distinta per ogni singola entita:
+l'obiettivo e coprire i domini utili con componenti riutilizzabili.
+
 - **Calendar:** studiare il dominio Home Assistant `calendar`, eventi, calendari multipli, fusi orari, ricorrenze, eventi giornalieri, permessi e servizi supportati; progettare una `CalendarCard` responsive e il relativo pannello contestuale senza duplicare le funzioni gia disponibili in HA.
 - **Mappa:** definire prima il funzionamento e le fonti dati della card (persone, device tracker, zone, casa ed eventuali percorsi); stabilire privacy, aggiornamento live, comportamento offline, fallback, clustering e caricamento lazy di MapLibre prima di realizzare la `MapCard`.
 - **Lista spesa e liste:** valutare una card basata sulle entita HA `todo` per lista della spesa, promemoria e liste condivise; prevedere lettura, aggiunta, completamento, riordino e gestione chiara dei permessi, evitando uno storage locale parallelo quando HA puo restare l'autorita.

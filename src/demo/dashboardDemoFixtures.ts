@@ -14,6 +14,8 @@ import type { DashboardResponsiveLayouts } from '../types/widgetTypeLayout';
 export const DEMO_ENTITY_OPTIONS: Record<WidgetKind, string[]> = {
   light: ['light.living_room_lamp'],
   switch: ['switch.kitchen_outlet', 'switch.garden_lights', 'input_boolean.guest_mode'],
+  fan: ['fan.demo_breeze'],
+  humidifier: ['humidifier.demo_bedroom'],
   climate: ['climate.air_conditioner', 'climate.living_room'],
   camera: ['camera.front_door', 'camera.garage'],
   sensor: ['sensor.nest_wifi_download', 'sensor.living_room_humidity'],
@@ -79,6 +81,8 @@ export const DEMO_ENTITY_OPTIONS: Record<WidgetKind, string[]> = {
 export const EMPTY_ENTITY_OPTIONS: Record<WidgetKind, string[]> = {
   light: [],
   switch: [],
+  fan: [],
+  humidifier: [],
   climate: [],
   camera: [],
   sensor: [],
@@ -120,10 +124,19 @@ export function normalizeWidgetsForRuntime(
   widgets: readonly Widget[],
   runtimeMode: DashboardRuntimeMode,
 ): Widget[] {
+  const migratedWidgets = widgets.map((widget) => {
+    const entityId = widget.entityId.trim().toLowerCase();
+    const kind = widget.kind === 'switch' && entityId.startsWith('fan.')
+      ? 'fan' as const
+      : widget.kind === 'climate' && entityId.startsWith('humidifier.')
+        ? 'humidifier' as const
+        : widget.kind;
+    return { ...widget, kind };
+  });
   if (runtimeMode === 'demo') {
-    return widgets.map((widget) => ({ ...widget }));
+    return migratedWidgets;
   }
   // Old beta layouts could contain cards tagged as mock. Preserve their
   // placement/configuration, but make Home Assistant the only real authority.
-  return widgets.map((widget) => ({ ...widget, dataSource: 'ha' as const }));
+  return migratedWidgets.map((widget) => ({ ...widget, dataSource: 'ha' as const }));
 }

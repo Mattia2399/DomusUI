@@ -143,7 +143,13 @@ describe('resolveLightPixelDisplayVariant', () => {
     expect(resolveLightPixelDisplayVariant({ width: 192, height: 48 })).toBe('compact');
     expect(resolveLightPixelDisplayVariant({ width: 104, height: 112 })).toBe('compact');
     expect(resolveLightPixelDisplayVariant({ width: 192, height: 112 })).toBe('standard');
-    expect(resolveLightPixelDisplayVariant({ width: 296, height: 112 })).toBe('full');
+    expect(resolveLightPixelDisplayVariant({ width: 296, height: 112 })).toBe('standard');
+    expect(resolveLightPixelDisplayVariant({ width: 319, height: 104 })).toBe('standard');
+    expect(resolveLightPixelDisplayVariant({ width: 320, height: 104 })).toBe('full');
+    expect(resolveLightPixelDisplayVariant({ width: 169, height: 104 })).toBe('compact');
+    expect(resolveLightPixelDisplayVariant({ width: 170, height: 104 })).toBe('standard');
+    expect(resolveLightPixelDisplayVariant({ width: 176, height: 159 })).toBe('standard');
+    expect(resolveLightPixelDisplayVariant({ width: 176, height: 160 })).toBe('full');
     expect(resolveLightPixelDisplayVariant({ width: 192, height: 176 })).toBe('full');
   });
 });
@@ -177,8 +183,10 @@ describe('resolveCoverPixelDisplayVariant', () => {
     expect(resolveCoverPixelDisplayVariant({ width: 104, height: 120 })).toBe('compact');
     expect(resolveCoverPixelDisplayVariant({ width: 192, height: 176 })).toBe('standard');
     expect(resolveCoverPixelDisplayVariant({ width: 296, height: 196 })).toBe('standard');
-    expect(resolveCoverPixelDisplayVariant({ width: 380, height: 176 })).toBe('full');
-    expect(resolveCoverPixelDisplayVariant({ width: 192, height: 224 })).toBe('full');
+    expect(resolveCoverPixelDisplayVariant({ width: 380, height: 176 })).toBe('standard');
+    expect(resolveCoverPixelDisplayVariant({ width: 300, height: 235 })).toBe('full');
+    expect(resolveCoverPixelDisplayVariant({ width: 192, height: 224 })).toBe('standard');
+    expect(resolveCoverPixelDisplayVariant({ width: 176, height: 250 })).toBe('full');
   });
 });
 

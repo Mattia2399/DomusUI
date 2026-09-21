@@ -1,0 +1,107 @@
+.device-control-card__header {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.device-control-card__header[data-has-secondary='false'] {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.device-control-card__secondary,
+.device-control-card__toggle {
+  display: inline-flex;
+  width: 2.15rem;
+  height: 2.15rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-fill-secondary);
+  color: var(--ui-text-secondary);
+  transition: transform 160ms ease, background 180ms ease, color 180ms ease;
+}
+
+.device-control-card__secondary {
+  width: clamp(1.95rem, 9cqi, 2.2rem);
+  height: clamp(1.95rem, 9cqi, 2.2rem);
+  border-radius: 0.96rem;
+}
+
+.device-control-card__toggle {
+  border-radius: 50%;
+}
+
+.device-control-card__secondary svg,
+.device-control-card__toggle svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.device-control-card__secondary:hover,
+.device-control-card__toggle:hover {
+  background: var(--ui-fill-primary);
+}
+
+.device-control-card__secondary:active,
+.device-control-card__toggle:active {
+  transform: scale(0.92);
+}
+
+.device-control-card__secondary:disabled,
+.device-control-card__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.device-control-card__meta {
+  display: flex;
+  min-width: 0;
+  min-height: 2.15rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.14rem;
+  text-align: left;
+}
+
+.device-control-card__meta strong,
+.device-control-card__meta small {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.device-control-card__meta strong {
+  color: var(--ui-text-primary);
+  font-size: clamp(0.76rem, 5cqi, 0.92rem);
+  font-weight: var(--ui-card-title-weight);
+  letter-spacing: var(--ui-card-title-tracking);
+  line-height: 1.05;
+}
+
+.device-control-card__meta small {
+  color: var(--ui-text-secondary);
+  font-size: clamp(0.58rem, 3.7cqi, 0.68rem);
+  font-weight: 500;
+  line-height: 1;
+}
+
+@container (max-width: 169px) {
+  .device-control-card__header {
+    gap: 0.35rem;
+  }
+  .device-control-card__secondary,
+  .device-control-card__toggle {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+  .device-control-card__meta {
+    min-height: 1.8rem;
+  }
+}

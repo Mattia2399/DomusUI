@@ -46,6 +46,8 @@ type HouseMemberCardItem = {
 const STACK_WIDGET_MIN_WIDTH_PX: Record<Widget['kind'], number> = {
   light: 168,
   switch: 168,
+  fan: 168,
+  humidifier: 168,
   climate: 208,
   camera: 208,
   sensor: 156,
@@ -524,21 +526,26 @@ function enforceLightWidgetSpan(
         return item;
       }
       const currentH = Math.max(1, Math.round(item.h));
-      const configuredH = Math.max(1, Math.round(lightIsOn ? span.hOn : span.hOff));
+      const collapsedH = Math.max(1, Math.round(span.hOff ?? span.h ?? 1));
       const autoExpand = span.autoExpand ?? true;
+      const canAutoExpand = autoExpand && collapsedH <= 1;
+      const expandedH = Math.max(2, Math.round(span.hOn ?? Math.max(2, collapsedH + 1)));
+      const configuredH = canAutoExpand
+        ? Math.max(1, lightIsOn ? expandedH : collapsedH)
+        : collapsedH;
       return {
         ...item,
         w: forcedW,
         h: useExplicitLightSpan
-          ? autoExpand && lightIsOn && configuredH <= 1
-            ? Math.max(2, Math.round(span.hOn))
+          ? canAutoExpand && lightIsOn && configuredH <= 1
+            ? expandedH
             : configuredH
-          : autoExpand && lightIsOn
+        : canAutoExpand && lightIsOn
           ? currentH <= 1
-            ? Math.max(2, Math.round(span.hOn))
+            ? expandedH
             : currentH
-          : autoExpand && currentH <= 2
-            ? Math.max(1, Math.round(span.hOff))
+          : canAutoExpand && currentH <= 2
+            ? collapsedH
             : currentH,
       };
     }),
@@ -565,13 +572,15 @@ function enforceWidgetLayoutOverrides(
       }
       const lightIsOn = lightWidgetStateById.get(item.i);
       const autoExpand = override.autoExpand ?? true;
+      const collapsedH = Math.max(1, Math.round(override.hOff ?? override.h ?? 1));
+      const canAutoExpand = autoExpand && collapsedH <= 1;
       const rawH =
         lightIsOn === undefined
           ? override.h ?? override.hOn ?? override.hOff
-          : !autoExpand
+          : !canAutoExpand
             ? override.h ?? override.hOff ?? override.hOn
-            : lightIsOn
-            ? override.hOn ?? override.h
+          : lightIsOn
+            ? override.hOn ?? override.h ?? Math.max(2, collapsedH + 1)
             : override.hOff ?? override.h;
       const minimumW = coverWidgetIds.has(item.i) && breakpoint !== 'xs' && breakpoint !== 'sm'
         ? Math.min(safeCols, 2)
@@ -580,7 +589,7 @@ function enforceWidgetLayoutOverrides(
         ? Math.min(safeCols, Math.max(minimumW, Math.round(override.w)))
         : Math.min(safeCols, Math.max(minimumW, Math.round(item.w)));
       const nextH = rawH
-        ? autoExpand && lightIsOn && rawH <= 1
+        ? canAutoExpand && lightIsOn && rawH <= 1
           ? Math.max(2, Math.round(rawH))
           : Math.max(1, Math.round(rawH))
         : Math.max(1, Math.round(item.h));
@@ -725,6 +734,14 @@ type StackGridProps = {
   onWidgetClick: (widget: Widget) => void;
   onWidgetLightToggle: (widget: Widget) => void;
   onWidgetSwitchToggle: (widget: Widget) => void;
+  onWidgetFanToggle: (widget: Widget) => void;
+  onWidgetFanPercentageChange: (widget: Widget, percentage: number) => void;
+  onWidgetFanPresetChange: (widget: Widget, mode: string) => void;
+  onWidgetFanOscillationChange: (widget: Widget, oscillating: boolean) => void;
+  onWidgetFanDirectionChange: (widget: Widget, direction: 'forward' | 'reverse') => void;
+  onWidgetHumidifierToggle: (widget: Widget) => void;
+  onWidgetHumidifierTargetHumidityChange: (widget: Widget, humidity: number) => void;
+  onWidgetHumidifierModeChange: (widget: Widget, mode: string) => void;
   onWidgetBrightnessChange: (widget: Widget, value: number) => void;
   onWidgetLightColorChange: (widget: Widget, hs: [number, number]) => void;
   onWidgetClimateTargetTempChange: (widget: Widget, value: number) => void;
@@ -796,6 +813,14 @@ function StackGridComponent({
   onWidgetClick,
   onWidgetLightToggle,
   onWidgetSwitchToggle,
+  onWidgetFanToggle,
+  onWidgetFanPercentageChange,
+  onWidgetFanPresetChange,
+  onWidgetFanOscillationChange,
+  onWidgetFanDirectionChange,
+  onWidgetHumidifierToggle,
+  onWidgetHumidifierTargetHumidityChange,
+  onWidgetHumidifierModeChange,
   onWidgetBrightnessChange,
   onWidgetLightColorChange,
   onWidgetClimateTargetTempChange,
@@ -1985,6 +2010,14 @@ function StackGridComponent({
                         onLightBrightnessChange={onWidgetBrightnessChange}
                         onLightColorChange={onWidgetLightColorChange}
                         onSwitchToggle={onWidgetSwitchToggle}
+                        onFanToggle={onWidgetFanToggle}
+                        onFanPercentageChange={onWidgetFanPercentageChange}
+                        onFanPresetChange={onWidgetFanPresetChange}
+                        onFanOscillationChange={onWidgetFanOscillationChange}
+                        onFanDirectionChange={onWidgetFanDirectionChange}
+                        onHumidifierToggle={onWidgetHumidifierToggle}
+                        onHumidifierTargetHumidityChange={onWidgetHumidifierTargetHumidityChange}
+                        onHumidifierModeChange={onWidgetHumidifierModeChange}
                         onClimateTargetTempChange={onWidgetClimateTargetTempChange}
                         onClimateTargetRangeChange={onWidgetClimateTargetRangeChange}
                         onClimateTargetHumidityChange={onWidgetClimateTargetHumidityChange}
@@ -2146,6 +2179,14 @@ function StackGridComponent({
                             onLightBrightnessChange={onWidgetBrightnessChange}
                             onLightColorChange={onWidgetLightColorChange}
                             onSwitchToggle={onWidgetSwitchToggle}
+                            onFanToggle={onWidgetFanToggle}
+                            onFanPercentageChange={onWidgetFanPercentageChange}
+                            onFanPresetChange={onWidgetFanPresetChange}
+                            onFanOscillationChange={onWidgetFanOscillationChange}
+                            onFanDirectionChange={onWidgetFanDirectionChange}
+                            onHumidifierToggle={onWidgetHumidifierToggle}
+                            onHumidifierTargetHumidityChange={onWidgetHumidifierTargetHumidityChange}
+                            onHumidifierModeChange={onWidgetHumidifierModeChange}
                             onClimateTargetTempChange={onWidgetClimateTargetTempChange}
                             onClimateTargetRangeChange={onWidgetClimateTargetRangeChange}
                             onClimateTargetHumidityChange={onWidgetClimateTargetHumidityChange}

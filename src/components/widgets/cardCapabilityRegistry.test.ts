@@ -60,6 +60,19 @@ describe('cardCapabilityRegistry', () => {
     expect(getCardCapability('members')).toBe(MEMBERS_CARD_CAPABILITY);
   });
 
+  it('falls back safely when a shared layout contains a widget kind from a newer build', () => {
+    const capability = getCardCapability('future-widget' as never);
+
+    expect(capability).toBe(SENSOR_CARD_CAPABILITY);
+    expect(
+      capability.resolveDisplayVariant({
+        breakpoint: 'xl',
+        layout: { w: 2, h: 2 },
+        isInsideStack: false,
+      }),
+    ).toBe('standard');
+  });
+
   it('keeps the existing default Sensor spans for every breakpoint', () => {
     expect(SENSOR_CARD_CAPABILITY.defaultSpans).toEqual({
       '2xl': { w: 2, h: 3 },
@@ -78,6 +91,12 @@ describe('cardCapabilityRegistry', () => {
       expect(span.hOff).toBe(1);
       expect(span.w).toBe(breakpoint === 'sm' || breakpoint === 'xs' ? 1 : 2);
     });
+  });
+
+  it('reports the new Light full threshold to the Builder without choosing the card DOM', () => {
+    expect(LIGHT_CARD_CAPABILITY.resolvePixelDisplayVariant({ width: 319, height: 104 })).toBe('standard');
+    expect(LIGHT_CARD_CAPABILITY.resolvePixelDisplayVariant({ width: 320, height: 104 })).toBe('full');
+    expect(LIGHT_CARD_CAPABILITY.resolvePixelDisplayVariant({ width: 176, height: 160 })).toBe('full');
   });
 
   it('resolves Sensor targets without offering a root-only full width inside a stack', () => {

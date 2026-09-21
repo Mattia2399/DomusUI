@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { DashboardResetProgressReporter } from '../../services/dashboardReset';
+import type { CardSizingEngine } from '../../services/cardSizingEngine';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
 import SettingsManagementShell from './SettingsManagementShell';
@@ -39,6 +40,8 @@ export type SettingsManagementPanelProps = {
   appearance: DashboardAppearance;
   developerMode: boolean;
   onDeveloperModeChange: (value: boolean) => void;
+  cardSizingEngine?: CardSizingEngine;
+  onCardSizingEngineChange?: (value: CardSizingEngine) => void;
   haUrl: string;
   onUrlChange: (value: string) => void;
   haToken: string;
@@ -82,6 +85,8 @@ export function SettingsManagementPanel({
   appearance,
   developerMode,
   onDeveloperModeChange,
+  cardSizingEngine,
+  onCardSizingEngineChange,
   haUrl,
   onUrlChange,
   haToken,
@@ -285,6 +290,8 @@ export function SettingsManagementPanel({
             appearance={appearance}
             developerMode={developerMode}
             onDeveloperModeChange={onDeveloperModeChange}
+            cardSizingEngine={cardSizingEngine}
+            onCardSizingEngineChange={onCardSizingEngineChange}
             onDownloadBackup={onDownloadBackup}
             onRestoreBackup={onRestoreBackup}
             onResetAll={onResetAll}

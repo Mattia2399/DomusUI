@@ -51,4 +51,29 @@ describe('buildLightCardModel', () => {
     expect(model.isOn).toBe(false);
     expect(model.statusLabel).toBe('Spenta');
   });
+
+  it('trusts explicit on/off color modes over stale brightness and color values', () => {
+    const model = buildLightCardModel({
+      widget,
+      liveEntity: {
+        state: 'on',
+        toggleOn: true,
+        supportedColorModes: ['onoff'],
+        brightness: 128,
+        hsColor: [210, 70],
+        colorTempKelvin: 3200,
+      },
+    });
+
+    expect(model.supportsBrightness).toBe(false);
+    expect(model.supportsColor).toBe(false);
+    expect(model.supportsColorTemp).toBe(false);
+    expect(model.statusLabel).toBe('Accesa');
+  });
+
+  it('does not infer live dimming support from a stale widget value when modes are missing', () => {
+    const model = buildLightCardModel({ widget, liveEntity: { state: 'on', toggleOn: true } });
+    expect(model.supportsBrightness).toBe(false);
+    expect(model.statusLabel).toBe('Accesa');
+  });
 });

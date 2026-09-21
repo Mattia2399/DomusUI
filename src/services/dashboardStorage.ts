@@ -47,7 +47,7 @@ const VALID_SECTION_KINDS: SectionKind[] = [
   'stack-grid',
 ];
 
-const VALID_WIDGET_KINDS: WidgetKind[] = ['light', 'switch', 'climate', 'camera', 'sensor', 'media', 'alarm', 'vacuum', 'lock', 'cover', 'members'];
+const VALID_WIDGET_KINDS: WidgetKind[] = ['light', 'switch', 'fan', 'humidifier', 'climate', 'camera', 'sensor', 'media', 'alarm', 'vacuum', 'lock', 'cover', 'members'];
 const VALID_GRID_BREAKPOINTS: DashboardGridBreakpoint[] = ['2xl', 'xl', 'lg', 'md', 'sm', 'xs'];
 const GRID_COLS_BY_BREAKPOINT: Record<DashboardGridBreakpoint, number> = {
   '2xl': 12,

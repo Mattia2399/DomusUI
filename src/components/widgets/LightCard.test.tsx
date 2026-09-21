@@ -144,4 +144,46 @@ describe('LightCard', () => {
     expect(onBrightnessChange).not.toHaveBeenCalled();
     expect(onColorChange).not.toHaveBeenCalled();
   });
+
+  it('keeps an on/off-only light free of advanced controls regardless of its widget size', () => {
+    const { container, queryByRole } = render(
+      <LightCard
+        widget={widget}
+        state={state}
+        isSelected={false}
+        isEditMode={false}
+        onClick={() => undefined}
+        onBrightnessChange={() => undefined}
+        onColorChange={() => undefined}
+        liveLightState={{ state: 'on', toggleOn: true, supportedColorModes: ['onoff'], brightness: 62 }}
+      />,
+    );
+
+    expect(container.firstElementChild?.getAttribute('data-light-has-slider')).toBe('false');
+    expect(container.firstElementChild?.getAttribute('data-light-has-details')).toBe('false');
+    expect(queryByRole('button', { name: 'Colore' })).toBeNull();
+    expect(queryByRole('button', { name: 'Spegni Luce test' })).not.toBeNull();
+  });
+
+  it('mounts only detail items supported by the lamp', () => {
+    const { container } = render(
+      <LightCard
+        widget={widget}
+        state={state}
+        isSelected={false}
+        isEditMode={false}
+        onClick={() => undefined}
+        liveLightState={{
+          state: 'on',
+          toggleOn: true,
+          supportedColorModes: ['brightness', 'color_temp'],
+          colorTempKelvin: 3200,
+        }}
+      />,
+    );
+
+    expect(container.querySelectorAll('.light-card__detail')).toHaveLength(1);
+    expect(container.textContent).toContain('3200 K');
+    expect(container.firstElementChild?.getAttribute('data-light-has-details')).toBe('true');
+  });
 });

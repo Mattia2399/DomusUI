@@ -96,6 +96,7 @@ export function LightCardView({
       data-light-state={model.available ? (model.isOn ? 'on' : 'off') : 'unavailable'}
       data-light-mode={sliderMode}
       data-light-has-details={detailItems.length > 0 ? 'true' : 'false'}
+      data-light-has-slider={model.supportsBrightness || model.supportsColor ? 'true' : 'false'}
       style={rootStyle}
     >
       <div className={`liquid-glass-card light-card__surface ${isSelected ? 'selection-corners' : ''}`}>

@@ -10,6 +10,8 @@ import {
   CAMERA_CARD_CAPABILITY,
   CLIMATE_CARD_CAPABILITY,
   COVER_CARD_CAPABILITY,
+  FAN_CARD_CAPABILITY,
+  HUMIDIFIER_CARD_CAPABILITY,
   LIGHT_CARD_CAPABILITY,
   LOCK_CARD_CAPABILITY,
   MEMBERS_CARD_CAPABILITY,
@@ -29,6 +31,8 @@ type SectionSpan = { w: number; h: number };
 const WIDGET_KIND_ORDER: WidgetKind[] = [
   'light',
   'switch',
+  'fan',
+  'humidifier',
   'climate',
   'camera',
   'sensor',
@@ -59,7 +63,7 @@ function isMobileGridBreakpoint(breakpoint: GridEngineBreakpoint) {
   return breakpoint === 'xs' || breakpoint === 'sm';
 }
 
-function resolveMinimumWidth(kind: WidgetKind, breakpoint: GridEngineBreakpoint) {
+function resolveMinimumWidth(kind: WidgetKind | string, breakpoint: GridEngineBreakpoint) {
   return kind === 'cover' && !isMobileGridBreakpoint(breakpoint) ? 2 : 1;
 }
 
@@ -213,6 +217,8 @@ const DEFAULT_ALARM_WIDGET_SPAN_BY_BREAKPOINT: Record<GridEngineBreakpoint, Widg
 
 const DEFAULT_WIDGET_SPANS_BY_KIND: Record<Exclude<WidgetKind, 'light'>, Record<GridEngineBreakpoint, WidgetSpan>> = {
   switch: DEFAULT_SWITCH_WIDGET_SPAN_BY_BREAKPOINT,
+  fan: FAN_CARD_CAPABILITY.defaultSpans,
+  humidifier: HUMIDIFIER_CARD_CAPABILITY.defaultSpans,
   climate: DEFAULT_CLIMATE_WIDGET_SPAN_BY_BREAKPOINT,
   camera: DEFAULT_CAMERA_WIDGET_SPAN_BY_BREAKPOINT,
   sensor: DEFAULT_SENSOR_WIDGET_SPAN_BY_BREAKPOINT,
@@ -224,12 +230,18 @@ const DEFAULT_WIDGET_SPANS_BY_KIND: Record<Exclude<WidgetKind, 'light'>, Record<
   members: DEFAULT_MEMBERS_WIDGET_SPAN_BY_BREAKPOINT,
 };
 
+function resolveDefaultWidgetSpans(kind: Exclude<WidgetKind, 'light'> | string) {
+  return DEFAULT_WIDGET_SPANS_BY_KIND[kind as Exclude<WidgetKind, 'light'>] ??
+    DEFAULT_SENSOR_WIDGET_SPAN_BY_BREAKPOINT;
+}
+
 function resolveSimpleWidgetSpanWithOverrides(
-  kind: Exclude<WidgetKind, 'light'>,
+  kind: Exclude<WidgetKind, 'light'> | string,
   breakpoint: GridEngineBreakpoint,
 ) {
-  const base = DEFAULT_WIDGET_SPANS_BY_KIND[kind][breakpoint];
-  const override = activeWidgetTypeLayoutOverrides[kind]?.[breakpoint];
+  const normalizedKind = kind as Exclude<WidgetKind, 'light'>;
+  const base = resolveDefaultWidgetSpans(kind)[breakpoint];
+  const override = activeWidgetTypeLayoutOverrides[normalizedKind]?.[breakpoint];
   const minimumWidth = resolveMinimumWidth(kind, breakpoint);
   const minimumHeight = kind === 'lock' ? resolveLockMinimumHeight(breakpoint) : 1;
   if (!override) {
@@ -262,8 +274,8 @@ function resolveLightWidgetSpanWithOverrides(breakpoint: GridEngineBreakpoint) {
   };
 }
 
-function createSimpleWidgetSpanProxy(kind: Exclude<WidgetKind, 'light'>) {
-  const base = DEFAULT_WIDGET_SPANS_BY_KIND[kind];
+function createSimpleWidgetSpanProxy(kind: Exclude<WidgetKind, 'light'> | string) {
+  const base = resolveDefaultWidgetSpans(kind);
   return new Proxy(base, {
     get(target, property, receiver) {
       if (typeof property === 'string' && GRID_BREAKPOINTS.includes(property as GridEngineBreakpoint)) {
@@ -286,7 +298,7 @@ function createLightWidgetSpanProxy() {
 }
 
 export function resolveWidgetTypeLayoutSpan(
-  kind: WidgetKind,
+  kind: WidgetKind | string,
   breakpoint: GridEngineBreakpoint,
   overrides: WidgetTypeLayoutOverrides | undefined = activeWidgetTypeLayoutOverrides,
 ): { w: number; h: number; hOn?: number; hOff?: number; autoExpand?: boolean } {
@@ -306,8 +318,9 @@ export function resolveWidgetTypeLayoutSpan(
       autoExpand,
     };
   }
-  const base = DEFAULT_WIDGET_SPANS_BY_KIND[kind][breakpoint];
-  const override = overrides?.[kind]?.[breakpoint];
+  const normalizedKind = kind as Exclude<WidgetKind, 'light'>;
+  const base = resolveDefaultWidgetSpans(kind)[breakpoint];
+  const override = overrides?.[normalizedKind]?.[breakpoint];
   const minimumWidth = resolveMinimumWidth(kind, breakpoint);
   const minimumHeight = kind === 'lock' ? resolveLockMinimumHeight(breakpoint) : 1;
   return {

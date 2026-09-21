@@ -1,0 +1,11 @@
+@keyframes fan-panel-rotate {
+  to { transform: rotate(360deg); }
+}
+
+.fan-panel__rotor--active {
+  animation: fan-panel-rotate 5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fan-panel__rotor--active { animation: none; }
+}
