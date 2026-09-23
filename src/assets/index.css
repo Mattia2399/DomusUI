@@ -1285,6 +1285,12 @@ body {
   --ui-danger-contrast: #ffffff;
   --ui-info: #64d2ff;
   --ui-focus-ring: rgb(100 210 255 / 0.62);
+  --ui-selection-border-rgb: 255 255 255;
+  --ui-selection-inner-rgb: 255 255 255;
+  --ui-selection-outer-rgb: 0 0 0;
+  --ui-selection-border-alpha: 0.74;
+  --ui-selection-inner-alpha: 0.16;
+  --ui-selection-outer-alpha: 0.34;
   --ui-scrim: rgb(0 0 0 / 0.7);
   --ui-shadow: rgb(0 0 0 / 0.56);
   --ui-shadow-soft: rgb(0 0 0 / 0.28);
@@ -1335,6 +1341,12 @@ body {
   --ui-danger-contrast: #ffffff;
   --ui-info: #0071a4;
   --ui-focus-ring: rgb(0 122 255 / 0.5);
+  --ui-selection-border-rgb: 60 60 67;
+  --ui-selection-inner-rgb: 255 255 255;
+  --ui-selection-outer-rgb: 28 28 30;
+  --ui-selection-border-alpha: 0.46;
+  --ui-selection-inner-alpha: 0.64;
+  --ui-selection-outer-alpha: 0.14;
   --ui-scrim: rgb(28 28 30 / 0.32);
   --ui-shadow: rgb(28 28 30 / 0.18);
   --ui-shadow-soft: rgb(28 28 30 / 0.09);
@@ -1354,6 +1366,9 @@ body {
     --ui-border-strong: rgb(255 255 255 / 0.44);
     --ui-separator: rgb(174 174 178 / 0.82);
     --ui-focus-ring: rgb(100 210 255 / 0.92);
+    --ui-selection-border-alpha: 0.92;
+    --ui-selection-inner-alpha: 0.26;
+    --ui-selection-outer-alpha: 0.48;
     --ui-glass-panel-opacity: 0.82;
     --ui-glass-navigation-opacity: 0.76;
     --ui-glass-control-opacity: 0.7;
@@ -1367,6 +1382,9 @@ body {
     --ui-border-strong: rgb(60 60 67 / 0.58);
     --ui-separator: rgb(60 60 67 / 0.52);
     --ui-focus-ring: rgb(0 102 204 / 0.9);
+    --ui-selection-border-alpha: 0.7;
+    --ui-selection-inner-alpha: 0.78;
+    --ui-selection-outer-alpha: 0.22;
     --ui-glass-panel-opacity: 0.86;
     --ui-glass-navigation-opacity: 0.8;
     --ui-glass-control-opacity: 0.74;
@@ -1413,27 +1431,13 @@ body {
 
 .dashboard-shell {
   isolation: isolate;
-  --selection-ring-primary-rgb: var(--ui-accent-rgb);
-  --selection-ring-secondary-rgb: 15 23 42;
-  --selection-ring-outer-rgb: var(--ui-accent-secondary-rgb);
-  --selection-ring-primary-width: 1.5px;
-  --selection-ring-secondary-width: 2.5px;
+  --selection-ring-primary-width: 1px;
   --selection-ring-outer-width: 1px;
-  --selection-ring-primary-alpha: 0.62;
-  --selection-ring-secondary-alpha: 0.22;
-  --selection-ring-outer-alpha: 0.26;
 }
 
 .dashboard-theme-light {
-  --selection-ring-primary-rgb: 37 99 235;
-  --selection-ring-secondary-rgb: 255 255 255;
-  --selection-ring-outer-rgb: 14 165 233;
-  --selection-ring-primary-width: 1.25px;
-  --selection-ring-secondary-width: 2px;
+  --selection-ring-primary-width: 1px;
   --selection-ring-outer-width: 1px;
-  --selection-ring-primary-alpha: 0.52;
-  --selection-ring-secondary-alpha: 0.34;
-  --selection-ring-outer-alpha: 0.22;
 }
 
 .dashboard-background-home-hub {
@@ -2401,9 +2405,10 @@ button:not(:disabled):active,
   border-radius: inherit;
   z-index: 30;
   box-shadow:
-    inset 0 0 0 var(--selection-ring-primary-width, 2px) rgb(var(--selection-ring-primary-rgb, 147 197 253) / var(--selection-ring-primary-alpha, 0.95)),
-    inset 0 0 0 var(--selection-ring-secondary-width, 3px) rgb(var(--selection-ring-secondary-rgb, 15 23 42) / var(--selection-ring-secondary-alpha, 0.35)),
-    0 0 0 var(--selection-ring-outer-width, 1px) rgb(var(--selection-ring-outer-rgb, 56 189 248) / var(--selection-ring-outer-alpha, 0.42));
+    inset 0 0 0 var(--selection-ring-primary-width, 1px) rgb(var(--ui-selection-border-rgb, 255 255 255) / var(--ui-selection-border-alpha, 0.72)),
+    inset 0 1px 0 rgb(var(--ui-selection-inner-rgb, 255 255 255) / var(--ui-selection-inner-alpha, 0.18)),
+    0 0 0 var(--selection-ring-outer-width, 1px) rgb(var(--ui-selection-outer-rgb, 0 0 0) / var(--ui-selection-outer-alpha, 0.24)),
+    0 14px 34px rgb(var(--ui-selection-outer-rgb, 0 0 0) / 0.18);
 }
 @keyframes alarm-progress {
   0% {

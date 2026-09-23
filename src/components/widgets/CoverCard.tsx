@@ -34,6 +34,8 @@ export function CoverCard({
   isEditMode,
   onClick,
   liveEntity,
+  gridBreakpoint,
+  displayVariant,
   onDisplayMetricsChange,
   onPositionChange,
   onTiltPositionChange,
@@ -45,6 +47,11 @@ export function CoverCard({
   const { ref: cardRef, size: observedSize } = useObservedElementSize<HTMLDivElement>(widget.id);
   const measuredSize = observedSize?.identity === widget.id ? observedSize : null;
   const model = useMemo(() => buildCoverCardModel({ widget, liveEntity, locale }), [liveEntity, locale, widget]);
+  const effectiveDisplayVariant =
+    displayVariant ??
+    (measuredSize
+      ? resolveCoverPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
+      : undefined);
 
   useEffect(() => {
     if (!measuredSize || !onDisplayMetricsChange) {
@@ -54,15 +61,17 @@ export function CoverCard({
       widgetId: widget.id,
       width: measuredSize.width,
       height: measuredSize.height,
-      variant: resolveCoverPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height }),
+      variant: effectiveDisplayVariant ?? resolveCoverPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height }),
     });
-  }, [measuredSize, onDisplayMetricsChange, widget.id]);
+  }, [effectiveDisplayVariant, measuredSize, onDisplayMetricsChange, widget.id]);
 
   return (
     <CoverCardView
       model={model}
       isSelected={isSelected}
       isEditMode={isEditMode}
+      displayVariant={effectiveDisplayVariant}
+      gridBreakpoint={gridBreakpoint}
       rootRef={cardRef}
       onOpen={onClick}
       onPositionChange={onPositionChange}

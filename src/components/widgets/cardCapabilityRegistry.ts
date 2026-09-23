@@ -157,6 +157,7 @@ export const SENSOR_CARD_CAPABILITY: StaticCardCapability = {
     const isMobile = breakpoint === 'xs' || breakpoint === 'sm';
 
     if (width <= 1 && height <= 1) return 'mini';
+    if (!isMobile && width <= 2 && height <= 1) return 'mini';
     if (height <= 1 || width <= 1 || area <= 2) return 'compact';
     if (width >= 2 && height >= 3 && !isMobile) return 'full';
     if (width >= 3 && height >= 2 && !isInsideStack) return 'full';
@@ -217,6 +218,7 @@ export const LIGHT_CARD_CAPABILITY: ExpandableCardCapability = {
     const isMobile = breakpoint === 'xs' || breakpoint === 'sm';
 
     if (width <= 1 && height <= 1) return 'mini';
+    if (!isMobile && width <= 2 && height <= 1) return 'mini';
     if (height <= 1 || width <= 1 || area <= 2) return 'compact';
     if (isMobile || area <= 4) return 'standard';
     return 'full';
@@ -291,23 +293,31 @@ export const FAN_CARD_CAPABILITY: StaticCardCapability = {
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 1 }, xl: { w: 2, h: 1 }, lg: { w: 2, h: 1 },
-    md: { w: 2, h: 1 }, sm: { w: 2, h: 1 }, xs: { w: 2, h: 1 },
+    md: { w: 2, h: 1 }, sm: { w: 2, h: 1 }, xs: { w: 1, h: 2 },
   },
-  resolveVariantTarget(variant, { cols, isInsideStack }) {
+  resolveVariantTarget(variant, { cols, breakpoint, isInsideStack }) {
     const safeCols = Math.max(1, Math.round(cols));
-    if (variant === 'mini') return { w: 1, h: 1 };
-    if (variant === 'standard') return safeCols >= 2 ? { w: 2, h: 1 } : { w: 1, h: 2 };
-    return { w: Math.min(safeCols, isInsideStack ? 2 : 3), h: 2 };
+    if (variant === 'mini') return (breakpoint === 'xl' || breakpoint === '2xl') && safeCols >= 2 ? { w: 2, h: 1 } : { w: 1, h: 1 };
+    if (variant === 'standard') return breakpoint === 'xs' || safeCols < 2 ? { w: 1, h: 2 } : { w: 2, h: 2 };
+    if (breakpoint === 'xs') return { w: Math.min(safeCols, 2), h: 3 };
+    if (breakpoint === 'xl' || breakpoint === '2xl') return { w: Math.min(safeCols, isInsideStack ? 2 : 3), h: isInsideStack ? 4 : 3 };
+    return { w: Math.min(safeCols, 2), h: 4 };
   },
-  resolveDisplayVariant({ layout }) {
-    if (layout.w <= 1 && layout.h <= 1) return 'mini';
-    if (layout.w >= 2 && layout.h >= 2) return 'full';
-    return 'standard';
+  resolveDisplayVariant({ layout, breakpoint }) {
+    const width = toGridUnits(layout.w);
+    const height = toGridUnits(layout.h);
+    const isWideDesktop = breakpoint === 'xl' || breakpoint === '2xl';
+    if (width <= 1 && height <= 1) return 'mini';
+    if (isWideDesktop && width <= 2 && height <= 1) return 'mini';
+    if ((width >= 3 && height >= 2) || (width >= 2 && height >= 3)) return 'full';
+    if (width >= 2 && height >= 2) return 'standard';
+    if (width <= 1 && height >= 2) return 'standard';
+    return 'compact';
   },
   resolvePixelDisplayVariant({ width, height }) {
-    if ((width >= 310 && height >= 240) || (width >= 190 && height >= 290)) return 'full';
-    if (width >= 180 && height >= 108) return 'standard';
-    if ((width >= 132 && height >= 48) || (width >= 92 && height >= 110)) return 'compact';
+    if ((width >= 300 && height >= 176) || (width >= 176 && height >= 250)) return 'full';
+    if (width >= 132 && height >= 108) return 'standard';
+    if ((width >= 132 && height >= 48) || (width >= 92 && height >= 108)) return 'compact';
     return 'mini';
   },
 };
@@ -323,23 +333,31 @@ export const HUMIDIFIER_CARD_CAPABILITY: StaticCardCapability = {
   ],
   defaultSpans: {
     '2xl': { w: 2, h: 1 }, xl: { w: 2, h: 1 }, lg: { w: 2, h: 1 },
-    md: { w: 2, h: 1 }, sm: { w: 2, h: 1 }, xs: { w: 2, h: 1 },
+    md: { w: 2, h: 1 }, sm: { w: 2, h: 1 }, xs: { w: 1, h: 2 },
   },
-  resolveVariantTarget(variant, { cols, isInsideStack }) {
+  resolveVariantTarget(variant, { cols, breakpoint, isInsideStack }) {
     const safeCols = Math.max(1, Math.round(cols));
-    if (variant === 'mini') return { w: 1, h: 1 };
-    if (variant === 'standard') return safeCols >= 2 ? { w: 2, h: 1 } : { w: 1, h: 2 };
-    return { w: Math.min(safeCols, isInsideStack ? 2 : 3), h: 2 };
+    if (variant === 'mini') return (breakpoint === 'xl' || breakpoint === '2xl') && safeCols >= 2 ? { w: 2, h: 1 } : { w: 1, h: 1 };
+    if (variant === 'standard') return breakpoint === 'xs' || safeCols < 2 ? { w: 1, h: 2 } : { w: 2, h: 2 };
+    if (breakpoint === 'xs') return { w: Math.min(safeCols, 2), h: 3 };
+    if (breakpoint === 'xl' || breakpoint === '2xl') return { w: Math.min(safeCols, isInsideStack ? 2 : 3), h: isInsideStack ? 4 : 3 };
+    return { w: Math.min(safeCols, 2), h: 4 };
   },
-  resolveDisplayVariant({ layout }) {
-    if (layout.w <= 1 && layout.h <= 1) return 'mini';
-    if (layout.w >= 2 && layout.h >= 2) return 'full';
-    return 'standard';
+  resolveDisplayVariant({ layout, breakpoint }) {
+    const width = toGridUnits(layout.w);
+    const height = toGridUnits(layout.h);
+    const isWideDesktop = breakpoint === 'xl' || breakpoint === '2xl';
+    if (width <= 1 && height <= 1) return 'mini';
+    if (isWideDesktop && width <= 2 && height <= 1) return 'mini';
+    if ((width >= 3 && height >= 2) || (width >= 2 && height >= 3)) return 'full';
+    if (width >= 2 && height >= 2) return 'standard';
+    if (width <= 1 && height >= 2) return 'standard';
+    return 'compact';
   },
   resolvePixelDisplayVariant({ width, height }) {
-    if ((width >= 300 && height >= 225) || (width >= 190 && height >= 250)) return 'full';
-    if (width >= 180 && height >= 108) return 'standard';
-    if ((width >= 132 && height >= 48) || (width >= 92 && height >= 110)) return 'compact';
+    if ((width >= 300 && height >= 176) || (width >= 176 && height >= 250)) return 'full';
+    if (width >= 132 && height >= 108) return 'standard';
+    if ((width >= 132 && height >= 48) || (width >= 92 && height >= 108)) return 'compact';
     return 'mini';
   },
 };
@@ -507,10 +525,11 @@ export const COVER_CARD_CAPABILITY: StaticCardCapability = {
     const width = toGridUnits(layout.w);
     const height = toGridUnits(layout.h);
     const isMobile = breakpoint === 'xs' || breakpoint === 'sm';
-    if ((width >= 2 && height >= 4) || (width >= 3 && height >= 3 && !isInsideStack)) {
+    if ((width >= 2 && height >= 3) || (width >= 3 && height >= 3 && !isInsideStack)) {
       return 'full';
     }
-    if (width >= 2 && height >= 3) return 'standard';
+    if (isMobile && width >= 1 && height >= 2) return 'standard';
+    if (width >= 2 && height >= 2) return 'standard';
     if (width <= 1 && height <= 1) return 'mini';
     if (!isMobile && width >= 2 && height <= 1) return 'mini';
     return 'compact';
@@ -729,6 +748,52 @@ export const MEMBERS_CARD_CAPABILITY: StaticCardCapability = {
   },
 };
 
+export const CALENDAR_CARD_CAPABILITY: StaticCardCapability = {
+  kind: 'calendar',
+  skeleton: 'calendar',
+  supportsAutoExpand: false,
+  variants: [
+    { id: 'mini', previewVariant: 'mini', label: 'Mini', descriptionKey: 'builder.variant.calendar.mini' },
+    { id: 'standard', previewVariant: 'standard', label: 'Standard', descriptionKey: 'builder.variant.calendar.standard' },
+    { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.calendar.expanded' },
+  ],
+  defaultSpans: {
+    '2xl': { w: 2, h: 3 },
+    xl: { w: 2, h: 3 },
+    lg: { w: 2, h: 3 },
+    md: { w: 2, h: 3 },
+    sm: { w: 2, h: 3 },
+    xs: { w: 1, h: 3 },
+  },
+  resolveVariantTarget(variant, { breakpoint, cols }) {
+    const safeCols = Math.max(1, Math.round(cols));
+    if (variant === 'mini') return { w: 1, h: 1 };
+    if (variant === 'standard' && breakpoint === 'xs') return { w: 1, h: 3 };
+    if (variant === 'standard') return { w: Math.min(safeCols, 2), h: 3 };
+    if (breakpoint !== 'xs') return { w: Math.min(safeCols, 4), h: 4 };
+    return { w: Math.min(safeCols, 2), h: 3 };
+  },
+  resolveDisplayVariant({ breakpoint, layout }) {
+    const width = toGridUnits(layout.w);
+    const height = toGridUnits(layout.h);
+    if (width <= 1 && height <= 1) return 'mini';
+    if (breakpoint !== 'xs') {
+      if (width >= 4 && height >= 4) return 'full';
+      if (height <= 1) return 'compact';
+      return 'standard';
+    }
+    if (width >= 2 && height >= 3) return 'full';
+    if (height <= 1) return 'compact';
+    return 'standard';
+  },
+  resolvePixelDisplayVariant({ width, height }) {
+    if (width >= 260 && height >= 180) return 'full';
+    if (width >= 165 && height >= 105) return 'standard';
+    if (width >= 125 && height >= 72) return 'compact';
+    return 'mini';
+  },
+};
+
 const CARD_CAPABILITY_REGISTRY: Record<WidgetKind, CardCapability> = {
   sensor: SENSOR_CARD_CAPABILITY,
   light: LIGHT_CARD_CAPABILITY,
@@ -742,6 +807,7 @@ const CARD_CAPABILITY_REGISTRY: Record<WidgetKind, CardCapability> = {
   media: MEDIA_CARD_CAPABILITY,
   camera: CAMERA_CARD_CAPABILITY,
   vacuum: VACUUM_CARD_CAPABILITY,
+  calendar: CALENDAR_CARD_CAPABILITY,
   members: MEMBERS_CARD_CAPABILITY,
 };
 

@@ -75,6 +75,7 @@ export const DEMO_ENTITY_OPTIONS: Record<WidgetKind, string[]> = {
     'cover.max_compat_unavailable',
     'cover.max_compat_unknown',
   ],
+  calendar: ['calendar.domus_ui'],
   members: ['group.house_members'],
 };
 
@@ -91,6 +92,7 @@ export const EMPTY_ENTITY_OPTIONS: Record<WidgetKind, string[]> = {
   vacuum: [],
   lock: [],
   cover: [],
+  calendar: [],
   members: [],
 };
 

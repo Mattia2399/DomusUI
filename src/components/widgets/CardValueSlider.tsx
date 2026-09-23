@@ -61,7 +61,7 @@ export function CardValueSlider({
   };
 
   return (
-    <div className="card-value-slider card-control-track" data-tone={tone} data-segmented={discreteSegments ? 'true' : 'false'} style={style}>
+    <div className="card-value-slider card-control-track" data-tone={tone} data-segmented={discreteSegments ? 'true' : 'false'} data-at-start={progress <= 0 ? 'true' : 'false'} data-at-end={progress >= 100 ? 'true' : 'false'} style={style}>
       <span className="card-value-slider__fill" aria-hidden="true" />
       {discreteSegments ? <span className="card-value-slider__segments" aria-hidden="true" /> : null}
       {markerProgress !== undefined ? <span className="card-value-slider__marker" aria-hidden="true" /> : null}

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   CARD_SIZING_ENGINE,
+  COVER_ADAPTIVE_SIZING_PROFILE,
+  FAN_ADAPTIVE_SIZING_PROFILE,
+  HUMIDIFIER_ADAPTIVE_SIZING_PROFILE,
   LIGHT_ADAPTIVE_SIZING_PROFILE,
   createAdaptiveSizingComparison,
   resolveAdaptiveGridSpan,
@@ -123,6 +126,32 @@ describe('adaptiveCardSizing', () => {
     expect(manualResize).toMatchObject({ w: 3, h: 2 });
   });
 
+  it('uses the final deterministic Light Expanded matrix in Adaptive mode', () => {
+    const cases = [
+      ['xs', grid(360, 2, 2), { w: 1, h: 3 }],
+      ['sm', grid(640, 4), { w: 2, h: 3 }],
+      ['md', grid(900, 6), { w: 2, h: 3 }],
+      ['lg', grid(1100, 8), { w: 2, h: 3 }],
+      ['xl', grid(1200, 12), { w: 2, h: 3 }],
+      ['2xl', grid(1536, 12), { w: 3, h: 2 }],
+    ] as const;
+
+    const actual = cases.map(([breakpoint, geometry]) => {
+      const result = resolveCardPresetSizing({
+        kind: 'light',
+        preset: 'expanded',
+        engine: 'adaptive',
+        profile: LIGHT_ADAPTIVE_SIZING_PROFILE,
+        geometry,
+        legacy: { w: 3, h: 2 },
+        breakpoint,
+      });
+      return { breakpoint, w: result.w, h: result.h };
+    });
+
+    expect(actual).toEqual(cases.map(([breakpoint, , expected]) => ({ breakpoint, ...expected })));
+  });
+
   it('keeps non-Light card preset sizing on the legacy capability resolver', () => {
     expect(
       COVER_CARD_CAPABILITY.resolveVariantTarget('standard', {
@@ -131,6 +160,95 @@ describe('adaptiveCardSizing', () => {
         isInsideStack: false,
       }),
     ).toEqual({ w: 2, h: 3 });
+  });
+
+  it('uses the final deterministic Cover Adaptive matrix', () => {
+    const cases = [
+      ['xs', grid(360, 2, 2), { mini: { w: 1, h: 1 }, standard: { w: 1, h: 2 }, expanded: { w: 2, h: 3 } }],
+      ['sm', grid(640, 4), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['md', grid(900, 6), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['lg', grid(1100, 8), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['xl', grid(1200, 12), { mini: { w: 2, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 3, h: 4 } }],
+      ['2xl', grid(1536, 12), { mini: { w: 2, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 3, h: 4 } }],
+    ] as const;
+
+    expect(cases.map(([breakpoint, geometry, expected]) => {
+      const resolve = (preset: 'mini' | 'standard' | 'expanded') => {
+        const result = resolveCardPresetSizing({
+          kind: 'cover',
+          preset,
+          engine: 'adaptive',
+          profile: COVER_ADAPTIVE_SIZING_PROFILE,
+          geometry,
+          legacy: { w: 2, h: 3 },
+          breakpoint,
+        });
+        return { w: result.w, h: result.h };
+      };
+      return {
+        breakpoint,
+        mini: resolve('mini'),
+        standard: resolve('standard'),
+        expanded: resolve('expanded'),
+        expected,
+      };
+    }).map(({ breakpoint, mini, standard, expanded }) => ({ breakpoint, mini, standard, expanded }))).toEqual(
+      cases.map(([breakpoint, , expected]) => ({ breakpoint, ...expected })),
+    );
+  });
+
+  it('uses the final deterministic Fan Adaptive matrix', () => {
+    const cases = [
+      ['xs', grid(360, 2, 2), { mini: { w: 1, h: 1 }, standard: { w: 1, h: 2 }, expanded: { w: 2, h: 3 } }],
+      ['sm', grid(640, 4), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['md', grid(900, 6), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['lg', grid(1100, 8), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['xl', grid(1200, 12), { mini: { w: 2, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 3, h: 3 } }],
+      ['2xl', grid(1536, 12), { mini: { w: 2, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 3, h: 3 } }],
+    ] as const;
+
+    expect(cases.map(([breakpoint, geometry]) => {
+      const resolve = (preset: 'mini' | 'standard' | 'expanded') => {
+        const result = resolveCardPresetSizing({
+          kind: 'fan',
+          preset,
+          engine: 'adaptive',
+          profile: FAN_ADAPTIVE_SIZING_PROFILE,
+          geometry,
+          legacy: { w: 2, h: 1 },
+          breakpoint,
+        });
+        return { w: result.w, h: result.h };
+      };
+      return { breakpoint, mini: resolve('mini'), standard: resolve('standard'), expanded: resolve('expanded') };
+    })).toEqual(cases.map(([breakpoint, , expected]) => ({ breakpoint, ...expected })));
+  });
+
+  it('uses the final deterministic Humidifier Adaptive matrix', () => {
+    const cases = [
+      ['xs', grid(360, 2, 2), { mini: { w: 1, h: 1 }, standard: { w: 1, h: 2 }, expanded: { w: 2, h: 3 } }],
+      ['sm', grid(640, 4), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['md', grid(900, 6), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['lg', grid(1100, 8), { mini: { w: 1, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 2, h: 4 } }],
+      ['xl', grid(1200, 12), { mini: { w: 2, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 3, h: 3 } }],
+      ['2xl', grid(1536, 12), { mini: { w: 2, h: 1 }, standard: { w: 2, h: 2 }, expanded: { w: 3, h: 3 } }],
+    ] as const;
+
+    expect(cases.map(([breakpoint, geometry]) => {
+      const resolve = (preset: 'mini' | 'standard' | 'expanded') => {
+        const result = resolveCardPresetSizing({
+          kind: 'humidifier',
+          preset,
+          engine: 'adaptive',
+          profile: HUMIDIFIER_ADAPTIVE_SIZING_PROFILE,
+          geometry,
+          legacy: { w: 2, h: 1 },
+          breakpoint,
+        });
+        return { w: result.w, h: result.h };
+      };
+      return { breakpoint, mini: resolve('mini'), standard: resolve('standard'), expanded: resolve('expanded') };
+    })).toEqual(cases.map(([breakpoint, , expected]) => ({ breakpoint, ...expected })));
   });
 
   it('keeps the Light stack target on legacy sizing for this phase', () => {
@@ -167,14 +285,38 @@ describe('adaptiveCardSizing', () => {
   });
 
   it('keeps unsupported cards on legacy even when Adaptive is selected', () => {
-    const legacy = { w: 2, h: 3 };
+    const legacy = { w: 2, h: 1 };
     expect(resolveCardPresetSizing({
-      kind: 'cover',
+      kind: 'switch',
       preset: 'standard',
       engine: 'adaptive',
       profile: LIGHT_ADAPTIVE_SIZING_PROFILE,
       geometry: grid(1200, 12),
       legacy,
+    })).toMatchObject({ engine: 'legacy', w: 2, h: 1, adaptive: null });
+  });
+
+  it('uses the selected runtime engine for Cover preset sizing outside stacks', () => {
+    const legacy = { w: 2, h: 3 };
+
+    expect(resolveCardPresetSizing({
+      kind: 'cover',
+      preset: 'standard',
+      engine: 'adaptive',
+      profile: COVER_ADAPTIVE_SIZING_PROFILE,
+      geometry: grid(1200, 12),
+      legacy,
+      breakpoint: 'xl',
+    })).toMatchObject({ engine: 'adaptive', w: 2, h: 2 });
+
+    expect(resolveCardPresetSizing({
+      kind: 'cover',
+      preset: 'standard',
+      engine: 'adaptive',
+      profile: COVER_ADAPTIVE_SIZING_PROFILE,
+      geometry: grid(1200, 12),
+      legacy,
+      isInsideStack: true,
     })).toMatchObject({ engine: 'legacy', w: 2, h: 3, adaptive: null });
   });
 

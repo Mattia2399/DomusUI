@@ -1,0 +1,45 @@
+.calendar-card {
+  container-name: calendar-card;
+  container-type: inline-size;
+}
+
+.calendar-card__event-icon {
+  background: color-mix(in srgb, var(--calendar-event-accent) 16%, transparent);
+  color: var(--calendar-event-accent);
+}
+
+.calendar-card__mini--bar {
+  position: relative;
+  padding-left: 0.65rem;
+}
+
+.calendar-card__mini-accent {
+  position: absolute;
+  inset-block: 0.45rem;
+  left: 0;
+  width: 0.18rem;
+  border-radius: 999px;
+  background: var(--calendar-event-accent);
+}
+
+@container calendar-card (max-width: 190px) {
+  .calendar-card__event-row {
+    position: relative;
+    gap: 0.5rem;
+    padding-left: 0.85rem;
+  }
+
+  .calendar-card__event-row:not(.calendar-card__event-row--empty)::before {
+    content: '';
+    position: absolute;
+    inset-block: 0.7rem;
+    left: 0.4rem;
+    width: 0.18rem;
+    border-radius: 999px;
+    background: var(--calendar-event-accent);
+  }
+
+  .calendar-card__event-icon {
+    display: none;
+  }
+}

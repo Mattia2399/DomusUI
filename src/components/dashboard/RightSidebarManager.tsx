@@ -33,6 +33,7 @@ import { CoverDisplayVariantSkeleton } from '../settings/CoverDisplayVariantSkel
 import { MediaDisplayVariantSkeleton } from '../settings/MediaDisplayVariantSkeleton';
 import { CameraDisplayVariantSkeleton } from '../settings/CameraDisplayVariantSkeleton';
 import { VacuumDisplayVariantSkeleton } from '../settings/VacuumDisplayVariantSkeleton';
+import { CalendarDisplayVariantSkeleton } from '../settings/CalendarDisplayVariantSkeleton';
 import GlassCombobox from '../ui/GlassCombobox';
 import GlassDropdown, { type GlassDropdownOption } from '../ui/GlassDropdown';
 import GlassToggle from '../ui/GlassToggle';
@@ -47,6 +48,7 @@ import {
 import {
   ALARM_CARD_CAPABILITY,
   CAMERA_CARD_CAPABILITY,
+  CALENDAR_CARD_CAPABILITY,
   CLIMATE_CARD_CAPABILITY,
   COVER_CARD_CAPABILITY,
   FAN_CARD_CAPABILITY,
@@ -107,6 +109,9 @@ import { GRID_ENGINE_COLS, GRID_ENGINE_GAP_PX, GRID_ENGINE_ROW_UNIT_PX } from '.
 import { resolveWidgetTypeLayoutSpan } from './dashboardBreakpointConfig';
 import {
   CARD_SIZING_ENGINE,
+  COVER_ADAPTIVE_SIZING_PROFILE,
+  FAN_ADAPTIVE_SIZING_PROFILE,
+  HUMIDIFIER_ADAPTIVE_SIZING_PROFILE,
   LIGHT_ADAPTIVE_SIZING_PROFILE,
   resolveCardPresetSizing,
 } from './adaptiveCardSizing';
@@ -130,6 +135,7 @@ import { resolveCardDataSource } from '../../security/mockSourcePolicy';
 import { DASHBOARD_SIDEBAR_WIDTH_CLASS } from './DashboardSidebarPlaceholder';
 import { useI18n } from '../../i18n/I18nProvider';
 import { translateBuilderDetail } from '../../i18n/builderDetailCopy';
+import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 
 const BUILDER_INPUT_CLASS = 'ui-input w-full rounded-xl px-3 py-2.5 text-sm';
 const BUILDER_TEXTAREA_CLASS = `${BUILDER_INPUT_CLASS} resize-none`;
@@ -367,6 +373,130 @@ function resolveLightPresetTarget(
     profile: LIGHT_ADAPTIVE_SIZING_PROFILE,
     legacy,
     isInsideStack,
+    breakpoint: activeGridBreakpoint,
+    geometry: {
+      containerWidth: activeGridWidth,
+      cols,
+      columnGap: GRID_ENGINE_GAP_PX,
+      rowHeight: GRID_ENGINE_ROW_UNIT_PX,
+      rowGap: GRID_ENGINE_GAP_PX,
+      horizontalPadding: GRID_ENGINE_ROOT_HORIZONTAL_PADDING[activeGridBreakpoint] ?? 0,
+      maxCols: cols,
+    },
+  });
+}
+
+function resolveCoverPresetTarget(
+  variant: Parameters<typeof COVER_CARD_CAPABILITY.resolveVariantTarget>[0],
+  {
+    activeGridBreakpoint,
+    activeGridWidth,
+    cardSizingEngine,
+    cols,
+    isInsideStack,
+  }: {
+    activeGridBreakpoint: DashboardGridBreakpoint;
+    activeGridWidth: number;
+    cardSizingEngine: CardSizingEngine;
+    cols: number;
+    isInsideStack: boolean;
+  },
+) {
+  const legacy = COVER_CARD_CAPABILITY.resolveVariantTarget(variant, {
+    cols,
+    breakpoint: activeGridBreakpoint,
+    isInsideStack,
+  });
+  return resolveCardPresetSizing({
+    kind: 'cover',
+    preset: variant,
+    engine: cardSizingEngine,
+    profile: COVER_ADAPTIVE_SIZING_PROFILE,
+    legacy,
+    isInsideStack,
+    breakpoint: activeGridBreakpoint,
+    geometry: {
+      containerWidth: activeGridWidth,
+      cols,
+      columnGap: GRID_ENGINE_GAP_PX,
+      rowHeight: GRID_ENGINE_ROW_UNIT_PX,
+      rowGap: GRID_ENGINE_GAP_PX,
+      horizontalPadding: GRID_ENGINE_ROOT_HORIZONTAL_PADDING[activeGridBreakpoint] ?? 0,
+      maxCols: cols,
+    },
+  });
+}
+
+function resolveFanPresetTarget(
+  variant: Parameters<typeof FAN_CARD_CAPABILITY.resolveVariantTarget>[0],
+  {
+    activeGridBreakpoint,
+    activeGridWidth,
+    cardSizingEngine,
+    cols,
+    isInsideStack,
+  }: {
+    activeGridBreakpoint: DashboardGridBreakpoint;
+    activeGridWidth: number;
+    cardSizingEngine: CardSizingEngine;
+    cols: number;
+    isInsideStack: boolean;
+  },
+) {
+  const legacy = FAN_CARD_CAPABILITY.resolveVariantTarget(variant, {
+    cols,
+    breakpoint: activeGridBreakpoint,
+    isInsideStack,
+  });
+  return resolveCardPresetSizing({
+    kind: 'fan',
+    preset: variant,
+    engine: cardSizingEngine,
+    profile: FAN_ADAPTIVE_SIZING_PROFILE,
+    legacy,
+    isInsideStack,
+    breakpoint: activeGridBreakpoint,
+    geometry: {
+      containerWidth: activeGridWidth,
+      cols,
+      columnGap: GRID_ENGINE_GAP_PX,
+      rowHeight: GRID_ENGINE_ROW_UNIT_PX,
+      rowGap: GRID_ENGINE_GAP_PX,
+      horizontalPadding: GRID_ENGINE_ROOT_HORIZONTAL_PADDING[activeGridBreakpoint] ?? 0,
+      maxCols: cols,
+    },
+  });
+}
+
+function resolveHumidifierPresetTarget(
+  variant: Parameters<typeof HUMIDIFIER_CARD_CAPABILITY.resolveVariantTarget>[0],
+  {
+    activeGridBreakpoint,
+    activeGridWidth,
+    cardSizingEngine,
+    cols,
+    isInsideStack,
+  }: {
+    activeGridBreakpoint: DashboardGridBreakpoint;
+    activeGridWidth: number;
+    cardSizingEngine: CardSizingEngine;
+    cols: number;
+    isInsideStack: boolean;
+  },
+) {
+  const legacy = HUMIDIFIER_CARD_CAPABILITY.resolveVariantTarget(variant, {
+    cols,
+    breakpoint: activeGridBreakpoint,
+    isInsideStack,
+  });
+  return resolveCardPresetSizing({
+    kind: 'humidifier',
+    preset: variant,
+    engine: cardSizingEngine,
+    profile: HUMIDIFIER_ADAPTIVE_SIZING_PROFILE,
+    legacy,
+    isInsideStack,
+    breakpoint: activeGridBreakpoint,
     geometry: {
       containerWidth: activeGridWidth,
       cols,
@@ -650,6 +780,7 @@ type RightSidebarManagerProps = {
     supportsStopTilt?: boolean;
     rawAttributes?: Record<string, unknown>;
   };
+  calendarAgenda: CalendarAgendaController;
   vacuumAreas?: VacuumMappedArea[];
   actions: ContextSidebarActions;
   onAuthorizeAlarmDeviceAuth?: (label: string) => Promise<boolean>;
@@ -668,6 +799,8 @@ type RightSidebarManagerProps = {
   activeGridBreakpoint: DashboardGridBreakpoint;
   activeGridWidth?: number;
   cardSizingEngine?: CardSizingEngine;
+  showCardSizingEngineControl?: boolean;
+  onCardSizingEngineChange?: (value: CardSizingEngine) => void;
   widgetTypeLayoutOverrides?: WidgetTypeLayoutOverrides;
   widgetLayoutOverrides?: WidgetLayoutOverrides;
   entityOptions: Record<WidgetKind, string[]>;
@@ -977,6 +1110,7 @@ export function RightSidebarManager({
   vacuum,
   lock,
   cover,
+  calendarAgenda,
   vacuumAreas = [],
   actions,
   onAuthorizeAlarmDeviceAuth,
@@ -995,6 +1129,8 @@ export function RightSidebarManager({
   activeGridBreakpoint,
   activeGridWidth = 0,
   cardSizingEngine = CARD_SIZING_ENGINE,
+  showCardSizingEngineControl = false,
+  onCardSizingEngineChange,
   widgetTypeLayoutOverrides = {},
   widgetLayoutOverrides = {},
   entityOptions,
@@ -1267,6 +1403,7 @@ export function RightSidebarManager({
       alarm={alarm}
       lock={lock}
       cover={cover}
+      calendarAgenda={calendarAgenda}
       weatherConfig={
         weatherConfig
           ? {
@@ -1384,6 +1521,7 @@ export function RightSidebarManager({
           alarm={alarm}
           lock={lock}
           cover={cover}
+          calendarAgenda={calendarAgenda}
           weatherConfig={
             weatherConfig
               ? {
@@ -1751,9 +1889,11 @@ export function RightSidebarManager({
   const fanDisplayVariantOptions =
     selectedWidget?.kind === 'fan'
       ? FAN_CARD_CAPABILITY.variants.map((option) => {
-          const target = FAN_CARD_CAPABILITY.resolveVariantTarget(option.id, {
+          const target = resolveFanPresetTarget(option.id, {
+            activeGridBreakpoint,
+            activeGridWidth,
+            cardSizingEngine,
             cols: layoutEditorCols,
-            breakpoint: activeGridBreakpoint,
             isInsideStack: Boolean(selectedWidget.parentSectionId),
           });
           const targetW = clampGridSpan(target.w, layoutEditorCols);
@@ -1776,9 +1916,11 @@ export function RightSidebarManager({
   const humidifierDisplayVariantOptions =
     selectedWidget?.kind === 'humidifier'
       ? HUMIDIFIER_CARD_CAPABILITY.variants.map((option) => {
-          const target = HUMIDIFIER_CARD_CAPABILITY.resolveVariantTarget(option.id, {
+          const target = resolveHumidifierPresetTarget(option.id, {
+            activeGridBreakpoint,
+            activeGridWidth,
+            cardSizingEngine,
             cols: layoutEditorCols,
-            breakpoint: activeGridBreakpoint,
             isInsideStack: Boolean(selectedWidget.parentSectionId),
           });
           const targetW = clampGridSpan(target.w, layoutEditorCols);
@@ -1882,9 +2024,11 @@ export function RightSidebarManager({
   const coverDisplayVariantOptions =
     selectedWidget?.kind === 'cover'
       ? COVER_CARD_CAPABILITY.variants.map((option) => {
-          const target = COVER_CARD_CAPABILITY.resolveVariantTarget(option.id, {
+          const target = resolveCoverPresetTarget(option.id, {
+            activeGridBreakpoint,
+            activeGridWidth,
+            cardSizingEngine,
             cols: layoutEditorCols,
-            breakpoint: activeGridBreakpoint,
             isInsideStack: Boolean(selectedWidget.parentSectionId),
           });
           const targetW = clampGridSpan(target.w, layoutEditorCols);
@@ -1999,6 +2143,31 @@ export function RightSidebarManager({
           };
         })
       : [];
+  const calendarDisplayVariantOptions =
+    selectedWidget?.kind === 'calendar'
+      ? CALENDAR_CARD_CAPABILITY.variants.map((option) => {
+          const target = CALENDAR_CARD_CAPABILITY.resolveVariantTarget(option.id, {
+            cols: layoutEditorCols,
+            breakpoint: activeGridBreakpoint,
+            isInsideStack: Boolean(selectedWidget.parentSectionId),
+          });
+          const targetW = clampGridSpan(target.w, layoutEditorCols);
+          const targetH = clampGridSpan(target.h, GRID_LAYOUT_PREVIEW_MAX_ROWS);
+          const resolvedTargetVariant = resolveWidgetDisplayVariant({
+            kind: 'calendar',
+            breakpoint: activeGridBreakpoint,
+            layout: { w: targetW, h: targetH },
+            parentSectionId: selectedWidget.parentSectionId,
+          });
+          return {
+            ...option,
+            targetW,
+            targetH,
+            isActive: selectedWidgetLayoutVariant === option.id,
+            isAvailable: resolveCardLayoutVariant(CALENDAR_CARD_CAPABILITY, resolvedTargetVariant) === option.id,
+          };
+        })
+      : [];
   const selectedDisplayVariantOptions = selectedWidget?.kind === 'sensor'
     ? sensorDisplayVariantOptions
     : selectedWidget?.kind === 'light'
@@ -2023,7 +2192,14 @@ export function RightSidebarManager({
                     ? cameraDisplayVariantOptions
                     : selectedWidget?.kind === 'vacuum'
                       ? vacuumDisplayVariantOptions
+                      : selectedWidget?.kind === 'calendar'
+                        ? calendarDisplayVariantOptions
                       : [];
+  const shouldShowCardSizingEngineControl =
+    showCardSizingEngineControl &&
+    Boolean(onCardSizingEngineChange) &&
+    (selectedWidget?.kind === 'light' || selectedWidget?.kind === 'cover' ||
+      selectedWidget?.kind === 'fan' || selectedWidget?.kind === 'humidifier');
   const selectedWidgetSkeletonKind = selectedWidget
     ? getCardCapability(selectedWidget.kind).skeleton
     : null;
@@ -3550,7 +3726,34 @@ export function RightSidebarManager({
                     La dimensione decide automaticamente quali elementi mostrare.
                   </p>
                 </div>
-                {(selectedWidget.kind === 'sensor' || selectedWidget.kind === 'light' || selectedWidget.kind === 'switch' || selectedWidget.kind === 'fan' || selectedWidget.kind === 'humidifier' || selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum') && selectedDisplayVariantOptions.length > 0 ? (
+                {shouldShowCardSizingEngineControl ? (
+                  <div className="mb-3 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-2.5">
+                    <div className="mb-2 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">
+                          {bt('Motore dimensioni')}
+                        </p>
+                        <p className="mt-0.5 text-[10px] leading-snug text-[color:var(--ui-text-tertiary)]">
+                          {bt('Switch rapido per testare il sizing adattivo anche in modalita demo.')}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full border border-[color:rgb(var(--ui-accent-rgb)/0.32)] bg-[color:rgb(var(--ui-accent-rgb)/0.12)] px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
+                        Lab
+                      </span>
+                    </div>
+                    <GlassSegmentSelect<CardSizingEngine>
+                      ariaLabel={bt('Motore dimensioni card')}
+                      options={[
+                        { value: 'adaptive', label: 'Adaptive' },
+                        { value: 'legacy', label: 'Legacy' },
+                      ]}
+                      value={cardSizingEngine}
+                      onChange={(nextValue) => onCardSizingEngineChange?.(nextValue)}
+                      optionClassName="h-auto px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.12em]"
+                    />
+                  </div>
+                ) : null}
+                {(selectedWidget.kind === 'sensor' || selectedWidget.kind === 'light' || selectedWidget.kind === 'switch' || selectedWidget.kind === 'fan' || selectedWidget.kind === 'humidifier' || selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum' || selectedWidget.kind === 'calendar') && selectedDisplayVariantOptions.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
                     {selectedDisplayVariantOptions.map((option) => (
                       <button
@@ -3561,7 +3764,7 @@ export function RightSidebarManager({
                           : applyWidgetTypeLayoutSelection(option.targetW, option.targetH)}
                         disabled={!option.isAvailable}
                         className={`min-w-0 rounded-2xl border p-2 text-left transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 ${
-                          (selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum') && option.id === 'expanded' ? 'col-span-2' : ''
+                          (selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum' || selectedWidget.kind === 'calendar') && option.id === 'expanded' ? 'col-span-2' : ''
                         } ${
                           option.isActive
                             ? 'border-[color:rgb(var(--ui-accent-rgb)/0.58)] bg-[color:rgb(var(--ui-accent-rgb)/0.12)] shadow-[0_12px_26px_rgba(0,0,0,0.18)]'
@@ -3624,6 +3827,12 @@ export function RightSidebarManager({
                           />
                         ) : selectedWidgetSkeletonKind === 'vacuum' ? (
                           <VacuumDisplayVariantSkeleton
+                            variant={option.previewVariant}
+                            active={option.isActive}
+                            disabled={!option.isAvailable}
+                          />
+                        ) : selectedWidgetSkeletonKind === 'calendar' ? (
+                          <CalendarDisplayVariantSkeleton
                             variant={option.previewVariant}
                             active={option.isActive}
                             disabled={!option.isAvailable}

@@ -120,6 +120,36 @@ describe('Home Assistant panel bridge schema', () => {
     expect(validatePanelApiMessage({ type: 'domusos/irrigation/subscribe' })).toBe(true);
     expect(validatePanelApiMessage({ type: 'domusos/irrigation/prepare_legacy_removal' })).toBe(true);
     expect(validatePanelApiMessage({ type: 'domusos/irrigation/delete_everything' })).toBe(false);
+    expect(validatePanelApiMessage({
+      type: 'calendar/event/subscribe',
+      entity_id: 'calendar.domus_ui',
+      start: '2026-09-23T00:00:00.000Z',
+      end: '2026-09-30T00:00:00.000Z',
+    })).toBe(true);
+    expect(validatePanelApiMessage({
+      type: 'calendar/event/create',
+      entity_id: 'calendar.domus_ui',
+      event: {
+        start: '2026-09-24T10:00:00.000Z',
+        end: '2026-09-24T11:00:00.000Z',
+        summary: 'Controllo casa',
+      },
+    })).toBe(true);
+    expect(validatePanelApiMessage({
+      type: 'calendar/event/delete',
+      entity_id: 'light.not_a_calendar',
+      uid: 'event-1',
+    })).toBe(false);
+    expect(validatePanelApiMessage({
+      type: 'calendar/event/update',
+      entity_id: 'calendar.domus_ui',
+      uid: '',
+      event: {
+        start: '2026-09-24',
+        end: '2026-09-25',
+        summary: 'Evento',
+      },
+    })).toBe(false);
     expect(validatePanelApiMessage({ type: 'call_service', domain: 'light!', service: 'turn_on' })).toBe(false);
   });
 
@@ -143,10 +173,11 @@ describe('Home Assistant panel bridge schema', () => {
       'revision_history',
       'dashboard_reset_marker',
       'irrigation_core',
+      'calendar_v1',
       'host_navigation',
       'unknown_capability',
       42,
-    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'host_navigation']);
+    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'calendar_v1', 'host_navigation']);
     expect(parsePanelBridgeCapabilities(null)).toEqual([]);
   });
 

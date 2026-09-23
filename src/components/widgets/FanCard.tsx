@@ -23,6 +23,7 @@ type FanCardProps = {
   onPresetChange?: (mode: string) => void;
   onOscillationChange?: (oscillating: boolean) => void;
   onDirectionChange?: (direction: 'forward' | 'reverse') => void;
+  displayVariant?: WidgetDisplayMetrics['variant'];
   onDisplayMetricsChange?: (metrics: WidgetDisplayMetrics) => void;
 };
 
@@ -39,6 +40,7 @@ export function FanCard({
   onPresetChange,
   onOscillationChange,
   onDirectionChange,
+  displayVariant = 'standard',
   onDisplayMetricsChange,
 }: FanCardProps) {
   const { t } = useI18n();
@@ -98,12 +100,14 @@ export function FanCard({
   return (
     <div
       ref={ref}
-      className={`fan-card ${isSelected ? 'selection-corners' : ''}`}
+      className={`fan-card adaptive-device-card ${isSelected ? 'selection-corners' : ''}`}
+      data-display-variant={displayVariant}
       data-fan-state={!model.available ? 'unavailable' : model.isOn ? 'on' : 'off'}
       data-fan-control-mode={activeControl ?? 'none'}
+      data-fan-display-variant={displayVariant}
       aria-busy={pending || undefined}
     >
-      <div className="fan-card__surface liquid-glass-card">
+      <div className="fan-card__surface adaptive-device-card__surface liquid-glass-card">
       <DeviceControlCardHeader
         title={widget.title}
         status={`${stateLabel}${model.isOn && activeDetail ? ` · ${activeDetail}` : ''}`}
@@ -125,10 +129,9 @@ export function FanCard({
 
       {controls.length > 0 ? (
         <div className="fan-card__controls" onClick={(event) => event.stopPropagation()} onPointerDown={(event) => event.stopPropagation()}>
-          {model.canSetSpeed ? (
-            <div className="fan-card__speed-label">
-              <span>{t('fan.card.speed')}</span>
-              <strong>{percentage !== undefined ? `${Math.round(percentage)}%` : '—'}</strong>
+          {activeControl ? (
+            <div className="fan-card__control-label">
+              <span>{controlLabel(activeControl)}</span>
             </div>
           ) : null}
           {model.canSetSpeed ? <div className="fan-card__control fan-card__control--speed" data-active={activeControl === 'speed' ? 'true' : 'false'}><CardValueSlider
@@ -183,7 +186,7 @@ export function FanCard({
       </div>
 
       {isEditMode ? (
-        <button type="button" className="fan-card__edit widget-card-handle" onClick={onOpen} aria-label={t('fan.card.configure')} />
+        <button type="button" className="fan-card__edit adaptive-device-card__edit widget-card-handle" onClick={onOpen} aria-label={t('fan.card.configure')} />
       ) : null}
     </div>
   );

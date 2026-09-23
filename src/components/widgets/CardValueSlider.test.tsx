@@ -34,6 +34,7 @@ describe('CardValueSlider', () => {
     expect(onCommit).toHaveBeenCalledOnce();
     expect(onCommit).toHaveBeenCalledWith(75);
     expect(container.querySelector('[data-segmented="true"]')).not.toBeNull();
+    expect(container.querySelector('[data-at-end="false"]')).not.toBeNull();
   });
 
   it('commits one discrete speed step from the keyboard', () => {

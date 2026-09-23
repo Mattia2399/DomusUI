@@ -165,6 +165,7 @@ export function resolveWidgetKindFromEntityId(entityId: string): WidgetKind | nu
   if (domain === 'vacuum') return 'vacuum';
   if (domain === 'lock') return 'lock';
   if (domain === 'cover') return 'cover';
+  if (domain === 'calendar') return 'calendar';
   return null;
 }
 

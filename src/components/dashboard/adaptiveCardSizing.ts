@@ -5,6 +5,7 @@ import {
 } from '../../services/cardSizingEngine';
 import type { CardLayoutVariant } from '../widgets/cardCapabilityRegistry';
 import type { WidgetKind } from '../../types/dashboardModels';
+import type { DashboardGridBreakpoint } from '../../types/widgetTypeLayout';
 
 export type { CardSizingEngine };
 
@@ -12,8 +13,8 @@ export type { CardSizingEngine };
  * Card Sizing V2 is deliberately scoped as a preset resolver, not as a
  * continuous responsive layout engine.
  *
- * Today it is used only when the builder needs to materialize a Light Card
- * preset into a saved grid span. Existing saved w/h values, breakpoint
+ * Today it is used only when the builder needs to materialize a validated
+ * card preset into a saved grid span. Existing saved w/h values, breakpoint
  * layouts, manual resizes, refreshes and reconnects must keep using the
  * persisted layout. The final visual disclosure remains owned by the card CSS
  * container queries.
@@ -43,6 +44,51 @@ export const LIGHT_ADAPTIVE_SIZING_PROFILE: AdaptiveCardSizingProfile = {
     targets: [
       { id: 'wide-full', width: 420, height: 112 },
       { id: 'tall-full', width: 176, height: 176 },
+    ],
+  },
+};
+
+export const COVER_ADAPTIVE_SIZING_PROFILE: AdaptiveCardSizingProfile = {
+  mini: {
+    targets: [{ id: 'cover-compact-strip', width: 170, height: 48 }],
+  },
+  standard: {
+    targets: [{ id: 'cover-standard-controls', width: 188, height: 112 }],
+  },
+  expanded: {
+    targets: [
+      { id: 'cover-wide-full', width: 300, height: 235 },
+      { id: 'cover-tall-full', width: 176, height: 250 },
+    ],
+  },
+};
+
+export const FAN_ADAPTIVE_SIZING_PROFILE: AdaptiveCardSizingProfile = {
+  mini: {
+    targets: [{ id: 'fan-compact-strip', width: 170, height: 48 }],
+  },
+  standard: {
+    targets: [{ id: 'fan-standard-controls', width: 188, height: 112 }],
+  },
+  expanded: {
+    targets: [
+      { id: 'fan-wide-full', width: 300, height: 176 },
+      { id: 'fan-tall-full', width: 176, height: 250 },
+    ],
+  },
+};
+
+export const HUMIDIFIER_ADAPTIVE_SIZING_PROFILE: AdaptiveCardSizingProfile = {
+  mini: {
+    targets: [{ id: 'humidifier-compact-strip', width: 170, height: 48 }],
+  },
+  standard: {
+    targets: [{ id: 'humidifier-standard-controls', width: 188, height: 112 }],
+  },
+  expanded: {
+    targets: [
+      { id: 'humidifier-wide-full', width: 300, height: 176 },
+      { id: 'humidifier-tall-full', width: 176, height: 250 },
     ],
   },
 };
@@ -98,6 +144,123 @@ function spanWidth(w: number, columnWidth: number, gap: number) {
 
 function spanHeight(h: number, rowHeight: number, gap: number) {
   return rowHeight * h + gap * Math.max(0, h - 1);
+}
+
+function physicalSpan(
+  span: { w: number; h: number },
+  target: AdaptiveSizeTarget,
+  geometry: AdaptiveGridGeometry,
+): AdaptiveGridSpan | null {
+  const safeCols = Math.max(1, Math.round(geometry.cols));
+  const maxCols = Math.max(1, Math.min(safeCols, Math.round(geometry.maxCols ?? safeCols)));
+  const columnGap = Math.max(0, geometry.columnGap);
+  const rowGap = Math.max(0, geometry.rowGap);
+  const rowHeight = Math.max(1, geometry.rowHeight);
+  const columnWidth = resolveGridColumnWidth({
+    containerWidth: geometry.containerWidth,
+    cols: safeCols,
+    columnGap,
+    horizontalPadding: geometry.horizontalPadding ?? 0,
+  });
+  if (columnWidth === null) return null;
+  const w = Math.max(1, Math.min(maxCols, Math.round(span.w)));
+  const h = Math.max(1, Math.round(span.h));
+  const physicalWidth = spanWidth(w, columnWidth, columnGap);
+  const physicalHeight = spanHeight(h, rowHeight, rowGap);
+  const rawWidthError = Math.abs(physicalWidth - target.width) / Math.max(target.width, 1);
+  const rawHeightError = Math.abs(physicalHeight - target.height) / Math.max(target.height, 1);
+  return {
+    w,
+    h,
+    target,
+    physicalWidth,
+    physicalHeight,
+    error: rawWidthError + rawHeightError,
+  };
+}
+
+function resolveDeterministicAdaptiveGridSpan({
+  kind,
+  preset,
+  profile,
+  geometry,
+  breakpoint,
+}: {
+  kind: WidgetKind;
+  preset: CardLayoutVariant;
+  profile: AdaptiveCardSizingProfile;
+  geometry: AdaptiveGridGeometry;
+  breakpoint?: DashboardGridBreakpoint;
+}): AdaptiveGridSpan | null {
+  if (!breakpoint) return null;
+  const target = profile[preset]?.targets[0];
+  if (!target) return null;
+
+  if (kind === 'light') {
+    if (preset === 'expanded') {
+      const span =
+        breakpoint === 'xs'
+          ? { w: 1, h: 3 }
+          : breakpoint === '2xl'
+            ? { w: 3, h: 2 }
+            : { w: 2, h: 3 };
+      return physicalSpan(span, target, geometry);
+    }
+    return null;
+  }
+
+  if (kind === 'cover') {
+    if (preset === 'mini') {
+      return physicalSpan(breakpoint === 'xl' || breakpoint === '2xl' ? { w: 2, h: 1 } : { w: 1, h: 1 }, target, geometry);
+    }
+    if (preset === 'standard') {
+      return physicalSpan(breakpoint === 'xs' ? { w: 1, h: 2 } : { w: 2, h: 2 }, target, geometry);
+    }
+    if (preset === 'expanded') {
+      const span = breakpoint === 'xs'
+        ? { w: 2, h: 3 }
+        : breakpoint === 'xl' || breakpoint === '2xl'
+          ? { w: 3, h: 4 }
+          : { w: 2, h: 4 };
+      return physicalSpan(span, target, geometry);
+    }
+  }
+
+  if (kind === 'fan') {
+    if (preset === 'mini') {
+      return physicalSpan(breakpoint === 'xl' || breakpoint === '2xl' ? { w: 2, h: 1 } : { w: 1, h: 1 }, target, geometry);
+    }
+    if (preset === 'standard') {
+      return physicalSpan(breakpoint === 'xs' ? { w: 1, h: 2 } : { w: 2, h: 2 }, target, geometry);
+    }
+    if (preset === 'expanded') {
+      const span = breakpoint === 'xs'
+        ? { w: 2, h: 3 }
+        : breakpoint === 'xl' || breakpoint === '2xl'
+          ? { w: 3, h: 3 }
+          : { w: 2, h: 4 };
+      return physicalSpan(span, target, geometry);
+    }
+  }
+
+  if (kind === 'humidifier') {
+    if (preset === 'mini') {
+      return physicalSpan(breakpoint === 'xl' || breakpoint === '2xl' ? { w: 2, h: 1 } : { w: 1, h: 1 }, target, geometry);
+    }
+    if (preset === 'standard') {
+      return physicalSpan(breakpoint === 'xs' ? { w: 1, h: 2 } : { w: 2, h: 2 }, target, geometry);
+    }
+    if (preset === 'expanded') {
+      const span = breakpoint === 'xs'
+        ? { w: 2, h: 3 }
+        : breakpoint === 'xl' || breakpoint === '2xl'
+          ? { w: 3, h: 3 }
+          : { w: 2, h: 4 };
+      return physicalSpan(span, target, geometry);
+    }
+  }
+
+  return null;
 }
 
 export function resolveAdaptiveGridSpan(
@@ -182,6 +345,7 @@ export function resolveCardPresetSizing({
   geometry,
   legacy,
   isInsideStack = false,
+  breakpoint,
 }: {
   kind: WidgetKind;
   preset: CardLayoutVariant;
@@ -190,6 +354,7 @@ export function resolveCardPresetSizing({
   geometry: AdaptiveGridGeometry;
   legacy: { w: number; h: number };
   isInsideStack?: boolean;
+  breakpoint?: DashboardGridBreakpoint;
 }) {
   if (
     engine !== 'adaptive' ||
@@ -198,7 +363,9 @@ export function resolveCardPresetSizing({
   ) {
     return { ...legacy, engine: 'legacy' as const, adaptive: null };
   }
-  const adaptive = resolveAdaptiveGridSpan(preset, profile, geometry);
+  const adaptive =
+    resolveDeterministicAdaptiveGridSpan({ kind, preset, profile, geometry, breakpoint }) ??
+    resolveAdaptiveGridSpan(preset, profile, geometry);
   if (!adaptive) {
     return { ...legacy, engine: 'legacy' as const, adaptive: null };
   }

@@ -25,6 +25,8 @@ import { CoverControls } from './CoverControls';
 import { SwitchControls } from './SwitchControls';
 import { FanControls } from './FanControls';
 import { HumidifierControls } from './HumidifierControls';
+import { CalendarControls } from './CalendarControls';
+import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { StatusGlow } from '../widgets/micro/StatusGlow';
@@ -271,6 +273,7 @@ interface ContextSidebarProps {
     supportsStopTilt?: boolean;
     rawAttributes?: Record<string, unknown>;
   };
+  calendarAgenda: CalendarAgendaController;
   weatherConfig?: {
     unit?: 'C' | 'F';
     forecastType?: 'daily' | 'hourly' | 'twice_daily';
@@ -444,6 +447,7 @@ export function ContextSidebar({
   alarm,
   lock,
   cover,
+  calendarAgenda,
   weatherConfig,
   onToggleMicroWidget,
   onSetMicroSliderValue,
@@ -785,6 +789,14 @@ export function ContextSidebar({
           onCloseTilt={actions.closeCoverTilt}
           onStopTilt={actions.stopCoverTilt}
           onSetTiltPosition={actions.setCoverTiltPosition}
+        />
+      ) : null}
+
+      {activeDevice?.type === 'calendar' ? (
+        <CalendarControls
+          name={activeDevice.name}
+          supportedFeatures={activeDevice.calendarSupportedFeatures ?? 0}
+          agenda={calendarAgenda}
         />
       ) : null}
 

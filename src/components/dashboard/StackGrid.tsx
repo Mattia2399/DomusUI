@@ -56,6 +56,7 @@ const STACK_WIDGET_MIN_WIDTH_PX: Record<Widget['kind'], number> = {
   vacuum: 208,
   lock: 168,
   cover: 168,
+  calendar: 208,
   members: 232,
 };
 const ADAPTIVE_SPAN_ENABLE_COL_WIDTH_PX = 78;

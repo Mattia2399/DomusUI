@@ -5,6 +5,7 @@ import {
   Blinds,
   Bot,
   Camera,
+  CalendarDays,
   Check,
   CloudSun,
   Fan,
@@ -203,14 +204,14 @@ const CATALOG_FAMILY_KEYS: Record<CatalogWidgetFamily, TranslationKey> = {
 };
 
 const WIDGET_LABEL_KEYS: Record<WidgetKind, TranslationKey> = {
-  light: 'home.catalog.widget.light', switch: 'home.catalog.widget.switch', fan: 'home.catalog.widget.fan', humidifier: 'home.catalog.widget.humidifier', climate: 'home.catalog.widget.climate', camera: 'home.catalog.widget.camera', sensor: 'home.catalog.widget.sensor', media: 'home.catalog.widget.media', alarm: 'home.catalog.widget.alarm', vacuum: 'home.catalog.widget.vacuum', lock: 'home.catalog.widget.lock', cover: 'home.catalog.widget.cover', members: 'home.catalog.widget.members',
+  light: 'home.catalog.widget.light', switch: 'home.catalog.widget.switch', fan: 'home.catalog.widget.fan', humidifier: 'home.catalog.widget.humidifier', climate: 'home.catalog.widget.climate', camera: 'home.catalog.widget.camera', sensor: 'home.catalog.widget.sensor', media: 'home.catalog.widget.media', alarm: 'home.catalog.widget.alarm', vacuum: 'home.catalog.widget.vacuum', lock: 'home.catalog.widget.lock', cover: 'home.catalog.widget.cover', calendar: 'home.catalog.widget.calendar', members: 'home.catalog.widget.members',
 };
 
 const WIDGET_CATALOG_META: Record<
   WidgetKind,
   { descriptionKey: TranslationKey; family: CatalogWidgetFamily; icon: LucideIcon }
 > = {
-  light: { descriptionKey: 'home.catalog.description.light', family: 'controls', icon: Lightbulb }, switch: { descriptionKey: 'home.catalog.description.switch', family: 'controls', icon: ToggleRight }, fan: { descriptionKey: 'home.catalog.description.fan', family: 'controls', icon: Fan }, humidifier: { descriptionKey: 'home.catalog.description.humidifier', family: 'comfort', icon: Droplets }, cover: { descriptionKey: 'home.catalog.description.cover', family: 'controls', icon: Blinds }, lock: { descriptionKey: 'home.catalog.description.lock', family: 'controls', icon: LockKeyhole }, climate: { descriptionKey: 'home.catalog.description.climate', family: 'comfort', icon: Thermometer }, sensor: { descriptionKey: 'home.catalog.description.sensor', family: 'comfort', icon: Activity }, alarm: { descriptionKey: 'home.catalog.description.alarm', family: 'security', icon: Shield }, camera: { descriptionKey: 'home.catalog.description.camera', family: 'security', icon: Camera }, media: { descriptionKey: 'home.catalog.description.media', family: 'entertainment', icon: Music2 }, vacuum: { descriptionKey: 'home.catalog.description.vacuum', family: 'services', icon: Bot }, members: { descriptionKey: 'home.catalog.description.members', family: 'services', icon: Users },
+  light: { descriptionKey: 'home.catalog.description.light', family: 'controls', icon: Lightbulb }, switch: { descriptionKey: 'home.catalog.description.switch', family: 'controls', icon: ToggleRight }, fan: { descriptionKey: 'home.catalog.description.fan', family: 'controls', icon: Fan }, humidifier: { descriptionKey: 'home.catalog.description.humidifier', family: 'comfort', icon: Droplets }, cover: { descriptionKey: 'home.catalog.description.cover', family: 'controls', icon: Blinds }, lock: { descriptionKey: 'home.catalog.description.lock', family: 'controls', icon: LockKeyhole }, climate: { descriptionKey: 'home.catalog.description.climate', family: 'comfort', icon: Thermometer }, sensor: { descriptionKey: 'home.catalog.description.sensor', family: 'comfort', icon: Activity }, alarm: { descriptionKey: 'home.catalog.description.alarm', family: 'security', icon: Shield }, camera: { descriptionKey: 'home.catalog.description.camera', family: 'security', icon: Camera }, media: { descriptionKey: 'home.catalog.description.media', family: 'entertainment', icon: Music2 }, vacuum: { descriptionKey: 'home.catalog.description.vacuum', family: 'services', icon: Bot }, calendar: { descriptionKey: 'home.catalog.description.calendar', family: 'services', icon: CalendarDays }, members: { descriptionKey: 'home.catalog.description.members', family: 'services', icon: Users },
 };
 
 const SECTION_CATALOG_META: Record<SectionKind, { descriptionKey: TranslationKey; icon: LucideIcon }> = {
@@ -1771,6 +1772,14 @@ export function GridCanvas({
       ),
     [rootWidgets],
   );
+  const rootFanHumidifierKindsById = useMemo(
+    () => new Map(
+      rootWidgets
+        .filter((widget) => widget.kind === 'fan' || widget.kind === 'humidifier')
+        .map((widget) => [widget.id, widget.kind as 'fan' | 'humidifier']),
+    ),
+    [rootWidgets],
+  );
   const rootScenesSectionIds = useMemo(
     () => new Set(sections.filter((section) => section.kind === 'scenes').map((section) => section.id)),
     [sections],
@@ -1873,9 +1882,8 @@ export function GridCanvas({
     return Math.max(1, (safeWidth - totalGap) / Math.max(1, gridEngineActiveCols));
   }, [gridEngineActiveBreakpoint, gridEngineActiveCols, runtimeGridEffectiveWidth]);
   const normalizeRootLayoutForBreakpoint = useCallback(
-    (layouts: GridItem[], breakpoint: GridBreakpoint, cols: number) =>
-      compactLayoutUp(
-        enforceRootWidgetSpans(
+    (layouts: GridItem[], breakpoint: GridBreakpoint, cols: number) => {
+      const enforced = enforceRootWidgetSpans(
           normalizeRuntimeLayout(layouts, cols),
           breakpoint,
           cols,
@@ -1894,9 +1902,25 @@ export function GridCanvas({
           rootVacuumWidgetIds,
           rootLockWidgetIds,
           rootCoverWidgetIds,
-        ),
-        cols,
-      ),
+      );
+      if (breakpoint !== 'xs' || rootFanHumidifierKindsById.size === 0) {
+        return compactLayoutUp(enforced, cols);
+      }
+      const aligned = enforced.map((item) => {
+        const kind = rootFanHumidifierKindsById.get(item.i);
+        if (!kind || widgetLayoutOverrides[item.i]?.xs) return item;
+        if (widgetTypeLayoutOverrides[kind]?.xs) {
+          const span = resolveWidgetTypeLayoutSpan(kind, 'xs', widgetTypeLayoutOverrides);
+          return { ...item, w: Math.min(cols, span.w), h: span.h };
+        }
+        // Older default layouts saved the visually compact 2×1 shape as Standard.
+        return item.w === 2 && item.h === 1 ? { ...item, w: 1, h: 2 } : item;
+      });
+      const hasCollisions = aligned.some((item, index) =>
+        aligned.slice(0, index).some((previous) => intersects(item, previous)),
+      );
+      return hasCollisions ? packLayoutDense(aligned, cols) : compactLayoutUp(aligned, cols);
+    },
     [
       rootLightWidgetStateById,
       rootSwitchWidgetIds,
@@ -1912,6 +1936,7 @@ export function GridCanvas({
       rootVacuumWidgetIds,
       rootLockWidgetIds,
       rootCoverWidgetIds,
+      rootFanHumidifierKindsById,
     ],
   );
   useEffect(() => {

@@ -436,7 +436,7 @@ test('Demo keeps an edited root layout across route changes and refresh', async 
   await enterEditMode(page);
   await page.locator('.sections-grid > .react-grid-item').filter({ hasText: 'Root Light A' }).first().click({ position: { x: 100, y: 28 } });
   await page.getByRole('radio', { name: 'Layout', exact: true }).click();
-  await page.getByRole('button', { name: /Mini, 1 per 1/ }).click();
+  await page.getByRole('button', { name: /Mini, 2 per 1/ }).click();
   await page.getByLabel('Attiva o disattiva modalità modifica').filter({ visible: true }).first().click();
   await page.getByRole('button', { name: 'Salva ed esci', exact: true }).click();
   await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
@@ -497,11 +497,11 @@ test('GridEngine preserves XL while editing XS/SM and keeps stack reflow stable'
 
   const rootLightBeforeLayoutPicker = findByText(xlRootAfterClick, 'Root Light A');
   await page.getByRole('radio', { name: 'Layout', exact: true }).click();
-  await page.getByRole('button', { name: /Mini, 1 per 1/ }).click();
+  await page.getByRole('button', { name: /Mini, 2 per 1/ }).click();
   await page.waitForTimeout(350);
   const xlRootAfterLayoutPicker = await readRootPositions(page);
   const rootLightAfterLayoutPicker = findByText(xlRootAfterLayoutPicker, 'Root Light A');
-  expect(rootLightAfterLayoutPicker.w).toBeLessThan(rootLightBeforeLayoutPicker.w);
+  expect(rootLightAfterLayoutPicker.w).toBeLessThanOrEqual(rootLightBeforeLayoutPicker.w);
   expect(rootLightAfterLayoutPicker.h).toBeLessThanOrEqual(rootLightBeforeLayoutPicker.h);
 
   await expect(page.getByLabel('Muovi Stack Light A')).toBeVisible({ timeout: 5000 });

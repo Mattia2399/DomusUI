@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   ALARM_CARD_CAPABILITY,
+  CALENDAR_CARD_CAPABILITY,
   CAMERA_CARD_CAPABILITY,
   CLIMATE_CARD_CAPABILITY,
   COVER_CARD_CAPABILITY,
+  FAN_CARD_CAPABILITY,
   getCardCapability,
   LIGHT_CARD_CAPABILITY,
+  HUMIDIFIER_CARD_CAPABILITY,
   LOCK_CARD_CAPABILITY,
   MEMBERS_CARD_CAPABILITY,
   MEDIA_CARD_CAPABILITY,
@@ -31,6 +34,7 @@ describe('cardCapabilityRegistry', () => {
       CAMERA_CARD_CAPABILITY,
       VACUUM_CARD_CAPABILITY,
       MEMBERS_CARD_CAPABILITY,
+      CALENDAR_CARD_CAPABILITY,
     ];
 
     capabilities.forEach((capability) => {
@@ -58,6 +62,27 @@ describe('cardCapabilityRegistry', () => {
     expect(getCardCapability('media')).toBe(MEDIA_CARD_CAPABILITY);
     expect(getCardCapability('vacuum')).toBe(VACUUM_CARD_CAPABILITY);
     expect(getCardCapability('members')).toBe(MEMBERS_CARD_CAPABILITY);
+    expect(getCardCapability('calendar')).toBe(CALENDAR_CARD_CAPABILITY);
+  });
+
+  it('keeps the Calendar responsive matrix deterministic', () => {
+    expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('mini', { breakpoint: 'xs', cols: 2, isInsideStack: false })).toEqual({ w: 1, h: 1 });
+    expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('standard', { breakpoint: 'xs', cols: 2, isInsideStack: false })).toEqual({ w: 1, h: 3 });
+    expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('expanded', { breakpoint: 'xs', cols: 2, isInsideStack: false })).toEqual({ w: 2, h: 3 });
+    expect(CALENDAR_CARD_CAPABILITY.resolveDisplayVariant({ breakpoint: 'xs', layout: { w: 1, h: 3 }, isInsideStack: false })).toBe('standard');
+    expect(CALENDAR_CARD_CAPABILITY.resolveDisplayVariant({ breakpoint: 'xs', layout: { w: 2, h: 3 }, isInsideStack: false })).toBe('full');
+    expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('mini', { breakpoint: 'sm', cols: 4, isInsideStack: false })).toEqual({ w: 1, h: 1 });
+    expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('standard', { breakpoint: 'sm', cols: 4, isInsideStack: false })).toEqual({ w: 2, h: 3 });
+    expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('expanded', { breakpoint: 'sm', cols: 4, isInsideStack: false })).toEqual({ w: 4, h: 4 });
+    expect(CALENDAR_CARD_CAPABILITY.resolveDisplayVariant({ breakpoint: 'sm', layout: { w: 2, h: 3 }, isInsideStack: false })).toBe('standard');
+    expect(CALENDAR_CARD_CAPABILITY.resolveDisplayVariant({ breakpoint: 'sm', layout: { w: 4, h: 4 }, isInsideStack: false })).toBe('full');
+    (['md', 'lg', 'xl', '2xl'] as const).forEach((breakpoint) => {
+      expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('mini', { breakpoint, cols: 12, isInsideStack: false })).toEqual({ w: 1, h: 1 });
+      expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('standard', { breakpoint, cols: 12, isInsideStack: false })).toEqual({ w: 2, h: 3 });
+      expect(CALENDAR_CARD_CAPABILITY.resolveVariantTarget('expanded', { breakpoint, cols: 12, isInsideStack: false })).toEqual({ w: 4, h: 4 });
+      expect(CALENDAR_CARD_CAPABILITY.resolveDisplayVariant({ breakpoint, layout: { w: 2, h: 3 }, isInsideStack: false })).toBe('standard');
+      expect(CALENDAR_CARD_CAPABILITY.resolveDisplayVariant({ breakpoint, layout: { w: 4, h: 4 }, isInsideStack: false })).toBe('full');
+    });
   });
 
   it('falls back safely when a shared layout contains a widget kind from a newer build', () => {
@@ -97,6 +122,23 @@ describe('cardCapabilityRegistry', () => {
     expect(LIGHT_CARD_CAPABILITY.resolvePixelDisplayVariant({ width: 319, height: 104 })).toBe('standard');
     expect(LIGHT_CARD_CAPABILITY.resolvePixelDisplayVariant({ width: 320, height: 104 })).toBe('full');
     expect(LIGHT_CARD_CAPABILITY.resolvePixelDisplayVariant({ width: 176, height: 160 })).toBe('full');
+  });
+
+  it('keeps Fan and Humidifier Standard at one column and two rows on xs in both sizing engines', () => {
+    for (const capability of [FAN_CARD_CAPABILITY, HUMIDIFIER_CARD_CAPABILITY]) {
+      expect(capability.defaultSpans.xs).toEqual({ w: 1, h: 2 });
+      expect(capability.resolveVariantTarget('standard', {
+        cols: 2,
+        breakpoint: 'xs',
+        isInsideStack: false,
+      })).toEqual({ w: 1, h: 2 });
+      expect(capability.resolveDisplayVariant({
+        breakpoint: 'xs',
+        layout: { w: 1, h: 2 },
+        isInsideStack: false,
+      })).toBe('standard');
+      expect(capability.resolvePixelDisplayVariant({ width: 142, height: 112 })).toBe('standard');
+    }
   });
 
   it('resolves Sensor targets without offering a root-only full width inside a stack', () => {
@@ -154,7 +196,7 @@ describe('cardCapabilityRegistry', () => {
         layout: { w: 2, h: 1 },
         isInsideStack: false,
       }),
-    ).toBe('compact');
+    ).toBe('mini');
     expect(
       LIGHT_CARD_CAPABILITY.resolveDisplayVariant({
         breakpoint: 'xl',

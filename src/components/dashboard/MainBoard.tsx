@@ -80,6 +80,10 @@ import { createFanStateMocks } from '../widgets/fanMock';
 import { resolveFanModel, type FanPending } from '../widgets/fanModel';
 import { useHumidifierCommands, enrichHumidifierPending } from './mainboard/useHumidifierCommands';
 import { createHumidifierStateMocks } from '../widgets/humidifierMock';
+import { createCalendarStateMocks } from '../widgets/calendarMock';
+import { useCalendarAgenda } from '../../hooks/useCalendarAgenda';
+import { useCalendarCardAgendas } from '../../hooks/useCalendarCardAgendas';
+import { CALENDAR_UPCOMING_EVENTS_ATTRIBUTE, type CalendarAgendaEvent } from '../../services/calendarClient';
 import { resolveHumidifierModel, type HumidifierPending } from '../widgets/humidifierModel';
 import {
   CLIMATE_PENDING_TTL_MS,
@@ -137,6 +141,7 @@ import { hasFavoriteGridProjection, resolveFavoriteGridTargetSectionId } from '.
 import { LayoutDashboard, Lightbulb, Menu, MousePointerClick, PanelRightOpen, PencilRuler, Plus, Settings2, X } from 'lucide-react';
 import {
   normalizeWidgetTypeLayoutOverrides,
+  resolveWidgetTypeLayoutSpan,
   setActiveWidgetTypeLayoutOverrides,
 } from './dashboardBreakpointConfig';
 import type {
@@ -1803,6 +1808,7 @@ export function MainBoard() {
   const [fanStateMocks, setFanStateMocks] = useState<MockEntityStateMap>(createFanStateMocks);
   const [fanPendingByEntity, setFanPendingByEntity] = useState<Record<string, FanPending>>({});
   const [humidifierStateMocks, setHumidifierStateMocks] = useState<MockEntityStateMap>(createHumidifierStateMocks);
+  const [calendarStateMocks] = useState<MockEntityStateMap>(createCalendarStateMocks);
   const [humidifierPendingByEntity, setHumidifierPendingByEntity] = useState<Record<string, HumidifierPending>>({});
   const {
     lightTogglePendingByEntity,
@@ -2011,6 +2017,7 @@ export function MainBoard() {
         ...vacuumStateMocks,
         ...fanStateMocks,
         ...humidifierStateMocks,
+        ...calendarStateMocks,
         [CLIMATE_LIVING_ROOM_MOCK_ENTITY_ID]: livingRoomClimateMock,
         [HOME_ALARM_MOCK_ENTITY_ID]: homeAlarmMock,
       };
@@ -2321,7 +2328,7 @@ export function MainBoard() {
       if (!haStates[HOME_ALARM_MOCK_ENTITY_ID]) {
         ensureNextStates()[HOME_ALARM_MOCK_ENTITY_ID] = homeAlarmMock;
       }
-      [mediaPlayerStateMocks, coverStateMocks, lockStateMocks, cameraStateMocks, vacuumStateMocks, fanStateMocks, humidifierStateMocks]
+      [mediaPlayerStateMocks, coverStateMocks, lockStateMocks, cameraStateMocks, vacuumStateMocks, fanStateMocks, humidifierStateMocks, calendarStateMocks]
         .forEach((fixtureMap) => {
           Object.entries(fixtureMap).forEach(([entityId, entity]) => {
             if (!haStates[entityId]) {
@@ -2332,7 +2339,18 @@ export function MainBoard() {
     }
 
     return nextStates ?? haStates;
-  }, [alarmPendingByEntity, cameraStateMocks, climatePendingByEntity, coverPendingByEntity, coverStateMocks, effectiveRuntimeMode, fanPendingByEntity, fanStateMocks, haStates, homeAlarmMock, humidifierPendingByEntity, humidifierStateMocks, isHaConnected, lightBrightnessPendingByEntity, lightColorPendingByEntity, lightTogglePendingByEntity, livingRoomClimateMock, lockPendingByEntity, lockStateMocks, mediaPlayerStateMocks, switchTogglePendingByEntity, vacuumStateMocks]);
+  }, [alarmPendingByEntity, calendarStateMocks, cameraStateMocks, climatePendingByEntity, coverPendingByEntity, coverStateMocks, effectiveRuntimeMode, fanPendingByEntity, fanStateMocks, haStates, homeAlarmMock, humidifierPendingByEntity, humidifierStateMocks, isHaConnected, lightBrightnessPendingByEntity, lightColorPendingByEntity, lightTogglePendingByEntity, livingRoomClimateMock, lockPendingByEntity, lockStateMocks, mediaPlayerStateMocks, switchTogglePendingByEntity, vacuumStateMocks]);
+  const dashboardCalendarEntityIds = useMemo(
+    () => Array.from(new Set(widgets.filter((widget) => widget.kind === 'calendar' && widget.entityId).map((widget) => widget.entityId))),
+    [widgets],
+  );
+  const calendarCardEventsByEntity = useCalendarCardAgendas({
+    entityIds: dashboardCalendarEntityIds,
+    enabled: dashboardCalendarEntityIds.length > 0 && (effectiveRuntimeMode === 'demo' || isHaConnected),
+    isDemo: effectiveRuntimeMode === 'demo',
+    demoStates: calendarStateMocks,
+    subscribeApi: subscribeHaApi,
+  });
   const haStatesForUi = useMemo<MockEntityStateMap>(() => {
     let enrichedStates: MockEntityStateMap | null = null;
     Object.values(commandCoordinator.statuses)
@@ -2372,8 +2390,20 @@ export function MainBoard() {
       if (!enrichedStates) enrichedStates = { ...baseHaStatesForUi };
       enrichedStates[entityId] = enrichVacuumEntity(currentEntity, snapshot);
     });
+    Object.entries(calendarCardEventsByEntity).forEach(([entityId, events]) => {
+      const entity = (enrichedStates ?? baseHaStatesForUi)[entityId];
+      if (!entity) return;
+      if (!enrichedStates) enrichedStates = { ...baseHaStatesForUi };
+      enrichedStates[entityId] = {
+        ...entity,
+        rawAttributes: {
+          ...(entity.rawAttributes ?? {}),
+          [CALENDAR_UPCOMING_EVENTS_ATTRIBUTE]: events,
+        },
+      };
+    });
     return enrichedStates ?? baseHaStatesForUi;
-  }, [baseHaStatesForUi, commandCoordinator.statuses, haDeviceRegistry, haEntityRegistry, haUrl]);
+  }, [baseHaStatesForUi, calendarCardEventsByEntity, commandCoordinator.statuses, haDeviceRegistry, haEntityRegistry, haUrl]);
   const weatherConfigSection = useMemo(() => {
     const greetingWithWeather = sections.find(
       (section) => section.kind === 'greeting' && (section.showWeather ?? false),
@@ -2400,6 +2430,34 @@ export function MainBoard() {
     haCallApi: callHaApi,
   });
   const [activeDevice, setActiveDevice] = useState<ActiveDevice | null>(null);
+  const activeCalendarEntityId = activeDevice?.type === 'calendar'
+    ? activeDevice.calendarEntityId ?? ''
+    : '';
+  const demoCalendarEvents = useMemo<CalendarAgendaEvent[]>(() => {
+    const source = calendarStateMocks['calendar.domus_ui'];
+    const attributes = source?.rawAttributes ?? {};
+    const start = typeof attributes.start_time === 'string' ? attributes.start_time : '';
+    const end = typeof attributes.end_time === 'string' ? attributes.end_time : '';
+    const summary = typeof attributes.message === 'string' ? attributes.message : '';
+    if (!start || !end || !summary) return [];
+    return [{
+      uid: 'demo-calendar-event',
+      summary,
+      description: typeof attributes.description === 'string' ? attributes.description : undefined,
+      location: typeof attributes.location === 'string' ? attributes.location : undefined,
+      start,
+      end,
+      allDay: attributes.all_day === true,
+    }];
+  }, [calendarStateMocks]);
+  const calendarAgenda = useCalendarAgenda({
+    entityId: activeCalendarEntityId,
+    enabled: activeDevice?.type === 'calendar',
+    isDemo: effectiveRuntimeMode === 'demo',
+    demoEvents: demoCalendarEvents,
+    callApi: callHaApi,
+    subscribeApi: subscribeHaApi,
+  });
   const [pendingQuickAlarmAction, setPendingQuickAlarmAction] = useState<AlarmQuickAuthAction | null>(null);
   const [pendingQuickLockAction, setPendingQuickLockAction] = useState<LockQuickAuthAction | null>(null);
   const [hasMountedQuickSecurityAuth, setHasMountedQuickSecurityAuth] = useState(false);
@@ -3041,6 +3099,10 @@ export function MainBoard() {
     if (widget.kind === 'cover') {
       return resolveCoverLayout(draftWidget);
     }
+    if (widget.kind === 'calendar') {
+      return resolveWidgetMinimumLayout(draftWidget, 1, 2);
+    }
+
     if (widget.kind === 'members') {
       return resolveMembersLayout(draftWidget);
     }
@@ -9457,6 +9519,24 @@ export function MainBoard() {
     const liveEntity = isHaConnected ? haStatesForUi[widget.entityId] : undefined;
     const microWidgets = widget.widgets ?? [];
 
+    if (widget.kind === 'calendar') {
+      const calendarEntity = liveEntity ?? haStatesForUi[widget.entityId];
+      const rawAttributes = calendarEntity?.rawAttributes;
+      const supportedFeatures = typeof calendarEntity?.supportedFeatures === 'number'
+        ? calendarEntity.supportedFeatures
+        : toFiniteNumber(rawAttributes?.supported_features) ?? 0;
+      setActiveDevice({
+        id: widget.id,
+        type: 'calendar',
+        name: widget.title || toTrimmedString(rawAttributes?.friendly_name) || t('home.catalog.widget.calendar'),
+        microWidgets,
+        status: calendarEntity?.state === 'on' ? t('calendar.panel.active') : t('calendar.panel.upcoming'),
+        calendarEntityId: widget.entityId,
+        calendarSupportedFeatures: supportedFeatures,
+      });
+      return;
+    }
+
     if (widget.kind === 'members') {
       setActiveDevice({
         id: widget.id,
@@ -9981,6 +10061,8 @@ export function MainBoard() {
               ? VACUUM_WIDGET_DEFAULT_WIDTH
               : kind === 'cover'
                 ? COVER_WIDGET_MIN_WIDTH
+                : kind === 'calendar'
+                  ? resolveWidgetTypeLayoutSpan('calendar', canvasGridBreakpoint).w
                 : kind === 'members'
                   ? MEMBERS_WIDGET_MIN_WIDTH
                 : 2;
@@ -9999,6 +10081,8 @@ export function MainBoard() {
                 ? VACUUM_WIDGET_DEFAULT_HEIGHT
               : kind === 'cover'
                 ? COVER_WIDGET_MIN_HEIGHT
+                : kind === 'calendar'
+                  ? resolveWidgetTypeLayoutSpan('calendar', canvasGridBreakpoint).h
                 : kind === 'members'
                   ? MEMBERS_WIDGET_MIN_HEIGHT
                 : kind === 'media'
@@ -10097,7 +10181,7 @@ export function MainBoard() {
             ? '%'
             : kind === 'climate'
               ? 'C'
-              : kind === 'alarm' || kind === 'lock' || kind === 'switch' || kind === 'members'
+              : kind === 'alarm' || kind === 'lock' || kind === 'switch' || kind === 'calendar' || kind === 'members'
                 ? ''
                 : '%',
         ...(kind === 'alarm' || kind === 'lock'
@@ -11639,6 +11723,7 @@ export function MainBoard() {
               vacuum={contextVacuum}
               lock={contextLock}
               cover={contextCover}
+              calendarAgenda={calendarAgenda}
               vacuumAreas={contextVacuum.areaOptions}
               actions={{
                 toggleLamp: () => toggleLightEntity(),
@@ -11738,6 +11823,8 @@ export function MainBoard() {
               activeGridBreakpoint={canvasGridBreakpoint}
               activeGridWidth={canvasGridWidth}
               cardSizingEngine={cardSizingEngine}
+              showCardSizingEngineControl={developerMode || effectiveRuntimeMode === 'demo'}
+              onCardSizingEngineChange={setCardSizingEngine}
               widgetTypeLayoutOverrides={widgetTypeLayoutOverrides}
               widgetLayoutOverrides={widgetLayoutOverrides}
               entityOptions={entityOptions}

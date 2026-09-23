@@ -29,5 +29,5 @@ export function writeStoredCardSizingEngine(
 }
 
 export function supportsAdaptiveSizing(kind: WidgetKind) {
-  return kind === 'light';
+  return kind === 'light' || kind === 'cover' || kind === 'fan' || kind === 'humidifier';
 }

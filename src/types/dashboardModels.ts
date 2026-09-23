@@ -11,6 +11,7 @@ export type WidgetKind =
   | 'vacuum'
   | 'lock'
   | 'cover'
+  | 'calendar'
   | 'members';
 export type SectionKind = 'greeting' | 'weather' | 'scenes' | 'stack-vertical' | 'stack-horizontal' | 'stack-grid';
 export type WidgetCatalogDestination =
@@ -186,6 +187,7 @@ export const WIDGET_CATALOG: Array<{ kind: WidgetKind; label: string }> = [
   { kind: 'vacuum', label: 'Vacuum' },
   { kind: 'lock', label: 'Lock' },
   { kind: 'cover', label: 'Tapparella' },
+  { kind: 'calendar', label: 'Calendario' },
   { kind: 'members', label: 'Membri' },
 ];
 

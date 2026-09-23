@@ -8,6 +8,7 @@ import {
 import {
   ALARM_CARD_CAPABILITY,
   CAMERA_CARD_CAPABILITY,
+  CALENDAR_CARD_CAPABILITY,
   CLIMATE_CARD_CAPABILITY,
   COVER_CARD_CAPABILITY,
   FAN_CARD_CAPABILITY,
@@ -41,6 +42,7 @@ const WIDGET_KIND_ORDER: WidgetKind[] = [
   'vacuum',
   'lock',
   'cover',
+  'calendar',
   'members',
 ];
 const GRID_BREAKPOINTS: readonly GridEngineBreakpoint[] = DASHBOARD_GRID_BREAKPOINT_ORDER;
@@ -227,6 +229,7 @@ const DEFAULT_WIDGET_SPANS_BY_KIND: Record<Exclude<WidgetKind, 'light'>, Record<
   vacuum: DEFAULT_VACUUM_WIDGET_SPAN_BY_BREAKPOINT,
   lock: DEFAULT_LOCK_WIDGET_SPAN_BY_BREAKPOINT,
   cover: DEFAULT_COVER_WIDGET_SPAN_BY_BREAKPOINT,
+  calendar: CALENDAR_CARD_CAPABILITY.defaultSpans,
   members: DEFAULT_MEMBERS_WIDGET_SPAN_BY_BREAKPOINT,
 };
 

@@ -98,6 +98,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'revision_history',
   'dashboard_reset_marker',
   'irrigation_core',
+  'calendar_v1',
   'host_navigation',
 ]);
 
@@ -164,6 +165,10 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/irrigation/resume',
   'domusos/irrigation/stop_all',
   'domusos/irrigation/prepare_legacy_removal',
+  'calendar/event/subscribe',
+  'calendar/event/create',
+  'calendar/event/update',
+  'calendar/event/delete',
 ]);
 
 export function resolvePanelBridgeHeartbeatStatus(elapsedMs: number): 'connected' | 'reconnecting' | 'offline' {
@@ -202,6 +207,35 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});
+  }
+  if (message.type.startsWith('calendar/event/')) {
+    if (typeof message.entity_id !== 'string' || !/^calendar\.[a-z0-9_]+$/.test(message.entity_id)) {
+      return false;
+    }
+    if (message.type === 'calendar/event/subscribe') {
+      return typeof message.start === 'string' && Number.isFinite(Date.parse(message.start)) &&
+        typeof message.end === 'string' && Number.isFinite(Date.parse(message.end));
+    }
+    if (message.type === 'calendar/event/delete') {
+      return typeof message.uid === 'string' && message.uid.length > 0 && message.uid.length <= 512;
+    }
+    if (message.type === 'calendar/event/update' &&
+        (typeof message.uid !== 'string' || message.uid.length === 0 || message.uid.length > 512)) {
+      return false;
+    }
+    if (!isRecord(message.event) ||
+        typeof message.event.start !== 'string' ||
+        typeof message.event.end !== 'string' ||
+        typeof message.event.summary !== 'string' ||
+        message.event.summary.trim().length === 0 ||
+        message.event.summary.length > 512) {
+      return false;
+    }
+    try {
+      return JSON.stringify(message.event).length <= 20_000;
+    } catch {
+      return false;
+    }
   }
   if (message.type === 'get_panels') {
     return Object.keys(message).every((key) => key === 'type');
@@ -764,7 +798,8 @@ export function useHaPanelBridgeConnection() {
       message: Record<string, unknown>,
       callback: (event: TEvent) => void,
     ) => {
-      if (!validatePanelApiMessage(message) || message.type !== 'domusos/irrigation/subscribe') {
+      if (!validatePanelApiMessage(message) ||
+          (message.type !== 'domusos/irrigation/subscribe' && message.type !== 'calendar/event/subscribe')) {
         throw new Error('Sottoscrizione Home Assistant non ammessa dal bridge.');
       }
       if (!isInIframe || !isManagedByParent || isPaused || status !== 'connected') {

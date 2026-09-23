@@ -64,6 +64,7 @@ describe('Fan card', () => {
     const { getByRole, container } = render(
       <FanCard
         widget={widget}
+        displayVariant="full"
         entity={{ state: 'on', supportedFeatures: 63, rawAttributes: {
           percentage: 50,
           speed_count: 4,
@@ -84,9 +85,11 @@ describe('Fan card', () => {
     );
 
     expect(container.querySelector('.device-control-card__toggle')).not.toBeNull();
+    expect(container.querySelector('.fan-card__control-label')?.textContent).toBe('Velocità');
     fireEvent.click(getByRole('button', { name: 'Spegni ventilatore' }));
     expect(onPowerToggle).toHaveBeenCalledOnce();
     fireEvent.click(getByRole('button', { name: 'Modalità' }));
+    expect(container.querySelector('.fan-card__control-label')?.textContent).toBe('Modalità');
     expect(onOpen).not.toHaveBeenCalled();
     expect(getByRole('radiogroup', { name: 'Modalità' })).not.toBeNull();
     expect(container.querySelector('.card-control-track--segments')).not.toBeNull();
@@ -94,7 +97,10 @@ describe('Fan card', () => {
     fireEvent.click(getByRole('radio', { name: 'breeze' }));
     expect(onPresetChange).toHaveBeenCalledWith('breeze');
     fireEvent.click(getByRole('button', { name: 'Oscillazione' }));
+    expect(container.querySelector('.fan-card__control-label')?.textContent).toBe('Oscillazione');
     fireEvent.click(getByRole('radio', { name: 'Attiva' }));
     expect(onOscillationChange).toHaveBeenCalledWith(true);
+    fireEvent.click(getByRole('button', { name: 'Direzione' }));
+    expect(container.querySelector('.fan-card__control-label')?.textContent).toBe('Direzione');
   });
 });

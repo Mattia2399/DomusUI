@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Blinds, DoorOpen, SlidersHorizontal, Square } from 'lucide-react';
 import GlassSlider from '../ui/GlassSlider';
 import type { CoverCardModel } from './coverCardModel';
+import type { WidgetDisplayVariant } from './widgetDisplayVariant';
+import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
 import './CoverCard.css';
 import { useI18n } from '../../i18n/I18nProvider';
 
@@ -9,6 +11,8 @@ type CoverCardViewProps = {
   model: CoverCardModel;
   isSelected: boolean;
   isEditMode: boolean;
+  displayVariant?: WidgetDisplayVariant;
+  gridBreakpoint?: GridEngineBreakpoint;
   rootRef?: React.Ref<HTMLDivElement>;
   onOpen: () => void;
   onPositionChange?: (position: number) => void;
@@ -58,6 +62,8 @@ export function CoverCardView({
   model,
   isSelected,
   isEditMode,
+  displayVariant,
+  gridBreakpoint,
   rootRef,
   onOpen,
   onPositionChange,
@@ -250,6 +256,8 @@ export function CoverCardView({
       data-cover-has-position={model.supportsSetPosition ? 'true' : 'false'}
       data-cover-has-actions={hasQuickActions ? 'true' : 'false'}
       data-cover-control-mode={effectiveControlMode}
+      data-cover-display-variant={displayVariant}
+      data-cover-breakpoint={gridBreakpoint}
       data-cover-pending={model.pending ? 'true' : 'false'}
       style={style}
       onClick={(event) => {

@@ -2,8 +2,8 @@
 
 Se installi la dashboard come `panel_custom` in Home Assistant, puoi evitare token/OAuth dentro l'iframe e usare direttamente la sessione HA gia autenticata del parent.
 
-Il messaggio `ha-panel-navigate-home` porta l'utente alla panoramica nativa `/lovelace`: cambia soltanto la route corrente e non modifica la preferenza personale `default_panel`.
-Durante lo sviluppo standalone, Domus UI offre la stessa azione quando è collegata in modalità reale e apre `/lovelace` sull'URL Home Assistant configurato.
+Il messaggio `ha-panel-navigate-home` porta l'utente all'interfaccia nativa usando il router pubblico del contenitore `ha-panel-custom`. La destinazione preferita è `/home/overview` quando il pannello Home è disponibile, altrimenti `/lovelace` o un altro pannello nativo effettivamente registrato. L'azione cambia soltanto la route corrente e non modifica la preferenza personale `default_panel`.
+Durante lo sviluppo standalone, dove Domus UI non riceve l'elenco dei pannelli dal parent, l'azione continua ad aprire `/lovelace` sull'URL Home Assistant configurato.
 
 Il valore `name` in `configuration.yaml` deve essere esattamente `ha-dashboard-builder-panel`, perché deve coincidere con il nome registrato tramite `customElements.define`.
 
@@ -17,6 +17,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "revision_history",
   "dashboard_reset_marker",
   "irrigation_core",
+  "calendar_v1",
   "host_navigation",
 ]);
 const ALLOWED_WS_TYPES = new Set([
@@ -40,6 +41,8 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/irrigation/start_zone", "domusos/irrigation/stop_zone",
   "domusos/irrigation/pause", "domusos/irrigation/resume",
   "domusos/irrigation/stop_all", "domusos/irrigation/prepare_legacy_removal",
+  "calendar/event/subscribe", "calendar/event/create",
+  "calendar/event/update", "calendar/event/delete",
 ]);
 const HA_NAME = /^[a-z0-9_]+$/;
 const REQUEST_ID = /^ha-panel-(?:call-(?:service|api)|subscribe-api)-\d{10,}-[a-z0-9]+$/;
@@ -60,6 +63,49 @@ const toBridgeErrorMessage = (error, fallback) => {
     : "";
   if (message && code && !message.includes(code)) return `${message} [${code}]`;
   return message || code || fallback;
+};
+const normalizeNativePanelPath = (value) => {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim().replace(/^\/+/, "");
+  if (!normalized || normalized === "domusos" || normalized.includes("..") || !/^[a-z0-9][a-z0-9_/-]*$/i.test(normalized)) {
+    return null;
+  }
+  return `/${normalized}`;
+};
+const resolveNativeHomePath = (hass) => {
+  const panels = isRecord(hass?.panels) ? hass.panels : {};
+  if (isRecord(panels.home)) return "/home/overview";
+  if (isRecord(panels.lovelace)) return "/lovelace";
+
+  const preferredNativePanels = ["energy", "map", "logbook", "history", "calendar", "todo", "media-browser", "config"];
+  for (const panelKey of preferredNativePanels) {
+    const panel = panels[panelKey];
+    if (!isRecord(panel) || ["custom", "ha-panel-custom", "iframe"].includes(panel.component_name)) continue;
+    const path = normalizeNativePanelPath(panel.url_path ?? panelKey);
+    if (path) return path;
+  }
+
+  for (const [panelKey, panel] of Object.entries(panels)) {
+    if (!isRecord(panel) || ["custom", "ha-panel-custom", "iframe"].includes(panel.component_name)) continue;
+    const path = normalizeNativePanelPath(panel.url_path ?? panelKey);
+    if (path) return path;
+  }
+
+  // Last-resort route for very old/incomplete frontend payloads.
+  return "/lovelace";
+};
+const navigateToNativeHome = (hostPanel, hass, browserNavigate = (path) => window.location.assign(path)) => {
+  const targetPath = resolveNativeHomePath(hass);
+  if (typeof hostPanel?.navigate === "function") {
+    try {
+      hostPanel.navigate(targetPath);
+      return targetPath;
+    } catch {
+      // A real navigation is safer than reproducing the HA router manually.
+    }
+  }
+  browserNavigate(targetPath);
+  return targetPath;
 };
 const isValidService = (domain, service, data) =>
   typeof domain === "string" && HA_NAME.test(domain) &&
@@ -145,6 +191,26 @@ const isValidWsMessage = (message) => {
     if (message.key === APP_CONFIGURATIONS_KEY) return isValidAppConfigurations(message.value);
     return false;
   }
+  if (message.type.startsWith("calendar/event/")) {
+    if (typeof message.entity_id !== "string" || !/^calendar\.[a-z0-9_]+$/.test(message.entity_id)) return false;
+    if (message.type === "calendar/event/subscribe") {
+      return typeof message.start === "string" && Number.isFinite(Date.parse(message.start)) &&
+        typeof message.end === "string" && Number.isFinite(Date.parse(message.end));
+    }
+    if (message.type === "calendar/event/delete") {
+      return typeof message.uid === "string" && message.uid.length > 0 && message.uid.length <= 512;
+    }
+    if (message.type === "calendar/event/update" &&
+        (typeof message.uid !== "string" || message.uid.length === 0 || message.uid.length > 512)) return false;
+    if (!isRecord(message.event) || typeof message.event.start !== "string" ||
+        typeof message.event.end !== "string" || typeof message.event.summary !== "string" ||
+        !message.event.summary.trim() || message.event.summary.length > 512) return false;
+    try {
+      return JSON.stringify(message.event).length <= 20000;
+    } catch {
+      return false;
+    }
+  }
   return message.type !== "call_service" ||
     isValidService(message.domain, message.service, message.service_data ?? {});
 };
@@ -158,6 +224,7 @@ class HaDashboardBuilderPanel extends HTMLElement {
     this._lastStates = {};
     this._areas = null;
     this._apiSubscriptions = new Map();
+    this._isNavigatingHome = false;
     this._onMessage = this._onMessage.bind(this);
   }
 
@@ -337,11 +404,15 @@ class HaDashboardBuilderPanel extends HTMLElement {
     }
 
     if (payload.type === "ha-panel-navigate-home") {
-      const currentPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-      window.history.pushState({ from: currentPath }, "", "/lovelace");
-      window.dispatchEvent(new CustomEvent("location-changed", {
-        detail: { replace: false },
-      }));
+      if (this._isNavigatingHome) return;
+      this._isNavigatingHome = true;
+      const hostPanel = this.closest("ha-panel-custom");
+      try {
+        navigateToNativeHome(hostPanel, this._hass);
+      } catch {
+        // A failed full navigation is the only case in which retrying is useful.
+        this._isNavigatingHome = false;
+      }
       return;
     }
 
@@ -349,7 +420,9 @@ class HaDashboardBuilderPanel extends HTMLElement {
       const requestId = typeof payload.requestId === "string" ? payload.requestId : "";
       try {
         const message = payload.message;
-        if (!REQUEST_ID.test(requestId) || message?.type !== "domusos/irrigation/subscribe" || !isValidWsMessage(message)) {
+        if (!REQUEST_ID.test(requestId) ||
+            (message?.type !== "domusos/irrigation/subscribe" && message?.type !== "calendar/event/subscribe") ||
+            !isValidWsMessage(message)) {
           throw new Error("Sottoscrizione API non ammessa.");
         }
         if (!this._hass?.connection?.subscribeMessage) {
@@ -431,6 +504,19 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
   - `ha-panel-call-api`
   - `ha-panel-subscribe-api`
   - `ha-panel-unsubscribe-api`
+
+## Navigazione verso Home Assistant
+
+`ha-panel-navigate-home` è una navigazione temporanea: non legge né scrive `frontend/set_user_data` e quindi non modifica mai `default_panel` o l'opzione “Apri Domus UI all'avvio”. Il bridge individua il contenitore tramite `this.closest("ha-panel-custom")` e chiama il suo metodo pubblico `navigate(targetPath)`, lasciando al router Home Assistant la gestione di history, smontaggio del pannello e Companion WebView.
+
+La destinazione è risolta in questo ordine:
+
+1. `/home/overview` se `hass.panels.home` è registrato;
+2. `/lovelace` se `hass.panels.lovelace` è registrato;
+3. un pannello nativo presente in `hass.panels`, escludendo Domus e pannelli custom/iframe;
+4. `/lovelace` come ultima compatibilità per frontend molto vecchi o payload incompleti.
+
+Se il contenitore o `navigate()` non sono disponibili, oppure il router genera un errore sincrono, il bridge usa `window.location.assign(targetPath)`. Il fallback forza una navigazione reale e non simula mai il router tramite `history.pushState`, `history.replaceState` o eventi `location-changed` manuali. Una guardia locale scarta i doppi tap mentre la navigazione è in corso.
 
 Il bridge accetta messaggi soltanto dal `contentWindow` dell’iframe e dallo stesso origin, valida request ID, domain, service, payload e una allowlist dei tipi WebSocket effettivamente usati. L’identità e i ruoli non vengono accettati dal payload del parent: la dashboard li richiede con `auth/current_user`, lasciando a Home Assistant l’autorità finale. Timeout e correlazione richiesta/risposta restano obbligatori anche se il browser e il parent sono controllati dallo stesso utente.
 

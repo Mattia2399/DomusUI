@@ -1,5 +1,69 @@
 # Changelog
 
+## 1.2.0 - 2026-09-23
+
+### Added
+
+- A native editable `calendar.domus_ui` entity backed by versioned Home
+  Assistant storage, so users can create calendar events without installing an
+  external calendar provider.
+- A responsive Calendar Card with Mini, Standard, and Expanded presets. It
+  shows the nearest event in compact layouts, a localized week strip, and
+  progressively more events when additional rows are available.
+- Direct support for existing Home Assistant `calendar.*` entities, including
+  live agenda subscriptions and create, update, or delete actions whenever the
+  selected integration exposes the corresponding Home Assistant features.
+- Read-only irrigation schedule events in Calendar. Their source of truth stays
+  in Domus Core Irrigation, preventing duplicate or conflicting schedules.
+- Italian, English, and French Calendar labels, empty states, editor controls,
+  validation messages, and Demo data.
+- Adaptive Mini, Standard, and Expanded sizing for Cover, Fan, and Humidifier
+  cards, alongside the existing Light Card implementation.
+
+### Improved
+
+- Light, Cover, Fan, and Humidifier cards now use deterministic responsive
+  matrices across mobile, tablet, and desktop while their content adapts to the
+  actual card container.
+- Compact controls, sliders, mode selectors, padding, corner radii, and
+  theme-aware selection accents are visually consistent across adaptive device
+  cards.
+- Fan and Humidifier Standard cards expose one useful control in narrow
+  layouts; Expanded cards reveal the additional supported controls without
+  relying on viewport-only breakpoints.
+- The Calendar Card grows its visible agenda progressively when the user adds
+  rows, instead of leaving the additional space empty.
+- Home Assistant panel navigation validates and forwards Calendar
+  subscriptions and event commands through the existing authenticated bridge.
+
+### Fixed
+
+- `Return to Home Assistant` now resolves the native Overview path reliably
+  without changing the user's Domus UI startup preference.
+- Saved dashboards created by a newer local development build continue to load
+  safely on an older installed frontend when a card capability is not yet
+  available.
+- Intermediate segmented slider steps no longer round the internal edge, which
+  keeps Fan and Humidifier controls visually continuous.
+
+### Validation
+
+- Added frontend coverage for Calendar queries, subscriptions, adaptive
+  variants, progressive event capacity, panel bridge validation, and device
+  card sizing contracts.
+- Added Home Assistant tests for the Domus UI Calendar store, entity lifecycle,
+  editing, irrigation projection, and persistence.
+- The release workflow verifies TypeScript, unit tests, production build,
+  bundle budgets, dependency audit, Chromium end-to-end tests, HACS packaging,
+  checksums, and generated English release notes.
+
+### Known limitations
+
+- Recurring-event authoring, multi-calendar aggregation, and the advanced
+  month interaction remain planned for a future Calendar iteration.
+- Irrigation entries shown in Calendar are intentionally read-only and must be
+  changed from Domus Core Irrigation.
+
 ## 1.1.0 - 2026-09-21
 
 ### Added

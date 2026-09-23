@@ -14,6 +14,7 @@ export type ActiveDeviceType =
   | 'vacuum'
   | 'lock'
   | 'cover'
+  | 'calendar'
   | 'members';
 export type SensorConnectionState = 'online' | 'offline' | 'unknown';
 
@@ -53,6 +54,8 @@ export interface ActiveDevice {
   coverPosition?: number;
   coverTiltPosition?: number;
   coverSupportedFeatures?: number;
+  calendarEntityId?: string;
+  calendarSupportedFeatures?: number;
   membersMapPoints?: Array<{
     id: string;
     name: string;

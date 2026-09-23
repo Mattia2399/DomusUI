@@ -67,7 +67,8 @@ No `configuration.yaml` changes, manual tokens, or `/www` copies are required. S
 | Profile and Settings     | Operational  | Personal preferences separated from home-wide configuration                    |
 | App Gallery              | Partial      | Irrigation is in beta; Utility Room and Pool & Spa are in development          |
 | Automations              | Coming later | The incomplete interface is not exposed as a usable feature                    |
-| Calendar, Map, and Lists | Planned      | Scheduled for future releases                                                  |
+| Calendar                | Operational  | Native Domus UI calendar plus compatible Home Assistant calendar entities      |
+| Map and Lists           | Planned      | Scheduled for future releases                                                  |
 
 Detailed status and verified hardware limitations are documented in [Feature status](docs/feature-status.md).
 
@@ -79,7 +80,7 @@ Detailed status and verified hardware limitations are documented in [Feature sta
 
 ## Available cards
 
-Sensor, Light, Switch, Climate, Alarm, Lock, Cover, Camera, Media Player, Vacuum, and Members. Cards adapt their content and layout to the available size. Some capabilities depend on the attributes and services actually exposed by the device's Home Assistant integration.
+Sensor, Light, Switch, Fan, Humidifier, Climate, Alarm, Lock, Cover, Camera, Media Player, Vacuum, Calendar, and Members. Cards adapt their content and layout to the available size. Some capabilities depend on the attributes, supported features, and services actually exposed by the device's Home Assistant integration.
 
 ## Security and privacy
 

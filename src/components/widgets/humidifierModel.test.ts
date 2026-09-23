@@ -48,9 +48,9 @@ describe('humidifier capability model', () => {
 
   it('uses state-independent card spans', () => {
     expect(HUMIDIFIER_CARD_CAPABILITY.supportsAutoExpand).toBe(false);
-    expect(HUMIDIFIER_CARD_CAPABILITY.defaultSpans.xs).toEqual({ w: 2, h: 1 });
+    expect(HUMIDIFIER_CARD_CAPABILITY.defaultSpans.xs).toEqual({ w: 1, h: 2 });
     expect(HUMIDIFIER_CARD_CAPABILITY.defaultSpans.xl).toEqual({ w: 2, h: 1 });
-    expect(HUMIDIFIER_CARD_CAPABILITY.resolveDisplayVariant({ layout: { w: 2, h: 1 }, isInsideStack: false })).toBe('standard');
+    expect(HUMIDIFIER_CARD_CAPABILITY.resolveDisplayVariant({ breakpoint: 'xs', layout: { w: 1, h: 2 }, isInsideStack: false })).toBe('standard');
     expect(HUMIDIFIER_CARD_CAPABILITY.resolvePixelDisplayVariant({ width: 210, height: 110 })).toBe('standard');
   });
 });

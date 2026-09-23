@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import config_validation as cv
@@ -23,10 +24,12 @@ from .const import (
     STATIC_URL_PATH,
     VERSION,
 )
+from .calendar_store import DomusCalendarStore
 from .irrigation import IrrigationManager
 from .irrigation.api import async_register_irrigation_api
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+PLATFORMS = [Platform.CALENDAR]
 
 
 def _panel_exists(hass: HomeAssistant, frontend_url_path: str) -> bool:
@@ -98,15 +101,24 @@ async def async_setup_entry(
         panel_options["handle_safe_area"] = True
 
     manager = IrrigationManager(hass)
+    calendar_manager = DomusCalendarStore(hass)
     await manager.async_setup()
+    await calendar_manager.async_setup()
     try:
         await panel_custom.async_register_panel(hass=hass, **panel_options)
+        domain_data["irrigation_manager"] = manager
+        domain_data["calendar_manager"] = calendar_manager
+        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
+        if _panel_exists(hass, PANEL_URL_PATH):
+            frontend.async_remove_panel(hass, PANEL_URL_PATH)
+        domain_data.pop("irrigation_manager", None)
+        domain_data.pop("calendar_manager", None)
+        await calendar_manager.async_shutdown()
         await manager.async_shutdown()
         raise
 
     entry.runtime_data = manager
-    domain_data["irrigation_manager"] = manager
 
     entry.async_on_unload(
         entry.add_update_listener(_async_update_listener)
@@ -118,6 +130,8 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
     """Unload Domus UI and remove its sidebar panel."""
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
     if _panel_exists(hass, PANEL_URL_PATH):
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
     manager = getattr(entry, "runtime_data", None)
@@ -126,6 +140,10 @@ async def async_unload_entry(
         domain_data = hass.data.get(DOMAIN, {})
         if domain_data.get("irrigation_manager") is manager:
             domain_data.pop("irrigation_manager", None)
+    domain_data = hass.data.get(DOMAIN, {})
+    calendar_manager = domain_data.pop("calendar_manager", None)
+    if isinstance(calendar_manager, DomusCalendarStore):
+        await calendar_manager.async_shutdown()
     return True
 
 

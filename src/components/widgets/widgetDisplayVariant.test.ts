@@ -33,6 +33,11 @@ describe('resolveWidgetDisplayVariant', () => {
     expect(resolveWidgetDisplayVariant({ kind: 'sensor', breakpoint: 'xl', layout: { w: 3, h: 2 } })).toBe('full');
   });
 
+  it('keeps desktop Light Mini selectable at the adaptive 2x1 target', () => {
+    expect(resolveWidgetDisplayVariant({ kind: 'light', breakpoint: 'xl', layout: { w: 2, h: 1 } })).toBe('mini');
+    expect(resolveWidgetDisplayVariant({ kind: 'light', breakpoint: 'xs', layout: { w: 1, h: 1 } })).toBe('mini');
+  });
+
   it('uses dedicated climate compositions without a mini variant', () => {
     expect(resolveWidgetDisplayVariant({ kind: 'climate', breakpoint: 'xl', layout: { w: 1, h: 1 } })).toBe('compact');
     expect(resolveWidgetDisplayVariant({ kind: 'climate', breakpoint: 'xl', layout: { w: 2, h: 2 } })).toBe('compact');
@@ -64,12 +69,24 @@ describe('resolveWidgetDisplayVariant', () => {
     expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 2, h: 1 } })).toBe('mini');
     expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'md', layout: { w: 2, h: 1 } })).toBe('mini');
     expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xs', layout: { w: 1, h: 1 } })).toBe('mini');
-    expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'sm', layout: { w: 1, h: 2 } })).toBe('compact');
+    expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'sm', layout: { w: 1, h: 2 } })).toBe('standard');
     expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 1, h: 2 } })).toBe('compact');
-    expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 2, h: 2 } })).toBe('compact');
-    expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 2, h: 3 } })).toBe('standard');
+    expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 2, h: 2 } })).toBe('standard');
+    expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 2, h: 3 } })).toBe('full');
     expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 2, h: 4 } })).toBe('full');
     expect(resolveWidgetDisplayVariant({ kind: 'cover', breakpoint: 'xl', layout: { w: 3, h: 3 } })).toBe('full');
+  });
+
+  it('uses Light/Cover-style compositions for fan and humidifier controls', () => {
+    for (const kind of ['fan', 'humidifier'] as const) {
+      expect(resolveWidgetDisplayVariant({ kind, breakpoint: 'xl', layout: { w: 1, h: 1 } })).toBe('mini');
+      expect(resolveWidgetDisplayVariant({ kind, breakpoint: 'xl', layout: { w: 2, h: 1 } })).toBe('mini');
+      expect(resolveWidgetDisplayVariant({ kind, breakpoint: 'xs', layout: { w: 1, h: 1 } })).toBe('mini');
+      expect(resolveWidgetDisplayVariant({ kind, breakpoint: 'xs', layout: { w: 1, h: 2 } })).toBe('standard');
+      expect(resolveWidgetDisplayVariant({ kind, breakpoint: 'xl', layout: { w: 2, h: 2 } })).toBe('standard');
+      expect(resolveWidgetDisplayVariant({ kind, breakpoint: 'xl', layout: { w: 2, h: 3 } })).toBe('full');
+      expect(resolveWidgetDisplayVariant({ kind, breakpoint: '2xl', layout: { w: 3, h: 2 } })).toBe('full');
+    }
   });
 
   it('uses dedicated camera compositions from preview to full stream', () => {

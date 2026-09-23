@@ -21,12 +21,13 @@ type Props = {
   onPowerToggle?: () => void;
   onTargetHumidityChange?: (value: number) => void;
   onModeChange?: (mode: string) => void;
+  displayVariant?: WidgetDisplayMetrics['variant'];
   onDisplayMetricsChange?: (metrics: WidgetDisplayMetrics) => void;
 };
 
 type HumidifierCardControl = 'humidity' | 'mode';
 
-export function HumidifierCard({ widget, entity, isSelected, isEditMode, onOpen, onPowerToggle, onTargetHumidityChange, onModeChange, onDisplayMetricsChange }: Props) {
+export function HumidifierCard({ widget, entity, isSelected, isEditMode, onOpen, onPowerToggle, onTargetHumidityChange, onModeChange, displayVariant = 'standard', onDisplayMetricsChange }: Props) {
   const { t } = useI18n();
   const model = resolveHumidifierModel(entity);
   const { ref, size } = useObservedElementSize<HTMLDivElement>(widget.id);
@@ -73,8 +74,8 @@ export function HumidifierCard({ widget, entity, isSelected, isEditMode, onOpen,
     : undefined;
 
   return (
-    <div ref={ref} className={`humidifier-card ${isSelected ? 'selection-corners' : ''}`} data-humidifier-state={!model.available ? 'unavailable' : model.isOn ? 'on' : 'off'} data-humidifier-control-mode={activeControl ?? 'none'} data-humidifier-device={model.deviceClass} aria-busy={pending || undefined}>
-      <div className="humidifier-card__surface liquid-glass-card">
+    <div ref={ref} className={`humidifier-card adaptive-device-card ${isSelected ? 'selection-corners' : ''}`} data-display-variant={displayVariant} data-humidifier-state={!model.available ? 'unavailable' : model.isOn ? 'on' : 'off'} data-humidifier-control-mode={activeControl ?? 'none'} data-humidifier-display-variant={displayVariant} data-humidifier-device={model.deviceClass} aria-busy={pending || undefined}>
+      <div className="humidifier-card__surface adaptive-device-card__surface liquid-glass-card">
       <DeviceControlCardHeader
         title={widget.title}
         status={`${t(actionKey)}${activeDetail ? ` · ${activeDetail}` : ''}`}
@@ -130,7 +131,7 @@ export function HumidifierCard({ widget, entity, isSelected, isEditMode, onOpen,
         </div>
       ) : null}
       </div>
-      {isEditMode ? <button type="button" className="humidifier-card__edit widget-card-handle" onClick={onOpen} aria-label={t(dehumidifier ? 'humidifier.card.configureDehumidifier' : 'humidifier.card.configure')} /> : null}
+      {isEditMode ? <button type="button" className="humidifier-card__edit adaptive-device-card__edit widget-card-handle" onClick={onOpen} aria-label={t(dehumidifier ? 'humidifier.card.configureDehumidifier' : 'humidifier.card.configure')} /> : null}
     </div>
   );
 }

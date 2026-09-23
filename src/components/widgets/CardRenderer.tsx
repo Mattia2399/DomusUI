@@ -11,6 +11,7 @@ import { AlarmCard } from './AlarmCard';
 import { VacuumCard } from './VacuumCard';
 import { LockCard } from './LockCard';
 import { CoverCard } from './CoverCard';
+import { CalendarCard } from './CalendarCard';
 import { MembersCard } from './MembersCard';
 import { GreetingCard } from './GreetingCard';
 import { GreetingWeatherCard } from './GreetingWeatherCard';
@@ -222,6 +223,7 @@ function WidgetCardRendererComponent({
         onPresetChange={controlsEnabled && onFanPresetChange ? (mode) => onFanPresetChange(widget, mode) : undefined}
         onOscillationChange={controlsEnabled && onFanOscillationChange ? (oscillating) => onFanOscillationChange(widget, oscillating) : undefined}
         onDirectionChange={controlsEnabled && onFanDirectionChange ? (direction) => onFanDirectionChange(widget, direction) : undefined}
+        displayVariant={displayVariant}
         onDisplayMetricsChange={onDisplayMetricsChange}
       />
     );
@@ -238,6 +240,7 @@ function WidgetCardRendererComponent({
         onPowerToggle={controlsEnabled && onHumidifierToggle ? () => onHumidifierToggle(widget) : undefined}
         onTargetHumidityChange={controlsEnabled && onHumidifierTargetHumidityChange ? (humidity) => onHumidifierTargetHumidityChange(widget, humidity) : undefined}
         onModeChange={controlsEnabled && onHumidifierModeChange ? (mode) => onHumidifierModeChange(widget, mode) : undefined}
+        displayVariant={displayVariant}
         onDisplayMetricsChange={onDisplayMetricsChange}
       />
     );
@@ -364,6 +367,20 @@ function WidgetCardRendererComponent({
         houseMembers={houseMembers}
         gridBreakpoint={gridBreakpoint}
         displayVariant={displayVariant}
+      />
+    );
+  }
+
+  if (widget.kind === 'calendar') {
+    return (
+      <CalendarCard
+        widget={widget}
+        entity={liveEntity}
+        gridBreakpoint={gridBreakpoint}
+        displayVariant={displayVariant}
+        isSelected={isSelected}
+        isEditMode={isEditMode}
+        onClick={onClick}
       />
     );
   }

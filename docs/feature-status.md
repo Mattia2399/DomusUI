@@ -1,6 +1,6 @@
 # Feature status
 
-Updated: 2026-09-14
+Updated: 2026-09-23
 
 This page distinguishes stable functionality from previews and planned work. **Operational** means that the primary path is implemented and covered by project tests; it does not guarantee compatibility with every Home Assistant hardware integration.
 
@@ -16,6 +16,7 @@ This page distinguishes stable functionality from previews and planned work. **O
 | Settings    | Operational      | Home, entities, people, system, backups, versions, and attention preferences                       |
 | App Gallery | Partial          | Launcher and Irrigation beta are available; Utility Room and Pool & Spa are marked as coming later |
 | Automations | Coming later     | The old workspace remains disabled until its workflow is ready for public use                      |
+| Calendar    | Operational      | Native Domus UI calendar and compatible Home Assistant calendar entities                           |
 
 ## Cards and controls
 
@@ -25,11 +26,13 @@ This page distinguishes stable functionality from previews and planned work. **O
 | Alarm, Lock            | Verified with limitations              | HA remains the final authorization authority; Domus UI is not a certified security system |
 | Camera, Media Player   | Operational                             | Advanced features depend on capabilities exposed by the entity/device                     |
 | Climate, Cover, Vacuum | Operational, partially hardware-tested | Not every hardware and feature combination has been tested                                |
+| Fan, Humidifier        | Operational, partially hardware-tested | Controls adapt to capabilities exposed by the entity integration                          |
+| Calendar               | Operational                           | Recurrence authoring, aggregation, and advanced month interaction remain planned          |
 | Members                | Operational                            | Depends on the available person/device-tracker entities                                   |
 
 ## Planned for future releases
 
-- Calendar and Calendar card;
+- advanced Calendar recurrence, aggregation, and month interaction;
 - map and location management;
 - shopping/Todo lists;
 - Utility Room and Pool & Spa apps;

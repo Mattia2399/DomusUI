@@ -94,7 +94,7 @@ I tre test unitari rossi riguardano:
 6. Proseguire P6 con riduzione degli orchestratori e lazy loading delle funzioni secondarie.
 7. Completato: matrice finale P5 anti-clipping su XS, SM, MD, XL e 2XL, Builder aperto, testi lunghi e zoom equivalenti.
 8. Completato il 2026-08-06: P8.3 ha uniformato sidebar desktop/mobile, notifiche ed esperienza Edit Mode/catalogo.
-9. Preparare una prima distribuzione controllata; Calendar, Mappa e Liste restano successive alla stabilizzazione beta.
+9. Distribuzione stabile completata; Calendar v1 e ora la funzione attiva della linea `1.2.0`, seguita da To-do e Mappa.
 
 ## Roadmap operativa
 
@@ -902,6 +902,77 @@ Registrato il 23 luglio 2026.
 
 #### Nuove entita e card
 
+#### Aggiunta dispositivi direttamente da Domus UI - audit tecnico
+
+Audit eseguito il 23 settembre 2026 sulle API e sui flussi ufficiali Home
+Assistant.
+
+Obiettivo: consentire di avviare da Domus UI l'associazione di nuovi dispositivi
+senza obbligare l'utente a cercare manualmente la relativa pagina nelle
+impostazioni di Home Assistant. Domus UI deve restare un'interfaccia guidata dei
+flussi nativi HA, non diventare un secondo sistema di pairing o conservare
+credenziali e chiavi dei dispositivi.
+
+Risultato dell'audit:
+
+| Tecnologia | Possibilita reale in Domus UI | Decisione |
+| --- | --- | --- |
+| Discovery HA | Home Assistant espone via WebSocket i flow scoperti con `config_entries/flow/progress` e una sottoscrizione push `config_entries/flow/subscribe`; entrambi richiedono Admin. | Supportata nella prima versione come inbox `Dispositivi rilevati`. |
+| Zigbee tramite ZHA | L'azione ufficiale Admin `zha.permit` apre la rete per un intervallo configurabile e supporta anche install code/QR. Richiede ZHA caricato, coordinatore configurato e rete operativa. | Supporto diretto candidato per la prima versione, con countdown, istruzioni di pairing, annullamento visivo e conferma del nuovo dispositivo da HA. |
+| Bluetooth | L'integrazione Bluetooth rileva advertising e genera discovery flow per le integrazioni compatibili; non esiste un comando universale per associare qualsiasi periferica Bluetooth. | Mostrare solo dispositivi/integrations scoperti e proseguire nel relativo flow HA; non promettere `pairing Bluetooth generico`. |
+| Zeroconf, SSDP, DHCP, USB, HomeKit ed ESPHome | Sono sorgenti ufficiali di discovery/config flow quando la relativa integrazione le supporta. | Mostrare i flow gia creati da HA e delegare la configurazione al flusso nativo. |
+| Matter | Il commissioning di un nuovo dispositivo utilizza Bluetooth e fotocamera del telefono tramite la Companion App iOS/Android e richiede l'integrazione Matter/Matter Server. | Domus UI mostra prerequisiti e un handoff esplicito alla Companion App/HA; niente commissioning proprietario nel pannello HACS. |
+| Thread | Thread trasporta Matter o HomeKit e gestisce reti/credenziali; non e di per se un protocollo applicativo da associare direttamente. | Nessun pulsante generico `Aggiungi Thread`; indirizzare al flusso Matter o HomeKit corretto e verificare border router/rete preferita. |
+| Z-Wave JS e altri hub | Ogni integrazione possiede procedure, sicurezza e prerequisiti differenti. | Fuori dalla prima versione; valutazione dedicata dopo Bluetooth/ZHA e discovery. |
+
+Il backend HA offre endpoint REST Admin per creare, leggere, avanzare e
+annullare un config flow (`/api/config/config_entries/flow` e
+`/api/config/config_entries/flow/{flow_id}`). Il frontend ufficiale li usa per
+renderizzare form, menu, passaggi esterni, errori e completamento. Domus UI oggi
+non possiede nel panel bridge un proxy REST per questi endpoint: aggiungerne uno
+generico sarebbe eccessivamente permissivo. Un eventuale renderer incorporato
+dovra usare un bridge ristretto esclusivamente ai config flow, validare flow id,
+handler, dimensione e forma dei payload e restare compatibile con selector e
+passaggi dinamici di HA.
+
+##### Scope approvato per la prima versione
+
+1. Pagina `Aggiungi dispositivo`, disponibile solo agli Admin.
+2. Inbox live dei discovery flow non avviati dall'utente tramite le due API
+   WebSocket ufficiali, raggruppata per Bluetooth, rete, USB, HomeKit, ESPHome e
+   altre sorgenti dichiarate da HA.
+3. Azione `Configura in Home Assistant` che effettua un handoff alla schermata
+   nativa conservando Domus UI come dashboard preferita.
+4. Wizard Zigbee ZHA diretto tramite `zha.permit`, attivabile soltanto dopo aver
+   verificato config entry caricata, servizio disponibile e permessi Admin.
+5. Handoff Matter verso la Companion App/esperienza HA con checklist dei
+   prerequisiti; Thread viene trattato come prerequisito di rete, non come
+   categoria di pairing autonoma.
+6. Nessuna installazione automatica di integrazioni personalizzate e nessun
+   salvataggio Domus UI di password, QR, install code o credenziali di rete.
+
+##### Fase successiva opzionale
+
+Valutare un renderer dei config flow dentro Domus UI soltanto dopo il collaudo
+della prima versione. Deve coprire form e selector dinamici, menu, progress,
+external step, abort, create-entry, traduzioni, valori sensibili, annullamento e
+compatibilita con la versione minima HA supportata. In caso contrario resta il
+handoff nativo, piu affidabile e manutenibile.
+
+Vincoli:
+
+- nessun pairing Bluetooth generico e disponibile; Zigbee richiede hardware,
+  coordinatore e ZHA compatibili;
+- non installare automaticamente integrazioni personalizzate e non usare API
+  interne instabili;
+- mostrare prerequisiti, permessi Admin, avanzamento, errori e annullamento del
+  config flow senza dichiarare un dispositivo configurato prima della conferma
+  di Home Assistant;
+- prevedere un fallback che apra direttamente il flusso nativo HA quando Domus
+  UI non puo completarlo in modo sicuro;
+- mantenere una lista chiusa di protocolli e integrazioni collaudati e non
+  presentare un semplice rilevamento radio come dispositivo gia configurabile.
+
 ##### Inventario di copertura del Builder (15 settembre 2026)
 
 Questo inventario riguarda i **domini**, non il numero di entita presenti nella
@@ -913,7 +984,7 @@ dominio sia gia supportato o collaudato su hardware reale.
 
 | Copertura attuale | Domini Home Assistant | Nota |
 | --- | --- | --- |
-| Card dedicata nel Builder | `light`, `switch`, `fan`, `humidifier`, `climate`, `camera`, `sensor`, `media_player`, `alarm_control_panel`, `vacuum`, `lock`, `cover` | Dodici famiglie di card disponibili; Fan e Humidifier sono da collaudare su entita HA reali. |
+| Card dedicata nel Builder | `light`, `switch`, `fan`, `humidifier`, `climate`, `camera`, `sensor`, `media_player`, `alarm_control_panel`, `vacuum`, `lock`, `cover`, `calendar` | Tredici famiglie di card disponibili; Calendar v1 e in collaudo, mentre Fan e Humidifier sono da collaudare su entita HA reali. |
 | Card esistente, ma riuso parziale | `input_boolean` -> Switch | Restano da valutare UX dedicata, servizi e feature specifiche. |
 | Variante dedicata nella famiglia Sensor | `binary_sensor` | Selezione, etichette e icone per `device_class`, stato binario read-only e pannello senza statistiche numeriche completati il 15 settembre 2026; collaudo su entita HA reali ancora da eseguire. |
 | Sezione/esperienza, non card per entita | `weather` nel meteo della Home; `scene`/`script` come azioni della sezione Scenari; `person` nell'aggregato Membri | Non conteggiare come card autonome selezionabili dal catalogo. |
@@ -923,8 +994,10 @@ Domini riconosciuti nell'analisi del setup ma **senza card autonoma nel
 Builder**: `water_heater`, `siren`, `button`, `input_button`,
 `select`, `input_select`, `number`, `input_number`, `remote`, `lawn_mower`,
 `person`, `device_tracker`, `zone`, `automation`, `sun`, `update`.
-Gia richiesti nella roadmap: `calendar`, `todo` e Mappa (basata su presenza e
-zone). Altri domini da valutare in base alla diffusione nelle case reali:
+Gia richiesti nella roadmap: `todo` e Mappa (basata su presenza e zone).
+Calendar e entrato nello sviluppo attivo della linea `1.2.0`; To-do e la Mappa
+seguono dopo il suo collaudo. Altri domini da valutare in base alla
+diffusione nelle case reali:
 `text`, `input_text`, `date`, `time`, `datetime`, `timer`, `counter`, `schedule`,
 `event` e gli eventuali domini restituiti nel gruppo `other` del setup.
 
@@ -941,7 +1014,7 @@ Ordine di lavoro proposto, da confermare dopo il censimento delle entita reali:
    `button`/`input_button`, `number`/`input_number`,
    `select`/`input_select`; poi `water_heater` e `valve` con
    comandi e protezioni adatti al dominio, non un toggle indistinto.
-3. **Card informative e di servizio:** `calendar`, `todo`, Mappa/
+3. **Card informative e di servizio:** completare il collaudo di `calendar`, poi `todo`, Mappa/
    `person`/`device_tracker`/`zone`, quindi `siren`, `remote`, `lawn_mower`,
    `update`, `automation` e gli altri domini solo se offrono un'esperienza
    utile e sicura. `weather` puo diventare card autonoma riusando i moduli del
@@ -956,11 +1029,51 @@ HA, Demo isolata, varianti responsive, pannello contestuale, testi IT/EN/FR
 e test automatici. Non serve una card distinta per ogni singola entita:
 l'obiettivo e coprire i domini utili con componenti riutilizzabili.
 
-- **Calendar:** studiare il dominio Home Assistant `calendar`, eventi, calendari multipli, fusi orari, ricorrenze, eventi giornalieri, permessi e servizi supportati; progettare una `CalendarCard` responsive e il relativo pannello contestuale senza duplicare le funzioni gia disponibili in HA.
+- **Calendar - prima versione (`1.2.0`):** implementare un'architettura ibrida
+  nella quale Home Assistant resta sempre l'autorita. La custom integration
+  espone `calendar.domus_ui`, persistito in uno Store HA versionato, per gli
+  utenti che non possiedono gia un provider calendario; gli altri calendari
+  `calendar.*` restano selezionabili e vengono letti direttamente senza
+  copiarne gli eventi nello Store Domus UI. La prima versione comprende eventi
+  con orario e giornalieri, titolo, descrizione, luogo, agenda oggi/sette giorni,
+  aggiornamenti push e creazione/modifica/eliminazione quando la sorgente
+  dichiara le relative `supported_features`. Comprende inoltre una
+  `CalendarCard` responsive, pannello contestuale, Demo isolata, testi IT/EN/FR
+  e test backend/frontend. Ricorrenze, aggregazione di piu calendari in una
+  singola timeline e viste mensili avanzate restano esplicitamente fuori dalla
+  prima versione.
+  - **UI responsive implementata, da collaudare visivamente:** la variante
+    Calendar segue il riferimento approvato con intestazione del mese, settimana
+    compatta, giorno del prossimo evento evidenziato e appuntamento essenziale,
+    senza avatar o dati fittizi. Matrice mobile:
+    - **Mini `1x1`:** mostrare soltanto il prossimo evento, scegliendo quello con
+      l'inizio temporalmente piu vicino;
+    - **Standard `1x3`:** mostrare mese, settimana compatta e un solo evento;
+    - **Expanded `2x3`:** mostrare mese e settimana, aggiungendo in alto a destra
+      un chip per alternare la vista completa del mese e la visualizzazione degli
+      eventi. Interazione, etichetta e contenuto esatto delle due viste saranno
+      definiti durante il controllo visivo della variante.
+    Matrice condivisa da `sm` a `2xl`: Mini `1x1` con indicatore laterale
+    compatto, Standard `2x3`, Expanded `4x4` con disposizione interna da
+    rifinire nel controllo visivo. Oltre all'altezza base, ogni riga aggiunta manualmente
+    rende visibile un ulteriore evento quando lo spazio effettivo lo consente;
+    gli eventi continuano a provenire dalla sottoscrizione push Home Assistant.
+  - **Integrazione Irrigation implementata, da collaudare su HA:** i cicli
+    programmati sono derivati live dal backend autorevole di Domus Core
+    Irrigation, non vengono duplicati nello Store Calendar e sono distinguibili
+    dagli eventi personali. Il contratto e read-only: modifica e cancellazione
+    sono bloccate e la UI non propone l'editor per questi eventi.
 - **Mappa:** definire prima il funzionamento e le fonti dati della card (persone, device tracker, zone, casa ed eventuali percorsi); stabilire privacy, aggiornamento live, comportamento offline, fallback, clustering e caricamento lazy di MapLibre prima di realizzare la `MapCard`.
-- **Lista spesa e liste:** valutare una card basata sulle entita HA `todo` per lista della spesa, promemoria e liste condivise; prevedere lettura, aggiunta, completamento, riordino e gestione chiara dei permessi, evitando uno storage locale parallelo quando HA puo restare l'autorita.
+- **Lista spesa e liste - fase successiva:** dopo Calendar v1, realizzare una
+  card basata sulle entita HA `todo` per lista della spesa, promemoria e liste
+  condivise; prevedere lettura, aggiunta, completamento, riordino e gestione
+  chiara dei permessi, evitando uno storage locale parallelo quando HA puo
+  restare l'autorita.
 
-Queste tre card entrano dopo la stabilizzazione della beta e richiedono registry capability, mock espliciti, skeleton fedeli, varianti responsive, pannello contestuale, gestione pending/rollback e test automatici.
+Le nuove card di servizio richiedono registry capability, mock espliciti,
+skeleton fedeli, varianti responsive, pannello contestuale, gestione
+pending/rollback e test automatici. Calendar v1 e ora implementata e passa al
+collaudo Home Assistant; To-do resta il passo immediatamente successivo.
 
 #### Setup wizard con installazione iframe/panel
 
@@ -1158,7 +1271,7 @@ Done quando:
 - il mockup iniziale ha un template versionato, responsive e separato dal layout reale già salvato;
 - Greeting e meteo hanno responsabilita chiare; i feedback beta essenziali usano snackbar e il centro notifiche completo resta esplicitamente post-beta;
 - nessuna configurazione utente puo modificare o introdurre route applicative;
-- Calendar, Mappa e Liste dispongono di una specifica tecnica approvata prima dell'implementazione.
+- Calendar v1 dispone di architettura ibrida, implementazione e test automatici; To-do e Mappa richiedono una specifica tecnica approvata prima dell'implementazione.
 
 ## Gate della beta vendibile
 
@@ -1185,4 +1298,4 @@ La beta puo essere distribuita a pagamento quando sono soddisfatti tutti questi 
 7. Correzione onboarding iframe/panel, route non modificabili e rifinitura Greeting/meteo; snackbar essenziali nella beta e centro notifiche completo post-beta.
 8. Funzioni Domus UI.
 9. Distribuzione e crescita commerciale.
-10. Calendar, Mappa e Liste dopo la specifica tecnica e la stabilizzazione beta.
+10. Collaudare Calendar v1 su Home Assistant, quindi implementare To-do; Mappa segue dopo la relativa specifica tecnica.

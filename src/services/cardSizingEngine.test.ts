@@ -39,9 +39,12 @@ describe('cardSizingEngine preferences', () => {
     expect(storage.getItem(CARD_SIZING_ENGINE_STORAGE_KEY)).toBe('adaptive');
   });
 
-  it('supports Adaptive sizing only for Light in this phase', () => {
+  it('supports Adaptive sizing for the validated interactive device cards', () => {
     expect(supportsAdaptiveSizing('light')).toBe(true);
-    expect(supportsAdaptiveSizing('cover')).toBe(false);
+    expect(supportsAdaptiveSizing('cover')).toBe(true);
+    expect(supportsAdaptiveSizing('fan')).toBe(true);
+    expect(supportsAdaptiveSizing('humidifier')).toBe(true);
+    expect(supportsAdaptiveSizing('switch')).toBe(false);
   });
 });
 
