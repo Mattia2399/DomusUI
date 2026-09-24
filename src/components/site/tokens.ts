@@ -65,7 +65,7 @@ export const SITE_LINKS = {
  *           githubSponsors: 'https://github.com/sponsors/Mattia2399'
  */
 export const SUPPORT_LINKS: { kofi: string | null; githubSponsors: string | null } = {
-  kofi: null,
+  kofi: 'https://ko-fi.com/mattia2399',
   githubSponsors: null,
 };
 
