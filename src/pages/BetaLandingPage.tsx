@@ -9,6 +9,7 @@ import { InstallSection } from '../components/site/sections/InstallSection';
 import { LayoutsSection } from '../components/site/sections/LayoutsSection';
 import { LiveHomeSection } from '../components/site/sections/LiveHomeSection';
 import { ManifestoSection } from '../components/site/sections/ManifestoSection';
+import { SupportSection } from '../components/site/sections/SupportSection';
 import { TrustSection } from '../components/site/sections/TrustSection';
 import { SiteNav } from '../components/site/SiteNav';
 
@@ -44,6 +45,7 @@ export function BetaLandingPage() {
           <AppsSection />
           <TrustSection />
           <InstallSection />
+          <SupportSection />
         </main>
         <FinaleSection />
       </div>

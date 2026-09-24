@@ -3,6 +3,8 @@ import { ArrowUpRight } from 'lucide-react';
 import type { PointerEvent, ReactNode } from 'react';
 import { useFinePointer } from '../hooks/useMediaQuery';
 
+const VARIANT_CLASS = { primary: 's-btn-primary', ghost: 's-btn-ghost', warm: 's-btn-warm' } as const;
+
 const MAGNET_SPRING = { stiffness: 260, damping: 20, mass: 0.5 };
 
 /**
@@ -19,7 +21,7 @@ export function CtaLink({
 }: {
   href: string;
   children: ReactNode;
-  variant?: 'primary' | 'ghost';
+  variant?: keyof typeof VARIANT_CLASS;
   icon?: ReactNode;
   className?: string;
   external?: boolean;
@@ -48,7 +50,7 @@ export function CtaLink({
       onPointerMove={onPointerMove}
       onPointerLeave={reset}
       onBlur={reset}
-      className={`s-btn ${variant === 'primary' ? 's-btn-primary' : 's-btn-ghost'} ${className}`}
+      className={`s-btn ${VARIANT_CLASS[variant]} ${className}`}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
     >
       {children}

@@ -303,6 +303,17 @@
   background: rgb(255 255 255 / 0.07);
 }
 
+/* Support call-to-action: the warm accent, never competing with install CTAs. */
+.s-btn-warm {
+  background: linear-gradient(135deg, #ffb27a, var(--s-warm));
+  color: #1f0e02;
+  box-shadow: 0 10px 40px -14px rgb(255 154 77 / 0.7);
+}
+
+.s-btn-warm:hover {
+  box-shadow: 0 16px 56px -14px rgb(255 154 77 / 0.95);
+}
+
 .s-chip {
   display: inline-flex;
   align-items: center;

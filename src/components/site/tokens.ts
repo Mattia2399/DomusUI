@@ -56,4 +56,17 @@ export const SITE_LINKS = {
   hacs: 'https://my.home-assistant.io/redirect/hacs_repository/?owner=Mattia2399&repository=DomusUI&category=integration',
 } as const;
 
+/**
+ * Support channels. Leave a value `null` until the account really exists:
+ * the support section and the footer link only render configured channels,
+ * so the site never publishes a dead link.
+ *
+ * Examples: kofi: 'https://ko-fi.com/<username>',
+ *           githubSponsors: 'https://github.com/sponsors/Mattia2399'
+ */
+export const SUPPORT_LINKS: { kofi: string | null; githubSponsors: string | null } = {
+  kofi: null,
+  githubSponsors: null,
+};
+
 export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '';

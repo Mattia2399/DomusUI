@@ -4,12 +4,14 @@ import { useRef } from 'react';
 import { CtaLink } from '../ui/CtaLink';
 import { DomusMark } from '../ui/Logo';
 import { SplitReveal } from '../ui/SplitReveal';
-import { APP_VERSION, SECTION_IDS, SITE_LINKS } from '../tokens';
+import { APP_VERSION, SECTION_IDS, SITE_LINKS, SUPPORT_LINKS } from '../tokens';
 
 /**
  * FINALE — closes the loop with the hero: the same light, the same tagline
  * and the wordmark rising from the bottom edge as a signature.
  */
+
+const SUPPORT_HREF = SUPPORT_LINKS.kofi ?? SUPPORT_LINKS.githubSponsors;
 
 const LINK_GROUPS: { title: string; links: { label: string; href: string }[] }[] = [
   {
@@ -34,6 +36,8 @@ const LINK_GROUPS: { title: string; links: { label: string; href: string }[] }[]
       { label: 'Segnala un bug', href: SITE_LINKS.issues },
       { label: 'Idee e domande', href: SITE_LINKS.discussions },
       { label: 'Licenza GPL-3.0', href: SITE_LINKS.license },
+      // Appears only once a support channel is configured.
+      ...(SUPPORT_HREF ? [{ label: 'Supporta il progetto', href: SUPPORT_HREF }] : []),
     ],
   },
 ];
