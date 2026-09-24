@@ -52,6 +52,7 @@ export const SITE_LINKS = {
   changelog: `${REPOSITORY}/blob/main/CHANGELOG.md`,
   issues: `${REPOSITORY}/issues/new?template=bug_report.yml`,
   discussions: `${REPOSITORY}/discussions`,
+  facebookGroup: 'https://www.facebook.com/groups/1770867840791498/',
   license: `${REPOSITORY}/blob/main/LICENSE`,
   hacs: 'https://my.home-assistant.io/redirect/hacs_repository/?owner=Mattia2399&repository=DomusUI&category=integration',
 } as const;

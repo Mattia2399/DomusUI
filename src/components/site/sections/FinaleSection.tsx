@@ -1,5 +1,5 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
-import { ArrowUp, Github } from 'lucide-react';
+import { ArrowUp, Facebook, Github } from 'lucide-react';
 import { useRef } from 'react';
 import { CtaLink } from '../ui/CtaLink';
 import { DomusMark } from '../ui/Logo';
@@ -35,6 +35,7 @@ const LINK_GROUPS: { title: string; links: { label: string; href: string }[] }[]
     links: [
       { label: 'Segnala un bug', href: SITE_LINKS.issues },
       { label: 'Idee e domande', href: SITE_LINKS.discussions },
+      { label: 'Gruppo Facebook', href: SITE_LINKS.facebookGroup },
       { label: 'Licenza GPL-3.0', href: SITE_LINKS.license },
       // Appears only once a support channel is configured.
       ...(SUPPORT_HREF ? [{ label: 'Supporta il progetto', href: SUPPORT_HREF }] : []),
@@ -83,6 +84,9 @@ export function FinaleSection() {
           <CtaLink href={SITE_LINKS.hacs}>Installa con HACS</CtaLink>
           <CtaLink href={SITE_LINKS.repository} variant="ghost" icon={<Github className="h-4 w-4" />}>
             Codice su GitHub
+          </CtaLink>
+          <CtaLink href={SITE_LINKS.facebookGroup} variant="ghost" icon={<Facebook className="h-4 w-4" />}>
+            Community su Facebook
           </CtaLink>
         </div>
       </div>
