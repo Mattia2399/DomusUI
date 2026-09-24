@@ -7,7 +7,8 @@ import { createVacuumStateMocks, VACUUM_MAX_COMPAT_MOCK_ENTITY_ID } from '../../
  *
  * Every card is a real Domus UI widget definition rendered by the production
  * WidgetCardRenderer. All of them are explicitly `dataSource: 'mock'`, so they
- * can never reach a Home Assistant API.
+ * can never reach a Home Assistant API. Titles are filled in per language by
+ * DemoCard (copy.demo.titles).
  */
 
 export type DemoCardId =
@@ -17,7 +18,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   climate: {
     id: 'site.climate',
     kind: 'climate',
-    title: 'Clima soggiorno',
+    title: '',
     entityId: 'climate.air_conditioner',
     dataSource: 'mock',
     status: 'heat',
@@ -29,7 +30,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   alarm: {
     id: 'site.alarm',
     kind: 'alarm',
-    title: 'Allarme casa',
+    title: '',
     entityId: 'alarm_control_panel.home_alarm',
     dataSource: 'mock',
     status: 'armed_home',
@@ -40,7 +41,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   light: {
     id: 'site.light',
     kind: 'light',
-    title: 'Luce salotto',
+    title: '',
     entityId: 'light.living_room_lamp',
     dataSource: 'mock',
     status: 'on',
@@ -52,7 +53,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   switch: {
     id: 'site.switch',
     kind: 'switch',
-    title: 'Presa cucina',
+    title: '',
     entityId: 'switch.kitchen_outlet',
     dataSource: 'mock',
     status: 'on',
@@ -63,7 +64,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   sensor: {
     id: 'site.energy',
     kind: 'sensor',
-    title: 'Energia casa',
+    title: '',
     entityId: 'sensor.home_power',
     dataSource: 'mock',
     status: 'tracking',
@@ -76,7 +77,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   lock: {
     id: 'site.lock',
     kind: 'lock',
-    title: 'Porta ingresso',
+    title: '',
     entityId: 'lock.front_door',
     dataSource: 'mock',
     status: 'locked',
@@ -87,7 +88,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   camera: {
     id: 'site.camera',
     kind: 'camera',
-    title: 'Giardino',
+    title: '',
     entityId: 'camera.garden',
     dataSource: 'mock',
     status: 'streaming',
@@ -97,7 +98,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   media: {
     id: 'site.media',
     kind: 'media',
-    title: 'Soggiorno',
+    title: '',
     entityId: 'media_player.living_room',
     dataSource: 'mock',
     status: 'playing',
@@ -107,7 +108,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   cover: {
     id: 'site.cover',
     kind: 'cover',
-    title: 'Tenda soggiorno',
+    title: '',
     entityId: 'cover.living_room',
     dataSource: 'mock',
     status: 'open',
@@ -117,7 +118,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
   vacuum: {
     id: 'site.vacuum',
     kind: 'vacuum',
-    title: 'Robot aspirapolvere',
+    title: '',
     entityId: VACUUM_MAX_COMPAT_MOCK_ENTITY_ID,
     dataSource: 'mock',
     status: 'docked',

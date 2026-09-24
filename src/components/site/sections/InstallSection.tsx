@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { BookOpen } from 'lucide-react';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { CtaLink } from '../ui/CtaLink';
 import { DURATION, EASE_OUT, SECTION_IDS, SITE_LINKS } from '../tokens';
 
@@ -8,58 +9,34 @@ import { DURATION, EASE_OUT, SECTION_IDS, SITE_LINKS } from '../tokens';
  * feature-status band (docs/feature-status.md).
  */
 
-const STEPS: { title: string; detail: string }[] = [
-  { title: 'Prepara HACS', detail: 'Installa e configura HACS nel tuo Home Assistant.' },
-  {
-    title: 'Aggiungi il repository',
-    detail: 'Mattia2399/DomusUI come repository personalizzato di tipo Integrazione.',
-  },
-  { title: 'Scarica e riavvia', detail: 'Scarica Domus UI e riavvia Home Assistant.' },
-  {
-    title: 'Aggiungi l’integrazione',
-    detail: 'Impostazioni → Dispositivi e servizi → Aggiungi integrazione → Domus UI.',
-  },
-  { title: 'Apri Domus UI', detail: 'Trovi la nuova voce nella sidebar di Home Assistant.' },
-];
-
 type Status = 'ok' | 'beta' | 'later';
 
-const STATUS: { area: string; status: Status }[] = [
-  { area: 'Home e Builder', status: 'ok' },
-  { area: 'Stanze', status: 'ok' },
-  { area: 'Sicurezza', status: 'ok' },
-  { area: 'Consumi', status: 'ok' },
-  { area: 'Calendario', status: 'ok' },
-  { area: 'Profilo e Impostazioni', status: 'ok' },
-  { area: 'Irrigazione', status: 'beta' },
-  { area: 'Locale tecnico', status: 'later' },
-  { area: 'Piscina e Spa', status: 'later' },
-  { area: 'Automazioni', status: 'later' },
-  { area: 'Mappa e liste', status: 'later' },
-];
+// Status per area, in the same order as copy.install.areas (docs/feature-status.md).
+const STATUS: Status[] = ['ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'beta', 'later', 'later', 'later', 'later'];
 
-const STATUS_STYLE: Record<Status, { label: string; color: string }> = {
-  ok: { label: 'Operativo', color: 'var(--s-ok)' },
-  beta: { label: 'Beta', color: 'var(--s-beta)' },
-  later: { label: 'In arrivo', color: 'var(--s-ink-3)' },
+const STATUS_COLOR: Record<Status, string> = {
+  ok: 'var(--s-ok)',
+  beta: 'var(--s-beta)',
+  later: 'var(--s-ink-3)',
 };
 
 function StatusBand() {
-  const items = [...STATUS, ...STATUS];
+  const { install } = useSiteCopy();
+  const areas = install.areas.map((area, index) => ({ area, status: STATUS[index] }));
+  const items = [...areas, ...areas];
   return (
     <div className="relative mt-24 overflow-hidden border-y border-white/[0.07] py-5 [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
-      <ul className="s-marquee" aria-label="Stato delle funzionalità">
+      <ul className="s-marquee" aria-label={install.statusAria}>
         {items.map((item, index) => {
-          const style = STATUS_STYLE[item.status];
           return (
             <li
               key={`${item.area}-${index}`}
-              aria-hidden={index >= STATUS.length ? true : undefined}
+              aria-hidden={index >= areas.length ? true : undefined}
               className="flex shrink-0 items-center gap-3 pr-12"
             >
-              <span className="s-dot" style={{ color: style.color }} />
+              <span className="s-dot" style={{ color: STATUS_COLOR[item.status] }} />
               <span className="text-[0.95rem] font-medium tracking-[-0.01em] text-white">{item.area}</span>
-              <span className="s-label">{style.label}</span>
+              <span className="s-label">{install.statusLabels[item.status]}</span>
             </li>
           );
         })}
@@ -69,25 +46,24 @@ function StatusBand() {
 }
 
 export function InstallSection() {
+  const { install } = useSiteCopy();
   return (
     <section id={SECTION_IDS.install} aria-labelledby="install-title" className="relative pt-28 md:pt-40">
       <div className="s-container">
         <div className="flex flex-col gap-10 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="s-label mb-6">07 — Installa</p>
+            <p className="s-label mb-6">{install.label}</p>
             <h2 id="install-title" className="s-title text-white">
-              Cinque passi.
+              {install.title}
               <br />
-              <span className="s-mute">Zero YAML.</span>
+              <span className="s-mute">{install.titleMuted}</span>
             </h2>
           </div>
-          <p className="s-lead max-w-sm">
-            Nessuna modifica a configuration.yaml, nessun token manuale, nessuna copia in /www.
-          </p>
+          <p className="s-lead max-w-sm">{install.lead}</p>
         </div>
 
         <ol className="mt-16 grid gap-px overflow-hidden rounded-[var(--s-radius-lg)] border border-white/[0.07] bg-white/[0.07] sm:grid-cols-2 lg:grid-cols-5">
-          {STEPS.map((step, index) => (
+          {install.steps.map((step, index) => (
             <motion.li
               key={step.title}
               initial={{ opacity: 0, y: 24 }}
@@ -110,9 +86,9 @@ export function InstallSection() {
         </ol>
 
         <div className="mt-10 flex flex-wrap items-center gap-3">
-          <CtaLink href={SITE_LINKS.hacs}>Apri in HACS</CtaLink>
+          <CtaLink href={SITE_LINKS.hacs}>{install.openHacs}</CtaLink>
           <CtaLink href={SITE_LINKS.installGuide} variant="ghost" icon={<BookOpen className="h-4 w-4" />}>
-            Guida completa
+            {install.guide}
           </CtaLink>
         </div>
       </div>

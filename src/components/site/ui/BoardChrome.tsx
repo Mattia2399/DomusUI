@@ -8,6 +8,7 @@ import {
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 
 /**
  * Lightweight replica of the Domus UI shell (sidebar rail, attention banner,
@@ -15,14 +16,11 @@ import {
  * dashboardNavigation.tsx: Dashboard, Rooms, Security, Consumption.
  */
 
-const NAV = [
-  { icon: LayoutGrid, label: 'Dashboard' },
-  { icon: DoorOpen, label: 'Stanze' },
-  { icon: ShieldCheck, label: 'Sicurezza' },
-  { icon: BarChart3, label: 'Consumi' },
-] as const;
+// Icons in the same order as copy.chrome.nav.
+const NAV_ICONS = [LayoutGrid, DoorOpen, ShieldCheck, BarChart3] as const;
 
 export function AttentionBanner({ compact = false }: { compact?: boolean }) {
+  const { chrome } = useSiteCopy();
   return (
     <div
       className={`flex items-center gap-3 rounded-full border border-white/[0.07] bg-white/[0.03] ${
@@ -33,12 +31,12 @@ export function AttentionBanner({ compact = false }: { compact?: boolean }) {
         <TriangleAlert className="h-3.5 w-3.5" strokeWidth={2} />
       </span>
       <div className="min-w-0 flex-1 leading-tight">
-        <p className="truncate text-[0.72rem] font-semibold text-white">Richiede attenzione</p>
-        <p className="truncate text-[0.66rem] text-white/50">Finestra studio aperta · +2</p>
+        <p className="truncate text-[0.72rem] font-semibold text-white">{chrome.attention}</p>
+        <p className="truncate text-[0.66rem] text-white/50">{chrome.attentionDetail}</p>
       </div>
       {compact ? null : (
         <span className="shrink-0 rounded-full bg-white/[0.06] px-2.5 py-1 text-[0.62rem] font-medium text-white/60">
-          3 attenzioni
+          {chrome.attentionCount}
         </span>
       )}
     </div>
@@ -46,19 +44,20 @@ export function AttentionBanner({ compact = false }: { compact?: boolean }) {
 }
 
 export function Greeting({ compact = false }: { compact?: boolean }) {
+  const { chrome } = useSiteCopy();
   return (
     <div className="flex items-end justify-between gap-4">
       <div className="min-w-0">
         <p
           className={`${compact ? 'text-xl' : 'text-[1.9rem]'} font-semibold leading-none tracking-[-0.03em] text-white`}
         >
-          Buongiorno!
+          {chrome.greeting}
         </p>
-        <p className="mt-1.5 truncate text-[0.72rem] text-white/50">Casa pronta. 4 preferiti attivi.</p>
+        <p className="mt-1.5 truncate text-[0.72rem] text-white/50">{chrome.greetingDetail}</p>
       </div>
       <div className="shrink-0 text-right leading-tight">
         <p className={`${compact ? 'text-lg' : 'text-2xl'} font-semibold tracking-tight text-white`}>21°</p>
-        <p className="text-[0.66rem] text-white/45">Pioggia 12%</p>
+        <p className="text-[0.66rem] text-white/45">{chrome.weather}</p>
       </div>
     </div>
   );
@@ -73,9 +72,9 @@ export function SideRail() {
       <span className="mb-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[0.7rem] font-semibold text-white/80">
         M
       </span>
-      {NAV.map(({ icon: Icon, label }, index) => (
+      {NAV_ICONS.map((Icon, index) => (
         <span
-          key={label}
+          key={index}
           className={`flex h-9 w-9 items-center justify-center rounded-xl ${
             index === 0 ? 'bg-[#1768d5] text-white shadow-[0_6px_20px_-6px_#1768d5]' : 'text-white/45'
           }`}
@@ -97,25 +96,26 @@ export function SideRail() {
 }
 
 export function BottomBar() {
+  const { chrome } = useSiteCopy();
   return (
     <nav
       aria-hidden
       className="flex items-center justify-around rounded-[1.4rem] border border-white/[0.08] bg-[#0d1220]/90 px-2 py-2 backdrop-blur-xl"
     >
-      {NAV.map(({ icon: Icon, label }, index) => (
+      {NAV_ICONS.map((Icon, index) => (
         <span
-          key={label}
+          key={index}
           className={`flex flex-col items-center gap-0.5 rounded-xl px-2 py-1 text-[0.55rem] font-medium ${
             index === 0 ? 'text-[#5ba8ff]' : 'text-white/45'
           }`}
         >
           <Icon className="h-4 w-4" strokeWidth={1.9} />
-          {label}
+          {chrome.nav[index]}
         </span>
       ))}
       <span className="flex flex-col items-center gap-0.5 px-2 py-1 text-[0.55rem] font-medium text-white/45">
         <MoreHorizontal className="h-4 w-4" />
-        Altro
+        {chrome.more}
       </span>
     </nav>
   );

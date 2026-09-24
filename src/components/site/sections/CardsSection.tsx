@@ -12,6 +12,7 @@ import { DemoCard, type CardSpan } from '../demo/DemoCard';
 import type { DemoCardId } from '../demo/fixtures';
 import { useIsWide } from '../hooks/useMediaQuery';
 import { useSceneProgress } from '../hooks/useSceneProgress';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { DURATION, EASE_OUT, SECTION_IDS } from '../tokens';
 
 /**
@@ -40,35 +41,26 @@ const CELLS: Cell[] = [
   { id: 'vacuum', col: 9, row: 4, span: { w: 4, h: 3 } },
 ];
 
-const FOCUS: { id: DemoCardId; family: string; copy: string; traits: string[] }[] = [
+// Focus order; the family name and description come from copy.cards.focus[id].
+const FOCUS: { id: 'climate' | 'light' | 'alarm' | 'media' | 'camera'; traits: string[] }[] = [
   {
     id: 'climate',
-    family: 'Clima',
-    copy: 'Temperatura, modalità, ventola e preset. La card mostra solo ciò che il tuo climatizzatore espone davvero.',
     traits: ['hvac_mode', 'fan_mode', 'preset', 'swing'],
   },
   {
     id: 'light',
-    family: 'Luci',
-    copy: 'Luminosità, colore e temperatura colore. Accesa si espande, spenta si compatta da sola.',
     traits: ['brightness', 'hs_color', 'color_temp'],
   },
   {
     id: 'alarm',
-    family: 'Sicurezza',
-    copy: 'Allarme e serrature chiedono una conferma sul dispositivo. Home Assistant resta l’autorità finale.',
     traits: ['PIN', 'WebAuthn', 'HA auth'],
   },
   {
     id: 'media',
-    family: 'Media',
-    copy: 'Copertina, avanzamento, sorgenti e gruppi, quando il player li supporta.',
     traits: ['seek', 'source', 'group'],
   },
   {
     id: 'camera',
-    family: 'Telecamere',
-    copy: 'Snapshot e stream dalle telecamere di Home Assistant, con joystick PTZ dove disponibile.',
     traits: ['stream', 'snapshot', 'PTZ'],
   },
 ];
@@ -244,6 +236,7 @@ function ExplodedCell({
 }
 
 export function CardsSection() {
+  const { cards } = useSiteCopy();
   const trackRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -330,9 +323,9 @@ export function CardsSection() {
           className="pointer-events-none absolute inset-x-0 top-[calc(var(--s-nav-h)+2vh)] z-10 text-center"
           style={{ opacity: introOpacity }}
         >
-          <p className="s-label mb-4">03 — Card</p>
+          <p className="s-label mb-4">{cards.label}</p>
           <h2 id="cards-title" className="s-title mx-auto max-w-4xl px-6 text-white">
-            Ogni card, <span className="s-mute">un dispositivo.</span>
+            {cards.title} <span className="s-mute">{cards.titleMuted}</span>
           </h2>
         </motion.div>
 
@@ -391,8 +384,8 @@ export function CardsSection() {
                 <p className="s-label mb-4">
                   {String(focus + 1).padStart(2, '0')} / {String(FOCUS.length).padStart(2, '0')}
                 </p>
-                <h3 className="s-display text-white">{active.family}</h3>
-                <p className="s-lead mt-5">{active.copy}</p>
+                <h3 className="s-display text-white">{cards.focus[active.id].family}</h3>
+                <p className="s-lead mt-5">{cards.focus[active.id].copy}</p>
                 <ul className="mt-6 flex flex-wrap gap-2">
                   {active.traits.map((trait) => (
                     <li key={trait} className="s-chip">
@@ -417,7 +410,7 @@ export function CardsSection() {
               className="pointer-events-none absolute inset-x-0 bottom-[max(2.5rem,6vh)] z-10 px-[var(--s-gutter)] text-center"
             >
               <p className="s-subtitle text-white">
-                14 famiglie. <span className="s-mute">Un solo linguaggio.</span>
+                {cards.families} <span className="s-mute">{cards.familiesMuted}</span>
               </p>
               <p className="mx-auto mt-3 max-w-3xl text-[0.8rem] leading-relaxed text-white/40">
                 {FAMILIES.join(' · ')}

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Coffee, Heart } from 'lucide-react';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { CtaLink } from '../ui/CtaLink';
 import { DURATION, EASE_OUT, SUPPORT_LINKS } from '../tokens';
 
@@ -8,6 +9,7 @@ import { DURATION, EASE_OUT, SUPPORT_LINKS } from '../tokens';
  * least one channel is configured in SUPPORT_LINKS, so no dead links ship.
  */
 export function SupportSection() {
+  const { support } = useSiteCopy();
   const { kofi, githubSponsors } = SUPPORT_LINKS;
   if (!kofi && !githubSponsors) return null;
 
@@ -32,27 +34,24 @@ export function SupportSection() {
               <span className="mb-8 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--s-warm)]/30 bg-[var(--s-warm)]/10 text-[#ffb27a]">
                 <Coffee className="h-6 w-6" strokeWidth={1.6} />
               </span>
-              <p className="s-label mb-4">Supporta il progetto</p>
+              <p className="s-label mb-4">{support.label}</p>
               <h2 id="support-title" className="s-subtitle text-white">
-                Domus UI è gratuito e open source.
+                {support.title}
                 <br />
-                <span className="s-mute">Se rende migliore la tua casa, offrimi un caffè.</span>
+                <span className="s-mute">{support.titleMuted}</span>
               </h2>
-              <p className="mt-5 max-w-lg text-[0.95rem] leading-relaxed text-white/55">
-                Ogni contributo aiuta a dedicare più tempo a Domus UI: nuove card, test su dispositivi reali e
-                traduzioni. Nessun obbligo, nessuna funzione a pagamento.
-              </p>
+              <p className="mt-5 max-w-lg text-[0.95rem] leading-relaxed text-white/55">{support.body}</p>
             </div>
 
             <div className="flex flex-wrap gap-3 lg:shrink-0">
               {kofi ? (
                 <CtaLink href={kofi} variant="warm" icon={<Coffee className="h-4 w-4" />}>
-                  Offrimi un caffè
+                  {support.kofi}
                 </CtaLink>
               ) : null}
               {githubSponsors ? (
                 <CtaLink href={githubSponsors} variant="ghost" icon={<Heart className="h-4 w-4" />}>
-                  Diventa sponsor
+                  {support.sponsor}
                 </CtaLink>
               ) : null}
             </div>

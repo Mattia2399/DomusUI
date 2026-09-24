@@ -31,14 +31,15 @@ export const SECTION_IDS = {
 
 export type SectionId = (typeof SECTION_IDS)[keyof typeof SECTION_IDS];
 
-export const NAV_ITEMS: { id: SectionId; label: string }[] = [
-  { id: SECTION_IDS.layouts, label: 'Layout' },
-  { id: SECTION_IDS.cards, label: 'Card' },
-  { id: SECTION_IDS.live, label: 'Live' },
-  { id: SECTION_IDS.apps, label: 'App' },
-  { id: SECTION_IDS.trust, label: 'Sicurezza' },
-  { id: SECTION_IDS.install, label: 'Installa' },
-];
+/** Sections listed in the navbar; labels live in the copy (copy.nav.items). */
+export const NAV_SECTIONS = [
+  'layouts',
+  'cards',
+  'live',
+  'apps',
+  'trust',
+  'install',
+] as const satisfies readonly SectionId[];
 
 const REPOSITORY = 'https://github.com/Mattia2399/DomusUI';
 

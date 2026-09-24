@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { GridEngineBreakpoint } from '../../dashboard/dashboardBreakpointConfig';
 import { WidgetCardRenderer } from '../../widgets/CardRenderer';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { useDemoHome } from './DemoHomeProvider';
 import { DEMO_WIDGETS, SENSOR_HISTORY, type DemoCardId } from './fixtures';
 
@@ -27,12 +28,13 @@ export function DemoCard({
   interactive?: boolean;
 }) {
   const { entities, actions, switchConsumption, dashboardState } = useDemoHome();
+  const title = useSiteCopy().demo.titles[id];
   const base = DEMO_WIDGETS[id];
   const w = span?.w ?? base.layout.w;
   const h = span?.h ?? base.layout.h;
 
   // Stable identity per span: the renderer is memoised on the widget object.
-  const widget = useMemo(() => ({ ...base, layout: { ...base.layout, w, h } }), [base, w, h]);
+  const widget = useMemo(() => ({ ...base, title, layout: { ...base.layout, w, h } }), [base, title, w, h]);
 
   return (
     <WidgetCardRenderer

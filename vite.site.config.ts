@@ -8,9 +8,9 @@ import { packageVersion, productionCspPlugin } from './vite.shared';
 /**
  * Standalone build of the public presentation website (`npm run build:site`).
  *
- * It renders only the /beta experience at the site root and outputs a static
- * folder (dist-site/) ready for any static host. It deliberately omits the
- * Home Assistant panel bridge and every dashboard route.
+ * It renders only the /beta experience, in Italian at / and English at /en/,
+ * and outputs a static folder (dist-site/) ready for any static host. It
+ * deliberately omits the Home Assistant panel bridge and every dashboard route.
  */
 export default defineConfig({
   root: path.resolve(__dirname, 'site'),
@@ -31,5 +31,12 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, 'dist-site'),
     emptyOutDir: true,
+    // One HTML page per language: / (Italian) and /en/ (English).
+    rollupOptions: {
+      input: {
+        it: path.resolve(__dirname, 'site/index.html'),
+        en: path.resolve(__dirname, 'site/en/index.html'),
+      },
+    },
   },
 });

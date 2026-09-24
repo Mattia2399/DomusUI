@@ -6,6 +6,7 @@ import technicalImage from '../../../assets/technical-room-preview.jpg';
 import { useObservedElementSize } from '../../../hooks/useObservedElementSize';
 import { useIsWide } from '../hooks/useMediaQuery';
 import { useSceneProgress } from '../hooks/useSceneProgress';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { DURATION, EASE_OUT, SECTION_IDS } from '../tokens';
 
 /**
@@ -15,44 +16,24 @@ import { DURATION, EASE_OUT, SECTION_IDS } from '../tokens';
 
 type AppStatus = 'beta' | 'dev';
 
-const APPS: {
-  name: string;
-  status: AppStatus;
-  image: string;
-  alt: string;
-  summary: string;
-  facts: string[];
-}[] = [
-  {
-    name: 'Irrigazione Smart',
-    status: 'beta',
-    image: irrigationImage,
-    alt: 'Giardino irrigato al mattino con irrigatori in funzione',
-    summary: 'Zone, calendario e consumi. I cicli girano dentro Home Assistant anche a schermi chiusi.',
-    facts: ['Domus Core lato server', 'Protezione pioggia', 'Verifica di chiusura'],
-  },
-  {
-    name: 'Locale tecnico',
-    status: 'dev',
-    image: technicalImage,
-    alt: 'Locale tecnico domestico con inverter e accumulo',
-    summary: 'Pompe di calore, inverter fotovoltaico, stato rete e UPS.',
-    facts: ['Anteprima non interattiva'],
-  },
-  {
-    name: 'Piscina e Spa',
-    status: 'dev',
-    image: poolImage,
-    alt: 'Piscina illuminata al tramonto',
-    summary: 'Filtrazione, riscaldamento acqua e illuminazione subacquea.',
-    facts: ['Anteprima non interattiva'],
-  },
+// Visual data per app; the texts come from copy.apps.items (same order).
+const APPS: { status: AppStatus; image: string }[] = [
+  { status: 'beta', image: irrigationImage },
+  { status: 'dev', image: technicalImage },
+  { status: 'dev', image: poolImage },
 ];
 
-const STATUS_LABEL: Record<AppStatus, { label: string; color: string }> = {
-  beta: { label: 'Beta · disponibile', color: 'var(--s-beta)' },
-  dev: { label: 'In sviluppo', color: 'var(--s-ink-3)' },
+const STATUS_COLOR: Record<AppStatus, string> = {
+  beta: 'var(--s-beta)',
+  dev: 'var(--s-ink-3)',
 };
+
+function useApps() {
+  const { apps } = useSiteCopy();
+  return APPS.map((app, index) => ({ ...app, ...apps.items[index] }));
+}
+
+type App = ReturnType<typeof useApps>[number];
 
 function AppPanel({
   app,
@@ -60,7 +41,7 @@ function AppPanel({
   progress,
   className = '',
 }: {
-  app: (typeof APPS)[number];
+  app: App;
   index: number;
   progress?: MotionValue<number>;
   className?: string;
@@ -68,7 +49,7 @@ function AppPanel({
   // Each image drifts against the strip for a subtle depth parallax.
   const still = useMotionValue(0);
   const imageX = useTransform(progress ?? still, [0, 1], [`${6 - index * 6}%`, `${-6 - index * 6}%`]);
-  const status = STATUS_LABEL[app.status];
+  const { apps } = useSiteCopy();
 
   return (
     <article
@@ -89,9 +70,9 @@ function AppPanel({
         } bg-[linear-gradient(180deg,rgb(3_5_10/0.15)_0%,transparent_35%,rgb(3_5_10/0.88)_100%)]`}
       />
       <div className="absolute inset-x-0 bottom-0 p-6 md:p-10">
-        <p className="s-chip mb-5 !bg-black/40 backdrop-blur-md" style={{ color: status.color }}>
+        <p className="s-chip mb-5 !bg-black/40 backdrop-blur-md" style={{ color: STATUS_COLOR[app.status] }}>
           <span className="s-dot" />
-          {status.label}
+          {apps.status[app.status]}
         </p>
         <h3 className="s-subtitle text-white">{app.name}</h3>
         <p className="mt-3 max-w-md text-[0.95rem] leading-relaxed text-white/70">{app.summary}</p>
@@ -111,6 +92,8 @@ function AppPanel({
 }
 
 function WideApps() {
+  const copy = useSiteCopy().apps;
+  const items = useApps();
   const trackRef = useRef<HTMLElement>(null);
   const progress = useSceneProgress(trackRef);
   const { ref: stripRef, size } = useObservedElementSize<HTMLDivElement>('apps-strip');
@@ -133,17 +116,15 @@ function WideApps() {
           style={{ x }}
         >
           <div className="flex w-[34vw] min-w-[24rem] shrink-0 flex-col justify-center pr-8">
-            <p className="s-label mb-6">05 — App Gallery</p>
+            <p className="s-label mb-6">{copy.label}</p>
             <h2 id="apps-title" className="s-title text-white">
-              Oltre
+              {copy.title}
               <br />
-              la dashboard.
+              {copy.titleMuted}
             </h2>
-            <p className="s-lead mt-6 max-w-sm">
-              Plance dedicate per gli impianti che meritano uno spazio tutto loro. La prima è già qui.
-            </p>
+            <p className="s-lead mt-6 max-w-sm">{copy.lead}</p>
           </div>
-          {APPS.map((app, index) => (
+          {items.map((app, index) => (
             <AppPanel
               key={app.name}
               app={app}
@@ -164,18 +145,18 @@ function WideApps() {
 }
 
 function NarrowApps() {
+  const copy = useSiteCopy().apps;
+  const items = useApps();
   return (
     <section id={SECTION_IDS.apps} aria-labelledby="apps-title-narrow" className="py-28">
       <div className="s-container">
-        <p className="s-label mb-6">05 — App Gallery</p>
+        <p className="s-label mb-6">{copy.label}</p>
         <h2 id="apps-title-narrow" className="s-title text-white">
-          Oltre la dashboard.
+          {copy.title} {copy.titleMuted}
         </h2>
-        <p className="s-lead mt-6">
-          Plance dedicate per gli impianti che meritano uno spazio tutto loro. La prima è già qui.
-        </p>
+        <p className="s-lead mt-6">{copy.lead}</p>
         <div className="mt-12 space-y-5">
-          {APPS.map((app, index) => (
+          {items.map((app, index) => (
             <motion.div
               key={app.name}
               initial={{ opacity: 0, y: 40 }}

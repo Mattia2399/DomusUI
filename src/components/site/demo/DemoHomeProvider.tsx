@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 import poolImage from '../../../assets/pool-spa-preview.jpg';
 import { useDashboardState, type DashboardStateShape } from '../../../hooks/useDashboardState';
 import type { MockEntityState } from '../../../types/ha';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { MEDIA_ARTWORK, MEDIA_DURATION_SECONDS, STATIC_ENTITIES, type DemoCardId } from './fixtures';
 
 /**
@@ -73,19 +74,12 @@ const INITIAL_STATE: DemoHomeState = {
   climateFanMode: 'auto',
 };
 
-const CLIMATE_LABELS: Record<string, string> = {
-  off: 'Spento',
-  heat: 'Riscaldamento',
-  cool: 'Raffrescamento',
-  auto: 'Automatico',
-  dry: 'Deumidificazione',
-};
-
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 export function DemoHomeProvider({ children }: { children: ReactNode }) {
   // The production mock state is still needed by cards that read global data.
   const { state: dashboardState } = useDashboardState();
+  const { demo } = useSiteCopy();
   const [home, setHome] = useState<DemoHomeState>(INITIAL_STATE);
 
   const actions = useMemo<DemoHomeActions>(() => {
@@ -114,7 +108,7 @@ export function DemoHomeProvider({ children }: { children: ReactNode }) {
     const climateMode = home.climateOn ? home.climateMode : 'off';
     const climateAction = !home.climateOn ? 'off' : climateMode === 'cool' ? 'cooling' : 'heating';
     const switchWatts = home.switchOn ? 128 : 0;
-    const climateLabel = CLIMATE_LABELS[climateMode] ?? 'Automatico';
+    const climateLabel = demo.climateModes[climateMode as keyof typeof demo.climateModes] ?? demo.climateModes.auto;
 
     const entities: Partial<Record<DemoCardId, MockEntityState>> = {
       light: {
@@ -125,7 +119,7 @@ export function DemoHomeProvider({ children }: { children: ReactNode }) {
         colorTempKelvin: 3000,
         supportedColorModes: ['brightness', 'hs', 'color_temp'],
         rawAttributes: {
-          friendly_name: 'Luce salotto',
+          friendly_name: demo.titles.light,
           supported_color_modes: ['brightness', 'hs', 'color_temp'],
           color_mode: 'hs',
           brightness: brightness255,
@@ -150,7 +144,7 @@ export function DemoHomeProvider({ children }: { children: ReactNode }) {
         targetTempStep: 0.5,
         supportedFeatures: 1023,
         rawAttributes: {
-          friendly_name: 'Clima soggiorno',
+          friendly_name: demo.titles.climate,
           hvac_mode: climateMode,
           hvac_action: climateAction,
           hvac_modes: ['off', 'heat', 'cool', 'auto', 'dry'],
@@ -170,28 +164,28 @@ export function DemoHomeProvider({ children }: { children: ReactNode }) {
       alarm: {
         state: home.alarm,
         supportedFeatures: 63,
-        rawAttributes: { friendly_name: 'Allarme casa', code_arm_required: false },
+        rawAttributes: { friendly_name: demo.titles.alarm, code_arm_required: false },
       },
       lock: {
         state: home.locked ? 'locked' : 'unlocked',
         supportedFeatures: 1,
-        rawAttributes: { friendly_name: 'Porta ingresso', battery_level: 84 },
+        rawAttributes: { friendly_name: demo.titles.lock, battery_level: 84 },
       },
       switch: {
         state: home.switchOn ? 'on' : 'off',
         toggleOn: home.switchOn,
-        rawAttributes: { device_class: 'outlet', friendly_name: 'Presa cucina' },
+        rawAttributes: { device_class: 'outlet', friendly_name: demo.titles.switch },
       },
       camera: {
         state: 'streaming',
         imageUrl: poolImage,
-        rawAttributes: { friendly_name: 'Giardino', entity_picture: poolImage },
+        rawAttributes: { friendly_name: demo.titles.camera, entity_picture: poolImage },
       },
       media: {
         state: home.mediaPlaying ? 'playing' : 'paused',
         progress: home.mediaProgress,
         mediaTitle: 'Blue Hour',
-        mediaArtist: 'Playlist serale',
+        mediaArtist: demo.mediaArtist,
         mediaDuration: MEDIA_DURATION_SECONDS,
         mediaPosition: Math.round((home.mediaProgress / 100) * MEDIA_DURATION_SECONDS),
         mediaPositionUpdatedAt: 0,
@@ -201,13 +195,13 @@ export function DemoHomeProvider({ children }: { children: ReactNode }) {
         state: home.coverPosition <= 0 ? 'closed' : 'open',
         supportedFeatures: 15,
         rawAttributes: {
-          friendly_name: 'Tenda soggiorno',
+          friendly_name: demo.titles.cover,
           current_position: home.coverPosition,
           supported_features: 15,
         },
       },
       sensor: STATIC_ENTITIES.sensor,
-      vacuum: STATIC_ENTITIES.vacuum,
+      vacuum: { ...STATIC_ENTITIES.vacuum, stateLabel: demo.vacuumDocked },
     };
 
     return {
@@ -217,7 +211,7 @@ export function DemoHomeProvider({ children }: { children: ReactNode }) {
       switchConsumption: { state: String(switchWatts), numericValue: switchWatts, unit: 'W' },
       dashboardState,
     };
-  }, [home, actions, dashboardState]);
+  }, [home, actions, dashboardState, demo]);
 
   return <DemoHomeContext.Provider value={value}>{children}</DemoHomeContext.Provider>;
 }

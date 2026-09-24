@@ -2,6 +2,7 @@ import { motion, useMotionValue, useReducedMotion, useSpring } from 'framer-moti
 import { ArrowUpRight } from 'lucide-react';
 import type { PointerEvent, ReactNode } from 'react';
 import { useFinePointer } from '../hooks/useMediaQuery';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 
 const VARIANT_CLASS = { primary: 's-btn-primary', ghost: 's-btn-ghost', warm: 's-btn-warm' } as const;
 
@@ -26,6 +27,7 @@ export function CtaLink({
   className?: string;
   external?: boolean;
 }) {
+  const { meta } = useSiteCopy();
   const finePointer = useFinePointer();
   const reduceMotion = useReducedMotion();
   const magnetic = finePointer && !reduceMotion;
@@ -55,7 +57,7 @@ export function CtaLink({
     >
       {children}
       {icon}
-      {external ? <span className="sr-only"> (si apre in una nuova scheda)</span> : null}
+      {external ? <span className="sr-only">{meta.newTab}</span> : null}
     </motion.a>
   );
 }

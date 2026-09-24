@@ -11,6 +11,7 @@ import { History, Move, Undo2 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useObservedElementSize } from '../../../hooks/useObservedElementSize';
 import { DemoCard, type CardSpan } from '../demo/DemoCard';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import type { DemoCardId } from '../demo/fixtures';
 import { useIsWide } from '../hooks/useMediaQuery';
 import { useSceneProgress } from '../hooks/useSceneProgress';
@@ -31,20 +32,16 @@ type Cell = { col: number; row: number; span: CardSpan };
 const MODES: Record<
   Mode,
   {
-    label: string;
     cols: number;
     breakpoint: 'xl' | 'lg' | 'xs';
     width: number;
-    copy: string;
     cells: Partial<Record<DemoCardId, Cell>>;
   }
 > = {
   desktop: {
-    label: 'Desktop',
     cols: 12,
     breakpoint: 'xl',
     width: 1000,
-    copy: 'Dodici colonne e tutto lo spazio per la casa intera, con i pannelli contestuali a portata di clic.',
     cells: {
       climate: { col: 1, row: 1, span: { w: 3, h: 3 } },
       alarm: { col: 4, row: 1, span: { w: 3, h: 3 } },
@@ -59,11 +56,9 @@ const MODES: Record<
     },
   },
   tablet: {
-    label: 'Tablet',
     cols: 8,
     breakpoint: 'lg',
     width: 760,
-    copy: 'Otto colonne. La stessa casa, ricomposta per il tablet: nessuna card tagliata, nessuno spazio sprecato.',
     cells: {
       climate: { col: 1, row: 1, span: { w: 3, h: 3 } },
       alarm: { col: 4, row: 1, span: { w: 3, h: 3 } },
@@ -78,11 +73,9 @@ const MODES: Record<
     },
   },
   phone: {
-    label: 'Smartphone',
     cols: 2,
     breakpoint: 'xs',
     width: 340,
-    copy: 'Due colonne e la barra in basso. Ogni card sceglie la propria variante in base allo spazio reale.',
     cells: {
       climate: { col: 1, row: 1, span: { w: 2, h: 3 } },
       light: { col: 1, row: 4, span: { w: 1, h: 2 } },
@@ -113,11 +106,25 @@ const CARD_ORDER: DemoCardId[] = [
 ];
 const PHONE_SCREEN_HEIGHT = 700;
 
-const BUILDER_FACTS = [
-  { icon: Move, label: 'Drag & drop' },
-  { icon: Undo2, label: 'Undo / redo' },
-  { icon: History, label: 'Versioni e rollback' },
-];
+// Icons in the same order as copy.layouts.builder.
+const BUILDER_ICONS = [Move, Undo2, History] as const;
+
+function BuilderFacts({ className }: { className: string }) {
+  const { layouts } = useSiteCopy();
+  return (
+    <ul className={`flex flex-wrap gap-2 ${className}`} aria-label={layouts.builderAria}>
+      {layouts.builder.map((label, index) => {
+        const Icon = BUILDER_ICONS[index];
+        return (
+          <li key={label} className="s-chip">
+            <Icon className="h-3.5 w-3.5 text-[var(--s-blue)]" />
+            {label}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function LayoutBoard({
   mode,
@@ -209,22 +216,23 @@ function LayoutBoard({
 }
 
 function ModeCopy({ mode, progress, titleId }: { mode: Mode; progress: MotionValue<number>; titleId: string }) {
+  const { layouts } = useSiteCopy();
   const config = MODES[mode];
   const rail = useTransform(progress, [0.02, 0.98], ['0%', '100%']);
   return (
     <div className="flex h-full flex-col justify-center">
-      <p className="s-label mb-6">02 — Layout</p>
+      <p className="s-label mb-6">{layouts.label}</p>
       <h2
         id={titleId}
         className="text-[clamp(2.3rem,3.5vw,3.5rem)] font-[580] leading-[0.98] tracking-[-0.045em] text-white"
       >
-        Un layout.
+        {layouts.title}
         <br />
-        <span className="s-mute">Tre griglie.</span>
+        <span className="s-mute">{layouts.titleMuted}</span>
       </h2>
 
       <p className="s-label mt-12">
-        Colonne · <span className="text-white">{config.label}</span>
+        {layouts.columns} · <span className="text-white">{layouts.modes[mode].label}</span>
       </p>
       <div className="mt-2">
         <div className="relative h-[clamp(6rem,10vw,9rem)] overflow-hidden">
@@ -253,14 +261,14 @@ function ModeCopy({ mode, progress, titleId }: { mode: Mode; progress: MotionVal
             transition={{ duration: DURATION.base, ease: EASE_OUT }}
             className="s-lead"
           >
-            {config.copy}
+            {layouts.modes[mode].copy}
           </motion.p>
         </AnimatePresence>
       </div>
 
       <ol
         className="relative mt-10 flex max-w-sm justify-between border-t border-white/[0.08] pt-4"
-        aria-label="Griglie"
+        aria-label={layouts.stepsAria}
       >
         <motion.span aria-hidden className="absolute -top-px left-0 h-px bg-[var(--s-blue)]" style={{ width: rail }} />
         {MODE_ORDER.map((item) => (
@@ -269,19 +277,12 @@ function ModeCopy({ mode, progress, titleId }: { mode: Mode; progress: MotionVal
             aria-current={item === mode ? 'step' : undefined}
             className={`s-label transition-colors duration-500 ${item === mode ? '!text-white' : ''}`}
           >
-            {MODES[item].label}
+            {layouts.modes[item].label}
           </li>
         ))}
       </ol>
 
-      <ul className="mt-10 flex flex-wrap gap-2" aria-label="Builder visuale">
-        {BUILDER_FACTS.map(({ icon: Icon, label }) => (
-          <li key={label} className="s-chip">
-            <Icon className="h-3.5 w-3.5 text-[var(--s-blue)]" />
-            {label}
-          </li>
-        ))}
-      </ul>
+      <BuilderFacts className="mt-10" />
     </div>
   );
 }
@@ -369,14 +370,15 @@ function ScaledBoard({ mode }: { mode: Mode }) {
 }
 
 function NarrowLayouts() {
+  const { layouts } = useSiteCopy();
   return (
     <section id={SECTION_IDS.layouts} aria-labelledby="layouts-title-narrow" className="relative py-28">
       <div className="s-container">
-        <p className="s-label mb-6">02 — Layout</p>
+        <p className="s-label mb-6">{layouts.label}</p>
         <h2 id="layouts-title-narrow" className="s-title text-white">
-          Un layout.
+          {layouts.title}
           <br />
-          <span className="s-mute">Tre griglie.</span>
+          <span className="s-mute">{layouts.titleMuted}</span>
         </h2>
         <div className="mt-16 space-y-20">
           {MODE_ORDER.map((mode) => (
@@ -388,24 +390,17 @@ function NarrowLayouts() {
               transition={{ duration: DURATION.slow, ease: EASE_OUT }}
             >
               <p className="s-label">
-                Colonne · <span className="text-white">{MODES[mode].label}</span>
+                {layouts.columns} · <span className="text-white">{layouts.modes[mode].label}</span>
               </p>
               <p className="s-blue-ink mb-5 mt-2 text-[5.5rem] font-semibold leading-[0.9] tracking-[-0.07em]">
                 {MODES[mode].cols}
               </p>
-              <p className="s-lead mb-8">{MODES[mode].copy}</p>
+              <p className="s-lead mb-8">{layouts.modes[mode].copy}</p>
               <ScaledBoard mode={mode} />
             </motion.div>
           ))}
         </div>
-        <ul className="mt-16 flex flex-wrap gap-2" aria-label="Builder visuale">
-          {BUILDER_FACTS.map(({ icon: Icon, label }) => (
-            <li key={label} className="s-chip">
-              <Icon className="h-3.5 w-3.5 text-[var(--s-blue)]" />
-              {label}
-            </li>
-          ))}
-        </ul>
+        <BuilderFacts className="mt-16" />
       </div>
     </section>
   );

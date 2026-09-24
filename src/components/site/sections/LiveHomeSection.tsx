@@ -6,6 +6,7 @@ import { DemoCard, type CardSpan } from '../demo/DemoCard';
 import { useDemoHome } from '../demo/DemoHomeProvider';
 import type { DemoCardId } from '../demo/fixtures';
 import { useIsWide } from '../hooks/useMediaQuery';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { SplitReveal } from '../ui/SplitReveal';
 import { DURATION, EASE_OUT, SECTION_IDS } from '../tokens';
 
@@ -38,6 +39,7 @@ function hsl([h, s]: [number, number], lightness: number, alpha: number) {
 
 function Room() {
   const { home } = useDemoHome();
+  const { live } = useSiteCopy();
   const sectionRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ['start end', 'center center'] });
   // The window opens up from a narrow slit to the full frame as it enters.
@@ -62,7 +64,7 @@ function Room() {
       <motion.div className="absolute inset-0 overflow-hidden rounded-[2rem]" style={{ clipPath: clip }}>
         <motion.img
           src={poolImage}
-          alt="Vista notturna dalla finestra del soggiorno sul giardino con piscina"
+          alt={live.windowAlt}
           loading="lazy"
           decoding="async"
           className="h-full w-full object-cover"
@@ -112,10 +114,11 @@ function Room() {
 
 function Readout() {
   const { home } = useDemoHome();
+  const { live } = useSiteCopy();
   const items = [
-    { label: 'Luce', value: home.lampOn ? `${home.lampBrightness}%` : 'Spenta' },
-    { label: 'Tenda', value: home.coverPosition <= 0 ? 'Chiusa' : `${home.coverPosition}%` },
-    { label: 'Clima', value: home.climateOn ? `${home.climateTarget.toFixed(1)}°` : 'Spento' },
+    { label: live.readout.light, value: home.lampOn ? `${home.lampBrightness}%` : live.lightOff },
+    { label: live.readout.cover, value: home.coverPosition <= 0 ? live.coverClosed : `${home.coverPosition}%` },
+    { label: live.readout.climate, value: home.climateOn ? `${home.climateTarget.toFixed(1)}°` : live.climateOff },
   ];
   return (
     <dl className="flex flex-wrap gap-x-8 gap-y-3" aria-live="polite">
@@ -130,6 +133,7 @@ function Readout() {
 }
 
 export function LiveHomeSection() {
+  const { live } = useSiteCopy();
   const wide = useIsWide();
   const { home } = useDemoHome();
   const cards = wide ? WIDE_CARDS : NARROW_CARDS;
@@ -149,11 +153,11 @@ export function LiveHomeSection() {
 
       <div className="s-container relative grid gap-12 lg:grid-cols-[minmax(0,46rem)_1fr] lg:grid-rows-[auto_1fr] lg:gap-x-16 lg:gap-y-10">
         <div className="lg:col-start-1 lg:row-start-1">
-          <p className="s-label mb-6">04 — Live</p>
+          <p className="s-label mb-6">{live.label}</p>
           <SplitReveal
             id="live-title"
             className="s-title text-white"
-            lines={['Tocca.', { text: 'La casa risponde.', className: 's-mute' }]}
+            lines={[live.title, { text: live.titleMuted, className: 's-mute' }]}
           />
           <motion.p
             className="s-lead mt-6 max-w-md"
@@ -162,7 +166,7 @@ export function LiveHomeSection() {
             viewport={{ once: true, margin: '-10% 0px' }}
             transition={{ duration: DURATION.slow, ease: EASE_OUT, delay: 0.2 }}
           >
-            Sono le card vere di Domus UI. Accendi la luce, cambiale colore, abbassa la tenda: la stanza segue.
+            {live.lead}
           </motion.p>
         </div>
 
@@ -197,7 +201,7 @@ export function LiveHomeSection() {
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-white/[0.08] pt-5">
             <Readout />
             <span className="s-label flex items-center gap-2">
-              <MousePointerClick className="h-3.5 w-3.5" /> Demo locale
+              <MousePointerClick className="h-3.5 w-3.5" /> {live.badge}
             </span>
           </div>
         </motion.div>

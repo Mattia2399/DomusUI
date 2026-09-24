@@ -2,6 +2,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { ArrowUp, Facebook, Github } from 'lucide-react';
 import { useRef } from 'react';
 import { CtaLink } from '../ui/CtaLink';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { DomusMark } from '../ui/Logo';
 import { SplitReveal } from '../ui/SplitReveal';
 import { APP_VERSION, SECTION_IDS, SITE_LINKS, SUPPORT_LINKS } from '../tokens';
@@ -13,37 +14,45 @@ import { APP_VERSION, SECTION_IDS, SITE_LINKS, SUPPORT_LINKS } from '../tokens';
 
 const SUPPORT_HREF = SUPPORT_LINKS.kofi ?? SUPPORT_LINKS.githubSponsors;
 
-const LINK_GROUPS: { title: string; links: { label: string; href: string }[] }[] = [
-  {
-    title: 'Progetto',
-    links: [
-      { label: 'GitHub', href: SITE_LINKS.repository },
-      { label: 'Release', href: SITE_LINKS.releases },
-      { label: 'Changelog', href: SITE_LINKS.changelog },
-    ],
-  },
-  {
-    title: 'Documentazione',
-    links: [
-      { label: 'Installazione con HACS', href: SITE_LINKS.installGuide },
-      { label: 'Stato delle funzionalità', href: SITE_LINKS.featureStatus },
-      { label: 'Sicurezza e privacy', href: SITE_LINKS.security },
-    ],
-  },
-  {
-    title: 'Community',
-    links: [
-      { label: 'Segnala un bug', href: SITE_LINKS.issues },
-      { label: 'Idee e domande', href: SITE_LINKS.discussions },
-      { label: 'Gruppo Facebook', href: SITE_LINKS.facebookGroup },
-      { label: 'Licenza GPL-3.0', href: SITE_LINKS.license },
-      // Appears only once a support channel is configured.
-      ...(SUPPORT_HREF ? [{ label: 'Supporta il progetto', href: SUPPORT_HREF }] : []),
-    ],
-  },
-];
+/** Footer link groups; labels come from copy.finale. */
+function useLinkGroups() {
+  const { finale } = useSiteCopy();
+  const { groups, links } = finale;
+  return [
+    {
+      title: groups.project,
+      links: [
+        { label: links.github, href: SITE_LINKS.repository },
+        { label: links.releases, href: SITE_LINKS.releases },
+        { label: links.changelog, href: SITE_LINKS.changelog },
+      ],
+    },
+    {
+      title: groups.docs,
+      links: [
+        { label: links.installGuide, href: SITE_LINKS.installGuide },
+        { label: links.featureStatus, href: SITE_LINKS.featureStatus },
+        { label: links.security, href: SITE_LINKS.security },
+      ],
+    },
+    {
+      title: groups.community,
+      links: [
+        { label: links.issues, href: SITE_LINKS.issues },
+        { label: links.ideas, href: SITE_LINKS.discussions },
+        { label: links.facebook, href: SITE_LINKS.facebookGroup },
+        { label: links.license, href: SITE_LINKS.license },
+        // Appears only once a support channel is configured.
+        ...(SUPPORT_HREF ? [{ label: links.support, href: SUPPORT_HREF }] : []),
+      ],
+    },
+  ];
+}
 
 export function FinaleSection() {
+  const copy = useSiteCopy();
+  const { finale } = copy;
+  const linkGroups = useLinkGroups();
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end end'] });
   const markY = useTransform(scrollYProgress, [0.3, 1], ['55%', '8%']);
@@ -77,23 +86,23 @@ export function FinaleSection() {
         <SplitReveal
           id="finale-title"
           className="mt-12 max-w-5xl text-[clamp(2.6rem,6.4vw,6.2rem)] font-semibold leading-[0.95] tracking-[-0.05em] text-white"
-          lines={['La tua casa.', { text: "Un'unica esperienza.", className: 's-mute' }]}
+          lines={[finale.title, { text: finale.titleMuted, className: 's-mute' }]}
         />
 
         <div className="mt-12 flex flex-wrap justify-center gap-3">
-          <CtaLink href={SITE_LINKS.hacs}>Installa con HACS</CtaLink>
+          <CtaLink href={SITE_LINKS.hacs}>{finale.install}</CtaLink>
           <CtaLink href={SITE_LINKS.repository} variant="ghost" icon={<Github className="h-4 w-4" />}>
-            Codice su GitHub
+            {finale.github}
           </CtaLink>
           <CtaLink href={SITE_LINKS.facebookGroup} variant="ghost" icon={<Facebook className="h-4 w-4" />}>
-            Community su Facebook
+            {finale.facebook}
           </CtaLink>
         </div>
       </div>
 
-      <nav aria-label="Link del progetto" className="s-container relative mt-32">
+      <nav aria-label={finale.linksAria} className="s-container relative mt-32">
         <div className="grid gap-10 border-t border-white/[0.08] pt-12 sm:grid-cols-3">
-          {LINK_GROUPS.map((group) => (
+          {linkGroups.map((group) => (
             <div key={group.title}>
               <p className="s-label mb-4">{group.title}</p>
               <ul className="space-y-2.5">
@@ -109,7 +118,7 @@ export function FinaleSection() {
                         {link.label}
                         <span className="absolute -bottom-0.5 left-0 h-px w-full origin-right scale-x-0 bg-current transition-transform duration-500 ease-[var(--s-ease-out)] group-hover:origin-left group-hover:scale-x-100" />
                       </span>
-                      <span className="sr-only"> (si apre in una nuova scheda)</span>
+                      <span className="sr-only">{copy.meta.newTab}</span>
                     </a>
                   </li>
                 ))}
@@ -120,12 +129,14 @@ export function FinaleSection() {
       </nav>
 
       <div className="s-container relative mt-16 flex flex-wrap items-center justify-between gap-4 text-[0.8rem] text-white/40">
-        <p>GPL-3.0{APP_VERSION ? ` · v${APP_VERSION}` : ''} · Progetto indipendente per Home Assistant.</p>
+        <p>
+          GPL-3.0{APP_VERSION ? ` · v${APP_VERSION}` : ''} · {finale.legal}
+        </p>
         <a
           href={`#${SECTION_IDS.top}`}
           className="inline-flex items-center gap-2 text-white/55 transition-colors hover:text-white"
         >
-          Torna su <ArrowUp className="h-3.5 w-3.5" />
+          {finale.backToTop} <ArrowUp className="h-3.5 w-3.5" />
         </a>
       </div>
 

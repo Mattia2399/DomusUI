@@ -1,6 +1,7 @@
 import { motion, useTransform, type MotionValue } from 'framer-motion';
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useSceneProgress } from '../hooks/useSceneProgress';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { DOMUS_GLYPH_PATHS } from '../ui/Logo';
 
 /**
@@ -9,25 +10,6 @@ import { DOMUS_GLYPH_PATHS } from '../ui/Logo';
  * house glyph from the logo draws itself behind it.
  */
 
-const STATEMENT: { text: string; accent?: boolean }[] = [
-  { text: 'Home Assistant conosce già ogni dispositivo della tua casa.' },
-  { text: 'Domus UI gli dà' },
-  { text: 'una forma:', accent: true },
-  { text: "un'unica interfaccia, condivisa da" },
-  { text: 'ogni schermo,', accent: true },
-  { text: 'dove ogni comando mostra cosa sta succedendo' },
-  { text: 'davvero.', accent: true },
-];
-
-const WORDS = STATEMENT.flatMap((chunk) => chunk.text.split(' ').map((word) => ({ word, accent: !!chunk.accent })));
-
-const FACTS = [
-  { value: '14', label: 'famiglie di card' },
-  { value: '3', label: 'griglie: desktop, tablet, mobile' },
-  { value: '0', label: 'righe di YAML' },
-  { value: 'IT · EN · FR', label: 'lingue incluse' },
-];
-
 const REVEAL_START = 0.08;
 const REVEAL_END = 0.72;
 
@@ -35,14 +17,16 @@ function Word({
   word,
   accent,
   index,
+  total,
   progress,
 }: {
   word: string;
   accent: boolean;
   index: number;
+  total: number;
   progress: MotionValue<number>;
 }) {
-  const step = (REVEAL_END - REVEAL_START) / WORDS.length;
+  const step = (REVEAL_END - REVEAL_START) / total;
   const start = REVEAL_START + index * step;
   const opacity = useTransform(progress, [start, start + step * 3], [0.13, 1]);
   return (
@@ -53,6 +37,12 @@ function Word({
 }
 
 export function ManifestoSection() {
+  const { manifesto } = useSiteCopy();
+  // One entry per word, keeping the accent of the phrase it belongs to.
+  const words = useMemo(
+    () => manifesto.statement.flatMap((chunk) => chunk.text.split(' ').map((word) => ({ word, accent: chunk.accent }))),
+    [manifesto.statement],
+  );
   const trackRef = useRef<HTMLElement>(null);
   const progress = useSceneProgress(trackRef);
   const glyphLength = useTransform(progress, [0.05, 0.8], [0, 1]);
@@ -104,10 +94,17 @@ export function ManifestoSection() {
           className="s-container relative flex h-full flex-col justify-center"
           style={{ scale: exitScale, opacity: exitOpacity }}
         >
-          <p className="s-label mb-8 md:mb-10">01 — Manifesto</p>
+          <p className="s-label mb-8 md:mb-10">{manifesto.label}</p>
           <p className="max-w-[62rem] text-[clamp(1.85rem,4.3vw,4.35rem)] font-[560] leading-[1.06] tracking-[-0.042em] text-white">
-            {WORDS.map((item, index) => (
-              <Word key={index} word={item.word} accent={item.accent} index={index} progress={progress} />
+            {words.map((item, index) => (
+              <Word
+                key={index}
+                word={item.word}
+                accent={item.accent}
+                index={index}
+                total={words.length}
+                progress={progress}
+              />
             ))}
           </p>
 
@@ -115,7 +112,7 @@ export function ManifestoSection() {
             className="mt-12 grid max-w-[62rem] grid-cols-2 gap-x-6 gap-y-6 border-t border-white/[0.08] pt-8 md:mt-16 md:grid-cols-4"
             style={{ opacity: factsOpacity, y: factsY }}
           >
-            {FACTS.map((fact) => (
+            {manifesto.facts.map((fact) => (
               <div key={fact.label}>
                 <dt className="sr-only">{fact.label}</dt>
                 <dd className="text-[clamp(1.6rem,2.6vw,2.4rem)] font-semibold tracking-[-0.04em] text-white">

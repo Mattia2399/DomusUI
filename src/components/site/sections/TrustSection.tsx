@@ -1,6 +1,7 @@
 import { motion, useScroll, useSpring, useTransform, type MotionValue } from 'framer-motion';
 import { Blocks, Cpu, Fingerprint, LayoutGrid, Server, type LucideIcon } from 'lucide-react';
 import { useRef } from 'react';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { CtaLink } from '../ui/CtaLink';
 import { SCROLL_SPRING, SECTION_IDS, SITE_LINKS } from '../tokens';
 
@@ -11,53 +12,23 @@ import { SCROLL_SPRING, SECTION_IDS, SITE_LINKS } from '../tokens';
  * the repository actually ships (see README and docs/security-and-privacy.md).
  */
 
-const LAYERS: { icon: LucideIcon; name: string; stack: string; text: string }[] = [
-  {
-    icon: LayoutGrid,
-    name: 'Interfaccia',
-    stack: 'React 19 · TypeScript · Vite',
-    text: 'Card, builder e pannelli. Allarmi e serrature possono chiedere un PIN o WebAuthn sul dispositivo prima di agire.',
-  },
-  {
-    icon: Blocks,
-    name: 'Pannello Home Assistant',
-    stack: 'panel_custom · sessione HA',
-    text: 'Domus UI vive nella sidebar e usa la sessione autenticata di Home Assistant. Nessun token da copiare.',
-  },
-  {
-    icon: Server,
-    name: 'Integrazione Domus UI',
-    stack: 'Python · HACS',
-    text: 'Registra il pannello, il calendario nativo e il motore di irrigazione Domus Core, che lavora lato server anche a schermi chiusi.',
-  },
-  {
-    icon: Fingerprint,
-    name: 'Home Assistant',
-    stack: 'WebSocket · autorizzazione',
-    text: 'Identità, ruoli e comandi restano di Home Assistant, come il layout condiviso e le sue versioni. Token, PIN e codici restano fuori da layout, backup e sincronizzazione.',
-  },
-  {
-    icon: Cpu,
-    name: 'I tuoi dispositivi',
-    stack: 'Entità di Home Assistant',
-    text: 'Luci, clima, allarmi, telecamere e tutto ciò che le tue integrazioni espongono.',
-  },
-];
+// Icons per layer, top to bottom; names and texts come from copy.trust.layers.
+const LAYER_ICONS: LucideIcon[] = [LayoutGrid, Blocks, Server, Fingerprint, Cpu];
 
 function Layer({
   layer,
   index,
   progress,
 }: {
-  layer: (typeof LAYERS)[number];
+  layer: { name: string; stack: string; text: string };
   index: number;
   progress: MotionValue<number>;
 }) {
-  const at = (index + 0.35) / LAYERS.length;
+  const at = (index + 0.35) / LAYER_ICONS.length;
   const lit = useTransform(progress, [at - 0.08, at], [0, 1]);
   const nodeScale = useTransform(lit, [0, 1], [0.6, 1]);
   const textOpacity = useTransform(lit, [0, 1], [0.35, 1]);
-  const Icon = layer.icon;
+  const Icon = LAYER_ICONS[index];
 
   return (
     <li className="relative grid grid-cols-[3.5rem_1fr] gap-5 pb-16 last:pb-0 md:grid-cols-[4.5rem_1fr] md:gap-8 md:pb-24">
@@ -81,6 +52,7 @@ function Layer({
 }
 
 export function TrustSection() {
+  const { trust } = useSiteCopy();
   const listRef = useRef<HTMLOListElement>(null);
   const { scrollYProgress } = useScroll({ target: listRef, offset: ['start 70%', 'end 55%'] });
   const progress = useSpring(scrollYProgress, SCROLL_SPRING);
@@ -95,23 +67,19 @@ export function TrustSection() {
       />
       <div className="s-container relative grid gap-16 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-24">
         <div className="lg:sticky lg:top-[calc(var(--s-nav-h)+4rem)] lg:self-start">
-          <p className="s-label mb-6">06 — Sicurezza e architettura</p>
+          <p className="s-label mb-6">{trust.label}</p>
           <h2 id="trust-title" className="s-title text-white">
-            Home Assistant
+            {trust.title}
             <br />
-            <span className="s-mute">resta l’autorità.</span>
+            <span className="s-mute">{trust.titleMuted}</span>
           </h2>
-          <p className="s-lead mt-6">
-            Domus UI è l’interfaccia, non un nuovo cloud. Identità, permessi e comandi passano da Home Assistant, dal
-            tuo dito fino al dispositivo.
-          </p>
+          <p className="s-lead mt-6">{trust.lead}</p>
           <p className="mt-6 border-l border-[var(--s-warm)]/50 pl-4 text-[0.85rem] leading-relaxed text-white/50">
-            La conferma WebAuthn è una protezione locale, non un secondo fattore certificato lato server. Domus UI non è
-            un sistema di allarme o di sicurezza certificato.
+            {trust.disclaimer}
           </p>
           <div className="mt-8">
             <CtaLink href={SITE_LINKS.security} variant="ghost">
-              Sicurezza e privacy
+              {trust.cta}
             </CtaLink>
           </div>
         </div>
@@ -128,7 +96,7 @@ export function TrustSection() {
             </motion.div>
           </div>
           <ol ref={listRef} className="relative">
-            {LAYERS.map((layer, index) => (
+            {trust.layers.map((layer, index) => (
               <Layer key={layer.name} layer={layer} index={index} progress={progress} />
             ))}
           </ol>

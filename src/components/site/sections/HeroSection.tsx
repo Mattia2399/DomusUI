@@ -15,6 +15,7 @@ import { useFinePointer, useIsWide } from '../hooks/useMediaQuery';
 import { useSceneProgress } from '../hooks/useSceneProgress';
 import { AttentionBanner, BottomBar, Greeting, SideRail } from '../ui/BoardChrome';
 import { CtaLink } from '../ui/CtaLink';
+import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { SplitReveal } from '../ui/SplitReveal';
 import { APP_VERSION, DURATION, EASE_OUT, SECTION_IDS, SITE_LINKS } from '../tokens';
 
@@ -129,6 +130,7 @@ function FloatingCell({
 }
 
 export function HeroSection() {
+  const { hero } = useSiteCopy();
   const trackRef = useRef<HTMLElement>(null);
   const wide = useIsWide();
   const finePointer = useFinePointer();
@@ -249,12 +251,12 @@ export function HeroSection() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: DURATION.slow, ease: EASE_OUT, delay: 0.9 }}
             >
-              <p className="s-label mb-4">Per Home Assistant · HACS{APP_VERSION ? ` · v${APP_VERSION}` : ''}</p>
-              <p className="s-subtitle text-white">La tua casa. Un&apos;unica esperienza.</p>
-              <p className="s-lead mt-3 max-w-md">
-                Dashboard, builder visuale e controlli avanzati in un&apos;unica interfaccia, su desktop, tablet e
-                smartphone.
+              <p className="s-label mb-4">
+                {hero.eyebrow}
+                {APP_VERSION ? ` · v${APP_VERSION}` : ''}
               </p>
+              <p className="s-subtitle text-white">{hero.tagline}</p>
+              <p className="s-lead mt-3 max-w-md">{hero.lead}</p>
             </motion.div>
             <motion.div
               className="pointer-events-auto flex flex-wrap items-center gap-3"
@@ -262,9 +264,9 @@ export function HeroSection() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: DURATION.slow, ease: EASE_OUT, delay: 1.05 }}
             >
-              <CtaLink href={SITE_LINKS.hacs}>Installa con HACS</CtaLink>
+              <CtaLink href={SITE_LINKS.hacs}>{hero.install}</CtaLink>
               <CtaLink href={SITE_LINKS.repository} variant="ghost">
-                GitHub
+                {hero.github}
               </CtaLink>
               <span className="ml-3 hidden items-center gap-3 lg:flex" aria-hidden>
                 <span className="s-scroll-cue" />
