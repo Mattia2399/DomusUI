@@ -1,0 +1,422 @@
+/*
+ * Domus UI presentation site — design system.
+ *
+ * Every value used by the /beta experience lives here as a token so the
+ * sections never hardcode their own colours, radii, easings or type scale.
+ * The palette is derived from the brand icon (brand/icon.svg): a deep navy
+ * base lit by the #5BA8FF → #1768D5 gradient, with one warm accent borrowed
+ * from the real Climate card.
+ */
+
+.site {
+  /* Surfaces */
+  --s-bg: #03050a;
+  --s-bg-raised: #070b14;
+  --s-bg-glass: rgb(255 255 255 / 0.045);
+
+  /* Ink */
+  --s-ink: #f3f6fb;
+  --s-ink-2: rgb(226 234 246 / 0.66);
+  --s-ink-3: rgb(226 234 246 / 0.42);
+
+  /* Structure */
+  --s-line: rgb(255 255 255 / 0.08);
+  --s-line-strong: rgb(255 255 255 / 0.16);
+
+  /* Brand light */
+  --s-blue: #5ba8ff;
+  --s-blue-deep: #1768d5;
+  --s-warm: #ff9a4d;
+  --s-ok: #3ddc84;
+  --s-beta: #ffc857;
+
+  /* Typography */
+  --s-font: 'Geist Variable', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --s-font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --s-text-mega: clamp(4.6rem, 19vw, 19rem);
+  --s-text-display: clamp(2.9rem, 8.4vw, 8.2rem);
+  --s-text-title: clamp(2.2rem, 5vw, 4.9rem);
+  --s-text-subtitle: clamp(1.45rem, 2.4vw, 2.2rem);
+  --s-text-lead: clamp(1.04rem, 1.25vw, 1.22rem);
+  --s-text-label: 0.7rem;
+
+  /* Space & layout */
+  --s-gutter: clamp(1.25rem, 4vw, 3.5rem);
+  --s-container: 82rem;
+  --s-nav-h: 4.25rem;
+
+  /* Shape */
+  --s-radius-lg: 1.75rem;
+  --s-radius-xl: 2.5rem;
+
+  /* Depth */
+  --s-shadow-float: 0 40px 120px -40px rgb(0 0 0 / 0.85), 0 18px 40px -24px rgb(0 0 0 / 0.7);
+  --s-blur-glass: blur(22px) saturate(150%);
+
+  /* Motion (mirrored in tokens.ts for Framer Motion) */
+  --s-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --s-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --s-dur-base: 420ms;
+
+  /* Layers */
+  --s-z-curtain: 20;
+  --s-z-nav: 50;
+
+  position: relative;
+  min-height: 100vh;
+  background: var(--s-bg);
+  color: var(--s-ink);
+  font-family: var(--s-font);
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  /* clip (not hidden) keeps position: sticky working for pinned scenes. */
+  overflow-x: clip;
+}
+
+/* The app's base layer assigns its own display face to headings; the site keeps one family. */
+.site :where(h1, h2, h3, h4, h5, h6) {
+  font-family: inherit;
+}
+
+.site ::selection {
+  background: rgb(91 168 255 / 0.35);
+  color: #fff;
+}
+
+.site section[id] {
+  scroll-margin-top: var(--s-nav-h);
+}
+
+.site a,
+.site button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.site :focus-visible {
+  outline: 2px solid var(--s-blue);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+   Layout primitives
+--------------------------------------------------------------------------- */
+
+.s-container {
+  width: 100%;
+  max-width: var(--s-container);
+  margin-inline: auto;
+  padding-inline: var(--s-gutter);
+}
+
+/* Pinned scene: tall scroll track + a sticky full-viewport stage. */
+.s-track {
+  position: relative;
+}
+
+.s-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+}
+
+/* Section that slides over the pinned scene before it (layered curtain). */
+.s-curtain {
+  position: relative;
+  z-index: var(--s-z-curtain);
+  background: var(--s-bg);
+  border-radius: var(--s-radius-xl) var(--s-radius-xl) 0 0;
+  box-shadow: 0 -40px 80px -30px rgb(0 0 0 / 0.9), 0 -1px 0 0 var(--s-line);
+}
+
+/* ---------------------------------------------------------------------------
+   Typography
+--------------------------------------------------------------------------- */
+
+.s-mega {
+  font-size: var(--s-text-mega);
+  font-weight: 640;
+  line-height: 0.8;
+  letter-spacing: -0.065em;
+}
+
+.s-display {
+  font-size: var(--s-text-display);
+  font-weight: 600;
+  line-height: 0.92;
+  letter-spacing: -0.052em;
+}
+
+.s-title {
+  font-size: var(--s-text-title);
+  font-weight: 580;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+}
+
+.s-subtitle {
+  font-size: var(--s-text-subtitle);
+  font-weight: 520;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.s-lead {
+  font-size: var(--s-text-lead);
+  line-height: 1.55;
+  color: var(--s-ink-2);
+  letter-spacing: -0.005em;
+}
+
+.s-label {
+  font-family: var(--s-font-mono);
+  font-size: var(--s-text-label);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--s-ink-3);
+}
+
+.s-mute {
+  color: var(--s-ink-3);
+}
+
+.s-gradient-ink {
+  background: linear-gradient(180deg, #ffffff 0%, rgb(226 234 246 / 0.55) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.s-blue-ink {
+  background: linear-gradient(120deg, #a9d1ff 0%, var(--s-blue) 45%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Masked line for split-text reveals. */
+.s-mask {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding-bottom: 0.08em;
+  margin-bottom: -0.08em;
+}
+
+/* ---------------------------------------------------------------------------
+   Materials
+--------------------------------------------------------------------------- */
+
+.s-glass {
+  background: var(--s-bg-glass);
+  border: 1px solid var(--s-line);
+  box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+  backdrop-filter: var(--s-blur-glass);
+  -webkit-backdrop-filter: var(--s-blur-glass);
+}
+
+.s-panel {
+  background: linear-gradient(180deg, rgb(20 27 44 / 0.9), rgb(8 12 22 / 0.94));
+  border: 1px solid var(--s-line);
+  box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.05), var(--s-shadow-float);
+}
+
+/* Film grain + architectural grid; purely decorative. */
+.s-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+}
+
+.s-gridlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgb(255 255 255 / 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(255 255 255 / 0.035) 1px, transparent 1px);
+  background-size: calc(100% / 12) 100%, 100% 8rem;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+}
+
+/* ---------------------------------------------------------------------------
+   Controls
+--------------------------------------------------------------------------- */
+
+.s-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  min-height: 3.25rem;
+  padding: 0 1.5rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition:
+    background-color var(--s-dur-base) var(--s-ease-out),
+    border-color var(--s-dur-base) var(--s-ease-out),
+    box-shadow var(--s-dur-base) var(--s-ease-out),
+    color var(--s-dur-base) var(--s-ease-out);
+}
+
+.s-btn svg {
+  transition: transform var(--s-dur-base) var(--s-ease-out);
+}
+
+.s-btn:hover svg:last-child {
+  transform: translateX(3px);
+}
+
+.s-btn-primary {
+  background: var(--s-ink);
+  color: #050a14;
+  box-shadow: 0 10px 40px -12px rgb(91 168 255 / 0.55);
+}
+
+.s-btn-primary:hover {
+  background: #ffffff;
+  box-shadow: 0 16px 60px -12px rgb(91 168 255 / 0.8);
+}
+
+.s-btn-ghost {
+  color: var(--s-ink);
+  border: 1px solid var(--s-line-strong);
+  background: rgb(255 255 255 / 0.03);
+}
+
+.s-btn-ghost:hover {
+  border-color: rgb(255 255 255 / 0.32);
+  background: rgb(255 255 255 / 0.07);
+}
+
+.s-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 1.9rem;
+  padding: 0 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--s-line);
+  background: rgb(255 255 255 / 0.035);
+  font-family: var(--s-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--s-ink-2);
+  white-space: nowrap;
+}
+
+.s-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 12px currentColor;
+}
+
+/* ---------------------------------------------------------------------------
+   Live UI stage: the real dashboard cards rendered inside the site.
+--------------------------------------------------------------------------- */
+
+.s-board-grid {
+  display: grid;
+  grid-auto-rows: 48px; /* production grid engine row unit */
+  gap: 16px; /* production grid engine gap */
+}
+
+.s-board-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* Scroll cue in the hero. */
+.s-scroll-cue {
+  position: relative;
+  width: 1px;
+  height: 3.5rem;
+  overflow: hidden;
+  background: var(--s-line);
+}
+
+.s-scroll-cue::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent, var(--s-ink));
+  animation: s-scroll-cue 2.2s var(--s-ease-in-out) infinite;
+}
+
+@keyframes s-scroll-cue {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* Endless ticker for the feature-status band. */
+.s-marquee {
+  display: flex;
+  width: max-content;
+  animation: s-marquee 48s linear infinite;
+}
+
+.s-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes s-marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Motion preferences & material fallbacks
+--------------------------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .s-scroll-cue::after,
+  .s-marquee {
+    animation: none;
+  }
+
+  .s-marquee {
+    width: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    row-gap: 0.75rem;
+  }
+
+  .s-marquee > [aria-hidden='true'] {
+    display: none;
+  }
+
+  .s-btn,
+  .s-btn svg {
+    transition: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .s-glass {
+    background: var(--s-bg-raised);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
