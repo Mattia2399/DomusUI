@@ -575,3 +575,52 @@ test('GridEngine preserves XL while editing XS/SM and keeps stack reflow stable'
   expect(stackDelta.dx).toBeLessThanOrEqual(3);
   expect(stackDelta.dy).toBeLessThanOrEqual(3);
 });
+
+test('Mouse can drag cards in the mobile and portrait tablet previews', async ({ page }) => {
+  test.setTimeout(45000);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript((runtimeKey) => {
+    localStorage.clear();
+    localStorage.setItem(runtimeKey, 'demo');
+    localStorage.setItem('ha.dashboard.onboarding.welcome.v1', 'done');
+    localStorage.setItem('ha.dashboard.onboarding.context.v1', 'done');
+  }, RUNTIME_KEY);
+
+  await page.goto(`${BASE_URL}/home`);
+  await enterEditMode(page);
+
+  // Compact previews keep the touch long-press, but a mouse must start the
+  // drag immediately: react-grid-layout replaces the item's onMouseDown, so a
+  // mouse long-press could never arm the card.
+  for (const preview of ['Anteprima mobile', 'Anteprima tablet verticale']) {
+    await page.getByRole('radio', { name: preview }).click();
+    await page.waitForTimeout(600);
+
+    const start = await page.evaluate(() => {
+      const blocked =
+        'button,input,select,textarea,a,[contenteditable="true"],.widget-action,.section-action,.builder-grid,.react-resizable-handle';
+      for (const item of document.querySelectorAll('.sections-grid > .react-grid-item:not(.react-grid-placeholder)')) {
+        const rect = item.getBoundingClientRect();
+        const x = rect.x + rect.width / 2;
+        const y = rect.y + rect.height / 2;
+        if (y > 0 && y < window.innerHeight && !document.elementFromPoint(x, y)?.closest(blocked)) {
+          return { x, y };
+        }
+      }
+      return null;
+    });
+    expect(start, `${preview}: a draggable card surface is visible`).not.toBeNull();
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    let dragging = false;
+    for (let step = 1; step <= 10; step += 1) {
+      await page.mouse.move(start.x + step * 12, start.y + step * 6);
+      dragging ||= await page.evaluate(() => Boolean(document.querySelector('.react-draggable-dragging')));
+    }
+    await page.mouse.up();
+
+    expect(dragging, `${preview}: dragging starts with the mouse`).toBe(true);
+    await expect(page.locator('.react-draggable-dragging')).toHaveCount(0);
+  }
+});
