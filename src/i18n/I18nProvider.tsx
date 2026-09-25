@@ -38,14 +38,21 @@ export function normalizeAppLocale(value: unknown): AppLocale | null {
   return SUPPORTED_LOCALES.includes(language as AppLocale) ? (language as AppLocale) : null;
 }
 
+/**
+ * Language used when neither Home Assistant nor the browser asks for a
+ * supported one (e.g. a German or Spanish installation): English is the
+ * most widely understood option for the international HACS audience.
+ */
+export const FALLBACK_LOCALE: AppLocale = 'en';
+
 export function detectBrowserLocale(): AppLocale {
-  if (typeof navigator === 'undefined') return 'it';
+  if (typeof navigator === 'undefined') return FALLBACK_LOCALE;
   const candidates = [...(navigator.languages ?? []), navigator.language];
   for (const candidate of candidates) {
     const locale = normalizeAppLocale(candidate);
     if (locale) return locale;
   }
-  return 'it';
+  return FALLBACK_LOCALE;
 }
 
 function readStoredLocale(): AppLocale | null {
