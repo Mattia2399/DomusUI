@@ -1,7 +1,9 @@
 import { act, cleanup, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  detectBrowserLocale,
+  FALLBACK_LOCALE,
   I18nProvider,
   LANGUAGE_STORAGE_KEY,
   normalizeAppLocale,
@@ -14,6 +16,7 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
   document.documentElement.lang = 'it';
   delete document.documentElement.dataset.domusLocale;
@@ -25,6 +28,35 @@ describe('I18nProvider', () => {
     expect(normalizeAppLocale('en_GB')).toBe('en');
     expect(normalizeAppLocale({ language: 'fr-FR' })).toBe('fr');
     expect(normalizeAppLocale('de-DE')).toBeNull();
+  });
+
+  it('picks the first supported browser language and falls back to English otherwise', () => {
+    const languages = vi.spyOn(navigator, 'languages', 'get');
+    const language = vi.spyOn(navigator, 'language', 'get');
+
+    languages.mockReturnValue(['it-IT', 'en-US']);
+    language.mockReturnValue('it-IT');
+    expect(detectBrowserLocale()).toBe('it');
+
+    languages.mockReturnValue(['de-DE', 'fr-FR']);
+    language.mockReturnValue('de-DE');
+    expect(detectBrowserLocale()).toBe('fr');
+
+    // A German or Spanish installation must not land on Italian.
+    languages.mockReturnValue(['de-DE', 'de']);
+    language.mockReturnValue('de-DE');
+    expect(detectBrowserLocale()).toBe(FALLBACK_LOCALE);
+    expect(FALLBACK_LOCALE).toBe('en');
+  });
+
+  it('shows English when both Home Assistant and the browser use an unsupported language', () => {
+    vi.spyOn(navigator, 'languages', 'get').mockReturnValue(['es-ES', 'es']);
+    vi.spyOn(navigator, 'language', 'get').mockReturnValue('es-ES');
+    const { result } = renderHook(() => useI18n(), { wrapper });
+
+    act(() => result.current.setHomeAssistantLocale({ language: 'es' }));
+    expect(result.current.locale).toBe('en');
+    expect(result.current.t('profile.title')).toBe('Profile');
   });
 
   it('uses the Home Assistant locale until the user makes a device-local choice', () => {
