@@ -37,8 +37,11 @@ const baseProps = {
   widgets: [],
   houseMembers: [
     {
-      id: 'person.mattia',
+      id: 'user:u-mattia',
       name: 'Mattia',
+      userId: 'u-mattia',
+      personEntityId: 'person.mattia',
+      hasAccount: true,
       avatarUrl: '/avatars/mattia.jpg',
       isCurrent: true,
     },

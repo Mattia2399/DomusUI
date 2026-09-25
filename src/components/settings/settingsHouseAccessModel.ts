@@ -4,6 +4,10 @@ export type ProfileHouseMember = {
   id: string;
   name: string;
   userId?: string;
+  /** The Home Assistant `person.*` entity; absent for a login with no person. */
+  personEntityId?: string;
+  /** Whether the member can sign in to Home Assistant. */
+  hasAccount?: boolean;
   avatarUrl?: string;
   roleLabel?: string;
   isCurrent?: boolean;
@@ -70,6 +74,9 @@ export function normalizeHouseMembers(houseMembers: readonly ProfileHouseMember[
         id: memberId,
         name: memberName,
         userId: typeof member.userId === 'string' ? member.userId.trim() : undefined,
+        personEntityId:
+          typeof member.personEntityId === 'string' ? member.personEntityId.trim() : undefined,
+        hasAccount: member.hasAccount,
         avatarUrl: typeof member.avatarUrl === 'string' ? member.avatarUrl.trim() : undefined,
         roleLabel: typeof member.roleLabel === 'string' ? member.roleLabel.trim() : undefined,
         isCurrent: member.isCurrent === true,

@@ -258,6 +258,7 @@ import {
   type HaAuthUser,
   type HaLogbookEvent,
 } from '../../services/haIdentityPresentation';
+import { buildHouseMembers, selectHouseholdPeople } from '../../services/houseMembers';
 import {
   resolveOAuthReturnPath,
   validateHaOAuthCallbackState,
@@ -4841,128 +4842,21 @@ export function MainBoard() {
     return resolveHaAssetUrl(picture, haUrl);
   }, [haCurrentUser?.id, haStates, haUrl, isHaConnected]);
 
-  const profileHouseMembers = useMemo(() => {
-    const collectedMembers: ProfileHouseMember[] = [];
-    const seenMemberIds = new Set<string>();
-    const currentUserId = toTrimmedString(haCurrentUser?.id);
-    const resolveMemberRoleLabel = (userId: string | undefined) => {
-      const resolvedUserId = toTrimmedString(userId);
-      if (!resolvedUserId) {
-        return 'Membro';
-      }
-      const linkedUser = haUsersById[resolvedUserId] ?? (haCurrentUser?.id === resolvedUserId ? haCurrentUser : undefined);
-      if (!linkedUser) {
-        return 'Membro';
-      }
-      return linkedUser.isOwner ? 'Creatore' : linkedUser.isAdmin ? 'Admin' : 'Membro';
-    };
-
-    const addMember = (member: ProfileHouseMember) => {
-      const memberId = toTrimmedString(member.id);
-      const memberName = toTrimmedString(member.name);
-      if (!memberId || !memberName || seenMemberIds.has(memberId)) {
-        return;
-      }
-      seenMemberIds.add(memberId);
-      collectedMembers.push({
-        id: memberId,
-        name: memberName,
-        userId: toTrimmedString(member.userId),
-        avatarUrl: toTrimmedString(member.avatarUrl),
-        roleLabel: toTrimmedString(member.roleLabel),
-        isCurrent: member.isCurrent === true,
-      });
-    };
-
-    if (isHaConnected) {
-      Object.entries(haStates).forEach(([entityId, entity]) => {
-        if (!entityId.startsWith('person.')) {
-          return;
-        }
-        const rawAttributes = entity.rawAttributes ?? {};
-        const userId = toTrimmedString(rawAttributes.user_id);
-        const entityName = toTrimmedString(rawAttributes.friendly_name);
-        const slugFallback = entityId.slice('person.'.length).replace(/[_-]+/g, ' ').trim();
-        const name = entityName ?? (slugFallback.length > 0 ? slugFallback : entityId);
-        if (
-          isGuestServiceAccountMemberCandidate({
-            userId,
-            displayName: name,
-            entityId,
-          })
-        ) {
-          return;
-        }
-        const avatarCandidate = toTrimmedString(entity.imageUrl) ?? toTrimmedString(rawAttributes.entity_picture);
-        const avatarUrl = resolveHaAssetUrl(avatarCandidate, haUrl);
-        const memberId = userId ? `user:${userId}` : `person:${entityId}`;
-        addMember({
-          id: memberId,
-          name,
-          userId,
-          avatarUrl,
-          roleLabel: resolveMemberRoleLabel(userId),
-          isCurrent: Boolean(currentUserId && userId && currentUserId === userId),
-        });
-      });
-    }
-
-    Object.entries(haUserNamesById).forEach(([userId, userName]) => {
-      const trimmedUserId = toTrimmedString(userId);
-      const trimmedUserName = toTrimmedString(userName);
-      if (!trimmedUserId || !trimmedUserName) {
-        return;
-      }
-      const linkedUserDetails = haUsersById[trimmedUserId];
-      if (
-        isGuestServiceAccountMemberCandidate({
-          userId: trimmedUserId,
-          displayName: trimmedUserName,
-          username: linkedUserDetails?.username,
-          email: linkedUserDetails?.email,
-        })
-      ) {
-        return;
-      }
-      addMember({
-        id: `user:${trimmedUserId}`,
-        name: trimmedUserName,
-        userId: trimmedUserId,
-        roleLabel: resolveMemberRoleLabel(trimmedUserId),
-        isCurrent: currentUserId === trimmedUserId,
-      });
-    });
-
-    if (haCurrentUser?.id && haCurrentUser.name) {
-      if (
-        !isGuestServiceAccountMemberCandidate({
-          userId: haCurrentUser.id,
-          displayName: haCurrentUser.name,
-          username: haCurrentUser.username,
-          email: haCurrentUser.email,
-        })
-      ) {
-        addMember({
-          id: `user:${haCurrentUser.id}`,
-          name: haCurrentUser.name,
-          userId: haCurrentUser.id,
-          avatarUrl: currentUserAvatarUrl,
-          roleLabel: resolveMemberRoleLabel(haCurrentUser.id),
-          isCurrent: true,
-        });
-      }
-    }
-
-    return collectedMembers.sort((first, second) => {
-      if (first.isCurrent === true && second.isCurrent !== true) {
-        return -1;
-      }
-      if (second.isCurrent === true && first.isCurrent !== true) {
-        return 1;
-      }
-      return first.name.localeCompare(second.name, 'it-IT');
-    });
-  }, [currentUserAvatarUrl, haCurrentUser, haStates, haUrl, haUserNamesById, haUsersById, isHaConnected]);
+  const profileHouseMembers = useMemo(
+    () =>
+      buildHouseMembers({
+        states: isHaConnected ? haStates : {},
+        users: Object.values(haUsersById),
+        currentUser: haCurrentUser ?? undefined,
+        currentUserAvatarUrl,
+        resolveAvatarUrl: (candidate) => resolveHaAssetUrl(candidate, haUrl),
+        isHiddenCandidate: isGuestServiceAccountMemberCandidate,
+      }),
+    [currentUserAvatarUrl, haCurrentUser, haStates, haUrl, haUsersById, isHaConnected],
+  );
+  // The Members card shows people only; accounts without a person stay in
+  // the full list so authorship (layout versions, profile) still resolves.
+  const householdPeople = useMemo(() => selectHouseholdPeople(profileHouseMembers), [profileHouseMembers]);
 
   const membersLiveMapPoints = useMemo(() => {
     type MemberPersonMeta = {
@@ -5206,7 +5100,9 @@ export function MainBoard() {
             previous.username === user.username &&
             previous.email === user.email &&
             previous.isOwner === user.isOwner &&
-            previous.isAdmin === user.isAdmin
+            previous.isAdmin === user.isAdmin &&
+            previous.isActive === user.isActive &&
+            previous.isSystem === user.isSystem
           ) {
             return;
           }
@@ -11490,7 +11386,7 @@ export function MainBoard() {
               isXsViewport={isXsViewport}
               onActiveBreakpointChange={handleCanvasGridGeometryChange}
               state={stateWithConnectedUser}
-              houseMembers={profileHouseMembers}
+              houseMembers={householdPeople}
               sections={sections}
               widgets={widgets}
               runningSceneBySectionId={runningSceneBySectionId}

@@ -51,7 +51,50 @@ function renderSection(params: {
   );
 }
 
+const householdMembers = [
+  { id: 'user:u-mattia', name: 'Mattia', userId: 'u-mattia', personEntityId: 'person.mattia', hasAccount: true, roleLabel: 'Creatore', isCurrent: true },
+  { id: 'person:person.angela', name: 'Angela', personEntityId: 'person.angela', hasAccount: false },
+  { id: 'user:u-angela', name: 'Angela', userId: 'u-angela', hasAccount: true, roleLabel: 'Membro' },
+];
+
 describe('SettingsHouseAccessSection', () => {
+  it('lists people apart from Home Assistant logins that no person represents', () => {
+    render(
+      <DashboardSecurityProvider value={ownerSecurity}>
+        <SettingsHouseAccessSection
+          view="members"
+          onViewChange={vi.fn()}
+          houseMembers={householdMembers}
+          currentUserName="Mattia"
+          currentUserRole="Creatore"
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByText('Persone')).toBeTruthy();
+    expect(screen.getByText('Account senza persona')).toBeTruthy();
+    expect(screen.getByText('Senza accesso')).toBeTruthy();
+    expect(screen.getByText('Account non collegato')).toBeTruthy();
+    // A person without a login shows no role; the linked owner and the account do.
+    expect(screen.getAllByText(/^(Creatore|Membro)$/)).toHaveLength(2);
+  });
+
+  it('counts only people in the overview when Home Assistant people exist', () => {
+    render(
+      <DashboardSecurityProvider value={ownerSecurity}>
+        <SettingsHouseAccessSection
+          view="overview"
+          onViewChange={vi.fn()}
+          houseMembers={householdMembers}
+          currentUserName="Mattia"
+          currentUserRole="Creatore"
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByText('2 persone disponibili')).toBeTruthy();
+  });
+
   it('summarizes members and opens the requested nested view', () => {
     const onViewChange = vi.fn();
     renderSection({ onViewChange });
