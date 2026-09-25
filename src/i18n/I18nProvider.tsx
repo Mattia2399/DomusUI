@@ -68,11 +68,16 @@ export function translateForLocale(
   return interpolate(TRANSLATIONS[locale][key] ?? TRANSLATIONS.it[key], parameters);
 }
 
-export function I18nProvider({ children }: { children: ReactNode }) {
+/**
+ * `forcedLocale` pins the language for an embedded subtree (the presentation
+ * website renders its cards in the page's language). In that mode the provider
+ * never touches <html lang>, which belongs to the host page.
+ */
+export function I18nProvider({ children, forcedLocale }: { children: ReactNode; forcedLocale?: AppLocale }) {
   const [explicitLocale, setExplicitLocale] = useState<AppLocale | null>(readStoredLocale);
   const [homeAssistantLocale, setHomeAssistantLocaleState] = useState<AppLocale | null>(null);
   const [browserLocale] = useState(detectBrowserLocale);
-  const locale = explicitLocale ?? homeAssistantLocale ?? browserLocale;
+  const locale = forcedLocale ?? explicitLocale ?? homeAssistantLocale ?? browserLocale;
 
   const setLocale = useCallback((nextLocale: AppLocale) => {
     if (!SUPPORTED_LOCALES.includes(nextLocale)) return;
@@ -87,10 +92,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (typeof document === 'undefined') return;
+    if (forcedLocale || typeof document === 'undefined') return;
     document.documentElement.lang = locale;
     document.documentElement.dataset.domusLocale = locale;
-  }, [locale]);
+  }, [forcedLocale, locale]);
 
   const value = useMemo<I18nContextValue>(() => ({
     locale,

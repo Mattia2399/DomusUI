@@ -103,6 +103,12 @@ Domus UI includes **Profile > Support & feedback**. From there, you can download
 
 Diagnostics are never sent automatically and exclude tokens, PINs, URLs, entity or room names, and home state values. Before publishing screenshots or logs, always verify that they do not reveal personal information.
 
+## Support Domus UI
+
+Domus UI is free and open source, with no paid features. If it makes your home better, you can buy me a coffee: it helps me spend more time on new cards, testing on real devices, and translations.
+
+[![Buy me a coffee on Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/mattia2399)
+
 ## Development
 
 Node.js 22.22.0 or newer is required.

@@ -4,23 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'path';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { buildProductionCsp } from './src/security/contentSecurityPolicy';
-
-const packageMetadata = JSON.parse(
-  readFileSync(new URL('./package.json', import.meta.url), 'utf8'),
-) as { version: string };
-
-function productionCspPlugin(policy: string): Plugin {
-  return {
-    name: 'production-csp',
-    apply: 'build',
-    transformIndexHtml(html) {
-      return html.replace(
-        /(<meta\s+http-equiv="Content-Security-Policy"\s+content=")[^"]*("\s*\/?>)/i,
-        `$1${policy}$2`,
-      );
-    },
-  };
-}
+import { packageVersion, productionCspPlugin } from './vite.shared';
 
 function panelBridgeDistributionPlugin(): Plugin {
   return {
@@ -60,7 +44,7 @@ export default defineConfig(({ mode }) => {
   ],
   base: './',
   define: {
-    __APP_VERSION__: JSON.stringify(packageMetadata.version),
+    __APP_VERSION__: JSON.stringify(packageVersion),
   },
   resolve: {
     preserveSymlinks: true,

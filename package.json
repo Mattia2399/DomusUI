@@ -11,6 +11,8 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
+    "build:site": "vite build --config vite.site.config.ts",
+    "preview:site": "vite preview --config vite.site.config.ts",
     "runtime:check": "node scripts/check-runtime.mjs",
     "check": "tsc --noEmit",
     "lint": "tsc --noEmit",
@@ -28,6 +30,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
     "@headlessui/react": "^2.2.10",
     "@mdi/js": "^7.4.47",
     "@tailwindcss/vite": "^4.1.14",
