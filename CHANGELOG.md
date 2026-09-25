@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.1 - 2026-09-25
+
+### Fixed
+
+- Domus UI now falls back to English when neither Home Assistant nor the
+  browser uses a language it ships (for example German, Spanish, or Dutch).
+  These installations previously opened the first-run setup and the whole
+  interface in Italian. Italian and French keep their own translations, and a
+  language chosen in Profile still takes precedence.
+
+### Project
+
+- New presentation website, in Italian and English, built from the real
+  Domus UI cards with demo-only data. It ships as a separate static build
+  (`npm run build:site`) and is not part of the Home Assistant package.
+- Added a "Support Domus UI" section to the README and a Sponsor button on the
+  repository.
+
+### Validation
+
+- Added unit coverage for browser-language detection and the English fallback.
+- The release workflow verifies TypeScript, unit tests, production build,
+  bundle budgets, dependency audit, Chromium end-to-end tests, HACS packaging,
+  checksums, and generated English release notes.
+
 ## 1.2.0 - 2026-09-23
 
 ### Added

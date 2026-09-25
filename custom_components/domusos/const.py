@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 DOMAIN = "domusos"
-VERSION = "1.2.0"
+VERSION = "1.2.1"
 PANEL_TITLE = "Domus UI"
 PANEL_ICON = "mdi:home-assistant"
 PANEL_URL_PATH = "domusos"
