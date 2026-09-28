@@ -3,7 +3,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Link2,
   ShieldCheck,
+  Unlink2,
   Upload,
   UserPlus,
   Users,
@@ -318,53 +320,43 @@ export function SettingsHouseAccessSection({
     setLinkFeedback(null);
     setCreateTarget({ account });
   };
-  const rowActionClass = `shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold ${neutralButtonClass} ${buttonMotionClass}`;
+  const renderRowAction = (
+    Icon: ComponentType<{ size?: number; className?: string }>,
+    label: string,
+    onClick: () => void,
+  ) => (
+    <button
+      type="button"
+      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border ${neutralButtonClass} ${buttonMotionClass}`}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    >
+      <Icon size={15} />
+    </button>
+  );
   const renderMemberAction = (member: ProfileHouseMember) => {
     if (!personLinking) return null;
     if (!member.personEntityId && member.userId) {
       return (
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            className={rowActionClass}
-            aria-label={`${t('settings.access.link.action')}: ${member.name}`}
-            onClick={() => {
-              setLinkFeedback(null);
-              setLinkTarget(member);
-            }}
-          >
-            <span className="sm:hidden">{t('settings.access.link.confirm')}</span>
-            <span className="hidden sm:inline">{t('settings.access.link.action')}</span>
-          </button>
-          {createPerson ? (
-            <button
-              type="button"
-              className={rowActionClass}
-              aria-label={`${t('settings.access.create.action')}: ${member.name}`}
-              onClick={() => openCreateDialog(member)}
-            >
-              <span className="sm:hidden">{t('settings.access.create.confirm')}</span>
-              <span className="hidden sm:inline">{t('settings.access.create.action')}</span>
-            </button>
-          ) : null}
+          {renderRowAction(Link2, `${t('settings.access.link.action')}: ${member.name}`, () => {
+            setLinkFeedback(null);
+            setLinkTarget(member);
+          })}
+          {createPerson
+            ? renderRowAction(UserPlus, `${t('settings.access.create.action')}: ${member.name}`, () =>
+                openCreateDialog(member),
+              )
+            : null}
         </div>
       );
     }
     if (member.personEntityId && member.hasAccount && member.personEditable !== false) {
-      return (
-        <button
-          type="button"
-          className={rowActionClass}
-          aria-label={`${t('settings.access.unlink.action')}: ${member.name}`}
-          onClick={() => {
-            setLinkFeedback(null);
-            setUnlinkTarget(member);
-          }}
-        >
-          <span className="sm:hidden">{t('settings.access.unlink.confirm')}</span>
-          <span className="hidden sm:inline">{t('settings.access.unlink.action')}</span>
-        </button>
-      );
+      return renderRowAction(Unlink2, `${t('settings.access.unlink.action')}: ${member.name}`, () => {
+        setLinkFeedback(null);
+        setUnlinkTarget(member);
+      });
     }
     return null;
   };
