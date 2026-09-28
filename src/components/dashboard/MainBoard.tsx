@@ -160,7 +160,11 @@ import type {
   ProfileSectionId,
 } from '../settings/profileModels';
 import type { SettingsManagementSectionId } from '../settings/settingsManagementRegistry';
-import type { ProfileHouseMember } from '../settings/settingsHouseAccessModel';
+import {
+  HOUSE_ACCESS_VIEW_ROUTES,
+  resolveHouseAccessView,
+  type ProfileHouseMember,
+} from '../settings/settingsHouseAccessModel';
 import type { GuidedSetupStep } from '../settings/GuidedSetupOverlay';
 import {
   FAVORITES_GRID_TITLE,
@@ -10925,8 +10929,9 @@ export function MainBoard() {
   const getCurrentNavigationRoute = () => currentNavigationRoute;
   const activeNavigationRoute = getCurrentNavigationRoute();
   const settingsPath = activeNavigationRoute.split(/[?#]/, 1)[0].replace(/\/+$/, '');
+  const houseAccessView = resolveHouseAccessView(settingsPath);
   const settingsManagementSection: SettingsManagementSectionId | null =
-    settingsPath === '/settings/access'
+    houseAccessView
       ? 'members'
       : settingsPath === '/settings/connections'
         ? 'ha'
@@ -11396,6 +11401,8 @@ export function MainBoard() {
                       onResetAll={resetAllConfiguration}
                       onRestoreStarterTemplate={restoreStarterDashboardTemplate}
                       onOpenLayoutVersions={() => navigateWithinDashboard('/settings/data/history')}
+                      houseAccessView={houseAccessView ?? 'overview'}
+                      onHouseAccessViewChange={(view) => navigateWithinDashboard(HOUSE_ACCESS_VIEW_ROUTES[view])}
                     />
                   </React.Suspense>
                 ) : undefined

@@ -37,6 +37,7 @@ function renderSection(params: {
   view?: HouseAccessView;
   security?: typeof ownerSecurity;
   onViewChange?: (view: HouseAccessView) => void;
+  showSubviewHeader?: boolean;
 } = {}) {
   return render(
     <DashboardSecurityProvider value={params.security ?? ownerSecurity}>
@@ -46,6 +47,7 @@ function renderSection(params: {
         houseMembers={members}
         currentUserName="Mattia"
         currentUserRole="Owner"
+        showSubviewHeader={params.showSubviewHeader}
       />
     </DashboardSecurityProvider>,
   );
@@ -187,5 +189,13 @@ describe('SettingsHouseAccessSection', () => {
     expect(screen.getByRole('button', { name: 'Scarica JSON' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Importa JSON' })).toBeTruthy();
     expect(screen.getByText('Creatore')).toBeTruthy();
+  });
+
+  it('leaves title and back navigation to the routed page header', () => {
+    renderSection({ view: 'members', showSubviewHeader: false });
+
+    expect(screen.queryByRole('button', { name: 'Casa e accessi' })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Membri della casa' })).toBeNull();
+    expect(screen.getByText('Sara')).toBeTruthy();
   });
 });

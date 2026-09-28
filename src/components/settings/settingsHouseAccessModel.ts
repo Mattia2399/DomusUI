@@ -1,5 +1,22 @@
 export type HouseAccessView = 'overview' | 'members' | 'guest' | 'share';
 
+export const HOUSE_ACCESS_ROUTE = '/settings/access';
+
+/** Each house access subpage has its own route, so it gets the standard page header. */
+export const HOUSE_ACCESS_VIEW_ROUTES: Record<HouseAccessView, string> = {
+  overview: HOUSE_ACCESS_ROUTE,
+  members: `${HOUSE_ACCESS_ROUTE}/members`,
+  guest: `${HOUSE_ACCESS_ROUTE}/guests`,
+  share: `${HOUSE_ACCESS_ROUTE}/sharing`,
+};
+
+export function resolveHouseAccessView(path: string): HouseAccessView | null {
+  const match = (Object.entries(HOUSE_ACCESS_VIEW_ROUTES) as [HouseAccessView, string][]).find(
+    ([, route]) => route === path,
+  );
+  return match ? match[0] : null;
+}
+
 export type ProfileHouseMember = {
   id: string;
   name: string;

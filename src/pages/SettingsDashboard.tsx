@@ -42,7 +42,11 @@ import type {
   HaEntityRegistryEntry,
 } from '../services/haRegistryPresentation';
 import GlassToggle from '../components/ui/GlassToggle';
-import type { ProfileHouseMember } from '../components/settings/settingsHouseAccessModel';
+import {
+  HOUSE_ACCESS_ROUTE,
+  resolveHouseAccessView,
+  type ProfileHouseMember,
+} from '../components/settings/settingsHouseAccessModel';
 import {
   SettingsCardPreview,
   type SettingsPreviewMember,
@@ -1728,20 +1732,36 @@ export default function SettingsDashboard({
     );
   }
 
+  const houseAccessView = resolveHouseAccessView(settingsPath);
   if (
-    settingsPath === '/settings/access' ||
+    houseAccessView ||
     settingsPath === '/settings/connections' ||
     settingsPath === '/settings/data'
   ) {
     const canOpenManagedPage =
       settingsPath === '/settings/connections' ||
-      (settingsPath === '/settings/access' && security.can('manage_rooms')) ||
+      (houseAccessView !== null && security.can('manage_rooms')) ||
       (settingsPath === '/settings/data' &&
         (security.can('download_backup') ||
           security.can('restore_backup') ||
           security.can('reset_dashboard')));
     const managedPage =
-      settingsPath === '/settings/access'
+      houseAccessView === 'members'
+        ? {
+            title: t('settings.access.membersTitle'),
+            subtitle: t('settings.access.membersDescription'),
+          }
+        : houseAccessView === 'guest'
+        ? {
+            title: t('settings.management.guests'),
+            subtitle: t('settings.access.comingLater'),
+          }
+        : houseAccessView === 'share'
+        ? {
+            title: t('settings.access.sharingTitle'),
+            subtitle: t('settings.access.sharingDescription'),
+          }
+        : houseAccessView === 'overview'
         ? {
             title: t('settings.access.title'),
             subtitle: t('settings.access.pageSubtitle'),
@@ -1759,7 +1779,9 @@ export default function SettingsDashboard({
       <SettingsDetailShell
         title={managedPage.title}
         subtitle={managedPage.subtitle}
-        onBack={() => navigateTo('/settings')}
+        {...(houseAccessView && houseAccessView !== 'overview'
+          ? { backLabel: t('settings.access.title'), onBack: () => navigateTo(HOUSE_ACCESS_ROUTE) }
+          : { onBack: () => navigateTo('/settings') })}
       >
         {!canOpenManagedPage ? (
           <section className="dashboard-content-surface rounded-[1.5rem] p-5 sm:p-6">

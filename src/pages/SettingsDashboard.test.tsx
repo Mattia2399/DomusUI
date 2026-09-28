@@ -184,6 +184,28 @@ describe('SettingsDashboard', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
+  it('renders house access subpages with a single page header that goes back to access', () => {
+    const onNavigate = vi.fn();
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/access/members"
+          onNavigate={onNavigate}
+          managedSectionContent={<div>Elenco membri</div>}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getAllByRole('heading', { name: 'Membri della casa' })).toHaveLength(1);
+    expect(screen.getByText('Elenco membri')).toBeTruthy();
+    const backButtons = screen.getAllByRole('button', { name: 'Indietro' });
+    expect(backButtons).toHaveLength(1);
+    expect(backButtons[0].textContent).toContain('Persone e accessi');
+    fireEvent.click(backButtons[0]);
+    expect(onNavigate).toHaveBeenCalledWith('/settings/access');
+  });
+
   it('renders the five-version layout history as a nested settings page', () => {
     const dashboard = {
       storageVersion: 14,

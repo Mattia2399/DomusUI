@@ -34,6 +34,11 @@ export type SettingsHouseAccessSectionProps = {
   personLinking?: PersonAccountLinking;
   currentUserName?: string;
   currentUserRole?: string;
+  /**
+   * `false` when the host page header already shows the subpage title and the
+   * back button (Settings > Access routes), so they are not rendered twice.
+   */
+  showSubviewHeader?: boolean;
 };
 
 type Feedback = {
@@ -59,6 +64,7 @@ export function SettingsHouseAccessSection({
   personLinking,
   currentUserName,
   currentUserRole,
+  showSubviewHeader = true,
 }: SettingsHouseAccessSectionProps) {
   const { t } = useI18n();
   const dashboardSecurity = useDashboardSecurity();
@@ -214,7 +220,7 @@ export function SettingsHouseAccessSection({
     }
   };
 
-  const backButton = (
+  const backButton = showSubviewHeader ? (
     <button
       type="button"
       onClick={() => onViewChange('overview')}
@@ -223,7 +229,7 @@ export function SettingsHouseAccessSection({
       <ChevronLeft size={16} />
       {t('settings.management.homeAccess')}
     </button>
-  );
+  ) : null;
 
   const memberSubtitle = (member: ProfileHouseMember) => {
     if (member.isCurrent) return t('settings.access.currentAccount');
@@ -339,12 +345,16 @@ export function SettingsHouseAccessSection({
     return (
       <section className="pb-6">
         {backButton}
-        <h4 className="text-base font-semibold text-[color:var(--ui-text-primary)]">
-          {t('settings.access.membersTitle')}
-        </h4>
-        <p className={`mt-1 text-xs ${subtleTextClass}`}>
-          {t('settings.access.membersDescription')}
-        </p>
+        {showSubviewHeader ? (
+          <>
+            <h4 className="text-base font-semibold text-[color:var(--ui-text-primary)]">
+              {t('settings.access.membersTitle')}
+            </h4>
+            <p className={`mt-1 text-xs ${subtleTextClass}`}>
+              {t('settings.access.membersDescription')}
+            </p>
+          </>
+        ) : null}
         <p role="status" className="mt-2 min-h-[1rem] text-xs font-medium text-[color:var(--ui-success)]">
           {linkFeedback}
         </p>
@@ -431,13 +441,17 @@ export function SettingsHouseAccessSection({
     return (
       <section className="pb-6">
         {backButton}
-        <h4 className="text-base font-semibold text-[color:var(--ui-text-primary)]">
-          {t('settings.access.sharingTitle')}
-        </h4>
-        <p className={`mt-2 text-xs ${subtleTextClass}`}>
-          {t('settings.access.sharingDescription')}
-        </p>
-        <p className={`mt-2 text-[11px] ${subtleTextClass}`}>
+        {showSubviewHeader ? (
+          <>
+            <h4 className="text-base font-semibold text-[color:var(--ui-text-primary)]">
+              {t('settings.access.sharingTitle')}
+            </h4>
+            <p className={`mt-2 text-xs ${subtleTextClass}`}>
+              {t('settings.access.sharingDescription')}
+            </p>
+          </>
+        ) : null}
+        <p className={`${showSubviewHeader ? 'mt-2' : ''} text-[11px] ${subtleTextClass}`}>
           {t('settings.access.currentRole')}{' '}
           <span className="font-semibold text-[color:var(--ui-text-primary)]">
             {currentRoleLabel}
