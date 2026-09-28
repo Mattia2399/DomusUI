@@ -68,7 +68,7 @@ export const SITE_LINKS = {
  */
 export const SUPPORT_LINKS: { kofi: string | null; githubSponsors: string | null } = {
   kofi: 'https://ko-fi.com/mattia2399',
-  githubSponsors: null,
+  githubSponsors: 'https://github.com/sponsors/Mattia2399',
 };
 
 export const APP_VERSION = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '';

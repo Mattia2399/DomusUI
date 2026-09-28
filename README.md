@@ -105,8 +105,9 @@ Diagnostics are never sent automatically and exclude tokens, PINs, URLs, entity 
 
 ## Support Domus UI
 
-Domus UI is free and open source, with no paid features. If it makes your home better, you can buy me a coffee: it helps me spend more time on new cards, testing on real devices, and translations.
+Domus UI is free and open source, with no paid features. If it makes your home better, you can buy me a coffee or become a sponsor: it helps me spend more time on new cards, testing on real devices, and translations.
 
+[![Sponsor on GitHub](https://img.shields.io/badge/GitHub%20Sponsors-Become%20a%20sponsor-EA4AAA?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/Mattia2399)
 [![Buy me a coffee on Ko-fi](https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?style=flat-square&logo=ko-fi&logoColor=white)](https://ko-fi.com/mattia2399)
 
 ## Development
