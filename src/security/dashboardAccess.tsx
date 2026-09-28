@@ -65,6 +65,7 @@ const ADMINISTRATIVE_API_TYPES = new Set([
   'config/entity_registry/update',
   'frontend/set_system_data',
   'person/update',
+  'person/create',
 ]);
 
 export function isDashboardAdministrativeApiMessage(message: Record<string, unknown>) {

@@ -11,8 +11,9 @@ const budgets = {
 // The total includes every lazy route and the complete IT/EN/FR catalog. Keep
 // per-chunk limits strict; allow the deliberate multilingual payload globally.
 // The blocking limit includes ~50 KB for the lazily loaded /beta presentation
-// site, which the dashboard never downloads.
-const totalBudget = { warning: 4_800_000, blocking: 5_450_000 };
+// site, which the dashboard never downloads, and ~50 KB (1.3.0) for managing
+// Home Assistant people: link, create, pictures and their IT/EN/FR copy.
+const totalBudget = { warning: 4_800_000, blocking: 5_500_000 };
 
 const formatBytes = (bytes) => `${(bytes / 1_000_000).toFixed(2)} MB`;
 

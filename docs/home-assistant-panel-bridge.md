@@ -20,6 +20,8 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "calendar_v1",
   "host_navigation",
   "person_links",
+  "person_create",
+  "person_picture",
 ]);
 const ALLOWED_WS_TYPES = new Set([
   "auth/current_user", "auth/list", "config/auth/list", "get_services",
@@ -44,10 +46,16 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/irrigation/stop_all", "domusos/irrigation/prepare_legacy_removal",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
-  "person/list", "person/update",
+  "person/list", "person/update", "person/create",
 ]);
 const HA_NAME = /^[a-z0-9_]+$/;
-const REQUEST_ID = /^ha-panel-(?:call-(?:service|api)|subscribe-api)-\d{10,}-[a-z0-9]+$/;
+const REQUEST_ID = /^ha-panel-(?:call-(?:service|api)|subscribe-api|upload-image)-\d{10,}-[a-z0-9]+$/;
+// Person pictures: Domus uploads a small square image, stored like the HA frontend does.
+const IMAGE_UPLOAD_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024;
+const PERSON_PICTURE_URL = /^\/api\/image\/serve\/[a-f0-9]{32}\/512x512$/;
+const isValidImageUpload = (file) =>
+  file instanceof Blob && IMAGE_UPLOAD_TYPES.has(file.type) && file.size > 0 && file.size <= MAX_IMAGE_UPLOAD_BYTES;
 const SHARED_HOUSE_KEY = "premium-home.shared-house.v1";
 const DASHBOARD_REVISIONS_KEY = "premium-home.dashboard-revisions.v1";
 const DASHBOARD_RESET_MARKER_KEY = "premium-home.dashboard-reset.v1";
@@ -169,9 +177,18 @@ const isValidFrontendCoreUserData = (value) => {
 // person/update may only (un)link a login: every field of the person record is
 // required and shape-checked, so a malformed request cannot wipe a person.
 const PERSON_UPDATE_KEYS = ["type", "person_id", "name", "user_id", "device_trackers", "picture"];
+// person/create sets a name and, optionally, a login and a picture uploaded by Domus: no trackers.
+const PERSON_CREATE_KEYS = ["type", "name", "user_id", "device_trackers", "picture"];
+const hasExactKeys = (message, keys) =>
+  Object.keys(message).every((key) => keys.includes(key)) && keys.every((key) => key in message);
+const isValidPersonCreate = (message) =>
+  hasExactKeys(message, PERSON_CREATE_KEYS) &&
+  typeof message.name === "string" && Boolean(message.name.trim()) && message.name.length <= 255 &&
+  (message.user_id === null || (typeof message.user_id === "string" && /^[a-f0-9]{32}$/.test(message.user_id))) &&
+  Array.isArray(message.device_trackers) && message.device_trackers.length === 0 &&
+  (message.picture === null || (typeof message.picture === "string" && PERSON_PICTURE_URL.test(message.picture)));
 const isValidPersonUpdate = (message) => {
-  if (!Object.keys(message).every((key) => PERSON_UPDATE_KEYS.includes(key))) return false;
-  if (!PERSON_UPDATE_KEYS.every((key) => key in message)) return false;
+  if (!hasExactKeys(message, PERSON_UPDATE_KEYS)) return false;
   if (typeof message.person_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(message.person_id)) return false;
   if (typeof message.name !== "string" || !message.name.trim() || message.name.length > 255) return false;
   if (message.user_id !== null && (typeof message.user_id !== "string" || !/^[a-f0-9]{32}$/.test(message.user_id))) return false;
@@ -211,6 +228,9 @@ const isValidWsMessage = (message) => {
   }
   if (message.type === "person/update") {
     return isValidPersonUpdate(message);
+  }
+  if (message.type === "person/create") {
+    return isValidPersonCreate(message);
   }
   if (message.type.startsWith("calendar/event/")) {
     if (typeof message.entity_id !== "string" || !/^calendar\.[a-z0-9_]+$/.test(message.entity_id)) return false;
@@ -471,6 +491,40 @@ class HaDashboardBuilderPanel extends HTMLElement {
       return;
     }
 
+    if (payload.type === "ha-panel-upload-image") {
+      const requestId = typeof payload.requestId === "string" ? payload.requestId : "";
+      try {
+        if (!REQUEST_ID.test(requestId) || !isValidImageUpload(payload.file)) {
+          throw new Error("Immagine non ammessa.");
+        }
+        if (!this._hass?.user?.is_admin) {
+          throw new Error("Serve un amministratore Home Assistant.");
+        }
+        if (typeof this._hass.fetchWithAuth !== "function") {
+          throw new Error("Caricamento immagini Home Assistant non disponibile.");
+        }
+        const body = new FormData();
+        body.append("file", payload.file, "domus-person-picture");
+        const response = await this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body });
+        if (!response.ok) {
+          throw new Error(`Caricamento immagine rifiutato da Home Assistant (${response.status}).`);
+        }
+        const uploaded = await response.json();
+        if (!isRecord(uploaded) || typeof uploaded.id !== "string" || !/^[a-f0-9]{32}$/.test(uploaded.id)) {
+          throw new Error("Risposta di caricamento immagine non valida.");
+        }
+        this._postToIframe({ type: "ha-panel-upload-image-result", requestId, ok: true, result: { id: uploaded.id } });
+      } catch (error) {
+        this._postToIframe({
+          type: "ha-panel-upload-image-result",
+          requestId,
+          ok: false,
+          error: toBridgeErrorMessage(error, "Caricamento immagine Home Assistant fallito."),
+        });
+      }
+      return;
+    }
+
     if (payload.type === "ha-panel-call-api") {
       const requestId = typeof payload.requestId === "string" ? payload.requestId : "";
       try {
@@ -517,6 +571,7 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
   - `ha-panel-call-api-result`
   - `ha-panel-subscribe-api-result`
   - `ha-panel-subscribe-api-event`
+  - `ha-panel-upload-image-result`
 - Iframe -> parent:
   - `ha-panel-ready`
   - `ha-panel-request-sync`
@@ -525,6 +580,9 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
   - `ha-panel-call-api`
   - `ha-panel-subscribe-api`
   - `ha-panel-unsubscribe-api`
+  - `ha-panel-upload-image`
+
+`ha-panel-upload-image` (capability `person_picture`) carica la foto di una persona con `/api/image/upload`, come il frontend Home Assistant. Il bridge accetta solo immagini JPEG, PNG o WebP fino a 5 MB e solo per un amministratore; restituisce l'id dell'immagine, che Domus salva nella persona come `/api/image/serve/<id>/512x512`.
 
 ## Navigazione verso Home Assistant
 

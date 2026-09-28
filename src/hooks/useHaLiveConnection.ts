@@ -15,6 +15,7 @@ import {
   validateHassUrl,
   saveHassAuthTokensToStorage,
 } from '../services/haLive';
+import { isValidImageUpload, parseImageUploadResponse } from '../services/personPicture';
 import type { MockEntityStateMap } from '../types/ha';
 import {
   classifyHaConnectionFailure,
@@ -494,6 +495,43 @@ export function useHaLiveConnection({ url, token }: HaLiveConnectionOptions) {
     teardownConnection(false);
   }, [teardownConnection]);
 
+  /**
+   * Uploads an image to the Home Assistant image API with the session token
+   * (long-lived or OAuth) and returns its id. The browser only allows it when
+   * Home Assistant accepts this origin, typically the same origin.
+   */
+  const uploadImage = useCallback(async (image: Blob) => {
+    const auth = connectionRef.current?.options.auth;
+    if (!auth) {
+      throw new Error('Connessione Home Assistant non disponibile.');
+    }
+    if (!isValidImageUpload(image)) {
+      throw new Error('Immagine non ammessa.');
+    }
+    if (auth.expired) {
+      await auth.refreshAccessToken();
+    }
+    const body = new FormData();
+    body.append('file', image, 'domus-person-picture');
+    let response: Response;
+    try {
+      response = await fetch(`${auth.data.hassUrl}/api/image/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        body,
+      });
+    } catch {
+      // A network-level failure here is almost always CORS.
+      throw new Error(
+        `Home Assistant non accetta caricamenti da ${window.location.origin}: aggiungilo a http: cors_allowed_origins.`,
+      );
+    }
+    if (!response.ok) {
+      throw new Error(`Caricamento immagine rifiutato da Home Assistant (${response.status}).`);
+    }
+    return parseImageUploadResponse(await response.json());
+  }, []);
+
   return {
     status,
     error,
@@ -505,5 +543,6 @@ export function useHaLiveConnection({ url, token }: HaLiveConnectionOptions) {
     callService,
     callApi,
     subscribeApi,
+    uploadImage,
   };
 }

@@ -47,12 +47,14 @@ HACS is the supported installation method for Domus UI. The future official app 
 [![Open the repository in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Mattia2399&repository=DomusUI&category=integration)
 
 1. Install and configure [HACS](https://www.hacs.xyz/) in Home Assistant.
-2. Open the link above, or add `Mattia2399/DomusUI` as a custom **Integration** repository.
-3. Download **Domus UI** and restart Home Assistant.
+2. Open the link above, or add `Mattia2399/DomusUI` as a custom repository with category **Integration** (not Dashboard).
+3. Download **Domus UI** and restart Home Assistant from **Settings -> System -> Restart**.
 4. Go to **Settings -> Devices & services -> Add integration**.
 5. Search for **Domus UI**, confirm, and open the new sidebar entry.
 
 No `configuration.yaml` changes, manual tokens, or `/www` copies are required. See the [complete installation guide](docs/installation-beta.md) for updates, rollback, and troubleshooting.
+
+> **Domus UI does not appear under Add integration?** Most often the repository was added to HACS as *Dashboard* instead of *Integration*, or Home Assistant was not restarted. See [troubleshooting](docs/installation-beta.md#domus-ui-does-not-appear-in-the-integrations-list).
 
 > A HACS release must contain the `domusos.zip` asset. Git tags without a published GitHub Release cannot be installed by HACS.
 

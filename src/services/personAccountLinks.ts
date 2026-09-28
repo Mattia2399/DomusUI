@@ -51,18 +51,47 @@ export function resolvePersonId(states: MockEntityStateMap, personEntityId: stri
   return typeof id === 'string' && id ? id : undefined;
 }
 
-export function buildPersonUpdateMessage(person: HaPersonRecord, userId: string | null) {
+/**
+ * Resends the full person record, changing only the given fields: name,
+ * login or picture. Device trackers always stay as Home Assistant has them.
+ */
+export function buildPersonUpdateMessage(
+  person: HaPersonRecord,
+  changes: { name?: string; userId?: string | null; picture?: string | null },
+) {
   return {
     type: 'person/update',
     person_id: person.id,
-    name: person.name,
-    user_id: userId,
+    name: changes.name !== undefined ? changes.name.trim() : person.name,
+    user_id: changes.userId !== undefined ? changes.userId : person.userId,
     device_trackers: person.deviceTrackers,
-    picture: person.picture,
+    picture: changes.picture !== undefined ? changes.picture : person.picture,
+  };
+}
+
+/**
+ * Creating a person (`person/create`) sets its name and, optionally, the login
+ * it belongs to and a picture uploaded by Domus. Device trackers stay in
+ * Home Assistant.
+ */
+export function buildPersonCreateMessage(name: string, userId: string | null, picture: string | null = null) {
+  return {
+    type: 'person/create',
+    name: name.trim(),
+    user_id: userId,
+    device_trackers: [] as string[],
+    picture,
   };
 }
 
 const normalizeName = (name: string) => name.trim().toLocaleLowerCase('it-IT');
+
+/** An existing person with the same name, so the UI can avoid duplicates. */
+export function findPersonNamed(name: string, members: readonly ProfileHouseMember[]) {
+  const target = normalizeName(name);
+  if (!target) return undefined;
+  return members.find((member) => member.personEntityId && normalizeName(member.name) === target);
+}
 
 /**
  * People a login can be linked to: editable people without a login. A person

@@ -160,7 +160,12 @@ import type {
   ProfileSectionId,
 } from '../settings/profileModels';
 import type { SettingsManagementSectionId } from '../settings/settingsManagementRegistry';
-import type { ProfileHouseMember } from '../settings/settingsHouseAccessModel';
+import {
+  HOUSE_ACCESS_VIEW_ROUTES,
+  resolveHouseAccessView,
+  type PersonEdit,
+  type ProfileHouseMember,
+} from '../settings/settingsHouseAccessModel';
 import type { GuidedSetupStep } from '../settings/GuidedSetupOverlay';
 import {
   FAVORITES_GRID_TITLE,
@@ -259,7 +264,14 @@ import {
   type HaLogbookEvent,
 } from '../../services/haIdentityPresentation';
 import { buildHouseMembers, selectHouseholdPeople } from '../../services/houseMembers';
-import { buildPersonUpdateMessage, parsePersonList, resolvePersonId } from '../../services/personAccountLinks';
+import {
+  buildPersonCreateMessage,
+  buildPersonUpdateMessage,
+  parsePersonList,
+  resolvePersonId,
+  type HaPersonRecord,
+} from '../../services/personAccountLinks';
+import { buildPersonPictureUrl } from '../../services/personPicture';
 import {
   resolveOAuthReturnPath,
   validateHaOAuthCallbackState,
@@ -4868,8 +4880,9 @@ export function MainBoard() {
     isHaConnected &&
     Boolean(haCurrentUser?.isOwner || haCurrentUser?.isAdmin) &&
     (!isHaManagedByParent || panelHaBridgeConnection.supportsPersonLinks);
-  const setPersonAccount = useCallback(
-    async (personEntityId: string, userId: string | null) => {
+  // Reads the current person record so an update only changes what it means to.
+  const updatePersonRecord = useCallback(
+    async (personEntityId: string, buildMessage: (person: HaPersonRecord) => Record<string, unknown>) => {
       const personId = resolvePersonId(haStates, personEntityId);
       const people = personId
         ? parsePersonList(await callHaApi({ type: 'person/list' }, { throwOnError: true }))
@@ -4881,9 +4894,58 @@ export function MainBoard() {
       if (!person.editable) {
         throw new Error(t('settings.access.link.personReadOnly'));
       }
-      await callHaApi(buildPersonUpdateMessage(person, userId), { throwOnError: true });
+      await callHaApi(buildMessage(person), { throwOnError: true });
     },
     [callHaApi, haStates, t],
+  );
+  const setPersonAccount = useCallback(
+    (personEntityId: string, userId: string | null) =>
+      updatePersonRecord(personEntityId, (person) => buildPersonUpdateMessage(person, { userId })),
+    [updatePersonRecord],
+  );
+  // Pictures go through the panel bridge. Standalone, the browser can only post
+  // to the HA image API from the same origin, unless HA lists this origin in
+  // `http: cors_allowed_origins`; the dev server always offers it for testing.
+  const { uploadImage: uploadPanelImage, supportsPersonPicture: panelSupportsPersonPicture } =
+    panelHaBridgeConnection;
+  const { uploadImage: uploadLiveImage } = webSocketHaConnection;
+  const isHaSameOrigin =
+    typeof window !== 'undefined' && normalizeHassUrl(haUrl) === window.location.origin;
+  const canSetPersonPictures =
+    canLinkPeopleToAccounts &&
+    (isHaManagedByParent ? panelSupportsPersonPicture : isHaSameOrigin || import.meta.env.DEV);
+  const uploadPersonPicture = useCallback(
+    async (image: Blob) => {
+      if (effectiveRuntimeMode !== 'real') {
+        throw new Error(t('home.api.demoUnavailable'));
+      }
+      const imageId = isHaManagedByParent ? await uploadPanelImage(image) : await uploadLiveImage(image);
+      return buildPersonPictureUrl(imageId);
+    },
+    [effectiveRuntimeMode, isHaManagedByParent, t, uploadLiveImage, uploadPanelImage],
+  );
+  const editPerson = useCallback(
+    async (personEntityId: string, changes: PersonEdit) => {
+      const picture =
+        changes.picture instanceof Blob && canSetPersonPictures
+          ? await uploadPersonPicture(changes.picture)
+          : changes.picture === null
+            ? null
+            : undefined;
+      await updatePersonRecord(personEntityId, (person) =>
+        buildPersonUpdateMessage(person, { name: changes.name, picture }),
+      );
+    },
+    [canSetPersonPictures, updatePersonRecord, uploadPersonPicture],
+  );
+  const canCreatePeople =
+    canLinkPeopleToAccounts && (!isHaManagedByParent || panelHaBridgeConnection.supportsPersonCreate);
+  const createPerson = useCallback(
+    async (name: string, userId: string | null, image?: Blob | null) => {
+      const picture = image && canSetPersonPictures ? await uploadPersonPicture(image) : null;
+      await callHaApi(buildPersonCreateMessage(name, userId, picture), { throwOnError: true });
+    },
+    [callHaApi, canSetPersonPictures, uploadPersonPicture],
   );
   const personLinking = useMemo(
     () =>
@@ -4891,9 +4953,12 @@ export function MainBoard() {
         ? {
             link: (personEntityId: string, userId: string) => setPersonAccount(personEntityId, userId),
             unlink: (personEntityId: string) => setPersonAccount(personEntityId, null),
+            create: canCreatePeople ? createPerson : undefined,
+            edit: editPerson,
+            supportsPictures: canSetPersonPictures,
           }
         : undefined,
-    [canLinkPeopleToAccounts, setPersonAccount],
+    [canCreatePeople, canLinkPeopleToAccounts, canSetPersonPictures, createPerson, editPerson, setPersonAccount],
   );
 
   const membersLiveMapPoints = useMemo(() => {
@@ -10925,8 +10990,9 @@ export function MainBoard() {
   const getCurrentNavigationRoute = () => currentNavigationRoute;
   const activeNavigationRoute = getCurrentNavigationRoute();
   const settingsPath = activeNavigationRoute.split(/[?#]/, 1)[0].replace(/\/+$/, '');
+  const houseAccessView = resolveHouseAccessView(settingsPath);
   const settingsManagementSection: SettingsManagementSectionId | null =
-    settingsPath === '/settings/access'
+    houseAccessView
       ? 'members'
       : settingsPath === '/settings/connections'
         ? 'ha'
@@ -11396,6 +11462,8 @@ export function MainBoard() {
                       onResetAll={resetAllConfiguration}
                       onRestoreStarterTemplate={restoreStarterDashboardTemplate}
                       onOpenLayoutVersions={() => navigateWithinDashboard('/settings/data/history')}
+                      houseAccessView={houseAccessView ?? 'overview'}
+                      onHouseAccessViewChange={(view) => navigateWithinDashboard(HOUSE_ACCESS_VIEW_ROUTES[view])}
                     />
                   </React.Suspense>
                 ) : undefined

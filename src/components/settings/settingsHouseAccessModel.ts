@@ -1,5 +1,22 @@
 export type HouseAccessView = 'overview' | 'members' | 'guest' | 'share';
 
+export const HOUSE_ACCESS_ROUTE = '/settings/access';
+
+/** Each house access subpage has its own route, so it gets the standard page header. */
+export const HOUSE_ACCESS_VIEW_ROUTES: Record<HouseAccessView, string> = {
+  overview: HOUSE_ACCESS_ROUTE,
+  members: `${HOUSE_ACCESS_ROUTE}/members`,
+  guest: `${HOUSE_ACCESS_ROUTE}/guests`,
+  share: `${HOUSE_ACCESS_ROUTE}/sharing`,
+};
+
+export function resolveHouseAccessView(path: string): HouseAccessView | null {
+  const match = (Object.entries(HOUSE_ACCESS_VIEW_ROUTES) as [HouseAccessView, string][]).find(
+    ([, route]) => route === path,
+  );
+  return match ? match[0] : null;
+}
+
 export type ProfileHouseMember = {
   id: string;
   name: string;
@@ -19,7 +36,19 @@ export type ProfileHouseMember = {
 export type PersonAccountLinking = {
   link: (personEntityId: string, userId: string) => Promise<void>;
   unlink: (personEntityId: string) => Promise<void>;
+  /**
+   * Create a person, optionally linked to a login and with a prepared picture.
+   * Absent on older panel bridges.
+   */
+  create?: (name: string, userId: string | null, picture?: Blob | null) => Promise<void>;
+  /** Rename a person and/or change its picture. */
+  edit: (personEntityId: string, changes: PersonEdit) => Promise<void>;
+  /** Whether pictures can be uploaded (panel bridge or same-origin connection). */
+  supportsPictures?: boolean;
 };
+
+/** Omitted fields stay unchanged; `picture: null` removes the picture. */
+export type PersonEdit = { name?: string; picture?: Blob | null };
 
 export const DASHBOARD_SHARE_SCHEMA = 'ha-dashboard-builder-role-share';
 export const DASHBOARD_SHARE_VERSION = 1;

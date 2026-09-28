@@ -62,6 +62,9 @@ export type SettingsManagementPanelProps = {
   onResetAll: (reportProgress?: DashboardResetProgressReporter) => Promise<void>;
   onRestoreStarterTemplate?: () => Promise<void>;
   onOpenLayoutVersions?: () => void;
+  /** Route-driven house access subpage (embedded presentation). */
+  houseAccessView?: HouseAccessView;
+  onHouseAccessViewChange?: (view: HouseAccessView) => void;
 };
 
 const SETTINGS_BREAKPOINT_PX = 768;
@@ -108,6 +111,8 @@ export function SettingsManagementPanel({
   onResetAll,
   onRestoreStarterTemplate,
   onOpenLayoutVersions,
+  houseAccessView: controlledHouseAccessView,
+  onHouseAccessViewChange,
 }: SettingsManagementPanelProps) {
   const { t } = useI18n();
   const localizedSections = SETTINGS_MANAGEMENT_SECTIONS.map((section) => ({
@@ -119,8 +124,19 @@ export function SettingsManagementPanel({
     resolveSettingsManagementSection(initialSection);
   const [activeSection, setActiveSection] =
     useState<SettingsManagementSectionId>(resolvedInitialSection);
-  const [houseAccessView, setHouseAccessView] =
+  const [localHouseAccessView, setLocalHouseAccessView] =
     useState<HouseAccessView>('overview');
+  const isHouseAccessRouted = Boolean(onHouseAccessViewChange);
+  const houseAccessView = isHouseAccessRouted
+    ? controlledHouseAccessView ?? 'overview'
+    : localHouseAccessView;
+  const setHouseAccessView = (view: HouseAccessView) => {
+    if (onHouseAccessViewChange) {
+      onHouseAccessViewChange(view);
+    } else {
+      setLocalHouseAccessView(view);
+    }
+  };
   const [isCompactViewport, setIsCompactViewport] = useState(() =>
     typeof window === 'undefined'
       ? false
@@ -153,13 +169,13 @@ export function SettingsManagementPanel({
   useEffect(() => {
     if (!isOpen) {
       wasOpenRef.current = false;
-      setHouseAccessView('overview');
+      setLocalHouseAccessView('overview');
       setIsCompactDetailOpen(presentation === 'embedded');
       return;
     }
     if (!wasOpenRef.current) {
       setActiveSection(resolvedInitialSection);
-      setHouseAccessView('overview');
+      setLocalHouseAccessView('overview');
       setIsCompactDetailOpen(presentation === 'embedded');
       wasOpenRef.current = true;
     }
@@ -188,7 +204,7 @@ export function SettingsManagementPanel({
 
   const handleSectionSelect = (section: SettingsManagementSectionId) => {
     setActiveSection(resolveSettingsManagementSection(section));
-    setHouseAccessView('overview');
+    setLocalHouseAccessView('overview');
     if (isCompactViewport) {
       setIsCompactDetailOpen(true);
     }
@@ -245,6 +261,7 @@ export function SettingsManagementPanel({
           <SettingsHouseAccessSection
             view={houseAccessView}
             onViewChange={setHouseAccessView}
+            showSubviewHeader={!isHouseAccessRouted}
             houseMembers={houseMembers}
             personLinking={personLinking}
             currentUserName={displayName}
