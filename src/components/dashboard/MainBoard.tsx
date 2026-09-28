@@ -270,11 +270,7 @@ import {
   resolvePersonId,
   type HaPersonRecord,
 } from '../../services/personAccountLinks';
-import {
-  buildPersonPictureUrl,
-  isValidImageUpload,
-  parseImageUploadResponse,
-} from '../../services/personPicture';
+import { buildPersonPictureUrl } from '../../services/personPicture';
 import {
   resolveOAuthReturnPath,
   validateHaOAuthCallbackState,
@@ -4906,37 +4902,24 @@ export function MainBoard() {
       updatePersonRecord(personEntityId, (person) => buildPersonUpdateMessage(person, userId)),
     [updatePersonRecord],
   );
-  // Pictures go through the panel bridge, or straight to the HA HTTP API with a token.
+  // Pictures go through the panel bridge. Standalone, the browser can only post
+  // to the HA image API from the same origin (HA does not allow other origins).
   const { uploadImage: uploadPanelImage, supportsPersonPicture: panelSupportsPersonPicture } =
     panelHaBridgeConnection;
-  const standaloneImageToken = haToken.trim();
+  const { uploadImage: uploadLiveImage } = webSocketHaConnection;
+  const isHaSameOrigin =
+    typeof window !== 'undefined' && normalizeHassUrl(haUrl) === window.location.origin;
   const canSetPersonPictures =
-    canLinkPeopleToAccounts &&
-    (isHaManagedByParent ? panelSupportsPersonPicture : Boolean(normalizeHassUrl(haUrl) && standaloneImageToken));
+    canLinkPeopleToAccounts && (isHaManagedByParent ? panelSupportsPersonPicture : isHaSameOrigin);
   const uploadPersonPicture = useCallback(
     async (image: Blob) => {
       if (effectiveRuntimeMode !== 'real') {
         throw new Error(t('home.api.demoUnavailable'));
       }
-      if (isHaManagedByParent) {
-        return buildPersonPictureUrl(await uploadPanelImage(image));
-      }
-      if (!isValidImageUpload(image)) {
-        throw new Error(t('settings.access.picture.invalid'));
-      }
-      const body = new FormData();
-      body.append('file', image, 'domus-person-picture');
-      const response = await fetch(`${normalizeHassUrl(haUrl)}/api/image/upload`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${standaloneImageToken}` },
-        body,
-      });
-      if (!response.ok) {
-        throw new Error(t('settings.access.picture.uploadFailed'));
-      }
-      return buildPersonPictureUrl(parseImageUploadResponse(await response.json()));
+      const imageId = isHaManagedByParent ? await uploadPanelImage(image) : await uploadLiveImage(image);
+      return buildPersonPictureUrl(imageId);
     },
-    [effectiveRuntimeMode, haUrl, isHaManagedByParent, standaloneImageToken, t, uploadPanelImage],
+    [effectiveRuntimeMode, isHaManagedByParent, t, uploadLiveImage, uploadPanelImage],
   );
   const setPersonPicture = useCallback(
     async (personEntityId: string, image: Blob | null) => {
