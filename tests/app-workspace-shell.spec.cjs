@@ -173,11 +173,16 @@ test('Irrigation nested routes survive direct navigation and refresh', async ({ 
   await expect(page).toHaveURL(/\/appgallery\/irrigation\/calendar$/);
   await expect(page.getByRole('heading', { name: 'Calendario irrigazione' })).toBeVisible();
   await expect(navigation.getByRole('button', { name: 'Impostazioni' })).toHaveCount(0);
+  // Measure the summary against the page heading: the click may scroll the
+  // page to reach the last tab, which moves both without any layout shift.
   const weeklySummary = page.getByText('Cicli questa settimana');
-  const summaryBefore = await weeklySummary.boundingBox();
+  const calendarHeading = page.getByRole('heading', { name: 'Calendario irrigazione' });
+  const summaryOffset = async () =>
+    ((await weeklySummary.boundingBox())?.y ?? 0) - ((await calendarHeading.boundingBox())?.y ?? 0);
+  const summaryBefore = await summaryOffset();
   await page.getByRole('tablist', { name: 'Giorni della settimana' }).getByRole('tab').last().click();
-  const summaryAfter = await weeklySummary.boundingBox();
-  expect(Math.abs((summaryAfter?.y ?? 0) - (summaryBefore?.y ?? 0))).toBeLessThan(4);
+  const summaryAfter = await summaryOffset();
+  expect(Math.abs(summaryAfter - summaryBefore)).toBeLessThan(4);
 
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Calendario irrigazione' })).toBeVisible();
