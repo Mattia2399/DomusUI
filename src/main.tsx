@@ -11,7 +11,15 @@ import 'react-resizable/css/styles.css';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './assets/index.css';
 
-createRoot(document.getElementById('root')!).render(
+declare global {
+  interface Window {
+    /** Set by public/compat-check.js when this browser cannot run Domus UI. */
+    __DOMUS_UNSUPPORTED_BROWSER__?: boolean;
+  }
+}
+
+// The compatibility check already explains what to update: do not start the app over it.
+if (!window.__DOMUS_UNSUPPORTED_BROWSER__) createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <MotionConfig reducedMotion="user">

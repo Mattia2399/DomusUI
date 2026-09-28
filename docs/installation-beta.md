@@ -7,6 +7,7 @@ HACS is the supported installation channel for Domus UI. The future official app
 ## Requirements
 
 - Home Assistant 2025.1.0 or newer;
+- a recent browser on every device that opens Domus UI: Chrome or Android System WebView 111+, Safari 16.4+ (iOS/iPadOS 16.4+), or Firefox 128+. Wall tablets and kiosk apps such as Fully Kiosk Browser use the Android System WebView;
 - HACS configured;
 - Owner/Admin access to install and add the integration;
 - a recent Home Assistant backup;
@@ -77,6 +78,13 @@ Check these in order:
 5. **Search for `Domus`** in **Add integration**. The integration is called **Domus UI**.
 6. **Home Assistant must be 2025.1.0 or newer.** HACS does not offer the download on older versions.
 7. If it still does not appear, check **Settings -> System -> Logs** for `domusos` or `custom integration` errors and include them in a bug report.
+
+### Domus UI does not open on a wall tablet or in Fully Kiosk Browser
+
+Home Assistant serves a compatibility build of its own interface to old browsers, so it can keep working on a device where Domus UI cannot. From 1.3.1, Domus UI shows **Browser not supported** on such devices, with the detected version, instead of a blank page.
+
+- Update **Android System WebView** (or Google Chrome) from the Play Store, then fully restart Fully Kiosk Browser. Version 111 or newer is required.
+- On devices that no longer receive WebView updates, use another browser or a newer device.
 
 ### The panel is black or does not load
 
