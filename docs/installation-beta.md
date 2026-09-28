@@ -1,6 +1,6 @@
 # HACS installation
 
-Updated: 2026-09-14
+Updated: 2026-09-28
 
 HACS is the supported installation channel for Domus UI. The future official app will become the second supported method. Previous manual `/www` and `panel_custom` installations are considered legacy and are not part of the public installation path.
 
@@ -24,10 +24,10 @@ HACS is the supported installation channel for Domus UI. The future official app
    https://github.com/Mattia2399/DomusUI
    ```
 
-   Category: `Integration`.
+   Category: `Integration` (not `Dashboard`: Domus UI installs as an integration that registers its own panel).
 
 3. Download the latest **Domus UI** release.
-4. Restart Home Assistant.
+4. Restart Home Assistant from **Settings -> System -> Restart**.
 5. Go to **Settings -> Devices & services -> Add integration**.
 6. Search for **Domus UI** and confirm.
 7. Open **Domus UI** from the sidebar and complete onboarding.
@@ -68,10 +68,15 @@ See [Updates and rollback](update-and-rollback.md) for the complete procedure.
 
 ### Domus UI does not appear in the integrations list
 
-- Restart Home Assistant after installing through HACS.
-- Clear the browser cache.
-- Confirm that `/config/custom_components/domusos/manifest.json` exists.
-- Check Home Assistant logs for `domusos` errors.
+Check these in order:
+
+1. **The HACS category must be `Integration`.** Domus UI is a dashboard, but it is installed as an integration. If the custom repository was added as `Dashboard`, HACS downloads the files to `/config/www/community/` and Home Assistant never sees the integration. Remove the repository from HACS, add it again with category `Integration`, and download it again.
+2. **The files must be in `/config/custom_components/domusos/`**, with `manifest.json` directly inside that folder.
+3. **Restart Home Assistant completely** from **Settings -> System -> Restart**. Reloading YAML is not enough, and HACS shows a pending restart until you do it.
+4. **Hard-refresh the browser**, or fully close and reopen the Home Assistant app: the list of integrations is cached.
+5. **Search for `Domus`** in **Add integration**. The integration is called **Domus UI**.
+6. **Home Assistant must be 2025.1.0 or newer.** HACS does not offer the download on older versions.
+7. If it still does not appear, check **Settings -> System -> Logs** for `domusos` or `custom integration` errors and include them in a bug report.
 
 ### The panel is black or does not load
 
