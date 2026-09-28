@@ -101,6 +101,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'calendar_v1',
   'host_navigation',
   'person_links',
+  'person_create',
 ]);
 
 export function parsePanelBridgeCapabilities(value: unknown) {
@@ -172,9 +173,31 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'calendar/event/delete',
   'person/list',
   'person/update',
+  'person/create',
 ]);
 
 const PERSON_UPDATE_KEYS = ['type', 'person_id', 'name', 'user_id', 'device_trackers', 'picture'];
+const PERSON_CREATE_KEYS = ['type', 'name', 'user_id', 'device_trackers', 'picture'];
+
+const hasExactKeys = (message: Record<string, unknown>, keys: readonly string[]) =>
+  Object.keys(message).every((key) => keys.includes(key)) && keys.every((key) => key in message);
+
+/**
+ * person/create may only set a name and, optionally, a login: no picture or
+ * device trackers. Mirrors the check in the Home Assistant panel bridge.
+ */
+export function isValidPersonCreateMessage(message: Record<string, unknown>) {
+  return (
+    hasExactKeys(message, PERSON_CREATE_KEYS) &&
+    typeof message.name === 'string' &&
+    Boolean(message.name.trim()) &&
+    message.name.length <= 255 &&
+    (message.user_id === null || (typeof message.user_id === 'string' && /^[a-f0-9]{32}$/.test(message.user_id))) &&
+    Array.isArray(message.device_trackers) &&
+    message.device_trackers.length === 0 &&
+    message.picture === null
+  );
+}
 
 /**
  * person/update may only (un)link a login. Every field of the person record is
@@ -182,8 +205,7 @@ const PERSON_UPDATE_KEYS = ['type', 'person_id', 'name', 'user_id', 'device_trac
  * Mirrors the check in the Home Assistant panel bridge.
  */
 export function isValidPersonUpdateMessage(message: Record<string, unknown>) {
-  if (!Object.keys(message).every((key) => PERSON_UPDATE_KEYS.includes(key))) return false;
-  if (!PERSON_UPDATE_KEYS.every((key) => key in message)) return false;
+  if (!hasExactKeys(message, PERSON_UPDATE_KEYS)) return false;
   if (typeof message.person_id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(message.person_id)) return false;
   if (typeof message.name !== 'string' || !message.name.trim() || message.name.length > 255) return false;
   if (message.user_id !== null && (typeof message.user_id !== 'string' || !/^[a-f0-9]{32}$/.test(message.user_id))) {
@@ -243,6 +265,9 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type === 'person/update') {
     return isValidPersonUpdateMessage(message);
+  }
+  if (message.type === 'person/create') {
+    return isValidPersonCreateMessage(message);
   }
   if (message.type.startsWith('calendar/event/')) {
     if (typeof message.entity_id !== 'string' || !/^calendar\.[a-z0-9_]+$/.test(message.entity_id)) {
@@ -875,6 +900,7 @@ export function useHaPanelBridgeConnection() {
     supportsAppConfigurations: bridgeCapabilities.includes('app_configurations'),
     supportsHostNavigation: bridgeCapabilities.includes('host_navigation'),
     supportsPersonLinks: bridgeCapabilities.includes('person_links'),
+    supportsPersonCreate: bridgeCapabilities.includes('person_create'),
     hassUrl: hassUrlRef.current,
     status,
     error,

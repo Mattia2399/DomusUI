@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { isValidPersonUpdateMessage, validatePanelApiMessage } from '../hooks/useHaPanelBridgeConnection';
+import {
+  isValidPersonCreateMessage,
+  isValidPersonUpdateMessage,
+  validatePanelApiMessage,
+} from '../hooks/useHaPanelBridgeConnection';
 import type { ProfileHouseMember } from '../components/settings/settingsHouseAccessModel';
 import {
+  buildPersonCreateMessage,
   buildPersonUpdateMessage,
+  findPersonNamed,
   parsePersonList,
   rankLinkCandidates,
   resolvePersonId,
@@ -63,6 +69,46 @@ describe('person bridge validation', () => {
     expect(validatePanelApiMessage({ type: 'person/list' })).toBe(true);
     expect(validatePanelApiMessage({ type: 'person/list', filter: 'x' })).toBe(false);
     expect(validatePanelApiMessage({ type: 'person/delete', person_id: 'angela' })).toBe(false);
+  });
+});
+
+describe('buildPersonCreateMessage', () => {
+  it('creates a person with only a name and an optional login', () => {
+    const message = buildPersonCreateMessage('  Giulia ', ANGELA_USER);
+    expect(message).toEqual({
+      type: 'person/create',
+      name: 'Giulia',
+      user_id: ANGELA_USER,
+      device_trackers: [],
+      picture: null,
+    });
+    expect(validatePanelApiMessage(message)).toBe(true);
+    expect(validatePanelApiMessage(buildPersonCreateMessage('Nonna', null))).toBe(true);
+  });
+
+  it('rejects creation requests that set anything else', () => {
+    const valid = buildPersonCreateMessage('Giulia', null);
+    expect(isValidPersonCreateMessage({ ...valid, name: ' ' })).toBe(false);
+    expect(isValidPersonCreateMessage({ ...valid, name: 'x'.repeat(256) })).toBe(false);
+    expect(isValidPersonCreateMessage({ ...valid, user_id: 'not-a-user-id' })).toBe(false);
+    expect(isValidPersonCreateMessage({ ...valid, device_trackers: ['device_tracker.phone'] })).toBe(false);
+    expect(isValidPersonCreateMessage({ ...valid, picture: '/api/image/serve/abc' })).toBe(false);
+    expect(isValidPersonCreateMessage({ ...valid, person_id: 'giulia' })).toBe(false);
+    const { user_id: _userId, ...withoutUser } = valid;
+    expect(isValidPersonCreateMessage(withoutUser)).toBe(false);
+  });
+});
+
+describe('findPersonNamed', () => {
+  const members: ProfileHouseMember[] = [
+    { id: 'person:person.giulia', name: 'Giulia', personEntityId: 'person.giulia', hasAccount: false },
+    { id: 'user:a', name: 'Angela', userId: ANGELA_USER, hasAccount: true },
+  ];
+
+  it('matches existing people by name, ignoring case and spaces, but not bare logins', () => {
+    expect(findPersonNamed(' giulia ', members)).toBe(members[0]);
+    expect(findPersonNamed('Angela', members)).toBeUndefined();
+    expect(findPersonNamed('  ', members)).toBeUndefined();
   });
 });
 

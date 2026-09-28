@@ -263,7 +263,12 @@ import {
   type HaLogbookEvent,
 } from '../../services/haIdentityPresentation';
 import { buildHouseMembers, selectHouseholdPeople } from '../../services/houseMembers';
-import { buildPersonUpdateMessage, parsePersonList, resolvePersonId } from '../../services/personAccountLinks';
+import {
+  buildPersonCreateMessage,
+  buildPersonUpdateMessage,
+  parsePersonList,
+  resolvePersonId,
+} from '../../services/personAccountLinks';
 import {
   resolveOAuthReturnPath,
   validateHaOAuthCallbackState,
@@ -4889,15 +4894,24 @@ export function MainBoard() {
     },
     [callHaApi, haStates, t],
   );
+  const canCreatePeople =
+    canLinkPeopleToAccounts && (!isHaManagedByParent || panelHaBridgeConnection.supportsPersonCreate);
+  const createPerson = useCallback(
+    async (name: string, userId: string | null) => {
+      await callHaApi(buildPersonCreateMessage(name, userId), { throwOnError: true });
+    },
+    [callHaApi],
+  );
   const personLinking = useMemo(
     () =>
       canLinkPeopleToAccounts
         ? {
             link: (personEntityId: string, userId: string) => setPersonAccount(personEntityId, userId),
             unlink: (personEntityId: string) => setPersonAccount(personEntityId, null),
+            create: canCreatePeople ? createPerson : undefined,
           }
         : undefined,
-    [canLinkPeopleToAccounts, setPersonAccount],
+    [canCreatePeople, canLinkPeopleToAccounts, createPerson, setPersonAccount],
   );
 
   const membersLiveMapPoints = useMemo(() => {

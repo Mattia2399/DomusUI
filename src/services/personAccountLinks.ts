@@ -62,7 +62,28 @@ export function buildPersonUpdateMessage(person: HaPersonRecord, userId: string 
   };
 }
 
+/**
+ * Creating a person (`person/create`) only sets its name and, optionally, the
+ * login it belongs to. Picture and device trackers stay in Home Assistant.
+ */
+export function buildPersonCreateMessage(name: string, userId: string | null) {
+  return {
+    type: 'person/create',
+    name: name.trim(),
+    user_id: userId,
+    device_trackers: [] as string[],
+    picture: null,
+  };
+}
+
 const normalizeName = (name: string) => name.trim().toLocaleLowerCase('it-IT');
+
+/** An existing person with the same name, so the UI can avoid duplicates. */
+export function findPersonNamed(name: string, members: readonly ProfileHouseMember[]) {
+  const target = normalizeName(name);
+  if (!target) return undefined;
+  return members.find((member) => member.personEntityId && normalizeName(member.name) === target);
+}
 
 /**
  * People a login can be linked to: editable people without a login. A person

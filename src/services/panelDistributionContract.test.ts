@@ -48,9 +48,12 @@ describe('Home Assistant panel distribution contract', () => {
     expect(bridgeHook).toContain("'host_navigation'");
     // Person <-> login links: declared capability, allowlisted, strictly validated.
     expect(bridge).toContain('"person_links"');
-    expect(bridge).toContain('"person/list", "person/update"');
+    expect(bridge).toContain('"person/list", "person/update", "person/create"');
     expect(bridge).toMatch(/if \(message\.type === "person\/update"\) \{\s+return isValidPersonUpdate\(message\);/);
+    expect(bridge).toMatch(/if \(message\.type === "person\/create"\) \{\s+return isValidPersonCreate\(message\);/);
+    expect(bridge).toContain('"person_create"');
     expect(bridgeHook).toContain("'person_links'");
+    expect(bridgeHook).toContain("'person_create'");
     expect(bridge).not.toContain('window.history.pushState');
     expect(bridge).not.toContain('window.history.replaceState');
     expect(bridge).not.toContain('location-changed');

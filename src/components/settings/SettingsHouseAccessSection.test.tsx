@@ -133,6 +133,58 @@ describe('SettingsHouseAccessSection', () => {
     expect((await within(dialog).findByRole('alert')).textContent).toContain('non ha accettato');
   });
 
+  it('offers person creation only when the bridge supports it', () => {
+    renderMembers({ link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined) });
+    expect(screen.queryByRole('button', { name: 'Aggiungi persona' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Crea persona/ })).toBeNull();
+  });
+
+  it('adds a person with an optional login and blocks duplicate names', async () => {
+    const personLinking = {
+      link: vi.fn(async () => undefined),
+      unlink: vi.fn(async () => undefined),
+      create: vi.fn(async () => undefined),
+    };
+    renderMembers(personLinking);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi persona' }));
+    const dialog = await screen.findByRole('dialog');
+    const nameInput = within(dialog).getByRole('textbox', { name: 'Nome' });
+    const createButton = within(dialog).getByRole('button', { name: 'Crea' }) as HTMLButtonElement;
+    expect(createButton.disabled).toBe(true);
+
+    fireEvent.change(nameInput, { target: { value: 'angela' } });
+    expect(within(dialog).getByText('Esiste già una persona con questo nome.')).toBeTruthy();
+    expect(createButton.disabled).toBe(true);
+
+    fireEvent.change(nameInput, { target: { value: ' Giulia ' } });
+    fireEvent.click(within(dialog).getByRole('radio', { name: 'Angela' }));
+    fireEvent.click(createButton);
+    await waitFor(() => expect(personLinking.create).toHaveBeenCalledWith('Giulia', 'u-angela'));
+    expect(await screen.findByText('Persona Giulia creata.')).toBeTruthy();
+  });
+
+  it('creates the person for an account with its name prefilled', async () => {
+    const personLinking = {
+      link: vi.fn(async () => undefined),
+      unlink: vi.fn(async () => undefined),
+      create: vi.fn(async () => undefined),
+    };
+    renderMembers(personLinking);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crea persona: Angela' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Crea la persona di Angela')).toBeTruthy();
+    expect((within(dialog).getByRole('textbox', { name: 'Nome' }) as HTMLInputElement).value).toBe('Angela');
+    // Angela already exists as a person without a login: linking is the right move.
+    expect(within(dialog).getByText(/usa «Collega»/)).toBeTruthy();
+    expect(within(dialog).queryByRole('radio')).toBeNull();
+
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Nome' }), { target: { value: 'Angela R.' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Crea' }));
+    await waitFor(() => expect(personLinking.create).toHaveBeenCalledWith('Angela R.', 'u-angela'));
+  });
+
   it('counts only people in the overview when Home Assistant people exist', () => {
     render(
       <DashboardSecurityProvider value={ownerSecurity}>

@@ -176,9 +176,10 @@ describe('Home Assistant panel bridge schema', () => {
       'calendar_v1',
       'host_navigation',
       'person_links',
+      'person_create',
       'unknown_capability',
       42,
-    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'calendar_v1', 'host_navigation', 'person_links']);
+    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'calendar_v1', 'host_navigation', 'person_links', 'person_create']);
     expect(parsePanelBridgeCapabilities(null)).toEqual([]);
   });
 

@@ -5,6 +5,7 @@ import {
   Clock3,
   ShieldCheck,
   Upload,
+  UserPlus,
   Users,
 } from 'lucide-react';
 import { useDashboardSecurity } from '../../security/dashboardAccess';
@@ -14,8 +15,8 @@ import {
   buildDashboardUserDataPayload,
   parseDashboardUserDataPayload,
 } from '../../services/haUserConfigSync';
-import { rankLinkCandidates } from '../../services/personAccountLinks';
-import { LinkAccountDialog, UnlinkAccountDialog } from './PersonAccountLinkDialogs';
+import { findPersonNamed, rankLinkCandidates } from '../../services/personAccountLinks';
+import { CreatePersonDialog, LinkAccountDialog, UnlinkAccountDialog } from './PersonAccountLinkDialogs';
 import {
   createDashboardRoleSharePayload,
   normalizeHouseMembers,
@@ -76,6 +77,8 @@ export function SettingsHouseAccessSection({
 
   const [linkTarget, setLinkTarget] = useState<ProfileHouseMember | null>(null);
   const [unlinkTarget, setUnlinkTarget] = useState<ProfileHouseMember | null>(null);
+  // `account: null` adds a person from Members; otherwise it is created for that login.
+  const [createTarget, setCreateTarget] = useState<{ account: ProfileHouseMember | null } | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkFeedback, setLinkFeedback] = useState<string | null>(null);
@@ -273,6 +276,7 @@ export function SettingsHouseAccessSection({
   const closeLinkDialogs = () => {
     setLinkTarget(null);
     setUnlinkTarget(null);
+    setCreateTarget(null);
     setLinkError(null);
   };
   const runLinkChange = async (change: () => Promise<void>, doneText: string) => {
@@ -305,23 +309,45 @@ export function SettingsHouseAccessSection({
       t('settings.access.unlink.done', { name: person.name }),
     );
   };
+  const createPerson = personLinking?.create;
+  const handleCreateConfirm = (name: string, userId: string | null) => {
+    if (!createPerson) return;
+    void runLinkChange(() => createPerson(name, userId), t('settings.access.create.done', { name }));
+  };
+  const openCreateDialog = (account: ProfileHouseMember | null) => {
+    setLinkFeedback(null);
+    setCreateTarget({ account });
+  };
   const rowActionClass = `shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold ${neutralButtonClass} ${buttonMotionClass}`;
   const renderMemberAction = (member: ProfileHouseMember) => {
     if (!personLinking) return null;
     if (!member.personEntityId && member.userId) {
       return (
-        <button
-          type="button"
-          className={rowActionClass}
-          aria-label={`${t('settings.access.link.action')}: ${member.name}`}
-          onClick={() => {
-            setLinkFeedback(null);
-            setLinkTarget(member);
-          }}
-        >
-          <span className="sm:hidden">{t('settings.access.link.confirm')}</span>
-          <span className="hidden sm:inline">{t('settings.access.link.action')}</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            className={rowActionClass}
+            aria-label={`${t('settings.access.link.action')}: ${member.name}`}
+            onClick={() => {
+              setLinkFeedback(null);
+              setLinkTarget(member);
+            }}
+          >
+            <span className="sm:hidden">{t('settings.access.link.confirm')}</span>
+            <span className="hidden sm:inline">{t('settings.access.link.action')}</span>
+          </button>
+          {createPerson ? (
+            <button
+              type="button"
+              className={rowActionClass}
+              aria-label={`${t('settings.access.create.action')}: ${member.name}`}
+              onClick={() => openCreateDialog(member)}
+            >
+              <span className="sm:hidden">{t('settings.access.create.confirm')}</span>
+              <span className="hidden sm:inline">{t('settings.access.create.action')}</span>
+            </button>
+          ) : null}
+        </div>
       );
     }
     if (member.personEntityId && member.hasAccount && member.personEditable !== false) {
@@ -342,6 +368,17 @@ export function SettingsHouseAccessSection({
     }
     return null;
   };
+
+  const addPersonRow = createPerson ? (
+    <button
+      type="button"
+      onClick={() => openCreateDialog(null)}
+      className={`${settingsRowClass} ${buttonMotionClass}`}
+    >
+      {renderSettingsIcon(UserPlus)}
+      <span className={`min-w-0 flex-1 ${settingsTitleClass}`}>{t('settings.access.create.add')}</span>
+    </button>
+  ) : null;
 
   if (view === 'members') {
     return (
@@ -379,12 +416,20 @@ export function SettingsHouseAccessSection({
                 ) : null}
                 <div className={`${unlinkedAccounts.length > 0 ? 'mt-2' : leadGapClass} ${settingsGroupClass}`}>
                   {people.map((member, index) => renderMemberRow(member, index))}
+                  {addPersonRow ? (
+                    <>
+                      <div className={settingsDividerClass} />
+                      {addPersonRow}
+                    </>
+                  ) : null}
                 </div>
               </>
+            ) : addPersonRow ? (
+              <div className={`${leadGapClass} ${settingsGroupClass}`}>{addPersonRow}</div>
             ) : null}
             {unlinkedAccounts.length > 0 ? (
               <>
-                <p className={`${people.length > 0 ? 'mt-6' : leadGapClass} text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
+                <p className={`${people.length > 0 || addPersonRow ? 'mt-6' : leadGapClass} text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
                   {t('settings.access.accountsTitle')}
                 </p>
                 <p className={`mt-1 text-xs ${subtleTextClass}`}>
@@ -401,6 +446,9 @@ export function SettingsHouseAccessSection({
             {t('settings.access.noMembers')}
           </div>
         )}
+        {members.length === 0 && addPersonRow ? (
+          <div className={`mt-3 ${settingsGroupClass}`}>{addPersonRow}</div>
+        ) : null}
 
         <LinkAccountDialog
           account={linkTarget}
@@ -418,6 +466,17 @@ export function SettingsHouseAccessSection({
           buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
           onCancel={closeLinkDialogs}
           onConfirm={handleUnlinkConfirm}
+        />
+        <CreatePersonDialog
+          isOpen={createTarget !== null}
+          account={createTarget?.account ?? null}
+          accounts={unlinkedAccounts}
+          findExistingPerson={(name) => findPersonNamed(name, members)}
+          busy={linkBusy}
+          error={linkError}
+          buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
+          onCancel={closeLinkDialogs}
+          onConfirm={handleCreateConfirm}
         />
       </section>
     );
