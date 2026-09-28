@@ -260,30 +260,16 @@ type CompactTouchSnapshot = {
   force?: number;
 };
 
-type CompactDragHoldStart =
-  | {
-      itemId: string;
-      element: HTMLElement;
-      x: number;
-      y: number;
-      input: {
-        kind: 'mouse';
-        clientX: number;
-        clientY: number;
-        screenX: number;
-        screenY: number;
-      };
-    }
-  | {
-      itemId: string;
-      element: HTMLElement;
-      x: number;
-      y: number;
-      input: {
-        kind: 'touch';
-        touch: CompactTouchSnapshot;
-      };
-    };
+type CompactDragHoldStart = {
+  itemId: string;
+  element: HTMLElement;
+  x: number;
+  y: number;
+  input: {
+    kind: 'touch';
+    touch: CompactTouchSnapshot;
+  };
+};
 
 function getViewportWidth() {
   if (typeof window === 'undefined') {
@@ -332,22 +318,6 @@ function getDragEventClientY(event: Event | null | undefined) {
 
 function dispatchCompactDragStartEvent(hold: CompactDragHoldStart) {
   const view = hold.element.ownerDocument.defaultView ?? window;
-  if (hold.input.kind === 'mouse') {
-    hold.element.dispatchEvent(
-      new view.MouseEvent('mousedown', {
-        bubbles: true,
-        cancelable: true,
-        button: 0,
-        buttons: 1,
-        clientX: hold.input.clientX,
-        clientY: hold.input.clientY,
-        screenX: hold.input.screenX,
-        screenY: hold.input.screenY,
-      }),
-    );
-    return;
-  }
-
   if (typeof view.Touch !== 'function' || typeof view.TouchEvent !== 'function') {
     return;
   }
@@ -1430,39 +1400,29 @@ export function GridCanvas({
     },
     [cancelCompactDragHoldIfMoved, isCompactEditCardMenuMode],
   );
-  const handleCompactDragMouseDown = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>, itemId: string) => {
-      if (!isCompactEditCardMenuMode || !event.nativeEvent.isTrusted || event.button !== 0) {
-        return;
-      }
-      if (isCompactDragHoldBlockedTarget(event.target)) {
+  // react-grid-layout clones every item and replaces its onMouseDown, so a
+  // mouse can never reach a long-press handler on the item itself. A mouse
+  // also has no scroll gesture to tell apart from a drag: arm the drag handle
+  // on pointerdown and let the native mousedown that follows start the drag
+  // right away, as on the desktop grid. Touch keeps the long-press.
+  const handleCompactDragPointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>, itemId: string) => {
+      if (
+        !isCompactEditCardMenuMode ||
+        event.pointerType !== 'mouse' ||
+        event.button !== 0 ||
+        !event.nativeEvent.isTrusted ||
+        isCompactDragHoldBlockedTarget(event.target)
+      ) {
         return;
       }
 
-      startCompactDragHold({
-        itemId,
-        element: event.currentTarget,
-        x: event.clientX,
-        y: event.clientY,
-        input: {
-          kind: 'mouse',
-          clientX: event.clientX,
-          clientY: event.clientY,
-          screenX: event.screenX,
-          screenY: event.screenY,
-        },
-      });
+      resetCompactDragHold();
+      event.currentTarget.classList.add('compact-edit-drag-handle');
+      compactDragArmedElementRef.current = event.currentTarget;
+      setCompactDragArmedItemId(itemId);
     },
-    [isCompactDragHoldBlockedTarget, isCompactEditCardMenuMode, startCompactDragHold],
-  );
-  const handleCompactDragMouseMove = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
-      if (!isCompactEditCardMenuMode) {
-        return;
-      }
-      cancelCompactDragHoldIfMoved(event.clientX, event.clientY);
-    },
-    [cancelCompactDragHoldIfMoved, isCompactEditCardMenuMode],
+    [isCompactDragHoldBlockedTarget, isCompactEditCardMenuMode, resetCompactDragHold],
   );
   const handleCompactDragHoldEnd = useCallback(() => {
     if (isCanvasInteractingRef.current) {
@@ -3013,8 +2973,7 @@ export function GridCanvas({
                     onTouchMove={handleCompactDragTouchMove}
                     onTouchEnd={handleCompactDragHoldEnd}
                     onTouchCancel={handleCompactDragHoldEnd}
-                    onMouseDown={(event) => handleCompactDragMouseDown(event, section.id)}
-                    onMouseMove={handleCompactDragMouseMove}
+                    onPointerDown={(event) => handleCompactDragPointerDown(event, section.id)}
                     onMouseUp={handleCompactDragHoldEnd}
                     onMouseLeave={handleCompactDragHoldEnd}
                     onFocus={() => focusCanvasOverlayItem(section.id)}
@@ -3082,8 +3041,6 @@ export function GridCanvas({
                     onTouchMove={handleCompactDragTouchMove}
                     onTouchEnd={handleCompactDragHoldEnd}
                     onTouchCancel={handleCompactDragHoldEnd}
-                    onMouseDown={(event) => handleCompactDragMouseDown(event, widget.id)}
-                    onMouseMove={handleCompactDragMouseMove}
                     onMouseUp={handleCompactDragHoldEnd}
                     onMouseLeave={handleCompactDragHoldEnd}
                     onFocus={() => focusCanvasOverlayItem(widget.id)}
@@ -3104,7 +3061,7 @@ export function GridCanvas({
                       // In edit mode, let RGL own pointerdown for drag-start.
                       // Selection still happens via click (non-drag) or onDragStart.
                       if (isCompactEditCardMenuMode) {
-                        return;
+                        handleCompactDragPointerDown(event, widget.id);
                       }
                     }}
                     onPointerMove={(event) => {
