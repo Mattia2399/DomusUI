@@ -46,6 +46,11 @@ describe('Home Assistant panel distribution contract', () => {
     expect(bridge).toContain('window.location.assign(path)');
     expect(bridgeHook).toContain("return postToParent({ type: 'ha-panel-navigate-home' });");
     expect(bridgeHook).toContain("'host_navigation'");
+    // Person <-> login links: declared capability, allowlisted, strictly validated.
+    expect(bridge).toContain('"person_links"');
+    expect(bridge).toContain('"person/list", "person/update"');
+    expect(bridge).toMatch(/if \(message\.type === "person\/update"\) \{\s+return isValidPersonUpdate\(message\);/);
+    expect(bridgeHook).toContain("'person_links'");
     expect(bridge).not.toContain('window.history.pushState');
     expect(bridge).not.toContain('window.history.replaceState');
     expect(bridge).not.toContain('location-changed');

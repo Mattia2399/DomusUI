@@ -100,6 +100,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'irrigation_core',
   'calendar_v1',
   'host_navigation',
+  'person_links',
 ]);
 
 export function parsePanelBridgeCapabilities(value: unknown) {
@@ -169,7 +170,36 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'calendar/event/create',
   'calendar/event/update',
   'calendar/event/delete',
+  'person/list',
+  'person/update',
 ]);
+
+const PERSON_UPDATE_KEYS = ['type', 'person_id', 'name', 'user_id', 'device_trackers', 'picture'];
+
+/**
+ * person/update may only (un)link a login. Every field of the person record is
+ * required and shape-checked, so a malformed request cannot wipe a person.
+ * Mirrors the check in the Home Assistant panel bridge.
+ */
+export function isValidPersonUpdateMessage(message: Record<string, unknown>) {
+  if (!Object.keys(message).every((key) => PERSON_UPDATE_KEYS.includes(key))) return false;
+  if (!PERSON_UPDATE_KEYS.every((key) => key in message)) return false;
+  if (typeof message.person_id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(message.person_id)) return false;
+  if (typeof message.name !== 'string' || !message.name.trim() || message.name.length > 255) return false;
+  if (message.user_id !== null && (typeof message.user_id !== 'string' || !/^[a-f0-9]{32}$/.test(message.user_id))) {
+    return false;
+  }
+  if (
+    !Array.isArray(message.device_trackers) ||
+    message.device_trackers.length > 100 ||
+    !message.device_trackers.every(
+      (entity) => typeof entity === 'string' && /^device_tracker\.[a-z0-9_]+$/.test(entity),
+    )
+  ) {
+    return false;
+  }
+  return message.picture === null || (typeof message.picture === 'string' && message.picture.length <= 2048);
+}
 
 export function resolvePanelBridgeHeartbeatStatus(elapsedMs: number): 'connected' | 'reconnecting' | 'offline' {
   if (elapsedMs >= BRIDGE_OFFLINE_AFTER_MS) {
@@ -207,6 +237,12 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});
+  }
+  if (message.type === 'person/list') {
+    return Object.keys(message).every((key) => key === 'type');
+  }
+  if (message.type === 'person/update') {
+    return isValidPersonUpdateMessage(message);
   }
   if (message.type.startsWith('calendar/event/')) {
     if (typeof message.entity_id !== 'string' || !/^calendar\.[a-z0-9_]+$/.test(message.entity_id)) {
@@ -838,6 +874,7 @@ export function useHaPanelBridgeConnection() {
     supportsSharedConfiguration: bridgeCapabilities.includes('shared_configuration'),
     supportsAppConfigurations: bridgeCapabilities.includes('app_configurations'),
     supportsHostNavigation: bridgeCapabilities.includes('host_navigation'),
+    supportsPersonLinks: bridgeCapabilities.includes('person_links'),
     hassUrl: hassUrlRef.current,
     status,
     error,

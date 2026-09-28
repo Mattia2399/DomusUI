@@ -8,9 +8,17 @@ export type ProfileHouseMember = {
   personEntityId?: string;
   /** Whether the member can sign in to Home Assistant. */
   hasAccount?: boolean;
+  /** `false` for people defined in configuration.yaml (read-only in the UI). */
+  personEditable?: boolean;
   avatarUrl?: string;
   roleLabel?: string;
   isCurrent?: boolean;
+};
+
+/** Link or unlink a Home Assistant login and a person (administrators only). */
+export type PersonAccountLinking = {
+  link: (personEntityId: string, userId: string) => Promise<void>;
+  unlink: (personEntityId: string) => Promise<void>;
 };
 
 export const DASHBOARD_SHARE_SCHEMA = 'ha-dashboard-builder-role-share';
@@ -77,6 +85,7 @@ export function normalizeHouseMembers(houseMembers: readonly ProfileHouseMember[
         personEntityId:
           typeof member.personEntityId === 'string' ? member.personEntityId.trim() : undefined,
         hasAccount: member.hasAccount,
+        personEditable: member.personEditable,
         avatarUrl: typeof member.avatarUrl === 'string' ? member.avatarUrl.trim() : undefined,
         roleLabel: typeof member.roleLabel === 'string' ? member.roleLabel.trim() : undefined,
         isCurrent: member.isCurrent === true,

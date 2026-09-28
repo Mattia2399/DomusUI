@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
@@ -7,7 +7,7 @@ import {
   createDashboardSecurityValue,
 } from '../../security/dashboardAccess';
 import SettingsHouseAccessSection from './SettingsHouseAccessSection';
-import type { HouseAccessView } from './settingsHouseAccessModel';
+import type { HouseAccessView, PersonAccountLinking } from './settingsHouseAccessModel';
 
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
 beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
@@ -77,6 +77,58 @@ describe('SettingsHouseAccessSection', () => {
     expect(screen.getByText('Account non collegato')).toBeTruthy();
     // A person without a login shows no role; the linked owner and the account do.
     expect(screen.getAllByText(/^(Creatore|Membro)$/)).toHaveLength(2);
+  });
+
+  const renderMembers = (personLinking?: PersonAccountLinking) =>
+    render(
+      <DashboardSecurityProvider value={ownerSecurity}>
+        <SettingsHouseAccessSection
+          view="members"
+          onViewChange={vi.fn()}
+          houseMembers={householdMembers}
+          personLinking={personLinking}
+          currentUserName="Mattia"
+          currentUserRole="Creatore"
+        />
+      </DashboardSecurityProvider>,
+    );
+
+  it('offers no link actions without the administrator linking capability', () => {
+    renderMembers();
+    expect(screen.queryByRole('button', { name: /Collega a una persona/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Scollega account/ })).toBeNull();
+  });
+
+  it('links an account to the person suggested by name after confirmation', async () => {
+    const personLinking = { link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined) };
+    renderMembers(personLinking);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collega a una persona: Angela' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Collega l’account di Angela')).toBeTruthy();
+    expect(within(dialog).getByText('Stesso nome')).toBeTruthy();
+    expect((within(dialog).getByRole('radio') as HTMLInputElement).checked).toBe(true);
+    expect(personLinking.link).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Collega' }));
+    await waitFor(() => expect(personLinking.link).toHaveBeenCalledWith('person.angela', 'u-angela'));
+    expect(await screen.findByText('Account collegato a Angela.')).toBeTruthy();
+  });
+
+  it('unlinks after confirmation and reports Home Assistant errors', async () => {
+    const personLinking = {
+      link: vi.fn(async () => undefined),
+      unlink: vi.fn(async () => {
+        throw new Error('Home Assistant non ha accettato la modifica.');
+      }),
+    };
+    renderMembers(personLinking);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scollega account: Mattia' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Scollega' }));
+    await waitFor(() => expect(personLinking.unlink).toHaveBeenCalledWith('person.mattia'));
+    expect((await within(dialog).findByRole('alert')).textContent).toContain('non ha accettato');
   });
 
   it('counts only people in the overview when Home Assistant people exist', () => {

@@ -87,6 +87,7 @@ export function buildHouseMembers({
       userId: account?.id,
       personEntityId: entityId,
       hasAccount: Boolean(account),
+      personEditable: attributes.editable !== false,
       avatarUrl: resolveAvatarUrl(trimmed(entity.imageUrl) ?? trimmed(attributes.entity_picture)),
       roleLabel: account ? roleLabelFor(account) : undefined,
       isCurrent: Boolean(account && currentUser && account.id === currentUser.id),
