@@ -1622,7 +1622,7 @@ export function MainBoard() {
     setAppearanceMode,
     background,
     setBackground,
-    developerMode,
+    developerMode: storedDeveloperMode,
     setDeveloperMode,
     cardSizingEngine,
     setCardSizingEngine,
@@ -1844,6 +1844,9 @@ export function MainBoard() {
       }),
     [effectiveRuntimeMode, haCurrentUser, haStatus],
   );
+  // Developer mode only applies when the Settings toggle is on and the current
+  // user is allowed to use it; a stale stored flag never enables it.
+  const developerMode = storedDeveloperMode && dashboardSecurity.can('developer_mode');
   administrativeAccessRef.current = {
     manageRooms: dashboardSecurity.can('manage_rooms'),
     restartHomeAssistant: dashboardSecurity.can('restart_home_assistant'),
@@ -11823,7 +11826,7 @@ export function MainBoard() {
               activeGridBreakpoint={canvasGridBreakpoint}
               activeGridWidth={canvasGridWidth}
               cardSizingEngine={cardSizingEngine}
-              showCardSizingEngineControl={developerMode || effectiveRuntimeMode === 'demo'}
+              showCardSizingEngineControl={developerMode}
               onCardSizingEngineChange={setCardSizingEngine}
               widgetTypeLayoutOverrides={widgetTypeLayoutOverrides}
               widgetLayoutOverrides={widgetLayoutOverrides}

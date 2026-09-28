@@ -51,7 +51,14 @@ const THEME_STORAGE_KEY = 'ha.dashboard.theme';
 const BACKGROUND_STORAGE_KEY = 'ha.dashboard.background';
 const LEGACY_WALLPAPER_STORAGE_KEY = 'ha.dashboard.wallpaper';
 const SIDEBAR_PATHS_STORAGE_KEY = 'ha.dashboard.sidebarPaths';
-const DEVELOPER_MODE_STORAGE_KEY = 'ha.dashboard.developerMode';
+/**
+ * Developer mode is off by default and can only be turned on from Settings.
+ * The preference is device-local: it is excluded from HA user sync and backups
+ * so it never follows a user (or a restored backup) onto another device. The
+ * legacy key could carry values synced from older releases and is ignored.
+ */
+export const DEVELOPER_MODE_STORAGE_KEY = 'ha.dashboard.developerMode.v2';
+export const LEGACY_DEVELOPER_MODE_STORAGE_KEY = 'ha.dashboard.developerMode';
 
 function resolveSystemTheme(): DashboardAppearance {
   if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
@@ -78,8 +85,8 @@ function readStoredDeveloperMode(): boolean {
   if (typeof window === 'undefined') {
     return false;
   }
-  const stored = window.localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY);
-  return stored === '1' || stored === 'true';
+  window.localStorage.removeItem(LEGACY_DEVELOPER_MODE_STORAGE_KEY);
+  return window.localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY) === '1';
 }
 
 function readInitialCardSizingEngine(): CardSizingEngine {
@@ -228,7 +235,11 @@ export function useProfileSettings() {
     if (typeof window === 'undefined') {
       return;
     }
-    window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, developerMode ? '1' : '0');
+    if (developerMode) {
+      window.localStorage.setItem(DEVELOPER_MODE_STORAGE_KEY, '1');
+    } else {
+      window.localStorage.removeItem(DEVELOPER_MODE_STORAGE_KEY);
+    }
   }, [developerMode]);
 
   useEffect(() => {
