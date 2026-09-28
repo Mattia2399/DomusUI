@@ -37,6 +37,25 @@ beforeEach(() => {
 });
 
 describe('config backup security filtering', () => {
+  it('keeps developer mode out of backups and restores', () => {
+    window.localStorage.setItem('ha.dashboard.developerMode.v2', '1');
+    window.localStorage.setItem('ha.dashboard.developerMode', '1');
+    window.localStorage.setItem('ha.dashboard.userName', 'Casa');
+
+    const payload = createDashboardBackupPayload(window.localStorage);
+
+    expect(payload.entries['ha.dashboard.developerMode.v2']).toBeUndefined();
+    expect(payload.entries['ha.dashboard.developerMode']).toBeUndefined();
+
+    window.localStorage.clear();
+    restoreDashboardBackup(
+      { ...payload, entries: { ...payload.entries, 'ha.dashboard.developerMode.v2': '1' } },
+      window.localStorage,
+    );
+
+    expect(window.localStorage.getItem('ha.dashboard.developerMode.v2')).toBeNull();
+  });
+
   it('does not export the HA-backed local cache', () => {
     window.localStorage.setItem('ha.dashboard.cache.sharedHouseConfiguration.v1', '{"revision":2}');
 

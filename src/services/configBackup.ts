@@ -19,6 +19,8 @@ const SECURITY_ALARM_PIN_STORAGE_KEY = 'ha.dashboard.security.alarmPin';
 const LEGACY_DEVICE_AUTH_CREDENTIAL_STORAGE_KEY = 'ha.dashboard.security.biometricCredentialId';
 const DEVICE_AUTH_CREDENTIAL_STORAGE_PREFIX = 'ha.dashboard.deviceAuth.credentialId.';
 const DASHBOARD_SERVER_CACHE_STORAGE_PREFIX = 'ha.dashboard.cache.';
+// Developer mode is a device-local choice made from Settings (see useProfileSettings).
+const DEVELOPER_MODE_STORAGE_KEYS = ['ha.dashboard.developerMode.v2', 'ha.dashboard.developerMode'];
 
 const MANAGED_STORAGE_PREFIXES = ['ha.dashboard.'];
 const MANAGED_STORAGE_KEYS = [HA_LIVE_STORAGE_KEY, HA_OAUTH_TOKENS_STORAGE_KEY];
@@ -31,6 +33,7 @@ const BACKUP_EXCLUDED_STORAGE_KEYS = new Set([
   DASHBOARD_RUNTIME_MODE_STORAGE_KEY,
   REAL_DASHBOARD_RECOVERY_STORAGE_KEY,
   DEMO_DASHBOARD_RECOVERY_STORAGE_KEY,
+  ...DEVELOPER_MODE_STORAGE_KEYS,
 ]);
 const BACKUP_EXCLUDED_STORAGE_PREFIXES = [
   DEVICE_AUTH_CREDENTIAL_STORAGE_PREFIX,

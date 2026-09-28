@@ -3,7 +3,11 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CARD_SIZING_ENGINE_STORAGE_KEY } from '../services/cardSizingEngine';
-import { useProfileSettings } from './useProfileSettings';
+import {
+  DEVELOPER_MODE_STORAGE_KEY,
+  LEGACY_DEVELOPER_MODE_STORAGE_KEY,
+  useProfileSettings,
+} from './useProfileSettings';
 
 function installSystemAppearance(initialTheme: 'light' | 'dark') {
   let matches = initialTheme === 'light';
@@ -192,5 +196,36 @@ describe('useProfileSettings system defaults', () => {
     await waitFor(() =>
       expect(localStorage.getItem(CARD_SIZING_ENGINE_STORAGE_KEY)).toBe('adaptive'),
     );
+  });
+
+  it('keeps developer mode off by default', () => {
+    installSystemAppearance('dark');
+
+    const { result } = renderHook(() => useProfileSettings());
+
+    expect(result.current.developerMode).toBe(false);
+    expect(localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('ignores and removes a legacy developer mode flag synced from older releases', () => {
+    installSystemAppearance('dark');
+    localStorage.setItem(LEGACY_DEVELOPER_MODE_STORAGE_KEY, '1');
+
+    const { result } = renderHook(() => useProfileSettings());
+
+    expect(result.current.developerMode).toBe(false);
+    expect(localStorage.getItem(LEGACY_DEVELOPER_MODE_STORAGE_KEY)).toBeNull();
+  });
+
+  it('persists developer mode only after it is turned on explicitly', async () => {
+    installSystemAppearance('dark');
+
+    const { result } = renderHook(() => useProfileSettings());
+
+    act(() => result.current.setDeveloperMode(true));
+    await waitFor(() => expect(localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY)).toBe('1'));
+
+    act(() => result.current.setDeveloperMode(false));
+    await waitFor(() => expect(localStorage.getItem(DEVELOPER_MODE_STORAGE_KEY)).toBeNull());
   });
 });
