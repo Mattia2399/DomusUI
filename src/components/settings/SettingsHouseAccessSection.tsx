@@ -14,12 +14,15 @@ import {
   buildDashboardUserDataPayload,
   parseDashboardUserDataPayload,
 } from '../../services/haUserConfigSync';
+import { rankLinkCandidates } from '../../services/personAccountLinks';
+import { LinkAccountDialog, UnlinkAccountDialog } from './PersonAccountLinkDialogs';
 import {
   createDashboardRoleSharePayload,
   normalizeHouseMembers,
   parseDashboardRoleSharePayload,
   resolveDashboardShareRoleKey,
   type HouseAccessView,
+  type PersonAccountLinking,
   type ProfileHouseMember,
 } from './settingsHouseAccessModel';
 
@@ -27,6 +30,8 @@ export type SettingsHouseAccessSectionProps = {
   view: HouseAccessView;
   onViewChange: (view: HouseAccessView) => void;
   houseMembers: readonly ProfileHouseMember[];
+  /** Present only for administrators on a bridge that supports it. */
+  personLinking?: PersonAccountLinking;
   currentUserName?: string;
   currentUserRole?: string;
 };
@@ -51,6 +56,7 @@ export function SettingsHouseAccessSection({
   view,
   onViewChange,
   houseMembers,
+  personLinking,
   currentUserName,
   currentUserRole,
 }: SettingsHouseAccessSectionProps) {
@@ -61,6 +67,12 @@ export function SettingsHouseAccessSection({
     tone: 'idle',
     text: '',
   });
+
+  const [linkTarget, setLinkTarget] = useState<ProfileHouseMember | null>(null);
+  const [unlinkTarget, setUnlinkTarget] = useState<ProfileHouseMember | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [linkFeedback, setLinkFeedback] = useState<string | null>(null);
 
   const members = normalizeHouseMembers(houseMembers);
   // People are the household; logins without a person are listed apart.
@@ -216,7 +228,8 @@ export function SettingsHouseAccessSection({
   const memberSubtitle = (member: ProfileHouseMember) => {
     if (member.isCurrent) return t('settings.access.currentAccount');
     if (!member.personEntityId) return t('settings.access.unlinkedAccount');
-    return member.hasAccount ? t('settings.access.canSignIn') : t('settings.access.noSignIn');
+    const access = member.hasAccount ? t('settings.access.canSignIn') : t('settings.access.noSignIn');
+    return member.personEditable === false ? `${access} · ${t('settings.access.readOnlyPerson')}` : access;
   };
 
   const renderMemberRow = (member: ProfileHouseMember, index: number) => (
@@ -243,9 +256,84 @@ export function SettingsHouseAccessSection({
             {member.roleLabel?.trim() || t('settings.access.member')}
           </span>
         ) : null}
+        {renderMemberAction(member)}
       </div>
     </div>
   );
+
+  const linkCandidates = linkTarget ? rankLinkCandidates(linkTarget.name, members) : [];
+  const closeLinkDialogs = () => {
+    setLinkTarget(null);
+    setUnlinkTarget(null);
+    setLinkError(null);
+  };
+  const runLinkChange = async (change: () => Promise<void>, doneText: string) => {
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      await change();
+      closeLinkDialogs();
+      setLinkFeedback(doneText);
+    } catch (error) {
+      setLinkError(error instanceof Error && error.message ? error.message : t('settings.access.link.failed'));
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+  const handleLinkConfirm = (personEntityId: string) => {
+    const account = linkTarget;
+    const person = members.find((member) => member.personEntityId === personEntityId);
+    if (!personLinking || !account?.userId || !person) return;
+    void runLinkChange(
+      () => personLinking.link(personEntityId, account.userId as string),
+      t('settings.access.link.done', { name: person.name }),
+    );
+  };
+  const handleUnlinkConfirm = () => {
+    const person = unlinkTarget;
+    if (!personLinking || !person?.personEntityId) return;
+    void runLinkChange(
+      () => personLinking.unlink(person.personEntityId as string),
+      t('settings.access.unlink.done', { name: person.name }),
+    );
+  };
+  const rowActionClass = `shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold ${neutralButtonClass} ${buttonMotionClass}`;
+  const renderMemberAction = (member: ProfileHouseMember) => {
+    if (!personLinking) return null;
+    if (!member.personEntityId && member.userId) {
+      return (
+        <button
+          type="button"
+          className={rowActionClass}
+          aria-label={`${t('settings.access.link.action')}: ${member.name}`}
+          onClick={() => {
+            setLinkFeedback(null);
+            setLinkTarget(member);
+          }}
+        >
+          <span className="sm:hidden">{t('settings.access.link.confirm')}</span>
+          <span className="hidden sm:inline">{t('settings.access.link.action')}</span>
+        </button>
+      );
+    }
+    if (member.personEntityId && member.hasAccount && member.personEditable !== false) {
+      return (
+        <button
+          type="button"
+          className={rowActionClass}
+          aria-label={`${t('settings.access.unlink.action')}: ${member.name}`}
+          onClick={() => {
+            setLinkFeedback(null);
+            setUnlinkTarget(member);
+          }}
+        >
+          <span className="sm:hidden">{t('settings.access.unlink.confirm')}</span>
+          <span className="hidden sm:inline">{t('settings.access.unlink.action')}</span>
+        </button>
+      );
+    }
+    return null;
+  };
 
   if (view === 'members') {
     return (
@@ -256,6 +344,9 @@ export function SettingsHouseAccessSection({
         </h4>
         <p className={`mt-1 text-xs ${subtleTextClass}`}>
           {t('settings.access.membersDescription')}
+        </p>
+        <p role="status" className="mt-2 min-h-[1rem] text-xs font-medium text-[color:var(--ui-success)]">
+          {linkFeedback}
         </p>
 
         {members.length > 0 ? (
@@ -277,7 +368,9 @@ export function SettingsHouseAccessSection({
                 <p className={`mt-6 text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
                   {t('settings.access.accountsTitle')}
                 </p>
-                <p className={`mt-1 text-xs ${subtleTextClass}`}>{t('settings.access.accountsDescription')}</p>
+                <p className={`mt-1 text-xs ${subtleTextClass}`}>
+                  {t(personLinking ? 'settings.access.accountsDescriptionLinkable' : 'settings.access.accountsDescription')}
+                </p>
                 <div className={`mt-2 ${settingsGroupClass}`}>
                   {unlinkedAccounts.map((member, index) => renderMemberRow(member, index))}
                 </div>
@@ -289,6 +382,24 @@ export function SettingsHouseAccessSection({
             {t('settings.access.noMembers')}
           </div>
         )}
+
+        <LinkAccountDialog
+          account={linkTarget}
+          candidates={linkCandidates}
+          busy={linkBusy}
+          error={linkError}
+          buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
+          onCancel={closeLinkDialogs}
+          onConfirm={handleLinkConfirm}
+        />
+        <UnlinkAccountDialog
+          person={unlinkTarget}
+          busy={linkBusy}
+          error={linkError}
+          buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
+          onCancel={closeLinkDialogs}
+          onConfirm={handleUnlinkConfirm}
+        />
       </section>
     );
   }

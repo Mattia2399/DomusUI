@@ -10,7 +10,7 @@ Il valore `name` in `configuration.yaml` deve essere esattamente `ha-dashboard-b
 ## Panel JS aggiornato
 
 ```js
-const PANEL_BRIDGE_PROTOCOL_VERSION = 4;
+const PANEL_BRIDGE_PROTOCOL_VERSION = 5;
 const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "shared_configuration",
   "app_configurations",
@@ -19,6 +19,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "irrigation_core",
   "calendar_v1",
   "host_navigation",
+  "person_links",
 ]);
 const ALLOWED_WS_TYPES = new Set([
   "auth/current_user", "auth/list", "config/auth/list", "get_services",
@@ -43,6 +44,7 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/irrigation/stop_all", "domusos/irrigation/prepare_legacy_removal",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
+  "person/list", "person/update",
 ]);
 const HA_NAME = /^[a-z0-9_]+$/;
 const REQUEST_ID = /^ha-panel-(?:call-(?:service|api)|subscribe-api)-\d{10,}-[a-z0-9]+$/;
@@ -164,6 +166,19 @@ const isValidFrontendCoreUserData = (value) => {
     return false;
   }
 };
+// person/update may only (un)link a login: every field of the person record is
+// required and shape-checked, so a malformed request cannot wipe a person.
+const PERSON_UPDATE_KEYS = ["type", "person_id", "name", "user_id", "device_trackers", "picture"];
+const isValidPersonUpdate = (message) => {
+  if (!Object.keys(message).every((key) => PERSON_UPDATE_KEYS.includes(key))) return false;
+  if (!PERSON_UPDATE_KEYS.every((key) => key in message)) return false;
+  if (typeof message.person_id !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(message.person_id)) return false;
+  if (typeof message.name !== "string" || !message.name.trim() || message.name.length > 255) return false;
+  if (message.user_id !== null && (typeof message.user_id !== "string" || !/^[a-f0-9]{32}$/.test(message.user_id))) return false;
+  if (!Array.isArray(message.device_trackers) || message.device_trackers.length > 100 ||
+      !message.device_trackers.every((entity) => typeof entity === "string" && /^device_tracker\.[a-z0-9_]+$/.test(entity))) return false;
+  return message.picture === null || (typeof message.picture === "string" && message.picture.length <= 2048);
+};
 const isValidWsMessage = (message) => {
   if (!isRecord(message) || typeof message.type !== "string" || !ALLOWED_WS_TYPES.has(message.type)) return false;
   if (message.type === "get_panels") {
@@ -190,6 +205,12 @@ const isValidWsMessage = (message) => {
     if (message.key === DASHBOARD_RESET_MARKER_KEY) return isValidDashboardResetMarker(message.value);
     if (message.key === APP_CONFIGURATIONS_KEY) return isValidAppConfigurations(message.value);
     return false;
+  }
+  if (message.type === "person/list") {
+    return Object.keys(message).every((key) => key === "type");
+  }
+  if (message.type === "person/update") {
+    return isValidPersonUpdate(message);
   }
   if (message.type.startsWith("calendar/event/")) {
     if (typeof message.entity_id !== "string" || !/^calendar\.[a-z0-9_]+$/.test(message.entity_id)) return false;

@@ -14,6 +14,7 @@ import {
 } from './settingsManagementRegistry';
 import type {
   HouseAccessView,
+  PersonAccountLinking,
   ProfileHouseMember,
 } from './settingsHouseAccessModel';
 
@@ -37,6 +38,7 @@ export type SettingsManagementPanelProps = {
   userEmail?: string;
   userRoleLabel?: string;
   houseMembers?: ProfileHouseMember[];
+  personLinking?: PersonAccountLinking;
   appearance: DashboardAppearance;
   developerMode: boolean;
   onDeveloperModeChange: (value: boolean) => void;
@@ -82,6 +84,7 @@ export function SettingsManagementPanel({
   userEmail,
   userRoleLabel,
   houseMembers = [],
+  personLinking,
   appearance,
   developerMode,
   onDeveloperModeChange,
@@ -243,6 +246,7 @@ export function SettingsManagementPanel({
             view={houseAccessView}
             onViewChange={setHouseAccessView}
             houseMembers={houseMembers}
+            personLinking={personLinking}
             currentUserName={displayName}
             currentUserRole={displayRole}
           />

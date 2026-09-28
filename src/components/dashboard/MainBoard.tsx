@@ -259,6 +259,7 @@ import {
   type HaLogbookEvent,
 } from '../../services/haIdentityPresentation';
 import { buildHouseMembers, selectHouseholdPeople } from '../../services/houseMembers';
+import { buildPersonUpdateMessage, parsePersonList, resolvePersonId } from '../../services/personAccountLinks';
 import {
   resolveOAuthReturnPath,
   validateHaOAuthCallbackState,
@@ -4857,6 +4858,40 @@ export function MainBoard() {
   // The Members card shows people only; accounts without a person stay in
   // the full list so authorship (layout versions, profile) still resolves.
   const householdPeople = useMemo(() => selectHouseholdPeople(profileHouseMembers), [profileHouseMembers]);
+
+  // Linking a login to a person needs an administrator (Home Assistant checks
+  // it again) and, inside the panel, a bridge that declares person links.
+  const canLinkPeopleToAccounts =
+    isHaConnected &&
+    Boolean(haCurrentUser?.isOwner || haCurrentUser?.isAdmin) &&
+    (!isHaManagedByParent || panelHaBridgeConnection.supportsPersonLinks);
+  const setPersonAccount = useCallback(
+    async (personEntityId: string, userId: string | null) => {
+      const personId = resolvePersonId(haStates, personEntityId);
+      const people = personId
+        ? parsePersonList(await callHaApi({ type: 'person/list' }, { throwOnError: true }))
+        : [];
+      const person = people.find((entry) => entry.id === personId);
+      if (!person) {
+        throw new Error(t('settings.access.link.personMissing'));
+      }
+      if (!person.editable) {
+        throw new Error(t('settings.access.link.personReadOnly'));
+      }
+      await callHaApi(buildPersonUpdateMessage(person, userId), { throwOnError: true });
+    },
+    [callHaApi, haStates, t],
+  );
+  const personLinking = useMemo(
+    () =>
+      canLinkPeopleToAccounts
+        ? {
+            link: (personEntityId: string, userId: string) => setPersonAccount(personEntityId, userId),
+            unlink: (personEntityId: string) => setPersonAccount(personEntityId, null),
+          }
+        : undefined,
+    [canLinkPeopleToAccounts, setPersonAccount],
+  );
 
   const membersLiveMapPoints = useMemo(() => {
     type MemberPersonMeta = {
@@ -11334,6 +11369,7 @@ export function MainBoard() {
                       userEmail={profileUserEmail}
                       userRoleLabel={profileUserRoleLabel}
                       houseMembers={profileHouseMembers}
+                      personLinking={personLinking}
                       appearance={appearance}
                       developerMode={developerMode}
                       onDeveloperModeChange={handleDeveloperModeChange}
