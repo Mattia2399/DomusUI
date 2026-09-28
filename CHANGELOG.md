@@ -4,12 +4,35 @@
 
 ### Added
 
-- Administrators can link a Home Assistant login to a person, or unlink it,
-  directly from Settings > Access. The link dialog only offers people without
-  an account and highlights the one with the same name. Unlinking never
-  deletes the Home Assistant user. Requires the updated panel bridge
-  (protocol 5), which allows the `person/update` command for administrators
-  only.
+- Manage Home Assistant people from Settings > People and access > Members
+  (administrators only):
+  - link a Home Assistant login to a person, or unlink it. The link dialog
+    only offers people without an account and highlights the one with the
+    same name. Unlinking never deletes the Home Assistant user;
+  - create a person, optionally linked to a login without a person, or
+    straight from an account row with its name prefilled. Duplicate names are
+    blocked;
+  - rename a person and add, change, or remove its photo. Photos are cropped
+    to a centered square, resized to 512 px, and stored in Home Assistant like
+    the Home Assistant frontend does. The entity id never changes, so
+    automations keep working.
+- The updated panel bridge (protocol 5) adds the `person_links`,
+  `person_create`, and `person_picture` capabilities. It allows `person/update`
+  and `person/create` for administrators, and photo uploads of JPEG, PNG, or
+  WebP images up to 5 MB. With an older bridge the corresponding actions are
+  simply hidden.
+
+### Changed
+
+- Members, Guest access, and Sharing are now pages of their own under
+  `/settings/access`, with the same header as the other settings pages: one
+  title and a single back button, instead of a second title and back link
+  inside the page.
+- Link, unlink, create, and edit actions use compact icon buttons with
+  tooltips.
+- The installation guide and README explain the most common reason Domus UI
+  does not appear under Add integration: the repository was added to HACS as
+  Dashboard instead of Integration, or Home Assistant was not restarted.
 
 ### Fixed
 
@@ -23,12 +46,16 @@
   from Settings. It is stored on the device only, is no longer synchronized or
   included in backups, and requires the developer permission. Users who had it
   on need to enable it again once.
+- Option lists in the person dialogs no longer overflow the dialog on long
+  labels.
 
 ### Validation
 
-- Added unit coverage for house member selection, person account linking,
-  the panel bridge `person/update` allowlist, and the developer mode default,
-  plus an end-to-end test for mouse dragging in compact previews.
+- Added unit coverage for house member selection, linking, creating, renaming
+  people and their photos, the panel bridge allowlist and image upload
+  checks, the house access routes, and the developer mode default, plus an
+  end-to-end test for mouse dragging in compact previews.
+- The total bundle budget grows by 50 KB for Home Assistant people management.
 
 ## 1.2.1 - 2026-09-25
 
