@@ -38,7 +38,7 @@ describe('parsePersonList', () => {
 describe('buildPersonUpdateMessage', () => {
   it('only changes the login and resends the rest of the person unchanged', () => {
     const [angela] = parsePersonList(personList);
-    const message = buildPersonUpdateMessage(angela, ANGELA_USER);
+    const message = buildPersonUpdateMessage(angela, { userId: ANGELA_USER });
     expect(message).toEqual({
       type: 'person/update',
       person_id: 'angela',
@@ -48,22 +48,35 @@ describe('buildPersonUpdateMessage', () => {
       picture: '/api/image/serve/abc/512x512',
     });
     expect(validatePanelApiMessage(message)).toBe(true);
-    expect(validatePanelApiMessage(buildPersonUpdateMessage(angela, null))).toBe(true);
+    expect(validatePanelApiMessage(buildPersonUpdateMessage(angela, { userId: null }))).toBe(true);
   });
 
   it('can change or remove only the picture, keeping the login', () => {
     const [, mattia] = parsePersonList(personList);
     const picture = '/api/image/serve/0123456789abcdef0123456789abcdef/512x512';
-    expect(buildPersonUpdateMessage(mattia, mattia.userId, picture)).toMatchObject({
+    expect(buildPersonUpdateMessage(mattia, { picture })).toMatchObject({
+      name: 'Mattia',
       user_id: 'ffffffffffffffffffffffffffffffff',
       picture,
     });
-    expect(buildPersonUpdateMessage(mattia, mattia.userId, null).picture).toBeNull();
+    expect(buildPersonUpdateMessage(mattia, { picture: null }).picture).toBeNull();
+  });
+
+  it('renames a person without touching login, trackers or picture', () => {
+    const [angela] = parsePersonList(personList);
+    const message = buildPersonUpdateMessage(angela, { name: '  Angela Rossi ' });
+    expect(message).toMatchObject({
+      name: 'Angela Rossi',
+      user_id: null,
+      device_trackers: ['device_tracker.angela_phone'],
+      picture: '/api/image/serve/abc/512x512',
+    });
+    expect(validatePanelApiMessage(message)).toBe(true);
   });
 });
 
 describe('person bridge validation', () => {
-  const valid = buildPersonUpdateMessage(parsePersonList(personList)[0], ANGELA_USER);
+  const valid = buildPersonUpdateMessage(parsePersonList(personList)[0], { userId: ANGELA_USER });
 
   it('rejects anything but a complete, well-formed person record', () => {
     expect(isValidPersonUpdateMessage({ ...valid, is_admin: true })).toBe(false);

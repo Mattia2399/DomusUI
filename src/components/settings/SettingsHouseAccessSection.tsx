@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Clock3,
   Link2,
+  Pencil,
   ShieldCheck,
   Unlink2,
   Upload,
@@ -22,7 +23,7 @@ import { findPersonNamed, rankLinkCandidates } from '../../services/personAccoun
 import {
   CreatePersonDialog,
   LinkAccountDialog,
-  PersonPictureDialog,
+  PersonEditDialog,
   UnlinkAccountDialog,
 } from './PersonAccountLinkDialogs';
 import {
@@ -32,6 +33,7 @@ import {
   resolveDashboardShareRoleKey,
   type HouseAccessView,
   type PersonAccountLinking,
+  type PersonEdit,
   type ProfileHouseMember,
 } from './settingsHouseAccessModel';
 
@@ -87,7 +89,7 @@ export function SettingsHouseAccessSection({
   const [unlinkTarget, setUnlinkTarget] = useState<ProfileHouseMember | null>(null);
   // `account: null` adds a person from Members; otherwise it is created for that login.
   const [createTarget, setCreateTarget] = useState<{ account: ProfileHouseMember | null } | null>(null);
-  const [pictureTarget, setPictureTarget] = useState<ProfileHouseMember | null>(null);
+  const [editTarget, setEditTarget] = useState<ProfileHouseMember | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkFeedback, setLinkFeedback] = useState<string | null>(null);
@@ -264,8 +266,10 @@ export function SettingsHouseAccessSection({
         {getMemberInitials(member.name)}
       </span>
     );
+  const canEditPerson = (member: ProfileHouseMember) =>
+    Boolean(personLinking && member.personEntityId && member.personEditable !== false);
   const canEditPicture = (member: ProfileHouseMember) =>
-    Boolean(personLinking?.setPicture && member.personEntityId && member.personEditable !== false);
+    Boolean(personLinking?.supportsPictures) && canEditPerson(member);
 
   const renderMemberRow = (member: ProfileHouseMember, index: number) => (
     <div key={member.id}>
@@ -277,10 +281,7 @@ export function SettingsHouseAccessSection({
             className={`relative shrink-0 rounded-full ${buttonMotionClass}`}
             aria-label={t('settings.access.picture.title', { name: member.name })}
             title={t('settings.access.picture.title', { name: member.name })}
-            onClick={() => {
-              setLinkFeedback(null);
-              setPictureTarget(member);
-            }}
+            onClick={() => openEditDialog(member)}
           >
             {renderMemberAvatar(member)}
             <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] text-[color:var(--ui-text-primary)]">
@@ -309,7 +310,7 @@ export function SettingsHouseAccessSection({
     setLinkTarget(null);
     setUnlinkTarget(null);
     setCreateTarget(null);
-    setPictureTarget(null);
+    setEditTarget(null);
     setLinkError(null);
   };
   const runLinkChange = async (change: () => Promise<void>, doneText: string) => {
@@ -347,14 +348,17 @@ export function SettingsHouseAccessSection({
     if (!createPerson) return;
     void runLinkChange(() => createPerson(name, userId, picture), t('settings.access.create.done', { name }));
   };
-  const handlePictureConfirm = (picture: Blob | null) => {
-    const person = pictureTarget;
-    const setPicture = personLinking?.setPicture;
-    if (!setPicture || !person?.personEntityId) return;
+  const handleEditConfirm = (changes: PersonEdit) => {
+    const person = editTarget;
+    if (!personLinking || !person?.personEntityId) return;
     void runLinkChange(
-      () => setPicture(person.personEntityId as string, picture),
-      t('settings.access.picture.done', { name: person.name }),
+      () => personLinking.edit(person.personEntityId as string, changes),
+      t('settings.access.edit.done', { name: changes.name ?? person.name }),
     );
+  };
+  const openEditDialog = (member: ProfileHouseMember) => {
+    setLinkFeedback(null);
+    setEditTarget(member);
   };
   const openCreateDialog = (account: ProfileHouseMember | null) => {
     setLinkFeedback(null);
@@ -392,11 +396,18 @@ export function SettingsHouseAccessSection({
         </div>
       );
     }
-    if (member.personEntityId && member.hasAccount && member.personEditable !== false) {
-      return renderRowAction(Unlink2, `${t('settings.access.unlink.action')}: ${member.name}`, () => {
-        setLinkFeedback(null);
-        setUnlinkTarget(member);
-      });
+    if (canEditPerson(member)) {
+      return (
+        <div className="flex shrink-0 items-center gap-1.5">
+          {renderRowAction(Pencil, `${t('settings.access.edit.action')}: ${member.name}`, () => openEditDialog(member))}
+          {member.hasAccount
+            ? renderRowAction(Unlink2, `${t('settings.access.unlink.action')}: ${member.name}`, () => {
+                setLinkFeedback(null);
+                setUnlinkTarget(member);
+              })
+            : null}
+        </div>
+      );
     }
     return null;
   };
@@ -504,20 +515,22 @@ export function SettingsHouseAccessSection({
           account={createTarget?.account ?? null}
           accounts={unlinkedAccounts}
           findExistingPerson={(name) => findPersonNamed(name, members)}
-          canSetPicture={Boolean(personLinking?.setPicture)}
+          canSetPicture={Boolean(personLinking?.supportsPictures)}
           busy={linkBusy}
           error={linkError}
           buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
           onCancel={closeLinkDialogs}
           onConfirm={handleCreateConfirm}
         />
-        <PersonPictureDialog
-          person={pictureTarget}
+        <PersonEditDialog
+          person={editTarget}
+          canSetPicture={Boolean(personLinking?.supportsPictures)}
+          findExistingPerson={(name) => findPersonNamed(name, members)}
           busy={linkBusy}
           error={linkError}
           buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
           onCancel={closeLinkDialogs}
-          onConfirm={handlePictureConfirm}
+          onConfirm={handleEditConfirm}
         />
       </section>
     );

@@ -110,8 +110,15 @@ describe('SettingsHouseAccessSection', () => {
     expect(screen.queryByRole('button', { name: /Scollega account/ })).toBeNull();
   });
 
+  const linking = (extra: Partial<PersonAccountLinking> = {}) => ({
+    link: vi.fn(async () => undefined),
+    unlink: vi.fn(async () => undefined),
+    edit: vi.fn(async () => undefined),
+    ...extra,
+  });
+
   it('links an account to the person suggested by name after confirmation', async () => {
-    const personLinking = { link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined) };
+    const personLinking = linking();
     renderMembers(personLinking);
 
     fireEvent.click(screen.getByRole('button', { name: 'Collega a una persona: Angela' }));
@@ -127,12 +134,11 @@ describe('SettingsHouseAccessSection', () => {
   });
 
   it('unlinks after confirmation and reports Home Assistant errors', async () => {
-    const personLinking = {
-      link: vi.fn(async () => undefined),
+    const personLinking = linking({
       unlink: vi.fn(async () => {
         throw new Error('Home Assistant non ha accettato la modifica.');
       }),
-    };
+    });
     renderMembers(personLinking);
 
     fireEvent.click(screen.getByRole('button', { name: 'Scollega account: Mattia' }));
@@ -143,17 +149,13 @@ describe('SettingsHouseAccessSection', () => {
   });
 
   it('offers person creation only when the bridge supports it', () => {
-    renderMembers({ link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined) });
+    renderMembers(linking());
     expect(screen.queryByRole('button', { name: 'Aggiungi persona' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Crea persona/ })).toBeNull();
   });
 
   it('adds a person with an optional login and blocks duplicate names', async () => {
-    const personLinking = {
-      link: vi.fn(async () => undefined),
-      unlink: vi.fn(async () => undefined),
-      create: vi.fn(async () => undefined),
-    };
+    const personLinking = linking({ create: vi.fn(async () => undefined) });
     renderMembers(personLinking);
 
     fireEvent.click(screen.getByRole('button', { name: 'Aggiungi persona' }));
@@ -174,11 +176,7 @@ describe('SettingsHouseAccessSection', () => {
   });
 
   it('creates the person for an account with its name prefilled', async () => {
-    const personLinking = {
-      link: vi.fn(async () => undefined),
-      unlink: vi.fn(async () => undefined),
-      create: vi.fn(async () => undefined),
-    };
+    const personLinking = linking({ create: vi.fn(async () => undefined) });
     renderMembers(personLinking);
 
     fireEvent.click(screen.getByRole('button', { name: 'Crea persona: Angela' }));
@@ -194,9 +192,34 @@ describe('SettingsHouseAccessSection', () => {
     await waitFor(() => expect(personLinking.create).toHaveBeenCalledWith('Angela R.', 'u-angela', null));
   });
 
+  it('renames a person and blocks names already used by someone else', async () => {
+    const personLinking = linking();
+    renderMembers(personLinking);
+    // Without picture support the avatar is not a button, but people can still be renamed.
+    expect(screen.queryByRole('button', { name: /^Foto di / })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Modifica persona: Angela' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Modifica Angela')).toBeTruthy();
+    expect(within(dialog).queryByRole('button', { name: 'Scegli foto' })).toBeNull();
+    const nameInput = within(dialog).getByRole('textbox', { name: 'Nome' }) as HTMLInputElement;
+    const saveButton = within(dialog).getByRole('button', { name: 'Salva' }) as HTMLButtonElement;
+    expect(nameInput.value).toBe('Angela');
+    expect(saveButton.disabled).toBe(true);
+
+    fireEvent.change(nameInput, { target: { value: 'mattia' } });
+    expect(within(dialog).getByText('Esiste già una persona con questo nome.')).toBeTruthy();
+    expect(saveButton.disabled).toBe(true);
+
+    fireEvent.change(nameInput, { target: { value: ' Angela Rossi ' } });
+    fireEvent.click(saveButton);
+    await waitFor(() => expect(personLinking.edit).toHaveBeenCalledWith('person.angela', { name: 'Angela Rossi' }));
+    expect(await screen.findByText('Persona Angela Rossi aggiornata.')).toBeTruthy();
+  });
+
   it('changes a person photo from the avatar only when pictures can be uploaded', async () => {
-    const setPicture = vi.fn(async () => undefined);
-    renderMembers({ link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined), setPicture });
+    const personLinking = linking({ supportsPictures: true });
+    renderMembers(personLinking);
     // Only people get a photo, not bare logins.
     expect(screen.queryAllByRole('button', { name: /^Foto di / })).toHaveLength(2);
 
@@ -211,19 +234,21 @@ describe('SettingsHouseAccessSection', () => {
     expect(await within(dialog).findByRole('button', { name: 'Rimuovi foto' })).toBeTruthy();
 
     fireEvent.click(saveButton);
-    await waitFor(() => expect(setPicture).toHaveBeenCalledWith('person.mattia', expect.any(Blob)));
-    expect(await screen.findByText('Foto di Mattia aggiornata.')).toBeTruthy();
+    await waitFor(() =>
+      expect(personLinking.edit).toHaveBeenCalledWith('person.mattia', { picture: expect.any(Blob) }),
+    );
+    expect(await screen.findByText('Persona Mattia aggiornata.')).toBeTruthy();
   });
 
   it('removes an existing photo', async () => {
-    const setPicture = vi.fn(async () => undefined);
+    const personLinking = linking({ supportsPictures: true });
     render(
       <DashboardSecurityProvider value={ownerSecurity}>
         <SettingsHouseAccessSection
           view="members"
           onViewChange={vi.fn()}
           houseMembers={[{ ...householdMembers[0], avatarUrl: '/api/image/serve/abc/512x512' }]}
-          personLinking={{ link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined), setPicture }}
+          personLinking={personLinking}
         />
       </DashboardSecurityProvider>,
     );
@@ -232,17 +257,12 @@ describe('SettingsHouseAccessSection', () => {
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Rimuovi foto' }));
     fireEvent.click(within(dialog).getByRole('button', { name: 'Salva' }));
-    await waitFor(() => expect(setPicture).toHaveBeenCalledWith('person.mattia', null));
+    await waitFor(() => expect(personLinking.edit).toHaveBeenCalledWith('person.mattia', { picture: null }));
   });
 
   it('creates a person with the chosen photo', async () => {
     const create = vi.fn(async () => undefined);
-    renderMembers({
-      link: vi.fn(async () => undefined),
-      unlink: vi.fn(async () => undefined),
-      create,
-      setPicture: vi.fn(async () => undefined),
-    });
+    renderMembers(linking({ create, supportsPictures: true }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Aggiungi persona' }));
     const dialog = await screen.findByRole('dialog');

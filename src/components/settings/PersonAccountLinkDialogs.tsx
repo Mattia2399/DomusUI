@@ -3,7 +3,7 @@ import { ImagePlus, Trash2 } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { PersonPictureError, preparePersonPicture } from '../../services/personPicture';
 import GlassModal from '../ui/GlassModal';
-import type { ProfileHouseMember } from './settingsHouseAccessModel';
+import type { PersonEdit, ProfileHouseMember } from './settingsHouseAccessModel';
 
 type ButtonClasses = { neutral: string; accent: string };
 
@@ -149,9 +149,11 @@ export function PersonPictureChooser({
   );
 }
 
-/** Change or remove the picture of an existing person. */
-export function PersonPictureDialog({
+/** Rename a person and, when uploads are available, change or remove its picture. */
+export function PersonEditDialog({
   person,
+  canSetPicture = false,
+  findExistingPerson,
   busy,
   error,
   buttons,
@@ -159,25 +161,43 @@ export function PersonPictureDialog({
   onConfirm,
 }: {
   person: ProfileHouseMember | null;
+  canSetPicture?: boolean;
+  findExistingPerson: (name: string) => ProfileHouseMember | undefined;
   busy: boolean;
   error: string | null;
   buttons: ButtonClasses;
   onCancel: () => void;
-  onConfirm: (picture: Blob | null) => void;
+  onConfirm: (changes: PersonEdit) => void;
 }) {
   const { t } = useI18n();
+  const [name, setName] = useState('');
   const [picture, setPicture] = useState<PictureChoice>(undefined);
 
   useEffect(() => {
+    setName(person?.name ?? '');
     setPicture(undefined);
-  }, [person?.id]);
+  }, [person?.id, person?.name]);
+
+  const trimmedName = name.trim();
+  const nameChanged = person !== null && trimmedName !== person.name;
+  const existing = trimmedName ? findExistingPerson(trimmedName) : undefined;
+  const duplicate = existing && existing.id !== person?.id ? existing : undefined;
+  const nameValid = trimmedName.length > 0 && trimmedName.length <= 255 && !duplicate;
+  const canConfirm = !busy && nameValid && (nameChanged || picture !== undefined);
+  const confirm = () => {
+    if (!canConfirm) return;
+    onConfirm({
+      ...(nameChanged ? { name: trimmedName } : {}),
+      ...(picture !== undefined ? { picture } : {}),
+    });
+  };
 
   return (
     <GlassModal
       isOpen={person !== null}
       onClose={busy ? () => undefined : onCancel}
-      title={person ? t('settings.access.picture.title', { name: person.name }) : ''}
-      description={t('settings.access.picture.description')}
+      title={person ? t('settings.access.edit.title', { name: person.name }) : ''}
+      description={t(canSetPicture ? 'settings.access.edit.descriptionWithPicture' : 'settings.access.edit.description')}
       variant="responsive"
       size="sm"
       footer={
@@ -188,8 +208,8 @@ export function PersonPictureDialog({
           <button
             type="button"
             className={`${footerButtonBase} ${buttons.accent}`}
-            onClick={() => picture !== undefined && onConfirm(picture)}
-            disabled={busy || picture === undefined}
+            onClick={confirm}
+            disabled={!canConfirm}
           >
             {t('settings.access.picture.save')}
           </button>
@@ -197,13 +217,39 @@ export function PersonPictureDialog({
       }
     >
       {person ? (
-        <PersonPictureChooser
-          name={person.name}
-          currentUrl={person.avatarUrl}
-          value={picture}
-          disabled={busy}
-          onChange={setPicture}
-        />
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            confirm();
+          }}
+        >
+          {canSetPicture ? (
+            <div className="mb-4">
+              <PersonPictureChooser
+                name={trimmedName || person.name}
+                currentUrl={person.avatarUrl}
+                value={picture}
+                disabled={busy}
+                onChange={setPicture}
+              />
+            </div>
+          ) : null}
+          <label className="block text-xs font-semibold text-[color:var(--ui-text-secondary)]">
+            {t('settings.access.create.nameLabel')}
+            <input
+              className="ui-input mt-1.5 w-full rounded-xl px-3 py-2.5 text-sm"
+              value={name}
+              maxLength={255}
+              autoComplete="off"
+              onChange={(event) => setName(event.target.value)}
+            />
+          </label>
+          {duplicate ? (
+            <p className="mt-2 text-xs font-medium text-[color:var(--ui-text-secondary)]">
+              {t('settings.access.create.duplicate')}
+            </p>
+          ) : null}
+        </form>
       ) : null}
       {errorText(error)}
     </GlassModal>

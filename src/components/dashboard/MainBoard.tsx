@@ -163,6 +163,7 @@ import type { SettingsManagementSectionId } from '../settings/settingsManagement
 import {
   HOUSE_ACCESS_VIEW_ROUTES,
   resolveHouseAccessView,
+  type PersonEdit,
   type ProfileHouseMember,
 } from '../settings/settingsHouseAccessModel';
 import type { GuidedSetupStep } from '../settings/GuidedSetupOverlay';
@@ -4899,7 +4900,7 @@ export function MainBoard() {
   );
   const setPersonAccount = useCallback(
     (personEntityId: string, userId: string | null) =>
-      updatePersonRecord(personEntityId, (person) => buildPersonUpdateMessage(person, userId)),
+      updatePersonRecord(personEntityId, (person) => buildPersonUpdateMessage(person, { userId })),
     [updatePersonRecord],
   );
   // Pictures go through the panel bridge. Standalone, the browser can only post
@@ -4923,12 +4924,19 @@ export function MainBoard() {
     },
     [effectiveRuntimeMode, isHaManagedByParent, t, uploadLiveImage, uploadPanelImage],
   );
-  const setPersonPicture = useCallback(
-    async (personEntityId: string, image: Blob | null) => {
-      const picture = image ? await uploadPersonPicture(image) : null;
-      await updatePersonRecord(personEntityId, (person) => buildPersonUpdateMessage(person, person.userId, picture));
+  const editPerson = useCallback(
+    async (personEntityId: string, changes: PersonEdit) => {
+      const picture =
+        changes.picture instanceof Blob && canSetPersonPictures
+          ? await uploadPersonPicture(changes.picture)
+          : changes.picture === null
+            ? null
+            : undefined;
+      await updatePersonRecord(personEntityId, (person) =>
+        buildPersonUpdateMessage(person, { name: changes.name, picture }),
+      );
     },
-    [updatePersonRecord, uploadPersonPicture],
+    [canSetPersonPictures, updatePersonRecord, uploadPersonPicture],
   );
   const canCreatePeople =
     canLinkPeopleToAccounts && (!isHaManagedByParent || panelHaBridgeConnection.supportsPersonCreate);
@@ -4946,10 +4954,11 @@ export function MainBoard() {
             link: (personEntityId: string, userId: string) => setPersonAccount(personEntityId, userId),
             unlink: (personEntityId: string) => setPersonAccount(personEntityId, null),
             create: canCreatePeople ? createPerson : undefined,
-            setPicture: canSetPersonPictures ? setPersonPicture : undefined,
+            edit: editPerson,
+            supportsPictures: canSetPersonPictures,
           }
         : undefined,
-    [canCreatePeople, canLinkPeopleToAccounts, canSetPersonPictures, createPerson, setPersonAccount, setPersonPicture],
+    [canCreatePeople, canLinkPeopleToAccounts, canSetPersonPictures, createPerson, editPerson, setPersonAccount],
   );
 
   const membersLiveMapPoints = useMemo(() => {

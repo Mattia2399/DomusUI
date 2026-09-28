@@ -41,9 +41,14 @@ export type PersonAccountLinking = {
    * Absent on older panel bridges.
    */
   create?: (name: string, userId: string | null, picture?: Blob | null) => Promise<void>;
-  /** Set (a prepared image) or remove (`null`) a person's picture. Absent without upload support. */
-  setPicture?: (personEntityId: string, picture: Blob | null) => Promise<void>;
+  /** Rename a person and/or change its picture. */
+  edit: (personEntityId: string, changes: PersonEdit) => Promise<void>;
+  /** Whether pictures can be uploaded (panel bridge or same-origin connection). */
+  supportsPictures?: boolean;
 };
+
+/** Omitted fields stay unchanged; `picture: null` removes the picture. */
+export type PersonEdit = { name?: string; picture?: Blob | null };
 
 export const DASHBOARD_SHARE_SCHEMA = 'ha-dashboard-builder-role-share';
 export const DASHBOARD_SHARE_VERSION = 1;

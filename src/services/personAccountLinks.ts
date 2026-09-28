@@ -51,19 +51,21 @@ export function resolvePersonId(states: MockEntityStateMap, personEntityId: stri
   return typeof id === 'string' && id ? id : undefined;
 }
 
-/** Resends the full person record, changing only the login and, if given, the picture. */
+/**
+ * Resends the full person record, changing only the given fields: name,
+ * login or picture. Device trackers always stay as Home Assistant has them.
+ */
 export function buildPersonUpdateMessage(
   person: HaPersonRecord,
-  userId: string | null,
-  picture: string | null = person.picture,
+  changes: { name?: string; userId?: string | null; picture?: string | null },
 ) {
   return {
     type: 'person/update',
     person_id: person.id,
-    name: person.name,
-    user_id: userId,
+    name: changes.name !== undefined ? changes.name.trim() : person.name,
+    user_id: changes.userId !== undefined ? changes.userId : person.userId,
     device_trackers: person.deviceTrackers,
-    picture,
+    picture: changes.picture !== undefined ? changes.picture : person.picture,
   };
 }
 
