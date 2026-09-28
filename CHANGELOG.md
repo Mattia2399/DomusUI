@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.3.0 - 2026-09-28
+
+### Added
+
+- Administrators can link a Home Assistant login to a person, or unlink it,
+  directly from Settings > Access. The link dialog only offers people without
+  an account and highlights the one with the same name. Unlinking never
+  deletes the Home Assistant user. Requires the updated panel bridge
+  (protocol 5), which allows the `person/update` command for administrators
+  only.
+
+### Fixed
+
+- The Members card and Settings > Access now list house members from Home
+  Assistant people. A person and their login are shown once, and system or
+  disabled accounts are hidden. Logins without a person appear in a separate
+  "Accounts without a person" section.
+- In Edit Mode on desktop, cards can be dragged with the mouse again while
+  previewing the tablet or mobile breakpoint.
+- Developer mode is now off by default for everyone and can only be turned on
+  from Settings. It is stored on the device only, is no longer synchronized or
+  included in backups, and requires the developer permission. Users who had it
+  on need to enable it again once.
+
+### Validation
+
+- Added unit coverage for house member selection, person account linking,
+  the panel bridge `person/update` allowlist, and the developer mode default,
+  plus an end-to-end test for mouse dragging in compact previews.
+
 ## 1.2.1 - 2026-09-25
 
 ### Fixed
