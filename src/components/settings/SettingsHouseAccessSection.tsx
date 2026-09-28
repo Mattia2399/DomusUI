@@ -230,6 +230,8 @@ export function SettingsHouseAccessSection({
       {t('settings.management.homeAccess')}
     </button>
   ) : null;
+  // With the routed page header the first block sits right under it, like other settings pages.
+  const leadGapClass = showSubviewHeader ? 'mt-4' : '';
 
   const memberSubtitle = (member: ProfileHouseMember) => {
     if (member.isCurrent) return t('settings.access.currentAccount');
@@ -355,7 +357,14 @@ export function SettingsHouseAccessSection({
             </p>
           </>
         ) : null}
-        <p role="status" className="mt-2 min-h-[1rem] text-xs font-medium text-[color:var(--ui-success)]">
+        <p
+          role="status"
+          className={
+            linkFeedback
+              ? `${showSubviewHeader ? 'mt-2' : 'mb-3'} text-xs font-medium text-[color:var(--ui-success)]`
+              : 'sr-only'
+          }
+        >
           {linkFeedback}
         </p>
 
@@ -364,18 +373,18 @@ export function SettingsHouseAccessSection({
             {people.length > 0 ? (
               <>
                 {unlinkedAccounts.length > 0 ? (
-                  <p className={`mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
+                  <p className={`${leadGapClass} text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
                     {t('settings.access.peopleTitle')}
                   </p>
                 ) : null}
-                <div className={`${unlinkedAccounts.length > 0 ? 'mt-2' : 'mt-4'} ${settingsGroupClass}`}>
+                <div className={`${unlinkedAccounts.length > 0 ? 'mt-2' : leadGapClass} ${settingsGroupClass}`}>
                   {people.map((member, index) => renderMemberRow(member, index))}
                 </div>
               </>
             ) : null}
             {unlinkedAccounts.length > 0 ? (
               <>
-                <p className={`mt-6 text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
+                <p className={`${people.length > 0 ? 'mt-6' : leadGapClass} text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
                   {t('settings.access.accountsTitle')}
                 </p>
                 <p className={`mt-1 text-xs ${subtleTextClass}`}>
@@ -388,7 +397,7 @@ export function SettingsHouseAccessSection({
             ) : null}
           </>
         ) : (
-          <div className={`mt-4 ${settingsGroupClass} px-4 py-6 text-center text-xs ${subtleTextClass}`}>
+          <div className={`${leadGapClass} ${settingsGroupClass} px-4 py-6 text-center text-xs ${subtleTextClass}`}>
             {t('settings.access.noMembers')}
           </div>
         )}
