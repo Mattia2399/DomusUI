@@ -63,8 +63,12 @@ export function SettingsHouseAccessSection({
   });
 
   const members = normalizeHouseMembers(houseMembers);
-  const visibleMembers = members.slice(0, 4);
-  const hiddenMembersCount = Math.max(0, members.length - visibleMembers.length);
+  // People are the household; logins without a person are listed apart.
+  const people = members.filter((member) => member.personEntityId);
+  const unlinkedAccounts = members.filter((member) => !member.personEntityId);
+  const overviewMembers = people.length > 0 ? people : members;
+  const visibleMembers = overviewMembers.slice(0, 4);
+  const hiddenMembersCount = Math.max(0, overviewMembers.length - visibleMembers.length);
   const currentRoleKey = resolveDashboardShareRoleKey(currentUserRole);
   const currentRoleLabel = t(
     currentRoleKey === 'creator'
@@ -209,6 +213,40 @@ export function SettingsHouseAccessSection({
     </button>
   );
 
+  const memberSubtitle = (member: ProfileHouseMember) => {
+    if (member.isCurrent) return t('settings.access.currentAccount');
+    if (!member.personEntityId) return t('settings.access.unlinkedAccount');
+    return member.hasAccount ? t('settings.access.canSignIn') : t('settings.access.noSignIn');
+  };
+
+  const renderMemberRow = (member: ProfileHouseMember, index: number) => (
+    <div key={member.id}>
+      {index > 0 ? <div className={settingsDividerClass} /> : null}
+      <div className={settingsRowClass}>
+        {member.avatarUrl ? (
+          <img
+            src={member.avatarUrl}
+            alt={`Membro ${member.name}`}
+            className="h-10 w-10 shrink-0 rounded-full border-2 border-[color:var(--ui-border-strong)] object-cover"
+          />
+        ) : (
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold text-[color:var(--ui-text-primary)]">
+            {getMemberInitials(member.name)}
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{member.name}</p>
+          <p className={settingsSubtitleClass}>{memberSubtitle(member)}</p>
+        </div>
+        {member.hasAccount !== false ? (
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
+            {member.roleLabel?.trim() || t('settings.access.member')}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+
   if (view === 'members') {
     return (
       <section className="pb-6">
@@ -221,37 +259,31 @@ export function SettingsHouseAccessSection({
         </p>
 
         {members.length > 0 ? (
-          <div className={`mt-4 ${settingsGroupClass}`}>
-            {members.map((member, index) => (
-              <div key={member.id}>
-                {index > 0 ? <div className={settingsDividerClass} /> : null}
-                <div className={settingsRowClass}>
-                  {member.avatarUrl ? (
-                    <img
-                      src={member.avatarUrl}
-                      alt={`Membro ${member.name}`}
-                      className="h-10 w-10 shrink-0 rounded-full border-2 border-[color:var(--ui-border-strong)] object-cover"
-                    />
-                  ) : (
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold text-[color:var(--ui-text-primary)]">
-                      {getMemberInitials(member.name)}
-                    </span>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                      {member.name}
-                    </p>
-                    <p className={settingsSubtitleClass}>
-                      {member.isCurrent ? t('settings.access.currentAccount') : t('settings.access.registeredUser')}
-                    </p>
-                  </div>
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                    {member.roleLabel?.trim() || t('settings.access.member')}
-                  </span>
+          <>
+            {people.length > 0 ? (
+              <>
+                {unlinkedAccounts.length > 0 ? (
+                  <p className={`mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
+                    {t('settings.access.peopleTitle')}
+                  </p>
+                ) : null}
+                <div className={`${unlinkedAccounts.length > 0 ? 'mt-2' : 'mt-4'} ${settingsGroupClass}`}>
+                  {people.map((member, index) => renderMemberRow(member, index))}
                 </div>
-              </div>
-            ))}
-          </div>
+              </>
+            ) : null}
+            {unlinkedAccounts.length > 0 ? (
+              <>
+                <p className={`mt-6 text-[11px] font-semibold uppercase tracking-[0.12em] ${subtleTextClass}`}>
+                  {t('settings.access.accountsTitle')}
+                </p>
+                <p className={`mt-1 text-xs ${subtleTextClass}`}>{t('settings.access.accountsDescription')}</p>
+                <div className={`mt-2 ${settingsGroupClass}`}>
+                  {unlinkedAccounts.map((member, index) => renderMemberRow(member, index))}
+                </div>
+              </>
+            ) : null}
+          </>
         ) : (
           <div className={`mt-4 ${settingsGroupClass} px-4 py-6 text-center text-xs ${subtleTextClass}`}>
             {t('settings.access.noMembers')}
@@ -367,8 +399,8 @@ export function SettingsHouseAccessSection({
           <div className="min-w-0 flex-1">
             <p className={settingsTitleClass}>{t('settings.management.members')}</p>
             <p className={settingsSubtitleClass}>
-              {members.length > 0
-                ? t(members.length === 1 ? 'settings.access.personAvailable' : 'settings.access.peopleAvailable', { count: members.length })
+              {overviewMembers.length > 0
+                ? t(overviewMembers.length === 1 ? 'settings.access.personAvailable' : 'settings.access.peopleAvailable', { count: overviewMembers.length })
                 : t('settings.access.noMembers')}
             </p>
           </div>

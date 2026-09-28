@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { selectHouseholdPeople } from '../services/houseMembers';
 import {
   Activity,
   AlertTriangle,
@@ -1167,8 +1168,9 @@ export default function SettingsDashboard({
     window.setTimeout(() => revokeObjectUrl(objectUrl), 0);
     setActionFeedback(t('settings.system.diagnosticsDownloaded'));
   };
-  const previewMembers: SettingsPreviewMember[] = houseMembers.map((member) => {
-    const memberState = normalizeLower(haStates[member.id]?.state);
+  // People only, with presence read from their `person.*` entity.
+  const previewMembers: SettingsPreviewMember[] = selectHouseholdPeople(houseMembers).map((member) => {
+    const memberState = normalizeLower(member.personEntityId ? haStates[member.personEntityId]?.state : undefined);
     const presence: SettingsPreviewMember['presence'] =
       memberState === 'home' || memberState === 'on' || memberState === 'present'
         ? 'home'
