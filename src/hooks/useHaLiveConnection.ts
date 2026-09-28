@@ -513,11 +513,19 @@ export function useHaLiveConnection({ url, token }: HaLiveConnectionOptions) {
     }
     const body = new FormData();
     body.append('file', image, 'domus-person-picture');
-    const response = await fetch(`${auth.data.hassUrl}/api/image/upload`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${auth.accessToken}` },
-      body,
-    });
+    let response: Response;
+    try {
+      response = await fetch(`${auth.data.hassUrl}/api/image/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.accessToken}` },
+        body,
+      });
+    } catch {
+      // A network-level failure here is almost always CORS.
+      throw new Error(
+        `Home Assistant non accetta caricamenti da ${window.location.origin}: aggiungilo a http: cors_allowed_origins.`,
+      );
+    }
     if (!response.ok) {
       throw new Error(`Caricamento immagine rifiutato da Home Assistant (${response.status}).`);
     }

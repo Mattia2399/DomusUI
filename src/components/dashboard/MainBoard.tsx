@@ -4903,14 +4903,16 @@ export function MainBoard() {
     [updatePersonRecord],
   );
   // Pictures go through the panel bridge. Standalone, the browser can only post
-  // to the HA image API from the same origin (HA does not allow other origins).
+  // to the HA image API from the same origin, unless HA lists this origin in
+  // `http: cors_allowed_origins`; the dev server always offers it for testing.
   const { uploadImage: uploadPanelImage, supportsPersonPicture: panelSupportsPersonPicture } =
     panelHaBridgeConnection;
   const { uploadImage: uploadLiveImage } = webSocketHaConnection;
   const isHaSameOrigin =
     typeof window !== 'undefined' && normalizeHassUrl(haUrl) === window.location.origin;
   const canSetPersonPictures =
-    canLinkPeopleToAccounts && (isHaManagedByParent ? panelSupportsPersonPicture : isHaSameOrigin);
+    canLinkPeopleToAccounts &&
+    (isHaManagedByParent ? panelSupportsPersonPicture : isHaSameOrigin || import.meta.env.DEV);
   const uploadPersonPicture = useCallback(
     async (image: Blob) => {
       if (effectiveRuntimeMode !== 'real') {

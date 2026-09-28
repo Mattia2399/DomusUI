@@ -261,7 +261,7 @@ export function LinkAccountDialog({
       }
     >
       {candidates.length > 0 ? (
-        <fieldset>
+        <fieldset className="min-w-0">
           <legend className="sr-only">{t('settings.access.peopleTitle')}</legend>
           <div className="space-y-2">
             {candidates.map(({ member, sameName }) => {
@@ -283,7 +283,7 @@ export function LinkAccountDialog({
                     onChange={() => setSelected(id)}
                     className="h-4 w-4 accent-[color:var(--ui-accent)]"
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
+                  <span className="min-w-0 flex-1 break-words text-sm font-semibold text-[color:var(--ui-text-primary)]">
                     {member.name}
                   </span>
                   {sameName ? (
@@ -418,7 +418,7 @@ export function CreatePersonDialog({
           </p>
         ) : null}
         {!account && accountOptions.length > 1 ? (
-          <fieldset className="mt-4">
+          <fieldset className="mt-4 min-w-0">
             <legend className="text-xs font-semibold text-[color:var(--ui-text-secondary)]">
               {t('settings.access.create.accountLabel')}
             </legend>
@@ -440,7 +440,7 @@ export function CreatePersonDialog({
                     onChange={() => setUserId(option.value)}
                     className="h-4 w-4 accent-[color:var(--ui-accent)]"
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
+                  <span className="min-w-0 flex-1 break-words text-sm font-semibold text-[color:var(--ui-text-primary)]">
                     {option.label}
                   </span>
                 </label>
