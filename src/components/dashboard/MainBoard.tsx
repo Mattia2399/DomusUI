@@ -268,7 +268,13 @@ import {
   buildPersonUpdateMessage,
   parsePersonList,
   resolvePersonId,
+  type HaPersonRecord,
 } from '../../services/personAccountLinks';
+import {
+  buildPersonPictureUrl,
+  isValidImageUpload,
+  parseImageUploadResponse,
+} from '../../services/personPicture';
 import {
   resolveOAuthReturnPath,
   validateHaOAuthCallbackState,
@@ -4877,8 +4883,9 @@ export function MainBoard() {
     isHaConnected &&
     Boolean(haCurrentUser?.isOwner || haCurrentUser?.isAdmin) &&
     (!isHaManagedByParent || panelHaBridgeConnection.supportsPersonLinks);
-  const setPersonAccount = useCallback(
-    async (personEntityId: string, userId: string | null) => {
+  // Reads the current person record so an update only changes what it means to.
+  const updatePersonRecord = useCallback(
+    async (personEntityId: string, buildMessage: (person: HaPersonRecord) => Record<string, unknown>) => {
       const personId = resolvePersonId(haStates, personEntityId);
       const people = personId
         ? parsePersonList(await callHaApi({ type: 'person/list' }, { throwOnError: true }))
@@ -4890,17 +4897,62 @@ export function MainBoard() {
       if (!person.editable) {
         throw new Error(t('settings.access.link.personReadOnly'));
       }
-      await callHaApi(buildPersonUpdateMessage(person, userId), { throwOnError: true });
+      await callHaApi(buildMessage(person), { throwOnError: true });
     },
     [callHaApi, haStates, t],
+  );
+  const setPersonAccount = useCallback(
+    (personEntityId: string, userId: string | null) =>
+      updatePersonRecord(personEntityId, (person) => buildPersonUpdateMessage(person, userId)),
+    [updatePersonRecord],
+  );
+  // Pictures go through the panel bridge, or straight to the HA HTTP API with a token.
+  const { uploadImage: uploadPanelImage, supportsPersonPicture: panelSupportsPersonPicture } =
+    panelHaBridgeConnection;
+  const standaloneImageToken = haToken.trim();
+  const canSetPersonPictures =
+    canLinkPeopleToAccounts &&
+    (isHaManagedByParent ? panelSupportsPersonPicture : Boolean(normalizeHassUrl(haUrl) && standaloneImageToken));
+  const uploadPersonPicture = useCallback(
+    async (image: Blob) => {
+      if (effectiveRuntimeMode !== 'real') {
+        throw new Error(t('home.api.demoUnavailable'));
+      }
+      if (isHaManagedByParent) {
+        return buildPersonPictureUrl(await uploadPanelImage(image));
+      }
+      if (!isValidImageUpload(image)) {
+        throw new Error(t('settings.access.picture.invalid'));
+      }
+      const body = new FormData();
+      body.append('file', image, 'domus-person-picture');
+      const response = await fetch(`${normalizeHassUrl(haUrl)}/api/image/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${standaloneImageToken}` },
+        body,
+      });
+      if (!response.ok) {
+        throw new Error(t('settings.access.picture.uploadFailed'));
+      }
+      return buildPersonPictureUrl(parseImageUploadResponse(await response.json()));
+    },
+    [effectiveRuntimeMode, haUrl, isHaManagedByParent, standaloneImageToken, t, uploadPanelImage],
+  );
+  const setPersonPicture = useCallback(
+    async (personEntityId: string, image: Blob | null) => {
+      const picture = image ? await uploadPersonPicture(image) : null;
+      await updatePersonRecord(personEntityId, (person) => buildPersonUpdateMessage(person, person.userId, picture));
+    },
+    [updatePersonRecord, uploadPersonPicture],
   );
   const canCreatePeople =
     canLinkPeopleToAccounts && (!isHaManagedByParent || panelHaBridgeConnection.supportsPersonCreate);
   const createPerson = useCallback(
-    async (name: string, userId: string | null) => {
-      await callHaApi(buildPersonCreateMessage(name, userId), { throwOnError: true });
+    async (name: string, userId: string | null, image?: Blob | null) => {
+      const picture = image && canSetPersonPictures ? await uploadPersonPicture(image) : null;
+      await callHaApi(buildPersonCreateMessage(name, userId, picture), { throwOnError: true });
     },
-    [callHaApi],
+    [callHaApi, canSetPersonPictures, uploadPersonPicture],
   );
   const personLinking = useMemo(
     () =>
@@ -4909,9 +4961,10 @@ export function MainBoard() {
             link: (personEntityId: string, userId: string) => setPersonAccount(personEntityId, userId),
             unlink: (personEntityId: string) => setPersonAccount(personEntityId, null),
             create: canCreatePeople ? createPerson : undefined,
+            setPicture: canSetPersonPictures ? setPersonPicture : undefined,
           }
         : undefined,
-    [canCreatePeople, canLinkPeopleToAccounts, createPerson, setPersonAccount],
+    [canCreatePeople, canLinkPeopleToAccounts, canSetPersonPictures, createPerson, setPersonAccount, setPersonPicture],
   );
 
   const membersLiveMapPoints = useMemo(() => {

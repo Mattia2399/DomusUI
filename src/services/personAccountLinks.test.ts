@@ -50,6 +50,16 @@ describe('buildPersonUpdateMessage', () => {
     expect(validatePanelApiMessage(message)).toBe(true);
     expect(validatePanelApiMessage(buildPersonUpdateMessage(angela, null))).toBe(true);
   });
+
+  it('can change or remove only the picture, keeping the login', () => {
+    const [, mattia] = parsePersonList(personList);
+    const picture = '/api/image/serve/0123456789abcdef0123456789abcdef/512x512';
+    expect(buildPersonUpdateMessage(mattia, mattia.userId, picture)).toMatchObject({
+      user_id: 'ffffffffffffffffffffffffffffffff',
+      picture,
+    });
+    expect(buildPersonUpdateMessage(mattia, mattia.userId, null).picture).toBeNull();
+  });
 });
 
 describe('person bridge validation', () => {
@@ -86,6 +96,13 @@ describe('buildPersonCreateMessage', () => {
     expect(validatePanelApiMessage(buildPersonCreateMessage('Nonna', null))).toBe(true);
   });
 
+  it('accepts a picture uploaded by Domus', () => {
+    const picture = '/api/image/serve/0123456789abcdef0123456789abcdef/512x512';
+    const message = buildPersonCreateMessage('Giulia', null, picture);
+    expect(message.picture).toBe(picture);
+    expect(validatePanelApiMessage(message)).toBe(true);
+  });
+
   it('rejects creation requests that set anything else', () => {
     const valid = buildPersonCreateMessage('Giulia', null);
     expect(isValidPersonCreateMessage({ ...valid, name: ' ' })).toBe(false);
@@ -93,6 +110,7 @@ describe('buildPersonCreateMessage', () => {
     expect(isValidPersonCreateMessage({ ...valid, user_id: 'not-a-user-id' })).toBe(false);
     expect(isValidPersonCreateMessage({ ...valid, device_trackers: ['device_tracker.phone'] })).toBe(false);
     expect(isValidPersonCreateMessage({ ...valid, picture: '/api/image/serve/abc' })).toBe(false);
+    expect(isValidPersonCreateMessage({ ...valid, picture: 'https://example.com/me.jpg' })).toBe(false);
     expect(isValidPersonCreateMessage({ ...valid, person_id: 'giulia' })).toBe(false);
     const { user_id: _userId, ...withoutUser } = valid;
     expect(isValidPersonCreateMessage(withoutUser)).toBe(false);

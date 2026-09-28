@@ -9,8 +9,17 @@ import {
 import SettingsHouseAccessSection from './SettingsHouseAccessSection';
 import type { HouseAccessView, PersonAccountLinking } from './settingsHouseAccessModel';
 
+// Canvas cropping is not available in jsdom: the chooser receives a prepared image.
+vi.mock('../../services/personPicture', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/personPicture')>()),
+  preparePersonPicture: vi.fn(async () => new Blob(['prepared'], { type: 'image/jpeg' })),
+}));
+
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
-beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
+beforeEach(() => {
+  window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
+  Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:preview'), revokeObjectURL: vi.fn() });
+});
 afterEach(() => {
   cleanup();
   window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
@@ -160,7 +169,7 @@ describe('SettingsHouseAccessSection', () => {
     fireEvent.change(nameInput, { target: { value: ' Giulia ' } });
     fireEvent.click(within(dialog).getByRole('radio', { name: 'Angela' }));
     fireEvent.click(createButton);
-    await waitFor(() => expect(personLinking.create).toHaveBeenCalledWith('Giulia', 'u-angela'));
+    await waitFor(() => expect(personLinking.create).toHaveBeenCalledWith('Giulia', 'u-angela', null));
     expect(await screen.findByText('Persona Giulia creata.')).toBeTruthy();
   });
 
@@ -182,7 +191,68 @@ describe('SettingsHouseAccessSection', () => {
 
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Nome' }), { target: { value: 'Angela R.' } });
     fireEvent.click(within(dialog).getByRole('button', { name: 'Crea' }));
-    await waitFor(() => expect(personLinking.create).toHaveBeenCalledWith('Angela R.', 'u-angela'));
+    await waitFor(() => expect(personLinking.create).toHaveBeenCalledWith('Angela R.', 'u-angela', null));
+  });
+
+  it('changes a person photo from the avatar only when pictures can be uploaded', async () => {
+    const setPicture = vi.fn(async () => undefined);
+    renderMembers({ link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined), setPicture });
+    // Only people get a photo, not bare logins.
+    expect(screen.queryAllByRole('button', { name: /^Foto di / })).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Foto di Mattia' }));
+    const dialog = await screen.findByRole('dialog');
+    const saveButton = within(dialog).getByRole('button', { name: 'Salva' }) as HTMLButtonElement;
+    expect(saveButton.disabled).toBe(true);
+
+    const file = new File(['raw'], 'me.heic', { type: 'image/heic' });
+    fireEvent.change(within(dialog).getByLabelText('Scegli foto', { selector: 'input' }), { target: { files: [file] } });
+    await waitFor(() => expect(saveButton.disabled).toBe(false));
+    expect(await within(dialog).findByRole('button', { name: 'Rimuovi foto' })).toBeTruthy();
+
+    fireEvent.click(saveButton);
+    await waitFor(() => expect(setPicture).toHaveBeenCalledWith('person.mattia', expect.any(Blob)));
+    expect(await screen.findByText('Foto di Mattia aggiornata.')).toBeTruthy();
+  });
+
+  it('removes an existing photo', async () => {
+    const setPicture = vi.fn(async () => undefined);
+    render(
+      <DashboardSecurityProvider value={ownerSecurity}>
+        <SettingsHouseAccessSection
+          view="members"
+          onViewChange={vi.fn()}
+          houseMembers={[{ ...householdMembers[0], avatarUrl: '/api/image/serve/abc/512x512' }]}
+          personLinking={{ link: vi.fn(async () => undefined), unlink: vi.fn(async () => undefined), setPicture }}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Foto di Mattia' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Rimuovi foto' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Salva' }));
+    await waitFor(() => expect(setPicture).toHaveBeenCalledWith('person.mattia', null));
+  });
+
+  it('creates a person with the chosen photo', async () => {
+    const create = vi.fn(async () => undefined);
+    renderMembers({
+      link: vi.fn(async () => undefined),
+      unlink: vi.fn(async () => undefined),
+      create,
+      setPicture: vi.fn(async () => undefined),
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi persona' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox', { name: 'Nome' }), { target: { value: 'Giulia' } });
+    fireEvent.change(within(dialog).getByLabelText('Scegli foto', { selector: 'input' }), {
+      target: { files: [new File(['raw'], 'giulia.jpg', { type: 'image/jpeg' })] },
+    });
+    await within(dialog).findByRole('button', { name: 'Rimuovi foto' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Crea' }));
+    await waitFor(() => expect(create).toHaveBeenCalledWith('Giulia', null, expect.any(Blob)));
   });
 
   it('counts only people in the overview when Home Assistant people exist', () => {

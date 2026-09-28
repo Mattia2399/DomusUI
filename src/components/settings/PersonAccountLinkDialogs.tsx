@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ImagePlus, Trash2 } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
+import { PersonPictureError, preparePersonPicture } from '../../services/personPicture';
 import GlassModal from '../ui/GlassModal';
 import type { ProfileHouseMember } from './settingsHouseAccessModel';
 
@@ -16,6 +18,196 @@ function errorText(error: string | null) {
       {error}
     </p>
   ) : null;
+}
+
+function initialsOf(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('') || '?'
+  );
+}
+
+/** `undefined` keeps the current picture, `null` removes it, a Blob replaces it. */
+export type PictureChoice = Blob | null | undefined;
+
+/**
+ * Picks a photo, crops it to a centered square and previews it. The parent
+ * only receives the prepared image, ready to upload.
+ */
+export function PersonPictureChooser({
+  name,
+  currentUrl,
+  value,
+  disabled,
+  onChange,
+}: {
+  name: string;
+  currentUrl?: string;
+  value: PictureChoice;
+  disabled?: boolean;
+  onChange: (value: PictureChoice) => void;
+}) {
+  const { t } = useI18n();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [pictureError, setPictureError] = useState<string | null>(null);
+  const previewUrl = useMemo(() => (value instanceof Blob ? URL.createObjectURL(value) : null), [value]);
+
+  useEffect(
+    () => () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    },
+    [previewUrl],
+  );
+
+  const shownUrl = value instanceof Blob ? previewUrl : value === null ? null : currentUrl ?? null;
+
+  const handleFile = async (file: File | undefined) => {
+    if (!file) return;
+    setPreparing(true);
+    setPictureError(null);
+    try {
+      onChange(await preparePersonPicture(file));
+    } catch (error) {
+      setPictureError(
+        t(
+          error instanceof PersonPictureError && error.reason === 'too_large'
+            ? 'settings.access.picture.tooLarge'
+            : 'settings.access.picture.invalid',
+        ),
+      );
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  const actionClass =
+    'inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] px-3 text-xs font-semibold text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-surface-glass)] disabled:opacity-50';
+
+  return (
+    <div>
+      <div className="flex items-center gap-4">
+        {shownUrl ? (
+          <img
+            src={shownUrl}
+            alt=""
+            className="h-16 w-16 shrink-0 rounded-full border-2 border-[color:var(--ui-border-strong)] object-cover"
+          />
+        ) : (
+          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-2 border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-tertiary)] text-base font-semibold text-[color:var(--ui-text-primary)]">
+            {initialsOf(name)}
+          </span>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={actionClass}
+            disabled={disabled || preparing}
+            onClick={() => inputRef.current?.click()}
+          >
+            <ImagePlus size={14} />
+            {t('settings.access.picture.choose')}
+          </button>
+          {shownUrl ? (
+            <button
+              type="button"
+              className={actionClass}
+              disabled={disabled || preparing}
+              onClick={() => {
+                setPictureError(null);
+                onChange(currentUrl ? null : undefined);
+              }}
+            >
+              <Trash2 size={14} />
+              {t('settings.access.picture.remove')}
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        aria-label={t('settings.access.picture.choose')}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = '';
+          void handleFile(file);
+        }}
+      />
+      {pictureError ? (
+        <p role="alert" className="mt-2 text-xs font-medium text-[color:var(--ui-danger)]">
+          {pictureError}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Change or remove the picture of an existing person. */
+export function PersonPictureDialog({
+  person,
+  busy,
+  error,
+  buttons,
+  onCancel,
+  onConfirm,
+}: {
+  person: ProfileHouseMember | null;
+  busy: boolean;
+  error: string | null;
+  buttons: ButtonClasses;
+  onCancel: () => void;
+  onConfirm: (picture: Blob | null) => void;
+}) {
+  const { t } = useI18n();
+  const [picture, setPicture] = useState<PictureChoice>(undefined);
+
+  useEffect(() => {
+    setPicture(undefined);
+  }, [person?.id]);
+
+  return (
+    <GlassModal
+      isOpen={person !== null}
+      onClose={busy ? () => undefined : onCancel}
+      title={person ? t('settings.access.picture.title', { name: person.name }) : ''}
+      description={t('settings.access.picture.description')}
+      variant="responsive"
+      size="sm"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button type="button" className={`${footerButtonBase} ${buttons.neutral}`} onClick={onCancel} disabled={busy}>
+            {t('settings.access.link.cancel')}
+          </button>
+          <button
+            type="button"
+            className={`${footerButtonBase} ${buttons.accent}`}
+            onClick={() => picture !== undefined && onConfirm(picture)}
+            disabled={busy || picture === undefined}
+          >
+            {t('settings.access.picture.save')}
+          </button>
+        </div>
+      }
+    >
+      {person ? (
+        <PersonPictureChooser
+          name={person.name}
+          currentUrl={person.avatarUrl}
+          value={picture}
+          disabled={busy}
+          onChange={setPicture}
+        />
+      ) : null}
+      {errorText(error)}
+    </GlassModal>
+  );
 }
 
 /** Choose the person a Home Assistant login belongs to. */
@@ -123,6 +315,7 @@ export function CreatePersonDialog({
   account,
   accounts,
   findExistingPerson,
+  canSetPicture = false,
   busy,
   error,
   buttons,
@@ -135,26 +328,31 @@ export function CreatePersonDialog({
   /** Logins without a person, offered when no account is preset. */
   accounts: ProfileHouseMember[];
   findExistingPerson: (name: string) => ProfileHouseMember | undefined;
+  /** Shows the optional photo field when pictures can be uploaded. */
+  canSetPicture?: boolean;
   busy: boolean;
   error: string | null;
   buttons: ButtonClasses;
   onCancel: () => void;
-  onConfirm: (name: string, userId: string | null) => void;
+  onConfirm: (name: string, userId: string | null, picture: Blob | null) => void;
 }) {
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [userId, setUserId] = useState(NO_ACCOUNT);
+  const [picture, setPicture] = useState<PictureChoice>(undefined);
 
   useEffect(() => {
     if (!isOpen) return;
     setName(account?.name ?? '');
     setUserId(account?.userId ?? NO_ACCOUNT);
+    setPicture(undefined);
   }, [isOpen, account?.name, account?.userId]);
 
   const trimmedName = name.trim();
   const duplicate = trimmedName ? findExistingPerson(trimmedName) : undefined;
   const canConfirm = !busy && trimmedName.length > 0 && trimmedName.length <= 255 && !duplicate;
-  const confirm = () => canConfirm && onConfirm(trimmedName, userId || null);
+  const confirm = () =>
+    canConfirm && onConfirm(trimmedName, userId || null, picture instanceof Blob ? picture : null);
   const accountOptions = [
     { value: NO_ACCOUNT, label: t('settings.access.create.noAccount') },
     ...accounts.flatMap((entry) => (entry.userId ? [{ value: entry.userId, label: entry.name }] : [])),
@@ -165,7 +363,7 @@ export function CreatePersonDialog({
       isOpen={isOpen}
       onClose={busy ? () => undefined : onCancel}
       title={account ? t('settings.access.create.titleForAccount', { name: account.name }) : t('settings.access.create.title')}
-      description={t('settings.access.create.description')}
+      description={t(canSetPicture ? 'settings.access.create.descriptionWithPicture' : 'settings.access.create.description')}
       variant="responsive"
       size="sm"
       footer={
@@ -190,6 +388,16 @@ export function CreatePersonDialog({
           confirm();
         }}
       >
+        {canSetPicture ? (
+          <div className="mb-4">
+            <PersonPictureChooser
+              name={trimmedName}
+              value={picture}
+              disabled={busy}
+              onChange={setPicture}
+            />
+          </div>
+        ) : null}
         <label className="block text-xs font-semibold text-[color:var(--ui-text-secondary)]">
           {t('settings.access.create.nameLabel')}
           <input

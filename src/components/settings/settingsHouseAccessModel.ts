@@ -36,8 +36,13 @@ export type ProfileHouseMember = {
 export type PersonAccountLinking = {
   link: (personEntityId: string, userId: string) => Promise<void>;
   unlink: (personEntityId: string) => Promise<void>;
-  /** Create a person, optionally linked to a login. Absent on older panel bridges. */
-  create?: (name: string, userId: string | null) => Promise<void>;
+  /**
+   * Create a person, optionally linked to a login and with a prepared picture.
+   * Absent on older panel bridges.
+   */
+  create?: (name: string, userId: string | null, picture?: Blob | null) => Promise<void>;
+  /** Set (a prepared image) or remove (`null`) a person's picture. Absent without upload support. */
+  setPicture?: (personEntityId: string, picture: Blob | null) => Promise<void>;
 };
 
 export const DASHBOARD_SHARE_SCHEMA = 'ha-dashboard-builder-role-share';

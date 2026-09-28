@@ -19,6 +19,11 @@ import {
   HA_APP_CONFIGURATIONS_KEY,
   parseSharedAppConfigurationsDocument,
 } from '../services/haAppConfigurationsRepository';
+import {
+  isPersonPictureUrl,
+  isValidImageUpload,
+  parseImageUploadResponse,
+} from '../services/personPicture';
 
 type HaPanelPayloadBase = {
   type: string;
@@ -90,7 +95,7 @@ const BRIDGE_RECONNECTING_AFTER_MS = 20_000;
 const BRIDGE_OFFLINE_AFTER_MS = 40_000;
 const HA_NAME_PATTERN = /^[a-z0-9_]+$/;
 const HA_ENTITY_ID_PATTERN = /^[a-z0-9_]+\.[a-z0-9_]+$/;
-const REQUEST_ID_PATTERN = /^ha-panel-(?:call-(?:service|api)|subscribe-api)-\d{10,}-[a-z0-9]+$/;
+const REQUEST_ID_PATTERN = /^ha-panel-(?:call-(?:service|api)|subscribe-api|upload-image)-\d{10,}-[a-z0-9]+$/;
 const MAX_BRIDGE_STATES = 20_000;
 const PANEL_BRIDGE_CAPABILITIES = new Set([
   'shared_configuration',
@@ -102,6 +107,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'host_navigation',
   'person_links',
   'person_create',
+  'person_picture',
 ]);
 
 export function parsePanelBridgeCapabilities(value: unknown) {
@@ -183,8 +189,8 @@ const hasExactKeys = (message: Record<string, unknown>, keys: readonly string[])
   Object.keys(message).every((key) => keys.includes(key)) && keys.every((key) => key in message);
 
 /**
- * person/create may only set a name and, optionally, a login: no picture or
- * device trackers. Mirrors the check in the Home Assistant panel bridge.
+ * person/create may only set a name and, optionally, a login and a picture
+ * uploaded by Domus: no device trackers. Mirrors the panel bridge check.
  */
 export function isValidPersonCreateMessage(message: Record<string, unknown>) {
   return (
@@ -195,7 +201,7 @@ export function isValidPersonCreateMessage(message: Record<string, unknown>) {
     (message.user_id === null || (typeof message.user_id === 'string' && /^[a-f0-9]{32}$/.test(message.user_id))) &&
     Array.isArray(message.device_trackers) &&
     message.device_trackers.length === 0 &&
-    message.picture === null
+    (message.picture === null || isPersonPictureUrl(message.picture))
   );
 }
 
@@ -664,7 +670,7 @@ export function useHaPanelBridgeConnection() {
         return;
       }
 
-      if (payload.type === 'ha-panel-call-api-result') {
+      if (payload.type === 'ha-panel-call-api-result' || payload.type === 'ha-panel-upload-image-result') {
         const resultPayload = payload as HaPanelCallApiResultPayload;
         const requestId = resultPayload.requestId;
         if (!isValidPanelRequestId(requestId) || !pendingRequestsRef.current.has(requestId)) {
@@ -854,6 +860,33 @@ export function useHaPanelBridgeConnection() {
     [sendRequest],
   );
 
+  /** Uploads an image to Home Assistant through the panel and returns its id. */
+  const uploadImage = useCallback(
+    async (image: Blob) => {
+      if (!bridgeCapabilities.includes('person_picture')) {
+        throw new Error('Caricamento immagini non supportato dal pannello Home Assistant.');
+      }
+      if (!isValidImageUpload(image)) {
+        throw new Error('Immagine non ammessa dal bridge.');
+      }
+      if (!isInIframe || !isManagedByParent || isPaused || status !== 'connected') {
+        throw new Error('Bridge Home Assistant non disponibile.');
+      }
+      const requestId = createRequestId('ha-panel-upload-image');
+      const result = await new Promise<unknown>((resolve, reject) => {
+        const timeoutId = globalThis.setTimeout(() => {
+          rejectPendingRequest(requestId, new Error('Timeout caricamento immagine verso Home Assistant.'));
+        }, REQUEST_TIMEOUT_MS);
+        pendingRequestsRef.current.set(requestId, { resolve, reject, timeoutId });
+        if (!postToParent({ type: 'ha-panel-upload-image', requestId, file: image })) {
+          rejectPendingRequest(requestId, new Error('Invio immagine al pannello Home Assistant fallito.'));
+        }
+      });
+      return parseImageUploadResponse(result);
+    },
+    [bridgeCapabilities, isInIframe, isManagedByParent, isPaused, postToParent, rejectPendingRequest, status],
+  );
+
   const subscribeApi = useCallback(
     async <TEvent = unknown>(
       message: Record<string, unknown>,
@@ -901,6 +934,7 @@ export function useHaPanelBridgeConnection() {
     supportsHostNavigation: bridgeCapabilities.includes('host_navigation'),
     supportsPersonLinks: bridgeCapabilities.includes('person_links'),
     supportsPersonCreate: bridgeCapabilities.includes('person_create'),
+    supportsPersonPicture: bridgeCapabilities.includes('person_picture'),
     hassUrl: hassUrlRef.current,
     status,
     error,
@@ -913,6 +947,7 @@ export function useHaPanelBridgeConnection() {
     callService,
     callApi,
     subscribeApi,
+    uploadImage,
   };
 }
 

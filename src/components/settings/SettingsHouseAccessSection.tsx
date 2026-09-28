@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ComponentType } from 'react';
 import {
+  Camera,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -18,7 +19,12 @@ import {
   parseDashboardUserDataPayload,
 } from '../../services/haUserConfigSync';
 import { findPersonNamed, rankLinkCandidates } from '../../services/personAccountLinks';
-import { CreatePersonDialog, LinkAccountDialog, UnlinkAccountDialog } from './PersonAccountLinkDialogs';
+import {
+  CreatePersonDialog,
+  LinkAccountDialog,
+  PersonPictureDialog,
+  UnlinkAccountDialog,
+} from './PersonAccountLinkDialogs';
 import {
   createDashboardRoleSharePayload,
   normalizeHouseMembers,
@@ -81,6 +87,7 @@ export function SettingsHouseAccessSection({
   const [unlinkTarget, setUnlinkTarget] = useState<ProfileHouseMember | null>(null);
   // `account: null` adds a person from Members; otherwise it is created for that login.
   const [createTarget, setCreateTarget] = useState<{ account: ProfileHouseMember | null } | null>(null);
+  const [pictureTarget, setPictureTarget] = useState<ProfileHouseMember | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [linkFeedback, setLinkFeedback] = useState<string | null>(null);
@@ -245,20 +252,43 @@ export function SettingsHouseAccessSection({
     return member.personEditable === false ? `${access} · ${t('settings.access.readOnlyPerson')}` : access;
   };
 
+  const renderMemberAvatar = (member: ProfileHouseMember) =>
+    member.avatarUrl ? (
+      <img
+        src={member.avatarUrl}
+        alt={`Membro ${member.name}`}
+        className="h-10 w-10 shrink-0 rounded-full border-2 border-[color:var(--ui-border-strong)] object-cover"
+      />
+    ) : (
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold text-[color:var(--ui-text-primary)]">
+        {getMemberInitials(member.name)}
+      </span>
+    );
+  const canEditPicture = (member: ProfileHouseMember) =>
+    Boolean(personLinking?.setPicture && member.personEntityId && member.personEditable !== false);
+
   const renderMemberRow = (member: ProfileHouseMember, index: number) => (
     <div key={member.id}>
       {index > 0 ? <div className={settingsDividerClass} /> : null}
       <div className={settingsRowClass}>
-        {member.avatarUrl ? (
-          <img
-            src={member.avatarUrl}
-            alt={`Membro ${member.name}`}
-            className="h-10 w-10 shrink-0 rounded-full border-2 border-[color:var(--ui-border-strong)] object-cover"
-          />
+        {canEditPicture(member) ? (
+          <button
+            type="button"
+            className={`relative shrink-0 rounded-full ${buttonMotionClass}`}
+            aria-label={t('settings.access.picture.title', { name: member.name })}
+            title={t('settings.access.picture.title', { name: member.name })}
+            onClick={() => {
+              setLinkFeedback(null);
+              setPictureTarget(member);
+            }}
+          >
+            {renderMemberAvatar(member)}
+            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] text-[color:var(--ui-text-primary)]">
+              <Camera size={11} />
+            </span>
+          </button>
         ) : (
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold text-[color:var(--ui-text-primary)]">
-            {getMemberInitials(member.name)}
-          </span>
+          renderMemberAvatar(member)
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{member.name}</p>
@@ -279,6 +309,7 @@ export function SettingsHouseAccessSection({
     setLinkTarget(null);
     setUnlinkTarget(null);
     setCreateTarget(null);
+    setPictureTarget(null);
     setLinkError(null);
   };
   const runLinkChange = async (change: () => Promise<void>, doneText: string) => {
@@ -312,9 +343,18 @@ export function SettingsHouseAccessSection({
     );
   };
   const createPerson = personLinking?.create;
-  const handleCreateConfirm = (name: string, userId: string | null) => {
+  const handleCreateConfirm = (name: string, userId: string | null, picture: Blob | null) => {
     if (!createPerson) return;
-    void runLinkChange(() => createPerson(name, userId), t('settings.access.create.done', { name }));
+    void runLinkChange(() => createPerson(name, userId, picture), t('settings.access.create.done', { name }));
+  };
+  const handlePictureConfirm = (picture: Blob | null) => {
+    const person = pictureTarget;
+    const setPicture = personLinking?.setPicture;
+    if (!setPicture || !person?.personEntityId) return;
+    void runLinkChange(
+      () => setPicture(person.personEntityId as string, picture),
+      t('settings.access.picture.done', { name: person.name }),
+    );
   };
   const openCreateDialog = (account: ProfileHouseMember | null) => {
     setLinkFeedback(null);
@@ -464,11 +504,20 @@ export function SettingsHouseAccessSection({
           account={createTarget?.account ?? null}
           accounts={unlinkedAccounts}
           findExistingPerson={(name) => findPersonNamed(name, members)}
+          canSetPicture={Boolean(personLinking?.setPicture)}
           busy={linkBusy}
           error={linkError}
           buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
           onCancel={closeLinkDialogs}
           onConfirm={handleCreateConfirm}
+        />
+        <PersonPictureDialog
+          person={pictureTarget}
+          busy={linkBusy}
+          error={linkError}
+          buttons={{ neutral: neutralButtonClass, accent: accentButtonClass }}
+          onCancel={closeLinkDialogs}
+          onConfirm={handlePictureConfirm}
         />
       </section>
     );

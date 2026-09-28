@@ -51,28 +51,34 @@ export function resolvePersonId(states: MockEntityStateMap, personEntityId: stri
   return typeof id === 'string' && id ? id : undefined;
 }
 
-export function buildPersonUpdateMessage(person: HaPersonRecord, userId: string | null) {
+/** Resends the full person record, changing only the login and, if given, the picture. */
+export function buildPersonUpdateMessage(
+  person: HaPersonRecord,
+  userId: string | null,
+  picture: string | null = person.picture,
+) {
   return {
     type: 'person/update',
     person_id: person.id,
     name: person.name,
     user_id: userId,
     device_trackers: person.deviceTrackers,
-    picture: person.picture,
+    picture,
   };
 }
 
 /**
- * Creating a person (`person/create`) only sets its name and, optionally, the
- * login it belongs to. Picture and device trackers stay in Home Assistant.
+ * Creating a person (`person/create`) sets its name and, optionally, the login
+ * it belongs to and a picture uploaded by Domus. Device trackers stay in
+ * Home Assistant.
  */
-export function buildPersonCreateMessage(name: string, userId: string | null) {
+export function buildPersonCreateMessage(name: string, userId: string | null, picture: string | null = null) {
   return {
     type: 'person/create',
     name: name.trim(),
     user_id: userId,
     device_trackers: [] as string[],
-    picture: null,
+    picture,
   };
 }
 

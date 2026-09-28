@@ -54,6 +54,15 @@ describe('Home Assistant panel distribution contract', () => {
     expect(bridge).toContain('"person_create"');
     expect(bridgeHook).toContain("'person_links'");
     expect(bridgeHook).toContain("'person_create'");
+    // Person pictures: admin-only upload of small images through the HA image API.
+    expect(bridge).toContain('"person_picture"');
+    expect(bridge).toContain('subscribe-api|upload-image)');
+    expect(bridge).toContain('if (payload.type === "ha-panel-upload-image")');
+    expect(bridge).toContain('!isValidImageUpload(payload.file)');
+    expect(bridge).toContain('!this._hass?.user?.is_admin');
+    expect(bridge).toContain('this._hass.fetchWithAuth("/api/image/upload", { method: "POST", body })');
+    expect(bridgeHook).toContain("'person_picture'");
+    expect(bridgeHook).toContain("type: 'ha-panel-upload-image'");
     expect(bridge).not.toContain('window.history.pushState');
     expect(bridge).not.toContain('window.history.replaceState');
     expect(bridge).not.toContain('location-changed');
