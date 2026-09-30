@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
   isDemoRouteAllowed,
@@ -7,6 +7,7 @@ import {
   type SetupJourney,
 } from '../../services/setupJourney';
 import GlassLoader from '../ui/GlassLoader';
+import LazyLoadBoundary from '../common/LazyLoadBoundary';
 import { useDeviceAppearance } from './OnboardingGlass';
 import { ArrowLeft, Languages } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -77,19 +78,19 @@ export function ExperienceGate() {
 
   if (journey.phase !== 'done' || (setupRoute && forceConfiguration)) {
     return (
-      <Suspense fallback={<DashboardLoading />}>
+      <LazyLoadBoundary fallback={<DashboardLoading />}>
         <OnboardingExperience
           journey={journey}
           onJourneyChange={handleJourneyChange}
           forceConfiguration={forceConfiguration}
         />
-      </Suspense>
+      </LazyLoadBoundary>
     );
   }
 
   if (journey.mode === 'demo' && !isDemoRouteAllowed(location.pathname)) {
     return (
-      <Suspense fallback={<DashboardLoading />}>
+      <LazyLoadBoundary fallback={<DashboardLoading />}>
         <DemoLockedRoute
           pathname={location.pathname}
           onConnect={() => {
@@ -103,7 +104,7 @@ export function ExperienceGate() {
             navigate('/setup');
           }}
         />
-      </Suspense>
+      </LazyLoadBoundary>
     );
   }
 
@@ -129,9 +130,9 @@ export function ExperienceGate() {
   }
 
   return (
-    <Suspense fallback={<DashboardLoading />}>
+    <LazyLoadBoundary fallback={<DashboardLoading />}>
       <DashboardPage />
-    </Suspense>
+    </LazyLoadBoundary>
   );
 }
 

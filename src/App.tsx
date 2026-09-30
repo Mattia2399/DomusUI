@@ -1,6 +1,7 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { Route, Routes } from 'react-router';
 import { ExperienceGate } from './components/onboarding/ExperienceGate';
+import LazyLoadBoundary from './components/common/LazyLoadBoundary';
 
 // The presentation site ships in its own chunk so it never weighs on the dashboard.
 const BetaLandingPage = React.lazy(() => import('./pages/BetaLandingPage'));
@@ -13,18 +14,18 @@ export default function App() {
         <Route
           path="/beta"
           element={
-            <Suspense fallback={<div className="min-h-screen bg-[#03050a]" />}>
+            <LazyLoadBoundary fallback={<div className="min-h-screen bg-[#03050a]" />}>
               <BetaLandingPage />
-            </Suspense>
+            </LazyLoadBoundary>
           }
         />
         {GridTestView ? (
           <Route
             path="/grid-test/*"
             element={
-              <Suspense fallback={null}>
+              <LazyLoadBoundary fallback={null}>
                 <GridTestView />
-              </Suspense>
+              </LazyLoadBoundary>
             }
           />
         ) : null}

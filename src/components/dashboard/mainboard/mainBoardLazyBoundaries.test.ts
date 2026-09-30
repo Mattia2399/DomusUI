@@ -94,8 +94,9 @@ describe('MainBoard lazy boundaries', () => {
 
   it('keeps a local Suspense boundary around secondary workspaces', () => {
     expect(mainBoardSource).toContain(
-      '<React.Suspense fallback={<SecondaryWorkspaceLoading />}>',
+      'resetKey={activeNavigationRoute}',
     );
+    expect(mainBoardSource).toContain("import LazyLoadBoundary from '../common/LazyLoadBoundary'");
     expect(mainBoardSource).toContain("description={t('home.loading.tools')}");
   });
 

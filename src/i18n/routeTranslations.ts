@@ -2,6 +2,9 @@ export const routeTranslations = {
   it: {
     'route.loading.title': 'Preparazione dashboard…',
     'route.loading.description': 'Carichiamo la tua casa e i relativi controlli.',
+    'route.loadError.title': 'Contenuto non caricato',
+    'route.loadError.description': 'Un aggiornamento o un problema di rete ha interrotto il caricamento. Ricarica Domus UI per riprovare con i file più recenti.',
+    'route.loadError.reload': 'Ricarica Domus UI',
     'route.comingSoon.eyebrow': 'Domus UI',
     'route.comingSoon.title': 'Disponibile prossimamente',
     'route.comingSoon.description': 'Questa sezione è ancora in fase di traduzione. Sarà disponibile nella tua lingua con uno dei prossimi aggiornamenti.',
@@ -10,6 +13,9 @@ export const routeTranslations = {
   en: {
     'route.loading.title': 'Preparing dashboard…',
     'route.loading.description': 'Loading your home and its controls.',
+    'route.loadError.title': 'Content could not be loaded',
+    'route.loadError.description': 'An update or network issue interrupted loading. Reload Domus UI to retry with the latest files.',
+    'route.loadError.reload': 'Reload Domus UI',
     'route.comingSoon.eyebrow': 'Domus UI',
     'route.comingSoon.title': 'Coming soon',
     'route.comingSoon.description': 'This section is still being translated. It will be available in your language in an upcoming update.',
@@ -18,6 +24,9 @@ export const routeTranslations = {
   fr: {
     'route.loading.title': 'Préparation du tableau de bord…',
     'route.loading.description': 'Chargement de votre maison et de ses commandes.',
+    'route.loadError.title': 'Contenu non chargé',
+    'route.loadError.description': 'Une mise à jour ou un problème réseau a interrompu le chargement. Rechargez Domus UI pour réessayer avec les fichiers les plus récents.',
+    'route.loadError.reload': 'Recharger Domus UI',
     'route.comingSoon.eyebrow': 'Domus UI',
     'route.comingSoon.title': 'Bientôt disponible',
     'route.comingSoon.description': 'Cette section est encore en cours de traduction. Elle sera disponible dans votre langue lors d’une prochaine mise à jour.',

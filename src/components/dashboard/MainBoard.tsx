@@ -4,6 +4,7 @@ import type { ActiveDevice, SensorConnectionState } from '../settings/types';
 import { useLocation, useNavigate } from 'react-router';
 import { useDashboardState } from '../../hooks/useDashboardState';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
+import LazyLoadBoundary from '../common/LazyLoadBoundary';
 import GlassModal from '../ui/GlassModal';
 import { LeftSidebar } from './LeftSidebar';
 import { BottomBarNav } from './BottomBarNav';
@@ -11293,7 +11294,11 @@ export function MainBoard() {
         tabIndex={-1}
         className={isImmersiveView ? 'h-full min-h-0 flex-1 min-w-0 flex overflow-hidden outline-none' : 'h-full min-h-0 flex-1 min-w-0 flex gap-1.5 overflow-hidden outline-none sm:gap-2 md:gap-2.5 lg:gap-4 xl:gap-6'}
       >
-        <React.Suspense fallback={<SecondaryWorkspaceLoading />}>
+        <LazyLoadBoundary
+          fallback={<SecondaryWorkspaceLoading />}
+          mode="section"
+          resetKey={activeNavigationRoute}
+        >
         {isConsumptionView ? (
           <>
             <div className="h-full min-h-0 flex-1 overflow-hidden">
@@ -11854,7 +11859,7 @@ export function MainBoard() {
             )}
           </>
         )}
-        </React.Suspense>
+        </LazyLoadBoundary>
 
       </main>
 
