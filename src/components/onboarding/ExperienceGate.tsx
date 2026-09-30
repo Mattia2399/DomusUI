@@ -7,11 +7,17 @@ import {
   type SetupJourney,
 } from '../../services/setupJourney';
 import GlassLoader from '../ui/GlassLoader';
-import { DemoLockedRoute, OnboardingExperience } from './OnboardingExperience';
 import { useDeviceAppearance } from './OnboardingGlass';
 import { ArrowLeft, Languages } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 
+const loadOnboardingExperience = () => import('./OnboardingExperience');
+const OnboardingExperience = React.lazy(() =>
+  loadOnboardingExperience().then((module) => ({ default: module.OnboardingExperience })),
+);
+const DemoLockedRoute = React.lazy(() =>
+  loadOnboardingExperience().then((module) => ({ default: module.DemoLockedRoute })),
+);
 const DashboardPage = React.lazy(() => import('../../pages/Home'));
 
 export function isSetupRoute(pathname: string) {
@@ -71,29 +77,33 @@ export function ExperienceGate() {
 
   if (journey.phase !== 'done' || (setupRoute && forceConfiguration)) {
     return (
-      <OnboardingExperience
-        journey={journey}
-        onJourneyChange={handleJourneyChange}
-        forceConfiguration={forceConfiguration}
-      />
+      <Suspense fallback={<DashboardLoading />}>
+        <OnboardingExperience
+          journey={journey}
+          onJourneyChange={handleJourneyChange}
+          forceConfiguration={forceConfiguration}
+        />
+      </Suspense>
     );
   }
 
   if (journey.mode === 'demo' && !isDemoRouteAllowed(location.pathname)) {
     return (
-      <DemoLockedRoute
-        pathname={location.pathname}
-        onConnect={() => {
-          const embedded = window.parent !== window;
-          const next = saveSetupJourney({
-            phase: 'discover',
-            mode: 'real',
-            connectionMethod: embedded ? 'panel' : 'direct',
-          }, window.localStorage);
-          setJourney(next);
-          navigate('/setup');
-        }}
-      />
+      <Suspense fallback={<DashboardLoading />}>
+        <DemoLockedRoute
+          pathname={location.pathname}
+          onConnect={() => {
+            const embedded = window.parent !== window;
+            const next = saveSetupJourney({
+              phase: 'discover',
+              mode: 'real',
+              connectionMethod: embedded ? 'panel' : 'direct',
+            }, window.localStorage);
+            setJourney(next);
+            navigate('/setup');
+          }}
+        />
+      </Suspense>
     );
   }
 

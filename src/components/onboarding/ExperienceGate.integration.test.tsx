@@ -49,12 +49,12 @@ describe('ExperienceGate onboarding completion', () => {
       </MemoryRouter></I18nProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apri la dashboard' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Apri la dashboard' }));
 
     expect(await screen.findByText('Dashboard Domus UI')).toBeTruthy();
   });
 
-  it('keeps the explicit reconnect route in the quick configuration flow', () => {
+  it('keeps the explicit reconnect route in the quick configuration flow', async () => {
     saveSetupJourney({
       phase: 'done',
       mode: 'real',
@@ -67,7 +67,7 @@ describe('ExperienceGate onboarding completion', () => {
       </MemoryRouter></I18nProvider>,
     );
 
-    expect(screen.getByRole('button', { name: 'Apri la dashboard' })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Apri la dashboard' })).toBeTruthy();
     expect(screen.queryByText('Dashboard Domus UI')).toBeNull();
   });
 });
