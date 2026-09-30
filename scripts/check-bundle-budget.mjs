@@ -15,6 +15,30 @@ const budgets = {
 // Home Assistant people: link, create, pictures and their IT/EN/FR copy.
 const totalBudget = { warning: 4_800_000, blocking: 5_500_000 };
 
+// Protect the user-visible startup path separately from the broad per-file
+// ceiling. The old 2.9 MB ceiling allowed the entry bundle to regress above
+// 1 MB without failing the release gate.
+const criticalChunkBudgets = [
+  {
+    label: 'Startup entry',
+    pattern: /^index-[A-Za-z0-9_-]+\.js$/,
+    warning: 800_000,
+    blocking: 900_000,
+  },
+  {
+    label: 'Primary dashboard',
+    pattern: /^Home-[A-Za-z0-9_-]+\.js$/,
+    warning: 650_000,
+    blocking: 750_000,
+  },
+  {
+    label: 'Onboarding shell',
+    pattern: /^OnboardingExperience-[A-Za-z0-9_-]+\.js$/,
+    warning: 45_000,
+    blocking: 60_000,
+  },
+];
+
 const formatBytes = (bytes) => `${(bytes / 1_000_000).toFixed(2)} MB`;
 
 const collectFiles = async (directory) => {
@@ -64,6 +88,30 @@ for (const file of measuredFiles) {
   }
 
   console.log(`- [${status}] ${file.name}: ${formatBytes(file.size)} (warning ${formatBytes(budget.warning)}, limite ${formatBytes(budget.blocking)})`);
+}
+
+console.log('Budget chunk critici (dimensioni raw):');
+for (const criticalBudget of criticalChunkBudgets) {
+  const file = measuredFiles.find((candidate) => criticalBudget.pattern.test(candidate.name));
+  if (!file) {
+    console.error(`- [FAIL] ${criticalBudget.label}: chunk non trovato`);
+    hasBlockingFailure = true;
+    continue;
+  }
+
+  let status = 'OK';
+  if (file.size > criticalBudget.blocking) {
+    status = 'FAIL';
+    hasBlockingFailure = true;
+  } else if (file.size > criticalBudget.warning) {
+    status = 'WARN';
+    hasWarning = true;
+  }
+
+  console.log(
+    `- [${status}] ${criticalBudget.label} (${file.name}): ${formatBytes(file.size)} `
+      + `(warning ${formatBytes(criticalBudget.warning)}, limite ${formatBytes(criticalBudget.blocking)})`,
+  );
 }
 
 const totalSize = measuredFiles.reduce((sum, file) => sum + file.size, 0);
