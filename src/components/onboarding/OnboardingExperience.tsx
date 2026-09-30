@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Bot,
@@ -70,11 +70,8 @@ import {
   WizardActions,
   WizardShell,
 } from './OnboardingGlass';
-import { OnboardingOrganizer } from './OnboardingOrganizer';
 import { useI18n } from '../../i18n/I18nProvider';
 import { translateOnboarding, type OnboardingTranslationKey } from '../../i18n/onboardingTranslations';
-import { createStarterDashboardTemplate } from '../../templates/starterDashboardTemplate';
-import { saveDashboardLayout } from '../../services/dashboardStorage';
 
 const HA_OAUTH_CALLBACK_PARAM = 'ha_oauth_callback';
 const HA_OAUTH_SESSION_STATE_KEY = 'ha.dashboard.oauth.state';
@@ -82,6 +79,18 @@ const SETUP_REQUEST_TIMEOUT_MS = 6000;
 const DISCOVERY_MINIMUM_VISIBLE_MS = 900;
 const PANEL_DISCOVERY_TIMEOUT_MS = 5000;
 const DIRECT_DISCOVERY_TIMEOUT_MS = 1400;
+
+const OnboardingOrganizer = lazy(() =>
+  import('./OnboardingOrganizer').then((module) => ({
+    default: module.OnboardingOrganizer,
+  })),
+);
+
+const loadStarterDashboardPersistence = () =>
+  Promise.all([
+    import('../../templates/starterDashboardTemplate'),
+    import('../../services/dashboardStorage'),
+  ]);
 
 const SETUP_GROUP_ICONS: Record<SetupEntityGroupId, LucideIcon> = {
   lights: Lightbulb,
@@ -307,6 +316,7 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
   const [scanProbeError, setScanProbeError] = useState<string | null>(null);
   const [scanRetryKey, setScanRetryKey] = useState(0);
   const [templateSaveError, setTemplateSaveError] = useState<string | null>(null);
+  const [templatePreparing, setTemplatePreparing] = useState(false);
   const oauthExchangePromiseRef = useRef<ReturnType<typeof exchangeHaOAuthCode> | null>(null);
   const connection = useHaLiveConnection({ url: hassUrl, token: '' });
   const panelConnection = useHaPanelBridgeConnection();
@@ -346,23 +356,33 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     );
   };
 
-  const openPreparedDashboard = () => {
-    const template = createStarterDashboardTemplate('real', latestHaStatesRef.current);
-    const saved = saveDashboardLayout(
-      template.sections,
-      template.widgets,
-      {},
-      template.responsiveLayouts,
-      {},
-      'real',
-    );
-    if (!saved.ok) {
-      setTemplateSaveError(ot('complete.templateError'));
-      return;
-    }
+  const openPreparedDashboard = async () => {
+    if (templatePreparing) return;
+    setTemplatePreparing(true);
     setTemplateSaveError(null);
-    persistJourney({ ...journey, phase: 'done', mode: 'real' }, onJourneyChange);
-    navigateInsideApp('/home');
+    try {
+      const [{ createStarterDashboardTemplate }, { saveDashboardLayout }] =
+        await loadStarterDashboardPersistence();
+      const template = createStarterDashboardTemplate('real', latestHaStatesRef.current);
+      const saved = saveDashboardLayout(
+        template.sections,
+        template.widgets,
+        {},
+        template.responsiveLayouts,
+        {},
+        'real',
+      );
+      if (!saved.ok) {
+        setTemplateSaveError(ot('complete.templateError'));
+        return;
+      }
+      persistJourney({ ...journey, phase: 'done', mode: 'real' }, onJourneyChange);
+      navigateInsideApp('/home');
+    } catch {
+      setTemplateSaveError(ot('complete.templateError'));
+    } finally {
+      setTemplatePreparing(false);
+    }
   };
 
   const returnToConnection = () => {
@@ -1044,13 +1064,25 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
   if (effectivePhase === 'organize') {
     return (
       <WizardShell stepIndex={3} title={ot('organize.title')} description={ot('organize.description')} onBack={() => updateJourney({ phase: 'compose' })}>
-        <OnboardingOrganizer
-          callApi={activeConnection.callApi}
-          canManage={journey.summary?.canManageHa === true}
-          onBack={() => updateJourney({ phase: 'compose' })}
-          onComplete={() => updateJourney({ phase: 'complete' })}
-          onReconnect={returnToConnection}
-        />
+        <Suspense
+          fallback={(
+            <div className="flex min-h-64 items-center justify-center">
+              <GlassLoader
+                size="md"
+                label={ot('organizer.loading')}
+                description={ot('organizer.loadingDescription')}
+              />
+            </div>
+          )}
+        >
+          <OnboardingOrganizer
+            callApi={activeConnection.callApi}
+            canManage={journey.summary?.canManageHa === true}
+            onBack={() => updateJourney({ phase: 'compose' })}
+            onComplete={() => updateJourney({ phase: 'complete' })}
+            onReconnect={returnToConnection}
+          />
+        </Suspense>
       </WizardShell>
     );
   }
@@ -1059,7 +1091,17 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
     <WizardShell stepIndex={4} stepLabel={ot('complete.label')} title={ot('complete.title')} description={ot('complete.description')} compact>
       <div className="onboarding-card flex flex-col items-center px-5 py-8 text-center"><span className="flex h-20 w-20 items-center justify-center rounded-full border border-emerald-200/24 bg-emerald-400/14 text-emerald-100 shadow-[0_20px_70px_rgba(16,185,129,0.18)]"><Check size={34} /></span><div className="mt-6 text-lg font-semibold text-[color:var(--ui-text-primary)]">{ot('complete.connected')}</div><div className="mt-2 max-w-sm text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('complete.builder')}</div></div>
       {templateSaveError ? <SetupNotice icon={<RefreshCw size={16} />} tone="danger">{templateSaveError}</SetupNotice> : null}
-      <WizardActions><SetupActionButton onClick={openPreparedDashboard}>{ot('complete.open')}</SetupActionButton></WizardActions>
+      <WizardActions>
+        <SetupActionButton
+          onClick={() => void openPreparedDashboard()}
+          disabled={templatePreparing}
+          aria-busy={templatePreparing}
+          trailingArrow={!templatePreparing}
+        >
+          {templatePreparing ? <RefreshCw size={16} className="animate-spin" aria-hidden="true" /> : null}
+          {ot('complete.open')}
+        </SetupActionButton>
+      </WizardActions>
     </WizardShell>
   );
 }

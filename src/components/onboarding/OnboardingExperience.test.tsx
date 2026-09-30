@@ -167,7 +167,7 @@ describe('OnboardingExperience panel discovery', () => {
     });
   });
 
-  it('stores the responsive real starter template before opening Home', () => {
+  it('stores the responsive real starter template before opening Home', async () => {
     const journey: SetupJourney = {
       version: 2,
       phase: 'complete',
@@ -186,6 +186,9 @@ describe('OnboardingExperience panel discovery', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Apri la dashboard' }));
+    await waitFor(() => {
+      expect(loadDashboardLayout('real').sections).toHaveLength(2);
+    });
     const layout = loadDashboardLayout('real');
     expect(layout.sections).toHaveLength(2);
     expect(layout.widgets).toHaveLength(7);
