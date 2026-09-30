@@ -1,4 +1,4 @@
-name: Domus Core Irrigation
+name: Domus Core backend
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  test-irrigation-core:
+  test-domus-core:
     name: Home Assistant ${{ matrix.home_assistant }} backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -23,7 +23,7 @@ jobs:
           - home_assistant: '2025.1'
             python: '3.12'
             test_package: '0.13.201'
-            test_target: 'tests_python/test_irrigation_models.py tests_python/test_irrigation_manager.py tests_python/test_calendar.py'
+            test_target: 'tests_python/test_irrigation_models.py tests_python/test_irrigation_manager.py tests_python/test_calendar.py tests_python/test_core_*.py tests_python/test_context_providers.py'
           - home_assistant: '2026.2.3'
             python: '3.13'
             test_package: '0.13.316'
