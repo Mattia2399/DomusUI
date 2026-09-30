@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'path';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { buildProductionCsp } from './src/security/contentSecurityPolicy';
+import { loadLocalHttpsOptions } from './vite.localHttps';
 import { packageVersion, productionCspPlugin } from './vite.shared';
 
 function panelBridgeDistributionPlugin(): Plugin {
@@ -31,6 +32,7 @@ function panelBridgeDistributionPlugin(): Plugin {
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
+  const localHttps = loadLocalHttpsOptions(process.cwd());
   const configuredOrigins = (env.VITE_CSP_ALLOWED_ORIGINS ?? '')
     .split(',')
     .map((value) => value.trim())
@@ -53,7 +55,15 @@ export default defineConfig(({ mode }) => {
     },
   },
   server: {
+    port: 3000,
+    strictPort: true,
+    ...(localHttps ? { https: localHttps } : {}),
     hmr: process.env.DISABLE_HMR !== 'true',
+  },
+  preview: {
+    port: 4173,
+    strictPort: true,
+    ...(localHttps ? { https: localHttps } : {}),
   },
   };
 });
