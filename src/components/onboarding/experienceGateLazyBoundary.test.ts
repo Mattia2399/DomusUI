@@ -23,6 +23,8 @@ describe('ExperienceGate lazy boundaries', () => {
       source.indexOf("if (journey.mode === 'demo'"),
     );
 
-    expect(onboardingBranch).toContain('<Suspense fallback={<DashboardLoading />}>');
+    expect(onboardingBranch).toContain(
+      '<LazyLoadBoundary fallback={<DashboardLoading />}>',
+    );
   });
 });
