@@ -88,7 +88,11 @@ describe('MainBoard lazy boundaries', () => {
   it('prefetches lazy workspaces from navigation intent while delaying visible fallbacks', () => {
     expect(mainBoardSource).toContain('function prefetchDashboardWorkspace(path: string)');
     expect(mainBoardSource).toContain('onPrefetchRoute={prefetchDashboardWorkspace}');
-    expect(mainBoardSource).toContain('onPrefetchEditMode={() => void loadRightSidebarManager()}');
+    expect(mainBoardSource).toContain('function prefetchDashboardBuilder()');
+    expect(mainBoardSource).toContain(
+      'Promise.all([loadRightSidebarManager(), preloadDashboardCatalog()])',
+    );
+    expect(mainBoardSource).toContain('onPrefetchEditMode={prefetchDashboardBuilder}');
     expect(mainBoardSource).toContain("import DeferredGlassLoader from '../ui/DeferredGlassLoader'");
   });
 

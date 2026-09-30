@@ -12,7 +12,7 @@ import { XsNotificationBell } from './XsNotificationBell';
 import { XsProfileChip } from './XsProfileChip';
 import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 import { DashboardSidebarPlaceholder } from './DashboardSidebarPlaceholder';
-import { GridCanvas } from './GridCanvas';
+import { GridCanvas, preloadDashboardCatalog } from './GridCanvas';
 import { HomeAssistantRecoveryBanner } from './HomeAssistantRecoveryBanner';
 import { DashboardEditToolbar } from './DashboardEditToolbar';
 import { DashboardViewportPreviewBar } from './DashboardViewportPreviewBar';
@@ -456,6 +456,10 @@ function prefetchDashboardWorkspace(path: string) {
   if (normalizedPath.startsWith('/settings')) return void loadSettingsDashboard();
   if (normalizedPath === '/support') return void loadSettingsDashboard();
   if (normalizedPath.startsWith('/profile')) return void loadModernProfilePage();
+}
+
+function prefetchDashboardBuilder() {
+  void Promise.all([loadRightSidebarManager(), preloadDashboardCatalog()]);
 }
 
 function SecondaryWorkspaceLoading({
@@ -11260,7 +11264,7 @@ export function MainBoard() {
             onDisconnectHomeAssistant={disconnectHa}
             onClose={() => setIsMobileSidebarOpen(false)}
             onPrefetchRoute={prefetchDashboardWorkspace}
-            onPrefetchEditMode={() => void loadRightSidebarManager()}
+            onPrefetchEditMode={prefetchDashboardBuilder}
           />
         </>
       ) : null}
@@ -11284,7 +11288,7 @@ export function MainBoard() {
           canReturnToHomeAssistant={!isEditMode}
           onReturnToHomeAssistant={returnToHomeAssistant}
           onPrefetchRoute={prefetchDashboardWorkspace}
-          onPrefetchEditMode={() => void loadRightSidebarManager()}
+          onPrefetchEditMode={prefetchDashboardBuilder}
           isSettingsActive={isSettingsView}
         />
       ) : null}
