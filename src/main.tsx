@@ -8,7 +8,6 @@ import { NotificationProvider } from './context/NotificationProvider';
 import { I18nProvider } from './i18n/I18nProvider';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import './assets/index.css';
 
 declare global {

@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { ProfileHouseMember } from '../components/settings/settingsHouseAccessModel';
 import type { MockEntityStateMap } from '../types/ha';
 import { parseHaAuthUsers } from './haIdentityPresentation';
-import { buildHouseMembers, selectHouseholdPeople } from './houseMembers';
+import {
+  buildHouseMemberLocationPoints,
+  buildHouseMembers,
+  selectHouseholdPeople,
+} from './houseMembers';
 
 // Mirrors a real installation: one owner linked to a person, three people
 // created without a linked login plus separate logins with the same names,
@@ -110,5 +115,179 @@ describe('buildHouseMembers', () => {
     const [member] = build({ states: {}, users: [], currentUser: users[4] });
     expect(member).toMatchObject({ id: 'user:u-guest', isCurrent: true, hasAccount: true });
     expect(member.personEntityId).toBeUndefined();
+  });
+});
+
+const locationMember = (
+  id: string,
+  name: string,
+  personEntityId?: string,
+  overrides: Partial<ProfileHouseMember> = {},
+): ProfileHouseMember => ({
+  id,
+  name,
+  personEntityId,
+  hasAccount: Boolean(overrides.userId),
+  ...overrides,
+});
+
+const buildLocations = (members: ProfileHouseMember[], locationStates: MockEntityStateMap) =>
+  buildHouseMemberLocationPoints({
+    members,
+    states: locationStates,
+    resolveAvatarUrl: (candidate) => candidate ? `https://ha.local${candidate}` : undefined,
+  });
+
+describe('buildHouseMemberLocationPoints', () => {
+  it('uses the exact person entity for a person linked to an account', () => {
+    const points = buildLocations(
+      [locationMember('user:u-mattia', 'Account name', 'person.mattia', { userId: 'u-mattia', isCurrent: true })],
+      {
+        'person.mattia': {
+          state: 'home',
+          rawAttributes: { friendly_name: 'Mattia', user_id: 'u-mattia', latitude: 41.9, longitude: 12.5 },
+        },
+      },
+    );
+
+    expect(points).toEqual([
+      expect.objectContaining({
+        id: 'user:u-mattia',
+        personEntityId: 'person.mattia',
+        name: 'Mattia',
+        latitude: 41.9,
+        longitude: 12.5,
+        state: 'home',
+        isCurrent: true,
+      }),
+    ]);
+  });
+
+  it('keeps a person without an account when its person entity has coordinates', () => {
+    const points = buildLocations(
+      [locationMember('person:person.angela', 'Angela', 'person.angela')],
+      { 'person.angela': { state: 'home', rawAttributes: { latitude: 45.46, longitude: 9.19 } } },
+    );
+
+    expect(points[0]).toMatchObject({ personEntityId: 'person.angela', latitude: 45.46, longitude: 9.19 });
+  });
+
+  it('never turns an account without a person into a marker, even when its name matches', () => {
+    const points = buildLocations(
+      [
+        locationMember('person:person.angela', 'Angela', 'person.angela'),
+        locationMember('user:u-angela', 'Angela', undefined, { userId: 'u-angela', hasAccount: true }),
+      ],
+      {
+        'person.angela': {
+          state: 'home',
+          rawAttributes: { friendly_name: 'Angela', latitude: 45.46, longitude: 9.19 },
+        },
+      },
+    );
+
+    expect(points).toHaveLength(1);
+    expect(points[0].id).toBe('person:person.angela');
+  });
+
+  it('does not create a marker for person.home without coordinates', () => {
+    expect(buildLocations(
+      [locationMember('person:person.home', 'Home', 'person.home')],
+      { 'person.home': { state: 'home', rawAttributes: { friendly_name: 'Home' } } },
+    )).toEqual([]);
+  });
+
+  it('preserves not_home, GPS accuracy and directly linked trackers', () => {
+    const [point] = buildLocations(
+      [locationMember('person:person.giulia', 'Giulia', 'person.giulia')],
+      {
+        'person.giulia': {
+          state: 'not_home',
+          rawAttributes: {
+            latitude: 44.5,
+            longitude: 11.3,
+            gps_accuracy: 12,
+            device_trackers: ['device_tracker.giulia_phone'],
+            source: 'device_tracker.giulia_watch',
+          },
+        },
+      },
+    );
+
+    expect(point).toMatchObject({ state: 'not_home', gpsAccuracy: 12 });
+    expect(point.trackerEntityIds).toEqual([
+      'device_tracker.giulia_phone',
+      'device_tracker.giulia_watch',
+    ]);
+  });
+
+  it('preserves a Home Assistant zone state', () => {
+    const [point] = buildLocations(
+      [locationMember('person:person.maurizio', 'Maurizio', 'person.maurizio')],
+      { 'person.maurizio': { state: 'Lavoro', rawAttributes: { latitude: 43.7, longitude: 10.4 } } },
+    );
+
+    expect(point.state).toBe('Lavoro');
+  });
+
+  it('accepts zero latitude and longitude as valid coordinates', () => {
+    const [point] = buildLocations(
+      [locationMember('person:person.zero', 'Zero', 'person.zero')],
+      { 'person.zero': { state: 'not_home', rawAttributes: { latitude: 0, longitude: 0 } } },
+    );
+
+    expect(point).toMatchObject({ latitude: 0, longitude: 0 });
+  });
+
+  it('rejects missing, non-numeric and out-of-range coordinates', () => {
+    const members = [
+      locationMember('person:person.missing', 'Missing', 'person.missing'),
+      locationMember('person:person.invalid', 'Invalid', 'person.invalid'),
+      locationMember('person:person.outside', 'Outside', 'person.outside'),
+    ];
+    const points = buildLocations(members, {
+      'person.missing': { state: 'home', rawAttributes: { latitude: 42 } },
+      'person.invalid': { state: 'home', rawAttributes: { latitude: 'north', longitude: 'east' } },
+      'person.outside': { state: 'home', rawAttributes: { latitude: 91, longitude: 181 } },
+    });
+
+    expect(points).toEqual([]);
+  });
+
+  it('keeps multiple people distinct through personEntityId', () => {
+    const points = buildLocations(
+      [
+        locationMember('person:person.alex_one', 'Alex', 'person.alex_one'),
+        locationMember('person:person.alex_two', 'Alex', 'person.alex_two'),
+      ],
+      {
+        'person.alex_one': { state: 'home', rawAttributes: { latitude: 41, longitude: 12 } },
+        'person.alex_two': { state: 'not_home', rawAttributes: { latitude: 42, longitude: 13 } },
+      },
+    );
+
+    expect(points.map((point) => point.personEntityId)).toEqual(['person.alex_one', 'person.alex_two']);
+  });
+
+  it('uses the current person entity picture instead of account imagery', () => {
+    const [point] = buildLocations(
+      [locationMember('user:u-owner', 'Owner', 'person.owner', {
+        userId: 'u-owner',
+        isCurrent: true,
+        avatarUrl: 'https://account.invalid/avatar.jpg',
+      })],
+      {
+        'person.owner': {
+          state: 'home',
+          rawAttributes: { latitude: 41, longitude: 12, entity_picture: '/api/person/owner.jpg' },
+        },
+      },
+    );
+
+    expect(point).toMatchObject({
+      personEntityId: 'person.owner',
+      isCurrent: true,
+      avatarUrl: 'https://ha.local/api/person/owner.jpg',
+    });
   });
 });

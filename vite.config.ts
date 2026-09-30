@@ -54,6 +54,11 @@ export default defineConfig(({ mode }) => {
       '@': path.resolve(__dirname, '.'),
     },
   },
+  optimizeDeps: {
+    // Pre-bundle the runtime hidden behind the members-map lazy boundary so
+    // opening it for the first time never forces a Vite full-page reload.
+    include: ['maplibre-gl', 'maplibre-gl/dist/maplibre-gl-worker.mjs'],
+  },
   server: {
     port: 3000,
     strictPort: true,

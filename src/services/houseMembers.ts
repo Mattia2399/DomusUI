@@ -36,12 +36,54 @@ export type BuildHouseMembersInput = {
   isHiddenCandidate?: (candidate: HouseMemberCandidate) => boolean;
 };
 
+export type HouseMemberLocationPoint = {
+  id: string;
+  personEntityId: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  gpsAccuracy?: number;
+  state?: string;
+  avatarUrl?: string;
+  roleLabel?: string;
+  isCurrent?: boolean;
+  trackerEntityIds: string[];
+};
+
+export type BuildHouseMemberLocationPointsInput = {
+  members: readonly ProfileHouseMember[];
+  states: MockEntityStateMap;
+  resolveAvatarUrl: (candidate: string | undefined) => string | undefined;
+};
+
 function trimmed(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
 
 function roleLabelFor(user: HaAuthUser) {
   return user.isOwner ? ROLE_LABELS.owner : user.isAdmin ? ROLE_LABELS.admin : ROLE_LABELS.member;
+}
+
+function finiteNumber(value: unknown) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined;
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function trackerEntityIds(value: unknown) {
+  const candidates = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',')
+      : [];
+  return candidates
+    .map((entry) => trimmed(entry))
+    .filter((entry): entry is string => Boolean(entry?.startsWith('device_tracker.')));
 }
 
 export function buildHouseMembers({
@@ -128,4 +170,67 @@ export function buildHouseMembers({
 /** Members backed by a Home Assistant person (what the Members card shows). */
 export function selectHouseholdPeople(members: readonly ProfileHouseMember[]) {
   return members.filter((member) => Boolean(member.personEntityId));
+}
+
+/**
+ * Resolves map markers from the exact `person.*` entity carried by each house
+ * member. Accounts and names are deliberately not used as location joins.
+ */
+export function buildHouseMemberLocationPoints({
+  members,
+  states,
+  resolveAvatarUrl,
+}: BuildHouseMemberLocationPointsInput): HouseMemberLocationPoint[] {
+  return selectHouseholdPeople(members).flatMap((member) => {
+    const personEntityId = trimmed(member.personEntityId);
+    if (!personEntityId?.startsWith('person.')) {
+      return [];
+    }
+
+    const entity = states[personEntityId];
+    if (!entity) {
+      return [];
+    }
+
+    const attributes = entity.rawAttributes ?? {};
+    const latitude = finiteNumber(attributes.latitude);
+    const longitude = finiteNumber(attributes.longitude);
+    if (
+      latitude === undefined ||
+      longitude === undefined ||
+      latitude < -90 ||
+      latitude > 90 ||
+      longitude < -180 ||
+      longitude > 180
+    ) {
+      return [];
+    }
+
+    const sourceTracker = trimmed(attributes.source);
+    const linkedTrackers = new Set([
+      ...trackerEntityIds(attributes.device_trackers),
+      ...trackerEntityIds(attributes.entity_id),
+    ]);
+    if (sourceTracker?.startsWith('device_tracker.')) {
+      linkedTrackers.add(sourceTracker);
+    }
+
+    const gpsAccuracy = finiteNumber(attributes.gps_accuracy);
+    const personName = trimmed(attributes.friendly_name) ?? member.name;
+    const avatarCandidate = trimmed(entity.imageUrl) ?? trimmed(attributes.entity_picture);
+
+    return [{
+      id: member.id,
+      personEntityId,
+      name: personName,
+      latitude,
+      longitude,
+      gpsAccuracy: gpsAccuracy !== undefined && gpsAccuracy >= 0 ? gpsAccuracy : undefined,
+      state: trimmed(entity.stateLabel) ?? trimmed(entity.state),
+      avatarUrl: resolveAvatarUrl(avatarCandidate) ?? member.avatarUrl,
+      roleLabel: member.roleLabel,
+      isCurrent: member.isCurrent === true,
+      trackerEntityIds: Array.from(linkedTrackers),
+    }];
+  });
 }

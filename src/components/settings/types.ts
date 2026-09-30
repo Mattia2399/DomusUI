@@ -58,9 +58,13 @@ export interface ActiveDevice {
   calendarSupportedFeatures?: number;
   membersMapPoints?: Array<{
     id: string;
+    personEntityId: string;
     name: string;
     latitude: number;
     longitude: number;
+    gpsAccuracy?: number;
+    state?: string;
+    trackerEntityIds?: string[];
     isCurrent?: boolean;
     roleLabel?: string;
     avatarUrl?: string;

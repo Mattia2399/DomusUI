@@ -1,6 +1,6 @@
 import React from 'react';
-import { cleanup, render } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Widget } from '../../types/dashboardModels';
 import { MembersCard } from './MembersCard';
 
@@ -34,5 +34,63 @@ describe('MembersCard', () => {
 
     expect(container.firstElementChild?.getAttribute('data-card-variant')).toBe('full');
     expect(getByTitle('Mattia')).toBeTruthy();
+  });
+
+  it('opens the location panel from the card without invoking the dedicated arrow action', () => {
+    const onClick = vi.fn();
+    const onOpenMembersPanel = vi.fn();
+    const { getByRole } = render(
+      <MembersCard
+        widget={widget}
+        isSelected={false}
+        isEditMode={false}
+        onClick={onClick}
+        onOpenMembersPanel={onOpenMembersPanel}
+      />,
+    );
+
+    fireEvent.click(getByRole('button', { name: 'Apri Famiglia' }));
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+    expect(onOpenMembersPanel).not.toHaveBeenCalled();
+  });
+
+  it('opens People and access from the arrow without triggering the card overlay', () => {
+    const onClick = vi.fn();
+    const onOpenMembersPanel = vi.fn();
+    const { getByRole } = render(
+      <MembersCard
+        widget={widget}
+        isSelected={false}
+        isEditMode={false}
+        onClick={onClick}
+        onOpenMembersPanel={onOpenMembersPanel}
+      />,
+    );
+
+    fireEvent.click(getByRole('button', { name: 'Apri pannello membri' }));
+
+    expect(onOpenMembersPanel).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it('keeps the arrow inert in edit mode while the card click remains a selection action', () => {
+    const onClick = vi.fn();
+    const onOpenMembersPanel = vi.fn();
+    const { getByRole } = render(
+      <MembersCard
+        widget={widget}
+        isSelected={false}
+        isEditMode
+        onClick={onClick}
+        onOpenMembersPanel={onOpenMembersPanel}
+      />,
+    );
+
+    fireEvent.click(getByRole('button', { name: 'Apri pannello membri' }));
+    fireEvent.click(getByRole('button', { name: 'Apri Famiglia' }));
+
+    expect(onOpenMembersPanel).not.toHaveBeenCalled();
+    expect(onClick).toHaveBeenCalledTimes(1);
   });
 });

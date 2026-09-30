@@ -264,7 +264,11 @@ import {
   type HaAuthUser,
   type HaLogbookEvent,
 } from '../../services/haIdentityPresentation';
-import { buildHouseMembers, selectHouseholdPeople } from '../../services/houseMembers';
+import {
+  buildHouseMemberLocationPoints,
+  buildHouseMembers,
+  selectHouseholdPeople,
+} from '../../services/houseMembers';
 import {
   buildPersonCreateMessage,
   buildPersonUpdateMessage,
@@ -871,23 +875,6 @@ function toStringArray(value: unknown) {
   return value
     .map((entry) => toTrimmedString(entry))
     .filter((entry): entry is string => Boolean(entry));
-}
-
-function toTrackerEntityIds(value: unknown) {
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => toTrimmedString(entry))
-      .filter((entry): entry is string => Boolean(entry))
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.startsWith('device_tracker.'));
-  }
-  if (typeof value === 'string') {
-    return value
-      .split(',')
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.startsWith('device_tracker.'));
-  }
-  return [];
 }
 
 function normalizeMovementLocationKey(value: string | undefined) {
@@ -4972,154 +4959,30 @@ export function MainBoard() {
   );
 
   const membersLiveMapPoints = useMemo(() => {
-    type MemberPersonMeta = {
-      coordinates?: { latitude: number; longitude: number };
-      stateLabel?: string;
-      linkedTrackers: string[];
-      displayName?: string;
-      avatarUrl?: string;
-      sourceTracker?: string;
-    };
-    const personMetaByUserId = new Map<string, MemberPersonMeta>();
-    const personMetaByName = new Map<string, MemberPersonMeta>();
-    const trackersByUserId = new Map<string, Set<string>>();
-    const trackersByName = new Map<string, Set<string>>();
-    const trackersByNameToken = new Map<string, Set<string>>();
-    const trackerKindByEntityId = new Map<string, MemberTrackerDeviceKind | null>();
-
-    const upsertTrackerLink = (map: Map<string, Set<string>>, key: string | undefined, trackerId: string) => {
-      const normalizedKey = toTrimmedString(key);
-      const normalizedTrackerId = toTrimmedString(trackerId);
-      if (!normalizedKey || !normalizedTrackerId || !normalizedTrackerId.startsWith('device_tracker.')) {
-        return;
-      }
-      const existing = map.get(normalizedKey);
-      if (existing) {
-        existing.add(normalizedTrackerId);
-        return;
-      }
-      map.set(normalizedKey, new Set([normalizedTrackerId]));
-    };
-
-    const upsertTrackerTokenLinks = (source: string | undefined, trackerId: string) => {
-      const normalizedSource = toTrimmedString(source);
-      const normalizedTrackerId = toTrimmedString(trackerId);
-      if (!normalizedSource || !normalizedTrackerId) {
-        return;
-      }
-      normalizedSource
-        .split('_')
-        .map((token) => token.trim())
-        .filter((token) => token.length >= 3)
-        .forEach((token) => upsertTrackerLink(trackersByNameToken, token, normalizedTrackerId));
-    };
-
-    Object.entries(haStates).forEach(([entityId, entity]) => {
-      if (!entityId.startsWith('person.')) {
-        return;
-      }
-      const rawAttributes = entity.rawAttributes ?? {};
-      const userId = toTrimmedString(rawAttributes.user_id);
-      const friendlyName =
-        toTrimmedString(rawAttributes.friendly_name) ??
-        entityId.slice('person.'.length).replace(/[_-]+/g, ' ').trim();
-      const normalizedName = normalizeMovementLocationKey(friendlyName);
-      const linkedTrackers = Array.from(
-        new Set([
-          ...toTrackerEntityIds(rawAttributes.device_trackers),
-          ...toTrackerEntityIds(rawAttributes.entity_id),
-        ]),
-      );
-      const activeSourceTracker = toTrimmedString(rawAttributes.source);
-      if (activeSourceTracker?.startsWith('device_tracker.')) {
-        linkedTrackers.push(activeSourceTracker);
-      }
-      const coordinates = readMovementCoordinates(rawAttributes) ?? undefined;
-      const stateLabel = toTrimmedString(entity.stateLabel ?? entity.state);
-      const personAvatar = resolveHaAssetUrl(
-        toTrimmedString(entity.imageUrl) ?? toTrimmedString(rawAttributes.entity_picture),
-        haUrl,
-      );
-
-      const personMeta: MemberPersonMeta = {
-        coordinates,
-        stateLabel,
-        linkedTrackers,
-        displayName: friendlyName,
-        avatarUrl: personAvatar,
-        sourceTracker: activeSourceTracker,
-      };
-      if (userId) {
-        personMetaByUserId.set(userId, personMeta);
-      }
-      if (normalizedName) {
-        personMetaByName.set(normalizedName, personMeta);
-      }
-    });
-
-    Object.entries(haStates).forEach(([entityId, entity]) => {
-      if (!entityId.startsWith('device_tracker.')) {
-        return;
-      }
-      const rawAttributes = entity.rawAttributes ?? {};
-      const linkedUserId = toTrimmedString(rawAttributes.user_id);
-      const friendlyNameKey = normalizeMovementLocationKey(toTrimmedString(rawAttributes.friendly_name));
-      const entityKey = normalizeMovementLocationKey(entityId.slice('device_tracker.'.length));
-      trackerKindByEntityId.set(entityId, classifyTrackerDeviceKind(entityId, rawAttributes));
-      upsertTrackerLink(trackersByUserId, linkedUserId, entityId);
-      upsertTrackerLink(trackersByName, friendlyNameKey, entityId);
-      upsertTrackerLink(trackersByName, entityKey, entityId);
-      upsertTrackerTokenLinks(friendlyNameKey, entityId);
-      upsertTrackerTokenLinks(entityKey, entityId);
-    });
-
-    return profileHouseMembers
-      .map((member) => {
-        const normalizedUserId = toTrimmedString(member.userId);
-        const normalizedName = normalizeMovementLocationKey(member.name);
-        const personMeta =
-          (normalizedUserId ? personMetaByUserId.get(normalizedUserId) : undefined) ??
-          (normalizedName ? personMetaByName.get(normalizedName) : undefined);
-        const coordinates = personMeta?.coordinates;
-        if (!coordinates) {
-          return null;
-        }
-        const trackerEntityIds = new Set<string>();
-        personMeta?.linkedTrackers.forEach((trackerId) => trackerEntityIds.add(trackerId));
-        if (normalizedUserId) {
-          trackersByUserId.get(normalizedUserId)?.forEach((trackerId) => trackerEntityIds.add(trackerId));
-        }
-        if (normalizedName) {
-          trackersByName.get(normalizedName)?.forEach((trackerId) => trackerEntityIds.add(trackerId));
-          normalizedName
-            .split('_')
-            .map((token) => token.trim())
-            .filter((token) => token.length >= 3)
-            .forEach((token) =>
-              trackersByNameToken.get(token)?.forEach((trackerId) => trackerEntityIds.add(trackerId)),
-            );
-        }
+    return buildHouseMemberLocationPoints({
+      members: householdPeople,
+      states: haStates,
+      resolveAvatarUrl: (candidate) => resolveHaAssetUrl(candidate, haUrl),
+    })
+      .map((point) => {
         const devices = {
           smartwatch: 0,
           tablet: 0,
           smartphone: 0,
         };
-        trackerEntityIds.forEach((trackerId) => {
-          const trackerKind = trackerKindByEntityId.get(trackerId);
+        point.trackerEntityIds.forEach((trackerId) => {
+          const trackerKind = classifyTrackerDeviceKind(
+            trackerId,
+            haStates[trackerId]?.rawAttributes,
+          );
           if (trackerKind) {
             devices[trackerKind] += 1;
           }
         });
 
         return {
-          id: member.id,
-          name: personMeta?.displayName ?? member.name,
-          latitude: coordinates.latitude,
-          longitude: coordinates.longitude,
-          isCurrent: member.isCurrent === true,
-          roleLabel: member.roleLabel,
-          avatarUrl: personMeta?.avatarUrl ?? member.avatarUrl,
-          locationLabel: formatMovementLocationLabel(personMeta?.stateLabel, {
+          ...point,
+          locationLabel: formatMovementLocationLabel(point.state, {
             unknown: t('home.location.unknown'),
             home: t('home.location.home'),
             away: t('home.location.away'),
@@ -5138,7 +5001,23 @@ export function MainBoard() {
         }
         return first.name.localeCompare(second.name, locale);
       });
-  }, [haStates, haUrl, locale, profileHouseMembers, t]);
+  }, [haStates, haUrl, householdPeople, locale, t]);
+
+  useEffect(() => {
+    setActiveDevice((current) => {
+      if (current?.type !== 'members') {
+        return current;
+      }
+      return {
+        ...current,
+        status:
+          membersLiveMapPoints.length > 0
+            ? `${membersLiveMapPoints.length} posizioni rilevate`
+            : t('home.location.none'),
+        membersMapPoints: membersLiveMapPoints,
+      };
+    });
+  }, [membersLiveMapPoints, t]);
 
   const contextState = useMemo(
     () => ({

@@ -1,6 +1,5 @@
-import React, { useCallback, useMemo } from 'react';
-import { Crown, Lightbulb, LocateFixed, MapPin, Smartphone, Tablet, Users, Watch, X } from 'lucide-react';
-import { Map, Marker, type MapProps, type MapRef } from '@vis.gl/react-maplibre';
+import React, { useMemo } from 'react';
+import { Crown, Lightbulb, MapPin, Smartphone, Tablet, Users, Watch, X } from 'lucide-react';
 import { ActiveDevice } from './types';
 import { ClimateControls } from './ClimateControls';
 import { LightControls } from './LightControls';
@@ -42,6 +41,12 @@ import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { AlarmActionAuthOptions } from '../../utils/alarmSecurityPolicy';
 import { useI18n } from '../../i18n/I18nProvider';
+import LazyLoadBoundary from '../common/LazyLoadBoundary';
+
+const loadMembersLocationMap = () => import('./MembersLocationMap');
+const MembersLocationMap = React.lazy(() =>
+  loadMembersLocationMap().then((module) => ({ default: module.MembersLocationMap })),
+);
 
 type MediaRepeatMode = 'off' | 'all' | 'one';
 type MediaOutputKind = 'speaker' | 'tv' | 'cast';
@@ -370,62 +375,6 @@ interface ContextSidebarProps {
   };
 }
 
-type MembersMapPoint = NonNullable<ActiveDevice['membersMapPoints']>[number];
-type MembersMapInitialViewState = NonNullable<MapProps['initialViewState']>;
-const MEMBERS_MAP_LIGHT_STYLE_URL = new URL(
-  '../../assets/map-styles/members-light.style.json',
-  import.meta.url,
-).toString();
-const MEMBERS_MAP_DARK_STYLE_URL = new URL(
-  '../../assets/map-styles/members-dark.style.json',
-  import.meta.url,
-).toString();
-
-function buildMembersMapInitialViewState(points: MembersMapPoint[]): MembersMapInitialViewState {
-  if (points.length === 0) {
-    return { longitude: 12.4964, latitude: 41.9028, zoom: 4 };
-  }
-  if (points.length === 1) {
-    return {
-      longitude: points[0].longitude,
-      latitude: points[0].latitude,
-      zoom: 12.2,
-    };
-  }
-
-  let minLongitude = Number.POSITIVE_INFINITY;
-  let maxLongitude = Number.NEGATIVE_INFINITY;
-  let minLatitude = Number.POSITIVE_INFINITY;
-  let maxLatitude = Number.NEGATIVE_INFINITY;
-
-  points.forEach((point) => {
-    minLongitude = Math.min(minLongitude, point.longitude);
-    maxLongitude = Math.max(maxLongitude, point.longitude);
-    minLatitude = Math.min(minLatitude, point.latitude);
-    maxLatitude = Math.max(maxLatitude, point.latitude);
-  });
-
-  const hasArea =
-    Math.abs(maxLongitude - minLongitude) > 0.000001 ||
-    Math.abs(maxLatitude - minLatitude) > 0.000001;
-
-  if (!hasArea) {
-    return {
-      longitude: points[0].longitude,
-      latitude: points[0].latitude,
-      zoom: 12.2,
-    };
-  }
-
-  return {
-    bounds: [minLongitude, minLatitude, maxLongitude, maxLatitude],
-    fitBoundsOptions: {
-      padding: 36,
-      maxZoom: 14,
-    },
-  };
-}
-
 export function ContextSidebar({
   activeDevice,
   isEditMode = false,
@@ -470,46 +419,19 @@ export function ContextSidebar({
   const activeDeviceLayoutClass = externalScrollContainer
     ? 'overflow-visible pb-3 pt-2'
     : 'overflow-y-auto overscroll-contain glass-scrollbar [touch-action:pan-y] [-webkit-overflow-scrolling:touch] pb-4 lg:pb-6';
-  const membersMapRef = React.useRef<MapRef | null>(null);
   const membersMapPoints = activeDevice?.membersMapPoints ?? [];
-  const membersMapStyleUrl =
-    theme === 'light' ? MEMBERS_MAP_LIGHT_STYLE_URL : MEMBERS_MAP_DARK_STYLE_URL;
-  const currentMemberMapPoint = useMemo(
-    () => membersMapPoints.find((point) => point.isCurrent === true) ?? null,
-    [membersMapPoints],
-  );
-  const membersMapInitialViewState = useMemo(
-    () => buildMembersMapInitialViewState(membersMapPoints),
-    [membersMapPoints],
-  );
   const membersMapRenderKey = useMemo(
     () =>
       membersMapPoints.length > 0
         ? membersMapPoints
             .map(
               (point) =>
-                `${point.id}:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}:${point.isCurrent ? '1' : '0'}`,
+                `${point.personEntityId}:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}:${point.isCurrent ? '1' : '0'}`,
             )
             .join('|')
         : 'empty',
     [membersMapPoints],
   );
-  const centerMapOnCurrentMember = useCallback(() => {
-    if (!currentMemberMapPoint) {
-      return;
-    }
-    const map = membersMapRef.current?.getMap();
-    if (!map) {
-      return;
-    }
-    const currentZoom = map.getZoom();
-    map.flyTo({
-      center: [currentMemberMapPoint.longitude, currentMemberMapPoint.latitude],
-      zoom: Number.isFinite(currentZoom) ? Math.max(currentZoom, 12) : 12,
-      speed: 0.95,
-      essential: true,
-    });
-  }, [currentMemberMapPoint]);
   const microWidgets = activeDevice?.microWidgets ?? [];
   return (
     <aside
@@ -804,7 +726,7 @@ export function ContextSidebar({
         <div className={CONTEXT_PANEL_LAYOUT.shell}>
           <ContextPanelHeader
             title={activeDevice.name}
-            subtitle={`${membersMapPoints.length} posizione${membersMapPoints.length === 1 ? '' : 'i'} disponibili`}
+            subtitle={`${membersMapPoints.length} ${membersMapPoints.length === 1 ? 'posizione disponibile' : 'posizioni disponibili'}`}
             icon={<Users size={21} />}
             fallbackTitle="Members"
             iconClassName="border-cyan-300/25 bg-cyan-500/12 text-cyan-100"
@@ -814,65 +736,26 @@ export function ContextSidebar({
             <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Mappa Presenze</p>
             <div className="dashboard-content-surface-soft relative mt-2 h-56 overflow-hidden rounded-xl">
               {membersMapPoints.length > 0 ? (
-                <Map
-                  ref={membersMapRef}
-                  key={`${theme}:${membersMapRenderKey}`}
-                  initialViewState={membersMapInitialViewState}
-                  mapStyle={membersMapStyleUrl}
-                  attributionControl={false}
-                  dragRotate={false}
-                  touchPitch={false}
-                  pitchWithRotate={false}
-                  maxPitch={0}
-                  minZoom={2}
-                  maxZoom={17}
-                  style={{ width: '100%', height: '100%' }}
+                <LazyLoadBoundary
+                  mode="section"
+                  resetKey={`${theme}:${membersMapRenderKey}`}
+                  fallback={
+                    <div
+                      className="absolute inset-0 flex items-center justify-center text-xs text-[color:var(--ui-text-secondary)]"
+                      aria-busy="true"
+                    >
+                      {t('home.loading.section')}
+                    </div>
+                  }
                 >
-                  {membersMapPoints.map((point) => (
-                    <Marker key={point.id} longitude={point.longitude} latitude={point.latitude} anchor="center">
-                      <span className="relative flex h-9 w-9 items-center justify-center">
-                        {point.avatarUrl ? (
-                          <img
-                            src={point.avatarUrl}
-                            alt={`Profilo ${point.name}`}
-                            className="h-9 w-9 rounded-full border-2 border-[#fff]/95 bg-[#fff]/[0.08] object-cover shadow-[0_6px_16px_rgba(15,23,42,0.4)]"
-                          />
-                        ) : (
-                          <span className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#fff]/80 bg-[#fff]/[0.08] text-[11px] font-semibold text-[#fff] shadow-[0_6px_16px_rgba(15,23,42,0.4)] backdrop-blur-xl">
-                            {(point.name.trim().charAt(0) || '?').toUpperCase()}
-                          </span>
-                        )}
-                        <span className="pointer-events-none absolute -inset-1 rounded-full border border-[#fff]/35" />
-                        {point.isCurrent ? (
-                          <>
-                            <span className="pointer-events-none absolute -inset-1.5 rounded-full border border-emerald-300/80" />
-                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#fff] bg-emerald-400" />
-                          </>
-                        ) : null}
-                      </span>
-                    </Marker>
-                  ))}
-                </Map>
+                  <MembersLocationMap points={membersMapPoints} theme={theme} />
+                </LazyLoadBoundary>
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-[color:var(--ui-text-secondary)]">
                   <MapPin size={18} />
                   <p className="text-xs">{t('context.members.noCoordinates')}</p>
                 </div>
               )}
-              <button
-                type="button"
-                onClick={centerMapOnCurrentMember}
-                disabled={!currentMemberMapPoint}
-                className="glass-icon-button absolute right-2 top-2 z-20 h-8 w-8 disabled:cursor-not-allowed disabled:opacity-45"
-                aria-label={t('context.members.center')}
-                title={
-                  currentMemberMapPoint
-                    ? t('context.members.center')
-                    : t('context.members.positionUnavailable')
-                }
-              >
-                <LocateFixed size={15} />
-              </button>
             </div>
           </div>
 
