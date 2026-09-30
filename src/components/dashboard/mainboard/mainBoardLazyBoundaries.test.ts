@@ -57,6 +57,9 @@ describe('MainBoard lazy boundaries', () => {
     expect(mainBoardSource).toContain(
       '<DashboardSidebarPlaceholder isCompactViewport={isCompactViewport} />',
     );
+    expect(mainBoardSource).toContain(
+      'Promise.all([loadRightSidebarManager(), loadContextSidebar()])',
+    );
   });
 
   it('loads rare dashboard overlays only when their flows are requested', () => {

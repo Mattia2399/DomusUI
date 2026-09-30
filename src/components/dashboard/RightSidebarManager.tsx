@@ -20,9 +20,8 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { ContextSidebar } from '../settings/ContextSidebar';
 import type { MediaPlayRequest } from '../settings/MediaControls';
-import { translateClimateStatus } from '../settings/ClimateControls';
+import { translateClimateStatus } from '../settings/climateControlLabels';
 import { SensorDisplayVariantSkeleton } from '../settings/SensorDisplayVariantSkeleton';
 import { LightDisplayVariantSkeleton } from '../settings/LightDisplayVariantSkeleton';
 import { SwitchDisplayVariantSkeleton } from '../settings/SwitchDisplayVariantSkeleton';
@@ -64,7 +63,6 @@ import {
 } from '../widgets/cardCapabilityRegistry';
 import { MiniRing } from '../widgets/micro/MiniRing';
 import { MicroButton } from '../widgets/micro/MicroButton';
-import { MicroSuperChart } from '../widgets/micro/MicroSuperChart';
 import { MicroStep } from '../widgets/micro/MicroStep';
 import { MicroSlider } from '../widgets/micro/MicroSlider';
 import { MicroToggle } from '../widgets/micro/MicroToggle';
@@ -133,9 +131,20 @@ import { useDashboardSecurity } from '../../security/dashboardAccess';
 import { useSensitiveActionGate } from '../../security/SensitiveActionGate';
 import { resolveCardDataSource } from '../../security/mockSourcePolicy';
 import { DASHBOARD_SIDEBAR_WIDTH_CLASS } from './DashboardSidebarPlaceholder';
+import LazyLoadBoundary from '../common/LazyLoadBoundary';
+import DeferredGlassLoader from '../ui/DeferredGlassLoader';
 import { useI18n } from '../../i18n/I18nProvider';
 import { translateBuilderDetail } from '../../i18n/builderDetailCopy';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
+
+const loadContextSidebar = () =>
+  import('../settings/ContextSidebar').then((module) => ({ default: module.ContextSidebar }));
+const ContextSidebar = React.lazy(loadContextSidebar);
+const loadMicroSuperChart = () =>
+  import('../widgets/micro/MicroSuperChart').then((module) => ({
+    default: module.MicroSuperChart,
+  }));
+const MicroSuperChart = React.lazy(loadMicroSuperChart);
 
 const BUILDER_INPUT_CLASS = 'ui-input w-full rounded-xl px-3 py-2.5 text-sm';
 const BUILDER_TEXTAREA_CLASS = `${BUILDER_INPUT_CLASS} resize-none`;
@@ -1092,7 +1101,20 @@ function renderMicroWidgetPreview(widget: MicroWidget, state: MockEntityState | 
     return <MicroStep widget={widget} state={state} />;
   }
   if (widget.type === 'micro_superchart') {
-    return <MicroSuperChart widget={widget} state={state} history={history} />;
+    return (
+      <LazyLoadBoundary
+        fallback={
+          <div
+            className="min-h-[4.25rem] rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)]"
+            aria-busy="true"
+          />
+        }
+        mode="section"
+        resetKey={`${widget.entity}:${widget.superChartType ?? 'line'}`}
+      >
+        <MicroSuperChart widget={widget} state={state} history={history} />
+      </LazyLoadBoundary>
+    );
   }
   return <MicroToggle widget={widget} state={state} />;
 }
@@ -1382,48 +1404,60 @@ export function RightSidebarManager({
           : activeDevice.sensorDeviceClass,
       }
     : activeDevice;
-  const contextSidebarPanel = (
-    <ContextSidebar
-      activeDevice={activeDeviceForPanel}
-      isEditMode={isEditMode}
-      theme={theme}
-      onClose={onCloseContextSidebar}
-      showCloseButton={false}
-      onSecondaryPageChange={setIsContextSecondaryPage}
-      externalScrollContainer
-      haStates={haStates}
-      microChartHistoryByEntity={microChartHistoryByEntity}
-      lamp={state.lamp}
-      climate={state.climate}
-      camera={camera}
-      speaker={state.speaker}
-      vacuum={vacuum}
-      vacuumAreas={vacuumAreas}
-      weather={state.weather}
-      alarm={alarm}
-      lock={lock}
-      cover={cover}
-      calendarAgenda={calendarAgenda}
-      weatherConfig={
-        weatherConfig
-          ? {
-              unit: weatherConfig.weatherUnit,
-              forecastType: weatherConfig.weatherForecastType,
-              forecastDays: weatherConfig.weatherForecastDays,
-              forecastDensity: weatherConfig.weatherForecastDensity,
-              conditionOverride: weatherConfig.weatherCondition,
-              showPrecipitation: weatherConfig.weatherShowPrecipitation,
-              showWind: weatherConfig.weatherShowWind,
-            }
-          : undefined
-      }
-      actions={actions}
-      commandsEnabled={commandsEnabled}
-      onAuthorizeAlarmDeviceAuth={onAuthorizeAlarmDeviceAuth}
-      onToggleMicroWidget={onToggleMicroWidget}
-      onSetMicroSliderValue={onSetMicroSliderValue}
-      onNavigateMicroWidgetPage={onNavigateMicroWidgetPage}
+  const contextSidebarFallback = (
+    <DeferredGlassLoader
+      label={t('home.sidebar.opening')}
+      description={t('home.sidebar.loadingDescription')}
     />
+  );
+  const contextSidebarPanel = (
+    <LazyLoadBoundary
+      fallback={contextSidebarFallback}
+      mode="section"
+      resetKey={activeDeviceForPanel?.id}
+    >
+      <ContextSidebar
+        activeDevice={activeDeviceForPanel}
+        isEditMode={isEditMode}
+        theme={theme}
+        onClose={onCloseContextSidebar}
+        showCloseButton={false}
+        onSecondaryPageChange={setIsContextSecondaryPage}
+        externalScrollContainer
+        haStates={haStates}
+        microChartHistoryByEntity={microChartHistoryByEntity}
+        lamp={state.lamp}
+        climate={state.climate}
+        camera={camera}
+        speaker={state.speaker}
+        vacuum={vacuum}
+        vacuumAreas={vacuumAreas}
+        weather={state.weather}
+        alarm={alarm}
+        lock={lock}
+        cover={cover}
+        calendarAgenda={calendarAgenda}
+        weatherConfig={
+          weatherConfig
+            ? {
+                unit: weatherConfig.weatherUnit,
+                forecastType: weatherConfig.weatherForecastType,
+                forecastDays: weatherConfig.weatherForecastDays,
+                forecastDensity: weatherConfig.weatherForecastDensity,
+                conditionOverride: weatherConfig.weatherCondition,
+                showPrecipitation: weatherConfig.weatherShowPrecipitation,
+                showWind: weatherConfig.weatherShowWind,
+              }
+            : undefined
+        }
+        actions={actions}
+        commandsEnabled={commandsEnabled}
+        onAuthorizeAlarmDeviceAuth={onAuthorizeAlarmDeviceAuth}
+        onToggleMicroWidget={onToggleMicroWidget}
+        onSetMicroSliderValue={onSetMicroSliderValue}
+        onNavigateMicroWidgetPage={onNavigateMicroWidgetPage}
+      />
+    </LazyLoadBoundary>
   );
 
   if (!isEditMode) {
@@ -1502,46 +1536,52 @@ export function RightSidebarManager({
 
     return (
       <div className={`liquid-glass-panel ${sidebarWidthClass} overflow-hidden`}>
-        <ContextSidebar
-          activeDevice={activeDeviceForPanel}
-          isEditMode={isEditMode}
-          theme={theme}
-          onClose={onCloseContextSidebar}
-          showCloseButton={!isContextSecondaryPage}
-          onSecondaryPageChange={setIsContextSecondaryPage}
-          haStates={haStates}
-          microChartHistoryByEntity={microChartHistoryByEntity}
-          lamp={state.lamp}
-          climate={state.climate}
-          camera={camera}
-          speaker={state.speaker}
-          vacuum={vacuum}
-          vacuumAreas={vacuumAreas}
-          weather={state.weather}
-          alarm={alarm}
-          lock={lock}
-          cover={cover}
-          calendarAgenda={calendarAgenda}
-          weatherConfig={
-            weatherConfig
-              ? {
-                  unit: weatherConfig.weatherUnit,
-                  forecastType: weatherConfig.weatherForecastType,
-                  forecastDays: weatherConfig.weatherForecastDays,
-                  forecastDensity: weatherConfig.weatherForecastDensity,
-                  conditionOverride: weatherConfig.weatherCondition,
-                  showPrecipitation: weatherConfig.weatherShowPrecipitation,
-                  showWind: weatherConfig.weatherShowWind,
-                }
-              : undefined
-          }
-          actions={actions}
-          commandsEnabled={commandsEnabled}
-          onAuthorizeAlarmDeviceAuth={onAuthorizeAlarmDeviceAuth}
-          onToggleMicroWidget={onToggleMicroWidget}
-          onSetMicroSliderValue={onSetMicroSliderValue}
-          onNavigateMicroWidgetPage={onNavigateMicroWidgetPage}
-        />
+        <LazyLoadBoundary
+          fallback={contextSidebarFallback}
+          mode="section"
+          resetKey={activeDeviceForPanel?.id}
+        >
+          <ContextSidebar
+            activeDevice={activeDeviceForPanel}
+            isEditMode={isEditMode}
+            theme={theme}
+            onClose={onCloseContextSidebar}
+            showCloseButton={!isContextSecondaryPage}
+            onSecondaryPageChange={setIsContextSecondaryPage}
+            haStates={haStates}
+            microChartHistoryByEntity={microChartHistoryByEntity}
+            lamp={state.lamp}
+            climate={state.climate}
+            camera={camera}
+            speaker={state.speaker}
+            vacuum={vacuum}
+            vacuumAreas={vacuumAreas}
+            weather={state.weather}
+            alarm={alarm}
+            lock={lock}
+            cover={cover}
+            calendarAgenda={calendarAgenda}
+            weatherConfig={
+              weatherConfig
+                ? {
+                    unit: weatherConfig.weatherUnit,
+                    forecastType: weatherConfig.weatherForecastType,
+                    forecastDays: weatherConfig.weatherForecastDays,
+                    forecastDensity: weatherConfig.weatherForecastDensity,
+                    conditionOverride: weatherConfig.weatherCondition,
+                    showPrecipitation: weatherConfig.weatherShowPrecipitation,
+                    showWind: weatherConfig.weatherShowWind,
+                  }
+                : undefined
+            }
+            actions={actions}
+            commandsEnabled={commandsEnabled}
+            onAuthorizeAlarmDeviceAuth={onAuthorizeAlarmDeviceAuth}
+            onToggleMicroWidget={onToggleMicroWidget}
+            onSetMicroSliderValue={onSetMicroSliderValue}
+            onNavigateMicroWidgetPage={onNavigateMicroWidgetPage}
+          />
+        </LazyLoadBoundary>
       </div>
     );
   }

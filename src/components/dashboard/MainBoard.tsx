@@ -419,6 +419,7 @@ const loadSecurityDashboard = () => import('../../pages/SecurityDashboard');
 const loadSettingsDashboard = () => import('../../pages/SettingsDashboard');
 const loadRightSidebarManager = () =>
   import('./RightSidebarManager').then((module) => ({ default: module.RightSidebarManager }));
+const loadContextSidebar = () => import('../settings/ContextSidebar');
 const loadModernProfilePage = () =>
   import('../settings/ModernProfilePage').then((module) => ({ default: module.ModernProfilePage }));
 const loadSettingsManagementPanel = () =>
@@ -460,6 +461,10 @@ function prefetchDashboardWorkspace(path: string) {
 
 function prefetchDashboardBuilder() {
   void Promise.all([loadRightSidebarManager(), preloadDashboardCatalog()]);
+}
+
+function preloadDashboardDeviceContext() {
+  void Promise.all([loadRightSidebarManager(), loadContextSidebar()]);
 }
 
 function SecondaryWorkspaceLoading({
@@ -9519,7 +9524,7 @@ export function MainBoard() {
   ]);
 
   const openLiveControls = (widget: Widget) => {
-    void loadRightSidebarManager();
+    preloadDashboardDeviceContext();
     const liveEntity = isHaConnected ? haStatesForUi[widget.entityId] : undefined;
     const microWidgets = widget.widgets ?? [];
 
@@ -9824,7 +9829,7 @@ export function MainBoard() {
   };
 
   const openWeatherControls = () => {
-    void loadRightSidebarManager();
+    preloadDashboardDeviceContext();
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
     setSelectedSidebarPathId(null);
