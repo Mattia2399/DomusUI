@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.4.0 - 2026-10-01
+
+### Added
+
+- A Domus Core runtime foundation inside the Home Assistant integration, with
+  typed context providers, capabilities, decisions, action outcomes, an event
+  bus, and durable audit primitives for future server-side features.
+- Local development and preview automatically use the optional mkcert
+  certificate pair in `.cert/`, while CI and developers without certificates
+  continue to use HTTP.
+- Lazy-loading failures now stay inside a localized recovery boundary instead
+  of replacing the dashboard with a permanently incomplete screen.
+
+### Changed
+
+- Onboarding, setup persistence tools, the dashboard catalog, and contextual
+  device controls are loaded only when needed. MapLibre remains outside the
+  Home critical path and is downloaded only when a member location map opens.
+- Bundle validation now measures the complete Home critical path and the full
+  members-map lazy path, including required shared chunks, instead of checking
+  individual files only.
+- Release packaging builds with a neutral CSP environment and verifies that
+  standalone and HACS artifacts contain the same distribution policy.
+
+### Fixed
+
+- The Members card and People panel preserve people that have trackers but no
+  current coordinates, while loading the map only when a usable location is
+  available.
+- The members map no longer remains in an opening loop when MapLibre reports
+  recoverable tile or style activity. Blocking initialization errors still
+  produce an explicit retry state.
+- CARTO map resources are allowed by default in production and HACS CSP only
+  through `img-src` and `connect-src`; no personal Home Assistant origin,
+  wildcard, media permission, or CARTO WebSocket permission is embedded.
+- Playwright follows the local HTTPS origin when mkcert certificates are
+  present, keeping OAuth callbacks and absolute navigation URLs aligned with
+  the test server.
+
+### Validation
+
+- The release gate passes TypeScript, 946 unit tests, the production build,
+  dependency audit, bundle budgets, and 75 Chromium end-to-end scenarios.
+- The complete Home critical path is 1.94 MB raw / 0.55 MB gzip. The separate
+  members-map lazy path is 3.82 MB raw / 1.07 MB gzip.
+
 ## 1.3.0 - 2026-09-28
 
 ### Added
