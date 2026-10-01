@@ -14,6 +14,17 @@
 - Assisted discovery proposes energy sensors from Home Assistant metadata and
   the Energy dashboard configuration, and reports ambiguous matches for
   confirmation instead of configuring them.
+- The Energy page in Consumi now shows the configured installation with real
+  Home Assistant values: only the modules that exist, offline modules kept
+  visible, and every value marked as measured or derived.
+- Administrators can set up and change the energy installation with a guided
+  four-step flow (detection, bindings, preview, save) directly on the Energy
+  page, without reloading the integration.
+
+### Changed
+
+- The Energy page no longer shows generated charts, sample metrics, or
+  demonstration devices.
 
 ## 1.4.0 - 2026-10-01
 

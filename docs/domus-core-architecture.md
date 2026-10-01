@@ -65,7 +65,7 @@ Not implemented:
 
 - Decision Engine;
 - Action Engine;
-- Energy dashboard, energy decisions, and any energy control;
+- energy history, energy decisions, and any energy control;
 - Vehicle domain;
 - Climate Intelligence;
 - Smart Notifications;

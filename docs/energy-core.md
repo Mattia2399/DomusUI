@@ -6,9 +6,10 @@ normalizes its sensors, and exposes the result to the Domus context registry.
 It runs inside the existing `domusos` integration: no cloud service, add-on,
 extra process, or new Home Assistant component is involved.
 
-Phase 1 is backend-only. It does **not** include an Energy dashboard,
-configuration screens, decisions, automations, inverter or battery control,
-or wallbox commands.
+Phase 1 added the backend. Phase 2 connects it to the existing Energy
+subpage of Consumi (`/consumi/energia`) with guided setup. Domus Energy still
+does **not** include history charts, decisions, automations, inverter or
+battery control, or wallbox commands.
 
 ## Energy Profile
 
@@ -150,3 +151,38 @@ configuration details. Without a profile it reports `configured: false` and
 lists every module as absent. Error codes are `invalid_profile`,
 `revision_conflict`, `energy_unavailable`, `unauthorized`, and
 `unknown_error`. The generic Domus context registry remains internal.
+
+## Energy subpage
+
+The canonical route is `/consumi/energia`, inside the existing Consumi
+section; no new route or Settings screen exists.
+
+- **Display**: the orbital flow diagram and the module list come only from
+  `get_state`. Only configured modules appear. Offline modules stay visible
+  without values, absent modules are listed, and each value is labelled
+  *Misurato* or *Derivato*. Directions use the canonical signed values from the
+  backend. The page refreshes the projection at most every 1.5 s when a bound
+  sensor changes in the Home Assistant state stream it already receives.
+- **States**: no Home Assistant connection, outdated integration or bridge,
+  failed refresh, and no profile. The isolated Demo keeps its existing gate
+  on Consumi, so no energy sample is shown there.
+- **Guided setup** (administrators, loaded on demand) runs in four steps:
+  1. Detection: per-module summary of what `discover` found.
+  2. Bindings: present/absent per module, directional or signed wiring,
+     suggested or manual sensors, an explicit sign convention for signed
+     sensors, and an offline flag for saved modules.
+  3. Preview: the same diagram, showing only present modules with readings
+     the backend already normalized; derived consumption is announced as
+     computed after saving.
+  4. Save: `save_profile` with the expected revision, with progress, success,
+     and errors that keep the draft.
+- **Re-detection** never changes confirmed bindings: differences are listed
+  with an *Applica* action. Only a first setup preselects unique high or medium
+  confidence matches, and nothing is saved without confirmation.
+- **Permissions**: everyone with Home Assistant access can view the page;
+  configuration requires the `manage_energy` capability (owner or
+  administrator), the client administrative API gate, and the backend's own
+  `require_admin` check.
+- **HACS bridge**: both bridge halves allowlist exactly the four
+  `domusos/energy/*` commands with exact-shape validation and announce the
+  `energy_core` capability.
