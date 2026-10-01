@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Domus Energy Core phase 1: a read-only, vendor-neutral Energy Profile with
+  optional grid, solar, home, battery, and wallbox modules. Configured
+  modules are distinguished from absent ones and stay visible while offline.
+- Energy sensors are normalized to W and % without turning missing data into
+  zero, accepting cumulative energy as power, or guessing signed flow
+  direction. Derived home consumption is labelled and computed only from
+  complete, coherent flows.
+- Assisted discovery proposes energy sensors from Home Assistant metadata and
+  the Energy dashboard configuration, and reports ambiguous matches for
+  confirmation instead of configuring them.
+
 ## 1.4.0 - 2026-10-01
 
 ### Added
