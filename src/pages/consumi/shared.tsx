@@ -6,14 +6,19 @@ export type IntervalKey = '24H' | '7G' | '30G';
 
 export function DetailScaffold({
   title,
+  subtitle = 'Analisi consumi e andamento',
   onBack,
   left,
   right,
+  children,
 }: {
   title: string;
+  subtitle?: string;
   onBack: () => void;
-  left: React.ReactNode;
-  right: React.ReactNode;
+  left?: React.ReactNode;
+  right?: React.ReactNode;
+  /** Full-width content replacing the two-column layout. */
+  children?: React.ReactNode;
 }) {
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -21,7 +26,7 @@ export function DetailScaffold({
     <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto">
       <NestedPageHeader
         title={title}
-        subtitle="Analisi consumi e andamento"
+        subtitle={subtitle}
         backLabel="Consumi"
         backAriaLabel="Torna a Consumi"
         onBack={onBack}
@@ -36,6 +41,7 @@ export function DetailScaffold({
       />
 
       <div className="px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 sm:px-6 sm:pb-6 sm:pt-6 lg:px-8 lg:pb-8">
+        {children ?? (
         <div className="grid min-h-0 grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-12 xl:gap-8">
           <div className="liquid-glass-card relative flex min-h-[24rem] items-center justify-center overflow-hidden p-3 sm:min-h-[32rem] sm:p-6 lg:p-8 xl:col-span-7 xl:min-h-0">
             {left}
@@ -45,6 +51,7 @@ export function DetailScaffold({
             {right}
           </div>
         </div>
+        )}
       </div>
     </div>
   );
@@ -66,34 +73,6 @@ export function ChartCard({
         {controls}
       </div>
       <div className="h-48 min-h-48 min-w-0 sm:h-56">{children}</div>
-    </div>
-  );
-}
-
-export function IntervalPills({
-  value,
-  onChange,
-}: {
-  value: IntervalKey;
-  onChange: (value: IntervalKey) => void;
-}) {
-  const options: IntervalKey[] = ['24H', '7G', '30G'];
-  return (
-    <div className="flex rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-0.5">
-      {options.map((option) => (
-        <button
-          key={option}
-          type="button"
-          onClick={() => onChange(option)}
-          className={`rounded-full px-3 py-1 text-xs transition-all ${
-            value === option
-              ? 'bg-[color:var(--ui-bg-elevated)] font-medium text-[color:var(--ui-text-primary)] shadow-sm backdrop-blur-md'
-              : 'text-[color:var(--ui-text-tertiary)] hover:text-[color:var(--ui-text-primary)]'
-          }`}
-        >
-          {option}
-        </button>
-      ))}
     </div>
   );
 }
@@ -135,13 +114,4 @@ export function PremiumTooltip({
       </div>
     </div>
   );
-}
-
-export function buildSeries(length: number, base: number, amplitude: number, phase = 0) {
-  return Array.from({ length }, (_, index) => {
-    const progress = length <= 1 ? 0 : index / (length - 1);
-    const waveA = Math.sin(progress * Math.PI * 2 + phase) * amplitude;
-    const waveB = Math.cos(progress * Math.PI * 3 + phase * 0.7) * amplitude * 0.35;
-    return Math.max(0, Math.round((base + waveA + waveB) * 10) / 10);
-  });
 }

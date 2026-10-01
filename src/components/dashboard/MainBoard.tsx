@@ -3707,6 +3707,17 @@ export function MainBoard() {
     () => createConsumptionDashboardData(consumptionConfig, haStates),
     [consumptionConfig, haStates],
   );
+  const canManageEnergy = dashboardSecurity.can('manage_energy');
+  const energyPageContext = useMemo(
+    () => ({
+      callApi: callHaApi,
+      mode: effectiveRuntimeMode,
+      connected: isHaConnected,
+      canManage: canManageEnergy,
+      haStates,
+    }),
+    [callHaApi, canManageEnergy, effectiveRuntimeMode, haStates, isHaConnected],
+  );
   const activeWidget = selectedWidget;
   const activeWidgetSecrets = useWidgetSecrets(activeWidget?.id);
   const mainGuidedSetupContent = useMemo(() => createMainGuidedSetupContent(t), [t]);
@@ -11214,6 +11225,7 @@ export function MainBoard() {
                 selectedCardId={selectedConsumptionCardId}
                 data={consumptionData}
                 config={consumptionConfig}
+                energy={energyPageContext}
                 onDetailViewChange={setIsConsumptionDetailView}
                 onSelectCard={(cardId) => {
                   if (!isEditMode) {

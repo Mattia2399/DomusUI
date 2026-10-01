@@ -2,18 +2,18 @@ import React from 'react';
 import { BarChart3, Bolt, Droplets, Flame, FlaskConical, Gauge, Leaf, MoreHorizontal, Radio } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { GuidedSetupOverlay, type GuidedSetupStep } from '../components/settings/GuidedSetupOverlay';
-import type {
-  ConsumptionCardId,
-  ConsumptionDashboardData,
-  ConsumptionEntityConfig,
+import {
+  DEFAULT_DASHBOARD_DATA,
+  type ConsumptionCardId,
+  type ConsumptionDashboardData,
+  type ConsumptionEntityConfig,
 } from '../hooks/useConsumptionConfig';
 import { AcquaDetail } from './consumi/AcquaDetail';
 import { EnergiaDetail } from './consumi/EnergiaDetail';
+import type { EnergyPageContext } from './consumi/energy/useEnergyCore';
 import { GasDetail } from './consumi/GasDetail';
 import { ReportDetail } from './consumi/ReportDetail';
 import type { IntervalKey } from './consumi/shared';
-import { isOnboardingCompleted, markOnboardingCompleted } from '../services/onboardingStorage';
 
 type Props = {
   embedded?: boolean;
@@ -26,6 +26,8 @@ type Props = {
   selectedCardId?: ConsumptionCardId | null;
   onSelectCard?: (cardId: ConsumptionCardId) => void;
   onDetailViewChange?: (isDetailView: boolean) => void;
+  /** Home Assistant access for the Domus Energy subpage. */
+  energy?: EnergyPageContext;
 };
 
 type ActiveView = 'overview' | ConsumptionCardId;
@@ -215,22 +217,6 @@ const DEFAULT_CARD_ROUTES: Record<ConsumptionCardId, string> = {
   trend: '/consumi/report',
 };
 
-const DEFAULT_DATA: ConsumptionDashboardData = {
-  solarPowerKw: 5.0,
-  gridPowerKw: 2.5,
-  homePowerKw: 2.5,
-  batterySocPct: 60,
-  batteryPowerKw: 0.5,
-  evSocPct: 45,
-  evPowerKw: 0,
-  solarMixPct: 70,
-  waterCurrentLiters: 240,
-  waterGoalLiters: 400,
-  waterRainRecoveryLitersPerMin: 4.2,
-  gasTodayCubicMeters: 1.2,
-  weeklyTrendPoints: [46, 54, 48, 66, 60, 72, 68],
-};
-
 const FALLBACK_SEGMENT_CARD: Record<string, ConsumptionCardId> = {
   energia: 'electricity',
   elettricita: 'electricity',
@@ -249,29 +235,6 @@ const DETAIL_INTERVAL_DEFAULT: Record<ConsumptionCardId, IntervalKey> = {
   gas: '24H',
   trend: '30G',
 };
-
-const ENERGY_GUIDE_STORAGE_KEY = 'ha.dashboard.onboarding.energy.v1';
-const ENERGY_GUIDE_STEPS: GuidedSetupStep[] = [
-  {
-    title: 'Panoramica energia',
-    description:
-      'Questa vista mostra produzione, rete, accumulo e consumi in tempo reale con indicatori rapidi di efficienza.',
-    icon: Bolt,
-  },
-  {
-    title: 'Dettagli e confronto',
-    description:
-      'Apri la card Energia per entrare nel dettaglio e analizzare andamento, trend e costi stimati della giornata.',
-    icon: BarChart3,
-  },
-  {
-    title: 'Configurazione guidata sensori',
-    description:
-      'In modalita edit puoi associare le entita Home Assistant per alimentare il pannello con i tuoi dati reali.',
-    hint: 'La configurazione del pannello consumi si salva automaticamente.',
-    icon: Gauge,
-  },
-];
 
 function cn(...values: Array<string | false | null | undefined>) {
   return twMerge(clsx(values));
@@ -499,8 +462,9 @@ export function ConsumptionDashboardPage({
   selectedCardId = null,
   onSelectCard,
   onDetailViewChange,
+  energy,
 }: Props) {
-  const dashboardData = data ?? DEFAULT_DATA;
+  const dashboardData = data ?? DEFAULT_DASHBOARD_DATA;
 
   const cardTitles = DEFAULT_CARD_TITLES;
   const routesByCard = DEFAULT_CARD_ROUTES;
@@ -514,27 +478,6 @@ export function ConsumptionDashboardPage({
 
   const [detailIntervals, setDetailIntervals] =
     React.useState<Record<ConsumptionCardId, IntervalKey>>(DETAIL_INTERVAL_DEFAULT);
-  const [isEnergyGuideCompleted, setIsEnergyGuideCompleted] = React.useState(() =>
-    isOnboardingCompleted(ENERGY_GUIDE_STORAGE_KEY),
-  );
-  const shouldShowEnergyGuide = activeView === 'electricity' && !isEditMode && !isEnergyGuideCompleted;
-
-  const dismissEnergyGuide = React.useCallback(() => {
-    markOnboardingCompleted(ENERGY_GUIDE_STORAGE_KEY);
-    setIsEnergyGuideCompleted(true);
-  }, []);
-
-  const todayLabel = React.useMemo(
-    () =>
-      new Intl.DateTimeFormat('it-IT', {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-      }).format(new Date()),
-    [],
-  );
-
   const overviewRoute = React.useMemo(() => {
     if (typeof window === 'undefined') {
       return '/consumi';
@@ -826,16 +769,7 @@ export function ConsumptionDashboardPage({
     const onIntervalChange = (value: IntervalKey) => setIntervalForCard(activeView, value);
 
     if (activeView === 'electricity') {
-      return (
-        <EnergiaDetail
-          title={title}
-          interval={interval}
-          onIntervalChange={onIntervalChange}
-          onBack={handleBackToOverview}
-          dashboardData={dashboardData}
-          config={config}
-        />
-      );
+      return <EnergiaDetail title={title} onBack={handleBackToOverview} energy={energy} />;
     }
     if (activeView === 'water') {
       return (
@@ -867,7 +801,7 @@ export function ConsumptionDashboardPage({
         onBack={handleBackToOverview}
       />
     );
-  }, [activeView, cardTitles, config, dashboardData, detailIntervals, handleBackToOverview, setIntervalForCard]);
+  }, [activeView, cardTitles, config, dashboardData, detailIntervals, energy, handleBackToOverview, setIntervalForCard]);
 
   return (
     <div className={cn('relative h-full w-full overflow-hidden text-[color:var(--ui-text-primary)]', embedded ? '' : 'min-h-screen')}>
@@ -965,17 +899,6 @@ export function ConsumptionDashboardPage({
           detailContent
         )}
       </div>
-
-      <GuidedSetupOverlay
-        isOpen={shouldShowEnergyGuide}
-        tag="Pannello energia"
-        heading="Configurazione guidata energia"
-        description="Impara a leggere i flussi energetici e collega i sensori necessari per ottenere dati reali."
-        steps={ENERGY_GUIDE_STEPS}
-        onDismiss={dismissEnergyGuide}
-        completeLabel="Inizia monitoraggio"
-        skipLabel="Chiudi"
-      />
     </div>
   );
 }

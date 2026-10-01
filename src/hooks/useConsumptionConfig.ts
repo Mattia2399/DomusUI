@@ -246,4 +246,4 @@ export function useConsumptionConfig() {
   };
 }
 
-export { DEFAULT_CONSUMPTION_CONFIG };
+export { DEFAULT_CONSUMPTION_CONFIG, DEFAULT_DASHBOARD_DATA };

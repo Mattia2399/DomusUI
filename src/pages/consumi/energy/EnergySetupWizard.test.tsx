@@ -7,6 +7,7 @@ import type {
   EnergyProfileModules,
   EnergyState,
 } from '../../../services/energyCoreClient';
+import { EnergiaDetail } from '../EnergiaDetail';
 import EnergySetupWizard from './EnergySetupWizard';
 
 afterEach(cleanup);
@@ -216,5 +217,37 @@ describe('Energy setup wizard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
     expect(await screen.findByText(/Serve un amministratore/)).not.toBeNull();
     expect(screen.getByText('Nessun modulo: Domus Energy risulterà non configurato.')).not.toBeNull();
+  });
+});
+
+describe('Energy page lifecycle', () => {
+  it('moves from no profile to a configured home and back without reloading', async () => {
+    const backend = createBackend({}, { ...DISCOVERY, requires_input: [] });
+    render(
+      <EnergiaDetail
+        title="Dettaglio Energia"
+        onBack={vi.fn()}
+        energy={{ callApi: backend.callApi, mode: 'real', connected: true, canManage: true, haStates: {} }}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /Avvia rilevamento/ }));
+    await screen.findByText('Associazioni affidabili proposte');
+    next();
+    next();
+    next();
+    fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
+
+    expect(await screen.findByText(/Impianto salvato/)).not.toBeNull();
+    expect(await screen.findByRole('region', { name: 'Il tuo impianto' })).not.toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Modifica impianto/ }));
+    fireEvent.click(within(await screen.findByText('Fotovoltaico', { selector: 'fieldset p' }).then((node) => node.closest('fieldset') as HTMLElement)).getByRole('button', { name: 'Fotovoltaico: presente' }));
+    next();
+    next();
+    fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
+
+    expect(await screen.findByText('Configura Domus Energy')).not.toBeNull();
+    expect(backend.saves.map((save) => Object.keys(save.modules))).toEqual([['solar'], []]);
   });
 });
