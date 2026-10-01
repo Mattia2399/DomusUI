@@ -20,6 +20,8 @@ type MembersLocationMapProps = {
   theme: DashboardAppearance;
 };
 
+const MEMBERS_MAP_LOAD_TIMEOUT_MS = 15_000;
+
 const MEMBERS_MAP_LIGHT_STYLE_URL = new URL(
   '../../assets/map-styles/members-light.style.json',
   import.meta.url,
@@ -74,6 +76,19 @@ export function buildMembersMapInitialViewState(points: MembersMapPoint[]): Memb
   };
 }
 
+export function buildMembersMapRenderKey(points: MembersMapPoint[]) {
+  return JSON.stringify(
+    points.map((point) => [
+      point.personEntityId,
+      point.latitude.toFixed(5),
+      point.longitude.toFixed(5),
+      point.isCurrent === true,
+      point.name,
+      point.avatarUrl ?? '',
+    ]),
+  );
+}
+
 export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -81,19 +96,20 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
   const [runtimeError, setRuntimeError] = useState<Error | null>(null);
   const [isReady, setIsReady] = useState(false);
   const mapStyleUrl = theme === 'light' ? MEMBERS_MAP_LIGHT_STYLE_URL : MEMBERS_MAP_DARK_STYLE_URL;
-  const currentMember = useMemo(
-    () => points.find((point) => point.isCurrent === true) ?? null,
-    [points],
+  const renderKey = buildMembersMapRenderKey(points);
+  // Home Assistant replaces its state map for every event. Keep one immutable
+  // map snapshot while the values that affect markers and viewport are equal,
+  // otherwise an unrelated entity update would destroy a map that is loading.
+  const mapSnapshot = useMemo(
+    () => ({
+      points,
+      initialViewState: buildMembersMapInitialViewState(points),
+    }),
+    [renderKey],
   );
-  const initialViewState = useMemo(() => buildMembersMapInitialViewState(points), [points]);
-  const renderKey = useMemo(
-    () => points
-      .map(
-        (point) =>
-          `${point.personEntityId}:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}:${point.isCurrent ? '1' : '0'}`,
-      )
-      .join('|'),
-    [points],
+  const currentMember = useMemo(
+    () => mapSnapshot.points.find((point) => point.isCurrent === true) ?? null,
+    [mapSnapshot],
   );
   const centerOnCurrentMember = useCallback(() => {
     if (!currentMember) {
@@ -121,6 +137,7 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
     let cancelled = false;
     let map: MapLibreMap | null = null;
     let resizeFrame: number | undefined;
+    let loadTimeout: number | undefined;
     const markers: MapLibreMarker[] = [];
     const markerRoots: Root[] = [];
     setRuntimeError(null);
@@ -143,17 +160,17 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
           minZoom: 2,
           maxZoom: 17,
         };
-        if ('bounds' in initialViewState) {
-          options.bounds = initialViewState.bounds;
-          options.fitBoundsOptions = initialViewState.fitBoundsOptions;
+        if ('bounds' in mapSnapshot.initialViewState) {
+          options.bounds = mapSnapshot.initialViewState.bounds;
+          options.fitBoundsOptions = mapSnapshot.initialViewState.fitBoundsOptions;
         } else {
-          options.center = [initialViewState.longitude, initialViewState.latitude];
-          options.zoom = initialViewState.zoom;
+          options.center = [mapSnapshot.initialViewState.longitude, mapSnapshot.initialViewState.latitude];
+          options.zoom = mapSnapshot.initialViewState.zoom;
         }
 
         map = new maplibre.Map(options);
         mapRef.current = map;
-        points.forEach((point) => {
+        mapSnapshot.points.forEach((point) => {
           const markerElement = document.createElement('div');
           const markerRoot = createRoot(markerElement);
           markerRoot.render(<MemberLocationMarker point={point} />);
@@ -167,10 +184,19 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
 
         map.once('load', () => {
           if (!cancelled) {
+            if (loadTimeout !== undefined) {
+              window.clearTimeout(loadTimeout);
+              loadTimeout = undefined;
+            }
             map?.resize();
             setIsReady(true);
           }
         });
+        loadTimeout = window.setTimeout(() => {
+          if (!cancelled) {
+            setRuntimeError(new Error('Members location map did not finish loading.'));
+          }
+        }, MEMBERS_MAP_LOAD_TIMEOUT_MS);
         resizeFrame = window.requestAnimationFrame(() => map?.resize());
       })
       .catch((error: unknown) => {
@@ -184,6 +210,9 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
       if (resizeFrame !== undefined) {
         window.cancelAnimationFrame(resizeFrame);
       }
+      if (loadTimeout !== undefined) {
+        window.clearTimeout(loadTimeout);
+      }
       markers.forEach((marker) => marker.remove());
       markerRoots.forEach((root) => root.unmount());
       map?.remove();
@@ -191,7 +220,7 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
         mapRef.current = null;
       }
     };
-  }, [initialViewState, mapStyleUrl, points, renderKey]);
+  }, [mapSnapshot, mapStyleUrl]);
 
   if (runtimeError) {
     throw runtimeError;

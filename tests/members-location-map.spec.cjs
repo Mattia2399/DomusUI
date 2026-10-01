@@ -218,6 +218,34 @@ test('Members Card loads MapLibre only when opening the person location panel', 
     () => requestedScripts.some((url) => /MembersLocationMap|react-maplibre|maplibre-gl/i.test(url)),
   ).toBe(true);
 
+  const originalCanvasContainer = await panel.locator('.maplibregl-canvas-container').elementHandle();
+  expect(originalCanvasContainer).not.toBeNull();
+  await page.evaluate(({ ownerId }) => {
+    const frame = document.querySelector('iframe[title="Home Assistant panel"]');
+    frame?.contentWindow?.postMessage({
+      type: 'ha-panel-state-changed',
+      entityId: 'person.mattia',
+      state: {
+        entity_id: 'person.mattia',
+        state: 'not_home',
+        attributes: {
+          friendly_name: 'Mattia',
+          user_id: ownerId,
+          latitude: 41.9028,
+          longitude: 12.4964,
+          gps_accuracy: 8,
+        },
+        last_changed: new Date().toISOString(),
+        last_updated: new Date().toISOString(),
+      },
+    }, window.location.origin);
+  }, { ownerId });
+  await expect(panel.getByText('Fuori casa')).toBeVisible();
+  expect(await originalCanvasContainer.evaluate((element) => element.isConnected)).toBe(true);
+  await expect(
+    panel.locator('.maplibregl-map').locator('..').locator('[aria-busy="true"]'),
+  ).toHaveCount(0);
+
   await page.evaluate(({ ownerId }) => {
     const frame = document.querySelector('iframe[title="Home Assistant panel"]');
     frame?.contentWindow?.postMessage({
@@ -240,6 +268,12 @@ test('Members Card loads MapLibre only when opening the person location panel', 
   }, { ownerId });
   await expect(panel.getByText('Fuori casa')).toBeVisible();
   await expect(panel.locator('.maplibregl-marker')).toHaveCount(2);
+  await expect.poll(
+    () => originalCanvasContainer.evaluate((element) => element.isConnected),
+  ).toBe(false);
+  await expect(
+    panel.locator('.maplibregl-map').locator('..').locator('[aria-busy="true"]'),
+  ).toHaveCount(0);
 
   expect(failedLocalRequests).toEqual([]);
   expect(pageErrors).toEqual([]);
