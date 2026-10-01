@@ -9,6 +9,7 @@ import {
 const STRUCTURAL_CAPABILITIES: DashboardCapability[] = [
   'edit_dashboard', 'manage_rooms', 'manage_security_config', 'download_backup',
   'restore_backup', 'reset_dashboard', 'developer_mode', 'restart_home_assistant',
+  'manage_energy',
 ];
 
 describe('dashboard capability policy', () => {
@@ -43,6 +44,7 @@ describe('dashboard capability policy', () => {
     expect(security.can('manage_rooms')).toBe(false);
     expect(security.can('manage_security_config')).toBe(false);
     expect(security.can('restart_home_assistant')).toBe(false);
+    expect(security.can('manage_energy')).toBe(false);
   });
 
   it('classifies administrative mutations separately from reads and entity commands', () => {
@@ -50,6 +52,10 @@ describe('dashboard capability policy', () => {
     expect(isDashboardAdministrativeApiMessage({ type: 'frontend/set_system_data' })).toBe(true);
     expect(isDashboardAdministrativeApiMessage({ type: 'frontend/get_system_data' })).toBe(false);
     expect(isDashboardAdministrativeApiMessage({ type: 'config/area_registry/list' })).toBe(false);
+    expect(isDashboardAdministrativeApiMessage({ type: 'domusos/energy/save_profile' })).toBe(true);
+    expect(isDashboardAdministrativeApiMessage({ type: 'domusos/energy/discover' })).toBe(true);
+    expect(isDashboardAdministrativeApiMessage({ type: 'domusos/energy/get_profile' })).toBe(true);
+    expect(isDashboardAdministrativeApiMessage({ type: 'domusos/energy/get_state' })).toBe(false);
     expect(isDashboardRestartService('homeassistant', 'restart')).toBe(true);
     expect(isDashboardRestartService('homeassistant', 'update_entity')).toBe(false);
   });

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { HA_PANEL_ALLOWED_API_TYPES } from '../hooks/useHaPanelBridgeConnection';
 
 const PANEL_ELEMENT_NAME = 'ha-dashboard-builder-panel';
 
@@ -67,5 +68,52 @@ describe('Home Assistant panel distribution contract', () => {
     expect(bridge).not.toContain('window.history.replaceState');
     expect(bridge).not.toContain('location-changed');
     expect(viteConfig).toContain("fileName: 'ha-dashboard-builder-panel.js'");
+  });
+
+  it('allowlists exactly the Energy commands in both bridge halves', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = [...bridge.matchAll(/"(domusos\/energy\/[a-z_]+)"/g)].map((match) => match[1]);
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/energy/'));
+
+    expect(new Set(hostTypes)).toEqual(new Set(appTypes));
+    expect(appTypes.sort()).toEqual([
+      'domusos/energy/discover',
+      'domusos/energy/get_profile',
+      'domusos/energy/get_state',
+      'domusos/energy/save_profile',
+    ]);
+    expect(bridge).toContain('"energy_core"');
+  });
+
+  it('validates Energy message shapes in the HACS host script', () => {
+    const bridge = readPanelBridgeSource();
+    const pick = (pattern: RegExp) => {
+      const match = bridge.match(pattern);
+      if (!match) throw new Error(`Host bridge fragment not found: ${pattern}`);
+      return match[0];
+    };
+    const source = [
+      pick(/const isRecord = [^\r\n]+\r?\n/),
+      pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
+      pick(/const ENERGY_SAVE_KEYS = [^\r\n]+\r?\n/),
+      pick(/const isValidEnergyMessage = [\s\S]*?\r?\n};\r?\n/),
+    ].join('');
+    const isValidEnergyMessage = new Function(`${source}return isValidEnergyMessage;`)() as (
+      message: Record<string, unknown>,
+    ) => boolean;
+    const save = {
+      type: 'domusos/energy/save_profile',
+      profile: { modules: {} },
+      expected_revision: 0,
+    };
+
+    expect(isValidEnergyMessage({ type: 'domusos/energy/get_state' })).toBe(true);
+    expect(isValidEnergyMessage({ type: 'domusos/energy/discover', scope: 'all' })).toBe(false);
+    expect(isValidEnergyMessage(save)).toBe(true);
+    expect(isValidEnergyMessage({ ...save, expected_revision: null })).toBe(true);
+    expect(isValidEnergyMessage({ ...save, expected_revision: -2 })).toBe(false);
+    expect(isValidEnergyMessage({ ...save, profile: null })).toBe(false);
+    expect(isValidEnergyMessage({ ...save, extra: 1 })).toBe(false);
+    expect(bridge).toMatch(/if \(message\.type\.startsWith\("domusos\/energy\/"\)\) \{\s+return isValidEnergyMessage\(message\);/);
   });
 });

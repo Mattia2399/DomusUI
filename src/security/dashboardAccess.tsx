@@ -13,7 +13,8 @@ export type DashboardCapability =
   | 'restore_backup'
   | 'reset_dashboard'
   | 'developer_mode'
-  | 'restart_home_assistant';
+  | 'restart_home_assistant'
+  | 'manage_energy';
 
 export type DashboardAccessUser = {
   id: string;
@@ -43,6 +44,7 @@ const ALL_CAPABILITIES: DashboardCapability[] = [
   'reset_dashboard',
   'developer_mode',
   'restart_home_assistant',
+  'manage_energy',
 ];
 
 const DEMO_CAPABILITIES = new Set<DashboardCapability>([
@@ -66,6 +68,10 @@ const ADMINISTRATIVE_API_TYPES = new Set([
   'frontend/set_system_data',
   'person/update',
   'person/create',
+  // Reading the Energy state is open; discovery and profiles are administrative.
+  'domusos/energy/discover',
+  'domusos/energy/get_profile',
+  'domusos/energy/save_profile',
 ]);
 
 export function isDashboardAdministrativeApiMessage(message: Record<string, unknown>) {

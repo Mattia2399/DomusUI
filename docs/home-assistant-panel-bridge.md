@@ -17,6 +17,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "revision_history",
   "dashboard_reset_marker",
   "irrigation_core",
+  "energy_core",
   "calendar_v1",
   "host_navigation",
   "person_links",
@@ -44,6 +45,8 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/irrigation/start_zone", "domusos/irrigation/stop_zone",
   "domusos/irrigation/pause", "domusos/irrigation/resume",
   "domusos/irrigation/stop_all", "domusos/irrigation/prepare_legacy_removal",
+  "domusos/energy/get_state", "domusos/energy/discover",
+  "domusos/energy/get_profile", "domusos/energy/save_profile",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -196,8 +199,27 @@ const isValidPersonUpdate = (message) => {
       !message.device_trackers.every((entity) => typeof entity === "string" && /^device_tracker\.[a-z0-9_]+$/.test(entity))) return false;
   return message.picture === null || (typeof message.picture === "string" && message.picture.length <= 2048);
 };
+const ENERGY_SAVE_KEYS = ["type", "profile", "expected_revision"];
+// Energy commands carry no parameters, except an exact-shape profile save.
+// Home Assistant still enforces administrator rights on discovery and profiles.
+const isValidEnergyMessage = (message) => {
+  if (message.type !== "domusos/energy/save_profile") {
+    return Object.keys(message).every((key) => key === "type");
+  }
+  if (!hasExactKeys(message, ENERGY_SAVE_KEYS) || !isRecord(message.profile) || !isRecord(message.profile.modules)) return false;
+  const revision = message.expected_revision;
+  if (revision !== null && (!Number.isInteger(revision) || revision < 0)) return false;
+  try {
+    return JSON.stringify(message.profile).length <= 20_000;
+  } catch {
+    return false;
+  }
+};
 const isValidWsMessage = (message) => {
   if (!isRecord(message) || typeof message.type !== "string" || !ALLOWED_WS_TYPES.has(message.type)) return false;
+  if (message.type.startsWith("domusos/energy/")) {
+    return isValidEnergyMessage(message);
+  }
   if (message.type === "get_panels") {
     return Object.keys(message).every((key) => key === "type");
   }

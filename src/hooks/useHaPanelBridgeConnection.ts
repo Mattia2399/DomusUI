@@ -103,6 +103,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'revision_history',
   'dashboard_reset_marker',
   'irrigation_core',
+  'energy_core',
   'calendar_v1',
   'host_navigation',
   'person_links',
@@ -173,6 +174,10 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/irrigation/resume',
   'domusos/irrigation/stop_all',
   'domusos/irrigation/prepare_legacy_removal',
+  'domusos/energy/get_state',
+  'domusos/energy/discover',
+  'domusos/energy/get_profile',
+  'domusos/energy/save_profile',
   'calendar/event/subscribe',
   'calendar/event/create',
   'calendar/event/update',
@@ -259,9 +264,33 @@ export function validatePanelServiceRequest(
   );
 }
 
+const ENERGY_SAVE_KEYS = ['type', 'profile', 'expected_revision'];
+
+/** Energy commands carry no parameters, except an exact-shape profile save. */
+export function isValidEnergyMessage(message: Record<string, unknown>) {
+  if (message.type !== 'domusos/energy/save_profile') {
+    return Object.keys(message).every((key) => key === 'type');
+  }
+  if (!hasExactKeys(message, ENERGY_SAVE_KEYS) || !isRecord(message.profile) || !isRecord(message.profile.modules)) {
+    return false;
+  }
+  const revision = message.expected_revision;
+  if (revision !== null && (typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0)) {
+    return false;
+  }
+  try {
+    return JSON.stringify(message.profile).length <= 20_000;
+  } catch {
+    return false;
+  }
+}
+
 export function validatePanelApiMessage(message: unknown): message is Record<string, unknown> {
   if (!isRecord(message) || typeof message.type !== 'string' || !HA_PANEL_ALLOWED_API_TYPES.has(message.type)) {
     return false;
+  }
+  if (message.type.startsWith('domusos/energy/')) {
+    return isValidEnergyMessage(message);
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});

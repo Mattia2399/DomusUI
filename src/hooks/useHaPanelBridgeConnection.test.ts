@@ -153,6 +153,32 @@ describe('Home Assistant panel bridge schema', () => {
     expect(validatePanelApiMessage({ type: 'call_service', domain: 'light!', service: 'turn_on' })).toBe(false);
   });
 
+  it('allows only the four Energy commands with their exact shapes', () => {
+    for (const type of ['get_state', 'discover', 'get_profile']) {
+      expect(validatePanelApiMessage({ type: `domusos/energy/${type}` })).toBe(true);
+      expect(validatePanelApiMessage({ type: `domusos/energy/${type}`, entity_id: 'sensor.x' })).toBe(false);
+    }
+    const save = {
+      type: 'domusos/energy/save_profile',
+      profile: { modules: { solar: { sensors: { production_power: 'sensor.pv' } } } },
+      expected_revision: 3,
+    };
+    expect(validatePanelApiMessage(save)).toBe(true);
+    expect(validatePanelApiMessage({ ...save, expected_revision: null })).toBe(true);
+    expect(validatePanelApiMessage({ ...save, expected_revision: -1 })).toBe(false);
+    expect(validatePanelApiMessage({ ...save, expected_revision: 1.5 })).toBe(false);
+    expect(validatePanelApiMessage({ ...save, profile: { modules: [] } })).toBe(false);
+    expect(validatePanelApiMessage({ ...save, migrate: true })).toBe(false);
+    const { expected_revision: _omitted, ...withoutRevision } = save;
+    expect(validatePanelApiMessage(withoutRevision)).toBe(false);
+    expect(validatePanelApiMessage({
+      ...save,
+      profile: { modules: { grid: { sensors: { net_power: 'x'.repeat(20_001) } } } },
+    })).toBe(false);
+    expect(validatePanelApiMessage({ type: 'domusos/energy/control_inverter' })).toBe(false);
+    expect(validatePanelApiMessage({ type: 'domusos/energy/subscribe' })).toBe(false);
+  });
+
   it('rejects malformed response correlation ids', () => {
     expect(isValidPanelRequestId('ha-panel-call-api-1720000000000-abc123')).toBe(true);
     expect(isValidPanelRequestId('other-1720000000000-abc123')).toBe(false);
@@ -173,6 +199,7 @@ describe('Home Assistant panel bridge schema', () => {
       'revision_history',
       'dashboard_reset_marker',
       'irrigation_core',
+      'energy_core',
       'calendar_v1',
       'host_navigation',
       'person_links',
@@ -180,7 +207,7 @@ describe('Home Assistant panel bridge schema', () => {
       'person_picture',
       'unknown_capability',
       42,
-    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'calendar_v1', 'host_navigation', 'person_links', 'person_create', 'person_picture']);
+    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'energy_core', 'calendar_v1', 'host_navigation', 'person_links', 'person_create', 'person_picture']);
     expect(parsePanelBridgeCapabilities(null)).toEqual([]);
   });
 
