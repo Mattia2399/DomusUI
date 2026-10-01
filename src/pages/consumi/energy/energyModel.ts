@@ -64,6 +64,19 @@ export const MODULE_META: Record<EnergyModuleId, EnergyModuleMeta> = {
   },
 };
 
+/** Design-system class sets shared by the Energy page and its setup wizard. */
+export const UI = {
+  button: 'liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold disabled:opacity-40',
+  primary: 'glass-button glass-button-primary inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold disabled:opacity-40',
+  chip: 'liquid-glass-control inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs',
+  card: 'rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-3',
+  title: 'font-semibold text-[color:var(--ui-text-primary)]',
+  body: 'text-sm text-[color:var(--ui-text-secondary)]',
+  muted: 'text-xs text-[color:var(--ui-text-tertiary)]',
+  spin: 'h-4 w-4 animate-spin motion-reduce:animate-none',
+  stage: 'rounded-[1.5rem] bg-[#07131f] bg-[radial-gradient(circle_at_50%_42%,rgba(56,189,248,0.16)_0%,#07131f_72%)]',
+};
+
 /** Flows below this magnitude are shown as idle rather than animated. */
 const FLOW_THRESHOLD_W = 10;
 
