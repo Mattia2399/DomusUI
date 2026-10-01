@@ -186,10 +186,26 @@ test('Members Card loads MapLibre only when opening the person location panel', 
   test.setTimeout(120000);
   await page.setViewportSize({ width: 1440, height: 960 });
   const requestedScripts = [];
+  const cartoRequests = [];
+  const cartoResponses = [];
+  const workerRequests = [];
+  const cartoConsoleErrors = [];
   const failedLocalRequests = [];
   const pageErrors = [];
   page.on('request', (request) => {
     if (request.resourceType() === 'script') requestedScripts.push(request.url());
+    if (/\.basemaps\.cartocdn\.com/i.test(request.url())) cartoRequests.push(request.url());
+    if (/maplibre-gl-worker/i.test(request.url())) workerRequests.push(request.url());
+  });
+  page.on('response', (response) => {
+    if (/\.basemaps\.cartocdn\.com/i.test(response.url())) {
+      cartoResponses.push({ url: response.url(), status: response.status() });
+    }
+  });
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /cartocdn|content security policy/i.test(message.text())) {
+      cartoConsoleErrors.push(message.text());
+    }
   });
   page.on('requestfailed', (request) => {
     if (request.url().startsWith(process.env.TEST_BASE_URL || 'http://127.0.0.1:3000')) {
@@ -214,6 +230,18 @@ test('Members Card loads MapLibre only when opening the person location panel', 
   await expect(
     panel.locator('.maplibregl-map').locator('..').locator('[aria-busy="true"]'),
   ).toHaveCount(0);
+  await expect.poll(
+    () => cartoRequests.some((url) => /\/vectortiles\/carto\.streets\/v1\/\d+\/\d+\/\d+\.mvt/i.test(url)),
+  ).toBe(true);
+  await expect.poll(
+    () => cartoResponses.some(({ url, status }) => (
+      /\/vectortiles\/carto\.streets\/v1\/\d+\/\d+\/\d+\.mvt/i.test(url) && status === 200
+    )),
+  ).toBe(true);
+  await expect.poll(() => workerRequests.length).toBeGreaterThan(0);
+  expect(cartoRequests.every((url) => new URL(url).hostname === 'tiles.basemaps.cartocdn.com')).toBe(true);
+  expect(cartoResponses.every(({ status }) => status >= 200 && status < 400)).toBe(true);
+  expect(cartoRequests.some((url) => /\/vector\/carto\.streets\/v1\/tiles\.json/i.test(url))).toBe(false);
   await expect.poll(
     () => requestedScripts.some((url) => /MembersLocationMap|react-maplibre|maplibre-gl/i.test(url)),
   ).toBe(true);
@@ -277,6 +305,7 @@ test('Members Card loads MapLibre only when opening the person location panel', 
 
   expect(failedLocalRequests).toEqual([]);
   expect(pageErrors).toEqual([]);
+  expect(cartoConsoleErrors).toEqual([]);
 });
 
 test('Members Card arrow opens People and access without loading MapLibre', async ({ page }) => {

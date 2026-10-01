@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { LocateFixed } from 'lucide-react';
-import type { Map as MapLibreMap, MapOptions, Marker as MapLibreMarker } from 'maplibre-gl';
+import type {
+  ErrorEvent as MapLibreErrorEvent,
+  Map as MapLibreMap,
+  MapOptions,
+  Marker as MapLibreMarker,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
@@ -94,6 +99,7 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const [runtimeError, setRuntimeError] = useState<Error | null>(null);
+  const [recoverableError, setRecoverableError] = useState<Error | null>(null);
   const [isReady, setIsReady] = useState(false);
   const mapStyleUrl = theme === 'light' ? MEMBERS_MAP_LIGHT_STYLE_URL : MEMBERS_MAP_DARK_STYLE_URL;
   const renderKey = buildMembersMapRenderKey(points);
@@ -138,9 +144,13 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
     let map: MapLibreMap | null = null;
     let resizeFrame: number | undefined;
     let loadTimeout: number | undefined;
+    let styleLoaded = false;
+    let renderedAfterStyleLoad = false;
+    let pendingMapError: Error | null = null;
     const markers: MapLibreMarker[] = [];
     const markerRoots: Root[] = [];
     setRuntimeError(null);
+    setRecoverableError(null);
     setIsReady(false);
 
     void import('./maplibreRuntime')
@@ -170,6 +180,72 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
 
         map = new maplibre.Map(options);
         mapRef.current = map;
+
+        const clearLoadTimeout = () => {
+          if (loadTimeout !== undefined) {
+            window.clearTimeout(loadTimeout);
+            loadTimeout = undefined;
+          }
+        };
+        const markMapUsable = () => {
+          if (cancelled || !styleLoaded || !renderedAfterStyleLoad) {
+            return;
+          }
+          clearLoadTimeout();
+          map?.resize();
+          setIsReady(true);
+          if (pendingMapError) {
+            setRecoverableError((current) =>
+              current?.message === pendingMapError?.message ? current : pendingMapError,
+            );
+          }
+        };
+        const handleMapError = (event: MapLibreErrorEvent) => {
+          const error = event.error instanceof Error
+            ? event.error
+            : new Error(event.error?.message || 'Members location map resource failed to load.');
+          pendingMapError = error;
+          if (styleLoaded && renderedAfterStyleLoad) {
+            clearLoadTimeout();
+            setIsReady(true);
+            setRecoverableError((current) => current?.message === error.message ? current : error);
+          }
+        };
+        const handleFullyLoaded = () => {
+          if (cancelled) {
+            return;
+          }
+          clearLoadTimeout();
+          pendingMapError = null;
+          setRecoverableError(null);
+          setIsReady(true);
+        };
+
+        map.on('style.load', () => {
+          styleLoaded = true;
+        });
+        map.on('render', () => {
+          if (styleLoaded) {
+            renderedAfterStyleLoad = true;
+          }
+          markMapUsable();
+        });
+        map.on('error', handleMapError);
+        map.on('load', handleFullyLoaded);
+        map.on('idle', handleFullyLoaded);
+        map.on('webglcontextlost', () => {
+          if (!cancelled) {
+            setRecoverableError(new Error('Members location map lost its WebGL context.'));
+          }
+        });
+        map.on('webglcontextrestored', () => {
+          if (!cancelled) {
+            map?.resize();
+            setRecoverableError(null);
+            setIsReady(true);
+          }
+        });
+
         mapSnapshot.points.forEach((point) => {
           const markerElement = document.createElement('div');
           const markerRoot = createRoot(markerElement);
@@ -182,19 +258,10 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
           );
         });
 
-        map.once('load', () => {
-          if (!cancelled) {
-            if (loadTimeout !== undefined) {
-              window.clearTimeout(loadTimeout);
-              loadTimeout = undefined;
-            }
-            map?.resize();
-            setIsReady(true);
-          }
-        });
         loadTimeout = window.setTimeout(() => {
-          if (!cancelled) {
-            setRuntimeError(new Error('Members location map did not finish loading.'));
+          if (!cancelled && (!styleLoaded || !renderedAfterStyleLoad)) {
+            const detail = pendingMapError ? ` ${pendingMapError.message}` : '';
+            setRuntimeError(new Error(`Members location map could not initialize.${detail}`));
           }
         }, MEMBERS_MAP_LOAD_TIMEOUT_MS);
         resizeFrame = window.requestAnimationFrame(() => map?.resize());
@@ -235,6 +302,14 @@ export function MembersLocationMap({ points, theme }: MembersLocationMapProps) {
           aria-busy="true"
         >
           {t('home.loading.section')}
+        </div>
+      ) : null}
+      {isReady && recoverableError ? (
+        <div
+          role="status"
+          className="pointer-events-none absolute bottom-2 left-2 right-2 z-20 rounded-xl border border-amber-300/25 bg-amber-950/75 px-3 py-2 text-[11px] text-amber-100 shadow-lg backdrop-blur-xl"
+        >
+          {t('context.members.mapPartial')}
         </div>
       ) : null}
       <button

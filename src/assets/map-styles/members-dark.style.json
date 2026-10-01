@@ -7,7 +7,11 @@
   "sources": {
     "carto": {
       "type": "vector",
-      "url": "https://tiles.basemaps.cartocdn.com/vector/carto.streets/v1/tiles.json"
+      "tiles": [
+        "https://tiles.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt"
+      ],
+      "minzoom": 0,
+      "maxzoom": 14
     }
   },
   "sprite": "https://tiles.basemaps.cartocdn.com/gl/dark-matter-gl-style/sprite",

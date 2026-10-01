@@ -28,9 +28,35 @@ describe('Members location map lazy boundary', () => {
     expect(map).toContain("import 'maplibre-gl/dist/maplibre-gl.css'");
 
     const runtime = readSource('src/components/settings/maplibreRuntime.ts');
-    expect(runtime).toContain("import * as maplibre from 'maplibre-gl'");
-    expect(runtime).toContain("import 'maplibre-gl/dist/maplibre-gl-worker.mjs'");
-    expect(runtime).toContain('maplibre.setWorkerUrl(import.meta.url)');
+    expect(runtime).toContain("import { Map, Marker, setWorkerUrl } from 'maplibre-gl'");
+    expect(runtime).toContain("const productionWorkerFileName = './maplibre-gl-worker.js'");
+    expect(runtime).toContain('setWorkerUrl(maplibreWorkerUrl)');
+    expect(runtime).not.toContain('maplibre.setWorkerUrl(import.meta.url)');
+
+    const viteConfig = readSource('vite.config.ts');
+    expect(viteConfig).toContain('node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs');
+    expect(viteConfig).toContain("return 'assets/maplibre-gl-worker.js'");
+  });
+
+  it('keeps every CARTO resource on the production CSP-approved origin', () => {
+    const stylePaths = [
+      'src/assets/map-styles/members-light.style.json',
+      'src/assets/map-styles/members-dark.style.json',
+    ];
+
+    stylePaths.forEach((stylePath) => {
+      const style = JSON.parse(readSource(stylePath)) as {
+        sources: { carto: { url?: string; tiles?: string[] } };
+        sprite: string;
+        glyphs: string;
+      };
+      expect(style.sources.carto.url).toBeUndefined();
+      expect(style.sources.carto.tiles).toEqual([
+        'https://tiles.basemaps.cartocdn.com/vectortiles/carto.streets/v1/{z}/{x}/{y}.mvt',
+      ]);
+      expect(new URL(style.sprite).hostname).toBe('tiles.basemaps.cartocdn.com');
+      expect(new URL(style.glyphs).hostname).toBe('tiles.basemaps.cartocdn.com');
+    });
   });
 
   it('joins map locations through personEntityId without account or name heuristics', () => {

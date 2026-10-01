@@ -12,9 +12,10 @@ const budgets = {
 // The total includes every lazy route and the complete IT/EN/FR catalog. Keep
 // per-chunk limits strict; allow the deliberate multilingual payload globally.
 // The blocking limit includes ~50 KB for the lazily loaded /beta presentation
-// site, which the dashboard never downloads, and ~50 KB (1.3.0) for managing
-// Home Assistant people: link, create, pictures and their IT/EN/FR copy.
-const totalBudget = { warning: 4_800_000, blocking: 5_500_000 };
+// site, ~50 KB (1.3.0) for managing Home Assistant people and the 19 KB
+// executable MapLibre worker entry. The worker used to be absent from the
+// effective bundle, so the old 5.50 MB limit measured a broken map runtime.
+const totalBudget = { warning: 4_800_000, blocking: 5_520_000 };
 
 // Protect the user-visible startup path separately from the broad per-file
 // ceiling. The old 2.9 MB ceiling allowed the entry bundle to regress above
@@ -49,6 +50,14 @@ const criticalChunkBudgets = [
 const homeCriticalPathBudget = {
   raw: { warning: 2_000_000, blocking: 2_100_000 },
   gzip: { warning: 570_000, blocking: 600_000 },
+};
+
+// Measure the complete on-demand members-map path as one de-duplicated graph.
+// This prevents a smaller component chunk from concealing bytes moved into the
+// MapLibre runtime, its shared module, stylesheet or executable worker.
+const membersMapLazyPathBudget = {
+  raw: { warning: 3_850_000, blocking: 3_950_000 },
+  gzip: { warning: 1_080_000, blocking: 1_120_000 },
 };
 
 const formatBytes = (bytes) => `${(bytes / 1_000_000).toFixed(2)} MB`;
@@ -204,6 +213,57 @@ if (!startupEntry || !primaryDashboard) {
       + `${formatBytes(criticalPathRawSize)} raw / ${formatBytes(criticalPathGzipSize)} gzip `
       + `(warning ${formatBytes(homeCriticalPathBudget.raw.warning)} / ${formatBytes(homeCriticalPathBudget.gzip.warning)}, `
       + `limite ${formatBytes(homeCriticalPathBudget.raw.blocking)} / ${formatBytes(homeCriticalPathBudget.gzip.blocking)})`,
+  );
+}
+
+const membersMapJavaScriptRoots = [
+  javascriptFiles.find((file) => /^MembersLocationMap-[A-Za-z0-9_-]+\.js$/.test(file.name)),
+  javascriptFiles.find((file) => /^maplibreRuntime-[A-Za-z0-9_-]+\.js$/.test(file.name)),
+  javascriptFiles.find((file) => file.name === 'maplibre-gl-worker.js'),
+];
+const membersMapStylesheet = measuredFiles.find(
+  (file) => /^MembersLocationMap-[A-Za-z0-9_-]+\.css$/.test(file.name),
+);
+
+if (membersMapJavaScriptRoots.some((file) => !file) || !membersMapStylesheet) {
+  console.error('- [FAIL] Percorso lazy mappa membri: componente, runtime, worker o CSS non trovato');
+  hasBlockingFailure = true;
+} else {
+  const membersMapPathFiles = await collectStaticJavaScriptClosure(
+    membersMapJavaScriptRoots.map((file) => file.name),
+    availableJavaScriptFiles,
+  );
+  let membersMapPathRawSize = membersMapStylesheet.size;
+  let membersMapPathGzipSize = gzipSync(
+    await readFile(path.join(DIST_DIR, ...membersMapStylesheet.name.split('/'))),
+  ).byteLength;
+
+  for (const fileName of membersMapPathFiles) {
+    const contents = await readFile(path.join(DIST_DIR, ...fileName.split('/')));
+    membersMapPathRawSize += contents.byteLength;
+    membersMapPathGzipSize += gzipSync(contents).byteLength;
+  }
+
+  let membersMapPathStatus = 'OK';
+  if (
+    membersMapPathRawSize > membersMapLazyPathBudget.raw.blocking
+    || membersMapPathGzipSize > membersMapLazyPathBudget.gzip.blocking
+  ) {
+    membersMapPathStatus = 'FAIL';
+    hasBlockingFailure = true;
+  } else if (
+    membersMapPathRawSize > membersMapLazyPathBudget.raw.warning
+    || membersMapPathGzipSize > membersMapLazyPathBudget.gzip.warning
+  ) {
+    membersMapPathStatus = 'WARN';
+    hasWarning = true;
+  }
+
+  console.log(
+    `- [${membersMapPathStatus}] Percorso lazy mappa membri (${membersMapPathFiles.size} chunk JS + CSS): `
+      + `${formatBytes(membersMapPathRawSize)} raw / ${formatBytes(membersMapPathGzipSize)} gzip `
+      + `(warning ${formatBytes(membersMapLazyPathBudget.raw.warning)} / ${formatBytes(membersMapLazyPathBudget.gzip.warning)}, `
+      + `limite ${formatBytes(membersMapLazyPathBudget.raw.blocking)} / ${formatBytes(membersMapLazyPathBudget.gzip.blocking)})`,
   );
 }
 

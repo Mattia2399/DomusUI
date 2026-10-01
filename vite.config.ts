@@ -57,7 +57,26 @@ export default defineConfig(({ mode }) => {
   optimizeDeps: {
     // Pre-bundle the runtime hidden behind the members-map lazy boundary so
     // opening it for the first time never forces a Vite full-page reload.
-    include: ['maplibre-gl', 'maplibre-gl/dist/maplibre-gl-worker.mjs'],
+    // The dedicated worker is a separate Rollup entry in production and must
+    // not be optimized as a regular window dependency during development.
+    include: ['maplibre-gl'],
+  },
+  build: {
+    rollupOptions: {
+      input: [
+        path.resolve(__dirname, 'index.html'),
+        path.resolve(__dirname, 'node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs'),
+      ],
+      output: {
+        entryFileNames: (chunkInfo) => {
+          const moduleId = chunkInfo.facadeModuleId?.replaceAll('\\', '/');
+          if (moduleId?.endsWith('/maplibre-gl-worker.mjs')) {
+            return 'assets/maplibre-gl-worker.js';
+          }
+          return 'assets/[name]-[hash].js';
+        },
+      },
+    },
   },
   server: {
     port: 3000,

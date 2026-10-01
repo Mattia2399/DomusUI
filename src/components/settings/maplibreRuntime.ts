@@ -1,9 +1,14 @@
-import * as maplibre from 'maplibre-gl';
-// MapLibre 6 ships its worker as a separate ESM entry. Importing both entries
-// into this isolated chunk lets the window and its module worker reuse the
-// same emitted module graph instead of bundling the shared runtime twice.
-import 'maplibre-gl/dist/maplibre-gl-worker.mjs';
+import { Map, Marker, setWorkerUrl } from 'maplibre-gl';
 
-maplibre.setWorkerUrl(import.meta.url);
+const developmentWorkerPath = '/node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs';
+const productionWorkerFileName = './maplibre-gl-worker.js';
+const maplibreWorkerUrl = import.meta.env.DEV
+  ? new URL(developmentWorkerPath, window.location.origin).href
+  : new URL(productionWorkerFileName, import.meta.url).href;
 
-export default maplibre;
+// The production worker is a second Rollup entry so its MapLibre internals are
+// shared with this lazy runtime chunk instead of being bundled twice. Pointing
+// MapLibre at the window bundle starts a worker without vector-tile handlers.
+setWorkerUrl(maplibreWorkerUrl);
+
+export default { Map, Marker };
