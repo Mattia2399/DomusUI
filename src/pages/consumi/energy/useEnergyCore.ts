@@ -5,7 +5,6 @@ import {
   toEnergyCoreError,
   type EnergyCallApi,
   type EnergyCoreError,
-  type EnergyQuantity,
   type EnergyState,
 } from '../../../services/energyCoreClient';
 
@@ -18,32 +17,6 @@ export type EnergyPageContext = {
 };
 
 const REFRESH_MS = 1500;
-
-const demoQuantity = (value: number, unit = 'W', source: 'measured' | 'derived' = 'measured'): EnergyQuantity => ({
-  status: 'ok', value, unit, source, entity_ids: [], reason: null,
-});
-
-/** Clearly labelled sample used only by the isolated Demo experience. */
-export const DEMO_ENERGY_STATE: EnergyState = {
-  configured: true,
-  load_error: false,
-  available: true,
-  profile_revision: 0,
-  observed_at: '',
-  modules: {
-    grid: { status: 'online', complete: true, sign_convention: 'positive_import', quantities: { net_power: demoQuantity(-650) } },
-    solar: { status: 'online', complete: true, sign_convention: null, quantities: { production_power: demoQuantity(4200) } },
-    battery: {
-      status: 'online',
-      complete: true,
-      sign_convention: 'positive_discharge',
-      quantities: { state_of_charge: demoQuantity(64, '%'), net_power: demoQuantity(-1100) },
-    },
-  },
-  absent_modules: ['home', 'wallbox'],
-  offline_modules: [],
-  home_consumption: demoQuantity(2450, 'W', 'derived'),
-};
 
 export function boundEntityIds(state: EnergyState | null) {
   const ids = new Set<string>();
@@ -111,8 +84,6 @@ export function useEnergyCore(context: EnergyPageContext | undefined) {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
   }, []);
 
-  if (context?.mode === 'demo') {
-    return { state: DEMO_ENERGY_STATE, error: null, loading: false, live: false, demo: true, reload };
-  }
-  return { state: live ? state : null, error: live ? error : null, loading, live, demo: false, reload };
+  // Demo never reaches Consumi (the workspace is gated), so no sample exists here.
+  return { state: live ? state : null, error: live ? error : null, loading, live, reload };
 }

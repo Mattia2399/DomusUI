@@ -56,13 +56,11 @@ describe('Energy subpage', () => {
     expect(screen.queryByRole('img')).toBeNull();
   });
 
-  it('labels the Demo snapshot and hides configuration', () => {
+  it('never calls Home Assistant outside the real runtime', () => {
     const callApi = vi.fn();
     renderDetail(context(callApi, { mode: 'demo', connected: false }));
 
-    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('Fotovoltaico');
-    expect(screen.getAllByText(/Dati dimostrativi/).length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: /Modifica impianto/ })).toBeNull();
+    expect(screen.getByText('Home Assistant non collegato')).not.toBeNull();
     expect(callApi).not.toHaveBeenCalled();
   });
 

@@ -87,7 +87,7 @@ function SetupActions({ canManage, configured, onOpen }: { canManage: boolean; c
   );
 }
 
-function StatusPanel({ state, demo, canManage, onOpen }: { state: EnergyState; demo: boolean; canManage: boolean; onOpen: (mode: WizardMode) => void }) {
+function StatusPanel({ state, canManage, onOpen }: { state: EnergyState; canManage: boolean; onOpen: (mode: WizardMode) => void }) {
   const configured = Object.entries(state.modules) as Array<[EnergyModuleId, EnergyModuleState]>;
   const absent = state.absent_modules.filter((id) => id !== 'home').map((id) => MODULE_META[id].label);
   return (
@@ -100,17 +100,13 @@ function StatusPanel({ state, demo, canManage, onOpen }: { state: EnergyState; d
         <QuantityRow label="Consumo della casa" quantity={state.home_consumption} />
       </dl>
       {absent.length ? <p className={`mt-2 ${UI.muted}`}>Non presenti: {absent.join(', ')}</p> : null}
-      <div className="mt-4">
-        {demo
-          ? <p className={UI.muted}>Dati dimostrativi. Collega Home Assistant per configurare il tuo impianto.</p>
-          : <SetupActions canManage={canManage} configured onOpen={onOpen} />}
-      </div>
+      <div className="mt-4"><SetupActions canManage={canManage} configured onOpen={onOpen} /></div>
     </section>
   );
 }
 
 export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack: () => void; energy?: EnergyPageContext }) {
-  const { state, error, loading, live, demo, reload } = useEnergyCore(energy);
+  const { state, error, loading, live, reload } = useEnergyCore(energy);
   const [wizard, setWizard] = React.useState<WizardMode | null>(null);
   const [notice, setNotice] = React.useState('');
   const canManage = live && Boolean(energy?.canManage);
@@ -144,7 +140,7 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
   let right: React.ReactNode = null;
   if (state?.configured) {
     left = <EnergyFlowDiagram view={buildFlowFromState(state)} />;
-    right = <StatusPanel state={state} demo={demo} canManage={canManage} onOpen={openWizard} />;
+    right = <StatusPanel state={state} canManage={canManage} onOpen={openWizard} />;
   } else if (!live) {
     left = (
       <Message icon={<PlugZap />} title="Home Assistant non collegato">
@@ -178,16 +174,15 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
     <DetailScaffold
       title={title}
       onBack={onBack}
-      left={(
+      left={state?.configured ? (
+        // The diagram keeps its dark stage in both themes; messages use theme surfaces.
         <div className={`relative flex h-full w-full flex-col overflow-hidden ${UI.stage}`}>
           <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center p-1 sm:p-3">{left}</div>
-          {state?.configured ? (
-            <p className="relative z-10 border-t border-white/[0.04] px-3 py-2.5 text-center text-xs text-white/50">
-              {demo ? 'Dati dimostrativi' : 'Valori da Home Assistant · Misurato = sensore, Derivato = calcolato da Domus'}
-            </p>
-          ) : null}
+          <p className="relative z-10 border-t border-white/[0.04] px-3 py-2.5 text-center text-xs text-white/50">
+            Valori da Home Assistant · Misurato = sensore, Derivato = calcolato da Domus
+          </p>
         </div>
-      )}
+      ) : left}
       right={(
         <>
           {notice ? <p role="status" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}
