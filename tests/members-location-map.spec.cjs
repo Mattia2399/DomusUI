@@ -66,6 +66,18 @@ const states = {
     attributes: {
       friendly_name: 'Mattia',
       user_id: ownerId,
+      source: 'device_tracker.mattia_phone',
+      device_trackers: ['device_tracker.mattia_phone'],
+    },
+    last_changed: '2026-09-30T12:00:00.000Z',
+    last_updated: '2026-09-30T12:00:00.000Z',
+  },
+  'device_tracker.mattia_phone': {
+    entity_id: 'device_tracker.mattia_phone',
+    state: 'not_home',
+    attributes: {
+      friendly_name: 'Mattia iPhone',
+      source_type: 'gps',
       latitude: 41.9028,
       longitude: 12.4964,
       gps_accuracy: 8,
@@ -265,6 +277,15 @@ test('Members location panel does not load MapLibre when no person has coordinat
       attributes: {
         friendly_name: 'Mattia',
         user_id: ownerId,
+        source: 'device_tracker.mattia_phone',
+        device_trackers: ['device_tracker.mattia_phone'],
+      },
+    },
+    'device_tracker.mattia_phone': {
+      ...states['device_tracker.mattia_phone'],
+      attributes: {
+        friendly_name: 'Mattia iPhone',
+        source_type: 'router',
       },
     },
   });
@@ -272,6 +293,8 @@ test('Members location panel does not load MapLibre when no person has coordinat
   await panel.getByRole('button', { name: 'Apri Famiglia' }).click();
 
   await expect(panel.getByText('Nessuna coordinata disponibile per i membri.')).toBeVisible();
+  await expect(panel.locator('aside.context-sidebar').getByText('Mattia')).toBeVisible();
+  await expect(panel.locator('aside.context-sidebar').getByLabel('1 smartphone')).toBeVisible();
   await expect(panel.locator('.maplibregl-map')).toHaveCount(0);
   expect(mapLibreRequests).toEqual([]);
 });

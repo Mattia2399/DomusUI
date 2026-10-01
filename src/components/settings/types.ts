@@ -18,6 +18,33 @@ export type ActiveDeviceType =
   | 'members';
 export type SensorConnectionState = 'online' | 'offline' | 'unknown';
 
+export type MembersPresenceEntry = {
+  id: string;
+  personEntityId: string;
+  name: string;
+  latitude?: number;
+  longitude?: number;
+  gpsAccuracy?: number;
+  locationSourceEntityId?: string;
+  state?: string;
+  trackerEntityIds: string[];
+  isCurrent?: boolean;
+  roleLabel?: string;
+  avatarUrl?: string;
+  locationLabel?: string;
+  devices: {
+    smartwatch: number;
+    tablet: number;
+    smartphone: number;
+    tracker: number;
+  };
+};
+
+export type MembersMapPoint = MembersPresenceEntry & {
+  latitude: number;
+  longitude: number;
+};
+
 export interface ActiveDevice {
   id: string;
   name: string;
@@ -56,23 +83,6 @@ export interface ActiveDevice {
   coverSupportedFeatures?: number;
   calendarEntityId?: string;
   calendarSupportedFeatures?: number;
-  membersMapPoints?: Array<{
-    id: string;
-    personEntityId: string;
-    name: string;
-    latitude: number;
-    longitude: number;
-    gpsAccuracy?: number;
-    state?: string;
-    trackerEntityIds?: string[];
-    isCurrent?: boolean;
-    roleLabel?: string;
-    avatarUrl?: string;
-    locationLabel?: string;
-    devices?: {
-      smartwatch: number;
-      tablet: number;
-      smartphone: number;
-    };
-  }>;
+  membersPresence?: MembersPresenceEntry[];
+  membersMapPoints?: MembersMapPoint[];
 }

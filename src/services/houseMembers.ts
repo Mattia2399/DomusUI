@@ -36,18 +36,24 @@ export type BuildHouseMembersInput = {
   isHiddenCandidate?: (candidate: HouseMemberCandidate) => boolean;
 };
 
-export type HouseMemberLocationPoint = {
+export type HouseMemberPresence = {
   id: string;
   personEntityId: string;
   name: string;
-  latitude: number;
-  longitude: number;
+  latitude?: number;
+  longitude?: number;
   gpsAccuracy?: number;
+  locationSourceEntityId?: string;
   state?: string;
   avatarUrl?: string;
   roleLabel?: string;
   isCurrent?: boolean;
   trackerEntityIds: string[];
+};
+
+export type HouseMemberLocationPoint = HouseMemberPresence & {
+  latitude: number;
+  longitude: number;
 };
 
 export type BuildHouseMemberLocationPointsInput = {
@@ -84,6 +90,28 @@ function trackerEntityIds(value: unknown) {
   return candidates
     .map((entry) => trimmed(entry))
     .filter((entry): entry is string => Boolean(entry?.startsWith('device_tracker.')));
+}
+
+function readValidCoordinates(entity: MockEntityStateMap[string] | undefined) {
+  const attributes = entity?.rawAttributes ?? {};
+  const latitude = finiteNumber(attributes.latitude);
+  const longitude = finiteNumber(attributes.longitude);
+  if (
+    latitude === undefined ||
+    longitude === undefined ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return undefined;
+  }
+  const gpsAccuracy = finiteNumber(attributes.gps_accuracy);
+  return {
+    latitude,
+    longitude,
+    gpsAccuracy: gpsAccuracy !== undefined && gpsAccuracy >= 0 ? gpsAccuracy : undefined,
+  };
 }
 
 export function buildHouseMembers({
@@ -173,14 +201,15 @@ export function selectHouseholdPeople(members: readonly ProfileHouseMember[]) {
 }
 
 /**
- * Resolves map markers from the exact `person.*` entity carried by each house
- * member. Accounts and names are deliberately not used as location joins.
+ * Resolves presence from the exact `person.*` entity carried by each house
+ * member. A person's declared source tracker may supply coordinates when the
+ * person state omits them; accounts and names are never used as joins.
  */
-export function buildHouseMemberLocationPoints({
+export function buildHouseMemberPresences({
   members,
   states,
   resolveAvatarUrl,
-}: BuildHouseMemberLocationPointsInput): HouseMemberLocationPoint[] {
+}: BuildHouseMemberLocationPointsInput): HouseMemberPresence[] {
   return selectHouseholdPeople(members).flatMap((member) => {
     const personEntityId = trimmed(member.personEntityId);
     if (!personEntityId?.startsWith('person.')) {
@@ -193,29 +222,20 @@ export function buildHouseMemberLocationPoints({
     }
 
     const attributes = entity.rawAttributes ?? {};
-    const latitude = finiteNumber(attributes.latitude);
-    const longitude = finiteNumber(attributes.longitude);
-    if (
-      latitude === undefined ||
-      longitude === undefined ||
-      latitude < -90 ||
-      latitude > 90 ||
-      longitude < -180 ||
-      longitude > 180
-    ) {
-      return [];
-    }
-
     const sourceTracker = trimmed(attributes.source);
-    const linkedTrackers = new Set([
-      ...trackerEntityIds(attributes.device_trackers),
-      ...trackerEntityIds(attributes.entity_id),
-    ]);
+    const linkedTrackers = new Set<string>();
     if (sourceTracker?.startsWith('device_tracker.')) {
       linkedTrackers.add(sourceTracker);
     }
+    trackerEntityIds(attributes.device_trackers).forEach((trackerId) => linkedTrackers.add(trackerId));
+    trackerEntityIds(attributes.entity_id).forEach((trackerId) => linkedTrackers.add(trackerId));
 
-    const gpsAccuracy = finiteNumber(attributes.gps_accuracy);
+    const personCoordinates = readValidCoordinates(entity);
+    const sourceCoordinates = !personCoordinates && sourceTracker?.startsWith('device_tracker.')
+      ? readValidCoordinates(states[sourceTracker])
+      : undefined;
+    const coordinates = personCoordinates ?? sourceCoordinates;
+
     const personName = trimmed(attributes.friendly_name) ?? member.name;
     const avatarCandidate = trimmed(entity.imageUrl) ?? trimmed(attributes.entity_picture);
 
@@ -223,9 +243,14 @@ export function buildHouseMemberLocationPoints({
       id: member.id,
       personEntityId,
       name: personName,
-      latitude,
-      longitude,
-      gpsAccuracy: gpsAccuracy !== undefined && gpsAccuracy >= 0 ? gpsAccuracy : undefined,
+      latitude: coordinates?.latitude,
+      longitude: coordinates?.longitude,
+      gpsAccuracy: coordinates?.gpsAccuracy,
+      locationSourceEntityId: coordinates
+        ? personCoordinates
+          ? personEntityId
+          : sourceTracker
+        : undefined,
       state: trimmed(entity.stateLabel) ?? trimmed(entity.state),
       avatarUrl: resolveAvatarUrl(avatarCandidate) ?? member.avatarUrl,
       roleLabel: member.roleLabel,
@@ -233,4 +258,15 @@ export function buildHouseMemberLocationPoints({
       trackerEntityIds: Array.from(linkedTrackers),
     }];
   });
+}
+
+/** Map-ready subset of the complete members presence model. */
+export function buildHouseMemberLocationPoints(
+  input: BuildHouseMemberLocationPointsInput,
+): HouseMemberLocationPoint[] {
+  return buildHouseMemberPresences(input).flatMap((member) =>
+    member.latitude !== undefined && member.longitude !== undefined
+      ? [{ ...member, latitude: member.latitude, longitude: member.longitude }]
+      : [],
+  );
 }

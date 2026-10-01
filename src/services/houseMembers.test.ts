@@ -4,6 +4,7 @@ import type { MockEntityStateMap } from '../types/ha';
 import { parseHaAuthUsers } from './haIdentityPresentation';
 import {
   buildHouseMemberLocationPoints,
+  buildHouseMemberPresences,
   buildHouseMembers,
   selectHouseholdPeople,
 } from './houseMembers';
@@ -138,6 +139,13 @@ const buildLocations = (members: ProfileHouseMember[], locationStates: MockEntit
     resolveAvatarUrl: (candidate) => candidate ? `https://ha.local${candidate}` : undefined,
   });
 
+const buildPresences = (members: ProfileHouseMember[], locationStates: MockEntityStateMap) =>
+  buildHouseMemberPresences({
+    members,
+    states: locationStates,
+    resolveAvatarUrl: (candidate) => candidate ? `https://ha.local${candidate}` : undefined,
+  });
+
 describe('buildHouseMemberLocationPoints', () => {
   it('uses the exact person entity for a person linked to an account', () => {
     const points = buildLocations(
@@ -197,6 +205,74 @@ describe('buildHouseMemberLocationPoints', () => {
     )).toEqual([]);
   });
 
+  it('keeps a person and its explicitly linked trackers when coordinates are unavailable', () => {
+    const [presence] = buildPresences(
+      [locationMember('person:person.home', 'Home', 'person.home')],
+      {
+        'person.home': {
+          state: 'home',
+          rawAttributes: {
+            friendly_name: 'Home',
+            source: 'device_tracker.home_router',
+            device_trackers: ['device_tracker.home_router', 'device_tracker.home_phone'],
+          },
+        },
+        'device_tracker.home_router': { state: 'home', rawAttributes: {} },
+        'device_tracker.home_phone': { state: 'home', rawAttributes: {} },
+      },
+    );
+
+    expect(presence).toMatchObject({
+      personEntityId: 'person.home',
+      state: 'home',
+      trackerEntityIds: ['device_tracker.home_router', 'device_tracker.home_phone'],
+    });
+    expect(presence.latitude).toBeUndefined();
+    expect(presence.longitude).toBeUndefined();
+  });
+
+  it('uses coordinates from the exact active source tracker when the person omits them', () => {
+    const [point] = buildLocations(
+      [locationMember('person:person.source', 'Source', 'person.source')],
+      {
+        'person.source': {
+          state: 'not_home',
+          rawAttributes: {
+            source: 'device_tracker.source_phone',
+            device_trackers: ['device_tracker.source_phone'],
+          },
+        },
+        'device_tracker.source_phone': {
+          state: 'not_home',
+          rawAttributes: { latitude: 41.91, longitude: 12.51, gps_accuracy: 6 },
+        },
+      },
+    );
+
+    expect(point).toMatchObject({
+      personEntityId: 'person.source',
+      latitude: 41.91,
+      longitude: 12.51,
+      gpsAccuracy: 6,
+      locationSourceEntityId: 'device_tracker.source_phone',
+    });
+  });
+
+  it('never borrows coordinates from an unassociated tracker with a similar name', () => {
+    const points = buildLocations(
+      [locationMember('person:person.alex', 'Alex', 'person.alex')],
+      {
+        'person.alex': { state: 'home', rawAttributes: { friendly_name: 'Alex' } },
+        'device_tracker.alex_phone': {
+          state: 'not_home',
+          rawAttributes: { friendly_name: 'Alex phone', latitude: 42, longitude: 13 },
+        },
+      },
+    );
+
+    expect(points).toEqual([]);
+  });
+
   it('preserves not_home, GPS accuracy and directly linked trackers', () => {
     const [point] = buildLocations(
       [locationMember('person:person.giulia', 'Giulia', 'person.giulia')],
@@ -216,8 +292,8 @@ describe('buildHouseMemberLocationPoints', () => {
 
     expect(point).toMatchObject({ state: 'not_home', gpsAccuracy: 12 });
     expect(point.trackerEntityIds).toEqual([
-      'device_tracker.giulia_phone',
       'device_tracker.giulia_watch',
+      'device_tracker.giulia_phone',
     ]);
   });
 

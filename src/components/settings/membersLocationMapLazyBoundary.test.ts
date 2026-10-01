@@ -36,9 +36,11 @@ describe('Members location map lazy boundary', () => {
   it('joins map locations through personEntityId without account or name heuristics', () => {
     const mainBoard = readSource('src/components/dashboard/MainBoard.tsx');
     const houseMembers = readSource('src/services/houseMembers.ts');
+    const contextSidebar = readSource('src/components/settings/ContextSidebar.tsx');
 
-    expect(mainBoard).toContain('buildHouseMemberLocationPoints({');
+    expect(mainBoard).toContain('buildHouseMemberPresences({');
     expect(mainBoard).toContain('members: householdPeople');
+    expect(contextSidebar).toContain('membersPresence.map((point) => (');
     expect(mainBoard).not.toContain('personMetaByUserId');
     expect(mainBoard).not.toContain('personMetaByName');
     expect(houseMembers).toContain('const entity = states[personEntityId]');

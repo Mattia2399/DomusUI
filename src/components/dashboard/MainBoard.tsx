@@ -265,7 +265,7 @@ import {
   type HaLogbookEvent,
 } from '../../services/haIdentityPresentation';
 import {
-  buildHouseMemberLocationPoints,
+  buildHouseMemberPresences,
   buildHouseMembers,
   selectHouseholdPeople,
 } from '../../services/houseMembers';
@@ -4958,8 +4958,8 @@ export function MainBoard() {
     [canCreatePeople, canLinkPeopleToAccounts, canSetPersonPictures, createPerson, editPerson, setPersonAccount],
   );
 
-  const membersLiveMapPoints = useMemo(() => {
-    return buildHouseMemberLocationPoints({
+  const membersLivePresence = useMemo(() => {
+    return buildHouseMemberPresences({
       members: householdPeople,
       states: haStates,
       resolveAvatarUrl: (candidate) => resolveHaAssetUrl(candidate, haUrl),
@@ -4969,6 +4969,7 @@ export function MainBoard() {
           smartwatch: 0,
           tablet: 0,
           smartphone: 0,
+          tracker: 0,
         };
         point.trackerEntityIds.forEach((trackerId) => {
           const trackerKind = classifyTrackerDeviceKind(
@@ -4977,6 +4978,8 @@ export function MainBoard() {
           );
           if (trackerKind) {
             devices[trackerKind] += 1;
+          } else {
+            devices.tracker += 1;
           }
         });
 
@@ -5003,6 +5006,16 @@ export function MainBoard() {
       });
   }, [haStates, haUrl, householdPeople, locale, t]);
 
+  const membersLiveMapPoints = useMemo<NonNullable<ActiveDevice['membersMapPoints']>>(
+    () =>
+      membersLivePresence.flatMap((member) =>
+        member.latitude !== undefined && member.longitude !== undefined
+          ? [{ ...member, latitude: member.latitude, longitude: member.longitude }]
+          : [],
+      ),
+    [membersLivePresence],
+  );
+
   useEffect(() => {
     setActiveDevice((current) => {
       if (current?.type !== 'members') {
@@ -5014,10 +5027,11 @@ export function MainBoard() {
           membersLiveMapPoints.length > 0
             ? `${membersLiveMapPoints.length} posizioni rilevate`
             : t('home.location.none'),
+        membersPresence: membersLivePresence,
         membersMapPoints: membersLiveMapPoints,
       };
     });
-  }, [membersLiveMapPoints, t]);
+  }, [membersLiveMapPoints, membersLivePresence, t]);
 
   const contextState = useMemo(
     () => ({
@@ -9435,6 +9449,7 @@ export function MainBoard() {
           membersLiveMapPoints.length > 0
             ? `${membersLiveMapPoints.length} posizioni rilevate`
             : t('home.location.none'),
+        membersPresence: membersLivePresence,
         membersMapPoints: membersLiveMapPoints,
       });
       return;

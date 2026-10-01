@@ -420,6 +420,7 @@ export function ContextSidebar({
     ? 'overflow-visible pb-3 pt-2'
     : 'overflow-y-auto overscroll-contain glass-scrollbar [touch-action:pan-y] [-webkit-overflow-scrolling:touch] pb-4 lg:pb-6';
   const membersMapPoints = activeDevice?.membersMapPoints ?? [];
+  const membersPresence = activeDevice?.membersPresence ?? membersMapPoints;
   const membersMapRenderKey = useMemo(
     () =>
       membersMapPoints.length > 0
@@ -726,7 +727,7 @@ export function ContextSidebar({
         <div className={CONTEXT_PANEL_LAYOUT.shell}>
           <ContextPanelHeader
             title={activeDevice.name}
-            subtitle={`${membersMapPoints.length} ${membersMapPoints.length === 1 ? 'posizione disponibile' : 'posizioni disponibili'}`}
+            subtitle={`${membersPresence.length} ${membersPresence.length === 1 ? 'membro' : 'membri'} · ${membersMapPoints.length} ${membersMapPoints.length === 1 ? 'posizione disponibile' : 'posizioni disponibili'}`}
             icon={<Users size={21} />}
             fallbackTitle="Members"
             iconClassName="border-cyan-300/25 bg-cyan-500/12 text-cyan-100"
@@ -759,12 +760,12 @@ export function ContextSidebar({
             </div>
           </div>
 
-          {membersMapPoints.length > 0 ? (
+          {membersPresence.length > 0 ? (
             <div className="context-content-surface rounded-[clamp(1.25rem,4.6vw,2rem)] p-[clamp(0.8rem,2.4vw,1.15rem)]">
               <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Membri</p>
               <div className="mt-3 max-h-44 space-y-2 overflow-y-auto pr-1 glass-scrollbar">
-                {membersMapPoints.map((point) => (
-                  <div key={point.id} className="context-content-surface-soft flex items-center justify-between gap-3 rounded-xl px-3 py-2">
+                {membersPresence.map((point) => (
+                  <div key={point.personEntityId} className="context-content-surface-soft flex items-center justify-between gap-3 rounded-xl px-3 py-2">
                     <div className="flex min-w-0 items-center gap-2.5">
                       <span className="relative shrink-0">
                         {point.avatarUrl ? (
@@ -794,7 +795,10 @@ export function ContextSidebar({
                     </div>
                     <div className="flex max-w-[10.5rem] shrink-0 flex-wrap justify-end gap-1.5">
                       {(point.devices?.smartwatch ?? 0) > 0 ? (
-                        <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]">
+                        <span
+                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
+                          aria-label={`${point.devices.smartwatch} smartwatch`}
+                        >
                           <Watch size={16} />
                           <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
                             {point.devices?.smartwatch}
@@ -802,7 +806,10 @@ export function ContextSidebar({
                         </span>
                       ) : null}
                       {(point.devices?.tablet ?? 0) > 0 ? (
-                        <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]">
+                        <span
+                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
+                          aria-label={`${point.devices.tablet} tablet`}
+                        >
                           <Tablet size={16} />
                           <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
                             {point.devices?.tablet}
@@ -810,10 +817,24 @@ export function ContextSidebar({
                         </span>
                       ) : null}
                       {(point.devices?.smartphone ?? 0) > 0 ? (
-                        <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]">
+                        <span
+                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
+                          aria-label={`${point.devices.smartphone} smartphone`}
+                        >
                           <Smartphone size={16} />
                           <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
                             {point.devices?.smartphone}
+                          </span>
+                        </span>
+                      ) : null}
+                      {(point.devices?.tracker ?? 0) > 0 ? (
+                        <span
+                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
+                          aria-label={`${point.devices.tracker} tracker`}
+                        >
+                          <MapPin size={16} />
+                          <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
+                            {point.devices.tracker}
                           </span>
                         </span>
                       ) : null}
