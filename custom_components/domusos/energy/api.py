@@ -1,7 +1,9 @@
-"""Admin-only websocket API for Energy Profile discovery and confirmation.
+"""Websocket API for Energy Profile discovery, confirmation and display.
 
-The API configures which sensors Domus reads. It exposes no energy control and
-no context snapshot: the Domus context registry stays backend-internal.
+Discovery and profile commands are reserved to administrators. ``get_state``
+returns only the read-only Energy projection to any authenticated user, the
+same data every Home Assistant user can already read from sensor states. No
+energy control exists and the generic Domus context registry stays internal.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN
+from .context import async_energy_state
 from .discovery import EnergyDiscoveryService
 from .manager import EnergyProfileManager
 from .models import EnergyError, EnergyUnavailableError
@@ -105,7 +108,22 @@ async def websocket_discover(
         _send_error(connection, msg["id"], err)
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/get_state"})
+@websocket_api.async_response
+async def websocket_get_state(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return normalized values of configured modules; never configuration."""
+    try:
+        connection.send_result(msg["id"], await async_energy_state(_manager(hass)))
+    except Exception as err:
+        _send_error(connection, msg["id"], err)
+
+
 WEBSOCKET_COMMANDS = (
+    websocket_get_state,
     websocket_get_profile,
     websocket_save_profile,
     websocket_discover,

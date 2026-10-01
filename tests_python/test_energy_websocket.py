@@ -108,3 +108,61 @@ async def test_profile_commands_report_unavailable_energy(
 
     assert not response["success"]
     assert response["error"]["code"] == "energy_unavailable"
+
+
+async def test_state_is_readable_by_any_user_and_never_invents_modules(
+    hass: HomeAssistant, hass_ws_client, hass_read_only_access_token: str
+) -> None:
+    manager = await _setup(hass)
+    client = await hass_ws_client(hass, hass_read_only_access_token)
+
+    await client.send_json_auto_id({"type": "domusos/energy/get_state"})
+    empty = await client.receive_json()
+    assert empty["success"]
+    assert empty["result"]["configured"] is False
+    assert empty["result"]["modules"] == {}
+    assert empty["result"]["home_consumption"] is None
+    assert set(empty["result"]["absent_modules"]) == {
+        "grid",
+        "solar",
+        "home",
+        "battery",
+        "wallbox",
+    }
+
+    hass.states.async_set("sensor.solar_power", "1.5", POWER)
+    hass.states.async_set("sensor.grid_power", "unavailable", {})
+    await manager.async_save_profile(
+        {
+            "modules": {
+                "solar": {"sensors": {"production_power": "sensor.solar_power"}},
+                "grid": {
+                    "sensors": {"net_power": "sensor.grid_power"},
+                    "sign_convention": "positive_import",
+                },
+            }
+        },
+        0,
+    )
+
+    await client.send_json_auto_id({"type": "domusos/energy/get_state"})
+    configured = await client.receive_json()
+    result = configured["result"]
+    assert result["configured"] is True
+    assert set(result["modules"]) == {"grid", "solar"}
+    assert result["offline_modules"] == ["grid"]
+    assert result["modules"]["grid"]["status"] == "offline"
+    solar = result["modules"]["solar"]["quantities"]["production_power"]
+    assert solar == {
+        "status": "ok",
+        "value": 1500.0,
+        "unit": "W",
+        "source": "measured",
+        "entity_ids": ["sensor.solar_power"],
+        "reason": None,
+    }
+    assert result["home_consumption"]["status"] == "unavailable"
+    assert result["home_consumption"]["value"] is None
+    assert "battery" in result["absent_modules"]
+
+    await manager.async_shutdown()

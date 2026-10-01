@@ -13,8 +13,8 @@ from homeassistant.core import HomeAssistant, callback
 
 from .calendar_store import DomusCalendarStore
 from .core import DomusEvent, DomusRuntime
-from .core._values import utc_now
-from .energy import EnergyProfileManager, ModuleStatus, derive_home_consumption
+from .energy import EnergyProfileManager
+from .energy.context import async_build_energy_context
 from .energy.manager import CHANGE_AVAILABILITY, CHANGE_PROFILE
 from .irrigation import IrrigationManager
 
@@ -144,32 +144,7 @@ class EnergyContextProvider:
 
     async def async_get_context(self) -> Mapping[str, Any] | None:
         """Return configured modules only; absent hardware is listed, never faked."""
-        profile = self._manager.profile
-        if not self._manager.loaded or profile.is_empty:
-            return None
-        states = {
-            module: await adapter.async_get_capability()
-            for module, adapter in self._manager.adapters.items()
-        }
-        return {
-            "available": any(state.available for state in states.values()),
-            "profile_revision": profile.revision,
-            "observed_at": utc_now().isoformat(),
-            "modules": {
-                module.value: {
-                    key: state.values[key]
-                    for key in ("status", "complete", "sign_convention", "quantities")
-                }
-                for module, state in states.items()
-            },
-            "absent_modules": tuple(module.value for module in profile.absent_modules),
-            "offline_modules": tuple(
-                module.value
-                for module, state in states.items()
-                if state.values["status"] == ModuleStatus.OFFLINE
-            ),
-            "home_consumption": derive_home_consumption(states).as_dict(),
-        }
+        return await async_build_energy_context(self._manager)
 
 
 def register_energy_bindings(

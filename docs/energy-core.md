@@ -136,13 +136,17 @@ The result contains:
   provider, and unload failures are logged and never prevent the other Domus
   Core modules from running or unloading.
 
-## WebSocket API (administrators only)
+## WebSocket API
 
-| Command                       | Purpose                                           |
-| ----------------------------- | ------------------------------------------------- |
-| `domusos/energy/discover`     | Return proposals; nothing is saved                |
-| `domusos/energy/get_profile`  | Return the profile and the condition of each module |
-| `domusos/energy/save_profile` | Save confirmed or corrected bindings (`profile`, `expected_revision`) |
+| Command                       | Access         | Purpose                                           |
+| ----------------------------- | -------------- | ------------------------------------------------- |
+| `domusos/energy/get_state`    | Authenticated  | Normalized values of configured modules, absent/offline modules, home consumption |
+| `domusos/energy/discover`     | Administrators | Return proposals; nothing is saved                |
+| `domusos/energy/get_profile`  | Administrators | Return the profile and the condition of each module |
+| `domusos/energy/save_profile` | Administrators | Save confirmed or corrected bindings (`profile`, `expected_revision`) |
 
-Error codes are `invalid_profile`, `revision_conflict`, `energy_unavailable`,
-and `unknown_error`. No context snapshot endpoint is exposed.
+`get_state` returns the same projection as `EnergyContextProvider` and never
+configuration details. Without a profile it reports `configured: false` and
+lists every module as absent. Error codes are `invalid_profile`,
+`revision_conflict`, `energy_unavailable`, `unauthorized`, and
+`unknown_error`. The generic Domus context registry remains internal.
