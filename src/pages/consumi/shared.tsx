@@ -19,6 +19,8 @@ export function DetailScaffold({
   left,
   right,
   children,
+  subtitle = 'Analisi consumi e andamento',
+  showBeta = true,
 }: {
   title: string;
   onBack: () => void;
@@ -26,6 +28,8 @@ export function DetailScaffold({
   right?: React.ReactNode;
   /** Full-width content replacing the two-column layout. */
   children?: React.ReactNode;
+  subtitle?: string;
+  showBeta?: boolean;
 }) {
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -33,18 +37,18 @@ export function DetailScaffold({
     <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto">
       <NestedPageHeader
         title={title}
-        subtitle="Analisi consumi e andamento"
+        subtitle={subtitle}
         backLabel="Consumi"
         backAriaLabel="Torna a Consumi"
         onBack={onBack}
         scrollContainerRef={scrollContainerRef}
-        trailing={(
+        trailing={showBeta ? (
           <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[color:var(--ui-text-secondary)]">
             <FlaskConical size={13} />
             <span className="hidden sm:inline">Anteprima beta</span>
             <span className="sm:hidden">Beta</span>
           </span>
-        )}
+        ) : undefined}
       />
 
       <div className="px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 sm:px-6 sm:pb-6 sm:pt-6 lg:px-8 lg:pb-8">

@@ -98,8 +98,13 @@ describe('Energy subpage', () => {
     renderDetail(context(vi.fn().mockResolvedValue(state)));
 
     const diagram = await screen.findByRole('img');
+    expect(screen.getByTestId('energy-experience')).not.toBeNull();
     expect(diagram.getAttribute('aria-label')).toContain('Rete: 900 W Prelievo');
     expect(diagram.getAttribute('aria-label')).not.toContain('Batteria');
+    const technicalDetails = screen.getByTestId('energy-technical-details') as HTMLDetailsElement;
+    expect(technicalDetails.open).toBe(false);
+    fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
+    expect(technicalDetails.open).toBe(true);
     expect(screen.getByText('Non presenti: Fotovoltaico, Batteria, Wallbox')).not.toBeNull();
     const home = screen.getByText('Consumo della casa').closest('div') as HTMLElement;
     expect(within(home).getByText('Derivato')).not.toBeNull();
@@ -122,6 +127,8 @@ describe('Energy subpage', () => {
     renderDetail(context(vi.fn().mockResolvedValue(state)));
 
     expect((await screen.findByRole('img')).getAttribute('aria-label')).toContain('Batteria: offline');
+    expect(screen.getAllByText('Dati parziali').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
     const panel = screen.getByRole('region', { name: 'Il tuo impianto' });
     const battery = within(panel).getByText('Batteria').closest('li') as HTMLElement;
     expect(within(battery).getByText('Offline')).not.toBeNull();
