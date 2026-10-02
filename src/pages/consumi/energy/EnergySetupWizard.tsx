@@ -222,18 +222,25 @@ export default function EnergySetupWizard({
         {step === 1 ? (
           <>
           <p className={UI.body}>Premi «Configura» sui moduli che hai in casa e scegli i sensori. I moduli non configurati restano esclusi.</p>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {ENERGY_MODULES.map((id) => (
-              <ModuleEditor
-                key={id}
-                id={id}
-                module={draft[id]}
-                offline={profile.module_status[id] === 'offline'}
-                discovery={discovery}
-                haStates={haStates}
-                issues={issues.filter((issue) => issue.module === id)}
-                onChange={(module) => setDraft((current) => ({ ...current, [id]: module }))}
-              />
+          {/* Two independent columns on desktop, so opening a module never stretches its neighbour.
+              On phones the columns dissolve into one list and `order` restores the module sequence. */}
+          <div className="grid items-start gap-3 lg:grid-cols-2">
+            {[0, 1].map((column) => (
+              <div key={column} className="contents lg:flex lg:flex-col lg:gap-3">
+                {ENERGY_MODULES.map((id, index) => index % 2 === column ? (
+                  <div key={id} className="grid" style={{ order: index }}>
+                    <ModuleEditor
+                      id={id}
+                      module={draft[id]}
+                      offline={profile.module_status[id] === 'offline'}
+                      discovery={discovery}
+                      haStates={haStates}
+                      issues={issues.filter((issue) => issue.module === id)}
+                      onChange={(module) => setDraft((current) => ({ ...current, [id]: module }))}
+                    />
+                  </div>
+                ) : null)}
+              </div>
             ))}
             <datalist id="energy-sensors">
               {sensorIds.map((id) => <option key={id} value={id} />)}
