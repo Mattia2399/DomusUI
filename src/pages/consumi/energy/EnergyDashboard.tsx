@@ -2,6 +2,7 @@ import React from 'react';
 import {
   BarChart3,
   Battery,
+  Clock3,
   CalendarClock,
   CarFront,
   ChevronDown,
@@ -96,52 +97,45 @@ function TechnicalDetails({ state }: { state: EnergyState }) {
   );
 }
 
-function ModuleCard({ id, icon: Icon, accent, module }: { id: EnergyModuleId; icon: LucideIcon; accent: string; module: EnergyModuleState }) {
+const TILE = 'flex min-h-[8.5rem] flex-col rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-3.5 shadow-[var(--ui-shadow-card)] sm:p-4';
+
+/** Compact component tile: icon, value and one status line; details live in the technical panel. */
+function ModuleTile({ id, icon: Icon, accent, module }: { id: EnergyModuleId; icon: LucideIcon; accent: string; module: EnergyModuleState }) {
   const q = module.quantities;
   const offline = module.status === 'offline';
   const soc = okValue(q.state_of_charge);
-  const flow = okValue(q.net_power);
-  let main = formatQuantity(q.production_power ?? q.charging_power ?? q.net_power ?? q.import_power);
-  let detail: React.ReactNode = null;
+  const flow = okValue(id === 'grid' || id === 'battery' ? q.net_power : q.production_power ?? q.charging_power);
+  const still = flow !== null && Math.abs(flow) < 10;
+  let value = flow === null ? '—' : formatPower(Math.abs(flow));
+  let caption: string;
   if (id === 'grid') {
-    main = flow === null ? formatQuantity(q.import_power) : formatPower(Math.abs(flow));
-    detail = (
-      <>
-        <Row label="Prelievo" quantity={q.import_power} />
-        <Row label="Immissione" quantity={q.export_power} />
-      </>
-    );
+    caption = flow === null ? describeQuantity(q.net_power) : still ? 'Nessuno scambio' : flow > 0 ? 'Prelievo dalla rete' : 'Immissione in rete';
   } else if (id === 'battery') {
-    main = soc !== null ? `${Math.round(soc)}%` : flow === null ? '—' : formatPower(Math.abs(flow));
-    detail = (
-      <>
-        {soc === null ? null : (
-          <div className="h-1.5 overflow-hidden rounded-full bg-[color:var(--ui-fill-tertiary)]">
-            <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${soc}%` }} />
-          </div>
-        )}
-        <p className={MUTED}>
-          {flow === null ? describeQuantity(q.net_power) : Math.abs(flow) < 10 ? 'In attesa' : `${flow > 0 ? 'In scarica' : 'In carica'} · ${formatPower(Math.abs(flow))}`}
-        </p>
-      </>
-    );
+    if (soc !== null) value = `${Math.round(soc)}%`;
+    caption = flow === null ? describeQuantity(q.net_power) : still ? 'In attesa' : `${flow > 0 ? 'In scarica' : 'In carica'} · ${formatPower(Math.abs(flow))}`;
+  } else if (id === 'wallbox') {
+    caption = flow === null ? describeQuantity(q.charging_power) : still ? 'Nessuna ricarica' : 'In ricarica';
   } else {
-    const quantity = q.production_power ?? q.charging_power;
-    detail = <p className={MUTED}>{id === 'wallbox' && okValue(quantity) !== null && (okValue(quantity) ?? 0) < 10 ? 'Nessuna ricarica in corso' : describeQuantity(quantity)}</p>;
+    caption = flow === null ? describeQuantity(q.production_power) : still ? 'Nessuna produzione' : 'Produzione attuale';
   }
   return (
-    <article className={`${CARD} ${offline ? 'border-dashed' : ''}`}>
-      <div className="flex items-center gap-2.5">
-        <Icon className={`h-4 w-4 ${offline ? 'text-[color:var(--ui-text-tertiary)]' : accent}`} aria-hidden="true" />
-        <p className={EYEBROW}>{MODULE_META[id].label}</p>
-        <span className={`ml-auto text-[10px] font-semibold ${offline ? 'text-amber-500' : 'text-[color:var(--ui-text-tertiary)]'}`}>
-          {offline ? 'Offline' : module.complete ? 'Attivo' : 'Dati parziali'}
-        </span>
+    <article className={`${TILE} ${offline ? 'border-dashed' : ''}`}>
+      <div className="flex items-center gap-2">
+        <Icon className={`h-4 w-4 shrink-0 ${offline ? 'text-[color:var(--ui-text-tertiary)]' : accent}`} aria-hidden="true" />
+        <p className={`truncate ${EYEBROW}`}>{MODULE_META[id].label}</p>
+        <span
+          className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${offline ? 'bg-amber-400' : module.complete ? 'bg-emerald-400' : 'bg-amber-400'}`}
+          title={offline ? 'Offline' : module.complete ? 'Attivo' : 'Dati parziali'}
+          aria-hidden="true"
+        />
       </div>
-      <p className="mt-3 text-2xl font-semibold tracking-[-0.045em] text-[color:var(--ui-text-primary)]">{offline ? '—' : main}</p>
-      <div className="mt-2 space-y-1.5">
-        {offline ? <p className={MUTED}>Configurato: i sensori non forniscono dati in questo momento.</p> : detail}
-      </div>
+      <p className="mt-auto pt-3 text-[1.6rem] font-semibold leading-none tracking-[-0.045em] text-[color:var(--ui-text-primary)]">{offline ? '—' : value}</p>
+      {id === 'battery' && soc !== null && !offline ? (
+        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--ui-fill-tertiary)]">
+          <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${soc}%` }} />
+        </div>
+      ) : null}
+      <p className={`mt-1.5 truncate ${MUTED}`}>{offline ? 'Offline · sensori senza dati' : caption}</p>
     </article>
   );
 }
@@ -211,10 +205,13 @@ function HistoryCard({ state }: { state: EnergyState }) {
 function AnalysisCard({ state }: { state: EnergyState }) {
   const solar = Boolean(state.modules.solar);
   const history = 'Richiede lo storico energetico';
+  const tariff = state.tariff;
+  const price = (value: number) => `${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €/kWh`;
   const rows: Array<[LucideIcon, string, string] | null> = [
+    [Clock3, 'Fascia attuale', tariff ? `${tariff.band_label} · ${price(tariff.price)}` : 'Tariffa non configurata'],
     solar ? [Gauge, 'Autoconsumo', history] : null,
     solar || state.modules.battery ? [Leaf, 'Autosufficienza', history] : null,
-    [TrendingUp, 'Costi energetici', 'Tariffa non configurata'],
+    [TrendingUp, 'Costi energetici', tariff ? history : 'Tariffa non configurata'],
     solar ? [TrendingDown, 'Risparmio stimato', 'Richiede tariffa e storico'] : null,
     [CalendarClock, 'Confronto con i periodi precedenti', history],
   ];
@@ -339,19 +336,19 @@ export function EnergyDashboard({
         />
         {banner ? <div className={`${SECTION} space-y-3 md:order-first xl:col-span-12`}>{banner}</div> : null}
 
-        <div className={`${SECTION} grid content-start gap-3 sm:grid-cols-2 md:gap-5 xl:col-span-4 xl:grid-cols-1`} aria-label="Componenti dell’impianto" role="list">
+        <div className={`${SECTION} grid grid-cols-2 content-start gap-3 md:grid-cols-4 md:gap-4 xl:col-span-4 xl:grid-cols-2 xl:auto-rows-[minmax(8.5rem,11.5rem)]`} aria-label="Componenti dell’impianto" role="list">
           {present.map((item) => (
-            <div key={item.id} role="listitem">
-              <ModuleCard {...item} module={state.modules[item.id] as EnergyModuleState} />
+            <div key={item.id} role="listitem" className="grid">
+              <ModuleTile {...item} module={state.modules[item.id] as EnergyModuleState} />
             </div>
           ))}
-          <article role="listitem" className={`${CARD} ${present.length % 2 ? '' : 'sm:col-span-2 xl:col-span-1'}`}>
-            <div className="flex items-center gap-2.5">
+          <article role="listitem" className={`${TILE} col-span-2 ${present.length % 2 ? 'md:col-span-1 xl:col-span-1' : 'md:col-span-4 xl:col-span-2'}`}>
+            <div className="flex items-center gap-2">
               <Home className="h-4 w-4 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
               <p className={EYEBROW}>Consumo della casa</p>
             </div>
-            <p className="mt-3 text-2xl font-semibold tracking-[-0.045em] text-[color:var(--ui-text-primary)]">{formatQuantity(home)}</p>
-            <p className={`mt-1 ${MUTED}`}>
+            <p className="mt-auto pt-3 text-[1.6rem] font-semibold leading-none tracking-[-0.045em] text-[color:var(--ui-text-primary)]">{formatQuantity(home)}</p>
+            <p className={`mt-1.5 ${MUTED}`}>
               {home?.status === 'ok'
                 ? home.source === 'derived' ? 'Derivato dal bilancio dell’impianto' : 'Misurato da un sensore dedicato'
                 : describeQuantity(home)}

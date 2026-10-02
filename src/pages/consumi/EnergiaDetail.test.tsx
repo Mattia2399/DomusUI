@@ -133,8 +133,7 @@ describe('Energy subpage', () => {
     expect(screen.getByText(/Domus Energy · Dati parziali/)).not.toBeNull();
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
     const battery = within(components).getByText('Batteria').closest('article') as HTMLElement;
-    expect(within(battery).getByText('Offline')).not.toBeNull();
-    expect(within(battery).getByText(/non forniscono dati/)).not.toBeNull();
+    expect(within(battery).getByText('Offline · sensori senza dati')).not.toBeNull();
     expect(within(battery).getByText('—')).not.toBeNull();
     fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
     const panel = screen.getByRole('region', { name: 'Il tuo impianto' });
