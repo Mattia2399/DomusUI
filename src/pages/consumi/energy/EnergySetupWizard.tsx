@@ -26,12 +26,23 @@ import {
 } from './energyDraft';
 import { EnergyHomeVisual } from './EnergyHomeVisual';
 import { Confidence, ERROR_TEXT, ModuleEditor, roleLabel } from './EnergyModuleEditor';
+import { GROUP, TARIFF_HINT, TariffFields, isBlankTariff, tariffForm, tariffFromForm, tariffSummary } from './EnergyTariffFields';
 import { MODULE_META, UI } from './energyModel';
 import { buildFlowFromDraft } from './energyPreview';
 
 export type WizardMode = 'setup' | 'edit' | 'rediscover';
 
-const STEPS = ['Rilevamento', 'Associazioni', 'Anteprima', 'Salvataggio'];
+type StepId = 'detect' | 'bind' | 'tariff' | 'preview' | 'save';
+const STEP_LABEL: Record<StepId, string> = {
+  detect: 'Rilevamento',
+  bind: 'Associazioni',
+  tariff: 'Tariffa',
+  preview: 'Anteprima',
+  save: 'Salvataggio',
+};
+// The optional tariff step belongs to the first setup only; later changes go through the settings page.
+const SETUP_STEPS: StepId[] = ['detect', 'bind', 'tariff', 'preview', 'save'];
+const PLANT_STEPS: StepId[] = ['detect', 'bind', 'preview', 'save'];
 
 type SaveState = { status: 'idle' | 'saving' | 'error'; message?: string; conflict?: boolean };
 
@@ -63,6 +74,8 @@ export default function EnergySetupWizard({
   const [discovery, setDiscovery] = React.useState<EnergyDiscovery | null>(null);
   const [draft, setDraft] = React.useState<EnergyDraft>(emptyDraft);
   const [save, setSave] = React.useState<SaveState>({ status: 'idle' });
+  const [tariffDraft, setTariffDraft] = React.useState(() => tariffForm(null));
+  const [skipTariff, setSkipTariff] = React.useState(false);
   const headingRef = React.useRef<HTMLHeadingElement>(null);
   const focusOnStep = React.useRef(false);
 
@@ -81,6 +94,7 @@ export default function EnergySetupWizard({
     setDiscovery(found);
     // Confirmed bindings always win: discovery only fills a first-time draft.
     setDraft(Object.keys(saved).length || !found ? draftFromProfile(saved) : draftFromDiscovery(found));
+    setTariffDraft(tariffForm(profileResult.value.profile.tariff));
     setProfile(profileResult.value);
   }, [callApi]);
 
@@ -97,14 +111,16 @@ export default function EnergySetupWizard({
   const modules = React.useMemo(() => draftToModules(draft), [draft]);
   const sensorIds = React.useMemo(() => Object.keys(haStates).filter((id) => id.startsWith('sensor.')), [haStates]);
   const saving = save.status === 'saving';
+  const steps = mode === 'setup' ? SETUP_STEPS : PLANT_STEPS;
+  const current = steps[step];
 
   // Full-height layout: own header, scrolling content, actions pinned to the bottom.
   const shell = (body: React.ReactNode, footer?: React.ReactNode) => (
     <div className="flex h-full flex-col" onKeyDown={(event) => { if (event.key === 'Escape' && !saving) onClose(); }}>
       <header className="flex items-center gap-3 border-b border-[color:var(--ui-separator)] px-4 py-3 sm:px-6">
         <div className="min-w-0 flex-1">
-          <p className={UI.muted}>Configura Domus Energy{profile ? ` · Passaggio ${step + 1} di ${STEPS.length}` : ''}</p>
-          <h2 id="energy-step-title" ref={headingRef} tabIndex={-1} className={`truncate text-lg outline-none ${UI.title}`}>{STEPS[profile ? step : 0]}</h2>
+          <p className={UI.muted}>Configura Domus Energy{profile ? ` · Passaggio ${step + 1} di ${steps.length}` : ''}</p>
+          <h2 id="energy-step-title" ref={headingRef} tabIndex={-1} className={`truncate text-lg outline-none ${UI.title}`}>{STEP_LABEL[profile ? current : 'detect']}</h2>
         </div>
         <button type="button" onClick={onClose} disabled={saving} aria-label="Chiudi configurazione" className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40">
           <X className="h-4 w-4" aria-hidden="true" />
@@ -112,13 +128,13 @@ export default function EnergySetupWizard({
       </header>
       {profile ? (
         <ol className="flex gap-1 px-4 pt-3 sm:px-6" aria-label="Passaggi della configurazione">
-          {STEPS.map((label, index) => (
+          {steps.map((id, index) => (
             <li
-              key={label}
+              key={id}
               aria-current={index === step ? 'step' : undefined}
               className={`h-1 flex-1 rounded-full ${index <= step ? 'bg-[color:var(--ui-accent)]' : 'bg-[color:var(--ui-fill-secondary)]'}`}
             >
-              <span className="sr-only">{index + 1}. {label}</span>
+              <span className="sr-only">{index + 1}. {STEP_LABEL[id]}</span>
             </li>
           ))}
         </ol>
@@ -152,13 +168,17 @@ export default function EnergySetupWizard({
   const suggestions = discovery && hasSavedProfile ? pendingSuggestions(draft, discovery) : [];
   const present = ENERGY_MODULES.filter((id) => draft[id].present);
   const absent = ENERGY_MODULES.filter((id) => !draft[id].present && id !== 'home').map((id) => MODULE_META[id].label);
-  const blocked = step === 1 && issues.length > 0;
+  const tariffBlank = isBlankTariff(tariffDraft);
+  const { tariff } = tariffFromForm(tariffDraft, draft.grid.present);
+  // Nothing typed, or an explicit skip, leaves the tariff out of the save.
+  const tariffToSave = steps.includes('tariff') && !skipTariff ? tariff : undefined;
+  const blocked = (current === 'bind' && issues.length > 0) || (current === 'tariff' && !tariffBlank && !tariff);
   const nothingFound = discovery !== null && ENERGY_MODULES.every((id) => detectionSummary(id, discovery) === null);
 
   const handleSave = async () => {
     setSave({ status: 'saving' });
     try {
-      await saveEnergyProfile(callApi, modules, profile.profile.revision);
+      await saveEnergyProfile(callApi, modules, profile.profile.revision, tariffToSave);
       onSaved();
     } catch (failure) {
       // The draft stays untouched so the user can retry or adjust it.
@@ -169,7 +189,7 @@ export default function EnergySetupWizard({
 
   return shell(
       <>
-        {step === 0 ? (
+        {current === 'detect' ? (
           <>
             {nothingFound || !discovery ? (
               <div className={UI.card}>
@@ -219,7 +239,7 @@ export default function EnergySetupWizard({
           </>
         ) : null}
 
-        {step === 1 ? (
+        {current === 'bind' ? (
           <>
           <p className={UI.body}>Premi «Configura» sui moduli che hai in casa e scegli i sensori. I moduli non configurati restano esclusi.</p>
           {/* Two independent columns on desktop, so opening a module never stretches its neighbour.
@@ -249,7 +269,20 @@ export default function EnergySetupWizard({
           </>
         ) : null}
 
-        {step === 2 ? (
+        {current === 'tariff' ? (
+          <div className="mx-auto max-w-3xl space-y-3">
+            <p className={UI.body}>
+              Facoltativo: con i prezzi del contratto Domus mostra la fascia attuale e il suo costo. Puoi saltare questo passaggio e
+              aggiungerli più tardi dalle Impostazioni.
+            </p>
+            <p className={UI.muted}>{TARIFF_HINT}</p>
+            <div className={GROUP} role="group" aria-label="Tariffa">
+              <TariffFields form={tariffDraft} onChange={setTariffDraft} withExport={draft.grid.present} />
+            </div>
+          </div>
+        ) : null}
+
+        {current === 'preview' ? (
           <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
             <div className="flex h-[26rem] items-center justify-center overflow-hidden rounded-[1.5rem] bg-[#10151b] sm:h-[30rem]">
               {present.length ? (
@@ -263,11 +296,12 @@ export default function EnergySetupWizard({
               <p>L’anteprima mostra soltanto i moduli presenti, con le letture attuali verificate da Domus.</p>
               {!draft.home.present && draft.grid.present ? <p>Il consumo della casa sarà calcolato dopo il salvataggio, solo con dati completi e coerenti.</p> : null}
               {absent.length ? <p>Non presenti: {absent.join(', ')}.</p> : null}
+              {steps.includes('tariff') ? <p>{tariffToSave ? `Tariffa: ${tariffSummary(tariffToSave)}.` : 'Tariffa non configurata: potrai aggiungerla dalle Impostazioni.'}</p> : null}
             </div>
           </div>
         ) : null}
 
-        {step === 3 ? (
+        {current === 'save' ? (
           <div className={`space-y-3 ${UI.body}`}>
             {present.length ? (
               <ul className="space-y-1.5">
@@ -279,7 +313,8 @@ export default function EnergySetupWizard({
                 ))}
               </ul>
             ) : <p>Nessun modulo: Domus Energy risulterà non configurato.</p>}
-            {dirty ? null : <p className={UI.muted}>Nessuna modifica rispetto all’impianto salvato.</p>}
+            {tariffToSave ? <p><span className={UI.title}>Tariffa:</span> {tariffSummary(tariffToSave)}</p> : null}
+            {dirty || tariffToSave ? null : <p className={UI.muted}>Nessuna modifica rispetto all’impianto salvato.</p>}
             <div aria-live="polite">
               {saving ? <p className="flex items-center gap-2"><LoaderCircle className={UI.spin} aria-hidden="true" /> Salvataggio in corso…</p> : null}
               {save.status === 'error' ? (
@@ -295,15 +330,28 @@ export default function EnergySetupWizard({
         ) : null}
       </>,
       <>
-        {blocked ? <p id="energy-step-blocked" className={`mb-2 ${ERROR_TEXT}`}>Completa o correggi i moduli evidenziati per continuare.</p> : null}
+        {blocked ? (
+          <p id="energy-step-blocked" className={`mb-2 ${ERROR_TEXT}`}>
+            {current === 'tariff' ? 'Correggi i prezzi evidenziati oppure salta questo passaggio.' : 'Completa o correggi i moduli evidenziati per continuare.'}
+          </p>
+        ) : null}
         <div className="flex gap-2 sm:justify-end">
           {step > 0 ? <button type="button" onClick={() => setStep(step - 1)} disabled={saving} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Indietro</button> : null}
-          {step < 3 ? (
-            <button type="button" onClick={() => setStep(step + 1)} disabled={blocked} aria-describedby={blocked ? 'energy-step-blocked' : undefined} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>
-              Avanti
+          {current === 'tariff' && !tariffBlank ? (
+            <button type="button" onClick={() => { setSkipTariff(true); setStep(step + 1); }} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Salta</button>
+          ) : null}
+          {current !== 'save' ? (
+            <button
+              type="button"
+              onClick={() => { if (current === 'tariff') setSkipTariff(false); setStep(step + 1); }}
+              disabled={blocked}
+              aria-describedby={blocked ? 'energy-step-blocked' : undefined}
+              className={`${UI.primary} flex-1 justify-center sm:flex-none`}
+            >
+              {current === 'tariff' && tariffBlank ? 'Salta per ora' : 'Avanti'}
             </button>
           ) : (
-            <button type="button" onClick={() => void handleSave()} disabled={saving || issues.length > 0 || !dirty} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>
+            <button type="button" onClick={() => void handleSave()} disabled={saving || issues.length > 0 || (!dirty && !tariffToSave)} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>
               {saving ? <LoaderCircle className={UI.spin} aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
               Salva impianto
             </button>

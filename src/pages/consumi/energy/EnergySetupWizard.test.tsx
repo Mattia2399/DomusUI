@@ -40,7 +40,7 @@ function createBackend(initial: EnergyProfileModules = {}, discovery: EnergyDisc
   const backend = {
     modules: initial,
     revision: Object.keys(initial).length ? 1 : 0,
-    saves: [] as Array<{ modules: EnergyProfileModules; expected: number | null }>,
+    saves: [] as Array<{ modules: EnergyProfileModules; expected: number | null; tariff?: unknown }>,
     failNextSave: null as unknown,
     callApi: vi.fn(async (message: Record<string, unknown>) => {
       switch (message.type) {
@@ -51,8 +51,12 @@ function createBackend(initial: EnergyProfileModules = {}, discovery: EnergyDisc
         case 'domusos/energy/get_state':
           return state();
         case 'domusos/energy/save_profile': {
-          const profile = message.profile as { modules: EnergyProfileModules };
-          backend.saves.push({ modules: profile.modules, expected: message.expected_revision as number | null });
+          const profile = message.profile as { modules: EnergyProfileModules; tariff?: unknown };
+          backend.saves.push({
+            modules: profile.modules,
+            expected: message.expected_revision as number | null,
+            ...('tariff' in profile ? { tariff: profile.tariff } : {}),
+          });
           if (backend.failNextSave) {
             const failure = backend.failNextSave;
             backend.failNextSave = null;
@@ -101,6 +105,7 @@ function renderWizard(backend: Backend, mode: 'setup' | 'edit' | 'rediscover' = 
 }
 
 const next = () => fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+const skipTariff = () => fireEvent.click(screen.getByRole('button', { name: 'Salta per ora' }));
 const moduleCard = (label: string) => screen.getByText(label, { selector: 'fieldset p' }).closest('fieldset') as HTMLElement;
 
 describe('Energy setup wizard', () => {
@@ -121,6 +126,10 @@ describe('Energy setup wizard', () => {
 
     fireEvent.click(screen.getByLabelText('Valori positivi = prelievo dalla rete'));
     next();
+    expect(screen.getByText(/Passaggio 3 di 5/)).not.toBeNull();
+    expect(screen.queryByText('Obbligatorio')).toBeNull();
+    skipTariff();
+    expect(screen.getByText('Tariffa non configurata: potrai aggiungerla dalle Impostazioni.')).not.toBeNull();
     const preview = screen.getByRole('img').getAttribute('aria-label') ?? '';
     expect(preview).toContain('Fotovoltaico: 3,2 kW');
     expect(preview).toContain('Rete: 700 W Immissione');
@@ -159,11 +168,41 @@ describe('Energy setup wizard', () => {
     expect(screen.getByText('Usa un’entità sensor.* esistente.')).not.toBeNull();
     fireEvent.change(screen.getByLabelText('Potenza di ricarica'), { target: { value: 'sensor.wallbox_power' } });
     next();
+
+    const tariff = screen.getByRole('group', { name: 'Tariffa' });
+    fireEvent.click(within(tariff).getByRole('radio', { name: 'Monoraria' }));
+    expect(within(tariff).queryByRole('textbox', { name: /^Energia immessa/ })).toBeNull();
+    fireEvent.change(within(tariff).getByRole('textbox', { name: /^Prezzo unico/ }), { target: { value: '20' } });
+    expect(screen.getByText('Correggi i prezzi evidenziati oppure salta questo passaggio.')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Avanti' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Salta' })).not.toBeNull();
+    fireEvent.change(within(tariff).getByRole('textbox', { name: /^Prezzo unico/ }), { target: { value: '0,25' } });
+    next();
+    expect(screen.getByText('Tariffa: Monoraria · 0,25 €/kWh.')).not.toBeNull();
     next();
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
 
     await vi.waitFor(() => expect(backend.saves).toHaveLength(1));
-    expect(backend.saves[0].modules).toEqual({ wallbox: { sensors: { charging_power: 'sensor.wallbox_power' } } });
+    expect(backend.saves[0]).toEqual({
+      modules: { wallbox: { sensors: { charging_power: 'sensor.wallbox_power' } } },
+      expected: 0,
+      tariff: { scheme: 'single', prices: { single: 0.25 }, fixed_monthly: null, vat_percent: null, export_price: null },
+    });
+  });
+
+  it('leaves a typed tariff out when the step is skipped', async () => {
+    const backend = createBackend({}, { ...DISCOVERY, requires_input: [] });
+    renderWizard(backend);
+    await screen.findByText('Sensori riconosciuti e già proposti');
+    next();
+    next();
+    fireEvent.change(screen.getByRole('textbox', { name: /^F1/ }), { target: { value: '0,3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salta' }));
+    next();
+    fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
+
+    await vi.waitFor(() => expect(backend.saves).toHaveLength(1));
+    expect(backend.saves[0]).not.toHaveProperty('tariff');
   });
 
   it('re-detection keeps confirmed bindings and only offers suggestions', async () => {
@@ -183,6 +222,9 @@ describe('Energy setup wizard', () => {
     next();
     expect(within(moduleCard('Fotovoltaico')).getByDisplayValue('sensor.pv')).not.toBeNull();
     expect(within(moduleCard('Rete')).getByDisplayValue('sensor.confirmed')).not.toBeNull();
+    next();
+    expect(screen.getByRole('heading', { name: 'Anteprima' })).not.toBeNull();
+    expect(screen.getByText(/Passaggio 3 di 4/)).not.toBeNull();
   });
 
   it('keeps unsaved changes after a network error and saves on retry', async () => {
@@ -260,6 +302,7 @@ describe('Energy page lifecycle', () => {
     expect(screen.queryByRole('heading', { name: 'Dettaglio Energia' })).toBeNull();
     next();
     next();
+    skipTariff();
     next();
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
 
