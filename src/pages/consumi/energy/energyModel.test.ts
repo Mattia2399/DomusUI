@@ -76,5 +76,7 @@ describe('Energy flow view', () => {
   it('formats watts and kilowatts', () => {
     expect(formatPower(850)).toBe('850 W');
     expect(formatPower(1250)).toBe('1,25 kW');
+    expect(formatPower(-0)).toBe('0 W');
+    expect(formatPower(-0.2)).toBe('0 W');
   });
 });

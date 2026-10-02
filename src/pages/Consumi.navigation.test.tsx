@@ -26,6 +26,15 @@ const energy = (): EnergyPageContext => ({
   haStates: {},
 });
 
+const quantity = (value: number, source: 'measured' | 'derived' = 'measured') => ({
+  status: 'ok' as const,
+  value,
+  unit: 'W',
+  source,
+  entity_ids: [],
+  reason: null,
+});
+
 describe('Consumption navigation', () => {
   it('opens the Energy subpage on its canonical route and returns to the overview', async () => {
     render(<ConsumptionDashboardPage embedded energy={energy()} />);
@@ -42,6 +51,7 @@ describe('Consumption navigation', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Acqua/ }));
     expect(window.location.pathname).toBe('/consumi/acqua');
     expect(screen.getByRole('heading', { name: 'Dettaglio Acqua' })).not.toBeNull();
+    expect(screen.getByText('Anteprima dimostrativa.')).not.toBeNull();
   });
 
   it('follows browser history between the overview and the Energy subpage', () => {
@@ -60,5 +70,39 @@ describe('Consumption navigation', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(screen.getByRole('heading', { name: OVERVIEW })).not.toBeNull();
+  });
+
+  it('uses the same Energy Core snapshot in the overview and Energy detail', async () => {
+    const callApi = vi.fn().mockResolvedValue({
+      configured: true,
+      load_error: false,
+      available: true,
+      profile_revision: 3,
+      observed_at: '2026-10-02T08:00:00Z',
+      modules: {
+        grid: {
+          status: 'online',
+          complete: true,
+          sign_convention: 'positive_import',
+          quantities: {
+            import_power: quantity(1200, 'derived'),
+            export_power: quantity(0, 'derived'),
+            net_power: quantity(1200),
+          },
+        },
+      },
+      absent_modules: ['solar', 'home', 'battery', 'wallbox'],
+      offline_modules: [],
+      home_consumption: quantity(1200, 'derived'),
+    });
+    render(<ConsumptionDashboardPage embedded energy={{ ...energy(), callApi }} />);
+
+    const homeLabel = await screen.findByText('POTENZA CASA');
+    expect(homeLabel.parentElement?.textContent).toContain('1,2 kW');
+    expect(screen.queryByText(/rischio distacco/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Energia/ }));
+    expect((await screen.findByRole('img', { name: /Flussi energetici/ })).getAttribute('aria-label')).toContain('Casa: 1,2 kW Derivato');
+    expect(callApi).toHaveBeenCalledTimes(1);
   });
 });
