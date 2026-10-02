@@ -26,6 +26,25 @@ export type EnergyModuleState = {
   quantities: Record<string, EnergyQuantity>;
 };
 
+export type EnergyTariffScheme = 'single' | 'two_band' | 'three_band';
+
+export type EnergyTariff = {
+  scheme: EnergyTariffScheme;
+  prices: Record<string, number>;
+  fixed_monthly: number | null;
+  vat_percent: number | null;
+  export_price: number | null;
+};
+
+export type EnergyTariffState = {
+  scheme: EnergyTariffScheme;
+  band: 'F1' | 'F2' | 'F3';
+  band_label: string;
+  price: number;
+  export_price: number | null;
+  currency: 'EUR';
+};
+
 export type EnergyState = {
   configured: boolean;
   load_error: boolean;
@@ -36,13 +55,14 @@ export type EnergyState = {
   absent_modules: EnergyModuleId[];
   offline_modules: EnergyModuleId[];
   home_consumption: EnergyQuantity | null;
+  tariff?: EnergyTariffState | null;
 };
 
 export type EnergyModuleDocument = { sensors: Record<string, string>; sign_convention?: string };
 export type EnergyProfileModules = Partial<Record<EnergyModuleId, EnergyModuleDocument>>;
 
 export type EnergyProfileResult = {
-  profile: { revision: number; updated_at: string | null; load_error: boolean; modules: EnergyProfileModules };
+  profile: { revision: number; updated_at: string | null; load_error: boolean; modules: EnergyProfileModules; tariff?: EnergyTariff | null };
   module_status: Record<EnergyModuleId, 'absent' | 'offline' | 'online'>;
 };
 
@@ -167,13 +187,19 @@ export const getEnergyProfile = (callApi: EnergyCallApi) =>
 export const discoverEnergy = (callApi: EnergyCallApi) =>
   request<EnergyDiscovery>(callApi, { type: ENERGY_CORE_TYPES.discover }, isDiscovery);
 
+/** Without `tariff` the stored tariff is kept; `null` removes it. */
 export const saveEnergyProfile = (
   callApi: EnergyCallApi,
   modules: EnergyProfileModules,
   expectedRevision: number | null,
+  tariff?: EnergyTariff | null,
 ) =>
   request<EnergyProfileResult>(
     callApi,
-    { type: ENERGY_CORE_TYPES.saveProfile, profile: { modules }, expected_revision: expectedRevision },
+    {
+      type: ENERGY_CORE_TYPES.saveProfile,
+      profile: tariff === undefined ? { modules } : { modules, tariff },
+      expected_revision: expectedRevision,
+    },
     isProfileResult,
   );
