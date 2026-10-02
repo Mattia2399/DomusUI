@@ -753,7 +753,7 @@ export function ConsumptionDashboardPage({
                     Anteprima beta
                   </span>
                 </div>
-                <p className="mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--ui-text-tertiary)] sm:text-sm">
+                <p className="dashboard-content-surface mt-3 max-w-3xl rounded-2xl px-4 py-2.5 text-xs leading-relaxed text-[color:var(--ui-text-secondary)] sm:text-sm">
                   Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.
                 </p>
               </header>
