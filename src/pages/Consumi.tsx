@@ -145,60 +145,68 @@ const buildConsumptionCardBackdropStyle = (svg: string, tint: string): React.CSS
 
 const CARD_BACKDROP_STYLES: Record<ConsumptionCardId, React.CSSProperties> = {
   electricity: buildConsumptionCardBackdropStyle(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">
-      <g fill="none" stroke="#bbf7d0" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M94 478h246l62-72h174l66 72h276" stroke-opacity=".17" stroke-width="8"/>
-        <path d="M132 150h356v236H132z" fill="#22c55e" fill-opacity=".07" stroke-opacity=".22" stroke-width="5"/>
-        <path d="M178 198h264M178 250h264M178 302h264M220 150v236M310 150v236M400 150v236" stroke-opacity=".15" stroke-width="4"/>
-        <path d="M624 126h196l-58 166h-236zM632 174h166M608 226h170M584 278h174M682 126l-76 166M756 126l-68 166" stroke-opacity=".2" stroke-width="5"/>
-        <path d="M516 546c62-42 128-42 198 0s140 42 212 0" stroke-opacity=".11" stroke-width="9"/>
-        <circle cx="810" cy="452" r="44" stroke-opacity=".2" stroke-width="6"/>
-        <path d="M810 384v-52M810 572v-52M878 452h52M690 452h52M858 404l38-38M724 538l38-38M858 500l38 38M724 366l38 38" stroke-opacity=".16" stroke-width="6"/>
-      </g>
-    </svg>`,
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#bbf7d0" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M94 478h246l62-72h174l66 72h276" stroke-opacity=".17" stroke-width="8"/>',
+      '<path d="M132 150h356v236H132z" fill="#22c55e" fill-opacity=".07" stroke-opacity=".22" stroke-width="5"/>',
+      '<path d="M178 198h264M178 250h264M178 302h264M220 150v236M310 150v236M400 150v236" stroke-opacity=".15" stroke-width="4"/>',
+      '<path d="M624 126h196l-58 166h-236zM632 174h166M608 226h170M584 278h174M682 126l-76 166M756 126l-68 166" stroke-opacity=".2" stroke-width="5"/>',
+      '<path d="M516 546c62-42 128-42 198 0s140 42 212 0" stroke-opacity=".11" stroke-width="9"/>',
+      '<circle cx="810" cy="452" r="44" stroke-opacity=".2" stroke-width="6"/>',
+      '<path d="M810 384v-52M810 572v-52M878 452h52M690 452h52M858 404l38-38M724 538l38-38M858 500l38 38M724 366l38 38" stroke-opacity=".16" stroke-width="6"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
     'radial-gradient(84% 80% at 24% 22%, rgba(74,222,128,0.2), transparent 60%), linear-gradient(135deg, rgba(16,185,129,0.15), rgba(14,165,233,0.05) 62%, rgba(2,6,23,0.02))',
   ),
   water: buildConsumptionCardBackdropStyle(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">
-      <g fill="none" stroke="#a5f3fc" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M54 246c80 38 160 38 240 0s160-38 240 0 160 38 240 0 160-38 240 0" stroke-opacity=".23" stroke-width="8"/>
-        <path d="M26 344c82 36 166 36 250 0s168-36 252 0 168 36 252 0 168-36 252 0" stroke-opacity=".18" stroke-width="7"/>
-        <path d="M74 444c80 38 160 38 240 0s160-38 240 0 160 38 240 0 160-38 240 0" stroke-opacity=".14" stroke-width="8"/>
-        <path d="M328 548h396M356 590h340M410 508v104M500 508v104M590 508v104" stroke-opacity=".11" stroke-width="5"/>
-        <path d="M718 166c0 62-44 100-98 100s-98-38-98-100c0-48 62-118 98-166 36 48 98 118 98 166Z" fill="#22d3ee" fill-opacity=".08" stroke-opacity=".22" stroke-width="6"/>
-        <path d="M170 164h232v94H170zM212 258v160M360 258v160" stroke-opacity=".16" stroke-width="6"/>
-      </g>
-    </svg>`,
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#a5f3fc" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M54 246c80 38 160 38 240 0s160-38 240 0 160 38 240 0 160-38 240 0" stroke-opacity=".23" stroke-width="8"/>',
+      '<path d="M26 344c82 36 166 36 250 0s168-36 252 0 168 36 252 0 168-36 252 0" stroke-opacity=".18" stroke-width="7"/>',
+      '<path d="M74 444c80 38 160 38 240 0s160-38 240 0 160 38 240 0 160-38 240 0" stroke-opacity=".14" stroke-width="8"/>',
+      '<path d="M328 548h396M356 590h340M410 508v104M500 508v104M590 508v104" stroke-opacity=".11" stroke-width="5"/>',
+      '<path d="M718 166c0 62-44 100-98 100s-98-38-98-100c0-48 62-118 98-166 36 48 98 118 98 166Z" fill="#22d3ee" fill-opacity=".08" stroke-opacity=".22" stroke-width="6"/>',
+      '<path d="M170 164h232v94H170zM212 258v160M360 258v160" stroke-opacity=".16" stroke-width="6"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
     'radial-gradient(86% 88% at 68% 20%, rgba(34,211,238,0.2), transparent 58%), linear-gradient(135deg, rgba(6,182,212,0.14), rgba(59,130,246,0.05) 64%, rgba(2,6,23,0.03))',
   ),
   gas: buildConsumptionCardBackdropStyle(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">
-      <g fill="none" stroke="#fed7aa" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M82 548h826M126 496h236c62 0 86-52 140-52h372" stroke-opacity=".16" stroke-width="8"/>
-        <path d="M186 496v96M312 496v96M688 444v148M812 444v148" stroke-opacity=".11" stroke-width="6"/>
-        <path d="M520 116c62 92-54 126 10 206 52-52 52-106 34-164 120 92 172 188 172 286 0 122-96 206-218 206s-218-84-218-206c0-116 88-192 220-328Z" fill="#fb923c" fill-opacity=".08" stroke-opacity=".21" stroke-width="7"/>
-        <path d="M518 348c42 44 70 88 70 144 0 52-34 86-78 86s-78-34-78-86c0-62 42-104 86-144Z" fill="#fdba74" fill-opacity=".09" stroke-opacity=".18" stroke-width="6"/>
-        <path d="M204 212h184M204 264h134M204 316h192" stroke-opacity=".14" stroke-width="7"/>
-        <circle cx="804" cy="248" r="74" stroke-opacity=".16" stroke-width="6"/>
-        <path d="M804 174v148M730 248h148" stroke-opacity=".12" stroke-width="6"/>
-      </g>
-    </svg>`,
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#fed7aa" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M82 548h826M126 496h236c62 0 86-52 140-52h372" stroke-opacity=".16" stroke-width="8"/>',
+      '<path d="M186 496v96M312 496v96M688 444v148M812 444v148" stroke-opacity=".11" stroke-width="6"/>',
+      '<path d="M520 116c62 92-54 126 10 206 52-52 52-106 34-164 120 92 172 188 172 286 0 122-96 206-218 206s-218-84-218-206c0-116 88-192 220-328Z" fill="#fb923c" fill-opacity=".08" stroke-opacity=".21" stroke-width="7"/>',
+      '<path d="M518 348c42 44 70 88 70 144 0 52-34 86-78 86s-78-34-78-86c0-62 42-104 86-144Z" fill="#fdba74" fill-opacity=".09" stroke-opacity=".18" stroke-width="6"/>',
+      '<path d="M204 212h184M204 264h134M204 316h192" stroke-opacity=".14" stroke-width="7"/>',
+      '<circle cx="804" cy="248" r="74" stroke-opacity=".16" stroke-width="6"/>',
+      '<path d="M804 174v148M730 248h148" stroke-opacity=".12" stroke-width="6"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
     'radial-gradient(84% 80% at 58% 26%, rgba(251,146,60,0.2), transparent 60%), linear-gradient(135deg, rgba(249,115,22,0.15), rgba(244,63,94,0.04) 62%, rgba(2,6,23,0.03))',
   ),
   trend: buildConsumptionCardBackdropStyle(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">
-      <g fill="none" stroke="#bae6fd" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M144 138h472l166 166v278H144z" fill="#38bdf8" fill-opacity=".06" stroke-opacity=".19" stroke-width="6"/>
-        <path d="M616 138v166h166" stroke-opacity=".18" stroke-width="6"/>
-        <path d="M218 508h536M218 438l108-86 106 54 118-144 146 100" stroke-opacity=".22" stroke-width="8"/>
-        <path d="M238 248h246M238 300h208M238 352h148" stroke-opacity=".14" stroke-width="7"/>
-        <rect x="250" y="474" width="42" height="34" rx="10" stroke-opacity=".14" stroke-width="5"/>
-        <rect x="358" y="430" width="42" height="78" rx="10" stroke-opacity=".14" stroke-width="5"/>
-        <rect x="466" y="392" width="42" height="116" rx="10" stroke-opacity=".14" stroke-width="5"/>
-        <rect x="574" y="344" width="42" height="164" rx="10" stroke-opacity=".14" stroke-width="5"/>
-        <path d="M114 620c130-38 260-38 390 0s260 38 390 0" stroke-opacity=".1" stroke-width="9"/>
-      </g>
-    </svg>`,
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#bae6fd" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M144 138h472l166 166v278H144z" fill="#38bdf8" fill-opacity=".06" stroke-opacity=".19" stroke-width="6"/>',
+      '<path d="M616 138v166h166" stroke-opacity=".18" stroke-width="6"/>',
+      '<path d="M218 508h536M218 438l108-86 106 54 118-144 146 100" stroke-opacity=".22" stroke-width="8"/>',
+      '<path d="M238 248h246M238 300h208M238 352h148" stroke-opacity=".14" stroke-width="7"/>',
+      '<rect x="250" y="474" width="42" height="34" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<rect x="358" y="430" width="42" height="78" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<rect x="466" y="392" width="42" height="116" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<rect x="574" y="344" width="42" height="164" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<path d="M114 620c130-38 260-38 390 0s260 38 390 0" stroke-opacity=".1" stroke-width="9"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
     'radial-gradient(84% 80% at 30% 20%, rgba(56,189,248,0.2), transparent 60%), linear-gradient(135deg, rgba(14,165,233,0.15), rgba(99,102,241,0.05) 62%, rgba(2,6,23,0.03))',
   ),
 };
