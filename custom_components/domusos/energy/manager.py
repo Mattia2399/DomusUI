@@ -141,10 +141,13 @@ class EnergyProfileManager:
                 raise EnergyConflictError(
                     f"Energy profile changed (revision {current}); reload and retry"
                 )
+            # A save without a tariff key (the setup wizard) keeps the tariff.
+            tariff = candidate.tariff if "tariff" in document else self._profile.tariff
             profile = replace(
                 candidate,
                 revision=current + 1,
                 updated_at=utc_now().isoformat(),
+                tariff=tariff,
             )
             await self.store.async_save(profile.as_document())
             self._load_error = False

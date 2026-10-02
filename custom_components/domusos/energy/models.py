@@ -12,7 +12,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from .tariff import EnergyTariff
 
 STORAGE_KEY = "domusos.energy.v1"
 STORAGE_VERSION = 1
@@ -199,6 +202,7 @@ class EnergyProfile:
     revision: int = 0
     modules: Mapping[EnergyModule, EnergyModuleConfig] = field(default_factory=dict)
     updated_at: str | None = None
+    tariff: EnergyTariff | None = None
 
     def __post_init__(self) -> None:
         ordered = {
@@ -241,14 +245,18 @@ class EnergyProfile:
                 module.value: config.as_document()
                 for module, config in self.modules.items()
             },
+            "tariff": self.tariff.as_document() if self.tariff else None,
         }
 
 
 def parse_profile(document: Any) -> EnergyProfile:
     """Strictly validate a user-supplied profile document.
 
-    Only ``modules`` is read; ``revision`` and ``updated_at`` are server-owned.
+    Only ``modules`` and the optional ``tariff`` are read; ``revision`` and
+    ``updated_at`` are server-owned.
     """
+    from .tariff import parse_tariff  # noqa: PLC0415 - tariff imports this module
+
     if not isinstance(document, Mapping):
         raise EnergyValidationError("The energy profile must be an object")
     raw_modules = document.get("modules", {})
@@ -272,7 +280,7 @@ def parse_profile(document: Any) -> EnergyProfile:
                 )
             used_entities[entity_id] = location
         modules[module] = config
-    return EnergyProfile(modules=modules)
+    return EnergyProfile(modules=modules, tariff=parse_tariff(document.get("tariff")))
 
 
 def parse_stored_profile(document: Any) -> EnergyProfile:
@@ -294,6 +302,7 @@ def parse_stored_profile(document: Any) -> EnergyProfile:
         revision=revision,
         modules=profile.modules,
         updated_at=updated_at,
+        tariff=profile.tariff,
     )
 
 

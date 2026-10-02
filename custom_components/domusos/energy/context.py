@@ -10,10 +10,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from homeassistant.util import dt as dt_util
+
 from ..core._values import utc_now
 from .adapter import derive_home_consumption
 from .manager import EnergyProfileManager
 from .models import EnergyModule, ModuleStatus
+from .tariff import tariff_state
 
 
 async def async_build_energy_context(
@@ -51,6 +54,7 @@ async def async_build_energy_context(
 async def async_energy_state(manager: EnergyProfileManager) -> dict[str, Any]:
     """Return a JSON-compatible state document for any configuration."""
     context = await async_build_energy_context(manager)
+    tariff = tariff_state(manager.profile.tariff, dt_util.now())
     if context is None:
         return {
             "configured": False,
@@ -62,8 +66,9 @@ async def async_energy_state(manager: EnergyProfileManager) -> dict[str, Any]:
             "absent_modules": [module.value for module in EnergyModule],
             "offline_modules": [],
             "home_consumption": None,
+            "tariff": tariff,
         }
-    return {"configured": True, "load_error": manager.load_error, **_thaw(context)}
+    return {"configured": True, "load_error": manager.load_error, "tariff": tariff, **_thaw(context)}
 
 
 def _thaw(value: Any) -> Any:
