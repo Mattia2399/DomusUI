@@ -1,5 +1,5 @@
 import React from 'react';
-import { LoaderCircle, Save } from 'lucide-react';
+import { LoaderCircle, Save, X } from 'lucide-react';
 import type { MockEntityStateMap } from '../../../types/ha';
 import {
   ENERGY_MODULES,
@@ -47,11 +47,12 @@ const Confidence = ({ value }: { value: EnergyConfidence }) => (
   <span className={UI.muted}>confidenza {CONFIDENCE[value]}</span>
 );
 
+/** What discovery found for a module, or null when it found nothing. */
 function detectionSummary(id: EnergyModuleId, discovery: EnergyDiscovery) {
-  if (discovery.suggested_profile.modules[id]) return 'Associazioni affidabili proposte';
-  if (discovery.requires_input.some((item) => item.module === id)) return 'Sensore con segno: conferma la convenzione';
-  if (discovery.ambiguous.some((item) => item.module === id)) return 'Più candidati: scegli tu il sensore';
-  return Object.keys(discovery.proposals[id] ?? {}).length ? 'Solo candidati a bassa confidenza' : 'Non rilevato';
+  if (discovery.suggested_profile.modules[id]) return 'Sensori riconosciuti e già proposti';
+  if (discovery.requires_input.some((item) => item.module === id)) return 'Sensore trovato: conferma il significato del segno';
+  if (discovery.ambiguous.some((item) => item.module === id)) return 'Più sensori possibili: scegli tu quale usare';
+  return Object.keys(discovery.proposals[id] ?? {}).length ? 'Possibili sensori, da verificare' : null;
 }
 
 function hintFor(value: string, discovery: EnergyDiscovery | null, haStates: MockEntityStateMap) {
@@ -142,16 +143,15 @@ function ModuleEditor({
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className={UI.title}>{meta.label}</p>
-          <p className={UI.muted}>{meta.hint}{offline ? ' · configurato, sensori offline' : ''}</p>
+          <p className={UI.muted}>{module.present ? meta.hint : 'Non incluso nell’impianto'}{offline ? ' · sensori offline' : ''}</p>
         </div>
         <button
           type="button"
-          aria-pressed={module.present}
-          aria-label={`${meta.label}: ${module.present ? 'presente' : 'assente'}`}
+          aria-label={`${module.present ? 'Rimuovi' : 'Configura'} ${meta.label}`}
           onClick={() => onChange({ ...module, present: !module.present })}
-          className={`${UI.chip} font-semibold`}
+          className={`${UI.chip} ${module.present ? '' : 'font-semibold text-[color:var(--ui-accent)]'}`}
         >
-          {module.present ? 'Presente' : 'Assente'}
+          {module.present ? 'Rimuovi' : 'Configura'}
         </button>
       </div>
       {module.present ? (
@@ -261,20 +261,54 @@ export default function EnergySetupWizard({
   const issues = React.useMemo(() => validateDraft(draft), [draft]);
   const modules = React.useMemo(() => draftToModules(draft), [draft]);
   const sensorIds = React.useMemo(() => Object.keys(haStates).filter((id) => id.startsWith('sensor.')), [haStates]);
+  const saving = save.status === 'saving';
+
+  // Full-height layout: own header, scrolling content, actions pinned to the bottom.
+  const shell = (body: React.ReactNode, footer?: React.ReactNode) => (
+    <div className="flex h-full flex-col" onKeyDown={(event) => { if (event.key === 'Escape' && !saving) onClose(); }}>
+      <header className="flex items-center gap-3 border-b border-[color:var(--ui-separator)] px-4 py-3 sm:px-6">
+        <div className="min-w-0 flex-1">
+          <p className={UI.muted}>Configura Domus Energy{profile ? ` · Passaggio ${step + 1} di ${STEPS.length}` : ''}</p>
+          <h2 id="energy-step-title" ref={headingRef} tabIndex={-1} className={`truncate text-lg outline-none ${UI.title}`}>{STEPS[profile ? step : 0]}</h2>
+        </div>
+        <button type="button" onClick={onClose} disabled={saving} aria-label="Chiudi configurazione" className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40">
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
+      </header>
+      {profile ? (
+        <ol className="flex gap-1 px-4 pt-3 sm:px-6" aria-label="Passaggi della configurazione">
+          {STEPS.map((label, index) => (
+            <li
+              key={label}
+              aria-current={index === step ? 'step' : undefined}
+              className={`h-1 flex-1 rounded-full ${index <= step ? 'bg-[color:var(--ui-accent)]' : 'bg-[color:var(--ui-fill-secondary)]'}`}
+            >
+              <span className="sr-only">{index + 1}. {label}</span>
+            </li>
+          ))}
+        </ol>
+      ) : null}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="mx-auto max-w-5xl space-y-4">{body}</div>
+      </div>
+      {footer ? (
+        <footer className="border-t border-[color:var(--ui-separator)] px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 sm:px-6">
+          <div className="mx-auto max-w-5xl">{footer}</div>
+        </footer>
+      ) : null}
+    </div>
+  );
 
   if (loadError !== null) {
-    return (
-      <div role="alert" className={`liquid-glass-card space-y-3 p-5 ${UI.body}`}>
+    return shell(
+      <div role="alert" className={`space-y-3 ${UI.body}`}>
         <p>{loadError}</p>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => void load()} className={UI.button}>Riprova</button>
-          <button type="button" onClick={onClose} className={UI.button}>Chiudi</button>
-        </div>
-      </div>
+        <button type="button" onClick={() => void load()} className={UI.button}>Riprova</button>
+      </div>,
     );
   }
   if (!profile) {
-    return <p role="status" className={`liquid-glass-card flex items-center gap-2 p-5 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Rilevamento dell’impianto in corso…</p>;
+    return shell(<p role="status" className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Ricerca dei sensori in Home Assistant…</p>);
   }
 
   const savedModules = profile.profile.modules;
@@ -284,7 +318,7 @@ export default function EnergySetupWizard({
   const present = ENERGY_MODULES.filter((id) => draft[id].present);
   const absent = ENERGY_MODULES.filter((id) => !draft[id].present && id !== 'home').map((id) => MODULE_META[id].label);
   const blocked = step === 1 && issues.length > 0;
-  const saving = save.status === 'saving';
+  const nothingFound = discovery !== null && ENERGY_MODULES.every((id) => detectionSummary(id, discovery) === null);
 
   const handleSave = async () => {
     setSave({ status: 'saving' });
@@ -298,40 +332,37 @@ export default function EnergySetupWizard({
     }
   };
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-4">
-      <ol className="grid grid-cols-4 gap-1.5" aria-label="Passaggi della configurazione">
-        {STEPS.map((label, index) => (
-          <li
-            key={label}
-            aria-current={index === step ? 'step' : undefined}
-            className={`rounded-full border px-2 py-1.5 text-center text-xs font-semibold ${index === step ? 'border-[color:var(--ui-accent)]' : 'border-[color:var(--ui-border)] text-[color:var(--ui-text-tertiary)]'}`}
-          >
-            {index + 1}<span className="hidden sm:inline">. {label}</span>
-          </li>
-        ))}
-      </ol>
-
-      <section className="liquid-glass-card space-y-4 p-4 sm:p-6" aria-labelledby="energy-step-title">
-        <h2 id="energy-step-title" ref={headingRef} tabIndex={-1} className={`text-lg outline-none ${UI.title}`}>{STEPS[step]}</h2>
-
+  return shell(
+      <>
         {step === 0 ? (
           <>
-            <p className={UI.body}>
-              {discovery
-                ? `Rilevamento basato sui metadati${discovery.energy_dashboard === 'used' ? ' e sulla Dashboard Energia' : ''} di Home Assistant. Le associazioni ambigue restano da scegliere e nulla viene salvato senza conferma.`
-                : `Rilevamento non disponibile (${discoveryError}). Puoi configurare i moduli manualmente.`}
-            </p>
-            {discovery ? (
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {ENERGY_MODULES.map((id) => (
-                  <li key={id} className={UI.card}>
-                    <p className={UI.title}>{MODULE_META[id].label}</p>
-                    <p className={UI.muted}>{detectionSummary(id, discovery)}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            {nothingFound || !discovery ? (
+              <div className={UI.card}>
+                <p className={UI.title}>{discovery ? 'Nessun sensore riconosciuto automaticamente' : 'Rilevamento automatico non riuscito'}</p>
+                <p className={`mt-1 ${UI.body}`}>
+                  {discovery
+                    ? 'Domus non ha trovato sensori da attribuire con sicurezza a rete, fotovoltaico, batteria o wallbox. Non è un errore: nel passaggio successivo scegli tu i sensori per i moduli che hai in casa.'
+                    : `${discoveryError} Nel passaggio successivo puoi comunque scegliere tu i sensori.`}
+                </p>
+                {discovery?.energy_dashboard !== 'used' ? (
+                  <p className={`mt-2 ${UI.muted}`}>Suggerimento: se imposti i sensori di potenza nella Dashboard Energia di Home Assistant, Domus potrà proporli in automatico.</p>
+                ) : null}
+              </div>
+            ) : (
+              <>
+                <p className={UI.body}>
+                  Domus ha cercato i sensori di potenza e di stato di carica usando unità, tipo di misura e dispositivo{discovery.energy_dashboard === 'used' ? ', oltre alla tua Dashboard Energia' : ''}. Nulla viene salvato finché non confermi.
+                </p>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {ENERGY_MODULES.map((id) => (
+                    <li key={id} className={UI.card}>
+                      <p className={UI.title}>{MODULE_META[id].label}</p>
+                      <p className={UI.muted}>{detectionSummary(id, discovery) ?? 'Nessun sensore trovato: potrai sceglierlo tu'}</p>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
             {hasSavedProfile ? (
               <>
                 <p className={UI.body}>Le associazioni già confermate non vengono modificate automaticamente.</p>
@@ -354,6 +385,8 @@ export default function EnergySetupWizard({
         ) : null}
 
         {step === 1 ? (
+          <>
+          <p className={UI.body}>Premi «Configura» sui moduli che hai in casa e scegli i sensori. I moduli non configurati restano esclusi.</p>
           <div className="grid gap-3 lg:grid-cols-2">
             {ENERGY_MODULES.map((id) => (
               <ModuleEditor
@@ -371,6 +404,7 @@ export default function EnergySetupWizard({
               {sensorIds.map((id) => <option key={id} value={id} />)}
             </datalist>
           </div>
+          </>
         ) : null}
 
         {step === 2 ? (
@@ -412,25 +446,22 @@ export default function EnergySetupWizard({
             </div>
           </div>
         ) : null}
-      </section>
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <button type="button" onClick={onClose} disabled={saving} className={UI.button}>Annulla</button>
-        <div className="flex gap-2">
-          {step > 0 ? <button type="button" onClick={() => setStep(step - 1)} disabled={saving} className={UI.button}>Indietro</button> : null}
+      </>,
+      <>
+        {blocked ? <p id="energy-step-blocked" className={`mb-2 ${ERROR_TEXT}`}>Completa o correggi i moduli evidenziati per continuare.</p> : null}
+        <div className="flex gap-2 sm:justify-end">
+          {step > 0 ? <button type="button" onClick={() => setStep(step - 1)} disabled={saving} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Indietro</button> : null}
           {step < 3 ? (
-            <button type="button" onClick={() => setStep(step + 1)} disabled={blocked} aria-describedby={blocked ? 'energy-step-blocked' : undefined} className={UI.primary}>
+            <button type="button" onClick={() => setStep(step + 1)} disabled={blocked} aria-describedby={blocked ? 'energy-step-blocked' : undefined} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>
               Avanti
             </button>
           ) : (
-            <button type="button" onClick={() => void handleSave()} disabled={saving || issues.length > 0 || !dirty} className={UI.primary}>
+            <button type="button" onClick={() => void handleSave()} disabled={saving || issues.length > 0 || !dirty} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>
               {saving ? <LoaderCircle className={UI.spin} aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
               Salva impianto
             </button>
           )}
         </div>
-      </div>
-      {blocked ? <p id="energy-step-blocked" className={`text-right ${ERROR_TEXT}`}>Completa o correggi i moduli evidenziati per continuare.</p> : null}
-    </div>
+      </>,
   );
 }

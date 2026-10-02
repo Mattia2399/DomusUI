@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, LoaderCircle, PlugZap, RefreshCw, ScanSearch, SlidersHorizontal } from 'lucide-react';
+import { AlertTriangle, LoaderCircle, RefreshCw, Search, SlidersHorizontal, WifiOff } from 'lucide-react';
 import { LazyLoadBoundary } from '../../components/common/LazyLoadBoundary';
 import type { EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } from '../../services/energyCoreClient';
 import { DetailScaffold } from './shared';
@@ -81,7 +81,7 @@ function SetupActions({ canManage, configured, onOpen }: { canManage: boolean; c
         onClick={() => onOpen(configured ? 'rediscover' : 'setup')}
         className={configured ? UI.button : UI.primary}
       >
-        <ScanSearch size={16} aria-hidden="true" /> {configured ? 'Ripeti rilevamento' : 'Avvia rilevamento'}
+        <Search size={16} aria-hidden="true" /> {configured ? 'Ripeti rilevamento' : 'Avvia rilevamento'}
       </button>
     </div>
   );
@@ -113,8 +113,7 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
 
   if (wizard && energy && canManage) {
     return (
-      <DetailScaffold title="Configura impianto" subtitle="Domus Energy" onBack={() => setWizard(null)}>
-        <LazyLoadBoundary mode="section" fallback={<Message icon={<LoaderCircle className={UI.spin} />} title="Apertura configurazione…" />}>
+      <LazyLoadBoundary mode="section" fallback={<Message icon={<LoaderCircle className={UI.spin} />} title="Apertura configurazione…" />}>
           <EnergySetupWizard
             mode={wizard}
             callApi={energy.callApi}
@@ -126,8 +125,7 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
               void reload();
             }}
           />
-        </LazyLoadBoundary>
-      </DetailScaffold>
+      </LazyLoadBoundary>
     );
   }
 
@@ -143,7 +141,7 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
     right = <StatusPanel state={state} canManage={canManage} onOpen={openWizard} />;
   } else if (!live) {
     left = (
-      <Message icon={<PlugZap />} title="Home Assistant non collegato">
+      <Message icon={<WifiOff />} title="Home Assistant non collegato">
         <p className={`mt-2 ${UI.body}`}>Collega Home Assistant per vedere e configurare l’impianto energetico.</p>
       </Message>
     );
@@ -160,7 +158,7 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
     left = <Message icon={<LoaderCircle className={UI.spin} />} title="Caricamento impianto…" />;
   } else {
     left = (
-      <Message icon={<ScanSearch />} title="Configura Domus Energy">
+      <Message icon={<Search />} title="Configura Domus Energy">
         <p className={`mt-2 leading-relaxed ${UI.body}`}>
           Domus individua rete, fotovoltaico, batteria e wallbox tra i sensori di Home Assistant e mostra solo l’hardware presente. Nulla viene salvato senza la tua conferma.
         </p>
@@ -170,11 +168,24 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
     );
   }
 
+  if (!state?.configured) {
+    return (
+      <DetailScaffold title={title} onBack={onBack}>
+        <div className="flex min-h-[calc(100dvh-11rem)] items-center justify-center">
+          <div className="w-full max-w-xl space-y-3">
+            {notice ? <p role="status" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}
+            <div className="liquid-glass-card">{left}</div>
+          </div>
+        </div>
+      </DetailScaffold>
+    );
+  }
+
   return (
     <DetailScaffold
       title={title}
       onBack={onBack}
-      left={state?.configured ? (
+      left={(
         // The diagram keeps its dark stage in both themes; messages use theme surfaces.
         <div className={`relative flex h-full w-full flex-col overflow-hidden ${UI.stage}`}>
           <div className="relative z-10 flex min-h-0 flex-1 items-center justify-center p-1 sm:p-3">{left}</div>
@@ -182,7 +193,7 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
             Valori da Home Assistant · Misurato = sensore, Derivato = calcolato da Domus
           </p>
         </div>
-      ) : left}
+      )}
       right={(
         <>
           {notice ? <p role="status" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}

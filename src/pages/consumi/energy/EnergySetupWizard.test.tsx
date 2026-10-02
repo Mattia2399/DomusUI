@@ -108,12 +108,12 @@ describe('Energy setup wizard', () => {
     const backend = createBackend();
     const { onSaved } = renderWizard(backend);
 
-    expect(await screen.findByText('Associazioni affidabili proposte')).not.toBeNull();
-    expect(screen.getByText('Più candidati: scegli tu il sensore')).not.toBeNull();
-    expect(screen.getByText('Sensore con segno: conferma la convenzione')).not.toBeNull();
+    expect(await screen.findByText('Sensori riconosciuti e già proposti')).not.toBeNull();
+    expect(screen.getByText('Più sensori possibili: scegli tu quale usare')).not.toBeNull();
+    expect(screen.getByText('Sensore trovato: conferma il significato del segno')).not.toBeNull();
     next();
 
-    expect(within(moduleCard('Batteria')).getByRole('button', { name: 'Batteria: assente' })).not.toBeNull();
+    expect(within(moduleCard('Batteria')).getByRole('button', { name: 'Configura Batteria' })).not.toBeNull();
     expect(within(moduleCard('Fotovoltaico')).getByDisplayValue('sensor.pv')).not.toBeNull();
     expect(within(moduleCard('Rete')).getByDisplayValue('sensor.meter')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Avanti' }).hasAttribute('disabled')).toBe(true);
@@ -140,12 +140,21 @@ describe('Energy setup wizard', () => {
   });
 
   it('configures an unrecognized module manually', async () => {
-    const backend = createBackend({}, { ...DISCOVERY, suggested_profile: { modules: {} }, requires_input: [], proposals: {} });
+    const backend = createBackend({}, {
+      ...DISCOVERY,
+      energy_dashboard: 'not_configured',
+      suggested_profile: { modules: {} },
+      requires_input: [],
+      ambiguous: [],
+      proposals: {},
+    });
     renderWizard(backend);
-    await screen.findByText('Rilevamento');
+    expect(await screen.findByText('Nessun sensore riconosciuto automaticamente')).not.toBeNull();
+    expect(screen.getByText(/Non è un errore: nel passaggio successivo scegli tu i sensori/)).not.toBeNull();
+    expect(screen.getByText(/Dashboard Energia di Home Assistant, Domus potrà proporli/)).not.toBeNull();
     next();
 
-    fireEvent.click(within(moduleCard('Wallbox')).getByRole('button', { name: 'Wallbox: assente' }));
+    fireEvent.click(within(moduleCard('Wallbox')).getByRole('button', { name: 'Configura Wallbox' }));
     fireEvent.change(screen.getByLabelText('Potenza di ricarica'), { target: { value: 'switch.wallbox' } });
     expect(screen.getByText('Usa un’entità sensor.* esistente.')).not.toBeNull();
     fireEvent.change(screen.getByLabelText('Potenza di ricarica'), { target: { value: 'sensor.wallbox_power' } });
@@ -165,7 +174,7 @@ describe('Energy setup wizard', () => {
     expect(screen.getByText('sensor.pv')).not.toBeNull();
     next();
     expect(within(moduleCard('Rete')).getByDisplayValue('sensor.confirmed')).not.toBeNull();
-    expect(within(moduleCard('Fotovoltaico')).getByRole('button', { name: 'Fotovoltaico: assente' })).not.toBeNull();
+    expect(within(moduleCard('Fotovoltaico')).getByRole('button', { name: 'Configura Fotovoltaico' })).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
     const suggestion = screen.getByText('sensor.pv').closest('li') as HTMLElement;
@@ -182,7 +191,7 @@ describe('Energy setup wizard', () => {
     const { onSaved } = renderWizard(backend, 'edit');
     await screen.findByText('Associazioni');
 
-    fireEvent.click(within(moduleCard('Casa')).getByRole('button', { name: 'Casa: assente' }));
+    fireEvent.click(within(moduleCard('Casa')).getByRole('button', { name: 'Configura Casa' }));
     fireEvent.change(screen.getByLabelText('Consumo'), { target: { value: 'sensor.house' } });
     next();
     next();
@@ -205,7 +214,7 @@ describe('Energy setup wizard', () => {
     renderWizard(backend, 'edit');
     await screen.findByText('Associazioni');
     backend.revision = 4;
-    fireEvent.click(within(moduleCard('Fotovoltaico')).getByRole('button', { name: 'Fotovoltaico: presente' }));
+    fireEvent.click(within(moduleCard('Fotovoltaico')).getByRole('button', { name: 'Rimuovi Fotovoltaico' }));
     next();
     next();
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
@@ -217,6 +226,20 @@ describe('Energy setup wizard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
     expect(await screen.findByText(/Serve un amministratore/)).not.toBeNull();
     expect(screen.getByText('Nessun modulo: Domus Energy risulterà non configurato.')).not.toBeNull();
+  });
+});
+
+describe('Energy setup layout', () => {
+  it('closes from its own header or with Escape, without saving', async () => {
+    const backend = createBackend({ solar: { sensors: { production_power: 'sensor.pv' } } });
+    const { onClose } = renderWizard(backend, 'edit');
+    expect(await screen.findByText(/Passaggio 2 di 4/)).not.toBeNull();
+
+    fireEvent.keyDown(screen.getByRole('heading', { name: 'Associazioni' }), { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Chiudi configurazione' }));
+
+    expect(onClose).toHaveBeenCalledTimes(2);
+    expect(backend.saves).toEqual([]);
   });
 });
 
@@ -232,7 +255,9 @@ describe('Energy page lifecycle', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: /Avvia rilevamento/ }));
-    await screen.findByText('Associazioni affidabili proposte');
+    await screen.findByText('Sensori riconosciuti e già proposti');
+    // The wizard replaces the page header instead of nesting under it.
+    expect(screen.queryByRole('heading', { name: 'Dettaglio Energia' })).toBeNull();
     next();
     next();
     next();
@@ -242,7 +267,7 @@ describe('Energy page lifecycle', () => {
     expect(await screen.findByRole('region', { name: 'Il tuo impianto' })).not.toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: /Modifica impianto/ }));
-    fireEvent.click(within(await screen.findByText('Fotovoltaico', { selector: 'fieldset p' }).then((node) => node.closest('fieldset') as HTMLElement)).getByRole('button', { name: 'Fotovoltaico: presente' }));
+    fireEvent.click(within(await screen.findByText('Fotovoltaico', { selector: 'fieldset p' }).then((node) => node.closest('fieldset') as HTMLElement)).getByRole('button', { name: 'Rimuovi Fotovoltaico' }));
     next();
     next();
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));

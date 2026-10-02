@@ -166,9 +166,11 @@ section; no new route or Settings screen exists.
 - **States**: no Home Assistant connection, outdated integration or bridge,
   failed refresh, and no profile. The isolated Demo keeps its existing gate
   on Consumi, so no energy sample is shown there.
-- **Guided setup** (administrators, loaded on demand) runs in four steps:
+- **Guided setup** (administrators, loaded on demand) takes the whole detail
+  area with its own header and close button (also Escape) and keeps its
+  actions pinned to the bottom. It runs in four steps:
   1. Detection: per-module summary of what `discover` found.
-  2. Bindings: present/absent per module, directional or signed wiring,
+  2. Bindings: *Configura* or *Rimuovi* per module, directional or signed wiring,
      suggested or manual sensors, an explicit sign convention for signed
      sensors, and an offline flag for saved modules.
   3. Preview: the same diagram, showing only present modules with readings

@@ -19,6 +19,23 @@ async function expectNoHorizontalOverflow(page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+async function expectCenteredMessage(page, title) {
+  const card = page.getByText(title).locator('xpath=ancestor::div[contains(@class, "liquid-glass-card")][1]');
+  const box = await card.boundingBox();
+  const content = await page.locator('#dashboard-main-content').boundingBox();
+  expect(box).not.toBeNull();
+  expect(Math.abs(box.x + box.width / 2 - (content.x + content.width / 2))).toBeLessThanOrEqual(24);
+}
+
+for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 }, { width: 1440, height: 960 }]) {
+  test(`Energy messages are centred at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await installCompletedWorkspace(page, 'real');
+    await page.goto('/consumi/energia');
+    await expectCenteredMessage(page, 'Home Assistant non collegato');
+  });
+}
+
 test('Energy page never invents values without Home Assistant', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCompletedWorkspace(page, 'real');

@@ -6,14 +6,12 @@ export type IntervalKey = '24H' | '7G' | '30G';
 
 export function DetailScaffold({
   title,
-  subtitle = 'Analisi consumi e andamento',
   onBack,
   left,
   right,
   children,
 }: {
   title: string;
-  subtitle?: string;
   onBack: () => void;
   left?: React.ReactNode;
   right?: React.ReactNode;
@@ -26,7 +24,7 @@ export function DetailScaffold({
     <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto">
       <NestedPageHeader
         title={title}
-        subtitle={subtitle}
+        subtitle="Analisi consumi e andamento"
         backLabel="Consumi"
         backAriaLabel="Torna a Consumi"
         onBack={onBack}
