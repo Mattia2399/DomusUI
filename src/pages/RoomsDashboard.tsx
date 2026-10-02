@@ -2034,7 +2034,6 @@ export function RoomsDashboard({
   );
   const currentFloor = selectedFloorId === 'all' ? undefined : floorById.get(selectedFloorId);
   const currentFloorLabel = selectedFloorId === 'all' ? rt('allFloors') : currentFloor?.name ?? rt('allFloors');
-  const currentFloorTabLabel = formatFloorTabLabel(currentFloor, rt);
   const CurrentFloorIcon = getFloorIcon(currentFloor);
   const roomCountByFloorId = React.useMemo<Record<string, number>>(() => {
     return effectiveHaAreas.reduce<Record<string, number>>((acc, area) => {
@@ -2878,14 +2877,6 @@ export function RoomsDashboard({
     toNumber(climateEntity?.currentValue) ??
     toNumber(climateEntity?.rawAttributes?.current_temperature) ??
     24;
-  const climateTargetTemp =
-    toNumber(climateEntity?.targetValue) ??
-    toNumber(climateEntity?.rawAttributes?.temperature) ??
-    22;
-  const climateMode =
-    `${climateEntity?.hvacMode ?? climateEntity?.rawAttributes?.hvac_mode ?? 'auto'}`
-      .trim()
-      .toUpperCase();
 
   const doorTiles = React.useMemo<RoomDoorTile[]>(() => {
     const lockIds = visibleActiveBuckets.locks.slice(0, 2);
@@ -3073,47 +3064,6 @@ export function RoomsDashboard({
   }, [haStates, visibleActiveBuckets.sensors]);
   const hasEnergyCard = energyReferenceValue !== undefined || isDemoSeedRoom;
   const energyBars = React.useMemo(() => buildEnergyBars(energyReferenceValue), [energyReferenceValue]);
-  const maxEnergyValue = React.useMemo(
-    () => Math.max(...energyBars.map((entry) => entry.value), 1),
-    [energyBars],
-  );
-  const highlightedEnergyIndex = Math.min(2, energyBars.length - 1);
-
-  const callEntityToggle = async (tile: RoomQuickTile) => {
-    if (!tile.isToggleSupported) {
-      return;
-    }
-    if (!tile.isLive || !tile.entityId || !onCallService) {
-      setDemoToggleById((current) => ({
-        ...current,
-        [tile.id]: !tile.isOn,
-      }));
-      return;
-    }
-
-    const domain = tile.domain;
-    const entityId = tile.entityId;
-
-    if (domain === 'media_player') {
-      await onCallService('media_player', 'media_play_pause', { entity_id: entityId });
-      return;
-    }
-
-    const nextService = tile.isOn ? 'turn_off' : 'turn_on';
-    await onCallService(domain, nextService, { entity_id: entityId });
-  };
-
-  const handleMediaAction = async (service: 'media_previous_track' | 'media_play_pause' | 'media_next_track') => {
-    if (!mediaEntityId || !onCallService) {
-      return;
-    }
-    await onCallService('media_player', service, { entity_id: mediaEntityId });
-  };
-
-  const registryUpdatedLabel =
-    registryLoadAt > 0
-      ? rt('registryUpdated', { time: formatDate(registryLoadAt, { hour: '2-digit', minute: '2-digit' }) })
-      : rt('registryWaiting');
 
   const roomAmbientSubtitle = React.useMemo(() => {
     const temperatureEntityId = activeRoomArea?.temperature_entity_id ?? null;
@@ -3277,13 +3227,6 @@ export function RoomsDashboard({
   const hasSecurityCard = doorTiles.length > 0;
   const hasMediaCard = Boolean(mediaEntityId) || isDemoSeedRoom;
   const hasScenesCard = sceneOptions.length > 0;
-  const roomHasCards =
-    hasClimateCard ||
-    hasLightsCard ||
-    hasSecurityCard ||
-    hasMediaCard ||
-    hasEnergyCard ||
-    hasScenesCard;
 
   const accessoryCards = React.useMemo<RoomAccessoryCard[]>(() => {
     const entityIds = uniqueStrings([
@@ -3320,36 +3263,6 @@ export function RoomsDashboard({
       };
     });
   }, [haStates, rt, visibleActiveBuckets.covers, visibleActiveBuckets.others, visibleActiveBuckets.weathers]);
-  const ambientSummaryParts = React.useMemo(() => {
-    const parts: string[] = [];
-    if (hasLightsCard) {
-      parts.push(primaryLightPct !== undefined ? rt('lightPercentage', { value: primaryLightPct }) : rt('lightOn'));
-    }
-    if (hasClimateCard) {
-      parts.push(rt('climateSummary', { value: Math.round(climateCurrentTemp) }));
-    }
-    if (activeSceneName) {
-      parts.push(rt('sceneSummary', { name: activeSceneName }));
-    }
-    return parts;
-  }, [activeSceneName, climateCurrentTemp, hasClimateCard, hasLightsCard, primaryLightPct, rt]);
-  const setRoomScene = async (sceneLabel: string, entityId?: string) => {
-    if (entityId && onCallService) {
-      await onCallService('scene', 'turn_on', { entity_id: entityId });
-    }
-    setSceneByRoomId((current) => ({ ...current, [activeRoomKey]: sceneLabel }));
-  };
-  const toggleRoomLight = async (light: RoomLightRow) => {
-    if (light.isLive && light.entityId && onCallService) {
-      const nextService = light.isOn ? 'turn_off' : 'turn_on';
-      await onCallService(light.domain, nextService, { entity_id: light.entityId });
-      return;
-    }
-    setDemoToggleById((current) => ({
-      ...current,
-      [light.id]: !light.isOn,
-    }));
-  };
 
   const callHaApiForDashboard = React.useCallback(
     async <TResponse = unknown,>(
@@ -3816,41 +3729,6 @@ export function RoomsDashboard({
     });
     return result;
   }, [sceneEntityIds, sceneKeys]);
-  const roomSceneSection = React.useMemo<DashboardSection | null>(() => {
-    if (sceneEntityIds.length === 0 && !isDemoSeedRoom) {
-      return null;
-    }
-    const scenes = sceneEntityIds.length > 0 ? sceneKeys.slice(0, sceneEntityIds.length) : sceneKeys.slice(0, 4);
-    const sceneLabels = scenes.reduce<NonNullable<DashboardSection['sceneLabels']>>((acc, sceneKey) => {
-      const entityId = roomSceneEntityByKey[sceneKey];
-      if (entityId) {
-        acc[sceneKey] = getEntityFriendlyName(entityId, haStates[entityId]);
-      }
-      return acc;
-    }, {});
-    return {
-      id: 'rooms-scenes',
-      kind: 'scenes',
-      title: 'Scene',
-      scenes,
-      sceneLabels,
-      layout: { i: 'rooms-scenes', x: 0, y: 0, w: 4, h: 2 },
-    };
-  }, [haStates, isDemoSeedRoom, roomSceneEntityByKey, sceneEntityIds.length, sceneKeys]);
-  const weatherSection = React.useMemo<DashboardSection>(
-    () => ({
-      id: 'rooms-weather',
-      kind: 'weather',
-      layout: { i: 'rooms-weather', x: 0, y: 0, w: 4, h: 2 },
-      weatherLayout: 'card',
-      weatherForecastType: 'hourly',
-      weatherForecastDays: 5,
-      weatherForecastDensity: 'compact',
-      weatherSecondaryInfo: 'wind',
-    }),
-    [],
-  );
-  const hasWeatherCard = Boolean(weatherEntityId) || isDemoSeedRoom;
 
   const buildSectionDeviceTargets = React.useCallback(
     (entityIds: string[]): RoomSectionDeviceTarget[] => {
