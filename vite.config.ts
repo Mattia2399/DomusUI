@@ -61,6 +61,11 @@ export default defineConfig(({ mode }) => {
     // not be optimized as a regular window dependency during development.
     include: ['maplibre-gl'],
   },
+  esbuild: {
+    // Keep every third-party license notice once per file instead of once per
+    // module: each lucide icon otherwise repeats the same ISC header.
+    legalComments: 'eof',
+  },
   build: {
     rollupOptions: {
       input: [
