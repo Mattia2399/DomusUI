@@ -14,6 +14,8 @@ export type NestedPageHeaderProps = {
   contentClassName?: string;
   className?: string;
   focusOnMount?: boolean;
+  /** Light text over a full-bleed mobile hero until the glass background appears. */
+  overlay?: boolean;
 };
 
 export function NestedPageHeader({
@@ -28,6 +30,7 @@ export function NestedPageHeader({
   contentClassName,
   className,
   focusOnMount = true,
+  overlay = false,
 }: NestedPageHeaderProps) {
   const headerRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -58,6 +61,8 @@ export function NestedPageHeader({
     titleRef.current?.focus({ preventScroll: true });
   }, [focusOnMount, title]);
 
+  const onImage = overlay && glassProgress < 0.6;
+
   return (
     <header
       ref={headerRef}
@@ -81,13 +86,16 @@ export function NestedPageHeader({
           type="button"
           onClick={onBack}
           aria-label={backAriaLabel}
-          className="liquid-glass-control flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full px-0 text-sm font-semibold text-[color:var(--ui-text-primary)] transition-transform active:scale-[0.96] sm:w-auto sm:px-3"
+          className={clsx(
+            'liquid-glass-control flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full px-0 text-sm font-semibold text-[color:var(--ui-text-primary)] transition-transform active:scale-[0.96] sm:w-auto sm:px-3',
+            onImage && 'max-md:!border-white/25 max-md:!bg-black/20 max-md:!text-white',
+          )}
         >
           <ArrowLeft size={17} />
           <span className="hidden sm:inline">{backLabel}</span>
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className={clsx('min-w-0 flex-1', onImage && 'max-md:[&_*]:!text-white')}>
           <h1
             ref={titleRef}
             tabIndex={-1}

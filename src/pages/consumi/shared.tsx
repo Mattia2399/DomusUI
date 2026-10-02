@@ -21,6 +21,8 @@ export function DetailScaffold({
   children,
   subtitle = 'Analisi consumi e andamento',
   showBeta = true,
+  trailing,
+  bleed = false,
 }: {
   title: string;
   onBack: () => void;
@@ -30,11 +32,14 @@ export function DetailScaffold({
   children?: React.ReactNode;
   subtitle?: string;
   showBeta?: boolean;
+  trailing?: React.ReactNode;
+  /** Children own the layout: no padding, and the header overlays a mobile hero. */
+  bleed?: boolean;
 }) {
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto">
+    <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto" data-scroll-root>
       <NestedPageHeader
         title={title}
         subtitle={subtitle}
@@ -42,15 +47,17 @@ export function DetailScaffold({
         backAriaLabel="Torna a Consumi"
         onBack={onBack}
         scrollContainerRef={scrollContainerRef}
-        trailing={showBeta ? (
+        overlay={bleed}
+        trailing={trailing ?? (showBeta ? (
           <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[color:var(--ui-text-secondary)]">
             <FlaskConical size={13} />
             <span className="hidden sm:inline">Anteprima beta</span>
             <span className="sm:hidden">Beta</span>
           </span>
-        ) : undefined}
+        ) : undefined)}
       />
 
+      {bleed ? children : (
       <div className="px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-4 sm:px-6 sm:pb-6 sm:pt-6 lg:px-8 lg:pb-8">
         {children ?? (
         <div className="grid min-h-0 grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-12 xl:gap-8">
@@ -64,6 +71,7 @@ export function DetailScaffold({
         </div>
         )}
       </div>
+      )}
     </div>
   );
 }
