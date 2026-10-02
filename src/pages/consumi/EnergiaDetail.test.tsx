@@ -105,9 +105,12 @@ describe('Energy subpage', () => {
     expect(technicalDetails.open).toBe(false);
     fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
     expect(technicalDetails.open).toBe(true);
-    expect(screen.getByText('Non presenti: Fotovoltaico, Batteria, Wallbox')).not.toBeNull();
-    const home = screen.getByText('Consumo della casa').closest('div') as HTMLElement;
-    expect(within(home).getByText('Derivato')).not.toBeNull();
+    expect(within(technicalDetails).getByText('Non presenti: Fotovoltaico, Batteria, Wallbox')).not.toBeNull();
+    const home = within(technicalDetails).getByText('Consumo della casa').closest('div') as HTMLElement;
+    expect(within(home).getByText(/Derivato/)).not.toBeNull();
+    const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
+    expect(within(components).queryByText('Batteria')).toBeNull();
+    expect(within(components).queryByText('Fotovoltaico')).toBeNull();
   });
 
   it('keeps an offline battery visible without inventing values', async () => {
@@ -127,14 +130,15 @@ describe('Energy subpage', () => {
     renderDetail(context(vi.fn().mockResolvedValue(state)));
 
     expect((await screen.findByRole('img')).getAttribute('aria-label')).toContain('Batteria: offline');
-    expect(screen.getAllByText('Dati parziali').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
-    const panel = screen.getByRole('region', { name: 'Il tuo impianto' });
-    const battery = within(panel).getByText('Batteria').closest('li') as HTMLElement;
+    expect(screen.getByText(/Domus Energy · Dati parziali/)).not.toBeNull();
+    const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
+    const battery = within(components).getByText('Batteria').closest('article') as HTMLElement;
     expect(within(battery).getByText('Offline')).not.toBeNull();
     expect(within(battery).getByText(/non forniscono dati/)).not.toBeNull();
-    expect(within(battery).getAllByText('—').length).toBeGreaterThan(0);
-    expect(within(panel).getByText('Dati insufficienti')).not.toBeNull();
+    expect(within(battery).getByText('—')).not.toBeNull();
+    fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
+    const panel = screen.getByRole('region', { name: 'Il tuo impianto' });
+    expect(within(panel).getAllByText(/Dati insufficienti/).length).toBeGreaterThan(0);
   });
 
   it('explains an outdated integration and retries on demand', async () => {
