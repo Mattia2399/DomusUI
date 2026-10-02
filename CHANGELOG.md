@@ -29,7 +29,8 @@
   it lists the configured modules with their sensors for inline editing and
   re-detection, and stores the electricity tariff (single, two-band or
   three-band ARERA prices, fixed monthly fee, VAT and export price). The
-  Energy page shows the current band and its price.
+  Energy page shows the current band and its price. The first guided setup
+  offers the same tariff fields as an optional step that can be skipped.
 
 ### Changed
 

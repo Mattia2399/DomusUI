@@ -248,16 +248,22 @@ section; no new route exists.
   on Consumi, so no energy sample is shown there.
 - **Guided setup** (administrators, loaded on demand) takes the whole detail
   area with its own header and close button (also Escape) and keeps its
-  actions pinned to the bottom. It runs in four steps:
+  actions pinned to the bottom. The first setup runs in five steps;
+  re-detection skips the tariff and runs in four:
   1. Detection: per-module summary of what `discover` found.
   2. Bindings: *Configura* or *Rimuovi* per module, directional or signed wiring,
      suggested or manual sensors, an explicit sign convention for signed
      sensors, and an offline flag for saved modules.
-  3. Preview: the same diagram, showing only present modules with readings
+  3. Tariff (first setup only, optional): the same fields as the settings
+     page. An empty form shows *Salta per ora*, a filled one can still be
+     skipped, and invalid prices block only until corrected or skipped.
+  4. Preview: the same diagram, showing only present modules with readings
      the backend already normalized; derived consumption is announced as
-     computed after saving.
-  4. Save: `save_profile` with the expected revision, with progress, success,
-     and errors that keep the draft.
+     computed after saving, plus a summary of the tariff or a note that it
+     can be added later.
+  5. Save: one `save_profile` call with the modules and, unless skipped, the
+     tariff, using the expected revision, with progress, success, and errors
+     that keep the draft.
 - **Settings** (*Impostazioni Energia*, administrators, loaded on demand)
   replace the wizard once a profile exists:
   - *Impianto*: one row per module with its sensors or *Non presente*, an
