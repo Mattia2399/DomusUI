@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, MoreHorizontal, SunMedium, TowerControl } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, MoreHorizontal, SunMedium, TowerControl } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -10,7 +10,7 @@ import {
 } from '../hooks/useConsumptionConfig';
 import { AcquaDetail } from './consumi/AcquaDetail';
 import { EnergiaDetailView } from './consumi/EnergiaDetail';
-import { buildEnergyOverview, type EnergyOverviewTone } from './consumi/energy/energyOverviewModel';
+import { buildEnergyOverview, type EnergyOverview, type EnergyOverviewMetric, type EnergyOverviewTone } from './consumi/energy/energyOverviewModel';
 import { useEnergyCore, type EnergyPageContext } from './consumi/energy/useEnergyCore';
 import { GasDetail } from './consumi/GasDetail';
 import { ReportDetail } from './consumi/ReportDetail';
@@ -47,12 +47,6 @@ type UtilityCardDefinition = {
   accentClassName: string;
   backdropStyle: React.CSSProperties;
   preview?: boolean;
-};
-
-type GlobalMetricDefinition = {
-  value: string;
-  label: string;
-  icon: React.ReactNode;
 };
 
 const ENERGY_STATUS_VISUALS: Record<EnergyOverviewTone, { accent: string; dotClassName: string }> = {
@@ -310,19 +304,93 @@ function formatDecimal(value: number, digits = 1) {
   });
 }
 
-function GlobalMetric({ value, label, icon }: GlobalMetricDefinition) {
+function EnergyMetricIcon({ metric }: { metric: EnergyOverviewMetric }) {
+  if (metric.key === 'grid') return <TowerControl size={20} />;
+  if (metric.key === 'solar') return <SunMedium size={20} />;
+  if (metric.key === 'battery') return <Battery size={20} />;
+  return <Bolt size={20} />;
+}
+
+function EnergyOverviewCard({
+  overview,
+  statusVisual,
+  compactEditMode,
+  active,
+  onClick,
+}: {
+  overview: EnergyOverview;
+  statusVisual: { accent: string; dotClassName: string };
+  compactEditMode: boolean;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const [home, ...secondary] = overview.metrics;
+
   return (
-    <div className="dashboard-content-surface min-w-0 rounded-xl p-1.5 shadow-[0_12px_30px_var(--ui-shadow-soft)] sm:rounded-3xl sm:p-4">
-      <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-3">
-        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] [&>svg]:h-3 [&>svg]:w-3 sm:h-11 sm:w-11 sm:rounded-2xl sm:[&>svg]:h-5 sm:[&>svg]:w-5">
-          {icon}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Energia · ${overview.notice.label}`}
+      className={cn(
+        'group relative min-h-[27rem] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#071018] p-5 text-left text-white shadow-[0_30px_80px_rgba(0,0,0,0.34)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 active:translate-y-0 sm:min-h-[31rem] sm:rounded-[2.25rem] sm:p-8',
+        active ? 'border-sky-300/50 shadow-[0_0_0_1px_rgba(125,211,252,0.3),0_30px_80px_rgba(0,0,0,0.34)]' : '',
+      )}
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-35 saturate-125 transition-transform duration-700 group-hover:scale-[1.025]"
+        style={CARD_BACKDROP_STYLES.electricity}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(48,209,88,0.18),transparent_38%),linear-gradient(145deg,rgba(4,10,16,0.35),rgba(4,8,13,0.92))]" />
+      <div className="pointer-events-none absolute inset-x-[8%] top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+      {compactEditMode ? (
+        <span className="pointer-events-none absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white/80 backdrop-blur-xl">
+          <MoreHorizontal size={17} aria-hidden="true" />
+        </span>
+      ) : null}
+
+      <div className="relative z-10 flex h-full min-h-[23rem] flex-col sm:min-h-[27rem]">
+        <div className="flex flex-wrap items-start justify-between gap-4 pr-10 sm:pr-0">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">Sezione principale</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">Energia</h2>
+          </div>
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 backdrop-blur-xl">
+            <span className="relative flex h-2 w-2 items-center justify-center" aria-hidden="true">
+              <span className="absolute inset-0 rounded-full opacity-35 blur-[3px]" style={{ backgroundColor: statusVisual.accent }} />
+              <span className={cn('relative h-1.5 w-1.5 rounded-full', statusVisual.dotClassName)} />
+            </span>
+            <span className="text-[9px] font-semibold uppercase tracking-[0.15em]" style={{ color: statusVisual.accent }}>
+              {overview.notice.label}
+            </span>
+          </span>
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-[0.82rem] font-bold leading-tight tracking-normal text-[color:var(--ui-text-primary)] sm:text-3xl sm:tracking-tight">{value}</p>
-          <p className="mt-0.5 text-[0.42rem] font-semibold uppercase leading-[1.05] tracking-[0.06em] text-[color:var(--ui-text-tertiary)] sm:text-xs sm:tracking-[0.16em]">{label}</p>
+
+        <div className="mt-8 sm:mt-10">
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-white/45">{home.label}</p>
+          <p className="mt-2 text-5xl font-semibold tracking-[-0.055em] text-white sm:text-7xl">{home.value}</p>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-white/55">{overview.notice.text}</p>
+        </div>
+
+        <div className="mt-auto grid grid-cols-3 gap-2 border-t border-white/[0.08] pt-5 sm:gap-4 sm:pt-6">
+          {secondary.map((metric) => (
+            <div key={metric.key} className="min-w-0 rounded-2xl border border-white/[0.07] bg-white/[0.035] p-3 backdrop-blur-md sm:p-4">
+              <span className="text-white/55"><EnergyMetricIcon metric={metric} /></span>
+              <p className="mt-3 truncate text-lg font-semibold tracking-tight text-white sm:text-2xl">{metric.value}</p>
+              <p className="mt-1 line-clamp-2 text-[9px] uppercase leading-relaxed tracking-[0.12em] text-white/40 sm:text-[10px]">{metric.label}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between text-xs font-semibold text-white/65 sm:mt-6">
+          <span>Apri i flussi energetici</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
+            <ArrowUpRight size={17} aria-hidden="true" />
+          </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -354,8 +422,8 @@ function UtilityCard({
       type="button"
       onClick={onClick}
       className={cn(
-        'group relative min-h-[12.25rem] cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 text-left backdrop-blur-2xl sm:min-h-[16rem] sm:rounded-[2rem] sm:p-6 xl:h-80 xl:p-8',
-        'flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] hover:bg-white/[0.1] active:scale-95',
+        'group relative min-h-[10rem] cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 text-left backdrop-blur-2xl sm:min-h-[12rem] sm:rounded-[1.75rem] sm:p-5 xl:min-h-0 xl:flex-1',
+        'flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/[0.1] active:translate-y-0',
         'shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_24px_50px_rgba(0,0,0,0.3)]',
         active ? 'border-sky-300/45 bg-sky-400/12 shadow-[0_0_0_1px_rgba(125,211,252,0.32)]' : '',
       )}
@@ -374,8 +442,8 @@ function UtilityCard({
         </span>
       ) : null}
 
-      <div className="relative z-10 flex items-center gap-2 pr-12 sm:pr-0">
-        <h3 className="min-w-0 truncate text-xl font-semibold tracking-tight text-white sm:text-3xl">{title}</h3>
+      <div className="relative z-10 flex items-center gap-2 pr-12">
+        <h3 className="min-w-0 truncate text-xl font-semibold tracking-tight text-white sm:text-2xl">{title}</h3>
         {preview ? (
           <span className="shrink-0 rounded-full border border-white/20 bg-black/25 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.12em] text-white/75 sm:text-[10px]">
             Anteprima
@@ -383,17 +451,17 @@ function UtilityCard({
         ) : null}
       </div>
 
-      <div className="relative z-10 space-y-2 pr-12 sm:space-y-4 sm:pr-0">
+      <div className="relative z-10 mt-5 grid grid-cols-3 gap-2 pr-8 sm:mt-6 sm:pr-10">
         {metrics.map((metric) => (
           <div key={`${title}-${metric.label}`} className="min-w-0">
-            <p className="truncate text-[1.05rem] font-bold leading-none text-white sm:text-2xl">{metric.value}</p>
-            <p className="mt-1 truncate text-[0.68rem] leading-tight text-white/50 sm:text-sm">{metric.label}</p>
+            <p className="truncate text-sm font-bold leading-none text-white sm:text-lg">{metric.value}</p>
+            <p className="mt-1 line-clamp-2 text-[8px] uppercase leading-tight tracking-[0.08em] text-white/45 sm:text-[9px]">{metric.label}</p>
           </div>
         ))}
       </div>
 
-      <div className={cn('pointer-events-none absolute -bottom-8 -right-8 h-28 w-28 rounded-full blur-2xl sm:h-44 sm:w-44', glowClassName)} />
-      <div className="pointer-events-none absolute bottom-3 right-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white/85 shadow-[0_14px_28px_rgba(0,0,0,0.32)] [&>svg]:h-7 [&>svg]:w-7 sm:bottom-5 sm:right-5 sm:h-24 sm:w-24 sm:rounded-3xl sm:[&>svg]:h-12 sm:[&>svg]:w-12">
+      <div className={cn('pointer-events-none absolute -bottom-8 -right-8 h-24 w-24 rounded-full blur-2xl sm:h-32 sm:w-32', glowClassName)} />
+      <div className="pointer-events-none absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white/85 shadow-[0_14px_28px_rgba(0,0,0,0.32)] [&>svg]:h-5 [&>svg]:w-5 sm:bottom-4 sm:right-4 sm:h-12 sm:w-12 sm:rounded-2xl sm:[&>svg]:h-6 sm:[&>svg]:w-6">
         {icon}
       </div>
     </button>
@@ -567,32 +635,8 @@ export function ConsumptionDashboardPage({
   const utilizzoGas = clamp(Number((consumoGas * 8.5).toFixed(1)), 0, 100);
   const energyStatusVisual = ENERGY_STATUS_VISUALS[energyOverview.notice.tone];
 
-  const globalMetrics = React.useMemo<GlobalMetricDefinition[]>(
-    () => energyOverview.metrics.map((metric) => ({
-      value: metric.value,
-      label: metric.label.toUpperCase(),
-      icon: metric.key === 'grid'
-        ? <TowerControl size={20} />
-        : metric.key === 'solar'
-          ? <SunMedium size={20} />
-          : metric.key === 'battery'
-            ? <Battery size={20} />
-            : <Bolt size={20} />,
-    })),
-    [energyOverview.metrics],
-  );
-
   const utilityCards = React.useMemo<UtilityCardDefinition[]>(
     () => [
-      {
-        id: 'electricity',
-        title: cardTitles.electricity,
-        metrics: energyOverview.cardMetrics,
-        icon: <Bolt size={48} />,
-        glowClassName: 'bg-emerald-400/45',
-        accentClassName: 'bg-[radial-gradient(circle_at_22%_24%,rgba(16,185,129,0.28)_0%,transparent_62%)]',
-        backdropStyle: CARD_BACKDROP_STYLES.electricity,
-      },
       {
         id: 'water',
         title: cardTitles.water,
@@ -637,14 +681,12 @@ export function ConsumptionDashboardPage({
       },
     ],
     [
-      cardTitles.electricity,
       cardTitles.gas,
       cardTitles.trend,
       cardTitles.water,
       consumoGas,
       dashboardData.waterCurrentLiters,
       efficienzaAcqua,
-      energyOverview.cardMetrics,
       flussoMassimo,
       potenzaTermica,
       utilizzoGas,
@@ -714,47 +756,19 @@ export function ConsumptionDashboardPage({
                 <p className="mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--ui-text-tertiary)] sm:text-sm">
                   Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.
                 </p>
-                <div className="mt-4 max-w-3xl" aria-live="polite">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-                    <span
-                      aria-hidden="true"
-                      className="relative flex h-3 w-3 shrink-0 items-center justify-center"
-                    >
-                      <span
-                        className="absolute inset-0 rounded-full opacity-30 blur-[3px]"
-                        style={{ backgroundColor: energyStatusVisual.accent }}
-                      />
-                      <span
-                        className={cn('relative h-1.5 w-1.5 rounded-full', energyStatusVisual.dotClassName)}
-                      />
-                    </span>
-                    <span className="text-[0.68rem] font-semibold uppercase leading-none tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">
-                      Domus Energy
-                    </span>
-                    <span className="h-px w-10 bg-gradient-to-r from-[color:var(--ui-separator)] to-transparent" aria-hidden="true" />
-                    <span
-                      className="text-[0.68rem] font-semibold uppercase leading-none tracking-[0.18em]"
-                      style={{ color: energyStatusVisual.accent }}
-                    >
-                      {energyOverview.notice.label}
-                    </span>
-                  </div>
-                  <p className="mt-2 max-w-[46rem] text-sm font-medium leading-relaxed text-[color:var(--ui-text-secondary)] sm:text-[0.95rem]">
-                    {energyOverview.notice.text}
-                  </p>
-                </div>
               </header>
 
-              <section className="mt-4 w-full max-w-[1280px] sm:mt-7">
-                <div className="grid grid-cols-4 gap-1 sm:gap-4">
-                  {globalMetrics.map((metric) => (
-                    <GlobalMetric key={metric.label} value={metric.value} label={metric.label} icon={metric.icon} />
-                  ))}
+              <section className="mt-5 grid gap-4 sm:mt-7 sm:gap-6 xl:grid-cols-12 xl:gap-8" aria-label="Panoramica consumi">
+                <div className="xl:col-span-8">
+                  <EnergyOverviewCard
+                    overview={energyOverview}
+                    statusVisual={energyStatusVisual}
+                    compactEditMode={compactEditMode}
+                    active={isEditMode && selectedCardId === 'electricity'}
+                    onClick={() => handleCardClick('electricity')}
+                  />
                 </div>
-              </section>
-
-              <section className="mt-6 pt-0 lg:mt-auto lg:pt-10">
-                <div className="grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-2 xl:grid-cols-4 xl:gap-8">
+                <div className="grid gap-3 sm:grid-cols-3 sm:gap-4 xl:col-span-4 xl:flex xl:flex-col xl:gap-4">
                   {utilityCards.map((card) => (
                     <UtilityCard
                       key={card.id}

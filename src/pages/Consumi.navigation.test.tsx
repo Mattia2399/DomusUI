@@ -97,7 +97,7 @@ describe('Consumption navigation', () => {
     });
     render(<ConsumptionDashboardPage embedded energy={{ ...energy(), callApi }} />);
 
-    const homeLabel = await screen.findByText('POTENZA CASA');
+    const homeLabel = await screen.findByText('Potenza casa');
     expect(homeLabel.parentElement?.textContent).toContain('1,2 kW');
     expect(screen.queryByText(/rischio distacco/i)).toBeNull();
 
