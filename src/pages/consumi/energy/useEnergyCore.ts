@@ -16,6 +16,14 @@ export type EnergyPageContext = {
   haStates: MockEntityStateMap;
 };
 
+export type EnergyCoreResource = {
+  state: EnergyState | null;
+  error: EnergyCoreError | null;
+  loading: boolean;
+  live: boolean;
+  reload: () => Promise<void>;
+};
+
 const REFRESH_MS = 1500;
 
 export function boundEntityIds(state: EnergyState | null) {
@@ -28,7 +36,7 @@ export function boundEntityIds(state: EnergyState | null) {
   return [...ids].sort();
 }
 
-export function useEnergyCore(context: EnergyPageContext | undefined) {
+export function useEnergyCore(context: EnergyPageContext | undefined): EnergyCoreResource {
   const live = context?.mode === 'real' && context.connected;
   const callApi = context?.callApi;
   const [state, setState] = React.useState<EnergyState | null>(null);

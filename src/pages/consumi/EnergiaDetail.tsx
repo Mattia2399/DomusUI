@@ -5,7 +5,7 @@ import type { EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } f
 import { DetailScaffold } from './shared';
 import { EnergyFlowDiagram } from './energy/EnergyFlowDiagram';
 import { MODULE_META, REASON_LABEL, SOURCE_LABEL, UI, buildFlowFromState, formatQuantity } from './energy/energyModel';
-import { useEnergyCore, type EnergyPageContext } from './energy/useEnergyCore';
+import { useEnergyCore, type EnergyCoreResource, type EnergyPageContext } from './energy/useEnergyCore';
 import type { WizardMode } from './energy/EnergySetupWizard';
 
 const EnergySetupWizard = React.lazy(() => import('./energy/EnergySetupWizard'));
@@ -105,8 +105,15 @@ function StatusPanel({ state, canManage, onOpen }: { state: EnergyState; canMana
   );
 }
 
-export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack: () => void; energy?: EnergyPageContext }) {
-  const { state, error, loading, live, reload } = useEnergyCore(energy);
+type EnergiaDetailViewProps = {
+  title: string;
+  onBack: () => void;
+  energy?: EnergyPageContext;
+  energyCore: EnergyCoreResource;
+};
+
+export function EnergiaDetailView({ title, onBack, energy, energyCore }: EnergiaDetailViewProps) {
+  const { state, error, loading, live, reload } = energyCore;
   const [wizard, setWizard] = React.useState<WizardMode | null>(null);
   const [notice, setNotice] = React.useState('');
   const canManage = live && Boolean(energy?.canManage);
@@ -205,6 +212,11 @@ export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack
       )}
     />
   );
+}
+
+export function EnergiaDetail({ title, onBack, energy }: { title: string; onBack: () => void; energy?: EnergyPageContext }) {
+  const energyCore = useEnergyCore(energy);
+  return <EnergiaDetailView title={title} onBack={onBack} energy={energy} energyCore={energyCore} />;
 }
 
 export default EnergiaDetail;

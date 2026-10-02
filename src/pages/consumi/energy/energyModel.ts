@@ -82,7 +82,10 @@ const FLOW_THRESHOLD_W = 10;
 
 export function formatPower(watts: number) {
   const absolute = Math.abs(watts);
-  if (absolute < 1000) return `${Math.round(watts).toLocaleString('it-IT')} W`;
+  if (absolute < 1000) {
+    const rounded = Math.round(watts);
+    return `${Object.is(rounded, -0) ? 0 : rounded.toLocaleString('it-IT')} W`;
+  }
   return `${(watts / 1000).toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kW`;
 }
 

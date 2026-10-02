@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Bolt, Droplets, Flame, FlaskConical, Gauge, Leaf, MoreHorizontal, Radio } from 'lucide-react';
+import { BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, MoreHorizontal, SunMedium, TowerControl } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -9,8 +9,9 @@ import {
   type ConsumptionEntityConfig,
 } from '../hooks/useConsumptionConfig';
 import { AcquaDetail } from './consumi/AcquaDetail';
-import { EnergiaDetail } from './consumi/EnergiaDetail';
-import type { EnergyPageContext } from './consumi/energy/useEnergyCore';
+import { EnergiaDetailView } from './consumi/EnergiaDetail';
+import { buildEnergyOverview, type EnergyOverviewTone } from './consumi/energy/energyOverviewModel';
+import { useEnergyCore, type EnergyPageContext } from './consumi/energy/useEnergyCore';
 import { GasDetail } from './consumi/GasDetail';
 import { ReportDetail } from './consumi/ReportDetail';
 import type { IntervalKey } from './consumi/shared';
@@ -45,6 +46,7 @@ type UtilityCardDefinition = {
   glowClassName: string;
   accentClassName: string;
   backdropStyle: React.CSSProperties;
+  preview?: boolean;
 };
 
 type GlobalMetricDefinition = {
@@ -53,87 +55,24 @@ type GlobalMetricDefinition = {
   icon: React.ReactNode;
 };
 
-type SmartInsightStatus = 'critical' | 'warning' | 'success' | 'info';
-
-type SmartInsight = {
-  text: string;
-  status: SmartInsightStatus;
-};
-
-type SmartInsightEnergyState = {
-  currentPowerKw: number;
-  autosufficiencyPct: number;
-};
-
-type SmartInsightWaterState = {
-  currentLiters: number;
-  goalLiters: number;
-  flowLitersPerMin: number;
-};
-
-type SmartInsightGasState = {
-  todayCubicMeters: number;
-  thermalPowerKw: number;
-  utilizationPct: number;
-};
-
-const SMART_INSIGHT_VISUALS: Record<SmartInsightStatus, { accent: string; label: string; dotClassName: string }> = {
-  critical: {
-    accent: '#FF3B30',
-    label: 'Criticità rete',
-    dotClassName: 'bg-[#FF3B30] glow-active-red animate-pulse [animation-duration:1.25s]',
+const ENERGY_STATUS_VISUALS: Record<EnergyOverviewTone, { accent: string; dotClassName: string }> = {
+  neutral: {
+    accent: '#8E8E93',
+    dotClassName: 'bg-[#8E8E93]',
   },
   warning: {
     accent: '#FF9F0A',
-    label: 'Ottimizzazione',
     dotClassName: 'bg-[#FF9F0A] glow-active-orange shadow-[0_0_20px_rgba(255,159,10,0.38)]',
   },
   success: {
     accent: '#32D74B',
-    label: 'Bilancio positivo',
     dotClassName: 'bg-[#32D74B] glow-active-green',
   },
   info: {
     accent: '#64D2FF',
-    label: 'Anomalia acqua',
     dotClassName: 'bg-[#64D2FF] glow-active-blue',
   },
 };
-
-function resolveSmartInsight(
-  energyState: SmartInsightEnergyState,
-  waterState: SmartInsightWaterState,
-  gasState: SmartInsightGasState,
-): SmartInsight {
-  if (energyState.currentPowerKw > 5) {
-    return {
-      text: '⚠️ Carico di rete critico. Rischio distacco contatore imminente. Valuta di spegnere i carichi pesanti.',
-      status: 'critical',
-    };
-  }
-
-  if (energyState.autosufficiencyPct >= 100 && energyState.currentPowerKw <= 2.5) {
-    return {
-      text: '☀️ Splende il sole. La casa è autosufficiente al 100%. Hai energia in eccesso da poter sfruttare per i tuoi elettrodomestici.',
-      status: 'warning',
-    };
-  }
-
-  const hasSustainedWaterFlow =
-    waterState.flowLitersPerMin >= 18 &&
-    waterState.currentLiters >= waterState.goalLiters * 0.75;
-  if (hasSustainedWaterFlow) {
-    return {
-      text: "💧 Attenzione: rilevato un flusso d'acqua costante. Verifica che non ci siano rubinetti rimasti aperti in giardino o nei bagni.",
-      status: 'info',
-    };
-  }
-
-  return {
-    text: '📉 Ottimo bilancio energetico. Oggi i consumi complessivi sono inferiori del 14% rispetto alla media stagionale della tua abitazione.',
-    status: 'success',
-  };
-}
 
 const svgDataUri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg.replace(/\s+/g, ' ').trim())}`;
 
@@ -371,13 +310,6 @@ function formatDecimal(value: number, digits = 1) {
   });
 }
 
-function formatCurrency(value: number) {
-  return value.toLocaleString('it-IT', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function GlobalMetric({ value, label, icon }: GlobalMetricDefinition) {
   return (
     <div className="dashboard-content-surface min-w-0 rounded-xl p-1.5 shadow-[0_12px_30px_var(--ui-shadow-soft)] sm:rounded-3xl sm:p-4">
@@ -401,6 +333,7 @@ function UtilityCard({
   glowClassName,
   accentClassName,
   backdropStyle,
+  preview = false,
   compactEditMode,
   active,
   onClick,
@@ -411,6 +344,7 @@ function UtilityCard({
   glowClassName: string;
   accentClassName: string;
   backdropStyle: React.CSSProperties;
+  preview?: boolean;
   compactEditMode: boolean;
   active: boolean;
   onClick: () => void;
@@ -440,7 +374,14 @@ function UtilityCard({
         </span>
       ) : null}
 
-      <h3 className="relative z-10 truncate pr-12 text-xl font-semibold tracking-tight text-white sm:pr-0 sm:text-3xl">{title}</h3>
+      <div className="relative z-10 flex items-center gap-2 pr-12 sm:pr-0">
+        <h3 className="min-w-0 truncate text-xl font-semibold tracking-tight text-white sm:text-3xl">{title}</h3>
+        {preview ? (
+          <span className="shrink-0 rounded-full border border-white/20 bg-black/25 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.12em] text-white/75 sm:text-[10px]">
+            Anteprima
+          </span>
+        ) : null}
+      </div>
 
       <div className="relative z-10 space-y-2 pr-12 sm:space-y-4 sm:pr-0">
         {metrics.map((metric) => (
@@ -473,6 +414,8 @@ export function ConsumptionDashboardPage({
   energy,
 }: Props) {
   const dashboardData = data ?? DEFAULT_DASHBOARD_DATA;
+  const energyCore = useEnergyCore(energy);
+  const energyOverview = buildEnergyOverview(energyCore);
 
   const cardTitles = DEFAULT_CARD_TITLES;
   const routesByCard = DEFAULT_CARD_ROUTES;
@@ -607,16 +550,6 @@ export function ConsumptionDashboardPage({
     pushRoute(overviewRoute);
   }, [overviewRoute, pushRoute]);
 
-  const potenzaAttualeKw = Number(
-    (Math.max(dashboardData.solarPowerKw, dashboardData.homePowerKw) + 0.2).toFixed(1),
-  );
-  const autosufficienzaPct = clamp(Number((dashboardData.solarMixPct * 0.91 + 23.6).toFixed(1)), 0, 100);
-  const efficienzaSistemaPct = clamp(Number((90 + (dashboardData.solarMixPct / 100) * 6.8).toFixed(1)), 0, 100);
-
-  const energiaTotale = Number((dashboardData.homePowerKw * 4.96).toFixed(1));
-  const energiaCosto = Number((energiaTotale * 0.174).toFixed(2));
-  const ritornoSolare = clamp(Number((dashboardData.solarMixPct * 0.267).toFixed(1)), 0, 100);
-
   const efficienzaAcqua = clamp(
     Number(
       (
@@ -632,61 +565,21 @@ export function ConsumptionDashboardPage({
   const consumoGas = Number((dashboardData.gasTodayCubicMeters * 3.5).toFixed(1));
   const potenzaTermica = Number((consumoGas * 4.14).toFixed(1));
   const utilizzoGas = clamp(Number((consumoGas * 8.5).toFixed(1)), 0, 100);
-  const smartInsight = React.useMemo(
-    () =>
-      resolveSmartInsight(
-        {
-          currentPowerKw: potenzaAttualeKw,
-          autosufficiencyPct: autosufficienzaPct,
-        },
-        {
-          currentLiters: dashboardData.waterCurrentLiters,
-          goalLiters: dashboardData.waterGoalLiters,
-          flowLitersPerMin: flussoMassimo,
-        },
-        {
-          todayCubicMeters: dashboardData.gasTodayCubicMeters,
-          thermalPowerKw: potenzaTermica,
-          utilizationPct: utilizzoGas,
-        },
-      ),
-    [
-      autosufficienzaPct,
-      dashboardData.gasTodayCubicMeters,
-      dashboardData.waterCurrentLiters,
-      dashboardData.waterGoalLiters,
-      flussoMassimo,
-      potenzaAttualeKw,
-      potenzaTermica,
-      utilizzoGas,
-    ],
-  );
-  const smartInsightVisual = SMART_INSIGHT_VISUALS[smartInsight.status];
+  const energyStatusVisual = ENERGY_STATUS_VISUALS[energyOverview.notice.tone];
 
   const globalMetrics = React.useMemo<GlobalMetricDefinition[]>(
-    () => [
-      {
-        value: `${formatDecimal(potenzaAttualeKw)} kW`,
-        label: 'POTENZA ATTUALE',
-        icon: <Bolt size={20} />,
-      },
-      {
-        value: '50.0 Hz',
-        label: 'FREQUENZA RETE',
-        icon: <Radio size={20} />,
-      },
-      {
-        value: `${formatDecimal(autosufficienzaPct)}%`,
-        label: 'AUTOSUFFICIENZA',
-        icon: <Leaf size={20} />,
-      },
-      {
-        value: `${formatDecimal(efficienzaSistemaPct)}%`,
-        label: 'EFFICIENZA SISTEMA',
-        icon: <Gauge size={20} />,
-      },
-    ],
-    [autosufficienzaPct, efficienzaSistemaPct, potenzaAttualeKw],
+    () => energyOverview.metrics.map((metric) => ({
+      value: metric.value,
+      label: metric.label.toUpperCase(),
+      icon: metric.key === 'grid'
+        ? <TowerControl size={20} />
+        : metric.key === 'solar'
+          ? <SunMedium size={20} />
+          : metric.key === 'battery'
+            ? <Battery size={20} />
+            : <Bolt size={20} />,
+    })),
+    [energyOverview.metrics],
   );
 
   const utilityCards = React.useMemo<UtilityCardDefinition[]>(
@@ -694,11 +587,7 @@ export function ConsumptionDashboardPage({
       {
         id: 'electricity',
         title: cardTitles.electricity,
-        metrics: [
-          { value: `${formatDecimal(energiaTotale)} kWh`, label: 'Totale Odierno' },
-          { value: `EUR ${formatCurrency(energiaCosto)}`, label: 'Costo Stimato' },
-          { value: `${formatDecimal(ritornoSolare)}%`, label: 'Ritorno Solare' },
-        ],
+        metrics: energyOverview.cardMetrics,
         icon: <Bolt size={48} />,
         glowClassName: 'bg-emerald-400/45',
         accentClassName: 'bg-[radial-gradient(circle_at_22%_24%,rgba(16,185,129,0.28)_0%,transparent_62%)]',
@@ -716,6 +605,7 @@ export function ConsumptionDashboardPage({
         glowClassName: 'bg-cyan-400/45',
         accentClassName: 'bg-[radial-gradient(circle_at_20%_24%,rgba(34,211,238,0.3)_0%,transparent_60%)]',
         backdropStyle: CARD_BACKDROP_STYLES.water,
+        preview: true,
       },
       {
         id: 'gas',
@@ -729,6 +619,7 @@ export function ConsumptionDashboardPage({
         glowClassName: 'bg-orange-400/45',
         accentClassName: 'bg-[radial-gradient(circle_at_24%_26%,rgba(251,146,60,0.3)_0%,transparent_62%)]',
         backdropStyle: CARD_BACKDROP_STYLES.gas,
+        preview: true,
       },
       {
         id: 'trend',
@@ -742,6 +633,7 @@ export function ConsumptionDashboardPage({
         glowClassName: 'bg-sky-400/45',
         accentClassName: 'bg-[radial-gradient(circle_at_22%_24%,rgba(56,189,248,0.3)_0%,transparent_62%)]',
         backdropStyle: CARD_BACKDROP_STYLES.trend,
+        preview: true,
       },
     ],
     [
@@ -752,20 +644,12 @@ export function ConsumptionDashboardPage({
       consumoGas,
       dashboardData.waterCurrentLiters,
       efficienzaAcqua,
-      energiaCosto,
-      energiaTotale,
+      energyOverview.cardMetrics,
       flussoMassimo,
       potenzaTermica,
-      ritornoSolare,
       utilizzoGas,
     ],
   );
-
-  const progressTicks = React.useMemo(() => {
-    const total = 40;
-    const activeCount = Math.round((total * clamp(dashboardData.solarMixPct, 0, 100)) / 100);
-    return Array.from({ length: total }, (_, index) => index < activeCount);
-  }, [dashboardData.solarMixPct]);
 
   const detailContent = React.useMemo(() => {
     if (activeView === 'overview') {
@@ -777,7 +661,7 @@ export function ConsumptionDashboardPage({
     const onIntervalChange = (value: IntervalKey) => setIntervalForCard(activeView, value);
 
     if (activeView === 'electricity') {
-      return <EnergiaDetail title={title} onBack={handleBackToOverview} energy={energy} />;
+      return <EnergiaDetailView title={title} onBack={handleBackToOverview} energy={energy} energyCore={energyCore} />;
     }
     if (activeView === 'water') {
       return (
@@ -809,7 +693,7 @@ export function ConsumptionDashboardPage({
         onBack={handleBackToOverview}
       />
     );
-  }, [activeView, cardTitles, config, dashboardData, detailIntervals, energy, handleBackToOverview, setIntervalForCard]);
+  }, [activeView, cardTitles, config, dashboardData, detailIntervals, energy, energyCore, handleBackToOverview, setIntervalForCard]);
 
   return (
     <div className={cn('relative h-full w-full overflow-hidden text-[color:var(--ui-text-primary)]', embedded ? '' : 'min-h-screen')}>
@@ -828,7 +712,7 @@ export function ConsumptionDashboardPage({
                   </span>
                 </div>
                 <p className="mt-2 max-w-3xl text-xs leading-relaxed text-[color:var(--ui-text-tertiary)] sm:text-sm">
-                  I valori collegati arrivano da Home Assistant; storici, confronti e dati mancanti possono essere dimostrativi.
+                  Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.
                 </p>
                 <div className="mt-4 max-w-3xl" aria-live="polite">
                   <div className="flex min-w-0 flex-wrap items-center gap-2.5">
@@ -838,45 +722,31 @@ export function ConsumptionDashboardPage({
                     >
                       <span
                         className="absolute inset-0 rounded-full opacity-30 blur-[3px]"
-                        style={{ backgroundColor: smartInsightVisual.accent }}
+                        style={{ backgroundColor: energyStatusVisual.accent }}
                       />
                       <span
-                        className={cn('relative h-1.5 w-1.5 rounded-full', smartInsightVisual.dotClassName)}
+                        className={cn('relative h-1.5 w-1.5 rounded-full', energyStatusVisual.dotClassName)}
                       />
                     </span>
                     <span className="text-[0.68rem] font-semibold uppercase leading-none tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">
-                      Monitoraggio
+                      Domus Energy
                     </span>
                     <span className="h-px w-10 bg-gradient-to-r from-[color:var(--ui-separator)] to-transparent" aria-hidden="true" />
                     <span
                       className="text-[0.68rem] font-semibold uppercase leading-none tracking-[0.18em]"
-                      style={{ color: smartInsightVisual.accent }}
+                      style={{ color: energyStatusVisual.accent }}
                     >
-                      {smartInsightVisual.label}
+                      {energyOverview.notice.label}
                     </span>
                   </div>
                   <p className="mt-2 max-w-[46rem] text-sm font-medium leading-relaxed text-[color:var(--ui-text-secondary)] sm:text-[0.95rem]">
-                    {smartInsight.text}
+                    {energyOverview.notice.text}
                   </p>
                 </div>
               </header>
 
               <section className="mt-4 w-full max-w-[1280px] sm:mt-7">
-                <div className="dashboard-content-surface-soft rounded-full p-1 sm:p-2">
-                  <div className="flex items-center gap-[3px] sm:gap-1.5">
-                    {progressTicks.map((isActive, index) => (
-                      <span
-                        key={`tick-${index}`}
-                        className={cn(
-                          'h-3.5 min-w-0 flex-1 rounded-full transition-colors duration-300 sm:h-7',
-                          isActive ? 'bg-[color:var(--ui-success)] shadow-[0_0_18px_color-mix(in_srgb,var(--ui-success)_46%,transparent)]' : 'bg-[color:var(--ui-fill-secondary)]',
-                        )}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-4 gap-1 sm:mt-5 sm:gap-4">
+                <div className="grid grid-cols-4 gap-1 sm:gap-4">
                   {globalMetrics.map((metric) => (
                     <GlobalMetric key={metric.label} value={metric.value} label={metric.label} icon={metric.icon} />
                   ))}
@@ -894,6 +764,7 @@ export function ConsumptionDashboardPage({
                       glowClassName={card.glowClassName}
                       accentClassName={card.accentClassName}
                       backdropStyle={card.backdropStyle}
+                      preview={card.preview}
                       compactEditMode={compactEditMode}
                       active={isEditMode && selectedCardId === card.id}
                       onClick={() => handleCardClick(card.id)}

@@ -4,6 +4,15 @@ import NestedPageHeader from '../../components/ui/NestedPageHeader';
 
 export type IntervalKey = '24H' | '7G' | '30G';
 
+export function PreviewDataNotice({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="liquid-glass-card flex items-start gap-3 px-4 py-3 text-sm text-[color:var(--ui-text-secondary)]" role="note">
+      <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--ui-warning)]" aria-hidden="true" />
+      <p><span className="font-semibold text-[color:var(--ui-text-primary)]">Anteprima dimostrativa.</span> {children}</p>
+    </div>
+  );
+}
+
 export function DetailScaffold({
   title,
   onBack,

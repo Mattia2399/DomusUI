@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CloudRain, Droplets, Home, Waves } from 'lucide-react';
 import type { ConsumptionDashboardData, ConsumptionEntityConfig } from '../../hooks/useConsumptionConfig';
-import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip } from './shared';
+import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip, PreviewDataNotice } from './shared';
 import { MOCK_DEVICES, OrbitalDevices } from './orbitalDevices';
 
 type WaterMode = 'NORMALE' | 'PIOGGIA';
@@ -21,19 +21,10 @@ const WATER_WEEK_DATA = [
 const RAIN_DROP_OFFSETS = [8, 16, 25, 33, 42, 51, 59, 67, 76, 84];
 
 const FALLBACK_DATA: ConsumptionDashboardData = {
-  solarPowerKw: 5.0,
-  gridPowerKw: 2.5,
-  homePowerKw: 2.5,
-  batterySocPct: 60,
-  batteryPowerKw: 0.5,
-  evSocPct: 45,
-  evPowerKw: 0,
-  solarMixPct: 70,
   waterCurrentLiters: 240,
   waterGoalLiters: 400,
   waterRainRecoveryLitersPerMin: 4.2,
   gasTodayCubicMeters: 1.2,
-  weeklyTrendPoints: [46, 54, 48, 66, 60, 72, 68],
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -420,6 +411,9 @@ export function AcquaDetail({
 
   const right = (
     <>
+      <PreviewDataNotice>
+        Grafici storici, ripartizione e flussi calcolati non provengono ancora da statistiche Home Assistant.
+      </PreviewDataNotice>
       <ChartCard title="Consumo ultimi 7 giorni">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={WATER_WEEK_DATA} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={14}>

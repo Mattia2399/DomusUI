@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Flame } from 'lucide-react';
-import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip } from './shared';
+import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip, PreviewDataNotice } from './shared';
 import { MOCK_DEVICES, OrbitalDevices } from './orbitalDevices';
 
 const GAS_MONTH_DATA = [
@@ -67,9 +67,13 @@ export function GasDetail({
   );
 
   const right = (
-    <ChartCard title="Consumo mensile">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={GAS_MONTH_DATA} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+    <>
+      <PreviewDataNotice>
+        Il grafico mensile e i dispositivi mostrati sono esempi e non misurazioni dell’impianto.
+      </PreviewDataNotice>
+      <ChartCard title="Consumo mensile">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={GAS_MONTH_DATA} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <filter id="gasLineGlow" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur stdDeviation="3" result="blur" />
@@ -90,9 +94,10 @@ export function GasDetail({
             dot={false}
             filter="url(#gasLineGlow)"
           />
-        </LineChart>
-      </ResponsiveContainer>
-    </ChartCard>
+          </LineChart>
+        </ResponsiveContainer>
+      </ChartCard>
+    </>
   );
 
   return <DetailScaffold title={title} onBack={onBack} left={left} right={right} />;
