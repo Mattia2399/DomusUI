@@ -141,6 +141,20 @@ describe('Energy subpage', () => {
     expect(within(panel).getAllByText(/Dati insufficienti/).length).toBeGreaterThan(0);
   });
 
+  it('puts the setup action in the header for administrators only', async () => {
+    const state = energyState({
+      modules: { grid: { status: 'online', complete: true, sign_convention: null, quantities: { net_power: q(300) } } },
+    });
+    renderDetail(context(vi.fn().mockResolvedValue(state)));
+    const header = await screen.findByTestId('nested-page-header');
+    expect(within(header).getByRole('button', { name: 'Configura impianto' })).not.toBeNull();
+
+    cleanup();
+    renderDetail(context(vi.fn().mockResolvedValue(state), { canManage: false }));
+    await screen.findByTestId('energy-experience');
+    expect(screen.queryByRole('button', { name: 'Configura impianto' })).toBeNull();
+  });
+
   it('explains an outdated integration and retries on demand', async () => {
     const callApi = vi.fn().mockRejectedValueOnce({ code: 'unknown_command', message: 'Unknown command.' }).mockResolvedValue(EMPTY);
     renderDetail(context(callApi));

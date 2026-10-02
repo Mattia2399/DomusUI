@@ -8,7 +8,6 @@ import {
   Gauge,
   Home,
   Leaf,
-  SlidersHorizontal,
   SunMedium,
   TowerControl,
   TrendingDown,
@@ -22,7 +21,7 @@ import { MODULE_META, REASON_LABEL, SOURCE_LABEL, buildFlowFromState, formatPowe
 
 type HistoryPeriod = '24h' | '7d' | '30d';
 
-const CARD = 'rounded-[1.5rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-4 shadow-[var(--ui-shadow-card)] sm:p-5';
+const CARD = 'rounded-[1.65rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-4 shadow-[var(--ui-shadow-card)] sm:p-5';
 const EYEBROW = 'text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]';
 const TITLE = 'mt-1 text-lg font-semibold tracking-[-0.03em] text-[color:var(--ui-text-primary)]';
 const MUTED = 'text-xs text-[color:var(--ui-text-secondary)]';
@@ -236,66 +235,117 @@ function AnalysisCard({ state }: { state: EnergyState }) {
   );
 }
 
+/** Mobile cards sit on the sheet; from md they join the page grid like Irrigation. */
+const SECTION = 'mx-3 mb-3 md:mx-0 md:mb-0';
+const PROGRESS = 'var(--energy-scroll-progress)';
+
+function EnergyHero({ state }: { state: EnergyState }) {
+  const status = energySystemStatus(state);
+  const home = state.home_consumption;
+  return (
+    <div
+      data-testid="energy-hero"
+      className="relative flex h-[clamp(31rem,74svh,37rem)] flex-col overflow-hidden bg-[#10151b] text-white md:h-full md:min-h-[38rem] md:rounded-[2rem]"
+    >
+      <div
+        className="absolute inset-x-0 bottom-28 top-[calc(env(safe-area-inset-top)+9.5rem)] [will-change:transform] motion-reduce:!transform-none md:bottom-12 md:top-36 md:!transform-none"
+        style={{ transform: `translate3d(0, calc(${PROGRESS} * 18px), 0) scale(calc(1.045 - ${PROGRESS} * 0.045))`, transformOrigin: 'center top' }}
+      >
+        <EnergyHomeVisual state={state} view={buildFlowFromState(state)} />
+      </div>
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-black motion-reduce:hidden md:hidden" style={{ opacity: `calc(${PROGRESS} * 0.5)` }} />
+      <div
+        className="relative z-10 px-4 pt-[calc(env(safe-area-inset-top)+5.25rem)] motion-reduce:!transform-none motion-reduce:!opacity-100 md:!transform-none md:!opacity-100 md:p-7 lg:p-8"
+        style={{ opacity: `calc(1 - ${PROGRESS} * 1.15)`, transform: `translate3d(0, calc(${PROGRESS} * -24px), 0)` }}
+      >
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
+          <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} aria-hidden="true" />
+          Domus Energy · {status.label}
+        </p>
+        <div className="mt-1.5 flex items-end justify-between gap-4">
+          <h2 id="energy-hero-title" className="min-w-0 text-[1.55rem] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[2.4rem]">{headline(state)}</h2>
+          <div className="shrink-0 text-right">
+            <p className="text-[2.3rem] font-light leading-none tracking-[-0.06em] sm:text-5xl">{formatQuantity(home)}</p>
+            <p className="mt-1 text-[11px] font-medium text-white/70">Casa · {describeQuantity(home)}</p>
+          </div>
+        </div>
+      </div>
+      <p className="relative z-10 mt-auto hidden px-7 pb-6 text-[10px] text-white/50 md:block lg:px-8">
+        Valori istantanei · Misurato = sensore · Derivato = calcolo Domus
+      </p>
+    </div>
+  );
+}
+
 export function EnergyDashboard({
   state,
-  canManage,
-  onEdit,
   banner,
   actions,
 }: {
   state: EnergyState;
-  canManage: boolean;
-  onEdit: () => void;
   banner?: React.ReactNode;
   actions: React.ReactNode;
 }) {
-  const flow = buildFlowFromState(state);
-  const status = energySystemStatus(state);
+  const rootRef = React.useRef<HTMLDivElement>(null);
   const home = state.home_consumption;
   const present = MODULES.filter((item) => state.modules[item.id]);
 
-  return (
-    <div className="mx-auto w-full max-w-[92rem] space-y-3 sm:space-y-4" data-testid="energy-experience">
-      {banner}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 xl:grid-cols-12">
-        <section
-          className="relative isolate flex min-h-[38rem] flex-col overflow-hidden rounded-[2rem] bg-[#10151b] text-white shadow-[0_30px_80px_rgba(2,6,23,0.28)] sm:min-h-[44rem] xl:col-span-8"
-          aria-labelledby="energy-hero-title"
-        >
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_58%,rgba(56,189,248,0.1),transparent_46%)]" />
-          <div className="relative z-10 flex flex-col gap-3 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-7 lg:p-8">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-                <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} aria-hidden="true" />
-                Domus Energy · {status.label}
-              </p>
-              <h2 id="energy-hero-title" className="mt-2 text-[1.65rem] font-semibold leading-tight tracking-[-0.045em] sm:text-[2.4rem]">{headline(state)}</h2>
-            </div>
-            <div className="shrink-0 sm:text-right">
-              <p className="text-[2.4rem] font-light leading-none tracking-[-0.06em] sm:text-5xl">{formatQuantity(home)}</p>
-              <p className="mt-1 text-[11px] font-medium text-white/65">Casa · {describeQuantity(home)}</p>
-            </div>
-          </div>
-          <div className="relative min-h-0 flex-1">
-            <EnergyHomeVisual state={state} view={flow} />
-          </div>
-          <div className="relative z-10 flex flex-wrap items-center justify-between gap-2 px-5 pb-5 text-[10px] text-white/50 sm:px-7 sm:pb-6">
-            <span>Valori istantanei · Misurato = sensore · Derivato = calcolo Domus</span>
-            {canManage ? (
-              <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full border border-white/18 bg-black/30 px-3 text-xs font-semibold text-white backdrop-blur-xl">
-                <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" /> Impianto
-              </button>
-            ) : null}
-          </div>
-        </section>
+  // Same progressive hero as Irrigation: the photo stays behind while the sheet rises.
+  React.useEffect(() => {
+    const root = rootRef.current;
+    const scroller = root?.closest<HTMLElement>('[data-scroll-root]');
+    if (!root || !scroller) return undefined;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      root.style.setProperty('--energy-scroll-progress', (reduceMotion ? 1 : Math.max(0, Math.min(1, scroller.scrollTop / 220))).toFixed(4));
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    update();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      scroller.removeEventListener('scroll', onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
-        <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 sm:content-start sm:gap-4 sm:overflow-visible sm:pb-0 xl:col-span-4 xl:grid-cols-1" aria-label="Componenti dell’impianto" role="list">
+  return (
+    <div
+      ref={rootRef}
+      data-testid="energy-experience"
+      className="relative isolate grid min-h-full grid-cols-1 content-start bg-[color:var(--ui-bg-grouped)] pb-6 max-md:-mt-[calc(env(safe-area-inset-top)+4.65rem)] md:gap-5 md:bg-transparent md:px-6 md:pt-2 lg:px-8 xl:grid-cols-12 xl:px-10"
+      style={{ '--energy-scroll-progress': 0 } as React.CSSProperties}
+    >
+      <section className="sticky top-0 z-0 md:static xl:col-span-8" aria-labelledby="energy-hero-title">
+        <EnergyHero state={state} />
+      </section>
+
+      <div
+        data-testid="energy-sheet"
+        className="relative z-10 isolate -mt-28 rounded-t-[2rem] pt-4 shadow-[0_-12px_34px_rgba(2,6,23,0.12)] md:contents"
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-20 rounded-t-[2rem] md:hidden"
+          style={{ background: 'linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--ui-bg-grouped) 62%, transparent) 8rem, var(--ui-bg-grouped) 15rem)' }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 -z-10 rounded-t-[2rem] bg-[color:var(--ui-bg-grouped)] motion-reduce:!opacity-100 md:hidden"
+          style={{ opacity: `calc(${PROGRESS} * 0.96)` }}
+        />
+        {banner ? <div className={`${SECTION} space-y-3 md:order-first xl:col-span-12`}>{banner}</div> : null}
+
+        <div className={`${SECTION} grid content-start gap-3 sm:grid-cols-2 md:gap-5 xl:col-span-4 xl:grid-cols-1`} aria-label="Componenti dell’impianto" role="list">
           {present.map((item) => (
-            <div key={item.id} role="listitem" className="w-[16.5rem] shrink-0 snap-start sm:w-auto">
+            <div key={item.id} role="listitem">
               <ModuleCard {...item} module={state.modules[item.id] as EnergyModuleState} />
             </div>
           ))}
-          <article role="listitem" className={`${CARD} w-[16.5rem] shrink-0 snap-start sm:col-span-2 sm:w-auto xl:col-span-1`}>
+          <article role="listitem" className={`${CARD} ${present.length % 2 ? '' : 'sm:col-span-2 xl:col-span-1'}`}>
             <div className="flex items-center gap-2.5">
               <Home className="h-4 w-4 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
               <p className={EYEBROW}>Consumo della casa</p>
@@ -309,23 +359,23 @@ export function EnergyDashboard({
           </article>
         </div>
 
-        <div className="xl:col-span-8"><HistoryCard state={state} /></div>
-        <div className="xl:col-span-4"><AnalysisCard state={state} /></div>
-      </div>
+        <div className={`${SECTION} xl:col-span-8`}><HistoryCard state={state} /></div>
+        <div className={`${SECTION} xl:col-span-4`}><AnalysisCard state={state} /></div>
 
-      <details className={`group ${CARD} !p-0`} data-testid="energy-technical-details">
-        <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-5 [&::-webkit-details-marker]:hidden">
-          <div>
-            <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Dettagli sensori e configurazione</p>
-            <p className={`mt-0.5 ${MUTED}`}>Entità, origine dei valori e motivi di indisponibilità</p>
+        <details className={`group ${CARD} !p-0 ${SECTION} xl:col-span-12`} data-testid="energy-technical-details">
+          <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-5 [&::-webkit-details-marker]:hidden">
+            <div>
+              <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Dettagli sensori e configurazione</p>
+              <p className={`mt-0.5 ${MUTED}`}>Entità, origine dei valori e motivi di indisponibilità</p>
+            </div>
+            <ChevronDown className="h-5 w-5 shrink-0 text-[color:var(--ui-text-tertiary)] transition-transform group-open:rotate-180" aria-hidden="true" />
+          </summary>
+          <div className="space-y-4 border-t border-[color:var(--ui-separator)] px-4 py-4 sm:px-5">
+            <TechnicalDetails state={state} />
+            {actions}
           </div>
-          <ChevronDown className="h-5 w-5 shrink-0 text-[color:var(--ui-text-tertiary)] transition-transform group-open:rotate-180" aria-hidden="true" />
-        </summary>
-        <div className="space-y-4 border-t border-[color:var(--ui-separator)] px-4 py-4 sm:px-5">
-          <TechnicalDetails state={state} />
-          {actions}
-        </div>
-      </details>
+        </details>
+      </div>
     </div>
   );
 }

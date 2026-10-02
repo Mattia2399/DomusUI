@@ -162,14 +162,21 @@ section; no new route or Settings screen exists.
   leave no gap, and each value is labelled *Misurato* or *Derivato*. The page
   refreshes the projection at most every 1.5 s when a bound sensor changes in
   the Home Assistant state stream it already receives.
-- **Layout**, following the Irrigation and Technical Room language:
-  1. *House hero* (8/12 columns on desktop, full width below): a factual
-     headline about the grid exchange, the home consumption with its origin,
-     and the 3D house of the configured hardware with value callouts and
-     subtle animated flows. A discreet *Impianto* button opens the wizard for
-     administrators.
-  2. *Components* (4/12 columns on desktop, a horizontal carousel on mobile):
-     one card per configured module plus home consumption.
+- **Layout** mirrors the Irrigation overview structure:
+  - *Mobile*: the page header floats over a full-bleed, sticky house hero; the
+    cards ride up on a rounded sheet (`-mt-28`) that turns opaque while
+    scrolling, with the same parallax and darkening driven by
+    `--energy-scroll-progress` (scroll / 220 px). Reduced motion keeps it
+    static.
+  - *Desktop*: the sheet becomes `display: contents`, so every card joins the
+    12-column grid (`md:gap-5`, `md:px-6` to `xl:px-10`): hero 8 + components
+    4, Andamento 8 + Analisi 4, technical details 12.
+  - *Impianto* (administrators) lives in the page header, like Irrigation's
+    configure action.
+  1. *House hero*: a factual headline about the grid exchange, the home
+     consumption with its origin, and the 3D house of the configured hardware
+     with value callouts and subtle animated flows.
+  2. *Components*: one card per configured module plus home consumption.
   3. *Andamento*: 24 h / 7 d / 30 d selector, the series available for this
      installation, daily summary slots and an explicit empty state.
   4. *Analisi*: self-consumption, self-sufficiency, costs, savings and

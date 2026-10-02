@@ -121,11 +121,19 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
   }
 
   return (
-    <DetailScaffold title={title} onBack={onBack} subtitle="Flussi energetici in tempo reale" showBeta={false}>
+    <DetailScaffold
+      title={title}
+      onBack={onBack}
+      subtitle="Flussi energetici in tempo reale"
+      bleed
+      trailing={canManage ? (
+        <button type="button" onClick={() => openWizard('edit')} className="liquid-glass-control flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-[color:var(--ui-text-primary)]" aria-label="Configura impianto">
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Impianto</span>
+        </button>
+      ) : undefined}
+    >
       <EnergyDashboard
         state={state}
-        canManage={canManage}
-        onEdit={() => openWizard('edit')}
         banner={(
           <>
             {notice ? <p role="status" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}

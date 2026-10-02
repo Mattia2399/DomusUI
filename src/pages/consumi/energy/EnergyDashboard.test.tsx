@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import type { EnergyModuleState, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
 import { EnergyDashboard } from './EnergyDashboard';
 import { ENERGY_HOME_ASSETS, selectEnergyHomeAsset } from './EnergyHomeVisual';
@@ -33,11 +33,7 @@ const state = (modules: EnergyState['modules'], extra: Partial<EnergyState> = {}
   home_consumption: q(1500, { source: 'derived' }),
   ...extra,
 });
-const show = (value: EnergyState, canManage = true) => {
-  const onEdit = vi.fn();
-  render(<EnergyDashboard state={value} canManage={canManage} onEdit={onEdit} actions={null} />);
-  return onEdit;
-};
+const show = (value: EnergyState) => render(<EnergyDashboard state={value} actions={null} />);
 
 describe('Energy house renders', () => {
   it.each([
@@ -103,15 +99,5 @@ describe('Energy dashboard', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('radio', { name: '7 giorni' }));
     expect(screen.getByRole('radio', { name: '7 giorni' }).getAttribute('aria-checked')).toBe('true');
-  });
-
-  it('offers the setup only to administrators', () => {
-    const onEdit = show(state({ grid: online({ net_power: q(100) }) }));
-    fireEvent.click(screen.getByRole('button', { name: /Impianto/ }));
-    expect(onEdit).toHaveBeenCalledOnce();
-
-    cleanup();
-    show(state({ grid: online({ net_power: q(100) }) }), false);
-    expect(screen.queryByRole('button', { name: /Impianto/ })).toBeNull();
   });
 });
