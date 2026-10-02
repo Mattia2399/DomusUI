@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, MoreHorizontal, SunMedium, TowerControl } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, MoreHorizontal, SunMedium, TowerControl } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -43,7 +43,9 @@ type UtilityCardDefinition = {
   title: string;
   metrics: UtilityMetric[];
   icon: React.ReactNode;
+  glowClassName: string;
   accentClassName: string;
+  backdropStyle: React.CSSProperties;
   preview?: boolean;
 };
 
@@ -64,6 +66,82 @@ const ENERGY_STATUS_VISUALS: Record<EnergyOverviewTone, { accent: string; dotCla
     accent: '#64D2FF',
     dotClassName: 'bg-[#64D2FF] glow-active-blue',
   },
+};
+
+const svgDataUri = (svg: string) => `data:image/svg+xml;utf8,${encodeURIComponent(svg.replace(/\s+/g, ' ').trim())}`;
+
+const buildConsumptionCardBackdropStyle = (svg: string, tint: string): React.CSSProperties => ({
+  backgroundImage: `${tint}, url("${svgDataUri(svg)}")`,
+  backgroundPosition: 'center',
+  backgroundSize: 'cover',
+});
+
+const CARD_BACKDROP_STYLES: Record<ConsumptionCardId, React.CSSProperties> = {
+  electricity: buildConsumptionCardBackdropStyle(
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#bbf7d0" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M94 478h246l62-72h174l66 72h276" stroke-opacity=".17" stroke-width="8"/>',
+      '<path d="M132 150h356v236H132z" fill="#22c55e" fill-opacity=".07" stroke-opacity=".22" stroke-width="5"/>',
+      '<path d="M178 198h264M178 250h264M178 302h264M220 150v236M310 150v236M400 150v236" stroke-opacity=".15" stroke-width="4"/>',
+      '<path d="M624 126h196l-58 166h-236zM632 174h166M608 226h170M584 278h174M682 126l-76 166M756 126l-68 166" stroke-opacity=".2" stroke-width="5"/>',
+      '<path d="M516 546c62-42 128-42 198 0s140 42 212 0" stroke-opacity=".11" stroke-width="9"/>',
+      '<circle cx="810" cy="452" r="44" stroke-opacity=".2" stroke-width="6"/>',
+      '<path d="M810 384v-52M810 572v-52M878 452h52M690 452h52M858 404l38-38M724 538l38-38M858 500l38 38M724 366l38 38" stroke-opacity=".16" stroke-width="6"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
+    'radial-gradient(84% 80% at 24% 22%, rgba(74,222,128,0.2), transparent 60%), linear-gradient(135deg, rgba(16,185,129,0.15), rgba(14,165,233,0.05) 62%, rgba(2,6,23,0.02))',
+  ),
+  water: buildConsumptionCardBackdropStyle(
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#a5f3fc" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M54 246c80 38 160 38 240 0s160-38 240 0 160 38 240 0 160-38 240 0" stroke-opacity=".23" stroke-width="8"/>',
+      '<path d="M26 344c82 36 166 36 250 0s168-36 252 0 168 36 252 0 168-36 252 0" stroke-opacity=".18" stroke-width="7"/>',
+      '<path d="M74 444c80 38 160 38 240 0s160-38 240 0 160 38 240 0 160-38 240 0" stroke-opacity=".14" stroke-width="8"/>',
+      '<path d="M328 548h396M356 590h340M410 508v104M500 508v104M590 508v104" stroke-opacity=".11" stroke-width="5"/>',
+      '<path d="M718 166c0 62-44 100-98 100s-98-38-98-100c0-48 62-118 98-166 36 48 98 118 98 166Z" fill="#22d3ee" fill-opacity=".08" stroke-opacity=".22" stroke-width="6"/>',
+      '<path d="M170 164h232v94H170zM212 258v160M360 258v160" stroke-opacity=".16" stroke-width="6"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
+    'radial-gradient(86% 88% at 68% 20%, rgba(34,211,238,0.2), transparent 58%), linear-gradient(135deg, rgba(6,182,212,0.14), rgba(59,130,246,0.05) 64%, rgba(2,6,23,0.03))',
+  ),
+  gas: buildConsumptionCardBackdropStyle(
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#fed7aa" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M82 548h826M126 496h236c62 0 86-52 140-52h372" stroke-opacity=".16" stroke-width="8"/>',
+      '<path d="M186 496v96M312 496v96M688 444v148M812 444v148" stroke-opacity=".11" stroke-width="6"/>',
+      '<path d="M520 116c62 92-54 126 10 206 52-52 52-106 34-164 120 92 172 188 172 286 0 122-96 206-218 206s-218-84-218-206c0-116 88-192 220-328Z" fill="#fb923c" fill-opacity=".08" stroke-opacity=".21" stroke-width="7"/>',
+      '<path d="M518 348c42 44 70 88 70 144 0 52-34 86-78 86s-78-34-78-86c0-62 42-104 86-144Z" fill="#fdba74" fill-opacity=".09" stroke-opacity=".18" stroke-width="6"/>',
+      '<path d="M204 212h184M204 264h134M204 316h192" stroke-opacity=".14" stroke-width="7"/>',
+      '<circle cx="804" cy="248" r="74" stroke-opacity=".16" stroke-width="6"/>',
+      '<path d="M804 174v148M730 248h148" stroke-opacity=".12" stroke-width="6"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
+    'radial-gradient(84% 80% at 58% 26%, rgba(251,146,60,0.2), transparent 60%), linear-gradient(135deg, rgba(249,115,22,0.15), rgba(244,63,94,0.04) 62%, rgba(2,6,23,0.03))',
+  ),
+  trend: buildConsumptionCardBackdropStyle(
+    [
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720">',
+      '<g fill="none" stroke="#bae6fd" stroke-linecap="round" stroke-linejoin="round">',
+      '<path d="M144 138h472l166 166v278H144z" fill="#38bdf8" fill-opacity=".06" stroke-opacity=".19" stroke-width="6"/>',
+      '<path d="M616 138v166h166" stroke-opacity=".18" stroke-width="6"/>',
+      '<path d="M218 508h536M218 438l108-86 106 54 118-144 146 100" stroke-opacity=".22" stroke-width="8"/>',
+      '<path d="M238 248h246M238 300h208M238 352h148" stroke-opacity=".14" stroke-width="7"/>',
+      '<rect x="250" y="474" width="42" height="34" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<rect x="358" y="430" width="42" height="78" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<rect x="466" y="392" width="42" height="116" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<rect x="574" y="344" width="42" height="164" rx="10" stroke-opacity=".14" stroke-width="5"/>',
+      '<path d="M114 620c130-38 260-38 390 0s260 38 390 0" stroke-opacity=".1" stroke-width="9"/>',
+      '</g>',
+      '</svg>',
+    ].join(''),
+    'radial-gradient(84% 80% at 30% 20%, rgba(56,189,248,0.2), transparent 60%), linear-gradient(135deg, rgba(14,165,233,0.15), rgba(99,102,241,0.05) 62%, rgba(2,6,23,0.03))',
+  ),
 };
 
 const DEFAULT_CARD_TITLES: Record<ConsumptionCardId, string> = {
@@ -258,6 +336,14 @@ function EnergyOverviewCard({
         active ? 'border-sky-300/50 shadow-[0_0_0_1px_rgba(125,211,252,0.3),0_30px_80px_rgba(0,0,0,0.34)]' : '',
       )}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-35 saturate-125 transition-transform duration-700 group-hover:scale-[1.025]"
+        style={CARD_BACKDROP_STYLES.electricity}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(48,209,88,0.18),transparent_38%),linear-gradient(145deg,rgba(4,10,16,0.35),rgba(4,8,13,0.92))]" />
+      <div className="pointer-events-none absolute inset-x-[8%] top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
       {compactEditMode ? (
         <span className="pointer-events-none absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white/80 backdrop-blur-xl">
           <MoreHorizontal size={17} aria-hidden="true" />
@@ -300,7 +386,7 @@ function EnergyOverviewCard({
         <div className="mt-5 flex items-center justify-between text-xs font-semibold text-white/65 sm:mt-6">
           <span>Apri i flussi energetici</span>
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
-            <span aria-hidden="true" className="text-base">↗</span>
+            <ArrowUpRight size={17} aria-hidden="true" />
           </span>
         </div>
       </div>
@@ -312,7 +398,9 @@ function UtilityCard({
   title,
   metrics,
   icon,
+  glowClassName,
   accentClassName,
+  backdropStyle,
   preview = false,
   compactEditMode,
   active,
@@ -321,7 +409,9 @@ function UtilityCard({
   title: string;
   metrics: UtilityMetric[];
   icon: React.ReactNode;
+  glowClassName: string;
   accentClassName: string;
+  backdropStyle: React.CSSProperties;
   preview?: boolean;
   compactEditMode: boolean;
   active: boolean;
@@ -338,6 +428,11 @@ function UtilityCard({
         active ? 'border-sky-300/45 bg-sky-400/12 shadow-[0_0_0_1px_rgba(125,211,252,0.32)]' : '',
       )}
     >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-30 saturate-125 transition-all duration-500 group-hover:scale-[1.035] group-hover:opacity-50"
+        style={backdropStyle}
+      />
       <div className={cn('pointer-events-none absolute inset-0 opacity-80', accentClassName)} />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(150deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.04)_38%,rgba(15,23,42,0.18)_100%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04),rgba(2,6,23,0.28)_78%)]" />
@@ -365,6 +460,7 @@ function UtilityCard({
         ))}
       </div>
 
+      <div className={cn('pointer-events-none absolute -bottom-8 -right-8 h-24 w-24 rounded-full blur-2xl sm:h-32 sm:w-32', glowClassName)} />
       <div className="pointer-events-none absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white/85 shadow-[0_14px_28px_rgba(0,0,0,0.32)] [&>svg]:h-5 [&>svg]:w-5 sm:bottom-4 sm:right-4 sm:h-12 sm:w-12 sm:rounded-2xl sm:[&>svg]:h-6 sm:[&>svg]:w-6">
         {icon}
       </div>
@@ -550,7 +646,9 @@ export function ConsumptionDashboardPage({
           { value: `${formatDecimal(efficienzaAcqua)}%`, label: 'Efficienza Rete' },
         ],
         icon: <Droplets size={48} />,
-        accentClassName: 'bg-cyan-400/10',
+        glowClassName: 'bg-cyan-400/45',
+        accentClassName: 'bg-[radial-gradient(circle_at_20%_24%,rgba(34,211,238,0.3)_0%,transparent_60%)]',
+        backdropStyle: CARD_BACKDROP_STYLES.water,
         preview: true,
       },
       {
@@ -562,7 +660,9 @@ export function ConsumptionDashboardPage({
           { value: `${formatDecimal(utilizzoGas)}%`, label: 'Utilizzo Medio' },
         ],
         icon: <Flame size={48} />,
-        accentClassName: 'bg-orange-400/10',
+        glowClassName: 'bg-orange-400/45',
+        accentClassName: 'bg-[radial-gradient(circle_at_24%_26%,rgba(251,146,60,0.3)_0%,transparent_62%)]',
+        backdropStyle: CARD_BACKDROP_STYLES.gas,
         preview: true,
       },
       {
@@ -574,7 +674,9 @@ export function ConsumptionDashboardPage({
           { value: '12', label: 'Condivisi' },
         ],
         icon: <BarChart3 size={48} />,
-        accentClassName: 'bg-sky-400/10',
+        glowClassName: 'bg-sky-400/45',
+        accentClassName: 'bg-[radial-gradient(circle_at_22%_24%,rgba(56,189,248,0.3)_0%,transparent_62%)]',
+        backdropStyle: CARD_BACKDROP_STYLES.trend,
         preview: true,
       },
     ],
@@ -673,7 +775,9 @@ export function ConsumptionDashboardPage({
                       title={card.title}
                       metrics={card.metrics}
                       icon={card.icon}
+                      glowClassName={card.glowClassName}
                       accentClassName={card.accentClassName}
+                      backdropStyle={card.backdropStyle}
                       preview={card.preview}
                       compactEditMode={compactEditMode}
                       active={isEditMode && selectedCardId === card.id}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, LoaderCircle, RefreshCw, Search, SlidersHorizontal, WifiOff } from 'lucide-react';
+import { AlertTriangle, ChevronDown, LoaderCircle, RefreshCw, Search, SlidersHorizontal, WifiOff } from 'lucide-react';
 import { LazyLoadBoundary } from '../../components/common/LazyLoadBoundary';
 import type { EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } from '../../services/energyCoreClient';
 import { DetailScaffold } from './shared';
@@ -135,15 +135,21 @@ function EnergyExperience({
 
   return (
     <div className="mx-auto w-full max-w-[1480px] space-y-4 sm:space-y-6" data-testid="energy-experience">
-      <section className="relative isolate min-h-[34rem] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#05080d] text-white shadow-2xl sm:min-h-[43rem] sm:rounded-[2.5rem]">
+      <section className="relative isolate min-h-[34rem] overflow-hidden rounded-[1.75rem] border border-white/[0.08] bg-[#05080d] text-white shadow-[0_34px_90px_rgba(0,0,0,0.38)] sm:min-h-[43rem] sm:rounded-[2.5rem]">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,rgba(45,155,210,0.14),transparent_35%),radial-gradient(circle_at_12%_8%,rgba(48,209,88,0.07),transparent_28%),linear-gradient(180deg,#080d14_0%,#04070b_100%)]" />
+        <div className="pointer-events-none absolute inset-x-[8%] top-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent" />
+
         <div className="relative z-10 flex min-h-[34rem] flex-col p-4 sm:min-h-[43rem] sm:p-7 lg:p-9">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-white/45">Domus Energy</p>
               <h2 className="mt-2 text-2xl font-semibold tracking-[-0.035em] text-white sm:text-4xl">La tua casa, adesso</h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-white/50">
+                Flussi istantanei da Energy Core. I collegamenti senza direzione o potenza valida restano fermi.
+              </p>
             </div>
             <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.055] px-3 py-2 backdrop-blur-xl">
-              <span className={`h-2 w-2 rounded-full ${status.dot}`} aria-hidden="true" />
+              <span className={`h-2 w-2 rounded-full shadow-[0_0_16px_currentColor] ${status.dot}`} aria-hidden="true" />
               <span className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${status.text}`}>{status.label}</span>
             </div>
           </div>
@@ -152,9 +158,11 @@ function EnergyExperience({
             <EnergyHomeVisual state={state} view={flow} />
           </div>
 
-          <p className="border-t border-white/10 pt-4 text-center text-[10px] uppercase tracking-[0.12em] text-white/40">
-            Misurato = sensore · Derivato = calcolo Domus · Zero reale = flusso fermo
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 border-t border-white/[0.06] pt-4 text-[10px] uppercase tracking-[0.14em] text-white/40 sm:justify-between">
+            <span>Misurato = sensore Home Assistant</span>
+            <span>Derivato = calcolo Domus Energy</span>
+            <span>Zero reale = flusso fermo</span>
+          </div>
         </div>
       </section>
 
@@ -171,7 +179,7 @@ function EnergyExperience({
             <p className="font-semibold text-[color:var(--ui-text-primary)]">Dettagli sensori e configurazione</p>
             <p className="mt-0.5 text-xs text-[color:var(--ui-text-tertiary)]">Origine, disponibilità e associazioni dei moduli</p>
           </div>
-          <span className="text-lg text-[color:var(--ui-text-tertiary)] transition-transform group-open:rotate-180" aria-hidden="true">⌄</span>
+          <ChevronDown className="h-5 w-5 shrink-0 text-[color:var(--ui-text-tertiary)] transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
         </summary>
         <div className="border-t border-[color:var(--ui-separator)] px-4 py-4 sm:px-6 sm:py-6">
           <StatusPanel state={state} canManage={canManage} onOpen={onOpen} />
