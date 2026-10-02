@@ -10,7 +10,6 @@ const moduleState = (status: EnergyModuleState['status'] = 'online'): EnergyModu
   sign_convention: null,
   quantities: {},
 });
-
 const power = (value: number | null): EnergyQuantity => ({
   status: value === null ? 'unavailable' : 'ok',
   value,
@@ -107,4 +106,3 @@ describe('Energy home visual', () => {
     expect(view.container.querySelectorAll('animateMotion')).toHaveLength(0);
   });
 });
-

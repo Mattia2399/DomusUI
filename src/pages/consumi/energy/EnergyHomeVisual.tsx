@@ -31,7 +31,6 @@ export function selectEnergyHomeAsset(
   const variant = energyHomeVariant(state);
   return { variant, asset: assets[variant] ?? null };
 }
-
 export function EnergyHomeVisual({
   state,
   view,
@@ -70,4 +69,3 @@ export function EnergyHomeVisual({
     </div>
   );
 }
-
