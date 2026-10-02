@@ -137,6 +137,39 @@ The result contains:
   provider, and unload failures are logged and never prevent the other Domus
   Core modules from running or unloading.
 
+## Electricity tariff
+
+The profile may carry an optional `tariff`, used to show the current band and
+price. Costs are not computed yet because they need the energy history.
+
+```json
+{
+  "scheme": "three_band",
+  "prices": { "f1": 0.31, "f2": 0.27, "f3": 0.22 },
+  "fixed_monthly": 9.5,
+  "vat_percent": 10,
+  "export_price": 0.09
+}
+```
+
+| Scheme       | Price keys     |
+| ------------ | -------------- |
+| `single`     | `single`       |
+| `two_band`   | `f1`, `f23`    |
+| `three_band` | `f1`, `f2`, `f3` |
+
+- Prices are in €/kWh (0 to 10). `fixed_monthly` (€/month, 0 to 10000),
+  `vat_percent` (0 to 100) and `export_price` (€/kWh) are optional and may be
+  `null`. Unknown keys are rejected.
+- Bands follow the ARERA hours in Home Assistant local time: F1 Monday to
+  Friday 8 to 19; F2 Monday to Friday 7 to 8 and 19 to 23, Saturday 7 to 23;
+  F3 nights 23 to 7, Sundays and national holidays (fixed dates plus Easter
+  Monday). A two-band tariff merges F2 and F3 into F23.
+- `save_profile` without a `tariff` key keeps the stored tariff, so saving the
+  plant never drops it; `"tariff": null` removes it.
+- `get_state` adds `tariff`: `{scheme, band, band_label, price, export_price,
+  currency}` for the current moment, or `null` without a tariff.
+
 ## WebSocket API
 
 | Command                       | Access         | Purpose                                           |
@@ -155,7 +188,7 @@ lists every module as absent. Error codes are `invalid_profile`,
 ## Energy subpage
 
 The canonical route is `/consumi/energia`, inside the existing Consumi
-section; no new route or Settings screen exists.
+section; no new route exists.
 
 - **Display**: every value comes only from `get_state`. Only configured
   modules appear, offline modules stay visible without values, absent modules
@@ -171,16 +204,22 @@ section; no new route or Settings screen exists.
   - *Desktop*: the sheet becomes `display: contents`, so every card joins the
     12-column grid (`md:gap-5`, `md:px-6` to `xl:px-10`): hero 8 + components
     4, Andamento 8 + Analisi 4, technical details 12.
-  - *Impianto* (administrators) lives in the page header, like Irrigation's
-    configure action.
+  - *Impostazioni* (administrators) lives in the page header, like
+    Irrigation's configure action. Without a profile the page offers the
+    guided setup instead.
   1. *House hero*: a factual headline about the grid exchange, the home
      consumption with its origin, and the 3D house of the configured hardware
      with value callouts and subtle animated flows.
-  2. *Components*: one card per configured module plus home consumption.
+  2. *Components*: a compact tile per configured module (value, one status
+     line, charge bar for the battery) plus home consumption spanning the
+     free width: two columns on phones, one row on tablets, two by two beside
+     the house on desktop. Rows stop at 11.5rem so a small plant does not
+     stretch them to the hero height.
   3. *Andamento*: 24 h / 7 d / 30 d selector, the series available for this
      installation, daily summary slots and an explicit empty state.
-  4. *Analisi*: self-consumption, self-sufficiency, costs, savings and
-     comparisons, listed only when relevant and marked as not configured.
+  4. *Analisi*: the current tariff band and price, then self-consumption,
+     self-sufficiency, costs, savings and comparisons, listed only when
+     relevant and marked as not configured or waiting for history.
   5. *Technical details* (collapsed): entities, origin and unavailability
      reasons for every value, plus re-detection.
 - **House renders** (`public/images/energy/mobile/`) are chosen from the
@@ -219,6 +258,17 @@ section; no new route or Settings screen exists.
      computed after saving.
   4. Save: `save_profile` with the expected revision, with progress, success,
      and errors that keep the draft.
+- **Settings** (*Impostazioni Energia*, administrators, loaded on demand)
+  replace the wizard once a profile exists:
+  - *Impianto*: one row per module with its sensors or *Non presente*, an
+    offline badge, and inline editing with the same editor as the setup;
+    *Ripeti rilevamento* opens re-detection. *Salva impianto* sends only the
+    modules, so the stored tariff is kept.
+  - *Tariffa e costi*: single, two-band or three-band structure, a price per
+    band with its hours, fixed monthly fee, VAT, and the export price when a
+    grid is configured. Decimal commas are accepted and invalid values are
+    flagged inline. *Salva tariffa* and *Rimuovi tariffa* keep the saved
+    modules, and a failed save keeps the edits on screen.
 - **Re-detection** never changes confirmed bindings: differences are listed
   with an *Applica* action. Only a first setup preselects unique high or medium
   confidence matches, and nothing is saved without confirmation.

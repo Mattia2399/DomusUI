@@ -25,11 +25,18 @@
   the configured hardware, with subtle live energy flows, a card per
   component, and prepared history and analysis sections that clearly state
   what is not available yet.
+- An _Impostazioni Energia_ page replaces the wizard after the first setup:
+  it lists the configured modules with their sensors for inline editing and
+  re-detection, and stores the electricity tariff (single, two-band or
+  three-band ARERA prices, fixed monthly fee, VAT and export price). The
+  Energy page shows the current band and its price.
 
 ### Changed
 
 - The Energy page no longer shows generated charts, sample metrics, or
   demonstration devices.
+- Energy components are shown as compact tiles, two by two beside the house
+  on desktop, instead of a full-height column of cards.
 - Third-party license notices are kept once per bundle file instead of once
   per icon module, reducing the frontend size by about 35 KB.
 
