@@ -74,7 +74,6 @@ export const UI = {
   body: 'text-sm text-[color:var(--ui-text-secondary)]',
   muted: 'text-xs text-[color:var(--ui-text-tertiary)]',
   spin: 'h-4 w-4 animate-spin motion-reduce:animate-none',
-  stage: 'rounded-[1.5rem] bg-[#07131f] bg-[radial-gradient(circle_at_50%_42%,rgba(56,189,248,0.16)_0%,#07131f_72%)]',
 };
 
 /** Flows below this magnitude are shown as idle rather than animated. */

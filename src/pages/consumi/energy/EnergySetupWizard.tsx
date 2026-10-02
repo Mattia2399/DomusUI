@@ -12,6 +12,7 @@ import {
   type EnergyDiscovery,
   type EnergyModuleId,
   type EnergyProfileResult,
+  type EnergyState,
 } from '../../../services/energyCoreClient';
 import {
   activeRoles,
@@ -27,7 +28,7 @@ import {
   type DraftModule,
   type EnergyDraft,
 } from './energyDraft';
-import { EnergyFlowDiagram } from './EnergyFlowDiagram';
+import { EnergyHomeVisual } from './EnergyHomeVisual';
 import { MODULE_META, REASON_LABEL, UI, formatQuantity } from './energyModel';
 import { buildFlowFromDraft } from './energyPreview';
 
@@ -409,8 +410,13 @@ export default function EnergySetupWizard({
 
         {step === 2 ? (
           <div className="grid gap-4 lg:grid-cols-[3fr_2fr]">
-            <div className={`flex min-h-[20rem] items-center justify-center p-2 sm:min-h-[26rem] ${UI.stage}`}>
-              {present.length ? <EnergyFlowDiagram view={buildFlowFromDraft(draft, discovery)} /> : <p className="text-sm text-white/70">Nessun modulo presente.</p>}
+            <div className="flex h-[26rem] items-center justify-center overflow-hidden rounded-[1.5rem] bg-[#10151b] sm:h-[30rem]">
+              {present.length ? (
+                <EnergyHomeVisual
+                  state={{ modules: Object.fromEntries(present.map((id) => [id, {}])) as EnergyState['modules'] }}
+                  view={buildFlowFromDraft(draft, discovery)}
+                />
+              ) : <p className="text-sm text-white/70">Nessun modulo presente.</p>}
             </div>
             <div className={`space-y-2 ${UI.body}`}>
               <p>L’anteprima mostra soltanto i moduli presenti, con le letture attuali verificate da Domus.</p>

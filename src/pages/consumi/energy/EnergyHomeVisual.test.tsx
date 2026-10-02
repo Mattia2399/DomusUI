@@ -77,10 +77,10 @@ describe('Energy home visual', () => {
     const state = stateWith({ grid: moduleState() });
     const { container } = render(<EnergyHomeVisual state={state} view={buildFlowFromState(state)} assets={ASSETS} />);
 
-    const imageContainer = screen.getByTestId('energy-home-image');
-    const image = imageContainer.querySelector('img') as HTMLImageElement;
+    const image = screen.getByTestId('energy-home-image') as HTMLImageElement;
     expect(image.getAttribute('src')).toBe('/energy/grid.webp');
-    expect(image.getAttribute('loading')).toBe('lazy');
+    expect(container.querySelectorAll('img')).toHaveLength(1);
+    expect(screen.getByRole('img', { name: /^Casa collegata alla rete\. Flussi energetici/ })).not.toBeNull();
     expect(container.querySelector('[data-energy-home-render="image"]')).not.toBeNull();
 
     fireEvent.error(image);
