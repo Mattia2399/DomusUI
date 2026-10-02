@@ -147,12 +147,12 @@ describe('Energy subpage', () => {
     });
     renderDetail(context(vi.fn().mockResolvedValue(state)));
     const header = await screen.findByTestId('nested-page-header');
-    expect(within(header).getByRole('button', { name: 'Configura impianto' })).not.toBeNull();
+    expect(within(header).getByRole('button', { name: 'Impostazioni energia' })).not.toBeNull();
 
     cleanup();
     renderDetail(context(vi.fn().mockResolvedValue(state), { canManage: false }));
     await screen.findByTestId('energy-experience');
-    expect(screen.queryByRole('button', { name: 'Configura impianto' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Impostazioni energia' })).toBeNull();
   });
 
   it('explains an outdated integration and retries on demand', async () => {

@@ -266,11 +266,14 @@ describe('Energy page lifecycle', () => {
     expect(await screen.findByText(/Impianto salvato/)).not.toBeNull();
     expect(await screen.findByRole('region', { name: 'Il tuo impianto' })).not.toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: /Modifica impianto/ }));
-    fireEvent.click(within(await screen.findByText('Fotovoltaico', { selector: 'fieldset p' }).then((node) => node.closest('fieldset') as HTMLElement)).getByRole('button', { name: 'Rimuovi Fotovoltaico' }));
-    next();
-    next();
-    fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
+    // Everyday changes go through the classic settings page, not the wizard.
+    fireEvent.click(screen.getByRole('button', { name: 'Impostazioni energia' }));
+    const plant = await screen.findByRole('region', { name: 'Impianto' });
+    fireEvent.click(within(plant).getByRole('button', { name: 'Modifica Fotovoltaico' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Rimuovi Fotovoltaico' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salva impianto' }));
+    expect(await screen.findByText('Impianto salvato.')).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Torna a Consumi' }));
 
     expect(await screen.findByText('Configura Domus Energy')).not.toBeNull();
     expect(backend.saves.map((save) => Object.keys(save.modules))).toEqual([['solar'], []]);

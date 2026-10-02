@@ -8,6 +8,7 @@ import { useEnergyCore, type EnergyCoreResource, type EnergyPageContext } from '
 import type { WizardMode } from './energy/EnergySetupWizard';
 
 const EnergySetupWizard = React.lazy(() => import('./energy/EnergySetupWizard'));
+const EnergySettings = React.lazy(() => import('./energy/EnergySettings'));
 
 function Message({ icon, title, children }: { icon: React.ReactNode; title: string; children?: React.ReactNode }) {
   return (
@@ -51,6 +52,7 @@ type EnergiaDetailViewProps = {
 export function EnergiaDetailView({ title, onBack, energy, energyCore }: EnergiaDetailViewProps) {
   const { state, error, loading, live, reload } = energyCore;
   const [wizard, setWizard] = React.useState<WizardMode | null>(null);
+  const [settings, setSettings] = React.useState(false);
   const [notice, setNotice] = React.useState('');
   const canManage = live && Boolean(energy?.canManage);
 
@@ -72,9 +74,27 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
     );
   }
 
+  const loading_ = <Message icon={<LoaderCircle className={UI.spin} />} title="Apertura…" />;
+  if (settings && energy && canManage) {
+    return (
+      <DetailScaffold title="Impostazioni Energia" subtitle="Impianto, sensori e tariffa" onBack={() => setSettings(false)} showBeta={false}>
+        <LazyLoadBoundary mode="section" fallback={loading_}>
+          <EnergySettings
+            callApi={energy.callApi}
+            haStates={energy.haStates}
+            onRediscover={() => setWizard('rediscover')}
+            onSaved={() => void reload()}
+          />
+        </LazyLoadBoundary>
+      </DetailScaffold>
+    );
+  }
+
+  // Day-to-day changes use the classic settings; the wizard is for detection.
   const openWizard = (mode: WizardMode) => {
     setNotice('');
-    setWizard(mode);
+    if (mode === 'edit') setSettings(true);
+    else setWizard(mode);
   };
 
   let left: React.ReactNode;
@@ -127,8 +147,8 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
       subtitle="Flussi energetici in tempo reale"
       bleed
       trailing={canManage ? (
-        <button type="button" onClick={() => openWizard('edit')} className="liquid-glass-control flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-[color:var(--ui-text-primary)]" aria-label="Configura impianto">
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Impianto</span>
+        <button type="button" onClick={() => openWizard('edit')} className="liquid-glass-control flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-[color:var(--ui-text-primary)]" aria-label="Impostazioni energia">
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Impostazioni</span>
         </button>
       ) : undefined}
     >
