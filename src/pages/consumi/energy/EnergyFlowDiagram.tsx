@@ -67,8 +67,8 @@ function NodeChip({
 // Glowing darts travelling along a flow path.
 function FlowLasers({ pathId, color, amountW }: { pathId: string; color: string; amountW: number }) {
   const kw = amountW / 1000;
-  const count = clamp(Math.round(kw * 1.5), 2, 8);
-  const duration = clamp(3.2 - Math.min(kw, 7) * 0.28, 1.1, 3.2);
+  const count = clamp(Math.ceil(kw), 1, 7);
+  const duration = clamp(3.6 - Math.min(kw, 7) * 0.3, 1.2, 3.6);
   return (
     <>
       {Array.from({ length: count }).map((_, index) => (
@@ -93,7 +93,7 @@ function describe(view: FlowView) {
   return `Flussi energetici. ${parts.join('; ')}.`;
 }
 
-export function EnergyFlowDiagram({ view }: { view: FlowView }) {
+export function EnergyFlowDiagram({ view, homeVisual }: { view: FlowView; homeVisual?: React.ReactNode }) {
   const reduceMotion = useReducedMotion();
   const idPrefix = `energy-flow-${React.useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const active = (node: FlowNodeView) => node.online && node.direction !== 'idle';
@@ -119,7 +119,7 @@ export function EnergyFlowDiagram({ view }: { view: FlowView }) {
           const path = node.direction === 'out' ? `M 50 50 L ${layout.x} ${layout.y}` : toHome;
           const pathId = `${idPrefix}-${node.id}`;
           return (
-            <g key={node.id}>
+            <g key={node.id} data-flow-direction={node.direction} data-flow-online={node.online ? 'true' : 'false'}>
               <path
                 id={pathId}
                 d={path}
@@ -141,7 +141,7 @@ export function EnergyFlowDiagram({ view }: { view: FlowView }) {
                     animate={{ opacity: reduceMotion ? 0.75 : [0.4, 0.9, 0.4] }}
                     transition={{ duration: 2.2, repeat: reduceMotion ? 0 : Infinity, ease: 'easeInOut' }}
                   />
-                  {reduceMotion ? null : <FlowLasers pathId={pathId} color={layout.color} amountW={Math.max(800, node.amountW)} />}
+                  {reduceMotion ? null : <FlowLasers pathId={pathId} color={layout.color} amountW={node.amountW} />}
                 </>
               ) : null}
             </g>
@@ -166,18 +166,29 @@ export function EnergyFlowDiagram({ view }: { view: FlowView }) {
           />
         );
       })}
-      <NodeChip
-        label="Casa"
-        value={view.home.value}
-        caption={view.home.caption}
-        icon={<Home size={22} />}
-        x={50}
-        y={50}
-        accent="rgba(255,255,255,0.4)"
-        active={view.nodes.some(active)}
-        online={view.home.online}
-        center
-      />
+      {homeVisual ? (
+        <div className="absolute left-1/2 top-1/2 z-10 h-[38%] w-[38%] -translate-x-1/2 -translate-y-1/2 sm:h-[46%] sm:w-[46%]">
+          {homeVisual}
+          <div className="absolute bottom-0 left-1/2 min-w-24 -translate-x-1/2 translate-y-1/2 rounded-full border border-white/15 bg-[#07111b]/85 px-3 py-1.5 text-center shadow-[0_14px_34px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+            <p className="text-[9px] font-medium uppercase tracking-[0.16em] text-white/55">Casa</p>
+            <p className="text-sm font-semibold text-white sm:text-base">{view.home.value}</p>
+            <p className="text-[8px] text-white/50 sm:text-[9px]">{view.home.caption}</p>
+          </div>
+        </div>
+      ) : (
+        <NodeChip
+          label="Casa"
+          value={view.home.value}
+          caption={view.home.caption}
+          icon={<Home size={22} />}
+          x={50}
+          y={50}
+          accent="rgba(255,255,255,0.4)"
+          active={view.nodes.some(active)}
+          online={view.home.online}
+          center
+        />
+      )}
     </div>
   );
 }
