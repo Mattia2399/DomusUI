@@ -34,6 +34,29 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 
     await page.goto('/consumi/energia');
     await expectCenteredMessage(page, 'Home Assistant non collegato');
   });
+
+  test(`Energy remains the primary responsive overview at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await installCompletedWorkspace(page, 'real');
+    await page.goto('/consumi');
+
+    const energy = page.getByRole('button', { name: /^Energia/ });
+    const water = page.getByRole('button', { name: /^Acqua/ });
+    await expect(energy).toBeVisible();
+    await expect(water).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Panoramica consumi' })).toBeVisible();
+
+    const energyBox = await energy.boundingBox();
+    const waterBox = await water.boundingBox();
+    expect(energyBox).not.toBeNull();
+    expect(waterBox).not.toBeNull();
+    if (viewport.width >= 1280) {
+      expect(waterBox.x).toBeGreaterThan(energyBox.x + energyBox.width);
+    } else {
+      expect(waterBox.y).toBeGreaterThan(energyBox.y + energyBox.height - 1);
+    }
+    await expectNoHorizontalOverflow(page);
+  });
 }
 
 test('Energy page never invents values without Home Assistant', async ({ page }) => {

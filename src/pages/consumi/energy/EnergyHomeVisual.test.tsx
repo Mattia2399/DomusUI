@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { EnergyModuleId, EnergyModuleState, EnergyState } from '../../../services/energyCoreClient';
+import type { EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
 import { EnergyHomeVisual, energyHomeVariant, selectEnergyHomeAsset, type EnergyHomeAssetCatalog } from './EnergyHomeVisual';
 import { buildFlowFromState } from './energyModel';
 
@@ -9,6 +9,20 @@ const moduleState = (status: EnergyModuleState['status'] = 'online'): EnergyModu
   complete: status === 'online',
   sign_convention: null,
   quantities: {},
+});
+
+const power = (value: number | null): EnergyQuantity => ({
+  status: value === null ? 'unavailable' : 'ok',
+  value,
+  unit: 'W',
+  source: value === null ? null : 'measured',
+  entity_ids: ['sensor.grid_power'],
+  reason: value === null ? 'state_unavailable' : null,
+});
+
+const gridModule = (value: number | null, status: EnergyModuleState['status'] = 'online'): EnergyModuleState => ({
+  ...moduleState(status),
+  quantities: { net_power: power(value) },
 });
 const stateWith = (modules: Partial<Record<EnergyModuleId, EnergyModuleState>>): EnergyState => ({
   configured: true,
@@ -73,6 +87,24 @@ describe('Energy home visual', () => {
     fireEvent.error(image);
     expect(screen.queryByTestId('energy-home-image')).toBeNull();
     expect(container.querySelector('[data-energy-home-render="diagram"]')).not.toBeNull();
+  });
+
+  it('animates only an online flow with a known non-zero direction', () => {
+    const activeState = stateWith({ grid: gridModule(1200) });
+    const view = render(<EnergyHomeVisual state={activeState} view={buildFlowFromState(activeState)} assets={{}} />);
+    expect(view.container.querySelectorAll('animateMotion').length).toBeGreaterThan(0);
+
+    const zeroState = stateWith({ grid: gridModule(0) });
+    view.rerender(<EnergyHomeVisual state={zeroState} view={buildFlowFromState(zeroState)} assets={{}} />);
+    expect(view.container.querySelectorAll('animateMotion')).toHaveLength(0);
+
+    const unknownState = stateWith({ grid: gridModule(null) });
+    view.rerender(<EnergyHomeVisual state={unknownState} view={buildFlowFromState(unknownState)} assets={{}} />);
+    expect(view.container.querySelectorAll('animateMotion')).toHaveLength(0);
+
+    const offlineState = stateWith({ grid: gridModule(1200, 'offline') });
+    view.rerender(<EnergyHomeVisual state={offlineState} view={buildFlowFromState(offlineState)} assets={{}} />);
+    expect(view.container.querySelectorAll('animateMotion')).toHaveLength(0);
   });
 });
 
