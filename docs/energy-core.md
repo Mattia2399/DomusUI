@@ -157,12 +157,46 @@ lists every module as absent. Error codes are `invalid_profile`,
 The canonical route is `/consumi/energia`, inside the existing Consumi
 section; no new route or Settings screen exists.
 
-- **Display**: the orbital flow diagram and the module list come only from
-  `get_state`. Only configured modules appear. Offline modules stay visible
-  without values, absent modules are listed, and each value is labelled
-  *Misurato* or *Derivato*. Directions use the canonical signed values from the
-  backend. The page refreshes the projection at most every 1.5 s when a bound
-  sensor changes in the Home Assistant state stream it already receives.
+- **Display**: every value comes only from `get_state`. Only configured
+  modules appear, offline modules stay visible without values, absent modules
+  leave no gap, and each value is labelled *Misurato* or *Derivato*. The page
+  refreshes the projection at most every 1.5 s when a bound sensor changes in
+  the Home Assistant state stream it already receives.
+- **Layout**, following the Irrigation and Technical Room language:
+  1. *House hero* (8/12 columns on desktop, full width below): a factual
+     headline about the grid exchange, the home consumption with its origin,
+     and the 3D house of the configured hardware with value callouts and
+     subtle animated flows. A discreet *Impianto* button opens the wizard for
+     administrators.
+  2. *Components* (4/12 columns on desktop, a horizontal carousel on mobile):
+     one card per configured module plus home consumption.
+  3. *Andamento*: 24 h / 7 d / 30 d selector, the series available for this
+     installation, daily summary slots and an explicit empty state.
+  4. *Analisi*: self-consumption, self-sufficiency, costs, savings and
+     comparisons, listed only when relevant and marked as not configured.
+  5. *Technical details* (collapsed): entities, origin and unavailability
+     reasons for every value, plus re-detection.
+- **House renders** (`public/images/energy/mobile/`) are chosen from the
+  configured hardware only, online or offline, and only one is downloaded:
+
+  | Configured hardware | Render |
+  | --- | --- |
+  | Grid | `grid-only.png` |
+  | Grid + solar | `grid-solar.png` |
+  | Grid + solar + battery | `grid-solar-battery.png` |
+  | Grid + solar + battery + wallbox | `grid-solar-battery-ev.png` |
+  | Grid + battery | `grid-solar-battery-night.png` (the file shows no panels) |
+
+  Every other combination uses the schematic fallback drawn by the same flow
+  renderer, so no render ever shows hardware that is not installed. No night
+  variant is used: the only night render lacks solar panels, and day or night
+  would have to come from a reliable source such as `sun.sun`, not from zero
+  production.
+- **Flows** connect each component to the home entry and only animate for an
+  online module with a known, non-zero direction. Without a per-path split
+  from the backend, solar-to-battery or solar-to-grid paths are not invented:
+  every flow is drawn through the home. `prefers-reduced-motion` keeps the
+  lines static.
 - **States**: no Home Assistant connection, outdated integration or bridge,
   failed refresh, and no profile. The isolated Demo keeps its existing gate
   on Consumi, so no energy sample is shown there.
@@ -188,3 +222,42 @@ section; no new route or Settings screen exists.
 - **HACS bridge**: both bridge halves allowlist exactly the four
   `domusos/energy/*` commands with exact-shape validation and announce the
   `energy_core` capability.
+
+## History data contract (not implemented)
+
+Energy Core only exposes instantaneous power today, so the *Andamento* chart
+and the daily summaries show an empty state. A reliable implementation needs
+a backend command; the frontend must not compute energy from raw state history.
+
+Proposed command, readable by any authenticated user:
+`domusos/energy/get_history` with `period: "24h" | "7d" | "30d"`.
+
+```json
+{
+  "period": "24h",
+  "bucket": "hour",
+  "unit": "kWh",
+  "series": {
+    "production": [{ "start": "2026-10-02T10:00:00+00:00", "value": 1.42 }],
+    "consumption": [],
+    "import": [],
+    "export": [],
+    "battery_charge": [],
+    "battery_discharge": []
+  },
+  "derived": ["consumption"],
+  "missing": { "battery_charge": "not_configured" }
+}
+```
+
+- Buckets: hourly for 24 h, daily for 7 and 30 days; `value: null` for a
+  bucket without data, never `0`.
+- Source: Home Assistant recorder long-term statistics, preferably the
+  `change` of optional cumulative energy meters (kWh, `total_increasing`)
+  added to the Energy Profile, which handles meter resets.
+- Directional power sensors may fall back to the time-weighted hourly `mean`
+  converted to kWh. A signed net sensor must not: imports and exports within
+  the same hour cancel out, so separate import/export energy is unknowable.
+- Only series of configured modules are returned; derived series are listed
+  in `derived` and computed with the same completeness rules as the live
+  balance.

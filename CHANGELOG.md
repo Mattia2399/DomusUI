@@ -21,10 +21,17 @@
   four-step flow (detection, bindings, preview, save) directly on the Energy
   page, without reloading the integration.
 
+- The Energy page is redesigned around a 3D render of the home that matches
+  the configured hardware, with subtle live energy flows, a card per
+  component, and prepared history and analysis sections that clearly state
+  what is not available yet.
+
 ### Changed
 
 - The Energy page no longer shows generated charts, sample metrics, or
   demonstration devices.
+- Third-party license notices are kept once per bundle file instead of once
+  per icon module, reducing the frontend size by about 35 KB.
 
 ## 1.4.0 - 2026-10-01
 
