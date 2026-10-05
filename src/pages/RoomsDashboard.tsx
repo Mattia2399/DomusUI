@@ -403,7 +403,6 @@ const DEMO_ROOM_TABS: RoomTab[] = [
   { id: 'demo-bathroom', name: 'Bagno', source: 'custom' },
 ];
 
-const ENERGY_WEEK_DAYS = ['Mon', 'Tue', 'Wed', 'Thr', 'Fri', 'Sat', 'Sun'];
 const GLASS_CARD_CLASS =
   'rooms-surface';
 const PRIMARY_ROOM_ACCENT = '#85adff';
@@ -1460,15 +1459,6 @@ function formatAmbientTemperature(value: number) {
 
 function formatAmbientHumidity(value: number) {
   return `${Math.round(value)}%`;
-}
-
-function buildEnergyBars(referenceValue: number | undefined) {
-  const base = Number.isFinite(referenceValue ?? Number.NaN) ? Math.max(3, referenceValue ?? 0) : 23;
-  return ENERGY_WEEK_DAYS.map((label, index) => {
-    const delta = [0.15, 0.22, -0.05, 0.12, -0.1, 0.2, 0.08][index] ?? 0;
-    const value = Math.max(2.8, Number((base * (1 + delta)).toFixed(1)));
-    return { label, value };
-  });
 }
 
 function readTrimmedRecordString(record: Record<string, unknown>, key: string) {
@@ -3052,18 +3042,6 @@ export function RoomsDashboard({
     [haStates, isDemoSeedRoom, mediaEntityIds],
   );
 
-  const energyReferenceValue = React.useMemo(() => {
-    const sensorEntityId = visibleActiveBuckets.sensors.find((entityId) =>
-      /energy|power|consum|watt|kw|kwh/i.test(entityId),
-    );
-    if (!sensorEntityId) {
-      return undefined;
-    }
-    const entity = haStates[sensorEntityId];
-    return toNumber(entity?.numericValue) ?? toNumber(entity?.state);
-  }, [haStates, visibleActiveBuckets.sensors]);
-  const hasEnergyCard = energyReferenceValue !== undefined || isDemoSeedRoom;
-  const energyBars = React.useMemo(() => buildEnergyBars(energyReferenceValue), [energyReferenceValue]);
 
   const roomAmbientSubtitle = React.useMemo(() => {
     const temperatureEntityId = activeRoomArea?.temperature_entity_id ?? null;

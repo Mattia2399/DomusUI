@@ -438,9 +438,6 @@
   .glow-active-orange {
     @apply shadow-[0_0_20px_rgba(255,159,10,0.35)];
   }
-  .glow-active-red {
-    @apply shadow-[0_0_20px_rgba(255,59,48,0.38)];
-  }
   .glow-active-blue {
     @apply shadow-[0_0_20px_rgba(10,132,255,0.35)];
   }
@@ -490,15 +487,6 @@
     background: var(--ui-fill-tertiary, rgb(235 235 245 / 0.1));
     color: var(--ui-text-primary, #f5f5f7);
   }
-
-  .ui-text-primary { color: var(--ui-text-primary); }
-  .ui-text-secondary { color: var(--ui-text-secondary); }
-  .ui-text-tertiary { color: var(--ui-text-tertiary); }
-  .ui-text-disabled { color: var(--ui-text-disabled); }
-  .ui-surface-primary { background: var(--ui-surface-primary); }
-  .ui-surface-secondary { background: var(--ui-surface-secondary); }
-  .ui-surface-elevated { background: var(--ui-bg-elevated); }
-  .ui-border { border-color: var(--ui-border); }
 
   .ui-input {
     border: 1px solid var(--ui-border);
