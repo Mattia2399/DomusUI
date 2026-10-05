@@ -44,6 +44,7 @@ export function plantFor(draft: EnergyDraft): PlantId | null {
 }
 
 export const plantModules = (id: PlantId) => PLANTS.find((plant) => plant.id === id)?.modules ?? [];
+export const plantTitle = (id: PlantId) => PLANTS.find((plant) => plant.id === id)?.title ?? 'Altro';
 
 /** Selecting a plant only toggles presence: sensors already chosen are kept for when a module comes back. */
 export function applyPlant(draft: EnergyDraft, id: PlantId): EnergyDraft {

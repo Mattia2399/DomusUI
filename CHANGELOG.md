@@ -31,9 +31,10 @@
   three-band ARERA prices, fixed monthly fee, VAT and export price). The
   Energy page shows the current band and its price. The first guided setup
   offers the same tariff fields as an optional step that can be skipped.
-- The guided setup starts from illustrated plant types (grid only,
+- The guided setup asks for the plant type on illustrated tiles (grid only,
   photovoltaic, battery, wallbox and their combinations, or _Altro_ for
-  manual setup), and a detected plant is summarised with its matched
+  manual setup) and then, on its own step, only for the sensors that type
+  needs. A detected plant is summarised with its matched
   entities so it can be confirmed in one step.
 
 ### Changed

@@ -248,8 +248,8 @@ section; no new route exists.
   on Consumi, so no energy sample is shown there.
 - **Guided setup** (administrators, loaded on demand) takes the whole detail
   area with its own header and close button (also Escape) and keeps its
-  actions pinned to the bottom. The first setup runs in five steps;
-  re-detection skips the tariff and runs in four:
+  actions pinned to the bottom. The first setup runs in six steps;
+  re-detection skips the tariff and runs in five:
   1. Detection: on a first setup where discovery preselected a plant, a
      summary with its illustration, the number of matched entities, the
      components it includes and their sensors. A complete plant can be
@@ -257,22 +257,23 @@ section; no new route exists.
      the bindings); pending sign conventions and ambiguous matches are listed
      and lead to the bindings. Otherwise, a per-module summary of what
      `discover` found.
-  2. Bindings: the plant type is picked from illustrated tiles, one per
-     grid-connected combination of solar, battery and wallbox, drawn as a
-     house with only that hardware. A tile sets which modules exist and asks
-     only for their sensors; the home meter stays optional. *Altro* keeps
-     *Configura* or *Rimuovi* per module for off-grid or partial metering,
-     and drafts that fit no tile open there. Then directional or signed
-     wiring, suggested or manual sensors, an explicit sign convention for
-     signed sensors, and an offline flag for saved modules.
-  3. Tariff (first setup only, optional): the same fields as the settings
+  2. Plant type: illustrated tiles, one per grid-connected combination of
+     solar, battery and wallbox, drawn as a house with only that hardware,
+     plus *Altro* for off-grid or partial metering. A tile sets which modules
+     exist; drafts that fit no tile open on *Altro*.
+  3. Bindings: a summary of the chosen type with *Cambia*, then only the
+     sensors that type needs, with the home meter optional (*Altro* keeps
+     *Configura* or *Rimuovi* per module): directional or signed wiring,
+     suggested or manual sensors, an explicit sign convention for signed
+     sensors, and an offline flag for saved modules.
+  4. Tariff (first setup only, optional): the same fields as the settings
      page. An empty form shows *Salta per ora*, a filled one can still be
      skipped, and invalid prices block only until corrected or skipped.
-  4. Preview: the same diagram, showing only present modules with readings
+  5. Preview: the same diagram, showing only present modules with readings
      the backend already normalized; derived consumption is announced as
      computed after saving, plus a summary of the tariff or a note that it
      can be added later.
-  5. Save: one `save_profile` call with the modules and, unless skipped, the
+  6. Save: one `save_profile` call with the modules and, unless skipped, the
      tariff, using the expected revision, with progress, success, and errors
      that keep the draft.
 - **Settings** (*Impostazioni Energia*, administrators, loaded on demand)

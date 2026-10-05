@@ -29,21 +29,22 @@ import { Confidence, ERROR_TEXT, ModuleEditor, roleLabel } from './EnergyModuleE
 import { GROUP, TARIFF_HINT, TariffFields, isBlankTariff, tariffForm, tariffFromForm, tariffSummary } from './EnergyTariffFields';
 import { MODULE_META, UI } from './energyModel';
 import { buildFlowFromDraft } from './energyPreview';
-import { OTHER_PLANT, PlantIllustration, PlantPicker, applyPlant, plantFor, plantModules, plantSentence } from './EnergyPlantPicker';
+import { OTHER_PLANT, PlantIllustration, PlantPicker, applyPlant, plantFor, plantModules, plantSentence, plantTitle } from './EnergyPlantPicker';
 
 export type WizardMode = 'setup' | 'edit' | 'rediscover';
 
-type StepId = 'detect' | 'bind' | 'tariff' | 'preview' | 'save';
+type StepId = 'detect' | 'plant' | 'bind' | 'tariff' | 'preview' | 'save';
 const STEP_LABEL: Record<StepId, string> = {
   detect: 'Rilevamento',
+  plant: 'Tipo di impianto',
   bind: 'Associazioni',
   tariff: 'Tariffa',
   preview: 'Anteprima',
   save: 'Salvataggio',
 };
 // The optional tariff step belongs to the first setup only; later changes go through the settings page.
-const SETUP_STEPS: StepId[] = ['detect', 'bind', 'tariff', 'preview', 'save'];
-const PLANT_STEPS: StepId[] = ['detect', 'bind', 'preview', 'save'];
+const SETUP_STEPS: StepId[] = ['detect', 'plant', 'bind', 'tariff', 'preview', 'save'];
+const PLANT_STEPS: StepId[] = ['detect', 'plant', 'bind', 'preview', 'save'];
 
 type SaveState = { status: 'idle' | 'saving' | 'error'; message?: string; conflict?: boolean };
 
@@ -68,7 +69,8 @@ export default function EnergySetupWizard({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [step, setStep] = React.useState(mode === 'edit' ? 1 : 0);
+  // Editing an existing plant opens on its sensors; the plant type is one step back.
+  const [step, setStep] = React.useState(mode === 'edit' ? PLANT_STEPS.indexOf('bind') : 0);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [discoveryError, setDiscoveryError] = React.useState('');
   const [profile, setProfile] = React.useState<EnergyProfileResult | null>(null);
@@ -185,7 +187,7 @@ export default function EnergySetupWizard({
   const { tariff } = tariffFromForm(tariffDraft, draft.grid.present);
   // Nothing typed, or an explicit skip, leaves the tariff out of the save.
   const tariffToSave = steps.includes('tariff') && !skipTariff ? tariff : undefined;
-  const blocked = (current === 'bind' && (issues.length > 0 || plant === null)) || (current === 'tariff' && !tariffBlank && !tariff);
+  const blocked = (current === 'plant' && plant === null) || (current === 'bind' && issues.length > 0) || (current === 'tariff' && !tariffBlank && !tariff);
   const nothingFound = discovery !== null && ENERGY_MODULES.every((id) => detectionSummary(id, discovery) === null);
 
   const handleSave = async () => {
@@ -289,24 +291,35 @@ export default function EnergySetupWizard({
           </>
         ) : null}
 
+        {current === 'plant' ? (
+          <>
+            <p className={UI.body}>Scegli il tipo di impianto: nel passaggio successivo Domus ti chiederà soltanto i sensori che servono.</p>
+            <PlantPicker
+              value={plant}
+              onSelect={(id) => {
+                setManual(id === OTHER_PLANT);
+                if (id !== OTHER_PLANT) setDraft((current) => applyPlant(current, id));
+              }}
+            />
+          </>
+        ) : null}
+
         {current === 'bind' ? (
           <>
-          <p className={UI.body}>Scegli il tipo di impianto: Domus ti chiederà soltanto i sensori che servono.</p>
-          <PlantPicker
-            value={plant}
-            onSelect={(id) => {
-              setManual(id === OTHER_PLANT);
-              if (id !== OTHER_PLANT) setDraft((current) => applyPlant(current, id));
-            }}
-          />
           {plant ? (
-            <div className="space-y-1 pt-3">
-              <h3 className={UI.title}>Sensori</h3>
-              <p className={UI.muted}>
-                {plant === OTHER_PLANT
-                  ? 'Premi «Configura» sui moduli che hai in casa e scegli i sensori. I moduli non configurati restano esclusi.'
-                  : 'Il misuratore dei consumi di casa è facoltativo: senza, Domus ricava il consumo dagli altri sensori quando i dati sono completi.'}
-              </p>
+            <div className={`${UI.card} flex items-center gap-3`}>
+              <span className="flex h-14 w-24 shrink-0 items-center justify-center rounded-xl bg-[color:var(--ui-surface-primary)] px-1.5">
+                <PlantIllustration modules={plant === OTHER_PLANT ? [] : plantModules(plant)} className="h-full w-full" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm ${UI.title}`}>{plantTitle(plant)}</p>
+                <p className={UI.muted}>
+                  {plant === OTHER_PLANT
+                    ? 'Premi «Configura» sui moduli che hai in casa e scegli i sensori. I moduli non configurati restano esclusi.'
+                    : 'Il misuratore dei consumi di casa è facoltativo: senza, Domus ricava il consumo dagli altri sensori quando i dati sono completi.'}
+                </p>
+              </div>
+              <button type="button" onClick={() => setStep(steps.indexOf('plant'))} aria-label="Cambia tipo di impianto" className={UI.chip}>Cambia</button>
             </div>
           ) : null}
           {/* Two independent columns on desktop, so opening a module never stretches its neighbour.
