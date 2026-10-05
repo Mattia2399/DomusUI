@@ -33,7 +33,7 @@ const state = (modules: EnergyState['modules'], extra: Partial<EnergyState> = {}
   home_consumption: q(1500, { source: 'derived' }),
   ...extra,
 });
-const show = (value: EnergyState) => render(<EnergyDashboard state={value} actions={null} />);
+const show = (value: EnergyState) => render(<EnergyDashboard state={value} />);
 
 describe('Energy house renders', () => {
   it.each([
@@ -89,7 +89,7 @@ describe('Energy dashboard', () => {
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
     expect(within(components).getAllByRole('listitem')).toHaveLength(4);
     expect(within(components).queryByText('Consumo della casa')).toBeNull();
-    const battery = within(components).getByText('Batteria').closest('article') as HTMLElement;
+    const battery = within(components).getByText('Batteria').closest('button') as HTMLElement;
     expect(within(battery).getByText('68%')).not.toBeNull();
     expect(within(battery).getByText('In carica · 1,6 kW')).not.toBeNull();
     expect(screen.getByText('Carica e scarica batteria')).not.toBeNull();
@@ -106,6 +106,35 @@ describe('Energy dashboard', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('radio', { name: '7 giorni' }));
     expect(screen.getByRole('radio', { name: '7 giorni' }).getAttribute('aria-checked')).toBe('true');
+  });
+});
+
+describe('Component details', () => {
+  it('opens a component with live figures, estimated flows, cost and sensors', async () => {
+    show(state({
+      grid: online({ net_power: q(2900) }),
+      solar: online({ production_power: q(4300) }),
+      battery: online({ state_of_charge: q(54, { unit: '%' }), net_power: q(900) }),
+      wallbox: online({ charging_power: q(7400) }),
+    }, {
+      home_consumption: q(8100, { source: 'derived' }),
+      tariff: { scheme: 'three_band', band: 'F2', band_label: 'F2', price: 0.27, export_price: 0.09, currency: 'EUR' },
+    }));
+    const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
+
+    fireEvent.click(within(components).getByText('Rete').closest('button') as HTMLElement);
+    const grid = await screen.findByRole('dialog', { name: 'Rete' });
+    expect(within(grid).getByText(/≈\s0,78\s€\/h/)).not.toBeNull();
+    expect(within(grid).getByText('Alla casa').nextSibling?.textContent).toBe('2,9 kW');
+    expect(within(grid).getByText(/Stima in proporzione/)).not.toBeNull();
+    expect(within(grid).getByText('sensor.example')).not.toBeNull();
+    // Without an edit callback (non-administrators) there is no shortcut to the settings.
+    expect(within(grid).queryByRole('button', { name: 'Modifica sensori' })).toBeNull();
+    fireEvent.click(within(grid).getByRole('button', { name: /Chiudi/ }));
+
+    fireEvent.click(within(components).getByText('Wallbox').closest('button') as HTMLElement);
+    const wallbox = await screen.findByRole('dialog', { name: 'Wallbox' });
+    expect(within(wallbox).getByText('Da fotovoltaico').nextSibling?.textContent).toBe('3,93 kW · 53%');
   });
 });
 

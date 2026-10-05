@@ -40,6 +40,9 @@
   fill self-consumption, self-sufficiency, costs, savings and the comparison
   with the previous period as soon as Home Assistant provides the history;
   until then the page keeps stating that the history is not available.
+- Energy components open a details sheet with live figures, estimated power
+  paths, the grid's current band and hourly cost, the last 24 hours and the
+  sensors; administrators can jump from there to that module's settings.
 
 ### Changed
 

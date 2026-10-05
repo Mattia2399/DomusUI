@@ -202,8 +202,9 @@ section; no new route exists.
     `--energy-scroll-progress` (scroll / 220 px). Reduced motion keeps it
     static.
   - *Desktop*: the sheet becomes `display: contents`, so every card joins the
-    12-column grid (`md:gap-5`, `md:px-6` to `xl:px-10`): hero 8 + components
-    4, Andamento 8 + Analisi 4, technical details 12.
+    12-column grid (`md:gap-5`, `md:px-6` to `xl:px-10`): the hero spans 8
+    columns and two rows, beside the component tiles and *Analisi* (4 each,
+    with dense placement), and *Andamento* takes the full width below.
   - *Impostazioni* (administrators) lives in the page header, like
     Irrigation's configure action. Without a profile the page offers the
     guided setup instead.
@@ -227,8 +228,14 @@ section; no new route exists.
   4. *Analisi*: the current tariff band and price, then self-consumption,
      self-sufficiency, costs, savings and comparisons, listed only when
      relevant and marked as not configured or waiting for history.
-  5. *Technical details* (collapsed): entities, origin and unavailability
-     reasons for every value, plus re-detection.
+  5. *Component details*: every tile, and the arrow next to *Consumo della
+     casa*, opens a sheet (bottom sheet on phones, centred dialog from
+     `sm`) with the live figures, the estimated paths of its power (only
+     those carrying at least 10 W, labelled as a proportional estimate), the
+     current band and hourly cost estimate for the grid, the last 24 hours
+     when history exists, and its sensors with entities, origin, sign
+     convention and unavailability reasons. Administrators get *Modifica
+     sensori*, which opens the settings with that module's editor open.
 - **House renders** (`public/images/energy/mobile/`) are chosen from the
   configured hardware only, online or offline, and only one is downloaded:
 

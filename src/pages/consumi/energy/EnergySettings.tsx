@@ -53,17 +53,20 @@ export default function EnergySettings({
   haStates,
   onRediscover,
   onSaved,
+  initialModule = null,
 }: {
   callApi: EnergyCallApi;
   haStates: MockEntityStateMap;
   onRediscover: () => void;
   onSaved: () => void;
+  /** Module whose editor starts open, when arriving from that component's details. */
+  initialModule?: EnergyModuleId | null;
 }) {
   const [profile, setProfile] = React.useState<EnergyProfileResult | null>(null);
   const [loadError, setLoadError] = React.useState('');
   const [discovery, setDiscovery] = React.useState<EnergyDiscovery | null>(null);
   const [draft, setDraft] = React.useState<EnergyDraft | null>(null);
-  const [open, setOpen] = React.useState<EnergyModuleId | null>(null);
+  const [open, setOpen] = React.useState<EnergyModuleId | null>(initialModule);
   const [form, setForm] = React.useState<TariffForm>(() => tariffForm(null));
   const [plantStatus, setPlantStatus] = React.useState<Status>({});
   const [tariffStatus, setTariffStatus] = React.useState<Status>({});

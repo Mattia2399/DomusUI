@@ -5,7 +5,7 @@ import {
   Clock3,
   CalendarClock,
   CarFront,
-  ChevronDown,
+  ChevronRight,
   Gauge,
   Leaf,
   SunMedium,
@@ -15,11 +15,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import GlassSegmentSelect from '../../../components/ui/GlassSegmentSelect';
-import type { EnergyHistory, EnergyHistoryPeriod, EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
+import type { EnergyHistory, EnergyHistoryPeriod, EnergyModuleId, EnergyModuleState, EnergyState } from '../../../services/energyCoreClient';
 import { EnergyHistoryChart } from './EnergyHistoryChart';
+import { EnergyModuleSheet, describeQuantity, liveFlows, okValue } from './EnergyModuleSheet';
 import { PERIOD_LABEL, formatEuro, formatKwh, formatPercent, historyBalance } from './energyHistoryModel';
 import { EnergyHomeVisual, FLOW_COLORS } from './EnergyHomeVisual';
-import { MODULE_META, REASON_LABEL, SOURCE_LABEL, buildFlowFromState, formatPower, formatQuantity } from './energyModel';
+import { MODULE_META, buildFlowFromState, formatPower, formatQuantity } from './energyModel';
 
 type HistoryPeriod = EnergyHistoryPeriod;
 
@@ -35,11 +36,6 @@ const MODULES: Array<{ id: EnergyModuleId; icon: LucideIcon; accent: string }> =
   { id: 'wallbox', icon: CarFront, accent: 'text-violet-400' },
 ];
 
-const okValue = (quantity: EnergyQuantity | undefined | null) =>
-  quantity?.status === 'ok' ? quantity.value : null;
-
-const describeQuantity = (quantity: EnergyQuantity | undefined | null) =>
-  quantity?.status === 'ok' && quantity.source ? SOURCE_LABEL[quantity.source] : REASON_LABEL[quantity?.reason ?? ''] ?? 'Non disponibile';
 
 export function energySystemStatus(state: EnergyState) {
   const modules = Object.values(state.modules).filter((module): module is EnergyModuleState => Boolean(module));
@@ -69,72 +65,21 @@ export type HomeSource = { id: SourceId; label: string; percent: number };
  * the home in proportion. Null when any present source is unknown or there is no plant to split.
  */
 export function homeSources(state: EnergyState): HomeSource[] | null {
-  const home = okValue(state.home_consumption);
-  const grid = okValue(state.modules.grid?.quantities.net_power);
   const ids = (['solar', 'battery', 'grid'] as const).filter((id) => state.modules[id]);
-  if (home === null || home <= 0 || grid === null || ids.length < 2) return null;
-  const supply: Record<SourceId, number | null> = {
-    solar: okValue(state.modules.solar?.quantities.production_power),
-    battery: okValue(state.modules.battery?.quantities.net_power),
-    grid,
-  };
-  if (ids.some((id) => supply[id] === null)) return null;
-  const amounts = ids.map((id) => Math.max(supply[id] ?? 0, 0));
-  const total = amounts.reduce((sum, value) => sum + value, 0);
-  if (total <= 0) return null;
+  const flows = liveFlows(state);
+  if (!flows || ids.length < 2 || !(okValue(state.home_consumption)! > 0)) return null;
   // Largest remainder, so the rounded shares always add up to 100.
-  const raw = amounts.map((value) => (value / total) * 100);
+  const raw = ids.map((id) => (flows.supply[id] / flows.total) * 100);
   const percents = raw.map(Math.floor);
   const order = raw.map((value, index) => [value - percents[index], index]).sort((a, b) => b[0] - a[0]);
   for (let index = 0; index < 100 - percents.reduce((sum, value) => sum + value, 0); index += 1) percents[order[index][1]] += 1;
   return ids.map((id, index) => ({ id, label: MODULE_META[id].label, percent: percents[index] }));
 }
 
-function Row({ label, quantity, entities = false }: { label: string; quantity: EnergyQuantity | undefined | null; entities?: boolean }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 text-xs">
-      <span className="text-[color:var(--ui-text-secondary)]">{label}</span>
-      <span className="text-right font-semibold text-[color:var(--ui-text-primary)]">
-        {formatQuantity(quantity)} <span className="font-normal text-[color:var(--ui-text-tertiary)]">· {describeQuantity(quantity)}</span>
-        {entities && quantity?.entity_ids.length ? <span className="block break-all font-mono text-[10px] font-normal text-[color:var(--ui-text-tertiary)]">{quantity.entity_ids.join(', ')}</span> : null}
-      </span>
-    </div>
-  );
-}
-
-const roleLabel = (id: EnergyModuleId, role: string) =>
-  role === 'net_power'
-    ? `Netto (+ ${id === 'grid' ? 'prelievo' : 'scarica'})`
-    : MODULE_META[id].roles.find((spec) => spec.role === role)?.label ?? role;
-
-/** Technical view: every measured or derived value with its entities and origin. */
-function TechnicalDetails({ state }: { state: EnergyState }) {
-  const absent = state.absent_modules.filter((id) => id !== 'home').map((id) => MODULE_META[id].label);
-  return (
-    <section aria-labelledby="energy-system-title" className="space-y-4">
-      <h3 id="energy-system-title" className={EYEBROW}>Il tuo impianto</h3>
-      <ul className="grid gap-4 md:grid-cols-2">
-        {(Object.entries(state.modules) as Array<[EnergyModuleId, EnergyModuleState]>).map(([id, module]) => (
-          <li key={id} className="space-y-1.5">
-            <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">
-              {MODULE_META[id].label} <span className="text-[10px] font-semibold text-[color:var(--ui-text-tertiary)]">{module.status === 'offline' ? 'Offline' : module.complete ? 'Attivo' : 'Dati parziali'}</span>
-            </p>
-            {Object.entries(module.quantities)
-              .filter(([, quantity]) => quantity.status !== 'not_measured')
-              .map(([role, quantity]) => <Row key={role} label={roleLabel(id, role)} quantity={quantity} entities />)}
-          </li>
-        ))}
-      </ul>
-      <Row label="Consumo della casa" quantity={state.home_consumption} entities />
-      {absent.length ? <p className={MUTED}>Non presenti: {absent.join(', ')}</p> : null}
-    </section>
-  );
-}
-
 const TILE = 'flex min-h-[8.5rem] flex-col rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-3.5 shadow-[var(--ui-shadow-card)] sm:p-4';
 
-/** Compact component tile: icon, value and one status line; details live in the technical panel. */
-function ModuleTile({ id, icon: Icon, accent, module }: { id: EnergyModuleId; icon: LucideIcon; accent: string; module: EnergyModuleState }) {
+/** Compact component tile: icon, value and one status line; it opens the component's details. */
+function ModuleTile({ id, icon: Icon, accent, module, onOpen }: { id: EnergyModuleId; icon: LucideIcon; accent: string; module: EnergyModuleState; onOpen: () => void }) {
   const q = module.quantities;
   const offline = module.status === 'offline';
   const soc = okValue(q.state_of_charge);
@@ -153,24 +98,30 @@ function ModuleTile({ id, icon: Icon, accent, module }: { id: EnergyModuleId; ic
     caption = flow === null ? describeQuantity(q.production_power) : still ? 'Nessuna produzione' : 'Produzione attuale';
   }
   return (
-    <article className={`${TILE} ${offline ? 'border-dashed' : ''}`}>
-      <div className="flex items-center gap-2">
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-haspopup="dialog"
+      className={`${TILE} text-left transition-transform active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-accent)] ${offline ? 'border-dashed' : ''}`}
+    >
+      <span className="flex w-full items-center gap-2">
         <Icon className={`h-4 w-4 shrink-0 ${offline ? 'text-[color:var(--ui-text-tertiary)]' : accent}`} aria-hidden="true" />
-        <p className={`truncate ${EYEBROW}`}>{MODULE_META[id].label}</p>
+        <span className={`truncate ${EYEBROW}`}>{MODULE_META[id].label}</span>
         <span
           className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${offline ? 'bg-amber-400' : module.complete ? 'bg-emerald-400' : 'bg-amber-400'}`}
           title={offline ? 'Offline' : module.complete ? 'Attivo' : 'Dati parziali'}
           aria-hidden="true"
         />
-      </div>
-      <p className="mt-auto pt-3 text-[1.6rem] font-semibold leading-none tracking-[-0.045em] text-[color:var(--ui-text-primary)]">{offline ? '—' : value}</p>
+        <ChevronRight className="-mr-1 h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
+      </span>
+      <span className="mt-auto block pt-3 text-[1.6rem] font-semibold leading-none tracking-[-0.045em] text-[color:var(--ui-text-primary)]">{offline ? '—' : value}</span>
       {id === 'battery' && soc !== null && !offline ? (
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-[color:var(--ui-fill-tertiary)]">
+        <span className="mt-2 block h-1 w-full overflow-hidden rounded-full bg-[color:var(--ui-fill-tertiary)]">
           <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${soc}%` }} />
-        </div>
+        </span>
       ) : null}
-      <p className={`mt-1.5 truncate ${MUTED}`}>{offline ? 'Offline · sensori senza dati' : caption}</p>
-    </article>
+      <span className={`mt-1.5 block w-full truncate ${MUTED}`}>{offline ? 'Offline · sensori senza dati' : caption}</span>
+    </button>
   );
 }
 
@@ -311,7 +262,7 @@ const TABLET_COLUMNS = ['', 'md:grid-cols-1', 'md:grid-cols-2', 'md:grid-cols-3'
 const SECTION = 'mx-3 mb-3 md:mx-0 md:mb-0';
 const PROGRESS = 'var(--energy-scroll-progress)';
 
-function EnergyHero({ state }: { state: EnergyState }) {
+function EnergyHero({ state, onOpenHome }: { state: EnergyState; onOpenHome: () => void }) {
   const status = energySystemStatus(state);
   const home = state.home_consumption;
   const sources = homeSources(state);
@@ -340,7 +291,18 @@ function EnergyHero({ state }: { state: EnergyState }) {
         )}
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h2 id="energy-hero-title" className="text-[13px] font-medium text-white/75">Consumo della casa</h2>
+            <div className="flex items-center gap-1">
+              <h2 id="energy-hero-title" className="text-[13px] font-medium text-white/75">Consumo della casa</h2>
+              <button
+                type="button"
+                onClick={onOpenHome}
+                aria-haspopup="dialog"
+                aria-label="Dettagli del consumo della casa"
+                className="-my-2 flex h-8 w-8 items-center justify-center rounded-full text-white/75 hover:bg-white/10"
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </div>
             <p className="mt-1 text-[2.7rem] font-light leading-none tracking-[-0.06em] sm:text-[3.5rem]">{formatQuantity(home)}</p>
             <p className="mt-2 text-xs text-white/70">{homeOrigin(state)}</p>
           </div>
@@ -364,16 +326,18 @@ function EnergyHero({ state }: { state: EnergyState }) {
 export function EnergyDashboard({
   state,
   banner,
-  actions,
   history,
+  onEditModule,
 }: {
   state: EnergyState;
   banner?: React.ReactNode;
-  actions: React.ReactNode;
+  /** Administrators can jump from a component's details to its sensors in the settings. */
+  onEditModule?: (id: EnergyModuleId) => void;
   /** Period history from the proposed get_history command; absent until the backend provides it. */
   history?: Partial<Record<HistoryPeriod, EnergyHistory>>;
 }) {
   const [period, setPeriod] = React.useState<HistoryPeriod>('24h');
+  const [details, setDetails] = React.useState<EnergyModuleId | null>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const present = MODULES.filter((item) => state.modules[item.id]);
 
@@ -403,11 +367,12 @@ export function EnergyDashboard({
     <div
       ref={rootRef}
       data-testid="energy-experience"
-      className="relative isolate grid min-h-full grid-cols-1 content-start bg-[color:var(--ui-bg-grouped)] pb-6 max-md:-mt-[calc(env(safe-area-inset-top)+4.65rem)] md:gap-5 md:bg-transparent md:px-6 md:pt-2 lg:px-8 xl:grid-cols-12 xl:px-10"
+      className="relative isolate grid min-h-full grid-cols-1 content-start bg-[color:var(--ui-bg-grouped)] pb-6 max-md:-mt-[calc(env(safe-area-inset-top)+4.65rem)] md:gap-5 md:bg-transparent md:px-6 md:pt-2 lg:px-8 xl:grid-flow-row-dense xl:grid-cols-12 xl:px-10"
       style={{ '--energy-scroll-progress': 0 } as React.CSSProperties}
     >
-      <section className="sticky top-0 z-0 md:static xl:col-span-8" aria-labelledby="energy-hero-title">
-        <EnergyHero state={state} />
+      {/* Desktop: hero beside the tiles and the analysis; dense flow lets the analysis fill the second row. */}
+      <section className="sticky top-0 z-0 md:static xl:col-span-8 xl:row-span-2" aria-labelledby="energy-hero-title">
+        <EnergyHero state={state} onOpenHome={() => setDetails('home')} />
       </section>
 
       <div
@@ -434,28 +399,21 @@ export function EnergyDashboard({
           {present.map((item, index) => (
             // An odd last tile takes the whole row where tiles sit two by two.
             <div key={item.id} role="listitem" className={`grid ${present.length % 2 && index === present.length - 1 ? 'col-span-2 md:col-span-1 xl:col-span-2' : ''}`}>
-              <ModuleTile {...item} module={state.modules[item.id] as EnergyModuleState} />
+              <ModuleTile {...item} module={state.modules[item.id] as EnergyModuleState} onOpen={() => setDetails(item.id)} />
             </div>
           ))}
         </div>
 
-        <div className={`${SECTION} xl:col-span-8`}><HistoryCard state={state} history={history?.[period]} period={period} onPeriod={setPeriod} /></div>
+        <div className={`${SECTION} xl:col-span-12`}><HistoryCard state={state} history={history?.[period]} period={period} onPeriod={setPeriod} /></div>
         <div className={`${SECTION} xl:col-span-4`}><AnalysisCard state={state} history={history?.[period]} /></div>
-
-        <details className={`group ${CARD} !p-0 ${SECTION} xl:col-span-12`} data-testid="energy-technical-details">
-          <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-5 [&::-webkit-details-marker]:hidden">
-            <div>
-              <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Dettagli sensori e configurazione</p>
-              <p className={`mt-0.5 ${MUTED}`}>Entità, origine dei valori e motivi di indisponibilità</p>
-            </div>
-            <ChevronDown className="h-5 w-5 shrink-0 text-[color:var(--ui-text-tertiary)] transition-transform group-open:rotate-180" aria-hidden="true" />
-          </summary>
-          <div className="space-y-4 border-t border-[color:var(--ui-separator)] px-4 py-4 sm:px-5">
-            <TechnicalDetails state={state} />
-            {actions}
-          </div>
-        </details>
       </div>
+      <EnergyModuleSheet
+        id={details}
+        state={state}
+        history={history?.['24h']}
+        onClose={() => setDetails(null)}
+        onEdit={onEditModule ? (id) => { setDetails(null); onEditModule(id); } : undefined}
+      />
     </div>
   );
 }

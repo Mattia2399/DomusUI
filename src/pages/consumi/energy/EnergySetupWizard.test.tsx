@@ -365,7 +365,7 @@ describe('Energy page lifecycle', () => {
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
 
     expect(await screen.findByText(/Impianto salvato/)).not.toBeNull();
-    expect(await screen.findByRole('region', { name: 'Il tuo impianto' })).not.toBeNull();
+    expect(await screen.findByRole('list', { name: 'Componenti dell’impianto' })).not.toBeNull();
 
     // Everyday changes go through the classic settings page, not the wizard.
     fireEvent.click(screen.getByRole('button', { name: 'Impostazioni energia' }));

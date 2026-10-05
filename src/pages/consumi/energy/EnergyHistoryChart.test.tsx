@@ -75,7 +75,7 @@ describe('Energy history', () => {
   });
 
   it('fills the analysis from history and keeps the empty state without it', () => {
-    const { unmount } = render(<EnergyDashboard state={STATE} actions={null} history={{ '24h': HISTORY }} />);
+    const { unmount } = render(<EnergyDashboard state={STATE} history={{ '24h': HISTORY }} />);
     const analysis = screen.getByRole('heading', { name: 'Bilancio e costi' }).closest('section') as HTMLElement;
 
     expect(within(analysis).getByText('Ultime 24 ore')).not.toBeNull();
@@ -86,7 +86,7 @@ describe('Energy history', () => {
     expect(screen.getByText('Prodotta in 24 ore')).not.toBeNull();
     unmount();
 
-    render(<EnergyDashboard state={STATE} actions={null} />);
+    render(<EnergyDashboard state={STATE} />);
     expect(screen.getByText('Storico non ancora disponibile')).not.toBeNull();
     expect(screen.getAllByText('Richiede lo storico energetico').length).toBeGreaterThan(0);
   });

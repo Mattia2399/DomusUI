@@ -101,13 +101,12 @@ describe('Energy subpage', () => {
     expect(screen.getByTestId('energy-experience')).not.toBeNull();
     expect(diagram.getAttribute('aria-label')).toContain('Rete: 900 W Prelievo');
     expect(diagram.getAttribute('aria-label')).not.toContain('Batteria');
-    const technicalDetails = screen.getByTestId('energy-technical-details') as HTMLDetailsElement;
-    expect(technicalDetails.open).toBe(false);
-    fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
-    expect(technicalDetails.open).toBe(true);
-    expect(within(technicalDetails).getByText('Non presenti: Fotovoltaico, Batteria, Wallbox')).not.toBeNull();
-    const home = within(technicalDetails).getByText('Consumo della casa').closest('div') as HTMLElement;
+    // The home details explain how its value is obtained.
+    fireEvent.click(screen.getByRole('button', { name: 'Dettagli del consumo della casa' }));
+    const home = await screen.findByRole('dialog', { name: 'Consumo della casa' });
     expect(within(home).getByText(/Derivato/)).not.toBeNull();
+    expect(within(home).getByText('Richiede lo storico energetico')).not.toBeNull();
+    fireEvent.click(within(home).getByRole('button', { name: /Chiudi/ }));
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
     expect(within(components).queryByText('Batteria')).toBeNull();
     expect(within(components).queryByText('Fotovoltaico')).toBeNull();
@@ -132,12 +131,17 @@ describe('Energy subpage', () => {
     expect((await screen.findByRole('img')).getAttribute('aria-label')).toContain('Batteria: offline');
     expect(within(screen.getByTestId('energy-hero')).getByText('Dati parziali')).not.toBeNull();
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
-    const battery = within(components).getByText('Batteria').closest('article') as HTMLElement;
+    const battery = within(components).getByText('Batteria').closest('button') as HTMLElement;
     expect(within(battery).getByText('Offline · sensori senza dati')).not.toBeNull();
     expect(within(battery).getByText('—')).not.toBeNull();
-    fireEvent.click(screen.getByText('Dettagli sensori e configurazione'));
-    const panel = screen.getByRole('region', { name: 'Il tuo impianto' });
-    expect(within(panel).getAllByText(/Dati insufficienti/).length).toBeGreaterThan(0);
+
+    fireEvent.click(battery);
+    const details = await screen.findByRole('dialog', { name: 'Batteria' });
+    expect(within(details).getByText('Offline · i sensori non forniscono dati')).not.toBeNull();
+    expect(within(details).getByText('Valori positivi = scarica verso la casa')).not.toBeNull();
+    // An administrator jumps from the details straight to that module in the settings.
+    fireEvent.click(within(details).getByRole('button', { name: 'Modifica sensori' }));
+    expect(await screen.findByRole('heading', { name: 'Impostazioni Energia' })).not.toBeNull();
   });
 
   it('puts the setup action in the header for administrators only', async () => {

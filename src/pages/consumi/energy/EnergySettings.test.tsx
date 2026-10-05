@@ -139,6 +139,14 @@ describe('Energy settings', () => {
     expect(within(group).queryByRole('button', { name: 'Salva tariffa' })).toBeNull();
   });
 
+  it('opens straight on the module chosen from its details', async () => {
+    render(<EnergySettings callApi={backend().callApi} haStates={{}} onRediscover={vi.fn()} onSaved={vi.fn()} initialModule="grid" />);
+    const plant = await screen.findByRole('region', { name: 'Impianto' });
+
+    expect(within(plant).getByRole('button', { name: 'Chiudi Rete' }).getAttribute('aria-expanded')).toBe('true');
+    expect(within(plant).getByLabelText('Prelievo')).not.toBeNull();
+  });
+
   it('asks for the export price only when a grid is configured', async () => {
     renderSettings(backend({ solar: { sensors: { production_power: 'sensor.pv' } } }));
     await screen.findByRole('region', { name: 'Tariffa e costi' });

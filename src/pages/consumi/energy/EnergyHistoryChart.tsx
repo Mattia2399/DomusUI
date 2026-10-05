@@ -36,9 +36,9 @@ function axisScale(max: number) {
   return { step, ticks, top: step * ticks };
 }
 
-export function EnergyHistoryChart({ history }: { history: EnergyHistory }) {
+export function EnergyHistoryChart({ history, showAll = false }: { history: EnergyHistory; showAll?: boolean }) {
   const available = SERIES.filter((series) => history.series[series.id]?.length);
-  const [hidden, setHidden] = React.useState(() => new Set(available.filter((series) => !SHOWN_FIRST.includes(series.id)).map((series) => series.id)));
+  const [hidden, setHidden] = React.useState(() => new Set(showAll ? [] : available.filter((series) => !SHOWN_FIRST.includes(series.id)).map((series) => series.id)));
   const [active, setActive] = React.useState<number | null>(null);
   const [width, setWidth] = React.useState(640);
   const frameRef = React.useRef<HTMLDivElement>(null);

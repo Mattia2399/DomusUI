@@ -6,6 +6,7 @@ import { EnergyDashboard } from './energy/EnergyDashboard';
 import { UI } from './energy/energyModel';
 import { useEnergyCore, type EnergyCoreResource, type EnergyPageContext } from './energy/useEnergyCore';
 import type { WizardMode } from './energy/EnergySetupWizard';
+import type { EnergyModuleId } from '../../services/energyCoreClient';
 
 const EnergySetupWizard = React.lazy(() => import('./energy/EnergySetupWizard'));
 const EnergySettings = React.lazy(() => import('./energy/EnergySettings'));
@@ -20,25 +21,14 @@ function Message({ icon, title, children }: { icon: React.ReactNode; title: stri
   );
 }
 
-function SetupActions({ canManage, configured, onOpen }: { canManage: boolean; configured: boolean; onOpen: (mode: WizardMode) => void }) {
+function SetupActions({ canManage, onOpen }: { canManage: boolean; onOpen: (mode: WizardMode) => void }) {
   if (!canManage) {
     return <p className={UI.muted}>Solo un amministratore di Home Assistant può configurare l’impianto.</p>;
   }
   return (
-    <div className="flex flex-wrap gap-2">
-      {configured ? (
-        <button type="button" onClick={() => onOpen('edit')} className={UI.primary}>
-          <SlidersHorizontal size={16} aria-hidden="true" /> Modifica impianto
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={() => onOpen(configured ? 'rediscover' : 'setup')}
-        className={configured ? UI.button : UI.primary}
-      >
-        <Search size={16} aria-hidden="true" /> {configured ? 'Ripeti rilevamento' : 'Avvia rilevamento'}
-      </button>
-    </div>
+    <button type="button" onClick={() => onOpen('setup')} className={UI.primary}>
+      <Search size={16} aria-hidden="true" /> Avvia rilevamento
+    </button>
   );
 }
 
@@ -55,6 +45,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore, energyHis
   const { state, error, loading, live, reload } = energyCore;
   const [wizard, setWizard] = React.useState<WizardMode | null>(null);
   const [settings, setSettings] = React.useState(false);
+  const [settingsModule, setSettingsModule] = React.useState<EnergyModuleId | null>(null);
   const [notice, setNotice] = React.useState('');
   const canManage = live && Boolean(energy?.canManage);
 
@@ -79,13 +70,14 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore, energyHis
   const loading_ = <Message icon={<LoaderCircle className={UI.spin} />} title="Apertura…" />;
   if (settings && energy && canManage) {
     return (
-      <DetailScaffold title="Impostazioni Energia" subtitle="Impianto, sensori e tariffa" onBack={() => setSettings(false)} showBeta={false}>
+      <DetailScaffold title="Impostazioni Energia" subtitle="Impianto, sensori e tariffa" onBack={() => { setSettings(false); setSettingsModule(null); }} showBeta={false}>
         <LazyLoadBoundary mode="section" fallback={loading_}>
           <EnergySettings
             callApi={energy.callApi}
             haStates={energy.haStates}
             onRediscover={() => setWizard('rediscover')}
             onSaved={() => void reload()}
+            initialModule={settingsModule}
           />
         </LazyLoadBoundary>
       </DetailScaffold>
@@ -124,7 +116,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore, energyHis
           Domus individua rete, fotovoltaico, batteria e wallbox tra i sensori di Home Assistant e mostra solo l’hardware presente. Nulla viene salvato senza la tua conferma.
         </p>
         {state.load_error ? <p className="mt-3 text-sm text-[color:var(--ui-warning)]">Il profilo salvato non era valido ed è stato ignorato: configuralo di nuovo.</p> : null}
-        <div className="mt-5 flex justify-center"><SetupActions canManage={canManage} configured={false} onOpen={openWizard} /></div>
+        <div className="mt-5 flex justify-center"><SetupActions canManage={canManage} onOpen={openWizard} /></div>
       </Message>
     );
   }
@@ -167,7 +159,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore, energyHis
             ) : null}
           </>
         )}
-        actions={<SetupActions canManage={canManage} configured onOpen={openWizard} />}
+        onEditModule={canManage ? (id) => { setSettingsModule(id); setSettings(true); } : undefined}
       />
     </DetailScaffold>
   );
