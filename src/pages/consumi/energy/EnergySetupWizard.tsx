@@ -29,6 +29,7 @@ import { Confidence, ERROR_TEXT, ModuleEditor, roleLabel } from './EnergyModuleE
 import { GROUP, TARIFF_HINT, TariffFields, isBlankTariff, tariffForm, tariffFromForm, tariffSummary } from './EnergyTariffFields';
 import { MODULE_META, UI } from './energyModel';
 import { buildFlowFromDraft } from './energyPreview';
+import { OTHER_PLANT, PlantIllustration, PlantPicker, applyPlant, plantFor, plantModules, plantSentence } from './EnergyPlantPicker';
 
 export type WizardMode = 'setup' | 'edit' | 'rediscover';
 
@@ -76,6 +77,7 @@ export default function EnergySetupWizard({
   const [save, setSave] = React.useState<SaveState>({ status: 'idle' });
   const [tariffDraft, setTariffDraft] = React.useState(() => tariffForm(null));
   const [skipTariff, setSkipTariff] = React.useState(false);
+  const [manual, setManual] = React.useState(false);
   const headingRef = React.useRef<HTMLHeadingElement>(null);
   const focusOnStep = React.useRef(false);
 
@@ -93,7 +95,10 @@ export default function EnergySetupWizard({
     const saved = profileResult.value.profile.modules;
     setDiscovery(found);
     // Confirmed bindings always win: discovery only fills a first-time draft.
-    setDraft(Object.keys(saved).length || !found ? draftFromProfile(saved) : draftFromDiscovery(found));
+    const initial = Object.keys(saved).length || !found ? draftFromProfile(saved) : draftFromDiscovery(found);
+    setDraft(initial);
+    // A plant that fits no tile (no grid, partial metering) stays in manual editing, even once emptied.
+    setManual(ENERGY_MODULES.some((id) => initial[id].present) && plantFor(initial) === null);
     setTariffDraft(tariffForm(profileResult.value.profile.tariff));
     setProfile(profileResult.value);
   }, [callApi]);
@@ -168,11 +173,19 @@ export default function EnergySetupWizard({
   const suggestions = discovery && hasSavedProfile ? pendingSuggestions(draft, discovery) : [];
   const present = ENERGY_MODULES.filter((id) => draft[id].present);
   const absent = ENERGY_MODULES.filter((id) => !draft[id].present && id !== 'home').map((id) => MODULE_META[id].label);
+  const plant = manual ? OTHER_PLANT : plantFor(draft);
+  const editable = plant === OTHER_PLANT ? ENERGY_MODULES : plant ? ENERGY_MODULES.filter((id) => id === 'home' || plantModules(plant).includes(id as never)) : [];
+  // First setup with a plausible plant found: summarise it and let the user confirm it as is.
+  const detected = !hasSavedProfile && discovery !== null && present.length > 0;
+  const entityCount = new Set(Object.values(modules).flatMap((module) => Object.values(module?.sensors ?? {}))).size;
+  const missed = detected ? (discovery?.ambiguous ?? []).map((item) => item.module).filter((id, index, all) => !draft[id].present && all.indexOf(id) === index) : [];
+  const canConfirm = current === 'detect' && detected && issues.length === 0;
+  const bindIndex = steps.indexOf('bind');
   const tariffBlank = isBlankTariff(tariffDraft);
   const { tariff } = tariffFromForm(tariffDraft, draft.grid.present);
   // Nothing typed, or an explicit skip, leaves the tariff out of the save.
   const tariffToSave = steps.includes('tariff') && !skipTariff ? tariff : undefined;
-  const blocked = (current === 'bind' && issues.length > 0) || (current === 'tariff' && !tariffBlank && !tariff);
+  const blocked = (current === 'bind' && (issues.length > 0 || plant === null)) || (current === 'tariff' && !tariffBlank && !tariff);
   const nothingFound = discovery !== null && ENERGY_MODULES.every((id) => detectionSummary(id, discovery) === null);
 
   const handleSave = async () => {
@@ -191,7 +204,44 @@ export default function EnergySetupWizard({
       <>
         {current === 'detect' ? (
           <>
-            {nothingFound || !discovery ? (
+            {detected ? (
+              <>
+                <div className={`${UI.card} grid gap-4 sm:grid-cols-[minmax(0,15rem)_1fr] sm:items-center`}>
+                  <div className="flex h-32 items-center justify-center rounded-xl bg-[color:var(--ui-surface-primary)] px-3">
+                    <PlantIllustration modules={present} className="h-full w-full" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className={UI.title}>Abbiamo riconosciuto il tuo impianto</p>
+                    <p className={UI.body}>
+                      {entityCount === 1 ? 'È stata rilevata 1 entità corrispondente.' : `Sono state rilevate ${entityCount} entità corrispondenti.`}{' '}
+                      Il tuo impianto comprende {plantSentence(present)}.
+                    </p>
+                    <ul className="space-y-1">
+                      {present.map((id) => (
+                        <li key={id} className={UI.muted}>
+                          <span className="font-semibold text-[color:var(--ui-text-secondary)]">{MODULE_META[id].label}</span>{' '}
+                          <span className="break-all font-mono">{Object.values(modules[id]?.sensors ?? {}).join(', ')}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+                {issues.length || missed.length ? (
+                  <div className={UI.card}>
+                    <p className={`text-sm ${UI.title}`}>{issues.length ? 'Prima di confermare serve ancora:' : 'Da verificare:'}</p>
+                    <ul className={`mt-1 list-disc space-y-0.5 pl-5 ${UI.body}`}>
+                      {issues.map((issue) => <li key={`${issue.module}-${issue.role ?? ''}`}>{MODULE_META[issue.module].label}: {issue.message}</li>)}
+                      {missed.map((id) => <li key={id}>{MODULE_META[id].label}: più sensori possibili. Se fa parte dell’impianto, scegli quello giusto in «Modifica sensori».</li>)}
+                    </ul>
+                  </div>
+                ) : null}
+                <p className={UI.body}>
+                  {issues.length
+                    ? 'Completa questi dati nel passaggio successivo.'
+                    : 'Se è tutto corretto, conferma l’impianto. Potrai sempre cambiarlo dalle Impostazioni.'}
+                </p>
+              </>
+            ) : nothingFound || !discovery ? (
               <div className={UI.card}>
                 <p className={UI.title}>{discovery ? 'Nessun sensore riconosciuto automaticamente' : 'Rilevamento automatico non riuscito'}</p>
                 <p className={`mt-1 ${UI.body}`}>
@@ -241,13 +291,30 @@ export default function EnergySetupWizard({
 
         {current === 'bind' ? (
           <>
-          <p className={UI.body}>Premi «Configura» sui moduli che hai in casa e scegli i sensori. I moduli non configurati restano esclusi.</p>
+          <p className={UI.body}>Scegli il tipo di impianto: Domus ti chiederà soltanto i sensori che servono.</p>
+          <PlantPicker
+            value={plant}
+            onSelect={(id) => {
+              setManual(id === OTHER_PLANT);
+              if (id !== OTHER_PLANT) setDraft((current) => applyPlant(current, id));
+            }}
+          />
+          {plant ? (
+            <div className="space-y-1 pt-3">
+              <h3 className={UI.title}>Sensori</h3>
+              <p className={UI.muted}>
+                {plant === OTHER_PLANT
+                  ? 'Premi «Configura» sui moduli che hai in casa e scegli i sensori. I moduli non configurati restano esclusi.'
+                  : 'Il misuratore dei consumi di casa è facoltativo: senza, Domus ricava il consumo dagli altri sensori quando i dati sono completi.'}
+              </p>
+            </div>
+          ) : null}
           {/* Two independent columns on desktop, so opening a module never stretches its neighbour.
               On phones the columns dissolve into one list and `order` restores the module sequence. */}
           <div className="grid items-start gap-3 lg:grid-cols-2">
             {[0, 1].map((column) => (
               <div key={column} className="contents lg:flex lg:flex-col lg:gap-3">
-                {ENERGY_MODULES.map((id, index) => index % 2 === column ? (
+                {editable.map((id, index) => index % 2 === column ? (
                   <div key={id} className="grid" style={{ order: index }}>
                     <ModuleEditor
                       id={id}
@@ -256,6 +323,7 @@ export default function EnergySetupWizard({
                       discovery={discovery}
                       haStates={haStates}
                       issues={issues.filter((issue) => issue.module === id)}
+                      locked={plant !== OTHER_PLANT && id !== 'home'}
                       onChange={(module) => setDraft((current) => ({ ...current, [id]: module }))}
                     />
                   </div>
@@ -332,15 +400,25 @@ export default function EnergySetupWizard({
       <>
         {blocked ? (
           <p id="energy-step-blocked" className={`mb-2 ${ERROR_TEXT}`}>
-            {current === 'tariff' ? 'Correggi i prezzi evidenziati oppure salta questo passaggio.' : 'Completa o correggi i moduli evidenziati per continuare.'}
+            {current === 'tariff'
+              ? 'Correggi i prezzi evidenziati oppure salta questo passaggio.'
+              : plant === null
+                ? 'Scegli il tipo di impianto per continuare.'
+                : 'Completa o correggi i moduli evidenziati per continuare.'}
           </p>
         ) : null}
         <div className="flex gap-2 sm:justify-end">
           {step > 0 ? <button type="button" onClick={() => setStep(step - 1)} disabled={saving} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Indietro</button> : null}
+          {canConfirm ? (
+            <>
+              <button type="button" onClick={() => setStep(bindIndex)} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Modifica sensori</button>
+              <button type="button" onClick={() => setStep(bindIndex + 1)} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>Conferma impianto</button>
+            </>
+          ) : null}
           {current === 'tariff' && !tariffBlank ? (
             <button type="button" onClick={() => { setSkipTariff(true); setStep(step + 1); }} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Salta</button>
           ) : null}
-          {current !== 'save' ? (
+          {canConfirm ? null : current !== 'save' ? (
             <button
               type="button"
               onClick={() => { if (current === 'tariff') setSkipTariff(false); setStep(step + 1); }}

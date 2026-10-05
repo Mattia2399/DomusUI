@@ -106,6 +106,8 @@ function renderWizard(backend: Backend, mode: 'setup' | 'edit' | 'rediscover' = 
 
 const next = () => fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
 const skipTariff = () => fireEvent.click(screen.getByRole('button', { name: 'Salta per ora' }));
+const plantTile = (name: string) => screen.getByRole('radio', { name });
+const confirmPlant = async () => fireEvent.click(await screen.findByRole('button', { name: 'Conferma impianto' }));
 const moduleCard = (label: string) => screen.getByText(label, { selector: 'fieldset p' }).closest('fieldset') as HTMLElement;
 
 describe('Energy setup wizard', () => {
@@ -113,14 +115,28 @@ describe('Energy setup wizard', () => {
     const backend = createBackend();
     const { onSaved } = renderWizard(backend);
 
-    expect(await screen.findByText('Sensori riconosciuti e già proposti')).not.toBeNull();
-    expect(screen.getByText('Più sensori possibili: scegli tu quale usare')).not.toBeNull();
-    expect(screen.getByText('Sensore trovato: conferma il significato del segno')).not.toBeNull();
+    expect(await screen.findByText('Abbiamo riconosciuto il tuo impianto')).not.toBeNull();
+    expect(screen.getByText(/Sono state rilevate 2 entità corrispondenti\. Il tuo impianto comprende la rete elettrica e il fotovoltaico\./)).not.toBeNull();
+    expect(screen.getByText('Rete: Conferma il significato dei valori positivi.')).not.toBeNull();
+    expect(screen.getByText(/Batteria: più sensori possibili/)).not.toBeNull();
+    // A pending confirmation sends the user through the bindings instead of a direct confirm.
+    expect(screen.queryByRole('button', { name: 'Conferma impianto' })).toBeNull();
     next();
 
-    expect(within(moduleCard('Batteria')).getByRole('button', { name: 'Configura Batteria' })).not.toBeNull();
+    expect(plantTile('Fotovoltaico').getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByText('Batteria', { selector: 'fieldset p' })).toBeNull();
     expect(within(moduleCard('Fotovoltaico')).getByDisplayValue('sensor.pv')).not.toBeNull();
     expect(within(moduleCard('Rete')).getByDisplayValue('sensor.meter')).not.toBeNull();
+    // The tile decides which modules exist, so the hardware cannot be toggled one by one.
+    expect(screen.queryByRole('button', { name: 'Rimuovi Rete' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Configura Casa' })).not.toBeNull();
+
+    fireEvent.click(plantTile('Impianto completo'));
+    expect(within(moduleCard('Wallbox')).getByLabelText('Potenza di ricarica')).not.toBeNull();
+    expect(moduleCard('Batteria')).not.toBeNull();
+    fireEvent.click(plantTile('Fotovoltaico'));
+    expect(screen.queryByText('Wallbox', { selector: 'fieldset p' })).toBeNull();
+    expect(within(moduleCard('Fotovoltaico')).getByDisplayValue('sensor.pv')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Avanti' }).hasAttribute('disabled')).toBe(true);
     expect(screen.getByText('Conferma il significato dei valori positivi.')).not.toBeNull();
 
@@ -163,6 +179,10 @@ describe('Energy setup wizard', () => {
     expect(screen.getByText(/Dashboard Energia di Home Assistant, Domus potrà proporli/)).not.toBeNull();
     next();
 
+    expect(screen.getByText('Scegli il tipo di impianto per continuare.')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Avanti' }).hasAttribute('disabled')).toBe(true);
+    fireEvent.click(plantTile('Altro'));
+
     fireEvent.click(within(moduleCard('Wallbox')).getByRole('button', { name: 'Configura Wallbox' }));
     fireEvent.change(screen.getByLabelText('Potenza di ricarica'), { target: { value: 'switch.wallbox' } });
     expect(screen.getByText('Usa un’entità sensor.* esistente.')).not.toBeNull();
@@ -193,9 +213,11 @@ describe('Energy setup wizard', () => {
   it('leaves a typed tariff out when the step is skipped', async () => {
     const backend = createBackend({}, { ...DISCOVERY, requires_input: [] });
     renderWizard(backend);
-    await screen.findByText('Sensori riconosciuti e già proposti');
-    next();
-    next();
+    expect(await screen.findByText(/È stata rilevata 1 entità corrispondente\. Il tuo impianto comprende il fotovoltaico\./)).not.toBeNull();
+    expect(screen.getByText(/Se è tutto corretto, conferma l’impianto/)).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Modifica sensori' })).not.toBeNull();
+    await confirmPlant();
+    expect(screen.getByRole('heading', { name: 'Tariffa' })).not.toBeNull();
     fireEvent.change(screen.getByRole('textbox', { name: /^F1/ }), { target: { value: '0,3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salta' }));
     next();
@@ -213,7 +235,8 @@ describe('Energy setup wizard', () => {
     expect(screen.getByText('sensor.pv')).not.toBeNull();
     next();
     expect(within(moduleCard('Rete')).getByDisplayValue('sensor.confirmed')).not.toBeNull();
-    expect(within(moduleCard('Fotovoltaico')).getByRole('button', { name: 'Configura Fotovoltaico' })).not.toBeNull();
+    expect(plantTile('Solo rete').getAttribute('aria-checked')).toBe('true');
+    expect(screen.queryByText('Fotovoltaico', { selector: 'fieldset p' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
     const suggestion = screen.getByText('sensor.pv').closest('li') as HTMLElement;
@@ -297,11 +320,10 @@ describe('Energy page lifecycle', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: /Avvia rilevamento/ }));
-    await screen.findByText('Sensori riconosciuti e già proposti');
+    await screen.findByText('Abbiamo riconosciuto il tuo impianto');
     // The wizard replaces the page header instead of nesting under it.
     expect(screen.queryByRole('heading', { name: 'Dettaglio Energia' })).toBeNull();
-    next();
-    next();
+    await confirmPlant();
     skipTariff();
     next();
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));

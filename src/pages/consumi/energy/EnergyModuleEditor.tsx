@@ -1,4 +1,3 @@
-import React from 'react';
 import type { MockEntityStateMap } from '../../../types/ha';
 import type { EnergyConfidence, EnergyDiscovery, EnergyModuleId } from '../../../services/energyCoreClient';
 import { activeRoles, type DraftIssue, type DraftModule } from './energyDraft';
@@ -87,10 +86,13 @@ export function ModuleEditor({
   discovery,
   haStates,
   issues,
+  locked = false,
   onChange,
 }: {
   id: EnergyModuleId;
   module: DraftModule;
+  /** Presence is decided elsewhere (the plant type), so the module cannot be toggled here. */
+  locked?: boolean;
   offline: boolean;
   discovery: EnergyDiscovery | null;
   haStates: MockEntityStateMap;
@@ -107,14 +109,16 @@ export function ModuleEditor({
           <p className={UI.title}>{meta.label}</p>
           <p className={UI.muted}>{module.present ? meta.hint : 'Non incluso nell’impianto'}{offline ? ' · sensori offline' : ''}</p>
         </div>
-        <button
-          type="button"
-          aria-label={`${module.present ? 'Rimuovi' : 'Configura'} ${meta.label}`}
-          onClick={() => onChange({ ...module, present: !module.present })}
-          className={`${UI.chip} ${module.present ? '' : 'font-semibold text-[color:var(--ui-accent)]'}`}
-        >
-          {module.present ? 'Rimuovi' : 'Configura'}
-        </button>
+        {locked ? null : (
+          <button
+            type="button"
+            aria-label={`${module.present ? 'Rimuovi' : 'Configura'} ${meta.label}`}
+            onClick={() => onChange({ ...module, present: !module.present })}
+            className={`${UI.chip} ${module.present ? '' : 'font-semibold text-[color:var(--ui-accent)]'}`}
+          >
+            {module.present ? 'Rimuovi' : 'Configura'}
+          </button>
+        )}
       </div>
       {module.present ? (
         <div className="mt-3 space-y-3">

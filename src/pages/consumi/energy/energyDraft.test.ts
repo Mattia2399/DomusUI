@@ -89,7 +89,7 @@ describe('Energy draft', () => {
     const messages = validateDraft(draft).map((issue) => `${issue.module}:${issue.message}`);
     expect(messages).toContain('solar:Usa un’entità sensor.* esistente.');
     expect(messages).toContain('home:Sensore già usato per Rete.');
-    expect(messages).toContain('wallbox:Scegli almeno un sensore oppure segna il modulo come assente.');
+    expect(messages).toContain('wallbox:Scegli almeno un sensore per questo modulo.');
   });
 
   it('re-detection proposes differences without changing confirmed bindings', () => {

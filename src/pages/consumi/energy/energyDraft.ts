@@ -100,7 +100,7 @@ export function validateDraft(draft: EnergyDraft): DraftIssue[] {
     const roles = activeRoles(id, module.mode);
     const configured = roles.filter((role) => module.sensors[role]?.trim());
     if (configured.length === 0) {
-      issues.push({ module: id, message: 'Scegli almeno un sensore oppure segna il modulo come assente.' });
+      issues.push({ module: id, message: 'Scegli almeno un sensore per questo modulo.' });
     }
     for (const role of configured) {
       const entityId = module.sensors[role].trim();
