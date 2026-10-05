@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { EnergyModuleState, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
-import { EnergyDashboard } from './EnergyDashboard';
+import { EnergyDashboard, homeCoverage } from './EnergyDashboard';
 import { ENERGY_HOME_ASSETS, selectEnergyHomeAsset } from './EnergyHomeVisual';
 
 afterEach(cleanup);
@@ -60,7 +60,12 @@ describe('Energy dashboard', () => {
   it('adapts a grid-only home without placeholders for missing hardware', () => {
     show(state({ grid: online({ net_power: q(1200), import_power: q(1200, { source: 'derived' }) }) }));
 
-    expect(screen.getByRole('heading', { name: 'Prelievo dalla rete: 1,2 kW' })).not.toBeNull();
+    const hero = screen.getByTestId('energy-hero');
+    expect(within(hero).getByRole('heading', { name: 'Consumo della casa' })).not.toBeNull();
+    expect(within(hero).getByText('Calcolato da rete')).not.toBeNull();
+    // Nothing to split with a grid alone, and live data needs no status badge.
+    expect(within(hero).queryByText(/dalla rete/)).toBeNull();
+    expect(within(hero).queryByText('In tempo reale')).toBeNull();
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
     expect(within(components).getAllByRole('listitem')).toHaveLength(2);
     expect(within(components).queryByText('Fotovoltaico')).toBeNull();
@@ -80,7 +85,7 @@ describe('Energy dashboard', () => {
       wallbox: online({ charging_power: q(7400) }),
     }));
 
-    expect(screen.getByRole('heading', { name: 'Immissione in rete: 400 W' })).not.toBeNull();
+    expect(within(screen.getByTestId('energy-hero')).getByText('Calcolato da rete, fotovoltaico e batteria')).not.toBeNull();
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
     expect(within(components).getAllByRole('listitem')).toHaveLength(5);
     const battery = within(components).getByText('Batteria').closest('article') as HTMLElement;
@@ -94,10 +99,22 @@ describe('Energy dashboard', () => {
   it('never presents history values that do not exist yet', () => {
     show(state({ grid: online({ net_power: q(0) }), solar: online({ production_power: q(900) }) }));
 
-    expect(screen.getByRole('heading', { name: 'Nessuno scambio con la rete' })).not.toBeNull();
+    expect(within(screen.getByTestId('energy-hero')).getByText('Coperto al 100% da fotovoltaico')).not.toBeNull();
     expect(screen.getByText('Storico non ancora disponibile')).not.toBeNull();
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('radio', { name: '7 giorni' }));
     expect(screen.getByRole('radio', { name: '7 giorni' }).getAttribute('aria-checked')).toBe('true');
+  });
+});
+
+describe('Home coverage', () => {
+  it('splits the live home consumption between the plant and the grid', () => {
+    const plant = { solar: online({ production_power: q(2000) }), battery: online({ net_power: q(0) }) };
+
+    expect(homeCoverage(state({ ...plant, grid: online({ net_power: q(-300) }) }))).toBe('Coperto al 100% da fotovoltaico e batteria');
+    expect(homeCoverage(state({ ...plant, grid: online({ net_power: q(600) }) }))).toBe('60% da fotovoltaico e batteria · 40% dalla rete');
+    expect(homeCoverage(state({ ...plant, grid: online({ net_power: q(1500) }) }))).toBe('Coperto interamente dalla rete');
+    expect(homeCoverage(state({ grid: online({ net_power: q(1500) }) }))).toBeNull();
+    expect(homeCoverage(state({ ...plant, grid: online({ net_power: q(600) }) }, { home_consumption: q(null) }))).toBeNull();
   });
 });

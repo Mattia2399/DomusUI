@@ -207,9 +207,13 @@ section; no new route exists.
   - *Impostazioni* (administrators) lives in the page header, like
     Irrigation's configure action. Without a profile the page offers the
     guided setup instead.
-  1. *House hero*: a factual headline about the grid exchange, the home
-     consumption with its origin, and the 3D house of the configured hardware
-     with value callouts and subtle animated flows.
+  1. *House hero*: the home consumption under the heading *Consumo della
+     casa*, how it is obtained in plain words (*Misurato dal sensore della
+     casa* or *Calcolato da rete, fotovoltaico e batteria*), the live share
+     covered by solar and battery versus the grid when it can be told, and the
+     3D house of the configured hardware with value callouts and animated
+     flows. A status badge appears only for partial data or offline sensors;
+     the grid exchange lives in its tile.
   2. *Components*: a compact tile per configured module (value, one status
      line, charge bar for the battery) plus home consumption spanning the
      free width: two columns on phones, one row on tablets, two by two beside
@@ -238,11 +242,14 @@ section; no new route exists.
   variant is used: the only night render lacks solar panels, and day or night
   would have to come from a reliable source such as `sun.sun`, not from zero
   production.
-- **Flows** connect each component to the home entry and only animate for an
-  online module with a known, non-zero direction. Without a per-path split
-  from the backend, solar-to-battery or solar-to-grid paths are not invented:
-  every flow is drawn through the home. `prefers-reduced-motion` keeps the
-  lines static.
+- **Flows** follow a route of their own on each render, so hardware that sits
+  close together on the wall does not pile up: the grid from the street edge
+  of the plot to the meter, solar from the roof into the house, the battery
+  into the wall conduit and the wallbox along its cable to the car. Routes run
+  towards the home and outbound flows travel them backwards. They only
+  animate for an online module with a known, non-zero direction. Without a
+  per-path split from the backend, solar-to-battery or solar-to-grid paths
+  are not invented. `prefers-reduced-motion` keeps the lines static.
 - **States**: no Home Assistant connection, outdated integration or bridge,
   failed refresh, and no profile. The isolated Demo keeps its existing gate
   on Consumi, so no energy sample is shown there.

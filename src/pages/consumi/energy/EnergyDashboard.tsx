@@ -45,17 +45,34 @@ const describeQuantity = (quantity: EnergyQuantity | undefined | null) =>
 export function energySystemStatus(state: EnergyState) {
   const modules = Object.values(state.modules).filter((module): module is EnergyModuleState => Boolean(module));
   const online = modules.filter((module) => module.status === 'online').length;
-  if (online === 0) return { label: 'Sensori offline', dot: 'bg-amber-400' };
-  if (online < modules.length || modules.some((module) => !module.complete)) return { label: 'Dati parziali', dot: 'bg-amber-400' };
-  return { label: 'In tempo reale', dot: 'bg-emerald-400' };
+  if (online === 0) return { label: 'Sensori offline', dot: 'bg-amber-400', live: false };
+  if (online < modules.length || modules.some((module) => !module.complete)) return { label: 'Dati parziali', dot: 'bg-amber-400', live: false };
+  return { label: 'In tempo reale', dot: 'bg-emerald-400', live: true };
 }
 
-/** Factual one-line summary of the grid exchange; never a recommendation. */
-function headline(state: EnergyState) {
+const listOf = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
+
+/** Where the home consumption figure comes from, in plain words. */
+function homeOrigin(state: EnergyState) {
+  const home = state.home_consumption;
+  if (home?.status !== 'ok') return describeQuantity(home);
+  if (home.source !== 'derived') return 'Misurato dal sensore della casa';
+  const parts = (['grid', 'solar', 'battery'] as const).filter((id) => state.modules[id]).map((id) => MODULE_META[id].label.toLowerCase());
+  return `Calcolato da ${listOf(parts)}`;
+}
+
+/** Live share of the home covered by the plant rather than the grid; null when it cannot be told. */
+export function homeCoverage(state: EnergyState) {
+  const home = okValue(state.home_consumption);
   const net = okValue(state.modules.grid?.quantities.net_power);
-  if (net === null) return 'La tua casa, adesso';
-  if (Math.abs(net) < 10) return 'Nessuno scambio con la rete';
-  return net > 0 ? `Prelievo dalla rete: ${formatPower(net)}` : `Immissione in rete: ${formatPower(-net)}`;
+  const sources = (['solar', 'battery'] as const).filter((id) => state.modules[id]).map((id) => MODULE_META[id].label.toLowerCase());
+  if (home === null || home <= 0 || net === null || sources.length === 0) return null;
+  const fromGrid = Math.min(1, Math.max(net, 0) / home);
+  const percent = (value: number) => `${Math.round(value * 100)}%`;
+  const from = listOf(sources);
+  if (fromGrid < 0.005) return `Coperto al 100% da ${from}`;
+  if (fromGrid > 0.995) return 'Coperto interamente dalla rete';
+  return `${percent(1 - fromGrid)} da ${from} · ${percent(fromGrid)} dalla rete`;
 }
 
 function Row({ label, quantity, entities = false }: { label: string; quantity: EnergyQuantity | undefined | null; entities?: boolean }) {
@@ -279,13 +296,14 @@ const PROGRESS = 'var(--energy-scroll-progress)';
 function EnergyHero({ state }: { state: EnergyState }) {
   const status = energySystemStatus(state);
   const home = state.home_consumption;
+  const coverage = homeCoverage(state);
   return (
     <div
       data-testid="energy-hero"
-      className="relative flex h-[clamp(31rem,74svh,37rem)] flex-col overflow-hidden bg-[#10151b] text-white md:h-full md:min-h-[38rem] md:rounded-[2rem]"
+      className="relative flex h-[clamp(33rem,78svh,39rem)] flex-col overflow-hidden bg-[#10151b] text-white md:h-full md:min-h-[38rem] md:rounded-[2rem]"
     >
       <div
-        className="absolute inset-x-0 bottom-28 top-[calc(env(safe-area-inset-top)+9.5rem)] [will-change:transform] motion-reduce:!transform-none md:bottom-12 md:top-36 md:!transform-none"
+        className="absolute inset-x-0 bottom-28 top-[calc(env(safe-area-inset-top)+11.75rem)] [will-change:transform] motion-reduce:!transform-none md:bottom-12 md:top-36 md:!transform-none"
         style={{ transform: `translate3d(0, calc(${PROGRESS} * 18px), 0) scale(calc(1.045 - ${PROGRESS} * 0.045))`, transformOrigin: 'center top' }}
       >
         <EnergyHomeVisual state={state} view={buildFlowFromState(state)} />
@@ -295,21 +313,18 @@ function EnergyHero({ state }: { state: EnergyState }) {
         className="relative z-10 px-4 pt-[calc(env(safe-area-inset-top)+5.25rem)] motion-reduce:!transform-none motion-reduce:!opacity-100 md:!transform-none md:!opacity-100 md:p-7 lg:p-8"
         style={{ opacity: `calc(1 - ${PROGRESS} * 1.15)`, transform: `translate3d(0, calc(${PROGRESS} * -24px), 0)` }}
       >
-        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-          <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} aria-hidden="true" />
-          Domus Energy · {status.label}
-        </p>
-        <div className="mt-1.5 flex items-end justify-between gap-4">
-          <h2 id="energy-hero-title" className="min-w-0 text-[1.55rem] font-semibold leading-[1.05] tracking-[-0.045em] sm:text-[2.4rem]">{headline(state)}</h2>
-          <div className="shrink-0 text-right">
-            <p className="text-[2.3rem] font-light leading-none tracking-[-0.06em] sm:text-5xl">{formatQuantity(home)}</p>
-            <p className="mt-1 text-[11px] font-medium text-white/70">Casa · {describeQuantity(home)}</p>
-          </div>
-        </div>
+        {/* The status speaks only when something needs attention; live data is the normal case. */}
+        {status.live ? null : (
+          <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-black/40 px-2.5 py-1 text-[11px] font-semibold text-amber-200 backdrop-blur-md">
+            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} aria-hidden="true" />
+            {status.label}
+          </p>
+        )}
+        <h2 id="energy-hero-title" className="text-[13px] font-medium text-white/75">Consumo della casa</h2>
+        <p className="mt-1 text-[2.7rem] font-light leading-none tracking-[-0.06em] sm:text-[3.5rem]">{formatQuantity(home)}</p>
+        <p className="mt-2 text-xs text-white/70">{homeOrigin(state)}</p>
+        {coverage ? <p className="mt-0.5 text-xs font-semibold text-white">{coverage}</p> : null}
       </div>
-      <p className="relative z-10 mt-auto hidden px-7 pb-6 text-[10px] text-white/50 md:block lg:px-8">
-        Valori istantanei · Misurato = sensore · Derivato = calcolo Domus
-      </p>
     </div>
   );
 }

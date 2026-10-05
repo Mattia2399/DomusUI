@@ -19,6 +19,11 @@ export type EnergyHomeAsset = {
   anchors?: Partial<Record<HardwareId | 'home', Point>>;
   /** Callout position and horizontal alignment for each component. */
   labels?: Partial<Record<HardwareId, [number, number, 'start' | 'end' | 'center']>>;
+  /**
+   * Route of each flow, drawn from the far end (street, roof, battery, car) to the home side.
+   * Separate routes keep the flows apart where the hardware sits close together on the wall.
+   */
+  flows?: Partial<Record<HardwareId, string>>;
 };
 
 export type EnergyHomeAssetCatalog = Partial<Record<EnergyHomeVariant, EnergyHomeAsset>>;
@@ -27,6 +32,12 @@ const render = (file: string) => `${import.meta.env.BASE_URL}images/energy/mobil
 const HOME: Point = [300, 760];
 const GRID_LABEL: [number, number, 'end'] = [470, 960, 'end'];
 const BATTERY_LABEL: [number, number, 'end'] = [690, 720, 'end'];
+/* The grid arrives from the street edge of the plot to the meter on the side wall. */
+const STREET_TO_LOW_METER = 'M 652 906 C 600 902, 542 893, 490 883';
+const STORAGE_FLOWS = {
+  grid: 'M 646 864 C 592 860, 536 850, 486 837',
+  battery: 'M 528 806 C 512 786, 484 776, 452 778',
+};
 
 /**
  * Renders keyed by the exact configured hardware. The file named "night" shows
@@ -39,6 +50,7 @@ export const ENERGY_HOME_ASSETS: EnergyHomeAssetCatalog = {
     focusY: 0.54,
     anchors: { home: [300, 790], grid: [487, 880] },
     labels: { grid: [520, 990, 'start'] },
+    flows: { grid: STREET_TO_LOW_METER },
   },
   'grid+solar': {
     src: render('grid-solar'),
@@ -46,24 +58,34 @@ export const ENERGY_HOME_ASSETS: EnergyHomeAssetCatalog = {
     focusY: 0.54,
     anchors: { home: [300, 790], grid: [487, 880], solar: [340, 620] },
     labels: { solar: [470, 480, 'start'], grid: [520, 990, 'start'] },
+    flows: { grid: STREET_TO_LOW_METER, solar: 'M 340 618 C 330 676, 302 720, 262 744' },
   },
   'grid+solar+battery': {
     src: render('grid-solar-battery'),
     alt: 'Casa con rete, fotovoltaico e batteria',
     anchors: { home: HOME, grid: [482, 833], solar: [340, 580], battery: [528, 820] },
     labels: { solar: [470, 440, 'start'], grid: GRID_LABEL, battery: BATTERY_LABEL },
+    flows: { ...STORAGE_FLOWS, solar: 'M 336 578 C 326 640, 298 688, 260 712' },
   },
   'grid+solar+battery+wallbox': {
     src: render('grid-solar-battery-ev'),
     alt: 'Casa con rete, fotovoltaico, batteria e wallbox',
-    anchors: { home: HOME, grid: [488, 856], solar: [340, 570], battery: [535, 858], wallbox: [467, 845] },
+    anchors: { home: HOME, grid: [488, 856], solar: [340, 570], battery: [535, 845], wallbox: [467, 848] },
     labels: { solar: [470, 430, 'start'], grid: [560, 990, 'start'], battery: [700, 760, 'end'], wallbox: [250, 1000, 'center'] },
+    flows: {
+      grid: 'M 652 886 C 600 882, 546 872, 492 860',
+      solar: 'M 338 572 C 328 636, 300 686, 262 710',
+      battery: 'M 536 832 C 522 802, 492 786, 456 790',
+      // Along the charging cable, from the car to the wall charger.
+      wallbox: 'M 404 870 C 410 908, 440 918, 466 858',
+    },
   },
   'grid+battery': {
     src: render('grid-solar-battery-night'),
     alt: 'Casa con rete e batteria',
     anchors: { home: HOME, grid: [482, 833], battery: [528, 820] },
     labels: { grid: GRID_LABEL, battery: BATTERY_LABEL },
+    flows: STORAGE_FLOWS,
   },
 };
 
@@ -73,6 +95,13 @@ const SCHEMATIC: EnergyHomeAsset = {
   focusY: 0.5,
   anchors: { home: [384, 700], solar: [384, 470], grid: [170, 900], battery: [598, 700], wallbox: [598, 900] },
   labels: { solar: [384, 420, 'center'], grid: [170, 950, 'center'], battery: [640, 650, 'end'], wallbox: [598, 950, 'center'] },
+  // Each flow reaches its own side of the house instead of one shared point.
+  flows: {
+    solar: 'M 384 470 L 384 612',
+    grid: 'M 170 900 C 220 860, 270 800, 300 760',
+    battery: 'M 598 700 L 468 712',
+    wallbox: 'M 598 900 C 550 860, 500 800, 468 770',
+  },
 };
 
 const COLORS: Record<HardwareId, string> = {
@@ -138,10 +167,10 @@ function Scene({ scene, view, onError }: { scene: EnergyHomeAsset; view: FlowVie
                 {label ? <path d={`M ${point[0]} ${point[1]} L ${label[0]} ${label[1]}`} stroke="rgb(255 255 255 / 0.22)" strokeWidth="1.4" /> : null}
                 <path
                   id={pathId}
-                  d={node.direction === 'out' ? flowPath(home, point) : flowPath(point, home)}
+                  d={scene.flows?.[node.id as HardwareId] ?? flowPath(point, home)}
                   fill="none"
-                  stroke={`rgb(${color} / ${active ? 0.5 : 0.14})`}
-                  strokeWidth="2.6"
+                  stroke={`rgb(${color} / ${active ? 0.55 : 0.14})`}
+                  strokeWidth="2.4"
                   strokeLinecap="round"
                   strokeDasharray={node.online ? undefined : '6 8'}
                 />
@@ -153,8 +182,16 @@ function Scene({ scene, view, onError }: { scene: EnergyHomeAsset; view: FlowVie
                       <animate attributeName="opacity" values="0.7;0" dur="2.4s" repeatCount="indefinite" />
                     </circle>
                     {(node.amountW > 2500 ? [0, 0.5] : [0]).map((offset) => (
-                      <circle key={offset} r="5" fill={`rgb(${color})`}>
-                        <animateMotion dur={`${duration}s`} begin={`${-offset * duration}s`} repeatCount="indefinite">
+                      <circle key={offset} r="4.5" fill={`rgb(${color})`}>
+                        {/* Routes run towards the home; outbound flows travel them backwards. */}
+                        <animateMotion
+                          dur={`${duration}s`}
+                          begin={`${-offset * duration}s`}
+                          repeatCount="indefinite"
+                          keyPoints={node.direction === 'out' ? '1;0' : '0;1'}
+                          keyTimes="0;1"
+                          calcMode="linear"
+                        >
                           <mpath href={`#${pathId}`} />
                         </animateMotion>
                       </circle>

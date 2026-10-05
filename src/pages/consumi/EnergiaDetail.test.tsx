@@ -130,7 +130,7 @@ describe('Energy subpage', () => {
     renderDetail(context(vi.fn().mockResolvedValue(state)));
 
     expect((await screen.findByRole('img')).getAttribute('aria-label')).toContain('Batteria: offline');
-    expect(screen.getByText(/Domus Energy · Dati parziali/)).not.toBeNull();
+    expect(within(screen.getByTestId('energy-hero')).getByText('Dati parziali')).not.toBeNull();
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
     const battery = within(components).getByText('Batteria').closest('article') as HTMLElement;
     expect(within(battery).getByText('Offline · sensori senza dati')).not.toBeNull();
