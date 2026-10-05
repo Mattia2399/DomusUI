@@ -250,10 +250,21 @@ section; no new route exists.
   area with its own header and close button (also Escape) and keeps its
   actions pinned to the bottom. The first setup runs in five steps;
   re-detection skips the tariff and runs in four:
-  1. Detection: per-module summary of what `discover` found.
-  2. Bindings: *Configura* or *Rimuovi* per module, directional or signed wiring,
-     suggested or manual sensors, an explicit sign convention for signed
-     sensors, and an offline flag for saved modules.
+  1. Detection: on a first setup where discovery preselected a plant, a
+     summary with its illustration, the number of matched entities, the
+     components it includes and their sensors. A complete plant can be
+     confirmed directly (*Conferma impianto* skips to the next step after
+     the bindings); pending sign conventions and ambiguous matches are listed
+     and lead to the bindings. Otherwise, a per-module summary of what
+     `discover` found.
+  2. Bindings: the plant type is picked from illustrated tiles, one per
+     grid-connected combination of solar, battery and wallbox, drawn as a
+     house with only that hardware. A tile sets which modules exist and asks
+     only for their sensors; the home meter stays optional. *Altro* keeps
+     *Configura* or *Rimuovi* per module for off-grid or partial metering,
+     and drafts that fit no tile open there. Then directional or signed
+     wiring, suggested or manual sensors, an explicit sign convention for
+     signed sensors, and an offline flag for saved modules.
   3. Tariff (first setup only, optional): the same fields as the settings
      page. An empty form shows *Salta per ora*, a filled one can still be
      skipped, and invalid prices block only until corrected or skipped.
