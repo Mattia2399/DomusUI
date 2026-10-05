@@ -42,6 +42,8 @@ function createBackend(initial: EnergyProfileModules = {}, discovery: EnergyDisc
     revision: Object.keys(initial).length ? 1 : 0,
     saves: [] as Array<{ modules: EnergyProfileModules; expected: number | null; tariff?: unknown }>,
     failNextSave: null as unknown,
+    tariff: null as unknown,
+    legacy: false,
     callApi: vi.fn(async (message: Record<string, unknown>) => {
       switch (message.type) {
         case 'domusos/energy/get_profile':
@@ -66,6 +68,7 @@ function createBackend(initial: EnergyProfileModules = {}, discovery: EnergyDisc
             throw new Error('Energy profile changed [revision_conflict]');
           }
           backend.modules = profile.modules;
+          if ('tariff' in profile && !backend.legacy) backend.tariff = profile.tariff;
           backend.revision += 1;
           return profileResult();
         }
@@ -75,7 +78,13 @@ function createBackend(initial: EnergyProfileModules = {}, discovery: EnergyDisc
     }) as unknown as EnergyCallApi,
   };
   const profileResult = () => ({
-    profile: { revision: backend.revision, updated_at: null, load_error: false, modules: backend.modules },
+    profile: {
+      revision: backend.revision,
+      updated_at: null,
+      load_error: false,
+      modules: backend.modules,
+      ...(backend.legacy ? {} : { tariff: backend.tariff }),
+    },
     module_status: Object.fromEntries(
       (['grid', 'solar', 'home', 'battery', 'wallbox'] as EnergyModuleId[]).map((id) => [id, backend.modules[id] ? 'online' : 'absent']),
     ),
@@ -92,6 +101,7 @@ function createBackend(initial: EnergyProfileModules = {}, discovery: EnergyDisc
       absent_modules: (['grid', 'solar', 'home', 'battery', 'wallbox'] as EnergyModuleId[]).filter((id) => !ids.includes(id)),
       offline_modules: [],
       home_consumption: null,
+      ...(backend.legacy ? {} : { tariff: null }),
     };
   };
   return backend;
@@ -231,6 +241,20 @@ describe('Energy setup wizard', () => {
     next();
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
 
+    await vi.waitFor(() => expect(backend.saves).toHaveLength(1));
+    expect(backend.saves[0]).not.toHaveProperty('tariff');
+  });
+
+  it('leaves the tariff step out when the integration cannot store it', async () => {
+    const backend = createBackend({}, { ...DISCOVERY, requires_input: [] });
+    backend.legacy = true;
+    renderWizard(backend);
+    await confirmPlant();
+
+    expect(screen.getByRole('heading', { name: 'Anteprima' })).not.toBeNull();
+    expect(screen.getByText(/Passaggio 4 di 5/)).not.toBeNull();
+    next();
+    fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
     await vi.waitFor(() => expect(backend.saves).toHaveLength(1));
     expect(backend.saves[0]).not.toHaveProperty('tariff');
   });

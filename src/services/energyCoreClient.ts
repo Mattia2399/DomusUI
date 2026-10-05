@@ -188,13 +188,22 @@ export const discoverEnergy = (callApi: EnergyCallApi) =>
   request<EnergyDiscovery>(callApi, { type: ENERGY_CORE_TYPES.discover }, isDiscovery);
 
 /** Without `tariff` the stored tariff is kept; `null` removes it. */
-export const saveEnergyProfile = (
+export const TARIFF_UPDATE_MESSAGE =
+  'L’integrazione Domus UI installata su Home Assistant non gestisce ancora la tariffa: aggiornala e riavvia Home Assistant.';
+
+/**
+ * Integrations with tariff support always return a `tariff` key (null when unset);
+ * older ones omit it and silently drop a tariff on save.
+ */
+export const supportsTariff = (document: object) => 'tariff' in document;
+
+export async function saveEnergyProfile(
   callApi: EnergyCallApi,
   modules: EnergyProfileModules,
   expectedRevision: number | null,
   tariff?: EnergyTariff | null,
-) =>
-  request<EnergyProfileResult>(
+) {
+  const result = await request<EnergyProfileResult>(
     callApi,
     {
       type: ENERGY_CORE_TYPES.saveProfile,
@@ -203,3 +212,8 @@ export const saveEnergyProfile = (
     },
     isProfileResult,
   );
+  if (tariff && !supportsTariff(result.profile)) {
+    throw new EnergyCoreError('unsupported', TARIFF_UPDATE_MESSAGE);
+  }
+  return result;
+}

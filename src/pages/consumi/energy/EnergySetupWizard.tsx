@@ -6,6 +6,7 @@ import {
   discoverEnergy,
   getEnergyProfile,
   saveEnergyProfile,
+  supportsTariff,
   toEnergyCoreError,
   type EnergyCallApi,
   type EnergyDiscovery,
@@ -118,7 +119,8 @@ export default function EnergySetupWizard({
   const modules = React.useMemo(() => draftToModules(draft), [draft]);
   const sensorIds = React.useMemo(() => Object.keys(haStates).filter((id) => id.startsWith('sensor.')), [haStates]);
   const saving = save.status === 'saving';
-  const steps = mode === 'setup' ? SETUP_STEPS : PLANT_STEPS;
+  // Without tariff support in the integration the step is left out instead of saving a tariff that would be dropped.
+  const steps = mode === 'setup' && (!profile || supportsTariff(profile.profile)) ? SETUP_STEPS : PLANT_STEPS;
   const current = steps[step];
 
   // Full-height layout: own header, scrolling content, actions pinned to the bottom.

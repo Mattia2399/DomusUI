@@ -5,7 +5,9 @@ import {
   ENERGY_MODULES,
   discoverEnergy,
   getEnergyProfile,
+  TARIFF_UPDATE_MESSAGE,
   saveEnergyProfile,
+  supportsTariff,
   toEnergyCoreError,
   type EnergyCallApi,
   type EnergyDiscovery,
@@ -171,6 +173,8 @@ export default function EnergySettings({
       </Group>
 
       <Group title="Tariffa e costi" description={TARIFF_HINT}>
+        {supportsTariff(profile.profile) ? (
+          <>
         <TariffFields form={form} onChange={setForm} withExport={draft.grid.present} />
         <div className={`${ROW} justify-end`}>
           {profile.profile.tariff ? (
@@ -181,6 +185,10 @@ export default function EnergySettings({
           </button>
           <div className="w-full text-right"><StatusLine status={tariffStatus} /></div>
         </div>
+          </>
+        ) : (
+          <p role="status" className={`${ROW} ${UI.body}`}>{TARIFF_UPDATE_MESSAGE}</p>
+        )}
       </Group>
     </div>
   );

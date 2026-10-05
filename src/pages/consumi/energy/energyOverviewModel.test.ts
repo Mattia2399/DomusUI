@@ -30,6 +30,7 @@ const state = (overrides: Partial<EnergyState> = {}): EnergyState => ({
   absent_modules: [],
   offline_modules: [],
   home_consumption: null,
+  tariff: null,
   ...overrides,
 });
 
@@ -107,6 +108,15 @@ describe('Energy overview model', () => {
 
     expect(view.cardMetrics).toContainEqual({ value: '—', label: 'Energia odierna · Storico non disponibile' });
     expect(view.cardMetrics).toContainEqual({ value: '—', label: 'Costo odierno · Tariffa non configurata' });
+  });
+
+  it('separates a configured tariff and an integration without tariff support', () => {
+    const tariff = { scheme: 'three_band' as const, band: 'F1' as const, band_label: 'F1', price: 0.31, export_price: null, currency: 'EUR' as const };
+    expect(overview(state({ tariff })).cardMetrics).toContainEqual({ value: '—', label: 'Costo odierno · Storico non disponibile' });
+
+    const legacy = state();
+    delete legacy.tariff;
+    expect(overview(legacy).cardMetrics).toContainEqual({ value: '—', label: 'Costo odierno · Aggiorna l’integrazione' });
   });
 
   it('does not turn a high instantaneous value into an unconfigured critical alert', () => {

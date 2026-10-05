@@ -154,6 +154,12 @@ function statusNotice(resource: Pick<EnergyCoreResource, 'state' | 'error' | 'lo
   };
 }
 
+/** Costs need the history even with a tariff, so only the missing piece changes. */
+function costNote(state: EnergyState | null) {
+  if (state?.tariff) return 'Storico non disponibile';
+  return state && !('tariff' in state) ? 'Aggiorna l’integrazione' : 'Tariffa non configurata';
+}
+
 export function buildEnergyOverview(
   resource: Pick<EnergyCoreResource, 'state' | 'error' | 'loading' | 'live'>,
 ): EnergyOverview {
@@ -170,7 +176,7 @@ export function buildEnergyOverview(
     cardMetrics: [
       { value: home.value, label: home.label },
       { value: '—', label: 'Energia odierna · Storico non disponibile' },
-      { value: '—', label: 'Costo odierno · Tariffa non configurata' },
+      { value: '—', label: `Costo odierno · ${costNote(state)}` },
     ],
   };
 }

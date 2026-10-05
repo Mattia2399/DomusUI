@@ -206,12 +206,13 @@ function AnalysisCard({ state }: { state: EnergyState }) {
   const solar = Boolean(state.modules.solar);
   const history = 'Richiede lo storico energetico';
   const tariff = state.tariff;
+  const missing = 'tariff' in state ? 'Tariffa non configurata' : 'Aggiorna l’integrazione Domus UI';
   const price = (value: number) => `${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €/kWh`;
   const rows: Array<[LucideIcon, string, string] | null> = [
-    [Clock3, 'Fascia attuale', tariff ? `${tariff.band_label} · ${price(tariff.price)}` : 'Tariffa non configurata'],
+    [Clock3, 'Fascia attuale', tariff ? `${tariff.band_label} · ${price(tariff.price)}` : missing],
     solar ? [Gauge, 'Autoconsumo', history] : null,
     solar || state.modules.battery ? [Leaf, 'Autosufficienza', history] : null,
-    [TrendingUp, 'Costi energetici', tariff ? history : 'Tariffa non configurata'],
+    [TrendingUp, 'Costi energetici', tariff ? history : missing],
     solar ? [TrendingDown, 'Risparmio stimato', 'Richiede tariffa e storico'] : null,
     [CalendarClock, 'Confronto con i periodi precedenti', history],
   ];

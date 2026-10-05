@@ -42,6 +42,20 @@ describe('Domus Energy client', () => {
     });
   });
 
+  it('reports an integration that drops the tariff on save', async () => {
+    const tariff = { scheme: 'single' as const, prices: { single: 0.25 }, fixed_monthly: null, vat_percent: null, export_price: null };
+    const legacy = { profile: { revision: 2, updated_at: null, load_error: false, modules: {} }, module_status: {} };
+    await expect(saveEnergyProfile(vi.fn().mockResolvedValue(legacy), {}, 1, tariff)).rejects.toMatchObject({
+      code: 'unsupported',
+      message: expect.stringContaining('non gestisce ancora la tariffa'),
+    });
+
+    const current = { ...legacy, profile: { ...legacy.profile, tariff } };
+    await expect(saveEnergyProfile(vi.fn().mockResolvedValue(current), {}, 1, tariff)).resolves.toEqual(current);
+    // Plant-only saves never need tariff support.
+    await expect(saveEnergyProfile(vi.fn().mockResolvedValue(legacy), {}, 1)).resolves.toEqual(legacy);
+  });
+
   it('rejects malformed responses', async () => {
     await expect(getEnergyState(vi.fn().mockResolvedValue({ configured: 'yes' }))).rejects.toMatchObject({
       code: 'invalid_response',

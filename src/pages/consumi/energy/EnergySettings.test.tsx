@@ -124,6 +124,21 @@ describe('Energy settings', () => {
     expect(api.saves[0].profile).toEqual({ modules: { ...GRID, solar: { sensors: { production_power: 'sensor.pv_power' } } } });
   });
 
+  it('explains that an older integration cannot store the tariff', async () => {
+    const api = backend();
+    const legacy = vi.fn(async (message: Record<string, unknown>) => {
+      const result = (await api.callApi(message)) as { profile: Record<string, unknown> };
+      if (message.type !== 'domusos/energy/get_profile') return result;
+      const { tariff: _dropped, ...profile } = result.profile;
+      return { ...result, profile };
+    }) as unknown as EnergyCallApi;
+    render(<EnergySettings callApi={legacy} haStates={{}} onRediscover={vi.fn()} onSaved={vi.fn()} />);
+    const group = await screen.findByRole('region', { name: 'Tariffa e costi' });
+
+    expect(within(group).getByText(/non gestisce ancora la tariffa/)).not.toBeNull();
+    expect(within(group).queryByRole('button', { name: 'Salva tariffa' })).toBeNull();
+  });
+
   it('asks for the export price only when a grid is configured', async () => {
     renderSettings(backend({ solar: { sensors: { production_power: 'sensor.pv' } } }));
     await screen.findByRole('region', { name: 'Tariffa e costi' });
