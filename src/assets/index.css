@@ -1314,6 +1314,18 @@ body {
   --ui-shadow-soft: rgb(28 28 30 / 0.09);
 }
 
+/* Energy chart series, validated with the dataviz palette checks for both surfaces. */
+.energy-history-chart {
+  --chart-solar: #d97706;
+  --chart-grid: #0284c7;
+  --chart-battery: #059669;
+  --chart-home: #7c3aed;
+}
+
+.dashboard-theme-dark .energy-history-chart {
+  --chart-home: #8b5cf6;
+}
+
 .dashboard-theme-dark,
 .dashboard-theme-light {
   --dashboard-bg: var(--ui-bg-canvas);

@@ -47,9 +47,11 @@ type EnergiaDetailViewProps = {
   onBack: () => void;
   energy?: EnergyPageContext;
   energyCore: EnergyCoreResource;
+  /** Period history, once a backend source exists; the live page has none yet. */
+  energyHistory?: React.ComponentProps<typeof EnergyDashboard>['history'];
 };
 
-export function EnergiaDetailView({ title, onBack, energy, energyCore }: EnergiaDetailViewProps) {
+export function EnergiaDetailView({ title, onBack, energy, energyCore, energyHistory }: EnergiaDetailViewProps) {
   const { state, error, loading, live, reload } = energyCore;
   const [wizard, setWizard] = React.useState<WizardMode | null>(null);
   const [settings, setSettings] = React.useState(false);
@@ -154,6 +156,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
     >
       <EnergyDashboard
         state={state}
+        history={energyHistory}
         banner={(
           <>
             {notice ? <p role="status" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}

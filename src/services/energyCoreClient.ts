@@ -45,6 +45,30 @@ export type EnergyTariffState = {
   currency: 'EUR';
 };
 
+/* Proposed `domusos/energy/get_history` contract (docs/energy-core.md). No backend command exists yet. */
+export type EnergyHistoryPeriod = '24h' | '7d' | '30d';
+export type EnergyHistorySeriesId = 'production' | 'consumption' | 'import' | 'export' | 'battery_charge' | 'battery_discharge';
+/** `value: null` is a bucket without data, never zero. */
+export type EnergyHistoryPoint = { start: string; value: number | null };
+export type EnergyHistoryCost = {
+  currency: 'EUR';
+  energy: number;
+  fixed: number;
+  vat: number;
+  export_credit: number;
+  net: number;
+  savings: number | null;
+};
+export type EnergyHistory = {
+  period: EnergyHistoryPeriod;
+  bucket: 'hour' | 'day';
+  unit: 'kWh';
+  series: Partial<Record<EnergyHistorySeriesId, EnergyHistoryPoint[]>>;
+  derived: EnergyHistorySeriesId[];
+  cost: EnergyHistoryCost | null;
+  previous: { consumption: number | null; net_cost: number | null } | null;
+};
+
 export type EnergyState = {
   configured: boolean;
   load_error: boolean;

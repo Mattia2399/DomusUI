@@ -16,11 +16,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import GlassSegmentSelect from '../../../components/ui/GlassSegmentSelect';
-import type { EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
+import type { EnergyHistory, EnergyHistoryPeriod, EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
+import { EnergyHistoryChart } from './EnergyHistoryChart';
+import { PERIOD_LABEL, formatEuro, formatKwh, formatPercent, historyBalance } from './energyHistoryModel';
 import { EnergyHomeVisual } from './EnergyHomeVisual';
 import { MODULE_META, REASON_LABEL, SOURCE_LABEL, buildFlowFromState, formatPower, formatQuantity } from './energyModel';
 
-type HistoryPeriod = '24h' | '7d' | '30d';
+type HistoryPeriod = EnergyHistoryPeriod;
 
 const CARD = 'rounded-[1.65rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-4 shadow-[var(--ui-shadow-card)] sm:p-5';
 const EYEBROW = 'text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]';
@@ -140,8 +142,7 @@ function ModuleTile({ id, icon: Icon, accent, module }: { id: EnergyModuleId; ic
   );
 }
 
-function HistoryCard({ state }: { state: EnergyState }) {
-  const [period, setPeriod] = React.useState<HistoryPeriod>('24h');
+function HistoryCard({ state, history, period, onPeriod }: { state: EnergyState; history?: EnergyHistory; period: HistoryPeriod; onPeriod: (period: HistoryPeriod) => void }) {
   const series = [
     state.modules.solar ? 'Produzione fotovoltaica' : null,
     'Consumo della casa',
@@ -149,12 +150,14 @@ function HistoryCard({ state }: { state: EnergyState }) {
     state.modules.grid ? 'Immissione in rete' : null,
     state.modules.battery ? 'Carica e scarica batteria' : null,
   ].filter((item): item is string => Boolean(item));
-  const daily = [
-    state.modules.solar ? 'Prodotta' : null,
-    'Consumata',
-    state.modules.grid ? 'Prelevata' : null,
-    state.modules.grid ? 'Immessa' : null,
-  ].filter((item): item is string => Boolean(item));
+  const balance = history ? historyBalance(history) : null;
+  const totals: Array<[string, number | null] | null> = [
+    state.modules.solar ? ['Prodotta', balance?.production ?? null] : null,
+    ['Consumata', balance?.consumption ?? null],
+    state.modules.grid ? ['Prelevata', balance?.imported ?? null] : null,
+    state.modules.grid ? ['Immessa', balance?.exported ?? null] : null,
+  ];
+  const when = period === '24h' ? 'in 24 ore' : period === '7d' ? 'in 7 giorni' : 'in 30 giorni';
   return (
     <section className={CARD} aria-labelledby="energy-history-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -165,7 +168,7 @@ function HistoryCard({ state }: { state: EnergyState }) {
         </div>
         <GlassSegmentSelect
           value={period}
-          onChange={(value) => setPeriod(value as HistoryPeriod)}
+          onChange={(value) => onPeriod(value as HistoryPeriod)}
           options={[
             { value: '24h', label: '24 ore' },
             { value: '7d', label: '7 giorni' },
@@ -176,25 +179,31 @@ function HistoryCard({ state }: { state: EnergyState }) {
           optionClassName="!h-9 !px-2"
         />
       </div>
-      <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Serie disponibili per questo impianto">
-        {series.map((item) => (
-          <li key={item} className="rounded-full border border-[color:var(--ui-border)] px-2.5 py-1 text-[10px] font-semibold text-[color:var(--ui-text-secondary)]">{item}</li>
-        ))}
-      </ul>
-      <div className="mt-4 flex min-h-[15rem] flex-col items-center justify-center rounded-[1.4rem] border border-dashed border-[color:var(--ui-border)] px-6 text-center">
-        <span className="liquid-glass-control flex h-12 w-12 items-center justify-center rounded-full">
-          <BarChart3 className="h-5 w-5 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
-        </span>
-        <h3 className="mt-4 text-base font-semibold text-[color:var(--ui-text-primary)]">Storico non ancora disponibile</h3>
-        <p className="mt-1 max-w-md text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-          Domus Energy legge oggi solo le potenze istantanee: il grafico si attiverà con l’archivio energetico di Home Assistant.
-        </p>
-      </div>
+      {history ? (
+        <EnergyHistoryChart key={period} history={history} />
+      ) : (
+        <>
+          <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Serie disponibili per questo impianto">
+            {series.map((item) => (
+              <li key={item} className="rounded-full border border-[color:var(--ui-border)] px-2.5 py-1 text-[10px] font-semibold text-[color:var(--ui-text-secondary)]">{item}</li>
+            ))}
+          </ul>
+          <div className="mt-4 flex min-h-[15rem] flex-col items-center justify-center rounded-[1.4rem] border border-dashed border-[color:var(--ui-border)] px-6 text-center">
+            <span className="liquid-glass-control flex h-12 w-12 items-center justify-center rounded-full">
+              <BarChart3 className="h-5 w-5 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
+            </span>
+            <h3 className="mt-4 text-base font-semibold text-[color:var(--ui-text-primary)]">Storico non ancora disponibile</h3>
+            <p className="mt-1 max-w-md text-xs leading-5 text-[color:var(--ui-text-secondary)]">
+              Domus Energy legge oggi solo le potenze istantanee: il grafico si attiverà con l’archivio energetico di Home Assistant.
+            </p>
+          </div>
+        </>
+      )}
       <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {daily.map((item) => (
-          <div key={item} className="rounded-[1.1rem] bg-[color:var(--ui-fill-tertiary)] px-3 py-2.5">
-            <dt className={EYEBROW}>{item} oggi</dt>
-            <dd className="mt-1 text-lg font-semibold text-[color:var(--ui-text-primary)]">— <span className="text-[10px] font-normal text-[color:var(--ui-text-tertiary)]">kWh</span></dd>
+        {totals.filter((item): item is [string, number | null] => Boolean(item)).map(([label, value]) => (
+          <div key={label} className="rounded-[1.1rem] bg-[color:var(--ui-fill-tertiary)] px-3 py-2.5">
+            <dt className={EYEBROW}>{label} {when}</dt>
+            <dd className="mt-1 text-lg font-semibold text-[color:var(--ui-text-primary)]">{formatKwh(value)} <span className="text-[10px] font-normal text-[color:var(--ui-text-tertiary)]">kWh</span></dd>
           </div>
         ))}
       </dl>
@@ -202,30 +211,60 @@ function HistoryCard({ state }: { state: EnergyState }) {
   );
 }
 
-function AnalysisCard({ state }: { state: EnergyState }) {
+type AnalysisRow = { icon: LucideIcon; label: string; value: string; detail?: string; known?: boolean };
+
+function AnalysisCard({ state, history }: { state: EnergyState; history?: EnergyHistory }) {
   const solar = Boolean(state.modules.solar);
-  const history = 'Richiede lo storico energetico';
+  const waiting = 'Richiede lo storico energetico';
   const tariff = state.tariff;
   const missing = 'tariff' in state ? 'Tariffa non configurata' : 'Aggiorna l’integrazione Domus UI';
   const price = (value: number) => `${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €/kWh`;
-  const rows: Array<[LucideIcon, string, string] | null> = [
-    [Clock3, 'Fascia attuale', tariff ? `${tariff.band_label} · ${price(tariff.price)}` : missing],
-    solar ? [Gauge, 'Autoconsumo', history] : null,
-    solar || state.modules.battery ? [Leaf, 'Autosufficienza', history] : null,
-    [TrendingUp, 'Costi energetici', tariff ? history : missing],
-    solar ? [TrendingDown, 'Risparmio stimato', 'Richiede tariffa e storico'] : null,
-    [CalendarClock, 'Confronto con i periodi precedenti', history],
+  const balance = history ? historyBalance(history) : null;
+  const cost = history?.cost ?? null;
+  const known = (value: string | null, fallback: string, detail?: string): Pick<AnalysisRow, 'value' | 'known' | 'detail'> =>
+    value === null ? { value: fallback } : { value, known: true, detail };
+  const rows: Array<AnalysisRow | null> = [
+    { icon: Clock3, label: 'Fascia attuale', ...known(tariff ? `${tariff.band_label} · ${price(tariff.price)}` : null, missing) },
+    solar
+      ? { icon: Gauge, label: 'Autoconsumo', ...known(balance?.selfConsumption == null ? null : formatPercent(balance.selfConsumption), waiting, 'Energia solare usata in casa') }
+      : null,
+    solar || state.modules.battery
+      ? { icon: Leaf, label: 'Autosufficienza', ...known(balance?.selfSufficiency == null ? null : formatPercent(balance.selfSufficiency), waiting, 'Consumi coperti senza la rete') }
+      : null,
+    {
+      icon: TrendingUp,
+      label: 'Costi energetici',
+      ...known(
+        cost ? formatEuro(cost.net) : null,
+        tariff ? waiting : missing,
+        cost
+          ? `Energia ${formatEuro(cost.energy)} · quota fissa ${formatEuro(cost.fixed)} · IVA ${formatEuro(cost.vat)}${cost.export_credit ? ` · immessa −${formatEuro(cost.export_credit)}` : ''}`
+          : undefined,
+      ),
+    },
+    solar
+      ? { icon: TrendingDown, label: 'Risparmio stimato', ...known(cost?.savings == null ? null : formatEuro(cost.savings), 'Richiede tariffa e storico', 'Energia autoprodotta al prezzo della rete') }
+      : null,
+    {
+      icon: CalendarClock,
+      label: 'Confronto con il periodo precedente',
+      ...known(balance?.change == null ? null : `${formatPercent(balance.change, true)} di consumo`, waiting),
+    },
   ];
   return (
     <section className={CARD} aria-labelledby="energy-analysis-title">
       <p className={EYEBROW}>Analisi</p>
       <h2 id="energy-analysis-title" className={TITLE}>Bilancio e costi</h2>
+      {history ? <p className={`mt-1 ${MUTED}`}>{PERIOD_LABEL[history.period]}</p> : null}
       <ul className="mt-4 divide-y divide-[color:var(--ui-separator)]">
-        {rows.filter((row): row is [LucideIcon, string, string] => Boolean(row)).map(([Icon, label, status]) => (
-          <li key={label} className="flex items-center gap-3 py-2.5">
-            <Icon className="h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
-            <span className="min-w-0 flex-1 text-sm font-medium text-[color:var(--ui-text-primary)]">{label}</span>
-            <span className="text-right text-[10px] text-[color:var(--ui-text-tertiary)]">{status}</span>
+        {rows.filter((row): row is AnalysisRow => Boolean(row)).map((row) => (
+          <li key={row.label} className="flex items-start gap-3 py-2.5">
+            <row.icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-medium text-[color:var(--ui-text-primary)]">{row.label}</span>
+              {row.detail ? <span className="block text-[10px] text-[color:var(--ui-text-tertiary)]">{row.detail}</span> : null}
+            </span>
+            <span className={row.known ? 'text-right text-sm font-semibold tabular-nums text-[color:var(--ui-text-primary)]' : 'text-right text-[10px] text-[color:var(--ui-text-tertiary)]'}>{row.value}</span>
           </li>
         ))}
       </ul>
@@ -279,11 +318,15 @@ export function EnergyDashboard({
   state,
   banner,
   actions,
+  history,
 }: {
   state: EnergyState;
   banner?: React.ReactNode;
   actions: React.ReactNode;
+  /** Period history from the proposed get_history command; absent until the backend provides it. */
+  history?: Partial<Record<HistoryPeriod, EnergyHistory>>;
 }) {
+  const [period, setPeriod] = React.useState<HistoryPeriod>('24h');
   const rootRef = React.useRef<HTMLDivElement>(null);
   const home = state.home_consumption;
   const present = MODULES.filter((item) => state.modules[item.id]);
@@ -357,8 +400,8 @@ export function EnergyDashboard({
           </article>
         </div>
 
-        <div className={`${SECTION} xl:col-span-8`}><HistoryCard state={state} /></div>
-        <div className={`${SECTION} xl:col-span-4`}><AnalysisCard state={state} /></div>
+        <div className={`${SECTION} xl:col-span-8`}><HistoryCard state={state} history={history?.[period]} period={period} onPeriod={setPeriod} /></div>
+        <div className={`${SECTION} xl:col-span-4`}><AnalysisCard state={state} history={history?.[period]} /></div>
 
         <details className={`group ${CARD} !p-0 ${SECTION} xl:col-span-12`} data-testid="energy-technical-details">
           <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 sm:px-5 [&::-webkit-details-marker]:hidden">
