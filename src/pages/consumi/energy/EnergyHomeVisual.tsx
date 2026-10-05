@@ -135,7 +135,10 @@ function describe(scene: EnergyHomeAsset, view: FlowView) {
   return `${scene.alt}. Flussi energetici. ${[...parts, `Casa: ${view.home.value} ${view.home.caption}`].join('; ')}.`;
 }
 
-function Scene({ scene, view, onError }: { scene: EnergyHomeAsset; view: FlowView; onError?: () => void }) {
+/** AVIF and WebP copies sit next to each PNG render (scripts/optimize-energy-renders.py). */
+const optimized = (src: string) => (src.endsWith('.png') ? { avif: src.replace(/\.png$/, '.avif'), webp: src.replace(/\.png$/, '.webp') } : null);
+
+function Scene({ scene, view, compressed, onError }: { scene: EnergyHomeAsset; view: FlowView; compressed: boolean; onError?: () => void }) {
   const reduceMotion = Boolean(useReducedMotion());
   const id = React.useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const home = scene.anchors?.home ?? HOME;
@@ -146,7 +149,15 @@ function Scene({ scene, view, onError }: { scene: EnergyHomeAsset; view: FlowVie
         style={{ transform: `translate(-50%, -${(scene.focusY ?? 0.51) * 100}%)` }}
       >
         {scene.src ? (
-          <img src={scene.src} alt="" decoding="async" draggable={false} className="absolute inset-0 h-full w-full select-none [mask-image:radial-gradient(closest-side,#000_72%,transparent)]" onError={onError} data-testid="energy-home-image" />
+          <picture>
+            {compressed && optimized(scene.src) ? (
+              <>
+                <source type="image/avif" srcSet={optimized(scene.src)?.avif} />
+                <source type="image/webp" srcSet={optimized(scene.src)?.webp} />
+              </>
+            ) : null}
+            <img src={scene.src} alt="" decoding="async" draggable={false} className="absolute inset-0 h-full w-full select-none [mask-image:radial-gradient(closest-side,#000_72%,transparent)]" onError={onError} data-testid="energy-home-image" />
+          </picture>
         ) : null}
         <svg viewBox="0 0 768 1376" className="absolute inset-0 h-full w-full" aria-hidden="true">
           {scene.src ? null : (
@@ -238,15 +249,20 @@ export function EnergyHomeVisual({
 }) {
   const { variant, asset } = selectEnergyHomeAsset(state, assets);
   const [failedSource, setFailedSource] = React.useState<string | null>(null);
+  // A <picture> does not fall through to the next format when a file is missing, so a
+  // failed compressed copy retries the PNG before the schematic takes over.
+  const [plainSource, setPlainSource] = React.useState<string | null>(null);
   const useImage = Boolean(asset?.src && failedSource !== asset.src);
+  const compressed = Boolean(asset?.src && plainSource !== asset.src && optimized(asset.src));
 
   return (
     <div className="h-full w-full" data-energy-home-variant={variant} data-energy-home-render={useImage ? 'image' : 'diagram'}>
       <Scene
-        key={useImage ? asset?.src : 'schematic'}
+        key={useImage ? `${asset?.src}:${compressed}` : 'schematic'}
         scene={useImage && asset ? asset : SCHEMATIC}
         view={view}
-        onError={() => setFailedSource(asset?.src ?? null)}
+        compressed={compressed}
+        onError={() => (compressed ? setPlainSource(asset?.src ?? null) : setFailedSource(asset?.src ?? null))}
       />
     </div>
   );

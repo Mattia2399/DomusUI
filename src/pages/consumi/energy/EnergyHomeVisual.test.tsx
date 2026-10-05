@@ -88,6 +88,25 @@ describe('Energy home visual', () => {
     expect(container.querySelector('[data-energy-home-render="diagram"]')).not.toBeNull();
   });
 
+  it('serves AVIF or WebP copies of a PNG render, then the PNG, then the schematic', () => {
+    const state = stateWith({ grid: moduleState() });
+    const assets: EnergyHomeAssetCatalog = { grid: { src: '/energy/grid.png', alt: 'Casa collegata alla rete' } };
+    const { container } = render(<EnergyHomeVisual state={state} view={buildFlowFromState(state)} assets={assets} />);
+
+    const sources = () => [...container.querySelectorAll('picture source')].map((source) => [source.getAttribute('type'), source.getAttribute('srcset')]);
+    expect(sources()).toEqual([['image/avif', '/energy/grid.avif'], ['image/webp', '/energy/grid.webp']]);
+    expect(screen.getByTestId('energy-home-image').getAttribute('src')).toBe('/energy/grid.png');
+
+    // A missing compressed copy does not lose the render: the PNG is tried on its own.
+    fireEvent.error(screen.getByTestId('energy-home-image'));
+    expect(sources()).toEqual([]);
+    expect(screen.getByTestId('energy-home-image').getAttribute('src')).toBe('/energy/grid.png');
+
+    fireEvent.error(screen.getByTestId('energy-home-image'));
+    expect(screen.queryByTestId('energy-home-image')).toBeNull();
+    expect(container.querySelector('[data-energy-home-render="diagram"]')).not.toBeNull();
+  });
+
   it('animates only an online flow with a known non-zero direction', () => {
     const activeState = stateWith({ grid: gridModule(1200) });
     const view = render(<EnergyHomeVisual state={activeState} view={buildFlowFromState(activeState)} assets={{}} />);
