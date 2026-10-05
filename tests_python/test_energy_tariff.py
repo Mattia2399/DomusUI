@@ -96,6 +96,7 @@ def test_two_band_contracts_group_f2_and_f3() -> None:
         "band_label": "F1",
         "price": 0.3,
         "export_price": None,
+        "vat_percent": None,
         "currency": "EUR",
     }
     assert tariff_state(None, datetime.fromisoformat("2026-10-05T10:00")) is None
@@ -130,3 +131,15 @@ async def test_wizard_saves_keep_and_explicit_null_clears_the_tariff(hass: HomeA
     assert manager.profile.tariff is None
     assert (await async_energy_state(manager))["tariff"] is None
     await manager.async_shutdown()
+
+
+def test_state_carries_the_vat_rate_for_estimates() -> None:
+    tariff = parse_tariff(
+        {"scheme": "single", "prices": {"single": 0.25}, "vat_percent": 10, "export_price": 0.09}
+    )
+
+    state = tariff_state(tariff, datetime.fromisoformat("2026-10-05T10:00"))
+
+    assert state["vat_percent"] == 10
+    assert state["price"] == 0.25
+    assert state["export_price"] == 0.09
