@@ -37,7 +37,7 @@ async def async_build_energy_context(
         "modules": {
             module.value: {
                 key: state.values[key]
-                for key in ("status", "complete", "sign_convention", "quantities")
+                for key in ("status", "complete", "freshness", "sign_convention", "quantities")
             }
             for module, state in states.items()
         },

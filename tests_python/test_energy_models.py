@@ -1,5 +1,6 @@
 """Energy Profile validation and sensor normalization tests."""
 
+import math
 from typing import Any
 
 import pytest
@@ -7,6 +8,7 @@ from homeassistant.core import State
 
 from custom_components.domusos.energy.models import (
     DOCUMENT_SCHEMA,
+    MODULE_SPECS,
     EnergyModule,
     EnergyValidationError,
     MeasurementKind,
@@ -15,7 +17,10 @@ from custom_components.domusos.energy.models import (
     parse_profile,
     parse_stored_profile,
 )
-from custom_components.domusos.energy.normalization import normalize_state
+from custom_components.domusos.energy.normalization import (
+    NEGATIVE_NOISE_TOLERANCE_W,
+    normalize_state,
+)
 
 
 def _power(value: str, unit: str | None = "W", **attributes: Any) -> State:
@@ -244,3 +249,65 @@ def test_state_of_charge_is_normalized_to_percent(
     assert reading.unit == "%"
     if status is ValueStatus.OK:
         assert reading.value == float(value)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("0", 0.0),
+        ("-0", 0.0),
+        ("-1", 0.0),
+        ("-12.5", 0.0),
+        (str(-NEGATIVE_NOISE_TOLERANCE_W), 0.0),
+        ("2400", 2400.0),
+    ],
+)
+def test_production_tolerates_night_noise_below_zero(value: str, expected: float) -> None:
+    reading = normalize_state(
+        "sensor.pv", _power(value, "W"), MeasurementKind.POWER, negative_noise=True
+    )
+
+    assert reading.status == "ok"
+    assert reading.value == expected
+    assert math.copysign(1, reading.value) == 1
+
+
+@pytest.mark.parametrize("value", [str(-NEGATIVE_NOISE_TOLERANCE_W - 0.1), "-800"])
+def test_significant_negative_production_stays_invalid(value: str) -> None:
+    reading = normalize_state(
+        "sensor.pv", _power(value, "W"), MeasurementKind.POWER, negative_noise=True
+    )
+
+    assert reading.status == "invalid"
+    assert reading.reason == "unexpected_negative"
+    assert reading.value is None
+
+
+def test_noise_tolerance_only_applies_where_declared() -> None:
+    reading = normalize_state("sensor.wallbox", _power("-1", "W"), MeasurementKind.POWER)
+
+    assert reading.status == "invalid"
+    assert reading.reason == "unexpected_negative"
+
+
+def test_tolerance_is_checked_after_unit_conversion() -> None:
+    within = normalize_state(
+        "sensor.pv", _power("-0.05", "kW"), MeasurementKind.POWER, negative_noise=True
+    )
+    beyond = normalize_state(
+        "sensor.pv", _power("-0.06", "kW"), MeasurementKind.POWER, negative_noise=True
+    )
+
+    assert within.value == 0.0
+    assert beyond.reason == "unexpected_negative"
+
+
+def test_only_solar_production_declares_noise_tolerance() -> None:
+    tolerant = [
+        (module, role)
+        for module, spec in MODULE_SPECS.items()
+        for role, role_spec in spec.roles.items()
+        if role_spec.negative_noise
+    ]
+
+    assert tolerant == [(EnergyModule.SOLAR, "production_power")]

@@ -153,14 +153,20 @@ async def test_state_is_readable_by_any_user_and_never_invents_modules(
     assert result["offline_modules"] == ["grid"]
     assert result["modules"]["grid"]["status"] == "offline"
     solar = result["modules"]["solar"]["quantities"]["production_power"]
-    assert solar == {
+    assert solar["reported_at"]
+    assert {key: value for key, value in solar.items() if key != "reported_at"} == {
         "status": "ok",
         "value": 1500.0,
         "unit": "W",
         "source": "measured",
         "entity_ids": ["sensor.solar_power"],
         "reason": None,
+        "freshness": "fresh",
+        "stale_after": 1800.0,
     }
+    assert result["modules"]["solar"]["freshness"] == "fresh"
+    # An offline module has no valid value, so it is neither fresh nor stale.
+    assert result["modules"]["grid"]["freshness"] is None
     assert result["home_consumption"]["status"] == "unavailable"
     assert result["home_consumption"]["value"] is None
     assert "battery" in result["absent_modules"]

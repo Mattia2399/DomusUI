@@ -9,7 +9,8 @@ the home (grid import, battery discharge).
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime
 from typing import Any
 
 from homeassistant.core import HomeAssistant
@@ -20,6 +21,7 @@ from .models import (
     MODULE_SPECS,
     EnergyModule,
     EnergyModuleConfig,
+    Freshness,
     MeasurementKind,
     ModuleStatus,
     SignConvention,
@@ -35,6 +37,14 @@ from .normalization import (
 )
 
 ADAPTER_SOURCE = "energy.module_adapter"
+
+# Sensors are sampled at slightly different instants and rounded by their
+# integrations, so a home balance a little below zero is measurement noise and
+# reads as 0 W. The band grows with the power flowing (2% of the absolute terms)
+# because timing skew matters more at high power; beyond it the balance is
+# reported as incoherent instead of clamped.
+BALANCE_TOLERANCE_W = 50.0
+BALANCE_TOLERANCE_RATIO = 0.02
 
 CANONICAL_QUANTITIES: Mapping[EnergyModule, tuple[str, ...]] = {
     EnergyModule.GRID: ("import_power", "export_power", "net_power"),
@@ -71,6 +81,10 @@ class Quantity:
     value: float | None = None
     entity_ids: tuple[str, ...] = ()
     reason: str | None = None
+    freshness: Freshness | None = None
+    # Oldest report behind the value, and how long a measured value stays fresh.
+    reported_at: datetime | None = None
+    stale_after: float | None = None
 
     @property
     def ok(self) -> bool:
@@ -87,6 +101,9 @@ class Quantity:
             value=clean_value(reading.value * factor) if reading.value is not None else None,
             entity_ids=(reading.entity_id,),
             reason=reading.reason,
+            freshness=reading.freshness,
+            reported_at=reading.reported_at if reading.ok else None,
+            stale_after=reading.stale_after.total_seconds() if reading.ok else None,
         )
 
     @classmethod
@@ -98,6 +115,8 @@ class Quantity:
     def from_mapping(cls, value: Mapping[str, Any]) -> Quantity:
         """Rebuild a quantity from its capability-state projection."""
         source = value.get("source")
+        freshness = value.get("freshness")
+        reported_at = value.get("reported_at")
         return cls(
             status=ValueStatus(value["status"]),
             unit=value.get("unit", POWER_UNIT),
@@ -105,6 +124,9 @@ class Quantity:
             value=value.get("value"),
             entity_ids=tuple(value.get("entity_ids", ())),
             reason=value.get("reason"),
+            freshness=Freshness(freshness) if freshness is not None else None,
+            reported_at=datetime.fromisoformat(reported_at) if reported_at else None,
+            stale_after=value.get("stale_after"),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -116,6 +138,9 @@ class Quantity:
             "source": self.source.value if self.source is not None else None,
             "entity_ids": self.entity_ids,
             "reason": self.reason,
+            "freshness": self.freshness.value if self.freshness else None,
+            "reported_at": self.reported_at.isoformat() if self.reported_at else None,
+            "stale_after": self.stale_after,
         }
 
 
@@ -135,15 +160,26 @@ class EnergyModuleAdapter:
     def read(self) -> CapabilityState:
         """Read Home Assistant state synchronously; performs no I/O."""
         roles = self.config.spec.roles
+        now = utc_now()
         readings = {
             role: normalize_state(
                 entity_id,
                 self.hass.states.get(entity_id),
                 roles[role].kind,
                 signed=roles[role].signed,
+                negative_noise=roles[role].negative_noise,
+                now=now,
             )
             for role, entity_id in self.config.sensors.items()
         }
+        valid_readings = [reading for reading in readings.values() if reading.ok]
+        freshness = (
+            None
+            if not valid_readings
+            else Freshness.STALE
+            if any(reading.freshness is Freshness.STALE for reading in valid_readings)
+            else Freshness.FRESH
+        )
         valid = sum(reading.ok for reading in readings.values())
         status = ModuleStatus.ONLINE if valid else ModuleStatus.OFFLINE
         reason: str | None = None
@@ -157,12 +193,14 @@ class EnergyModuleAdapter:
         return CapabilityState(
             capability=self.capability,
             source=ADAPTER_SOURCE,
-            observed_at=utc_now(),
+            observed_at=now,
             available=status is ModuleStatus.ONLINE,
             values={
                 "module": self.module.value,
                 "status": status.value,
                 "complete": valid == len(readings),
+                # Fresh only while every valid sensor of the module is still reported.
+                "freshness": freshness.value if freshness else None,
                 "sign_convention": convention.value if convention else None,
                 "sensors": {role: reading.as_dict() for role, reading in readings.items()},
                 "quantities": {
@@ -245,8 +283,10 @@ def derive_home_consumption(
             entity_ids=entity_ids,
             reason=reason,
         )
-    total = sum(term.value for term in terms if term.value is not None)
-    if total < 0:
+    values = [term.value for term in terms if term.value is not None]
+    total = sum(values)
+    tolerance = max(BALANCE_TOLERANCE_W, BALANCE_TOLERANCE_RATIO * sum(abs(v) for v in values))
+    if total < -tolerance:
         return Quantity(
             ValueStatus.INVALID,
             source=ValueSource.DERIVED,
@@ -256,8 +296,10 @@ def derive_home_consumption(
     return Quantity(
         ValueStatus.OK,
         source=ValueSource.DERIVED,
-        value=clean_value(total),
+        # Only a balance inside the tolerance band can be below zero here.
+        value=0.0 if total < 0 else clean_value(total),
         entity_ids=entity_ids,
+        **_derived_freshness(terms),
     )
 
 
@@ -270,12 +312,8 @@ def _split(net: Quantity, *, inbound: bool) -> Quantity:
             reason=net.reason,
         )
     directed = net.value if inbound else -net.value
-    return Quantity(
-        ValueStatus.OK,
-        source=ValueSource.DERIVED,
-        value=directed if directed > 0 else 0.0,
-        entity_ids=net.entity_ids,
-    )
+    # One direction of a signed flow: the opposite direction is 0 W by definition.
+    return replace(net, source=ValueSource.DERIVED, value=directed if directed > 0 else 0.0)
 
 
 def _difference(inbound: Quantity, outbound: Quantity) -> Quantity:
@@ -297,7 +335,20 @@ def _difference(inbound: Quantity, outbound: Quantity) -> Quantity:
         source=ValueSource.DERIVED,
         value=clean_value(inbound.value - outbound.value),
         entity_ids=_entity_ids(terms),
+        **_derived_freshness(terms),
     )
+
+
+def _derived_freshness(terms: Iterable[Quantity]) -> dict[str, Any]:
+    """A derived value is only as fresh as its oldest term."""
+    terms = tuple(terms)
+    reports = [term.reported_at for term in terms if term.reported_at is not None]
+    stale = any(term.freshness is Freshness.STALE for term in terms)
+    known = any(term.freshness is not None for term in terms)
+    return {
+        "freshness": Freshness.STALE if stale else Freshness.FRESH if known else None,
+        "reported_at": min(reports) if reports else None,
+    }
 
 
 def _combined_status(terms: Iterable[Quantity]) -> tuple[ValueStatus, str | None]:

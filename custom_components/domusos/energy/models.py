@@ -98,6 +98,14 @@ class ValueStatus(StrEnum):
     NOT_MEASURED = "not_measured"
 
 
+class Freshness(StrEnum):
+    """Whether a valid value is still being reported by its integration."""
+
+    FRESH = "fresh"
+    # Still the last known value, but the integration stopped reporting it.
+    STALE = "stale"
+
+
 class ValueSource(StrEnum):
     """Whether a value is read from a sensor or computed by Domus."""
 
@@ -111,6 +119,8 @@ class RoleSpec:
 
     kind: MeasurementKind
     signed: bool = False
+    # Small negative readings are standby draw or offset, not a reversed flow.
+    negative_noise: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,7 +149,9 @@ MODULE_SPECS: Mapping[EnergyModule, ModuleSpec] = MappingProxyType(
             ),
         ),
         EnergyModule.SOLAR: ModuleSpec(
-            roles=MappingProxyType({"production_power": _POWER}),
+            roles=MappingProxyType(
+                {"production_power": RoleSpec(MeasurementKind.POWER, negative_noise=True)}
+            ),
         ),
         EnergyModule.HOME: ModuleSpec(
             roles=MappingProxyType({"consumption_power": _POWER}),

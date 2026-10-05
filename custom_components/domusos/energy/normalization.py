@@ -10,14 +10,14 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import MappingProxyType
 from typing import Any
 
 from homeassistant.const import STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import State
 
-from .models import MeasurementKind, ValueStatus
+from .models import Freshness, MeasurementKind, ValueStatus
 
 POWER_UNIT = "W"
 PERCENT_UNIT = "%"
@@ -62,6 +62,24 @@ COMPATIBLE_DEVICE_CLASSES: Mapping[MeasurementKind, str] = MappingProxyType(
 )
 VALUE_PRECISION = 3
 
+# Inverters report a few watts below zero at night (standby draw, offset, meter
+# noise). Within this band a production reading is 0 W; beyond it the reading
+# stays invalid, so a reversed sign or a wiring error is never hidden.
+NEGATIVE_NOISE_TOLERANCE_W = 50.0
+
+# A valid value turns stale once its integration has not reported it for this
+# long. Home Assistant refreshes ``last_reported`` on every write, unchanged
+# values included, so a polling integration never trips it; the windows are
+# generous so that sensors reporting only on change are not flagged while a
+# load is steady. Stale values are kept and labelled, never turned into zero.
+STALE_AFTER: Mapping[MeasurementKind, timedelta] = MappingProxyType(
+    {
+        MeasurementKind.POWER: timedelta(minutes=30),
+        # State of charge moves slowly and many batteries report it on change.
+        MeasurementKind.STATE_OF_CHARGE: timedelta(hours=3),
+    }
+)
+
 
 @dataclass(frozen=True, slots=True)
 class Reading:
@@ -74,11 +92,19 @@ class Reading:
     reason: str | None = None
     source_unit: str | None = None
     observed_at: datetime | None = None
+    # Last time the integration wrote the state, even with an unchanged value.
+    reported_at: datetime | None = None
+    freshness: Freshness | None = None
 
     @property
     def ok(self) -> bool:
         """Return whether the reading carries a valid value."""
         return self.status is ValueStatus.OK
+
+    @property
+    def stale_after(self) -> timedelta:
+        """Return how long this kind of value stays fresh without a report."""
+        return STALE_AFTER[self.kind]
 
     @property
     def unit(self) -> str:
@@ -95,6 +121,8 @@ class Reading:
             "reason": self.reason,
             "source_unit": self.source_unit,
             "observed_at": self.observed_at.isoformat() if self.observed_at else None,
+            "reported_at": self.reported_at.isoformat() if self.reported_at else None,
+            "freshness": self.freshness.value if self.freshness else None,
         }
 
 
@@ -104,8 +132,13 @@ def normalize_state(
     kind: MeasurementKind,
     *,
     signed: bool = False,
+    negative_noise: bool = False,
+    now: datetime | None = None,
 ) -> Reading:
-    """Normalize one state, refusing ambiguous, cumulative or malformed data."""
+    """Normalize one state, refusing ambiguous, cumulative or malformed data.
+
+    With ``now`` a valid reading also carries its freshness.
+    """
     if state is None:
         return Reading(entity_id, kind, ValueStatus.UNAVAILABLE, reason="entity_missing")
 
@@ -168,7 +201,9 @@ def normalize_state(
             return invalid("unsupported_unit")
         value = raw_value * factor
         if value < 0 and not signed:
-            return invalid("unexpected_negative")
+            if not negative_noise or value < -NEGATIVE_NOISE_TOLERANCE_W:
+                return invalid("unexpected_negative")
+            value = 0.0
     else:
         if unit != PERCENT_UNIT:
             return invalid("unsupported_unit")
@@ -176,6 +211,12 @@ def normalize_state(
             return invalid("out_of_range")
         value = raw_value
 
+    reported_at = getattr(state, "last_reported", None) or observed_at
+    freshness: Freshness | None = None
+    if now is not None and reported_at is not None:
+        freshness = (
+            Freshness.STALE if now - reported_at > STALE_AFTER[kind] else Freshness.FRESH
+        )
     return Reading(
         entity_id,
         kind,
@@ -183,6 +224,8 @@ def normalize_state(
         value=clean_value(value),
         source_unit=unit,
         observed_at=observed_at,
+        reported_at=reported_at,
+        freshness=freshness,
     )
 
 
