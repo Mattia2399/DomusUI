@@ -67,10 +67,38 @@ offline.
 - Cumulative energy (`Wh`, `kWh`, `J`, `energy` device class,
   `total`/`total_increasing` state class) is never accepted where power is
   expected.
-- `unavailable`, `unknown`, and missing entities are `unavailable`.
+- `unavailable`, `unknown`, and missing entities are `unavailable`, with the
+  reasons `state_unavailable`, `state_unknown` and `entity_missing`.
   Non-numeric, non-finite, unit-less, unsupported, out-of-range, or
   unexpectedly negative values are `invalid`. Missing data is never turned
   into zero.
+- Solar production between −50 W and 0 W reads 0 W: inverters report a few
+  watts below zero at night (standby draw, offset). Anything lower stays
+  `invalid` / `unexpected_negative`, so a reversed sign or wiring error is
+  never hidden. The tolerance is `NEGATIVE_NOISE_TOLERANCE_W` in
+  `normalization.py` and applies only to roles that declare `negative_noise`
+  (today `solar.production_power`).
+
+### Freshness
+
+Every valid value also says whether its integration is still reporting it:
+
+- `fresh` while Home Assistant's `last_reported` is recent enough. That
+  timestamp moves on every write, an unchanged value included, so a polling
+  integration never trips the check.
+- `stale` after 30 minutes for power and 3 hours for state of charge
+  (`STALE_AFTER` in `normalization.py`). The windows are deliberately
+  generous because some integrations only report on change and a steady load
+  may stay silent for a while. A stale value is kept and labelled, never
+  turned into zero or unavailable.
+- No freshness at all (`null`) for `unavailable`, `unknown` or invalid states.
+
+Quantities carry `freshness`, `reported_at` (the oldest report behind the
+value) and, when measured, `stale_after` in seconds. Each module carries a
+`freshness` summary, stale as soon as one of its valid sensors is stale, and a
+derived value follows its stalest term. The fields are additive: older
+clients ignore them. A per-entity window learned from each sensor's own
+reporting rhythm is possible later without changing the contract.
 
 Every value carries a `status` (`ok`, `unavailable`, `invalid`,
 `not_measured`) and a `source` (`measured` or `derived`). Canonical net power
@@ -92,7 +120,10 @@ grid net (positive = import) + solar production + battery net (positive = discha
 
 only when the grid has complete flows and every configured solar and battery
 module provides complete flows. A battery with only a state-of-charge sensor
-therefore prevents the derivation. A negative result is reported as
+therefore prevents the derivation. Sensors are sampled at slightly different
+instants and rounded by their integrations, so a deficit up to 50 W or 2% of
+the absolute terms, whichever is larger, reads 0 W (`BALANCE_TOLERANCE_W` and
+`BALANCE_TOLERANCE_RATIO` in `adapter.py`). A larger deficit is reported as
 `invalid` / `incoherent_balance` rather than clamped. The wallbox is behind
 the meter, so a derived value includes its load.
 
@@ -184,6 +215,7 @@ configuration details. Without a profile it reports `configured: false` and
 lists every module as absent. Error codes are `invalid_profile`,
 `revision_conflict`, `energy_unavailable`, `unauthorized`, and
 `unknown_error`. The generic Domus context registry remains internal.
+The live `tariff` also carries `vat_percent`, the rate the prices exclude.
 
 ## Energy subpage
 
@@ -194,7 +226,12 @@ section; no new route exists.
   modules appear, offline modules stay visible without values, absent modules
   leave no gap, and each value is labelled *Misurato* or *Derivato*. The page
   refreshes the projection at most every 1.5 s when a bound sensor changes in
-  the Home Assistant state stream it already receives.
+  the Home Assistant state stream it already receives. No state change
+  announces that a value went stale, so it also reads the projection again
+  when the first fresh value would expire (timed on the server clock) and
+  every minute while something is stale.
+- **Stale data** keeps its last value: the tile and the details say
+  *Non aggiornato da 35 min* and the hero shows *Dati non aggiornati*.
 - **Layout** mirrors the Irrigation overview structure:
   - *Mobile*: the page header floats over a full-bleed, sticky house hero; the
     cards ride up on a rounded sheet (`-mt-28`) that turns opaque while
@@ -230,14 +267,27 @@ section; no new route exists.
      relevant and marked as not configured or waiting for history.
   5. *Component details*: every tile, and the arrow next to *Consumo della
      casa*, opens a sheet (bottom sheet on phones, centred dialog from
-     `sm`) with the live figures, the estimated paths of its power (only
-     those carrying at least 10 W, labelled as a proportional estimate), the
-     current band and hourly cost estimate for the grid, the last 24 hours
+     `sm`) with the live figures, the paths of its power (only those
+     carrying at least 10 W), the current band and hourly cost estimate for
+     the grid (energy price plus the tariff's VAT; the fixed fee has no hourly
+     meaning and is left out), the last 24 hours
      when history exists, and its sensors with entities, origin, sign
      convention and unavailability reasons. Administrators get *Modifica
      sensori*, which opens the settings with that module's editor open.
+- **Calculated or estimated**: meters give totals, not paths. The hero's
+  source split and the details' flows are *calcolati* whenever one supply or
+  one destination besides the home is involved. They are only an estimate,
+  shown with "≈" in the hero, "Stima · percorsi non misurabili" and
+  *Flussi · stimati* in the details, when solar and the grid both feed while
+  the battery charges, when solar and the battery both feed while power is
+  exported, and for the wallbox mix whenever more than one source supplies
+  the home.
 - **House renders** (`public/images/energy/mobile/`) are chosen from the
-  configured hardware only, online or offline, and only one is downloaded:
+  configured hardware only, online or offline, and only one is downloaded.
+  Each PNG has AVIF and WebP copies (8–22 KB instead of 480–626 KB, made by
+  `scripts/optimize-energy-renders.py`); the page picks AVIF, then WebP,
+  then the PNG, and a failed compressed copy retries the PNG before the
+  schematic takes over:
 
   | Configured hardware | Render |
   | --- | --- |

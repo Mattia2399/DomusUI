@@ -46,6 +46,18 @@
 
 ### Changed
 
+- Energy values report whether their sensors are still updating: a value
+  without a report for 30 minutes (3 hours for battery charge) keeps its
+  reading and is shown as not updated since then, never as zero.
+- Small negative solar readings at night (down to −50 W) and small balance
+  deficits from sensor timing now read 0 W instead of making the
+  photovoltaic invalid or the home consumption incoherent; larger values are
+  still reported.
+- Energy source splits and flows say when they are calculated from the
+  meters and when they are only an estimate; the grid's hourly cost includes
+  the tariff's VAT.
+- The Energy house renders download as AVIF or WebP, about 97% smaller than
+  the PNG originals, which remain as fallback.
 - The Energy page no longer shows generated charts, sample metrics, or
   demonstration devices.
 - Energy components are shown as compact tiles, two by two beside the house
