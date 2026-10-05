@@ -108,7 +108,27 @@ export const REASON_LABEL: Record<string, string> = {
   cumulative_energy: 'È un contatore di energia, non di potenza',
   unsupported_unit: 'Unità non supportata',
   unit_missing: 'Unità mancante',
+  out_of_range: 'Valore fuori intervallo',
+  non_numeric: 'Valore non numerico',
+  non_finite: 'Valore non valido',
+  incompatible_device_class: 'Tipo di sensore non compatibile',
 };
+
+/** "da 35 min", "da 2 h": how long ago a value was last reported, both times from the server. */
+export function formatAge(reportedAt: string | null | undefined, now: string) {
+  const minutes = reportedAt ? Math.max(0, Math.round((Date.parse(now) - Date.parse(reportedAt)) / 60000)) : NaN;
+  if (!Number.isFinite(minutes)) return '';
+  return minutes < 60 ? `da ${minutes} min` : `da ${Math.round(minutes / 60)} h`;
+}
+
+/** Oldest report among the stale values of a module, or null when nothing is stale. */
+export function staleSince(quantities: Record<string, EnergyQuantity> | undefined) {
+  const reports = Object.values(quantities ?? {})
+    .filter((quantity) => quantity.freshness === 'stale' && quantity.reported_at)
+    .map((quantity) => quantity.reported_at as string)
+    .sort();
+  return reports[0] ?? null;
+}
 
 export type FlowDirection = 'in' | 'out' | 'idle';
 

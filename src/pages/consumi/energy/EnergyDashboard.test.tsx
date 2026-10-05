@@ -118,15 +118,19 @@ describe('Component details', () => {
       wallbox: online({ charging_power: q(7400) }),
     }, {
       home_consumption: q(8100, { source: 'derived' }),
-      tariff: { scheme: 'three_band', band: 'F2', band_label: 'F2', price: 0.27, export_price: 0.09, currency: 'EUR' },
+      tariff: { scheme: 'three_band', band: 'F2', band_label: 'F2', price: 0.27, export_price: 0.09, vat_percent: 10, currency: 'EUR' },
     }));
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
+    expect(within(screen.getByTestId('energy-hero')).getByText('Calcolata dai contatori')).not.toBeNull();
 
     fireEvent.click(within(components).getByText('Rete').closest('button') as HTMLElement);
     const grid = await screen.findByRole('dialog', { name: 'Rete' });
-    expect(within(grid).getByText(/≈\s0,78\s€\/h/)).not.toBeNull();
+    // 2,9 kW at 0,27 €/kWh with 10% VAT; the fixed fee has no hourly meaning.
+    expect(within(grid).getByText('Costo attuale stimato, IVA inclusa')).not.toBeNull();
+    expect(within(grid).getByText(/≈\s0,86\s€\/h/)).not.toBeNull();
     expect(within(grid).getByText('Alla casa').nextSibling?.textContent).toBe('2,9 kW');
-    expect(within(grid).getByText(/Stima in proporzione/)).not.toBeNull();
+    expect(within(grid).getByText('Flussi · calcolati')).not.toBeNull();
+    expect(within(grid).getByText(/ogni percorso è determinato/)).not.toBeNull();
     expect(within(grid).getByText('sensor.example')).not.toBeNull();
     // Without an edit callback (non-administrators) there is no shortcut to the settings.
     expect(within(grid).queryByRole('button', { name: 'Modifica sensori' })).toBeNull();
@@ -135,6 +139,9 @@ describe('Component details', () => {
     fireEvent.click(within(components).getByText('Wallbox').closest('button') as HTMLElement);
     const wallbox = await screen.findByRole('dialog', { name: 'Wallbox' });
     expect(within(wallbox).getByText('Da fotovoltaico').nextSibling?.textContent).toBe('3,93 kW · 53%');
+    // Which load takes which source cannot be metered: the wallbox mix is always an estimate.
+    expect(within(wallbox).getByText('Flussi · stimati')).not.toBeNull();
+    expect(within(wallbox).getByText(/stesso mix del resto della casa/)).not.toBeNull();
   });
 });
 
@@ -156,5 +163,70 @@ describe('Home sources', () => {
     expect(homeSources(state({ grid: online({ net_power: q(1500) }) }))).toBeNull();
     expect(homeSources(state({ grid: online({ net_power: q(600) }), battery: online({ state_of_charge: q(50, { unit: '%' }) }) }))).toBeNull();
     expect(homeSources(state({ grid: online({ net_power: q(600) }), solar: online({ production_power: q(900) }) }, { home_consumption: q(null) }))).toBeNull();
+  });
+});
+
+describe('Measured, calculated and estimated', () => {
+  const tariff = { scheme: 'single' as const, band: 'F1' as const, band_label: 'F1', price: 0.25, export_price: null, currency: 'EUR' as const };
+
+  it.each([
+    ['solar and grid both feed while the battery charges', { grid: 600, solar: 2000, battery: -800 }, 1800],
+    ['solar and the battery both feed while power is exported', { grid: -500, solar: 2000, battery: 700 }, 2200],
+  ])('marks the split as an estimate when %s', async (_name, flows, home) => {
+    show(state({
+      grid: online({ net_power: q(flows.grid) }),
+      solar: online({ production_power: q(flows.solar) }),
+      battery: online({ net_power: q(flows.battery) }),
+    }, { home_consumption: q(home, { source: 'derived' }), tariff }));
+    const hero = screen.getByTestId('energy-hero');
+
+    expect(within(hero).getByText('Stima · percorsi non misurabili')).not.toBeNull();
+    expect(within(hero).getAllByText(/^≈\d+%$/).length).toBe(3);
+    fireEvent.click(within(screen.getByRole('list', { name: 'Componenti dell’impianto' })).getByText('Fotovoltaico').closest('button') as HTMLElement);
+    const solar = await screen.findByRole('dialog', { name: 'Fotovoltaico' });
+    expect(within(solar).getByText('Flussi · stimati')).not.toBeNull();
+    expect(within(solar).getByText(/Stima in proporzione/)).not.toBeNull();
+  });
+
+  it('shows a VAT-free price as entered when no rate is set', async () => {
+    show(state({ grid: online({ net_power: q(2000) }) }, { tariff }));
+    fireEvent.click(within(screen.getByRole('list', { name: 'Componenti dell’impianto' })).getByText('Rete').closest('button') as HTMLElement);
+    const grid = await screen.findByRole('dialog', { name: 'Rete' });
+
+    expect(within(grid).getByText('Costo attuale stimato')).not.toBeNull();
+    expect(within(grid).getByText(/≈\s0,50\s€\/h/)).not.toBeNull();
+  });
+
+  it.each([
+    ['out_of_range', 'Valore fuori intervallo'],
+    ['non_numeric', 'Valore non numerico'],
+    ['non_finite', 'Valore non valido'],
+    ['incompatible_device_class', 'Tipo di sensore non compatibile'],
+  ])('explains the %s reason', async (reason, label) => {
+    show(state({
+      solar: { status: 'offline', complete: false, sign_convention: null, quantities: { production_power: q(null, { status: 'invalid', reason }) } },
+    }, { offline_modules: ['solar'], home_consumption: null }));
+    fireEvent.click(within(screen.getByRole('list', { name: 'Componenti dell’impianto' })).getByText('Fotovoltaico').closest('button') as HTMLElement);
+
+    expect(within(await screen.findByRole('dialog', { name: 'Fotovoltaico' })).getAllByText(new RegExp(label)).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Stale data', () => {
+  it('keeps the last value but says since when it was not updated', async () => {
+    const stale = { freshness: 'stale' as const, reported_at: '2026-10-02T11:25:00Z', stale_after: 1800 };
+    show(state({
+      grid: { ...online({ net_power: q(400, { freshness: 'fresh', reported_at: '2026-10-02T11:59:50Z', stale_after: 1800 }) }), freshness: 'fresh' },
+      solar: { ...online({ production_power: q(2600, stale) }), freshness: 'stale' },
+    }));
+    const hero = screen.getByTestId('energy-hero');
+    const tile = within(screen.getByRole('list', { name: 'Componenti dell’impianto' })).getByText('Fotovoltaico').closest('button') as HTMLElement;
+
+    expect(within(hero).getByText('Dati non aggiornati')).not.toBeNull();
+    expect(within(tile).getByText('2,6 kW')).not.toBeNull();
+    expect(within(tile).getByText('Non aggiornato da 35 min')).not.toBeNull();
+    fireEvent.click(tile);
+    const details = await screen.findByRole('dialog', { name: 'Fotovoltaico' });
+    expect(within(details).getAllByText('Non aggiornato da 35 min').length).toBe(2);
   });
 });

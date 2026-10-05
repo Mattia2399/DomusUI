@@ -20,7 +20,7 @@ import { EnergyHistoryChart } from './EnergyHistoryChart';
 import { EnergyModuleSheet, describeQuantity, liveFlows, okValue } from './EnergyModuleSheet';
 import { PERIOD_LABEL, formatEuro, formatKwh, formatPercent, historyBalance } from './energyHistoryModel';
 import { EnergyHomeVisual, FLOW_COLORS } from './EnergyHomeVisual';
-import { MODULE_META, buildFlowFromState, formatPower, formatQuantity } from './energyModel';
+import { MODULE_META, buildFlowFromState, formatAge, formatPower, formatQuantity, staleSince } from './energyModel';
 
 type HistoryPeriod = EnergyHistoryPeriod;
 
@@ -42,6 +42,7 @@ export function energySystemStatus(state: EnergyState) {
   const online = modules.filter((module) => module.status === 'online').length;
   if (online === 0) return { label: 'Sensori offline', dot: 'bg-amber-400', live: false };
   if (online < modules.length || modules.some((module) => !module.complete)) return { label: 'Dati parziali', dot: 'bg-amber-400', live: false };
+  if (modules.some((module) => module.freshness === 'stale')) return { label: 'Dati non aggiornati', dot: 'bg-amber-400', live: false };
   return { label: 'In tempo reale', dot: 'bg-emerald-400', live: true };
 }
 
@@ -79,9 +80,24 @@ export function homeSources(state: EnergyState): HomeSource[] | null {
 const TILE = 'flex min-h-[8.5rem] flex-col rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-3.5 shadow-[var(--ui-shadow-card)] sm:p-4';
 
 /** Compact component tile: icon, value and one status line; it opens the component's details. */
-function ModuleTile({ id, icon: Icon, accent, module, onOpen }: { id: EnergyModuleId; icon: LucideIcon; accent: string; module: EnergyModuleState; onOpen: () => void }) {
+function ModuleTile({
+  id,
+  icon: Icon,
+  accent,
+  module,
+  now,
+  onOpen,
+}: {
+  id: EnergyModuleId;
+  icon: LucideIcon;
+  accent: string;
+  module: EnergyModuleState;
+  now: string;
+  onOpen: () => void;
+}) {
   const q = module.quantities;
   const offline = module.status === 'offline';
+  const stale = !offline && module.freshness === 'stale';
   const soc = okValue(q.state_of_charge);
   const flow = okValue(id === 'grid' || id === 'battery' ? q.net_power : q.production_power ?? q.charging_power);
   const still = flow !== null && Math.abs(flow) < 10;
@@ -108,8 +124,8 @@ function ModuleTile({ id, icon: Icon, accent, module, onOpen }: { id: EnergyModu
         <Icon className={`h-4 w-4 shrink-0 ${offline ? 'text-[color:var(--ui-text-tertiary)]' : accent}`} aria-hidden="true" />
         <span className={`truncate ${EYEBROW}`}>{MODULE_META[id].label}</span>
         <span
-          className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${offline ? 'bg-amber-400' : module.complete ? 'bg-emerald-400' : 'bg-amber-400'}`}
-          title={offline ? 'Offline' : module.complete ? 'Attivo' : 'Dati parziali'}
+          className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${offline || stale || !module.complete ? 'bg-amber-400' : 'bg-emerald-400'}`}
+          title={offline ? 'Offline' : stale ? 'Non aggiornato' : module.complete ? 'Attivo' : 'Dati parziali'}
           aria-hidden="true"
         />
         <ChevronRight className="-mr-1 h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
@@ -120,7 +136,9 @@ function ModuleTile({ id, icon: Icon, accent, module, onOpen }: { id: EnergyModu
           <span className="block h-full rounded-full bg-emerald-400" style={{ width: `${soc}%` }} />
         </span>
       ) : null}
-      <span className={`mt-1.5 block w-full truncate ${MUTED}`}>{offline ? 'Offline · sensori senza dati' : caption}</span>
+      <span className={`mt-1.5 block w-full truncate ${MUTED}`}>
+        {offline ? 'Offline · sensori senza dati' : stale ? `Non aggiornato ${formatAge(staleSince(q), now)}` : caption}
+      </span>
     </button>
   );
 }
@@ -266,6 +284,8 @@ function EnergyHero({ state, onOpenHome }: { state: EnergyState; onOpenHome: () 
   const status = energySystemStatus(state);
   const home = state.home_consumption;
   const sources = homeSources(state);
+  // Measured or calculated paths are facts; an ambiguous split is only an estimate.
+  const estimated = Boolean(liveFlows(state)?.estimated);
   return (
     <div
       data-testid="energy-hero"
@@ -307,15 +327,18 @@ function EnergyHero({ state, onOpenHome }: { state: EnergyState; onOpenHome: () 
             <p className="mt-2 text-xs text-white/70">{homeOrigin(state)}</p>
           </div>
           {sources ? (
-            <ul aria-label="Da dove arriva l’energia della casa" className="shrink-0 space-y-1.5 pt-0.5 sm:space-y-2 sm:pt-1">
-              {sources.map((source) => (
-                <li key={source.id} className="flex items-center gap-2 text-xs sm:text-[13px]">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `rgb(${FLOW_COLORS[source.id]})` }} aria-hidden="true" />
-                  <span className="flex-1 text-white/75">{source.label}</span>
-                  <span className="w-10 text-right font-semibold tabular-nums">{source.percent}%</span>
-                </li>
-              ))}
-            </ul>
+            <div className="shrink-0 pt-0.5 sm:pt-1">
+              <ul aria-label="Da dove arriva l’energia della casa" className="space-y-1.5 sm:space-y-2">
+                {sources.map((source) => (
+                  <li key={source.id} className="flex items-center gap-2 text-xs sm:text-[13px]">
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `rgb(${FLOW_COLORS[source.id]})` }} aria-hidden="true" />
+                    <span className="flex-1 text-white/75">{source.label}</span>
+                    <span className="w-11 text-right font-semibold tabular-nums">{estimated ? '≈' : ''}{source.percent}%</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-right text-[10px] text-white/60">{estimated ? 'Stima · percorsi non misurabili' : 'Calcolata dai contatori'}</p>
+            </div>
           ) : null}
         </div>
       </div>
@@ -399,7 +422,7 @@ export function EnergyDashboard({
           {present.map((item, index) => (
             // An odd last tile takes the whole row where tiles sit two by two.
             <div key={item.id} role="listitem" className={`grid ${present.length % 2 && index === present.length - 1 ? 'col-span-2 md:col-span-1 xl:col-span-2' : ''}`}>
-              <ModuleTile {...item} module={state.modules[item.id] as EnergyModuleState} onOpen={() => setDetails(item.id)} />
+              <ModuleTile {...item} module={state.modules[item.id] as EnergyModuleState} now={state.observed_at} onOpen={() => setDetails(item.id)} />
             </div>
           ))}
         </div>

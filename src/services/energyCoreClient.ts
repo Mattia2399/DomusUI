@@ -10,6 +10,9 @@ export const ENERGY_MODULES: EnergyModuleId[] = ['grid', 'solar', 'home', 'batte
 
 export type EnergyValueStatus = 'ok' | 'unavailable' | 'invalid' | 'not_measured';
 
+/** Whether a valid value is still being reported; absent on integrations older than this field. */
+export type EnergyFreshness = 'fresh' | 'stale';
+
 export type EnergyQuantity = {
   status: EnergyValueStatus;
   value: number | null;
@@ -17,11 +20,17 @@ export type EnergyQuantity = {
   source: 'measured' | 'derived' | null;
   entity_ids: string[];
   reason: string | null;
+  freshness?: EnergyFreshness | null;
+  /** Oldest report behind the value (server clock). */
+  reported_at?: string | null;
+  /** Seconds a measured value stays fresh without a new report. */
+  stale_after?: number | null;
 };
 
 export type EnergyModuleState = {
   status: 'online' | 'offline';
   complete: boolean;
+  freshness?: EnergyFreshness | null;
   sign_convention: string | null;
   quantities: Record<string, EnergyQuantity>;
 };
@@ -42,6 +51,8 @@ export type EnergyTariffState = {
   band_label: string;
   price: number;
   export_price: number | null;
+  /** VAT rate the prices exclude, when the user set one. */
+  vat_percent?: number | null;
   currency: 'EUR';
 };
 

@@ -25,6 +25,30 @@ export type EnergyCoreResource = {
 };
 
 const REFRESH_MS = 1500;
+// While a value is stale, re-read the projection now and then: an integration
+// that writes the same value again refreshes it on the server without any
+// state change reaching the browser.
+const STALE_RECHECK_MS = 60_000;
+const MIN_FRESHNESS_DELAY_MS = 5_000;
+
+/**
+ * Delay until the projection should be read again because freshness can change:
+ * the first fresh value that will turn stale, or the stale recheck. Computed on
+ * the server's clock (observed_at), so browser clock skew does not matter.
+ */
+export function freshnessDelay(state: EnergyState | null) {
+  if (!state?.configured) return null;
+  const now = Date.parse(state.observed_at);
+  let delay = Number.POSITIVE_INFINITY;
+  for (const module of Object.values(state.modules)) {
+    if (module?.freshness === 'stale') delay = Math.min(delay, STALE_RECHECK_MS);
+    for (const quantity of Object.values(module?.quantities ?? {})) {
+      if (quantity.freshness !== 'fresh' || !quantity.reported_at || !quantity.stale_after) continue;
+      delay = Math.min(delay, Date.parse(quantity.reported_at) + quantity.stale_after * 1000 - now + 1000);
+    }
+  }
+  return Number.isFinite(delay) && !Number.isNaN(now) ? Math.max(delay, MIN_FRESHNESS_DELAY_MS) : null;
+}
 
 export function boundEntityIds(state: EnergyState | null) {
   const ids = new Set<string>();
@@ -91,6 +115,14 @@ export function useEnergyCore(context: EnergyPageContext | undefined): EnergyCor
   React.useEffect(() => () => {
     if (timerRef.current !== null) window.clearTimeout(timerRef.current);
   }, []);
+
+  // No state change announces that a value went stale: read again when it can.
+  React.useEffect(() => {
+    const delay = live ? freshnessDelay(state) : null;
+    if (delay === null) return undefined;
+    const timer = window.setTimeout(() => void reload(), delay);
+    return () => window.clearTimeout(timer);
+  }, [live, reload, state]);
 
   // Demo never reaches Consumi (the workspace is gated), so no sample exists here.
   return { state: live ? state : null, error: live ? error : null, loading, live, reload };
