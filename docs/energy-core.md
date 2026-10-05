@@ -300,9 +300,27 @@ section; no new route exists.
 
 ## History data contract (not implemented)
 
-Energy Core only exposes instantaneous power today, so the *Andamento* chart
-and the daily summaries show an empty state. A reliable implementation needs
-a backend command; the frontend must not compute energy from raw state history.
+Energy Core only exposes instantaneous power today, so the live page shows an
+empty *Andamento* chart and marks the analysis as waiting for history. A
+reliable implementation needs a backend command; the frontend must not compute
+energy from raw state history.
+
+The frontend already renders this contract when it is supplied
+(`EnergyDashboard`'s `history` prop, typed as `EnergyHistory`):
+
+- *Andamento*: one kWh axis with a 2 px line per series, solid for production,
+  consumption, import and battery discharge, dashed for export and battery
+  charge. A legend that doubles as a filter shows production, consumption and
+  import first. A crosshair tooltip follows the pointer or the arrow keys, an
+  accessible table carries every value, and a `null` bucket breaks the line.
+  Series colours follow the component and were checked for both themes and
+  colour-vision deficiencies. Totals for the period sit below the chart.
+- *Analisi*: self-consumption `(production − export) / production`,
+  self-sufficiency `(consumption − import) / consumption`, the period cost with
+  its breakdown, estimated savings and the change in consumption against the
+  previous period. Costs come from the backend, which owns the ARERA bands.
+- Only the git-ignored local preview supplies simulated history; the live
+  page passes none.
 
 Proposed command, readable by any authenticated user:
 `domusos/energy/get_history` with `period: "24h" | "7d" | "30d"`.
@@ -321,7 +339,17 @@ Proposed command, readable by any authenticated user:
     "battery_discharge": []
   },
   "derived": ["consumption"],
-  "missing": { "battery_charge": "not_configured" }
+  "missing": { "battery_charge": "not_configured" },
+  "cost": {
+    "currency": "EUR",
+    "energy": 1.6,
+    "fixed": 0.32,
+    "vat": 0.19,
+    "export_credit": 0,
+    "net": 2.11,
+    "savings": 4.28
+  },
+  "previous": { "consumption": 41.2, "net_cost": 2.3 }
 }
 ```
 
@@ -336,3 +364,9 @@ Proposed command, readable by any authenticated user:
 - Only series of configured modules are returned; derived series are listed
   in `derived` and computed with the same completeness rules as the live
   balance.
+- `cost` is `null` without a tariff. `energy` prices each imported bucket at
+  its ARERA band, `fixed` prorates the monthly fee over the period, `vat`
+  applies to both, `export_credit` values exports at the export price, and
+  `net = energy + fixed + vat − export_credit`. `savings` values self-consumed
+  solar energy at the import price including VAT, or is `null` without solar.
+- `previous` holds the same totals for the period before, or `null`.

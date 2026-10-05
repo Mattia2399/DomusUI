@@ -36,6 +36,10 @@
   manual setup) and then, on its own step, only for the sensors that type
   needs. A detected plant is summarised with its matched
   entities so it can be confirmed in one step.
+- The Energy page can draw the energy history (24 hours, 7 or 30 days) and
+  fill self-consumption, self-sufficiency, costs, savings and the comparison
+  with the previous period as soon as Home Assistant provides the history;
+  until then the page keeps stating that the history is not available.
 
 ### Changed
 
