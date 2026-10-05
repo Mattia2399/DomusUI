@@ -1,5 +1,15 @@
 @import "tailwindcss";
 @config "../../tailwind.config.js";
+/* Utilities come only from shipped code: prose, tests and tooling would otherwise add unused CSS. */
+@source not "../../docs";
+@source not "../../tests";
+@source not "../../tests_python";
+@source not "../../custom_components";
+@source not "../../scripts";
+@source not "../../brand";
+@source not "../../*.md";
+@source not "../**/*.test.ts";
+@source not "../**/*.test.tsx";
 
 :root {
   /* Native UI typeface on every platform. `-apple-system` is intentionally
