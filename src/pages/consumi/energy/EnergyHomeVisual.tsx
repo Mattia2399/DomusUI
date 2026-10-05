@@ -104,7 +104,8 @@ const SCHEMATIC: EnergyHomeAsset = {
   },
 };
 
-const COLORS: Record<HardwareId, string> = {
+/** RGB triplets shared by the flows, the callouts and the hero source list. */
+export const FLOW_COLORS: Record<HardwareId, string> = {
   solar: '250 204 21',
   grid: '56 189 248',
   battery: '52 211 153',
@@ -158,7 +159,7 @@ function Scene({ scene, view, onError }: { scene: EnergyHomeAsset; view: FlowVie
             const point = scene.anchors?.[node.id as HardwareId];
             const label = scene.labels?.[node.id as HardwareId];
             if (!point) return null;
-            const color = COLORS[node.id as HardwareId];
+            const color = FLOW_COLORS[node.id as HardwareId];
             const active = node.online && node.direction !== 'idle';
             const pathId = `${id}-${node.id}`;
             const duration = Math.max(1.6, 3.2 - Math.min(node.amountW, 6000) / 4000);
@@ -216,7 +217,7 @@ function Scene({ scene, view, onError }: { scene: EnergyHomeAsset; view: FlowVie
                 transform: `translate(${label[2] === 'start' ? '0' : label[2] === 'end' ? '-100%' : '-50%'}, -50%)`,
               }}
             >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: `rgb(${COLORS[node.id as HardwareId]})` }} />
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: `rgb(${FLOW_COLORS[node.id as HardwareId]})` }} />
               {node.label} {node.online ? node.value : 'offline'}
             </span>
           );

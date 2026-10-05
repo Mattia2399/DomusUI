@@ -209,15 +209,18 @@ section; no new route exists.
     guided setup instead.
   1. *House hero*: the home consumption under the heading *Consumo della
      casa*, how it is obtained in plain words (*Misurato dal sensore della
-     casa* or *Calcolato da rete, fotovoltaico e batteria*), the live share
-     covered by solar and battery versus the grid when it can be told, and the
-     3D house of the configured hardware with value callouts and animated
+     casa* or *Calcolato da rete, fotovoltaico e batteria*), and on the right
+     a column with a coloured dot and the live share of each supply
+     (photovoltaic, battery discharge, grid import). Exports and battery
+     charging draw on the same supplies, so each feeds the home in proportion;
+     shares add up to 100 and the column is hidden when a source is unknown or
+     there is only the grid. Then the 3D house of the configured hardware with value callouts and animated
      flows. A status badge appears only for partial data or offline sensors;
      the grid exchange lives in its tile.
   2. *Components*: a compact tile per configured module (value, one status
-     line, charge bar for the battery) plus home consumption spanning the
-     free width: two columns on phones, one row on tablets, two by two beside
-     the house on desktop. Rows stop at 11.5rem so a small plant does not
+     line, charge bar for the battery); home consumption lives in the hero.
+     Two columns on phones (an odd last tile takes the whole row), one row on
+     tablets, two by two beside the house on desktop. Rows stop at 11.5rem so a small plant does not
      stretch them to the hero height.
   3. *Andamento*: 24 h / 7 d / 30 d selector, the series available for this
      installation, daily summary slots and an explicit empty state.

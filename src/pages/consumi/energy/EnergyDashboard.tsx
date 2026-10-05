@@ -7,7 +7,6 @@ import {
   CarFront,
   ChevronDown,
   Gauge,
-  Home,
   Leaf,
   SunMedium,
   TowerControl,
@@ -19,7 +18,7 @@ import GlassSegmentSelect from '../../../components/ui/GlassSegmentSelect';
 import type { EnergyHistory, EnergyHistoryPeriod, EnergyModuleId, EnergyModuleState, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
 import { EnergyHistoryChart } from './EnergyHistoryChart';
 import { PERIOD_LABEL, formatEuro, formatKwh, formatPercent, historyBalance } from './energyHistoryModel';
-import { EnergyHomeVisual } from './EnergyHomeVisual';
+import { EnergyHomeVisual, FLOW_COLORS } from './EnergyHomeVisual';
 import { MODULE_META, REASON_LABEL, SOURCE_LABEL, buildFlowFromState, formatPower, formatQuantity } from './energyModel';
 
 type HistoryPeriod = EnergyHistoryPeriod;
@@ -61,18 +60,34 @@ function homeOrigin(state: EnergyState) {
   return `Calcolato da ${listOf(parts)}`;
 }
 
-/** Live share of the home covered by the plant rather than the grid; null when it cannot be told. */
-export function homeCoverage(state: EnergyState) {
+type SourceId = 'solar' | 'battery' | 'grid';
+export type HomeSource = { id: SourceId; label: string; percent: number };
+
+/**
+ * Live split of the home consumption among its supplies: solar production, battery discharge
+ * and grid import. Exports and battery charging draw on the same supplies, so each supply feeds
+ * the home in proportion. Null when any present source is unknown or there is no plant to split.
+ */
+export function homeSources(state: EnergyState): HomeSource[] | null {
   const home = okValue(state.home_consumption);
-  const net = okValue(state.modules.grid?.quantities.net_power);
-  const sources = (['solar', 'battery'] as const).filter((id) => state.modules[id]).map((id) => MODULE_META[id].label.toLowerCase());
-  if (home === null || home <= 0 || net === null || sources.length === 0) return null;
-  const fromGrid = Math.min(1, Math.max(net, 0) / home);
-  const percent = (value: number) => `${Math.round(value * 100)}%`;
-  const from = listOf(sources);
-  if (fromGrid < 0.005) return `Coperto al 100% da ${from}`;
-  if (fromGrid > 0.995) return 'Coperto interamente dalla rete';
-  return `${percent(1 - fromGrid)} da ${from} · ${percent(fromGrid)} dalla rete`;
+  const grid = okValue(state.modules.grid?.quantities.net_power);
+  const ids = (['solar', 'battery', 'grid'] as const).filter((id) => state.modules[id]);
+  if (home === null || home <= 0 || grid === null || ids.length < 2) return null;
+  const supply: Record<SourceId, number | null> = {
+    solar: okValue(state.modules.solar?.quantities.production_power),
+    battery: okValue(state.modules.battery?.quantities.net_power),
+    grid,
+  };
+  if (ids.some((id) => supply[id] === null)) return null;
+  const amounts = ids.map((id) => Math.max(supply[id] ?? 0, 0));
+  const total = amounts.reduce((sum, value) => sum + value, 0);
+  if (total <= 0) return null;
+  // Largest remainder, so the rounded shares always add up to 100.
+  const raw = amounts.map((value) => (value / total) * 100);
+  const percents = raw.map(Math.floor);
+  const order = raw.map((value, index) => [value - percents[index], index]).sort((a, b) => b[0] - a[0]);
+  for (let index = 0; index < 100 - percents.reduce((sum, value) => sum + value, 0); index += 1) percents[order[index][1]] += 1;
+  return ids.map((id, index) => ({ id, label: MODULE_META[id].label, percent: percents[index] }));
 }
 
 function Row({ label, quantity, entities = false }: { label: string; quantity: EnergyQuantity | undefined | null; entities?: boolean }) {
@@ -289,6 +304,9 @@ function AnalysisCard({ state, history }: { state: EnergyState; history?: Energy
   );
 }
 
+/** Tablet row: one column per installed component (literal classes for Tailwind). */
+const TABLET_COLUMNS = ['', 'md:grid-cols-1', 'md:grid-cols-2', 'md:grid-cols-3', 'md:grid-cols-4'];
+
 /** Mobile cards sit on the sheet; from md they join the page grid like Irrigation. */
 const SECTION = 'mx-3 mb-3 md:mx-0 md:mb-0';
 const PROGRESS = 'var(--energy-scroll-progress)';
@@ -296,7 +314,7 @@ const PROGRESS = 'var(--energy-scroll-progress)';
 function EnergyHero({ state }: { state: EnergyState }) {
   const status = energySystemStatus(state);
   const home = state.home_consumption;
-  const coverage = homeCoverage(state);
+  const sources = homeSources(state);
   return (
     <div
       data-testid="energy-hero"
@@ -320,10 +338,24 @@ function EnergyHero({ state }: { state: EnergyState }) {
             {status.label}
           </p>
         )}
-        <h2 id="energy-hero-title" className="text-[13px] font-medium text-white/75">Consumo della casa</h2>
-        <p className="mt-1 text-[2.7rem] font-light leading-none tracking-[-0.06em] sm:text-[3.5rem]">{formatQuantity(home)}</p>
-        <p className="mt-2 text-xs text-white/70">{homeOrigin(state)}</p>
-        {coverage ? <p className="mt-0.5 text-xs font-semibold text-white">{coverage}</p> : null}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h2 id="energy-hero-title" className="text-[13px] font-medium text-white/75">Consumo della casa</h2>
+            <p className="mt-1 text-[2.7rem] font-light leading-none tracking-[-0.06em] sm:text-[3.5rem]">{formatQuantity(home)}</p>
+            <p className="mt-2 text-xs text-white/70">{homeOrigin(state)}</p>
+          </div>
+          {sources ? (
+            <ul aria-label="Da dove arriva l’energia della casa" className="shrink-0 space-y-1.5 pt-0.5 sm:space-y-2 sm:pt-1">
+              {sources.map((source) => (
+                <li key={source.id} className="flex items-center gap-2 text-xs sm:text-[13px]">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: `rgb(${FLOW_COLORS[source.id]})` }} aria-hidden="true" />
+                  <span className="flex-1 text-white/75">{source.label}</span>
+                  <span className="w-10 text-right font-semibold tabular-nums">{source.percent}%</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       </div>
     </div>
   );
@@ -343,7 +375,6 @@ export function EnergyDashboard({
 }) {
   const [period, setPeriod] = React.useState<HistoryPeriod>('24h');
   const rootRef = React.useRef<HTMLDivElement>(null);
-  const home = state.home_consumption;
   const present = MODULES.filter((item) => state.modules[item.id]);
 
   // Same progressive hero as Irrigation: the photo stays behind while the sheet rises.
@@ -395,24 +426,17 @@ export function EnergyDashboard({
         />
         {banner ? <div className={`${SECTION} space-y-3 md:order-first xl:col-span-12`}>{banner}</div> : null}
 
-        <div className={`${SECTION} grid grid-cols-2 content-start gap-3 md:grid-cols-4 md:gap-4 xl:col-span-4 xl:grid-cols-2 xl:auto-rows-[minmax(8.5rem,11.5rem)]`} aria-label="Componenti dell’impianto" role="list">
-          {present.map((item) => (
-            <div key={item.id} role="listitem" className="grid">
+        <div
+          className={`${SECTION} grid grid-cols-2 content-start gap-3 md:gap-4 xl:col-span-4 xl:grid-cols-2 xl:auto-rows-[minmax(8.5rem,11.5rem)] ${TABLET_COLUMNS[present.length] ?? 'md:grid-cols-4'}`}
+          aria-label="Componenti dell’impianto"
+          role="list"
+        >
+          {present.map((item, index) => (
+            // An odd last tile takes the whole row where tiles sit two by two.
+            <div key={item.id} role="listitem" className={`grid ${present.length % 2 && index === present.length - 1 ? 'col-span-2 md:col-span-1 xl:col-span-2' : ''}`}>
               <ModuleTile {...item} module={state.modules[item.id] as EnergyModuleState} />
             </div>
           ))}
-          <article role="listitem" className={`${TILE} col-span-2 ${present.length % 2 ? 'md:col-span-1 xl:col-span-1' : 'md:col-span-4 xl:col-span-2'}`}>
-            <div className="flex items-center gap-2">
-              <Home className="h-4 w-4 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
-              <p className={EYEBROW}>Consumo della casa</p>
-            </div>
-            <p className="mt-auto pt-3 text-[1.6rem] font-semibold leading-none tracking-[-0.045em] text-[color:var(--ui-text-primary)]">{formatQuantity(home)}</p>
-            <p className={`mt-1.5 ${MUTED}`}>
-              {home?.status === 'ok'
-                ? home.source === 'derived' ? 'Derivato dal bilancio dell’impianto' : 'Misurato da un sensore dedicato'
-                : describeQuantity(home)}
-            </p>
-          </article>
         </div>
 
         <div className={`${SECTION} xl:col-span-8`}><HistoryCard state={state} history={history?.[period]} period={period} onPeriod={setPeriod} /></div>
