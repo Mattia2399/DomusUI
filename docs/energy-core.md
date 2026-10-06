@@ -308,6 +308,73 @@ states work per device exactly as for a v1 module. A `ModuleAggregator`
 Each sensor is read once per projection, and a state change re-reads only the
 module that owns the sensor, so 16 devices per module cost one pass.
 
+## Energy meters
+
+POWER and ENERGY stay separate. Power sensors (W) feed the live values above;
+energy meters (`device.energy` and `total.energy`, Wh/kWh/MWh...) are Home
+Assistant long-term statistics kept for the history and never enter the live
+balance. A device with meters only has no live power, never 0 W.
+
+`energy/meters.py` checks each statistic id against Home Assistant, read-only,
+with the official Recorder API (`recorder.statistics.get_metadata`, then
+`list_statistic_ids` for the ids without metadata, in one Recorder executor
+job per request). Statuses are computed when asked (`get_profile`,
+`save_profile`) and never stored in the profile, because they change on their
+own in Home Assistant; nothing is polled.
+
+| Status | Meaning |
+| --- | --- |
+| `valid` | Long-term statistics with a sum in an energy unit |
+| `pending` | Recorded and suitable, but not compiled yet (`awaiting_first_statistics`): a new meter is never treated as invalid |
+| `unavailable` | Statistics exist but the entity is gone or not reporting (`entity_missing`, `state_unavailable`, `state_unknown`), or a sensor that cannot be checked while unavailable |
+| `incompatible` | Verifiably not an energy meter: `incompatible_device_class` (power, temperature, `energy_storage`...), `not_energy_unit` (W, °C...), `unit_missing`, `no_state_class`, `no_sum` (`measurement`), `not_recorded` (excluded from the Recorder) |
+| `unknown` | Neither the Recorder nor Home Assistant knows the id (`not_found`), e.g. an entity or external statistic that does not exist yet |
+| `recorder_unavailable` | The Recorder is not loaded, migrating or not ready; nothing more can be verified |
+
+- **Saving.** A save refuses only the meters it adds that are `incompatible`,
+  with `invalid_profile` and the reason (`sensor.x cannot be an energy meter
+  (not_energy_unit)`). `pending`, `unknown`, `unavailable` and
+  `recorder_unavailable` are saved and reported, so a temporary condition never
+  blocks or corrupts the profile, and a meter that turns incompatible later
+  does not block unrelated edits. Without the Recorder, what an entity declares
+  is still enough to refuse a power or temperature sensor. A profile with power
+  sensors only never queries the Recorder.
+- **External statistics** (`source:id`, e.g. `opower:energy`) have no entity;
+  they are `valid` when the Recorder has them with a sum, else `unknown`.
+- **Units.** Every Home Assistant energy unit is accepted (`EnergyConverter`:
+  Wh, kWh, MWh, mWh, GWh, TWh, J, kJ, MJ, GJ and calories). `energy_to_kwh`
+  normalizes to kWh with Home Assistant's converter, keeps 0 as 0, removes
+  float noise, and refuses power units, unknown units and a missing unit.
+- **Several meters.** Statistics listed together in one role are summed, for
+  example F1, F2, F3; they are flagged `multiple_parts` because only the user
+  can confirm they are disjoint. Each statistic id may appear only once in the
+  whole profile, power sensors included.
+- **Plan.** `energy_meter_plan` states how each module energy role will be
+  obtained, with the rules of the live aggregation: a total is authoritative
+  and never added to the devices (`total_with_devices`); otherwise the devices
+  are summed, and a device without the meter makes the sum partial
+  (`devices_without_meter`, `coverage`, `complete: false`) instead of counting
+  as 0 kWh.
+
+Home Assistant semantics, verified on 2025.1 and 2026.2.3 with the real
+Recorder (`tests_python/test_energy_meters.py`):
+
+- metadata exists only after the first statistics compilation (every 5
+  minutes); until then only the sensor recorder platform lists the meter;
+- `sum` accumulates changes and survives resets: a `total_increasing` drop
+  below 90% restarts from 0, a new `last_reset` starts a new `total` cycle;
+- `state` is the raw meter reading, unusable across resets;
+- `change` is the difference of `sum` over a period; a unit change within the
+  energy class is converted by Home Assistant, and `units={"energy": "kWh"}`
+  returns kWh;
+- a period without data has no row, which is not 0.
+
+The history (A2) will therefore read `change` with `units={"energy": "kWh"}`
+(`HISTORY_STATISTIC_TYPE`, `HISTORY_UNITS`), following the plan. The only
+difference found between the two versions is the metadata format (2026.2 adds
+`mean_type` and `unit_class`, and deprecates `has_mean`); Domus reads only
+`has_sum`, `source` and the unit, which both provide.
+
 ## Assisted discovery
 
 `EnergyDiscoveryService` proposes bindings and never saves a profile.
@@ -423,6 +490,7 @@ prices exclude.
 | `runtime`      | `{supported, reason, unsupported_modules}`: whether `get_state` can show every module live |
 | `legacy_v1`    | `{valid, revision, updated_at, diverged}` of the frozen v1 document, or `null` |
 | `module_status`| Condition of each module, as before                                      |
+| `energy_meters`| `{recorder, meters, plan}`: `recorder` is `available` or `unavailable`, `meters` the status of each statistic id, `plan` how each module energy role is obtained (see [Energy meters](#energy-meters)) |
 
 No field changes meaning between versions: v1 clients read `profile` and send
 `profile` (the `modules` and optional `tariff` of v1); v2 clients send
@@ -638,9 +706,9 @@ Proposed command, readable by any authenticated user:
 
 - Buckets: hourly for 24 h, daily for 7 and 30 days; `value: null` for a
   bucket without data, never `0`.
-- Source: Home Assistant recorder long-term statistics, preferably the
-  `change` of optional cumulative energy meters (kWh, `total_increasing`)
-  added to the Energy Profile, which handles meter resets.
+- Source: Home Assistant recorder long-term statistics, the `change` of the
+  energy meters of the profile in kWh, following `energy_meter_plan` (see
+  [Energy meters](#energy-meters)), which handles meter resets.
 - Directional power sensors may fall back to the time-weighted hourly `mean`
   converted to kWh. A signed net sensor must not: imports and exports within
   the same hour cancel out, so separate import/export energy is unknowable.

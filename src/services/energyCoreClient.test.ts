@@ -67,7 +67,8 @@ describe('Domus Energy client', () => {
   it('reads integrations that store Energy Profile v2', async () => {
     const profile = { revision: 7, updated_at: null, load_error: false, modules: {}, tariff: null };
     const v2 = { revision: 7, plant: {}, load_error: false };
-    const result = { profile, profile_v2: v2, v1_compatible: true, legacy_v1: null, module_status: {} };
+    const energy_meters = { recorder: 'available', meters: {}, plan: {} };
+    const result = { profile, profile_v2: v2, v1_compatible: true, legacy_v1: null, module_status: {}, energy_meters };
     await expect(getEnergyProfile(vi.fn().mockResolvedValue(result))).resolves.toEqual(result);
 
     // A profile v1 cannot hold is never read as an empty installation.

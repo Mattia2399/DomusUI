@@ -15,6 +15,7 @@ from homeassistant.helpers.storage import Store
 from ..core import CapabilityState
 from ..core._values import utc_now
 from .aggregation import NO_POWER_SENSORS, ModuleAggregator
+from .meters import EnergyMeterResolver, MeterReport, energy_meter_plan, profile_statistic_ids
 from .models import (
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -61,6 +62,11 @@ def _salvaged_revision(*documents: Any) -> int:
     return max(revisions, default=0)
 
 
+def _meters_result(profile: EnergyProfileV2, report: MeterReport) -> dict[str, Any]:
+    """The meters' condition and how each module energy role is obtained."""
+    return {**report.as_dict(), "plan": energy_meter_plan(profile)}
+
+
 class EnergyProfileManager:
     """Persist the Energy Profile and expose read-only module adapters.
 
@@ -97,6 +103,8 @@ class EnergyProfileManager:
         self._listeners: set[Callable[[str], None]] = set()
         self._unsubscribe_states: CALLBACK_TYPE | None = None
         self._lock = asyncio.Lock()
+        # Energy meters are checked against the Recorder on request, never stored.
+        self.meters = EnergyMeterResolver(hass)
         self._loaded = False
         self._load_error = False
 
@@ -284,6 +292,13 @@ class EnergyProfileManager:
             },
         }
 
+    async def async_profile_result(self) -> dict[str, Any]:
+        """Return ``profile_result`` and the energy meters as Home Assistant sees them."""
+        result = self.profile_result()
+        profile = self._profile_v2
+        report = await self.meters.async_resolve(profile_statistic_ids(profile))
+        return {**result, "energy_meters": _meters_result(profile, report)}
+
     async def async_save_profile(
         self, document: Any, expected_revision: int | None, *, version: int = 1
     ) -> dict[str, Any]:
@@ -329,6 +344,15 @@ class EnergyProfileManager:
                     f"More than {MAX_RETIRED_DEVICE_IDS} devices were removed over time; "
                     "keep the device instead of replacing it"
                 )
+            # One Recorder read per save, reused for the result. Only meters this
+            # save adds are refused when verifiably wrong: an existing one that
+            # changed in Home Assistant must not block unrelated edits.
+            meter_ids = profile_statistic_ids(candidate)
+            report = await self.meters.async_resolve(meter_ids)
+            if rejected := report.incompatible(meter_ids - profile_statistic_ids(current)):
+                raise EnergyValidationError(
+                    f"{rejected[0].statistic_id} cannot be an energy meter ({rejected[0].reason})"
+                )
             profile = EnergyProfileV2(
                 plant=candidate.plant,
                 revision=current.revision + 1,
@@ -351,7 +375,7 @@ class EnergyProfileManager:
             self._load_error = False
             self._apply_profile(profile)
         self._notify(CHANGE_PROFILE)
-        return self.profile_result()
+        return {**self.profile_result(), "energy_meters": _meters_result(profile, report)}
 
     def _apply_profile(self, profile: EnergyProfileV2) -> None:
         self._stop_tracking()

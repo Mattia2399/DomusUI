@@ -50,6 +50,12 @@
   partial, with how many devices contribute, instead of being shown as
   complete; the live state also lists every device. Existing single-device
   installations read exactly as before.
+- Energy meters declared in the energy installation (grid import and export,
+  production, consumption, battery charge and discharge, wallbox) are checked
+  against Home Assistant's long-term statistics: valid, waiting for their
+  first statistics, unavailable, unknown or incompatible. A power or
+  temperature sensor is refused as an energy meter, while a meter that is new
+  or temporarily unavailable, or a stopped Recorder, never blocks a save.
 
 ### Changed
 

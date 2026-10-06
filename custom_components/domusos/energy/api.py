@@ -42,12 +42,6 @@ def _send_error(
         connection.send_error(message_id, "unknown_error", "Domus Energy request failed")
 
 
-def _profile_result(manager: EnergyProfileManager) -> dict[str, Any]:
-    # ``profile`` keeps the v1 shape for current clients and is null when v1
-    # cannot hold the profile; ``profile_v2`` is always the full v2 document.
-    return manager.profile_result()
-
-
 @websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/get_profile"})
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -58,7 +52,9 @@ async def websocket_get_profile(
 ) -> None:
     """Return the confirmed profile and the condition of every module."""
     try:
-        connection.send_result(msg["id"], _profile_result(_manager(hass)))
+        # ``profile`` keeps the v1 shape for current clients and is null when v1
+        # cannot hold the profile; ``profile_v2`` is always the full v2 document.
+        connection.send_result(msg["id"], await _manager(hass).async_profile_result())
     except Exception as err:  # Converted into a stable websocket error contract.
         _send_error(connection, msg["id"], err)
 
@@ -87,10 +83,12 @@ async def websocket_save_profile(
             raise EnergyValidationError("Send either profile (v1) or profile_v2")
         manager = _manager(hass)
         if "profile_v2" in msg:
-            await manager.async_save_profile(msg["profile_v2"], msg["expected_revision"], version=2)
+            result = await manager.async_save_profile(
+                msg["profile_v2"], msg["expected_revision"], version=2
+            )
         else:
-            await manager.async_save_profile(msg["profile"], msg["expected_revision"])
-        connection.send_result(msg["id"], _profile_result(manager))
+            result = await manager.async_save_profile(msg["profile"], msg["expected_revision"])
+        connection.send_result(msg["id"], result)
     except Exception as err:
         _send_error(connection, msg["id"], err)
 
