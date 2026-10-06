@@ -1,10 +1,4 @@
-import {
-  ENERGY_MODULES,
-  type EnergyConfidence,
-  type EnergyDiscovery,
-  type EnergyModuleId,
-  type EnergyProfileModules,
-} from '../../../services/energyCoreClient';
+import { ENERGY_MODULES, type EnergyModuleId, type EnergyProfileModules } from '../../../services/energyCoreClient';
 import { MODULE_META } from './energyModel';
 
 export type DraftModule = {
@@ -17,14 +11,6 @@ export type DraftModule = {
 export type EnergyDraft = Record<EnergyModuleId, DraftModule>;
 
 export type DraftIssue = { module: EnergyModuleId; role?: string; message: string };
-
-export type DraftSuggestion = {
-  module: EnergyModuleId;
-  role: string;
-  entityId: string;
-  confidence: EnergyConfidence;
-  signConvention: string | null;
-};
 
 export const SENSOR_PATTERN = /^sensor\.[a-z0-9_]+$/;
 
@@ -48,27 +34,6 @@ export function draftFromProfile(modules: EnergyProfileModules): EnergyDraft {
       mode: module.sensors.net_power ? 'net' : 'split',
       sensors: { ...module.sensors },
       signConvention: module.sign_convention ?? '',
-    };
-  }
-  return draft;
-}
-
-/**
- * First-run draft: only unique, reliable discovery matches are preselected.
- * Signed sensors are preselected without a convention, which stays required.
- */
-export function draftFromDiscovery(discovery: EnergyDiscovery): EnergyDraft {
-  const draft = draftFromProfile(discovery.suggested_profile.modules);
-  for (const item of discovery.requires_input) {
-    const module = draft[item.module];
-    if (module.present && module.mode === 'split' && Object.keys(module.sensors).some((role) => role !== 'state_of_charge')) {
-      continue;
-    }
-    draft[item.module] = {
-      present: true,
-      mode: 'net',
-      sensors: { ...module.sensors, [item.role]: item.entity_id },
-      signConvention: '',
     };
   }
   return draft;
@@ -125,41 +90,6 @@ export function powerIssues(
 export function validateDraft(draft: EnergyDraft): DraftIssue[] {
   const used = new Map<string, string>();
   return ENERGY_MODULES.flatMap((id) => (draft[id].present ? powerIssues(id, draft[id], used) : []));
-}
-
-/** Discovery matches that differ from the draft; never applied automatically. */
-export function pendingSuggestions(draft: EnergyDraft, discovery: EnergyDiscovery): DraftSuggestion[] {
-  const suggestions: DraftSuggestion[] = [];
-  const add = (module: EnergyModuleId, role: string, entityId: string, signConvention: string | null) => {
-    const current = draft[module];
-    if (current.present && current.sensors[role] === entityId) return;
-    const best = discovery.proposals[module]?.[role]?.find((item) => item.entity_id === entityId);
-    suggestions.push({ module, role, entityId, confidence: best?.confidence ?? 'medium', signConvention });
-  };
-  for (const id of ENERGY_MODULES) {
-    const module = discovery.suggested_profile.modules[id];
-    for (const [role, entityId] of Object.entries(module?.sensors ?? {})) {
-      add(id, role, entityId, role === 'net_power' ? module?.sign_convention ?? null : null);
-    }
-  }
-  for (const item of discovery.requires_input) add(item.module, item.role, item.entity_id, null);
-  return suggestions;
-}
-
-export function applySuggestion(draft: EnergyDraft, suggestion: DraftSuggestion): EnergyDraft {
-  const current = draft[suggestion.module];
-  const mode = suggestion.role === 'net_power'
-    ? 'net'
-    : MODULE_META[suggestion.module].roles.find((spec) => spec.role === suggestion.role)?.mode ?? current.mode;
-  return {
-    ...draft,
-    [suggestion.module]: {
-      present: true,
-      mode,
-      sensors: { ...current.sensors, [suggestion.role]: suggestion.entityId },
-      signConvention: suggestion.role === 'net_power' ? suggestion.signConvention ?? '' : current.signConvention,
-    },
-  };
 }
 
 export const sameModules = (left: EnergyProfileModules, right: EnergyProfileModules) =>

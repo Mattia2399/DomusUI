@@ -1,14 +1,11 @@
 import { Check } from 'lucide-react';
 import type { EnergyModuleId } from '../../../services/energyCoreClient';
-import type { EnergyDraft } from './energyDraft';
 import { UI } from './energyModel';
 
-/* Plant type picker for the bindings step: one illustrated tile per hardware combination. */
+/* Plant type picker of a first setup: one illustrated tile per hardware combination. */
 
 type Hardware = Exclude<EnergyModuleId, 'home'>;
 export type PlantId = string;
-
-const HARDWARE: Hardware[] = ['grid', 'solar', 'battery', 'wallbox'];
 
 /** Every combination with a grid connection; anything else (off-grid, partial metering) is "Altro". */
 const PLANTS: Array<{ id: PlantId; title: string; modules: Hardware[] }> = [
@@ -23,36 +20,11 @@ const PLANTS: Array<{ id: PlantId; title: string; modules: Hardware[] }> = [
 ];
 export const OTHER_PLANT = 'other';
 
-const NAME: Record<EnergyModuleId, string> = {
-  grid: 'la rete elettrica',
-  solar: 'il fotovoltaico',
-  battery: 'una batteria',
-  wallbox: 'una wallbox',
-  home: 'il misuratore dei consumi di casa',
-};
 const SHORT: Record<Hardware, string> = { grid: 'Rete', solar: 'fotovoltaico', battery: 'batteria', wallbox: 'wallbox' };
 
 const listOf = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
 
-/** "la rete elettrica, il fotovoltaico e una batteria" for the modules present in a draft. */
-export const plantSentence = (ids: EnergyModuleId[]) => listOf(ids.map((id) => NAME[id]));
-
-/** The tile matching the hardware in a draft, or null when it matches none. */
-export function plantFor(draft: EnergyDraft): PlantId | null {
-  const present = HARDWARE.filter((id) => draft[id].present);
-  return PLANTS.find((plant) => plant.modules.length === present.length && plant.modules.every((id) => present.includes(id)))?.id ?? null;
-}
-
 export const plantModules = (id: PlantId) => PLANTS.find((plant) => plant.id === id)?.modules ?? [];
-export const plantTitle = (id: PlantId) => PLANTS.find((plant) => plant.id === id)?.title ?? 'Altro';
-
-/** Selecting a plant only toggles presence: sensors already chosen are kept for when a module comes back. */
-export function applyPlant(draft: EnergyDraft, id: PlantId): EnergyDraft {
-  const modules = plantModules(id);
-  return Object.fromEntries(
-    Object.entries(draft).map(([key, module]) => [key, key === 'home' ? module : { ...module, present: modules.includes(key as Hardware) }]),
-  ) as EnergyDraft;
-}
 
 /** Line drawing of a house with only the installed hardware around it. */
 export function PlantIllustration({ modules, className = '' }: { modules: EnergyModuleId[]; className?: string }) {

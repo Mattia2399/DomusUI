@@ -70,12 +70,14 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore, energyHis
   const loading_ = <Message icon={<LoaderCircle className={UI.spin} />} title="Apertura…" />;
   if (settings && energy && canManage) {
     return (
-      <DetailScaffold title="Impostazioni Energia" subtitle="Impianto, sensori e tariffa" onBack={() => { setSettings(false); setSettingsModule(null); }} showBeta={false}>
+      <DetailScaffold title="Impostazioni Energia" subtitle="Impianto, sensori e tariffa" onBack={() => { setSettings(false); setSettingsModule(null); setNotice(''); }} showBeta={false}>
+        {/* Back from a guided setup opened here: its outcome stays visible above the settings. */}
+        {notice ? <p role="status" className="liquid-glass-card mb-4 px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}
         <LazyLoadBoundary mode="section" fallback={loading_}>
           <EnergySettings
             callApi={energy.callApi}
             haStates={energy.haStates}
-            onRediscover={() => setWizard('rediscover')}
+            onRediscover={() => { setNotice(''); setWizard('rediscover'); }}
             onSaved={() => void reload()}
             initialModule={settingsModule}
           />

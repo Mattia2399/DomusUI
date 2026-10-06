@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import type { EnergyPlant } from '../../../services/energyCoreClient';
 import {
+  MAX_DEVICES_PER_MODULE,
+  addDevice,
+  modulesFromPlant,
+  pendingConfirmations,
   plantChanged,
+  plantChanges,
   plantDraftFromProfile,
   plantFromDraft,
+  plantFromModules,
+  removeDevice,
   removedDevices,
+  reservedIds,
+  takenSensors,
   validatePlantDraft,
   type PlantDraft,
 } from './energyPlantDraft';
@@ -98,5 +107,64 @@ describe('Energy Profile v2 draft', () => {
       'Serve almeno un sensore di potenza o un contatore di energia.',
       'Conferma il significato dei valori positivi.',
     ]);
+  });
+});
+
+describe('Editing a plant draft', () => {
+  it('gives new devices free ids, never a retired one, and drops them without a trace', () => {
+    const reserved = reservedIds(PLANT, ['solar-2']);
+    let { draft, id } = addDevice(plantDraftFromProfile(PLANT), 'solar', reserved, { id: 'solar-2', name: 'Pergola' });
+    expect(id).toBe('solar-4');
+    ({ draft, id } = addDevice(draft, 'wallbox', reserved, { id: 'wallbox-7' }));
+    expect(id).toBe('wallbox-7');
+    // A suggestion for another module is not taken.
+    expect(addDevice(draft, 'home', reserved, { id: 'solar-9' }).id).toBe('home-1');
+
+    const dropped = removeDevice(draft, 'solar', 'solar-4');
+    expect(dropped.solar!.devices.map((device) => device.id)).toEqual(['solar-1', 'solar-3']);
+    const marked = removeDevice(dropped, 'solar', 'solar-1');
+    expect(marked.solar!.devices[0].removed).toBe(true);
+    expect(removedDevices(marked).map((item) => item.device.id)).toEqual(['solar-1']);
+  });
+
+  it('allows up to sixteen devices per module', () => {
+    let draft: PlantDraft = {};
+    for (let index = 0; index <= MAX_DEVICES_PER_MODULE; index += 1) {
+      draft = addDevice(draft, 'wallbox', new Set(), { power: { present: true, mode: 'split', sensors: { charging_power: `sensor.wb${index}` }, signConvention: '' } }).draft;
+    }
+    expect(validatePlantDraft(draft).map((issue) => issue.message)).toEqual([expect.stringMatching(/16/)]);
+    expect(validatePlantDraft({ wallbox: { devices: draft.wallbox!.devices.slice(1) } })).toEqual([]);
+  });
+
+  it('moves between v1 modules and a plant only without loss', () => {
+    const modules = { grid: { sensors: { net_power: 'sensor.grid' }, sign_convention: 'positive_import' } };
+    const plant = plantFromModules(modules);
+    expect(plant).toEqual({ grid: { devices: [{ id: 'grid-1', name: null, ha_device_id: null, power: modules.grid }] } });
+    expect(modulesFromPlant(plant)).toEqual(modules);
+    expect(modulesFromPlant(PLANT)).toBeNull();
+    expect(modulesFromPlant({ grid: { devices: [{ ...plant.grid!.devices[0], name: 'Contatore' }] } })).toBeNull();
+  });
+
+  it('describes the changes and lists what needs a confirmation', () => {
+    let draft = edit(plantDraftFromProfile(PLANT), 'grid', 0, (device) => { device.meters.export_energy = 'opower:export'; });
+    draft = edit(draft, 'battery', 0, (device) => { device.removed = true; });
+    draft = addDevice(draft, 'wallbox', reservedIds(PLANT), { name: 'Box', meters: { charging_energy: 'sensor.wb_a\nsensor.wb_b' } }).draft;
+
+    expect(plantChanges(PLANT, draft).map((change) => change.title)).toEqual([
+      'Rete: Rete 1', 'Batteria: rimosso Garage', 'Wallbox: aggiunto Box',
+    ]);
+    expect(plantChanges(PLANT, draft)[0].details).toEqual(['Energia immessa: aggiunti opower:export']);
+    const confirmations = pendingConfirmations(PLANT, draft, (id) => id === 'sensor.wb_a' || id === 'sensor.wb_b');
+    expect(confirmations.map((item) => item.key)).toEqual(['meter:opower:export', 'parts:wallbox:Box:charging_energy', 'remove:battery-1']);
+    // The F1/F2/F3 parts already stored, unchanged, are not asked again.
+    expect(pendingConfirmations(PLANT, plantDraftFromProfile(PLANT), () => false)).toEqual([]);
+  });
+
+  it('knows which sensors are already used, and by whom', () => {
+    const taken = takenSensors(edit(plantDraftFromProfile(PLANT), 'solar', 1, (device) => { device.removed = true; }));
+    expect(taken['sensor.inv1']).toBe('Tetto');
+    expect(taken['sensor.f2']).toBe('Rete 1');
+    expect(taken['sensor.pv_total']).toBe('Fotovoltaico · totale');
+    expect(taken['sensor.inv3']).toBeUndefined();
   });
 });

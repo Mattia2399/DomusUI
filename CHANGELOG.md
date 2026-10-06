@@ -73,6 +73,12 @@
   sensors, sign conventions, energy meters with their verification and
   battery capacities, with a confirmation before removing a device. Every
   save sends the whole installation and keeps the tariff.
+- The guided Energy setup configures installations with several inverters,
+  batteries, wallboxes and meters, for a first setup or on an existing one:
+  each detected device, new sensor, correction or total is added only on
+  request, sensors are chosen from a searchable list that leaves out
+  incompatible ones, and a summary lists every change and asks to confirm
+  unverified meters, summed tariff-band meters and removals before saving.
 
 ### Changed
 

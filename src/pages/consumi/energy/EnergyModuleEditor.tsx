@@ -1,7 +1,10 @@
+import React from 'react';
 import type { MockEntityStateMap } from '../../../types/ha';
 import type { EnergyConfidence, EnergyDiscovery, EnergyModuleId } from '../../../services/energyCoreClient';
 import { activeRoles, type DraftIssue, type DraftModule } from './energyDraft';
 import { MODULE_META, REASON_LABEL, UI, formatQuantity } from './energyModel';
+import { EnergySensorPicker } from './EnergySensorPicker';
+import { sensorOptions } from './energySensorCatalog';
 
 /* Module binding editor shared by the setup wizard and the Energy settings. */
 
@@ -34,6 +37,7 @@ function SensorField({
   value,
   discovery,
   haStates,
+  taken,
   error,
   onChange,
 }: {
@@ -43,24 +47,24 @@ function SensorField({
   value: string;
   discovery: EnergyDiscovery | null;
   haStates: MockEntityStateMap;
+  taken?: Record<string, string>;
   error?: DraftIssue;
   onChange: (value: string) => void;
 }) {
   const inputId = `energy-${instanceId}-${role}`;
+  const kind = role === 'state_of_charge' ? 'soc' : 'power';
+  const options = React.useMemo(() => sensorOptions(haStates, discovery, kind), [haStates, discovery, kind]);
   return (
     <div className="space-y-1.5">
       <label htmlFor={inputId} className={`block text-sm ${UI.title}`}>{roleLabel(id, role)}</label>
-      <input
+      <EnergySensorPicker
         id={inputId}
-        list="energy-sensors"
         value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="sensor.…"
-        spellCheck={false}
-        autoComplete="off"
-        aria-invalid={Boolean(error)}
-        aria-describedby={`${inputId}-hint`}
-        className="liquid-glass-control min-h-10 w-full rounded-xl px-3 font-mono text-sm"
+        options={options}
+        taken={taken}
+        onChange={onChange}
+        invalid={Boolean(error)}
+        describedBy={`${inputId}-hint`}
       />
       <p id={`${inputId}-hint`} className={error ? ERROR_TEXT : UI.muted}>{error?.message ?? hintFor(value, discovery, haStates)}</p>
       <div className="flex flex-wrap gap-1.5">
@@ -93,6 +97,7 @@ export function ModuleEditor({
   title,
   hint,
   toggleLabels,
+  taken,
   onChange,
 }: {
   id: EnergyModuleId;
@@ -105,6 +110,8 @@ export function ModuleEditor({
   hint?: string;
   /** Labels of the presence toggle: [remove, add]. */
   toggleLabels?: [string, string];
+  /** Sensors already used elsewhere in the plant, by holder. */
+  taken?: Record<string, string>;
   offline: boolean;
   discovery: EnergyDiscovery | null;
   haStates: MockEntityStateMap;
@@ -158,6 +165,7 @@ export function ModuleEditor({
               id={id}
               instanceId={instanceId}
               role={role}
+              taken={taken}
               value={module.sensors[role] ?? ''}
               discovery={discovery}
               haStates={haStates}

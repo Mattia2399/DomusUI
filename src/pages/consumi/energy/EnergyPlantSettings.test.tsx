@@ -79,9 +79,9 @@ function backend({ modules, recorder = 'available', diverged = false }: Options 
   return { callApi, saves, failNext: (error: unknown) => { fail = error; } };
 }
 
-function renderSettings(api: ReturnType<typeof backend>) {
+function renderSettings(api: ReturnType<typeof backend>, onRediscover = vi.fn()) {
   const onSaved = vi.fn();
-  render(<EnergySettings callApi={api.callApi} haStates={{}} onRediscover={vi.fn()} onSaved={onSaved} />);
+  render(<EnergySettings callApi={api.callApi} haStates={{}} onRediscover={onRediscover} onSaved={onSaved} />);
   return onSaved;
 }
 
@@ -196,6 +196,24 @@ describe('Energy Profile v2 settings', () => {
     expect(screen.queryByRole('region', { name: 'Rete' })).toBeNull();
   });
 
+  it('edits or removes the total sensor and opens the guided setup for new devices', async () => {
+    const api = backend();
+    const onRediscover = vi.fn();
+    renderSettings(api, onRediscover);
+    const plant = await plantRegion();
+    fireEvent.click(within(plant).getByRole('button', { name: 'Aggiungi dispositivi o nuovo rilevamento' }));
+    expect(onRediscover).toHaveBeenCalledOnce();
+
+    fireEvent.click(within(plant).getByRole('button', { name: 'Modifica il sensore totale di Fotovoltaico' }));
+    expect(screen.getByText(/non vengono sommati a esso/)).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Rimuovi il sensore totale' }));
+    fireEvent.click(within(plant).getByRole('button', { name: 'Salva impianto' }));
+    await screen.findByText('Impianto salvato.');
+    const saved = (api.saves[0].profile_v2 as { plant: EnergyPlant }).plant;
+    expect(saved.solar).toEqual({ devices: PLANT.solar!.devices });
+    expect(saved.battery).toEqual(PLANT.battery);
+  });
+
   it('keeps the classic settings when v1 can hold the profile', async () => {
     renderSettings(backend({ modules: { wallbox: { sensors: { charging_power: 'sensor.wb' } } } }));
     const plant = await plantRegion();
@@ -205,13 +223,26 @@ describe('Energy Profile v2 settings', () => {
 });
 
 describe('Setup wizard on a v2 plant', () => {
-  it('stops with an explanation instead of saving a v1 profile that would drop devices', async () => {
+  it('keeps every configured device and meter, never applies the suggested plant, and saves the whole plant', async () => {
     const api = backend();
-    const onClose = vi.fn();
-    render(<EnergySetupWizard mode="rediscover" callApi={api.callApi} haStates={{}} onClose={onClose} onSaved={vi.fn()} />);
-    expect((await screen.findByText(/più dispositivi o contatori di energia/)).textContent).toMatch(/perderebbe/);
-    fireEvent.click(screen.getByRole('button', { name: 'Chiudi' }));
-    expect(onClose).toHaveBeenCalled();
-    expect(api.saves).toHaveLength(0);
+    const onSaved = vi.fn();
+    render(<EnergySetupWizard mode="rediscover" callApi={api.callApi} haStates={{}} onClose={vi.fn()} onSaved={onSaved} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Avanti' }));
+    const solar = screen.getByRole('region', { name: 'Fotovoltaico' });
+    expect(within(solar).getByText('Inverter Tetto')).not.toBeNull();
+    // The existing incompatible meter is shown, but it does not block: only new references are checked.
+    fireEvent.click(within(screen.getByRole('region', { name: 'Wallbox' })).getByRole('button', { name: 'Aggiungi wallbox' }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Potenza di ricarica' }), { target: { value: 'sensor.wb2' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    expect(screen.queryByRole('region', { name: 'Da correggere' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    const saved = api.saves[0] as { profile_v2: { plant: EnergyPlant }; expected_revision: number };
+    expect(saved.expected_revision).toBe(7);
+    expect(saved.profile_v2).toEqual({ plant: {
+      ...PLANT,
+      wallbox: { devices: [...PLANT.wallbox!.devices, { id: 'wallbox-2', name: null, ha_device_id: null, power: { sensors: { charging_power: 'sensor.wb2' } } }] },
+    } });
   });
 });

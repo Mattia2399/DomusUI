@@ -148,10 +148,8 @@ export default function EnergySettings({
             discovery={discovery}
             initialModule={initialModule}
             onSaved={(result) => { apply(result); onSaved(); }}
+            onRediscover={onRediscover}
           />
-          <datalist id="energy-sensors">
-            {Object.keys(haStates).filter((id) => id.startsWith('sensor.')).map((id) => <option key={id} value={id} />)}
-          </datalist>
         </Group>
       ) : null}
       {v1 ? (
@@ -213,9 +211,6 @@ export default function EnergySettings({
           </div>
           <div className="w-full"><StatusLine status={plantStatus} /></div>
         </div>
-        <datalist id="energy-sensors">
-          {Object.keys(haStates).filter((id) => id.startsWith('sensor.')).map((id) => <option key={id} value={id} />)}
-        </datalist>
       </Group>
       ) : null}
 

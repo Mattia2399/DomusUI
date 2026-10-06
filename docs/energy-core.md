@@ -730,34 +730,67 @@ section; no new route exists.
   on Consumi, so no energy sample is shown there.
 - **Guided setup** (administrators, loaded on demand) takes the whole detail
   area with its own header and close button (also Escape) and keeps its
-  actions pinned to the bottom. The first setup runs in six steps;
-  re-detection skips the tariff and runs in five:
-  1. Detection: on a first setup where discovery preselected a plant, a
-     summary with its illustration, the number of matched entities, the
-     components it includes and their sensors. A complete plant can be
-     confirmed directly (*Conferma impianto* skips to the next step after
-     the bindings); pending sign conventions and ambiguous matches are listed
-     and lead to the bindings. Otherwise, a per-module summary of what
-     `discover` found.
-  2. Plant type: illustrated tiles, one per grid-connected combination of
-     solar, battery and wallbox, drawn as a house with only that hardware,
-     plus *Altro* for off-grid or partial metering. A tile sets which modules
-     exist; drafts that fit no tile open on *Altro*.
-  3. Bindings: a summary of the chosen type with *Cambia*, then only the
-     sensors that type needs, with the home meter optional (*Altro* keeps
-     *Configura* or *Rimuovi* per module): directional or signed wiring,
-     suggested or manual sensors, an explicit sign convention for signed
-     sensors, and an offline flag for saved modules.
-  4. Tariff (first setup only, optional): the same fields as the settings
-     page. An empty form shows *Salta per ora*, a filled one can still be
-     skipped, and invalid prices block only until corrected or skipped.
-  5. Preview: the same diagram, showing only present modules with readings
-     the backend already normalized; derived consumption is announced as
-     computed after saving, plus a summary of the tariff or a note that it
-     can be added later.
-  6. Save: one `save_profile` call with the modules and, unless skipped, the
-     tariff, using the expected revision, with progress, success, and errors
-     that keep the draft.
+  actions pinned to the bottom. It works on the same Energy Profile v2 draft
+  as the settings (`energyPlantDraft.ts`), for every integration: a first
+  setup, a v1 plant (opened through the backend's in-memory conversion, saved
+  as v2 only on confirmation; the v1 store is never written) and a v2 plant
+  follow the same flow. A first setup runs in four steps (*Rilevamento*,
+  *Dispositivi*, *Tariffa*, *Riepilogo*); re-detection and *edit* skip the
+  tariff, and *edit* opens on the devices. Going back keeps every choice.
+  1. *Rilevamento*: `discover` sorted for review (`energyDiscoveryModel.ts`).
+     *Nuovi dispositivi* shows each proposal with its module, integration,
+     confidence, power sensors, meters with their Recorder status, and why it
+     was matched, with *Aggiungi* / *Togli*; *Aggiungi i N dispositivi
+     affidabili* adds only `eligible` ones, still on request. *Proposte per i
+     dispositivi configurati* lists additions (*Nuova sorgente*) and
+     corrections (*Possibile correzione*), each applied on its own with
+     *Applica*. *Sensori totali* offers verified totals (*Usa come totale*)
+     and presumed ones (*Usa comunque come totale*, with a warning). *Da
+     decidere* lists ambiguities and devices matching several configured
+     ones, never decided by Domus. A failed or empty discovery explains
+     itself and suggests the Energy dashboard. `suggested_plant` is never
+     used, a proposal adds a device under a free id (never a retired one),
+     meters the Recorder found incompatible are left out, and a sign
+     convention is preselected only when the discovery has evidence for it.
+     *Conferma impianto* skips to the next step when nothing needs fixing.
+  2. *Dispositivi*: on a first setup with nothing chosen, the illustrated
+     plant tiles add one device per module of the tile. Then a section per
+     module (`PlantModuleSection`, shared with the settings): devices with
+     *Nuovo*, *Modifica*, *Rimuovi* / *Ripristina*, *Aggiungi {inverter,
+     batteria…}* up to 16 per module, an optional total sensor once there are
+     two devices, and chips for modules not present yet. Each device editor
+     has its name, power sensors and sign convention (always explicit, never
+     guessed from the current value), energy meters per role (*Aggiungi un
+     contatore da sommare*, with the warning that the parts are summed) with
+     their Recorder status, and a battery's capacities (never invented).
+  3. *Tariffa* (first setup only, optional): the same fields as the settings
+     page; *Salta per ora* when empty, *Salta* when filled.
+  4. *Riepilogo*: modules and device counts, every change in words (devices
+     added or removed, sensors, meters, conventions, capacities, totals), the
+     tariff, *Da correggere* (blocking, with *Torna ai dispositivi*) and *Da
+     confermare*: new meters Home Assistant cannot verify (unknown or
+     external statistics typed by hand), new or changed summed meters
+     (*Verifica che rappresentino fasce differenti e non includano già un
+     totale*) and removals. Confirmations are not stored; *Salva impianto*
+     stays disabled until everything is confirmed and something changed.
+  - Saving sends the whole plant with `profile_v2` and the expected revision
+    (`saveEnergyPlant`), with the tariff only when entered. An integration
+    without v2 gets `profile` modules, only when the plant fits v1 (one
+    unnamed device per module, no meters or totals); otherwise the summary
+    says to update the integration. A failed save keeps the draft; a
+    revision conflict also offers *Carica la versione salvata (scarta la
+    bozza)*. Nothing is merged automatically. Opened from the settings, the
+    wizard returns there and shows the outcome.
+- **Sensor picker** (`EnergySensorPicker.tsx`, `energySensorCatalog.ts`): an
+  ARIA combobox over the Home Assistant sensors, searchable by name or id,
+  showing name, id, unit and device. Sensors that do not fit the role are
+  hidden behind *Mostra anche i N sensori non compatibili* and never
+  selectable, with the reason (a power sensor or a temperature as a meter, a
+  kWh meter as power, a non-cumulative meter); sensors used by another device
+  are disabled (*Già usato da …*). Any id can still be typed, such as an
+  external statistic (`opower:…`). The gates mirror the backend and apply to
+  new references only; the backend has the final word. Arrow keys, Enter and
+  Escape work, and Escape closes the list without closing the wizard.
 - **Settings** (*Impostazioni Energia*, administrators, loaded on demand)
   replace the wizard once a profile exists:
   - *Impianto*: one row per module with its sensors or *Non presente*, an
@@ -781,8 +814,8 @@ section; no new route exists.
     saves the whole plant with `profile_v2` and the expected revision; every
     other device, the total, the Home Assistant device and the tariff travel
     unchanged. A save that would leave a total with one device is blocked.
-    Adding devices, totals or modules is left to the multi-device setup;
-    the v1 wizard refuses to open on such a plant instead of dropping data.
+    Totals can be added, edited or removed, and *Aggiungi dispositivi o
+    nuovo rilevamento* opens the guided setup on the stored plant.
     The tariff is saved with the stored plant, never with unsaved edits.
   - Notices: a `legacy_v1.diverged` warning (an older Domus UI changed the
     plant after the update; nothing was merged), an unreadable stored
@@ -791,12 +824,12 @@ section; no new route exists.
     explained, never shown as network errors.
 - **Discovery v2** is typed and sorted for review (`energyDiscoveryModel.ts`:
   new devices, changes to confirm, configured, not detected, conflicts,
-  ambiguities, totals, incomplete verification). Nothing applies it:
-  `suggested_plant` never replaces the profile and high confidence is not
-  consent.
+  ambiguities, totals, incomplete verification). Integrations without the v2
+  result are adapted from their v1 proposals (one device per module). Nothing
+  applies it on its own: `suggested_plant` never replaces the profile and
+  high confidence is not consent.
 - **Re-detection** never changes confirmed bindings: differences are listed
-  with an *Applica* action. Only a first setup preselects unique high or medium
-  confidence matches, and nothing is saved without confirmation.
+  with an *Applica* action, and nothing is saved without confirmation.
 - **Permissions**: everyone with Home Assistant access can view the page;
   configuration requires the `manage_energy` capability (owner or
   administrator), the client administrative API gate, and the backend's own
