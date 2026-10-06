@@ -720,6 +720,9 @@ export function ContextSidebar({
           name={activeDevice.name}
           supportedFeatures={activeDevice.calendarSupportedFeatures ?? 0}
           agenda={calendarAgenda}
+          onConfigureWaste={onNavigateMicroWidgetPage
+            ? () => onNavigateMicroWidgetPage('/settings/home/waste-collection')
+            : undefined}
         />
       ) : null}
 

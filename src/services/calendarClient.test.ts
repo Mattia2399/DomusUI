@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCalendarCreateMessage,
   buildCalendarSubscribeMessage,
+  isWasteCalendarEvent,
   parseCalendarAgendaPayload,
 } from './calendarClient';
 
@@ -42,5 +43,10 @@ describe('calendarClient', () => {
         description: 'Notes',
       },
     });
+  });
+
+  it('identifies derived waste collection rows as read-only events', () => {
+    expect(isWasteCalendarEvent({ uid: 'domus-ui-waste:paper:2026-10-07' })).toBe(true);
+    expect(isWasteCalendarEvent({ uid: 'ordinary-event' })).toBe(false);
   });
 });

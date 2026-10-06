@@ -16,6 +16,7 @@ from custom_components.domusos.calendar_store import DomusCalendarStore
 from custom_components.domusos.const import DOMAIN, PANEL_URL_PATH
 from custom_components.domusos.core import DomusRuntime, RuntimeState
 from custom_components.domusos.irrigation import IrrigationManager
+from custom_components.domusos.waste_collection import WasteCollectionManager
 
 
 async def test_runtime_lifecycle_is_idempotent(hass: HomeAssistant) -> None:
@@ -76,6 +77,12 @@ async def test_entry_runtime_coexists_with_legacy_managers_and_unloads(
         patch.object(
             DomusCalendarStore, "async_shutdown", new=AsyncMock()
         ) as calendar_shutdown,
+        patch.object(
+            WasteCollectionManager, "async_setup", new=AsyncMock()
+        ) as waste_collection_setup,
+        patch.object(
+            WasteCollectionManager, "async_shutdown", new=AsyncMock()
+        ) as waste_collection_shutdown,
     ):
         assert await async_setup_entry(hass, entry)
 
@@ -86,6 +93,10 @@ async def test_entry_runtime_coexists_with_legacy_managers_and_unloads(
             domain_data["irrigation_manager"] is entry.runtime_data.irrigation_manager
         )
         assert domain_data["calendar_manager"] is entry.runtime_data.calendar_manager
+        assert (
+            domain_data["waste_collection_manager"]
+            is entry.runtime_data.waste_collection_manager
+        )
         assert entry.runtime_data.runtime.running
         assert entry.runtime_data.runtime.context.capabilities == frozenset(
             {"calendar", "irrigation"}
@@ -98,6 +109,7 @@ async def test_entry_runtime_coexists_with_legacy_managers_and_unloads(
         assert snapshot.get("irrigation")["available"] is True
         irrigation_setup.assert_awaited_once()
         calendar_setup.assert_awaited_once()
+        waste_collection_setup.assert_awaited_once()
 
         event_types: list[str] = []
         entry.runtime_data.runtime.events.subscribe_all(
@@ -122,6 +134,7 @@ async def test_entry_runtime_coexists_with_legacy_managers_and_unloads(
         assert "runtime" not in domain_data
         assert "irrigation_manager" not in domain_data
         assert "calendar_manager" not in domain_data
+        assert "waste_collection_manager" not in domain_data
         assert domain_data["static_registered"] is True
         assert entry.runtime_data.runtime.state is RuntimeState.STOPPED
         assert entry.runtime_data.runtime.context.capabilities == frozenset()
@@ -129,6 +142,7 @@ async def test_entry_runtime_coexists_with_legacy_managers_and_unloads(
         assert entry.runtime_data.calendar_manager._listeners == set()
         irrigation_shutdown.assert_awaited_once()
         calendar_shutdown.assert_awaited_once()
+        waste_collection_shutdown.assert_awaited_once()
 
 
 async def test_reload_replaces_providers_without_zombie_bindings(
@@ -163,6 +177,8 @@ async def test_reload_replaces_providers_without_zombie_bindings(
         patch.object(IrrigationManager, "async_shutdown", new=AsyncMock()),
         patch.object(DomusCalendarStore, "async_setup", new=AsyncMock()),
         patch.object(DomusCalendarStore, "async_shutdown", new=AsyncMock()),
+        patch.object(WasteCollectionManager, "async_setup", new=AsyncMock()),
+        patch.object(WasteCollectionManager, "async_shutdown", new=AsyncMock()),
     ):
         assert await async_setup_entry(hass, entry)
         first = entry.runtime_data
@@ -203,14 +219,18 @@ async def test_setup_failure_rolls_back_providers_before_managers(
     manager.async_setup = AsyncMock()
     calendar = DomusCalendarStore(hass)
     calendar.async_setup = AsyncMock()
+    waste_collection = WasteCollectionManager(hass)
+    waste_collection.async_setup = AsyncMock()
 
     async def assert_bindings_removed() -> None:
         assert runtime.context.capabilities == frozenset()
         assert manager._subscribers == set()
         assert calendar._listeners == set()
+        assert waste_collection._listeners == set()
 
     manager.async_shutdown = AsyncMock(side_effect=assert_bindings_removed)
     calendar.async_shutdown = AsyncMock(side_effect=assert_bindings_removed)
+    waste_collection.async_shutdown = AsyncMock(side_effect=assert_bindings_removed)
 
     with (
         patch("custom_components.domusos.Path.is_file", return_value=True),
@@ -221,6 +241,10 @@ async def test_setup_failure_rolls_back_providers_before_managers(
         patch("custom_components.domusos.DomusRuntime", return_value=runtime),
         patch("custom_components.domusos.IrrigationManager", return_value=manager),
         patch("custom_components.domusos.DomusCalendarStore", return_value=calendar),
+        patch(
+            "custom_components.domusos.WasteCollectionManager",
+            return_value=waste_collection,
+        ),
         patch(
             "custom_components.domusos.panel_custom.async_register_panel",
             new=AsyncMock(),
@@ -242,6 +266,7 @@ async def test_setup_failure_rolls_back_providers_before_managers(
     assert "runtime" not in domain_data
     assert "irrigation_manager" not in domain_data
     assert "calendar_manager" not in domain_data
+    assert "waste_collection_manager" not in domain_data
     assert entry.runtime_data is None
     assert runtime.state is RuntimeState.STOPPED
     assert runtime.context.capabilities == frozenset()
@@ -249,4 +274,5 @@ async def test_setup_failure_rolls_back_providers_before_managers(
     assert calendar._listeners == set()
     manager.async_shutdown.assert_awaited_once()
     calendar.async_shutdown.assert_awaited_once()
+    waste_collection.async_shutdown.assert_awaited_once()
     remove_panel.assert_called_once_with(hass, PANEL_URL_PATH)

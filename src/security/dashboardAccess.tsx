@@ -66,6 +66,8 @@ const ADMINISTRATIVE_API_TYPES = new Set([
   'frontend/set_system_data',
   'person/update',
   'person/create',
+  'domusos/waste_collection/save_config',
+  'domusos/waste_collection/test_notification',
 ]);
 
 export function isDashboardAdministrativeApiMessage(message: Record<string, unknown>) {

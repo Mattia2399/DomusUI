@@ -11243,6 +11243,7 @@ export function MainBoard() {
               haUrl={haUrl}
               haToken={haToken}
               onCallService={callHaService}
+              onCallApi={callHaApi}
             />
           </div>
         ) : isAppGalleryView ? (
@@ -11330,6 +11331,7 @@ export function MainBoard() {
               onRefreshLayoutRevisions={haDashboardLayoutPersistence.refreshRevisionHistory}
               onRestoreLayoutRevision={haDashboardLayoutPersistence.restoreRevision}
               onCallService={callHaService}
+              onCallApi={callHaApi}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}
               managedSectionContent={

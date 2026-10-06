@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.domusos.calendar import DomusCalendarEntity, IRRIGATION_UID_PREFIX
+from custom_components.domusos.waste_collection.manager import WASTE_UID_PREFIX
 from custom_components.domusos.calendar_store import DomusCalendarStore
 
 
@@ -175,3 +176,40 @@ async def test_entity_derives_read_only_irrigation_events(hass: HomeAssistant) -
 
     with pytest.raises(HomeAssistantError, match="read-only"):
         await entity.async_delete_event(events[0].uid)
+
+
+async def test_entity_merges_read_only_waste_collection_rows(hass: HomeAssistant) -> None:
+    manager = await calendar_store(hass)
+    waste = Mock()
+    waste.next_event.return_value = None
+    waste.async_events_between = AsyncMock(return_value=([
+        Mock(
+            uid=f"{WASTE_UID_PREFIX}organic:2099-02-01",
+            summary="Organico",
+            start=date(2099, 2, 1),
+            end=date(2099, 2, 2),
+            start_datetime_local=datetime(2099, 2, 1, tzinfo=timezone.utc),
+        ),
+        Mock(
+            uid=f"{WASTE_UID_PREFIX}paper:2099-02-01",
+            summary="Carta",
+            start=date(2099, 2, 1),
+            end=date(2099, 2, 2),
+            start_datetime_local=datetime(2099, 2, 1, tzinfo=timezone.utc),
+        ),
+    ], []))
+    entity = DomusCalendarEntity(manager, None, waste)
+    entity.hass = hass
+
+    events = await entity.async_get_events(
+        hass,
+        datetime(2099, 2, 1, tzinfo=timezone.utc),
+        datetime(2099, 2, 2, tzinfo=timezone.utc),
+    )
+
+    assert [event.summary for event in events] == ["Organico", "Carta"]
+    with pytest.raises(HomeAssistantError, match="read-only"):
+        await entity.async_update_event(
+            events[0].uid,
+            {"start": date(2099, 2, 2), "end": date(2099, 2, 3), "summary": "Moved"},
+        )

@@ -31,6 +31,8 @@ from .context_providers import register_core_bindings
 from .core import DomusRuntime
 from .irrigation import IrrigationManager
 from .irrigation.api import async_register_irrigation_api
+from .waste_collection import WasteCollectionManager
+from .waste_collection.api import async_register_waste_collection_api
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = [Platform.CALENDAR]
@@ -43,6 +45,7 @@ class DomusEntryData:
     runtime: DomusRuntime
     irrigation_manager: IrrigationManager
     calendar_manager: DomusCalendarStore
+    waste_collection_manager: WasteCollectionManager
     unregister_core_bindings: Callable[[], None] | None = None
 
 
@@ -64,6 +67,7 @@ def _panel_exists(hass: HomeAssistant, frontend_url_path: str) -> bool:
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Domus UI."""
     await async_register_irrigation_api(hass)
+    await async_register_waste_collection_api(hass)
     return True
 
 
@@ -119,20 +123,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
     runtime = DomusRuntime(hass)
     manager = IrrigationManager(hass)
     calendar_manager = DomusCalendarStore(hass)
+    waste_collection_manager = WasteCollectionManager(hass)
     entry_data = DomusEntryData(
         runtime=runtime,
         irrigation_manager=manager,
         calendar_manager=calendar_manager,
+        waste_collection_manager=waste_collection_manager,
     )
     runtime_started = False
     manager_started = False
     calendar_started = False
+    waste_collection_started = False
     try:
         runtime_started = True
         await runtime.async_setup()
         domain_data["runtime"] = runtime
         manager_started = True
         await manager.async_setup()
+        waste_collection_started = True
+        await waste_collection_manager.async_setup()
         calendar_started = True
         await calendar_manager.async_setup()
         entry_data.unregister_core_bindings = register_core_bindings(
@@ -144,6 +153,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
         await panel_custom.async_register_panel(hass=hass, **panel_options)
         domain_data["irrigation_manager"] = manager
         domain_data["calendar_manager"] = calendar_manager
+        domain_data["waste_collection_manager"] = waste_collection_manager
         entry.runtime_data = entry_data
         await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     except Exception:
@@ -153,6 +163,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             domain_data.pop("irrigation_manager", None)
         if domain_data.get("calendar_manager") is calendar_manager:
             domain_data.pop("calendar_manager", None)
+        if domain_data.get("waste_collection_manager") is waste_collection_manager:
+            domain_data.pop("waste_collection_manager", None)
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
         if entry_data.unregister_core_bindings is not None:
@@ -162,6 +174,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             entry.runtime_data = None
         if calendar_started:
             await calendar_manager.async_shutdown()
+        if waste_collection_started:
+            await waste_collection_manager.async_shutdown()
         if manager_started:
             await manager.async_shutdown()
         if runtime_started:
@@ -204,6 +218,15 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
         await calendar_manager.async_shutdown()
         if domain_data.get("calendar_manager") is calendar_manager:
             domain_data.pop("calendar_manager", None)
+    waste_collection_manager = (
+        entry_data.waste_collection_manager
+        if isinstance(entry_data, DomusEntryData)
+        else domain_data.get("waste_collection_manager")
+    )
+    if isinstance(waste_collection_manager, WasteCollectionManager):
+        await waste_collection_manager.async_shutdown()
+        if domain_data.get("waste_collection_manager") is waste_collection_manager:
+            domain_data.pop("waste_collection_manager", None)
     runtime = (
         entry_data.runtime
         if isinstance(entry_data, DomusEntryData)

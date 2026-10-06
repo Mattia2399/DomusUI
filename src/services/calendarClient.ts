@@ -2,6 +2,7 @@ export const CALENDAR_FEATURE_CREATE_EVENT = 1;
 export const CALENDAR_FEATURE_DELETE_EVENT = 2;
 export const CALENDAR_FEATURE_UPDATE_EVENT = 4;
 export const IRRIGATION_CALENDAR_UID_PREFIX = 'domus-ui-irrigation:';
+export const WASTE_CALENDAR_UID_PREFIX = 'domus-ui-waste:';
 export const CALENDAR_UPCOMING_EVENTS_ATTRIBUTE = '__domus_ui_calendar_events';
 
 export type CalendarAgendaEvent = {
@@ -18,6 +19,10 @@ export type CalendarEventDraft = Omit<CalendarAgendaEvent, 'uid'>;
 
 export function isIrrigationCalendarEvent(event: Pick<CalendarAgendaEvent, 'uid'>) {
   return event.uid.startsWith(IRRIGATION_CALENDAR_UID_PREFIX);
+}
+
+export function isWasteCalendarEvent(event: Pick<CalendarAgendaEvent, 'uid'>) {
+  return event.uid.startsWith(WASTE_CALENDAR_UID_PREFIX);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

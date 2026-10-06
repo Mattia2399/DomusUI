@@ -54,6 +54,7 @@ const EVENT_ACCENTS = ['#34d399', '#60a5fa', '#a78bfa', '#f59e0b', '#f472b6'] as
 
 function eventAccent(event: CalendarCardEvent) {
   if (event.description?.toLowerCase().includes('domus core irrigation')) return EVENT_ACCENTS[0];
+  if (event.uid.startsWith('domus-ui-waste:')) return EVENT_ACCENTS[3];
   const source = `${event.title}|${event.location ?? ''}`;
   let hash = 0;
   for (let index = 0; index < source.length; index += 1) hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;

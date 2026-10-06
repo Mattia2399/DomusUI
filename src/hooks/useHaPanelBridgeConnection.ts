@@ -104,6 +104,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'dashboard_reset_marker',
   'irrigation_core',
   'calendar_v1',
+  'waste_collection_v1',
   'host_navigation',
   'person_links',
   'person_create',
@@ -173,6 +174,10 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/irrigation/resume',
   'domusos/irrigation/stop_all',
   'domusos/irrigation/prepare_legacy_removal',
+  'domusos/waste_collection/get_config',
+  'domusos/waste_collection/save_config',
+  'domusos/waste_collection/preview',
+  'domusos/waste_collection/test_notification',
   'calendar/event/subscribe',
   'calendar/event/create',
   'calendar/event/update',
@@ -274,6 +279,28 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type === 'person/create') {
     return isValidPersonCreateMessage(message);
+  }
+  if (message.type.startsWith('domusos/waste_collection/')) {
+    if (message.type === 'domusos/waste_collection/get_config' ||
+        message.type === 'domusos/waste_collection/test_notification') {
+      return Object.keys(message).every((key) => key === 'type');
+    }
+    if (message.type === 'domusos/waste_collection/preview') {
+      return Object.keys(message).every((key) => key === 'type' || key === 'days') &&
+        Number.isInteger(message.days) && Number(message.days) >= 1 && Number(message.days) <= 31;
+    }
+    if (message.type === 'domusos/waste_collection/save_config') {
+      if (!isRecord(message.config) ||
+          !(message.expected_revision === null || Number.isInteger(message.expected_revision)) ||
+          !Object.keys(message).every((key) => ['type', 'config', 'expected_revision'].includes(key))) {
+        return false;
+      }
+      try {
+        return JSON.stringify(message.config).length <= 100_000;
+      } catch {
+        return false;
+      }
+    }
   }
   if (message.type.startsWith('calendar/event/')) {
     if (typeof message.entity_id !== 'string' || !/^calendar\.[a-z0-9_]+$/.test(message.entity_id)) {

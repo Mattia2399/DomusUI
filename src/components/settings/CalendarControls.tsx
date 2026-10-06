@@ -9,6 +9,7 @@ import {
   CALENDAR_FEATURE_DELETE_EVENT,
   CALENDAR_FEATURE_UPDATE_EVENT,
   isIrrigationCalendarEvent,
+  isWasteCalendarEvent,
   type CalendarAgendaEvent,
   type CalendarEventDraft,
 } from '../../services/calendarClient';
@@ -17,6 +18,7 @@ type CalendarControlsProps = {
   name: string;
   supportedFeatures: number;
   agenda: CalendarAgendaController;
+  onConfigureWaste?: () => void;
 };
 
 type EventFormState = {
@@ -97,7 +99,7 @@ function toAllDayRange(startValue: string, endValue: string) {
   return { start, end };
 }
 
-export function CalendarControls({ name, supportedFeatures, agenda }: CalendarControlsProps) {
+export function CalendarControls({ name, supportedFeatures, agenda, onConfigureWaste }: CalendarControlsProps) {
   const { t, formatDate } = useI18n();
   const [form, setForm] = useState<EventFormState | null>(null);
   const canCreate = (supportedFeatures & CALENDAR_FEATURE_CREATE_EVENT) !== 0;
@@ -113,6 +115,7 @@ export function CalendarControls({ name, supportedFeatures, agenda }: CalendarCo
     });
     return [...groups.entries()];
   }, [agenda.events]);
+  const hasWasteEvents = agenda.events.some(isWasteCalendarEvent);
 
   const submit = async () => {
     if (!form || !draft) return;
@@ -216,6 +219,11 @@ export function CalendarControls({ name, supportedFeatures, agenda }: CalendarCo
             {!canCreate && !canUpdate && !canDelete ? (
               <p className="mt-3 rounded-xl bg-[color:var(--ui-fill-tertiary)] px-3 py-2 text-[11px] leading-4 text-[color:var(--ui-text-secondary)]">{t('calendar.panel.readOnly')}</p>
             ) : null}
+            {hasWasteEvents && onConfigureWaste ? (
+              <button type="button" onClick={onConfigureWaste} className="liquid-glass-control mt-3 inline-flex min-h-9 items-center rounded-full px-3 text-xs font-semibold">
+                {t('calendar.event.configureWaste')}
+              </button>
+            ) : null}
           </section>
 
           {agenda.status === 'loading' ? (
@@ -242,7 +250,8 @@ export function CalendarControls({ name, supportedFeatures, agenda }: CalendarCo
                 <div className="mt-2 space-y-2">
                   {events.map((event) => {
                     const irrigationEvent = isIrrigationCalendarEvent(event);
-                    const editable = !irrigationEvent && (canUpdate || canDelete);
+                    const wasteEvent = isWasteCalendarEvent(event);
+                    const editable = !irrigationEvent && !wasteEvent && (canUpdate || canDelete);
                     const start = toDisplayDate(event.start, event.allDay);
                     return (
                       <button
@@ -261,6 +270,7 @@ export function CalendarControls({ name, supportedFeatures, agenda }: CalendarCo
                             {event.allDay ? t('calendar.event.allDay') : formatDate(start, { hour: '2-digit', minute: '2-digit' })}
                           </span>
                           {irrigationEvent ? <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-emerald-300">{t('calendar.event.irrigationReadOnly')}</span> : null}
+                          {wasteEvent ? <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-300">{t('calendar.event.wasteReadOnly')}</span> : null}
                           {event.location ? <span className="mt-1 flex items-center gap-1 truncate text-[10px] text-[color:var(--ui-text-tertiary)]"><MapPin size={10} />{event.location}</span> : null}
                         </span>
                         {editable ? <Pencil size={13} className="mt-1 shrink-0 text-[color:var(--ui-text-tertiary)]" /> : null}

@@ -19,6 +19,8 @@ from homeassistant.util import dt as dt_util
 from .calendar_store import DomusCalendarStore
 from .const import DOMAIN
 from .irrigation import IrrigationManager
+from .waste_collection import WasteCollectionManager
+from .waste_collection.manager import WASTE_UID_PREFIX
 
 IRRIGATION_UID_PREFIX = "domus-ui-irrigation:"
 WEEKDAY_TOKENS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -32,7 +34,11 @@ async def async_setup_entry(
     """Set up the editable Domus UI calendar."""
     manager = hass.data[DOMAIN]["calendar_manager"]
     irrigation_manager = hass.data[DOMAIN].get("irrigation_manager")
-    async_add_entities([DomusCalendarEntity(manager, irrigation_manager)], True)
+    waste_collection_manager = hass.data[DOMAIN].get("waste_collection_manager")
+    async_add_entities(
+        [DomusCalendarEntity(manager, irrigation_manager, waste_collection_manager)],
+        True,
+    )
 
 
 class DomusCalendarEntity(CalendarEntity):
@@ -51,10 +57,12 @@ class DomusCalendarEntity(CalendarEntity):
         self,
         manager: DomusCalendarStore,
         irrigation_manager: IrrigationManager | None = None,
+        waste_collection_manager: WasteCollectionManager | None = None,
     ) -> None:
         """Initialize the calendar entity."""
         self._manager = manager
         self._irrigation_manager = irrigation_manager
+        self._waste_collection_manager = waste_collection_manager
 
     @property
     def event(self) -> CalendarEvent | None:
@@ -62,6 +70,8 @@ class DomusCalendarEntity(CalendarEntity):
         now = dt_util.now()
         candidates = [self._manager.next_event(now)]
         candidates.extend(self._irrigation_events(now, now + timedelta(days=31)))
+        if self._waste_collection_manager is not None:
+            candidates.append(self._waste_collection_manager.next_event(now))
         available = [event for event in candidates if event is not None]
         return min(available, key=lambda event: event.start_datetime_local, default=None)
 
@@ -72,6 +82,12 @@ class DomusCalendarEntity(CalendarEntity):
         if self._irrigation_manager is not None:
             self.async_on_remove(
                 self._irrigation_manager.async_subscribe(self._handle_store_update)
+            )
+        if self._waste_collection_manager is not None:
+            self.async_on_remove(
+                self._waste_collection_manager.async_add_listener(
+                    self._handle_store_update
+                )
             )
 
     @callback
@@ -87,7 +103,23 @@ class DomusCalendarEntity(CalendarEntity):
         """Return all events overlapping a requested interval."""
         events = self._manager.events_between(start_date, end_date)
         events.extend(self._irrigation_events(start_date, end_date))
+        if self._waste_collection_manager is not None:
+            waste_events, _warnings = (
+                await self._waste_collection_manager.async_events_between(
+                    start_date, end_date
+                )
+            )
+            events.extend(waste_events)
         return sorted(events, key=lambda event: event.start_datetime_local)
+
+    async def async_update(self) -> None:
+        """Refresh externally sourced waste rows used by the calendar state."""
+        if self._waste_collection_manager is None:
+            return
+        now = dt_util.now()
+        await self._waste_collection_manager.async_events_between(
+            now, now + timedelta(days=31)
+        )
 
     async def async_create_event(self, **kwargs: Any) -> None:
         """Create a non-recurring event."""
@@ -101,7 +133,7 @@ class DomusCalendarEntity(CalendarEntity):
     ) -> None:
         """Delete a non-recurring event."""
         self._reject_recurrence(recurrence_id, recurrence_range)
-        self._reject_irrigation_event(uid)
+        self._reject_derived_event(uid)
         await self._manager.async_delete_event(uid)
 
     async def async_update_event(
@@ -113,7 +145,7 @@ class DomusCalendarEntity(CalendarEntity):
     ) -> None:
         """Replace a non-recurring event."""
         self._reject_recurrence(recurrence_id, recurrence_range)
-        self._reject_irrigation_event(uid)
+        self._reject_derived_event(uid)
         await self._manager.async_update_event(uid, event)
 
     def _irrigation_events(
@@ -164,6 +196,14 @@ class DomusCalendarEntity(CalendarEntity):
         if uid.startswith(IRRIGATION_UID_PREFIX):
             raise HomeAssistantError(
                 "Irrigation schedules are read-only in Calendar; edit them in Domus Core Irrigation"
+            )
+
+    @staticmethod
+    def _reject_derived_event(uid: str) -> None:
+        DomusCalendarEntity._reject_irrigation_event(uid)
+        if uid.startswith(WASTE_UID_PREFIX):
+            raise HomeAssistantError(
+                "Waste collection events are read-only in Calendar; edit them in Domus UI Settings"
             )
 
     @staticmethod

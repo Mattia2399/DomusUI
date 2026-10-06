@@ -119,6 +119,14 @@ describe('Home Assistant panel bridge schema', () => {
     expect(validatePanelApiMessage({ type: 'domusos/irrigation/get_config' })).toBe(true);
     expect(validatePanelApiMessage({ type: 'domusos/irrigation/subscribe' })).toBe(true);
     expect(validatePanelApiMessage({ type: 'domusos/irrigation/prepare_legacy_removal' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/waste_collection/get_config' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/waste_collection/preview', days: 7 })).toBe(true);
+    expect(validatePanelApiMessage({
+      type: 'domusos/waste_collection/save_config',
+      config: { wasteTypes: [], sources: [], mappings: [], exceptions: [], notifications: {} },
+      expected_revision: 1,
+    })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/waste_collection/preview', days: 90 })).toBe(false);
     expect(validatePanelApiMessage({ type: 'domusos/irrigation/delete_everything' })).toBe(false);
     expect(validatePanelApiMessage({
       type: 'calendar/event/subscribe',
@@ -174,13 +182,14 @@ describe('Home Assistant panel bridge schema', () => {
       'dashboard_reset_marker',
       'irrigation_core',
       'calendar_v1',
+      'waste_collection_v1',
       'host_navigation',
       'person_links',
       'person_create',
       'person_picture',
       'unknown_capability',
       42,
-    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'calendar_v1', 'host_navigation', 'person_links', 'person_create', 'person_picture']);
+    ])).toEqual(['shared_configuration', 'app_configurations', 'revision_history', 'dashboard_reset_marker', 'irrigation_core', 'calendar_v1', 'waste_collection_v1', 'host_navigation', 'person_links', 'person_create', 'person_picture']);
     expect(parsePanelBridgeCapabilities(null)).toEqual([]);
   });
 

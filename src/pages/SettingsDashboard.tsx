@@ -24,6 +24,7 @@ import {
   Network,
   Power,
   RefreshCw,
+  Recycle,
   Router,
   RotateCcw,
   Server,
@@ -84,6 +85,8 @@ import type {
 import type { DashboardLayoutSaveResult } from '../services/dashboardStorage';
 import { useI18n } from '../i18n/I18nProvider';
 import type { CardSizingEngine } from '../services/cardSizingEngine';
+import type { WasteCollectionCallApi } from '../services/wasteCollectionClient';
+import WasteCollectionSettings from '../components/settings/WasteCollectionSettings';
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -108,6 +111,7 @@ type SettingsDashboardProps = {
   onRefreshLayoutRevisions?: () => Promise<boolean>;
   onRestoreLayoutRevision?: (revision: number) => Promise<DashboardLayoutSaveResult>;
   onCallService: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
+  onCallApi?: WasteCollectionCallApi;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   managedSectionContent?: React.ReactNode;
@@ -881,6 +885,7 @@ export default function SettingsDashboard({
   onRefreshLayoutRevisions,
   onRestoreLayoutRevision,
   onCallService,
+  onCallApi,
   navigationRoute,
   onNavigate,
   managedSectionContent,
@@ -1422,7 +1427,30 @@ export default function SettingsDashboard({
             subtitle={t('settings.entities.count', { count: Object.keys(haStates).length })}
             onClick={() => navigateTo('/settings/entities')}
           />
+          <SettingsDestination
+            icon={Recycle}
+            title={t('waste.settings.title')}
+            subtitle={t('waste.settings.cardSubtitle')}
+            onClick={() => navigateTo('/settings/home/waste-collection')}
+          />
         </div>
+      </SettingsDetailShell>
+    );
+  }
+
+  if (settingsPath === '/settings/home/waste-collection') {
+    return (
+      <SettingsDetailShell
+        title={t('waste.settings.title')}
+        subtitle={t('waste.settings.subtitle')}
+        onBack={() => navigateTo('/settings/home')}
+      >
+        <WasteCollectionSettings
+          callApi={onCallApi}
+          connected={isConnected}
+          canConfigure={security.can('manage_rooms')}
+          haStates={haStates}
+        />
       </SettingsDetailShell>
     );
   }
