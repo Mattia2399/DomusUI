@@ -46,6 +46,10 @@
 
 ### Changed
 
+- The presentation website is no longer bundled into the dashboard: the
+  internal `/beta` address of the Home Assistant panel is gone, and the site
+  is built on its own with `npm run build:site` (now checked in CI). The
+  dashboard bundle shrinks by about 100 KB.
 - Energy values report whether their sensors are still updating: a value
   without a report for 30 minutes (3 hours for battery charge) keeps its
   reading and is shown as not updated since then, never as zero.

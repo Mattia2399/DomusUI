@@ -11,8 +11,9 @@ const budgets = {
 
 // The total includes every lazy route and the complete IT/EN/FR catalog. Keep
 // per-chunk limits strict; allow the deliberate multilingual payload globally.
-// The blocking limit includes ~50 KB for the lazily loaded /beta presentation
-// site, ~50 KB (1.3.0) for managing Home Assistant people and the 19 KB
+// The blocking limit was sized when the dashboard still shipped the /beta
+// presentation site (about 100 KB, now built separately with build:site); it
+// also covers ~50 KB (1.3.0) for managing Home Assistant people and the 19 KB
 // executable MapLibre worker entry. The worker used to be absent from the
 // effective bundle, so the old 5.50 MB limit measured a broken map runtime.
 const totalBudget = { warning: 4_800_000, blocking: 5_520_000 };

@@ -42,6 +42,11 @@ jobs:
       - name: Bundle budget
         run: npm run build:budget
 
+      # The presentation site is no longer part of the dashboard bundle; make
+      # sure its standalone build keeps compiling. Nothing is published.
+      - name: Build sito di presentazione
+        run: npm run build:site
+
       - name: Audit dipendenze release
         run: npm run audit:release
 

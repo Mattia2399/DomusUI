@@ -30,6 +30,57 @@ function panelBridgeDistributionPlugin(): Plugin {
   };
 }
 
+type ModuleInfoLookup = (id: string) => { isEntry: boolean; importers: readonly string[]; dynamicImporters: readonly string[] } | null;
+
+const normalizeId = (id: string) => id.replaceAll('\\', '/');
+
+/** Whether a module is only reached, statically, through the Home page and never from startup. */
+function onlyThroughHome(id: string, getModuleInfo: ModuleInfoLookup) {
+  let reachesHome = false;
+  const seen = new Set<string>();
+  const pending = [id];
+  while (pending.length > 0) {
+    const current = pending.pop() as string;
+    if (seen.has(current)) continue;
+    seen.add(current);
+    if (normalizeId(current).endsWith('/src/pages/Home.tsx')) {
+      reachesHome = true;
+      continue;
+    }
+    const info = getModuleInfo(current);
+    // Unknown or root modules (the HTML entry and its script) belong to startup.
+    if (!info || info.isEntry || (info.importers.length === 0 && info.dynamicImporters.length === 0)) return false;
+    pending.push(...info.importers);
+  }
+  return reachesHome;
+}
+
+const cardLayerCache = new WeakMap<ModuleInfoLookup, Map<string, boolean>>();
+
+/**
+ * The dashboard card layer Home loads eagerly: cards under src/components/widgets,
+ * plus helpers imported only by those cards. Startup modules never qualify.
+ */
+function isEagerHomeCard(id: string, getModuleInfo: ModuleInfoLookup): boolean {
+  let cache = cardLayerCache.get(getModuleInfo);
+  if (!cache) {
+    cache = new Map();
+    cardLayerCache.set(getModuleInfo, cache);
+  }
+  const cached = cache.get(id);
+  if (cached !== undefined) return cached;
+  cache.set(id, false); // Import cycles resolve to "not in the layer".
+  const info = getModuleInfo(id);
+  let result = false;
+  if (info && onlyThroughHome(id, getModuleInfo)) {
+    result = normalizeId(id).includes('/src/components/widgets/')
+      || (info.dynamicImporters.length === 0 && info.importers.length > 0
+        && info.importers.every((importer) => isEagerHomeCard(importer, getModuleInfo)));
+  }
+  cache.set(id, result);
+  return result;
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const localHttps = loadLocalHttpsOptions(process.cwd());
@@ -80,6 +131,14 @@ export default defineConfig(({ mode }) => {
           }
           return 'assets/[name]-[hash].js';
         },
+        // Dashboard cards keep their own file. They used to be split out because the
+        // /beta site shared them; without it Rollup folds them into the Home chunk
+        // and breaks its per-file budget. Only cards Home already loads eagerly
+        // move, so startup and the critical path are unchanged.
+        manualChunks: (id, { getModuleInfo }) => (isEagerHomeCard(id, getModuleInfo) ? 'dashboard-widgets' : undefined),
+        // Shared dependencies (React, motion, icons) stay where Rollup puts them
+        // instead of being pulled into the cards chunk and preloaded at startup.
+        onlyExplicitManualChunks: true,
       },
     },
   },
