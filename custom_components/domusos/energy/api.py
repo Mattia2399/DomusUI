@@ -19,7 +19,7 @@ from ..const import DOMAIN
 from .context import async_energy_state
 from .discovery import EnergyDiscoveryService
 from .manager import EnergyProfileManager
-from .models import EnergyError, EnergyUnavailableError
+from .models import EnergyError, EnergyUnavailableError, EnergyValidationError
 
 WS_PREFIX = f"{DOMAIN}/energy"
 
@@ -43,13 +43,9 @@ def _send_error(
 
 
 def _profile_result(manager: EnergyProfileManager) -> dict[str, Any]:
-    return {
-        "profile": manager.profile_document(),
-        "module_status": {
-            module.value: status.value
-            for module, status in manager.module_status.items()
-        },
-    }
+    # ``profile`` keeps the v1 shape for current clients and is null when v1
+    # cannot hold the profile; ``profile_v2`` is always the full v2 document.
+    return manager.profile_result()
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/get_profile"})
@@ -70,7 +66,9 @@ async def websocket_get_profile(
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{WS_PREFIX}/save_profile",
-        vol.Required("profile"): dict,
+        # Exactly one of: a v1 client profile (``modules``) or a whole v2 profile (``plant``).
+        vol.Optional("profile"): dict,
+        vol.Optional("profile_v2"): dict,
         vol.Optional("expected_revision", default=None): vol.Any(
             None, vol.Coerce(int)
         ),
@@ -85,8 +83,13 @@ async def websocket_save_profile(
 ) -> None:
     """Validate and persist user-confirmed or corrected bindings."""
     try:
+        if ("profile" in msg) == ("profile_v2" in msg):
+            raise EnergyValidationError("Send either profile (v1) or profile_v2")
         manager = _manager(hass)
-        await manager.async_save_profile(msg["profile"], msg["expected_revision"])
+        if "profile_v2" in msg:
+            await manager.async_save_profile(msg["profile_v2"], msg["expected_revision"], version=2)
+        else:
+            await manager.async_save_profile(msg["profile"], msg["expected_revision"])
         connection.send_result(msg["id"], _profile_result(manager))
     except Exception as err:
         _send_error(connection, msg["id"], err)

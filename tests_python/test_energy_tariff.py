@@ -114,6 +114,8 @@ async def test_wizard_saves_keep_and_explicit_null_clears_the_tariff(hass: HomeA
     manager = EnergyProfileManager(hass)
     manager.store.async_load = AsyncMock(return_value=None)
     manager.store.async_save = AsyncMock()
+    manager.store_v2.async_load = AsyncMock(return_value=None)
+    manager.store_v2.async_save = AsyncMock()
     await manager.async_setup()
 
     await manager.async_save_profile({"modules": GRID, "tariff": THREE_BAND}, 0)
@@ -121,7 +123,7 @@ async def test_wizard_saves_keep_and_explicit_null_clears_the_tariff(hass: HomeA
 
     await manager.async_save_profile({"modules": GRID}, 1)
     assert manager.profile.tariff is not None
-    assert manager.store.async_save.await_args.args[0]["tariff"]["scheme"] == "three_band"
+    assert manager.store_v2.async_save.await_args.args[0]["tariff"]["scheme"] == "three_band"
 
     state = await async_energy_state(manager)
     assert state["tariff"]["band"] in {"F1", "F2", "F3"}

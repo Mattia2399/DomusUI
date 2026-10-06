@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ENERGY_CORE_TYPES,
+  getEnergyProfile,
   getEnergyState,
   saveEnergyProfile,
   toEnergyCoreError,
@@ -61,6 +62,20 @@ describe('Domus Energy client', () => {
       code: 'invalid_response',
     });
     await expect(getEnergyState(vi.fn().mockResolvedValue(null))).rejects.toMatchObject({ code: 'invalid_response' });
+  });
+
+  it('reads integrations that store Energy Profile v2', async () => {
+    const profile = { revision: 7, updated_at: null, load_error: false, modules: {}, tariff: null };
+    const v2 = { revision: 7, plant: {}, load_error: false };
+    const result = { profile, profile_v2: v2, v1_compatible: true, legacy_v1: null, module_status: {} };
+    await expect(getEnergyProfile(vi.fn().mockResolvedValue(result))).resolves.toEqual(result);
+
+    // A profile v1 cannot hold is never read as an empty installation.
+    const v2Only = { ...result, profile: null, v1_compatible: false };
+    await expect(getEnergyProfile(vi.fn().mockResolvedValue(v2Only))).rejects.toMatchObject({ code: 'invalid_response' });
+
+    const unsupported = { ...EMPTY_STATE, configured: true, profile_revision: 7, unsupported_profile: 'multiple_devices' };
+    await expect(getEnergyState(vi.fn().mockResolvedValue(unsupported))).resolves.toEqual(unsupported);
   });
 
   it.each([

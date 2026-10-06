@@ -6,14 +6,18 @@ them. Every device may bind instantaneous POWER sensors, validated exactly as a
 v1 module, and cumulative ENERGY meters: Home Assistant statistic ids, either
 ``sensor.*`` entities or external statistics such as ``opower:energy``.
 
-This module is pure. Nothing loads, stores or serves v2 yet: the live profile
-is still v1, and ``upgrade_v1`` only converts it in memory.
+This module is pure. The manager stores v2 in ``domusos.energy.v2`` from the
+first explicit save, converting v1 in memory until then (``upgrade_v1``); the
+realtime adapters still read the v1 view given by ``runtime_profile``.
 
 Compatibility with v1 clients rests on ``lossless_v1``: a v2 profile has a v1
 view only when v1 can hold all of it (one device per module with the id v1
 conversion assigns, no name, no Home Assistant device, no capacity, no energy
 meter, no total). A v1 save may only replace a profile that has such a view;
 anything else would silently drop data and must be refused.
+
+Device ids removed by a save are kept in ``retired_device_ids`` so that a later
+v2 save cannot give a new device an old identity by accident.
 """
 
 from __future__ import annotations
@@ -39,7 +43,6 @@ from .models import (
 from .tariff import EnergyTariff, parse_tariff
 
 DOCUMENT_VERSION_V2 = 2
-# Reserved for the persistent migration (A1.2); nothing writes it yet.
 STORAGE_KEY_V2 = "domusos.energy.v2"
 
 DEVICE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,47}$")
@@ -67,7 +70,10 @@ ENERGY_ROLES: Mapping[EnergyModule, tuple[str, ...]] = MappingProxyType(
 )
 
 _PROFILE_KEYS = frozenset({"plant", "tariff"})
-_SERVER_KEYS = frozenset({"schema", "version", "revision", "updated_at", "migrated_from"})
+_SERVER_KEYS = frozenset(
+    {"schema", "version", "revision", "updated_at", "migrated_from", "retired_device_ids"}
+)
+MAX_RETIRED_DEVICE_IDS = 512
 _MODULE_KEYS = frozenset({"devices", "total"})
 _DEVICE_KEYS = frozenset({"id", "name", "ha_device_id", "power", "energy", "capacity"})
 _SOURCE_KEYS = frozenset({"power", "energy"})
@@ -196,15 +202,28 @@ class EnergyProfileV2:
     updated_at: str | None = None
     tariff: EnergyTariff | None = None
     migrated_from: MigrationRecord | None = None
+    # Ids of removed devices, server-owned: never given to a new device by a v2 save.
+    retired_device_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         ordered = {module: self.plant[module] for module in EnergyModule if module in self.plant}
         object.__setattr__(self, "plant", MappingProxyType(ordered))
+        object.__setattr__(self, "retired_device_ids", tuple(sorted(set(self.retired_device_ids))))
 
     @property
     def devices(self) -> tuple[EnergyDevice, ...]:
         """Return every device in canonical module order."""
         return tuple(device for plan in self.plant.values() for device in plan.devices)
+
+    @property
+    def device_ids(self) -> frozenset[str]:
+        """Return the ids of the current devices."""
+        return frozenset(device.id for device in self.devices)
+
+    @property
+    def is_empty(self) -> bool:
+        """Return whether no energy hardware is configured."""
+        return not self.plant
 
     def as_document(self) -> dict[str, Any]:
         """Return the versioned Store document."""
@@ -216,6 +235,7 @@ class EnergyProfileV2:
             "migrated_from": self.migrated_from.as_document() if self.migrated_from else None,
             "plant": {module.value: plan.as_document() for module, plan in self.plant.items()},
             "tariff": self.tariff.as_document() if self.tariff else None,
+            "retired_device_ids": list(self.retired_device_ids),
         }
 
 
@@ -410,6 +430,21 @@ def _parse_migration(raw: Any) -> MigrationRecord | None:
     return MigrationRecord(version=raw["version"], revision=raw["revision"], updated_at=raw["updated_at"])
 
 
+def _parse_retired(raw: Any, active: frozenset[str]) -> tuple[str, ...]:
+    if raw is None:
+        return ()
+    if (
+        not isinstance(raw, list)
+        or len(raw) > MAX_RETIRED_DEVICE_IDS
+        or not all(isinstance(item, str) and DEVICE_ID_PATTERN.fullmatch(item) for item in raw)
+        or len(set(raw)) != len(raw)
+    ):
+        raise EnergyValidationError("Stored energy profile has invalid retired device ids")
+    if active & set(raw):
+        raise EnergyValidationError("Stored energy profile reuses a retired device id")
+    return tuple(raw)
+
+
 def parse_stored_profile_v2(document: Any) -> EnergyProfileV2:
     """Validate a persisted v2 document, including server-owned metadata."""
     if not isinstance(document, Mapping):
@@ -431,6 +466,7 @@ def parse_stored_profile_v2(document: Any) -> EnergyProfileV2:
         updated_at=updated_at,
         tariff=profile.tariff,
         migrated_from=_parse_migration(document.get("migrated_from")),
+        retired_device_ids=_parse_retired(document.get("retired_device_ids"), profile.device_ids),
     )
 
 
@@ -494,3 +530,38 @@ def lossless_v1(profile: EnergyProfileV2) -> EnergyProfile | None:
 def v1_save_allowed(current: EnergyProfileV2) -> bool:
     """Return whether a v1 client may overwrite ``current`` without losing data."""
     return lossless_v1(current) is not None
+
+
+# Why the realtime adapters, which read one set of power sensors per module,
+# cannot serve a profile yet. Names, Home Assistant devices, capacities and
+# energy meters do not matter to them; extra devices or a missing power sensor do.
+UNSUPPORTED_MULTIPLE_DEVICES = "multiple_devices"
+UNSUPPORTED_NO_POWER_SENSORS = "no_power_sensors"
+
+
+def runtime_profile(profile: EnergyProfileV2) -> tuple[EnergyProfile, str | None]:
+    """Return the v1 profile the realtime adapters serve, and why not when they cannot.
+
+    An unsupported profile yields an empty runtime profile: serving only some of
+    its devices would look like a complete installation and never is.
+    """
+    modules: dict[EnergyModule, EnergyModuleConfig] = {}
+    reason: str | None = None
+    for module, plan in profile.plant.items():
+        if len(plan.devices) != 1 or plan.total is not None:
+            reason = UNSUPPORTED_MULTIPLE_DEVICES
+            break
+        power = plan.devices[0].sources.power
+        if power is None:
+            reason = UNSUPPORTED_NO_POWER_SENSORS
+            break
+        modules[module] = power
+    return (
+        EnergyProfile(
+            revision=profile.revision,
+            modules={} if reason else modules,
+            updated_at=profile.updated_at,
+            tariff=profile.tariff,
+        ),
+        reason,
+    )

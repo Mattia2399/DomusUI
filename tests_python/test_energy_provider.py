@@ -65,11 +65,15 @@ def _set_states(hass: HomeAssistant) -> None:
 
 
 async def _manager(
-    hass: HomeAssistant, document: dict[str, Any] | None = None
+    hass: HomeAssistant,
+    document: dict[str, Any] | None = None,
+    document_v2: dict[str, Any] | None = None,
 ) -> EnergyProfileManager:
     manager = EnergyProfileManager(hass)
     manager.store.async_load = AsyncMock(return_value=document)
     manager.store.async_save = AsyncMock()
+    manager.store_v2.async_load = AsyncMock(return_value=document_v2)
+    manager.store_v2.async_save = AsyncMock()
     await manager.async_setup()
     return manager
 
@@ -98,7 +102,8 @@ async def test_invalid_stored_profile_disables_energy_only(hass: HomeAssistant) 
     assert manager.loaded
     assert manager.load_error is True
     assert manager.profile.is_empty
-    assert manager.profile_document()["load_error"] is True
+    assert manager.profile_result()["profile"]["load_error"] is True
+    assert manager.profile_result()["profile_v2"]["load_error"] is True
     await manager.async_shutdown()
 
 
@@ -106,13 +111,15 @@ async def test_save_profile_validates_versions_and_persists(hass: HomeAssistant)
     _set_states(hass)
     manager = await _manager(hass)
 
-    document = await manager.async_save_profile(GRID_AND_BATTERY, expected_revision=0)
+    result = await manager.async_save_profile(GRID_AND_BATTERY, expected_revision=0)
 
-    assert document["revision"] == 1
-    assert document["updated_at"] is not None
-    manager.store.async_save.assert_awaited_once()
-    saved = manager.store.async_save.await_args.args[0]
-    assert saved["modules"]["battery"]["sign_convention"] == "positive_discharge"
+    assert result["profile"]["revision"] == 1
+    assert result["profile"]["updated_at"] is not None
+    # Only the v2 document is written; v1 stays the pre-migration snapshot.
+    manager.store.async_save.assert_not_awaited()
+    manager.store_v2.async_save.assert_awaited_once()
+    saved = manager.store_v2.async_save.await_args.args[0]
+    assert saved["plant"]["battery"]["devices"][0]["power"]["sign_convention"] == "positive_discharge"
     assert set(manager.adapters) == {EnergyModule.GRID, EnergyModule.BATTERY}
     assert manager.module_status[EnergyModule.BATTERY] is ModuleStatus.ONLINE
     assert manager.module_status[EnergyModule.SOLAR] is ModuleStatus.ABSENT
@@ -124,16 +131,16 @@ async def test_save_profile_validates_versions_and_persists(hass: HomeAssistant)
             {"modules": {"grid": {"sensors": {"net_power": "sensor.grid"}}}}, 1
         )
     assert manager.profile.revision == 1
-    assert manager.store.async_save.await_count == 1
+    assert manager.store_v2.async_save.await_count == 1
     await manager.async_shutdown()
 
 
 async def test_stored_profile_survives_restart(hass: HomeAssistant) -> None:
     first = await _configured_manager(hass)
-    stored = first.store.async_save.await_args.args[0]
+    stored = first.store_v2.async_save.await_args.args[0]
     await first.async_shutdown()
 
-    second = await _manager(hass, stored)
+    second = await _manager(hass, document_v2=stored)
 
     assert second.profile.revision == 1
     assert second.profile.configured_modules == (EnergyModule.GRID, EnergyModule.BATTERY)

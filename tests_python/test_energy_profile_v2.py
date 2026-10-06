@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 import pytest
 from homeassistant.core import HomeAssistant
 
-from custom_components.domusos.energy import adapter, api, context, manager
+from custom_components.domusos.energy import adapter, context
 from custom_components.domusos.energy.manager import EnergyProfileManager
 from custom_components.domusos.energy.models import (
     EnergyModule,
@@ -458,18 +458,21 @@ async def test_conversion_never_writes_the_v1_store(hass: HomeAssistant) -> None
     stored = copy.deepcopy(V1_PROFILES["complete with tariff"])
     energy.store.async_load = AsyncMock(return_value=stored)
     energy.store.async_save = AsyncMock()
+    energy.store_v2.async_save = AsyncMock()
     await energy.async_setup()
-    before = energy.profile_document()
+    before = energy.profile_result()
 
     upgraded = upgrade_v1(energy.profile)
     lossless_v1(upgraded)
 
     energy.store.async_save.assert_not_awaited()
-    assert energy.profile_document() == before
+    energy.store_v2.async_save.assert_not_awaited()
+    assert energy.profile_result() == before
     assert stored == V1_PROFILES["complete with tariff"]
     await energy.async_shutdown()
 
 
-def test_the_live_energy_runtime_does_not_use_v2_yet() -> None:
-    for module in (adapter, api, context, manager):
-        assert "profile_v2" not in inspect.getsource(module)
+def test_realtime_adapters_still_read_only_v1_module_configs() -> None:
+    # The adapters and the projection are untouched by v2: they read the v1 view.
+    for module in (adapter, context):
+        assert "profile_v2 import" not in inspect.getsource(module)

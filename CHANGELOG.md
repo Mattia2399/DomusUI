@@ -68,6 +68,11 @@
   on desktop, instead of a full-height column of cards.
 - Third-party license notices are kept once per bundle file instead of once
   per icon module, reducing the frontend size by about 35 KB.
+- The energy installation is saved in a new storage format
+  (`domusos.energy.v2`) from the first change made after updating; until
+  then the existing configuration is read as is and nothing is written. The
+  previous document is kept unchanged, so going back to an older Domus UI
+  restores the installation as it was before that first change.
 
 ## 1.4.0 - 2026-10-01
 

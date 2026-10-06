@@ -37,17 +37,17 @@ Validation rules:
   `positive_discharge`/`positive_charge` for the battery). Domus never infers
   flow direction from an unverified sign.
 
-The profile is stored in the Home Assistant Store document
-`domusos.energy.v1` with an optimistic `revision`. Saving it applies the new
-bindings in place. The config entry is not reloaded, so Irrigation sessions
-are never interrupted. An invalid stored document disables Energy only, and
-is logged and flagged with `load_error` until a valid profile is saved.
+The profile has an optimistic `revision` and is stored as an Energy Profile v2
+(see below); an existing `domusos.energy.v1` document is read and converted
+until the first save. Saving applies the new bindings in place. The config
+entry is not reloaded, so Irrigation sessions are never interrupted. An
+invalid stored document disables Energy only, and is logged and flagged with
+`load_error` until a valid profile is saved.
 
-## Energy Profile v2 (model only, not active)
+## Energy Profile v2
 
-`energy/profile_v2.py` defines the next profile version; nothing loads, stores
-or serves it yet, and the live profile is still v1. It describes each module
-as devices plus an optional total:
+`energy/profile_v2.py` defines the stored profile. It describes each module as
+devices plus an optional total:
 
 ```json
 {
@@ -80,7 +80,8 @@ as devices plus an optional total:
       ]
     }
   },
-  "tariff": null
+  "tariff": null,
+  "retired_device_ids": ["solar-3"]
 }
 ```
 
@@ -98,6 +99,12 @@ as devices plus an optional total:
   needs at least two devices and is never added to them.
 - Every sensor and statistic id is used once across devices, totals, power
   and energy.
+- **Ids are never regenerated.** Renaming a device keeps its id. Removing it
+  records the id in `retired_device_ids` (server-managed, at most 512), and a
+  later save cannot give that id to another device, so history and future
+  references never point at the wrong device. The converted v1 ids
+  (`<module>-1`) are the exception: a v1 save can only express "the module's
+  device", so removing a module and adding it back keeps `<module>-1`.
 
 **From v1.** `upgrade_v1` converts in memory, deterministically: each module
 becomes the device `<module>-1` with the same sensors and sign convention;
@@ -108,8 +115,53 @@ source. `load_profile_document` reads either version and is idempotent.
 hold all of it: one device per module with the converted id, no name, Home
 Assistant device, capacity, energy meter or total. A v1 save may replace a
 profile only in that case (`v1_save_allowed`); otherwise it would drop data
-and must be refused. The persistent migration, which keeps `domusos.energy.v1`
-untouched and writes `domusos.energy.v2` on the first save, is not active.
+and is refused with `profile_requires_v2`.
+
+### Storage and migration
+
+| Stored documents                    | Loaded profile                                                    | Writes on load |
+| ----------------------------------- | ----------------------------------------------------------------- | -------------- |
+| none                                | empty, `configured: false`                                       | none           |
+| `domusos.energy.v1` only            | `upgrade_v1` in memory, `migrated_from` set                       | none           |
+| valid `domusos.energy.v2`           | v2, authoritative; v1 is never read into it                       | none           |
+| invalid `domusos.energy.v2`         | empty, `load_error`; **no fallback to v1**                        | none           |
+| invalid v1 only                     | empty, `load_error`                                               | none           |
+
+- **First write.** Only an explicit administrator save writes, and only to
+  `domusos.energy.v2`: the revision is checked, the whole profile validated,
+  the revision incremented, and `migrated_from`, tariff, sign conventions and
+  device ids carried over. `domusos.energy.v1` is never written again and stays
+  byte for byte the pre-migration snapshot. Other applications' Stores are not
+  touched.
+- **Revisions** continue across the migration (v1 revision 6 → v2 revision 7),
+  so a client still holding the v1 revision gets a normal conflict. With an
+  unreadable document, the highest revision it still declares is kept for the
+  same reason.
+- **Unreadable v2.** It is never overwritten on load. The next explicit save
+  first copies it to `domusos.energy.v2.rejected`, then writes the new
+  profile. A file Home Assistant cannot decode at all is moved by Home
+  Assistant to `domusos.energy.v2.corrupt.<time>` (with a repair issue); Domus
+  treats that copy as an unreadable v2, so Energy stays disabled with
+  `load_error` instead of returning to v1. The same applies to an undecodable
+  `domusos.energy.v1`.
+- **Saves** run under a lock and either complete or change nothing: a failed
+  write leaves the stored document and the live profile as they were, and
+  readers see the previous profile until the write has finished.
+- **Realtime.** The adapters still read one v1 module per module
+  (`runtime_profile`). A v2 profile with several devices in a module, a total,
+  or no power sensors cannot be shown live yet: `get_state` then reports
+  `configured: true`, `available: false`, no modules, no home consumption and
+  `unsupported_profile: "multiple_devices" | "no_power_sensors"`, never a
+  partial picture. For every profile v1 can express, `get_state` is unchanged.
+
+**Rollback.** Going back to a version that only knows v1 is safe: it reads the
+frozen `domusos.energy.v1` and ignores `domusos.energy.v2`. That snapshot does
+**not** contain anything saved after the migration; the previous version shows
+the installation as it was configured before the first v2 save. If it saves,
+it writes v1 only. Upgrading again keeps v2 authoritative and never merges the
+v1 edit: `get_profile` reports `legacy_v1.diverged: true` and the change is
+logged, so the user can repeat it in the v2 configuration. A v2 document
+written without a migration also reports any later v1 document as diverged.
 
 ## Hardware conditions
 
@@ -276,14 +328,35 @@ price. Costs are not computed yet because they need the energy history.
 | `domusos/energy/get_state`    | Authenticated  | Normalized values of configured modules, absent/offline modules, home consumption |
 | `domusos/energy/discover`     | Administrators | Return proposals; nothing is saved                |
 | `domusos/energy/get_profile`  | Administrators | Return the profile and the condition of each module |
-| `domusos/energy/save_profile` | Administrators | Save confirmed or corrected bindings (`profile`, `expected_revision`) |
+| `domusos/energy/save_profile` | Administrators | Save confirmed or corrected bindings (`profile` **or** `profile_v2`, `expected_revision`) |
 
 `get_state` returns the same projection as `EnergyContextProvider` and never
 configuration details. Without a profile it reports `configured: false` and
 lists every module as absent. Error codes are `invalid_profile`,
-`revision_conflict`, `energy_unavailable`, `unauthorized`, and
-`unknown_error`. The generic Domus context registry remains internal.
-The live `tariff` also carries `vat_percent`, the rate the prices exclude.
+`revision_conflict`, `profile_requires_v2`, `energy_unavailable`,
+`unauthorized`, and `unknown_error`. The generic Domus context registry
+remains internal. The live `tariff` also carries `vat_percent`, the rate the
+prices exclude.
+
+`get_profile` and `save_profile` return:
+
+| Field          | Content                                                                  |
+| -------------- | ------------------------------------------------------------------------ |
+| `profile`      | The v1 view with `load_error`, exactly as before, or `null` when v1 cannot hold the profile |
+| `profile_v2`   | The full v2 document with `load_error`                                   |
+| `v1_compatible`| Whether `profile` is present and a v1 save is accepted                   |
+| `runtime`      | `{supported, reason}`: whether `get_state` can show the profile live     |
+| `legacy_v1`    | `{valid, revision, updated_at, diverged}` of the frozen v1 document, or `null` |
+| `module_status`| Condition of each module, as before                                      |
+
+No field changes meaning between versions: v1 clients read `profile` and send
+`profile` (the `modules` and optional `tariff` of v1); v2 clients send
+`profile_v2` (the whole `plant`, optional `tariff`). Sending both, or neither,
+is `invalid_profile`, and so is a `profile_v2` without `plant`, so a partial
+save cannot erase devices. A missing `tariff` keeps the stored tariff. The
+current client rejects a `null` `profile` as an invalid response instead of
+reading it as an empty installation. The panel bridge forwards only v1 saves
+for now.
 
 ## Energy subpage
 

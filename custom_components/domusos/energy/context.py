@@ -55,6 +55,23 @@ async def async_energy_state(manager: EnergyProfileManager) -> dict[str, Any]:
     """Return a JSON-compatible state document for any configuration."""
     context = await async_build_energy_context(manager)
     tariff = tariff_state(manager.profile.tariff, dt_util.now())
+    if manager.unsupported_reason is not None:
+        # Configured, but the realtime adapters cannot interpret it yet. Serving
+        # some devices would look like the whole installation, so no value is shown.
+        plant = manager.profile_v2.plant
+        return {
+            "configured": True,
+            "load_error": manager.load_error,
+            "unsupported_profile": manager.unsupported_reason,
+            "available": False,
+            "profile_revision": manager.profile.revision,
+            "observed_at": utc_now().isoformat(),
+            "modules": {},
+            "absent_modules": [module.value for module in EnergyModule if module not in plant],
+            "offline_modules": [],
+            "home_consumption": None,
+            "tariff": tariff,
+        }
     if context is None:
         return {
             "configured": False,

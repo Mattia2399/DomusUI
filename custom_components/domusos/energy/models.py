@@ -43,6 +43,12 @@ class EnergyConflictError(EnergyError):
     code = "revision_conflict"
 
 
+class EnergyProfileRequiresV2Error(EnergyError):
+    """A v1 save would drop information only a v2 profile can hold."""
+
+    code = "profile_requires_v2"
+
+
 class EnergyUnavailableError(EnergyError):
     """Domus Energy is not running."""
 
