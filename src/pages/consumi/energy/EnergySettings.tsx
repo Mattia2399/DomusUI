@@ -4,8 +4,12 @@ import type { MockEntityStateMap } from '../../../types/ha';
 import {
   ENERGY_MODULES,
   discoverEnergy,
+  editableAsV1,
   getEnergyProfile,
+  profileRevision,
+  profileTariff,
   TARIFF_UPDATE_MESSAGE,
+  saveEnergyPlant,
   saveEnergyProfile,
   supportsTariff,
   toEnergyCoreError,
@@ -15,6 +19,7 @@ import {
   type EnergyProfileResult,
   type EnergyTariff,
 } from '../../../services/energyCoreClient';
+import { EnergyPlantSettings } from './EnergyPlantSettings';
 import { draftFromProfile, draftToModules, sameModules, validateDraft, type EnergyDraft } from './energyDraft';
 import { ERROR_TEXT, ModuleEditor } from './EnergyModuleEditor';
 import { GROUP, ROW, TARIFF_HINT, TariffFields, tariffForm, tariffFromForm, type TariffForm } from './EnergyTariffFields';
@@ -73,8 +78,9 @@ export default function EnergySettings({
 
   const apply = React.useCallback((result: EnergyProfileResult) => {
     setProfile(result);
-    setDraft(draftFromProfile(result.profile.modules));
-    setForm(tariffForm(result.profile.tariff));
+    // A profile v1 cannot hold has no v1 draft: the v2 settings edit it instead.
+    setDraft(editableAsV1(result) ? draftFromProfile(result.profile.modules) : null);
+    setForm(tariffForm(profileTariff(result)));
   }, []);
 
   React.useEffect(() => {
@@ -84,24 +90,33 @@ export default function EnergySettings({
   }, [apply, callApi]);
 
   if (loadError) return <p role="alert" className={`liquid-glass-card p-5 ${UI.body}`}>{loadError}</p>;
-  if (!profile || !draft) {
+  if (!profile || (editableAsV1(profile) && !draft)) {
     return <p role="status" className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Caricamento impostazioni…</p>;
   }
 
-  const saved = profile.profile.modules;
-  const issues = validateDraft(draft);
-  const modules = draftToModules(draft);
-  const plantDirty = !sameModules(modules, draftToModules(draftFromProfile(saved)));
-  const { tariff } = tariffFromForm(form, draft.grid.present);
+  const v1 = editableAsV1(profile) && draft ? { profile: profile.profile, draft } : null;
+  const v2 = profile.profile_v2;
+  const saved = v1?.profile.modules ?? {};
+  const issues = v1 ? validateDraft(v1.draft) : [];
+  const modules = v1 ? draftToModules(v1.draft) : {};
+  const plantDirty = Boolean(v1) && !sameModules(modules, draftToModules(draftFromProfile(saved)));
+  const withGrid = v1 ? v1.draft.grid.present : Boolean(v2?.plant.grid);
+  const { tariff } = tariffFromForm(form, withGrid);
+  const tariffSupported = v1 ? supportsTariff(v1.profile) : Boolean(v2);
+  const storedTariff = profileTariff(profile);
 
   const save = async (kind: 'plant' | 'tariff', nextTariff?: EnergyTariff | null) => {
     const setStatus = kind === 'plant' ? setPlantStatus : setTariffStatus;
     setStatus({ saving: true });
     try {
-      // Each section saves on its own: the other keeps its stored value.
+      // Each section saves on its own: the other keeps its stored value. A v2
+      // plant is resent unchanged with the new tariff.
+      const revision = profileRevision(profile);
       const result = kind === 'plant'
-        ? await saveEnergyProfile(callApi, modules, profile.profile.revision)
-        : await saveEnergyProfile(callApi, saved, profile.profile.revision, nextTariff);
+        ? await saveEnergyProfile(callApi, modules, revision)
+        : v1
+          ? await saveEnergyProfile(callApi, saved, revision, nextTariff)
+          : await saveEnergyPlant(callApi, v2?.plant ?? {}, revision, nextTariff);
       apply(result);
       setOpen(null);
       setStatus({ message: kind === 'plant' ? 'Impianto salvato.' : nextTariff ? 'Tariffa salvata.' : 'Tariffa rimossa.' });
@@ -111,11 +126,39 @@ export default function EnergySettings({
     }
   };
 
+  const diverged = profile.legacy_v1?.diverged;
   return (
     <div className="mx-auto w-full max-w-3xl space-y-7">
+      {diverged ? (
+        <p role="note" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-warning)]">
+          Una versione precedente di Domus UI ha modificato l’impianto dopo l’aggiornamento: quelle modifiche non sono state applicate. Vale la configurazione mostrata qui; se servono, ripetile da queste impostazioni.
+        </p>
+      ) : null}
+      {v2?.load_error ? (
+        <p role="note" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-warning)]">
+          Il profilo salvato non era leggibile ed è stato ignorato: salvando l’impianto ne crei uno nuovo.
+        </p>
+      ) : null}
+      {!v1 && v2 ? (
+        <Group title="Impianto" description="Moduli, dispositivi, sensori di potenza e contatori di energia. Il salvataggio invia l’intero impianto.">
+          <EnergyPlantSettings
+            result={{ ...profile, profile_v2: v2 }}
+            callApi={callApi}
+            haStates={haStates}
+            discovery={discovery}
+            initialModule={initialModule}
+            onSaved={(result) => { apply(result); onSaved(); }}
+          />
+          <datalist id="energy-sensors">
+            {Object.keys(haStates).filter((id) => id.startsWith('sensor.')).map((id) => <option key={id} value={id} />)}
+          </datalist>
+        </Group>
+      ) : null}
+      {v1 ? (
       <Group title="Impianto" description="Moduli presenti e sensori di Home Assistant da cui Domus legge i valori.">
         {ENERGY_MODULES.map((id) => {
           const Icon = ICONS[id];
+          const draft = v1.draft;
           const module = draft[id];
           const sensors = Object.values(draftToModules({ ...draft })[id]?.sensors ?? {});
           const status = profile.module_status[id];
@@ -149,7 +192,7 @@ export default function EnergySettings({
                     discovery={discovery}
                     haStates={haStates}
                     issues={issues.filter((issue) => issue.module === id)}
-                    onChange={(next) => setDraft({ ...draft, [id]: next })}
+                    onChange={(next) => setDraft({ ...v1.draft, [id]: next })}
                   />
                 </div>
               ) : null}
@@ -174,13 +217,14 @@ export default function EnergySettings({
           {Object.keys(haStates).filter((id) => id.startsWith('sensor.')).map((id) => <option key={id} value={id} />)}
         </datalist>
       </Group>
+      ) : null}
 
       <Group title="Tariffa e costi" description={TARIFF_HINT}>
-        {supportsTariff(profile.profile) ? (
+        {tariffSupported ? (
           <>
-        <TariffFields form={form} onChange={setForm} withExport={draft.grid.present} />
+        <TariffFields form={form} onChange={setForm} withExport={withGrid} />
         <div className={`${ROW} justify-end`}>
-          {profile.profile.tariff ? (
+          {storedTariff ? (
             <button type="button" disabled={tariffStatus.saving} onClick={() => void save('tariff', null)} className={UI.button}>Rimuovi tariffa</button>
           ) : null}
           <button type="button" disabled={!tariff || tariffStatus.saving} onClick={() => void save('tariff', tariff)} className={UI.primary}>

@@ -95,7 +95,7 @@ describe('Home Assistant panel distribution contract', () => {
     const source = [
       pick(/const isRecord = [^\r\n]+\r?\n/),
       pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
-      pick(/const ENERGY_SAVE_KEYS = [^\r\n]+\r?\n/),
+      pick(/const ENERGY_SAVES = [^\r\n]+\r?\n/),
       pick(/const isValidEnergyMessage = [\s\S]*?\r?\n};\r?\n/),
     ].join('');
     const isValidEnergyMessage = new Function(`${source}return isValidEnergyMessage;`)() as (
@@ -114,6 +114,15 @@ describe('Home Assistant panel distribution contract', () => {
     expect(isValidEnergyMessage({ ...save, expected_revision: -2 })).toBe(false);
     expect(isValidEnergyMessage({ ...save, profile: null })).toBe(false);
     expect(isValidEnergyMessage({ ...save, extra: 1 })).toBe(false);
+    // Energy Profile v2: a whole plant instead of v1 modules, never both.
+    const saveV2 = { type: 'domusos/energy/save_profile', profile_v2: { plant: {} }, expected_revision: 4 };
+    expect(isValidEnergyMessage(saveV2)).toBe(true);
+    expect(isValidEnergyMessage({ ...saveV2, profile_v2: { plant: {}, tariff: null } })).toBe(true);
+    expect(isValidEnergyMessage({ ...saveV2, profile: { modules: {} } })).toBe(false);
+    expect(isValidEnergyMessage({ ...saveV2, profile_v2: { modules: {} } })).toBe(false);
+    expect(isValidEnergyMessage({ ...saveV2, profile_v2: { plant: [] } })).toBe(false);
+    expect(isValidEnergyMessage({ type: saveV2.type, profile_v2: saveV2.profile_v2 })).toBe(false);
+    expect(isValidEnergyMessage({ ...saveV2, profile_v2: { plant: { solar: 'x'.repeat(131_072) } } })).toBe(false);
     expect(bridge).toMatch(/if \(message\.type\.startsWith\("domusos\/energy\/"\)\) \{\s+return isValidEnergyMessage\(message\);/);
   });
 });

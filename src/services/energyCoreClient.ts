@@ -13,6 +13,14 @@ export type EnergyValueStatus = 'ok' | 'unavailable' | 'invalid' | 'not_measured
 /** Whether a valid value is still being reported; absent on integrations older than this field. */
 export type EnergyFreshness = 'fresh' | 'stale';
 
+/** Where a module value comes from (multi-device integrations); absent on older ones. */
+export type EnergyQuantityOrigin =
+  | 'device'
+  | 'devices_sum'
+  | 'devices_weighted_usable'
+  | 'devices_weighted_nominal'
+  | 'total';
+
 export type EnergyQuantity = {
   status: EnergyValueStatus;
   value: number | null;
@@ -25,7 +33,27 @@ export type EnergyQuantity = {
   reported_at?: string | null;
   /** Seconds a measured value stays fresh without a new report. */
   stale_after?: number | null;
+  origin?: EnergyQuantityOrigin | null;
+  /** Sum of the devices that do report, when some do not; never the module value. */
+  partial_value?: number | null;
+  coverage?: { contributing: number; configured: number } | null;
 };
+
+/** One configured device of a module, as normalized by the backend. */
+export type EnergyDeviceState = {
+  device_id: string;
+  name: string | null;
+  /** `not_measured`: the device has energy meters only, no live power. */
+  status: 'online' | 'offline' | 'not_measured';
+  complete: boolean;
+  freshness: EnergyFreshness | null;
+  sign_convention: string | null;
+  reason: string | null;
+  quantities: Record<string, EnergyQuantity>;
+};
+
+/** The sensor that measures the whole module, when one is configured. */
+export type EnergyTotalState = Omit<EnergyDeviceState, 'device_id' | 'name' | 'status'> & { status: 'online' | 'offline' };
 
 export type EnergyModuleState = {
   status: 'online' | 'offline';
@@ -33,6 +61,8 @@ export type EnergyModuleState = {
   freshness?: EnergyFreshness | null;
   sign_convention: string | null;
   quantities: Record<string, EnergyQuantity>;
+  devices?: EnergyDeviceState[];
+  total?: EnergyTotalState | null;
 };
 
 export type EnergyTariffScheme = 'single' | 'two_band' | 'three_band';
@@ -91,14 +121,84 @@ export type EnergyState = {
   offline_modules: EnergyModuleId[];
   home_consumption: EnergyQuantity | null;
   tariff?: EnergyTariffState | null;
+  /** Installed modules without a live power sensor (energy meters only). */
+  unsupported_modules?: Partial<Record<EnergyModuleId, string>>;
 };
 
 export type EnergyModuleDocument = { sensors: Record<string, string>; sign_convention?: string };
 export type EnergyProfileModules = Partial<Record<EnergyModuleId, EnergyModuleDocument>>;
 
+/* Energy Profile v2 (docs/energy-core.md): the stored, authoritative profile. */
+export type EnergyMeterRole =
+  | 'import_energy'
+  | 'export_energy'
+  | 'production_energy'
+  | 'consumption_energy'
+  | 'charge_energy'
+  | 'discharge_energy'
+  | 'charging_energy';
+export type EnergyMeters = Partial<Record<EnergyMeterRole, string[]>>;
+export type EnergyCapacity = { nominal_kwh: number | null; usable_kwh: number | null };
+export type EnergySources = { power?: EnergyModuleDocument; energy?: EnergyMeters };
+export type EnergyDeviceDocument = EnergySources & {
+  id: string;
+  name: string | null;
+  ha_device_id: string | null;
+  capacity?: EnergyCapacity;
+};
+export type EnergyModulePlan = { devices: EnergyDeviceDocument[]; total?: EnergySources };
+export type EnergyPlant = Partial<Record<EnergyModuleId, EnergyModulePlan>>;
+
+export type EnergyProfileV1Document = {
+  revision: number;
+  updated_at: string | null;
+  load_error: boolean;
+  modules: EnergyProfileModules;
+  tariff?: EnergyTariff | null;
+};
+
+export type EnergyProfileV2Document = {
+  schema: 'domusos-energy-profile';
+  version: 2;
+  revision: number;
+  updated_at: string | null;
+  load_error: boolean;
+  migrated_from: { version: number; revision: number; updated_at: string | null } | null;
+  plant: EnergyPlant;
+  tariff: EnergyTariff | null;
+  retired_device_ids: string[];
+};
+
+export type EnergyMeterStatus = 'valid' | 'pending' | 'unavailable' | 'incompatible' | 'unknown' | 'recorder_unavailable';
+
+export type EnergyMeterInfo = {
+  statistic_id: string;
+  status: EnergyMeterStatus;
+  reason: string | null;
+  source: string | null;
+  unit: string | null;
+  has_sum: boolean | null;
+  entity_id: string | null;
+  long_term: boolean;
+};
+
+export type EnergyMetersReport = {
+  recorder: 'available' | 'unavailable';
+  /** `incomplete` while Home Assistant or the Recorder is still starting. */
+  verification?: 'complete' | 'incomplete';
+  meters: Record<string, EnergyMeterInfo>;
+};
+
 export type EnergyProfileResult = {
-  profile: { revision: number; updated_at: string | null; load_error: boolean; modules: EnergyProfileModules; tariff?: EnergyTariff | null };
+  /** The v1 view: `null` when v1 cannot hold the profile (it is not "not configured"). */
+  profile: EnergyProfileV1Document | null;
   module_status: Record<EnergyModuleId, 'absent' | 'offline' | 'online'>;
+  /* Present from Energy Profile v2 integrations on. */
+  profile_v2?: EnergyProfileV2Document;
+  v1_compatible?: boolean;
+  runtime?: { supported: boolean; reason: string | null; unsupported_modules?: Partial<Record<EnergyModuleId, string>> };
+  legacy_v1?: { valid: boolean; revision: number | null; updated_at: string | null; diverged: boolean } | null;
+  energy_meters?: EnergyMetersReport;
 };
 
 export type EnergyConfidence = 'high' | 'medium' | 'low';
@@ -128,6 +228,39 @@ export type EnergyCandidate = {
   preview: EnergyReading;
 };
 
+export type EnergyDiscoveryV2Device = {
+  key: string;
+  module: EnergyModuleId;
+  status: 'new' | 'configured' | 'update' | 'conflict';
+  device_id: string | null;
+  ha_device_id?: string | null;
+  name: string | null;
+  integration?: string | null;
+  confidence?: EnergyConfidence;
+  eligible?: boolean;
+  /** False for a configured device the discovery did not find. */
+  detected?: boolean;
+  power?: Array<{ role: string; entity_id: string; confidence: EnergyConfidence; evidence: string[]; sign_convention: string | null; requires: string[] }>;
+  energy?: Array<{ role: EnergyMeterRole; statistic_ids: string[]; confidence: EnergyConfidence; evidence: string[]; statuses: EnergyMeterStatus[] }>;
+  additions?: Array<{ kind: 'power' | 'energy'; role: string; ids: string[] }>;
+  corrections?: Array<{ kind: 'power' | 'energy' | 'sign_convention'; role: string; configured: string[]; proposed: string[] }>;
+  warnings?: Array<{ code: string; role?: string; ids?: string[] }>;
+};
+
+/** The multi-device proposal of the discovery: suggestions only, never applied as such. */
+export type EnergyDiscoveryV2 = {
+  profile: { configured: boolean; revision: number; load_error?: boolean };
+  verification: 'complete' | 'incomplete';
+  recorder: 'available' | 'unavailable';
+  devices: EnergyDiscoveryV2Device[];
+  totals: Array<{ module: EnergyModuleId; kind: 'power' | 'energy'; role: string; ids: string[]; status: 'verified' | 'presumed' | 'configured'; covers: string[]; evidence: string[] }>;
+  meters: Record<string, EnergyMeterInfo>;
+  ambiguous: Array<{ module: EnergyModuleId | null; role: string | null; entity_ids: string[]; reason: string; alternatives?: string[][] }>;
+  suggested_plant: EnergyPlant | null;
+  low_confidence: Array<{ kind: 'power' | 'energy'; module: EnergyModuleId; role: string; id: string }>;
+  low_confidence_truncated?: boolean;
+};
+
 export type EnergyDiscovery = {
   energy_dashboard: string;
   suggested_profile: { modules: EnergyProfileModules };
@@ -136,6 +269,7 @@ export type EnergyDiscovery = {
   requires_input: Array<{ module: EnergyModuleId; role: string; entity_id: string; missing: string[] }>;
   unassigned: string[];
   candidates: Record<string, EnergyCandidate>;
+  v2?: EnergyDiscoveryV2;
 };
 
 export type EnergyCallApi = <T = unknown>(
@@ -146,6 +280,7 @@ export type EnergyCallApi = <T = unknown>(
 export type EnergyErrorCode =
   | 'invalid_profile'
   | 'revision_conflict'
+  | 'profile_requires_v2'
   | 'energy_unavailable'
   | 'unauthorized'
   | 'unsupported'
@@ -164,6 +299,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const ERROR_MESSAGES: Record<EnergyErrorCode, string> = {
   invalid_profile: 'Le associazioni non sono valide.',
   revision_conflict: "L'impianto è stato modificato altrove. Ricarica prima di salvare.",
+  profile_requires_v2: 'L’impianto contiene dispositivi o contatori che questa schermata non può salvare senza perderli: nulla è stato modificato.',
   energy_unavailable: 'Domus Energy non è attivo. Ricarica l’integrazione Domus UI.',
   unauthorized: 'Serve un amministratore di Home Assistant.',
   unsupported: 'Aggiorna l’integrazione Domus UI per usare Domus Energy.',
@@ -179,7 +315,7 @@ export function toEnergyCoreError(error: unknown): EnergyCoreError {
     ? error.code
     : rawMessage.match(/\[([a-z_]+)\]\s*$/)?.[1] ?? '';
   let code: EnergyErrorCode = 'network';
-  if (rawCode === 'invalid_profile' || rawCode === 'revision_conflict' ||
+  if (rawCode === 'invalid_profile' || rawCode === 'revision_conflict' || rawCode === 'profile_requires_v2' ||
       rawCode === 'energy_unavailable' || rawCode === 'unauthorized') {
     code = rawCode;
   } else if (rawCode === 'unknown_command' || /non ammess[oa]/i.test(rawMessage)) {
@@ -205,9 +341,34 @@ export const isEnergyState = (value: unknown): value is EnergyState =>
   isRecord(value) && typeof value.configured === 'boolean' && isRecord(value.modules) &&
   Array.isArray(value.absent_modules) && Number.isInteger(value.profile_revision);
 
-const isProfileResult = (value: unknown): value is EnergyProfileResult =>
-  isRecord(value) && isRecord(value.profile) && Number.isInteger(value.profile.revision) &&
-  isRecord(value.profile.modules) && isRecord(value.module_status);
+const isProfileV2 = (value: unknown): value is EnergyProfileV2Document =>
+  isRecord(value) && Number.isInteger(value.revision) && isRecord(value.plant);
+
+/**
+ * A v1 view, a v2 document, or both. `profile: null` is valid only next to a
+ * v2 document: it means v1 cannot hold the profile, never "not configured".
+ */
+const isProfileResult = (value: unknown): value is EnergyProfileResult => {
+  if (!isRecord(value) || !isRecord(value.module_status)) return false;
+  if (value.profile_v2 !== undefined && !isProfileV2(value.profile_v2)) return false;
+  if (value.profile === null) return value.profile_v2 !== undefined;
+  return isRecord(value.profile) && Number.isInteger(value.profile.revision) && isRecord(value.profile.modules);
+};
+
+/** The revision to send with any save: the v2 document is authoritative when present. */
+export const profileRevision = (result: EnergyProfileResult) =>
+  result.profile_v2?.revision ?? result.profile?.revision ?? 0;
+
+/** Whether this integration stores Energy Profile v2 (and accepts `profile_v2` saves). */
+export const supportsProfileV2 = (result: EnergyProfileResult) => result.profile_v2 !== undefined;
+
+/** Whether the v1 settings and wizard can edit the profile without losing data. */
+export const editableAsV1 = (result: EnergyProfileResult): result is EnergyProfileResult & { profile: EnergyProfileV1Document } =>
+  result.profile !== null && result.v1_compatible !== false;
+
+/** The stored tariff, from whichever document the integration provides. */
+export const profileTariff = (result: EnergyProfileResult) =>
+  result.profile_v2 ? result.profile_v2.tariff : result.profile?.tariff;
 
 const isDiscovery = (value: unknown): value is EnergyDiscovery =>
   isRecord(value) && isRecord(value.suggested_profile) && isRecord(value.proposals) &&
@@ -232,6 +393,27 @@ export const TARIFF_UPDATE_MESSAGE =
  */
 export const supportsTariff = (document: object) => 'tariff' in document;
 
+/**
+ * Save a whole Energy Profile v2 plant. Devices not listed are removed, so the
+ * caller always sends every device; without `tariff` the stored tariff is kept.
+ */
+export function saveEnergyPlant(
+  callApi: EnergyCallApi,
+  plant: EnergyPlant,
+  expectedRevision: number | null,
+  tariff?: EnergyTariff | null,
+) {
+  return request<EnergyProfileResult>(
+    callApi,
+    {
+      type: ENERGY_CORE_TYPES.saveProfile,
+      profile_v2: tariff === undefined ? { plant } : { plant, tariff },
+      expected_revision: expectedRevision,
+    },
+    (value) => isProfileResult(value) && isRecord(value) && isProfileV2(value.profile_v2),
+  );
+}
+
 export async function saveEnergyProfile(
   callApi: EnergyCallApi,
   modules: EnergyProfileModules,
@@ -247,7 +429,7 @@ export async function saveEnergyProfile(
     },
     isProfileResult,
   );
-  if (tariff && !supportsTariff(result.profile)) {
+  if (tariff && result.profile && !supportsTariff(result.profile)) {
     throw new EnergyCoreError('unsupported', TARIFF_UPDATE_MESSAGE);
   }
   return result;

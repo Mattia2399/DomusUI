@@ -7,6 +7,7 @@ import {
   type EnergyCoreError,
   type EnergyState,
 } from '../../../services/energyCoreClient';
+import { detailEntityIds } from './energyDevicesModel';
 
 export type EnergyPageContext = {
   callApi: EnergyCallApi;
@@ -56,6 +57,8 @@ export function boundEntityIds(state: EnergyState | null) {
     for (const quantity of Object.values(module?.quantities ?? {})) {
       quantity.entity_ids.forEach((id) => ids.add(id));
     }
+    // A total sensor is the module value; the devices behind it still change the detail.
+    detailEntityIds(module).forEach((id) => ids.add(id));
   }
   return [...ids].sort();
 }

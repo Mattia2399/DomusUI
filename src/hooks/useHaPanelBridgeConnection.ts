@@ -264,14 +264,21 @@ export function validatePanelServiceRequest(
   );
 }
 
-const ENERGY_SAVE_KEYS = ['type', 'profile', 'expected_revision'];
+/**
+ * Exact save shapes: a v1 profile (`modules`) or a whole Energy Profile v2
+ * (`plant`, up to 16 devices per module with their meters), never both.
+ */
+const ENERGY_SAVES = { profile: ['modules', 20_000], profile_v2: ['plant', 131_072] } as const;
 
 /** Energy commands carry no parameters, except an exact-shape profile save. */
 export function isValidEnergyMessage(message: Record<string, unknown>) {
   if (message.type !== 'domusos/energy/save_profile') {
     return Object.keys(message).every((key) => key === 'type');
   }
-  if (!hasExactKeys(message, ENERGY_SAVE_KEYS) || !isRecord(message.profile) || !isRecord(message.profile.modules)) {
+  const field = 'profile_v2' in message ? 'profile_v2' : 'profile';
+  const [content, limit] = ENERGY_SAVES[field];
+  const document = message[field];
+  if (!hasExactKeys(message, ['type', field, 'expected_revision']) || !isRecord(document) || !isRecord(document[content])) {
     return false;
   }
   const revision = message.expected_revision;
@@ -279,7 +286,7 @@ export function isValidEnergyMessage(message: Record<string, unknown>) {
     return false;
   }
   try {
-    return JSON.stringify(message.profile).length <= 20_000;
+    return JSON.stringify(document).length <= limit;
   } catch {
     return false;
   }

@@ -124,6 +124,21 @@ describe('Energy settings', () => {
     expect(api.saves[0].profile).toEqual({ modules: { ...GRID, solar: { sensors: { production_power: 'sensor.pv_power' } } } });
   });
 
+  it('explains a v1 save the integration refuses because it would drop v2 data', async () => {
+    const api = backend();
+    renderSettings(api);
+    const plant = await screen.findByRole('region', { name: 'Impianto' });
+    fireEvent.click(within(plant).getByRole('button', { name: 'Modifica Fotovoltaico' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Configura Fotovoltaico' }));
+    fireEvent.change(screen.getByLabelText('Produzione'), { target: { value: 'sensor.pv_power' } });
+    api.failNext({ code: 'profile_requires_v2', message: 'The energy profile holds devices' });
+    fireEvent.click(screen.getByRole('button', { name: 'Salva impianto' }));
+
+    // Not a network error: nothing was changed, and the edits stay.
+    expect((await screen.findByRole('alert')).textContent).toMatch(/non può salvare senza perderli: nulla è stato modificato/);
+    expect(screen.getByLabelText('Produzione')).toHaveProperty('value', 'sensor.pv_power');
+  });
+
   it('explains that an older integration cannot store the tariff', async () => {
     const api = backend();
     const legacy = vi.fn(async (message: Record<string, unknown>) => {

@@ -63,6 +63,16 @@
   overlap are reported for confirmation instead of being summed, and a new
   detection on a configured installation only suggests additions, never
   replacing names, ids, sensors or conventions already chosen.
+- The Energy page shows installations with several inverters, batteries or
+  wallboxes: each component's details list its devices with their own
+  values and states, the total sensor apart from them, and where each value
+  comes from (measured, sum of devices, weighted average). A total missing
+  some devices says how many report instead of showing their sum as the
+  total. Single-device installations look as before.
+- *Impostazioni Energia* edits multi-device installations: names, power
+  sensors, sign conventions, energy meters with their verification and
+  battery capacities, with a confirmation before removing a device. Every
+  save sends the whole installation and keeps the tariff.
 
 ### Changed
 

@@ -2,9 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ENERGY_CORE_TYPES,
   discoverEnergy,
+  editableAsV1,
   getEnergyProfile,
   getEnergyState,
+  profileRevision,
+  profileTariff,
+  saveEnergyPlant,
   saveEnergyProfile,
+  supportsProfileV2,
   toEnergyCoreError,
 } from './energyCoreClient';
 
@@ -71,19 +76,55 @@ describe('Domus Energy client', () => {
     await expect(discoverEnergy(vi.fn().mockResolvedValue({ ...a0, v2 }))).resolves.toEqual({ ...a0, v2 });
   });
 
-  it('reads integrations that store Energy Profile v2', async () => {
+  it('reads v1 profiles, v2 profiles and v2 profiles without a v1 view', async () => {
+    const tariff = { scheme: 'single' as const, prices: { single: 0.25 }, fixed_monthly: null, vat_percent: null, export_price: null };
     const profile = { revision: 7, updated_at: null, load_error: false, modules: {}, tariff: null };
-    const v2 = { revision: 7, plant: {}, load_error: false };
-    const energy_meters = { recorder: 'available', meters: {}, plan: {} };
-    const result = { profile, profile_v2: v2, v1_compatible: true, legacy_v1: null, module_status: {}, energy_meters };
-    await expect(getEnergyProfile(vi.fn().mockResolvedValue(result))).resolves.toEqual(result);
+    const plant = { solar: { devices: [{ id: 'solar-1', name: 'Tetto', ha_device_id: null, power: { sensors: { production_power: 'sensor.pv' } } }] } };
+    const v2 = { schema: 'domusos-energy-profile', version: 2, revision: 7, updated_at: null, load_error: false, migrated_from: null, plant, tariff, retired_device_ids: [] };
+    const energy_meters = { recorder: 'available', verification: 'complete', meters: {}, plan: {} };
 
-    // A profile v1 cannot hold is never read as an empty installation.
-    const v2Only = { ...result, profile: null, v1_compatible: false };
-    await expect(getEnergyProfile(vi.fn().mockResolvedValue(v2Only))).rejects.toMatchObject({ code: 'invalid_response' });
+    // Integrations from before Energy Profile v2.
+    const legacy = { profile, module_status: {} };
+    const legacyResult = await getEnergyProfile(vi.fn().mockResolvedValue(legacy));
+    expect([supportsProfileV2(legacyResult), editableAsV1(legacyResult), profileRevision(legacyResult)]).toEqual([false, true, 7]);
 
-    const unsupported = { ...EMPTY_STATE, configured: true, profile_revision: 7, unsupported_profile: 'multiple_devices' };
+    const compatible = { profile, profile_v2: v2, v1_compatible: true, legacy_v1: null, module_status: {}, energy_meters };
+    const both = await getEnergyProfile(vi.fn().mockResolvedValue(compatible));
+    expect(both).toEqual(compatible);
+    expect([supportsProfileV2(both), editableAsV1(both), profileTariff(both)]).toEqual([true, true, tariff]);
+
+    // v1 cannot hold it: still a configured installation, never an empty one or an error.
+    const v2Only = { ...compatible, profile: null, v1_compatible: false };
+    const only = await getEnergyProfile(vi.fn().mockResolvedValue(v2Only));
+    expect([editableAsV1(only), profileRevision(only), only.profile_v2?.plant]).toEqual([false, 7, plant]);
+    // Without the v2 document a null profile means nothing.
+    await expect(getEnergyProfile(vi.fn().mockResolvedValue({ profile: null, module_status: {} }))).rejects.toMatchObject({ code: 'invalid_response' });
+    await expect(getEnergyProfile(vi.fn().mockResolvedValue({ ...v2Only, profile_v2: { revision: 'x', plant: {} } }))).rejects.toMatchObject({ code: 'invalid_response' });
+
+    const unsupported = { ...EMPTY_STATE, configured: true, profile_revision: 7, unsupported_modules: { solar: 'no_power_sensors' } };
     await expect(getEnergyState(vi.fn().mockResolvedValue(unsupported))).resolves.toEqual(unsupported);
+  });
+
+  it('saves a whole v2 plant with the expected revision and keeps or sets the tariff', async () => {
+    const plant = { solar: { devices: [{ id: 'solar-1', name: null, ha_device_id: null, power: { sensors: { production_power: 'sensor.pv' } } }] } };
+    const v2 = { schema: 'domusos-energy-profile', version: 2, revision: 8, updated_at: null, load_error: false, migrated_from: null, plant, tariff: null, retired_device_ids: [] };
+    const reply = { profile: null, profile_v2: v2, v1_compatible: false, module_status: {} };
+    const callApi = vi.fn().mockResolvedValue(reply);
+
+    await expect(saveEnergyPlant(callApi, plant, 7)).resolves.toEqual(reply);
+    expect(callApi.mock.calls[0][0]).toEqual({ type: 'domusos/energy/save_profile', profile_v2: { plant }, expected_revision: 7 });
+    await saveEnergyPlant(callApi, plant, 7, null);
+    expect(callApi.mock.calls[1][0]).toEqual({ type: 'domusos/energy/save_profile', profile_v2: { plant, tariff: null }, expected_revision: 7 });
+    // An integration that answered without the v2 document did not store it.
+    await expect(saveEnergyPlant(vi.fn().mockResolvedValue({ profile: { revision: 8, modules: {} }, module_status: {} }), plant, 7))
+      .rejects.toMatchObject({ code: 'invalid_response' });
+  });
+
+  it('explains a save refused because v1 would lose devices or meters', () => {
+    const error = toEnergyCoreError({ code: 'profile_requires_v2', message: 'The energy profile holds devices' });
+    expect(error.code).toBe('profile_requires_v2');
+    expect(error.message).toMatch(/nulla è stato modificato/);
+    expect(toEnergyCoreError(new Error('changed [revision_conflict]')).message).toMatch(/modificato altrove/);
   });
 
   it.each([

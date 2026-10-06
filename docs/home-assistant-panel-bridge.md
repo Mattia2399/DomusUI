@@ -199,18 +199,22 @@ const isValidPersonUpdate = (message) => {
       !message.device_trackers.every((entity) => typeof entity === "string" && /^device_tracker\.[a-z0-9_]+$/.test(entity))) return false;
   return message.picture === null || (typeof message.picture === "string" && message.picture.length <= 2048);
 };
-const ENERGY_SAVE_KEYS = ["type", "profile", "expected_revision"];
+// Exact save shapes: a v1 profile (modules) or a whole Energy Profile v2 (plant), never both.
+const ENERGY_SAVES = { profile: ["modules", 20_000], profile_v2: ["plant", 131_072] };
 // Energy commands carry no parameters, except an exact-shape profile save.
 // Home Assistant still enforces administrator rights on discovery and profiles.
 const isValidEnergyMessage = (message) => {
   if (message.type !== "domusos/energy/save_profile") {
     return Object.keys(message).every((key) => key === "type");
   }
-  if (!hasExactKeys(message, ENERGY_SAVE_KEYS) || !isRecord(message.profile) || !isRecord(message.profile.modules)) return false;
+  const field = "profile_v2" in message ? "profile_v2" : "profile";
+  const [content, limit] = ENERGY_SAVES[field];
+  const document = message[field];
+  if (!hasExactKeys(message, ["type", field, "expected_revision"]) || !isRecord(document) || !isRecord(document[content])) return false;
   const revision = message.expected_revision;
   if (revision !== null && (!Number.isInteger(revision) || revision < 0)) return false;
   try {
-    return JSON.stringify(message.profile).length <= 20_000;
+    return JSON.stringify(document).length <= limit;
   } catch {
     return false;
   }

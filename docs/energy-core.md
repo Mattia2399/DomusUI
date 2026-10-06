@@ -600,10 +600,14 @@ No field changes meaning between versions: v1 clients read `profile` and send
 `profile` (the `modules` and optional `tariff` of v1); v2 clients send
 `profile_v2` (the whole `plant`, optional `tariff`). Sending both, or neither,
 is `invalid_profile`, and so is a `profile_v2` without `plant`, so a partial
-save cannot erase devices. A missing `tariff` keeps the stored tariff. The
-current client rejects a `null` `profile` as an invalid response instead of
-reading it as an empty installation. The panel bridge forwards only v1 saves
-for now.
+save cannot erase devices. A missing `tariff` keeps the stored tariff.
+Clients from before v2 reject a `null` `profile` as an invalid response
+instead of reading it as an empty installation; the current client reads it,
+next to `profile_v2`, as a configured plant that v1 cannot hold. Both halves
+of the panel bridge forward either save shape, exactly: `profile` with
+`modules` (at most 20,000 characters) or `profile_v2` with `plant` (at most
+131,072, room for 16 devices per module with their meters), never both,
+always with `expected_revision`.
 
 ## Energy subpage
 
@@ -620,6 +624,29 @@ section; no new route exists.
   every minute while something is stale.
 - **Stale data** keeps its last value: the tile and the details say
   *Non aggiornato da 35 min* and the hero shows *Dati non aggiornati*.
+- **Several devices** (from `get_state`, never summed, averaged or completed
+  in the browser). A module with one device looks exactly as before. With
+  several devices or a total sensor, the component details add *Dispositivi*:
+  the total sensor first, then each device with its name (or *Fotovoltaico 2*),
+  value, state (offline, not updated, energy meters only) and, opened, its own
+  sensors and sign convention. The module values are listed as *Valori del
+  modulo* and say where they come from: *Misurato*, *Derivato*, *Somma di N
+  dispositivi*, *Media pesata sulla capacità utilizzabile/nominale*,
+  *Misurato dal sensore totale*. A module convention is shown only when the
+  backend reports one.
+  - *Partial*: when some devices do not report, the module value stays
+    missing (*Non tutti i dispositivi rispondono · 2 di 3*; the tile says
+    *2 di 3 dispositivi*) and the sum of the others is a separate line,
+    *Dai dispositivi disponibili · 3,5 kW · 2 di 3*. Signed flows give a
+    direction (*in carica 1,2 kW*), never a bound.
+  - *Totals*: a valid total stays the module value when a device is offline;
+    the details say *dettaglio dei dispositivi incompleto* and the hero does
+    not report partial data. An unavailable total says so, with no fallback.
+  - *Batteries*: the charge level is the backend's capacity-weighted average,
+    or *Totale non calcolabile* with each battery's level in the detail.
+  - Modules with energy meters only are named in a note, never shown as 0 W.
+  - Every device and total sensor refreshes the projection, through the same
+    single state stream.
 - **Layout** mirrors the Irrigation overview structure:
   - *Mobile*: the page header floats over a full-bleed, sticky house hero; the
     cards ride up on a rounded sheet (`-mt-28`) that turns opaque while
@@ -742,6 +769,31 @@ section; no new route exists.
     grid is configured. Decimal commas are accepted and invalid values are
     flagged inline. *Salva tariffa* and *Rimuovi tariffa* keep the saved
     modules, and a failed save keeps the edits on screen.
+  - *Energy Profile v2*: when v1 cannot hold the profile (`profile: null`),
+    *Impianto* lists each module with its devices and total sensor. A device
+    opens on its name, power sensors and sign convention (the same editor),
+    its energy meters (one statistic id per line, several are summed) with
+    their Recorder status and reason (*Valido*, *In attesa delle prime
+    statistiche*, *Non disponibile ora*, *Non compatibile*, *Non trovato*,
+    *Non verificabile ora*), and a battery's nominal and usable capacity. A
+    device can be removed after an explicit confirmation that its id is
+    retired. The draft (`energyPlantDraft.ts`) mirrors the backend rules and
+    saves the whole plant with `profile_v2` and the expected revision; every
+    other device, the total, the Home Assistant device and the tariff travel
+    unchanged. A save that would leave a total with one device is blocked.
+    Adding devices, totals or modules is left to the multi-device setup;
+    the v1 wizard refuses to open on such a plant instead of dropping data.
+    The tariff is saved with the stored plant, never with unsaved edits.
+  - Notices: a `legacy_v1.diverged` warning (an older Domus UI changed the
+    plant after the update; nothing was merged), an unreadable stored
+    profile, and meters that cannot be verified while Home Assistant or the
+    Recorder starts. `profile_requires_v2` and revision conflicts are
+    explained, never shown as network errors.
+- **Discovery v2** is typed and sorted for review (`energyDiscoveryModel.ts`:
+  new devices, changes to confirm, configured, not detected, conflicts,
+  ambiguities, totals, incomplete verification). Nothing applies it:
+  `suggested_plant` never replaces the profile and high confidence is not
+  consent.
 - **Re-detection** never changes confirmed bindings: differences are listed
   with an *Applica* action. Only a first setup preselects unique high or medium
   confidence matches, and nothing is saved without confirmation.
@@ -750,8 +802,9 @@ section; no new route exists.
   administrator), the client administrative API gate, and the backend's own
   `require_admin` check.
 - **HACS bridge**: both bridge halves allowlist exactly the four
-  `domusos/energy/*` commands with exact-shape validation and announce the
-  `energy_core` capability.
+  `domusos/energy/*` commands with exact-shape validation (`save_profile`
+  with either `profile` or `profile_v2`) and announce the `energy_core`
+  capability.
 
 ## History data contract (not implemented)
 

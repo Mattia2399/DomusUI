@@ -4,7 +4,9 @@ import type { MockEntityStateMap } from '../../../types/ha';
 import {
   ENERGY_MODULES,
   discoverEnergy,
+  editableAsV1,
   getEnergyProfile,
+  profileRevision,
   saveEnergyProfile,
   supportsTariff,
   toEnergyCoreError,
@@ -73,6 +75,8 @@ export default function EnergySetupWizard({
   // Editing an existing plant opens on its sensors; the plant type is one step back.
   const [step, setStep] = React.useState(mode === 'edit' ? PLANT_STEPS.indexOf('bind') : 0);
   const [loadError, setLoadError] = React.useState<string | null>(null);
+  // A profile with several devices or energy meters: this v1 flow would drop them.
+  const [needsV2, setNeedsV2] = React.useState(false);
   const [discoveryError, setDiscoveryError] = React.useState('');
   const [profile, setProfile] = React.useState<EnergyProfileResult | null>(null);
   const [discovery, setDiscovery] = React.useState<EnergyDiscovery | null>(null);
@@ -91,6 +95,10 @@ export default function EnergySetupWizard({
     const [profileResult, discoveryResult] = await Promise.allSettled([getEnergyProfile(callApi), discoverEnergy(callApi)]);
     if (profileResult.status === 'rejected') {
       setLoadError(toEnergyCoreError(profileResult.reason).message);
+      return;
+    }
+    if (!editableAsV1(profileResult.value)) {
+      setNeedsV2(true);
       return;
     }
     const found = discoveryResult.status === 'fulfilled' ? discoveryResult.value : null;
@@ -159,6 +167,15 @@ export default function EnergySetupWizard({
     </div>
   );
 
+  if (needsV2) {
+    return shell(
+      <div role="status" className={`space-y-3 ${UI.body}`}>
+        <p>Questo impianto ha più dispositivi o contatori di energia: il rilevamento guidato per questo tipo di impianto non è ancora disponibile, e questa procedura li perderebbe.</p>
+        <p>Puoi modificare i dispositivi già configurati dalle Impostazioni Energia.</p>
+        <button type="button" onClick={onClose} className={UI.button}>Chiudi</button>
+      </div>,
+    );
+  }
   if (loadError !== null) {
     return shell(
       <div role="alert" className={`space-y-3 ${UI.body}`}>
@@ -195,7 +212,7 @@ export default function EnergySetupWizard({
   const handleSave = async () => {
     setSave({ status: 'saving' });
     try {
-      await saveEnergyProfile(callApi, modules, profile.profile.revision, tariffToSave);
+      await saveEnergyProfile(callApi, modules, profileRevision(profile), tariffToSave);
       onSaved();
     } catch (failure) {
       // The draft stays untouched so the user can retry or adjust it.

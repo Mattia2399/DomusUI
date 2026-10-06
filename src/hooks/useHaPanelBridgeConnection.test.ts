@@ -175,6 +175,18 @@ describe('Home Assistant panel bridge schema', () => {
       ...save,
       profile: { modules: { grid: { sensors: { net_power: 'x'.repeat(20_001) } } } },
     })).toBe(false);
+    // Energy Profile v2: a whole plant, with or without a tariff, never next to a v1 profile.
+    const saveV2 = { type: 'domusos/energy/save_profile', profile_v2: { plant: { solar: { devices: [] } } }, expected_revision: 3 };
+    expect(validatePanelApiMessage(saveV2)).toBe(true);
+    expect(validatePanelApiMessage({ ...saveV2, profile_v2: { ...saveV2.profile_v2, tariff: null } })).toBe(true);
+    expect(validatePanelApiMessage({ ...saveV2, profile: save.profile })).toBe(false);
+    expect(validatePanelApiMessage({ ...saveV2, profile_v2: { modules: {} } })).toBe(false);
+    expect(validatePanelApiMessage({ ...saveV2, expected_revision: -1 })).toBe(false);
+    const { expected_revision: _missing, ...v2WithoutRevision } = saveV2;
+    expect(validatePanelApiMessage(v2WithoutRevision)).toBe(false);
+    // A large plant fits; an oversized one does not.
+    expect(validatePanelApiMessage({ ...saveV2, profile_v2: { plant: { solar: { devices: [], note: 'x'.repeat(60_000) } } } })).toBe(true);
+    expect(validatePanelApiMessage({ ...saveV2, profile_v2: { plant: { solar: { devices: [], note: 'x'.repeat(131_073) } } } })).toBe(false);
     expect(validatePanelApiMessage({ type: 'domusos/energy/control_inverter' })).toBe(false);
     expect(validatePanelApiMessage({ type: 'domusos/energy/subscribe' })).toBe(false);
   });

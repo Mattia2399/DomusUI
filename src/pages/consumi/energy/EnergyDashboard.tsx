@@ -21,6 +21,7 @@ import { EnergyModuleSheet, describeQuantity, liveFlows, okValue } from './Energ
 import { PERIOD_LABEL, formatEuro, formatKwh, formatPercent, historyBalance } from './energyHistoryModel';
 import { EnergyHomeVisual, FLOW_COLORS } from './EnergyHomeVisual';
 import { MODULE_META, buildFlowFromState, formatAge, formatPower, formatQuantity, staleSince } from './energyModel';
+import { MAIN_ROLE, moduleCondition } from './energyDevicesModel';
 
 type HistoryPeriod = EnergyHistoryPeriod;
 
@@ -38,10 +39,15 @@ const MODULES: Array<{ id: EnergyModuleId; icon: LucideIcon; accent: string }> =
 
 
 export function energySystemStatus(state: EnergyState) {
-  const modules = Object.values(state.modules).filter((module): module is EnergyModuleState => Boolean(module));
+  const entries = (Object.entries(state.modules) as Array<[EnergyModuleId, EnergyModuleState | undefined]>)
+    .filter((entry): entry is [EnergyModuleId, EnergyModuleState] => Boolean(entry[1]));
+  const modules = entries.map(([, module]) => module);
   const online = modules.filter((module) => module.status === 'online').length;
   if (online === 0) return { label: 'Sensori offline', dot: 'bg-amber-400', live: false };
-  if (online < modules.length || modules.some((module) => !module.complete)) return { label: 'Dati parziali', dot: 'bg-amber-400', live: false };
+  // A valid total sensor keeps its module reliable even when one device is silent.
+  if (online < modules.length || entries.some(([id, module]) => moduleCondition(id, module) === 'partial')) {
+    return { label: 'Dati parziali', dot: 'bg-amber-400', live: false };
+  }
   if (modules.some((module) => module.freshness === 'stale')) return { label: 'Dati non aggiornati', dot: 'bg-amber-400', live: false };
   return { label: 'In tempo reale', dot: 'bg-emerald-400', live: true };
 }
@@ -98,6 +104,7 @@ function ModuleTile({
   const q = module.quantities;
   const offline = module.status === 'offline';
   const stale = !offline && module.freshness === 'stale';
+  const condition = moduleCondition(id, module);
   const soc = okValue(q.state_of_charge);
   const flow = okValue(id === 'grid' || id === 'battery' ? q.net_power : q.production_power ?? q.charging_power);
   const still = flow !== null && Math.abs(flow) < 10;
@@ -113,6 +120,11 @@ function ModuleTile({
   } else {
     caption = flow === null ? describeQuantity(q.production_power) : still ? 'Nessuna produzione' : 'Produzione attuale';
   }
+  // Some devices do not report: the tile says how many do; the details explain the rest.
+  const main = q[MAIN_ROLE[id]];
+  if (flow === null && main?.reason === 'partial_devices' && main.coverage) {
+    caption = `${main.coverage.contributing} di ${main.coverage.configured} dispositivi`;
+  }
   return (
     <button
       type="button"
@@ -124,8 +136,8 @@ function ModuleTile({
         <Icon className={`h-4 w-4 shrink-0 ${offline ? 'text-[color:var(--ui-text-tertiary)]' : accent}`} aria-hidden="true" />
         <span className={`truncate ${EYEBROW}`}>{MODULE_META[id].label}</span>
         <span
-          className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${offline || stale || !module.complete ? 'bg-amber-400' : 'bg-emerald-400'}`}
-          title={offline ? 'Offline' : stale ? 'Non aggiornato' : module.complete ? 'Attivo' : 'Dati parziali'}
+          className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${offline || stale || condition === 'partial' ? 'bg-amber-400' : 'bg-emerald-400'}`}
+          title={offline ? 'Offline' : stale ? 'Non aggiornato' : condition === 'complete' ? 'Attivo' : condition === 'detail_incomplete' ? 'Dettaglio dei dispositivi incompleto' : 'Dati parziali'}
           aria-hidden="true"
         />
         <ChevronRight className="-mr-1 h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
@@ -363,6 +375,8 @@ export function EnergyDashboard({
   const [details, setDetails] = React.useState<EnergyModuleId | null>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const present = MODULES.filter((item) => state.modules[item.id]);
+  // Installed with energy meters only: listed, never shown as 0 W.
+  const meterOnly = (Object.keys(state.unsupported_modules ?? {}) as EnergyModuleId[]).map((id) => MODULE_META[id].label);
 
   // Same progressive hero as Irrigation: the photo stays behind while the sheet rises.
   React.useEffect(() => {
@@ -413,6 +427,13 @@ export function EnergyDashboard({
           style={{ opacity: `calc(${PROGRESS} * 0.96)` }}
         />
         {banner ? <div className={`${SECTION} space-y-3 md:order-first xl:col-span-12`}>{banner}</div> : null}
+        {meterOnly.length ? (
+          <div className={`${SECTION} md:order-first xl:col-span-12`}>
+            <p role="note" className="liquid-glass-card px-4 py-3 text-xs text-[color:var(--ui-text-secondary)]">
+              {listOf(meterOnly)}: {meterOnly.length === 1 ? 'ha' : 'hanno'} solo contatori di energia, senza un sensore di potenza in tempo reale.
+            </p>
+          </div>
+        ) : null}
 
         <div
           className={`${SECTION} grid grid-cols-2 content-start gap-3 md:gap-4 xl:col-span-4 xl:grid-cols-2 xl:auto-rows-[minmax(8.5rem,11.5rem)] ${TABLET_COLUMNS[present.length] ?? 'md:grid-cols-4'}`}
@@ -421,7 +442,7 @@ export function EnergyDashboard({
         >
           {present.map((item, index) => (
             // An odd last tile takes the whole row where tiles sit two by two.
-            <div key={item.id} role="listitem" className={`grid ${present.length % 2 && index === present.length - 1 ? 'col-span-2 md:col-span-1 xl:col-span-2' : ''}`}>
+            <div key={item.id} role="listitem" className={`grid min-w-0 ${present.length % 2 && index === present.length - 1 ? 'col-span-2 md:col-span-1 xl:col-span-2' : ''}`}>
               <ModuleTile {...item} module={state.modules[item.id] as EnergyModuleState} now={state.observed_at} onOpen={() => setDetails(item.id)} />
             </div>
           ))}

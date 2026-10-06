@@ -1,7 +1,8 @@
 import GlassBottomSheet from '../../../components/ui/GlassBottomSheet';
 import type { EnergyHistory, EnergyHistorySeriesId, EnergyModuleId, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
 import { EnergyHistoryChart } from './EnergyHistoryChart';
-import { MODULE_META, REASON_LABEL, SOURCE_LABEL, formatAge, formatPower, formatQuantity, staleSince } from './energyModel';
+import { MODULE_META, formatAge, formatPower, formatQuantity, staleSince } from './energyModel';
+import { MAIN_ROLE, deviceRows, hasDeviceDetail, moduleCondition, partialLine, quantityLabel, totalRow, type DeviceRow } from './energyDevicesModel';
 import { formatEuro, formatKwh, historyBalance, seriesTotal } from './energyHistoryModel';
 
 /* Details of one component (or the home), opened from its tile: live values, flows, history and sensors. */
@@ -9,8 +10,8 @@ import { formatEuro, formatKwh, historyBalance, seriesTotal } from './energyHist
 export const okValue = (quantity: EnergyQuantity | undefined | null) =>
   quantity?.status === 'ok' ? quantity.value : null;
 
-export const describeQuantity = (quantity: EnergyQuantity | undefined | null) =>
-  quantity?.status === 'ok' && quantity.source ? SOURCE_LABEL[quantity.source] : REASON_LABEL[quantity?.reason ?? ''] ?? 'Non disponibile';
+/** Where a value comes from (measured, a sum of devices, a total sensor…) or why it is missing. */
+export const describeQuantity = (quantity: EnergyQuantity | undefined | null) => quantityLabel(quantity);
 
 const roleLabel = (id: EnergyModuleId, role: string) =>
   role === 'net_power'
@@ -92,6 +93,63 @@ function Sensor({ label, quantity, now }: { label: string; quantity: EnergyQuant
   );
 }
 
+const TONE: Record<DeviceRow['tone'], string> = {
+  ok: 'text-[color:var(--ui-text-secondary)]',
+  warning: 'text-[color:var(--ui-warning)]',
+  muted: 'text-[color:var(--ui-text-tertiary)]',
+};
+
+/** The total sensor and each device: a compact line that opens on its own sensors. */
+function Devices({ total, rows, now }: { total: DeviceRow | null; rows: DeviceRow[]; now: string }) {
+  const items = total ? [total, ...rows] : rows;
+  return (
+    <section className="space-y-1.5" aria-label="Dispositivi">
+      <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">Dispositivi</h3>
+      <ul className="divide-y divide-[color:var(--ui-separator)] rounded-2xl bg-[color:var(--ui-fill-tertiary)] px-3.5">
+        {items.map((row) => (
+          <li key={row.key}>
+            <details className="group py-2.5">
+              <summary className="flex cursor-pointer list-none items-baseline justify-between gap-3 rounded-lg text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-accent)] [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-[color:var(--ui-text-primary)]">{row.name}</span>
+                  <span className={`block text-[11px] ${TONE[row.tone]}`}>{row.caption}</span>
+                </span>
+                <span className="shrink-0 text-right font-semibold tabular-nums text-[color:var(--ui-text-primary)]">{row.value}</span>
+              </summary>
+              <div className="mt-1 divide-y divide-[color:var(--ui-separator)] border-t border-[color:var(--ui-separator)]">
+                {row.quantities.map(([label, quantity]) => <Sensor key={label} label={label} quantity={quantity} now={now} />)}
+                {row.convention ? <p className="py-2 text-[10px] text-[color:var(--ui-text-tertiary)]">{row.convention}</p> : null}
+              </div>
+            </details>
+          </li>
+        ))}
+      </ul>
+      {total ? (
+        <p className="px-1 text-[10px] leading-4 text-[color:var(--ui-text-tertiary)]">
+          Il sensore totale misura l’intero modulo: i dispositivi sono solo il dettaglio e non vengono sommati a esso.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/** A module value from several devices that is missing: what the reporting ones give, never as the total. */
+function withDetail(id: EnergyModuleId, state: EnergyState, now: Line[]) {
+  if (id === 'home') {
+    const partial = partialLine('home', 'consumption_power', state.home_consumption);
+    return partial ? [...now, partial] : now;
+  }
+  const q = state.modules[id]?.quantities ?? {};
+  const lines = [...now];
+  const partial = partialLine(id, MAIN_ROLE[id], q[MAIN_ROLE[id]]);
+  if (partial) lines.push(partial);
+  const soc = q.state_of_charge;
+  if (id === 'battery' && hasDeviceDetail(state.modules.battery) && soc && soc.status !== 'ok') {
+    lines.unshift(['Stato di carica complessivo', quantityLabel(soc)]);
+  }
+  return lines;
+}
+
 /** Live figures and flows of one component, with whether the flows are only estimated. */
 function liveLines(id: EnergyModuleId, state: EnergyState): { now: Line[]; flows: Line[]; estimated: boolean; note?: string } {
   const flows = liveFlows(state);
@@ -155,7 +213,7 @@ function liveLines(id: EnergyModuleId, state: EnergyState): { now: Line[]; flows
       });
       const mixed = (['solar', 'battery', 'grid'] as const).filter((side) => flows.supply[side] > 0).length > 1;
       if (mixed) {
-        return { now, flows: out, estimated: true, note: 'Stima: la wallbox riceve lo stesso mix del resto della casa, perché i contatori non distinguono i singoli carichi.' };
+        return { now: withDetail(id, state, now), flows: out, estimated: true, note: 'Stima: la wallbox riceve lo stesso mix del resto della casa, perché i contatori non distinguono i singoli carichi.' };
       }
     }
   } else {
@@ -169,7 +227,7 @@ function liveLines(id: EnergyModuleId, state: EnergyState): { now: Line[]; flows
       });
     }
   }
-  return { now, flows: out, estimated: Boolean(flows?.estimated) };
+  return { now: withDetail(id, state, now), flows: out, estimated: Boolean(flows?.estimated) };
 }
 
 function historyLines(id: EnergyModuleId, history: EnergyHistory): Line[] {
@@ -199,6 +257,13 @@ export function EnergyModuleSheet({
 }) {
   const module = id && id !== 'home' ? state.modules[id] : undefined;
   const live = id ? liveLines(id, state) : null;
+  // The home sheet also lists the home meters when there are several.
+  const detailModule = id ? state.modules[id] : undefined;
+  const detail = id && hasDeviceDetail(detailModule) && detailModule ? {
+    total: totalRow(id, detailModule.total, state.observed_at),
+    rows: deviceRows(id, detailModule, state.observed_at),
+  } : null;
+  const condition = module && id ? moduleCondition(id, module) : 'complete';
   const series = (id && SERIES[id]?.filter((name) => history?.series[name]?.length)) ?? [];
   const status = !module
     ? null
@@ -206,7 +271,7 @@ export function EnergyModuleSheet({
       ? 'Offline · i sensori non forniscono dati'
       : module.freshness === 'stale'
         ? `Non aggiornato ${formatAge(staleSince(module.quantities), state.observed_at)}`
-        : module.complete ? 'Attivo' : 'Dati parziali';
+        : condition === 'complete' ? 'Attivo' : condition === 'detail_incomplete' ? 'Attivo · dettaglio dei dispositivi incompleto' : 'Dati parziali';
   const sensors = id === 'home'
     ? (state.home_consumption ? [['Consumo della casa', state.home_consumption] as const] : [])
     : Object.entries(module?.quantities ?? {}).filter(([, quantity]) => quantity.status !== 'not_measured').map(([role, quantity]) => [roleLabel(id as EnergyModuleId, role), quantity] as const);
@@ -248,9 +313,10 @@ export function EnergyModuleSheet({
           ) : (
             <Lines title="Ultime 24 ore" lines={[['Storico', 'Richiede lo storico energetico']]} />
           )}
+          {detail ? <Devices total={detail.total} rows={detail.rows} now={state.observed_at} /> : null}
           {sensors.length ? (
             <section className="space-y-1.5">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">Sensori</h3>
+              <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{detail ? 'Valori del modulo' : 'Sensori'}</h3>
               <div className="divide-y divide-[color:var(--ui-separator)] rounded-2xl bg-[color:var(--ui-fill-tertiary)] px-3.5">
                 {sensors.map(([label, quantity]) => <Sensor key={label} label={label} quantity={quantity} now={state.observed_at} />)}
               </div>

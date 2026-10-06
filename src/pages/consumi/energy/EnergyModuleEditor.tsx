@@ -29,6 +29,7 @@ function hintFor(value: string, discovery: EnergyDiscovery | null, haStates: Moc
 
 function SensorField({
   id,
+  instanceId,
   role,
   value,
   discovery,
@@ -37,6 +38,7 @@ function SensorField({
   onChange,
 }: {
   id: EnergyModuleId;
+  instanceId: string;
   role: string;
   value: string;
   discovery: EnergyDiscovery | null;
@@ -44,7 +46,7 @@ function SensorField({
   error?: DraftIssue;
   onChange: (value: string) => void;
 }) {
-  const inputId = `energy-${id}-${role}`;
+  const inputId = `energy-${instanceId}-${role}`;
   return (
     <div className="space-y-1.5">
       <label htmlFor={inputId} className={`block text-sm ${UI.title}`}>{roleLabel(id, role)}</label>
@@ -87,12 +89,22 @@ export function ModuleEditor({
   haStates,
   issues,
   locked = false,
+  instanceId = id,
+  title,
+  hint,
+  toggleLabels,
   onChange,
 }: {
   id: EnergyModuleId;
   module: DraftModule;
   /** Presence is decided elsewhere (the plant type), so the module cannot be toggled here. */
   locked?: boolean;
+  /** Unique field ids when several editors of one module are on screen (one per device). */
+  instanceId?: string;
+  title?: string;
+  hint?: string;
+  /** Labels of the presence toggle: [remove, add]. */
+  toggleLabels?: [string, string];
   offline: boolean;
   discovery: EnergyDiscovery | null;
   haStates: MockEntityStateMap;
@@ -101,29 +113,31 @@ export function ModuleEditor({
 }) {
   const meta = MODULE_META[id];
   const moduleIssue = issues.find((issue) => !issue.role);
+  const [removeLabel, addLabel] = toggleLabels ?? ['Rimuovi', 'Configura'];
+  const heading = title ?? meta.label;
   return (
     <fieldset className={UI.card}>
-      <legend className="sr-only">{meta.label}</legend>
+      <legend className="sr-only">{heading}</legend>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className={UI.title}>{meta.label}</p>
-          <p className={UI.muted}>{module.present ? meta.hint : 'Non incluso nell’impianto'}{offline ? ' · sensori offline' : ''}</p>
+          <p className={UI.title}>{heading}</p>
+          <p className={UI.muted}>{module.present ? hint ?? meta.hint : 'Non incluso nell’impianto'}{offline ? ' · sensori offline' : ''}</p>
         </div>
         {locked ? null : (
           <button
             type="button"
-            aria-label={`${module.present ? 'Rimuovi' : 'Configura'} ${meta.label}`}
+            aria-label={`${module.present ? removeLabel : addLabel} ${heading}`}
             onClick={() => onChange({ ...module, present: !module.present })}
             className={`${UI.chip} ${module.present ? '' : 'font-semibold text-[color:var(--ui-accent)]'}`}
           >
-            {module.present ? 'Rimuovi' : 'Configura'}
+            {module.present ? removeLabel : addLabel}
           </button>
         )}
       </div>
       {module.present ? (
         <div className="mt-3 space-y-3">
           {meta.conventions ? (
-            <div role="radiogroup" aria-label={`Collegamento ${meta.label}`} className="flex flex-wrap gap-1.5">
+            <div role="radiogroup" aria-label={`Collegamento ${heading}`} className="flex flex-wrap gap-1.5">
               {(['split', 'net'] as const).map((mode) => (
                 <button
                   key={mode}
@@ -142,6 +156,7 @@ export function ModuleEditor({
             <SensorField
               key={role}
               id={id}
+              instanceId={instanceId}
               role={role}
               value={module.sensors[role] ?? ''}
               discovery={discovery}
@@ -158,7 +173,7 @@ export function ModuleEditor({
                 <label key={value} className={`flex min-h-9 items-center gap-2 ${UI.body}`}>
                   <input
                     type="radio"
-                    name={`energy-${id}-sign`}
+                    name={`energy-${instanceId}-sign`}
                     checked={module.signConvention === value}
                     onChange={() => onChange({ ...module, signConvention: value })}
                   />

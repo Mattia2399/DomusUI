@@ -112,6 +112,12 @@ export const REASON_LABEL: Record<string, string> = {
   non_numeric: 'Valore non numerico',
   non_finite: 'Valore non valido',
   incompatible_device_class: 'Tipo di sensore non compatibile',
+  // Several devices or a total sensor (multi-device integrations).
+  partial_devices: 'Non tutti i dispositivi rispondono',
+  total_unavailable: 'Sensore totale non disponibile',
+  total_invalid: 'Sensore totale non valido',
+  capacity_unknown: 'Totale non calcolabile: capacità delle batterie mancanti',
+  no_power_sensors: 'Solo contatori di energia',
 };
 
 /** "da 35 min", "da 2 h": how long ago a value was last reported, both times from the server. */
