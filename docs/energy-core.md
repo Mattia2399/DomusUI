@@ -43,6 +43,74 @@ bindings in place. The config entry is not reloaded, so Irrigation sessions
 are never interrupted. An invalid stored document disables Energy only, and
 is logged and flagged with `load_error` until a valid profile is saved.
 
+## Energy Profile v2 (model only, not active)
+
+`energy/profile_v2.py` defines the next profile version; nothing loads, stores
+or serves it yet, and the live profile is still v1. It describes each module
+as devices plus an optional total:
+
+```json
+{
+  "schema": "domusos-energy-profile",
+  "version": 2,
+  "revision": 4,
+  "updated_at": "…",
+  "migrated_from": { "version": 1, "revision": 4, "updated_at": "…" },
+  "plant": {
+    "solar": {
+      "devices": [
+        {
+          "id": "solar-1",
+          "name": "Tetto sud",
+          "ha_device_id": null,
+          "power": { "sensors": { "production_power": "sensor.inv1_power" } },
+          "energy": { "production_energy": ["sensor.inv1_energy"] }
+        },
+        { "id": "solar-2", "name": null, "ha_device_id": null,
+          "power": { "sensors": { "production_power": "sensor.inv2_power" } } }
+      ],
+      "total": { "power": { "sensors": { "production_power": "sensor.pv_total" } } }
+    },
+    "battery": {
+      "devices": [
+        { "id": "battery-1", "name": null, "ha_device_id": null,
+          "capacity": { "nominal_kwh": 10, "usable_kwh": 9.5 },
+          "power": { "sensors": { "state_of_charge": "sensor.soc", "net_power": "sensor.bat" },
+                     "sign_convention": "positive_discharge" } }
+      ]
+    }
+  },
+  "tariff": null
+}
+```
+
+- **Power** sensors per device follow exactly the v1 module rules (roles,
+  `sensor.*`, signed wiring and sign convention).
+- **Energy** meters are lists of Home Assistant statistic ids, `sensor.*` or
+  external (`source:id`), whose sum is the role: `grid.import_energy` /
+  `export_energy`, `solar.production_energy`, `home.consumption_energy`,
+  `battery.charge_energy` / `discharge_energy`, `wallbox.charging_energy`. A
+  plant without meters is valid; no energy is ever derived from power.
+- **Devices** have stable ids (lowercase, starting with a letter, unique in
+  the plant), an optional name and Home Assistant device id; only batteries
+  declare a capacity, keeping nominal and usable values apart.
+- **Total**: a source that already covers all devices of the module; it
+  needs at least two devices and is never added to them.
+- Every sensor and statistic id is used once across devices, totals, power
+  and energy.
+
+**From v1.** `upgrade_v1` converts in memory, deterministically: each module
+becomes the device `<module>-1` with the same sensors and sign convention;
+revision, timestamp and tariff carry over and `migrated_from` records the
+source. `load_profile_document` reads either version and is idempotent.
+
+**v1 clients.** A v2 profile has a v1 view (`lossless_v1`) only when v1 can
+hold all of it: one device per module with the converted id, no name, Home
+Assistant device, capacity, energy meter or total. A v1 save may replace a
+profile only in that case (`v1_save_allowed`); otherwise it would drop data
+and must be refused. The persistent migration, which keeps `domusos.energy.v1`
+untouched and writes `domusos.energy.v2` on the first save, is not active.
+
 ## Hardware conditions
 
 Each module is in exactly one condition:
