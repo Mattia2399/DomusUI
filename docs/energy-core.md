@@ -329,7 +329,7 @@ own in Home Assistant; nothing is polled.
 | `unavailable` | Statistics exist but the entity is gone or not reporting (`entity_missing`, `state_unavailable`, `state_unknown`), or a sensor that cannot be checked while unavailable |
 | `incompatible` | Verifiably not an energy meter: `incompatible_device_class` (power, temperature, `energy_storage`...), `not_energy_unit` (W, °C...), `unit_missing`, `no_state_class`, `no_sum` (`measurement`), `not_recorded` (excluded from the Recorder) |
 | `unknown` | Neither the Recorder nor Home Assistant knows the id (`not_found`), e.g. an entity or external statistic that does not exist yet |
-| `recorder_unavailable` | The Recorder is not loaded, migrating or not ready; nothing more can be verified |
+| `recorder_unavailable` | The Recorder is not loaded, migrating or not ready; or, right after a start, the sensor platform is not registered yet (`recorder_starting`) and a meter would only look unrecorded: nothing more can be verified now |
 
 - **Saving.** A save refuses only the meters it adds that are `incompatible`,
   with `invalid_profile` and the reason (`sensor.x cannot be an energy meter
@@ -404,6 +404,110 @@ The result contains:
 - `candidates`: metadata and a normalized preview;
 - `ignored`: counts of cumulative, incompatible, or disabled sensors.
 
+### Discovery v2: devices and energy meters
+
+The same command adds `v2`, a proposal in the shape of an Energy Profile v2
+(`plant → modules → devices[]`). It reuses the evidence and confidence levels
+above (`discovery_plant.py`); nothing is saved, the profile and the Stores are
+only read, and a high confidence is a suggestion, never an authorized
+configuration.
+
+**Sources, by reliability.**
+
+1. The Energy dashboard: grid `flow_from` / `flow_to`, solar and battery
+   sources, and individual consumers. One solar or battery entry is one
+   physical source, so its statistics belong to the same device. Home
+   Assistant 2025.1 stores energy statistics only; 2026.2 adds `stat_rate` and
+   `power_config` (power) to the same entries and `stat_rate` /
+   `included_in_stat` to consumers. Every field is optional. The dashboard is
+   evidence of configuration, not proof that a sensor still works.
+2. The device and entity registries: sensors are grouped by Home Assistant
+   device, per module. A device that serves several flows (a hybrid
+   inverter) gives one proposal per module.
+3. Metadata: device class, unit and state class are hard gates. Power (W, kW)
+   is never proposed as a meter and a meter (kWh, `total`/`total_increasing`)
+   never as power.
+4. Words in names and translation keys, as `low` confidence only. Among the
+   modules a device already shows, a sensor's own words can confirm one,
+   never add another.
+
+**Meters.** A meter of the dashboard is `high`. A meter on the Home Assistant
+device of a module's power sensors is `medium` when its module is clear and,
+for grid and battery, its direction is named (import/export, charge/
+discharge). Anything else is `low`. Every proposed meter is checked once
+with `EnergyMeterResolver` (one Recorder read for the whole discovery), and
+its A1.4 status is reported. `incompatible` and `unknown` meters are never
+suggested. `pending` and not yet verifiable meters are kept, with a warning.
+
+**Several meters for one role.**
+
+- The parts the Energy dashboard sums (e.g. F1/F2/F3 grid imports) are
+  parts; any other meter for that role is a `possible_overlap`.
+- Without the dashboard, tariff bands alone (`f1`, `f2`, `f3`, `tariff`,
+  `peak`…) are proposed as parts, with `parts_disjointness_unconfirmed`.
+- Bands next to a plain meter give a `total_or_bands` choice, and two plain
+  meters give `multiple_candidates`.
+- A meter that restarts every period ("today") gives way to a lifetime one,
+  reported as `alternative_meters`.
+
+The same applies to power: several candidates for one role on one device
+(MPPT strings and the inverter total) are a choice, never picked by name.
+
+**Totals.** A module total is `verified` only when Home Assistant computes it
+from the devices: a `group` helper of type `sum` whose members are the
+devices' sensors. It is then proposed as `total` and never as a device.
+
+- A group of unknown type, or a sensor without a device whose name says
+  "total"/"plant"/"impianto"…, is `presumed`. It is reported, and never used
+  or summed.
+- A sensor without a device next to device sensors is
+  `membership_undetermined`: it could be one more device or their total.
+- When a module has a single device, its meters without a device are that
+  device's meters.
+
+**Existing profiles.** Discovery reads the current profile, v1 or v2, and
+changes nothing.
+
+- Detected devices are matched by Home Assistant device or by shared sensors:
+  - `configured`: nothing new;
+  - `update`: `additions` (a new meter or role) and `corrections` (a
+    different sensor or sign convention), both to confirm;
+  - `new`;
+  - `conflict`: the device matches several configured devices.
+- Configured devices that were not detected are listed with
+  `detected: false`.
+- A sensor already used by another configured device is not proposed again.
+- `suggested_plant` is the current plant unchanged plus the new devices that
+  need no choice, with ids never used before (retired ids included). New
+  devices are not added to a module whose configured total might not cover
+  them (`total_coverage_unknown`).
+- Names, capacities and sign conventions are never invented: a capacity is
+  left unknown, and a signed sensor without a verified convention
+  `requires` it.
+
+**Recorder.** Until the Recorder is running with the sensor platform loaded,
+`verification` is `incomplete`. A meter that might only be not registered
+yet is `recorder_unavailable` / `recorder_starting`, never `incompatible`.
+Running the discovery again verifies again; nothing is polled.
+
+| `v2` field | Content |
+| --- | --- |
+| `profile` | `{configured, revision, load_error}` of the current profile |
+| `verification`, `recorder` | `complete`/`incomplete`, `available`/`unavailable` |
+| `devices[]` | Each with the fields below |
+| `devices[].key`, `module`, `status` | Stable proposal key; `new`, `configured`, `update` or `conflict` |
+| `devices[].device_id` | Configured id, or the id suggested for a new device |
+| `devices[].ha_device_id`, `name`, `integration` | From the device registry, never made up |
+| `devices[].confidence`, `eligible` | Strongest evidence; whether the device enters `suggested_plant` |
+| `devices[].power[]` | `{role, entity_id, confidence, evidence, sign_convention, requires}` |
+| `devices[].energy[]` | `{role, statistic_ids, confidence, evidence, statuses}` |
+| `devices[].additions`, `corrections`, `warnings` | Changes to confirm, and what to look at |
+| `totals[]` | `{module, kind, role, ids, status: verified/presumed/configured, covers, evidence}` |
+| `meters` | A1.4 status of every proposed statistic id, external ones included (`source:id`, no device) |
+| `ambiguous[]` | `{module, role, entity_ids, reason}`: `multiple_candidates`, `total_or_bands`, `presumed_total`, `partial_aggregate`, `membership_undetermined`, `net_and_directional_conflict`, `entity_matches_multiple_roles`, `module_unresolved`, `role_unresolved`, `matches_several_configured_devices`, `total_coverage_unknown`, `invalid_combination`, `too_many_devices` |
+| `suggested_plant` | A valid v2 `plant`, or `null` when there is nothing new to suggest |
+| `low_confidence` | Loose name-only matches without a device (at most 100) |
+
 ## Domus Core integration
 
 - `EnergyModuleAdapter` implements `CapabilityAdapter` per configured module
@@ -454,7 +558,7 @@ price. Costs are not computed yet because they need the energy history.
 | Command                       | Access         | Purpose                                           |
 | ----------------------------- | -------------- | ------------------------------------------------- |
 | `domusos/energy/get_state`    | Authenticated  | Normalized values of configured modules, absent/offline modules, home consumption |
-| `domusos/energy/discover`     | Administrators | Return proposals; nothing is saved                |
+| `domusos/energy/discover`     | Administrators | Return proposals, A0 draft and `v2` devices; nothing is saved |
 | `domusos/energy/get_profile`  | Administrators | Return the profile and the condition of each module |
 | `domusos/energy/save_profile` | Administrators | Save confirmed or corrected bindings (`profile` **or** `profile_v2`, `expected_revision`) |
 
@@ -490,7 +594,7 @@ prices exclude.
 | `runtime`      | `{supported, reason, unsupported_modules}`: whether `get_state` can show every module live |
 | `legacy_v1`    | `{valid, revision, updated_at, diverged}` of the frozen v1 document, or `null` |
 | `module_status`| Condition of each module, as before                                      |
-| `energy_meters`| `{recorder, meters, plan}`: `recorder` is `available` or `unavailable`, `meters` the status of each statistic id, `plan` how each module energy role is obtained (see [Energy meters](#energy-meters)) |
+| `energy_meters`| `{recorder, verification, meters, plan}`: `recorder` is `available` or `unavailable`, `verification` is `incomplete` while Home Assistant or the Recorder is still starting, `meters` the status of each statistic id, `plan` how each module energy role is obtained (see [Energy meters](#energy-meters)) |
 
 No field changes meaning between versions: v1 clients read `profile` and send
 `profile` (the `modules` and optional `tariff` of v1); v2 clients send

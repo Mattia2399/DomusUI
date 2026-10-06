@@ -16,6 +16,13 @@ non-power units and contradictory metadata are never proposed for power roles.
 Only unique ``high``/``medium`` matches enter the suggested profile; ties are
 reported as ambiguous and signed sensors without a verified sign convention are
 reported as requiring user input.
+
+The same evidence also covers several devices per module and the energy
+meters of an Energy Profile v2 (``v2`` in the result, see
+``discovery_plant``): meters are matched to modules and roles by the Energy
+dashboard, by the Home Assistant device of a module's power sensors, or by
+words (``low``), and checked against the Recorder once with
+``EnergyMeterResolver``.
 """
 
 from __future__ import annotations
@@ -34,6 +41,8 @@ from homeassistant.helpers import entity_registry as er
 
 from ..core._values import utc_now
 from .adapter import DIRECTIONAL_PAIRS
+from .discovery_plant import Binding, GroupSum, HaDevice, build_plant_proposals
+from .meters import METER_STATE_CLASSES, EnergyMeterResolver
 from .models import (
     MODULE_SPECS,
     EnergyModule,
@@ -42,6 +51,7 @@ from .models import (
     SignConvention,
     parse_profile,
 )
+from .profile_v2 import ENERGY_ROLES, EnergyProfileV2
 from .normalization import (
     CUMULATIVE_STATE_CLASSES,
     ENERGY_DEVICE_CLASSES,
@@ -184,6 +194,13 @@ OUTBOUND_CONVENTION = {
     EnergyModule.GRID: SignConvention.POSITIVE_EXPORT,
     EnergyModule.BATTERY: SignConvention.POSITIVE_CHARGE,
 }
+# Direction words of the two-way modules, shared by power and energy roles.
+ENERGY_ROLE_KEYWORDS: Mapping[str, frozenset[str]] = {
+    "import_energy": ROLE_KEYWORDS[(EnergyModule.GRID, "import_power")],
+    "export_energy": ROLE_KEYWORDS[(EnergyModule.GRID, "export_power")],
+    "charge_energy": ROLE_KEYWORDS[(EnergyModule.BATTERY, "charge_power")],
+    "discharge_energy": ROLE_KEYWORDS[(EnergyModule.BATTERY, "discharge_power")],
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,6 +254,38 @@ class VerifiedBinding:
     role: str
     entity_id: str
     sign_convention: SignConvention | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class MeterFacts:
+    """A sensor that looks like a cumulative energy meter."""
+
+    entity_id: str
+    device_id: str | None
+    platform: str | None
+    tokens: frozenset[str]
+
+
+@dataclass(frozen=True, slots=True)
+class DashboardMeter:
+    """An energy statistic the user assigned in the HA Energy dashboard."""
+
+    module: EnergyModule
+    role: str
+    statistic_id: str
+    # One dashboard source entry is one physical source (solar, battery, grid).
+    group: str
+
+
+@dataclass(slots=True)
+class DashboardEvidence:
+    """Energy dashboard references used by the v2 discovery."""
+
+    meters: list[DashboardMeter] = field(default_factory=list)
+    # Power sensors of a source entry (newer Home Assistant only).
+    groups: dict[str, str] = field(default_factory=dict)
+    # Individual consumers, e.g. a wallbox meter added under "devices".
+    consumers: list[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)
@@ -365,6 +414,56 @@ def parse_energy_preferences(
     return verified, dict(anchors)
 
 
+def parse_energy_dashboard(preferences: Mapping[str, Any]) -> DashboardEvidence:
+    """Extract energy meters and source entries from HA Energy preferences.
+
+    2025.1 stores only energy statistics; 2026.2 adds power (``stat_rate``,
+    ``power_config``) to grid, solar and battery entries. Every field is read
+    defensively and may be absent.
+    """
+    evidence = DashboardEvidence()
+
+    def meter(module: EnergyModule, role: str, statistic_id: Any, group: str) -> None:
+        if isinstance(statistic_id, str) and statistic_id:
+            evidence.meters.append(DashboardMeter(module, role, statistic_id, group))
+
+    def power(config: Any, stat_rate: Any, group: str) -> None:
+        values = [stat_rate]
+        if isinstance(config, Mapping):
+            values += [
+                config.get(key)
+                for key in ("stat_rate", "stat_rate_inverted", "stat_rate_from", "stat_rate_to")
+            ]
+        for value in values:
+            if isinstance(value, str):
+                evidence.groups[value] = group
+
+    sources = preferences.get("energy_sources")
+    for index, source in enumerate(sources if isinstance(sources, list) else ()):
+        if not isinstance(source, Mapping):
+            continue
+        group = f"{source.get('type')}:{index}"
+        if source.get("type") == "grid":
+            for flow in _mappings(source.get("flow_from")):
+                meter(EnergyModule.GRID, "import_energy", flow.get("stat_energy_from"), group)
+            for flow in _mappings(source.get("flow_to")):
+                meter(EnergyModule.GRID, "export_energy", flow.get("stat_energy_to"), group)
+            for item in _mappings(source.get("power")):
+                power(item.get("power_config"), item.get("stat_rate"), group)
+        elif source.get("type") == "solar":
+            meter(EnergyModule.SOLAR, "production_energy", source.get("stat_energy_from"), group)
+            power(None, source.get("stat_rate"), group)
+        elif source.get("type") == "battery":
+            # From the battery into the home is discharge, into the battery is charge.
+            meter(EnergyModule.BATTERY, "discharge_energy", source.get("stat_energy_from"), group)
+            meter(EnergyModule.BATTERY, "charge_energy", source.get("stat_energy_to"), group)
+            power(source.get("power_config"), source.get("stat_rate"), group)
+    for consumer in _mappings(preferences.get("device_consumption")):
+        if isinstance(consumer.get("stat_consumption"), str):
+            evidence.consumers.append(consumer["stat_consumption"])
+    return evidence
+
+
 def classify_metadata(
     device_class: str | None, unit: str | None, state_class: str | None
 ) -> tuple[MeasurementKind | None, str | None]:
@@ -400,10 +499,19 @@ class EnergyDiscoveryService:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
 
-    async def async_discover(self) -> dict[str, Any]:
-        """Return ranked proposals, a conservative draft profile and ambiguities."""
-        dashboard_status, verified, anchor_entities = await self._async_energy_dashboard()
-        facts, ignored, hardware_devices = self._collect_facts()
+    async def async_discover(
+        self,
+        current: EnergyProfileV2 | None = None,
+        resolver: EnergyMeterResolver | None = None,
+        *,
+        load_error: bool = False,
+    ) -> dict[str, Any]:
+        """Return ranked proposals, a conservative draft profile and ambiguities.
+
+        ``current`` is only read, to tell configured devices from new ones.
+        """
+        dashboard_status, verified, anchor_entities, dashboard = await self._async_energy_dashboard()
+        facts, ignored, hardware_devices, meter_facts = self._collect_facts()
         facts_by_id = {item.entity_id: item for item in facts}
 
         ent_reg = er.async_get(self.hass)
@@ -464,6 +572,12 @@ class EnergyDiscoveryService:
         referenced = dict.fromkeys(
             [p.entity_id for p in proposals.values()] + unassigned
         )
+        v2 = await self._async_plant(
+            proposals.values(), facts_by_id, meter_facts, anchors, dashboard,
+            current or EnergyProfileV2(), resolver or EnergyMeterResolver(self.hass),
+        )
+        # A stored profile that could not be read is not "no profile".
+        v2["profile"]["load_error"] = load_error
         return {
             "generated_at": utc_now().isoformat(),
             "energy_dashboard": dashboard_status,
@@ -485,13 +599,14 @@ class EnergyDiscoveryService:
             },
             "ignored": dict(sorted(ignored.items())),
             "warnings": warnings,
+            "v2": v2,
         }
 
     async def _async_energy_dashboard(
         self,
-    ) -> tuple[str, list[VerifiedBinding], dict[str, set[EnergyModule]]]:
+    ) -> tuple[str, list[VerifiedBinding], dict[str, set[EnergyModule]], DashboardEvidence]:
         if "energy" not in self.hass.config.components:
-            return "not_loaded", [], {}
+            return "not_loaded", [], {}, DashboardEvidence()
         try:
             from homeassistant.components.energy.data import (  # noqa: PLC0415
                 async_get_manager,
@@ -501,13 +616,15 @@ class EnergyDiscoveryService:
             preferences = manager.data
         except Exception:  # Optional evidence: discovery works without it.
             _LOGGER.debug("Energy dashboard preferences are unavailable", exc_info=True)
-            return "unavailable", [], {}
+            return "unavailable", [], {}, DashboardEvidence()
         if not isinstance(preferences, Mapping):
-            return "not_configured", [], {}
+            return "not_configured", [], {}, DashboardEvidence()
         verified, anchors = parse_energy_preferences(preferences)
-        return "used", verified, anchors
+        return "used", verified, anchors, parse_energy_dashboard(preferences)
 
-    def _collect_facts(self) -> tuple[list[EntityFacts], Counter[str], set[str]]:
+    def _collect_facts(
+        self,
+    ) -> tuple[list[EntityFacts], Counter[str], set[str], dict[str, MeterFacts]]:
         ent_reg = er.async_get(self.hass)
         dev_reg = dr.async_get(self.hass)
         entity_ids = set(self.hass.states.async_entity_ids(SENSOR_DOMAIN))
@@ -518,6 +635,7 @@ class EnergyDiscoveryService:
         )
 
         facts: list[EntityFacts] = []
+        meters: dict[str, MeterFacts] = {}
         ignored: Counter[str] = Counter()
         hardware_devices: set[str] = set()
         for entity_id in sorted(entity_ids):
@@ -548,10 +666,6 @@ class EnergyDiscoveryService:
                 hardware_devices.add(device_id)
             if excluded is not None:
                 ignored[excluded] += 1
-            if kind is None:
-                continue
-
-            device = dev_reg.async_get(device_id) if device_id is not None else None
             primary_texts = (
                 (entry.translation_key, entry.original_name, entry.name)
                 if entry is not None
@@ -563,6 +677,19 @@ class EnergyDiscoveryService:
                 tokens = tokenize(
                     _text(attributes.get("friendly_name")), entity_id.split(".", 1)[1]
                 )
+            if (
+                excluded == "cumulative_energy"
+                and unit in ENERGY_UNITS
+                and device_class in (None, "energy")
+                and state_class in METER_STATE_CLASSES
+            ):
+                meters[entity_id] = MeterFacts(
+                    entity_id, device_id, entry.platform if entry is not None else None, tokens
+                )
+            if kind is None:
+                continue
+
+            device = dev_reg.async_get(device_id) if device_id is not None else None
             facts.append(
                 EntityFacts(
                     entity_id=entity_id,
@@ -585,7 +712,7 @@ class EnergyDiscoveryService:
                     state=state,
                 )
             )
-        return facts, ignored, hardware_devices
+        return facts, ignored, hardware_devices, meters
 
     @staticmethod
     def _base_evidence(item: EntityFacts) -> list[str]:
@@ -669,6 +796,205 @@ class EnergyDiscoveryService:
             return [(role, [], False) for role in matched]
         # No direction words: a single bidirectional meter is the plausible role.
         return [("net_power", [], True)]
+
+    async def _async_plant(
+        self,
+        proposals: Iterable[Proposal],
+        facts: Mapping[str, EntityFacts],
+        meter_facts: Mapping[str, MeterFacts],
+        anchors: Mapping[str, set[EnergyModule]],
+        dashboard: DashboardEvidence,
+        current: EnergyProfileV2,
+        resolver: EnergyMeterResolver,
+    ) -> dict[str, Any]:
+        """Group the evidence into Energy Profile v2 device proposals."""
+        ambiguous: list[dict[str, Any]] = []
+        bindings = self._power_bindings(proposals, facts, dashboard, ambiguous)
+
+        # Modules a device already shows through power sensors or the dashboard.
+        device_modules: dict[str, set[EnergyModule]] = defaultdict(set)
+        for device_id, modules in anchors.items():
+            device_modules[device_id].update(modules)
+        for binding in bindings:
+            if binding.ha_device_id and binding.rank >= CONFIDENCE_RANK[Confidence.MEDIUM]:
+                device_modules[binding.ha_device_id].add(binding.module)
+        bindings += self._meter_bindings(meter_facts, device_modules, dashboard, ambiguous)
+
+        # One Recorder read for every meter the discovery proposes.
+        report = await resolver.async_resolve(b.id for b in bindings if b.kind == "energy")
+        return build_plant_proposals(
+            bindings,
+            devices=self._ha_devices({b.ha_device_id for b in bindings if b.ha_device_id}),
+            group_sums=self._group_sums(),
+            current=current,
+            report=report,
+            ambiguous=ambiguous,
+        )
+
+    @staticmethod
+    def _power_bindings(
+        proposals: Iterable[Proposal],
+        facts: Mapping[str, EntityFacts],
+        dashboard: DashboardEvidence,
+        ambiguous: list[dict[str, Any]],
+    ) -> list[Binding]:
+        """One role per power sensor: its strongest proposal, if unique."""
+        by_entity: dict[str, list[Proposal]] = defaultdict(list)
+        for proposal in proposals:
+            by_entity[proposal.entity_id].append(proposal)
+        bindings: list[Binding] = []
+        for entity_id, items in sorted(by_entity.items()):
+            top = max(CONFIDENCE_RANK[p.confidence] for p in items)
+            best = [p for p in items if CONFIDENCE_RANK[p.confidence] == top]
+            if len({p.module for p in best}) > 1:
+                # A device in several modules (a hybrid inverter): the sensor's
+                # own words may confirm one of them, never add a new one.
+                confirmed = [p for p in best if "module_keyword" in p.evidence]
+                if len({p.module for p in confirmed}) == 1:
+                    best = confirmed
+            if len({(p.module, p.role) for p in best}) > 1:
+                if top >= CONFIDENCE_RANK[Confidence.MEDIUM]:
+                    ambiguous.append({
+                        "module": None, "role": None, "entity_ids": [entity_id],
+                        "reason": "entity_matches_multiple_roles",
+                    })
+                continue
+            proposal, item = best[0], facts[entity_id]
+            bindings.append(Binding(
+                kind="power",
+                module=proposal.module,
+                role=proposal.role,
+                id=entity_id,
+                confidence=proposal.confidence.value,
+                evidence=tuple(sorted(set(proposal.evidence))),
+                ha_device_id=item.device_id,
+                group=dashboard.groups.get(entity_id),
+                tokens=item.tokens,
+                sign_convention=proposal.sign_convention,
+                dashboard="energy_dashboard" in proposal.evidence,
+                integration=item.platform,
+            ))
+        return bindings
+
+    def _meter_bindings(
+        self,
+        meter_facts: Mapping[str, MeterFacts],
+        device_modules: Mapping[str, set[EnergyModule]],
+        dashboard: DashboardEvidence,
+        ambiguous: list[dict[str, Any]],
+    ) -> list[Binding]:
+        """Energy meters by Energy dashboard, by device, then by words (low)."""
+        ent_reg = er.async_get(self.hass)
+
+        def device_of(statistic_id: str) -> str | None:
+            if statistic_id in meter_facts:
+                return meter_facts[statistic_id].device_id
+            if not statistic_id.startswith(f"{SENSOR_DOMAIN}."):
+                # External statistics have no Home Assistant device.
+                return None
+            entry = ent_reg.async_get(statistic_id)
+            return entry.device_id if entry is not None else None
+
+        bindings: list[Binding] = []
+        placed: set[str] = set()
+        for item in dashboard.meters:
+            fact = meter_facts.get(item.statistic_id)
+            bindings.append(Binding(
+                kind="energy", module=item.module, role=item.role, id=item.statistic_id,
+                confidence=Confidence.HIGH.value, evidence=("energy_dashboard",),
+                ha_device_id=device_of(item.statistic_id), group=item.group,
+                tokens=fact.tokens if fact else frozenset(), dashboard=True,
+                integration=fact.platform if fact else None,
+            ))
+            placed.add(item.statistic_id)
+        for statistic_id in dashboard.consumers:
+            fact = meter_facts.get(statistic_id)
+            if fact and EnergyModule.WALLBOX in device_modules.get(fact.device_id or "", ()):
+                bindings.append(Binding(
+                    kind="energy", module=EnergyModule.WALLBOX, role="charging_energy",
+                    id=statistic_id, confidence=Confidence.MEDIUM.value,
+                    evidence=("energy_dashboard_consumer", "same_device"),
+                    ha_device_id=fact.device_id, tokens=fact.tokens, integration=fact.platform,
+                ))
+                placed.add(statistic_id)
+
+        for statistic_id, fact in sorted(meter_facts.items()):
+            if statistic_id in placed:
+                continue
+            structural = device_modules.get(fact.device_id or "", set())
+            by_words = {m for m in EnergyModule if fact.tokens & MODULE_KEYWORDS[m]}
+            evidence: list[str] = []
+            if len(structural) == 1 and (not by_words or structural & by_words):
+                module = next(iter(structural))
+                evidence.append("same_device")
+            elif structural and len(structural & by_words) == 1:
+                module = next(iter(structural & by_words))
+                evidence += ["same_device", "module_keyword"]
+            elif len(by_words) == 1:
+                module = next(iter(by_words))
+                evidence.append("module_keyword")
+            else:
+                if structural:
+                    ambiguous.append({
+                        "module": None, "role": None, "entity_ids": [statistic_id],
+                        "reason": "module_unresolved",
+                    })
+                continue
+            roles = ENERGY_ROLES[module]
+            if len(roles) == 1:
+                role = roles[0]
+            else:
+                matched = [r for r in roles if fact.tokens & ENERGY_ROLE_KEYWORDS[r]]
+                if len(matched) != 1:
+                    if "same_device" in evidence:
+                        ambiguous.append({
+                            "module": module.value, "role": None, "entity_ids": [statistic_id],
+                            "reason": "role_unresolved",
+                        })
+                    continue
+                role = matched[0]
+                evidence.append("role_keyword")
+            confidence = Confidence.MEDIUM if "same_device" in evidence else Confidence.LOW
+            bindings.append(Binding(
+                kind="energy", module=module, role=role, id=statistic_id,
+                confidence=confidence.value, evidence=tuple(evidence),
+                ha_device_id=fact.device_id, tokens=fact.tokens, integration=fact.platform,
+            ))
+        return bindings
+
+    def _ha_devices(self, device_ids: set[str]) -> dict[str, HaDevice]:
+        dev_reg = dr.async_get(self.hass)
+        devices: dict[str, HaDevice] = {}
+        for device_id in device_ids:
+            device = dev_reg.async_get(device_id)
+            if device is not None:
+                name = device.name_by_user or device.name
+                devices[device_id] = HaDevice(name, tokenize(name, device.model))
+        return devices
+
+    def _group_sums(self) -> dict[str, GroupSum]:
+        """Sensors computed from others; a ``group`` helper of type sum is proof."""
+        ent_reg = er.async_get(self.hass)
+        sums: dict[str, GroupSum] = {}
+        for state in self.hass.states.async_all(SENSOR_DOMAIN):
+            members = state.attributes.get("entity_id")
+            if not isinstance(members, (list, tuple)) or len(members) < 2:
+                continue
+            if not all(isinstance(member, str) for member in members):
+                continue
+            entry = ent_reg.async_get(state.entity_id)
+            config_entry = (
+                self.hass.config_entries.async_get_entry(entry.config_entry_id)
+                if entry is not None and entry.config_entry_id
+                else None
+            )
+            verified = (
+                config_entry is not None
+                and config_entry.domain == "group"
+                and config_entry.options.get("type") == "sum"
+            )
+            sums[state.entity_id] = GroupSum(frozenset(members), verified)
+        return sums
 
     def _suggest(
         self, ranked: Mapping[EnergyModule, Mapping[str, list[Proposal]]]

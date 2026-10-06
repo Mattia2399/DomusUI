@@ -103,7 +103,15 @@ async def websocket_discover(
 ) -> None:
     """Return proposals only; nothing is saved."""
     try:
-        result = await EnergyDiscoveryService(hass).async_discover()
+        service = EnergyDiscoveryService(hass)
+        manager = hass.data.get(DOMAIN, {}).get("energy_manager")
+        if isinstance(manager, EnergyProfileManager) and manager.loaded:
+            # The profile is read to tell configured devices from new ones.
+            result = await service.async_discover(
+                manager.profile_v2, manager.meters, load_error=manager.load_error
+            )
+        else:
+            result = await service.async_discover()
         connection.send_result(msg["id"], result)
     except Exception as err:
         _send_error(connection, msg["id"], err)

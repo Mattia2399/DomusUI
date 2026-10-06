@@ -105,6 +105,9 @@ class MeterReport:
 
     recorder_available: bool
     meters: Mapping[str, MeterInfo]
+    # False while Home Assistant or the Recorder is still starting: statuses
+    # that depend on what is not loaded yet are provisional, ask again later.
+    complete: bool = True
 
     def incompatible(self, statistic_ids: Iterable[str]) -> list[MeterInfo]:
         """Return the given meters that are verifiably not energy meters."""
@@ -118,6 +121,7 @@ class MeterReport:
         """Return the JSON-compatible representation."""
         return {
             "recorder": "available" if self.recorder_available else "unavailable",
+            "verification": "complete" if self.complete else "incomplete",
             "meters": {key: info.as_dict() for key, info in sorted(self.meters.items())},
         }
 
@@ -199,6 +203,16 @@ def _recorder_instance(hass: HomeAssistant) -> Any:
     return instance
 
 
+def _sensor_statistics_ready(hass: HomeAssistant) -> bool:
+    """Return whether the sensor recorder platform can list new statistics.
+
+    Right after a start the Recorder may run before the ``sensor`` platform has
+    registered, and a suitable meter would look unrecorded.
+    """
+    platforms = getattr(hass.data.get(RECORDER_DOMAIN), "recorder_platforms", None)
+    return hass.is_running and isinstance(platforms, Mapping) and "sensor" in platforms
+
+
 def _read_recorder(hass: HomeAssistant, statistic_ids: set[str]) -> tuple[dict, dict]:
     """Recorder metadata, then what recorder platforms will compile; one job."""
     from homeassistant.components.recorder import statistics  # noqa: PLC0415
@@ -231,9 +245,13 @@ class EnergyMeterResolver:
     async def async_resolve(self, statistic_ids: Iterable[str]) -> MeterReport:
         """Return the status of every statistic id."""
         ids = set(statistic_ids)
-        if not ids:
-            return MeterReport(recorder_available=_recorder_instance(self.hass) is not None, meters={})
         instance = _recorder_instance(self.hass)
+        if not ids:
+            return MeterReport(
+                recorder_available=instance is not None,
+                meters={},
+                complete=instance is not None and _sensor_statistics_ready(self.hass),
+            )
         recorded: dict = {}
         listed: dict = {}
         if instance is not None:
@@ -244,16 +262,20 @@ class EnergyMeterResolver:
             except Exception:  # noqa: BLE001 - any database failure means "not verifiable now"
                 _LOGGER.warning("Recorder metadata for energy meters could not be read", exc_info=True)
                 instance = None
+        ready = instance is not None and _sensor_statistics_ready(self.hass)
         return MeterReport(
             recorder_available=instance is not None,
             meters={
-                statistic_id: self._classify(statistic_id, instance is not None, recorded, listed)
+                statistic_id: self._classify(
+                    statistic_id, instance is not None, ready, recorded, listed
+                )
                 for statistic_id in ids
             },
+            complete=ready,
         )
 
     def _classify(
-        self, statistic_id: str, recorder: bool, recorded: Mapping, listed: Mapping
+        self, statistic_id: str, recorder: bool, ready: bool, recorded: Mapping, listed: Mapping
     ) -> MeterInfo:
         # What the entity declares (a power or temperature sensor...) explains a
         # refusal better than the statistics derived from it, so it comes first.
@@ -299,6 +321,9 @@ class EnergyMeterResolver:
             return MeterInfo(**base, status=MeterStatus.INCOMPATIBLE, reason=entity_issue)
         if reason := _not_reporting(state):
             return MeterInfo(**base, status=MeterStatus.UNAVAILABLE, reason=reason)
+        if not ready:
+            # Possibly just not registered yet: provisional, never incompatible.
+            return MeterInfo(**base, status=MeterStatus.RECORDER_UNAVAILABLE, reason="recorder_starting")
         # A suitable sensor the Recorder does not record (excluded from it).
         return MeterInfo(**base, status=MeterStatus.INCOMPATIBLE, reason="not_recorded")
 

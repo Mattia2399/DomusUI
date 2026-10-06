@@ -56,6 +56,13 @@
   first statistics, unavailable, unknown or incompatible. A power or
   temperature sensor is refused as an energy meter, while a meter that is new
   or temporarily unavailable, or a stopped Recorder, never blocks a save.
+- Energy detection also proposes installations with several inverters,
+  batteries and wallboxes, each with its power sensors and energy meters,
+  from the Energy dashboard, the Home Assistant devices and, with low
+  confidence, names. Tariff-band meters, plant totals and sensors that could
+  overlap are reported for confirmation instead of being summed, and a new
+  detection on a configured installation only suggests additions, never
+  replacing names, ids, sensors or conventions already chosen.
 
 ### Changed
 

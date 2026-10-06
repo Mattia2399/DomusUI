@@ -238,6 +238,7 @@ async def test_without_recorder_meters_are_kept_and_only_verifiable_errors_refus
 async def test_a_power_only_profile_never_asks_the_recorder(
     recorder_mock: Any, hass: HomeAssistant, hass_storage: dict
 ) -> None:
+    await async_setup_component(hass, "sensor", {})
     hass_storage[STORAGE_KEY] = _entry(STORAGE_KEY, V1)
     manager = await _manager(hass)
 
@@ -249,7 +250,7 @@ async def test_a_power_only_profile_never_asks_the_recorder(
         )
     read.assert_not_called()
     for result in (profile, saved):
-        assert result["energy_meters"] == {"recorder": "available", "meters": {}, "plan": {}}
+        assert result["energy_meters"] == {"recorder": "available", "verification": "complete", "meters": {}, "plan": {}}
     assert profile["profile"]["modules"] == V1["modules"]
 
 

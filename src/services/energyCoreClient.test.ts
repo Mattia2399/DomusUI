@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ENERGY_CORE_TYPES,
+  discoverEnergy,
   getEnergyProfile,
   getEnergyState,
   saveEnergyProfile,
@@ -62,6 +63,12 @@ describe('Domus Energy client', () => {
       code: 'invalid_response',
     });
     await expect(getEnergyState(vi.fn().mockResolvedValue(null))).rejects.toMatchObject({ code: 'invalid_response' });
+  });
+
+  it('reads discovery results that also carry the v2 proposal', async () => {
+    const a0 = { suggested_profile: { modules: {} }, proposals: {}, candidates: {}, ambiguous: [], requires_input: [] };
+    const v2 = { devices: [], totals: [], meters: {}, ambiguous: [], suggested_plant: null, verification: 'complete' };
+    await expect(discoverEnergy(vi.fn().mockResolvedValue({ ...a0, v2 }))).resolves.toEqual({ ...a0, v2 });
   });
 
   it('reads integrations that store Energy Profile v2', async () => {
