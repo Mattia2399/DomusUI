@@ -163,7 +163,14 @@ async def test_state_is_readable_by_any_user_and_never_invents_modules(
         "reason": None,
         "freshness": "fresh",
         "stale_after": 1800.0,
+        # Additive since multi-device support; the A0 fields above are unchanged.
+        "origin": "device",
+        "partial_value": None,
+        "coverage": {"contributing": 1, "configured": 1},
     }
+    assert [device["device_id"] for device in result["modules"]["solar"]["devices"]] == ["solar-1"]
+    assert result["modules"]["solar"]["total"] is None
+    assert result["unsupported_modules"] == {}
     assert result["modules"]["solar"]["freshness"] == "fresh"
     # An offline module has no valid value, so it is neither fresh nor stale.
     assert result["modules"]["grid"]["freshness"] is None

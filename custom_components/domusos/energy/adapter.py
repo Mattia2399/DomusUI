@@ -8,7 +8,7 @@ the home (grid import, battery discharge).
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
@@ -157,10 +157,16 @@ class EnergyModuleAdapter:
         """Return the current normalized capability state."""
         return self.read()
 
-    def read(self) -> CapabilityState:
+    def read(self, now: datetime | None = None) -> CapabilityState:
         """Read Home Assistant state synchronously; performs no I/O."""
+        return self.read_detailed(now)[0]
+
+    def read_detailed(
+        self, now: datetime | None = None
+    ) -> tuple[CapabilityState, dict[str, Quantity]]:
+        """Return the capability state and its canonical quantities, read once."""
         roles = self.config.spec.roles
-        now = utc_now()
+        now = now or utc_now()
         readings = {
             role: normalize_state(
                 entity_id,
@@ -190,7 +196,8 @@ class EnergyModuleAdapter:
                 else "sensors_invalid"
             )
         convention = self.config.sign_convention
-        return CapabilityState(
+        quantities = self._quantities(readings)
+        state = CapabilityState(
             capability=self.capability,
             source=ADAPTER_SOURCE,
             observed_at=now,
@@ -203,14 +210,12 @@ class EnergyModuleAdapter:
                 "freshness": freshness.value if freshness else None,
                 "sign_convention": convention.value if convention else None,
                 "sensors": {role: reading.as_dict() for role, reading in readings.items()},
-                "quantities": {
-                    name: quantity.as_dict()
-                    for name, quantity in self._quantities(readings).items()
-                },
+                "quantities": {name: quantity.as_dict() for name, quantity in quantities.items()},
             },
             source_entity_ids=self.config.entity_ids,
             reason=reason,
         )
+        return state, quantities
 
     def _quantities(self, readings: Mapping[str, Reading]) -> dict[str, Quantity]:
         roles = MODULE_SPECS[self.module].roles
@@ -248,13 +253,16 @@ class EnergyModuleAdapter:
 
 def derive_home_consumption(
     states: Mapping[EnergyModule, CapabilityState],
+    unmeasured: Collection[EnergyModule] = (),
 ) -> Quantity:
     """Return measured home consumption, or a coherent derived balance.
 
     The balance ``grid net + solar production + battery net`` is computed only
     when the grid is configured, every configured contributing module provides
     complete flows and the result is not negative. A wallbox sits behind the
-    meter, so a derived value includes its load.
+    meter, so a derived value includes its load. ``unmeasured`` lists modules
+    that are installed but have no realtime power sensor: a balance without
+    them would be wrong, so it is not computed.
     """
     home = states.get(EnergyModule.HOME)
     if home is not None:
@@ -265,14 +273,12 @@ def derive_home_consumption(
         return Quantity(ValueStatus.NOT_MEASURED, reason="insufficient_data")
 
     terms = [Quantity.from_mapping(grid.values["quantities"]["net_power"])]
-    solar = states.get(EnergyModule.SOLAR)
-    if solar is not None:
-        terms.append(
-            Quantity.from_mapping(solar.values["quantities"]["production_power"])
-        )
-    battery = states.get(EnergyModule.BATTERY)
-    if battery is not None:
-        terms.append(Quantity.from_mapping(battery.values["quantities"]["net_power"]))
+    for module, name in ((EnergyModule.SOLAR, "production_power"), (EnergyModule.BATTERY, "net_power")):
+        state = states.get(module)
+        if state is not None:
+            terms.append(Quantity.from_mapping(state.values["quantities"][name]))
+        elif module in unmeasured:
+            terms.append(Quantity.not_measured())
 
     entity_ids = _entity_ids(terms)
     status, reason = _combined_status(terms)

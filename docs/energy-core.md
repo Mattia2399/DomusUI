@@ -147,12 +147,9 @@ and is refused with `profile_requires_v2`.
 - **Saves** run under a lock and either complete or change nothing: a failed
   write leaves the stored document and the live profile as they were, and
   readers see the previous profile until the write has finished.
-- **Realtime.** The adapters still read one v1 module per module
-  (`runtime_profile`). A v2 profile with several devices in a module, a total,
-  or no power sensors cannot be shown live yet: `get_state` then reports
-  `configured: true`, `available: false`, no modules, no home consumption and
-  `unsupported_profile: "multiple_devices" | "no_power_sensors"`, never a
-  partial picture. For every profile v1 can express, `get_state` is unchanged.
+- **Realtime.** Every device is served live and combined per module (see
+  [Several devices per module](#several-devices-per-module)). For every
+  profile v1 can express, `get_state` is unchanged apart from additive fields.
 
 **Rollback.** Going back to a version that only knows v1 is safe: it reads the
 frozen `domusos.energy.v1` and ignores `domusos.energy.v2`. That snapshot does
@@ -245,7 +242,71 @@ instants and rounded by their integrations, so a deficit up to 50 W or 2% of
 the absolute terms, whichever is larger, reads 0 W (`BALANCE_TOLERANCE_W` and
 `BALANCE_TOLERANCE_RATIO` in `adapter.py`). A larger deficit is reported as
 `invalid` / `incoherent_balance` rather than clamped. The wallbox is behind
-the meter, so a derived value includes its load.
+the meter, so a derived value includes its load. A solar or battery module
+installed without any realtime power sensor (energy meters only) also
+prevents the derivation, since the balance would leave it out.
+
+### Several devices per module
+
+Each device of an Energy Profile v2 is read by its own `DeviceAdapter`, which
+applies the module adapter above unchanged: units, sign conventions, real
+zeros, the −50 W night tolerance, freshness, and unavailable or unknown
+states work per device exactly as for a v1 module. A `ModuleAggregator`
+(`energy/aggregation.py`) then gives the module its canonical quantities:
+
+| Module plan | Module quantity |
+| --- | --- |
+| one device, no total | the device's value, identical to a v1 module (`origin: "device"`) |
+| several devices | the sum of the devices (`origin: "devices_sum"`, `source: "derived"`) only when every device provides a valid value |
+| a total | the total, for every quantity it measures (`origin: "total"`); never added to the devices |
+| batteries, state of charge | capacity-weighted average of every battery (see below) |
+
+- **Partial data.** When some devices have no valid value, the quantity is
+  not valid (`status` of the worst device, `value: null`,
+  `reason: "partial_devices"`); the sum of the others is kept in
+  `partial_value` and `coverage: {contributing, configured}` says how many
+  contribute. A partial value is not the total, and for signed quantities
+  (grid and battery net power) it is not even a lower bound. When no device
+  contributes, the A0 reason (`source_unavailable`, `source_invalid`) stays.
+  A device with energy meters only has no realtime power and is never counted
+  as 0 W: the module quantity is then `not_measured` with the same partial
+  fields.
+- **Totals.** A total is authoritative for the quantities it measures and is
+  independent from the devices: an offline device does not affect it. When the
+  total itself is unavailable or invalid, the quantity says so
+  (`total_unavailable` / `total_invalid`) and Domus does **not** fall back to
+  the sum of the devices; the devices stay valid in the detail. Quantities the
+  total does not measure (for example the state of charge next to a battery
+  total power) come from the devices.
+- **Signs.** Every device value is already canonical (positive into the home),
+  so batteries or grid meters with different sign conventions add up
+  directly: discharge counts towards the home, charge against it. Import and
+  export are the sums of each meter's own import and export.
+- **State of charge.** With several batteries the module value is the average
+  weighted by usable capacity when every battery declares it
+  (`devices_weighted_usable`), else by nominal capacity when every battery
+  declares that (`devices_weighted_nominal`); the two are never mixed. If a
+  capacity is missing, it is `not_measured` / `capacity_unknown`, and if a
+  battery has no valid value it is not shown, not even as partial. Each
+  battery's own value stays in the detail. No stored energy or remaining
+  autonomy is computed.
+- **Wallboxes** are summed like any device and, being behind the meter, never
+  added to the home consumption a second time.
+- **Module condition.** A module is online when any of its sensors (devices
+  or total) is valid, `complete` only when all of them are, and `freshness`
+  is stale as soon as one valid sensor is stale. `sign_convention` is set only
+  when every signed source agrees; each device reports its own.
+- **Home balance.** The formula and tolerances above are applied to the
+  aggregated module values, so a partial module prevents the derivation. A
+  dedicated home meter, single or summed, keeps its precedence, with no
+  fallback to the balance.
+- **Modules without realtime sensors.** A module whose devices and total have
+  energy meters only is listed in `unsupported_modules` with
+  `no_power_sensors`, not in `modules` and not as absent, until history support
+  can show it.
+
+Each sensor is read once per projection, and a state change re-reads only the
+module that owns the sensor, so 16 devices per module cost one pass.
 
 ## Assisted discovery
 
@@ -330,9 +391,23 @@ price. Costs are not computed yet because they need the energy history.
 | `domusos/energy/get_profile`  | Administrators | Return the profile and the condition of each module |
 | `domusos/energy/save_profile` | Administrators | Save confirmed or corrected bindings (`profile` **or** `profile_v2`, `expected_revision`) |
 
-`get_state` returns the same projection as `EnergyContextProvider` and never
-configuration details. Without a profile it reports `configured: false` and
-lists every module as absent. Error codes are `invalid_profile`,
+`get_state` returns the same projection as `EnergyContextProvider` and no
+configuration beyond the device ids and names that tell devices apart.
+Without a profile it reports `configured: false` and lists every module as
+absent. Since multi-device support the fields below are added; every A0 field
+keeps its meaning and format, so module totals read exactly as before:
+
+| Field | Content |
+| --- | --- |
+| `modules.<m>.quantities.<q>.origin` | `device`, `devices_sum`, `devices_weighted_usable`, `devices_weighted_nominal`, `total`, or `null` when nothing measures it |
+| `modules.<m>.quantities.<q>.partial_value` | Sum of the devices that do provide a value, only when some do not |
+| `modules.<m>.quantities.<q>.coverage` | `{contributing, configured}` devices, or `null` for a total |
+| `modules.<m>.devices[]` | `device_id`, `name`, `status` (`online`, `offline`, `not_measured`), `complete`, `freshness`, `sign_convention`, `reason`, `quantities` (A0 format) |
+| `modules.<m>.total` | Same detail for the total source, or `null` |
+| `unsupported_modules` | `{module: "no_power_sensors"}` for installed modules without realtime sensors |
+
+The new reasons are `partial_devices`, `total_unavailable`, `total_invalid`,
+`capacity_unknown` and `no_power_sensors`. Error codes are `invalid_profile`,
 `revision_conflict`, `profile_requires_v2`, `energy_unavailable`,
 `unauthorized`, and `unknown_error`. The generic Domus context registry
 remains internal. The live `tariff` also carries `vat_percent`, the rate the
@@ -345,7 +420,7 @@ prices exclude.
 | `profile`      | The v1 view with `load_error`, exactly as before, or `null` when v1 cannot hold the profile |
 | `profile_v2`   | The full v2 document with `load_error`                                   |
 | `v1_compatible`| Whether `profile` is present and a v1 save is accepted                   |
-| `runtime`      | `{supported, reason}`: whether `get_state` can show the profile live     |
+| `runtime`      | `{supported, reason, unsupported_modules}`: whether `get_state` can show every module live |
 | `legacy_v1`    | `{valid, revision, updated_at, diverged}` of the frozen v1 document, or `null` |
 | `module_status`| Condition of each module, as before                                      |
 

@@ -159,7 +159,7 @@ def register_energy_bindings(
     @callback
     def sync_provider() -> None:
         nonlocal unregister_provider
-        configured = not manager.profile.is_empty
+        configured = not manager.profile_v2.is_empty
         if configured and unregister_provider is None:
             unregister_provider = runtime.context.register(provider)
         elif not configured and unregister_provider is not None:

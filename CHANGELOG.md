@@ -43,6 +43,13 @@
 - Energy components open a details sheet with live figures, estimated power
   paths, the grid's current band and hourly cost, the last 24 hours and the
   sensors; administrators can jump from there to that module's settings.
+- Domus Energy reads installations with several inverters, batteries,
+  wallboxes or meters per module. Each device is normalized on its own and the
+  module total is their sum, a configured total sensor, or for batteries a
+  capacity-weighted charge level. A total missing some devices is reported as
+  partial, with how many devices contribute, instead of being shown as
+  complete; the live state also lists every device. Existing single-device
+  installations read exactly as before.
 
 ### Changed
 

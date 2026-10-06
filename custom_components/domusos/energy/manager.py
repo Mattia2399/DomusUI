@@ -14,7 +14,7 @@ from homeassistant.helpers.storage import Store
 
 from ..core import CapabilityState
 from ..core._values import utc_now
-from .adapter import EnergyModuleAdapter
+from .aggregation import NO_POWER_SENSORS, ModuleAggregator
 from .models import (
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -35,7 +35,6 @@ from .profile_v2 import (
     lossless_v1,
     parse_profile_v2,
     parse_stored_profile_v2,
-    runtime_profile,
     upgrade_v1,
     v1_save_allowed,
 )
@@ -73,8 +72,9 @@ class EnergyProfileManager:
     only reported as diverged.
 
     The profile is applied in place, so saving it never reloads the config entry
-    or interrupts Irrigation. The realtime adapters serve the v1 view of the
-    profile; a v2 profile they cannot interpret yet is served as unsupported.
+    or interrupts Irrigation. Each module is served live by a ``ModuleAggregator``
+    over its devices; a module without any realtime power sensor is listed as
+    unsupported instead of being shown.
     """
 
     def __init__(self, hass: HomeAssistant) -> None:
@@ -85,13 +85,14 @@ class EnergyProfileManager:
         self.rejected_store: Store[Any] = Store(hass, STORAGE_VERSION, REJECTED_STORAGE_KEY)
         self._profile_v2 = EnergyProfileV2()
         self._profile = EnergyProfile()
-        self._unsupported: str | None = None
+        self._unsupported_modules: dict[EnergyModule, str] = {}
+        self._entity_modules: dict[str, EnergyModule] = {}
         self._stored_v2 = False
         self._rejected_document: Any = None
         # The v1 document as read at setup: (present, parsed, valid). It never changes
         # afterwards, since only an older Domus UI writes it.
         self._v1_document: tuple[bool, EnergyProfile | None, bool] = (False, None, False)
-        self._adapters: dict[EnergyModule, EnergyModuleAdapter] = {}
+        self._adapters: dict[EnergyModule, ModuleAggregator] = {}
         self._module_status: dict[EnergyModule, ModuleStatus] = {}
         self._listeners: set[Callable[[str], None]] = set()
         self._unsubscribe_states: CALLBACK_TYPE | None = None
@@ -111,7 +112,7 @@ class EnergyProfileManager:
 
     @property
     def profile(self) -> EnergyProfile:
-        """Return the v1 profile the realtime adapters serve (empty when unsupported)."""
+        """Return the v1 view of the profile, without modules when v1 cannot hold it."""
         return self._profile
 
     @property
@@ -120,13 +121,13 @@ class EnergyProfileManager:
         return self._profile_v2
 
     @property
-    def unsupported_reason(self) -> str | None:
-        """Return why the realtime adapters cannot serve the profile yet, if they cannot."""
-        return self._unsupported
+    def unsupported_modules(self) -> Mapping[EnergyModule, str]:
+        """Return installed modules that cannot be shown live, with the reason."""
+        return dict(self._unsupported_modules)
 
     @property
-    def adapters(self) -> Mapping[EnergyModule, EnergyModuleAdapter]:
-        """Return one adapter per configured module."""
+    def adapters(self) -> Mapping[EnergyModule, ModuleAggregator]:
+        """Return one aggregator per module served live."""
         return dict(self._adapters)
 
     @property
@@ -238,6 +239,7 @@ class EnergyProfileManager:
         self._loaded = False
         self._stop_tracking()
         self._adapters.clear()
+        self._entity_modules.clear()
         self._module_status.clear()
         self._listeners.clear()
 
@@ -269,7 +271,13 @@ class EnergyProfileManager:
             ),
             "profile_v2": {**self._profile_v2.as_document(), "load_error": self._load_error},
             "v1_compatible": v1_view is not None,
-            "runtime": {"supported": self._unsupported is None, "reason": self._unsupported},
+            "runtime": {
+                "supported": not self._unsupported_modules,
+                "reason": NO_POWER_SENSORS if self._unsupported_modules else None,
+                "unsupported_modules": {
+                    module.value: reason for module, reason in self._unsupported_modules.items()
+                },
+            },
             "legacy_v1": self._legacy_snapshot(),
             "module_status": {
                 module.value: status.value for module, status in self.module_status.items()
@@ -348,20 +356,32 @@ class EnergyProfileManager:
     def _apply_profile(self, profile: EnergyProfileV2) -> None:
         self._stop_tracking()
         self._profile_v2 = profile
-        self._profile, self._unsupported = runtime_profile(profile)
-        if self._unsupported:
+        self._profile = lossless_v1(profile) or EnergyProfile(
+            revision=profile.revision, updated_at=profile.updated_at, tariff=profile.tariff
+        )
+        aggregators = {
+            module: ModuleAggregator(self.hass, module, plan)
+            for module, plan in profile.plant.items()
+        }
+        self._adapters = {m: a for m, a in aggregators.items() if a.measures_power}
+        # Energy meters only: shown once history is read (A1.4), never as 0 W.
+        self._unsupported_modules = {
+            module: NO_POWER_SENSORS for module, a in aggregators.items() if not a.measures_power
+        }
+        if self._unsupported_modules:
             _LOGGER.info(
-                "Domus Energy profile is not served live yet (%s); realtime values stay off",
-                self._unsupported,
+                "Domus Energy modules without realtime power sensors are not shown live: %s",
+                ", ".join(module.value for module in self._unsupported_modules),
             )
-        self._adapters = {
-            module: EnergyModuleAdapter(self.hass, config)
-            for module, config in self._profile.modules.items()
+        self._entity_modules = {
+            entity_id: module
+            for module, aggregator in self._adapters.items()
+            for entity_id in aggregator.entity_ids
         }
         self._module_status = self._compute_status()
-        if self._profile.entity_ids:
+        if self._entity_modules:
             self._unsubscribe_states = async_track_state_change_event(
-                self.hass, list(self._profile.entity_ids), self._handle_state_change
+                self.hass, list(self._entity_modules), self._handle_state_change
             )
 
     def _stop_tracking(self) -> None:
@@ -376,13 +396,17 @@ class EnergyProfileManager:
         }
 
     @callback
-    def _handle_state_change(self, _event: Event) -> None:
+    def _handle_state_change(self, event: Event) -> None:
         if not self._loaded:
             return
-        status = self._compute_status()
-        if status == self._module_status:
+        # Only the module owning the sensor can change; the others are not re-read.
+        module = self._entity_modules.get(event.data.get("entity_id"))
+        if module is None:
             return
-        self._module_status = status
+        status = ModuleStatus(self._adapters[module].read().values["status"])
+        if status == self._module_status.get(module):
+            return
+        self._module_status = {**self._module_status, module: status}
         self._notify(CHANGE_AVAILABILITY)
 
     def _notify(self, change: str) -> None:

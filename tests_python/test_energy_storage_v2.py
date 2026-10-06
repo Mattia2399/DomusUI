@@ -133,7 +133,7 @@ async def test_v1_only_is_converted_in_memory_without_any_write(hass: HomeAssist
     assert result["v1_compatible"] is True
     assert result["profile_v2"]["migrated_from"] == {"version": 1, "revision": 6, "updated_at": V1_COMPLETE["updated_at"]}
     assert result["legacy_v1"] == {"valid": True, "revision": 6, "updated_at": V1_COMPLETE["updated_at"], "diverged": False}
-    assert result["runtime"] == {"supported": True, "reason": None}
+    assert result["runtime"] == {"supported": True, "reason": None, "unsupported_modules": {}}
 
 
 async def test_no_profile_stays_unconfigured_and_writes_nothing(hass: HomeAssistant, hass_storage: dict) -> None:
@@ -574,6 +574,22 @@ def _legacy_state(hass: HomeAssistant, document: dict) -> dict[str, Any]:
     })
 
 
+def _a0_view(state: dict[str, Any]) -> dict[str, Any]:
+    """``get_state`` without the fields added for multi-device support."""
+    view = {key: value for key, value in state.items() if key != "unsupported_modules"}
+    view["modules"] = {
+        module: {
+            **{key: value for key, value in values.items() if key not in ("devices", "total")},
+            "quantities": {
+                name: {k: v for k, v in quantity.items() if k not in ("origin", "partial_value", "coverage")}
+                for name, quantity in values["quantities"].items()
+            },
+        }
+        for module, values in state["modules"].items()
+    }
+    return view
+
+
 def _thaw(value: Any) -> Any:
     """Plain JSON containers, as the A0 ``get_state`` produced them."""
     if isinstance(value, Mapping):
@@ -604,16 +620,19 @@ async def test_get_state_is_unchanged_for_v1_profiles_before_and_after_the_first
 
     manager = await _manager(hass)
     before_save = await async_energy_state(manager)
-    assert before_save == expected
+    assert _a0_view(before_save) == expected
 
     await manager.async_save_profile({"modules": document["modules"]}, document["revision"])
-    after_save = await async_energy_state(manager)
+    after_save = _a0_view(await async_energy_state(manager))
     assert {**after_save, "profile_revision": None} == {**expected, "profile_revision": None}
     await manager.async_shutdown()
 
 
-async def test_profiles_the_realtime_cannot_serve_are_reported_not_half_shown(hass: HomeAssistant, hass_storage: dict) -> None:
+async def test_multi_device_profiles_are_served_and_meter_only_modules_reported(
+    hass: HomeAssistant, hass_storage: dict
+) -> None:
     _set_states(hass)
+    hass.states.async_set("sensor.pv2", "800", POWER)
     _seed(hass_storage)
     manager = await _manager(hass)
     two_inverters = {
@@ -627,21 +646,23 @@ async def test_profiles_the_realtime_cannot_serve_are_reported_not_half_shown(ha
 
     state = await async_energy_state(manager)
     assert state["configured"] is True
-    assert state["unsupported_profile"] == "multiple_devices"
-    assert state["available"] is False
-    assert state["modules"] == {}
-    assert state["home_consumption"] is None
-    assert manager.profile.is_empty
-    assert manager.profile_result()["runtime"] == {"supported": False, "reason": "multiple_devices"}
+    assert state["unsupported_modules"] == {}
+    assert state["modules"]["solar"]["quantities"]["production_power"]["value"] == 6000.0
+    assert manager.profile_result()["profile"] is None
+    assert manager.profile_result()["runtime"] == {"supported": True, "reason": None, "unsupported_modules": {}}
 
-    meters_only = {"solar": {"devices": [{"id": "solar-1", "energy": {"production_energy": ["sensor.pv_energy"]}}]}}
+    # Energy meters only: installed, but nothing realtime to show and never 0 W.
+    meters_only = {**two_inverters, "solar": {"devices": [{"id": "solar-3", "energy": {"production_energy": ["sensor.pv_energy"]}}]}}
     await manager.async_save_profile({"plant": meters_only}, 1, version=2)
-    assert (await async_energy_state(manager))["unsupported_profile"] == "no_power_sensors"
-
-    # A single device with v2-only details (name, meters) is still served live.
-    named = {"solar": {"devices": [{"id": "solar-1", "name": "Tetto", "power": {"sensors": {"production_power": "sensor.pv"}}, "energy": {"production_energy": ["sensor.pv_energy"]}}]}}
-    await manager.async_save_profile({"plant": named}, 2, version=2)
     state = await async_energy_state(manager)
-    assert "unsupported_profile" not in state
-    assert state["modules"]["solar"]["quantities"]["production_power"]["value"] == 5200.0
+    assert state["unsupported_modules"] == {"solar": "no_power_sensors"}
+    assert set(state["modules"]) == {"grid"}
+    assert "solar" not in state["absent_modules"]
+    # Without the solar term the balance would be wrong, so there is none.
+    assert state["home_consumption"]["status"] == "not_measured"
+    assert manager.profile_result()["runtime"] == {
+        "supported": False,
+        "reason": "no_power_sensors",
+        "unsupported_modules": {"solar": "no_power_sensors"},
+    }
     await manager.async_shutdown()

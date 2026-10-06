@@ -8,7 +8,7 @@ v1 module, and cumulative ENERGY meters: Home Assistant statistic ids, either
 
 This module is pure. The manager stores v2 in ``domusos.energy.v2`` from the
 first explicit save, converting v1 in memory until then (``upgrade_v1``); the
-realtime adapters still read the v1 view given by ``runtime_profile``.
+realtime values of its devices are combined by ``aggregation.ModuleAggregator``.
 
 Compatibility with v1 clients rests on ``lossless_v1``: a v2 profile has a v1
 view only when v1 can hold all of it (one device per module with the id v1
@@ -530,38 +530,3 @@ def lossless_v1(profile: EnergyProfileV2) -> EnergyProfile | None:
 def v1_save_allowed(current: EnergyProfileV2) -> bool:
     """Return whether a v1 client may overwrite ``current`` without losing data."""
     return lossless_v1(current) is not None
-
-
-# Why the realtime adapters, which read one set of power sensors per module,
-# cannot serve a profile yet. Names, Home Assistant devices, capacities and
-# energy meters do not matter to them; extra devices or a missing power sensor do.
-UNSUPPORTED_MULTIPLE_DEVICES = "multiple_devices"
-UNSUPPORTED_NO_POWER_SENSORS = "no_power_sensors"
-
-
-def runtime_profile(profile: EnergyProfileV2) -> tuple[EnergyProfile, str | None]:
-    """Return the v1 profile the realtime adapters serve, and why not when they cannot.
-
-    An unsupported profile yields an empty runtime profile: serving only some of
-    its devices would look like a complete installation and never is.
-    """
-    modules: dict[EnergyModule, EnergyModuleConfig] = {}
-    reason: str | None = None
-    for module, plan in profile.plant.items():
-        if len(plan.devices) != 1 or plan.total is not None:
-            reason = UNSUPPORTED_MULTIPLE_DEVICES
-            break
-        power = plan.devices[0].sources.power
-        if power is None:
-            reason = UNSUPPORTED_NO_POWER_SENSORS
-            break
-        modules[module] = power
-    return (
-        EnergyProfile(
-            revision=profile.revision,
-            modules={} if reason else modules,
-            updated_at=profile.updated_at,
-            tariff=profile.tariff,
-        ),
-        reason,
-    )

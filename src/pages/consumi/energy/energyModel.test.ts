@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
 import { buildFlowFromState, formatPower } from './energyModel';
+import { boundEntityIds } from './useEnergyCore';
 
 const q = (value: number | null, overrides: Partial<EnergyQuantity> = {}): EnergyQuantity => ({
   status: value === null ? 'unavailable' : 'ok',
@@ -71,6 +72,43 @@ describe('Energy flow view', () => {
     expect(view.nodes[0]).toMatchObject({ id: 'battery', value: '—', caption: 'Offline', online: false, direction: 'idle' });
     expect(view.nodes[1]).toMatchObject({ id: 'wallbox', direction: 'out', amountW: 7400 });
     expect(view.home).toEqual({ value: '—', caption: 'Dati insufficienti', online: false });
+  });
+
+  it('reads multi-device modules through their A0 totals, never the partial value', () => {
+    // As get_state returns it: A0 fields plus origin, partial_value, coverage and devices.
+    const multi = {
+      ...state({ home_consumption: q(null, { source: 'derived', reason: 'source_unavailable' }) }),
+      unsupported_modules: {},
+      modules: {
+        solar: {
+          status: 'online', complete: false, freshness: null, sign_convention: null,
+          quantities: {
+            production_power: {
+              ...q(null, { source: 'derived', reason: 'partial_devices', entity_ids: ['sensor.inv1', 'sensor.inv2', 'sensor.inv3'] }),
+              origin: 'devices_sum', partial_value: 3500, coverage: { contributing: 2, configured: 3 },
+            },
+          },
+          devices: [{ device_id: 'solar-1', name: null, status: 'online', quantities: { production_power: q(2000) } }],
+          total: null,
+        },
+        battery: {
+          status: 'online', complete: true, freshness: 'fresh', sign_convention: null,
+          quantities: {
+            state_of_charge: { ...q(66.667, { unit: '%', source: 'derived' }), origin: 'devices_weighted_usable', partial_value: null, coverage: { contributing: 2, configured: 2 } },
+            net_power: { ...q(600, { source: 'derived', entity_ids: ['sensor.b1', 'sensor.b2'] }), origin: 'devices_sum', partial_value: null, coverage: { contributing: 2, configured: 2 } },
+          },
+          devices: [],
+          total: null,
+        },
+      },
+    } as unknown as EnergyState;
+
+    const view = buildFlowFromState(multi);
+
+    expect(view.nodes[0]).toMatchObject({ id: 'solar', value: '—', online: true, direction: 'idle', amountW: 0 });
+    expect(view.nodes[1]).toMatchObject({ id: 'battery', value: '67%', caption: 'Scarica 600 W', direction: 'in' });
+    expect(view.home).toEqual({ value: '—', caption: 'Sensori non disponibili', online: false });
+    expect(boundEntityIds(multi)).toEqual(['sensor.b1', 'sensor.b2', 'sensor.inv1', 'sensor.inv2', 'sensor.inv3']);
   });
 
   it('formats watts and kilowatts', () => {
