@@ -15,7 +15,12 @@ const root = process.cwd();
 const distDirectory = path.join(root, 'dist');
 const outputDirectory = path.join(root, 'release-artifacts');
 const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
-const releaseName = `${packageJson.name}-${packageJson.version}`;
+const packageVersion = process.env.DOMUSOS_PACKAGE_VERSION?.trim() || packageJson.version;
+const semverPattern = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$/;
+if (!semverPattern.test(packageVersion)) {
+  throw new Error(`Versione pacchetto non valida: ${packageVersion}`);
+}
+const releaseName = `${packageJson.name}-${packageVersion}`;
 
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 
@@ -234,20 +239,20 @@ const integrationFiles = integrationSourceFiles
     !file.path.endsWith('.pyc'),
   )
   .map((file) => {
-    if (file.path.endsWith('/const.py')) {
+    if (file.path === 'const.py' || file.path.endsWith('/const.py')) {
       return {
         ...file,
         content: Buffer.from(
           file.content
             .toString('utf8')
-            .replace(/^VERSION\s*=\s*"[^"]+"/m, `VERSION = "${packageJson.version}"`),
+            .replace(/^VERSION\s*=\s*"[^"]+"/m, `VERSION = "${packageVersion}"`),
           'utf8',
         ),
       };
     }
-    if (file.path.endsWith('/manifest.json')) {
+    if (file.path === 'manifest.json' || file.path.endsWith('/manifest.json')) {
       const manifestJson = JSON.parse(file.content.toString('utf8'));
-      manifestJson.version = packageJson.version;
+      manifestJson.version = packageVersion;
       return {
         ...file,
         content: Buffer.from(`${JSON.stringify(manifestJson, null, 2)}\n`, 'utf8'),
@@ -262,7 +267,7 @@ const hacsFrontendFiles = (await collectFiles(distDirectory)).map((file) => ({
 const hacsFiles = [...integrationFiles, ...hacsFrontendFiles];
 const manifest = {
   name: packageJson.name,
-  version: packageJson.version,
+  version: packageVersion,
   format: 1,
   appDirectory: 'app',
   panelBridge: 'app/ha-dashboard-builder-panel.js',
