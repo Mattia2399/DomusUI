@@ -1,4 +1,6 @@
 """Read-only context providers backed by existing authoritative managers."""
+# Energy is bound separately from Calendar and Irrigation so that an Energy
+# failure can never prevent the other providers from registering.
 
 from __future__ import annotations
 
@@ -11,6 +13,9 @@ from homeassistant.core import HomeAssistant, callback
 
 from .calendar_store import DomusCalendarStore
 from .core import DomusEvent, DomusRuntime
+from .energy import EnergyProfileManager
+from .energy.context import async_build_energy_context
+from .energy.manager import CHANGE_AVAILABILITY, CHANGE_PROFILE
 from .irrigation import IrrigationManager
 
 ACTIVE_IRRIGATION_STATES = frozenset({"opening", "running", "closing"})
@@ -127,6 +132,73 @@ class IrrigationContextProvider:
             "blocked": rain.get("blocked") is True,
             "reason": _optional_string(rain.get("reason")),
         }
+
+
+class EnergyContextProvider:
+    """Project configured energy modules through their capability adapters."""
+
+    capability = "energy"
+
+    def __init__(self, manager: EnergyProfileManager) -> None:
+        self._manager = manager
+
+    async def async_get_context(self) -> Mapping[str, Any] | None:
+        """Return configured modules only; absent hardware is listed, never faked."""
+        return await async_build_energy_context(self._manager)
+
+
+def register_energy_bindings(
+    hass: HomeAssistant,
+    runtime: DomusRuntime,
+    manager: EnergyProfileManager,
+) -> Callable[[], None]:
+    """Keep the Energy provider registered only while a profile exists."""
+    provider = EnergyContextProvider(manager)
+    unregister_provider: Callable[[], None] | None = None
+
+    @callback
+    def sync_provider() -> None:
+        nonlocal unregister_provider
+        configured = not manager.profile_v2.is_empty
+        if configured and unregister_provider is None:
+            unregister_provider = runtime.context.register(provider)
+        elif not configured and unregister_provider is not None:
+            unregister_provider()
+            unregister_provider = None
+
+    @callback
+    def handle_change(change: str) -> None:
+        if change == CHANGE_PROFILE:
+            sync_provider()
+            _publish_event(
+                hass,
+                runtime,
+                DomusEvent.create("energy.profile_changed", "energy.manager"),
+            )
+        elif change == CHANGE_AVAILABILITY:
+            _publish_event(
+                hass,
+                runtime,
+                DomusEvent.create("energy.availability_changed", "energy.manager"),
+            )
+
+    sync_provider()
+    try:
+        unsubscribe = manager.async_add_listener(handle_change)
+    except Exception:
+        if unregister_provider is not None:
+            unregister_provider()
+        raise
+
+    @callback
+    def unregister() -> None:
+        nonlocal unregister_provider
+        unsubscribe()
+        if unregister_provider is not None:
+            unregister_provider()
+            unregister_provider = None
+
+    return unregister
 
 
 def register_core_bindings(

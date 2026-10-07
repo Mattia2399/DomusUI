@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'path';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { buildProductionCsp } from './src/security/contentSecurityPolicy';
+import { bundleGraphPlugin } from './scripts/bundle-graph-plugin.mjs';
 import { loadLocalHttpsOptions } from './vite.localHttps';
 import { packageVersion, productionCspPlugin } from './vite.shared';
 
@@ -43,6 +44,8 @@ export default defineConfig(({ mode }) => {
     panelBridgeDistributionPlugin(),
     react(),
     tailwindcss(),
+    // build/bundle-graph.json for the performance budget; dist is unchanged.
+    bundleGraphPlugin({ root: __dirname }),
   ],
   base: './',
   define: {
@@ -61,6 +64,11 @@ export default defineConfig(({ mode }) => {
     // not be optimized as a regular window dependency during development.
     include: ['maplibre-gl'],
   },
+  esbuild: {
+    // Keep every third-party license notice once per file instead of once per
+    // module: each lucide icon otherwise repeats the same ISC header.
+    legalComments: 'eof',
+  },
   build: {
     rollupOptions: {
       input: [
@@ -75,6 +83,14 @@ export default defineConfig(({ mode }) => {
           }
           return 'assets/[name]-[hash].js';
         },
+        // No manual chunks: Rollup keeps the dashboard cards in the Home chunk and
+        // orders their modules itself. A separate cards chunk (0985b01) imported
+        // icons and helpers back from Home, the two chunks formed a cycle and the
+        // cards' module-level code read Home bindings before they existed: the
+        // production Home failed to load. Splitting it safely would need either
+        // the shared icons in the cards chunk, which Rollup then preloads at
+        // startup, or a hand-made ownership analysis that barrel re-exports
+        // defeat. The performance budget checks the Home critical path instead.
       },
     },
   },

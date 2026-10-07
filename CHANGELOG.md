@@ -1,5 +1,149 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Domus Energy Core phase 1: a read-only, vendor-neutral Energy Profile with
+  optional grid, solar, home, battery, and wallbox modules. Configured
+  modules are distinguished from absent ones and stay visible while offline.
+- Energy sensors are normalized to W and % without turning missing data into
+  zero, accepting cumulative energy as power, or guessing signed flow
+  direction. Derived home consumption is labelled and computed only from
+  complete, coherent flows.
+- Assisted discovery proposes energy sensors from Home Assistant metadata and
+  the Energy dashboard configuration, and reports ambiguous matches for
+  confirmation instead of configuring them.
+- The Energy page in Consumi now shows the configured installation with real
+  Home Assistant values: only the modules that exist, offline modules kept
+  visible, and every value marked as measured or derived.
+- Administrators can set up and change the energy installation with a guided
+  four-step flow (detection, bindings, preview, save) directly on the Energy
+  page, without reloading the integration.
+
+- The Energy page is redesigned around a 3D render of the home that matches
+  the configured hardware, with subtle live energy flows, a card per
+  component, and prepared history and analysis sections that clearly state
+  what is not available yet.
+- An _Impostazioni Energia_ page replaces the wizard after the first setup:
+  it lists the configured modules with their sensors for inline editing and
+  re-detection, and stores the electricity tariff (single, two-band or
+  three-band ARERA prices, fixed monthly fee, VAT and export price). The
+  Energy page shows the current band and its price. The first guided setup
+  offers the same tariff fields as an optional step that can be skipped.
+- The guided setup asks for the plant type on illustrated tiles (grid only,
+  photovoltaic, battery, wallbox and their combinations, or _Altro_ for
+  manual setup) and then, on its own step, only for the sensors that type
+  needs. A detected plant is summarised with its matched
+  entities so it can be confirmed in one step.
+- The Energy page lists self-consumption, self-sufficiency, costs, savings and
+  the comparison with the previous period as coming soon; no period figure is
+  computed on the page.
+- Energy components open a details sheet with live figures, estimated power
+  paths, the grid's current band and hourly cost and the sensors;
+  administrators can jump from there to that module's settings.
+- Domus Energy reads installations with several inverters, batteries,
+  wallboxes or meters per module. Each device is normalized on its own and the
+  module total is their sum, a configured total sensor, or for batteries a
+  capacity-weighted charge level. A total missing some devices is reported as
+  partial, with how many devices contribute, instead of being shown as
+  complete; the live state also lists every device. Existing single-device
+  installations read exactly as before.
+- Energy meters declared in the energy installation (grid import and export,
+  production, consumption, battery charge and discharge, wallbox) are checked
+  against Home Assistant's long-term statistics: valid, waiting for their
+  first statistics, unavailable, unknown or incompatible. A power or
+  temperature sensor is refused as an energy meter, while a meter that is new
+  or temporarily unavailable, or a stopped Recorder, never blocks a save.
+- Energy detection also proposes installations with several inverters,
+  batteries and wallboxes, each with its power sensors and energy meters,
+  from the Energy dashboard, the Home Assistant devices and, with low
+  confidence, names. Tariff-band meters, plant totals and sensors that could
+  overlap are reported for confirmation instead of being summed, and a new
+  detection on a configured installation only suggests additions, never
+  replacing names, ids, sensors or conventions already chosen.
+- The Energy page shows installations with several inverters, batteries or
+  wallboxes: each component's details list its devices with their own
+  values and states, the total sensor apart from them, and where each value
+  comes from (measured, sum of devices, weighted average). A total missing
+  some devices says how many report instead of showing their sum as the
+  total. Single-device installations look as before.
+- *Impostazioni Energia* edits multi-device installations: names, power
+  sensors, sign conventions, energy meters with their verification and
+  battery capacities, with a confirmation before removing a device. Every
+  save sends the whole installation and keeps the tariff.
+- The guided Energy setup configures installations with several inverters,
+  batteries, wallboxes and meters, for a first setup or on an existing one:
+  each detected device, new sensor, correction or total is added only on
+  request, sensors are chosen from a searchable list that leaves out
+  incompatible ones, and a summary lists every change and asks to confirm
+  unverified meters, summed tariff-band meters and removals before saving.
+- The guided Energy setup is now a step-by-step configurator in plain words:
+  a welcome, the components of the home as illustrated cards, a detection
+  summary per component (ready, to check, waiting, not found), one screen
+  per component with device cards and their live readings, recommended
+  sensors to accept or change, the sign of a signed meter asked as a simple
+  question with a picture, a history step that explains energy meters and
+  can be skipped, a visual final check and a confirmation screen. Technical
+  names stay available under _Dettagli tecnici_ and _Configurazione
+  avanzata_, and the energy settings use the same device cards.
+- Domus Energy can read the energy history of the installation from Home
+  Assistant's long-term statistics: production, home consumption (measured or
+  computed from complete meters only), grid import and export, battery charge
+  and discharge and wallbox, by hour, day, week or month in the Home Assistant
+  time zone, also per device. Missing data stays missing instead of becoming
+  zero, tariff-band meters are summed only when all of them report, and a
+  total meter is never added to its devices. Nothing is stored by Domus.
+- The _Andamento_ section of the Energy page shows that history for the last
+  24 hours, 7 or 30 days or 12 months: consumption, photovoltaics, grid import
+  and export, battery charge and discharge and car charging, only for the
+  hardware that has energy meters. Missing hours leave a gap instead of a
+  zero, incomplete data and the hour, day or month still in progress are
+  marked, a calculated consumption is labelled, and times follow the Home
+  Assistant time zone. A plant without meters, meters without statistics yet
+  and an unavailable Recorder each get their own message while the live view
+  keeps working. The history is read when the page opens or the period
+  changes, never on every power change.
+
+### Changed
+
+- The release check now budgets the real cost of each part of the app instead
+  of mainly the total: startup, Home, each section opened from Home and each
+  on-demand feature (Energy setup and settings, card catalog, sidebars, members
+  map), raw and gzip, on the build's module graph. Limits are versioned and
+  documented in `docs/performance-budget.md`; the total cap moves from 5.52 MB
+  to 6.2 MB because the growth since then is code loaded only when needed.
+  The check also rejects circular imports between chunks, and a smoke test
+  now opens the distributed production build (Home, Consumi and Energia)
+  before the end-to-end suite.
+- The presentation website is no longer bundled into the dashboard: the
+  internal `/beta` address of the Home Assistant panel is gone, and the site
+  is built on its own with `npm run build:site` (now checked in CI). The
+  dashboard bundle shrinks by about 100 KB.
+- Energy values report whether their sensors are still updating: a value
+  without a report for 30 minutes (3 hours for battery charge) keeps its
+  reading and is shown as not updated since then, never as zero.
+- Small negative solar readings at night (down to −50 W) and small balance
+  deficits from sensor timing now read 0 W instead of making the
+  photovoltaic invalid or the home consumption incoherent; larger values are
+  still reported.
+- Energy source splits and flows say when they are calculated from the
+  meters and when they are only an estimate; the grid's hourly cost includes
+  the tariff's VAT.
+- The Energy house renders download as AVIF or WebP, about 97% smaller than
+  the PNG originals, which remain as fallback.
+- The Energy page no longer shows generated charts, sample metrics, or
+  demonstration devices.
+- Energy components are shown as compact tiles, two by two beside the house
+  on desktop, instead of a full-height column of cards.
+- Third-party license notices are kept once per bundle file instead of once
+  per icon module, reducing the frontend size by about 35 KB.
+- The energy installation is saved in a new storage format
+  (`domusos.energy.v2`) from the first change made after updating; until
+  then the existing configuration is read as is and nothing is written. The
+  previous document is kept unchanged, so going back to an older Domus UI
+  restores the installation as it was before that first change.
+
 ## 1.4.0 - 2026-10-01
 
 ### Added

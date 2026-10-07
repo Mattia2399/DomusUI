@@ -1,6 +1,7 @@
 {
   "domain": "domusos",
   "name": "Domus UI",
+  "after_dependencies": ["energy", "recorder"],
   "codeowners": ["@Mattia2399"],
   "config_flow": true,
   "dependencies": ["calendar", "frontend", "http", "panel_custom"],

@@ -952,8 +952,6 @@ export function CameraControlsPanel({
   const [streamFailed, setStreamFailed] = useState(false);
   const [clipFailed, setClipFailed] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isSnapshotBusy, setIsSnapshotBusy] = useState(false);
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [activePtzDirection, setActivePtzDirection] = useState<CameraPtzDirection | null>(null);
   const [relatedActionBusyId, setRelatedActionBusyId] = useState<string | null>(null);
@@ -1002,18 +1000,9 @@ export function CameraControlsPanel({
     const url = toTrimmedString(snapshotUrl);
     return url ? appendCacheBuster(url, refreshNonce) : undefined;
   }, [refreshNonce, snapshotUrl]);
-  const cameraProxySnapshotUrl = useMemo(() => {
-    const resolvedEntityId = toTrimmedString(entityId);
-    if (!resolvedEntityId) {
-      return undefined;
-    }
-    return appendCacheBuster(`/api/camera_proxy/${encodeURIComponent(resolvedEntityId)}`, refreshNonce);
-  }, [entityId, refreshNonce]);
 
   const fallbackVisual = resolvedSnapshotUrl;
   const liveVisualUrl = streamFailed ? fallbackVisual ?? '' : resolvedStreamUrl ?? fallbackVisual ?? '';
-  const hasLiveVisual = liveVisualUrl.length > 0;
-  const snapshotCaptureUrl = cameraProxySnapshotUrl ?? fallbackVisual ?? (hasLiveVisual ? liveVisualUrl : undefined);
   const subtitle = isOffline ? t('camera.disconnected') : status?.trim() || t('camera.connected');
   const subtitleClass = isOffline ? 'text-rose-200/90' : 'text-emerald-200/90';
   const detectionEntities = useMemo(
@@ -1146,7 +1135,6 @@ export function CameraControlsPanel({
   const hasActiveVisual = activeVisualUrl.length > 0 && !activeImageFailed;
   const activeVisualIsVideo = showClipVisual && Boolean(selectedClipEvent?.clipUrl);
   const showingSnapshot = showClipVisual && !activeVisualIsVideo;
-  const canTakeSnapshot = Boolean(snapshotCaptureUrl) && !isSnapshotBusy;
   const canUsePtz = commandsEnabled && supportsPtz && typeof onPtzMove === 'function';
   const previewIsPlaying = showClipVisual ? (activeVisualIsVideo ? isPlaying : true) : isPreviewPlaying;
 
@@ -1171,54 +1159,6 @@ export function CameraControlsPanel({
     clipVideoRef.current.pause();
   }, [activeVisualIsVideo, previewIsPlaying, showClipVisual]);
 
-  const refreshStream = () => {
-    setStreamFailed(false);
-    setClipFailed(false);
-    setRefreshNonce(Date.now());
-    setIsRefreshing(true);
-    setActionFeedback(t('camera.feedback.streamRefreshed'));
-    if (refreshResetTimeoutRef.current !== null) {
-      window.clearTimeout(refreshResetTimeoutRef.current);
-    }
-    refreshResetTimeoutRef.current = window.setTimeout(() => {
-      setIsRefreshing(false);
-      refreshResetTimeoutRef.current = null;
-    }, 800);
-  };
-
-  const captureSnapshot = async () => {
-    if (!snapshotCaptureUrl || isSnapshotBusy) {
-      setActionFeedback(t('camera.feedback.snapshotUnavailable'));
-      return;
-    }
-    setIsSnapshotBusy(true);
-    try {
-      const response = await fetch(snapshotCaptureUrl, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const blob = await response.blob();
-      const safeName = sanitizeFileSegment(name || entityId || 'camera') || 'camera';
-      const extension = blob.type.includes('png') ? 'png' : 'jpg';
-      const fileName = `${safeName}-${formatSnapshotTimestamp()}.${extension}`;
-      const objectUrl = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = objectUrl;
-      anchor.download = fileName;
-      document.body.appendChild(anchor);
-      anchor.click();
-      anchor.remove();
-      window.setTimeout(() => {
-        URL.revokeObjectURL(objectUrl);
-      }, 800);
-      setActionFeedback(t('camera.feedback.snapshotSaved', { fileName }));
-    } catch {
-      setActionFeedback(t('camera.feedback.snapshotError'));
-    } finally {
-      setIsSnapshotBusy(false);
-    }
-  };
-
   const handleTimelineChange = (timelineId: string) => {
     setSelectedTimelineId(timelineId);
     const event = eventLogs.find((entry) => entry.id === timelineId);
@@ -1232,21 +1172,6 @@ export function CameraControlsPanel({
       return;
     }
     setActionFeedback(t('camera.feedback.noClipForEvent'));
-  };
-
-  const navigateClips = (step: -1 | 1) => {
-    if (!clipEvents.length) {
-      setActionFeedback(t('camera.feedback.noClip'));
-      return;
-    }
-    const currentIndex = clipEvents.findIndex((entry) => entry.id === selectedClipEvent?.id);
-    const baseIndex = currentIndex >= 0 ? currentIndex : 0;
-    const nextIndex = (baseIndex + step + clipEvents.length) % clipEvents.length;
-    const nextClip = clipEvents[nextIndex];
-    setSelectedTimelineId(nextClip.id);
-    setIsClipMode(true);
-    setIsPlaying(true);
-    setClipFailed(false);
   };
 
   const toggleClipPlayback = () => {

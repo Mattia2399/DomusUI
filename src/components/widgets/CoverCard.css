@@ -138,11 +138,7 @@
 }
 
 .cover-card__title,
-.cover-card__subtitle,
-.cover-card__caption,
-.cover-card__position-badge,
-.cover-card__detail strong,
-.cover-card__detail small {
+.cover-card__subtitle {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,24 +158,6 @@
   font-size: clamp(0.56rem, 3.6cqi, 0.68rem);
   font-weight: 520;
   line-height: 1.1;
-}
-
-.cover-card__position-badge {
-  grid-area: badge;
-  display: inline-flex;
-  max-width: 5.8rem;
-  min-height: 1.45rem;
-  align-items: center;
-  justify-content: center;
-  align-self: start;
-  border: 1px solid var(--ui-border);
-  border-radius: 999px;
-  padding: 0 0.55rem;
-  background: var(--ui-fill-tertiary);
-  color: var(--ui-text-secondary);
-  font-size: 0.62rem;
-  font-weight: 650;
-  line-height: 1;
 }
 
 .cover-card__rail {
@@ -351,92 +329,6 @@
 .cover-card[data-cover-device='awning'] .cover-card__handle-line {
   height: 4px;
   background: rgb(255 255 255 / 0.46);
-}
-
-.cover-card__caption {
-  display: none;
-}
-
-.cover-card__progress {
-  display: none;
-}
-
-.cover-card__progress-track,
-.cover-card__tilt-track {
-  position: relative;
-  display: block;
-  height: 0.46rem;
-  overflow: hidden;
-  border: 1px solid var(--ui-border);
-  border-radius: 999px;
-  background: var(--ui-fill-tertiary);
-}
-
-.cover-card__progress-fill,
-.cover-card__tilt-fill {
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--cover-accent), var(--cover-accent-strong));
-}
-
-.cover-card__progress-fill {
-  width: var(--cover-card-position);
-}
-
-.cover-card__progress-labels {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  gap: 0.4rem;
-  color: var(--ui-text-tertiary);
-  font-size: 0.52rem;
-  font-weight: 560;
-  line-height: 1;
-}
-
-.cover-card__progress-labels span:last-child {
-  text-align: right;
-}
-
-.cover-card__progress-labels strong {
-  color: var(--ui-text-secondary);
-  font-weight: 700;
-}
-
-.cover-card__tilt {
-  display: none;
-}
-
-.cover-card__tilt-fill {
-  width: var(--cover-card-tilt);
-}
-
-.cover-card__details {
-  display: none;
-}
-
-.cover-card__detail {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 0.12rem;
-  border-top: 1px solid var(--ui-border);
-  padding-top: 0.42rem;
-}
-
-.cover-card__detail small {
-  color: var(--ui-text-tertiary);
-  font-size: 0.52rem;
-  font-weight: 560;
-  line-height: 1;
-}
-
-.cover-card__detail strong {
-  color: var(--ui-text-secondary);
-  font-size: 0.62rem;
-  font-weight: 650;
-  line-height: 1.08;
 }
 
 .cover-card__edit-handle {

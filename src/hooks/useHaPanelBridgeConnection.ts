@@ -103,6 +103,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'revision_history',
   'dashboard_reset_marker',
   'irrigation_core',
+  'energy_core',
   'calendar_v1',
   'waste_collection_v1',
   'host_navigation',
@@ -178,6 +179,11 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/waste_collection/save_config',
   'domusos/waste_collection/preview',
   'domusos/waste_collection/test_notification',
+  'domusos/energy/get_state',
+  'domusos/energy/get_history',
+  'domusos/energy/discover',
+  'domusos/energy/get_profile',
+  'domusos/energy/save_profile',
   'calendar/event/subscribe',
   'calendar/event/create',
   'calendar/event/update',
@@ -264,9 +270,49 @@ export function validatePanelServiceRequest(
   );
 }
 
+/**
+ * Exact save shapes: a v1 profile (`modules`) or a whole Energy Profile v2
+ * (`plant`, up to 16 devices per module with their meters), never both.
+ */
+const ENERGY_SAVES = { profile: ['modules', 20_000], profile_v2: ['plant', 131_072] } as const;
+
+/** History reads take only their own parameters; Home Assistant checks the period. */
+const ENERGY_HISTORY_KEYS = ['type', 'range', 'start', 'end', 'bucket', 'include_devices', 'compare'];
+
+/** Energy commands carry no parameters, except a history read and an exact-shape profile save. */
+export function isValidEnergyMessage(message: Record<string, unknown>) {
+  if (message.type === 'domusos/energy/get_history') {
+    return Object.keys(message).every((key) => ENERGY_HISTORY_KEYS.includes(key))
+      && ['range', 'start', 'end', 'bucket'].every((key) => !(key in message) || (typeof message[key] === 'string' && (message[key] as string).length <= 40))
+      && (!('include_devices' in message) || typeof message.include_devices === 'boolean')
+      && (!('compare' in message) || message.compare === 'previous');
+  }
+  if (message.type !== 'domusos/energy/save_profile') {
+    return Object.keys(message).every((key) => key === 'type');
+  }
+  const field = 'profile_v2' in message ? 'profile_v2' : 'profile';
+  const [content, limit] = ENERGY_SAVES[field];
+  const document = message[field];
+  if (!hasExactKeys(message, ['type', field, 'expected_revision']) || !isRecord(document) || !isRecord(document[content])) {
+    return false;
+  }
+  const revision = message.expected_revision;
+  if (revision !== null && (typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0)) {
+    return false;
+  }
+  try {
+    return JSON.stringify(document).length <= limit;
+  } catch {
+    return false;
+  }
+}
+
 export function validatePanelApiMessage(message: unknown): message is Record<string, unknown> {
   if (!isRecord(message) || typeof message.type !== 'string' || !HA_PANEL_ALLOWED_API_TYPES.has(message.type)) {
     return false;
+  }
+  if (message.type.startsWith('domusos/energy/')) {
+    return isValidEnergyMessage(message);
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});

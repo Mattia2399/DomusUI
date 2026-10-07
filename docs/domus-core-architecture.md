@@ -43,8 +43,8 @@ Home Assistant entities/services
 ```
 
 The complete pipeline is still a future responsibility boundary. The first
-read-only part now runs for Calendar and Irrigation; no context interpretation,
-decision, or action follows it.
+read-only part now runs for Calendar, Irrigation, and Energy; no context
+interpretation, decision, or action follows it.
 
 ## Implementation status
 
@@ -55,6 +55,9 @@ Implemented:
 - `ContextRegistry`;
 - `CalendarContextProvider`;
 - `IrrigationContextProvider`;
+- Domus Energy Core phase 1: Energy Profile, assisted discovery,
+  `EnergyModuleAdapter`, and `EnergyContextProvider` (read-only, see
+  [energy-core.md](energy-core.md));
 - capability, decision, action, and audit contracts;
 - bounded in-memory audit foundation.
 
@@ -62,7 +65,8 @@ Not implemented:
 
 - Decision Engine;
 - Action Engine;
-- Energy or Vehicle domains;
+- energy history, energy decisions, and any energy control;
+- Vehicle domain;
 - Climate Intelligence;
 - Smart Notifications;
 - Trip Planner.
@@ -77,6 +81,10 @@ DomusCalendarStore ---> CalendarContextProvider --+
                                                   ^
                                                   |
 IrrigationManager ---> IrrigationContextProvider -+
+                                                  ^
+                                                  |
+EnergyProfileManager -> EnergyModuleAdapter(s) ---+
+                        via EnergyContextProvider
 ```
 
 ## Runtime and lifecycle
@@ -93,7 +101,9 @@ The setup order is deliberately:
 2. set up `IrrigationManager`;
 3. set up `DomusCalendarStore`;
 4. register both context providers and both event listeners;
-5. register the panel and forward the Calendar platform.
+5. start `EnergyProfileManager` and its bindings in an isolated block: a
+   failure is logged and leaves Calendar and Irrigation running;
+6. register the panel and forward the Calendar platform.
 
 The runtime currently owns:
 
@@ -137,7 +147,10 @@ Two real transition notifications are currently bridged from existing public
 listeners:
 
 - `calendar.changed` after a stored Calendar create, update, or delete;
-- `irrigation.state_changed` after an Irrigation manager state notification.
+- `irrigation.state_changed` after an Irrigation manager state notification;
+- `energy.profile_changed` after the Energy Profile is saved;
+- `energy.availability_changed` when a configured energy module moves between
+  online and offline.
 
 Their payload is intentionally empty. Subscribers must read a fresh context
 snapshot from the authoritative Store or manager; events never retain state.
@@ -176,8 +189,16 @@ session fields, rain safety state, and observation time. It omits history,
 legacy automation IDs, requesting user IDs, actuator entity IDs, configuration,
 and every scheduler/watchdog internal.
 
+`EnergyContextProvider` is registered only while the Energy Profile contains
+at least one module, so a home without energy hardware reports `energy` as
+missing. It projects each configured module through its capability adapter,
+lists absent and offline modules explicitly, and reports home consumption as
+measured or derived. Configured modules that go offline remain in the context.
+
 The registry remains backend-internal. No `domusos/context/*` WebSocket API or
-other client-facing context endpoint is registered.
+other client-facing context endpoint is registered. The admin-only
+`domusos/energy/*` commands configure which sensors Energy reads; they do not
+expose context snapshots.
 
 ## Capabilities and adapters
 
@@ -189,7 +210,9 @@ specific entities such as `sensor.tesla_battery_level` or `sensor.bmw_soc` to a
 
 The contract records availability, observation time, source adapter, and the
 Home Assistant entity IDs used. It does not hard-code a vendor, discover
-entities, or bypass Home Assistant permissions. Domain-specific profile and
+entities, or bypass Home Assistant permissions. `EnergyModuleAdapter` is the
+first real implementation; entity discovery for it is a separate, proposal-only
+service. Domain-specific profile and
 configuration work belongs to the future domain module and Config/Options Flow.
 
 An adapter normalizes device data; a context provider decides which normalized

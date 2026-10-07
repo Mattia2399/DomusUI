@@ -98,7 +98,6 @@
 }
 
 .lock-card__meta,
-.lock-card__state-dot,
 .lock-card__mini-toggle,
 .lock-card__control,
 .lock-card__caption,
@@ -150,30 +149,6 @@
 .lock-card[data-lock-tone='open'] .lock-card__status,
 .lock-card[data-lock-tone='warning'] .lock-card__status {
   color: rgb(var(--lock-accent-rgb) / 0.74);
-}
-
-.lock-card__state-dot {
-  grid-area: state;
-  align-self: start;
-  justify-self: end;
-  width: 1.35rem;
-  height: 0.34rem;
-  margin-top: 0.08rem;
-  border-radius: 999px;
-  background:
-    linear-gradient(90deg, transparent, rgb(var(--lock-accent-rgb) / 0.95), transparent),
-    var(--ui-fill-tertiary);
-  box-shadow: 0 0 14px rgb(var(--lock-accent-rgb) / 0.26);
-  opacity: 0.85;
-}
-
-.lock-card[data-lock-tone='offline'] .lock-card__state-dot {
-  background: var(--ui-fill-secondary);
-  box-shadow: none;
-}
-
-.lock-card[data-lock-tone='transition'] .lock-card__state-dot {
-  animation: lock-card-breathe 1.7s ease-in-out infinite;
 }
 
 .lock-card__control {
@@ -606,7 +581,6 @@
   font-size: clamp(0.5rem, 5.6cqi, 0.62rem);
 }
 
-.lock-card[data-lock-variant='mini'] .lock-card__state-dot,
 .lock-card[data-lock-variant='mini'] .lock-card__caption,
 .lock-card[data-lock-variant='mini'] .lock-card__details,
 .lock-card[data-lock-variant='mini'] .lock-card__actions {
@@ -723,9 +697,6 @@
     padding: 0.55rem 0.68rem;
   }
 
-  .lock-card[data-lock-variant='compact'] .lock-card__state-dot,
-  .lock-card[data-lock-variant='standard'] .lock-card__state-dot,
-  .lock-card[data-lock-variant='full'] .lock-card__state-dot,
   .lock-card[data-lock-variant='standard'] .lock-card__caption,
   .lock-card[data-lock-variant='standard'] .lock-card__actions,
   .lock-card[data-lock-variant='full'] .lock-card__caption,
@@ -756,7 +727,6 @@
 }
 
 @container lock-card (max-width: 132px) {
-  .lock-card__state-dot,
   .lock-card__caption,
   .lock-card__details,
   .lock-card__actions {
@@ -878,18 +848,6 @@
   }
 }
 
-@keyframes lock-card-breathe {
-  0%,
-  100% {
-    opacity: 0.38;
-    transform: scaleX(0.72);
-  }
-  50% {
-    opacity: 0.95;
-    transform: scaleX(1);
-  }
-}
-
 @keyframes lock-card-orbit {
   to {
     transform: rotate(360deg);
@@ -904,9 +862,5 @@
   .lock-card__secondary-action,
   .lock-card__surface {
     transition: none;
-  }
-
-  .lock-card[data-lock-tone='transition'] .lock-card__state-dot {
-    animation: none;
   }
 }

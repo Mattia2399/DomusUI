@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Download, FileText } from 'lucide-react';
-import { DetailScaffold, IntervalKey } from './shared';
+import { DetailScaffold, IntervalKey, PreviewDataNotice } from './shared';
 
 const PDF_REPORTS = [
   { id: 'pdf-1', name: 'Report Consumi Marzo 2026', date: '31 Mar 2026' },
@@ -41,14 +41,19 @@ export function ReportDetail({
   );
 
   const right = (
-    <div className="rounded-[2rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-bg-elevated)] p-5 backdrop-blur-2xl shadow-[var(--ui-shadow-card)]">
+    <>
+      <PreviewDataNotice>
+        L’archivio seguente è un esempio visivo: i PDF non sono ancora generati dai dati reali.
+      </PreviewDataNotice>
+      <div className="rounded-[2rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-bg-elevated)] p-5 backdrop-blur-2xl shadow-[var(--ui-shadow-card)]">
       <p className="mb-4 text-sm font-medium uppercase tracking-[0.14em] text-[color:var(--ui-text-tertiary)]">PDF Disponibili</p>
       <div className="space-y-3">
         {PDF_REPORTS.map((report) => (
           <button
             key={report.id}
             type="button"
-            className="w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-4 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-secondary)]"
+            disabled
+            className="w-full cursor-not-allowed rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-4 py-3 text-left opacity-70"
           >
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -60,7 +65,8 @@ export function ReportDetail({
           </button>
         ))}
       </div>
-    </div>
+      </div>
+    </>
   );
 
   return <DetailScaffold title={title} onBack={onBack} left={left} right={right} />;

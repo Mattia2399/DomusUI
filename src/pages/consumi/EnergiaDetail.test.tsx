@@ -1,0 +1,251 @@
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { EnergyQuantity, EnergyState } from '../../services/energyCoreClient';
+import type { MockEntityStateMap } from '../../types/ha';
+import { EnergiaDetail } from './EnergiaDetail';
+import type { EnergyPageContext } from './energy/useEnergyCore';
+
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+const q = (value: number | null, overrides: Partial<EnergyQuantity> = {}): EnergyQuantity => ({
+  status: value === null ? 'unavailable' : 'ok',
+  value,
+  unit: 'W',
+  source: 'measured',
+  entity_ids: [],
+  reason: value === null ? 'state_unavailable' : null,
+  ...overrides,
+});
+
+const energyState = (overrides: Partial<EnergyState> = {}): EnergyState => ({
+  configured: true,
+  load_error: false,
+  available: true,
+  profile_revision: 1,
+  observed_at: '2026-10-01T10:00:00+00:00',
+  modules: {},
+  absent_modules: [],
+  offline_modules: [],
+  home_consumption: null,
+  ...overrides,
+});
+
+const EMPTY = energyState({
+  configured: false,
+  available: false,
+  profile_revision: 0,
+  absent_modules: ['grid', 'solar', 'home', 'battery', 'wallbox'],
+});
+
+function context(callApi: EnergyPageContext['callApi'], overrides: Partial<EnergyPageContext> = {}): EnergyPageContext {
+  return { callApi, mode: 'real', connected: true, canManage: true, haStates: {}, ...overrides };
+}
+
+/** A grid-only history as get_history returns it. */
+const HISTORY = {
+  configured: true,
+  range: { start: '2026-10-01T10:00:00+02:00', end: '2026-10-01T12:00:00+02:00', bucket: 'hour', timezone: 'Europe/Rome' },
+  unit: 'kWh',
+  recorder: 'available',
+  verification: 'complete',
+  series: {
+    grid_import: {
+      source: 'total',
+      statistic_ids: ['sensor.grid_energy'],
+      points: [{ start: '2026-10-01T10:00:00+02:00', value: 0.4 }, { start: '2026-10-01T11:00:00+02:00', value: 0.2 }],
+      complete: true,
+      status: 'complete',
+      in_progress_last: true,
+    },
+  },
+  unavailable: {},
+  devices: {},
+  cost: null,
+  previous: null,
+  generated_at: '2026-10-01T09:30:00+00:00',
+};
+
+const sent = (callApi: ReturnType<typeof vi.fn>) => callApi.mock.calls.map(([message]) => (message as { type: string }).type);
+
+function renderDetail(energy?: EnergyPageContext) {
+  return render(<EnergiaDetail title="Dettaglio Energia" onBack={vi.fn()} energy={energy} />);
+}
+
+describe('Energy subpage', () => {
+  it('asks for a Home Assistant connection instead of showing values', () => {
+    renderDetail(context(vi.fn(), { connected: false }));
+
+    expect(screen.getByText('Home Assistant non collegato')).not.toBeNull();
+    expect(screen.queryByRole('img')).toBeNull();
+  });
+
+  it('never calls Home Assistant outside the real runtime', () => {
+    const callApi = vi.fn();
+    renderDetail(context(callApi, { mode: 'demo', connected: false }));
+
+    expect(screen.getByText('Home Assistant non collegato')).not.toBeNull();
+    expect(callApi).not.toHaveBeenCalled();
+  });
+
+  it('introduces guided setup to administrators when no profile exists', async () => {
+    renderDetail(context(vi.fn().mockResolvedValue(EMPTY)));
+
+    expect(await screen.findByText('Configura Domus Energy')).not.toBeNull();
+    expect(screen.getByRole('button', { name: /Avvia rilevamento/ })).not.toBeNull();
+  });
+
+  it('never offers configuration to users without administrator rights', async () => {
+    renderDetail(context(vi.fn().mockResolvedValue(EMPTY), { canManage: false }));
+
+    expect(await screen.findByText(/Solo un amministratore/)).not.toBeNull();
+    expect(screen.queryByRole('button', { name: /rilevamento/ })).toBeNull();
+  });
+
+  it('shows a grid-only home without solar, battery or wallbox', async () => {
+    const state = energyState({
+      modules: {
+        grid: {
+          status: 'online',
+          complete: true,
+          sign_convention: null,
+          quantities: {
+            import_power: q(900),
+            export_power: q(0),
+            net_power: q(900, { source: 'derived' }),
+          },
+        },
+      },
+      absent_modules: ['solar', 'home', 'battery', 'wallbox'],
+      home_consumption: q(900, { source: 'derived' }),
+    });
+    renderDetail(context(vi.fn().mockResolvedValue(state)));
+
+    const diagram = await screen.findByRole('img');
+    expect(screen.getByTestId('energy-experience')).not.toBeNull();
+    expect(diagram.getAttribute('aria-label')).toContain('Rete: 900 W Prelievo');
+    expect(diagram.getAttribute('aria-label')).not.toContain('Batteria');
+    // The home details explain how its value is obtained.
+    fireEvent.click(screen.getByRole('button', { name: 'Dettagli del consumo della casa' }));
+    const home = await screen.findByRole('dialog', { name: 'Consumo della casa' });
+    expect(within(home).getByText(/Derivato/)).not.toBeNull();
+    fireEvent.click(within(home).getByRole('button', { name: /Chiudi/ }));
+    const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
+    expect(within(components).queryByText('Batteria')).toBeNull();
+    expect(within(components).queryByText('Fotovoltaico')).toBeNull();
+  });
+
+  it('keeps an offline battery visible without inventing values', async () => {
+    const state = energyState({
+      modules: {
+        solar: { status: 'online', complete: true, sign_convention: null, quantities: { production_power: q(2500) } },
+        battery: {
+          status: 'offline',
+          complete: false,
+          sign_convention: 'positive_discharge',
+          quantities: { state_of_charge: q(null, { unit: '%' }), net_power: q(null) },
+        },
+      },
+      offline_modules: ['battery'],
+      home_consumption: q(null, { status: 'not_measured', reason: 'insufficient_data', source: null }),
+    });
+    renderDetail(context(vi.fn().mockResolvedValue(state)));
+
+    expect((await screen.findByRole('img')).getAttribute('aria-label')).toContain('Batteria: offline');
+    expect(within(screen.getByTestId('energy-hero')).getByText('Dati parziali')).not.toBeNull();
+    const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
+    const battery = within(components).getByText('Batteria').closest('button') as HTMLElement;
+    expect(within(battery).getByText('Offline · sensori senza dati')).not.toBeNull();
+    expect(within(battery).getByText('—')).not.toBeNull();
+
+    fireEvent.click(battery);
+    const details = await screen.findByRole('dialog', { name: 'Batteria' });
+    expect(within(details).getByText('Offline · i sensori non forniscono dati')).not.toBeNull();
+    expect(within(details).getByText('Valori positivi = scarica verso la casa')).not.toBeNull();
+    // An administrator jumps from the details straight to that module in the settings.
+    fireEvent.click(within(details).getByRole('button', { name: 'Modifica sensori' }));
+    expect(await screen.findByRole('heading', { name: 'Impostazioni Energia' })).not.toBeNull();
+  });
+
+  it('puts the setup action in the header for administrators only', async () => {
+    const state = energyState({
+      modules: { grid: { status: 'online', complete: true, sign_convention: null, quantities: { net_power: q(300) } } },
+    });
+    renderDetail(context(vi.fn().mockResolvedValue(state)));
+    const header = await screen.findByTestId('nested-page-header');
+    expect(within(header).getByRole('button', { name: 'Impostazioni energia' })).not.toBeNull();
+
+    cleanup();
+    renderDetail(context(vi.fn().mockResolvedValue(state), { canManage: false }));
+    await screen.findByTestId('energy-experience');
+    expect(screen.queryByRole('button', { name: 'Impostazioni energia' })).toBeNull();
+  });
+
+  it('explains an outdated integration and retries on demand', async () => {
+    const callApi = vi.fn().mockRejectedValueOnce({ code: 'unknown_command', message: 'Unknown command.' }).mockResolvedValue(EMPTY);
+    renderDetail(context(callApi));
+
+    expect(await screen.findByText(/Aggiorna l’integrazione Domus UI/)).not.toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Riprova/ }));
+    expect(await screen.findByText('Configura Domus Energy')).not.toBeNull();
+  });
+
+  it('refreshes the backend projection when a bound sensor changes', async () => {
+    vi.useFakeTimers();
+    const state = energyState({
+      modules: {
+        solar: {
+          status: 'online',
+          complete: true,
+          sign_convention: null,
+          quantities: { production_power: q(1000, { entity_ids: ['sensor.pv'] }) },
+        },
+      },
+    });
+    const callApi = vi.fn().mockImplementation(async (message: Record<string, unknown>) => (message.type === 'domusos/energy/get_history' ? HISTORY : state));
+    const haStates = (value: string) => ({ 'sensor.pv': { state: value } }) as MockEntityStateMap;
+    const view = renderDetail(context(callApi, { haStates: haStates('1000') }));
+    await act(async () => {});
+    expect(sent(callApi)).toEqual(['domusos/energy/get_state', 'domusos/energy/get_history']);
+
+    view.rerender(<EnergiaDetail title="Dettaglio Energia" onBack={vi.fn()} energy={context(callApi, { haStates: haStates('1200') })} />);
+    await act(async () => {
+      vi.advanceTimersByTime(1600);
+    });
+
+    // A power change refreshes the realtime projection only: the history is not read again.
+    expect(sent(callApi)).toEqual(['domusos/energy/get_state', 'domusos/energy/get_history', 'domusos/energy/get_state']);
+    expect(callApi).toHaveBeenLastCalledWith({ type: 'domusos/energy/get_state' }, { reportError: false, throwOnError: true });
+  });
+
+  it('reads the history of the saved plant and sends administrators to the settings when it has no meter', async () => {
+    const state = energyState({
+      modules: { grid: { status: 'online', complete: true, sign_convention: null, quantities: { net_power: q(300) } } },
+    });
+    const noMeter = { ...HISTORY, series: {}, unavailable: { grid_import: { reason: 'no_energy_meter', statistic_ids: [] } } };
+    const callApi = vi.fn().mockImplementation(async (message: Record<string, unknown>) => (message.type === 'domusos/energy/get_history' ? noMeter : state));
+    renderDetail(context(callApi));
+
+    expect(await screen.findByText('Lo storico non è ancora configurato')).not.toBeNull();
+    expect(callApi).toHaveBeenCalledWith({ type: 'domusos/energy/get_history', range: '24h' }, { reportError: false, throwOnError: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Apri le impostazioni' }));
+    expect(await screen.findByRole('heading', { name: 'Impostazioni Energia' })).not.toBeNull();
+  });
+
+  it('keeps the realtime page when the Recorder is not available', async () => {
+    const state = energyState({
+      modules: { grid: { status: 'online', complete: true, sign_convention: null, quantities: { net_power: q(300) } } },
+    });
+    const callApi = vi.fn().mockImplementation(async (message: Record<string, unknown>) => {
+      if (message.type === 'domusos/energy/get_history') throw { code: 'recorder_unavailable', message: 'starting' };
+      return state;
+    });
+    renderDetail(context(callApi));
+
+    expect(await screen.findByText('Lo storico di Home Assistant non è temporaneamente disponibile.')).not.toBeNull();
+    expect(screen.getByTestId('energy-hero')).not.toBeNull();
+    expect(screen.queryByText('Impianto non disponibile')).toBeNull();
+  });
+});

@@ -2832,10 +2832,6 @@ export function MainBoard() {
   const MEMBERS_WIDGET_MIN_HEIGHT = 2;
   const isStackSection = (section: DashboardSection) =>
     section.kind === 'stack-vertical' || section.kind === 'stack-horizontal' || section.kind === 'stack-grid';
-  const firstStackSectionId = useMemo(
-    () => sections.find((section) => isStackSection(section))?.id ?? null,
-    [sections],
-  );
   const resolveStackColumns = (section: DashboardSection) => {
     if (section.kind === 'stack-vertical') {
       return 1;
@@ -3706,6 +3702,17 @@ export function MainBoard() {
   const consumptionData = useMemo(
     () => createConsumptionDashboardData(consumptionConfig, haStates),
     [consumptionConfig, haStates],
+  );
+  const canManageEnergy = dashboardSecurity.can('manage_energy');
+  const energyPageContext = useMemo(
+    () => ({
+      callApi: callHaApi,
+      mode: effectiveRuntimeMode,
+      connected: isHaConnected,
+      canManage: canManageEnergy,
+      haStates,
+    }),
+    [callHaApi, canManageEnergy, effectiveRuntimeMode, haStates, isHaConnected],
   );
   const activeWidget = selectedWidget;
   const activeWidgetSecrets = useWidgetSecrets(activeWidget?.id);
@@ -8040,15 +8047,6 @@ export function MainBoard() {
     return 'alarm_arm_custom_bypass';
   };
 
-  const armAlarmByMode = (
-    mode: 'home' | 'away' | 'night' | 'vacation' | 'custom_bypass',
-    code?: string,
-    widget?: Widget,
-    options?: AlarmActionAuthOptions,
-  ) => {
-    return callProtectedAlarmAction(resolveAlarmArmServiceByMode(mode), code, widget, options);
-  };
-
   const resolveLockTargetContext = (widget?: Widget) => {
     const targetWidget = widget?.kind === 'lock' ? widget : activeWidget?.kind === 'lock' ? activeWidget : undefined;
     const entityId = targetWidget?.entityId;
@@ -11214,6 +11212,7 @@ export function MainBoard() {
                 selectedCardId={selectedConsumptionCardId}
                 data={consumptionData}
                 config={consumptionConfig}
+                energy={energyPageContext}
                 onDetailViewChange={setIsConsumptionDetailView}
                 onSelectCard={(cardId) => {
                   if (!isEditMode) {

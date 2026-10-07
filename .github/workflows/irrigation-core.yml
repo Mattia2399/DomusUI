@@ -23,7 +23,7 @@ jobs:
           - home_assistant: '2025.1'
             python: '3.12'
             test_package: '0.13.201'
-            test_target: 'tests_python/test_irrigation_models.py tests_python/test_irrigation_manager.py tests_python/test_calendar.py tests_python/test_core_*.py tests_python/test_context_providers.py'
+            test_target: 'tests_python/test_irrigation_models.py tests_python/test_irrigation_manager.py tests_python/test_calendar.py tests_python/test_core_*.py tests_python/test_context_providers.py tests_python/test_energy_models.py tests_python/test_energy_adapter.py tests_python/test_energy_discovery.py tests_python/test_energy_provider.py tests_python/test_energy_tariff.py tests_python/test_energy_websocket_handlers.py tests_python/test_energy_profile_v2.py tests_python/test_energy_storage_v2.py tests_python/test_energy_aggregation.py tests_python/test_energy_meters.py tests_python/test_energy_discovery_v2.py tests_python/test_energy_history.py'
           - home_assistant: '2026.2.3'
             python: '3.13'
             test_package: '0.13.316'
@@ -40,5 +40,6 @@ jobs:
       - name: Test Domus Core backend
         # The HA 2025.1 websocket test fixture leaves its own aiohttp shutdown
         # thread alive on modern GitHub runners. Core lifecycle compatibility is
-        # still covered there; the complete websocket contract runs on current HA.
+        # still covered there, the Energy commands run there through their
+        # handlers, and the complete websocket contract runs on current HA.
         run: pytest -q ${{ matrix.test_target }}

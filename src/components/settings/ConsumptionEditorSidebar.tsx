@@ -22,15 +22,6 @@ type ConfigField = {
   placeholder: string;
 };
 
-const ELECTRICITY_FIELDS: ConfigField[] = [
-  { field: 'solarPowerEntityId', labelKey: 'settings.consumption.field.solarPower', placeholder: 'sensor.solar_power_kw' },
-  { field: 'gridPowerEntityId', labelKey: 'settings.consumption.field.gridPower', placeholder: 'sensor.grid_power_kw' },
-  { field: 'homePowerEntityId', labelKey: 'settings.consumption.field.homePower', placeholder: 'sensor.home_power_kw' },
-  { field: 'solarMixEntityId', labelKey: 'settings.consumption.field.solarMix', placeholder: 'sensor.solar_mix_percent' },
-  { field: 'batteryPowerEntityId', labelKey: 'settings.consumption.field.batteryPower', placeholder: 'sensor.battery_power_kw' },
-  { field: 'batterySocEntityId', labelKey: 'settings.consumption.field.batterySoc', placeholder: 'sensor.battery_soc' },
-];
-
 const WATER_FIELDS: ConfigField[] = [
   { field: 'waterCurrentEntityId', labelKey: 'settings.consumption.field.waterCurrent', placeholder: 'sensor.water_today_liters' },
   { field: 'waterGoalEntityId', labelKey: 'settings.consumption.field.waterGoal', placeholder: 'input_number.water_daily_goal_liters' },
@@ -90,9 +81,7 @@ export function ConsumptionEditorSidebar({
   const activeCardId = selectedCardId ?? 'electricity';
 
   let fields: ConfigField[] = [];
-  if (activeCardId === 'electricity') {
-    fields = ELECTRICITY_FIELDS;
-  } else if (activeCardId === 'water') {
+  if (activeCardId === 'water') {
     fields = WATER_FIELDS;
   } else if (activeCardId === 'gas') {
     fields = GAS_FIELDS;
@@ -114,13 +103,15 @@ export function ConsumptionEditorSidebar({
           <h3 className="mt-2 text-xl font-semibold">{t('settings.consumption.details')}</h3>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onResetConfig}
-            className="glass-button rounded-xl px-3 py-2 text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)] transition-colors"
-          >
-            {t('settings.consumption.reset')}
-          </button>
+          {activeCardId !== 'electricity' ? (
+            <button
+              type="button"
+              onClick={onResetConfig}
+              className="glass-button rounded-xl px-3 py-2 text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)] transition-colors"
+            >
+              {t('settings.consumption.reset')}
+            </button>
+          ) : null}
           {onClose ? (
             <button
               type="button"
@@ -157,7 +148,13 @@ export function ConsumptionEditorSidebar({
 
       <div className="mt-5 flex h-[calc(100%-9.5rem)] min-h-0 flex-col">
         <div className="glass-scrollbar space-y-5 overflow-y-auto pr-1">
-          {fields.length > 0 ? (
+          {activeCardId === 'electricity' ? (
+            <div className="dashboard-content-surface rounded-2xl border-dashed p-4">
+              <p className="text-sm text-[color:var(--ui-text-secondary)]">
+                {t('settings.consumption.energyCoreHint')}
+              </p>
+            </div>
+          ) : fields.length > 0 ? (
             <div className="dashboard-content-surface space-y-4 rounded-2xl p-4">
               <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('settings.consumption.sources')}</p>
               {fields.map((item) => renderField(item, config[item.field], onUpdateConfigField, entitySuggestions, t))}
@@ -171,11 +168,13 @@ export function ConsumptionEditorSidebar({
           )}
         </div>
 
-        <p className="mt-4 text-[11px] text-[color:var(--ui-text-tertiary)]">
-          {haConnected && entitySuggestions.length > 0
-            ? t('settings.consumption.suggestions')
-            : t('settings.consumption.noSuggestions')}
-        </p>
+        {activeCardId !== 'electricity' ? (
+          <p className="mt-4 text-[11px] text-[color:var(--ui-text-tertiary)]">
+            {haConnected && entitySuggestions.length > 0
+              ? t('settings.consumption.suggestions')
+              : t('settings.consumption.noSuggestions')}
+          </p>
+        ) : null}
       </div>
     </aside>
   );

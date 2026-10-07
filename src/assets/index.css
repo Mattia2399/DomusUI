@@ -1,5 +1,15 @@
 @import "tailwindcss";
 @config "../../tailwind.config.js";
+/* Utilities come only from shipped code: prose, tests and tooling would otherwise add unused CSS. */
+@source not "../../docs";
+@source not "../../tests";
+@source not "../../tests_python";
+@source not "../../custom_components";
+@source not "../../scripts";
+@source not "../../brand";
+@source not "../../*.md";
+@source not "../**/*.test.ts";
+@source not "../**/*.test.tsx";
 
 :root {
   /* Native UI typeface on every platform. `-apple-system` is intentionally
@@ -89,7 +99,6 @@
    * deliberately stays low so backdrop-filter can sample the live canvas
    * underneath instead of painting a dark or light panel over it.
    */
-  .liquid-glass-material,
   .liquid-glass-panel,
   .liquid-glass-sheet,
   .liquid-glass-navigation,
@@ -125,7 +134,6 @@
       inset 0 -1px 0 rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.055);
   }
 
-  .liquid-glass-material::after,
   .liquid-glass-panel::after,
   .liquid-glass-sheet::after,
   .liquid-glass-navigation::after,
@@ -243,7 +251,6 @@
     background: var(--ui-fill-tertiary);
   }
 
-  .segmented-control,
   .liquid-segmented-control {
     border-color: var(--ui-glass-border, var(--ui-border));
     background:
@@ -254,14 +261,6 @@
     backdrop-filter: blur(18px) saturate(1.7);
     @apply relative overflow-hidden rounded-full border p-1 transition-all duration-200 ease-out;
   }
-
-  .segmented-control-clear,
-  .liquid-segmented-control-clear {
-    border-color: var(--ui-border-strong, rgb(255 255 255 / 0.2));
-    background: var(--ui-segment-track, rgb(235 235 245 / 0.1));
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1), 0 8px 18px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
-  }
-
   .segmented-options {
     display: grid;
     width: 100%;
@@ -286,8 +285,6 @@
     min-width: 0;
   }
 
-  .segmented-thumb,
-  .segmented-option-active,
   .liquid-segmented-thumb,
   .liquid-segmented-option-active {
     background: var(--ui-segment-active, rgb(235 235 245 / 0.24));
@@ -296,35 +293,28 @@
     @apply relative overflow-hidden rounded-full backdrop-blur-xl transition-all duration-200 ease-out;
   }
 
-  .segmented-option-active:is(:hover, :focus-visible),
-  .segmented-thumb:is(:hover, :focus-visible),
   .liquid-segmented-option-active:is(:hover, :focus-visible),
   .liquid-segmented-thumb:is(:hover, :focus-visible) {
     background: var(--ui-segment-active, rgb(235 235 245 / 0.24));
   }
 
-  .segmented-option-inactive,
   .liquid-segmented-option-inactive {
     color: var(--ui-text-secondary, rgb(235 235 245 / 0.72));
     @apply transition-all duration-200 ease-out;
   }
 
-  .segmented-option-inactive:hover,
   .liquid-segmented-option-inactive:hover {
     background: var(--ui-fill-tertiary, rgb(235 235 245 / 0.1));
     color: var(--ui-text-primary, #f5f5f7);
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .segmented-control,
-    .segmented-control *,
     .liquid-segmented-control,
     .liquid-segmented-control * {
       transition-duration: 120ms !important;
       animation: none !important;
     }
 
-    .segmented-control button:active,
     .liquid-segmented-control button:active {
       transform: none !important;
     }
@@ -383,7 +373,7 @@
 
   /* A fill inside a glass surface is part of that material, not glass-on-glass. */
   :is(.liquid-glass-panel, .liquid-glass-sheet, .liquid-glass-navigation)
-    :is(.liquid-glass-card, .liquid-glass-control, .glass-button, .glass-icon-button, .segmented-control, .liquid-segmented-control) {
+    :is(.liquid-glass-card, .liquid-glass-control, .glass-button, .glass-icon-button, .liquid-segmented-control) {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -458,9 +448,6 @@
   .glow-active-orange {
     @apply shadow-[0_0_20px_rgba(255,159,10,0.35)];
   }
-  .glow-active-red {
-    @apply shadow-[0_0_20px_rgba(255,59,48,0.38)];
-  }
   .glow-active-blue {
     @apply shadow-[0_0_20px_rgba(10,132,255,0.35)];
   }
@@ -510,15 +497,6 @@
     background: var(--ui-fill-tertiary, rgb(235 235 245 / 0.1));
     color: var(--ui-text-primary, #f5f5f7);
   }
-
-  .ui-text-primary { color: var(--ui-text-primary); }
-  .ui-text-secondary { color: var(--ui-text-secondary); }
-  .ui-text-tertiary { color: var(--ui-text-tertiary); }
-  .ui-text-disabled { color: var(--ui-text-disabled); }
-  .ui-surface-primary { background: var(--ui-surface-primary); }
-  .ui-surface-secondary { background: var(--ui-surface-secondary); }
-  .ui-surface-elevated { background: var(--ui-bg-elevated); }
-  .ui-border { border-color: var(--ui-border); }
 
   .ui-input {
     border: 1px solid var(--ui-border);
@@ -1026,12 +1004,6 @@
     width: 2rem;
     border-radius: 0.75rem;
   }
-
-  .onboarding-notice-success {
-    border-color: rgb(52 211 153 / 0.22);
-    background: rgb(16 185 129 / 0.08);
-  }
-
   .onboarding-notice-danger {
     border-color: rgb(251 113 133 / 0.24);
     background: rgb(244 63 94 / 0.1);
@@ -1352,6 +1324,18 @@ body {
   --ui-shadow-soft: rgb(28 28 30 / 0.09);
 }
 
+/* Energy chart series, validated with the dataviz palette checks for both surfaces. */
+.energy-history-chart {
+  --chart-solar: #d97706;
+  --chart-grid: #0284c7;
+  --chart-battery: #059669;
+  --chart-home: #7c3aed;
+}
+
+.dashboard-theme-dark .energy-history-chart {
+  --chart-home: #8b5cf6;
+}
+
 .dashboard-theme-dark,
 .dashboard-theme-light {
   --dashboard-bg: var(--ui-bg-canvas);
@@ -1393,7 +1377,6 @@ body {
 }
 
 @media (prefers-reduced-transparency: reduce) {
-  .liquid-glass-material,
   .liquid-glass-panel,
   .liquid-glass-sheet,
   .liquid-glass-navigation,
@@ -1406,8 +1389,7 @@ body {
   .liquid-glass-card,
   .glass-button,
   .glass-icon-button,
-  .liquid-segmented-control,
-    .segmented-control {
+  .liquid-segmented-control {
     background-color: var(--ui-surface-primary) !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
@@ -1415,7 +1397,6 @@ body {
 }
 
 @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .liquid-glass-material,
   .liquid-glass-panel,
   .liquid-glass-sheet,
   .liquid-glass-navigation,
@@ -1663,69 +1644,6 @@ body {
     linear-gradient(155deg, rgb(14 36 72 / 0.8), rgb(10 24 54 / 0.58));
 }
 
-.scene-car-icon {
-  display: inline-flex;
-  will-change: transform, opacity, filter;
-}
-
-.scene-car-icon-running {
-  animation: scene-car-running 1.05s ease-in-out infinite;
-}
-
-.scene-car-icon-completing {
-  animation: scene-car-exit 620ms cubic-bezier(0.18, 0.9, 0.24, 1) forwards;
-}
-
-@keyframes scene-car-running {
-  0%,
-  100% {
-    transform: translateX(0) rotate(0deg);
-    opacity: 1;
-  }
-  18% {
-    transform: translateX(1.5px) translateY(-0.4px) rotate(1deg);
-  }
-  40% {
-    transform: translateX(3.6px) translateY(0) rotate(1.8deg);
-  }
-  62% {
-    transform: translateX(2.2px) translateY(0.1px) rotate(0.8deg);
-  }
-  82% {
-    transform: translateX(0.8px) translateY(0) rotate(0deg);
-  }
-}
-
-@keyframes scene-car-exit {
-  0% {
-    transform: translateX(0) scale(1);
-    opacity: 1;
-    filter: blur(0);
-  }
-  42% {
-    transform: translateX(7px) translateY(-0.8px) rotate(2deg) scale(1.02);
-    opacity: 0.95;
-    filter: blur(0);
-  }
-  76% {
-    transform: translateX(13px) translateY(-1.5px) rotate(3.2deg) scale(0.94);
-    opacity: 0.35;
-    filter: blur(0.25px);
-  }
-  100% {
-    transform: translateX(18px) translateY(-2px) rotate(4deg) scale(0.9);
-    opacity: 0;
-    filter: blur(0.45px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .scene-car-icon-running,
-  .scene-car-icon-completing {
-    animation: none;
-  }
-}
-
 .profile-background-thumb-sunset-amber {
   background-image:
     radial-gradient(circle at 24% 72%, rgb(252 173 71 / 0.74), transparent 46%),
@@ -1874,163 +1792,6 @@ body {
   background: var(--ui-fill-secondary);
   color: var(--ui-text-primary);
 }
-
-.rooms-chip-active {
-  background: var(--ui-segment-active);
-  color: var(--ui-text-primary);
-  box-shadow: 0 10px 24px var(--ui-shadow-soft);
-}
-
-.editor-theme {
-  font-family: var(--ui-font-system);
-  --editor-accent: #3d5afe;
-}
-
-.editor-theme-light {
-  --editor-shell-bg: #ececec;
-  --editor-panel-bg: #fafafa;
-  --editor-card-bg: #ffffff;
-  --editor-border: #d1d1d1;
-  --editor-text: #111111;
-  --editor-muted: #5f6368;
-  --editor-shadow: rgb(17 17 17 / 0.08);
-  --editor-ink-on-accent: #ffffff;
-}
-
-.editor-theme-dark {
-  --editor-shell-bg: #1d1d1d;
-  --editor-panel-bg: #252525;
-  --editor-card-bg: #2d2d2d;
-  --editor-border: #4b4b4b;
-  --editor-text: #fafafa;
-  --editor-muted: #b4b4b4;
-  --editor-shadow: rgb(0 0 0 / 0.34);
-  --editor-ink-on-accent: #ffffff;
-}
-
-.editor-theme .editor-header {
-  border-color: var(--editor-border) !important;
-  background: color-mix(in srgb, var(--editor-panel-bg) 90%, transparent) !important;
-}
-
-.editor-theme .editor-widget-library,
-.editor-theme .editor-inspector {
-  background: var(--editor-panel-bg) !important;
-  border-color: var(--editor-border) !important;
-}
-
-.editor-theme .editor-canvas-root {
-  background: radial-gradient(circle at top, rgb(61 90 254 / 0.08), transparent 28%), var(--editor-shell-bg) !important;
-}
-
-.editor-theme .editor-widget-library .editor-lib-section,
-.editor-theme .editor-widget-library .editor-lib-item,
-.editor-theme .editor-inspector .editor-inspector-card,
-.editor-theme .editor-canvas-shell,
-.editor-theme .editor-canvas-meta,
-.editor-theme .editor-canvas-stage-shell,
-.editor-theme .editor-canvas-stage-head,
-.editor-theme .editor-canvas-grid-shell {
-  border-color: var(--editor-border) !important;
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.03),
-    0 10px 24px var(--editor-shadow);
-}
-
-.editor-theme .editor-canvas-widget {
-  border-radius: 26px;
-}
-
-.editor-theme .editor-canvas-widget-body {
-  box-shadow:
-    0 1px 0 rgb(255 255 255 / 0.05),
-    0 12px 28px var(--editor-shadow);
-}
-
-.editor-theme .editor-widget-library .sticky,
-.editor-theme .editor-inspector .sticky {
-  border-color: var(--editor-border) !important;
-  background: color-mix(in srgb, var(--editor-panel-bg) 94%, transparent) !important;
-}
-
-.editor-theme .editor-widget-library h2,
-.editor-theme .editor-inspector h2,
-.editor-theme .editor-canvas-root h2,
-.editor-theme .editor-canvas-root h3 {
-  color: var(--editor-text) !important;
-  font-weight: 500;
-}
-
-.editor-theme .editor-widget-library p,
-.editor-theme .editor-inspector p,
-.editor-theme .editor-canvas-root p,
-.editor-theme [class*="text-slate-400"],
-.editor-theme [class*="text-slate-500"],
-.editor-theme [class*="text-slate-600"] {
-  color: var(--editor-muted) !important;
-}
-
-.editor-theme [class*="text-slate-100"],
-.editor-theme [class*="text-slate-200"],
-.editor-theme [class*="text-slate-300"],
-.editor-theme [class*="text-slate-700"],
-.editor-theme [class*="text-slate-800"],
-.editor-theme [class*="text-slate-900"],
-.editor-theme [class*="text-white"] {
-  color: var(--editor-text) !important;
-}
-
-.editor-theme [class*="bg-sky-400"] {
-  background-color: var(--editor-accent) !important;
-  color: var(--editor-ink-on-accent) !important;
-}
-
-.editor-theme [class*="bg-sky-500/10"],
-.editor-theme [class*="bg-sky-400/10"],
-.editor-theme [class*="bg-sky-400/12"] {
-  background-color: rgb(61 90 254 / 0.12) !important;
-}
-
-.editor-theme [class*="border-sky-400"],
-.editor-theme [class*="border-sky-500"] {
-  border-color: rgb(61 90 254 / 0.45) !important;
-}
-
-.editor-theme [class*="text-sky-100"],
-.editor-theme [class*="text-sky-200"],
-.editor-theme [class*="text-sky-300"] {
-  color: var(--editor-accent) !important;
-}
-
-.editor-theme .react-grid-item.react-grid-placeholder {
-  background: linear-gradient(135deg, rgb(61 90 254 / 0.16), rgb(61 90 254 / 0.08)) !important;
-  border: 2px dashed rgb(61 90 254 / 0.55) !important;
-  box-shadow: inset 0 0 0 1px rgb(61 90 254 / 0.18);
-}
-
-.editor-theme-light .react-resizable-handle::after {
-  background-color: #8f99aa;
-  box-shadow: 0 0 0 4px rgb(255 255 255 / 0.8);
-}
-
-.editor-theme-dark .react-resizable-handle::after {
-  background-color: #9ea9bd;
-  box-shadow: 0 0 0 4px rgb(15 15 15 / 0.52);
-}
-
-.runtime-theme {
-  --runtime-accent: #3d5afe;
-  font-family: var(--ui-font-system);
-}
-
-.runtime-theme .runtime-panel-surface {
-  border-color: var(--runtime-border) !important;
-}
-
-.runtime-theme .runtime-widget-shell {
-  backdrop-filter: none;
-}
-
 button,
 a,
 input,
@@ -2038,127 +1799,6 @@ select,
 textarea,
 [role="button"] {
   touch-action: manipulation;
-}
-
-.runtime-theme [class*="text-white"] {
-  color: var(--runtime-text) !important;
-}
-
-.runtime-theme [class*="text-slate-950"] {
-  color: #111111 !important;
-}
-
-.runtime-theme [class*="text-white/"],
-.runtime-theme [class*="text-slate-400"],
-.runtime-theme [class*="text-slate-500"] {
-  color: var(--runtime-muted-text) !important;
-}
-
-.runtime-theme [class*="border-white/8"],
-.runtime-theme [class*="border-white/10"],
-.runtime-theme [class*="border-white/12"],
-.runtime-theme [class*="border-white/14"],
-.runtime-theme [class*="border-white/18"] {
-  border-color: var(--runtime-border) !important;
-}
-
-.runtime-theme [class*="bg-white/5"],
-.runtime-theme [class*="bg-white/8"],
-.runtime-theme [class*="bg-white/10"],
-.runtime-theme [class*="bg-white/12"],
-.runtime-theme [class*="bg-white/[0.03]"],
-.runtime-theme [class*="bg-white/[0.04]"] {
-  background-color: color-mix(in srgb, var(--runtime-text) 8%, transparent) !important;
-}
-
-.runtime-theme [class*="bg-sky-400"],
-.runtime-theme [class*="bg-sky-500/10"],
-.runtime-theme [class*="bg-sky-400/10"],
-.runtime-theme [class*="bg-sky-400/12"] {
-  background-color: color-mix(in srgb, var(--runtime-accent) 16%, transparent) !important;
-}
-
-.runtime-theme [class*="border-sky-300"],
-.runtime-theme [class*="border-sky-400"],
-.runtime-theme [class*="border-sky-500"] {
-  border-color: color-mix(in srgb, var(--runtime-accent) 44%, white 8%) !important;
-}
-
-.runtime-theme [class*="text-sky-100"],
-.runtime-theme [class*="text-sky-200"],
-.runtime-theme [class*="text-sky-300"] {
-  color: var(--runtime-accent) !important;
-}
-
-.runtime-theme input[type="range"] {
-  accent-color: var(--runtime-accent);
-}
-
-.runtime-host.runtime-host-dark .runtime-host-toolbar {
-  border-color: rgb(61 90 254 / 0.22) !important;
-  background:
-    radial-gradient(circle at 82% -40%, rgb(61 90 254 / 0.18), transparent 42%),
-    linear-gradient(180deg, rgb(29 29 29 / 0.98), rgb(22 22 22 / 0.98)) !important;
-}
-
-.runtime-host.runtime-host-dark .runtime-host-toolbar input {
-  border-color: rgb(255 255 255 / 0.14) !important;
-  background: rgb(255 255 255 / 0.04) !important;
-}
-
-.runtime-host.runtime-host-dark .runtime-host-toolbar input:focus {
-  border-color: rgb(61 90 254 / 0.55) !important;
-  box-shadow: 0 0 0 3px rgb(61 90 254 / 0.18);
-}
-
-.runtime-host.runtime-host-dark .runtime-host-toolbar button {
-  border-color: rgb(255 255 255 / 0.14) !important;
-}
-
-.runtime-host.runtime-host-dark .runtime-host-toolbar button[class*="bg-sky-400"],
-.runtime-host.runtime-host-dark .runtime-host-toolbar button[class*="bg-sky-400/10"] {
-  background: rgb(61 90 254 / 0.22) !important;
-  color: #fafafa !important;
-}
-
-.runtime-host.runtime-host-dark .runtime-host-toolbar [class*="rounded-full"][class*="border"][class*="text-xs"] {
-  border-color: rgb(61 90 254 / 0.28) !important;
-  background: rgb(61 90 254 / 0.12) !important;
-}
-
-.runtime-host.runtime-host-light .runtime-host-toolbar {
-  border-color: rgb(17 17 17 / 0.1) !important;
-  background:
-    radial-gradient(circle at 82% -40%, rgb(61 90 254 / 0.08), transparent 46%),
-    linear-gradient(180deg, rgb(250 250 250 / 0.98), rgb(244 244 244 / 0.98)) !important;
-}
-
-.runtime-host.runtime-host-light .runtime-host-toolbar input {
-  border-color: rgb(17 17 17 / 0.16) !important;
-  background: rgb(255 255 255 / 0.94) !important;
-  color: #111111 !important;
-}
-
-.runtime-host.runtime-host-light .runtime-host-toolbar input:focus {
-  border-color: rgb(61 90 254 / 0.5) !important;
-  box-shadow: 0 0 0 3px rgb(61 90 254 / 0.12);
-}
-
-.runtime-host.runtime-host-light .runtime-host-toolbar button {
-  border-color: rgb(17 17 17 / 0.14) !important;
-  color: #111111 !important;
-}
-
-.runtime-host.runtime-host-light .runtime-host-toolbar button[class*="bg-sky-400"],
-.runtime-host.runtime-host-light .runtime-host-toolbar button[class*="bg-sky-400/10"] {
-  background: rgb(61 90 254 / 0.16) !important;
-  color: #111111 !important;
-}
-
-.runtime-host.runtime-host-light .runtime-host-toolbar [class*="rounded-full"][class*="border"][class*="text-xs"] {
-  border-color: rgb(17 17 17 / 0.14) !important;
-  background: rgb(61 90 254 / 0.08) !important;
-  color: #2f3542 !important;
 }
 
 * {

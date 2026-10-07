@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,12 +28,16 @@ from .const import (
     STATIC_URL_PATH,
     VERSION,
 )
-from .context_providers import register_core_bindings
+from .context_providers import register_core_bindings, register_energy_bindings
 from .core import DomusRuntime
+from .energy import EnergyProfileManager
+from .energy.api import async_register_energy_api
 from .irrigation import IrrigationManager
 from .irrigation.api import async_register_irrigation_api
 from .waste_collection import WasteCollectionManager
 from .waste_collection.api import async_register_waste_collection_api
+
+_LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 PLATFORMS = [Platform.CALENDAR]
@@ -47,6 +52,9 @@ class DomusEntryData:
     calendar_manager: DomusCalendarStore
     waste_collection_manager: WasteCollectionManager
     unregister_core_bindings: Callable[[], None] | None = None
+    # Optional: None when Energy failed to start; other modules keep running.
+    energy_manager: EnergyProfileManager | None = None
+    unregister_energy_bindings: Callable[[], None] | None = None
 
 
 DomusConfigEntry = ConfigEntry[DomusEntryData]
@@ -68,6 +76,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Domus UI."""
     await async_register_irrigation_api(hass)
     await async_register_waste_collection_api(hass)
+    await async_register_energy_api(hass)
     return True
 
 
@@ -150,6 +159,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             calendar_manager,
             manager,
         )
+        await _async_setup_energy(hass, runtime, entry_data)
         await panel_custom.async_register_panel(hass=hass, **panel_options)
         domain_data["irrigation_manager"] = manager
         domain_data["calendar_manager"] = calendar_manager
@@ -167,6 +177,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             domain_data.pop("waste_collection_manager", None)
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
+        await _async_teardown_energy(hass, entry_data)
         if entry_data.unregister_core_bindings is not None:
             entry_data.unregister_core_bindings()
             entry_data.unregister_core_bindings = None
@@ -193,6 +204,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
     if _panel_exists(hass, PANEL_URL_PATH):
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
     entry_data = getattr(entry, "runtime_data", None)
+    if isinstance(entry_data, DomusEntryData):
+        await _async_teardown_energy(hass, entry_data)
     if (
         isinstance(entry_data, DomusEntryData)
         and entry_data.unregister_core_bindings is not None
@@ -237,6 +250,51 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
     return True
+
+
+async def _async_setup_energy(
+    hass: HomeAssistant, runtime: DomusRuntime, entry_data: DomusEntryData
+) -> None:
+    """Start the optional Energy core without risking the other modules."""
+    energy_manager = EnergyProfileManager(hass)
+    try:
+        await energy_manager.async_setup()
+        entry_data.unregister_energy_bindings = register_energy_bindings(
+            hass, runtime, energy_manager
+        )
+    except Exception:
+        _LOGGER.exception(
+            "Domus Energy could not start; Calendar and Irrigation keep running"
+        )
+        entry_data.unregister_energy_bindings = None
+        try:
+            await energy_manager.async_shutdown()
+        except Exception:
+            _LOGGER.exception("Domus Energy cleanup failed")
+        return
+    entry_data.energy_manager = energy_manager
+    hass.data.setdefault(DOMAIN, {})["energy_manager"] = energy_manager
+
+
+async def _async_teardown_energy(
+    hass: HomeAssistant, entry_data: DomusEntryData
+) -> None:
+    """Release Energy first; its failures never block the remaining unload."""
+    try:
+        if entry_data.unregister_energy_bindings is not None:
+            entry_data.unregister_energy_bindings()
+        if entry_data.energy_manager is not None:
+            await entry_data.energy_manager.async_shutdown()
+    except Exception:
+        _LOGGER.exception("Domus Energy unload failed")
+    finally:
+        entry_data.unregister_energy_bindings = None
+        domain_data = hass.data.get(DOMAIN, {})
+        if (
+            entry_data.energy_manager is not None
+            and domain_data.get("energy_manager") is entry_data.energy_manager
+        ):
+            domain_data.pop("energy_manager", None)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
