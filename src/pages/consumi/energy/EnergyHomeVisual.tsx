@@ -1,6 +1,7 @@
 import React from 'react';
 import { useReducedMotion } from 'framer-motion';
 import type { EnergyModuleId, EnergyState } from '../../../services/energyCoreClient';
+import { publicAssetUrl } from '../../../config/publicAssets';
 import type { FlowView } from './energyModel';
 
 const VISUAL_HARDWARE_ORDER = ['grid', 'solar', 'battery', 'wallbox'] as const satisfies readonly EnergyModuleId[];
@@ -28,7 +29,7 @@ export type EnergyHomeAsset = {
 
 export type EnergyHomeAssetCatalog = Partial<Record<EnergyHomeVariant, EnergyHomeAsset>>;
 
-const render = (file: string) => `${import.meta.env.BASE_URL}images/energy/mobile/${file}.png`;
+const render = (file: string) => publicAssetUrl(`images/energy/mobile/${file}.png`);
 const HOME: Point = [300, 760];
 const GRID_LABEL: [number, number, 'end'] = [470, 960, 'end'];
 const BATTERY_LABEL: [number, number, 'end'] = [690, 720, 'end'];

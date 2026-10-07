@@ -703,7 +703,12 @@ section; no new route exists.
   Each PNG has AVIF and WebP copies (8–22 KB instead of 480–626 KB, made by
   `scripts/optimize-energy-renders.py`); the page picks AVIF, then WebP,
   then the PNG, and a failed compressed copy retries the PNG before the
-  schematic takes over:
+  schematic takes over. A browser with AVIF fetches the AVIF copy alone. The
+  URLs resolve from the app's folder, read once at startup
+  (`src/config/publicAssets.ts`): with the relative base of the HACS build,
+  a page moved by the router to `/consumi/energia` (outside Home Assistant)
+  would otherwise look for `/consumi/images/…` and fall back to the schematic.
+  The production smoke test checks a single AVIF request in both cases:
 
   | Configured hardware | Render |
   | --- | --- |

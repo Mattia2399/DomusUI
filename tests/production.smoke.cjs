@@ -115,7 +115,8 @@ async function expectHealthy(page, problems, surface) {
   await expect(page.locator('#root > *').first()).toBeVisible();
 }
 
-test('the production build starts and renders Home, Consumi and Energia', async ({ page, baseURL }) => {
+/** Errors that mean the build does not run, collected for the whole test. */
+function watchProblems(page) {
   const problems = [];
   page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
   page.on('console', (message) => {
@@ -127,8 +128,32 @@ test('the production build starts and renders Home, Consumi and Energia', async 
   page.on('response', (response) => {
     if (response.status() >= 400 && /\/assets\//.test(response.url())) problems.push(`HTTP ${response.status()} ${response.url()}`);
   });
-  const origin = new URL(baseURL).origin;
-  await simulateHomeAssistant(page, origin);
+  return problems;
+}
+
+/** Every request for the Energy house render: one variant only, never a second format. */
+function watchHouseImages(page) {
+  const images = [];
+  page.on('response', (response) => {
+    const url = new URL(response.url());
+    if (/\/images\/energy\//.test(url.pathname)) images.push({ path: url.pathname, status: response.status(), type: response.headers()['content-type'] });
+  });
+  return images;
+}
+
+async function expectSingleHouseImage(page, images) {
+  const visual = page.locator('[data-energy-home-variant]');
+  await expect(visual).toHaveAttribute('data-energy-home-render', 'image');
+  await expect.poll(() => page.getByTestId('energy-home-image').evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
+  await page.waitForLoadState('networkidle');
+  // Chromium decodes AVIF: the <picture> must fetch the AVIF copy alone, at the app's folder.
+  expect(images).toEqual([{ path: '/images/energy/mobile/grid-solar.avif', status: 200, type: 'image/avif' }]);
+}
+
+test('the production build starts and renders Home, Consumi and Energia', async ({ page, baseURL }) => {
+  const problems = watchProblems(page);
+  const images = watchHouseImages(page);
+  await simulateHomeAssistant(page, new URL(baseURL).origin);
 
   await page.goto('/');
   await expectHealthy(page, problems, 'Home');
@@ -138,7 +163,25 @@ test('the production build starts and renders Home, Consumi and Energia', async 
   await expectHealthy(page, problems, '/consumi');
   await expect(page.getByRole('heading', { name: 'Consumi' }).first()).toBeVisible();
 
+  // Outside Home Assistant the page URL follows the route: images still load from the app's folder.
   await navigate(page, '/consumi/energia');
   await expectHealthy(page, problems, '/consumi/energia');
   await expect(page.getByRole('list', { name: 'Componenti dell’impianto' })).toBeVisible();
+  await expectSingleHouseImage(page, images);
+});
+
+test('inside Home Assistant the page stays on index.html and Energia loads one image', async ({ page, baseURL }) => {
+  const problems = watchProblems(page);
+  const images = watchHouseImages(page);
+  await simulateHomeAssistant(page, new URL(baseURL).origin);
+
+  // As in the panel iframe (/domusos_static/index.html): navigation never changes the page URL.
+  await page.goto('/index.html');
+  await expectHealthy(page, problems, 'Home');
+  await page.getByRole('button', { name: 'Apri Consumi' }).click();
+  await page.getByRole('button', { name: /Energia/ }).first().click();
+  await expectHealthy(page, problems, 'Energia');
+  await expect(page.getByRole('list', { name: 'Componenti dell’impianto' })).toBeVisible();
+  expect(new URL(page.url()).pathname).toBe('/index.html');
+  await expectSingleHouseImage(page, images);
 });
