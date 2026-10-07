@@ -45,7 +45,7 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/irrigation/start_zone", "domusos/irrigation/stop_zone",
   "domusos/irrigation/pause", "domusos/irrigation/resume",
   "domusos/irrigation/stop_all", "domusos/irrigation/prepare_legacy_removal",
-  "domusos/energy/get_state", "domusos/energy/discover",
+  "domusos/energy/get_state", "domusos/energy/get_history", "domusos/energy/discover",
   "domusos/energy/get_profile", "domusos/energy/save_profile",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
@@ -201,9 +201,17 @@ const isValidPersonUpdate = (message) => {
 };
 // Exact save shapes: a v1 profile (modules) or a whole Energy Profile v2 (plant), never both.
 const ENERGY_SAVES = { profile: ["modules", 20_000], profile_v2: ["plant", 131_072] };
-// Energy commands carry no parameters, except an exact-shape profile save.
+// History reads take only their own parameters; Home Assistant checks the period.
+const ENERGY_HISTORY_KEYS = ["type", "range", "start", "end", "bucket", "include_devices", "compare"];
+// Energy commands carry no parameters, except a history read and an exact-shape profile save.
 // Home Assistant still enforces administrator rights on discovery and profiles.
 const isValidEnergyMessage = (message) => {
+  if (message.type === "domusos/energy/get_history") {
+    return Object.keys(message).every((key) => ENERGY_HISTORY_KEYS.includes(key)) &&
+      ["range", "start", "end", "bucket"].every((key) => !(key in message) || (typeof message[key] === "string" && message[key].length <= 40)) &&
+      (!("include_devices" in message) || typeof message.include_devices === "boolean") &&
+      (!("compare" in message) || message.compare === "previous");
+  }
   if (message.type !== "domusos/energy/save_profile") {
     return Object.keys(message).every((key) => key === "type");
   }

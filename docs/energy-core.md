@@ -558,6 +558,7 @@ price. Costs are not computed yet because they need the energy history.
 | Command                       | Access         | Purpose                                           |
 | ----------------------------- | -------------- | ------------------------------------------------- |
 | `domusos/energy/get_state`    | Authenticated  | Normalized values of configured modules, absent/offline modules, home consumption |
+| `domusos/energy/get_history`  | Authenticated  | Energy per bucket from the Recorder statistics (see [Energy history](#energy-history)) |
 | `domusos/energy/discover`     | Administrators | Return proposals, A0 draft and `v2` devices; nothing is saved |
 | `domusos/energy/get_profile`  | Administrators | Return the profile and the condition of each module |
 | `domusos/energy/save_profile` | Administrators | Save confirmed or corrected bindings (`profile` **or** `profile_v2`, `expected_revision`) |
@@ -859,80 +860,127 @@ section; no new route exists.
   configuration requires the `manage_energy` capability (owner or
   administrator), the client administrative API gate, and the backend's own
   `require_admin` check.
-- **HACS bridge**: both bridge halves allowlist exactly the four
+- **HACS bridge**: both bridge halves allowlist exactly the five
   `domusos/energy/*` commands with exact-shape validation (`save_profile`
-  with either `profile` or `profile_v2`) and announce the `energy_core`
-  capability.
+  with either `profile` or `profile_v2`; `get_history` with only `range`,
+  `start`, `end`, `bucket` as strings of at most 40 characters,
+  `include_devices` as a boolean and `compare: "previous"`) and announce the
+  `energy_core` capability.
 
-## History data contract (not implemented)
+## Energy history
 
-Energy Core only exposes instantaneous power today, so the live page shows an
-empty *Andamento* chart and marks the analysis as waiting for history. A
-reliable implementation needs a backend command; the frontend must not compute
-energy from raw state history.
+`domusos/energy/get_history` (A2.0, backend only: no screen reads it yet)
+returns the energy of the profile's meters per bucket, read from the Home
+Assistant Recorder. `EnergyHistoryService` (`energy/history.py`) is separate
+from realtime, discovery, storage and the profile: it reads, never writes,
+keeps no cache and never integrates power into energy.
 
-The frontend already renders this contract when it is supplied
-(`EnergyDashboard`'s `history` prop, typed as `EnergyHistory`):
+**Recorder API.** One request makes one statistics read:
+`statistics_during_period(hass, start, end, statistic_ids, period,
+{"energy": "kWh"}, {"change"})` (`HISTORY_UNITS`, `HISTORY_STATISTIC_TYPE`),
+in the Recorder executor, with every statistic id of the request at once,
+plus the metadata read of `EnergyMeterResolver`. Both are identical in Home
+Assistant 2025.1 and 2026.2:
 
-- *Andamento*: one kWh axis with a 2 px line per series, solid for production,
-  consumption, import and battery discharge, dashed for export and battery
-  charge. A legend that doubles as a filter shows production, consumption and
-  import first. A crosshair tooltip follows the pointer or the arrow keys, an
-  accessible table carries every value, and a `null` bucket breaks the line.
-  Series colours follow the component and were checked for both themes and
-  colour-vision deficiencies. Totals for the period sit below the chart.
-- *Analisi*: self-consumption `(production − export) / production`,
-  self-sufficiency `(consumption − import) / consumption`, the period cost with
-  its breakdown, estimated savings and the change in consumption against the
-  previous period. Costs come from the backend, which owns the ARERA bands.
-- Only the git-ignored local preview supplies simulated history; the live
-  page passes none.
+- `change` is the `sum` at the end of a period minus the `sum` at the end of
+  the previous one (the first period uses the last `sum` before `start`).
+  Resets of `total_increasing` meters, new `last_reset` cycles of `total`
+  meters and unit changes are already in `sum`; history never rebuilds deltas
+  from `state`.
+- Hours without data have no row: the bucket is missing, never 0. The energy
+  of a gap is in the next row Home Assistant compiles.
+- `day`, `week` (from Monday) and `month` are reduced by Home Assistant from
+  the hourly rows in its time zone, so a day lasts 23 or 25 hours across a DST
+  change. The hour in progress has no row yet; the day, week or month in
+  progress has the hours compiled so far.
+- External statistics (`source:id`) are read like `sensor.*` ones.
 
-Proposed command, readable by any authenticated user:
-`domusos/energy/get_history` with `period: "24h" | "7d" | "30d"`.
+**Request.** Readable by any authenticated user, like `get_state`:
+
+| Parameter | Values |
+| --- | --- |
+| `range` | `24h` (hours), `7d`, `30d` (days), `12m` (months), each ending with the bucket in progress |
+| `start`, `end`, `bucket` | Instead of `range`: ISO 8601 date-times (without an offset, in the Home Assistant time zone) and `hour`, `day`, `week` or `month`; `start` is aligned down and `end` up to the bucket |
+| `include_devices` | `true` adds each device's own series; default `false` |
+| `compare` | `previous` is accepted; `previous` is `null` until A2.2 |
+
+Custom periods are at most 31 days of hours, 400 days, 156 weeks or 36
+months, and 750 points; they may not start in the future, and buckets after
+the one in progress are not returned. Errors: `invalid_request` (unknown or
+mistyped parameter, `range` together with `start`/`end`/`bucket`, missing
+parameter), `invalid_range`, `invalid_bucket`, `energy_unavailable`,
+`recorder_unavailable` (the Recorder is not loaded, still starting or
+migrating), `history_unavailable` (the Recorder failed while reading) and
+`unknown_error`. A meter without data never fails the request.
+
+**Response.**
 
 ```json
 {
-  "period": "24h",
-  "bucket": "hour",
+  "configured": true,
+  "range": { "start": "2026-10-05T13:00:00+02:00", "end": "2026-10-06T13:00:00+02:00", "bucket": "hour", "timezone": "Europe/Rome" },
   "unit": "kWh",
+  "recorder": "available",
+  "verification": "complete",
   "series": {
-    "production": [{ "start": "2026-10-02T10:00:00+00:00", "value": 1.42 }],
-    "consumption": [],
-    "import": [],
-    "export": [],
-    "battery_charge": [],
-    "battery_discharge": []
+    "grid_import": {
+      "source": "devices",
+      "statistic_ids": ["sensor.f1", "sensor.f2", "sensor.f3"],
+      "points": [
+        { "start": "2026-10-06T08:00:00+02:00", "value": 2.0 },
+        { "start": "2026-10-06T09:00:00+02:00", "value": null, "missing": ["sensor.f3"], "partial_value": 1.9 }
+      ],
+      "complete": false,
+      "status": "partial_data",
+      "in_progress_last": true
+    }
   },
-  "derived": ["consumption"],
-  "missing": { "battery_charge": "not_configured" },
-  "cost": {
-    "currency": "EUR",
-    "energy": 1.6,
-    "fixed": 0.32,
-    "vat": 0.19,
-    "export_credit": 0,
-    "net": 2.11,
-    "savings": 4.28
-  },
-  "previous": { "consumption": 41.2, "net_cost": 2.3 }
+  "unavailable": { "grid_export": { "reason": "no_energy_meter", "statistic_ids": [] } },
+  "devices": {},
+  "cost": null,
+  "previous": null,
+  "generated_at": "2026-10-06T10:30:00+00:00"
 }
 ```
 
-- Buckets: hourly for 24 h, daily for 7 and 30 days; `value: null` for a
-  bucket without data, never `0`.
-- Source: Home Assistant recorder long-term statistics, the `change` of the
-  energy meters of the profile in kWh, following `energy_meter_plan` (see
-  [Energy meters](#energy-meters)), which handles meter resets.
-- Directional power sensors may fall back to the time-weighted hourly `mean`
-  converted to kWh. A signed net sensor must not: imports and exports within
-  the same hour cancel out, so separate import/export energy is unknowable.
-- Only series of configured modules are returned; derived series are listed
-  in `derived` and computed with the same completeness rules as the live
-  balance.
-- `cost` is `null` without a tariff. `energy` prices each imported bucket at
-  its ARERA band, `fixed` prorates the monthly fee over the period, `vat`
-  applies to both, `export_credit` values exports at the export price, and
-  `net = energy + fixed + vat − export_credit`. `savings` values self-consumed
-  solar energy at the import price including VAT, or is `null` without solar.
-- `previous` holds the same totals for the period before, or `null`.
+- Series: `production` (solar), `consumption` (home), `grid_import`,
+  `grid_export`, `battery_charge`, `battery_discharge`, `wallbox_consumption`,
+  listed only for configured modules. `source` is `total`, `devices`
+  (`energy_meter_plan`), `derived` (home balance) or, in `devices`, `meter`.
+- Points: `start` in the Home Assistant time zone and `value` in kWh. Several
+  meters of one role (F1, F2, F3) are summed only when each has the bucket;
+  otherwise `value` is `null`, `missing` lists the absent statistic ids and
+  `partial_value` the sum of the others, kept apart from the value.
+- A module total is authoritative: its series uses it alone and never adds
+  the devices, which appear only in `devices` with `include_devices`. When
+  some devices of a module have no meter (`coverage`), the module never has a
+  value, only `partial_value`.
+- `complete` (and `status` `complete` or `partial_data`) tells whether every
+  closed bucket has a value; `in_progress_last` marks the last bucket still in
+  progress, whatever its value.
+- `unavailable` explains each configured series without any data:
+  `no_energy_meter`, `no_data` (statistics pending, unknown or not in the
+  period, with each meter's status), `incompatible_configuration` (a meter
+  that is not an energy meter) or `recorder_unavailable` (meters the Recorder
+  cannot check yet). `verification` is `incomplete` while Home Assistant is
+  starting.
+- Home consumption: a `home` meter is used alone, with or without data.
+  Without one, `consumption = grid_import + production + battery_discharge −
+  grid_export − battery_charge`, only when the grid has an import meter and
+  every installed contributing module is measured (an export meter is needed
+  with photovoltaics or a battery; a grid-only home uses its import alone).
+  A bucket with a missing term is `null` with the missing terms; a balance
+  below `−max(0.05 kWh, 2% of the terms)` is `null` with `reason:
+  incoherent_balance`, and only a balance within that band reads 0.
+  `wallbox_consumption` is a series of its own, never subtracted.
+- `cost` is `null`: the tariff in force at each moment is not stored, so a
+  historical cost cannot be reconstructed with certainty. No estimate or
+  savings figure is returned.
+
+The page's prepared history (`EnergyDashboard`'s `history` prop, the
+`EnergyHistory` type and the git-ignored preview) is unchanged and not yet
+connected. Compared with the contract proposed before A2.0: series are named
+`grid_import`/`grid_export` and add `wallbox_consumption`; power is never
+converted into energy (no fallback to the hourly `mean`); custom periods,
+`week` and `month` buckets, devices and the explicit missing data are added;
+`cost` and `previous` stay `null` for now.

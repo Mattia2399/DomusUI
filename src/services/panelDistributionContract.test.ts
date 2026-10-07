@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HA_PANEL_ALLOWED_API_TYPES } from '../hooks/useHaPanelBridgeConnection';
+import { HA_PANEL_ALLOWED_API_TYPES, isValidEnergyMessage as isValidAppEnergyMessage } from '../hooks/useHaPanelBridgeConnection';
 
 const PANEL_ELEMENT_NAME = 'ha-dashboard-builder-panel';
 
@@ -78,6 +78,7 @@ describe('Home Assistant panel distribution contract', () => {
     expect(new Set(hostTypes)).toEqual(new Set(appTypes));
     expect(appTypes.sort()).toEqual([
       'domusos/energy/discover',
+      'domusos/energy/get_history',
       'domusos/energy/get_profile',
       'domusos/energy/get_state',
       'domusos/energy/save_profile',
@@ -96,6 +97,7 @@ describe('Home Assistant panel distribution contract', () => {
       pick(/const isRecord = [^\r\n]+\r?\n/),
       pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
       pick(/const ENERGY_SAVES = [^\r\n]+\r?\n/),
+      pick(/const ENERGY_HISTORY_KEYS = [^\r\n]+\r?\n/),
       pick(/const isValidEnergyMessage = [\s\S]*?\r?\n};\r?\n/),
     ].join('');
     const isValidEnergyMessage = new Function(`${source}return isValidEnergyMessage;`)() as (
@@ -123,6 +125,20 @@ describe('Home Assistant panel distribution contract', () => {
     expect(isValidEnergyMessage({ ...saveV2, profile_v2: { plant: [] } })).toBe(false);
     expect(isValidEnergyMessage({ type: saveV2.type, profile_v2: saveV2.profile_v2 })).toBe(false);
     expect(isValidEnergyMessage({ ...saveV2, profile_v2: { plant: { solar: 'x'.repeat(131_072) } } })).toBe(false);
+    // History: only the documented parameters with their types; Home Assistant checks the period.
+    const history = { type: 'domusos/energy/get_history', range: '24h' };
+    const custom = { type: history.type, start: '2026-10-01T00:00:00+02:00', end: '2026-10-02', bucket: 'hour', include_devices: true, compare: 'previous' };
+    for (const validate of [isValidEnergyMessage, isValidAppEnergyMessage]) {
+      expect(validate(history)).toBe(true);
+      expect(validate(custom)).toBe(true);
+      expect(validate({ type: history.type })).toBe(true);
+      expect(validate({ ...history, series: ['production'] })).toBe(false);
+      expect(validate({ ...history, range: 24 })).toBe(false);
+      expect(validate({ ...custom, start: 'x'.repeat(41) })).toBe(false);
+      expect(validate({ ...custom, include_devices: 'true' })).toBe(false);
+      expect(validate({ ...custom, compare: 'last_year' })).toBe(false);
+      expect(validate({ type: 'domusos/energy/get_state', range: '24h' })).toBe(false);
+    }
     expect(bridge).toMatch(/if \(message\.type\.startsWith\("domusos\/energy\/"\)\) \{\s+return isValidEnergyMessage\(message\);/);
   });
 });

@@ -88,6 +88,14 @@
   can be skipped, a visual final check and a confirmation screen. Technical
   names stay available under _Dettagli tecnici_ and _Configurazione
   avanzata_, and the energy settings use the same device cards.
+- Domus Energy can read the energy history of the installation from Home
+  Assistant's long-term statistics: production, home consumption (measured or
+  computed from complete meters only), grid import and export, battery charge
+  and discharge and wallbox, by hour, day, week or month in the Home Assistant
+  time zone, also per device. Missing data stays missing instead of becoming
+  zero, tariff-band meters are summed only when all of them report, and a
+  total meter is never added to its devices. Nothing is stored by Domus and
+  no screen shows the history yet.
 
 ### Changed
 

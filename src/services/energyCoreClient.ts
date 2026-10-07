@@ -86,7 +86,7 @@ export type EnergyTariffState = {
   currency: 'EUR';
 };
 
-/* Proposed `domusos/energy/get_history` contract (docs/energy-core.md). No backend command exists yet. */
+/* History shape the prepared Energy page draws; `EnergyHistoryResult` is what `get_history` returns. */
 export type EnergyHistoryPeriod = '24h' | '7d' | '30d';
 export type EnergyHistorySeriesId = 'production' | 'consumption' | 'import' | 'export' | 'battery_charge' | 'battery_discharge';
 /** `value: null` is a bucket without data, never zero. */
@@ -270,6 +270,76 @@ export type EnergyDiscovery = {
   unassigned: string[];
   candidates: Record<string, EnergyCandidate>;
   v2?: EnergyDiscoveryV2;
+};
+
+/*
+ * `domusos/energy/get_history` (A2.0): energy per bucket from the Home
+ * Assistant Recorder, in kWh. Types only: no screen reads it yet, and the
+ * page's prepared `EnergyHistory` shape stays as it is until it is connected.
+ */
+export type EnergyHistoryBucket = 'hour' | 'day' | 'week' | 'month';
+export type EnergyHistorySeriesName =
+  | 'production'
+  | 'consumption'
+  | 'grid_import'
+  | 'grid_export'
+  | 'battery_charge'
+  | 'battery_discharge'
+  | 'wallbox_consumption';
+
+export type EnergyHistoryRequest = { include_devices?: boolean; compare?: 'previous' } & (
+  | { range: '24h' | '7d' | '30d' | '12m' }
+  | { start: string; end: string; bucket: EnergyHistoryBucket }
+);
+
+export type EnergyHistoryResultPoint = {
+  start: string;
+  /** Null when a part or a term is missing, never 0. */
+  value: number | null;
+  missing?: string[];
+  /** The parts present, when the total is incomplete; never the total. */
+  partial_value?: number;
+  reason?: 'incoherent_balance';
+};
+
+export type EnergyHistorySeries = {
+  source: 'total' | 'devices' | 'derived' | 'meter';
+  statistic_ids: string[];
+  points: EnergyHistoryResultPoint[];
+  /** Every closed bucket has a value. */
+  complete: boolean;
+  status: 'complete' | 'partial_data';
+  /** The last bucket is still in progress. */
+  in_progress_last: boolean;
+  coverage?: { contributing: number; configured: number };
+  terms?: Partial<Record<EnergyHistorySeriesName, 1 | -1>>;
+};
+
+export type EnergyHistoryUnavailable = {
+  reason: 'no_energy_meter' | 'no_data' | 'recorder_unavailable' | 'incompatible_configuration';
+  statistic_ids: string[];
+  meters?: Record<string, string>;
+  needs?: EnergyHistorySeriesName[];
+  terms?: Record<string, string>;
+};
+
+export type EnergyHistoryResult = {
+  configured: boolean;
+  range: { start: string; end: string; bucket: EnergyHistoryBucket; timezone: string };
+  unit: 'kWh';
+  recorder: 'available';
+  verification: 'complete' | 'incomplete';
+  series: Partial<Record<EnergyHistorySeriesName, EnergyHistorySeries>>;
+  unavailable: Partial<Record<EnergyHistorySeriesName, EnergyHistoryUnavailable>>;
+  devices: Record<string, {
+    module: EnergyModuleId;
+    name: string | null;
+    series: Partial<Record<EnergyHistorySeriesName, EnergyHistorySeries>>;
+    unavailable: Partial<Record<EnergyHistorySeriesName, EnergyHistoryUnavailable>>;
+  }>;
+  cost: null;
+  previous: null;
+  generated_at: string;
 };
 
 export type EnergyCallApi = <T = unknown>(

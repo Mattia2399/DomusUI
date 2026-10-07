@@ -2,8 +2,10 @@
 
 Discovery and profile commands are reserved to administrators. ``get_state``
 returns only the read-only Energy projection to any authenticated user, the
-same data every Home Assistant user can already read from sensor states. No
-energy control exists and the generic Domus context registry stays internal.
+same data every Home Assistant user can already read from sensor states, and
+``get_history`` the energy history of the same meters from the Recorder
+statistics any user can read in the Energy dashboard. No energy control exists
+and the generic Domus context registry stays internal.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from homeassistant.core import HomeAssistant
 from ..const import DOMAIN
 from .context import async_energy_state
 from .discovery import EnergyDiscoveryService
+from .history import EnergyHistoryService
 from .manager import EnergyProfileManager
 from .models import EnergyError, EnergyUnavailableError, EnergyValidationError
 
@@ -131,8 +134,37 @@ async def websocket_get_state(
         _send_error(connection, msg["id"], err)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/get_history",
+        # Checked by the history service, which answers with its own error codes.
+        vol.Optional("range"): object,
+        vol.Optional("start"): object,
+        vol.Optional("end"): object,
+        vol.Optional("bucket"): object,
+        vol.Optional("include_devices"): object,
+        vol.Optional("compare"): object,
+    }
+)
+@websocket_api.async_response
+async def websocket_get_history(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return the energy history of the confirmed profile; nothing is stored."""
+    try:
+        manager = _manager(hass)
+        request = {key: value for key, value in msg.items() if key not in ("id", "type")}
+        result = await EnergyHistoryService(hass, manager.meters).async_history(manager.profile_v2, request)
+        connection.send_result(msg["id"], result)
+    except Exception as err:
+        _send_error(connection, msg["id"], err)
+
+
 WEBSOCKET_COMMANDS = (
     websocket_get_state,
+    websocket_get_history,
     websocket_get_profile,
     websocket_save_profile,
     websocket_discover,
