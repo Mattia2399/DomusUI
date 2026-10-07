@@ -72,10 +72,11 @@ Baseline: build A2.0 (`16a7226`). KB = 1000 byte.
 | Sidebar destra | + Home | 245,4 / 62,6 | 280 / 72 | 320 / 82 |
 | Sidebar contesto | + Home | 697,0 / 206,1 | 760 / 225 | 840 / 250 |
 | Mappa membri (MapLibre, worker incluso) | + sidebar contesto | 1.180,9 / 315,8 | 1.250 / 335 | 1.350 / 360 |
-| Singolo file JS | raw | 747,7 (entry) | 800 | 900 |
+| Singolo file JS | raw | 985,8 (Home) | 1.050 | 1.100 |
 | Singolo file CSS | raw | 406,8 (globale) | 450 | 500 |
 | Totale JS + CSS | raw / gzip | 5.500,0 / 1.460,8 | 5.800 / 1.550 | 6.200 / 1.650 |
 | Codice fuori dalle superfici | raw | 66,1 | 150 | — |
+| Cicli tra chunk statici | numero | 0 | — | 0 (sempre bloccante) |
 
 Motivazioni:
 
@@ -87,8 +88,17 @@ Motivazioni:
   percentuale.
 - **Funzioni su richiesta**: margine maggiore (circa +15–20% / +30–40%), perché
   sono amministrative o rare e non toccano l'avvio.
-- **Singolo file**: il limite JS resta quello V1 dell'entry (900 KB); il
-  vecchio limite di 2,9 MB per file non proteggeva nulla.
+- **Singolo file**: il vecchio limite di 2,9 MB per file non proteggeva nulla.
+  Il limite JS era quello V1 dell'entry (900 KB); è salito a 1,1 MB con la
+  correzione della build di produzione, che riporta le card della dashboard
+  nel chunk Home (985,8 KB): il chunk separato `dashboard-widgets` formava un
+  ciclo con Home e la Home di produzione non si caricava. Il costo reale di
+  Home resta controllato dal suo percorso critico, invariato.
+- **Cicli tra chunk**: un import statico circolare tra chunk fa sempre fallire
+  il controllo. Il browser esegue prima le dipendenze di un chunk: in un ciclo
+  un chunk può leggere valori di un altro non ancora inizializzati
+  (`Cannot access … before initialization`), un errore che il server di
+  sviluppo non mostra.
 - **Totale**: l'audit mostra che dei 5,50 MB solo 2,44 MB sono il percorso di
   Home, e che la crescita recente (Energy A1.x) è tutta lazy. Il totale guarda
   quindi la deriva complessiva: warning a +5%, limite catastrofico a +13%.
@@ -100,7 +110,17 @@ Motivazioni:
 
 Un limite superato (**FAIL**) blocca la CI; un **WARN** la lascia passare con un
 avviso. Restano sempre bloccanti avvio, Home, route, funzioni con budget,
-singolo file e totale.
+singolo file, totale e cicli tra chunk.
+
+## Smoke test della build di produzione
+
+`npm run test:smoke:production` (in CI dopo la build) serve i file di `dist/`
+con `vite preview` (`playwright.production.config.cjs`, test
+`tests/*.smoke.cjs`) e apre Home, `/consumi` e `/consumi/energia` con la
+Content Security Policy di produzione, simulando Home Assistant sulla stessa
+origine. Fallisce su qualunque errore di pagina, chunk non caricato,
+schermata "Contenuto non caricato" o radice vuota. La suite E2E completa
+resta sul server di sviluppo, che non esegue la build distribuita.
 
 ## Aggiornare un budget
 

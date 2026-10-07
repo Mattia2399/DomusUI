@@ -1,4 +1,4 @@
-import { difference, measureSurfaces, statusOf, worst } from './metrics.mjs';
+import { difference, measureSurfaces, staticCycles, statusOf, worst } from './metrics.mjs';
 
 /*
  * Turns measures into checks against the versioned configuration, then into
@@ -46,12 +46,15 @@ export function evaluate(build, sizer, config, codeFiles) {
   const unattributed = sizer.measure(unattributedFiles);
 
   const totalCheck = check('Totale JS + CSS', totals, config.total);
+  // Always a hard failure: a static cycle between chunks can break module initialisation.
+  const cycles = staticCycles(build);
   const unattributedCheck = check('Codice fuori dalle superfici', unattributed, config.unattributed, { files: [...unattributedFiles] });
   const statuses = [
     ...surfaceChecks.map((item) => item.status),
     ...fileChecks.map((item) => item.status),
     totalCheck.status,
     unattributedCheck.status,
+    cycles.length ? 'FAIL' : 'OK',
   ];
   return {
     surfaces: surfaceChecks,
@@ -60,6 +63,7 @@ export function evaluate(build, sizer, config, codeFiles) {
     totals: { ...totals, js: totals.js, css: totals.css },
     total: totalCheck,
     unattributed: unattributedCheck,
+    cycles,
     failed: statuses.includes('FAIL'),
     warned: statuses.includes('WARN'),
   };
@@ -113,6 +117,10 @@ export function render(result) {
   lines.push(header, '-'.repeat(header.length), row(result.total, 'tutto'));
   const total = result.total;
   lines.push(`  warning ${kb(total.budget.raw.warning)} raw / ${kb(total.budget.gzip.warning)} gzip · limite ${kb(total.budget.raw.limit)} raw / ${kb(total.budget.gzip.limit)} gzip`);
+  lines.push(result.cycles.length
+    ? `  Cicli tra chunk statici: ${result.cycles.length}  FAIL`
+    : '  Cicli tra chunk statici: nessuno  OK');
+  for (const cycle of result.cycles) lines.push(`    ${cycle.join(' -> ')}`);
   const loose = result.unattributed;
   lines.push(`  ${loose.label}: ${kb(loose.values.raw)} raw in ${loose.files.length} file (warning oltre ${kb(loose.budget.raw.warning)})  ${loose.status}`);
 

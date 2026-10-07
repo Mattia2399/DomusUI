@@ -57,6 +57,11 @@ jobs:
       - name: Installa Chromium per Playwright
         run: npx playwright install --with-deps chromium
 
+      # The files of dist/ as distributed, served by vite preview: Home, /consumi
+      # and /consumi/energia must start with the production CSP and no errors.
+      - name: Smoke test build di produzione
+        run: npm run test:smoke:production
+
       - name: End-to-end test
         run: npm run test:e2e
 

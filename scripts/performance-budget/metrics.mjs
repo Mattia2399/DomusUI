@@ -167,6 +167,30 @@ export function findEntryFile(build, fileName) {
   return file;
 }
 
+/**
+ * Cycles among static chunk imports, each as the list of its chunks. The
+ * browser runs a chunk's dependencies first, so in a cycle one chunk runs
+ * before a chunk it reads from: its module-level code can then hit bindings
+ * that are not initialised yet (the 0985b01 production Home crash).
+ */
+export function staticCycles(build) {
+  const cycles = [];
+  const state = new Map();
+  const stack = [];
+  const visit = (file) => {
+    state.set(file, 'active');
+    stack.push(file);
+    for (const next of build.chunks.get(file)?.imports ?? []) {
+      if (state.get(next) === 'active') cycles.push([...stack.slice(stack.indexOf(next)), next]);
+      else if (!state.has(next)) visit(next);
+    }
+    stack.pop();
+    state.set(file, 'done');
+  };
+  for (const file of [...build.chunks.keys()].sort()) if (!state.has(file)) visit(file);
+  return cycles;
+}
+
 /** Status of one value against `{ warning, limit }`: hard limits fail, warnings only report. */
 export function statusOf(value, budget) {
   if (!budget) return 'INFO';

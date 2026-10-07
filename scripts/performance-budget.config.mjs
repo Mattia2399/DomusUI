@@ -118,12 +118,19 @@ export const surfaces = [
 ];
 
 /*
- * Single file: no JS or CSS file may grow into a monolith. Largest JS today is
- * the entry (747,672) and the Home chunk (741,010); largest CSS the global
- * stylesheet (406,827). The V1 entry limit (900 KB) stays as the JS limit.
+ * Single file: no JS or CSS file may grow into a monolith. Largest CSS: the
+ * global stylesheet (406,827). Largest JS: the Home chunk (985,800), now one
+ * file with the dashboard cards. Raised from 900 KB (the V1 entry limit) by
+ * the production build fix: splitting the cards into their own chunk made the
+ * two chunks import each other and the production Home failed to load; the
+ * safe splits either moved ~585 KB into startup or depended on a fragile
+ * module-ownership analysis. Home's real cost is guarded by its critical path
+ * budget above, unchanged (and 1.4 KB lower with one chunk). Headroom ~6.5%
+ * (warning) and ~11.5% (limit) on the Home chunk; the entry (747,672) keeps
+ * its margin.
  */
 export const singleFile = {
-  js: { warning: 800 * KB, limit: 900 * KB },
+  js: { warning: 1.05 * MB, limit: 1.1 * MB },
   css: { warning: 450 * KB, limit: 500 * KB },
 };
 

@@ -143,6 +143,17 @@ describe('performance budget metrics', () => {
     expect(result.total.status).toBe('FAIL');
   });
 
+  it('fails on a static cycle between chunks, whatever the sizes', () => {
+    const { graph, contents, file } = fixture();
+    expect(evaluate(loadGraph(graph), createSizer((name) => contents[name]), config, Object.keys(contents)).cycles).toEqual([]);
+    // Like the 0985b01 cards chunk: Home imports it, and it imports Home back.
+    graph.chunks[file('vendor')].imports.push(file('Home'));
+    const result = evaluate(loadGraph(graph), createSizer((name) => contents[name]), config, Object.keys(contents));
+    expect(result.cycles).toEqual([[file('vendor'), file('Home'), file('vendor')]]);
+    expect(result.failed).toBe(true);
+    expect(render(result)).toContain('Cicli tra chunk statici: 1  FAIL');
+  });
+
   it('rejects an incomplete or stale graph instead of measuring it', () => {
     expect(() => loadGraph({})).toThrow(BudgetInputError);
     const { graph, contents, file } = fixture();

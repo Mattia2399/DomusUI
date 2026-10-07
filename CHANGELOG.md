@@ -105,6 +105,9 @@
   map), raw and gzip, on the build's module graph. Limits are versioned and
   documented in `docs/performance-budget.md`; the total cap moves from 5.52 MB
   to 6.2 MB because the growth since then is code loaded only when needed.
+  The check also rejects circular imports between chunks, and a smoke test
+  now opens the distributed production build (Home, Consumi and Energia)
+  before the end-to-end suite.
 - The presentation website is no longer bundled into the dashboard: the
   internal `/beta` address of the Home Assistant panel is gone, and the site
   is built on its own with `npm run build:site` (now checked in CI). The
