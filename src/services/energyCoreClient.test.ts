@@ -3,8 +3,10 @@ import {
   ENERGY_CORE_TYPES,
   discoverEnergy,
   editableAsV1,
+  getEnergyHistory,
   getEnergyProfile,
   getEnergyState,
+  parseEnergyHistory,
   profileRevision,
   profileTariff,
   saveEnergyPlant,
@@ -146,5 +148,97 @@ describe('Domus Energy client', () => {
     expect(error.code).toBe('invalid_profile');
     expect(error.message).toContain('Module grid uses a signed sensor');
     expect(error.message).not.toContain('[invalid_profile]');
+  });
+});
+
+describe('Domus Energy history client', () => {
+  const starts = ['2026-10-05T00:00:00+02:00', '2026-10-05T01:00:00+02:00', '2026-10-05T02:00:00+02:00'];
+  const document = () => ({
+    configured: true,
+    range: { start: starts[0], end: '2026-10-05T03:00:00+02:00', bucket: 'hour', timezone: 'Europe/Rome' },
+    unit: 'kWh',
+    recorder: 'available',
+    verification: 'complete',
+    series: {
+      grid_import: {
+        source: 'total',
+        statistic_ids: ['sensor.f1', 'sensor.f2'],
+        points: [
+          { start: starts[0], value: 0 },
+          { start: starts[1], value: null, missing: ['sensor.f2'], partial_value: 0.4 },
+          { start: starts[2], value: 1.25 },
+        ],
+        complete: false,
+        status: 'partial_data',
+        in_progress_last: true,
+      },
+      consumption: {
+        source: 'derived',
+        statistic_ids: ['sensor.f1', 'sensor.f2'],
+        points: [
+          { start: starts[0], value: 0 },
+          { start: starts[1], value: null, missing: ['grid_import'] },
+          { start: starts[2], value: null, reason: 'incoherent_balance' },
+        ],
+        complete: false,
+        status: 'partial_data',
+        in_progress_last: true,
+        terms: { grid_import: 1 },
+      },
+    },
+    unavailable: { production: { reason: 'no_energy_meter', statistic_ids: [] } },
+    devices: {},
+    cost: null,
+    previous: null,
+    generated_at: '2026-10-05T00:30:00+00:00',
+  });
+
+  it('reads a preset through the exact websocket command, without devices or comparison', async () => {
+    const callApi = vi.fn().mockResolvedValue(document());
+
+    const result = await getEnergyHistory(callApi, '7d');
+
+    expect(callApi).toHaveBeenCalledWith({ type: 'domusos/energy/get_history', range: '7d' }, { reportError: false, throwOnError: true });
+    expect(result).toEqual(document());
+  });
+
+  it('keeps a missing bucket as null and a real zero as 0, with the partial value apart', () => {
+    const result = parseEnergyHistory(document());
+    const points = result?.series.grid_import?.points ?? [];
+
+    expect(points.map((point) => point.value)).toEqual([0, null, 1.25]);
+    expect(points[1]).toEqual({ start: starts[1], value: null, missing: ['sensor.f2'], partial_value: 0.4 });
+    expect(result?.series.consumption?.points[2].reason).toBe('incoherent_balance');
+    expect(result?.series.consumption?.terms).toEqual({ grid_import: 1 });
+    expect(result?.unavailable.production?.reason).toBe('no_energy_meter');
+  });
+
+  it.each([
+    ['a value that is not a number', (doc: ReturnType<typeof document>) => { doc.series.grid_import.points[0] = { start: starts[0], value: Number.NaN }; }],
+    ['a value given as text', (doc: ReturnType<typeof document>) => { Object.assign(doc.series.grid_import.points[0], { value: '0' }); }],
+    ['an unknown series', (doc: ReturnType<typeof document>) => { Object.assign(doc.series, { heat_pump: doc.series.grid_import }); }],
+    ['an unknown bucket', (doc: ReturnType<typeof document>) => { doc.range.bucket = 'quarter'; }],
+    ['a range without time zone', (doc: ReturnType<typeof document>) => { doc.range.timezone = ''; }],
+    ['an unknown reason', (doc: ReturnType<typeof document>) => { Object.assign(doc.unavailable.production, { reason: 'broken' }); }],
+    ['series with different buckets', (doc: ReturnType<typeof document>) => { doc.series.consumption.points.pop(); }],
+    ['a cost before A2.2', (doc: ReturnType<typeof document>) => { Object.assign(doc, { cost: { net: 1 } }); }],
+  ])('rejects %s', async (_, change) => {
+    const doc = document();
+    change(doc);
+
+    expect(parseEnergyHistory(doc)).toBeNull();
+    await expect(getEnergyHistory(vi.fn().mockResolvedValue(doc), '24h')).rejects.toMatchObject({ code: 'invalid_response' });
+  });
+
+  it.each([
+    ['recorder_unavailable', 'recorder_unavailable'],
+    ['history_unavailable', 'history_unavailable'],
+    ['invalid_range', 'invalid_request'],
+    ['invalid_bucket', 'invalid_request'],
+    ['unknown_command', 'unsupported'],
+  ])('maps the %s error', async (raw, code) => {
+    const callApi = vi.fn().mockRejectedValue({ code: raw, message: 'failure' });
+
+    await expect(getEnergyHistory(callApi, '24h')).rejects.toMatchObject({ code });
   });
 });

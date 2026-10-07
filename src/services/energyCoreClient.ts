@@ -3,6 +3,7 @@ export const ENERGY_CORE_TYPES = {
   discover: 'domusos/energy/discover',
   getProfile: 'domusos/energy/get_profile',
   saveProfile: 'domusos/energy/save_profile',
+  getHistory: 'domusos/energy/get_history',
 } as const;
 
 export type EnergyModuleId = 'grid' | 'solar' | 'home' | 'battery' | 'wallbox';
@@ -84,30 +85,6 @@ export type EnergyTariffState = {
   /** VAT rate the prices exclude, when the user set one. */
   vat_percent?: number | null;
   currency: 'EUR';
-};
-
-/* History shape the prepared Energy page draws; `EnergyHistoryResult` is what `get_history` returns. */
-export type EnergyHistoryPeriod = '24h' | '7d' | '30d';
-export type EnergyHistorySeriesId = 'production' | 'consumption' | 'import' | 'export' | 'battery_charge' | 'battery_discharge';
-/** `value: null` is a bucket without data, never zero. */
-export type EnergyHistoryPoint = { start: string; value: number | null };
-export type EnergyHistoryCost = {
-  currency: 'EUR';
-  energy: number;
-  fixed: number;
-  vat: number;
-  export_credit: number;
-  net: number;
-  savings: number | null;
-};
-export type EnergyHistory = {
-  period: EnergyHistoryPeriod;
-  bucket: 'hour' | 'day';
-  unit: 'kWh';
-  series: Partial<Record<EnergyHistorySeriesId, EnergyHistoryPoint[]>>;
-  derived: EnergyHistorySeriesId[];
-  cost: EnergyHistoryCost | null;
-  previous: { consumption: number | null; net_cost: number | null } | null;
 };
 
 export type EnergyState = {
@@ -274,8 +251,8 @@ export type EnergyDiscovery = {
 
 /*
  * `domusos/energy/get_history` (A2.0): energy per bucket from the Home
- * Assistant Recorder, in kWh. Types only: no screen reads it yet, and the
- * page's prepared `EnergyHistory` shape stays as it is until it is connected.
+ * Assistant Recorder, in kWh. The buckets, their time zone and every total
+ * come from the backend; `getEnergyHistory` only validates the document.
  */
 export type EnergyHistoryBucket = 'hour' | 'day' | 'week' | 'month';
 export type EnergyHistorySeriesName =
@@ -287,8 +264,11 @@ export type EnergyHistorySeriesName =
   | 'battery_discharge'
   | 'wallbox_consumption';
 
+/** Presets of the backend: 24 hours, 7 and 30 days, 12 months. */
+export type EnergyHistoryPreset = '24h' | '7d' | '30d' | '12m';
+
 export type EnergyHistoryRequest = { include_devices?: boolean; compare?: 'previous' } & (
-  | { range: '24h' | '7d' | '30d' | '12m' }
+  | { range: EnergyHistoryPreset }
   | { start: string; end: string; bucket: EnergyHistoryBucket }
 );
 
@@ -355,6 +335,9 @@ export type EnergyErrorCode =
   | 'unauthorized'
   | 'unsupported'
   | 'invalid_response'
+  | 'recorder_unavailable'
+  | 'history_unavailable'
+  | 'invalid_request'
   | 'network';
 
 export class EnergyCoreError extends Error {
@@ -374,6 +357,9 @@ const ERROR_MESSAGES: Record<EnergyErrorCode, string> = {
   unauthorized: 'Serve un amministratore di Home Assistant.',
   unsupported: 'Aggiorna l’integrazione Domus UI per usare Domus Energy.',
   invalid_response: 'Risposta di Domus Energy non valida.',
+  recorder_unavailable: 'Lo storico di Home Assistant non è temporaneamente disponibile.',
+  history_unavailable: 'Home Assistant non è riuscito a leggere lo storico energetico.',
+  invalid_request: 'Richiesta dello storico non valida.',
   network: 'Home Assistant non risponde. Riprova tra poco.',
 };
 
@@ -386,8 +372,11 @@ export function toEnergyCoreError(error: unknown): EnergyCoreError {
     : rawMessage.match(/\[([a-z_]+)\]\s*$/)?.[1] ?? '';
   let code: EnergyErrorCode = 'network';
   if (rawCode === 'invalid_profile' || rawCode === 'revision_conflict' || rawCode === 'profile_requires_v2' ||
-      rawCode === 'energy_unavailable' || rawCode === 'unauthorized') {
+      rawCode === 'energy_unavailable' || rawCode === 'unauthorized' ||
+      rawCode === 'recorder_unavailable' || rawCode === 'history_unavailable') {
     code = rawCode;
+  } else if (rawCode === 'invalid_request' || rawCode === 'invalid_range' || rawCode === 'invalid_bucket') {
+    code = 'invalid_request';
   } else if (rawCode === 'unknown_command' || /non ammess[oa]/i.test(rawMessage)) {
     code = 'unsupported';
   }
@@ -396,13 +385,16 @@ export function toEnergyCoreError(error: unknown): EnergyCoreError {
   return new EnergyCoreError(code, detail ? `${ERROR_MESSAGES[code]} ${detail}` : ERROR_MESSAGES[code]);
 }
 
-async function request<T>(callApi: EnergyCallApi, message: Record<string, unknown>, isValid: (value: unknown) => boolean) {
-  let result: unknown;
+async function call(callApi: EnergyCallApi, message: Record<string, unknown>): Promise<unknown> {
   try {
-    result = await callApi<T>(message, { reportError: false, throwOnError: true });
+    return await callApi<unknown>(message, { reportError: false, throwOnError: true });
   } catch (error) {
     throw toEnergyCoreError(error);
   }
+}
+
+async function request<T>(callApi: EnergyCallApi, message: Record<string, unknown>, isValid: (value: unknown) => boolean) {
+  const result = await call(callApi, message);
   if (!isValid(result)) throw new EnergyCoreError('invalid_response', ERROR_MESSAGES.invalid_response);
   return result as T;
 }
@@ -502,5 +494,185 @@ export async function saveEnergyProfile(
   if (tariff && result.profile && !supportsTariff(result.profile)) {
     throw new EnergyCoreError('unsupported', TARIFF_UPDATE_MESSAGE);
   }
+  return result;
+}
+
+/* --- History (get_history) --------------------------------------------------- */
+
+export const ENERGY_HISTORY_SERIES: readonly EnergyHistorySeriesName[] = [
+  'production',
+  'consumption',
+  'grid_import',
+  'grid_export',
+  'battery_charge',
+  'battery_discharge',
+  'wallbox_consumption',
+];
+const HISTORY_BUCKETS: readonly EnergyHistoryBucket[] = ['hour', 'day', 'week', 'month'];
+const HISTORY_SOURCES: readonly EnergyHistorySeries['source'][] = ['total', 'devices', 'derived', 'meter'];
+const HISTORY_STATUSES: readonly EnergyHistorySeries['status'][] = ['complete', 'partial_data'];
+const UNAVAILABLE_REASONS: readonly EnergyHistoryUnavailable['reason'][] = [
+  'no_energy_meter',
+  'no_data',
+  'recorder_unavailable',
+  'incompatible_configuration',
+];
+
+/** The member of `values` equal to `value`, typed, or null. */
+const member = <T extends string | number>(values: readonly T[], value: unknown): T | null =>
+  values.find((item) => item === value) ?? null;
+const isFiniteNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
+const isStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every((item) => typeof item === 'string');
+const isDate = (value: unknown): value is string => typeof value === 'string' && !Number.isNaN(Date.parse(value));
+const isStringMap = (value: unknown): value is Record<string, string> =>
+  isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
+
+function historyPoint(value: unknown): EnergyHistoryResultPoint | null {
+  if (!isRecord(value) || !isDate(value.start)) return null;
+  // A missing bucket stays null: it is never read as 0.
+  const amount = value.value === null ? null : isFiniteNumber(value.value) ? value.value : undefined;
+  if (amount === undefined) return null;
+  const point: EnergyHistoryResultPoint = { start: value.start, value: amount };
+  if (value.missing !== undefined) {
+    if (!isStringArray(value.missing)) return null;
+    point.missing = value.missing;
+  }
+  if (value.partial_value !== undefined) {
+    if (!isFiniteNumber(value.partial_value)) return null;
+    point.partial_value = value.partial_value;
+  }
+  if (value.reason !== undefined) {
+    if (value.reason !== 'incoherent_balance') return null;
+    point.reason = value.reason;
+  }
+  return point;
+}
+
+function historyTerms(value: unknown): Partial<Record<EnergyHistorySeriesName, 1 | -1>> | null {
+  if (!isRecord(value)) return null;
+  const terms: Partial<Record<EnergyHistorySeriesName, 1 | -1>> = {};
+  for (const [key, sign] of Object.entries(value)) {
+    const name = member(ENERGY_HISTORY_SERIES, key);
+    const direction = member([1, -1] as const, sign);
+    if (name === null || direction === null) return null;
+    terms[name] = direction;
+  }
+  return terms;
+}
+
+function historySeries(value: unknown): EnergyHistorySeries | null {
+  if (!isRecord(value) || !Array.isArray(value.points) || !isStringArray(value.statistic_ids)) return null;
+  const source = member(HISTORY_SOURCES, value.source);
+  const status = member(HISTORY_STATUSES, value.status);
+  const points = value.points.map(historyPoint);
+  if (source === null || status === null || typeof value.complete !== 'boolean' || typeof value.in_progress_last !== 'boolean') return null;
+  if (!points.every((point): point is EnergyHistoryResultPoint => point !== null)) return null;
+  const series: EnergyHistorySeries = {
+    source,
+    statistic_ids: value.statistic_ids,
+    points,
+    complete: value.complete,
+    status,
+    in_progress_last: value.in_progress_last,
+  };
+  if (value.coverage !== undefined) {
+    const { coverage } = value;
+    if (!isRecord(coverage) || !Number.isInteger(coverage.contributing) || !Number.isInteger(coverage.configured)) return null;
+    series.coverage = { contributing: Number(coverage.contributing), configured: Number(coverage.configured) };
+  }
+  if (value.terms !== undefined) {
+    const terms = historyTerms(value.terms);
+    if (terms === null) return null;
+    series.terms = terms;
+  }
+  return series;
+}
+
+function historyUnavailable(value: unknown): EnergyHistoryUnavailable | null {
+  if (!isRecord(value) || !isStringArray(value.statistic_ids)) return null;
+  const reason = member(UNAVAILABLE_REASONS, value.reason);
+  if (reason === null) return null;
+  const unavailable: EnergyHistoryUnavailable = { reason, statistic_ids: value.statistic_ids };
+  if (value.meters !== undefined) {
+    if (!isStringMap(value.meters)) return null;
+    unavailable.meters = value.meters;
+  }
+  if (value.terms !== undefined) {
+    if (!isStringMap(value.terms)) return null;
+    unavailable.terms = value.terms;
+  }
+  if (value.needs !== undefined) {
+    if (!Array.isArray(value.needs)) return null;
+    const needs = value.needs.map((item) => member(ENERGY_HISTORY_SERIES, item));
+    if (!needs.every((item): item is EnergyHistorySeriesName => item !== null)) return null;
+    unavailable.needs = needs;
+  }
+  return unavailable;
+}
+
+/** A map keyed by series name, every value read by `parse`; null when anything is unknown. */
+function historyMap<T>(value: unknown, parse: (item: unknown) => T | null): Partial<Record<EnergyHistorySeriesName, T>> | null {
+  if (!isRecord(value)) return null;
+  const map: Partial<Record<EnergyHistorySeriesName, T>> = {};
+  for (const [key, item] of Object.entries(value)) {
+    const name = member(ENERGY_HISTORY_SERIES, key);
+    const parsed = parse(item);
+    if (name === null || parsed === null) return null;
+    map[name] = parsed;
+  }
+  return map;
+}
+
+/** Every series of one document shares the same buckets: the chart relies on it. */
+const sameBuckets = (all: EnergyHistorySeries[]) =>
+  all.every((series) => series.points.length === all[0].points.length && series.points.every((point, index) => point.start === all[0].points[index].start));
+
+/** The `get_history` document, validated field by field; null when it does not match A2.0. */
+export function parseEnergyHistory(value: unknown): EnergyHistoryResult | null {
+  if (!isRecord(value) || typeof value.configured !== 'boolean' || !isRecord(value.range) || !isRecord(value.devices)) return null;
+  const { range } = value;
+  const bucket = member(HISTORY_BUCKETS, range.bucket);
+  const verification = member(['complete', 'incomplete'] as const, value.verification);
+  if (bucket === null || !isDate(range.start) || !isDate(range.end) || typeof range.timezone !== 'string' || !range.timezone) return null;
+  if (value.unit !== 'kWh' || value.recorder !== 'available' || verification === null || typeof value.generated_at !== 'string') return null;
+  // Costs and the previous period come with A2.2.
+  if (value.cost !== null || value.previous !== null) return null;
+  const series = historyMap(value.series, historySeries);
+  const unavailable = historyMap(value.unavailable, historyUnavailable);
+  if (series === null || unavailable === null) return null;
+  const devices: EnergyHistoryResult['devices'] = {};
+  const every = Object.values(series);
+  for (const [id, device] of Object.entries(value.devices)) {
+    if (!isRecord(device)) return null;
+    const label = device.name;
+    const name = typeof label === 'string' ? label : label === null ? null : undefined;
+    if (name === undefined) return null;
+    const module = member(ENERGY_MODULES, device.module);
+    const own = historyMap(device.series, historySeries);
+    const missing = historyMap(device.unavailable, historyUnavailable);
+    if (module === null || own === null || missing === null) return null;
+    devices[id] = { module, name, series: own, unavailable: missing };
+    every.push(...Object.values(own));
+  }
+  if (every.length && !sameBuckets(every)) return null;
+  return {
+    configured: value.configured,
+    range: { start: range.start, end: range.end, bucket, timezone: range.timezone },
+    unit: 'kWh',
+    recorder: 'available',
+    verification,
+    series,
+    unavailable,
+    devices,
+    cost: null,
+    previous: null,
+    generated_at: value.generated_at,
+  };
+}
+
+/** Aggregated energy history of a preset period; devices and comparisons are not requested. */
+export async function getEnergyHistory(callApi: EnergyCallApi, range: EnergyHistoryPreset) {
+  const result = parseEnergyHistory(await call(callApi, { type: ENERGY_CORE_TYPES.getHistory, range }));
+  if (result === null) throw new EnergyCoreError('invalid_response', ERROR_MESSAGES.invalid_response);
   return result;
 }

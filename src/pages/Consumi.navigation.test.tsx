@@ -103,6 +103,7 @@ describe('Consumption navigation', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^Energia/ }));
     expect((await screen.findByRole('img', { name: /Flussi energetici/ })).getAttribute('aria-label')).toContain('Casa: 1,2 kW Derivato');
-    expect(callApi).toHaveBeenCalledTimes(1);
+    // One realtime snapshot for both views; the Energy page also reads its history once.
+    expect(callApi.mock.calls.map(([message]) => message.type)).toEqual(['domusos/energy/get_state', 'domusos/energy/get_history']);
   });
 });

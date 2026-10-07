@@ -1,13 +1,18 @@
 import React from 'react';
 import {
+  AlertTriangle,
   BarChart3,
   Battery,
   Clock3,
   CalendarClock,
   CarFront,
   ChevronRight,
+  DatabaseZap,
   Gauge,
   Leaf,
+  LoaderCircle,
+  RefreshCw,
+  SlidersHorizontal,
   SunMedium,
   TowerControl,
   TrendingDown,
@@ -15,15 +20,14 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import GlassSegmentSelect from '../../../components/ui/GlassSegmentSelect';
-import type { EnergyHistory, EnergyHistoryPeriod, EnergyModuleId, EnergyModuleState, EnergyState } from '../../../services/energyCoreClient';
+import type { EnergyModuleId, EnergyModuleState, EnergyState } from '../../../services/energyCoreClient';
 import { EnergyHistoryChart } from './EnergyHistoryChart';
 import { EnergyModuleSheet, describeQuantity, liveFlows, okValue } from './EnergyModuleSheet';
-import { PERIOD_LABEL, formatEuro, formatKwh, formatPercent, historyBalance } from './energyHistoryModel';
+import { BUCKET_LABEL, HISTORY_PERIODS, historyState, missingSeries } from './energyHistoryModel';
 import { EnergyHomeVisual, FLOW_COLORS } from './EnergyHomeVisual';
 import { MODULE_META, buildFlowFromState, formatAge, formatPower, formatQuantity, staleSince } from './energyModel';
 import { MAIN_ROLE, moduleCondition } from './energyDevicesModel';
-
-type HistoryPeriod = EnergyHistoryPeriod;
+import type { EnergyHistoryView } from './useEnergyHistory';
 
 const CARD = 'rounded-[1.65rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-4 shadow-[var(--ui-shadow-card)] sm:p-5';
 const EYEBROW = 'text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]';
@@ -155,120 +159,174 @@ function ModuleTile({
   );
 }
 
-function HistoryCard({ state, history, period, onPeriod }: { state: EnergyState; history?: EnergyHistory; period: HistoryPeriod; onPeriod: (period: HistoryPeriod) => void }) {
-  const series = [
-    state.modules.solar ? 'Produzione fotovoltaica' : null,
-    'Consumo della casa',
-    state.modules.grid ? 'Prelievo dalla rete' : null,
-    state.modules.grid ? 'Immissione in rete' : null,
-    state.modules.battery ? 'Carica e scarica batteria' : null,
-  ].filter((item): item is string => Boolean(item));
-  const balance = history ? historyBalance(history) : null;
-  const totals: Array<[string, number | null] | null> = [
-    state.modules.solar ? ['Prodotta', balance?.production ?? null] : null,
-    ['Consumata', balance?.consumption ?? null],
-    state.modules.grid ? ['Prelevata', balance?.imported ?? null] : null,
-    state.modules.grid ? ['Immessa', balance?.exported ?? null] : null,
-  ];
-  const when = period === '24h' ? 'in 24 ore' : period === '7d' ? 'in 7 giorni' : 'in 30 giorni';
+const MESSAGE_TEXT = 'mt-1 max-w-md text-xs leading-5 text-[color:var(--ui-text-secondary)]';
+const MESSAGE_ACTION = 'liquid-glass-control mt-4 flex min-h-10 items-center gap-1.5 rounded-full px-4 text-sm font-semibold text-[color:var(--ui-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-accent)]';
+
+function HistoryMessage({ icon: Icon, spin = false, title, children }: { icon: LucideIcon; spin?: boolean; title: string; children?: React.ReactNode }) {
+  return (
+    <div role="status" className="mt-4 flex min-h-[15rem] flex-col items-center justify-center rounded-[1.4rem] border border-dashed border-[color:var(--ui-border)] px-6 py-6 text-center">
+      <span className="liquid-glass-control flex h-12 w-12 items-center justify-center rounded-full">
+        <Icon className={`h-5 w-5 text-[color:var(--ui-text-secondary)] ${spin ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden="true" />
+      </span>
+      <h3 className="mt-4 max-w-md text-base font-semibold text-[color:var(--ui-text-primary)]">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+/** The chart, or the reason there is none: every case has its own words, none is a generic error. */
+function HistoryBody({ history, onOpenSettings }: { history: EnergyHistoryView; onOpenSettings?: () => void }) {
+  const { result, error, loading, current, retry } = history;
+  const again = (
+    <button type="button" onClick={retry} className={MESSAGE_ACTION}>
+      <RefreshCw className="h-4 w-4" aria-hidden="true" /> Riprova
+    </button>
+  );
+  // Only administrators can bind meters; the others read why, without a dead end.
+  const configure = onOpenSettings ? (
+    <button type="button" onClick={onOpenSettings} className={MESSAGE_ACTION}>
+      <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> Apri le impostazioni
+    </button>
+  ) : (
+    <p className={`${MESSAGE_TEXT} mt-3`}>Un amministratore di Home Assistant può collegare i contatori di energia nelle impostazioni.</p>
+  );
+  const recorder = (
+    <HistoryMessage icon={DatabaseZap} title="Lo storico di Home Assistant non è temporaneamente disponibile.">
+      <p className={MESSAGE_TEXT}>I valori in tempo reale restano aggiornati.</p>
+      {again}
+    </HistoryMessage>
+  );
+
+  if (error && !loading) {
+    if (error.code === 'recorder_unavailable') return recorder;
+    if (error.code === 'unsupported') {
+      return (
+        <HistoryMessage icon={BarChart3} title="Storico non disponibile con questa versione">
+          <p className={MESSAGE_TEXT}>Aggiorna l’integrazione Domus UI su Home Assistant per vedere lo storico energetico.</p>
+        </HistoryMessage>
+      );
+    }
+    return (
+      <HistoryMessage icon={AlertTriangle} title="Storico non caricato">
+        <p className={MESSAGE_TEXT}>{error.message}</p>
+        {again}
+      </HistoryMessage>
+    );
+  }
+  if (!result) return <HistoryMessage icon={LoaderCircle} spin title="Caricamento dello storico…" />;
+
+  const state = historyState(result);
+  switch (state.kind) {
+    case 'recorder_unavailable':
+      return recorder;
+    case 'no_meter':
+      return (
+        <HistoryMessage icon={BarChart3} title="Lo storico non è ancora configurato">
+          <p className={MESSAGE_TEXT}>Domus Energy continua comunque a funzionare in tempo reale.</p>
+          {configure}
+        </HistoryMessage>
+      );
+    case 'incompatible':
+      return (
+        <HistoryMessage icon={BarChart3} title="I contatori scelti non sono adatti allo storico">
+          <p className={MESSAGE_TEXT}>Servono contatori di energia in kWh con le statistiche di Home Assistant. Il tempo reale non cambia.</p>
+          {configure}
+        </HistoryMessage>
+      );
+    case 'no_data':
+      return (
+        <HistoryMessage icon={BarChart3} title="Non ci sono ancora dati sufficienti per questo periodo.">
+          <p className={MESSAGE_TEXT}>Home Assistant registra i contatori ogni ora: lo storico si riempirà da solo.</p>
+        </HistoryMessage>
+      );
+    case 'not_configured':
+      return (
+        <HistoryMessage icon={BarChart3} title="Nessuno storico per questo impianto">
+          <p className={MESSAGE_TEXT}>L’impianto salvato non ha componenti con contatori di energia.</p>
+        </HistoryMessage>
+      );
+    default: {
+      const missing = missingSeries(result);
+      return (
+        <>
+          <div aria-busy={!current} className={`transition-opacity motion-reduce:transition-none ${current ? '' : 'opacity-60'}`}>
+            <EnergyHistoryChart key={result.generated_at} result={result} />
+          </div>
+          {state.partial || state.inProgress || missing.length ? (
+            <ul className="mt-3 space-y-1.5 text-[11px] leading-4 text-[color:var(--ui-text-secondary)]">
+              {state.partial ? (
+                <li className="flex items-start gap-2">
+                  <span className="mt-1.5 h-[3px] w-2 shrink-0 rounded-full bg-[color:var(--ui-warning)]" aria-hidden="true" />
+                  Dati incompleti in alcuni intervalli: dove manca un contatore la linea si interrompe.
+                </li>
+              ) : null}
+              {state.inProgress ? (
+                <li className="flex items-start gap-2">
+                  <span className="mt-0.5 h-3 w-2 shrink-0 rounded-sm bg-[color:var(--ui-fill-tertiary)]" aria-hidden="true" />
+                  L’ultimo intervallo è ancora in corso.
+                </li>
+              ) : null}
+              {missing.length ? (
+                <li className="pl-4">Senza storico: {missing.map((series) => `${series.label} (${series.reason})`).join(', ')}.</li>
+              ) : null}
+            </ul>
+          ) : null}
+        </>
+      );
+    }
+  }
+}
+
+function HistoryCard({ history, onOpenSettings }: { history: EnergyHistoryView; onOpenSettings?: () => void }) {
+  const { result, current, loading } = history;
+  const bucket = result && current && Object.keys(result.series).length ? BUCKET_LABEL[result.range.bucket] : null;
   return (
     <section className={CARD} aria-labelledby="energy-history-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className={EYEBROW}>Andamento</p>
           <h2 id="energy-history-title" className={TITLE}>Energia nel tempo</h2>
-          <p className={`mt-1 ${MUTED}`}>Energia per intervallo, in kWh</p>
+          <p className={`mt-1 ${MUTED}`} aria-live="polite">
+            {loading && result ? 'Aggiornamento…' : bucket ? `Energia per ${bucket}, in kWh` : 'Energia in kWh'}
+          </p>
         </div>
         <GlassSegmentSelect
-          value={period}
-          onChange={(value) => onPeriod(value as HistoryPeriod)}
-          options={[
-            { value: '24h', label: '24 ore' },
-            { value: '7d', label: '7 giorni' },
-            { value: '30d', label: '30 giorni' },
-          ]}
-          ariaLabel="Intervallo del grafico"
-          className="w-full sm:w-[18rem]"
+          value={history.period}
+          onChange={history.onPeriod}
+          options={HISTORY_PERIODS}
+          ariaLabel="Periodo del grafico"
+          className="w-full sm:w-[23rem]"
           optionClassName="!h-9 !px-2"
         />
       </div>
-      {history ? (
-        <EnergyHistoryChart key={period} history={history} />
-      ) : (
-        <>
-          <ul className="mt-4 flex flex-wrap gap-1.5" aria-label="Serie disponibili per questo impianto">
-            {series.map((item) => (
-              <li key={item} className="rounded-full border border-[color:var(--ui-border)] px-2.5 py-1 text-[10px] font-semibold text-[color:var(--ui-text-secondary)]">{item}</li>
-            ))}
-          </ul>
-          <div className="mt-4 flex min-h-[15rem] flex-col items-center justify-center rounded-[1.4rem] border border-dashed border-[color:var(--ui-border)] px-6 text-center">
-            <span className="liquid-glass-control flex h-12 w-12 items-center justify-center rounded-full">
-              <BarChart3 className="h-5 w-5 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
-            </span>
-            <h3 className="mt-4 text-base font-semibold text-[color:var(--ui-text-primary)]">Storico non ancora disponibile</h3>
-            <p className="mt-1 max-w-md text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-              Domus Energy legge oggi solo le potenze istantanee: il grafico si attiverà con l’archivio energetico di Home Assistant.
-            </p>
-          </div>
-        </>
-      )}
-      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {totals.filter((item): item is [string, number | null] => Boolean(item)).map(([label, value]) => (
-          <div key={label} className="rounded-[1.1rem] bg-[color:var(--ui-fill-tertiary)] px-3 py-2.5">
-            <dt className={EYEBROW}>{label} {when}</dt>
-            <dd className="mt-1 text-lg font-semibold text-[color:var(--ui-text-primary)]">{formatKwh(value)} <span className="text-[10px] font-normal text-[color:var(--ui-text-tertiary)]">kWh</span></dd>
-          </div>
-        ))}
-      </dl>
+      <HistoryBody history={history} onOpenSettings={onOpenSettings} />
     </section>
   );
 }
 
 type AnalysisRow = { icon: LucideIcon; label: string; value: string; detail?: string; known?: boolean };
 
-function AnalysisCard({ state, history }: { state: EnergyState; history?: EnergyHistory }) {
+function AnalysisCard({ state }: { state: EnergyState }) {
   const solar = Boolean(state.modules.solar);
-  const waiting = 'Richiede lo storico energetico';
+  // Period balance, costs and comparisons come with the next Energy release: nothing is computed here.
+  const later = 'In arrivo';
   const tariff = state.tariff;
   const missing = 'tariff' in state ? 'Tariffa non configurata' : 'Aggiorna l’integrazione Domus UI';
   const price = (value: number) => `${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €/kWh`;
-  const balance = history ? historyBalance(history) : null;
-  const cost = history?.cost ?? null;
-  const known = (value: string | null, fallback: string, detail?: string): Pick<AnalysisRow, 'value' | 'known' | 'detail'> =>
-    value === null ? { value: fallback } : { value, known: true, detail };
   const rows: Array<AnalysisRow | null> = [
-    { icon: Clock3, label: 'Fascia attuale', ...known(tariff ? `${tariff.band_label} · ${price(tariff.price)}` : null, missing) },
-    solar
-      ? { icon: Gauge, label: 'Autoconsumo', ...known(balance?.selfConsumption == null ? null : formatPercent(balance.selfConsumption), waiting, 'Energia solare usata in casa') }
-      : null,
-    solar || state.modules.battery
-      ? { icon: Leaf, label: 'Autosufficienza', ...known(balance?.selfSufficiency == null ? null : formatPercent(balance.selfSufficiency), waiting, 'Consumi coperti senza la rete') }
-      : null,
-    {
-      icon: TrendingUp,
-      label: 'Costi energetici',
-      ...known(
-        cost ? formatEuro(cost.net) : null,
-        tariff ? waiting : missing,
-        cost
-          ? `Energia ${formatEuro(cost.energy)} · quota fissa ${formatEuro(cost.fixed)} · IVA ${formatEuro(cost.vat)}${cost.export_credit ? ` · immessa −${formatEuro(cost.export_credit)}` : ''}`
-          : undefined,
-      ),
-    },
-    solar
-      ? { icon: TrendingDown, label: 'Risparmio stimato', ...known(cost?.savings == null ? null : formatEuro(cost.savings), 'Richiede tariffa e storico', 'Energia autoprodotta al prezzo della rete') }
-      : null,
-    {
-      icon: CalendarClock,
-      label: 'Confronto con il periodo precedente',
-      ...known(balance?.change == null ? null : `${formatPercent(balance.change, true)} di consumo`, waiting),
-    },
+    tariff
+      ? { icon: Clock3, label: 'Fascia attuale', value: `${tariff.band_label} · ${price(tariff.price)}`, known: true }
+      : { icon: Clock3, label: 'Fascia attuale', value: missing },
+    solar ? { icon: Gauge, label: 'Autoconsumo', value: later, detail: 'Energia solare usata in casa' } : null,
+    solar || state.modules.battery ? { icon: Leaf, label: 'Autosufficienza', value: later, detail: 'Consumi coperti senza la rete' } : null,
+    { icon: TrendingUp, label: 'Costi energetici', value: tariff ? later : missing },
+    solar ? { icon: TrendingDown, label: 'Risparmio stimato', value: tariff ? later : missing, detail: 'Energia autoprodotta al prezzo della rete' } : null,
+    { icon: CalendarClock, label: 'Confronto con il periodo precedente', value: later },
   ];
   return (
     <section className={CARD} aria-labelledby="energy-analysis-title">
       <p className={EYEBROW}>Analisi</p>
       <h2 id="energy-analysis-title" className={TITLE}>Bilancio e costi</h2>
-      {history ? <p className={`mt-1 ${MUTED}`}>{PERIOD_LABEL[history.period]}</p> : null}
       <ul className="mt-4 divide-y divide-[color:var(--ui-separator)]">
         {rows.filter((row): row is AnalysisRow => Boolean(row)).map((row) => (
           <li key={row.label} className="flex items-start gap-3 py-2.5">
@@ -363,15 +421,17 @@ export function EnergyDashboard({
   banner,
   history,
   onEditModule,
+  onOpenSettings,
 }: {
   state: EnergyState;
   banner?: React.ReactNode;
   /** Administrators can jump from a component's details to its sensors in the settings. */
   onEditModule?: (id: EnergyModuleId) => void;
-  /** Period history from the proposed get_history command; absent until the backend provides it. */
-  history?: Partial<Record<HistoryPeriod, EnergyHistory>>;
+  /** Energy history from get_history (useEnergyHistory); without it the section is not shown. */
+  history?: EnergyHistoryView;
+  /** Administrators can open the Energy settings from the history section. */
+  onOpenSettings?: () => void;
 }) {
-  const [period, setPeriod] = React.useState<HistoryPeriod>('24h');
   const [details, setDetails] = React.useState<EnergyModuleId | null>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
   const present = MODULES.filter((item) => state.modules[item.id]);
@@ -448,13 +508,12 @@ export function EnergyDashboard({
           ))}
         </div>
 
-        <div className={`${SECTION} xl:col-span-12`}><HistoryCard state={state} history={history?.[period]} period={period} onPeriod={setPeriod} /></div>
-        <div className={`${SECTION} xl:col-span-4`}><AnalysisCard state={state} history={history?.[period]} /></div>
+        {history ? <div className={`${SECTION} xl:col-span-12`}><HistoryCard history={history} onOpenSettings={onOpenSettings} /></div> : null}
+        <div className={`${SECTION} xl:col-span-4`}><AnalysisCard state={state} /></div>
       </div>
       <EnergyModuleSheet
         id={details}
         state={state}
-        history={history?.['24h']}
         onClose={() => setDetails(null)}
         onEdit={onEditModule ? (id) => { setDetails(null); onEditModule(id); } : undefined}
       />

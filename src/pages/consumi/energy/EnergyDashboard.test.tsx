@@ -69,9 +69,6 @@ describe('Energy dashboard', () => {
     const components = screen.getByRole('list', { name: 'Componenti dell’impianto' });
     expect(within(components).getAllByRole('listitem')).toHaveLength(1);
     expect(within(components).queryByText('Fotovoltaico')).toBeNull();
-    const series = screen.getByRole('list', { name: 'Serie disponibili per questo impianto' });
-    expect(within(series).queryByText('Produzione fotovoltaica')).toBeNull();
-    expect(within(series).getByText('Prelievo dalla rete')).not.toBeNull();
     expect(screen.queryByText('Autoconsumo')).toBeNull();
     expect(screen.queryByText('Risparmio stimato')).toBeNull();
     expect(screen.getByText('Costi energetici')).not.toBeNull();
@@ -92,20 +89,16 @@ describe('Energy dashboard', () => {
     const battery = within(components).getByText('Batteria').closest('button') as HTMLElement;
     expect(within(battery).getByText('68%')).not.toBeNull();
     expect(within(battery).getByText('In carica · 1,6 kW')).not.toBeNull();
-    expect(screen.getByText('Carica e scarica batteria')).not.toBeNull();
     expect(screen.getByText('Autoconsumo')).not.toBeNull();
     expect(screen.getByRole('img', { name: /Wallbox: 7,4 kW/ })).not.toBeNull();
   });
 
-  it('never presents history values that do not exist yet', () => {
+  it('splits the home sources from the live meters and computes no period figure', () => {
     show(state({ grid: online({ net_power: q(0) }), solar: online({ production_power: q(900) }) }));
 
     const sources = within(screen.getByTestId('energy-hero')).getByRole('list', { name: 'Da dove arriva l’energia della casa' });
     expect(within(sources).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Fotovoltaico100%', 'Rete0%']);
-    expect(screen.getByText('Storico non ancora disponibile')).not.toBeNull();
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole('radio', { name: '7 giorni' }));
-    expect(screen.getByRole('radio', { name: '7 giorni' }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getAllByText('In arrivo').length).toBeGreaterThan(0);
   });
 });
 

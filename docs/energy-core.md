@@ -676,18 +676,20 @@ section; no new route exists.
      Two columns on phones (an odd last tile takes the whole row), one row on
      tablets, two by two beside the house on desktop. Rows stop at 11.5rem so a small plant does not
      stretch them to the hero height.
-  3. *Andamento*: 24 h / 7 d / 30 d selector, the series available for this
-     installation, daily summary slots and an explicit empty state.
+  3. *Andamento*: the energy history read with `get_history` (see
+     [History on the Energy page](#history-on-the-energy-page)): 24 h / 7 d /
+     30 d / 12 m selector, the series the backend returned and a specific
+     message when there is none.
   4. *Analisi*: the current tariff band and price, then self-consumption,
      self-sufficiency, costs, savings and comparisons, listed only when
-     relevant and marked as not configured or waiting for history.
+     relevant and marked as not configured or *In arrivo* (A2.2): no period
+     figure is computed on the page.
   5. *Component details*: every tile, and the arrow next to *Consumo della
      casa*, opens a sheet (bottom sheet on phones, centred dialog from
      `sm`) with the live figures, the paths of its power (only those
      carrying at least 10 W), the current band and hourly cost estimate for
      the grid (energy price plus the tariff's VAT; the fixed fee has no hourly
-     meaning and is left out), the last 24 hours
-     when history exists, and its sensors with entities, origin, sign
+     meaning and is left out), and its sensors with entities, origin, sign
      convention and unavailability reasons. Administrators get *Modifica
      sensori*, which opens the settings with that module's editor open.
 - **Calculated or estimated**: meters give totals, not paths. The hero's
@@ -874,7 +876,7 @@ section; no new route exists.
 
 ## Energy history
 
-`domusos/energy/get_history` (A2.0, backend only: no screen reads it yet)
+`domusos/energy/get_history` (A2.0; shown on the Energy page since A2.1)
 returns the energy of the profile's meters per bucket, read from the Home
 Assistant Recorder. `EnergyHistoryService` (`energy/history.py`) is separate
 from realtime, discovery, storage and the profile: it reads, never writes,
@@ -982,10 +984,72 @@ migrating), `history_unavailable` (the Recorder failed while reading) and
   historical cost cannot be reconstructed with certainty. No estimate or
   savings figure is returned.
 
-The page's prepared history (`EnergyDashboard`'s `history` prop, the
-`EnergyHistory` type and the git-ignored preview) is unchanged and not yet
-connected. Compared with the contract proposed before A2.0: series are named
+Compared with the contract proposed before A2.0: series are named
 `grid_import`/`grid_export` and add `wallbox_consumption`; power is never
 converted into energy (no fallback to the hourly `mean`); custom periods,
 `week` and `month` buckets, devices and the explicit missing data are added;
 `cost` and `previous` stay `null` for now.
+
+### History on the Energy page
+
+Since A2.1 the *Andamento* section draws `get_history` as it is returned.
+
+- **Client.** `getEnergyHistory(callApi, range)` sends only
+  `{ type, range }` (a preset; no `include_devices`, no `compare`) and
+  validates the document field by field (`parseEnergyHistory`): known series
+  and reasons only, numbers or `null` values, the same buckets in every
+  series, `cost` and `previous` `null`. Anything else is `invalid_response`.
+  Backend errors keep their meaning: `recorder_unavailable`,
+  `history_unavailable`, `invalid_request` (also `invalid_range`,
+  `invalid_bucket`), `unsupported` for an integration without the command.
+- **Reading.** `useEnergyHistory` is separate from the realtime
+  `useEnergyCore`: a power change never reads the Recorder. It reads when the
+  page opens (24 h first), when the period changes and on *Riprova*; there is
+  no polling. Answers stay in memory for the life of the page, keyed by
+  profile revision and period, so returning to a period sends nothing and a
+  saved profile reads again; nothing is stored in the browser. A request id
+  makes the last chosen period win over slower answers, the previous chart
+  stays, dimmed, while the next one loads, and answers after the page closes
+  are ignored. Wizard and settings pause it.
+- **Periods.** The backend presets: *24 ore* (hours), *7 giorni* and *30
+  giorni* (days), *12 mesi* (months), each ending with the bucket in
+  progress.
+- **Chart.** The existing `EnergyHistoryChart` (SVG), the chart the Energy
+  page was designed with; Recharts, already loaded with Consumi for the other
+  consumption charts, is not added to it, so there is no second chart system
+  and no new library. Series in this order and only when returned: *Consumi*,
+  *Fotovoltaico*, *Prelievo*, *Immissione*, *Carica batteria*, *Scarica
+  batteria* (two series, no state of charge), *Ricarica auto* (informational,
+  never subtracted). The first three are drawn; the legend toggles the others
+  visually, and the accessible table always lists every series.
+- **Missing, zero, partial.** A `null` bucket breaks the line (the
+  equivalent of `connectNulls={false}`) and a lonely value between gaps is a
+  dot; a real 0 sits on the axis. Readings say *Non disponibile*, never 0,
+  NaN or "null kWh". A closed bucket without a value is marked under the
+  axis and read as *Dati incompleti*; a `partial_value` appears only as
+  *parziale … kWh* next to it, and `incoherent_balance` as *contatori non
+  coerenti*. A derived consumption is labelled *calcolato* and never
+  recomputed on the page; no total, balance or KPI is computed.
+- **In progress.** With `in_progress_last` the last bucket is shaded, read
+  as *in corso* (*Oggi · in corso*, *Questo mese · in corso*) and, while it
+  has no hour yet, not called incomplete.
+- **Time.** Labels are formatted in `range.timezone`, never the browser's
+  (with the offset of each start as fallback when the browser lacks that
+  zone). Buckets are never rebuilt: a 23 or 25 hour day shows its own hours,
+  and the hour repeated at the change to winter time names its offset
+  (*GMT+2*, *GMT+1*). Months show the year on the first bucket and on January.
+- **States.** Loading; data (with notes for incomplete data, the bucket in
+  progress and installed series without history); no meter (*Lo storico non è
+  ancora configurato*, *Domus Energy continua comunque a funzionare in tempo
+  reale.*, *Apri le impostazioni* for administrators only); incompatible
+  meters; meters without statistics yet (*Non ci sono ancora dati sufficienti
+  per questo periodo.*); Recorder unavailable (error or every meter
+  unreadable: *Lo storico di Home Assistant non è temporaneamente
+  disponibile.* with *Riprova*); request error; an integration without the
+  command; a profile without components. The realtime page stays in every
+  case.
+- **Accessibility and layout.** The chart reads every bucket with the arrow
+  keys, *Home* and *End*, announced through a live tooltip; a screen-reader
+  table lists all buckets and series. Axis labels thin out with the width
+  (every 1, 2, 3, 4, 6 or 12 hours, 1–15 days, 1–6 months), never the data;
+  below 480 px the reading spans the chart. No animation.

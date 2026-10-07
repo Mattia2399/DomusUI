@@ -1,11 +1,12 @@
 import GlassBottomSheet from '../../../components/ui/GlassBottomSheet';
-import type { EnergyHistory, EnergyHistorySeriesId, EnergyModuleId, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
-import { EnergyHistoryChart } from './EnergyHistoryChart';
+import type { EnergyModuleId, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
 import { MODULE_META, formatAge, formatPower, formatQuantity, staleSince } from './energyModel';
 import { MAIN_ROLE, deviceRows, hasDeviceDetail, moduleCondition, partialLine, quantityLabel, totalRow, type DeviceRow } from './energyDevicesModel';
-import { formatEuro, formatKwh, historyBalance, seriesTotal } from './energyHistoryModel';
 
-/* Details of one component (or the home), opened from its tile: live values, flows, history and sensors. */
+/* Details of one component (or the home), opened from its tile: live values, flows and sensors. The period history is in the Andamento section. */
+
+const formatEuro = (value: number) =>
+  value.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const okValue = (quantity: EnergyQuantity | undefined | null) =>
   quantity?.status === 'ok' ? quantity.value : null;
@@ -49,13 +50,6 @@ export function liveFlows(state: EnergyState): LiveFlows | null {
 }
 
 const part = (flows: LiveFlows, from: Side, to: keyof LiveFlows['sink']) => (flows.supply[from] * flows.sink[to]) / flows.total;
-
-const SERIES: Partial<Record<EnergyModuleId, EnergyHistorySeriesId[]>> = {
-  solar: ['production'],
-  grid: ['import', 'export'],
-  battery: ['battery_discharge', 'battery_charge'],
-  home: ['consumption'],
-};
 
 type Line = [string, string];
 
@@ -230,28 +224,14 @@ function liveLines(id: EnergyModuleId, state: EnergyState): { now: Line[]; flows
   return { now: withDetail(id, state, now), flows: out, estimated: Boolean(flows?.estimated) };
 }
 
-function historyLines(id: EnergyModuleId, history: EnergyHistory): Line[] {
-  const total = (series: EnergyHistorySeriesId) => `${formatKwh(seriesTotal(history, series))} kWh`;
-  if (id === 'solar') {
-    const balance = historyBalance(history);
-    return [['Prodotta', total('production')], ...(balance.selfConsumption === null ? [] : [['Usata in casa', `${Math.round(balance.selfConsumption * 100)}%`] as Line])];
-  }
-  if (id === 'grid') return [['Prelevata', total('import')], ['Immessa', total('export')]];
-  if (id === 'battery') return [['Scaricata', total('battery_discharge')], ['Caricata', total('battery_charge')]];
-  if (id === 'home') return [['Consumata', total('consumption')]];
-  return [];
-}
-
 export function EnergyModuleSheet({
   id,
   state,
-  history,
   onClose,
   onEdit,
 }: {
   id: EnergyModuleId | null;
   state: EnergyState;
-  history?: EnergyHistory;
   onClose: () => void;
   onEdit?: (id: EnergyModuleId) => void;
 }) {
@@ -264,7 +244,6 @@ export function EnergyModuleSheet({
     rows: deviceRows(id, detailModule, state.observed_at),
   } : null;
   const condition = module && id ? moduleCondition(id, module) : 'complete';
-  const series = (id && SERIES[id]?.filter((name) => history?.series[name]?.length)) ?? [];
   const status = !module
     ? null
     : module.status === 'offline'
@@ -305,14 +284,6 @@ export function EnergyModuleSheet({
               </p>
             </div>
           ) : null}
-          {history && series.length ? (
-            <section className="space-y-1.5">
-              <Lines title="Ultime 24 ore" lines={historyLines(id, history)} />
-              <EnergyHistoryChart history={{ ...history, series: Object.fromEntries(series.map((name) => [name, history.series[name]])) }} showAll />
-            </section>
-          ) : (
-            <Lines title="Ultime 24 ore" lines={[['Storico', 'Richiede lo storico energetico']]} />
-          )}
           {detail ? <Devices total={detail.total} rows={detail.rows} now={state.observed_at} /> : null}
           {sensors.length ? (
             <section className="space-y-1.5">

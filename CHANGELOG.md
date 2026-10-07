@@ -36,13 +36,12 @@
   manual setup) and then, on its own step, only for the sensors that type
   needs. A detected plant is summarised with its matched
   entities so it can be confirmed in one step.
-- The Energy page can draw the energy history (24 hours, 7 or 30 days) and
-  fill self-consumption, self-sufficiency, costs, savings and the comparison
-  with the previous period as soon as Home Assistant provides the history;
-  until then the page keeps stating that the history is not available.
+- The Energy page lists self-consumption, self-sufficiency, costs, savings and
+  the comparison with the previous period as coming soon; no period figure is
+  computed on the page.
 - Energy components open a details sheet with live figures, estimated power
-  paths, the grid's current band and hourly cost, the last 24 hours and the
-  sensors; administrators can jump from there to that module's settings.
+  paths, the grid's current band and hourly cost and the sensors;
+  administrators can jump from there to that module's settings.
 - Domus Energy reads installations with several inverters, batteries,
   wallboxes or meters per module. Each device is normalized on its own and the
   module total is their sum, a configured total sensor, or for batteries a
@@ -94,8 +93,17 @@
   and discharge and wallbox, by hour, day, week or month in the Home Assistant
   time zone, also per device. Missing data stays missing instead of becoming
   zero, tariff-band meters are summed only when all of them report, and a
-  total meter is never added to its devices. Nothing is stored by Domus and
-  no screen shows the history yet.
+  total meter is never added to its devices. Nothing is stored by Domus.
+- The _Andamento_ section of the Energy page shows that history for the last
+  24 hours, 7 or 30 days or 12 months: consumption, photovoltaics, grid import
+  and export, battery charge and discharge and car charging, only for the
+  hardware that has energy meters. Missing hours leave a gap instead of a
+  zero, incomplete data and the hour, day or month still in progress are
+  marked, a calculated consumption is labelled, and times follow the Home
+  Assistant time zone. A plant without meters, meters without statistics yet
+  and an unavailable Recorder each get their own message while the live view
+  keeps working. The history is read when the page opens or the period
+  changes, never on every power change.
 
 ### Changed
 
