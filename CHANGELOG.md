@@ -79,6 +79,15 @@
   request, sensors are chosen from a searchable list that leaves out
   incompatible ones, and a summary lists every change and asks to confirm
   unverified meters, summed tariff-band meters and removals before saving.
+- The guided Energy setup is now a step-by-step configurator in plain words:
+  a welcome, the components of the home as illustrated cards, a detection
+  summary per component (ready, to check, waiting, not found), one screen
+  per component with device cards and their live readings, recommended
+  sensors to accept or change, the sign of a signed meter asked as a simple
+  question with a picture, a history step that explains energy meters and
+  can be skipped, a visual final check and a confirmation screen. Technical
+  names stay available under _Dettagli tecnici_ and _Configurazione
+  avanzata_, and the energy settings use the same device cards.
 
 ### Changed
 

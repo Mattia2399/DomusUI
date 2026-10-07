@@ -19,6 +19,8 @@ export function EnergySensorPicker({
   describedBy,
   invalid = false,
   placeholder = 'Cerca per nome o sensor.…',
+  autoFocus = false,
+  onPick,
 }: {
   id: string;
   value: string;
@@ -29,6 +31,9 @@ export function EnergySensorPicker({
   describedBy?: string;
   invalid?: boolean;
   placeholder?: string;
+  autoFocus?: boolean;
+  /** Called after a sensor is chosen from the list (not while typing). */
+  onPick?: () => void;
 }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState<string | null>(null);
@@ -53,6 +58,7 @@ export function EnergySensorPicker({
     onChange(option.id);
     setQuery(null);
     setOpen(false);
+    onPick?.();
   };
   const move = (step: number) => {
     if (!shown.length) return;
@@ -79,6 +85,7 @@ export function EnergySensorPicker({
         placeholder={placeholder}
         spellCheck={false}
         autoComplete="off"
+        autoFocus={autoFocus}
         onFocus={() => setOpen(true)}
         onBlur={() => { setOpen(false); setQuery(null); }}
         onChange={(event) => {

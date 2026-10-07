@@ -730,71 +730,94 @@ section; no new route exists.
   on Consumi, so no energy sample is shown there.
 - **Guided setup** (administrators, loaded on demand) takes the whole detail
   area with its own header and close button (also Escape) and keeps its
-  actions pinned to the bottom. It works on the same Energy Profile v2 draft
-  as the settings (`energyPlantDraft.ts`), for every integration: a first
-  setup, a v1 plant (opened through the backend's in-memory conversion, saved
-  as v2 only on confirmation; the v1 store is never written) and a v2 plant
-  follow the same flow. A first setup runs in four steps (*Rilevamento*,
-  *Dispositivi*, *Tariffa*, *Riepilogo*); re-detection and *edit* skip the
-  tariff, and *edit* opens on the devices. Going back keeps every choice.
-  1. *Rilevamento*: `discover` sorted for review (`energyDiscoveryModel.ts`).
-     *Nuovi dispositivi* shows each proposal with its module, integration,
-     confidence, power sensors, meters with their Recorder status, and why it
-     was matched, with *Aggiungi* / *Togli*; *Aggiungi i N dispositivi
-     affidabili* adds only `eligible` ones, still on request. *Proposte per i
-     dispositivi configurati* lists additions (*Nuova sorgente*) and
-     corrections (*Possibile correzione*), each applied on its own with
-     *Applica*. *Sensori totali* offers verified totals (*Usa come totale*)
-     and presumed ones (*Usa comunque come totale*, with a warning). *Da
-     decidere* lists ambiguities and devices matching several configured
-     ones, never decided by Domus. A failed or empty discovery explains
-     itself and suggests the Energy dashboard. `suggested_plant` is never
-     used, a proposal adds a device under a free id (never a retired one),
-     meters the Recorder found incompatible are left out, and a sign
-     convention is preselected only when the discovery has evidence for it.
-     *Conferma impianto* skips to the next step when nothing needs fixing.
-  2. *Dispositivi*: on a first setup with nothing chosen, the illustrated
-     plant tiles add one device per module of the tile. Then a section per
-     module (`PlantModuleSection`, shared with the settings): devices with
-     *Nuovo*, *Modifica*, *Rimuovi* / *Ripristina*, *Aggiungi {inverter,
-     batteria…}* up to 16 per module, an optional total sensor once there are
-     two devices, and chips for modules not present yet. Each device editor
-     has its name, power sensors and sign convention (always explicit, never
-     guessed from the current value), energy meters per role (*Aggiungi un
-     contatore da sommare*, with the warning that the parts are summed) with
-     their Recorder status, and a battery's capacities (never invented).
-  3. *Tariffa* (first setup only, optional): the same fields as the settings
-     page; *Salta per ora* when empty, *Salta* when filled.
-  4. *Riepilogo*: modules and device counts, every change in words (devices
-     added or removed, sensors, meters, conventions, capacities, totals), the
-     tariff, *Da correggere* (blocking, with *Torna ai dispositivi*) and *Da
-     confermare*: new meters Home Assistant cannot verify (unknown or
-     external statistics typed by hand), new or changed summed meters
-     (*Verifica che rappresentino fasce differenti e non includano già un
-     totale*) and removals. Confirmations are not stored; *Salva impianto*
-     stays disabled until everything is confirmed and something changed.
+  actions pinned to the bottom; on phones the main action takes its own row.
+  It is a presentation of the same Energy Profile v2 draft as the settings
+  (`energyPlantDraft.ts`): a first setup, a v1 plant (opened through the
+  backend's in-memory conversion, saved as v2 only on confirmation; the v1
+  store is never written) and a v2 plant follow the same path. The words
+  come from `energyGuide.ts`: entity ids, statistic ids, confidences,
+  Recorder statuses and conventions never lead a screen.
+  - *Adaptive steps*, one decision per screen, counted in the header
+    (*Passaggio 3 di 8 · Poi: Rete elettrica*) and in a segmented bar:
+    *Benvenuto* (first setup only), *Il tuo impianto*, *Rilevamento
+    automatico*, one step per chosen component (*Rete elettrica*,
+    *Fotovoltaico*, *Batteria*, *Wallbox*, *Consumi della casa*), *Storico
+    dei consumi* (integrations with v2), *Tariffa* (first setup only) and
+    *Controllo finale*. Edit mode opens on the first component; going back
+    keeps every choice.
+  - *Il tuo impianto*: large selectable cards (photovoltaic, battery,
+    wallbox, grid only, and a home meter option) drawn with the house
+    illustration. Discovery preselects what it found (*Rilevato da Domus*);
+    configured components stay selected (*Già configurato*). Unselecting a
+    component drops only the devices this setup added to it.
+  - *Rilevamento automatico*: one card per chosen component with a user
+    state (*Pronto*, *Da verificare*, *In attesa*, *Non trovato*) and a line
+    such as *2 inverter trovati, 1 da verificare*; names, ids, confidence and
+    integration are in *Dettagli tecnici*. *Usa i dispositivi trovati* adds
+    only `eligible` devices, still as an explicit action; *Scelgo io* adds
+    nothing. Components found outside the selection are offered (*Domus ha
+    trovato anche…*), never added.
+  - *Component steps*: a card per device with its icon, name, state and live
+    reading (*3,8 kW ora*, *Carica 80% · -1,2 kW ora*); the card opens its
+    guided detail. Entering a component with nothing to propose opens a first
+    empty device. Doubtful devices wait as suggestions (*Aggiungi*), detected
+    totals as *Usa come totale* / *Usa comunque come totale*, ambiguities and
+    conflicts under *Da decidere*, and corrections or new sources for a
+    configured device on its card with *Applica*. *Aggiungi un altro
+    inverter* (up to 16), removal with *Ripristina*.
+  - *Guided detail*: the name, the wiring of a grid or battery (*Un solo
+    sensore* / *Due sensori*), each sensor as a card (friendly name, device,
+    live value, *✓ Compatibile*) with *Consigliato da Domus* and *Usa questo
+    sensore* when the discovery has a confident, compatible, free match,
+    and *Scegli un altro sensore* for the full picker. A signed sensor asks
+    *Come legge questo sensore l’energia?* with a flow picture and two
+    choices (*Positivo/Negativo quando prelevo dalla rete*, *Positivo/Negativo
+    quando si scarica*), preselected only from evidence and never from the
+    current value, which is shown as a hint. A battery has optional
+    capacities; nothing is estimated. Integrations without v2 hide what they
+    cannot store (names, capacities, meters).
+  - *Storico dei consumi*: per device and role (*Energia acquistata*,
+    *Energia venduta*, *Produzione fotovoltaica*…) the meter in plain words
+    and its state (*Pronto*, *In attesa di Home Assistant*, *Verifica
+    temporaneamente non disponibile*, *Non siamo riusciti a verificarlo*,
+    *Non compatibile*). Bands are chips (*F1 ✓ F2 ✓ F3 ✓*) with *Domus
+    sommerà queste tre fasce per ottenere il totale* and *Conferma*; an
+    unverified meter has *Lo uso comunque*. These are the same confirmations
+    as the final check (keys from `pendingConfirmations`, now with holder and
+    role). A meter found for a configured device is offered with *Usa questo
+    contatore*. Without meters the screen says so and the action becomes
+    *Continua senza storico*: real-time monitoring works without history.
+  - *Controllo finale*: the plant around the home (sources above, storage and
+    car below, each with *Configurato*, *Da verificare* or *Problema*), the
+    counts of devices, sensors and meters, *Da correggere* with a link to the
+    step, *Da confermare* in plain words, the tariff, and *Mostra riepilogo
+    tecnico* with every change. *Salva impianto* stays disabled until
+    everything is fixed and confirmed and something changed.
   - Saving sends the whole plant with `profile_v2` and the expected revision
-    (`saveEnergyPlant`), with the tariff only when entered. An integration
-    without v2 gets `profile` modules, only when the plant fits v1 (one
-    unnamed device per module, no meters or totals); otherwise the summary
-    says to update the integration. A failed save keeps the draft; a
-    revision conflict also offers *Carica la versione salvata (scarta la
-    bozza)*. Nothing is merged automatically. Opened from the settings, the
-    wizard returns there and shows the outcome.
+    (`saveEnergyPlant`), the tariff only when entered; an integration without
+    v2 gets `profile` modules when the plant fits v1. A failed save keeps the
+    draft; a revision conflict also offers *Carica la versione salvata
+    (scarta la bozza)*. A successful save shows *Domus Energy è pronto* with
+    a short summary (or *Monitoraggio in tempo reale pronto. Lo storico potrà
+    essere configurato in seguito.*) and *Vai a Domus Energy*.
+  - *Configurazione avanzata*: per device (*Configurazione avanzata* /
+    *Torna alla vista guidata*) or for every device from the header. It
+    shows the full editors of the same draft (`EnergyDeviceEditor.tsx`:
+    every power role, convention, meter row and capacity with technical
+    names), opens every *Dettagli tecnici* and allows adding a total sensor.
 - **Sensor picker** (`EnergySensorPicker.tsx`, `energySensorCatalog.ts`): an
   ARIA combobox over the Home Assistant sensors, searchable by name or id,
   showing name, id, unit and device. Sensors that do not fit the role are
   hidden behind *Mostra anche i N sensori non compatibili* and never
-  selectable, with the reason (a power sensor or a temperature as a meter, a
-  kWh meter as power, a non-cumulative meter); sensors used by another device
-  are disabled (*Già usato da …*). Any id can still be typed, such as an
-  external statistic (`opower:…`). The gates mirror the backend and apply to
-  new references only; the backend has the final word. Arrow keys, Enter and
-  Escape work, and Escape closes the list without closing the wizard.
+  selectable, with the reason; sensors used by another device are disabled
+  (*Già usato da …*). Any id can still be typed, such as an external
+  statistic (`opower:…`). Arrow keys, Enter and Escape work, and Escape
+  closes the list without closing the wizard. In the guided views it opens
+  on request, focused, and closes on a pick or *Fatto*.
 - **Settings** (*Impostazioni Energia*, administrators, loaded on demand)
   replace the wizard once a profile exists:
-  - *Impianto*: one row per module with its sensors or *Non presente*, an
-    offline badge, and inline editing with the same editor as the setup;
+  - *Impianto*, integrations without Energy Profile v2: one row per module
+    with its sensors or *Non presente*, an offline badge, and inline editing;
     *Ripeti rilevamento* opens re-detection. *Salva impianto* sends only the
     modules, so the stored tariff is kept.
   - *Tariffa e costi*: single, two-band or three-band structure, a price per
@@ -802,14 +825,16 @@ section; no new route exists.
     grid is configured. Decimal commas are accepted and invalid values are
     flagged inline. *Salva tariffa* and *Rimuovi tariffa* keep the saved
     modules, and a failed save keeps the edits on screen.
-  - *Energy Profile v2*: when v1 cannot hold the profile (`profile: null`),
-    *Impianto* lists each module with its devices and total sensor. A device
-    opens on its name, power sensors and sign convention (the same editor),
-    its energy meters (one statistic id per line, several are summed) with
-    their Recorder status and reason (*Valido*, *In attesa delle prime
-    statistiche*, *Non disponibile ora*, *Non compatibile*, *Non trovato*,
-    *Non verificabile ora*), and a battery's nominal and usable capacity. A
-    device can be removed after an explicit confirmation that its id is
+  - *Energy Profile v2* (every integration that stores it, single-device
+    plants included): *Impianto* lists each module with its devices as
+    cards (state and live reading) and its total sensor. A device opens on
+    the guided detail of the setup with its *Storico dei consumi*, and
+    *Configurazione avanzata* opens the full editor: power sensors and
+    convention, energy meters (one statistic id per line, several are
+    summed) with their Recorder status and reason (*Valido*, *In attesa
+    delle prime statistiche*, *Non disponibile ora*, *Non compatibile*, *Non
+    trovato*, *Non verificabile ora*), and a battery's nominal and usable
+    capacity. A device can be removed after an explicit confirmation that its id is
     retired. The draft (`energyPlantDraft.ts`) mirrors the backend rules and
     saves the whole plant with `profile_v2` and the expected revision; every
     other device, the total, the Home Assistant device and the tariff travel

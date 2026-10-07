@@ -100,15 +100,23 @@ describe('Energy Profile v2 settings', () => {
     // An unnamed device keeps a readable label.
     expect(within(plant).getByText('Wallbox 1')).not.toBeNull();
 
+    // A device opens on the guided detail: plain words first, technical names in the details.
     fireEvent.click(within(plant).getByRole('button', { name: 'Modifica Garage' }));
     expect(screen.getByRole('textbox', { name: 'Nome' })).toHaveProperty('value', 'Garage');
+    expect(screen.getByRole('textbox', { name: 'Capacità nominale (kWh)' })).toHaveProperty('value', '10');
+    expect(screen.getByRole('textbox', { name: 'Capacità utilizzabile (kWh)' })).toHaveProperty('value', '9.5');
+    const history = screen.getByRole('region', { name: 'Storico dei consumi' });
+    expect(within(within(history).getByRole('group', { name: 'Energia caricata' })).getByText('Non compatibile')).not.toBeNull();
+    expect(within(within(history).getByRole('group', { name: 'Energia restituita' })).getByText('Non siamo riusciti a verificarlo')).not.toBeNull();
+    expect(within(history).getByText(/sensor\.bat_in · Non compatibile · Non è un contatore di energia/)).not.toBeNull();
+    expect(within(history).getByText(/opower:battery_out · Non trovato · Né il Recorder/)).not.toBeNull();
+    // The advanced editor of the same device keeps every technical field.
+    fireEvent.click(screen.getByRole('button', { name: 'Configurazione avanzata' }));
     expect(screen.getByRole('textbox', { name: 'Nominale (kWh)' })).toHaveProperty('value', '10');
-    expect(screen.getByRole('textbox', { name: 'Utilizzabile (kWh)' })).toHaveProperty('value', '9.5');
     expect(screen.getByText(/Non compatibile · W · Non è un contatore di energia/)).not.toBeNull();
-    expect(screen.getByText(/Non trovato · Né il Recorder/)).not.toBeNull();
     fireEvent.click(within(plant).getByRole('button', { name: 'Chiudi Garage' }));
     fireEvent.click(within(plant).getByRole('button', { name: 'Modifica Inverter Pergola' }));
-    expect(screen.getByText(/In attesa delle prime statistiche · kWh/)).not.toBeNull();
+    expect(within(screen.getByRole('region', { name: 'Storico dei consumi' })).getByText('In attesa di Home Assistant')).not.toBeNull();
     // A configured meter shows no consumption: the history is not available yet.
     expect(screen.queryByText(/kWh oggi|kWh al mese/)).toBeNull();
   });
@@ -214,11 +222,13 @@ describe('Energy Profile v2 settings', () => {
     expect(saved.battery).toEqual(PLANT.battery);
   });
 
-  it('keeps the classic settings when v1 can hold the profile', async () => {
+  it('uses the device settings even when v1 could hold the profile, adding devices through the guided setup', async () => {
     renderSettings(backend({ modules: { wallbox: { sensors: { charging_power: 'sensor.wb' } } } }));
     const plant = await plantRegion();
-    expect(within(plant).getAllByText('Non presente')).toHaveLength(4);
-    expect(within(plant).getByRole('button', { name: 'Ripeti rilevamento' })).not.toBeNull();
+    expect(within(plant).queryByText('Non presente')).toBeNull();
+    expect(within(plant).getByRole('region', { name: 'Wallbox' })).not.toBeNull();
+    expect(within(plant).queryByRole('button', { name: 'Ripeti rilevamento' })).toBeNull();
+    expect(within(plant).getByRole('button', { name: 'Aggiungi dispositivi o nuovo rilevamento' })).not.toBeNull();
   });
 });
 
@@ -227,17 +237,26 @@ describe('Setup wizard on a v2 plant', () => {
     const api = backend();
     const onSaved = vi.fn();
     render(<EnergySetupWizard mode="rediscover" callApi={api.callApi} haStates={{}} onClose={vi.fn()} onSaved={onSaved} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Avanti' }));
-    const solar = screen.getByRole('region', { name: 'Fotovoltaico' });
-    expect(within(solar).getByText('Inverter Tetto')).not.toBeNull();
-    // The existing incompatible meter is shown, but it does not block: only new references are checked.
-    fireEvent.click(within(screen.getByRole('region', { name: 'Wallbox' })).getByRole('button', { name: 'Aggiungi wallbox' }));
+    expect((await screen.findByRole('checkbox', { name: 'Fotovoltaico' })).getAttribute('aria-disabled')).toBe('true');
+    const next = (name = 'Avanti') => fireEvent.click(screen.getByRole('button', { name }));
+    next();
+    next();
+    expect(within(screen.getByRole('list', { name: 'Dispositivi: Fotovoltaico' })).getByText('Inverter Tetto')).not.toBeNull();
+    next();
+    next();
+    // A second wallbox, chosen by hand.
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi un’altra wallbox' }));
     fireEvent.change(screen.getByRole('combobox', { name: 'Potenza di ricarica' }), { target: { value: 'sensor.wb2' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    next();
+    // The stored incompatible and unknown meters are shown but block nothing: only new references are checked.
+    expect(screen.getByRole('heading', { level: 2, name: 'Storico dei consumi' })).not.toBeNull();
+    next();
     expect(screen.queryByRole('region', { name: 'Da correggere' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Da confermare' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Salva impianto/ }));
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    fireEvent.click(await screen.findByRole('button', { name: 'Vai a Domus Energy' }));
+    expect(onSaved).toHaveBeenCalledOnce();
     const saved = api.saves[0] as { profile_v2: { plant: EnergyPlant }; expected_revision: number };
     expect(saved.expected_revision).toBe(7);
     expect(saved.profile_v2).toEqual({ plant: {

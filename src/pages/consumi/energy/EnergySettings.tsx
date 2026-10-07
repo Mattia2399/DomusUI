@@ -5,6 +5,7 @@ import {
   ENERGY_MODULES,
   discoverEnergy,
   editableAsV1,
+  supportsProfileV2,
   getEnergyProfile,
   profileRevision,
   profileTariff,
@@ -78,8 +79,9 @@ export default function EnergySettings({
 
   const apply = React.useCallback((result: EnergyProfileResult) => {
     setProfile(result);
-    // A profile v1 cannot hold has no v1 draft: the v2 settings edit it instead.
-    setDraft(editableAsV1(result) ? draftFromProfile(result.profile.modules) : null);
+    // Integrations with Energy Profile v2 always use the device settings; the
+    // classic module editor stays for integrations that store v1 only.
+    setDraft(editableAsV1(result) && !supportsProfileV2(result) ? draftFromProfile(result.profile.modules) : null);
     setForm(tariffForm(profileTariff(result)));
   }, []);
 
@@ -90,11 +92,11 @@ export default function EnergySettings({
   }, [apply, callApi]);
 
   if (loadError) return <p role="alert" className={`liquid-glass-card p-5 ${UI.body}`}>{loadError}</p>;
-  if (!profile || (editableAsV1(profile) && !draft)) {
+  if (!profile || (editableAsV1(profile) && !supportsProfileV2(profile) && !draft)) {
     return <p role="status" className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Caricamento impostazioni…</p>;
   }
 
-  const v1 = editableAsV1(profile) && draft ? { profile: profile.profile, draft } : null;
+  const v1 = editableAsV1(profile) && !supportsProfileV2(profile) && draft ? { profile: profile.profile, draft } : null;
   const v2 = profile.profile_v2;
   const saved = v1?.profile.modules ?? {};
   const issues = v1 ? validateDraft(v1.draft) : [];
@@ -140,7 +142,7 @@ export default function EnergySettings({
         </p>
       ) : null}
       {!v1 && v2 ? (
-        <Group title="Impianto" description="Moduli, dispositivi, sensori di potenza e contatori di energia. Il salvataggio invia l’intero impianto.">
+        <Group title="Impianto" description="I dispositivi del tuo impianto: aprine uno per modificarlo. La configurazione avanzata mostra ogni dettaglio tecnico.">
           <EnergyPlantSettings
             result={{ ...profile, profile_v2: v2 }}
             callApi={callApi}

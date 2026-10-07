@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, LoaderCircle, Plus, Save, X } from 'lucide-react';
+import { Check, LoaderCircle, Plus, Save, SlidersHorizontal, Sparkles, X } from 'lucide-react';
 import type { MockEntityStateMap } from '../../../types/ha';
 import {
   ENERGY_MODULES,
@@ -17,28 +17,44 @@ import {
   type EnergyDiscoveryV2,
   type EnergyDiscoveryV2Device,
   type EnergyMeterInfo,
+  type EnergyMeterRole,
   type EnergyModuleId,
   type EnergyPlant,
   type EnergyProfileResult,
 } from '../../../services/energyCoreClient';
-import { MODULE_ICONS, METER_STATUS, PlantModuleSection } from './EnergyDeviceEditor';
+import {
+  DeviceCard,
+  DeviceDetail,
+  ModuleIcon,
+  SourcesHistory,
+  StatusBadge,
+  TechDetails,
+  TotalCard,
+  deviceStatus,
+} from './EnergyGuidedDevice';
 import { ERROR_TEXT } from './EnergyModuleEditor';
 import { GROUP, TARIFF_HINT, TariffFields, isBlankTariff, tariffForm, tariffFromForm, tariffSummary } from './EnergyTariffFields';
+import { Findings, PlantChoice, PlantMap, SuccessView, TITLE, WelcomeView, type MapNode } from './EnergyWizardViews';
 import { MODULE_META, UI } from './energyModel';
+import { AMBIGUITY_LABEL, applyChange, applyNewDevice, applyTotal, discoveryV2, proposalsFromV1, reviewDiscovery } from './energyDiscoveryModel';
 import {
-  AMBIGUITY_LABEL,
-  WARNING_LABEL,
-  applyChange,
-  applyNewDevice,
-  applyTotal,
-  describeEvidence,
-  discoveryV2,
-  proposalsFromV1,
-  reviewDiscovery,
-} from './energyDiscoveryModel';
+  CONFIDENCE_TEXT,
+  HISTORY_TEXT,
+  MODULE_WORDS,
+  count,
+  moduleFindings,
+  plantCounts,
+  plural,
+  recommendedSensor,
+  sensorName,
+  type GuideStatus,
+} from './energyGuide';
 import {
-  DEVICE_NOUN,
+  MAX_DEVICES_PER_MODULE,
+  METER_ROLES,
   addDevice,
+  deviceLabel,
+  emptyPower,
   modulesFromPlant,
   pendingConfirmations,
   plantChanged,
@@ -50,30 +66,47 @@ import {
   presentModules,
   removeDevice,
   reservedIds,
+  setTotal,
   takenSensors,
+  updateDevice,
   validatePlantDraft,
+  type Confirmation,
   type PlantDraft,
+  type PlantIssue,
 } from './energyPlantDraft';
-import { OTHER_PLANT, PlantPicker, plantModules } from './EnergyPlantPicker';
 import { meterKnown, referenceCheck } from './energySensorCatalog';
 
 /*
- * Guided setup on the Energy Profile v2 draft shared with the settings: a
+ * Guided setup on the Energy Profile v2 draft shared with the settings. A
  * first setup, a v1 plant (converted by the backend in memory, saved as v2
- * only on confirmation) and a v2 plant follow the same flow. Discovery only
- * proposes; each proposal is applied explicitly, configured devices are
- * never replaced, and nothing is saved before the final confirmation.
+ * only on confirmation) and a v2 plant follow the same adaptive path: one
+ * screen per decision, one step per component of the plant. Discovery only
+ * proposes; each proposal is applied by an explicit action, configured devices
+ * are never replaced, and nothing is saved before the final check.
  */
 
 export type WizardMode = 'setup' | 'edit' | 'rediscover';
 
-type StepId = 'detect' | 'devices' | 'tariff' | 'summary';
-const STEP_LABEL: Record<StepId, string> = {
-  detect: 'Rilevamento',
-  devices: 'Dispositivi',
+const ORDER: EnergyModuleId[] = ['grid', 'solar', 'battery', 'wallbox', 'home'];
+type ModuleStep = `module:${EnergyModuleId}`;
+type StepId = 'welcome' | 'plant' | 'detect' | ModuleStep | 'history' | 'tariff' | 'summary';
+
+const STEP_LABEL: Record<string, string> = {
+  welcome: 'Benvenuto',
+  plant: 'Il tuo impianto',
+  detect: 'Rilevamento automatico',
+  'module:grid': 'Rete elettrica',
+  'module:solar': 'Fotovoltaico',
+  'module:battery': 'Batteria',
+  'module:wallbox': 'Wallbox',
+  'module:home': 'Consumi della casa',
+  history: 'Storico dei consumi',
   tariff: 'Tariffa',
-  summary: 'Riepilogo',
+  summary: 'Controllo finale',
 };
+
+const moduleOf = (step: StepId) => (step.startsWith('module:') ? (step.slice(7) as EnergyModuleId) : null);
+const isMeterField = (issue: PlantIssue) => ENERGY_MODULES.some((id) => METER_ROLES[id].some(({ role }) => role === issue.field));
 
 type SaveState = { status: 'idle' | 'saving' | 'error'; message?: string; conflict?: boolean };
 
@@ -83,7 +116,7 @@ type Loaded = {
   v2: boolean;
   stored: EnergyPlant;
   reserved: Set<string>;
-  /** The discovery as returned, for the sensor suggestions of the editors. */
+  /** The discovery as returned, for names and the suggestions of the editors. */
   discovery: EnergyDiscovery | null;
   proposals: EnergyDiscoveryV2 | null;
   discoveryError: string;
@@ -95,56 +128,15 @@ const LEGACY_LIMIT = 'L’integrazione Domus UI installata salva un solo disposi
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section aria-label={title} className="space-y-2">
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{title}</h3>
+      <h4 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{title}</h4>
       {children}
     </section>
   );
 }
 
-const CONFIDENCE: Record<string, string> = { high: 'confidenza alta', medium: 'confidenza media', low: 'confidenza bassa' };
-
-function ProposalCard({
-  proposal,
-  meters,
-  action,
-}: {
-  proposal: EnergyDiscoveryV2Device;
-  meters: Record<string, EnergyMeterInfo>;
-  action: React.ReactNode;
-}) {
-  const Icon = MODULE_ICONS[proposal.module];
-  const roleName = (role: string) => MODULE_META[proposal.module].roles.find((spec) => spec.role === role)?.label ?? role;
-  const evidence = describeEvidence([...(proposal.power ?? []).flatMap((item) => item.evidence), ...(proposal.energy ?? []).flatMap((item) => item.evidence)]);
-  return (
-    <li className={`${UI.card} space-y-2`}>
-      <div className="flex items-start gap-3">
-        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
-        <div className="min-w-0 flex-1">
-          <p className={`text-sm ${UI.title}`}>{proposal.name ?? `${MODULE_META[proposal.module].label}: ${DEVICE_NOUN[proposal.module]} senza nome`}</p>
-          <p className={UI.muted}>
-            {MODULE_META[proposal.module].label}{proposal.integration ? ` · ${proposal.integration}` : ''}{proposal.confidence ? ` · ${CONFIDENCE[proposal.confidence]}` : ''}
-          </p>
-        </div>
-        {action}
-      </div>
-      <ul className={`space-y-0.5 pl-7 ${UI.muted}`}>
-        {(proposal.power ?? []).map((item) => (
-          <li key={item.role} className="break-all"><span className="text-[color:var(--ui-text-secondary)]">{roleName(item.role)}:</span> <span className="font-mono">{item.entity_id}</span>{item.requires.length ? ' · da confermare il segno' : ''}</li>
-        ))}
-        {(proposal.energy ?? []).map((item) => (
-          <li key={item.role} className="break-all">
-            <span className="text-[color:var(--ui-text-secondary)]">Contatore:</span> <span className="font-mono">{item.statistic_ids.join(' + ')}</span>
-            {item.statistic_ids.map((id) => meters[id] ? ` · ${METER_STATUS[meters[id].status].label}` : '').join('')}
-          </li>
-        ))}
-        {evidence.length ? <li>Perché: {evidence.join(', ').toLowerCase()}</li> : null}
-        {(proposal.warnings ?? []).filter((warning) => WARNING_LABEL[warning.code]).map((warning, index) => (
-          <li key={index} className="text-[color:var(--ui-warning)]">{WARNING_LABEL[warning.code]}</li>
-        ))}
-      </ul>
-    </li>
-  );
-}
+const Note = ({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'warning' }) => (
+  <p role="note" className={`${UI.card} text-sm ${tone === 'warning' ? 'text-[color:var(--ui-warning)]' : 'text-[color:var(--ui-text-secondary)]'}`}>{children}</p>
+);
 
 export default function EnergySetupWizard({
   mode,
@@ -162,11 +154,14 @@ export default function EnergySetupWizard({
   const [loaded, setLoaded] = React.useState<Loaded | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<PlantDraft>({});
+  const [chosen, setChosen] = React.useState<EnergyModuleId[]>([]);
   const [applied, setApplied] = React.useState<Record<string, string>>({});
   const [confirmed, setConfirmed] = React.useState<Set<string>>(new Set());
   const [open, setOpen] = React.useState<string | null>(null);
-  const [step, setStep] = React.useState(0);
+  const [stepId, setStepId] = React.useState<StepId>('plant');
+  const [advanced, setAdvanced] = React.useState(false);
   const [save, setSave] = React.useState<SaveState>({ status: 'idle' });
+  const [done, setDone] = React.useState<{ lines: string[]; realtimeOnly: boolean } | null>(null);
   const [tariffDraft, setTariffDraft] = React.useState(() => tariffForm(null));
   const [skipTariff, setSkipTariff] = React.useState(false);
   const headingRef = React.useRef<HTMLHeadingElement>(null);
@@ -187,9 +182,16 @@ export default function EnergySetupWizard({
     const stored = v2 ? result.profile_v2!.plant : plantFromModules(result.profile?.modules ?? {});
     const found = discoveryResult.status === 'fulfilled' ? discoveryResult.value : null;
     const proposals = found ? discoveryV2(found) ?? proposalsFromV1(found, stored) : null;
+    const configured = ORDER.filter((id) => stored[id]?.devices.length);
+    const detected = ORDER.filter((id) => proposals?.devices.some((device) => device.module === id && device.status === 'new' && device.confidence !== 'low'));
+    const first = configured.length === 0;
+    // Discovery preselects what it found; the user can still change it on the plant step.
+    const initial = mode === 'edit' ? configured : ORDER.filter((id) => configured.includes(id) || detected.includes(id) || (first && id === 'grid'));
     setDraft(plantDraftFromProfile(stored));
+    setChosen(initial);
     setApplied({});
     setConfirmed(new Set());
+    setOpen(null);
     setTariffDraft(tariffForm(profileTariff(result)));
     setLoaded({
       result,
@@ -201,7 +203,7 @@ export default function EnergySetupWizard({
       discoveryError: discoveryResult.status === 'rejected' ? toEnergyCoreError(discoveryResult.reason).message : '',
       meters: { ...(result.energy_meters?.meters ?? {}), ...(proposals?.meters ?? {}) },
     });
-    setStep(mode === 'edit' ? 1 : 0);
+    setStepId(mode === 'edit' && initial.length ? `module:${initial[0]}` : first && mode === 'setup' ? 'welcome' : 'plant');
   }, [callApi, mode]);
 
   React.useEffect(() => {
@@ -211,7 +213,7 @@ export default function EnergySetupWizard({
   React.useEffect(() => {
     if (focusOnStep.current) headingRef.current?.focus();
     focusOnStep.current = true;
-  }, [step]);
+  }, [stepId, done]);
 
   const known = React.useMemo(() => (loaded ? plantReferences(loaded.stored) : new Set<string>()), [loaded]);
   const check = React.useMemo(() => referenceCheck(haStates, loaded?.meters ?? {}, known), [haStates, loaded, known]);
@@ -220,36 +222,63 @@ export default function EnergySetupWizard({
 
   const firstSetup = Boolean(loaded) && Object.keys(loaded!.stored).length === 0;
   const tariffSupported = loaded ? loaded.v2 || Boolean(loaded.result.profile && supportsTariff(loaded.result.profile)) : false;
-  const steps: StepId[] = firstSetup && tariffSupported ? ['detect', 'devices', 'tariff', 'summary'] : ['detect', 'devices', 'summary'];
-  const current = steps[Math.min(step, steps.length - 1)];
+  const flowModules = ORDER.filter((id) => chosen.includes(id) || draft[id]?.devices.some((device) => !device.removed && device.isNew));
+  const steps: StepId[] = [
+    ...(firstSetup && mode === 'setup' ? (['welcome'] as StepId[]) : []),
+    'plant',
+    'detect',
+    ...flowModules.map((id): StepId => `module:${id}`),
+    ...(loaded?.v2 ? (['history'] as StepId[]) : []),
+    ...(firstSetup && tariffSupported ? (['tariff'] as StepId[]) : []),
+    'summary',
+  ];
+  const current: StepId = steps.includes(stepId) ? stepId : 'summary';
+  const stepIndex = steps.indexOf(current);
+  const finish = () => onSaved();
 
   // Full-height layout: own header, scrolling content, actions pinned to the bottom.
   const shell = (body: React.ReactNode, footer?: React.ReactNode) => (
-    <div className="flex h-full flex-col" onKeyDown={(event) => { if (event.key === 'Escape' && !saving) onClose(); }}>
-      <header className="flex items-center gap-3 border-b border-[color:var(--ui-separator)] px-4 py-3 sm:px-6">
+    <div className="flex h-full flex-col" onKeyDown={(event) => { if (event.key === 'Escape' && !saving) (done ? finish : onClose)(); }}>
+      <header className="flex items-center gap-2 border-b border-[color:var(--ui-separator)] px-4 py-3 sm:px-6">
         <div className="min-w-0 flex-1">
-          <p className={UI.muted}>Configura Domus Energy{loaded ? ` · Passaggio ${step + 1} di ${steps.length}` : ''}</p>
-          <h2 id="energy-step-title" ref={headingRef} tabIndex={-1} className={`truncate text-lg outline-none ${UI.title}`}>{STEP_LABEL[loaded ? current : 'detect']}</h2>
+          <p className={UI.muted}>
+            Configura Domus Energy{loaded && !done ? ` · Passaggio ${stepIndex + 1} di ${steps.length}` : ''}
+            {loaded && !done && steps[stepIndex + 1] ? <span className="hidden sm:inline"> · Poi: {STEP_LABEL[steps[stepIndex + 1]]}</span> : null}
+          </p>
+          <h2 id="energy-step-title" ref={headingRef} tabIndex={-1} className={`truncate text-lg outline-none ${UI.title}`}>
+            {done ? 'Fatto' : STEP_LABEL[loaded ? current : 'detect']}
+          </h2>
         </div>
-        <button type="button" onClick={onClose} disabled={saving} aria-label="Chiudi configurazione" className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40">
+        {loaded && !done && (moduleOf(current) || current === 'history' || current === 'detect') ? (
+          <button
+            type="button"
+            aria-pressed={advanced}
+            aria-label="Configurazione avanzata per tutti i dispositivi"
+            onClick={() => setAdvanced(!advanced)}
+            className={`${UI.chip} ${advanced ? 'font-semibold text-[color:var(--ui-accent)]' : ''}`}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden min-[420px]:inline">Avanzata</span>
+          </button>
+        ) : null}
+        <button type="button" onClick={done ? finish : onClose} disabled={saving} aria-label="Chiudi configurazione" className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40">
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </header>
-      {loaded ? (
+      {loaded && !done ? (
         <ol className="flex gap-1 px-4 pt-3 sm:px-6" aria-label="Passaggi della configurazione">
           {steps.map((id, index) => (
-            <li key={id} aria-current={index === step ? 'step' : undefined} className={`h-1 flex-1 rounded-full ${index <= step ? 'bg-[color:var(--ui-accent)]' : 'bg-[color:var(--ui-fill-secondary)]'}`}>
+            <li key={id} aria-current={index === stepIndex ? 'step' : undefined} className={`h-1 flex-1 rounded-full ${index <= stepIndex ? 'bg-[color:var(--ui-accent)]' : 'bg-[color:var(--ui-fill-secondary)]'}`}>
               <span className="sr-only">{index + 1}. {STEP_LABEL[id]}</span>
             </li>
           ))}
         </ol>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-        <div className="mx-auto max-w-5xl space-y-4">{body}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+        <div className="mx-auto max-w-3xl space-y-4">{body}</div>
       </div>
       {footer ? (
         <footer className="border-t border-[color:var(--ui-separator)] px-4 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] pt-3 sm:px-6">
-          <div className="mx-auto max-w-5xl">{footer}</div>
+          <div className="mx-auto max-w-3xl">{footer}</div>
         </footer>
       ) : null}
     </div>
@@ -266,8 +295,16 @@ export default function EnergySetupWizard({
   if (!loaded) {
     return shell(<p role="status" className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Ricerca dei dispositivi in Home Assistant…</p>);
   }
+  if (done) {
+    return shell(
+      <SuccessView lines={done.lines} realtimeOnly={done.realtimeOnly} />,
+      <div className="flex sm:justify-end">
+        <button type="button" onClick={finish} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>Vai a Domus Energy</button>
+      </div>,
+    );
+  }
 
-  const { result, v2, stored, reserved, proposals, meters } = loaded;
+  const { result, v2, stored, reserved, proposals, meters, discovery } = loaded;
   const review = proposals ? reviewDiscovery(proposals) : null;
   const plant = plantFromDraft(draft);
   const legacyBlocked = !v2 && modulesFromPlant(plant) === null;
@@ -281,26 +318,47 @@ export default function EnergySetupWizard({
   const taken = takenSensors(draft);
   const takenFor = (holder: string) => Object.fromEntries(Object.entries(taken).filter(([, by]) => by !== holder));
   const present = presentModules(draft);
-  const blocked = (current === 'devices' && issues.length > 0) || (current === 'tariff' && !tariffBlank && !tariff);
+  const counts = plantCounts(draft);
+  const lockedModules = ORDER.filter((id) => stored[id]?.devices.length);
+  const detectedModules = ORDER.filter((id) => review?.newDevices.some((device) => device.module === id && device.confidence !== 'low'));
+  const recommend = (module: EnergyModuleId, role: string) => recommendedSensor(module, role, discovery, proposals, haStates, taken);
+  const confirm = (key: string, value: boolean) => setConfirmed((currentSet) => {
+    const next = new Set(currentSet);
+    if (value) next.add(key);
+    else next.delete(key);
+    return next;
+  });
 
-  const go = (target: StepId) => setStep(steps.indexOf(target));
-  const addNew = (module: EnergyModuleId) => {
-    const { draft: next, id } = addDevice(draft, module, reserved);
-    setDraft(next);
-    setOpen(id);
+  const stepModule = moduleOf(current);
+  const stepIssues = stepModule
+    ? issues.filter((issue) => issue.module === stepModule && !isMeterField(issue))
+    : current === 'history' ? issues.filter(isMeterField) : [];
+  const blocked = stepIssues.length > 0 || (current === 'tariff' && !tariffBlank && !tariff);
+  const pendingNew = (module: EnergyModuleId) => review?.newDevices.filter((proposal) => proposal.module === module && !applied[proposal.key]) ?? [];
+
+  /** Moving forward into a component with nothing yet opens a first device to fill in. */
+  const enter = (target: StepId, base: PlantDraft = draft) => {
+    const module = moduleOf(target);
+    let next = base;
+    if (module && !next[module]?.devices.some((device) => !device.removed) && !pendingNew(module).length) {
+      const added = addDevice(next, module, reserved);
+      next = added.draft;
+      setOpen(added.id);
+    }
+    if (next !== draft) setDraft(next);
+    setStepId(target);
   };
+  const goNext = () => enter(steps[stepIndex + 1]);
+  const goBack = () => setStepId(steps[stepIndex - 1]);
+
   const applyDevice = (proposal: EnergyDiscoveryV2Device) => {
     const { draft: next, id } = applyNewDevice(draft, proposal, reserved, meters);
     setDraft(next);
-    setApplied((current) => ({ ...current, [proposal.key]: id }));
+    setApplied((currentApplied) => ({ ...currentApplied, [proposal.key]: id }));
   };
-  const undoDevice = (proposal: EnergyDiscoveryV2Device) => {
-    setDraft((current) => removeDevice(current, proposal.module, applied[proposal.key]));
-    setApplied(({ [proposal.key]: _gone, ...rest }) => rest);
-  };
-  const eligible = review?.newDevices.filter((proposal) => proposal.eligible && !applied[proposal.key]) ?? [];
+  const eligible = review?.newDevices.filter((proposal) => proposal.eligible && !applied[proposal.key] && chosen.includes(proposal.module)) ?? [];
   // Still one explicit choice: only devices the discovery could match without doubt.
-  const applyEligible = () => {
+  const useFound = () => {
     let next = draft;
     const ids: Record<string, string> = {};
     for (const proposal of eligible) {
@@ -308,16 +366,39 @@ export default function EnergySetupWizard({
       next = added.draft;
       ids[proposal.key] = added.id;
     }
-    setDraft(next);
-    setApplied((current) => ({ ...current, ...ids }));
+    setApplied((currentApplied) => ({ ...currentApplied, ...ids }));
+    enter(steps[stepIndex + 1], next);
   };
+
+  // Leaving components drops only what this setup added to them; saved devices stay.
+  const leave = (modules: EnergyModuleId[], keep: EnergyModuleId[]) => {
+    const gone = modules.filter((id) => !lockedModules.includes(id));
+    setChosen(ORDER.filter((id) => keep.includes(id) || (chosen.includes(id) && !gone.includes(id))));
+    setDraft((currentDraft) => gone.reduce((next, module) => (next[module]?.devices ?? [])
+      .filter((device) => device.isNew)
+      .reduce((after, device) => removeDevice(after, module, device.id), next), currentDraft));
+    setApplied((currentApplied) => Object.fromEntries(Object.entries(currentApplied)
+      .filter(([key]) => !gone.some((module) => key.startsWith(`${module}:`) || key.startsWith(`total:${module}:`)))));
+  };
+  const toggleModule = (module: EnergyModuleId) => {
+    if (lockedModules.includes(module)) return;
+    if (chosen.includes(module)) leave([module], []);
+    else setChosen(ORDER.filter((id) => id === module || chosen.includes(id)));
+  };
+  const onlyGrid = () => leave(['solar', 'battery', 'wallbox'], ['grid']);
 
   const handleSave = async () => {
     setSave({ status: 'saving' });
     try {
       if (v2) await saveEnergyPlant(callApi, plant, profileRevision(result), tariffToSave);
       else await saveEnergyProfile(callApi, modulesFromPlant(plant) ?? {}, profileRevision(result), tariffToSave);
-      onSaved();
+      setSave({ status: 'idle' });
+      setDone({
+        lines: present.filter((id) => id !== 'home').map((id) => `${MODULE_META[id].label} · ${count(id, plant[id]?.devices.length ?? 0)}`)
+          .concat(present.includes('home') ? ['Consumi della casa misurati'] : [])
+          .concat(counts.meters ? [`${plural(counts.meters, 'contatore', 'contatori')} per lo storico`] : []),
+        realtimeOnly: counts.meters === 0,
+      });
     } catch (failure) {
       // The draft stays untouched so the user can retry or adjust it; nothing is merged.
       const error = toEnergyCoreError(failure);
@@ -325,317 +406,472 @@ export default function EnergySetupWizard({
     }
   };
 
-  const changes = plantChanges(stored, draft);
+  const recorderNote = review?.verificationIncomplete ? (
+    <Note>Alcuni contatori sono in attesa di Home Assistant, che si sta ancora avviando: potrai usarli comunque e Domus li verificherà più tardi.</Note>
+  ) : null;
+
+  /* ---- Steps ----------------------------------------------------------------------------- */
+
+  let body: React.ReactNode = null;
+  if (current === 'welcome') body = <WelcomeView />;
+
+  if (current === 'plant') {
+    body = <PlantChoice chosen={chosen} locked={lockedModules} detected={detectedModules} onToggle={toggleModule} onOnlyGrid={onlyGrid} />;
+  }
+
+  if (current === 'detect') {
+    const anything = Boolean(review && (review.newDevices.length || review.changes.length || review.verifiedTotals.length || review.presumedTotals.length));
+    // Found, doubtful or conflicting outside the chosen components: offered, never added on its own.
+    const elsewhere = ORDER.filter((id) => !chosen.includes(id) && (detectedModules.includes(id)
+      || review?.ambiguous.some((item) => item.module === id) || review?.conflicts.some((item) => item.module === id)));
+    const globalDoubts = review?.ambiguous.filter((item) => !item.module) ?? [];
+    body = (
+      <>
+        <div className="space-y-1">
+          <h3 className={TITLE}>{anything ? (firstSetup ? 'Abbiamo trovato il tuo impianto' : 'Ecco cosa abbiamo trovato') : !proposals ? 'Rilevamento automatico non riuscito' : 'Nessun dispositivo riconosciuto automaticamente'}</h3>
+          <p className={UI.body}>
+            {!proposals
+              ? `${loaded.discoveryError} Nei prossimi passaggi puoi comunque scegliere tu i dispositivi.`
+              : anything
+                ? 'Sono solo proposte: nei prossimi passaggi controlli ogni dispositivo, e nulla viene salvato prima del controllo finale.'
+                : 'Non è un errore: nei prossimi passaggi scegli tu i dispositivi che hai in casa, con i sensori che Domus ti consiglia.'}
+          </p>
+          {proposals && !anything && discovery?.energy_dashboard !== 'used' ? (
+            <p className={UI.muted}>Suggerimento: se imposti i contatori nella Dashboard Energia di Home Assistant, Domus potrà proporli in automatico.</p>
+          ) : null}
+        </div>
+        {result.legacy_v1?.diverged ? <Note tone="warning">Una versione precedente di Domus UI ha modificato l’impianto dopo l’aggiornamento: quelle modifiche non sono state applicate. Qui parti dalla configurazione attuale.</Note> : null}
+        {result.profile_v2?.load_error || result.profile?.load_error ? <Note tone="warning">Il profilo salvato non era leggibile ed è stato ignorato: salvando ne crei uno nuovo.</Note> : null}
+        {!v2 ? <Note>{LEGACY_LIMIT}</Note> : null}
+        {chosen.length ? <Findings findings={moduleFindings(review, Object.fromEntries(ORDER.map((id) => [id, stored[id]?.devices.length ?? 0])), chosen)} advanced={advanced} /> : null}
+        {elsewhere.map((id) => (
+          <div key={id} className={`${UI.card} flex flex-wrap items-center gap-2`}>
+            <p className={`flex-1 ${UI.body}`}>Domus ha trovato anche: {MODULE_META[id].label.toLowerCase()}.</p>
+            <button type="button" onClick={() => toggleModule(id)} className={UI.chip}><Plus className="h-3.5 w-3.5" aria-hidden="true" /> Aggiungilo all’impianto</button>
+          </div>
+        ))}
+        {globalDoubts.length ? (
+          <Note tone="warning">Alcuni contatori non hanno un componente chiaro: Domus non sceglie al posto tuo, potrai indicarli nel passaggio Storico dei consumi.</Note>
+        ) : null}
+        {recorderNote}
+        {proposals?.low_confidence.length ? <p className={UI.muted}>Altri {proposals.low_confidence.length} sensori sono stati trovati solo per nome: potrai sceglierli tu.</p> : null}
+        {eligible.length ? (
+          <p className={UI.muted}>
+            Con «Usa i dispositivi trovati» Domus aggiunge {plural(eligible.length, 'dispositivo riconosciuto', 'dispositivi riconosciuti')} con certezza; quelli da verificare li trovi nei passaggi successivi.
+          </p>
+        ) : null}
+      </>
+    );
+  }
+
+  if (stepModule) {
+    const module = stepModule;
+    const plan = draft[module];
+    const devices = plan?.devices ?? [];
+    const kept = devices.filter((device) => !device.removed).length;
+    const fromDiscovery = devices.filter((device) => Object.values(applied).includes(device.id)).length;
+    const suggestions = pendingNew(module);
+    const totals = review ? [...review.verifiedTotals, ...review.presumedTotals].filter((total) => total.module === module) : [];
+    const doubts = [
+      ...(review?.ambiguous.filter((item) => item.module === module).map((item) => `${AMBIGUITY_LABEL[item.reason] ?? item.reason}: ${item.entity_ids.map((id) => sensorName(haStates, discovery, id)).join(', ')}`) ?? []),
+      ...(review?.conflicts.filter((item) => item.module === module).map((item) => `${item.name ?? 'Un dispositivo'} corrisponde a più dispositivi configurati.`) ?? []),
+    ];
+    const canAdd = (v2 || kept === 0) && devices.length < MAX_DEVICES_PER_MODULE;
+    const addNew = () => {
+      const { draft: next, id } = addDevice(draft, module, reserved);
+      setDraft(next);
+      setOpen(id);
+    };
+    body = (
+      <>
+        <div className="space-y-1">
+          <h3 className={TITLE}>{MODULE_WORDS[module].title}</h3>
+          <p className={UI.body}>
+            {fromDiscovery
+              ? `Abbiamo trovato ${count(module, fromDiscovery)}. Apri una scheda per controllarla.`
+              : kept
+                ? `${count(module, kept)} nel tuo impianto. Apri una scheda per controllarla o modificarla.`
+                : 'Aggiungi il dispositivo e scegli il sensore: Domus ti suggerisce quello giusto quando lo trova.'}
+          </p>
+        </div>
+        {doubts.length ? (
+          <section aria-label="Da decidere" className={`${UI.card} space-y-1`}>
+            <p className={`text-sm ${UI.title}`}>Da decidere</p>
+            <ul className={`list-disc space-y-1 pl-5 ${UI.body}`}>{doubts.map((line) => <li key={line}>{line}</li>)}</ul>
+            <p className={UI.muted}>Domus non sceglie al posto tuo: apri il dispositivo e indica il sensore giusto.</p>
+          </section>
+        ) : null}
+        {plan?.total ? (
+          <TotalCard
+            module={module}
+            total={plan.total}
+            open={open === `${module}:total`}
+            onToggle={() => setOpen(open === `${module}:total` ? null : `${module}:total`)}
+            issues={issues.filter((issue) => issue.module === module)}
+            states={haStates}
+            discovery={discovery}
+            meters={meters}
+            taken={takenFor(`${MODULE_META[module].label} · totale`)}
+            advanced={advanced}
+            onChange={(total) => setDraft((currentDraft) => setTotal(currentDraft, module, total))}
+          />
+        ) : null}
+        {devices.length ? (
+          <ul aria-label={`Dispositivi: ${MODULE_META[module].label}`} className="space-y-2">
+            {devices.map((device, index) => {
+              const label = deviceLabel(module, device, index);
+              const deviceIssues = issues.filter((issue) => issue.deviceId === device.id && !isMeterField(issue));
+              const proposal = review?.changes.find((item) => item.module === module && item.device_id === device.id);
+              const changes = [
+                ...(proposal?.additions ?? []).filter((change) => change.kind !== 'energy').map((change) => ({ change, kind: 'Nuova sorgente' })),
+                ...(proposal?.corrections ?? []).filter((change) => change.kind !== 'energy').map((change) => ({ change, kind: 'Possibile correzione' })),
+              ];
+              const unconfirmedHere = unconfirmed.some((item) => item.holder === device.id);
+              return (
+                <DeviceCard
+                  key={device.id}
+                  module={module}
+                  device={device}
+                  index={index}
+                  states={haStates}
+                  status={deviceStatus(deviceIssues, unconfirmedHere)}
+                  open={open === device.id}
+                  onToggle={() => setOpen(open === device.id ? null : device.id)}
+                  onRemove={() => { setDraft((currentDraft) => removeDevice(currentDraft, module, device.id)); setOpen(null); }}
+                  onRestore={() => setDraft((currentDraft) => updateDevice(currentDraft, module, { ...device, removed: false }))}
+                  hint={deviceIssues.length && open !== device.id ? deviceIssues[0].message : null}
+                  hintTone="danger"
+                  advanced={advanced}
+                  extra={changes.length ? (
+                    <ul aria-label={`Suggerimenti per ${label}`} className="mt-2 space-y-1.5">
+                      {changes.map(({ change, kind }) => {
+                        const key = `${proposal!.key}:${change.kind}:${change.role}`;
+                        const ids = 'ids' in change ? change.ids : change.proposed;
+                        return (
+                          <li key={key} className="flex flex-wrap items-center gap-2 rounded-xl bg-[color:var(--ui-fill-tertiary)] p-2 text-sm">
+                            <span className="min-w-0 flex-1">
+                              <Sparkles className="mr-1 inline h-3.5 w-3.5 text-[color:var(--ui-accent)]" aria-hidden="true" />
+                              <span className={UI.title}>{kind}</span> · {change.kind === 'sign_convention' ? 'convenzione del segno' : ids.map((id) => sensorName(haStates, discovery, id)).join(' + ')}
+                              <TechDetails open={advanced}>{'configured' in change ? `${change.configured.join(' + ')} → ` : ''}{ids.join(' + ')}</TechDetails>
+                            </span>
+                            {applied[key] ? (
+                              <span className={UI.muted}><Check className="inline h-3.5 w-3.5" aria-hidden="true" /> Applicata</span>
+                            ) : (
+                              <button type="button" onClick={() => { setDraft((currentDraft) => applyChange(currentDraft, module, device.id, change)); setApplied((currentApplied) => ({ ...currentApplied, [key]: 'applied' })); }} className={UI.chip}>Applica</button>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : null}
+                >
+                  <DeviceDetail
+                    module={module}
+                    device={device}
+                    index={index}
+                    states={haStates}
+                    discovery={discovery}
+                    meters={meters}
+                    taken={takenFor(label)}
+                    issues={issues.filter((issue) => issue.deviceId === device.id)}
+                    recommend={(role) => recommend(module, role)}
+                    advanced={advanced}
+                    legacy={!v2}
+                    onChange={(next) => setDraft((currentDraft) => updateDevice(currentDraft, module, next))}
+                  />
+                </DeviceCard>
+              );
+            })}
+          </ul>
+        ) : null}
+        {suggestions.length ? (
+          <Section title={devices.length ? 'Domus ha trovato anche' : 'Trovati da Domus'}>
+            <ul className="space-y-2">
+              {suggestions.map((proposal) => (
+                <li key={proposal.key} className="flex flex-wrap items-center gap-3 rounded-[1.35rem] border border-dashed border-[color:var(--ui-border)] p-3">
+                  <ModuleIcon module={module} />
+                  <span className="min-w-0 flex-1">
+                    <span className={`block text-sm ${UI.title}`}>{proposal.name ?? MODULE_META[module].label}</span>
+                    <span className="mt-1 block"><StatusBadge status={proposal.eligible ? 'ready' : 'check'} label={proposal.confidence ? CONFIDENCE_TEXT[proposal.confidence] : undefined} /></span>
+                    <TechDetails open={advanced}>
+                      {[proposal.integration, ...(proposal.power ?? []).map((item) => item.entity_id), ...(proposal.energy ?? []).flatMap((item) => item.statistic_ids)].filter(Boolean).map((line) => <p key={line}>{line}</p>)}
+                    </TechDetails>
+                  </span>
+                  <button type="button" disabled={!canAdd} onClick={() => applyDevice(proposal)} className={UI.button} aria-label={`Aggiungi ${proposal.name ?? MODULE_WORDS[module].noun[0]}`}>
+                    <Plus className="h-4 w-4" aria-hidden="true" /> Aggiungi
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+        {totals.filter((total) => !applied[`total:${total.module}:${total.kind}:${total.role}`] && !plan?.total).map((total) => {
+          const key = `total:${total.module}:${total.kind}:${total.role}`;
+          return (
+            <div key={key} className="flex flex-wrap items-center gap-3 rounded-[1.35rem] border border-dashed border-[color:var(--ui-border)] p-3">
+              <span className="min-w-0 flex-1">
+                <span className={`block text-sm ${UI.title}`}>Domus ha trovato un sensore che misura tutto il {MODULE_META[module].label.toLowerCase()}</span>
+                <span className={`block ${total.status === 'verified' ? UI.muted : 'text-xs text-[color:var(--ui-warning)]'}`}>
+                  {total.status === 'verified'
+                    ? 'Home Assistant lo calcola sommando i dispositivi: Domus lo userà come totale, senza sommarlo di nuovo.'
+                    : 'Sembra un totale, ma non è verificato: usalo solo se misura davvero tutti i dispositivi.'}
+                </span>
+                <TechDetails open={advanced}>{total.ids.join(', ')}</TechDetails>
+              </span>
+              <button type="button" onClick={() => { setDraft((currentDraft) => applyTotal(currentDraft, total)); setApplied((currentApplied) => ({ ...currentApplied, [key]: 'applied' })); }} className={`${UI.button} w-full justify-center sm:w-auto`}>
+                {total.status === 'verified' ? 'Usa come totale' : 'Usa comunque come totale'}
+              </button>
+            </div>
+          );
+        })}
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={addNew} disabled={!canAdd} className={kept ? UI.button : UI.primary}>
+            <Plus className="h-4 w-4" aria-hidden="true" /> {MODULE_WORDS[module].add[kept ? 1 : 0]}
+          </button>
+          {advanced && !plan?.total && kept >= 2 ? (
+            <button
+              type="button"
+              onClick={() => { setDraft((currentDraft) => setTotal(currentDraft, module, { power: { ...emptyPower(), present: true }, meters: {} })); setOpen(`${module}:total`); }}
+              className={UI.button}
+            >
+              Aggiungi un sensore totale
+            </button>
+          ) : null}
+        </div>
+        {!v2 && kept >= 1 ? <p className={UI.muted}>Più dispositivi richiedono l’aggiornamento dell’integrazione Domus UI.</p> : null}
+        {!kept ? <p className={UI.muted}>Senza dispositivi, questo componente non verrà configurato.</p> : null}
+        {issues.filter((issue) => issue.module === module && !issue.deviceId && issue.field !== 'total').map((issue) => <p key={issue.message} className={ERROR_TEXT}>{issue.message}</p>)}
+      </>
+    );
+  }
+
+  if (current === 'history') {
+    const energyChange = (module: EnergyModuleId, deviceId: string, role: EnergyMeterRole) => {
+      const proposal = review?.changes.find((item) => item.module === module && item.device_id === deviceId);
+      const change = [...(proposal?.additions ?? []), ...(proposal?.corrections ?? [])].find((item) => item.kind === 'energy' && item.role === role);
+      if (!proposal || !change) return null;
+      const key = `${proposal.key}:${change.kind}:${change.role}`;
+      if (applied[key]) return null;
+      const ids = 'ids' in change ? change.ids : change.proposed;
+      return {
+        name: ids.map((id) => sensorName(haStates, discovery, id)).join(' + '),
+        apply: () => { setDraft((currentDraft) => applyChange(currentDraft, module, deviceId, change)); setApplied((currentApplied) => ({ ...currentApplied, [key]: 'applied' })); },
+      };
+    };
+    const offered = present.some((module) => draft[module]!.devices.some((device) => !device.removed && METER_ROLES[module].some(({ role }) => energyChange(module, device.id, role))));
+    body = (
+      <>
+        <div className="space-y-1">
+          <h3 className={TITLE}>Storico dei consumi</h3>
+          <p className={UI.body}>Questi contatori permettono a Domus di mostrarti produzione, consumi e costi nel tempo.</p>
+        </div>
+        {counts.meters === 0 && !offered ? (
+          <div className={`${UI.card} space-y-1`}>
+            <p className={`text-sm ${UI.title}`}>Non abbiamo trovato un contatore energetico.</p>
+            <p className={UI.body}>Puoi comunque utilizzare Domus Energy in tempo reale. Lo storico non sarà disponibile finché non ne configurerai uno.</p>
+          </div>
+        ) : null}
+        {recorderNote}
+        {present.map((module) => (
+          <section key={module} aria-label={`Storico: ${MODULE_META[module].label}`} className="space-y-2">
+            {draft[module]!.devices.map((device, index) => (device.removed ? null : (
+              <div key={device.id} className="space-y-2 rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-3">
+                <div className="flex items-center gap-3">
+                  <ModuleIcon module={module} />
+                  <p className={`text-sm ${UI.title}`}>{deviceLabel(module, device, index)}</p>
+                </div>
+                <SourcesHistory
+                  module={module}
+                  holder={device.id}
+                  sources={device}
+                  issues={issues.filter((issue) => issue.deviceId === device.id)}
+                  states={haStates}
+                  discovery={discovery}
+                  meters={meters}
+                  taken={takenFor(deviceLabel(module, device, index))}
+                  advanced={advanced}
+                  confirmations={confirmations}
+                  confirmed={confirmed}
+                  onConfirm={confirm}
+                  suggestionFor={(role) => energyChange(module, device.id, role)}
+                  onChange={(sources) => setDraft((currentDraft) => updateDevice(currentDraft, module, { ...device, ...sources }))}
+                />
+              </div>
+            )))}
+          </section>
+        ))}
+      </>
+    );
+  }
+
+  if (current === 'tariff') {
+    body = (
+      <>
+        <div className="space-y-1">
+          <h3 className={TITLE}>Vuoi aggiungere la tariffa?</h3>
+          <p className={UI.body}>Facoltativo: con i prezzi del contratto Domus mostra la fascia attuale e il suo costo. Puoi farlo anche più tardi dalle Impostazioni.</p>
+          <p className={UI.muted}>{TARIFF_HINT}</p>
+        </div>
+        <div className={GROUP} role="group" aria-label="Tariffa">
+          <TariffFields form={tariffDraft} onChange={setTariffDraft} withExport={present.includes('grid')} />
+        </div>
+      </>
+    );
+  }
+
+  if (current === 'summary') {
+    const changes = plantChanges(stored, draft);
+    const moduleState = (module: EnergyModuleId): GuideStatus =>
+      issues.some((issue) => issue.module === module) ? 'problem' : unconfirmed.some((item) => item.module === module) ? 'check' : 'ready';
+    const nodes: MapNode[] = present.map((module) => ({
+      module,
+      caption: module === 'home' ? 'misurata' : count(module, plant[module]?.devices.length ?? 0) + (plant[module]?.total ? ' e un totale' : ''),
+      status: moduleState(module),
+    }));
+    const fixStep = issues.length ? (`module:${issues[0].module}` as StepId) : null;
+    const holderLabel = (module: EnergyModuleId, holder: string | undefined) => {
+      if (holder === `${module}:total`) return `${MODULE_META[module].label} · totale`;
+      const index = draft[module]?.devices.findIndex((device) => device.id === holder) ?? -1;
+      return index >= 0 ? deviceLabel(module, draft[module]!.devices[index], index) : MODULE_META[module].label;
+    };
+    // The same confirmations as the history step, with names instead of ids.
+    const confirmationText = (item: Confirmation) => {
+      if (!item.role) return item.message;
+      const where = `${holderLabel(item.module, item.holder)} · ${HISTORY_TEXT[item.role]}`;
+      if (item.part) return `${where}: ${sensorName(haStates, discovery, item.part)} non è stato verificato da Home Assistant. I suoi dati potrebbero non essere disponibili.`;
+      const parts = (plant[item.module]?.devices.find((device) => device.id === item.holder) ?? plant[item.module]?.total)?.energy?.[item.role] ?? [];
+      return `${where}: questi ${parts.length} contatori verranno sommati (${parts.map((part) => sensorName(haStates, discovery, part)).join(', ')}). Verifica che rappresentino fasce differenti e non includano già un totale.`;
+    };
+    body = (
+      <>
+        <div className="space-y-1">
+          <h3 className={TITLE}>{issues.length || legacyBlocked ? 'Manca ancora qualcosa' : unconfirmed.length ? 'Quasi fatto: conferma qualche dettaglio' : 'Tutto pronto'}</h3>
+          <p className={UI.body}>{present.length ? 'Ecco il tuo impianto come lo vedrà Domus.' : 'Nessun dispositivo: Domus Energy risulterà non configurato.'}</p>
+        </div>
+        {present.length ? <PlantMap nodes={nodes} /> : null}
+        <ul aria-label="In breve" className="grid grid-cols-3 gap-2 text-center">
+          {[
+            [counts.devices, counts.devices === 1 ? 'dispositivo configurato' : 'dispositivi configurati'],
+            [counts.sensors, counts.sensors === 1 ? 'sensore collegato' : 'sensori collegati'],
+            [counts.meters, counts.meters === 1 ? 'contatore energetico disponibile' : 'contatori energetici disponibili'],
+          ].map(([value, label]) => (
+            <li key={label} className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] px-2 py-3">
+              <span className="block text-2xl font-semibold text-[color:var(--ui-text-primary)]">{value}</span>
+              <span className={`block ${UI.muted}`}>{label}</span>
+            </li>
+          ))}
+        </ul>
+        {counts.meters === 0 && present.length ? <p className={UI.muted}>Senza contatori Domus funziona in tempo reale; lo storico potrà essere configurato in seguito.</p> : null}
+        {issues.length || legacyBlocked ? (
+          <Section title="Da correggere">
+            <ul className={`list-disc space-y-1 pl-5 ${ERROR_TEXT}`}>
+              {legacyBlocked ? <li>{LEGACY_LIMIT}</li> : null}
+              {issues.map((issue, index) => <li key={index}>{MODULE_META[issue.module].label}: {issue.message}</li>)}
+            </ul>
+            {fixStep && steps.includes(fixStep) ? <button type="button" onClick={() => setStepId(fixStep)} className={UI.chip}>Vai a {STEP_LABEL[fixStep]}</button> : null}
+          </Section>
+        ) : null}
+        {confirmations.length ? (
+          <Section title="Da confermare">
+            <ul className="space-y-2">
+              {confirmations.map((item) => (
+                <li key={item.key}>
+                  <label className={`${UI.card} flex cursor-pointer items-start gap-2 text-sm`}>
+                    <input type="checkbox" className="mt-1" checked={confirmed.has(item.key)} onChange={(event) => confirm(item.key, event.target.checked)} />
+                    <span>{confirmationText(item)}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </Section>
+        ) : null}
+        {tariffToSave ? <p className={UI.body}><span className={UI.title}>Tariffa:</span> {tariffSummary(tariffToSave)}</p> : null}
+        {steps.includes('tariff') && !tariffToSave ? <p className={UI.muted}>Tariffa non configurata: potrai aggiungerla dalle Impostazioni.</p> : null}
+        {review?.verificationIncomplete ? <p className={UI.muted}>Alcuni contatori non sono ancora verificabili: Home Assistant li verificherà quando sarà pronto.</p> : null}
+        <details className="group" open={advanced || undefined}>
+          <summary className={`${UI.chip} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>Mostra riepilogo tecnico</summary>
+          <div className="mt-3">
+            <Section title="Modifiche">
+              {changes.length ? (
+                <ul className="space-y-2">
+                  {changes.map((change, index) => (
+                    <li key={index} className={UI.card}>
+                      <p className={`text-sm ${UI.title}`}>{change.title}</p>
+                      {change.details.length ? <ul className={`mt-1 space-y-0.5 ${UI.muted}`}>{change.details.map((detail) => <li key={detail} className="break-all">{detail}</li>)}</ul> : null}
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className={UI.muted}>Nessuna modifica all’impianto salvato.</p>}
+            </Section>
+          </div>
+        </details>
+        <div aria-live="polite">
+          {saving ? <p className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Salvataggio in corso…</p> : null}
+          {save.status === 'error' ? (
+            <div role="alert" className="space-y-2 text-sm text-[color:var(--ui-danger)]">
+              <p>{save.message} Le modifiche non salvate restano qui.</p>
+              {save.conflict ? <button type="button" onClick={() => void load()} className={UI.chip}>Carica la versione salvata (scarta la bozza)</button> : null}
+            </div>
+          ) : null}
+        </div>
+      </>
+    );
+  }
+
+  /* ---- Footer ---------------------------------------------------------------------------- */
+
+  const wide = 'flex-1 justify-center sm:flex-none';
+  let primary: React.ReactNode;
+  if (current === 'summary') {
+    primary = (
+      <button type="button" onClick={() => void handleSave()} disabled={saving || issues.length > 0 || legacyBlocked || unconfirmed.length > 0 || !dirty} className={`${UI.primary} ${wide}`}>
+        {saving ? <LoaderCircle className={UI.spin} aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+        Salva impianto
+      </button>
+    );
+  } else if (current === 'detect' && eligible.length) {
+    primary = <button type="button" onClick={useFound} className={`${UI.primary} ${wide}`}>Usa i dispositivi trovati</button>;
+  } else {
+    const label = current === 'welcome'
+      ? 'Iniziamo'
+      : current === 'tariff' && tariffBlank
+        ? 'Salta per ora'
+        : current === 'history' && counts.meters === 0
+          ? 'Continua senza storico'
+          : 'Avanti';
+    primary = (
+      <button
+        type="button"
+        onClick={() => { if (current === 'tariff') setSkipTariff(false); goNext(); }}
+        disabled={blocked}
+        aria-describedby={blocked ? 'energy-step-blocked' : undefined}
+        className={`${UI.primary} ${wide}`}
+      >
+        {label}
+      </button>
+    );
+  }
+
+  const secondary = [
+    stepIndex > 0 ? <button key="back" type="button" onClick={goBack} disabled={saving} className={`${UI.button} ${wide}`}>Indietro</button> : null,
+    current === 'detect' && eligible.length ? <button key="own" type="button" onClick={goNext} className={`${UI.button} ${wide}`}>Scelgo io</button> : null,
+    current === 'tariff' && !tariffBlank ? (
+      <button key="skip" type="button" onClick={() => { setSkipTariff(true); goNext(); }} className={`${UI.button} ${wide}`}>Salta</button>
+    ) : null,
+  ].filter(Boolean);
 
   return shell(
-    <>
-      {result.legacy_v1?.diverged ? (
-        <p role="note" className={`${UI.card} text-sm text-[color:var(--ui-warning)]`}>
-          Una versione precedente di Domus UI ha modificato l’impianto dopo l’aggiornamento: quelle modifiche non sono state applicate. Qui parti dalla configurazione attuale.
-        </p>
-      ) : null}
-      {result.profile_v2?.load_error || result.profile?.load_error ? (
-        <p role="note" className={`${UI.card} text-sm text-[color:var(--ui-warning)]`}>Il profilo salvato non era leggibile ed è stato ignorato: salvando ne crei uno nuovo.</p>
-      ) : null}
-
-      {current === 'detect' ? (
-        <>
-          <p className={UI.body}>
-            Domus ha cercato inverter, batterie, wallbox, contatori di rete e contatori di energia tra i dispositivi di Home Assistant. Sono solo proposte: scegli tu cosa aggiungere, nulla viene salvato prima del riepilogo.
-          </p>
-          {review?.verificationIncomplete ? (
-            <p role="status" className={`${UI.card} ${UI.muted}`}>Verifica dei contatori incompleta: Home Assistant o il suo Recorder si stanno avviando. I contatori restano proponibili; ripeti il rilevamento più tardi per verificarli.</p>
-          ) : null}
-          {!v2 ? <p role="note" className={`${UI.card} ${UI.muted}`}>{LEGACY_LIMIT}</p> : null}
-          {!proposals ? (
-            <div className={UI.card}>
-              <p className={UI.title}>Rilevamento automatico non riuscito</p>
-              <p className={`mt-1 ${UI.body}`}>{loaded.discoveryError} Nel passaggio successivo puoi comunque scegliere tu i dispositivi.</p>
-            </div>
-          ) : !proposals.devices.length && !proposals.totals.length ? (
-            <div className={UI.card}>
-              <p className={UI.title}>Nessun dispositivo riconosciuto automaticamente</p>
-              <p className={`mt-1 ${UI.body}`}>Non è un errore: nel passaggio successivo scegli tu i dispositivi che hai in casa e i loro sensori.</p>
-              {loaded.discovery?.energy_dashboard !== 'used' ? (
-                <p className={`mt-2 ${UI.muted}`}>Suggerimento: se imposti i contatori nella Dashboard Energia di Home Assistant, Domus potrà proporli in automatico.</p>
-              ) : null}
-            </div>
-          ) : null}
-          {review?.newDevices.length ? (
-            <Section title="Nuovi dispositivi">
-              <ul className="grid gap-2 lg:grid-cols-2">
-                {review.newDevices.map((proposal) => (
-                  <ProposalCard
-                    key={proposal.key}
-                    proposal={proposal}
-                    meters={meters}
-                    action={applied[proposal.key] ? (
-                      <button type="button" onClick={() => undoDevice(proposal)} className={UI.chip} aria-label={`Togli ${proposal.name ?? DEVICE_NOUN[proposal.module]}`}>
-                        <Check className="h-3.5 w-3.5" aria-hidden="true" /> Aggiunto
-                      </button>
-                    ) : (
-                      <button type="button" onClick={() => applyDevice(proposal)} className={UI.chip} aria-label={`Aggiungi ${proposal.name ?? DEVICE_NOUN[proposal.module]}`}>
-                        <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Aggiungi
-                      </button>
-                    )}
-                  />
-                ))}
-              </ul>
-              {eligible.length > 1 ? (
-                <button type="button" onClick={applyEligible} className={UI.button}>
-                  Aggiungi i {eligible.length} dispositivi affidabili
-                </button>
-              ) : null}
-            </Section>
-          ) : null}
-          {review?.changes.length ? (
-            <Section title="Proposte per i dispositivi configurati">
-              <ul className="space-y-2">
-                {review.changes.flatMap((proposal) => [
-                  ...(proposal.additions ?? []).map((change) => ({ proposal, change, kind: 'Nuova sorgente' })),
-                  ...(proposal.corrections ?? []).map((change) => ({ proposal, change, kind: 'Possibile correzione' })),
-                ]).map(({ proposal, change, kind }) => {
-                  const key = `${proposal.key}:${change.kind}:${change.role}`;
-                  const ids = 'ids' in change ? change.ids : change.proposed;
-                  const device = proposal.device_id ? draft[proposal.module]?.devices.find((item) => item.id === proposal.device_id) : undefined;
-                  return (
-                    <li key={key} className={`${UI.card} flex flex-wrap items-center justify-between gap-2 text-sm`}>
-                      <span className="min-w-0">
-                        <span className={UI.title}>{kind}</span> · {MODULE_META[proposal.module].label} · {device?.name || proposal.name || proposal.device_id}:{' '}
-                        <span className="break-all font-mono">{'configured' in change ? `${change.configured.join(' + ')} → ` : ''}{ids.join(' + ')}</span>
-                      </span>
-                      {applied[key] ? (
-                        <span className={UI.muted}><Check className="inline h-3.5 w-3.5" aria-hidden="true" /> Applicata</span>
-                      ) : (
-                        <button type="button" disabled={!device} onClick={() => { setDraft((currentDraft) => applyChange(currentDraft, proposal.module, proposal.device_id!, change)); setApplied((current) => ({ ...current, [key]: 'applied' })); }} className={UI.chip}>Applica</button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </Section>
-          ) : null}
-          {review && (review.verifiedTotals.length || review.presumedTotals.length) ? (
-            <Section title="Sensori totali">
-              <ul className="space-y-2">
-                {[...review.verifiedTotals, ...review.presumedTotals].map((total) => {
-                  const key = `total:${total.module}:${total.kind}:${total.role}`;
-                  return (
-                    <li key={key} className={`${UI.card} flex flex-wrap items-center justify-between gap-2 text-sm`}>
-                      <span className="min-w-0">
-                        <span className={UI.title}>{MODULE_META[total.module].label}</span>: <span className="break-all font-mono">{total.ids.join(', ')}</span>
-                        <span className={`block ${total.status === 'verified' ? UI.muted : 'text-xs text-[color:var(--ui-warning)]'}`}>
-                          {total.status === 'verified'
-                            ? 'Somma calcolata da Home Assistant: misura l’intero modulo e non viene sommata ai dispositivi.'
-                            : 'Sembra un totale, ma non è verificato: usalo solo se misura davvero tutti i dispositivi.'}
-                        </span>
-                      </span>
-                      {applied[key] ? <span className={UI.muted}><Check className="inline h-3.5 w-3.5" aria-hidden="true" /> Usato</span> : (
-                        <button type="button" onClick={() => { setDraft((currentDraft) => applyTotal(currentDraft, total)); setApplied((current) => ({ ...current, [key]: 'applied' })); }} className={UI.chip}>
-                          {total.status === 'verified' ? 'Usa come totale' : 'Usa comunque come totale'}
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </Section>
-          ) : null}
-          {review && (review.ambiguous.length || review.conflicts.length) ? (
-            <Section title="Da decidere">
-              <ul className={`list-disc space-y-1 pl-5 ${UI.body}`}>
-                {review.ambiguous.map((item, index) => (
-                  <li key={`a${index}`}>
-                    {item.module ? `${MODULE_META[item.module].label}: ` : ''}{AMBIGUITY_LABEL[item.reason] ?? item.reason} <span className="break-all font-mono text-xs">({item.entity_ids.join(', ')})</span>
-                  </li>
-                ))}
-                {review.conflicts.map((item) => <li key={item.key}>{MODULE_META[item.module].label}: {item.name ?? 'un dispositivo'} corrisponde a più dispositivi configurati.</li>)}
-              </ul>
-              <p className={UI.muted}>Domus non sceglie al posto tuo: nel passaggio successivo indica i sensori giusti.</p>
-            </Section>
-          ) : null}
-          {review && (review.configured.length || review.notDetected.length) ? (
-            <p className={UI.muted}>
-              Dispositivi già configurati: {review.configured.length + review.notDetected.length + review.changes.length}. Restano come sono finché non applichi una proposta.
-            </p>
-          ) : null}
-          {proposals?.low_confidence.length ? (
-            <p className={UI.muted}>Altri {proposals.low_confidence.length} sensori sono stati trovati solo per nome: puoi sceglierli tu nel passaggio successivo.</p>
-          ) : null}
-        </>
-      ) : null}
-
-      {current === 'devices' ? (
-        <>
-          {!present.length && firstSetup ? (
-            <>
-              <p className={UI.body}>Che impianto hai? Domus aggiunge un dispositivo per ogni componente; potrai aggiungerne altri e sceglierne i sensori.</p>
-              <PlantPicker
-                value={null}
-                onSelect={(plantId) => {
-                  if (plantId === OTHER_PLANT) return;
-                  let next = draft;
-                  for (const module of plantModules(plantId)) next = addDevice(next, module, reserved).draft;
-                  setDraft(next);
-                }}
-              />
-            </>
-          ) : (
-            <p className={UI.body}>Ogni dispositivo ha i suoi sensori di potenza e, se vuoi, i contatori di energia per lo storico. Quelli già configurati restano come sono finché non li modifichi.</p>
-          )}
-          <div className={GROUP}>
-            {ENERGY_MODULES.filter((id) => draft[id]?.devices.length).map((id) => (
-              <PlantModuleSection
-                key={id}
-                module={id}
-                draft={draft}
-                haStates={haStates}
-                discovery={loaded.discovery}
-                meters={meters}
-                issues={issues.filter((issue) => issue.module === id)}
-                open={open}
-                onOpen={setOpen}
-                onDraft={setDraft}
-                offline={result.module_status[id] === 'offline'}
-                takenFor={takenFor}
-                onAdd={() => addNew(id)}
-                addDisabled={!v2 && (draft[id]?.devices.filter((device) => !device.removed).length ?? 0) >= 1 ? 'Più dispositivi richiedono l’aggiornamento dell’integrazione Domus UI.' : undefined}
-              />
-            ))}
-          </div>
-          {ENERGY_MODULES.some((id) => !draft[id]?.devices.length) ? (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Aggiungi un componente">
-              {ENERGY_MODULES.filter((id) => !draft[id]?.devices.length).map((id) => (
-                <button key={id} type="button" onClick={() => addNew(id)} className={UI.chip}>
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {MODULE_META[id].label}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </>
-      ) : null}
-
-      {current === 'tariff' ? (
-        <div className="mx-auto max-w-3xl space-y-3">
-          <p className={UI.body}>
-            Facoltativo: con i prezzi del contratto Domus mostra la fascia attuale e il suo costo. Puoi saltare questo passaggio e aggiungerli più tardi dalle Impostazioni.
-          </p>
-          <p className={UI.muted}>{TARIFF_HINT}</p>
-          <div className={GROUP} role="group" aria-label="Tariffa">
-            <TariffFields form={tariffDraft} onChange={setTariffDraft} withExport={present.includes('grid')} />
-          </div>
-        </div>
-      ) : null}
-
-      {current === 'summary' ? (
-        <div className={`space-y-4 ${UI.body}`}>
-          <Section title="Impianto">
-            {present.length ? (
-              <ul className="space-y-1">
-                {present.map((id) => {
-                  const count = plant[id]?.devices.length ?? 0;
-                  return <li key={id}><span className={UI.title}>{MODULE_META[id].label}</span>: {count === 1 ? '1 dispositivo' : `${count} dispositivi`}{plant[id]?.total ? ' e un sensore totale' : ''}</li>;
-                })}
-              </ul>
-            ) : <p>Nessun dispositivo: Domus Energy risulterà non configurato.</p>}
-          </Section>
-          <Section title="Modifiche">
-            {changes.length ? (
-              <ul className="space-y-2">
-                {changes.map((change, index) => (
-                  <li key={index} className={UI.card}>
-                    <p className={UI.title}>{change.title}</p>
-                    {change.details.length ? <ul className={`mt-1 space-y-0.5 ${UI.muted}`}>{change.details.map((detail) => <li key={detail} className="break-all">{detail}</li>)}</ul> : null}
-                  </li>
-                ))}
-              </ul>
-            ) : <p className={UI.muted}>Nessuna modifica all’impianto salvato.</p>}
-            {tariffToSave ? <p><span className={UI.title}>Tariffa:</span> {tariffSummary(tariffToSave)}</p> : null}
-            {steps.includes('tariff') && !tariffToSave ? <p className={UI.muted}>Tariffa non configurata: potrai aggiungerla dalle Impostazioni.</p> : null}
-          </Section>
-          {issues.length || legacyBlocked ? (
-            <Section title="Da correggere">
-              <ul className={`list-disc space-y-1 pl-5 ${ERROR_TEXT}`}>
-                {legacyBlocked ? <li>{LEGACY_LIMIT}</li> : null}
-                {issues.map((issue, index) => <li key={index}>{MODULE_META[issue.module].label}: {issue.message}</li>)}
-              </ul>
-              <button type="button" onClick={() => go('devices')} className={UI.chip}>Torna ai dispositivi</button>
-            </Section>
-          ) : null}
-          {confirmations.length ? (
-            <Section title="Da confermare">
-              <ul className="space-y-2">
-                {confirmations.map((item) => (
-                  <li key={item.key}>
-                    <label className={`${UI.card} flex cursor-pointer items-start gap-2 text-sm`}>
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={confirmed.has(item.key)}
-                        onChange={(event) => setConfirmed((current) => {
-                          const next = new Set(current);
-                          if (event.target.checked) next.add(item.key);
-                          else next.delete(item.key);
-                          return next;
-                        })}
-                      />
-                      <span>{item.message}</span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          ) : null}
-          {review?.verificationIncomplete ? <p className={UI.muted}>Alcuni contatori non sono ancora verificabili: Home Assistant li verificherà quando il Recorder sarà pronto.</p> : null}
-          <div aria-live="polite">
-            {saving ? <p className="flex items-center gap-2"><LoaderCircle className={UI.spin} aria-hidden="true" /> Salvataggio in corso…</p> : null}
-            {save.status === 'error' ? (
-              <div role="alert" className="space-y-2 text-[color:var(--ui-danger)]">
-                <p>{save.message} Le modifiche non salvate restano qui.</p>
-                {save.conflict ? (
-                  <button type="button" onClick={() => void load()} className={UI.chip}>Carica la versione salvata (scarta la bozza)</button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
-    </>,
+    body,
     <>
       {blocked ? (
         <p id="energy-step-blocked" className={`mb-2 ${ERROR_TEXT}`}>
           {current === 'tariff' ? 'Correggi i prezzi evidenziati oppure salta questo passaggio.' : 'Completa o correggi i dispositivi evidenziati per continuare.'}
         </p>
       ) : null}
-      <div className="flex gap-2 sm:justify-end">
-        {step > 0 ? <button type="button" onClick={() => setStep(step - 1)} disabled={saving} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Indietro</button> : null}
-        {current === 'detect' && present.length && !issues.length ? (
-          <button type="button" onClick={() => go(steps.includes('tariff') ? 'tariff' : 'summary')} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Conferma impianto</button>
-        ) : null}
-        {current === 'tariff' && !tariffBlank ? (
-          <button type="button" onClick={() => { setSkipTariff(true); setStep(step + 1); }} className={`${UI.button} flex-1 justify-center sm:flex-none`}>Salta</button>
-        ) : null}
-        {current !== 'summary' ? (
-          <button
-            type="button"
-            onClick={() => { if (current === 'tariff') setSkipTariff(false); setStep(step + 1); }}
-            disabled={blocked}
-            aria-describedby={blocked ? 'energy-step-blocked' : undefined}
-            className={`${UI.primary} flex-1 justify-center sm:flex-none`}
-          >
-            {current === 'tariff' && tariffBlank ? 'Salta per ora' : 'Avanti'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => void handleSave()}
-            disabled={saving || issues.length > 0 || legacyBlocked || unconfirmed.length > 0 || !dirty}
-            className={`${UI.primary} flex-1 justify-center sm:flex-none`}
-          >
-            {saving ? <LoaderCircle className={UI.spin} aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
-            Salva impianto
-          </button>
-        )}
+      {/* Phones: with two secondary actions the main one takes its own row on top. */}
+      <div className={`gap-2 sm:flex sm:justify-end ${secondary.length > 1 ? 'grid grid-cols-2 [&>*:last-child]:order-first [&>*:last-child]:col-span-2 sm:[&>*:last-child]:order-none' : 'flex'}`}>
+        {secondary}
+        {primary}
       </div>
     </>,
   );

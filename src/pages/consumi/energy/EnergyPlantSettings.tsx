@@ -11,7 +11,7 @@ import {
   type EnergyModuleId,
   type EnergyProfileResult,
 } from '../../../services/energyCoreClient';
-import { PlantModuleSection } from './EnergyDeviceEditor';
+import { PlantModuleSection } from './EnergyGuidedDevice';
 import { ERROR_TEXT } from './EnergyModuleEditor';
 import { ROW } from './EnergyTariffFields';
 import { MODULE_META, UI } from './energyModel';
@@ -26,12 +26,14 @@ import {
   validatePlantDraft,
   type PlantDraft,
 } from './energyPlantDraft';
+import { recommendedSensor } from './energyGuide';
 import { referenceCheck } from './energySensorCatalog';
 
 /*
- * Settings of an Energy Profile v2 plant (several devices, meters, a total):
- * configured devices and totals are edited and saved as a whole plant. New
- * devices come from the setup wizard; nothing is saved without the backend.
+ * Settings of an Energy Profile v2 plant: each device at a glance, opening on
+ * its guided detail and, on request, the advanced editor. Configured devices
+ * and totals are saved as a whole plant; new devices come from the guided
+ * setup, which stays the recommended way to add them.
  */
 
 type Status = { saving?: boolean; message?: string; error?: boolean };
@@ -108,6 +110,7 @@ export function EnergyPlantSettings({
           onDraft={setDraft}
           offline={result.module_status[id] === 'offline'}
           takenFor={takenBy}
+          recommend={(module, role) => recommendedSensor(module, role, discovery, null, haStates, taken)}
         />
       ))}
       {onRediscover ? (
@@ -115,7 +118,7 @@ export function EnergyPlantSettings({
           <button type="button" onClick={onRediscover} className={UI.button}>
             <Search className="h-4 w-4" aria-hidden="true" /> Aggiungi dispositivi o nuovo rilevamento
           </button>
-          <p className={`w-full ${UI.muted}`}>Il rilevamento guidato propone nuovi inverter, batterie, wallbox e contatori: nulla cambia senza la tua conferma.</p>
+          <p className={`w-full ${UI.muted}`}>La configurazione guidata trova nuovi inverter, batterie, wallbox e contatori: nulla cambia senza la tua conferma.</p>
         </div>
       ) : null}
       {confirming ? (

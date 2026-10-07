@@ -1,30 +1,19 @@
 import React from 'react';
-import { Battery, CarFront, Home, Plus, SunMedium, TowerControl, Trash2, Undo2, X, type LucideIcon } from 'lucide-react';
+import { Battery, CarFront, Home, Plus, SunMedium, TowerControl, X, type LucideIcon } from 'lucide-react';
 import type { MockEntityStateMap } from '../../../types/ha';
-import type { EnergyDiscovery, EnergyMeterInfo, EnergyMeterStatus, EnergyModuleId } from '../../../services/energyCoreClient';
+import type { EnergyDiscovery, EnergyMeterInfo, EnergyMeterRole, EnergyMeterStatus, EnergyModuleId } from '../../../services/energyCoreClient';
 import type { DraftIssue } from './energyDraft';
 import { ERROR_TEXT, ModuleEditor } from './EnergyModuleEditor';
 import { MODULE_META, UI } from './energyModel';
-import {
-  DEVICE_NOUN,
-  MAX_DEVICES_PER_MODULE,
-  METER_ROLES,
-  deviceLabel,
-  emptyPower,
-  meterLines,
-  removeDevice,
-  setTotal,
-  updateDevice,
-  type PlantDraft,
-  type PlantDraftDevice,
-  type PlantDraftSources,
-  type PlantIssue,
-} from './energyPlantDraft';
-import { ROW } from './EnergyTariffFields';
+import { METER_ROLES, meterLines, type PlantDraftDevice, type PlantDraftSources, type PlantIssue } from './energyPlantDraft';
 import { EnergySensorPicker } from './EnergySensorPicker';
-import { sensorOptions } from './energySensorCatalog';
+import { sensorOptions, type SensorOption } from './energySensorCatalog';
 
-/* Editors of one device and of a module total, shared by the settings and the setup wizard. */
+/*
+ * Advanced editors of one device and of a module total ("Configurazione
+ * avanzata"): every sensor, meter, convention and capacity of the draft, with
+ * the technical names. The guided views in EnergyGuidedDevice edit the same draft.
+ */
 
 export const METER_STATUS: Record<EnergyMeterStatus, { label: string; tone: string }> = {
   valid: { label: 'Valido', tone: 'text-[color:var(--ui-success)]' },
@@ -61,7 +50,7 @@ export function MeterStatusLine({ info }: { info: EnergyMeterInfo | undefined })
   );
 }
 
-type Shared = {
+export type Shared = {
   module: EnergyModuleId;
   haStates: MockEntityStateMap;
   discovery: EnergyDiscovery | null;
@@ -69,6 +58,74 @@ type Shared = {
   /** Sensors used elsewhere in the plant, by holder. */
   taken: Record<string, string>;
 };
+
+/** The meters of one role: one picker per part, summed when several. */
+export function MeterRoleRows({
+  scope,
+  role,
+  label,
+  sources,
+  options,
+  meters,
+  taken,
+  error,
+  onChange,
+}: {
+  scope: string;
+  role: EnergyMeterRole;
+  label: string;
+  sources: PlantDraftSources;
+  options: SensorOption[];
+  meters: Record<string, EnergyMeterInfo>;
+  taken: Record<string, string>;
+  error?: PlantIssue;
+  onChange: (sources: PlantDraftSources) => void;
+}) {
+  const parts = meterLines(sources.meters[role]);
+  // Rows keep an empty line being filled; the saved plant drops it.
+  const rows = (sources.meters[role] ?? '').split('\n');
+  const write = (next: string[]) => onChange({ ...sources, meters: { ...sources.meters, [role]: next.join('\n') } });
+  return (
+    <div className="space-y-1.5">
+      {rows.map((part, index) => {
+        const inputId = `energy-${scope}-${role}-${index}`;
+        return (
+          <div key={index} className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <label htmlFor={inputId} className="sr-only">{label} {index + 1}</label>
+              <EnergySensorPicker
+                id={inputId}
+                value={part}
+                options={options}
+                taken={taken}
+                placeholder="Cerca un contatore o scrivi fonte:nome"
+                invalid={Boolean(error)}
+                onChange={(value) => write(rows.map((item, at) => (at === index ? value : item)))}
+              />
+              {part ? <MeterStatusLine info={meters[part]} /> : null}
+            </div>
+            {rows.length > 1 || part ? (
+              <button type="button" onClick={() => write(rows.filter((_, at) => at !== index))} className={`${UI.chip} min-h-10`} aria-label={`Togli ${part || 'contatore vuoto'}`}>
+                <X className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
+        );
+      })}
+      {parts.length > 1 ? (
+        <p className="text-[11px] text-[color:var(--ui-warning)]">
+          Questi {parts.length} contatori verranno sommati: indicali solo se rappresentano fasce o parti diverse e nessuno include già il totale.
+        </p>
+      ) : null}
+      {parts.length && rows.every((row) => row.trim()) ? (
+        <button type="button" onClick={() => write([...rows, ''])} className={UI.chip}>
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Aggiungi un contatore da sommare
+        </button>
+      ) : null}
+      {error ? <p className={ERROR_TEXT}>{error.message}</p> : null}
+    </div>
+  );
+}
 
 function MetersEditor({
   module,
@@ -88,54 +145,22 @@ function MetersEditor({
       <p className={UI.title}>Contatori di energia</p>
       <p className={UI.muted}>Statistiche di Home Assistant in kWh, per lo storico. Facoltativi: senza, il dispositivo resta in tempo reale.</p>
       <div className="mt-3 space-y-3">
-        {METER_ROLES[module].map(({ role, label }) => {
-          const parts = meterLines(sources.meters[role]);
-          // Rows keep an empty line being filled; the saved plant drops it.
-          const rows = (sources.meters[role] ?? '').split('\n');
-          const write = (next: string[]) => onChange({ ...sources, meters: { ...sources.meters, [role]: next.join('\n') } });
-          const error = issues.find((issue) => issue.field === role);
-          return (
-            <div key={role} className="space-y-1.5" role="group" aria-label={label}>
-              <p className={`text-sm ${UI.title}`}>{label}</p>
-              {rows.map((part, index) => {
-                const inputId = `energy-${scope}-${role}-${index}`;
-                return (
-                  <div key={index} className="flex items-start gap-2">
-                    <div className="min-w-0 flex-1">
-                      <label htmlFor={inputId} className="sr-only">{label} {index + 1}</label>
-                      <EnergySensorPicker
-                        id={inputId}
-                        value={part}
-                        options={options}
-                        taken={taken}
-                        placeholder="Cerca un contatore o scrivi fonte:nome"
-                        invalid={Boolean(error)}
-                        onChange={(value) => write(rows.map((item, at) => (at === index ? value : item)))}
-                      />
-                      {part ? <MeterStatusLine info={meters[part]} /> : null}
-                    </div>
-                    {rows.length > 1 || part ? (
-                      <button type="button" onClick={() => write(rows.filter((_, at) => at !== index))} className={`${UI.chip} min-h-10`} aria-label={`Togli ${part || 'contatore vuoto'}`}>
-                        <X className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                    ) : null}
-                  </div>
-                );
-              })}
-              {parts.length > 1 ? (
-                <p className="text-[11px] text-[color:var(--ui-warning)]">
-                  Questi {parts.length} contatori verranno sommati: indicali solo se rappresentano fasce o parti diverse e nessuno include già il totale.
-                </p>
-              ) : null}
-              {parts.length && rows.every((row) => row.trim()) ? (
-                <button type="button" onClick={() => write([...rows, ''])} className={UI.chip}>
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Aggiungi un contatore da sommare
-                </button>
-              ) : null}
-              {error ? <p className={ERROR_TEXT}>{error.message}</p> : null}
-            </div>
-          );
-        })}
+        {METER_ROLES[module].map(({ role, label }) => (
+          <div key={role} className="space-y-1.5" role="group" aria-label={label}>
+            <p className={`text-sm ${UI.title}`}>{label}</p>
+            <MeterRoleRows
+              scope={scope}
+              role={role}
+              label={label}
+              sources={sources}
+              options={options}
+              meters={meters}
+              taken={taken}
+              error={issues.find((issue) => issue.field === role)}
+              onChange={onChange}
+            />
+          </div>
+        ))}
       </div>
     </fieldset>
   );
@@ -259,151 +284,8 @@ export function TotalEditor({
 
 export const MODULE_ICONS: Record<EnergyModuleId, LucideIcon> = { grid: TowerControl, solar: SunMedium, home: Home, battery: Battery, wallbox: CarFront };
 
-function totalSummary(total: PlantDraftSources) {
+/** Sensors and meters of a total, in one line for the technical details. */
+export function totalSummary(total: PlantDraftSources) {
   const power = total.power.present ? Object.values(total.power.sensors).filter(Boolean) : [];
   return [...power, ...Object.values(total.meters).flatMap((parts) => meterLines(parts))].join(', ');
-}
-
-/**
- * One module of a plant: its total sensor and devices, each opening on its
- * editor, with removal and restore. Shared by the settings and the wizard;
- * only the wizard adds devices (`onAdd`).
- */
-export function PlantModuleSection({
-  module,
-  draft,
-  issues,
-  open,
-  onOpen,
-  onDraft,
-  offline = false,
-  takenFor,
-  onAdd,
-  addDisabled,
-  ...shared
-}: Omit<Shared, 'module' | 'taken'> & {
-  module: EnergyModuleId;
-  draft: PlantDraft;
-  issues: PlantIssue[];
-  open: string | null;
-  onOpen: (key: string | null) => void;
-  onDraft: (update: (current: PlantDraft) => PlantDraft) => void;
-  offline?: boolean;
-  /** Sensors taken by anything but this holder. */
-  takenFor: (holder: string) => Record<string, string>;
-  onAdd?: () => void;
-  /** Why no device can be added, when none can. */
-  addDisabled?: string;
-}) {
-  const plan = draft[module];
-  if (!plan) return null;
-  const Icon = MODULE_ICONS[module];
-  const totalHolder = `${MODULE_META[module].label} · totale`;
-  const totalOpen = open === `${module}:total`;
-  const kept = plan.devices.filter((device) => !device.removed).length;
-  return (
-    <section aria-label={MODULE_META[module].label} className="border-t border-[color:var(--ui-separator)] first:border-t-0">
-      <div className={`${ROW} border-t-0`}>
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)]">
-          <Icon className="h-4 w-4 text-[color:var(--ui-text-secondary)]" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">
-            {MODULE_META[module].label}
-            {offline ? <span className="ml-2 text-[10px] font-semibold text-amber-500">Offline</span> : null}
-          </p>
-          <p className={UI.muted}>{plan.devices.length === 1 ? '1 dispositivo' : `${plan.devices.length} dispositivi`}</p>
-        </div>
-      </div>
-      {plan.total ? (
-        <div className={`${ROW} ${UI.muted}`}>
-          <span className="min-w-0 flex-1">
-            <span className="font-semibold text-[color:var(--ui-text-secondary)]">Sensore totale</span> · misura l’intero modulo, i dispositivi sono il dettaglio.{' '}
-            <span className="break-all font-mono">{totalSummary(plan.total)}</span>
-          </span>
-          <button type="button" aria-expanded={totalOpen} aria-label={`${totalOpen ? 'Chiudi' : 'Modifica'} il sensore totale di ${MODULE_META[module].label}`} onClick={() => onOpen(totalOpen ? null : `${module}:total`)} className={UI.chip}>
-            {totalOpen ? 'Chiudi' : 'Modifica'}
-          </button>
-          {totalOpen ? (
-            <TotalEditor
-              {...shared}
-              module={module}
-              total={plan.total}
-              taken={takenFor(totalHolder)}
-              issues={issues.filter((issue) => issue.field === 'total')}
-              onChange={(total) => onDraft((current) => setTotal(current, module, total))}
-            />
-          ) : null}
-        </div>
-      ) : kept >= 2 ? (
-        <div className={ROW}>
-          <button
-            type="button"
-            onClick={() => { onDraft((current) => setTotal(current, module, { power: { ...emptyPower(), present: true }, meters: {} })); onOpen(`${module}:total`); }}
-            className={UI.chip}
-          >
-            Aggiungi un sensore totale
-          </button>
-        </div>
-      ) : null}
-      {plan.devices.map((device, index) => {
-        const label = deviceLabel(module, device, index);
-        const deviceIssues = issues.filter((issue) => issue.deviceId === device.id);
-        const sensors = Object.values(device.power.present ? device.power.sensors : {}).filter(Boolean);
-        const meterCount = Object.values(device.meters).reduce((count, parts) => count + meterLines(parts).length, 0);
-        const isOpen = open === device.id && !device.removed;
-        return (
-          <div key={device.id} className={ROW}>
-            <div className="min-w-0 flex-1 pl-12">
-              <p className={`text-sm font-medium ${device.removed ? 'text-[color:var(--ui-text-tertiary)] line-through' : 'text-[color:var(--ui-text-primary)]'}`}>
-                {label}{device.isNew ? <span className="ml-2 text-[10px] font-semibold text-[color:var(--ui-accent)]">Nuovo</span> : null}
-              </p>
-              <p className={`truncate ${UI.muted}`}>
-                {device.removed
-                  ? 'Verrà rimosso al salvataggio'
-                  : [sensors.join(', ') || 'Nessun sensore di potenza', meterCount ? `${meterCount} ${meterCount === 1 ? 'contatore' : 'contatori'} di energia` : null].filter(Boolean).join(' · ')}
-              </p>
-              {deviceIssues.length && !isOpen ? <p className={ERROR_TEXT}>{deviceIssues[0].message}</p> : null}
-            </div>
-            {device.removed ? (
-              <button type="button" onClick={() => onDraft((current) => updateDevice(current, module, { ...device, removed: false }))} className={UI.chip} aria-label={`Ripristina ${label}`}>
-                <Undo2 className="h-3.5 w-3.5" aria-hidden="true" /> Ripristina
-              </button>
-            ) : (
-              <>
-                <button type="button" aria-expanded={isOpen} aria-label={`${isOpen ? 'Chiudi' : 'Modifica'} ${label}`} onClick={() => onOpen(isOpen ? null : device.id)} className={UI.chip}>
-                  {isOpen ? 'Chiudi' : 'Modifica'}
-                </button>
-                <button type="button" onClick={() => { onDraft((current) => removeDevice(current, module, device.id)); onOpen(null); }} className={UI.chip} aria-label={`Rimuovi ${label}`}>
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              </>
-            )}
-            {isOpen ? (
-              <DeviceEditor
-                {...shared}
-                module={module}
-                device={device}
-                index={index}
-                taken={takenFor(label)}
-                issues={deviceIssues}
-                onChange={(next) => onDraft((current) => updateDevice(current, module, next))}
-              />
-            ) : null}
-          </div>
-        );
-      })}
-      {issues.filter((issue) => !issue.deviceId && issue.field !== 'total').map((issue) => (
-        <p key={issue.message} className={`${ROW} ${ERROR_TEXT}`}>{issue.message}</p>
-      ))}
-      {onAdd ? (
-        <div className={ROW}>
-          <button type="button" onClick={onAdd} disabled={Boolean(addDisabled) || plan.devices.length >= MAX_DEVICES_PER_MODULE} className={UI.chip}>
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Aggiungi {DEVICE_NOUN[module]}
-          </button>
-          {addDisabled ? <p className={`w-full ${UI.muted}`}>{addDisabled}</p> : null}
-        </div>
-      ) : null}
-    </section>
-  );
 }

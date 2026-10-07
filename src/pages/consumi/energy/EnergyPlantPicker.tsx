@@ -1,30 +1,6 @@
-import { Check } from 'lucide-react';
 import type { EnergyModuleId } from '../../../services/energyCoreClient';
-import { UI } from './energyModel';
 
-/* Plant type picker of a first setup: one illustrated tile per hardware combination. */
-
-type Hardware = Exclude<EnergyModuleId, 'home'>;
-export type PlantId = string;
-
-/** Every combination with a grid connection; anything else (off-grid, partial metering) is "Altro". */
-const PLANTS: Array<{ id: PlantId; title: string; modules: Hardware[] }> = [
-  { id: 'grid', title: 'Solo rete', modules: ['grid'] },
-  { id: 'solar', title: 'Fotovoltaico', modules: ['grid', 'solar'] },
-  { id: 'solar-battery', title: 'Fotovoltaico + batteria', modules: ['grid', 'solar', 'battery'] },
-  { id: 'full', title: 'Impianto completo', modules: ['grid', 'solar', 'battery', 'wallbox'] },
-  { id: 'solar-wallbox', title: 'Fotovoltaico + wallbox', modules: ['grid', 'solar', 'wallbox'] },
-  { id: 'wallbox', title: 'Wallbox', modules: ['grid', 'wallbox'] },
-  { id: 'battery', title: 'Batteria', modules: ['grid', 'battery'] },
-  { id: 'battery-wallbox', title: 'Batteria + wallbox', modules: ['grid', 'battery', 'wallbox'] },
-];
-export const OTHER_PLANT = 'other';
-
-const SHORT: Record<Hardware, string> = { grid: 'Rete', solar: 'fotovoltaico', battery: 'batteria', wallbox: 'wallbox' };
-
-const listOf = (items: string[]) => (items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`);
-
-export const plantModules = (id: PlantId) => PLANTS.find((plant) => plant.id === id)?.modules ?? [];
+/* House illustration of the guided setup: only the hardware the plant has. */
 
 /** Line drawing of a house with only the installed hardware around it. */
 export function PlantIllustration({ modules, className = '' }: { modules: EnergyModuleId[]; className?: string }) {
@@ -77,73 +53,5 @@ export function PlantIllustration({ modules, className = '' }: { modules: Energy
         </g>
       ) : null}
     </svg>
-  );
-}
-
-const TILE =
-  'relative flex flex-col items-stretch gap-2 rounded-[1.35rem] border bg-[color:var(--ui-surface-primary)] p-3 text-left shadow-[var(--ui-shadow-card)] transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-accent)]';
-
-function Tile({
-  title,
-  caption,
-  modules,
-  selected,
-  onSelect,
-  className = '',
-}: {
-  title: string;
-  caption: string;
-  modules: EnergyModuleId[];
-  selected: boolean;
-  onSelect: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      aria-label={title}
-      onClick={onSelect}
-      className={`${TILE} ${className} ${selected ? 'border-[color:var(--ui-accent)] ring-1 ring-[color:var(--ui-accent)]' : 'border-[color:var(--ui-border)] hover:border-[color:var(--ui-text-tertiary)]'}`}
-    >
-      {selected ? (
-        <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-[color:var(--ui-accent)] text-white">
-          <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
-        </span>
-      ) : null}
-      <span className="flex h-20 items-center justify-center rounded-xl sm:h-24 bg-[color:var(--ui-fill-tertiary)] px-2">
-        <PlantIllustration modules={modules} className="h-full w-full max-w-[11rem]" />
-      </span>
-      <span className="px-0.5">
-        <span className={`block text-sm ${UI.title}`}>{title}</span>
-        <span className={`block ${UI.muted}`}>{caption}</span>
-      </span>
-    </button>
-  );
-}
-
-export function PlantPicker({ value, onSelect }: { value: PlantId | null; onSelect: (id: PlantId) => void }) {
-  return (
-    <div role="radiogroup" aria-label="Tipo di impianto" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
-      {PLANTS.map((plant) => (
-        <Tile
-          key={plant.id}
-          title={plant.title}
-          caption={listOf(plant.modules.map((id) => SHORT[id]))}
-          modules={plant.modules}
-          selected={value === plant.id}
-          onSelect={() => onSelect(plant.id)}
-        />
-      ))}
-      <Tile
-        title="Altro"
-        caption="Configurazione manuale dei moduli"
-        modules={[]}
-        selected={value === OTHER_PLANT}
-        onSelect={() => onSelect(OTHER_PLANT)}
-        className="col-span-2 sm:col-span-1"
-      />
-    </div>
   );
 }

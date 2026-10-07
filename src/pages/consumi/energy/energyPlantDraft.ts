@@ -445,7 +445,16 @@ export function plantChanges(stored: EnergyPlant, draft: PlantDraft): PlantChang
 
 /* ---- Confirmations the backend cannot give ---------------------------------------------- */
 
-export type Confirmation = { key: string; module: EnergyModuleId; message: string };
+export type Confirmation = {
+  key: string;
+  module: EnergyModuleId;
+  message: string;
+  /** Where it applies, so it can also be given next to the meter: a device id or `<module>:total`. */
+  holder?: string;
+  role?: EnergyMeterRole;
+  /** The meter that could not be verified, for `meter:` confirmations. */
+  part?: string;
+};
 
 /**
  * What the user must confirm before saving, for new or changed bindings only:
@@ -456,17 +465,20 @@ export function pendingConfirmations(stored: EnergyPlant, draft: PlantDraft, ver
   const confirmations: Confirmation[] = [];
   const next = plantFromDraft(draft);
   for (const id of ENERGY_MODULES) {
-    const holders: Array<[string, EnergySources, EnergySources | undefined]> = [];
+    const holders: Array<[string, EnergySources, EnergySources | undefined, string]> = [];
     const before = new Map((stored[id]?.devices ?? []).map((device) => [device.id, device]));
-    next[id]?.devices.forEach((device, index) => holders.push([device.name ?? `${MODULE_META[id].label} ${index + 1}`, device, before.get(device.id)]));
-    if (next[id]?.total) holders.push([`${MODULE_META[id].label} · totale`, next[id]!.total!, stored[id]?.total]);
-    for (const [label, sources, previous] of holders) {
+    next[id]?.devices.forEach((device, index) => holders.push([device.name ?? `${MODULE_META[id].label} ${index + 1}`, device, before.get(device.id), device.id]));
+    if (next[id]?.total) holders.push([`${MODULE_META[id].label} · totale`, next[id]!.total!, stored[id]?.total, `${id}:total`]);
+    for (const [label, sources, previous, holder] of holders) {
       for (const [role, parts] of metersOf(sources)) {
         const was = previous?.energy?.[role] ?? [];
         for (const part of parts.filter((item) => !was.includes(item) && !verified(item))) {
           confirmations.push({
             key: `meter:${part}`,
             module: id,
+            holder,
+            role,
+            part,
             message: `${label} · ${roleName(id, role)}: ${part} non è verificato da Home Assistant. I suoi dati potrebbero non essere disponibili.`,
           });
         }
@@ -474,6 +486,8 @@ export function pendingConfirmations(stored: EnergyPlant, draft: PlantDraft, ver
           confirmations.push({
             key: `parts:${id}:${label}:${role}`,
             module: id,
+            holder,
+            role,
             message: `${label} · ${roleName(id, role)}: questi ${parts.length} contatori verranno sommati (${parts.join(', ')}). Verifica che rappresentino fasce differenti e non includano già un totale.`,
           });
         }
