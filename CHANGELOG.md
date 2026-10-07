@@ -99,6 +99,12 @@
 
 ### Changed
 
+- The release check now budgets the real cost of each part of the app instead
+  of mainly the total: startup, Home, each section opened from Home and each
+  on-demand feature (Energy setup and settings, card catalog, sidebars, members
+  map), raw and gzip, on the build's module graph. Limits are versioned and
+  documented in `docs/performance-budget.md`; the total cap moves from 5.52 MB
+  to 6.2 MB because the growth since then is code loaded only when needed.
 - The presentation website is no longer bundled into the dashboard: the
   internal `/beta` address of the Home Assistant panel is gone, and the site
   is built on its own with `npm run build:site` (now checked in CI). The

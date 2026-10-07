@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import path from 'path';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { buildProductionCsp } from './src/security/contentSecurityPolicy';
+import { bundleGraphPlugin } from './scripts/bundle-graph-plugin.mjs';
 import { loadLocalHttpsOptions } from './vite.localHttps';
 import { packageVersion, productionCspPlugin } from './vite.shared';
 
@@ -94,6 +95,8 @@ export default defineConfig(({ mode }) => {
     panelBridgeDistributionPlugin(),
     react(),
     tailwindcss(),
+    // build/bundle-graph.json for the performance budget; dist is unchanged.
+    bundleGraphPlugin({ root: __dirname }),
   ],
   base: './',
   define: {

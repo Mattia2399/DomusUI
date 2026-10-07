@@ -39,7 +39,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Bundle budget
+      # Startup, Home, routes and on-demand features, raw and gzip (docs/performance-budget.md).
+      - name: Performance budget
         run: npm run build:budget
 
       # The presentation site is no longer part of the dashboard bundle; make
