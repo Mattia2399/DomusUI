@@ -14,6 +14,7 @@ import { useIsWide } from '../hooks/useMediaQuery';
 import { useSceneProgress } from '../hooks/useSceneProgress';
 import { useSiteCopy } from '../i18n/SiteLocaleProvider';
 import { DURATION, EASE_OUT, SECTION_IDS } from '../tokens';
+import { SITE_CATALOG } from '../catalog';
 
 /**
  * CARDS — "component storytelling".
@@ -65,22 +66,7 @@ const FOCUS: { id: 'climate' | 'light' | 'alarm' | 'media' | 'camera'; traits: s
   },
 ];
 
-const FAMILIES = [
-  'Sensor',
-  'Light',
-  'Switch',
-  'Fan',
-  'Humidifier',
-  'Climate',
-  'Alarm',
-  'Lock',
-  'Cover',
-  'Camera',
-  'Media Player',
-  'Vacuum',
-  'Calendar',
-  'Members',
-];
+const FAMILIES = [...SITE_CATALOG.devices, ...SITE_CATALOG.content];
 
 // Timeline (scroll progress of the pinned track).
 const T_FLAT = 0.06;
@@ -413,7 +399,10 @@ export function CardsSection() {
                 {cards.families} <span className="s-mute">{cards.familiesMuted}</span>
               </p>
               <p className="mx-auto mt-3 max-w-3xl text-[0.8rem] leading-relaxed text-white/40">
-                {FAMILIES.join(' · ')}
+                {cards.catalogDetail}
+              </p>
+              <p className="mx-auto mt-2 max-w-3xl text-[0.8rem] leading-relaxed text-white/50">
+                {FAMILIES.map(({ kind }) => cards.familyNames[kind]).join(' · ')}
               </p>
             </motion.div>
           ) : null}

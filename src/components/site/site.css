@@ -1,3 +1,17 @@
+@font-face {
+  font-family: 'Geist Variable';
+  src: url('@fontsource-variable/geist/files/geist-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Geist Mono Variable';
+  src: url('@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 /*
  * Domus UI presentation site — design system.
  *
@@ -7,6 +21,22 @@
  * base lit by the #5BA8FF → #1768D5 gradient, with one warm accent borrowed
  * from the real Climate card.
  */
+
+.s-demo-placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  padding: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 1.5rem;
+  background: #11141c;
+  color: #e2eaf6;
+  font-size: 0.8rem;
+}
+.s-demo-placeholder small { color: #8996ab; }
 
 .site {
   /* Surfaces */
@@ -73,6 +103,48 @@
   -webkit-tap-highlight-color: transparent;
   /* clip (not hidden) keeps position: sticky working for pinned scenes. */
   overflow-x: clip;
+}
+
+.s-energy {
+  background: radial-gradient(ellipse at 15% 50%, rgb(31 134 110 / 0.12), transparent 65%);
+  border-block: 1px solid var(--s-line);
+}
+.s-energy-heading, .s-energy-body, .s-energy-notes { display: grid; gap: 2.5rem; }
+.s-energy-heading { align-items: end; }
+.s-energy-visual {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--s-line);
+  border-radius: var(--s-radius-xl);
+  background: radial-gradient(ellipse at center, #172c30, #090f16 70%);
+  padding: 1.5rem;
+}
+.s-energy-modules { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem 1rem; }
+.s-energy-modules li { display: flex; align-items: center; gap: 0.4rem; color: #b2dbd1; font-size: 0.72rem; }
+.s-energy-visual picture { display: block; width: 100%; aspect-ratio: 1; max-width: 36rem; margin: auto; }
+.s-energy-visual img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.s-energy-visual figcaption { text-align: center; color: var(--s-ink-2); font-size: 0.7rem; }
+.s-energy-features { display: grid; }
+.s-energy-features article { display: flex; gap: 1.25rem; padding-block: 1.5rem; border-bottom: 1px solid var(--s-line); }
+.s-energy-features article:first-child { padding-top: 0; }
+.s-energy-features .s-label { padding-top: 0.3rem; color: #8ed6bf; }
+.s-energy h3, .s-update-grid h3 { color: var(--s-ink); font-size: 1.15rem; font-weight: 600; letter-spacing: -0.02em; }
+.s-energy-features p, .s-energy-notes p, .s-update-grid article > p:last-child { color: var(--s-ink-2); font-size: 0.95rem; line-height: 1.75; margin-top: 0.6rem; }
+.s-energy-notes { gap: 1rem; }
+.s-energy-notes > div { border: 1px solid var(--s-line); border-radius: var(--s-radius-lg); padding: 1.5rem; background: rgb(255 255 255 / 0.02); }
+.s-text-link { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--s-blue); font-size: 0.9rem; }
+.s-text-link:hover { text-decoration: underline; text-underline-offset: 0.3em; }
+.s-update-grid { display: grid; gap: 1rem; }
+.s-update-grid article { padding: 1.75rem; border: 1px solid var(--s-line); border-radius: var(--s-radius-lg); background: var(--s-bg-raised); }
+.s-update-grid h3 { margin-top: 0.75rem; }
+.s-mobile-menu { overflow-y: auto; padding-top: 6rem; }
+.s-mobile-menu > ul { margin-top: auto; }
+.s-mobile-menu li a { font-size: clamp(1.4rem, 4vh, 2.4rem); padding-block: min(1rem, 1.5vh); }
+@media (min-width: 768px) {
+  .s-energy-heading, .s-energy-body { grid-template-columns: 1.05fr 1fr; gap: 3.5rem; }
+  .s-energy-notes, .s-update-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* The app's base layer assigns its own display face to headings; the site keeps one family. */

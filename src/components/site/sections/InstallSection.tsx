@@ -9,15 +9,16 @@ import { DURATION, EASE_OUT, SECTION_IDS, SITE_LINKS } from '../tokens';
  * feature-status band (docs/feature-status.md).
  */
 
-type Status = 'ok' | 'beta' | 'later';
+type Status = 'ok' | 'beta' | 'later' | 'preview';
 
 // Status per area, in the same order as copy.install.areas (docs/feature-status.md).
-const STATUS: Status[] = ['ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'beta', 'later', 'later', 'later', 'later'];
+const STATUS: Status[] = ['ok', 'ok', 'ok', 'ok', 'ok', 'ok', 'beta', 'later', 'later', 'later', 'ok', 'later', 'beta', 'ok'];
 
 const STATUS_COLOR: Record<Status, string> = {
   ok: 'var(--s-ok)',
   beta: 'var(--s-beta)',
   later: 'var(--s-ink-3)',
+  preview: 'var(--s-beta)',
 };
 
 function StatusBand() {

@@ -247,7 +247,7 @@ export function HeroSection() {
           <div className="s-container flex flex-col gap-8 pb-8 md:flex-row md:items-end md:justify-between md:pb-12">
             <motion.div
               className="max-w-xl"
-              initial={{ opacity: 0, y: 24 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: DURATION.slow, ease: EASE_OUT, delay: 0.9 }}
             >
@@ -260,7 +260,7 @@ export function HeroSection() {
             </motion.div>
             <motion.div
               className="pointer-events-auto flex flex-wrap items-center gap-3"
-              initial={{ opacity: 0, y: 24 }}
+              initial={false}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: DURATION.slow, ease: EASE_OUT, delay: 1.05 }}
             >

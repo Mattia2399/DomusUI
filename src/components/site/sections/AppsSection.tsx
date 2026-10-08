@@ -1,8 +1,8 @@
 import { motion, useMotionValue, useReducedMotion, useTransform, type MotionValue } from 'framer-motion';
 import { useRef } from 'react';
-import irrigationImage from '../../../assets/irrigation-smart-hero.jpg';
-import poolImage from '../../../assets/pool-spa-preview.jpg';
-import technicalImage from '../../../assets/technical-room-preview.jpg';
+import irrigationImage from '../assets/irrigation-smart-hero.webp';
+import poolImage from '../assets/pool-spa-preview.webp';
+import technicalImage from '../assets/technical-room-preview.webp';
 import { useObservedElementSize } from '../../../hooks/useObservedElementSize';
 import { useIsWide } from '../hooks/useMediaQuery';
 import { useSceneProgress } from '../hooks/useSceneProgress';

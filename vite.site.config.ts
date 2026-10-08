@@ -28,7 +28,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, '.'),
     },
   },
+  esbuild: {
+    legalComments: 'eof',
+  },
   build: {
+    manifest: true,
     outDir: path.resolve(__dirname, 'dist-site'),
     emptyOutDir: true,
     // One HTML page per language: / (Italian) and /en/ (English).

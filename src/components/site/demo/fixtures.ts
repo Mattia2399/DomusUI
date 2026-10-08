@@ -1,6 +1,5 @@
 import type { Widget } from '../../../types/dashboardModels';
 import type { MockEntityState } from '../../../types/ha';
-import { createVacuumStateMocks, VACUUM_MAX_COMPAT_MOCK_ENTITY_ID } from '../../widgets/vacuumMock';
 
 /**
  * Card fixtures for the presentation site.
@@ -89,7 +88,8 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
     id: 'site.camera',
     kind: 'camera',
     title: '',
-    entityId: 'camera.garden',
+    // Image-only demo: no HA proxy/stream endpoint exists on the public site.
+    entityId: '',
     dataSource: 'mock',
     status: 'streaming',
     isOn: true,
@@ -119,7 +119,7 @@ export const DEMO_WIDGETS: Record<DemoCardId, Widget> = {
     id: 'site.vacuum',
     kind: 'vacuum',
     title: '',
-    entityId: VACUUM_MAX_COMPAT_MOCK_ENTITY_ID,
+    entityId: 'vacuum.demo_robot',
     dataSource: 'mock',
     status: 'docked',
     isOn: false,
@@ -143,5 +143,5 @@ export const STATIC_ENTITIES = {
     unit: 'W',
     rawAttributes: { device_class: 'power', friendly_name: 'Energia casa', min: 0, max: 900 },
   },
-  vacuum: createVacuumStateMocks()[VACUUM_MAX_COMPAT_MOCK_ENTITY_ID],
+  vacuum: { state: 'docked' },
 } satisfies Record<string, MockEntityState>;

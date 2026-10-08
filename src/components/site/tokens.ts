@@ -24,6 +24,8 @@ export const SECTION_IDS = {
   layouts: 'layouts',
   cards: 'cards',
   live: 'live',
+  energy: 'energy',
+  updates: 'updates',
   apps: 'apps',
   trust: 'trust',
   install: 'install',
@@ -35,9 +37,9 @@ export type SectionId = (typeof SECTION_IDS)[keyof typeof SECTION_IDS];
 export const NAV_SECTIONS = [
   'layouts',
   'cards',
-  'live',
+  'energy',
+  'updates',
   'apps',
-  'trust',
   'install',
 ] as const satisfies readonly SectionId[];
 
@@ -49,6 +51,7 @@ export const SITE_LINKS = {
   releases: `${REPOSITORY}/releases`,
   installGuide: `${REPOSITORY}/blob/main/docs/installation-beta.md`,
   featureStatus: `${REPOSITORY}/blob/main/docs/feature-status.md`,
+  energy: `${REPOSITORY}/blob/main/docs/energy-core.md`,
   security: `${REPOSITORY}/blob/main/docs/security-and-privacy.md`,
   changelog: `${REPOSITORY}/blob/main/CHANGELOG.md`,
   issues: `${REPOSITORY}/issues/new?template=bug_report.yml`,

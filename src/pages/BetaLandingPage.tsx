@@ -1,6 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import '../components/site/site.css';
-import { registerSiteFonts } from '../components/site/fonts';
 import { DemoHomeProvider } from '../components/site/demo/DemoHomeProvider';
 import { SiteLocaleProvider, useSiteCopy, type SiteLocale } from '../components/site/i18n/SiteLocaleProvider';
 import { AppsSection } from '../components/site/sections/AppsSection';
@@ -13,10 +12,9 @@ import { LiveHomeSection } from '../components/site/sections/LiveHomeSection';
 import { ManifestoSection } from '../components/site/sections/ManifestoSection';
 import { SupportSection } from '../components/site/sections/SupportSection';
 import { TrustSection } from '../components/site/sections/TrustSection';
+import { EnergySection } from '../components/site/sections/EnergySection';
+import { UpdatesSection } from '../components/site/sections/UpdatesSection';
 import { SiteNav } from '../components/site/SiteNav';
-import { I18nProvider, useI18n } from '../i18n/I18nProvider';
-
-registerSiteFonts();
 
 /**
  * /beta — the Domus UI presentation site.
@@ -37,9 +35,7 @@ export function BetaLandingPage({
   /** Real URLs of each language version; without them the switch changes language in place. */
   languageLinks?: Record<SiteLocale, string>;
 }) {
-  const appLocale = useI18n().locale;
-  // Inside the app (/beta) follow the app language; French falls back to English.
-  const [previewLocale, setPreviewLocale] = useState<SiteLocale>(appLocale === 'it' ? 'it' : 'en');
+  const [previewLocale, setPreviewLocale] = useState<SiteLocale>('it');
   const locale = pageLocale ?? previewLocale;
 
   const switchTo = useMemo(
@@ -52,18 +48,23 @@ export function BetaLandingPage({
 
   return (
     <SiteLocaleProvider locale={locale} switchTo={switchTo}>
-      {/* The real cards speak the page's language, independently of the app setting. */}
-      <I18nProvider forcedLocale={locale}>
-        <DemoHomeProvider>
-          <SitePage locale={locale} />
-        </DemoHomeProvider>
-      </I18nProvider>
+      <DemoHomeProvider>
+        <SitePage locale={locale} />
+      </DemoHomeProvider>
     </SiteLocaleProvider>
   );
 }
 
 function SitePage({ locale }: { locale: SiteLocale }) {
   const { meta } = useSiteCopy();
+  useEffect(() => {
+    // On a direct /#energy visit the target does not exist until React mounts.
+    if (!window.location.hash) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ block: 'start' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
   return (
     <div className="site dashboard-theme-dark" lang={locale}>
       <a
@@ -79,6 +80,8 @@ function SitePage({ locale }: { locale: SiteLocale }) {
         <LayoutsSection />
         <CardsSection />
         <LiveHomeSection />
+        <EnergySection />
+        <UpdatesSection />
         <AppsSection />
         <TrustSection />
         <InstallSection />

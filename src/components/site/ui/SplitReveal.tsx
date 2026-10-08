@@ -1,4 +1,4 @@
-import { motion, type Variants } from 'framer-motion';
+import { motion, useReducedMotion, type Variants } from 'framer-motion';
 import type { ElementType } from 'react';
 import { DURATION, EASE_OUT } from '../tokens';
 
@@ -41,6 +41,7 @@ export function SplitReveal({
   stagger?: number;
 }) {
   const normalized = lines.map((line) => (typeof line === 'string' ? { text: line } : line));
+  const reducedMotion = useReducedMotion();
   const label = normalized.map((line) => line.text).join(' ');
   const playProps =
     trigger === 'mount'
@@ -52,7 +53,7 @@ export function SplitReveal({
       <motion.span
         aria-hidden
         className="block"
-        initial="hidden"
+        initial={trigger === 'mount' || reducedMotion ? false : 'hidden'}
         custom={{ stagger, delay }}
         variants={container}
         {...playProps}

@@ -1,73 +1,42 @@
-import { useMemo } from 'react';
+import { Component, lazy, Suspense, useRef, type ReactNode } from 'react';
+import { useInView } from 'framer-motion';
 import type { GridEngineBreakpoint } from '../../dashboard/dashboardBreakpointConfig';
-import { WidgetCardRenderer } from '../../widgets/CardRenderer';
 import { useSiteCopy } from '../i18n/SiteLocaleProvider';
-import { useDemoHome } from './DemoHomeProvider';
-import { DEMO_WIDGETS, SENSOR_HISTORY, type DemoCardId } from './fixtures';
+import type { DemoCardId } from './fixtures';
 
-const noop = () => undefined;
+const Runtime = lazy(() => import('./DemoCardRuntime'));
 
 export type CardSpan = { w: number; h: number };
-
-/**
- * Renders a real Domus UI card bound to the shared demo home.
- *
- * `span` and `breakpoint` must describe the grid cell the card sits in, so
- * the production variant resolver picks the same Mini / Standard / Expanded
- * layout it would pick on a real dashboard.
- */
-export function DemoCard({
-  id,
-  span,
-  breakpoint = 'xl',
-  interactive = true,
-}: {
+export type DemoCardProps = {
   id: DemoCardId;
   span?: CardSpan;
   breakpoint?: GridEngineBreakpoint;
   interactive?: boolean;
-}) {
-  const { entities, actions, switchConsumption, dashboardState } = useDemoHome();
-  const title = useSiteCopy().demo.titles[id];
-  const base = DEMO_WIDGETS[id];
-  const w = span?.w ?? base.layout.w;
-  const h = span?.h ?? base.layout.h;
+};
 
-  // Stable identity per span: the renderer is memoised on the widget object.
-  const widget = useMemo(() => ({ ...base, title, layout: { ...base.layout, w, h } }), [base, title, w, h]);
+// A failed optional demo must not take the presentation or installation links down.
+class DemoBoundary extends Component<{ children: ReactNode; fallback: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() { return this.state.failed ? this.props.fallback : this.props.children; }
+}
 
+/** Mount real widgets only near the viewport; preserve the scene's grid geometry. */
+export function DemoCard(props: DemoCardProps) {
+  const ref = useRef<HTMLDivElement>(null);
+  const visible = useInView(ref, { margin: '200px 0px' });
+  const { demo, live } = useSiteCopy();
+  const fallback = (
+    <div className="s-demo-placeholder">
+      <span>{demo.titles[props.id]}</span>
+      <small>{live.badge}</small>
+    </div>
+  );
   return (
-    <WidgetCardRenderer
-      widget={widget}
-      dashboardState={dashboardState}
-      isEditMode={false}
-      isInteractive={interactive}
-      isSelected={false}
-      gridBreakpoint={breakpoint}
-      liveEntity={entities[id]}
-      value={id === 'sensor' ? 420 : undefined}
-      sensorHistory={id === 'sensor' ? SENSOR_HISTORY : undefined}
-      switchConsumptionEntity={id === 'switch' ? switchConsumption : undefined}
-      onClick={id === 'light' ? actions.toggleLamp : noop}
-      onLightBrightnessChange={(_, value) => actions.setLampBrightness(value)}
-      onLightColorChange={(_, hs) => actions.setLampHs(hs)}
-      onSwitchToggle={actions.toggleSwitch}
-      onClimatePowerToggle={actions.toggleClimate}
-      onClimateTargetTempChange={(_, value) => actions.setClimateTarget(value)}
-      onClimateModeChange={(_, mode) => actions.setClimateMode(mode)}
-      onClimateFanModeChange={(_, mode) => actions.setClimateFanMode(mode)}
-      onAlarmDisarm={() => actions.setAlarm('disarmed')}
-      onAlarmArm={(_, mode) => actions.setAlarm(mode === 'custom_bypass' ? 'armed_home' : `armed_${mode}`)}
-      onLockToggle={actions.toggleLock}
-      onLockOpen={noop}
-      onMediaToggle={actions.toggleMedia}
-      onMediaSeek={(_, position) => actions.seekMedia(position)}
-      onMediaNext={noop}
-      onMediaPrevious={noop}
-      onCoverOpen={() => actions.setCoverPosition(100)}
-      onCoverClose={() => actions.setCoverPosition(0)}
-      onCoverStop={noop}
-      onCoverPositionChange={(_, position) => actions.setCoverPosition(position)}
-    />
+    <div ref={ref} className="h-full w-full" data-demo-card={props.id}>
+      <DemoBoundary fallback={fallback}>
+        <Suspense fallback={fallback}>{visible ? <Runtime {...props} /> : fallback}</Suspense>
+      </DemoBoundary>
+    </div>
   );
 }

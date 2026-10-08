@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
-import poolImage from '../../../assets/pool-spa-preview.jpg';
+import poolImage from '../assets/pool-spa-preview.webp';
 import { useDashboardState, type DashboardStateShape } from '../../../hooks/useDashboardState';
 import type { MockEntityState } from '../../../types/ha';
 import { useSiteCopy } from '../i18n/SiteLocaleProvider';

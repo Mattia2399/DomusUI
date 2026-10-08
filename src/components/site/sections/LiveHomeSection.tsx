@@ -1,7 +1,7 @@
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { MousePointerClick } from 'lucide-react';
 import { useRef } from 'react';
-import poolImage from '../../../assets/pool-spa-preview.jpg';
+import poolImage from '../assets/pool-spa-preview.webp';
 import { DemoCard, type CardSpan } from '../demo/DemoCard';
 import { useDemoHome } from '../demo/DemoHomeProvider';
 import type { DemoCardId } from '../demo/fixtures';

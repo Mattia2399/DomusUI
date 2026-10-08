@@ -91,7 +91,7 @@ export function SiteNav() {
           aria-label={copy.nav.aria}
           className={`flex w-full items-center justify-between gap-4 rounded-full transition-[max-width,background-color,border-color,padding,box-shadow] duration-500 ease-[var(--s-ease-out)] ${
             condensed
-              ? 's-glass max-w-[52rem] py-1.5 pl-2 pr-1.5 shadow-[0_20px_50px_-20px_rgb(0_0_0/0.8)]'
+              ? 's-glass max-w-[62rem] py-1.5 pl-2 pr-1.5 shadow-[0_20px_50px_-20px_rgb(0_0_0/0.8)]'
               : 'max-w-[82rem] border border-transparent py-2 pl-2 pr-2'
           }`}
         >
@@ -173,7 +173,7 @@ export function SiteNav() {
             animate={{ clipPath: 'inset(0 0 0% 0)' }}
             exit={{ clipPath: 'inset(0 0 100% 0)' }}
             transition={{ duration: 0.6, ease: EASE_OUT }}
-            className="fixed inset-0 z-[45] flex flex-col justify-end bg-[#03050a]/97 px-[var(--s-gutter)] pb-[max(2.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
+            className="s-mobile-menu fixed inset-0 z-[45] flex flex-col justify-end bg-[#03050a]/97 px-[var(--s-gutter)] pb-[max(2.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl lg:hidden"
           >
             <ul className="space-y-1">
               {NAV_SECTIONS.map((id, index) => (

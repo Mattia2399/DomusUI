@@ -1,7 +1,13 @@
 /*
- * Website stylesheet: the app's design tokens and Tailwind layer, plus an
- * explicit source path. The site build's Vite root is site/, so Tailwind's
- * automatic detection would otherwise miss the components under src/.
+ * Reuse the app's design tokens and Tailwind layer, but disable automatic
+ * source detection for this build. Only presentation/card utilities belong
+ * in the public site; unrelated dashboard workspaces stay out of its CSS.
  */
-@import '../src/assets/index.css';
-@source '../src';
+@import '../src/assets/index.css' source(none);
+/* Only the presentation and the real cards it embeds need utilities. */
+@source './main.tsx';
+@source '../src/pages/BetaLandingPage.tsx';
+@source '../src/components/site';
+@source '../src/components/widgets';
+@source '../src/components/common';
+@source '../src/utils';

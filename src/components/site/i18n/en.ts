@@ -1,4 +1,5 @@
 import type { SiteCopy } from './it';
+import { SITE_CARD_COUNT, SITE_CATALOG } from '../catalog';
 
 /** English copy of the presentation site. Must mirror the Italian keys exactly. */
 export const en: SiteCopy = {
@@ -8,7 +9,7 @@ export const en: SiteCopy = {
   },
   nav: {
     aria: 'Main navigation',
-    items: { layouts: 'Layouts', cards: 'Cards', live: 'Live', apps: 'Apps', trust: 'Security', install: 'Install' },
+    items: { layouts: 'Layouts', cards: 'Cards', live: 'Live', energy: 'Energy', updates: 'Updates', apps: 'Apps', trust: 'Security', install: 'Install' },
     install: 'Install',
     github: 'Domus UI on GitHub',
     openMenu: 'Open menu',
@@ -67,7 +68,7 @@ export const en: SiteCopy = {
       { text: 'really happening.', accent: true },
     ],
     facts: [
-      { value: '14', label: 'card families' },
+      { value: String(SITE_CARD_COUNT), label: `cards + ${SITE_CATALOG.stacks.length} stacks` },
       { value: '3', label: 'grids: desktop, tablet, mobile' },
       { value: '0', label: 'lines of YAML' },
       { value: 'IT · EN · FR', label: 'languages included' },
@@ -122,8 +123,15 @@ export const en: SiteCopy = {
         copy: 'Snapshots and streams from your Home Assistant cameras, with a PTZ joystick where available.',
       },
     },
-    families: '14 families.',
+    families: `${SITE_CARD_COUNT} cards. ${SITE_CATALOG.stacks.length} stacks.`,
     familiesMuted: 'One language.',
+    catalogDetail: `${SITE_CATALOG.devices.length} device cards, ${SITE_CATALOG.content.length} elements for greeting/weather and scenes. Vertical, horizontal and grid stacks to arrange them.`,
+    familyNames: {
+      sensor: 'Sensors', light: 'Lights', switch: 'Switches', fan: 'Fans',
+      humidifier: 'Humidifiers', climate: 'Climate', alarm: 'Alarms', lock: 'Locks',
+      cover: 'Blinds', camera: 'Cameras', media: 'Media players', vacuum: 'Vacuums',
+      calendar: 'Calendar', members: 'Members', greeting: 'Greeting & weather', weather: 'Weather', scenes: 'Scenes',
+    },
   },
   live: {
     label: '04 — Live',
@@ -137,8 +145,44 @@ export const en: SiteCopy = {
     climateOff: 'Off',
     badge: 'Local demo',
   },
+  energy: {
+    label: '05 — Domus Energy Core',
+    title: 'Your energy.',
+    titleMuted: 'Your installation, made clear.',
+    lead: 'Grid, solar, home, batteries and EV charging in a view that adapts to the equipment you own. Domus Energy Core reads your Home Assistant sensors and gives every flow meaning.',
+    status: 'Available · version 1.5.0',
+    imageAlt: 'Illustration of a home with solar panels, battery storage and an electric car',
+    imageCaption: 'Illustrative view · components depend on your installation',
+    modules: ['Grid', 'Solar', 'Home', 'Batteries', 'EV charging'],
+    facts: [
+      { title: 'Guided from the first sensor.', text: 'Choose your home’s components, review detected devices and confirm the suggested sensors. Configure even a complex installation one step at a time.' },
+      { title: 'More inverters. More batteries. One view.', text: 'Each device keeps its name, sensors and readings. Totals distinguish measurements from sums; battery charge can be weighted by capacity.' },
+      { title: 'Clear readings, even with missing data.', text: 'Measured, calculated and estimated flows are labelled. Offline sensors, outdated readings and partial totals stay visible instead of becoming false zeroes.' },
+      { title: 'The tariff you actually use.', text: 'Set single, two-band or three-band prices, a fixed fee, VAT and an export price. See the active band and an estimate of the hourly grid import cost.' },
+    ],
+    localTitle: 'Inside Home Assistant.',
+    localText: 'No Domus cloud service, add-on or extra process. Energy Core is read-only monitoring: it sends no commands to inverters, batteries or chargers.',
+    historyTitle: 'History without invented data.',
+    historyText: 'Charts read Home Assistant energy statistics over 24 hours, 7 or 30 days and 12 months, including per-device data. Missing readings stay empty; historical costs and savings are not available yet.',
+    docs: 'Explore Domus Energy Core',
+  },
+  updates: {
+    label: '06 — Project updates',
+    title: 'Your home evolves.',
+    titleMuted: 'Domus UI evolves with it.',
+    lead: 'Recent improvements and upcoming features, with their actual availability.',
+    released: 'Available',
+    preview: 'Next release',
+    items: [
+      { title: 'Members and people', text: 'Link accounts to Home Assistant people, create or rename a member and update their photo. Management actions are reserved for administrators.' },
+      { title: 'Location within reach', text: 'Open a member’s map when their tracker provides coordinates. People without an available location still stay in the household list.' },
+      { title: 'The builder on every screen', text: 'Edit tablet and phone layouts from your desktop. Adaptive cards, stacks, undo/redo and versions help you find the right fit.' },
+      { title: 'What you need, when you need it', text: 'The catalog, contextual panels and map load on demand. Domus Core provides the local foundation for home services; Energy monitors the installation from version 1.5.0.' },
+    ],
+    changelog: 'All updates in the changelog',
+  },
   apps: {
-    label: '05 — App Gallery',
+    label: '07 — App Gallery',
     title: 'Beyond',
     titleMuted: 'the dashboard.',
     lead: 'Dedicated boards for the systems that deserve a space of their own. The first one is already here.',
@@ -165,7 +209,7 @@ export const en: SiteCopy = {
     ],
   },
   trust: {
-    label: '06 — Security & architecture',
+    label: '08 — Security & architecture',
     title: 'Home Assistant',
     titleMuted: 'stays in charge.',
     lead: 'Domus UI is the interface, not a new cloud. Identity, permissions and commands go through Home Assistant — from your finger to the device.',
@@ -186,7 +230,7 @@ export const en: SiteCopy = {
       {
         name: 'Domus UI integration',
         stack: 'Python · HACS',
-        text: 'Registers the panel, the native calendar and the Domus Core irrigation engine, which works server-side even with every screen closed.',
+        text: 'Hosts the panel, calendar, waste collection, irrigation and Energy Core. Everything runs inside Home Assistant.',
       },
       {
         name: 'Home Assistant',
@@ -201,7 +245,7 @@ export const en: SiteCopy = {
     ],
   },
   install: {
-    label: '07 — Install',
+    label: '09 — Install',
     title: 'Five steps.',
     titleMuted: 'Zero YAML.',
     lead: 'No configuration.yaml changes, no manual tokens, no copying files into /www.',
@@ -218,7 +262,7 @@ export const en: SiteCopy = {
     openHacs: 'Open in HACS',
     guide: 'Full guide',
     statusAria: 'Feature status',
-    statusLabels: { ok: 'Operational', beta: 'Beta', later: 'Coming later' },
+    statusLabels: { ok: 'Operational', beta: 'Beta', later: 'Coming later', preview: 'Next release' },
     areas: [
       'Home & Builder',
       'Rooms',
@@ -230,7 +274,10 @@ export const en: SiteCopy = {
       'Utility Room',
       'Pool & Spa',
       'Automations',
-      'Map & Lists',
+      'Members map',
+      'Lists',
+      'Waste collection',
+      'Domus Energy Core',
     ],
   },
   support: {
