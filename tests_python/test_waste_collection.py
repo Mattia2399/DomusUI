@@ -158,8 +158,8 @@ async def test_external_calendar_uses_exact_mapping_and_warns_when_unavailable(
     }
 
     with (
-        patch.object(hass.services, "has_service", return_value=True),
-        patch.object(hass.services, "async_call", new=AsyncMock(return_value=response)),
+        patch.object(type(hass.services), "has_service", return_value=True),
+        patch.object(type(hass.services), "async_call", new=AsyncMock(return_value=response)),
     ):
         events, warnings = await manager.async_events_between(
             datetime(2026, 10, 7, tzinfo=timezone.utc),
