@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CalendarCard, buildCalendarCardEvent } from './CalendarCard';
 import type { Widget } from '../../types/dashboardModels';
-import { CALENDAR_UPCOMING_EVENTS_ATTRIBUTE } from '../../services/calendarClient';
+import { CALENDAR_UPCOMING_EVENTS_ATTRIBUTE, WASTE_TYPES_ATTRIBUTE } from '../../services/calendarClient';
 
 const widget: Widget = {
   id: 'calendar-card',
@@ -91,6 +91,28 @@ describe('CalendarCard', () => {
     expect(row?.className).not.toContain('bg-[color:var(--ui-fill-tertiary)]');
     expect(container.querySelector('.calendar-card__event-icon')).toBeNull();
     expect(screen.getByText('Agenda libera')).toBeTruthy();
+  });
+
+  it('draws waste collection rows with the waste type icon and color', () => {
+    const entity = {
+      state: 'off',
+      rawAttributes: {
+        [CALENDAR_UPCOMING_EVENTS_ATTRIBUTE]: [
+          { uid: 'domus-ui-waste:organic:2026-09-24', summary: 'Organico', start: '2026-09-24', end: '2026-09-25', all_day: true },
+          { uid: 'dentist', summary: 'Dentista', start: '2026-09-24T10:00:00+02:00', end: '2026-09-24T11:00:00+02:00' },
+        ],
+        [WASTE_TYPES_ATTRIBUTE]: { organic: { name: 'Organico', icon: 'mdi:leaf', color: '#22c55e' } },
+      },
+    };
+    const { container } = render(
+      <CalendarCard widget={{ ...widget, layout: { ...widget.layout, w: 2, h: 4 } }} entity={entity} gridBreakpoint="sm" displayVariant="standard" isSelected={false} isEditMode={false} onClick={vi.fn()} />,
+    );
+
+    const rows = container.querySelectorAll<HTMLElement>('.calendar-card__event-row');
+    expect(rows[0].style.getPropertyValue('--calendar-event-accent')).toBe('#22c55e');
+    expect(rows[0].querySelector('.lucide-leaf')).toBeTruthy();
+    expect(rows[1].querySelector('.lucide-leaf')).toBeNull();
+    expect(rows[1].querySelector('.lucide-clock-3, .lucide-clock3')).toBeTruthy();
   });
 
   it('uses the extra manual rows to reveal more real events', () => {

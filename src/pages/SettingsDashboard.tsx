@@ -43,6 +43,7 @@ import type {
   HaEntityRegistryEntry,
 } from '../services/haRegistryPresentation';
 import GlassToggle from '../components/ui/GlassToggle';
+import GlassModal from '../components/ui/GlassModal';
 import {
   HOUSE_ACCESS_ROUTE,
   resolveHouseAccessView,
@@ -905,6 +906,8 @@ export default function SettingsDashboard({
   const restoreInputRef = useRef<HTMLInputElement | null>(null);
   const [actionFeedback, setActionFeedback] = useState<string>('');
   const [isActionBusy, setIsActionBusy] = useState(false);
+  const [wasteHasUnsavedChanges, setWasteHasUnsavedChanges] = useState(false);
+  const [wasteLeaveConfirmOpen, setWasteLeaveConfirmOpen] = useState(false);
   const [isRestoreBusy, setIsRestoreBusy] = useState(false);
   const [updatesPageOpen, setUpdatesPageOpen] = useState(false);
   // Re-render once a minute so uptime/duration labels stay fresh.
@@ -1443,13 +1446,40 @@ export default function SettingsDashboard({
       <SettingsDetailShell
         title={t('waste.settings.title')}
         subtitle={t('waste.settings.subtitle')}
-        onBack={() => navigateTo('/settings/home')}
+        onBack={() => (wasteHasUnsavedChanges ? setWasteLeaveConfirmOpen(true) : navigateTo('/settings/home'))}
       >
         <WasteCollectionSettings
           callApi={onCallApi}
           connected={isConnected}
           canConfigure={security.can('manage_rooms')}
           haStates={haStates}
+          onDirtyChange={setWasteHasUnsavedChanges}
+        />
+        <GlassModal
+          isOpen={wasteLeaveConfirmOpen}
+          onClose={() => setWasteLeaveConfirmOpen(false)}
+          title={t('waste.leave.title')}
+          description={t('waste.leave.description')}
+          variant="responsive"
+          size="sm"
+          footer={(
+            <div className="flex justify-end gap-2">
+              <button type="button" className="liquid-glass-control inline-flex min-h-10 items-center justify-center rounded-full px-4 text-sm font-semibold" onClick={() => setWasteLeaveConfirmOpen(false)}>
+                {t('waste.leave.stay')}
+              </button>
+              <button
+                type="button"
+                className="inline-flex min-h-10 items-center justify-center rounded-full bg-[color:var(--ui-danger)] px-4 text-sm font-semibold text-[color:var(--ui-danger-contrast)]"
+                onClick={() => {
+                  setWasteLeaveConfirmOpen(false);
+                  setWasteHasUnsavedChanges(false);
+                  navigateTo('/settings/home');
+                }}
+              >
+                {t('waste.leave.discard')}
+              </button>
+            </div>
+          )}
         />
       </SettingsDetailShell>
     );

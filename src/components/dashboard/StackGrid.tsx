@@ -34,6 +34,7 @@ import {
   scaleLayoutColumns,
 } from './gridEngineGeometry';
 import { solveGridStackLayout } from './gridStackLayoutSolver';
+import { isCardContextLongPressBlockedTarget } from './cardLongPressTarget';
 
 type HouseMemberCardItem = {
   id: string;
@@ -733,6 +734,7 @@ type StackGridProps = {
   onSelectWidget: (id: string | null) => void;
   onSelectSection: (id: string | null) => void;
   onWidgetClick: (widget: Widget) => void;
+  onWidgetLongPress: (widget: Widget) => void;
   onWidgetLightToggle: (widget: Widget) => void;
   onWidgetSwitchToggle: (widget: Widget) => void;
   onWidgetFanToggle: (widget: Widget) => void;
@@ -812,6 +814,7 @@ function StackGridComponent({
   onSelectWidget,
   onSelectSection,
   onWidgetClick,
+  onWidgetLongPress,
   onWidgetLightToggle,
   onWidgetSwitchToggle,
   onWidgetFanToggle,
@@ -1098,8 +1101,7 @@ function StackGridComponent({
         return;
       }
       xsSuppressNextCardClickRef.current = false;
-      const targetNode = event.target as Element | null;
-      if (targetNode?.closest('button,input,select,textarea,a,[contenteditable="true"]')) {
+      if (isCardContextLongPressBlockedTarget(event.target)) {
         return;
       }
       if (event.pointerType !== 'mouse') {
@@ -1115,10 +1117,10 @@ function StackGridComponent({
       }
       xsLongPressTimerRef.current = window.setTimeout(() => {
         xsSuppressNextCardClickRef.current = true;
-        onWidgetClick(widget);
+        onWidgetLongPress(widget);
       }, XS_CONTEXT_OPEN_LONG_PRESS_MS);
     },
-    [isXsLongPressMode, onWidgetClick, resetXsLongPressState],
+    [isXsLongPressMode, onWidgetLongPress, resetXsLongPressState],
   );
   const handleXsLongPressMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (xsLongPressPointerIdRef.current !== event.pointerId) {

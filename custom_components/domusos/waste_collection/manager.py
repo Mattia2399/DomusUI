@@ -194,6 +194,13 @@ class WasteCollectionManager:
     def _type_index(self) -> dict[str, dict[str, Any]]:
         return {item["id"]: item for item in self.document["wasteTypes"]}
 
+    def waste_type_styles(self) -> dict[str, dict[str, str]]:
+        """Return the name, icon and color clients use to draw derived rows."""
+        return {
+            item["id"]: {"name": item["name"], "icon": item["icon"], "color": item["color"]}
+            for item in self.document["wasteTypes"]
+        }
+
     def _fixed_occurrences(self, first_day: date, last_exclusive: date) -> set[tuple[date, str]]:
         occurrences: set[tuple[date, str]] = set()
         day = first_day

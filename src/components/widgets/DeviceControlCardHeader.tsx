@@ -39,6 +39,7 @@ export function DeviceControlCardHeader({
       <button
         type="button"
         className="device-control-card__meta"
+        data-card-context-long-press="true"
         onClick={(event) => { event.stopPropagation(); onOpen(); }}
         aria-label={openLabel}
       >

@@ -98,6 +98,15 @@ async def test_fixed_schedule_keeps_multiple_types_as_separate_rows_and_applies_
     assert all(event.all_day for event in events)
 
 
+async def test_waste_type_styles_expose_name_icon_and_color(hass: HomeAssistant) -> None:
+    manager = await create_manager(hass, configured_document())
+
+    styles = manager.waste_type_styles()
+
+    assert styles["organic"] == {"name": "Organico", "icon": "mdi:leaf", "color": "#22c55e"}
+    assert set(styles) == {item["id"] for item in manager.document["wasteTypes"]}
+
+
 async def test_duplicate_fixed_occurrences_collapse_to_one_row(
     hass: HomeAssistant,
 ) -> None:

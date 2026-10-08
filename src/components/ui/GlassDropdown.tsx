@@ -1,7 +1,8 @@
 import { Listbox, Transition } from '@headlessui/react';
 import clsx from 'clsx';
 import { Check, ChevronDown } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, useRef } from 'react';
+import { resolveDashboardThemeClass } from './portalTheme';
 
 export type GlassDropdownOption = {
   id: string;
@@ -37,10 +38,11 @@ export function GlassDropdown({
   optionsClassName,
   portalZIndex = 400,
 }: GlassDropdownProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   return (
     <Listbox value={selected} onChange={(option) => option && onChange(option)} by="id" disabled={disabled}>
       {({ open }) => (
-        <div className={clsx('relative w-full min-w-0', className)}>
+        <div ref={wrapperRef} className={clsx('relative w-full min-w-0', className)}>
           {label ? <Listbox.Label className="mb-2 block text-xs font-medium text-[color:var(--ui-text-secondary)]">{label}</Listbox.Label> : null}
 
           <Listbox.Button
@@ -74,6 +76,7 @@ export function GlassDropdown({
               portal
               style={{ zIndex: portalZIndex }}
               className={clsx(
+                open && resolveDashboardThemeClass(wrapperRef.current),
                 'liquid-glass-navigation glass-scrollbar max-h-64 w-[var(--button-width)] origin-top overflow-auto rounded-2xl p-1.5 text-sm text-[color:var(--ui-text-primary)] outline-none',
                 optionsClassName,
               )}

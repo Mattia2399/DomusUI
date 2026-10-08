@@ -1,8 +1,9 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
+import { resolveOverlayThemeClass, type DashboardThemeClass } from './portalTheme';
 
 export type GlassModalSize = 'sm' | 'md' | 'lg' | 'xl';
 export type GlassModalVariant = 'dialog' | 'responsive' | 'fullscreen';
@@ -109,6 +110,12 @@ export function GlassModal({
   const panelRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const [themeClass, setThemeClass] = useState<DashboardThemeClass | undefined>();
+
+  // Read the theme before paint, while focus is still on the control that opened us.
+  useLayoutEffect(() => {
+    if (isOpen && usePortal) setThemeClass(resolveOverlayThemeClass());
+  }, [isOpen, usePortal]);
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -172,6 +179,7 @@ export function GlassModal({
   const isResponsive = variant === 'responsive';
   const isFullscreen = variant === 'fullscreen';
   const overlayClassName = clsx(
+    usePortal && themeClass,
     'fixed inset-0 flex min-h-0 items-center justify-center',
     isResponsive && 'items-stretch justify-stretch p-0 md:items-center md:justify-center md:p-8',
     isFullscreen && 'items-stretch justify-stretch p-0',

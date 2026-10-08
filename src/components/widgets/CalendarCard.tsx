@@ -5,7 +5,15 @@ import type { MockEntityState } from '../../types/ha';
 import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
 import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import { useI18n } from '../../i18n/I18nProvider';
-import { CALENDAR_UPCOMING_EVENTS_ATTRIBUTE, parseCalendarAgendaPayload } from '../../services/calendarClient';
+import {
+  CALENDAR_UPCOMING_EVENTS_ATTRIBUTE,
+  WASTE_TYPES_ATTRIBUTE,
+  parseCalendarAgendaPayload,
+  parseWasteTypeStyles,
+  wasteTypeStyleForEvent,
+  type WasteTypeStyleMap,
+} from '../../services/calendarClient';
+import { resolveWasteTypeIcon } from '../waste/wasteTypeIcons';
 import './CalendarCard.css';
 
 type CalendarCardProps = {
@@ -52,9 +60,9 @@ function sameDay(first: Date | undefined, second: Date) {
 
 const EVENT_ACCENTS = ['#34d399', '#60a5fa', '#a78bfa', '#f59e0b', '#f472b6'] as const;
 
-function eventAccent(event: CalendarCardEvent) {
+function eventAccent(event: CalendarCardEvent, wasteStyles: WasteTypeStyleMap) {
   if (event.description?.toLowerCase().includes('domus core irrigation')) return EVENT_ACCENTS[0];
-  if (event.uid.startsWith('domus-ui-waste:')) return EVENT_ACCENTS[3];
+  if (event.uid.startsWith('domus-ui-waste:')) return wasteTypeStyleForEvent(event, wasteStyles)?.color ?? EVENT_ACCENTS[3];
   const source = `${event.title}|${event.location ?? ''}`;
   let hash = 0;
   for (let index = 0; index < source.length; index += 1) hash = ((hash << 5) - hash + source.charCodeAt(index)) | 0;
@@ -97,6 +105,7 @@ export function buildCalendarCardEvents(widget: Widget, entity: MockEntityState 
 export function CalendarCard({ widget, entity, gridBreakpoint, displayVariant, isSelected, isEditMode, onClick }: CalendarCardProps) {
   const { t, formatDate } = useI18n();
   const events = useMemo(() => buildCalendarCardEvents(widget, entity, t('calendar.card.empty')), [entity, t, widget]);
+  const wasteStyles = useMemo(() => parseWasteTypeStyles(entity?.rawAttributes?.[WASTE_TYPES_ATTRIBUTE]), [entity]);
   const event = events[0] ?? buildCalendarCardEvent(widget, entity, t('calendar.card.empty'));
   const unavailable = entity?.state === 'unavailable' || entity?.state === 'unknown';
   const hasEvent = Boolean(event.start) && !unavailable;
@@ -121,7 +130,12 @@ export function CalendarCard({ widget, entity, gridBreakpoint, displayVariant, i
   const timeLabel = event.start
     ? event.allDay ? t('calendar.event.allDay') : formatDate(event.start, { hour: '2-digit', minute: '2-digit' })
     : t('calendar.card.noUpcoming');
-  const calendarStyle = { '--calendar-event-accent': eventAccent(event) } as CSSProperties;
+  const calendarStyle = { '--calendar-event-accent': eventAccent(event, wasteStyles) } as CSSProperties;
+  const wasteIconFor = (item: CalendarCardEvent) => {
+    const style = wasteTypeStyleForEvent(item, wasteStyles);
+    return style ? resolveWasteTypeIcon(style.icon) : undefined;
+  };
+  const MiniWasteIcon = wasteIconFor(event);
   const eventTimeLabel = (item: CalendarCardEvent) => item.start
     ? item.allDay ? t('calendar.event.allDay') : formatDate(item.start, { hour: '2-digit', minute: '2-digit' })
     : t('calendar.card.noUpcoming');
@@ -132,7 +146,11 @@ export function CalendarCard({ widget, entity, gridBreakpoint, displayVariant, i
         {mini ? (
           <div className={`calendar-card__mini flex h-full min-w-0 items-center gap-2.5 ${compactMiniBar ? 'calendar-card__mini--bar' : ''}`}>
             {compactMiniBar ? <span className="calendar-card__mini-accent" aria-hidden="true" /> : null}
-            {!compactMiniBar ? <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300"><CalendarDays size={17} /></span> : null}
+            {!compactMiniBar ? (
+              MiniWasteIcon
+                ? <span className="calendar-card__event-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-full"><MiniWasteIcon size={17} /></span>
+                : <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-400/15 text-emerald-300"><CalendarDays size={17} /></span>
+            ) : null}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{unavailable ? t('calendar.card.unavailable') : event.title}</span>
               <span className="block truncate text-[10px] text-[color:var(--ui-text-secondary)]">{event.start ? `${formatDate(event.start, { weekday: 'short', day: 'numeric' })} · ${timeLabel}` : timeLabel}</span>
@@ -157,9 +175,10 @@ export function CalendarCard({ widget, entity, gridBreakpoint, displayVariant, i
             <div className="calendar-card__events mt-2 flex min-h-0 flex-1 flex-col gap-2">
               {hasEvent ? visibleEvents.map((item) => {
                 const itemTimeLabel = eventTimeLabel(item);
-                const itemStyle = { '--calendar-event-accent': eventAccent(item) } as CSSProperties;
+                const itemStyle = { '--calendar-event-accent': eventAccent(item, wasteStyles) } as CSSProperties;
+                const ItemIcon = wasteIconFor(item) ?? Clock3;
                 return <div key={item.uid} style={itemStyle} className="calendar-card__event-row flex min-h-0 flex-1 items-center gap-2.5 rounded-2xl bg-[color:var(--ui-fill-tertiary)] px-3 py-2">
-                  <span className="calendar-card__event-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full"><Clock3 size={14} /></span>
+                  <span className="calendar-card__event-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full"><ItemIcon size={14} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold text-[color:var(--ui-text-primary)]">{item.title}</span>
                     <span className="mt-0.5 flex items-center gap-1 truncate text-[9px] text-[color:var(--ui-text-secondary)]">{item.location ? <MapPin size={9} className="shrink-0" /> : null}{item.location ? `${itemTimeLabel} · ${item.location}` : itemTimeLabel}</span>
@@ -174,7 +193,7 @@ export function CalendarCard({ widget, entity, gridBreakpoint, displayVariant, i
           </>
         )}
       </div>
-      <button type="button" onClick={(clickEvent) => { clickEvent.stopPropagation(); onClick(); }} className={`widget-card-handle absolute inset-0 z-10 ${radiusClass} ${isEditMode ? 'cursor-grab' : 'cursor-pointer'}`} aria-label={t('calendar.card.open', { name: widget.title })} />
+      <button type="button" data-card-context-long-press="true" onClick={(clickEvent) => { clickEvent.stopPropagation(); onClick(); }} className={`widget-card-handle absolute inset-0 z-10 ${radiusClass} ${isEditMode ? 'cursor-grab' : 'cursor-pointer'}`} aria-label={t('calendar.card.open', { name: widget.title })} />
     </div>
   );
 }

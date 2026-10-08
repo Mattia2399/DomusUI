@@ -64,6 +64,7 @@ import {
   scaleLayoutColumns,
 } from './gridEngineGeometry';
 import { resolveGridStackContainerSpan } from './gridStackLayoutSolver';
+import { isCardContextLongPressBlockedTarget } from './cardLongPressTarget';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -109,6 +110,7 @@ type GridCanvasProps = {
   onWeatherClick: () => void;
   onSceneTrigger: (section: DashboardSection, sceneId: SceneKey) => void | Promise<void>;
   onWidgetClick: (widget: Widget) => void;
+  onWidgetLongPress: (widget: Widget) => void;
   onWidgetLightToggle: (widget: Widget) => void;
   onWidgetSwitchToggle: (widget: Widget) => void;
   onWidgetFanToggle: (widget: Widget) => void;
@@ -1073,6 +1075,7 @@ export function GridCanvas({
   onWeatherClick,
   onSceneTrigger,
   onWidgetClick,
+  onWidgetLongPress,
   onWidgetLightToggle,
   onWidgetSwitchToggle,
   onWidgetFanToggle,
@@ -1429,8 +1432,7 @@ export function GridCanvas({
       }
       xsLongPressTriggeredRef.current = false;
       xsSuppressNextCardClickRef.current = false;
-      const targetNode = event.target as Element | null;
-      if (targetNode?.closest('button,input,select,textarea,a,[contenteditable="true"]')) {
+      if (isCardContextLongPressBlockedTarget(event.target)) {
         return;
       }
       if (event.pointerType !== 'mouse') {
@@ -1447,10 +1449,10 @@ export function GridCanvas({
       xsLongPressTimerRef.current = window.setTimeout(() => {
         xsLongPressTriggeredRef.current = true;
         xsSuppressNextCardClickRef.current = true;
-        onWidgetClick(widget);
+        onWidgetLongPress(widget);
       }, XS_CONTEXT_OPEN_LONG_PRESS_MS);
     },
-    [isXsLongPressMode, onWidgetClick, resetXsLongPressState],
+    [isXsLongPressMode, onWidgetLongPress, resetXsLongPressState],
   );
   const handleXsLongPressMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     if (xsLongPressPointerIdRef.current !== event.pointerId) {
@@ -2506,6 +2508,7 @@ export function GridCanvas({
                 onSelectWidget={onSelectWidget}
                 onSelectSection={onSelectSection}
                 onWidgetClick={onWidgetClick}
+                onWidgetLongPress={onWidgetLongPress}
                 onWidgetLightToggle={onWidgetLightToggle}
                 onWidgetSwitchToggle={onWidgetSwitchToggle}
                 onWidgetFanToggle={onWidgetFanToggle}
@@ -2601,6 +2604,7 @@ export function GridCanvas({
       onWidgetBrightnessChange,
       onWidgetLightColorChange,
       onWidgetClick,
+      onWidgetLongPress,
       onWidgetLightToggle,
       onWidgetSwitchToggle,
       onWidgetFanToggle,

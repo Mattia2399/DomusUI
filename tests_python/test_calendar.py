@@ -208,6 +208,15 @@ async def test_entity_merges_read_only_waste_collection_rows(hass: HomeAssistant
     )
 
     assert [event.summary for event in events] == ["Organico", "Carta"]
+    waste.waste_type_styles.return_value = {
+        "organic": {"name": "Organico", "icon": "mdi:leaf", "color": "#22c55e"},
+    }
+    assert entity.extra_state_attributes == {
+        "domus_waste_types": {
+            "organic": {"name": "Organico", "icon": "mdi:leaf", "color": "#22c55e"},
+        },
+    }
+    assert DomusCalendarEntity(manager).extra_state_attributes is None
     with pytest.raises(HomeAssistantError, match="read-only"):
         await entity.async_update_event(
             events[0].uid,

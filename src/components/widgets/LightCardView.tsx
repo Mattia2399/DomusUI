@@ -220,6 +220,7 @@ export function LightCardView({
           <button
             type="button"
             className="light-card__toggle"
+            data-card-context-long-press="true"
             onClick={onToggle}
             disabled={!model.available}
             aria-pressed={model.isOn}

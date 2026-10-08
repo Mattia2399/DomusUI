@@ -23,6 +23,7 @@ from .waste_collection import WasteCollectionManager
 from .waste_collection.manager import WASTE_UID_PREFIX
 
 IRRIGATION_UID_PREFIX = "domus-ui-irrigation:"
+WASTE_TYPES_ATTRIBUTE = "domus_waste_types"
 WEEKDAY_TOKENS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 
 
@@ -74,6 +75,13 @@ class DomusCalendarEntity(CalendarEntity):
             candidates.append(self._waste_collection_manager.next_event(now))
         available = [event for event in candidates if event is not None]
         return min(available, key=lambda event: event.start_datetime_local, default=None)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose waste type styles so dashboards can match derived rows by UID."""
+        if self._waste_collection_manager is None:
+            return None
+        return {WASTE_TYPES_ATTRIBUTE: self._waste_collection_manager.waste_type_styles()}
 
     async def async_added_to_hass(self) -> None:
         """Refresh the entity whenever the persistent store changes."""

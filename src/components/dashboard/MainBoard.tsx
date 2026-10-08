@@ -9414,7 +9414,10 @@ export function MainBoard() {
     widgets,
   ]);
 
-  const openLiveControls = (widget: Widget) => {
+  const openLiveControls = (
+    widget: Widget,
+    options: { performPrimaryAction?: boolean } = {},
+  ) => {
     preloadDashboardDeviceContext();
     const liveEntity = isHaConnected ? haStatesForUi[widget.entityId] : undefined;
     const microWidgets = widget.widgets ?? [];
@@ -9526,7 +9529,7 @@ export function MainBoard() {
       return;
     }
 
-    if (widget.kind === 'light') {
+    if (widget.kind === 'light' && options.performPrimaryAction !== false) {
       toggleLightEntity(widget);
     }
 
@@ -9911,6 +9914,13 @@ export function MainBoard() {
     setSelectedSectionId(null);
     setSelectedSidebarPathId(null);
     openLiveControls(widget);
+  };
+
+  const handleWidgetLongPress = (widget: Widget) => {
+    setSelectedWidgetId(widget.id);
+    setSelectedSectionId(null);
+    setSelectedSidebarPathId(null);
+    openLiveControls(widget, { performPrimaryAction: false });
   };
 
   const handleOpenHomeAttentionItem = (item: HomeAttentionItem) => {
@@ -10820,6 +10830,13 @@ export function MainBoard() {
     if (!normalizedPath) {
       return;
     }
+    // Settings sub-pages are not registered application routes, so the sidebar
+    // resolver would drop them; open them in place and close the context panel.
+    if (isSettingsNavigationTarget(normalizedPath)) {
+      setActiveDevice(null);
+      navigateWithinDashboard(normalizedPath);
+      return;
+    }
     const pageEntry: SidebarQuickPath = {
       id: `micro-widget-page-${Date.now()}`,
       label: 'Micro Widget Page',
@@ -11428,6 +11445,7 @@ export function MainBoard() {
                 }
               }}
               onWidgetClick={handleWidgetClick}
+              onWidgetLongPress={handleWidgetLongPress}
               onWidgetLightToggle={(widget) => {
                 if (widget.kind !== 'light') {
                   return;

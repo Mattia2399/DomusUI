@@ -42,6 +42,7 @@ import type { MockEntityStateMap } from '../../types/ha';
 import type { AlarmActionAuthOptions } from '../../utils/alarmSecurityPolicy';
 import { useI18n } from '../../i18n/I18nProvider';
 import LazyLoadBoundary from '../common/LazyLoadBoundary';
+import { parseWasteTypeStyles, WASTE_TYPES_ATTRIBUTE } from '../../services/calendarClient';
 
 const loadMembersLocationMap = () => import('./MembersLocationMap');
 const MembersLocationMap = React.lazy(() =>
@@ -720,6 +721,7 @@ export function ContextSidebar({
           name={activeDevice.name}
           supportedFeatures={activeDevice.calendarSupportedFeatures ?? 0}
           agenda={calendarAgenda}
+          wasteTypes={parseWasteTypeStyles(resolveEntityStateById(haStates, activeDevice.calendarEntityId)?.rawAttributes?.[WASTE_TYPES_ATTRIBUTE])}
           onConfigureWaste={onNavigateMicroWidgetPage
             ? () => onNavigateMicroWidgetPage('/settings/home/waste-collection')
             : undefined}

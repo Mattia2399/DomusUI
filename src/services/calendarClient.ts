@@ -25,6 +25,39 @@ export function isWasteCalendarEvent(event: Pick<CalendarAgendaEvent, 'uid'>) {
   return event.uid.startsWith(WASTE_CALENDAR_UID_PREFIX);
 }
 
+export const WASTE_TYPES_ATTRIBUTE = 'domus_waste_types';
+
+export type WasteTypeStyle = {
+  name: string;
+  icon: string;
+  color: string;
+};
+
+export type WasteTypeStyleMap = Record<string, WasteTypeStyle>;
+
+/** Waste rows use `domus-ui-waste:<type id>:<date>` as their UID. */
+export function wasteTypeIdFromUid(uid: string) {
+  if (!uid.startsWith(WASTE_CALENDAR_UID_PREFIX)) return undefined;
+  return uid.slice(WASTE_CALENDAR_UID_PREFIX.length).split(':')[0] || undefined;
+}
+
+export function parseWasteTypeStyles(value: unknown): WasteTypeStyleMap {
+  if (!isRecord(value)) return {};
+  const styles: WasteTypeStyleMap = {};
+  for (const [id, entry] of Object.entries(value)) {
+    if (!isRecord(entry)) continue;
+    const color = readText(entry.color);
+    if (!color || !/^#[0-9a-f]{6}$/i.test(color)) continue;
+    styles[id] = { name: readText(entry.name) ?? id, icon: readText(entry.icon) ?? '', color };
+  }
+  return styles;
+}
+
+export function wasteTypeStyleForEvent(event: Pick<CalendarAgendaEvent, 'uid'>, styles: WasteTypeStyleMap) {
+  const typeId = wasteTypeIdFromUid(event.uid);
+  return typeId ? styles[typeId] : undefined;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }

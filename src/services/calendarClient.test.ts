@@ -4,6 +4,9 @@ import {
   buildCalendarSubscribeMessage,
   isWasteCalendarEvent,
   parseCalendarAgendaPayload,
+  parseWasteTypeStyles,
+  wasteTypeIdFromUid,
+  wasteTypeStyleForEvent,
 } from './calendarClient';
 
 describe('calendarClient', () => {
@@ -48,5 +51,20 @@ describe('calendarClient', () => {
   it('identifies derived waste collection rows as read-only events', () => {
     expect(isWasteCalendarEvent({ uid: 'domus-ui-waste:paper:2026-10-07' })).toBe(true);
     expect(isWasteCalendarEvent({ uid: 'ordinary-event' })).toBe(false);
+  });
+
+  it('matches waste rows to the type styles published by the Domus calendar', () => {
+    const styles = parseWasteTypeStyles({
+      paper: { name: 'Carta', icon: 'mdi:newspaper', color: '#3b82f6' },
+      broken: { name: 'Senza colore', icon: 'mdi:leaf' },
+      invalid: 'nope',
+    });
+
+    expect(styles).toEqual({ paper: { name: 'Carta', icon: 'mdi:newspaper', color: '#3b82f6' } });
+    expect(wasteTypeIdFromUid('domus-ui-waste:paper:2026-10-07')).toBe('paper');
+    expect(wasteTypeIdFromUid('ordinary-event')).toBeUndefined();
+    expect(wasteTypeStyleForEvent({ uid: 'domus-ui-waste:paper:2026-10-07' }, styles)?.icon).toBe('mdi:newspaper');
+    expect(wasteTypeStyleForEvent({ uid: 'domus-ui-waste:glass:2026-10-07' }, styles)).toBeUndefined();
+    expect(parseWasteTypeStyles(undefined)).toEqual({});
   });
 });

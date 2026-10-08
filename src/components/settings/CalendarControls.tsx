@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { CalendarDays, Clock3, MapPin, Pencil, Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, Clock3, Droplet, MapPin, Pencil, Plus, Recycle, Trash2, type LucideIcon } from 'lucide-react';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -10,14 +10,20 @@ import {
   CALENDAR_FEATURE_UPDATE_EVENT,
   isIrrigationCalendarEvent,
   isWasteCalendarEvent,
+  wasteTypeStyleForEvent,
   type CalendarAgendaEvent,
   type CalendarEventDraft,
+  type WasteTypeStyleMap,
 } from '../../services/calendarClient';
+import { resolveWasteTypeIcon } from '../waste/wasteTypeIcons';
+import { IconBadge } from '../ui/IconBadge';
+import { localIsoDay, nextSevenDays, WeekDayStrip, type WeekDayBadge } from '../ui/WeekDayStrip';
 
 type CalendarControlsProps = {
   name: string;
   supportedFeatures: number;
   agenda: CalendarAgendaController;
+  wasteTypes?: WasteTypeStyleMap;
   onConfigureWaste?: () => void;
 };
 
@@ -43,6 +49,19 @@ function toDisplayDate(value: string, allDay = false) {
     ? `${value}T12:00:00`
     : value;
   return new Date(source);
+}
+
+const EVENT_COLOR = '#a78bfa';
+const IRRIGATION_COLOR = '#34d399';
+const WASTE_FALLBACK_COLOR = '#f59e0b';
+
+function eventLook(event: CalendarAgendaEvent, wasteTypes: WasteTypeStyleMap): { color: string; Icon: LucideIcon } {
+  if (isWasteCalendarEvent(event)) {
+    const style = wasteTypeStyleForEvent(event, wasteTypes);
+    return { color: style?.color ?? WASTE_FALLBACK_COLOR, Icon: resolveWasteTypeIcon(style?.icon) };
+  }
+  if (isIrrigationCalendarEvent(event)) return { color: IRRIGATION_COLOR, Icon: Droplet };
+  return { color: EVENT_COLOR, Icon: Clock3 };
 }
 
 function initialForm(event?: CalendarAgendaEvent): EventFormState {
@@ -99,23 +118,42 @@ function toAllDayRange(startValue: string, endValue: string) {
   return { start, end };
 }
 
-export function CalendarControls({ name, supportedFeatures, agenda, onConfigureWaste }: CalendarControlsProps) {
-  const { t, formatDate } = useI18n();
+export function CalendarControls({ name, supportedFeatures, agenda, wasteTypes = {}, onConfigureWaste }: CalendarControlsProps) {
+  const { locale, t, formatDate } = useI18n();
   const [form, setForm] = useState<EventFormState | null>(null);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const canCreate = (supportedFeatures & CALENDAR_FEATURE_CREATE_EVENT) !== 0;
   const canUpdate = (supportedFeatures & CALENDAR_FEATURE_UPDATE_EVENT) !== 0;
   const canDelete = (supportedFeatures & CALENDAR_FEATURE_DELETE_EVENT) !== 0;
   const draft = form ? toDraft(form) : null;
-  const groupedEvents = useMemo(() => {
+  const weekDays = nextSevenDays();
+  const today = weekDays[0].iso;
+  const tomorrow = weekDays[1].iso;
+  const eventsByDay = useMemo(() => {
     const groups = new Map<string, CalendarAgendaEvent[]>();
     agenda.events.forEach((event) => {
       const date = toDisplayDate(event.start, event.allDay);
-      const key = Number.isFinite(date.getTime()) ? date.toDateString() : event.start.slice(0, 10);
+      const startDay = Number.isFinite(date.getTime()) ? localIsoDay(date) : event.start.slice(0, 10);
+      // Events already running when the window opens belong to today.
+      const key = startDay < today ? today : startDay;
       groups.set(key, [...(groups.get(key) ?? []), event]);
     });
-    return [...groups.entries()];
-  }, [agenda.events]);
-  const hasWasteEvents = agenda.events.some(isWasteCalendarEvent);
+    return groups;
+  }, [agenda.events, today]);
+  const badgesByDay = new Map<string, WeekDayBadge[]>(
+    [...eventsByDay].map(([day, events]) => [day, events.map((event) => ({ key: event.uid, ...eventLook(event, wasteTypes) }))]),
+  );
+  const activeDay = selectedDay && weekDays.some((day) => day.iso === selectedDay)
+    ? selectedDay
+    : weekDays.find((day) => eventsByDay.has(day.iso))?.iso ?? today;
+  const activeEvents = eventsByDay.get(activeDay) ?? [];
+  const dayLabel = (iso: string) => {
+    if (iso === today) return t('calendar.panel.today');
+    if (iso === tomorrow) return t('calendar.panel.tomorrow');
+    return formatDate(new Date(`${iso}T12:00:00`), { weekday: 'long', day: 'numeric', month: 'long' });
+  };
+  // Only the Domus calendar publishes waste types, so they also reveal the link before any collection is due.
+  const showConfigureWaste = Boolean(onConfigureWaste) && (agenda.events.some(isWasteCalendarEvent) || Object.keys(wasteTypes).length > 0);
 
   const submit = async () => {
     if (!form || !draft) return;
@@ -204,83 +242,88 @@ export function CalendarControls({ name, supportedFeatures, agenda, onConfigureW
         </section>
       ) : (
         <>
-          <section className="context-content-surface rounded-[clamp(1.25rem,4.6vw,2rem)] p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('calendar.panel.range')}</p>
-                <h3 className="mt-1 text-lg font-semibold text-[color:var(--ui-text-primary)]">{t('calendar.panel.nextSevenDays')}</h3>
-              </div>
-              {canCreate ? (
-                <button type="button" onClick={() => setForm(initialForm())} className="glass-icon-button h-10 w-10" aria-label={t('calendar.form.new')}>
-                  <Plus size={18} />
-                </button>
-              ) : null}
+          <section className="space-y-3">
+            <div className="px-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('calendar.panel.range')}</p>
+              <h3 className="mt-1 text-lg font-semibold text-[color:var(--ui-text-primary)]">{t('calendar.panel.nextSevenDays')}</h3>
             </div>
-            {!canCreate && !canUpdate && !canDelete ? (
-              <p className="mt-3 rounded-xl bg-[color:var(--ui-fill-tertiary)] px-3 py-2 text-[11px] leading-4 text-[color:var(--ui-text-secondary)]">{t('calendar.panel.readOnly')}</p>
-            ) : null}
-            {hasWasteEvents && onConfigureWaste ? (
-              <button type="button" onClick={onConfigureWaste} className="liquid-glass-control mt-3 inline-flex min-h-9 items-center rounded-full px-3 text-xs font-semibold">
-                {t('calendar.event.configureWaste')}
-              </button>
-            ) : null}
-          </section>
 
-          {agenda.status === 'loading' ? (
-            <div className="context-content-surface rounded-2xl p-4 text-sm text-[color:var(--ui-text-secondary)]">{t('calendar.panel.loading')}</div>
-          ) : null}
-          {agenda.error ? (
-            <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-xs leading-5 text-rose-100">{agenda.error}</div>
-          ) : null}
-          {agenda.status !== 'loading' && groupedEvents.length === 0 ? (
-            <div className="context-content-surface rounded-2xl p-5 text-center">
-              <CalendarDays className="mx-auto text-[color:var(--ui-text-tertiary)]" size={28} />
-              <p className="mt-2 text-sm font-semibold">{t('calendar.panel.empty')}</p>
-              <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">{t('calendar.panel.emptyDescription')}</p>
-            </div>
-          ) : null}
+            <WeekDayStrip
+              days={weekDays}
+              badgesByDay={badgesByDay}
+              selectedDay={activeDay}
+              onSelectDay={setSelectedDay}
+              ariaLabel={t('calendar.panel.nextSevenDays')}
+              dayAccessibleName={({ iso }) => {
+                const events = eventsByDay.get(iso) ?? [];
+                return `${dayLabel(iso)}: ${events.length > 0 ? events.map((event) => event.summary).join(', ') : t('calendar.panel.empty')}`;
+              }}
+              locale={locale}
+            />
 
-          {groupedEvents.map(([dayKey, events]) => {
-            const day = toDisplayDate(events[0].start, events[0].allDay);
-            return (
-              <section key={dayKey} className="context-content-surface rounded-2xl p-3.5">
-                <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">
-                  {formatDate(day, { weekday: 'long', day: 'numeric', month: 'long' })}
-                </p>
-                <div className="mt-2 space-y-2">
-                  {events.map((event) => {
+            {agenda.error ? (
+              <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-4 text-xs leading-5 text-rose-100">{agenda.error}</div>
+            ) : null}
+
+            <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-4 py-3" aria-live="polite">
+              <p className="text-sm font-semibold first-letter:uppercase">{dayLabel(activeDay)}</p>
+              {agenda.status === 'loading' ? (
+                <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">{t('calendar.panel.loading')}</p>
+              ) : activeEvents.length === 0 ? (
+                <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">{t('calendar.panel.dayEmpty')}</p>
+              ) : (
+                <ul className="mt-1 divide-y divide-[color:var(--ui-border)]">
+                  {activeEvents.map((event) => {
                     const irrigationEvent = isIrrigationCalendarEvent(event);
                     const wasteEvent = isWasteCalendarEvent(event);
                     const editable = !irrigationEvent && !wasteEvent && (canUpdate || canDelete);
                     const start = toDisplayDate(event.start, event.allDay);
+                    const look = eventLook(event, wasteTypes);
                     return (
-                      <button
-                        key={event.uid}
-                        type="button"
-                        disabled={!editable}
-                        onClick={() => editable && setForm(initialForm(event))}
-                        className="flex w-full items-start gap-3 rounded-xl bg-[color:var(--ui-fill-tertiary)] px-3 py-3 text-left disabled:cursor-default"
-                      >
-                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-400/12 text-emerald-300">
-                          <Clock3 size={15} />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{event.summary}</span>
-                          <span className="mt-0.5 block text-[10px] text-[color:var(--ui-text-secondary)]">
-                            {event.allDay ? t('calendar.event.allDay') : formatDate(start, { hour: '2-digit', minute: '2-digit' })}
+                      <li key={event.uid}>
+                        <button
+                          type="button"
+                          disabled={!editable}
+                          onClick={() => editable && setForm(initialForm(event))}
+                          className="flex w-full items-start gap-3 py-2.5 text-left disabled:cursor-default"
+                        >
+                          <IconBadge Icon={look.Icon} color={look.color} size={30} className="mt-0.5" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{event.summary}</span>
+                            <span className="mt-0.5 block text-[11px] text-[color:var(--ui-text-secondary)]">
+                              {event.allDay ? t('calendar.event.allDay') : formatDate(start, { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {irrigationEvent ? <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-emerald-300">{t('calendar.event.irrigationReadOnly')}</span> : null}
+                            {wasteEvent ? <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-[color:var(--ui-text-tertiary)]">{t('calendar.event.wasteReadOnly')}</span> : null}
+                            {event.location ? <span className="mt-1 flex items-center gap-1 truncate text-[10px] text-[color:var(--ui-text-tertiary)]"><MapPin size={10} />{event.location}</span> : null}
                           </span>
-                          {irrigationEvent ? <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-emerald-300">{t('calendar.event.irrigationReadOnly')}</span> : null}
-                          {wasteEvent ? <span className="mt-1 block text-[9px] font-semibold uppercase tracking-[0.08em] text-amber-300">{t('calendar.event.wasteReadOnly')}</span> : null}
-                          {event.location ? <span className="mt-1 flex items-center gap-1 truncate text-[10px] text-[color:var(--ui-text-tertiary)]"><MapPin size={10} />{event.location}</span> : null}
-                        </span>
-                        {editable ? <Pencil size={13} className="mt-1 shrink-0 text-[color:var(--ui-text-tertiary)]" /> : null}
-                      </button>
+                          {editable ? <Pencil size={13} className="mt-1 shrink-0 text-[color:var(--ui-text-tertiary)]" /> : null}
+                        </button>
+                      </li>
                     );
                   })}
-                </div>
-              </section>
-            );
-          })}
+                </ul>
+              )}
+            </div>
+
+            {!canCreate && !canUpdate && !canDelete ? (
+              <p className="rounded-xl bg-[color:var(--ui-fill-tertiary)] px-3 py-2 text-[11px] leading-4 text-[color:var(--ui-text-secondary)]">{t('calendar.panel.readOnly')}</p>
+            ) : null}
+            {canCreate || showConfigureWaste ? (
+              <div className="flex flex-wrap gap-2 pt-1">
+                {canCreate ? (
+                  <button type="button" onClick={() => setForm(initialForm())} className="liquid-glass-selection inline-flex min-h-10 flex-[1_1_10rem] items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-semibold">
+                    <Plus size={16} />{t('calendar.form.new')}
+                  </button>
+                ) : null}
+                {showConfigureWaste ? (
+                  <button type="button" onClick={onConfigureWaste} className="liquid-glass-control inline-flex min-h-10 flex-[1_1_10rem] items-center justify-center gap-2 whitespace-nowrap rounded-full px-4 text-sm font-semibold">
+                    <Recycle size={16} />{t('calendar.event.configureWaste')}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </section>
         </>
       )}
     </div>
