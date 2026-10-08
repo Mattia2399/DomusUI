@@ -106,6 +106,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'energy_core',
   'calendar_v1',
   'waste_collection_v1',
+  'profile_core_v1',
   'host_navigation',
   'person_links',
   'person_create',
@@ -179,6 +180,8 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/waste_collection/save_config',
   'domusos/waste_collection/preview',
   'domusos/waste_collection/test_notification',
+  'domusos/profile/get_self',
+  'domusos/profile/save_self',
   'domusos/energy/get_state',
   'domusos/energy/get_history',
   'domusos/energy/discover',
@@ -307,12 +310,42 @@ export function isValidEnergyMessage(message: Record<string, unknown>) {
   }
 }
 
+const PROFILE_SELF_KEYS = ['notifications', 'preferences', 'personal_devices'];
+
+/**
+ * Profile commands act on the signed-in user only: no user, person or owner id
+ * is ever accepted. A save carries the revision it read and the self-editable
+ * fields only; Home Assistant and the Profile Core check them again.
+ */
+export function isValidProfileMessage(message: Record<string, unknown>) {
+  if (message.type === 'domusos/profile/get_self') return hasExactKeys(message, ['type']);
+  if (message.type !== 'domusos/profile/save_self') return false;
+  const { profile, expected_revision: revision } = message;
+  if (!hasExactKeys(message, ['type', 'expected_revision', 'profile'])
+    || typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0
+    || !isRecord(profile) || !Object.keys(profile).every((key) => PROFILE_SELF_KEYS.includes(key))
+    || !isRecord(profile.notifications) || !hasExactKeys(profile.notifications, ['enabled'])
+    || typeof profile.notifications.enabled !== 'boolean'
+    || ('preferences' in profile && !isRecord(profile.preferences))
+    || ('personal_devices' in profile && !Array.isArray(profile.personal_devices))) {
+    return false;
+  }
+  try {
+    return JSON.stringify(profile).length <= 20_000;
+  } catch {
+    return false;
+  }
+}
+
 export function validatePanelApiMessage(message: unknown): message is Record<string, unknown> {
   if (!isRecord(message) || typeof message.type !== 'string' || !HA_PANEL_ALLOWED_API_TYPES.has(message.type)) {
     return false;
   }
   if (message.type.startsWith('domusos/energy/')) {
     return isValidEnergyMessage(message);
+  }
+  if (message.type.startsWith('domusos/profile/')) {
+    return isValidProfileMessage(message);
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+
+- Domus Profile Core, the backend foundation for personal settings: each
+  Home Assistant user can read and save their own Domus profile through
+  `domusos/profile/get_self` and `domusos/profile/save_self`, which always act
+  on the signed-in user and refuse any user or person id. Profiles live in one
+  versioned store with a revision per profile, are never written by a read,
+  are kept as orphaned when a user is removed and are never overwritten when
+  the stored document is invalid. People are resolved by their Home Assistant
+  internal id, never by name. Nothing changes on screen yet; personal devices
+  stay read-only until their ownership can be verified.
+
 ## 1.5.0 - 2026-10-08
 
 ### Added

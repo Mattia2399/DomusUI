@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HA_PANEL_ALLOWED_API_TYPES, isValidEnergyMessage as isValidAppEnergyMessage } from '../hooks/useHaPanelBridgeConnection';
+import {
+  HA_PANEL_ALLOWED_API_TYPES,
+  isValidEnergyMessage as isValidAppEnergyMessage,
+  isValidProfileMessage as isValidAppProfileMessage,
+  validatePanelApiMessage,
+} from '../hooks/useHaPanelBridgeConnection';
 
 const PANEL_ELEMENT_NAME = 'ha-dashboard-builder-panel';
 
@@ -140,5 +145,75 @@ describe('Home Assistant panel distribution contract', () => {
       expect(validate({ type: 'domusos/energy/get_state', range: '24h' })).toBe(false);
     }
     expect(bridge).toMatch(/if \(message\.type\.startsWith\("domusos\/energy\/"\)\) \{\s+return isValidEnergyMessage\(message\);/);
+  });
+
+  it('allowlists exactly the self-service Profile commands in both bridge halves', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = [...bridge.matchAll(/"(domusos\/profile\/[a-z_]+)"/g)].map((match) => match[1]);
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/profile/'));
+
+    expect(new Set(hostTypes)).toEqual(new Set(appTypes));
+    expect(appTypes.sort()).toEqual(['domusos/profile/get_self', 'domusos/profile/save_self']);
+    expect(bridge).toContain('"profile_core_v1"');
+  });
+
+  it('validates Profile message shapes identically in both bridge halves', () => {
+    const bridge = readPanelBridgeSource();
+    const pick = (pattern: RegExp) => {
+      const match = bridge.match(pattern);
+      if (!match) throw new Error(`Host bridge fragment not found: ${pattern}`);
+      return match[0];
+    };
+    const source = [
+      pick(/const isRecord = [^\r\n]+\r?\n/),
+      pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
+      pick(/const PROFILE_SELF_KEYS = [^\r\n]+\r?\n/),
+      pick(/const isValidProfileMessage = [\s\S]*?\r?\n};\r?\n/),
+    ].join('');
+    const isValidHostProfileMessage = new Function(`${source}return isValidProfileMessage;`)() as (
+      message: Record<string, unknown>,
+    ) => boolean;
+    const save = {
+      type: 'domusos/profile/save_self',
+      expected_revision: 0,
+      profile: { notifications: { enabled: false } },
+    };
+    const accepted = [
+      { type: 'domusos/profile/get_self' },
+      save,
+      { ...save, expected_revision: 4, profile: { notifications: { enabled: true }, preferences: {}, personal_devices: [] } },
+    ];
+    const refused = [
+      { type: 'domusos/profile/get_self', user_id: 'someone' },
+      { type: 'domusos/profile/get_self', person_id: 'erika' },
+      { ...save, user_id: 'someone' },
+      { ...save, person_id: 'erika' },
+      { ...save, owner_user_id: 'someone' },
+      { ...save, profile: { ...save.profile, owner_user_id: 'someone' } },
+      { ...save, profile: { ...save.profile, user_id: 'someone' } },
+      { type: save.type, profile: save.profile },
+      { ...save, expected_revision: null },
+      { ...save, expected_revision: -1 },
+      { ...save, expected_revision: 1.5 },
+      { ...save, expected_revision: '1' },
+      { ...save, profile: {} },
+      { ...save, profile: { notifications: { enabled: 'false' } } },
+      { ...save, profile: { notifications: { enabled: false, quiet_hours: {} } } },
+      { ...save, profile: { ...save.profile, preferences: [] } },
+      { ...save, profile: { ...save.profile, personal_devices: {} } },
+      { ...save, profile: { ...save.profile, personal_devices: ['x'.repeat(20_001)] } },
+      { type: 'domusos/profile/get_profile', user_id: 'someone' },
+    ];
+
+    for (const message of accepted) {
+      expect(isValidHostProfileMessage(message)).toBe(true);
+      expect(isValidAppProfileMessage(message)).toBe(true);
+      expect(validatePanelApiMessage(message)).toBe(true);
+    }
+    for (const message of refused) {
+      expect(isValidHostProfileMessage(message)).toBe(false);
+      expect(isValidAppProfileMessage(message)).toBe(false);
+      expect(validatePanelApiMessage(message)).toBe(false);
+    }
   });
 });

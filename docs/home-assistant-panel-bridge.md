@@ -20,6 +20,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "energy_core",
   "calendar_v1",
   "waste_collection_v1",
+  "profile_core_v1",
   "host_navigation",
   "person_links",
   "person_create",
@@ -50,6 +51,7 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/waste_collection/preview", "domusos/waste_collection/test_notification",
   "domusos/energy/get_state", "domusos/energy/get_history", "domusos/energy/discover",
   "domusos/energy/get_profile", "domusos/energy/save_profile",
+  "domusos/profile/get_self", "domusos/profile/save_self",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -230,10 +232,33 @@ const isValidEnergyMessage = (message) => {
     return false;
   }
 };
+// Profile commands act on the signed-in user only: no user, person or owner id is ever
+// accepted. A save carries the revision it read and the self-editable fields only.
+const PROFILE_SELF_KEYS = ["notifications", "preferences", "personal_devices"];
+const isValidProfileMessage = (message) => {
+  if (message.type === "domusos/profile/get_self") return hasExactKeys(message, ["type"]);
+  if (message.type !== "domusos/profile/save_self") return false;
+  const { profile, expected_revision: revision } = message;
+  if (!hasExactKeys(message, ["type", "expected_revision", "profile"]) ||
+      !Number.isInteger(revision) || revision < 0 ||
+      !isRecord(profile) || !Object.keys(profile).every((key) => PROFILE_SELF_KEYS.includes(key)) ||
+      !isRecord(profile.notifications) || !hasExactKeys(profile.notifications, ["enabled"]) ||
+      typeof profile.notifications.enabled !== "boolean" ||
+      ("preferences" in profile && !isRecord(profile.preferences)) ||
+      ("personal_devices" in profile && !Array.isArray(profile.personal_devices))) return false;
+  try {
+    return JSON.stringify(profile).length <= 20_000;
+  } catch {
+    return false;
+  }
+};
 const isValidWsMessage = (message) => {
   if (!isRecord(message) || typeof message.type !== "string" || !ALLOWED_WS_TYPES.has(message.type)) return false;
   if (message.type.startsWith("domusos/energy/")) {
     return isValidEnergyMessage(message);
+  }
+  if (message.type.startsWith("domusos/profile/")) {
+    return isValidProfileMessage(message);
   }
   if (message.type === "get_panels") {
     return Object.keys(message).every((key) => key === "type");
@@ -640,6 +665,8 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
   - `ha-panel-upload-image`
 
 `ha-panel-upload-image` (capability `person_picture`) carica la foto di una persona con `/api/image/upload`, come il frontend Home Assistant. Il bridge accetta solo immagini JPEG, PNG o WebP fino a 5 MB e solo per un amministratore; restituisce l'id dell'immagine, che Domus salva nella persona come `/api/image/serve/<id>/512x512`.
+
+`domusos/profile/get_self` e `domusos/profile/save_self` (capability `profile_core_v1`) leggono e salvano il Domus Profile dell'utente collegato, ricavato da Home Assistant dalla connessione. Il bridge rifiuta qualsiasi id di utente, persona o proprietario: `get_self` accetta solo `type`, `save_self` solo `expected_revision` (intero, mai `null`) e un `profile` con `notifications: { enabled }` più, invariati, `preferences` e `personal_devices`. Home Assistant e il Profile Core ripetono gli stessi controlli.
 
 ## Navigazione verso Home Assistant
 

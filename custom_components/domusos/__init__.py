@@ -34,6 +34,8 @@ from .energy import EnergyProfileManager
 from .energy.api import async_register_energy_api
 from .irrigation import IrrigationManager
 from .irrigation.api import async_register_irrigation_api
+from .profile import ProfileManager
+from .profile.api import DATA_PROFILE_MANAGER, async_register_profile_api
 from .waste_collection import WasteCollectionManager
 from .waste_collection.api import async_register_waste_collection_api
 
@@ -55,6 +57,8 @@ class DomusEntryData:
     # Optional: None when Energy failed to start; other modules keep running.
     energy_manager: EnergyProfileManager | None = None
     unregister_energy_bindings: Callable[[], None] | None = None
+    # Optional: None when the Profile Core failed to start; other modules keep running.
+    profile_manager: ProfileManager | None = None
 
 
 DomusConfigEntry = ConfigEntry[DomusEntryData]
@@ -77,6 +81,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await async_register_irrigation_api(hass)
     await async_register_waste_collection_api(hass)
     await async_register_energy_api(hass)
+    await async_register_profile_api(hass)
     return True
 
 
@@ -160,6 +165,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             manager,
         )
         await _async_setup_energy(hass, runtime, entry_data)
+        await _async_setup_profile(hass, entry_data)
         await panel_custom.async_register_panel(hass=hass, **panel_options)
         domain_data["irrigation_manager"] = manager
         domain_data["calendar_manager"] = calendar_manager
@@ -178,6 +184,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
         await _async_teardown_energy(hass, entry_data)
+        await _async_teardown_profile(hass, entry_data)
         if entry_data.unregister_core_bindings is not None:
             entry_data.unregister_core_bindings()
             entry_data.unregister_core_bindings = None
@@ -206,6 +213,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
     entry_data = getattr(entry, "runtime_data", None)
     if isinstance(entry_data, DomusEntryData):
         await _async_teardown_energy(hass, entry_data)
+        await _async_teardown_profile(hass, entry_data)
     if (
         isinstance(entry_data, DomusEntryData)
         and entry_data.unregister_core_bindings is not None
@@ -295,6 +303,37 @@ async def _async_teardown_energy(
             and domain_data.get("energy_manager") is entry_data.energy_manager
         ):
             domain_data.pop("energy_manager", None)
+
+
+async def _async_setup_profile(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Start the Profile Core without risking the other modules."""
+    profile_manager = ProfileManager(hass)
+    try:
+        await profile_manager.async_setup()
+    except Exception:
+        _LOGGER.exception("Domus Profile Core could not start; the other modules keep running")
+        try:
+            await profile_manager.async_shutdown()
+        except Exception:
+            _LOGGER.exception("Domus Profile Core cleanup failed")
+        return
+    entry_data.profile_manager = profile_manager
+    hass.data.setdefault(DOMAIN, {})[DATA_PROFILE_MANAGER] = profile_manager
+
+
+async def _async_teardown_profile(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Release the Profile Core; its failures never block the remaining unload."""
+    profile_manager = entry_data.profile_manager
+    try:
+        if profile_manager is not None:
+            await profile_manager.async_shutdown()
+    except Exception:
+        _LOGGER.exception("Domus Profile Core unload failed")
+    finally:
+        entry_data.profile_manager = None
+        domain_data = hass.data.get(DOMAIN, {})
+        if profile_manager is not None and domain_data.get(DATA_PROFILE_MANAGER) is profile_manager:
+            domain_data.pop(DATA_PROFILE_MANAGER, None)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

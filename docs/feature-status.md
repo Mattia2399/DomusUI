@@ -19,6 +19,7 @@ This page distinguishes stable functionality from previews and planned work. **O
 | Automations | Coming later     | The old workspace remains disabled until its workflow is ready for public use                      |
 | Calendar    | Operational      | Native Domus UI calendar and compatible Home Assistant calendar entities                           |
 | Waste collection | Beta in 1.5.0 | Fixed days (weekly or every 2–4 weeks) or a Home Assistant calendar as source, waste types with icon, color and other names, special days, one aggregated reminder the evening before, 7-day preview; collections appear read-only in Calendar with their type icon and color |
+| Domus Profile Core | Foundation on main (no visible change) | Per-user profile store with self-service read/save of the notification switch; personal devices, notification routing and recipient selection come in later phases |
 
 ## Cards and controls
 
