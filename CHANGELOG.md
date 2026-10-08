@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.5.0 - 2026-10-08
+
 ### Added
 
 - Domus Energy Core phase 1: a read-only, vendor-neutral Energy Profile with
@@ -104,6 +106,19 @@
   and an unavailable Recorder each get their own message while the live view
   keeps working. The history is read when the page opens or the period
   changes, never on every power change.
+- Waste collection can be configured from _Settings > Home_ with fixed weekly
+  or multi-week schedules, Home Assistant calendar sources, aliases, special
+  dates, per-type icons and colors, and a seven-day preview. Collections are
+  published as separate read-only rows in the Domus calendar, including when
+  several types are collected on the same day.
+- Optional waste reminders run inside Home Assistant at the chosen time on the
+  evening before collection. One message aggregates every type due, can target
+  one or more notification services, and is suppressed when a configured
+  calendar source is unavailable rather than sending incomplete information.
+- The public presentation site now includes dedicated Energy and project-update
+  sections, derives its card totals from the product catalog, lazy-loads the
+  interactive demos, and ships optimized local imagery with automated desktop,
+  mobile and performance checks.
 
 ### Changed
 
@@ -143,6 +158,23 @@
   then the existing configuration is read as is and nothing is written. The
   previous document is kept unchanged, so going back to an older Domus UI
   restores the installation as it was before that first change.
+- Calendar and waste settings use a seven-day strip, preserve each waste
+  type's icon and color in cards and contextual panels, expose friendly
+  notification targets, and warn before discarding unsaved changes.
+
+### Fixed
+
+- Press-and-hold on mobile now opens the contextual panel for Light, Calendar
+  and the other dashboard cards without firing the Light toggle. Sliders and
+  operational controls keep ownership of their own touch gestures.
+- Manual release packages can carry an explicit SemVer build identifier, and
+  the HACS archive now updates both root-level version files and excludes an
+  already-built frontend directory instead of packaging stale assets.
+- Portalled dropdowns and responsive confirmation dialogs inherit the active
+  dashboard theme and keep their actions reachable on small screens.
+- `source-map-js` is updated to 1.2.2 and Vitest to 4.1.11, resolving the
+  dependency advisories reported by the release audit without adding runtime
+  packages to the Home Assistant distribution.
 
 ## 1.4.0 - 2026-10-01
 

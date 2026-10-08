@@ -48,6 +48,9 @@ jobs:
       - name: Build sito di presentazione
         run: npm run build:site
 
+      - name: Performance budget sito
+        run: npm run site:budget
+
       - name: Audit dipendenze release
         run: npm run audit:release
 
@@ -56,6 +59,9 @@ jobs:
 
       - name: Installa Chromium per Playwright
         run: npx playwright install --with-deps chromium
+
+      - name: Sito IT/EN desktop e mobile
+        run: npm run test:site
 
       # The files of dist/ as distributed, served by vite preview: Home, /consumi
       # and /consumi/energia must start with the production CSP and no errors.

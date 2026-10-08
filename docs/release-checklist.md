@@ -1,6 +1,6 @@
 # Checklist rilascio stabile
 
-Aggiornata: 2026-09-14
+Aggiornata: 2026-10-08
 
 ## Gate automatico
 
@@ -49,7 +49,7 @@ npm run release:gate
 - [x] Procedura aggiornamento e rollback.
 - [x] Pagina Sicurezza e privacy.
 - [x] Roadmap pubblica e limiti dichiarati.
-- [x] Versionamento SemVer coerente (`1.4.0`).
+- [x] Versionamento SemVer coerente (`1.5.0`).
 - [x] Versione leggibile nella pagina Impostazioni.
 - [x] Archivio release riproducibile, manifest file e checksum SHA-256.
 - [x] Diagnostica supporto aggregata e priva di segreti.
