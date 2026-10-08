@@ -188,9 +188,34 @@ describe('Domus Energy history client', () => {
     },
     unavailable: { production: { reason: 'no_energy_meter', statistic_ids: [] } },
     devices: {},
+    summary: {
+      production: total({ value: null, closed_value: null, status: 'unavailable', complete: false, reason: 'no_energy_meter' }),
+      consumption: total({ value: null, closed_value: null, status: 'partial_data', complete: false, source: 'derived', reason: 'partial_data' }),
+      grid_import: total({ value: null, closed_value: null, partial_value: 1.65, status: 'partial_data', complete: false, reason: 'partial_data' }),
+    },
+    kpis: {
+      self_sufficiency: { value: null, unit: '%', status: 'partial_data', complete: false, in_progress: true, source: 'mixed', reason: 'partial_data' },
+    },
     cost: null,
     previous: null,
     generated_at: '2026-10-05T00:30:00+00:00',
+  });
+  /** A period total as get_history writes it; `in_progress` follows the range above. */
+  function total(extra: Record<string, unknown>) {
+    return { value: 2, closed_value: 2, unit: 'kWh', status: 'complete', complete: true, in_progress: true, in_progress_included: false, source: 'measured', ...extra };
+  }
+  /** The block added by compare: "previous". */
+  const previous = () => ({
+    range: { start: '2026-10-04T00:00:00+02:00', end: '2026-10-05T00:00:00+02:00', bucket: 'hour', timezone: 'Europe/Rome' },
+    summary: { grid_import: total({ value: 0, closed_value: 0, in_progress: false }) },
+    kpis: { self_sufficiency: { value: 100, unit: '%', status: 'complete', complete: true, in_progress: false, source: 'mixed' } },
+    comparison: {
+      buckets: 2,
+      series: {
+        grid_import: { current: null, previous: 0, absolute_change: null, percent_change: null, status: 'partial_data', reason: 'partial_data' },
+        production: { current: null, previous: null, absolute_change: null, percent_change: null, status: 'unavailable', reason: 'missing_data' },
+      },
+    },
   });
 
   it('reads a preset through the exact websocket command, without devices or comparison', async () => {
@@ -213,7 +238,38 @@ describe('Domus Energy history client', () => {
     expect(result?.unavailable.production?.reason).toBe('no_energy_meter');
   });
 
+  it('reads the period totals and KPIs, and the previous period when it is asked for', () => {
+    const result = parseEnergyHistory(document());
+
+    expect(result?.previous).toBeNull();
+    expect(result?.summary.grid_import).toEqual(document().summary.grid_import);
+    // A partial total is never a value: only the known energy, apart.
+    expect([result?.summary.grid_import?.value, result?.summary.grid_import?.partial_value]).toEqual([null, 1.65]);
+    expect(result?.kpis.self_sufficiency?.source).toBe('mixed');
+
+    const compared = parseEnergyHistory({ ...document(), previous: previous() });
+    expect(compared?.previous).toEqual(previous());
+    expect(compared?.previous?.comparison.series.grid_import?.percent_change).toBeNull();
+  });
+
   it.each([
+    ['a complete total without a value', (doc: ReturnType<typeof document>) => { Object.assign(doc.summary.production, { status: 'complete' }); }],
+    ['a partial total with a value', (doc: ReturnType<typeof document>) => { Object.assign(doc.summary.grid_import, { value: 1.65 }); }],
+    ['a total for a series that is not configured', (doc: ReturnType<typeof document>) => { Object.assign(doc.summary, { battery_charge: total({}) }); }],
+    ['an unknown KPI', (doc: ReturnType<typeof document>) => { Object.assign(doc.kpis, { battery_efficiency: doc.kpis.self_sufficiency }); }],
+    ['a KPI in another unit', (doc: ReturnType<typeof document>) => { Object.assign(doc.kpis.self_sufficiency, { unit: 'kWh' }); }],
+    ['an unknown KPI reason', (doc: ReturnType<typeof document>) => { Object.assign(doc.kpis.self_sufficiency, { reason: 'estimated' }); }],
+    ['a document without totals', (doc: ReturnType<typeof document>) => { Reflect.deleteProperty(doc, 'summary'); }],
+    ['a change that is not a number', (doc: ReturnType<typeof document>) => {
+      const block = previous();
+      Object.assign(block.comparison.series.grid_import, { percent_change: Number.POSITIVE_INFINITY });
+      Object.assign(doc, { previous: block });
+    }],
+    ['a comparison without its bucket count', (doc: ReturnType<typeof document>) => {
+      const block = previous();
+      Object.assign(block.comparison, { buckets: -1 });
+      Object.assign(doc, { previous: block });
+    }],
     ['a value that is not a number', (doc: ReturnType<typeof document>) => { doc.series.grid_import.points[0] = { start: starts[0], value: Number.NaN }; }],
     ['a value given as text', (doc: ReturnType<typeof document>) => { Object.assign(doc.series.grid_import.points[0], { value: '0' }); }],
     ['an unknown series', (doc: ReturnType<typeof document>) => { Object.assign(doc.series, { heat_pump: doc.series.grid_import }); }],
@@ -221,7 +277,7 @@ describe('Domus Energy history client', () => {
     ['a range without time zone', (doc: ReturnType<typeof document>) => { doc.range.timezone = ''; }],
     ['an unknown reason', (doc: ReturnType<typeof document>) => { Object.assign(doc.unavailable.production, { reason: 'broken' }); }],
     ['series with different buckets', (doc: ReturnType<typeof document>) => { doc.series.consumption.points.pop(); }],
-    ['a cost before A2.2', (doc: ReturnType<typeof document>) => { Object.assign(doc, { cost: { net: 1 } }); }],
+    ['a cost before A2.3', (doc: ReturnType<typeof document>) => { Object.assign(doc, { cost: { net: 1 } }); }],
   ])('rejects %s', async (_, change) => {
     const doc = document();
     change(doc);

@@ -303,9 +303,65 @@ export type EnergyHistoryUnavailable = {
   terms?: Record<string, string>;
 };
 
+export type EnergyHistoryRange = { start: string; end: string; bucket: EnergyHistoryBucket; timezone: string };
+
+/**
+ * Period total of one configured series (A2.2A). `closed_value` sums the closed
+ * buckets; `value` adds the bucket in progress when it already has energy
+ * (`in_progress_included`). Both are null with a missing bucket, and
+ * `partial_value` is then only the energy known.
+ */
+export type EnergyHistoryTotal = {
+  value: number | null;
+  closed_value: number | null;
+  partial_value?: number;
+  unit: 'kWh';
+  status: 'complete' | 'partial_data' | 'unavailable';
+  complete: boolean;
+  in_progress: boolean;
+  in_progress_included: boolean;
+  source: 'measured' | 'derived';
+  reason?: 'partial_data' | EnergyHistoryUnavailable['reason'];
+};
+
+export type EnergyKpiName = 'self_consumption' | 'self_sufficiency' | 'solar_offset';
+
+/** A percentage of period totals; `in_progress` reads "so far". */
+export type EnergyKpi = {
+  value: number | null;
+  unit: '%';
+  status: 'complete' | 'partial_data' | 'unavailable' | 'incoherent';
+  complete: boolean;
+  in_progress: boolean;
+  source: 'measured' | 'derived' | 'mixed';
+  reason?: 'missing_data' | 'partial_data' | 'no_solar_production' | 'no_consumption' | 'incoherent_balance';
+  needs?: EnergyHistorySeriesName[];
+};
+
+/** A total against the previous period, over the same closed bucket positions. */
+export type EnergyHistoryChange = {
+  current: number | null;
+  previous: number | null;
+  absolute_change: number | null;
+  percent_change: number | null;
+  status: 'complete' | 'partial_data' | 'unavailable';
+  reason?: 'partial_data' | 'missing_data' | 'no_percentage_baseline' | 'no_closed_buckets';
+};
+
+export type EnergyHistorySummary = Partial<Record<EnergyHistorySeriesName, EnergyHistoryTotal>>;
+export type EnergyKpis = Partial<Record<EnergyKpiName, EnergyKpi>>;
+
+/** Sent only with `compare: "previous"`. */
+export type EnergyHistoryPrevious = {
+  range: EnergyHistoryRange;
+  summary: EnergyHistorySummary;
+  kpis: EnergyKpis;
+  comparison: { buckets: number; series: Partial<Record<EnergyHistorySeriesName, EnergyHistoryChange>> };
+};
+
 export type EnergyHistoryResult = {
   configured: boolean;
-  range: { start: string; end: string; bucket: EnergyHistoryBucket; timezone: string };
+  range: EnergyHistoryRange;
   unit: 'kWh';
   recorder: 'available';
   verification: 'complete' | 'incomplete';
@@ -317,8 +373,10 @@ export type EnergyHistoryResult = {
     series: Partial<Record<EnergyHistorySeriesName, EnergyHistorySeries>>;
     unavailable: Partial<Record<EnergyHistorySeriesName, EnergyHistoryUnavailable>>;
   }>;
+  summary: EnergyHistorySummary;
+  kpis: EnergyKpis;
   cost: null;
-  previous: null;
+  previous: EnergyHistoryPrevious | null;
   generated_at: string;
 };
 
@@ -611,11 +669,11 @@ function historyUnavailable(value: unknown): EnergyHistoryUnavailable | null {
 }
 
 /** A map keyed by series name, every value read by `parse`; null when anything is unknown. */
-function historyMap<T>(value: unknown, parse: (item: unknown) => T | null): Partial<Record<EnergyHistorySeriesName, T>> | null {
+function keyedMap<K extends string, T>(keys: readonly K[], value: unknown, parse: (item: unknown) => T | null): Partial<Record<K, T>> | null {
   if (!isRecord(value)) return null;
-  const map: Partial<Record<EnergyHistorySeriesName, T>> = {};
+  const map: Partial<Record<K, T>> = {};
   for (const [key, item] of Object.entries(value)) {
-    const name = member(ENERGY_HISTORY_SERIES, key);
+    const name = member(keys, key);
     const parsed = parse(item);
     if (name === null || parsed === null) return null;
     map[name] = parsed;
@@ -623,23 +681,142 @@ function historyMap<T>(value: unknown, parse: (item: unknown) => T | null): Part
   return map;
 }
 
+const historyMap = <T>(value: unknown, parse: (item: unknown) => T | null) => keyedMap(ENERGY_HISTORY_SERIES, value, parse);
+
+/* --- Analytics (summary, kpis, previous) --- */
+
+const KPI_NAMES: readonly EnergyKpiName[] = ['self_consumption', 'self_sufficiency', 'solar_offset'];
+const TOTAL_STATUSES: readonly EnergyHistoryTotal['status'][] = ['complete', 'partial_data', 'unavailable'];
+const TOTAL_REASONS: readonly NonNullable<EnergyHistoryTotal['reason']>[] = ['partial_data', ...UNAVAILABLE_REASONS];
+const KPI_STATUSES: readonly EnergyKpi['status'][] = ['complete', 'partial_data', 'unavailable', 'incoherent'];
+const KPI_SOURCES: readonly EnergyKpi['source'][] = ['measured', 'derived', 'mixed'];
+const KPI_REASONS: readonly NonNullable<EnergyKpi['reason']>[] = [
+  'missing_data',
+  'partial_data',
+  'no_solar_production',
+  'no_consumption',
+  'incoherent_balance',
+];
+const CHANGE_STATUSES: readonly EnergyHistoryChange['status'][] = ['complete', 'partial_data', 'unavailable'];
+const CHANGE_REASONS: readonly NonNullable<EnergyHistoryChange['reason']>[] = [
+  'partial_data',
+  'missing_data',
+  'no_percentage_baseline',
+  'no_closed_buckets',
+];
+
+/** A finite number or null; undefined for anything else. */
+const numberOrNull = (value: unknown): number | null | undefined => (value === null ? null : isFiniteNumber(value) ? value : undefined);
+const isBoolean = (value: unknown): value is boolean => typeof value === 'boolean';
+/** An optional enumerated reason: absent, a known one, or invalid (null). */
+const optionalReason = <T extends string>(values: readonly T[], value: unknown): T | undefined | null =>
+  value === undefined ? undefined : member(values, value);
+
+function historyRange(value: unknown): EnergyHistoryRange | null {
+  if (!isRecord(value)) return null;
+  const bucket = member(HISTORY_BUCKETS, value.bucket);
+  if (bucket === null || !isDate(value.start) || !isDate(value.end) || typeof value.timezone !== 'string' || !value.timezone) return null;
+  return { start: value.start, end: value.end, bucket, timezone: value.timezone };
+}
+
+function historyTotal(value: unknown): EnergyHistoryTotal | null {
+  if (!isRecord(value) || value.unit !== 'kWh') return null;
+  const amount = numberOrNull(value.value);
+  const closed = numberOrNull(value.closed_value);
+  const status = member(TOTAL_STATUSES, value.status);
+  const source = member(['measured', 'derived'] as const, value.source);
+  const reason = optionalReason(TOTAL_REASONS, value.reason);
+  if (amount === undefined || closed === undefined || status === null || source === null || reason === null) return null;
+  if (!isBoolean(value.complete) || !isBoolean(value.in_progress) || !isBoolean(value.in_progress_included)) return null;
+  // Only a complete total has a value: a partial one is never read as the total.
+  if ((status === 'complete') !== (amount !== null)) return null;
+  const total: EnergyHistoryTotal = {
+    value: amount,
+    closed_value: closed,
+    unit: 'kWh',
+    status,
+    complete: value.complete,
+    in_progress: value.in_progress,
+    in_progress_included: value.in_progress_included,
+    source,
+  };
+  if (value.partial_value !== undefined) {
+    if (!isFiniteNumber(value.partial_value)) return null;
+    total.partial_value = value.partial_value;
+  }
+  if (reason !== undefined) total.reason = reason;
+  return total;
+}
+
+function historyKpi(value: unknown): EnergyKpi | null {
+  if (!isRecord(value) || value.unit !== '%') return null;
+  const amount = numberOrNull(value.value);
+  const status = member(KPI_STATUSES, value.status);
+  const source = member(KPI_SOURCES, value.source);
+  const reason = optionalReason(KPI_REASONS, value.reason);
+  if (amount === undefined || status === null || source === null || reason === null) return null;
+  if (!isBoolean(value.complete) || !isBoolean(value.in_progress) || (status === 'complete') !== (amount !== null)) return null;
+  const kpi: EnergyKpi = { value: amount, unit: '%', status, complete: value.complete, in_progress: value.in_progress, source };
+  if (reason !== undefined) kpi.reason = reason;
+  if (value.needs !== undefined) {
+    if (!Array.isArray(value.needs)) return null;
+    const needs = value.needs.map((item) => member(ENERGY_HISTORY_SERIES, item));
+    if (!needs.every((item): item is EnergyHistorySeriesName => item !== null)) return null;
+    kpi.needs = needs;
+  }
+  return kpi;
+}
+
+function historyChange(value: unknown): EnergyHistoryChange | null {
+  if (!isRecord(value)) return null;
+  const current = numberOrNull(value.current);
+  const previous = numberOrNull(value.previous);
+  const absolute = numberOrNull(value.absolute_change);
+  const percent = numberOrNull(value.percent_change);
+  const status = member(CHANGE_STATUSES, value.status);
+  const reason = optionalReason(CHANGE_REASONS, value.reason);
+  if (current === undefined || previous === undefined || absolute === undefined || percent === undefined) return null;
+  if (status === null || reason === null) return null;
+  const result: EnergyHistoryChange = { current, previous, absolute_change: absolute, percent_change: percent, status };
+  if (reason !== undefined) result.reason = reason;
+  return result;
+}
+
+function historyPrevious(value: unknown): EnergyHistoryPrevious | null {
+  if (!isRecord(value) || !isRecord(value.comparison)) return null;
+  const range = historyRange(value.range);
+  const summary = historyMap(value.summary, historyTotal);
+  const kpis = keyedMap(KPI_NAMES, value.kpis, historyKpi);
+  const { buckets } = value.comparison;
+  const series = historyMap(value.comparison.series, historyChange);
+  if (range === null || summary === null || kpis === null || series === null) return null;
+  if (typeof buckets !== 'number' || !Number.isInteger(buckets) || buckets < 0) return null;
+  return { range, summary, kpis, comparison: { buckets, series } };
+}
+
 /** Every series of one document shares the same buckets: the chart relies on it. */
 const sameBuckets = (all: EnergyHistorySeries[]) =>
   all.every((series) => series.points.length === all[0].points.length && series.points.every((point, index) => point.start === all[0].points[index].start));
 
-/** The `get_history` document, validated field by field; null when it does not match A2.0. */
+/** The `get_history` document, validated field by field; null when it does not match the contract. */
 export function parseEnergyHistory(value: unknown): EnergyHistoryResult | null {
-  if (!isRecord(value) || typeof value.configured !== 'boolean' || !isRecord(value.range) || !isRecord(value.devices)) return null;
-  const { range } = value;
-  const bucket = member(HISTORY_BUCKETS, range.bucket);
+  if (!isRecord(value) || typeof value.configured !== 'boolean' || !isRecord(value.devices)) return null;
+  const range = historyRange(value.range);
   const verification = member(['complete', 'incomplete'] as const, value.verification);
-  if (bucket === null || !isDate(range.start) || !isDate(range.end) || typeof range.timezone !== 'string' || !range.timezone) return null;
+  if (range === null) return null;
   if (value.unit !== 'kWh' || value.recorder !== 'available' || verification === null || typeof value.generated_at !== 'string') return null;
-  // Costs and the previous period come with A2.2.
-  if (value.cost !== null || value.previous !== null) return null;
+  // Historical costs come with A2.3.
+  if (value.cost !== null) return null;
   const series = historyMap(value.series, historySeries);
   const unavailable = historyMap(value.unavailable, historyUnavailable);
-  if (series === null || unavailable === null) return null;
+  const summary = historyMap(value.summary, historyTotal);
+  const kpis = keyedMap(KPI_NAMES, value.kpis, historyKpi);
+  // The previous period is null unless the request asked for the comparison.
+  const previous = value.previous === null ? null : historyPrevious(value.previous);
+  if (series === null || unavailable === null || summary === null || kpis === null) return null;
+  if (value.previous !== null && previous === null) return null;
+  // A total exists only for a configured series, with or without data.
+  if (!Object.keys(summary).every((name) => name in series || name in unavailable)) return null;
   const devices: EnergyHistoryResult['devices'] = {};
   const every = Object.values(series);
   for (const [id, device] of Object.entries(value.devices)) {
@@ -657,15 +834,17 @@ export function parseEnergyHistory(value: unknown): EnergyHistoryResult | null {
   if (every.length && !sameBuckets(every)) return null;
   return {
     configured: value.configured,
-    range: { start: range.start, end: range.end, bucket, timezone: range.timezone },
+    range,
     unit: 'kWh',
     recorder: 'available',
     verification,
     series,
     unavailable,
     devices,
+    summary,
+    kpis,
     cost: null,
-    previous: null,
+    previous,
     generated_at: value.generated_at,
   };
 }

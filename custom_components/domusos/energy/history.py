@@ -40,6 +40,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from ..core._values import utc_now
+from .analytics import (
+    ENERGY_TOLERANCE_KWH,
+    ENERGY_TOLERANCE_RATIO,
+    comparison,
+    energy_tolerance,
+    period_kpis,
+    period_summary,
+)
 from .meters import (
     HISTORY_STATISTIC_TYPE,
     HISTORY_UNITS,
@@ -117,9 +125,10 @@ MAX_DATETIME_LENGTH = 40
 
 # A derived home balance a little below zero is the timing skew between meters
 # compiled independently; the band grows with the energy flowing. Beyond it
-# the bucket is reported as incoherent, never clamped.
-BALANCE_TOLERANCE_KWH = 0.05
-BALANCE_TOLERANCE_RATIO = 0.02
+# the bucket is reported as incoherent, never clamped. One band for every
+# energy balance, defined in analytics.py.
+BALANCE_TOLERANCE_KWH = ENERGY_TOLERANCE_KWH
+BALANCE_TOLERANCE_RATIO = ENERGY_TOLERANCE_RATIO
 
 # Series name -> module energy role.
 SERIES: Mapping[str, tuple[EnergyModule, str]] = {
@@ -221,6 +230,16 @@ def next_bucket(start: datetime, bucket: Bucket, tz: tzinfo) -> datetime:
     return datetime(year, month, 1, tzinfo=tz)
 
 
+def previous_bucket(start: datetime, bucket: Bucket, tz: tzinfo) -> datetime:
+    """Start of the bucket before the one starting at ``start``.
+
+    The step back is taken in UTC: subtracting from a local time works on the
+    wall clock, so across a DST change it would skip the repeated hour or
+    land again on the hour after the missing one.
+    """
+    return floor_bucket(_local(start.astimezone(UTC) - timedelta(seconds=1), tz), bucket, tz)
+
+
 def _ceil_bucket(value: datetime, bucket: Bucket, tz: tzinfo) -> datetime:
     start = floor_bucket(value, bucket, tz)
     return start if _ts(start) == _ts(value) else next_bucket(start, bucket, tz)
@@ -268,7 +287,7 @@ def resolve_range(request: Mapping[str, Any], now: datetime, tz: tzinfo, timezon
         end = next_bucket(floor_bucket(now, bucket, tz), bucket, tz)
         start = floor_bucket(now, bucket, tz)
         for _ in range(count - 1):
-            start = floor_bucket(start - timedelta(seconds=1), bucket, tz)
+            start = previous_bucket(start, bucket, tz)
     else:
         missing = [key for key in ("start", "end", "bucket") if key not in request]
         if missing:
@@ -300,6 +319,27 @@ def resolve_range(request: Mapping[str, Any], now: datetime, tz: tzinfo, timezon
         end=_local(end, tz),
         in_progress_last=_ts(end) == _ts(current_end),
         timezone=timezone,
+    )
+
+
+def previous_range(history: HistoryRange, tz: tzinfo) -> HistoryRange:
+    """The same number of buckets just before ``history``, all closed.
+
+    Buckets are stepped back on the local calendar, so the previous 7 days are
+    7 civil days, the previous 12 months 12 calendar months and the previous
+    24 hours 24 real hours, whatever DST does in between.
+    """
+    starts: list[datetime] = []
+    cursor = history.start
+    for _ in history.starts:
+        cursor = previous_bucket(cursor, history.bucket, tz)
+        starts.append(cursor)
+    return HistoryRange(
+        bucket=history.bucket,
+        starts=tuple(reversed(starts)),
+        end=history.start,
+        in_progress_last=False,
+        timezone=history.timezone,
     )
 
 
@@ -362,8 +402,7 @@ def meter_points(
 def balance_value(terms: Sequence[tuple[float, int]]) -> float | None:
     """The home balance of one bucket, or None when it is incoherent."""
     total = sum(value * sign for value, sign in terms)
-    tolerance = max(BALANCE_TOLERANCE_KWH, BALANCE_TOLERANCE_RATIO * sum(abs(value) for value, _ in terms))
-    if total < -tolerance:
+    if total < -energy_tolerance(*(value for value, _ in terms)):
         return None
     # Only a balance inside the tolerance band can be below zero here.
     return 0.0 if total < 0 else _kwh(total)
@@ -475,9 +514,10 @@ class EnergyHistoryService:
 
     async def async_history(self, profile: EnergyProfileV2, request: Mapping[str, Any]) -> dict[str, Any]:
         """Return the history document of ``request`` (see ``docs/energy-core.md``)."""
-        include_devices, _compare = parse_request(request)
+        include_devices, compare = parse_request(request)
         tz = dt_util.get_default_time_zone()
         history = resolve_range(request, dt_util.now(), tz, self.hass.config.time_zone)
+        previous = previous_range(history, tz) if compare else None
         instance = _recorder_instance(self.hass)
         if instance is None:
             raise RecorderUnavailableError(
@@ -502,10 +542,11 @@ class EnergyHistoryService:
         rows: Mapping[str, Sequence[Mapping[str, Any]]] = {}
         if readable:
             try:
+                # The previous period ends where this one starts: one read covers both.
                 rows = await instance.async_add_executor_job(
                     _read_statistics,
                     self.hass,
-                    history.start.astimezone(UTC),
+                    (previous or history).start.astimezone(UTC),
                     # Home Assistant extends the end to the period containing it: stay inside the last bucket.
                     (history.end - timedelta(microseconds=1)).astimezone(UTC),
                     readable,
@@ -515,7 +556,39 @@ class EnergyHistoryService:
                 _LOGGER.warning("Energy history could not be read from the Recorder", exc_info=True)
                 raise HistoryUnavailableError("The Recorder could not read the energy history") from err
         changes = _changes(rows)
+        series, unavailable = self._collect(profile, history, series_parts, report, changes)
+        summary = period_summary(series, unavailable, in_progress=history.in_progress_last)
 
+        return {
+            "configured": not profile.is_empty,
+            "range": history.as_dict(),
+            "unit": HISTORY_UNIT,
+            "recorder": "available",
+            "verification": "complete" if report.complete else "incomplete",
+            "series": series,
+            "unavailable": unavailable,
+            "devices": self._devices(profile, history, plan, report, changes) if include_devices else {},
+            "summary": summary,
+            "kpis": period_kpis(summary),
+            # A historical cost needs the tariff valid at each moment, which is not stored.
+            "cost": None,
+            "previous": (
+                self._previous(profile, history, previous, series, summary, series_parts, report, changes)
+                if previous is not None
+                else None
+            ),
+            "generated_at": utc_now().isoformat(),
+        }
+
+    def _collect(
+        self,
+        profile: EnergyProfileV2,
+        history: HistoryRange,
+        series_parts: Mapping[str, Mapping[str, Any] | None],
+        report: MeterReport,
+        changes: Changes,
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        """The series of one period, or why each has none, from changes already read."""
         series: dict[str, dict[str, Any]] = {}
         unavailable: dict[str, dict[str, Any]] = {}
         for name, role_plan in series_parts.items():
@@ -540,21 +613,29 @@ class EnergyHistoryService:
         # A direct home meter is used alone, even without data; only its absence allows the balance.
         if not series_parts.get("consumption"):
             self._derive_consumption(profile, history, series, unavailable)
+        return series, unavailable
 
+    def _previous(
+        self,
+        profile: EnergyProfileV2,
+        history: HistoryRange,
+        previous: HistoryRange,
+        series: Mapping[str, Mapping[str, Any]],
+        summary: Mapping[str, Mapping[str, Any]],
+        series_parts: Mapping[str, Mapping[str, Any] | None],
+        report: MeterReport,
+        changes: Changes,
+    ) -> dict[str, Any]:
+        """Totals and KPIs of the previous period and the change of each total."""
+        previous_series, previous_unavailable = self._collect(profile, previous, series_parts, report, changes)
+        previous_summary = period_summary(previous_series, previous_unavailable, in_progress=False)
+        # A bucket still in progress has no counterpart yet: only closed buckets are compared.
+        buckets = len(history.starts) - (1 if history.in_progress_last else 0)
         return {
-            "configured": not profile.is_empty,
-            "range": history.as_dict(),
-            "unit": HISTORY_UNIT,
-            "recorder": "available",
-            "verification": "complete" if report.complete else "incomplete",
-            "series": series,
-            "unavailable": unavailable,
-            "devices": self._devices(profile, history, plan, report, changes) if include_devices else {},
-            # A historical cost needs the tariff valid at each moment, which is not stored.
-            "cost": None,
-            # The comparison with the previous period comes with A2.2.
-            "previous": None,
-            "generated_at": utc_now().isoformat(),
+            "range": previous.as_dict(),
+            "summary": previous_summary,
+            "kpis": period_kpis(previous_summary),
+            "comparison": comparison(series, previous_series, summary, buckets=buckets),
         }
 
     def _derive_consumption(

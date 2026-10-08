@@ -103,6 +103,18 @@ def test_local_days_last_23_or_25_hours_and_hours_follow_dst() -> None:
     assert not autumn.in_progress_last
 
 
+def test_the_24_hours_preset_steps_back_real_hours_across_dst() -> None:
+    # Morning after the change to winter time: the repeated 02:00 is kept, every hour once.
+    autumn = _range({"range": "24h"}, datetime(2026, 10, 25, 10, 30, tzinfo=UTC))
+    assert len({start.timestamp() for start in autumn.starts}) == 24
+    assert _hours(autumn.starts + (autumn.end,)) == [1] * 24
+    assert [start.isoformat() for start in autumn.starts[13:15]] == ["2026-10-25T02:00:00+02:00", "2026-10-25T02:00:00+01:00"]
+    # Morning after the change to summer time: 02:00 does not exist and no hour is repeated.
+    spring = _range({"range": "24h"}, datetime(2026, 3, 29, 9, 30, tzinfo=UTC))
+    assert len({start.timestamp() for start in spring.starts}) == 24
+    assert _hours(spring.starts + (spring.end,)) == [1] * 24
+
+
 def test_months_years_and_weeks_are_aligned_on_the_local_calendar() -> None:
     later = datetime(2026, 12, 1, tzinfo=UTC)
     months = _range({"start": "2025-11-15T10:00", "end": "2026-02-10T00:00", "bucket": "month"}, later)
@@ -637,7 +649,9 @@ async def test_any_user_reads_history_without_any_write(
 
     assert connection.results[2]["series"]["production"]["points"][-4]["value"] == 1.0
     assert _values(connection.results[3]["devices"]["solar-1"]["series"]["production"]) == [1.0]
-    assert connection.results[3]["previous"] is None
+    # compare: "previous" adds the hour before, read in the same query.
+    assert connection.results[3]["previous"]["range"]["start"] == "2026-10-06T08:00:00+02:00"
+    assert connection.results[2]["previous"] is None
     assert connection.errors == {1: "energy_unavailable", 4: "invalid_range", 5: "invalid_bucket", 6: "invalid_request"}
     # Reading the history never touches the stores.
     assert json.dumps(hass_storage, sort_keys=True, default=str) == before

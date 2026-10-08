@@ -63,6 +63,8 @@ const HISTORY = {
   },
   unavailable: {},
   devices: {},
+  summary: {},
+  kpis: {},
   cost: null,
   previous: null,
   generated_at: '2026-10-01T09:30:00+00:00',

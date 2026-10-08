@@ -45,6 +45,13 @@
   by the same rules the router sends with, and never reveals devices,
   preferences or targets. A reusable person recipient picker lets future
   settings choose people by their Home Assistant person id.
+- The energy history now includes the period totals of production,
+  consumption, grid import and export, battery charge and discharge and car
+  charging, with self-consumption, self-sufficiency and solar offset, and on
+  request the same figures for the previous period with the change of each
+  total. They come from the same single Recorder read, never turn missing
+  data into zero, say when a period is still in progress and give no
+  percentage where it has no meaning. The Energy page does not show them yet.
 
 ### Changed
 
@@ -68,6 +75,12 @@
   Home Assistant links to the signed-in user and the trackers that Person
   declares. A user without a linked Person no longer sees presence picked by
   a matching name.
+
+### Fixed
+
+- The 24-hour energy history on the morning after a daylight saving change
+  covered 25 hours (autumn) or only 9 (spring); it now always covers the
+  last 24 hours.
 
 ## 1.5.0 - 2026-10-08
 

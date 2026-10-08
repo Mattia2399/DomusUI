@@ -77,6 +77,9 @@ export function historyResult({
     series: entries,
     unavailable,
     devices: {},
+    // The section draws the series; totals and KPIs are not shown yet.
+    summary: {},
+    kpis: {},
     cost: null,
     previous: null,
     generated_at: '2026-10-05T23:30:00+00:00',

@@ -909,7 +909,7 @@ Assistant 2025.1 and 2026.2:
 | `range` | `24h` (hours), `7d`, `30d` (days), `12m` (months), each ending with the bucket in progress |
 | `start`, `end`, `bucket` | Instead of `range`: ISO 8601 date-times (without an offset, in the Home Assistant time zone) and `hour`, `day`, `week` or `month`; `start` is aligned down and `end` up to the bucket |
 | `include_devices` | `true` adds each device's own series; default `false` |
-| `compare` | `previous` is accepted; `previous` is `null` until A2.2 |
+| `compare` | `previous` adds the previous period (see [Period analytics](#period-analytics)); without it `previous` is `null` |
 
 Custom periods are at most 31 days of hours, 400 days, 156 weeks or 36
 months, and 750 points; they may not start in the future, and buckets after
@@ -944,6 +944,8 @@ migrating), `history_unavailable` (the Recorder failed while reading) and
   },
   "unavailable": { "grid_export": { "reason": "no_energy_meter", "statistic_ids": [] } },
   "devices": {},
+  "summary": { "grid_import": { "value": null, "closed_value": null, "partial_value": 3.9, "unit": "kWh", "status": "partial_data", "complete": false, "in_progress": true, "in_progress_included": false, "source": "measured", "reason": "partial_data" } },
+  "kpis": {},
   "cost": null,
   "previous": null,
   "generated_at": "2026-10-06T10:30:00+00:00"
@@ -982,13 +984,113 @@ migrating), `history_unavailable` (the Recorder failed while reading) and
   `wallbox_consumption` is a series of its own, never subtracted.
 - `cost` is `null`: the tariff in force at each moment is not stored, so a
   historical cost cannot be reconstructed with certainty. No estimate or
-  savings figure is returned.
+  savings figure is returned (historical costs are A2.3).
+- Periods step back bucket by bucket in UTC before aligning on the local
+  calendar: subtracting from a local time works on the wall clock and, on the
+  morning after a DST change, gave the 24-hour preset 25 hours (autumn) or
+  only 9 (spring) before A2.2A.
 
 Compared with the contract proposed before A2.0: series are named
 `grid_import`/`grid_export` and add `wallbox_consumption`; power is never
 converted into energy (no fallback to the hourly `mean`); custom periods,
 `week` and `month` buckets, devices and the explicit missing data are added;
-`cost` and `previous` stay `null` for now.
+`cost` stays `null`.
+
+### Period analytics
+
+Since A2.2A every answer also has `summary` (a total per configured series)
+and `kpis`, and `compare: "previous"` fills `previous`. They are computed in
+`energy/analytics.py`, pure functions over the points the same request
+already built: no further Recorder read, no KPI query, no tariff and no
+power. Additive: `series`, `range`, `recorder`, `verification`,
+`unavailable`, `devices` and `generated_at` are unchanged, and the A2.1 page
+(which never sends `compare`) reads the new answers as before.
+
+**Totals** (`summary`, kWh, one per configured series in the order
+production, consumption, grid_import, grid_export, battery_charge,
+battery_discharge, wallbox_consumption; absent modules have none):
+
+| Field | Meaning |
+| --- | --- |
+| `closed_value` | Sum of the closed buckets |
+| `value` | `closed_value` plus the bucket in progress when it already has energy: the total "so far" |
+| `in_progress` / `in_progress_included` | The period has a bucket still in progress / its energy is in `value` (an hour in progress never has a row yet; the day or month in progress has the hours compiled so far) |
+| `status`, `complete` | `complete`; `partial_data` when a closed bucket is missing (`value` and `closed_value` null, `partial_value` the energy known, apart); `unavailable` with the reason of `unavailable` |
+| `source` | `measured` (`total` or `devices`) or `derived` (home balance) |
+
+A real 0 stays 0. A period made only of a bucket in progress with no energy
+yet has no total.
+
+**KPIs** (`kpis`, `%`, one decimal), from complete totals only:
+
+| KPI | Formula | Only with |
+| --- | --- | --- |
+| `self_consumption` | (production − grid_export) / production | photovoltaics |
+| `self_sufficiency` | (consumption − grid_import) / consumption | always |
+| `solar_offset` | production / consumption | photovoltaics |
+
+- *Autoconsumo* is the share of the photovoltaic energy that was not
+  exported; the battery is not a term (stored and used later is still not
+  exported), so it is never counted twice.
+- *Autosufficienza* is the share of the home consumption not drawn from the
+  grid, whether it came from the panels or the battery.
+- *Solar Offset* is the photovoltaic energy produced against the energy
+  consumed in the same period: neither of the above, and it can exceed 100.
+- A module that is not installed has no flow: without a grid, export and
+  import are 0. An installed one needs a complete total: otherwise `value` is
+  `null` with `status` `unavailable` (`reason: missing_data`, `needs`) or
+  `partial_data`.
+- production 0 → `no_solar_production`; consumption 0 → `no_consumption`.
+- Export above production (or import above consumption) within
+  `max(0.05 kWh, 2% of the two totals)` reads 0%; beyond it the KPI is
+  `incoherent` with `reason: incoherent_balance`, never clamped. The band is
+  `ENERGY_TOLERANCE_KWH` / `ENERGY_TOLERANCE_RATIO` in `analytics.py`, the
+  same one used by the derived home balance (`BALANCE_TOLERANCE_*` are
+  aliases) and, in watts, by the realtime balance (50 W or 2%).
+- `source` is `measured`, `derived` or `mixed` (a derived consumption with a
+  measured import): a deterministic calculation on measured history, never an
+  estimate. `complete` and `in_progress` follow the totals, so a KPI of a
+  period in progress reads "finora".
+- No battery KPI (efficiency, cycles, remaining energy, autonomy) and no
+  wallbox share, cost or session: battery and car totals are reported alone.
+
+**Previous period** (`compare: "previous"`): the same number of buckets just
+before the period, all closed (`in_progress: false`), stepped back on the
+local calendar: 24 real hours before *24h*, the 7 or 30 civil days before
+*7d* and *30d*, the 12 calendar months before *12m*, and for a custom period
+the same count of its buckets (a 25-hour day compares with the 24-hour day
+before it; a 25-hour hourly period with the 25 hours before it). It is read
+in the same single statistics query, which then starts at the previous
+period: the previous period ends where the current one starts, and a
+bucket's `change` is the same whether the query starts there or earlier.
+
+```json
+"previous": {
+  "range": { "start": "2026-10-04T13:00:00+02:00", "end": "2026-10-05T13:00:00+02:00", "bucket": "hour", "timezone": "Europe/Rome" },
+  "summary": { "production": { "value": 24.0, "closed_value": 24.0, "status": "complete", "in_progress": false, "...": "..." } },
+  "kpis": { "self_consumption": { "value": 75.0, "unit": "%", "status": "complete", "...": "..." } },
+  "comparison": {
+    "buckets": 23,
+    "series": { "production": { "current": 46.0, "previous": 23.0, "absolute_change": 23.0, "percent_change": 100.0, "status": "complete" } }
+  }
+}
+```
+
+- `comparison` sums, in both periods, the closed buckets at the same
+  positions (`buckets`): the bucket in progress is left out, so "today so
+  far" is never set against a whole day, and each pair is one period apart
+  (the same hours of the day, weekdays or months).
+- `percent_change` = (current − previous) / previous × 100 when previous > 0;
+  0 when both are 0; `null` with `no_percentage_baseline` when previous is 0
+  and current is not (never infinity). With either side incomplete only the
+  values known are given, without change (`partial_data`); a series missing
+  on either side is `unavailable` (`missing_data`).
+
+**Queries.** One metadata read and one `statistics_during_period` call per
+request, with or without `compare`, for one device or many. Measured on the
+HA 2026.2.3 test Recorder (SQLite, 47 hours of data, mean of 20 requests):
+3 meters 5–6 ms without and 6–7 ms with `compare`; 24 meters (16 inverters,
+2 batteries, 2 wallboxes) 9–11 ms without and 9–13 ms with.
 
 ### History on the Energy page
 
@@ -998,7 +1100,9 @@ Since A2.1 the *Andamento* section draws `get_history` as it is returned.
   `{ type, range }` (a preset; no `include_devices`, no `compare`) and
   validates the document field by field (`parseEnergyHistory`): known series
   and reasons only, numbers or `null` values, the same buckets in every
-  series, `cost` and `previous` `null`. Anything else is `invalid_response`.
+  series, `cost` `null`, and since A2.2A `summary`, `kpis` and `previous`
+  (a total or KPI has a value exactly when its status is `complete`). Anything
+  else is `invalid_response`. The page does not show totals or KPIs yet.
   Backend errors keep their meaning: `recorder_unavailable`,
   `history_unavailable`, `invalid_request` (also `invalid_range`,
   `invalid_bucket`), `unsupported` for an integration without the command.
