@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EnergyCallApi, EnergyHistoryPreset, EnergyHistoryResult } from '../../../services/energyCoreClient';
-import { dayStarts, historyResult, hourStarts, monthStarts, series } from './energyHistory.fixtures';
+import { dayStarts, historyResult, hourStarts, monthStarts, previousBlock, series } from './energyHistory.fixtures';
 import { useEnergyHistory } from './useEnergyHistory';
 
 afterEach(() => {
@@ -10,10 +10,10 @@ afterEach(() => {
 
 /** One distinct document per preset, shaped as the backend answers it. */
 const DOCUMENTS: Record<EnergyHistoryPreset, EnergyHistoryResult> = {
-  '24h': historyResult({ starts: hourStarts(24), series: { grid_import: series(hourStarts(24), Array.from({ length: 24 }, () => 0.5)) } }),
-  '7d': historyResult({ bucket: 'day', starts: dayStarts(7), series: { grid_import: series(dayStarts(7), [1, 2, 3, 4, 5, 6, 7]) } }),
-  '30d': historyResult({ bucket: 'day', starts: dayStarts(30, '2026-09-06'), series: { grid_import: series(dayStarts(30, '2026-09-06'), Array.from({ length: 30 }, () => 9)) } }),
-  '12m': historyResult({ bucket: 'month', starts: monthStarts(), series: { grid_import: series(monthStarts(), Array.from({ length: 12 }, () => 200)) } }),
+  '24h': historyResult({ previous: previousBlock(), starts: hourStarts(24), series: { grid_import: series(hourStarts(24), Array.from({ length: 24 }, () => 0.5)) } }),
+  '7d': historyResult({ previous: previousBlock(), bucket: 'day', starts: dayStarts(7), series: { grid_import: series(dayStarts(7), [1, 2, 3, 4, 5, 6, 7]) } }),
+  '30d': historyResult({ previous: previousBlock(), bucket: 'day', starts: dayStarts(30, '2026-09-06'), series: { grid_import: series(dayStarts(30, '2026-09-06'), Array.from({ length: 30 }, () => 9)) } }),
+  '12m': historyResult({ previous: previousBlock(), bucket: 'month', starts: monthStarts(), series: { grid_import: series(monthStarts(), Array.from({ length: 12 }, () => 200)) } }),
 };
 
 type Pending = { range: EnergyHistoryPreset; resolve: (value: unknown) => void; reject: (error: unknown) => void };
@@ -49,7 +49,7 @@ describe('useEnergyHistory', () => {
     await waitFor(() => expect(result.current.current).toBe(true));
     expect(result.current.period).toBe('24h');
     expect(result.current.result).toEqual(DOCUMENTS['24h']);
-    expect(callApi).toHaveBeenCalledWith({ type: 'domusos/energy/get_history', range: '24h' }, { reportError: false, throwOnError: true });
+    expect(callApi).toHaveBeenCalledWith({ type: 'domusos/energy/get_history', range: '24h', compare: 'previous' }, { reportError: false, throwOnError: true });
   });
 
   it.each(['7d', '30d', '12m'] as const)('asks the backend for the %s preset as it is', async (period) => {
@@ -142,6 +142,23 @@ describe('useEnergyHistory', () => {
 
     expect(result.current.error?.code).toBe('invalid_response');
     expect(result.current.result).toBeNull();
+  });
+
+  it('always asks for the previous period and never keeps an answer without it', async () => {
+    const api = deferredApi();
+    const { result } = renderHook(() => useEnergyHistory(api.callApi, { enabled: true, revision: 1 }));
+
+    // An answer of an integration that ignores compare, as A2.1 received them.
+    await api.answer('24h', { ...DOCUMENTS['24h'], previous: null });
+    expect(result.current.error?.code).toBe('invalid_response');
+
+    act(() => result.current.retry());
+    await api.answer('24h');
+    expect(result.current.result?.previous).not.toBeNull();
+    expect(api.callApi.mock.calls.map(([message]) => message)).toEqual([
+      { type: 'domusos/energy/get_history', range: '24h', compare: 'previous' },
+      { type: 'domusos/energy/get_history', range: '24h', compare: 'previous' },
+    ]);
   });
 
   it('never polls and ignores an answer after the page is closed', async () => {

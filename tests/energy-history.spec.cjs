@@ -49,7 +49,8 @@ function documentOf(bucket, starts, series, unavailable = {}) {
     configured: true,
     range: { start: starts[0], end: '2026-10-06T00:00:00+02:00', bucket, timezone: 'Europe/Rome' },
     unit: 'kWh', recorder: 'available', verification: 'complete',
-    series, unavailable, devices: {}, summary: {}, kpis: {}, cost: null, previous: null, generated_at: '2026-10-05T21:30:00+00:00',
+    series, unavailable, devices: {}, summary: {}, kpis: {}, cost: null,
+    previous: { range: { start: starts[0], end: starts[0], bucket, timezone: 'Europe/Rome' }, summary: {}, kpis: {}, comparison: { buckets: 0, series: {} } }, generated_at: '2026-10-05T21:30:00+00:00',
   };
 }
 

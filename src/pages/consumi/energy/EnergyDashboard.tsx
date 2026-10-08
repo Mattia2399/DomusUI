@@ -4,12 +4,9 @@ import {
   BarChart3,
   Battery,
   Clock3,
-  CalendarClock,
   CarFront,
   ChevronRight,
   DatabaseZap,
-  Gauge,
-  Leaf,
   LoaderCircle,
   RefreshCw,
   SlidersHorizontal,
@@ -22,6 +19,7 @@ import {
 import GlassSegmentSelect from '../../../components/ui/GlassSegmentSelect';
 import type { EnergyModuleId, EnergyModuleState, EnergyState } from '../../../services/energyCoreClient';
 import { EnergyHistoryChart } from './EnergyHistoryChart';
+import { PeriodKpis, PeriodMethod, PeriodTotals } from './EnergyPeriodAnalytics';
 import { EnergyModuleSheet, describeQuantity, liveFlows, okValue } from './EnergyModuleSheet';
 import { BUCKET_LABEL, historyPeriods, historyState, missingSeries } from './energyHistoryModel';
 import { EnergyHomeVisual, FLOW_COLORS } from './EnergyHomeVisual';
@@ -182,7 +180,7 @@ function HistoryMessage({ icon: Icon, spin = false, title, children }: { icon: L
 /** The chart, or the reason there is none: every case has its own words, none is a generic error. */
 function HistoryBody({ history, onOpenSettings }: { history: EnergyHistoryView; onOpenSettings?: () => void }) {
   const { c, locale } = useConsumptionCopy();
-  const { result, error, loading, current, retry } = history;
+  const { result, resultPeriod, error, loading, current, retry } = history;
   const again = (
     <button type="button" onClick={retry} className={MESSAGE_ACTION}>
       <RefreshCw className="h-4 w-4" aria-hidden="true" /> {c('Riprova')}
@@ -253,11 +251,12 @@ function HistoryBody({ history, onOpenSettings }: { history: EnergyHistoryView; 
       );
     default: {
       const missing = missingSeries(result, locale);
+      const period = resultPeriod ?? history.period;
+      // One answer feeds the totals, the chart and the KPIs of the same period.
       return (
-        <>
-          <div aria-busy={!current} className={`transition-opacity motion-reduce:transition-none ${current ? '' : 'opacity-60'}`}>
-            <EnergyHistoryChart key={result.generated_at} result={result} />
-          </div>
+        <div aria-busy={!current} className={`transition-opacity motion-reduce:transition-none ${current ? '' : 'opacity-60'}`}>
+          <PeriodTotals result={result} period={period} inProgress={state.inProgress} />
+          <EnergyHistoryChart key={`${period}:${result.generated_at}`} result={result} />
           {state.partial || state.inProgress || missing.length ? (
             <ul className="mt-3 space-y-1.5 text-[11px] leading-4 text-[color:var(--ui-text-secondary)]">
               {state.partial ? (
@@ -277,7 +276,9 @@ function HistoryBody({ history, onOpenSettings }: { history: EnergyHistoryView; 
               ) : null}
             </ul>
           ) : null}
-        </>
+          <PeriodKpis result={result} />
+          <PeriodMethod result={result} period={period} inProgress={state.inProgress} />
+        </div>
       );
     }
   }
@@ -316,7 +317,7 @@ type AnalysisRow = { icon: LucideIcon; label: string; value: string; detail?: st
 function AnalysisCard({ state }: { state: EnergyState }) {
   const { c, formatNumber } = useConsumptionCopy();
   const solar = Boolean(state.modules.solar);
-  // Period balance, costs and comparisons come with the next Energy release: nothing is computed here.
+  // Self-consumption, self-sufficiency and the comparison are in Andamento; costs come with A2.3.
   const later = c('In arrivo');
   const tariff = state.tariff;
   const missing = 'tariff' in state ? c('Tariffa non configurata') : c('Aggiorna l’integrazione Domus UI');
@@ -325,16 +326,13 @@ function AnalysisCard({ state }: { state: EnergyState }) {
     tariff
       ? { icon: Clock3, label: c('Fascia attuale'), value: `${tariff.band_label} · ${price(tariff.price)}`, known: true }
       : { icon: Clock3, label: c('Fascia attuale'), value: missing },
-    solar ? { icon: Gauge, label: c('Autoconsumo'), value: later, detail: c('Energia solare usata in casa') } : null,
-    solar || state.modules.battery ? { icon: Leaf, label: c('Autosufficienza'), value: later, detail: c('Consumi coperti senza la rete') } : null,
     { icon: TrendingUp, label: c('Costi energetici'), value: tariff ? later : missing },
     solar ? { icon: TrendingDown, label: c('Risparmio stimato'), value: tariff ? later : missing, detail: c('Energia autoprodotta al prezzo della rete') } : null,
-    { icon: CalendarClock, label: c('Confronto con il periodo precedente'), value: later },
   ];
   return (
     <section className={CARD} aria-labelledby="energy-analysis-title">
       <p className={EYEBROW}>{c('Analisi')}</p>
-      <h2 id="energy-analysis-title" className={TITLE}>{c('Bilancio e costi')}</h2>
+      <h2 id="energy-analysis-title" className={TITLE}>{c('Tariffa e costi')}</h2>
       <ul className="mt-4 divide-y divide-[color:var(--ui-separator)]">
         {rows.filter((row): row is AnalysisRow => Boolean(row)).map((row) => (
           <li key={row.label} className="flex items-start gap-3 py-2.5">

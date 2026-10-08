@@ -849,9 +849,13 @@ export function parseEnergyHistory(value: unknown): EnergyHistoryResult | null {
   };
 }
 
-/** Aggregated energy history of a preset period; devices and comparisons are not requested. */
+/**
+ * Aggregated energy history of a preset period with the previous period
+ * (`compare: "previous"`, read by the same Recorder query); devices are not
+ * requested. An answer without the comparison it was asked for is invalid.
+ */
 export async function getEnergyHistory(callApi: EnergyCallApi, range: EnergyHistoryPreset) {
-  const result = parseEnergyHistory(await call(callApi, { type: ENERGY_CORE_TYPES.getHistory, range }));
-  if (result === null) throw new EnergyCoreError('invalid_response', ERROR_MESSAGES.invalid_response);
+  const result = parseEnergyHistory(await call(callApi, { type: ENERGY_CORE_TYPES.getHistory, range, compare: 'previous' }));
+  if (result === null || result.previous === null) throw new EnergyCoreError('invalid_response', ERROR_MESSAGES.invalid_response);
   return result;
 }

@@ -51,7 +51,15 @@
   request the same figures for the previous period with the change of each
   total. They come from the same single Recorder read, never turn missing
   data into zero, say when a period is still in progress and give no
-  percentage where it has no meaning. The Energy page does not show them yet.
+  percentage where it has no meaning.
+- The _Andamento_ section of the Energy page shows the energy of the selected
+  period (consumption, production, grid import and export, battery and car
+  charging) with its change against the previous 24 hours, 7 or 30 days or 12
+  months, and three indicators: self-consumption, self-sufficiency and solar
+  coverage. Values of a period still in progress read "finora", the
+  comparison only uses concluded intervals, incomplete data is never shown as
+  a total and a change without a meaningful percentage says so. The analysis
+  card now keeps the tariff and the coming costs only.
 
 ### Changed
 

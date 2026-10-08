@@ -11,7 +11,8 @@ import {
 /*
  * Energy history of the Energy page, apart from the realtime projection: a
  * power change never reads the Recorder again. It is read when the page opens,
- * when the period changes and on a manual retry; there is no polling. Answers
+ * when the period changes and on a manual retry; there is no polling. Each
+ * answer carries the totals, KPIs and the previous period too. Answers
  * stay in memory for the life of the page, per profile revision, so going back
  * to a period already seen sends nothing; nothing is stored in the browser.
  */
@@ -21,6 +22,8 @@ export type EnergyHistoryView = {
   onPeriod: (period: EnergyHistoryPreset) => void;
   /** The answer for `period`, or the previous one while `period` is loading. */
   result: EnergyHistoryResult | null;
+  /** The period `result` belongs to. */
+  resultPeriod: EnergyHistoryPreset | null;
   /** `result` belongs to `period`. */
   current: boolean;
   loading: boolean;
@@ -52,7 +55,8 @@ export function useEnergyHistory(
 
   React.useEffect(() => {
     if (!enabled || !callApi) return undefined;
-    const key = `${revision}:${period}`;
+    // Every request asks for the previous period too: the key says so.
+    const key = `${revision}:${period}:previous`;
     const cached = cacheRef.current.get(key);
     const request = ++requestRef.current;
     if (cached) {
@@ -92,7 +96,7 @@ export function useEnergyHistory(
   }, [attempt, callApi, enabled, period, revision]);
 
   const retry = React.useCallback(() => {
-    cacheRef.current.delete(`${revisionRef.current}:${period}`);
+    cacheRef.current.delete(`${revisionRef.current}:${period}:previous`);
     setAttempt((value) => value + 1);
   }, [period]);
 
@@ -100,6 +104,7 @@ export function useEnergyHistory(
     period,
     onPeriod: setPeriod,
     result: shown?.result ?? null,
+    resultPeriod: shown?.period ?? null,
     current: shown?.period === period && !loading,
     loading,
     error,

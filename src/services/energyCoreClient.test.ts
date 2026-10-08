@@ -218,13 +218,21 @@ describe('Domus Energy history client', () => {
     },
   });
 
-  it('reads a preset through the exact websocket command, without devices or comparison', async () => {
-    const callApi = vi.fn().mockResolvedValue(document());
+  it('reads a preset with the previous period through the exact websocket command, without devices', async () => {
+    const callApi = vi.fn().mockResolvedValue({ ...document(), previous: previous() });
 
     const result = await getEnergyHistory(callApi, '7d');
 
-    expect(callApi).toHaveBeenCalledWith({ type: 'domusos/energy/get_history', range: '7d' }, { reportError: false, throwOnError: true });
-    expect(result).toEqual(document());
+    expect(callApi).toHaveBeenCalledWith(
+      { type: 'domusos/energy/get_history', range: '7d', compare: 'previous' },
+      { reportError: false, throwOnError: true },
+    );
+    expect(result).toEqual({ ...document(), previous: previous() });
+  });
+
+  it('refuses an answer without the comparison it asked for', async () => {
+    // An integration older than A2.2A ignores compare: the page must not show it as complete.
+    await expect(getEnergyHistory(vi.fn().mockResolvedValue(document()), '24h')).rejects.toMatchObject({ code: 'invalid_response' });
   });
 
   it('keeps a missing bucket as null and a real zero as 0, with the partial value apart', () => {

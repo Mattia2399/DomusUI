@@ -89,16 +89,15 @@ describe('Energy dashboard', () => {
     const battery = within(components).getByText('Batteria').closest('button') as HTMLElement;
     expect(within(battery).getByText('68%')).not.toBeNull();
     expect(within(battery).getByText('In carica · 1,6 kW')).not.toBeNull();
-    expect(screen.getByText('Autoconsumo')).not.toBeNull();
+    expect(screen.getByText('Risparmio stimato')).not.toBeNull();
     expect(screen.getByRole('img', { name: /Wallbox: 7,4 kW/ })).not.toBeNull();
   });
 
-  it('splits the home sources from the live meters and computes no period figure', () => {
+  it('splits the home sources from the live meters', () => {
     show(state({ grid: online({ net_power: q(0) }), solar: online({ production_power: q(900) }) }));
 
     const sources = within(screen.getByTestId('energy-hero')).getByRole('list', { name: 'Da dove arriva l’energia della casa' });
     expect(within(sources).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Fotovoltaico100%', 'Rete0%']);
-    expect(screen.getAllByText('In arrivo').length).toBeGreaterThan(0);
   });
 });
 

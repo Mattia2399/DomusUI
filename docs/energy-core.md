@@ -678,12 +678,11 @@ section; no new route exists.
      stretch them to the hero height.
   3. *Andamento*: the energy history read with `get_history` (see
      [History on the Energy page](#history-on-the-energy-page)): 24 h / 7 d /
-     30 d / 12 m selector, the series the backend returned and a specific
-     message when there is none.
-  4. *Analisi*: the current tariff band and price, then self-consumption,
-     self-sufficiency, costs, savings and comparisons, listed only when
-     relevant and marked as not configured or *In arrivo* (A2.2): no period
-     figure is computed on the page.
+     30 d / 12 m selector, the period totals with the comparison, the chart,
+     the KPIs and a specific message when there is no history.
+  4. *Tariffa e costi* (eyebrow *Analisi*): the current tariff band and
+     price, then costs and savings marked as not configured or *In arrivo*
+     (A2.3).
   5. *Component details*: every tile, and the arrow next to *Consumo della
      casa*, opens a sheet (bottom sheet on phones, centred dialog from
      `sm`) with the live figures, the paths of its power (only those
@@ -1097,12 +1096,13 @@ HA 2026.2.3 test Recorder (SQLite, 47 hours of data, mean of 20 requests):
 Since A2.1 the *Andamento* section draws `get_history` as it is returned.
 
 - **Client.** `getEnergyHistory(callApi, range)` sends only
-  `{ type, range }` (a preset; no `include_devices`, no `compare`) and
+  `{ type, range, compare: "previous" }` (a preset; no `include_devices`) and
   validates the document field by field (`parseEnergyHistory`): known series
   and reasons only, numbers or `null` values, the same buckets in every
   series, `cost` `null`, and since A2.2A `summary`, `kpis` and `previous`
   (a total or KPI has a value exactly when its status is `complete`). Anything
-  else is `invalid_response`. The page does not show totals or KPIs yet.
+  else is `invalid_response`, and so is an answer without the `previous` it
+  asked for (an integration older than A2.2A).
   Backend errors keep their meaning: `recorder_unavailable`,
   `history_unavailable`, `invalid_request` (also `invalid_range`,
   `invalid_bucket`), `unsupported` for an integration without the command.
@@ -1110,7 +1110,8 @@ Since A2.1 the *Andamento* section draws `get_history` as it is returned.
   `useEnergyCore`: a power change never reads the Recorder. It reads when the
   page opens (24 h first), when the period changes and on *Riprova*; there is
   no polling. Answers stay in memory for the life of the page, keyed by
-  profile revision and period, so returning to a period sends nothing and a
+  profile revision, period and the comparison (`<revision>:<period>:previous`),
+  so returning to a period sends nothing and a
   saved profile reads again; nothing is stored in the browser. A request id
   makes the last chosen period win over slower answers, the previous chart
   stays, dimmed, while the next one loads, and answers after the page closes
@@ -1157,3 +1158,58 @@ Since A2.1 the *Andamento* section draws `get_history` as it is returned.
   table lists all buckets and series. Axis labels thin out with the width
   (every 1, 2, 3, 4, 6 or 12 hours, 1–15 days, 1–6 months), never the data;
   below 480 px the reading spans the chart. No animation.
+
+### Period analytics on the Energy page
+
+Since A2.2B the *Andamento* section shows the `summary`, `kpis` and
+`previous.comparison` of the same answer as the chart
+(`EnergyPeriodAnalytics.tsx`, words in `energyAnalyticsModel.ts`). The page
+formats numbers and chooses words; it never sums buckets, divides totals,
+computes a change or decides completeness.
+
+- **Always compared.** Every request sends `compare: "previous"`: the backend
+  reads both periods in the same single query, the answer grows by about
+  1.6 KB (the previous block has no points) and the request by 0.5–4 ms on the
+  test Recorder. One period selection, one request and one cache entry feed
+  the totals, the chart, the KPIs and the comparison; no toggle is needed.
+- **Layout.** In the section, under the period selector: *Energia nel
+  periodo* (the period in words, with *periodo in corso* while it is not over),
+  the totals, the chart, *Come usi la tua energia* (the KPIs) and a closed
+  *Come viene calcolato?* panel. Nothing is shown in place of the history
+  messages (no meter, Recorder unavailable, no data, error): the totals and
+  KPIs follow the same state as the chart.
+- **Totals.** *Consumi* and *Produzione* first, then *Prelievo*,
+  *Immissione*, *Carica batteria*, *Scarica batteria*, *Ricarica auto*, only
+  for the series in `summary` with data (an installed series without any is
+  named in the chart notes). The headline is `value`, with *finora* while the
+  period is in progress; `closed_value` is never put in its place. A partial
+  total reads *—*, *Dati incompleti* and *Dato parziale: … kWh misurati*.
+- **Comparison.** Under each total, with neutral arrows in the accent colour
+  (more consumption or less production is not good or bad): *↓ 8% rispetto ai
+  7 giorni precedenti* (*alle 24 ore*, *ai 30 giorni*, *ai 12 mesi*),
+  *Nessuna variazione*, *Nuovo* when the previous period had nothing
+  (`no_percentage_baseline`), *Confronto non disponibile · dati incompleti*
+  with missing data. While the period is in progress a line says *Il
+  confronto esclude il periodo ancora in corso.*, and the panel lists, per
+  total, the closed buckets compared (`comparison.current` and `previous`,
+  e.g. 6 days of each period), so a total so far and its comparison never
+  look inconsistent.
+- **KPIs.** Compact cards with the value, the name, one line of meaning and
+  a thin 0–100 bar for *Autoconsumo* and *Autosufficienza*. *Copertura solare*
+  (Solar Offset) has no bar: it can exceed 100% and is shown as it is, with
+  *Nel periodo hai prodotto più energia solare di quanta ne hai consumata.*
+  above 100%. A KPI the backend does not return is not shown (no solar KPI
+  without photovoltaics); one without a value says why (*Nessuna produzione
+  solare nel periodo.*, *Nessun consumo nel periodo.*, *Mancano i contatori
+  necessari.*, *Dati incompleti nel periodo.*, *I contatori non sono coerenti
+  in questo periodo.*) and is never read as 0%. The formulas stay in the
+  panel, in words.
+- **Accessibility.** Each change has a sentence for screen readers (*Consumi
+  in calo rispetto ai 7 giorni precedenti: meno 8%*), the arrows are hidden
+  from them, and each KPI card is labelled with its value, *finora* and its
+  meaning. Totals are a description list; the panel is a native `details`.
+  No number animation.
+- **Responsive.** Totals two per row on phones, three from 640 px, four from
+  1024 px; KPIs one per row on phones and three side by side from 640 px.
+- *Tariffa e costi* keeps the current band and the costs and savings coming
+  with A2.3; `cost` is never read.

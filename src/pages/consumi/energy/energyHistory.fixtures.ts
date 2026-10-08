@@ -1,13 +1,19 @@
 import type {
   EnergyHistoryBucket,
+  EnergyHistoryChange,
+  EnergyHistoryPrevious,
   EnergyHistoryResult,
   EnergyHistoryResultPoint,
   EnergyHistorySeries,
   EnergyHistorySeriesName,
+  EnergyHistorySummary,
+  EnergyHistoryTotal,
   EnergyHistoryUnavailable,
+  EnergyKpi,
+  EnergyKpis,
 } from '../../../services/energyCoreClient';
 
-/* Test fixtures shaped like the A2.0 `get_history` document; never imported by the app. */
+/* Test fixtures shaped like the `get_history` document (A2.0 and A2.2A); never imported by the app. */
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -60,6 +66,9 @@ export function historyResult({
   series: entries = {},
   unavailable = {},
   configured = true,
+  summary = {},
+  kpis = {},
+  previous = null,
 }: {
   bucket?: EnergyHistoryBucket;
   starts?: string[];
@@ -67,6 +76,9 @@ export function historyResult({
   series?: Partial<Record<EnergyHistorySeriesName, EnergyHistorySeries>>;
   unavailable?: Partial<Record<EnergyHistorySeriesName, EnergyHistoryUnavailable>>;
   configured?: boolean;
+  summary?: EnergyHistorySummary;
+  kpis?: EnergyKpis;
+  previous?: EnergyHistoryPrevious | null;
 } = {}): EnergyHistoryResult {
   return {
     configured,
@@ -77,11 +89,63 @@ export function historyResult({
     series: entries,
     unavailable,
     devices: {},
-    // The section draws the series; totals and KPIs are not shown yet.
-    summary: {},
-    kpis: {},
+    summary,
+    kpis,
     cost: null,
-    previous: null,
+    previous,
     generated_at: '2026-10-05T23:30:00+00:00',
   };
 }
+
+/** A complete period total; `extra` changes any field. */
+export const total = (value: number | null, extra: Partial<EnergyHistoryTotal> = {}): EnergyHistoryTotal => ({
+  value,
+  closed_value: value,
+  unit: 'kWh',
+  status: value === null ? 'partial_data' : 'complete',
+  complete: value !== null,
+  in_progress: false,
+  in_progress_included: false,
+  source: 'measured',
+  ...(value === null ? { reason: 'partial_data' as const } : {}),
+  ...extra,
+});
+
+/** A KPI with a value, or `null` with `extra` saying why. */
+export const kpi = (value: number | null, extra: Partial<EnergyKpi> = {}): EnergyKpi => ({
+  value,
+  unit: '%',
+  status: value === null ? 'unavailable' : 'complete',
+  complete: true,
+  in_progress: false,
+  source: 'measured',
+  ...extra,
+});
+
+/** A change between two totals as the backend returns it; the absolute change follows the two values. */
+export const change = (
+  current: number | null,
+  previous: number | null,
+  percent: number | null,
+  extra: Partial<EnergyHistoryChange> = {},
+): EnergyHistoryChange => ({
+  current,
+  previous,
+  absolute_change: current !== null && previous !== null ? Math.round((current - previous) * 1000) / 1000 : null,
+  percent_change: percent,
+  status: current === null || previous === null ? 'partial_data' : 'complete',
+  ...extra,
+});
+
+/** The previous-period block; an empty one when the test does not look at it. */
+export const previousBlock = ({
+  buckets = 0,
+  series = {},
+  summary = {},
+  kpis = {},
+}: Partial<{ buckets: number; series: EnergyHistoryPrevious['comparison']['series']; summary: EnergyHistorySummary; kpis: EnergyKpis }> = {}): EnergyHistoryPrevious => ({
+  range: { start: '2026-10-04T00:00:00+02:00', end: '2026-10-05T00:00:00+02:00', bucket: 'hour', timezone: 'Europe/Rome' },
+  summary,
+  kpis,
+  comparison: { buckets, series },
+});

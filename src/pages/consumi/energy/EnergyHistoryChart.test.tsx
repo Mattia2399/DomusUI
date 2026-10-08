@@ -39,6 +39,7 @@ const view = (overrides: Partial<EnergyHistoryView> = {}): EnergyHistoryView => 
   period: '24h',
   onPeriod: vi.fn(),
   result: FULL,
+  resultPeriod: '24h',
   current: true,
   loading: false,
   error: null,
@@ -260,13 +261,13 @@ describe('Energy history section', () => {
     expect(within(section()).queryByRole('button', { name: /Scarica batteria|Ricarica auto|Fotovoltaico/ })).toBeNull();
   });
 
-  it('computes no period figure from the history', () => {
+  it('leaves only tariff and costs to the analysis card', () => {
     show(view());
 
-    const analysis = screen.getByRole('heading', { name: 'Bilancio e costi' }).closest('section') as HTMLElement;
-    expect(within(analysis).getAllByText('In arrivo').length).toBeGreaterThan(0);
-    expect(within(analysis).queryByText(/%/)).toBeNull();
-    expect(screen.queryByText(/Prodotta in/)).toBeNull();
+    const analysis = screen.getByRole('heading', { name: 'Tariffa e costi' }).closest('section') as HTMLElement;
+    expect(within(analysis).getByText('Costi energetici')).not.toBeNull();
+    // Self-consumption, self-sufficiency and the comparison live in Andamento now.
+    expect(within(analysis).queryByText(/Autoconsumo|Autosufficienza|Confronto/)).toBeNull();
   });
 
   it('has no history section without a history source', () => {

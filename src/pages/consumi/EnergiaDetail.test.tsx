@@ -66,7 +66,12 @@ const HISTORY = {
   summary: {},
   kpis: {},
   cost: null,
-  previous: null,
+  previous: {
+    range: { start: '2026-10-01T08:00:00+02:00', end: '2026-10-01T10:00:00+02:00', bucket: 'hour', timezone: 'Europe/Rome' },
+    summary: {},
+    kpis: {},
+    comparison: { buckets: 1, series: {} },
+  },
   generated_at: '2026-10-01T09:30:00+00:00',
 };
 
@@ -231,7 +236,7 @@ describe('Energy subpage', () => {
     renderDetail(context(callApi));
 
     expect(await screen.findByText('Lo storico non è ancora configurato')).not.toBeNull();
-    expect(callApi).toHaveBeenCalledWith({ type: 'domusos/energy/get_history', range: '24h' }, { reportError: false, throwOnError: true });
+    expect(callApi).toHaveBeenCalledWith({ type: 'domusos/energy/get_history', range: '24h', compare: 'previous' }, { reportError: false, throwOnError: true });
     fireEvent.click(screen.getByRole('button', { name: 'Apri le impostazioni' }));
     expect(await screen.findByRole('heading', { name: 'Impostazioni Energia' })).not.toBeNull();
   });
