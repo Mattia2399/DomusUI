@@ -185,43 +185,64 @@ def _is_timestamp(value: Any) -> bool:
     return parsed.tzinfo is not None
 
 
-def _require(condition: bool, reason: str) -> None:
+def _require(
+    condition: bool, reason: str, error: type[Exception] = InvalidStoredDocumentError
+) -> None:
     if not condition:
-        raise InvalidStoredDocumentError(reason)
+        raise error(reason)
 
 
-def _parse_device(value: Any, where: str) -> PersonalDevice:
-    _require(isinstance(value, dict), f"{where}: device must be an object")
-    _require(set(value) <= DEVICE_KEYS, f"{where}: unknown device keys")
+def canonical_label(value: Any) -> str | None:
+    """Return the label a device really has, or ``None`` for no custom label.
+
+    Absent, ``null``, ``""`` and whitespace-only all mean "no label"; any other
+    string is trimmed. Raise ``ValueError`` for anything else.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError("label must be a string")
+    label = value.strip()
+    return label or None
+
+
+def _parse_device(
+    value: Any, where: str, error: type[Exception] = InvalidStoredDocumentError
+) -> PersonalDevice:
+    _require(isinstance(value, dict), f"{where}: device must be an object", error)
+    _require(set(value) <= DEVICE_KEYS, f"{where}: unknown device keys", error)
     device_id = value.get("id")
     _require(
         isinstance(device_id, str) and bool(DEVICE_ID_PATTERN.fullmatch(device_id)),
         f"{where}: invalid device id",
+        error,
     )
     source = value.get("source")
     _require(
         isinstance(source, dict) and set(source) == {"kind", "ha_device_id"},
         f"{where}: invalid device source",
+        error,
     )
-    _require(source["kind"] == DEVICE_SOURCE_HA_DEVICE, f"{where}: unsupported source kind")
+    _require(source["kind"] == DEVICE_SOURCE_HA_DEVICE, f"{where}: unsupported source kind", error)
     ha_device_id = source["ha_device_id"]
     _require(
         isinstance(ha_device_id, str) and bool(HA_ID_PATTERN.fullmatch(ha_device_id)),
         f"{where}: invalid Home Assistant device id",
+        error,
     )
-    label = value.get("label")
-    _require(
-        label is None
-        or (isinstance(label, str) and 0 < len(label.strip()) and len(label) <= MAX_DEVICE_LABEL_LENGTH),
-        f"{where}: invalid label",
-    )
-    _require(_is_timestamp(value.get("added_at")), f"{where}: invalid added_at")
+    try:
+        label = canonical_label(value.get("label"))
+    except ValueError:
+        raise error(f"{where}: invalid label") from None
+    _require(label is None or len(label) <= MAX_DEVICE_LABEL_LENGTH, f"{where}: label too long", error)
+    _require(_is_timestamp(value.get("added_at")), f"{where}: invalid added_at", error)
     notifications = value.get("notifications")
     _require(
         isinstance(notifications, dict)
         and set(notifications) == {"enabled"}
         and isinstance(notifications["enabled"], bool),
         f"{where}: invalid notifications",
+        error,
     )
     return PersonalDevice(
         id=device_id,
@@ -230,6 +251,23 @@ def _parse_device(value: Any, where: str) -> PersonalDevice:
         added_at=value["added_at"],
         notifications_enabled=notifications["enabled"],
     )
+
+
+def _parse_devices(
+    raw_devices: Any, where: str, error: type[Exception] = InvalidStoredDocumentError
+) -> tuple[PersonalDevice, ...]:
+    _require(isinstance(raw_devices, list), f"{where}: personal_devices must be a list", error)
+    _require(len(raw_devices) <= MAX_PERSONAL_DEVICES, f"{where}: too many devices", error)
+    devices = tuple(
+        _parse_device(item, f"{where} device {index}", error) for index, item in enumerate(raw_devices)
+    )
+    _require(len({device.id for device in devices}) == len(devices), f"{where}: duplicate device id", error)
+    _require(
+        len({device.ha_device_id for device in devices}) == len(devices),
+        f"{where}: duplicate Home Assistant device",
+        error,
+    )
+    return devices
 
 
 def parse_stored_profile(key: str, value: Any) -> DomusUserProfile:
@@ -252,15 +290,7 @@ def parse_stored_profile(key: str, value: Any) -> DomusUserProfile:
         _require(_is_timestamp(orphaned_at), f"{where}: orphaned profile needs orphaned_at")
     else:
         _require(orphaned_at is None, f"{where}: active profile cannot have orphaned_at")
-    raw_devices = value.get("personal_devices")
-    _require(isinstance(raw_devices, list), f"{where}: personal_devices must be a list")
-    _require(len(raw_devices) <= MAX_PERSONAL_DEVICES, f"{where}: too many devices")
-    devices = tuple(_parse_device(item, f"{where} device {index}") for index, item in enumerate(raw_devices))
-    _require(len({device.id for device in devices}) == len(devices), f"{where}: duplicate device id")
-    _require(
-        len({device.ha_device_id for device in devices}) == len(devices),
-        f"{where}: duplicate Home Assistant device",
-    )
+    devices = _parse_devices(value.get("personal_devices"), where)
     notifications = value.get("notifications")
     _require(
         isinstance(notifications, dict)
@@ -306,18 +336,36 @@ def serialize_document(profiles: Mapping[str, DomusUserProfile]) -> dict[str, An
 
 
 @dataclass(frozen=True, slots=True)
-class SelfProfileChanges:
-    """The fields a user may change on their own profile in P1.1."""
+class ProfileContent:
+    """What a profile says, without revision or timestamps.
 
-    notifications_enabled: bool
+    Two saves with the same canonical content are the same save: the second
+    one is a no-op.
+    """
+
+    notifications_enabled: bool = True
+    personal_devices: tuple[PersonalDevice, ...] = ()
+    preferences: Mapping[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def of(cls, profile: DomusUserProfile | None) -> ProfileContent:
+        """Return the content of a profile; a missing profile has the defaults."""
+        if profile is None:
+            return cls()
+        return cls(
+            notifications_enabled=profile.notifications_enabled,
+            personal_devices=profile.personal_devices,
+            preferences=dict(profile.preferences),
+        )
 
 
-def parse_self_changes(value: Any, current: DomusUserProfile | None) -> SelfProfileChanges:
-    """Validate a save_self payload against what P1.1 lets a user change.
+def parse_self_changes(value: Any, current: DomusUserProfile | None) -> ProfileContent:
+    """Validate a save_self payload and return the canonical content it asks for.
 
     Only ``notifications.enabled`` is editable. ``personal_devices`` and
-    ``preferences`` may be sent back, but must be exactly what is stored:
-    devices change only once ownership can be verified server-side.
+    ``preferences`` may be sent back, but must mean exactly what is stored once
+    canonicalized: devices change only once ownership can be verified
+    server-side.
     """
     if not isinstance(value, dict):
         raise InvalidProfileError("The profile must be an object")
@@ -336,15 +384,18 @@ def parse_self_changes(value: Any, current: DomusUserProfile | None) -> SelfProf
         stored = dict(current.preferences) if current is not None else {}
         if not isinstance(preferences, dict) or preferences != stored:
             raise InvalidProfileError("Preferences cannot be changed yet")
+    stored = ProfileContent.of(current)
     if "personal_devices" in value:
-        stored_devices = (
-            [device.as_dict() for device in current.personal_devices] if current is not None else []
-        )
-        if value["personal_devices"] != stored_devices:
+        requested = _parse_devices(value["personal_devices"], "profile", InvalidProfileError)
+        if requested != stored.personal_devices:
             raise DeviceManagementNotAvailableError(
                 "Personal devices cannot be changed until ownership verification is available"
             )
-    return SelfProfileChanges(notifications_enabled=notifications["enabled"])
+    return ProfileContent(
+        notifications_enabled=notifications["enabled"],
+        personal_devices=stored.personal_devices,
+        preferences=stored.preferences,
+    )
 
 
 def build_device_index(

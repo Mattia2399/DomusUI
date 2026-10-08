@@ -2,6 +2,7 @@
 
 import asyncio
 from copy import deepcopy
+from dataclasses import replace
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -12,6 +13,7 @@ from homeassistant.helpers.storage import Store
 from custom_components.domusos.profile.manager import ProfileManager, ProfileStoreStatus
 from custom_components.domusos.profile.models import (
     MAX_PERSONAL_DEVICES,
+    ProfileContent,
     STORAGE_KEY,
     STORAGE_VERSION,
     DeviceManagementNotAvailableError,
@@ -20,7 +22,9 @@ from custom_components.domusos.profile.models import (
     ProfileUnavailableError,
     RevisionConflictError,
     StoreCorruptError,
+    canonical_label,
     migrate_document,
+    parse_stored_profile,
 )
 
 NOW = "2026-10-08T09:00:00+00:00"
@@ -131,7 +135,7 @@ async def test_concurrent_saves_on_one_revision_let_exactly_one_win(hass: HomeAs
 
     results = await asyncio.gather(
         manager.async_save_self(MATTIA, 0, SAVE),
-        manager.async_save_self(MATTIA, 0, {"notifications": {"enabled": True}}),
+        manager.async_save_self(MATTIA, 0, SAVE),
         manager.async_save_self(ERIKA, 0, SAVE),
         return_exceptions=True,
     )
@@ -360,3 +364,228 @@ def test_migration_chain_steps_one_version_at_a_time() -> None:
         migrate_document({}, 1, 3, {1: steps[1]})
     with pytest.raises(InvalidStoredDocumentError):
         migrate_document({}, 4, 3, steps)
+
+
+# --- P1.1a: label canonicalization -------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [(None, None), ("", None), (" ", None), ("   ", None), ("Phone", "Phone"), ("  Phone  ", "Phone")],
+)
+def test_canonical_label_matrix(raw: Any, expected: str | None) -> None:
+    assert canonical_label(raw) == expected
+
+
+@pytest.mark.parametrize("raw", [1, True, [], {}])
+def test_canonical_label_rejects_non_strings(raw: Any) -> None:
+    with pytest.raises(ValueError):
+        canonical_label(raw)
+
+
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [("<missing>", None), (None, None), ("", None), (" ", None), ("   ", None), ("Phone", "Phone"), ("  Phone  ", "Phone")],
+)
+def test_parser_canonicalizes_labels_and_omits_missing_ones(label: Any, expected: str | None) -> None:
+    device = _device(1)
+    if label != "<missing>":
+        device["label"] = label
+
+    profile = parse_stored_profile(MATTIA, _profile(MATTIA, personal_devices=[device]))
+
+    assert profile.personal_devices[0].label == expected
+    serialized = profile.as_dict()["personal_devices"][0]
+    if expected is None:
+        assert "label" not in serialized
+    else:
+        assert serialized["label"] == expected
+
+
+async def test_store_load_canonicalizes_labels_in_memory_without_writing(hass: HomeAssistant) -> None:
+    devices = [
+        {**_device(1), "label": None},
+        {**_device(2), "label": ""},
+        {**_device(3), "label": "   "},
+        {**_device(4), "label": "  Telefono  "},
+    ]
+    manager = await _manager(hass, _document(_profile(MATTIA, 2, personal_devices=devices)))
+
+    assert manager.status is ProfileStoreStatus.READY
+    view = manager.get_profile(MATTIA)
+    assert [device.label for device in view.profile.personal_devices] == [None, None, None, "Telefono"]
+    served = view.as_dict()["personal_devices"]
+    assert ["label" in device for device in served] == [False, False, False, True]
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()
+
+
+@pytest.mark.parametrize(
+    "device",
+    [
+        {**_device(1), "label": 7},
+        {**_device(1), "label": ["Phone"]},
+        {**_device(1), "label": "x" * 65},
+        {**_device(1), "label": "  " + "x" * 65 + "  "},
+    ],
+)
+async def test_invalid_labels_still_make_the_store_corrupt(hass: HomeAssistant, device: dict) -> None:
+    manager = await _manager(hass, _document(_profile(MATTIA, personal_devices=[device])))
+
+    assert manager.status is ProfileStoreStatus.CORRUPT
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()
+
+
+async def test_a_padded_label_within_limits_is_valid(hass: HomeAssistant) -> None:
+    device = {**_device(1), "label": "   " + "x" * 64 + "   "}
+    manager = await _manager(hass, _document(_profile(MATTIA, personal_devices=[device])))
+
+    assert manager.get_profile(MATTIA).profile.personal_devices[0].label == "x" * 64
+    await manager.async_shutdown()
+
+
+@pytest.mark.parametrize("sent", [None, "", " ", "   ", "<missing>"])
+async def test_resent_devices_compare_after_canonicalization(hass: HomeAssistant, sent: Any) -> None:
+    stored = [_device(1, "e" * 32)]
+    manager = await _manager(hass, _document(_profile(MATTIA, 4, personal_devices=stored)))
+    resent = {**stored[0]}
+    if sent != "<missing>":
+        resent["label"] = sent
+
+    view = await manager.async_save_self(
+        MATTIA, 4, {"notifications": {"enabled": True}, "personal_devices": [resent]}
+    )
+
+    assert view.revision == 4
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()
+
+
+async def test_a_trimmed_label_is_the_same_device(hass: HomeAssistant) -> None:
+    stored = [{**_device(1, "e" * 32), "label": "Telefono"}]
+    manager = await _manager(hass, _document(_profile(MATTIA, 4, personal_devices=stored)))
+
+    view = await manager.async_save_self(
+        MATTIA, 4, {"notifications": {"enabled": True}, "personal_devices": [{**stored[0], "label": "  Telefono  "}]}
+    )
+
+    assert view.revision == 4
+    with pytest.raises(DeviceManagementNotAvailableError):
+        await manager.async_save_self(
+            MATTIA, 4, {"notifications": {"enabled": True}, "personal_devices": [{**stored[0], "label": None}]}
+        )
+    with pytest.raises(InvalidProfileError):
+        await manager.async_save_self(
+            MATTIA, 4, {"notifications": {"enabled": True}, "personal_devices": [{**stored[0], "label": 3}]}
+        )
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()
+
+
+# --- P1.1a: semantic no-op saves -----------------------------------------------------
+
+
+async def test_an_identical_save_of_a_persisted_profile_is_a_no_op(hass: HomeAssistant) -> None:
+    manager = await _manager(hass, _document(_profile(MATTIA, 4)))
+
+    view = await manager.async_save_self(
+        MATTIA, 4, {"notifications": {"enabled": True}, "preferences": {}, "personal_devices": []}
+    )
+
+    assert view.persisted
+    assert view.revision == 4
+    assert view.profile.updated_at == NOW
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()
+
+
+async def test_saving_the_defaults_of_an_absent_profile_creates_nothing(hass: HomeAssistant) -> None:
+    manager = await _manager(hass)
+
+    view = await manager.async_save_self(
+        MATTIA, 0, {"notifications": {"enabled": True}, "preferences": {}, "personal_devices": []}
+    )
+
+    assert view.persisted is False
+    assert view.revision == 0
+    assert view.profile is None
+    assert manager.get_profile(MATTIA).persisted is False
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()
+
+
+async def test_the_first_real_change_creates_the_profile(hass: HomeAssistant) -> None:
+    manager = await _manager(hass)
+
+    view = await manager.async_save_self(MATTIA, 0, SAVE)
+
+    assert view.persisted and view.revision == 1
+    assert view.profile.created_at == view.profile.updated_at
+    manager.store.async_save.assert_called_once()
+    await manager.async_shutdown()
+
+
+async def test_revision_conflict_wins_over_an_identical_payload(hass: HomeAssistant) -> None:
+    manager = await _manager(hass, _document(_profile(MATTIA, 4)))
+
+    with pytest.raises(RevisionConflictError):
+        await manager.async_save_self(MATTIA, 3, {"notifications": {"enabled": True}})
+    with pytest.raises(RevisionConflictError):
+        await manager.async_save_self(ERIKA, 1, {"notifications": {"enabled": True}})
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()
+
+
+async def test_real_notification_changes_still_create_revisions(hass: HomeAssistant) -> None:
+    manager = await _manager(hass, _document(_profile(MATTIA, 4)))
+
+    off = await manager.async_save_self(MATTIA, 4, {"notifications": {"enabled": False}})
+    on = await manager.async_save_self(MATTIA, 5, {"notifications": {"enabled": True}})
+
+    assert (off.revision, on.revision) == (5, 6)
+    assert off.profile.updated_at != NOW
+    assert on.profile.created_at == NOW
+    assert manager.store.async_save.call_count == 2
+    await manager.async_shutdown()
+
+
+async def test_internal_label_changes_create_revisions_and_persist_canonically(hass: HomeAssistant) -> None:
+    stored = [{**_device(1, "e" * 32), "label": "   "}]
+    manager = await _manager(hass, _document(_profile(MATTIA, 4, personal_devices=stored)))
+    device = manager.get_profile(MATTIA).profile.personal_devices[0]
+
+    def with_label(label: str | None):
+        def build(current):
+            content = ProfileContent.of(current)
+            return ProfileContent(
+                notifications_enabled=content.notifications_enabled,
+                personal_devices=(replace(device, label=canonical_label(label)),),
+                preferences=content.preferences,
+            )
+        return build
+
+    same = await manager._async_commit(MATTIA, 4, with_label(None))  # noqa: SLF001
+    named = await manager._async_commit(MATTIA, 4, with_label("  Telefono  "))  # noqa: SLF001
+    written = manager.store.async_save.call_args.args[0]["profiles"][MATTIA]["personal_devices"][0]
+    cleared = await manager._async_commit(MATTIA, 5, with_label(""))  # noqa: SLF001
+    rewritten = manager.store.async_save.call_args.args[0]["profiles"][MATTIA]["personal_devices"][0]
+
+    assert same.revision == 4
+    assert named.revision == 5
+    assert written["label"] == "Telefono"
+    assert cleared.revision == 6
+    assert "label" not in rewritten
+    assert manager.store.async_save.call_count == 2
+    await manager.async_shutdown()
+
+
+async def test_a_real_change_rewrites_loaded_empty_labels_canonically(hass: HomeAssistant) -> None:
+    stored = [{**_device(1, "e" * 32), "label": ""}]
+    manager = await _manager(hass, _document(_profile(MATTIA, 4, personal_devices=stored)))
+
+    await manager.async_save_self(MATTIA, 4, SAVE)
+
+    written = manager.store.async_save.call_args.args[0]["profiles"][MATTIA]["personal_devices"][0]
+    assert "label" not in written
+    await manager.async_shutdown()

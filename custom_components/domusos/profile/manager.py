@@ -20,6 +20,7 @@ from .models import (
     STORAGE_VERSION,
     DomusUserProfile,
     InvalidStoredDocumentError,
+    ProfileContent,
     ProfileUnavailableError,
     RevisionConflictError,
     StoreCorruptError,
@@ -195,6 +196,23 @@ class ProfileManager:
         self, user_id: str, expected_revision: int, payload: Any
     ) -> ProfileView:
         """Apply the owner's allowed changes when the revision still matches."""
+        return await self._async_commit(
+            user_id, expected_revision, lambda current: parse_self_changes(payload, current)
+        )
+
+    async def _async_commit(
+        self,
+        user_id: str,
+        expected_revision: int,
+        build_content: Callable[[DomusUserProfile | None], ProfileContent],
+    ) -> ProfileView:
+        """Write a profile's new canonical content, or nothing when it is unchanged.
+
+        The revision is checked first, so a stale client gets a conflict even
+        when it sends the current content. Content equal to the current one,
+        including the defaults of a profile that was never saved, is a no-op:
+        no new revision, no new ``updated_at`` and no write.
+        """
         async with self._lock:
             self._require_ready()
             current = self._profiles.get(user_id)
@@ -205,7 +223,9 @@ class ProfileManager:
                 raise RevisionConflictError(
                     f"The profile changed (revision {current_revision}); reload and retry"
                 )
-            changes = parse_self_changes(payload, current)
+            content = build_content(current)
+            if content == ProfileContent.of(current):
+                return ProfileView(profile=current, persisted=current is not None)
             now = utc_now_iso()
             if current is None:
                 updated = DomusUserProfile(
@@ -213,14 +233,18 @@ class ProfileManager:
                     revision=1,
                     created_at=now,
                     updated_at=now,
-                    notifications_enabled=changes.notifications_enabled,
+                    personal_devices=content.personal_devices,
+                    notifications_enabled=content.notifications_enabled,
+                    preferences=dict(content.preferences),
                 )
             else:
                 updated = replace(
                     current,
                     revision=current.revision + 1,
                     updated_at=now,
-                    notifications_enabled=changes.notifications_enabled,
+                    personal_devices=content.personal_devices,
+                    notifications_enabled=content.notifications_enabled,
+                    preferences=dict(content.preferences),
                 )
             await self._async_write({**self._profiles, user_id: updated})
             return ProfileView(profile=updated, persisted=True)

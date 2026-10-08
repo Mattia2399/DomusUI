@@ -11,8 +11,9 @@
   versioned store with a revision per profile, are never written by a read,
   are kept as orphaned when a user is removed and are never overwritten when
   the stored document is invalid. People are resolved by their Home Assistant
-  internal id, never by name. Nothing changes on screen yet; personal devices
-  stay read-only until their ownership can be verified.
+  internal id, never by name. A save that changes nothing writes nothing,
+  and an empty or blank device label means no label. Nothing changes on screen
+  yet; personal devices stay read-only until their ownership can be verified.
 
 ## 1.5.0 - 2026-10-08
 

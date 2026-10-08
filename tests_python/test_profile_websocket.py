@@ -203,6 +203,37 @@ async def test_unavailable_and_corrupt_profile_core(hass: HomeAssistant) -> None
     assert connection.errors == {1: "profile_unavailable", 2: "store_corrupt"}
 
 
+async def test_save_self_no_ops_return_the_current_state_without_writing(hass: HomeAssistant) -> None:
+    user = await hass.auth.async_create_user("Mattia")
+    other = await hass.auth.async_create_user("Erika")
+    device = {
+        "id": "dev-1",
+        "source": {"kind": "ha_device", "ha_device_id": "f" * 32},
+        "added_at": NOW,
+        "notifications": {"enabled": True},
+    }
+    manager = await _manager(hass, _stored(user.id, 3, [device]))
+    defaults = {"notifications": {"enabled": True}, "preferences": {}, "personal_devices": []}
+
+    persisted = RecordedConnection(user)
+    await _call(hass, websocket_save_self, persisted, {
+        "id": 1, "type": "domusos/profile/save_self", "expected_revision": 3,
+        "profile": {**defaults, "personal_devices": [{**device, "label": None}]},
+    })
+    absent = RecordedConnection(other)
+    await _call(hass, websocket_save_self, absent, {
+        "id": 2, "type": "domusos/profile/save_self", "expected_revision": 0, "profile": defaults,
+    })
+
+    assert persisted.results[1]["revision"] == 3
+    assert persisted.results[1]["persisted"] is True
+    assert persisted.results[1]["profile"]["updated_at"] == NOW
+    assert "label" not in persisted.results[1]["profile"]["personal_devices"][0]
+    assert absent.results[2]["revision"] == 0
+    assert absent.results[2]["persisted"] is False
+    manager.store.async_save.assert_not_called()
+
+
 @pytest.mark.parametrize(
     "message",
     [
