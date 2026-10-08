@@ -1,6 +1,6 @@
 # Domus UI roadmap
 
-Aggiornata: 2026-09-08
+Aggiornata: 2026-10-08
 
 ## Obiettivo
 
@@ -896,6 +896,208 @@ Done quando:
 - documentazione, test e audit descrivono esattamente garanzie e limiti del
   sistema.
 
+### Versione 3.0 - Domus 3D — Digital Twin della casa
+
+Stato: pianificato per la versione 3.0. `Domus 3D` è un nome provvisorio; questa
+sezione definisce esclusivamente la direzione di prodotto e architetturale e non
+autorizza l'avvio dell'implementazione durante le milestone correnti.
+
+Priorità: funzionalità principale della versione 3.0, successiva alla
+stabilizzazione delle funzioni core e delle linee di rilascio già pianificate.
+
+#### Obiettivo e confini
+
+Domus 3D permetterà di creare e utilizzare dentro Domus UI una rappresentazione
+tridimensionale interattiva dell'abitazione, simile a un digital twin della casa
+e coerente con il design system del prodotto. Sarà un nuovo livello opzionale
+di configurazione spaziale, visualizzazione, interazione con i dispositivi e
+rappresentazione dei dati, non un secondo sistema di gestione domotica.
+
+Domus Core e tutti i sistemi esistenti devono rimanere invariati e continuare a
+funzionare anche senza una configurazione 3D. Domus 3D riutilizzerà:
+
+- Domus Core come infrastruttura principale;
+- gli stati reali, le aree e i dispositivi di Home Assistant;
+- Energy Core come unica autorità per le informazioni energetiche;
+- i sistemi di autenticazione, ruoli, permessi e command coordination già
+  disponibili in Domus UI.
+
+Il modello della casa avrà una configurazione indipendente e versionata, ad
+esempio `domusos.3d.v1`, limitata alle informazioni spaziali e di
+presentazione:
+
+- piani, stanze, geometrie e misure;
+- pareti, porte, finestre, scale e aperture tra piani;
+- arredi e altri elementi visuali;
+- posizione dei dispositivi nel modello;
+- associazione delle stanze alle aree Home Assistant;
+- preferenze della visualizzazione 3D.
+
+Questa configurazione non dovrà duplicare Energy Profile, layout dashboard,
+registri Home Assistant, permessi o altri profili già esistenti.
+
+#### Editor della casa
+
+Prevedere un editor visuale incrementale per costruire la planimetria:
+
+- creazione e gestione di più piani;
+- stanze rettangolari e forme personalizzate con misure reali;
+- pareti, porte, finestre, scale e aperture tra piani;
+- eventuale immagine della planimetria usata soltanto come riferimento;
+- associazione esplicita tra stanze 3D e aree Home Assistant.
+
+#### Visualizzazione 3D
+
+Generare il modello tridimensionale dalla configurazione della casa e
+prevedere:
+
+- rotazione, zoom e pan;
+- vista completa della casa e selezione di piano o stanza;
+- transizioni animate tra casa, piano e stanza;
+- gestione intelligente delle pareti che ostacolano la visuale;
+- esperienza responsive per desktop, tablet e smartphone.
+
+Il rendering dovrà seguire l'estetica premium di Domus UI, in particolare la
+qualità visiva delle applicazioni Irrigazione e Locale Tecnico, senza dover
+replicare lo stile neon del riferimento tecnico.
+
+#### Dispositivi Home Assistant
+
+Permettere di collocare nel modello luci, tapparelle, finestre, porte,
+termostati, sensori, telecamere, media player, prese, elettrodomestici e robot
+aspirapolvere. Quando le capability e i dati reali lo consentono, gli oggetti
+3D dovranno riflettere lo stato Home Assistant, per esempio:
+
+- luce accesa con illuminazione coerente dell'ambiente;
+- tapparella nella posizione reale;
+- porta o finestra aperta/chiusa;
+- valore del sensore consultabile nel contesto spaziale;
+- stato offline o non disponibile rappresentato senza ambiguità.
+
+Selezione e controllo dei dispositivi dovranno riutilizzare pannelli,
+coordinamento comandi, permessi e servizi Domus UI/Home Assistant esistenti,
+senza introdurre una seconda pipeline di comando.
+
+#### Modalità Energia
+
+Integrare una vista energetica alimentata da Energy Core per rappresentare
+fotovoltaico, inverter, batteria, rete elettrica, wallbox, consumi domestici e
+dispositivi con misurazione energetica. Valutare in una fase avanzata flussi
+energetici animati nel modello.
+
+Tutti i valori devono provenire esclusivamente da Energy Core o da sensori
+esplicitamente configurati. Domus 3D non deve implementare una seconda logica
+energetica né duplicare profili, aggregazioni o calcoli già autorevoli.
+
+#### Modalità Ambiente e Sicurezza
+
+Prevedere come evoluzioni contestuali:
+
+- **Environment Mode:** temperatura, umidità, CO₂, qualità dell'aria e presenza,
+  incluse eventuali heatmap delle stanze basate soltanto sui sensori realmente
+  disponibili;
+- **Security Mode:** porte e finestre aperte, allarmi, rilevatori di fumo,
+  perdite d'acqua, telecamere, presenza e movimento.
+
+Queste viste sono rappresentazioni dei dati autorevoli esistenti. Non devono
+simulare misure mancanti, sostituire Domus Core Security o presentare Domus UI
+come sistema di sicurezza certificato.
+
+#### Strategia tecnica e prestazioni
+
+Valutare Three.js per il rendering. Il motore 3D e i relativi asset dovranno
+essere caricati tramite lazy loading soltanto quando l'utente entra in Domus 3D,
+senza appesantire il caricamento iniziale delle route esistenti.
+
+La specifica tecnica dovrà valutare almeno:
+
+- rendering attivo soltanto quando necessario;
+- livelli di qualità configurabili e riduzione automatica sui dispositivi meno
+  potenti;
+- ottimizzazione specifica per tablet a parete, tablet e smartphone;
+- sospensione del rendering quando la pagina non è visibile;
+- rispetto di `prefers-reduced-motion`;
+- budget separati per codice, memoria, asset, frame time e consumo energetico;
+- fallback accessibile quando WebGL o le prestazioni del dispositivo non sono
+  sufficienti.
+
+#### Riferimento tecnico NeonPlan 3D
+
+Studiare [NeonPlan 3D](https://github.com/Mastershort/neonplan3d), distribuito
+con licenza MIT, come riferimento concettuale e tecnico. Dove realmente
+vantaggioso sarà possibile adattare codice della parte open source mantenendo
+licenza e attribution richiesti, senza integrare l'intera applicazione.
+
+Gli elementi da analizzare comprendono:
+
+- geometria delle stanze e generazione automatica delle pareti;
+- gestione delle aperture ed editor 2D;
+- generazione del modello 3D;
+- selezione di casa, piano e stanza e gestione della telecamera;
+- lazy loading di Three.js e ottimizzazione del rendering;
+- collocazione dei dispositivi e rappresentazione dei flussi energetici.
+
+Non utilizzare o incorporare asset, furniture pack o funzioni commerciali/Pro
+non incluse nella parte open source MIT. Domus 3D deve restare una funzione
+nativa di Domus UI, con modello dati, UX e design system propri.
+
+#### Sviluppo previsto in fasi
+
+1. **Fase 1 - Domus 3D Core**
+   - definire modello dati, schema versionato e storage indipendente;
+   - realizzare l'editor 2D iniziale per piani e stanze;
+   - associare le stanze alle aree Home Assistant.
+2. **Fase 2 - 3D Viewer**
+   - valutare e integrare Three.js dietro lazy loading;
+   - generare geometrie e viste casa/piano/stanza;
+   - implementare camera, navigazione, responsive e budget prestazionali.
+3. **Fase 3 - Smart Devices**
+   - posizionare i dispositivi nel modello;
+   - rappresentare gli stati reali e riutilizzare le interazioni esistenti;
+   - coprire inizialmente luci, tapparelle, sensori e clima.
+4. **Fase 4 - Advanced Views**
+   - aggiungere Energy Mode tramite Energy Core;
+   - introdurre Environment Mode e Security Mode;
+   - valutare heatmap, flussi energetici e altre visualizzazioni contestuali.
+5. **Fase 5 - Polish**
+   - evolvere editor e catalogo arredi;
+   - ottimizzare tablet, smartphone e installazioni a parete;
+   - aggiungere backup, import ed export della sola configurazione della casa;
+   - completare accessibilità e test prestazionali.
+
+Ogni fase richiede una specifica tecnica approvata, criteri prestazionali e test
+proporzionati prima dell'implementazione. Le fasi non autorizzano modifiche
+anticipate a Domus Core, Energy Core o ai bundle correnti.
+
+#### Principi architetturali non negoziabili
+
+1. Domus Core non deve essere sostituito.
+2. Energy Core non deve essere duplicato.
+3. Le applicazioni esistenti devono funzionare indipendentemente da Domus 3D.
+4. Domus 3D deve essere opzionale.
+5. Una casa senza configurazione 3D non deve subire cambiamenti nell'esperienza
+   Domus UI esistente.
+6. Motore, codice e asset 3D devono essere caricati soltanto quando richiesti.
+7. Le informazioni visualizzate devono provenire da dati reali Home Assistant,
+   Domus Core o Energy Core secondo la relativa autorità.
+8. Nessun dato Demo deve entrare nella modalità reale.
+9. L'estetica deve rispettare il design system Domus UI e le applicazioni
+   premium già esistenti, soprattutto Irrigazione e Locale Tecnico.
+10. Configurazione delle stanze, dati Energy e renderer 3D devono restare
+    disaccoppiati e poter evolvere senza dipendenze rigide.
+
+Done quando, per la versione 3.0:
+
+- una casa può essere configurata, visualizzata e navigata su desktop, tablet e
+  mobile senza modificare i flussi Domus UI esistenti;
+- aree, dispositivi, stati, permessi e comandi provengono dalle infrastrutture
+  autorevoli già presenti;
+- Energy, Environment e Security non inventano dati né duplicano logiche core;
+- una configurazione 3D assente, incompleta o incompatibile degrada in modo
+  esplicito e non impedisce l'uso delle altre applicazioni;
+- lazy loading, accessibilità e budget prestazionali sono verificati
+  automaticamente sui dispositivi target.
+
 ### Backlog aggiuntivo - Card, onboarding e navigazione
 
 Registrato il 23 luglio 2026.
@@ -1299,3 +1501,6 @@ La beta puo essere distribuita a pagamento quando sono soddisfatti tutti questi 
 8. Funzioni Domus UI.
 9. Distribuzione e crescita commerciale.
 10. Collaudare Calendar v1 su Home Assistant, quindi implementare To-do; Mappa segue dopo la relativa specifica tecnica.
+11. Avviare Domus 3D soltanto nella linea 3.0, procedendo per le cinque fasi
+    documentate e senza duplicare Domus Core, Energy Core o i dati Home
+    Assistant.
