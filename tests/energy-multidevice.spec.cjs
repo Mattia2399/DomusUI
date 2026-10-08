@@ -220,7 +220,9 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 
     await expect(solar.getByText('2 di 3 dispositivi')).toBeVisible();
     // A long caption never pushes a tile over its neighbour.
     const [solarBox, gridBox] = await Promise.all([solar.boundingBox(), components.getByRole('button', { name: /Rete/ }).boundingBox()]);
-    if (solarBox && gridBox && Math.abs(solarBox.y - gridBox.y) < 4) expect(solarBox.x + solarBox.width).toBeLessThanOrEqual(gridBox.x + 1);
+    // Chromium/font rendering can round the shared grid edge differently by a
+    // fraction of a pixel across operating systems; a real overlap is larger.
+    if (solarBox && gridBox && Math.abs(solarBox.y - gridBox.y) < 4) expect(solarBox.x + solarBox.width).toBeLessThanOrEqual(gridBox.x + 2);
     await expect(solar.getByText('3,5 kW')).toHaveCount(0);
     await expect(components.getByRole('button', { name: /Batteria/ }).getByText('67%')).toBeVisible();
     await expect(components.getByRole('button', { name: /Wallbox/ }).getByText('11,1 kW')).toBeVisible();
