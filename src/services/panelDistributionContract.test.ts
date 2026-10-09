@@ -7,6 +7,7 @@ import {
   isValidProfileMessage as isValidAppProfileMessage,
   validatePanelApiMessage,
 } from '../hooks/useHaPanelBridgeConnection';
+import { isDashboardAdministrativeApiMessage } from '../security/dashboardAccess';
 
 const PANEL_ELEMENT_NAME = 'ha-dashboard-builder-panel';
 
@@ -157,6 +158,7 @@ describe('Home Assistant panel distribution contract', () => {
       'domusos/profile/add_device',
       'domusos/profile/discover_devices',
       'domusos/profile/get_self',
+      'domusos/profile/list_recipients',
       'domusos/profile/remove_device',
       'domusos/profile/save_self',
       'domusos/profile/test_self',
@@ -165,6 +167,13 @@ describe('Home Assistant panel distribution contract', () => {
     expect(bridge).toContain('"profile_core_v1"');
     expect(bridge).toContain('"profile_devices_v1"');
     expect(bridge).toContain('"profile_notifications_v1"');
+    expect(bridge).toContain('"profile_recipients_v1"');
+    // The app treats the recipient list as administrative, like Home Assistant does.
+    expect(isDashboardAdministrativeApiMessage({ type: 'domusos/profile/list_recipients' })).toBe(true);
+    // No per-person detail command exists.
+    for (const type of ['get_recipient_profile', 'get_recipient_devices', 'get_recipient_status']) {
+      expect([...HA_PANEL_ALLOWED_API_TYPES]).not.toContain(`domusos/profile/${type}`);
+    }
     // The router is backend only: no generic send command crosses the bridge.
     expect(bridge).not.toMatch(/"domusos\/notifications\//);
     expect([...HA_PANEL_ALLOWED_API_TYPES].some((type) => type.startsWith('domusos/notifications/'))).toBe(false);
@@ -207,6 +216,7 @@ describe('Home Assistant panel distribution contract', () => {
       { type: 'domusos/profile/get_self' },
       { type: 'domusos/profile/test_self' },
       { type: 'domusos/profile/test_self', personal_device_id: 'dev-1' },
+      { type: 'domusos/profile/list_recipients' },
       save,
       { ...save, expected_revision: 4, profile: { notifications: { enabled: true }, preferences: {}, personal_devices: [] } },
     ];
@@ -270,6 +280,17 @@ describe('Home Assistant panel distribution contract', () => {
         { personal_device_id: { id: 'dev-1' } },
         { personal_device_id: null },
       ].map((extra) => ({ type: 'domusos/profile/test_self', ...extra })),
+      ...[
+        { user_id: 'someone' },
+        { person_id: 'erika' },
+        { include_devices: true },
+        { include_preferences: true },
+        { filter: 'ready' },
+        { target: 'notify.mobile_app_x' },
+        { service: 'notify.mobile_app_x' },
+        { device_id: 'dev-1' },
+        { options: { devices: true } },
+      ].map((extra) => ({ type: 'domusos/profile/list_recipients', ...extra })),
     ];
 
     for (const message of accepted) {

@@ -39,6 +39,13 @@
   fingerprints. A new `domusos/profile/test_self` command sends a fixed test
   notification to the user's own devices, rate-limited and with no text,
   recipient or target taken from the client.
+- Recipient readiness for administrators: `domusos/profile/list_recipients`
+  lists Home Assistant people as possible notification recipients with a
+  status (ready, notifications off, needs a device, no account, ...) computed
+  by the same rules the router sends with, and never reveals devices,
+  preferences or targets. A reusable person recipient picker lets future
+  settings choose people by their Home Assistant person id; it is not used by
+  any screen yet.
 
 ### Changed
 

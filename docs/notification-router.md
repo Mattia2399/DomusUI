@@ -280,11 +280,136 @@ webhook, servizio o entità di destinazione, coordinate o email. Gli errori di
 Home Assistant sono loggati solo con il tipo, perché il testo può riportare il
 payload.
 
+## Destinatari e prontezza
+
+Principio: **l'amministratore decide chi, ogni persona decide dove.** Una
+funzione Domus salverà soltanto id interni di persona; quali dispositivi, con
+quali servizi, lo decide ogni utente nel proprio profilo.
+
+### Un solo insieme di regole
+
+`notifications/recipients.py` contiene il `RecipientInspector`: legge Home
+Assistant una volta per richiesta (persone, registrazioni della Companion App,
+indice di proprietà dei profili) e trasforma un id di persona in un **piano**:
+il motivo per cui non si invierebbe nulla, oppure i dispositivi accesi con il
+target che ciascuno userebbe adesso. Il Router invia seguendo il piano;
+`list_recipients` lo riassume in uno stato. Non esistono due implementazioni
+delle regole, e pianificare non scrive, non invia e non registra nulla.
+
+### `domusos/profile/list_recipients`
+
+Solo per amministratori (`require_admin` di Home Assistant; il frontend lo
+classifica anche come comando amministrativo, ma l'autorità resta il server).
+Nessun parametro: Home Assistant rifiuta qualsiasi campo oltre a `type`.
+
+```json
+{ "recipients": [
+  { "person_id": "<id interno>", "person_entity_id": "person.mattia", "status": "ready", "selectable": true }
+] }
+```
+
+- Si parte dalle **persone** di Home Assistant (da interfaccia o da YAML) che
+  hanno un id interno; una persona senza id non compare. Un utente senza
+  persona non è un destinatario: può configurare i propri dispositivi, ma non
+  c'è un "chi" da scegliere.
+- `person_id` è l'identità. `person_entity_id` serve solo a leggere nome e
+  foto di quell'esatta entità: dopo una rinomina cambia lui, l'id no.
+- Più persone con lo stesso id interno: **una sola** voce, `status:
+  "ambiguous"`, `person_entity_id: null`, `selectable: false`. Nessuna delle
+  persone viene scelta.
+- Ordine tecnico stabile, per id; il frontend ordina per nome solo per la
+  visualizzazione.
+- Ogni chiamata è letta dal vivo: un ricollegamento persona → utente si vede
+  subito, senza cache.
+- Se il Profile Store non è leggibile (corrotto o non avviato) l'intero comando
+  fallisce con `profile_unavailable`, invece di inventare uno stato per ogni
+  persona.
+- La risposta non contiene mai user id, dispositivi, loro numero, nomi o
+  stato, preferenze grezze, tracker, target, servizi, email o username.
+
+### Stati
+
+| Stato | Quando | Selezionabile |
+| --- | --- | --- |
+| `ready` | Almeno un dispositivo acceso, verificato e con target pronto adesso | sì |
+| `temporarily_unavailable` | Profilo e preferenze accese, ma nessun dispositivo raggiungibile adesso (mancante, non più verificato, conflitto, target non disponibile o ambiguo) | sì |
+| `notifications_disabled` | Interruttore generale spento, oppure tutti i dispositivi spenti | sì |
+| `no_devices` | Profilo salvato senza dispositivi | sì |
+| `no_profile` | Account valido senza profilo salvato (il profilo sintetico non conta e non viene creato) | sì |
+| `no_account` | Persona senza account collegato | sì |
+| `account_disabled` | Account disattivato | sì |
+| `account_unavailable` | Account inesistente o di sistema | sì |
+| `profile_unavailable` | Profilo orfano o non utilizzabile | sì |
+| `ambiguous` | Più persone con lo stesso id interno | **no** |
+
+**La prontezza non decide chi si può scegliere**: una persona non ancora pronta
+resta selezionabile, così una configurazione può essere pronta per domani
+(l'account verrà collegato, il telefono configurato). Solo un'identità ambigua
+non può essere scelta, perché non esiste un "chi" univoco.
+
+Precedenza, la stessa del Router: identità ambigua → nessun account → account
+non disponibile o disattivato → profilo assente o non disponibile →
+interruttore generale spento → nessun dispositivo → tutti i dispositivi spenti
+→ `ready` se almeno un dispositivo ha un target → altrimenti
+`temporarily_unavailable`. `ready` significa che un invio adesso verrebbe
+tentato su almeno un dispositivo, non che il telefono lo mostrerà.
+
+Nessun riconoscimento degli ospiti: nomi come "Guest" o "Ospite" non hanno
+alcun significato. Nessun confronto per nome in nessun punto.
+
+### `PersonRecipientPicker`
+
+Componente riutilizzabile in `src/components/people/`, per le schermate di
+configurazione amministrative. Non è montato da nessuna parte: la prima
+integrazione sarà Waste Collection (P1.6), che dovrà caricarlo in lazy.
+
+```tsx
+<PersonRecipientPicker
+  value={personIds}            // id interni di persona
+  onChange={setPersonIds}      // l'unico output: string[]
+  states={haStates}            // solo per nomi e foto
+  callApi={callHaApi}
+  supported={supportsProfileRecipients}
+  online={isHaConnected}
+  label="Destinatari" helperText="..." maxRecipients={10}
+  resolveAssetUrl={(url) => ...}
+/>
+```
+
+- Controllato e senza persistenza: non salva nulla, non chiama API di
+  salvataggio e non invia notifiche. Produce solo id di persona.
+- Legge `list_recipients` quando si apre, e con "Aggiorna". Nessun polling.
+- Nome e foto vengono solo da `states[person_entity_id]`, cioè dall'entità
+  esatta indicata dal server. La ricerca filtra per nome visualizzato, in
+  locale, e non cambia mai la selezione. Due persone con lo stesso nome restano
+  due righe.
+- `value` cambia solo per un'azione dell'amministratore: un cambio di stato,
+  un refresh o una persona sparita non tolgono mai nessuno. Un id selezionato
+  che il server non elenca più diventa una riga "Persona rimossa", ancora
+  selezionata e rimovibile, ma non aggiungibile. Un id selezionato diventato
+  ambiguo resta selezionato e rimovibile.
+- Ordine: pronti, poi gli altri selezionabili, poi ambigui, poi rimossi; per
+  nome dentro ogni gruppo. La selezione non sposta le righe, così l'elenco
+  resta fermo mentre si spunta.
+- Uno stato sconosciuto inviato da un backend più recente diventa "Stato non
+  disponibile": mai trattato come pronto, e `selectable` viene comunque
+  rispettato.
+- Senza capability `profile_recipients_v1` mostra "Selezione destinatari non
+  disponibile" e non chiama l'integrazione; offline mostra i selezionati ma non
+  permette modifiche; un errore mostra "Riprova" senza perdere la selezione; un
+  non amministratore vede un messaggio, senza dati.
+- Le traduzioni del picker stanno in `src/i18n/personRecipientTranslations.ts`,
+  fuori dal dizionario principale: arrivano solo con il componente.
+- La validazione visiva integrata (390/820/1440) è rimandata a P1.6: non esiste
+  un harness isolato dalla build di produzione, e non è stata creata una route
+  solo per gli screenshot. Il componente è coperto da test di componente.
+
 ## Come lo userà Waste Collection (P1.6)
 
 Oggi Waste Collection usa ancora i propri `notifications.targets`, il proprio
-dispatch ledger e il proprio `test_notification`, e P1.4 non li tocca. Con la
-migrazione salverà `recipients: [person_id]` e chiamerà:
+dispatch ledger e il proprio `test_notification`, che P1.4 e P1.5 non toccano.
+Con la migrazione mostrerà `PersonRecipientPicker`, salverà `recipients:
+[person_id]` e chiamerà:
 
 ```python
 await router.async_send(NotificationRequest.create(
@@ -299,7 +424,8 @@ await router.async_send(NotificationRequest.create(
 
 ## Non ancora implementato
 
-- Scelta dei destinatari (`PersonRecipientPicker`, `list_recipients`) — P1.5.
+- Uso di `PersonRecipientPicker` in una funzione e salvataggio dei
+  destinatari nelle configurazioni — P1.6, a partire da Waste Collection.
 - Migrazione di Waste Collection al Router — P1.6.
 - Preferenze per categoria, ore di silenzio, override urgenti.
 - Inbox Domus e cronologia delle notifiche.

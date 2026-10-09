@@ -118,12 +118,25 @@ def _capabilities(target_status: TargetStatus, presence: Mapping[str, Any]) -> d
 class DeviceInspector:
     """One consistent live snapshot of registrations and registries per request."""
 
-    def __init__(self, hass: HomeAssistant, user_id: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        user_id: str,
+        registrations: list[MobileAppRegistration] | None = None,
+    ) -> None:
         self.hass = hass
         self.user_id = user_id
-        self.registrations = list_registrations(hass)
+        # A caller inspecting several users passes one read of the registrations.
+        self.registrations = registrations if registrations is not None else list_registrations(hass)
         self._device_registry = dr.async_get(hass)
-        self._person_trackers = _person_trackers(hass, user_id)
+        self._trackers: set[str] | None = None
+
+    @property
+    def _person_trackers(self) -> set[str]:
+        # Only descriptions need them; ownership and status checks never do.
+        if self._trackers is None:
+            self._trackers = _person_trackers(self.hass, self.user_id)
+        return self._trackers
 
     def device(self, ha_device_id: str) -> dr.DeviceEntry | None:
         """Return the device registry entry, if it still exists."""

@@ -74,6 +74,8 @@ const ADMINISTRATIVE_API_TYPES = new Set([
   'domusos/energy/discover',
   'domusos/energy/get_profile',
   'domusos/energy/save_profile',
+  // Who can receive notifications is an administrator's choice.
+  'domusos/profile/list_recipients',
 ]);
 
 export function isDashboardAdministrativeApiMessage(message: Record<string, unknown>) {

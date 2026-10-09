@@ -14,6 +14,9 @@ Preferences decide *whether* a device should get a notification (general
 switch AND device switch); live availability only decides whether it *can*
 right now. An unavailable target never changes a stored switch.
 
+Who receives what is planned by ``RecipientInspector`` (``recipients.py``),
+which the readiness list shares: the router only follows the plan.
+
 Isolation: every recipient and every device runs on its own, so one failing
 phone never stops another person's delivery, nor another device of the same
 person. Sends run in parallel under one router-wide semaphore.
@@ -33,32 +36,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from uuid import uuid4
 
 from homeassistant.core import HomeAssistant
 
-from ..profile.devices import DeviceInspector, LiveStatus, OwnershipView
-from ..profile.identity import (
-    AccountEligibility,
-    PersonIdentity,
-    ResolutionStatus,
-    account_eligibility,
-    list_persons,
-    resolve_person_id,
-)
 from ..profile.manager import ProfileManager
-from ..profile.models import DeviceNotInProfileError, DomusUserProfile, PersonalDevice, ProfileError
-from ..profile.targets import (
-    AmbiguousTarget,
-    EntityTarget,
-    LegacyServiceTarget,
-    resolve_notification_target,
-)
+from ..profile.models import DeviceNotInProfileError, PersonalDevice
+from ..profile.targets import EntityTarget, LegacyServiceTarget
 from .delivery import DELIVERY_TIMEOUT, DeliveryOutcome, async_send_target
 from .ledger import LedgerUnavailableError, NotificationLedger, delivery_fingerprint
+from .recipients import DevicePlan, RecipientInspector, RecipientPlan
 from .models import (
     DeliveryWarning,
     DeviceDeliveryResult,
@@ -170,9 +160,9 @@ class NotificationRouter:
         """Deliver ``request`` to each of its recipients and report every outcome."""
         request_id = uuid4().hex
         content = _Content(request.message, request.title, request.source, request.dedupe_key)
-        persons = list_persons(self.hass)
+        inspector = RecipientInspector(self.hass, self._profiles)
         results = await asyncio.gather(
-            *(self._recipient(request_id, person_id, persons, content) for person_id in request.recipients),
+            *(self._recipient(request_id, person_id, inspector, content) for person_id in request.recipients),
             return_exceptions=True,
         )
         outcome: list[RecipientResult] = []
@@ -210,7 +200,8 @@ class NotificationRouter:
         self.self_test_limiter.check(user_id)
         request_id = uuid4().hex
         content = _Content(SELF_TEST_MESSAGE, SELF_TEST_TITLE, SELF_TEST_SOURCE, None)
-        profile, reason = self._usable_profile(user_id)
+        inspector = RecipientInspector(self.hass, self._profiles)
+        profile, reason = inspector.usable_profile(user_id)
         if profile is None:
             if personal_device_id is not None:
                 raise DeviceNotInProfileError("This device is not in your profile")
@@ -219,7 +210,8 @@ class NotificationRouter:
             device.id == personal_device_id for device in profile.personal_devices
         ):
             raise DeviceNotInProfileError("This device is not in your profile")
-        result = await self._deliver_profile(request_id, None, user_id, profile, content, personal_device_id)
+        plan = inspector.plan_profile(None, user_id, profile, personal_device_id)
+        result = await self._follow(request_id, plan, content)
         _LOGGER.debug("Domus self test %s: %s", request_id, result.status.value)
         return result
 
@@ -227,105 +219,44 @@ class NotificationRouter:
         self,
         request_id: str,
         person_id: str,
-        persons: Sequence[PersonIdentity],
+        inspector: RecipientInspector,
         content: _Content,
     ) -> RecipientResult:
-        resolution = resolve_person_id(persons, person_id)
-        if resolution.status is ResolutionStatus.UNKNOWN:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.UNKNOWN_RECIPIENT)
-        if resolution.status is ResolutionStatus.AMBIGUOUS:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.AMBIGUOUS_RECIPIENT)
-        user_id = resolution.person.user_id if resolution.person is not None else None
-        if user_id is None:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.NO_ACCOUNT)
-        user = await self.hass.auth.async_get_user(user_id)
-        if user is None:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.ACCOUNT_UNAVAILABLE)
-        eligibility = account_eligibility(user)
-        if eligibility is AccountEligibility.SYSTEM:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.ACCOUNT_UNAVAILABLE)
-        if eligibility is AccountEligibility.DISABLED:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.ACCOUNT_DISABLED)
-        profile, reason = self._usable_profile(user_id)
-        if profile is None:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, reason)
-        return await self._deliver_profile(request_id, person_id, user_id, profile, content, None)
+        return await self._follow(request_id, await inspector.async_plan(person_id), content)
 
-    def _usable_profile(self, user_id: str) -> tuple[DomusUserProfile | None, Reason | None]:
-        try:
-            view = self._profiles.get_profile(user_id)
-        except ProfileError:
-            return None, Reason.PROFILE_UNAVAILABLE
-        # A synthesized profile is not a configured one.
-        if not view.persisted or view.profile is None:
-            return None, Reason.NO_PROFILE
-        if not view.profile.active:
-            return None, Reason.PROFILE_UNAVAILABLE
-        return view.profile, None
-
-    async def _deliver_profile(
-        self,
-        request_id: str,
-        person_id: str | None,
-        user_id: str,
-        profile: DomusUserProfile,
-        content: _Content,
-        only_device_id: str | None,
-    ) -> RecipientResult:
-        devices = [
-            device
-            for device in profile.personal_devices
-            if only_device_id is None or device.id == only_device_id
-        ]
-        if not profile.notifications_enabled:
-            # The general switch wins: devices are not even looked at, and their switches stay as they are.
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.NOTIFICATIONS_DISABLED)
-        if not devices:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.NO_DEVICES)
-        due = [device for device in devices if device.notifications_enabled]
-        if not due:
-            return RecipientResult(person_id, RecipientStatus.SKIPPED, Reason.NOTIFICATIONS_DISABLED)
-        inspector = DeviceInspector(self.hass, user_id)
-        ownership = self._profiles.ownership()
+    async def _follow(self, request_id: str, plan: RecipientPlan, content: _Content) -> RecipientResult:
+        """Send to every device of the plan that has a target; report the others as planned."""
+        if plan.reason is not None:
+            return RecipientResult(plan.person_id, RecipientStatus.SKIPPED, plan.reason)
         results = await asyncio.gather(
-            *(self._device(request_id, person_id, inspector, ownership, device, content) for device in due),
+            *(self._device(request_id, plan.person_id, device, content) for device in plan.devices),
             return_exceptions=True,
         )
         outcome: list[DeviceDeliveryResult] = []
-        for device, result in zip(due, results, strict=True):
+        for planned, result in zip(plan.devices, results, strict=True):
             if isinstance(result, BaseException):
                 if isinstance(result, asyncio.CancelledError):
                     raise result
                 _LOGGER.error(
                     "Domus notification %s: device %s failed unexpectedly (%s)",
                     request_id,
-                    device.id,
+                    planned.device.id,
                     type(result).__name__,
                 )
-                result = DeviceDeliveryResult(device.id, DeviceStatus.FAILED, Reason.DELIVERY_FAILED)
+                result = DeviceDeliveryResult(planned.device.id, DeviceStatus.FAILED, Reason.DELIVERY_FAILED)
             outcome.append(result)
-        return summarize(person_id, outcome)
+        return summarize(plan.person_id, outcome)
 
     async def _device(
         self,
         request_id: str,
         person_id: str | None,
-        inspector: DeviceInspector,
-        ownership: OwnershipView,
-        device: PersonalDevice,
+        planned: DevicePlan,
         content: _Content,
     ) -> DeviceDeliveryResult:
-        status = inspector.live_status(device, ownership)
-        if status in (LiveStatus.UNVERIFIED, LiveStatus.OWNERSHIP_CONFLICT):
-            # Home Assistant no longer ties the device to this user: never send to it.
-            return DeviceDeliveryResult(device.id, DeviceStatus.SKIPPED, Reason.DEVICE_NOT_VERIFIED)
-        if status is not LiveStatus.ACTIVE:
-            return DeviceDeliveryResult(device.id, DeviceStatus.SKIPPED, Reason.TARGET_UNAVAILABLE)
-        target = resolve_notification_target(self.hass, device.ha_device_id, inspector.registrations)
-        if isinstance(target, AmbiguousTarget):
-            return DeviceDeliveryResult(device.id, DeviceStatus.SKIPPED, Reason.AMBIGUOUS_TARGET)
-        if not isinstance(target, (EntityTarget, LegacyServiceTarget)):
-            return DeviceDeliveryResult(device.id, DeviceStatus.SKIPPED, Reason.TARGET_UNAVAILABLE)
+        device, target = planned.device, planned.target
+        if target is None:
+            return DeviceDeliveryResult(device.id, DeviceStatus.SKIPPED, planned.reason or Reason.TARGET_UNAVAILABLE)
         if content.dedupe_key is None or person_id is None:
             return self._result(device.id, await self._attempt(target, content))
         return await self._deduplicated(request_id, person_id, device, target, content)

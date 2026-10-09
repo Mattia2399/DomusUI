@@ -23,6 +23,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "profile_core_v1",
   "profile_devices_v1",
   "profile_notifications_v1",
+  "profile_recipients_v1",
   "host_navigation",
   "person_links",
   "person_create",
@@ -56,7 +57,7 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/profile/get_self", "domusos/profile/save_self",
   "domusos/profile/discover_devices", "domusos/profile/add_device",
   "domusos/profile/remove_device", "domusos/profile/update_device",
-  "domusos/profile/test_self",
+  "domusos/profile/test_self", "domusos/profile/list_recipients",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -247,8 +248,10 @@ const isValidProfileMessage = (message) => {
   const isLabel = (value) => value === null || (typeof value === "string" && value.length <= 256);
   const isHaDevice = (value) => typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value);
   const isPersonalDevice = (value) => typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value);
+  // list_recipients is administrative: Home Assistant refuses it to anyone else.
   if (message.type === "domusos/profile/get_self" ||
-      message.type === "domusos/profile/discover_devices") return hasExactKeys(message, ["type"]);
+      message.type === "domusos/profile/discover_devices" ||
+      message.type === "domusos/profile/list_recipients") return hasExactKeys(message, ["type"]);
   // The test text is chosen by the server; the client may only name one of its own devices.
   if (message.type === "domusos/profile/test_self") {
     return keys.every((key) => key === "type" || key === "personal_device_id") &&
@@ -701,6 +704,8 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
 `ha-panel-upload-image` (capability `person_picture`) carica la foto di una persona con `/api/image/upload`, come il frontend Home Assistant. Il bridge accetta solo immagini JPEG, PNG o WebP fino a 5 MB e solo per un amministratore; restituisce l'id dell'immagine, che Domus salva nella persona come `/api/image/serve/<id>/512x512`.
 
 `domusos/profile/get_self` e `domusos/profile/save_self` (capability `profile_core_v1`) leggono e salvano il Domus Profile dell'utente collegato, ricavato da Home Assistant dalla connessione. Il bridge rifiuta qualsiasi id di utente, persona o proprietario: `get_self` accetta solo `type`, `save_self` solo `expected_revision` (intero, mai `null`) e un `profile` con `notifications: { enabled }` più, invariati, `preferences` e `personal_devices`. Home Assistant e il Profile Core ripetono gli stessi controlli.
+
+L'elenco dei destinatari (capability `profile_recipients_v1`) è `domusos/profile/list_recipients`, solo per amministratori e senza parametri: per ogni persona restituisce id interno, entità, stato di prontezza e se è selezionabile, mai account, dispositivi, preferenze o target. Home Assistant rifiuta la richiesta a chi non è amministratore.
 
 La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 

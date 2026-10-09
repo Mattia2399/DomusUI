@@ -142,3 +142,31 @@ async def test_the_self_test_through_the_websocket_stack(
     assert not limited["success"] and limited["error"]["code"] == "rate_limited"
     assert len(phone.calls) == 1 and "spam" not in str(phone.calls)
     await manager.async_shutdown()
+
+
+async def test_list_recipients_through_the_websocket_stack(
+    hass: HomeAssistant, hass_ws_client, hass_admin_user, hass_read_only_access_token: str
+) -> None:
+    from notification_support import set_person
+
+    manager = await _setup(hass)
+    set_person(hass, "person.mattia", "p-mattia", hass_admin_user.id)
+    admin = await hass_ws_client(hass)
+    regular = await hass_ws_client(hass, hass_read_only_access_token)
+
+    await admin.send_json_auto_id({"type": "domusos/profile/list_recipients"})
+    listed = await admin.receive_json()
+    await admin.send_json_auto_id({"type": "domusos/profile/list_recipients", "include_devices": True})
+    extra = await admin.receive_json()
+    # A non-administrator who builds the message by hand.
+    await regular.send_json_auto_id({"type": "domusos/profile/list_recipients"})
+    refused = await regular.receive_json()
+
+    assert listed["success"]
+    assert listed["result"] == {"recipients": [{
+        "person_id": "p-mattia", "person_entity_id": "person.mattia", "status": "no_profile", "selectable": True,
+    }]}
+    assert not extra["success"] and extra["error"]["code"] == "invalid_format"
+    assert not refused["success"] and refused["error"]["code"] == "unauthorized"
+    manager.store.async_save.assert_not_called()
+    await manager.async_shutdown()

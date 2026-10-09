@@ -109,6 +109,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'profile_core_v1',
   'profile_devices_v1',
   'profile_notifications_v1',
+  'profile_recipients_v1',
   'host_navigation',
   'person_links',
   'person_create',
@@ -189,6 +190,7 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/profile/remove_device',
   'domusos/profile/update_device',
   'domusos/profile/test_self',
+  'domusos/profile/list_recipients',
   'domusos/energy/get_state',
   'domusos/energy/get_history',
   'domusos/energy/discover',
@@ -331,8 +333,10 @@ export function isValidProfileMessage(message: Record<string, unknown>) {
   const isLabel = (value: unknown) => value === null || (typeof value === 'string' && value.length <= 256);
   const isHaDevice = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value);
   const isPersonalDevice = (value: unknown) => typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value);
+  // list_recipients is administrative: Home Assistant refuses it to anyone else.
   if (message.type === 'domusos/profile/get_self'
-    || message.type === 'domusos/profile/discover_devices') return hasExactKeys(message, ['type']);
+    || message.type === 'domusos/profile/discover_devices'
+    || message.type === 'domusos/profile/list_recipients') return hasExactKeys(message, ['type']);
   // The test text is chosen by the server; the client may only name one of its own devices.
   if (message.type === 'domusos/profile/test_self') {
     return keys.every((key) => key === 'type' || key === 'personal_device_id')
@@ -1080,6 +1084,7 @@ export function useHaPanelBridgeConnection() {
     supportsPersonPicture: bridgeCapabilities.includes('person_picture'),
     supportsProfileCore: bridgeCapabilities.includes('profile_core_v1'),
     supportsProfileDevices: bridgeCapabilities.includes('profile_devices_v1'),
+    supportsProfileRecipients: bridgeCapabilities.includes('profile_recipients_v1'),
     hassUrl: hassUrlRef.current,
     status,
     error,

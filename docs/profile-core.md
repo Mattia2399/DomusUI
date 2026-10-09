@@ -182,6 +182,7 @@ target ambiguo o non disponibile, e in quel caso non è pronto per le notifiche.
 | `domusos/profile/add_device` | `expected_revision`, `ha_device_id`, `label?` | mai id o data dal client |
 | `domusos/profile/remove_device` | `expected_revision`, `device_id` | |
 | `domusos/profile/update_device` | `expected_revision`, `device_id`, `label?`, `notifications?` | almeno uno dei due |
+| `domusos/profile/list_recipients` | solo `type`; solo amministratori | persone come destinatari, con stato di prontezza e senza dispositivi; vedi [Notification Router](notification-router.md#destinatari-e-prontezza) |
 | `domusos/profile/test_self` | `personal_device_id?` | notifica di prova a testo fisso sui propri dispositivi; vedi [Notification Router](notification-router.md#test-di-notifica-domusosprofiletest_self) |
 
 Stato dal vivo di un dispositivo del profilo: `active`, `unverified` (la

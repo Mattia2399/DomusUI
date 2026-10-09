@@ -9,6 +9,10 @@ claim on its own inside the document lock.
 
 ``test_self`` sends a fixed test notification to the user's own devices. It is
 not a send endpoint: it takes no text, recipient or target.
+
+``list_recipients`` is the only administrator command: it lists people as
+possible notification recipients with a readiness status, and never says
+where (devices, targets, preferences) a person would be notified.
 """
 
 from __future__ import annotations
@@ -24,6 +28,7 @@ from homeassistant.core import HomeAssistant
 from ..const import DOMAIN
 from ..notifications import DATA_NOTIFICATION_ROUTER, NotificationError, NotificationRouter
 from ..notifications.models import NotificationRouterUnavailableError
+from ..notifications.recipients import async_list_readiness
 from .devices import DeviceInspector
 from .identity import list_persons, require_household_account, resolve_user_person
 from .manager import ProfileManager, ProfileView
@@ -268,6 +273,22 @@ async def websocket_test_self(
         _send_error(connection, msg["id"], err)
 
 
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/list_recipients"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_list_recipients(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """List every person as a possible recipient with its readiness; read only, administrators only."""
+    try:
+        recipients = await async_list_readiness(hass, _manager(hass))
+        connection.send_result(msg["id"], {"recipients": recipients})
+    except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
+        _send_error(connection, msg["id"], err)
+
+
 WEBSOCKET_COMMANDS = (
     websocket_get_self,
     websocket_save_self,
@@ -276,6 +297,7 @@ WEBSOCKET_COMMANDS = (
     websocket_remove_device,
     websocket_update_device,
     websocket_test_self,
+    websocket_list_recipients,
 )
 
 
