@@ -9,22 +9,35 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from typing import Any
+from uuid import uuid4
 
 from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
+from .devices import DeviceInspector, OwnershipView
 from .models import (
+    MAX_DEVICE_LABEL_LENGTH,
+    MAX_PERSONAL_DEVICES,
     PROFILE_STATE_ACTIVE,
     PROFILE_STATE_ORPHANED,
     STORAGE_KEY,
     STORAGE_VERSION,
+    DeviceNotClaimableError,
+    DeviceNotFoundError,
+    DeviceNotInProfileError,
+    DeviceOwnedByOtherProfileError,
+    DeviceOwnershipConflictError,
     DomusUserProfile,
+    InvalidDeviceError,
     InvalidStoredDocumentError,
+    PersonalDevice,
     ProfileContent,
     ProfileUnavailableError,
     RevisionConflictError,
     StoreCorruptError,
+    TooManyDevicesError,
     build_device_index,
+    canonical_label,
     migrate_document,
     parse_self_changes,
     parse_stored_document,
@@ -83,6 +96,16 @@ class ProfileView:
         return stored
 
 
+def _device_label(value: Any) -> str | None:
+    try:
+        label = canonical_label(value)
+    except ValueError:
+        raise InvalidDeviceError("The label must be a string") from None
+    if label is not None and len(label) > MAX_DEVICE_LABEL_LENGTH:
+        raise InvalidDeviceError(f"The label is longer than {MAX_DEVICE_LABEL_LENGTH} characters")
+    return label
+
+
 class ProfileStore(Store[dict[str, Any]]):
     """Store whose version upgrades go through the Domus migration chain."""
 
@@ -121,6 +144,10 @@ class ProfileManager:
     def device_owner(self, ha_device_id: str) -> str | None:
         """Return the only active profile listing a device, if exactly one does."""
         return self._device_index.get(ha_device_id)
+
+    def ownership(self) -> OwnershipView:
+        """Return the active ownership index; orphaned profiles own nothing."""
+        return OwnershipView(owner_of=dict(self._device_index), conflicts=dict(self._device_conflicts))
 
     async def async_setup(self) -> None:
         """Load and validate the store; an invalid store is kept and never overwritten."""
@@ -248,6 +275,100 @@ class ProfileManager:
                 )
             await self._async_write({**self._profiles, user_id: updated})
             return ProfileView(profile=updated, persisted=True)
+
+    async def async_add_device(
+        self, user_id: str, expected_revision: int, ha_device_id: str, label: Any = None
+    ) -> ProfileView:
+        """Add a device Home Assistant proves belongs to the user.
+
+        Everything that decides the claim is checked again here, under the
+        document lock and right before the commit: the live registration, the
+        device registry and the active ownership index. Discovery grants nothing.
+        """
+        device_label = _device_label(label)
+
+        def build(current: DomusUserProfile | None) -> ProfileContent:
+            content = ProfileContent.of(current)
+            if any(device.ha_device_id == ha_device_id for device in content.personal_devices):
+                # Already in this profile: adding it again changes nothing.
+                return content
+            if len(content.personal_devices) >= MAX_PERSONAL_DEVICES:
+                raise TooManyDevicesError(f"A profile holds at most {MAX_PERSONAL_DEVICES} devices")
+            inspector = DeviceInspector(self.hass, user_id)
+            if inspector.device(ha_device_id) is None:
+                raise DeviceNotFoundError("The Home Assistant device does not exist")
+            if inspector.verified(ha_device_id) is None:
+                _LOGGER.debug("Device %s is not verified for the requesting user", ha_device_id)
+                raise DeviceNotClaimableError("Home Assistant does not tie this device to your account")
+            if ha_device_id in self._device_conflicts:
+                _LOGGER.warning("Device %s is in an ownership conflict; claim refused", ha_device_id)
+                raise DeviceOwnershipConflictError("This device is in an ownership conflict")
+            owner = self._device_index.get(ha_device_id)
+            if owner is not None and owner != user_id:
+                raise DeviceOwnedByOtherProfileError("This device belongs to another profile")
+            added = PersonalDevice(
+                # A new record every time: removing and adding again never reuses an id.
+                id=uuid4().hex,
+                ha_device_id=ha_device_id,
+                label=device_label,
+                added_at=utc_now_iso(),
+                notifications_enabled=True,
+            )
+            return replace(content, personal_devices=(*content.personal_devices, added))
+
+        return await self._async_commit(user_id, expected_revision, build)
+
+    async def async_remove_device(
+        self, user_id: str, expected_revision: int, device_id: str
+    ) -> ProfileView:
+        """Remove one of the user's devices, even if Home Assistant no longer knows it."""
+
+        def build(current: DomusUserProfile | None) -> ProfileContent:
+            content = ProfileContent.of(current)
+            remaining = tuple(device for device in content.personal_devices if device.id != device_id)
+            if len(remaining) == len(content.personal_devices):
+                raise DeviceNotInProfileError("This device is not in your profile")
+            return replace(content, personal_devices=remaining)
+
+        return await self._async_commit(user_id, expected_revision, build)
+
+    async def async_update_device(
+        self,
+        user_id: str,
+        expected_revision: int,
+        device_id: str,
+        changes: Mapping[str, Any],
+    ) -> ProfileView:
+        """Change the label or the notification switch of one of the user's devices.
+
+        ``changes`` may hold ``label`` (absent, null, empty or blank clears it)
+        and ``notifications_enabled``. Identity fields never change: replacing
+        a device is a removal followed by a new addition.
+        """
+        unknown = set(changes) - {"label", "notifications_enabled"}
+        if unknown or not changes:
+            raise InvalidDeviceError("Only the label and the notification switch can change")
+        if "notifications_enabled" in changes and not isinstance(changes["notifications_enabled"], bool):
+            raise InvalidDeviceError("notifications.enabled must be a boolean")
+        new_label = _device_label(changes["label"]) if "label" in changes else None
+
+        def build(current: DomusUserProfile | None) -> ProfileContent:
+            content = ProfileContent.of(current)
+            if not any(device.id == device_id for device in content.personal_devices):
+                raise DeviceNotInProfileError("This device is not in your profile")
+            devices = tuple(
+                replace(
+                    device,
+                    label=new_label if "label" in changes else device.label,
+                    notifications_enabled=changes.get("notifications_enabled", device.notifications_enabled),
+                )
+                if device.id == device_id
+                else device
+                for device in content.personal_devices
+            )
+            return replace(content, personal_devices=devices)
+
+        return await self._async_commit(user_id, expected_revision, build)
 
     async def async_mark_orphaned(self, user_id: str) -> bool:
         """Keep a removed user's profile, flagged as orphaned; never delete it."""

@@ -21,6 +21,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "calendar_v1",
   "waste_collection_v1",
   "profile_core_v1",
+  "profile_devices_v1",
   "host_navigation",
   "person_links",
   "person_create",
@@ -52,6 +53,8 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/energy/get_state", "domusos/energy/get_history", "domusos/energy/discover",
   "domusos/energy/get_profile", "domusos/energy/save_profile",
   "domusos/profile/get_self", "domusos/profile/save_self",
+  "domusos/profile/discover_devices", "domusos/profile/add_device",
+  "domusos/profile/remove_device", "domusos/profile/update_device",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -236,7 +239,31 @@ const isValidEnergyMessage = (message) => {
 // accepted. A save carries the revision it read and the self-editable fields only.
 const PROFILE_SELF_KEYS = ["notifications", "preferences", "personal_devices"];
 const isValidProfileMessage = (message) => {
-  if (message.type === "domusos/profile/get_self") return hasExactKeys(message, ["type"]);
+  // Device commands: the server creates ids and dates; the client names a device, never a record.
+  const keys = Object.keys(message);
+  const isRevision = (value) => Number.isInteger(value) && value >= 0;
+  const isLabel = (value) => value === null || (typeof value === "string" && value.length <= 256);
+  const isHaDevice = (value) => typeof value === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(value);
+  const isPersonalDevice = (value) => typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value);
+  if (message.type === "domusos/profile/get_self" ||
+      message.type === "domusos/profile/discover_devices") return hasExactKeys(message, ["type"]);
+  if (message.type === "domusos/profile/add_device") {
+    return keys.every((key) => ["type", "expected_revision", "ha_device_id", "label"].includes(key)) &&
+      isRevision(message.expected_revision) && isHaDevice(message.ha_device_id) &&
+      (!("label" in message) || isLabel(message.label));
+  }
+  if (message.type === "domusos/profile/remove_device") {
+    return hasExactKeys(message, ["type", "expected_revision", "device_id"]) &&
+      isRevision(message.expected_revision) && isPersonalDevice(message.device_id);
+  }
+  if (message.type === "domusos/profile/update_device") {
+    return keys.every((key) => ["type", "expected_revision", "device_id", "label", "notifications"].includes(key)) &&
+      ("label" in message || "notifications" in message) &&
+      isRevision(message.expected_revision) && isPersonalDevice(message.device_id) &&
+      (!("label" in message) || isLabel(message.label)) &&
+      (!("notifications" in message) || (isRecord(message.notifications) &&
+        hasExactKeys(message.notifications, ["enabled"]) && typeof message.notifications.enabled === "boolean"));
+  }
   if (message.type !== "domusos/profile/save_self") return false;
   const { profile, expected_revision: revision } = message;
   if (!hasExactKeys(message, ["type", "expected_revision", "profile"]) ||
@@ -667,6 +694,8 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
 `ha-panel-upload-image` (capability `person_picture`) carica la foto di una persona con `/api/image/upload`, come il frontend Home Assistant. Il bridge accetta solo immagini JPEG, PNG o WebP fino a 5 MB e solo per un amministratore; restituisce l'id dell'immagine, che Domus salva nella persona come `/api/image/serve/<id>/512x512`.
 
 `domusos/profile/get_self` e `domusos/profile/save_self` (capability `profile_core_v1`) leggono e salvano il Domus Profile dell'utente collegato, ricavato da Home Assistant dalla connessione. Il bridge rifiuta qualsiasi id di utente, persona o proprietario: `get_self` accetta solo `type`, `save_self` solo `expected_revision` (intero, mai `null`) e un `profile` con `notifications: { enabled }` più, invariati, `preferences` e `personal_devices`. Home Assistant e il Profile Core ripetono gli stessi controlli.
+
+I dispositivi personali (capability `profile_devices_v1`) cambiano solo con comandi dedicati: `discover_devices` (solo `type`), `add_device` (`expected_revision`, `ha_device_id`, `label` facoltativa), `remove_device` (`expected_revision`, `device_id`) e `update_device` (`expected_revision`, `device_id` e almeno uno tra `label` e `notifications: { enabled }`). Il client non sceglie mai id né data di un nuovo dispositivo: li genera il Profile Core, che verifica la proprietà con Home Assistant al momento dell'aggiunta.
 
 ## Navigazione verso Home Assistant
 

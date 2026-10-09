@@ -13,7 +13,15 @@
   the stored document is invalid. People are resolved by their Home Assistant
   internal id, never by name. A save that changes nothing writes nothing,
   and an empty or blank device label means no label. Nothing changes on screen
-  yet; personal devices stay read-only until their ownership can be verified.
+  yet.
+- Personal devices for the Domus Profile: a user can list the Companion App
+  devices Home Assistant ties to their own account, add one, rename it, turn
+  its notifications off and remove it, through dedicated commands that never
+  take a user or record id from the client. Ownership is checked against Home
+  Assistant at the moment of adding, never by name; a device listed by two
+  active profiles is quarantined, and a removed user's profile never blocks the
+  new owner. Each device shows its live state, presence trackers and whether it
+  could receive notifications; nothing is sent yet.
 
 ## 1.5.0 - 2026-10-08
 

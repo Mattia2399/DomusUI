@@ -107,6 +107,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'calendar_v1',
   'waste_collection_v1',
   'profile_core_v1',
+  'profile_devices_v1',
   'host_navigation',
   'person_links',
   'person_create',
@@ -182,6 +183,10 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/waste_collection/test_notification',
   'domusos/profile/get_self',
   'domusos/profile/save_self',
+  'domusos/profile/discover_devices',
+  'domusos/profile/add_device',
+  'domusos/profile/remove_device',
+  'domusos/profile/update_device',
   'domusos/energy/get_state',
   'domusos/energy/get_history',
   'domusos/energy/discover',
@@ -318,7 +323,32 @@ const PROFILE_SELF_KEYS = ['notifications', 'preferences', 'personal_devices'];
  * fields only; Home Assistant and the Profile Core check them again.
  */
 export function isValidProfileMessage(message: Record<string, unknown>) {
-  if (message.type === 'domusos/profile/get_self') return hasExactKeys(message, ['type']);
+  // Device commands: the server creates ids and dates; the client names a device, never a record.
+  const keys = Object.keys(message);
+  const isRevision = (value: unknown) => typeof value === 'number' && Number.isInteger(value) && value >= 0;
+  const isLabel = (value: unknown) => value === null || (typeof value === 'string' && value.length <= 256);
+  const isHaDevice = (value: unknown) => typeof value === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(value);
+  const isPersonalDevice = (value: unknown) => typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value);
+  if (message.type === 'domusos/profile/get_self'
+    || message.type === 'domusos/profile/discover_devices') return hasExactKeys(message, ['type']);
+  if (message.type === 'domusos/profile/add_device') {
+    return keys.every((key) => ['type', 'expected_revision', 'ha_device_id', 'label'].includes(key))
+      && isRevision(message.expected_revision) && isHaDevice(message.ha_device_id)
+      && (!('label' in message) || isLabel(message.label));
+  }
+  if (message.type === 'domusos/profile/remove_device') {
+    return hasExactKeys(message, ['type', 'expected_revision', 'device_id'])
+      && isRevision(message.expected_revision) && isPersonalDevice(message.device_id);
+  }
+  if (message.type === 'domusos/profile/update_device') {
+    const notifications = message.notifications;
+    return keys.every((key) => ['type', 'expected_revision', 'device_id', 'label', 'notifications'].includes(key))
+      && ('label' in message || 'notifications' in message)
+      && isRevision(message.expected_revision) && isPersonalDevice(message.device_id)
+      && (!('label' in message) || isLabel(message.label))
+      && (!('notifications' in message) || (isRecord(notifications)
+        && hasExactKeys(notifications, ['enabled']) && typeof notifications.enabled === 'boolean'));
+  }
   if (message.type !== 'domusos/profile/save_self') return false;
   const { profile, expected_revision: revision } = message;
   if (!hasExactKeys(message, ['type', 'expected_revision', 'profile'])

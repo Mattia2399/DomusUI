@@ -85,7 +85,7 @@ class RevisionConflictError(ProfileError):
 
 
 class DeviceManagementNotAvailableError(ProfileError):
-    """Personal devices cannot change until ownership can be verified (P1.2)."""
+    """save_self never changes personal devices; the device commands do."""
 
     code = "device_management_not_available"
 
@@ -100,6 +100,63 @@ class AmbiguousPersonIdentityError(ProfileError):
     """More than one Home Assistant person matches one identity."""
 
     code = "ambiguous_person_identity"
+
+
+class DeviceNotFoundError(ProfileError):
+    """The Home Assistant device does not exist."""
+
+    code = "device_not_found"
+
+
+class DeviceNotClaimableError(ProfileError):
+    """Home Assistant cannot prove that the device belongs to this user.
+
+    Also raised for another user's device: the owner is never revealed.
+    """
+
+    code = "device_not_claimable"
+
+
+class DeviceOwnedByOtherProfileError(ProfileError):
+    """Another active profile owns the device; its owner is never revealed."""
+
+    code = "device_owned_by_other_profile"
+
+
+class DeviceOwnershipConflictError(ProfileError):
+    """Several active profiles list the device; it stays quarantined."""
+
+    code = "device_ownership_conflict"
+
+
+class TooManyDevicesError(ProfileError):
+    """A profile holds at most MAX_PERSONAL_DEVICES devices."""
+
+    code = "too_many_devices"
+
+
+class InvalidDeviceError(ProfileError):
+    """A device request does not match the schema."""
+
+    code = "invalid_device"
+
+
+class DeviceNotInProfileError(ProfileError):
+    """The personal device is not in the user's profile."""
+
+    code = "device_not_in_profile"
+
+
+class NotificationTargetUnavailableError(ProfileError):
+    """No usable notification target exists for the device (used from P1.4)."""
+
+    code = "notification_target_unavailable"
+
+
+class AmbiguousTargetError(ProfileError):
+    """The notification target cannot be told apart safely (used from P1.4)."""
+
+    code = "ambiguous_target"
 
 
 class InvalidStoredDocumentError(Exception):
@@ -364,8 +421,8 @@ def parse_self_changes(value: Any, current: DomusUserProfile | None) -> ProfileC
 
     Only ``notifications.enabled`` is editable. ``personal_devices`` and
     ``preferences`` may be sent back, but must mean exactly what is stored once
-    canonicalized: devices change only once ownership can be verified
-    server-side.
+    canonicalized: devices change through the dedicated device commands,
+    which verify ownership server-side.
     """
     if not isinstance(value, dict):
         raise InvalidProfileError("The profile must be an object")
@@ -389,7 +446,7 @@ def parse_self_changes(value: Any, current: DomusUserProfile | None) -> ProfileC
         requested = _parse_devices(value["personal_devices"], "profile", InvalidProfileError)
         if requested != stored.personal_devices:
             raise DeviceManagementNotAvailableError(
-                "Personal devices cannot be changed until ownership verification is available"
+                "save_self does not change personal devices; use add_device, remove_device or update_device"
             )
     return ProfileContent(
         notifications_enabled=notifications["enabled"],

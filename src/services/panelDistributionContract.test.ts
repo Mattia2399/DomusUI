@@ -153,8 +153,16 @@ describe('Home Assistant panel distribution contract', () => {
     const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/profile/'));
 
     expect(new Set(hostTypes)).toEqual(new Set(appTypes));
-    expect(appTypes.sort()).toEqual(['domusos/profile/get_self', 'domusos/profile/save_self']);
+    expect(appTypes.sort()).toEqual([
+      'domusos/profile/add_device',
+      'domusos/profile/discover_devices',
+      'domusos/profile/get_self',
+      'domusos/profile/remove_device',
+      'domusos/profile/save_self',
+      'domusos/profile/update_device',
+    ]);
     expect(bridge).toContain('"profile_core_v1"');
+    expect(bridge).toContain('"profile_devices_v1"');
   });
 
   it('validates Profile message shapes identically in both bridge halves', () => {
@@ -178,12 +186,48 @@ describe('Home Assistant panel distribution contract', () => {
       expected_revision: 0,
       profile: { notifications: { enabled: false } },
     };
+    const add = { type: 'domusos/profile/add_device', expected_revision: 0, ha_device_id: 'a'.repeat(32) };
+    const remove = { type: 'domusos/profile/remove_device', expected_revision: 3, device_id: 'dev-1' };
+    const update = { type: 'domusos/profile/update_device', expected_revision: 3, device_id: 'dev-1' };
     const accepted = [
+      { type: 'domusos/profile/discover_devices' },
+      add,
+      { ...add, label: '  Telefono  ' },
+      { ...add, label: null },
+      remove,
+      { ...update, label: 'Telefono' },
+      { ...update, label: null },
+      { ...update, notifications: { enabled: false } },
+      { ...update, label: '', notifications: { enabled: true } },
       { type: 'domusos/profile/get_self' },
       save,
       { ...save, expected_revision: 4, profile: { notifications: { enabled: true }, preferences: {}, personal_devices: [] } },
     ];
     const refused = [
+      { type: 'domusos/profile/discover_devices', user_id: 'someone' },
+      { type: 'domusos/profile/discover_devices', person_id: 'erika' },
+      { ...add, user_id: 'someone' },
+      { ...add, owner_user_id: 'someone' },
+      { ...add, device_id: 'chosen-by-client' },
+      { ...add, added_at: '2026-10-09T09:00:00+00:00' },
+      { ...add, notifications: { enabled: true } },
+      { ...add, expected_revision: null },
+      { ...add, ha_device_id: '../etc' },
+      { ...add, ha_device_id: 7 },
+      { ...add, label: 3 },
+      { ...add, label: 'x'.repeat(257) },
+      { type: add.type, ha_device_id: add.ha_device_id },
+      { ...remove, ha_device_id: 'a'.repeat(32) },
+      { ...remove, device_id: 'Dev 1' },
+      { ...remove, person_id: 'erika' },
+      { type: remove.type, device_id: 'dev-1' },
+      update,
+      { ...update, label: 'x', ha_device_id: 'b'.repeat(32) },
+      { ...update, label: 'x', added_at: '2026-10-09T09:00:00+00:00' },
+      { ...update, label: 'x', source: { kind: 'ha_device' } },
+      { ...update, label: 'x', user_id: 'someone' },
+      { ...update, notifications: { enabled: 'false' } },
+      { ...update, notifications: { enabled: true, quiet: true } },
       { type: 'domusos/profile/get_self', user_id: 'someone' },
       { type: 'domusos/profile/get_self', person_id: 'erika' },
       { ...save, user_id: 'someone' },

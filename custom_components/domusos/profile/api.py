@@ -1,7 +1,11 @@
 """Self-service websocket API for the Domus Profile.
 
-Both commands act on the authenticated user of the connection only: they take
-no user, person or owner id, and Home Assistant rejects unknown keys.
+Every command acts on the authenticated user of the connection only: none
+takes a user, person or owner id, and Home Assistant rejects unknown keys.
+
+Devices change through dedicated commands rather than ``save_self``: the
+server generates the id and the date of every new record, and verifies each
+claim on its own inside the document lock.
 """
 
 from __future__ import annotations
@@ -15,9 +19,10 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN
+from .devices import DeviceInspector
 from .identity import list_persons, require_household_account, resolve_user_person
 from .manager import ProfileManager, ProfileView
-from .models import ProfileError, ProfileUnavailableError
+from .models import HA_ID_PATTERN, DEVICE_ID_PATTERN, ProfileError, ProfileUnavailableError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,9 +52,29 @@ def _revision(value: Any) -> int:
     return value
 
 
-def _self_result(hass: HomeAssistant, user_id: str, view: ProfileView) -> dict[str, Any]:
+def _pattern(pattern: Any, name: str) -> Any:
+    def validate(value: Any) -> str:
+        if not isinstance(value, str) or not pattern.fullmatch(value):
+            raise vol.Invalid(f"invalid {name}")
+        return value
+
+    return validate
+
+
+_HA_DEVICE_ID = _pattern(HA_ID_PATTERN, "Home Assistant device id")
+_DEVICE_ID = _pattern(DEVICE_ID_PATTERN, "personal device id")
+# The label is canonicalized and length-checked by the manager; this only bounds the input.
+_LABEL = vol.Any(None, vol.All(str, vol.Length(max=256)))
+
+
+def _self_result(
+    hass: HomeAssistant, manager: ProfileManager, user_id: str, view: ProfileView
+) -> dict[str, Any]:
     resolution = resolve_user_person(list_persons(hass), user_id)
     person = resolution.person
+    devices = view.profile.personal_devices if view.profile is not None else ()
+    inspector = DeviceInspector(hass, user_id) if devices else None
+    ownership = manager.ownership()
     return {
         "owner": {
             "user_id": user_id,
@@ -59,7 +84,10 @@ def _self_result(hass: HomeAssistant, user_id: str, view: ProfileView) -> dict[s
             "person_status": resolution.status.value,
         },
         "persisted": view.persisted,
+        # Stored data, exactly as saved.
         "profile": view.as_dict(),
+        # Derived live from Home Assistant on every request; never stored.
+        "live_devices": [inspector.live_device(device, ownership) for device in devices] if inspector else [],
         "revision": view.revision,
     }
 
@@ -74,8 +102,9 @@ async def websocket_get_self(
     """Return the authenticated user's own profile."""
     try:
         user_id = require_household_account(connection.user)
-        view = _manager(hass).get_profile(user_id)
-        connection.send_result(msg["id"], _self_result(hass, user_id, view))
+        manager = _manager(hass)
+        view = manager.get_profile(user_id)
+        connection.send_result(msg["id"], _self_result(hass, manager, user_id, view))
     except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
         _send_error(connection, msg["id"], err)
 
@@ -96,15 +125,121 @@ async def websocket_save_self(
     """Save the authenticated user's own profile when the revision matches."""
     try:
         user_id = require_household_account(connection.user)
-        view = await _manager(hass).async_save_self(
-            user_id, msg["expected_revision"], msg["profile"]
-        )
-        connection.send_result(msg["id"], _self_result(hass, user_id, view))
+        manager = _manager(hass)
+        view = await manager.async_save_self(user_id, msg["expected_revision"], msg["profile"])
+        connection.send_result(msg["id"], _self_result(hass, manager, user_id, view))
     except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
         _send_error(connection, msg["id"], err)
 
 
-WEBSOCKET_COMMANDS = (websocket_get_self, websocket_save_self)
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/discover_devices"})
+@websocket_api.async_response
+async def websocket_discover_devices(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """List the devices Home Assistant ties to the user; nothing is written or granted."""
+    try:
+        user_id = require_household_account(connection.user)
+        manager = _manager(hass)
+        view = manager.get_profile(user_id)
+        own = view.profile.personal_devices if view.profile is not None else ()
+        devices = DeviceInspector(hass, user_id).discover(own, manager.ownership())
+        connection.send_result(msg["id"], {"devices": devices, "revision": view.revision})
+    except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
+        _send_error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/add_device",
+        vol.Required("expected_revision"): _revision,
+        vol.Required("ha_device_id"): _HA_DEVICE_ID,
+        vol.Optional("label"): _LABEL,
+    }
+)
+@websocket_api.async_response
+async def websocket_add_device(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Add a verified device to the user's profile."""
+    try:
+        user_id = require_household_account(connection.user)
+        manager = _manager(hass)
+        view = await manager.async_add_device(
+            user_id, msg["expected_revision"], msg["ha_device_id"], msg.get("label")
+        )
+        connection.send_result(msg["id"], _self_result(hass, manager, user_id, view))
+    except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
+        _send_error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/remove_device",
+        vol.Required("expected_revision"): _revision,
+        vol.Required("device_id"): _DEVICE_ID,
+    }
+)
+@websocket_api.async_response
+async def websocket_remove_device(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Remove one of the user's devices."""
+    try:
+        user_id = require_household_account(connection.user)
+        manager = _manager(hass)
+        view = await manager.async_remove_device(user_id, msg["expected_revision"], msg["device_id"])
+        connection.send_result(msg["id"], _self_result(hass, manager, user_id, view))
+    except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
+        _send_error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/update_device",
+        vol.Required("expected_revision"): _revision,
+        vol.Required("device_id"): _DEVICE_ID,
+        vol.Optional("label"): _LABEL,
+        vol.Optional("notifications"): {vol.Required("enabled"): bool},
+    }
+)
+@websocket_api.async_response
+async def websocket_update_device(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Change the label or the notification switch of one of the user's devices."""
+    try:
+        user_id = require_household_account(connection.user)
+        changes: dict[str, Any] = {}
+        if "label" in msg:
+            changes["label"] = msg["label"]
+        if "notifications" in msg:
+            changes["notifications_enabled"] = msg["notifications"]["enabled"]
+        manager = _manager(hass)
+        view = await manager.async_update_device(
+            user_id, msg["expected_revision"], msg["device_id"], changes
+        )
+        connection.send_result(msg["id"], _self_result(hass, manager, user_id, view))
+    except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
+        _send_error(connection, msg["id"], err)
+
+
+WEBSOCKET_COMMANDS = (
+    websocket_get_self,
+    websocket_save_self,
+    websocket_discover_devices,
+    websocket_add_device,
+    websocket_remove_device,
+    websocket_update_device,
+)
 
 
 async def async_register_profile_api(hass: HomeAssistant) -> None:
