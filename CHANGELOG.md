@@ -55,6 +55,9 @@
   administrator chooses "Switch to people"; nothing is converted or guessed
   automatically, and a configuration never uses both at once. Retried
   reminders only repeat the devices that did not get them.
+- The evening waste reminder reads more clearly: with one collection the title
+  names it ("Tomorrow: 🍾 Glass"), with several it counts them and lists each
+  with an emoji from its icon. It follows the Home Assistant language.
 
 - Profile presence (activity, map and timeline) now uses only the Person that
   Home Assistant links to the signed-in user and the trackers that Person

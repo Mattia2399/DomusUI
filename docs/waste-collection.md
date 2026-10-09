@@ -1,9 +1,27 @@
 # Raccolta rifiuti — promemoria
 
 La raccolta rifiuti manda **un solo promemoria la sera prima** di ogni giorno di
-raccolta, con tutte le tipologie di quel giorno ("Raccolta di domani: Organico ·
-Carta e cartone"), all'orario scelto. Il server calcola i giorni da regole fisse,
-calendari Home Assistant ed eccezioni; lo scheduler scatta una volta al giorno.
+raccolta, con tutte le tipologie di quel giorno, all'orario scelto. Il server
+calcola i giorni da regole fisse, calendari Home Assistant ed eccezioni; lo
+scheduler scatta una volta al giorno.
+
+## Testo del promemoria
+
+Ogni tipologia compare con un emoji ricavato dall'icona scelta nelle
+impostazioni (🌿 organico, 📦 cartone, 🍾 vetro, …; 🗑️ per un'icona
+sconosciuta), così si legge allo stesso modo su Android e su iPhone.
+
+| Tipologie | Titolo | Testo |
+| --- | --- | --- |
+| una | Domani: 🍾 Vetro | Da portare fuori stasera. |
+| più di una | Domani passano 2 raccolte | 🌿 Organico · 📦 Carta e cartone ⏎ Da portare fuori stasera. |
+
+La lingua è quella di Home Assistant (italiano, inglese o francese; italiano
+per le altre). Resta sempre una sola notifica per sera, anche con più
+tipologie. Colore e icona della notifica non vengono personalizzati: iPhone non
+lo permette e su Android richiederebbe dati specifici della piattaforma, che il
+Notification Router oggi non invia. Il testo non entra nella chiave di
+deduplica.
 
 ## Chi riceve: persone, non dispositivi
 

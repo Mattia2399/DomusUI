@@ -250,6 +250,7 @@ async def test_nothing_is_ever_preselected_from_a_target_name(hass: HomeAssistan
 
 
 async def test_people_mode_builds_one_router_request_and_never_uses_targets(hass: HomeAssistant) -> None:
+    hass.config.language = "it"
     router = RecordingRouter()
     document = v1_document(["notify.mobile_app_mattia"])
     manager = await manager_with(hass, document, router)
@@ -261,7 +262,7 @@ async def test_people_mode_builds_one_router_request_and_never_uses_targets(hass
     (request,) = router.requests
     assert (request.source, request.category) == ("waste_collection", "waste")
     assert request.recipients == ("p-mattia", "p-erika")
-    assert (request.title, request.message) == ("Raccolta di domani", "Organico · Carta e cartone")
+    assert (request.title, request.message) == ("Domani passano 2 raccolte", "\U0001F33F Organico \u00b7 \U0001F4E6 Carta e cartone\nDa portare fuori stasera.")
     assert request.dedupe_key == build_waste_dedupe_key(DAY, ["organic", "paper"])
     manager._async_send_to_target.assert_not_called()  # noqa: SLF001
     assert result["mode"] == "recipients" and result["status"] == "delivered"
@@ -281,6 +282,7 @@ async def test_legacy_mode_never_calls_the_router(hass: HomeAssistant) -> None:
 
 async def test_no_double_send_with_real_services(hass: HomeAssistant) -> None:
     """People mode with a kept legacy target: only the router path runs."""
+    hass.config.language = "it"
     await hass.auth.async_create_user("Owner")
     mattia = await hass.auth.async_create_user("Mattia")
     profiles, _ledger, router = await start(hass)
@@ -299,7 +301,7 @@ async def test_no_double_send_with_real_services(hass: HomeAssistant) -> None:
     result = await manager.async_dispatch_reminder(DAY)
 
     assert result["status"] == "delivered"
-    assert phone.calls == [{"message": "Organico · Carta e cartone", "title": "Raccolta di domani"}]
+    assert phone.calls == [{"message": "\U0001F33F Organico \u00b7 \U0001F4E6 Carta e cartone\nDa portare fuori stasera.", "title": "Domani passano 2 raccolte"}]
     assert legacy_calls == []
     assert manager.document["dispatchLedger"] == ["2026-09-30|notify.mobile_app_phone"]
 

@@ -21,6 +21,7 @@ from homeassistant.util import dt as dt_util
 from ..const import DOMAIN
 from ..notifications import DATA_NOTIFICATION_ROUTER, NotificationRouter
 from .dispatch import async_send_to_recipients, build_waste_dedupe_key
+from .reminder_text import reminder_text
 from .models import (
     MODE_LEGACY,
     STORAGE_KEY,
@@ -203,6 +204,11 @@ class WasteCollectionManager:
         if end_local.timetz().replace(tzinfo=None) != time.min:
             last_exclusive += timedelta(days=1)
         return start_local.date(), last_exclusive
+
+    @staticmethod
+    def _event_type_id(event: CalendarEvent) -> str:
+        """The waste type of a derived event, from its uid ``domus-ui-waste:<type>:<day>``."""
+        return (event.uid or "").removeprefix(WASTE_UID_PREFIX).rsplit(":", 1)[0]
 
     def _type_index(self) -> dict[str, dict[str, Any]]:
         return {item["id"]: item for item in self.document["wasteTypes"]}
@@ -516,8 +522,14 @@ class WasteCollectionManager:
         if not events:
             return {"sent": [], "failed": [], "skipped": "no_collection"}
         names = [event.summary for event in events]
-        title = "Raccolta di domani"
-        message = " \u00b7 ".join(names)
+        waste_types = self._type_index()
+        title, message = reminder_text(
+            (
+                (event.summary, waste_types.get(self._event_type_id(event), {}).get("icon"))
+                for event in events
+            ),
+            self.hass.config.language,
+        )
         # One authority per configuration: exactly one of the two paths runs.
         if notifications["mode"] == MODE_LEGACY:
             return await self._async_dispatch_legacy(
@@ -535,11 +547,7 @@ class WasteCollectionManager:
     ) -> dict[str, Any]:
         """Send the reminder to the chosen people; the router deduplicates per device."""
         recipients = self.document["notifications"]["recipients"]
-        type_ids = [
-            event.uid.removeprefix(WASTE_UID_PREFIX).rsplit(":", 1)[0]
-            for event in events
-            if event.uid
-        ]
+        type_ids = [self._event_type_id(event) for event in events if event.uid]
         try:
             router = self._router()
         except WasteNotificationRouterUnavailableError:

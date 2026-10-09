@@ -188,6 +188,7 @@ async def test_aggregated_reminder_is_idempotent_per_target_and_day(
         "time": "20:00",
         "targets": ["notify.mobile_app_phone"],
     }
+    hass.config.language = "it"
     manager = await create_manager(hass, document)
     manager._async_send_to_target = AsyncMock()
 
@@ -199,8 +200,8 @@ async def test_aggregated_reminder_is_idempotent_per_target_and_day(
     assert second["sent"] == []
     manager._async_send_to_target.assert_awaited_once_with(
         "notify.mobile_app_phone",
-        "Raccolta di domani",
-        "Organico \u00b7 Carta e cartone",
+        "Domani passano 2 raccolte",
+        "\U0001F33F Organico \u00b7 \U0001F4E6 Carta e cartone\nDa portare fuori stasera.",
     )
 
 
