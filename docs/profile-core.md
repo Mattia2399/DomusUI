@@ -154,8 +154,9 @@ dispositivi.
 ### Target di notifica
 
 Il target è risolto dal vivo e non viene mai salvato. Lo usa il
-[Notification Router](notification-router.md) a ogni invio; la risoluzione
-resta qui, l'invio è nel router:
+[Notification Router](notification-router.md) a ogni invio (oggi per i
+promemoria della [raccolta rifiuti](waste-collection.md)); la risoluzione resta
+qui, l'invio è nel router:
 
 1. un'entità `notify.*` che l'Entity Registry lega allo stesso dispositivo;
 2. il servizio legacy `notify.mobile_app_<nome>` della registrazione collegata,

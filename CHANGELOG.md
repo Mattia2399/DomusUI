@@ -44,10 +44,17 @@
   status (ready, notifications off, needs a device, no account, ...) computed
   by the same rules the router sends with, and never reveals devices,
   preferences or targets. A reusable person recipient picker lets future
-  settings choose people by their Home Assistant person id; it is not used by
-  any screen yet.
+  settings choose people by their Home Assistant person id.
 
 ### Changed
+
+- Waste collection reminders now go to people: an administrator chooses Home
+  Assistant persons, and each person gets the reminder on the devices they
+  enabled in their Domus Profile. Existing configurations keep sending to
+  their previous notification targets, exactly as before, until an
+  administrator chooses "Switch to people"; nothing is converted or guessed
+  automatically, and a configuration never uses both at once. Retried
+  reminders only repeat the devices that did not get them.
 
 - Profile presence (activity, map and timeline) now uses only the Person that
   Home Assistant links to the signed-in user and the trackers that Person

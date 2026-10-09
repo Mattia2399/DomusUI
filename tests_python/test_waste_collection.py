@@ -180,7 +180,9 @@ async def test_external_calendar_uses_exact_mapping_and_warns_when_unavailable(
 async def test_aggregated_reminder_is_idempotent_per_target_and_day(
     hass: HomeAssistant,
 ) -> None:
+    # A version 1 document, as stored before people recipients: migrated, it keeps its targets.
     document = configured_document()
+    document["version"] = 1
     document["notifications"] = {
         "enabled": True,
         "time": "20:00",
@@ -204,8 +206,8 @@ async def test_aggregated_reminder_is_idempotent_per_target_and_day(
 
 def test_validation_requires_targets_and_rejects_the_domus_calendar() -> None:
     document = configured_document()
-    document["notifications"] = {"enabled": True, "time": "20:00", "targets": []}
-    with pytest.raises(WasteCollectionValidationError, match="destinatario"):
+    document["notifications"] = {"enabled": True, "time": "20:00", "mode": "recipients", "recipients": []}
+    with pytest.raises(WasteCollectionValidationError, match="persona"):
         normalize_configuration(document)
 
     document = default_document()

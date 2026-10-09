@@ -400,33 +400,38 @@ integrazione sarà Waste Collection (P1.6), che dovrà caricarlo in lazy.
   non amministratore vede un messaggio, senza dati.
 - Le traduzioni del picker stanno in `src/i18n/personRecipientTranslations.ts`,
   fuori dal dizionario principale: arrivano solo con il componente.
-- La validazione visiva integrata (390/820/1440) è rimandata a P1.6: non esiste
-  un harness isolato dalla build di produzione, e non è stata creata una route
-  solo per gli screenshot. Il componente è coperto da test di componente.
+- Usato per la prima volta da Waste Collection, in lazy: entra nel bundle solo
+  quando le impostazioni della raccolta mostrano i destinatari. La validazione
+  visiva a 390/820/1440, chiaro e scuro, è nell'E2E `waste-recipients`.
 
-## Come lo userà Waste Collection (P1.6)
+## Waste Collection, il primo utilizzatore
 
-Oggi Waste Collection usa ancora i propri `notifications.targets`, il proprio
-dispatch ledger e il proprio `test_notification`, che P1.4 e P1.5 non toccano.
-Con la migrazione mostrerà `PersonRecipientPicker`, salverà `recipients:
-[person_id]` e chiamerà:
+Waste Collection (documento versione 2) salva `recipients: [person_id]` e,
+in modalità `recipients`, chiama:
 
 ```python
 await router.async_send(NotificationRequest.create(
     recipients=config.recipients,
     source="waste_collection",
     category="waste",
-    title=...,
-    message=...,
-    dedupe_key=f"waste:{day}:{types}:evening",
+    title="Raccolta di domani",
+    message="Organico · Carta e cartone",
+    dedupe_key="waste:reminder:2026-10-07:organic+paper:evening",
 ))
 ```
 
+Le configurazioni precedenti restano in modalità `legacy` con i loro target
+finché un amministratore non le converte; i due percorsi non partono mai per lo
+stesso promemoria. Il router condiviso arriva a Waste dal ciclo di vita
+dell'integrazione: Waste non ne crea uno. Dettagli in
+[Raccolta rifiuti — promemoria](waste-collection.md).
+
 ## Non ancora implementato
 
-- Uso di `PersonRecipientPicker` in una funzione e salvataggio dei
-  destinatari nelle configurazioni — P1.6, a partire da Waste Collection.
-- Migrazione di Waste Collection al Router — P1.6.
+- Destinatari per persona nelle altre funzioni (Energy, Irrigation, Calendar,
+  Security): oggi solo Waste Collection.
+- Rimozione della compatibilità con i target tecnici di Waste e del suo
+  dispatch ledger.
 - Preferenze per categoria, ore di silenzio, override urgenti.
 - Inbox Domus e cronologia delle notifiche.
 - Payload ricchi (azioni, immagini, canali, alert critici).

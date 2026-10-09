@@ -140,7 +140,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
     runtime = DomusRuntime(hass)
     manager = IrrigationManager(hass)
     calendar_manager = DomusCalendarStore(hass)
-    waste_collection_manager = WasteCollectionManager(hass)
+    # Waste sends to people through the shared Notification Router, started later in setup.
+    waste_collection_manager = WasteCollectionManager(
+        hass,
+        notification_router=lambda: hass.data.get(DOMAIN, {}).get(DATA_NOTIFICATION_ROUTER),
+    )
     entry_data = DomusEntryData(
         runtime=runtime,
         irrigation_manager=manager,

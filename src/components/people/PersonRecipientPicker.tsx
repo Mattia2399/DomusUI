@@ -8,10 +8,10 @@ import {
   STATUS_COPY,
   STATUS_HINT,
   buildRecipientRows,
-  entityForPersonId,
   filterRows,
   presentationOf,
   statusTone,
+  summaryPresence,
   toggleRecipient,
   type PersonStates,
   type RecipientRow,
@@ -122,9 +122,12 @@ export function PersonRecipientPicker({
   // Before the list is loaded, a selected id is shown through its one exact person state.
   const summary = value.map((personId) => {
     const row = rows.find((candidate) => candidate.personId === personId);
-    if (row) return { personId, name: row.name, picture: row.picture, removed: row.status === 'removed' };
-    const presentation = presentationOf(states, entityForPersonId(states, personId));
-    return { personId, ...presentation, removed: false };
+    if (row) {
+      const problem = row.status === 'ambiguous' ? 'ambiguous' as const : null;
+      return { personId, name: row.name, picture: row.picture, removed: row.status === 'removed', problem };
+    }
+    const presence = summaryPresence(states, personId);
+    return { personId, ...presentationOf(states, presence.entityId), removed: false, problem: presence.problem };
   });
 
   const openSheet = () => {
@@ -162,13 +165,17 @@ export function PersonRecipientPicker({
               key={item.personId}
               className="inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] py-1 pl-1 pr-3 text-xs font-semibold text-[color:var(--ui-text-primary)]"
             >
-              {item.removed ? (
+              {item.removed || item.problem ? (
                 <AlertTriangle size={14} className="ml-1 shrink-0 text-[color:var(--ui-warning)]" aria-hidden="true" />
               ) : (
                 <Avatar name={item.name} picture={picture(item.picture)} size="sm" />
               )}
               <span className="truncate">
-                {item.removed ? copy('removed') : item.name ?? copy('unknownPerson')}
+                {item.removed
+                  ? copy('removed')
+                  : item.problem === 'ambiguous'
+                    ? copy('status.ambiguous')
+                    : item.name ?? copy('unknownPerson')}
               </span>
             </li>
           ))}

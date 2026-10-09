@@ -10,7 +10,7 @@ import {
 
 const document: WasteCollectionDocument = {
   schema: 'domusos-waste-collection',
-  version: 1,
+  version: 2,
   revision: 2,
   updatedAt: '2026-10-06T10:00:00Z',
   updatedByUserId: 'owner-1',
@@ -18,7 +18,7 @@ const document: WasteCollectionDocument = {
   sources: [],
   mappings: [],
   exceptions: [],
-  notifications: { enabled: false, time: '20:00', targets: [] },
+  notifications: { enabled: false, time: '20:00', mode: 'recipients', recipients: ['p-mattia'], legacyTargetCount: 2 },
 };
 
 describe('wasteCollectionClient', () => {
@@ -51,6 +51,26 @@ describe('wasteCollectionClient', () => {
 
     const preview = await getWasteCollectionPreview(callApi);
     expect(preview.events.map((event) => event.summary)).toEqual(['Organico', 'Carta']);
+  });
+
+  it('never sends technical targets back, only the mode and the people', async () => {
+    const callApi = vi.fn(async () => ({ ...document, revision: 3 })) as unknown as WasteCollectionCallApi & ReturnType<typeof vi.fn>;
+
+    await saveWasteCollectionConfig(callApi, document);
+
+    const sent = (callApi.mock.calls[0][0] as { config: { notifications: unknown } }).config.notifications;
+    expect(sent).toEqual({ enabled: false, time: '20:00', mode: 'recipients', recipients: ['p-mattia'] });
+  });
+
+  it('refuses a version 1 answer or notification settings it does not understand', async () => {
+    for (const bad of [
+      { ...document, version: 1 },
+      { ...document, notifications: { enabled: true, time: '20:00', targets: ['notify.x'] } },
+      { ...document, notifications: { ...document.notifications, mode: 'everyone' } },
+    ]) {
+      const callApi = vi.fn(async () => bad) as unknown as WasteCollectionCallApi;
+      await expect(getWasteCollectionConfig(callApi)).rejects.toThrow(/non valida/i);
+    }
   });
 
   it('rejects malformed server documents', async () => {

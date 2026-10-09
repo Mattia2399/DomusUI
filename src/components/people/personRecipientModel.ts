@@ -73,6 +73,22 @@ export function entityForPersonId(states: PersonStates, personId: string): strin
   return matches.length === 1 ? matches[0][0] : null;
 }
 
+/**
+ * What the summary can say about a selected id before the list is loaded,
+ * from the person states alone: its one entity, or that several share it,
+ * or that none carries it right now.
+ */
+export function summaryPresence(states: PersonStates, personId: string): {
+  entityId: string | null;
+  problem: 'ambiguous' | 'missing' | null;
+} {
+  const matches = Object.entries(states).filter(
+    ([entityId, state]) => entityId.startsWith('person.') && state?.rawAttributes?.id === personId,
+  );
+  if (matches.length === 1) return { entityId: matches[0][0], problem: null };
+  return { entityId: null, problem: matches.length > 1 ? 'ambiguous' : 'missing' };
+}
+
 // Ready first, then everyone else who can be chosen, then what needs attention.
 const GROUP_ORDER = (row: RecipientRow) =>
   row.status === 'removed' ? 3 : row.status === 'ambiguous' ? 2 : row.status === 'ready' ? 0 : 1;

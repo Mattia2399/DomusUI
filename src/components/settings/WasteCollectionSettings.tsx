@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowRightLeft,
   BellRing,
   CalendarDays,
   CalendarRange,
@@ -28,10 +29,14 @@ import {
   type WasteCollectionDocument,
   type WasteCollectionPreview,
   type WasteException,
+  type WasteNotificationResult,
   type WasteFixedRule,
   type WasteSource,
   type WasteType,
 } from '../../services/wasteCollectionClient';
+
+// Loaded only when the recipients of a reminder are on screen.
+const PersonRecipientPicker = lazy(() => import('../people/PersonRecipientPicker'));
 
 type WasteCollectionSettingsProps = {
   callApi?: WasteCollectionCallApi;
@@ -39,6 +44,10 @@ type WasteCollectionSettingsProps = {
   canConfigure: boolean;
   haStates: MockEntityStateMap;
   onDirtyChange?: (dirty: boolean) => void;
+  /** The integration lists people as recipients (`profile_recipients_v1`). */
+  recipientsSupported?: boolean;
+  /** Turns a Home Assistant picture path into a loadable URL. */
+  resolveAssetUrl?: (url: string) => string;
 };
 
 type PendingUndo = {
@@ -47,11 +56,7 @@ type PendingUndo = {
   wasDirty: boolean;
 };
 
-type NotifyTargetOption = {
-  id: string;
-  label: string;
-  detail?: string;
-};
+const MAX_RECIPIENTS = 32;
 
 const WEEKDAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 const INTERVAL_CHOICES = [1, 2, 3, 4];
@@ -102,18 +107,6 @@ function foldMappingsIntoAliases(document: WasteCollectionDocument): WasteCollec
 function friendlyName(entityId: string, states: MockEntityStateMap) {
   const name = states[entityId]?.rawAttributes?.friendly_name;
   return typeof name === 'string' && name.trim() ? name.trim() : entityId;
-}
-
-function humanizeService(service: string) {
-  const words = service.replace(/_/g, ' ').trim();
-  return words ? words.charAt(0).toUpperCase() + words.slice(1) : service;
-}
-
-function notifyServiceNames(payload: unknown) {
-  if (!payload || typeof payload !== 'object') return [];
-  const notify = (payload as Record<string, unknown>).notify;
-  if (!notify || typeof notify !== 'object') return [];
-  return Object.keys(notify).filter((service) => service !== 'send_message' && /^[a-z0-9_]+$/.test(service));
 }
 
 function Section({
@@ -184,11 +177,15 @@ export default function WasteCollectionSettings({
   canConfigure,
   haStates,
   onDirtyChange,
+  recipientsSupported = false,
+  resolveAssetUrl,
 }: WasteCollectionSettingsProps) {
   const { locale, t } = useI18n();
   const [document, setDocument] = useState<WasteCollectionDocument | null>(null);
   const [preview, setPreview] = useState<WasteCollectionPreview | null>(null);
-  const [notifyServices, setNotifyServices] = useState<string[]>([]);
+  const [conversion, setConversion] = useState<{ recipients: string[]; error: string } | null>(null);
+  const [converting, setConverting] = useState(false);
+  const conversionHeadingRef = useRef<HTMLParagraphElement>(null);
   const [status, setStatus] = useState<'loading' | 'ready' | 'saving' | 'testing' | 'error'>('loading');
   const [feedback, setFeedback] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -208,28 +205,6 @@ export default function WasteCollectionSettings({
     // 1 January 2024 is a Monday, so index 0 lines up with WEEKDAYS[0].
     return Object.fromEntries(WEEKDAYS.map((day, index) => [day, formatter.format(new Date(2024, 0, 1 + index))]));
   }, [locale]);
-
-  const notifyOptions = useMemo<NotifyTargetOption[]>(() => {
-    const options = new Map<string, NotifyTargetOption>();
-    for (const entityId of Object.keys(haStates).filter((item) => item.startsWith('notify.')).sort()) {
-      options.set(entityId, { id: entityId, label: friendlyName(entityId, haStates) });
-    }
-    for (const service of [...notifyServices].sort()) {
-      const id = `notify.${service}`;
-      if (options.has(id)) continue;
-      if (service === 'persistent_notification') {
-        options.set(id, { id, label: t('waste.notifications.homeAssistant') });
-      } else if (service.startsWith('mobile_app_')) {
-        options.set(id, { id, label: humanizeService(service.slice('mobile_app_'.length)), detail: t('waste.notifications.app') });
-      } else {
-        options.set(id, { id, label: humanizeService(service) });
-      }
-    }
-    for (const target of document?.notifications.targets ?? []) {
-      if (!options.has(target)) options.set(target, { id: target, label: target });
-    }
-    return [...options.values()];
-  }, [document?.notifications.targets, haStates, notifyServices, t]);
 
   const refreshPreview = useCallback(async () => {
     if (!connected || !callApi) return;
@@ -263,17 +238,18 @@ export default function WasteCollectionSettings({
         setStatus('error');
         setFeedback(error instanceof Error ? error.message : t('waste.settings.error'));
       });
-    void callApi<unknown>({ type: 'get_services' }, { reportError: false })
-      .then((payload) => {
-        if (!cancelled) setNotifyServices(notifyServiceNames(payload));
-      })
-      .catch(() => undefined);
     return () => { cancelled = true; };
   }, [callApi, connected, t]);
 
   useEffect(() => {
     onDirtyChange?.(dirty);
   }, [dirty, onDirtyChange]);
+
+  // Opening the conversion moves focus to it, so keyboard and screen reader users land there.
+  const conversionOpen = conversion !== null;
+  useEffect(() => {
+    if (conversionOpen) conversionHeadingRef.current?.focus();
+  }, [conversionOpen]);
 
   useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
@@ -454,12 +430,33 @@ export default function WasteCollectionSettings({
     exceptions: current.exceptions.map((exception) => exception.id === exceptionId ? { ...exception, ...patch } : exception),
   }));
 
-  const toggleTarget = (target: string) => updateDocument((current) => {
-    const targets = current.notifications.targets.includes(target)
-      ? current.notifications.targets.filter((item) => item !== target)
-      : [...current.notifications.targets, target];
-    return { ...current, notifications: { ...current.notifications, targets } };
-  });
+  const setRecipients = (recipients: string[]) => updateDocument((current) => ({
+    ...current,
+    notifications: { ...current.notifications, recipients },
+  }));
+
+  // Converting a previous configuration is one explicit, atomic save: mode and people together.
+  const handleConvert = async () => {
+    if (!document || !callApi || !canConfigure || !conversion || dirty || conversion.recipients.length === 0) return;
+    setConverting(true);
+    try {
+      const saved = await saveWasteCollectionConfig(callApi, {
+        ...document,
+        notifications: { ...document.notifications, mode: 'recipients', recipients: conversion.recipients },
+      });
+      setDocument(foldMappingsIntoAliases(saved));
+      setConversion(null);
+      setStatus('ready');
+      setFeedback(t('waste.legacy.converted'));
+    } catch (error) {
+      setConversion((current) => current && {
+        ...current,
+        error: error instanceof Error ? error.message : t('waste.settings.error'),
+      });
+    } finally {
+      setConverting(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!document || !callApi || !canConfigure) return;
@@ -479,17 +476,26 @@ export default function WasteCollectionSettings({
     }
   };
 
+  // People results stay at person level: never which device got it.
+  const testFeedback = (result: WasteNotificationResult) => {
+    if (result.mode === 'legacy') {
+      if (result.failed.length > 0) return result.failed.map((item) => `${item.target}: ${item.error}`).join(' · ');
+      return t('waste.notifications.testSent');
+    }
+    if (result.status === 'delivered') return t('waste.notifications.testSent');
+    if (result.status === 'partial') return t('waste.notifications.testPartial');
+    if (result.status === 'skipped') return t('waste.notifications.testNobody');
+    return t('waste.notifications.testFailed');
+  };
+
   const handleTest = async () => {
     if (!callApi || !canConfigure) return;
     setStatus('testing');
     setFeedback('');
     try {
       const result = await testWasteCollectionNotification(callApi);
-      if (result.failed.length > 0) {
-        throw new Error(result.failed.map((item) => `${item.target}: ${item.error}`).join(' · '));
-      }
-      setStatus('ready');
-      setFeedback(t('waste.notifications.testSent'));
+      setFeedback(testFeedback(result));
+      setStatus(result.mode === 'recipients' && result.status !== 'delivered' && result.status !== 'partial' ? 'error' : 'ready');
     } catch (error) {
       setStatus('error');
       setFeedback(error instanceof Error ? error.message : t('waste.settings.error'));
@@ -504,6 +510,8 @@ export default function WasteCollectionSettings({
   }
 
   const isBusy = status === 'saving' || status === 'testing';
+  const legacy = document.notifications.mode === 'legacy';
+  const hasRecipients = legacy ? document.notifications.legacyTargetCount > 0 : document.notifications.recipients.length > 0;
   const typeById = new Map(document.wasteTypes.map((item) => [item.id, item]));
   const typeOptions: GlassDropdownOption[] = document.wasteTypes.map((item) => ({ id: item.id, name: item.name }));
   const typeOption = (typeId: string) => typeOptions.find((option) => option.id === typeId) ?? null;
@@ -822,36 +830,72 @@ export default function WasteCollectionSettings({
                 <input disabled={!canConfigure} type="time" className="ui-input min-h-10 w-32 shrink-0 rounded-xl px-3 py-2 text-sm" value={document.notifications.time} onChange={(event) => updateDocument((current) => ({ ...current, notifications: { ...current.notifications, time: event.target.value } }))} />
               </label>
               <div className={dividerClass}>
-                <p className={fieldLabelClass}>{t('waste.notifications.targets')}</p>
-                {notifyOptions.length > 0 ? (
-                  <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label={t('waste.notifications.targets')}>
-                    {notifyOptions.map((option) => {
-                      const selected = document.notifications.targets.includes(option.id);
-                      return (
-                        <button
-                          key={option.id}
-                          type="button"
-                          disabled={!canConfigure}
-                          aria-pressed={selected}
-                          title={option.id}
-                          onClick={() => toggleTarget(option.id)}
-                          className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${selected ? 'bg-[color:var(--ui-accent)] text-white' : chipOffClass}`}
-                        >
-                          {option.label}
-                          {option.detail ? <span className="font-normal opacity-70">{option.detail}</span> : null}
-                        </button>
-                      );
-                    })}
+                {legacy ? (
+                  <div className="space-y-2" data-testid="waste-legacy-recipients">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className={fieldLabelClass}>{t('waste.recipients.title')}</p>
+                      <span className="inline-flex min-h-6 items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] px-2.5 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">{t('waste.legacy.badge')}</span>
+                    </div>
+                    <p className="text-xs leading-5 text-[color:var(--ui-text-secondary)]">{t('waste.legacy.description')}</p>
+                    {conversion ? (
+                      <section aria-labelledby="waste-conversion-title" className={`${dividerClass} space-y-3`} data-testid="waste-conversion">
+                        <p id="waste-conversion-title" ref={conversionHeadingRef} tabIndex={-1} className="text-sm font-semibold outline-none">{t('waste.legacy.convert')}</p>
+                        <p className="text-xs leading-5 text-[color:var(--ui-text-secondary)]">{t('waste.legacy.explanation')}</p>
+                        <Suspense fallback={<p className="text-xs text-[color:var(--ui-text-secondary)]">{t('waste.recipients.loading')}</p>}>
+                          <PersonRecipientPicker
+                            value={conversion.recipients}
+                            onChange={(recipients) => setConversion((current) => current && { ...current, recipients, error: '' })}
+                            states={haStates}
+                            callApi={callApi}
+                            supported={recipientsSupported}
+                            online={connected}
+                            disabled={converting}
+                            maxRecipients={MAX_RECIPIENTS}
+                            resolveAssetUrl={resolveAssetUrl}
+                          />
+                        </Suspense>
+                        {dirty ? (
+                          <p className="text-xs text-[color:var(--ui-warning)]">{t('waste.legacy.unsaved')}</p>
+                        ) : conversion.recipients.length === 0 ? (
+                          <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('waste.legacy.needsPerson')}</p>
+                        ) : null}
+                        {conversion.error ? <p role="alert" className="text-xs font-medium text-[color:var(--ui-danger)]">{conversion.error}</p> : null}
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <button type="button" disabled={converting} onClick={() => setConversion(null)} className={secondaryButtonClass}>{t('waste.legacy.cancel')}</button>
+                          <button
+                            type="button"
+                            disabled={converting || dirty || conversion.recipients.length === 0}
+                            onClick={() => void handleConvert()}
+                            className="liquid-glass-selection inline-flex min-h-10 items-center gap-2 rounded-full px-4 text-sm font-semibold disabled:opacity-50"
+                          >
+                            <Save size={16} />{t('waste.legacy.confirm')}
+                          </button>
+                        </div>
+                      </section>
+                    ) : (
+                      <button type="button" disabled={!canConfigure || isBusy} onClick={() => setConversion({ recipients: [], error: '' })} className={secondaryButtonClass}><ArrowRightLeft size={15} />{t('waste.legacy.convert')}</button>
+                    )}
                   </div>
                 ) : (
-                  <>
-                    <p className="mt-1 text-xs leading-5 text-[color:var(--ui-text-tertiary)]">{t('waste.notifications.targetsEmpty')}</p>
-                    <input disabled={!canConfigure} aria-label={t('waste.notifications.targetsManual')} className={`${inputClass} mt-1.5`} value={document.notifications.targets.join(', ')} onChange={(event) => updateDocument((current) => ({ ...current, notifications: { ...current.notifications, targets: event.target.value.split(',').map((item) => item.trim()).filter(Boolean) } }))} placeholder="notify.mobile_app_telefono" />
-                  </>
+                  <Suspense fallback={<p className="text-xs text-[color:var(--ui-text-secondary)]">{t('waste.recipients.loading')}</p>}>
+                    <PersonRecipientPicker
+                      label={t('waste.recipients.title')}
+                      helperText={t('waste.recipients.helper')}
+                      value={document.notifications.recipients}
+                      onChange={setRecipients}
+                      states={haStates}
+                      callApi={callApi}
+                      supported={recipientsSupported}
+                      online={connected}
+                      disabled={!canConfigure}
+                      maxRecipients={MAX_RECIPIENTS}
+                      resolveAssetUrl={resolveAssetUrl}
+                    />
+                    {document.notifications.recipients.length === 0 ? <p className="mt-1.5 text-xs text-[color:var(--ui-warning)]">{t('waste.recipients.required')}</p> : null}
+                  </Suspense>
                 )}
-                {document.notifications.targets.length === 0 ? <p className="mt-1.5 text-xs text-amber-200">{t('waste.notifications.targetsRequired')}</p> : null}
               </div>
-              <button type="button" disabled={!canConfigure || isBusy || dirty || document.notifications.targets.length === 0} onClick={() => void handleTest()} className={secondaryButtonClass}><Send size={15} />{status === 'testing' ? t('waste.notifications.testing') : t('waste.notifications.test')}</button>
+              <button type="button" disabled={!canConfigure || isBusy || dirty || !hasRecipients} onClick={() => void handleTest()} className={secondaryButtonClass}><Send size={15} />{status === 'testing' ? t('waste.notifications.testing') : t('waste.notifications.test')}</button>
             </>
           ) : null}
         </div>

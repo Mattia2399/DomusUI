@@ -10819,6 +10819,13 @@ export function MainBoard() {
   // bridge must also declare them.
   const profileDevicesSupported =
     !isHaManagedByParent || panelHaBridgeConnection.supportsProfileDevices;
+  // Choosing people as notification recipients, inside the panel only with the bridge capability.
+  const profileRecipientsSupported =
+    !isHaManagedByParent || panelHaBridgeConnection.supportsProfileRecipients;
+  const resolveSettingsAssetUrl = useCallback(
+    (url: string) => resolveHaAssetUrl(url, haUrl) ?? url,
+    [haUrl],
+  );
   const currentNavigationRoute = canUseBrowserRouteNavigation
     ? `${routerLocation.pathname}${routerLocation.search}${routerLocation.hash}`
     : internalNavigationRoute;
@@ -11293,6 +11300,8 @@ export function MainBoard() {
               onRestoreLayoutRevision={haDashboardLayoutPersistence.restoreRevision}
               onCallService={callHaService}
               onCallApi={callHaApi}
+              recipientsSupported={profileRecipientsSupported}
+              resolveAssetUrl={resolveSettingsAssetUrl}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}
               managedSectionContent={

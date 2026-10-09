@@ -1,4 +1,18 @@
-"""Validation and persistent document models for waste collection."""
+"""Validation and persistent document models for waste collection.
+
+Document version 2 sends reminders to people (Home Assistant internal person
+ids, routed by the Domus Notification Router) instead of technical notify
+targets. ``notifications.mode`` names the single delivery path:
+
+- ``recipients``: only ``notifications.recipients`` are used;
+- ``legacy``: only ``notifications.legacyTargets`` are used, exactly as
+  version 1 used ``notifications.targets``.
+
+A version 1 document is migrated structurally on load (``targets`` becomes
+``legacyTargets``, mode ``legacy``); nothing maps a notify target to a person.
+Legacy targets are owned by the server: a client can neither add nor change
+them, and they are kept after a conversion to people, unused.
+"""
 
 from __future__ import annotations
 
@@ -10,7 +24,13 @@ from typing import Any
 STORAGE_KEY = "domusos.waste_collection.v1"
 STORAGE_VERSION = 1
 DOCUMENT_SCHEMA = "domusos-waste-collection"
-DOCUMENT_VERSION = 1
+DOCUMENT_VERSION = 2
+
+MODE_LEGACY = "legacy"
+MODE_RECIPIENTS = "recipients"
+NOTIFICATION_MODES = frozenset({MODE_LEGACY, MODE_RECIPIENTS})
+# The Notification Router accepts at most this many people per request.
+MAX_RECIPIENTS = 32
 
 ALLOWED_DAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 ALLOWED_SOURCE_KINDS = {"fixed", "calendar"}
@@ -19,6 +39,8 @@ TIME_PATTERN = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 ENTITY_ID_PATTERN = re.compile(r"^calendar\.[a-z0-9_]+$")
 NOTIFY_TARGET_PATTERN = re.compile(r"^notify\.[a-z0-9_]+$")
 ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$", re.IGNORECASE)
+# Home Assistant internal person ids; validated by form, never by existence.
+PERSON_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 COLOR_PATTERN = re.compile(r"^#[0-9a-f]{6}$", re.IGNORECASE)
 
 
@@ -52,6 +74,12 @@ class WasteCollectionOperationError(WasteCollectionError):
     code = "operation_rejected"
 
 
+class WasteNotificationRouterUnavailableError(WasteCollectionError):
+    """People are the chosen recipients but Domus notifications are not running."""
+
+    code = "notification_router_unavailable"
+
+
 def utc_now_iso() -> str:
     """Return a stable UTC timestamp."""
     return datetime.now(timezone.utc).isoformat()
@@ -78,7 +106,10 @@ def default_document() -> dict[str, Any]:
         "notifications": {
             "enabled": False,
             "time": "20:00",
-            "targets": [],
+            # A new configuration chooses people; technical targets are never offered again.
+            "mode": MODE_RECIPIENTS,
+            "recipients": [],
+            "legacyTargets": [],
         },
         "dispatchLedger": [],
     }
@@ -263,8 +294,124 @@ def _normalize_exception(value: Any, index: int, waste_type_ids: set[str]) -> di
     }
 
 
-def normalize_configuration(value: Any) -> dict[str, Any]:
-    """Validate and normalize configuration coming from the frontend."""
+def _reminder_time(raw: dict[str, Any]) -> str:
+    reminder_time = _string(raw.get("time"), maximum=5) or "20:00"
+    if not TIME_PATTERN.fullmatch(reminder_time):
+        raise WasteCollectionValidationError("Orario del promemoria non valido.")
+    return reminder_time
+
+
+def _legacy_targets(raw_targets: Any) -> list[str]:
+    if not isinstance(raw_targets, list):
+        raise WasteCollectionValidationError("Destinatari delle notifiche non validi.")
+    targets: list[str] = []
+    for raw_target in raw_targets:
+        target = _string(raw_target, maximum=255).lower()
+        if not NOTIFY_TARGET_PATTERN.fullmatch(target):
+            raise WasteCollectionValidationError(f"Destinatario notifica non valido: {target or '(vuoto)'}.")
+        if target not in targets:
+            targets.append(target)
+    return targets
+
+
+def _recipients(raw_recipients: Any) -> list[str]:
+    """Person ids, unique, in the order given; never renamed, slugified or looked up."""
+    if not isinstance(raw_recipients, list):
+        raise WasteCollectionValidationError("Elenco delle persone destinatarie non valido.")
+    recipients: list[str] = []
+    for person_id in raw_recipients:
+        if not isinstance(person_id, str) or not PERSON_ID_PATTERN.fullmatch(person_id):
+            raise WasteCollectionValidationError("Persona destinataria non valida.")
+        if person_id not in recipients:
+            recipients.append(person_id)
+    if len(recipients) > MAX_RECIPIENTS:
+        raise WasteCollectionValidationError(f"Scegli al massimo {MAX_RECIPIENTS} persone.")
+    return recipients
+
+
+def _notifications(enabled: bool, reminder_time: str, mode: Any, recipients: list[str], legacy: list[str]) -> dict[str, Any]:
+    if mode not in NOTIFICATION_MODES:
+        raise WasteCollectionValidationError("Modalit\u00e0 di notifica non valida.")
+    if mode == MODE_LEGACY and recipients:
+        raise WasteCollectionValidationError("Una configurazione precedente non ha persone destinatarie.")
+    if mode == MODE_LEGACY and not legacy:
+        raise WasteCollectionValidationError("La configurazione precedente non ha destinatari.")
+    if enabled and mode == MODE_RECIPIENTS and not recipients:
+        raise WasteCollectionValidationError("Scegli almeno una persona per i promemoria.")
+    return {
+        "enabled": enabled,
+        "time": reminder_time,
+        "mode": mode,
+        "recipients": recipients,
+        "legacyTargets": legacy,
+    }
+
+
+def migrate_notifications_v1(raw: Any) -> dict[str, Any]:
+    """Version 1 ``{enabled, time, targets}`` to version 2, without changing who receives.
+
+    Targets become ``legacyTargets`` and keep being used (mode ``legacy``).
+    A version 1 document without targets could never send anything, so it
+    starts in ``recipients`` mode: there is no previous behaviour to keep.
+    """
+    if not isinstance(raw, dict):
+        raise WasteCollectionValidationError("Impostazioni di notifica non valide.")
+    targets = _legacy_targets(raw.get("targets", []))
+    return {
+        "enabled": raw.get("enabled") is True,
+        "time": raw.get("time"),
+        "mode": MODE_LEGACY if targets else MODE_RECIPIENTS,
+        "recipients": [],
+        "legacyTargets": targets,
+    }
+
+
+def _stored_notifications(raw: Any) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        raise WasteCollectionValidationError("Impostazioni di notifica non valide.")
+    return _notifications(
+        raw.get("enabled") is True,
+        _reminder_time(raw),
+        raw.get("mode"),
+        _recipients(raw.get("recipients", [])),
+        _legacy_targets(raw.get("legacyTargets", [])),
+    )
+
+
+def _client_notifications(raw: Any, current: dict[str, Any] | None) -> dict[str, Any]:
+    """Notification settings sent by an administrator, applied over the stored ones.
+
+    The client chooses the mode and the people. It never sends technical
+    targets: the stored legacy targets are kept as they are. Converting a
+    previous configuration to people needs at least one person, and there is
+    no way back to technical targets from the client.
+    """
+    if not isinstance(raw, dict):
+        raise WasteCollectionValidationError("Impostazioni di notifica non valide.")
+    if "targets" in raw or "legacyTargets" in raw:
+        raise WasteCollectionValidationError("I destinatari tecnici non si possono pi\u00f9 modificare.")
+    previous_mode = current["mode"] if current is not None else MODE_RECIPIENTS
+    legacy = list(current["legacyTargets"]) if current is not None else []
+    mode = raw.get("mode")
+    recipients = _recipients(raw.get("recipients", []))
+    if previous_mode == MODE_RECIPIENTS and mode == MODE_LEGACY:
+        raise WasteCollectionValidationError("Le notifiche usano gi\u00e0 le persone.")
+    if previous_mode == MODE_LEGACY and mode == MODE_RECIPIENTS and not recipients:
+        raise WasteCollectionValidationError("Scegli almeno una persona per convertire la configurazione.")
+    return _notifications(raw.get("enabled") is True, _reminder_time(raw), mode, recipients, legacy)
+
+
+def normalize_configuration(value: Any, current_notifications: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Validate and normalize configuration coming from the frontend.
+
+    ``current_notifications`` are the stored ones, so the legacy targets and
+    the mode history are decided by the server; None for a new document.
+    """
+    return _normalize_body(value, lambda raw: _client_notifications(raw, current_notifications))
+
+
+def _normalize_body(value: Any, notifications_of: Any) -> dict[str, Any]:
+    """Validate the whole configuration; ``notifications_of`` validates its notification part."""
     if not isinstance(value, dict):
         raise WasteCollectionValidationError("Configurazione raccolta rifiuti non valida.")
     raw_types = value.get("wasteTypes", [])
@@ -319,44 +466,35 @@ def normalize_configuration(value: Any) -> dict[str, Any]:
     if len(exception_ids) != len(set(exception_ids)):
         raise WasteCollectionValidationError("Ogni eccezione deve avere un ID univoco.")
 
-    raw_notifications = value.get("notifications", {})
-    if not isinstance(raw_notifications, dict):
-        raise WasteCollectionValidationError("Impostazioni di notifica non valide.")
-    reminder_time = _string(raw_notifications.get("time"), maximum=5) or "20:00"
-    if not TIME_PATTERN.fullmatch(reminder_time):
-        raise WasteCollectionValidationError("Orario del promemoria non valido.")
-    raw_targets = raw_notifications.get("targets", [])
-    if not isinstance(raw_targets, list):
-        raise WasteCollectionValidationError("Destinatari delle notifiche non validi.")
-    targets: list[str] = []
-    for raw_target in raw_targets:
-        target = _string(raw_target, maximum=255).lower()
-        if not NOTIFY_TARGET_PATTERN.fullmatch(target):
-            raise WasteCollectionValidationError(f"Destinatario notifica non valido: {target or '(vuoto)'}.")
-        if target not in targets:
-            targets.append(target)
-    enabled = raw_notifications.get("enabled") is True
-    if enabled and not targets:
-        raise WasteCollectionValidationError("Abilita almeno un destinatario per i promemoria.")
-
+    notifications = notifications_of(value.get("notifications", {}))
     return {
         "wasteTypes": waste_types,
         "sources": sources,
         "mappings": mappings,
         "exceptions": exceptions,
-        "notifications": {
-            "enabled": enabled,
-            "time": reminder_time,
-            "targets": targets,
-        },
+        "notifications": notifications,
     }
+
+
+def migrate_document(value: dict[str, Any]) -> dict[str, Any]:
+    """Bring a stored document to the current version; structural only."""
+    version = value.get("version", 1)
+    if version == DOCUMENT_VERSION:
+        return value
+    if version != 1:
+        raise WasteCollectionValidationError("Versione della configurazione raccolta rifiuti non supportata.")
+    migrated = deepcopy(value)
+    migrated["notifications"] = migrate_notifications_v1(value.get("notifications", {}))
+    migrated["version"] = DOCUMENT_VERSION
+    return migrated
 
 
 def normalize_stored_document(value: Any) -> dict[str, Any]:
     """Load a stored document without trusting runtime metadata."""
     if not isinstance(value, dict) or value.get("schema") != DOCUMENT_SCHEMA:
         return default_document()
-    normalized = normalize_configuration(value)
+    value = migrate_document(value)
+    normalized = _normalize_body(value, _stored_notifications)
     result = default_document()
     result.update(normalized)
     try:
@@ -374,8 +512,12 @@ def normalize_stored_document(value: Any) -> dict[str, Any]:
 
 
 def public_document(document: dict[str, Any]) -> dict[str, Any]:
-    """Return the configuration without the internal delivery ledger."""
-    return deepcopy({
+    """Return the configuration without the internal delivery ledger.
+
+    Legacy targets stay on the server: clients only learn how many there
+    are, enough to explain that a previous configuration is in use.
+    """
+    public = deepcopy({
         key: document[key]
         for key in (
             "schema",
@@ -387,6 +529,14 @@ def public_document(document: dict[str, Any]) -> dict[str, Any]:
             "sources",
             "mappings",
             "exceptions",
-            "notifications",
         )
     })
+    notifications = document["notifications"]
+    public["notifications"] = {
+        "enabled": notifications["enabled"],
+        "time": notifications["time"],
+        "mode": notifications["mode"],
+        "recipients": list(notifications["recipients"]),
+        "legacyTargetCount": len(notifications["legacyTargets"]),
+    }
+    return public

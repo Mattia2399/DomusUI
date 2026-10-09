@@ -19,13 +19,17 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN
+from ..notifications import DATA_NOTIFICATION_ROUTER, NotificationRouter
+from .dispatch import async_send_to_recipients, build_waste_dedupe_key
 from .models import (
+    MODE_LEGACY,
     STORAGE_KEY,
     STORAGE_VERSION,
     WasteCollectionConflictError,
     WasteCollectionOperationError,
     WasteCollectionPermissionError,
     WasteCollectionValidationError,
+    WasteNotificationRouterUnavailableError,
     default_document,
     normalize_configuration,
     normalize_stored_document,
@@ -38,6 +42,10 @@ _LOGGER = logging.getLogger(__name__)
 WASTE_UID_PREFIX = "domus-ui-waste:"
 WEEKDAY_TOKENS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 MAX_DISPATCH_LEDGER = 500
+TEST_TITLE = "Domus UI \u00b7 Test raccolta rifiuti"
+TEST_MESSAGE = "Le notifiche per la raccolta rifiuti sono configurate correttamente."
+
+RouterProvider = Callable[[], NotificationRouter | None]
 
 
 def _normalized_title(value: Any) -> str:
@@ -58,8 +66,12 @@ def _boundary_text(value: Any) -> str:
 class WasteCollectionManager:
     """Own waste sources, derived events and scheduled notifications."""
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self, hass: HomeAssistant, notification_router: RouterProvider | None = None) -> None:
         self.hass = hass
+        # The integration's shared router, read at send time: it starts after Waste.
+        self._notification_router = notification_router or (
+            lambda: hass.data.get(DOMAIN, {}).get(DATA_NOTIFICATION_ROUTER)
+        )
         self.store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY)
         self.document = default_document()
         self._lock = asyncio.Lock()
@@ -123,9 +135,10 @@ class WasteCollectionManager:
             raise WasteCollectionPermissionError(
                 "Solo Owner e Admin possono configurare la raccolta rifiuti."
             )
-        normalized = normalize_configuration(configuration)
-        self._reject_domus_calendar_sources(normalized)
         async with self._lock:
+            # Validated against the stored notifications: legacy targets and mode are the server's.
+            normalized = normalize_configuration(configuration, self.document["notifications"])
+            self._reject_domus_calendar_sources(normalized)
             if expected_revision is not None and expected_revision != self.revision:
                 raise WasteCollectionConflictError(
                     "La configurazione \u00e8 stata modificata da un altro dispositivo. Ricarica e riprova."
@@ -446,28 +459,43 @@ class WasteCollectionManager:
             blocking=True,
         )
 
+    def _router(self) -> NotificationRouter:
+        router = self._notification_router()
+        if router is None:
+            # Never fall back to legacy targets: people are the chosen authority.
+            raise WasteNotificationRouterUnavailableError(
+                "Le notifiche Domus non sono disponibili. Ricarica l'integrazione."
+            )
+        return router
+
     async def async_send_test_notification(self, user: User) -> dict[str, Any]:
-        """Send a test message to every configured target."""
+        """Send a test message along the configured path: people, or previous targets."""
         if not user.is_admin:
             raise WasteCollectionPermissionError(
                 "Solo Owner e Admin possono inviare notifiche di prova."
             )
-        targets = self.document["notifications"]["targets"]
+        notifications = self.document["notifications"]
+        if notifications["mode"] == MODE_LEGACY:
+            return await self._async_test_legacy(notifications["legacyTargets"])
+        if not notifications["recipients"]:
+            raise WasteCollectionOperationError("Nessun destinatario configurato.")
+        # No dedupe key: every explicit test is a new one.
+        return await async_send_to_recipients(
+            self._router(), notifications["recipients"], TEST_TITLE, TEST_MESSAGE, None
+        )
+
+    async def _async_test_legacy(self, targets: list[str]) -> dict[str, Any]:
         if not targets:
             raise WasteCollectionOperationError("Nessun destinatario configurato.")
         sent: list[str] = []
         failed: list[dict[str, str]] = []
         for target in targets:
             try:
-                await self._async_send_to_target(
-                    target,
-                    "Domus UI \u00b7 Test raccolta rifiuti",
-                    "Le notifiche per la raccolta rifiuti sono configurate correttamente.",
-                )
+                await self._async_send_to_target(target, TEST_TITLE, TEST_MESSAGE)
                 sent.append(target)
             except Exception as err:
                 failed.append({"target": target, "error": str(err)})
-        return {"sent": sent, "failed": failed}
+        return {"mode": "legacy", "sent": sent, "failed": failed}
 
     async def async_dispatch_reminder(self, collection_day: date) -> dict[str, Any]:
         """Send the aggregated previous-evening reminder exactly once per target."""
@@ -490,10 +518,55 @@ class WasteCollectionManager:
         names = [event.summary for event in events]
         title = "Raccolta di domani"
         message = " \u00b7 ".join(names)
+        # One authority per configuration: exactly one of the two paths runs.
+        if notifications["mode"] == MODE_LEGACY:
+            return await self._async_dispatch_legacy(
+                collection_day, notifications["legacyTargets"], title, message, names
+            )
+        return await self._async_dispatch_recipients(collection_day, events, title, message, names)
+
+    async def _async_dispatch_recipients(
+        self,
+        collection_day: date,
+        events: list[CalendarEvent],
+        title: str,
+        message: str,
+        names: list[str],
+    ) -> dict[str, Any]:
+        """Send the reminder to the chosen people; the router deduplicates per device."""
+        recipients = self.document["notifications"]["recipients"]
+        type_ids = [
+            event.uid.removeprefix(WASTE_UID_PREFIX).rsplit(":", 1)[0]
+            for event in events
+            if event.uid
+        ]
+        try:
+            router = self._router()
+        except WasteNotificationRouterUnavailableError:
+            _LOGGER.warning("Waste reminder for %s not sent: Domus notifications are unavailable", collection_day)
+            return {"mode": "recipients", "status": "skipped", "skipped": "notification_router_unavailable", "events": names}
+        result = await async_send_to_recipients(
+            router,
+            recipients,
+            title,
+            message,
+            build_waste_dedupe_key(collection_day, type_ids),
+        )
+        return {**result, "events": names}
+
+    async def _async_dispatch_legacy(
+        self,
+        collection_day: date,
+        targets: list[str],
+        title: str,
+        message: str,
+        names: list[str],
+    ) -> dict[str, Any]:
+        """Previous behaviour, unchanged: technical targets with the Waste dispatch ledger."""
         sent: list[str] = []
         failed: list[dict[str, str]] = []
         ledger = set(self.document.get("dispatchLedger", []))
-        for target in notifications["targets"]:
+        for target in targets:
             ledger_key = f"{collection_day.isoformat()}|{target}"
             if ledger_key in ledger:
                 continue
@@ -508,4 +581,4 @@ class WasteCollectionManager:
             async with self._lock:
                 self.document["dispatchLedger"] = sorted(ledger)[-MAX_DISPATCH_LEDGER:]
                 await self.store.async_save(deepcopy(self.document))
-        return {"sent": sent, "failed": failed, "events": names}
+        return {"mode": "legacy", "sent": sent, "failed": failed, "events": names}

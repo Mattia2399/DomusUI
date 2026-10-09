@@ -113,6 +113,10 @@ type SettingsDashboardProps = {
   onRestoreLayoutRevision?: (revision: number) => Promise<DashboardLayoutSaveResult>;
   onCallService: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
   onCallApi?: WasteCollectionCallApi;
+  /** The integration lists people as notification recipients (`profile_recipients_v1`). */
+  recipientsSupported?: boolean;
+  /** Turns a Home Assistant picture path into a loadable URL. */
+  resolveAssetUrl?: (url: string) => string;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   managedSectionContent?: React.ReactNode;
@@ -887,6 +891,8 @@ export default function SettingsDashboard({
   onRestoreLayoutRevision,
   onCallService,
   onCallApi,
+  recipientsSupported = false,
+  resolveAssetUrl,
   navigationRoute,
   onNavigate,
   managedSectionContent,
@@ -1454,6 +1460,8 @@ export default function SettingsDashboard({
           canConfigure={security.can('manage_rooms')}
           haStates={haStates}
           onDirtyChange={setWasteHasUnsavedChanges}
+          recipientsSupported={recipientsSupported}
+          resolveAssetUrl={resolveAssetUrl}
         />
         <GlassModal
           isOpen={wasteLeaveConfirmOpen}

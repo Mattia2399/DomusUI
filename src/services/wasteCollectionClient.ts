@@ -49,9 +49,25 @@ export type WasteException = {
   action: 'add' | 'skip';
 };
 
+/**
+ * `recipients`: reminders go to Home Assistant people (internal person ids)
+ * through Domus notifications. `legacy`: a configuration from before people,
+ * still sent to the technical targets it had; the server keeps them and only
+ * says how many there are.
+ */
+export type WasteNotificationMode = 'legacy' | 'recipients';
+
+export type WasteNotifications = {
+  enabled: boolean;
+  time: string;
+  mode: WasteNotificationMode;
+  recipients: string[];
+  legacyTargetCount: number;
+};
+
 export type WasteCollectionDocument = {
   schema: 'domusos-waste-collection';
-  version: 1;
+  version: 2;
   revision: number;
   updatedAt: string;
   updatedByUserId: string;
@@ -59,11 +75,7 @@ export type WasteCollectionDocument = {
   sources: WasteSource[];
   mappings: WasteMapping[];
   exceptions: WasteException[];
-  notifications: {
-    enabled: boolean;
-    time: string;
-    targets: string[];
-  };
+  notifications: WasteNotifications;
 };
 
 export type WastePreviewEvent = {
@@ -81,10 +93,20 @@ export type WasteCollectionPreview = {
   generatedAt: string;
 };
 
-export type WasteNotificationResult = {
+export type WasteLegacyTestResult = {
+  mode: 'legacy';
   sent: string[];
   failed: Array<{ target: string; error: string }>;
 };
+
+/** Per person only: never which device got it. */
+export type WasteRecipientsTestResult = {
+  mode: 'recipients';
+  status: 'delivered' | 'partial' | 'failed' | 'skipped';
+  recipients: Array<{ person_id: string; status: string; reason?: string }>;
+};
+
+export type WasteNotificationResult = WasteLegacyTestResult | WasteRecipientsTestResult;
 
 export type WasteCollectionCallApi = <T = unknown>(
   message: Record<string, unknown>,
@@ -95,11 +117,18 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
+function isWasteNotifications(value: unknown): value is WasteNotifications {
+  return isRecord(value) && typeof value.enabled === 'boolean' && typeof value.time === 'string' &&
+    (value.mode === 'legacy' || value.mode === 'recipients') &&
+    Array.isArray(value.recipients) && value.recipients.every((item) => typeof item === 'string') &&
+    Number.isInteger(value.legacyTargetCount) && (value.legacyTargetCount as number) >= 0;
+}
+
 export function isWasteCollectionDocument(value: unknown): value is WasteCollectionDocument {
-  return isRecord(value) && value.schema === 'domusos-waste-collection' && value.version === 1 &&
+  return isRecord(value) && value.schema === 'domusos-waste-collection' && value.version === 2 &&
     Number.isInteger(value.revision) && Array.isArray(value.wasteTypes) &&
     Array.isArray(value.sources) && Array.isArray(value.mappings) &&
-    Array.isArray(value.exceptions) && isRecord(value.notifications);
+    Array.isArray(value.exceptions) && isWasteNotifications(value.notifications);
 }
 
 export function isWasteCollectionPreview(value: unknown): value is WasteCollectionPreview {
@@ -130,7 +159,13 @@ export async function saveWasteCollectionConfig(
         sources: document.sources,
         mappings: document.mappings,
         exceptions: document.exceptions,
-        notifications: document.notifications,
+        // Technical targets are the server's: only the mode and the people are sent.
+        notifications: {
+          enabled: document.notifications.enabled,
+          time: document.notifications.time,
+          mode: document.notifications.mode,
+          recipients: document.notifications.recipients,
+        },
       },
       expected_revision: document.revision,
     },
@@ -161,7 +196,10 @@ export async function testWasteCollectionNotification(callApi: WasteCollectionCa
     { type: WASTE_COLLECTION_TYPES.testNotification },
     { reportError: false, throwOnError: true },
   );
-  if (!isRecord(result) || !Array.isArray(result.sent) || !Array.isArray(result.failed)) {
+  const legacy = isRecord(result) && result.mode === 'legacy' && Array.isArray(result.sent) && Array.isArray(result.failed);
+  const people = isRecord(result) && result.mode === 'recipients' &&
+    ['delivered', 'partial', 'failed', 'skipped'].includes(String(result.status)) && Array.isArray(result.recipients);
+  if (!legacy && !people) {
     throw new Error('Test notifica non confermato.');
   }
   return result as WasteNotificationResult;
