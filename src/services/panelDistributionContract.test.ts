@@ -159,10 +159,15 @@ describe('Home Assistant panel distribution contract', () => {
       'domusos/profile/get_self',
       'domusos/profile/remove_device',
       'domusos/profile/save_self',
+      'domusos/profile/test_self',
       'domusos/profile/update_device',
     ]);
     expect(bridge).toContain('"profile_core_v1"');
     expect(bridge).toContain('"profile_devices_v1"');
+    expect(bridge).toContain('"profile_notifications_v1"');
+    // The router is backend only: no generic send command crosses the bridge.
+    expect(bridge).not.toMatch(/"domusos\/notifications\//);
+    expect([...HA_PANEL_ALLOWED_API_TYPES].some((type) => type.startsWith('domusos/notifications/'))).toBe(false);
   });
 
   it('validates Profile message shapes identically in both bridge halves', () => {
@@ -200,6 +205,8 @@ describe('Home Assistant panel distribution contract', () => {
       { ...update, notifications: { enabled: false } },
       { ...update, label: '', notifications: { enabled: true } },
       { type: 'domusos/profile/get_self' },
+      { type: 'domusos/profile/test_self' },
+      { type: 'domusos/profile/test_self', personal_device_id: 'dev-1' },
       save,
       { ...save, expected_revision: 4, profile: { notifications: { enabled: true }, preferences: {}, personal_devices: [] } },
     ];
@@ -247,6 +254,22 @@ describe('Home Assistant panel distribution contract', () => {
       { ...save, profile: { ...save.profile, personal_devices: {} } },
       { ...save, profile: { ...save.profile, personal_devices: ['x'.repeat(20_001)] } },
       { type: 'domusos/profile/get_profile', user_id: 'someone' },
+      ...[
+        { user_id: 'someone' },
+        { person_id: 'erika' },
+        { owner_user_id: 'someone' },
+        { ha_device_id: 'a'.repeat(32) },
+        { message: 'spam' },
+        { title: 'spam' },
+        { target: ['notify.mobile_app_x'] },
+        { service: 'notify.mobile_app_x' },
+        { data: { push: true } },
+        { recipients: ['erika'] },
+        { expected_revision: 0 },
+        { personal_device_id: 'Dev 1' },
+        { personal_device_id: { id: 'dev-1' } },
+        { personal_device_id: null },
+      ].map((extra) => ({ type: 'domusos/profile/test_self', ...extra })),
     ];
 
     for (const message of accepted) {

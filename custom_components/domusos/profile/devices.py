@@ -149,19 +149,22 @@ class DeviceInspector:
             "presence": presence,
         }
 
-    def live_device(self, device: PersonalDevice, ownership: OwnershipView) -> dict[str, Any]:
-        """Describe a stored personal device with its current state."""
+    def live_status(self, device: PersonalDevice, ownership: OwnershipView) -> LiveStatus:
+        """Return the current state of a stored personal device."""
         entry = self.device(device.ha_device_id)
         if entry is None:
-            status = LiveStatus.MISSING
-        elif device.ha_device_id in ownership.conflicts:
-            status = LiveStatus.OWNERSHIP_CONFLICT
-        elif entry.disabled_by is not None:
-            status = LiveStatus.UNAVAILABLE
-        elif self.verified(device.ha_device_id) is None:
-            status = LiveStatus.UNVERIFIED
-        else:
-            status = LiveStatus.ACTIVE
+            return LiveStatus.MISSING
+        if device.ha_device_id in ownership.conflicts:
+            return LiveStatus.OWNERSHIP_CONFLICT
+        if entry.disabled_by is not None:
+            return LiveStatus.UNAVAILABLE
+        if self.verified(device.ha_device_id) is None:
+            return LiveStatus.UNVERIFIED
+        return LiveStatus.ACTIVE
+
+    def live_device(self, device: PersonalDevice, ownership: OwnershipView) -> dict[str, Any]:
+        """Describe a stored personal device with its current state."""
+        status = self.live_status(device, ownership)
         return {"device_id": device.id, "status": status.value, **self._describe(device.ha_device_id)}
 
     def discover(

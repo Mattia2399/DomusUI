@@ -19,7 +19,7 @@ This page distinguishes stable functionality from previews and planned work. **O
 | Automations | Coming later     | The old workspace remains disabled until its workflow is ready for public use                      |
 | Calendar    | Operational      | Native Domus UI calendar and compatible Home Assistant calendar entities                           |
 | Waste collection | Beta in 1.5.0 | Fixed days (weekly or every 2–4 weeks) or a Home Assistant calendar as source, waste types with icon, color and other names, special days, one aggregated reminder the evening before, 7-day preview; collections appear read-only in Calendar with their type icon and color |
-| Domus Profile Core | In development (not released) | Per-user profile store; Profile → My devices lets each user link the Companion App devices Home Assistant ties to their account, rename or remove them and set the general and per-device notification switches, with live status and presence shown read-only. Notification sending and recipient selection come in later phases |
+| Domus Profile Core | In development (not released) | Per-user profile store; Profile → My devices lets each user link the Companion App devices Home Assistant ties to their account, rename or remove them and set the general and per-device notification switches, with live status and presence shown read-only. A backend Notification Router (person-based, multi-device, with optional per-device deduplication) and a self-only test notification command are implemented but not yet used by any feature; recipient selection, the Waste Collection migration, category preferences and an inbox come in later phases |
 
 ## Cards and controls
 

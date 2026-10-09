@@ -6,6 +6,9 @@ takes a user, person or owner id, and Home Assistant rejects unknown keys.
 Devices change through dedicated commands rather than ``save_self``: the
 server generates the id and the date of every new record, and verifies each
 claim on its own inside the document lock.
+
+``test_self`` sends a fixed test notification to the user's own devices. It is
+not a send endpoint: it takes no text, recipient or target.
 """
 
 from __future__ import annotations
@@ -19,6 +22,8 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
 from ..const import DOMAIN
+from ..notifications import DATA_NOTIFICATION_ROUTER, NotificationError, NotificationRouter
+from ..notifications.models import NotificationRouterUnavailableError
 from .devices import DeviceInspector
 from .identity import list_persons, require_household_account, resolve_user_person
 from .manager import ProfileManager, ProfileView
@@ -37,8 +42,15 @@ def _manager(hass: HomeAssistant) -> ProfileManager:
     return manager
 
 
+def _router(hass: HomeAssistant) -> NotificationRouter:
+    router = hass.data.get(DOMAIN, {}).get(DATA_NOTIFICATION_ROUTER)
+    if not isinstance(router, NotificationRouter):
+        raise NotificationRouterUnavailableError("Domus notifications are not running")
+    return router
+
+
 def _send_error(connection: websocket_api.ActiveConnection, message_id: int, err: Exception) -> None:
-    if isinstance(err, ProfileError):
+    if isinstance(err, (ProfileError, NotificationError)):
         connection.send_error(message_id, err.code, str(err))
         return
     _LOGGER.exception("Unexpected Domus Profile error", exc_info=err)
@@ -232,6 +244,30 @@ async def websocket_update_device(
         _send_error(connection, msg["id"], err)
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/test_self",
+        vol.Optional("personal_device_id"): _DEVICE_ID,
+    }
+)
+@websocket_api.async_response
+async def websocket_test_self(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Send the fixed test notification to the user's own enabled devices, or to one of them."""
+    try:
+        user_id = require_household_account(connection.user)
+        result = await _router(hass).async_send_self_test(user_id, msg.get("personal_device_id"))
+        payload = result.as_dict()
+        # The test is about the user's own devices, not a person.
+        payload.pop("person_id", None)
+        connection.send_result(msg["id"], payload)
+    except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
+        _send_error(connection, msg["id"], err)
+
+
 WEBSOCKET_COMMANDS = (
     websocket_get_self,
     websocket_save_self,
@@ -239,6 +275,7 @@ WEBSOCKET_COMMANDS = (
     websocket_add_device,
     websocket_remove_device,
     websocket_update_device,
+    websocket_test_self,
 )
 
 

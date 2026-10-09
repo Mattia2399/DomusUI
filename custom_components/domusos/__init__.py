@@ -34,6 +34,7 @@ from .energy import EnergyProfileManager
 from .energy.api import async_register_energy_api
 from .irrigation import IrrigationManager
 from .irrigation.api import async_register_irrigation_api
+from .notifications import DATA_NOTIFICATION_ROUTER, NotificationLedger, NotificationRouter
 from .profile import ProfileManager
 from .profile.api import DATA_PROFILE_MANAGER, async_register_profile_api
 from .waste_collection import WasteCollectionManager
@@ -59,6 +60,8 @@ class DomusEntryData:
     unregister_energy_bindings: Callable[[], None] | None = None
     # Optional: None when the Profile Core failed to start; other modules keep running.
     profile_manager: ProfileManager | None = None
+    # Optional: None without a Profile Core or when the router failed to start.
+    notification_router: NotificationRouter | None = None
 
 
 DomusConfigEntry = ConfigEntry[DomusEntryData]
@@ -166,6 +169,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
         )
         await _async_setup_energy(hass, runtime, entry_data)
         await _async_setup_profile(hass, entry_data)
+        await _async_setup_notifications(hass, entry_data)
         await panel_custom.async_register_panel(hass=hass, **panel_options)
         domain_data["irrigation_manager"] = manager
         domain_data["calendar_manager"] = calendar_manager
@@ -184,6 +188,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
         await _async_teardown_energy(hass, entry_data)
+        await _async_teardown_notifications(hass, entry_data)
         await _async_teardown_profile(hass, entry_data)
         if entry_data.unregister_core_bindings is not None:
             entry_data.unregister_core_bindings()
@@ -213,6 +218,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
     entry_data = getattr(entry, "runtime_data", None)
     if isinstance(entry_data, DomusEntryData):
         await _async_teardown_energy(hass, entry_data)
+        await _async_teardown_notifications(hass, entry_data)
         await _async_teardown_profile(hass, entry_data)
     if (
         isinstance(entry_data, DomusEntryData)
@@ -334,6 +340,46 @@ async def _async_teardown_profile(hass: HomeAssistant, entry_data: DomusEntryDat
         domain_data = hass.data.get(DOMAIN, {})
         if profile_manager is not None and domain_data.get(DATA_PROFILE_MANAGER) is profile_manager:
             domain_data.pop(DATA_PROFILE_MANAGER, None)
+
+
+async def _async_setup_notifications(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Start the Notification Router on top of the Profile Core, without risking anything else.
+
+    A ledger that cannot load leaves the router running: requests without a
+    dedupe key are still sent, those with one are refused as dedupe_unavailable.
+    """
+    profile_manager = entry_data.profile_manager
+    if profile_manager is None:
+        _LOGGER.warning("Domus notifications are unavailable because the Profile Core is not running")
+        return
+    try:
+        ledger: NotificationLedger | None = NotificationLedger(hass)
+        try:
+            await ledger.async_setup()
+        except Exception:
+            _LOGGER.exception("The Domus notification ledger could not start; deduplicated sends are refused")
+            ledger = None
+        router = NotificationRouter(hass, profile_manager, ledger)
+    except Exception:
+        _LOGGER.exception("The Domus Notification Router could not start; the other modules keep running")
+        return
+    entry_data.notification_router = router
+    hass.data.setdefault(DOMAIN, {})[DATA_NOTIFICATION_ROUTER] = router
+
+
+async def _async_teardown_notifications(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Release the router; its failures never block the remaining unload."""
+    router = entry_data.notification_router
+    try:
+        if router is not None:
+            await router.async_shutdown()
+    except Exception:
+        _LOGGER.exception("Domus Notification Router unload failed")
+    finally:
+        entry_data.notification_router = None
+        domain_data = hass.data.get(DOMAIN, {})
+        if router is not None and domain_data.get(DATA_NOTIFICATION_ROUTER) is router:
+            domain_data.pop(DATA_NOTIFICATION_ROUTER, None)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

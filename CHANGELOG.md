@@ -29,6 +29,16 @@
   another device is picked up instead of being overwritten. The Profile
   overview now counts personal devices instead of presence trackers. Nothing
   is sent yet.
+- Domus Notification Router (backend, not yet used by any feature): Domus
+  modules will notify people by their Home Assistant person id, and each
+  person gets the notification on the personal devices they enabled. People,
+  accounts, profiles and notify targets are resolved again on every send;
+  one failing device or person never stops the others, and the result reports
+  every recipient and device. An optional caller-provided dedupe key prevents
+  repeats per device, kept in a separate, bounded store that holds only
+  fingerprints. A new `domusos/profile/test_self` command sends a fixed test
+  notification to the user's own devices, rate-limited and with no text,
+  recipient or target taken from the client.
 
 ### Changed
 

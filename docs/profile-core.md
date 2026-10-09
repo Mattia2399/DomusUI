@@ -153,8 +153,9 @@ dispositivi.
 
 ### Target di notifica
 
-Il target è risolto dal vivo e non viene mai salvato né usato per inviare
-(l'invio arriverà con il notification router):
+Il target è risolto dal vivo e non viene mai salvato. Lo usa il
+[Notification Router](notification-router.md) a ogni invio; la risoluzione
+resta qui, l'invio è nel router:
 
 1. un'entità `notify.*` che l'Entity Registry lega allo stesso dispositivo;
 2. il servizio legacy `notify.mobile_app_<nome>` della registrazione collegata,
@@ -181,6 +182,7 @@ target ambiguo o non disponibile, e in quel caso non è pronto per le notifiche.
 | `domusos/profile/add_device` | `expected_revision`, `ha_device_id`, `label?` | mai id o data dal client |
 | `domusos/profile/remove_device` | `expected_revision`, `device_id` | |
 | `domusos/profile/update_device` | `expected_revision`, `device_id`, `label?`, `notifications?` | almeno uno dei due |
+| `domusos/profile/test_self` | `personal_device_id?` | notifica di prova a testo fisso sui propri dispositivi; vedi [Notification Router](notification-router.md#test-di-notifica-domusosprofiletest_self) |
 
 Stato dal vivo di un dispositivo del profilo: `active`, `unverified` (la
 registrazione non lo verifica più per l'utente), `ownership_conflict`,

@@ -12,6 +12,7 @@ from custom_components.domusos import DomusEntryData, async_setup_entry, async_u
 from custom_components.domusos.calendar_store import DomusCalendarStore
 from custom_components.domusos.const import DOMAIN
 from custom_components.domusos.irrigation import IrrigationManager
+from custom_components.domusos.notifications import DATA_NOTIFICATION_ROUTER, LedgerStatus, NotificationLedger, NotificationRouter
 from custom_components.domusos.profile import ProfileManager, ProfileStoreStatus
 from custom_components.domusos.profile.api import DATA_PROFILE_MANAGER
 from custom_components.domusos.profile.models import STORAGE_KEY
@@ -121,3 +122,60 @@ async def test_profile_unload_failure_does_not_block_other_modules(hass: HomeAss
 
     assert DATA_PROFILE_MANAGER not in hass.data[DOMAIN]
     assert not data.runtime.running
+
+
+async def test_the_notification_router_starts_on_the_profile_core_and_is_released(hass: HomeAssistant) -> None:
+    entry = _entry()
+
+    with _entry_environment(hass):
+        assert await async_setup_entry(hass, entry)
+        data: DomusEntryData = entry.runtime_data
+        router = data.notification_router
+
+        assert isinstance(router, NotificationRouter)
+        assert hass.data[DOMAIN][DATA_NOTIFICATION_ROUTER] is router
+        assert router._ledger.status is LedgerStatus.READY  # noqa: SLF001
+        assert await async_unload_entry(hass, entry)
+
+    assert DATA_NOTIFICATION_ROUTER not in hass.data[DOMAIN]
+    assert data.notification_router is None
+
+
+async def test_no_router_without_a_profile_core(hass: HomeAssistant) -> None:
+    entry = _entry()
+
+    with (
+        _entry_environment(hass),
+        patch.object(ProfileManager, "async_setup", new=AsyncMock(side_effect=RuntimeError("boom"))),
+    ):
+        assert await async_setup_entry(hass, entry)
+
+        assert entry.runtime_data.notification_router is None
+        assert DATA_NOTIFICATION_ROUTER not in hass.data[DOMAIN]
+        assert entry.runtime_data.runtime.running
+        assert await async_unload_entry(hass, entry)
+
+
+async def test_a_broken_ledger_or_router_never_blocks_setup(hass: HomeAssistant) -> None:
+    entry = _entry()
+
+    with (
+        _entry_environment(hass),
+        patch.object(NotificationLedger, "async_setup", new=AsyncMock(side_effect=RuntimeError("boom"))),
+    ):
+        assert await async_setup_entry(hass, entry)
+        router = entry.runtime_data.notification_router
+        # Running, but every deduplicated send is refused.
+        assert router is not None and router._ledger is None  # noqa: SLF001
+        assert entry.runtime_data.profile_manager.status is ProfileStoreStatus.READY
+        assert await async_unload_entry(hass, entry)
+
+    entry = _entry()
+    with (
+        _entry_environment(hass),
+        patch.object(NotificationRouter, "__init__", side_effect=RuntimeError("boom")),
+    ):
+        assert await async_setup_entry(hass, entry)
+        assert entry.runtime_data.notification_router is None
+        assert entry.runtime_data.profile_manager is not None
+        assert await async_unload_entry(hass, entry)

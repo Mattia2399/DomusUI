@@ -108,6 +108,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'waste_collection_v1',
   'profile_core_v1',
   'profile_devices_v1',
+  'profile_notifications_v1',
   'host_navigation',
   'person_links',
   'person_create',
@@ -187,6 +188,7 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/profile/add_device',
   'domusos/profile/remove_device',
   'domusos/profile/update_device',
+  'domusos/profile/test_self',
   'domusos/energy/get_state',
   'domusos/energy/get_history',
   'domusos/energy/discover',
@@ -331,6 +333,11 @@ export function isValidProfileMessage(message: Record<string, unknown>) {
   const isPersonalDevice = (value: unknown) => typeof value === 'string' && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value);
   if (message.type === 'domusos/profile/get_self'
     || message.type === 'domusos/profile/discover_devices') return hasExactKeys(message, ['type']);
+  // The test text is chosen by the server; the client may only name one of its own devices.
+  if (message.type === 'domusos/profile/test_self') {
+    return keys.every((key) => key === 'type' || key === 'personal_device_id')
+      && (!('personal_device_id' in message) || isPersonalDevice(message.personal_device_id));
+  }
   if (message.type === 'domusos/profile/add_device') {
     return keys.every((key) => ['type', 'expected_revision', 'ha_device_id', 'label'].includes(key))
       && isRevision(message.expected_revision) && isHaDevice(message.ha_device_id)

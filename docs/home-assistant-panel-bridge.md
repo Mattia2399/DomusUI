@@ -22,6 +22,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "waste_collection_v1",
   "profile_core_v1",
   "profile_devices_v1",
+  "profile_notifications_v1",
   "host_navigation",
   "person_links",
   "person_create",
@@ -55,6 +56,7 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/profile/get_self", "domusos/profile/save_self",
   "domusos/profile/discover_devices", "domusos/profile/add_device",
   "domusos/profile/remove_device", "domusos/profile/update_device",
+  "domusos/profile/test_self",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -247,6 +249,11 @@ const isValidProfileMessage = (message) => {
   const isPersonalDevice = (value) => typeof value === "string" && /^[a-z0-9][a-z0-9_-]{0,63}$/.test(value);
   if (message.type === "domusos/profile/get_self" ||
       message.type === "domusos/profile/discover_devices") return hasExactKeys(message, ["type"]);
+  // The test text is chosen by the server; the client may only name one of its own devices.
+  if (message.type === "domusos/profile/test_self") {
+    return keys.every((key) => key === "type" || key === "personal_device_id") &&
+      (!("personal_device_id" in message) || isPersonalDevice(message.personal_device_id));
+  }
   if (message.type === "domusos/profile/add_device") {
     return keys.every((key) => ["type", "expected_revision", "ha_device_id", "label"].includes(key)) &&
       isRevision(message.expected_revision) && isHaDevice(message.ha_device_id) &&
@@ -694,6 +701,8 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
 `ha-panel-upload-image` (capability `person_picture`) carica la foto di una persona con `/api/image/upload`, come il frontend Home Assistant. Il bridge accetta solo immagini JPEG, PNG o WebP fino a 5 MB e solo per un amministratore; restituisce l'id dell'immagine, che Domus salva nella persona come `/api/image/serve/<id>/512x512`.
 
 `domusos/profile/get_self` e `domusos/profile/save_self` (capability `profile_core_v1`) leggono e salvano il Domus Profile dell'utente collegato, ricavato da Home Assistant dalla connessione. Il bridge rifiuta qualsiasi id di utente, persona o proprietario: `get_self` accetta solo `type`, `save_self` solo `expected_revision` (intero, mai `null`) e un `profile` con `notifications: { enabled }` più, invariati, `preferences` e `personal_devices`. Home Assistant e il Profile Core ripetono gli stessi controlli.
+
+La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 
 I dispositivi personali (capability `profile_devices_v1`) cambiano solo con comandi dedicati: `discover_devices` (solo `type`), `add_device` (`expected_revision`, `ha_device_id`, `label` facoltativa), `remove_device` (`expected_revision`, `device_id`) e `update_device` (`expected_revision`, `device_id` e almeno uno tra `label` e `notifications: { enabled }`). Il client non sceglie mai id né data di un nuovo dispositivo: li genera il Profile Core, che verifica la proprietà con Home Assistant al momento dell'aggiunta.
 

@@ -115,3 +115,30 @@ async def test_device_commands_through_the_websocket_stack(
     assert added["result"]["profile"]["personal_devices"][0]["id"] != "chosen-by-client"
     assert added["result"]["live_devices"][0]["status"] == "active"
     await manager.async_shutdown()
+
+
+async def test_the_self_test_through_the_websocket_stack(
+    hass: HomeAssistant, hass_ws_client, hass_admin_user
+) -> None:
+    from custom_components.domusos.notifications import DATA_NOTIFICATION_ROUTER, NotificationRouter
+
+    from notification_support import claim, register_phone
+
+    manager = await _setup(hass)
+    hass.data[DOMAIN][DATA_NOTIFICATION_ROUTER] = NotificationRouter(hass, manager, None)
+    phone = register_phone(hass, hass_admin_user.id, "Pixel 8")
+    await claim(manager, hass_admin_user.id, phone)
+    client = await hass_ws_client(hass)
+
+    await client.send_json_auto_id({"type": "domusos/profile/test_self", "message": "spam"})
+    refused = await client.receive_json()
+    await client.send_json_auto_id({"type": "domusos/profile/test_self"})
+    sent = await client.receive_json()
+    await client.send_json_auto_id({"type": "domusos/profile/test_self"})
+    limited = await client.receive_json()
+
+    assert not refused["success"] and refused["error"]["code"] == "invalid_format"
+    assert sent["success"] and sent["result"]["status"] == "delivered"
+    assert not limited["success"] and limited["error"]["code"] == "rate_limited"
+    assert len(phone.calls) == 1 and "spam" not in str(phone.calls)
+    await manager.async_shutdown()
