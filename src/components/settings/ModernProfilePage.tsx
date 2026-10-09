@@ -2,23 +2,23 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BadgeCheck,
+  Bell,
   Check,
   CheckCircle2,
   ChevronRight,
   Clock3,
   Fingerprint,
-  Home,
   KeyRound,
   Languages,
   LifeBuoy,
+  Mail,
   MapPin,
+  Palette,
   Route,
   ShieldCheck,
-  Smartphone,
-  Sparkles,
+  SunMoon,
   Trash2,
   UserRound,
-  Wifi,
   WifiOff,
   XCircle,
   type LucideIcon,
@@ -344,7 +344,9 @@ export function ModernProfilePage({
     [currentUserId, houseMembers],
   );
   const displayName = userAvatarAlt?.trim() || currentMember?.name?.trim() || t('profile.fallback.name');
-  const displayEmail = userEmail?.trim() || t('profile.fallback.account');
+  // Only a real address is shown; no placeholder text stands in for a missing email.
+  const accountEmail = userEmail?.trim() || '';
+  const displayEmail = accountEmail || t('profile.fallback.account');
   const displayRole = userRoleLabel?.trim() || currentMember?.roleLabel?.trim() || t('profile.fallback.role');
   const displayInitials =
     displayName
@@ -356,6 +358,11 @@ export function ModernProfilePage({
   const connectionLabel = t(statusLabelKeyByConnection[haStatus] ?? 'profile.status.unavailable');
   const isConnected = haStatus === 'connected';
   const latestMovement = movementTimeline[0];
+  // The person and its tracker report the same move: show it once, keeping the first (the person).
+  const historyEntries = movementTimeline
+    .filter((entry, index, all) =>
+      all.findIndex((other) => other.title === entry.title && other.timestampLabel === entry.timestampLabel) === index)
+    .slice(0, 12);
   const deviceAuth = useDeviceAuth({
     id: currentUserId || displayEmail,
     name: displayEmail,
@@ -524,7 +531,7 @@ export function ModernProfilePage({
         <ProfileOverviewHeader
           collapseProgress={overviewHeaderCollapseProgress}
           displayName={displayName}
-          displayEmail={displayEmail}
+          displayEmail={accountEmail || displayRole}
           displayInitials={displayInitials}
           userAvatarUrl={userAvatarUrl}
           avatarFailed={avatarFailed}
@@ -572,49 +579,61 @@ export function ModernProfilePage({
                 <h2 className="truncate text-[clamp(1.55rem,5vw,2rem)] font-semibold tracking-[-0.045em]">
                   {displayName}
                 </h2>
-                <p className="mt-0.5 truncate text-sm text-[color:var(--ui-text-secondary)]">{displayEmail}</p>
+                {accountEmail ? (
+                  <p className="mt-0.5 truncate text-sm text-[color:var(--ui-text-secondary)]">{accountEmail}</p>
+                ) : null}
                 <div className="mt-2.5 flex flex-wrap gap-2">
                   <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
                     <BadgeCheck size={13} />
                     {displayRole}
                   </span>
-                  <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
-                    {isConnected ? <Wifi size={13} /> : <WifiOff size={13} />}
-                    {connectionLabel}
-                  </span>
+                  {/* Connected is the normal case, shown by the dot on the avatar; only a problem gets a chip. */}
+                  {!isConnected ? (
+                    <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 text-[11px] font-semibold text-amber-600 dark:text-amber-300">
+                      <WifiOff size={13} />
+                      {connectionLabel}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </section>
 
-            <ProfileGroup title={t('profile.group.profile')}>
+            <ProfileGroup title={t('profile.account.group')}>
               <ProfileRow
                 icon={UserRound}
                 title={t('profile.personal.title')}
-                subtitle={displayEmail}
-                value={displayRole}
+                subtitle={t('profile.personal.subtitle')}
                 onClick={() => openView('personal')}
-              />
-              <ProfileRow
-                icon={Home}
-                title={t('profile.personal.homeTitle')}
-                subtitle={t('profile.personal.homeSubtitle')}
-                value={connectionLabel}
-                tone={isConnected ? 'success' : 'warning'}
               />
               <ProfileRow
                 icon={Route}
                 title={t('profile.activity.title')}
                 subtitle={latestMovement?.title ?? t('profile.activity.emptyRecent')}
-                value={movementUpdatedLabel || undefined}
                 onClick={() => openView('activity')}
               />
             </ProfileGroup>
 
-            <ProfileGroup title={t('profile.group.devicePreferences')}>
+            <ProfileGroup title={t('profile.group.notifications')}>
+              <ProfileRow
+                icon={Bell}
+                title={t('profile.devices.title')}
+                subtitle={t('profile.devices.subtitle')}
+                value={
+                  devicesAvailability === 'unsupported'
+                    ? t('profile.devices.countUnavailable')
+                    : personalDeviceCount === undefined
+                      ? undefined
+                      : `${personalDeviceCount}`
+                }
+                onClick={() => openView('devices')}
+              />
+            </ProfileGroup>
+
+            <ProfileGroup title={t('profile.group.appearance')}>
               <div className="px-4 py-4">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
-                    <Sparkles size={17} />
+                    <SunMoon size={17} />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block text-sm font-semibold">{t('profile.appearance.title')}</span>
@@ -636,12 +655,12 @@ export function ModernProfilePage({
                 />
               </div>
 
-              <ProfileStartupPanelPreference
-                runtimeMode={runtimeMode}
-                haStatus={haStatus}
-                haUserId={haUserId}
-                onCallApi={onCallApi}
-                onNotify={onNotify}
+              <ProfileRow
+                icon={Palette}
+                title={t('profile.themes.title')}
+                subtitle={t('profile.themes.subtitle')}
+                value={DASHBOARD_BACKGROUND_PRESETS.find((preset) => preset.id === background)?.label}
+                onClick={() => openView('themes')}
               />
 
               <ProfileRow
@@ -652,29 +671,16 @@ export function ModernProfilePage({
                 onClick={() => openView('language')}
               />
 
-              <ProfileRow
-                icon={Sparkles}
-                title={t('profile.themes.title')}
-                subtitle={t('profile.themes.subtitle')}
-                value={DASHBOARD_BACKGROUND_PRESETS.find((preset) => preset.id === background)?.label}
-                onClick={() => openView('themes')}
+              <ProfileStartupPanelPreference
+                runtimeMode={runtimeMode}
+                haStatus={haStatus}
+                haUserId={haUserId}
+                onCallApi={onCallApi}
+                onNotify={onNotify}
               />
             </ProfileGroup>
 
             <ProfileGroup title={t('profile.group.security')}>
-              <ProfileRow
-                icon={Smartphone}
-                title={t('profile.devices.title')}
-                subtitle={t('profile.devices.subtitle')}
-                value={
-                  devicesAvailability === 'unsupported'
-                    ? t('profile.devices.countUnavailable')
-                    : personalDeviceCount === undefined
-                      ? undefined
-                      : `${personalDeviceCount}`
-                }
-                onClick={() => openView('devices')}
-              />
               <ProfileRow
                 icon={ShieldCheck}
                 title={t('profile.security.title')}
@@ -706,25 +712,6 @@ export function ModernProfilePage({
 
         {view === 'personal' ? (
           <div className="space-y-6">
-            <section className="flex items-center gap-4 rounded-[1.65rem] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-surface-glass-soft)] p-5 shadow-[0_18px_42px_var(--ui-shadow-soft)] backdrop-blur-3xl">
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-secondary)] text-lg font-semibold">
-                {userAvatarUrl && !avatarFailed ? (
-                  <img
-                    src={userAvatarUrl}
-                    alt={displayName}
-                    className="h-full w-full object-cover"
-                    onError={() => setAvatarFailed(true)}
-                  />
-                ) : (
-                  displayInitials
-                )}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-lg font-semibold tracking-[-0.025em]">{displayName}</p>
-                <p className="mt-1 truncate text-sm text-[color:var(--ui-text-secondary)]">{displayEmail}</p>
-              </div>
-            </section>
-
             <ProfileGroup title={t('profile.account.group')}>
               <ProfileRow
                 icon={UserRound}
@@ -732,18 +719,18 @@ export function ModernProfilePage({
                 subtitle={t('profile.account.displayNameSource')}
                 value={displayName}
               />
+              {accountEmail ? (
+                <ProfileRow
+                  icon={Mail}
+                  title={t('profile.account.email')}
+                  subtitle={accountEmail}
+                />
+              ) : null}
               <ProfileRow
                 icon={BadgeCheck}
                 title={t('profile.account.role')}
                 subtitle={t('profile.account.roleSubtitle')}
                 value={displayRole}
-              />
-              <ProfileRow
-                icon={Home}
-                title={t('profile.personal.homeTitle')}
-                subtitle={t('profile.account.homeSubtitle')}
-                value={connectionLabel}
-                tone={isConnected ? 'success' : 'warning'}
               />
             </ProfileGroup>
 
@@ -755,24 +742,34 @@ export function ModernProfilePage({
 
         {view === 'activity' ? (
           <div className="space-y-7">
-            <section className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
-                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.lastPosition')}</p>
-                <p className="mt-1 truncate font-semibold">{movementPoints[0]?.zoneLabel || movementPoints[0]?.label || t('profile.status.unavailable')}</p>
-              </div>
-              <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
-                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.presenceSources')}</p>
-                <p className="mt-1 font-semibold">{presenceTrackerCount}</p>
-              </div>
-              <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
-                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.updated')}</p>
-                <p className="mt-1 truncate font-semibold">{movementUpdatedLabel || t('profile.activity.noRecentData')}</p>
-              </div>
+            <section
+              data-testid="profile-activity-summary"
+              className="flex items-center gap-4 rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4 shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl"
+            >
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.1rem] border border-emerald-400/25 bg-emerald-500/10 text-emerald-500">
+                <MapPin size={20} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.lastPosition')}</span>
+                <span className="mt-0.5 block truncate text-lg font-semibold tracking-[-0.02em]">
+                  {movementPoints[0]?.zoneLabel || movementPoints[0]?.label || t('profile.status.unavailable')}
+                </span>
+                <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
+                  {[
+                    movementUpdatedLabel || t('profile.activity.noRecentData'),
+                    presenceTrackerCount === 0
+                      ? t('profile.activity.sourcesNone')
+                      : presenceTrackerCount === 1
+                        ? t('profile.activity.sourcesOne')
+                        : t('profile.activity.sourcesMany', { count: presenceTrackerCount }),
+                  ].join(' · ')}
+                </span>
+              </span>
             </section>
 
             <ProfileGroup title={t('profile.activity.history')}>
-              {movementTimeline.length > 0 ? (
-                movementTimeline.slice(0, 12).map((entry) => (
+              {historyEntries.length > 0 ? (
+                historyEntries.map((entry) => (
                   <ProfileRow
                     key={entry.id}
                     icon={entry.isCurrent ? MapPin : Clock3}

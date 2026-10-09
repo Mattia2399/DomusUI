@@ -219,7 +219,6 @@ describe('ModernProfilePage', () => {
   it('keeps the tracker count only as a presence figure in the activity page', () => {
     render(<ModernProfilePage {...baseProps} presenceTrackerCount={3} navigationRoute="/profile/activity" />);
 
-    const tile = screen.getByText('Fonti di presenza').parentElement;
-    expect(tile?.textContent).toContain('3');
+    expect(screen.getByTestId('profile-activity-summary').textContent).toContain('3 fonti di presenza');
   });
 });

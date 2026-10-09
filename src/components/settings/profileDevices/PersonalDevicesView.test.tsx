@@ -46,7 +46,7 @@ describe('PersonalDevicesView', () => {
     expect(screen.getByRole('switch', { name: 'Notifiche Domus' }).getAttribute('aria-checked')).toBe('true');
   });
 
-  it('lists devices by status with plain-language copy and hides technical details', async () => {
+  it('lists devices by status, one compact line each, with no technical detail', async () => {
     const backend = createFakeProfileBackend({
       haDevices: [PIXEL, { ...IPAD, status: 'unavailable', target: 'unavailable' }],
       owned: [{ haDeviceId: 'ha-gone', label: 'Vecchio telefono' }, { haDeviceId: 'ha-ipad' }, { haDeviceId: 'ha-pixel', label: 'Lavoro' }],
@@ -55,18 +55,17 @@ describe('PersonalDevicesView', () => {
 
     const items = await screen.findAllByTestId('personal-device');
     expect(items.map((item) => item.getAttribute('aria-label'))).toEqual(['Lavoro', 'iPad', 'Vecchio telefono']);
+    // A working device shows only which one it is: its Home Assistant name under the Domus label.
     expect(within(items[0]).getByText('Pixel 8')).toBeTruthy();
-    expect(within(items[0]).getByText('Collegato')).toBeTruthy();
-    expect(within(items[0]).getAllByText('Pronto per le notifiche').length).toBeGreaterThan(0);
     expect(within(items[1]).getByText('Temporaneamente non disponibile')).toBeTruthy();
     expect(within(items[2]).getByText('Non più disponibile in Home Assistant')).toBeTruthy();
-    expect(within(items[0]).getByText(/Presenza: Non configurata/)).toBeTruthy();
 
-    const details = items[0].querySelector('details');
-    expect(details?.open).toBe(false);
     const text = document.body.textContent ?? '';
-    expect(text).not.toContain('user-1');
+    for (const technical of ['Presenza', 'Dettagli tecnici', 'ha-pixel', 'device_tracker', 'user-1']) {
+      expect(text).not.toContain(technical);
+    }
     expect(text).not.toMatch(/webhook|token|push_url/i);
+    expect(document.querySelector('details')).toBeNull();
   });
 
   it('keeps device choices when the general switch is turned off', async () => {
@@ -113,7 +112,7 @@ describe('PersonalDevicesView', () => {
     fireEvent.click(deviceSwitch);
     fireEvent.click(deviceSwitch);
     expect((deviceSwitch as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByRole('button', { name: 'Rinomina Pixel 8' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Altre azioni per Pixel 8' })).toHaveProperty('disabled', true);
 
     act(() => backend.release());
     await waitFor(() => expect(deviceSwitch.getAttribute('aria-checked')).toBe('false'));
@@ -162,6 +161,7 @@ describe('PersonalDevicesView', () => {
     const backend = createFakeProfileBackend({ haDevices: [PIXEL], owned: [{ haDeviceId: 'ha-pixel' }] });
     renderView(backend);
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Altre azioni per Pixel 8' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Rinomina Pixel 8' }));
     const input = await screen.findByLabelText('Nome in Domus');
     fireEvent.change(input, { target: { value: 'x'.repeat(65) } });
@@ -174,7 +174,8 @@ describe('PersonalDevicesView', () => {
     expect(backend.messages.at(-1)).toMatchObject({ type: 'domusos/profile/update_device', label: 'Ufficio' });
     expect(screen.getByText('Nome aggiornato.')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Rinomina Ufficio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Altre azioni per Ufficio' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Rinomina Ufficio' }));
     fireEvent.change(await screen.findByLabelText('Nome in Domus'), { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
     expect(await screen.findByRole('article', { name: 'Pixel 8' })).toBeTruthy();
@@ -185,6 +186,7 @@ describe('PersonalDevicesView', () => {
     const backend = createFakeProfileBackend({ owned: [{ haDeviceId: 'ha-gone', label: 'Vecchio' }] });
     renderView(backend);
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Altre azioni per Vecchio' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Rimuovi Vecchio' }));
     expect(await screen.findByText(/Il dispositivo non verrà rimosso da Home Assistant/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Rimuovi dal profilo' }));
@@ -249,7 +251,7 @@ describe('PersonalDevicesView', () => {
     expect(screen.getByText('Connettiti a Home Assistant per modificare i tuoi dispositivi.')).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Notifiche Domus' })).toHaveProperty('disabled', true);
     expect(screen.getByRole('switch', { name: 'Notifiche su Pixel 8' })).toHaveProperty('disabled', true);
-    expect(screen.getByRole('button', { name: 'Rimuovi Pixel 8' })).toHaveProperty('disabled', true);
+    expect(screen.getByRole('button', { name: 'Altre azioni per Pixel 8' })).toHaveProperty('disabled', true);
     expect(screen.getByRole('button', { name: /Aggiungi dispositivo/ })).toHaveProperty('disabled', true);
   });
 

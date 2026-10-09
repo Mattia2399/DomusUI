@@ -229,13 +229,14 @@ test('a user links, adjusts and removes a personal device', async ({ page }) => 
 
   const device = page.getByRole('article', { name: 'Pixel 8' });
   await expect(device).toBeVisible();
-  await expect(device.getByText('Collegato')).toBeVisible();
+  await expect(device.getByText('Telefono')).toBeVisible();
   await expect(page.getByText('Dispositivo collegato al tuo profilo.')).toBeVisible();
 
   const deviceSwitch = page.getByRole('switch', { name: 'Notifiche su Pixel 8' });
   await deviceSwitch.click();
   await expect(deviceSwitch).toHaveAttribute('aria-checked', 'false');
 
+  await page.getByRole('button', { name: 'Altre azioni per Pixel 8' }).click();
   await page.getByRole('button', { name: 'Rinomina Pixel 8' }).click();
   await page.getByLabel('Nome in Domus').fill('  Telefono lavoro ');
   await page.getByRole('button', { name: 'Salva' }).click();
@@ -244,6 +245,7 @@ test('a user links, adjusts and removes a personal device', async ({ page }) => 
   await expect(renamed.getByText('Pixel 8')).toBeVisible();
   await capture(page, 'devices-list-390');
 
+  await page.getByRole('button', { name: 'Altre azioni per Telefono lavoro' }).click();
   await page.getByRole('button', { name: 'Rimuovi Telefono lavoro' }).click();
   await expect(page.getByText(/Il dispositivo non verrà rimosso da Home Assistant/)).toBeVisible();
   await page.getByRole('button', { name: 'Rimuovi dal profilo' }).click();
@@ -274,6 +276,7 @@ test('a device Home Assistant no longer knows can still be removed', async ({ pa
   const device = page.getByRole('article', { name: 'Vecchio telefono' });
   await expect(device.getByText('Non più disponibile in Home Assistant')).toBeVisible();
   await expect(page.getByRole('switch', { name: 'Notifiche su Vecchio telefono' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Altre azioni per Vecchio telefono' }).click();
   await page.getByRole('button', { name: 'Rimuovi Vecchio telefono' }).click();
   await page.getByRole('button', { name: 'Rimuovi dal profilo' }).click();
   await expect(page.getByText('Nessun dispositivo personale')).toBeVisible();
@@ -291,7 +294,7 @@ test('presence never borrows a Person or tracker by name', async ({ page }) => {
   await page.goto('/profile/activity');
 
   await expect(page.getByText('Nessuna attività disponibile')).toBeVisible();
-  await expect(page.getByText('Fonti di presenza').locator('..')).toContainText('0');
+  await expect(page.getByTestId('profile-activity-summary')).toContainText('Nessuna fonte di presenza');
   expect(touchesPeople(home)).toBe(false);
 });
 
@@ -308,7 +311,7 @@ test('presence follows the Person linked to the user', async ({ page }) => {
   });
   await page.goto('/profile/activity');
 
-  await expect(page.getByText('Fonti di presenza').locator('..')).toContainText('1');
+  await expect(page.getByTestId('profile-activity-summary')).toContainText('1 fonte di presenza');
 });
 
 for (const [width, height] of [[390, 844], [820, 1180], [1440, 960]]) {

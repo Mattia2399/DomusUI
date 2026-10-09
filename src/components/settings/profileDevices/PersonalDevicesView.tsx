@@ -141,8 +141,6 @@ export function PersonalDevicesView({
 
   return (
     <div className="space-y-6" data-testid="personal-devices-view">
-      <p className="px-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{t('profile.devices.intro')}</p>
-
       {offline ? (
         <p className="flex items-start gap-2 px-1 text-xs font-medium leading-5 text-[color:var(--ui-warning)]" role="status">
           <WifiOff size={15} className="mt-0.5 shrink-0" aria-hidden="true" />

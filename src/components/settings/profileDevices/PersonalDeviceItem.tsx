@@ -1,14 +1,20 @@
-import { ChevronDown, MapPin, Pencil, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { AlertTriangle, MoreHorizontal, Pencil, Trash2, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../../../i18n/I18nProvider';
 import {
-  DEVICE_STATUS_HINT,
   DEVICE_STATUS_LABEL,
   TARGET_STATUS_LABEL,
-  presenceLabel,
   type PersonalDeviceRow,
 } from '../../../services/profileDevicesModel';
+import GlassBottomSheet from '../../ui/GlassBottomSheet';
 import GlassToggle from '../../ui/GlassToggle';
-import { DEVICE_KIND_ICON, DEVICE_KIND_LABEL, DEVICE_STATUS_VISUAL, TONE_CLASS } from './deviceVisuals';
+import {
+  DEVICE_KIND_ICON,
+  DEVICE_KIND_LABEL,
+  DEVICE_STATUS_VISUAL,
+  TONE_CLASS,
+  type StatusTone,
+} from './deviceVisuals';
 
 type PersonalDeviceItemProps = {
   row: PersonalDeviceRow;
@@ -21,6 +27,13 @@ type PersonalDeviceItemProps = {
   onRemove: () => void;
 };
 
+const actionClass =
+  'flex min-h-12 w-full items-center gap-3 rounded-[1rem] px-3 text-left text-sm font-semibold transition hover:bg-[color:var(--ui-fill-tertiary)] disabled:cursor-not-allowed disabled:opacity-45';
+
+/**
+ * One compact row per device: what it is, the one thing worth knowing about it
+ * right now, and its notification switch. Rename and remove sit behind "⋯".
+ */
 export function PersonalDeviceItem({
   row,
   generalEnabled,
@@ -31,109 +44,92 @@ export function PersonalDeviceItem({
   onRemove,
 }: PersonalDeviceItemProps) {
   const { t } = useI18n();
+  const [actionsOpen, setActionsOpen] = useState(false);
   const { device, live, status } = row;
   const kind = live?.kind ?? 'other';
   const KindIcon = DEVICE_KIND_ICON[kind];
-  const visual = DEVICE_STATUS_VISUAL[status];
-  const StatusIcon = visual.icon;
   const title = row.title ?? t('profile.devices.unnamed');
-  const hint = DEVICE_STATUS_HINT[status];
   const canNotify = live?.capabilities.notifications === true;
-  const targetLabel = t(TARGET_STATUS_LABEL[live?.notificationTargetStatus ?? 'unsupported']);
-  // The device keeps its own choice while the general switch is off.
-  const notificationNote = canNotify && !generalEnabled && device.notificationsEnabled
-    ? t('profile.devices.notificationsPaused')
-    : targetLabel;
-  const trackers = live?.presence.trackerEntityIds ?? [];
+
+  // A problem first; otherwise a pause, otherwise just which device this is.
+  let line: { text: string; tone: StatusTone; icon?: LucideIcon };
+  if (status !== 'active') {
+    const visual = DEVICE_STATUS_VISUAL[status];
+    line = { text: t(DEVICE_STATUS_LABEL[status]), tone: visual.tone, icon: visual.icon };
+  } else if (!canNotify) {
+    line = { text: t(TARGET_STATUS_LABEL[live?.notificationTargetStatus ?? 'unsupported']), tone: 'warning', icon: AlertTriangle };
+  } else if (!generalEnabled && device.notificationsEnabled) {
+    // The device keeps its own choice while the general switch is off.
+    line = { text: t('profile.devices.notificationsPaused'), tone: 'muted' };
+  } else {
+    line = { text: row.subtitle ?? t(DEVICE_KIND_LABEL[kind]), tone: 'muted' };
+  }
+  const LineIcon = line.icon;
+
+  const run = (action: () => void) => {
+    setActionsOpen(false);
+    action();
+  };
 
   return (
     <article
       data-testid="personal-device"
       data-device-status={status}
       aria-label={title}
-      className="px-4 py-4"
+      className="flex min-h-[4.4rem] items-center gap-3 px-4 py-3"
     >
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
-          <KindIcon size={18} aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="break-words text-sm font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)]">
-            {title}
-          </h3>
-          <p className="mt-0.5 break-words text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-            {row.subtitle ?? t('profile.devices.source', { kind: t(DEVICE_KIND_LABEL[kind]) })}
-          </p>
-          <p className={`mt-1 flex items-start gap-1.5 text-xs font-semibold leading-5 ${TONE_CLASS[visual.tone]}`}>
-            <StatusIcon size={14} className="mt-[3px] shrink-0" aria-hidden="true" />
-            <span>{t(DEVICE_STATUS_LABEL[status])}</span>
-          </p>
-          {hint ? (
-            <p className="mt-1 text-xs leading-5 text-[color:var(--ui-text-secondary)]">{t(hint)}</p>
-          ) : null}
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
+        <KindIcon size={18} aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)]">{title}</h3>
+        <p className={`mt-0.5 flex items-start gap-1.5 text-xs leading-5 ${TONE_CLASS[line.tone]} ${line.tone === 'muted' ? '' : 'font-medium'}`}>
+          {LineIcon ? <LineIcon size={13} className="mt-[3px] shrink-0" aria-hidden="true" /> : null}
+          <span className="min-w-0">{line.text}</span>
+        </p>
+      </div>
+      <GlassToggle
+        checked={device.notificationsEnabled}
+        onChange={onToggleNotifications}
+        label={t('profile.devices.notificationsAria', { name: title })}
+        disabled={locked || !canNotify}
+        busy={pending}
+        size="compact"
+      />
+      <button
+        type="button"
+        onClick={() => setActionsOpen(true)}
+        disabled={locked}
+        aria-label={t('profile.devices.actions', { name: title })}
+        className="-mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition hover:bg-[color:var(--ui-fill-tertiary)] disabled:cursor-not-allowed disabled:opacity-45"
+      >
+        <MoreHorizontal size={18} aria-hidden="true" />
+      </button>
+
+      <GlassBottomSheet isOpen={actionsOpen} onClose={() => setActionsOpen(false)} title={title}>
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() => run(onRename)}
+            disabled={locked}
+            aria-label={`${t('profile.devices.rename')} ${title}`}
+            className={`${actionClass} text-[color:var(--ui-text-primary)]`}
+          >
+            <Pencil size={17} aria-hidden="true" />
+            {t('profile.devices.rename')}
+          </button>
+          <button
+            type="button"
+            onClick={() => run(onRemove)}
+            disabled={locked}
+            aria-label={`${t('profile.devices.remove')} ${title}`}
+            className={`${actionClass} text-[color:var(--ui-danger)]`}
+          >
+            <Trash2 size={17} aria-hidden="true" />
+            {t('profile.devices.remove')}
+          </button>
         </div>
-      </div>
-
-      <div className="mt-3 flex items-center gap-3 border-t border-[color:var(--ui-separator)] pt-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-[color:var(--ui-text-primary)]">{t('profile.devices.notifications')}</p>
-          <p className="mt-0.5 text-xs leading-5 text-[color:var(--ui-text-secondary)]">{notificationNote}</p>
-        </div>
-        <GlassToggle
-          checked={device.notificationsEnabled}
-          onChange={onToggleNotifications}
-          label={t('profile.devices.notificationsAria', { name: title })}
-          disabled={locked || !canNotify}
-          busy={pending}
-        />
-      </div>
-
-      <p className="mt-3 flex items-center gap-1.5 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-        <MapPin size={13} className="shrink-0" aria-hidden="true" />
-        <span>
-          {t('profile.devices.presence.title')}: {t(presenceLabel(live))}
-        </span>
-      </p>
-
-      <details className="group mt-2">
-        <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 rounded-full text-xs font-semibold text-[color:var(--ui-text-secondary)] [&::-webkit-details-marker]:hidden">
-          {t('profile.devices.details')}
-          <ChevronDown size={14} className="transition-transform group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true" />
-        </summary>
-        <dl className="mt-1 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-[auto_1fr]">
-          <dt className="text-[color:var(--ui-text-tertiary)]">{t('profile.devices.details.device')}</dt>
-          <dd className="break-all font-medium text-[color:var(--ui-text-secondary)]">{device.haDeviceId}</dd>
-          <dt className="text-[color:var(--ui-text-tertiary)]">{t('profile.devices.details.trackers')}</dt>
-          <dd className="break-all font-medium text-[color:var(--ui-text-secondary)]">
-            {trackers.length > 0 ? trackers.join(', ') : t('profile.devices.details.none')}
-          </dd>
-          <dt className="text-[color:var(--ui-text-tertiary)]">{t('profile.devices.details.target')}</dt>
-          <dd className="font-medium text-[color:var(--ui-text-secondary)]">{targetLabel}</dd>
-        </dl>
-      </details>
-
-      <div className="mt-2 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={onRename}
-          disabled={locked}
-          aria-label={`${t('profile.devices.rename')} ${title}`}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3.5 text-xs font-semibold text-[color:var(--ui-text-primary)] transition hover:bg-[color:var(--ui-fill-secondary)] disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          <Pencil size={14} aria-hidden="true" />
-          {t('profile.devices.rename')}
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          disabled={locked}
-          aria-label={`${t('profile.devices.remove')} ${title}`}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3.5 text-xs font-semibold text-[color:var(--ui-danger)] transition hover:bg-[color:var(--ui-fill-secondary)] disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          <Trash2 size={14} aria-hidden="true" />
-          {t('profile.devices.remove')}
-        </button>
-      </div>
+      </GlassBottomSheet>
     </article>
   );
 }
