@@ -22,6 +22,20 @@
   active profiles is quarantined, and a removed user's profile never blocks the
   new owner. Each device shows its live state, presence trackers and whether it
   could receive notifications; nothing is sent yet.
+- Profile → My devices: each user can link a personal device found for their
+  account, rename it in Domus, remove it from the profile (Home Assistant is
+  not changed) and choose where Domus notifications may go, with a general
+  switch and one per device that never change each other. A change made from
+  another device is picked up instead of being overwritten. The Profile
+  overview now counts personal devices instead of presence trackers. Nothing
+  is sent yet.
+
+### Changed
+
+- Profile presence (activity, map and timeline) now uses only the Person that
+  Home Assistant links to the signed-in user and the trackers that Person
+  declares. A user without a linked Person no longer sees presence picked by
+  a matching name.
 
 ## 1.5.0 - 2026-10-08
 

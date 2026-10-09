@@ -276,6 +276,7 @@ import {
   resolvePersonId,
   type HaPersonRecord,
 } from '../../services/personAccountLinks';
+import { resolveCurrentPersonPresence } from '../../services/currentPersonPresence';
 import { buildPersonPictureUrl } from '../../services/personPicture';
 import {
   resolveOAuthReturnPath,
@@ -1877,70 +1878,10 @@ export function MainBoard() {
   const [profileMovementUpdatedLabel, setProfileMovementUpdatedLabel] = useState<string>('');
   const profileMovementSource = useMemo(() => {
     const zoneLookup = buildMovementZoneCoordinateLookup(haStates);
-    const userIdKey = normalizeLower(haCurrentUser?.id);
-    const userNameKey = normalizeMovementLocationKey(haCurrentUser?.name);
-    const userUsernameKey = normalizeMovementLocationKey(haCurrentUser?.username);
-    const userEmailKey = normalizeMovementLocationKey(haCurrentUser?.email?.split('@')[0]);
-    const userNeedles = new Set([userNameKey, userUsernameKey, userEmailKey].filter(Boolean));
-
-    let selectedPersonEntityId: string | null = null;
-    let selectedPersonScore = -1;
-    let selectedPersonLinkedTrackers: string[] = [];
-
-    Object.entries(haStates).forEach(([entityId, entity]) => {
-      if (!entityId.startsWith('person.')) {
-        return;
-      }
-      const rawAttributes = entity.rawAttributes ?? {};
-      const friendlyNameKey = normalizeMovementLocationKey(toTrimmedString(rawAttributes.friendly_name));
-      const linkedUserId = normalizeLower(toTrimmedString(rawAttributes.user_id));
-      const entityKey = normalizeMovementLocationKey(entityId.slice('person.'.length));
-      const linkedTrackers = toStringArray(rawAttributes.entity_id).map((entry) => entry.trim()).filter(Boolean);
-
-      let score = 0;
-      if (userIdKey && linkedUserId === userIdKey) {
-        score += 100;
-      }
-      if (userNeedles.size > 0) {
-        if (friendlyNameKey && userNeedles.has(friendlyNameKey)) {
-          score += 45;
-        }
-        if (entityKey && userNeedles.has(entityKey)) {
-          score += 30;
-        }
-      }
-      if (linkedTrackers.some((trackerId) => trackerId.startsWith('device_tracker.'))) {
-        score += 5;
-      }
-
-      if (score > selectedPersonScore) {
-        selectedPersonScore = score;
-        selectedPersonEntityId = entityId;
-        selectedPersonLinkedTrackers = linkedTrackers;
-      }
-    });
-
-    const trackerEntityIds = new Set<string>();
-    selectedPersonLinkedTrackers.forEach((entityId) => {
-      if (entityId.startsWith('device_tracker.')) {
-        trackerEntityIds.add(entityId);
-      }
-    });
-
-    Object.entries(haStates).forEach(([entityId, entity]) => {
-      if (!entityId.startsWith('device_tracker.')) {
-        return;
-      }
-      const rawAttributes = entity.rawAttributes ?? {};
-      const linkedUserId = normalizeLower(toTrimmedString(rawAttributes.user_id));
-      const friendlyNameKey = normalizeMovementLocationKey(toTrimmedString(rawAttributes.friendly_name));
-      const entityKey = normalizeMovementLocationKey(entityId.slice('device_tracker.'.length));
-      const byUserId = userIdKey && linkedUserId === userIdKey;
-      const byName = userNeedles.size > 0 && (userNeedles.has(friendlyNameKey) || userNeedles.has(entityKey));
-      if (byUserId || byName) {
-        trackerEntityIds.add(entityId);
-      }
-    });
+    // The Person Home Assistant links to this user, and only its own trackers.
+    const currentPresence = resolveCurrentPersonPresence(haStates, haCurrentUser?.id);
+    const selectedPersonEntityId = currentPresence.personEntityId;
+    const trackerEntityIds = new Set(currentPresence.trackerEntityIds);
 
     const trackedEntityIds = new Set<string>();
     if (selectedPersonEntityId) {
@@ -2011,11 +1952,11 @@ export function MainBoard() {
     return {
       zoneLookup,
       trackedEntityIds: Array.from(trackedEntityIds),
-      trackerDeviceCount: trackerEntityIds.size,
+      presenceTrackerCount: trackerEntityIds.size,
       basePoints: dedupedPoints,
       baseTimeline,
     };
-  }, [formatDate, haCurrentUser?.email, haCurrentUser?.id, haCurrentUser?.name, haCurrentUser?.username, haStates, t]);
+  }, [formatDate, haCurrentUser?.id, haStates, t]);
 
   const baseHaStatesForUi = useMemo<MockEntityStateMap>(() => {
     if (!isHaConnected) {
@@ -10873,7 +10814,11 @@ export function MainBoard() {
     }
     setDeveloperMode(nextValue);
   };
-  const profileUserOwnedDeviceCount = profileMovementSource.trackerDeviceCount;
+  const profilePresenceTrackerCount = profileMovementSource.presenceTrackerCount;
+  // Personal devices need the Profile Core commands; inside the panel the
+  // bridge must also declare them.
+  const profileDevicesSupported =
+    !isHaManagedByParent || panelHaBridgeConnection.supportsProfileDevices;
   const currentNavigationRoute = canUseBrowserRouteNavigation
     ? `${routerLocation.pathname}${routerLocation.search}${routerLocation.hash}`
     : internalNavigationRoute;
@@ -11840,7 +11785,8 @@ export function MainBoard() {
             userEmail={profileUserEmail}
             userRoleLabel={profileUserRoleLabel}
             houseMembers={profileHouseMembers}
-            userOwnedDeviceCount={profileUserOwnedDeviceCount}
+            presenceTrackerCount={profilePresenceTrackerCount}
+            profileDevicesSupported={profileDevicesSupported}
             movementTimeline={profileMovementTimeline}
             movementPoints={profileMovementPoints}
             movementUpdatedLabel={profileMovementUpdatedLabel}

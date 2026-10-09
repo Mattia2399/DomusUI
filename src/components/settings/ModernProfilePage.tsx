@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -9,11 +9,9 @@ import {
   Fingerprint,
   Home,
   KeyRound,
-  Laptop,
   Languages,
   LifeBuoy,
   MapPin,
-  MonitorSmartphone,
   Route,
   ShieldCheck,
   Smartphone,
@@ -31,6 +29,7 @@ import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import type { DashboardRuntimeMode } from '../../security/dashboardAccess';
 import type { HaFrontendPreferencesCallApi } from '../../services/haFrontendPreferences';
 import { useDeviceAuth } from '../../hooks/useDeviceAuth';
+import { usePersonalDevices } from '../../hooks/usePersonalDevices';
 import { appendSecurityAuditEvent } from '../../services/securityAuth';
 import {
   DASHBOARD_BACKGROUND_PRESETS,
@@ -39,13 +38,19 @@ import {
 } from '../../theme/dashboardTheme';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
 import NestedPageHeader from '../ui/NestedPageHeader';
+import ProfileGroup from './ProfileGroup';
 import ProfileStartupPanelPreference from './ProfileStartupPanelPreference';
+import type { PersonalDevicesAvailability } from './profileDevices/PersonalDevicesView';
+import PersonalDevicesSkeleton from './profileDevices/PersonalDevicesSkeleton';
 import type {
   ProfileMovementMapPoint,
   ProfileMovementTimelineEntry,
   ProfileSectionId,
 } from './profileModels';
 import type { ProfileHouseMember } from './settingsHouseAccessModel';
+
+// Only users who open My devices download its screens and dialogs.
+const PersonalDevicesView = lazy(() => import('./profileDevices/PersonalDevicesView'));
 
 type ProfileView = 'overview' | 'personal' | 'activity' | 'devices' | 'security' | 'themes' | 'language';
 
@@ -60,7 +65,10 @@ type ModernProfilePageProps = {
   userEmail?: string;
   userRoleLabel?: string;
   houseMembers?: ProfileHouseMember[];
-  userOwnedDeviceCount?: number;
+  /** Presence trackers declared by the current user's Person; activity only. */
+  presenceTrackerCount?: number;
+  /** The integration offers Domus personal devices (`profile_devices_v1`). */
+  profileDevicesSupported?: boolean;
   movementTimeline?: ProfileMovementTimelineEntry[];
   movementPoints?: ProfileMovementMapPoint[];
   movementUpdatedLabel?: string;
@@ -192,19 +200,6 @@ function ProfileRow({
   return <div className={className}>{content}</div>;
 }
 
-function ProfileGroup({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
-        {title}
-      </h2>
-      <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
-        {children}
-      </div>
-    </section>
-  );
-}
-
 function ProfileOverviewHeader({
   collapseProgress,
   displayName,
@@ -311,7 +306,8 @@ export function ModernProfilePage({
   userEmail,
   userRoleLabel,
   houseMembers = [],
-  userOwnedDeviceCount = 0,
+  presenceTrackerCount = 0,
+  profileDevicesSupported = false,
   movementTimeline = [],
   movementPoints = [],
   movementUpdatedLabel,
@@ -365,6 +361,22 @@ export function ModernProfilePage({
     name: displayEmail,
     displayName,
   });
+  const devicesReachable: PersonalDevicesAvailability = !profileDevicesSupported || runtimeMode !== 'real'
+    ? 'unsupported'
+    : isConnected && onCallApi
+      ? 'ready'
+      : 'offline';
+  // Read when the profile opens; the overview count and the devices page share it.
+  const personalDevices = usePersonalDevices({
+    callApi: onCallApi,
+    enabled: isOpen && devicesReachable === 'ready',
+  });
+  const personalDeviceCount = personalDevices.state.snapshot?.profile.personalDevices.length;
+  // An older integration answers without the profile commands.
+  const devicesAvailability: PersonalDevicesAvailability =
+    personalDevices.state.loadError === 'unsupported' && personalDeviceCount === undefined
+      ? 'unsupported'
+      : devicesReachable;
 
   useEffect(() => {
     if (!isOpen) {
@@ -654,7 +666,13 @@ export function ModernProfilePage({
                 icon={Smartphone}
                 title={t('profile.devices.title')}
                 subtitle={t('profile.devices.subtitle')}
-                value={`${userOwnedDeviceCount}`}
+                value={
+                  devicesAvailability === 'unsupported'
+                    ? t('profile.devices.countUnavailable')
+                    : personalDeviceCount === undefined
+                      ? undefined
+                      : `${personalDeviceCount}`
+                }
                 onClick={() => openView('devices')}
               />
               <ProfileRow
@@ -743,8 +761,8 @@ export function ModernProfilePage({
                 <p className="mt-1 truncate font-semibold">{movementPoints[0]?.zoneLabel || movementPoints[0]?.label || t('profile.status.unavailable')}</p>
               </div>
               <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
-                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.devices')}</p>
-                <p className="mt-1 font-semibold">{userOwnedDeviceCount}</p>
+                <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.presenceSources')}</p>
+                <p className="mt-1 font-semibold">{presenceTrackerCount}</p>
               </div>
               <div className="rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-4">
                 <p className="text-xs text-[color:var(--ui-text-secondary)]">{t('profile.activity.updated')}</p>
@@ -858,38 +876,13 @@ export function ModernProfilePage({
         ) : null}
 
         {view === 'devices' ? (
-          <div className="space-y-6">
-            <section className="rounded-[1.65rem] border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-surface-glass-soft)] p-5 shadow-[0_18px_42px_var(--ui-shadow-soft)] backdrop-blur-3xl sm:p-6">
-              <div className="flex items-start gap-4">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[1.1rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
-                  <MonitorSmartphone size={21} />
-                </span>
-                <div>
-                  <p className="font-semibold">{t('profile.devices.heroTitle')}</p>
-                  <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-                    {t('profile.devices.heroSubtitle')}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <ProfileGroup title={t('profile.devices.group')}>
-              {userOwnedDeviceCount > 0 ? (
-                <ProfileRow
-                  icon={Smartphone}
-                  title={t('profile.devices.trackers')}
-                  subtitle={t('profile.devices.trackersSubtitle')}
-                  value={`${userOwnedDeviceCount}`}
-                />
-              ) : (
-                <ProfileRow
-                  icon={Laptop}
-                  title={t('profile.devices.empty')}
-                  subtitle={t('profile.devices.emptySubtitle')}
-                />
-              )}
-            </ProfileGroup>
-          </div>
+          <Suspense fallback={<PersonalDevicesSkeleton label={t('profile.devices.loading')} />}>
+            <PersonalDevicesView
+              controller={personalDevices}
+              availability={devicesAvailability}
+              callApi={onCallApi}
+            />
+          </Suspense>
         ) : null}
 
         {view === 'security' ? (

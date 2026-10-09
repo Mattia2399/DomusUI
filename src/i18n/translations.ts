@@ -1,6 +1,7 @@
 import { settingsTranslations } from './settingsTranslations';
 import { homeTranslations } from './homeTranslations';
 import { wasteCollectionTranslations } from './wasteCollectionTranslations';
+import { profileDevicesTranslations } from './profileDevicesTranslations';
 
 export const italianTranslations = {
   'language.name.it': 'Italiano',
@@ -58,8 +59,6 @@ export const italianTranslations = {
   'profile.startup.systemDefault': 'Verrà usata la schermata iniziale predefinita di Home Assistant.',
   'profile.startup.saveError': 'Home Assistant non ha confermato la nuova schermata iniziale.',
   'profile.startup.dismiss': 'Chiudi messaggio',
-  'profile.devices.title': 'Dispositivi personali',
-  'profile.devices.subtitle': 'Tracker associati al tuo profilo',
   'profile.security.title': 'Accesso e sicurezza',
   'profile.security.configured': 'Conferma dispositivo configurata',
   'profile.security.protect': 'Proteggi le azioni sensibili',
@@ -75,7 +74,7 @@ export const italianTranslations = {
   'profile.account.homeSubtitle': 'Identità e permessi verificati dal server',
   'profile.account.managedNote': 'Le informazioni dell’account vengono gestite da Home Assistant e non sono duplicate localmente.',
   'profile.activity.lastPosition': 'Ultima posizione',
-  'profile.activity.devices': 'Dispositivi',
+  'profile.activity.presenceSources': 'Fonti di presenza',
   'profile.activity.updated': 'Aggiornamento',
   'profile.activity.noRecentData': 'Nessun dato recente',
   'profile.activity.history': 'Cronologia recente',
@@ -83,13 +82,6 @@ export const italianTranslations = {
   'profile.activity.emptySubtitle': 'Home Assistant non ha restituito spostamenti per questo profilo.',
   'profile.themes.description': 'Lo sfondo è una preferenza personale del dispositivo e non modifica il layout condiviso della casa.',
   'profile.themes.group': 'Tema del dispositivo',
-  'profile.devices.heroTitle': 'Dispositivi del profilo',
-  'profile.devices.heroSubtitle': 'Questa sezione mostra soltanto i tracker associati alla persona corrente in Home Assistant.',
-  'profile.devices.group': 'Dispositivi disponibili',
-  'profile.devices.trackers': 'Tracker personali',
-  'profile.devices.trackersSubtitle': 'Entità associate al profilo corrente',
-  'profile.devices.empty': 'Nessun tracker disponibile',
-  'profile.devices.emptySubtitle': 'Non sono state trovate entità associate a questo utente',
   'profile.deviceConfirmation.title': 'Conferma dispositivo',
   'profile.deviceConfirmation.enrolledDescription': 'Questo browser può usare la passkey locale per confermare codici e azioni sensibili.',
   'profile.deviceConfirmation.availableDescription': 'Configura una passkey locale per confermare codici e azioni sensibili.',
@@ -320,6 +312,7 @@ export const italianTranslations = {
   ...settingsTranslations.it,
   ...homeTranslations.it,
   ...wasteCollectionTranslations.it,
+  ...profileDevicesTranslations.it,
 } as const;
 
 export type TranslationKey = keyof typeof italianTranslations;
@@ -380,8 +373,6 @@ export const englishTranslations: Record<TranslationKey, string> = {
   'profile.startup.systemDefault': 'Home Assistant’s system startup screen will be used.',
   'profile.startup.saveError': 'Home Assistant did not confirm the new startup screen.',
   'profile.startup.dismiss': 'Dismiss message',
-  'profile.devices.title': 'Personal devices',
-  'profile.devices.subtitle': 'Trackers linked to your profile',
   'profile.security.title': 'Access and security',
   'profile.security.configured': 'Device confirmation configured',
   'profile.security.protect': 'Protect sensitive actions',
@@ -397,7 +388,7 @@ export const englishTranslations: Record<TranslationKey, string> = {
   'profile.account.homeSubtitle': 'Identity and permissions verified by the server',
   'profile.account.managedNote': 'Account information is managed by Home Assistant and is not duplicated locally.',
   'profile.activity.lastPosition': 'Last location',
-  'profile.activity.devices': 'Devices',
+  'profile.activity.presenceSources': 'Presence sources',
   'profile.activity.updated': 'Updated',
   'profile.activity.noRecentData': 'No recent data',
   'profile.activity.history': 'Recent history',
@@ -405,13 +396,6 @@ export const englishTranslations: Record<TranslationKey, string> = {
   'profile.activity.emptySubtitle': 'Home Assistant returned no movement data for this profile.',
   'profile.themes.description': 'The background is a personal device preference and does not change the shared home layout.',
   'profile.themes.group': 'Device theme',
-  'profile.devices.heroTitle': 'Profile devices',
-  'profile.devices.heroSubtitle': 'This section shows only trackers linked to the current person in Home Assistant.',
-  'profile.devices.group': 'Available devices',
-  'profile.devices.trackers': 'Personal trackers',
-  'profile.devices.trackersSubtitle': 'Entities linked to the current profile',
-  'profile.devices.empty': 'No trackers available',
-  'profile.devices.emptySubtitle': 'No entities linked to this user were found',
   'profile.deviceConfirmation.title': 'Device confirmation',
   'profile.deviceConfirmation.enrolledDescription': 'This browser can use its local passkey to confirm codes and sensitive actions.',
   'profile.deviceConfirmation.availableDescription': 'Set up a local passkey to confirm codes and sensitive actions.',
@@ -565,6 +549,7 @@ export const englishTranslations: Record<TranslationKey, string> = {
   ...settingsTranslations.en,
   ...homeTranslations.en,
   ...wasteCollectionTranslations.en,
+  ...profileDevicesTranslations.en,
 };
 
 export const frenchTranslations: Record<TranslationKey, string> = {
@@ -623,8 +608,6 @@ export const frenchTranslations: Record<TranslationKey, string> = {
   'profile.startup.systemDefault': 'L’écran de démarrage système de Home Assistant sera utilisé.',
   'profile.startup.saveError': 'Home Assistant n’a pas confirmé le nouvel écran de démarrage.',
   'profile.startup.dismiss': 'Fermer le message',
-  'profile.devices.title': 'Appareils personnels',
-  'profile.devices.subtitle': 'Trackers associés à votre profil',
   'profile.security.title': 'Accès et sécurité',
   'profile.security.configured': 'Confirmation de l’appareil configurée',
   'profile.security.protect': 'Protéger les actions sensibles',
@@ -640,7 +623,7 @@ export const frenchTranslations: Record<TranslationKey, string> = {
   'profile.account.homeSubtitle': 'Identité et autorisations vérifiées par le serveur',
   'profile.account.managedNote': 'Les informations du compte sont gérées par Home Assistant et ne sont pas dupliquées localement.',
   'profile.activity.lastPosition': 'Dernière position',
-  'profile.activity.devices': 'Appareils',
+  'profile.activity.presenceSources': 'Sources de présence',
   'profile.activity.updated': 'Mise à jour',
   'profile.activity.noRecentData': 'Aucune donnée récente',
   'profile.activity.history': 'Historique récent',
@@ -648,13 +631,6 @@ export const frenchTranslations: Record<TranslationKey, string> = {
   'profile.activity.emptySubtitle': 'Home Assistant n’a renvoyé aucun déplacement pour ce profil.',
   'profile.themes.description': 'L’arrière-plan est une préférence personnelle de l’appareil et ne modifie pas la disposition partagée du domicile.',
   'profile.themes.group': 'Thème de l’appareil',
-  'profile.devices.heroTitle': 'Appareils du profil',
-  'profile.devices.heroSubtitle': 'Cette section affiche uniquement les trackers associés à la personne actuelle dans Home Assistant.',
-  'profile.devices.group': 'Appareils disponibles',
-  'profile.devices.trackers': 'Trackers personnels',
-  'profile.devices.trackersSubtitle': 'Entités associées au profil actuel',
-  'profile.devices.empty': 'Aucun tracker disponible',
-  'profile.devices.emptySubtitle': 'Aucune entité associée à cet utilisateur n’a été trouvée',
   'profile.deviceConfirmation.title': 'Confirmation de l’appareil',
   'profile.deviceConfirmation.enrolledDescription': 'Ce navigateur peut utiliser sa clé d’accès locale pour confirmer les codes et actions sensibles.',
   'profile.deviceConfirmation.availableDescription': 'Configurez une clé d’accès locale pour confirmer les codes et actions sensibles.',
@@ -808,6 +784,7 @@ export const frenchTranslations: Record<TranslationKey, string> = {
   ...settingsTranslations.fr,
   ...homeTranslations.fr,
   ...wasteCollectionTranslations.fr,
+  ...profileDevicesTranslations.fr,
 };
 
 export const TRANSLATIONS = {

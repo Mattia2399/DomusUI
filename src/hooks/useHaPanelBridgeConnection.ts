@@ -1071,6 +1071,8 @@ export function useHaPanelBridgeConnection() {
     supportsPersonLinks: bridgeCapabilities.includes('person_links'),
     supportsPersonCreate: bridgeCapabilities.includes('person_create'),
     supportsPersonPicture: bridgeCapabilities.includes('person_picture'),
+    supportsProfileCore: bridgeCapabilities.includes('profile_core_v1'),
+    supportsProfileDevices: bridgeCapabilities.includes('profile_devices_v1'),
     hassUrl: hassUrlRef.current,
     status,
     error,

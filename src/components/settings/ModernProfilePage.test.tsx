@@ -1,10 +1,16 @@
-import { cleanup, fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen, waitFor } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import ModernProfilePage from './ModernProfilePage';
+import { createFakeProfileBackend } from '../../test/fakeProfileBackend';
 
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+
+// The devices screen is lazy-loaded; load its module once so tests never race the import.
+beforeAll(async () => {
+  await import('./profileDevices/PersonalDevicesView');
+});
 
 beforeEach(() => {
   window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
@@ -22,7 +28,7 @@ const baseProps = {
   userAvatarAlt: 'Mattia',
   userEmail: 'mattia@example.com',
   userRoleLabel: 'Owner',
-  userOwnedDeviceCount: 2,
+  presenceTrackerCount: 2,
   houseMembers: [
     {
       id: 'person.mattia',
@@ -163,5 +169,57 @@ describe('ModernProfilePage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Supporto e feedback/ }));
     expect(onNavigate).toHaveBeenCalledWith('/support');
+  });
+
+  it('counts the personal devices of the profile, not the presence trackers', async () => {
+    const backend = createFakeProfileBackend({
+      haDevices: [{ haDeviceId: 'ha-1', displayName: 'Pixel' }],
+      owned: [{ haDeviceId: 'ha-1' }],
+    });
+    render(
+      <ModernProfilePage
+        {...baseProps}
+        presenceTrackerCount={4}
+        runtimeMode="real"
+        profileDevicesSupported
+        onCallApi={backend.callApi}
+      />,
+    );
+
+    const row = screen.getByRole('button', { name: /I miei dispositivi/ });
+    await waitFor(() => expect(row.textContent).toContain('1'));
+    expect(row.textContent).toContain('Dove ricevi le notifiche Domus');
+    expect(row.textContent).not.toContain('4');
+    expect(backend.messages).toEqual([{ type: 'domusos/profile/get_self' }]);
+  });
+
+  it('says the device count is unavailable without Profile Core support', () => {
+    const onCallApi = vi.fn();
+    render(<ModernProfilePage {...baseProps} runtimeMode="real" onCallApi={onCallApi} />);
+
+    expect(screen.getByRole('button', { name: /I miei dispositivi/ }).textContent).toContain('Non disponibile');
+    expect(onCallApi).not.toHaveBeenCalled();
+  });
+
+  it('falls back to unavailable when the integration has no profile commands', async () => {
+    const onCallApi = vi.fn(async () => {
+      throw Object.assign(new Error('Unknown command.'), { code: 'unknown_command' });
+    });
+    render(
+      <ModernProfilePage {...baseProps} runtimeMode="real" profileDevicesSupported onCallApi={onCallApi} />,
+    );
+
+    const row = screen.getByRole('button', { name: /I miei dispositivi/ });
+    await waitFor(() => expect(row.textContent).toContain('Non disponibile'));
+    fireEvent.click(row);
+    expect(await screen.findByText('Aggiorna l’integrazione Domus UI per gestire i dispositivi personali.')).toBeTruthy();
+    expect(onCallApi).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the tracker count only as a presence figure in the activity page', () => {
+    render(<ModernProfilePage {...baseProps} presenceTrackerCount={3} navigationRoute="/profile/activity" />);
+
+    const tile = screen.getByText('Fonti di presenza').parentElement;
+    expect(tile?.textContent).toContain('3');
   });
 });

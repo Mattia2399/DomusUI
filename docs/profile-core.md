@@ -201,6 +201,59 @@ segreti o dati completi della registrazione, servizi di notifica, email,
 coordinate o storico della posizione. I log riportano solo identificatori
 tecnici minimi.
 
+## Schermata "I miei dispositivi"
+
+Profilo → I miei dispositivi (`/profile/devices`) è la gestione self-service
+dei dispositivi personali. Usa solo i comandi `domusos/profile/*` già descritti
+e non invia mai id di utente, persona o proprietario, né un `ha_device_id`
+scritto a mano: si associa solo un dispositivo proposto dalla scoperta.
+
+- **Lettura**: `get_self` viene chiamato all'apertura del Profilo, una volta,
+  senza polling né sottoscrizioni. La panoramica e la schermata dei dispositivi
+  usano la stessa risposta; la riga "I miei dispositivi" mostra il numero di
+  `personal_devices` del profilo, non dei tracker.
+- **Dati salvati e dati dal vivo** restano separati: label e interruttori
+  vengono dal profilo, nome, tipo, stato, target e presenza da `live_devices`.
+  Un dispositivo senza dati dal vivo è mostrato come non più disponibile.
+- **Notifiche**: l'interruttore generale (`save_self` con solo
+  `notifications.enabled`) e quello di ogni dispositivo (`update_device`) sono
+  valori indipendenti. Spegnere il generale non cambia i dispositivi, che
+  restano modificabili. "Riceve notifiche" = generale && dispositivo &&
+  `capabilities.notifications`: è solo una presentazione e non viene salvato.
+  Se il dispositivo non può ricevere notifiche il suo interruttore è bloccato
+  ma conserva il valore.
+- **Revisione**: ogni scrittura invia `expected_revision`. I comandi partono
+  uno alla volta, ciascuno con l'ultima revisione ricevuta, e un interruttore
+  resta bloccato finché il suo comando non risponde. Su `revision_conflict` la
+  schermata rilegge il profilo e lo dice all'utente; non ripete mai il comando
+  da sola.
+- **Aggiunta**: la scoperta parte all'apertura del pannello, si può aggiornare
+  e mette prima i dispositivi associabili, poi quelli già nel profilo, poi gli
+  altri. Un dispositivo non associabile non ha alcun pulsante; associare chiede
+  una conferma leggera.
+- **Rimozione**: possibile anche per un dispositivo non più verificato o non
+  più presente in Home Assistant, e non tocca Home Assistant.
+- **Presenza**: solo descritta ("Gestita da Home Assistant", "Tracker
+  disponibile", "Non configurata"); la schermata non chiama mai
+  `person/update`.
+- **Disponibilità**: fuori dal pannello basta la connessione; dentro il
+  pannello serve anche la capability `profile_devices_v1` del bridge (non la
+  versione del protocollo). Senza supporto la riga mostra "Non disponibile";
+  offline le modifiche sono disattivate.
+- I dettagli tecnici (id del dispositivo Home Assistant, tracker, stato del
+  target) sono chiusi per impostazione predefinita e non includono mai user
+  id, webhook, token o URL di push.
+
+### Persona corrente e presenza
+
+La persona corrente è solo la `person` il cui attributo `user_id` è uguale
+all'id dell'utente Home Assistant collegato; se non ce n'è esattamente una,
+non c'è persona né presenza. I tracker sono solo quelli che quella persona
+dichiara (`device_trackers`, `source`, `entity_id` quando presente). Nomi,
+username, email e attributi dei tracker non contano mai: un utente senza
+persona collegata non vede la presenza di nessun altro. Il numero di tracker
+resta solo nella pagina Attività, come "Fonti di presenza".
+
 ## Decisioni architetturali
 
 Decisioni fissate dopo P1.1. La colonna di destra indica come il codice attuale
