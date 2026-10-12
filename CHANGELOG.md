@@ -95,9 +95,8 @@
   the initial layout, layout versions and dashboard sharing are on the
   Dashboard page; the Home Assistant backup, export, restore and reset are
   in Data and backup, while System only shows the latest backup; Developer
-  Mode is only in Advanced, now together with support and diagnostics. The
-  Security card opens the Security center directly, and the Home Assistant
-  status sits beside the title on phones too.
+  Mode is only in Advanced, now together with support and diagnostics, and
+  the Home Assistant status sits beside the title on phones too.
 - System status is a single column of grouped lists, like the Profile:
   updates first (at most four to install, the rest in the update center),
   then processor, memory and storage with a thin bar, network, the latest
@@ -135,6 +134,11 @@
   commands the app already used. Deleting asks first and keeps devices,
   entities and the rooms of a deleted floor. The rest of the app sees the
   changes at once.
+- Settings → Security gathers the security choices that were spread across
+  the app: the main alarm and the sensors and cameras the Security center
+  shows on this device, the PIN and extra code of each alarm card with
+  "remember on this device" (the device confirmation stays on the card), and
+  the personal device confirmation, which opens the Profile.
 
 ### Removed
 

@@ -11268,6 +11268,12 @@ export function MainBoard() {
               recipientsSupported={profileRecipientsSupported}
               loadStateTranslations={loadStateTranslations}
               onAreasChanged={handleSettingsAreasChanged}
+              alarmCards={securityAlarmProfiles.map(({ widgetId, entityId, requireDeviceConfirmation }) => ({
+                widgetId,
+                entityId,
+                requireDeviceConfirmation,
+              }))}
+              deviceAuthUser={deviceAuthUser}
               resolveAssetUrl={resolveSettingsAssetUrl}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}

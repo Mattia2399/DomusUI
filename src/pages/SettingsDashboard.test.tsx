@@ -100,7 +100,7 @@ describe('SettingsDashboard', () => {
     fireEvent.click(home.getByRole('button', { name: /^Piani e stanze/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/floors');
     fireEvent.click(home.getByRole('button', { name: /^Sicurezza/ }));
-    expect(onNavigate).toHaveBeenCalledWith('/security');
+    expect(onNavigate).toHaveBeenCalledWith('/settings/safety');
     fireEvent.click(homeAssistant.getByRole('button', { name: /^Entità/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/entities');
   });
@@ -115,14 +115,16 @@ describe('SettingsDashboard', () => {
     expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
   });
 
-  it('sends the old security settings address to the Security center', () => {
+  it('opens the security settings from the Home group', () => {
     const onNavigate = vi.fn();
     render(
       <DashboardSecurityProvider value={security}>
-        <SettingsDashboard {...baseProps} navigationRoute="/settings/security" onNavigate={onNavigate} />
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/safety" onNavigate={onNavigate} />
       </DashboardSecurityProvider>,
     );
 
+    expect(screen.getByRole('heading', { name: 'Sicurezza della casa' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Apri il Centro sicurezza/ }));
     expect(onNavigate).toHaveBeenCalledWith('/security');
   });
 

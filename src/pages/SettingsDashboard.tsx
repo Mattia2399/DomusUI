@@ -84,6 +84,8 @@ import type { WasteCollectionCallApi } from '../services/wasteCollectionClient';
 import type { HaStateTranslations } from '../services/haStateTranslations';
 import WasteCollectionSettings from '../components/settings/WasteCollectionSettings';
 import SettingsRoomsManager from '../components/settings/SettingsRoomsManager';
+import SettingsSecurityPage, { type SecurityAlarmCard } from '../components/settings/SettingsSecurityPage';
+import type { AuthUserContext } from '../hooks/useDeviceAuth';
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -115,6 +117,10 @@ type SettingsDashboardProps = {
   loadStateTranslations?: (language: string) => Promise<HaStateTranslations>;
   /** The rooms after a change made here, for the rest of the app. */
   onAreasChanged?: (areas: HaArea[]) => void;
+  /** The alarm cards of the dashboard, for their codes on this device. */
+  alarmCards?: SecurityAlarmCard[];
+  /** Whose device confirmation is shown (same identity as the Profile). */
+  deviceAuthUser?: Partial<AuthUserContext>;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   managedSectionContent?: React.ReactNode;
@@ -602,6 +608,8 @@ export default function SettingsDashboard({
   resolveAssetUrl,
   loadStateTranslations,
   onAreasChanged,
+  alarmCards = [],
+  deviceAuthUser,
   navigationRoute,
   onNavigate,
   managedSectionContent,
@@ -794,10 +802,6 @@ export default function SettingsDashboard({
   const navigateTo = (path: string) => onNavigate?.(path);
   const canOpenData =
     security.can('download_backup') || security.can('restore_backup') || security.can('reset_dashboard');
-  // Security settings are the Security center itself.
-  useEffect(() => {
-    if (settingsPath === '/settings/security') onNavigate?.('/security');
-  }, [onNavigate, settingsPath]);
   const hasSystemTelemetry = [cpuValue, ramPercent, tempValue, diskPercent].some(
     (value) => value !== null,
   );
@@ -978,7 +982,7 @@ export default function SettingsDashboard({
                 title={t('settings.security.title')}
                 subtitle={t('settings.security.subtitle')}
                 accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(16,185,129,0.14),transparent_58%)]"
-                onClick={() => navigateTo('/security')}
+                onClick={() => navigateTo('/settings/safety')}
               >
                 <SettingsCardPreview
                   variant="security"
@@ -1109,6 +1113,26 @@ export default function SettingsDashboard({
           </SettingsHubGroup>
         </main>
       </div>
+    );
+  }
+
+  // /settings/safety keeps the sidebar's Security icon off; the old address still works.
+  if (settingsPath === '/settings/safety' || settingsPath === '/settings/security') {
+    return (
+      <SettingsDetailShell
+        title={t('settings.security.pageTitle')}
+        subtitle={t('settings.securityPage.subtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <SettingsSecurityPage
+          haStates={haStates}
+          alarmCards={alarmCards}
+          canManage={security.can('manage_security_config')}
+          deviceAuthUser={deviceAuthUser}
+          onOpenSecurityCenter={() => navigateTo('/security')}
+          onOpenProfileSecurity={() => navigateTo('/profile/security')}
+        />
+      </SettingsDetailShell>
     );
   }
 

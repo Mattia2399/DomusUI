@@ -58,12 +58,15 @@ import {
   resolveAlarmManualCodeSubmission,
   resolveAlarmSecurityRequirement,
 } from '../utils/alarmSecurityPolicy';
+import {
+  SECURITY_CENTER_STORAGE_KEYS as STORAGE_KEYS,
+  isSecuritySensorEntity,
+  readSecurityCenterAlarm,
+  readSecurityCenterSelection as readStoredEntitySelection,
+  writeSecurityCenterAlarm,
+  writeSecurityCenterSelection as writeStoredEntitySelection,
+} from '../services/securityCenterSelection';
 
-const STORAGE_KEYS = {
-  alarmEntityId: 'ha.dashboard.security.alarmEntityId',
-  visibleSensorEntityIds: 'ha.dashboard.security.visibleSensorEntityIds',
-  visibleCameraEntityIds: 'ha.dashboard.security.visibleCameraEntityIds',
-};
 const LEGACY_SECURITY_ALARM_PIN_STORAGE_KEY = 'ha.dashboard.security.alarmPin';
 
 const UI_FLAGS = Object.freeze({
@@ -80,48 +83,6 @@ const SECURITY_CAMERA_PREVIEW_REFRESH_MS = 10_000;
 const SHIELD_SIZE = 304;
 const SHIELD_PROGRESS_RADIUS = 146;
 const SHIELD_PROGRESS_CIRCUMFERENCE = 2 * Math.PI * SHIELD_PROGRESS_RADIUS;
-const SECURITY_SENSOR_DEVICE_CLASSES = new Set([
-  'door',
-  'window',
-  'opening',
-  'motion',
-  'presence',
-  'occupancy',
-  'vibration',
-  'tamper',
-  'smoke',
-  'gas',
-  'co',
-  'co2',
-  'heat',
-  'moisture',
-  'safety',
-  'problem',
-  'lock',
-  'garage_door',
-]);
-const SECURITY_SENSOR_KEYWORDS = [
-  'door',
-  'window',
-  'motion',
-  'presence',
-  'occupancy',
-  'pir',
-  'tamper',
-  'smoke',
-  'gas',
-  'co',
-  'alarm',
-  'allarme',
-  'intrusion',
-  'intrusione',
-  'perimetro',
-  'security',
-  'sicurezza',
-  'garage',
-  'porta',
-  'finestra',
-];
 
 const ALARM_MODE_OPTIONS = [
   { value: 'armed_home', label: 'Casa', icon: House, feature: ALARM_FEATURE_ARM_HOME },
@@ -305,50 +266,6 @@ function cn(...inputs) {
   return twMerge(clsx(inputs));
 }
 
-function readStorageValue(key) {
-  if (typeof window === 'undefined') return '';
-  const raw = window.localStorage.getItem(key);
-  return typeof raw === 'string' ? raw : '';
-}
-
-function normalizeStoredEntityIds(values) {
-  if (!Array.isArray(values)) return [];
-  return [...new Set(values
-    .filter((value) => typeof value === 'string')
-    .map((value) => value.trim())
-    .filter(Boolean))];
-}
-
-function readStoredEntitySelection(key) {
-  if (typeof window === 'undefined') return null;
-  const raw = window.localStorage.getItem(key);
-  if (typeof raw !== 'string' || raw.trim().length === 0) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const legacyIds = normalizeStoredEntityIds(parsed);
-      // In the old format an empty list could be written while HA was still loading.
-      // Treat it as automatic discovery; future explicit empty selections use v2.
-      return legacyIds.length > 0 ? legacyIds : null;
-    }
-    if (parsed?.version === 2 && parsed?.mode === 'custom') {
-      return normalizeStoredEntityIds(parsed.ids);
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredEntitySelection(key, ids) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(key, JSON.stringify({
-    version: 2,
-    mode: 'custom',
-    ids: normalizeStoredEntityIds(ids),
-  }));
-}
-
 function toClockTime(date, locale) {
   return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
@@ -374,15 +291,6 @@ function resolveSensorType(entityId, liveEntity) {
   if (token.includes('door')) return 'door';
   if (token.includes('window')) return 'window';
   return 'sensor';
-}
-
-function isSecuritySensorEntity(entityId, liveEntity) {
-  const deviceClass = `${liveEntity?.rawAttributes?.device_class ?? ''}`.trim().toLowerCase();
-  if (SECURITY_SENSOR_DEVICE_CLASSES.has(deviceClass)) return true;
-  const friendlyName =
-    typeof liveEntity?.rawAttributes?.friendly_name === 'string' ? liveEntity.rawAttributes.friendly_name.trim() : '';
-  const token = `${entityId} ${friendlyName} ${deviceClass}`.toLowerCase();
-  return SECURITY_SENSOR_KEYWORDS.some((keyword) => token.includes(keyword));
 }
 
 function resolveCameraFriendlyName(entityId, liveEntity) {
@@ -971,7 +879,7 @@ export function SecurityDashboard({
   const [logs, setLogs] = useState(() => (runtimeMode === 'demo' ? localizedDemoLogs : []));
   const logsRuntimeRef = useRef(runtimeMode);
   const [sensorSearchQuery, setSensorSearchQuery] = useState('');
-  const [selectedAlarmEntityId, setSelectedAlarmEntityId] = useState(() => readStorageValue(STORAGE_KEYS.alarmEntityId));
+  const [selectedAlarmEntityId, setSelectedAlarmEntityId] = useState(() => readSecurityCenterAlarm());
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricAvailabilityResolved, setBiometricAvailabilityResolved] = useState(false);
   const [biometricStatus, setBiometricStatus] = useState(() => t('security.config.verifying'));
@@ -1308,8 +1216,7 @@ export function SecurityDashboard({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (selectedAlarmEntityId) window.localStorage.setItem(STORAGE_KEYS.alarmEntityId, selectedAlarmEntityId);
-      else window.localStorage.removeItem(STORAGE_KEYS.alarmEntityId);
+      writeSecurityCenterAlarm(selectedAlarmEntityId || null);
     }
   }, [selectedAlarmEntityId]);
 
