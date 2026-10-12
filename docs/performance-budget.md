@@ -43,6 +43,11 @@ misurava soprattutto il totale e singoli file riconosciuti dal nome.
   browser coincidono con le chiusure calcolate (Home 13 su 13; Energia 13 su 13,
   più il CSS globale già in cache richiesto di nuovo dal preload di Vite).
 
+I cataloghi delle lingue sono un caso condizionale: l'avvio ne scarica uno
+solo. Il budget include nel Boot il francese, attualmente il catalogo più
+grande, per misurare il caso peggiore; italiano e inglese sono superfici
+informative caricate solo dopo un cambio lingua.
+
 Il **totale distribuito** comprende tutto il codice lazy e non misura il tempo
 di avvio: una funzione caricata solo quando serve aumenta il totale senza
 toccare l'avvio. Per questo avvio, Home e route hanno limiti propri e stretti,

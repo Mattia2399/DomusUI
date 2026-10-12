@@ -5,6 +5,7 @@ import path from 'path';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { buildProductionCsp } from './src/security/contentSecurityPolicy';
 import { bundleGraphPlugin } from './scripts/bundle-graph-plugin.mjs';
+import { i18nCatalogPlugin } from './scripts/i18n-catalog-plugin';
 import { loadLocalHttpsOptions } from './vite.localHttps';
 import { packageVersion, productionCspPlugin } from './vite.shared';
 
@@ -42,6 +43,7 @@ export default defineConfig(({ mode }) => {
   plugins: [
     productionCspPlugin(buildProductionCsp(configuredOrigins)),
     panelBridgeDistributionPlugin(),
+    i18nCatalogPlugin(),
     react(),
     tailwindcss(),
     // build/bundle-graph.json for the performance budget; dist is unchanged.

@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
+import { i18nCatalogPlugin } from './scripts/i18n-catalog-plugin';
 
 export default defineConfig({
+  plugins: [i18nCatalogPlugin()],
   resolve: {
     preserveSymlinks: true,
   },

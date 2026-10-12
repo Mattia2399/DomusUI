@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
 import { useI18n } from '../../i18n/I18nProvider';
-import { italianTranslations, type TranslationKey } from '../../i18n/translations';
+import type { TranslationKey } from '../../i18n/translations';
 import { useCardSize } from './useCardSize';
 
 export type GreetingDefaults = {
@@ -17,8 +17,24 @@ const GREETING_REFRESH_MS = 60000;
 
 type GreetingTranslator = (key: TranslationKey, parameters?: Record<string, string | number>) => string;
 
+const DEFAULT_GREETING_MESSAGES: Partial<Record<TranslationKey, string>> = {
+  'greeting.morning': 'Buongiorno',
+  'greeting.afternoon': 'Buon pomeriggio',
+  'greeting.evening': 'Buonasera',
+  'greeting.night': 'Buonanotte',
+  'greeting.welcomeBack': 'Bentornato',
+  'greeting.weekend': 'Buon weekend',
+  'greeting.home.quiet': 'Casa in quiete.',
+  'greeting.home.favorite.one': 'Casa pronta. Un preferito è attivo.',
+  'greeting.home.favorite.many': 'Casa pronta. {count} preferiti attivi.',
+  'greeting.home.function.one': 'Una funzione principale è attiva.',
+  'greeting.home.function.many': '{count} funzioni principali attive.',
+  'greeting.home.calm': 'Tutto tranquillo. Nessuna attività rilevante.',
+  'greeting.home.lightTimer': 'Timer luce attivo per altri {minutes} min.',
+};
+
 const defaultGreetingTranslator: GreetingTranslator = (key, parameters) => {
-  const message = italianTranslations[key];
+  const message = DEFAULT_GREETING_MESSAGES[key] ?? key;
   if (!parameters) return message;
   return message.replace(/\{([a-zA-Z0-9_]+)\}/g, (match, parameter: string) =>
     Object.prototype.hasOwnProperty.call(parameters, parameter) ? String(parameters[parameter]) : match,

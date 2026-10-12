@@ -63,6 +63,10 @@
 
 ### Changed
 
+- Translation catalogs are now split by language: startup downloads only the
+  selected language, while another catalog is fetched on demand when the user
+  changes language. The interface keeps the current language visible until
+  the new catalog is ready.
 - Waste collection reminders now go to people: an administrator chooses Home
   Assistant persons, and each person gets the reminder on the devices they
   enabled in their Domus Profile. Existing configurations keep sending to

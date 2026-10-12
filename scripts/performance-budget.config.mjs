@@ -22,10 +22,12 @@ const MB = 1_000_000;
 
 /** Surfaces, named by source module id; `requires` is what is already loaded. */
 export const surfaces = [
-  // Startup: index.html, its entry chunk and the global stylesheet. Baseline 1,154,500 / 252,300.
+  // Startup: index.html, its entry chunk, the global stylesheet and exactly one
+  // language catalog. French is the largest catalog, so it guards the worst case.
+  // Baseline before locale splitting: 1,154,500 / 252,300.
   // Headroom ~4% (warning) and ~8% (limit): every byte here delays the first paint.
   {
-    id: 'boot', label: 'Boot', sources: ['index.html'],
+    id: 'boot', label: 'Boot', sources: ['index.html', 'virtual:domus-i18n/fr'],
     budget: { metric: 'cold', raw: { warning: 1.2 * MB, limit: 1.25 * MB }, gzip: { warning: 265 * KB, limit: 275 * KB } },
   },
   // Home and the dashboard shell every route lives in. Baseline 2,437,600 / 615,700 cold.
@@ -76,6 +78,11 @@ export const surfaces = [
     id: 'profile', label: 'Profilo', sources: ['src/components/settings/ModernProfilePage.tsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 45 * KB, limit: 55 * KB }, gzip: { warning: 15 * KB, limit: 18 * KB } },
   },
+
+  // Alternative language catalogs are fetched only after the user changes
+  // language. French is already counted in Boot as the largest startup case.
+  { id: 'locale-it', label: 'Lingua · Italiano', sources: ['virtual:domus-i18n/it'], requires: 'boot', kind: 'feature' },
+  { id: 'locale-en', label: 'Lingua · English', sources: ['virtual:domus-i18n/en'], requires: 'boot', kind: 'feature' },
 
   // On-demand features, loaded only after a user action, measured over their parent (~15-20% warning, ~30-40% limit).
   // Energy setup wizard, from /consumi/energia. Baseline 105,700 / 33,600.

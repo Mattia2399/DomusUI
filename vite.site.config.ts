@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
+import { i18nCatalogPlugin } from './scripts/i18n-catalog-plugin';
 import { buildPresentationSiteCsp } from './src/security/contentSecurityPolicy';
 import { packageVersion, productionCspPlugin } from './vite.shared';
 
@@ -18,7 +19,7 @@ export default defineConfig({
   base: './',
   // Host files copied verbatim to dist-site/ (_headers, robots.txt).
   publicDir: path.resolve(__dirname, 'site/public'),
-  plugins: [productionCspPlugin(buildPresentationSiteCsp()), react(), tailwindcss()],
+  plugins: [productionCspPlugin(buildPresentationSiteCsp()), i18nCatalogPlugin(), react(), tailwindcss()],
   define: {
     __APP_VERSION__: JSON.stringify(packageVersion),
   },

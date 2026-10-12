@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { TRANSLATIONS, type TranslationKey } from './translations';
+import type { TranslationKey } from './translations';
 
 export const SUPPORTED_LOCALES = ['it', 'en', 'fr'] as const;
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -15,6 +15,16 @@ export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 export const LANGUAGE_STORAGE_KEY = 'domusui.language.v1';
 
 export type TranslationParameters = Record<string, string | number>;
+type TranslationCatalog = Readonly<Record<TranslationKey, string>>;
+type TranslationCatalogModule = { default: TranslationCatalog };
+
+const catalogLoaders: Record<AppLocale, () => Promise<TranslationCatalogModule>> = {
+  it: () => import('virtual:domus-i18n/it'),
+  en: () => import('virtual:domus-i18n/en'),
+  fr: () => import('virtual:domus-i18n/fr'),
+};
+const loadedCatalogs = new Map<AppLocale, TranslationCatalog>();
+const pendingCatalogs = new Map<AppLocale, Promise<TranslationCatalog>>();
 
 type I18nContextValue = {
   locale: AppLocale;
@@ -55,9 +65,45 @@ export function detectBrowserLocale(): AppLocale {
   return FALLBACK_LOCALE;
 }
 
-function readStoredLocale(): AppLocale | null {
+export function readStoredLocale(): AppLocale | null {
   if (typeof window === 'undefined') return null;
   return normalizeAppLocale(window.localStorage.getItem(LANGUAGE_STORAGE_KEY));
+}
+
+export function resolveInitialLocale(): AppLocale {
+  return readStoredLocale() ?? detectBrowserLocale();
+}
+
+export function isTranslationCatalogLoaded(locale: AppLocale) {
+  return loadedCatalogs.has(locale);
+}
+
+export function preloadTranslationCatalog(locale: AppLocale): Promise<TranslationCatalog> {
+  const loaded = loadedCatalogs.get(locale);
+  if (loaded) return Promise.resolve(loaded);
+  const pending = pendingCatalogs.get(locale);
+  if (pending) return pending;
+
+  const request = catalogLoaders[locale]().then((module) => {
+    loadedCatalogs.set(locale, module.default);
+    pendingCatalogs.delete(locale);
+    return module.default;
+  }).catch((error) => {
+    pendingCatalogs.delete(locale);
+    throw error;
+  });
+  pendingCatalogs.set(locale, request);
+  return request;
+}
+
+export async function preloadInitialTranslationCatalog() {
+  const locale = resolveInitialLocale();
+  await preloadTranslationCatalog(locale);
+  return locale;
+}
+
+export async function preloadAllTranslationCatalogs() {
+  await Promise.all(SUPPORTED_LOCALES.map((locale) => preloadTranslationCatalog(locale)));
 }
 
 function interpolate(message: string, parameters?: TranslationParameters) {
@@ -72,7 +118,9 @@ export function translateForLocale(
   key: TranslationKey,
   parameters?: TranslationParameters,
 ) {
-  return interpolate(TRANSLATIONS[locale][key] ?? TRANSLATIONS.it[key], parameters);
+  const catalog = loadedCatalogs.get(locale);
+  const fallback = loadedCatalogs.get(FALLBACK_LOCALE) ?? loadedCatalogs.get('it');
+  return interpolate(catalog?.[key] ?? fallback?.[key] ?? key, parameters);
 }
 
 /**
@@ -84,35 +132,59 @@ export function I18nProvider({ children, forcedLocale }: { children: ReactNode; 
   const [explicitLocale, setExplicitLocale] = useState<AppLocale | null>(readStoredLocale);
   const [homeAssistantLocale, setHomeAssistantLocaleState] = useState<AppLocale | null>(null);
   const [browserLocale] = useState(detectBrowserLocale);
-  const locale = forcedLocale ?? explicitLocale ?? homeAssistantLocale ?? browserLocale;
+  const requestedLocale = forcedLocale ?? explicitLocale ?? homeAssistantLocale ?? browserLocale;
+  const [locale, setActiveLocale] = useState<AppLocale | null>(() => {
+    if (loadedCatalogs.has(requestedLocale)) return requestedLocale;
+    return SUPPORTED_LOCALES.find((candidate) => loadedCatalogs.has(candidate)) ?? null;
+  });
 
   const setLocale = useCallback((nextLocale: AppLocale) => {
     if (!SUPPORTED_LOCALES.includes(nextLocale)) return;
+    if (!forcedLocale && loadedCatalogs.has(nextLocale)) setActiveLocale(nextLocale);
     setExplicitLocale(nextLocale);
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLocale);
     }
-  }, []);
+  }, [forcedLocale]);
 
   const setHomeAssistantLocale = useCallback((candidate: unknown) => {
-    setHomeAssistantLocaleState(normalizeAppLocale(candidate));
-  }, []);
+    const nextLocale = normalizeAppLocale(candidate);
+    if (!forcedLocale && !explicitLocale && nextLocale && loadedCatalogs.has(nextLocale)) {
+      setActiveLocale(nextLocale);
+    }
+    setHomeAssistantLocaleState(nextLocale);
+  }, [explicitLocale, forcedLocale]);
 
   useEffect(() => {
-    if (forcedLocale || typeof document === 'undefined') return;
+    let cancelled = false;
+    void preloadTranslationCatalog(requestedLocale).then(() => {
+      if (!cancelled) setActiveLocale(requestedLocale);
+    }).catch(() => {
+      if (cancelled) return;
+      const fallback = SUPPORTED_LOCALES.find((candidate) => loadedCatalogs.has(candidate)) ?? null;
+      setActiveLocale(fallback);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [requestedLocale]);
+
+  useEffect(() => {
+    if (!locale || forcedLocale || typeof document === 'undefined') return;
     document.documentElement.lang = locale;
     document.documentElement.dataset.domusLocale = locale;
   }, [forcedLocale, locale]);
 
-  const value = useMemo<I18nContextValue>(() => ({
+  const value = useMemo<I18nContextValue | null>(() => locale ? ({
     locale,
     setLocale,
     setHomeAssistantLocale,
     t: (key, parameters) => translateForLocale(locale, key, parameters),
     formatNumber: (number, options) => new Intl.NumberFormat(locale, options).format(number),
     formatDate: (date, options) => new Intl.DateTimeFormat(locale, options).format(date),
-  }), [locale, setHomeAssistantLocale, setLocale]);
+  }) : null, [locale, setHomeAssistantLocale, setLocale]);
 
+  if (!value) return null;
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 

@@ -1,3 +1,7 @@
+import { preloadAllTranslationCatalogs } from '../i18n/I18nProvider';
+
+await preloadAllTranslationCatalogs();
+
 if (typeof globalThis.ResizeObserver === 'undefined') {
   class ResizeObserverStub implements ResizeObserver {
     disconnect() {}
