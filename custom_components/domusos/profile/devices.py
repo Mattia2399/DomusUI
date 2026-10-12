@@ -162,27 +162,30 @@ class DeviceInspector:
             "presence": presence,
         }
 
-    def live_status(self, device: PersonalDevice, ownership: OwnershipView) -> LiveStatus:
-        """Return the current state of a stored personal device."""
+    def live_status(self, device: PersonalDevice) -> LiveStatus:
+        """Return the current state of a stored personal device.
+
+        Home Assistant decides who owns a device, today: the device is active
+        for this user only while its app registration is theirs. Another
+        profile listing the same device changes nothing: at most one user can
+        be verified for a device at a time, so every other listing is out of
+        date (``unverified`` for its owner).
+        """
         entry = self.device(device.ha_device_id)
         if entry is None:
             return LiveStatus.MISSING
-        if device.ha_device_id in ownership.conflicts:
-            return LiveStatus.OWNERSHIP_CONFLICT
         if entry.disabled_by is not None:
             return LiveStatus.UNAVAILABLE
         if self.verified(device.ha_device_id) is None:
             return LiveStatus.UNVERIFIED
         return LiveStatus.ACTIVE
 
-    def live_device(self, device: PersonalDevice, ownership: OwnershipView) -> dict[str, Any]:
+    def live_device(self, device: PersonalDevice) -> dict[str, Any]:
         """Describe a stored personal device with its current state."""
-        status = self.live_status(device, ownership)
+        status = self.live_status(device)
         return {"device_id": device.id, "status": status.value, **self._describe(device.ha_device_id)}
 
-    def discover(
-        self, own_devices: Iterable[PersonalDevice], ownership: OwnershipView
-    ) -> list[dict[str, Any]]:
+    def discover(self, own_devices: Iterable[PersonalDevice]) -> list[dict[str, Any]]:
         """List the devices Home Assistant ties to this user, and whether each can be added.
 
         Only registrations made by this user are considered: a device of
@@ -200,10 +203,8 @@ class DeviceInspector:
                 status = DiscoveryStatus.UNAVAILABLE
             elif ha_device_id in owned:
                 status = DiscoveryStatus.ALREADY_OWNED
-            elif ha_device_id in ownership.conflicts:
-                status = DiscoveryStatus.OWNERSHIP_CONFLICT
-            elif ownership.owner_of.get(ha_device_id) not in (None, self.user_id):
-                status = DiscoveryStatus.OWNED_BY_OTHER
+            # Another profile may still list the device from before the app moved to
+            # this user: Home Assistant says it is this user's now, so it can be added.
             elif self.verified(ha_device_id) is None:
                 # Linked to more than one registration: nothing can be proven.
                 status = DiscoveryStatus.UNAVAILABLE

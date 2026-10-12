@@ -11,6 +11,7 @@ import {
 } from '../../../services/profileClient';
 import { DISCOVERY_STATUS_LABEL, PROFILE_ERROR_LABEL, sortDiscovery } from '../../../services/profileDevicesModel';
 import GlassBottomSheet from '../../ui/GlassBottomSheet';
+import NotYourDeviceHelp from './NotYourDeviceHelp';
 import {
   DEVICE_KIND_ICON,
   DISCOVERY_STATUS_VISUAL,
@@ -215,6 +216,11 @@ export function PersonalDeviceDiscoverySheet({
               })}
             </ul>
           )}
+          {devices.length > 0 ? (
+            <div className="mt-2 border-t border-[color:var(--ui-separator)] pt-2">
+              <NotYourDeviceHelp />
+            </div>
+          ) : null}
         </div>
       )}
     </GlassBottomSheet>

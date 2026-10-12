@@ -3,7 +3,7 @@
 import asyncio
 import json
 from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
@@ -21,8 +21,6 @@ from custom_components.domusos.profile.models import (
     DeviceNotClaimableError,
     DeviceNotFoundError,
     DeviceNotInProfileError,
-    DeviceOwnedByOtherProfileError,
-    DeviceOwnershipConflictError,
     InvalidDeviceError,
     RevisionConflictError,
     TooManyDevicesError,
@@ -233,7 +231,7 @@ async def test_presence_lists_trackers_of_the_device_read_only(hass: HomeAssista
     )
     manager = await _manager(hass)
 
-    found = {item["ha_device_id"]: item for item in DeviceInspector(hass, mattia.id).discover((), manager.ownership())}
+    found = {item["ha_device_id"]: item for item in DeviceInspector(hass, mattia.id).discover(())}
 
     assert found[phone.id]["presence"] == {"tracker_entity_ids": sorted([first, second]), "in_person_trackers": True}
     assert found[phone.id]["capabilities"]["presence"] is True
@@ -319,7 +317,7 @@ async def test_discovery_lists_only_the_users_own_registrations(hass: HomeAssist
     register_app(hass, erika.id, "mattia@example.com")
     manager = await _manager(hass)
 
-    found = DeviceInspector(hass, mattia.id).discover((), manager.ownership())
+    found = DeviceInspector(hass, mattia.id).discover(())
 
     assert {item["ha_device_id"] for item in found} == {mine.id, second.id}
     assert all(item["confidence"] == "verified" and item["claimable"] for item in found)
@@ -335,7 +333,7 @@ async def test_a_tracker_named_like_the_user_changes_nothing(hass: HomeAssistant
     hass.states.async_set(tracker, "home", {"friendly_name": "Mattia", "user_id": mattia.id})
     manager = await _manager(hass)
 
-    assert DeviceInspector(hass, mattia.id).discover((), manager.ownership()) == []
+    assert DeviceInspector(hass, mattia.id).discover(()) == []
     with pytest.raises(DeviceNotClaimableError):
         await manager.async_add_device(mattia.id, 0, erika_phone.id)
 
@@ -343,8 +341,7 @@ async def test_a_tracker_named_like_the_user_changes_nothing(hass: HomeAssistant
 async def test_discovery_states(hass: HomeAssistant, users) -> None:
     mattia, erika = users
     _, owned = register_app(hass, mattia.id, "Owned")
-    _, other = register_app(hass, mattia.id, "Other profile")
-    _, conflict = register_app(hass, mattia.id, "Conflict")
+    _, listed_elsewhere = register_app(hass, mattia.id, "Listed elsewhere")
     _, disabled = register_app(hass, mattia.id, "Disabled", disabled=True)
     register_app(hass, mattia.id, "Without device", with_device=False)
     third = await hass.auth.async_create_user("Luca")
@@ -352,21 +349,21 @@ async def test_discovery_states(hass: HomeAssistant, users) -> None:
         hass,
         _document(
             _stored_profile(mattia.id, 2, [_stored_device("dev-owned", owned.id)]),
-            _stored_profile(erika.id, 3, [_stored_device("dev-other", other.id), _stored_device("dev-c1", conflict.id)]),
-            _stored_profile(third.id, 1, [_stored_device("dev-c2", conflict.id)]),
+            _stored_profile(erika.id, 3, [_stored_device("dev-other", listed_elsewhere.id)]),
+            _stored_profile(third.id, 1, [_stored_device("dev-c2", listed_elsewhere.id)]),
         ),
     )
     own = manager.get_profile(mattia.id).profile.personal_devices
 
-    found = {item["display_name"]: item for item in DeviceInspector(hass, mattia.id).discover(own, manager.ownership())}
+    found = {item["display_name"]: item for item in DeviceInspector(hass, mattia.id).discover(own)}
 
     assert found["Owned"]["status"] == "already_owned"
-    assert found["Other profile"]["status"] == "owned_by_other"
-    assert found["Conflict"]["status"] == "ownership_conflict"
+    # Other profiles still list it, but Home Assistant ties the app to Mattia today.
+    assert found["Listed elsewhere"]["status"] == "available" and found["Listed elsewhere"]["claimable"]
     assert found["Disabled"]["status"] == "unavailable"
     assert found["Without device"]["status"] == "missing"
     assert found["Without device"]["ha_device_id"] is None
-    assert not any(item["claimable"] for item in found.values())
+    assert [name for name, item in found.items() if item["claimable"]] == ["Listed elsewhere"]
     assert erika.id not in json.dumps(found) and third.id not in json.dumps(found)
 
 
@@ -442,14 +439,20 @@ async def test_claims_that_must_be_refused(hass: HomeAssistant, users) -> None:
     manager.store.async_save.assert_not_called()
 
 
-async def test_a_device_owned_by_another_active_profile_is_refused(hass: HomeAssistant, users) -> None:
+async def test_a_stale_listing_in_another_profile_never_blocks_the_verified_owner(hass: HomeAssistant, users) -> None:
     mattia, erika = users
     _, device = register_app(hass, mattia.id, "Pixel 8")
     manager = await _manager(hass, _document(_stored_profile(erika.id, 2, [_stored_device("dev-e", device.id)])))
+    erika_before = manager.get_profile(erika.id).profile
 
-    with pytest.raises(DeviceOwnedByOtherProfileError) as raised:
-        await manager.async_add_device(mattia.id, 0, device.id)
-    assert erika.id not in str(raised.value)
+    view = await manager.async_add_device(mattia.id, 0, device.id)
+
+    assert [item.ha_device_id for item in view.profile.personal_devices] == [device.id]
+    # Erika's profile is never edited for her; her listing just no longer verifies.
+    assert manager.get_profile(erika.id).profile == erika_before
+    stale = DeviceInspector(hass, erika.id).live_device(erika_before.personal_devices[0])
+    fresh = DeviceInspector(hass, mattia.id).live_device(view.profile.personal_devices[0])
+    assert (stale["status"], fresh["status"]) == ("unverified", "active")
 
 
 async def test_the_profile_holds_at_most_ten_devices(hass: HomeAssistant, users) -> None:
@@ -470,7 +473,7 @@ async def test_removal_works_even_when_home_assistant_forgot_the_device(hass: Ho
     device_id = view.profile.personal_devices[0].id
     forget_app(hass, entry)
 
-    live = DeviceInspector(hass, mattia.id).live_device(view.profile.personal_devices[0], manager.ownership())
+    live = DeviceInspector(hass, mattia.id).live_device(view.profile.personal_devices[0])
     removed = await manager.async_remove_device(mattia.id, 1, device_id)
 
     assert live["status"] == "missing"
@@ -538,7 +541,7 @@ async def test_save_self_still_never_changes_devices(hass: HomeAssistant, users)
 # --- conflicts, orphans, concurrency, TOCTOU ---------------------------------------
 
 
-async def test_a_conflicted_device_is_quarantined_until_one_profile_removes_it(hass: HomeAssistant, users) -> None:
+async def test_listings_in_several_profiles_follow_home_assistant(hass: HomeAssistant, users) -> None:
     mattia, erika = users
     _, device = register_app(hass, mattia.id, "Pixel 8")
     luca = await hass.auth.async_create_user("Luca")
@@ -550,19 +553,17 @@ async def test_a_conflicted_device_is_quarantined_until_one_profile_removes_it(h
         ),
     )
 
+    # Still reported, for diagnostics; it decides nothing.
     assert manager.device_conflicts == {device.id: tuple(sorted((erika.id, luca.id)))}
-    assert manager.get_profile(erika.id).persisted and manager.get_profile(luca.id).persisted
-    with pytest.raises(DeviceOwnershipConflictError):
-        await manager.async_add_device(mattia.id, 0, device.id)
-    live = DeviceInspector(hass, erika.id).live_device(
-        manager.get_profile(erika.id).profile.personal_devices[0], manager.ownership()
-    )
-    assert live["status"] == "ownership_conflict"
+    for user, profile_id in ((erika, erika.id), (luca, luca.id)):
+        stored = manager.get_profile(profile_id).profile.personal_devices[0]
+        assert DeviceInspector(hass, user.id).live_device(stored)["status"] == "unverified"
 
+    view = await manager.async_add_device(mattia.id, 0, device.id)
+
+    assert DeviceInspector(hass, mattia.id).live_device(view.profile.personal_devices[0])["status"] == "active"
     await manager.async_remove_device(erika.id, 2, "dev-e")
-
-    assert manager.device_conflicts == {}
-    assert manager.device_owner(device.id) == luca.id
+    assert manager.get_profile(erika.id).profile.personal_devices == ()
 
 
 async def test_an_orphaned_profile_does_not_block_a_verified_claim(hass: HomeAssistant, users) -> None:
@@ -582,37 +583,26 @@ async def test_an_orphaned_profile_does_not_block_a_verified_claim(hass: HomeAss
     assert manager.device_conflicts == {}
 
 
-async def test_concurrent_claims_of_one_device_let_one_profile_win(hass: HomeAssistant, users) -> None:
+async def test_an_app_moved_to_the_right_account_moves_the_device(hass: HomeAssistant, users) -> None:
+    """Mattia once signed in on Erika's phone; the app is signed in again with Erika's account."""
     mattia, erika = users
-    _, device = register_app(hass, mattia.id, "Pixel 8")
+    entry, device = register_app(hass, mattia.id, "iPhone di Erika")
     manager = await _manager(hass)
-    write_started = asyncio.Event()
+    view = await manager.async_add_device(mattia.id, 0, device.id)
+    stored = view.profile.personal_devices[0]
 
-    async def slow_save(_document: Any) -> None:
-        write_started.set()
-        await asyncio.sleep(0)
+    # Home Assistant replaces the registration (same app and phone) and keeps the device.
+    hass.config_entries.async_update_entry(entry, data={**entry.data, "user_id": erika.id})
 
-    manager.store.async_save = AsyncMock(side_effect=slow_save)
-
-    # Synthetic: pretend Home Assistant verifies both users, so only the lock and
-    # the ownership index stand between them.
-    with patch(
-        "custom_components.domusos.profile.manager.DeviceInspector.verified",
-        return_value=object(),
-    ):
-        results = await asyncio.gather(
-            manager.async_add_device(mattia.id, 0, device.id),
-            manager.async_add_device(erika.id, 0, device.id),
-            return_exceptions=True,
-        )
-
-    assert write_started.is_set()
-    winners = [result for result in results if not isinstance(result, Exception)]
-    losers = [result for result in results if isinstance(result, DeviceOwnedByOtherProfileError)]
-    assert len(winners) == 1 and len(losers) == 1
-    assert manager.device_conflicts == {}
-    owners = [user for user in (mattia.id, erika.id) if manager.get_profile(user).persisted]
-    assert len(owners) == 1
+    assert DeviceInspector(hass, mattia.id).live_device(stored)["status"] == "unverified"
+    found = DeviceInspector(hass, erika.id).discover(())
+    assert [(item["ha_device_id"], item["status"], item["claimable"]) for item in found] == [(device.id, "available", True)]
+    added = await manager.async_add_device(erika.id, 0, device.id)
+    assert DeviceInspector(hass, erika.id).live_device(added.profile.personal_devices[0])["status"] == "active"
+    # Mattia keeps his stale entry until he removes it; nothing is changed for him.
+    assert manager.get_profile(mattia.id).profile.personal_devices == (stored,)
+    removed = await manager.async_remove_device(mattia.id, 1, stored.id)
+    assert removed.profile.personal_devices == ()
 
 
 async def test_only_the_real_owner_can_claim_when_both_try(hass: HomeAssistant, users) -> None:
@@ -634,7 +624,7 @@ async def test_claims_are_rechecked_live_after_discovery(hass: HomeAssistant, us
     mattia, _ = users
     entry, device = register_app(hass, mattia.id, "Pixel 8")
     manager = await _manager(hass)
-    assert DeviceInspector(hass, mattia.id).discover((), manager.ownership())[0]["claimable"]
+    assert DeviceInspector(hass, mattia.id).discover(())[0]["claimable"]
 
     forget_app(hass, entry)
 
@@ -652,10 +642,10 @@ async def test_a_reinstalled_app_is_a_new_device(hass: HomeAssistant, users) -> 
     _, new = register_app(hass, mattia.id, "Pixel 8")
 
     stored = view.profile.personal_devices[0]
-    found = DeviceInspector(hass, mattia.id).discover(view.profile.personal_devices, manager.ownership())
+    found = DeviceInspector(hass, mattia.id).discover(view.profile.personal_devices)
     added = await manager.async_add_device(mattia.id, 1, new.id)
 
-    assert DeviceInspector(hass, mattia.id).live_device(stored, manager.ownership())["status"] == "missing"
+    assert DeviceInspector(hass, mattia.id).live_device(stored)["status"] == "missing"
     assert [(item["ha_device_id"], item["status"]) for item in found] == [(new.id, "available")]
     fresh = added.profile.personal_devices[1]
     assert fresh.id != stored.id and fresh.label is None
@@ -667,7 +657,7 @@ async def test_a_user_without_person_manages_devices(hass: HomeAssistant, users)
     manager = await _manager(hass)
 
     view = await manager.async_add_device(mattia.id, 0, device.id)
-    live = DeviceInspector(hass, mattia.id).live_device(view.profile.personal_devices[0], manager.ownership())
+    live = DeviceInspector(hass, mattia.id).live_device(view.profile.personal_devices[0])
 
     assert live["status"] == "active"
     assert live["presence"]["in_person_trackers"] is False

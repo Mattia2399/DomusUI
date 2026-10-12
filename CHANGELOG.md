@@ -58,6 +58,11 @@
 - The evening waste reminder reads more clearly: with one collection the title
   names it ("Tomorrow: 🍾 Glass"), with several it counts them and lists each
   with an emoji from its icon. It follows the Home Assistant language.
+- A personal device belongs to whoever Home Assistant ties it to today. A
+  phone whose app was once signed in with someone else's account can be added
+  by its real owner as soon as the app is signed in again with their account;
+  the other profile shows it as no longer linked and can remove it. "Not your
+  device?" explains how to move a phone to the right person.
 
 - Profile presence (activity, map and timeline) now uses only the Person that
   Home Assistant links to the signed-in user and the trackers that Person

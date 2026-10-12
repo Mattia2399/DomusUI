@@ -68,6 +68,31 @@ describe('PersonalDevicesView', () => {
     expect(document.querySelector('details')).toBeNull();
   });
 
+  it('explains a phone that moved to another account and how to move one', async () => {
+    const backend = createFakeProfileBackend({
+      haDevices: [{ ...PIXEL, status: 'unverified', target: 'unavailable' }, IPAD],
+      owned: [{ haDeviceId: 'ha-pixel', label: 'iPhone di Giulia' }],
+    });
+    renderView(backend);
+
+    const moved = await screen.findByRole('article', { name: 'iPhone di Giulia' });
+    expect(within(moved).getByText('Non più collegato al tuo account')).toBeTruthy();
+    expect((within(moved).getByRole('switch') as HTMLButtonElement).disabled).toBe(true);
+
+    fireEvent.click(within(moved).getByRole('button', { name: 'Altre azioni per iPhone di Giulia' }));
+    const help = await screen.findByTestId('not-your-device-help');
+    expect(help.textContent).toContain('Un dispositivo non è tuo?');
+    expect(help.textContent).toContain('esci dal server e accedi con l’account giusto');
+    expect((help as HTMLDetailsElement).open).toBe(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Rimuovi iPhone di Giulia' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Rimuovi dal profilo' }));
+    expect(await screen.findByText('Nessun dispositivo personale')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Aggiungi dispositivo/ }));
+    await screen.findAllByTestId('discovery-device');
+    expect(screen.getByTestId('not-your-device-help').textContent).toContain('Un dispositivo non è tuo?');
+  });
+
   it('keeps device choices when the general switch is turned off', async () => {
     const backend = createFakeProfileBackend({ haDevices: [PIXEL], owned: [{ haDeviceId: 'ha-pixel' }] });
     renderView(backend);

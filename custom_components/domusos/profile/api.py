@@ -91,7 +91,6 @@ def _self_result(
     person = resolution.person
     devices = view.profile.personal_devices if view.profile is not None else ()
     inspector = DeviceInspector(hass, user_id) if devices else None
-    ownership = manager.ownership()
     return {
         "owner": {
             "user_id": user_id,
@@ -104,7 +103,7 @@ def _self_result(
         # Stored data, exactly as saved.
         "profile": view.as_dict(),
         # Derived live from Home Assistant on every request; never stored.
-        "live_devices": [inspector.live_device(device, ownership) for device in devices] if inspector else [],
+        "live_devices": [inspector.live_device(device) for device in devices] if inspector else [],
         "revision": view.revision,
     }
 
@@ -162,7 +161,7 @@ async def websocket_discover_devices(
         manager = _manager(hass)
         view = manager.get_profile(user_id)
         own = view.profile.personal_devices if view.profile is not None else ()
-        devices = DeviceInspector(hass, user_id).discover(own, manager.ownership())
+        devices = DeviceInspector(hass, user_id).discover(own)
         connection.send_result(msg["id"], {"devices": devices, "revision": view.revision})
     except Exception as err:  # noqa: BLE001 - every failure gets a stable error code
         _send_error(connection, msg["id"], err)

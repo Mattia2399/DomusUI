@@ -215,7 +215,7 @@ async def _mixed(home):
     return user, [phones[0]], ids
 
 
-async def test_an_ownership_conflict_is_not_ready(hass: HomeAssistant, home, hass_storage: dict) -> None:
+async def test_a_stale_listing_elsewhere_keeps_the_verified_owner_ready(hass: HomeAssistant, home, hass_storage: dict) -> None:
     from notification_support import start as start_again
 
     mattia = await hass.auth.async_create_user("Mattia")
@@ -240,7 +240,11 @@ async def test_an_ownership_conflict_is_not_ready(hass: HomeAssistant, home, has
     manager, _, _ = await start_again(hass)
     set_person(hass, "person.mattia", "p-mattia", mattia.id)
 
-    assert (await _listed(hass, manager))["p-mattia"]["status"] == "temporarily_unavailable"
+    set_person(hass, "person.erika", "p-erika", erika.id)
+
+    listed = await _listed(hass, manager)
+    # Home Assistant ties the phone to Mattia: Erika's old listing does not count.
+    assert (listed["p-mattia"]["status"], listed["p-erika"]["status"]) == ("ready", "temporarily_unavailable")
 
 
 async def test_an_unreadable_profile_store_fails_the_whole_list(hass: HomeAssistant, hass_storage: dict) -> None:

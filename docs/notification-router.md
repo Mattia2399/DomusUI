@@ -98,7 +98,7 @@ Per ogni dispositivo acceso:
 
 | Situazione | Esito | Motivo |
 | --- | --- | --- |
-| Home Assistant non lo lega più a questo utente, o è in conflitto di proprietà | skipped | `device_not_verified` |
+| Home Assistant non lo lega più a questo utente (per esempio l'app ora è di un altro account) | skipped | `device_not_verified` |
 | Dispositivo rimosso o disabilitato in Home Assistant | skipped | `target_unavailable` |
 | Target non disponibile, o sparito tra risoluzione e invio | skipped | `target_unavailable` |
 | Target ambiguo (mai scelto a caso) | skipped | `ambiguous_target` |
@@ -332,7 +332,7 @@ Nessun parametro: Home Assistant rifiuta qualsiasi campo oltre a `type`.
 | Stato | Quando | Selezionabile |
 | --- | --- | --- |
 | `ready` | Almeno un dispositivo acceso, verificato e con target pronto adesso | sì |
-| `temporarily_unavailable` | Profilo e preferenze accese, ma nessun dispositivo raggiungibile adesso (mancante, non più verificato, conflitto, target non disponibile o ambiguo) | sì |
+| `temporarily_unavailable` | Profilo e preferenze accese, ma nessun dispositivo raggiungibile adesso (mancante, non più verificato, target non disponibile o ambiguo) | sì |
 | `notifications_disabled` | Interruttore generale spento, oppure tutti i dispositivi spenti | sì |
 | `no_devices` | Profilo salvato senza dispositivi | sì |
 | `no_profile` | Account valido senza profilo salvato (il profilo sintetico non conta e non viene creato) | sì |

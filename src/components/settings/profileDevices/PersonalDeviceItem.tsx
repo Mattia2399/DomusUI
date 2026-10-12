@@ -8,6 +8,7 @@ import {
 } from '../../../services/profileDevicesModel';
 import GlassBottomSheet from '../../ui/GlassBottomSheet';
 import GlassToggle from '../../ui/GlassToggle';
+import NotYourDeviceHelp from './NotYourDeviceHelp';
 import {
   DEVICE_KIND_ICON,
   DEVICE_KIND_LABEL,
@@ -128,6 +129,9 @@ export function PersonalDeviceItem({
             <Trash2 size={17} aria-hidden="true" />
             {t('profile.devices.remove')}
           </button>
+          <div className="mt-2 border-t border-[color:var(--ui-separator)] px-3 pt-2">
+            <NotYourDeviceHelp />
+          </div>
         </div>
       </GlassBottomSheet>
     </article>

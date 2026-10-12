@@ -1,7 +1,7 @@
 """Read-only view of who can receive Domus notifications, shared by the router and the readiness list.
 
-One ``RecipientInspector`` reads Home Assistant once per request (people,
-Companion App registrations, the profile ownership index) and turns each
+One ``RecipientInspector`` reads Home Assistant once per request (people and
+Companion App registrations) and turns each
 person id into a *plan*: either the reason nothing would be sent, or the
 devices that want the notification with the target each would use right now.
 
@@ -110,7 +110,6 @@ class RecipientInspector:
         self._profiles = profiles
         self.persons: list[PersonIdentity] = list_persons(hass)
         self._registrations = list_registrations(hass)
-        self._ownership = profiles.ownership()
 
     def person_ids(self) -> list[str]:
         """Every internal person id Home Assistant exposes, once each, in a stable order."""
@@ -185,8 +184,8 @@ class RecipientInspector:
         return RecipientPlan(person_id, None, tuple(self._device(inspector, device) for device in due))
 
     def _device(self, inspector: DeviceInspector, device: PersonalDevice) -> DevicePlan:
-        status = inspector.live_status(device, self._ownership)
-        if status in (LiveStatus.UNVERIFIED, LiveStatus.OWNERSHIP_CONFLICT):
+        status = inspector.live_status(device)
+        if status is LiveStatus.UNVERIFIED:
             # Home Assistant no longer ties the device to this user: never send to it.
             return DevicePlan(device, reason=Reason.DEVICE_NOT_VERIFIED)
         if status is not LiveStatus.ACTIVE:

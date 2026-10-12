@@ -109,20 +109,37 @@ abbia. Non scrive nulla e non concede nulla. Ogni voce ha `confidence:
 | --- | --- | --- |
 | `available` | Verificato e libero | sì |
 | `already_owned` | Già nel tuo profilo | no |
-| `owned_by_other` | Appartiene a un altro profilo attivo (nessun dettaglio sul proprietario) | no |
-| `ownership_conflict` | In più profili attivi, in quarantena | no |
 | `missing` | La registrazione non ha un dispositivo nel Device Registry | no |
 | `unavailable` | Registrazione o dispositivo disabilitati, o non dimostrabili | no |
 
-### Proprietà attiva e conflitti
+### Chi possiede un dispositivo: lo decide Home Assistant
 
-Un dispositivo appartiene al massimo a **un profilo attivo**. L'indice inverso
-`ha_device_id -> proprietario` considera solo i profili attivi: se lo stesso
-dispositivo compare in più profili attivi è in **conflitto**, senza
-proprietario, finché uno dei profili non lo rimuove esplicitamente; allora
-l'indice ricostruito lo assegna all'unico rimasto. Nessun last-write-wins,
-nessun trasferimento né correzione automatica, e uno Store con un conflitto
-resta valido e leggibile.
+Il proprietario di un dispositivo è l'utente a cui Home Assistant lega **oggi**
+la registrazione della sua app. Siccome una registrazione appartiene a un solo
+utente, al massimo un profilo alla volta può essere verificato per un
+dispositivo. Un altro profilo che lo elenca ancora ha un dato **superato**: per
+il suo proprietario il dispositivo risulta `unverified` ("Non più collegato al
+tuo account"), non riceve mai notifiche e non blocca nessuno.
+
+È il caso tipico di un telefono su cui qualcuno ha fatto una volta l'accesso
+all'app con il proprio account (Mattia sull'iPhone di Giulia):
+
+1. Home Assistant lega l'iPhone a Mattia, che lo vede come suo e può
+   aggiungerlo.
+2. Sul telefono si esce dal server nell'app Home Assistant e si accede con
+   l'account di Giulia. Home Assistant sostituisce la registrazione (stessa
+   app, stesso telefono) e mantiene lo stesso dispositivo.
+3. Da quel momento Giulia può aggiungerlo, anche se il profilo di Mattia lo
+   elenca ancora; per Mattia diventa "Non più collegato al tuo account", e lo
+   rimuove quando vuole.
+
+Nessun trasferimento né modifica automatica dei profili: il profilo di Mattia
+non viene mai modificato per lui. Domus spiega il passaggio con "Un dispositivo
+non è tuo?" in "Aggiungi dispositivo" e nel menu "⋯" di ogni dispositivo.
+
+L'indice inverso `ha_device_id -> profilo` resta solo per diagnostica (più
+profili che elencano lo stesso dispositivo vengono registrati nel log), e uno
+Store in questa situazione resta valido e leggibile.
 
 Un profilo **orfano** non possiede nulla: non blocca l'aggiunta dello stesso
 dispositivo da parte di un utente attivo verificato, e conserva comunque il
@@ -133,8 +150,8 @@ profilo orfano e in un solo profilo attivo senza che sia un conflitto.
 
 - **Aggiunta** (`add_device`): il server rivaluta tutto dal vivo, sotto il lock
   del documento e subito prima della scrittura: il dispositivo esiste, la
-  registrazione lo verifica per l'utente, non è in conflitto né di un altro
-  profilo attivo, il profilo ha meno di 10 dispositivi. Il nuovo record riceve
+  registrazione lo verifica per l'utente, il profilo ha meno di 10
+  dispositivi. Un altro profilo che lo elenca ancora non conta. Il nuovo record riceve
   un id e un `added_at` generati dal server e `notifications.enabled: true`.
   Aggiungere un dispositivo già presente è un no-op.
 - **Rimozione** (`remove_device`): sempre possibile per un dispositivo proprio,
@@ -187,14 +204,16 @@ target ambiguo o non disponibile, e in quel caso non è pronto per le notifiche.
 | `domusos/profile/test_self` | `personal_device_id?` | notifica di prova a testo fisso sui propri dispositivi; vedi [Notification Router](notification-router.md#test-di-notifica-domusosprofiletest_self) |
 
 Stato dal vivo di un dispositivo del profilo: `active`, `unverified` (la
-registrazione non lo verifica più per l'utente), `ownership_conflict`,
-`unavailable` (disabilitato in Home Assistant) o `missing` (non più nel Device
-Registry). Nessun comando accetta id di utente, persona o proprietario, e gli
+registrazione non lo verifica più per l'utente, per esempio perché ora è di un
+altro account), `unavailable` (disabilitato in Home Assistant) o `missing` (non
+più nel Device Registry). `ownership_conflict` resta nel contratto ma non viene
+più prodotto. Nessun comando accetta id di utente, persona o proprietario, e gli
 errori non rivelano mai il proprietario di un dispositivo.
 
 Errori dei dispositivi: `device_not_found`, `device_not_claimable`,
-`device_owned_by_other_profile`, `device_ownership_conflict`,
-`too_many_devices`, `invalid_device`, `device_not_in_profile`;
+`too_many_devices`, `invalid_device`, `device_not_in_profile`
+(`device_owned_by_other_profile` e `device_ownership_conflict` restano nel
+contratto ma non vengono più prodotti);
 `notification_target_unavailable` e `ambiguous_target` sono riservati
 all'invio.
 
@@ -266,7 +285,7 @@ le rispetta.
 | # | Decisione | Stato |
 | --- | --- | --- |
 | 1 | **Label**: assente, `null`, `""` o solo spazi significano tutti "nessuna label". | Rispettata da P1.1a: forma canonica senza campo `label`, normalizzazione in memoria al caricamento, confronto dei dispositivi dopo la normalizzazione. |
-| 2 | **Dispositivo in due profili attivi**: conflitto di proprietà, in quarantena; nessun proprietario e nessun last-write-wins. | Rispettata: il dispositivo esce dall'indice inverso e compare solo tra i conflitti. |
+| 2 | **Dispositivo in più profili**: decide Home Assistant. È del profilo il cui utente è verificato oggi; gli altri elenchi sono superati, non ricevono e non bloccano; nessun last-write-wins e nessuna modifica automatica dei profili altrui. | Rivista dopo P1.6: prima il dispositivo restava in quarantena, e un telefono passato all'account giusto non si poteva più aggiungere. |
 | 3 | **Profili orfani**: nessuna pulizia automatica in V1. | Rispettata: alla rimozione dell'utente il profilo diventa `orphaned` e resta. |
 | 4 | **Profilo orfano e nuovo proprietario**: un profilo orfano non blocca per sempre l'associazione di un dispositivo, se il nuovo proprietario supera la verifica reale lato Home Assistant. | Rispettata da P1.2: i profili orfani non entrano nell'indice di proprietà e conservano il dato. |
 | 5 | **Salvataggio senza modifiche**: nessun incremento di revisione. | Rispettata da P1.1a, anche per un profilo mai salvato; il conflitto di revisione viene controllato prima. |

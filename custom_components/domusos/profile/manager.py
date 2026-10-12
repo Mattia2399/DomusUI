@@ -25,8 +25,6 @@ from .models import (
     DeviceNotClaimableError,
     DeviceNotFoundError,
     DeviceNotInProfileError,
-    DeviceOwnedByOtherProfileError,
-    DeviceOwnershipConflictError,
     DomusUserProfile,
     InvalidDeviceError,
     InvalidStoredDocumentError,
@@ -198,9 +196,9 @@ class ProfileManager:
         if self._device_conflicts == previous_conflicts:
             return
         for device_id, owners in self._device_conflicts.items():
-            _LOGGER.warning(
-                "Home Assistant device %s is listed by %d Domus profiles; it has no owner "
-                "until the conflict is resolved",
+            _LOGGER.info(
+                "Home Assistant device %s is listed by %d Domus profiles; only the one Home "
+                "Assistant ties it to receives notifications",
                 device_id,
                 len(owners),
             )
@@ -282,8 +280,14 @@ class ProfileManager:
         """Add a device Home Assistant proves belongs to the user.
 
         Everything that decides the claim is checked again here, under the
-        document lock and right before the commit: the live registration, the
-        device registry and the active ownership index. Discovery grants nothing.
+        document lock and right before the commit: the live registration and
+        the device registry. Discovery grants nothing.
+
+        Home Assistant is the authority on ownership: a device whose app
+        registration belongs to this user can be added even if another
+        profile still lists it from before (an app signed in with the wrong
+        account and then moved). That listing is left untouched; it simply no
+        longer verifies, so it never receives anything.
         """
         device_label = _device_label(label)
 
@@ -300,12 +304,12 @@ class ProfileManager:
             if inspector.verified(ha_device_id) is None:
                 _LOGGER.debug("Device %s is not verified for the requesting user", ha_device_id)
                 raise DeviceNotClaimableError("Home Assistant does not tie this device to your account")
-            if ha_device_id in self._device_conflicts:
-                _LOGGER.warning("Device %s is in an ownership conflict; claim refused", ha_device_id)
-                raise DeviceOwnershipConflictError("This device is in an ownership conflict")
-            owner = self._device_index.get(ha_device_id)
-            if owner is not None and owner != user_id:
-                raise DeviceOwnedByOtherProfileError("This device belongs to another profile")
+            if ha_device_id in self._device_index or ha_device_id in self._device_conflicts:
+                _LOGGER.info(
+                    "Device %s is still listed by another profile that Home Assistant no longer "
+                    "ties to it; the verified owner adds it",
+                    ha_device_id,
+                )
             added = PersonalDevice(
                 # A new record every time: removing and adding again never reuses an id.
                 id=uuid4().hex,
