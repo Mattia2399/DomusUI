@@ -1,6 +1,7 @@
 import React from 'react';
 import { UI } from './energyModel';
 import type { SensorOption } from './energySensorCatalog';
+import { useConsumptionCopy } from '../../../i18n/consumptionCopy';
 
 /*
  * Searchable sensor field (ARIA combobox): compatible sensors first, the
@@ -18,7 +19,7 @@ export function EnergySensorPicker({
   onChange,
   describedBy,
   invalid = false,
-  placeholder = 'Cerca per nome o sensor.…',
+  placeholder,
   autoFocus = false,
   onPick,
 }: {
@@ -35,6 +36,8 @@ export function EnergySensorPicker({
   /** Called after a sensor is chosen from the list (not while typing). */
   onPick?: () => void;
 }) {
+  const { c, cl } = useConsumptionCopy();
+  const inputPlaceholder = placeholder ?? c('Cerca per nome o sensor.…');
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState<string | null>(null);
   const [all, setAll] = React.useState(false);
@@ -82,7 +85,7 @@ export function EnergySensorPicker({
         aria-describedby={describedBy}
         aria-invalid={invalid}
         value={query ?? value}
-        placeholder={placeholder}
+        placeholder={inputPlaceholder}
         spellCheck={false}
         autoComplete="off"
         autoFocus={autoFocus}
@@ -114,7 +117,7 @@ export function EnergySensorPicker({
       />
       {open ? (
         <div ref={panel} className="absolute inset-x-0 top-full z-30 mt-1 overflow-hidden rounded-xl border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] shadow-[var(--ui-shadow-card)]">
-          <ul id={listId} role="listbox" aria-label="Sensori disponibili" className="max-h-64 overflow-y-auto py-1">
+          <ul id={listId} role="listbox" aria-label={c('Sensori disponibili')} className="max-h-64 overflow-y-auto py-1">
             {shown.map((option, index) => {
               const usedBy = option.id !== value ? taken[option.id] : undefined;
               const disabled = !usable(option);
@@ -134,18 +137,18 @@ export function EnergySensorPicker({
                     {option.id}{option.unit ? ` · ${option.unit}` : ''}{option.device ? ` · ${option.device}` : ''}
                   </span>
                   {option.problem || usedBy ? (
-                    <span className="block text-[11px] text-[color:var(--ui-warning)]">{option.problem ?? `Già usato da ${usedBy}`}</span>
+                    <span className="block text-[11px] text-[color:var(--ui-warning)]">{option.problem ? cl(option.problem) : c('Già usato da {name}', { name: usedBy ?? '' })}</span>
                   ) : null}
                 </li>
               );
             })}
-            {!shown.length ? <li className={`px-3 py-2 ${UI.muted}`}>Nessun sensore corrispondente. Puoi scrivere l’identificativo per intero.</li> : null}
-            {matches.length > LIMIT ? <li className={`px-3 py-2 ${UI.muted}`}>Altri {matches.length - LIMIT}: affina la ricerca.</li> : null}
+            {!shown.length ? <li className={`px-3 py-2 ${UI.muted}`}>{c('Nessun sensore corrispondente. Puoi scrivere l’identificativo per intero.')}</li> : null}
+            {matches.length > LIMIT ? <li className={`px-3 py-2 ${UI.muted}`}>{c('Altri {count}: affina la ricerca.', { count: matches.length - LIMIT })}</li> : null}
           </ul>
           {hidden ? (
             <label className={`flex min-h-10 items-center gap-2 border-t border-[color:var(--ui-separator)] px-3 ${UI.muted}`} onMouseDown={(event) => event.preventDefault()}>
               <input type="checkbox" checked={all} onChange={(event) => { setAll(event.target.checked); setActive(0); }} />
-              Mostra anche i {hidden} sensori non compatibili
+              {c('Mostra anche i {count} sensori non compatibili', { count: hidden })}
             </label>
           ) : null}
         </div>

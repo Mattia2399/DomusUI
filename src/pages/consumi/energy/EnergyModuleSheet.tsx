@@ -2,22 +2,27 @@ import GlassBottomSheet from '../../../components/ui/GlassBottomSheet';
 import type { EnergyModuleId, EnergyQuantity, EnergyState } from '../../../services/energyCoreClient';
 import { MODULE_META, formatAge, formatPower, formatQuantity, staleSince } from './energyModel';
 import { MAIN_ROLE, deviceRows, hasDeviceDetail, moduleCondition, partialLine, quantityLabel, totalRow, type DeviceRow } from './energyDevicesModel';
+import { translateConsumption, useConsumptionCopy } from '../../../i18n/consumptionCopy';
+import type { AppLocale } from '../../../i18n/I18nProvider';
 
 /* Details of one component (or the home), opened from its tile: live values, flows and sensors. The period history is in the Andamento section. */
 
-const formatEuro = (value: number) =>
-  value.toLocaleString('it-IT', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const formatEuro = (value: number, locale: AppLocale) =>
+  value.toLocaleString(locale, { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export const okValue = (quantity: EnergyQuantity | undefined | null) =>
   quantity?.status === 'ok' ? quantity.value : null;
 
 /** Where a value comes from (measured, a sum of devices, a total sensor…) or why it is missing. */
-export const describeQuantity = (quantity: EnergyQuantity | undefined | null) => quantityLabel(quantity);
+export const describeQuantity = (quantity: EnergyQuantity | undefined | null, locale: AppLocale = 'it') => quantityLabel(quantity, locale);
 
-const roleLabel = (id: EnergyModuleId, role: string) =>
+const roleLabel = (id: EnergyModuleId, role: string, locale: AppLocale) =>
   role === 'net_power'
-    ? `Netto (+ ${id === 'grid' ? 'prelievo' : 'scarica'})`
-    : MODULE_META[id].roles.find((spec) => spec.role === role)?.label ?? role;
+    ? translateConsumption(locale, id === 'grid' ? 'Netto (+ prelievo)' : 'Netto (+ scarica)')
+    : (() => {
+        const label = MODULE_META[id].roles.find((spec) => spec.role === role)?.label;
+        return label ? translateConsumption(locale, label) : role;
+      })();
 
 type Side = 'solar' | 'battery' | 'grid';
 export type LiveFlows = {
@@ -71,14 +76,15 @@ function Lines({ title, lines }: { title: string; lines: Line[] }) {
 }
 
 function Sensor({ label, quantity, now }: { label: string; quantity: EnergyQuantity; now: string }) {
+  const { c, locale } = useConsumptionCopy();
   return (
     <div className="py-2.5 text-xs">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-[color:var(--ui-text-secondary)]">{label}</span>
         <span className="text-right font-semibold text-[color:var(--ui-text-primary)]">
-          {formatQuantity(quantity)} <span className="font-normal text-[color:var(--ui-text-tertiary)]">· {describeQuantity(quantity)}</span>
+          {formatQuantity(quantity, locale)} <span className="font-normal text-[color:var(--ui-text-tertiary)]">· {describeQuantity(quantity, locale)}</span>
           {quantity.freshness === 'stale' ? (
-            <span className="block font-normal text-[color:var(--ui-warning)]">Non aggiornato {formatAge(quantity.reported_at, now)}</span>
+            <span className="block font-normal text-[color:var(--ui-warning)]">{c('Non aggiornato {age}', { age: formatAge(quantity.reported_at, now, locale) })}</span>
           ) : null}
         </span>
       </div>
@@ -95,10 +101,11 @@ const TONE: Record<DeviceRow['tone'], string> = {
 
 /** The total sensor and each device: a compact line that opens on its own sensors. */
 function Devices({ total, rows, now }: { total: DeviceRow | null; rows: DeviceRow[]; now: string }) {
+  const { c } = useConsumptionCopy();
   const items = total ? [total, ...rows] : rows;
   return (
-    <section className="space-y-1.5" aria-label="Dispositivi">
-      <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">Dispositivi</h3>
+    <section className="space-y-1.5" aria-label={c('Dispositivi')}>
+      <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{c('Dispositivi')}</h3>
       <ul className="divide-y divide-[color:var(--ui-separator)] rounded-2xl bg-[color:var(--ui-fill-tertiary)] px-3.5">
         {items.map((row) => (
           <li key={row.key}>
@@ -120,7 +127,7 @@ function Devices({ total, rows, now }: { total: DeviceRow | null; rows: DeviceRo
       </ul>
       {total ? (
         <p className="px-1 text-[10px] leading-4 text-[color:var(--ui-text-tertiary)]">
-          Il sensore totale misura l’intero modulo: i dispositivi sono solo il dettaglio e non vengono sommati a esso.
+          {c('Il sensore totale misura l’intero modulo: i dispositivi sono solo il dettaglio e non vengono sommati a esso.')}
         </p>
       ) : null}
     </section>
@@ -128,26 +135,26 @@ function Devices({ total, rows, now }: { total: DeviceRow | null; rows: DeviceRo
 }
 
 /** A module value from several devices that is missing: what the reporting ones give, never as the total. */
-function withDetail(id: EnergyModuleId, state: EnergyState, now: Line[]) {
+function withDetail(id: EnergyModuleId, state: EnergyState, now: Line[], locale: AppLocale) {
   if (id === 'home') {
-    const partial = partialLine('home', 'consumption_power', state.home_consumption);
+    const partial = partialLine('home', 'consumption_power', state.home_consumption, locale);
     return partial ? [...now, partial] : now;
   }
   const q = state.modules[id]?.quantities ?? {};
   const lines = [...now];
-  const partial = partialLine(id, MAIN_ROLE[id], q[MAIN_ROLE[id]]);
+  const partial = partialLine(id, MAIN_ROLE[id], q[MAIN_ROLE[id]], locale);
   if (partial) lines.push(partial);
   const soc = q.state_of_charge;
   if (id === 'battery' && hasDeviceDetail(state.modules.battery) && soc && soc.status !== 'ok') {
-    lines.unshift(['Stato di carica complessivo', quantityLabel(soc)]);
+    lines.unshift([translateConsumption(locale, 'Stato di carica complessivo'), quantityLabel(soc, locale)]);
   }
   return lines;
 }
 
 /** Live figures and flows of one component, with whether the flows are only estimated. */
-function liveLines(id: EnergyModuleId, state: EnergyState): { now: Line[]; flows: Line[]; estimated: boolean; note?: string } {
+function liveLines(id: EnergyModuleId, state: EnergyState, locale: AppLocale): { now: Line[]; flows: Line[]; estimated: boolean; note?: string } {
   const flows = liveFlows(state);
-  const kw = (value: number) => formatPower(value);
+  const kw = (value: number) => formatPower(value, locale);
   const share = (value: number, whole: number) => (whole > 0 ? ` · ${Math.round((value / whole) * 100)}%` : '');
   const has = (module: EnergyModuleId) => Boolean(state.modules[module]);
   const now: Line[] = [];
@@ -159,69 +166,69 @@ function liveLines(id: EnergyModuleId, state: EnergyState): { now: Line[]; flows
   const q = state.modules[id]?.quantities ?? {};
   if (id === 'solar') {
     const production = okValue(q.production_power);
-    now.push(['Produzione', production === null ? describeQuantity(q.production_power) : kw(production)]);
+    now.push([translateConsumption(locale, 'Produzione'), production === null ? describeQuantity(q.production_power, locale) : kw(production)]);
     if (flows && flows.supply.solar > 0) {
-      flow('Verso la casa', part(flows, 'solar', 'home'));
-      if (has('battery')) flow('Verso la batteria', part(flows, 'solar', 'battery'));
-      if (has('grid')) flow('Verso la rete', part(flows, 'solar', 'grid'));
+      flow(translateConsumption(locale, 'Verso la casa'), part(flows, 'solar', 'home'));
+      if (has('battery')) flow(translateConsumption(locale, 'Verso la batteria'), part(flows, 'solar', 'battery'));
+      if (has('grid')) flow(translateConsumption(locale, 'Verso la rete'), part(flows, 'solar', 'grid'));
     }
   } else if (id === 'grid') {
     const net = okValue(q.net_power);
-    now.push([net !== null && net < 0 ? 'Immissione' : 'Prelievo', net === null ? describeQuantity(q.net_power) : kw(Math.abs(net))]);
+    now.push([translateConsumption(locale, net !== null && net < 0 ? 'Immissione' : 'Prelievo'), net === null ? describeQuantity(q.net_power, locale) : kw(Math.abs(net))]);
     const tariff = state.tariff;
     if (tariff) {
-      now.push(['Fascia attuale', `${tariff.band_label} · ${tariff.price.toLocaleString('it-IT', { maximumFractionDigits: 4 })} €/kWh`]);
+      now.push([translateConsumption(locale, 'Fascia attuale'), `${tariff.band_label} · ${tariff.price.toLocaleString(locale, { maximumFractionDigits: 4 })} €/kWh`]);
       // Energy price only: the fixed fee has no hourly meaning. Prices exclude VAT when a rate is set.
       const vat = tariff.vat_percent ? 1 + tariff.vat_percent / 100 : 1;
       if (net !== null && net > 0) {
-        now.push([tariff.vat_percent ? 'Costo attuale stimato, IVA inclusa' : 'Costo attuale stimato', `≈ ${formatEuro((net / 1000) * tariff.price * vat)}/h`]);
+        now.push([translateConsumption(locale, tariff.vat_percent ? 'Costo attuale stimato, IVA inclusa' : 'Costo attuale stimato'), `≈ ${formatEuro((net / 1000) * tariff.price * vat, locale)}/h`]);
       }
-      if (net !== null && net < 0 && tariff.export_price) now.push(['Valore immissione stimato', `≈ ${formatEuro((-net / 1000) * tariff.export_price)}/h`]);
+      if (net !== null && net < 0 && tariff.export_price) now.push([translateConsumption(locale, 'Valore immissione stimato'), `≈ ${formatEuro((-net / 1000) * tariff.export_price, locale)}/h`]);
     }
     if (flows && flows.supply.grid > 0) {
-      flow('Alla casa', part(flows, 'grid', 'home'));
-      if (has('battery')) flow('Alla batteria', part(flows, 'grid', 'battery'));
+      flow(translateConsumption(locale, 'Alla casa'), part(flows, 'grid', 'home'));
+      if (has('battery')) flow(translateConsumption(locale, 'Alla batteria'), part(flows, 'grid', 'battery'));
     } else if (flows && flows.sink.grid > 0) {
-      if (has('solar')) flow('Dal fotovoltaico', part(flows, 'solar', 'grid'));
-      if (has('battery')) flow('Dalla batteria', part(flows, 'battery', 'grid'));
+      if (has('solar')) flow(translateConsumption(locale, 'Dal fotovoltaico'), part(flows, 'solar', 'grid'));
+      if (has('battery')) flow(translateConsumption(locale, 'Dalla batteria'), part(flows, 'battery', 'grid'));
     }
   } else if (id === 'battery') {
     const soc = okValue(q.state_of_charge);
     const net = okValue(q.net_power);
-    if (soc !== null) now.push(['Stato di carica', `${Math.round(soc)}%`]);
-    now.push([net !== null && net < 0 ? 'In carica' : 'In scarica', net === null ? describeQuantity(q.net_power) : kw(Math.abs(net))]);
+    if (soc !== null) now.push([translateConsumption(locale, 'Stato di carica'), `${Math.round(soc)}%`]);
+    now.push([translateConsumption(locale, net !== null && net < 0 ? 'In carica' : 'In scarica'), net === null ? describeQuantity(q.net_power, locale) : kw(Math.abs(net))]);
     if (flows && flows.sink.battery > 0) {
-      if (has('solar')) flow('Dal fotovoltaico', part(flows, 'solar', 'battery'));
-      flow('Dalla rete', part(flows, 'grid', 'battery'));
+      if (has('solar')) flow(translateConsumption(locale, 'Dal fotovoltaico'), part(flows, 'solar', 'battery'));
+      flow(translateConsumption(locale, 'Dalla rete'), part(flows, 'grid', 'battery'));
     } else if (flows && flows.supply.battery > 0) {
-      flow('Alla casa', part(flows, 'battery', 'home'));
-      if (has('grid')) flow('Alla rete', part(flows, 'battery', 'grid'));
+      flow(translateConsumption(locale, 'Alla casa'), part(flows, 'battery', 'home'));
+      if (has('grid')) flow(translateConsumption(locale, 'Alla rete'), part(flows, 'battery', 'grid'));
     }
   } else if (id === 'wallbox') {
     const charging = okValue(q.charging_power);
-    now.push(['Potenza di ricarica', charging === null ? describeQuantity(q.charging_power) : kw(charging)]);
+    now.push([translateConsumption(locale, 'Potenza di ricarica'), charging === null ? describeQuantity(q.charging_power, locale) : kw(charging)]);
     // The wallbox is behind the meter: it can only be given the same mix as the rest of the home.
     if (flows && charging !== null && charging > 0) {
       (['solar', 'battery', 'grid'] as const).filter(has).forEach((side) => {
-        flow(`Da ${MODULE_META[side].label.toLowerCase()}`, (flows.supply[side] * charging) / flows.total, charging);
+        flow(translateConsumption(locale, 'Da {source}', { source: translateConsumption(locale, MODULE_META[side].label).toLocaleLowerCase(locale) }), (flows.supply[side] * charging) / flows.total, charging);
       });
       const mixed = (['solar', 'battery', 'grid'] as const).filter((side) => flows.supply[side] > 0).length > 1;
       if (mixed) {
-        return { now: withDetail(id, state, now), flows: out, estimated: true, note: 'Stima: la wallbox riceve lo stesso mix del resto della casa, perché i contatori non distinguono i singoli carichi.' };
+        return { now: withDetail(id, state, now, locale), flows: out, estimated: true, note: translateConsumption(locale, 'Stima: la wallbox riceve lo stesso mix del resto della casa, perché i contatori non distinguono i singoli carichi.') };
       }
     }
   } else {
     const home = okValue(state.home_consumption);
-    now.push(['Consumo', home === null ? describeQuantity(state.home_consumption) : kw(home)]);
+    now.push([translateConsumption(locale, 'Consumo'), home === null ? describeQuantity(state.home_consumption, locale) : kw(home)]);
     const charging = okValue(state.modules.wallbox?.quantities.charging_power);
-    if (charging !== null && charging > 0) now.push(['Di cui ricarica auto', kw(charging)]);
+    if (charging !== null && charging > 0) now.push([translateConsumption(locale, 'Di cui ricarica auto'), kw(charging)]);
     if (flows && home !== null) {
       (['solar', 'battery', 'grid'] as const).filter(has).forEach((side) => {
-        flow(`Da ${MODULE_META[side].label.toLowerCase()}`, part(flows, side, 'home'), home);
+        flow(translateConsumption(locale, 'Da {source}', { source: translateConsumption(locale, MODULE_META[side].label).toLocaleLowerCase(locale) }), part(flows, side, 'home'), home);
       });
     }
   }
-  return { now: withDetail(id, state, now), flows: out, estimated: Boolean(flows?.estimated) };
+  return { now: withDetail(id, state, now, locale), flows: out, estimated: Boolean(flows?.estimated) };
 }
 
 export function EnergyModuleSheet({
@@ -235,59 +242,63 @@ export function EnergyModuleSheet({
   onClose: () => void;
   onEdit?: (id: EnergyModuleId) => void;
 }) {
+  const { c, locale } = useConsumptionCopy();
   const module = id && id !== 'home' ? state.modules[id] : undefined;
-  const live = id ? liveLines(id, state) : null;
+  const live = id ? liveLines(id, state, locale) : null;
   // The home sheet also lists the home meters when there are several.
   const detailModule = id ? state.modules[id] : undefined;
   const detail = id && hasDeviceDetail(detailModule) && detailModule ? {
-    total: totalRow(id, detailModule.total, state.observed_at),
-    rows: deviceRows(id, detailModule, state.observed_at),
+    total: totalRow(id, detailModule.total, state.observed_at, locale),
+    rows: deviceRows(id, detailModule, state.observed_at, locale),
   } : null;
   const condition = module && id ? moduleCondition(id, module) : 'complete';
   const status = !module
     ? null
     : module.status === 'offline'
-      ? 'Offline · i sensori non forniscono dati'
+      ? c('Offline · i sensori non forniscono dati')
       : module.freshness === 'stale'
-        ? `Non aggiornato ${formatAge(staleSince(module.quantities), state.observed_at)}`
-        : condition === 'complete' ? 'Attivo' : condition === 'detail_incomplete' ? 'Attivo · dettaglio dei dispositivi incompleto' : 'Dati parziali';
+        ? c('Non aggiornato {age}', { age: formatAge(staleSince(module.quantities), state.observed_at, locale) })
+        : condition === 'complete' ? c('Attivo') : condition === 'detail_incomplete' ? c('Attivo · dettaglio dei dispositivi incompleto') : c('Dati parziali');
   const sensors = id === 'home'
-    ? (state.home_consumption ? [['Consumo della casa', state.home_consumption] as const] : [])
-    : Object.entries(module?.quantities ?? {}).filter(([, quantity]) => quantity.status !== 'not_measured').map(([role, quantity]) => [roleLabel(id as EnergyModuleId, role), quantity] as const);
+    ? (state.home_consumption ? [[c('Consumo della casa'), state.home_consumption] as const] : [])
+    : Object.entries(module?.quantities ?? {}).filter(([, quantity]) => quantity.status !== 'not_measured').map(([role, quantity]) => [roleLabel(id as EnergyModuleId, role, locale), quantity] as const);
   const convention = id && id !== 'home' && module?.sign_convention
-    ? MODULE_META[id].conventions?.find(([value]) => value === module.sign_convention)?.[1]
+    ? (() => {
+        const text = MODULE_META[id].conventions?.find(([value]) => value === module.sign_convention)?.[1];
+        return text ? c(text) : undefined;
+      })()
     : undefined;
 
   return (
     <GlassBottomSheet
       isOpen={id !== null}
       onClose={onClose}
-      title={id === 'home' ? 'Consumo della casa' : id ? MODULE_META[id].label : ''}
+      title={id === 'home' ? c('Consumo della casa') : id ? c(MODULE_META[id].label) : ''}
       description={status ?? undefined}
       showCloseButton
       footer={id && onEdit ? (
         <button type="button" onClick={() => onEdit(id)} className="liquid-glass-control flex min-h-11 w-full items-center justify-center rounded-full px-4 text-sm font-semibold text-[color:var(--ui-text-primary)]">
-          Modifica sensori
+          {c('Modifica sensori')}
         </button>
       ) : undefined}
     >
       {id && live ? (
         <div className="space-y-5 text-left">
-          <Lines title="Adesso" lines={live.now} />
+          <Lines title={c('Adesso')} lines={live.now} />
           {live.flows.length ? (
             <div className="space-y-1.5">
-              <Lines title={live.estimated ? 'Flussi · stimati' : 'Flussi · calcolati'} lines={live.flows} />
+              <Lines title={live.estimated ? c('Flussi · stimati') : c('Flussi · calcolati')} lines={live.flows} />
               <p className="px-1 text-[10px] leading-4 text-[color:var(--ui-text-tertiary)]">
                 {live.note ?? (live.estimated
-                  ? 'Stima in proporzione: con più sorgenti attive insieme i contatori non dicono quale energia va dove.'
-                  : 'Calcolati dai contatori: in questa situazione ogni percorso è determinato.')}
+                  ? c('Stima in proporzione: con più sorgenti attive insieme i contatori non dicono quale energia va dove.')
+                  : c('Calcolati dai contatori: in questa situazione ogni percorso è determinato.'))}
               </p>
             </div>
           ) : null}
           {detail ? <Devices total={detail.total} rows={detail.rows} now={state.observed_at} /> : null}
           {sensors.length ? (
             <section className="space-y-1.5">
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{detail ? 'Valori del modulo' : 'Sensori'}</h3>
+              <h3 className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{detail ? c('Valori del modulo') : c('Sensori')}</h3>
               <div className="divide-y divide-[color:var(--ui-separator)] rounded-2xl bg-[color:var(--ui-fill-tertiary)] px-3.5">
                 {sensors.map(([label, quantity]) => <Sensor key={label} label={label} quantity={quantity} now={state.observed_at} />)}
               </div>

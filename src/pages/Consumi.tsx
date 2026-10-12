@@ -15,6 +15,7 @@ import { useEnergyCore, type EnergyPageContext } from './consumi/energy/useEnerg
 import { GasDetail } from './consumi/GasDetail';
 import { ReportDetail } from './consumi/ReportDetail';
 import type { IntervalKey } from './consumi/shared';
+import { useConsumptionCopy, type ConsumptionCopyKey } from '../i18n/consumptionCopy';
 
 type Props = {
   embedded?: boolean;
@@ -144,7 +145,7 @@ const CARD_BACKDROP_STYLES: Record<ConsumptionCardId, React.CSSProperties> = {
   ),
 };
 
-const DEFAULT_CARD_TITLES: Record<ConsumptionCardId, string> = {
+const DEFAULT_CARD_TITLES: Record<ConsumptionCardId, ConsumptionCopyKey> = {
   electricity: 'Energia',
   water: 'Acqua',
   gas: 'Gas',
@@ -297,13 +298,6 @@ function resolveActiveViewFromLocation(
   return 'overview';
 }
 
-function formatDecimal(value: number, digits = 1) {
-  return value.toLocaleString('it-IT', {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-  });
-}
-
 function EnergyMetricIcon({ metric }: { metric: EnergyOverviewMetric }) {
   if (metric.key === 'grid') return <TowerControl size={20} />;
   if (metric.key === 'solar') return <SunMedium size={20} />;
@@ -324,13 +318,14 @@ function EnergyOverviewCard({
   active: boolean;
   onClick: () => void;
 }) {
+  const { c } = useConsumptionCopy();
   const [home, ...secondary] = overview.metrics;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={`Energia · ${overview.notice.label}`}
+      aria-label={`${c('Energia')} · ${overview.notice.label}`}
       className={cn(
         'group relative min-h-[27rem] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#071018] p-5 text-left text-white shadow-[0_30px_80px_rgba(0,0,0,0.34)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 active:translate-y-0 sm:min-h-[31rem] sm:rounded-[2.25rem] sm:p-8',
         active ? 'border-sky-300/50 shadow-[0_0_0_1px_rgba(125,211,252,0.3),0_30px_80px_rgba(0,0,0,0.34)]' : '',
@@ -353,8 +348,8 @@ function EnergyOverviewCard({
       <div className="relative z-10 flex h-full min-h-[23rem] flex-col sm:min-h-[27rem]">
         <div className="flex flex-wrap items-start justify-between gap-4 pr-10 sm:pr-0">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">Sezione principale</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">Energia</h2>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/45">{c('Sezione principale')}</p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">{c('Energia')}</h2>
           </div>
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.06] px-3 py-2 backdrop-blur-xl">
             <span className="relative flex h-2 w-2 items-center justify-center" aria-hidden="true">
@@ -384,7 +379,7 @@ function EnergyOverviewCard({
         </div>
 
         <div className="mt-5 flex items-center justify-between text-xs font-semibold text-white/65 sm:mt-6">
-          <span>Apri i flussi energetici</span>
+          <span>{c('Apri i flussi energetici')}</span>
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] transition-transform duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5">
             <ArrowUpRight size={17} aria-hidden="true" />
           </span>
@@ -417,6 +412,7 @@ function UtilityCard({
   active: boolean;
   onClick: () => void;
 }) {
+  const { c } = useConsumptionCopy();
   return (
     <button
       type="button"
@@ -446,7 +442,7 @@ function UtilityCard({
         <h3 className="min-w-0 truncate text-xl font-semibold tracking-tight text-white sm:text-2xl">{title}</h3>
         {preview ? (
           <span className="shrink-0 rounded-full border border-white/20 bg-black/25 px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.12em] text-white/75 sm:text-[10px]">
-            Anteprima
+            {c('Anteprima')}
           </span>
         ) : null}
       </div>
@@ -481,11 +477,17 @@ export function ConsumptionDashboardPage({
   onDetailViewChange,
   energy,
 }: Props) {
+  const { c, formatNumber, locale } = useConsumptionCopy();
   const dashboardData = data ?? DEFAULT_DASHBOARD_DATA;
   const energyCore = useEnergyCore(energy);
-  const energyOverview = buildEnergyOverview(energyCore);
+  const energyOverview = buildEnergyOverview(energyCore, locale);
 
-  const cardTitles = DEFAULT_CARD_TITLES;
+  const cardTitles = React.useMemo<Record<ConsumptionCardId, string>>(() => ({
+    electricity: c(DEFAULT_CARD_TITLES.electricity),
+    water: c(DEFAULT_CARD_TITLES.water),
+    gas: c(DEFAULT_CARD_TITLES.gas),
+    trend: c(DEFAULT_CARD_TITLES.trend),
+  }), [c]);
   const routesByCard = DEFAULT_CARD_ROUTES;
 
   const [activeView, setActiveView] = React.useState<ActiveView>(() => {
@@ -641,9 +643,9 @@ export function ConsumptionDashboardPage({
         id: 'water',
         title: cardTitles.water,
         metrics: [
-          { value: `${Math.round(dashboardData.waterCurrentLiters)} L`, label: 'Erogazione Totale' },
-          { value: `${flussoMassimo} L/m`, label: 'Flusso Massimo' },
-          { value: `${formatDecimal(efficienzaAcqua)}%`, label: 'Efficienza Rete' },
+          { value: `${formatNumber(Math.round(dashboardData.waterCurrentLiters))} L`, label: c('Erogazione Totale') },
+          { value: `${formatNumber(flussoMassimo)} L/m`, label: c('Flusso Massimo') },
+          { value: `${formatNumber(efficienzaAcqua, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`, label: c('Efficienza Rete') },
         ],
         icon: <Droplets size={48} />,
         glowClassName: 'bg-cyan-400/45',
@@ -655,9 +657,9 @@ export function ConsumptionDashboardPage({
         id: 'gas',
         title: cardTitles.gas,
         metrics: [
-          { value: `${formatDecimal(consumoGas)} Sm3`, label: 'Consumo Attivo' },
-          { value: `${formatDecimal(potenzaTermica)} kW`, label: 'Potenza Termica' },
-          { value: `${formatDecimal(utilizzoGas)}%`, label: 'Utilizzo Medio' },
+          { value: `${formatNumber(consumoGas, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} Sm3`, label: c('Consumo Attivo') },
+          { value: `${formatNumber(potenzaTermica, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} kW`, label: c('Potenza Termica') },
+          { value: `${formatNumber(utilizzoGas, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`, label: c('Utilizzo Medio') },
         ],
         icon: <Flame size={48} />,
         glowClassName: 'bg-orange-400/45',
@@ -669,9 +671,9 @@ export function ConsumptionDashboardPage({
         id: 'trend',
         title: cardTitles.trend,
         metrics: [
-          { value: '24', label: 'Report Attivi' },
-          { value: '147', label: 'Download Totali' },
-          { value: '12', label: 'Condivisi' },
+          { value: formatNumber(24), label: c('Report Attivi') },
+          { value: formatNumber(147), label: c('Download Totali') },
+          { value: formatNumber(12), label: c('Condivisi') },
         ],
         icon: <BarChart3 size={48} />,
         glowClassName: 'bg-sky-400/45',
@@ -684,9 +686,11 @@ export function ConsumptionDashboardPage({
       cardTitles.gas,
       cardTitles.trend,
       cardTitles.water,
+      c,
       consumoGas,
       dashboardData.waterCurrentLiters,
       efficienzaAcqua,
+      formatNumber,
       flussoMassimo,
       potenzaTermica,
       utilizzoGas,
@@ -699,7 +703,7 @@ export function ConsumptionDashboardPage({
     }
 
     const interval = detailIntervals[activeView];
-    const title = `Dettaglio ${cardTitles[activeView]}`;
+    const title = c('Dettaglio {name}', { name: cardTitles[activeView] });
     const onIntervalChange = (value: IntervalKey) => setIntervalForCard(activeView, value);
 
     if (activeView === 'electricity') {
@@ -735,7 +739,7 @@ export function ConsumptionDashboardPage({
         onBack={handleBackToOverview}
       />
     );
-  }, [activeView, cardTitles, config, dashboardData, detailIntervals, energy, energyCore, handleBackToOverview, setIntervalForCard]);
+  }, [activeView, c, cardTitles, config, dashboardData, detailIntervals, energy, energyCore, handleBackToOverview, setIntervalForCard]);
 
   return (
     <div className={cn('relative h-full w-full overflow-hidden text-[color:var(--ui-text-primary)]', embedded ? '' : 'min-h-screen')}>
@@ -746,19 +750,19 @@ export function ConsumptionDashboardPage({
               <header>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="dashboard-page-title">
-                    Hub Sostenibilità e Consumi
+                    {c('Hub Sostenibilità e Consumi')}
                   </h1>
                   <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[color:var(--ui-text-secondary)]">
                     <FlaskConical size={13} />
-                    Anteprima beta
+                    {c('Anteprima beta')}
                   </span>
                 </div>
                 <p className="dashboard-content-surface mt-3 max-w-3xl rounded-2xl px-4 py-2.5 text-xs leading-relaxed text-[color:var(--ui-text-secondary)] sm:text-sm">
-                  Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.
+                  {c('Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.')}
                 </p>
               </header>
 
-              <section className="mt-5 grid gap-4 sm:mt-7 sm:gap-6 xl:grid-cols-12 xl:gap-8" aria-label="Panoramica consumi">
+              <section className="mt-5 grid gap-4 sm:mt-7 sm:gap-6 xl:grid-cols-12 xl:gap-8" aria-label={c('Panoramica consumi')}>
                 <div className="xl:col-span-8">
                   <EnergyOverviewCard
                     overview={energyOverview}

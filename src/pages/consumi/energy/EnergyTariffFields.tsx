@@ -2,10 +2,12 @@ import GlassSegmentSelect from '../../../components/ui/GlassSegmentSelect';
 import type { EnergyTariff, EnergyTariffScheme } from '../../../services/energyCoreClient';
 import { ERROR_TEXT } from './EnergyModuleEditor';
 import { UI } from './energyModel';
+import { translateConsumption, translateConsumptionLoose, useConsumptionCopy, type ConsumptionCopyKey } from '../../../i18n/consumptionCopy';
+import type { AppLocale } from '../../../i18n/I18nProvider';
 
 /* Tariff form shared by the setup wizard and the Energy settings. */
 
-const SCHEMES: Array<{ value: EnergyTariffScheme; label: string; bands: Array<[string, string, string]> }> = [
+const SCHEMES: Array<{ value: EnergyTariffScheme; label: ConsumptionCopyKey; bands: Array<[string, string, ConsumptionCopyKey]> }> = [
   { value: 'single', label: 'Monoraria', bands: [['single', 'Prezzo unico', 'Tutte le ore']] },
   {
     value: 'two_band',
@@ -26,24 +28,25 @@ const SCHEMES: Array<{ value: EnergyTariffScheme; label: string; bands: Array<[s
   },
 ];
 
-export const TARIFF_HINT = 'Prezzi del tuo contratto, IVA esclusa se indichi l’aliquota. Le fasce seguono gli orari ARERA.';
+export const TARIFF_HINT: ConsumptionCopyKey = 'Prezzi del tuo contratto, IVA esclusa se indichi l’aliquota. Le fasce seguono gli orari ARERA.';
 export const GROUP = 'overflow-hidden rounded-[1.65rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] shadow-[var(--ui-shadow-card)]';
 export const ROW = 'flex flex-wrap items-center gap-3 border-t border-[color:var(--ui-separator)] px-4 py-3.5 first:border-t-0 sm:px-5';
 const FIELD = 'liquid-glass-control min-h-10 w-28 rounded-xl px-3 text-right text-sm';
 
 export type TariffForm = { scheme: EnergyTariffScheme; prices: Record<string, string>; fixed: string; vat: string; export: string };
 
-const text = (value: number | null | undefined) => (value === null || value === undefined ? '' : String(value).replace('.', ','));
+const text = (value: number | null | undefined, locale: AppLocale = 'it') =>
+  value === null || value === undefined ? '' : new Intl.NumberFormat(locale, { maximumFractionDigits: 8, useGrouping: false }).format(value);
 const parse = (value: string) => (value.trim() ? Number(value.trim().replace(',', '.')) : null);
 const schemeOf = (value: EnergyTariffScheme) => SCHEMES.find((scheme) => scheme.value === value) ?? SCHEMES[2];
 
-export function tariffForm(tariff: EnergyTariff | null | undefined): TariffForm {
+export function tariffForm(tariff: EnergyTariff | null | undefined, locale: AppLocale = 'it'): TariffForm {
   return {
     scheme: tariff?.scheme ?? 'three_band',
-    prices: Object.fromEntries(Object.entries(tariff?.prices ?? {}).map(([key, value]) => [key, text(value)])),
-    fixed: text(tariff?.fixed_monthly),
-    vat: text(tariff?.vat_percent),
-    export: text(tariff?.export_price),
+    prices: Object.fromEntries(Object.entries(tariff?.prices ?? {}).map(([key, value]) => [key, text(value, locale)])),
+    fixed: text(tariff?.fixed_monthly, locale),
+    vat: text(tariff?.vat_percent, locale),
+    export: text(tariff?.export_price, locale),
   };
 }
 
@@ -52,15 +55,15 @@ export const isBlankTariff = (form: TariffForm) =>
   [...Object.values(form.prices), form.fixed, form.vat, form.export].every((value) => !value.trim());
 
 /** Client-side mirror of the backend limits for immediate feedback. The export price only counts with a grid. */
-export function tariffFromForm(form: TariffForm, withExport: boolean): { tariff?: EnergyTariff; errors: Record<string, string> } {
+export function tariffFromForm(form: TariffForm, withExport: boolean, locale: AppLocale = 'it'): { tariff?: EnergyTariff; errors: Record<string, string> } {
   const errors: Record<string, string> = {};
   const read = (key: string, value: string, max: number, required: boolean) => {
     const number = parse(value);
     if (number === null) {
-      if (required) errors[key] = 'Obbligatorio';
+      if (required) errors[key] = translateConsumption(locale, 'Obbligatorio');
       return null;
     }
-    if (!Number.isFinite(number) || number < 0 || number > max) errors[key] = `Tra 0 e ${max}`;
+    if (!Number.isFinite(number) || number < 0 || number > max) errors[key] = translateConsumption(locale, 'Tra 0 e {max}', { max });
     return number;
   };
   const prices = Object.fromEntries(schemeOf(form.scheme).bands.map(([key]) => [key, read(key, form.prices[key] ?? '', 10, true) ?? 0]));
@@ -75,39 +78,40 @@ export function tariffFromForm(form: TariffForm, withExport: boolean): { tariff?
 }
 
 /** One line such as "Trioraria · F1 0,31 · F2 0,27 · F3 0,22 €/kWh". */
-export function tariffSummary(tariff: EnergyTariff) {
+export function tariffSummary(tariff: EnergyTariff, locale: AppLocale = 'it') {
   const scheme = schemeOf(tariff.scheme);
-  const prices = scheme.bands.map(([key, label]) => `${tariff.scheme === 'single' ? '' : `${label} `}${text(tariff.prices[key])}`);
-  return `${scheme.label} · ${prices.join(' · ')} €/kWh`;
+  const prices = scheme.bands.map(([key, label]) => `${tariff.scheme === 'single' ? '' : `${translateConsumptionLoose(locale, label)} `}${text(tariff.prices[key], locale)}`);
+  return `${translateConsumption(locale, scheme.label)} · ${prices.join(' · ')} €/kWh`;
 }
 
 /** Scheme selector and price rows, laid out as rows of a settings group. */
 export function TariffFields({ form, onChange, withExport }: { form: TariffForm; onChange: (form: TariffForm) => void; withExport: boolean }) {
+  const { c, cl, locale } = useConsumptionCopy();
   const scheme = schemeOf(form.scheme);
-  const errors = isBlankTariff(form) ? {} : tariffFromForm(form, withExport).errors;
+  const errors = isBlankTariff(form) ? {} : tariffFromForm(form, withExport, locale).errors;
   const rows: Array<[string, string, string, string, (value: string) => void]> = [
     ...scheme.bands.map(([key, label, hours]): [string, string, string, string, (value: string) => void] => [
       key,
-      `${label} · €/kWh`,
-      hours,
+      `${cl(label)} · €/kWh`,
+      c(hours),
       form.prices[key] ?? '',
       (value) => onChange({ ...form, prices: { ...form.prices, [key]: value } }),
     ]),
-    ['fixed', 'Quota fissa · €/mese', 'Canoni e oneri fissi in bolletta', form.fixed, (value) => onChange({ ...form, fixed: value })],
-    ['vat', 'IVA · %', 'Facoltativa', form.vat, (value) => onChange({ ...form, vat: value })],
+    ['fixed', c('Quota fissa · €/mese'), c('Canoni e oneri fissi in bolletta'), form.fixed, (value) => onChange({ ...form, fixed: value })],
+    ['vat', c('IVA · %'), c('Facoltativa'), form.vat, (value) => onChange({ ...form, vat: value })],
   ];
   if (withExport) {
-    rows.push(['export', 'Energia immessa · €/kWh', 'Ritiro dedicato o scambio sul posto', form.export, (value) => onChange({ ...form, export: value })]);
+    rows.push(['export', c('Energia immessa · €/kWh'), c('Ritiro dedicato o scambio sul posto'), form.export, (value) => onChange({ ...form, export: value })]);
   }
   return (
     <>
       <div className={ROW}>
-        <p className="min-w-0 flex-1 text-sm font-medium text-[color:var(--ui-text-primary)]">Struttura tariffaria</p>
+        <p className="min-w-0 flex-1 text-sm font-medium text-[color:var(--ui-text-primary)]">{c('Struttura tariffaria')}</p>
         <GlassSegmentSelect
           value={form.scheme}
           onChange={(value) => onChange({ ...form, scheme: value as EnergyTariffScheme })}
-          options={SCHEMES.map(({ value, label }) => ({ value, label }))}
-          ariaLabel="Struttura tariffaria"
+          options={SCHEMES.map(({ value, label }) => ({ value, label: c(label) }))}
+          ariaLabel={c('Struttura tariffaria')}
           className="w-full sm:w-[20rem]"
           optionClassName="!h-9 !px-2"
         />

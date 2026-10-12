@@ -25,6 +25,8 @@ import { comingSoonAppTranslations } from './comingSoonAppTranslations';
 import { fanTranslations } from './fanTranslations';
 import { humidifierTranslations } from './humidifierTranslations';
 import { calendarTranslations } from './calendarTranslations';
+import { securityDashboardTranslations } from './securityDashboardTranslations';
+import { automationTranslations } from './automationTranslations';
 
 export const homeTranslations = {
   it: {
@@ -49,6 +51,8 @@ export const homeTranslations = {
     ...cameraPtzTranslations.it,
     ...homeMiscTranslations.it,
     ...calendarTranslations.it,
+    ...securityDashboardTranslations.it,
+    ...automationTranslations.it,
     ...homePersistenceTranslations.it,
     ...commonUiTranslations.it,
     ...appGalleryTranslations.it,
@@ -136,6 +140,8 @@ export const homeTranslations = {
     ...cameraPtzTranslations.en,
     ...homeMiscTranslations.en,
     ...calendarTranslations.en,
+    ...securityDashboardTranslations.en,
+    ...automationTranslations.en,
     ...homePersistenceTranslations.en,
     ...commonUiTranslations.en,
     ...appGalleryTranslations.en,
@@ -179,6 +185,8 @@ export const homeTranslations = {
     ...cameraPtzTranslations.fr,
     ...homeMiscTranslations.fr,
     ...calendarTranslations.fr,
+    ...securityDashboardTranslations.fr,
+    ...automationTranslations.fr,
     ...homePersistenceTranslations.fr,
     ...commonUiTranslations.fr,
     ...appGalleryTranslations.fr,

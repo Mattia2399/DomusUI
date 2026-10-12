@@ -12,6 +12,8 @@ import { MODULE_META, formatPower } from './energyModel';
 import type { DiscoveryReview } from './energyDiscoveryModel';
 import { METER_ROLES, meterLines, type PlantDraft, type PlantDraftDevice } from './energyPlantDraft';
 import { entityProblem, type SensorKind } from './energySensorCatalog';
+import { translateConsumption, translateConsumptionLoose } from '../../../i18n/consumptionCopy';
+import type { AppLocale } from '../../../i18n/I18nProvider';
 
 /*
  * Words of the guided setup: what the user sees instead of entity ids,
@@ -79,7 +81,10 @@ export const MODULE_WORDS: Record<EnergyModuleId, ModuleWords> = {
   },
 };
 
-export const count = (module: EnergyModuleId, n: number) => `${n} ${MODULE_WORDS[module].noun[n === 1 ? 0 : 1]}`;
+export const count = (module: EnergyModuleId, n: number, locale: AppLocale = 'it') => translateConsumption(locale, '{count} {noun}', {
+  count: n,
+  noun: translateConsumptionLoose(locale, MODULE_WORDS[module].noun[n === 1 ? 0 : 1]),
+});
 
 const ROLE_TEXT: Record<string, string> = {
   'grid:import_power': 'Potenza prelevata dalla rete',
@@ -112,7 +117,7 @@ export const sensorKind = (role: string): SensorKind => (role === 'state_of_char
 const POWER_FACTOR: Record<string, number> = { mW: 0.001, W: 1, kW: 1000, MW: 1_000_000 };
 
 /** "3,8 kW", "80%" from the live Home Assistant state, or null when it has no usable number. */
-export function liveReading(states: MockEntityStateMap, id: string | undefined): string | null {
+export function liveReading(states: MockEntityStateMap, id: string | undefined, locale: AppLocale = 'it'): string | null {
   const state = id ? states[id] : undefined;
   if (!state || state.state.trim() === '') return null;
   const value = Number(state.state);
@@ -120,8 +125,8 @@ export function liveReading(states: MockEntityStateMap, id: string | undefined):
   const raw = state.rawAttributes?.unit_of_measurement;
   const unit = typeof raw === 'string' ? raw : state.unit ?? '';
   if (unit === '%') return `${Math.round(value)}%`;
-  if (POWER_FACTOR[unit]) return formatPower(value * POWER_FACTOR[unit]);
-  return `${value.toLocaleString('it-IT', { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ''}`;
+  if (POWER_FACTOR[unit]) return formatPower(value * POWER_FACTOR[unit], locale);
+  return `${value.toLocaleString(locale, { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ''}`;
 }
 
 /** The name a person recognises: Home Assistant's friendly name, the discovery's, or the id. */
@@ -133,41 +138,43 @@ export function sensorName(states: MockEntityStateMap, discovery: EnergyDiscover
 export const sensorDevice = (discovery: EnergyDiscovery | null, id: string) => discovery?.candidates[id]?.device?.name ?? null;
 
 /** What the device reads now, for its card: never a guess, only bound sensors with a number. */
-export function deviceReading(module: EnergyModuleId, device: PlantDraftDevice, states: MockEntityStateMap): string | null {
+export function deviceReading(module: EnergyModuleId, device: PlantDraftDevice, states: MockEntityStateMap, locale: AppLocale = 'it'): string | null {
   if (!device.power.present) return null;
   const sensors = device.power.sensors;
   const parts = activeRoles(module, device.power.mode)
     .map((role) => {
-      const value = liveReading(states, sensors[role]?.trim());
+      const value = liveReading(states, sensors[role]?.trim(), locale);
       if (!value) return null;
-      if (module === 'battery' && role === 'state_of_charge') return `Carica ${value}`;
-      if (role === 'import_power') return `Prelievo ${value}`;
-      if (role === 'export_power') return `Immissione ${value}`;
-      if (role === 'charge_power') return `In carica ${value}`;
-      if (role === 'discharge_power') return `In scarica ${value}`;
-      return `${value} ora`;
+      if (module === 'battery' && role === 'state_of_charge') return translateConsumption(locale, 'Carica {power}', { power: value });
+      if (role === 'import_power') return translateConsumption(locale, 'Prelievo {value}', { value });
+      if (role === 'export_power') return translateConsumption(locale, 'Immissione {value}', { value });
+      if (role === 'charge_power') return translateConsumption(locale, 'In carica {value}', { value });
+      if (role === 'discharge_power') return translateConsumption(locale, 'In scarica {value}', { value });
+      return translateConsumption(locale, '{value} ora', { value });
     })
     .filter(Boolean);
   return parts.length ? parts.join(' · ') : null;
 }
 
 /** A meter in plain words: what Home Assistant said about it, or whether it at least fits. */
-export function meterState(info: EnergyMeterInfo | undefined, fits: boolean): { status: GuideStatus; text: string } {
+export function meterState(info: EnergyMeterInfo | undefined, fits: boolean, locale: AppLocale = 'it'): { status: GuideStatus; text: string } {
   switch (info?.status) {
     case 'valid':
-      return { status: 'ready', text: 'Pronto' };
+      return { status: 'ready', text: translateConsumption(locale, 'Pronto') };
     case 'pending':
-      return { status: 'waiting', text: 'In attesa di Home Assistant' };
+      return { status: 'waiting', text: translateConsumption(locale, 'In attesa di Home Assistant') };
     case 'recorder_unavailable':
-      return { status: 'waiting', text: 'Verifica temporaneamente non disponibile' };
+      return { status: 'waiting', text: translateConsumption(locale, 'Verifica temporaneamente non disponibile') };
     case 'unavailable':
-      return { status: 'check', text: 'Non disponibile ora' };
+      return { status: 'check', text: translateConsumption(locale, 'Non disponibile ora') };
     case 'incompatible':
-      return { status: 'problem', text: 'Non compatibile' };
+      return { status: 'problem', text: translateConsumption(locale, 'Non compatibile') };
     case 'unknown':
-      return { status: 'check', text: 'Non siamo riusciti a verificarlo' };
+      return { status: 'check', text: translateConsumption(locale, 'Non siamo riusciti a verificarlo') };
     default:
-      return fits ? { status: 'ready', text: 'Contatore trovato' } : { status: 'check', text: 'Non siamo riusciti a verificarlo' };
+      return fits
+        ? { status: 'ready', text: translateConsumption(locale, 'Contatore trovato') }
+        : { status: 'check', text: translateConsumption(locale, 'Non siamo riusciti a verificarlo') };
   }
 }
 
@@ -200,15 +207,15 @@ export type ModuleFinding = {
 };
 
 /** One line per chosen module for the detection summary. */
-export function moduleFindings(review: DiscoveryReview | null, configured: Partial<Record<EnergyModuleId, number>>, modules: EnergyModuleId[]): ModuleFinding[] {
+export function moduleFindings(review: DiscoveryReview | null, configured: Partial<Record<EnergyModuleId, number>>, modules: EnergyModuleId[], locale: AppLocale = 'it'): ModuleFinding[] {
   return modules.map((module) => {
     const found = review?.newDevices.filter((device) => device.module === module) ?? [];
     const updates = review?.changes.filter((device) => device.module === module) ?? [];
     const doubts = (review?.ambiguous.filter((item) => item.module === module).length ?? 0) + (review?.conflicts.filter((item) => item.module === module).length ?? 0);
     const stored = configured[module] ?? 0;
     const details = [...found, ...updates].map((device) => [
-      device.name ?? MODULE_META[module].label,
-      device.confidence ? CONFIDENCE_TEXT[device.confidence] : null,
+      device.name ?? translateConsumption(locale, MODULE_META[module].label),
+      device.confidence ? translateConsumptionLoose(locale, CONFIDENCE_TEXT[device.confidence]) : null,
       device.integration ?? null,
       ...(device.power ?? []).map((item) => item.entity_id),
       ...(device.energy ?? []).flatMap((item) => item.statistic_ids),
@@ -219,16 +226,17 @@ export function moduleFindings(review: DiscoveryReview | null, configured: Parti
     let headline: string;
     if (!found.length && !stored) {
       status = doubts ? 'check' : 'missing';
-      headline = doubts ? 'Trovato qualcosa da verificare: lo vedrai nel suo passaggio' : 'Nessun dispositivo trovato: lo configurerai tu';
+      headline = translateConsumption(locale, doubts ? 'Trovato qualcosa da verificare: lo vedrai nel suo passaggio' : 'Nessun dispositivo trovato: lo configurerai tu');
     } else if (found.length) {
       const unsure = found.filter((device) => !device.eligible).length;
       status = doubts || unsure ? 'check' : meterOnly ? 'waiting' : 'ready';
-      headline = `${count(module, found.length)} ${found.length === 1 ? 'trovato' : 'trovati'}`;
-      if (unsure) headline += unsure === found.length ? ', da verificare' : `, ${unsure} da verificare`;
-      if (stored) headline += `, oltre ${stored === 1 ? 'a quello configurato' : `ai ${stored} configurati`}`;
+      headline = translateConsumption(locale, found.length === 1 ? '{devices} trovato' : '{devices} trovati', { devices: count(module, found.length, locale) });
+      if (unsure) headline = translateConsumption(locale, unsure === found.length ? '{headline}, da verificare' : '{headline}, {count} da verificare', { headline, count: unsure });
+      if (stored) headline = translateConsumption(locale, stored === 1 ? '{headline}, oltre a quello configurato' : '{headline}, oltre ai {count} configurati', { headline, count: stored });
     } else {
       status = doubts ? 'check' : 'ready';
-      headline = `${count(module, stored)} già ${stored === 1 ? 'configurato' : 'configurati'}${updates.length ? ' · Domus ha qualche suggerimento' : ''}`;
+      headline = translateConsumption(locale, stored === 1 ? '{devices} già configurato' : '{devices} già configurati', { devices: count(module, stored, locale) });
+      if (updates.length) headline = translateConsumption(locale, '{headline} · Domus ha qualche suggerimento', { headline });
     }
     return { module, status, headline, details };
   });

@@ -1,4 +1,6 @@
 import { ENERGY_MODULES, type EnergyModuleId, type EnergyProfileModules } from '../../../services/energyCoreClient';
+import { translateConsumptionLoose } from '../../../i18n/consumptionCopy';
+import type { AppLocale } from '../../../i18n/I18nProvider';
 import { MODULE_META } from './energyModel';
 
 export type DraftModule = {
@@ -65,31 +67,34 @@ export function powerIssues(
   module: DraftModule,
   used: Map<string, string>,
   holder: string = MODULE_META[id].label,
+  locale: AppLocale = 'it',
 ): DraftIssue[] {
   const issues: DraftIssue[] = [];
   const configured = activeRoles(id, module.mode).filter((role) => module.sensors[role]?.trim());
   if (configured.length === 0) {
-    issues.push({ module: id, message: 'Scegli almeno un sensore per questo modulo.' });
+    issues.push({ module: id, message: translateConsumptionLoose(locale, 'Scegli almeno un sensore per questo modulo.') });
   }
   for (const role of configured) {
     const entityId = module.sensors[role].trim();
     if (!SENSOR_PATTERN.test(entityId)) {
-      issues.push({ module: id, role, message: 'Usa un’entità sensor.* esistente.' });
+      issues.push({ module: id, role, message: translateConsumptionLoose(locale, 'Usa un’entità sensor.* esistente.') });
     } else if (used.has(entityId)) {
-      issues.push({ module: id, role, message: `Sensore già usato per ${used.get(entityId)}.` });
+      issues.push({ module: id, role, message: translateConsumptionLoose(locale, 'Sensore già usato per {holder}.', { holder: used.get(entityId) ?? '' }) });
     } else {
       used.set(entityId, holder);
     }
   }
   if (module.mode === 'net' && module.sensors.net_power?.trim() && !module.signConvention) {
-    issues.push({ module: id, role: 'net_power', message: 'Conferma il significato dei valori positivi.' });
+    issues.push({ module: id, role: 'net_power', message: translateConsumptionLoose(locale, 'Conferma il significato dei valori positivi.') });
   }
   return issues;
 }
 
-export function validateDraft(draft: EnergyDraft): DraftIssue[] {
+export function validateDraft(draft: EnergyDraft, locale: AppLocale = 'it'): DraftIssue[] {
   const used = new Map<string, string>();
-  return ENERGY_MODULES.flatMap((id) => (draft[id].present ? powerIssues(id, draft[id], used) : []));
+  return ENERGY_MODULES.flatMap((id) => (draft[id].present
+    ? powerIssues(id, draft[id], used, translateConsumptionLoose(locale, MODULE_META[id].label), locale)
+    : []));
 }
 
 export const sameModules = (left: EnergyProfileModules, right: EnergyProfileModules) =>

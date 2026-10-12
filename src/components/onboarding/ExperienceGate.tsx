@@ -108,7 +108,7 @@ export function ExperienceGate() {
     );
   }
 
-  const localizedRoutes = ['/home', '/rooms', '/settings', '/profile', '/support', '/setup', '/appgallery', '/appgalley'];
+  const localizedRoutes = ['/home', '/rooms', '/consumi', '/settings', '/profile', '/support', '/setup', '/appgallery', '/appgalley'];
   const normalizedPath = location.pathname.toLowerCase().replace(/\/+$/, '') || '/';
   const routeIsLocalized = normalizedPath === '/' || localizedRoutes.some(
     (path) => normalizedPath === path || normalizedPath.startsWith(`${path}/`),

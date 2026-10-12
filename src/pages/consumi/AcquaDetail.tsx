@@ -5,17 +5,18 @@ import { CloudRain, Droplets, Home, Waves } from 'lucide-react';
 import type { ConsumptionDashboardData, ConsumptionEntityConfig } from '../../hooks/useConsumptionConfig';
 import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip, PreviewDataNotice } from './shared';
 import { MOCK_DEVICES, OrbitalDevices } from './orbitalDevices';
+import { useConsumptionCopy } from '../../i18n/consumptionCopy';
 
 type WaterMode = 'NORMALE' | 'PIOGGIA';
 
 const WATER_WEEK_DATA = [
-  { label: 'Lun', litri: 210 },
-  { label: 'Mar', litri: 235 },
-  { label: 'Mer', litri: 198 },
-  { label: 'Gio', litri: 244 },
-  { label: 'Ven', litri: 228 },
-  { label: 'Sab', litri: 262 },
-  { label: 'Dom', litri: 240 },
+  { day: 5, litri: 210 },
+  { day: 6, litri: 235 },
+  { day: 7, litri: 198 },
+  { day: 8, litri: 244 },
+  { day: 9, litri: 228 },
+  { day: 10, litri: 262 },
+  { day: 11, litri: 240 },
 ];
 
 const RAIN_DROP_OFFSETS = [8, 16, 25, 33, 42, 51, 59, 67, 76, 84];
@@ -135,6 +136,7 @@ export function AcquaDetail({
   dashboardData?: ConsumptionDashboardData;
   config?: ConsumptionEntityConfig;
 }) {
+  const { c, formatDate, formatNumber } = useConsumptionCopy();
   const liveData = dashboardData ?? FALLBACK_DATA;
   const [mode, setMode] = React.useState<WaterMode>('NORMALE');
 
@@ -189,12 +191,16 @@ export function AcquaDetail({
     () =>
       rainSourceConfigured
         ? [
-            { name: 'Rete Idrica', value: sourceMix.rete, color: '#38bdf8' },
-            { name: 'Recupero Pioggia', value: sourceMix.pioggia, color: '#22d3ee' },
+            { name: c('Rete Idrica'), value: sourceMix.rete, color: '#38bdf8' },
+            { name: c('Recupero Pioggia'), value: sourceMix.pioggia, color: '#22d3ee' },
           ]
-        : [{ name: 'Rete Idrica', value: 100, color: '#38bdf8' }],
-    [rainSourceConfigured, sourceMix.pioggia, sourceMix.rete],
+        : [{ name: c('Rete Idrica'), value: 100, color: '#38bdf8' }],
+    [c, rainSourceConfigured, sourceMix.pioggia, sourceMix.rete],
   );
+  const waterWeekData = React.useMemo(() => WATER_WEEK_DATA.map((point) => ({
+    ...point,
+    label: formatDate(new Date(Date.UTC(2026, 9, point.day)), { weekday: 'short', timeZone: 'UTC' }),
+  })), [formatDate]);
 
   const left = (
     <div className="relative h-full w-full overflow-hidden rounded-[1.5rem] bg-[#07131f] bg-[radial-gradient(circle_at_50%_48%,rgba(34,211,238,0.28)_0%,rgba(34,211,238,0.08)_42%,#07131f_78%)]">
@@ -296,8 +302,8 @@ export function AcquaDetail({
           ) : null}
 
           <WaterNode
-            label="Casa"
-            value={`${currentLiters} L`}
+            label={c('Casa')}
+            value={`${formatNumber(currentLiters)} L`}
             icon={<Home size={17} />}
             positionClassName="left-[50%] top-[35%]"
             accentClassName="bg-[radial-gradient(circle,rgba(125,211,252,0.4)_0%,transparent_72%)]"
@@ -306,8 +312,8 @@ export function AcquaDetail({
           />
 
           <WaterNode
-            label="Rete"
-            value={`${gridFlow.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} L/m`}
+            label={c('Rete')}
+            value={`${formatNumber(gridFlow, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} L/m`}
             icon={<Waves size={15} />}
             positionClassName="left-[18%] top-[62%]"
             accentClassName="bg-[radial-gradient(circle,rgba(56,189,248,0.42)_0%,transparent_72%)]"
@@ -316,8 +322,8 @@ export function AcquaDetail({
 
           {rainSourceConfigured ? (
             <WaterNode
-              label="Pioggia"
-              value={`${rainFlow.toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} L/m`}
+              label={c('Pioggia')}
+              value={`${formatNumber(rainFlow, { minimumFractionDigits: 1, maximumFractionDigits: 1 })} L/m`}
               icon={<CloudRain size={15} />}
               positionClassName="left-[78%] top-[22%]"
               accentClassName="bg-[radial-gradient(circle,rgba(34,211,238,0.44)_0%,transparent_72%)]"
@@ -359,7 +365,7 @@ export function AcquaDetail({
 
               <div className="absolute inset-0 flex flex-col items-center justify-center text-cyan-100/90">
                 <Droplets size={44} />
-                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-cyan-100/80">Serbatoio</p>
+                <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-cyan-100/80">{c('Serbatoio')}</p>
               </div>
             </div>
           </motion.div>
@@ -368,15 +374,15 @@ export function AcquaDetail({
 
       <div className="absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3">
         <div className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-medium text-white/75 backdrop-blur-xl">
-          Rete {sourceMix.rete}%
+          {c('Rete')} {formatNumber(sourceMix.rete)}%
         </div>
         {rainSourceConfigured ? (
           <div className="rounded-full border border-white/10 bg-cyan-400/15 px-3 py-1.5 text-xs font-medium text-cyan-100 backdrop-blur-xl">
-            Recupero Pioggia {sourceMix.pioggia}%
+            {c('Recupero Pioggia')} {formatNumber(sourceMix.pioggia)}%
           </div>
         ) : (
           <div className="rounded-full border border-white/10 bg-white/8 px-3 py-1.5 text-xs font-medium text-white/65 backdrop-blur-xl">
-            Recupero Pioggia non configurato
+            {c('Recupero Pioggia non configurato')}
           </div>
         )}
       </div>
@@ -390,7 +396,7 @@ export function AcquaDetail({
               mode === 'NORMALE' ? 'bg-white/20 text-white' : 'text-white/65 hover:bg-white/10'
             }`}
           >
-            Normale
+            {c('Normale')}
           </button>
           <button
             type="button"
@@ -400,23 +406,23 @@ export function AcquaDetail({
               mode === 'PIOGGIA' ? 'bg-cyan-400/30 text-cyan-50' : 'text-white/65 hover:bg-white/10'
             } ${!rainSourceConfigured ? 'cursor-not-allowed opacity-35' : ''}`}
           >
-            Pioggia
+            {c('Pioggia')}
           </button>
         </div>
       </div>
 
-      <p className="absolute bottom-6 left-6 text-sm text-white/65">Visualizzazione Flusso Acqua</p>
+      <p className="absolute bottom-6 left-6 text-sm text-white/65">{c('Visualizzazione Flusso Acqua')}</p>
     </div>
   );
 
   const right = (
     <>
       <PreviewDataNotice>
-        Grafici storici, ripartizione e flussi calcolati non provengono ancora da statistiche Home Assistant.
+        {c('Grafici storici, ripartizione e flussi calcolati non provengono ancora da statistiche Home Assistant.')}
       </PreviewDataNotice>
-      <ChartCard title="Consumo ultimi 7 giorni">
+      <ChartCard title={c('Consumo ultimi 7 giorni')}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={WATER_WEEK_DATA} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={14}>
+          <BarChart data={waterWeekData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={14}>
             <defs>
               <linearGradient id="acquaBarFill" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor="rgba(34,211,238,0.95)" />
@@ -431,7 +437,7 @@ export function AcquaDetail({
         </ResponsiveContainer>
       </ChartCard>
 
-      <ChartCard title="Origine approvvigionamento">
+      <ChartCard title={c('Origine approvvigionamento')}>
         <div className="flex h-full flex-col items-center justify-center">
           <div className="relative h-44 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -457,8 +463,8 @@ export function AcquaDetail({
 
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <p className="text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-tertiary)]">Modalita</p>
-                <p className="text-xl font-semibold text-[color:var(--ui-text-primary)]">{mode === 'PIOGGIA' ? 'Pioggia' : 'Normale'}</p>
+                <p className="text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-tertiary)]">{c('Modalità')}</p>
+                <p className="text-xl font-semibold text-[color:var(--ui-text-primary)]">{c(mode === 'PIOGGIA' ? 'Pioggia' : 'Normale')}</p>
               </div>
             </div>
           </div>
@@ -468,7 +474,7 @@ export function AcquaDetail({
               <div key={`legend-${entry.name}`} className="flex items-center gap-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
                 <span>
-                  {entry.name} {entry.value.toLocaleString('it-IT', { maximumFractionDigits: 0 })}%
+                  {entry.name} {formatNumber(entry.value, { maximumFractionDigits: 0 })}%
                 </span>
               </div>
             ))}
@@ -476,20 +482,20 @@ export function AcquaDetail({
         </div>
       </ChartCard>
 
-      <ChartCard title="Flusso istantaneo">
+      <ChartCard title={c('Flusso istantaneo')}>
         <div className="space-y-4 pt-2">
           {[
-            { label: 'Ingresso Rete', value: gridFlow, max: 18, color: 'rgba(56,189,248,0.88)' },
+            { label: c('Ingresso Rete'), value: gridFlow, max: 18, color: 'rgba(56,189,248,0.88)' },
             ...(rainSourceConfigured
-              ? [{ label: 'Recupero Pioggia', value: rainFlow, max: 18, color: 'rgba(34,211,238,0.9)' }]
+              ? [{ label: c('Recupero Pioggia'), value: rainFlow, max: 18, color: 'rgba(34,211,238,0.9)' }]
               : []),
-            { label: 'Uscita verso Casa', value: homeFlow, max: 18, color: 'rgba(125,211,252,0.92)' },
+            { label: c('Uscita verso Casa'), value: homeFlow, max: 18, color: 'rgba(125,211,252,0.92)' },
           ].map((row) => (
             <div key={row.label}>
               <div className="mb-1.5 flex items-center justify-between text-xs">
                 <span className="text-[color:var(--ui-text-secondary)]">{row.label}</span>
                 <span className="font-semibold text-[color:var(--ui-text-primary)]">
-                  {row.value.toLocaleString('it-IT', {
+                  {formatNumber(row.value, {
                     minimumFractionDigits: 1,
                     maximumFractionDigits: 1,
                   })}{' '}

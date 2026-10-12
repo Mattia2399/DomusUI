@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import clsx from 'clsx';
 import { ArrowLeft } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type NestedPageHeaderProps = {
   title: string;
@@ -21,8 +22,8 @@ export type NestedPageHeaderProps = {
 export function NestedPageHeader({
   title,
   subtitle,
-  backLabel = 'Indietro',
-  backAriaLabel = 'Indietro',
+  backLabel,
+  backAriaLabel,
   onBack,
   trailing,
   scrollContainerRef,
@@ -32,6 +33,9 @@ export function NestedPageHeader({
   focusOnMount = true,
   overlay = false,
 }: NestedPageHeaderProps) {
+  const { t } = useI18n();
+  const resolvedBackLabel = backLabel ?? t('common.back');
+  const resolvedBackAriaLabel = backAriaLabel ?? t('common.back');
   const headerRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [glassProgress, setGlassProgress] = useState(0);
@@ -85,14 +89,14 @@ export function NestedPageHeader({
         <button
           type="button"
           onClick={onBack}
-          aria-label={backAriaLabel}
+          aria-label={resolvedBackAriaLabel}
           className={clsx(
             'liquid-glass-control flex h-11 w-11 shrink-0 items-center justify-center gap-2 rounded-full px-0 text-sm font-semibold text-[color:var(--ui-text-primary)] transition-transform active:scale-[0.96] sm:w-auto sm:px-3',
             onImage && 'max-md:!border-white/25 max-md:!bg-black/20 max-md:!text-white',
           )}
         >
           <ArrowLeft size={17} />
-          <span className="hidden sm:inline">{backLabel}</span>
+          <span className="hidden sm:inline">{resolvedBackLabel}</span>
         </button>
 
         <div className={clsx('min-w-0 flex-1', onImage && 'max-md:[&_*]:!text-white')}>

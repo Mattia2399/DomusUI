@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { useI18n } from '../i18n/I18nProvider';
 import GlassDropdown from '../components/ui/GlassDropdown';
 import GlassModal from '../components/ui/GlassModal';
 import GlassSegmentSelect from '../components/ui/GlassSegmentSelect';
@@ -38,7 +39,6 @@ import { useDeviceAuth } from '../hooks/useDeviceAuth';
 import {
   INITIAL_AUTH_ATTEMPT_STATE,
   appendSecurityAuditEvent,
-  formatAuthRateLimitMessage,
   getAuthRateLimitStatus,
   recordAuthFailure,
   recordAuthSuccess,
@@ -51,7 +51,6 @@ import {
   ALARM_FEATURE_ARM_VACATION,
   ALARM_FEATURE_TRIGGER,
   alarmSupportsFeature,
-  getAlarmStateLabel,
   normalizeAlarmState,
   resolveAlarmSupportedFeatures,
 } from '../utils/alarmUtils';
@@ -131,6 +130,41 @@ const ALARM_MODE_OPTIONS = [
   { value: 'armed_vacation', label: 'Vacanza', icon: Plane, feature: ALARM_FEATURE_ARM_VACATION },
   { value: 'armed_custom_bypass', label: 'Bypass', icon: ShieldPlus, feature: ALARM_FEATURE_ARM_CUSTOM_BYPASS },
 ];
+
+const ALARM_MODE_TRANSLATION_KEYS = {
+  armed_home: 'security.mode.home',
+  armed_away: 'security.mode.away',
+  armed_night: 'security.mode.night',
+  armed_vacation: 'security.mode.vacation',
+  armed_custom_bypass: 'security.mode.bypass',
+};
+
+const ALARM_STATE_TRANSLATION_KEYS = {
+  disarmed: 'security.state.disarmed',
+  armed_home: 'security.state.home',
+  armed_away: 'security.state.away',
+  armed_night: 'security.state.night',
+  armed_vacation: 'security.state.vacation',
+  armed_custom_bypass: 'security.state.bypass',
+  pending: 'security.state.pending',
+  arming: 'security.state.arming',
+  disarming: 'security.state.disarming',
+  triggered: 'security.state.triggered',
+  unavailable: 'security.state.unavailable',
+  unknown: 'security.state.unknown',
+};
+
+const ALARM_VISUAL_TRANSLATION_KEYS = {
+  disarmed: { badge: 'security.visual.disarmed.badge', helper: 'security.visual.disarmed.helper' },
+  armed_home: { badge: 'security.visual.home.badge', helper: 'security.visual.home.helper' },
+  armed_away: { badge: 'security.visual.away.badge', helper: 'security.visual.away.helper' },
+  armed_night: { badge: 'security.visual.night.badge', helper: 'security.visual.night.helper' },
+  armed_vacation: { badge: 'security.visual.vacation.badge', helper: 'security.visual.vacation.helper' },
+  armed_custom_bypass: { badge: 'security.visual.bypass.badge', helper: 'security.visual.bypass.helper' },
+  triggered: { badge: 'security.visual.triggered.badge', helper: 'security.visual.triggered.helper' },
+  pending: { badge: 'security.visual.pending.badge', helper: 'security.visual.pending.helper' },
+  unavailable: { badge: 'security.visual.unavailable.badge', helper: 'security.visual.unavailable.helper' },
+};
 
 const ALARM_SERVICE_BY_STATE = {
   disarmed: 'alarm_disarm',
@@ -315,8 +349,8 @@ function writeStoredEntitySelection(key, ids) {
   }));
 }
 
-function toItalianClockTime(date) {
-  return date.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+function toClockTime(date, locale) {
+  return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
 function isBinarySensorOpen(value) {
@@ -492,12 +526,13 @@ function SecurityMainShield({
   disabled,
   commandFeedback,
 }) {
+  const { t } = useI18n();
   const Icon = visual.icon;
   return (
     <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="truncate text-xl font-semibold text-[color:var(--ui-text-primary)] sm:text-[1.45rem]">Hub Sicurezza</h2>
+          <h2 className="truncate text-xl font-semibold text-[color:var(--ui-text-primary)] sm:text-[1.45rem]">{t('security.hub')}</h2>
         </div>
         <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] sm:h-11 sm:w-11">
           <Shield className="h-4 w-4 text-[color:var(--ui-text-secondary)]" />
@@ -545,14 +580,14 @@ function SecurityMainShield({
               <Icon className={cn('h-12 w-12 text-[color:var(--ui-text-primary)] sm:h-14 sm:w-14', isTransitioning ? 'animate-spin' : '')} />
               <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-primary)] sm:text-xs">{statusLabel}</p>
               <p className="mt-1.5 text-[11px] leading-snug text-[color:var(--ui-text-secondary)] sm:text-xs">{visual.helper}</p>
-              {showDelayProgress ? <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">Uscita in {delayRemainingSeconds}s</p> : null}
+              {showDelayProgress ? <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{t('security.exitIn', { seconds: delayRemainingSeconds })}</p> : null}
             </div>
           </motion.button>
         </div>
 
         <div className="min-w-0">
           <GlassSegmentSelect
-            ariaLabel="Modalità allarme"
+            ariaLabel={t('security.mode.aria')}
             options={alarmOptions.map((option) => {
               const OptionIcon = option.icon;
               return {
@@ -592,6 +627,7 @@ function SecurityEntityPickerModal({
   onSelectNone,
   onClose,
 }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -610,33 +646,33 @@ function SecurityEntityPickerModal({
     <GlassModal
       isOpen={isOpen}
       onClose={onClose}
-      eyebrow="Modalità Edit"
+      eyebrow={t('security.editMode')}
       title={title}
       description={description}
       variant="responsive"
       size="xl"
       zIndex={290}
-      closeLabel="Chiudi selezione dispositivi"
+      closeLabel={t('security.picker.close')}
       backdropClassName="bg-white/[0.02] backdrop-blur-2xl"
       bodyClassName="flex flex-col overflow-hidden"
     >
             <div className="liquid-glass-card mt-4 px-4 py-3">
               <label className="flex items-center gap-3">
                 <span className="inline-flex rounded-full border border-white/10 bg-white/10 p-2"><Search className="h-3.5 w-3.5 text-white/75" /></span>
-                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent text-sm text-white placeholder:text-white/45 outline-none" placeholder="Cerca dispositivo per nome o entity_id" />
+                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent text-sm text-white placeholder:text-white/45 outline-none" placeholder={t('security.picker.searchDevice')} />
               </label>
             </div>
 
             <div className="mt-4 flex items-center justify-between gap-2">
               <p className="text-xs text-white/60">
-                Selezionati: <span className="font-semibold text-white">{selectedEntityIds.length}</span> / {entities.length}
+                {t('security.picker.selected', { selected: selectedEntityIds.length, total: entities.length })}
               </p>
               <div className="flex items-center gap-2">
                 <button type="button" onClick={onSelectAll} className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs font-semibold text-white/85 hover:bg-white/[0.14]">
-                  Tutti
+                  {t('security.picker.all')}
                 </button>
                 <button type="button" onClick={onSelectNone} className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs font-semibold text-white/85 hover:bg-white/[0.14]">
-                  Nessuno
+                  {t('security.picker.none')}
                 </button>
               </div>
             </div>
@@ -669,7 +705,7 @@ function SecurityEntityPickerModal({
                 })
               ) : (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/55">
-                  Nessun dispositivo trovato.
+                  {t('security.picker.empty')}
                 </div>
               )}
             </div>
@@ -678,10 +714,11 @@ function SecurityEntityPickerModal({
 }
 
 function SecuritySensorRows({ sensors, limitOnMobile = false }) {
+  const { t } = useI18n();
   const getIcon = (type) => (type === 'door' ? House : Blinds);
 
   if (sensors.length === 0) {
-    return <div className="dashboard-content-surface-soft rounded-2xl px-4 py-3 text-sm text-[color:var(--ui-text-secondary)]">Nessun sensore disponibile.</div>;
+    return <div className="dashboard-content-surface-soft rounded-2xl px-4 py-3 text-sm text-[color:var(--ui-text-secondary)]">{t('security.sensor.empty')}</div>;
   }
 
   return sensors.map((sensor, index) => {
@@ -703,7 +740,7 @@ function SecuritySensorRows({ sensors, limitOnMobile = false }) {
           </div>
           <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold', sensor.isOpen ? 'border-[#FF3B30]/45 bg-[#FF3B30]/20 text-[#FFD2CF]' : 'border-[#34C759]/45 bg-[#34C759]/18 text-[#CDF9D8]')}>
             {sensor.isOpen ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
-            {sensor.isOpen ? 'Aperto' : 'Chiuso'}
+            {sensor.isOpen ? t('security.sensor.open') : t('security.sensor.closed')}
           </span>
         </div>
       </div>
@@ -712,17 +749,19 @@ function SecuritySensorRows({ sensors, limitOnMobile = false }) {
 }
 
 function SensorSearchField({ query, onQueryChange }) {
+  const { t } = useI18n();
   return (
     <div className="dashboard-content-surface-soft rounded-2xl px-4 py-3">
       <label className="flex items-center gap-3">
         <span className="inline-flex rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-2"><Search className="h-3.5 w-3.5 text-[color:var(--ui-text-secondary)]" /></span>
-        <input value={query} onChange={(event) => onQueryChange(event.target.value)} className="w-full bg-transparent text-sm text-[color:var(--ui-text-primary)] placeholder:text-[color:var(--ui-text-tertiary)] outline-none" placeholder="Cerca sensore per nome o entity_id" />
+        <input value={query} onChange={(event) => onQueryChange(event.target.value)} className="w-full bg-transparent text-sm text-[color:var(--ui-text-primary)] placeholder:text-[color:var(--ui-text-tertiary)] outline-none" placeholder={t('security.sensor.search')} />
       </label>
     </div>
   );
 }
 
 function SecuritySensorList({ sensors, query, onQueryChange, isEditMode = false, selectedCount = 0, totalCount = 0, onOpenSelector, onOpenAll }) {
+  const { t } = useI18n();
   const hiddenOnMobileCount = Math.max(0, sensors.length - 5);
   return (
     <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
@@ -730,15 +769,15 @@ function SecuritySensorList({ sensors, query, onQueryChange, isEditMode = false,
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-2">
             {isEditMode ? (
-              <h3 className="inline-flex min-w-0 items-center gap-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">Perimetro <Lock className="h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" /></h3>
+              <h3 className="inline-flex min-w-0 items-center gap-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">{t('security.sensor.perimeter')} <Lock className="h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" /></h3>
             ) : (
               <button type="button" onClick={onOpenAll} className="inline-flex min-h-8 min-w-0 items-center gap-1 text-left text-xl font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:text-[color:var(--ui-text-secondary)]">
-                Perimetro
+                {t('security.sensor.perimeter')}
                 <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--ui-text-secondary)]" />
               </button>
             )}
           </div>
-          <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">Porte, finestre e rilevatori</p>
+          <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">{t('security.sensor.subtitle')}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <span className="inline-flex shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
@@ -747,12 +786,12 @@ function SecuritySensorList({ sensors, query, onQueryChange, isEditMode = false,
           {isEditMode ? (
             <button type="button" onClick={onOpenSelector} className="glass-button min-h-11 rounded-full px-3 text-xs font-semibold">
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              Seleziona
+              {t('security.select')}
             </button>
           ) : null}
           {!isEditMode && hiddenOnMobileCount > 0 ? (
             <button type="button" onClick={onOpenAll} className="glass-button min-h-11 rounded-full px-3 text-xs font-semibold sm:hidden">
-              +{hiddenOnMobileCount} altri
+              {t('security.more', { count: hiddenOnMobileCount })}
             </button>
           ) : null}
         </div>
@@ -768,11 +807,12 @@ function SecuritySensorList({ sensors, query, onQueryChange, isEditMode = false,
 }
 
 function SecuritySensorDirectoryPage({ sensors, query, onQueryChange, onBackToOverview, scrollContainerRef }) {
+  const { t } = useI18n();
   return (
     <section className="dashboard-content-surface min-h-full rounded-none border-0 bg-transparent">
       <NestedPageHeader
-        title="Sensori del perimetro"
-        subtitle="Porte, finestre e rilevatori della casa"
+        title={t('security.sensor.directoryTitle')}
+        subtitle={t('security.sensor.directorySubtitle')}
         onBack={onBackToOverview}
         scrollContainerRef={scrollContainerRef}
         trailing={<span className="inline-flex shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">{sensors.length}</span>}
@@ -800,6 +840,7 @@ function SecurityCameraSection({
   onBackToOverview,
   scrollContainerRef,
 }) {
+  const { t } = useI18n();
   const visibleCameras = isDedicatedPage ? cameras : cameras.slice(0, previewLimit);
   const hiddenCount = Math.max(0, cameras.length - visibleCameras.length);
 
@@ -812,8 +853,8 @@ function SecurityCameraSection({
     >
       {isDedicatedPage ? (
         <NestedPageHeader
-          title="Telecamere"
-          subtitle="Tutte le videocamere della casa"
+          title={t('security.camera.title')}
+          subtitle={t('security.camera.directorySubtitle')}
           onBack={onBackToOverview}
           scrollContainerRef={scrollContainerRef}
           trailing={<span className="inline-flex shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">{cameras.length}</span>}
@@ -824,10 +865,10 @@ function SecurityCameraSection({
           {isEditMode ? (
             <>
               <h3 className="inline-flex items-center gap-2 text-left text-xl font-semibold text-[color:var(--ui-text-primary)]">
-                Telecamere
+                {t('security.camera.title')}
                 <Lock className="h-4 w-4 text-[color:var(--ui-text-tertiary)]" />
               </h3>
-              <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">Anteprime e stato della videosorveglianza</p>
+              <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">{t('security.camera.subtitle')}</p>
             </>
           ) : (
             <button
@@ -835,11 +876,11 @@ function SecurityCameraSection({
               onClick={onOpenAll}
               className="inline-flex min-h-8 items-center gap-1 text-left text-xl font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:text-[color:var(--ui-text-secondary)]"
             >
-              Telecamere
+              {t('security.camera.title')}
               <ChevronRight className="h-4 w-4 text-[color:var(--ui-text-secondary)]" />
             </button>
           )}
-          {!isEditMode ? <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">Anteprime e stato della videosorveglianza</p> : null}
+          {!isEditMode ? <p className="mt-1 truncate text-xs text-[color:var(--ui-text-secondary)]">{t('security.camera.subtitle')}</p> : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
           <span className="inline-flex shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
@@ -852,7 +893,7 @@ function SecurityCameraSection({
               className="glass-button min-h-11 rounded-full px-3 text-xs font-semibold"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              Seleziona
+              {t('security.select')}
             </button>
           ) : null}
           {hiddenCount > 0 ? (
@@ -861,7 +902,7 @@ function SecurityCameraSection({
               onClick={isEditMode ? onOpenSelector : onOpenAll}
               className="glass-button min-h-11 rounded-full px-3 text-xs font-semibold"
             >
-              {isEditMode ? `+${hiddenCount} escluse` : `+${hiddenCount} altre`}
+              {isEditMode ? t('security.excluded', { count: hiddenCount }) : t('security.more', { count: hiddenCount })}
             </button>
           ) : null}
         </div>
@@ -896,7 +937,7 @@ function SecurityCameraSection({
           </div>
         ) : (
           <div className="dashboard-content-surface-soft rounded-2xl px-4 py-3 text-sm text-[color:var(--ui-text-secondary)]">
-            Nessuna telecamera `camera.*` trovata.
+            {t('security.camera.empty')}
           </div>
         )}
       </div>
@@ -922,13 +963,18 @@ export function SecurityDashboard({
   onCameraPtzMove,
   onCameraPtzStop,
 }) {
-  const [logs, setLogs] = useState(() => (runtimeMode === 'demo' ? DEMO_SECURITY_LOGS : []));
+  const { t, locale } = useI18n();
+  const localizedDemoLogs = useMemo(() => [
+    { ...DEMO_SECURITY_LOGS[0], message: t('security.logs.motion') },
+    { ...DEMO_SECURITY_LOGS[1], message: t('security.logs.armed') },
+  ], [t]);
+  const [logs, setLogs] = useState(() => (runtimeMode === 'demo' ? localizedDemoLogs : []));
   const logsRuntimeRef = useRef(runtimeMode);
   const [sensorSearchQuery, setSensorSearchQuery] = useState('');
   const [selectedAlarmEntityId, setSelectedAlarmEntityId] = useState(() => readStorageValue(STORAGE_KEYS.alarmEntityId));
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricAvailabilityResolved, setBiometricAvailabilityResolved] = useState(false);
-  const [biometricStatus, setBiometricStatus] = useState('Verifica biometria in corso...');
+  const [biometricStatus, setBiometricStatus] = useState(() => t('security.config.verifying'));
   const [biometricMessage, setBiometricMessage] = useState('');
   const [isBiometricBusy, setIsBiometricBusy] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -950,8 +996,13 @@ export function SecurityDashboard({
   useEffect(() => {
     if (logsRuntimeRef.current === runtimeMode) return;
     logsRuntimeRef.current = runtimeMode;
-    setLogs(runtimeMode === 'demo' ? DEMO_SECURITY_LOGS : []);
-  }, [runtimeMode]);
+    setLogs(runtimeMode === 'demo' ? localizedDemoLogs : []);
+  }, [localizedDemoLogs, runtimeMode]);
+  useEffect(() => {
+    if (runtimeMode !== 'demo') return;
+    setLogs((current) => current.map((log) =>
+      localizedDemoLogs.find((demoLog) => demoLog.id === log.id) ?? log));
+  }, [localizedDemoLogs, runtimeMode]);
   const [visibleSensorEntityIds, setVisibleSensorEntityIds] = useState(() => readStoredEntitySelection(STORAGE_KEYS.visibleSensorEntityIds));
   const [visibleCameraEntityIds, setVisibleCameraEntityIds] = useState(() => readStoredEntitySelection(STORAGE_KEYS.visibleCameraEntityIds));
   const [activeCameraEntityId, setActiveCameraEntityId] = useState(null);
@@ -969,8 +1020,8 @@ export function SecurityDashboard({
   const effectiveSecurityEditMode = canManageSecurity && (isEditMode || isMobileSecurityEditMode);
 
   const availableAlarmEntities = useMemo(
-    () => (alarmEntityOptions.length > 0 ? [...new Set(alarmEntityOptions)] : Object.keys(haStates).filter((id) => id.startsWith('alarm_control_panel.'))).sort((a, b) => a.localeCompare(b, 'it-IT')),
-    [alarmEntityOptions, haStates],
+    () => (alarmEntityOptions.length > 0 ? [...new Set(alarmEntityOptions)] : Object.keys(haStates).filter((id) => id.startsWith('alarm_control_panel.'))).sort((a, b) => a.localeCompare(b, locale)),
+    [alarmEntityOptions, haStates, locale],
   );
   const alarmDropdownOptions = useMemo(
     () =>
@@ -982,8 +1033,8 @@ export function SecurityDashboard({
   );
 
   const availableSensorEntities = useMemo(
-    () => (sensorEntityOptions.length > 0 ? [...new Set(sensorEntityOptions)] : Object.keys(haStates).filter((id) => id.startsWith('binary_sensor.'))).sort((a, b) => a.localeCompare(b, 'it-IT')),
-    [haStates, sensorEntityOptions],
+    () => (sensorEntityOptions.length > 0 ? [...new Set(sensorEntityOptions)] : Object.keys(haStates).filter((id) => id.startsWith('binary_sensor.'))).sort((a, b) => a.localeCompare(b, locale)),
+    [haStates, locale, sensorEntityOptions],
   );
 
   const availableSecuritySensorEntities = useMemo(() => {
@@ -999,8 +1050,8 @@ export function SecurityDashboard({
     () => [...new Set([
       ...cameraEntityOptions,
       ...Object.keys(haStates).filter((id) => id.startsWith('camera.')),
-    ])].filter((id) => id.startsWith('camera.')).sort((a, b) => a.localeCompare(b, 'it-IT')),
-    [cameraEntityOptions, haStates],
+    ])].filter((id) => id.startsWith('camera.')).sort((a, b) => a.localeCompare(b, locale)),
+    [cameraEntityOptions, haStates, locale],
   );
 
   const selectedSensorEntityIds = useMemo(
@@ -1100,7 +1151,7 @@ export function SecurityDashboard({
   const alarmCodeFormat = resolveAlarmCodeFormat(activeAlarmAttributes);
   const alarmCodeArmRequired = activeAlarmAttributes?.code_arm_required === true;
   const alarmHasCodeCapability = Boolean(alarmCodeFormat) || alarmCodeArmRequired;
-  const alarmCodeTypeLabel = alarmCodeFormat === 'text' ? 'Codice' : 'PIN';
+  const alarmCodeTypeLabel = alarmCodeFormat === 'text' ? t('security.auth.code') : t('security.auth.pin');
   const isAlarmCodeNumeric = alarmCodeFormat === 'number';
   const normalizedLiveAlarmState = normalizeAlarmState(activeAlarmEntity?.state ?? activeAlarmEntity?.stateLabel);
   const supportedAlarmFeatures = resolveAlarmSupportedFeatures(activeAlarmEntity);
@@ -1112,9 +1163,16 @@ export function SecurityDashboard({
         : ALARM_MODE_OPTIONS.filter((option) => ['armed_home', 'armed_away', 'armed_night'].includes(option.value)),
     [hasSupportedFeatureMask, supportedAlarmFeatures],
   );
+  const localizedSupportedAlarmModes = useMemo(
+    () => supportedAlarmModes.map((option) => ({
+      ...option,
+      label: t(ALARM_MODE_TRANSLATION_KEYS[option.value]),
+    })),
+    [supportedAlarmModes, t],
+  );
   const alarmOptions = useMemo(
-    () => [{ value: 'disarmed', label: 'Disinserisci', icon: ShieldOff }, ...supportedAlarmModes],
-    [supportedAlarmModes],
+    () => [{ value: 'disarmed', label: t('security.mode.disarm'), icon: ShieldOff }, ...localizedSupportedAlarmModes],
+    [localizedSupportedAlarmModes, t],
   );
   const triggerSupported = hasSupportedFeatureMask && alarmSupportsFeature(supportedAlarmFeatures, ALARM_FEATURE_TRIGGER);
   const alarmEntityAvailable =
@@ -1136,8 +1194,23 @@ export function SecurityDashboard({
   const delayRemainingSeconds = hasActiveArmingDelay ? Math.max(0, Math.ceil(remainingDelayMs / 1000)) : 0;
   const resolvedShieldState = hasActiveArmingDelay && baseResolvedShieldState !== 'pending' ? 'pending' : baseResolvedShieldState;
 
-  const currentVisual = ALARM_VISUALS[resolvedShieldState] ?? ALARM_VISUALS.unavailable;
-  const alarmStatusLabel = hasActiveArmingDelay ? 'Inserimento in corso' : haConnected && activeAlarmEntity ? getAlarmStateLabel(normalizedLiveAlarmState) : currentVisual.badge;
+  const alarmStateLabel = React.useCallback((state) => {
+    const normalizedState = normalizeAlarmState(state);
+    const key = ALARM_STATE_TRANSLATION_KEYS[normalizedState];
+    return key ? t(key) : `${state ?? ''}`.trim() || t('security.state.unknown');
+  }, [t]);
+  const currentVisualSource = ALARM_VISUALS[resolvedShieldState] ?? ALARM_VISUALS.unavailable;
+  const currentVisualKeys = ALARM_VISUAL_TRANSLATION_KEYS[resolvedShieldState] ?? ALARM_VISUAL_TRANSLATION_KEYS.unavailable;
+  const currentVisual = {
+    ...currentVisualSource,
+    badge: t(currentVisualKeys.badge),
+    helper: t(currentVisualKeys.helper),
+  };
+  const alarmStatusLabel = hasActiveArmingDelay
+    ? t('security.status.arming')
+    : haConnected && activeAlarmEntity
+      ? alarmStateLabel(normalizedLiveAlarmState)
+      : currentVisual.badge;
   const isAlarmTransitioning = (haConnected && activeAlarmEntity && isLiveAlarmTransitioning) || resolvedShieldState === 'pending' || hasActiveArmingDelay || Boolean(pendingCommand);
 
   const pendingStateRequiresCode = pendingAlarmState ? isAlarmCodeRequiredForState(pendingAlarmState, activeAlarmAttributes) : false;
@@ -1156,10 +1229,17 @@ export function SecurityDashboard({
     pendingSecurityRequirement?.allowsDeviceAuth && biometricAvailable && deviceAuth.isEnrolled,
   );
   const authRateLimitStatus = getAuthRateLimitStatus(authAttemptState);
-  const authRateLimitMessage = formatAuthRateLimitMessage(authRateLimitStatus);
+  const localizedRateLimitMessage = React.useCallback((status) => {
+    if (!status.isLocked) return '';
+    const totalSeconds = Math.max(1, Math.ceil(status.remainingMs / 1000));
+    return totalSeconds < 60
+      ? t('security.auth.tooManySeconds', { seconds: totalSeconds })
+      : t('security.auth.tooManyMinutes', { minutes: Math.ceil(totalSeconds / 60) });
+  }, [t]);
+  const authRateLimitMessage = localizedRateLimitMessage(authRateLimitStatus);
 
   const appendLog = (message, type = 'info') => {
-    setLogs((curr) => [{ id: Date.now() + Math.round(Math.random() * 1000), time: toItalianClockTime(new Date()), message, type }, ...curr].slice(0, 10));
+    setLogs((curr) => [{ id: Date.now() + Math.round(Math.random() * 1000), time: toClockTime(new Date(), locale), message, type }, ...curr].slice(0, 10));
   };
 
   useEffect(() => {
@@ -1176,14 +1256,14 @@ export function SecurityDashboard({
       setBiometricStatus(
         available
           ? deviceAuth.isEnrolled
-            ? 'Passkey dispositivo configurata.'
-            : 'Conferma dispositivo disponibile: crea una passkey in modalità Edit.'
-          : 'Conferma dispositivo non disponibile su questo browser/dispositivo.',
+            ? t('security.auth.passkeyConfigured')
+            : t('security.auth.passkeyAvailable')
+          : t('security.auth.passkeyUnavailable'),
       );
       setBiometricAvailabilityResolved(true);
     };
     void run();
-  }, [deviceAuth]);
+  }, [deviceAuth, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || suppressBrowserNavigation) return undefined;
@@ -1284,12 +1364,13 @@ export function SecurityDashboard({
     if (!pendingCommand) return undefined;
     if (normalizedLiveAlarmState === pendingCommand.targetState) {
       setPendingCommand(null);
-      setCommandFeedback(`Stato confermato: ${getAlarmStateLabel(pendingCommand.targetState)}.`);
+      const stateLabel = alarmStateLabel(pendingCommand.targetState);
+      setCommandFeedback(t('security.feedback.confirmed', { state: stateLabel }));
       setLogs((curr) => [
         {
           id: Date.now() + Math.round(Math.random() * 1000),
-          time: toItalianClockTime(new Date()),
-          message: `${getAlarmStateLabel(pendingCommand.targetState)} confermato da Home Assistant`,
+          time: toClockTime(new Date(), locale),
+          message: t('security.feedback.confirmedLog', { state: stateLabel }),
           type: 'success',
         },
         ...curr,
@@ -1298,30 +1379,30 @@ export function SecurityDashboard({
     }
     if (['pending', 'arming', 'disarming'].includes(normalizedLiveAlarmState)) {
       setPendingCommand(null);
-      setCommandFeedback('Transizione confermata da Home Assistant.');
+      setCommandFeedback(t('security.feedback.transition'));
       return undefined;
     }
 
     const remainingMs = Math.max(0, pendingCommand.expiresAt - Date.now());
     const timeoutId = window.setTimeout(() => {
       setPendingCommand(null);
-      setCommandFeedback('Home Assistant non ha confermato il nuovo stato. Controlla il sistema prima di riprovare.');
+      setCommandFeedback(t('security.feedback.unconfirmed'));
       setLogs((curr) => [
         {
           id: Date.now() + Math.round(Math.random() * 1000),
-          time: toItalianClockTime(new Date()),
-          message: 'Stato allarme non confermato',
+          time: toClockTime(new Date(), locale),
+          message: t('security.feedback.unconfirmedLog'),
           type: 'warning',
         },
         ...curr,
       ].slice(0, 10));
     }, remainingMs);
     return () => window.clearTimeout(timeoutId);
-  }, [normalizedLiveAlarmState, pendingCommand]);
+  }, [alarmStateLabel, locale, normalizedLiveAlarmState, pendingCommand, t]);
 
   useEffect(() => {
     if (alarmEntityAvailable) {
-      setCommandFeedback((current) => current.startsWith('Controlli non disponibili') ? '' : current);
+      setCommandFeedback((current) => current === t('security.feedback.controlsUnavailable') ? '' : current);
       return;
     }
     authSessionActiveRef.current = false;
@@ -1333,15 +1414,18 @@ export function SecurityDashboard({
     setAuthError('');
     setIsAuthBusy(false);
     if (runtimeMode === 'real') {
-      setCommandFeedback('Controlli non disponibili finché Home Assistant non è connesso.');
+      setCommandFeedback(t('security.feedback.controlsUnavailable'));
     }
-  }, [alarmEntityAvailable, runtimeMode]);
+  }, [alarmEntityAvailable, runtimeMode, t]);
 
   useEffect(() => {
-    if (!commandFeedback.startsWith('Stato confermato:') && !commandFeedback.startsWith('Transizione confermata')) return undefined;
+    const isConfirmedFeedback = commandFeedback === t('security.feedback.transition') ||
+      Object.keys(ALARM_STATE_TRANSLATION_KEYS).some((state) =>
+        commandFeedback === t('security.feedback.confirmed', { state: alarmStateLabel(state) }));
+    if (!isConfirmedFeedback) return undefined;
     const timeoutId = window.setTimeout(() => setCommandFeedback(''), 2800);
     return () => window.clearTimeout(timeoutId);
-  }, [commandFeedback]);
+  }, [alarmStateLabel, commandFeedback, t]);
 
   const closeAuthModal = () => {
     if (!isAuthBusy) {
@@ -1358,15 +1442,15 @@ export function SecurityDashboard({
 
     const commandContext = alarmCommandContextRef.current;
     if (!commandContext.available || commandContext.entityId !== selectedAlarmEntityId) {
-      setAuthError('Comando non autorizzato o non completato.');
-      setCommandFeedback('Controlli non disponibili finché Home Assistant non è connesso.');
+      setAuthError(t('security.feedback.commandUnauthorized'));
+      setCommandFeedback(t('security.feedback.controlsUnavailable'));
       return false;
     }
 
     const requiresCode = isAlarmCodeRequiredForState(nextState, activeAlarmAttributes);
     const cleanedCode = sanitizeAlarmCode(authCode, alarmCodeFormat);
     if (requiresCode && !cleanedCode) {
-      setAuthError(`${alarmCodeTypeLabel} richiesto dall’entità Home Assistant selezionata.`);
+      setAuthError(t('security.feedback.codeRequired', { code: alarmCodeTypeLabel }));
       return false;
     }
 
@@ -1374,12 +1458,12 @@ export function SecurityDashboard({
     if (requiresCode && cleanedCode) payload.code = cleanedCode;
     const ok = await onCallService('alarm_control_panel', service, payload);
     if (!ok) {
-      setAuthError('Comando non autorizzato o non completato.');
-      setCommandFeedback('Comando non autorizzato o non completato.');
-      appendLog('Cambio stato allarme non riuscito', 'warning');
+      setAuthError(t('security.feedback.commandUnauthorized'));
+      setCommandFeedback(t('security.feedback.commandUnauthorized'));
+      appendLog(t('security.feedback.commandFailed'), 'warning');
       appendSecurityAuditEvent({
         tone: 'warning',
-        message: `Comando allarme rifiutato: ${getAlarmStateLabel(nextState)}.`,
+        message: t('security.feedback.commandFailed'),
         context: selectedAlarmEntityId || 'Security Dashboard',
       });
       return false;
@@ -1387,13 +1471,13 @@ export function SecurityDashboard({
 
     const now = Date.now();
     setPendingCommand({ id: `${now}-${nextState}`, targetState: nextState, expiresAt: now + 20000 });
-    setCommandFeedback(`Comando inviato. In attesa della conferma di Home Assistant…`);
+    setCommandFeedback(t('security.feedback.commandSent'));
     if (nextState !== 'disarmed' && nextState !== 'triggered') setArmingTargetState(nextState);
-    appendLog(`Comando inviato: ${getAlarmStateLabel(nextState)}`, 'info');
+    appendLog(t('security.feedback.commandSentLog', { state: alarmStateLabel(nextState) }), 'info');
 
     appendSecurityAuditEvent({
       tone: 'success',
-      message: `Comando allarme autorizzato: ${getAlarmStateLabel(nextState)}.`,
+      message: t('security.feedback.commandSentLog', { state: alarmStateLabel(nextState) }),
       context: selectedAlarmEntityId || 'Security Dashboard',
     });
     setIsAuthModalOpen(false);
@@ -1406,11 +1490,11 @@ export function SecurityDashboard({
 
   const beginAlarmStateChange = (nextState) => {
     if (!alarmCommandsAvailable) {
-      setCommandFeedback('Controlli non disponibili finché Home Assistant non è connesso.');
+      setCommandFeedback(t('security.feedback.controlsUnavailable'));
       return;
     }
     if (isAlarmTransitioning) {
-      appendLog('Cambio stato in corso: attendi il completamento.', 'info');
+      appendLog(t('security.feedback.changePending'), 'info');
       return;
     }
     if (nextState === resolvedShieldState || isAuthBusy) return;
@@ -1424,12 +1508,12 @@ export function SecurityDashboard({
       deviceAuthEnabled: requireDeviceConfirmation,
     });
     if (securityRequirement.allowsDeviceAuth && !biometricAvailabilityResolved) {
-      setCommandFeedback('Verifica della conferma dispositivo in corso. Riprova tra un istante.');
+      setCommandFeedback(t('security.feedback.deviceCheck'));
       return;
     }
     if (securityRequirement.allowsDeviceAuth && (!biometricAvailable || !deviceAuth.isEnrolled) && !securityRequirement.needsCodeInput) {
-      appendLog('Conferma dispositivo non disponibile e nessun PIN fallback configurato.', 'warning');
-      setCommandFeedback('Conferma dispositivo non disponibile. Configura una passkey dalla card Alarm.');
+      appendLog(t('security.feedback.noFallback'), 'warning');
+      setCommandFeedback(t('security.feedback.configurePasskey'));
       return;
     }
 
@@ -1463,12 +1547,12 @@ export function SecurityDashboard({
   const confirmPendingDeviceAuth = async () => {
     if (!pendingAlarmState || !pendingSecurityRequirement?.allowsDeviceAuth) return false;
     const authEntityId = selectedAlarmEntityId;
-    const verified = await deviceAuth.authenticate(`Security Dashboard ${getAlarmStateLabel(pendingAlarmState)}`);
+    const verified = await deviceAuth.authenticate(`${t('security.title')} ${alarmStateLabel(pendingAlarmState)}`);
     if (!authSessionActiveRef.current || alarmCommandContextRef.current.entityId !== authEntityId) return false;
     if (!verified) {
       appendSecurityAuditEvent({
         tone: 'warning',
-        message: `Verifica dispositivo allarme non riuscita: ${getAlarmStateLabel(pendingAlarmState)}.`,
+        message: t('security.auth.deviceCancelled'),
         context: selectedAlarmEntityId || 'Security Dashboard',
       });
       return false;
@@ -1479,7 +1563,7 @@ export function SecurityDashboard({
     try {
       appendSecurityAuditEvent({
         tone: 'success',
-        message: 'Comando allarme autorizzato con conferma dispositivo.',
+        message: t('security.auth.deviceCompleted'),
         context: selectedAlarmEntityId || 'Security Dashboard',
       });
       return await applyAlarmState(
@@ -1497,17 +1581,17 @@ export function SecurityDashboard({
     if (pendingAuthRequiresCode) {
       const rateLimitStatus = getAuthRateLimitStatus(authAttemptState);
       if (rateLimitStatus.isLocked) {
-        setAuthError(formatAuthRateLimitMessage(rateLimitStatus));
+        setAuthError(localizedRateLimitMessage(rateLimitStatus));
         appendSecurityAuditEvent({
           tone: 'warning',
-          message: 'Fallback PIN locale bloccato temporaneamente.',
+          message: localizedRateLimitMessage(rateLimitStatus),
           context: selectedAlarmEntityId || 'Security Dashboard',
         });
         return;
       }
       const cleanedInput = sanitizeAlarmCode(authPinInput, alarmCodeFormat);
       if (cleanedInput.length === 0) {
-        setAuthError(`Inserisci ${alarmCodeTypeLabel.toLowerCase()} di sicurezza.`);
+        setAuthError(t('security.feedback.enterCode', { code: alarmCodeTypeLabel.toLowerCase() }));
         return;
       }
       const manualSubmission = resolveAlarmManualCodeSubmission({
@@ -1522,13 +1606,13 @@ export function SecurityDashboard({
         setAuthAttemptState(nextAttemptState);
         setAuthError(
           nextRateLimitStatus.isLocked
-            ? formatAuthRateLimitMessage(nextRateLimitStatus)
-            : 'Comando non autorizzato o non completato.',
+            ? localizedRateLimitMessage(nextRateLimitStatus)
+            : t('security.feedback.commandUnauthorized'),
         );
-        appendLog('Conferma comando non riuscita', 'warning');
+        appendLog(t('security.feedback.confirmationFailed'), 'warning');
         appendSecurityAuditEvent({
           tone: 'warning',
-          message: 'Conferma locale comando non riuscita.',
+          message: t('security.feedback.confirmationFailed'),
           context: selectedAlarmEntityId || 'Security Dashboard',
         });
         return;
@@ -1536,7 +1620,7 @@ export function SecurityDashboard({
       setAuthAttemptState(recordAuthSuccess());
       appendSecurityAuditEvent({
         tone: 'success',
-        message: 'Fallback PIN/codice locale verificato.',
+        message: t('security.auth.deviceCompleted'),
         context: selectedAlarmEntityId || 'Security Dashboard',
       });
       setIsAuthBusy(true);
@@ -1550,8 +1634,8 @@ export function SecurityDashboard({
           setAuthAttemptState(nextAttemptState);
           setAuthError(
             getAuthRateLimitStatus(nextAttemptState).isLocked
-              ? formatAuthRateLimitMessage(getAuthRateLimitStatus(nextAttemptState))
-              : 'Comando non autorizzato o non completato.',
+              ? localizedRateLimitMessage(getAuthRateLimitStatus(nextAttemptState))
+              : t('security.feedback.commandUnauthorized'),
           );
         }
       } finally {
@@ -1571,7 +1655,7 @@ export function SecurityDashboard({
   const enrollBiometric = async () => {
     if (!effectiveSecurityEditMode || !canManageSecurity) return;
     if (!biometricAvailable) {
-      setBiometricMessage('Conferma dispositivo non disponibile.');
+      setBiometricMessage(t('security.auth.deviceUnavailable'));
       return;
     }
 
@@ -1579,20 +1663,21 @@ export function SecurityDashboard({
     setBiometricMessage('');
     try {
       const wasEnrolled = deviceAuth.isEnrolled;
-      const verified = await deviceAuth.verifyOrEnroll('Configurazione Security Dashboard');
+      const verified = await deviceAuth.verifyOrEnroll(t('security.config.title'));
       if (!verified) throw new Error('Verifica dispositivo annullata.');
-      setBiometricMessage(wasEnrolled ? 'Conferma dispositivo completata.' : 'Passkey dispositivo creata.');
-      appendLog(wasEnrolled ? 'Biometria dispositivo verificata' : 'Passkey dispositivo creata', 'success');
+      const successMessage = wasEnrolled ? t('security.auth.deviceCompleted') : t('security.auth.passkeyCreated');
+      setBiometricMessage(successMessage);
+      appendLog(successMessage, 'success');
       appendSecurityAuditEvent({
         tone: 'success',
-        message: wasEnrolled ? 'Passkey dispositivo verificata dalla Security Dashboard.' : 'Passkey dispositivo creata dalla Security Dashboard.',
+        message: successMessage,
         context: selectedAlarmEntityId || 'Security Dashboard',
       });
     } catch {
-      setBiometricMessage('Conferma dispositivo annullata o non riuscita.');
+      setBiometricMessage(t('security.auth.deviceCancelled'));
       appendSecurityAuditEvent({
         tone: 'warning',
-        message: 'Configurazione passkey dispositivo non riuscita o annullata.',
+        message: t('security.auth.deviceCancelled'),
         context: selectedAlarmEntityId || 'Security Dashboard',
       });
     } finally {
@@ -1609,13 +1694,13 @@ export function SecurityDashboard({
   const popPinDigit = () => setAuthPinInput((curr) => curr.slice(0, -1));
   const clearPin = () => setAuthPinInput('');
 
-  const defaultArmTarget = supportedAlarmModes.find((option) => option.value === 'armed_away')?.value ?? supportedAlarmModes[0]?.value;
+  const defaultArmTarget = localizedSupportedAlarmModes.find((option) => option.value === 'armed_away')?.value ?? localizedSupportedAlarmModes[0]?.value;
   const primaryShieldActionTarget = resolvedShieldState === 'disarmed' ? defaultArmTarget : 'disarmed';
   const primaryShieldActionLabel = primaryShieldActionTarget === 'disarmed'
-    ? 'Disinserire'
+    ? t('security.action.disarm')
     : primaryShieldActionTarget
-      ? `Inserire ${supportedAlarmModes.find((option) => option.value === primaryShieldActionTarget)?.label ?? ''}`.trim()
-      : 'Nessuna modalità disponibile';
+      ? t('security.action.arm', { mode: localizedSupportedAlarmModes.find((option) => option.value === primaryShieldActionTarget)?.label ?? '' })
+      : t('security.mode.none');
 
   const toggleVisibleSensorEntity = (entityId) => {
     if (!effectiveSecurityEditMode || !canManageSecurity) return;
@@ -1685,13 +1770,13 @@ export function SecurityDashboard({
         <header className="dashboard-page-content-wide">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="dashboard-page-title">Sicurezza</h1>
-              <p className="dashboard-page-subtitle">Controllo perimetrale e videosorveglianza</p>
+              <h1 className="dashboard-page-title">{t('security.title')}</h1>
+              <p className="dashboard-page-subtitle">{t('security.subtitle')}</p>
             </div>
             {canManageSecurity && !isEditMode ? (
               <button
                 type="button"
-                aria-label={isMobileSecurityEditMode ? 'Termina modifica sicurezza' : 'Modifica sicurezza'}
+                aria-label={isMobileSecurityEditMode ? t('security.finishEdit') : t('security.edit')}
                 aria-pressed={isMobileSecurityEditMode}
                 onClick={() => setIsMobileSecurityEditMode((current) => !current)}
                 className="liquid-glass-control inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] md:hidden"
@@ -1750,15 +1835,15 @@ export function SecurityDashboard({
               <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-light uppercase tracking-[0.28em] text-[color:var(--ui-text-tertiary)]">Config</p>
-                    <h2 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">Impostazioni Sicurezza</h2>
+                    <p className="text-[11px] font-light uppercase tracking-[0.28em] text-[color:var(--ui-text-tertiary)]">{t('security.config.eyebrow')}</p>
+                    <h2 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">{t('security.config.title')}</h2>
                   </div>
                   <span className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)]"><Settings className="h-4 w-4 text-[color:var(--ui-text-secondary)]" /></span>
                 </div>
 
                 <div className="mt-5 space-y-4">
                   <label className="block">
-                    <span className="text-xs font-light uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">Entità allarme</span>
+                    <span className="text-xs font-light uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">{t('security.config.alarmEntity')}</span>
                     <GlassDropdown
                       className="mt-2"
                       options={alarmDropdownOptions}
@@ -1766,28 +1851,32 @@ export function SecurityDashboard({
                       onChange={(option) => {
                         if (effectiveSecurityEditMode && canManageSecurity) setSelectedAlarmEntityId(option.id);
                       }}
-                      placeholder="Nessuna entità alarm_control_panel trovata"
+                      placeholder={t('security.config.noAlarmEntity')}
                       disabled={alarmDropdownOptions.length === 0}
                     />
                   </label>
 
                   <div className="dashboard-content-surface-soft rounded-2xl p-3">
-                    <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Configurazione comandi</p>
+                    <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('security.config.commands')}</p>
                     <p className="mt-1 text-xs leading-relaxed text-[color:var(--ui-text-secondary)]">
                       {activeAlarmSecurityProfile
-                        ? 'Questa entità usa la configurazione della card Alarm collegata. I codici si gestiscono esclusivamente dal Builder della card.'
+                        ? t('security.config.cardManaged')
                         : alarmHasCodeCapability
-                          ? `Home Assistant richiede ${alarmCodeTypeLabel.toLowerCase()}: verrà richiesto solo al momento del comando.`
-                          : 'Nessun codice locale separato. L’autorizzazione resta quella dell’entità Home Assistant.'}
+                          ? t('security.config.codeRequired', { code: alarmCodeTypeLabel.toLowerCase() })
+                          : t('security.config.noLocalCode')}
                     </p>
                   </div>
 
                   <div className="dashboard-content-surface-soft rounded-2xl p-3">
-                    <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">Conferma dispositivo</p>
+                    <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('security.config.deviceConfirmation')}</p>
                     <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">{biometricStatus}</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button type="button" onClick={enrollBiometric} disabled={isBiometricBusy || !biometricAvailable} className="glass-button min-h-11 rounded-xl px-3 text-xs font-semibold">
-                        {isBiometricBusy ? (deviceAuth.isEnrolled ? 'Verifica...' : 'Creazione...') : deviceAuth.isEnrolled ? 'Verifica dispositivo' : 'Crea passkey'}
+                        {isBiometricBusy
+                          ? (deviceAuth.isEnrolled ? t('security.config.verifying') : t('security.config.creating'))
+                          : deviceAuth.isEnrolled
+                            ? t('security.config.verifyDevice')
+                            : t('security.config.createPasskey')}
                       </button>
                     </div>
                     {biometricMessage ? <p className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-200/90"><Check className="h-3.5 w-3.5" />{biometricMessage}</p> : null}
@@ -1824,13 +1913,13 @@ export function SecurityDashboard({
               <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-light uppercase tracking-[0.28em] text-[color:var(--ui-text-tertiary)]">Eventi Recenti</p>
-                    <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">Log Sicurezza</h3>
+                    <p className="text-[11px] font-light uppercase tracking-[0.28em] text-[color:var(--ui-text-tertiary)]">{t('security.logs.eyebrow')}</p>
+                    <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">{t('security.logs.title')}</h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {runtimeMode === 'demo' ? (
                       <span className="inline-flex h-8 items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
-                        Dati demo
+                        {t('security.logs.demo')}
                       </span>
                     ) : null}
                   {triggerSupported ? (
@@ -1858,7 +1947,7 @@ export function SecurityDashboard({
                   ))}
                   {logs.length === 0 ? (
                     <li className="dashboard-content-surface-soft rounded-2xl px-4 py-5 text-center text-xs text-[color:var(--ui-text-tertiary)]">
-                      Nessun evento registrato in questa sessione.
+                      {t('security.logs.empty')}
                     </li>
                   ) : null}
                 </ul>
@@ -1870,8 +1959,8 @@ export function SecurityDashboard({
 
       <SecurityEntityPickerModal
         isOpen={effectiveSecurityEditMode && isSensorSelectorOpen}
-        title="Sensori di Sicurezza"
-        description="Seleziona i sensori perimetrali/sicurezza da mostrare nel box."
+        title={t('security.selector.sensorsTitle')}
+        description={t('security.selector.sensorsDescription')}
         entities={sensorSelectionOptions}
         selectedEntityIds={selectedSensorEntityIds}
         onToggleEntity={toggleVisibleSensorEntity}
@@ -1882,8 +1971,8 @@ export function SecurityDashboard({
 
       <SecurityEntityPickerModal
         isOpen={effectiveSecurityEditMode && isCameraSelectorOpen}
-        title="Telecamere di Sicurezza"
-        description="Seleziona le telecamere da mostrare nella dashboard Security."
+        title={t('security.selector.camerasTitle')}
+        description={t('security.selector.camerasDescription')}
         entities={cameraSelectionOptions}
         selectedEntityIds={selectedCameraEntityIds}
         onToggleEntity={toggleVisibleCameraEntity}
@@ -1907,21 +1996,25 @@ export function SecurityDashboard({
         isOpen={isAuthModalOpen}
         pendingAlarmState={pendingAlarmState}
         pendingStateRequiresCode={pendingAuthRequiresCode}
-        title={pendingSecurityRequirement?.title}
+        title={t('security.auth.commandTitle')}
         description={
           pendingPrefersDeviceAuth
-            ? 'Conferma questa azione sul dispositivo per continuare.'
+            ? t('security.auth.description')
             : localExtraCode && pendingAuthRequiresCode
-              ? 'Inserisci PIN allarme + codice extra locale.'
-              : pendingSecurityRequirement?.description
+              ? t('security.auth.combinedDescription')
+              : pendingAuthRequiresCode
+                ? t('security.auth.pinDescription')
+                : pendingSecurityRequirement?.allowsDeviceAuth
+                  ? t('security.auth.description')
+                  : t('security.auth.noConfirmation')
         }
         authError={authError || authRateLimitMessage}
         isAuthBusy={isAuthBusy}
         isAlarmCodeNumeric={isAlarmCodeNumeric}
-        alarmCodeTypeLabel={localExtraCode ? 'PIN allarme + extra' : alarmCodeTypeLabel}
+        alarmCodeTypeLabel={localExtraCode ? t('security.auth.combinedLabel') : alarmCodeTypeLabel}
         authPinInput={authPinInput}
         preferDeviceAuth={pendingPrefersDeviceAuth}
-        deviceAuthLabel="Conferma dispositivo"
+        deviceAuthLabel={t('security.auth.deviceLabel')}
         onVerifyWithDevice={pendingPrefersDeviceAuth ? confirmPendingDeviceAuth : undefined}
         onPinInputChange={(value) => setAuthPinInput(sanitizeAlarmCode(value, alarmCodeFormat))}
         onVerifyWithPin={verifyWithPin}
@@ -1934,15 +2027,15 @@ export function SecurityDashboard({
       <GlassModal
         isOpen={dangerActionState === 'triggered'}
         onClose={() => setDangerActionState(null)}
-        title="Attivare SOS emergenza?"
-        eyebrow="Azione critica"
-        description="Il comando attiverà realmente l’allarme configurato in Home Assistant. Prosegui solo in caso di emergenza."
+        title={t('security.sos.title')}
+        eyebrow={t('security.sos.eyebrow')}
+        description={t('security.sos.description')}
         size="sm"
         dismissible={!isAuthBusy}
         footer={
           <div className="grid w-full grid-cols-2 gap-2">
             <button type="button" onClick={() => setDangerActionState(null)} className="glass-button min-h-11 rounded-full px-4 text-sm font-semibold">
-              Annulla
+              {t('security.sos.cancel')}
             </button>
             <button
               type="button"
@@ -1953,7 +2046,7 @@ export function SecurityDashboard({
               }}
               className="min-h-11 rounded-full border border-[color:color-mix(in_srgb,var(--ui-danger)_52%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-danger)_18%,transparent)] px-4 text-sm font-semibold text-[color:var(--ui-danger)]"
             >
-              Attiva SOS
+              {t('security.sos.activate')}
             </button>
           </div>
         }

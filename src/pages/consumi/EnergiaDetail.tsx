@@ -8,6 +8,7 @@ import { useEnergyCore, type EnergyCoreResource, type EnergyPageContext } from '
 import { useEnergyHistory } from './energy/useEnergyHistory';
 import type { WizardMode } from './energy/EnergySetupWizard';
 import type { EnergyModuleId } from '../../services/energyCoreClient';
+import { useConsumptionCopy } from '../../i18n/consumptionCopy';
 
 const EnergySetupWizard = React.lazy(() => import('./energy/EnergySetupWizard'));
 const EnergySettings = React.lazy(() => import('./energy/EnergySettings'));
@@ -23,12 +24,13 @@ function Message({ icon, title, children }: { icon: React.ReactNode; title: stri
 }
 
 function SetupActions({ canManage, onOpen }: { canManage: boolean; onOpen: (mode: WizardMode) => void }) {
+  const { c } = useConsumptionCopy();
   if (!canManage) {
-    return <p className={UI.muted}>Solo un amministratore di Home Assistant può configurare l’impianto.</p>;
+    return <p className={UI.muted}>{c('Solo un amministratore di Home Assistant può configurare l’impianto.')}</p>;
   }
   return (
     <button type="button" onClick={() => onOpen('setup')} className={UI.primary}>
-      <Search size={16} aria-hidden="true" /> Avvia rilevamento
+      <Search size={16} aria-hidden="true" /> {c('Avvia rilevamento')}
     </button>
   );
 }
@@ -41,6 +43,7 @@ type EnergiaDetailViewProps = {
 };
 
 export function EnergiaDetailView({ title, onBack, energy, energyCore }: EnergiaDetailViewProps) {
+  const { c } = useConsumptionCopy();
   const { state, error, loading, live, reload } = energyCore;
   const [wizard, setWizard] = React.useState<WizardMode | null>(null);
   const [settings, setSettings] = React.useState(false);
@@ -55,7 +58,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
 
   if (wizard && energy && canManage) {
     return (
-      <LazyLoadBoundary mode="section" fallback={<Message icon={<LoaderCircle className={UI.spin} />} title="Apertura configurazione…" />}>
+      <LazyLoadBoundary mode="section" fallback={<Message icon={<LoaderCircle className={UI.spin} />} title={c('Apertura configurazione…')} />}>
           <EnergySetupWizard
             mode={wizard}
             callApi={energy.callApi}
@@ -63,7 +66,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
             onClose={() => setWizard(null)}
             onSaved={() => {
               setWizard(null);
-              setNotice('Impianto salvato. Le nuove associazioni sono già attive.');
+              setNotice(c('Impianto salvato. Le nuove associazioni sono già attive.'));
               void reload();
             }}
           />
@@ -71,10 +74,10 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
     );
   }
 
-  const loading_ = <Message icon={<LoaderCircle className={UI.spin} />} title="Apertura…" />;
+  const loading_ = <Message icon={<LoaderCircle className={UI.spin} />} title={c('Apertura…')} />;
   if (settings && energy && canManage) {
     return (
-      <DetailScaffold title="Impostazioni Energia" subtitle="Impianto, sensori e tariffa" onBack={() => { setSettings(false); setSettingsModule(null); setNotice(''); }} showBeta={false}>
+      <DetailScaffold title={c('Impostazioni Energia')} subtitle={c('Impianto, sensori e tariffa')} onBack={() => { setSettings(false); setSettingsModule(null); setNotice(''); }} showBeta={false}>
         {/* Back from a guided setup opened here: its outcome stays visible above the settings. */}
         {notice ? <p role="status" className="liquid-glass-card mb-4 px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}
         <LazyLoadBoundary mode="section" fallback={loading_}>
@@ -100,28 +103,28 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
   let left: React.ReactNode;
   if (!live) {
     left = (
-      <Message icon={<WifiOff />} title="Home Assistant non collegato">
-        <p className={`mt-2 ${UI.body}`}>Collega Home Assistant per vedere e configurare l’impianto energetico.</p>
+      <Message icon={<WifiOff />} title={c('Home Assistant non collegato')}>
+        <p className={`mt-2 ${UI.body}`}>{c('Collega Home Assistant per vedere e configurare l’impianto energetico.')}</p>
       </Message>
     );
   } else if (error) {
     left = (
-      <Message icon={<AlertTriangle />} title="Impianto non disponibile">
+      <Message icon={<AlertTriangle />} title={c('Impianto non disponibile')}>
         <p className={`mt-2 ${UI.body}`}>{error.message}</p>
         <button type="button" onClick={() => void reload()} className={`mt-4 ${UI.button}`}>
-          <RefreshCw size={16} aria-hidden="true" /> Riprova
+          <RefreshCw size={16} aria-hidden="true" /> {c('Riprova')}
         </button>
       </Message>
     );
   } else if (!state || loading) {
-    left = <Message icon={<LoaderCircle className={UI.spin} />} title="Caricamento impianto…" />;
+    left = <Message icon={<LoaderCircle className={UI.spin} />} title={c('Caricamento impianto…')} />;
   } else {
     left = (
-      <Message icon={<Search />} title="Configura Domus Energy">
+      <Message icon={<Search />} title={c('Configura Domus Energy')}>
         <p className={`mt-2 leading-relaxed ${UI.body}`}>
-          Domus individua rete, fotovoltaico, batteria e wallbox tra i sensori di Home Assistant e mostra solo l’hardware presente. Nulla viene salvato senza la tua conferma.
+          {c('Domus individua rete, fotovoltaico, batteria e wallbox tra i sensori di Home Assistant e mostra solo l’hardware presente. Nulla viene salvato senza la tua conferma.')}
         </p>
-        {state.load_error ? <p className="mt-3 text-sm text-[color:var(--ui-warning)]">Il profilo salvato non era valido ed è stato ignorato: configuralo di nuovo.</p> : null}
+        {state.load_error ? <p className="mt-3 text-sm text-[color:var(--ui-warning)]">{c('Il profilo salvato non era valido ed è stato ignorato: configuralo di nuovo.')}</p> : null}
         <div className="mt-5 flex justify-center"><SetupActions canManage={canManage} onOpen={openWizard} /></div>
       </Message>
     );
@@ -129,7 +132,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
 
   if (!state?.configured) {
     return (
-      <DetailScaffold title={title} onBack={onBack} subtitle="Flussi energetici in tempo reale" showBeta={false}>
+      <DetailScaffold title={title} onBack={onBack} subtitle={c('Flussi energetici in tempo reale')} showBeta={false}>
         <div className="flex min-h-[calc(100dvh-11rem)] items-center justify-center">
           <div className="w-full max-w-xl space-y-3">
             {notice ? <p role="status" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}
@@ -144,11 +147,11 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
     <DetailScaffold
       title={title}
       onBack={onBack}
-      subtitle="Flussi energetici in tempo reale"
+      subtitle={c('Flussi energetici in tempo reale')}
       bleed
       trailing={canManage ? (
-        <button type="button" onClick={() => openWizard('edit')} className="liquid-glass-control flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-[color:var(--ui-text-primary)]" aria-label="Impostazioni energia">
-          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">Impostazioni</span>
+        <button type="button" onClick={() => openWizard('edit')} className="liquid-glass-control flex h-11 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-[color:var(--ui-text-primary)]" aria-label={c('Impostazioni energia')}>
+          <SlidersHorizontal className="h-4 w-4" aria-hidden="true" /> <span className="hidden sm:inline">{c('Impostazioni')}</span>
         </button>
       ) : undefined}
     >
@@ -161,7 +164,7 @@ export function EnergiaDetailView({ title, onBack, energy, energyCore }: Energia
             {notice ? <p role="status" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-success)]">{notice}</p> : null}
             {error ? (
               <p role="alert" className="liquid-glass-card px-4 py-3 text-sm text-[color:var(--ui-warning)]">
-                Aggiornamento non riuscito: i valori potrebbero non essere attuali. {error.message}
+                {c('Aggiornamento non riuscito: i valori potrebbero non essere attuali. {error}', { error: error.message })}
               </p>
             ) : null}
           </>

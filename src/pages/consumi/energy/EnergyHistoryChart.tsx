@@ -1,6 +1,7 @@
 import React from 'react';
 import type { EnergyHistoryResult, EnergyHistorySeriesName } from '../../../services/energyCoreClient';
 import { BUCKET_LABEL, availableSeries, bucketLabels, formatKwh, readPoint } from './energyHistoryModel';
+import { useConsumptionCopy } from '../../../i18n/consumptionCopy';
 
 /*
  * Energy per bucket as 2px lines on one kWh axis, drawn from the `get_history`
@@ -48,7 +49,8 @@ export function tickEvery(bucket: EnergyHistoryResult['range']['bucket'], count:
 }
 
 export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) {
-  const available = availableSeries(result);
+  const { c, locale } = useConsumptionCopy();
+  const available = availableSeries(result, locale);
   const [hidden, setHidden] = React.useState(() => new Set(available.slice(SHOWN_FIRST).map((series) => series.id)));
   const [active, setActive] = React.useState<number | null>(null);
   const [width, setWidth] = React.useState(640);
@@ -62,7 +64,7 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
     return () => observer.disconnect();
   }, []);
 
-  const labels = bucketLabels(result);
+  const labels = bucketLabels(result, locale);
   const count = labels.length;
   const last = labels[count - 1]?.inProgress ? count - 1 : -1;
   const points = (id: EnergyHistorySeriesName) => result.series[id]?.points ?? [];
@@ -86,7 +88,7 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
   const lonely = (id: EnergyHistorySeriesName) =>
     points(id).flatMap((point, index, all) =>
       point.value !== null && (all[index - 1]?.value ?? null) === null && (all[index + 1]?.value ?? null) === null ? [{ index, value: point.value }] : []);
-  const incomplete = labels.map((_, index) => available.some((series) => readPoint(points(series.id)[index], index === last).incomplete));
+  const incomplete = labels.map((_, index) => available.some((series) => readPoint(points(series.id)[index], index === last, locale).incomplete));
   const every = tickEvery(result.range.bucket, count, plotWidth);
   const narrow = width < 480;
 
@@ -115,11 +117,11 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
       return next;
     });
   const derived = (id: EnergyHistorySeriesName) => result.series[id]?.source === 'derived';
-  const unit = BUCKET_LABEL[result.range.bucket];
+  const unit = c(BUCKET_LABEL[result.range.bucket]);
 
   return (
     <div className="energy-history-chart">
-      <div className="mt-4 flex flex-wrap gap-1.5" role="group" aria-label="Serie da mostrare">
+      <div className="mt-4 flex flex-wrap gap-1.5" role="group" aria-label={c('Serie da mostrare')}>
         {available.map((series) => (
           <button
             key={series.id}
@@ -130,7 +132,7 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
           >
             <Swatch color={series.color} dash={series.dash} />
             {series.label}
-            {derived(series.id) ? <span className="font-normal text-[color:var(--ui-text-tertiary)]">· calcolato</span> : null}
+            {derived(series.id) ? <span className="font-normal text-[color:var(--ui-text-tertiary)]">· {c('calcolato')}</span> : null}
           </button>
         ))}
       </div>
@@ -141,7 +143,7 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
           viewBox={`0 0 ${width} ${HEIGHT}`}
           role="img"
           tabIndex={0}
-          aria-label={`Grafico dell’energia per ${unit}. Usa le frecce per leggere i valori.`}
+          aria-label={c('Grafico dell’energia per {unit}. Usa le frecce per leggere i valori.', { unit })}
           onKeyDown={onKey}
           onBlur={() => setActive(null)}
           className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-accent)]"
@@ -153,7 +155,7 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
             <g key={tick}>
               <line x1={PAD.left} x2={width - PAD.right} y1={y(tick * step)} y2={y(tick * step)} stroke="var(--ui-separator)" strokeWidth="1" />
               <text x={PAD.left - 8} y={y(tick * step) + 3} textAnchor="end" fontSize="10" fill="var(--ui-text-tertiary)">
-                {formatKwh(tick * step)}
+                {formatKwh(tick * step, locale)}
               </text>
             </g>
           ))}
@@ -199,10 +201,10 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
           >
             <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[color:var(--ui-text-primary)]">
               <span className="flex-1 first-letter:uppercase">{labels[active].long}</span>
-              {incomplete[active] ? <span className="text-[10px] font-semibold text-[color:var(--ui-warning)]">Dati incompleti</span> : null}
+              {incomplete[active] ? <span className="text-[10px] font-semibold text-[color:var(--ui-warning)]">{c('Dati incompleti')}</span> : null}
             </p>
             {visible.map((series) => {
-              const reading = readPoint(points(series.id)[active], active === last);
+              const reading = readPoint(points(series.id)[active], active === last, locale);
               return (
                 <div key={series.id} className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">
                   <p className="flex items-center gap-1.5">
@@ -212,7 +214,7 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
                   </p>
                   {reading.note || derived(series.id) ? (
                     <p className="pl-[22px] text-[10px] text-[color:var(--ui-text-tertiary)]">
-                      {[reading.note, derived(series.id) ? 'Calcolato dal bilancio dei contatori' : null].filter(Boolean).join(' · ')}
+                      {[reading.note, derived(series.id) ? c('Calcolato dal bilancio dei contatori') : null].filter(Boolean).join(' · ')}
                     </p>
                   ) : null}
                 </div>
@@ -222,11 +224,11 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
         ) : null}
       </div>
       <table className="sr-only">
-        <caption>Energia per {unit}, in kWh</caption>
+        <caption>{c('Energia per {bucket}, in kWh', { bucket: unit })}</caption>
         <thead>
           <tr>
-            <th scope="col">Intervallo</th>
-            {available.map((series) => <th key={series.id} scope="col">{series.label}{derived(series.id) ? ' (calcolato)' : ''}</th>)}
+            <th scope="col">{c('Intervallo')}</th>
+            {available.map((series) => <th key={series.id} scope="col">{series.label}{derived(series.id) ? ` (${c('calcolato')})` : ''}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -234,7 +236,7 @@ export function EnergyHistoryChart({ result }: { result: EnergyHistoryResult }) 
             <tr key={label.long}>
               <th scope="row">{label.long}</th>
               {available.map((series) => {
-                const reading = readPoint(points(series.id)[index], index === last);
+                const reading = readPoint(points(series.id)[index], index === last, locale);
                 return <td key={series.id}>{reading.note ? `${reading.text} (${reading.note})` : reading.text}</td>;
               })}
             </tr>

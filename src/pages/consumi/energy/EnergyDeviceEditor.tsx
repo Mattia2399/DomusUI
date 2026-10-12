@@ -8,6 +8,7 @@ import { MODULE_META, UI } from './energyModel';
 import { METER_ROLES, meterLines, type PlantDraftDevice, type PlantDraftSources, type PlantIssue } from './energyPlantDraft';
 import { EnergySensorPicker } from './EnergySensorPicker';
 import { sensorOptions, type SensorOption } from './energySensorCatalog';
+import { useConsumptionCopy } from '../../../i18n/consumptionCopy';
 
 /*
  * Advanced editors of one device and of a module total ("Configurazione
@@ -41,11 +42,12 @@ export const METER_REASON: Record<string, string> = {
 };
 
 export function MeterStatusLine({ info }: { info: EnergyMeterInfo | undefined }) {
+  const { cl } = useConsumptionCopy();
   if (!info) return null;
   const status = METER_STATUS[info.status];
   return (
     <span className={`block text-[11px] ${status.tone}`}>
-      {status.label}{info.unit ? ` · ${info.unit}` : ''}{info.reason && METER_REASON[info.reason] ? ` · ${METER_REASON[info.reason]}` : ''}
+      {cl(status.label)}{info.unit ? ` · ${info.unit}` : ''}{info.reason && METER_REASON[info.reason] ? ` · ${cl(METER_REASON[info.reason])}` : ''}
     </span>
   );
 }
@@ -81,6 +83,7 @@ export function MeterRoleRows({
   error?: PlantIssue;
   onChange: (sources: PlantDraftSources) => void;
 }) {
+  const { c, cl } = useConsumptionCopy();
   const parts = meterLines(sources.meters[role]);
   // Rows keep an empty line being filled; the saved plant drops it.
   const rows = (sources.meters[role] ?? '').split('\n');
@@ -98,14 +101,14 @@ export function MeterRoleRows({
                 value={part}
                 options={options}
                 taken={taken}
-                placeholder="Cerca un contatore o scrivi fonte:nome"
+                placeholder={c('Cerca un contatore o scrivi fonte:nome')}
                 invalid={Boolean(error)}
                 onChange={(value) => write(rows.map((item, at) => (at === index ? value : item)))}
               />
               {part ? <MeterStatusLine info={meters[part]} /> : null}
             </div>
             {rows.length > 1 || part ? (
-              <button type="button" onClick={() => write(rows.filter((_, at) => at !== index))} className={`${UI.chip} min-h-10`} aria-label={`Togli ${part || 'contatore vuoto'}`}>
+              <button type="button" onClick={() => write(rows.filter((_, at) => at !== index))} className={`${UI.chip} min-h-10`} aria-label={c('Togli {name}', { name: part || c('contatore vuoto') })}>
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>
             ) : null}
@@ -114,15 +117,15 @@ export function MeterRoleRows({
       })}
       {parts.length > 1 ? (
         <p className="text-[11px] text-[color:var(--ui-warning)]">
-          Questi {parts.length} contatori verranno sommati: indicali solo se rappresentano fasce o parti diverse e nessuno include già il totale.
+          {c('Questi {count} contatori verranno sommati: indicali solo se rappresentano fasce o parti diverse e nessuno include già il totale.', { count: parts.length })}
         </p>
       ) : null}
       {parts.length && rows.every((row) => row.trim()) ? (
         <button type="button" onClick={() => write([...rows, ''])} className={UI.chip}>
-          <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Aggiungi un contatore da sommare
+          <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {c('Aggiungi un contatore da sommare')}
         </button>
       ) : null}
-      {error ? <p className={ERROR_TEXT}>{error.message}</p> : null}
+      {error ? <p className={ERROR_TEXT}>{cl(error.message)}</p> : null}
     </div>
   );
 }
@@ -138,20 +141,21 @@ function MetersEditor({
   issues,
   onChange,
 }: Shared & { scope: string; sources: PlantDraftSources; issues: PlantIssue[]; onChange: (sources: PlantDraftSources) => void }) {
+  const { c, cl } = useConsumptionCopy();
   const options = React.useMemo(() => sensorOptions(haStates, discovery, 'energy'), [haStates, discovery]);
   return (
     <fieldset className={UI.card}>
-      <legend className="sr-only">Contatori di energia</legend>
-      <p className={UI.title}>Contatori di energia</p>
-      <p className={UI.muted}>Statistiche di Home Assistant in kWh, per lo storico. Facoltativi: senza, il dispositivo resta in tempo reale.</p>
+      <legend className="sr-only">{c('Contatori di energia')}</legend>
+      <p className={UI.title}>{c('Contatori di energia')}</p>
+      <p className={UI.muted}>{c('Statistiche di Home Assistant in kWh, per lo storico. Facoltativi: senza, il dispositivo resta in tempo reale.')}</p>
       <div className="mt-3 space-y-3">
         {METER_ROLES[module].map(({ role, label }) => (
-          <div key={role} className="space-y-1.5" role="group" aria-label={label}>
-            <p className={`text-sm ${UI.title}`}>{label}</p>
+          <div key={role} className="space-y-1.5" role="group" aria-label={cl(label)}>
+            <p className={`text-sm ${UI.title}`}>{cl(label)}</p>
             <MeterRoleRows
               scope={scope}
               role={role}
-              label={label}
+              label={cl(label)}
               sources={sources}
               options={options}
               meters={meters}
@@ -182,6 +186,7 @@ export function DeviceEditor({
   issues,
   onChange,
 }: Shared & { device: PlantDraftDevice; index: number; issues: PlantIssue[]; onChange: (device: PlantDraftDevice) => void }) {
+  const { c, cl } = useConsumptionCopy();
   const field = (name: string) => issues.find((issue) => issue.field === name);
   const nameId = `energy-${device.id}-name`;
   const general = issues.find((issue) => !issue.field);
@@ -189,25 +194,25 @@ export function DeviceEditor({
   return (
     <div className="w-full space-y-3">
       <div className="space-y-1.5">
-        <label htmlFor={nameId} className={`block text-sm ${UI.title}`}>Nome</label>
+        <label htmlFor={nameId} className={`block text-sm ${UI.title}`}>{c('Nome')}</label>
         <input
           id={nameId}
           value={device.name}
           maxLength={80}
-          placeholder={`${MODULE_META[module].label} ${index + 1}`}
+          placeholder={`${c(MODULE_META[module].label)} ${index + 1}`}
           onChange={(event) => onChange({ ...device, name: event.target.value })}
           aria-invalid={Boolean(field('name'))}
           className="liquid-glass-control min-h-10 w-full rounded-xl px-3 text-sm"
         />
-        {field('name') ? <p className={ERROR_TEXT}>{field('name')?.message}</p> : null}
-        {device.stored.ha_device_id ? <p className={UI.muted}>Collegato a un dispositivo di Home Assistant.</p> : null}
+        {field('name') ? <p className={ERROR_TEXT}>{cl(field('name')?.message ?? '')}</p> : null}
+        {device.stored.ha_device_id ? <p className={UI.muted}>{c('Collegato a un dispositivo di Home Assistant.')}</p> : null}
       </div>
       <ModuleEditor
         id={module}
         instanceId={device.id}
-        title="Potenza in tempo reale"
-        hint="Sensori di potenza di questo dispositivo"
-        toggleLabels={['Rimuovi i sensori di potenza', 'Aggiungi sensori di potenza']}
+        title={c('Potenza in tempo reale')}
+        hint={c('Sensori di potenza di questo dispositivo')}
+        toggleLabels={[c('Rimuovi i sensori di potenza'), c('Aggiungi sensori di potenza')]}
         module={device.power}
         offline={false}
         discovery={discovery}
@@ -219,13 +224,13 @@ export function DeviceEditor({
       <MetersEditor {...shared} scope={device.id} sources={device} issues={issues} onChange={(sources) => onChange({ ...device, ...sources })} />
       {module === 'battery' ? (
         <fieldset className={UI.card}>
-          <legend className="sr-only">Capacità</legend>
-          <p className={UI.title}>Capacità</p>
-          <p className={UI.muted}>Serve per lo stato di carica complessivo di più batterie. Lascia vuoto se non la conosci.</p>
+          <legend className="sr-only">{c('Capacità')}</legend>
+          <p className={UI.title}>{c('Capacità')}</p>
+          <p className={UI.muted}>{c('Serve per lo stato di carica complessivo di più batterie. Lascia vuoto se non la conosci.')}</p>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             {(['nominal', 'usable'] as const).map((kind) => (
               <div key={kind} className="space-y-1.5">
-                <label htmlFor={`energy-${device.id}-${kind}`} className={`block text-sm ${UI.title}`}>{kind === 'nominal' ? 'Nominale (kWh)' : 'Utilizzabile (kWh)'}</label>
+                <label htmlFor={`energy-${device.id}-${kind}`} className={`block text-sm ${UI.title}`}>{kind === 'nominal' ? c('Nominale (kWh)') : c('Utilizzabile (kWh)')}</label>
                 <input
                   id={`energy-${device.id}-${kind}`}
                   inputMode="decimal"
@@ -234,13 +239,13 @@ export function DeviceEditor({
                   aria-invalid={Boolean(field(kind))}
                   className="liquid-glass-control min-h-10 w-full rounded-xl px-3 text-sm"
                 />
-                {field(kind) ? <p className={ERROR_TEXT}>{field(kind)?.message}</p> : null}
+                {field(kind) ? <p className={ERROR_TEXT}>{cl(field(kind)?.message ?? '')}</p> : null}
               </div>
             ))}
           </div>
         </fieldset>
       ) : null}
-      {general ? <p className={ERROR_TEXT}>{general.message}</p> : null}
+      {general ? <p className={ERROR_TEXT}>{cl(general.message)}</p> : null}
     </div>
   );
 }
@@ -256,28 +261,29 @@ export function TotalEditor({
   issues,
   onChange,
 }: Shared & { total: PlantDraftSources; issues: PlantIssue[]; onChange: (total: PlantDraftSources | null) => void }) {
+  const { c, cl } = useConsumptionCopy();
   const own = issues.filter((issue) => issue.field === 'total');
   return (
     <div className="w-full space-y-3">
       <p className={UI.body}>
-        Il sensore totale misura l’intero modulo e diventa il suo valore: i dispositivi restano come dettaglio e non vengono sommati a esso. Indicalo solo se copre davvero tutti i dispositivi.
+        {c('Il sensore totale misura l’intero modulo e diventa il suo valore: i dispositivi restano come dettaglio e non vengono sommati a esso. Indicalo solo se copre davvero tutti i dispositivi.')}
       </p>
       <ModuleEditor
         id={module}
         instanceId={`${module}-total`}
-        title="Potenza totale"
-        hint="Sensore che misura tutti i dispositivi insieme"
-        toggleLabels={['Togli la potenza totale', 'Aggiungi la potenza totale']}
+        title={c('Potenza totale')}
+        hint={c('Sensore che misura tutti i dispositivi insieme')}
+        toggleLabels={[c('Togli la potenza totale'), c('Aggiungi la potenza totale')]}
         module={total.power}
         offline={false}
         discovery={discovery}
         haStates={haStates}
         taken={taken}
-        issues={own.map((issue) => ({ module, message: issue.message }))}
+        issues={own.map((issue) => ({ module, message: cl(issue.message) }))}
         onChange={(power) => onChange({ ...total, power })}
       />
       <MetersEditor module={module} scope={`${module}-total`} sources={total} haStates={haStates} discovery={discovery} meters={meters} taken={taken} issues={[]} onChange={onChange} />
-      <button type="button" onClick={() => onChange(null)} className={UI.chip}>Rimuovi il sensore totale</button>
+      <button type="button" onClick={() => onChange(null)} className={UI.chip}>{c('Rimuovi il sensore totale')}</button>
     </div>
   );
 }

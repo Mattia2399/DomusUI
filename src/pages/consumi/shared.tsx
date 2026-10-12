@@ -1,14 +1,16 @@
 import React from 'react';
 import { FlaskConical } from 'lucide-react';
 import NestedPageHeader from '../../components/ui/NestedPageHeader';
+import { useConsumptionCopy } from '../../i18n/consumptionCopy';
 
 export type IntervalKey = '24H' | '7G' | '30G';
 
 export function PreviewDataNotice({ children }: { children: React.ReactNode }) {
+  const { c } = useConsumptionCopy();
   return (
     <div className="liquid-glass-card flex items-start gap-3 px-4 py-3 text-sm text-[color:var(--ui-text-secondary)]" role="note">
       <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--ui-warning)]" aria-hidden="true" />
-      <p><span className="font-semibold text-[color:var(--ui-text-primary)]">Anteprima dimostrativa.</span> {children}</p>
+      <p><span className="font-semibold text-[color:var(--ui-text-primary)]">{c('Anteprima dimostrativa.')}</span> {children}</p>
     </div>
   );
 }
@@ -19,7 +21,7 @@ export function DetailScaffold({
   left,
   right,
   children,
-  subtitle = 'Analisi consumi e andamento',
+  subtitle,
   showBeta = true,
   trailing,
   bleed = false,
@@ -36,23 +38,24 @@ export function DetailScaffold({
   /** Children own the layout: no padding, and the header overlays a mobile hero. */
   bleed?: boolean;
 }) {
+  const { c } = useConsumptionCopy();
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
   return (
     <div ref={scrollContainerRef} className="h-full w-full overflow-y-auto" data-scroll-root>
       <NestedPageHeader
         title={title}
-        subtitle={subtitle}
-        backLabel="Consumi"
-        backAriaLabel="Torna a Consumi"
+        subtitle={subtitle ?? c('Analisi consumi e andamento')}
+        backLabel={c('Consumi')}
+        backAriaLabel={c('Torna a Consumi')}
         onBack={onBack}
         scrollContainerRef={scrollContainerRef}
         overlay={bleed}
         trailing={trailing ?? (showBeta ? (
           <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[color:var(--ui-text-secondary)]">
             <FlaskConical size={13} />
-            <span className="hidden sm:inline">Anteprima beta</span>
-            <span className="sm:hidden">Beta</span>
+            <span className="hidden sm:inline">{c('Anteprima beta')}</span>
+            <span className="sm:hidden">{c('Beta')}</span>
           </span>
         ) : undefined)}
       />
@@ -113,6 +116,7 @@ export function PremiumTooltip({
   label?: string | number;
   suffix?: string;
 }) {
+  const { c } = useConsumptionCopy();
   if (!active || !payload || payload.length === 0) {
     return null;
   }
@@ -123,7 +127,7 @@ export function PremiumTooltip({
       <div className="space-y-1">
         {payload.map((item, index) => (
           <div key={`${item.name ?? 'value'}-${index}`} className="flex items-center justify-between gap-4">
-            <span className="text-[color:var(--ui-text-secondary)]">{item.name ?? 'Valore'}</span>
+            <span className="text-[color:var(--ui-text-secondary)]">{item.name ?? c('Valore')}</span>
             <span className="font-semibold text-[color:var(--ui-text-primary)]">
               {item.value}
               {suffix}

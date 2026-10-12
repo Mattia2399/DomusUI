@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { SwitchCardModel, SwitchDeviceIcon } from './switchCardModel';
 import './SwitchCard.css';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type SwitchCardViewProps = {
   model: SwitchCardModel;
@@ -49,6 +50,7 @@ export function SwitchCardView({
   onOpen,
   rootRef,
 }: SwitchCardViewProps) {
+  const { t } = useI18n();
   const DeviceIcon = SWITCH_ICON_MAP[model.deviceIcon];
   const canToggle = !isEditMode && model.available && !model.pending;
 
@@ -119,7 +121,7 @@ export function SwitchCardView({
               onOpen();
             }
           }}
-          aria-label={`Configura ${model.title}`}
+          aria-label={t('builder.configureNamed', { name: model.title })}
         />
       ) : null}
     </div>

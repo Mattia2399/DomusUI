@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { saveSetupJourney } from '../../services/setupJourney';
 import { ExperienceGate } from './ExperienceGate';
-import { I18nProvider } from '../../i18n/I18nProvider';
+import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 
 vi.mock('./OnboardingExperience', () => ({
   OnboardingExperience: ({ onJourneyChange }: { onJourneyChange: (journey: object) => void }) => (
@@ -69,5 +69,23 @@ describe('ExperienceGate onboarding completion', () => {
 
     expect(await screen.findByRole('button', { name: 'Apri la dashboard' })).toBeTruthy();
     expect(screen.queryByText('Dashboard Domus UI')).toBeNull();
+  });
+
+  it('opens the translated Consumption route when English is active', async () => {
+    window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
+    saveSetupJourney({
+      phase: 'done',
+      mode: 'real',
+      connectionMethod: 'panel',
+    }, window.localStorage);
+
+    render(
+      <I18nProvider><MemoryRouter initialEntries={['/consumi']}>
+        <ExperienceGate />
+      </MemoryRouter></I18nProvider>,
+    );
+
+    expect(await screen.findByText('Dashboard Domus UI')).toBeTruthy();
+    expect(screen.queryByText('Coming soon')).toBeNull();
   });
 });

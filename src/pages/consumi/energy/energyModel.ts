@@ -3,20 +3,25 @@ import type {
   EnergyQuantity,
   EnergyState,
 } from '../../../services/energyCoreClient';
+import type { AppLocale } from '../../../i18n/I18nProvider';
+import {
+  translateConsumption,
+  type ConsumptionCopyKey,
+} from '../../../i18n/consumptionCopy';
 
 export type EnergyRoleSpec = {
   role: string;
-  label: string;
+  label: ConsumptionCopyKey;
   /** Roles shown in each wiring mode; SoC is shown in both. */
   mode?: 'split' | 'net';
   soc?: boolean;
 };
 
 export type EnergyModuleMeta = {
-  label: string;
-  hint: string;
+  label: ConsumptionCopyKey;
+  hint: ConsumptionCopyKey;
   roles: EnergyRoleSpec[];
-  conventions?: Array<[string, string]>;
+  conventions?: Array<[string, ConsumptionCopyKey]>;
 };
 
 export const MODULE_META: Record<EnergyModuleId, EnergyModuleMeta> = {
@@ -79,23 +84,25 @@ export const UI = {
 /** Flows below this magnitude are shown as idle rather than animated. */
 const FLOW_THRESHOLD_W = 10;
 
-export function formatPower(watts: number) {
+export function formatPower(watts: number, locale: AppLocale = 'it') {
   const absolute = Math.abs(watts);
   if (absolute < 1000) {
     const rounded = Math.round(watts);
-    return `${Object.is(rounded, -0) ? 0 : rounded.toLocaleString('it-IT')} W`;
+    return `${new Intl.NumberFormat(locale).format(Object.is(rounded, -0) ? 0 : rounded)} W`;
   }
-  return `${(watts / 1000).toLocaleString('it-IT', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} kW`;
+  return `${new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 2 }).format(watts / 1000)} kW`;
 }
 
-export function formatQuantity(quantity: Pick<EnergyQuantity, 'status' | 'value' | 'unit'> | null | undefined) {
+export function formatQuantity(quantity: Pick<EnergyQuantity, 'status' | 'value' | 'unit'> | null | undefined, locale: AppLocale = 'it') {
   if (!quantity || quantity.status !== 'ok' || quantity.value === null) return '—';
-  return quantity.unit === '%' ? `${Math.round(quantity.value)}%` : formatPower(quantity.value);
+  return quantity.unit === '%'
+    ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(quantity.value)}%`
+    : formatPower(quantity.value, locale);
 }
 
-export const SOURCE_LABEL = { measured: 'Misurato', derived: 'Derivato' } as const;
+export const SOURCE_LABEL: Record<'measured' | 'derived', ConsumptionCopyKey> = { measured: 'Misurato', derived: 'Derivato' };
 
-export const REASON_LABEL: Record<string, string> = {
+export const REASON_LABEL: Record<string, ConsumptionCopyKey> = {
   not_configured: 'Nessun sensore',
   insufficient_data: 'Dati insufficienti',
   source_unavailable: 'Sensori non disponibili',
@@ -121,10 +128,12 @@ export const REASON_LABEL: Record<string, string> = {
 };
 
 /** "da 35 min", "da 2 h": how long ago a value was last reported, both times from the server. */
-export function formatAge(reportedAt: string | null | undefined, now: string) {
+export function formatAge(reportedAt: string | null | undefined, now: string, locale: AppLocale = 'it') {
   const minutes = reportedAt ? Math.max(0, Math.round((Date.parse(now) - Date.parse(reportedAt)) / 60000)) : NaN;
   if (!Number.isFinite(minutes)) return '';
-  return minutes < 60 ? `da ${minutes} min` : `da ${Math.round(minutes / 60)} h`;
+  return minutes < 60
+    ? translateConsumption(locale, 'da {minutes} min', { minutes })
+    : translateConsumption(locale, 'da {hours} h', { hours: Math.round(minutes / 60) });
 }
 
 /** Oldest report among the stale values of a module, or null when nothing is stale. */
@@ -163,7 +172,7 @@ const okValue = (quantity: EnergyQuantity | undefined) =>
   quantity && quantity.status === 'ok' ? quantity.value : null;
 
 /** Build the adaptive diagram from the backend projection only. */
-export function buildFlowFromState(state: EnergyState): FlowView {
+export function buildFlowFromState(state: EnergyState, locale: AppLocale = 'it'): FlowView {
   const nodes: FlowNodeView[] = [];
   for (const id of ['grid', 'solar', 'battery', 'wallbox'] as EnergyModuleId[]) {
     const module = state.modules[id];
@@ -174,27 +183,31 @@ export function buildFlowFromState(state: EnergyState): FlowView {
     let caption: string | undefined;
     if (id === 'grid') {
       inbound = okValue(q.net_power);
-      value = inbound === null ? formatQuantity(q.import_power) : formatPower(Math.abs(inbound));
-      caption = inbound === null ? undefined : inbound >= 0 ? 'Prelievo' : 'Immissione';
+      value = inbound === null ? formatQuantity(q.import_power, locale) : formatPower(Math.abs(inbound), locale);
+      caption = inbound === null ? undefined : translateConsumption(locale, inbound >= 0 ? 'Prelievo' : 'Immissione');
     } else if (id === 'solar') {
       inbound = okValue(q.production_power);
-      value = formatQuantity(q.production_power);
+      value = formatQuantity(q.production_power, locale);
     } else if (id === 'battery') {
       inbound = okValue(q.net_power);
       const soc = okValue(q.state_of_charge);
-      const flow = inbound === null ? undefined : `${inbound >= 0 ? 'Scarica' : 'Carica'} ${formatPower(Math.abs(inbound))}`;
-      value = soc !== null ? `${Math.round(soc)}%` : flow ?? '—';
+      const flow = inbound === null ? undefined : translateConsumption(
+        locale,
+        inbound >= 0 ? 'Scarica {power}' : 'Carica {power}',
+        { power: formatPower(Math.abs(inbound), locale) },
+      );
+      value = soc !== null ? `${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(soc)}%` : flow ?? '—';
       caption = soc !== null ? flow : undefined;
     } else {
       const charging = okValue(q.charging_power);
       inbound = charging === null ? null : -charging;
-      value = formatQuantity(q.charging_power);
+      value = formatQuantity(q.charging_power, locale);
     }
     nodes.push({
       id,
-      label: MODULE_META[id].label,
+      label: translateConsumption(locale, MODULE_META[id].label),
       value,
-      caption: module.status === 'offline' ? 'Offline' : caption,
+      caption: module.status === 'offline' ? translateConsumption(locale, 'Offline') : caption,
       online: module.status === 'online',
       direction: module.status === 'online' ? directionOf(inbound) : 'idle',
       amountW: Math.abs(inbound ?? 0),
@@ -205,10 +218,10 @@ export function buildFlowFromState(state: EnergyState): FlowView {
   return {
     nodes,
     home: {
-      value: formatQuantity(consumption),
+      value: formatQuantity(consumption, locale),
       caption: homeOk && consumption?.source
-        ? SOURCE_LABEL[consumption.source]
-        : REASON_LABEL[consumption?.reason ?? ''] ?? 'Non disponibile',
+        ? translateConsumption(locale, SOURCE_LABEL[consumption.source])
+        : translateConsumption(locale, REASON_LABEL[consumption?.reason ?? ''] ?? 'Non disponibile'),
       online: homeOk,
     },
   };

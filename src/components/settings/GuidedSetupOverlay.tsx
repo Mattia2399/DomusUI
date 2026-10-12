@@ -246,16 +246,19 @@ export function GuidedSetupOverlay({
   isOpen,
   tag,
   heading,
-  description = 'Scopri le funzioni essenziali e inizia a personalizzare la tua esperienza.',
+  description,
   steps,
   onDismiss,
   onComplete,
   onStepChange,
   isStepComplete,
-  completeLabel = 'Fine guida',
-  skipLabel = 'Salta guida',
+  completeLabel,
+  skipLabel,
 }: GuidedSetupOverlayProps) {
   const { t } = useI18n();
+  const resolvedDescription = description ?? t('settings.guide.description');
+  const resolvedCompleteLabel = completeLabel ?? t('settings.guide.finish');
+  const resolvedSkipLabel = skipLabel ?? t('settings.guide.skip');
   const appearance = useDeviceAppearance();
   const [stepIndex, setStepIndex] = useState(0);
   const [targetSnapshot, setTargetSnapshot] = useState<TargetSnapshot | null>(null);
@@ -452,10 +455,10 @@ export function GuidedSetupOverlay({
           ) : null}
           <div className="mt-5 flex items-center justify-between gap-2 border-t border-[color:var(--ui-border)] pt-4">
             <button type="button" onClick={onDismiss} className="shrink-0 whitespace-nowrap px-1 text-xs font-semibold text-[color:var(--ui-text-secondary)] transition hover:text-[color:var(--ui-text-primary)]">
-              {skipLabel}
+              {resolvedSkipLabel}
             </button>
             <div className="flex gap-2">
-              {safeStepIndex > 0 ? <SetupSecondaryButton onClick={goBack} className="shrink-0 whitespace-nowrap !min-h-10 !px-4">Indietro</SetupSecondaryButton> : null}
+              {safeStepIndex > 0 ? <SetupSecondaryButton onClick={goBack} className="shrink-0 whitespace-nowrap !min-h-10 !px-4">{t('settings.guide.back')}</SetupSecondaryButton> : null}
               <SetupActionButton
                 onClick={() => {
                   if (currentStep.actionBehavior === 'continue') {
@@ -469,7 +472,7 @@ export function GuidedSetupOverlay({
                 fullOnMobile={false}
                 className="whitespace-nowrap !min-h-10 !px-4"
               >
-                {currentStep.actionLabel ?? 'Mostrami'}
+                {currentStep.actionLabel ?? t('settings.guide.showMe')}
               </SetupActionButton>
             </div>
           </div>
@@ -485,7 +488,7 @@ export function GuidedSetupOverlay({
       onClose={onDismiss}
       title={heading}
       eyebrow={tag}
-      description={description}
+      description={resolvedDescription}
       size="xl"
       variant="responsive"
       showCloseButton={false}
@@ -499,11 +502,11 @@ export function GuidedSetupOverlay({
       backdropClassName="!bg-[color:var(--ui-scrim)]"
       footer={(
         <>
-          <SetupSecondaryButton onClick={onDismiss} className="guided-setup-skip">{skipLabel}</SetupSecondaryButton>
+          <SetupSecondaryButton onClick={onDismiss} className="guided-setup-skip">{resolvedSkipLabel}</SetupSecondaryButton>
           <div className="guided-setup-navigation flex min-w-0 gap-2">
-            {safeStepIndex > 0 ? <SetupSecondaryButton onClick={goBack} className="min-w-0 flex-1 sm:flex-none">Indietro</SetupSecondaryButton> : null}
+            {safeStepIndex > 0 ? <SetupSecondaryButton onClick={goBack} className="min-w-0 flex-1 sm:flex-none">{t('settings.guide.back')}</SetupSecondaryButton> : null}
             <SetupActionButton onClick={goForward} trailingArrow={!isLastStep} fullOnMobile={false} className="min-w-0 flex-1 sm:flex-none">
-              {isLastStep ? completeLabel : 'Continua'}
+              {isLastStep ? resolvedCompleteLabel : t('settings.guide.continue')}
             </SetupActionButton>
           </div>
         </>
@@ -511,12 +514,12 @@ export function GuidedSetupOverlay({
     >
       <div className="guided-setup-progress lg:hidden">
         <div className="flex items-center justify-between gap-3 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
-          <span>Passaggio {safeStepIndex + 1} di {safeSteps.length}</span><span>{Math.round(progress)}%</span>
+          <span>{t('settings.guide.progress', { current: safeStepIndex + 1, total: safeSteps.length })}</span><span>{Math.round(progress)}%</span>
         </div>
         <div className="onboarding-progress-track mt-2" aria-hidden><span style={{ width: `${progress}%` }} /></div>
       </div>
       <div className="grid min-h-0 gap-5 lg:h-full lg:grid-cols-[14.5rem_minmax(0,1fr)]">
-        <nav className="hidden min-h-0 space-y-2 overflow-y-auto pr-1 lg:block" aria-label="Passaggi configurazione guidata">
+        <nav className="hidden min-h-0 space-y-2 overflow-y-auto pr-1 lg:block" aria-label={t('settings.guide.stepsAria')}>
           {safeSteps.map((step, index) => {
             const StepIcon = step.icon ?? Sparkles;
             const active = index === safeStepIndex;
@@ -524,7 +527,7 @@ export function GuidedSetupOverlay({
             return (
               <button key={`${step.title}-${index}`} type="button" onClick={() => setStepIndex(index)} className={`onboarding-step-item w-full text-left ${active ? 'onboarding-step-item-active' : ''} ${complete ? 'onboarding-step-item-complete' : ''}`} aria-current={active ? 'step' : undefined}>
                 <span className="onboarding-step-icon">{complete ? <Check size={14} strokeWidth={2.5} /> : <StepIcon size={15} />}</span>
-                <span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-[0.14em] opacity-50">Passaggio {index + 1}</span><span className="mt-0.5 block truncate text-sm font-semibold">{step.title}</span></span>
+                <span className="min-w-0"><span className="block text-[10px] font-semibold uppercase tracking-[0.14em] opacity-50">{t('settings.guide.step', { count: index + 1 })}</span><span className="mt-0.5 block truncate text-sm font-semibold">{step.title}</span></span>
               </button>
             );
           })}
@@ -533,7 +536,7 @@ export function GuidedSetupOverlay({
           <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-[rgb(var(--ui-accent-rgb)/0.09)] blur-3xl" aria-hidden />
           <motion.div key={`${heading}-${safeStepIndex}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }} className="relative">
             <span className="onboarding-choice-icon !h-12 !w-12 !rounded-[1rem] sm:!h-14 sm:!w-14"><CurrentIcon size={22} strokeWidth={1.8} /></span>
-            <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.17em] text-[color:var(--ui-text-secondary)]">Passaggio {safeStepIndex + 1}</p>
+            <p className="mt-6 text-[10px] font-semibold uppercase tracking-[0.17em] text-[color:var(--ui-text-secondary)]">{t('settings.guide.step', { count: safeStepIndex + 1 })}</p>
             <h3 className="mt-2 text-[clamp(1.35rem,4vw,2rem)] font-semibold leading-tight tracking-[-0.035em] text-[color:var(--ui-text-primary)]">{currentStep.title}</h3>
             <p className="mt-3 max-w-xl text-sm leading-6 text-[color:var(--ui-text-secondary)] sm:text-[0.95rem]">{currentStep.description}</p>
             {currentStep.hint ? <div className="onboarding-notice mt-5 !p-3.5"><span className="onboarding-notice-icon !h-8 !w-8"><Info size={15} /></span><p className="min-w-0 text-xs leading-5 text-[color:var(--ui-text-secondary)]">{currentStep.hint}</p></div> : null}

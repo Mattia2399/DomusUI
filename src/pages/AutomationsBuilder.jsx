@@ -27,6 +27,7 @@ import {
   withTemplates,
 } from './automations/utils';
 import { loadHassAuthTokensFromStorage, normalizeHassUrl } from '../services/haLive';
+import { useI18n } from '../i18n/I18nProvider';
 
 function toErrorMessage(error, fallback) {
   if (error instanceof Error && error.message.trim()) {
@@ -43,11 +44,12 @@ const HA_MISSING_GRACE_MS = 60_000;
 export const AUTOMATIONS_WORKSPACE_AVAILABLE = false;
 
 function AutomationsComingSoon() {
+  const { t } = useI18n();
   return (
     <FeatureAvailabilityPage
-      title="Costruttore Automazioni"
-      headline="Questa pagina sta evolvendo"
-      description="Il nuovo Costruttore Automazioni sarà disponibile in un prossimo aggiornamento. Le altre funzioni della dashboard restano utilizzabili normalmente."
+      title={t('automations.title')}
+      headline={t('automations.comingSoon.headline')}
+      description={t('automations.comingSoon.description')}
       icon={Workflow}
     />
   );
@@ -88,6 +90,7 @@ function AutomationsWorkspace({
   haToken = '',
   onCallService,
 }) {
+  const { t, locale } = useI18n();
   const [event, setEvent] = React.useState(null);
   const [action, setAction] = React.useState(null);
   const [conditions, setConditions] = React.useState([]);
@@ -127,34 +130,34 @@ function AutomationsWorkspace({
       (event.triggerType !== 'time' || isValidTimeValue(eventTime)),
   );
 
-  const haAutomations = React.useMemo(() => createHaAutomations(haStates), [haStates]);
+  const haAutomations = React.useMemo(() => createHaAutomations(haStates, locale), [haStates, locale]);
 
   const eventOptions = React.useMemo(
-    () => withTemplates(createEventOptions(haStates), TEMPLATE_EVENTS, 'tpl-event'),
-    [haStates],
+    () => withTemplates(createEventOptions(haStates, locale), TEMPLATE_EVENTS, 'tpl-event', locale),
+    [haStates, locale],
   );
   const conditionOptions = React.useMemo(
-    () => withTemplates(createConditionOptions(haStates), TEMPLATE_CONDITIONS, 'tpl-condition'),
-    [haStates],
+    () => withTemplates(createConditionOptions(haStates, locale), TEMPLATE_CONDITIONS, 'tpl-condition', locale),
+    [haStates, locale],
   );
   const actionOptions = React.useMemo(
-    () => withTemplates(createActionOptions(haStates), TEMPLATE_ACTIONS, 'tpl-action'),
-    [haStates],
+    () => withTemplates(createActionOptions(haStates, locale), TEMPLATE_ACTIONS, 'tpl-action', locale),
+    [haStates, locale],
   );
 
   const menuMap = React.useMemo(
     () => ({
-      event: { title: 'Seleziona evento', options: eventOptions },
+      event: { title: t('automations.menu.event'), options: eventOptions },
       condition: {
-        title: 'Seleziona condizione',
+        title: t('automations.menu.condition'),
         options: conditionOptions.filter((entry) => entry.isExecutable !== false),
       },
       action: {
-        title: 'Seleziona azione',
+        title: t('automations.menu.action'),
         options: actionOptions.filter((entry) => entry.isExecutable !== false),
       },
     }),
-    [actionOptions, conditionOptions, eventOptions],
+    [actionOptions, conditionOptions, eventOptions, t],
   );
 
   const activeMenuData = activeMenu ? menuMap[activeMenu] : null;
@@ -187,9 +190,9 @@ function AutomationsWorkspace({
         getIsActive: (entry) => Boolean(entry.enabled),
         getRecentTs: (entry) => entry.updatedAt ?? 0,
         getLastTriggerTs: (entry) => entry.lastTriggeredAt ?? entry.linkedHaLastTriggered ?? 0,
-        getName: (entry) => entry.name ?? buildTitle(entry),
+        getName: (entry) => entry.name ?? buildTitle(entry, locale),
       }),
-    [savedAutomations, searchQuery, sortBy, statusFilter],
+    [locale, savedAutomations, searchQuery, sortBy, statusFilter],
   );
 
   React.useEffect(() => {
@@ -388,13 +391,13 @@ function AutomationsWorkspace({
     const token = directToken || oauthToken;
 
     if (!baseUrl) {
-      throw new Error('URL Home Assistant mancante. Apri Impostazioni e completa la configurazione.');
+      throw new Error(t('automations.error.urlMissing'));
     }
     if (!token) {
-      throw new Error('Token Home Assistant mancante. Inserisci token o riconnetti OAuth.');
+      throw new Error(t('automations.error.tokenMissing'));
     }
     return { baseUrl, token };
-  }, [haToken, haUrl]);
+  }, [haToken, haUrl, t]);
 
   const saveAutomationConfigOnHa = React.useCallback(
     async (configId, payload) => {
@@ -413,10 +416,10 @@ function AutomationsWorkspace({
 
       if (!response.ok) {
         const errorMessage = await readHaErrorResponse(response);
-        throw new Error(`Salvataggio su Home Assistant fallito: ${errorMessage}`);
+        throw new Error(t('automations.error.saveFailed', { error: errorMessage }));
       }
     },
-    [resolveHaApiContext],
+    [resolveHaApiContext, t],
   );
 
   const deleteAutomationConfigOnHa = React.useCallback(
@@ -434,10 +437,10 @@ function AutomationsWorkspace({
 
       if (!response.ok) {
         const errorMessage = await readHaErrorResponse(response);
-        throw new Error(`Eliminazione su Home Assistant fallita: ${errorMessage}`);
+        throw new Error(t('automations.error.deleteFailed', { error: errorMessage }));
       }
     },
-    [resolveHaApiContext],
+    [resolveHaApiContext, t],
   );
 
   const fireManualEventOnHa = React.useCallback(
@@ -457,10 +460,10 @@ function AutomationsWorkspace({
 
       if (!response.ok) {
         const errorMessage = await readHaErrorResponse(response);
-        throw new Error(`Invio trigger manuale fallito: ${errorMessage}`);
+        throw new Error(t('automations.error.manualFailed', { error: errorMessage }));
       }
     },
-    [resolveHaApiContext],
+    [resolveHaApiContext, t],
   );
 
   const saveAutomation = React.useCallback(async () => {
@@ -471,11 +474,11 @@ function AutomationsWorkspace({
     const actionConfig = toHaAction(action);
 
     if (showCondition && conditions.length === 0) {
-      setBuilderError('Aggiungi almeno una condizione oppure disattiva "Ma solo se...".');
+      setBuilderError(t('automations.error.addCondition'));
       return;
     }
     if (!actionConfig) {
-      setBuilderError('Azione non valida per Home Assistant. Selezionane una differente.');
+      setBuilderError(t('automations.error.invalidAction'));
       return;
     }
 
@@ -504,7 +507,7 @@ function AutomationsWorkspace({
         : null;
 
     if (event.triggerType === 'time' && !isValidTimeValue(effectiveEventTime)) {
-      setBuilderError('Inserisci un orario valido in formato HH:MM.');
+      setBuilderError(t('automations.error.invalidTime'));
       return;
     }
 
@@ -517,7 +520,7 @@ function AutomationsWorkspace({
         conditionLogic,
         action,
         showCondition,
-      });
+      }, locale);
     const haConfigId = currentRecord?.haConfigId ?? createHaSafeId(title);
     const manualEventType =
       event.triggerType === 'manual_event'
@@ -530,7 +533,7 @@ function AutomationsWorkspace({
     });
 
     if (!trigger) {
-      setBuilderError('Evento non valido per Home Assistant. Selezionane uno differente.');
+      setBuilderError(t('automations.error.invalidEvent'));
       return;
     }
 
@@ -542,7 +545,7 @@ function AutomationsWorkspace({
       toHaCondition(item, { persistenceSeconds: effectiveConditionPersistence }),
     );
     if (showCondition && mappedConditions.some((item) => !item)) {
-      setBuilderError('Una o piu condizioni non sono valide per Home Assistant.');
+      setBuilderError(t('automations.error.invalidConditions'));
       return;
     }
 
@@ -620,7 +623,7 @@ function AutomationsWorkspace({
 
       resetBuilder();
     } catch (error) {
-      setBuilderError(toErrorMessage(error, 'Impossibile salvare automazione su Home Assistant.'));
+      setBuilderError(toErrorMessage(error, t('automations.error.cannotSave')));
     } finally {
       setIsSaving(false);
     }
@@ -638,11 +641,13 @@ function AutomationsWorkspace({
     eventTime,
     haAutomations,
     isSaving,
+    locale,
     onCallService,
     resetBuilder,
     saveAutomationConfigOnHa,
     savedAutomations,
     showCondition,
+    t,
   ]);
 
   const editAutomation = React.useCallback((record) => {
@@ -700,7 +705,7 @@ function AutomationsWorkspace({
           resetBuilder();
         }
       } catch (error) {
-        setBuilderError(toErrorMessage(error, 'Impossibile eliminare automazione su Home Assistant.'));
+        setBuilderError(toErrorMessage(error, t('automations.error.cannotDelete')));
       } finally {
         setDeletingId(null);
       }
@@ -712,6 +717,7 @@ function AutomationsWorkspace({
       onCallService,
       resetBuilder,
       savedAutomations,
+      t,
     ],
   );
 
@@ -760,7 +766,7 @@ function AutomationsWorkspace({
 
         if (record.event?.triggerType === 'manual_event') {
           if (!record.manualEventType) {
-            setBuilderError('Trigger manuale non configurato per questa automazione.');
+            setBuilderError(t('automations.error.manualMissing'));
             return;
           }
           await fireManualEventOnHa(record.manualEventType, {
@@ -780,9 +786,7 @@ function AutomationsWorkspace({
               : null);
 
           if (!resolvedEntityId) {
-            setBuilderError(
-              'L entity_id non e ancora disponibile. Attendi la sincronizzazione con Home Assistant.',
-            );
+            setBuilderError(t('automations.error.entitySync'));
             return;
           }
 
@@ -807,12 +811,12 @@ function AutomationsWorkspace({
           );
         }
       } catch (error) {
-        setBuilderError(toErrorMessage(error, 'Impossibile eseguire il trigger manuale.'));
+        setBuilderError(toErrorMessage(error, t('automations.error.cannotRun')));
       } finally {
         setRunningId(null);
       }
     },
-    [connected, fireManualEventOnHa, haAutomations, onCallService],
+    [connected, fireManualEventOnHa, haAutomations, onCallService, t],
   );
 
   const triggerHaAutomation = React.useCallback(
@@ -855,29 +859,35 @@ function AutomationsWorkspace({
   const narrativePreview = React.useMemo(() => {
     const eventText = event
       ? event.triggerType === 'time' && isValidTimeValue(eventTime)
-        ? `${event.label} alle ${eventTime}`
+        ? t('automations.narrative.eventAt', { event: event.label, time: eventTime })
         : event.label
-      : '[Seleziona Evento]';
+      : t('automations.builder.selectEvent');
 
     const eventPersistenceText =
-      eventPersistenceSeconds > 0 ? ` da almeno ${eventPersistenceSeconds}s` : '';
+      eventPersistenceSeconds > 0 ? t('automations.narrative.persistence', { seconds: eventPersistenceSeconds }) : '';
 
     const selectedConditions = showCondition ? conditions : [];
     const conditionText =
       showCondition && selectedConditions.length > 0
-        ? `, ma solo se ${selectedConditions
-            .map((item) => item?.label ?? '[Seleziona Condizione]')
-            .join(conditionLogic === 'or' ? ' oppure ' : ' e ')}${
+        ? t('automations.narrative.onlyIf', { conditions: `${selectedConditions
+            .map((item) => item?.label ?? t('automations.builder.selectCondition'))
+            .join(t(conditionLogic === 'or' ? 'automations.dynamic.or' : 'automations.dynamic.and'))}${
             conditionPersistenceSeconds > 0
-              ? ` (valide da ${conditionPersistenceSeconds}s)`
+              ? t('automations.narrative.validFor', { seconds: conditionPersistenceSeconds })
               : ''
-          }`
+          }` })
         : '';
 
-    const actionText = action ? action.label : '[Seleziona Azione]';
-    const delayText = actionDelaySeconds > 0 ? ` dopo ${actionDelaySeconds}s` : '';
+    const actionText = action ? action.label : t('automations.builder.selectAction');
+    const delayText = actionDelaySeconds > 0 ? t('automations.narrative.after', { seconds: actionDelaySeconds }) : '';
 
-    return `Quando ${eventText}${eventPersistenceText}${conditionText}, allora${delayText} ${actionText}.`;
+    return t('automations.narrative.full', {
+      event: eventText,
+      persistence: eventPersistenceText,
+      condition: conditionText,
+      delay: delayText,
+      action: actionText,
+    });
   }, [
     action,
     actionDelaySeconds,
@@ -888,6 +898,7 @@ function AutomationsWorkspace({
     eventPersistenceSeconds,
     eventTime,
     showCondition,
+    t,
   ]);
 
   return (
@@ -896,10 +907,10 @@ function AutomationsWorkspace({
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="dashboard-page-title">
-              Costruttore Automazioni
+              {t('automations.title')}
             </h1>
             <p className="dashboard-page-subtitle">
-              Progetta regole causa-effetto in linguaggio naturale, con salvataggio diretto su Home Assistant.
+              {t('automations.workspace.subtitle')}
             </p>
           </div>
           <button
@@ -912,7 +923,7 @@ function AutomationsWorkspace({
             }}
             className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-5 py-2 text-sm text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
           >
-            Nuova Automazione
+            {t('automations.workspace.new')}
           </button>
         </header>
 
@@ -979,11 +990,11 @@ function AutomationsWorkspace({
                 <div className="flex items-center justify-between">
                   <Activity size={16} className="text-[color:var(--ui-success)]" />
                   <span className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
-                    Create da noi
+                    {t('automations.workspace.createdHere')}
                   </span>
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-[color:var(--ui-text-primary)]">{savedActiveCount}/{savedCount}</p>
-                <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">attive adesso</p>
+                <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">{t('automations.workspace.activeNow')}</p>
               </div>
               <div className="rounded-[1.6rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-4 backdrop-blur-2xl">
                 <div className="flex items-center justify-between">
@@ -993,27 +1004,27 @@ function AutomationsWorkspace({
                   </span>
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-[color:var(--ui-text-primary)]">{haActiveCount}/{haCount}</p>
-                <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">automation.* attive</p>
+                <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">{t('automations.workspace.haActive')}</p>
               </div>
               <div className="rounded-[1.6rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-4 backdrop-blur-2xl">
                 <div className="flex items-center justify-between">
                   <Clock3 size={16} className="text-[color:var(--ui-warning)]" />
                   <span className="text-[10px] uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
-                    Pianificate
+                    {t('automations.workspace.scheduled')}
                   </span>
                 </div>
                 <p className="mt-2 text-2xl font-semibold text-[color:var(--ui-text-primary)]">{scheduledCount}</p>
-                <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">con trigger orario</p>
+                <p className="mt-1 text-xs text-[color:var(--ui-text-tertiary)]">{t('automations.workspace.timed')}</p>
               </div>
             </section>
 
             <section className="space-y-4 rounded-[2rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-4 backdrop-blur-2xl">
               <div className="px-2">
                 <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
-                  Archivio Automazioni
+                  {t('automations.workspace.archive')}
                 </h2>
                 <p className="mt-1 text-sm text-[color:var(--ui-text-tertiary)]">
-                  Sezione secondaria per ricerca, monitoraggio e manutenzione.
+                  {t('automations.workspace.archiveDescription')}
                 </p>
               </div>
 

@@ -5,6 +5,7 @@ import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { IconGlyph } from './IconGlyph';
 import GlassSegmentSelect from '../../components/ui/GlassSegmentSelect';
+import { useI18n } from '../../i18n/I18nProvider';
 
 function cn(...values) {
   return twMerge(clsx(values));
@@ -28,6 +29,7 @@ function NarrativePill({ value, placeholder, onClick }) {
 }
 
 function SequenceTimerPill({ label, value, onChange, onClear }) {
+  const { t } = useI18n();
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] px-4 py-2 text-[color:var(--ui-text-primary)]">
       <Clock3 size={15} className="text-[color:var(--ui-text-secondary)]" />
@@ -49,7 +51,7 @@ function SequenceTimerPill({ label, value, onChange, onClear }) {
         type="button"
         onClick={onClear}
         className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
-        aria-label="Rimuovi timer"
+        aria-label={t('automations.builder.removeTimer')}
       >
         <X size={12} />
       </button>
@@ -91,6 +93,7 @@ export function BuilderPanel({
   isSaving,
   saveError,
 }) {
+  const { t } = useI18n();
   const safeConditions = Array.isArray(conditions) ? conditions : [];
   const eventSupportsPersistence =
     event?.triggerType === 'state' || event?.triggerConfig?.trigger === 'state';
@@ -108,17 +111,17 @@ export function BuilderPanel({
 
         <div className="relative z-10 w-full space-y-4">
           <div className="inline-flex rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 py-1 text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">
-            Motore Causa-Effetto
+            {t('automations.builder.engine')}
           </div>
           <div>
             <label htmlFor="automation-name" className="mb-2 block text-xs uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">
-              Nome automazione
+              {t('automations.builder.name')}
             </label>
             <input
               id="automation-name"
               value={automationName}
               onChange={(eventInput) => onAutomationNameChange(eventInput.target.value)}
-              placeholder="Es. Sicurezza ingresso serale"
+              placeholder={t('automations.builder.namePlaceholder')}
               className="w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-5 py-3 text-[color:var(--ui-text-primary)] placeholder:text-[color:var(--ui-text-disabled)] focus:border-emerald-300/45 focus:outline-none"
             />
           </div>
@@ -126,16 +129,16 @@ export function BuilderPanel({
           <div className="rounded-2xl border border-emerald-300/15 bg-emerald-400/10 p-4">
             <div className="flex items-center gap-2">
               <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-success)]">
-                Frase Automazione
+                {t('automations.builder.sentence')}
               </p>
               <span
                 title={
                   connected
-                    ? 'Questa automazione viene salvata direttamente su Home Assistant.'
-                    : 'Per salvare direttamente su Home Assistant serve una connessione attiva.'
+                    ? t('automations.builder.directSave')
+                    : t('automations.builder.connectionNeeded')
                 }
                 className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-300/25 bg-emerald-400/12 text-[color:var(--ui-success)]"
-                aria-label="Informazioni salvataggio diretto"
+                aria-label={t('automations.builder.saveInfo')}
               >
                 <Info size={12} />
               </span>
@@ -156,11 +159,11 @@ export function BuilderPanel({
           className="relative z-10 flex w-full flex-col gap-4 text-xl font-medium tracking-tight lg:text-3xl"
         >
           <motion.div layout className="flex flex-wrap items-center gap-4">
-            <span className="text-xl font-bold uppercase tracking-widest text-[color:var(--ui-text-tertiary)]">QUANDO</span>
-            <NarrativePill value={event} placeholder="[ Seleziona Evento ]" onClick={onOpenEventMenu} />
+            <span className="text-xl font-bold uppercase tracking-widest text-[color:var(--ui-text-tertiary)]">{t('automations.builder.when')}</span>
+            <NarrativePill value={event} placeholder={t('automations.builder.selectEvent')} onClick={onOpenEventMenu} />
             {eventSupportsPersistence && eventPersistenceSeconds > 0 ? (
               <SequenceTimerPill
-                label="Per almeno"
+                label={t('automations.builder.atLeast')}
                 value={eventPersistenceSeconds}
                 onChange={onEventPersistenceSecondsChange}
                 onClear={() => onEventPersistenceSecondsChange(0)}
@@ -175,13 +178,13 @@ export function BuilderPanel({
               className="inline-flex items-center gap-1 text-sm text-[color:var(--ui-text-tertiary)] transition-colors hover:text-[color:var(--ui-text-primary)]"
             >
               <Plus size={14} />
-              Aggiungi "Per almeno..."
+              {t('automations.builder.addAtLeast')}
             </motion.button>
           ) : null}
           {event?.triggerType === 'time' ? (
             <motion.div layout className="ml-2 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-4 py-3">
               <label className="block text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
-                Orario
+                {t('automations.builder.time')}
               </label>
               <input
                 type="time"
@@ -193,12 +196,12 @@ export function BuilderPanel({
           ) : null}
           {event?.triggerType === 'manual_event' ? (
             <motion.p layout className="ml-2 text-sm text-[color:var(--ui-text-secondary)]">
-              Trigger manuale: puoi avviarla dal pulsante "Esegui" e da qualsiasi bottone dashboard collegato.
+              {t('automations.builder.manualHelp')}
             </motion.p>
           ) : null}
           {event?.triggerConfig?.trigger === 'event' && event?.triggerType !== 'manual_event' ? (
             <motion.p layout className="ml-2 text-sm text-[color:var(--ui-text-secondary)]">
-              Evento custom: deve essere inviato da una dashboard, webhook o integrazione esterna.
+              {t('automations.builder.customHelp')}
             </motion.p>
           ) : null}
 
@@ -212,13 +215,13 @@ export function BuilderPanel({
                 className="mt-2 mb-2 inline-flex items-center gap-1 text-sm text-[color:var(--ui-text-tertiary)] transition-colors hover:text-[color:var(--ui-text-primary)]"
               >
                 <Plus size={16} />
-                Aggiungi "Ma solo se..."
+                {t('automations.builder.addOnlyIf')}
               </motion.button>
             ) : (
               <motion.div key="condition" layout className="flex w-full flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <GlassSegmentSelect
-                    ariaLabel="Logica condizioni"
+                    ariaLabel={t('automations.builder.conditionLogic')}
                     className="min-w-[9rem] flex-1"
                     options={[
                       { value: 'and', label: 'AND' },
@@ -233,7 +236,7 @@ export function BuilderPanel({
                     onClick={onClearConditions}
                     className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 py-2 text-xs uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
                   >
-                    Rimuovi blocco
+                    {t('automations.builder.removeBlock')}
                   </button>
                 </div>
 
@@ -242,22 +245,22 @@ export function BuilderPanel({
                     <React.Fragment key={`${conditionItem.id}-${index}`}>
                       <span className="text-sm font-bold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
                         {index === 0
-                          ? 'MA SOLO SE'
+                          ? t('automations.builder.onlyIf')
                           : conditionLogic === 'and'
-                            ? 'E ANCHE SE'
-                            : 'OPPURE SE'}
+                            ? t('automations.builder.andIf')
+                            : t('automations.builder.orIf')}
                       </span>
                       <div className="flex items-center gap-2">
                         <NarrativePill
                           value={conditionItem}
-                          placeholder="[ Seleziona Condizione ]"
+                          placeholder={t('automations.builder.selectCondition')}
                           onClick={() => onOpenConditionMenuAt(index)}
                         />
                         <button
                           type="button"
                           onClick={() => onRemoveCondition(index)}
                           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
-                          aria-label="Rimuovi condizione"
+                          aria-label={t('automations.builder.removeCondition')}
                         >
                           <X size={14} />
                         </button>
@@ -266,7 +269,7 @@ export function BuilderPanel({
                   ))}
                   {safeConditions.length > 0 && conditionPersistenceSeconds > 0 ? (
                     <SequenceTimerPill
-                      label="Valide da"
+                      label={t('automations.builder.validFor')}
                       value={conditionPersistenceSeconds}
                       onChange={onConditionPersistenceSecondsChange}
                       onClear={() => onConditionPersistenceSecondsChange(0)}
@@ -278,7 +281,7 @@ export function BuilderPanel({
                     className="inline-flex items-center gap-1 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-4 py-2 text-sm text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
                   >
                     <Plus size={14} />
-                    Aggiungi "Ma solo se..."
+                    {t('automations.builder.addOnlyIf')}
                   </button>
                 </div>
                 {safeConditions.length > 0 && conditionPersistenceSeconds === 0 ? (
@@ -288,7 +291,7 @@ export function BuilderPanel({
                     className="inline-flex items-center gap-1 text-sm text-[color:var(--ui-text-tertiary)] transition-colors hover:text-[color:var(--ui-text-primary)]"
                   >
                     <Plus size={14} />
-                    Aggiungi "Valide da..."
+                    {t('automations.builder.addValidFor')}
                   </button>
                 ) : null}
               </motion.div>
@@ -296,11 +299,11 @@ export function BuilderPanel({
           </AnimatePresence>
 
           <motion.div layout className="flex flex-wrap items-center gap-4">
-            <span className="text-xl font-bold uppercase tracking-widest text-[color:var(--ui-text-tertiary)]">ALLORA</span>
-            <NarrativePill value={action} placeholder="[ Seleziona Azione ]" onClick={onOpenActionMenu} />
+            <span className="text-xl font-bold uppercase tracking-widest text-[color:var(--ui-text-tertiary)]">{t('automations.builder.then')}</span>
+            <NarrativePill value={action} placeholder={t('automations.builder.selectAction')} onClick={onOpenActionMenu} />
             {actionDelaySeconds > 0 ? (
               <SequenceTimerPill
-                label="Dopo"
+                label={t('automations.builder.after')}
                 value={actionDelaySeconds}
                 onChange={onActionDelaySecondsChange}
                 onClear={() => onActionDelaySecondsChange(0)}
@@ -315,7 +318,7 @@ export function BuilderPanel({
               className="inline-flex items-center gap-1 text-sm text-[color:var(--ui-text-tertiary)] transition-colors hover:text-[color:var(--ui-text-primary)]"
             >
               <Plus size={14} />
-              Aggiungi "Dopo..."
+              {t('automations.builder.addAfter')}
             </motion.button>
           ) : null}
         </motion.div>
@@ -329,10 +332,10 @@ export function BuilderPanel({
           className={mainActionButtonClass}
         >
           {isSaving
-            ? 'Salvataggio...'
+            ? t('automations.builder.saving')
             : editingId
-              ? 'Aggiorna su Home Assistant'
-              : 'Salva su Home Assistant'}
+              ? t('automations.builder.updateHa')
+              : t('automations.builder.saveHa')}
         </button>
         <button
           type="button"
@@ -340,7 +343,7 @@ export function BuilderPanel({
           onClick={onReset}
           className={mainActionButtonClass}
         >
-          Reset
+          {t('automations.builder.reset')}
         </button>
         {editingId ? (
           <button
@@ -348,7 +351,7 @@ export function BuilderPanel({
             onClick={onCancelEdit}
             className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-6 py-3 text-sm text-[color:var(--ui-text-secondary)] transition-colors hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]"
           >
-            Annulla modifica
+            {t('automations.builder.cancelEdit')}
           </button>
         ) : null}
       </div>

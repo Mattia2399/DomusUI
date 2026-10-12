@@ -4,20 +4,21 @@ import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'rec
 import { Flame } from 'lucide-react';
 import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip, PreviewDataNotice } from './shared';
 import { MOCK_DEVICES, OrbitalDevices } from './orbitalDevices';
+import { useConsumptionCopy } from '../../i18n/consumptionCopy';
 
 const GAS_MONTH_DATA = [
-  { label: 'Gen', consumo: 5.2 },
-  { label: 'Feb', consumo: 4.8 },
-  { label: 'Mar', consumo: 4.2 },
-  { label: 'Apr', consumo: 3.1 },
-  { label: 'Mag', consumo: 2.3 },
-  { label: 'Giu', consumo: 1.5 },
-  { label: 'Lug', consumo: 1.2 },
-  { label: 'Ago', consumo: 1.1 },
-  { label: 'Set', consumo: 1.9 },
-  { label: 'Ott', consumo: 3.4 },
-  { label: 'Nov', consumo: 4.7 },
-  { label: 'Dic', consumo: 5.4 },
+  { month: 0, consumo: 5.2 },
+  { month: 1, consumo: 4.8 },
+  { month: 2, consumo: 4.2 },
+  { month: 3, consumo: 3.1 },
+  { month: 4, consumo: 2.3 },
+  { month: 5, consumo: 1.5 },
+  { month: 6, consumo: 1.2 },
+  { month: 7, consumo: 1.1 },
+  { month: 8, consumo: 1.9 },
+  { month: 9, consumo: 3.4 },
+  { month: 10, consumo: 4.7 },
+  { month: 11, consumo: 5.4 },
 ];
 
 export function GasDetail({
@@ -31,6 +32,11 @@ export function GasDetail({
   onIntervalChange: (value: IntervalKey) => void;
   onBack: () => void;
 }) {
+  const { c, formatDate } = useConsumptionCopy();
+  const chartData = React.useMemo(() => GAS_MONTH_DATA.map((point) => ({
+    ...point,
+    label: formatDate(new Date(Date.UTC(2026, point.month, 15)), { month: 'short', timeZone: 'UTC' }),
+  })), [formatDate]);
   const gasDevices = React.useMemo(
     () => MOCK_DEVICES.filter((device) => device.type === 'gas'),
     [],
@@ -62,18 +68,18 @@ export function GasDetail({
         </motion.div>
       </div>
 
-      <p className="absolute bottom-6 left-6 text-sm text-white/65">Visualizzazione Termica Gas</p>
+      <p className="absolute bottom-6 left-6 text-sm text-white/65">{c('Visualizzazione Termica Gas')}</p>
     </div>
   );
 
   const right = (
     <>
       <PreviewDataNotice>
-        Il grafico mensile e i dispositivi mostrati sono esempi e non misurazioni dell’impianto.
+        {c('Il grafico mensile e i dispositivi mostrati sono esempi e non misurazioni dell’impianto.')}
       </PreviewDataNotice>
-      <ChartCard title="Consumo mensile">
+      <ChartCard title={c('Consumo mensile')}>
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={GAS_MONTH_DATA} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <filter id="gasLineGlow" x="-40%" y="-40%" width="180%" height="180%">
               <feGaussianBlur stdDeviation="3" result="blur" />

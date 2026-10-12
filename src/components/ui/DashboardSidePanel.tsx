@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
 import GlassModal from './GlassModal';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type DashboardSidePanelProps = {
   isOpen: boolean;
@@ -33,12 +34,14 @@ export function DashboardSidePanel({
   headerActions,
   headerAfter,
   children,
-  closeLabel = 'Chiudi pannello',
+  closeLabel,
   zIndex = 260,
   className,
   panelClassName,
   bodyClassName,
 }: DashboardSidePanelProps) {
+  const { t } = useI18n();
+  const resolvedCloseLabel = closeLabel ?? t('common.closePanel');
   return (
     <GlassModal
       isOpen={isOpen}
@@ -83,7 +86,7 @@ export function DashboardSidePanel({
                 type="button"
                 onClick={onClose}
                 className="glass-icon-button h-10 w-10"
-                aria-label={closeLabel}
+                aria-label={resolvedCloseLabel}
               >
                 <X size={17} />
               </button>

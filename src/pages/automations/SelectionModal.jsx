@@ -5,6 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import { IconGlyph } from './IconGlyph';
 import { normalizeName } from './utils';
 import GlassModal from '../../components/ui/GlassModal';
+import { useI18n } from '../../i18n/I18nProvider';
 
 function cn(...values) {
   return twMerge(clsx(values));
@@ -19,6 +20,7 @@ export function SelectionModal({
   onSelect,
   onClose,
 }) {
+  const { t, locale } = useI18n();
   const [query, setQuery] = React.useState('');
   const [sourceFilter, setSourceFilter] = React.useState('all');
 
@@ -57,21 +59,21 @@ export function SelectionModal({
       if (sourceFilter === 'all' && first.source !== second.source) {
         return first.source === 'template' ? -1 : 1;
       }
-      return first.label.localeCompare(second.label, 'it-IT');
+      return first.label.localeCompare(second.label, locale);
     });
-  }, [normalizedQuery, options, sourceFilter]);
+  }, [locale, normalizedQuery, options, sourceFilter]);
 
   const templateOptions = filteredOptions.filter((item) => item.source !== 'ha');
   const haOptions = filteredOptions.filter((item) => item.source === 'ha');
 
   const optionKindLabel =
-    kind === 'event' ? 'evento' : kind === 'action' ? 'azione' : 'condizione';
+    kind === 'event' ? t('automations.selection.event') : kind === 'action' ? t('automations.selection.action') : t('automations.selection.condition');
   const searchPlaceholder =
     kind === 'event'
-      ? 'Cerca evento: porta, movimento, tramonto...'
+      ? t('automations.selection.searchEvent')
       : kind === 'action'
-        ? 'Cerca azione: luci, allarme, clima...'
-        : 'Cerca condizione...';
+        ? t('automations.selection.searchAction')
+        : t('automations.selection.searchCondition');
 
   const renderOption = (item) => (
     <button
@@ -97,7 +99,7 @@ export function SelectionModal({
                 : 'border-sky-300/30 bg-sky-400/16 text-[color:var(--ui-info)]',
             )}
           >
-            {item.source === 'ha' ? 'Home Assistant' : 'Suggerito'}
+            {item.source === 'ha' ? t('automations.selection.ha') : t('automations.selection.suggested')}
           </span>
           {item.group ? (
             <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] px-2 py-1 text-[color:var(--ui-text-secondary)]">
@@ -114,11 +116,11 @@ export function SelectionModal({
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      eyebrow={connected ? 'Dati live + template' : 'Template locale'}
+      eyebrow={connected ? t('automations.selection.liveTemplates') : t('automations.selection.localTemplate')}
       variant="responsive"
       size="lg"
       zIndex={260}
-      closeLabel="Chiudi menu selezione"
+      closeLabel={t('automations.selection.close')}
       backdropClassName="bg-[color:var(--ui-scrim)] backdrop-blur-md"
       panelClassName="bg-[color:var(--ui-surface-glass-strong)] shadow-2xl"
       bodyClassName="flex flex-col overflow-hidden"
@@ -144,7 +146,7 @@ export function SelectionModal({
                       : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]',
                   )}
                 >
-                  Tutti
+                  {t('automations.selection.all')}
                 </button>
                 <button
                   type="button"
@@ -156,7 +158,7 @@ export function SelectionModal({
                       : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]',
                   )}
                 >
-                  Suggeriti
+                  {t('automations.selection.suggestedPlural')}
                 </button>
                 <button
                   type="button"
@@ -178,7 +180,7 @@ export function SelectionModal({
               {templateOptions.length > 0 ? (
                 <section>
                   <p className="mb-2 text-xs uppercase tracking-[0.16em] text-[color:var(--ui-info)]">
-                    Suggeriti ({optionKindLabel})
+                    {t('automations.selection.suggestedPlural')} ({optionKindLabel})
                   </p>
                   <div className="space-y-2">{templateOptions.map(renderOption)}</div>
                 </section>
@@ -195,7 +197,7 @@ export function SelectionModal({
 
               {filteredOptions.length === 0 ? (
                 <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-4 text-sm text-[color:var(--ui-text-secondary)]">
-                  Nessun risultato trovato. Prova con un termine diverso o cambia filtro.
+                  {t('automations.selection.empty')}
                 </div>
               ) : null}
             </div>

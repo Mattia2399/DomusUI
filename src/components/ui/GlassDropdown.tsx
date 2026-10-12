@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Check, ChevronDown } from 'lucide-react';
 import { Fragment, useRef } from 'react';
 import { resolveDashboardThemeClass } from './portalTheme';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type GlassDropdownOption = {
   id: string;
@@ -30,7 +31,7 @@ export function GlassDropdown({
   onChange,
   label,
   ariaLabel,
-  placeholder = 'Seleziona',
+  placeholder,
   disabled = false,
   size = 'default',
   className,
@@ -38,6 +39,8 @@ export function GlassDropdown({
   optionsClassName,
   portalZIndex = 400,
 }: GlassDropdownProps) {
+  const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t('common.select');
   const wrapperRef = useRef<HTMLDivElement>(null);
   return (
     <Listbox value={selected} onChange={(option) => option && onChange(option)} by="id" disabled={disabled}>
@@ -55,7 +58,7 @@ export function GlassDropdown({
               buttonClassName,
             )}
           >
-            <span className={clsx('block min-w-0 truncate', !selected && 'text-[color:var(--ui-text-tertiary)]')}>{selected?.name ?? placeholder}</span>
+            <span className={clsx('block min-w-0 truncate', !selected && 'text-[color:var(--ui-text-tertiary)]')}>{selected?.name ?? resolvedPlaceholder}</span>
             <ChevronDown
               aria-hidden="true"
               className={clsx('h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)] transition-transform duration-200', open && 'rotate-180 text-[color:var(--ui-text-primary)]')}

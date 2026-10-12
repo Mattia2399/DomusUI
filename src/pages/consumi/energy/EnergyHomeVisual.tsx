@@ -3,6 +3,8 @@ import { useReducedMotion } from 'framer-motion';
 import type { EnergyModuleId, EnergyState } from '../../../services/energyCoreClient';
 import { publicAssetUrl } from '../../../config/publicAssets';
 import type { FlowView } from './energyModel';
+import { translateConsumption, translateConsumptionLoose, useConsumptionCopy } from '../../../i18n/consumptionCopy';
+import type { AppLocale } from '../../../i18n/I18nProvider';
 
 const VISUAL_HARDWARE_ORDER = ['grid', 'solar', 'battery', 'wallbox'] as const satisfies readonly EnergyModuleId[];
 
@@ -131,20 +133,22 @@ function flowPath([x1, y1]: Point, [x2, y2]: Point) {
   return `M ${x1} ${y1} Q ${(x1 + x2) / 2 + (y2 - y1) * 0.18} ${(y1 + y2) / 2 - Math.abs(x2 - x1) * 0.12} ${x2} ${y2}`;
 }
 
-function describe(scene: EnergyHomeAsset, view: FlowView) {
-  const parts = view.nodes.map((node) => `${node.label}: ${node.online ? `${node.value}${node.caption ? ` ${node.caption}` : ''}` : 'offline'}`);
-  return `${scene.alt}. Flussi energetici. ${[...parts, `Casa: ${view.home.value} ${view.home.caption}`].join('; ')}.`;
+function describe(scene: EnergyHomeAsset, view: FlowView, locale: AppLocale) {
+  const parts = view.nodes.map((node) => `${node.label}: ${node.online ? `${node.value}${node.caption ? ` ${node.caption}` : ''}` : translateConsumption(locale, 'Offline').toLocaleLowerCase(locale)}`);
+  const home = translateConsumption(locale, 'Casa: {value} {caption}', { value: view.home.value, caption: view.home.caption });
+  return `${translateConsumptionLoose(locale, scene.alt)}. ${translateConsumption(locale, 'Flussi energetici.')} ${[...parts, home].join('; ')}.`;
 }
 
 /** AVIF and WebP copies sit next to each PNG render (scripts/optimize-energy-renders.py). */
 const optimized = (src: string) => (src.endsWith('.png') ? { avif: src.replace(/\.png$/, '.avif'), webp: src.replace(/\.png$/, '.webp') } : null);
 
 function Scene({ scene, view, compressed, onError }: { scene: EnergyHomeAsset; view: FlowView; compressed: boolean; onError?: () => void }) {
+  const { locale } = useConsumptionCopy();
   const reduceMotion = Boolean(useReducedMotion());
   const id = React.useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const home = scene.anchors?.home ?? HOME;
   return (
-    <div className="relative h-full w-full overflow-hidden [container-type:size]" role="img" aria-label={describe(scene, view)}>
+    <div className="relative h-full w-full overflow-hidden [container-type:size]" role="img" aria-label={describe(scene, view, locale)}>
       <div
         className="absolute left-1/2 top-1/2 aspect-[768/1376] w-[min(104cqw,108cqh)]"
         style={{ transform: `translate(-50%, -${(scene.focusY ?? 0.51) * 100}%)` }}

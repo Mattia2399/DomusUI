@@ -1,3 +1,5 @@
+import { translateForLocale } from '../../i18n/I18nProvider';
+
 export const STORAGE_KEY = 'ha.dashboard.automations.builder.v3';
 
 export const TEMPLATE_EVENTS = [
@@ -209,71 +211,86 @@ export function entityLabel(entityId, state) {
   return objectId.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
-export function stateLabel(value) {
+export function stateLabel(value, locale = 'it') {
   if (typeof value !== 'string') {
-    return 'stato aggiornato';
+    return translateForLocale(locale, 'automations.dynamic.stateUpdated');
   }
   return value.replace(/_/g, ' ');
 }
 
-function eventGroupByDomain(domain) {
+function eventGroupByDomain(domain, locale = 'it') {
   if (domain === 'sun') {
-    return 'Orario';
+    return translateForLocale(locale, 'automations.group.time');
   }
   if (domain === 'binary_sensor' || domain === 'lock' || domain === 'cover') {
-    return 'Ingressi';
+    return translateForLocale(locale, 'automations.group.entries');
   }
-  return 'Presenza';
+  return translateForLocale(locale, 'automations.group.presence');
 }
 
-function actionGroupByDomain(domain) {
+function actionGroupByDomain(domain, locale = 'it') {
   if (domain === 'light' || domain === 'switch') {
-    return 'Illuminazione';
+    return translateForLocale(locale, 'automations.group.lighting');
   }
   if (domain === 'climate' || domain === 'fan') {
-    return 'Clima';
+    return translateForLocale(locale, 'automations.group.climate');
   }
   if (domain === 'lock' || domain === 'automation') {
-    return 'Sicurezza';
+    return translateForLocale(locale, 'automations.group.security');
   }
   if (domain === 'media_player') {
-    return 'Media';
+    return translateForLocale(locale, 'automations.group.media');
   }
-  return 'Scena';
+  return translateForLocale(locale, 'automations.group.scene');
 }
 
-function actionDescriptionByDomain(domain, label) {
+function actionDescriptionByDomain(domain, label, locale = 'it') {
   if (domain === 'climate') {
-    return `Imposta ${label} a 22 gradi`;
+    return translateForLocale(locale, 'automations.dynamic.climate', { label });
   }
   if (domain === 'light' || domain === 'switch') {
-    return `Accende ${label}`;
+    return translateForLocale(locale, 'automations.dynamic.turnOn', { label });
   }
   if (domain === 'fan') {
-    return `Avvia ${label}`;
+    return translateForLocale(locale, 'automations.dynamic.start', { label });
   }
   if (domain === 'lock') {
-    return `Sblocca ${label}`;
+    return translateForLocale(locale, 'automations.dynamic.unlock', { label });
   }
   if (domain === 'automation') {
-    return `Esegue ${label}`;
+    return translateForLocale(locale, 'automations.dynamic.execute', { label });
   }
   if (domain === 'media_player') {
-    return `Riproduzione su ${label}`;
+    return translateForLocale(locale, 'automations.dynamic.play', { label });
   }
-  return `Attiva ${label}`;
+  return translateForLocale(locale, 'automations.dynamic.activate', { label });
 }
 
-export function withTemplates(haList, templates, keyPrefix) {
+export function withTemplates(haList, templates, keyPrefix, locale = 'it') {
   const mappedTemplates = templates.map((entry) => ({
     ...entry,
     id: `${keyPrefix}-${entry.id}`,
     source: 'template',
+    label: translateForLocale(locale, `automations.template.${entry.id}.label`),
+    description: translateForLocale(locale, `automations.template.${entry.id}.description`),
+    group: translateForLocale(locale, entry.id === 'e0'
+      ? 'automations.group.manual'
+      : ['e4', 'e3', 'c1'].includes(entry.id)
+        ? 'automations.group.time'
+        : entry.id === 'e1'
+          ? 'automations.group.entries'
+          : ['e2', 'c2'].includes(entry.id)
+            ? 'automations.group.presence'
+            : entry.id === 'a1'
+              ? 'automations.group.lighting'
+              : entry.id === 'a2'
+                ? 'automations.group.security'
+                : 'automations.group.climate'),
   }));
   return haList.length > 0 ? [...haList, ...mappedTemplates] : mappedTemplates;
 }
 
-export function buildTitle(record) {
+export function buildTitle(record, locale = 'it') {
   const eventText =
     record.event?.triggerType === 'time' && record.eventTime
       ? `${record.event.label} (${record.eventTime})`
@@ -285,19 +302,25 @@ export function buildTitle(record) {
       : [];
   const conditionText =
     record.showCondition && conditionsList.length > 0
-      ? `, ma solo se ${conditionsList
-          .map((item) => item?.label)
-          .filter((item) => typeof item === 'string' && item.trim())
-          .join(record.conditionLogic === 'or' ? ' oppure ' : ' e ')},`
+      ? translateForLocale(locale, 'automations.dynamic.onlyIf', {
+          conditions: conditionsList
+            .map((item) => item?.label)
+            .filter((item) => typeof item === 'string' && item.trim())
+            .join(translateForLocale(locale, record.conditionLogic === 'or' ? 'automations.dynamic.or' : 'automations.dynamic.and')),
+        })
       : ',';
-  return `Quando ${eventText}${conditionText} allora ${record.action.label}`;
+  return translateForLocale(locale, 'automations.dynamic.title', {
+    event: eventText,
+    condition: conditionText,
+    action: record.action.label,
+  });
 }
 
-export function formatDate(value) {
+export function formatDate(value, locale = 'it') {
   if (typeof value !== 'number') {
-    return 'Mai';
+    return locale === 'fr' ? 'Jamais' : locale === 'en' ? 'Never' : 'Mai';
   }
-  return new Intl.DateTimeFormat('it-IT', {
+  return new Intl.DateTimeFormat(locale, {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -412,7 +435,7 @@ export function readSavedAutomations() {
   }
 }
 
-export function createHaAutomations(haStates) {
+export function createHaAutomations(haStates, locale = 'it') {
   return Object.entries(haStates)
     .filter(([entityId]) => entityId.startsWith('automation.'))
     .map(([entityId, state]) => ({
@@ -428,10 +451,10 @@ export function createHaAutomations(haStates) {
           ? Date.parse(state.rawAttributes.last_triggered)
           : null,
     }))
-    .sort((first, second) => first.name.localeCompare(second.name, 'it-IT'));
+    .sort((first, second) => first.name.localeCompare(second.name, locale));
 }
 
-export function createEventOptions(haStates) {
+export function createEventOptions(haStates, locale = 'it') {
   const allowedDomains = new Set([
     'binary_sensor',
     'sun',
@@ -455,22 +478,22 @@ export function createEventOptions(haStates) {
         domain,
         triggerType: domain === 'sun' ? 'sun' : 'state',
         isExecutable: true,
-        group: eventGroupByDomain(domain),
+        group: eventGroupByDomain(domain, locale),
         description:
           domain === 'sun'
-            ? 'Scatta automaticamente al tramonto'
-            : `Quando ${label} cambia stato (attuale: ${stateLabel(state.state)})`,
-        keywords: `${label} ${domain} ${stateLabel(state.state)}`,
+            ? translateForLocale(locale, 'automations.dynamic.sunset')
+            : translateForLocale(locale, 'automations.dynamic.stateChange', { label, state: stateLabel(state.state, locale) }),
+        keywords: `${label} ${domain} ${stateLabel(state.state, locale)}`,
         triggerConfig:
           domain === 'sun'
             ? { trigger: 'sun', event: 'sunset' }
             : { trigger: 'state', entity_id: entityId },
       };
     })
-    .sort((first, second) => first.label.localeCompare(second.label, 'it-IT'));
+    .sort((first, second) => first.label.localeCompare(second.label, locale));
 }
 
-export function createConditionOptions(haStates) {
+export function createConditionOptions(haStates, locale = 'it') {
   const allowedDomains = new Set([
     'person',
     'device_tracker',
@@ -491,16 +514,16 @@ export function createConditionOptions(haStates) {
         source: 'ha',
         entityId,
         isExecutable: true,
-        group: eventGroupByDomain(domain),
-        description: `${label} deve essere "${stateLabel(state.state)}"`,
-        keywords: `${label} ${domain} ${stateLabel(state.state)}`,
+        group: eventGroupByDomain(domain, locale),
+        description: translateForLocale(locale, 'automations.dynamic.condition', { label, state: stateLabel(state.state, locale) }),
+        keywords: `${label} ${domain} ${stateLabel(state.state, locale)}`,
         expectedState: state.state,
       };
     })
-    .sort((first, second) => first.label.localeCompare(second.label, 'it-IT'));
+    .sort((first, second) => first.label.localeCompare(second.label, locale));
 }
 
-export function createActionOptions(haStates) {
+export function createActionOptions(haStates, locale = 'it') {
   const allowedDomains = new Set(Object.keys(ACTION_SERVICE));
 
   return Object.entries(haStates)
@@ -520,8 +543,8 @@ export function createActionOptions(haStates) {
         entityId,
         domain,
         isExecutable: true,
-        group: actionGroupByDomain(domain),
-        description: actionDescriptionByDomain(domain, label),
+        group: actionGroupByDomain(domain, locale),
+        description: actionDescriptionByDomain(domain, label, locale),
         keywords: `${label} ${domain}`,
         serviceDomain: domain,
         serviceName: serviceConfig.serviceName,
@@ -529,7 +552,7 @@ export function createActionOptions(haStates) {
       };
     })
     .filter((entry) => entry !== null)
-    .sort((first, second) => first.label.localeCompare(second.label, 'it-IT'));
+    .sort((first, second) => first.label.localeCompare(second.label, locale));
 }
 
 function toHaTime(timeValue) {

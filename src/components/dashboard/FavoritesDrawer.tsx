@@ -1016,7 +1016,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
                 </div>
                 <p className="mt-2 flex items-center gap-1 text-[11px] uppercase tracking-[0.14em] text-white/45">
                   <Sparkles size={11} />
-                  Contesto: Casa completa
+                  {t('assistant.contextWholeHome')}
                 </p>
               </form>
             ) : (

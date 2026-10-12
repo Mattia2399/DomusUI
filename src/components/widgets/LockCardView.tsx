@@ -52,9 +52,9 @@ export function LockCardView({
   const canPressControl = canAct && model.primaryAction === 'lock';
   const canOpenLatch = !isEditMode && Boolean(onOpenLatch && model.supportsOpen && !model.isTransitioning && !model.isJammed && !model.isUnavailable);
   const headerStateLabel = model.isLocked
-    ? 'Chiusa'
+    ? t('controls.lock.state.locked')
     : model.isUnlocked || model.isOpen
-      ? 'Aperta'
+      ? t('controls.lock.state.open')
       : model.stateLabel;
   const progressStyle = { '--lock-hold-progress': String(Math.max(0, Math.min(1, holdProgress))) } as React.CSSProperties;
   const sliderRef = React.useRef<HTMLButtonElement | null>(null);
@@ -400,7 +400,7 @@ export function LockCardView({
               onOpen();
             }
           }}
-          aria-label={`Configura ${model.title}`}
+          aria-label={t('builder.configureNamed', { name: model.title })}
         />
       ) : null}
     </div>

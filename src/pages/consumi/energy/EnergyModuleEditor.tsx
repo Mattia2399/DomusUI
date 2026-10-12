@@ -5,6 +5,8 @@ import { activeRoles, type DraftIssue, type DraftModule } from './energyDraft';
 import { MODULE_META, REASON_LABEL, UI, formatQuantity } from './energyModel';
 import { EnergySensorPicker } from './EnergySensorPicker';
 import { sensorOptions } from './energySensorCatalog';
+import { translateConsumption, useConsumptionCopy } from '../../../i18n/consumptionCopy';
+import type { AppLocale } from '../../../i18n/I18nProvider';
 
 /* Module binding editor shared by the setup wizard and the Energy settings. */
 
@@ -15,19 +17,22 @@ const SELECTED = 'aria-pressed:ring-2 aria-checked:ring-2 ring-[color:var(--ui-a
 export const roleLabel = (id: EnergyModuleId, role: string) =>
   MODULE_META[id].roles.find((spec) => spec.role === role)?.label ?? role;
 
-export const Confidence = ({ value }: { value: EnergyConfidence }) => (
-  <span className={UI.muted}>confidenza {CONFIDENCE[value]}</span>
-);
+export const Confidence = ({ value }: { value: EnergyConfidence }) => {
+  const { c } = useConsumptionCopy();
+  return <span className={UI.muted}>{c('confidenza {value}', { value: c(CONFIDENCE[value] as 'alta' | 'media' | 'bassa') })}</span>;
+};
 
-function hintFor(value: string, discovery: EnergyDiscovery | null, haStates: MockEntityStateMap) {
+function hintFor(value: string, discovery: EnergyDiscovery | null, haStates: MockEntityStateMap, locale: AppLocale) {
   const preview = value ? discovery?.candidates[value]?.preview : undefined;
   if (preview) {
     return preview.status === 'ok'
-      ? `Lettura attuale: ${formatQuantity(preview)}`
-      : `Lettura: ${REASON_LABEL[preview.reason ?? ''] ?? 'non disponibile'}`;
+      ? translateConsumption(locale, 'Lettura attuale: {value}', { value: formatQuantity(preview, locale) })
+      : translateConsumption(locale, 'Lettura: {reason}', { reason: translateConsumption(locale, REASON_LABEL[preview.reason ?? ''] ?? 'non disponibile') });
   }
   const raw = value ? haStates[value] : undefined;
-  return raw ? `Stato attuale: ${raw.state} ${raw.unit ?? ''} (verificato al salvataggio)` : 'Scegli un suggerimento o inserisci un’entità sensor.*';
+  return raw
+    ? translateConsumption(locale, 'Stato attuale: {state} {unit} (verificato al salvataggio)', { state: raw.state, unit: raw.unit ?? '' })
+    : translateConsumption(locale, 'Scegli un suggerimento o inserisci un’entità sensor.*');
 }
 
 function SensorField({
@@ -51,12 +56,13 @@ function SensorField({
   error?: DraftIssue;
   onChange: (value: string) => void;
 }) {
+  const { cl, locale } = useConsumptionCopy();
   const inputId = `energy-${instanceId}-${role}`;
   const kind = role === 'state_of_charge' ? 'soc' : 'power';
   const options = React.useMemo(() => sensorOptions(haStates, discovery, kind), [haStates, discovery, kind]);
   return (
     <div className="space-y-1.5">
-      <label htmlFor={inputId} className={`block text-sm ${UI.title}`}>{roleLabel(id, role)}</label>
+      <label htmlFor={inputId} className={`block text-sm ${UI.title}`}>{cl(roleLabel(id, role))}</label>
       <EnergySensorPicker
         id={inputId}
         value={value}
@@ -66,7 +72,7 @@ function SensorField({
         invalid={Boolean(error)}
         describedBy={`${inputId}-hint`}
       />
-      <p id={`${inputId}-hint`} className={error ? ERROR_TEXT : UI.muted}>{error?.message ?? hintFor(value, discovery, haStates)}</p>
+      <p id={`${inputId}-hint`} className={error ? ERROR_TEXT : UI.muted}>{error ? cl(error.message) : hintFor(value, discovery, haStates, locale)}</p>
       <div className="flex flex-wrap gap-1.5">
         {(discovery?.proposals[id]?.[role] ?? []).slice(0, 3).map((proposal) => (
           <button
@@ -118,17 +124,18 @@ export function ModuleEditor({
   issues: DraftIssue[];
   onChange: (module: DraftModule) => void;
 }) {
+  const { c, cl } = useConsumptionCopy();
   const meta = MODULE_META[id];
   const moduleIssue = issues.find((issue) => !issue.role);
-  const [removeLabel, addLabel] = toggleLabels ?? ['Rimuovi', 'Configura'];
-  const heading = title ?? meta.label;
+  const [removeLabel, addLabel] = toggleLabels ?? [c('Rimuovi'), c('Configura')];
+  const heading = title ?? c(meta.label);
   return (
     <fieldset className={UI.card}>
       <legend className="sr-only">{heading}</legend>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className={UI.title}>{heading}</p>
-          <p className={UI.muted}>{module.present ? hint ?? meta.hint : 'Non incluso nell’impianto'}{offline ? ' · sensori offline' : ''}</p>
+          <p className={UI.muted}>{module.present ? (hint ? cl(hint) : c(meta.hint)) : c('Non incluso nell’impianto')}{offline ? ` · ${c('sensori offline')}` : ''}</p>
         </div>
         {locked ? null : (
           <button
@@ -144,7 +151,7 @@ export function ModuleEditor({
       {module.present ? (
         <div className="mt-3 space-y-3">
           {meta.conventions ? (
-            <div role="radiogroup" aria-label={`Collegamento ${heading}`} className="flex flex-wrap gap-1.5">
+            <div role="radiogroup" aria-label={c('Collegamento {name}', { name: heading })} className="flex flex-wrap gap-1.5">
               {(['split', 'net'] as const).map((mode) => (
                 <button
                   key={mode}
@@ -154,7 +161,7 @@ export function ModuleEditor({
                   onClick={() => onChange({ ...module, mode })}
                   className={`${UI.chip} ${SELECTED}`}
                 >
-                  {mode === 'split' ? 'Sensori separati per direzione' : 'Un sensore con segno'}
+                  {mode === 'split' ? c('Sensori separati per direzione') : c('Un sensore con segno')}
                 </button>
               ))}
             </div>
@@ -175,8 +182,8 @@ export function ModuleEditor({
           ))}
           {module.mode === 'net' && meta.conventions && module.sensors.net_power ? (
             <fieldset>
-              <legend className={`text-sm ${UI.title}`}>Cosa indicano i valori positivi?</legend>
-              <p className={UI.muted}>Domus non deduce il segno: verificalo nella tua integrazione.</p>
+              <legend className={`text-sm ${UI.title}`}>{c('Cosa indicano i valori positivi?')}</legend>
+              <p className={UI.muted}>{c('Domus non deduce il segno: verificalo nella tua integrazione.')}</p>
               {meta.conventions.map(([value, label]) => (
                 <label key={value} className={`flex min-h-9 items-center gap-2 ${UI.body}`}>
                   <input
@@ -185,12 +192,12 @@ export function ModuleEditor({
                     checked={module.signConvention === value}
                     onChange={() => onChange({ ...module, signConvention: value })}
                   />
-                  {label}
+                  {c(label)}
                 </label>
               ))}
             </fieldset>
           ) : null}
-          {moduleIssue ? <p className={ERROR_TEXT}>{moduleIssue.message}</p> : null}
+          {moduleIssue ? <p className={ERROR_TEXT}>{cl(moduleIssue.message)}</p> : null}
         </div>
       ) : null}
     </fieldset>

@@ -445,7 +445,8 @@ Migrazione UI:
 - [x] Rooms;
 - [x] App Gallery e workspace Irrigazione;
 - [x] Impostazioni, supporto, notifiche e stati di errore dello scope essenziale;
-- [ ] Security e Consumi completi; fino alla migrazione restano protetti dal gate localizzato fuori dall'italiano;
+- [x] Consumi completo in italiano, inglese e francese; il gate localizzato è stato rimosso dalla route e dalle relative pagine nidificate;
+- [ ] Security completo; fino alla conclusione della migrazione resta protetto dal gate localizzato fuori dall'italiano;
 - [x] audit automatico delle stringhe UI residue nel release gate;
 - [ ] collaudo visuale completo nei tre cataloghi per le route che verranno migrate in seguito.
 

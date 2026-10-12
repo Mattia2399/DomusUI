@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
 import { resolveOverlayThemeClass, type DashboardThemeClass } from './portalTheme';
+import { useI18n } from '../../i18n/I18nProvider';
 
 export type GlassModalSize = 'sm' | 'md' | 'lg' | 'xl';
 export type GlassModalVariant = 'dialog' | 'responsive' | 'fullscreen';
@@ -90,7 +91,7 @@ export function GlassModal({
   footer,
   size = 'md',
   variant = 'dialog',
-  closeLabel = 'Chiudi finestra',
+  closeLabel,
   dismissible = true,
   showCloseButton = true,
   usePortal = true,
@@ -103,6 +104,8 @@ export function GlassModal({
   footerClassName,
   backdropClassName,
 }: GlassModalProps) {
+  const { t } = useI18n();
+  const resolvedCloseLabel = closeLabel ?? t('common.closeDialog');
   const reactId = useId();
   const modalId = `glass-modal-${reactId}`;
   const titleId = `${modalId}-title`;
@@ -244,7 +247,7 @@ export function GlassModal({
                   onClick={onClose}
                   disabled={!dismissible}
                   className="glass-icon-button absolute right-0 top-0 h-11 w-11 disabled:opacity-35"
-                  aria-label={closeLabel}
+                  aria-label={resolvedCloseLabel}
                 >
                   <X size={16} />
                 </button>

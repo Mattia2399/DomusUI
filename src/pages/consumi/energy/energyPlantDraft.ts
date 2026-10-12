@@ -8,6 +8,8 @@ import {
   type EnergyProfileModules,
   type EnergySources,
 } from '../../../services/energyCoreClient';
+import { translateConsumptionLoose } from '../../../i18n/consumptionCopy';
+import type { AppLocale } from '../../../i18n/I18nProvider';
 import { SENSOR_PATTERN, activeRoles, powerIssues, type DraftModule } from './energyDraft';
 import { MODULE_META } from './energyModel';
 import type { SensorKind } from './energySensorCatalog';
@@ -169,8 +171,15 @@ export const plantChanged = (draft: PlantDraft, stored: EnergyPlant) => JSON.str
 export const removedDevices = (draft: PlantDraft) =>
   ENERGY_MODULES.flatMap((id) => (draft[id]?.devices ?? []).filter((device) => device.removed && !device.isNew).map((device) => ({ module: id, device })));
 
-export const deviceLabel = (id: EnergyModuleId, device: Pick<PlantDraftDevice, 'name'>, index: number) =>
-  device.name.trim() || `${MODULE_META[id].label} ${index + 1}`;
+export const deviceLabel = (
+  id: EnergyModuleId,
+  device: Pick<PlantDraftDevice, 'name'>,
+  index: number,
+  locale: AppLocale = 'it',
+) => (device.name ?? '').trim() || translateConsumptionLoose(locale, '{module} {index}', {
+  module: translateConsumptionLoose(locale, MODULE_META[id].label),
+  index: index + 1,
+});
 
 /** Modules with at least one device kept. */
 export const presentModules = (draft: PlantDraft) =>
@@ -259,20 +268,20 @@ const isStatisticId = (value: string) => SENSOR_PATTERN.test(value) || EXTERNAL_
 export type EntityCheck = (kind: SensorKind, id: string) => string | null;
 
 /** Mirrors the backend rules; the backend still has the final word on save. */
-export function validatePlantDraft(draft: PlantDraft, check?: EntityCheck): PlantIssue[] {
+export function validatePlantDraft(draft: PlantDraft, check?: EntityCheck, locale: AppLocale = 'it'): PlantIssue[] {
   const issues: PlantIssue[] = [];
   const used = new Map<string, string>();
   const claim = (reference: string, holder: string, issue: Omit<PlantIssue, 'message'>) => {
-    if (used.has(reference)) issues.push({ ...issue, message: `${reference} è già usato da ${used.get(reference)}.` });
+    if (used.has(reference)) issues.push({ ...issue, message: translateConsumptionLoose(locale, '{reference} è già usato da {holder}.', { reference, holder: used.get(reference) ?? '' }) });
     else used.set(reference, holder);
   };
   const checkPower = (id: EnergyModuleId, sources: PlantDraftSources, scope: Omit<PlantIssue, 'message'>, holder: string) => {
     if (!sources.power.present) return;
-    for (const issue of powerIssues(id, sources.power, used, holder)) issues.push({ ...scope, field: issue.role ?? 'power', message: issue.message });
+    for (const issue of powerIssues(id, sources.power, used, holder, locale)) issues.push({ ...scope, field: issue.role ?? 'power', message: issue.message });
     for (const role of activeRoles(id, sources.power.mode)) {
       const entity = sources.power.sensors[role]?.trim();
       const problem = entity && check?.(role === 'state_of_charge' ? 'soc' : 'power', entity);
-      if (problem) issues.push({ ...scope, field: role, message: `${entity}: ${problem}.` });
+      if (problem) issues.push({ ...scope, field: role, message: translateConsumptionLoose(locale, '{entity}: {problem}.', { entity, problem: translateConsumptionLoose(locale, problem) }) });
     }
   };
   const checkMeters = (id: EnergyModuleId, sources: PlantDraftSources, scope: Omit<PlantIssue, 'message'>, holder: string) => {
@@ -280,15 +289,15 @@ export function validatePlantDraft(draft: PlantDraft, check?: EntityCheck): Plan
     for (const { role } of METER_ROLES[id]) {
       const parts = meterLines(sources.meters[role]);
       count += parts.length;
-      if (parts.length > MAX_METER_PARTS) issues.push({ ...scope, field: role, message: `Al massimo ${MAX_METER_PARTS} contatori per voce.` });
+      if (parts.length > MAX_METER_PARTS) issues.push({ ...scope, field: role, message: translateConsumptionLoose(locale, 'Al massimo {count} contatori per voce.', { count: MAX_METER_PARTS }) });
       for (const part of parts) {
         if (!isStatisticId(part)) {
-          issues.push({ ...scope, field: role, message: `${part} non è un sensore né una statistica (fonte:nome).` });
+          issues.push({ ...scope, field: role, message: translateConsumptionLoose(locale, '{part} non è un sensore né una statistica (fonte:nome).', { part }) });
           continue;
         }
         claim(part, holder, { ...scope, field: role });
         const problem = check?.('energy', part);
-        if (problem) issues.push({ ...scope, field: role, message: `${part}: ${problem}.` });
+        if (problem) issues.push({ ...scope, field: role, message: translateConsumptionLoose(locale, '{entity}: {problem}.', { entity: part, problem: translateConsumptionLoose(locale, problem) }) });
       }
     }
     return count;
@@ -298,22 +307,22 @@ export function validatePlantDraft(draft: PlantDraft, check?: EntityCheck): Plan
     if (!module) continue;
     const kept = module.devices.filter((device) => !device.removed);
     if (module.total) {
-      const holder = `${MODULE_META[id].label} · totale`;
+      const holder = translateConsumptionLoose(locale, '{module} · totale', { module: translateConsumptionLoose(locale, MODULE_META[id].label) });
       checkPower(id, module.total, { module: id, field: 'total' }, holder);
       const meters = checkMeters(id, module.total, { module: id, field: 'total' }, holder);
-      if (!module.total.power.present && !meters) issues.push({ module: id, field: 'total', message: 'Il sensore totale non ha né potenza né contatori.' });
-      if (kept.length < 2) issues.push({ module: id, message: 'Con un sensore totale servono almeno due dispositivi.' });
+      if (!module.total.power.present && !meters) issues.push({ module: id, field: 'total', message: translateConsumptionLoose(locale, 'Il sensore totale non ha né potenza né contatori.') });
+      if (kept.length < 2) issues.push({ module: id, message: translateConsumptionLoose(locale, 'Con un sensore totale servono almeno due dispositivi.') });
     }
-    if (kept.length > MAX_DEVICES_PER_MODULE) issues.push({ module: id, message: `Al massimo ${MAX_DEVICES_PER_MODULE} dispositivi per modulo.` });
+    if (kept.length > MAX_DEVICES_PER_MODULE) issues.push({ module: id, message: translateConsumptionLoose(locale, 'Al massimo {count} dispositivi per modulo.', { count: MAX_DEVICES_PER_MODULE }) });
     module.devices.forEach((device, index) => {
       if (device.removed) return;
-      const holder = deviceLabel(id, device, index);
+      const holder = deviceLabel(id, device, index, locale);
       const scope = { module: id, deviceId: device.id };
-      if (device.name.trim().length > MAX_NAME_LENGTH) issues.push({ ...scope, field: 'name', message: `Usa al massimo ${MAX_NAME_LENGTH} caratteri.` });
+      if (device.name.trim().length > MAX_NAME_LENGTH) issues.push({ ...scope, field: 'name', message: translateConsumptionLoose(locale, 'Usa al massimo {count} caratteri.', { count: MAX_NAME_LENGTH }) });
       checkPower(id, device, scope, holder);
       const meters = checkMeters(id, device, scope, holder);
       if (!device.power.present && meters === 0) {
-        issues.push({ ...scope, message: 'Serve almeno un sensore di potenza o un contatore di energia.' });
+        issues.push({ ...scope, message: translateConsumptionLoose(locale, 'Serve almeno un sensore di potenza o un contatore di energia.') });
       }
       if (id === 'battery') {
         const parse = (value: string) => (value.trim() ? Number(value.replace(',', '.')) : null);
@@ -321,11 +330,11 @@ export function validatePlantDraft(draft: PlantDraft, check?: EntityCheck): Plan
         const usable = parse(device.capacity.usable);
         for (const [field, value] of [['nominal', nominal], ['usable', usable]] as const) {
           if (value !== null && !(Number.isFinite(value) && value > 0 && value <= MAX_CAPACITY_KWH)) {
-            issues.push({ ...scope, field, message: `Indica un valore tra 0 e ${MAX_CAPACITY_KWH} kWh.` });
+            issues.push({ ...scope, field, message: translateConsumptionLoose(locale, 'Indica un valore tra 0 e {max} kWh.', { max: MAX_CAPACITY_KWH }) });
           }
         }
         if (nominal !== null && usable !== null && usable > nominal) {
-          issues.push({ ...scope, field: 'usable', message: 'La capacità utilizzabile non può superare quella nominale.' });
+          issues.push({ ...scope, field: 'usable', message: translateConsumptionLoose(locale, 'La capacità utilizzabile non può superare quella nominale.') });
         }
       }
     });
@@ -348,7 +357,7 @@ export function plantReferences(plant: EnergyPlant): Set<string> {
 }
 
 /** Every sensor and meter already used in the draft, by holder, for the pickers. */
-export function takenSensors(draft: PlantDraft): Record<string, string> {
+export function takenSensors(draft: PlantDraft, locale: AppLocale = 'it'): Record<string, string> {
   const taken: Record<string, string> = {};
   const add = (sources: PlantDraftSources, id: EnergyModuleId, holder: string) => {
     if (sources.power.present) {
@@ -362,8 +371,8 @@ export function takenSensors(draft: PlantDraft): Record<string, string> {
   for (const id of ENERGY_MODULES) {
     const module = draft[id];
     if (!module) continue;
-    module.devices.forEach((device, index) => { if (!device.removed) add(device, id, deviceLabel(id, device, index)); });
-    if (module.total) add(module.total, id, `${MODULE_META[id].label} · totale`);
+    module.devices.forEach((device, index) => { if (!device.removed) add(device, id, deviceLabel(id, device, index, locale)); });
+    if (module.total) add(module.total, id, translateConsumptionLoose(locale, '{module} · totale', { module: translateConsumptionLoose(locale, MODULE_META[id].label) }));
   }
   return taken;
 }
@@ -374,21 +383,21 @@ export type PlantChange = { module: EnergyModuleId; kind: 'added' | 'removed' | 
 
 const sensorsOf = (sources: EnergySources | undefined) => Object.entries(sources?.power?.sensors ?? {});
 const metersOf = (sources: EnergySources | undefined) => Object.entries(sources?.energy ?? {}) as Array<[EnergyMeterRole, string[]]>;
-const roleName = (id: EnergyModuleId, role: string) =>
-  MODULE_META[id].roles.find((spec) => spec.role === role)?.label ?? METER_ROLES[id].find((spec) => spec.role === role)?.label ?? role;
-const conventionName = (id: EnergyModuleId, value: string | undefined) =>
-  value ? MODULE_META[id].conventions?.find(([key]) => key === value)?.[1] ?? value : 'nessuna';
+const roleName = (id: EnergyModuleId, role: string, locale: AppLocale) =>
+  translateConsumptionLoose(locale, MODULE_META[id].roles.find((spec) => spec.role === role)?.label ?? METER_ROLES[id].find((spec) => spec.role === role)?.label ?? role);
+const conventionName = (id: EnergyModuleId, value: string | undefined, locale: AppLocale) =>
+  value ? translateConsumptionLoose(locale, MODULE_META[id].conventions?.find(([key]) => key === value)?.[1] ?? value) : translateConsumptionLoose(locale, 'nessuna');
 
-function sourceDetails(id: EnergyModuleId, before: EnergySources | undefined, after: EnergySources | undefined): string[] {
+function sourceDetails(id: EnergyModuleId, before: EnergySources | undefined, after: EnergySources | undefined, locale: AppLocale): string[] {
   const details: string[] = [];
   const old = Object.fromEntries(sensorsOf(before));
   const next = Object.fromEntries(sensorsOf(after));
   for (const role of new Set([...Object.keys(old), ...Object.keys(next)])) {
     if (old[role] === next[role]) continue;
-    details.push(`${roleName(id, role)}: ${old[role] ?? '—'} → ${next[role] ?? '—'}`);
+    details.push(`${roleName(id, role, locale)}: ${old[role] ?? '—'} → ${next[role] ?? '—'}`);
   }
   if ((before?.power?.sign_convention ?? '') !== (after?.power?.sign_convention ?? '') && (after?.power || before?.power)) {
-    details.push(`Segno: ${conventionName(id, after?.power?.sign_convention)}`);
+    details.push(translateConsumptionLoose(locale, 'Segno: {value}', { value: conventionName(id, after?.power?.sign_convention, locale) }));
   }
   const oldMeters = Object.fromEntries(metersOf(before));
   const newMeters = Object.fromEntries(metersOf(after));
@@ -397,14 +406,14 @@ function sourceDetails(id: EnergyModuleId, before: EnergySources | undefined, af
     const now = newMeters[role] ?? [];
     const added = now.filter((part) => !was.includes(part));
     const gone = was.filter((part) => !now.includes(part));
-    if (added.length) details.push(`${roleName(id, role)}: aggiunti ${added.join(', ')}`);
-    if (gone.length) details.push(`${roleName(id, role)}: rimossi ${gone.join(', ')}`);
+    if (added.length) details.push(translateConsumptionLoose(locale, '{role}: aggiunti {items}', { role: roleName(id, role, locale), items: added.join(', ') }));
+    if (gone.length) details.push(translateConsumptionLoose(locale, '{role}: rimossi {items}', { role: roleName(id, role, locale), items: gone.join(', ') }));
   }
   return details;
 }
 
 /** What a save would change, in words, against the stored plant. */
-export function plantChanges(stored: EnergyPlant, draft: PlantDraft): PlantChange[] {
+export function plantChanges(stored: EnergyPlant, draft: PlantDraft, locale: AppLocale = 'it'): PlantChange[] {
   const next = plantFromDraft(draft);
   const changes: PlantChange[] = [];
   for (const id of ENERGY_MODULES) {
@@ -413,30 +422,34 @@ export function plantChanges(stored: EnergyPlant, draft: PlantDraft): PlantChang
     if (!before && !after) continue;
     const old = new Map((before?.devices ?? []).map((device) => [device.id, device]));
     (after?.devices ?? []).forEach((device, index) => {
-      const label = device.name ?? `${MODULE_META[id].label} ${index + 1}`;
+      const moduleLabel = translateConsumptionLoose(locale, MODULE_META[id].label);
+      const label = device.name ?? translateConsumptionLoose(locale, '{module} {index}', { module: moduleLabel, index: index + 1 });
       const previous = old.get(device.id);
       if (!previous) {
-        changes.push({ module: id, kind: 'added', title: `${MODULE_META[id].label}: aggiunto ${label}`, details: sourceDetails(id, undefined, device) });
+        changes.push({ module: id, kind: 'added', title: translateConsumptionLoose(locale, '{module}: aggiunto {label}', { module: moduleLabel, label }), details: sourceDetails(id, undefined, device, locale) });
         return;
       }
-      const details = sourceDetails(id, previous, device);
-      if ((previous.name ?? null) !== (device.name ?? null)) details.unshift(`Nome: ${previous.name ?? '—'} → ${device.name ?? '—'}`);
+      const details = sourceDetails(id, previous, device, locale);
+      if ((previous.name ?? null) !== (device.name ?? null)) details.unshift(translateConsumptionLoose(locale, 'Nome: {before} → {after}', { before: previous.name ?? '—', after: device.name ?? '—' }));
       const capacity = (value: EnergyDeviceDocument['capacity']) => `${value?.nominal_kwh ?? '—'} / ${value?.usable_kwh ?? '—'} kWh`;
-      if (capacity(previous.capacity) !== capacity(device.capacity)) details.push(`Capacità nominale / utilizzabile: ${capacity(device.capacity)}`);
-      if (details.length) changes.push({ module: id, kind: 'changed', title: `${MODULE_META[id].label}: ${label}`, details });
+      if (capacity(previous.capacity) !== capacity(device.capacity)) details.push(translateConsumptionLoose(locale, 'Capacità nominale / utilizzabile: {capacity}', { capacity: capacity(device.capacity) }));
+      if (details.length) changes.push({ module: id, kind: 'changed', title: `${moduleLabel}: ${label}`, details });
     });
     const kept = new Set((after?.devices ?? []).map((device) => device.id));
     for (const device of before?.devices ?? []) {
       if (!kept.has(device.id)) {
-        changes.push({ module: id, kind: 'removed', title: `${MODULE_META[id].label}: rimosso ${device.name ?? device.id}`, details: [] });
+        changes.push({ module: id, kind: 'removed', title: translateConsumptionLoose(locale, '{module}: rimosso {label}', { module: translateConsumptionLoose(locale, MODULE_META[id].label), label: device.name ?? device.id }), details: [] });
       }
     }
     if (JSON.stringify(before?.total ?? null) !== JSON.stringify(after?.total ?? null)) {
       changes.push({
         module: id,
         kind: 'total',
-        title: `${MODULE_META[id].label}: sensore totale ${after?.total ? (before?.total ? 'modificato' : 'aggiunto') : 'rimosso'}`,
-        details: after?.total ? sourceDetails(id, before?.total, after.total) : [],
+        title: translateConsumptionLoose(locale, '{module}: sensore totale {status}', {
+          module: translateConsumptionLoose(locale, MODULE_META[id].label),
+          status: translateConsumptionLoose(locale, after?.total ? (before?.total ? 'modificato' : 'aggiunto') : 'rimosso'),
+        }),
+        details: after?.total ? sourceDetails(id, before?.total, after.total, locale) : [],
       });
     }
   }
@@ -461,14 +474,19 @@ export type Confirmation = {
  * meters Home Assistant could not verify, parts that will be summed, removals.
  * `verified(id)` says whether a meter is known to Home Assistant.
  */
-export function pendingConfirmations(stored: EnergyPlant, draft: PlantDraft, verified: (id: string) => boolean): Confirmation[] {
+export function pendingConfirmations(
+  stored: EnergyPlant,
+  draft: PlantDraft,
+  verified: (id: string) => boolean,
+  locale: AppLocale = 'it',
+): Confirmation[] {
   const confirmations: Confirmation[] = [];
   const next = plantFromDraft(draft);
   for (const id of ENERGY_MODULES) {
     const holders: Array<[string, EnergySources, EnergySources | undefined, string]> = [];
     const before = new Map((stored[id]?.devices ?? []).map((device) => [device.id, device]));
-    next[id]?.devices.forEach((device, index) => holders.push([device.name ?? `${MODULE_META[id].label} ${index + 1}`, device, before.get(device.id), device.id]));
-    if (next[id]?.total) holders.push([`${MODULE_META[id].label} · totale`, next[id]!.total!, stored[id]?.total, `${id}:total`]);
+    next[id]?.devices.forEach((device, index) => holders.push([device.name ?? deviceLabel(id, device, index, locale), device, before.get(device.id), device.id]));
+    if (next[id]?.total) holders.push([translateConsumptionLoose(locale, '{module} · totale', { module: translateConsumptionLoose(locale, MODULE_META[id].label) }), next[id]!.total!, stored[id]?.total, `${id}:total`]);
     for (const [label, sources, previous, holder] of holders) {
       for (const [role, parts] of metersOf(sources)) {
         const was = previous?.energy?.[role] ?? [];
@@ -479,7 +497,7 @@ export function pendingConfirmations(stored: EnergyPlant, draft: PlantDraft, ver
             holder,
             role,
             part,
-            message: `${label} · ${roleName(id, role)}: ${part} non è verificato da Home Assistant. I suoi dati potrebbero non essere disponibili.`,
+            message: translateConsumptionLoose(locale, '{label} · {role}: {part} non è verificato da Home Assistant. I suoi dati potrebbero non essere disponibili.', { label, role: roleName(id, role, locale), part }),
           });
         }
         if (parts.length > 1 && JSON.stringify([...parts].sort()) !== JSON.stringify([...was].sort())) {
@@ -488,7 +506,7 @@ export function pendingConfirmations(stored: EnergyPlant, draft: PlantDraft, ver
             module: id,
             holder,
             role,
-            message: `${label} · ${roleName(id, role)}: questi ${parts.length} contatori verranno sommati (${parts.join(', ')}). Verifica che rappresentino fasce differenti e non includano già un totale.`,
+            message: translateConsumptionLoose(locale, '{label} · {role}: questi {count} contatori verranno sommati ({items}). Verifica che rappresentino fasce differenti e non includano già un totale.', { label, role: roleName(id, role, locale), count: parts.length, items: parts.join(', ') }),
           });
         }
       }
@@ -498,7 +516,7 @@ export function pendingConfirmations(stored: EnergyPlant, draft: PlantDraft, ver
     confirmations.push({
       key: `remove:${device.id}`,
       module,
-      message: `${MODULE_META[module].label}: ${device.name.trim() || device.id} verrà rimosso. Il suo identificativo non potrà essere riutilizzato.`,
+      message: translateConsumptionLoose(locale, '{module}: {label} verrà rimosso. Il suo identificativo non potrà essere riutilizzato.', { module: translateConsumptionLoose(locale, MODULE_META[module].label), label: device.name.trim() || device.id }),
     });
   }
   return confirmations;

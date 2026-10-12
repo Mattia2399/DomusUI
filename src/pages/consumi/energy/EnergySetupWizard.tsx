@@ -75,6 +75,7 @@ import {
   type PlantIssue,
 } from './energyPlantDraft';
 import { meterKnown, referenceCheck } from './energySensorCatalog';
+import { useConsumptionCopy } from '../../../i18n/consumptionCopy';
 
 /*
  * Guided setup on the Energy Profile v2 draft shared with the settings. A
@@ -151,6 +152,7 @@ export default function EnergySetupWizard({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { c, cl, locale } = useConsumptionCopy();
   const [loaded, setLoaded] = React.useState<Loaded | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [draft, setDraft] = React.useState<PlantDraft>({});
@@ -192,7 +194,7 @@ export default function EnergySetupWizard({
     setApplied({});
     setConfirmed(new Set());
     setOpen(null);
-    setTariffDraft(tariffForm(profileTariff(result)));
+    setTariffDraft(tariffForm(profileTariff(result), locale));
     setLoaded({
       result,
       v2,
@@ -204,7 +206,7 @@ export default function EnergySetupWizard({
       meters: { ...(result.energy_meters?.meters ?? {}), ...(proposals?.meters ?? {}) },
     });
     setStepId(mode === 'edit' && initial.length ? `module:${initial[0]}` : first && mode === 'setup' ? 'welcome' : 'plant');
-  }, [callApi, mode]);
+  }, [callApi, locale, mode]);
 
   React.useEffect(() => {
     void load();
@@ -217,7 +219,7 @@ export default function EnergySetupWizard({
 
   const known = React.useMemo(() => (loaded ? plantReferences(loaded.stored) : new Set<string>()), [loaded]);
   const check = React.useMemo(() => referenceCheck(haStates, loaded?.meters ?? {}, known), [haStates, loaded, known]);
-  const issues = React.useMemo(() => validatePlantDraft(draft, check), [draft, check]);
+  const issues = React.useMemo(() => validatePlantDraft(draft, check, locale), [draft, check, locale]);
   const saving = save.status === 'saving';
 
   const firstSetup = Boolean(loaded) && Object.keys(loaded!.stored).length === 0;
@@ -242,33 +244,33 @@ export default function EnergySetupWizard({
       <header className="flex items-center gap-2 border-b border-[color:var(--ui-separator)] px-4 py-3 sm:px-6">
         <div className="min-w-0 flex-1">
           <p className={UI.muted}>
-            Configura Domus Energy{loaded && !done ? ` · Passaggio ${stepIndex + 1} di ${steps.length}` : ''}
-            {loaded && !done && steps[stepIndex + 1] ? <span className="hidden sm:inline"> · Poi: {STEP_LABEL[steps[stepIndex + 1]]}</span> : null}
+            {c('Configura Domus Energy')}{loaded && !done ? ` · ${c('Passaggio {current} di {total}', { current: stepIndex + 1, total: steps.length })}` : ''}
+            {loaded && !done && steps[stepIndex + 1] ? <span className="hidden sm:inline"> · {c('Poi: {step}', { step: cl(STEP_LABEL[steps[stepIndex + 1]]) })}</span> : null}
           </p>
           <h2 id="energy-step-title" ref={headingRef} tabIndex={-1} className={`truncate text-lg outline-none ${UI.title}`}>
-            {done ? 'Fatto' : STEP_LABEL[loaded ? current : 'detect']}
+            {done ? c('Fatto') : cl(STEP_LABEL[loaded ? current : 'detect'])}
           </h2>
         </div>
         {loaded && !done && (moduleOf(current) || current === 'history' || current === 'detect') ? (
           <button
             type="button"
             aria-pressed={advanced}
-            aria-label="Configurazione avanzata per tutti i dispositivi"
+            aria-label={c('Configurazione avanzata per tutti i dispositivi')}
             onClick={() => setAdvanced(!advanced)}
             className={`${UI.chip} ${advanced ? 'font-semibold text-[color:var(--ui-accent)]' : ''}`}
           >
-            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden min-[420px]:inline">Avanzata</span>
+            <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" /> <span className="hidden min-[420px]:inline">{c('Avanzata')}</span>
           </button>
         ) : null}
-        <button type="button" onClick={done ? finish : onClose} disabled={saving} aria-label="Chiudi configurazione" className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40">
+        <button type="button" onClick={done ? finish : onClose} disabled={saving} aria-label={c('Chiudi configurazione')} className="liquid-glass-control flex h-10 w-10 shrink-0 items-center justify-center rounded-full disabled:opacity-40">
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </header>
       {loaded && !done ? (
-        <ol className="flex gap-1 px-4 pt-3 sm:px-6" aria-label="Passaggi della configurazione">
+        <ol className="flex gap-1 px-4 pt-3 sm:px-6" aria-label={c('Passaggi della configurazione')}>
           {steps.map((id, index) => (
             <li key={id} aria-current={index === stepIndex ? 'step' : undefined} className={`h-1 flex-1 rounded-full ${index <= stepIndex ? 'bg-[color:var(--ui-accent)]' : 'bg-[color:var(--ui-fill-secondary)]'}`}>
-              <span className="sr-only">{index + 1}. {STEP_LABEL[id]}</span>
+              <span className="sr-only">{index + 1}. {cl(STEP_LABEL[id])}</span>
             </li>
           ))}
         </ol>
@@ -288,18 +290,18 @@ export default function EnergySetupWizard({
     return shell(
       <div role="alert" className={`space-y-3 ${UI.body}`}>
         <p>{loadError}</p>
-        <button type="button" onClick={() => void load()} className={UI.button}>Riprova</button>
+        <button type="button" onClick={() => void load()} className={UI.button}>{c('Riprova')}</button>
       </div>,
     );
   }
   if (!loaded) {
-    return shell(<p role="status" className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Ricerca dei dispositivi in Home Assistant…</p>);
+    return shell(<p role="status" className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> {c('Ricerca dei dispositivi in Home Assistant…')}</p>);
   }
   if (done) {
     return shell(
       <SuccessView lines={done.lines} realtimeOnly={done.realtimeOnly} />,
       <div className="flex sm:justify-end">
-        <button type="button" onClick={finish} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>Vai a Domus Energy</button>
+        <button type="button" onClick={finish} className={`${UI.primary} flex-1 justify-center sm:flex-none`}>{c('Vai a Domus Energy')}</button>
       </div>,
     );
   }
@@ -308,14 +310,14 @@ export default function EnergySetupWizard({
   const review = proposals ? reviewDiscovery(proposals) : null;
   const plant = plantFromDraft(draft);
   const legacyBlocked = !v2 && modulesFromPlant(plant) === null;
-  const { tariff } = tariffFromForm(tariffDraft, Boolean(draft.grid?.devices.some((device) => !device.removed)));
+  const { tariff } = tariffFromForm(tariffDraft, Boolean(draft.grid?.devices.some((device) => !device.removed)), locale);
   const tariffBlank = isBlankTariff(tariffDraft);
   // Nothing typed, or an explicit skip, leaves the tariff out of the save (the stored one is kept).
   const tariffToSave = steps.includes('tariff') && !skipTariff ? tariff : undefined;
   const dirty = plantChanged(draft, stored) || Boolean(tariffToSave);
-  const confirmations = pendingConfirmations(stored, draft, (id) => meterKnown(haStates, meters, id));
+  const confirmations = pendingConfirmations(stored, draft, (id) => meterKnown(haStates, meters, id), locale);
   const unconfirmed = confirmations.filter((item) => !confirmed.has(item.key));
-  const taken = takenSensors(draft);
+  const taken = takenSensors(draft, locale);
   const takenFor = (holder: string) => Object.fromEntries(Object.entries(taken).filter(([, by]) => by !== holder));
   const present = presentModules(draft);
   const counts = plantCounts(draft);
@@ -394,9 +396,9 @@ export default function EnergySetupWizard({
       else await saveEnergyProfile(callApi, modulesFromPlant(plant) ?? {}, profileRevision(result), tariffToSave);
       setSave({ status: 'idle' });
       setDone({
-        lines: present.filter((id) => id !== 'home').map((id) => `${MODULE_META[id].label} · ${count(id, plant[id]?.devices.length ?? 0)}`)
-          .concat(present.includes('home') ? ['Consumi della casa misurati'] : [])
-          .concat(counts.meters ? [`${plural(counts.meters, 'contatore', 'contatori')} per lo storico`] : []),
+        lines: present.filter((id) => id !== 'home').map((id) => `${c(MODULE_META[id].label)} · ${count(id, plant[id]?.devices.length ?? 0, locale)}`)
+          .concat(present.includes('home') ? [c('Consumi della casa misurati')] : [])
+          .concat(counts.meters ? [c('{meters} per lo storico', { meters: plural(counts.meters, cl('contatore'), cl('contatori')) })] : []),
         realtimeOnly: counts.meters === 0,
       });
     } catch (failure) {
@@ -407,7 +409,7 @@ export default function EnergySetupWizard({
   };
 
   const recorderNote = review?.verificationIncomplete ? (
-    <Note>Alcuni contatori sono in attesa di Home Assistant, che si sta ancora avviando: potrai usarli comunque e Domus li verificherà più tardi.</Note>
+    <Note>{c('Alcuni contatori sono in attesa di Home Assistant, che si sta ancora avviando: potrai usarli comunque e Domus li verificherà più tardi.')}</Note>
   ) : null;
 
   /* ---- Steps ----------------------------------------------------------------------------- */
@@ -428,36 +430,36 @@ export default function EnergySetupWizard({
     body = (
       <>
         <div className="space-y-1">
-          <h3 className={TITLE}>{anything ? (firstSetup ? 'Abbiamo trovato il tuo impianto' : 'Ecco cosa abbiamo trovato') : !proposals ? 'Rilevamento automatico non riuscito' : 'Nessun dispositivo riconosciuto automaticamente'}</h3>
+          <h3 className={TITLE}>{anything ? (firstSetup ? c('Abbiamo trovato il tuo impianto') : c('Ecco cosa abbiamo trovato')) : !proposals ? c('Rilevamento automatico non riuscito') : c('Nessun dispositivo riconosciuto automaticamente')}</h3>
           <p className={UI.body}>
             {!proposals
-              ? `${loaded.discoveryError} Nei prossimi passaggi puoi comunque scegliere tu i dispositivi.`
+              ? c('{error} Nei prossimi passaggi puoi comunque scegliere tu i dispositivi.', { error: cl(loaded.discoveryError) })
               : anything
-                ? 'Sono solo proposte: nei prossimi passaggi controlli ogni dispositivo, e nulla viene salvato prima del controllo finale.'
-                : 'Non è un errore: nei prossimi passaggi scegli tu i dispositivi che hai in casa, con i sensori che Domus ti consiglia.'}
+                ? c('Sono solo proposte: nei prossimi passaggi controlli ogni dispositivo, e nulla viene salvato prima del controllo finale.')
+                : c('Non è un errore: nei prossimi passaggi scegli tu i dispositivi che hai in casa, con i sensori che Domus ti consiglia.')}
           </p>
           {proposals && !anything && discovery?.energy_dashboard !== 'used' ? (
-            <p className={UI.muted}>Suggerimento: se imposti i contatori nella Dashboard Energia di Home Assistant, Domus potrà proporli in automatico.</p>
+            <p className={UI.muted}>{c('Suggerimento: se imposti i contatori nella Dashboard Energia di Home Assistant, Domus potrà proporli in automatico.')}</p>
           ) : null}
         </div>
-        {result.legacy_v1?.diverged ? <Note tone="warning">Una versione precedente di Domus UI ha modificato l’impianto dopo l’aggiornamento: quelle modifiche non sono state applicate. Qui parti dalla configurazione attuale.</Note> : null}
-        {result.profile_v2?.load_error || result.profile?.load_error ? <Note tone="warning">Il profilo salvato non era leggibile ed è stato ignorato: salvando ne crei uno nuovo.</Note> : null}
-        {!v2 ? <Note>{LEGACY_LIMIT}</Note> : null}
-        {chosen.length ? <Findings findings={moduleFindings(review, Object.fromEntries(ORDER.map((id) => [id, stored[id]?.devices.length ?? 0])), chosen)} advanced={advanced} /> : null}
+        {result.legacy_v1?.diverged ? <Note tone="warning">{c('Una versione precedente di Domus UI ha modificato l’impianto dopo l’aggiornamento: quelle modifiche non sono state applicate. Qui parti dalla configurazione attuale.')}</Note> : null}
+        {result.profile_v2?.load_error || result.profile?.load_error ? <Note tone="warning">{c('Il profilo salvato non era leggibile ed è stato ignorato: salvando ne crei uno nuovo.')}</Note> : null}
+        {!v2 ? <Note>{cl(LEGACY_LIMIT)}</Note> : null}
+        {chosen.length ? <Findings findings={moduleFindings(review, Object.fromEntries(ORDER.map((id) => [id, stored[id]?.devices.length ?? 0])), chosen, locale)} advanced={advanced} /> : null}
         {elsewhere.map((id) => (
           <div key={id} className={`${UI.card} flex flex-wrap items-center gap-2`}>
-            <p className={`flex-1 ${UI.body}`}>Domus ha trovato anche: {MODULE_META[id].label.toLowerCase()}.</p>
-            <button type="button" onClick={() => toggleModule(id)} className={UI.chip}><Plus className="h-3.5 w-3.5" aria-hidden="true" /> Aggiungilo all’impianto</button>
+            <p className={`flex-1 ${UI.body}`}>{c('Domus ha trovato anche: {name}.', { name: c(MODULE_META[id].label).toLocaleLowerCase(locale) })}</p>
+            <button type="button" onClick={() => toggleModule(id)} className={UI.chip}><Plus className="h-3.5 w-3.5" aria-hidden="true" /> {c('Aggiungilo all’impianto')}</button>
           </div>
         ))}
         {globalDoubts.length ? (
-          <Note tone="warning">Alcuni contatori non hanno un componente chiaro: Domus non sceglie al posto tuo, potrai indicarli nel passaggio Storico dei consumi.</Note>
+          <Note tone="warning">{c('Alcuni contatori non hanno un componente chiaro: Domus non sceglie al posto tuo, potrai indicarli nel passaggio Storico dei consumi.')}</Note>
         ) : null}
         {recorderNote}
-        {proposals?.low_confidence.length ? <p className={UI.muted}>Altri {proposals.low_confidence.length} sensori sono stati trovati solo per nome: potrai sceglierli tu.</p> : null}
+        {proposals?.low_confidence.length ? <p className={UI.muted}>{c('Altri {count} sensori sono stati trovati solo per nome: potrai sceglierli tu.', { count: proposals.low_confidence.length })}</p> : null}
         {eligible.length ? (
           <p className={UI.muted}>
-            Con «Usa i dispositivi trovati» Domus aggiunge {plural(eligible.length, 'dispositivo riconosciuto', 'dispositivi riconosciuti')} con certezza; quelli da verificare li trovi nei passaggi successivi.
+            {c('Con «Usa i dispositivi trovati» Domus aggiunge {devices} con certezza; quelli da verificare li trovi nei passaggi successivi.', { devices: plural(eligible.length, c('dispositivo riconosciuto'), c('dispositivi riconosciuti')) })}
           </p>
         ) : null}
       </>
@@ -473,8 +475,8 @@ export default function EnergySetupWizard({
     const suggestions = pendingNew(module);
     const totals = review ? [...review.verifiedTotals, ...review.presumedTotals].filter((total) => total.module === module) : [];
     const doubts = [
-      ...(review?.ambiguous.filter((item) => item.module === module).map((item) => `${AMBIGUITY_LABEL[item.reason] ?? item.reason}: ${item.entity_ids.map((id) => sensorName(haStates, discovery, id)).join(', ')}`) ?? []),
-      ...(review?.conflicts.filter((item) => item.module === module).map((item) => `${item.name ?? 'Un dispositivo'} corrisponde a più dispositivi configurati.`) ?? []),
+      ...(review?.ambiguous.filter((item) => item.module === module).map((item) => `${cl(AMBIGUITY_LABEL[item.reason] ?? item.reason)}: ${item.entity_ids.map((id) => sensorName(haStates, discovery, id)).join(', ')}`) ?? []),
+      ...(review?.conflicts.filter((item) => item.module === module).map((item) => c('{name} corrisponde a più dispositivi configurati.', { name: item.name ?? c('Un dispositivo') })) ?? []),
     ];
     const canAdd = (v2 || kept === 0) && devices.length < MAX_DEVICES_PER_MODULE;
     const addNew = () => {
@@ -485,20 +487,20 @@ export default function EnergySetupWizard({
     body = (
       <>
         <div className="space-y-1">
-          <h3 className={TITLE}>{MODULE_WORDS[module].title}</h3>
+          <h3 className={TITLE}>{cl(MODULE_WORDS[module].title)}</h3>
           <p className={UI.body}>
             {fromDiscovery
-              ? `Abbiamo trovato ${count(module, fromDiscovery)}. Apri una scheda per controllarla.`
+              ? c('Abbiamo trovato {devices}. Apri una scheda per controllarla.', { devices: count(module, fromDiscovery, locale) })
               : kept
-                ? `${count(module, kept)} nel tuo impianto. Apri una scheda per controllarla o modificarla.`
-                : 'Aggiungi il dispositivo e scegli il sensore: Domus ti suggerisce quello giusto quando lo trova.'}
+                ? c('{devices} nel tuo impianto. Apri una scheda per controllarla o modificarla.', { devices: count(module, kept, locale) })
+                : c('Aggiungi il dispositivo e scegli il sensore: Domus ti suggerisce quello giusto quando lo trova.')}
           </p>
         </div>
         {doubts.length ? (
-          <section aria-label="Da decidere" className={`${UI.card} space-y-1`}>
-            <p className={`text-sm ${UI.title}`}>Da decidere</p>
+          <section aria-label={c('Da decidere')} className={`${UI.card} space-y-1`}>
+            <p className={`text-sm ${UI.title}`}>{c('Da decidere')}</p>
             <ul className={`list-disc space-y-1 pl-5 ${UI.body}`}>{doubts.map((line) => <li key={line}>{line}</li>)}</ul>
-            <p className={UI.muted}>Domus non sceglie al posto tuo: apri il dispositivo e indica il sensore giusto.</p>
+            <p className={UI.muted}>{c('Domus non sceglie al posto tuo: apri il dispositivo e indica il sensore giusto.')}</p>
           </section>
         ) : null}
         {plan?.total ? (
@@ -511,20 +513,20 @@ export default function EnergySetupWizard({
             states={haStates}
             discovery={discovery}
             meters={meters}
-            taken={takenFor(`${MODULE_META[module].label} · totale`)}
+            taken={takenFor(`${c(MODULE_META[module].label)} · ${c('Sensore totale').toLocaleLowerCase(locale)}`)}
             advanced={advanced}
             onChange={(total) => setDraft((currentDraft) => setTotal(currentDraft, module, total))}
           />
         ) : null}
         {devices.length ? (
-          <ul aria-label={`Dispositivi: ${MODULE_META[module].label}`} className="space-y-2">
+          <ul aria-label={c('Dispositivi: {name}', { name: c(MODULE_META[module].label) })} className="space-y-2">
             {devices.map((device, index) => {
-              const label = deviceLabel(module, device, index);
+              const label = deviceLabel(module, device, index, locale);
               const deviceIssues = issues.filter((issue) => issue.deviceId === device.id && !isMeterField(issue));
               const proposal = review?.changes.find((item) => item.module === module && item.device_id === device.id);
               const changes = [
-                ...(proposal?.additions ?? []).filter((change) => change.kind !== 'energy').map((change) => ({ change, kind: 'Nuova sorgente' })),
-                ...(proposal?.corrections ?? []).filter((change) => change.kind !== 'energy').map((change) => ({ change, kind: 'Possibile correzione' })),
+                ...(proposal?.additions ?? []).filter((change) => change.kind !== 'energy').map((change) => ({ change, kind: c('Nuova sorgente') })),
+                ...(proposal?.corrections ?? []).filter((change) => change.kind !== 'energy').map((change) => ({ change, kind: c('Possibile correzione') })),
               ];
               const unconfirmedHere = unconfirmed.some((item) => item.holder === device.id);
               return (
@@ -543,7 +545,7 @@ export default function EnergySetupWizard({
                   hintTone="danger"
                   advanced={advanced}
                   extra={changes.length ? (
-                    <ul aria-label={`Suggerimenti per ${label}`} className="mt-2 space-y-1.5">
+                    <ul aria-label={c('Suggerimenti per {name}', { name: label })} className="mt-2 space-y-1.5">
                       {changes.map(({ change, kind }) => {
                         const key = `${proposal!.key}:${change.kind}:${change.role}`;
                         const ids = 'ids' in change ? change.ids : change.proposed;
@@ -551,13 +553,13 @@ export default function EnergySetupWizard({
                           <li key={key} className="flex flex-wrap items-center gap-2 rounded-xl bg-[color:var(--ui-fill-tertiary)] p-2 text-sm">
                             <span className="min-w-0 flex-1">
                               <Sparkles className="mr-1 inline h-3.5 w-3.5 text-[color:var(--ui-accent)]" aria-hidden="true" />
-                              <span className={UI.title}>{kind}</span> · {change.kind === 'sign_convention' ? 'convenzione del segno' : ids.map((id) => sensorName(haStates, discovery, id)).join(' + ')}
+                               <span className={UI.title}>{kind}</span> · {change.kind === 'sign_convention' ? c('convenzione del segno') : ids.map((id) => sensorName(haStates, discovery, id)).join(' + ')}
                               <TechDetails open={advanced}>{'configured' in change ? `${change.configured.join(' + ')} → ` : ''}{ids.join(' + ')}</TechDetails>
                             </span>
                             {applied[key] ? (
-                              <span className={UI.muted}><Check className="inline h-3.5 w-3.5" aria-hidden="true" /> Applicata</span>
+                               <span className={UI.muted}><Check className="inline h-3.5 w-3.5" aria-hidden="true" /> {c('Applicata')}</span>
                             ) : (
-                              <button type="button" onClick={() => { setDraft((currentDraft) => applyChange(currentDraft, module, device.id, change)); setApplied((currentApplied) => ({ ...currentApplied, [key]: 'applied' })); }} className={UI.chip}>Applica</button>
+                              <button type="button" onClick={() => { setDraft((currentDraft) => applyChange(currentDraft, module, device.id, change)); setApplied((currentApplied) => ({ ...currentApplied, [key]: 'applied' })); }} className={UI.chip}>{c('Applica')}</button>
                             )}
                           </li>
                         );
@@ -585,20 +587,20 @@ export default function EnergySetupWizard({
           </ul>
         ) : null}
         {suggestions.length ? (
-          <Section title={devices.length ? 'Domus ha trovato anche' : 'Trovati da Domus'}>
+          <Section title={devices.length ? c('Domus ha trovato anche') : c('Trovati da Domus')}>
             <ul className="space-y-2">
               {suggestions.map((proposal) => (
                 <li key={proposal.key} className="flex flex-wrap items-center gap-3 rounded-[1.35rem] border border-dashed border-[color:var(--ui-border)] p-3">
                   <ModuleIcon module={module} />
                   <span className="min-w-0 flex-1">
-                    <span className={`block text-sm ${UI.title}`}>{proposal.name ?? MODULE_META[module].label}</span>
-                    <span className="mt-1 block"><StatusBadge status={proposal.eligible ? 'ready' : 'check'} label={proposal.confidence ? CONFIDENCE_TEXT[proposal.confidence] : undefined} /></span>
+                    <span className={`block text-sm ${UI.title}`}>{proposal.name ?? c(MODULE_META[module].label)}</span>
+                    <span className="mt-1 block"><StatusBadge status={proposal.eligible ? 'ready' : 'check'} label={proposal.confidence ? cl(CONFIDENCE_TEXT[proposal.confidence]) : undefined} /></span>
                     <TechDetails open={advanced}>
                       {[proposal.integration, ...(proposal.power ?? []).map((item) => item.entity_id), ...(proposal.energy ?? []).flatMap((item) => item.statistic_ids)].filter(Boolean).map((line) => <p key={line}>{line}</p>)}
                     </TechDetails>
                   </span>
-                  <button type="button" disabled={!canAdd} onClick={() => applyDevice(proposal)} className={UI.button} aria-label={`Aggiungi ${proposal.name ?? MODULE_WORDS[module].noun[0]}`}>
-                    <Plus className="h-4 w-4" aria-hidden="true" /> Aggiungi
+                  <button type="button" disabled={!canAdd} onClick={() => applyDevice(proposal)} className={UI.button} aria-label={c('Aggiungi {name}', { name: proposal.name ?? cl(MODULE_WORDS[module].noun[0]) })}>
+                    <Plus className="h-4 w-4" aria-hidden="true" /> {c('Aggiungi')}
                   </button>
                 </li>
               ))}
@@ -610,23 +612,23 @@ export default function EnergySetupWizard({
           return (
             <div key={key} className="flex flex-wrap items-center gap-3 rounded-[1.35rem] border border-dashed border-[color:var(--ui-border)] p-3">
               <span className="min-w-0 flex-1">
-                <span className={`block text-sm ${UI.title}`}>Domus ha trovato un sensore che misura tutto il {MODULE_META[module].label.toLowerCase()}</span>
+                <span className={`block text-sm ${UI.title}`}>{c('Domus ha trovato un sensore che misura tutto il {name}', { name: c(MODULE_META[module].label).toLocaleLowerCase(locale) })}</span>
                 <span className={`block ${total.status === 'verified' ? UI.muted : 'text-xs text-[color:var(--ui-warning)]'}`}>
                   {total.status === 'verified'
-                    ? 'Home Assistant lo calcola sommando i dispositivi: Domus lo userà come totale, senza sommarlo di nuovo.'
-                    : 'Sembra un totale, ma non è verificato: usalo solo se misura davvero tutti i dispositivi.'}
+                    ? c('Home Assistant lo calcola sommando i dispositivi: Domus lo userà come totale, senza sommarlo di nuovo.')
+                    : c('Sembra un totale, ma non è verificato: usalo solo se misura davvero tutti i dispositivi.')}
                 </span>
                 <TechDetails open={advanced}>{total.ids.join(', ')}</TechDetails>
               </span>
               <button type="button" onClick={() => { setDraft((currentDraft) => applyTotal(currentDraft, total)); setApplied((currentApplied) => ({ ...currentApplied, [key]: 'applied' })); }} className={`${UI.button} w-full justify-center sm:w-auto`}>
-                {total.status === 'verified' ? 'Usa come totale' : 'Usa comunque come totale'}
+                {total.status === 'verified' ? c('Usa come totale') : c('Usa comunque come totale')}
               </button>
             </div>
           );
         })}
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={addNew} disabled={!canAdd} className={kept ? UI.button : UI.primary}>
-            <Plus className="h-4 w-4" aria-hidden="true" /> {MODULE_WORDS[module].add[kept ? 1 : 0]}
+            <Plus className="h-4 w-4" aria-hidden="true" /> {cl(MODULE_WORDS[module].add[kept ? 1 : 0])}
           </button>
           {advanced && !plan?.total && kept >= 2 ? (
             <button
@@ -634,13 +636,13 @@ export default function EnergySetupWizard({
               onClick={() => { setDraft((currentDraft) => setTotal(currentDraft, module, { power: { ...emptyPower(), present: true }, meters: {} })); setOpen(`${module}:total`); }}
               className={UI.button}
             >
-              Aggiungi un sensore totale
+              {c('Aggiungi un sensore totale')}
             </button>
           ) : null}
         </div>
-        {!v2 && kept >= 1 ? <p className={UI.muted}>Più dispositivi richiedono l’aggiornamento dell’integrazione Domus UI.</p> : null}
-        {!kept ? <p className={UI.muted}>Senza dispositivi, questo componente non verrà configurato.</p> : null}
-        {issues.filter((issue) => issue.module === module && !issue.deviceId && issue.field !== 'total').map((issue) => <p key={issue.message} className={ERROR_TEXT}>{issue.message}</p>)}
+        {!v2 && kept >= 1 ? <p className={UI.muted}>{c('Più dispositivi richiedono l’aggiornamento dell’integrazione Domus UI.')}</p> : null}
+        {!kept ? <p className={UI.muted}>{c('Senza dispositivi, questo componente non verrà configurato.')}</p> : null}
+        {issues.filter((issue) => issue.module === module && !issue.deviceId && issue.field !== 'total').map((issue) => <p key={issue.message} className={ERROR_TEXT}>{cl(issue.message)}</p>)}
       </>
     );
   }
@@ -662,23 +664,23 @@ export default function EnergySetupWizard({
     body = (
       <>
         <div className="space-y-1">
-          <h3 className={TITLE}>Storico dei consumi</h3>
-          <p className={UI.body}>Questi contatori permettono a Domus di mostrarti produzione, consumi e costi nel tempo.</p>
+          <h3 className={TITLE}>{c('Storico dei consumi')}</h3>
+          <p className={UI.body}>{c('Questi contatori permettono a Domus di mostrarti produzione, consumi e costi nel tempo.')}</p>
         </div>
         {counts.meters === 0 && !offered ? (
           <div className={`${UI.card} space-y-1`}>
-            <p className={`text-sm ${UI.title}`}>Non abbiamo trovato un contatore energetico.</p>
-            <p className={UI.body}>Puoi comunque utilizzare Domus Energy in tempo reale. Lo storico non sarà disponibile finché non ne configurerai uno.</p>
+            <p className={`text-sm ${UI.title}`}>{c('Non abbiamo trovato un contatore energetico.')}</p>
+            <p className={UI.body}>{c('Puoi comunque utilizzare Domus Energy in tempo reale. Lo storico non sarà disponibile finché non ne configurerai uno.')}</p>
           </div>
         ) : null}
         {recorderNote}
         {present.map((module) => (
-          <section key={module} aria-label={`Storico: ${MODULE_META[module].label}`} className="space-y-2">
+          <section key={module} aria-label={c('Storico: {name}', { name: c(MODULE_META[module].label) })} className="space-y-2">
             {draft[module]!.devices.map((device, index) => (device.removed ? null : (
               <div key={device.id} className="space-y-2 rounded-[1.35rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-3">
                 <div className="flex items-center gap-3">
                   <ModuleIcon module={module} />
-                  <p className={`text-sm ${UI.title}`}>{deviceLabel(module, device, index)}</p>
+                  <p className={`text-sm ${UI.title}`}>{deviceLabel(module, device, index, locale)}</p>
                 </div>
                 <SourcesHistory
                   module={module}
@@ -688,7 +690,7 @@ export default function EnergySetupWizard({
                   states={haStates}
                   discovery={discovery}
                   meters={meters}
-                  taken={takenFor(deviceLabel(module, device, index))}
+                  taken={takenFor(deviceLabel(module, device, index, locale))}
                   advanced={advanced}
                   confirmations={confirmations}
                   confirmed={confirmed}
@@ -708,11 +710,11 @@ export default function EnergySetupWizard({
     body = (
       <>
         <div className="space-y-1">
-          <h3 className={TITLE}>Vuoi aggiungere la tariffa?</h3>
-          <p className={UI.body}>Facoltativo: con i prezzi del contratto Domus mostra la fascia attuale e il suo costo. Puoi farlo anche più tardi dalle Impostazioni.</p>
-          <p className={UI.muted}>{TARIFF_HINT}</p>
+          <h3 className={TITLE}>{c('Vuoi aggiungere la tariffa?')}</h3>
+          <p className={UI.body}>{c('Facoltativo: con i prezzi del contratto Domus mostra la fascia attuale e il suo costo. Puoi farlo anche più tardi dalle Impostazioni.')}</p>
+          <p className={UI.muted}>{c(TARIFF_HINT)}</p>
         </div>
-        <div className={GROUP} role="group" aria-label="Tariffa">
+        <div className={GROUP} role="group" aria-label={c('Tariffa')}>
           <TariffFields form={tariffDraft} onChange={setTariffDraft} withExport={present.includes('grid')} />
         </div>
       </>
@@ -720,36 +722,36 @@ export default function EnergySetupWizard({
   }
 
   if (current === 'summary') {
-    const changes = plantChanges(stored, draft);
+    const changes = plantChanges(stored, draft, locale);
     const moduleState = (module: EnergyModuleId): GuideStatus =>
       issues.some((issue) => issue.module === module) ? 'problem' : unconfirmed.some((item) => item.module === module) ? 'check' : 'ready';
     const nodes: MapNode[] = present.map((module) => ({
       module,
-      caption: module === 'home' ? 'misurata' : count(module, plant[module]?.devices.length ?? 0) + (plant[module]?.total ? ' e un totale' : ''),
+      caption: module === 'home' ? c('misurata') : `${count(module, plant[module]?.devices.length ?? 0, locale)}${plant[module]?.total ? ` ${c('e un totale')}` : ''}`,
       status: moduleState(module),
     }));
     const fixStep = issues.length ? (`module:${issues[0].module}` as StepId) : null;
     const holderLabel = (module: EnergyModuleId, holder: string | undefined) => {
-      if (holder === `${module}:total`) return `${MODULE_META[module].label} · totale`;
+      if (holder === `${module}:total`) return `${c(MODULE_META[module].label)} · ${c('Sensore totale').toLocaleLowerCase(locale)}`;
       const index = draft[module]?.devices.findIndex((device) => device.id === holder) ?? -1;
-      return index >= 0 ? deviceLabel(module, draft[module]!.devices[index], index) : MODULE_META[module].label;
+      return index >= 0 ? deviceLabel(module, draft[module]!.devices[index], index, locale) : c(MODULE_META[module].label);
     };
     // The same confirmations as the history step, with names instead of ids.
     const confirmationText = (item: Confirmation) => {
-      if (!item.role) return item.message;
-      const where = `${holderLabel(item.module, item.holder)} · ${HISTORY_TEXT[item.role]}`;
-      if (item.part) return `${where}: ${sensorName(haStates, discovery, item.part)} non è stato verificato da Home Assistant. I suoi dati potrebbero non essere disponibili.`;
+      if (!item.role) return cl(item.message);
+      const where = `${holderLabel(item.module, item.holder)} · ${cl(HISTORY_TEXT[item.role])}`;
+      if (item.part) return c('{where}: {name} non è stato verificato da Home Assistant. I suoi dati potrebbero non essere disponibili.', { where, name: sensorName(haStates, discovery, item.part) });
       const parts = (plant[item.module]?.devices.find((device) => device.id === item.holder) ?? plant[item.module]?.total)?.energy?.[item.role] ?? [];
-      return `${where}: questi ${parts.length} contatori verranno sommati (${parts.map((part) => sensorName(haStates, discovery, part)).join(', ')}). Verifica che rappresentino fasce differenti e non includano già un totale.`;
+      return c('{where}: questi {count} contatori verranno sommati ({names}). Verifica che rappresentino fasce differenti e non includano già un totale.', { where, count: parts.length, names: parts.map((part) => sensorName(haStates, discovery, part)).join(', ') });
     };
     body = (
       <>
         <div className="space-y-1">
-          <h3 className={TITLE}>{issues.length || legacyBlocked ? 'Manca ancora qualcosa' : unconfirmed.length ? 'Quasi fatto: conferma qualche dettaglio' : 'Tutto pronto'}</h3>
-          <p className={UI.body}>{present.length ? 'Ecco il tuo impianto come lo vedrà Domus.' : 'Nessun dispositivo: Domus Energy risulterà non configurato.'}</p>
+          <h3 className={TITLE}>{issues.length || legacyBlocked ? c('Manca ancora qualcosa') : unconfirmed.length ? c('Quasi fatto: conferma qualche dettaglio') : c('Tutto pronto')}</h3>
+          <p className={UI.body}>{present.length ? c('Ecco il tuo impianto come lo vedrà Domus.') : c('Nessun dispositivo: Domus Energy risulterà non configurato.')}</p>
         </div>
         {present.length ? <PlantMap nodes={nodes} /> : null}
-        <ul aria-label="In breve" className="grid grid-cols-3 gap-2 text-center">
+        <ul aria-label={c('In breve')} className="grid grid-cols-3 gap-2 text-center">
           {[
             [counts.devices, counts.devices === 1 ? 'dispositivo configurato' : 'dispositivi configurati'],
             [counts.sensors, counts.sensors === 1 ? 'sensore collegato' : 'sensori collegati'],
@@ -757,22 +759,22 @@ export default function EnergySetupWizard({
           ].map(([value, label]) => (
             <li key={label} className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] px-2 py-3">
               <span className="block text-2xl font-semibold text-[color:var(--ui-text-primary)]">{value}</span>
-              <span className={`block ${UI.muted}`}>{label}</span>
+               <span className={`block ${UI.muted}`}>{cl(String(label))}</span>
             </li>
           ))}
         </ul>
-        {counts.meters === 0 && present.length ? <p className={UI.muted}>Senza contatori Domus funziona in tempo reale; lo storico potrà essere configurato in seguito.</p> : null}
+        {counts.meters === 0 && present.length ? <p className={UI.muted}>{c('Senza contatori Domus funziona in tempo reale; lo storico potrà essere configurato in seguito.')}</p> : null}
         {issues.length || legacyBlocked ? (
-          <Section title="Da correggere">
+          <Section title={c('Da correggere')}>
             <ul className={`list-disc space-y-1 pl-5 ${ERROR_TEXT}`}>
-              {legacyBlocked ? <li>{LEGACY_LIMIT}</li> : null}
-              {issues.map((issue, index) => <li key={index}>{MODULE_META[issue.module].label}: {issue.message}</li>)}
+              {legacyBlocked ? <li>{cl(LEGACY_LIMIT)}</li> : null}
+              {issues.map((issue, index) => <li key={index}>{c(MODULE_META[issue.module].label)}: {cl(issue.message)}</li>)}
             </ul>
-            {fixStep && steps.includes(fixStep) ? <button type="button" onClick={() => setStepId(fixStep)} className={UI.chip}>Vai a {STEP_LABEL[fixStep]}</button> : null}
+            {fixStep && steps.includes(fixStep) ? <button type="button" onClick={() => setStepId(fixStep)} className={UI.chip}>{c('Vai a {step}', { step: cl(STEP_LABEL[fixStep]) })}</button> : null}
           </Section>
         ) : null}
         {confirmations.length ? (
-          <Section title="Da confermare">
+          <Section title={c('Da confermare')}>
             <ul className="space-y-2">
               {confirmations.map((item) => (
                 <li key={item.key}>
@@ -785,32 +787,32 @@ export default function EnergySetupWizard({
             </ul>
           </Section>
         ) : null}
-        {tariffToSave ? <p className={UI.body}><span className={UI.title}>Tariffa:</span> {tariffSummary(tariffToSave)}</p> : null}
-        {steps.includes('tariff') && !tariffToSave ? <p className={UI.muted}>Tariffa non configurata: potrai aggiungerla dalle Impostazioni.</p> : null}
-        {review?.verificationIncomplete ? <p className={UI.muted}>Alcuni contatori non sono ancora verificabili: Home Assistant li verificherà quando sarà pronto.</p> : null}
+        {tariffToSave ? <p className={UI.body}><span className={UI.title}>{c('Tariffa:')}</span> {tariffSummary(tariffToSave, locale)}</p> : null}
+        {steps.includes('tariff') && !tariffToSave ? <p className={UI.muted}>{c('Tariffa non configurata: potrai aggiungerla dalle Impostazioni.')}</p> : null}
+        {review?.verificationIncomplete ? <p className={UI.muted}>{c('Alcuni contatori non sono ancora verificabili: Home Assistant li verificherà quando sarà pronto.')}</p> : null}
         <details className="group" open={advanced || undefined}>
-          <summary className={`${UI.chip} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>Mostra riepilogo tecnico</summary>
+          <summary className={`${UI.chip} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>{c('Mostra riepilogo tecnico')}</summary>
           <div className="mt-3">
-            <Section title="Modifiche">
+            <Section title={c('Modifiche')}>
               {changes.length ? (
                 <ul className="space-y-2">
                   {changes.map((change, index) => (
                     <li key={index} className={UI.card}>
-                      <p className={`text-sm ${UI.title}`}>{change.title}</p>
-                      {change.details.length ? <ul className={`mt-1 space-y-0.5 ${UI.muted}`}>{change.details.map((detail) => <li key={detail} className="break-all">{detail}</li>)}</ul> : null}
+                      <p className={`text-sm ${UI.title}`}>{cl(change.title)}</p>
+                      {change.details.length ? <ul className={`mt-1 space-y-0.5 ${UI.muted}`}>{change.details.map((detail) => <li key={detail} className="break-all">{cl(detail)}</li>)}</ul> : null}
                     </li>
                   ))}
                 </ul>
-              ) : <p className={UI.muted}>Nessuna modifica all’impianto salvato.</p>}
+              ) : <p className={UI.muted}>{c('Nessuna modifica all’impianto salvato.')}</p>}
             </Section>
           </div>
         </details>
         <div aria-live="polite">
-          {saving ? <p className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> Salvataggio in corso…</p> : null}
+          {saving ? <p className={`flex items-center gap-2 ${UI.body}`}><LoaderCircle className={UI.spin} aria-hidden="true" /> {c('Salvataggio in corso…')}</p> : null}
           {save.status === 'error' ? (
             <div role="alert" className="space-y-2 text-sm text-[color:var(--ui-danger)]">
-              <p>{save.message} Le modifiche non salvate restano qui.</p>
-              {save.conflict ? <button type="button" onClick={() => void load()} className={UI.chip}>Carica la versione salvata (scarta la bozza)</button> : null}
+              <p>{c('{message} Le modifiche non salvate restano qui.', { message: cl(save.message ?? '') })}</p>
+              {save.conflict ? <button type="button" onClick={() => void load()} className={UI.chip}>{c('Carica la versione salvata (scarta la bozza)')}</button> : null}
             </div>
           ) : null}
         </div>
@@ -826,19 +828,19 @@ export default function EnergySetupWizard({
     primary = (
       <button type="button" onClick={() => void handleSave()} disabled={saving || issues.length > 0 || legacyBlocked || unconfirmed.length > 0 || !dirty} className={`${UI.primary} ${wide}`}>
         {saving ? <LoaderCircle className={UI.spin} aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
-        Salva impianto
+        {c('Salva impianto')}
       </button>
     );
   } else if (current === 'detect' && eligible.length) {
-    primary = <button type="button" onClick={useFound} className={`${UI.primary} ${wide}`}>Usa i dispositivi trovati</button>;
+    primary = <button type="button" onClick={useFound} className={`${UI.primary} ${wide}`}>{c('Usa i dispositivi trovati')}</button>;
   } else {
     const label = current === 'welcome'
-      ? 'Iniziamo'
+      ? c('Iniziamo')
       : current === 'tariff' && tariffBlank
-        ? 'Salta per ora'
+        ? c('Salta per ora')
         : current === 'history' && counts.meters === 0
-          ? 'Continua senza storico'
-          : 'Avanti';
+          ? c('Continua senza storico')
+          : c('Avanti');
     primary = (
       <button
         type="button"
@@ -853,10 +855,10 @@ export default function EnergySetupWizard({
   }
 
   const secondary = [
-    stepIndex > 0 ? <button key="back" type="button" onClick={goBack} disabled={saving} className={`${UI.button} ${wide}`}>Indietro</button> : null,
-    current === 'detect' && eligible.length ? <button key="own" type="button" onClick={goNext} className={`${UI.button} ${wide}`}>Scelgo io</button> : null,
+    stepIndex > 0 ? <button key="back" type="button" onClick={goBack} disabled={saving} className={`${UI.button} ${wide}`}>{c('Indietro')}</button> : null,
+    current === 'detect' && eligible.length ? <button key="own" type="button" onClick={goNext} className={`${UI.button} ${wide}`}>{c('Scelgo io')}</button> : null,
     current === 'tariff' && !tariffBlank ? (
-      <button key="skip" type="button" onClick={() => { setSkipTariff(true); goNext(); }} className={`${UI.button} ${wide}`}>Salta</button>
+      <button key="skip" type="button" onClick={() => { setSkipTariff(true); goNext(); }} className={`${UI.button} ${wide}`}>{c('Salta')}</button>
     ) : null,
   ].filter(Boolean);
 
@@ -865,7 +867,7 @@ export default function EnergySetupWizard({
     <>
       {blocked ? (
         <p id="energy-step-blocked" className={`mb-2 ${ERROR_TEXT}`}>
-          {current === 'tariff' ? 'Correggi i prezzi evidenziati oppure salta questo passaggio.' : 'Completa o correggi i dispositivi evidenziati per continuare.'}
+          {current === 'tariff' ? c('Correggi i prezzi evidenziati oppure salta questo passaggio.') : c('Completa o correggi i dispositivi evidenziati per continuare.')}
         </p>
       ) : null}
       {/* Phones: with two secondary actions the main one takes its own row on top. */}

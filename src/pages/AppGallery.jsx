@@ -3076,10 +3076,10 @@ function IrrigationDashboardView({
             <div className="space-y-5">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/55">Config Panel 1</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">Master Control</h2>
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/55">{t('irrigation.edit.panelOne')}</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">{t('irrigation.edit.masterTitle')}</h2>
                   <p className="mt-1 text-sm text-white/55">
-                    Configura sensore pioggia, sorgente meteo, umidita aria e temperatura esterna.
+                    {t('irrigation.edit.masterDescription')}
                   </p>
                 </div>
                 <button
@@ -3087,7 +3087,7 @@ function IrrigationDashboardView({
                   onClick={resetIrrigationConfig}
                   className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.14em] text-white/75 transition-colors hover:bg-white/10"
                 >
-                  Reset Config
+                  {t('irrigation.edit.reset')}
                 </button>
               </div>
 
@@ -3095,22 +3095,22 @@ function IrrigationDashboardView({
                 {[
                   {
                     key: 'rainSensorEntityId',
-                    label: 'Sensore Pioggia',
+                    label: t('irrigation.config.field.rain'),
                     options: buildEntityOptions(binarySensorOptions, irrigationConfig.rainSensorEntityId),
                   },
                   {
                     key: 'weatherEntityId',
-                    label: 'Sorgente Meteo',
+                    label: t('irrigation.config.field.weather'),
                     options: buildEntityOptions(weatherOptions, irrigationConfig.weatherEntityId),
                   },
                   {
                     key: 'humidityEntityId',
-                    label: 'Sensore Umidita Aria',
+                    label: t('irrigation.config.field.humidity'),
                     options: buildEntityOptions(sensorOptions, irrigationConfig.humidityEntityId),
                   },
                   {
                     key: 'outdoorTempEntityId',
-                    label: 'Sensore Temperatura Esterna',
+                    label: t('irrigation.config.field.temperature'),
                     options: buildEntityOptions(sensorOptions, irrigationConfig.outdoorTempEntityId),
                   },
                 ].map((field) => (
@@ -3121,7 +3121,7 @@ function IrrigationDashboardView({
                       value={irrigationConfig[field.key]}
                       onChange={(event) => updateConfigField(field.key, event.target.value)}
                       list={`edit-master-${field.key}-options`}
-                      placeholder="Scrivi entity_id o scegli dai suggerimenti"
+                      placeholder={t('irrigation.edit.entityPlaceholder')}
                       autoComplete="off"
                       spellCheck={false}
                       className="mt-2 w-full rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none placeholder:text-white/35 focus:border-cyan-300/40"
@@ -3292,15 +3292,15 @@ function IrrigationDashboardView({
           {isEditMode ? (
             <div className="flex h-full flex-col justify-between text-left">
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-white/55">Config Panel 2</p>
-                <h3 className="mt-2 text-xl font-semibold text-white">Umidita Terreno</h3>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/55">{t('irrigation.edit.panelTwo')}</p>
+                <h3 className="mt-2 text-xl font-semibold text-white">{t('irrigation.config.field.soil')}</h3>
                 <p className="mt-1 text-sm text-white/55">
-                  Seleziona il sensore per alimentare il gauge di umidita del terreno.
+                  {t('irrigation.edit.soilDescription')}
                 </p>
               </div>
 
               <label className="mt-5 block">
-                <span className="text-xs uppercase tracking-[0.16em] text-white/55">Sensore Umidita Terreno</span>
+                <span className="text-xs uppercase tracking-[0.16em] text-white/55">{t('irrigation.config.field.soil')}</span>
                 <input
                   type="text"
                   value={irrigationConfig.soilMoistureEntityId}
@@ -3623,7 +3623,7 @@ function IrrigationDashboardView({
                             <p className={`text-[11px] whitespace-nowrap ${detailClassName}`}>{zone.detail}</p>
                             {hasIncompleteConfig ? (
                               <p className="mt-1 text-[10px] text-amber-200/95">
-                                Configurazione incompleta nell&apos;Edit Mode
+                                {t('irrigation.notify.incomplete')}
                               </p>
                             ) : null}
                           </div>

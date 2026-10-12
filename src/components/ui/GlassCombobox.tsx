@@ -8,6 +8,7 @@ import {
 import clsx from 'clsx';
 import { Check, ChevronDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { useI18n } from '../../i18n/I18nProvider';
 
 type GlassComboboxProps = {
   value: string;
@@ -56,14 +57,17 @@ export function GlassCombobox({
   options,
   onChange,
   label,
-  placeholder = 'Seleziona o digita',
+  placeholder,
   disabled = false,
   className,
   maxOptions = 80,
-  emptyLabel = 'Nessun risultato',
+  emptyLabel,
   getOptionLabel = (option) => option,
   getOptionDescription,
 }: GlassComboboxProps) {
+  const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t('common.selectOrType');
+  const resolvedEmptyLabel = emptyLabel ?? t('common.noResults');
   const [query, setQuery] = useState('');
   const normalizedOptions = useMemo(
     () =>
@@ -119,7 +123,7 @@ export function GlassCombobox({
                 setQuery(event.target.value);
                 onChange(event.target.value);
               }}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               className="liquid-glass-control btn-premium flex w-full rounded-2xl px-3.5 py-2.5 pr-10 text-left text-sm font-medium text-[color:var(--ui-text-primary)] outline-none transition duration-200 placeholder:text-[color:var(--ui-text-tertiary)] focus:border-[color:var(--ui-focus-ring)] focus:ring-2 focus:ring-[color:var(--ui-focus-ring)] disabled:cursor-not-allowed disabled:opacity-50"
             />
             <ComboboxButton className="absolute inset-y-0 right-0 inline-flex w-10 items-center justify-center text-[color:var(--ui-text-tertiary)] transition-colors hover:text-[color:var(--ui-text-primary)]">
@@ -167,7 +171,7 @@ export function GlassCombobox({
                 </ComboboxOption>
               ))
             ) : (
-              <div className="rounded-xl px-3 py-2.5 text-[color:var(--ui-text-tertiary)]">{emptyLabel}</div>
+              <div className="rounded-xl px-3 py-2.5 text-[color:var(--ui-text-tertiary)]">{resolvedEmptyLabel}</div>
             )}
           </ComboboxOptions>
         </div>
