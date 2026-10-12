@@ -217,7 +217,7 @@ import {
 import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfileSettings';
 import { resolveApplicationRoutePath } from '../../navigation/applicationRoutes';
 import { loadHaStateTranslations } from '../../services/haStateTranslations';
-import { useHaLiveConnection } from '../../hooks/useHaLiveConnection';
+import { useHaLiveConnection, type HaArea } from '../../hooks/useHaLiveConnection';
 import { useHaPanelBridgeConnection } from '../../hooks/useHaPanelBridgeConnection';
 import { useHaIdentityRevalidation } from '../../hooks/useHaIdentityRevalidation';
 import { useDashboardLayoutPersistence } from '../../hooks/useDashboardLayoutPersistence';
@@ -1661,7 +1661,7 @@ export function MainBoard() {
     status: haStatus,
     error: haError,
     haStates,
-    haAreas,
+    haAreas: connectionHaAreas,
     lastUpdatedAt: haLastUpdatedAt,
     connect: connectHa,
     disconnect: disconnectHa,
@@ -1669,6 +1669,14 @@ export function MainBoard() {
     callApi: rawCallHaApi,
     subscribeApi: subscribeHaApi,
   } = activeHaConnection;
+  // Rooms changed from Settings, until Home Assistant sends its own list again.
+  const [haAreasOverride, setHaAreasOverride] = useState<{ source: HaArea[]; areas: HaArea[] } | null>(null);
+  const haAreas =
+    haAreasOverride && haAreasOverride.source === connectionHaAreas ? haAreasOverride.areas : connectionHaAreas;
+  const handleSettingsAreasChanged = useCallback(
+    (areas: HaArea[]) => setHaAreasOverride({ source: connectionHaAreas, areas }),
+    [connectionHaAreas],
+  );
   const { addNotification, removeNotification } = useNotifications();
   useEffect(() => {
     setHomeAssistantLocale(isHaManagedByParent ? panelHaBridgeConnection.locale : null);
@@ -11259,6 +11267,7 @@ export function MainBoard() {
               onCallApi={callHaApi}
               recipientsSupported={profileRecipientsSupported}
               loadStateTranslations={loadStateTranslations}
+              onAreasChanged={handleSettingsAreasChanged}
               resolveAssetUrl={resolveSettingsAssetUrl}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}

@@ -98,7 +98,7 @@ describe('SettingsDashboard', () => {
     expect(homeAssistant.getByRole('button', { name: /^Sistema/ })).toBeTruthy();
 
     fireEvent.click(home.getByRole('button', { name: /^Piani e stanze/ }));
-    expect(onNavigate).toHaveBeenCalledWith('/rooms');
+    expect(onNavigate).toHaveBeenCalledWith('/settings/floors');
     fireEvent.click(home.getByRole('button', { name: /^Sicurezza/ }));
     expect(onNavigate).toHaveBeenCalledWith('/security');
     fireEvent.click(homeAssistant.getByRole('button', { name: /^Entità/ }));

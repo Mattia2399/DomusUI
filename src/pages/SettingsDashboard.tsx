@@ -83,6 +83,7 @@ import type { CardSizingEngine } from '../services/cardSizingEngine';
 import type { WasteCollectionCallApi } from '../services/wasteCollectionClient';
 import type { HaStateTranslations } from '../services/haStateTranslations';
 import WasteCollectionSettings from '../components/settings/WasteCollectionSettings';
+import SettingsRoomsManager from '../components/settings/SettingsRoomsManager';
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -112,6 +113,8 @@ type SettingsDashboardProps = {
   resolveAssetUrl?: (url: string) => string;
   /** Home Assistant's own words for entity states, when they can be asked for. */
   loadStateTranslations?: (language: string) => Promise<HaStateTranslations>;
+  /** The rooms after a change made here, for the rest of the app. */
+  onAreasChanged?: (areas: HaArea[]) => void;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   managedSectionContent?: React.ReactNode;
@@ -598,6 +601,7 @@ export default function SettingsDashboard({
   recipientsSupported = false,
   resolveAssetUrl,
   loadStateTranslations,
+  onAreasChanged,
   navigationRoute,
   onNavigate,
   managedSectionContent,
@@ -955,7 +959,7 @@ export default function SettingsDashboard({
               subtitle={t('settings.home.floorsSubtitle')}
               iconClassName="text-[color:rgb(var(--ui-accent-rgb)/0.95)]"
               accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(56,189,248,0.16),transparent_58%)]"
-              onClick={() => navigateTo('/rooms')}
+              onClick={() => navigateTo('/settings/floors')}
             />
             {security.can('manage_rooms') ? (
               <SettingsHubCard
@@ -1105,6 +1109,25 @@ export default function SettingsDashboard({
           </SettingsHubGroup>
         </main>
       </div>
+    );
+  }
+
+  if (settingsPath === '/settings/floors') {
+    return (
+      <SettingsDetailShell
+        title={t('settings.home.floors')}
+        subtitle={t('settings.rooms.subtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <SettingsRoomsManager
+          callApi={onCallApi}
+          connected={isConnected}
+          canManage={security.can('manage_rooms')}
+          deviceRegistry={haDeviceRegistry}
+          onOpenRooms={() => navigateTo('/rooms')}
+          onRoomsChanged={onAreasChanged}
+        />
+      </SettingsDetailShell>
     );
   }
 

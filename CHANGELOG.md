@@ -127,6 +127,14 @@
   the same words as the Entities page and the same detail sheet, diagnostic
   entities behind a button, and the device information with a link to the
   manufacturer's page when Home Assistant provides one.
+- Settings → Floors and rooms is now a management page instead of a link to
+  the Rooms page: rooms are listed by floor in the Home Assistant order, with
+  their device count, and an administrator can add, rename, move and delete
+  rooms and floors, set a floor's level and other names for the voice
+  assistant, and reorder the floors, with the same Home Assistant registry
+  commands the app already used. Deleting asks first and keeps devices,
+  entities and the rooms of a deleted floor. The rest of the app sees the
+  changes at once.
 
 ### Removed
 
