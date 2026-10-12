@@ -365,16 +365,104 @@ describe('SettingsDashboard', () => {
   });
 
   it('shows the latest backup on the system page without its actions', () => {
+    const onNavigate = vi.fn();
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/system" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+
+    const backup = screen.getByRole('button', { name: /Ultimo backup/ });
+    expect(backup.textContent).toContain('Nessun backup rilevato');
+    expect(screen.queryByRole('button', { name: 'Forza backup ora' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Modalità sviluppatore' })).toBeNull();
+    fireEvent.click(backup);
+    expect(onNavigate).toHaveBeenCalledWith('/settings/data');
+  });
+
+  it('groups the system status and shows only the values Home Assistant reports', () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/system"
+          haStates={{
+            'sensor.processor_use': { state: '23', unit: '%' },
+            'sensor.memory_use_percent': { state: '48', unit: '%' },
+            'update.home_assistant_core_update': {
+              state: 'on',
+              rawAttributes: { installed_version: '2026.2.3', latest_version: '2026.3.0' },
+            },
+          }}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    const groups = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
+    expect(groups).toEqual(['Aggiornamenti', 'Salute', 'Backup', 'Riavvio e spegnimento']);
+    expect(screen.getByRole('button', { name: /Home Assistant Core/ }).textContent).toContain('2026.2.3 → 2026.3.0');
+    expect(screen.getByRole('button', { name: 'Aggiorna tutto (1)' })).toBeTruthy();
+    expect(screen.getByText('Processore')).toBeTruthy();
+    expect(screen.getByText('Memoria')).toBeTruthy();
+    // No disk, temperature or network sensor: no empty placeholders.
+    expect(screen.queryByText('Spazio su disco')).toBeNull();
+    expect(screen.queryByText(/Temperatura/)).toBeNull();
+    expect(screen.queryByText('Rete')).toBeNull();
+  });
+
+  it('lists at most four updates and opens the update center for the rest', () => {
+    const pending = Object.fromEntries(
+      ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot'].map((name) => [
+        `update.${name}`,
+        { state: 'on', rawAttributes: { installed_version: '1.0', latest_version: '2.0' } },
+      ]),
+    );
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/system"
+          haStates={{ ...pending, 'update.zulu': { state: 'off', rawAttributes: { installed_version: '3.0' } } }}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    const updates = within(screen.getByRole('heading', { name: 'Aggiornamenti' }).closest('section')!);
+    expect(updates.getAllByText('1.0 → 2.0')).toHaveLength(4);
+    expect(updates.getByText('Un componente aggiornato')).toBeTruthy();
+    fireEvent.click(updates.getByRole('button', { name: /Altri 2 aggiornamenti disponibili/ }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it('explains how to get the system health when no sensor is available', () => {
     render(
       <DashboardSecurityProvider value={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/system" />
       </DashboardSecurityProvider>,
     );
 
-    expect(screen.getByText('Nessun backup rilevato')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Apri Dati e backup/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Forza backup ora' })).toBeNull();
-    expect(screen.queryByRole('switch', { name: 'Modalità sviluppatore' })).toBeNull();
+    expect(screen.getByText('Telemetria non disponibile')).toBeTruthy();
+    expect(screen.getByText(/System Monitor/)).toBeTruthy();
+  });
+
+  it('restarts Home Assistant only after the confirmation', () => {
+    const onCallService = vi.fn(async () => true);
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} onCallService={onCallService} navigationRoute="/settings/system" />
+      </DashboardSecurityProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^Riavvia Home Assistant/ }));
+    expect(screen.getByRole('heading', { name: 'Riavviare Home Assistant?' })).toBeTruthy();
+    expect(onCallService).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Annulla' }));
+    expect(onCallService).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Spegni sistema/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Spegni' }));
+    expect(onCallService).toHaveBeenCalledWith('hassio', 'host_shutdown', {});
   });
 
   it('downloads aggregate support diagnostics from Advanced and support', () => {

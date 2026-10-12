@@ -94,6 +94,12 @@
   Mode is only in Advanced, now together with support and diagnostics. The
   Security card opens the Security center directly, and the Home Assistant
   status sits beside the title on phones too.
+- System status is a single column of grouped lists, like the Profile:
+  updates first (at most four to install, the rest in the update center),
+  then processor, memory and storage with a thin bar, network, the latest
+  backup, and restart and shut down. Rows without data are not shown, the
+  restart and shut-down actions ask for confirmation in a dialog instead of
+  a five-second countdown, and their colors read well in light mode too.
 
 ### Removed
 

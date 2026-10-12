@@ -6,7 +6,9 @@ import {
   BellRing,
   Box,
   ChevronRight,
+  CircleCheck,
   Clock,
+  Cpu,
   Database,
   DownloadCloud,
   HardDrive,
@@ -15,9 +17,9 @@ import {
   Layers3,
   Link2,
   LockKeyhole,
+  MemoryStick,
   Network,
   Power,
-  RefreshCw,
   Recycle,
   Router,
   RotateCcw,
@@ -69,6 +71,7 @@ import {
   serializeSupportDiagnostics,
 } from '../services/supportDiagnostics';
 import SettingsLayoutVersionsSection from '../components/settings/SettingsLayoutVersionsSection';
+import { SettingsListGroup, SettingsListRow } from '../components/settings/SettingsList';
 import SupportFeedbackSection from '../components/settings/SupportFeedbackSection';
 import type {
   DashboardRevisionHistoryStatus,
@@ -148,12 +151,6 @@ type UpdateEntityMatch = {
 };
 
 type MetricTone = 'ok' | 'warn' | 'danger';
-
-const TONE: Record<MetricTone, { barColor: string }> = {
-  ok: { barColor: 'rgb(34,197,94)' },
-  warn: { barColor: 'rgb(251,146,60)' },
-  danger: { barColor: 'rgb(239,68,68)' },
-};
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -385,164 +382,6 @@ function collectUpdateEntities(haStates: MockEntityStateMap): UpdateEntityMatch[
     .sort((first, second) => Number(second.available) - Number(first.available) || first.title.localeCompare(second.title));
 }
 
-function statusToneClass(status: HaConnectionStatus) {
-  if (status === 'connected') {
-    return 'border-emerald-400/25 bg-emerald-400/12 text-emerald-200';
-  }
-  if (status === 'connecting' || status === 'reconnecting') {
-    return 'border-amber-300/30 bg-amber-300/10 text-amber-100';
-  }
-  if (status === 'error' || status === 'reauth_required') {
-    return 'border-rose-400/30 bg-rose-400/10 text-rose-100';
-  }
-  return 'border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] text-[color:var(--ui-text-secondary)]';
-}
-
-/* ------------------------------------------------------------------ */
-/* Bento building blocks                                               */
-/* ------------------------------------------------------------------ */
-
-function BentoCard({
-  icon: Icon,
-  title,
-  subtitle,
-  className = '',
-  headerRight,
-  onTitleClick,
-  danger = false,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  subtitle?: string;
-  className?: string;
-  headerRight?: React.ReactNode;
-  onTitleClick?: () => void;
-  danger?: boolean;
-  children: React.ReactNode;
-}) {
-  const TitleTag = onTitleClick ? 'button' : 'div';
-  return (
-    <section
-      className={`dashboard-content-surface flex h-full min-w-0 flex-col overflow-hidden rounded-[1.5rem] p-5 sm:p-6 ${
-        danger ? 'border-rose-400/20' : ''
-      } ${className}`}
-    >
-      <header className="relative flex items-start justify-between gap-3">
-        <TitleTag
-          type={onTitleClick ? 'button' : undefined}
-          onClick={onTitleClick}
-          className={`group flex min-w-0 items-center gap-3 text-left ${onTitleClick ? 'cursor-pointer' : ''}`}
-        >
-          <span
-            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.85rem] ${
-              danger
-                ? 'bg-[color:rgb(239,68,68,0.12)] text-[color:rgb(239,68,68)]'
-                : 'bg-[color:rgb(var(--ui-accent-rgb)/0.12)] text-[color:rgb(var(--ui-accent-rgb)/0.90)]'
-            }`}
-          >
-            <Icon size={17} />
-          </span>
-          <span className="min-w-0">
-            <span className="flex items-center gap-1.5">
-              <span
-                className={`truncate text-[0.95rem] font-semibold tracking-[-0.01em] ${
-                  danger ? 'text-rose-200' : 'text-[color:var(--ui-text-primary)]'
-                }`}
-              >
-                {title}
-              </span>
-              {onTitleClick ? (
-                <ChevronRight
-                  size={14}
-                  className="shrink-0 text-[color:var(--ui-text-secondary)] transition-transform group-hover:translate-x-0.5"
-                />
-              ) : null}
-            </span>
-            {subtitle ? (
-              <span className="mt-0.5 block truncate text-xs font-medium text-[color:var(--ui-text-secondary)]">{subtitle}</span>
-            ) : null}
-          </span>
-        </TitleTag>
-        {headerRight ? <div className="shrink-0">{headerRight}</div> : null}
-      </header>
-      <div className="relative mt-4 flex min-h-0 flex-1 flex-col">{children}</div>
-    </section>
-  );
-}
-
-function SimpleMeterDisplay({
-  value,
-  percent,
-  label,
-  tone,
-}: {
-  value: string;
-  percent: number | null;
-  label: string;
-  tone: MetricTone;
-}) {
-  const barWidth = percent === null ? 0 : clamp(percent, 0, 100);
-  return (
-    <div className="flex flex-col items-center gap-3">
-      <div className="text-center">
-        <span className="text-4xl font-semibold tracking-[-0.02em] text-[color:var(--ui-text-primary)]">{value}</span>
-        <p className="mt-1 text-xs font-medium text-[color:var(--ui-text-secondary)]">{label}</p>
-      </div>
-      <div className="w-full max-w-xs">
-        <div className="h-1.5 w-full rounded-full bg-[color:var(--ui-surface-glass)]">
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{
-              width: `${barWidth}%`,
-              backgroundColor: TONE[tone].barColor,
-            }}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function VitalMeter({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  percent,
-  tone,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  hint?: string;
-  percent: number | null;
-  tone: MetricTone;
-}) {
-  const width = percent === null ? 0 : clamp(percent, 0, 100);
-  return (
-    <div className="rounded-[1rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-2 text-[11px] font-medium uppercase tracking-[0.1em] text-[color:var(--ui-text-secondary)]">
-          <Icon size={13} className="text-[color:var(--ui-text-secondary)]" />
-          <span className="truncate">{label}</span>
-        </span>
-        <span className="shrink-0 text-sm font-semibold text-[color:var(--ui-text-primary)]">{value}</span>
-      </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color:var(--ui-separator)]">
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{
-            width: `${width}%`,
-            backgroundColor: TONE[tone].barColor,
-          }}
-        />
-      </div>
-      {hint ? <p className="mt-1.5 truncate text-[10px] font-medium text-[color:var(--ui-text-secondary)]">{hint}</p> : null}
-    </div>
-  );
-}
-
 function MiniSparkline({ id, data }: { id: string; data: number[] }) {
   const { t } = useI18n();
   const chartData = useMemo(() => data.slice(-24).map((value, index) => ({ index, value })), [data]);
@@ -573,120 +412,6 @@ function MiniSparkline({ id, data }: { id: string; data: number[] }) {
         />
       </AreaChart>
     </ResponsiveContainer>
-  );
-}
-
-function LiquidButton({
-  children,
-  onClick,
-  disabled,
-  tone = 'primary',
-  className = '',
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  tone?: 'primary' | 'neutral';
-  className?: string;
-}) {
-  const toneClass =
-    tone === 'primary'
-      ? 'border-[color:rgb(var(--ui-accent-rgb)/0.3)] bg-[color:rgb(var(--ui-accent-rgb)/0.16)] text-[color:var(--ui-text-primary)] hover:bg-[color:rgb(var(--ui-accent-rgb)/0.22)]'
-      : 'border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-surface-glass-strong)]';
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-45 ${toneClass} ${className}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-// Two-step confirm: first click arms a 5s countdown, a second click within the
-// window runs the action. Auto-disarms when the countdown elapses.
-function DangerButton({
-  icon: Icon,
-  label,
-  hint,
-  disabled,
-  onConfirm,
-}: {
-  icon: LucideIcon;
-  label: string;
-  hint: string;
-  disabled?: boolean;
-  onConfirm: () => void;
-}) {
-  const [armed, setArmed] = useState(false);
-  const [remaining, setRemaining] = useState(0);
-
-  useEffect(() => {
-    if (!armed) {
-      return;
-    }
-    const start = Date.now();
-    setRemaining(5);
-    const id = window.setInterval(() => {
-      const left = 5 - (Date.now() - start) / 1000;
-      if (left <= 0) {
-        setArmed(false);
-        setRemaining(0);
-        window.clearInterval(id);
-      } else {
-        setRemaining(left);
-      }
-    }, 80);
-    return () => window.clearInterval(id);
-  }, [armed]);
-
-  const handleClick = () => {
-    if (disabled) {
-      return;
-    }
-    if (!armed) {
-      setArmed(true);
-      return;
-    }
-    setArmed(false);
-    onConfirm();
-  };
-
-  const progress = clamp((remaining / 5) * 100, 0, 100);
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={disabled}
-      className={`group relative flex min-h-[4.25rem] w-full flex-col justify-center overflow-hidden rounded-lg border px-4 py-3 text-left transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-40 ${
-        armed
-          ? 'border-rose-400/40 bg-rose-500/[0.12]'
-          : 'border-rose-400/20 bg-rose-500/[0.06] hover:bg-rose-500/[0.10]'
-      }`}
-    >
-      <span className="flex items-center gap-2.5">
-        <Icon size={16} className="shrink-0 text-rose-300" />
-        <span className="min-w-0">
-          <span className="block truncate text-sm font-semibold text-rose-100">
-            {armed ? `Confermi? (${Math.ceil(remaining)}s)` : label}
-          </span>
-          <span className="mt-0.5 block truncate text-[11px] font-medium text-rose-200/60">
-            {armed ? 'Tocca di nuovo per eseguire' : hint}
-          </span>
-        </span>
-      </span>
-      {armed ? (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-0.5 bg-rose-400/30">
-          <span
-            className="block h-full bg-rose-400"
-            style={{ width: `${progress}%`, transition: 'width 80ms linear' }}
-          />
-        </span>
-      ) : null}
-    </button>
   );
 }
 
@@ -870,6 +595,7 @@ export default function SettingsDashboard({
   const [wasteHasUnsavedChanges, setWasteHasUnsavedChanges] = useState(false);
   const [wasteLeaveConfirmOpen, setWasteLeaveConfirmOpen] = useState(false);
   const [updatesPageOpen, setUpdatesPageOpen] = useState(false);
+  const [powerConfirm, setPowerConfirm] = useState<'restartHa' | 'restartHost' | 'shutdown' | null>(null);
   // Re-render once a minute so uptime/duration labels stay fresh.
   const [nowTick, setNowTick] = useState(() => Date.now());
   useEffect(() => {
@@ -1029,7 +755,6 @@ export default function SettingsDashboard({
     }, t('settings.system.shutdownStarted'));
   };
 
-  const visibleUpdates = updateEntities.slice(0, 3);
   const settingsPath =
     navigationRoute?.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/settings';
   const navigateTo = (path: string) => onNavigate?.(path);
@@ -1756,254 +1481,243 @@ export default function SettingsDashboard({
     );
   }
 
+  // At most four rows of updates to install; the rest opens the update center,
+  // and the components already up to date are only counted past four rows.
+  const SHOWN_UPDATES = 4;
+  const shownAvailable = availableUpdates.slice(0, SHOWN_UPDATES);
+  const hiddenAvailable = availableUpdates.length - shownAvailable.length;
+  const upToDateUpdates = updateEntities.filter((update) => !update.available);
+  const shownUpToDate = upToDateUpdates.slice(0, Math.max(0, SHOWN_UPDATES - availableUpdates.length));
+  const hiddenUpToDate = upToDateUpdates.length - shownUpToDate.length;
+  const meterTone = (tone: MetricTone): 'success' | 'warning' | 'danger' =>
+    tone === 'ok' ? 'success' : tone === 'warn' ? 'warning' : 'danger';
+  const healthRows = [
+    cpuValue !== null || tempValue !== null ? (
+      <SettingsListRow
+        key="processor"
+        icon={Cpu}
+        title={t('settings.system.processor')}
+        subtitle={tempValue !== null ? t('settings.system.temperatureValue', { value: `${Math.round(tempValue)}°` }) : undefined}
+        value={cpuValue === null ? undefined : `${Math.round(cpuValue)}%`}
+        meter={cpuValue === null ? undefined : { percent: cpuValue, tone: meterTone(cpuTone) }}
+      >
+        {processorUseHistory.length >= 2 ? (
+          <span className="mt-2 block h-10 min-w-0">
+            <MiniSparkline id="settings-cpu-trend" data={processorUseHistory} />
+          </span>
+        ) : null}
+      </SettingsListRow>
+    ) : null,
+    ramPercent !== null ? (
+      <SettingsListRow
+        key="memory"
+        icon={MemoryStick}
+        title={t('settings.system.memory')}
+        subtitle={ramMemHint}
+        value={`${Math.round(ramPercent)}%`}
+        meter={{ percent: ramPercent, tone: meterTone(ramTone) }}
+      />
+    ) : null,
+    diskPercent !== null ? (
+      <SettingsListRow
+        key="storage"
+        icon={HardDrive}
+        title={t('settings.system.storage')}
+        subtitle={diskHint}
+        value={`${Math.round(diskPercent)}%`}
+        meter={{ percent: diskPercent, tone: meterTone(diskTone) }}
+      />
+    ) : null,
+  ].filter(Boolean);
+  const networkRows = [
+    ipAddress && ipLabel !== '—' ? (
+      <SettingsListRow key="ip" icon={Wifi} title={t('settings.system.localIp')} value={ipLabel} />
+    ) : null,
+    bootTimeMs !== null ? (
+      <SettingsListRow key="uptime" icon={Clock} title={t('settings.system.uptime')} subtitle={uptimeSince} value={uptimeLabel} />
+    ) : null,
+    latencyValue !== null ? (
+      <SettingsListRow
+        key="latency"
+        icon={Network}
+        title={t('settings.system.latency')}
+        value={`${Math.round(latencyValue)} ${latency?.entity.unit || 'ms'}`}
+      />
+    ) : null,
+  ].filter(Boolean);
+  const powerActions = {
+    restartHa: {
+      title: t('settings.system.confirm.restartHaTitle'),
+      body: t('settings.system.confirm.restartHaBody'),
+      action: t('settings.system.confirm.restart'),
+      run: handleRestartServer,
+    },
+    restartHost: {
+      title: t('settings.system.confirm.restartHostTitle'),
+      body: t('settings.system.confirm.restartHostBody'),
+      action: t('settings.system.confirm.restart'),
+      run: handleRebootHost,
+    },
+    shutdown: {
+      title: t('settings.system.confirm.shutdownTitle'),
+      body: t('settings.system.confirm.shutdownBody'),
+      action: t('settings.system.confirm.shutdown'),
+      run: handleShutdownHost,
+    },
+  };
+  const confirmedPower = powerConfirm ? powerActions[powerConfirm] : null;
+  const groupAction = 'text-xs font-semibold text-[color:var(--ui-accent)] transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40';
+
   return (
     <SettingsDetailShell
       title={t('settings.system.pageTitle')}
       subtitle={t('settings.system.subtitle', { restart: lastRestartLabel })}
       onBack={() => navigateTo('/settings')}
     >
-      <div className="space-y-4 sm:space-y-6">
-        {/* Bento grid — 1 col (mobile) → 2 col (tablet) → 6 col (desktop) */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-6">
-          {/* 1 — Vitalità di Sistema */}
-          <BentoCard
-            icon={Activity}
-            title={t('settings.system.vitality')}
-            subtitle={t('settings.system.vitalitySubtitle')}
-            className="sm:col-span-2 lg:col-span-4"
-          >
-            <div className="flex flex-1 flex-col gap-5">
-              <div className="grid grid-cols-2 gap-4 sm:gap-5">
-                <SimpleMeterDisplay
-                  value={cpuValue === null ? '--' : `${Math.round(cpuValue)}%`}
-                  percent={cpuValue}
-                  label="CPU"
-                  tone={cpuTone}
-                />
-                <SimpleMeterDisplay
-                  value={tempValue === null ? '--' : `${Math.round(tempValue)}°`}
-                  percent={tempValue === null ? null : (tempValue / 90) * 100}
-                    label={t('settings.system.temperature')}
-                  tone={tempTone}
-                />
-              </div>
-
-              <div className="space-y-2.5">
-                <VitalMeter
-                  icon={Database}
-                  label="RAM"
-                  value={ramPercent === null ? '--' : `${Math.round(ramPercent)}%`}
-                  hint={ramMemHint}
-                  percent={ramPercent}
-                  tone={ramTone}
-                />
-                <VitalMeter
-                  icon={HardDrive}
-                    label={t('settings.system.disk')}
-                  value={diskPercent === null ? '--' : `${Math.round(diskPercent)}%`}
-                  hint={diskHint}
-                  percent={diskPercent}
-                  tone={diskTone}
-                />
-              </div>
-
-              <div className="mt-auto">
-                  <p className="text-xs font-medium text-[color:var(--ui-text-secondary)]">{t('settings.system.cpuTrend')}</p>
-                <div className="mt-2 h-14 min-w-0">
-                  <MiniSparkline id="settings-cpu-trend" data={processorUseHistory} />
-                </div>
-              </div>
-            </div>
-          </BentoCard>
-
-          {/* 2 — Centro Aggiornamenti */}
-          <BentoCard
-            icon={DownloadCloud}
-            title={t('settings.system.updates')}
-              subtitle={updateEntities.length > 0 ? t('settings.system.monitoredComponents', { count: updateEntities.length }) : t('settings.system.noUpdateEntities')}
-            className="sm:col-span-2 lg:col-span-2"
-            onTitleClick={updateEntities.length > 0 ? () => setUpdatesPageOpen(true) : undefined}
-            headerRight={
-              availableUpdates.length > 0 ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-400/25 bg-orange-400/[0.08] px-2.5 py-1 text-[11px] font-semibold text-orange-200">
-                  <span className="h-1.5 w-1.5 rounded-full bg-orange-400" />
-                  {availableUpdates.length}
-                </span>
-              ) : null
-            }
-          >
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-0.5">
-                {visibleUpdates.length === 0 ? (
-                  <p className="rounded-xl bg-[color:var(--ui-surface-glass)] px-3 py-6 text-center text-xs font-medium text-[color:var(--ui-text-secondary)]">
-                    {t('settings.system.noUpdates')}
-                  </p>
-                ) : (
-                  visibleUpdates.map((update) => (
-                    <div
-                      key={update.entityId}
-                      className="flex items-center gap-2.5 rounded-lg border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-2"
-                    >
-                      {update.available ? (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
-                      ) : (
-                        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-[color:var(--ui-text-primary)]">{update.title}</p>
-                        <p className="truncate text-[10px] text-[color:var(--ui-text-secondary)]">
-                          {update.available && update.latest
-                            ? `${update.installed || '—'} → ${update.latest}`
-                            : update.installed || t('settings.system.updated')}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-              <div className="mt-3">
-                <LiquidButton
-                  onClick={handleUpdateAll}
-                  disabled={!isConnected || availableUpdates.length === 0 || isActionBusy}
-                >
-                  <DownloadCloud size={16} />
-                  {availableUpdates.length > 0 ? t('settings.system.updateAll', { count: availableUpdates.length }) : t('settings.system.allUpdated')}
-                </LiquidButton>
-              </div>
-            </div>
-          </BentoCard>
-
-          {/* 3 — Rete & Uptime */}
-          <BentoCard
-            icon={Network}
-            title={t('settings.system.network')}
-            subtitle={t('settings.system.networkSubtitle')}
-            className="sm:col-span-1 lg:col-span-3"
-          >
-            <div className="flex flex-1 flex-col gap-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                    <Wifi size={13} /> {t('settings.system.localIp')}
-                  </p>
-                  <p className="mt-1.5 truncate text-lg font-semibold tracking-[-0.02em] text-[color:var(--ui-text-primary)]">{ipLabel}</p>
-                </div>
-                <div className="rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3">
-                  <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                    <Clock size={13} /> {t('settings.system.uptime')}
-                  </p>
-                  <p className="mt-1.5 truncate text-lg font-semibold tracking-[-0.02em] text-[color:var(--ui-text-primary)]">{uptimeLabel}</p>
-                  <p className="mt-0.5 truncate text-[11px] font-medium text-[color:var(--ui-text-secondary)]">{uptimeSince}</p>
-                </div>
-              </div>
-              <div className="flex min-h-0 flex-1 flex-col rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3">
-                <div className="flex items-center justify-between">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">{t('settings.system.latency')}</p>
-                  <p className="text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                    {latencyValue === null ? '—' : `${Math.round(latencyValue)}${latency?.entity.unit ? ` ${latency.entity.unit}` : ' ms'}`}
-                  </p>
-                </div>
-                <div className="mt-2 h-12 min-w-0 flex-1">
-                  <MiniSparkline id="settings-latency-trend" data={latencyHistory} />
-                </div>
-              </div>
-            </div>
-          </BentoCard>
-
-          {/* 4 — Sicurezza & Backup */}
-          <BentoCard
-            icon={ShieldCheck}
-            title={t('settings.system.backup')}
-            subtitle={t('settings.system.backupSubtitle')}
-            className="sm:col-span-1 lg:col-span-3"
-          >
-            <div className="flex flex-1 flex-col gap-3">
-              <div className="rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-3.5">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">
-                  {t('settings.system.lastSnapshot')}
-                    </p>
-                    <p className="mt-1 truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                    {lastBackupLabel ?? t('settings.system.noBackupDetected')}
-                    </p>
-                  </div>
-                  {backupSizeLabel ? (
-                    <span className="shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-strong)] px-2.5 py-1 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
-                      {backupSizeLabel}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              {canOpenData ? (
-                <div className="mt-auto">
-                  <button
-                    type="button"
-                    onClick={() => navigateTo('/settings/data')}
-                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)]"
-                  >
-                    <Database size={14} /> {t('settings.system.openDataBackup')}
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </BentoCard>
-
-          {/* 5 — Danger Zone / Power */}
-          <BentoCard
-            icon={AlertTriangle}
-            title={t('settings.system.power')}
-            subtitle={t('settings.system.powerSubtitle')}
-            className="sm:col-span-2 lg:col-span-6"
-            headerRight={
-              <button
-                type="button"
-                onClick={handleRefreshSystemSensors}
-                disabled={!isConnected || systemEntityIds.length === 0 || isActionBusy}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] transition-colors hover:bg-[color:var(--ui-surface-glass-strong)] disabled:cursor-not-allowed disabled:opacity-45"
-              >
-                  <RefreshCw size={14} /> {t('settings.system.refreshSensors')}
+      <div className="mx-auto w-full max-w-[48rem] space-y-6 pb-4">
+        <SettingsListGroup
+          title={t('settings.system.group.updates')}
+          action={
+            availableUpdates.length > 0 ? (
+              <button type="button" onClick={handleUpdateAll} disabled={!isConnected || isActionBusy} className={groupAction}>
+                {t('settings.system.updateAll', { count: availableUpdates.length })}
               </button>
-            }
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {security.can('restart_home_assistant') ? (
-                <DangerButton
-                  icon={RotateCcw}
-                label={t('settings.system.restartHa')}
-                hint={t('settings.system.restartHaHint')}
-                  disabled={!isConnected || isActionBusy}
-                  onConfirm={handleRestartServer}
+            ) : null
+          }
+        >
+          {updateEntities.length === 0 ? (
+            <SettingsListRow icon={DownloadCloud} title={t('settings.system.noUpdateEntities')} />
+          ) : (
+            <>
+              {shownAvailable.map((update) => (
+                <SettingsListRow
+                  key={update.entityId}
+                  icon={DownloadCloud}
+                  tone="warning"
+                  title={update.title}
+                  subtitle={`${update.installed || '—'} → ${update.latest}`}
+                  onClick={() => setUpdatesPageOpen(true)}
+                />
+              ))}
+              {hiddenAvailable > 0 ? (
+                <SettingsListRow
+                  icon={DownloadCloud}
+                  tone="warning"
+                  title={
+                    hiddenAvailable === 1
+                      ? t('settings.system.moreUpdatesOne')
+                      : t('settings.system.moreUpdatesMany', { count: hiddenAvailable })
+                  }
+                  subtitle={t('settings.system.openUpdates')}
+                  onClick={() => setUpdatesPageOpen(true)}
                 />
               ) : null}
-              <DangerButton
-                icon={Server}
-                label={t('settings.system.restartHost')}
-                hint={t('settings.system.restartHostHint')}
-                disabled={!isConnected || isActionBusy}
-                onConfirm={handleRebootHost}
-              />
-              <DangerButton
-                icon={Power}
-                label={t('settings.system.shutdown')}
-                hint={t('settings.system.shutdownHint')}
-                disabled={!isConnected || isActionBusy}
-                onConfirm={handleShutdownHost}
-              />
-            </div>
-          </BentoCard>
-        </div>
+              {shownUpToDate.map((update) => (
+                <SettingsListRow
+                  key={update.entityId}
+                  icon={CircleCheck}
+                  tone="success"
+                  title={update.title}
+                  subtitle={
+                    update.installed
+                      ? t('settings.system.upToDateVersion', { version: update.installed })
+                      : t('settings.system.updated')
+                  }
+                />
+              ))}
+              {hiddenUpToDate > 0 ? (
+                <SettingsListRow
+                  icon={CircleCheck}
+                  title={
+                    shownUpToDate.length > 0
+                      ? hiddenUpToDate === 1
+                        ? t('settings.system.moreUpToDateOne')
+                        : t('settings.system.moreUpToDateMany', { count: hiddenUpToDate })
+                      : hiddenUpToDate === 1
+                        ? t('settings.system.upToDateCountOne')
+                        : t('settings.system.upToDateCountMany', { count: hiddenUpToDate })
+                  }
+                />
+              ) : null}
+            </>
+          )}
+        </SettingsListGroup>
 
-        {(actionFeedback || haError) ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {actionFeedback ? (
-              <p className="inline-flex items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3.5 py-2 text-xs font-semibold text-[color:var(--ui-text-secondary)]">
-                {actionFeedback}
-              </p>
-            ) : null}
+        <SettingsListGroup
+          title={t('settings.system.group.health')}
+          action={
+            <button
+              type="button"
+              onClick={handleRefreshSystemSensors}
+              disabled={!isConnected || systemEntityIds.length === 0 || isActionBusy}
+              className={groupAction}
+            >
+              {t('settings.system.refreshSensors')}
+            </button>
+          }
+        >
+          {healthRows.length > 0 ? (
+            healthRows
+          ) : (
+            <SettingsListRow
+              icon={Activity}
+              title={t('settings.system.telemetryUnavailable')}
+              subtitle={t('settings.system.telemetryHint')}
+            />
+          )}
+        </SettingsListGroup>
+
+        {networkRows.length > 0 ? (
+          <SettingsListGroup title={t('settings.system.group.network')}>{networkRows}</SettingsListGroup>
+        ) : null}
+
+        <SettingsListGroup title={t('settings.system.backup')}>
+          <SettingsListRow
+            icon={Database}
+            title={t('settings.system.lastBackup')}
+            subtitle={lastBackupLabel ?? t('settings.system.noBackupDetected')}
+            value={backupSizeLabel ?? undefined}
+            onClick={canOpenData ? () => navigateTo('/settings/data') : undefined}
+          />
+        </SettingsListGroup>
+
+        <SettingsListGroup title={t('settings.system.group.power')}>
+          {security.can('restart_home_assistant') ? (
+            <SettingsListRow
+              icon={RotateCcw}
+              tone="danger"
+              destructive
+              title={t('settings.system.restartHa')}
+              subtitle={t('settings.system.restartHaHint')}
+              disabled={!isConnected || isActionBusy}
+              onClick={() => setPowerConfirm('restartHa')}
+            />
+          ) : null}
+          <SettingsListRow
+            icon={Server}
+            tone="danger"
+            destructive
+            title={t('settings.system.restartHost')}
+            subtitle={t('settings.system.restartHostHint')}
+            disabled={!isConnected || isActionBusy}
+            onClick={() => setPowerConfirm('restartHost')}
+          />
+          <SettingsListRow
+            icon={Power}
+            tone="danger"
+            destructive
+            title={t('settings.system.shutdown')}
+            subtitle={t('settings.system.shutdownHint')}
+            disabled={!isConnected || isActionBusy}
+            onClick={() => setPowerConfirm('shutdown')}
+          />
+        </SettingsListGroup>
+
+        {actionFeedback || haError ? (
+          <div className="space-y-2 px-1" role="status">
+            {actionFeedback ? <p className="text-xs font-medium text-[color:var(--ui-text-secondary)]">{actionFeedback}</p> : null}
             {haError ? (
-              <p className="inline-flex items-center gap-2 rounded-full border border-rose-400/25 bg-rose-500/[0.07] px-3.5 py-2 text-xs font-semibold text-rose-200">
+              <p className="flex items-center gap-2 text-xs font-medium text-[color:var(--ui-danger)]">
                 <AlertTriangle size={13} /> {haError}
               </p>
             ) : null}
@@ -2011,11 +1725,42 @@ export default function SettingsDashboard({
         ) : null}
 
         {developerMode ? (
-          <p className="mt-3 flex items-center gap-2 px-1 text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
-              <Database size={12} /> {t('settings.system.debugSummary', { entities: Object.keys(haStates).length, sensors: systemSensors.length })}
+          <p className="flex items-center gap-2 px-1 text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
+            <Database size={12} /> {t('settings.system.debugSummary', { entities: Object.keys(haStates).length, sensors: systemSensors.length })}
           </p>
         ) : null}
       </div>
+
+      <GlassModal
+        isOpen={confirmedPower !== null}
+        onClose={() => setPowerConfirm(null)}
+        title={confirmedPower?.title ?? ''}
+        description={confirmedPower?.body}
+        variant="dialog"
+        size="sm"
+        footer={(
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              className="liquid-glass-control inline-flex min-h-10 items-center justify-center rounded-full px-4 text-sm font-semibold"
+              onClick={() => setPowerConfirm(null)}
+            >
+              {t('settings.system.cancel')}
+            </button>
+            <button
+              type="button"
+              className="inline-flex min-h-10 items-center justify-center rounded-full bg-[color:var(--ui-danger)] px-4 text-sm font-semibold text-[color:var(--ui-danger-contrast)]"
+              onClick={() => {
+                const run = confirmedPower?.run;
+                setPowerConfirm(null);
+                run?.();
+              }}
+            >
+              {confirmedPower?.action}
+            </button>
+          </div>
+        )}
+      />
 
       <UpdatesCenterModal
         isOpen={updatesPageOpen}
