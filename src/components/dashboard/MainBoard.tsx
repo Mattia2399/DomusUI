@@ -10830,14 +10830,16 @@ export function MainBoard() {
   const activeNavigationRoute = getCurrentNavigationRoute();
   const settingsPath = activeNavigationRoute.split(/[?#]/, 1)[0].replace(/\/+$/, '');
   const houseAccessView = resolveHouseAccessView(settingsPath);
+  // The Dashboard page shows the layout part of Data and backup.
   const settingsManagementSection: SettingsManagementSectionId | null =
     houseAccessView
       ? 'members'
       : settingsPath === '/settings/connections'
         ? 'ha'
-        : settingsPath === '/settings/data'
+        : settingsPath === '/settings/data' || settingsPath === '/settings/dashboard'
           ? 'config'
           : null;
+  const settingsDataScope = settingsPath === '/settings/dashboard' ? 'layout' : 'data';
 
   const navigateWithinDashboard = (path: string) => {
     prefetchDashboardWorkspace(path);
@@ -11238,8 +11240,6 @@ export function MainBoard() {
               sensorHistoryByEntity={sensorHistoryByEntity}
               onDeveloperModeChange={handleDeveloperModeChange}
               onCardSizingEngineChange={setCardSizingEngine}
-              onDownloadBackup={downloadConfigurationBackup}
-              onRestoreBackup={restoreConfigurationFromFile}
               layoutRevisions={haDashboardLayoutPersistence.revisions}
               layoutRevisionHistoryStatus={haDashboardLayoutPersistence.revisionHistoryStatus}
               onRefreshLayoutRevisions={haDashboardLayoutPersistence.refreshRevisionHistory}
@@ -11254,7 +11254,7 @@ export function MainBoard() {
                 settingsManagementSection ? (
                   <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura impostazioni…" />}>
                     <SettingsManagementPanel
-                      key={settingsManagementSection}
+                      key={`${settingsManagementSection}:${settingsDataScope}`}
                       isOpen
                       presentation="embedded"
                       onClose={() => navigateWithinDashboard('/settings')}
@@ -11266,10 +11266,6 @@ export function MainBoard() {
                       houseMembers={profileHouseMembers}
                       personLinking={personLinking}
                       appearance={appearance}
-                      developerMode={developerMode}
-                      onDeveloperModeChange={handleDeveloperModeChange}
-                      cardSizingEngine={cardSizingEngine}
-                      onCardSizingEngineChange={setCardSizingEngine}
                       haUrl={haUrl}
                       onUrlChange={setHaUrl}
                       haToken={haToken}
@@ -11288,6 +11284,8 @@ export function MainBoard() {
                       onResetAll={resetAllConfiguration}
                       onRestoreStarterTemplate={restoreStarterDashboardTemplate}
                       onOpenLayoutVersions={() => navigateWithinDashboard('/settings/data/history')}
+                      dataScope={settingsDataScope}
+                      onOpenSharing={() => navigateWithinDashboard(HOUSE_ACCESS_VIEW_ROUTES.share)}
                       houseAccessView={houseAccessView ?? 'overview'}
                       onHouseAccessViewChange={(view) => navigateWithinDashboard(HOUSE_ACCESS_VIEW_ROUTES[view])}
                     />

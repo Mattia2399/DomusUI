@@ -68,7 +68,7 @@ test('Settings remains useful while administrative destinations stay fail-closed
   await installCompletedRealWorkspace(page);
   await page.goto('/settings');
 
-  await expect(page.getByRole('heading', { name: 'Impostazioni Casa' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Impostazioni', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Aspetto/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Persone e accessi/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Connessioni/ })).toBeVisible();

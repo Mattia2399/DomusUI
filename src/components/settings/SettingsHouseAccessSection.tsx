@@ -8,7 +8,6 @@ import {
   Pencil,
   ShieldCheck,
   Unlink2,
-  Upload,
   UserPlus,
   Users,
 } from 'lucide-react';
@@ -695,21 +694,6 @@ export function SettingsHouseAccessSection({
           <div className="min-w-0 flex-1">
             <p className={settingsTitleClass}>{t('settings.access.guestAccess')}</p>
             <p className={settingsSubtitleClass}>{t('settings.access.comingLater')}</p>
-          </div>
-          <ChevronRight size={16} className={subtleTextClass} />
-        </button>
-
-        <div className={settingsDividerClass} />
-
-        <button
-          type="button"
-          onClick={() => onViewChange('share')}
-          className={`${settingsRowClass} ${buttonMotionClass}`}
-        >
-          {renderSettingsIcon(Upload)}
-          <div className="min-w-0 flex-1">
-            <p className={settingsTitleClass}>{t('settings.access.shareDashboard')}</p>
-            <p className={settingsSubtitleClass}>{t('settings.access.shareDashboardDescription')}</p>
           </div>
           <ChevronRight size={16} className={subtleTextClass} />
         </button>

@@ -4,6 +4,13 @@ export type SettingsManagementSectionIconKey =
   | 'ha'
   | 'config';
 
+/**
+ * The part of Data and backup to show: `layout` is the Dashboard page (initial
+ * layout, versions, sharing), `data` is Data and backup (export, restore,
+ * reset), `all` shows both.
+ */
+export type SettingsDataBackupScope = 'all' | 'layout' | 'data';
+
 export type SettingsManagementSectionDefinition = {
   id: SettingsManagementSectionId;
   label: string;

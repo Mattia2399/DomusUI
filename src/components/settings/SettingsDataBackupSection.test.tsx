@@ -30,15 +30,13 @@ const limitedSecurity = createDashboardSecurityValue({
 
 const baseProps = {
   appearance: 'dark' as const,
-  developerMode: false,
-  onDeveloperModeChange: vi.fn(),
+  scope: 'all' as 'all' | 'layout' | 'data',
   onDownloadBackup: vi.fn(),
   onRestoreBackup: vi.fn(async () => undefined),
   onResetAll: vi.fn(async () => undefined),
   onRestoreStarterTemplate: undefined as (() => Promise<void>) | undefined,
   onOpenLayoutVersions: undefined as (() => void) | undefined,
-  cardSizingEngine: 'adaptive' as const,
-  onCardSizingEngineChange: vi.fn(),
+  onOpenSharing: undefined as (() => void) | undefined,
 };
 
 function renderSection({
@@ -64,49 +62,50 @@ describe('SettingsDataBackupSection', () => {
     expect(screen.queryByRole('button', { name: 'Scarica backup' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Ripristina da file' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Reset totale' })).toBeNull();
+  });
+
+  it('keeps the download controlled by the parent and leaves Developer Mode to Advanced', () => {
+    const onDownloadBackup = vi.fn();
+    renderSection({ props: { onDownloadBackup } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Scarica backup' }));
+
+    expect(onDownloadBackup).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('switch', { name: 'Modalità sviluppatore' })).toBeNull();
   });
 
-  it('keeps download and developer mode controlled by the parent', () => {
-    const onDownloadBackup = vi.fn();
-    const onDeveloperModeChange = vi.fn();
-    renderSection({ props: { onDownloadBackup, onDeveloperModeChange } });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Scarica backup' }));
-    fireEvent.click(screen.getByRole('switch', { name: 'Modalità sviluppatore' }));
-
-    expect(onDownloadBackup).toHaveBeenCalledTimes(1);
-    expect(onDeveloperModeChange).toHaveBeenCalledWith(true);
-  });
-
-  it('hides the card sizing engine control until Developer Mode is enabled', () => {
-    renderSection();
-
-    expect(screen.queryByRole('switch', { name: /Dimensionamento adattivo/ })).toBeNull();
-  });
-
-  it('lets developers switch the local card sizing engine from data settings', () => {
-    const onCardSizingEngineChange = vi.fn();
+  it('shows only the layout actions on the Dashboard page', () => {
+    const onOpenSharing = vi.fn();
     renderSection({
       props: {
-        developerMode: true,
-        cardSizingEngine: 'adaptive',
-        onCardSizingEngineChange,
+        scope: 'layout',
+        onRestoreStarterTemplate: vi.fn(async () => undefined),
+        onOpenLayoutVersions: vi.fn(),
+        onOpenSharing,
       },
     });
 
-    fireEvent.click(screen.getByRole('switch', { name: /Dimensionamento adattivo/ }));
-
-    expect(onCardSizingEngineChange).toHaveBeenCalledWith('legacy');
+    expect(screen.getByRole('button', { name: /Ripristina layout iniziale/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Versioni del layout/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Scarica backup' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reset totale' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Condividi dashboard/ }));
+    expect(onOpenSharing).toHaveBeenCalledTimes(1);
   });
 
-  it('does not expose the card sizing engine control to limited users', () => {
+  it('shows only export, restore and reset on Data and backup', () => {
     renderSection({
-      security: limitedSecurity,
-      props: { developerMode: true },
+      props: {
+        scope: 'data',
+        onRestoreStarterTemplate: vi.fn(async () => undefined),
+        onOpenLayoutVersions: vi.fn(),
+      },
     });
 
-    expect(screen.queryByRole('switch', { name: /Dimensionamento adattivo/ })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Scarica backup' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reset totale' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Ripristina layout iniziale/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Versioni del layout/ })).toBeNull();
   });
 
   it('opens the shared layout version history from data settings', () => {

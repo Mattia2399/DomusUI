@@ -84,6 +84,17 @@
   declares. A user without a linked Person no longer sees presence picked by
   a matching name.
 
+- Settings is organized in four groups, each a row of cards of the same
+  size: Home (floors and rooms, people, security, waste collection),
+  Dashboard (layout and alerts), Home Assistant (connection, devices,
+  entities, system) and Data and support. Every item lives in one place:
+  the initial layout, layout versions and dashboard sharing are on the
+  Dashboard page; the Home Assistant backup, export, restore and reset are
+  in Data and backup, while System only shows the latest backup; Developer
+  Mode is only in Advanced, now together with support and diagnostics. The
+  Security card opens the Security center directly, and the Home Assistant
+  status sits beside the title on phones too.
+
 ### Removed
 
 - Edit mode on the Consumption and Energy page: the pencil no longer appears

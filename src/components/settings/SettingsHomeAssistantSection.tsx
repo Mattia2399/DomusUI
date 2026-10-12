@@ -12,6 +12,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { validateHassUrl } from '../../services/haLive';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import GlassToggle from '../ui/GlassToggle';
+import { haStatusLabel } from './haStatusLabel';
 
 export type SettingsHomeAssistantSectionProps = {
   appearance: DashboardAppearance;
@@ -276,7 +277,7 @@ export function SettingsHomeAssistantSection({
       </div>
 
       <p className={`mt-3 text-xs ${subtleTextClass}`}>
-        {t('settings.connection.statusNote', { status: haStatus })}
+        {t('settings.connection.statusNote', { status: haStatusLabel(haStatus, t) })}
       </p>
 
       {!haManagedByParent && haToken.trim().length > 0 ? (

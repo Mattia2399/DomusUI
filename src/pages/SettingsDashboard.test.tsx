@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render as renderTestingLibrary, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../i18n/I18nProvider';
@@ -64,11 +64,12 @@ describe('SettingsDashboard', () => {
       </DashboardSecurityProvider>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Home settings' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Home\b/ })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'Home Assistant' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Floors and rooms/ })).toBeTruthy();
   });
 
-  it('uses a navigable bento overview for house settings', () => {
+  it('groups the overview into home, dashboard, Home Assistant and data', () => {
     const onNavigate = vi.fn();
     render(
       <DashboardSecurityProvider value={security}>
@@ -80,17 +81,49 @@ describe('SettingsDashboard', () => {
       </DashboardSecurityProvider>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Impostazioni Casa' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Casa\b/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Sistema/ })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
+    const groups = screen.getAllByRole('region').map((group) => group.getAttribute('aria-label'));
+    expect(groups).toEqual(['Casa', 'Dashboard', 'Home Assistant', 'Dati e supporto']);
     expect(screen.getByRole('img', { name: 'Mattia' })).toBeTruthy();
-    expect(screen.queryByText('Nessuna stanza configurata')).toBeNull();
-    expect(screen.getByRole('button', { name: /^Casa\b/ }).parentElement?.className).toContain(
-      'grid-cols-2',
+
+    const home = within(screen.getByRole('region', { name: 'Casa' }));
+    expect(home.getAllByRole('button').map((card) => card.textContent)).toEqual([
+      expect.stringContaining('Piani e stanze'),
+      expect.stringContaining('Persone e accessi'),
+      expect.stringContaining('Sicurezza'),
+      expect.stringContaining('Raccolta rifiuti'),
+    ]);
+    const homeAssistant = within(screen.getByRole('region', { name: 'Home Assistant' }));
+    expect(homeAssistant.getByRole('button', { name: /^Connessioni/ })).toBeTruthy();
+    expect(homeAssistant.getByRole('button', { name: /^Sistema/ })).toBeTruthy();
+
+    fireEvent.click(home.getByRole('button', { name: /^Piani e stanze/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/rooms');
+    fireEvent.click(home.getByRole('button', { name: /^Sicurezza/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/security');
+    fireEvent.click(homeAssistant.getByRole('button', { name: /^Entità/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/entities');
+  });
+
+  it('keeps the old house page address on the overview', () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/home" />
+      </DashboardSecurityProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Casa\b/ }));
-    expect(onNavigate).toHaveBeenCalledWith('/settings/home');
+    expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
+  });
+
+  it('sends the old security settings address to the Security center', () => {
+    const onNavigate = vi.fn();
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/security" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(onNavigate).toHaveBeenCalledWith('/security');
   });
 
   it('opens administrative destinations as stable nested URLs', () => {
@@ -244,32 +277,14 @@ describe('SettingsDashboard', () => {
     expect(screen.getByText('Attuale')).toBeTruthy();
   });
 
-  it('opens the complete entity catalogue from the house page', () => {
+  it('opens devices from the Home Assistant group and comes back to the overview', () => {
     const onNavigate = vi.fn();
-    render(
-      <DashboardSecurityProvider value={security}>
-        <SettingsDashboard
-          {...baseProps}
-          navigationRoute="/settings/home"
-          onNavigate={onNavigate}
-        />
-      </DashboardSecurityProvider>,
-    );
-
-    expect(screen.queryByText('Membri')).toBeNull();
-    expect(screen.queryByRole('button', { name: /Persone e accessi/ })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /^Entità / }));
-    expect(onNavigate).toHaveBeenCalledWith('/settings/entities');
-  });
-
-  it('keeps device health inside the house inventory', () => {
-    const onNavigate = vi.fn();
-    render(
+    const { rerender } = render(
       <DashboardSecurityProvider value={security}>
         <SettingsDashboard
           {...baseProps}
           haDeviceRegistry={[{ id: 'kitchen-light', name: 'Luce cucina' }]}
-          navigationRoute="/settings/home"
+          navigationRoute="/settings"
           onNavigate={onNavigate}
         />
       </DashboardSecurityProvider>,
@@ -277,9 +292,92 @@ describe('SettingsDashboard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /^Dispositivi / }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/devices');
+
+    rerender(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/devices" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('/settings');
   });
 
-  it('downloads aggregate support diagnostics from Advanced settings', () => {
+  it('keeps layout actions and sharing on the Dashboard page', () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/dashboard"
+          managedSectionContent={<div>Azioni del layout</div>}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
+    expect(screen.getByText('Azioni del layout')).toBeTruthy();
+  });
+
+  it('brings sharing and layout versions back to the Dashboard page', () => {
+    const onNavigate = vi.fn();
+    const { rerender } = render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/access/sharing"
+          onNavigate={onNavigate}
+          managedSectionContent={<div>Condivisione</div>}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    let back = screen.getByRole('button', { name: 'Indietro' });
+    expect(back.textContent).toContain('Dashboard');
+    fireEvent.click(back);
+    expect(onNavigate).toHaveBeenLastCalledWith('/settings/dashboard');
+
+    rerender(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/data/history" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+    back = screen.getByRole('button', { name: 'Indietro' });
+    fireEvent.click(back);
+    expect(onNavigate).toHaveBeenLastCalledWith('/settings/dashboard');
+  });
+
+  it('starts the Home Assistant backup from Data and backup', () => {
+    const onCallService = vi.fn(async () => true);
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          onCallService={onCallService}
+          navigationRoute="/settings/data"
+          managedSectionContent={<div>Esportazione</div>}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Backup di Home Assistant' })).toBeTruthy();
+    expect(screen.getByText('Esportazione')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Forza backup ora' }));
+    expect(onCallService).toHaveBeenCalledWith('backup', 'create', {});
+  });
+
+  it('shows the latest backup on the system page without its actions', () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/system" />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByText('Nessun backup rilevato')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Apri Dati e backup/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Forza backup ora' })).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Modalità sviluppatore' })).toBeNull();
+  });
+
+  it('downloads aggregate support diagnostics from Advanced and support', () => {
     const createObjectURL = vi.fn(() => 'blob:support-diagnostics');
     const revokeObjectURL = vi.fn();
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL });
@@ -296,6 +394,9 @@ describe('SettingsDashboard', () => {
       </DashboardSecurityProvider>,
     );
 
+    expect(screen.getByRole('heading', { name: 'Avanzate e supporto' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Apri una segnalazione/ })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Scarica diagnostica' })).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Scarica diagnostica' }));
 
     expect(createObjectURL).toHaveBeenCalledOnce();

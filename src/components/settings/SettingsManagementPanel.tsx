@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { DashboardResetProgressReporter } from '../../services/dashboardReset';
-import type { CardSizingEngine } from '../../services/cardSizingEngine';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
 import SettingsManagementShell from './SettingsManagementShell';
@@ -10,6 +9,7 @@ import SettingsSectionNavigation from './SettingsSectionNavigation';
 import {
   SETTINGS_MANAGEMENT_SECTIONS,
   resolveSettingsManagementSection,
+  type SettingsDataBackupScope,
   type SettingsManagementSectionId,
 } from './settingsManagementRegistry';
 import type {
@@ -40,10 +40,6 @@ export type SettingsManagementPanelProps = {
   houseMembers?: ProfileHouseMember[];
   personLinking?: PersonAccountLinking;
   appearance: DashboardAppearance;
-  developerMode: boolean;
-  onDeveloperModeChange: (value: boolean) => void;
-  cardSizingEngine?: CardSizingEngine;
-  onCardSizingEngineChange?: (value: CardSizingEngine) => void;
   haUrl: string;
   onUrlChange: (value: string) => void;
   haToken: string;
@@ -62,6 +58,9 @@ export type SettingsManagementPanelProps = {
   onResetAll: (reportProgress?: DashboardResetProgressReporter) => Promise<void>;
   onRestoreStarterTemplate?: () => Promise<void>;
   onOpenLayoutVersions?: () => void;
+  /** Which part of Data and backup to show: the Dashboard page shows the layout part. */
+  dataScope?: SettingsDataBackupScope;
+  onOpenSharing?: () => void;
   /** Route-driven house access subpage (embedded presentation). */
   houseAccessView?: HouseAccessView;
   onHouseAccessViewChange?: (view: HouseAccessView) => void;
@@ -89,10 +88,6 @@ export function SettingsManagementPanel({
   houseMembers = [],
   personLinking,
   appearance,
-  developerMode,
-  onDeveloperModeChange,
-  cardSizingEngine,
-  onCardSizingEngineChange,
   haUrl,
   onUrlChange,
   haToken,
@@ -111,6 +106,8 @@ export function SettingsManagementPanel({
   onResetAll,
   onRestoreStarterTemplate,
   onOpenLayoutVersions,
+  dataScope,
+  onOpenSharing,
   houseAccessView: controlledHouseAccessView,
   onHouseAccessViewChange,
 }: SettingsManagementPanelProps) {
@@ -309,10 +306,8 @@ export function SettingsManagementPanel({
         >
           <SettingsDataBackupSection
             appearance={appearance}
-            developerMode={developerMode}
-            onDeveloperModeChange={onDeveloperModeChange}
-            cardSizingEngine={cardSizingEngine}
-            onCardSizingEngineChange={onCardSizingEngineChange}
+            scope={dataScope}
+            onOpenSharing={onOpenSharing}
             onDownloadBackup={onDownloadBackup}
             onRestoreBackup={onRestoreBackup}
             onResetAll={onResetAll}

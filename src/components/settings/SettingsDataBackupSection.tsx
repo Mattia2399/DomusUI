@@ -3,9 +3,9 @@ import {
   ChevronRight,
   Download,
   History,
-  KeyRound,
   RotateCcw,
   Route,
+  Share2,
   Smartphone,
   Upload,
 } from 'lucide-react';
@@ -15,19 +15,17 @@ import type {
   DashboardResetProgressReporter,
   DashboardResetStage,
 } from '../../services/dashboardReset';
-import type { CardSizingEngine } from '../../services/cardSizingEngine';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import { useI18n } from '../../i18n/I18nProvider';
 import GlassLoader from '../ui/GlassLoader';
 import GlassModal from '../ui/GlassModal';
-import GlassToggle from '../ui/GlassToggle';
+import type { SettingsDataBackupScope } from './settingsManagementRegistry';
+
 
 export type SettingsDataBackupSectionProps = {
   appearance: DashboardAppearance;
-  developerMode: boolean;
-  onDeveloperModeChange: (value: boolean) => void;
-  cardSizingEngine?: CardSizingEngine;
-  onCardSizingEngineChange?: (value: CardSizingEngine) => void;
+  scope?: SettingsDataBackupScope;
+  onOpenSharing?: () => void;
   onDownloadBackup: () => void;
   onRestoreBackup: (file: File) => Promise<void>;
   onResetAll: (reportProgress?: DashboardResetProgressReporter) => Promise<void>;
@@ -58,10 +56,8 @@ function normalizeError(error: unknown, fallback: string) {
 
 export function SettingsDataBackupSection({
   appearance,
-  developerMode,
-  onDeveloperModeChange,
-  cardSizingEngine = 'adaptive',
-  onCardSizingEngineChange,
+  scope = 'all',
+  onOpenSharing,
   onDownloadBackup,
   onRestoreBackup,
   onResetAll,
@@ -92,6 +88,8 @@ export function SettingsDataBackupSection({
   });
 
   const isLightTheme = appearance === 'light';
+  const showLayout = scope !== 'data';
+  const showData = scope !== 'layout';
   const normalizedCurrentUserId =
     typeof dashboardCurrentUserId === 'string' ? dashboardCurrentUserId.trim() : '';
   const normalizedDeviceId =
@@ -304,9 +302,11 @@ export function SettingsDataBackupSection({
 
   return (
     <section className={sectionShellClass}>
-      <p className={`text-xs leading-5 ${subduedTextClass}`}>
-        {t('settings.backup.description')}
-      </p>
+      {showData ? (
+        <p className={`text-xs leading-5 ${subduedTextClass}`}>
+          {t('settings.backup.description')}
+        </p>
+      ) : null}
 
       {enterpriseControlsEnabled ? (
         <>
@@ -423,148 +423,120 @@ export function SettingsDataBackupSection({
         </>
       ) : null}
 
-      {dashboardSecurity.can('developer_mode') ? (
+      {showLayout ? (
         <div className={`mt-4 ${settingsGroupClass}`}>
-          <div className={settingsRowClass}>
-            {renderSettingsIcon(KeyRound)}
-            <div className="min-w-0 flex-1">
-              <p className={settingsTitleClass}>{t('settings.advanced.developer')}</p>
-              <p className={settingsSubtitleClass}>{t('settings.backup.developerDescription')}</p>
-            </div>
-            <GlassToggle
-              checked={developerMode}
-              onChange={(nextValue) => {
-                if (dashboardSecurity.can('developer_mode')) {
-                  onDeveloperModeChange(nextValue);
-                }
-              }}
-              label={t('settings.advanced.developer')}
-            />
-          </div>
-          {developerMode ? (
+          {dashboardSecurity.can('restore_backup') && onRestoreStarterTemplate ? (
             <>
-              <div className={settingsDividerClass} />
-              <div className={settingsRowClass}>
+              <button
+                type="button"
+                onClick={() => void handleRestoreStarterTemplate()}
+                disabled={isActionBusy}
+                className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
+              >
                 {renderSettingsIcon(Route)}
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <p className={settingsTitleClass}>{t('settings.advanced.cardSizing.title')}</p>
-                    <span className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-tertiary)]">
-                      {cardSizingEngine === 'adaptive'
-                        ? t('settings.advanced.cardSizing.adaptive')
-                        : t('settings.advanced.cardSizing.legacy')}
-                    </span>
-                  </div>
-                  <p className={settingsSubtitleClass}>{t('settings.advanced.cardSizing.description')}</p>
-                  <p className="mt-1 text-[11px] leading-snug text-[color:var(--ui-text-tertiary)]">
-                    {t('settings.advanced.cardSizing.note')}
-                  </p>
+                  <p className={settingsTitleClass}>{t('settings.backup.starterTitle')}</p>
+                  <p className={settingsSubtitleClass}>{t('settings.backup.starterDescription')}</p>
                 </div>
-                <GlassToggle
-                  checked={cardSizingEngine === 'adaptive'}
-                  onChange={(nextValue) => {
-                    if (dashboardSecurity.can('developer_mode')) {
-                      onCardSizingEngineChange?.(nextValue ? 'adaptive' : 'legacy');
-                    }
-                  }}
-                  label={t('settings.advanced.cardSizing.title')}
-                />
-              </div>
+                <ChevronRight size={16} className={subtleTextClass} />
+              </button>
+            </>
+          ) : null}
+          {dashboardSecurity.can('edit_dashboard') && onOpenLayoutVersions ? (
+            <>
+              {dashboardSecurity.can('restore_backup') && onRestoreStarterTemplate ? <div className={settingsDividerClass} /> : null}
+              <button
+                type="button"
+                onClick={onOpenLayoutVersions}
+                disabled={isActionBusy}
+                className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
+              >
+                {renderSettingsIcon(History)}
+                <div className="min-w-0 flex-1">
+                  <p className={settingsTitleClass}>{t('settings.history.title')}</p>
+                  <p className={settingsSubtitleClass}>{t('settings.backup.lastFive')}</p>
+                </div>
+                <ChevronRight size={16} className={subtleTextClass} />
+              </button>
+            </>
+          ) : null}
+          {onOpenSharing ? (
+            <>
+              <div className={settingsDividerClass} />
+              <button
+                type="button"
+                onClick={onOpenSharing}
+                disabled={isActionBusy}
+                className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
+              >
+                {renderSettingsIcon(Share2)}
+                <div className="min-w-0 flex-1">
+                  <p className={settingsTitleClass}>{t('settings.access.shareDashboard')}</p>
+                  <p className={settingsSubtitleClass}>{t('settings.access.shareDashboardDescription')}</p>
+                </div>
+                <ChevronRight size={16} className={subtleTextClass} />
+              </button>
             </>
           ) : null}
         </div>
       ) : null}
 
-      <div className={`mt-4 ${settingsGroupClass}`}>
-        {dashboardSecurity.can('restore_backup') && onRestoreStarterTemplate ? (
-          <>
+      {showData ? (
+        <div className={`mt-4 ${settingsGroupClass}`}>
+          {dashboardSecurity.can('download_backup') ? (
             <button
               type="button"
-              onClick={() => void handleRestoreStarterTemplate()}
+              onClick={handleDownloadBackup}
               disabled={isActionBusy}
               className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
             >
-              {renderSettingsIcon(Route)}
+              {renderSettingsIcon(Download)}
               <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>{t('settings.backup.starterTitle')}</p>
-                <p className={settingsSubtitleClass}>{t('settings.backup.starterDescription')}</p>
+                <p className={settingsTitleClass}>{t('settings.backup.download')}</p>
               </div>
               <ChevronRight size={16} className={subtleTextClass} />
             </button>
-            <div className={settingsDividerClass} />
-          </>
-        ) : null}
-        {dashboardSecurity.can('edit_dashboard') && onOpenLayoutVersions ? (
-          <>
-            <button
-              type="button"
-              onClick={onOpenLayoutVersions}
-              disabled={isActionBusy}
-              className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
-            >
-              {renderSettingsIcon(History)}
-              <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>{t('settings.history.title')}</p>
-                <p className={settingsSubtitleClass}>{t('settings.backup.lastFive')}</p>
-              </div>
-              <ChevronRight size={16} className={subtleTextClass} />
-            </button>
-            <div className={settingsDividerClass} />
-          </>
-        ) : null}
-        {dashboardSecurity.can('download_backup') ? (
-          <button
-            type="button"
-            onClick={handleDownloadBackup}
-            disabled={isActionBusy}
-            className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
-          >
-            {renderSettingsIcon(Download)}
-            <div className="min-w-0 flex-1">
-              <p className={settingsTitleClass}>{t('settings.backup.download')}</p>
-            </div>
-            <ChevronRight size={16} className={subtleTextClass} />
-          </button>
-        ) : null}
+          ) : null}
 
-        {dashboardSecurity.can('restore_backup') ? (
-          <>
-            <div className={settingsDividerClass} />
-            <button
-              type="button"
-              onClick={() => restoreInputRef.current?.click()}
-              disabled={isActionBusy}
-              className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
-            >
-              {renderSettingsIcon(Upload)}
-              <div className="min-w-0 flex-1">
-                <p className={settingsTitleClass}>{t('settings.backup.restoreFile')}</p>
-              </div>
-              <ChevronRight size={16} className={subtleTextClass} />
-            </button>
-          </>
-        ) : null}
+          {dashboardSecurity.can('restore_backup') ? (
+            <>
+              <div className={settingsDividerClass} />
+              <button
+                type="button"
+                onClick={() => restoreInputRef.current?.click()}
+                disabled={isActionBusy}
+                className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
+              >
+                {renderSettingsIcon(Upload)}
+                <div className="min-w-0 flex-1">
+                  <p className={settingsTitleClass}>{t('settings.backup.restoreFile')}</p>
+                </div>
+                <ChevronRight size={16} className={subtleTextClass} />
+              </button>
+            </>
+          ) : null}
 
-        {dashboardSecurity.can('reset_dashboard') ? (
-          <>
-            <div className={settingsDividerClass} />
-            <button
-              type="button"
-              onClick={() => {
-                void handleResetAll();
-              }}
-              disabled={isActionBusy}
-              className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
-            >
-              {renderSettingsIcon(RotateCcw)}
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-rose-500">{t('settings.backup.totalReset')}</p>
-              </div>
-              <ChevronRight size={16} className={subtleTextClass} />
-            </button>
-          </>
-        ) : null}
-      </div>
+          {dashboardSecurity.can('reset_dashboard') ? (
+            <>
+              <div className={settingsDividerClass} />
+              <button
+                type="button"
+                onClick={() => {
+                  void handleResetAll();
+                }}
+                disabled={isActionBusy}
+                className={`${settingsRowClass} disabled:cursor-not-allowed disabled:opacity-60 ${buttonMotionClass}`}
+              >
+                {renderSettingsIcon(RotateCcw)}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-rose-500">{t('settings.backup.totalReset')}</p>
+                </div>
+                <ChevronRight size={16} className={subtleTextClass} />
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <input
         ref={restoreInputRef}
