@@ -1199,6 +1199,12 @@ export default function SettingsDashboard({
               setUpdatesPageOpen(true);
               navigateTo('/settings/system');
             }}
+            haStates={haStates}
+            entityRegistry={haEntityRegistry}
+            deviceRegistry={haDeviceRegistry}
+            areas={haAreas}
+            loadStateTranslations={loadStateTranslations}
+            developerMode={developerMode && security.can('developer_mode')}
           />
         ) : (
           <section className="dashboard-content-surface rounded-[1.5rem] px-6 py-12 text-center">

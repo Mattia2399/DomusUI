@@ -1,22 +1,30 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import {
   BatteryMedium,
-  Box,
+  Blinds,
+  Bot,
   Camera,
-  ChevronRight,
   CircleAlert,
+  CircuitBoard,
   Clock3,
+  Cpu,
   DownloadCloud,
+  ExternalLink,
+  Factory,
+  Fan,
   Gauge,
+  Home,
+  LayoutDashboard,
   Lightbulb,
   LockKeyhole,
   Plug,
   Radio,
   Router,
   Search,
-  ShieldCheck,
   Signal,
+  Smartphone,
   Speaker,
+  Tag,
   Thermometer,
   Wifi,
   WifiOff,
@@ -28,15 +36,23 @@ import type {
   HaDeviceRegistryEntry,
   HaEntityRegistryEntry,
 } from '../../services/haRegistryPresentation';
+import type { HaStateTranslations } from '../../services/haStateTranslations';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { Widget } from '../../types/dashboardModels';
 import GlassSearchFilterBar, {
   type GlassSearchFilterOption,
 } from '../ui/GlassSearchFilterBar';
-import { DeviceTelemetryStrip, type DeviceTelemetryStripItem } from './DeviceTelemetryStrip';
+import { SettingsListGroup, SettingsListRow, type SettingsListTone } from './SettingsList';
+import {
+  EntityDetailSheet,
+  buildEntityEntries,
+  entityIcon,
+  useHaStateTranslations,
+  type EntityListEntry,
+} from './SettingsEntitiesList';
+import { formatRelativeTime } from './entityStateFormat';
 import {
   buildDeviceHealthSnapshots,
-  summarizeDeviceHealth,
   type DeviceHealthIssue,
   type DeviceHealthSnapshot,
   type DeviceHealthStatus,
@@ -44,64 +60,46 @@ import {
 
 type Translate = ReturnType<typeof useI18n>['t'];
 
-type DeviceIssueFilter =
-  | 'all'
-  | 'attention'
-  | 'offline'
-  | 'battery'
-  | 'updates'
-  | 'unknown';
+type DeviceFilter = 'all' | 'attention' | 'offline' | 'battery' | 'updates' | 'unknown';
 
 const PAGE_SIZE = 60;
 
-const STATUS_META: Record<
-  DeviceHealthStatus,
-  { className: string; dotClassName: string; icon: LucideIcon }
-> = {
-  operational: {
-    className: 'bg-emerald-500/10 text-emerald-500',
-    dotClassName: 'bg-emerald-500',
-    icon: ShieldCheck,
-  },
-  warning: {
-    className: 'bg-amber-500/10 text-amber-500',
-    dotClassName: 'bg-amber-500',
-    icon: CircleAlert,
-  },
-  offline: {
-    className: 'bg-rose-500/10 text-rose-500',
-    dotClassName: 'bg-rose-500',
-    icon: WifiOff,
-  },
-  unknown: {
-    className: 'bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]',
-    dotClassName: 'bg-[color:var(--ui-text-tertiary)]',
-    icon: CircleAlert,
-  },
+/** The kind of device, from its integration first and then from what it does. */
+const DOMAIN_ICON_ORDER: Array<[string, LucideIcon]> = [
+  ['camera', Camera],
+  ['lock', LockKeyhole],
+  ['climate', Thermometer],
+  ['media_player', Speaker],
+  ['vacuum', Bot],
+  ['light', Lightbulb],
+  ['cover', Blinds],
+  ['fan', Fan],
+  ['switch', Plug],
+  ['binary_sensor', Radio],
+  ['sensor', Gauge],
+];
+
+const STATUS_TONE: Record<DeviceHealthStatus, SettingsListTone> = {
+  operational: 'success',
+  warning: 'warning',
+  offline: 'danger',
+  unknown: 'default',
 };
 
-const DOMAIN_ICONS: Record<string, LucideIcon> = {
-  camera: Camera,
-  climate: Thermometer,
-  light: Lightbulb,
-  lock: LockKeyhole,
-  media_player: Speaker,
-  sensor: Gauge,
-  switch: Plug,
-};
+export function deviceIcon(device: DeviceHealthSnapshot): LucideIcon {
+  if (device.platforms?.includes('mobile_app')) return Smartphone;
+  const match = DOMAIN_ICON_ORDER.find(([domain]) => device.entities.some((entity) => entity.domain === domain));
+  return match ? match[1] : Router;
+}
 
 function translatedStatusLabel(status: DeviceHealthStatus, t: Translate) {
   if (status === 'operational') return t('settings.devices.status.operational');
   if (status === 'warning') return t('settings.devices.status.warning');
-  if (status === 'offline') return t('settings.devices.status.offline');
-  return t('settings.devices.status.unknown');
+  if (status === 'offline') return t('settings.devices.row.unreachable');
+  return t('settings.devices.row.noData');
 }
 
-function translatedIssue(
-  issue: DeviceHealthIssue,
-  device: DeviceHealthSnapshot,
-  t: Translate,
-) {
+function translatedIssue(issue: DeviceHealthIssue, device: DeviceHealthSnapshot, t: Translate) {
   switch (issue.code) {
     case 'connection_unavailable':
       return {
@@ -121,15 +119,11 @@ function translatedIssue(
     case 'entity_unavailable':
       return {
         label: t('settings.devices.issue.entityUnavailable'),
-        detail: t('settings.devices.issue.entityUnavailableDetail', {
-          count: device.unavailableEntityCount,
-        }),
+        detail: t('settings.devices.issue.entityUnavailableDetail', { count: device.unavailableEntityCount }),
       };
     case 'battery_low':
       return {
-        label: t('settings.devices.issue.batteryLow', {
-          level: device.batteryLevel ?? 0,
-        }),
+        label: t('settings.devices.issue.batteryLow', { level: device.batteryLevel ?? 0 }),
         detail: t('settings.devices.issue.batteryLowDetail'),
       };
     case 'update_available': {
@@ -144,145 +138,48 @@ function translatedIssue(
   }
 }
 
-function deviceIcon(device: DeviceHealthSnapshot) {
-  const preferredDomains = ['lock', 'camera', 'climate', 'light', 'media_player', 'switch', 'sensor'];
-  const domain = preferredDomains.find((candidate) =>
-    device.entities.some((entity) => entity.domain === candidate),
-  );
-  return domain ? DOMAIN_ICONS[domain] ?? Router : Router;
+/** The one thing a row says on the right: only when something needs a look. */
+function deviceRowValue(device: DeviceHealthSnapshot, t: Translate) {
+  if (device.status === 'offline') return t('settings.devices.row.unreachable');
+  if (device.status === 'unknown') {
+    return device.entityCount === 0 ? t('settings.devices.row.noEntities') : t('settings.devices.row.noData');
+  }
+  if (device.status !== 'warning') return undefined;
+  const codes = new Set(device.issues.map((issue) => issue.code));
+  if (codes.has('battery_low')) return t('settings.devices.row.battery', { level: device.batteryLevel ?? 0 });
+  if (codes.has('entity_unavailable')) {
+    return t('settings.devices.row.unavailableEntities', { count: device.unavailableEntityCount });
+  }
+  if (codes.has('update_available')) return t('settings.devices.row.update');
+  return t('settings.devices.row.checkConnection');
 }
 
-function formatLastUpdate(
-  timestamp: number | undefined,
-  locale: string,
-  t: ReturnType<typeof useI18n>['t'],
-) {
-  if (timestamp === undefined) return t('settings.common.unavailable');
-  const elapsedMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60_000));
-  if (elapsedMinutes < 1) return t('settings.common.now');
-  if (elapsedMinutes < 60) return t('settings.common.minutesAgo', { count: elapsedMinutes });
-  const elapsedHours = Math.round(elapsedMinutes / 60);
-  if (elapsedHours < 24) return t('settings.common.hoursAgo', { count: elapsedHours });
-  return new Intl.DateTimeFormat(locale, {
-    day: '2-digit',
-    month: 'short',
-  }).format(timestamp);
+function deviceSubtitle(device: DeviceHealthSnapshot) {
+  return [device.manufacturer, device.model].filter(Boolean).join(' · ') || undefined;
 }
 
-function DeviceSummary({
-  devices,
-}: {
-  devices: DeviceHealthSnapshot[];
-}) {
+function matchesFilter(device: DeviceHealthSnapshot, filter: DeviceFilter) {
+  // Like the group on top: everything that needs a look, unreachable devices included.
+  if (filter === 'attention') return device.status === 'warning' || device.status === 'offline';
+  if (filter === 'offline') return device.status === 'offline';
+  if (filter === 'battery') return device.issues.some((issue) => issue.code === 'battery_low');
+  if (filter === 'updates') return device.updateAvailable;
+  if (filter === 'unknown') return device.status === 'unknown';
+  return true;
+}
+
+function DeviceRow({ device, onOpen }: { device: DeviceHealthSnapshot; onOpen: () => void }) {
   const { t } = useI18n();
-  const summary = summarizeDeviceHealth(devices);
-  const items = [
-    { label: t('settings.devices.operational'), value: summary.operational, tone: 'text-emerald-500' },
-    {
-      label: t('settings.devices.needsAttention'),
-      value: summary.warning,
-      tone: 'text-amber-500',
-    },
-    { label: t('settings.filters.unavailable'), value: summary.offline, tone: 'text-rose-500' },
-    {
-      label: t('settings.devices.noData'),
-      value: summary.unknown,
-      tone: 'text-[color:var(--ui-text-secondary)]',
-    },
-  ];
+  const value = deviceRowValue(device, t);
   return (
-    <section
-      className="dashboard-content-surface-soft grid grid-cols-2 gap-px overflow-hidden rounded-[1.35rem] p-1 sm:grid-cols-4"
-      aria-label={t('settings.devices.summaryAria')}
-    >
-      {items.map((item) => (
-        <div
-          key={item.label}
-          className="min-w-0 rounded-[1.05rem] px-3.5 py-3 sm:px-4"
-        >
-          <strong className={`block text-xl font-semibold tracking-[-0.04em] ${item.tone}`}>
-            {item.value}
-          </strong>
-          <span className="mt-0.5 block truncate text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
-            {item.label}
-          </span>
-        </div>
-      ))}
-    </section>
-  );
-}
-
-function DeviceRow({
-  device,
-  onOpen,
-}: {
-  device: DeviceHealthSnapshot;
-  onOpen: () => void;
-}) {
-  const { t } = useI18n();
-  const Icon = deviceIcon(device);
-  const status = STATUS_META[device.status];
-  const statusLabel = translatedStatusLabel(device.status, t);
-  const secondaryTelemetry = [
-    device.batteryLevel !== undefined ? `${t('settings.devices.battery')} ${device.batteryLevel}%` : '',
-    device.connectionState === 'online'
-      ? t('settings.devices.connected')
-      : device.connectionState === 'offline'
-        ? t('settings.devices.disconnected')
-        : '',
-    device.updateAvailable ? t('settings.devices.firmwareAvailable') : '',
-  ].filter(Boolean);
-
-  return (
-    <li className="border-t border-[color:var(--ui-separator)] first:border-t-0">
-      <button
-        type="button"
-        onClick={onOpen}
-        className="group flex min-h-[5.35rem] w-full min-w-0 items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)] sm:px-5"
-      >
-        <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
-          <Icon size={19} aria-hidden />
-          <span
-            className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[color:var(--ui-surface-solid)] ${status.dotClassName}`}
-            aria-hidden
-          />
-        </span>
-
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 items-center gap-2">
-            <strong className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">
-              {device.name}
-            </strong>
-            <span
-              className={`hidden shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:inline-flex ${status.className}`}
-            >
-              {statusLabel}
-            </span>
-          </span>
-          <span className="mt-0.5 block truncate text-xs text-[color:var(--ui-text-secondary)]">
-            {[device.areaName, device.manufacturer, device.model].filter(Boolean).join(' · ') ||
-              `${device.entityCount} ${t('settings.devices.entity')}`}
-          </span>
-          <span className="mt-1 block truncate text-[10px] font-medium text-[color:var(--ui-text-tertiary)]">
-            {secondaryTelemetry.join(' · ') ||
-              `${device.entityCount} ${device.entityCount === 1 ? t('settings.devices.entityLinked') : t('settings.devices.entitiesLinked')}`}
-          </span>
-        </span>
-
-        <span className="flex shrink-0 items-center gap-2">
-          <span
-            className={`rounded-full px-2 py-1 text-[10px] font-semibold sm:hidden ${status.className}`}
-          >
-            {statusLabel}
-          </span>
-          <ChevronRight
-            size={17}
-            aria-hidden
-            className="text-[color:var(--ui-text-tertiary)] transition-transform group-hover:translate-x-0.5"
-          />
-        </span>
-      </button>
-    </li>
+    <SettingsListRow
+      icon={deviceIcon(device)}
+      tone={device.status === 'operational' ? 'default' : STATUS_TONE[device.status]}
+      title={device.name}
+      subtitle={deviceSubtitle(device)}
+      value={value}
+      onClick={onOpen}
+    />
   );
 }
 
@@ -307,18 +204,10 @@ export function SettingsDevicesList({
 }) {
   const { locale, t } = useI18n();
   const [query, setQuery] = useState('');
-  const [issue, setIssue] = useState<DeviceIssueFilter>('all');
+  const [filter, setFilter] = useState<DeviceFilter>('all');
   const [area, setArea] = useState('all');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const deferredQuery = useDeferredValue(query.trim().toLocaleLowerCase(locale));
-  const issueOptions: GlassSearchFilterOption[] = [
-    { id: 'all', name: t('settings.devices.allStatuses') },
-    { id: 'attention', name: t('settings.devices.needsAttention') },
-    { id: 'offline', name: t('settings.filters.unavailable') },
-    { id: 'battery', name: t('settings.devices.lowBattery') },
-    { id: 'updates', name: t('settings.devices.updates') },
-    { id: 'unknown', name: t('settings.devices.noData') },
-  ];
   const devices = useMemo(
     () =>
       buildDeviceHealthSnapshots({
@@ -331,16 +220,7 @@ export function SettingsDevicesList({
         widgets,
         batteryWarningThreshold,
       }),
-    [
-      areas,
-      batteryWarningThreshold,
-      connected,
-      deviceRegistry,
-      entityRegistry,
-      haStates,
-      widgets,
-      locale,
-    ],
+    [areas, batteryWarningThreshold, connected, deviceRegistry, entityRegistry, haStates, widgets, locale],
   );
 
   const areaOptions = useMemo<GlassSearchFilterOption[]>(() => {
@@ -357,21 +237,12 @@ export function SettingsDevicesList({
     ];
   }, [devices, locale, t]);
 
-  const filteredDevices = useMemo(
+  // Room and search; the status chips count within them.
+  const matching = useMemo(
     () =>
       devices.filter((device) => {
         if (area === 'none' && device.areaId) return false;
         if (area !== 'all' && area !== 'none' && device.areaId !== area) return false;
-        if (issue === 'attention' && device.status !== 'warning') return false;
-        if (issue === 'offline' && device.status !== 'offline') return false;
-        if (
-          issue === 'battery' &&
-          !device.issues.some((entry) => entry.code === 'battery_low')
-        ) {
-          return false;
-        }
-        if (issue === 'updates' && !device.updateAvailable) return false;
-        if (issue === 'unknown' && device.status !== 'unknown') return false;
         if (!deferredQuery) return true;
         return [
           device.name,
@@ -385,39 +256,99 @@ export function SettingsDevicesList({
           .toLocaleLowerCase(locale)
           .includes(deferredQuery);
       }),
-    [area, deferredQuery, devices, issue, locale],
+    [area, deferredQuery, devices, locale],
   );
 
-  useEffect(() => setVisibleCount(PAGE_SIZE), [area, deferredQuery, issue]);
+  const chips = useMemo(() => {
+    const options: Array<{ id: DeviceFilter; label: string }> = [
+      { id: 'attention', label: t('settings.devices.needsAttention') },
+      { id: 'offline', label: t('settings.devices.chip.offline') },
+      { id: 'battery', label: t('settings.devices.lowBattery') },
+      { id: 'updates', label: t('settings.devices.updates') },
+      { id: 'unknown', label: t('settings.devices.noData') },
+    ];
+    return options
+      .map((option) => ({ ...option, count: matching.filter((device) => matchesFilter(device, option.id)).length }))
+      .filter((option) => option.count > 0);
+  }, [matching, t]);
+
+  useEffect(() => {
+    if (filter !== 'all' && !chips.some((chip) => chip.id === filter)) setFilter('all');
+  }, [chips, filter]);
+  useEffect(() => setVisibleCount(PAGE_SIZE), [area, deferredQuery, filter]);
+
+  const filtered = useMemo(
+    () => matching.filter((device) => matchesFilter(device, filter)),
+    [filter, matching],
+  );
+
+  // Devices with a problem first, then one group per room, the room-less last.
+  const ordered = useMemo(() => {
+    const pinAttention = filter === 'all';
+    const attention = pinAttention
+      ? filtered.filter((device) => device.status === 'warning' || device.status === 'offline')
+      : [];
+    const rest = filtered
+      .filter((device) => !attention.includes(device))
+      .sort((left, right) => {
+        if (Boolean(left.areaName) !== Boolean(right.areaName)) return left.areaName ? -1 : 1;
+        return (left.areaName ?? '').localeCompare(right.areaName ?? '', locale) ||
+          left.name.localeCompare(right.name, locale, { sensitivity: 'base' });
+      });
+    return [
+      ...attention.map((device) => ({ device, group: 'attention' })),
+      ...rest.map((device) => ({ device, group: device.areaId ? `area:${device.areaId}` : 'none' })),
+    ];
+  }, [filter, filtered, locale]);
+
+  const groups = useMemo(() => {
+    const totals = new Map<string, number>();
+    ordered.forEach(({ group }) => totals.set(group, (totals.get(group) ?? 0) + 1));
+    const result: Array<{ id: string; title: string; total: number; devices: DeviceHealthSnapshot[] }> = [];
+    ordered.slice(0, visibleCount).forEach(({ device, group }) => {
+      const last = result[result.length - 1];
+      if (last?.id === group) {
+        last.devices.push(device);
+        return;
+      }
+      result.push({
+        id: group,
+        title: group === 'attention'
+          ? t('settings.devices.needsAttention')
+          : group === 'none'
+            ? t('settings.filters.noRoom')
+            : device.areaName || device.areaId || '',
+        total: totals.get(group) ?? 0,
+        devices: [device],
+      });
+    });
+    return result;
+  }, [ordered, t, visibleCount]);
 
   const resetFilters = () => {
     setQuery('');
-    setIssue('all');
+    setFilter('all');
     setArea('all');
   };
-  const visibleDevices = filteredDevices.slice(0, visibleCount);
+
+  const chipClass = (selected: boolean) =>
+    `inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold transition-colors ${
+      selected
+        ? 'bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)]'
+        : 'border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]'
+    }`;
 
   return (
-    <div>
-      <DeviceSummary devices={devices} />
-      <div className="sticky top-0 z-30 mt-4">
+    <div className="mx-auto w-full max-w-[48rem]">
+      <div className="sticky top-0 z-30">
         <GlassSearchFilterBar
           query={query}
           onQueryChange={setQuery}
           placeholder={t('settings.devices.searchPlaceholder')}
-          resultCount={filteredDevices.length}
+          resultCount={filtered.length}
           resultLabel={(count) => t('settings.devices.resultCount', { count })}
           onReset={resetFilters}
           filters={[
-            {
-              id: 'health',
-              label: t('settings.devices.status'),
-              ariaLabel: t('settings.devices.statusAria'),
-              options: issueOptions,
-              value: issue,
-              defaultValue: 'all',
-              onChange: (value) => setIssue(value as DeviceIssueFilter),
-            },
             {
               id: 'area',
               label: t('settings.filters.room'),
@@ -431,18 +362,45 @@ export function SettingsDevicesList({
         />
       </div>
 
-      <section className="dashboard-content-surface mt-4 overflow-hidden rounded-[1.5rem]">
-        {visibleDevices.length > 0 ? (
-          <ul aria-label={t('settings.devices.listAria')}>
-            {visibleDevices.map((device) => (
-              <DeviceRow
-                key={device.id}
-                device={device}
-                onOpen={() => onOpenDevice(device.id)}
-              />
+      {chips.length > 0 ? (
+        <div
+          role="group"
+          aria-label={t('settings.devices.chipsAria')}
+          className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <button type="button" aria-pressed={filter === 'all'} onClick={() => setFilter('all')} className={chipClass(filter === 'all')}>
+            {t('settings.devices.chip.all')}
+            <span className="tabular-nums opacity-70">{matching.length}</span>
+          </button>
+          {chips.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              aria-pressed={filter === chip.id}
+              onClick={() => setFilter((current) => (current === chip.id ? 'all' : chip.id))}
+              className={chipClass(filter === chip.id)}
+            >
+              {chip.label}
+              <span className="tabular-nums opacity-70">{chip.count}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="mt-5 space-y-6" aria-label={t('settings.devices.listAria')}>
+        {groups.map((group) => (
+          <SettingsListGroup
+            key={group.id}
+            title={group.title}
+            action={<span className="text-[11px] font-semibold tabular-nums text-[color:var(--ui-text-tertiary)]">{group.total}</span>}
+          >
+            {group.devices.map((device) => (
+              <DeviceRow key={device.id} device={device} onOpen={() => onOpenDevice(device.id)} />
             ))}
-          </ul>
-        ) : (
+          </SettingsListGroup>
+        ))}
+
+        {filtered.length === 0 ? (
           <div className="flex min-h-48 flex-col items-center justify-center px-6 text-center">
             <Search size={22} className="text-[color:var(--ui-text-tertiary)]" />
             <h3 className="mt-3 text-sm font-semibold">
@@ -454,18 +412,18 @@ export function SettingsDevicesList({
                 : t('settings.filters.tryDifferent')}
             </p>
           </div>
-        )}
-      </section>
+        ) : null}
 
-      {visibleCount < filteredDevices.length ? (
-        <button
-          type="button"
-          onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
-          className="liquid-glass-selection mx-auto mt-4 flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-semibold"
-        >
-          {t('settings.devices.showMore', { count: Math.min(PAGE_SIZE, filteredDevices.length - visibleCount) })}
-        </button>
-      ) : null}
+        {visibleCount < ordered.length ? (
+          <button
+            type="button"
+            onClick={() => setVisibleCount((current) => current + PAGE_SIZE)}
+            className="liquid-glass-selection mx-auto flex min-h-11 items-center justify-center rounded-full px-5 text-sm font-semibold"
+          >
+            {t('settings.devices.showMore', { count: Math.min(PAGE_SIZE, ordered.length - visibleCount) })}
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -473,172 +431,251 @@ export function SettingsDevicesList({
 export function SettingsDeviceDetail({
   device,
   onOpenUpdates,
+  haStates = {},
+  entityRegistry = [],
+  deviceRegistry = [],
+  areas = [],
+  loadStateTranslations,
+  developerMode = false,
 }: {
   device: DeviceHealthSnapshot;
   onOpenUpdates: () => void;
+  haStates?: MockEntityStateMap;
+  entityRegistry?: HaEntityRegistryEntry[];
+  deviceRegistry?: HaDeviceRegistryEntry[];
+  areas?: HaArea[];
+  loadStateTranslations?: (language: string) => Promise<HaStateTranslations>;
+  developerMode?: boolean;
 }) {
   const { locale, t } = useI18n();
+  const translations = useHaStateTranslations(loadStateTranslations, locale);
+  const [showDiagnostic, setShowDiagnostic] = useState(false);
+  const [selected, setSelected] = useState<EntityListEntry | null>(null);
   const Icon = deviceIcon(device);
-  const status = STATUS_META[device.status];
-  const statusLabel = translatedStatusLabel(device.status, t);
-  const StatusIcon = status.icon;
-  const telemetry = useMemo<DeviceTelemetryStripItem[]>(() => {
-    const items: DeviceTelemetryStripItem[] = [];
-    if (device.batteryLevel !== undefined) {
-      items.push({
-        id: 'battery',
-        icon: <BatteryMedium size={14} />,
-        label: t('settings.devices.battery'),
-        value: `${device.batteryLevel}%`,
-        tone:
-          device.batteryLevel <= 10
-            ? 'danger'
-            : device.batteryLevel <= 20
-              ? 'warning'
-              : 'success',
-      });
-    }
-    if (device.connectionState) {
-      items.push({
-        id: 'connection',
-        icon:
-          device.connectionState === 'online' ? <Wifi size={14} /> : <WifiOff size={14} />,
-        label: t('settings.devices.connection'),
-        value: device.connectionState === 'online' ? t('settings.devices.connected') : t('settings.devices.disconnected'),
-        tone: device.connectionState === 'online' ? 'success' : 'danger',
-      });
-    }
-    if (device.signalStrength !== undefined) {
-      items.push({
-        id: 'signal',
-        icon: <Signal size={14} />,
-        label: t('settings.devices.signal'),
-        value: `${device.signalStrength} ${device.signalUnit || 'dBm'}`,
-      });
-    }
-    if (device.lastDataUpdate !== undefined) {
-      items.push({
-        id: 'last-update',
-        icon: <Clock3 size={14} />,
-        label: t('settings.devices.lastData'),
-        value: formatLastUpdate(device.lastDataUpdate, locale, t),
-      });
-    }
-    return items;
-  }, [device, locale, t]);
+  const tone = STATUS_TONE[device.status];
+
+  const { primary, diagnostic } = useMemo(() => {
+    // Firmware entities are already the update row of the status group.
+    const diagnosticIds = new Set(
+      device.entities.filter((entity) => entity.diagnostic || entity.domain === 'update').map((entity) => entity.id),
+    );
+    const entries = buildEntityEntries({
+      haStates,
+      entityRegistry,
+      deviceRegistry,
+      areas,
+      translations,
+      locale,
+      t,
+      entityIds: device.entities.map((entity) => entity.id),
+    });
+    return {
+      primary: entries.filter((entry) => !diagnosticIds.has(entry.id)),
+      diagnostic: entries.filter((entry) => diagnosticIds.has(entry.id)),
+    };
+  }, [areas, device.entities, deviceRegistry, entityRegistry, haStates, locale, t, translations]);
+
+  const issues = device.issues.filter((issue) => issue.code !== 'update_available');
+  const statusRows = [
+    device.connectionState ? (
+      <SettingsListRow
+        key="connection"
+        icon={device.connectionState === 'online' ? Wifi : WifiOff}
+        tone={device.connectionState === 'online' ? 'success' : 'danger'}
+        title={t('settings.devices.connection')}
+        value={device.connectionState === 'online' ? t('settings.devices.connected') : t('settings.devices.disconnected')}
+      />
+    ) : null,
+    device.batteryLevel !== undefined ? (
+      <SettingsListRow
+        key="battery"
+        icon={BatteryMedium}
+        tone={device.batteryLevel <= 10 ? 'danger' : device.batteryLevel <= 20 ? 'warning' : 'success'}
+        title={t('settings.devices.battery')}
+        value={`${device.batteryLevel}%`}
+        meter={{
+          percent: device.batteryLevel,
+          tone: device.batteryLevel <= 10 ? 'danger' : device.batteryLevel <= 20 ? 'warning' : 'success',
+        }}
+      />
+    ) : null,
+    device.signalStrength !== undefined ? (
+      <SettingsListRow
+        key="signal"
+        icon={Signal}
+        title={t('settings.devices.signal')}
+        value={`${device.signalStrength} ${device.signalUnit || 'dBm'}`}
+      />
+    ) : null,
+    device.lastDataUpdate !== undefined ? (
+      <SettingsListRow
+        key="last-data"
+        icon={Clock3}
+        title={t('settings.devices.lastData')}
+        value={formatRelativeTime(device.lastDataUpdate, locale)}
+      />
+    ) : null,
+    device.updateAvailable ? (
+      <SettingsListRow
+        key="update"
+        icon={DownloadCloud}
+        tone="warning"
+        title={t('settings.devices.issue.updateAvailable')}
+        subtitle={t('settings.devices.openUpdates')}
+        onClick={onOpenUpdates}
+      />
+    ) : null,
+  ].filter(Boolean);
+
+  const configurationUrl = device.configurationUrl && /^https?:\/\//i.test(device.configurationUrl)
+    ? device.configurationUrl
+    : null;
+  const renderEntity = (entry: EntityListEntry) => (
+    <SettingsListRow
+      key={entry.id}
+      icon={entityIcon(entry.domain)}
+      tone={entry.tone}
+      title={entry.name}
+      value={entry.value}
+      onClick={() => setSelected(entry)}
+    />
+  );
 
   return (
-    <div className="space-y-4">
-      <section className="dashboard-content-surface rounded-[1.5rem] p-5 sm:p-6">
-        <div className="flex min-w-0 items-start gap-4">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
-            <Icon size={23} aria-hidden />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h2 className="truncate text-lg font-semibold tracking-[-0.03em]">
-                {device.name}
-              </h2>
-              <span
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${status.className}`}
-              >
-                <StatusIcon size={12} />
-                {statusLabel}
-              </span>
-            </div>
-            <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">
-              {[device.areaName, device.manufacturer, device.model].filter(Boolean).join(' · ') ||
-                t('settings.devices.infoUnavailable')}
-            </p>
-            <p className="mt-2 text-xs text-[color:var(--ui-text-tertiary)]">
-              {device.entityCount} {device.entityCount === 1 ? t('settings.devices.entityLinked') : t('settings.devices.entitiesLinked')}
-              {device.dashboardWidgetCount > 0
-                ? ` · ${t('settings.devices.usedBy', { count: device.dashboardWidgetCount })}`
-                : ''}
-            </p>
-          </div>
-        </div>
-        {telemetry.length > 0 ? <div className="mt-5"><DeviceTelemetryStrip items={telemetry} /></div> : null}
-      </section>
+    <div className="mx-auto w-full max-w-[48rem] space-y-6 pb-4">
+      <div className="flex flex-col items-center px-4 pt-2 text-center">
+        <span
+          className={`flex h-16 w-16 items-center justify-center rounded-[1.35rem] border ${
+            tone === 'danger'
+              ? 'border-rose-400/25 bg-rose-500/10 text-[color:var(--ui-danger)]'
+              : tone === 'warning'
+                ? 'border-amber-400/25 bg-amber-500/10 text-amber-500'
+                : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]'
+          }`}
+        >
+          <Icon size={28} aria-hidden />
+        </span>
+        {deviceSubtitle(device) ? (
+          <p className="mt-3 text-sm text-[color:var(--ui-text-secondary)]">{deviceSubtitle(device)}</p>
+        ) : null}
+        <p
+          className={`mt-1 text-xs font-semibold ${
+            tone === 'danger'
+              ? 'text-[color:var(--ui-danger)]'
+              : tone === 'warning'
+                ? 'text-amber-500'
+                : tone === 'success'
+                  ? 'text-emerald-500'
+                  : 'text-[color:var(--ui-text-tertiary)]'
+          }`}
+        >
+          {device.status === 'unknown' && device.entityCount === 0
+            ? t('settings.devices.row.noEntities')
+            : translatedStatusLabel(device.status, t)}
+        </p>
+      </div>
 
-      {device.issues.length > 0 ? (
-        <section className="dashboard-content-surface rounded-[1.5rem] p-5 sm:p-6">
-          <h2 className="text-base font-semibold tracking-[-0.02em]">{t('settings.devices.needsAttention')}</h2>
-          <div className="mt-3 divide-y divide-[color:var(--ui-separator)]">
-            {device.issues.map((issue) => {
-              const copy = translatedIssue(issue, device, t);
-              return (
-              <div key={issue.code} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                <CircleAlert
-                  size={17}
-                  className="mt-0.5 shrink-0 text-[color:var(--ui-warning)]"
-                />
-                <div>
-                  <p className="text-sm font-semibold">{copy.label}</p>
-                  <p className="mt-0.5 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                    {copy.detail}
-                  </p>
-                </div>
-              </div>
-              );
-            })}
-          </div>
-          {device.updateAvailable ? (
-            <button
-              type="button"
-              onClick={onOpenUpdates}
-              className="liquid-glass-control mt-4 inline-flex min-h-11 items-center gap-2 rounded-full px-4 text-sm font-semibold"
-            >
-              <DownloadCloud size={16} />
-              {t('settings.devices.openUpdates')}
-            </button>
-          ) : null}
-        </section>
+      {statusRows.length > 0 ? (
+        <SettingsListGroup title={t('settings.devices.detail.status')}>{statusRows}</SettingsListGroup>
       ) : null}
 
-      <section className="dashboard-content-surface overflow-hidden rounded-[1.5rem]">
-        <div className="px-5 pb-3 pt-5 sm:px-6">
-          <h2 className="text-base font-semibold tracking-[-0.02em]">{t('settings.devices.deviceEntities')}</h2>
-          <p className="mt-1 text-xs text-[color:var(--ui-text-secondary)]">
-            {t('settings.devices.deviceEntitiesSubtitle')}
-          </p>
-        </div>
-        {device.entities.length > 0 ? (
-          <ul aria-label={t('settings.devices.entitiesAria', { name: device.name })}>
-            {device.entities.map((entity) => (
-              <li
-                key={entity.id}
-                className="flex min-w-0 items-center gap-3 border-t border-[color:var(--ui-separator)] px-5 py-3 sm:px-6"
-              >
-                {entity.diagnostic ? (
-                  <Radio size={16} className="shrink-0 text-[color:var(--ui-text-tertiary)]" />
-                ) : (
-                  <Box size={16} className="shrink-0 text-[color:var(--ui-text-secondary)]" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{entity.name}</p>
-                  <p className="mt-0.5 truncate text-[10px] text-[color:var(--ui-text-tertiary)]">
-                    {entity.id}
-                  </p>
-                </div>
-                <span
-                  className={`max-w-[38%] truncate text-xs font-semibold ${
-                    entity.unavailable
-                      ? 'text-rose-500'
-                      : 'text-[color:var(--ui-text-secondary)]'
-                  }`}
-                >
-                  {entity.unavailable ? t('settings.common.unavailable') : entity.value}
-                </span>
-              </li>
-            ))}
-          </ul>
+      {issues.length > 0 ? (
+        <SettingsListGroup title={t('settings.devices.needsAttention')}>
+          {issues.map((issue) => {
+            const copy = translatedIssue(issue, device, t);
+            return (
+              <SettingsListRow
+                key={issue.code}
+                icon={CircleAlert}
+                tone={device.status === 'offline' ? 'danger' : 'warning'}
+                title={copy.label}
+                subtitle={copy.detail}
+              />
+            );
+          })}
+        </SettingsListGroup>
+      ) : null}
+
+      <SettingsListGroup
+        title={t('settings.devices.detail.entities')}
+        action={<span className="text-[11px] font-semibold tabular-nums text-[color:var(--ui-text-tertiary)]">{primary.length}</span>}
+      >
+        {primary.length > 0 ? (
+          primary.map(renderEntity)
         ) : (
-          <div className="border-t border-[color:var(--ui-separator)] px-6 py-10 text-center text-sm text-[color:var(--ui-text-secondary)]">
+          <div className="px-4 py-6 text-center text-sm text-[color:var(--ui-text-secondary)]">
             {t('settings.devices.noLinkedEntities')}
           </div>
         )}
-      </section>
+      </SettingsListGroup>
+
+      {diagnostic.length > 0 ? (
+        showDiagnostic ? (
+          <SettingsListGroup
+            title={t('settings.devices.detail.diagnostic')}
+            action={
+              <button
+                type="button"
+                onClick={() => setShowDiagnostic(false)}
+                className="text-xs font-semibold text-[color:var(--ui-accent)] hover:opacity-80"
+              >
+                {t('settings.devices.detail.hideDiagnostic')}
+              </button>
+            }
+          >
+            {diagnostic.map(renderEntity)}
+          </SettingsListGroup>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowDiagnostic(true)}
+            className="mx-auto flex min-h-10 items-center justify-center rounded-full px-4 text-xs font-semibold text-[color:var(--ui-accent)] hover:opacity-80"
+          >
+            {diagnostic.length === 1
+              ? t('settings.devices.detail.showDiagnosticOne')
+              : t('settings.devices.detail.showDiagnosticMany', { count: diagnostic.length })}
+          </button>
+        )
+      ) : null}
+
+      <SettingsListGroup title={t('settings.devices.detail.info')}>
+        {device.manufacturer ? (
+          <SettingsListRow icon={Factory} title={t('settings.devices.detail.manufacturer')} value={device.manufacturer} />
+        ) : null}
+        {device.model ? <SettingsListRow icon={Tag} title={t('settings.devices.detail.model')} value={device.model} /> : null}
+        {device.swVersion ? (
+          <SettingsListRow icon={Cpu} title={t('settings.devices.detail.software')} value={device.swVersion} />
+        ) : null}
+        {device.hwVersion ? (
+          <SettingsListRow icon={CircuitBoard} title={t('settings.devices.detail.hardware')} value={device.hwVersion} />
+        ) : null}
+        <SettingsListRow
+          icon={Home}
+          title={t('settings.entities.detail.room')}
+          value={device.areaName || t('settings.filters.noRoom')}
+        />
+        {device.dashboardWidgetCount > 0 ? (
+          <SettingsListRow
+            icon={LayoutDashboard}
+            title={t('settings.devices.detail.dashboard')}
+            value={
+              device.dashboardWidgetCount === 1
+                ? t('settings.devices.detail.cardsOne')
+                : t('settings.devices.detail.cardsMany', { count: device.dashboardWidgetCount })
+            }
+          />
+        ) : null}
+        {configurationUrl ? (
+          <SettingsListRow
+            icon={ExternalLink}
+            title={t('settings.devices.detail.openPage')}
+            subtitle={t('settings.devices.detail.openPageHint')}
+            onClick={() => window.open(configurationUrl, '_blank', 'noopener,noreferrer')}
+          />
+        ) : null}
+      </SettingsListGroup>
+
+      <EntityDetailSheet entry={selected} onClose={() => setSelected(null)} developerMode={developerMode} />
     </div>
   );
 }

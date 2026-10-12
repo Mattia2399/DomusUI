@@ -86,7 +86,7 @@ const DOMAIN_ICONS: Record<string, LucideIcon> = {
 
 type AvailabilityFilter = 'all' | 'available' | 'unavailable';
 
-type EntityListEntry = {
+export type EntityListEntry = {
   id: string;
   domain: string;
   domainLabel: string;
@@ -136,6 +136,94 @@ function formatEntityName(
     normalizeText(registryEntry?.originalName) ||
     humanize(entityId.replace(/^[^.]+\./, ''))
   );
+}
+
+export function entityIcon(domain: string): LucideIcon {
+  return DOMAIN_ICONS[domain] ?? Box;
+}
+
+/** Home Assistant's state words for the current language, empty until they arrive. */
+export function useHaStateTranslations(
+  loadStateTranslations: ((language: string) => Promise<HaStateTranslations>) | undefined,
+  locale: string,
+) {
+  const [translations, setTranslations] = useState<HaStateTranslations>({});
+  useEffect(() => {
+    if (!loadStateTranslations) return undefined;
+    let live = true;
+    void loadStateTranslations(locale).then((loaded) => {
+      if (live) setTranslations(loaded);
+    });
+    return () => {
+      live = false;
+    };
+  }, [loadStateTranslations, locale]);
+  return translations;
+}
+
+/** The rows of the entity list, also used for the entities of one device. */
+export function buildEntityEntries({
+  haStates,
+  entityRegistry,
+  deviceRegistry,
+  areas,
+  translations,
+  locale,
+  t,
+  entityIds,
+}: {
+  haStates: MockEntityStateMap;
+  entityRegistry: HaEntityRegistryEntry[];
+  deviceRegistry: HaDeviceRegistryEntry[];
+  areas: HaArea[];
+  translations: HaStateTranslations;
+  locale: ReturnType<typeof useI18n>['locale'];
+  t: ReturnType<typeof useI18n>['t'];
+  /** Only these entities; every known entity when absent. */
+  entityIds?: string[];
+}): EntityListEntry[] {
+  const registryByEntityId = new Map(entityRegistry.map((entry) => [entry.entityId, entry]));
+  const deviceById = new Map(deviceRegistry.map((entry) => [entry.id, entry]));
+  const areaNameById = new Map(areas.map((entry) => [entry.area_id, entry.name]));
+  const labels = {
+    disabled: t('settings.entities.disabled'),
+    unavailable: t('settings.common.unavailable'),
+    unknown: t('settings.common.unknown'),
+  };
+  const ids = entityIds ?? Array.from(
+    new Set([...Object.keys(haStates), ...entityRegistry.map((entry) => entry.entityId)]),
+  );
+  return ids
+    .map((id) => {
+      const entity = haStates[id];
+      const registryEntry = registryByEntityId.get(id);
+      const device = registryEntry?.deviceId ? deviceById.get(registryEntry.deviceId) : undefined;
+      const entityDomain = resolveDomain(id);
+      const areaId = registryEntry?.areaId || device?.areaId || '';
+      const formatted = formatEntityState({ entityId: id, entity, registry: registryEntry, translations, locale, labels });
+      return {
+        id,
+        domain: entityDomain,
+        domainLabel: formatDomain(entityDomain, t),
+        name: formatEntityName(id, entity, registryEntry),
+        value: formatted.text,
+        tone: formatted.tone,
+        unavailable: formatted.unavailable,
+        disabled: Boolean(registryEntry?.disabledBy),
+        areaId,
+        areaLabel: areaId ? areaNameById.get(areaId) ?? areaId : '',
+        deviceId: registryEntry?.deviceId ?? '',
+        deviceName: normalizeText(device?.nameByUser) || normalizeText(device?.name),
+        platform: registryEntry?.platform ?? '',
+        entity,
+      };
+    })
+    .sort(
+      (left, right) =>
+        domainRank(left.domain) - domainRank(right.domain) ||
+        left.domainLabel.localeCompare(right.domainLabel, locale) ||
+        left.name.localeCompare(right.name, locale, { sensitivity: 'base' }),
+    );
 }
 
 function formatAttribute(value: unknown) {
@@ -239,6 +327,44 @@ function EntityDetail({
   );
 }
 
+/** The read-only detail of one entity, as a sheet. */
+export function EntityDetailSheet({
+  entry,
+  onClose,
+  developerMode = false,
+  onOpenDevice,
+}: {
+  entry: EntityListEntry | null;
+  onClose: () => void;
+  developerMode?: boolean;
+  onOpenDevice?: (deviceId: string) => void;
+}) {
+  return (
+    <GlassBottomSheet
+      isOpen={entry !== null}
+      onClose={onClose}
+      title={entry?.name ?? ''}
+      description={entry ? entry.domainLabel : undefined}
+    >
+      {entry ? (
+        <EntityDetail
+          key={entry.id}
+          entry={entry}
+          developerMode={developerMode}
+          onOpenDevice={
+            onOpenDevice
+              ? (deviceId) => {
+                  onClose();
+                  onOpenDevice(deviceId);
+                }
+              : undefined
+          }
+        />
+      ) : null}
+    </GlassBottomSheet>
+  );
+}
+
 export function SettingsEntitiesList({
   haStates,
   entityRegistry = [],
@@ -258,7 +384,7 @@ export function SettingsEntitiesList({
   onOpenDevice?: (deviceId: string) => void;
 }) {
   const { locale, t } = useI18n();
-  const [translations, setTranslations] = useState<HaStateTranslations>({});
+  const translations = useHaStateTranslations(loadStateTranslations, locale);
   const [query, setQuery] = useState('');
   const [domain, setDomain] = useState('all');
   const [availability, setAvailability] = useState<AvailabilityFilter>('all');
@@ -268,67 +394,16 @@ export function SettingsEntitiesList({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const deferredQuery = useDeferredValue(query.trim().toLocaleLowerCase(locale));
 
-  useEffect(() => {
-    if (!loadStateTranslations) return undefined;
-    let live = true;
-    void loadStateTranslations(locale).then((loaded) => {
-      if (live) setTranslations(loaded);
-    });
-    return () => {
-      live = false;
-    };
-  }, [loadStateTranslations, locale]);
-
   const availabilityOptions: GlassSearchFilterOption[] = [
     { id: 'all', name: t('settings.filters.anyStatus') },
     { id: 'available', name: t('settings.filters.available') },
     { id: 'unavailable', name: t('settings.filters.unavailable') },
   ];
 
-  const entities = useMemo<EntityListEntry[]>(() => {
-    const registryByEntityId = new Map(entityRegistry.map((entry) => [entry.entityId, entry]));
-    const deviceById = new Map(deviceRegistry.map((entry) => [entry.id, entry]));
-    const areaNameById = new Map(areas.map((entry) => [entry.area_id, entry.name]));
-    const labels = {
-      disabled: t('settings.entities.disabled'),
-      unavailable: t('settings.common.unavailable'),
-      unknown: t('settings.common.unknown'),
-    };
-    const entityIds = Array.from(
-      new Set([...Object.keys(haStates), ...entityRegistry.map((entry) => entry.entityId)]),
-    );
-    return entityIds
-      .map((id) => {
-        const entity = haStates[id];
-        const registryEntry = registryByEntityId.get(id);
-        const device = registryEntry?.deviceId ? deviceById.get(registryEntry.deviceId) : undefined;
-        const entityDomain = resolveDomain(id);
-        const areaId = registryEntry?.areaId || device?.areaId || '';
-        const formatted = formatEntityState({ entityId: id, entity, registry: registryEntry, translations, locale, labels });
-        return {
-          id,
-          domain: entityDomain,
-          domainLabel: formatDomain(entityDomain, t),
-          name: formatEntityName(id, entity, registryEntry),
-          value: formatted.text,
-          tone: formatted.tone,
-          unavailable: formatted.unavailable,
-          disabled: Boolean(registryEntry?.disabledBy),
-          areaId,
-          areaLabel: areaId ? areaNameById.get(areaId) ?? areaId : '',
-          deviceId: registryEntry?.deviceId ?? '',
-          deviceName: normalizeText(device?.nameByUser) || normalizeText(device?.name),
-          platform: registryEntry?.platform ?? '',
-          entity,
-        };
-      })
-      .sort(
-        (left, right) =>
-          domainRank(left.domain) - domainRank(right.domain) ||
-          left.domainLabel.localeCompare(right.domainLabel, locale) ||
-          left.name.localeCompare(right.name, locale, { sensitivity: 'base' }),
-      );
-  }, [areas, deviceRegistry, entityRegistry, haStates, locale, t, translations]);
+  const entities = useMemo<EntityListEntry[]>(
+    () => buildEntityEntries({ haStates, entityRegistry, deviceRegistry, areas, translations, locale, t }),
+    [areas, deviceRegistry, entityRegistry, haStates, locale, t, translations],
+  );
 
   const areaOptions = useMemo<GlassSearchFilterOption[]>(() => {
     const availableAreas = new Map<string, string>();
@@ -413,7 +488,7 @@ export function SettingsEntitiesList({
   const renderRow = (entry: EntityListEntry) => (
     <SettingsListRow
       key={entry.id}
-      icon={DOMAIN_ICONS[entry.domain] ?? Box}
+      icon={entityIcon(entry.domain)}
       tone={entry.tone}
       title={entry.name}
       subtitle={entry.areaLabel || undefined}
@@ -548,28 +623,12 @@ export function SettingsEntitiesList({
         ) : null}
       </div>
 
-      <GlassBottomSheet
-        isOpen={selected !== null}
+      <EntityDetailSheet
+        entry={selected}
         onClose={() => setSelectedId(null)}
-        title={selected?.name ?? ''}
-        description={selected ? selected.domainLabel : undefined}
-      >
-        {selected ? (
-          <EntityDetail
-            key={selected.id}
-            entry={selected}
-            developerMode={developerMode}
-            onOpenDevice={
-              onOpenDevice
-                ? (deviceId) => {
-                    setSelectedId(null);
-                    onOpenDevice(deviceId);
-                  }
-                : undefined
-            }
-          />
-        ) : null}
-      </GlassBottomSheet>
+        developerMode={developerMode}
+        onOpenDevice={onOpenDevice}
+      />
     </div>
   );
 }

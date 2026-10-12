@@ -118,6 +118,15 @@
   a tap opens a read-only detail with state, last change, room, device,
   integration and a copyable id, plus the raw attributes in Developer Mode.
   Disabled entities sit in their own group, closed at first.
+- Settings → Devices puts the devices that need a look on top and groups the
+  rest by room, with status chips (needs attention, unreachable, low battery,
+  updates, no data) that show only when they count something. Each device has
+  an icon for its kind, a phone included, and says on the right only what
+  needs attention. The device page shows status (connection, battery with a
+  bar, signal, last data, firmware update), the problems, its entities with
+  the same words as the Entities page and the same detail sheet, diagnostic
+  entities behind a button, and the device information with a link to the
+  manufacturer's page when Home Assistant provides one.
 
 ### Removed
 

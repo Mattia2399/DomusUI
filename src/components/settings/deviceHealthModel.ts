@@ -38,6 +38,9 @@ export type DeviceHealthSnapshot = {
   manufacturer?: string;
   model?: string;
   swVersion?: string;
+  hwVersion?: string;
+  /** Integrations providing the device's entities, such as `mobile_app` or `hue`. */
+  platforms?: string[];
   areaId?: string;
   areaName?: string;
   status: DeviceHealthStatus;
@@ -373,6 +376,8 @@ export function buildDeviceHealthSnapshots({
         manufacturer: text(device.manufacturer) || undefined,
         model: text(device.model) || undefined,
         swVersion: text(device.swVersion) || undefined,
+        hwVersion: text(device.hwVersion) || undefined,
+        platforms: Array.from(new Set(entries.map((entry) => text(entry.platform)).filter(Boolean))),
         areaId: device.areaId || undefined,
         areaName: device.areaId ? areaById.get(device.areaId) ?? device.areaId : undefined,
         status,
