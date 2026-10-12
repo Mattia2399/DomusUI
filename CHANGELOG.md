@@ -100,6 +100,11 @@
   backup, and restart and shut down. Rows without data are not shown, the
   restart and shut-down actions ask for confirmation in a dialog instead of
   a five-second countdown, and their colors read well in light mode too.
+- The update center lists each component with its own "Update" button and,
+  when opened, the release summary, a link to the release notes, a backup
+  before installing for the components that support it, and "skip this
+  version". Skipped versions get their own group and can be offered again,
+  and System status counts them apart from the components up to date.
 
 ### Removed
 

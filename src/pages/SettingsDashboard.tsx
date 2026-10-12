@@ -148,7 +148,18 @@ type UpdateEntityMatch = {
   inProgress: boolean;
   /** install progress 0–100, or null when the entity does not report a percentage. */
   percentage: number | null;
+  releaseSummary: string | null;
+  releaseUrl: string | null;
+  picture: string | null;
+  /** `update.install` accepts `backup: true` (UpdateEntityFeature.BACKUP). */
+  supportsBackup: boolean;
+  /** The latest version was skipped with `update.skip`. */
+  skipped: boolean;
+  skippedVersion: string | null;
 };
+
+/** UpdateEntityFeature.BACKUP in Home Assistant. */
+const UPDATE_FEATURE_BACKUP = 8;
 
 type MetricTone = 'ok' | 'warn' | 'danger';
 
@@ -368,15 +379,24 @@ function collectUpdateEntities(haStates: MockEntityStateMap): UpdateEntityMatch[
             ? clamp(rawInProgress, 0, 100)
             : null;
       const inProgress = rawInProgress === true || percentage !== null;
+      const latest = normalizeText(entity.rawAttributes?.latest_version);
+      const skippedVersion = normalizeText(entity.rawAttributes?.skipped_version) || null;
+      const features = entity.supportedFeatures ?? Number(entity.rawAttributes?.supported_features ?? 0);
       return {
         entityId,
         entity,
         title: entityName(entityId, entity),
         installed: normalizeText(entity.rawAttributes?.installed_version),
-        latest: normalizeText(entity.rawAttributes?.latest_version),
+        latest,
         available,
         inProgress,
         percentage,
+        releaseSummary: normalizeText(entity.rawAttributes?.release_summary) || null,
+        releaseUrl: normalizeText(entity.rawAttributes?.release_url) || null,
+        picture: normalizeText(entity.rawAttributes?.entity_picture) || null,
+        supportsBackup: Number.isFinite(features) && (features & UPDATE_FEATURE_BACKUP) !== 0,
+        skipped: !available && skippedVersion !== null && skippedVersion === latest,
+        skippedVersion,
       };
     })
     .sort((first, second) => Number(second.available) - Number(first.available) || first.title.localeCompare(second.title));
@@ -607,6 +627,12 @@ export default function SettingsDashboard({
   const systemSensors = useMemo(() => pickSystemSensors(haStates), [haStates]);
   const updateEntities = useMemo(() => collectUpdateEntities(haStates), [haStates]);
   const availableUpdates = updateEntities.filter((entry) => entry.available);
+  const skippedUpdates = updateEntities.filter((entry) => entry.skipped);
+  // Pictures from Home Assistant are often relative to its address.
+  const withPicture = <T extends { picture: string | null }>(update: T): T => ({
+    ...update,
+    picture: update.picture && update.picture.startsWith('/') && resolveAssetUrl ? resolveAssetUrl(update.picture) : update.picture,
+  });
 
   const diskUsage = pickPreferredSensor(systemSensors, 'diskUsage');
   const diskFree = pickPreferredSensor(systemSensors, 'diskFree');
@@ -1486,7 +1512,7 @@ export default function SettingsDashboard({
   const SHOWN_UPDATES = 4;
   const shownAvailable = availableUpdates.slice(0, SHOWN_UPDATES);
   const hiddenAvailable = availableUpdates.length - shownAvailable.length;
-  const upToDateUpdates = updateEntities.filter((update) => !update.available);
+  const upToDateUpdates = updateEntities.filter((update) => !update.available && !update.skipped);
   const shownUpToDate = upToDateUpdates.slice(0, Math.max(0, SHOWN_UPDATES - availableUpdates.length));
   const hiddenUpToDate = upToDateUpdates.length - shownUpToDate.length;
   const meterTone = (tone: MetricTone): 'success' | 'warning' | 'danger' =>
@@ -1595,7 +1621,13 @@ export default function SettingsDashboard({
                   icon={DownloadCloud}
                   tone="warning"
                   title={update.title}
-                  subtitle={`${update.installed || '—'} → ${update.latest}`}
+                  subtitle={
+                    update.inProgress
+                      ? update.percentage !== null
+                        ? t('settings.updates.progressPercent', { value: Math.round(update.percentage) })
+                        : t('settings.updates.progress')
+                      : `${update.installed || '—'} → ${update.latest}`
+                  }
                   onClick={() => setUpdatesPageOpen(true)}
                 />
               ))}
@@ -1607,6 +1639,18 @@ export default function SettingsDashboard({
                     hiddenAvailable === 1
                       ? t('settings.system.moreUpdatesOne')
                       : t('settings.system.moreUpdatesMany', { count: hiddenAvailable })
+                  }
+                  subtitle={t('settings.system.openUpdates')}
+                  onClick={() => setUpdatesPageOpen(true)}
+                />
+              ) : null}
+              {skippedUpdates.length > 0 ? (
+                <SettingsListRow
+                  icon={RotateCcw}
+                  title={
+                    skippedUpdates.length === 1
+                      ? t('settings.system.skippedOne')
+                      : t('settings.system.skippedMany', { count: skippedUpdates.length })
                   }
                   subtitle={t('settings.system.openUpdates')}
                   onClick={() => setUpdatesPageOpen(true)}
@@ -1765,11 +1809,15 @@ export default function SettingsDashboard({
       <UpdatesCenterModal
         isOpen={updatesPageOpen}
         onClose={() => setUpdatesPageOpen(false)}
-        updates={availableUpdates}
+        updates={availableUpdates.map(withPicture)}
+        skipped={skippedUpdates.map(withPicture)}
         isConnected={isConnected}
         isBusy={isActionBusy}
-        onInstall={(entityId) => onCallService('update', 'install', { entity_id: entityId })}
+        onInstall={(entityId, options) =>
+          onCallService('update', 'install', { entity_id: entityId, ...(options?.backup ? { backup: true } : {}) })
+        }
         onSkip={(entityId) => onCallService('update', 'skip', { entity_id: entityId })}
+        onClearSkipped={(entityId) => onCallService('update', 'clear_skipped', { entity_id: entityId })}
         onUpdateAll={handleUpdateAll}
       />
     </SettingsDetailShell>

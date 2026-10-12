@@ -434,6 +434,25 @@ describe('SettingsDashboard', () => {
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
+  it('counts skipped versions apart from the components up to date', () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/system"
+          haStates={{
+            'update.mosquitto': { state: 'off', rawAttributes: { installed_version: '6.4', latest_version: '6.5', skipped_version: '6.5' } },
+            'update.esphome': { state: 'off', rawAttributes: { installed_version: '2.0', latest_version: '2.0' } },
+          }}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Una versione saltata/ }));
+    expect(screen.getByText('Versione 6.5 saltata')).toBeTruthy();
+    expect(screen.getAllByText('Aggiornato · 2.0')).toHaveLength(1);
+  });
+
   it('explains how to get the system health when no sensor is available', () => {
     render(
       <DashboardSecurityProvider value={security}>
