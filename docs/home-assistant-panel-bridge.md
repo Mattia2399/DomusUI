@@ -24,6 +24,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "profile_devices_v1",
   "profile_notifications_v1",
   "profile_recipients_v1",
+  "state_translations_v1",
   "host_navigation",
   "person_links",
   "person_create",
@@ -33,6 +34,7 @@ const ALLOWED_WS_TYPES = new Set([
   "auth/current_user", "auth/list", "config/auth/list", "get_services",
   "weather/get_forecasts", "call_service", "history/history_during_period",
   "logbook/get_events", "get_panels",
+  "frontend/get_translations",
   "frontend/get_user_data", "frontend/set_user_data",
   "frontend/get_system_data", "frontend/set_system_data",
   "config/entity_registry/list",
@@ -289,6 +291,11 @@ const isValidProfileMessage = (message) => {
     return false;
   }
 };
+// Only the words for entity states, in one language: no integration or config flow text.
+const isValidTranslationsMessage = (message) =>
+  hasExactKeys(message, ["type", "language", "category"]) &&
+  typeof message.language === "string" && /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(message.language) &&
+  (message.category === "entity_component" || message.category === "entity");
 const isValidWsMessage = (message) => {
   if (!isRecord(message) || typeof message.type !== "string" || !ALLOWED_WS_TYPES.has(message.type)) return false;
   if (message.type.startsWith("domusos/energy/")) {
@@ -299,6 +306,9 @@ const isValidWsMessage = (message) => {
   }
   if (message.type === "get_panels") {
     return Object.keys(message).every((key) => key === "type");
+  }
+  if (message.type === "frontend/get_translations") {
+    return isValidTranslationsMessage(message);
   }
   if (message.type === "frontend/get_user_data") {
     return message.key === "core" &&
@@ -706,6 +716,8 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
 `domusos/profile/get_self` e `domusos/profile/save_self` (capability `profile_core_v1`) leggono e salvano il Domus Profile dell'utente collegato, ricavato da Home Assistant dalla connessione. Il bridge rifiuta qualsiasi id di utente, persona o proprietario: `get_self` accetta solo `type`, `save_self` solo `expected_revision` (intero, mai `null`) e un `profile` con `notifications: { enabled }` più, invariati, `preferences` e `personal_devices`. Home Assistant e il Profile Core ripetono gli stessi controlli.
 
 L'elenco dei destinatari (capability `profile_recipients_v1`) è `domusos/profile/list_recipients`, solo per amministratori e senza parametri: per ogni persona restituisce id interno, entità, stato di prontezza e se è selezionabile, mai account, dispositivi, preferenze o target. Home Assistant rifiuta la richiesta a chi non è amministratore.
+
+Le traduzioni degli stati (capability `state_translations_v1`) sono `frontend/get_translations` con solo `type`, `language` e `category`, e `category` può essere soltanto `entity_component` o `entity`: Domus legge le stesse parole che il frontend Home Assistant usa per gli stati delle entità ("Acceso", "Aperta", "Fuori casa"). Senza la capability Domus usa un piccolo dizionario proprio.
 
 La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 

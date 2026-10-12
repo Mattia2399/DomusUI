@@ -105,6 +105,15 @@
   before installing for the components that support it, and "skip this
   version". Skipped versions get their own group and can be offered again,
   and System status counts them apart from the components up to date.
+- Settings → Entities groups the entities by type, with chips to filter by
+  type and a count for each. States are in the user's language with the
+  words Home Assistant itself uses ("On", "Open", "Away"), loaded through
+  `frontend/get_translations` (bridge capability `state_translations_v1`),
+  with a small built-in fallback; numbers carry their unit in the local
+  format and times read as "3 days ago". The technical id leaves the list;
+  a tap opens a read-only detail with state, last change, room, device,
+  integration and a copyable id, plus the raw attributes in Developer Mode.
+  Disabled entities sit in their own group, closed at first.
 
 ### Removed
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 
 /** A titled, grouped list of rows, as used across the profile pages. */
 export function ProfileGroup({
@@ -10,10 +10,11 @@ export function ProfileGroup({
   action?: ReactNode;
   children: ReactNode;
 }) {
+  const titleId = useId();
   return (
-    <section>
+    <section aria-labelledby={titleId}>
       <div className="mb-2 flex items-end justify-between gap-3 px-1">
-        <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
+        <h2 id={titleId} className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
           {title}
         </h2>
         {action}

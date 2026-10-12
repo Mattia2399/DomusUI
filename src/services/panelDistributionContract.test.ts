@@ -179,6 +179,34 @@ describe('Home Assistant panel distribution contract', () => {
     expect([...HA_PANEL_ALLOWED_API_TYPES].some((type) => type.startsWith('domusos/notifications/'))).toBe(false);
   });
 
+  it('lets only the entity state words cross the bridge', () => {
+    const bridge = readPanelBridgeSource();
+    const pick = (pattern: RegExp) => {
+      const match = bridge.match(pattern);
+      if (!match) throw new Error(`Host bridge fragment not found: ${pattern}`);
+      return match[0];
+    };
+    const source = [
+      pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
+      pick(/const isValidTranslationsMessage = [\s\S]*?\);\r?\n/),
+    ].join('');
+    const isValidTranslationsMessage = new Function(`${source}return isValidTranslationsMessage;`)() as (
+      message: Record<string, unknown>,
+    ) => boolean;
+    const request = { type: 'frontend/get_translations', language: 'it', category: 'entity_component' };
+
+    expect(bridge).toContain('"state_translations_v1"');
+    expect(HA_PANEL_ALLOWED_API_TYPES.has('frontend/get_translations')).toBe(true);
+    expect(isValidTranslationsMessage(request)).toBe(true);
+    expect(isValidTranslationsMessage({ ...request, category: 'entity' })).toBe(true);
+    expect(isValidTranslationsMessage({ ...request, language: 'pt-BR' })).toBe(true);
+    expect(isValidTranslationsMessage({ ...request, category: 'config' })).toBe(false);
+    expect(isValidTranslationsMessage({ ...request, category: 'issues' })).toBe(false);
+    expect(isValidTranslationsMessage({ ...request, language: '../it' })).toBe(false);
+    expect(isValidTranslationsMessage({ ...request, integration: ['hue'] })).toBe(false);
+    expect(isValidTranslationsMessage({ type: request.type, language: 'it' })).toBe(false);
+  });
+
   it('validates Profile message shapes identically in both bridge halves', () => {
     const bridge = readPanelBridgeSource();
     const pick = (pattern: RegExp) => {

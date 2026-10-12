@@ -63,7 +63,9 @@ export function SettingsListRow({
             {title}
           </span>
           {value ? (
-            <span className="shrink-0 text-sm font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">{value}</span>
+            <span className="min-w-0 max-w-[50%] truncate text-right text-sm font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">
+              {value}
+            </span>
           ) : null}
         </span>
         {subtitle ? (

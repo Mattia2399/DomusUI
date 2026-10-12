@@ -81,6 +81,7 @@ import type { DashboardLayoutSaveResult } from '../services/dashboardStorage';
 import { useI18n } from '../i18n/I18nProvider';
 import type { CardSizingEngine } from '../services/cardSizingEngine';
 import type { WasteCollectionCallApi } from '../services/wasteCollectionClient';
+import type { HaStateTranslations } from '../services/haStateTranslations';
 import WasteCollectionSettings from '../components/settings/WasteCollectionSettings';
 
 type SettingsDashboardProps = {
@@ -109,6 +110,8 @@ type SettingsDashboardProps = {
   recipientsSupported?: boolean;
   /** Turns a Home Assistant picture path into a loadable URL. */
   resolveAssetUrl?: (url: string) => string;
+  /** Home Assistant's own words for entity states, when they can be asked for. */
+  loadStateTranslations?: (language: string) => Promise<HaStateTranslations>;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   managedSectionContent?: React.ReactNode;
@@ -594,6 +597,7 @@ export default function SettingsDashboard({
   onCallApi,
   recipientsSupported = false,
   resolveAssetUrl,
+  loadStateTranslations,
   navigationRoute,
   onNavigate,
   managedSectionContent,
@@ -1224,6 +1228,9 @@ export default function SettingsDashboard({
           entityRegistry={haEntityRegistry}
           deviceRegistry={haDeviceRegistry}
           areas={haAreas}
+          loadStateTranslations={loadStateTranslations}
+          developerMode={developerMode && security.can('developer_mode')}
+          onOpenDevice={(deviceId) => navigateTo(`/settings/devices/${encodeURIComponent(deviceId)}`)}
         />
       </SettingsDetailShell>
     );

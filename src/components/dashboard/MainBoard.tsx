@@ -216,6 +216,7 @@ import {
 } from '../../hooks/useConsumptionConfig';
 import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfileSettings';
 import { resolveApplicationRoutePath } from '../../navigation/applicationRoutes';
+import { loadHaStateTranslations } from '../../services/haStateTranslations';
 import { useHaLiveConnection } from '../../hooks/useHaLiveConnection';
 import { useHaPanelBridgeConnection } from '../../hooks/useHaPanelBridgeConnection';
 import { useHaIdentityRevalidation } from '../../hooks/useHaIdentityRevalidation';
@@ -10790,6 +10791,16 @@ export function MainBoard() {
   // Choosing people as notification recipients, inside the panel only with the bridge capability.
   const profileRecipientsSupported =
     !isHaManagedByParent || panelHaBridgeConnection.supportsProfileRecipients;
+  // Home Assistant's own words for entity states; inside the panel only with the bridge capability.
+  const stateTranslationsSupported =
+    isHaConnected && (!isHaManagedByParent || panelHaBridgeConnection.supportsStateTranslations);
+  const loadStateTranslations = useMemo(
+    () =>
+      stateTranslationsSupported
+        ? (language: string) => loadHaStateTranslations(callHaApi, language)
+        : undefined,
+    [callHaApi, stateTranslationsSupported],
+  );
   const resolveSettingsAssetUrl = useCallback(
     (url: string) => resolveHaAssetUrl(url, haUrl) ?? url,
     [haUrl],
@@ -11247,6 +11258,7 @@ export function MainBoard() {
               onCallService={callHaService}
               onCallApi={callHaApi}
               recipientsSupported={profileRecipientsSupported}
+              loadStateTranslations={loadStateTranslations}
               resolveAssetUrl={resolveSettingsAssetUrl}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}

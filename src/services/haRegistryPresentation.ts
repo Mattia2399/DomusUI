@@ -13,6 +13,8 @@ export type HaEntityRegistryEntry = {
   hiddenBy?: string;
   entityCategory?: string;
   deviceClass?: string;
+  /** The integration's key for its own state words (`translation_key`). */
+  translationKey?: string;
   options?: Record<string, unknown>;
 };
 
@@ -126,6 +128,7 @@ export function parseHaEntityRegistry(payload: unknown): HaEntityRegistryEntry[]
       hiddenBy: toTrimmedString(entry.hidden_by),
       entityCategory: toTrimmedString(entry.entity_category),
       deviceClass: toTrimmedString(entry.device_class) ?? toTrimmedString(entry.original_device_class),
+      translationKey: toTrimmedString(entry.translation_key),
       options: isRecord(entry.options) ? entry.options : undefined,
     }];
   });
