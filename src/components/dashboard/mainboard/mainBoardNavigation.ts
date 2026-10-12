@@ -296,7 +296,6 @@ export function resolveEditAvailabilityFromLocation() {
   const current = window.location.href;
   return (
     isHomeNavigationTarget(current) ||
-    isConsumptionNavigationTarget(current) ||
     isAppGalleryNavigationTarget(current) ||
     isSecurityNavigationTarget(current)
   );

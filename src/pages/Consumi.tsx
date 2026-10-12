@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, MoreHorizontal, SunMedium, TowerControl } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, SunMedium, TowerControl } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -23,10 +23,6 @@ type Props = {
   navigationRoute?: string;
   data?: ConsumptionDashboardData;
   config?: ConsumptionEntityConfig;
-  isEditMode?: boolean;
-  compactEditMode?: boolean;
-  selectedCardId?: ConsumptionCardId | null;
-  onSelectCard?: (cardId: ConsumptionCardId) => void;
   onDetailViewChange?: (isDetailView: boolean) => void;
   /** Home Assistant access for the Domus Energy subpage. */
   energy?: EnergyPageContext;
@@ -308,14 +304,10 @@ function EnergyMetricIcon({ metric }: { metric: EnergyOverviewMetric }) {
 function EnergyOverviewCard({
   overview,
   statusVisual,
-  compactEditMode,
-  active,
   onClick,
 }: {
   overview: EnergyOverview;
   statusVisual: { accent: string; dotClassName: string };
-  compactEditMode: boolean;
-  active: boolean;
   onClick: () => void;
 }) {
   const { c } = useConsumptionCopy();
@@ -326,10 +318,7 @@ function EnergyOverviewCard({
       type="button"
       onClick={onClick}
       aria-label={`${c('Energia')} · ${overview.notice.label}`}
-      className={cn(
-        'group relative min-h-[27rem] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#071018] p-5 text-left text-white shadow-[0_30px_80px_rgba(0,0,0,0.34)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 active:translate-y-0 sm:min-h-[31rem] sm:rounded-[2.25rem] sm:p-8',
-        active ? 'border-sky-300/50 shadow-[0_0_0_1px_rgba(125,211,252,0.3),0_30px_80px_rgba(0,0,0,0.34)]' : '',
-      )}
+      className="group relative min-h-[27rem] overflow-hidden rounded-[1.75rem] border border-white/10 bg-[#071018] p-5 text-left text-white shadow-[0_30px_80px_rgba(0,0,0,0.34)] transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 active:translate-y-0 sm:min-h-[31rem] sm:rounded-[2.25rem] sm:p-8"
     >
       <div
         aria-hidden="true"
@@ -338,12 +327,6 @@ function EnergyOverviewCard({
       />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_16%,rgba(48,209,88,0.18),transparent_38%),linear-gradient(145deg,rgba(4,10,16,0.35),rgba(4,8,13,0.92))]" />
       <div className="pointer-events-none absolute inset-x-[8%] top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
-
-      {compactEditMode ? (
-        <span className="pointer-events-none absolute right-4 top-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white/80 backdrop-blur-xl">
-          <MoreHorizontal size={17} aria-hidden="true" />
-        </span>
-      ) : null}
 
       <div className="relative z-10 flex h-full min-h-[23rem] flex-col sm:min-h-[27rem]">
         <div className="flex flex-wrap items-start justify-between gap-4 pr-10 sm:pr-0">
@@ -397,8 +380,6 @@ function UtilityCard({
   accentClassName,
   backdropStyle,
   preview = false,
-  compactEditMode,
-  active,
   onClick,
 }: {
   title: string;
@@ -408,8 +389,6 @@ function UtilityCard({
   accentClassName: string;
   backdropStyle: React.CSSProperties;
   preview?: boolean;
-  compactEditMode: boolean;
-  active: boolean;
   onClick: () => void;
 }) {
   const { c } = useConsumptionCopy();
@@ -421,7 +400,6 @@ function UtilityCard({
         'group relative min-h-[10rem] cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 text-left backdrop-blur-2xl sm:min-h-[12rem] sm:rounded-[1.75rem] sm:p-5 xl:min-h-0 xl:flex-1',
         'flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/[0.1] active:translate-y-0',
         'shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_24px_50px_rgba(0,0,0,0.3)]',
-        active ? 'border-sky-300/45 bg-sky-400/12 shadow-[0_0_0_1px_rgba(125,211,252,0.32)]' : '',
       )}
     >
       <div
@@ -432,12 +410,6 @@ function UtilityCard({
       <div className={cn('pointer-events-none absolute inset-0 opacity-80', accentClassName)} />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(150deg,rgba(255,255,255,0.18)_0%,rgba(255,255,255,0.04)_38%,rgba(15,23,42,0.18)_100%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.04),rgba(2,6,23,0.28)_78%)]" />
-      {compactEditMode ? (
-        <span className="pointer-events-none absolute right-2 top-2 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white/85 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-          <MoreHorizontal size={16} aria-hidden="true" />
-        </span>
-      ) : null}
-
       <div className="relative z-10 flex items-center gap-2 pr-12">
         <h3 className="min-w-0 truncate text-xl font-semibold tracking-tight text-white sm:text-2xl">{title}</h3>
         {preview ? (
@@ -470,10 +442,6 @@ export function ConsumptionDashboardPage({
   navigationRoute,
   data,
   config,
-  isEditMode = false,
-  compactEditMode = false,
-  selectedCardId = null,
-  onSelectCard,
   onDetailViewChange,
   energy,
 }: Props) {
@@ -573,14 +541,6 @@ export function ConsumptionDashboardPage({
   }, [navigationRoute, routesByCard, suppressBrowserNavigation]);
 
   React.useEffect(() => {
-    if (!isEditMode || activeView === 'overview') {
-      return;
-    }
-    setActiveView('overview');
-    pushRoute(overviewRoute, true);
-  }, [activeView, isEditMode, overviewRoute, pushRoute]);
-
-  React.useEffect(() => {
     onDetailViewChange?.(activeView !== 'overview');
   }, [activeView, onDetailViewChange]);
 
@@ -593,11 +553,6 @@ export function ConsumptionDashboardPage({
 
   const handleCardClick = React.useCallback(
     (cardId: ConsumptionCardId) => {
-      onSelectCard?.(cardId);
-      if (isEditMode) {
-        return;
-      }
-
       const targetRoute = routesByCard[cardId];
       if (!isConsumptionRoute(targetRoute)) {
         if (suppressBrowserNavigation) {
@@ -612,7 +567,7 @@ export function ConsumptionDashboardPage({
       setActiveView(cardId);
       pushRoute(targetRoute);
     },
-    [isEditMode, onSelectCard, pushRoute, routesByCard, suppressBrowserNavigation],
+    [pushRoute, routesByCard, suppressBrowserNavigation],
   );
 
   const handleBackToOverview = React.useCallback(() => {
@@ -767,8 +722,6 @@ export function ConsumptionDashboardPage({
                   <EnergyOverviewCard
                     overview={energyOverview}
                     statusVisual={energyStatusVisual}
-                    compactEditMode={compactEditMode}
-                    active={isEditMode && selectedCardId === 'electricity'}
                     onClick={() => handleCardClick('electricity')}
                   />
                 </div>
@@ -783,8 +736,6 @@ export function ConsumptionDashboardPage({
                       accentClassName={card.accentClassName}
                       backdropStyle={card.backdropStyle}
                       preview={card.preview}
-                      compactEditMode={compactEditMode}
-                      active={isEditMode && selectedCardId === card.id}
                       onClick={() => handleCardClick(card.id)}
                     />
                   ))}

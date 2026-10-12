@@ -212,7 +212,6 @@ import type {
 } from '../../types/widgetTypeLayout';
 import {
   createConsumptionDashboardData,
-  type ConsumptionCardId,
   useConsumptionConfig,
 } from '../../hooks/useConsumptionConfig';
 import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfileSettings';
@@ -416,7 +415,6 @@ import {
 } from './mainboard/mainBoardNavigation';
 
 const loadConsumptionDashboard = () => import('../../pages/Consumi');
-const loadConsumptionEditor = () => import('../settings/ConsumptionEditorSidebar');
 const loadAutomationsBuilder = () => import('../../pages/AutomationsBuilder');
 const loadAppGallery = () => import('../../pages/AppGallery');
 const loadRoomsDashboard = () => import('../../pages/RoomsDashboard');
@@ -437,7 +435,6 @@ const loadSecurityAuthModal = () => import('../security/SecurityAuthModal');
 const loadDashboardRecoveryModal = () => import('./DashboardRecoveryModal');
 
 const ConsumptionDashboardPage = React.lazy(loadConsumptionDashboard);
-const ConsumptionEditorSidebar = React.lazy(loadConsumptionEditor);
 const AutomationsBuilder = React.lazy(loadAutomationsBuilder);
 const AppGallery = React.lazy(loadAppGallery);
 const RoomsDashboard = React.lazy(loadRoomsDashboard);
@@ -1648,11 +1645,7 @@ export function MainBoard() {
     updateSidebarPath,
     removeSidebarPath,
   } = useProfileSettings();
-  const {
-    config: consumptionConfig,
-    updateConfigField: updateConsumptionConfigField,
-    resetConfig: resetConsumptionConfig,
-  } = useConsumptionConfig();
+  const { config: consumptionConfig } = useConsumptionConfig();
   const webSocketHaConnection =
     useHaLiveConnection({
       url: profileHaUrl,
@@ -2488,7 +2481,6 @@ export function MainBoard() {
   const [internalNavigationRoute, setInternalNavigationRoute] = useState(() =>
     typeof window === 'undefined' || !canUseBrowserRouteNavigation ? '/home' : window.location.href,
   );
-  const [selectedConsumptionCardId, setSelectedConsumptionCardId] = useState<ConsumptionCardId | null>('electricity');
   const [oauthFlowError, setOAuthFlowError] = useState<string | null>(null);
   const [isOAuthFlowBusy, setIsOAuthFlowBusy] = useState(false);
   const oauthExchangePromiseRef = useRef<ReturnType<typeof exchangeHaOAuthCode> | null>(null);
@@ -6119,7 +6111,6 @@ export function MainBoard() {
       nextIsSettings;
     const nextEditAvailability =
       isHomeNavigationTarget(currentRoute) ||
-      nextIsConsumption ||
       nextIsAppGallery ||
       nextIsSecurity ||
       (!canUseBrowserRouteNavigation && !nextIsKnownRoute);
@@ -6181,25 +6172,6 @@ export function MainBoard() {
       );
     }
   }, [addNotification, dashboardSecurity, isEditMode]);
-
-  useEffect(() => {
-    if (!isConsumptionView) {
-      setSelectedConsumptionCardId(null);
-      return;
-    }
-    if (isEditMode && isCompactViewport) {
-      return;
-    }
-    if (!selectedConsumptionCardId) {
-      setSelectedConsumptionCardId('electricity');
-    }
-  }, [isCompactViewport, isConsumptionView, isEditMode, selectedConsumptionCardId]);
-
-  useEffect(() => {
-    if (isConsumptionView && isEditMode && isCompactViewport) {
-      setSelectedConsumptionCardId(null);
-    }
-  }, [isCompactViewport, isConsumptionView, isEditMode]);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -10270,9 +10242,6 @@ export function MainBoard() {
     }
     if (!isEditMode) {
       void loadRightSidebarManager();
-      if (isConsumptionView) {
-        void loadConsumptionEditor();
-      }
     }
     setEditConfirm(isEditMode ? 'exit' : 'enter');
   };
@@ -10725,7 +10694,6 @@ export function MainBoard() {
         nextIsSettings;
       const nextEditAvailability =
         isHomeNavigationTarget(normalizedRouteForNavigate) ||
-        nextIsConsumption ||
         nextIsAppGallery ||
         nextIsSecurity ||
         (!canUseBrowserRouteNavigation && !nextIsKnownRoute);
@@ -11170,39 +11138,17 @@ export function MainBoard() {
           resetKey={activeNavigationRoute}
         >
         {isConsumptionView ? (
-          <>
-            <div className="h-full min-h-0 flex-1 overflow-hidden">
-              <ConsumptionDashboardPage
-                embedded
-                suppressBrowserNavigation={!canUseBrowserRouteNavigation}
-                navigationRoute={internalNavigationRoute}
-                isEditMode={isEditMode}
-                compactEditMode={isEditMode && isCompactViewport}
-                selectedCardId={selectedConsumptionCardId}
-                data={consumptionData}
-                config={consumptionConfig}
-                energy={energyPageContext}
-                onDetailViewChange={setIsConsumptionDetailView}
-                onSelectCard={(cardId) => {
-                  if (!isEditMode) {
-                    return;
-                  }
-                  setSelectedConsumptionCardId(cardId);
-                }}
-              />
-            </div>
-            {isEditMode && !isCompactViewport && !isConsumptionDetailView ? (
-              <ConsumptionEditorSidebar
-                selectedCardId={selectedConsumptionCardId}
-                onSelectCard={setSelectedConsumptionCardId}
-                config={consumptionConfig}
-                haEntityIds={haEntityIds}
-                haConnected={isHaConnected}
-                onUpdateConfigField={updateConsumptionConfigField}
-                onResetConfig={resetConsumptionConfig}
-              />
-            ) : null}
-          </>
+          <div className="h-full min-h-0 flex-1 overflow-hidden">
+            <ConsumptionDashboardPage
+              embedded
+              suppressBrowserNavigation={!canUseBrowserRouteNavigation}
+              navigationRoute={internalNavigationRoute}
+              data={consumptionData}
+              config={consumptionConfig}
+              energy={energyPageContext}
+              onDetailViewChange={setIsConsumptionDetailView}
+            />
+          </div>
         ) : isAutomationView ? (
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <AutomationsBuilder
@@ -11738,35 +11684,6 @@ export function MainBoard() {
         </LazyLoadBoundary>
 
       </main>
-
-      {isConsumptionView && !isConsumptionDetailView && isEditMode && isCompactViewport && selectedConsumptionCardId ? (
-        <>
-          <button
-            type="button"
-            onClick={() => setSelectedConsumptionCardId(null)}
-            className="fixed inset-0 z-[218] bg-black/60 backdrop-blur-sm"
-            aria-label={t('home.consumption.closeConfiguration')}
-          />
-          <div className="liquid-glass-sheet fixed inset-x-0 bottom-0 z-[219] flex max-h-[92dvh] min-h-[18rem] w-full flex-col p-3 py-2 transition-all duration-250">
-            <div className="mb-2 flex justify-center">
-              <span className="liquid-glass-drag-handle" />
-            </div>
-            <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura configurazione…" />}>
-              <ConsumptionEditorSidebar
-                selectedCardId={selectedConsumptionCardId}
-                onSelectCard={setSelectedConsumptionCardId}
-                config={consumptionConfig}
-                haEntityIds={haEntityIds}
-                haConnected={isHaConnected}
-                onUpdateConfigField={updateConsumptionConfigField}
-                onResetConfig={resetConsumptionConfig}
-                variant="sheet"
-                onClose={() => setSelectedConsumptionCardId(null)}
-              />
-            </React.Suspense>
-          </div>
-        </>
-      ) : null}
 
       {shouldShowBottomBar ? (
         <BottomBarNav

@@ -182,12 +182,8 @@ describe('semantic theme CSS contract', () => {
   });
 
   it('keeps supporting editor and guided panels on the shared semantic contract', () => {
-    const consumptionEditor = readSource('src/components/settings/ConsumptionEditorSidebar.tsx');
     const guidedSetup = readSource('src/components/settings/GuidedSetupOverlay.tsx');
 
-    expect(consumptionEditor).toContain('liquid-glass-panel');
-    expect(consumptionEditor).toContain('dashboard-content-surface');
-    expect(consumptionEditor).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
     expect(guidedSetup).toContain('var(--ui-scrim)');
     expect(guidedSetup).not.toMatch(/bg-black(?:\/|\b)/);
   });

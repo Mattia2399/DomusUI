@@ -103,7 +103,7 @@ Motivazioni:
   Home, e che la crescita recente (Energy A1.x) è tutta lazy. Il totale guarda
   quindi la deriva complessiva: warning a +5%, limite catastrofico a +13%.
   Sostituisce il vecchio 5,52 MB, che non distingueva il codice lazy.
-- Piccoli pannelli amministrativi (gestione impostazioni, editor consumi,
+- Piccoli pannelli amministrativi (gestione impostazioni,
   configurazione guidata) sono riportati senza budget; il codice non raggiunto
   da nessuna superficie ha un warning, per dare una superficie propria a una
   funzione che cresce.

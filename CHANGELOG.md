@@ -84,6 +84,12 @@
   declares. A user without a linked Person no longer sees presence picked by
   a matching name.
 
+### Removed
+
+- Edit mode on the Consumption and Energy page: the pencil no longer appears
+  there, and the panel that chose the Water and Gas preview entities is gone.
+  Entities already saved in the browser are still read.
+
 ### Fixed
 
 - The 24-hour energy history on the morning after a daylight saving change

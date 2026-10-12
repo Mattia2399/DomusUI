@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { MockEntityStateMap } from '../types/ha';
 
 const STORAGE_KEY = 'ha.dashboard.consumption.config.v1';
@@ -141,33 +141,8 @@ export function createConsumptionDashboardData(
 }
 
 export function useConsumptionConfig() {
-  const [config, setConfig] = useState<ConsumptionEntityConfig>(readStoredConfig);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  }, [config]);
-
-  const updateConfigField = (field: keyof ConsumptionEntityConfig, value: string) => {
-    setConfig((current) => ({
-      ...current,
-      [field]: value.trim(),
-    }));
-  };
-
-  const resetConfig = () => {
-    setConfig(DEFAULT_CONSUMPTION_CONFIG);
-  };
-
-  const memoizedConfig = useMemo(() => config, [config]);
-
-  return {
-    config: memoizedConfig,
-    updateConfigField,
-    resetConfig,
-  };
+  const [config] = useState<ConsumptionEntityConfig>(readStoredConfig);
+  return { config };
 }
 
 export { DEFAULT_CONSUMPTION_CONFIG, DEFAULT_DASHBOARD_DATA };

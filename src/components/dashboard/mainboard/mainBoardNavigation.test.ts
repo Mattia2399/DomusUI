@@ -12,6 +12,7 @@ import {
   isSecurityNavigationTarget,
   isSettingsNavigationTarget,
   normalizeNavigationPathname,
+  resolveEditAvailabilityFromLocation,
 } from './mainBoardNavigation';
 
 describe('mainBoardNavigation', () => {
@@ -39,6 +40,22 @@ describe('mainBoardNavigation', () => {
     expect(isConsumptionDetailNavigationTarget('/consumi/energia')).toBe(true);
     expect(isConsumptionDetailNavigationTarget('/consumi')).toBe(false);
     expect(isConsumptionDetailNavigationTarget('/?view=consumi-water')).toBe(true);
+  });
+
+  it('offers edit mode on Home, App Gallery and Security but not on Consumption', () => {
+    const editable = (path: string) => {
+      window.history.replaceState({}, '', path);
+      return resolveEditAvailabilityFromLocation();
+    };
+    try {
+      expect(editable('/home')).toBe(true);
+      expect(editable('/appgallery')).toBe(true);
+      expect(editable('/security')).toBe(true);
+      expect(editable('/consumi')).toBe(false);
+      expect(editable('/consumi/energia')).toBe(false);
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
   });
 
   it('normalizes local and absolute paths without accepting malformed values', () => {

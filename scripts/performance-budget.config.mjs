@@ -113,7 +113,6 @@ export const surfaces = [
 
   // Reported only: small administrative panels, below any useful budget.
   { id: 'settings-management', label: 'Gestione impostazioni', sources: ['src/components/settings/SettingsManagementPanel.tsx'], requires: 'home', kind: 'feature' },
-  { id: 'consumption-editor', label: 'Editor consumi', sources: ['src/components/settings/ConsumptionEditorSidebar.tsx'], requires: 'home', kind: 'feature' },
   { id: 'guided-setup', label: 'Configurazione guidata HA', sources: ['src/components/settings/GuidedSetupOverlay.tsx'], requires: 'home', kind: 'feature' },
 ];
 

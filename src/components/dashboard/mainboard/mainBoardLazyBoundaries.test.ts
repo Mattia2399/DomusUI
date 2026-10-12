@@ -18,7 +18,6 @@ describe('MainBoard lazy boundaries', () => {
       ['loadRoomsDashboard', '../../pages/RoomsDashboard'],
       ['loadSecurityDashboard', '../../pages/SecurityDashboard'],
       ['loadSettingsDashboard', '../../pages/SettingsDashboard'],
-      ['loadConsumptionEditor', '../settings/ConsumptionEditorSidebar'],
     ];
 
     for (const [loaderName, modulePath] of secondaryModules) {
