@@ -7,6 +7,7 @@ import { WidgetWrapper } from '../components/dashboard/WidgetWrapper';
 import type { MockEntityStateMap } from '../types/ha';
 import { useDashboardState } from '../hooks/useDashboardState';
 import { SensorCard } from '../components/widgets/SensorCard';
+import { GridEngineLab } from '../components/dashboard/gridEngine2/GridEngineLab';
 
 type DummyWidget = {
   id: string;
@@ -390,6 +391,8 @@ export function GridTestView() {
             Resize della finestra per validare l incastro: 4 colonne su mobile, 8 su tablet, 12 su desktop.
           </p>
         </div>
+
+        <GridEngineLab />
 
         <div className="space-y-4">
           <div>
