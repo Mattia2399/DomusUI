@@ -139,12 +139,15 @@
   shows on this device, the PIN and extra code of each alarm card with
   "remember on this device" (the device confirmation stays on the card), and
   the personal device confirmation, which opens the Profile.
-- The side menu on phones looks like an iPad sidebar: the profile is one row
-  with role and connection, pages and actions are plain rows with a thin
-  accent icon and the current page as a filled pill, Edit mode appears only
-  where a page can be edited, and signing out is a red "Sign out" at the
-  bottom that asks in a dialog. The "Add account" button, which
-  did nothing, is gone, and "Log out" is translated.
+- The side menu on phones is a sidebar with the Domus logo on top, plain
+  rows with the current page as a filled accent pill, counts on Security
+  (open safety and security alerts) and Settings (updates waiting), and
+  Edit mode only where a page can be edited. At the bottom a quick card
+  shows one thing chosen on this device: things to check, the main alarm,
+  the lights that are on with "Turn all off" (asks first) or the next waste
+  collection; then the profile row with role and connection, and "Sign
+  out", which asks in a dialog. The "Add account" button, which did
+  nothing, is gone, and "Log out" is translated.
 
 ### Removed
 

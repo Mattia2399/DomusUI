@@ -98,7 +98,8 @@ test('mobile primary controls keep Apple-sized touch targets', async ({ page }) 
   await controls[0].click();
   const menuDialog = page.getByRole('dialog', { name: 'Menu principale' });
   await expect(menuDialog).toBeVisible();
-  await expect(menuDialog.getByRole('button', { name: 'Apri profilo', exact: true })).toBeFocused();
+  // The first page of the menu takes the focus; the profile row sits at the bottom.
+  await expect(menuDialog.getByRole('button', { name: /^Dashboard/ })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(controls[0]).toBeFocused();
 

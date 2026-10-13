@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   Menu,
   MenuButton,
@@ -23,13 +23,11 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import DashboardSidePanel from '../ui/DashboardSidePanel';
-import { useHomeAttentionPreferences } from './homeAttentionPreferences';
 import GlassButton from '../ui/GlassButton';
 import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { Widget } from '../../types/dashboardModels';
 import {
-  buildHomeAttentionItems,
   formatHomeAttentionDuration,
   type HomeAttentionArea,
   type HomeAttentionCategory,
@@ -37,11 +35,10 @@ import {
   type HomeAttentionSeverity,
 } from './homeAttentionEngine';
 import {
-  isHomeAttentionItemSuppressed,
   resolveHomeAttentionSnoozeUntil,
-  useHomeAttentionSuppressions,
   type HomeAttentionSnoozePreset,
 } from './homeAttentionSuppressions';
+import { useHomeAttentionItems } from './useHomeAttentionItems';
 import { useI18n } from '../../i18n/I18nProvider';
 
 type HomeAttentionCenterProps = {
@@ -258,63 +255,21 @@ export function HomeAttentionCenter({
   widgets = [],
   onOpenItem,
 }: HomeAttentionCenterProps) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
-  const [now, setNow] = useState(() => Date.now());
-  const { preferences } = useHomeAttentionPreferences(runtimeMode);
-  const {
-    suppressions,
-    suppressItem,
-    pruneSuppressions,
-  } = useHomeAttentionSuppressions(runtimeMode);
-
-  useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 60_000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  const candidateItems = useMemo(
-    () =>
-      preferences.enabled
-        ? buildHomeAttentionItems({
-            runtimeMode,
-            connected,
-            states,
-            entityRegistry,
-            deviceRegistry,
-            areas,
-            widgets,
-            now,
-            batteryWarningThreshold: preferences.batteryWarningThreshold,
-            openingWarningMinutes: preferences.openingWarningMinutes,
-            locale,
-          }).filter((item) => preferences.categories[item.category])
-        : [],
-    [
-      areas,
-      connected,
-      deviceRegistry,
-      entityRegistry,
-      locale,
-      now,
-      preferences,
-      runtimeMode,
-      states,
-      widgets,
-    ],
-  );
+  const { candidateItems, items, now, suppressItem, pruneSuppressions } = useHomeAttentionItems({
+    runtimeMode,
+    connected,
+    states,
+    entityRegistry,
+    deviceRegistry,
+    areas,
+    widgets,
+  });
 
   useEffect(() => {
     pruneSuppressions(candidateItems, now);
   }, [candidateItems, now, pruneSuppressions]);
-
-  const items = useMemo(
-    () =>
-      candidateItems.filter(
-        (item) => !isHomeAttentionItemSuppressed(item, suppressions, now),
-      ),
-    [candidateItems, now, suppressions],
-  );
 
   useEffect(() => {
     if (items.length === 0) {

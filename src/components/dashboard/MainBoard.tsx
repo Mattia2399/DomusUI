@@ -11110,6 +11110,14 @@ export function MainBoard() {
             userEmail={profileUserEmail}
             userRole={haCurrentUser ? (haCurrentUser.isOwner ? 'creator' : haCurrentUser.isAdmin ? 'admin' : 'member') : undefined}
             haStatus={haStatus}
+            runtimeMode={effectiveRuntimeMode === 'demo' ? 'demo' : 'real'}
+            states={haStatesForUi}
+            entityRegistry={haEntityRegistry}
+            deviceRegistry={haDeviceRegistry}
+            areas={haAreas}
+            widgets={widgets}
+            onCallService={callHaService}
+            onNavigate={navigateWithinDashboard}
             onPathClick={handleSidebarPathClick}
             onToggleEditMode={requestToggleEditMode}
             onOpenProfile={() => openProfileRoute('members')}
