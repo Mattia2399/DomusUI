@@ -139,6 +139,12 @@
   shows on this device, the PIN and extra code of each alarm card with
   "remember on this device" (the device confirmation stays on the card), and
   the personal device confirmation, which opens the Profile.
+- The side menu on phones looks like the settings of a phone: the profile is
+  one row with role and connection, pages and actions are grouped lists with
+  a coloured icon tile each and the current page highlighted, Edit mode
+  appears only where a page can be edited, and signing out is a red "Sign
+  out" at the bottom that asks in a dialog. The "Add account" button, which
+  did nothing, is gone, and "Log out" is translated.
 
 ### Removed
 

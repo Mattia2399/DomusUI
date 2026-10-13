@@ -11108,6 +11108,7 @@ export function MainBoard() {
             userAvatarUrl={currentUserAvatarUrl}
             userAvatarAlt={stateWithConnectedUser.userName}
             userEmail={profileUserEmail}
+            userRole={haCurrentUser ? (haCurrentUser.isOwner ? 'creator' : haCurrentUser.isAdmin ? 'admin' : 'member') : undefined}
             haStatus={haStatus}
             onPathClick={handleSidebarPathClick}
             onToggleEditMode={requestToggleEditMode}
