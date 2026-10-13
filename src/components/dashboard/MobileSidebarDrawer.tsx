@@ -9,7 +9,6 @@ import {
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { SidebarQuickPathIconKey } from '../../navigation/applicationRoutes';
 import { haStatusLabel } from '../settings/haStatusLabel';
 import GlassModal from '../ui/GlassModal';
 import {
@@ -22,24 +21,6 @@ import {
 import { DashboardProfileAvatar } from './DashboardProfileAvatar';
 
 export type MobileSidebarUserRole = 'creator' | 'admin' | 'member';
-
-/** One colour per kind of page, like the settings of a phone; white glyph on top. */
-const ICON_TILE_COLORS: Record<SidebarQuickPathIconKey, string> = {
-  home: '#0A84FF',
-  dashboard: '#5E5CE6',
-  rooms: '#FF9F0A',
-  security: '#34C759',
-  chart: '#30B0C7',
-  automation: '#AF52DE',
-  settings: '#8E8E93',
-  devices: '#64D2FF',
-  help: '#8E8E93',
-  light: '#FF9500',
-  climate: '#FF6B3D',
-  media: '#FF375F',
-};
-const EDIT_TILE_COLOR = '#FF2D55';
-const HOME_ASSISTANT_TILE_COLOR = '#18BCF2';
 
 const ROLE_LABEL_KEYS = {
   creator: 'settings.access.role.creator',
@@ -74,27 +55,26 @@ type MobileSidebarDrawerProps = {
   onPrefetchEditMode?: () => void;
 };
 
+/** A section of the sidebar, as on iPad: a plain title and its rows, no frame. */
 function DrawerGroup({ title, children }: { title?: string; children: React.ReactNode }) {
   const titleId = React.useId();
   return (
     <section aria-labelledby={title ? titleId : undefined}>
       {title ? (
-        <h2 id={titleId} className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
+        <h2 id={titleId} className="mb-1 px-3 text-[13px] font-semibold text-[color:var(--ui-text-secondary)]">
           {title}
         </h2>
       ) : null}
-      <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_12px_28px_var(--ui-shadow-soft)]">
-        {children}
-      </div>
+      <div className="space-y-0.5">{children}</div>
     </section>
   );
 }
 
+/** A sidebar row: a thin accent icon and its name; the current page is a filled pill. */
 const DrawerRow = React.forwardRef<
   HTMLButtonElement,
   {
     icon: LucideIcon;
-    color: string;
     label: string;
     active?: boolean;
     disabled?: boolean;
@@ -103,7 +83,7 @@ const DrawerRow = React.forwardRef<
     onPrefetch?: () => void;
     tourTarget?: string;
   }
->(function DrawerRow({ icon: Icon, color, label, active = false, disabled = false, title, onClick, onPrefetch, tourTarget }, ref) {
+>(function DrawerRow({ icon: Icon, label, active = false, disabled = false, title, onClick, onPrefetch, tourTarget }, ref) {
   return (
     <button
       ref={ref}
@@ -116,27 +96,19 @@ const DrawerRow = React.forwardRef<
       disabled={disabled}
       title={title}
       aria-current={active ? 'page' : undefined}
-      className={`flex min-h-[3.1rem] w-full min-w-0 items-center gap-3 px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+      className={`flex min-h-11 w-full min-w-0 items-center gap-3 rounded-[0.8rem] px-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
         active
-          ? 'bg-[color:rgb(var(--ui-accent-rgb)/0.14)]'
-          : 'hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]'
+          ? 'bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)]'
+          : 'text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]'
       }`}
     >
-      <span
-        className="flex h-[1.9rem] w-[1.9rem] shrink-0 items-center justify-center rounded-[0.55rem] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
-        style={{ backgroundColor: color }}
+      <Icon
+        size={20}
+        strokeWidth={1.8}
+        className={`shrink-0 ${active ? 'text-[color:var(--ui-accent-contrast)]' : 'text-[color:var(--ui-accent)]'}`}
         aria-hidden="true"
-      >
-        <Icon size={16} strokeWidth={2.1} />
-      </span>
-      <span
-        className={`min-w-0 flex-1 truncate text-[0.95rem] ${
-          active ? 'font-semibold text-[color:var(--ui-accent)]' : 'font-medium text-[color:var(--ui-text-primary)]'
-        }`}
-      >
-        {label}
-      </span>
-      {!active ? <ChevronRight size={16} className="shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" /> : null}
+      />
+      <span className={`min-w-0 flex-1 truncate text-[0.95rem] ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
     </button>
   );
 });
@@ -316,7 +288,7 @@ export function MobileSidebarDrawer({
           onFocus={() => onPrefetchRoute?.('/profile')}
           onClick={handleOpenProfile}
           aria-label={t('navigation.profile.open')}
-          className="flex min-w-0 items-center gap-3 rounded-[1.15rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] p-2.5 text-left shadow-[0_12px_28px_var(--ui-shadow-soft)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
+          className="flex min-w-0 items-center gap-3 rounded-[1rem] px-2 py-2 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
         >
           <span className="relative flex h-12 w-12 shrink-0">
             <DashboardProfileAvatar userAvatarUrl={userAvatarUrl} userName={displayUserName} haStatus={haStatus} />
@@ -332,7 +304,7 @@ export function MobileSidebarDrawer({
 
         <nav
           aria-label={t('navigation.menu.main')}
-          className="mt-5 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pb-2 glass-scrollbar"
+          className="mt-4 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain border-t border-[color:var(--ui-separator)] pb-2 pt-4 glass-scrollbar"
         >
           {routeGroups.map((group) => (
             <DrawerGroup key={group.id} title={group.label}>
@@ -340,7 +312,6 @@ export function MobileSidebarDrawer({
                 <DrawerRow
                   key={entry.id}
                   icon={getDashboardNavigationIcon(entry.icon)}
-                  color={ICON_TILE_COLORS[entry.icon] ?? ICON_TILE_COLORS.settings}
                   label={entry.label}
                   active={isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute })}
                   onPrefetch={() => onPrefetchRoute?.(entry.path)}
@@ -353,7 +324,6 @@ export function MobileSidebarDrawer({
           <DrawerGroup>
             <DrawerRow
               icon={Settings}
-              color={ICON_TILE_COLORS.settings}
               label={t('navigation.settings')}
               active={isSettingsActive}
               onPrefetch={() => onPrefetchRoute?.('/settings')}
@@ -364,7 +334,6 @@ export function MobileSidebarDrawer({
                 ref={editButtonRef}
                 tourTarget="edit-mode"
                 icon={PencilLine}
-                color={EDIT_TILE_COLOR}
                 label={isEditMode ? t('navigation.edit.exit') : t('navigation.edit.enter')}
                 active={isEditMode}
                 disabled={!canToggleEditMode}
@@ -375,7 +344,6 @@ export function MobileSidebarDrawer({
             {showHomeAssistantReturn ? (
               <DrawerRow
                 icon={ExternalLink}
-                color={HOME_ASSISTANT_TILE_COLOR}
                 label={t('navigation.homeAssistant.return')}
                 disabled={!canReturnToHomeAssistant}
                 title={canReturnToHomeAssistant ? t('navigation.homeAssistant.return') : t('navigation.homeAssistant.finishEditing')}
