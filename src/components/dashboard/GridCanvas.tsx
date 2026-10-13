@@ -65,6 +65,7 @@ import {
 } from './gridEngineGeometry';
 import { resolveGridStackContainerSpan } from './gridStackLayoutSolver';
 import { isCardContextLongPressBlockedTarget } from './cardLongPressTarget';
+import { GRID_ENGINE_2_SHADOW_ENABLED } from './gridEngine2/shadowFeatureFlag';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -202,6 +203,7 @@ const COMPACT_DRAG_AUTOSCROLL_EDGE_PX = 192;
 const COMPACT_DRAG_AUTOSCROLL_MAX_PX = 7;
 const COMPACT_DRAG_LONG_PRESS_MS = 650;
 const COMPACT_DRAG_HOLD_MOVE_TOLERANCE_PX = 10;
+const GRID_ENGINE_2_SHADOW_SETTLE_MS = 160;
 
 type CompactTouchSnapshot = {
   identifier: number;
@@ -1179,6 +1181,7 @@ export function GridCanvas({
     onActiveBreakpointChange(gridEngineActiveBreakpoint, runtimeGridWidth);
   }, [gridEngineActiveBreakpoint, onActiveBreakpointChange, runtimeGridWidth]);
   const [gridEngineLayouts, setGridEngineLayouts] = useState<GridLayouts>({});
+  const gridEngine2ShadowSignatureRef = useRef<string | null>(null);
   const [synchronizedLayoutRevision, setSynchronizedLayoutRevision] = useState(layoutRevision);
   const clearXsLongPressTimer = useCallback(() => {
     if (xsLongPressTimerRef.current !== null) {
@@ -1897,6 +1900,63 @@ export function GridCanvas({
     hasPendingAuthoritativeLayout,
     normalizeRootLayoutForBreakpoint,
     widgetTypeLayoutOverrides,
+  ]);
+  useEffect(() => {
+    if (
+      !GRID_ENGINE_2_SHADOW_ENABLED ||
+      !isRuntimeGridReady ||
+      hasPendingAuthoritativeLayout
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      // Drag previews are transient legacy state. Wait for the committed render
+      // instead of logging false divergences while an interaction is active.
+      if (isCanvasInteractingRef.current) return;
+      void import('./gridEngine2/shadowMode')
+        .then(({ runGridEngine2ShadowMode }) => {
+          if (cancelled || isCanvasInteractingRef.current) return;
+          const result = runGridEngine2ShadowMode(
+            {
+              sections,
+              widgets,
+              explicitResponsiveLayouts: responsiveLayouts,
+              legacyLayouts: derivedGridEngineLayouts,
+              runtimeLayouts: liveGridEngineLayouts,
+            },
+            {
+              enabled: GRID_ENGINE_2_SHADOW_ENABLED,
+              previousSignature: gridEngine2ShadowSignatureRef.current,
+            },
+          );
+          if (result.status !== 'disabled') {
+            gridEngine2ShadowSignatureRef.current = result.nextSignature;
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            console.warn('[DomusUI:grid-engine2:shadow]', {
+              event: 'load-error',
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        });
+    }, GRID_ENGINE_2_SHADOW_SETTLE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    derivedGridEngineLayouts,
+    hasPendingAuthoritativeLayout,
+    isRuntimeGridReady,
+    liveGridEngineLayouts,
+    responsiveLayouts,
+    sections,
+    widgets,
   ]);
   const liveGridEngineLayout = liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [];
   const liveGridUsedRows = useMemo(
