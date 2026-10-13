@@ -650,5 +650,30 @@ describe('Grid Engine 2.0 solveLayout', () => {
       expect(input).toEqual(snapshot);
       expectNoOverlaps(result);
     });
+
+    it('normalizes projected collisions without an artificial active card', () => {
+      const input = [
+        { i: 'right', x: 1, y: 0, w: 2, h: 1 },
+        { i: 'left', x: 0, y: 0, w: 2, h: 2 },
+        { i: 'lower', x: 1, y: 1, w: 1, h: 1 },
+      ] as const;
+      const snapshot = structuredClone(input);
+      const solve = (items: readonly GridLayoutItem[]) => solveLayout({
+        items,
+        cols: 4,
+        mode: 'manual' as const,
+        intent: { type: 'NORMALIZE' as const },
+      });
+
+      const result = solve(input);
+      expect(result).toEqual([
+        { i: 'left', x: 0, y: 0, w: 2, h: 2 },
+        { i: 'right', x: 1, y: 2, w: 2, h: 1 },
+        { i: 'lower', x: 1, y: 3, w: 1, h: 1 },
+      ]);
+      expect(solve([...input].reverse())).toEqual(result);
+      expect(input).toEqual(snapshot);
+      expectNoOverlaps(result);
+    });
   });
 });

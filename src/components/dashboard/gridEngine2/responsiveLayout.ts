@@ -6,7 +6,7 @@ import {
 import type { GridLayoutItem } from './model';
 import { solveLayout } from './solveLayout';
 
-export type ResponsiveLayoutOrigin = 'automatic' | 'custom';
+export type ResponsiveLayoutOrigin = 'generated' | 'custom';
 
 export type ResponsiveLabState = {
   readonly seed: readonly GridLayoutItem[];
@@ -76,15 +76,47 @@ export function deriveResponsiveLayout(
       };
     });
 
-  const first = projected[0];
-  if (!first) return [];
+  if (projected.length === 0) return [];
 
   return solveLayout({
     items: projected,
     cols: to,
     mode: 'manual',
-    intent: { type: 'MOVE', id: first.i, x: first.x, y: first.y },
+    intent: { type: 'NORMALIZE' },
   });
+}
+
+/**
+ * Keeps every surviving custom geometry byte-for-byte. Cards introduced later
+ * by the reference are appended below the custom layout in generated reading
+ * order, then validated by the deterministic solver without moving old cards.
+ */
+export function mergeCustomWithGenerated(
+  custom: readonly GridLayoutItem[],
+  generated: readonly GridLayoutItem[],
+  cols: number,
+) {
+  const generatedIds = new Set(generated.map((item) => item.i));
+  let merged = cloneLayout(custom)
+    .filter((item) => generatedIds.has(item.i))
+    .sort(compareResponsiveReadingOrder);
+  const customIds = new Set(merged.map((item) => item.i));
+  const missing = generated
+    .filter((item) => !customIds.has(item.i))
+    .sort(compareResponsiveReadingOrder);
+
+  for (const item of missing) {
+    const bottom = merged.reduce((maximum, placed) => Math.max(maximum, placed.y + placed.h), 0);
+    const appended = { ...item, y: Math.max(item.y, bottom) };
+    merged = solveLayout({
+      items: [...merged, appended],
+      cols,
+      mode: 'manual',
+      intent: { type: 'MOVE', id: appended.i, x: appended.x, y: appended.y },
+    });
+  }
+
+  return merged.sort(compareResponsiveReadingOrder);
 }
 
 export function breakpointForCanvasWidth(width: number): DashboardGridBreakpoint {
@@ -122,13 +154,14 @@ export function layoutForBreakpoint(
   breakpoint: DashboardGridBreakpoint,
 ) {
   if (breakpoint === RESPONSIVE_REFERENCE_BREAKPOINT) return cloneLayout(state.reference);
-  const custom = state.custom[breakpoint];
-  if (custom) return cloneLayout(custom);
-  return deriveResponsiveLayout(
+  const generated = deriveResponsiveLayout(
     state.reference,
     RESPONSIVE_REFERENCE_COLS,
     colsForBreakpoint(breakpoint),
   );
+  const custom = state.custom[breakpoint];
+  if (custom) return mergeCustomWithGenerated(custom, generated, colsForBreakpoint(breakpoint));
+  return generated;
 }
 
 export function originForBreakpoint(
@@ -136,9 +169,9 @@ export function originForBreakpoint(
   breakpoint: DashboardGridBreakpoint,
 ): ResponsiveLayoutOrigin {
   if (breakpoint === RESPONSIVE_REFERENCE_BREAKPOINT) {
-    return state.referenceIsCustom ? 'custom' : 'automatic';
+    return state.referenceIsCustom ? 'custom' : 'generated';
   }
-  return state.custom[breakpoint] ? 'custom' : 'automatic';
+  return state.custom[breakpoint] ? 'custom' : 'generated';
 }
 
 export function commitBreakpointLayout(

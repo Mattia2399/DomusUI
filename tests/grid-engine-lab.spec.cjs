@@ -19,11 +19,12 @@ async function gridMetrics(laboratory) {
   });
 }
 
-async function setCanvasWidth(laboratory, width, breakpoint, cols) {
+async function setCanvasWidth(laboratory, width, breakpoint, cols, profile) {
   await laboratory.getByLabel('Larghezza canvas').fill(String(width));
   await expect(laboratory.getByTestId('result-canvas')).toHaveAttribute('data-canvas-width', String(width));
   await expect(laboratory.getByTestId('responsive-breakpoint')).toHaveText(breakpoint);
   await expect(laboratory.getByTestId('responsive-cols')).toHaveText(String(cols));
+  await expect(laboratory.getByTestId('responsive-profile')).toHaveText(profile);
 }
 
 async function expectValidGeometry(laboratory, cols, prefix = 'result') {
@@ -356,21 +357,21 @@ test('canvas boundaries select the six real breakpoints without invalid geometry
   await page.goto('/grid-test');
   const laboratory = laboratoryFor(page);
   const boundaries = [
-    [390, 'xs', 2],
-    [639, 'xs', 2],
-    [640, 'sm', 4],
-    [767, 'sm', 4],
-    [768, 'md', 6],
-    [1023, 'md', 6],
-    [1024, 'lg', 8],
-    [1279, 'lg', 8],
-    [1280, 'xl', 12],
-    [1535, 'xl', 12],
-    [1536, '2xl', 12],
+    [390, 'xs', 2, 'Mobile'],
+    [639, 'xs', 2, 'Mobile'],
+    [640, 'sm', 4, 'Tablet'],
+    [767, 'sm', 4, 'Tablet'],
+    [768, 'md', 6, 'Tablet'],
+    [1023, 'md', 6, 'Tablet'],
+    [1024, 'lg', 8, 'Desktop'],
+    [1279, 'lg', 8, 'Desktop'],
+    [1280, 'xl', 12, 'Desktop'],
+    [1535, 'xl', 12, 'Desktop'],
+    [1536, '2xl', 12, 'Desktop'],
   ];
 
-  for (const [width, breakpoint, cols] of boundaries) {
-    await setCanvasWidth(laboratory, width, breakpoint, cols);
+  for (const [width, breakpoint, cols, profile] of boundaries) {
+    await setCanvasWidth(laboratory, width, breakpoint, cols, profile);
     const measuredWidth = await laboratory.getByTestId('result-canvas').evaluate(
       (canvas) => canvas.getBoundingClientRect().width,
     );
@@ -396,7 +397,7 @@ test('Desktop to Tablet to Mobile and back remains drift-free', async ({ page })
   await laboratory.getByRole('button', { name: 'Vista Desktop' }).click();
 
   expect(await layoutSnapshot(laboratory)).toEqual(desktop);
-  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Automatico');
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Generated');
 });
 
 test('responsive Tablet drag and resize commit their exact previews', async ({ page }) => {
@@ -410,7 +411,8 @@ test('responsive Tablet drag and resize commit their exact previews', async ({ p
   const dragPreview = await layoutSnapshot(laboratory);
   await page.mouse.up();
   expect(await layoutSnapshot(laboratory)).toEqual(dragPreview);
-  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Personalizzato');
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Custom');
+  await expect(laboratory.getByTestId('rgl-experiment')).toHaveAttribute('data-rgl-fidelity', 'exact');
 
   await laboratory.getByRole('button', { name: /Collisione semplice/ }).click();
   await laboratory.getByRole('button', { name: 'Seleziona target-b', exact: true }).click();
@@ -427,6 +429,7 @@ test('responsive Tablet drag and resize commit their exact previews', async ({ p
   const resizePreview = await layoutSnapshot(laboratory);
   await page.mouse.up();
   expect(await layoutSnapshot(laboratory)).toEqual(resizePreview);
+  await expect(laboratory.getByTestId('rgl-experiment')).toHaveAttribute('data-rgl-fidelity', 'exact');
 });
 
 test('custom Mobile survives a Desktop edit and can return to automatic provenance', async ({ page }) => {
@@ -439,18 +442,25 @@ test('custom Mobile survives a Desktop edit and can return to automatic provenan
   await laboratory.getByRole('button', { name: 'Anteprima' }).click();
   await laboratory.getByRole('button', { name: 'Conferma' }).click();
   const customizedMobile = await layoutSnapshot(laboratory);
-  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Personalizzato');
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Custom');
 
+  await laboratory.getByRole('button', { name: 'Vista Tablet' }).click();
+  const tabletBeforeDesktopEdit = await layoutSnapshot(laboratory);
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Generated');
   await laboratory.getByRole('button', { name: 'Vista Desktop' }).click();
   await laboratory.getByLabel('Destinazione X').fill('0');
   await laboratory.getByLabel('Destinazione Y').fill('0');
   await laboratory.getByRole('button', { name: 'Anteprima' }).click();
   await laboratory.getByRole('button', { name: 'Conferma' }).click();
+  await laboratory.getByRole('button', { name: 'Vista Tablet' }).click();
+  const tabletAfterDesktopEdit = await layoutSnapshot(laboratory);
+  expect(tabletAfterDesktopEdit).not.toEqual(tabletBeforeDesktopEdit);
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Generated');
   await laboratory.getByRole('button', { name: 'Vista Mobile' }).click();
 
   expect(await layoutSnapshot(laboratory)).toEqual(customizedMobile);
-  await laboratory.getByRole('button', { name: 'Ripristina vista automatica' }).click();
-  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Automatico');
+  await laboratory.getByRole('button', { name: 'Ripristina layout generated' }).click();
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Generated');
   expect(await layoutSnapshot(laboratory)).not.toEqual(customizedMobile);
   await expectValidGeometry(laboratory, 2);
 });
@@ -475,7 +485,42 @@ test('changing canvas width cancels an active gesture without committing partial
   await laboratory.getByRole('button', { name: 'Vista Tablet' }).click();
 
   expect(await layoutSnapshot(laboratory)).toEqual(tablet);
-  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Automatico');
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Generated');
+});
+
+test('30-card stress fixture keeps drag and resize previews stable and collision-free', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 1000 });
+  await page.goto('/grid-test');
+  const laboratory = laboratoryFor(page);
+  await laboratory.getByRole('button', { name: /Densità responsive/ }).click();
+  await expect(laboratory.locator('[data-testid^="result-card-density-"]')).toHaveCount(30);
+
+  await beginCardDrag(page, laboratory, 'density-01', 2, 3);
+  await expect(laboratory.getByTestId('result-canvas')).toHaveAttribute('data-gesture-state', 'DRAGGING');
+  const dragPreview = await layoutSnapshot(laboratory);
+  await expectValidGeometry(laboratory, 12);
+  await expect(laboratory.getByTestId('rgl-experiment')).toHaveAttribute('data-rgl-fidelity', 'exact');
+  await page.mouse.up();
+  expect(await layoutSnapshot(laboratory)).toEqual(dragPreview);
+  expect(await layoutSnapshot(laboratory, 'reference')).toEqual(dragPreview);
+
+  const handle = laboratory.getByRole('button', { name: 'Ridimensiona density-01', exact: true });
+  await handle.evaluate((element) => element.scrollIntoView({ block: 'center' }));
+  const bounds = await handle.boundingBox();
+  if (!bounds) throw new Error('Stress resize handle has no browser bounds.');
+  const metrics = await gridMetrics(laboratory);
+  const start = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + metrics.stepX, start.y + metrics.stepY, { steps: 6 });
+  await expect(laboratory.getByTestId('result-canvas')).toHaveAttribute('data-gesture-state', 'RESIZING');
+  const resizePreview = await layoutSnapshot(laboratory);
+  expect(resizePreview).not.toEqual(dragPreview);
+  await expectValidGeometry(laboratory, 12);
+  await expect(laboratory.getByTestId('rgl-experiment')).toHaveAttribute('data-rgl-fidelity', 'exact');
+  await page.mouse.up();
+  expect(await layoutSnapshot(laboratory)).toEqual(resizePreview);
+  expect(await layoutSnapshot(laboratory, 'reference')).toEqual(resizePreview);
 });
 
 test('30-card mixed fixture reports measured responsive derivation and render costs', async ({ page }) => {

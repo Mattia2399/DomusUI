@@ -15,6 +15,22 @@ function expectGeometry(
 }
 
 describe('GridEngineLab', () => {
+  it('shows profile, effective breakpoint, columns, mode, and generated provenance', () => {
+    render(<GridEngineLab />);
+
+    expect(screen.getByTestId('responsive-profile').textContent).toBe('Desktop');
+    expect(screen.getByTestId('responsive-breakpoint').textContent).toBe('xl');
+    expect(screen.getByTestId('responsive-cols').textContent).toBe('12');
+    expect(screen.getByTestId('responsive-origin').textContent).toBe('Generated');
+    expect(screen.getByTestId('solver-mode-status').textContent).toBe('manual');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Breakpoint sm' }));
+    expect(screen.getByTestId('responsive-profile').textContent).toBe('Tablet');
+    expect(screen.getByTestId('responsive-breakpoint').textContent).toBe('sm');
+    expect(screen.getByTestId('responsive-canvas-width').textContent).toBe('640px');
+    expect(screen.getByTestId('responsive-cols').textContent).toBe('4');
+  });
+
   it('offers five deterministic scenarios and visualizes manual versus automatic gaps', () => {
     render(<GridEngineLab />);
 

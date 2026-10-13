@@ -4,6 +4,7 @@ import type { DashboardGridBreakpoint } from '../../../types/widgetTypeLayout';
 import { GRID_ENGINE_LAB_SCENARIOS } from './labFixtures';
 import type { GridLayoutItem } from './model';
 import {
+  RESPONSIVE_LAB_BREAKPOINTS,
   breakpointForCanvasWidth,
   commitBreakpointLayout,
   createResponsiveLabState,
@@ -32,7 +33,24 @@ function expectValidLayout(items: readonly GridLayoutItem[], cols: number) {
   }
 }
 
+function geometryById(items: readonly GridLayoutItem[]) {
+  return [...items].sort((first, second) => (
+    first.i === second.i ? 0 : first.i < second.i ? -1 : 1
+  ));
+}
+
 describe('responsive Grid Engine 2.0 derivation', () => {
+  it('uses the six authoritative DashboardGrid breakpoints and column counts', () => {
+    expect(RESPONSIVE_LAB_BREAKPOINTS).toEqual([
+      { breakpoint: '2xl', minWidth: 1536, cols: 12 },
+      { breakpoint: 'xl', minWidth: 1280, cols: 12 },
+      { breakpoint: 'lg', minWidth: 1024, cols: 8 },
+      { breakpoint: 'md', minWidth: 768, cols: 6 },
+      { breakpoint: 'sm', minWidth: 640, cols: 4 },
+      { breakpoint: 'xs', minWidth: 0, cols: 2 },
+    ]);
+  });
+
   it.each([
     [390, 'xs', 2],
     [639, 'xs', 2],
@@ -71,6 +89,18 @@ describe('responsive Grid Engine 2.0 derivation', () => {
     expectValidLayout(mobile, 2);
   });
 
+  it('preserves reading order at all six breakpoints for the mixed-size fixture', () => {
+    const source = GRID_ENGINE_LAB_SCENARIOS[3].items;
+    const reference = deriveResponsiveLayout(source, 6, 12);
+    const sourceOrder = responsiveReadingOrder(reference);
+
+    for (const { breakpoint, cols } of RESPONSIVE_LAB_BREAKPOINTS) {
+      const derived = deriveResponsiveLayout([...reference].reverse(), 12, cols);
+      expect(responsiveReadingOrder(derived), breakpoint).toEqual(sourceOrder);
+      expectValidLayout(derived, cols);
+    }
+  });
+
   it('derives every breakpoint directly and returns to desktop without drift', () => {
     const state = createResponsiveLabState(GRID_ENGINE_LAB_SCENARIOS[0].items, 6);
     const desktop = layoutForBreakpoint(state, 'xl');
@@ -90,19 +120,50 @@ describe('responsive Grid Engine 2.0 derivation', () => {
     const withMobile = commitBreakpointLayout(initial, 'xs', customizedMobile);
     const desktop = layoutForBreakpoint(withMobile, 'xl');
     const changedDesktop = desktop.map((item, index) => (
-      index === 0 ? { ...item, y: item.y + 3 } : item
-    ));
+      index === 0 ? { ...item, y: item.y + 3, w: Math.min(12, item.w + 1) } : item
+    )).reverse();
     const afterDesktop = commitBreakpointLayout(withMobile, 'xl', changedDesktop);
 
     expect(originForBreakpoint(afterDesktop, 'xs')).toBe('custom');
-    expect(layoutForBreakpoint(afterDesktop, 'xs')).toEqual(customizedMobile);
+    expect(geometryById(layoutForBreakpoint(afterDesktop, 'xs'))).toEqual(geometryById(customizedMobile));
     expect(layoutForBreakpoint(afterDesktop, 'sm')).not.toEqual(layoutForBreakpoint(initial, 'sm'));
 
     const restored = restoreAutomaticBreakpoint(afterDesktop, 'xs');
-    expect(originForBreakpoint(restored, 'xs')).toBe('automatic');
+    expect(originForBreakpoint(restored, 'xs')).toBe('generated');
     expect(layoutForBreakpoint(restored, 'xs')).toEqual(
       deriveResponsiveLayout(changedDesktop, 12, 2),
     );
+  });
+
+  it('adds new reference cards to a custom layout without moving existing custom geometry', () => {
+    const initial = createResponsiveLabState(GRID_ENGINE_LAB_SCENARIOS[0].items, 6);
+    const mobile = layoutForBreakpoint(initial, 'xs');
+    const customizedMobile = mobile.map((item) => (
+      item.i === 'move-a' ? { ...item, y: item.y + 7 } : item
+    ));
+    const withMobile = commitBreakpointLayout(initial, 'xs', customizedMobile);
+    const newReferenceCard = { i: 'new-reference-card', x: 10, y: 1, w: 2, h: 2 } as const;
+    const withNewReference = commitBreakpointLayout(
+      withMobile,
+      'xl',
+      [...withMobile.reference, newReferenceCard],
+    );
+    const reconciled = layoutForBreakpoint(withNewReference, 'xs');
+    const reorderedCustomState = {
+      ...withNewReference,
+      custom: {
+        ...withNewReference.custom,
+        xs: [...customizedMobile].reverse(),
+      },
+    };
+
+    for (const customItem of customizedMobile) {
+      expect(reconciled.find((item) => item.i === customItem.i)).toEqual(customItem);
+    }
+    expect(reconciled.find((item) => item.i === newReferenceCard.i)).toBeDefined();
+    expect(originForBreakpoint(withNewReference, 'xs')).toBe('custom');
+    expect(layoutForBreakpoint(reorderedCustomState, 'xs')).toEqual(reconciled);
+    expectValidLayout(reconciled, 2);
   });
 
   it('keeps the 30-card stress fixture bounded and collision-free at every breakpoint', () => {

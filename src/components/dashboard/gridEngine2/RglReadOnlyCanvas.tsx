@@ -11,7 +11,7 @@ type RglReadOnlyCanvasProps = {
 
 function geometrySignature(items: readonly GridLayoutItem[]) {
   return [...items]
-    .sort((first, second) => first.i.localeCompare(second.i))
+    .sort((first, second) => (first.i === second.i ? 0 : first.i < second.i ? -1 : 1))
     .map(({ i, x, y, w, h }) => `${i}:${x},${y},${w},${h}`)
     .join('|');
 }
@@ -48,6 +48,16 @@ export function RglReadOnlyCanvas({ items, cols, width }: RglReadOnlyCanvasProps
       data-observed-layout={observedSignature}
       className="overflow-x-auto rounded-[1.35rem] border border-white/[0.08] bg-[#080b12]/72 p-2"
     >
+      <div className="mb-2 flex items-center justify-between gap-3 px-1 text-[10px]">
+        <span className="text-white/38">Coordinate solver → renderer</span>
+        <span
+          data-testid="rgl-fidelity-label"
+          aria-live="polite"
+          className={fidelity === 'exact' ? 'text-emerald-200/75' : fidelity === 'changed' ? 'text-rose-200/80' : 'text-white/45'}
+        >
+          {fidelity === 'exact' ? 'Exact' : fidelity === 'changed' ? 'Changed' : 'Pending'}
+        </span>
+      </div>
       <GridLayout
         key={context}
         width={width}

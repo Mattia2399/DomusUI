@@ -103,12 +103,13 @@ function assertIntent(intent: GridLayoutIntent) {
     intent.type !== 'MOVE' &&
     intent.type !== 'REORDER' &&
     intent.type !== 'COMPACT' &&
+    intent.type !== 'NORMALIZE' &&
     intent.type !== 'RESIZE' &&
     intent.type !== 'RUNTIME_RESIZE'
   ) {
     throw new GridLayoutError('INVALID_INTENT', 'Unsupported layout intent.');
   }
-  if (intent.type !== 'COMPACT') assertId(intent.id, 'intent.id');
+  if (intent.type !== 'COMPACT' && intent.type !== 'NORMALIZE') assertId(intent.id, 'intent.id');
 }
 
 function assertAnchor(anchor: GridResizeAnchor) {
@@ -159,8 +160,21 @@ function applyResize(
 
 function applyIntent(item: GridLayoutItem, intent: GridLayoutIntent, cols: number) {
   if (intent.type === 'MOVE' || intent.type === 'REORDER') return applyMove(item, intent, cols);
-  if (intent.type === 'COMPACT') return item;
+  if (intent.type === 'COMPACT' || intent.type === 'NORMALIZE') return item;
   return applyResize(item, intent, cols);
+}
+
+function placeBelowCollisions(source: GridLayoutItem, placed: readonly GridLayoutItem[]) {
+  let candidate = { ...source };
+
+  while (true) {
+    const blockers = placed.filter((item) => intersects(candidate, item));
+    if (blockers.length === 0) return candidate;
+    candidate = {
+      ...candidate,
+      y: Math.max(...blockers.map((blocker) => blocker.y + blocker.h)),
+    };
+  }
 }
 
 /**
@@ -175,19 +189,18 @@ function pushCollisionsDown(items: readonly GridLayoutItem[], active: GridLayout
     .sort(compareByTopLeft);
 
   for (const source of ordered) {
-    let candidate = { ...source };
-
-    while (true) {
-      const blockers = placed.filter((placedItem) => intersects(candidate, placedItem));
-      if (blockers.length === 0) break;
-
-      const nextY = Math.max(...blockers.map((blocker) => blocker.y + blocker.h));
-      candidate = { ...candidate, y: nextY };
-    }
-
-    placed.push(candidate);
+    placed.push(placeBelowCollisions(source, placed));
   }
 
+  return placed;
+}
+
+/** Resolves a projected layout in canonical reading order with no active item. */
+function normalizeCollisionsDown(items: readonly GridLayoutItem[]) {
+  const placed: GridLayoutItem[] = [];
+  for (const source of [...items].sort(compareByTopLeft)) {
+    placed.push(placeBelowCollisions(source, placed));
+  }
   return placed;
 }
 
@@ -312,6 +325,9 @@ export function solveLayout(input: SolveLayoutInput): GridLayoutItem[] {
   const intent = input.intent;
   if (intent.type === 'COMPACT') {
     return compactAllVertically(normalized).sort(compareByTopLeft);
+  }
+  if (intent.type === 'NORMALIZE') {
+    return normalizeCollisionsDown(normalized).sort(compareByTopLeft);
   }
 
   const activeSource = normalized.find((item) => item.i === intent.id);

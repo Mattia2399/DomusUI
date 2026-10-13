@@ -68,6 +68,12 @@ const RESPONSIVE_VIEW_CHOICES = [
   { label: 'Mobile', breakpoint: 'xs', icon: Smartphone },
 ] as const;
 
+function profileForBreakpoint(breakpoint: DashboardGridBreakpoint) {
+  if (breakpoint === '2xl' || breakpoint === 'xl' || breakpoint === 'lg') return 'Desktop';
+  if (breakpoint === 'md' || breakpoint === 'sm') return 'Tablet';
+  return 'Mobile';
+}
+
 const INITIAL_LAB_SCENARIO = GRID_ENGINE_LAB_SCENARIOS[0];
 const INITIAL_RESPONSIVE_STATE = createResponsiveLabState(
   INITIAL_LAB_SCENARIO.items,
@@ -191,6 +197,7 @@ export function GridEngineLab() {
   const scenario = GRID_ENGINE_LAB_SCENARIOS.find((entry) => entry.id === scenarioId) ?? initialScenario;
   const activeBreakpoint = breakpointForCanvasWidth(canvasWidth);
   const activeCols = colsForBreakpoint(activeBreakpoint);
+  const activeProfile = profileForBreakpoint(activeBreakpoint);
   const responsiveCalculation = useMemo(() => {
     const startedAt = performance.now();
     const layout = layoutForBreakpoint(responsiveState, activeBreakpoint);
@@ -473,7 +480,7 @@ export function GridEngineLab() {
                   : 'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100/72'
               }`}
             >
-              {layoutOrigin === 'custom' ? 'Personalizzato' : 'Automatico'}
+              {layoutOrigin === 'custom' ? 'Custom' : 'Generated'}
             </span>
             <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1.5 text-xs font-medium text-cyan-50/78">
               <span aria-live="polite">{stage}</span>
@@ -514,14 +521,14 @@ export function GridEngineLab() {
                 Viewport reale del canvas
               </h3>
               <p className="mt-1 max-w-2xl text-xs leading-5 text-white/42">
-                Ogni vista automatica viene derivata direttamente dal riferimento Desktop; le viste personalizzate restano isolate in memoria.
+                Ogni vista generated viene derivata direttamente dal riferimento Desktop; le viste custom restano isolate in memoria.
               </p>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
               {RESPONSIVE_VIEW_CHOICES.map((choice) => {
                 const Icon = choice.icon;
-                const selected = activeBreakpoint === choice.breakpoint;
+                const selected = activeProfile === choice.label;
                 return (
                   <button
                     key={choice.label}
@@ -560,10 +567,10 @@ export function GridEngineLab() {
             <button
               type="button"
               onClick={handleRestoreAutomatic}
-              disabled={layoutOrigin === 'automatic'}
+              disabled={layoutOrigin === 'generated'}
               className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.07] px-4 py-2.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/[0.12] disabled:cursor-not-allowed disabled:opacity-35"
             >
-              Ripristina vista automatica
+              Ripristina layout generated
             </button>
           </div>
 
@@ -590,7 +597,11 @@ export function GridEngineLab() {
             </div>
           </details>
 
-          <dl className="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+          <dl className="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-5">
+            <div className="rounded-xl bg-white/[0.025] p-2.5">
+              <dt className="text-white/35">Profilo</dt>
+              <dd data-testid="responsive-profile" className="mt-1 font-mono text-white/72">{activeProfile}</dd>
+            </div>
             <div className="rounded-xl bg-white/[0.025] p-2.5">
               <dt className="text-white/35">Canvas</dt>
               <dd data-testid="responsive-canvas-width" className="mt-1 font-mono text-white/72">{canvasWidth}px</dd>

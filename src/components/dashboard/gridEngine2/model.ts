@@ -38,6 +38,11 @@ export type GridCompactIntent = {
   readonly type: 'COMPACT';
 };
 
+/** Resolves existing collisions downward without privileging an active card. */
+export type GridNormalizeIntent = {
+  readonly type: 'NORMALIZE';
+};
+
 export type GridResizeIntent = {
   readonly type: 'RESIZE';
   readonly id: string;
@@ -60,6 +65,7 @@ export type GridLayoutIntent =
   | GridMoveIntent
   | GridReorderIntent
   | GridCompactIntent
+  | GridNormalizeIntent
   | GridResizeIntent
   | GridRuntimeResizeIntent;
 
