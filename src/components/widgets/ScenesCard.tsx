@@ -376,7 +376,11 @@ export function ScenesCard({
   const displayedScenes = selectedScenes;
   const availableScenes = SCENES_CATALOG.filter((scene) => !selectedScenes.includes(scene.id));
   const addSlots = isEditMode ? availableScenes : [];
-  const iconSize = isShortCard ? 18 : isTinyCard || compact ? 20 : 22;
+  // The round buttons grow with the card height, leaving room for the title and the names.
+  const shellSize = hasCardSize
+    ? Math.round(Math.max(40, Math.min(64, cardHeight - (isShortCard ? 72 : 104))))
+    : isShortCard || isTinyCard || compact ? 44 : 56;
+  const iconSize = Math.round(shellSize * 0.4);
   const titleLabel = title?.trim() || 'Scenari';
   const headerClass = isShortCard
     ? 'mb-1 flex items-center justify-between px-3 pt-2'
@@ -389,10 +393,9 @@ export function ScenesCard({
     ? 'flex min-w-0 gap-1 overflow-x-auto overscroll-x-contain px-2 pb-2 snap-x snap-mandatory scroll-px-2 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden'
     : 'flex min-w-0 gap-1.5 overflow-x-auto overscroll-x-contain px-2.5 pb-3 snap-x snap-mandatory scroll-px-2.5 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:px-3.5 sm:pb-4';
   const tileClass = isShortCard ? 'min-w-[4rem] gap-1.5 pt-1.5' : 'min-w-[4.75rem] gap-2 pt-2';
-  const iconShellClass = isShortCard ? 'h-12 w-12' : 'h-[3.75rem] w-[3.75rem]';
   const labelClass = isShortCard
-    ? 'text-[0.72rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-none'
-    : 'text-[0.8rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-tight';
+    ? 'text-[0.72rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-[1.25] pb-px'
+    : 'text-[0.8rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-[1.25] pb-px';
 
   return (
     <div
@@ -431,7 +434,7 @@ export function ScenesCard({
                 statusIconSize={iconSize}
                 statusLabel={isRunning ? t('home.scene.running') : isConfirmed ? t('home.scene.done') : ''}
                 tileClass={tileClass}
-                iconShellClass={iconShellClass}
+                shellSize={shellSize}
                 labelClass={labelClass}
                 isShortCard={isShortCard}
                 onClick={() => {
@@ -448,9 +451,9 @@ export function ScenesCard({
               key={`add-${scene.id}`}
               type="button"
               onClick={() => onAddScene?.(scene.id)}
-              className={`widget-action group relative flex min-w-0 max-w-[6.5rem] flex-1 shrink-0 basis-0 snap-start flex-col items-center ${tileClass}`}
+              className={`widget-action group relative flex min-w-0 flex-1 shrink-0 basis-0 snap-start flex-col items-center ${tileClass}`}
             >
-              <span className={`flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-secondary)] transition-colors group-hover:bg-[color:var(--ui-fill-tertiary)] group-hover:text-[color:var(--ui-text-primary)] ${iconShellClass}`}>
+              <span className={`flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-secondary)] transition-colors group-hover:bg-[color:var(--ui-fill-tertiary)] group-hover:text-[color:var(--ui-text-primary)]`} style={{ width: shellSize, height: shellSize }}>
                 <Plus size={iconSize} />
               </span>
               <span className={`w-full min-w-0 truncate text-center ${labelClass}`}>
@@ -478,7 +481,7 @@ function SceneButton({
   statusIconSize,
   statusLabel,
   tileClass,
-  iconShellClass,
+  shellSize,
   labelClass,
   isShortCard,
   onClick,
@@ -495,7 +498,7 @@ function SceneButton({
   statusIconSize: number;
   statusLabel: string;
   tileClass: string;
-  iconShellClass: string;
+  shellSize: number;
   labelClass: string;
   isShortCard: boolean;
   onClick?: () => void;
@@ -515,14 +518,15 @@ function SceneButton({
       aria-busy={isRunning}
       whileTap={{ scale: 0.94 }}
       style={style}
-      className={`widget-action group relative flex min-w-0 max-w-[6.5rem] flex-1 shrink-0 basis-0 snap-start flex-col items-center cursor-pointer disabled:cursor-wait ${tileClass}`}
+      className={`widget-action group relative flex min-w-0 flex-1 shrink-0 basis-0 snap-start flex-col items-center cursor-pointer disabled:cursor-wait ${tileClass}`}
     >
       <span
-        className={`relative flex shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow,transform] duration-300 group-hover:scale-[1.04] ${iconShellClass} ${
+        className={`relative flex shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow,transform] duration-300 group-hover:scale-[1.04] ${
           isActive
             ? `bg-gradient-to-br ${color} text-white shadow-[0_10px_24px_-8px_rgba(var(--scene-accent),0.75)]`
-            : 'bg-[rgba(var(--scene-accent),0.15)] text-[color:color-mix(in_srgb,rgb(var(--scene-accent))_78%,var(--ui-text-primary))]'
+            : 'bg-[rgba(var(--scene-accent),0.16)] text-[color:color-mix(in_srgb,rgb(var(--scene-accent))_78%,var(--ui-text-primary))] ring-1 ring-inset ring-[rgba(var(--scene-accent),0.3)]'
         }`}
+        style={{ width: shellSize, height: shellSize }}
       >
         {showRing ? (
           <motion.svg
