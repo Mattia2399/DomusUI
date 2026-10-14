@@ -56,14 +56,14 @@ export function SettingsListRow({
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline justify-between gap-3">
           <span
-            className={`min-w-0 truncate text-sm font-semibold tracking-[-0.01em] ${
+            className={`min-w-0 max-w-full truncate text-sm font-semibold tracking-[-0.01em] [flex-shrink:0.25] ${
               destructive ? 'text-[color:var(--ui-danger)]' : 'text-[color:var(--ui-text-primary)]'
             }`}
           >
             {title}
           </span>
           {value ? (
-            <span className="min-w-0 max-w-[50%] truncate text-right text-sm font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">
+            <span className="min-w-0 max-w-[50%] shrink truncate text-right text-sm font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">
               {value}
             </span>
           ) : null}

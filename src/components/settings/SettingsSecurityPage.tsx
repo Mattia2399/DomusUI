@@ -302,7 +302,9 @@ export function SettingsSecurityPage({
           <SettingsListRow
             icon={Camera}
             title={t('settings.securityPage.cameras')}
-            value={cameras.length > 0 ? count(shownCameras.length, cameras.length) : t('settings.securityPage.noCameras')}
+            // A count fits beside the title; "no cameras" reads better below it.
+            value={cameras.length > 0 ? count(shownCameras.length, cameras.length) : undefined}
+            subtitle={cameras.length > 0 ? undefined : t('settings.securityPage.noCameras')}
             onClick={canManage && cameras.length > 0 ? () => setPicker('cameras') : undefined}
           />
           <SettingsListRow icon={ExternalLink} title={t('settings.securityPage.openCenter')} onClick={onOpenSecurityCenter} />

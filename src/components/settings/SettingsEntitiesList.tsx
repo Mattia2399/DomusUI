@@ -541,7 +541,7 @@ export function SettingsEntitiesList({
         <div
           role="group"
           aria-label={t('settings.entities.typesAria')}
-          className="-mx-1 mt-3 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="-mx-1 mt-3 flex gap-2 overflow-x-auto pb-1 pl-1 pr-8 [mask-image:linear-gradient(90deg,#000_calc(100%-2rem),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible sm:pr-1 sm:[mask-image:none]"
         >
           <button type="button" aria-pressed={domain === 'all'} onClick={() => setDomain('all')} className={chipClass(domain === 'all')}>
             {t('settings.entities.allTypes')}

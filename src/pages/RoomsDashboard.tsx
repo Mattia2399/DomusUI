@@ -2143,11 +2143,11 @@ export function RoomsDashboard({
     let maskImage = 'none';
     if (roomTitleScrollEdges.start && roomTitleScrollEdges.end) {
       maskImage =
-        'linear-gradient(90deg, transparent 0, #000 1.25rem, #000 calc(100% - 1.25rem), transparent 100%)';
+        'linear-gradient(90deg, transparent 0, #000 1.25rem, #000 calc(100% - 2.25rem), transparent 100%)';
     } else if (roomTitleScrollEdges.start) {
       maskImage = 'linear-gradient(90deg, transparent 0, #000 1.25rem, #000 100%)';
     } else if (roomTitleScrollEdges.end) {
-      maskImage = 'linear-gradient(90deg, #000 0, #000 calc(100% - 1.25rem), transparent 100%)';
+      maskImage = 'linear-gradient(90deg, #000 0, #000 calc(100% - 2.25rem), transparent 100%)';
     }
     return {
       maskImage,
@@ -3044,8 +3044,11 @@ export function RoomsDashboard({
 
 
   const roomAmbientSubtitle = React.useMemo(() => {
-    const temperatureEntityId = activeRoomArea?.temperature_entity_id ?? null;
-    const humidityEntityId = activeRoomArea?.humidity_entity_id ?? null;
+    // The area's own sensors first, else the first matching sensor of the room.
+    const roomSensorFor = (kind: 'temperature' | 'humidity') =>
+      visibleActiveBuckets.sensors.find((entityId) => isAreaSensorEntityCandidate(entityId, haStates[entityId], kind)) ?? null;
+    const temperatureEntityId = activeRoomArea?.temperature_entity_id ?? roomSensorFor('temperature');
+    const humidityEntityId = activeRoomArea?.humidity_entity_id ?? roomSensorFor('humidity');
     const temperatureValue = temperatureEntityId ? getEntityNumericValue(haStates[temperatureEntityId]) : undefined;
     const humidityValue = humidityEntityId ? getEntityNumericValue(haStates[humidityEntityId]) : undefined;
     const temperatureLabel = typeof temperatureValue === 'number' ? formatAmbientTemperature(temperatureValue) : null;
@@ -3061,7 +3064,7 @@ export function RoomsDashboard({
       return rt('ambientHumidity', { humidity: humidityLabel });
     }
     return rt('noSensor');
-  }, [activeRoomArea, haStates, rt]);
+  }, [activeRoomArea, haStates, rt, visibleActiveBuckets.sensors]);
   const resolveOptimisticEntityIsOn = React.useCallback(
     (entityId: string, entity?: MockEntityState) => {
       const optimisticState = optimisticRoomToggleByEntityId[entityId];
@@ -4568,45 +4571,35 @@ export function RoomsDashboard({
       <section
         key={gridArea}
         className={cn(
-          'rooms-surface flex min-h-[12rem] min-w-0 flex-col p-3 sm:p-4',
+          'rooms-surface flex min-w-0 flex-col p-3 sm:p-4',
           isMobileOutsideGrid && 'gap-4',
           className,
         )}
         style={isMobileOutsideGrid ? undefined : { gridArea, alignSelf: 'start' }}
       >
         {editTarget ? (
-          <div className="mb-3">
+          <div className="mb-2">
             {renderRoomSectionHeader(editTarget.label, 0, {
               onOpen: canOpenActiveHaRoomSection ? () => startEditRoomSection(editTarget) : undefined,
             })}
           </div>
         ) : (
-          <p className="mb-3 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">{rt('sectionNotConfigured')}</p>
+          <p className="mb-2 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-tertiary)]">{rt('sectionNotConfigured')}</p>
         )}
-        <div className="relative flex min-h-[8.5rem] flex-1 items-center justify-center overflow-hidden rounded-[1.25rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-4 py-5 text-center">
-          <div aria-hidden="true" className="absolute inset-0 opacity-45">
-            <div className="absolute left-4 right-4 top-4 h-8 rounded-2xl border border-white/[0.035] bg-white/[0.025]" />
-            <div className="absolute left-4 top-16 h-12 w-[34%] rounded-2xl border border-white/[0.03] bg-white/[0.018]" />
-            <div className="absolute left-[40%] right-4 top-16 h-12 rounded-2xl border border-white/[0.03] bg-white/[0.016]" />
-            <div className="absolute bottom-4 left-6 h-2 w-20 rounded-full bg-white/[0.035]" />
-            <div className="absolute bottom-4 right-6 h-2 w-14 rounded-full bg-white/[0.025]" />
-          </div>
-          <div className="relative z-10 flex max-w-xs flex-col items-center">
-            <h2 className="text-sm font-semibold leading-snug text-[color:var(--ui-text-primary)]">{title}</h2>
-            <p className="mt-1.5 text-xs leading-relaxed text-[color:var(--ui-text-secondary)]">{description}</p>
-            {editTarget && canOpenEmptySection ? (
-              <button
-                type="button"
-                onClick={() => openSectionDeviceAddSheet(editTarget)}
-                className="mt-4 inline-flex items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-secondary)] px-3.5 py-2 text-xs font-semibold text-[color:var(--ui-text-primary)] shadow-sm backdrop-blur-md transition-all hover:bg-[color:var(--ui-fill-primary)] active:scale-95"
-                title={rt('addDevices')}
-              >
-                {rt('addDevices')}
-              </button>
-            ) : (
-              <div className="mt-4 h-1.5 w-14 rounded-full bg-white/[0.06]" />
-            )}
-          </div>
+        {/* An empty section is a short note, not a box inside the box. */}
+        <div className="flex min-w-0 flex-col items-start gap-1 px-1">
+          <h2 className="text-sm font-semibold leading-snug text-[color:var(--ui-text-secondary)]">{title}</h2>
+          <p className="text-xs leading-relaxed text-[color:var(--ui-text-tertiary)]">{description}</p>
+          {editTarget && canOpenEmptySection ? (
+            <button
+              type="button"
+              onClick={() => openSectionDeviceAddSheet(editTarget)}
+              className="-ml-2 mt-1 inline-flex min-h-9 items-center gap-1.5 rounded-full px-2 text-xs font-semibold text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:scale-95"
+            >
+              <Plus size={14} aria-hidden="true" />
+              {rt('addDevices')}
+            </button>
+          ) : null}
         </div>
       </section>
     );
