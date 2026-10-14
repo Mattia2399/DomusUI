@@ -1749,16 +1749,17 @@ export default function SettingsDashboard({
 
         <SettingsListGroup
           title={t('settings.system.group.health')}
-          action={
+          // Nothing to refresh without system sensors: no faded action then.
+          action={systemEntityIds.length > 0 ? (
             <button
               type="button"
               onClick={handleRefreshSystemSensors}
-              disabled={!isConnected || systemEntityIds.length === 0 || isActionBusy}
+              disabled={!isConnected || isActionBusy}
               className={groupAction}
             >
               {t('settings.system.refreshSensors')}
             </button>
-          }
+          ) : undefined}
         >
           {healthRows.length > 0 ? (
             healthRows

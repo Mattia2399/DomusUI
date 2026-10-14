@@ -11029,7 +11029,7 @@ export function MainBoard() {
         <button
           type="button"
           onClick={() => navigateWithinDashboard('/setup')}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] right-3 top-auto z-[210] rounded-full border border-amber-200/30 bg-amber-400/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100 shadow-lg backdrop-blur-2xl transition hover:bg-amber-400/22 sm:bottom-auto sm:top-3"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] right-3 top-auto z-[210] rounded-full border border-[color:color-mix(in_srgb,var(--ui-warning)_35%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-warning)_15%,var(--ui-bg-elevated))] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-warning)] shadow-lg backdrop-blur-2xl transition hover:brightness-105 sm:bottom-auto sm:top-3"
         >
           {t('dashboard.demo.connect')}
         </button>

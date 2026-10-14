@@ -1113,8 +1113,8 @@ export function DemoLockedRoute({ pathname, onConnect }: { pathname: string; onC
   return (
     <SetupBackdrop>
       <section className="onboarding-window w-full max-w-xl !min-h-0 flex-col items-center p-6 text-center sm:p-10">
-        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-amber-200/22 bg-amber-400/12 text-amber-100"><LockKeyhole size={25} /></span>
-        <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-100/72">{ot('demoLocked.label')}</div>
+        <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[color:color-mix(in_srgb,var(--ui-warning)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-warning)_13%,transparent)] text-[color:var(--ui-warning)]"><LockKeyhole size={25} /></span>
+        <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-warning)]">{ot('demoLocked.label')}</div>
         <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--ui-text-primary)]">{ot('demoLocked.title')}</h1>
         <p className="mt-3 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('demoLocked.description', { section: pathname.replace('/', '') || 'Home' })}</p>
         <div className="mt-8 flex w-full flex-col-reverse justify-center gap-2 sm:w-auto sm:flex-row"><SetupSecondaryButton onClick={() => window.location.assign('/home')}>{ot('demoLocked.back')}</SetupSecondaryButton><SetupActionButton onClick={onConnect}>{ot('demoLocked.connect')}</SetupActionButton></div>
