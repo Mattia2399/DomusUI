@@ -362,6 +362,7 @@ export function ScenesCard({
     ref: cardRef,
     density: cardDensity,
     hasSize: hasCardSize,
+    width: cardWidth,
     height: cardHeight,
   } = useCardSize({
     tinyWidth: 280,
@@ -376,6 +377,18 @@ export function ScenesCard({
   const displayedScenes = selectedScenes;
   const availableScenes = SCENES_CATALOG.filter((scene) => !selectedScenes.includes(scene.id));
   const addSlots = isEditMode ? availableScenes : [];
+  // Past the width the buttons need, they widen so that half of the next one
+  // shows at the edge: the row visibly scrolls.
+  const slotCount = displayedScenes.length + addSlots.length;
+  const rowPadding = isShortCard ? 8 : 12;
+  const rowGap = isShortCard ? 4 : 6;
+  const minSlotWidth = isShortCard ? 64 : 76;
+  const rowWidth = cardWidth - rowPadding * 2;
+  const fittingSlots = Math.max(1, Math.floor((rowWidth + rowGap) / (minSlotWidth + rowGap)));
+  const fullSlots = Math.max(1, fittingSlots - 1);
+  const peekSlotStyle: React.CSSProperties | undefined = hasCardSize && slotCount > fittingSlots
+    ? { flex: `0 0 ${(rowWidth - fullSlots * rowGap) / (fullSlots + 0.5)}px` }
+    : undefined;
   // The round buttons grow with the card height, leaving room for the title and the names.
   const shellSize = hasCardSize
     ? Math.round(Math.max(40, Math.min(64, cardHeight - (isShortCard ? 72 : 104))))
@@ -391,7 +404,7 @@ export function ScenesCard({
   // Round buttons share the width; past their minimum they scroll sideways.
   const carouselClass = isShortCard
     ? 'flex min-w-0 gap-1 overflow-x-auto overscroll-x-contain px-2 pb-2 snap-x snap-mandatory scroll-px-2 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden'
-    : 'flex min-w-0 gap-1.5 overflow-x-auto overscroll-x-contain px-2.5 pb-3 snap-x snap-mandatory scroll-px-2.5 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:px-3.5 sm:pb-4';
+    : 'flex min-w-0 gap-1.5 overflow-x-auto overscroll-x-contain px-3 pb-3 snap-x snap-mandatory scroll-px-3 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:pb-4';
   const tileClass = isShortCard ? 'min-w-[4rem] gap-1.5 pt-1.5' : 'min-w-[4.75rem] gap-2 pt-2';
   const labelClass = isShortCard
     ? 'text-[0.72rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-[1.25] pb-px'
@@ -435,6 +448,7 @@ export function ScenesCard({
                 statusLabel={isRunning ? t('home.scene.running') : isConfirmed ? t('home.scene.done') : ''}
                 tileClass={tileClass}
                 shellSize={shellSize}
+                slotStyle={peekSlotStyle}
                 labelClass={labelClass}
                 isShortCard={isShortCard}
                 onClick={() => {
@@ -451,6 +465,7 @@ export function ScenesCard({
               key={`add-${scene.id}`}
               type="button"
               onClick={() => onAddScene?.(scene.id)}
+              style={peekSlotStyle}
               className={`widget-action group relative flex min-w-0 flex-1 shrink-0 basis-0 snap-start flex-col items-center ${tileClass}`}
             >
               <span className={`flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-secondary)] transition-colors group-hover:bg-[color:var(--ui-fill-tertiary)] group-hover:text-[color:var(--ui-text-primary)]`} style={{ width: shellSize, height: shellSize }}>
@@ -482,6 +497,7 @@ function SceneButton({
   statusLabel,
   tileClass,
   shellSize,
+  slotStyle,
   labelClass,
   isShortCard,
   onClick,
@@ -499,6 +515,7 @@ function SceneButton({
   statusLabel: string;
   tileClass: string;
   shellSize: number;
+  slotStyle?: React.CSSProperties;
   labelClass: string;
   isShortCard: boolean;
   onClick?: () => void;
@@ -508,7 +525,7 @@ function SceneButton({
   const isActive = isRunning || isCompleting || isConfirmed;
   const showRing = ringProgress !== null || isConfirmed;
   const progress = ringProgress !== null ? Math.max(0.04, Math.min(1, ringProgress)) : 1;
-  const style = { '--scene-accent': accentRgb } as React.CSSProperties;
+  const style = { ...slotStyle, '--scene-accent': accentRgb } as React.CSSProperties;
 
   return (
     <motion.button
