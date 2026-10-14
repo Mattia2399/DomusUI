@@ -18,6 +18,7 @@ import {
   Link2,
   LockKeyhole,
   MemoryStick,
+  MonitorSmartphone,
   Network,
   Power,
   Recycle,
@@ -447,18 +448,6 @@ function MiniSparkline({ id, data }: { id: string; data: number[] }) {
   );
 }
 
-function StatTile({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string | number }) {
-  return (
-    <div className="rounded-[1.05rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] p-2.5">
-      <span className="inline-flex h-8 w-8 items-center justify-center rounded-[0.7rem] bg-[color:rgb(var(--ui-accent-rgb)/0.14)] text-[color:rgb(var(--ui-accent-rgb)/0.96)]">
-        <Icon size={15} />
-      </span>
-      <p className="mt-2 text-[1.25rem] font-semibold leading-none tracking-[-0.02em] text-[color:var(--ui-text-primary)]">{value}</p>
-      <p className="mt-1 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-text-secondary)]">{label}</p>
-    </div>
-  );
-}
-
 function InfoRow({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle: string }) {
   return (
     <div className="flex items-center gap-2.5 border-t border-[color:var(--ui-border)] py-2.5 first:border-t-0">
@@ -548,17 +537,28 @@ function SettingsHubGroup({ title, children }: { title: string; children: React.
   );
 }
 
+/** The layout in use, in words: phone, tablet or desktop rather than a breakpoint id. */
+function layoutFormatLabel(layoutId: string | undefined, t: ReturnType<typeof useI18n>['t']) {
+  if (layoutId === 'xs' || layoutId === 'sm') return t('settings.dashboard.layout.phone');
+  if (layoutId === 'md') return t('settings.dashboard.layout.tablet');
+  if (layoutId === 'lg' || layoutId === 'xl' || layoutId === '2xl') return t('settings.dashboard.layout.desktop');
+  return t('settings.dashboard.layout.auto');
+}
+
 function SettingsDetailShell({
   title,
   subtitle,
   onBack,
   backLabel,
+  wide = false,
   children,
 }: {
   title: string;
   subtitle: string;
   onBack: () => void;
   backLabel?: string;
+  /** A page with a multi-column form; the others share one reading width. */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   const { t } = useI18n();
@@ -572,7 +572,7 @@ function SettingsDetailShell({
         contentClassName="lg:!px-10"
       />
       <main className="dashboard-page-content-wide px-4 pb-[calc(env(safe-area-inset-bottom)+6.25rem)] pt-4 sm:px-6 sm:pb-6 sm:pt-5 lg:px-10">
-        {children}
+        {wide ? children : <div className="mx-auto w-full max-w-[48rem]">{children}</div>}
       </main>
     </div>
   );
@@ -1160,6 +1160,7 @@ export default function SettingsDashboard({
       <SettingsDetailShell
         title={t('waste.settings.title')}
         subtitle={t('waste.settings.subtitle')}
+        wide
         onBack={() => (wasteHasUnsavedChanges ? setWasteLeaveConfirmOpen(true) : navigateTo('/settings'))}
       >
         <WasteCollectionSettings
@@ -1296,25 +1297,19 @@ export default function SettingsDashboard({
         subtitle={t('settings.dashboard.pageSubtitle')}
         onBack={() => navigateTo('/settings')}
       >
-        <div className="grid gap-4 sm:grid-cols-3">
-          <StatTile icon={Layers3} label={t('settings.dashboard.sections')} value={sections.length} />
-          <StatTile icon={Box} label={t('settings.dashboard.cards')} value={widgets.length} />
-          <StatTile icon={LayoutDashboard} label={t('settings.dashboard.breakpoint')} value={currentLayoutId?.toUpperCase() || 'Auto'} />
+        <div className="mb-6">
+          <SettingsListGroup title={t('settings.dashboard.group.layout')}>
+            <SettingsListRow icon={Layers3} title={t('settings.dashboard.sections')} value={String(sections.length)} />
+            <SettingsListRow icon={Box} title={t('settings.dashboard.cards')} value={String(widgets.length)} />
+            <SettingsListRow icon={MonitorSmartphone} title={t('settings.dashboard.layoutNow')} value={layoutFormatLabel(currentLayoutId, t)} />
+            <SettingsListRow
+              icon={LayoutDashboard}
+              title={t('settings.dashboard.customize')}
+              subtitle={t('settings.dashboard.customizeHint')}
+              onClick={() => navigateTo('/home')}
+            />
+          </SettingsListGroup>
         </div>
-        <section className="dashboard-content-surface mt-5 rounded-[1.5rem] p-5 sm:p-6">
-          <h2 className="text-base font-semibold tracking-[-0.02em]">{t('settings.dashboard.customize')}</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-            {t('settings.dashboard.customizeDescription')}
-          </p>
-          <button
-            type="button"
-            onClick={() => navigateTo('/home')}
-            className="liquid-glass-selection mt-5 inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold"
-          >
-            <LayoutDashboard size={16} />
-            {t('settings.dashboard.openHome')}
-          </button>
-        </section>
         {managedSectionContent}
       </SettingsDetailShell>
     );
@@ -1518,7 +1513,8 @@ export default function SettingsDashboard({
       >
         {settingsPath === '/settings/data' && canOpenManagedPage ? (
           <section className="dashboard-content-surface mb-4 rounded-[1.5rem] p-5 sm:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
+            {/* On a phone the button goes below the text instead of squeezing it. */}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">
                 <h2 className="font-semibold">{t('settings.data.haBackup')}</h2>
                 <p className="mt-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
@@ -1533,7 +1529,7 @@ export default function SettingsDashboard({
                 type="button"
                 onClick={handleForceBackup}
                 disabled={!isConnected || isActionBusy}
-                className="liquid-glass-selection inline-flex min-h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
+                className="liquid-glass-selection inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <ShieldCheck size={16} />
                 {t('settings.system.forceBackup')}

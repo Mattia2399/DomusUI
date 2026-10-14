@@ -58,6 +58,7 @@ const englishCopy = {
   'Apri i flussi energetici': 'Open energy flows',
   'Anteprima': 'Preview',
   'Hub Sostenibilità e Consumi': 'Sustainability and Consumption Hub',
+  'Nascondi avviso': 'Hide notice',
   'Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.':
     'Energy measurements come exclusively from Domus Energy. Water, Gas, and Reports remain previews where indicated.',
   'Panoramica consumi': 'Consumption overview',
@@ -887,6 +888,7 @@ const frenchCopy: Record<ConsumptionCopyKey, string> = {
   'Apri i flussi energetici': 'Ouvrir les flux énergétiques',
   'Anteprima': 'Aperçu',
   'Hub Sostenibilità e Consumi': 'Centre durabilité et consommation',
+  'Nascondi avviso': 'Masquer l’avis',
   'Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.':
     'Les mesures d’énergie proviennent exclusivement de Domus Energy. L’eau, le gaz et les rapports restent des aperçus lorsqu’ils sont signalés.',
   'Panoramica consumi': 'Vue d’ensemble de la consommation',
