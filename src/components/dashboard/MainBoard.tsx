@@ -78,6 +78,7 @@ import {
 import { useLightSwitchCommands } from './mainboard/useLightSwitchCommands';
 import { useFanCommands, enrichFanPending } from './mainboard/useFanCommands';
 import { createFanStateMocks } from '../widgets/fanMock';
+import { getSceneIconNode, SCENES_CATALOG } from '../widgets/ScenesCard';
 import { resolveFanModel, type FanPending } from '../widgets/fanModel';
 import { useHumidifierCommands, enrichHumidifierPending } from './mainboard/useHumidifierCommands';
 import { createHumidifierStateMocks } from '../widgets/humidifierMock';
@@ -9710,6 +9711,22 @@ export function MainBoard() {
     });
   }, [haStates, isHaConnected]);
 
+  // The scenes of the first Home scenes card, for the scenes quick card of the mobile menu.
+  const sidebarScenesSection = useMemo(() => sections.find((section) => section.kind === 'scenes'), [sections]);
+  const sidebarScenes = useMemo(() => {
+    if (!sidebarScenesSection) return [];
+    const ids = sidebarScenesSection.scenes ?? SCENES_CATALOG.slice(0, 4).map((scene) => scene.id);
+    return ids.slice(0, 4).flatMap((id) => {
+      const scene = SCENES_CATALOG.find((item) => item.id === id);
+      if (!scene) return [];
+      return [{
+        id,
+        label: sidebarScenesSection.sceneLabels?.[id]?.trim() || scene.label,
+        icon: getSceneIconNode(sidebarScenesSection.sceneIcons?.[id] ?? scene.defaultIcon, 21),
+      }];
+    });
+  }, [sidebarScenesSection]);
+
   const triggerSceneAction = async (section: DashboardSection, sceneId: SceneKey) => {
     if (isEditMode || section.kind !== 'scenes') {
       return;
@@ -11119,6 +11136,12 @@ export function MainBoard() {
             areas={haAreas}
             widgets={widgets}
             onCallService={callHaService}
+            energyCallApi={callHaApi}
+            scenes={sidebarScenes}
+            runningSceneId={sidebarScenesSection ? runningSceneBySectionId[sidebarScenesSection.id]?.sceneId : null}
+            onRunScene={(sceneId) => {
+              if (sidebarScenesSection) void triggerSceneAction(sidebarScenesSection, sceneId as SceneKey);
+            }}
             onNavigate={navigateWithinDashboard}
             onPathClick={handleSidebarPathClick}
             onToggleEditMode={requestToggleEditMode}

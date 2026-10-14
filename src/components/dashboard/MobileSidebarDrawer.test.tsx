@@ -5,6 +5,21 @@ import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 import { SIDEBAR_QUICK_CARD_STORAGE_KEY } from './sidebarQuickCard';
 
+const { energyState } = vi.hoisted(() => ({
+  energyState: {
+    configured: true,
+    home_consumption: { status: 'ok', value: 1800, unit: 'W' },
+    modules: {
+      solar: { quantities: { production_power: { status: 'ok', value: 1200, unit: 'W' } } },
+      grid: { quantities: { net_power: { status: 'ok', value: 600, unit: 'W' } } },
+    },
+  },
+}));
+vi.mock('../../services/energyCoreClient', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../services/energyCoreClient')>()),
+  getEnergyState: vi.fn(async () => energyState),
+}));
+
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
 
 beforeEach(() => {
@@ -61,7 +76,7 @@ function renderDrawer(overrides: Partial<Parameters<typeof MobileSidebarDrawer>[
   return handlers;
 }
 
-const quickCard = () => screen.getByRole('region', { name: /Cose da controllare|Allarme|Luci accese|Raccolta rifiuti/ });
+const quickCard = () => screen.getByRole('region', { name: /Cose da controllare|Allarme|Luci accese|Scenari|Energia ora|Raccolta rifiuti/ });
 
 describe('MobileSidebarDrawer', () => {
   it('shows the profile on top, the home sections as tiles and the actions with counts', () => {
@@ -99,17 +114,58 @@ describe('MobileSidebarDrawer', () => {
     fireEvent.click(within(quickCard()).getByRole('button', { name: 'Apri' }));
   });
 
-  it('turns off the lights that are on, after the confirmation', () => {
+  it('shows the rooms with a light on and turns them off after the confirmation', () => {
     window.localStorage.setItem(SIDEBAR_QUICK_CARD_STORAGE_KEY, 'lights');
-    const { onCallService } = renderDrawer();
+    const { onCallService } = renderDrawer({
+      entityRegistry: [
+        { entityId: 'light.cucina', areaId: 'kitchen' },
+        { entityId: 'light.soggiorno', deviceId: 'lamp' },
+      ],
+      deviceRegistry: [{ id: 'lamp', areaId: 'living' }],
+      areas: [{ area_id: 'kitchen', name: 'Cucina' }, { area_id: 'living', name: 'Soggiorno' }] as never,
+    });
 
-    expect(within(quickCard()).getByText('2 luci accese')).toBeTruthy();
-    fireEvent.click(within(quickCard()).getByRole('button', { name: 'Spegni tutte' }));
-    expect(screen.getByRole('heading', { name: 'Spegnere tutte le luci?' })).toBeTruthy();
+    const card = quickCard();
+    expect(card.textContent).toContain('2luci accese');
+    expect(within(card).getByText('in 2 stanze')).toBeTruthy();
+    expect(within(card).getByText('Cucina')).toBeTruthy();
+    expect(within(card).getByText('Soggiorno')).toBeTruthy();
+    fireEvent.click(within(card).getByRole('button', { name: 'Spegni tutte' }));
+    expect(within(quickCard()).getByText('Spegnere tutte le luci?')).toBeTruthy();
     expect(onCallService).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Spegni' }));
+    fireEvent.click(within(quickCard()).getByRole('button', { name: 'Spegni' }));
 
     expect(onCallService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: ['light.cucina', 'light.soggiorno'] });
+  });
+
+  it('runs a scene of the Home scenes card', () => {
+    window.localStorage.setItem(SIDEBAR_QUICK_CARD_STORAGE_KEY, 'scenes');
+    const onRunScene = vi.fn();
+    renderDrawer({ scenes: [{ id: 'night', label: 'Notte', icon: null }, { id: 'movie', label: 'Cinema', icon: null }], onRunScene });
+
+    fireEvent.click(within(quickCard()).getByRole('button', { name: 'Avvia Notte' }));
+    expect(onRunScene).toHaveBeenCalledWith('night');
+  });
+
+  it('shows the energy now from the energy core', async () => {
+    window.localStorage.setItem(SIDEBAR_QUICK_CARD_STORAGE_KEY, 'energy');
+    renderDrawer({ energyCallApi: vi.fn() as never });
+
+    expect(await within(quickCard()).findByText('67% dal sole')).toBeTruthy();
+    expect(within(quickCard()).getByText('1,8')).toBeTruthy();
+    expect(within(quickCard()).getByText('1,2 kW')).toBeTruthy();
+    expect(within(quickCard()).getByText('600 W')).toBeTruthy();
+  });
+
+  it('previews every quick card in the gallery and marks the one in use', () => {
+    renderDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cambia la scheda rapida' }));
+    const gallery = screen.getByRole('dialog', { name: 'Scheda rapida' });
+    expect(within(gallery).getByRole('button', { name: 'Cose da controllare' }).getAttribute('aria-pressed')).toBe('true');
+    for (const name of ['Luci accese', 'Scenari', 'Allarme', 'Energia ora', 'Raccolta rifiuti', 'Nessuna scheda']) {
+      expect(within(gallery).getByRole('button', { name })).toBeTruthy();
+    }
   });
 
   it('shows the next waste collection', () => {
@@ -117,7 +173,7 @@ describe('MobileSidebarDrawer', () => {
     renderDrawer();
 
     expect(within(quickCard()).getByText('Carta e Organico')).toBeTruthy();
-    expect(within(quickCard()).getByText('Prossima raccolta · Domani')).toBeTruthy();
+    expect(within(quickCard()).getByText('Domani')).toBeTruthy();
   });
 
   it('can hide the quick card', () => {

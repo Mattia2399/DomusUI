@@ -1,16 +1,11 @@
 import React from 'react';
 import {
-  Bell,
-  Check,
   ChevronRight,
   ExternalLink,
-  Lightbulb,
   LogOut,
   PencilLine,
   Plus,
-  Recycle,
   Settings,
-  Shield,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -18,13 +13,13 @@ import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
 import type { HaArea, HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { fallbackStateWord } from '../../i18n/entityStateFallback';
 import { useI18n } from '../../i18n/I18nProvider';
+import type { EnergyCallApi } from '../../services/energyCoreClient';
 import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import { readSecurityCenterAlarm, securityAlarmCandidates } from '../../services/securityCenterSelection';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityStateMap } from '../../types/ha';
 import { useHomeAttentionItems } from '../homeAttention/useHomeAttentionItems';
 import { haStatusLabel } from '../settings/haStatusLabel';
-import GlassBottomSheet from '../ui/GlassBottomSheet';
 import GlassModal from '../ui/GlassModal';
 import {
   getDashboardNavigationIcon,
@@ -35,12 +30,20 @@ import {
 } from './dashboardNavigation';
 import { DashboardProfileAvatar } from './DashboardProfileAvatar';
 import {
-  SIDEBAR_QUICK_CARD_KINDS,
+  QUICK_GROUP_SURFACE,
+  SidebarQuickCard,
+  SidebarQuickCardGallery,
+  type SidebarQuickCardData,
+  type SidebarQuickTone,
+  type SidebarScene,
+} from './SidebarQuickCardView';
+import {
   availableUpdateCount,
-  formatCollectionDay,
   lightsOn,
   nextWasteCollection,
+  readEnergyNow,
   readSidebarQuickCard,
+  roomsOfLights,
   securityAttentionCount,
   writeSidebarQuickCard,
   type SidebarQuickCardKind,
@@ -54,33 +57,10 @@ const ROLE_LABEL_KEYS = {
   member: 'settings.access.role.member',
 } as const;
 
-const QUICK_KIND_LABELS = {
-  attention: 'navigation.quick.kind.attention',
-  alarm: 'navigation.quick.kind.alarm',
-  lights: 'navigation.quick.kind.lights',
-  waste: 'navigation.quick.kind.waste',
-  none: 'navigation.quick.kind.none',
-} as const;
+const GROUP_SURFACE = QUICK_GROUP_SURFACE;
 
-const QUICK_KIND_ICONS: Record<Exclude<SidebarQuickCardKind, 'none'>, LucideIcon> = {
-  attention: Bell,
-  alarm: Shield,
-  lights: Lightbulb,
-  waste: Recycle,
-};
-
-type Tone = 'accent' | 'danger' | 'success' | 'warning' | 'neutral';
-
-const TONE_CLASSES: Record<Tone, string> = {
-  accent: 'bg-[color:rgb(var(--ui-accent-rgb)/0.14)] text-[color:var(--ui-accent)]',
-  danger: 'bg-[color:color-mix(in_srgb,var(--ui-danger)_14%,transparent)] text-[color:var(--ui-danger)]',
-  success: 'bg-[color:color-mix(in_srgb,var(--ui-success)_15%,transparent)] text-[color:var(--ui-success)]',
-  warning: 'bg-[color:color-mix(in_srgb,var(--ui-warning)_16%,transparent)] text-[color:var(--ui-warning)]',
-  neutral: 'bg-[color:var(--ui-fill-secondary)] text-[color:var(--ui-text-secondary)]',
-};
-
-/* The surfaces inside the glass panel: soft and translucent, never glass on glass. */
-const GROUP_SURFACE = 'border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)]';
+/** How often the energy card reads the energy core again while the menu is open. */
+const ENERGY_REFRESH_MS = 15_000;
 
 type MobileSidebarDrawerProps = {
   isOpen: boolean;
@@ -103,6 +83,12 @@ type MobileSidebarDrawerProps = {
   areas?: HaArea[];
   widgets?: Widget[];
   onCallService?: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
+  /** Reads the energy core for the "Energy now" card. */
+  energyCallApi?: EnergyCallApi;
+  /** The scenes of the Home scenes card, for the "Scenes" card. */
+  scenes?: SidebarScene[];
+  runningSceneId?: string | null;
+  onRunScene?: (sceneId: string) => void;
   onNavigate?: (path: string) => void;
   onPathClick: (entry: SidebarQuickPath) => void;
   onToggleEditMode: () => void;
@@ -116,6 +102,32 @@ type MobileSidebarDrawerProps = {
   onPrefetchRoute?: (path: string) => void;
   onPrefetchEditMode?: () => void;
 };
+
+function useEnergyNow(callApi: EnergyCallApi | undefined, enabled: boolean): SidebarQuickCardData['energy'] {
+  const [energy, setEnergy] = React.useState<SidebarQuickCardData['energy']>({ status: 'loading' });
+  React.useEffect(() => {
+    if (!enabled || !callApi) return undefined;
+    let cancelled = false;
+    const load = () => {
+      readEnergyNow(callApi).then(
+        (now) => {
+          if (!cancelled) setEnergy(now ? { status: 'ok', now } : { status: 'unavailable' });
+        },
+        () => {
+          // A failed refresh keeps the last value.
+          if (!cancelled) setEnergy((current) => (current.status === 'ok' ? current : { status: 'unavailable' }));
+        },
+      );
+    };
+    load();
+    const timer = window.setInterval(load, ENERGY_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [callApi, enabled]);
+  return callApi ? energy : { status: 'unavailable' };
+}
 
 /** A section of the menu: a small title over its content. */
 function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -321,6 +333,10 @@ export function MobileSidebarDrawer({
   areas = [],
   widgets = [],
   onCallService,
+  energyCallApi,
+  scenes = [],
+  runningSceneId = null,
+  onRunScene,
   onNavigate,
   onPathClick,
   onToggleEditMode,
@@ -339,7 +355,6 @@ export function MobileSidebarDrawer({
   const editButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = React.useState(false);
-  const [isLightsConfirmOpen, setIsLightsConfirmOpen] = React.useState(false);
   const [isQuickChooserOpen, setIsQuickChooserOpen] = React.useState(false);
   const [quickKind, setQuickKind] = React.useState<SidebarQuickCardKind>(() => readSidebarQuickCard());
   const connected = haStatus === 'connected';
@@ -426,14 +441,12 @@ export function MobileSidebarDrawer({
     setIsQuickChooserOpen(false);
   };
   const turnOffLights = () => {
-    setIsLightsConfirmOpen(false);
     if (litLights.length > 0) void onCallService?.('light', 'turn_off', { entity_id: litLights });
   };
 
   React.useEffect(() => {
     if (!isOpen) {
       setIsLogoutConfirmOpen(false);
-      setIsLightsConfirmOpen(false);
       setIsQuickChooserOpen(false);
     }
   }, [isOpen]);
@@ -446,7 +459,7 @@ export function MobileSidebarDrawer({
     return () => window.clearTimeout(timer);
   }, [isEditTourActive, isOpen]);
 
-  const overlayOpen = isLogoutConfirmOpen || isLightsConfirmOpen || isQuickChooserOpen;
+  const overlayOpen = isLogoutConfirmOpen || isQuickChooserOpen;
   React.useEffect(() => {
     if (!isOpen) {
       return;
@@ -506,123 +519,49 @@ export function MobileSidebarDrawer({
     };
   }, [isOpen, onClose, overlayOpen]);
 
-  const renderQuickCard = () => {
-    if (quickKind === 'none') {
-      return (
-        <button
-          type="button"
-          onClick={() => setIsQuickChooserOpen(true)}
-          className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.4rem] border-[1.5px] border-dashed border-[color:var(--ui-border-strong)] text-[0.95rem] font-semibold text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
-        >
-          <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
-          {t('navigation.quick.add')}
-        </button>
-      );
-    }
-
-    let title: string;
-    let detail: string;
-    let tone: Tone = 'neutral';
-    let action: { label: string; onClick: () => void } | null = null;
-    if (quickKind === 'attention') {
-      const count = attentionItems.length;
-      title = count === 0
-        ? t('navigation.quick.attentionClear')
-        : count === 1
-          ? t('navigation.quick.attentionOne')
-          : t('navigation.quick.attentionMany', { count });
-      detail = count === 0 ? t('navigation.quick.attentionClearHint') : attentionItems[0].title;
-      tone = count === 0 ? 'success' : 'danger';
-      if (count > 0) action = { label: t('navigation.quick.open'), onClick: () => navigate('/home') };
-    } else if (quickKind === 'alarm') {
-      const alarms = securityAlarmCandidates(states, locale);
-      const stored = readSecurityCenterAlarm();
-      const alarmId = stored && alarms.includes(stored) ? stored : alarms[0];
-      const alarm = alarmId ? states[alarmId] : undefined;
-      if (!alarmId || !alarm) {
-        title = t('navigation.quick.alarmNone');
-        detail = t('navigation.quick.alarmNoneHint');
-      } else {
-        const state = `${alarm.state ?? ''}`;
-        title = fallbackStateWord(locale, 'alarm_control_panel', state) ?? state.replace(/_/g, ' ');
-        const name = alarm.rawAttributes?.friendly_name;
-        detail = typeof name === 'string' && name.trim() ? name.trim() : alarmId;
-        tone = state === 'triggered' ? 'danger' : state.startsWith('armed') ? 'accent' : 'neutral';
-        action = { label: t('navigation.quick.open'), onClick: () => navigate('/security') };
-      }
-    } else if (quickKind === 'lights') {
-      const count = litLights.length;
-      title = count === 0
-        ? t('navigation.quick.lightsOff')
-        : count === 1
-          ? t('navigation.quick.lightsOne')
-          : t('navigation.quick.lightsMany', { count });
-      detail = count === 0
-        ? t('navigation.quick.lightsOffHint')
-        : litLights
-            .slice(0, 2)
-            .map((id) => {
-              const name = states[id]?.rawAttributes?.friendly_name;
-              return typeof name === 'string' && name.trim() ? name.trim() : id;
-            })
-            .join(', ') + (count > 2 ? '…' : '');
-      tone = count === 0 ? 'neutral' : 'warning';
-      if (count > 0 && onCallService) {
-        action = { label: t('navigation.quick.lightsTurnOff'), onClick: () => setIsLightsConfirmOpen(true) };
-      }
-    } else {
-      const next = nextWasteCollection(states);
-      if (next === undefined) {
-        title = t('navigation.quick.kind.waste');
-        detail = t('navigation.quick.wasteNotConfigured');
-        action = { label: t('navigation.quick.open'), onClick: () => navigate('/settings/home/waste-collection') };
-      } else if (next === null) {
-        title = t('navigation.quick.wasteNone');
-        detail = t('navigation.quick.kind.waste');
-      } else {
-        title = next.summary;
-        const day = formatCollectionDay(next.start, locale);
-        detail = `${t('navigation.quick.wasteNext')} · ${day.charAt(0).toUpperCase()}${day.slice(1)}`;
-        tone = 'success';
-      }
-    }
-    const KindIcon = QUICK_KIND_ICONS[quickKind];
-
-    return (
-      <section aria-label={t(QUICK_KIND_LABELS[quickKind])} className={`rounded-[1.5rem] px-3.5 pb-3.5 pt-3 ${GROUP_SURFACE}`}>
-        <div className="flex min-h-6 items-center justify-between gap-2">
-          <span className="min-w-0 truncate text-[13px] font-semibold text-[color:var(--ui-text-secondary)]">
-            {t(QUICK_KIND_LABELS[quickKind])}
-          </span>
-          <button
-            type="button"
-            onClick={() => setIsQuickChooserOpen(true)}
-            aria-label={t('navigation.quick.changeAria')}
-            className="-my-2.5 -mr-2.5 inline-flex min-h-11 shrink-0 items-center rounded-full px-2.5 text-[13px] font-semibold text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
-          >
-            {t('navigation.quick.change')}
-          </button>
-        </div>
-        <div className="mt-2.5 flex items-center gap-3">
-          <span className={`flex h-[2.625rem] w-[2.625rem] shrink-0 items-center justify-center rounded-full ${TONE_CLASSES[tone]}`}>
-            <KindIcon size={19} strokeWidth={1.9} aria-hidden="true" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="line-clamp-2 text-[0.95rem] font-semibold leading-tight tracking-[-0.01em] text-[color:var(--ui-text-primary)]">{title}</span>
-            <span className="mt-0.5 line-clamp-2 text-[13px] leading-[1.35] text-[color:var(--ui-text-secondary)]">{detail}</span>
-          </span>
-          {action ? (
-            <button
-              type="button"
-              onClick={action.onClick}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-full bg-[color:rgb(var(--ui-accent-rgb)/0.14)] px-4 text-sm font-semibold text-[color:var(--ui-accent)] transition-colors hover:bg-[color:rgb(var(--ui-accent-rgb)/0.2)]"
-            >
-              {action.label}
-            </button>
-          ) : null}
-        </div>
-      </section>
-    );
+  const energy = useEnergyNow(
+    runtimeMode === 'real' && connected ? energyCallApi : undefined,
+    isOpen && (quickKind === 'energy' || isQuickChooserOpen),
+  );
+  const alarm = (() => {
+    const alarms = securityAlarmCandidates(states, locale);
+    const stored = readSecurityCenterAlarm();
+    const alarmId = stored && alarms.includes(stored) ? stored : alarms[0];
+    const entity = alarmId ? states[alarmId] : undefined;
+    if (!alarmId || !entity) return null;
+    const state = `${entity.state ?? ''}`;
+    const name = entity.rawAttributes?.friendly_name;
+    const tone: SidebarQuickTone = state === 'triggered'
+      ? 'danger'
+      : state === 'pending' || state === 'arming'
+        ? 'warning'
+        : state.startsWith('armed')
+          ? 'accent'
+          : state === 'disarmed'
+            ? 'success'
+            : 'neutral';
+    return {
+      word: fallbackStateWord(locale, 'alarm_control_panel', state) ?? state.replace(/_/g, ' '),
+      name: typeof name === 'string' && name.trim() ? name.trim() : alarmId,
+      tone,
+    };
+  })();
+  const quickCardData: SidebarQuickCardData = {
+    attentionItems,
+    alarm,
+    lights: {
+      ids: litLights,
+      names: litLights.map((id) => {
+        const name = states[id]?.rawAttributes?.friendly_name;
+        return typeof name === 'string' && name.trim() ? name.trim() : id;
+      }),
+      rooms: roomsOfLights(litLights, entityRegistry, deviceRegistry, areas),
+    },
+    canTurnOffLights: Boolean(onCallService),
+    waste: isOpen ? nextWasteCollection(states) : undefined,
+    energy,
+    scenes,
+    runningSceneId,
   };
 
   return (
@@ -633,8 +572,8 @@ export function MobileSidebarDrawer({
         tabIndex={isOpen ? 0 : -1}
         aria-hidden={!isOpen}
         aria-label={t('navigation.menu.close')}
-        className={`fixed inset-0 z-[176] bg-[rgb(8_10_16/0.3)] transition-opacity duration-[420ms] ease-out motion-reduce:transition-none md:hidden ${
-          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        className={`fixed inset-0 z-[176] bg-[rgb(8_10_16/0.3)] transition-[opacity,backdrop-filter] duration-[420ms] ease-out motion-reduce:transition-none md:hidden ${
+          isOpen ? 'opacity-100 backdrop-blur-[6px]' : 'pointer-events-none opacity-0 backdrop-blur-0'
         }`}
       />
 
@@ -717,11 +656,30 @@ export function MobileSidebarDrawer({
               ))}
             </div>
           </DrawerSection>
-
-          {renderQuickCard()}
         </nav>
 
-        <div className="flex items-center gap-2.5 px-4 pb-4 pt-2">
+        <div className="space-y-2.5 border-t border-[color:var(--ui-separator)] px-4 pb-4 pt-3">
+          {quickKind === 'none' ? (
+            <button
+              type="button"
+              onClick={() => setIsQuickChooserOpen(true)}
+              className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.4rem] border-[1.5px] border-dashed border-[color:var(--ui-border-strong)] text-[0.95rem] font-semibold text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
+            >
+              <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+              {t('navigation.quick.add')}
+            </button>
+          ) : (
+            <SidebarQuickCard
+              kind={quickKind}
+              data={quickCardData}
+              onChange={() => setIsQuickChooserOpen(true)}
+              onOpen={navigate}
+              onTurnOffLights={turnOffLights}
+              onRunScene={onRunScene}
+            />
+          )}
+
+        <div className="flex items-center gap-2.5">
           <div className={`flex h-[3.75rem] min-w-0 flex-1 items-center justify-around rounded-full px-1.5 ${GROUP_SURFACE}`}>
             <DrawerAction
               icon={Settings}
@@ -764,57 +722,15 @@ export function MobileSidebarDrawer({
             <span className="sr-only">{t('navigation.logout.confirm')}</span>
           </button>
         </div>
+        </div>
       </aside>
 
-      <GlassBottomSheet
+      <SidebarQuickCardGallery
         isOpen={isOpen && isQuickChooserOpen}
+        kind={quickKind}
+        data={quickCardData}
+        onPick={chooseQuickKind}
         onClose={() => setIsQuickChooserOpen(false)}
-        title={t('navigation.quick.chooseTitle')}
-        description={t('navigation.quick.chooseHint')}
-        zIndex={330}
-      >
-        <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.2rem] border border-[color:var(--ui-border)]">
-          {SIDEBAR_QUICK_CARD_KINDS.map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => chooseQuickKind(kind)}
-              aria-pressed={kind === quickKind}
-              className="flex min-h-[3.25rem] w-full items-center gap-3 px-4 text-left text-sm font-semibold text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]"
-            >
-              <span className="min-w-0 flex-1 truncate">{t(QUICK_KIND_LABELS[kind])}</span>
-              {kind === quickKind ? <Check size={17} className="shrink-0 text-[color:var(--ui-accent)]" aria-hidden="true" /> : null}
-            </button>
-          ))}
-        </div>
-      </GlassBottomSheet>
-
-      <GlassModal
-        isOpen={isOpen && isLightsConfirmOpen}
-        onClose={() => setIsLightsConfirmOpen(false)}
-        title={t('navigation.quick.lightsConfirmTitle')}
-        description={t('navigation.quick.lightsConfirmBody')}
-        variant="dialog"
-        size="sm"
-        zIndex={330}
-        footer={(
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="liquid-glass-control inline-flex min-h-10 items-center justify-center rounded-full px-4 text-sm font-semibold"
-              onClick={() => setIsLightsConfirmOpen(false)}
-            >
-              {t('navigation.logout.cancel')}
-            </button>
-            <button
-              type="button"
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-[color:var(--ui-accent)] px-4 text-sm font-semibold text-[color:var(--ui-accent-contrast)]"
-              onClick={turnOffLights}
-            >
-              {t('navigation.quick.lightsConfirm')}
-            </button>
-          </div>
-        )}
       />
 
       <GlassModal
