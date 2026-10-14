@@ -8,6 +8,7 @@ import type { MockEntityStateMap } from '../types/ha';
 import { useDashboardState } from '../hooks/useDashboardState';
 import { SensorCard } from '../components/widgets/SensorCard';
 import { GridEngineLab } from '../components/dashboard/gridEngine2/GridEngineLab';
+import { ShadowInspector } from '../components/dashboard/gridEngine2/ShadowInspector';
 
 type DummyWidget = {
   id: string;
@@ -393,6 +394,8 @@ export function GridTestView() {
         </div>
 
         <GridEngineLab />
+
+        <ShadowInspector />
 
         <div className="space-y-4">
           <div>

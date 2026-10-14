@@ -66,6 +66,8 @@ import {
 import { resolveGridStackContainerSpan } from './gridStackLayoutSolver';
 import { isCardContextLongPressBlockedTarget } from './cardLongPressTarget';
 import { GRID_ENGINE_2_SHADOW_ENABLED } from './gridEngine2/shadowFeatureFlag';
+import type { ShadowDiagnosticsReport } from './gridEngine2/shadowLayoutDiagnostics';
+import type { ShadowInspectorPublisher } from './gridEngine2/shadowInspectorTransport';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -1182,6 +1184,12 @@ export function GridCanvas({
   }, [gridEngineActiveBreakpoint, onActiveBreakpointChange, runtimeGridWidth]);
   const [gridEngineLayouts, setGridEngineLayouts] = useState<GridLayouts>({});
   const gridEngine2ShadowSignatureRef = useRef<string | null>(null);
+  const gridEngine2ShadowInspectorPublisherRef = useRef<ShadowInspectorPublisher | null>(null);
+  const gridEngine2ShadowLatestReportRef = useRef<{
+    readonly report: ShadowDiagnosticsReport;
+    readonly durationMs: number;
+    readonly observedBreakpoint: GridBreakpoint;
+  } | null>(null);
   const [synchronizedLayoutRevision, setSynchronizedLayoutRevision] = useState(layoutRevision);
   const clearXsLongPressTimer = useCallback(() => {
     if (xsLongPressTimerRef.current !== null) {
@@ -1902,6 +1910,33 @@ export function GridCanvas({
     widgetTypeLayoutOverrides,
   ]);
   useEffect(() => {
+    if (!GRID_ENGINE_2_SHADOW_ENABLED) return undefined;
+    let cancelled = false;
+    void import('./gridEngine2/shadowInspectorTransport')
+      .then(({ createShadowInspectorPublisher }) => {
+        const publisher = createShadowInspectorPublisher({ enabled: GRID_ENGINE_2_SHADOW_ENABLED });
+        if (cancelled) {
+          publisher.dispose();
+          return;
+        }
+        gridEngine2ShadowInspectorPublisherRef.current = publisher;
+        const latest = gridEngine2ShadowLatestReportRef.current;
+        if (latest) publisher.publish({
+          report: latest.report,
+          observedBreakpoint: latest.observedBreakpoint,
+          analysisMs: latest.durationMs,
+        });
+      })
+      .catch(() => {
+        // Inspector transport is optional and must never affect the Home.
+      });
+    return () => {
+      cancelled = true;
+      gridEngine2ShadowInspectorPublisherRef.current?.dispose();
+      gridEngine2ShadowInspectorPublisherRef.current = null;
+    };
+  }, []);
+  useEffect(() => {
     if (
       !GRID_ENGINE_2_SHADOW_ENABLED ||
       !isRuntimeGridReady ||
@@ -1934,6 +1969,21 @@ export function GridCanvas({
           if (result.status !== 'disabled') {
             gridEngine2ShadowSignatureRef.current = result.nextSignature;
           }
+          if (result.status === 'reported') {
+            gridEngine2ShadowLatestReportRef.current = {
+              report: result.report,
+              durationMs: result.durationMs,
+              observedBreakpoint: gridEngineActiveBreakpoint,
+            };
+          }
+          const latest = gridEngine2ShadowLatestReportRef.current;
+          if (latest) {
+            gridEngine2ShadowInspectorPublisherRef.current?.publish({
+              report: latest.report,
+              observedBreakpoint: gridEngineActiveBreakpoint,
+              analysisMs: latest.durationMs,
+            });
+          }
         })
         .catch((error: unknown) => {
           if (!cancelled) {
@@ -1951,6 +2001,7 @@ export function GridCanvas({
     };
   }, [
     derivedGridEngineLayouts,
+    gridEngineActiveBreakpoint,
     hasPendingAuthoritativeLayout,
     isRuntimeGridReady,
     liveGridEngineLayouts,

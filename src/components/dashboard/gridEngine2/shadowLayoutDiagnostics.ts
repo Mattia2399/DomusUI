@@ -10,6 +10,7 @@ import {
   type ShadowAdaptedItem,
   type ShadowAdapterIssue,
   type ShadowLayoutAdapterInput,
+  type ShadowLayoutSnapshot,
   type ShadowStackLayoutSource,
 } from './shadowLayoutAdapter';
 
@@ -275,9 +276,10 @@ function analyzeBreakpoint(
  * Runs Grid Engine 2.0 only as a comparison oracle. NORMALIZE receives cloned
  * geometry and its output is never connected to the Home renderer or callbacks.
  */
-export function analyzeShadowLayouts(input: ShadowLayoutAdapterInput): ShadowDiagnosticsReport {
-  const signature = createShadowInputSignature(input);
-  const snapshot = adaptHomeLayoutsForShadow(input);
+export function analyzeAdaptedShadowLayouts(
+  snapshot: ShadowLayoutSnapshot,
+  signature: string,
+): ShadowDiagnosticsReport {
   const breakpoints = {} as Record<DashboardGridBreakpoint, ShadowBreakpointReport>;
   const categoryCounts: Partial<Record<ShadowDifferenceCategory, number>> = {};
 
@@ -337,4 +339,11 @@ export function analyzeShadowLayouts(input: ShadowLayoutAdapterInput): ShadowDia
       'Missing explicit responsive layouts are treated as legacy fallback, not as errors.',
     ],
   };
+}
+
+/** Converts the Home input once and delegates comparison to the shared analyzer. */
+export function analyzeShadowLayouts(input: ShadowLayoutAdapterInput): ShadowDiagnosticsReport {
+  const signature = createShadowInputSignature(input);
+  const snapshot = adaptHomeLayoutsForShadow(input);
+  return analyzeAdaptedShadowLayouts(snapshot, signature);
 }
