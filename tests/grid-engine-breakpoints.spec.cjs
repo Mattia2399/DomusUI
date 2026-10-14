@@ -3,6 +3,7 @@ const { test, expect } = require('@playwright/test');
 const STORAGE_KEY = 'ha.dashboard.demo.builder.layout.v1';
 const RUNTIME_KEY = 'ha.dashboard.runtimeMode.v1';
 const BASE_URL = process.env.TEST_BASE_URL || 'http://127.0.0.1:3000';
+const EXPECT_RENDERER = process.env.VITE_GRID_ENGINE_2_RENDERER === 'true';
 
 const seededLayout = {
   version: 13,
@@ -202,6 +203,9 @@ test('GridEngine keeps one canvas breakpoint while live card state updates reren
 
   await page.goto(`${BASE_URL}/?view=home`);
   await page.waitForSelector('.sections-grid > .react-grid-item');
+  if (EXPECT_RENDERER) {
+    await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveCount(1);
+  }
 
   const snapshots = [];
   for (let index = 0; index < 20; index += 1) {

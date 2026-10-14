@@ -3,6 +3,7 @@ const { test, expect } = require('@playwright/test');
 const STORAGE_KEY = 'ha.dashboard.demo.builder.layout.v1';
 const RUNTIME_KEY = 'ha.dashboard.runtimeMode.v1';
 const EXPECT_SHADOW = process.env.VITE_GRID_ENGINE_2_SHADOW === 'true';
+const EXPECT_RENDERER = process.env.VITE_GRID_ENGINE_2_RENDERER === 'true';
 
 const seededLayout = {
   version: 14,
@@ -112,6 +113,9 @@ test(`Shadow Inspector ${EXPECT_SHADOW ? 'enabled' : 'disabled'} lifecycle`, asy
   await home.setViewportSize({ width: 1920, height: 1080 });
   await home.goto('/?view=home');
   await expect(home.locator('.sections-grid > .react-grid-item:not(.react-grid-placeholder)')).toHaveCount(2);
+  if (EXPECT_RENDERER) {
+    await expect(home.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveCount(1);
+  }
   const homeGeometryBefore = await canvasGeometry(home);
   const storageBefore = await home.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
 

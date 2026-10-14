@@ -65,6 +65,12 @@ import {
 } from './gridEngineGeometry';
 import { resolveGridStackContainerSpan } from './gridStackLayoutSolver';
 import { isCardContextLongPressBlockedTarget } from './cardLongPressTarget';
+import { GridEngineRootRendererSwitch } from './gridEngine2/GridEngineRootRendererSwitch';
+import {
+  alignDynamicRootPositions,
+  stabilizeRootRuntimeCollisions,
+} from './gridEngine2/gridEngineRootRuntimeLayout';
+import { GRID_ENGINE_2_RENDERER_ENABLED } from './gridEngine2/rendererFeatureFlag';
 import { GRID_ENGINE_2_SHADOW_ENABLED } from './gridEngine2/shadowFeatureFlag';
 import type { ShadowDiagnosticsReport } from './gridEngine2/shadowLayoutDiagnostics';
 import type { ShadowInspectorPublisher } from './gridEngine2/shadowInspectorTransport';
@@ -1573,6 +1579,11 @@ export function GridCanvas({
       ),
     [rootWidgets],
   );
+  const rootLightWidgetIds = useMemo(
+    () => new Set(rootLightWidgetStateById.keys()),
+    [rootLightWidgetStateById],
+  );
+  const shouldAlignDynamicRootPositions = GRID_ENGINE_2_RENDERER_ENABLED && !isEditMode;
   const rootSwitchWidgetIds = useMemo(
     () =>
       new Set(
@@ -1795,7 +1806,10 @@ export function GridCanvas({
           rootCoverWidgetIds,
       );
       if (breakpoint !== 'xs' || rootFanHumidifierKindsById.size === 0) {
-        return compactLayoutUp(enforced, cols);
+        const compacted = compactLayoutUp(enforced, cols);
+        return shouldAlignDynamicRootPositions
+          ? stabilizeRootRuntimeCollisions(compacted, cols)
+          : compacted;
       }
       const aligned = enforced.map((item) => {
         const kind = rootFanHumidifierKindsById.get(item.i);
@@ -1810,7 +1824,10 @@ export function GridCanvas({
       const hasCollisions = aligned.some((item, index) =>
         aligned.slice(0, index).some((previous) => intersects(item, previous)),
       );
-      return hasCollisions ? packLayoutDense(aligned, cols) : compactLayoutUp(aligned, cols);
+      const normalized = hasCollisions ? packLayoutDense(aligned, cols) : compactLayoutUp(aligned, cols);
+      return shouldAlignDynamicRootPositions
+        ? stabilizeRootRuntimeCollisions(normalized, cols)
+        : normalized;
     },
     [
       rootLightWidgetStateById,
@@ -1828,6 +1845,7 @@ export function GridCanvas({
       rootLockWidgetIds,
       rootCoverWidgetIds,
       rootFanHumidifierKindsById,
+      shouldAlignDynamicRootPositions,
     ],
   );
   useEffect(() => {
@@ -1842,7 +1860,10 @@ export function GridCanvas({
         const cols = GRID_ENGINE_COLS[breakpoint];
         const derived = derivedGridEngineLayouts[breakpoint] ?? [];
         const currentLayout = current[breakpoint] ?? [];
-        const currentById = new Map(currentLayout.map((item) => [item.i, item]));
+        const alignedCurrentLayout = shouldAlignDynamicRootPositions
+          ? alignDynamicRootPositions(currentLayout, derived, rootLightWidgetIds)
+          : currentLayout;
+        const currentById = new Map(alignedCurrentLayout.map((item) => [item.i, item]));
         const merged: GridItem[] = derived.map((derivedItem) => {
           const currentItem = currentById.get(derivedItem.i);
           if (!currentItem) {
@@ -1886,7 +1907,13 @@ export function GridCanvas({
 
       return changed ? next : current;
     });
-  }, [derivedGridEngineLayouts, normalizeRootLayoutForBreakpoint, stackSectionsById]);
+  }, [
+    derivedGridEngineLayouts,
+    normalizeRootLayoutForBreakpoint,
+    rootLightWidgetIds,
+    shouldAlignDynamicRootPositions,
+    stackSectionsById,
+  ]);
   const liveGridEngineLayouts = useMemo<GridLayouts>(() => {
     const merged: GridLayouts = {};
     GRID_ENGINE_BREAKPOINT_ORDER.forEach((breakpoint) => {
@@ -1894,7 +1921,11 @@ export function GridCanvas({
       const source = runtimeSource && runtimeSource.length > 0
         ? runtimeSource
         : derivedGridEngineLayouts[breakpoint] ?? [];
-      merged[breakpoint] = normalizeRootLayoutForBreakpoint(source, breakpoint, GRID_ENGINE_COLS[breakpoint]);
+      const authoritative = derivedGridEngineLayouts[breakpoint] ?? [];
+      const alignedSource = shouldAlignDynamicRootPositions
+        ? alignDynamicRootPositions(source, authoritative, rootLightWidgetIds)
+        : source;
+      merged[breakpoint] = normalizeRootLayoutForBreakpoint(alignedSource, breakpoint, GRID_ENGINE_COLS[breakpoint]);
     });
     const previous = lastLiveGridEngineLayoutsRef.current;
     if (sameGridLayouts(previous, merged)) {
@@ -1907,6 +1938,8 @@ export function GridCanvas({
     gridEngineLayouts,
     hasPendingAuthoritativeLayout,
     normalizeRootLayoutForBreakpoint,
+    rootLightWidgetIds,
+    shouldAlignDynamicRootPositions,
     widgetTypeLayoutOverrides,
   ]);
   useEffect(() => {
@@ -2252,7 +2285,25 @@ export function GridCanvas({
         return;
       }
 
-      const nextActiveLayout = layoutSource.map((item) =>
+      const targetActiveLayout = layoutSource.map((item) =>
+        item.i === sectionId
+          ? {
+              ...item,
+              x: Math.min(Math.max(0, Math.round(item.x)), Math.max(0, gridEngineActiveCols - safeCols)),
+              w: safeCols,
+              h: safeRows,
+            }
+          : item,
+      );
+      const heightTargetLayout = targetActiveLayout.map((item) =>
+        item.i === sectionId
+          ? { ...item, x: currentItem.x, w: currentItem.w }
+          : item,
+      );
+      const alignedActiveLayout = shouldAlignDynamicRootPositions
+        ? alignDynamicRootPositions(layoutSource, heightTargetLayout, new Set([sectionId]))
+        : targetActiveLayout;
+      const nextActiveLayout = alignedActiveLayout.map((item) =>
         item.i === sectionId
           ? {
               ...item,
@@ -2281,6 +2332,7 @@ export function GridCanvas({
       gridEngineActiveBreakpoint,
       gridEngineActiveCols,
       isEditMode,
+      shouldAlignDynamicRootPositions,
       updateGridEngineLayouts,
       commitGridEngineLayouts,
     ],
@@ -2769,6 +2821,10 @@ export function GridCanvas({
     ],
   );
 
+  const rootGridClassName = `sections-grid behance-grid relative ${isEditMode ? 'is-editing' : ''} ${
+    isCompactEditCardMenuMode ? 'is-compact-editing' : ''
+  }`;
+
   return (
     <div className="relative flex-1 min-w-0 h-full min-h-0">
       <div
@@ -2822,87 +2878,100 @@ export function GridCanvas({
 
           <div className={`transition-opacity duration-300 ${isRuntimeGridReady ? 'opacity-100' : 'opacity-0'}`}>
             {isRuntimeGridReady ? (
-            <ResponsiveGridLayout
-              key={`dashboard-grid:${layoutRevision}`}
-              className={`sections-grid behance-grid relative ${isEditMode ? 'is-editing' : ''} ${
-                isCompactEditCardMenuMode ? 'is-compact-editing' : ''
-              }`}
-              width={Math.max(runtimeGridEffectiveWidth, 1)}
+            <GridEngineRootRendererSwitch
+              enabled={shouldAlignDynamicRootPositions}
               breakpoint={gridEngineActiveBreakpoint}
-              breakpoints={GRID_ENGINE_BREAKPOINTS}
-              cols={GRID_ENGINE_COLS}
-              layouts={liveGridEngineLayouts as ResponsiveLayouts<GridBreakpoint>}
+              className={rootGridClassName}
+              layout={liveGridEngineLayout}
+              width={Math.max(runtimeGridEffectiveWidth, 1)}
+              cols={gridEngineActiveCols}
               rowHeight={GRID_ENGINE_ROW_UNIT}
-              margin={[GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX]}
-              containerPadding={GRID_ENGINE_CONTAINER_PADDING}
-              useCSSTransforms
-              compactType="vertical"
-              preventCollision={false}
-              isDraggable={isEditMode}
-              isResizable={false}
-              resizeHandles={[]}
-              draggableHandle={isCompactEditCardMenuMode ? '.compact-edit-drag-handle' : undefined}
-              draggableCancel=".builder-grid,.widget-action,.section-action,.react-resizable-handle"
-              // Breakpoint selection is derived from the observed canvas
-              // width above. RGL receives that same width, so it will select
-              // the matching layout without maintaining a second authority.
-              onDragStart={(_, __, newItem, ___, event) => {
-                if (!isEditMode) {
-                  return;
-                }
-                isCanvasInteractingRef.current = true;
-                if (isCompactEditCardMenuMode) {
-                  clearCompactDragHoldTimer();
-                  compactDragHoldStartRef.current = null;
-                  if (newItem?.i) {
-                    setCompactDragArmedItemId(newItem.i);
-                  }
-                  setIsCanvasTouchLocked(true);
-                  updateCanvasAutoScroll(getDragEventClientY(event));
-                }
-                canvasDragStartItemRef.current = newItem ? ({ ...(newItem as GridItem) }) : null;
-                hasCanvasDragMovedRef.current = false;
-                if (newItem?.i) {
-                  focusCanvasOverlayItem(newItem.i);
-                }
-              }}
-              onDrag={(_, __, newItem, ___, event) => {
-                if (!isEditMode) {
-                  return;
-                }
-                updateCanvasAutoScroll(getDragEventClientY(event));
-                if (hasGridItemMoved(canvasDragStartItemRef.current, newItem as GridItem | undefined)) {
-                  hasCanvasDragMovedRef.current = true;
-                }
-              }}
-              onDragStop={(layout, _oldItem, newItem) => {
-                if (!isEditMode) {
-                  return;
-                }
-                const hasMoved =
-                  hasCanvasDragMovedRef.current ||
-                  hasGridItemMoved(canvasDragStartItemRef.current, newItem as GridItem | undefined);
-                isCanvasInteractingRef.current = false;
-                setIsCanvasTouchLocked(false);
-                stopCanvasAutoScroll();
-                resetCompactDragHold();
-                canvasDragStartItemRef.current = null;
-                hasCanvasDragMovedRef.current = false;
-                if (!hasMoved) {
-                  return;
-                }
-                const committed = updateGridEngineLayouts({
-                  ...liveGridEngineLayouts,
-                  [gridEngineActiveBreakpoint]: layout as GridItem[],
-                });
-                commitGridEngineLayouts(committed, layout as GridItem[]);
-              }}
-              onLayoutChange={(layout, layouts) => {
-                if (!isEditMode || !isCanvasInteractingRef.current || !hasCanvasDragMovedRef.current) {
-                  return;
-                }
-                updateGridEngineLayouts(layouts as ResponsiveLayouts<GridBreakpoint>);
-              }}
+              gap={[GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX]}
+              padding={GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint]}
+              legacyRenderer={(rootChildren) => (
+                <ResponsiveGridLayout
+                  key={`dashboard-grid:${layoutRevision}`}
+                  className={rootGridClassName}
+                  width={Math.max(runtimeGridEffectiveWidth, 1)}
+                  breakpoint={gridEngineActiveBreakpoint}
+                  breakpoints={GRID_ENGINE_BREAKPOINTS}
+                  cols={GRID_ENGINE_COLS}
+                  layouts={liveGridEngineLayouts as ResponsiveLayouts<GridBreakpoint>}
+                  rowHeight={GRID_ENGINE_ROW_UNIT}
+                  margin={[GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX]}
+                  containerPadding={GRID_ENGINE_CONTAINER_PADDING}
+                  useCSSTransforms
+                  compactType="vertical"
+                  preventCollision={false}
+                  isDraggable={isEditMode}
+                  isResizable={false}
+                  resizeHandles={[]}
+                  draggableHandle={isCompactEditCardMenuMode ? '.compact-edit-drag-handle' : undefined}
+                  draggableCancel=".builder-grid,.widget-action,.section-action,.react-resizable-handle"
+                  // Breakpoint selection is derived from the observed canvas
+                  // width above. RGL receives that same width, so it will select
+                  // the matching layout without maintaining a second authority.
+                  onDragStart={(_, __, newItem, ___, event) => {
+                    if (!isEditMode) {
+                      return;
+                    }
+                    isCanvasInteractingRef.current = true;
+                    if (isCompactEditCardMenuMode) {
+                      clearCompactDragHoldTimer();
+                      compactDragHoldStartRef.current = null;
+                      if (newItem?.i) {
+                        setCompactDragArmedItemId(newItem.i);
+                      }
+                      setIsCanvasTouchLocked(true);
+                      updateCanvasAutoScroll(getDragEventClientY(event));
+                    }
+                    canvasDragStartItemRef.current = newItem ? ({ ...(newItem as GridItem) }) : null;
+                    hasCanvasDragMovedRef.current = false;
+                    if (newItem?.i) {
+                      focusCanvasOverlayItem(newItem.i);
+                    }
+                  }}
+                  onDrag={(_, __, newItem, ___, event) => {
+                    if (!isEditMode) {
+                      return;
+                    }
+                    updateCanvasAutoScroll(getDragEventClientY(event));
+                    if (hasGridItemMoved(canvasDragStartItemRef.current, newItem as GridItem | undefined)) {
+                      hasCanvasDragMovedRef.current = true;
+                    }
+                  }}
+                  onDragStop={(layout, _oldItem, newItem) => {
+                    if (!isEditMode) {
+                      return;
+                    }
+                    const hasMoved =
+                      hasCanvasDragMovedRef.current ||
+                      hasGridItemMoved(canvasDragStartItemRef.current, newItem as GridItem | undefined);
+                    isCanvasInteractingRef.current = false;
+                    setIsCanvasTouchLocked(false);
+                    stopCanvasAutoScroll();
+                    resetCompactDragHold();
+                    canvasDragStartItemRef.current = null;
+                    hasCanvasDragMovedRef.current = false;
+                    if (!hasMoved) {
+                      return;
+                    }
+                    const committed = updateGridEngineLayouts({
+                      ...liveGridEngineLayouts,
+                      [gridEngineActiveBreakpoint]: layout as GridItem[],
+                    });
+                    commitGridEngineLayouts(committed, layout as GridItem[]);
+                  }}
+                  onLayoutChange={(layout, layouts) => {
+                    if (!isEditMode || !isCanvasInteractingRef.current || !hasCanvasDragMovedRef.current) {
+                      return;
+                    }
+                    updateGridEngineLayouts(layouts as ResponsiveLayouts<GridBreakpoint>);
+                  }}
+                >
+                  {rootChildren}
+                </ResponsiveGridLayout>
+              )}
             >
               {sections.map((section) => {
                 const sectionLayoutItem = liveGridEngineLayoutMap.get(section.id);
@@ -3156,7 +3225,7 @@ export function GridCanvas({
                   </div>
                 );
               })}
-            </ResponsiveGridLayout>
+            </GridEngineRootRendererSwitch>
             ) : null}
           </div>
         </div>

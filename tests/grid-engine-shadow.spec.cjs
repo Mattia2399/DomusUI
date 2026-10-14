@@ -4,6 +4,7 @@ const STORAGE_KEY = 'ha.dashboard.demo.builder.layout.v1';
 const RUNTIME_KEY = 'ha.dashboard.runtimeMode.v1';
 const SHADOW_PREFIX = '[DomusUI:grid-engine2:shadow]';
 const EXPECT_SHADOW = process.env.VITE_GRID_ENGINE_2_SHADOW === 'true';
+const EXPECT_RENDERER = process.env.VITE_GRID_ENGINE_2_RENDERER === 'true';
 
 const seededLayout = {
   version: 14,
@@ -71,6 +72,9 @@ test(`Shadow Mode ${EXPECT_SHADOW ? 'enabled' : 'disabled'} is observational onl
   await page.goto('/?view=home');
   await expect(page.locator('.sections-grid')).toHaveClass(/react-grid-layout/);
   await expect(page.locator('.sections-grid > .react-grid-item:not(.react-grid-placeholder)')).toHaveCount(2);
+  if (EXPECT_RENDERER) {
+    await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveCount(1);
+  }
   const storageBefore = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
   const geometryBefore = await readRendererGeometry(page);
 
