@@ -23,6 +23,8 @@ type WeatherCardProps = {
   forecastType?: 'daily' | 'hourly' | 'twice_daily';
   conditionOverride?: string;
   clampTypography?: boolean;
+  /** The chip keeps its content right-aligned, beside a greeting. */
+  chipAlignEnd?: boolean;
   showAtmosphericBackground?: boolean;
 };
 
@@ -172,6 +174,7 @@ export function WeatherCard({
   forecastType = 'daily',
   conditionOverride,
   clampTypography = false,
+  chipAlignEnd = false,
   showAtmosphericBackground = true,
 }: WeatherCardProps) {
   const { t, locale } = useI18n();
@@ -339,9 +342,9 @@ export function WeatherCard({
           fontSize: 'clamp(0.72rem,1.15vw,0.96rem)',
         }
       : infoClampStyle;
-    const chipContentAlignClass = clampTypography ? 'items-end min-[996px]:items-start' : '';
-    const chipRowAlignClass = clampTypography ? 'justify-end min-[996px]:justify-start' : '';
-    const chipTextAlignClass = clampTypography ? 'text-right min-[996px]:text-left' : '';
+    const chipContentAlignClass = chipAlignEnd ? 'items-end' : clampTypography ? 'items-end min-[996px]:items-start' : '';
+    const chipRowAlignClass = chipAlignEnd ? 'justify-end' : clampTypography ? 'justify-end min-[996px]:justify-start' : '';
+    const chipTextAlignClass = chipAlignEnd ? 'text-right' : clampTypography ? 'text-right min-[996px]:text-left' : '';
     return (
       <div ref={cardRef} className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden flex items-center ${chipGapClass} ${atmosphericClass} ${showAtmosphericBackground ? 'px-4 py-2.5' : ''}`} data-weather={showAtmosphericBackground ? getWeatherBackdrop(condition) : undefined}>
         {atmosphere}

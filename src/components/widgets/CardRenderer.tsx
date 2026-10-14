@@ -565,6 +565,7 @@ export function SectionCardRenderer({
           titleAuto={section.titleAuto}
           subtitleAuto={section.subtitleAuto}
           compact={compact}
+          showDate={section.greetingShowDate ?? false}
           isEditMode={isEditMode}
           onWeatherClick={onWeatherClick}
           weatherLayout={section.weatherLayout}
@@ -588,6 +589,7 @@ export function SectionCardRenderer({
         titleAuto={section.titleAuto}
         subtitleAuto={section.subtitleAuto}
         compact={compact}
+        showDate={section.greetingShowDate ?? false}
       />
     );
   }

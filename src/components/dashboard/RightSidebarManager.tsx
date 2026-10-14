@@ -2907,6 +2907,27 @@ export function RightSidebarManager({
                         className={`${BUILDER_TEXTAREA_CLASS} disabled:cursor-not-allowed disabled:opacity-60`}
                       />
                     </label>
+                    <div className={`${BUILDER_CONTENT_CARD_CLASS} flex items-center justify-between gap-3`}>
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">
+                          {bt('Data')}
+                        </p>
+                        <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">
+                          {bt('Mostra la data sopra il saluto.')}
+                        </p>
+                      </div>
+                      <GlassToggle
+                        checked={selectedSection.greetingShowDate ?? false}
+                        onChange={(nextChecked) =>
+                          onUpdateSection(selectedSection.id, (section) => ({
+                            ...section,
+                            greetingShowDate: nextChecked,
+                          }))
+                        }
+                        label={bt('Mostra la data nella card saluto')}
+                        tone="green"
+                      />
+                    </div>
                   </>
                 ) : (
                   <div className={`${BUILDER_CONTENT_CARD_CLASS} space-y-3`}>
@@ -2936,7 +2957,7 @@ export function RightSidebarManager({
                       <div className="dashboard-content-surface-soft rounded-xl px-3 py-2.5">
                         <p className="text-[11px] font-medium text-[color:var(--ui-text-primary)]">{bt('Layout meteo responsive')}</p>
                         <p className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">
-                          {bt('In questa card unificata il meteo usa chip su xs/sm e card previsioni su md/lg.')}
+                          {bt('Il meteo usa il chip quando la card è stretta e le previsioni quando c’è spazio.')}
                         </p>
                       </div>
                       <label className="block">

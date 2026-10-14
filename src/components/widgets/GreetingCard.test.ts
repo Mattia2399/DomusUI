@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
-import { getGreetingDefaults, resolveGreetingResponsiveDensity } from './GreetingCard';
+import { fitGreetingTitle, getGreetingDefaults, resolveGreetingResponsiveDensity } from './GreetingCard';
 
 function buildState(): DashboardStateShape {
   return {
@@ -88,5 +88,39 @@ describe('GreetingCard summary', () => {
     ['preview compatta', 980, 190, true, 'compact'],
   ] as const)('adapts the typography to the real %s card size', (_label, width, height, compact, expected) => {
     expect(resolveGreetingResponsiveDensity({ width, height, hasSize: true, compact })).toBe(expected);
+  });
+});
+
+describe('GreetingCard title', () => {
+  // 54 px per letter at 100 px, the estimate used where canvas is missing.
+  const measure = (text: string) => text.length * 54;
+
+  it('fits the greeting on one line in the width of a phone', () => {
+    const fitted = fitGreetingTitle({ width: 232, height: 106, title: 'Buon pomeriggio!', reservedHeight: 30, measure });
+
+    expect(fitted).toEqual({ lines: ['Buon pomeriggio!'], size: 26 });
+  });
+
+  it('moves the name to its own line rather than cut the greeting', () => {
+    const fitted = fitGreetingTitle({
+      width: 232,
+      height: 106,
+      title: 'Buon pomeriggio, Mattia!',
+      splitLines: ['Buon pomeriggio,', 'Mattia!'],
+      reservedHeight: 30,
+      measure,
+    });
+
+    expect(fitted).toEqual({ lines: ['Buon pomeriggio,', 'Mattia!'], size: 26 });
+  });
+
+  it('keeps the title within the height left by the date and the subtitle', () => {
+    const fitted = fitGreetingTitle({ width: 466, height: 90, title: 'Buon pomeriggio!', reservedHeight: 46, measure });
+
+    expect(fitted).toEqual({ lines: ['Buon pomeriggio!'], size: 40 });
+  });
+
+  it('never grows past 48 px on a wide card', () => {
+    expect(fitGreetingTitle({ width: 1200, height: 200, title: 'Buonasera!', reservedHeight: 30, measure }).size).toBe(48);
   });
 });
