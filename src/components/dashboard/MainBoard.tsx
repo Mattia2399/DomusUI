@@ -11008,7 +11008,7 @@ export function MainBoard() {
         </div>
       ) : null}
 
-      {runtimeMode === 'demo' ? (
+      {runtimeMode === 'demo' && !isMobileSidebarOpen ? (
         <button
           type="button"
           onClick={() => navigateWithinDashboard('/setup')}
@@ -11034,7 +11034,9 @@ export function MainBoard() {
           <div
             role={isEditMode ? 'toolbar' : undefined}
             aria-label={isEditMode ? t('dashboard.history') : undefined}
-            className={`fixed top-0 z-[174] md:hidden ${
+            data-drawer-push="top"
+            data-drawer-open={isMobileSidebarOpen}
+            className={`mobile-drawer-push fixed top-0 z-[174] md:hidden ${
             isEditMode
               ? 'liquid-glass-navigation left-3 right-3 mt-[calc(env(safe-area-inset-top)+0.5rem)] flex items-center gap-1 p-1'
               : 'inset-x-0 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+0.65rem)]'
@@ -11160,7 +11162,9 @@ export function MainBoard() {
       <main
         id="dashboard-main-content"
         tabIndex={-1}
-        className={isImmersiveView ? 'h-full min-h-0 flex-1 min-w-0 flex overflow-hidden outline-none' : 'h-full min-h-0 flex-1 min-w-0 flex gap-1.5 overflow-hidden outline-none sm:gap-2 md:gap-2.5 lg:gap-4 xl:gap-6'}
+        data-drawer-push="page"
+        data-drawer-open={isMobileSidebarOpen}
+        className={`mobile-drawer-push ${isImmersiveView ? 'h-full min-h-0 flex-1 min-w-0 flex overflow-hidden outline-none' : 'h-full min-h-0 flex-1 min-w-0 flex gap-1.5 overflow-hidden outline-none sm:gap-2 md:gap-2.5 lg:gap-4 xl:gap-6'}`}
       >
         <LazyLoadBoundary
           fallback={<SecondaryWorkspaceLoading />}
@@ -11721,6 +11725,7 @@ export function MainBoard() {
 
       {shouldShowBottomBar ? (
         <BottomBarNav
+          isPushedByDrawer={isMobileSidebarOpen}
           isEditMode={isEditMode}
           quickPaths={visibleSidebarPaths}
           selectedPathId={selectedSidebarPathId}

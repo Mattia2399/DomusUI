@@ -64,15 +64,27 @@ function renderDrawer(overrides: Partial<Parameters<typeof MobileSidebarDrawer>[
 const quickCard = () => screen.getByRole('region', { name: /Cose da controllare|Allarme|Luci accese|Raccolta rifiuti/ });
 
 describe('MobileSidebarDrawer', () => {
-  it('shows the brand, the pages with counts and the profile at the bottom', () => {
-    renderDrawer();
+  it('shows the profile on top, the home sections as tiles and the actions with counts', () => {
+    renderDrawer({ areas: [{ area_id: 'living', name: 'Soggiorno' }, { area_id: 'kitchen', name: 'Cucina' }] as never });
 
-    expect(screen.getByText('Domus')).toBeTruthy();
-    expect(screen.getByRole('button', { name: /^Dashboard/ }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'Apri profilo' }).textContent).toContain('Creatore · HA online');
+    const home = screen.getByRole('region', { name: 'Casa' });
+    expect(within(home).getByRole('button', { name: /^Dashboard/ }).getAttribute('aria-current')).toBe('page');
+    expect(within(home).getByRole('button', { name: /^Stanze/ }).textContent).toContain('2 stanze');
+    expect(within(home).getByRole('button', { name: /^Sicurezza/ }).textContent).toContain('Tutto a posto');
     expect(screen.getByRole('button', { name: /Impostazioni/ }).textContent).toContain('1 aggiornamenti disponibili');
-    expect(screen.getByRole('button', { name: 'Apri profilo' }).textContent).toContain('Creatore · Home Assistant online');
     // Edit mode only where a page can be edited.
     expect(screen.queryByRole('button', { name: /Modalità modifica/ })).toBeNull();
+  });
+
+  it('marks edit mode as a pressed toggle where the page can be edited', () => {
+    const { onToggleEditMode, onClose } = renderDrawer({ canToggleEditMode: true });
+
+    const edit = screen.getByRole('button', { name: 'Modalità modifica' });
+    expect(edit.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(edit);
+    expect(onToggleEditMode).toHaveBeenCalledOnce();
+    expect(onClose).toHaveBeenCalledOnce();
   });
 
   it('shows the things to check by default and remembers another quick card', () => {

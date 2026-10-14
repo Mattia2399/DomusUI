@@ -9,6 +9,8 @@ import {
 } from './dashboardNavigation';
 
 type BottomBarNavProps = {
+  /** Steps aside with the page while the mobile side menu is open. */
+  isPushedByDrawer?: boolean;
   isEditMode: boolean;
   quickPaths: SidebarQuickPath[];
   selectedPathId?: string | null;
@@ -24,6 +26,7 @@ type BottomBarPrimaryAction = {
 };
 
 export function BottomBarNav({
+  isPushedByDrawer = false,
   isEditMode,
   quickPaths,
   selectedPathId = null,
@@ -41,7 +44,11 @@ export function BottomBarNav({
   ).map((entry) => ({ entry }) satisfies BottomBarPrimaryAction);
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+    <div
+      data-drawer-push="bottom"
+      data-drawer-open={isPushedByDrawer}
+      className="mobile-drawer-push pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
+    >
       <nav
         className="liquid-glass-navigation pointer-events-auto relative mx-auto max-w-xl"
         aria-label={t('navigation.main')}

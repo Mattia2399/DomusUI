@@ -2220,3 +2220,51 @@ button:not(:disabled):active,
 .weather-condition-visual[data-weather='windy'] .weather-condition-atmosphere {
   background-image: repeating-linear-gradient(172deg, transparent 0 18px, rgb(255 255 255 / 0.13) 19px, transparent 21px 38px);
 }
+
+/*
+ * While the mobile side menu is open the page steps aside, a little smaller.
+ * The top bar, the page and the bottom bar scale around the same point (the
+ * right edge, half the screen high), so they move as one sheet.
+ */
+.mobile-drawer-push {
+  transition:
+    transform 560ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 560ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.mobile-drawer-push[data-drawer-push='top'] {
+  transform-origin: 100% 50dvh;
+}
+
+.mobile-drawer-push[data-drawer-push='page'] {
+  transform-origin: 100% calc(50dvh - env(safe-area-inset-top) - 4rem);
+}
+
+.mobile-drawer-push[data-drawer-push='bottom'] {
+  transform-origin: 100% calc(100% - 50dvh);
+}
+
+.mobile-drawer-push[data-drawer-open='true'] {
+  transform: translateX(0.875rem) scale(0.965);
+}
+
+.mobile-drawer-push[data-drawer-push='page'][data-drawer-open='true'] {
+  border-radius: 1.75rem;
+}
+
+@media (min-width: 768px) {
+  .mobile-drawer-push[data-drawer-open='true'] {
+    transform: none;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-drawer-push {
+    transition: none;
+  }
+
+  .mobile-drawer-push[data-drawer-open='true'] {
+    transform: none;
+  }
+}
