@@ -3,7 +3,7 @@ import { mdiCarHatchback } from '@mdi/js';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
   BedDouble,
-  CheckCircle2,
+  Check,
   Coffee,
   Film,
   Home,
@@ -96,6 +96,8 @@ const SCENE_RUNNING_PROGRESS_TARGET = 0.75;
 const SCENE_RUNNING_PROGRESS_MS = 30000;
 const SCENE_COMPLETION_PROGRESS_MS = 1500;
 const SCENE_MIN_VISIBLE_PROGRESS = 0.03;
+// Circumference of the progress ring around a scene button (r = 47 in a 100 box).
+const SCENE_RING_LENGTH = 2 * Math.PI * 47;
 
 function createExitVariant(x = 16): Variants['completing'] {
   return {
@@ -374,24 +376,23 @@ export function ScenesCard({
   const displayedScenes = selectedScenes;
   const availableScenes = SCENES_CATALOG.filter((scene) => !selectedScenes.includes(scene.id));
   const addSlots = isEditMode ? availableScenes : [];
-  const iconSize = isShortCard ? 14 : isTinyCard || compact ? 15 : 16;
+  const iconSize = isShortCard ? 18 : isTinyCard || compact ? 20 : 22;
   const titleLabel = title?.trim() || 'Scenari';
   const headerClass = isShortCard
-    ? 'mb-1.5 flex items-center justify-between px-3 pt-2'
-    : 'mb-3 flex items-center justify-between px-3 pt-3 sm:px-4 sm:pt-4';
+    ? 'mb-1 flex items-center justify-between px-3 pt-2'
+    : 'mb-2 flex items-center justify-between px-3 pt-3 sm:px-4 sm:pt-4';
   const titleClass = isShortCard
     ? 'text-[0.92rem] font-semibold text-[color:var(--ui-text-secondary)] tracking-tight'
     : 'text-base font-semibold text-[color:var(--ui-text-secondary)] tracking-tight';
+  // Round buttons share the width; past their minimum they scroll sideways.
   const carouselClass = isShortCard
-    ? 'flex min-w-0 gap-2 overflow-x-auto overscroll-x-contain pl-3 pr-3 pb-2 snap-x snap-mandatory scroll-pl-3 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden'
-    : 'flex min-w-0 gap-3 overflow-x-auto overscroll-x-contain pl-3 pr-4 pb-3 snap-x snap-mandatory scroll-pl-3 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:px-4 sm:pb-4 sm:scroll-pl-4';
-  const tileClass = isShortCard
-    ? 'w-[4.15rem] gap-1.5 rounded-[1.15rem] p-2'
-    : 'w-[4.75rem] gap-2 rounded-2xl p-2.5';
-  const iconShellClass = isShortCard ? 'w-7 h-7' : 'w-8 h-8';
+    ? 'flex min-w-0 gap-1 overflow-x-auto overscroll-x-contain px-2 pb-2 snap-x snap-mandatory scroll-px-2 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden'
+    : 'flex min-w-0 gap-1.5 overflow-x-auto overscroll-x-contain px-2.5 pb-3 snap-x snap-mandatory scroll-px-2.5 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:px-3.5 sm:pb-4';
+  const tileClass = isShortCard ? 'min-w-[4rem] gap-1.5 pt-1.5' : 'min-w-[4.75rem] gap-2 pt-2';
+  const iconShellClass = isShortCard ? 'h-12 w-12' : 'h-[3.75rem] w-[3.75rem]';
   const labelClass = isShortCard
-    ? 'text-[0.76rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] truncate leading-none'
-    : 'text-[0.85rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] truncate leading-tight';
+    ? 'text-[0.72rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-none'
+    : 'text-[0.8rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-tight';
 
   return (
     <div
@@ -427,7 +428,8 @@ export function ScenesCard({
                 isCompleting={isCompleting}
                 isConfirmed={isConfirmed}
                 ringProgress={ringProgress}
-                statusIconSize={Math.max(14, iconSize)}
+                statusIconSize={iconSize}
+                statusLabel={isRunning ? t('home.scene.running') : isConfirmed ? t('home.scene.done') : ''}
                 tileClass={tileClass}
                 iconShellClass={iconShellClass}
                 labelClass={labelClass}
@@ -446,14 +448,15 @@ export function ScenesCard({
               key={`add-${scene.id}`}
               type="button"
               onClick={() => onAddScene?.(scene.id)}
-              className={`widget-action group relative flex shrink-0 snap-start flex-col items-center justify-center border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] hover:bg-[color:var(--ui-fill-secondary)] active:scale-[0.96] transition-all duration-200 cursor-pointer overflow-hidden ${tileClass}`}
+              className={`widget-action group relative flex min-w-0 max-w-[6.5rem] flex-1 shrink-0 basis-0 snap-start flex-col items-center ${tileClass}`}
             >
-              <span className={`relative flex-shrink-0 rounded-full bg-[color:var(--ui-fill-secondary)] flex items-center justify-center overflow-hidden text-[color:var(--ui-text-secondary)] group-hover:text-[color:var(--ui-text-primary)] transition-colors ${iconShellClass}`}>
+              <span className={`flex shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-secondary)] transition-colors group-hover:bg-[color:var(--ui-fill-tertiary)] group-hover:text-[color:var(--ui-text-primary)] ${iconShellClass}`}>
                 <Plus size={iconSize} />
               </span>
-              <span className={`w-full min-w-0 text-center ${labelClass}`}>
+              <span className={`w-full min-w-0 truncate text-center ${labelClass}`}>
                 {t('card.add')}
               </span>
+              {!isShortCard ? <span className="min-h-[0.85rem]" aria-hidden="true" /> : null}
             </button>
           ))}
         </div>
@@ -473,6 +476,7 @@ function SceneButton({
   isConfirmed,
   ringProgress,
   statusIconSize,
+  statusLabel,
   tileClass,
   iconShellClass,
   labelClass,
@@ -489,6 +493,7 @@ function SceneButton({
   isConfirmed: boolean;
   ringProgress: number | null;
   statusIconSize: number;
+  statusLabel: string;
   tileClass: string;
   iconShellClass: string;
   labelClass: string;
@@ -496,26 +501,11 @@ function SceneButton({
   onClick?: () => void;
 }) {
   const iconVariants = SCENE_ICON_MOTION_VARIANTS[iconKey] ?? SCENE_ICON_MOTION_VARIANTS.music;
-  const tileStyle: React.CSSProperties = {
-    '--scene-accent': accentRgb,
-    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 10px 24px rgba(${accentRgb}, 0.055)`,
-  } as React.CSSProperties;
-
-  if (isRunning || isCompleting) {
-    tileStyle.borderColor = `rgba(${accentRgb}, 0.34)`;
-    tileStyle.background = `rgba(${accentRgb}, 0.075)`;
-  }
-  const hasActiveBorder = ringProgress !== null || isConfirmed;
-  const activeBorderProgress = ringProgress !== null ? Math.max(0.08, Math.min(1, ringProgress)) : 1;
-  const activeBorderStyle = {
-    borderRadius: 'inherit',
-    padding: isShortCard ? '1.35px' : '1.75px',
-    background: `conic-gradient(from -90deg, rgba(${accentRgb}, 0.95) 0deg ${activeBorderProgress * 360}deg, rgba(${accentRgb}, 0.16) ${activeBorderProgress * 360}deg 360deg)`,
-    boxShadow: `0 0 ${isShortCard ? 16 : 22}px rgba(${accentRgb}, 0.18)`,
-    WebkitMask: 'linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)',
-    WebkitMaskComposite: 'xor',
-    maskComposite: 'exclude',
-  } as React.CSSProperties;
+  // A round button, as in Control Center: tinted at rest, filled while the scene runs.
+  const isActive = isRunning || isCompleting || isConfirmed;
+  const showRing = ringProgress !== null || isConfirmed;
+  const progress = ringProgress !== null ? Math.max(0.04, Math.min(1, ringProgress)) : 1;
+  const style = { '--scene-accent': accentRgb } as React.CSSProperties;
 
   return (
     <motion.button
@@ -523,39 +513,41 @@ function SceneButton({
       onClick={onClick}
       disabled={isRunning}
       aria-busy={isRunning}
-      whileTap={{ scale: 0.96 }}
-      style={tileStyle}
-      className={`widget-action group relative flex shrink-0 snap-start flex-col items-center justify-center border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] active:scale-[0.96] transition-all duration-200 cursor-pointer overflow-hidden hover:bg-[color:var(--ui-fill-secondary)] ${tileClass} ${
-        isRunning ? 'cursor-wait' : ''
-      }`}
+      whileTap={{ scale: 0.94 }}
+      style={style}
+      className={`widget-action group relative flex min-w-0 max-w-[6.5rem] flex-1 shrink-0 basis-0 snap-start flex-col items-center cursor-pointer disabled:cursor-wait ${tileClass}`}
     >
       <span
-        className={`pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-full bg-[rgb(var(--scene-accent))]/18 blur-xl transition-opacity duration-200 group-hover:opacity-90 ${
-          isShortCard ? 'top-1.5 h-10 w-10' : 'top-2 h-12 w-12'
+        className={`relative flex shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow,transform] duration-300 group-hover:scale-[1.04] ${iconShellClass} ${
+          isActive
+            ? `bg-gradient-to-br ${color} text-white shadow-[0_10px_24px_-8px_rgba(var(--scene-accent),0.75)]`
+            : 'bg-[rgba(var(--scene-accent),0.15)] text-[color:color-mix(in_srgb,rgb(var(--scene-accent))_78%,var(--ui-text-primary))]'
         }`}
-        aria-hidden="true"
-      />
-      {hasActiveBorder ? (
-        <motion.span
-          className="pointer-events-none absolute inset-0"
-          style={activeBorderStyle}
-          initial={{ opacity: 0 }}
-          animate={
-            isRunning
-              ? { opacity: [0.58, 1, 0.58] }
-              : isConfirmed
-                ? { opacity: [1, 0.55, 0] }
-                : { opacity: 1 }
-          }
-          transition={
-            isRunning
-              ? { duration: 1.15, repeat: Infinity, ease: 'easeInOut' }
-              : { duration: isConfirmed ? 0.9 : 0.22, ease: 'easeOut' }
-          }
-        />
-      ) : null}
-
-      <span className={`relative flex-shrink-0 rounded-full bg-gradient-to-br ${color} flex items-center justify-center overflow-hidden text-white shadow-[0_8px_18px_rgba(0,0,0,0.22)] ring-1 ring-white/15 transition-transform duration-200 group-hover:scale-105 ${iconShellClass}`}>
+      >
+        {showRing ? (
+          <motion.svg
+            aria-hidden="true"
+            viewBox="0 0 100 100"
+            className="pointer-events-none absolute -inset-[5px] h-[calc(100%+10px)] w-[calc(100%+10px)] -rotate-90"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isConfirmed ? [1, 0] : 1 }}
+            transition={{ duration: isConfirmed ? 0.9 : 0.2, ease: 'easeOut' }}
+          >
+            <circle cx="50" cy="50" r="47" fill="none" stroke={`rgba(${accentRgb}, 0.22)`} strokeWidth="3.5" />
+            <circle
+              cx="50"
+              cy="50"
+              r="47"
+              fill="none"
+              stroke={`rgb(${accentRgb})`}
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeDasharray={SCENE_RING_LENGTH}
+              strokeDashoffset={SCENE_RING_LENGTH * (1 - progress)}
+              className="transition-[stroke-dashoffset] duration-150 ease-linear"
+            />
+          </motion.svg>
+        ) : null}
         <motion.span
           className="flex items-center justify-center leading-none"
           variants={iconVariants}
@@ -571,16 +563,27 @@ function SceneButton({
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.2 }}
               transition={{ duration: 0.3, type: 'spring', bounce: 0.4 }}
-              className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-full border border-white/30 bg-white/[0.18] backdrop-blur-md"
+              className={`pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-full bg-gradient-to-br ${color} text-white`}
             >
-              <CheckCircle2 size={statusIconSize} className="text-white drop-shadow-[0_1px_4px_rgba(255,255,255,0.35)]" />
+              <Check size={statusIconSize} strokeWidth={2.6} />
             </motion.span>
           )}
         </AnimatePresence>
       </span>
-      <span className={`w-full min-w-0 text-center ${labelClass}`}>
+      <span className={`w-full min-w-0 truncate text-center ${labelClass}`}>
         {label}
       </span>
+      {!isShortCard ? (
+        <span
+          className={`min-h-[0.85rem] text-[0.68rem] font-medium leading-none ${
+            isConfirmed
+              ? 'text-[color:color-mix(in_srgb,rgb(var(--scene-accent))_78%,var(--ui-text-primary))]'
+              : 'text-[color:var(--ui-text-secondary)]'
+          }`}
+        >
+          {statusLabel}
+        </span>
+      ) : null}
     </motion.button>
   );
 }
