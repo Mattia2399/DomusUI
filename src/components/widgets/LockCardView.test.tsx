@@ -2,7 +2,9 @@ import React from 'react';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LockCardView, type LockCardRingState } from './LockCardView';
-import { buildLockCardModel, resolveLockCardLayout, type LockCardLayout, type LockCardModel } from './lockCardModel';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { buildLockCardModel, type LockCardModel } from './lockCardModel';
 import type { Widget } from '../../types/dashboardModels';
 
 const baseModel: LockCardModel = {
@@ -39,11 +41,10 @@ const idleRing: LockCardRingState = {
   bindings: {},
 };
 
-function renderCard(model: LockCardModel, layout: LockCardLayout, ring = idleRing) {
+function renderCard(model: LockCardModel, ring = idleRing) {
   return render(
     <LockCardView
       model={model}
-      layout={layout}
       isSelected={false}
       isEditMode={false}
       ring={ring}
@@ -57,7 +58,7 @@ describe('LockCardView presentation', () => {
   afterEach(cleanup);
 
   it('shows no battery or connection placeholders when the lock reports none', () => {
-    const { queryByText, queryByLabelText } = renderCard(baseModel, 'tall');
+    const { queryByText, queryByLabelText } = renderCard(baseModel);
 
     expect(queryByLabelText(/Batteria/i)).toBeNull();
     expect(queryByLabelText(/Connessione/i)).toBeNull();
@@ -67,7 +68,6 @@ describe('LockCardView presentation', () => {
   it('shows the real battery, door and auto-lock values in the expanded card', () => {
     const { getByLabelText, getByText } = renderCard(
       { ...baseModel, batteryLevel: 82, doorState: 'closed', autoLock: { enabled: true, delaySeconds: 30 } },
-      'tall',
     );
 
     expect(getByLabelText('Batteria 82%')).toBeTruthy();
@@ -77,45 +77,33 @@ describe('LockCardView presentation', () => {
   });
 
   it('names the two-stage gesture on the ring when the lock has a latch', () => {
-    const { getByRole } = renderCard({ ...baseModel, supportsOpen: true, canOpenLatch: true }, 'wide');
+    const { getByRole } = renderCard({ ...baseModel, supportsOpen: true, canOpenLatch: true });
 
     expect(getByRole('button', { name: /Tieni premuto per sbloccare Porta ingresso, continua per aprire la porta/ })).toBeTruthy();
   });
 
   it('asks to keep holding during the second lap', () => {
-    const { getByText } = renderCard(
+    const { getAllByText, getByText } = renderCard(
       { ...baseModel, supportsOpen: true, canOpenLatch: true },
-      'tile',
       { ...idleRing, stage: 'open', isPressing: true, lap1: 1, lap2: 0.4 },
     );
 
-    expect(getByText('Continua per aprire')).toBeTruthy();
+    expect(getAllByText('Continua per aprire').length).toBeGreaterThan(0);
+    expect(getByText('Continua a tenere premuto per aprire la porta')).toBeTruthy();
   });
 });
 
-describe('resolveLockCardLayout', () => {
-  it('picks the composition from the real grid box', () => {
-    expect(resolveLockCardLayout(177, 48)).toBe('row');
-    expect(resolveLockCardLayout(177, 112)).toBe('compact');
-    expect(resolveLockCardLayout(177, 176)).toBe('tile');
-    expect(resolveLockCardLayout(101, 176)).toBe('tile');
-    expect(resolveLockCardLayout(370, 176)).toBe('wide');
-    expect(resolveLockCardLayout(336, 176)).toBe('wide');
-    expect(resolveLockCardLayout(219, 432)).toBe('tall');
-    expect(resolveLockCardLayout(453, 240)).toBe('panorama');
-  });
+describe('LockCard container queries', () => {
+  const css = readFileSync(resolve(process.cwd(), 'src/components/widgets/LockCard.css'), 'utf8');
 
-  it('keeps the hint in a one-row card only while it matters', () => {
-    const idle = renderCard({ ...baseModel, supportsOpen: true, canOpenLatch: true }, 'row');
-    expect(idle.queryByText('Tieni premuto')).toBeNull();
-    expect(idle.getByText('Porta ingresso')).toBeTruthy();
-    cleanup();
-    const pressing = renderCard(
-      { ...baseModel, supportsOpen: true, canOpenLatch: true },
-      'row',
-      { ...idleRing, stage: 'open', isPressing: true, lap1: 1, lap2: 0.3 },
-    );
-    expect(pressing.getByText('Continua per aprire')).toBeTruthy();
+  it('picks every composition from the card box, not from a measurement', () => {
+    expect(css).toContain('container-type: size');
+    expect(css).toContain('@container lock-card (height < 80px)');
+    expect(css).toContain('@container lock-card (80px <= height < 150px)');
+    expect(css).toContain('@container lock-card (150px <= height < 230px) and (width >= 280px)');
+    expect(css).toContain('@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5)');
+    expect(css).toContain('@container lock-card (height >= 230px) and (aspect-ratio >= 8 / 5)');
+    expect(css).not.toContain('data-lock-layout');
   });
 });
 

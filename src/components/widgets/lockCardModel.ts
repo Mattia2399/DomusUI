@@ -381,17 +381,3 @@ export function resolveLockLastActivity(model: LockCardModel, locale: AppLocale 
   const time = typeof model.lastChangedMs === 'number' ? formatLockRelativeTime(model.lastChangedMs, locale, nowMs) : undefined;
   return { text, time };
 }
-
-export type LockCardLayout = 'row' | 'compact' | 'tile' | 'wide' | 'tall' | 'panorama';
-
-// The card draws the composition its real box can hold, whatever size name the
-// grid gave it: one row (h1), compact (h2), a tile (one column by three rows),
-// the ring beside the state (three rows, wide), and the two expanded shapes.
-export function resolveLockCardLayout(width: number, height: number): LockCardLayout {
-  const safeWidth = Math.max(0, Number.isFinite(width) ? width : 0);
-  const safeHeight = Math.max(0, Number.isFinite(height) ? height : 0);
-  if (safeHeight < 80) return 'row';
-  if (safeHeight < 150) return 'compact';
-  if (safeHeight < 230) return safeWidth >= 280 ? 'wide' : 'tile';
-  return safeWidth >= safeHeight * 1.6 ? 'panorama' : 'tall';
-}

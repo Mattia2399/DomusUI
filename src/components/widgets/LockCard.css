@@ -1,3 +1,17 @@
+/*
+ * The lock card picks its composition from its own box with container queries,
+ * so it is right from the first frame, in the grid, in stacks and in previews:
+ *
+ *   height < 80                     row        (a phone mini, one grid row)
+ *   80 <= height < 150              compact    (a phone mini, two grid rows)
+ *   150 <= height < 230, w < 280    tile       (one column by three rows)
+ *   150 <= height < 230, w >= 280   wide       (the ring beside the state)
+ *   height >= 230, ratio < 8/5      tall       (expanded, two columns by seven rows)
+ *   height >= 230, ratio >= 8/5     panorama   (expanded, four columns by four rows)
+ *
+ * Every part is in the markup; each composition shows the ones it has room for.
+ */
+
 .lock-card {
   --lock-tone: #8e929c;
   container-name: lock-card;
@@ -7,8 +21,6 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  border-radius: 1.75rem;
   -webkit-user-select: none;
   user-select: none;
 }
@@ -34,6 +46,14 @@
   --lock-tone: #8e929c;
 }
 
+/* The shape carries the corner radius, so the selection outline follows it. */
+.lock-card__shape {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 1.5rem;
+}
+
 .lock-card__surface {
   position: relative;
   z-index: 0;
@@ -44,17 +64,26 @@
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
-  padding: 1rem;
   border-radius: inherit;
   background: var(--ui-surface-glass);
   color: var(--ui-text-primary);
 }
 
+.lock-card__edit-handle {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  border-radius: inherit;
+}
+
+/* Parts */
+
 .lock-card__ring {
   grid-area: ring;
 }
 
-.lock-card__title {
+.lock-card__title,
+.lock-card__hint {
   grid-area: name;
   min-width: 0;
   overflow: hidden;
@@ -69,6 +98,15 @@
 
 .lock-card__meta {
   grid-area: meta;
+}
+
+.lock-card__corner-meta,
+.lock-card__chip {
+  grid-area: chip;
+}
+
+.lock-card__meta,
+.lock-card__corner-meta {
   align-self: center;
   justify-self: end;
   min-width: 0;
@@ -79,11 +117,6 @@
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.lock-card__meta--corner,
-.lock-card__chip {
-  grid-area: chip;
 }
 
 .lock-card__headline {
@@ -116,110 +149,35 @@
   transition: color 200ms ease;
 }
 
-.lock-card__caption[data-highlight='true'] {
+.lock-card__caption[data-highlight='true'],
+.lock-card__hint[data-highlight='true'] {
   color: color-mix(in srgb, var(--lock-tone) 70%, var(--ui-text-primary));
   font-weight: 600;
 }
 
-.lock-card[data-lock-stage='bridge'] .lock-card__caption[data-highlight='true'],
-.lock-card[data-lock-stage='open'] .lock-card__caption[data-highlight='true'] {
+.lock-card[data-lock-stage='bridge'] [data-highlight='true'],
+.lock-card[data-lock-stage='open'] [data-highlight='true'] {
   color: color-mix(in srgb, #0a84ff 70%, var(--ui-text-primary));
 }
 
-.lock-card__caption[data-nudge='true'] {
+.lock-card [data-nudge='true'] {
   animation: lock-ring-nudge 420ms ease-in-out;
 }
 
-.lock-card__edit-handle {
-  position: absolute;
-  z-index: 4;
-  inset: 0;
-  border-radius: inherit;
+/* Hidden until a composition asks for them. */
+.lock-card__hint,
+.lock-card__meta,
+.lock-card__corner-meta,
+.lock-card__chip,
+.lock-card__caption--long,
+.lock-card__details,
+.lock-card__activity {
+  display: none;
 }
 
-/* Row (one grid row): the ring beside the name and the state. */
-.lock-card[data-lock-layout='row'] {
-  border-radius: 1rem;
-}
+/* Tile, also the fallback: the ring on top, the name, state and hint below. */
 
-.lock-card[data-lock-layout='row'] .lock-card__surface {
-  grid-template-areas:
-    'ring name'
-    'ring headline';
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: 1fr 1fr;
-  column-gap: 0.625rem;
-  padding: 0.3125rem 0.75rem 0.3125rem 0.3125rem;
-}
-
-.lock-card[data-lock-layout='row'] .lock-card__ring {
-  --lock-ring-size: min(2.25rem, calc(100cqb - 0.625rem));
-  --lock-ring-stroke: 8;
-  align-self: center;
-}
-
-.lock-card[data-lock-layout='row'] .lock-card__title {
-  align-self: end;
-  font-size: 0.75rem;
-}
-
-.lock-card[data-lock-layout='row'] .lock-card__caption {
-  grid-area: name;
-  display: block;
-  align-self: end;
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lock-card[data-lock-layout='row'] .lock-card__headline {
-  align-self: start;
-  font-size: 0.9375rem;
-}
-
-/* Compact (two grid rows): the ring with its hint, the name and state below. */
-.lock-card[data-lock-layout='compact'] {
-  border-radius: 1.25rem;
-}
-
-.lock-card[data-lock-layout='compact'] .lock-card__surface {
-  grid-template-areas:
-    'ring caption'
-    'name name'
-    'headline headline';
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto auto;
-  column-gap: 0.625rem;
-  row-gap: 0.0625rem;
-  padding: 0.75rem;
-}
-
-.lock-card[data-lock-layout='compact'] .lock-card__ring {
-  --lock-ring-size: min(2.75rem, calc(100cqb - 4.25rem));
-  --lock-ring-stroke: 7;
-  align-self: start;
-}
-
-.lock-card[data-lock-layout='compact'] .lock-card__caption {
-  align-self: center;
-  -webkit-line-clamp: 2;
-}
-
-.lock-card[data-lock-layout='compact'] .lock-card__title {
-  align-self: end;
-  font-size: 0.75rem;
-}
-
-.lock-card[data-lock-layout='compact'] .lock-card__headline {
-  font-size: 1.0625rem;
-}
-
-/* Tile (one column by three rows): the ring on top, name, state and hint below. */
-.lock-card[data-lock-layout='tile'] {
-  border-radius: 1.5rem;
-}
-
-.lock-card[data-lock-layout='tile'] .lock-card__surface {
+.lock-card__surface {
   grid-template-areas:
     'ring'
     'name'
@@ -231,195 +189,321 @@
   padding: 0.875rem;
 }
 
-.lock-card[data-lock-layout='tile'] .lock-card__ring {
+.lock-card__ring {
   --lock-ring-size: 3.625rem;
   --lock-ring-stroke: 7;
   align-self: start;
 }
 
-@container lock-card (max-width: 130px) {
-  .lock-card[data-lock-layout='tile'] .lock-card__surface {
+@container lock-card (width <= 130px) {
+  .lock-card__surface {
     padding: 0.75rem;
   }
 
-  .lock-card[data-lock-layout='tile'] .lock-card__ring {
+  .lock-card__ring {
     --lock-ring-size: 3.25rem;
   }
 
-  .lock-card[data-lock-layout='tile'] .lock-card__title {
+  .lock-card__title {
     font-size: 0.75rem;
   }
 
-  .lock-card[data-lock-layout='tile'] .lock-card__headline {
+  .lock-card__headline {
     font-size: 1.0625rem;
   }
 
-  .lock-card[data-lock-layout='tile'] .lock-card__caption {
+  .lock-card__caption {
     font-size: 0.6875rem;
   }
 }
 
-/* Wide (three rows, wide): name and last change, then the ring beside the state. */
-.lock-card[data-lock-layout='wide'] .lock-card__surface {
-  grid-template-areas:
-    'name name meta'
-    'ring headline headline'
-    'ring caption caption';
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: 1.125rem;
-  row-gap: 0.25rem;
+/* Row: the ring beside the name and state. The hint takes the name's place while it matters. */
+@container lock-card (height < 80px) {
+  .lock-card__shape {
+    border-radius: 1rem;
+  }
+
+  .lock-card__surface {
+    grid-template-areas:
+      'ring name'
+      'ring headline';
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: 1fr 1fr;
+    column-gap: 0.625rem;
+    row-gap: 0;
+    padding: 0.3125rem 0.75rem 0.3125rem 0.3125rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: min(2.25rem, calc(100cqb - 0.625rem));
+    --lock-ring-stroke: 8;
+    align-self: center;
+  }
+
+  .lock-card__title,
+  .lock-card__hint {
+    align-self: end;
+    font-size: 0.75rem;
+  }
+
+  .lock-card__headline {
+    align-self: start;
+    font-size: 0.9375rem;
+  }
+
+  .lock-card__caption {
+    display: none;
+  }
+
+  .lock-card[data-lock-hint='true'] .lock-card__title {
+    display: none;
+  }
+
+  .lock-card[data-lock-hint='true'] .lock-card__hint {
+    display: block;
+  }
 }
 
-.lock-card[data-lock-layout='wide'] .lock-card__title {
-  align-self: center;
-  padding-bottom: 0.5rem;
-  font-size: 0.9375rem;
+/* Compact: the ring with its hint, the name and state below. */
+@container lock-card (80px <= height < 150px) {
+  .lock-card__shape {
+    border-radius: 1.25rem;
+  }
+
+  .lock-card__surface {
+    grid-template-areas:
+      'ring caption'
+      'name name'
+      'headline headline';
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    column-gap: 0.625rem;
+    padding: 0.75rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: min(2.75rem, calc(100cqb - 4.25rem));
+    --lock-ring-stroke: 7;
+  }
+
+  .lock-card__caption {
+    align-self: center;
+    -webkit-line-clamp: 2;
+  }
+
+  .lock-card__title {
+    align-self: end;
+    font-size: 0.75rem;
+  }
+
+  .lock-card__headline {
+    font-size: 1.0625rem;
+  }
 }
 
-.lock-card[data-lock-layout='wide'] .lock-card__ring {
-  --lock-ring-size: min(5.75rem, calc(100cqb - 4.25rem));
-  --lock-ring-stroke: 4;
-  align-self: center;
+/* Wide: name and last change, then the ring beside the state and the whole gesture. */
+@container lock-card (150px <= height < 230px) and (width >= 280px) {
+  .lock-card__shape {
+    border-radius: 1.75rem;
+  }
+
+  .lock-card__surface {
+    grid-template-areas:
+      'name name meta'
+      'ring headline headline'
+      'ring caption caption';
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1.125rem;
+    row-gap: 0.25rem;
+    padding: 1rem;
+  }
+
+  .lock-card__title {
+    align-self: center;
+    padding-bottom: 0.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .lock-card__meta {
+    display: block;
+    padding-bottom: 0.5rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: min(5.75rem, calc(100cqb - 4.25rem));
+    --lock-ring-stroke: 4;
+    align-self: center;
+  }
+
+  .lock-card__headline {
+    align-self: end;
+    font-size: 1.75rem;
+  }
+
+  .lock-card__caption--short {
+    display: none;
+  }
+
+  .lock-card__caption--long {
+    display: -webkit-box;
+    align-self: start;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
+  }
 }
 
-.lock-card[data-lock-layout='wide'] .lock-card__headline {
-  align-self: end;
-  font-size: 1.75rem;
+/* Expanded, both shapes: battery or last change in the corner, details and activity. */
+@container lock-card (height >= 230px) {
+  .lock-card__shape {
+    border-radius: 1.75rem;
+  }
+
+  .lock-card__surface {
+    padding: 1rem;
+  }
+
+  .lock-card__title {
+    align-self: center;
+    color: var(--ui-text-primary);
+    font-size: 1rem;
+  }
+
+  .lock-card__chip {
+    display: inline-flex;
+  }
+
+  .lock-card__corner-meta {
+    display: block;
+  }
+
+  .lock-card__details {
+    display: block;
+  }
+
+  .lock-card__activity {
+    display: flex;
+  }
+
+  .lock-card__ring {
+    --lock-ring-stroke: 3;
+    justify-self: center;
+  }
+
+  .lock-card__headline,
+  .lock-card__caption {
+    justify-self: center;
+    text-align: center;
+  }
 }
 
-.lock-card[data-lock-layout='wide'] .lock-card__caption {
-  align-self: start;
-  font-size: 0.8125rem;
-  line-height: 1.35;
-  -webkit-line-clamp: 2;
+/* Tall: the ring centred over the state, then the details and the last activity. */
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) {
+  .lock-card__surface {
+    grid-template-areas:
+      'name chip'
+      'ring ring'
+      'headline headline'
+      'caption caption'
+      'details details'
+      'activity activity';
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
+    column-gap: 0.625rem;
+    row-gap: 0.5rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: clamp(4.5rem, min(48cqi, 28cqb), 7.25rem);
+    align-self: center;
+  }
+
+  .lock-card__headline {
+    font-size: 1.625rem;
+  }
+
+  .lock-card__caption--short {
+    display: none;
+  }
+
+  .lock-card__caption--long {
+    display: -webkit-box;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
+  }
 }
 
-/* Expanded, tall (two columns by seven rows). */
-.lock-card[data-lock-layout='tall'] .lock-card__surface {
-  grid-template-areas:
-    'name chip'
-    'ring ring'
-    'headline headline'
-    'caption caption'
-    'details details'
-    'activity activity';
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
-  column-gap: 0.625rem;
-  row-gap: 0.5rem;
-}
-
-.lock-card[data-lock-layout='tall'] .lock-card__ring {
-  --lock-ring-size: clamp(4.5rem, min(48cqi, 28cqb), 7.25rem);
-  --lock-ring-stroke: 3;
-  align-self: center;
-  justify-self: center;
-}
-
-.lock-card[data-lock-layout='tall'] .lock-card__headline,
-.lock-card[data-lock-layout='tall'] .lock-card__caption,
-.lock-card[data-lock-layout='panorama'] .lock-card__headline,
-.lock-card[data-lock-layout='panorama'] .lock-card__caption {
-  justify-self: center;
-  text-align: center;
-}
-
-.lock-card[data-lock-layout='tall'] .lock-card__headline {
-  font-size: 1.625rem;
-}
-
-.lock-card[data-lock-layout='tall'] .lock-card__caption,
-.lock-card[data-lock-layout='panorama'] .lock-card__caption {
-  font-size: 0.8125rem;
-  line-height: 1.35;
-  -webkit-line-clamp: 2;
-}
-
-.lock-card[data-lock-layout='tall'] .lock-card__title,
-.lock-card[data-lock-layout='panorama'] .lock-card__title {
-  align-self: center;
-  color: var(--ui-text-primary);
-  font-size: 1rem;
-}
-
-@container lock-card (max-height: 400px) {
-  .lock-card[data-lock-layout='tall'] .lock-card__activity {
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) and (height < 400px) {
+  .lock-card__activity {
     display: none;
   }
 }
 
-@container lock-card (max-height: 330px) {
-  .lock-card[data-lock-layout='tall'] .lock-card__details {
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) and (height < 330px) {
+  .lock-card__details {
     display: none;
   }
 }
 
-@container lock-card (max-height: 260px) {
-  .lock-card[data-lock-layout='tall'] .lock-card__caption {
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) and (height < 260px) {
+  .lock-card__caption--long {
     display: none;
   }
 }
 
-/* Expanded, panorama (four columns by four rows): state on the left, details on the right. */
-.lock-card[data-lock-layout='panorama'] .lock-card__surface {
-  grid-template-areas:
-    'name chip'
-    'ring details'
-    'headline details'
-    'caption activity';
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  column-gap: 1.375rem;
-  row-gap: 0.375rem;
-}
+/* Panorama: the state on the left, the details and the last activity on the right. */
+@container lock-card (height >= 230px) and (aspect-ratio >= 8 / 5) {
+  .lock-card__surface {
+    grid-template-areas:
+      'name chip'
+      'ring details'
+      'headline details'
+      'caption activity';
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: 1.375rem;
+    row-gap: 0.375rem;
+  }
 
-.lock-card[data-lock-layout='panorama'][data-lock-has-details='false'] .lock-card__surface {
-  grid-template-areas:
-    'name chip'
-    'ring activity'
-    'headline activity'
-    'caption activity';
-}
+  .lock-card[data-lock-has-details='false'] .lock-card__surface {
+    grid-template-areas:
+      'name chip'
+      'ring activity'
+      'headline activity'
+      'caption activity';
+  }
 
-.lock-card[data-lock-layout='panorama'] .lock-card__ring {
-  --lock-ring-size: min(6rem, calc(100cqb - 8.5rem));
-  --lock-ring-stroke: 3;
-  align-self: end;
-  justify-self: center;
-}
+  .lock-card__ring {
+    --lock-ring-size: min(6rem, calc(100cqb - 8.5rem));
+    align-self: end;
+  }
 
-.lock-card[data-lock-layout='panorama'] .lock-card__headline {
-  font-size: 1.5rem;
-}
+  .lock-card__headline {
+    font-size: 1.5rem;
+  }
 
-.lock-card[data-lock-layout='panorama'] .lock-card__caption {
-  display: block;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+  .lock-card__caption--short {
+    display: block;
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
-.lock-card[data-lock-layout='panorama'] .lock-card__details {
-  align-self: end;
-}
+  .lock-card__details,
+  .lock-card__activity {
+    align-self: end;
+  }
 
-.lock-card[data-lock-layout='panorama'] .lock-card__activity {
-  align-self: end;
-}
-
-.lock-card[data-lock-layout='panorama'][data-lock-has-details='false'] .lock-card__activity {
-  align-self: center;
-}
-
-@container lock-card (max-height: 220px) {
-  .lock-card[data-lock-layout='panorama'] .lock-card__caption {
-    display: none;
+  .lock-card[data-lock-has-details='false'] .lock-card__activity {
+    align-self: center;
   }
 }
 
-/* Expanded parts. */
+/* Expanded parts */
+
 .lock-card__chip {
-  display: inline-flex;
   height: 1.625rem;
   align-items: center;
   align-self: center;
@@ -487,7 +571,6 @@
 .lock-card__activity {
   --lock-activity-tone: var(--lock-tone);
   grid-area: activity;
-  display: flex;
   min-width: 0;
   align-items: center;
   gap: 0.625rem;
@@ -525,7 +608,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lock-card__caption[data-nudge='true'] {
+  .lock-card [data-nudge='true'] {
     animation: none;
   }
 
