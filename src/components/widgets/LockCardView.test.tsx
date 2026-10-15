@@ -105,6 +105,17 @@ describe('LockCard container queries', () => {
     expect(css).toContain('@container lock-card (height >= 230px) and (aspect-ratio >= 8 / 5)');
     expect(css).not.toContain('data-lock-layout');
   });
+
+  it('tints the card from the ring while the hold goes on', () => {
+    const ringCss = readFileSync(resolve(process.cwd(), 'src/components/widgets/LockRing.css'), 'utf8');
+    const { container } = renderCard(baseModel, { ...idleRing, stage: 'unlock', isPressing: true, lap1: 0.4 });
+    const ring = container.querySelector<HTMLElement>('.lock-ring');
+
+    expect(container.querySelectorAll('.lock-ring__fill')).toHaveLength(2);
+    expect(ring?.style.getPropertyValue('--lock-fill-unlock')).toBe('0.400');
+    expect(ringCss).toContain('hypot(100cqw, 100cqh)');
+    expect(css).toContain('--lock-fill-reach');
+  });
 });
 
 describe('buildLockCardModel ring data', () => {

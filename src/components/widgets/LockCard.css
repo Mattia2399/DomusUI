@@ -416,6 +416,7 @@
 
   .lock-card__ring {
     --lock-ring-size: clamp(4.5rem, min(48cqi, 28cqb), 7.25rem);
+    --lock-fill-reach: 1.25;
     align-self: center;
   }
 
@@ -477,6 +478,7 @@
 
   .lock-card__ring {
     --lock-ring-size: min(6rem, calc(100cqb - 8.5rem));
+    --lock-fill-reach: 1.7;
     align-self: end;
   }
 

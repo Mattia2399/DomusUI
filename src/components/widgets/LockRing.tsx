@@ -16,6 +16,8 @@ type LockRingProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'childr
   isPressing: boolean;
   outcome: LockRingOutcome | null;
   busy: boolean;
+  /** Tints the surrounding card from the ring as the hold goes on (the card clips it). */
+  withFill?: boolean;
 };
 
 const ICONS = {
@@ -41,6 +43,7 @@ export function LockRing({
   isPressing,
   outcome,
   busy,
+  withFill = false,
   className,
   style,
   ...buttonProps
@@ -60,8 +63,19 @@ export function LockRing({
       data-stage={stage}
       data-pressing={isPressing ? 'true' : 'false'}
       data-outcome={outcome ?? undefined}
-      style={{ ...style, '--lock-ring-press': press.toFixed(3) } as React.CSSProperties}
+      style={{
+        ...style,
+        '--lock-ring-press': press.toFixed(3),
+        '--lock-fill-unlock': first.toFixed(3),
+        '--lock-fill-open': second.toFixed(3),
+      } as React.CSSProperties}
     >
+      {withFill ? (
+        <>
+          <span className="lock-ring__fill lock-ring__fill--unlock" aria-hidden="true" />
+          <span className="lock-ring__fill lock-ring__fill--open" aria-hidden="true" />
+        </>
+      ) : null}
       <svg className="lock-ring__laps" viewBox="0 0 100 100" aria-hidden="true">
         <circle
           className="lock-ring__lap lock-ring__lap--unlock"

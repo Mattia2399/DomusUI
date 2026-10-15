@@ -121,6 +121,7 @@ export function LockCardView({
             isPressing={ring.isPressing}
             outcome={ring.outcome}
             busy={model.isTransitioning && !ring.isPressing}
+            withFill
             aria-label={copy.ringLabel}
             title={copy.caption}
           />

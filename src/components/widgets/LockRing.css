@@ -144,6 +144,50 @@
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--lock-ring-tone) 22%, transparent);
 }
 
+/*
+ * The fill: a circle centred on the ring that grows with each lap, green for the
+ * unlock and blue for the door. It sits behind the card's content and the card
+ * clips it, so it starts from the ring wherever the composition puts it. Its
+ * diameter is the card's diagonal times --lock-fill-reach: 2 when the ring sits
+ * by an edge, less when the card centres it, so each lap reaches the farthest
+ * corner as it ends. A finished lap fades where it is; a hold released early
+ * shrinks back into the ring.
+ */
+.lock-ring__fill {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--lock-fill-reach, 2) * (100cqw + 100cqh));
+  width: calc(var(--lock-fill-reach, 2) * hypot(100cqw, 100cqh));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(var(--lock-fill-scale));
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 0s 300ms;
+}
+
+.lock-ring__fill--unlock {
+  --lock-fill-scale: var(--lock-fill-unlock);
+  background: color-mix(in srgb, #12a372 20%, transparent);
+}
+
+.lock-ring__fill--open {
+  --lock-fill-scale: var(--lock-fill-open);
+  background: color-mix(in srgb, #0a84ff 20%, transparent);
+}
+
+.lock-ring[data-pressing='true'] .lock-ring__fill {
+  transition: none;
+}
+
+.lock-ring[data-outcome='unlock'] .lock-ring__fill--unlock,
+.lock-ring[data-outcome='open'] .lock-ring__fill {
+  --lock-fill-scale: 1;
+  opacity: 0;
+  transition: opacity 520ms ease;
+}
+
 @keyframes lock-ring-spin {
   to {
     transform: rotate(360deg);
@@ -182,6 +226,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .lock-ring__fill {
+    --lock-fill-scale: 1;
+    opacity: var(--lock-fill-unlock);
+  }
+
+  .lock-ring__fill--open {
+    opacity: var(--lock-fill-open);
+  }
+
   .lock-ring,
   .lock-ring__core,
   .lock-ring__lap {
