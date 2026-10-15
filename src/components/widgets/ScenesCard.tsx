@@ -228,6 +228,8 @@ type ScenesCardProps = {
   sceneLabels?: Partial<Record<SceneKey, string>>;
   sceneIcons?: Partial<Record<SceneKey, SceneIconKey>>;
   compact?: boolean;
+  /** Without its own background: no inner margin, the title lines up with the page. */
+  flush?: boolean;
   isEditMode?: boolean;
   runningSceneId?: SceneKey | null;
   runningSceneStartedAt?: number | null;
@@ -241,6 +243,7 @@ export function ScenesCard({
   sceneLabels,
   sceneIcons,
   compact = false,
+  flush = false,
   isEditMode = false,
   runningSceneId = null,
   runningSceneStartedAt = null,
@@ -380,7 +383,7 @@ export function ScenesCard({
   // Past the width the buttons need, they widen so that half of the next one
   // shows at the edge: the row visibly scrolls.
   const slotCount = displayedScenes.length + addSlots.length;
-  const rowPadding = isShortCard ? 8 : 12;
+  const rowPadding = flush ? 6 : isShortCard ? 8 : 12;
   const rowGap = isShortCard ? 4 : 6;
   const minSlotWidth = isShortCard ? 64 : 76;
   const rowWidth = cardWidth - rowPadding * 2;
@@ -395,16 +398,23 @@ export function ScenesCard({
     : isShortCard || isTinyCard || compact ? 44 : 56;
   const iconSize = Math.round(shellSize * 0.4);
   const titleLabel = title?.trim() || 'Scenari';
-  const headerClass = isShortCard
-    ? 'mb-1 flex items-center justify-between px-3 pt-2'
-    : 'mb-2 flex items-center justify-between px-3 pt-3 sm:px-4 sm:pt-4';
+  const headerClass = flush
+    ? isShortCard
+      ? 'mb-1 flex items-center justify-between'
+      : 'mb-2 flex items-center justify-between'
+    : isShortCard
+      ? 'mb-1 flex items-center justify-between px-3 pt-2'
+      : 'mb-2 flex items-center justify-between px-3 pt-3 sm:px-4 sm:pt-4';
+  // The rings around the buttons still need a few pixels on the sides.
+  const rowPaddingClass = flush ? 'px-1.5' : isShortCard ? 'px-2' : 'px-3';
+  const rowScrollPaddingClass = flush ? 'scroll-px-1.5' : isShortCard ? 'scroll-px-2' : 'scroll-px-3';
   const titleClass = isShortCard
     ? 'text-[0.92rem] font-semibold text-[color:var(--ui-text-secondary)] tracking-tight'
     : 'text-base font-semibold text-[color:var(--ui-text-secondary)] tracking-tight';
   // Round buttons share the width; past their minimum they scroll sideways.
   const carouselClass = isShortCard
-    ? 'flex min-w-0 gap-1 overflow-x-auto overscroll-x-contain px-2 pb-2 snap-x snap-mandatory scroll-px-2 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden'
-    : 'flex min-w-0 gap-1.5 overflow-x-auto overscroll-x-contain px-3 pb-3 snap-x snap-mandatory scroll-px-3 [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:pb-4';
+    ? `flex min-w-0 gap-1 overflow-x-auto overscroll-x-contain ${rowPaddingClass} pb-2 snap-x snap-mandatory ${rowScrollPaddingClass} [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden`
+    : `flex min-w-0 gap-1.5 overflow-x-auto overscroll-x-contain ${rowPaddingClass} pb-3 snap-x snap-mandatory ${rowScrollPaddingClass} [scrollbar-width:none] [-ms-overflow-style:none] [touch-action:pan-x] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden sm:pb-4`;
   const tileClass = isShortCard ? 'min-w-[4rem] gap-1.5 pt-1.5' : 'min-w-[4.75rem] gap-2 pt-2';
   const labelClass = isShortCard
     ? 'text-[0.72rem] font-semibold tracking-[-0.01em] text-[color:var(--ui-text-primary)] leading-[1.25] pb-px'

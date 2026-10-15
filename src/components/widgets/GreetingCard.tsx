@@ -294,9 +294,11 @@ export function GreetingCard({
   const titleLines = fitted?.lines ?? [resolvedTitle];
 
   return (
+    // On a phone the greeting sits on the bottom of its row, next to the card
+    // below, leaving the spare height under the top bar like a large title.
     <div
       ref={cardRef}
-      className="@container flex h-full w-full min-h-0 min-w-0 flex-col justify-center gap-1 overflow-hidden"
+      className="@container flex h-full w-full min-h-0 min-w-0 flex-col justify-end gap-1 overflow-hidden md:justify-center"
     >
       {showDate ? (
         <p

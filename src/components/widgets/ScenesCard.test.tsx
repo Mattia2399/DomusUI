@@ -33,4 +33,11 @@ describe('ScenesCard', () => {
     const width = (334 - 3 * 6) / 3.5;
     buttons.forEach((button) => expect(button.style.flex).toBe(`0 0 ${width}px`));
   });
+
+  it('drops its inner margin without a background, so the title lines up with the page', () => {
+    render(<ScenesCard scenes={['music', 'night']} flush />);
+
+    const header = screen.getByText('Scenari').parentElement as HTMLElement;
+    expect(header.className).not.toMatch(/px-3|pt-3/);
+  });
 });
