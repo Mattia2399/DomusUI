@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   BadgeCheck,
@@ -48,6 +48,10 @@ import type {
   ProfileSectionId,
 } from './profileModels';
 import type { ProfileHouseMember } from './settingsHouseAccessModel';
+import { PUSH_PAGE_ATTRIBUTE, playPagePush, usePagePushTransition } from '../ui/usePagePushTransition';
+
+// The overview, then each profile page one level below.
+const profileViewDepth = (view: string) => (view === 'overview' ? 1 : 2);
 
 // Only users who open My devices download its screens and dialogs.
 const PersonalDevicesView = lazy(() => import('./profileDevices/PersonalDevicesView'));
@@ -499,9 +503,16 @@ export function ModernProfilePage({
     });
   };
 
+  usePagePushTransition('profile', view, profileViewDepth);
+  // Opening the profile is itself a push from the page below.
+  useLayoutEffect(() => {
+    playPagePush('profile-root', 'forward');
+  }, []);
+
   return (
     <div
       ref={scrollContainerRef}
+      {...{ [PUSH_PAGE_ATTRIBUTE]: 'profile-root' }}
       data-testid="modern-profile-scroll"
       className="fixed inset-0 z-[220] h-[100dvh] overflow-y-auto bg-[var(--ui-bg-grouped)] text-[color:var(--ui-text-primary)]"
     >
@@ -544,6 +555,7 @@ export function ModernProfilePage({
       )}
 
       <main
+        {...{ [PUSH_PAGE_ATTRIBUTE]: 'profile' }}
         className={`mx-auto w-full max-w-[48rem] px-4 pb-[calc(env(safe-area-inset-bottom)+2.5rem)] sm:px-6 lg:px-8 ${
           view === 'overview'
             ? 'pt-3 sm:pt-2'

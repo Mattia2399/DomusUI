@@ -15,6 +15,7 @@ import { useEnergyCore, type EnergyPageContext } from './consumi/energy/useEnerg
 import { GasDetail } from './consumi/GasDetail';
 import { ReportDetail } from './consumi/ReportDetail';
 import type { IntervalKey } from './consumi/shared';
+import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
 import { useConsumptionCopy, type ConsumptionCopyKey } from '../i18n/consumptionCopy';
 
 type Props = {
@@ -436,6 +437,9 @@ function UtilityCard({
   );
 }
 
+// The overview, then the Energy, Water, Gas and Reports details one level below.
+const consumptionViewDepth = (view: string) => (view === 'overview' ? 1 : 2);
+
 const NOTICE_DISMISSED_STORAGE_KEY = 'ha.dashboard.consumi.noticeDismissed.v1';
 
 /** The page notice, once hidden, stays hidden on this device. */
@@ -719,9 +723,10 @@ export function ConsumptionDashboardPage({
       />
     );
   }, [activeView, c, cardTitles, config, dashboardData, detailIntervals, energy, energyCore, handleBackToOverview, setIntervalForCard]);
+  usePagePushTransition('consumi', activeView, consumptionViewDepth);
 
   return (
-    <div className={cn('relative h-full w-full overflow-hidden text-[color:var(--ui-text-primary)]', embedded ? '' : 'min-h-screen')}>
+    <div {...{ [PUSH_PAGE_ATTRIBUTE]: 'consumi' }} className={cn('relative h-full w-full overflow-hidden text-[color:var(--ui-text-primary)]', embedded ? '' : 'min-h-screen')}>
       <div className="relative z-10 h-full min-h-0">
         {activeView === 'overview' ? (
           <div className="h-full min-h-0 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+6.25rem)] sm:p-6 sm:pb-[calc(env(safe-area-inset-bottom)+1.5rem)] lg:p-10">

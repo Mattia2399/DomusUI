@@ -31,6 +31,7 @@ import GlassDropdown from '../components/ui/GlassDropdown';
 import GlassModal from '../components/ui/GlassModal';
 import GlassSegmentSelect from '../components/ui/GlassSegmentSelect';
 import NestedPageHeader from '../components/ui/NestedPageHeader';
+import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
 import { CameraCardView } from '../components/widgets/CameraCardView';
 import { buildCameraCardModel } from '../components/widgets/cameraCardModel';
 import CameraViewer from '../components/camera/CameraViewer';
@@ -78,6 +79,8 @@ const UI_FLAGS = Object.freeze({
 const SECURITY_OVERVIEW_PATH = '/security';
 const SECURITY_CAMERAS_PATH = '/security/cameras';
 const SECURITY_SENSORS_PATH = '/security/sensors';
+// The overview, then its camera and sensor directories one level below.
+const securityViewDepth = (view) => (view === 'overview' ? 1 : 2);
 const MAX_CAMERAS_ON_DASHBOARD = 4;
 const SECURITY_CAMERA_PREVIEW_REFRESH_MS = 10_000;
 const SHIELD_SIZE = 304;
@@ -1676,9 +1679,14 @@ export function SecurityDashboard({
   };
   const openSecurityOverviewPage = () => navigateSecurityPage(SECURITY_OVERVIEW_PATH);
   const isSecurityDirectoryView = isCameraDirectoryView || isSensorDirectoryView;
+  usePagePushTransition(
+    'security',
+    isCameraDirectoryView ? 'cameras' : isSensorDirectoryView ? 'sensors' : 'overview',
+    securityViewDepth,
+  );
 
   return (
-    <div ref={isSecurityDirectoryView ? securityDirectoryScrollRef : undefined} className={isSecurityDirectoryView ? 'h-full w-full overflow-y-auto p-0' : 'dashboard-page-scroll'}>
+    <div {...{ [PUSH_PAGE_ATTRIBUTE]: 'security' }} ref={isSecurityDirectoryView ? securityDirectoryScrollRef : undefined} className={isSecurityDirectoryView ? 'h-full w-full overflow-y-auto p-0' : 'dashboard-page-scroll'}>
       {!isSecurityDirectoryView ? (
         <header className="dashboard-page-content-wide">
           <div className="flex flex-wrap items-start justify-between gap-4">

@@ -79,6 +79,7 @@ import { useLightSwitchCommands } from './mainboard/useLightSwitchCommands';
 import { useFanCommands, enrichFanPending } from './mainboard/useFanCommands';
 import { createFanStateMocks } from '../widgets/fanMock';
 import { getSceneIconNode, SCENES_CATALOG } from '../widgets/ScenesCard';
+import { PUSH_PAGE_ATTRIBUTE, routeDepth, usePagePushTransition } from '../ui/usePagePushTransition';
 import { resolveFanModel, type FanPending } from '../widgets/fanModel';
 import { useHumidifierCommands, enrichHumidifierPending } from './mainboard/useHumidifierCommands';
 import { createHumidifierStateMocks } from '../widgets/humidifierMock';
@@ -10864,6 +10865,15 @@ export function MainBoard() {
 
   const getCurrentNavigationRoute = () => currentNavigationRoute;
   const activeNavigationRoute = getCurrentNavigationRoute();
+  // Opening an app from the App Gallery, and back, pushes like a subpage; the
+  // sections inside an app are tabs, so only the gallery and the app count.
+  usePagePushTransition(
+    'appgallery',
+    isAppGalleryView
+      ? activeNavigationRoute.split(/[?#]/, 1)[0].split('/').filter(Boolean).slice(0, 2).join('/')
+      : '',
+    routeDepth,
+  );
   const settingsPath = activeNavigationRoute.split(/[?#]/, 1)[0].replace(/\/+$/, '');
   const houseAccessView = resolveHouseAccessView(settingsPath);
   // The Dashboard page shows the layout part of Data and backup.
@@ -11218,7 +11228,7 @@ export function MainBoard() {
             />
           </div>
         ) : isAppGalleryView ? (
-          <div className="h-full min-h-0 flex-1 overflow-hidden">
+          <div {...{ [PUSH_PAGE_ATTRIBUTE]: 'appgallery' }} className="h-full min-h-0 flex-1 overflow-hidden">
             <AppGallery
               canConfigureApps={dashboardSecurity.can('edit_dashboard')}
               currentUserId={haCurrentUser?.id ?? null}

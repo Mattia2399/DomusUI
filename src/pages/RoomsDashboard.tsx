@@ -72,6 +72,7 @@ import { normalizeMediaPlayerStateKey } from '../utils/mediaPlayerState';
 import type { DashboardRuntimeMode } from '../security/dashboardAccess';
 import { useRoomsTranslations, type RoomsTranslator } from '../i18n/roomsTranslations';
 import { useI18n } from '../i18n/I18nProvider';
+import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
 
 const CUSTOM_ROOMS_STORAGE_KEY = 'ha.dashboard.rooms.customRooms.v1';
 const ACTIVE_ROOM_STORAGE_KEY = 'ha.dashboard.rooms.activeRoomId.v1';
@@ -6667,6 +6668,10 @@ export function RoomsDashboard({
   const isRoomsInitialLoading =
     isLoading || (haConnected && Boolean(onCallApi) && (!hasLoadedRegistryMetadata || !hasLoadedFloorMetadata));
 
+  // Switching room slides the page sideways, in the order of the room tabs.
+  const roomTabOrder = React.useCallback((roomId: string) => roomTabs.findIndex((tab) => tab.id === roomId), [roomTabs]);
+  usePagePushTransition('rooms', activeRoomTab?.id ?? '', roomTabOrder);
+
   if (isRoomsInitialLoading) {
     return (
       <div className="rooms-dashboard dashboard-page-scroll" aria-busy="true">
@@ -6712,7 +6717,7 @@ export function RoomsDashboard({
           isFloorLayerOpen ? FLOOR_LAYER_BACKGROUND_OPEN_CLASS : FLOOR_LAYER_BACKGROUND_CLOSED_CLASS,
         )}
       >
-        <main className="relative z-10 min-w-0 max-w-full" style={roomsGridStyle}>
+        <main {...{ [PUSH_PAGE_ATTRIBUTE]: 'rooms' }} className="relative z-10 min-w-0 max-w-full" style={roomsGridStyle}>
           <header
             data-testid="rooms-page-header"
             data-compact={isRoomsHeaderCompact ? 'true' : 'false'}

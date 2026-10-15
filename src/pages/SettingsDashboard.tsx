@@ -73,7 +73,7 @@ import {
 } from '../services/supportDiagnostics';
 import SettingsLayoutVersionsSection from '../components/settings/SettingsLayoutVersionsSection';
 import { SettingsListGroup, SettingsListRow } from '../components/settings/SettingsList';
-import { SETTINGS_PAGE_ATTRIBUTE, useSettingsPageTransition } from '../components/settings/useSettingsPageTransition';
+import { SETTINGS_PAGE_PROPS, useSettingsPageTransition } from '../components/settings/useSettingsPageTransition';
 import SupportFeedbackSection from '../components/settings/SupportFeedbackSection';
 import type {
   DashboardRevisionHistoryStatus,
@@ -564,7 +564,7 @@ function SettingsDetailShell({
 }) {
   const { t } = useI18n();
   return (
-    <div {...{ [SETTINGS_PAGE_ATTRIBUTE]: '' }} className="dashboard-page-scroll !p-0 text-[color:var(--ui-text-primary)]">
+    <div {...SETTINGS_PAGE_PROPS} className="dashboard-page-scroll !p-0 text-[color:var(--ui-text-primary)]">
       <NestedPageHeader
         title={title}
         subtitle={subtitle}
@@ -931,7 +931,7 @@ export default function SettingsDashboard({
 
   if (settingsPath === '/settings' || settingsPath === '/settings/home') {
     return (
-      <div key={settingsPath} {...{ [SETTINGS_PAGE_ATTRIBUTE]: '' }} className="dashboard-page-scroll text-[color:var(--ui-text-primary)]">
+      <div key={settingsPath} {...SETTINGS_PAGE_PROPS} className="dashboard-page-scroll text-[color:var(--ui-text-primary)]">
         <header className="dashboard-page-content-wide">
           {/* The status stays beside the title, also on a phone. */}
           <div className="flex items-center justify-between gap-3">
