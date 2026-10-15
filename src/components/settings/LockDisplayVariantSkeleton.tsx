@@ -5,11 +5,13 @@ type LockDisplayVariantSkeletonProps = {
   variant: WidgetDisplayVariant;
   active: boolean;
   disabled: boolean;
+  /** The phone grid (sm, xs): its sizes are one size smaller in shape. */
+  phone?: boolean;
 };
 
-// A miniature of the ring lock card: the ring with its two laps, the state and,
-// in the expanded size, the details list.
-export function LockDisplayVariantSkeleton({ variant, active, disabled }: LockDisplayVariantSkeletonProps) {
+// A miniature of the ring lock card at each grid size: the ring with its two laps,
+// the state and, when expanded on a wide grid, the details list.
+export function LockDisplayVariantSkeleton({ variant, active, disabled, phone = false }: LockDisplayVariantSkeletonProps) {
   const tone = disabled ? 'var(--ui-text-disabled)' : active ? 'var(--ui-accent)' : '#12a372';
   const strong = disabled ? 'bg-[color:var(--ui-fill-tertiary)]' : 'bg-[color:var(--ui-fill-primary)]';
   const soft = disabled ? 'bg-[color:var(--ui-fill-tertiary)]' : 'bg-[color:var(--ui-fill-secondary)]';
@@ -48,62 +50,82 @@ export function LockDisplayVariantSkeleton({ variant, active, disabled }: LockDi
     <span className={`block ${height} ${width} rounded-full ${className}`} />
   );
 
-  if (variant === 'mini') {
-    return (
-      <div className="flex h-[4.75rem] items-center" aria-hidden="true">
-        <div className={`${frame} flex h-[4.35rem] w-full flex-col justify-between`}>
-          {ring('h-7 w-7', 9)}
-          <span className="flex flex-col gap-1">
-            {line('w-[54%]', soft, 'h-1')}
-            {line('w-[72%]', strong, 'h-2')}
-          </span>
-        </div>
-      </div>
-    );
-  }
+  // A tile: the ring on top, the name and state below.
+  const tile = (
+    <div className={`${frame} flex h-[4.35rem] w-full flex-col justify-between`}>
+      {ring('h-7 w-7', 9)}
+      <span className="flex flex-col gap-1">
+        {line('w-[54%]', soft, 'h-1')}
+        {line('w-[72%]', strong, 'h-2')}
+      </span>
+    </div>
+  );
 
-  if (variant === 'compact' || variant === 'standard') {
-    return (
-      <div className="flex h-[4.75rem] items-center" aria-hidden="true">
-        <div className={`${frame} flex h-[4.35rem] w-full flex-col gap-1.5`}>
-          <span className="flex items-center justify-between gap-2">
-            {line('w-[42%]', soft, 'h-1')}
-            {line('w-[22%]', soft, 'h-1')}
+  // Wide: name and last change, then the ring beside the state.
+  const wide = (
+    <div className={`${frame} flex h-[4.35rem] w-full flex-col gap-1.5`}>
+      <span className="flex items-center justify-between gap-2">
+        {line('w-[42%]', soft, 'h-1')}
+        {line('w-[22%]', soft, 'h-1')}
+      </span>
+      <span className="flex min-h-0 flex-1 items-center gap-2">
+        {ring('h-9 w-9', 6)}
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          {line('w-[64%]', strong, 'h-2')}
+          {line('w-[86%]', soft, 'h-1')}
+        </span>
+      </span>
+    </div>
+  );
+
+  // Compact (phone mini): the ring with its hint, the name and state below.
+  const compact = (
+    <div className={`${frame} flex h-[3.4rem] w-full flex-col justify-between`}>
+      <span className="flex items-center gap-1.5">
+        {ring('h-5 w-5', 10)}
+        {line('w-[48%]', soft, 'h-1')}
+      </span>
+      <span className="flex flex-col gap-1">
+        {line('w-[50%]', soft, 'h-1')}
+        {line('w-[66%]', strong, 'h-1.5')}
+      </span>
+    </div>
+  );
+
+  // Panorama (expanded on tablet and desktop): the state on the left, the details on the right.
+  const panorama = (
+    <div className={`${frame} flex h-[4.35rem] w-full flex-col gap-1.5`}>
+      <span className="flex items-center justify-between gap-2">
+        {line('w-[38%]', strong, 'h-1')}
+        <span className={`h-2 w-5 rounded-full ${soft}`} />
+      </span>
+      <span className="grid min-h-0 flex-1 grid-cols-2 items-center gap-2">
+        <span className="flex flex-col items-center gap-1">
+          {ring('h-7 w-7', 8)}
+          {line('w-[60%]', strong, 'h-1')}
+        </span>
+        <span className={`flex flex-col gap-[3px] rounded-[0.4rem] px-1.5 py-1 ${soft}`}>
+          <span className="flex justify-between">
+            {line('w-[42%]', strong, 'h-[3px]')}
+            {line('w-[22%]', strong, 'h-[3px]')}
           </span>
-          <span className="flex min-h-0 flex-1 items-center gap-2">
-            {ring('h-9 w-9', 6)}
-            <span className="flex min-w-0 flex-1 flex-col gap-1">
-              {line('w-[64%]', strong, 'h-2')}
-              {line('w-[86%]', soft, 'h-1')}
-            </span>
+          <span className="flex justify-between">
+            {line('w-[50%]', strong, 'h-[3px]')}
+            {line('w-[18%]', strong, 'h-[3px]')}
           </span>
-        </div>
-      </div>
-    );
-  }
+        </span>
+      </span>
+    </div>
+  );
+
+  // The same size name draws a different shape on a phone grid and on a wide one.
+  const shape = phone
+    ? variant === 'mini' ? compact : variant === 'full' ? wide : tile
+    : variant === 'mini' ? tile : variant === 'full' ? panorama : wide;
 
   return (
     <div className="flex h-[4.75rem] items-center" aria-hidden="true">
-      <div className={`${frame} flex h-[4.6rem] w-full flex-col gap-[3px]`}>
-        <span className="flex items-center justify-between gap-2">
-          {line('w-[40%]', strong, 'h-1')}
-          <span className={`h-2 w-5 rounded-full ${soft}`} />
-        </span>
-        <span className="flex flex-col items-center gap-[3px]">
-          {ring('h-5 w-5', 8)}
-          {line('w-[36%]', strong, 'h-1')}
-        </span>
-        <span className={`mt-auto flex flex-col gap-[3px] rounded-[0.4rem] px-1.5 py-[3px] ${soft}`}>
-          <span className="flex justify-between">
-            {line('w-[30%]', strong, 'h-[3px]')}
-            {line('w-[18%]', strong, 'h-[3px]')}
-          </span>
-          <span className="flex justify-between">
-            {line('w-[38%]', strong, 'h-[3px]')}
-            {line('w-[14%]', strong, 'h-[3px]')}
-          </span>
-        </span>
-      </div>
+      {shape}
     </div>
   );
 }

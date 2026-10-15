@@ -4,11 +4,11 @@ import {
   formatLockRelativeTime,
   resolveLockLastActivity,
   resolveLockRingCopy,
+  type LockCardLayout,
   type LockCardModel,
 } from './lockCardModel';
 import { LockRing } from './LockRing';
 import type { LockRingOutcome, LockRingStage } from './useLockRingPress';
-import type { WidgetDisplayVariant } from './widgetDisplayVariant';
 import './LockCard.css';
 import { useI18n } from '../../i18n/I18nProvider';
 
@@ -24,7 +24,7 @@ export type LockCardRingState = {
 
 type LockCardViewProps = {
   model: LockCardModel;
-  layoutVariant: WidgetDisplayVariant;
+  layout: LockCardLayout;
   isSelected: boolean;
   isEditMode: boolean;
   ring: LockCardRingState;
@@ -40,11 +40,15 @@ const ACTIVITY_ICONS = {
   jammed: AlertTriangle,
 } as const;
 
-type LockDetail = { id: string; label: string; value: string; tone?: 'open' | 'warning' };
+// The short hint fits the small compositions; the larger ones say the whole gesture.
+const SHORT_COPY_LAYOUTS = new Set<LockCardLayout>(['row', 'compact', 'tile', 'panorama']);
+const EXPANDED_LAYOUTS = new Set<LockCardLayout>(['tall', 'panorama']);
+
+type LockDetail = { id: string; label: string; value: string; tone?: 'open' };
 
 export function LockCardView({
   model,
-  layoutVariant,
+  layout,
   isSelected,
   isEditMode,
   ring,
@@ -54,8 +58,10 @@ export function LockCardView({
 }: LockCardViewProps) {
   const { t, locale } = useI18n();
   const copy = resolveLockRingCopy(model, ring, locale);
-  const isSmall = layoutVariant === 'mini' || layoutVariant === 'compact';
-  const isFull = layoutVariant === 'full';
+  const caption = SHORT_COPY_LAYOUTS.has(layout) ? copy.shortCaption : copy.caption;
+  const isExpanded = EXPANDED_LAYOUTS.has(layout);
+  // A one-row card has no room for a hint: the name gives way to it while it matters.
+  const showsHintInName = layout === 'row' && copy.isHighlighted;
   const activity = resolveLockLastActivity(model, locale);
   const lastChangedLabel = typeof model.lastChangedMs === 'number'
     ? formatLockRelativeTime(model.lastChangedMs, locale)
@@ -86,24 +92,6 @@ export function LockCardView({
           : t('card.lock.autoLock.on'),
     });
   }
-  const lockRing = (
-    <LockRing
-      {...ring.bindings}
-      className="lock-card__ring"
-      tone={model.tone}
-      icon={ring.isPressing && model.ringIcon === 'busy' ? 'unlock' : model.ringIcon}
-      solidCore={model.solidCore}
-      lap1={ring.lap1}
-      lap2={ring.lap2}
-      stage={ring.stage}
-      isPressing={ring.isPressing}
-      outcome={ring.outcome}
-      busy={model.isTransitioning && !ring.isPressing}
-      aria-label={copy.ringLabel}
-      title={copy.caption}
-    />
-  );
-
   const captionProps = {
     'data-highlight': copy.isHighlighted ? 'true' : 'false',
     'data-nudge': ring.isNudging && model.state === 'locked' ? 'true' : 'false',
@@ -116,7 +104,8 @@ export function LockCardView({
       className={`lock-card ${isSelected ? 'selection-corners' : ''}`}
       data-lock-state={model.state}
       data-lock-tone={model.tone}
-      data-lock-variant={layoutVariant}
+      data-lock-layout={layout}
+      data-lock-has-details={details.length > 0 ? 'true' : 'false'}
       data-lock-stage={ring.stage}
       data-lock-pressing={ring.isPressing ? 'true' : 'false'}
       onClick={(event) => {
@@ -128,80 +117,70 @@ export function LockCardView({
       aria-busy={model.isTransitioning || undefined}
     >
       <div className="liquid-glass-card lock-card__surface">
-        {isSmall ? (
-          <div className="lock-card__small">
-            {lockRing}
-            <span className="lock-card__text">
-              <span className="lock-card__title" title={model.title}>{model.title}</span>
-              <span className="lock-card__headline">{model.headline}</span>
-              <span className="lock-card__caption" {...captionProps}>{copy.shortCaption}</span>
+        <LockRing
+          {...ring.bindings}
+          className="lock-card__ring"
+          tone={model.tone}
+          icon={ring.isPressing && model.ringIcon === 'busy' ? 'unlock' : model.ringIcon}
+          solidCore={model.solidCore}
+          lap1={ring.lap1}
+          lap2={ring.lap2}
+          stage={ring.stage}
+          isPressing={ring.isPressing}
+          outcome={ring.outcome}
+          busy={model.isTransitioning && !ring.isPressing}
+          aria-label={copy.ringLabel}
+          title={copy.caption}
+        />
+
+        {showsHintInName ? (
+          <span className="lock-card__title lock-card__caption" {...captionProps}>{caption}</span>
+        ) : (
+          <span className="lock-card__title" title={model.title}>{model.title}</span>
+        )}
+
+        {layout === 'wide' && meta ? <span className="lock-card__meta">{meta}</span> : null}
+
+        {isExpanded ? (
+          typeof model.batteryLevel === 'number' ? (
+            <span
+              className="lock-card__chip"
+              data-tone={batteryLow ? 'warning' : undefined}
+              aria-label={t('card.lock.batteryValue', { value: model.batteryLevel })}
+            >
+              <BatteryIcon size={15} aria-hidden="true" />
+              {model.batteryLevel}%
             </span>
-          </div>
+          ) : meta ? (
+            <span className="lock-card__meta lock-card__meta--corner">{meta}</span>
+          ) : null
         ) : null}
 
-        {layoutVariant === 'standard' ? (
-          <>
-            <div className="lock-card__header">
-              <span className="lock-card__title" title={model.title}>{model.title}</span>
-              {meta ? <span className="lock-card__meta">{meta}</span> : null}
-            </div>
-            <div className="lock-card__body">
-              {lockRing}
-              <span className="lock-card__text">
-                <span className="lock-card__headline">{model.headline}</span>
-                <span className="lock-card__caption" {...captionProps}>{copy.caption}</span>
-              </span>
-            </div>
-          </>
+        <span className="lock-card__headline">{model.headline}</span>
+
+        {layout !== 'row' ? (
+          <span className="lock-card__caption" {...captionProps}>{caption}</span>
         ) : null}
 
-        {isFull ? (
-          <>
-            <div className="lock-card__header">
-              <span className="lock-card__title" title={model.title}>{model.title}</span>
-              {typeof model.batteryLevel === 'number' ? (
-                <span
-                  className="lock-card__chip"
-                  data-tone={batteryLow ? 'warning' : undefined}
-                  aria-label={t('card.lock.batteryValue', { value: model.batteryLevel })}
-                >
-                  <BatteryIcon size={15} aria-hidden="true" />
-                  {model.batteryLevel}%
-                </span>
-              ) : meta ? (
-                <span className="lock-card__meta">{meta}</span>
-              ) : null}
-            </div>
-            <div className="lock-card__hero">
-              {lockRing}
-              <span className="lock-card__text">
-                <span className="lock-card__headline">{model.headline}</span>
-                <span className="lock-card__caption" {...captionProps}>{copy.caption}</span>
-              </span>
-            </div>
-            <div className="lock-card__extra">
-              {details.length > 0 ? (
-                <ul className="lock-card__details">
-                  {details.map((detail) => (
-                    <li key={detail.id} className="lock-card__detail" data-tone={detail.tone}>
-                      <span>{detail.label}</span>
-                      <strong>{detail.value}</strong>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              <div className="lock-card__activity">
-                <span className="lock-card__section-title">{t('card.lock.lastActivity')}</span>
-                <span className="lock-card__activity-row" data-tone={model.tone}>
-                  <span className="lock-card__activity-icon" aria-hidden="true">
-                    <ActivityIcon size={14} />
-                  </span>
-                  <span className="lock-card__activity-text">{activity.text}</span>
-                  {activity.time ? <span className="lock-card__activity-time">{activity.time}</span> : null}
-                </span>
-              </div>
-            </div>
-          </>
+        {isExpanded && details.length > 0 ? (
+          <ul className="lock-card__details">
+            {details.map((detail) => (
+              <li key={detail.id} className="lock-card__detail" data-tone={detail.tone}>
+                <span>{detail.label}</span>
+                <strong>{detail.value}</strong>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {isExpanded ? (
+          <span className="lock-card__activity" data-tone={model.tone}>
+            <span className="lock-card__activity-icon" aria-hidden="true">
+              <ActivityIcon size={14} />
+            </span>
+            <span className="lock-card__activity-text">{activity.text}</span>
+            {activity.time ? <span className="lock-card__activity-time">{activity.time}</span> : null}
+          </span>
         ) : null}
       </div>
 

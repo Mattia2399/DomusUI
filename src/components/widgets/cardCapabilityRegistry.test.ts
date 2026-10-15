@@ -265,29 +265,20 @@ describe('cardCapabilityRegistry', () => {
     ).toBe('standard');
   });
 
-  it('preserves the narrow Lock composition and root-only expanded target', () => {
-    expect(LOCK_CARD_CAPABILITY.defaultSpans.xs).toEqual({ w: 1, h: 1 });
-    expect(
-      LOCK_CARD_CAPABILITY.resolveVariantTarget('mini', {
-        cols: 6,
-        breakpoint: 'xl',
-        isInsideStack: false,
-      }),
-    ).toEqual({ w: 1, h: 2 });
-    expect(
-      LOCK_CARD_CAPABILITY.resolveVariantTarget('expanded', {
-        cols: 6,
-        breakpoint: 'xl',
-        isInsideStack: false,
-      }),
-    ).toEqual({ w: 3, h: 2 });
-    expect(
-      LOCK_CARD_CAPABILITY.resolveVariantTarget('expanded', {
-        cols: 6,
-        breakpoint: 'xl',
-        isInsideStack: true,
-      }),
-    ).toEqual({ w: 2, h: 4 });
+  it('targets the Lock sizes of the real grid on phone, tablet and desktop', () => {
+    const target = (variant: 'mini' | 'standard' | 'expanded', breakpoint: 'xl' | 'md' | 'xs', cols: number, isInsideStack = false) =>
+      LOCK_CARD_CAPABILITY.resolveVariantTarget(variant, { cols, breakpoint, isInsideStack });
+
+    expect(LOCK_CARD_CAPABILITY.defaultSpans.xs).toEqual({ w: 1, h: 3 });
+    expect(LOCK_CARD_CAPABILITY.defaultSpans.xl).toEqual({ w: 3, h: 3 });
+    expect(target('mini', 'xs', 2)).toEqual({ w: 1, h: 2 });
+    expect(target('standard', 'xs', 2)).toEqual({ w: 1, h: 3 });
+    expect(target('expanded', 'xs', 2)).toEqual({ w: 2, h: 3 });
+    expect(target('mini', 'xl', 12)).toEqual({ w: 1, h: 3 });
+    expect(target('standard', 'xl', 12)).toEqual({ w: 3, h: 3 });
+    expect(target('expanded', 'xl', 12)).toEqual({ w: 4, h: 4 });
+    expect(target('expanded', 'md', 6)).toEqual({ w: 4, h: 4 });
+    expect(target('expanded', 'xl', 4, true)).toEqual({ w: 2, h: 7 });
   });
 
   it('preserves Cover targets across desktop, mobile and stacks', () => {

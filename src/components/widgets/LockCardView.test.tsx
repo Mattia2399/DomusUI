@@ -2,7 +2,7 @@ import React from 'react';
 import { cleanup, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LockCardView, type LockCardRingState } from './LockCardView';
-import { buildLockCardModel, type LockCardModel } from './lockCardModel';
+import { buildLockCardModel, resolveLockCardLayout, type LockCardLayout, type LockCardModel } from './lockCardModel';
 import type { Widget } from '../../types/dashboardModels';
 
 const baseModel: LockCardModel = {
@@ -39,11 +39,11 @@ const idleRing: LockCardRingState = {
   bindings: {},
 };
 
-function renderCard(model: LockCardModel, variant: 'mini' | 'compact' | 'standard' | 'full', ring = idleRing) {
+function renderCard(model: LockCardModel, layout: LockCardLayout, ring = idleRing) {
   return render(
     <LockCardView
       model={model}
-      layoutVariant={variant}
+      layout={layout}
       isSelected={false}
       isEditMode={false}
       ring={ring}
@@ -57,7 +57,7 @@ describe('LockCardView presentation', () => {
   afterEach(cleanup);
 
   it('shows no battery or connection placeholders when the lock reports none', () => {
-    const { queryByText, queryByLabelText } = renderCard(baseModel, 'full');
+    const { queryByText, queryByLabelText } = renderCard(baseModel, 'tall');
 
     expect(queryByLabelText(/Batteria/i)).toBeNull();
     expect(queryByLabelText(/Connessione/i)).toBeNull();
@@ -67,7 +67,7 @@ describe('LockCardView presentation', () => {
   it('shows the real battery, door and auto-lock values in the expanded card', () => {
     const { getByLabelText, getByText } = renderCard(
       { ...baseModel, batteryLevel: 82, doorState: 'closed', autoLock: { enabled: true, delaySeconds: 30 } },
-      'full',
+      'tall',
     );
 
     expect(getByLabelText('Batteria 82%')).toBeTruthy();
@@ -77,7 +77,7 @@ describe('LockCardView presentation', () => {
   });
 
   it('names the two-stage gesture on the ring when the lock has a latch', () => {
-    const { getByRole } = renderCard({ ...baseModel, supportsOpen: true, canOpenLatch: true }, 'standard');
+    const { getByRole } = renderCard({ ...baseModel, supportsOpen: true, canOpenLatch: true }, 'wide');
 
     expect(getByRole('button', { name: /Tieni premuto per sbloccare Porta ingresso, continua per aprire la porta/ })).toBeTruthy();
   });
@@ -85,11 +85,37 @@ describe('LockCardView presentation', () => {
   it('asks to keep holding during the second lap', () => {
     const { getByText } = renderCard(
       { ...baseModel, supportsOpen: true, canOpenLatch: true },
-      'mini',
+      'tile',
       { ...idleRing, stage: 'open', isPressing: true, lap1: 1, lap2: 0.4 },
     );
 
     expect(getByText('Continua per aprire')).toBeTruthy();
+  });
+});
+
+describe('resolveLockCardLayout', () => {
+  it('picks the composition from the real grid box', () => {
+    expect(resolveLockCardLayout(177, 48)).toBe('row');
+    expect(resolveLockCardLayout(177, 112)).toBe('compact');
+    expect(resolveLockCardLayout(177, 176)).toBe('tile');
+    expect(resolveLockCardLayout(101, 176)).toBe('tile');
+    expect(resolveLockCardLayout(370, 176)).toBe('wide');
+    expect(resolveLockCardLayout(336, 176)).toBe('wide');
+    expect(resolveLockCardLayout(219, 432)).toBe('tall');
+    expect(resolveLockCardLayout(453, 240)).toBe('panorama');
+  });
+
+  it('keeps the hint in a one-row card only while it matters', () => {
+    const idle = renderCard({ ...baseModel, supportsOpen: true, canOpenLatch: true }, 'row');
+    expect(idle.queryByText('Tieni premuto')).toBeNull();
+    expect(idle.getByText('Porta ingresso')).toBeTruthy();
+    cleanup();
+    const pressing = renderCard(
+      { ...baseModel, supportsOpen: true, canOpenLatch: true },
+      'row',
+      { ...idleRing, stage: 'open', isPressing: true, lap1: 1, lap2: 0.3 },
+    );
+    expect(pressing.getByText('Continua per aprire')).toBeTruthy();
   });
 });
 

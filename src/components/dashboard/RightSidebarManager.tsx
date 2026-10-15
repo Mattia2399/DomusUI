@@ -3863,6 +3863,7 @@ export function RightSidebarManager({
                             variant={option.previewVariant}
                             active={option.isActive}
                             disabled={!option.isAvailable}
+                            phone={activeGridBreakpoint === 'sm' || activeGridBreakpoint === 'xs'}
                           />
                         ) : selectedWidgetSkeletonKind === 'cover' ? (
                           <CoverDisplayVariantSkeleton

@@ -443,6 +443,15 @@ export const ALARM_CARD_CAPABILITY: StaticCardCapability = {
   },
 };
 
+// The lock sizes follow the real grid (48 px rows, 16 px gaps). On a phone the mini
+// is one column and one or two rows, the standard is one column by three rows and
+// the expanded is two columns by three rows. On tablet and desktop the mini is one
+// column by three rows, the standard three columns by three rows and the expanded
+// four columns by four rows, or two columns by seven rows where the grid is narrow.
+function isPhoneLockBreakpoint(breakpoint: CardCapabilityBreakpoint | undefined) {
+  return breakpoint === 'sm' || breakpoint === 'xs';
+}
+
 export const LOCK_CARD_CAPABILITY: StaticCardCapability = {
   kind: 'lock',
   skeleton: 'lock',
@@ -453,29 +462,34 @@ export const LOCK_CARD_CAPABILITY: StaticCardCapability = {
     { id: 'expanded', previewVariant: 'full', label: 'Expanded', descriptionKey: 'builder.variant.lock.expanded' },
   ],
   defaultSpans: {
-    '2xl': { w: 2, h: 3 },
-    xl: { w: 2, h: 3 },
-    lg: { w: 2, h: 2 },
-    md: { w: 2, h: 2 },
-    sm: { w: 1, h: 2 },
-    xs: { w: 1, h: 1 },
+    '2xl': { w: 3, h: 3 },
+    xl: { w: 3, h: 3 },
+    lg: { w: 3, h: 3 },
+    md: { w: 3, h: 3 },
+    sm: { w: 1, h: 3 },
+    xs: { w: 1, h: 3 },
   },
   resolveVariantTarget(variant, { cols, breakpoint, isInsideStack }) {
     const safeCols = Math.max(1, Math.round(cols));
-    const isMobile = breakpoint === 'sm' || breakpoint === 'xs';
-    if (variant === 'mini') return { w: 1, h: breakpoint === 'xs' ? 1 : 2 };
-    if (variant === 'standard') return { w: Math.min(safeCols, 2), h: 2 };
-    if (!isInsideStack && !isMobile && safeCols >= 3) return { w: 3, h: 2 };
-    return { w: Math.min(safeCols, 2), h: 4 };
+    if (isPhoneLockBreakpoint(breakpoint)) {
+      if (variant === 'mini') return { w: 1, h: 2 };
+      if (variant === 'standard') return { w: 1, h: 3 };
+      return { w: Math.min(safeCols, 2), h: 3 };
+    }
+    if (variant === 'mini') return { w: 1, h: 3 };
+    if (variant === 'standard') return { w: Math.min(safeCols, 3), h: 3 };
+    if (!isInsideStack && safeCols >= 6) return { w: 4, h: 4 };
+    return { w: Math.min(safeCols, 2), h: 7 };
   },
-  resolveDisplayVariant({ layout, isInsideStack }) {
+  resolveDisplayVariant({ breakpoint, layout }) {
     const width = toGridUnits(layout.w);
     const height = toGridUnits(layout.h);
-    if ((width >= 2 && height >= 4) || (width >= 3 && height >= 2 && !isInsideStack)) {
-      return 'full';
+    if (isPhoneLockBreakpoint(breakpoint)) {
+      if (height <= 2) return 'mini';
+      return width >= 2 ? 'full' : 'compact';
     }
-    if (width >= 2 && height >= 3) return 'standard';
-    if (width <= 1 && height <= 2) return 'mini';
+    if (width <= 1) return 'mini';
+    if (height >= 6 || (width >= 4 && height >= 4)) return 'full';
     return 'compact';
   },
   resolvePixelDisplayVariant({ width, height }) {

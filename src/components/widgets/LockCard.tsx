@@ -4,10 +4,9 @@ import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
 import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
 import { LockCardView } from './LockCardView';
-import { buildLockCardModel } from './lockCardModel';
+import { buildLockCardModel, resolveLockCardLayout } from './lockCardModel';
 import { resolveLockRingMode, useLockRingPress } from './useLockRingPress';
 import {
-  resolveLockPixelDisplayVariant,
   resolveWidgetDisplayVariant,
   type WidgetDisplayMetrics,
   type WidgetDisplayVariant,
@@ -48,15 +47,16 @@ export function LockCard({
   });
   const { ref: cardRef, size: observedSize } = useObservedElementSize<HTMLDivElement>(widget.id);
   const measuredSize = observedSize?.identity === widget.id ? observedSize : null;
-  const layoutVariant = measuredSize
-    ? resolveLockPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
-    : fallbackVariant;
+  // The size name comes from the grid; the composition from the real box.
+  const layoutVariant = fallbackVariant;
+  const layout = measuredSize
+    ? resolveLockCardLayout(measuredSize.width, measuredSize.height)
+    : resolveLockCardLayout(
+      Math.max(1, widget.layout?.w ?? 1) * 146 - 16,
+      Math.max(1, widget.layout?.h ?? 1) * 64 - 16,
+    );
   const model = useMemo(() => buildLockCardModel(widget, liveEntity, locale), [liveEntity, locale, widget]);
   const canOpen = model.canOpenLatch && Boolean(onOpenDoor);
-  // A narrow standard card has no room for the ring beside the state: it uses the mini layout.
-  const presentationVariant = layoutVariant === 'standard' && measuredSize && measuredSize.width < 250
-    ? 'compact'
-    : layoutVariant;
 
   // First lap unlocks, a second lap opens the latch; from unlocked a tap locks.
   const ring = useLockRingPress({
@@ -82,7 +82,7 @@ export function LockCard({
   return (
     <LockCardView
       model={model}
-      layoutVariant={presentationVariant}
+      layout={layout}
       isSelected={isSelected}
       isEditMode={isEditMode}
       rootRef={cardRef}
