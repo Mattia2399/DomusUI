@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import type { LockPanelData } from './lockPanelTypes';
 import { Crown, Lightbulb, MapPin, Smartphone, Tablet, Users, Watch, X } from 'lucide-react';
 import { ActiveDevice } from './types';
 import { ClimateControls } from './ClimateControls';
@@ -245,23 +246,7 @@ interface ContextSidebarProps {
     supportedFeatures?: number;
     rawAttributes?: Record<string, unknown>;
   };
-  lock: {
-    name: string;
-    state: string;
-    status?: string;
-    changedBy?: string;
-    activityLogLimit?: number;
-    activityLogHours?: number;
-    activityTimeline?: Array<{
-      id: string;
-      text: string;
-    }>;
-    activityTimelineStatus?: 'idle' | 'loading' | 'available' | 'empty' | 'unavailable' | 'offline';
-    supportedFeatures?: number;
-    batteryLevel?: number;
-    rawAttributes?: Record<string, unknown>;
-    lockCode?: string;
-  };
+  lock: LockPanelData;
   cover: {
     name: string;
     state: string;
@@ -699,6 +684,7 @@ export function ContextSidebar({
           onLock={actions.lockDoor}
           onUnlock={actions.unlockDoor}
           onOpen={actions.openDoor}
+          onSecondaryPageChange={onSecondaryPageChange}
         />
       ) : null}
 

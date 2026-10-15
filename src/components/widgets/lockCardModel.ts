@@ -381,3 +381,17 @@ export function resolveLockLastActivity(model: LockCardModel, locale: AppLocale 
   const time = typeof model.lastChangedMs === 'number' ? formatLockRelativeTime(model.lastChangedMs, locale, nowMs) : undefined;
   return { text, time };
 }
+
+// "Mattia · 10 minutes ago": who changed the lock last and when, as far as the entity says.
+export function resolveLockLastChange(
+  lock: { changedBy?: string; rawAttributes?: Record<string, unknown> },
+  locale: AppLocale = 'it',
+  nowMs = Date.now(),
+) {
+  const changedAt = toTimestampMs(lock.rawAttributes?.__last_changed);
+  const parts = [
+    lock.changedBy?.trim() || toTrimmedString(lock.rawAttributes?.changed_by),
+    typeof changedAt === 'number' ? formatLockRelativeTime(changedAt, locale, nowMs) : undefined,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : undefined;
+}

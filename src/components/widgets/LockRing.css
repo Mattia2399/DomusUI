@@ -169,12 +169,17 @@
 
 .lock-ring__fill--unlock {
   --lock-fill-scale: var(--lock-fill-unlock);
-  background: color-mix(in srgb, #12a372 20%, transparent);
+  background: color-mix(in srgb, #12a372 var(--lock-fill-strength, 20%), transparent);
 }
 
 .lock-ring__fill--open {
   --lock-fill-scale: var(--lock-fill-open);
-  background: color-mix(in srgb, #0a84ff 20%, transparent);
+  background: color-mix(in srgb, #0a84ff var(--lock-fill-strength, 20%), transparent);
+}
+
+/* In the contextual panel the tint stays inside the state area, an inline-size container. */
+.lock-ring[data-fill-scope='panel'] .lock-ring__fill {
+  width: calc(var(--lock-fill-reach, 1.6) * 100cqi);
 }
 
 .lock-ring[data-pressing='true'] .lock-ring__fill {

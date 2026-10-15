@@ -1,4 +1,6 @@
 import React from 'react';
+import type { LockPanelData } from '../settings/lockPanelTypes';
+import { normalizeLockCardState, resolveLockLastChange, translateLockCardState } from '../widgets/lockCardModel';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart3,
@@ -751,27 +753,7 @@ type RightSidebarManagerProps = {
     relatedEntities?: VacuumRelatedEntityInfo[];
     rawAttributes?: Record<string, unknown>;
   };
-  lock: {
-    name: string;
-    state: string;
-    status?: string;
-    changedBy?: string;
-    activityLogLimit?: number;
-    activityLogHours?: number;
-    activityTimeline?: Array<{
-      id: string;
-      text: string;
-    }>;
-    activityTimelineStatus?: 'idle' | 'loading' | 'available' | 'empty' | 'unavailable' | 'offline';
-    supportedFeatures?: number;
-    batteryLevel?: number;
-    connection?: {
-      state: 'online' | 'offline' | 'unknown';
-      label: string;
-    };
-    rawAttributes?: Record<string, unknown>;
-    lockCode?: string;
-  };
+  lock: LockPanelData;
   cover: {
     name: string;
     state: string;
@@ -1359,7 +1341,11 @@ export function RightSidebarManager({
         : 'off'
       : String(contextSwitchEntity?.stateLabel ?? contextSwitchEntity?.state ?? '').trim().toLowerCase();
   const contextDeviceSubtitle =
-    activeDevice?.type === 'climate'
+    activeDevice?.type === 'lock'
+      ? normalizeLockCardState(lock.state) === 'unavailable'
+        ? t('controls.lock.unreachable')
+        : resolveLockLastChange(lock, locale) ?? translateLockCardState(normalizeLockCardState(lock.state), locale)
+      : activeDevice?.type === 'climate'
       ? translateClimateStatus(
           state.climate.status ?? state.climate.hvacAction ?? state.climate.mode,
           state.climate.mode,

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { ActiveDevice, SensorConnectionState } from '../settings/types';
+import type { LockActivityEntry, LockActivityKind } from '../settings/lockPanelTypes';
 import { useLocation, useNavigate } from 'react-router';
 import { useDashboardState } from '../../hooks/useDashboardState';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
@@ -648,7 +649,7 @@ type ActivityTimelineEntry = {
   timestampMs: number;
   actor: string;
   entityId: string | undefined;
-};
+} & Partial<Pick<LockActivityEntry, 'kind' | 'userActor' | 'source'>>;
 
 type ActivityTimelineStatus = 'idle' | 'loading' | 'available' | 'empty' | 'unavailable' | 'offline';
 
@@ -1058,6 +1059,35 @@ function resolveLockActivityVerb(event: HaLogbookEvent) {
   return 'ha aggiornato la serratura';
 }
 
+function resolveLockActivityKind(event: HaLogbookEvent): LockActivityKind {
+  const normalizedState = normalizeLockState(toTrimmedString(event.state));
+  const message = normalizeLower(toTrimmedString(event.message));
+  if (normalizedState === 'jammed' || message.includes('jam') || message.includes('incepp')) return 'jam';
+  if (normalizedState === 'open' || normalizedState === 'opening') return 'open';
+  if (normalizedState === 'unlocked' || normalizedState === 'unlocking' || message.includes('unlock') || message.includes('sblocc')) {
+    return 'unlock';
+  }
+  if (normalizedState === 'locked' || normalizedState === 'locking' || message.includes('locked') || message.includes('blocc')) {
+    return 'lock';
+  }
+  return 'other';
+}
+
+// Where a lock change came from: an automation or script that called the
+// service, or the lock itself when nobody and nothing in Home Assistant did.
+function resolveLockActivitySource(event: HaLogbookEvent, userActor: string | undefined): LockActivityEntry['source'] {
+  const contextDomain = normalizeLower(toTrimmedString(event.context_domain));
+  const contextEntityId = normalizeLower(toTrimmedString(event.context_entity_id));
+  if (contextDomain === 'automation' || contextDomain === 'script' || contextEntityId.startsWith('automation.') || contextEntityId.startsWith('script.')) {
+    const name = toTrimmedString(event.context_name) ?? toTrimmedString(event.context_entity_id_name);
+    return name ? { kind: 'automation', name } : undefined;
+  }
+  if (!userActor && !toTrimmedString(event.context_event_type) && !contextDomain) {
+    return { kind: 'lock' };
+  }
+  return undefined;
+}
+
 function resolveAlarmActivityVerb(event: HaLogbookEvent) {
   const normalizedState = normalizeAlarmState(toTrimmedString(event.state));
   const message = normalizeLower(toTrimmedString(event.message));
@@ -1109,6 +1139,7 @@ function buildTimelineEntries(
   verbResolver: (event: HaLogbookEvent) => string,
   maxEntries: number,
   textResolver?: (event: HaLogbookEvent, timestampMs: number, actor: string, verb: string) => string,
+  detailResolver?: (event: HaLogbookEvent) => Partial<Pick<ActivityTimelineEntry, 'kind' | 'userActor' | 'source'>>,
 ) {
   return events
     .map((event, index) => {
@@ -1125,6 +1156,7 @@ function buildTimelineEntries(
         timestampMs,
         actor,
         text: textResolver?.(event, timestampMs, actor, verb) ?? `${actor} ${verb} ${formatActivityTimeLabel(timestampMs)}`,
+        ...detailResolver?.(event),
       } satisfies ActivityTimelineEntry;
     })
     .filter((entry): entry is ActivityTimelineEntry => entry !== null)
@@ -4618,6 +4650,7 @@ export function MainBoard() {
         connection: undefined as ReturnType<typeof resolveDeviceConnection>,
         rawAttributes: undefined as Record<string, unknown> | undefined,
         lockCode: undefined as string | undefined,
+        protection: 'none' as const,
       };
     }
 
@@ -4674,6 +4707,12 @@ export function MainBoard() {
       connection,
       rawAttributes,
       lockCode: activeWidgetSecrets.values.lockCode?.trim() || undefined,
+      // What an unlock asks for, so the panel can say so before it happens.
+      protection: activeWidget.lockRequireAuthToUnlock
+        ? ('device' as const)
+        : activeWidgetSecrets.values.lockCode?.trim()
+          ? ('code' as const)
+          : ('none' as const),
     };
   }, [activeWidget, activeWidgetSecrets.values, haCurrentUser?.name, haEntityRegistry, haStatesForUi, isHaConnected, lockActivityStatusByEntity, lockTimelineByEntity, t]);
 
@@ -5431,6 +5470,16 @@ export function MainBoard() {
           : activeActivityKind === 'alarm'
             ? (event, timestampMs, actor, verb) =>
                 resolveAlarmLogbookText(actor, verb, toTrimmedString(event.name) ?? activeActivityEntityName, timestampMs)
+          : undefined,
+        activeActivityKind === 'lock'
+          ? (event) => {
+              const userActor = resolveActivityActor(event, haUserNamesById) || undefined;
+              return {
+                kind: resolveLockActivityKind(event),
+                userActor,
+                source: resolveLockActivitySource(event, userActor),
+              };
+            }
           : undefined,
       );
 
