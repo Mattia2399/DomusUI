@@ -143,13 +143,12 @@ export function resolveGreetingResponsiveDensity({
 export const GREETING_TITLE_MIN_SIZE = 24;
 export const GREETING_TITLE_MAX_SIZE = 48;
 const GREETING_TITLE_LINE_HEIGHT = 1.08;
-// Below this size a name moves to its own line rather than shrink the greeting further.
-const GREETING_TITLE_SPLIT_SIZE = 26;
 
 /**
  * The title size that fits the card: the widest line fills the width, capped
- * by the height left after the date and the subtitle. A long title with a name
- * splits into "greeting," and "name!" rather than cut the greeting.
+ * by the height left after the date and the subtitle. With a name, the title
+ * splits into "greeting," and "name!" when that is at least as large, so a
+ * long title is never cut and a tall row is filled rather than half empty.
  * `measure` gives a text's width at 100 px.
  */
 export function fitGreetingTitle({
@@ -176,13 +175,13 @@ export function fitGreetingTitle({
     return Math.min(GREETING_TITLE_MAX_SIZE, byWidth, byHeight);
   };
   const single = sizeFor([title]);
-  if (single >= GREETING_TITLE_SPLIT_SIZE || !splitLines) {
-    return { lines: [title], size: Math.max(GREETING_TITLE_MIN_SIZE, Math.floor(single)) };
+  const split = splitLines ? sizeFor(splitLines) : 0;
+  // Two lines when they are at least as large and one line stays below the
+  // maximum: the title then fills the row instead of leaving it half empty.
+  if (splitLines && split >= GREETING_TITLE_MIN_SIZE && split >= single && single < GREETING_TITLE_MAX_SIZE) {
+    return { lines: [...splitLines], size: Math.floor(split) };
   }
-  const split = sizeFor(splitLines);
-  return split > single
-    ? { lines: [...splitLines], size: Math.max(GREETING_TITLE_MIN_SIZE, Math.floor(split)) }
-    : { lines: [title], size: GREETING_TITLE_MIN_SIZE };
+  return { lines: [title], size: Math.max(GREETING_TITLE_MIN_SIZE, Math.floor(single)) };
 }
 
 let titleMeasureCanvas: HTMLCanvasElement | null = null;
@@ -294,11 +293,9 @@ export function GreetingCard({
   const titleLines = fitted?.lines ?? [resolvedTitle];
 
   return (
-    // On a phone the greeting sits on the bottom of its row, next to the card
-    // below, leaving the spare height under the top bar like a large title.
     <div
       ref={cardRef}
-      className="@container flex h-full w-full min-h-0 min-w-0 flex-col justify-end gap-1 overflow-hidden md:justify-center"
+      className="@container flex h-full w-full min-h-0 min-w-0 flex-col justify-center gap-1 overflow-hidden"
     >
       {showDate ? (
         <p

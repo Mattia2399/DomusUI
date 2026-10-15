@@ -66,7 +66,7 @@ export function GreetingWeatherCard({
 
   return (
     <div ref={rowRef} className="h-full w-full min-h-0 min-w-0 overflow-hidden">
-      <div className={`flex h-full min-h-0 min-w-0 items-end md:items-center ${rowWidth >= 500 ? 'gap-5' : 'gap-3'}`}>
+      <div className={`flex h-full min-h-0 min-w-0 items-center ${rowWidth >= 500 ? 'gap-5' : 'gap-3'}`}>
         <div className="min-w-0 flex-1 h-full">
           <GreetingCard
             state={state}
@@ -82,7 +82,7 @@ export function GreetingWeatherCard({
           <button
             type="button"
             onClick={handleWeatherClick}
-            className={`max-h-full w-auto max-w-[10rem] shrink-0 self-end overflow-hidden rounded-2xl py-1.5 pl-1.5 text-right md:self-center ${
+            className={`max-h-full w-auto max-w-[10rem] shrink-0 self-center overflow-hidden rounded-2xl py-1.5 pl-1.5 text-right ${
               isEditMode ? 'cursor-default' : 'cursor-pointer'
             }`}
             aria-label={t('home.weather.open')}

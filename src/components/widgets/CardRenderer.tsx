@@ -619,7 +619,7 @@ export function SectionCardRenderer({
       sceneLabels={section.sceneLabels}
       sceneIcons={section.sceneIcons}
       compact={compact}
-      flush={section.scenesShowBackground === false}
+      flush={section.scenesShowBackground === false && section.scenesShowBorder === false}
       isEditMode={isEditMode}
       runningSceneId={runningSceneId}
       runningSceneStartedAt={runningSceneStartedAt}

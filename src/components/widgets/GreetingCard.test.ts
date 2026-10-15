@@ -120,6 +120,19 @@ describe('GreetingCard title', () => {
     expect(fitted).toEqual({ lines: ['Buon pomeriggio!'], size: 40 });
   });
 
+  it('fills a tall row with two lines when they make the title clearly larger', () => {
+    const fitted = fitGreetingTitle({
+      width: 300,
+      height: 112,
+      title: 'Buongiorno, Mattia!',
+      splitLines: ['Buongiorno,', 'Mattia!'],
+      reservedHeight: 30,
+      measure,
+    });
+
+    expect(fitted).toEqual({ lines: ['Buongiorno,', 'Mattia!'], size: 37 });
+  });
+
   it('never grows past 48 px on a wide card', () => {
     expect(fitGreetingTitle({ width: 1200, height: 200, title: 'Buonasera!', reservedHeight: 30, measure }).size).toBe(48);
   });
