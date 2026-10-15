@@ -72,6 +72,11 @@ import {
 } from './gridEngine2/gridEngineRootRuntimeLayout';
 import { GRID_ENGINE_2_RENDERER_ENABLED } from './gridEngine2/rendererFeatureFlag';
 import { GRID_ENGINE_2_SHADOW_ENABLED } from './gridEngine2/shadowFeatureFlag';
+import {
+  GRID_ENGINE_2_RUNTIME_SHADOW_ENABLED,
+  GRID_ENGINE_2_RUNTIME_SHADOW_ID_DETAILS_ENABLED,
+  GRID_ENGINE_2_RUNTIME_SHADOW_RECONCILIATION_ENABLED,
+} from './gridEngine2/runtimeShadowFeatureFlag';
 import type { ShadowDiagnosticsReport } from './gridEngine2/shadowLayoutDiagnostics';
 import type { ShadowInspectorPublisher } from './gridEngine2/shadowInspectorTransport';
 import 'react-grid-layout/css/styles.css';
@@ -1190,6 +1195,7 @@ export function GridCanvas({
   }, [gridEngineActiveBreakpoint, onActiveBreakpointChange, runtimeGridWidth]);
   const [gridEngineLayouts, setGridEngineLayouts] = useState<GridLayouts>({});
   const gridEngine2ShadowSignatureRef = useRef<string | null>(null);
+  const gridEngine2RuntimeShadowSignatureRef = useRef<string | null>(null);
   const gridEngine2ShadowInspectorPublisherRef = useRef<ShadowInspectorPublisher | null>(null);
   const gridEngine2ShadowLatestReportRef = useRef<{
     readonly report: ShadowDiagnosticsReport;
@@ -2041,6 +2047,121 @@ export function GridCanvas({
     responsiveLayouts,
     sections,
     widgets,
+  ]);
+  useEffect(() => {
+    if (
+      !GRID_ENGINE_2_RUNTIME_SHADOW_ENABLED ||
+      isEditMode ||
+      !isRuntimeGridReady ||
+      hasPendingAuthoritativeLayout
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (isCanvasInteractingRef.current) return;
+      const explicitRootLayouts = responsiveLayouts.root;
+      const hasExplicitLayout = Object.prototype.hasOwnProperty.call(
+        explicitRootLayouts ?? {},
+        gridEngineActiveBreakpoint,
+      );
+      const rootElements = [
+        ...sections.map((section) => ({
+          id: section.id,
+          role: (
+            section.kind === 'stack-vertical' ||
+            section.kind === 'stack-horizontal' ||
+            section.kind === 'stack-grid'
+              ? 'stack'
+              : 'section'
+          ) as 'stack' | 'section',
+          kind: section.kind,
+        })),
+        ...rootWidgets.map((widget) => ({
+          id: widget.id,
+          role: 'widget' as const,
+          kind: widget.kind,
+        })),
+      ];
+      const lightStates = rootWidgets
+        .filter((widget) => widget.kind === 'light')
+        .map((widget) => ({ id: widget.id, isOn: widget.isOn }));
+      const sectionIds = new Set(sections.map((section) => section.id));
+      const knownNonRootElements = widgets
+        .filter((widget) => Boolean(widget.parentSectionId))
+        .map((widget) => ({
+          id: widget.id,
+          role: 'widget' as const,
+          kind: widget.kind,
+          parentRole: widget.parentSectionId && stackSectionsById.has(widget.parentSectionId)
+            ? 'stack' as const
+            : widget.parentSectionId && sectionIds.has(widget.parentSectionId)
+              ? 'section' as const
+              : 'unknown' as const,
+        }));
+
+      void import('./gridEngine2/runtimeShadowMode')
+        .then(({ runGridEngine2RuntimeShadowMode }) => {
+          if (cancelled || isCanvasInteractingRef.current) return;
+          const result = runGridEngine2RuntimeShadowMode(
+            {
+              breakpoint: gridEngineActiveBreakpoint,
+              cols: GRID_ENGINE_COLS[gridEngineActiveBreakpoint],
+              rootElements,
+              hasExplicitLayout,
+              explicitLayout: explicitRootLayouts?.[gridEngineActiveBreakpoint],
+              derivedLayout: derivedGridEngineLayouts[gridEngineActiveBreakpoint],
+              legacyRuntimeInput: liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [],
+              explicitRootLayouts,
+              legacyRuntimeLayouts: liveGridEngineLayouts,
+              knownNonRootElements,
+              includeRawIdDetails: GRID_ENGINE_2_RUNTIME_SHADOW_ID_DETAILS_ENABLED,
+              reconciliationEnabled: GRID_ENGINE_2_RUNTIME_SHADOW_RECONCILIATION_ENABLED,
+              // GridCanvas has no authoritative HA hydration-complete signal.
+              // Absence alone must therefore never authorize reconciliation.
+              configurationCompleteness: 'hydration-uncertain',
+              lightStates,
+              widgetTypeLayoutOverrides,
+              widgetLayoutOverrides,
+            },
+            {
+              enabled: GRID_ENGINE_2_RUNTIME_SHADOW_ENABLED,
+              previousSignature: gridEngine2RuntimeShadowSignatureRef.current,
+            },
+          );
+          if (result.status !== 'disabled') {
+            gridEngine2RuntimeShadowSignatureRef.current = result.nextSignature;
+          }
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            console.warn('[DomusUI:grid-engine2:runtime-shadow]', {
+              event: 'load-error',
+              message: error instanceof Error ? error.message : String(error),
+            });
+          }
+        });
+    }, GRID_ENGINE_2_SHADOW_SETTLE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [
+    derivedGridEngineLayouts,
+    gridEngineActiveBreakpoint,
+    hasPendingAuthoritativeLayout,
+    isEditMode,
+    isRuntimeGridReady,
+    liveGridEngineLayouts,
+    responsiveLayouts.root,
+    rootWidgets,
+    sections,
+    stackSectionsById,
+    widgets,
+    widgetLayoutOverrides,
+    widgetTypeLayoutOverrides,
   ]);
   const liveGridEngineLayout = liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [];
   const liveGridUsedRows = useMemo(
