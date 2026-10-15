@@ -53,6 +53,10 @@ export function LockCard({
     : fallbackVariant;
   const model = useMemo(() => buildLockCardModel(widget, liveEntity, locale), [liveEntity, locale, widget]);
   const canOpen = model.canOpenLatch && Boolean(onOpenDoor);
+  // A narrow standard card has no room for the ring beside the state: it uses the mini layout.
+  const presentationVariant = layoutVariant === 'standard' && measuredSize && measuredSize.width < 250
+    ? 'compact'
+    : layoutVariant;
 
   // First lap unlocks, a second lap opens the latch; from unlocked a tap locks.
   const ring = useLockRingPress({
@@ -78,7 +82,7 @@ export function LockCard({
   return (
     <LockCardView
       model={model}
-      layoutVariant={layoutVariant}
+      layoutVariant={presentationVariant}
       isSelected={isSelected}
       isEditMode={isEditMode}
       rootRef={cardRef}

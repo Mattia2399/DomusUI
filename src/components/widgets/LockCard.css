@@ -18,24 +18,25 @@
   border-radius: 1.5rem;
 }
 
+/* The lock keeps its own palette: emerald when secure, amber when open. */
 .lock-card[data-lock-tone='secure'] {
-  --lock-tone: var(--ui-success);
+  --lock-tone: #12a372;
 }
 
 .lock-card[data-lock-tone='open'] {
-  --lock-tone: var(--ui-warning);
+  --lock-tone: #d97706;
 }
 
 .lock-card[data-lock-tone='transition'] {
-  --lock-tone: var(--ui-accent);
+  --lock-tone: #0a84ff;
 }
 
 .lock-card[data-lock-tone='warning'] {
-  --lock-tone: var(--ui-danger);
+  --lock-tone: #e5484d;
 }
 
 .lock-card[data-lock-tone='offline'] {
-  --lock-tone: var(--ui-text-tertiary);
+  --lock-tone: #8e929c;
 }
 
 .lock-card__surface {
@@ -84,7 +85,7 @@
 }
 
 .lock-card__headline {
-  color: color-mix(in srgb, var(--lock-tone) 82%, var(--ui-text-primary));
+  color: color-mix(in srgb, var(--lock-tone) 70%, var(--ui-text-primary));
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.12;
@@ -100,13 +101,13 @@
 }
 
 .lock-card__caption[data-highlight='true'] {
-  color: color-mix(in srgb, var(--lock-tone) 82%, var(--ui-text-primary));
+  color: color-mix(in srgb, var(--lock-tone) 70%, var(--ui-text-primary));
   font-weight: 600;
 }
 
 .lock-card[data-lock-stage='bridge'] .lock-card__caption[data-highlight='true'],
 .lock-card[data-lock-stage='open'] .lock-card__caption[data-highlight='true'] {
-  color: color-mix(in srgb, var(--ui-accent) 86%, var(--ui-text-primary));
+  color: color-mix(in srgb, #0a84ff 70%, var(--ui-text-primary));
 }
 
 .lock-card__caption[data-nudge='true'] {
@@ -258,42 +259,6 @@
   }
 }
 
-/* A narrow standard card: the ring above the state, as in the small sizes. */
-@container lock-card (max-width: 250px) {
-  .lock-card[data-lock-variant='standard'] .lock-card__meta {
-    display: none;
-  }
-
-  .lock-card[data-lock-variant='standard'] .lock-card__surface {
-    gap: 0.625rem;
-  }
-
-  .lock-card__body {
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.5rem;
-  }
-
-  .lock-card__body .lock-card__ring {
-    --lock-ring-size: clamp(3rem, min(30cqi, 32cqb), 4rem);
-    --lock-ring-stroke: 5;
-  }
-
-  .lock-card__body .lock-card__text {
-    flex: none;
-    width: 100%;
-  }
-
-  .lock-card__body .lock-card__headline {
-    font-size: clamp(1.125rem, 11cqi, 1.5rem);
-  }
-
-  .lock-card__body .lock-card__caption {
-    -webkit-line-clamp: 2;
-  }
-}
-
 /* Expanded: battery, the ring centred, door and auto-lock, the last activity. */
 
 .lock-card[data-lock-variant='full'] .lock-card__title {
@@ -317,8 +282,8 @@
 }
 
 .lock-card__chip[data-tone='warning'] {
-  background: color-mix(in srgb, var(--ui-danger) 14%, transparent);
-  color: var(--ui-danger);
+  background: color-mix(in srgb, #e5484d 14%, transparent);
+  color: color-mix(in srgb, #e5484d 70%, var(--ui-text-primary));
 }
 
 .lock-card__hero {
@@ -393,11 +358,11 @@
 }
 
 .lock-card__detail[data-tone='open'] strong {
-  color: var(--ui-warning);
+  color: color-mix(in srgb, #d97706 70%, var(--ui-text-primary));
 }
 
 .lock-card__detail[data-tone='warning'] strong {
-  color: var(--ui-danger);
+  color: color-mix(in srgb, #e5484d 70%, var(--ui-text-primary));
 }
 
 .lock-card__activity {
@@ -431,8 +396,8 @@
   align-items: center;
   justify-content: center;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--lock-activity-tone) 16%, transparent);
-  color: var(--lock-activity-tone);
+  background: color-mix(in srgb, var(--lock-activity-tone) 17%, transparent);
+  color: color-mix(in srgb, var(--lock-activity-tone) 70%, var(--ui-text-primary));
 }
 
 .lock-card__activity-text {

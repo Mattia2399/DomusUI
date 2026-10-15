@@ -3,7 +3,7 @@
   --lock-ring-stroke: 6;
   --lock-ring-core: 80%;
   --lock-ring-icon: 38%;
-  --lock-ring-tone: var(--ui-text-tertiary);
+  --lock-ring-tone: #8e929c;
   --lock-ring-press: 0;
   position: relative;
   display: inline-flex;
@@ -15,7 +15,7 @@
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--lock-ring-tone) 15%, transparent);
+  background: color-mix(in srgb, var(--lock-ring-tone) 17%, transparent);
   color: var(--lock-ring-tone);
   cursor: pointer;
   touch-action: none;
@@ -27,23 +27,23 @@
 }
 
 .lock-ring[data-tone='secure'] {
-  --lock-ring-tone: var(--ui-success);
+  --lock-ring-tone: #12a372;
 }
 
 .lock-ring[data-tone='open'] {
-  --lock-ring-tone: var(--ui-warning);
+  --lock-ring-tone: #d97706;
 }
 
 .lock-ring[data-tone='transition'] {
-  --lock-ring-tone: var(--ui-accent);
+  --lock-ring-tone: #0a84ff;
 }
 
 .lock-ring[data-tone='warning'] {
-  --lock-ring-tone: var(--ui-danger);
+  --lock-ring-tone: #e5484d;
 }
 
 .lock-ring[data-tone='offline'] {
-  --lock-ring-tone: var(--ui-text-tertiary);
+  --lock-ring-tone: #8e929c;
 }
 
 .lock-ring[aria-disabled='true'] {
@@ -86,11 +86,11 @@
 }
 
 .lock-ring__lap--unlock {
-  stroke: var(--ui-success);
+  stroke: #12a372;
 }
 
 .lock-ring__lap--open {
-  stroke: var(--ui-accent);
+  stroke: #0a84ff;
 }
 
 .lock-ring__spinner {
@@ -109,14 +109,14 @@
   justify-content: center;
   border-radius: 999px;
   background: var(--ui-surface-glass-strong);
-  color: var(--lock-ring-tone);
+  color: color-mix(in srgb, var(--lock-ring-tone) 72%, var(--ui-text-primary));
   box-shadow: 0 4px 12px -6px var(--ui-shadow-soft);
   transform: scale(calc(1 - var(--lock-ring-press) * 0.07));
   transition: background 240ms ease, color 240ms ease, box-shadow 240ms ease, transform 120ms ease;
 }
 
 .lock-ring[data-solid='true'] .lock-ring__core {
-  background: color-mix(in srgb, var(--lock-ring-tone) 80%, #000000);
+  background: var(--lock-ring-tone);
   color: #ffffff;
   box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--lock-ring-tone) 58%, transparent);
 }
@@ -136,7 +136,7 @@
 }
 
 .lock-ring[data-outcome='open'] {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ui-accent) 22%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, #0a84ff 22%, transparent);
 }
 
 .lock-ring[data-outcome='unlock'],

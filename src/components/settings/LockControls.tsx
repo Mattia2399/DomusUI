@@ -153,15 +153,15 @@ export function LockControls({
   const batteryTone = batteryLevel === undefined ? 'default' : batteryLevel <= 20 ? 'danger' : batteryLevel <= 50 ? 'warning' : 'success';
   const hasDetails = Boolean(model.doorState || model.autoLock || batteryLevel !== undefined || connection);
   const headlineTone = {
-    secure: 'text-[color:var(--ui-success)]',
-    open: 'text-[color:var(--ui-warning)]',
-    transition: 'text-[color:var(--ui-accent)]',
-    warning: 'text-[color:var(--ui-danger)]',
+    secure: 'text-[color:color-mix(in_srgb,#12a372_70%,var(--ui-text-primary))]',
+    open: 'text-[color:color-mix(in_srgb,#d97706_70%,var(--ui-text-primary))]',
+    transition: 'text-[color:color-mix(in_srgb,#0a84ff_70%,var(--ui-text-primary))]',
+    warning: 'text-[color:color-mix(in_srgb,#e5484d_70%,var(--ui-text-primary))]',
     offline: 'text-[color:var(--ui-text-secondary)]',
   }[model.tone];
   const captionTone = copy.isHighlighted
     ? ring.stage === 'bridge' || ring.stage === 'open'
-      ? 'font-semibold text-[color:var(--ui-accent)]'
+      ? 'font-semibold text-[color:color-mix(in_srgb,#0a84ff_70%,var(--ui-text-primary))]'
       : `font-semibold ${headlineTone}`
     : 'font-medium text-[color:var(--ui-text-secondary)]';
 

@@ -10,7 +10,7 @@ type LockDisplayVariantSkeletonProps = {
 // A miniature of the ring lock card: the ring with its two laps, the state and,
 // in the expanded size, the details list.
 export function LockDisplayVariantSkeleton({ variant, active, disabled }: LockDisplayVariantSkeletonProps) {
-  const tone = disabled ? 'var(--ui-text-disabled)' : active ? 'var(--ui-accent)' : 'var(--ui-success)';
+  const tone = disabled ? 'var(--ui-text-disabled)' : active ? 'var(--ui-accent)' : '#12a372';
   const strong = disabled ? 'bg-[color:var(--ui-fill-tertiary)]' : 'bg-[color:var(--ui-fill-primary)]';
   const soft = disabled ? 'bg-[color:var(--ui-fill-tertiary)]' : 'bg-[color:var(--ui-fill-secondary)]';
   const frame = 'dashboard-content-surface-soft relative overflow-hidden rounded-[0.82rem] p-2';
@@ -28,7 +28,7 @@ export function LockDisplayVariantSkeleton({ variant, active, disabled }: LockDi
             cy="50"
             r="44"
             fill="none"
-            stroke="var(--ui-accent)"
+            stroke="#0a84ff"
             strokeWidth={stroke}
             strokeLinecap="round"
             pathLength={100}
@@ -39,7 +39,7 @@ export function LockDisplayVariantSkeleton({ variant, active, disabled }: LockDi
       </svg>
       <span
         className="h-[66%] w-[66%] rounded-full"
-        style={{ background: disabled ? 'var(--ui-fill-secondary)' : `color-mix(in srgb, ${tone} 88%, #000000)` }}
+        style={{ background: disabled ? 'var(--ui-fill-secondary)' : tone }}
       />
     </span>
   );
