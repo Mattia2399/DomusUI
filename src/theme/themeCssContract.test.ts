@@ -156,7 +156,7 @@ describe('semantic theme CSS contract', () => {
     expect(alarm).toContain('stateVisual.surface');
     expect(alarmControls).toContain('dashboard-content-surface');
     expect(alarmControls).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
-    expect(lock).toContain('var(--ui-surface-glass-strong)');
+    expect(readSource('src/components/widgets/LockRing.css')).toContain('var(--ui-surface-glass-strong)');
     expect(lock).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
   });
 

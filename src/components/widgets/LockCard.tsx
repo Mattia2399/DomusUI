@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { useHoldToConfirm } from '../../hooks/useHoldToConfirm';
+import React, { useEffect, useMemo } from 'react';
 import { useObservedElementSize } from '../../hooks/useObservedElementSize';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
 import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
 import { LockCardView } from './LockCardView';
 import { buildLockCardModel } from './lockCardModel';
+import { resolveLockRingMode, useLockRingPress } from './useLockRingPress';
 import {
   resolveLockPixelDisplayVariant,
   resolveWidgetDisplayVariant,
@@ -52,26 +52,17 @@ export function LockCard({
     ? resolveLockPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : fallbackVariant;
   const model = useMemo(() => buildLockCardModel(widget, liveEntity, locale), [liveEntity, locale, widget]);
-  const suppressNextClickRef = useRef(false);
+  const canOpen = model.canOpenLatch && Boolean(onOpenDoor);
 
-  const runPrimaryAction = () => {
-    if (isEditMode || model.primaryAction === 'none') return;
-    const didStartAction = onToggleLock?.();
-    suppressNextClickRef.current = true;
-    if (didStartAction === false) return;
-  };
-
-  const {
-    progress,
-    isHolding,
-    isSuccessPulse,
-    startHold,
-    endHold,
-    forceReset,
-  } = useHoldToConfirm({
-    enabled: !isEditMode && model.primaryAction === 'unlock',
-    durationMs: 1000,
-    onComplete: runPrimaryAction,
+  // First lap unlocks, a second lap opens the latch; from unlocked a tap locks.
+  const ring = useLockRingPress({
+    mode: resolveLockRingMode({ enabled: !isEditMode && Boolean(onToggleLock), state: model.state, canOpen }),
+    canOpenAfterUnlock: canOpen,
+    onUnlock: () => onToggleLock?.(),
+    onLock: () => {
+      onToggleLock?.();
+    },
+    onOpen: () => onOpenDoor?.(),
   });
 
   useEffect(() => {
@@ -91,28 +82,12 @@ export function LockCard({
       isSelected={isSelected}
       isEditMode={isEditMode}
       rootRef={cardRef}
-      holdProgress={progress}
-      isHolding={isHolding}
-      isSuccessPulse={isSuccessPulse}
+      ring={ring}
       onOpen={() => {
-        if (suppressNextClickRef.current) {
-          suppressNextClickRef.current = false;
-          return;
-        }
-        forceReset();
+        ring.reset();
         onClick();
       }}
-      onPrimaryAction={() => {
-        forceReset();
-        runPrimaryAction();
-      }}
-      onOpenLatch={() => {
-        suppressNextClickRef.current = true;
-        onOpenDoor?.();
-      }}
-      onStartHold={startHold}
-      onEndHold={endHold}
-      onResetHold={forceReset}
+      onResetHold={ring.reset}
     />
   );
 }
