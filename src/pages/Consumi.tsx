@@ -734,7 +734,7 @@ export function ConsumptionDashboardPage({
               <header>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="dashboard-page-title">
-                    {c('Hub Sostenibilità e Consumi')}
+                    {c('Consumi')}
                   </h1>
                   <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[color:var(--ui-text-secondary)]">
                     <FlaskConical size={13} />

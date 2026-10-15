@@ -224,7 +224,7 @@ describe('/security alarm authorization', () => {
     await view.findByText('Contatto ausiliario');
     await view.findByText('Ingresso');
     expect(view.queryByText('Nessun sensore disponibile.')).toBeNull();
-    expect(view.queryByText('Nessuna telecamera `camera.*` trovata.')).toBeNull();
+    expect(view.queryByText('Nessuna telecamera trovata.')).toBeNull();
   });
 
   it('keeps an explicit v2 empty selection empty', async () => {
@@ -235,7 +235,7 @@ describe('/security alarm authorization', () => {
 
     const view = renderSecurity({ cameraEntityOptions: ['camera.ingresso'] });
 
-    await view.findByText('Nessuna telecamera `camera.*` trovata.');
+    await view.findByText('Nessuna telecamera trovata.');
     expect(view.queryByText('Ingresso')).toBeNull();
   });
 

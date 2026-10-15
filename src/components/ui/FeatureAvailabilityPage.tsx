@@ -73,7 +73,6 @@ export function FeatureAvailabilityPage({
           <header>
             <p className="dashboard-page-eyebrow">{t('common.preview')}</p>
             <h1 className="dashboard-page-title">{title}</h1>
-            <p className="dashboard-page-subtitle">{description}</p>
           </header>
           {preview}
         </div>

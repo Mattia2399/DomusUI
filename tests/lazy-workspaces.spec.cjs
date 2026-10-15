@@ -31,9 +31,9 @@ test('secondary workspaces load on demand without replacing the dashboard shell'
 
   const workspaces = [
     { path: '/security', heading: 'Sicurezza' },
-    { path: '/consumi', heading: 'Hub Sostenibilità e Consumi' },
-    { path: '/automations', heading: 'Costruttore Automazioni' },
-    { path: '/appgallery', heading: 'App Library' },
+    { path: '/consumi', heading: 'Consumi' },
+    { path: '/automations', heading: 'Automazioni' },
+    { path: '/appgallery', heading: 'App Gallery' },
     { path: '/settings', heading: 'Impostazioni' },
     { path: '/support', heading: 'Supporto e feedback' },
   ];

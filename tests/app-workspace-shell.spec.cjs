@@ -47,7 +47,7 @@ test('App Library detail routes use an immersive contextual workspace', async ({
 
   await page.getByRole('button', { name: 'Torna alla libreria' }).click();
   await expect(page).toHaveURL(/\/appgallery$/);
-  await expect(page.getByRole('heading', { name: 'App Library', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'App Gallery', exact: true })).toBeVisible();
 });
 
 test('App Library apps use a contextual bottom bar on mobile', async ({ page }) => {

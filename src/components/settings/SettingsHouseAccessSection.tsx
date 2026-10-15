@@ -631,11 +631,7 @@ export function SettingsHouseAccessSection({
 
   return (
     <section className="pb-6">
-      <p className={`text-xs leading-5 ${subtleTextClass}`}>
-        {t('settings.access.overviewDescription')}
-      </p>
-
-      <div className={`mt-4 ${settingsGroupClass}`}>
+      <div className={settingsGroupClass}>
         <button
           type="button"
           onClick={() => onViewChange('members')}

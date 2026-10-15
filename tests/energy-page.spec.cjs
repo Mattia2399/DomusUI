@@ -77,7 +77,7 @@ test('Energy page returns to Consumi and Demo keeps the workspace gate', async (
   await page.goto('/consumi/energia');
   await page.getByRole('button', { name: 'Torna a Consumi' }).click();
   await expect(page).toHaveURL(/\/consumi$/);
-  await expect(page.getByRole('heading', { name: 'Hub Sostenibilità e Consumi', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Consumi', exact: true })).toBeVisible();
 
   await installCompletedWorkspace(page, 'demo');
   await page.goto('/consumi/energia');

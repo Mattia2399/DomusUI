@@ -20,8 +20,8 @@ describe('App Gallery localization', () => {
 
   it('renders the launcher in English', () => {
     renderGallery('en', '/appgallery');
-    expect(screen.getByRole('heading', { name: 'App Library' })).toBeTruthy();
-    expect(screen.getByText('Dedicated apps and workspaces')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'App Gallery' })).toBeTruthy();
+    expect(screen.getByText('Systems')).toBeTruthy();
     expect(screen.getByText('Smart Irrigation')).toBeTruthy();
   });
 

@@ -1106,8 +1106,25 @@ export function OnboardingExperience({ journey, onJourneyChange, forceConfigurat
   );
 }
 
+// The page names the demo lock screen speaks of, as the menu shows them.
+const DEMO_LOCKED_SECTION_KEYS = {
+  security: 'navigation.security',
+  consumi: 'navigation.consumption',
+  automations: 'navigation.automations',
+  appgallery: 'navigation.appGallery',
+  settings: 'navigation.settings',
+  profile: 'profile.title',
+} as const;
+
 export function DemoLockedRoute({ pathname, onConnect }: { pathname: string; onConnect: () => void }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
+  const firstSegment = pathname.split('/').filter(Boolean)[0]?.toLowerCase() ?? '';
+  const sectionKey = DEMO_LOCKED_SECTION_KEYS[firstSegment as keyof typeof DEMO_LOCKED_SECTION_KEYS];
+  const sectionName = sectionKey
+    ? t(sectionKey)
+    : firstSegment
+      ? `${firstSegment.charAt(0).toUpperCase()}${firstSegment.slice(1)}`
+      : 'Home';
   const ot = (key: OnboardingTranslationKey, parameters?: Record<string, string | number>) =>
     translateOnboarding(locale, key, parameters);
   return (
@@ -1116,7 +1133,7 @@ export function DemoLockedRoute({ pathname, onConnect }: { pathname: string; onC
         <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-[color:color-mix(in_srgb,var(--ui-warning)_30%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-warning)_13%,transparent)] text-[color:var(--ui-warning)]"><LockKeyhole size={25} /></span>
         <div className="mt-6 text-[10px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-warning)]">{ot('demoLocked.label')}</div>
         <h1 className="mt-3 text-3xl font-semibold tracking-[-0.04em] text-[color:var(--ui-text-primary)]">{ot('demoLocked.title')}</h1>
-        <p className="mt-3 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('demoLocked.description', { section: pathname.replace('/', '') || 'Home' })}</p>
+        <p className="mt-3 text-sm leading-6 text-[color:var(--ui-text-secondary)]">{ot('demoLocked.description', { section: sectionName })}</p>
         <div className="mt-8 flex w-full flex-col-reverse justify-center gap-2 sm:w-auto sm:flex-row"><SetupSecondaryButton onClick={() => window.location.assign('/home')}>{ot('demoLocked.back')}</SetupSecondaryButton><SetupActionButton onClick={onConnect}>{ot('demoLocked.connect')}</SetupActionButton></div>
       </section>
     </SetupBackdrop>

@@ -651,7 +651,7 @@ function SecuritySensorRows({ sensors, limitOnMobile = false }) {
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)]"><Icon className="h-4.5 w-4.5 text-[color:var(--ui-text-secondary)]" /></span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{sensor.name}</p>
-            <p className="truncate text-[11px] font-light text-[color:var(--ui-text-tertiary)]">{sensor.entityId}</p>
+            <p className="truncate text-[11px] font-light text-[color:var(--ui-text-tertiary)]">{t(`security.sensor.kind.${sensor.type}`)}</p>
           </div>
           <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold', sensor.isOpen
               ? 'border-[color:color-mix(in_srgb,var(--ui-danger)_40%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-danger)_14%,transparent)] text-[color:var(--ui-danger)]'

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useI18n, type AppLocale } from './I18nProvider';
 
 const it = {
-  allFloors: 'Tutti i Piani',
+  allFloors: 'Tutti i piani',
   rooms: 'Stanze',
   deviceCountOne: '{count} dispositivo',
   deviceCountMany: '{count} dispositivi',
