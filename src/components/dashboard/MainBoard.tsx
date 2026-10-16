@@ -10,7 +10,6 @@ import GlassModal from '../ui/GlassModal';
 import { LeftSidebar } from './LeftSidebar';
 import { BottomBarNav } from './BottomBarNav';
 import { XsNotificationBell } from './XsNotificationBell';
-import { XsProfileChip } from './XsProfileChip';
 import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 import { DashboardSidebarPlaceholder } from './DashboardSidebarPlaceholder';
 import { GridCanvas, preloadDashboardCatalog } from './GridCanvas';
@@ -11135,24 +11134,17 @@ export function MainBoard() {
               </>
             ) : (
               <>
+                {/* The same Liquid Glass as the tab bar; the person is in the tab bar, not here. */}
                 <button
                   type="button"
                   onClick={() => setIsMobileSidebarOpen(true)}
-                  className="liquid-glass-control inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-all hover:brightness-110 active:scale-95"
+                  className="liquid-glass-navigation liquid-glass-chrome inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-transform active:scale-95"
                   aria-label={t('dashboard.menu.open')}
                   aria-expanded={isMobileSidebarOpen}
                 >
                   <Menu size={18} />
                 </button>
-                <div className="flex min-w-0 items-center gap-2">
-                  <XsNotificationBell />
-                  <XsProfileChip
-                    userAvatarUrl={currentUserAvatarUrl}
-                    userName={stateWithConnectedUser.userName}
-                    haStatus={haStatus}
-                    onOpenProfile={openSettingsRoute}
-                  />
-                </div>
+                <XsNotificationBell />
               </>
             )}
           </div>

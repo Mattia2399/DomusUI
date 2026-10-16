@@ -89,7 +89,9 @@
 - The mobile tab bar is a pill of Liquid Glass with icons only: a drop of
   glass sits under the active destination and slides to the next one with
   a small elastic overshoot (no movement when reduced motion is asked for,
-  a plain tint when reduced transparency is).
+  a plain tint when reduced transparency is). The menu and notification
+  buttons at the top of a phone use the same glass, and the profile chip
+  next to them is gone: the person is the last tab of the bar.
 - Translation catalogs are now split by language: startup downloads only the
   selected language, while another catalog is fetched on demand when the user
   changes language. The interface keeps the current language visible until

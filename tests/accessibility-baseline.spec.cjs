@@ -85,7 +85,8 @@ test('mobile primary controls keep Apple-sized touch targets', async ({ page }) 
   const controls = [
     page.getByRole('button', { name: 'Apri menu laterale' }),
     page.getByRole('button', { name: 'Apri notifiche' }),
-    page.getByRole('button', { name: /Apri profilo/ }),
+    // The person is the last tab of the bar, no longer a chip at the top.
+    page.getByRole('button', { name: 'Apri Impostazioni' }),
   ];
 
   for (const control of controls) {

@@ -17,7 +17,7 @@ export function XsNotificationBell() {
         ref={triggerRef}
         type="button"
         onClick={() => setIsNotificationsOpen(true)}
-        className="liquid-glass-control relative inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-all hover:brightness-110 active:scale-95"
+        className="liquid-glass-navigation liquid-glass-chrome relative inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-transform active:scale-95"
         aria-label={t('navigation.notifications.open')}
         aria-expanded={isNotificationsOpen}
       >

@@ -209,10 +209,12 @@
   }
 
   /*
-   * The mobile tab bar: a pill of Liquid Glass with a specular sheen and a
-   * rim that catches the light, over the Regular navigation material.
+   * The mobile chrome (the tab bar and the floating buttons at the top): a
+   * pill of Liquid Glass with a specular sheen and a rim that catches the
+   * light, over the Regular navigation material.
    */
-  .liquid-glass-tabbar {
+  .liquid-glass-tabbar,
+  .liquid-glass-chrome {
     --ui-glass-blur: 18px;
     --ui-glass-saturation: 2;
     border-radius: 999px;
@@ -223,7 +225,8 @@
       inset 0 -12px 26px rgb(var(--ui-accent-rgb, 10 132 255) / 0.1);
   }
 
-  .liquid-glass-tabbar::before {
+  .liquid-glass-tabbar::before,
+  .liquid-glass-chrome::before {
     content: "";
     position: absolute;
     inset: 0;
@@ -233,6 +236,16 @@
     background:
       radial-gradient(34% 60% at 16% 0%, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.32), transparent 70%),
       radial-gradient(46% 70% at 86% 100%, rgb(var(--ui-accent-rgb, 10 132 255) / 0.14), transparent 70%);
+  }
+
+  /* A floating button keeps its badge, which sits past its edge. */
+  .liquid-glass-chrome {
+    overflow: visible;
+    box-shadow:
+      0 10px 26px var(--ui-glass-shadow, var(--ui-shadow)),
+      inset 0 1.5px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.5),
+      inset 0 -1px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.16),
+      inset 0 -8px 16px rgb(var(--ui-accent-rgb, 10 132 255) / 0.1);
   }
 
   /*
