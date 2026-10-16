@@ -4,6 +4,18 @@
 
 ### Added
 
+- Settings › This device › Power and charging: an administrator can keep a
+  wall tablet's battery between two levels (30 % and 80 % by default). The
+  DomusOS integration switches the charger's smart plug in Home Assistant, so
+  it works with the screen off, Domus closed or after a restart: on at or
+  below the start level, off at or above the stop level, nothing in between.
+  Only a battery `sensor` and a `switch` can be chosen; an unavailable or
+  implausible reading never switches anything, commands are at least 60
+  seconds apart and two active configurations cannot share a switch. Turning
+  the automation off or removing it leaves the switch as it is. Each device
+  is recognised by a random reference kept in its browser, never by a
+  fingerprint; an administrator can link a configuration to the device again
+  after its browser is cleared. Needs the updated integration.
 - Domus Profile Core, the backend foundation for personal settings: each
   Home Assistant user can read and save their own Domus profile through
   `domusos/profile/get_self` and `domusos/profile/save_self`, which always act

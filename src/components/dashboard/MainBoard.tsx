@@ -10848,6 +10848,7 @@ export function MainBoard() {
   // Choosing people as notification recipients, inside the panel only with the bridge capability.
   const profileRecipientsSupported =
     !isHaManagedByParent || panelHaBridgeConnection.supportsProfileRecipients;
+  const devicePowerSupported = !isHaManagedByParent || panelHaBridgeConnection.supportsDevicePower;
   // Home Assistant's own words for entity states; inside the panel only with the bridge capability.
   const stateTranslationsSupported =
     isHaConnected && (!isHaManagedByParent || panelHaBridgeConnection.supportsStateTranslations);
@@ -11362,6 +11363,7 @@ export function MainBoard() {
               onCallService={callHaService}
               onCallApi={callHaApi}
               recipientsSupported={profileRecipientsSupported}
+              devicePowerSupported={devicePowerSupported}
               loadStateTranslations={loadStateTranslations}
               onAreasChanged={handleSettingsAreasChanged}
               alarmCards={securityAlarmProfiles.map(({ widgetId, entityId, requireDeviceConfirmation }) => ({

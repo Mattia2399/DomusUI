@@ -24,6 +24,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "profile_devices_v1",
   "profile_notifications_v1",
   "profile_recipients_v1",
+  "device_power_v1",
   "state_translations_v1",
   "host_navigation",
   "person_links",
@@ -60,6 +61,8 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/profile/discover_devices", "domusos/profile/add_device",
   "domusos/profile/remove_device", "domusos/profile/update_device",
   "domusos/profile/test_self", "domusos/profile/list_recipients",
+  "domusos/device_power/get_state", "domusos/device_power/save_policy",
+  "domusos/device_power/bind_policy", "domusos/device_power/delete_policy",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -291,6 +294,45 @@ const isValidProfileMessage = (message) => {
     return false;
   }
 };
+// Device power is administrative and never switches anything itself: a client sends a
+// policy (a battery sensor, a charger switch and two thresholds), and Home Assistant's
+// controllers do the rest. There is no command that turns a switch on or off.
+const DEVICE_POWER_POLICY_KEYS = [
+  "client_id", "label", "enabled", "battery_entity_id", "switch_entity_id",
+  "start_threshold", "stop_threshold",
+];
+const isValidDevicePowerMessage = (message) => {
+  const isPolicyId = (value) => typeof value === "string" && /^[a-f0-9]{32}$/.test(value);
+  const isRevision = (value) => Number.isInteger(value) && value >= 1;
+  const isClientId = (value) => typeof value === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(value);
+  const isEntity = (value, domain) =>
+    typeof value === "string" && value.startsWith(`${domain}.`) && /^[a-z0-9_]+\.[a-z0-9_]+$/.test(value);
+  const isThreshold = (value) => Number.isInteger(value) && value >= 0 && value <= 100;
+  if (message.type === "domusos/device_power/get_state") return hasExactKeys(message, ["type"]);
+  if (message.type === "domusos/device_power/delete_policy") {
+    return hasExactKeys(message, ["type", "policy_id", "expected_revision"]) &&
+      isPolicyId(message.policy_id) && isRevision(message.expected_revision);
+  }
+  if (message.type === "domusos/device_power/bind_policy") {
+    return hasExactKeys(message, ["type", "policy_id", "expected_revision", "client_id"]) &&
+      isPolicyId(message.policy_id) && isRevision(message.expected_revision) && isClientId(message.client_id);
+  }
+  if (message.type !== "domusos/device_power/save_policy") return false;
+  const keys = Object.keys(message);
+  const { policy } = message;
+  // A new policy has no id and no revision; a change carries both.
+  const isNew = !("policy_id" in message) && !("expected_revision" in message);
+  const isChange = isPolicyId(message.policy_id) && isRevision(message.expected_revision);
+  return keys.every((key) => ["type", "policy_id", "expected_revision", "policy"].includes(key)) &&
+    (isNew || isChange) &&
+    isRecord(policy) && hasExactKeys(policy, DEVICE_POWER_POLICY_KEYS) &&
+    (policy.client_id === null || isClientId(policy.client_id)) &&
+    (policy.label === null || (typeof policy.label === "string" && policy.label.length <= 64)) &&
+    typeof policy.enabled === "boolean" &&
+    isEntity(policy.battery_entity_id, "sensor") && isEntity(policy.switch_entity_id, "switch") &&
+    isThreshold(policy.start_threshold) && isThreshold(policy.stop_threshold) &&
+    policy.start_threshold < policy.stop_threshold;
+};
 // Only the words for entity states, in one language: no integration or config flow text.
 const isValidTranslationsMessage = (message) =>
   hasExactKeys(message, ["type", "language", "category"]) &&
@@ -303,6 +345,9 @@ const isValidWsMessage = (message) => {
   }
   if (message.type.startsWith("domusos/profile/")) {
     return isValidProfileMessage(message);
+  }
+  if (message.type.startsWith("domusos/device_power/")) {
+    return isValidDevicePowerMessage(message);
   }
   if (message.type === "get_panels") {
     return Object.keys(message).every((key) => key === "type");
@@ -718,6 +763,8 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
 L'elenco dei destinatari (capability `profile_recipients_v1`) è `domusos/profile/list_recipients`, solo per amministratori e senza parametri: per ogni persona restituisce id interno, entità, stato di prontezza e se è selezionabile, mai account, dispositivi, preferenze o target. Home Assistant rifiuta la richiesta a chi non è amministratore.
 
 Le traduzioni degli stati (capability `state_translations_v1`) sono `frontend/get_translations` con solo `type`, `language` e `category`, e `category` può essere soltanto `entity_component` o `entity`: Domus legge le stesse parole che il frontend Home Assistant usa per gli stati delle entità ("Acceso", "Aperta", "Fuori casa"). Senza la capability Domus usa un piccolo dizionario proprio.
+
+La gestione dell'alimentazione dei dispositivi (capability `device_power_v1`) usa quattro comandi, tutti riservati agli amministratori: `domusos/device_power/get_state` (solo `type`), `save_policy` (una `policy` con esattamente `client_id`, `label`, `enabled`, `battery_entity_id` di tipo `sensor.*`, `switch_entity_id` di tipo `switch.*`, `start_threshold` e `stop_threshold` interi con inizio minore della fine; senza `policy_id` né `expected_revision` per una nuova policy, con entrambi per modificarne una), `bind_policy` (`policy_id`, `expected_revision`, `client_id`) e `delete_policy` (`policy_id`, `expected_revision`). Non esiste un comando che accenda o spenga uno switch: i controller girano in Home Assistant, che ripete ogni controllo. Vedi [Device Power Management](device-power-management.md).
 
 La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 

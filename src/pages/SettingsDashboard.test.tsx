@@ -60,6 +60,43 @@ const baseProps = {
 };
 
 describe('SettingsDashboard', () => {
+  it('lists Power and charging in This device for administrators only', async () => {
+    const onNavigate = vi.fn();
+    const member = createDashboardSecurityValue({
+      runtimeMode: 'real',
+      haStatus: 'connected',
+      user: { id: 'member-1' },
+    });
+    const { unmount } = render(
+      <DashboardSecurityProvider value={member}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" />
+      </DashboardSecurityProvider>,
+    );
+    expect(screen.queryByRole('button', { name: /Alimentazione e ricarica/ })).toBeNull();
+    unmount();
+
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+    const device = within(screen.getByRole('region', { name: 'Questo dispositivo' }));
+    fireEvent.click(device.getByRole('button', { name: /^Alimentazione e ricarica/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/device/power');
+  });
+
+  it('opens Power and charging as its own page, loaded only then', async () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/device/power" />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Alimentazione e ricarica' })).toBeTruthy();
+    // Without the bridge capability the page says so and asks nothing.
+    expect(await screen.findByText('Gestione alimentazione non disponibile con questa versione di DomusOS.')).toBeTruthy();
+  });
+
   it('renders the overview in English when selected on this device', () => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
     render(
@@ -131,6 +168,7 @@ describe('SettingsDashboard', () => {
     expect(device.getAllByRole('button').map((card) => card.textContent)).toEqual([
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
+      expect.stringContaining('Alimentazione e ricarica'),
       expect.stringContaining('Avvisi e attenzione'),
       expect.stringContaining('Avanzate e supporto'),
     ]);

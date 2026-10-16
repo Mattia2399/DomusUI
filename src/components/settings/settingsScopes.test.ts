@@ -6,6 +6,7 @@ import { italianTranslations } from '../../i18n/translations';
 import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
+  DEVICE_POWER_ROUTE,
   resolveLegacySettingsRoute,
 } from '../../navigation/settingsRoutes';
 import {
@@ -66,10 +67,10 @@ describe('settings scopes', () => {
     });
   });
 
-  it('lists only Domus core configuration, and Waste which has no page of its own', () => {
+  it('lists only Domus core configuration, and the modules without a page of their own', () => {
     const owners = new Set(SETTINGS_ENTRIES.map(({ owner }) => owner));
-    expect([...owners].sort()).toEqual(['core', 'waste']);
-    expect(SETTINGS_ENTRIES.filter(({ owner }) => owner !== 'core').map(({ id }) => id)).toEqual(['waste']);
+    expect([...owners].sort()).toEqual(['core', 'device_power', 'waste']);
+    expect(SETTINGS_ENTRIES.filter(({ owner }) => owner !== 'core').map(({ id }) => id)).toEqual(['waste', 'power']);
     // House scope alone never puts a setting in Settings › Home.
     expect(SETTINGS_ENTRIES.every(({ route }) => route.startsWith('/settings/'))).toBe(true);
   });
@@ -86,6 +87,24 @@ describe('settings scopes', () => {
     });
     expect(entry('appearance').route).toBe(DEVICE_APPEARANCE_ROUTE);
     expect(entry('language').route).toBe(DEVICE_LANGUAGE_ROUTE);
+  });
+
+  it('keeps the charger of this device in This device, saved and run by DomusOS', () => {
+    expect(entry('power')).toEqual({
+      id: 'power',
+      scope: 'device',
+      owner: 'device_power',
+      section: 'device',
+      route: DEVICE_POWER_ROUTE,
+      administratorsOnly: true,
+      storage: 'integration_store',
+      titleKey: 'settings.device.power',
+      descriptionKey: 'settings.device.powerSubtitle',
+    });
+    // Administrators only, without a capability of its own.
+    expect(entry('power').capability).toBeUndefined();
+    const ids = SETTINGS_ENTRIES.filter(({ section }) => section === 'device').map(({ id }) => id);
+    expect(ids).toEqual(['appearance', 'language', 'power', 'attention', 'advanced']);
   });
 
   it('keeps only the person in the Profile', () => {
@@ -130,6 +149,23 @@ describe('settings scopes', () => {
     expect(selectVisibleSettingsEntries('system', all)).toHaveLength(5);
     expect(selectVisibleSettingsEntries('device', all)).toHaveLength(4);
   });
+
+  it('shows the administrators-only entries to administrators alone', () => {
+    const all = () => true;
+    expect(selectVisibleSettingsEntries('device', all, false).map(({ id }) => id)).not.toContain('power');
+    expect(selectVisibleSettingsEntries('device', all, true).map(({ id }) => id)).toEqual([
+      'appearance',
+      'language',
+      'power',
+      'attention',
+      'advanced',
+    ]);
+    expect(selectVisibleSettingsEntries('device', () => false, true).map(({ id }) => id)).toEqual([
+      'appearance',
+      'language',
+      'power',
+    ]);
+  });
 });
 
 describe('settings overview weight', () => {
@@ -139,6 +175,8 @@ describe('settings overview weight', () => {
     const settingsPage = source('src/pages/SettingsDashboard.tsx');
     expect(settingsPage).toContain("import('../components/settings/DevicePreferencesSettings')");
     expect(settingsPage).not.toContain("from '../components/settings/DevicePreferencesSettings'");
+    expect(settingsPage).toContain("import('../components/settings/DevicePowerSettings')");
+    expect(settingsPage).not.toMatch(/from '\.\.\/(components\/settings\/DevicePowerSettings|services\/devicePowerClient|i18n\/devicePowerCopy)'/);
   });
 
   it('keeps the scope registry free of icons and components', () => {

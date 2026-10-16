@@ -1,6 +1,11 @@
 import type { TranslationKey } from '../../i18n/translations';
 import type { DashboardCapability } from '../../security/dashboardAccess';
-import { DEVICE_APPEARANCE_ROUTE, DEVICE_LANGUAGE_ROUTE, PROFILE_ROUTE } from '../../navigation/settingsRoutes';
+import {
+  DEVICE_APPEARANCE_ROUTE,
+  DEVICE_LANGUAGE_ROUTE,
+  DEVICE_POWER_ROUTE,
+  PROFILE_ROUTE,
+} from '../../navigation/settingsRoutes';
 import { HOUSE_ACCESS_ROUTE } from './settingsHouseAccessModel';
 
 /**
@@ -19,7 +24,7 @@ export type SettingsScope = 'profile' | 'house' | 'device';
  * the Settings page; an app with its own page keeps its configuration inside
  * the app, whatever its scope.
  */
-export type SettingsOwner = 'core' | 'waste' | 'energy' | 'irrigation';
+export type SettingsOwner = 'core' | 'waste' | 'device_power' | 'energy' | 'irrigation';
 
 /** The groups of the Settings page: Home and System are both house settings. */
 export type SettingsSectionId = 'house' | 'system' | 'device';
@@ -52,6 +57,7 @@ export type SettingsEntryId =
   | 'data'
   | 'appearance'
   | 'language'
+  | 'power'
   | 'attention'
   | 'advanced';
 
@@ -59,11 +65,16 @@ export type SettingsEntry = Readonly<{
   id: SettingsEntryId;
   scope: Exclude<SettingsScope, 'profile'>;
   /** Only configurations without an app of their own appear on the Settings page. */
-  owner: Extract<SettingsOwner, 'core' | 'waste'>;
+  owner: Extract<SettingsOwner, 'core' | 'waste' | 'device_power'>;
   section: SettingsSectionId;
   route: string;
   /** Existing capability needed to see the entry; the page keeps its own checks. */
   capability?: DashboardCapability;
+  /**
+   * Shown to Home Assistant administrators only. Not a capability: the
+   * integration checks the administrator itself on every command.
+   */
+  administratorsOnly?: true;
   storage: SettingsStorage;
   titleKey: TranslationKey;
   descriptionKey: TranslationKey;
@@ -217,6 +228,19 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     descriptionKey: 'settings.device.languageSubtitle',
   },
   {
+    // The charger of this device, switched by DomusOS in Home Assistant
+    // (docs/device-power-management.md); the browser only names the device.
+    id: 'power',
+    scope: 'device',
+    owner: 'device_power',
+    section: 'device',
+    route: DEVICE_POWER_ROUTE,
+    administratorsOnly: true,
+    storage: 'integration_store',
+    titleKey: 'settings.device.power',
+    descriptionKey: 'settings.device.powerSubtitle',
+  },
+  {
     // Saved in this browser today, although only an administrator changes it.
     id: 'attention',
     scope: 'device',
@@ -286,8 +310,12 @@ export const PROFILE_ENTRIES: readonly ProfileEntry[] = [
 export function selectVisibleSettingsEntries(
   section: SettingsSectionId,
   can: (capability: DashboardCapability) => boolean,
+  isAdministrator = false,
 ): SettingsEntry[] {
   return SETTINGS_ENTRIES.filter(
-    (entry) => entry.section === section && (!entry.capability || can(entry.capability)),
+    (entry) =>
+      entry.section === section &&
+      (!entry.capability || can(entry.capability)) &&
+      (!entry.administratorsOnly || isAdministrator),
   );
 }

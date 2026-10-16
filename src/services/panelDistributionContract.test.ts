@@ -179,6 +179,77 @@ describe('Home Assistant panel distribution contract', () => {
     expect([...HA_PANEL_ALLOWED_API_TYPES].some((type) => type.startsWith('domusos/notifications/'))).toBe(false);
   });
 
+  it('allowlists exactly the device power commands in both bridge halves, all administrative', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = [...bridge.matchAll(/"(domusos\/device_power\/[a-z_]+)"/g)].map((match) => match[1]);
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/device_power/'));
+
+    expect(new Set(hostTypes)).toEqual(new Set(appTypes));
+    expect(appTypes.sort()).toEqual([
+      'domusos/device_power/bind_policy',
+      'domusos/device_power/delete_policy',
+      'domusos/device_power/get_state',
+      'domusos/device_power/save_policy',
+    ]);
+    expect(bridge).toContain('"device_power_v1"');
+    for (const type of appTypes) {
+      expect(isDashboardAdministrativeApiMessage({ type })).toBe(true);
+    }
+    // The controllers run in Home Assistant: no command switches anything from a client.
+    expect(appTypes.some((type) => /turn_|switch_on|switch_off|set_switch/.test(type))).toBe(false);
+  });
+
+  it('validates device power message shapes in the HACS host script', () => {
+    const bridge = readPanelBridgeSource();
+    const pick = (pattern: RegExp) => {
+      const match = bridge.match(pattern);
+      if (!match) throw new Error(`Host bridge fragment not found: ${pattern}`);
+      return match[0];
+    };
+    const source = [
+      pick(/const isRecord = [^\r\n]+\r?\n/),
+      pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
+      pick(/const DEVICE_POWER_POLICY_KEYS = [\s\S]*?\];\r?\n/),
+      pick(/const isValidDevicePowerMessage = [\s\S]*?\r?\n};\r?\n/),
+    ].join('');
+    const validate = new Function(`${source}return isValidDevicePowerMessage;`)() as (
+      message: Record<string, unknown>,
+    ) => boolean;
+    const policy = {
+      client_id: 'client-0001',
+      label: 'Tablet soggiorno',
+      enabled: true,
+      battery_entity_id: 'sensor.tablet_battery_level',
+      switch_entity_id: 'switch.presa_tablet',
+      start_threshold: 30,
+      stop_threshold: 80,
+    };
+    const id = '0123456789abcdef0123456789abcdef';
+    const save = { type: 'domusos/device_power/save_policy', policy };
+
+    expect(validate({ type: 'domusos/device_power/get_state' })).toBe(true);
+    expect(validate(save)).toBe(true);
+    expect(validate({ ...save, policy_id: id, expected_revision: 2 })).toBe(true);
+    expect(validate({ ...save, policy: { ...policy, client_id: null, label: null } })).toBe(true);
+    expect(validate({ type: 'domusos/device_power/bind_policy', policy_id: id, expected_revision: 1, client_id: 'client-0002' })).toBe(true);
+    expect(validate({ type: 'domusos/device_power/delete_policy', policy_id: id, expected_revision: 1 })).toBe(true);
+
+    expect(validate({ type: 'domusos/device_power/get_state', client_id: 'client-0001' })).toBe(false);
+    expect(validate({ ...save, policy_id: id })).toBe(false);
+    expect(validate({ ...save, expected_revision: 1 })).toBe(false);
+    expect(validate({ ...save, entity_id: 'switch.presa_tablet' })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, strategy: 'schedule' } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, switch_entity_id: 'light.presa' } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, battery_entity_id: 'switch.presa_tablet' } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, start_threshold: 80, stop_threshold: 30 } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, stop_threshold: 101 } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, start_threshold: 30.5 } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, label: 'x'.repeat(65) } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, client_id: 'short' } })).toBe(false);
+    expect(validate({ type: 'domusos/device_power/delete_policy', policy_id: 'nope', expected_revision: 1 })).toBe(false);
+    expect(validate({ type: 'domusos/device_power/turn_on', entity_id: 'switch.presa_tablet' })).toBe(false);
+  });
+
   it('lets only the entity state words cross the bridge', () => {
     const bridge = readPanelBridgeSource();
     const pick = (pattern: RegExp) => {

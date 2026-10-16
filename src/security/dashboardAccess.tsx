@@ -76,6 +76,11 @@ const ADMINISTRATIVE_API_TYPES = new Set([
   'domusos/energy/save_profile',
   // Who can receive notifications is an administrator's choice.
   'domusos/profile/list_recipients',
+  // Device power drives a physical switch: administrators only, as in Home Assistant.
+  'domusos/device_power/get_state',
+  'domusos/device_power/save_policy',
+  'domusos/device_power/bind_policy',
+  'domusos/device_power/delete_policy',
 ]);
 
 export function isDashboardAdministrativeApiMessage(message: Record<string, unknown>) {

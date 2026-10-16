@@ -3,6 +3,7 @@ import { selectHouseholdPeople } from '../services/houseMembers';
 import {
   Activity,
   AlertTriangle,
+  BatteryCharging,
   Bell,
   BellRing,
   Box,
@@ -94,6 +95,7 @@ import {
 import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
+  DEVICE_POWER_ROUTE,
   DEVICE_SETTINGS_ROUTE,
   PROFILE_ROUTE,
   isProfileSettingsRoute,
@@ -112,6 +114,7 @@ const DeviceLanguageSettings = React.lazy(() =>
     default: module.DeviceLanguageSettings,
   })),
 );
+const DevicePowerSettings = React.lazy(() => import('../components/settings/DevicePowerSettings'));
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -137,6 +140,8 @@ type SettingsDashboardProps = {
   onCallApi?: WasteCollectionCallApi;
   /** The integration lists people as notification recipients (`profile_recipients_v1`). */
   recipientsSupported?: boolean;
+  /** The integration manages this device's charger (`device_power_v1`). */
+  devicePowerSupported?: boolean;
   /** Turns a Home Assistant picture path into a loadable URL. */
   resolveAssetUrl?: (url: string) => string;
   /** Home Assistant's own words for entity states, when they can be asked for. */
@@ -563,6 +568,7 @@ export default function SettingsDashboard({
   onCallService,
   onCallApi,
   recipientsSupported = false,
+  devicePowerSupported = false,
   resolveAssetUrl,
   loadStateTranslations,
   onAreasChanged,
@@ -608,6 +614,11 @@ export default function SettingsDashboard({
   }, []);
 
   const isConnected = haStatus === 'connected';
+  // The rows only follow Home Assistant; every device power command is checked there again.
+  const isAdministrator =
+    security.runtimeMode === 'real' &&
+    security.identityStatus === 'authenticated' &&
+    Boolean(security.user?.isOwner || security.user?.isAdmin);
   const systemSensors = useMemo(() => pickSystemSensors(haStates), [haStates]);
   const updateEntities = useMemo(() => collectUpdateEntities(haStates), [haStates]);
   const availableUpdates = updateEntities.filter((entry) => entry.available);
@@ -940,6 +951,7 @@ export default function SettingsDashboard({
       data: { icon: Database, color: 'bg-amber-500', value: lastBackupLabel ?? undefined },
       appearance: { icon: Palette, color: 'bg-pink-500', value: appearanceLabel },
       language: { icon: Languages, color: 'bg-sky-600', value: t(`language.name.${locale}` as TranslationKey) },
+      power: { icon: BatteryCharging, color: 'bg-emerald-600' },
       attention: {
         icon: BellRing,
         color: 'bg-orange-500',
@@ -1059,7 +1071,11 @@ export default function SettingsDashboard({
           </section>
 
           {SETTINGS_SECTIONS.map((section) => {
-            const entries = selectVisibleSettingsEntries(section.id, (capability) => security.can(capability));
+            const entries = selectVisibleSettingsEntries(
+              section.id,
+              (capability) => security.can(capability),
+              isAdministrator,
+            );
             if (entries.length === 0) return null;
             return (
               <SettingsListGroup
@@ -1118,6 +1134,26 @@ export default function SettingsDashboard({
       >
         <LazyLoadBoundary mode="section" fallback={null}>
           <DeviceLanguageSettings />
+        </LazyLoadBoundary>
+      </SettingsDetailShell>
+    );
+  }
+
+  if (settingsPath === DEVICE_POWER_ROUTE) {
+    return (
+      <SettingsDetailShell
+        title={t('settings.device.power')}
+        subtitle={t('settings.device.powerSubtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <LazyLoadBoundary mode="section" fallback={null}>
+          <DevicePowerSettings
+            callApi={onCallApi}
+            connected={isConnected}
+            supported={devicePowerSupported}
+            isAdmin={isAdministrator}
+            haStates={haStates}
+          />
         </LazyLoadBoundary>
       </SettingsDetailShell>
     );

@@ -30,6 +30,8 @@ from .const import (
 )
 from .context_providers import register_core_bindings, register_energy_bindings
 from .core import DomusRuntime
+from .device_power import DATA_DEVICE_POWER_MANAGER, DevicePowerManager
+from .device_power.api import async_register_device_power_api
 from .energy import EnergyProfileManager
 from .energy.api import async_register_energy_api
 from .irrigation import IrrigationManager
@@ -62,6 +64,8 @@ class DomusEntryData:
     profile_manager: ProfileManager | None = None
     # Optional: None without a Profile Core or when the router failed to start.
     notification_router: NotificationRouter | None = None
+    # Optional: None when device power management failed to start.
+    device_power_manager: DevicePowerManager | None = None
 
 
 DomusConfigEntry = ConfigEntry[DomusEntryData]
@@ -85,6 +89,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await async_register_waste_collection_api(hass)
     await async_register_energy_api(hass)
     await async_register_profile_api(hass)
+    await async_register_device_power_api(hass)
     return True
 
 
@@ -174,6 +179,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
         await _async_setup_energy(hass, runtime, entry_data)
         await _async_setup_profile(hass, entry_data)
         await _async_setup_notifications(hass, entry_data)
+        await _async_setup_device_power(hass, entry_data)
         await panel_custom.async_register_panel(hass=hass, **panel_options)
         domain_data["irrigation_manager"] = manager
         domain_data["calendar_manager"] = calendar_manager
@@ -191,6 +197,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             domain_data.pop("waste_collection_manager", None)
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
+        await _async_teardown_device_power(hass, entry_data)
         await _async_teardown_energy(hass, entry_data)
         await _async_teardown_notifications(hass, entry_data)
         await _async_teardown_profile(hass, entry_data)
@@ -221,6 +228,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
     entry_data = getattr(entry, "runtime_data", None)
     if isinstance(entry_data, DomusEntryData):
+        await _async_teardown_device_power(hass, entry_data)
         await _async_teardown_energy(hass, entry_data)
         await _async_teardown_notifications(hass, entry_data)
         await _async_teardown_profile(hass, entry_data)
@@ -384,6 +392,41 @@ async def _async_teardown_notifications(hass: HomeAssistant, entry_data: DomusEn
         domain_data = hass.data.get(DOMAIN, {})
         if router is not None and domain_data.get(DATA_NOTIFICATION_ROUTER) is router:
             domain_data.pop(DATA_NOTIFICATION_ROUTER, None)
+
+
+async def _async_setup_device_power(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Start device power management without risking the other modules.
+
+    Its controllers run here, in Home Assistant: they keep working with no
+    Domus UI open. A store that cannot be trusted starts no controller.
+    """
+    manager = DevicePowerManager(hass, runtime=lambda: entry_data.runtime)
+    try:
+        await manager.async_setup()
+    except Exception:
+        _LOGGER.exception("Domus device power management could not start; the other modules keep running")
+        try:
+            await manager.async_shutdown()
+        except Exception:
+            _LOGGER.exception("Domus device power cleanup failed")
+        return
+    entry_data.device_power_manager = manager
+    hass.data.setdefault(DOMAIN, {})[DATA_DEVICE_POWER_MANAGER] = manager
+
+
+async def _async_teardown_device_power(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Stop the controllers; every switch keeps its current state."""
+    manager = entry_data.device_power_manager
+    try:
+        if manager is not None:
+            await manager.async_shutdown()
+    except Exception:
+        _LOGGER.exception("Domus device power unload failed")
+    finally:
+        entry_data.device_power_manager = None
+        domain_data = hass.data.get(DOMAIN, {})
+        if manager is not None and domain_data.get(DATA_DEVICE_POWER_MANAGER) is manager:
+            domain_data.pop(DATA_DEVICE_POWER_MANAGER, None)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

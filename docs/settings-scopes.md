@@ -25,13 +25,14 @@ Ogni configurazione ha tre dimensioni indipendenti:
 | Dimensione | Domanda | Valori |
 | --- | --- | --- |
 | **Scope** | A chi appartiene questo valore? | `PROFILE`, `HOUSE`, `DEVICE` (solo questi tre) |
-| **Owner / dominio** | Quale modulo ne è responsabile? | `CORE` (Domus), `WASTE`, `ENERGY`, `IRRIGATION`, altre app future |
+| **Owner / dominio** | Quale modulo ne è responsabile? | `CORE` (Domus), `WASTE`, `DEVICE_POWER`, `ENERGY`, `IRRIGATION`, altre app future |
 | **Posizione** | Dove la modifica l'utente? | Profilo, una sezione di Impostazioni, oppure dentro un'app |
 
 | Configurazione | Scope | Owner | Posizione |
 | --- | --- | --- | --- |
 | Tema e sfondo | DEVICE | CORE | Impostazioni › Questo dispositivo |
 | Lingua | DEVICE | CORE | Impostazioni › Questo dispositivo |
+| Alimentazione e ricarica | DEVICE | DEVICE_POWER (integrazione DomusOS) | Impostazioni › Questo dispositivo |
 | Connessione Home Assistant | HOUSE | CORE | Impostazioni › Sistema |
 | Dashboard condivisa | HOUSE | CORE | Impostazioni › Casa |
 | Raccolta rifiuti | HOUSE | WASTE | Impostazioni › Casa (non ha un'app propria) |
@@ -176,10 +177,16 @@ l'unica autorità, dentro l'app.
 | --- | --- | --- | --- |
 | Aspetto (tema e sfondo) | `/settings/device/appearance` | `ha.dashboard.theme`, `ha.dashboard.background` | tutti |
 | Lingua | `/settings/device/language` | `domusui.language.v1` | tutti |
+| Alimentazione e ricarica | `/settings/device/power` | `domusui.client_id.v1` (solo il riferimento del dispositivo); la configurazione è nello Store `domusos.device_power.v1` | amministratori HA |
 | Avvisi e attenzione | `/settings/attention` | `ha.dashboard.homeAttention.v1` | `edit_dashboard` |
 | Avanzate e supporto | `/settings/advanced` | `ha.dashboard.developerMode.v2`, `ha.dashboard.cardSizingEngine` | `developer_mode` |
 
 `/settings/device` apre la pagina Impostazioni sul gruppo Questo dispositivo.
+
+Alimentazione e ricarica è DEVICE ma non è salvata nel browser: il
+dispositivo ha solo un riferimento casuale e la configurazione, eseguita da
+Home Assistant, è nell'integrazione. Vedi
+[gestione alimentazione](device-power-management.md).
 
 ### Preferenze locali non mostrate in Impostazioni
 
@@ -253,6 +260,6 @@ andranno.
   - Configurazione di Domus Intelligence.
 - **DEVICE**
   - Screensaver.
-  - Gestione alimentazione e ricarica del tablet.
+  - Strategie di ricarica a orari o intelligenti (oggi solo soglie).
   - Modalità kiosk.
   - Dashboard predefinita per questo dispositivo.
