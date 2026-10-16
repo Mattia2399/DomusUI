@@ -28,11 +28,9 @@ import {
   RotateCcw,
   Server,
   ShieldCheck,
-  Sprout,
   UserRoundCog,
   Wifi,
   Wrench,
-  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import type { HaArea, HaConnectionStatus } from '../hooks/useHaLiveConnection';
@@ -1059,14 +1057,6 @@ export default function SettingsDashboard({
       waste: {
         icon: Recycle,
         accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(34,197,94,0.14),transparent_58%)]',
-      },
-      energy: {
-        icon: Zap,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(234,179,8,0.15),transparent_58%)]',
-      },
-      irrigation: {
-        icon: Sprout,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(20,184,166,0.15),transparent_58%)]',
       },
       connection: {
         icon: Link2,

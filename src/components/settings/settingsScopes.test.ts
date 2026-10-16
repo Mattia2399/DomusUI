@@ -9,6 +9,7 @@ import {
   resolveLegacySettingsRoute,
 } from '../../navigation/settingsRoutes';
 import {
+  APP_OWNED_SETTINGS,
   PROFILE_ENTRIES,
   SETTINGS_ENTRIES,
   SETTINGS_SECTIONS,
@@ -22,7 +23,9 @@ const profileEntry = (id: (typeof PROFILE_ENTRIES)[number]['id']) =>
 
 describe('settings scopes', () => {
   it('has exactly three scopes; System is a group of house settings', () => {
-    const scopes = new Set([...SETTINGS_ENTRIES, ...PROFILE_ENTRIES].map((candidate) => candidate.scope));
+    const scopes = new Set(
+      [...SETTINGS_ENTRIES, ...APP_OWNED_SETTINGS, ...PROFILE_ENTRIES].map((candidate) => candidate.scope),
+    );
     expect([...scopes].sort()).toEqual(['device', 'house', 'profile']);
     expect(SETTINGS_SECTIONS.map(({ id, scope }) => [id, scope])).toEqual([
       ['house', 'house'],
@@ -38,13 +41,37 @@ describe('settings scopes', () => {
   it('classifies the house configuration as shared by the whole home', () => {
     expect(entry('waste')).toMatchObject({ scope: 'house', section: 'house', storage: 'integration_store' });
     expect(entry('dashboard')).toMatchObject({ scope: 'house', section: 'house', storage: 'ha_shared_house' });
-    expect(entry('energy')).toMatchObject({ scope: 'house', section: 'house', route: '/consumi/energia' });
-    expect(entry('irrigation')).toMatchObject({
-      scope: 'house',
-      section: 'house',
-      route: '/appgallery/irrigation/settings',
-    });
     expect(entry('access')).toMatchObject({ scope: 'house', section: 'house', capability: 'manage_rooms' });
+    expect(entry('security')).toMatchObject({ scope: 'house', owner: 'core', storage: 'ha_shared_house' });
+  });
+
+  it('keeps app-owned house configuration inside its app, not on the Settings page', () => {
+    // House scope, but owned by an app with its own page, backend and Store.
+    expect(APP_OWNED_SETTINGS).toEqual([
+      { id: 'energy', scope: 'house', owner: 'energy', route: '/consumi/energia', storage: 'integration_store' },
+      {
+        id: 'irrigation',
+        scope: 'house',
+        owner: 'irrigation',
+        route: '/appgallery/irrigation/settings',
+        storage: 'integration_store',
+      },
+    ]);
+    const landingIds: string[] = SETTINGS_ENTRIES.map(({ id }) => id);
+    const landingRoutes = SETTINGS_ENTRIES.map(({ route }) => route);
+    APP_OWNED_SETTINGS.forEach(({ id, route }) => {
+      expect(landingIds, id).not.toContain(id);
+      expect(landingRoutes, id).not.toContain(route);
+      expect(route.startsWith('/settings'), id).toBe(false);
+    });
+  });
+
+  it('lists only Domus core configuration, and Waste which has no page of its own', () => {
+    const owners = new Set(SETTINGS_ENTRIES.map(({ owner }) => owner));
+    expect([...owners].sort()).toEqual(['core', 'waste']);
+    expect(SETTINGS_ENTRIES.filter(({ owner }) => owner !== 'core').map(({ id }) => id)).toEqual(['waste']);
+    // House scope alone never puts a setting in Settings › Home.
+    expect(SETTINGS_ENTRIES.every(({ route }) => route.startsWith('/settings/'))).toBe(true);
   });
 
   it('keeps the Home Assistant connection in System, a house group', () => {
@@ -92,7 +119,13 @@ describe('settings scopes', () => {
     expect(selectVisibleSettingsEntries('device', none).map(({ id }) => id)).toEqual(['appearance', 'language']);
 
     const all = () => true;
-    expect(selectVisibleSettingsEntries('house', all)).toHaveLength(7);
+    expect(selectVisibleSettingsEntries('house', all).map(({ id }) => id)).toEqual([
+      'dashboard',
+      'floors',
+      'access',
+      'security',
+      'waste',
+    ]);
     expect(selectVisibleSettingsEntries('system', all)).toHaveLength(5);
     expect(selectVisibleSettingsEntries('device', all)).toHaveLength(4);
   });

@@ -14,7 +14,7 @@ This page distinguishes stable functionality from previews and planned work. **O
 | Consumption | Operational      | Views based on data actually available in HA                                                       |
 | Domus Energy Core | Operational in 1.5.0 | Read-only live energy, guided setup, multi-device installations, tariffs and Recorder-backed history charts |
 | Profile     | Operational      | The person only: account, activity, My devices with personal notifications, startup panel and device confirmation |
-| Settings    | Operational      | Grouped by scope: Home (dashboard, rooms, people and access, security, waste collection, Energy and Irrigation configuration), System (connections, devices, entities, status, backups) and This device (appearance, language, attention, advanced); see [settings scopes](settings-scopes.md) |
+| Settings    | Operational      | Domus core configuration grouped by scope: Home (dashboard, rooms, people and access, security, waste collection), System (connections, devices, entities, status, backups) and This device (appearance, language, attention, advanced); Energy and Irrigation are configured inside their apps; see [settings scopes](settings-scopes.md) |
 | App Gallery | Partial          | Launcher and Irrigation beta are available; Utility Room and Pool & Spa are marked as coming later |
 | Automations | Coming later     | The old workspace remains disabled until its workflow is ready for public use                      |
 | Calendar    | Operational      | Native Domus UI calendar and compatible Home Assistant calendar entities                           |

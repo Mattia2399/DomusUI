@@ -156,22 +156,35 @@ async function simulateOwnerHomeAssistant(page) {
   }, HA);
 }
 
-test('An administrator reaches the Energy and Irrigation configuration from Home', async ({ page }) => {
+test('An administrator finds only core configuration in Settings', async ({ page }) => {
   await simulateOwnerHomeAssistant(page);
   await page.goto('/settings');
 
   const home = page.getByRole('region', { name: 'Casa', exact: true });
   await expect(home.getByRole('button', { name: /^Persone e accessi/ })).toBeVisible();
-  await expect(home.getByRole('button', { name: /^Energia/ })).toBeVisible();
+  await expect(home.getByRole('button')).toHaveText([
+    /^Dashboard/,
+    /^Piani e stanze/,
+    /^Persone e accessi/,
+    /^Sicurezza/,
+    /^Raccolta rifiuti/,
+  ]);
+  // House configuration owned by an app stays inside that app.
+  await expect(page.getByRole('button', { name: /Energia/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Irrigazione/ })).toHaveCount(0);
+});
 
-  await home.getByRole('button', { name: /^Irrigazione/ }).click();
-  await expect(page).toHaveURL(/\/appgallery\/irrigation\/settings$/);
-  await page.goBack();
-  await expect(page).toHaveURL(/\/settings$/);
+test('Energy and Irrigation keep their configuration in their own apps', async ({ page }) => {
+  await simulateOwnerHomeAssistant(page);
 
-  await home.getByRole('button', { name: /^Energia/ }).click();
+  await page.goto('/consumi');
+  await page.getByRole('button', { name: /^Energia/ }).click();
   await expect(page).toHaveURL(/\/consumi\/energia$/);
-  await page.goBack();
-  await expect(page).toHaveURL(/\/settings$/);
-  await expect(home).toBeVisible();
+
+  await page.goto('/appgallery');
+  await page.getByRole('button', { name: /Irrigazione Smart/ }).click();
+  await expect(page).toHaveURL(/\/appgallery\/irrigation$/);
+  await page.getByTestId('app-workspace-sidebar').getByRole('button', { name: 'Impostazioni' }).click();
+  await expect(page).toHaveURL(/\/appgallery\/irrigation\/settings$/);
+  await expect(page.getByRole('heading', { name: 'Impostazioni irrigazione' })).toBeVisible();
 });

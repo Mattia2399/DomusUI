@@ -10,8 +10,16 @@ import { HOUSE_ACCESS_ROUTE } from './settingsHouseAccessModel';
  * - `device`: this browser, tablet or PC — another one may differ.
  *
  * "System" is a group of house settings on the Settings page, not a scope.
+ * The scope never decides where a setting is edited: see `SettingsOwner`.
  */
 export type SettingsScope = 'profile' | 'house' | 'device';
+
+/**
+ * The module responsible for a configuration. Domus core settings live on
+ * the Settings page; an app with its own page keeps its configuration inside
+ * the app, whatever its scope.
+ */
+export type SettingsOwner = 'core' | 'waste' | 'energy' | 'irrigation';
 
 /** The groups of the Settings page: Home and System are both house settings. */
 export type SettingsSectionId = 'house' | 'system' | 'device';
@@ -37,8 +45,6 @@ export type SettingsEntryId =
   | 'access'
   | 'security'
   | 'waste'
-  | 'energy'
-  | 'irrigation'
   | 'connection'
   | 'devices'
   | 'entities'
@@ -52,6 +58,8 @@ export type SettingsEntryId =
 export type SettingsEntry = Readonly<{
   id: SettingsEntryId;
   scope: Exclude<SettingsScope, 'profile'>;
+  /** Only configurations without an app of their own appear on the Settings page. */
+  owner: Extract<SettingsOwner, 'core' | 'waste'>;
   section: SettingsSectionId;
   route: string;
   /** Existing capability needed to see the entry; the page keeps its own checks. */
@@ -77,11 +85,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 /**
  * Every entry of the Settings page, in display order. Moving an entry to
  * another section changes where it is shown, never where its data is saved.
+ * App-owned configuration is not listed here (`APP_OWNED_SETTINGS`).
  */
 export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'dashboard',
     scope: 'house',
+    owner: 'core',
     section: 'house',
     route: '/settings/dashboard',
     capability: 'edit_dashboard',
@@ -92,6 +102,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'floors',
     scope: 'house',
+    owner: 'core',
     section: 'house',
     route: '/settings/floors',
     storage: 'ha_registry',
@@ -101,6 +112,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'access',
     scope: 'house',
+    owner: 'core',
     section: 'house',
     route: HOUSE_ACCESS_ROUTE,
     capability: 'manage_rooms',
@@ -111,6 +123,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'security',
     scope: 'house',
+    owner: 'core',
     section: 'house',
     route: '/settings/safety',
     capability: 'manage_security_config',
@@ -119,8 +132,11 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     descriptionKey: 'settings.security.subtitle',
   },
   {
+    // A Domus module with its own backend and Store, but no page of its own:
+    // this is its only configuration page, so it stays here.
     id: 'waste',
     scope: 'house',
+    owner: 'waste',
     section: 'house',
     route: '/settings/home/waste-collection',
     storage: 'integration_store',
@@ -128,32 +144,11 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     descriptionKey: 'waste.settings.cardSubtitle',
   },
   {
-    // The configuration of the Energy page; the page itself stays in Consumption.
-    id: 'energy',
-    scope: 'house',
-    section: 'house',
-    route: '/consumi/energia',
-    capability: 'manage_energy',
-    storage: 'integration_store',
-    titleKey: 'settings.energy.title',
-    descriptionKey: 'settings.energy.subtitle',
-  },
-  {
-    // The configuration page of the Irrigation app, at its own address.
-    id: 'irrigation',
-    scope: 'house',
-    section: 'house',
-    route: '/appgallery/irrigation/settings',
-    capability: 'edit_dashboard',
-    storage: 'integration_store',
-    titleKey: 'settings.irrigation.title',
-    descriptionKey: 'settings.irrigation.subtitle',
-  },
-  {
     // In a standalone browser the address and token are kept in this browser;
     // inside Home Assistant the panel gets its connection from Home Assistant.
     id: 'connection',
     scope: 'house',
+    owner: 'core',
     section: 'system',
     route: '/settings/connections',
     storage: 'browser_local',
@@ -163,6 +158,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'devices',
     scope: 'house',
+    owner: 'core',
     section: 'system',
     route: '/settings/devices',
     storage: 'ha_registry',
@@ -172,6 +168,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'entities',
     scope: 'house',
+    owner: 'core',
     section: 'system',
     route: '/settings/entities',
     storage: 'ha_registry',
@@ -181,6 +178,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'system',
     scope: 'house',
+    owner: 'core',
     section: 'system',
     route: '/settings/system',
     storage: 'ha_runtime',
@@ -190,6 +188,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'data',
     scope: 'house',
+    owner: 'core',
     section: 'system',
     route: '/settings/data',
     capability: 'download_backup',
@@ -200,6 +199,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'appearance',
     scope: 'device',
+    owner: 'core',
     section: 'device',
     route: DEVICE_APPEARANCE_ROUTE,
     storage: 'browser_local',
@@ -209,6 +209,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
   {
     id: 'language',
     scope: 'device',
+    owner: 'core',
     section: 'device',
     route: DEVICE_LANGUAGE_ROUTE,
     storage: 'browser_local',
@@ -219,6 +220,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     // Saved in this browser today, although only an administrator changes it.
     id: 'attention',
     scope: 'device',
+    owner: 'core',
     section: 'device',
     route: '/settings/attention',
     capability: 'edit_dashboard',
@@ -230,6 +232,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     // Developer mode and card sizing never leave this device.
     id: 'advanced',
     scope: 'device',
+    owner: 'core',
     section: 'device',
     route: '/settings/advanced',
     capability: 'developer_mode',
@@ -237,6 +240,26 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     titleKey: 'settings.advanced.hubTitle',
     descriptionKey: 'settings.advanced.hubSubtitle',
   },
+];
+
+/**
+ * House configuration owned by an app: it is configured inside the app, at
+ * the app's own address, and never on the Settings page.
+ */
+export type AppOwnedSetting = Readonly<{
+  id: 'energy' | 'irrigation';
+  scope: 'house';
+  owner: Exclude<SettingsOwner, 'core' | 'waste'>;
+  /** Where the app opens its configuration. */
+  route: string;
+  storage: SettingsStorage;
+}>;
+
+export const APP_OWNED_SETTINGS: readonly AppOwnedSetting[] = [
+  // Reached from Consumption › Energy; the settings open inside the page.
+  { id: 'energy', scope: 'house', owner: 'energy', route: '/consumi/energia', storage: 'integration_store' },
+  // Reached from App Gallery › Irrigation › Settings.
+  { id: 'irrigation', scope: 'house', owner: 'irrigation', route: '/appgallery/irrigation/settings', storage: 'integration_store' },
 ];
 
 export type ProfileEntryId = 'personal' | 'activity' | 'devices' | 'startupPanel' | 'security';

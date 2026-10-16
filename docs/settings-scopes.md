@@ -4,11 +4,51 @@ Ogni impostazione di Domus UI appartiene a **uno solo** di tre scope. È una
 regola di progetto: una nuova impostazione dichiara il suo scope prima di
 avere una posizione nell'interfaccia.
 
-| Scope | Significa | Dove si trova |
+| Scope | Significa | Dove si trova, se è del core Domus |
 | --- | --- | --- |
 | **PROFILE** | «Riguarda me» | Profilo |
 | **HOUSE** | «Riguarda questa casa» | Impostazioni › Casa e Impostazioni › Sistema |
 | **DEVICE** | «Riguarda questo dispositivo» | Impostazioni › Questo dispositivo |
+
+## Scope ≠ owner ≠ posizione
+
+Ogni configurazione ha tre dimensioni indipendenti:
+
+| Dimensione | Domanda | Valori |
+| --- | --- | --- |
+| **Scope** | A chi appartiene questo valore? | `PROFILE`, `HOUSE`, `DEVICE` (solo questi tre) |
+| **Owner / dominio** | Quale modulo ne è responsabile? | `CORE` (Domus), `WASTE`, `ENERGY`, `IRRIGATION`, altre app future |
+| **Posizione** | Dove la modifica l'utente? | Profilo, una sezione di Impostazioni, oppure dentro un'app |
+
+| Configurazione | Scope | Owner | Posizione |
+| --- | --- | --- | --- |
+| Tema e sfondo | DEVICE | CORE | Impostazioni › Questo dispositivo |
+| Lingua | DEVICE | CORE | Impostazioni › Questo dispositivo |
+| Connessione Home Assistant | HOUSE | CORE | Impostazioni › Sistema |
+| Dashboard condivisa | HOUSE | CORE | Impostazioni › Casa |
+| Raccolta rifiuti | HOUSE | WASTE | Impostazioni › Casa (non ha un'app propria) |
+| Energia | HOUSE | ENERGY | dentro Energia (Consumi › Energia) |
+| Irrigazione | HOUSE | IRRIGATION | dentro Irrigazione (App Gallery › Irrigazione › Impostazioni) |
+| Pannello d'avvio | PROFILE | CORE | Profilo |
+| Screensaver (futuro) | DEVICE | CORE (esperienza del dispositivo) | Impostazioni › Questo dispositivo |
+
+**Una configurazione HOUSE non appartiene automaticamente a Impostazioni ›
+Casa.** HOUSE dice soltanto che il valore riguarda tutta la casa. La posizione
+dipende dall'owner:
+
+- **owner CORE** → la pagina Impostazioni, nella sezione del suo scope;
+- **owner = un'app con pagina propria** (backend, Store, navigazione e
+  configurazione propri) → dentro l'app, qualunque sia lo scope.
+
+La pagina Impostazioni raccoglie la configurazione del core Domus: non è un
+catalogo delle funzioni e non è una seconda App Gallery. Le app si
+raggiungono dal loro punto d'ingresso (Consumi, App Gallery) e la loro
+configurazione resta lì. ENERGY e IRRIGATION sono owner, non scope.
+
+Un modulo con backend e Store propri ma **senza una pagina propria** usa la
+pagina Impostazioni come unica superficie di configurazione: è il caso della
+Raccolta rifiuti. Se un giorno diventasse un'app, la sua configurazione si
+sposterebbe dentro l'app.
 
 ## Come si classifica
 
@@ -56,9 +96,15 @@ compatibilità.
 ## Mappa attuale
 
 Il modello dichiarativo è `src/components/settings/settingsScopes.ts`:
-`SETTINGS_ENTRIES` (pagina Impostazioni) e `PROFILE_ENTRIES` (Profilo). La
-pagina Impostazioni costruisce i gruppi da lì; i test in
-`settingsScopes.test.ts` ne bloccano le classificazioni.
+
+- `SETTINGS_ENTRIES`: le voci della pagina Impostazioni, ognuna con scope,
+  owner (`core`, oppure `waste`), sezione, route, autorità e permesso;
+- `APP_OWNED_SETTINGS`: la configurazione HOUSE delle app (Energia,
+  Irrigazione), con la route dentro l'app; non compare mai nella pagina;
+- `PROFILE_ENTRIES`: il Profilo.
+
+La pagina Impostazioni costruisce i gruppi da `SETTINGS_ENTRIES`; i test in
+`settingsScopes.test.ts` ne bloccano classificazioni e confini.
 
 Autorità di salvataggio usate nella tabella:
 
@@ -83,20 +129,26 @@ Autorità di salvataggio usate nella tabella:
 
 ### Impostazioni › Casa — HOUSE
 
-| Voce | Route | Autorità | Visibile con |
-| --- | --- | --- | --- |
-| Dashboard | `/settings/dashboard` | Casa condivisa HA | `edit_dashboard` |
-| Piani e stanze | `/settings/floors` | Registri HA | tutti (modifiche con `manage_rooms`) |
-| Persone e accessi | `/settings/access` | Registri HA | `manage_rooms` |
-| Sicurezza | `/settings/safety` | Casa condivisa HA | `manage_security_config` |
-| Raccolta rifiuti | `/settings/home/waste-collection` | Store `domusos.waste_collection.v1` | tutti (modifiche con `manage_rooms`) |
-| Energia | `/consumi/energia` | Store `domusos.energy.v2` | `manage_energy` |
-| Irrigazione | `/appgallery/irrigation/settings` | Store `domusos.irrigation.v1` | `edit_dashboard` |
+| Voce | Owner | Route | Autorità | Visibile con |
+| --- | --- | --- | --- | --- |
+| Dashboard | CORE | `/settings/dashboard` | Casa condivisa HA | `edit_dashboard` |
+| Piani e stanze | CORE | `/settings/floors` | Registri HA | tutti (modifiche con `manage_rooms`) |
+| Persone e accessi | CORE | `/settings/access` | Registri HA | `manage_rooms` |
+| Sicurezza | CORE | `/settings/safety` | Casa condivisa HA (sezione `security`) e codici locali delle card | `manage_security_config` |
+| Raccolta rifiuti | WASTE | `/settings/home/waste-collection` | Store `domusos.waste_collection.v1` | tutti (modifiche con `manage_rooms`) |
 
-Energia e Irrigazione restano applicazioni con le proprie pagine: Impostazioni
-contiene solo l'accesso alla loro configurazione. La configurazione di Energia
-non ha ancora un indirizzo proprio, quindi la voce apre la pagina Energia, da
-cui si entra nelle impostazioni.
+Sicurezza è del core: sceglie allarme, sensori e telecamere del Centro
+sicurezza nel documento della casa, senza backend né Store propri.
+
+### Configurazione HOUSE dentro le app
+
+| Configurazione | Owner | Dove si modifica | Autorità | Permesso |
+| --- | --- | --- | --- | --- |
+| Energia | ENERGY | Consumi › Energia (impostazioni nella pagina) | Store `domusos.energy.v2` | `manage_energy` |
+| Irrigazione | IRRIGATION | App Gallery › Irrigazione › Impostazioni (`/appgallery/irrigation/settings`) | Store `domusos.irrigation.v1` | `edit_dashboard` |
+
+Sono HOUSE ma non compaiono in Impostazioni: la loro configurazione resta
+l'unica autorità, dentro l'app.
 
 ### Impostazioni › Sistema — HOUSE
 
@@ -144,9 +196,9 @@ Sono DEVICE di fatto e oggi si cambiano dove si usano:
   pannello. Resta in Sistema perché descrive l'installazione.
 - **Accesso e sicurezza**: la passkey non può seguire la persona su un altro
   dispositivo; resta nel Profilo perché è la conferma della persona.
-- **Indietro**: da Energia e Irrigazione il pulsante Indietro della pagina
-  porta alla loro applicazione (Consumi, App Gallery), non a Impostazioni; il
-  tasto Indietro del browser torna a Impostazioni.
+- **Raccolta rifiuti**: è un modulo con backend e Store propri ospitato in
+  Impostazioni perché non ha una pagina propria. Se diventerà un'app, la sua
+  configurazione andrà dentro l'app.
 
 ## Compatibilità degli indirizzi
 
@@ -165,11 +217,15 @@ cambiano.
 
 1. Scegli lo scope con le tre domande sopra, guardando dove il valore sarà
    salvato.
-2. Aggiungi la voce a `SETTINGS_ENTRIES` (o al Profilo) con route, autorità e,
-   se serve, una `capability` esistente: non si inventano permessi.
-3. Aggiungi testo e descrizione in it, en e fr e l'aspetto della card in
+2. Scegli l'owner: se la configurazione appartiene a un'app con pagina
+   propria, resta dentro l'app (elencala in `APP_OWNED_SETTINGS`) e non va in
+   Impostazioni.
+3. Per il core, aggiungi la voce a `SETTINGS_ENTRIES` (o al Profilo) con
+   route, autorità e, se serve, una `capability` esistente: non si inventano
+   permessi.
+4. Aggiungi testo e descrizione in it, en e fr e l'aspetto della card in
    `SettingsDashboard`.
-4. Non mostrare voci non implementate né segnaposto «In arrivo».
+5. Non mostrare voci non implementate né segnaposto «In arrivo».
 
 ## Futuro
 

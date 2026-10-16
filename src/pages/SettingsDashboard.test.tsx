@@ -104,8 +104,6 @@ describe('SettingsDashboard', () => {
       expect.stringContaining('Persone e accessi'),
       expect.stringContaining('Sicurezza'),
       expect.stringContaining('Raccolta rifiuti'),
-      expect.stringContaining('Energia'),
-      expect.stringContaining('Irrigazione'),
     ]);
     const system = within(screen.getByRole('region', { name: 'Sistema' }));
     expect(system.getAllByRole('button').map((card) => card.textContent)).toEqual([
@@ -141,18 +139,17 @@ describe('SettingsDashboard', () => {
     expect(onNavigate).toHaveBeenCalledWith('/settings/device/language');
   });
 
-  it('opens the Energy and Irrigation configuration at their own pages', () => {
-    const onNavigate = vi.fn();
+  it('leaves the Energy and Irrigation configuration to their apps, even for an Owner', () => {
     render(
       <DashboardSecurityProvider value={security}>
-        <SettingsDashboard {...baseProps} navigationRoute="/settings" onNavigate={onNavigate} />
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" />
       </DashboardSecurityProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^Energia/ }));
-    expect(onNavigate).toHaveBeenCalledWith('/consumi/energia');
-    fireEvent.click(screen.getByRole('button', { name: /^Irrigazione/ }));
-    expect(onNavigate).toHaveBeenCalledWith('/appgallery/irrigation/settings');
+    expect(security.can('manage_energy')).toBe(true);
+    expect(screen.queryByRole('button', { name: /Energia/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Irrigazione/ })).toBeNull();
+    expect(screen.queryByText(/Impianto, sensori e tariffa|Sorgenti, consumi e regole/)).toBeNull();
   });
 
   it('shows a member only the entries their current permissions open', () => {
