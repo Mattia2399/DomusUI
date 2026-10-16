@@ -210,11 +210,11 @@ test('a user links, adjusts and removes a personal device', async ({ page }) => 
   const home = await simulateHomeAssistant(page, {
     haDevices: [{ haDeviceId: 'ha-pixel', displayName: 'Pixel 8' }],
   });
-  await page.goto('/profile');
+  await page.goto('/settings/profile');
 
   await expect(devicesRow(page)).toContainText('0');
   await devicesRow(page).click();
-  await expect(page).toHaveURL(/\/profile\/devices$/);
+  await expect(page).toHaveURL(/\/settings\/profile\/devices$/);
   await expect(page.getByText('Nessun dispositivo personale')).toBeVisible();
   await capture(page, 'devices-empty-390');
 
@@ -271,7 +271,7 @@ test('a user links, adjusts and removes a personal device', async ({ page }) => 
 test('a device Home Assistant no longer knows can still be removed', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   const home = await simulateHomeAssistant(page, { owned: [{ haDeviceId: 'ha-gone', label: 'Vecchio telefono' }] });
-  await page.goto('/profile/devices');
+  await page.goto('/settings/profile/devices');
 
   const device = page.getByRole('article', { name: 'Vecchio telefono' });
   await expect(device.getByText('Non più disponibile in Home Assistant')).toBeVisible();
@@ -291,7 +291,7 @@ test('presence never borrows a Person or tracker by name', async ({ page }) => {
       'device_tracker.owner_phone': ['home', { friendly_name: 'Owner', user_id: 'owner', latitude: 45, longitude: 9 }],
     },
   });
-  await page.goto('/profile/activity');
+  await page.goto('/settings/profile/activity');
 
   await expect(page.getByText('Nessuna attività disponibile')).toBeVisible();
   await expect(page.getByTestId('profile-activity-summary')).toContainText('Nessuna fonte di presenza');
@@ -309,7 +309,7 @@ test('presence follows the Person linked to the user', async ({ page }) => {
       'device_tracker.unrelated': ['home', { friendly_name: 'Owner', user_id: 'owner' }],
     },
   });
-  await page.goto('/profile/activity');
+  await page.goto('/settings/profile/activity');
 
   await expect(page.getByTestId('profile-activity-summary')).toContainText('1 fonte di presenza');
 });
@@ -326,7 +326,7 @@ for (const [width, height] of [[390, 844], [820, 1180], [1440, 960]]) {
         ],
         owned: [{ haDeviceId: 'ha-pixel' }, { haDeviceId: 'ha-ipad', label: 'Tablet cucina' }, { haDeviceId: 'ha-gone' }],
       });
-      await page.goto('/profile/devices');
+      await page.goto('/settings/profile/devices');
       await expect(page.getByRole('article')).toHaveCount(3);
       await capture(page, `devices-${width}-${scheme}`);
       await page.getByRole('button', { name: 'Aggiungi dispositivo' }).click();

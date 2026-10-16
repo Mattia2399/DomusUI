@@ -67,15 +67,61 @@ test('Settings, System: the connection opens and Back returns to Settings', asyn
 });
 
 test('Profile: My devices opens and Back returns to the Profile', async ({ page }) => {
-  await page.goto('/profile');
+  await page.goto('/settings/profile');
 
   await page.getByRole('button', { name: /I miei dispositivi/ }).click();
-  await expect(page).toHaveURL(/\/profile\/devices$/);
+  await expect(page).toHaveURL(/\/settings\/profile\/devices$/);
   await expect(page.getByRole('heading', { name: 'I miei dispositivi', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Indietro' }).click();
-  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page).toHaveURL(/\/settings\/profile$/);
   await expect(page.getByRole('button', { name: /Informazioni personali/ })).toBeVisible();
+});
+
+test('Profile and Settings are one page, opened by the avatar and the gear', async ({ page }) => {
+  await page.goto('/home');
+
+  await page.getByRole('button', { name: /Apri profilo/ }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  const profile = page.getByRole('region', { name: 'Profilo', exact: true });
+  await expect(profile).toBeVisible();
+  // My devices is one tap away from the top of Settings.
+  await profile.getByRole('button', { name: /I miei dispositivi/ }).click();
+  await expect(page).toHaveURL(/\/settings\/profile\/devices$/);
+
+  await page.goto('/profile/devices');
+  await expect(page).toHaveURL(/\/settings\/profile\/devices$/);
+  await expect(page.getByRole('heading', { name: 'I miei dispositivi', exact: true })).toBeVisible();
+});
+
+test('Opening and leaving the Profile never shows another Settings page', async ({ page }) => {
+  // Records whether the System page title appears at any moment, even for one frame.
+  await page.addInitScript(() => {
+    window.__systemPageSeen = false;
+    // Every added node is checked, so a page replaced in the same task is still seen.
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.textContent?.includes('Stato del sistema')) window.__systemPageSeen = true;
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
+  await page.goto('/settings');
+
+  await page.getByRole('region', { name: 'Profilo', exact: true }).getByRole('button').first().click();
+  await expect(page).toHaveURL(/\/settings\/profile$/);
+  await expect(page.getByRole('button', { name: /Informazioni personali/ })).toBeVisible();
+
+  // Back from the Profile to Settings, then My devices from the top of Settings.
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByRole('region', { name: 'Casa', exact: true })).toBeVisible();
+  await page.getByRole('region', { name: 'Profilo', exact: true }).getByRole('button', { name: /I miei dispositivi/ }).click();
+  await expect(page).toHaveURL(/\/settings\/profile\/devices$/);
+  await expect(page.getByRole('heading', { name: 'I miei dispositivi', exact: true })).toBeVisible();
+  // Checked before any reload, which would reset the record.
+  expect(await page.evaluate(() => window.__systemPageSeen)).toBe(false);
 });
 
 test('This device: theme and language stay in this browser, as before', async ({ page }) => {

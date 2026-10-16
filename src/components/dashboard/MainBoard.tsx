@@ -161,7 +161,6 @@ import { useNotifications } from '../../context/NotificationProvider';
 import type {
   ProfileMovementMapPoint,
   ProfileMovementTimelineEntry,
-  ProfileSectionId,
 } from '../settings/profileModels';
 import type { SettingsManagementSectionId } from '../settings/settingsManagementRegistry';
 import {
@@ -219,7 +218,7 @@ import {
 } from '../../hooks/useConsumptionConfig';
 import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfileSettings';
 import { resolveApplicationRoutePath } from '../../navigation/applicationRoutes';
-import { resolveLegacySettingsRoute } from '../../navigation/settingsRoutes';
+import { isProfileSettingsRoute, resolveLegacySettingsRoute } from '../../navigation/settingsRoutes';
 import { loadHaStateTranslations } from '../../services/haStateTranslations';
 import { useHaLiveConnection, type HaArea } from '../../hooks/useHaLiveConnection';
 import { useHaPanelBridgeConnection } from '../../hooks/useHaPanelBridgeConnection';
@@ -400,7 +399,6 @@ import {
   isHomeNavigationTarget,
   isNestedDashboardNavigationTarget,
   isNavigationPathnameAllowed,
-  isProfileNavigationTarget,
   isRoomsNavigationTarget,
   isSecurityCamerasNavigationTarget,
   isSecurityNavigationTarget,
@@ -411,7 +409,6 @@ import {
   resolveConsumptionDetailFromLocation,
   resolveConsumptionFromLocation,
   resolveEditAvailabilityFromLocation,
-  resolveProfileFromLocation,
   resolveRoomsFromLocation,
   resolveSecurityCamerasFromLocation,
   resolveSecurityFromLocation,
@@ -461,9 +458,10 @@ function prefetchDashboardWorkspace(path: string) {
   if (normalizedPath.startsWith('/consumi')) return void loadConsumptionDashboard();
   if (normalizedPath.startsWith('/automations')) return void loadAutomationsBuilder();
   if (normalizedPath.startsWith('/appgallery')) return void loadAppGallery();
+  if (normalizedPath.startsWith('/settings/profile')) return void loadModernProfilePage();
   if (normalizedPath.startsWith('/settings')) return void loadSettingsDashboard();
   if (normalizedPath === '/support') return void loadSettingsDashboard();
-  if (normalizedPath.startsWith('/profile')) return void loadModernProfilePage();
+  if (normalizedPath.startsWith('/profile')) return void loadSettingsDashboard();
 }
 
 function prefetchDashboardBuilder() {
@@ -2508,9 +2506,10 @@ export function MainBoard() {
   const [selectedSidebarPathId, setSelectedSidebarPathId] = useState<string | null>(null);
   const [runningSceneBySectionId, setRunningSceneBySectionId] = useState<Partial<Record<string, SceneRunState>>>({});
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(resolveProfileFromLocation);
+  const [isProfileOpen, setIsProfileOpen] = useState(
+    () => typeof window !== 'undefined' && isProfileSettingsRoute(window.location.pathname),
+  );
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [profileInitialSection, setProfileInitialSection] = useState<ProfileSectionId>('members');
   const [editConfirm, setEditConfirm] = useState<'enter' | 'exit' | 'refresh' | null>(null);
   const [pendingStackRemovalId, setPendingStackRemovalId] = useState<string | null>(null);
   const [isConsumptionView, setIsConsumptionView] = useState(resolveConsumptionFromLocation);
@@ -2546,7 +2545,6 @@ export function MainBoard() {
   const alarmActivityRefreshTimeoutRef = useRef<Record<string, number[]>>({});
   const activityFetchSeqRef = useRef(0);
   const vacuumReturnToBaseTimeoutRef = useRef<Record<string, number>>({});
-  const profileReturnRouteRef = useRef('/home');
   const cameraPtzControlModeRef = useRef<'button' | 'service' | null>(null);
   const previousHaStatusRef = useRef<typeof haStatus | null>(null);
   const reconnectToastIdRef = useRef<string | null>(null);
@@ -6159,7 +6157,7 @@ export function MainBoard() {
     const nextIsRooms = isRoomsNavigationTarget(currentRoute);
     const nextIsSecurity = isSecurityNavigationTarget(currentRoute);
     const nextIsSecurityCameras = isSecurityCamerasNavigationTarget(currentRoute);
-    const nextIsProfile = isProfileNavigationTarget(currentRoute);
+    const nextIsProfile = isProfileSettingsRoute(currentRoute);
     const nextIsSettings = isSettingsNavigationTarget(currentRoute);
     const nextIsKnownRoute =
       isHomeNavigationTarget(currentRoute) ||
@@ -6184,14 +6182,6 @@ export function MainBoard() {
     setIsSecurityCamerasView(nextIsSecurityCameras);
     setIsSettingsView(nextIsSettings);
     setIsProfileOpen(nextIsProfile);
-    if (nextIsProfile) {
-      setProfileInitialSection((currentSection) => {
-        if (currentSection === 'movements' || currentSection === 'members' || currentSection === 'security') {
-          return currentSection;
-        }
-        return 'members';
-      });
-    }
     setIsEditAvailableForRoute(nextEditAvailability);
   }, [
     canUseBrowserRouteNavigation,
@@ -10758,7 +10748,7 @@ export function MainBoard() {
       const nextIsRooms = isRoomsNavigationTarget(normalizedRouteForNavigate);
       const nextIsSecurity = isSecurityNavigationTarget(normalizedRouteForNavigate);
       const nextIsSecurityCameras = isSecurityCamerasNavigationTarget(normalizedRouteForNavigate);
-      const nextIsProfile = isProfileNavigationTarget(normalizedRouteForNavigate);
+      const nextIsProfile = isProfileSettingsRoute(normalizedRouteForNavigate);
       const nextIsSettings = isSettingsNavigationTarget(normalizedRouteForNavigate);
       const nextIsKnownRoute =
         isHomeNavigationTarget(normalizedRouteForNavigate) ||
@@ -10783,14 +10773,6 @@ export function MainBoard() {
       setIsSecurityCamerasView(nextIsSecurityCameras);
       setIsSettingsView(nextIsSettings);
       setIsProfileOpen(nextIsProfile);
-      if (nextIsProfile) {
-        setProfileInitialSection((currentSection) => {
-          if (currentSection === 'movements' || currentSection === 'members' || currentSection === 'security') {
-            return currentSection;
-          }
-          return 'members';
-        });
-      }
       setIsEditAvailableForRoute(nextEditAvailability);
       setActiveDevice(null);
       setSelectedWidgetId(null);
@@ -10915,6 +10897,9 @@ export function MainBoard() {
 
   const getCurrentNavigationRoute = () => currentNavigationRoute;
   const activeNavigationRoute = getCurrentNavigationRoute();
+  // Read from the address itself: the state set after a navigation would let
+  // Settings render a Profile address for one frame.
+  const isProfileRoute = isProfileSettingsRoute(activeNavigationRoute);
   // Opening an app from the App Gallery, and back, pushes like a subpage; the
   // sections inside an app are tabs, so only the gallery and the app count.
   usePagePushTransition(
@@ -10962,28 +10947,11 @@ export function MainBoard() {
     }
   }, [legacySettingsRoute]);
 
-  const openProfileRoute = (section: ProfileSectionId = 'members') => {
-    const currentRoute = getCurrentNavigationRoute();
-    if (!isProfileNavigationTarget(currentRoute) && !isSettingsNavigationTarget(currentRoute)) {
-      profileReturnRouteRef.current = currentRoute || '/home';
-    }
-    setProfileInitialSection(section);
-    setIsProfileOpen(true);
-    navigateWithinDashboard('/profile');
-  };
-
+  // Profile and Settings are one page: the avatar and the gear both open it,
+  // and the person is at its top.
   const openSettingsRoute = () => {
     setIsProfileOpen(false);
     navigateWithinDashboard('/settings');
-  };
-
-  const closeProfileRoute = () => {
-    setIsProfileOpen(false);
-    setProfileInitialSection('members');
-    const currentRoute = getCurrentNavigationRoute();
-    if (isProfileNavigationTarget(currentRoute)) {
-      navigateWithinDashboard(profileReturnRouteRef.current || '/home');
-    }
   };
   const quickAlarmRequiresCode = Boolean(pendingQuickAlarmAction?.requiresCode);
   const quickLockRequiresCode = Boolean(pendingQuickLockAction);
@@ -11182,7 +11150,7 @@ export function MainBoard() {
                     userAvatarUrl={currentUserAvatarUrl}
                     userName={stateWithConnectedUser.userName}
                     haStatus={haStatus}
-                    onOpenProfile={() => openProfileRoute('members')}
+                    onOpenProfile={openSettingsRoute}
                   />
                 </div>
               </>
@@ -11218,7 +11186,7 @@ export function MainBoard() {
             onNavigate={navigateWithinDashboard}
             onPathClick={handleSidebarPathClick}
             onToggleEditMode={requestToggleEditMode}
-            onOpenProfile={() => openProfileRoute('members')}
+            onOpenProfile={openSettingsRoute}
             onOpenSettings={openSettingsRoute}
             showHomeAssistantReturn={showHomeAssistantReturn}
             canReturnToHomeAssistant={!isEditMode}
@@ -11244,7 +11212,7 @@ export function MainBoard() {
           canToggleEditMode={canToggleEditMode}
           onPathClick={handleSidebarPathClick}
           onToggleEditMode={requestToggleEditMode}
-          onOpenProfile={() => openProfileRoute('members')}
+          onOpenProfile={openSettingsRoute}
           onOpenSettings={openSettingsRoute}
           showHomeAssistantReturn={showHomeAssistantReturn}
           canReturnToHomeAssistant={!isEditMode}
@@ -11350,6 +11318,33 @@ export function MainBoard() {
               onCameraPtzStop={(entityId) => stopCameraPtz(entityId)}
             />
           </div>
+        ) : isSettingsView && isProfileRoute ? (
+          <div className="h-full min-h-0 flex-1 overflow-hidden">
+            <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" />}>
+              <ModernProfilePage
+                isOpen
+                onClose={openSettingsRoute}
+                currentUserId={deviceAuthUser.id}
+                haUserId={haCurrentUser?.id}
+                userAvatarUrl={currentUserAvatarUrl}
+                userAvatarAlt={stateWithConnectedUser.userName}
+                userEmail={profileUserEmail}
+                userRoleLabel={profileUserRoleLabel}
+                houseMembers={profileHouseMembers}
+                presenceTrackerCount={profilePresenceTrackerCount}
+                profileDevicesSupported={profileDevicesSupported}
+                movementTimeline={profileMovementTimeline}
+                movementPoints={profileMovementPoints}
+                movementUpdatedLabel={profileMovementUpdatedLabel}
+                haStatus={haStatus}
+                navigationRoute={activeNavigationRoute}
+                onNavigate={navigateWithinDashboard}
+                runtimeMode={effectiveRuntimeMode}
+                onCallApi={callHaApi}
+                onNotify={addNotification}
+              />
+            </React.Suspense>
+          </div>
         ) : isSettingsView ? (
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <SettingsDashboard
@@ -11384,6 +11379,12 @@ export function MainBoard() {
               }))}
               deviceAuthUser={deviceAuthUser}
               resolveAssetUrl={resolveSettingsAssetUrl}
+              account={{
+                name: stateWithConnectedUser.userName,
+                email: profileUserEmail,
+                roleLabel: profileUserRoleLabel,
+                avatarUrl: currentUserAvatarUrl,
+              }}
               appearanceMode={appearanceMode}
               onAppearanceModeChange={setAppearanceMode}
               background={background}
@@ -11837,33 +11838,6 @@ export function MainBoard() {
         />
       ) : null}
 
-      {isProfileOpen ? (
-        <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" overlay />}>
-          <ModernProfilePage
-            isOpen
-            onClose={closeProfileRoute}
-            initialSection={profileInitialSection}
-            currentUserId={deviceAuthUser.id}
-            haUserId={haCurrentUser?.id}
-            userAvatarUrl={currentUserAvatarUrl}
-            userAvatarAlt={stateWithConnectedUser.userName}
-            userEmail={profileUserEmail}
-            userRoleLabel={profileUserRoleLabel}
-            houseMembers={profileHouseMembers}
-            presenceTrackerCount={profilePresenceTrackerCount}
-            profileDevicesSupported={profileDevicesSupported}
-            movementTimeline={profileMovementTimeline}
-            movementPoints={profileMovementPoints}
-            movementUpdatedLabel={profileMovementUpdatedLabel}
-            haStatus={haStatus}
-            navigationRoute={activeNavigationRoute}
-            onNavigate={navigateWithinDashboard}
-            runtimeMode={effectiveRuntimeMode}
-            onCallApi={callHaApi}
-            onNotify={addNotification}
-          />
-        </React.Suspense>
-      ) : null}
 
       {activeMainGuide ? (
         <React.Suspense fallback={<SecondaryWorkspaceLoading label="Preparazione guida…" overlay />}>

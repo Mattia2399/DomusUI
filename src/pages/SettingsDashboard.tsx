@@ -3,6 +3,7 @@ import { selectHouseholdPeople } from '../services/houseMembers';
 import {
   Activity,
   AlertTriangle,
+  Bell,
   BellRing,
   Box,
   ChevronRight,
@@ -45,10 +46,6 @@ import {
   resolveHouseAccessView,
   type ProfileHouseMember,
 } from '../components/settings/settingsHouseAccessModel';
-import {
-  SettingsCardPreview,
-  type SettingsPreviewMember,
-} from '../components/settings/SettingsCardPreview';
 import SettingsEntitiesList from '../components/settings/SettingsEntitiesList';
 import SettingsDevicesList, {
   SettingsDeviceDetail,
@@ -65,9 +62,7 @@ import {
   useHomeAttentionPreferences,
 } from '../components/homeAttention/homeAttentionPreferences';
 import { useHomeAttentionSuppressions } from '../components/homeAttention/homeAttentionSuppressions';
-import SettingsAttentionSection, {
-  SettingsAttentionPreview,
-} from '../components/settings/SettingsAttentionSection';
+import SettingsAttentionSection from '../components/settings/SettingsAttentionSection';
 import {
   buildSupportDiagnostics,
   createSupportDiagnosticsFilename,
@@ -100,6 +95,8 @@ import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
   DEVICE_SETTINGS_ROUTE,
+  PROFILE_ROUTE,
+  isProfileSettingsRoute,
 } from '../navigation/settingsRoutes';
 import type { DashboardAppearanceMode, DashboardBackgroundPreset } from '../theme/dashboardTheme';
 import LazyLoadBoundary from '../components/common/LazyLoadBoundary';
@@ -150,6 +147,8 @@ type SettingsDashboardProps = {
   alarmCards?: SecurityAlarmCard[];
   /** Whose device confirmation is shown (same identity as the Profile). */
   deviceAuthUser?: Partial<AuthUserContext>;
+  /** The signed-in person, shown at the top of Settings; the card opens the Profile. */
+  account?: { name?: string; email?: string; roleLabel?: string; avatarUrl?: string };
   /** Light or dark theme of this device (Settings › This device). */
   appearanceMode: DashboardAppearanceMode;
   onAppearanceModeChange: (mode: DashboardAppearanceMode) => void;
@@ -496,118 +495,6 @@ function InfoRow({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: str
   );
 }
 
-function SettingsHubCard({
-  icon: Icon,
-  title,
-  subtitle,
-  className = '',
-  iconClassName = '',
-  accentClassName = '',
-  onClick,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  className?: string;
-  iconClassName?: string;
-  accentClassName?: string;
-  onClick: () => void;
-  children?: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`dashboard-content-surface group relative flex min-w-0 flex-col overflow-hidden rounded-[1.35rem] p-4 text-left transition-[transform,border-color,background-color] duration-300 hover:-translate-y-0.5 hover:border-[color:var(--ui-border-strong)] active:translate-y-0 sm:min-h-[10rem] sm:rounded-[1.65rem] sm:p-5 ${children ? 'min-h-[8.5rem]' : ''} ${className}`}
-    >
-      {accentClassName ? (
-        <span
-          aria-hidden="true"
-          className={`pointer-events-none absolute inset-0 opacity-80 transition-opacity duration-300 group-hover:opacity-100 ${accentClassName}`}
-        />
-      ) : null}
-      <span className="relative z-10 flex min-w-0 items-start gap-2 sm:gap-3">
-        <Icon
-          size={20}
-          className={`mt-0.5 shrink-0 text-[color:var(--ui-text-secondary)] ${iconClassName}`}
-        />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[0.95rem] font-semibold tracking-[-0.025em] text-[color:var(--ui-text-primary)] sm:text-[1.05rem]">
-            {title}
-          </span>
-          <span className="mt-1 block text-[11px] leading-4 text-[color:var(--ui-text-secondary)] sm:text-xs sm:leading-5">{subtitle}</span>
-        </span>
-        <span className="liquid-glass-control flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-transform duration-300 group-hover:translate-x-0.5 sm:h-8 sm:w-8">
-          <ChevronRight size={14} />
-        </span>
-      </span>
-
-      {children ? <span className="relative z-10 mt-auto block w-full pt-3 sm:pt-5">{children}</span> : null}
-    </button>
-  );
-}
-
-const HUB_GROUP_COLUMNS = ['', 'xl:grid-cols-1', 'xl:grid-cols-2', 'xl:grid-cols-3', 'xl:grid-cols-4'];
-const HUB_GROUP_LAST_SPAN = [
-  '',
-  'xl:[&>*:last-child]:col-span-1',
-  'xl:[&>*:last-child]:col-span-2',
-  'xl:[&>*:last-child]:col-span-3',
-];
-
-/** Columns on wide screens, and how wide the last card is, so no row has an empty cell. */
-function hubGroupWideLayout(count: number) {
-  const columns = count <= 4 ? count : count % 4 === 0 || count % 3 === 1 ? 4 : 3;
-  const remainder = count % columns;
-  return { columns, lastSpan: remainder === 0 ? 1 : columns - remainder + 1 };
-}
-
-/** A titled group of hub cards: as few rows as possible on wide screens, no empty cells. */
-function SettingsHubGroup({
-  id,
-  title,
-  description,
-  children,
-}: {
-  id?: string;
-  title: string;
-  /** Who the group's settings apply to, in a few words. */
-  description?: string;
-  children: React.ReactNode;
-}) {
-  const titleId = useId();
-  const descriptionId = useId();
-  const cards = React.Children.toArray(children);
-  if (cards.length === 0) return null;
-  const odd = cards.length % 2 === 1;
-  const wide = hubGroupWideLayout(cards.length);
-  return (
-    <section
-      id={id}
-      aria-labelledby={titleId}
-      aria-describedby={description ? descriptionId : undefined}
-      className="scroll-mt-4"
-    >
-      <h2 id={titleId} className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
-        {title}
-      </h2>
-      {description ? (
-        <p id={descriptionId} className="mt-1 px-1 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-          {description}
-        </p>
-      ) : null}
-      <div
-        className={`mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 ${HUB_GROUP_COLUMNS[wide.columns]} ${
-          odd ? 'sm:[&>*:last-child]:col-span-2' : ''
-        } ${odd || wide.lastSpan > 1 ? HUB_GROUP_LAST_SPAN[wide.lastSpan] : ''}`}
-      >
-        {cards}
-      </div>
-    </section>
-  );
-}
-
 /** The layout in use, in words: phone, tablet or desktop rather than a breakpoint id. */
 function layoutFormatLabel(layoutId: string | undefined, t: ReturnType<typeof useI18n>['t']) {
   if (layoutId === 'xs' || layoutId === 'sm') return t('settings.dashboard.layout.phone');
@@ -681,6 +568,7 @@ export default function SettingsDashboard({
   onAreasChanged,
   alarmCards = [],
   deviceAuthUser,
+  account,
   appearanceMode,
   onAppearanceModeChange,
   background,
@@ -706,6 +594,7 @@ export default function SettingsDashboard({
   const [wasteHasUnsavedChanges, setWasteHasUnsavedChanges] = useState(false);
   const [wasteLeaveConfirmOpen, setWasteLeaveConfirmOpen] = useState(false);
   const [updatesPageOpen, setUpdatesPageOpen] = useState(false);
+  const [accountAvatarFailed, setAccountAvatarFailed] = useState(false);
   const [powerConfirm, setPowerConfirm] = useState<'restartHa' | 'restartHost' | 'shutdown' | null>(null);
   // Re-render once a minute so uptime/duration labels stay fresh.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -960,42 +849,21 @@ export default function SettingsDashboard({
     window.setTimeout(() => revokeObjectUrl(objectUrl), 0);
     setDiagnosticsFeedback(t('settings.system.diagnosticsDownloaded'));
   };
-  // People only, with presence read from their `person.*` entity.
-  const previewMembers: SettingsPreviewMember[] = selectHouseholdPeople(houseMembers).map((member) => {
-    const memberState = normalizeLower(member.personEntityId ? haStates[member.personEntityId]?.state : undefined);
-    const presence: SettingsPreviewMember['presence'] =
-      memberState === 'home' || memberState === 'on' || memberState === 'present'
-        ? 'home'
-        : memberState === 'not_home' || memberState === 'away' || memberState === 'off'
-          ? 'away'
-          : 'unknown';
-    return {
-      id: member.id,
-      name: member.name,
-      avatarUrl: member.avatarUrl,
-      presence,
-    };
-  });
-  const alarmPreviewStates = Object.entries(haStates).filter(([entityId]) =>
-    entityId.startsWith('alarm_control_panel.'),
-  );
-  const lockPreviewStates = Object.entries(haStates).filter(([entityId]) =>
-    entityId.startsWith('lock.'),
-  );
-  const armedAlarmCount = alarmPreviewStates.filter(([, entity]) =>
-    normalizeLower(entity.state).startsWith('armed_'),
-  ).length;
-  const lockedLockCount = lockPreviewStates.filter(
-    ([, entity]) => normalizeLower(entity.state) === 'locked',
-  ).length;
+  // People only: logins without a person are not members of the house.
+  const householdPeopleCount = selectHouseholdPeople(houseMembers).length;
   const canConfigureDashboard = security.can('edit_dashboard');
+
+  // The Profile pages belong to the Profile; never fall back to another page for them.
+  if (isProfileSettingsRoute(settingsPath)) {
+    return null;
+  }
 
   if (settingsPath === '/support') {
     return (
       <SettingsDetailShell
         title={t('settings.support.title')}
         subtitle={t('settings.support.subtitle')}
-        onBack={() => navigateTo('/profile')}
+        onBack={() => navigateTo(PROFILE_ROUTE)}
         backLabel={t('settings.profile.back')}
       >
         <SupportFeedbackSection
@@ -1012,114 +880,59 @@ export default function SettingsDashboard({
   if (settingsPath === '/settings' || settingsPath === '/settings/home' || settingsPath === DEVICE_SETTINGS_ROUTE) {
     // How each entry of the scope registry looks here; which entries exist,
     // where they lead and who sees them comes from the registry.
-    const hubCards: Record<SettingsEntryId, {
+    const appearanceLabel =
+      appearanceMode === 'light'
+        ? t('settings.device.themeLight')
+        : appearanceMode === 'dark'
+          ? t('settings.device.themeDark')
+          : t('settings.device.themeSystem');
+    const rows: Record<SettingsEntryId, {
       icon: LucideIcon;
-      accentClassName: string;
-      iconClassName?: string;
+      /** The filled tile behind the icon, as in iOS Settings. */
+      color: string;
       subtitle?: string;
-      preview?: React.ReactNode;
+      value?: string;
     }> = {
-      dashboard: {
-        icon: LayoutDashboard,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(99,102,241,0.16),transparent_58%)]',
-        preview: (
-          <SettingsCardPreview
-            variant="dashboard"
-            sectionCount={sections.length}
-            widgetCount={widgets.length}
-            breakpointLabel={currentLayoutId?.toUpperCase() || 'AUTO'}
-          />
-        ),
-      },
-      floors: {
-        icon: Layers3,
-        iconClassName: 'text-[color:rgb(var(--ui-accent-rgb)/0.95)]',
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(56,189,248,0.16),transparent_58%)]',
-      },
-      access: {
-        icon: UserRoundCog,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(168,85,247,0.15),transparent_58%)]',
-        preview: <SettingsCardPreview variant="people" members={previewMembers} />,
-      },
-      security: {
-        icon: LockKeyhole,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(16,185,129,0.14),transparent_58%)]',
-        preview: (
-          <SettingsCardPreview
-            variant="security"
-            alarmCount={alarmPreviewStates.length}
-            armedAlarmCount={armedAlarmCount}
-            lockCount={lockPreviewStates.length}
-            lockedLockCount={lockedLockCount}
-          />
-        ),
-      },
-      waste: {
-        icon: Recycle,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(34,197,94,0.14),transparent_58%)]',
-      },
-      connection: {
-        icon: Link2,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(6,182,212,0.15),transparent_58%)]',
-        preview: (
-          <SettingsCardPreview variant="connection" connected={isConnected} statusLabel={haStatusLabel(haStatus, t)} />
-        ),
-      },
+      dashboard: { icon: LayoutDashboard, color: 'bg-indigo-500' },
+      floors: { icon: Layers3, color: 'bg-sky-500' },
+      access: { icon: UserRoundCog, color: 'bg-violet-500', value: householdPeopleCount > 0 ? String(householdPeopleCount) : undefined },
+      security: { icon: LockKeyhole, color: 'bg-emerald-600' },
+      waste: { icon: Recycle, color: 'bg-green-600' },
+      connection: { icon: Link2, color: 'bg-cyan-600', value: haStatusLabel(haStatus, t) },
       devices: {
         icon: Router,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(59,130,246,0.14),transparent_58%)]',
-        subtitle: `${t('settings.devices.count', { count: haDeviceRegistry.length })}${
-          deviceAttentionCount > 0 ? ` · ${t('settings.devices.attention', { count: deviceAttentionCount })}` : ''
-        }`,
+        color: 'bg-blue-500',
+        value: String(haDeviceRegistry.length),
+        subtitle: deviceAttentionCount > 0 ? t('settings.devices.attention', { count: deviceAttentionCount }) : undefined,
       },
-      entities: {
-        icon: Box,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(148,163,184,0.14),transparent_58%)]',
-        subtitle: t('settings.entities.count', { count: Object.keys(haStates).length }),
-      },
-      system: {
-        icon: Activity,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(20,184,166,0.14),transparent_58%)]',
-        preview: (
-          <SettingsCardPreview
-            variant="system"
-            statusLabel={healthLabel}
-            tone={hasSystemTelemetry ? worstTone : 'neutral'}
-            cpuPercent={cpuValue}
-            ramPercent={ramPercent}
-          />
-        ),
-      },
-      data: {
-        icon: Database,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]',
-        preview: (
-          <SettingsCardPreview variant="backup" lastBackupLabel={lastBackupLabel} backupSizeLabel={backupSizeLabel} />
-        ),
-      },
-      appearance: {
-        icon: Palette,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(236,72,153,0.13),transparent_58%)]',
-      },
-      language: {
-        icon: Languages,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(56,189,248,0.13),transparent_58%)]',
-        subtitle: t(`language.name.${locale}` as TranslationKey),
-      },
+      entities: { icon: Box, color: 'bg-slate-500', value: String(Object.keys(haStates).length) },
+      system: { icon: Activity, color: 'bg-teal-600', value: hasSystemTelemetry ? healthLabel : undefined },
+      data: { icon: Database, color: 'bg-amber-500', value: lastBackupLabel ?? undefined },
+      appearance: { icon: Palette, color: 'bg-pink-500', value: appearanceLabel },
+      language: { icon: Languages, color: 'bg-sky-600', value: t(`language.name.${locale}` as TranslationKey) },
       attention: {
         icon: BellRing,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]',
-        preview: <SettingsAttentionPreview preferences={attentionPreferences} />,
+        color: 'bg-orange-500',
+        value: attentionPreferences.enabled
+          ? t('settings.attention.activeCategories', {
+              count: Object.values(attentionPreferences.categories).filter(Boolean).length,
+            })
+          : t('settings.attention.disabled'),
       },
-      advanced: {
-        icon: Wrench,
-        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(148,163,184,0.13),transparent_58%)]',
-        preview: <SettingsCardPreview variant="advanced" version={__APP_VERSION__} developerMode={developerMode} />,
-      },
+      advanced: { icon: Wrench, color: 'bg-zinc-500', value: __APP_VERSION__ },
     };
+    const accountName = account?.name?.trim() || t('profile.fallback.name');
+    const accountDetail = [account?.email?.trim(), account?.roleLabel?.trim()].filter(Boolean).join(' · ');
+    const accountInitials =
+      accountName
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase())
+        .join('') || 'U';
     return (
       <div key={settingsPath} {...SETTINGS_PAGE_PROPS} className="dashboard-page-scroll text-[color:var(--ui-text-primary)]">
-        <header className="dashboard-page-content-wide">
+        <header className="mx-auto w-full max-w-[48rem]">
           {/* The status stays beside the title, also on a phone. */}
           <div className="flex items-center justify-between gap-3">
             <h1 className="dashboard-page-title min-w-0">{t('settings.title')}</h1>
@@ -1139,37 +952,87 @@ export default function SettingsDashboard({
               </span>
             </span>
           </div>
-          <p className="dashboard-page-subtitle">
-            {t('settings.subtitle')}
-          </p>
         </header>
 
-        <main className="dashboard-page-content-wide mt-6 space-y-7 pb-10">
-          {SETTINGS_SECTIONS.map((section) => (
-            <SettingsHubGroup
-              key={section.id}
-              id={`settings-section-${section.id}`}
-              title={t(section.titleKey)}
-              description={t(section.descriptionKey)}
+        <main className="mx-auto mt-5 w-full max-w-[48rem] space-y-7 pb-10">
+          {/* The person first and centred, as at the top of an Apple account page. */}
+          <section aria-label={t('profile.title')} className="space-y-4">
+            <button
+              type="button"
+              onClick={() => navigateTo(PROFILE_ROUTE)}
+              className="flex w-full flex-col items-center rounded-[1.6rem] px-4 pb-3 pt-2 text-center transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-focus-ring)]"
             >
-              {selectVisibleSettingsEntries(section.id, (capability) => security.can(capability)).map((entry) => {
-                const card = hubCards[entry.id];
-                return (
-                  <SettingsHubCard
-                    key={entry.id}
-                    icon={card.icon}
-                    title={t(entry.titleKey)}
-                    subtitle={card.subtitle ?? t(entry.descriptionKey)}
-                    iconClassName={card.iconClassName}
-                    accentClassName={card.accentClassName}
-                    onClick={() => navigateTo(entry.route)}
-                  >
-                    {card.preview}
-                  </SettingsHubCard>
-                );
-              })}
-            </SettingsHubGroup>
-          ))}
+              <span className="relative mb-3 shrink-0">
+                <span className="flex h-[5.5rem] w-[5.5rem] items-center justify-center overflow-hidden rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-secondary)] text-2xl font-semibold shadow-[0_14px_34px_var(--ui-shadow)]">
+                  {account?.avatarUrl && !accountAvatarFailed ? (
+                    <img
+                      src={account.avatarUrl}
+                      alt=""
+                      className="h-full w-full object-cover"
+                      onError={() => setAccountAvatarFailed(true)}
+                    />
+                  ) : (
+                    accountInitials
+                  )}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className={`absolute bottom-1 right-1 h-4 w-4 rounded-full border-[3px] border-[color:var(--ui-bg-grouped)] ${
+                    isConnected ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}
+                />
+              </span>
+              <span className="block max-w-full truncate text-[1.6rem] font-semibold leading-tight tracking-[-0.04em]">
+                {accountName}
+              </span>
+              {accountDetail ? (
+                <span className="mt-1 block max-w-full truncate text-sm text-[color:var(--ui-text-secondary)]">
+                  {accountDetail}
+                </span>
+              ) : null}
+              <span className="mt-2 inline-flex items-center gap-0.5 text-xs font-semibold text-[color:var(--ui-accent)]">
+                {t('settings.account.open')}
+                <ChevronRight size={13} aria-hidden="true" />
+              </span>
+            </button>
+            <div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
+              <SettingsListRow
+                icon={Bell}
+                iconClassName="bg-rose-500"
+                title={t('profile.devices.title')}
+                subtitle={t('profile.devices.subtitle')}
+                onClick={() => navigateTo(`${PROFILE_ROUTE}/devices`)}
+              />
+            </div>
+          </section>
+
+          {SETTINGS_SECTIONS.map((section) => {
+            const entries = selectVisibleSettingsEntries(section.id, (capability) => security.can(capability));
+            if (entries.length === 0) return null;
+            return (
+              <SettingsListGroup
+                key={section.id}
+                id={`settings-section-${section.id}`}
+                title={t(section.titleKey)}
+                description={t(section.descriptionKey)}
+              >
+                {entries.map((entry) => {
+                  const row = rows[entry.id];
+                  return (
+                    <SettingsListRow
+                      key={entry.id}
+                      icon={row.icon}
+                      iconClassName={row.color}
+                      title={t(entry.titleKey)}
+                      subtitle={row.subtitle ?? t(entry.descriptionKey)}
+                      value={row.value}
+                      onClick={() => navigateTo(entry.route)}
+                    />
+                  );
+                })}
+              </SettingsListGroup>
+            );
+          })}
         </main>
       </div>
     );
@@ -1222,7 +1085,7 @@ export default function SettingsDashboard({
           canManage={security.can('manage_security_config')}
           deviceAuthUser={deviceAuthUser}
           onOpenSecurityCenter={() => navigateTo('/security')}
-          onOpenProfileSecurity={() => navigateTo('/profile/security')}
+          onOpenProfileSecurity={() => navigateTo(`${PROFILE_ROUTE}/security`)}
         />
       </SettingsDetailShell>
     );

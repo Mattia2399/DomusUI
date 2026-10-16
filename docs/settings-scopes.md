@@ -4,9 +4,14 @@ Ogni impostazione di Domus UI appartiene a **uno solo** di tre scope. È una
 regola di progetto: una nuova impostazione dichiara il suo scope prima di
 avere una posizione nell'interfaccia.
 
+Profilo e Impostazioni sono **una sola pagina**, come le Impostazioni di
+iPhone: in cima c'è la persona (la card account apre il Profilo, e «I miei
+dispositivi» è subito sotto), poi le sezioni Casa, Sistema e Questo
+dispositivo. Avatar e ingranaggio aprono entrambi `/settings`.
+
 | Scope | Significa | Dove si trova, se è del core Domus |
 | --- | --- | --- |
-| **PROFILE** | «Riguarda me» | Profilo |
+| **PROFILE** | «Riguarda me» | Impostazioni › card account (Profilo, `/settings/profile`) |
 | **HOUSE** | «Riguarda questa casa» | Impostazioni › Casa e Impostazioni › Sistema |
 | **DEVICE** | «Riguarda questo dispositivo» | Impostazioni › Questo dispositivo |
 
@@ -118,13 +123,15 @@ Autorità di salvataggio usate nella tabella:
 
 ### Profilo — PROFILE
 
+Si apre dalla card account in cima a Impostazioni (`/settings/profile`).
+
 | Voce | Route | Autorità | Note |
 | --- | --- | --- | --- |
-| Informazioni personali | `/profile/personal` | Registri HA | Nome, email e ruolo letti da Home Assistant |
-| Attività e spostamenti | `/profile/activity` | Runtime HA | Presenza della propria Person, sola lettura |
-| I miei dispositivi | `/profile/devices` | Store integrazione `domusos.profiles.v1` | Comprende le notifiche personali (interruttore generale e per dispositivo) |
+| Informazioni personali | `/settings/profile/personal` | Registri HA | Nome, email e ruolo letti da Home Assistant |
+| Attività e spostamenti | `/settings/profile/activity` | Runtime HA | Presenza della propria Person, sola lettura |
+| I miei dispositivi | `/settings/profile/devices` | Store integrazione `domusos.profiles.v1` | Comprende le notifiche personali; raggiungibile anche dalla riga sotto la card account |
 | Schermata iniziale | — (in pagina) | Dati utente HA (`core.defaultPanel`) | Visibile solo con Home Assistant collegato |
-| Accesso e sicurezza | `/profile/security` | Browser | Conferma con passkey: è della persona ma, per natura (WebAuthn), resta su questo dispositivo |
+| Accesso e sicurezza | `/settings/profile/security` | Browser | Conferma con passkey: è della persona ma, per natura (WebAuthn), resta su questo dispositivo |
 | Supporto e feedback | `/support` | — | Aiuto, non un'impostazione |
 
 ### Impostazioni › Casa — HOUSE
@@ -169,8 +176,7 @@ l'unica autorità, dentro l'app.
 | Avvisi e attenzione | `/settings/attention` | `ha.dashboard.homeAttention.v1` | `edit_dashboard` |
 | Avanzate e supporto | `/settings/advanced` | `ha.dashboard.developerMode.v2`, `ha.dashboard.cardSizingEngine` | `developer_mode` |
 
-`/settings/device` apre la pagina Impostazioni sul gruppo Questo dispositivo:
-è l'indirizzo usato dal Profilo per rimandare ad aspetto e lingua.
+`/settings/device` apre la pagina Impostazioni sul gruppo Questo dispositivo.
 
 ### Preferenze locali non mostrate in Impostazioni
 
@@ -204,6 +210,9 @@ Sono DEVICE di fatto e oggi si cambiano dove si usano:
 
 | Indirizzo precedente | Ora |
 | --- | --- |
+| `/profile` | `/settings` (la persona è in cima) |
+| `/profile/personal`, `/activity`, `/devices`, `/security` | `/settings/profile/…` (stessa pagina) |
+| altri `/profile/…` | `/settings/profile` |
 | `/profile/themes` | `/settings/device/appearance` |
 | `/profile/language` | `/settings/device/language` |
 | `/settings/home` | pagina Impostazioni (invariato) |

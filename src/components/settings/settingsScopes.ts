@@ -1,6 +1,6 @@
 import type { TranslationKey } from '../../i18n/translations';
 import type { DashboardCapability } from '../../security/dashboardAccess';
-import { DEVICE_APPEARANCE_ROUTE, DEVICE_LANGUAGE_ROUTE } from '../../navigation/settingsRoutes';
+import { DEVICE_APPEARANCE_ROUTE, DEVICE_LANGUAGE_ROUTE, PROFILE_ROUTE } from '../../navigation/settingsRoutes';
 import { HOUSE_ACCESS_ROUTE } from './settingsHouseAccessModel';
 
 /**
@@ -272,14 +272,14 @@ export type ProfileEntry = Readonly<{
   storage: SettingsStorage;
 }>;
 
-/** What the Profile shows: the person, never the house or the browser. */
+/** What the Profile shows: the person, never the house or the browser. It opens from the top of Settings. */
 export const PROFILE_ENTRIES: readonly ProfileEntry[] = [
-  { id: 'personal', scope: 'profile', route: '/profile/personal', storage: 'ha_registry' },
-  { id: 'activity', scope: 'profile', route: '/profile/activity', storage: 'ha_runtime' },
-  { id: 'devices', scope: 'profile', route: '/profile/devices', storage: 'integration_store' },
+  { id: 'personal', scope: 'profile', route: `${PROFILE_ROUTE}/personal`, storage: 'ha_registry' },
+  { id: 'activity', scope: 'profile', route: `${PROFILE_ROUTE}/activity`, storage: 'ha_runtime' },
+  { id: 'devices', scope: 'profile', route: `${PROFILE_ROUTE}/devices`, storage: 'integration_store' },
   { id: 'startupPanel', scope: 'profile', route: null, storage: 'ha_user_data' },
   // The person's own confirmation; the credential itself cannot leave this device.
-  { id: 'security', scope: 'profile', route: '/profile/security', storage: 'browser_local' },
+  { id: 'security', scope: 'profile', route: `${PROFILE_ROUTE}/security`, storage: 'browser_local' },
 ];
 
 /** The entries of one section that the current user may open. */

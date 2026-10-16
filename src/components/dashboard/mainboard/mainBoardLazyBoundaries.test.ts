@@ -33,8 +33,9 @@ describe('MainBoard lazy boundaries', () => {
     expect(mainBoardSource).toContain(
       'const ModernProfilePage = React.lazy(loadModernProfilePage)',
     );
-    expect(mainBoardSource).toContain('{isProfileOpen ? (');
-    expect(mainBoardSource).toContain('<React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" overlay />}>');
+    // The profile is the top of Settings: it renders in the Settings area.
+    expect(mainBoardSource).toContain(') : isSettingsView && isProfileRoute ? (');
+    expect(mainBoardSource).toContain('<React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" />}>');
   });
 
   it('loads the Settings management container only for nested Settings pages', () => {

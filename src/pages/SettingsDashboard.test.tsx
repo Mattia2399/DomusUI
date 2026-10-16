@@ -77,12 +77,13 @@ describe('SettingsDashboard', () => {
     expect(screen.getByRole('button', { name: /^Floors and rooms/ })).toBeTruthy();
   });
 
-  it('groups the overview by scope: home, system and this device', () => {
+  it('opens with the person, then groups the settings by scope', () => {
     const onNavigate = vi.fn();
     render(
       <DashboardSecurityProvider value={security}>
         <SettingsDashboard
           {...baseProps}
+          account={{ name: 'Mattia', email: 'mattia@example.com', roleLabel: 'Owner' }}
           navigationRoute="/settings"
           onNavigate={onNavigate}
         />
@@ -90,12 +91,25 @@ describe('SettingsDashboard', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
-    const groups = screen.getAllByRole('region').map((group) => group.querySelector('h2')?.textContent);
-    expect(groups).toEqual(['Casa', 'Sistema', 'Questo dispositivo']);
+    const regions = screen.getAllByRole('region');
+    expect(regions[0].getAttribute('aria-label')).toBe('Profilo');
+    expect(regions.slice(1).map((group) => group.querySelector('h2')?.textContent)).toEqual([
+      'Casa',
+      'Sistema',
+      'Questo dispositivo',
+    ]);
     expect(screen.getByText('Impostazioni condivise da tutta la casa')).toBeTruthy();
     expect(screen.getByText('Connessione e configurazione di Domus')).toBeTruthy();
     expect(screen.getByText('Preferenze valide solo su questo dispositivo')).toBeTruthy();
-    expect(screen.getByRole('img', { name: 'Mattia' })).toBeTruthy();
+
+    // The account card opens the Profile; My devices is one tap away.
+    const profile = within(regions[0]);
+    const account = profile.getByRole('button', { name: /Mattia/ });
+    expect(account.textContent).toContain('mattia@example.com · Owner');
+    fireEvent.click(account);
+    expect(onNavigate).toHaveBeenCalledWith('/settings/profile');
+    fireEvent.click(profile.getByRole('button', { name: /I miei dispositivi/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/profile/devices');
 
     const home = within(screen.getByRole('region', { name: 'Casa' }));
     expect(home.getAllByRole('button').map((card) => card.textContent)).toEqual([
@@ -120,8 +134,6 @@ describe('SettingsDashboard', () => {
       expect.stringContaining('Avvisi e attenzione'),
       expect.stringContaining('Avanzate e supporto'),
     ]);
-    // The Profile keeps only the person: no personal page among the settings.
-    expect(screen.queryByRole('button', { name: /I miei dispositivi/ })).toBeNull();
 
     fireEvent.click(home.getByRole('button', { name: /^Piani e stanze/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/floors');
@@ -723,6 +735,6 @@ describe('SettingsDashboard', () => {
     expect(screen.getByText(/non viene inviato automaticamente/i)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
-    expect(onNavigate).toHaveBeenCalledWith('/profile');
+    expect(onNavigate).toHaveBeenCalledWith('/settings/profile');
   });
 });

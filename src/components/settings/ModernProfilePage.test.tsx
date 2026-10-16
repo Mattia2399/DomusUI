@@ -88,56 +88,52 @@ describe('ModernProfilePage', () => {
     expect(screen.getByRole('region', { name: 'Preferenze' }).textContent).toContain('Schermata iniziale');
   });
 
-  it('sends appearance and language to Settings, This device', () => {
-    const onNavigate = vi.fn();
-    render(<ModernProfilePage {...baseProps} navigationRoute="/profile" onNavigate={onNavigate} />);
-
-    expect(screen.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Apri Questo dispositivo' }));
-    expect(onNavigate).toHaveBeenCalledWith('/settings/device');
-  });
-
-  it('closes the profile when back is pressed from the overview', () => {
+  it('goes back to Settings from the overview', () => {
     const onClose = vi.fn();
     render(<ModernProfilePage {...baseProps} onClose={onClose} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
+    const back = screen.getByRole('button', { name: 'Indietro' });
+    expect(back.textContent).toContain('Impostazioni');
+    fireEvent.click(back);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('collapses the mobile identity beside the back button while scrolling', () => {
+  it('keeps the profile a lean list: the person is shown at the top of Settings', () => {
     render(<ModernProfilePage {...baseProps} />);
 
-    const scrollContainer = screen.getByTestId('modern-profile-scroll');
-    const collapsingHeader = screen.getByTestId('profile-collapsing-header');
-    expect(collapsingHeader.getAttribute('data-collapsed')).toBe('false');
-
-    scrollContainer.scrollTop = 96;
-    fireEvent.scroll(scrollContainer);
-
-    expect(collapsingHeader.getAttribute('data-collapsed')).toBe('true');
-    expect(collapsingHeader.getAttribute('data-collapse-progress')).toBe('1.00');
-    expect(collapsingHeader.textContent).toContain('Mattia');
-    expect(collapsingHeader.textContent).toContain('mattia@example.com');
+    // Only the name, under the title; the large photo lives in Settings.
+    expect(screen.getByRole('banner').textContent).toContain('Mattia');
+    expect(screen.queryByRole('img')).toBeNull();
+    const account = screen.getByRole('region', { name: 'Account' });
+    expect(Array.from(account.querySelectorAll('button')).map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Informazioni personali'),
+      expect.stringContaining('Attività e spostamenti'),
+      expect.stringContaining('I miei dispositivi'),
+      expect.stringContaining('Accesso e sicurezza'),
+    ]);
+    // The profile is a page inside Settings now, not a full-screen layer.
+    expect(screen.getByTestId('modern-profile-scroll').className).not.toContain('fixed');
   });
 
   it('keeps nested profile navigation addressable by URL', () => {
     const onNavigate = vi.fn();
     const { rerender } = render(
-      <ModernProfilePage {...baseProps} navigationRoute="/profile" onNavigate={onNavigate} />,
+      <ModernProfilePage {...baseProps} navigationRoute="/settings/profile" onNavigate={onNavigate} />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Informazioni personali/ }));
-    expect(onNavigate).toHaveBeenCalledWith('/profile/personal');
+    expect(onNavigate).toHaveBeenCalledWith('/settings/profile/personal');
 
     rerender(
       <ModernProfilePage
         {...baseProps}
-        navigationRoute="/profile/devices"
+        navigationRoute="/settings/profile/devices"
         onNavigate={onNavigate}
       />,
     );
     expect(screen.getByRole('heading', { name: 'I miei dispositivi' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('/settings/profile');
   });
 
   it('shows the overview at the old appearance and language addresses', () => {
@@ -152,7 +148,7 @@ describe('ModernProfilePage', () => {
   it('opens the support center from the profile overview', () => {
     const onNavigate = vi.fn();
     render(
-      <ModernProfilePage {...baseProps} navigationRoute="/profile" onNavigate={onNavigate} />,
+      <ModernProfilePage {...baseProps} navigationRoute="/settings/profile" onNavigate={onNavigate} />,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Supporto e feedback/ }));
@@ -205,7 +201,7 @@ describe('ModernProfilePage', () => {
   });
 
   it('keeps the tracker count only as a presence figure in the activity page', () => {
-    render(<ModernProfilePage {...baseProps} presenceTrackerCount={3} navigationRoute="/profile/activity" />);
+    render(<ModernProfilePage {...baseProps} presenceTrackerCount={3} navigationRoute="/settings/profile/activity" />);
 
     expect(screen.getByTestId('profile-activity-summary').textContent).toContain('3 fonti di presenza');
   });

@@ -19,12 +19,15 @@ function installCompletedRealWorkspace(page) {
   });
 }
 
-test('Profile is a personal desktop page without administrative settings', async ({ page }) => {
+test('Profile is the personal page at the top of Settings', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
-  await page.goto('/profile');
+  await page.goto('/settings');
 
-  await expect(page.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeVisible();
+  // The account card opens the Profile, inside the Settings page.
+  await page.getByRole('region', { name: 'Profilo', exact: true }).getByRole('button').first().click();
+  await expect(page).toHaveURL(/\/settings\/profile$/);
+  await expect(page.locator('.dashboard-shell > aside')).toBeVisible();
   await expect(
     page.getByRole('button', {
       name: /Informazioni personali Nome, email e ruolo/,
@@ -41,14 +44,21 @@ test('Profile is a personal desktop page without administrative settings', async
   await page.getByRole('button', { name: /Attività e spostamenti/ }).click();
   await expect(page.getByRole('heading', { name: 'Attività e spostamenti' })).toBeVisible();
   await expect(page.getByText('Cronologia recente')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings\/profile$/);
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
 });
 
-test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) => {
+test('Profile uses drill-in navigation on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCompletedRealWorkspace(page);
+  // The old address opens Settings, whose top is the person.
   await page.goto('/profile');
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole('region', { name: 'Profilo', exact: true }).getByRole('button').first().click();
 
-  await expect(page.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeVisible();
   const securityButton = page.getByRole('button', { name: /Accesso e sicurezza/ });
   await expect(securityButton).toBeVisible();
   await securityButton.click();
@@ -57,13 +67,12 @@ test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) =
   await expect(page.getByText('Conferma dispositivo', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Indietro' }).click();
-  await expect(page.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeVisible();
   await expect(page.getByRole('button', { name: /Accesso e sicurezza/ })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Apri Questo dispositivo' }).click();
-  await expect(page).toHaveURL(/\/settings\/device$/);
-  await expect(page.getByRole('region', { name: 'Questo dispositivo' })).toBeInViewport();
-  await page.getByRole('button', { name: /^Aspetto/ }).click();
+  // Back from the Profile is the Settings page, with this device further down.
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole('region', { name: 'Questo dispositivo' }).getByRole('button', { name: /^Aspetto/ }).click();
   await expect(page.getByRole('heading', { name: 'Aspetto', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Sunset Amber/ })).toBeVisible();
 });

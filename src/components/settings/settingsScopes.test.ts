@@ -90,12 +90,13 @@ describe('settings scopes', () => {
 
   it('keeps only the person in the Profile', () => {
     expect(PROFILE_ENTRIES.map(({ id }) => id)).toEqual(['personal', 'activity', 'devices', 'startupPanel', 'security']);
-    expect(profileEntry('devices')).toMatchObject({ route: '/profile/devices', storage: 'integration_store' });
+    expect(profileEntry('devices')).toMatchObject({ route: '/settings/profile/devices', storage: 'integration_store' });
     // Personal notifications are the switches of My devices, in the profile store.
     expect(profileEntry('startupPanel')).toMatchObject({ route: null, storage: 'ha_user_data' });
     const profileRoutes = PROFILE_ENTRIES.flatMap(({ route }) => (route ? [route] : []));
-    expect(profileRoutes.every((route) => route.startsWith('/profile/'))).toBe(true);
-    expect(SETTINGS_ENTRIES.some(({ route }) => route.startsWith('/profile'))).toBe(false);
+    // One page: the Profile opens from the top of Settings, below its own address.
+    expect(profileRoutes.every((route) => route.startsWith('/settings/profile/'))).toBe(true);
+    expect(SETTINGS_ENTRIES.some(({ route }) => route.startsWith('/settings/profile'))).toBe(false);
   });
 
   it('gives every entry its own route and existing copy', () => {
@@ -148,6 +149,14 @@ describe('settings overview weight', () => {
 });
 
 describe('legacy settings routes', () => {
+  it('opens Settings for the old Profile, whose pages now live below it', () => {
+    expect(resolveLegacySettingsRoute('/profile')).toBe('/settings');
+    expect(resolveLegacySettingsRoute('/profilo/')).toBe('/settings');
+    expect(resolveLegacySettingsRoute('/profile/devices')).toBe('/settings/profile/devices');
+    expect(resolveLegacySettingsRoute('/profile/security')).toBe('/settings/profile/security');
+    expect(resolveLegacySettingsRoute('/profile/unknown')).toBe('/settings/profile');
+  });
+
   it('sends the old Profile pages of appearance and language to This device', () => {
     expect(resolveLegacySettingsRoute('/profile/themes')).toBe(DEVICE_APPEARANCE_ROUTE);
     expect(resolveLegacySettingsRoute('/profile/language/')).toBe(DEVICE_LANGUAGE_ROUTE);
@@ -155,7 +164,7 @@ describe('legacy settings routes', () => {
   });
 
   it('leaves current addresses alone, so a redirect can never loop', () => {
-    ['/profile', '/profile/devices', '/profile/security', '/settings', DEVICE_APPEARANCE_ROUTE, DEVICE_LANGUAGE_ROUTE].forEach(
+    ['/settings', '/settings/profile', '/settings/profile/devices', DEVICE_APPEARANCE_ROUTE, DEVICE_LANGUAGE_ROUTE].forEach(
       (route) => expect(resolveLegacySettingsRoute(route), route).toBeNull(),
     );
     expect(resolveLegacySettingsRoute(resolveLegacySettingsRoute('/profile/themes')!)).toBeNull();

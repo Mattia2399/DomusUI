@@ -76,6 +76,12 @@
   Energy and Irrigation keep their configuration inside their own apps:
   Settings holds Domus core configuration only. See
   [settings scopes](docs/settings-scopes.md).
+- Profile and Settings are one page, in the style of iPhone Settings: the
+  person comes first (an account card that opens the Profile, and My devices
+  right below it), then Home, System and This device as grouped lists. The
+  avatar and the gear both open it, the Profile is a page inside Settings
+  instead of a full-screen layer, and `/profile` links open the same pages
+  below `/settings/profile`.
 - Translation catalogs are now split by language: startup downloads only the
   selected language, while another catalog is fetched on demand when the user
   changes language. The interface keeps the current language visible until
