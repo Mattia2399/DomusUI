@@ -208,6 +208,66 @@
       0 5px 16px rgb(var(--ui-accent-rgb, 10 132 255) / 0.12);
   }
 
+  /*
+   * The mobile tab bar: a pill of Liquid Glass with a specular sheen and a
+   * rim that catches the light, over the Regular navigation material.
+   */
+  .liquid-glass-tabbar {
+    --ui-glass-blur: 18px;
+    --ui-glass-saturation: 2;
+    border-radius: 999px;
+    box-shadow:
+      0 18px 44px var(--ui-glass-shadow, var(--ui-shadow)),
+      inset 0 1.5px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.5),
+      inset 0 -1px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.16),
+      inset 0 -12px 26px rgb(var(--ui-accent-rgb, 10 132 255) / 0.1);
+  }
+
+  .liquid-glass-tabbar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      radial-gradient(34% 60% at 16% 0%, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.32), transparent 70%),
+      radial-gradient(46% 70% at 86% 100%, rgb(var(--ui-accent-rgb, 10 132 255) / 0.14), transparent 70%);
+  }
+
+  /*
+   * The drop under the active tab: a lens of glass lit from above, that
+   * slides with a small elastic overshoot. It paints its light instead of
+   * sampling the backdrop again, so there is no glass on glass.
+   */
+  .liquid-glass-drop {
+    border-radius: 999px;
+    border: 1px solid rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.55);
+    background:
+      radial-gradient(120% 95% at 50% 0%, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.34), rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.08) 55%, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.03)),
+      radial-gradient(80% 60% at 50% 110%, rgb(var(--ui-accent-rgb, 10 132 255) / 0.3), transparent 70%);
+    box-shadow:
+      inset 0 2px 2px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.7),
+      inset 0 -3px 6px rgb(var(--ui-accent-rgb, 10 132 255) / 0.3),
+      inset 0 0 14px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.12),
+      0 8px 18px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
+    transition:
+      transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 200ms ease;
+  }
+
+  .liquid-glass-drop::before {
+    content: "";
+    position: absolute;
+    left: 14%;
+    top: 8%;
+    width: 44%;
+    height: 30%;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.7), transparent);
+    filter: blur(1px);
+  }
+
   .liquid-glass-navigation :is(button, a):focus-visible,
   .liquid-glass-control:focus-visible {
     outline: 2px solid var(--ui-focus-ring);
@@ -1343,6 +1403,10 @@ body {
 }
 
 @media (prefers-contrast: more) {
+  .liquid-glass-drop {
+    border-color: var(--ui-border-strong);
+  }
+
   .dashboard-theme-dark {
     --ui-text-secondary: rgb(255 255 255 / 0.9);
     --ui-text-tertiary: rgb(255 255 255 / 0.78);
@@ -1377,6 +1441,15 @@ body {
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .liquid-glass-drop {
+    background: rgb(var(--ui-accent-rgb, 10 132 255) / 0.18);
+    box-shadow: none;
+  }
+
+  .liquid-glass-drop::before {
+    display: none;
+  }
+
   .liquid-glass-panel,
   .liquid-glass-sheet,
   .liquid-glass-navigation,

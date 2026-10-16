@@ -72,6 +72,38 @@ describe('BottomBarNav', () => {
     expect(screen.getByRole('button', { name: 'Apri Dashboard' }).getAttribute('aria-current')).toBeNull();
   });
 
+  it('slides a drop of glass under the active tab, and hides it when no tab is active', () => {
+    window.history.replaceState({}, '', '/home');
+    const { rerender } = renderNavigation(
+      <BottomBarNav isEditMode={false} quickPaths={[]} onPathClick={vi.fn()} onOpenSettings={vi.fn()} />,
+    );
+    const drop = screen.getByTestId('bottom-bar-drop');
+    expect(drop.getAttribute('data-index')).toBe('0');
+    expect(drop.style.transform).toBe('translateX(0%)');
+    // Icons only: the names stay for assistive technology.
+    expect(screen.getByRole('button', { name: 'Apri Dashboard' }).textContent).toBe('');
+
+    rerender(
+      <BottomBarNav
+        isEditMode={false}
+        quickPaths={[]}
+        activeRoute="/settings"
+        isSettingsActive
+        onPathClick={vi.fn()}
+        onOpenSettings={vi.fn()}
+      />,
+    );
+    expect(drop.getAttribute('data-index')).toBe('4');
+    expect(drop.style.transform).toBe('translateX(400%)');
+    expect(drop.style.opacity).toBe('1');
+
+    window.history.replaceState({}, '', '/appgallery');
+    rerender(
+      <BottomBarNav isEditMode={false} quickPaths={[]} activeRoute="/appgallery" onPathClick={vi.fn()} onOpenSettings={vi.fn()} />,
+    );
+    expect(drop.style.opacity).toBe('0');
+  });
+
   it('shows the person on the Settings tab, which opens with them at its top', () => {
     const onOpenSettings = vi.fn();
     const { rerender } = renderNavigation(
