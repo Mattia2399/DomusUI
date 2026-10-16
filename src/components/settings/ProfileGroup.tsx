@@ -17,12 +17,13 @@ export function ProfileGroup({
 }) {
   const titleId = useId();
   const descriptionId = useId();
+  // A group reached by its id clears the account bar that phones and tablets show at the top of Settings.
   return (
     <section
       id={id}
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
-      className={id ? 'scroll-mt-4' : undefined}
+      className={id ? 'scroll-mt-16 lg:scroll-mt-4' : undefined}
     >
       <div className="mb-2 flex items-end justify-between gap-3 px-1">
         <div className="min-w-0">

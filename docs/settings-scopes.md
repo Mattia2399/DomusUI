@@ -7,7 +7,10 @@ avere una posizione nell'interfaccia.
 Profilo e Impostazioni sono **una sola pagina**, come le Impostazioni di
 iPhone: in cima c'è la persona (la card account apre il Profilo, e «I miei
 dispositivi» è subito sotto), poi le sezioni Casa, Sistema e Questo
-dispositivo. Avatar e ingranaggio aprono entrambi `/settings`.
+dispositivo. Avatar e ingranaggio aprono entrambi `/settings`; nella barra
+mobile la voce Impostazioni mostra la foto della persona. La pagina non ha
+titolo visibile né badge di connessione (lo stato è il pallino sulla foto):
+su telefono e tablet foto e nome, scorrendo, passano in una barra in alto.
 
 | Scope | Significa | Dove si trova, se è del core Domus |
 | --- | --- | --- |

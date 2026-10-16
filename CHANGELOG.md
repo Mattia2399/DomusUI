@@ -81,7 +81,11 @@
   right below it), then Home, System and This device as grouped lists. The
   avatar and the gear both open it, the Profile is a page inside Settings
   instead of a full-screen layer, and `/profile` links open the same pages
-  below `/settings/profile`.
+  below `/settings/profile`. The page starts with the person, without a
+  title or connection badge (the dot on the photo shows the connection); on
+  a phone or tablet the photo and name move into a bar at the top while the
+  page scrolls, and the Settings tab of the mobile bar is the person's
+  photo, without a label.
 - Translation catalogs are now split by language: startup downloads only the
   selected language, while another catalog is fetched on demand when the user
   changes language. The interface keeps the current language visible until

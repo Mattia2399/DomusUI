@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { selectHouseholdPeople } from '../services/houseMembers';
 import {
   Activity,
@@ -595,6 +595,10 @@ export default function SettingsDashboard({
   const [wasteLeaveConfirmOpen, setWasteLeaveConfirmOpen] = useState(false);
   const [updatesPageOpen, setUpdatesPageOpen] = useState(false);
   const [accountAvatarFailed, setAccountAvatarFailed] = useState(false);
+  // 0 → 1 while the person scrolls out of the overview and into its top bar:
+  // the bar's surface first, so it covers what passes under it, then its content.
+  const [accountBar, setAccountBar] = useState({ surface: 0, content: 0 });
+  const overviewScrollRef = useRef<HTMLDivElement>(null);
   const [powerConfirm, setPowerConfirm] = useState<'restartHa' | 'restartHost' | 'shutdown' | null>(null);
   // Re-render once a minute so uptime/duration labels stay fresh.
   const [nowTick, setNowTick] = useState(() => Date.now());
@@ -765,6 +769,32 @@ export default function SettingsDashboard({
     navigationRoute?.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/settings';
   const navigateTo = (path: string) => onNavigate?.(path);
   useSettingsPageTransition(settingsPath);
+  const isOverviewPath =
+    settingsPath === '/settings' || settingsPath === '/settings/home' || settingsPath === DEVICE_SETTINGS_ROUTE;
+  useEffect(() => {
+    const scroller = overviewScrollRef.current;
+    if (!isOverviewPath || !scroller) {
+      setAccountBar({ surface: 0, content: 0 });
+      return;
+    }
+    const clamp = (value: number) => Math.min(1, Math.max(0, value));
+    const update = () => {
+      const top = scroller.scrollTop;
+      const next = { surface: clamp((top - 8) / 32), content: clamp((top - 70) / 40) };
+      setAccountBar((current) =>
+        Math.abs(current.surface - next.surface) < 0.01 && Math.abs(current.content - next.content) < 0.01
+          ? current
+          : next,
+      );
+    };
+    update();
+    scroller.addEventListener('scroll', update, { passive: true });
+    return () => scroller.removeEventListener('scroll', update);
+  }, [isOverviewPath, settingsPath]);
+  const reduceMotion = useMemo(
+    () => typeof window !== 'undefined' && Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)').matches),
+    [],
+  );
   // The Profile links here for appearance and language: start at This device.
   useEffect(() => {
     if (settingsPath !== DEVICE_SETTINGS_ROUTE) return;
@@ -877,7 +907,7 @@ export default function SettingsDashboard({
   }
 
   // `/settings/home` is the old address of this page; `/settings/device` leads to its last group.
-  if (settingsPath === '/settings' || settingsPath === '/settings/home' || settingsPath === DEVICE_SETTINGS_ROUTE) {
+  if (isOverviewPath) {
     // How each entry of the scope registry looks here; which entries exist,
     // where they lead and who sees them comes from the registry.
     const appearanceLabel =
@@ -931,35 +961,57 @@ export default function SettingsDashboard({
         .map((part) => part[0]?.toUpperCase())
         .join('') || 'U';
     return (
-      <div key={settingsPath} {...SETTINGS_PAGE_PROPS} className="dashboard-page-scroll text-[color:var(--ui-text-primary)]">
-        <header className="mx-auto w-full max-w-[48rem]">
-          {/* The status stays beside the title, also on a phone. */}
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="dashboard-page-title min-w-0">{t('settings.title')}</h1>
-            <span className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass)] px-3 py-1.5 text-xs font-semibold text-[color:var(--ui-text-secondary)] backdrop-blur-2xl sm:min-h-10 sm:px-4 sm:py-2">
-              <span
-                className={`h-2 w-2 rounded-full ${
-                  haStatus === 'connected'
-                    ? 'bg-emerald-500'
-                    : haStatus === 'connecting' || haStatus === 'reconnecting'
-                      ? 'bg-amber-500'
-                      : 'bg-rose-500'
-                }`}
-              />
-              <span>
-                <span className="sr-only sm:not-sr-only">Home Assistant · </span>
-                {haStatusLabel(haStatus, t)}
+      <div
+        key={settingsPath}
+        ref={overviewScrollRef}
+        {...SETTINGS_PAGE_PROPS}
+        className="dashboard-page-scroll text-[color:var(--ui-text-primary)]"
+      >
+        {/* The page starts with the person; the title stays for assistive technology. */}
+        <h1 className="sr-only">{t('settings.title')}</h1>
+
+        {/* On a phone or tablet the person moves into a bar at the top while the page scrolls. */}
+        <div aria-hidden="true" className="pointer-events-none sticky -top-4 z-30 -mx-4 h-0 sm:-top-6 sm:-mx-6 lg:hidden">
+          <div
+            data-testid="settings-account-bar"
+            data-progress={accountBar.content.toFixed(2)}
+            className="absolute inset-x-0 top-0 flex min-h-[calc(env(safe-area-inset-top)+3.25rem)] items-center justify-center gap-2 px-4 pt-[env(safe-area-inset-top)]"
+          >
+            <span
+              className="absolute inset-0 border-b border-[color:var(--ui-separator)] bg-[color:var(--ui-bg-grouped)] shadow-[0_10px_30px_var(--ui-shadow-soft)] backdrop-blur-3xl"
+              style={{ opacity: accountBar.surface }}
+            />
+            <span
+              className="relative flex min-w-0 items-center gap-2"
+              style={{
+                opacity: accountBar.content,
+                transform: reduceMotion ? undefined : `translateY(${Math.round((1 - accountBar.content) * 8)}px)`,
+              }}
+            >
+              <span className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-secondary)] text-[10px] font-semibold">
+                {account?.avatarUrl && !accountAvatarFailed ? (
+                  <img src={account.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  accountInitials
+                )}
+                <span
+                  className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-[color:var(--ui-bg-grouped)] ${
+                    isConnected ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}
+                />
               </span>
+              <span className="truncate text-sm font-semibold tracking-[-0.015em]">{accountName}</span>
             </span>
           </div>
-        </header>
+        </div>
 
-        <main className="mx-auto mt-5 w-full max-w-[48rem] space-y-7 pb-10">
+        <main className="mx-auto w-full max-w-[48rem] space-y-7 pb-10">
           {/* The person first and centred, as at the top of an Apple account page. */}
           <section aria-label={t('profile.title')} className="space-y-4">
             <button
               type="button"
               onClick={() => navigateTo(PROFILE_ROUTE)}
+              style={{ opacity: 1 - accountBar.content }}
               className="flex w-full flex-col items-center rounded-[1.6rem] px-4 pb-3 pt-2 text-center transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-focus-ring)]"
             >
               <span className="relative mb-3 shrink-0">

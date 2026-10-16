@@ -151,6 +151,30 @@ describe('SettingsDashboard', () => {
     expect(onNavigate).toHaveBeenCalledWith('/settings/device/language');
   });
 
+  it('starts with the person instead of a title, and moves them into a bar while scrolling', () => {
+    const { container } = render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} account={{ name: 'Mattia' }} navigationRoute="/settings" />
+      </DashboardSecurityProvider>,
+    );
+
+    // The title stays for assistive technology only; no connection badge.
+    expect(screen.getByRole('heading', { name: 'Impostazioni', level: 1 }).className).toContain('sr-only');
+    expect(screen.queryByText(/Home Assistant ·/)).toBeNull();
+
+    const bar = screen.getByTestId('settings-account-bar');
+    const person = within(screen.getByRole('region', { name: 'Profilo' })).getByRole('button', { name: /Mattia/ });
+    expect(bar.getAttribute('data-progress')).toBe('0.00');
+    expect(person.style.opacity).toBe('1');
+
+    const scroller = container.querySelector<HTMLElement>('.dashboard-page-scroll')!;
+    scroller.scrollTop = 400;
+    fireEvent.scroll(scroller);
+    expect(bar.getAttribute('data-progress')).toBe('1.00');
+    expect(person.style.opacity).toBe('0');
+    expect(bar.textContent).toContain('Mattia');
+  });
+
   it('leaves the Energy and Irrigation configuration to their apps, even for an Owner', () => {
     render(
       <DashboardSecurityProvider value={security}>

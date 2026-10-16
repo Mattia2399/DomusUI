@@ -53,7 +53,7 @@ describe('semantic theme CSS contract', () => {
       'src/components/widgets/GreetingCard.tsx',
       'src/pages/RoomsDashboard.tsx',
       'src/pages/SecurityDashboard.jsx',
-      'src/pages/SettingsDashboard.tsx',
+      // Settings starts with the person instead of a visible title.
       'src/pages/Consumi.tsx',
     ].map(readSource);
 

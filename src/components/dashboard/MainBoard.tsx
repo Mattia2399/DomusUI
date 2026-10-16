@@ -11835,6 +11835,9 @@ export function MainBoard() {
           onPathClick={handleSidebarPathClick}
           onOpenSettings={openSettingsRoute}
           onPrefetchRoute={prefetchDashboardWorkspace}
+          userAvatarUrl={currentUserAvatarUrl}
+          userName={stateWithConnectedUser.userName}
+          haStatus={haStatus}
         />
       ) : null}
 

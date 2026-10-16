@@ -71,4 +71,40 @@ describe('BottomBarNav', () => {
     expect(screen.getByRole('button', { name: 'Apri Impostazioni' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Apri Dashboard' }).getAttribute('aria-current')).toBeNull();
   });
+
+  it('shows the person on the Settings tab, which opens with them at its top', () => {
+    const onOpenSettings = vi.fn();
+    const { rerender } = renderNavigation(
+      <BottomBarNav
+        isEditMode={false}
+        quickPaths={[]}
+        onPathClick={vi.fn()}
+        onOpenSettings={onOpenSettings}
+        userName="Mattia Ticconi"
+        haStatus="connected"
+      />,
+    );
+
+    const settings = screen.getByRole('button', { name: 'Apri Impostazioni' });
+    expect(settings.querySelector('svg.lucide-settings')).toBeNull();
+    // Only the photo (here the initials): no written label under it.
+    expect(settings.textContent).toBe('MT');
+    fireEvent.click(settings);
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+
+    rerender(
+      <BottomBarNav
+        isEditMode={false}
+        quickPaths={[]}
+        onPathClick={vi.fn()}
+        onOpenSettings={onOpenSettings}
+        userName="Mattia Ticconi"
+        userAvatarUrl="/avatars/mattia.jpg"
+        haStatus="connected"
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Apri Impostazioni' }).querySelector('img')?.getAttribute('src')).toBe(
+      '/avatars/mattia.jpg',
+    );
+  });
 });

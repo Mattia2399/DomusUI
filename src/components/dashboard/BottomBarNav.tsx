@@ -1,5 +1,5 @@
-import { Settings } from 'lucide-react';
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
+import type { HaConnectionStatus } from '../../services/haConnectionState';
 import { useI18n } from '../../i18n/I18nProvider';
 import {
   getDashboardNavigationIcon,
@@ -7,6 +7,7 @@ import {
   PRIMARY_DASHBOARD_ROUTE_IDS,
   resolveDashboardNavigationEntries,
 } from './dashboardNavigation';
+import { DashboardProfileAvatar } from './DashboardProfileAvatar';
 
 type BottomBarNavProps = {
   /** Steps aside with the page while the mobile side menu is open. */
@@ -19,6 +20,10 @@ type BottomBarNavProps = {
   onPathClick: (entry: SidebarQuickPath) => void;
   onOpenSettings: () => void;
   onPrefetchRoute?: (path: string) => void;
+  /** Settings opens with the person at its top, so its tab shows their photo. */
+  userAvatarUrl?: string;
+  userName?: string;
+  haStatus?: HaConnectionStatus;
 };
 
 type BottomBarPrimaryAction = {
@@ -35,6 +40,9 @@ export function BottomBarNav({
   onPathClick,
   onOpenSettings,
   onPrefetchRoute,
+  userAvatarUrl,
+  userName,
+  haStatus = 'disconnected',
 }: BottomBarNavProps) {
   const { t } = useI18n();
   const primaryActions = resolveDashboardNavigationEntries(
@@ -114,10 +122,14 @@ export function BottomBarNav({
               aria-label={t('navigation.open', { label: t('navigation.settings') })}
               aria-current={isSettingsActive ? 'page' : undefined}
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-transparent transition-all group-hover:bg-[color:var(--ui-fill-tertiary)]">
-                <Settings size={16} strokeWidth={isSettingsActive ? 1.85 : 2} className="transition-transform group-hover:scale-105" />
+              {/* The photo alone, as the account tab of an iOS app; the label stays for assistive technology. */}
+              <span
+                className={`flex h-8 w-8 items-center justify-center rounded-full transition-transform group-hover:scale-105 ${
+                  isSettingsActive ? 'ring-2 ring-[color:var(--ui-accent)] ring-offset-1 ring-offset-transparent' : ''
+                }`}
+              >
+                <DashboardProfileAvatar userAvatarUrl={userAvatarUrl} userName={userName} haStatus={haStatus} size="sm" />
               </span>
-              <span className="max-w-full truncate text-[9.5px] font-medium leading-none tracking-[0.01em]">{t('navigation.settings')}</span>
             </button>
           </div>
       </nav>
