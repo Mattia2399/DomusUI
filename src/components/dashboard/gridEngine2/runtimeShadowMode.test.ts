@@ -197,6 +197,16 @@ describe('Runtime Shadow absolute overrides', () => {
     expect(result.overrides).toEqual([{ id: 'light', w: 2, h: 2 }]);
   });
 
+  it('keeps verified structure separate when the live Light state is not available yet', () => {
+    const result = analyzeRuntimeShadow(runtimeInput({
+      configurationCompleteness: 'verified-complete',
+      lightStates: [],
+    }));
+    expect(result.baseline.quality).toBe('explicit-complete-candidate');
+    expect(result.comparison).toBe('insufficient-data');
+    expect(result.issueCodes).toContain('MISSING_LIGHT_STATE');
+  });
+
   it('10. respects disabled automatic expansion', () => {
     const result = deriveRuntimeShadowOverrides({
       ...runtimeInput(),
@@ -400,6 +410,17 @@ describe('Runtime Shadow lifecycle, safety and performance', () => {
     const xl = createRuntimeShadowInputSignature(runtimeInput());
     const md = createRuntimeShadowInputSignature(runtimeInput({ breakpoint: 'md', cols: 6 }));
     expect(md).not.toBe(xl);
+  });
+
+  it('invalidates the signature for a new authoritative structural generation', () => {
+    const first = runtimeInput({
+      structuralContext: { generation: 1, revision: 84, fingerprint: 'dsl-v1-safe' },
+    });
+    const second = runtimeInput({
+      structuralContext: { generation: 2, revision: 85, fingerprint: 'dsl-v1-safe-next' },
+    });
+    expect(createRuntimeShadowInputSignature(second)).not.toBe(createRuntimeShadowInputSignature(first));
+    expect(analyzeRuntimeShadow(second).structuralContext).toEqual(second.structuralContext);
   });
 
   it('28. never mutates any diagnostic input', () => {

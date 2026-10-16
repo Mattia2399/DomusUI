@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { ActiveDevice, SensorConnectionState } from '../settings/types';
 import { useLocation, useNavigate } from 'react-router';
@@ -225,6 +225,7 @@ import { useHaDashboardLayoutPersistence } from '../../hooks/useHaDashboardLayou
 import { useDashboardEditorHistory } from '../../hooks/useDashboardEditorHistory';
 import { createDashboardStructuralFingerprint } from '../../services/dashboardPersistenceProjection';
 import type { DashboardLayoutConfiguration } from '../../services/dashboardConfigurationRepository';
+import { createDashboardStructuralApplicationReceipt } from '../../services/dashboardStructuralLoadSnapshot';
 import {
   createDashboardRecoverySnapshot,
   discardDashboardRecoverySnapshot,
@@ -6397,6 +6398,33 @@ export function MainBoard() {
     onHydrate: hydrateAuthoritativeDashboardLayout,
     onAuthoritativeReset: handleAuthoritativeDashboardReset,
   });
+  useLayoutEffect(() => {
+    const snapshot = haDashboardLayoutPersistence.structuralLoadSnapshot;
+    if (
+      snapshot.source !== 'home-assistant' ||
+      snapshot.phase === 'complete' ||
+      snapshot.dashboard === null ||
+      snapshot.revision === null ||
+      snapshot.fingerprint === null
+    ) {
+      return;
+    }
+    const expectedAppliedDashboard: DashboardLayoutConfiguration = {
+      ...snapshot.dashboard,
+      widgets: normalizeWidgetsForRuntime(snapshot.dashboard.widgets, effectiveRuntimeMode),
+    };
+    const receipt = createDashboardStructuralApplicationReceipt(
+      snapshot,
+      expectedAppliedDashboard,
+      authoritativeDashboardLayout,
+    );
+    if (receipt) haDashboardLayoutPersistence.acknowledgeStructuralApplication(receipt);
+  }, [
+    authoritativeDashboardLayout,
+    effectiveRuntimeMode,
+    haDashboardLayoutPersistence.acknowledgeStructuralApplication,
+    haDashboardLayoutPersistence.structuralLoadSnapshot,
+  ]);
   const lastNotifiedRemoteRevisionRef = useRef<number | null>(null);
   const lastAnnouncedAppliedRevisionRef = useRef<number | null>(null);
   const visibleRemoteConflictRevisionRef = useRef<number | null>(null);
@@ -11363,6 +11391,7 @@ export function MainBoard() {
               widgetTypeLayoutOverrides={widgetTypeLayoutOverrides}
               widgetLayoutOverrides={widgetLayoutOverrides}
               responsiveLayouts={responsiveLayouts}
+              structuralLoadSnapshot={haDashboardLayoutPersistence.structuralLoadSnapshot}
               onCloseCatalog={() => setIsCatalogOpen(false)}
               onSelectWidget={(id) => {
                 setSelectedWidgetId(id);

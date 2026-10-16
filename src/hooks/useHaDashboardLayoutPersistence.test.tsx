@@ -75,7 +75,23 @@ describe('useHaDashboardLayoutPersistence', () => {
 
     await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
     const serverDashboard = buildDashboard();
-    expect(onHydrate).toHaveBeenCalledWith(serverDashboard);
+    expect(onHydrate).toHaveBeenCalledWith(serverDashboard, expect.objectContaining({
+      generation: 1,
+      revision: 1,
+    }));
+    expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'loading', source: 'home-assistant', generation: 1, revision: 1, coherent: false,
+    });
+    const initialCandidate = onHydrate.mock.calls[0]?.[1];
+    await act(async () => {
+      expect(result.current.acknowledgeStructuralApplication({
+        ...initialCandidate,
+        expectedAppliedFingerprint: initialCandidate.fingerprint,
+        appliedFingerprint: initialCandidate.fingerprint,
+        coherent: true,
+      })).toBe(true);
+    });
+    expect(result.current.structuralLoadSnapshot).toMatchObject({ phase: 'complete', coherent: true });
     rerender({ dashboard: serverDashboard });
 
     rerender({ dashboard: buildDashboard('Edited') });
@@ -98,6 +114,9 @@ describe('useHaDashboardLayoutPersistence', () => {
     }));
 
     await waitFor(() => expect(result.current.loadStatus).toBe('migration_required'));
+    expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'migration-required', source: 'none', dashboard: null, coherent: false,
+    });
     await act(async () => {
       await expect(result.current.saveNow()).resolves.toMatchObject({ ok: false, code: 'migration_required' });
     });
@@ -207,7 +226,13 @@ describe('useHaDashboardLayoutPersistence', () => {
     );
 
     await waitFor(() => expect(result.current.loadStatus).toBe('read_only'));
-    expect(onHydrate).toHaveBeenCalledWith(stored.dashboard);
+    expect(onHydrate).toHaveBeenCalledWith(stored.dashboard, expect.objectContaining({
+      generation: 1,
+      revision: 1,
+    }));
+    expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'loading', source: 'home-assistant', revision: 1, coherent: false,
+    });
     rerender({ dashboard: buildDashboard('Forbidden edit') });
     await new Promise((resolve) => window.setTimeout(resolve, 15));
     expect(callApi.mock.calls.some(([message]) => message.type === 'frontend/set_system_data')).toBe(false);
@@ -247,9 +272,12 @@ describe('useHaDashboardLayoutPersistence', () => {
     await waitFor(() => expect(result.current.serverRevision).toBe(2));
     expect(result.current.pendingRemoteUpdate).toBeNull();
     expect(result.current.lastAppliedRemoteRevision).toBe(2);
-    expect(onHydrate).toHaveBeenLastCalledWith(expect.objectContaining({
-      sections: [expect.objectContaining({ title: 'Version 2' })],
-    }));
+    expect(onHydrate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sections: [expect.objectContaining({ title: 'Version 2' })],
+      }),
+      expect.objectContaining({ generation: 2, revision: 2 }),
+    );
   });
 
   it('does not report its own in-flight publication as a remote update', async () => {
@@ -447,6 +475,9 @@ describe('useHaDashboardLayoutPersistence', () => {
 
     expect(result.current.serverRevision).toBe(1);
     expect(result.current.pendingRemoteUpdate).toMatchObject({ revision: 2, updatedByUserId: 'other-admin' });
+    expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'pending-remote', revision: 1, generation: 1, coherent: false,
+    });
     rerender({ dashboard: buildDashboard('My draft'), editing: true });
     await act(async () => {
       await expect(result.current.saveNow()).resolves.toMatchObject({ ok: false, code: 'server_conflict' });
@@ -456,9 +487,12 @@ describe('useHaDashboardLayoutPersistence', () => {
     rerender({ dashboard: buildDashboard('My draft'), editing: false });
     await waitFor(() => expect(result.current.serverRevision).toBe(2));
     expect(result.current.pendingRemoteUpdate).toBeNull();
-    expect(onHydrate).toHaveBeenLastCalledWith(expect.objectContaining({
-      sections: [expect.objectContaining({ title: 'Version 2' })],
-    }));
+    expect(onHydrate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sections: [expect.objectContaining({ title: 'Version 2' })],
+      }),
+      expect.objectContaining({ generation: 2, revision: 2 }),
+    );
   });
 
   it('clears a pending conflict when the local draft already matches that revision', async () => {
@@ -620,6 +654,9 @@ describe('useHaDashboardLayoutPersistence', () => {
         .resolves.toMatchObject({ ok: true });
     });
     expect(stored?.dashboard.sections[0]?.title).toBe('Starter layout');
+    expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'refreshing', source: 'home-assistant', generation: 2, revision: 1, coherent: false,
+    });
   });
 
   it('keeps edits local until saveNow when continuous autosave is disabled', async () => {
@@ -667,6 +704,9 @@ describe('useHaDashboardLayoutPersistence', () => {
     });
     expect(stored.dashboard.sections[0]?.title).toBe('Draft');
     expect(callApi.mock.calls.some(([message]) => message.type === 'frontend/set_system_data')).toBe(true);
+    expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'refreshing', source: 'home-assistant', revision: 2, coherent: false,
+    });
   });
 
   it('persists an explicitly empty dashboard without waiting for React state', async () => {
@@ -755,9 +795,12 @@ describe('useHaDashboardLayoutPersistence', () => {
     expect(stored.revision).toBe(3);
     expect(stored.publication).toMatchObject({ source: 'rollback', restoredFromRevision: 1 });
     expect(stored.dashboard.sections[0]?.title).toBe('Original');
-    expect(onHydrate).toHaveBeenLastCalledWith(expect.objectContaining({
-      sections: [expect.objectContaining({ title: 'Original' })],
-    }));
+    expect(onHydrate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        sections: [expect.objectContaining({ title: 'Original' })],
+      }),
+      expect.objectContaining({ generation: 3, revision: 3 }),
+    );
 
     await waitFor(() => expect(result.current.revisions.map((entry) => entry.revision)).toEqual([3, 2, 1]));
     await act(async () => {
@@ -765,5 +808,119 @@ describe('useHaDashboardLayoutPersistence', () => {
     });
     expect(stored.revision).toBe(4);
     expect(stored.publication).toMatchObject({ source: 'rollback', restoredFromRevision: 1 });
+  });
+
+  it('keeps the local snapshot provisional until the asynchronous HA document arrives', async () => {
+    const stored = buildDocument(buildDashboard('Authoritative'));
+    let resolveConfiguration!: (value: unknown) => void;
+    const configuration = new Promise<unknown>((resolve) => {
+      resolveConfiguration = resolve;
+    });
+    const callApi = vi.fn(async (message: Record<string, unknown>) => {
+      if (message.key === HA_DASHBOARD_RESET_MARKER_KEY) return { value: null };
+      return configuration;
+    });
+    const onHydrate = vi.fn();
+    const { result } = renderHook(() => useHaDashboardLayoutPersistence({
+      active: true,
+      autoSaveEnabled: false,
+      isConnected: true,
+      canManage: false,
+      userId: 'member',
+      callApi,
+      dashboard: buildDashboard('Local'),
+      onHydrate,
+    }));
+
+    await waitFor(() => expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'loading', source: 'local-cache', generation: 0, revision: null,
+    }));
+    expect(onHydrate).not.toHaveBeenCalled();
+
+    resolveConfiguration({ value: stored });
+    await waitFor(() => expect(onHydrate).toHaveBeenCalledTimes(1));
+    expect(result.current.structuralLoadSnapshot).toMatchObject({
+      phase: 'loading', source: 'home-assistant', generation: 1, revision: 1, coherent: false,
+    });
+  });
+
+  it('rejects mismatched and obsolete receipts without performing HA access', async () => {
+    const stored = buildDocument();
+    const callApi = vi.fn(async (message: Record<string, unknown>) => ({
+      value: message.key === HA_DASHBOARD_RESET_MARKER_KEY ? null : stored,
+    }));
+    const onHydrate = vi.fn();
+    const { result } = renderHook(() => useHaDashboardLayoutPersistence({
+      active: true,
+      autoSaveEnabled: false,
+      isConnected: true,
+      canManage: false,
+      userId: 'member',
+      callApi,
+      dashboard: buildDashboard('Local'),
+      onHydrate,
+    }));
+    await waitFor(() => expect(onHydrate).toHaveBeenCalledTimes(1));
+    const token = onHydrate.mock.calls[0]?.[1];
+    const requestsBeforeReceipt = callApi.mock.calls.length;
+
+    act(() => {
+      expect(result.current.acknowledgeStructuralApplication({
+        ...token,
+        expectedAppliedFingerprint: token.fingerprint,
+        appliedFingerprint: 'dsl-v1-wrong',
+        coherent: false,
+      })).toBe(false);
+      expect(result.current.acknowledgeStructuralApplication({
+        ...token,
+        generation: token.generation - 1,
+        expectedAppliedFingerprint: token.fingerprint,
+        appliedFingerprint: token.fingerprint,
+        coherent: true,
+      })).toBe(false);
+    });
+
+    expect(result.current.structuralLoadSnapshot.phase).toBe('loading');
+    expect(callApi).toHaveBeenCalledTimes(requestsBeforeReceipt);
+  });
+
+  it('revalidates the same generation after disconnect and reconnect', async () => {
+    const stored = buildDocument();
+    const callApi = vi.fn(async (message: Record<string, unknown>) => ({
+      value: message.key === HA_DASHBOARD_RESET_MARKER_KEY ? null : stored,
+    }));
+    const onHydrate = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ connected }) => useHaDashboardLayoutPersistence({
+        active: true,
+        autoSaveEnabled: false,
+        isConnected: connected,
+        canManage: false,
+        userId: 'member',
+        callApi,
+        dashboard: buildDashboard(),
+        onHydrate,
+      }),
+      { initialProps: { connected: true } },
+    );
+    await waitFor(() => expect(onHydrate).toHaveBeenCalledTimes(1));
+    const firstToken = onHydrate.mock.calls[0]?.[1];
+    act(() => {
+      result.current.acknowledgeStructuralApplication({
+        ...firstToken,
+        expectedAppliedFingerprint: firstToken.fingerprint,
+        appliedFingerprint: firstToken.fingerprint,
+        coherent: true,
+      });
+    });
+    expect(result.current.structuralLoadSnapshot.phase).toBe('complete');
+
+    rerender({ connected: false });
+    await waitFor(() => expect(result.current.structuralLoadSnapshot.phase).toBe('offline'));
+    rerender({ connected: true });
+    await waitFor(() => expect(onHydrate).toHaveBeenCalledTimes(2));
+    const reconnectToken = onHydrate.mock.calls[1]?.[1];
+    expect(reconnectToken.generation).toBe(firstToken.generation);
+    expect(reconnectToken.revision).toBe(firstToken.revision);
   });
 });

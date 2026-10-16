@@ -48,6 +48,11 @@ export type RuntimeShadowInput = {
   readonly includeRawIdDetails?: boolean;
   readonly reconciliationEnabled?: boolean;
   readonly configurationCompleteness?: RuntimeShadowConfigurationCompleteness;
+  readonly structuralContext?: Readonly<{
+    generation: number;
+    revision: number | null;
+    fingerprint: string | null;
+  }>;
   readonly lightStates: readonly RuntimeShadowLightState[];
   readonly widgetTypeLayoutOverrides?: WidgetTypeLayoutOverrides;
   readonly widgetLayoutOverrides?: WidgetLayoutOverrides;
@@ -76,6 +81,7 @@ export type RuntimeShadowDifference = {
 export type RuntimeShadowReport = {
   readonly breakpoint: DashboardGridBreakpoint;
   readonly cols: number;
+  readonly structuralContext: RuntimeShadowInput['structuralContext'] | null;
   readonly rootElementCount: number;
   readonly lightCount: number;
   readonly stackCount: number;
@@ -129,6 +135,7 @@ function unavailableReport(
   return {
     breakpoint: input.breakpoint,
     cols: input.cols,
+    structuralContext: input.structuralContext ?? null,
     rootElementCount: input.rootElements.length,
     lightCount: input.lightStates.length,
     stackCount: input.rootElements.filter((element) => element.role === 'stack').length,
@@ -315,6 +322,7 @@ export function analyzeRuntimeShadow(
   return {
     breakpoint: input.breakpoint,
     cols: input.cols,
+    structuralContext: input.structuralContext ?? null,
     rootElementCount: input.rootElements.length,
     lightCount: input.lightStates.length,
     stackCount: input.rootElements.filter((element) => element.role === 'stack').length,
@@ -397,6 +405,7 @@ export function createRuntimeShadowInputSignature(input: RuntimeShadowInput) {
     rawIdDetails: input.includeRawIdDetails === true,
     reconciliationEnabled: input.reconciliationEnabled === true,
     configurationCompleteness: input.configurationCompleteness ?? 'unknown',
+    structuralContext: input.structuralContext ?? null,
     lights: [...input.lightStates].sort((first, second) => first.id.localeCompare(second.id)),
     lightTypeOverride: spanOverrideSignature(input.widgetTypeLayoutOverrides?.light?.[input.breakpoint]),
     widgetOverrides: relevantWidgetOverrides,

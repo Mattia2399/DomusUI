@@ -31,6 +31,17 @@ import type {
   DashboardResetProgressReporter,
 } from '../services/dashboardReset';
 import { isAuthoritativeDashboardResetAcknowledged } from '../services/dashboardResetClient';
+import {
+  acknowledgeDashboardStructuralApplication,
+  createDashboardStructuralCandidate,
+  createLocalDashboardStructuralLoadSnapshot,
+  markDashboardStructuralDocumentMissing,
+  markDashboardStructuralLoadPhase,
+  type DashboardStructuralApplicationReceipt,
+  type DashboardStructuralCandidateToken,
+  type DashboardStructuralLoadPhase,
+  type DashboardStructuralLoadSnapshot,
+} from '../services/dashboardStructuralLoadSnapshot';
 
 export type HaDashboardLayoutLoadStatus =
   | 'idle'
@@ -53,7 +64,10 @@ type UseHaDashboardLayoutPersistenceInput = {
   userId: string | null;
   callApi: DashboardHaApiCaller;
   dashboard: DashboardLayoutConfiguration;
-  onHydrate: (dashboard: DashboardLayoutConfiguration) => void;
+  onHydrate: (
+    dashboard: DashboardLayoutConfiguration,
+    candidate: DashboardStructuralCandidateToken | null,
+  ) => void;
   onAuthoritativeReset?: (marker: DashboardResetMarker) => void;
   debounceMs?: number;
   remoteCheckIntervalMs?: number;
@@ -164,6 +178,10 @@ export function useHaDashboardLayoutPersistence({
   const [revisionHistoryStatus, setRevisionHistoryStatus] = useState<DashboardRevisionHistoryStatus>('idle');
   const [pendingRemoteUpdate, setPendingRemoteUpdate] = useState<DashboardRemoteUpdate | null>(null);
   const [lastAppliedRemoteRevision, setLastAppliedRemoteRevision] = useState<number | null>(null);
+  const [structuralLoadSnapshot, setStructuralLoadSnapshot] = useState<DashboardStructuralLoadSnapshot>(
+    () => createLocalDashboardStructuralLoadSnapshot(dashboard),
+  );
+  const structuralLoadSnapshotRef = useRef(structuralLoadSnapshot);
   const documentRef = useRef<SharedHouseConfiguration | null>(null);
   const pendingRemoteDocumentRef = useRef<SharedHouseConfiguration | null>(null);
   const pendingLocalPublicationRef = useRef<{ revision: number; updatedAt: string } | null>(null);
@@ -176,6 +194,41 @@ export function useHaDashboardLayoutPersistence({
   const pendingSaveTimeoutRef = useRef<number | null>(null);
   const handledResetIdRef = useRef<string | null>(null);
   dashboardRef.current = dashboard;
+
+  const publishStructuralLoadSnapshot = useCallback((next: DashboardStructuralLoadSnapshot) => {
+    structuralLoadSnapshotRef.current = next;
+    setStructuralLoadSnapshot(next);
+  }, []);
+
+  const stageAuthoritativeDocument = useCallback((
+    document: SharedHouseConfiguration,
+    phase: Extract<DashboardStructuralLoadPhase, 'loading' | 'refreshing'>,
+    hydrate: boolean,
+  ) => {
+    const candidate = createDashboardStructuralCandidate(
+      structuralLoadSnapshotRef.current,
+      document.dashboard,
+      document.revision,
+      phase,
+    );
+    if (candidate.changed) publishStructuralLoadSnapshot(candidate.snapshot);
+    if (hydrate && candidate.snapshot.phase !== 'complete') {
+      hydrateRef.current(document.dashboard, candidate.token);
+    }
+    return candidate;
+  }, [publishStructuralLoadSnapshot]);
+
+  const acknowledgeStructuralApplication = useCallback((
+    receipt: DashboardStructuralApplicationReceipt,
+  ) => {
+    const next = acknowledgeDashboardStructuralApplication(
+      structuralLoadSnapshotRef.current,
+      receipt,
+    );
+    if (!next) return false;
+    if (next !== structuralLoadSnapshotRef.current) publishStructuralLoadSnapshot(next);
+    return true;
+  }, [publishStructuralLoadSnapshot]);
 
   const handleAuthoritativeReset = useCallback((marker: DashboardResetMarker) => {
     if (handledResetIdRef.current === marker.resetId) return;
@@ -199,8 +252,13 @@ export function useHaDashboardLayoutPersistence({
     setLastAppliedRemoteRevision(null);
     setStatus({ phase: 'idle' });
     setLoadStatus('migration_required');
+    publishStructuralLoadSnapshot(markDashboardStructuralDocumentMissing(
+      structuralLoadSnapshotRef.current,
+      'migration-required',
+      'authoritative-reset',
+    ));
     authoritativeResetRef.current?.(marker);
-  }, [cache]);
+  }, [cache, publishStructuralLoadSnapshot]);
 
   useEffect(() => {
     if (!active) {
@@ -220,16 +278,25 @@ export function useHaDashboardLayoutPersistence({
       awaitingHydrationRef.current = false;
       conflictRef.current = false;
       handledResetIdRef.current = null;
+      publishStructuralLoadSnapshot(createLocalDashboardStructuralLoadSnapshot(dashboardRef.current));
       return;
     }
     if (!isConnected || !userId) {
       setLoadStatus('offline');
+      const current = structuralLoadSnapshotRef.current;
+      publishStructuralLoadSnapshot(current.source === 'none'
+        ? createLocalDashboardStructuralLoadSnapshot(dashboardRef.current, 'offline')
+        : markDashboardStructuralLoadPhase(current, 'offline', 'home-assistant-unavailable'));
       return;
     }
 
     let cancelled = false;
     setLoadStatus('loading');
     setStatus({ phase: 'idle' });
+    const currentSnapshot = structuralLoadSnapshotRef.current;
+    publishStructuralLoadSnapshot(currentSnapshot.source === 'none'
+      ? createLocalDashboardStructuralLoadSnapshot(dashboardRef.current, 'loading')
+      : markDashboardStructuralLoadPhase(currentSnapshot, 'loading', 'reading-home-assistant'));
     void Promise.all([
       repository.loadSharedHouseConfiguration(),
       repository.loadDashboardResetMarker(),
@@ -239,6 +306,11 @@ export function useHaDashboardLayoutPersistence({
         if (result.document.dashboard.storageVersion !== DASHBOARD_LAYOUT_STORAGE_VERSION) {
           setLoadStatus('error');
           setStatus(statusFromResult(errorResult('server_unsupported')));
+          publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+            structuralLoadSnapshotRef.current,
+            'error',
+            'unsupported-storage-version',
+          ));
           return;
         }
         documentRef.current = result.document;
@@ -248,7 +320,7 @@ export function useHaDashboardLayoutPersistence({
         awaitingHydrationRef.current = true;
         conflictRef.current = false;
         cache?.saveSharedHouseConfiguration(result.document);
-        hydrateRef.current(result.document.dashboard);
+        stageAuthoritativeDocument(result.document, 'loading', true);
         saveDashboardLayout(
           result.document.dashboard.sections,
           result.document.dashboard.widgets,
@@ -304,28 +376,60 @@ export function useHaDashboardLayoutPersistence({
         ) {
           setLoadStatus(resetMarkerResult.status === 'offline' ? 'offline' : 'error');
           setStatus(statusFromResult(errorResult('server_unavailable')));
+          publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+            structuralLoadSnapshotRef.current,
+            resetMarkerResult.status === 'offline' ? 'offline' : 'error',
+            'reset-marker-read-failed',
+          ));
           return;
         }
         setLoadStatus(canManage ? 'migration_required' : 'read_only');
+        publishStructuralLoadSnapshot(markDashboardStructuralDocumentMissing(
+          structuralLoadSnapshotRef.current,
+          canManage ? 'migration-required' : 'empty',
+          'home-assistant-document-missing',
+        ));
         if (canManage) setStatus(statusFromResult(errorResult('migration_required')));
         return;
       }
       if (result.status === 'offline') {
         const cached = cache?.loadSharedHouseConfiguration();
         if (cached?.dashboard.storageVersion === DASHBOARD_LAYOUT_STORAGE_VERSION) {
-          hydrateRef.current(cached.dashboard);
+          publishStructuralLoadSnapshot(createLocalDashboardStructuralLoadSnapshot(cached.dashboard, 'offline'));
+          hydrateRef.current(cached.dashboard, null);
+        } else {
+          publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+            structuralLoadSnapshotRef.current,
+            'offline',
+            'home-assistant-unavailable',
+          ));
         }
         setLoadStatus('offline');
         return;
       }
       setLoadStatus(result.status === 'unsupported' ? 'unsupported' : 'error');
       setStatus(statusFromResult(errorResult(errorCodeFromLoad(result))));
+      publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+        structuralLoadSnapshotRef.current,
+        'error',
+        result.status === 'unsupported' ? 'home-assistant-api-unsupported' : 'home-assistant-read-failed',
+      ));
     });
 
     return () => {
       cancelled = true;
     };
-  }, [active, cache, canManage, handleAuthoritativeReset, isConnected, repository, userId]);
+  }, [
+    active,
+    cache,
+    canManage,
+    handleAuthoritativeReset,
+    isConnected,
+    publishStructuralLoadSnapshot,
+    repository,
+    stageAuthoritativeDocument,
+    userId,
+  ]);
 
   const applyRemoteDocument = useCallback((document: SharedHouseConfiguration) => {
     documentRef.current = document;
@@ -338,7 +442,7 @@ export function useHaDashboardLayoutPersistence({
     setPendingRemoteUpdate(null);
     setLastAppliedRemoteRevision(document.revision);
     cache?.saveSharedHouseConfiguration(document);
-    hydrateRef.current(document.dashboard);
+    stageAuthoritativeDocument(document, 'refreshing', true);
     saveDashboardLayout(
       document.dashboard.sections,
       document.dashboard.widgets,
@@ -348,7 +452,7 @@ export function useHaDashboardLayoutPersistence({
       'real',
     );
     setLoadStatus(permissionRef.current ? 'ready' : 'read_only');
-  }, [cache]);
+  }, [cache, stageAuthoritativeDocument]);
 
   const registerPendingRemoteDocument = useCallback((document: SharedHouseConfiguration) => {
     pendingRemoteDocumentRef.current = document;
@@ -358,7 +462,12 @@ export function useHaDashboardLayoutPersistence({
       updatedAt: document.updatedAt,
       updatedByUserId: document.updatedByUserId,
     });
-  }, []);
+    publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+      structuralLoadSnapshotRef.current,
+      'pending-remote',
+      'local-draft-defers-remote-revision',
+    ));
+  }, [publishStructuralLoadSnapshot]);
 
   const acknowledgeOwnPublication = useCallback((document: SharedHouseConfiguration) => {
     documentRef.current = document;
@@ -369,7 +478,8 @@ export function useHaDashboardLayoutPersistence({
     setPendingRemoteUpdate(null);
     conflictRef.current = false;
     cache?.saveSharedHouseConfiguration(document);
-  }, [cache]);
+    stageAuthoritativeDocument(document, 'refreshing', false);
+  }, [cache, stageAuthoritativeDocument]);
 
   useEffect(() => {
     const pending = pendingRemoteDocumentRef.current;
@@ -395,28 +505,60 @@ export function useHaDashboardLayoutPersistence({
       if (result.status === 'empty') {
         const resetMarkerResult = await repository.loadDashboardResetMarker();
         if (resetMarkerResult.status === 'found') {
-          if (
+          const alreadyAcknowledged =
             typeof window !== 'undefined' &&
             isAuthoritativeDashboardResetAcknowledged(
               window.localStorage,
               resetMarkerResult.marker,
-            )
-          ) {
-            return false;
+            );
+          if (!alreadyAcknowledged) {
+            handleAuthoritativeReset(resetMarkerResult.marker);
+            return true;
           }
-          handleAuthoritativeReset(resetMarkerResult.marker);
-          return true;
+        }
+        publishStructuralLoadSnapshot(markDashboardStructuralDocumentMissing(
+          structuralLoadSnapshotRef.current,
+          permissionRef.current ? 'migration-required' : 'empty',
+          'home-assistant-document-missing',
+        ));
+        return false;
+      }
+      if (result.status !== 'found') {
+        if (result.status === 'offline') {
+          publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+            structuralLoadSnapshotRef.current,
+            'offline',
+            'home-assistant-unavailable',
+          ));
+        } else if (result.status === 'error' || result.status === 'unsupported') {
+          publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+            structuralLoadSnapshotRef.current,
+            'error',
+            result.status === 'unsupported' ? 'home-assistant-api-unsupported' : 'home-assistant-read-failed',
+          ));
         }
         return false;
       }
-      if (result.status !== 'found') return false;
       if (result.document.dashboard.storageVersion !== DASHBOARD_LAYOUT_STORAGE_VERSION) {
         setLoadStatus('error');
         setStatus(statusFromResult(errorResult('server_unsupported')));
+        publishStructuralLoadSnapshot(markDashboardStructuralLoadPhase(
+          structuralLoadSnapshotRef.current,
+          'error',
+          'unsupported-storage-version',
+        ));
         return false;
       }
       const currentRevision = documentRef.current?.revision ?? 0;
-      if (result.document.revision <= currentRevision) return false;
+      if (result.document.revision <= currentRevision) {
+        if (
+          result.document.revision === currentRevision &&
+          structuralLoadSnapshotRef.current.phase !== 'complete'
+        ) {
+          stageAuthoritativeDocument(result.document, 'refreshing', true);
+        }
+        return false;
+      }
       const isOwnPublication = result.document.publication?.originClientId === clientIdRef.current;
       const isEquivalentLayout = dashboardSignature(result.document.dashboard) ===
         dashboardSignature(dashboardRef.current);
@@ -448,7 +590,17 @@ export function useHaDashboardLayoutPersistence({
     } finally {
       remoteCheckInFlightRef.current = false;
     }
-  }, [acknowledgeOwnPublication, active, applyRemoteDocument, handleAuthoritativeReset, registerPendingRemoteDocument, repository, userId]);
+  }, [
+    acknowledgeOwnPublication,
+    active,
+    applyRemoteDocument,
+    handleAuthoritativeReset,
+    publishStructuralLoadSnapshot,
+    registerPendingRemoteDocument,
+    repository,
+    stageAuthoritativeDocument,
+    userId,
+  ]);
 
   const applyPendingRemoteUpdate = useCallback(() => {
     const pending = pendingRemoteDocumentRef.current;
@@ -637,6 +789,7 @@ export function useHaDashboardLayoutPersistence({
         conflictRef.current = false;
         persistedSignatureRef.current = dashboardSignature(result.document.dashboard);
         cache?.saveSharedHouseConfiguration(result.document);
+        stageAuthoritativeDocument(result.document, 'refreshing', false);
         saveDashboardLayout(
           nextDashboard.sections,
           nextDashboard.widgets,
@@ -668,7 +821,15 @@ export function useHaDashboardLayoutPersistence({
       setStatus(statusFromResult(result));
       return result;
     });
-  }, [acknowledgeOwnPublication, active, cache, registerPendingRemoteDocument, repository, userId]);
+  }, [
+    acknowledgeOwnPublication,
+    active,
+    cache,
+    registerPendingRemoteDocument,
+    repository,
+    stageAuthoritativeDocument,
+    userId,
+  ]);
 
   const saveNow = useCallback(() => {
     if (pendingSaveTimeoutRef.current !== null) {
@@ -759,6 +920,7 @@ export function useHaDashboardLayoutPersistence({
     awaitingHydrationRef.current = false;
     conflictRef.current = false;
     cache?.saveSharedHouseConfiguration(saved.document);
+    stageAuthoritativeDocument(saved.document, 'refreshing', false);
     // The marker is only relevant while the authoritative configuration is
     // empty. Remove it after a confirmed new setup without making setup depend
     // on this best-effort cleanup.
@@ -780,7 +942,7 @@ export function useHaDashboardLayoutPersistence({
     };
     setStatus(statusFromResult(result));
     return result;
-  }, [active, cache, loadStatus, persist, repository, userId]);
+  }, [active, cache, loadStatus, persist, repository, stageAuthoritativeDocument, userId]);
 
   const initializeFromCurrentDashboard = useCallback(() => (
     initializeDashboard(dashboard)
@@ -841,7 +1003,17 @@ export function useHaDashboardLayoutPersistence({
       restoredFromRevision: target.revision,
     });
     if (result.ok) {
-      hydrateRef.current(target.dashboard);
+      const currentSnapshot = structuralLoadSnapshotRef.current;
+      const candidate = currentSnapshot.source === 'home-assistant' &&
+        currentSnapshot.revision !== null &&
+        currentSnapshot.fingerprint !== null
+        ? {
+            generation: currentSnapshot.generation,
+            revision: currentSnapshot.revision,
+            fingerprint: currentSnapshot.fingerprint,
+          }
+        : null;
+      hydrateRef.current(target.dashboard, candidate);
     }
     return result;
   }, [persist, revisionHistory]);
@@ -872,9 +1044,14 @@ export function useHaDashboardLayoutPersistence({
       setLastAppliedRemoteRevision(null);
       setStatus({ phase: 'idle' });
       setLoadStatus('migration_required');
+      publishStructuralLoadSnapshot(markDashboardStructuralDocumentMissing(
+        structuralLoadSnapshotRef.current,
+        'migration-required',
+        'authoritative-reset',
+      ));
     }
     return result;
-  }, [cache, repository, userId]);
+  }, [cache, publishStructuralLoadSnapshot, repository, userId]);
 
   const revisions = publishedRevision
     ? [publishedRevision, ...revisionHistory.filter((entry) => entry.revision !== publishedRevision.revision)].slice(0, 5)
@@ -888,6 +1065,8 @@ export function useHaDashboardLayoutPersistence({
     revisionHistoryStatus,
     pendingRemoteUpdate,
     lastAppliedRemoteRevision,
+    structuralLoadSnapshot,
+    acknowledgeStructuralApplication,
     saveNow,
     saveDashboard,
     initializeDashboard,

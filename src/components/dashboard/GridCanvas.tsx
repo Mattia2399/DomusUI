@@ -79,6 +79,10 @@ import {
 } from './gridEngine2/runtimeShadowFeatureFlag';
 import type { ShadowDiagnosticsReport } from './gridEngine2/shadowLayoutDiagnostics';
 import type { ShadowInspectorPublisher } from './gridEngine2/shadowInspectorTransport';
+import {
+  isDashboardStructuralSnapshotAuthoritative,
+  type DashboardStructuralLoadSnapshot,
+} from '../../services/dashboardStructuralLoadSnapshot';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -118,6 +122,7 @@ type GridCanvasProps = {
   widgetTypeLayoutOverrides: WidgetTypeLayoutOverrides;
   widgetLayoutOverrides: WidgetLayoutOverrides;
   responsiveLayouts: DashboardResponsiveLayouts;
+  structuralLoadSnapshot: DashboardStructuralLoadSnapshot;
   onCloseCatalog: () => void;
   onSelectWidget: (id: string | null) => void;
   onSelectSection: (id: string | null) => void;
@@ -1084,6 +1089,7 @@ export function GridCanvas({
   widgetTypeLayoutOverrides,
   widgetLayoutOverrides,
   responsiveLayouts,
+  structuralLoadSnapshot,
   onCloseCatalog,
   onSelectWidget,
   onSelectSection,
@@ -2061,13 +2067,17 @@ export function GridCanvas({
     let cancelled = false;
     const timeoutId = window.setTimeout(() => {
       if (isCanvasInteractingRef.current) return;
-      const explicitRootLayouts = responsiveLayouts.root;
+      const structuralDashboard = structuralLoadSnapshot.dashboard;
+      const structuralSections = structuralDashboard?.sections ?? [];
+      const structuralWidgets = structuralDashboard?.widgets ?? [];
+      const structuralRootWidgets = structuralWidgets.filter((widget) => !widget.parentSectionId);
+      const explicitRootLayouts = structuralDashboard?.responsiveLayouts.root;
       const hasExplicitLayout = Object.prototype.hasOwnProperty.call(
         explicitRootLayouts ?? {},
         gridEngineActiveBreakpoint,
       );
       const rootElements = [
-        ...sections.map((section) => ({
+        ...structuralSections.map((section) => ({
           id: section.id,
           role: (
             section.kind === 'stack-vertical' ||
@@ -2078,23 +2088,40 @@ export function GridCanvas({
           ) as 'stack' | 'section',
           kind: section.kind,
         })),
-        ...rootWidgets.map((widget) => ({
+        ...structuralRootWidgets.map((widget) => ({
           id: widget.id,
           role: 'widget' as const,
           kind: widget.kind,
         })),
       ];
-      const lightStates = rootWidgets
+      const liveWidgetById = new Map(widgets.map((widget) => [widget.id, widget] as const));
+      const lightStates = structuralRootWidgets
         .filter((widget) => widget.kind === 'light')
-        .map((widget) => ({ id: widget.id, isOn: widget.isOn }));
-      const sectionIds = new Set(sections.map((section) => section.id));
-      const knownNonRootElements = widgets
+        .flatMap((widget) => {
+          const liveWidget = liveWidgetById.get(widget.id);
+          const hasRuntimeState = liveWidget && (
+            liveWidget.dataSource === 'mock' ||
+            Object.prototype.hasOwnProperty.call(haStates, liveWidget.entityId)
+          );
+          return hasRuntimeState ? [{ id: widget.id, isOn: liveWidget.isOn }] : [];
+        });
+      const sectionIds = new Set(structuralSections.map((section) => section.id));
+      const structuralStackSectionIds = new Set(
+        structuralSections
+          .filter((section) =>
+            section.kind === 'stack-vertical' ||
+            section.kind === 'stack-horizontal' ||
+            section.kind === 'stack-grid'
+          )
+          .map((section) => section.id),
+      );
+      const knownNonRootElements = structuralWidgets
         .filter((widget) => Boolean(widget.parentSectionId))
         .map((widget) => ({
           id: widget.id,
           role: 'widget' as const,
           kind: widget.kind,
-          parentRole: widget.parentSectionId && stackSectionsById.has(widget.parentSectionId)
+          parentRole: widget.parentSectionId && structuralStackSectionIds.has(widget.parentSectionId)
             ? 'stack' as const
             : widget.parentSectionId && sectionIds.has(widget.parentSectionId)
               ? 'section' as const
@@ -2111,19 +2138,25 @@ export function GridCanvas({
               rootElements,
               hasExplicitLayout,
               explicitLayout: explicitRootLayouts?.[gridEngineActiveBreakpoint],
-              derivedLayout: derivedGridEngineLayouts[gridEngineActiveBreakpoint],
               legacyRuntimeInput: liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [],
               explicitRootLayouts,
               legacyRuntimeLayouts: liveGridEngineLayouts,
               knownNonRootElements,
               includeRawIdDetails: GRID_ENGINE_2_RUNTIME_SHADOW_ID_DETAILS_ENABLED,
               reconciliationEnabled: GRID_ENGINE_2_RUNTIME_SHADOW_RECONCILIATION_ENABLED,
-              // GridCanvas has no authoritative HA hydration-complete signal.
-              // Absence alone must therefore never authorize reconciliation.
-              configurationCompleteness: 'hydration-uncertain',
+              configurationCompleteness: isDashboardStructuralSnapshotAuthoritative(structuralLoadSnapshot)
+                ? 'verified-complete'
+                : structuralLoadSnapshot.source === 'none'
+                  ? 'unknown'
+                  : 'hydration-uncertain',
+              structuralContext: {
+                generation: structuralLoadSnapshot.generation,
+                revision: structuralLoadSnapshot.revision,
+                fingerprint: structuralLoadSnapshot.fingerprint,
+              },
               lightStates,
-              widgetTypeLayoutOverrides,
-              widgetLayoutOverrides,
+              widgetTypeLayoutOverrides: structuralDashboard?.widgetTypeLayoutOverrides,
+              widgetLayoutOverrides: structuralDashboard?.widgetLayoutOverrides,
             },
             {
               enabled: GRID_ENGINE_2_RUNTIME_SHADOW_ENABLED,
@@ -2149,19 +2182,14 @@ export function GridCanvas({
       window.clearTimeout(timeoutId);
     };
   }, [
-    derivedGridEngineLayouts,
     gridEngineActiveBreakpoint,
     hasPendingAuthoritativeLayout,
+    haStates,
     isEditMode,
     isRuntimeGridReady,
     liveGridEngineLayouts,
-    responsiveLayouts.root,
-    rootWidgets,
-    sections,
-    stackSectionsById,
+    structuralLoadSnapshot,
     widgets,
-    widgetLayoutOverrides,
-    widgetTypeLayoutOverrides,
   ]);
   const liveGridEngineLayout = liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [];
   const liveGridUsedRows = useMemo(

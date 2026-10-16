@@ -152,6 +152,7 @@ function compactPayload(report: RuntimeShadowReport, signature: string) {
       provenance: report.baseline.provenance,
       confidence: report.comparisonConfidence,
     },
+    structuralContext: report.structuralContext,
     counts: {
       roots: report.rootElementCount,
       lights: report.lightCount,
