@@ -6,6 +6,10 @@ import {
   type WidgetTypeLayoutOverrides,
 } from '../../../types/widgetTypeLayout';
 import { solveGridEngineRootRuntimeLayout } from './gridEngineRootRuntimeSolver';
+import {
+  inspectRuntimeGeometry,
+  type RuntimeGeometryInspectionReport,
+} from './runtimeGeometryDiagnostics';
 import type { GridLayoutItem } from './model';
 import {
   evaluateRuntimeShadowBaseline,
@@ -58,6 +62,7 @@ export type RuntimeShadowInput = {
   readonly widgetLayoutOverrides?: WidgetLayoutOverrides;
   readonly knownRuntimeContamination?: boolean;
   readonly historicallyVerifiedBaseline?: boolean;
+  readonly geometryInspectionEnabled?: boolean;
 };
 
 export type RuntimeShadowDifferenceCategory =
@@ -98,6 +103,7 @@ export type RuntimeShadowReport = {
   readonly insufficientCount: number;
   readonly issueCodes: readonly string[];
   readonly differences: readonly RuntimeShadowDifference[];
+  readonly geometryInspection?: RuntimeGeometryInspectionReport;
   readonly timings: {
     readonly baselineMs: number;
     readonly overridesMs: number;
@@ -319,6 +325,28 @@ export function analyzeRuntimeShadow(
     new Set(solved.appliedOverrideIds),
   );
   const comparisonMs = roundDuration(now() - comparisonStartedAt);
+  const comparisonConfidence = reconciliation.status === 'reconciled'
+    ? reconciliation.comparisonConfidence
+    : baseline.comparisonConfidence;
+  const geometryInspection = input.geometryInspectionEnabled === true
+    ? inspectRuntimeGeometry({
+        breakpoint: input.breakpoint,
+        cols: input.cols,
+        rootElements: input.rootElements,
+        structuralLayout: derived.structuralLayout,
+        solverCandidate: solved.layout,
+        legacyRuntimeInput: input.legacyRuntimeInput,
+        appliedOverrideIds: solved.appliedOverrideIds,
+        unsupportedDynamicRootIds: derived.dynamicStackIds,
+        baselineQuality: reconciliation.status === 'reconciled'
+          ? reconciliation.reconciledBaselineQuality ?? baseline.quality
+          : baseline.quality,
+        comparisonConfidence,
+        baselineProvenance: baseline.provenance,
+        structuralContext: input.structuralContext,
+        expectedStructuralContext: input.structuralContext,
+      }, { now })
+    : undefined;
   return {
     breakpoint: input.breakpoint,
     cols: input.cols,
@@ -329,9 +357,7 @@ export function analyzeRuntimeShadow(
     baseline,
     baselineIdAudit,
     reconciliation,
-    comparisonConfidence: reconciliation.status === 'reconciled'
-      ? reconciliation.comparisonConfidence
-      : baseline.comparisonConfidence,
+    comparisonConfidence,
     comparison: comparison.comparison,
     solverStatus: solved.status,
     overrideCount: derived.overrides.length,
@@ -341,6 +367,7 @@ export function analyzeRuntimeShadow(
     insufficientCount: 0,
     issueCodes: reconciliation.status === 'reconciled' ? reconciliation.originalIssues : [],
     differences: comparison.differences,
+    ...(geometryInspection ? { geometryInspection } : null),
     timings: {
       baselineMs,
       overridesMs,
@@ -411,6 +438,7 @@ export function createRuntimeShadowInputSignature(input: RuntimeShadowInput) {
     widgetOverrides: relevantWidgetOverrides,
     contaminated: input.knownRuntimeContamination === true,
     verified: input.historicallyVerifiedBaseline === true,
+    ...(input.geometryInspectionEnabled === true ? { geometryInspectionEnabled: true } : null),
   });
   return hashSignature(canonical);
 }

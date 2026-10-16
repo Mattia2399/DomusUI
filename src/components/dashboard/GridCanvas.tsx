@@ -73,6 +73,7 @@ import {
 import { GRID_ENGINE_2_RENDERER_ENABLED } from './gridEngine2/rendererFeatureFlag';
 import { GRID_ENGINE_2_SHADOW_ENABLED } from './gridEngine2/shadowFeatureFlag';
 import {
+  GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED,
   GRID_ENGINE_2_RUNTIME_SHADOW_ENABLED,
   GRID_ENGINE_2_RUNTIME_SHADOW_ID_DETAILS_ENABLED,
   GRID_ENGINE_2_RUNTIME_SHADOW_RECONCILIATION_ENABLED,
@@ -1202,6 +1203,16 @@ export function GridCanvas({
   const [gridEngineLayouts, setGridEngineLayouts] = useState<GridLayouts>({});
   const gridEngine2ShadowSignatureRef = useRef<string | null>(null);
   const gridEngine2RuntimeShadowSignatureRef = useRef<string | null>(null);
+  const structuralLoadSnapshotContextRef = useRef({
+    generation: structuralLoadSnapshot.generation,
+    revision: structuralLoadSnapshot.revision,
+    fingerprint: structuralLoadSnapshot.fingerprint,
+  });
+  structuralLoadSnapshotContextRef.current = {
+    generation: structuralLoadSnapshot.generation,
+    revision: structuralLoadSnapshot.revision,
+    fingerprint: structuralLoadSnapshot.fingerprint,
+  };
   const gridEngine2ShadowInspectorPublisherRef = useRef<ShadowInspectorPublisher | null>(null);
   const gridEngine2ShadowLatestReportRef = useRef<{
     readonly report: ShadowDiagnosticsReport;
@@ -2065,6 +2076,7 @@ export function GridCanvas({
     }
 
     let cancelled = false;
+    let cancelDomInspection: (() => void) | null = null;
     const timeoutId = window.setTimeout(() => {
       if (isCanvasInteractingRef.current) return;
       const structuralDashboard = structuralLoadSnapshot.dashboard;
@@ -2157,6 +2169,9 @@ export function GridCanvas({
               lightStates,
               widgetTypeLayoutOverrides: structuralDashboard?.widgetTypeLayoutOverrides,
               widgetLayoutOverrides: structuralDashboard?.widgetLayoutOverrides,
+              ...(GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED
+                ? { geometryInspectionEnabled: true }
+                : null),
             },
             {
               enabled: GRID_ENGINE_2_RUNTIME_SHADOW_ENABLED,
@@ -2165,6 +2180,39 @@ export function GridCanvas({
           );
           if (result.status !== 'disabled') {
             gridEngine2RuntimeShadowSignatureRef.current = result.nextSignature;
+          }
+          if (
+            result.status === 'reported' &&
+            GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED &&
+            result.report.geometryInspection
+          ) {
+            const host = runtimeGridHostRef.current;
+            if (!host) return;
+            void import('./gridEngine2/runtimeGeometryDomInspection')
+              .then(({ scheduleRuntimeGeometryDomInspection }) => {
+                if (cancelled || isCanvasInteractingRef.current) return;
+                cancelDomInspection = scheduleRuntimeGeometryDomInspection({
+                  host,
+                  comparison: result.report.geometryInspection!,
+                  signature: result.nextSignature,
+                  geometry: {
+                    width: Math.max(runtimeGridEffectiveWidth, 1),
+                    cols: GRID_ENGINE_COLS[gridEngineActiveBreakpoint],
+                    rowHeight: GRID_ENGINE_ROW_UNIT,
+                    gap: [GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX],
+                    padding: GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint],
+                  },
+                  getCurrentStructuralContext: () => structuralLoadSnapshotContextRef.current,
+                });
+              })
+              .catch((error: unknown) => {
+                if (!cancelled) {
+                  console.warn('[DomusUI:grid-engine2:runtime-geometry]', {
+                    event: 'load-error',
+                    message: error instanceof Error ? error.message : String(error),
+                  });
+                }
+              });
           }
         })
         .catch((error: unknown) => {
@@ -2179,6 +2227,7 @@ export function GridCanvas({
 
     return () => {
       cancelled = true;
+      cancelDomInspection?.();
       window.clearTimeout(timeoutId);
     };
   }, [
@@ -2188,6 +2237,7 @@ export function GridCanvas({
     isEditMode,
     isRuntimeGridReady,
     liveGridEngineLayouts,
+    runtimeGridEffectiveWidth,
     structuralLoadSnapshot,
     widgets,
   ]);
@@ -3136,6 +3186,9 @@ export function GridCanvas({
                 return (
                   <div
                     key={section.id}
+                    data-grid-engine-runtime-geometry-id={
+                      GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED ? section.id : undefined
+                    }
                     tabIndex={isEditMode ? 0 : undefined}
                     role={isEditMode ? 'group' : undefined}
                     aria-label={
@@ -3202,6 +3255,9 @@ export function GridCanvas({
                 return (
                   <div
                     key={widget.id}
+                    data-grid-engine-runtime-geometry-id={
+                      GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED ? widget.id : undefined
+                    }
                     tabIndex={isEditMode ? 0 : undefined}
                     role={isEditMode ? 'group' : undefined}
                     aria-label={isEditMode ? t('home.catalog.editCardAria', { name: widget.title?.trim() || widget.id }) : undefined}

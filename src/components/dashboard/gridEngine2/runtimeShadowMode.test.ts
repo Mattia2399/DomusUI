@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { GridLayoutItem } from './model';
 import {
+  isGridEngine2RuntimeGeometryInspectEnabled,
   isGridEngine2RuntimeShadowEnabled,
   isGridEngine2RuntimeShadowIdDetailsEnabled,
   isGridEngine2RuntimeShadowReconciliationEnabled,
@@ -89,6 +90,20 @@ describe('Runtime Shadow feature boundary', () => {
     expect(isGridEngine2RuntimeShadowReconciliationEnabled({
       DEV: true,
       VITE_GRID_ENGINE_2_RUNTIME_SHADOW_RECONCILE: 'true',
+    })).toBe(false);
+    expect(isGridEngine2RuntimeGeometryInspectEnabled({
+      DEV: true,
+      VITE_GRID_ENGINE_2_RUNTIME_SHADOW: 'true',
+      VITE_GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT: 'true',
+    })).toBe(true);
+    expect(isGridEngine2RuntimeGeometryInspectEnabled({
+      DEV: true,
+      VITE_GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT: 'true',
+    })).toBe(false);
+    expect(isGridEngine2RuntimeGeometryInspectEnabled({
+      DEV: false,
+      VITE_GRID_ENGINE_2_RUNTIME_SHADOW: 'true',
+      VITE_GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT: 'true',
     })).toBe(false);
   });
 
@@ -383,6 +398,21 @@ describe('Runtime Shadow comparison', () => {
     expect(analyzeRuntimeShadow(runtimeInput()).comparisonConfidence).toBe('provisional');
     expect(analyzeRuntimeShadow(runtimeInput({ historicallyVerifiedBaseline: true })).comparisonConfidence).toBe('reliable');
   });
+
+  it('adds per-element geometry only for the separate inspection option', () => {
+    const disabled = analyzeRuntimeShadow(runtimeInput());
+    const enabled = analyzeRuntimeShadow(runtimeInput({ geometryInspectionEnabled: true }));
+    expect(disabled.geometryInspection).toBeUndefined();
+    expect(enabled.geometryInspection).toMatchObject({
+      status: 'available',
+      elementCount: 2,
+      changedBySolverCount: 0,
+      finalOverlapCount: 0,
+    });
+    expect(enabled.geometryInspection?.elements.map((element) => element.solverClassification)).toEqual([
+      'unchanged', 'unchanged',
+    ]);
+  });
 });
 
 describe('Runtime Shadow lifecycle, safety and performance', () => {
@@ -410,6 +440,12 @@ describe('Runtime Shadow lifecycle, safety and performance', () => {
     const xl = createRuntimeShadowInputSignature(runtimeInput());
     const md = createRuntimeShadowInputSignature(runtimeInput({ breakpoint: 'md', cols: 6 }));
     expect(md).not.toBe(xl);
+  });
+
+  it('keeps the approved signature unchanged while inspection is off and opts in explicitly', () => {
+    const standard = createRuntimeShadowInputSignature(runtimeInput());
+    expect(createRuntimeShadowInputSignature(runtimeInput({ geometryInspectionEnabled: false }))).toBe(standard);
+    expect(createRuntimeShadowInputSignature(runtimeInput({ geometryInspectionEnabled: true }))).not.toBe(standard);
   });
 
   it('invalidates the signature for a new authoritative structural generation', () => {
