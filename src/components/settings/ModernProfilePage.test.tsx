@@ -50,10 +50,6 @@ const baseProps = {
   movementPoints: [],
   movementUpdatedLabel: 'Aggiornato alle 14:20',
   haStatus: 'connected' as const,
-  appearanceMode: 'auto' as const,
-  onAppearanceModeChange: vi.fn(),
-  background: 'neutral' as const,
-  onBackgroundChange: vi.fn(),
 };
 
 describe('ModernProfilePage', () => {
@@ -63,9 +59,16 @@ describe('ModernProfilePage', () => {
     expect(screen.getByRole('heading', { name: 'Profilo', level: 1 })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Informazioni personali/ })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Attività e spostamenti/ })).toBeTruthy();
-    expect(screen.getByRole('radiogroup', { name: 'Tema del dispositivo' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Temi colorati/ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /I miei dispositivi/ })).toBeTruthy();
+    // In the demo there is no Home Assistant user, so no personal preference to show.
+    expect(screen.queryByRole('region', { name: 'Preferenze' })).toBeNull();
     expect(screen.queryByText('Persone/Membri')).toBeNull();
+    // House and device settings live in Settings, not in the Profile.
+    expect(screen.queryByRole('radiogroup', { name: 'Tema del dispositivo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Temi colorati/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Lingua/ })).toBeNull();
+    expect(screen.queryByText('Raccolta rifiuti')).toBeNull();
+    expect(screen.queryByText('Connessioni')).toBeNull();
   });
 
   it('drills into personal activity and returns to the overview', () => {
@@ -79,24 +82,19 @@ describe('ModernProfilePage', () => {
     expect(screen.getByRole('heading', { name: 'Profilo', level: 1 })).toBeTruthy();
   });
 
-  it('exposes appearance and background as device-local preferences', () => {
-    const onAppearanceModeChange = vi.fn();
-    const onBackgroundChange = vi.fn();
-    render(
-      <ModernProfilePage
-        {...baseProps}
-        onAppearanceModeChange={onAppearanceModeChange}
-        onBackgroundChange={onBackgroundChange}
-      />,
-    );
+  it('keeps the Home Assistant startup panel among the personal preferences', () => {
+    render(<ModernProfilePage {...baseProps} runtimeMode="real" haUserId="user-1" />);
 
-    fireEvent.click(screen.getByRole('radio', { name: 'Scuro' }));
-    fireEvent.click(screen.getByRole('button', { name: /Temi colorati/ }));
-    expect(screen.getByRole('heading', { name: 'Temi colorati' })).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /Sunset Amber/ }));
+    expect(screen.getByRole('region', { name: 'Preferenze' }).textContent).toContain('Schermata iniziale');
+  });
 
-    expect(onAppearanceModeChange).toHaveBeenCalledWith('dark');
-    expect(onBackgroundChange).toHaveBeenCalledWith('sunset-amber');
+  it('sends appearance and language to Settings, This device', () => {
+    const onNavigate = vi.fn();
+    render(<ModernProfilePage {...baseProps} navigationRoute="/profile" onNavigate={onNavigate} />);
+
+    expect(screen.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Apri Questo dispositivo' }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/device');
   });
 
   it('closes the profile when back is pressed from the overview', () => {
@@ -142,23 +140,13 @@ describe('ModernProfilePage', () => {
     expect(screen.getByRole('heading', { name: 'I miei dispositivi' })).toBeTruthy();
   });
 
-  it('offers only the supported languages and stores an explicit device preference', () => {
-    render(<ModernProfilePage {...baseProps} />);
+  it('shows the overview at the old appearance and language addresses', () => {
+    const { rerender } = render(<ModernProfilePage {...baseProps} navigationRoute="/profile/themes" />);
+    expect(screen.getByRole('heading', { name: 'Profilo', level: 1 })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /Lingua/ }));
-
-    expect(screen.getByRole('heading', { name: 'Lingua' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Italiano/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /English/ })).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Français/ })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: /Auto/ })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: /English/ }));
-
-    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en');
-    expect(document.documentElement.lang).toBe('en');
-    expect(screen.getByRole('heading', { name: 'Language', level: 1 })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Back' })).toBeTruthy();
+    rerender(<ModernProfilePage {...baseProps} navigationRoute="/profile/language" />);
+    expect(screen.getByRole('heading', { name: 'Profilo', level: 1 })).toBeTruthy();
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('it');
   });
 
   it('opens the support center from the profile overview', () => {

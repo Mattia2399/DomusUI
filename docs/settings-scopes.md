@@ -1,0 +1,190 @@
+# Scope delle impostazioni: Profilo, Casa, Dispositivo
+
+Ogni impostazione di Domus UI appartiene a **uno solo** di tre scope. È una
+regola di progetto: una nuova impostazione dichiara il suo scope prima di
+avere una posizione nell'interfaccia.
+
+| Scope | Significa | Dove si trova |
+| --- | --- | --- |
+| **PROFILE** | «Riguarda me» | Profilo |
+| **HOUSE** | «Riguarda questa casa» | Impostazioni › Casa e Impostazioni › Sistema |
+| **DEVICE** | «Riguarda questo dispositivo» | Impostazioni › Questo dispositivo |
+
+## Come si classifica
+
+1. Cambiando utente l'impostazione deve cambiare, e deve seguire quella
+   persona su ogni dispositivo → **PROFILE**.
+2. Appartiene all'installazione ed è la stessa per tutte le persone e tutti i
+   dispositivi → **HOUSE**.
+3. Aprendo Domus da un altro browser, tablet o PC può legittimamente essere
+   diversa → **DEVICE**.
+
+Si classifica in base a **dove il valore è salvato davvero**, non a dove
+sembrerebbe giusto che fosse. Se le due cose non coincidono, la differenza è
+un debito da documentare (vedi sotto), non un motivo per spostare i dati.
+
+### Sistema non è un quarto scope
+
+«Sistema» è un gruppo della pagina Impostazioni che raccoglie le impostazioni
+HOUSE di connessione e manutenzione (connessione Home Assistant, dispositivi,
+entità, stato del server, dati e backup). I dati restano della casa: non esiste
+uno scope `system`, né uno Store dedicato.
+
+```
+HOUSE
+├── Casa      (Impostazioni › Casa)
+└── Sistema   (Impostazioni › Sistema)
+```
+
+### DEVICE non è un dispositivo personale
+
+- Un **dispositivo personale** (Profilo › I miei dispositivi) è un dispositivo
+  Home Assistant della persona, per esempio un telefono con la Companion App,
+  usato per le notifiche. È un dato PROFILE.
+- Uno **scope DEVICE** riguarda il client che sta mostrando Domus: un browser
+  desktop, un tablet a muro, un kiosk, anche senza Companion App.
+
+I due concetti sono indipendenti e non devono dipendere l'uno dall'altro.
+
+## Interfaccia ≠ dati
+
+Spostare una voce in un'altra sezione cambia **dove la si trova**, mai **dove
+è salvata**. Nessuna riorganizzazione migra uno Store o una chiave locale: la
+migrazione dei dati è una decisione separata, con il suo piano di
+compatibilità.
+
+## Mappa attuale
+
+Il modello dichiarativo è `src/components/settings/settingsScopes.ts`:
+`SETTINGS_ENTRIES` (pagina Impostazioni) e `PROFILE_ENTRIES` (Profilo). La
+pagina Impostazioni costruisce i gruppi da lì; i test in
+`settingsScopes.test.ts` ne bloccano le classificazioni.
+
+Autorità di salvataggio usate nella tabella:
+
+- **Casa condivisa HA**: documento `premium-home.shared-house.v1` nei dati di
+  sistema del frontend Home Assistant (layout, presentazione sicurezza e stanze).
+- **Store integrazione**: Store `domusos.*` dell'integrazione Domus.
+- **Registri HA**: piani, aree, persone, dispositivi, entità di Home Assistant.
+- **Dati utente HA**: dati frontend dell'utente Home Assistant collegato.
+- **Runtime HA**: stato e servizi live; Domus non salva nulla.
+- **Browser**: `localStorage` di questo browser.
+
+### Profilo — PROFILE
+
+| Voce | Route | Autorità | Note |
+| --- | --- | --- | --- |
+| Informazioni personali | `/profile/personal` | Registri HA | Nome, email e ruolo letti da Home Assistant |
+| Attività e spostamenti | `/profile/activity` | Runtime HA | Presenza della propria Person, sola lettura |
+| I miei dispositivi | `/profile/devices` | Store integrazione `domusos.profiles.v1` | Comprende le notifiche personali (interruttore generale e per dispositivo) |
+| Schermata iniziale | — (in pagina) | Dati utente HA (`core.defaultPanel`) | Visibile solo con Home Assistant collegato |
+| Accesso e sicurezza | `/profile/security` | Browser | Conferma con passkey: è della persona ma, per natura (WebAuthn), resta su questo dispositivo |
+| Supporto e feedback | `/support` | — | Aiuto, non un'impostazione |
+
+### Impostazioni › Casa — HOUSE
+
+| Voce | Route | Autorità | Visibile con |
+| --- | --- | --- | --- |
+| Dashboard | `/settings/dashboard` | Casa condivisa HA | `edit_dashboard` |
+| Piani e stanze | `/settings/floors` | Registri HA | tutti (modifiche con `manage_rooms`) |
+| Persone e accessi | `/settings/access` | Registri HA | `manage_rooms` |
+| Sicurezza | `/settings/safety` | Casa condivisa HA | `manage_security_config` |
+| Raccolta rifiuti | `/settings/home/waste-collection` | Store `domusos.waste_collection.v1` | tutti (modifiche con `manage_rooms`) |
+| Energia | `/consumi/energia` | Store `domusos.energy.v2` | `manage_energy` |
+| Irrigazione | `/appgallery/irrigation/settings` | Store `domusos.irrigation.v1` | `edit_dashboard` |
+
+Energia e Irrigazione restano applicazioni con le proprie pagine: Impostazioni
+contiene solo l'accesso alla loro configurazione. La configurazione di Energia
+non ha ancora un indirizzo proprio, quindi la voce apre la pagina Energia, da
+cui si entra nelle impostazioni.
+
+### Impostazioni › Sistema — HOUSE
+
+| Voce | Route | Autorità | Visibile con |
+| --- | --- | --- | --- |
+| Connessioni | `/settings/connections` | Browser (vedi debiti) | tutti |
+| Dispositivi | `/settings/devices` | Registri HA | tutti |
+| Entità | `/settings/entities` | Registri HA | tutti |
+| Sistema | `/settings/system` | Runtime HA | tutti (azioni con i permessi esistenti) |
+| Dati e backup | `/settings/data` | Casa condivisa HA | `download_backup` |
+
+### Impostazioni › Questo dispositivo — DEVICE
+
+| Voce | Route | Chiavi del browser | Visibile con |
+| --- | --- | --- | --- |
+| Aspetto (tema e sfondo) | `/settings/device/appearance` | `ha.dashboard.theme`, `ha.dashboard.background` | tutti |
+| Lingua | `/settings/device/language` | `domusui.language.v1` | tutti |
+| Avvisi e attenzione | `/settings/attention` | `ha.dashboard.homeAttention.v1` | `edit_dashboard` |
+| Avanzate e supporto | `/settings/advanced` | `ha.dashboard.developerMode.v2`, `ha.dashboard.cardSizingEngine` | `developer_mode` |
+
+`/settings/device` apre la pagina Impostazioni sul gruppo Questo dispositivo:
+è l'indirizzo usato dal Profilo per rimandare ad aspetto e lingua.
+
+### Preferenze locali non mostrate in Impostazioni
+
+Sono DEVICE di fatto e oggi si cambiano dove si usano:
+
+| Preferenza | Chiave | Dove si cambia |
+| --- | --- | --- |
+| Destinazioni della sidebar (etichetta, icona, rimozione) | `ha.dashboard.sidebarPaths` | Sidebar in modalità modifica |
+| Scheda rapida della sidebar | `ha.dashboard.sidebar.quickCard.v1` | Sidebar |
+| Microfono e conversazione dell'assistente | `ha.dashboard.assistant.*` | Pannello preferiti |
+| Stanza attiva | `ha.dashboard.rooms.activeRoomId.v1` | Stanze |
+| Avviso Consumi chiuso | `ha.dashboard.consumi.noticeDismissed.v1` | Consumi |
+| Codici locali delle card | `ha.dashboard.secrets.widgetCodes.v2` | Card allarme e serratura |
+
+## Debiti noti
+
+- **Avvisi e attenzione**: la pagina la presenta come configurazione condivisa
+  e la riserva agli amministratori, ma i valori sono nel browser. Per questo è
+  in Questo dispositivo. Diventerà HOUSE solo spostandola nel documento della
+  casa, con una migrazione dedicata.
+- **Connessioni**: in un browser autonomo indirizzo e token di Home Assistant
+  sono salvati nel browser; dentro Home Assistant la connessione arriva dal
+  pannello. Resta in Sistema perché descrive l'installazione.
+- **Accesso e sicurezza**: la passkey non può seguire la persona su un altro
+  dispositivo; resta nel Profilo perché è la conferma della persona.
+- **Indietro**: da Energia e Irrigazione il pulsante Indietro della pagina
+  porta alla loro applicazione (Consumi, App Gallery), non a Impostazioni; il
+  tasto Indietro del browser torna a Impostazioni.
+
+## Compatibilità degli indirizzi
+
+| Indirizzo precedente | Ora |
+| --- | --- |
+| `/profile/themes` | `/settings/device/appearance` |
+| `/profile/language` | `/settings/device/language` |
+| `/settings/home` | pagina Impostazioni (invariato) |
+| `/settings/security` | `/settings/safety` (invariato) |
+
+Il reindirizzo sostituisce la voce della cronologia (`replace`): Indietro non
+riporta all'indirizzo vecchio e non può nascere un ciclo. Le altre route non
+cambiano.
+
+## Aggiungere un'impostazione
+
+1. Scegli lo scope con le tre domande sopra, guardando dove il valore sarà
+   salvato.
+2. Aggiungi la voce a `SETTINGS_ENTRIES` (o al Profilo) con route, autorità e,
+   se serve, una `capability` esistente: non si inventano permessi.
+3. Aggiungi testo e descrizione in it, en e fr e l'aspetto della card in
+   `SettingsDashboard`.
+4. Non mostrare voci non implementate né segnaposto «In arrivo».
+
+## Futuro
+
+Queste funzioni **non sono implementate**; lo scope indica solo dove
+andranno.
+
+- **PROFILE**
+  - Sincronizzazione delle preferenze (lingua, tema, preferiti) sul profilo.
+  - Dashboard preferita della persona.
+- **HOUSE**
+  - Domus Access Control (ruoli Admin, Member, Viewer, Guest, permessi per
+    route e controlli): sostituirà le `capability` attuali delle voci.
+  - Configurazione di Domus Intelligence.
+- **DEVICE**
+  - Screensaver.
+  - Gestione alimentazione e ricarica del tablet.
+  - Modalità kiosk.
+  - Dashboard predefinita per questo dispositivo.

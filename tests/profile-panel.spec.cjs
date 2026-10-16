@@ -24,7 +24,7 @@ test('Profile is a personal desktop page without administrative settings', async
   await installCompletedRealWorkspace(page);
   await page.goto('/profile');
 
-  await expect(page.getByText('Aspetto e lingua')).toBeVisible();
+  await expect(page.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeVisible();
   await expect(
     page.getByRole('button', {
       name: /Informazioni personali Nome, email e ruolo/,
@@ -32,8 +32,10 @@ test('Profile is a personal desktop page without administrative settings', async
   ).toBeVisible();
   await expect(page.getByRole('button', { name: /Attività e spostamenti/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Accesso e sicurezza/ })).toBeVisible();
-  await expect(page.getByRole('radiogroup', { name: 'Tema del dispositivo' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Temi colorati/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Preferenze' })).toBeVisible();
+  // Theme, background and language are saved in this browser: Settings, This device.
+  await expect(page.getByRole('radiogroup', { name: 'Tema del dispositivo' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Temi colorati/ })).toHaveCount(0);
   await expect(page.getByText('Persone/Membri')).toHaveCount(0);
 
   await page.getByRole('button', { name: /Attività e spostamenti/ }).click();
@@ -46,7 +48,7 @@ test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) =
   await installCompletedRealWorkspace(page);
   await page.goto('/profile');
 
-  await expect(page.getByText('Aspetto e lingua')).toBeVisible();
+  await expect(page.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeVisible();
   const securityButton = page.getByRole('button', { name: /Accesso e sicurezza/ });
   await expect(securityButton).toBeVisible();
   await securityButton.click();
@@ -55,11 +57,14 @@ test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) =
   await expect(page.getByText('Conferma dispositivo', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Indietro' }).click();
-  await expect(page.getByText('Aspetto e lingua')).toBeVisible();
+  await expect(page.getByText(/Aspetto e lingua valgono solo su questo dispositivo/)).toBeVisible();
   await expect(page.getByRole('button', { name: /Accesso e sicurezza/ })).toBeVisible();
 
-  await page.getByRole('button', { name: /Temi colorati/ }).click();
-  await expect(page.getByRole('heading', { name: 'Temi colorati' })).toBeVisible();
+  await page.getByRole('button', { name: 'Apri Questo dispositivo' }).click();
+  await expect(page).toHaveURL(/\/settings\/device$/);
+  await expect(page.getByRole('region', { name: 'Questo dispositivo' })).toBeInViewport();
+  await page.getByRole('button', { name: /^Aspetto/ }).click();
+  await expect(page.getByRole('heading', { name: 'Aspetto', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Sunset Amber/ })).toBeVisible();
 });
 
@@ -69,11 +74,14 @@ test('Settings remains useful while administrative destinations stay fail-closed
   await page.goto('/settings');
 
   await expect(page.getByRole('heading', { name: 'Impostazioni', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Aspetto/ })).toHaveCount(0);
+  // Preferences of this device need no administrator; house administration stays closed.
+  await expect(page.getByRole('button', { name: /^Aspetto/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Lingua/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Persone e accessi/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Energia/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Connessioni/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Dati e backup/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Sistema/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Sistema/ })).toBeVisible();
 
   await page.getByRole('button', { name: /Connessioni/ }).click();
   await expect(page).toHaveURL(/\/settings\/connections$/);

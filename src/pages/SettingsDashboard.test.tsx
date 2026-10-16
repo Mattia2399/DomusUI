@@ -53,6 +53,10 @@ const baseProps = {
   onCallService: vi.fn(async () => true),
   cardSizingEngine: 'adaptive' as const,
   onCardSizingEngineChange: vi.fn(),
+  appearanceMode: 'auto' as const,
+  onAppearanceModeChange: vi.fn(),
+  background: 'neutral' as const,
+  onBackgroundChange: vi.fn(),
 };
 
 describe('SettingsDashboard', () => {
@@ -65,11 +69,15 @@ describe('SettingsDashboard', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Home Assistant' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'System' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'This device' })).toBeTruthy();
+    expect(screen.getByRole('region', { name: 'This device' }).getAttribute('aria-describedby')).toBe(
+      screen.getByText('Preferences for this device only').id,
+    );
     expect(screen.getByRole('button', { name: /^Floors and rooms/ })).toBeTruthy();
   });
 
-  it('groups the overview into home, dashboard, Home Assistant and data', () => {
+  it('groups the overview by scope: home, system and this device', () => {
     const onNavigate = vi.fn();
     render(
       <DashboardSecurityProvider value={security}>
@@ -82,27 +90,164 @@ describe('SettingsDashboard', () => {
     );
 
     expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
-    const groups = screen.getAllByRole('region').map((group) => group.getAttribute('aria-label'));
-    expect(groups).toEqual(['Casa', 'Dashboard', 'Home Assistant', 'Dati e supporto']);
+    const groups = screen.getAllByRole('region').map((group) => group.querySelector('h2')?.textContent);
+    expect(groups).toEqual(['Casa', 'Sistema', 'Questo dispositivo']);
+    expect(screen.getByText('Impostazioni condivise da tutta la casa')).toBeTruthy();
+    expect(screen.getByText('Connessione e configurazione di Domus')).toBeTruthy();
+    expect(screen.getByText('Preferenze valide solo su questo dispositivo')).toBeTruthy();
     expect(screen.getByRole('img', { name: 'Mattia' })).toBeTruthy();
 
     const home = within(screen.getByRole('region', { name: 'Casa' }));
     expect(home.getAllByRole('button').map((card) => card.textContent)).toEqual([
+      expect.stringContaining('Dashboard'),
       expect.stringContaining('Piani e stanze'),
       expect.stringContaining('Persone e accessi'),
       expect.stringContaining('Sicurezza'),
       expect.stringContaining('Raccolta rifiuti'),
+      expect.stringContaining('Energia'),
+      expect.stringContaining('Irrigazione'),
     ]);
-    const homeAssistant = within(screen.getByRole('region', { name: 'Home Assistant' }));
-    expect(homeAssistant.getByRole('button', { name: /^Connessioni/ })).toBeTruthy();
-    expect(homeAssistant.getByRole('button', { name: /^Sistema/ })).toBeTruthy();
+    const system = within(screen.getByRole('region', { name: 'Sistema' }));
+    expect(system.getAllByRole('button').map((card) => card.textContent)).toEqual([
+      expect.stringContaining('Connessioni'),
+      expect.stringContaining('Dispositivi'),
+      expect.stringContaining('Entità'),
+      expect.stringContaining('Sistema'),
+      expect.stringContaining('Dati e backup'),
+    ]);
+    const device = within(screen.getByRole('region', { name: 'Questo dispositivo' }));
+    expect(device.getAllByRole('button').map((card) => card.textContent)).toEqual([
+      expect.stringContaining('Aspetto'),
+      expect.stringContaining('Lingua'),
+      expect.stringContaining('Avvisi e attenzione'),
+      expect.stringContaining('Avanzate e supporto'),
+    ]);
+    // The Profile keeps only the person: no personal page among the settings.
+    expect(screen.queryByRole('button', { name: /I miei dispositivi/ })).toBeNull();
 
     fireEvent.click(home.getByRole('button', { name: /^Piani e stanze/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/floors');
     fireEvent.click(home.getByRole('button', { name: /^Sicurezza/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/safety');
-    fireEvent.click(homeAssistant.getByRole('button', { name: /^Entità/ }));
+    fireEvent.click(home.getByRole('button', { name: /^Raccolta rifiuti/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/home/waste-collection');
+    fireEvent.click(system.getByRole('button', { name: /^Connessioni/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/connections');
+    fireEvent.click(system.getByRole('button', { name: /^Entità/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/entities');
+    fireEvent.click(device.getByRole('button', { name: /^Aspetto/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/device/appearance');
+    fireEvent.click(device.getByRole('button', { name: /^Lingua/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/device/language');
+  });
+
+  it('opens the Energy and Irrigation configuration at their own pages', () => {
+    const onNavigate = vi.fn();
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^Energia/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/consumi/energia');
+    fireEvent.click(screen.getByRole('button', { name: /^Irrigazione/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/appgallery/irrigation/settings');
+  });
+
+  it('shows a member only the entries their current permissions open', () => {
+    const member = createDashboardSecurityValue({
+      runtimeMode: 'real',
+      haStatus: 'connected',
+      user: { id: 'member-1' },
+    });
+    render(
+      <DashboardSecurityProvider value={member}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" />
+      </DashboardSecurityProvider>,
+    );
+
+    const cards = (name: string) =>
+      within(screen.getByRole('region', { name })).getAllByRole('button').map((card) => card.textContent);
+    expect(cards('Casa')).toEqual([
+      expect.stringContaining('Piani e stanze'),
+      expect.stringContaining('Raccolta rifiuti'),
+    ]);
+    expect(cards('Sistema')).toEqual([
+      expect.stringContaining('Connessioni'),
+      expect.stringContaining('Dispositivi'),
+      expect.stringContaining('Entità'),
+      expect.stringContaining('Sistema'),
+    ]);
+    expect(cards('Questo dispositivo')).toEqual([
+      expect.stringContaining('Aspetto'),
+      expect.stringContaining('Lingua'),
+    ]);
+  });
+
+  it('changes the theme and background of this device and goes back to Settings', async () => {
+    const onNavigate = vi.fn();
+    const onAppearanceModeChange = vi.fn();
+    const onBackgroundChange = vi.fn();
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/device/appearance"
+          onNavigate={onNavigate}
+          onAppearanceModeChange={onAppearanceModeChange}
+          onBackgroundChange={onBackgroundChange}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Aspetto', level: 1 })).toBeTruthy();
+    expect(await screen.findByRole('radiogroup', { name: 'Tema del dispositivo' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('radio', { name: 'Scuro' }));
+    expect(onAppearanceModeChange).toHaveBeenCalledWith('dark');
+    fireEvent.click(screen.getByRole('button', { name: /Sunset Amber/ }));
+    expect(onBackgroundChange).toHaveBeenCalledWith('sunset-amber');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('/settings');
+  });
+
+  it('keeps the language of this device in the same browser preference', async () => {
+    const onNavigate = vi.fn();
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/device/language" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Lingua', level: 1 })).toBeTruthy();
+    expect(await screen.findByRole('button', { name: /Italiano/, pressed: true })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Auto/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /English/ }));
+
+    expect(window.localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en');
+    expect(document.documentElement.lang).toBe('en');
+    expect(screen.getByRole('heading', { name: 'Language', level: 1 })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(onNavigate).toHaveBeenLastCalledWith('/settings');
+  });
+
+  it('opens the overview at This device when the Profile links to it', () => {
+    const scrollIntoView = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    try {
+      render(
+        <DashboardSecurityProvider value={security}>
+          <SettingsDashboard {...baseProps} navigationRoute="/settings/device" />
+        </DashboardSecurityProvider>,
+      );
+
+      expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
+      expect(scrollIntoView).toHaveBeenCalledOnce();
+      expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole('region', { name: 'Questo dispositivo' }));
+    } finally {
+      delete (HTMLElement.prototype as Partial<HTMLElement>).scrollIntoView;
+    }
   });
 
   it('keeps the old house page address on the overview', () => {
@@ -279,7 +424,7 @@ describe('SettingsDashboard', () => {
     expect(screen.getByText('Attuale')).toBeTruthy();
   });
 
-  it('opens devices from the Home Assistant group and comes back to the overview', () => {
+  it('opens devices from the System group and comes back to the overview', () => {
     const onNavigate = vi.fn();
     const { rerender } = render(
       <DashboardSecurityProvider value={security}>

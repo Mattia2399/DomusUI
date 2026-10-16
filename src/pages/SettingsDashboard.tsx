@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { selectHouseholdPeople } from '../services/houseMembers';
 import {
   Activity,
@@ -13,6 +13,7 @@ import {
   DownloadCloud,
   HardDrive,
   Info,
+  Languages,
   LayoutDashboard,
   Layers3,
   Link2,
@@ -20,15 +21,18 @@ import {
   MemoryStick,
   MonitorSmartphone,
   Network,
+  Palette,
   Power,
   Recycle,
   Router,
   RotateCcw,
   Server,
   ShieldCheck,
+  Sprout,
   UserRoundCog,
   Wifi,
   Wrench,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 import type { HaArea, HaConnectionStatus } from '../hooks/useHaLiveConnection';
@@ -81,6 +85,7 @@ import type {
 } from '../services/dashboardRevisionHistory';
 import type { DashboardLayoutSaveResult } from '../services/dashboardStorage';
 import { useI18n } from '../i18n/I18nProvider';
+import type { TranslationKey } from '../i18n/translations';
 import type { CardSizingEngine } from '../services/cardSizingEngine';
 import type { WasteCollectionCallApi } from '../services/wasteCollectionClient';
 import type { HaStateTranslations } from '../services/haStateTranslations';
@@ -88,6 +93,30 @@ import WasteCollectionSettings from '../components/settings/WasteCollectionSetti
 import SettingsRoomsManager from '../components/settings/SettingsRoomsManager';
 import SettingsSecurityPage, { type SecurityAlarmCard } from '../components/settings/SettingsSecurityPage';
 import type { AuthUserContext } from '../hooks/useDeviceAuth';
+import {
+  SETTINGS_SECTIONS,
+  selectVisibleSettingsEntries,
+  type SettingsEntryId,
+} from '../components/settings/settingsScopes';
+import {
+  DEVICE_APPEARANCE_ROUTE,
+  DEVICE_LANGUAGE_ROUTE,
+  DEVICE_SETTINGS_ROUTE,
+} from '../navigation/settingsRoutes';
+import type { DashboardAppearanceMode, DashboardBackgroundPreset } from '../theme/dashboardTheme';
+import LazyLoadBoundary from '../components/common/LazyLoadBoundary';
+
+// Only the pages of This device need their controls; the overview needs none.
+const DeviceAppearanceSettings = React.lazy(() =>
+  import('../components/settings/DevicePreferencesSettings').then((module) => ({
+    default: module.DeviceAppearanceSettings,
+  })),
+);
+const DeviceLanguageSettings = React.lazy(() =>
+  import('../components/settings/DevicePreferencesSettings').then((module) => ({
+    default: module.DeviceLanguageSettings,
+  })),
+);
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -123,6 +152,12 @@ type SettingsDashboardProps = {
   alarmCards?: SecurityAlarmCard[];
   /** Whose device confirmation is shown (same identity as the Profile). */
   deviceAuthUser?: Partial<AuthUserContext>;
+  /** Light or dark theme of this device (Settings › This device). */
+  appearanceMode: DashboardAppearanceMode;
+  onAppearanceModeChange: (mode: DashboardAppearanceMode) => void;
+  /** Background of this device (Settings › This device). */
+  background: DashboardBackgroundPreset;
+  onBackgroundChange: (background: DashboardBackgroundPreset) => void;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   managedSectionContent?: React.ReactNode;
@@ -516,21 +551,58 @@ function SettingsHubCard({
 }
 
 const HUB_GROUP_COLUMNS = ['', 'xl:grid-cols-1', 'xl:grid-cols-2', 'xl:grid-cols-3', 'xl:grid-cols-4'];
+const HUB_GROUP_LAST_SPAN = [
+  '',
+  'xl:[&>*:last-child]:col-span-1',
+  'xl:[&>*:last-child]:col-span-2',
+  'xl:[&>*:last-child]:col-span-3',
+];
 
-/** A titled group of hub cards: one row on wide screens, no empty cells. */
-function SettingsHubGroup({ title, children }: { title: string; children: React.ReactNode }) {
+/** Columns on wide screens, and how wide the last card is, so no row has an empty cell. */
+function hubGroupWideLayout(count: number) {
+  const columns = count <= 4 ? count : count % 4 === 0 || count % 3 === 1 ? 4 : 3;
+  const remainder = count % columns;
+  return { columns, lastSpan: remainder === 0 ? 1 : columns - remainder + 1 };
+}
+
+/** A titled group of hub cards: as few rows as possible on wide screens, no empty cells. */
+function SettingsHubGroup({
+  id,
+  title,
+  description,
+  children,
+}: {
+  id?: string;
+  title: string;
+  /** Who the group's settings apply to, in a few words. */
+  description?: string;
+  children: React.ReactNode;
+}) {
+  const titleId = useId();
+  const descriptionId = useId();
   const cards = React.Children.toArray(children);
   if (cards.length === 0) return null;
   const odd = cards.length % 2 === 1;
+  const wide = hubGroupWideLayout(cards.length);
   return (
-    <section aria-label={title}>
-      <h2 className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
+    <section
+      id={id}
+      aria-labelledby={titleId}
+      aria-describedby={description ? descriptionId : undefined}
+      className="scroll-mt-4"
+    >
+      <h2 id={titleId} className="px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-tertiary)]">
         {title}
       </h2>
+      {description ? (
+        <p id={descriptionId} className="mt-1 px-1 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
+          {description}
+        </p>
+      ) : null}
       <div
-        className={`mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 ${HUB_GROUP_COLUMNS[Math.min(cards.length, 4)]} ${
-          odd ? 'sm:[&>*:last-child]:col-span-2 xl:[&>*:last-child]:col-span-1' : ''
-        }`}
+        className={`mt-2.5 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 ${HUB_GROUP_COLUMNS[wide.columns]} ${
+          odd ? 'sm:[&>*:last-child]:col-span-2' : ''
+        } ${odd || wide.lastSpan > 1 ? HUB_GROUP_LAST_SPAN[wide.lastSpan] : ''}`}
       >
         {cards}
       </div>
@@ -611,6 +683,10 @@ export default function SettingsDashboard({
   onAreasChanged,
   alarmCards = [],
   deviceAuthUser,
+  appearanceMode,
+  onAppearanceModeChange,
+  background,
+  onBackgroundChange,
   navigationRoute,
   onNavigate,
   managedSectionContent,
@@ -802,6 +878,11 @@ export default function SettingsDashboard({
     navigationRoute?.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/settings';
   const navigateTo = (path: string) => onNavigate?.(path);
   useSettingsPageTransition(settingsPath);
+  // The Profile links here for appearance and language: start at This device.
+  useEffect(() => {
+    if (settingsPath !== DEVICE_SETTINGS_ROUTE) return;
+    document.getElementById('settings-section-device')?.scrollIntoView?.({ block: 'start' });
+  }, [settingsPath]);
   const canOpenData =
     security.can('download_backup') || security.can('restore_backup') || security.can('reset_dashboard');
   const hasSystemTelemetry = [cpuValue, ramPercent, tempValue, diskPercent].some(
@@ -929,7 +1010,123 @@ export default function SettingsDashboard({
     );
   }
 
-  if (settingsPath === '/settings' || settingsPath === '/settings/home') {
+  // `/settings/home` is the old address of this page; `/settings/device` leads to its last group.
+  if (settingsPath === '/settings' || settingsPath === '/settings/home' || settingsPath === DEVICE_SETTINGS_ROUTE) {
+    // How each entry of the scope registry looks here; which entries exist,
+    // where they lead and who sees them comes from the registry.
+    const hubCards: Record<SettingsEntryId, {
+      icon: LucideIcon;
+      accentClassName: string;
+      iconClassName?: string;
+      subtitle?: string;
+      preview?: React.ReactNode;
+    }> = {
+      dashboard: {
+        icon: LayoutDashboard,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(99,102,241,0.16),transparent_58%)]',
+        preview: (
+          <SettingsCardPreview
+            variant="dashboard"
+            sectionCount={sections.length}
+            widgetCount={widgets.length}
+            breakpointLabel={currentLayoutId?.toUpperCase() || 'AUTO'}
+          />
+        ),
+      },
+      floors: {
+        icon: Layers3,
+        iconClassName: 'text-[color:rgb(var(--ui-accent-rgb)/0.95)]',
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(56,189,248,0.16),transparent_58%)]',
+      },
+      access: {
+        icon: UserRoundCog,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(168,85,247,0.15),transparent_58%)]',
+        preview: <SettingsCardPreview variant="people" members={previewMembers} />,
+      },
+      security: {
+        icon: LockKeyhole,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(16,185,129,0.14),transparent_58%)]',
+        preview: (
+          <SettingsCardPreview
+            variant="security"
+            alarmCount={alarmPreviewStates.length}
+            armedAlarmCount={armedAlarmCount}
+            lockCount={lockPreviewStates.length}
+            lockedLockCount={lockedLockCount}
+          />
+        ),
+      },
+      waste: {
+        icon: Recycle,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(34,197,94,0.14),transparent_58%)]',
+      },
+      energy: {
+        icon: Zap,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(234,179,8,0.15),transparent_58%)]',
+      },
+      irrigation: {
+        icon: Sprout,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(20,184,166,0.15),transparent_58%)]',
+      },
+      connection: {
+        icon: Link2,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(6,182,212,0.15),transparent_58%)]',
+        preview: (
+          <SettingsCardPreview variant="connection" connected={isConnected} statusLabel={haStatusLabel(haStatus, t)} />
+        ),
+      },
+      devices: {
+        icon: Router,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(59,130,246,0.14),transparent_58%)]',
+        subtitle: `${t('settings.devices.count', { count: haDeviceRegistry.length })}${
+          deviceAttentionCount > 0 ? ` · ${t('settings.devices.attention', { count: deviceAttentionCount })}` : ''
+        }`,
+      },
+      entities: {
+        icon: Box,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(148,163,184,0.14),transparent_58%)]',
+        subtitle: t('settings.entities.count', { count: Object.keys(haStates).length }),
+      },
+      system: {
+        icon: Activity,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(20,184,166,0.14),transparent_58%)]',
+        preview: (
+          <SettingsCardPreview
+            variant="system"
+            statusLabel={healthLabel}
+            tone={hasSystemTelemetry ? worstTone : 'neutral'}
+            cpuPercent={cpuValue}
+            ramPercent={ramPercent}
+          />
+        ),
+      },
+      data: {
+        icon: Database,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]',
+        preview: (
+          <SettingsCardPreview variant="backup" lastBackupLabel={lastBackupLabel} backupSizeLabel={backupSizeLabel} />
+        ),
+      },
+      appearance: {
+        icon: Palette,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(236,72,153,0.13),transparent_58%)]',
+      },
+      language: {
+        icon: Languages,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(56,189,248,0.13),transparent_58%)]',
+        subtitle: t(`language.name.${locale}` as TranslationKey),
+      },
+      attention: {
+        icon: BellRing,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]',
+        preview: <SettingsAttentionPreview preferences={attentionPreferences} />,
+      },
+      advanced: {
+        icon: Wrench,
+        accentClassName: 'bg-[radial-gradient(circle_at_12%_8%,rgba(148,163,184,0.13),transparent_58%)]',
+        preview: <SettingsCardPreview variant="advanced" version={__APP_VERSION__} developerMode={developerMode} />,
+      },
+    };
     return (
       <div key={settingsPath} {...SETTINGS_PAGE_PROPS} className="dashboard-page-scroll text-[color:var(--ui-text-primary)]">
         <header className="dashboard-page-content-wide">
@@ -958,163 +1155,66 @@ export default function SettingsDashboard({
         </header>
 
         <main className="dashboard-page-content-wide mt-6 space-y-7 pb-10">
-          <SettingsHubGroup title={t('settings.group.home')}>
-            <SettingsHubCard
-              icon={Layers3}
-              title={t('settings.home.floors')}
-              subtitle={t('settings.home.floorsSubtitle')}
-              iconClassName="text-[color:rgb(var(--ui-accent-rgb)/0.95)]"
-              accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(56,189,248,0.16),transparent_58%)]"
-              onClick={() => navigateTo('/settings/floors')}
-            />
-            {security.can('manage_rooms') ? (
-              <SettingsHubCard
-                icon={UserRoundCog}
-                title={t('settings.access.title')}
-                subtitle={t('settings.access.subtitle')}
-                accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(168,85,247,0.15),transparent_58%)]"
-                onClick={() => navigateTo('/settings/access')}
-              >
-                <SettingsCardPreview variant="people" members={previewMembers} />
-              </SettingsHubCard>
-            ) : null}
-            {security.can('manage_security_config') ? (
-              <SettingsHubCard
-                icon={LockKeyhole}
-                title={t('settings.security.title')}
-                subtitle={t('settings.security.subtitle')}
-                accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(16,185,129,0.14),transparent_58%)]"
-                onClick={() => navigateTo('/settings/safety')}
-              >
-                <SettingsCardPreview
-                  variant="security"
-                  alarmCount={alarmPreviewStates.length}
-                  armedAlarmCount={armedAlarmCount}
-                  lockCount={lockPreviewStates.length}
-                  lockedLockCount={lockedLockCount}
-                />
-              </SettingsHubCard>
-            ) : null}
-            <SettingsHubCard
-              icon={Recycle}
-              title={t('waste.settings.title')}
-              subtitle={t('waste.settings.cardSubtitle')}
-              accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(34,197,94,0.14),transparent_58%)]"
-              onClick={() => navigateTo('/settings/home/waste-collection')}
-            />
-          </SettingsHubGroup>
-
-          <SettingsHubGroup title={t('settings.group.dashboard')}>
-            {canConfigureDashboard ? (
-              <SettingsHubCard
-                icon={LayoutDashboard}
-                title={t('settings.dashboard.title')}
-                subtitle={t('settings.dashboard.subtitle')}
-                accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(99,102,241,0.16),transparent_58%)]"
-                onClick={() => navigateTo('/settings/dashboard')}
-              >
-                <SettingsCardPreview
-                  variant="dashboard"
-                  sectionCount={sections.length}
-                  widgetCount={widgets.length}
-                  breakpointLabel={currentLayoutId?.toUpperCase() || 'AUTO'}
-                />
-              </SettingsHubCard>
-            ) : null}
-            {canConfigureDashboard ? (
-              <SettingsHubCard
-                icon={BellRing}
-                title={t('settings.attention.title')}
-                subtitle={t('settings.attention.subtitle')}
-                accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]"
-                onClick={() => navigateTo('/settings/attention')}
-              >
-                <SettingsAttentionPreview preferences={attentionPreferences} />
-              </SettingsHubCard>
-            ) : null}
-          </SettingsHubGroup>
-
-          <SettingsHubGroup title={t('settings.group.homeAssistant')}>
-            <SettingsHubCard
-              icon={Link2}
-              title={t('settings.connections.title')}
-              subtitle={t('settings.connections.subtitle')}
-              accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(6,182,212,0.15),transparent_58%)]"
-              onClick={() => navigateTo('/settings/connections')}
+          {SETTINGS_SECTIONS.map((section) => (
+            <SettingsHubGroup
+              key={section.id}
+              id={`settings-section-${section.id}`}
+              title={t(section.titleKey)}
+              description={t(section.descriptionKey)}
             >
-              <SettingsCardPreview
-                variant="connection"
-                connected={isConnected}
-                statusLabel={haStatusLabel(haStatus, t)}
-              />
-            </SettingsHubCard>
-            <SettingsHubCard
-              icon={Router}
-              title={t('settings.devices.title')}
-              subtitle={`${t('settings.devices.count', { count: haDeviceRegistry.length })}${
-                deviceAttentionCount > 0 ? ` · ${t('settings.devices.attention', { count: deviceAttentionCount })}` : ''
-              }`}
-              accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(59,130,246,0.14),transparent_58%)]"
-              onClick={() => navigateTo('/settings/devices')}
-            />
-            <SettingsHubCard
-              icon={Box}
-              title={t('settings.entities.title')}
-              subtitle={t('settings.entities.count', { count: Object.keys(haStates).length })}
-              accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(148,163,184,0.14),transparent_58%)]"
-              onClick={() => navigateTo('/settings/entities')}
-            />
-            <SettingsHubCard
-              icon={Activity}
-              title={t('settings.system.title')}
-              subtitle={t('settings.system.cardSubtitle')}
-              accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(20,184,166,0.14),transparent_58%)]"
-              onClick={() => navigateTo('/settings/system')}
-            >
-              <SettingsCardPreview
-                variant="system"
-                statusLabel={healthLabel}
-                tone={hasSystemTelemetry ? worstTone : 'neutral'}
-                cpuPercent={cpuValue}
-                ramPercent={ramPercent}
-              />
-            </SettingsHubCard>
-          </SettingsHubGroup>
-
-          <SettingsHubGroup title={t('settings.group.data')}>
-            {security.can('download_backup') ? (
-              <SettingsHubCard
-                icon={Database}
-                title={t('settings.data.title')}
-                subtitle={t('settings.data.subtitle')}
-                accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(245,158,11,0.14),transparent_58%)]"
-                onClick={() => navigateTo('/settings/data')}
-              >
-                <SettingsCardPreview
-                  variant="backup"
-                  lastBackupLabel={lastBackupLabel}
-                  backupSizeLabel={backupSizeLabel}
-                />
-              </SettingsHubCard>
-            ) : null}
-            {security.can('developer_mode') ? (
-              <SettingsHubCard
-                icon={Wrench}
-                title={t('settings.advanced.hubTitle')}
-                subtitle={t('settings.advanced.hubSubtitle')}
-                accentClassName="bg-[radial-gradient(circle_at_12%_8%,rgba(148,163,184,0.13),transparent_58%)]"
-                onClick={() => navigateTo('/settings/advanced')}
-              >
-                <SettingsCardPreview
-                  variant="advanced"
-                  version={__APP_VERSION__}
-                  developerMode={developerMode}
-                />
-              </SettingsHubCard>
-            ) : null}
-          </SettingsHubGroup>
+              {selectVisibleSettingsEntries(section.id, (capability) => security.can(capability)).map((entry) => {
+                const card = hubCards[entry.id];
+                return (
+                  <SettingsHubCard
+                    key={entry.id}
+                    icon={card.icon}
+                    title={t(entry.titleKey)}
+                    subtitle={card.subtitle ?? t(entry.descriptionKey)}
+                    iconClassName={card.iconClassName}
+                    accentClassName={card.accentClassName}
+                    onClick={() => navigateTo(entry.route)}
+                  >
+                    {card.preview}
+                  </SettingsHubCard>
+                );
+              })}
+            </SettingsHubGroup>
+          ))}
         </main>
       </div>
+    );
+  }
+
+  if (settingsPath === DEVICE_APPEARANCE_ROUTE) {
+    return (
+      <SettingsDetailShell
+        title={t('settings.device.appearance')}
+        subtitle={t('settings.device.appearancePageSubtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <LazyLoadBoundary mode="section" fallback={null}>
+          <DeviceAppearanceSettings
+            appearanceMode={appearanceMode}
+            onAppearanceModeChange={onAppearanceModeChange}
+            background={background}
+            onBackgroundChange={onBackgroundChange}
+          />
+        </LazyLoadBoundary>
+      </SettingsDetailShell>
+    );
+  }
+
+  if (settingsPath === DEVICE_LANGUAGE_ROUTE) {
+    return (
+      <SettingsDetailShell
+        title={t('language.page.title')}
+        subtitle={t('settings.device.languageSubtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <LazyLoadBoundary mode="section" fallback={null}>
+          <DeviceLanguageSettings />
+        </LazyLoadBoundary>
+      </SettingsDetailShell>
     );
   }
 

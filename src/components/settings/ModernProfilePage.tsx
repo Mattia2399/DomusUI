@@ -3,27 +3,23 @@ import {
   ArrowLeft,
   BadgeCheck,
   Bell,
-  Check,
   CheckCircle2,
   ChevronRight,
   Clock3,
   Fingerprint,
   KeyRound,
-  Languages,
   LifeBuoy,
   Mail,
   MapPin,
-  Palette,
   Route,
   ShieldCheck,
-  SunMoon,
   Trash2,
   UserRound,
   WifiOff,
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
-import { SUPPORTED_LOCALES, useI18n, type AppLocale } from '../../i18n/I18nProvider';
+import { useI18n } from '../../i18n/I18nProvider';
 import type { TranslationKey } from '../../i18n/translations';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import type { DashboardRuntimeMode } from '../../security/dashboardAccess';
@@ -31,12 +27,7 @@ import type { HaFrontendPreferencesCallApi } from '../../services/haFrontendPref
 import { useDeviceAuth } from '../../hooks/useDeviceAuth';
 import { usePersonalDevices } from '../../hooks/usePersonalDevices';
 import { appendSecurityAuditEvent } from '../../services/securityAuth';
-import {
-  DASHBOARD_BACKGROUND_PRESETS,
-  type DashboardAppearanceMode,
-  type DashboardBackgroundPreset,
-} from '../../theme/dashboardTheme';
-import GlassSegmentSelect from '../ui/GlassSegmentSelect';
+import { DEVICE_SETTINGS_ROUTE } from '../../navigation/settingsRoutes';
 import NestedPageHeader from '../ui/NestedPageHeader';
 import ProfileGroup from './ProfileGroup';
 import ProfileStartupPanelPreference from './ProfileStartupPanelPreference';
@@ -56,7 +47,8 @@ const profileViewDepth = (view: string) => (view === 'overview' ? 1 : 2);
 // Only users who open My devices download its screens and dialogs.
 const PersonalDevicesView = lazy(() => import('./profileDevices/PersonalDevicesView'));
 
-type ProfileView = 'overview' | 'personal' | 'activity' | 'devices' | 'security' | 'themes' | 'language';
+// Appearance and language are device settings: Settings › This device.
+type ProfileView = 'overview' | 'personal' | 'activity' | 'devices' | 'security';
 
 type ModernProfilePageProps = {
   isOpen: boolean;
@@ -77,10 +69,6 @@ type ModernProfilePageProps = {
   movementPoints?: ProfileMovementMapPoint[];
   movementUpdatedLabel?: string;
   haStatus: HaConnectionStatus;
-  appearanceMode: DashboardAppearanceMode;
-  onAppearanceModeChange: (mode: DashboardAppearanceMode) => void;
-  background: DashboardBackgroundPreset;
-  onBackgroundChange: (background: DashboardBackgroundPreset) => void;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   runtimeMode?: DashboardRuntimeMode;
@@ -106,14 +94,6 @@ const statusLabelKeyByConnection: Partial<Record<HaConnectionStatus, Translation
   disconnected: 'profile.status.disconnected',
 };
 
-const backgroundPreviewClassById: Record<DashboardBackgroundPreset, string> = {
-  neutral: 'profile-background-thumb-neutral',
-  'home-hub': 'profile-background-thumb-home-hub',
-  'ocean-mist': 'profile-background-thumb-ocean-mist',
-  'sunset-amber': 'profile-background-thumb-sunset-amber',
-  'forest-glass': 'profile-background-thumb-forest-glass',
-};
-
 function resolveInitialView(section: ProfileSectionId | undefined): ProfileView {
   if (section === 'movements') {
     return 'activity';
@@ -133,8 +113,6 @@ function resolveProfileViewFromRoute(route: string | undefined): ProfileView | n
   if (path === '/profile/activity') return 'activity';
   if (path === '/profile/devices') return 'devices';
   if (path === '/profile/security') return 'security';
-  if (path === '/profile/themes') return 'themes';
-  if (path === '/profile/language') return 'language';
   return path === '/profile' ? 'overview' : null;
 }
 
@@ -144,8 +122,6 @@ const profilePathByView: Record<ProfileView, string> = {
   activity: '/profile/activity',
   devices: '/profile/devices',
   security: '/profile/security',
-  themes: '/profile/themes',
-  language: '/profile/language',
 };
 
 function ProfileRow({
@@ -316,17 +292,13 @@ export function ModernProfilePage({
   movementPoints = [],
   movementUpdatedLabel,
   haStatus,
-  appearanceMode,
-  onAppearanceModeChange,
-  background,
-  onBackgroundChange,
   navigationRoute,
   onNavigate,
   runtimeMode = 'demo',
   onCallApi,
   onNotify,
 }: ModernProfilePageProps) {
-  const { locale, setLocale, t } = useI18n();
+  const { t } = useI18n();
   const [view, setView] = useState<ProfileView>(
     () => resolveProfileViewFromRoute(navigationRoute) ?? resolveInitialView(initialSection),
   );
@@ -525,11 +497,7 @@ export function ModernProfilePage({
               ? t('profile.view.activity')
               : view === 'devices'
                 ? t('profile.view.devices')
-              : view === 'security'
-                ? t('profile.view.security')
-                : view === 'themes'
-                  ? t('profile.view.themes')
-                  : t('language.page.title')
+                : t('profile.view.security')
           }
           subtitle={displayName}
           backLabel={t('profile.title')}
@@ -641,56 +609,18 @@ export function ModernProfilePage({
               />
             </ProfileGroup>
 
-            <ProfileGroup title={t('profile.group.appearance')}>
-              <div className="px-4 py-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
-                    <SunMoon size={17} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{t('profile.appearance.title')}</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                      {t('profile.appearance.description')}
-                    </span>
-                  </span>
-                </div>
-                <GlassSegmentSelect
-                  ariaLabel={t('profile.appearance.aria')}
-                  className="mt-3"
-                  value={appearanceMode}
-                  onChange={onAppearanceModeChange}
-                  options={[
-                    { value: 'auto', label: t('profile.appearance.system') },
-                    { value: 'light', label: t('profile.appearance.light') },
-                    { value: 'dark', label: t('profile.appearance.dark') },
-                  ]}
+            {/* The startup panel is a Home Assistant preference of the person, so it needs Home Assistant. */}
+            {runtimeMode === 'real' ? (
+              <ProfileGroup title={t('profile.group.preferences')}>
+                <ProfileStartupPanelPreference
+                  runtimeMode={runtimeMode}
+                  haStatus={haStatus}
+                  haUserId={haUserId}
+                  onCallApi={onCallApi}
+                  onNotify={onNotify}
                 />
-              </div>
-
-              <ProfileRow
-                icon={Palette}
-                title={t('profile.themes.title')}
-                subtitle={t('profile.themes.subtitle')}
-                value={DASHBOARD_BACKGROUND_PRESETS.find((preset) => preset.id === background)?.label}
-                onClick={() => openView('themes')}
-              />
-
-              <ProfileRow
-                icon={Languages}
-                title={t('language.selector.label')}
-                subtitle={t('language.selector.description')}
-                value={t(`language.name.${locale}` as TranslationKey)}
-                onClick={() => openView('language')}
-              />
-
-              <ProfileStartupPanelPreference
-                runtimeMode={runtimeMode}
-                haStatus={haStatus}
-                haUserId={haUserId}
-                onCallApi={onCallApi}
-                onNotify={onNotify}
-              />
-            </ProfileGroup>
+              </ProfileGroup>
+            ) : null}
 
             <ProfileGroup title={t('profile.group.security')}>
               <ProfileRow
@@ -716,8 +646,16 @@ export function ModernProfilePage({
               />
             </ProfileGroup>
 
+            {/* Appearance and language belong to the device, not to the person. */}
             <p className="px-1 text-center text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-              {t('profile.preferences.note')}
+              {t('profile.preferences.note')}{' '}
+              <button
+                type="button"
+                onClick={() => onNavigate?.(DEVICE_SETTINGS_ROUTE)}
+                className="rounded font-semibold text-[color:var(--ui-accent)] underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--ui-focus-ring)]"
+              >
+                {t('profile.preferences.open')}
+              </button>
             </p>
           </div>
         ) : null}
@@ -800,86 +738,6 @@ export function ModernProfilePage({
                   </p>
                 </div>
               )}
-            </ProfileGroup>
-          </div>
-        ) : null}
-
-        {view === 'themes' ? (
-          <div className="space-y-6">
-            <p className="px-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              {t('profile.themes.description')}
-            </p>
-            <ProfileGroup title={t('profile.themes.group')}>
-              {DASHBOARD_BACKGROUND_PRESETS.map((preset) => {
-                const selected = background === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => onBackgroundChange(preset.id)}
-                    aria-pressed={selected}
-                    className="flex min-h-[4.8rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]"
-                  >
-                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[1rem] border border-[color:var(--ui-border-strong)] shadow-[0_8px_18px_var(--ui-shadow-soft)]">
-                      <span
-                        className={`profile-background-thumb absolute inset-[-18%] ${backgroundPreviewClassById[preset.id]}`}
-                      />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                        {preset.label}
-                      </span>
-                      <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                        {preset.description}
-                      </span>
-                    </span>
-                    {selected ? (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-accent-strong)] text-[color:var(--ui-accent-contrast)]">
-                        <Check size={15} strokeWidth={2.5} />
-                      </span>
-                    ) : (
-                      <span className="h-7 w-7 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </ProfileGroup>
-          </div>
-        ) : null}
-
-        {view === 'language' ? (
-          <div className="space-y-6">
-            <p className="px-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              {t('language.page.description')}
-            </p>
-            <ProfileGroup title={t('language.page.group')}>
-              {SUPPORTED_LOCALES.map((language) => {
-                const selected = locale === language;
-                const label = t(`language.name.${language}` as TranslationKey);
-                return (
-                  <button
-                    key={language}
-                    type="button"
-                    onClick={() => setLocale(language as AppLocale)}
-                    aria-pressed={selected}
-                    className="flex min-h-[4.4rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold uppercase text-[color:var(--ui-text-secondary)]">
-                      {language}
-                    </span>
-                    <span className="min-w-0 flex-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                      {label}
-                    </span>
-                    {selected ? (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-accent-strong)] text-[color:var(--ui-accent-contrast)]">
-                        <Check size={15} strokeWidth={2.5} />
-                      </span>
-                    ) : (
-                      <span className="h-7 w-7 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
             </ProfileGroup>
           </div>
         ) : null}

@@ -63,6 +63,17 @@
 
 ### Changed
 
+- Settings and Profile are organized by who a setting belongs to. The
+  Profile shows only the person: account, activity, My devices, the Home
+  Assistant startup panel and device confirmation. Settings groups the house
+  (Home: dashboard, floors and rooms, people and access, security, waste
+  collection, and the Energy and Irrigation configuration; System:
+  connections, devices, entities, system status, data and backup) and This
+  device (appearance, language, alerts and advanced options, which were always
+  saved in this browser). Appearance and language moved from the Profile to
+  Settings › This device: their values stay where they were, and the old
+  `/profile/themes` and `/profile/language` links open the new pages. See
+  [settings scopes](docs/settings-scopes.md).
 - Translation catalogs are now split by language: startup downloads only the
   selected language, while another catalog is fetched on demand when the user
   changes language. The interface keeps the current language visible until

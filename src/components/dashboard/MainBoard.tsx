@@ -219,6 +219,7 @@ import {
 } from '../../hooks/useConsumptionConfig';
 import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfileSettings';
 import { resolveApplicationRoutePath } from '../../navigation/applicationRoutes';
+import { resolveLegacySettingsRoute } from '../../navigation/settingsRoutes';
 import { loadHaStateTranslations } from '../../services/haStateTranslations';
 import { useHaLiveConnection, type HaArea } from '../../hooks/useHaLiveConnection';
 import { useHaPanelBridgeConnection } from '../../hooks/useHaPanelBridgeConnection';
@@ -10936,17 +10937,30 @@ export function MainBoard() {
           : null;
   const settingsDataScope = settingsPath === '/settings/dashboard' ? 'layout' : 'data';
 
-  const navigateWithinDashboard = (path: string) => {
+  const navigateWithinDashboard = (path: string, options?: { replace?: boolean }) => {
     prefetchDashboardWorkspace(path);
     if (canUseBrowserRouteNavigation) {
       const currentRoute = `${routerLocation.pathname}${routerLocation.search}${routerLocation.hash}`;
       if (path !== currentRoute) {
-        navigate(path);
+        if (options?.replace) {
+          navigate(path, { replace: true });
+        } else {
+          navigate(path);
+        }
       }
       return;
     }
     setInternalNavigationRoute(path);
   };
+
+  // Appearance and language moved from the Profile to Settings › This device.
+  // The old address is replaced before it paints, so Back never returns to it.
+  const legacySettingsRoute = resolveLegacySettingsRoute(activeNavigationRoute);
+  React.useLayoutEffect(() => {
+    if (legacySettingsRoute) {
+      navigateWithinDashboard(legacySettingsRoute, { replace: true });
+    }
+  }, [legacySettingsRoute]);
 
   const openProfileRoute = (section: ProfileSectionId = 'members') => {
     const currentRoute = getCurrentNavigationRoute();
@@ -11370,6 +11384,10 @@ export function MainBoard() {
               }))}
               deviceAuthUser={deviceAuthUser}
               resolveAssetUrl={resolveSettingsAssetUrl}
+              appearanceMode={appearanceMode}
+              onAppearanceModeChange={setAppearanceMode}
+              background={background}
+              onBackgroundChange={setBackground}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}
               managedSectionContent={
@@ -11838,10 +11856,6 @@ export function MainBoard() {
             movementPoints={profileMovementPoints}
             movementUpdatedLabel={profileMovementUpdatedLabel}
             haStatus={haStatus}
-            appearanceMode={appearanceMode}
-            onAppearanceModeChange={setAppearanceMode}
-            background={background}
-            onBackgroundChange={setBackground}
             navigationRoute={activeNavigationRoute}
             onNavigate={navigateWithinDashboard}
             runtimeMode={effectiveRuntimeMode}

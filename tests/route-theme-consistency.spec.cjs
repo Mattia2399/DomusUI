@@ -28,6 +28,8 @@ const nestedRoutes = [
   '/settings/data',
   '/settings/system',
   '/settings/advanced',
+  '/settings/device/appearance',
+  '/settings/device/language',
 ];
 
 function installCompletedRealWorkspace(page, appearance) {

@@ -1,6 +1,6 @@
 # Feature status
 
-Updated: 2026-10-08
+Updated: 2026-10-15
 
 This page distinguishes stable functionality from previews and planned work. **Operational** means that the primary path is implemented and covered by project tests; it does not guarantee compatibility with every Home Assistant hardware integration.
 
@@ -13,8 +13,8 @@ This page distinguishes stable functionality from previews and planned work. **O
 | Security    | Operational      | Alarm hub, cameras, selectable sensors, and shared authorization                                   |
 | Consumption | Operational      | Views based on data actually available in HA                                                       |
 | Domus Energy Core | Operational in 1.5.0 | Read-only live energy, guided setup, multi-device installations, tariffs and Recorder-backed history charts |
-| Profile     | Operational      | Personal preferences, device theme, language, and startup panel                                    |
-| Settings    | Operational      | Home, entities, people/account linking and member photos (administrators), system, backups, versions, and attention preferences |
+| Profile     | Operational      | The person only: account, activity, My devices with personal notifications, startup panel and device confirmation |
+| Settings    | Operational      | Grouped by scope: Home (dashboard, rooms, people and access, security, waste collection, Energy and Irrigation configuration), System (connections, devices, entities, status, backups) and This device (appearance, language, attention, advanced); see [settings scopes](settings-scopes.md) |
 | App Gallery | Partial          | Launcher and Irrigation beta are available; Utility Room and Pool & Spa are marked as coming later |
 | Automations | Coming later     | The old workspace remains disabled until its workflow is ready for public use                      |
 | Calendar    | Operational      | Native Domus UI calendar and compatible Home Assistant calendar entities                           |
