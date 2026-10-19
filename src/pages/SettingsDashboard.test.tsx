@@ -85,6 +85,46 @@ describe('SettingsDashboard', () => {
     expect(onNavigate).toHaveBeenCalledWith('/settings/device/power');
   });
 
+  it('lists the Screensaver of this device with its state, for everyone', async () => {
+    const onNavigate = vi.fn();
+    const member = createDashboardSecurityValue({ runtimeMode: 'real', haStatus: 'connected', user: { id: 'member-1' } });
+    const { unmount } = render(
+      <DashboardSecurityProvider value={member}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" onNavigate={onNavigate} />
+      </DashboardSecurityProvider>,
+    );
+    const row = within(screen.getByRole('region', { name: 'Questo dispositivo' })).getByRole('button', { name: /^Screensaver/ });
+    expect(row.textContent).toContain('No');
+    fireEvent.click(row);
+    expect(onNavigate).toHaveBeenCalledWith('/settings/device/screensaver');
+    unmount();
+
+    window.localStorage.setItem(
+      'domusui.screensaver.v1',
+      JSON.stringify({ version: 1, enabled: true, timeoutMinutes: 10, mode: 'minimal', showDate: true }),
+    );
+    window.dispatchEvent(new StorageEvent('storage', { key: 'domusui.screensaver.v1' }));
+    render(
+      <DashboardSecurityProvider value={member}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" />
+      </DashboardSecurityProvider>,
+    );
+    expect(
+      within(screen.getByRole('region', { name: 'Questo dispositivo' })).getByRole('button', { name: /^Screensaver/ }).textContent,
+    ).toContain('10 min');
+  });
+
+  it('opens the Screensaver as its own page, loaded only then', async () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings/device/screensaver" />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Screensaver' })).toBeTruthy();
+    expect(await screen.findByRole('switch', { name: 'Screensaver' })).toBeTruthy();
+  });
+
   it('opens Power and charging as its own page, loaded only then', async () => {
     render(
       <DashboardSecurityProvider value={security}>
@@ -168,6 +208,7 @@ describe('SettingsDashboard', () => {
     expect(device.getAllByRole('button').map((card) => card.textContent)).toEqual([
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
+      expect.stringContaining('Screensaver'),
       expect.stringContaining('Alimentazione e ricarica'),
       expect.stringContaining('Avvisi e attenzione'),
       expect.stringContaining('Avanzate e supporto'),
@@ -253,6 +294,7 @@ describe('SettingsDashboard', () => {
     expect(cards('Questo dispositivo')).toEqual([
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
+      expect.stringContaining('Screensaver'),
     ]);
   });
 

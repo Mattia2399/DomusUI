@@ -388,6 +388,7 @@ import {
   translateCoverState,
 } from '../../utils/coverUtils';
 import { translateMediaPlayerState } from '../../utils/mediaPlayerState';
+import { DomusScreensaver } from '../screensaver/DomusScreensaver';
 import {
   createOAuthNonce,
   isAppGalleryNavigationTarget,
@@ -12134,6 +12135,9 @@ export function MainBoard() {
         onResume={resumePendingDashboardEditDraft}
         onDiscard={discardPendingDashboardEditDraft}
       />
+
+      {/* Above everything, whatever page is open; off unless turned on in Settings › This device. */}
+      <DomusScreensaver route={activeNavigationRoute} appearance={appearance} background={background} />
     </div>
     </SensitiveActionGateProvider>
     </DashboardSecurityProvider>

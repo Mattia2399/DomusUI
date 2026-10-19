@@ -16,6 +16,7 @@ import {
   HardDrive,
   Info,
   Languages,
+  MoonStar,
   LayoutDashboard,
   Layers3,
   Link2,
@@ -96,12 +97,14 @@ import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
   DEVICE_POWER_ROUTE,
+  DEVICE_SCREENSAVER_ROUTE,
   DEVICE_SETTINGS_ROUTE,
   PROFILE_ROUTE,
   isProfileSettingsRoute,
 } from '../navigation/settingsRoutes';
 import type { DashboardAppearanceMode, DashboardBackgroundPreset } from '../theme/dashboardTheme';
 import LazyLoadBoundary from '../components/common/LazyLoadBoundary';
+import { useScreensaverPreferences } from '../components/screensaver/screensaverPreferences';
 
 // Only the pages of This device need their controls; the overview needs none.
 const DeviceAppearanceSettings = React.lazy(() =>
@@ -115,6 +118,7 @@ const DeviceLanguageSettings = React.lazy(() =>
   })),
 );
 const DevicePowerSettings = React.lazy(() => import('../components/settings/DevicePowerSettings'));
+const ScreensaverSettings = React.lazy(() => import('../components/settings/ScreensaverSettings'));
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -614,6 +618,7 @@ export default function SettingsDashboard({
   }, []);
 
   const isConnected = haStatus === 'connected';
+  const screensaver = useScreensaverPreferences();
   // The rows only follow Home Assistant; every device power command is checked there again.
   const isAdministrator =
     security.runtimeMode === 'real' &&
@@ -951,6 +956,13 @@ export default function SettingsDashboard({
       data: { icon: Database, color: 'bg-amber-500', value: lastBackupLabel ?? undefined },
       appearance: { icon: Palette, color: 'bg-pink-500', value: appearanceLabel },
       language: { icon: Languages, color: 'bg-sky-600', value: t(`language.name.${locale}` as TranslationKey) },
+      screensaver: {
+        icon: MoonStar,
+        color: 'bg-indigo-500',
+        value: screensaver.enabled
+          ? t('settings.device.screensaverAfter', { count: screensaver.timeoutMinutes })
+          : t('settings.device.screensaverOff'),
+      },
       power: { icon: BatteryCharging, color: 'bg-emerald-600' },
       attention: {
         icon: BellRing,
@@ -1134,6 +1146,20 @@ export default function SettingsDashboard({
       >
         <LazyLoadBoundary mode="section" fallback={null}>
           <DeviceLanguageSettings />
+        </LazyLoadBoundary>
+      </SettingsDetailShell>
+    );
+  }
+
+  if (settingsPath === DEVICE_SCREENSAVER_ROUTE) {
+    return (
+      <SettingsDetailShell
+        title={t('settings.device.screensaver')}
+        subtitle={t('settings.device.screensaverSubtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <LazyLoadBoundary mode="section" fallback={null}>
+          <ScreensaverSettings />
         </LazyLoadBoundary>
       </SettingsDetailShell>
     );

@@ -4,6 +4,7 @@ import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
   DEVICE_POWER_ROUTE,
+  DEVICE_SCREENSAVER_ROUTE,
   PROFILE_ROUTE,
 } from '../../navigation/settingsRoutes';
 import { HOUSE_ACCESS_ROUTE } from './settingsHouseAccessModel';
@@ -57,6 +58,7 @@ export type SettingsEntryId =
   | 'data'
   | 'appearance'
   | 'language'
+  | 'screensaver'
   | 'power'
   | 'attention'
   | 'advanced';
@@ -226,6 +228,17 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     storage: 'browser_local',
     titleKey: 'language.selector.label',
     descriptionKey: 'settings.device.languageSubtitle',
+  },
+  {
+    // Shown and timed by this browser alone (docs/device-screensaver.md).
+    id: 'screensaver',
+    scope: 'device',
+    owner: 'core',
+    section: 'device',
+    route: DEVICE_SCREENSAVER_ROUTE,
+    storage: 'browser_local',
+    titleKey: 'settings.device.screensaver',
+    descriptionKey: 'settings.device.screensaverSubtitle',
   },
   {
     // The charger of this device, switched by DomusOS in Home Assistant

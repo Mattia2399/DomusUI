@@ -4,6 +4,16 @@
 
 ### Added
 
+- Settings › This device › Screensaver: after 1 to 30 minutes without a
+  touch, a key or a mouse movement, Domus shows the time, and the date if
+  wanted, over whatever page is open. Minimal is the time on true black;
+  Ambient uses this device's Domus background, dimmed. The first touch only
+  wakes Domus: it never presses what is below, and the page, its forms and
+  open windows are left as they were. The clock moves a few pixels every few
+  minutes against burn-in, follows reduced motion, never counts Home
+  Assistant updates as activity and does not run while the tab is hidden.
+  Off by default and kept in this browser only; it does not turn the screen
+  off or keep it on.
 - Settings › This device › Power and charging: an administrator can keep a
   wall tablet's battery between two levels (30 % and 80 % by default). The
   DomusOS integration switches the charger's smart plug in Home Assistant, so

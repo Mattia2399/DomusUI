@@ -39,7 +39,7 @@ Ogni configurazione ha tre dimensioni indipendenti:
 | Energia | HOUSE | ENERGY | dentro Energia (Consumi › Energia) |
 | Irrigazione | HOUSE | IRRIGATION | dentro Irrigazione (App Gallery › Irrigazione › Impostazioni) |
 | Pannello d'avvio | PROFILE | CORE | Profilo |
-| Screensaver (futuro) | DEVICE | CORE (esperienza del dispositivo) | Impostazioni › Questo dispositivo |
+| Screensaver | DEVICE | CORE (esperienza del dispositivo) | Impostazioni › Questo dispositivo |
 
 **Una configurazione HOUSE non appartiene automaticamente a Impostazioni ›
 Casa.** HOUSE dice soltanto che il valore riguarda tutta la casa. La posizione
@@ -177,6 +177,7 @@ l'unica autorità, dentro l'app.
 | --- | --- | --- | --- |
 | Aspetto (tema e sfondo) | `/settings/device/appearance` | `ha.dashboard.theme`, `ha.dashboard.background` | tutti |
 | Lingua | `/settings/device/language` | `domusui.language.v1` | tutti |
+| Screensaver | `/settings/device/screensaver` | `domusui.screensaver.v1` | tutti |
 | Alimentazione e ricarica | `/settings/device/power` | `domusui.client_id.v1` (solo il riferimento del dispositivo); la configurazione è nello Store `domusos.device_power.v1` | amministratori HA |
 | Avvisi e attenzione | `/settings/attention` | `ha.dashboard.homeAttention.v1` | `edit_dashboard` |
 | Avanzate e supporto | `/settings/advanced` | `ha.dashboard.developerMode.v2`, `ha.dashboard.cardSizingEngine` | `developer_mode` |
@@ -259,7 +260,8 @@ andranno.
     route e controlli): sostituirà le `capability` attuali delle voci.
   - Configurazione di Domus Intelligence.
 - **DEVICE**
-  - Screensaver.
+  - Screensaver: stato della casa, foto, orari giorno/notte, impostazione
+    predefinita della casa con eccezioni per dispositivo.
   - Strategie di ricarica a orari o intelligenti (oggi solo soglie).
   - Modalità kiosk.
   - Dashboard predefinita per questo dispositivo.
