@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   Activity,
   AlertTriangle,
   BatteryCharging,
+  Check,
   Link2,
   LockKeyhole,
   PlugZap,
@@ -37,10 +39,12 @@ import { SettingsListRow } from './SettingsList';
 
 // The runtime is read again while the page is open; the controllers do not wait for it.
 const REFRESH_INTERVAL_MS = 15_000;
+// Changes save themselves once the person stops typing for a moment.
+const AUTOSAVE_DELAY_MS = 700;
+// A confirmation steps aside after a moment; errors stay until the next action.
+const CONFIRMATION_MS = 4000;
 
 const INPUT = 'ui-input min-h-11 w-full min-w-0 rounded-xl px-3 py-2 text-sm';
-const PRIMARY_BUTTON =
-  'liquid-glass-selection inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-45';
 const DANGER_BUTTON =
   'inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-rose-400/25 bg-rose-500/[0.07] px-5 text-sm font-semibold text-rose-500 disabled:opacity-45';
 const QUIET_BUTTON =
@@ -56,12 +60,15 @@ const STATUS_COPY: Record<PolicyRuntimeStatus, DevicePowerCopyKey> = {
   error: 'statusError',
 };
 
-const FIELD_ERROR_COPY: Record<NonNullable<PolicyDraftErrors[keyof PolicyDraftErrors]>, DevicePowerCopyKey> = {
+type FieldError = NonNullable<PolicyDraftErrors[keyof PolicyDraftErrors]> | 'missing';
+
+const FIELD_ERROR_COPY: Record<FieldError, DevicePowerCopyKey> = {
   required: 'errorRequired',
   range: 'errorRange',
   order: 'errorOrder',
   length: 'errorLength',
   domain: 'errorDomain',
+  missing: 'errorMissing',
 };
 
 type DevicePowerSettingsProps = {
@@ -74,8 +81,8 @@ type DevicePowerSettingsProps = {
   haStates: MockEntityStateMap;
 };
 
-/** `automation`: shown under the switch it answers; otherwise next to Save. */
-type Feedback = { tone: 'success' | 'error'; text: string; at?: 'automation' } | null;
+/** `automation`: shown under the switch it answers; `form`: under the configuration. */
+type Feedback = { tone: 'success' | 'error'; text: string; at: 'automation' | 'form' } | null;
 
 function sameDraft(first: PolicyDraft, second: PolicyDraft) {
   return (Object.keys(first) as (keyof PolicyDraft)[]).every((key) => first[key] === second[key]);
@@ -115,40 +122,64 @@ function Notice({ icon: Icon, title, body, children }: { icon: LucideIcon; title
   );
 }
 
-/** Settings › This device › Power and charging. */
+/**
+ * Settings › This device › Power and charging.
+ *
+ * Like an iOS settings page: the switch turns the automation on or off at
+ * once and opens the rest of the page; every change saves itself.
+ */
 export function DevicePowerSettings({ callApi, connected, supported, isAdmin, haStates }: DevicePowerSettingsProps) {
   const c = useDevicePowerCopy();
   const fieldId = useId();
+  const reduceMotion = useReducedMotion();
   const clientId = useMemo(() => getOrCreateDomusClientId(), []);
   const [state, setState] = useState<DevicePowerState | null>(null);
   const [load, setLoad] = useState<'loading' | 'ready' | 'error' | 'unsupported'>('loading');
   const [draft, setDraft] = useState<PolicyDraft>(() => draftFromPolicy(null));
   const [baseline, setBaseline] = useState<PolicyDraft>(() => draftFromPolicy(null));
+  // Switched on before anything was saved: the page opens for the first choices.
+  const [setupOpen, setSetupOpen] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
   const [pending, setPending] = useState<false | 'form' | 'automation'>(false);
   const busy = pending !== false;
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [pendingRemoval, setPendingRemoval] = useState<PowerPolicy | null>(null);
+  // A draft the server refused is not sent again until it changes.
+  const refusedDraftRef = useRef<PolicyDraft | null>(null);
   const usable = supported && isAdmin && connected && Boolean(callApi);
 
   const bound = state?.policies.find((policy) => clientId !== null && policy.clientId === clientId) ?? null;
   const others = state?.policies.filter((policy) => policy !== bound) ?? [];
+  const automationOn = bound ? bound.enabled : setupOpen;
   const dirty = !sameDraft(draft, baseline);
   const validation = validatePolicyDraft(draft);
 
-  // The draft is replaced by a newer version only while nobody has touched it.
+  // An entity typed by hand must exist in Home Assistant; the saved one may be away for a while.
+  const knownEntity = (entityId: string, savedId: string | undefined) =>
+    entityId === savedId || haStates[entityId] !== undefined;
+  const fieldErrors: Partial<Record<keyof PolicyDraftErrors, FieldError>> = { ...validation.errors };
+  if (!fieldErrors.batteryEntityId && !knownEntity(draft.batteryEntityId, bound?.batteryEntityId)) {
+    fieldErrors.batteryEntityId = 'missing';
+  }
+  if (!fieldErrors.switchEntityId && !knownEntity(draft.switchEntityId, bound?.switchEntityId)) {
+    fieldErrors.switchEntityId = 'missing';
+  }
+  const savable = Boolean(validation.settings) && Object.keys(fieldErrors).length === 0;
+
+  // The draft follows the server while nobody is editing it, and after a save of exactly what it holds.
   const baselineRef = useRef(baseline);
   const adopt = useCallback(
-    (next: DevicePowerState, options: { resetDraft?: boolean } = {}) => {
+    (next: DevicePowerState, options: { resetDraft?: boolean; sent?: PolicyDraft } = {}) => {
       setState(next);
       const nextBound = next.policies.find((policy) => clientId !== null && policy.clientId === clientId) ?? null;
       const nextBaseline = draftFromPolicy(nextBound);
       const previous = baselineRef.current;
       baselineRef.current = nextBaseline;
       setBaseline(nextBaseline);
-      // The automation switch is saved on its own: an edited form keeps its edits, not an old switch.
       setDraft((current) =>
-        options.resetDraft || sameDraft(current, previous) ? nextBaseline : { ...current, enabled: nextBaseline.enabled },
+        options.resetDraft || sameDraft(current, previous) || (options.sent && sameDraft(current, options.sent))
+          ? nextBaseline
+          : { ...current, enabled: nextBaseline.enabled },
       );
       if (options.resetDraft) setShowErrors(false);
     },
@@ -195,20 +226,20 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
       Number(haStates[second]?.rawAttributes?.device_class === 'battery') -
         Number(haStates[first]?.rawAttributes?.device_class === 'battery') ||
       friendlyName(haStates, first).localeCompare(friendlyName(haStates, second));
-    // A chosen entity stays listed even when it no longer looks like a battery.
-    if (draft.batteryEntityId && !battery.includes(draft.batteryEntityId)) battery.push(draft.batteryEntityId);
-    if (draft.switchEntityId && !switches.includes(draft.switchEntityId)) switches.push(draft.switchEntityId);
+    // The saved entities stay listed even when they no longer look like a battery or are away.
+    if (bound && !battery.includes(bound.batteryEntityId)) battery.push(bound.batteryEntityId);
+    if (bound && !switches.includes(bound.switchEntityId)) switches.push(bound.switchEntityId);
     return {
       battery: battery.sort(byBatteryClass),
       switches: switches.sort((first, second) => friendlyName(haStates, first).localeCompare(friendlyName(haStates, second))),
     };
-  }, [draft.batteryEntityId, draft.switchEntityId, haStates]);
+  }, [bound, haStates]);
 
   const describeError = (code: string) =>
     code === 'switch_in_use' ? c('switchInUse') : code === 'client_already_bound' ? c('clientBound') : c('saveError');
 
-  const run = async (action: () => Promise<void>, at?: 'automation') => {
-    setPending(at ?? 'form');
+  const run = async (action: () => Promise<void>, at: 'automation' | 'form', onRefused?: () => void) => {
+    setPending(at);
     setFeedback(null);
     try {
       await action();
@@ -218,6 +249,7 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
         await refresh({ resetDraft: true });
         setFeedback({ tone: 'error', text: c('conflict'), at });
       } else {
+        onRefused?.();
         setFeedback({ tone: 'error', text: describeError(code), at });
       }
     } finally {
@@ -225,9 +257,71 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
     }
   };
 
-  /** Turns the saved policy on or off at once, leaving the rest of the form alone. */
+  /** Saves the form as it is: creates this device's policy, or changes it. */
+  const persist = (sent: PolicyDraft) => {
+    const settings = validatePolicyDraft(sent).settings;
+    if (!callApi || !settings) return;
+    if (!clientId) {
+      setFeedback({ tone: 'error', text: c('noClientId'), at: 'form' });
+      return;
+    }
+    const creating = !bound;
+    void run(
+      async () => {
+        const next = await saveDevicePowerPolicy(
+          callApi,
+          { ...settings, enabled: true, clientId },
+          bound ? { policyId: bound.policyId, revision: bound.revision } : undefined,
+        );
+        adopt(next, { sent });
+        refusedDraftRef.current = null;
+        if (creating) {
+          setSetupOpen(false);
+          setFeedback({ tone: 'success', text: c('automationOn'), at: 'automation' });
+        } else {
+          setFeedback({ tone: 'success', text: c('autosaved'), at: 'form' });
+        }
+      },
+      'form',
+      () => {
+        refusedDraftRef.current = sent;
+      },
+    );
+  };
+
+  // Every change saves itself after a short pause; an invalid one shows why instead.
+  useEffect(() => {
+    if (!usable || !automationOn || !dirty || busy) return undefined;
+    if (refusedDraftRef.current && sameDraft(refusedDraftRef.current, draft)) return undefined;
+    setShowErrors(false);
+    const timer = window.setTimeout(() => {
+      if (savable) persist(draft);
+      else setShowErrors(true);
+    }, AUTOSAVE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+    // Only an edit, a save or the switch restart the pause; live states arrive all the time.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, baseline, busy, automationOn, usable]);
+
+  useEffect(() => {
+    if (feedback?.tone !== 'success') return undefined;
+    const timer = window.setTimeout(() => setFeedback((current) => (current === feedback ? null : current)), CONFIRMATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [feedback]);
+
+  /** The switch: on or off at once for a saved policy; before that it only opens the page. */
   const setAutomation = (enabled: boolean) => {
-    if (!callApi || !bound) return;
+    if (!bound) {
+      setSetupOpen(enabled);
+      setFeedback(null);
+      if (!enabled) {
+        setDraft(baselineRef.current);
+        setShowErrors(false);
+        refusedDraftRef.current = null;
+      }
+      return;
+    }
+    if (!callApi) return;
     const { policyId, revision, runtime: _runtime, createdAt: _created, updatedAt: _updated, ...settings } = bound;
     void run(async () => {
       adopt(await saveDevicePowerPolicy(callApi, { ...settings, enabled }, { policyId, revision }));
@@ -235,35 +329,16 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
     }, 'automation');
   };
 
-  const save = () => {
-    setShowErrors(true);
-    if (!callApi || !validation.settings) return;
-    if (!clientId) {
-      setFeedback({ tone: 'error', text: c('noClientId') });
-      return;
-    }
-    const settings = { ...validation.settings, clientId };
-    void run(async () => {
-      const next = await saveDevicePowerPolicy(
-        callApi,
-        settings,
-        bound ? { policyId: bound.policyId, revision: bound.revision } : undefined,
-      );
-      adopt(next, { resetDraft: true });
-      setFeedback({ tone: 'success', text: c('saved') });
-    });
-  };
-
   const link = (policy: PowerPolicy) => {
     if (!callApi) return;
     if (!clientId) {
-      setFeedback({ tone: 'error', text: c('noClientId') });
+      setFeedback({ tone: 'error', text: c('noClientId'), at: 'automation' });
       return;
     }
     void run(async () => {
       adopt(await bindDevicePowerPolicy(callApi, policy, clientId), { resetDraft: true });
-      setFeedback({ tone: 'success', text: c('linked') });
-    });
+      setFeedback({ tone: 'success', text: c('linked'), at: 'automation' });
+    }, 'automation');
   };
 
   const remove = () => {
@@ -272,8 +347,9 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
     if (!callApi || !target) return;
     void run(async () => {
       adopt(await deleteDevicePowerPolicy(callApi, target), { resetDraft: target === bound });
-      setFeedback({ tone: 'success', text: c('removed') });
-    });
+      if (target === bound) setSetupOpen(false);
+      setFeedback({ tone: 'success', text: c('removed'), at: 'automation' });
+    }, 'automation');
   };
 
   if (!supported || load === 'unsupported') {
@@ -302,31 +378,27 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
     return <Notice icon={AlertTriangle} title={c('corruptTitle')} body={c('corruptBody')} />;
   }
 
-  const statusLabel = !bound
-    ? c('statusIncomplete')
-    : !bound.enabled
-      ? c('statusDisabled')
-      : c(STATUS_COPY[bound.runtime.status]);
-  const statusWarning = Boolean(
-    bound && bound.enabled && ['battery_unavailable', 'switch_unavailable', 'error'].includes(bound.runtime.status),
-  );
+  const statusLabel = !bound ? c('statusIncomplete') : c(STATUS_COPY[bound.runtime.status]);
+  const statusWarning = Boolean(bound && ['battery_unavailable', 'switch_unavailable', 'error'].includes(bound.runtime.status));
   // The entities being chosen, so their values show before the first save.
   const batteryId = draft.batteryEntityId || bound?.batteryEntityId || '';
   const switchId = draft.switchEntityId || bound?.switchEntityId || '';
   const level = batteryLevel(haStates, batteryId, bound?.batteryEntityId === batteryId ? bound.runtime.batteryLevel : null);
   const power = switchOn(haStates, switchId, bound?.switchEntityId === switchId ? bound.runtime.switchOn : null);
-  const errors = showErrors ? validation.errors : {};
   // The picker shows the entity id; its name is repeated under it.
   const chosenName = (entityId: string) =>
     entityId && haStates[entityId] && friendlyName(haStates, entityId) !== entityId ? friendlyName(haStates, entityId) : null;
+  // An empty field is not an error to point at: the page simply waits for it.
   const errorText = (field: keyof PolicyDraftErrors) => {
-    const error = errors[field];
-    return error ? c(FIELD_ERROR_COPY[error]) : null;
+    const error = showErrors ? fieldErrors[field] : undefined;
+    return error && error !== 'required' ? c(FIELD_ERROR_COPY[error]) : null;
   };
   // What the switch means right now, in words: the saved policy, never the form.
   const boundPower = bound ? switchOn(haStates, bound.switchEntityId, bound.runtime.switchOn) : null;
   const automationBody = !bound
-    ? c('automationPending')
+    ? setupOpen
+      ? c('automationPending')
+      : c('automationIntro')
     : bound.enabled
       ? c('automationOnBody', { start: bound.startThreshold, stop: bound.stopThreshold })
       : boundPower === true
@@ -335,7 +407,15 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
           ? c('automationOffBodyOff')
           : c('automationOffBody');
   const automationFeedback = feedback?.at === 'automation' ? feedback : null;
-  const formFeedback = feedback && feedback.at !== 'automation' ? feedback : null;
+  const formFeedback = feedback?.at === 'form' ? feedback : null;
+  const reveal = reduceMotion
+    ? { initial: false, animate: { opacity: 1 }, exit: { opacity: 0 } }
+    : {
+        initial: { opacity: 0, height: 0 },
+        animate: { opacity: 1, height: 'auto' },
+        exit: { opacity: 0, height: 0 },
+        transition: { duration: 0.24, ease: [0.32, 0.72, 0, 1] as [number, number, number, number] },
+      };
 
   return (
     <div className="space-y-6">
@@ -347,20 +427,15 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">{c('automationTitle')}</span>
-              <span id={`${fieldId}-automation`} className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                {automationBody}
-              </span>
+              <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">{automationBody}</span>
             </span>
-            {/* Until the first save there is nothing to turn on or off. */}
-            {bound ? (
-              <GlassToggle
-                checked={bound.enabled}
-                onChange={setAutomation}
-                label={c('automationTitle')}
-                disabled={busy}
-                busy={pending === 'automation'}
-              />
-            ) : null}
+            <GlassToggle
+              checked={automationOn}
+              onChange={setAutomation}
+              label={c('automationTitle')}
+              disabled={busy}
+              busy={pending === 'automation'}
+            />
           </div>
         </ProfileGroup>
         {automationFeedback ? (
@@ -379,140 +454,166 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
         ) : null}
       </div>
 
-      <ProfileGroup title={c('statusGroup')}>
-        <SettingsListRow
-          icon={BatteryCharging}
-          iconClassName="bg-emerald-600"
-          title={c('battery')}
-          value={!batteryId ? '—' : level === null ? c('notAvailable') : `${Math.round(level)} %`}
-        />
-        <SettingsListRow
-          icon={PlugZap}
-          iconClassName="bg-amber-500"
-          title={c('power')}
-          value={!switchId ? '—' : power === null ? c('notAvailable') : power ? c('powerOn') : c('powerOff')}
-        />
-        <SettingsListRow
-          icon={Activity}
-          iconClassName={statusWarning ? 'bg-rose-500' : 'bg-sky-500'}
-          title={c('automation')}
-          subtitle={bound?.enabled && bound.runtime.status === 'error' ? c('errorDetail') : undefined}
-          value={statusLabel}
-        />
-      </ProfileGroup>
+      <AnimatePresence initial={false}>
+        {automationOn ? (
+          <motion.div key="details" {...reveal} className="overflow-hidden">
+            <div className="space-y-6 pb-1">
+              <ProfileGroup title={c('statusGroup')}>
+                <SettingsListRow
+                  icon={BatteryCharging}
+                  iconClassName="bg-emerald-600"
+                  title={c('battery')}
+                  value={!batteryId ? '—' : level === null ? c('notAvailable') : `${Math.round(level)} %`}
+                />
+                <SettingsListRow
+                  icon={PlugZap}
+                  iconClassName="bg-amber-500"
+                  title={c('power')}
+                  value={!switchId ? '—' : power === null ? c('notAvailable') : power ? c('powerOn') : c('powerOff')}
+                />
+                <SettingsListRow
+                  icon={Activity}
+                  iconClassName={statusWarning ? 'bg-rose-500' : 'bg-sky-500'}
+                  title={c('automation')}
+                  subtitle={bound?.runtime.status === 'error' ? c('errorDetail') : undefined}
+                  value={statusLabel}
+                />
+              </ProfileGroup>
 
-      <ProfileGroup title={c('configGroup')}>
-        <div className="space-y-4 px-4 py-4">
-          <div>
-            <label htmlFor={`${fieldId}-label`} className="mb-1.5 block text-xs font-semibold text-[color:var(--ui-text-secondary)]">
-              {c('label')}
-            </label>
-            <input
-              id={`${fieldId}-label`}
-              className={INPUT}
-              value={draft.label}
-              maxLength={80}
-              aria-invalid={Boolean(errorText('label'))}
-              aria-describedby={`${fieldId}-label-hint`}
-              onChange={(event) => setDraft({ ...draft, label: event.target.value })}
-            />
-            <p id={`${fieldId}-label-hint`} className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">
-              {errorText('label') ?? c('labelHint')}
-            </p>
-          </div>
-
-          <div>
-            <GlassCombobox
-              label={c('batteryField')}
-              value={draft.batteryEntityId}
-              options={entityOptions.battery}
-              onChange={(batteryEntityId) => setDraft({ ...draft, batteryEntityId })}
-              placeholder={c('batteryPlaceholder')}
-              emptyLabel={c('noEntities')}
-              getOptionLabel={(entityId) => friendlyName(haStates, entityId)}
-              getOptionDescription={(entityId) => entityId}
-              disabled={busy}
-            />
-            <p className={`mt-1 text-[11px] ${errorText('batteryEntityId') ? 'text-rose-500' : 'text-[color:var(--ui-text-tertiary)]'}`}>
-              {errorText('batteryEntityId') ?? chosenName(draft.batteryEntityId) ?? c('batteryHint')}
-            </p>
-          </div>
-
-          <div>
-            <GlassCombobox
-              label={c('switchField')}
-              value={draft.switchEntityId}
-              options={entityOptions.switches}
-              onChange={(switchEntityId) => setDraft({ ...draft, switchEntityId })}
-              placeholder={c('switchPlaceholder')}
-              emptyLabel={c('noEntities')}
-              getOptionLabel={(entityId) => friendlyName(haStates, entityId)}
-              getOptionDescription={(entityId) => entityId}
-              disabled={busy}
-            />
-            <p className={`mt-1 text-[11px] ${errorText('switchEntityId') ? 'text-rose-500' : 'text-[color:var(--ui-text-tertiary)]'}`}>
-              {errorText('switchEntityId') ?? chosenName(draft.switchEntityId) ?? c('switchHint')}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {(['startThreshold', 'stopThreshold'] as const).map((field) => (
-              <div key={field}>
-                <label htmlFor={`${fieldId}-${field}`} className="mb-1.5 block text-xs font-semibold text-[color:var(--ui-text-secondary)]">
-                  {field === 'startThreshold' ? c('startField') : c('stopField')}
-                </label>
-                <div className="relative">
-                  <input
-                    id={`${fieldId}-${field}`}
-                    className={`${INPUT} pr-9 tabular-nums`}
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={draft[field]}
-                    aria-invalid={Boolean(errorText(field))}
-                    aria-describedby={`${fieldId}-${field}-hint`}
-                    onChange={(event) => setDraft({ ...draft, [field]: event.target.value })}
-                  />
-                  <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[color:var(--ui-text-secondary)]">
-                    %
-                  </span>
-                </div>
-                <p
-                  id={`${fieldId}-${field}-hint`}
-                  className={`mt-1 text-[11px] ${
-                    errorText(field)
-                      ? 'text-rose-500'
-                      : field === 'startThreshold'
-                        ? 'hidden text-[color:var(--ui-text-tertiary)] sm:block'
-                        : 'text-[color:var(--ui-text-tertiary)]'
-                  }`}
+              <div>
+                <ProfileGroup
+                  title={c('configGroup')}
+                  action={
+                    pending === 'form' ? (
+                      <span role="status" className="text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
+                        {c('saving')}
+                      </span>
+                    ) : formFeedback?.tone === 'success' && !dirty ? (
+                      <span role="status" className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                        <Check size={12} aria-hidden="true" />
+                        {formFeedback.text}
+                      </span>
+                    ) : null
+                  }
                 >
-                  {errorText(field) ?? (field === 'stopThreshold' ? c('thresholdHint') : ' ')}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </ProfileGroup>
+                  <div className="space-y-4 px-4 py-4">
+                    <div>
+                      <GlassCombobox
+                        label={c('batteryField')}
+                        value={draft.batteryEntityId}
+                        options={entityOptions.battery}
+                        onChange={(batteryEntityId) => setDraft((current) => ({ ...current, batteryEntityId }))}
+                        placeholder={c('batteryPlaceholder')}
+                        emptyLabel={c('noEntities')}
+                        getOptionLabel={(entityId) => friendlyName(haStates, entityId)}
+                        getOptionDescription={(entityId) => entityId}
+                      />
+                      <p className={`mt-1 text-[11px] ${errorText('batteryEntityId') ? 'text-rose-500' : 'text-[color:var(--ui-text-tertiary)]'}`}>
+                        {errorText('batteryEntityId') ?? chosenName(draft.batteryEntityId) ?? c('batteryHint')}
+                      </p>
+                    </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <button type="button" className={PRIMARY_BUTTON} disabled={busy || (!dirty && Boolean(bound))} onClick={save}>
-          {pending === 'form' ? c('saving') : c('save')}
+                    <div>
+                      <GlassCombobox
+                        label={c('switchField')}
+                        value={draft.switchEntityId}
+                        options={entityOptions.switches}
+                        onChange={(switchEntityId) => setDraft((current) => ({ ...current, switchEntityId }))}
+                        placeholder={c('switchPlaceholder')}
+                        emptyLabel={c('noEntities')}
+                        getOptionLabel={(entityId) => friendlyName(haStates, entityId)}
+                        getOptionDescription={(entityId) => entityId}
+                      />
+                      <p className={`mt-1 text-[11px] ${errorText('switchEntityId') ? 'text-rose-500' : 'text-[color:var(--ui-text-tertiary)]'}`}>
+                        {errorText('switchEntityId') ?? chosenName(draft.switchEntityId) ?? c('switchHint')}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      {(['startThreshold', 'stopThreshold'] as const).map((field) => (
+                        <div key={field}>
+                          <label htmlFor={`${fieldId}-${field}`} className="mb-1.5 block text-xs font-semibold text-[color:var(--ui-text-secondary)]">
+                            {field === 'startThreshold' ? c('startField') : c('stopField')}
+                          </label>
+                          <div className="relative">
+                            <input
+                              id={`${fieldId}-${field}`}
+                              className={`${INPUT} pr-9 tabular-nums`}
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={draft[field]}
+                              aria-invalid={Boolean(errorText(field))}
+                              aria-describedby={`${fieldId}-${field}-hint`}
+                              onChange={(event) => {
+                                const { value } = event.target;
+                                setDraft((current) => ({ ...current, [field]: value }));
+                              }}
+                            />
+                            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-[color:var(--ui-text-secondary)]">
+                              %
+                            </span>
+                          </div>
+                          <p
+                            id={`${fieldId}-${field}-hint`}
+                            className={`mt-1 text-[11px] ${
+                              errorText(field)
+                                ? 'text-rose-500'
+                                : field === 'startThreshold'
+                                  ? 'hidden text-[color:var(--ui-text-tertiary)] sm:block'
+                                  : 'text-[color:var(--ui-text-tertiary)]'
+                            }`}
+                          >
+                            {errorText(field) ?? (field === 'stopThreshold' ? c('thresholdHint') : ' ')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div>
+                      <label htmlFor={`${fieldId}-label`} className="mb-1.5 block text-xs font-semibold text-[color:var(--ui-text-secondary)]">
+                        {c('label')}
+                      </label>
+                      <input
+                        id={`${fieldId}-label`}
+                        className={INPUT}
+                        value={draft.label}
+                        maxLength={80}
+                        aria-invalid={Boolean(errorText('label'))}
+                        aria-describedby={`${fieldId}-label-hint`}
+                        onChange={(event) => {
+                          const { value } = event.target;
+                          setDraft((current) => ({ ...current, label: value }));
+                        }}
+                      />
+                      <p
+                        id={`${fieldId}-label-hint`}
+                        className={`mt-1 text-[11px] ${errorText('label') ? 'text-rose-500' : 'text-[color:var(--ui-text-tertiary)]'}`}
+                      >
+                        {errorText('label') ?? c('labelHint')}
+                      </p>
+                    </div>
+                  </div>
+                </ProfileGroup>
+                {formFeedback?.tone === 'error' ? (
+                  <p role="status" className="mt-2 px-1 text-xs font-medium leading-5 text-rose-500">
+                    {formFeedback.text}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {bound ? (
+        <button type="button" className={`${DANGER_BUTTON} w-full sm:w-auto`} disabled={busy} onClick={() => setPendingRemoval(bound)}>
+          <Trash2 size={15} aria-hidden="true" />
+          {c('remove')}
         </button>
-        {bound ? (
-          <button type="button" className={DANGER_BUTTON} disabled={busy} onClick={() => setPendingRemoval(bound)}>
-            <Trash2 size={15} aria-hidden="true" />
-            {c('remove')}
-          </button>
-        ) : null}
-        {formFeedback ? (
-          <p role="status" className={`text-sm font-medium ${formFeedback.tone === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
-            {formFeedback.text}
-          </p>
-        ) : null}
-      </div>
+      ) : null}
 
       {others.length > 0 ? (
         <ProfileGroup title={c('existingGroup')} description={c('existingHint')}>

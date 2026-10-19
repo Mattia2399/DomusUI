@@ -161,18 +161,34 @@ resta quella di prima (`save_failed`).
 Due configurazioni **attive** non possono usare lo stesso switch:
 `switch_in_use`. Una disattivata può puntarlo.
 
+## La pagina
+
+Come una pagina di Impostazioni di iOS, senza pulsante Salva:
+
+- **Gestione automatica** è l'interruttore in alto. Spento, la pagina mostra
+  solo cosa fa la funzione; acceso, si aprono Stato e Configurazione.
+- **Prima configurazione**: acceso l'interruttore, si sceglie il sensore
+  batteria e la presa; appena entrambi sono validi la configurazione viene
+  creata, attiva, senza altri passaggi. Spegnere prima di quel momento non
+  invia nulla.
+- **Ogni modifica si salva da sola** dopo una breve pausa (700 ms). Un valore
+  non valido (soglie, entità scritta a mano che Home Assistant non ha) mostra
+  il motivo e non viene inviato; una modifica rifiutata dal server
+  (`switch_in_use`) non viene ritentata finché non cambia.
+- La riga dell'interruttore dice in parole lo stato: «Attiva: la presa si
+  accende con la batteria a 30 % o meno e si spegne a 80 % o più…» oppure
+  «Disattivata: la presa resta accesa e Domus non la comanda.».
+
 ## Disattivazione ed eliminazione
 
-- **Disattivare** (interruttore «Gestione automatica») vale subito, senza
-  Salva, e cambia solo `enabled`: le modifiche ancora non salvate del modulo
-  restano lì. Ferma il controller e lascia lo switch com'è; la riga dice in
-  parole lo stato («Disattivata: la presa resta accesa e Domus non la
-  comanda.»). Prima del primo salvataggio l'interruttore non c'è.
+- **Disattivare** vale subito e cambia solo `enabled`. Ferma il controller,
+  lascia lo switch com'è e chiude Stato e Configurazione; la configurazione
+  resta salvata.
 - **Riattivare** riavvia il controller, che valuta subito la batteria e, se
   serve, accende o spegne la presa.
-- **Eliminare** ferma il controller e rimuove la configurazione; lo switch
-  resta com'è: «La configurazione verrà rimossa. Lo stato attuale dello switch
-  non verrà modificato.»
+- **Eliminare** (sempre disponibile se esiste una configurazione) ferma il
+  controller e la rimuove; lo switch resta com'è: «La configurazione verrà
+  rimossa. Lo stato attuale dello switch non verrà modificato.»
 
 ## Permessi
 

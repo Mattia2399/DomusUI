@@ -131,6 +131,11 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+const SAVE_WAIT = { timeout: 3000 };
+const automationSwitch = () => screen.getByRole('switch', { name: 'Gestione automatica' });
+const thresholdInput = (label: 'Avvia ricarica sotto' | 'Interrompi ricarica sopra') =>
+  screen.getByLabelText(label) as HTMLInputElement;
+
 describe('DevicePowerSettings', () => {
   it('says when this version of DomusOS has no power management, without asking it', () => {
     const integration = fakeIntegration();
@@ -154,22 +159,35 @@ describe('DevicePowerSettings', () => {
 
     expect(screen.getByText(/Solo un amministratore di Home Assistant/)).toBeTruthy();
     expect(integration.calls).toHaveLength(0);
-    expect(screen.queryByRole('button', { name: 'Salva' })).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 
   it('never commands anything while the saved configurations are unreadable', async () => {
     renderPage(fakeIntegration([], 'corrupt'));
 
     expect(await screen.findByText('Configurazioni non leggibili')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Salva' })).toBeNull();
+    expect(screen.queryByRole('switch')).toBeNull();
   });
 
-  it('starts incomplete, from 30 % and 80 %, and offers only fitting entities', async () => {
-    renderPage(fakeIntegration());
+  it('starts off, says what it does, and opens its settings when switched on', async () => {
+    const integration = fakeIntegration();
+    renderPage(integration);
 
-    expect(await screen.findByText('Configurazione incompleta')).toBeTruthy();
-    expect((screen.getByLabelText('Avvia ricarica sotto') as HTMLInputElement).value).toBe('30');
-    expect((screen.getByLabelText('Interrompi ricarica sopra') as HTMLInputElement).value).toBe('80');
+    expect(
+      await screen.findByText('Home Assistant accende e spegne la presa del caricatore per tenere la batteria tra due soglie.'),
+    ).toBeTruthy();
+    expect(automationSwitch().getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByRole('combobox', { name: 'Sensore batteria' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Salva' })).toBeNull();
+
+    fireEvent.click(automationSwitch());
+
+    expect(screen.getByText('Scegli il sensore della batteria e la presa del caricatore: la gestione parte da sola.')).toBeTruthy();
+    expect(screen.getByText('Configurazione incompleta')).toBeTruthy();
+    expect(thresholdInput('Avvia ricarica sotto').value).toBe('30');
+    expect(thresholdInput('Interrompi ricarica sopra').value).toBe('80');
+    // Switching on alone saves nothing: there is nothing to save yet.
+    expect(integration.sent('save_policy')).toHaveLength(0);
 
     fireEvent.click(within(screen.getByRole('combobox', { name: 'Sensore batteria' }).parentElement!).getByRole('button'));
     const batteryOptions = await screen.findAllByRole('option');
@@ -181,20 +199,19 @@ describe('DevicePowerSettings', () => {
     expect(switchOptions.map((option) => option.textContent)).toEqual(['Presa tabletswitch.presa_tablet']);
   });
 
-  it('creates the policy of this device on Save', async () => {
+  it('creates the policy by itself once the sensor and the plug are chosen', async () => {
     const integration = fakeIntegration();
     renderPage(integration);
-    await screen.findByText('Configurazione incompleta');
+    fireEvent.click(await screen.findByRole('switch', { name: 'Gestione automatica' }));
 
     fireEvent.change(screen.getByLabelText('Nome del dispositivo'), { target: { value: '  Tablet cucina ' } });
+    fireEvent.change(thresholdInput('Avvia ricarica sotto'), { target: { value: '25' } });
     choose('Sensore batteria', 'sensor.tablet_battery');
     choose('Alimentazione caricatore', 'switch.presa_tablet');
-    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '25' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
 
-    expect(await screen.findByText('Configurazione salvata.')).toBeTruthy();
-    const [[message]] = integration.sent('save_policy');
-    expect(message).toEqual({
+    expect(await screen.findByText('Gestione automatica attivata.', {}, SAVE_WAIT)).toBeTruthy();
+    expect(integration.sent('save_policy')).toHaveLength(1);
+    expect(integration.sent('save_policy')[0][0]).toEqual({
       type: 'domusos/device_power/save_policy',
       policy: {
         client_id: CLIENT_ID,
@@ -206,9 +223,26 @@ describe('DevicePowerSettings', () => {
         stop_threshold: 80,
       },
     });
+    expect(screen.getByText(/^Attiva: la presa si accende con la batteria a 25 % o meno/)).toBeTruthy();
+    expect(automationSwitch().getAttribute('aria-checked')).toBe('true');
+    // The label is saved trimmed and the form follows it: nothing more to send.
+    expect((screen.getByLabelText('Nome del dispositivo') as HTMLInputElement).value).toBe('Tablet cucina');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    expect(integration.sent('save_policy')).toHaveLength(1);
     // Nothing is switched from the browser.
     expect(integration.calls.some(([sent]) => /turn_|call_service/.test(String(sent.type)))).toBe(false);
-    expect(screen.getByRole('button', { name: 'Salva' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('closes again and sends nothing when switched off before the first choices', async () => {
+    const integration = fakeIntegration();
+    renderPage(integration);
+    fireEvent.click(await screen.findByRole('switch', { name: 'Gestione automatica' }));
+    choose('Sensore batteria', 'sensor.tablet_battery');
+
+    fireEvent.click(automationSwitch());
+
+    await waitFor(() => expect(screen.queryByRole('combobox', { name: 'Sensore batteria' })).toBeNull());
+    expect(integration.sent('save_policy')).toHaveLength(0);
   });
 
   it('says so when this browser cannot keep its reference', async () => {
@@ -220,33 +254,60 @@ describe('DevicePowerSettings', () => {
     const integration = fakeIntegration();
     try {
       renderPage(integration);
-      await screen.findByText('Configurazione incompleta');
+      fireEvent.click(await screen.findByRole('switch', { name: 'Gestione automatica' }));
       choose('Sensore batteria', 'sensor.tablet_battery');
       choose('Alimentazione caricatore', 'switch.presa_tablet');
-      fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
 
-      expect(await screen.findByText(/Questo browser non conserva dati locali/)).toBeTruthy();
+      expect(await screen.findByText(/Questo browser non conserva dati locali/, {}, SAVE_WAIT)).toBeTruthy();
       expect(integration.sent('save_policy')).toHaveLength(0);
     } finally {
       getItem.mockRestore();
     }
   });
 
-  it('refuses a start level that is not below the stop level, without correcting it', async () => {
+  it('saves each change by itself, once the typing pauses', async () => {
     const integration = fakeIntegration([wirePolicy()]);
     renderPage(integration);
     await screen.findByText('In carica');
 
-    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '80' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    fireEvent.change(thresholdInput('Avvia ricarica sotto'), { target: { value: '2' } });
+    fireEvent.change(thresholdInput('Avvia ricarica sotto'), { target: { value: '20' } });
 
-    expect(screen.getByText('Deve essere maggiore della soglia di avvio.')).toBeTruthy();
-    expect((screen.getByLabelText('Avvia ricarica sotto') as HTMLInputElement).value).toBe('80');
-    expect(screen.getByLabelText('Interrompi ricarica sopra').getAttribute('aria-invalid')).toBe('true');
+    expect(await screen.findByText('Salvato', {}, SAVE_WAIT)).toBeTruthy();
+    expect(integration.sent('save_policy')).toHaveLength(1);
+    expect(integration.sent('save_policy')[0][0]).toMatchObject({
+      policy_id: OWN_ID,
+      expected_revision: 1,
+      policy: { enabled: true, start_threshold: 20, stop_threshold: 80 },
+    });
+  });
+
+  it('refuses a start level that is not below the stop level, without correcting or saving it', async () => {
+    const integration = fakeIntegration([wirePolicy()]);
+    renderPage(integration);
+    await screen.findByText('In carica');
+
+    fireEvent.change(thresholdInput('Avvia ricarica sotto'), { target: { value: '80' } });
+
+    expect(await screen.findByText('Deve essere maggiore della soglia di avvio.', {}, SAVE_WAIT)).toBeTruthy();
+    expect(thresholdInput('Avvia ricarica sotto').value).toBe('80');
+    expect(thresholdInput('Interrompi ricarica sopra').getAttribute('aria-invalid')).toBe('true');
     expect(integration.sent('save_policy')).toHaveLength(0);
 
-    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '101' } });
-    expect(screen.getByText('Un numero intero tra 0 e 100.')).toBeTruthy();
+    fireEvent.change(thresholdInput('Avvia ricarica sotto'), { target: { value: '101' } });
+    expect(await screen.findByText('Un numero intero tra 0 e 100.', {}, SAVE_WAIT)).toBeTruthy();
+    expect(integration.sent('save_policy')).toHaveLength(0);
+  });
+
+  it('does not save an entity typed by hand that Home Assistant does not have', async () => {
+    const integration = fakeIntegration([wirePolicy()]);
+    renderPage(integration);
+    await screen.findByText('In carica');
+
+    choose('Sensore batteria', 'sensor.non_esiste');
+
+    expect(await screen.findByText('Entità non trovata in Home Assistant.', {}, SAVE_WAIT)).toBeTruthy();
+    expect(integration.sent('save_policy')).toHaveLength(0);
   });
 
   it('shows the live battery, power and automation state', async () => {
@@ -288,13 +349,6 @@ describe('DevicePowerSettings', () => {
     expect(screen.getByText('L’ultimo comando non è riuscito: Domus riproverà.')).toBeTruthy();
   });
 
-  it('has nothing to turn on or off before the first save', async () => {
-    renderPage(fakeIntegration());
-
-    expect(await screen.findByText('Si attiva quando salvi la configurazione qui sotto.')).toBeTruthy();
-    expect(screen.queryByRole('switch', { name: 'Gestione automatica' })).toBeNull();
-  });
-
   it('says in words what the automation does now', async () => {
     renderPage(fakeIntegration([wirePolicy({ start_threshold: 25, stop_threshold: 85 })]));
 
@@ -306,16 +360,15 @@ describe('DevicePowerSettings', () => {
     expect(screen.getByText('Disattivando la gestione automatica, lo stato attuale dell’alimentazione non verrà modificato.')).toBeTruthy();
   });
 
-  it('turns the automation off at once, without touching the switch', async () => {
+  it('turns the automation off at once, hiding its settings without touching the switch', async () => {
     const integration = fakeIntegration([wirePolicy()]);
     renderPage(integration);
     await screen.findByText('In carica');
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Gestione automatica' }));
+    fireEvent.click(automationSwitch());
 
     expect(await screen.findByText('Gestione automatica disattivata. La presa non è stata modificata.')).toBeTruthy();
-    const [[message]] = integration.sent('save_policy');
-    expect(message).toEqual({
+    expect(integration.sent('save_policy')[0][0]).toEqual({
       type: 'domusos/device_power/save_policy',
       policy_id: OWN_ID,
       expected_revision: 1,
@@ -330,34 +383,15 @@ describe('DevicePowerSettings', () => {
       },
     });
     expect(screen.getByText('Disattivata: la presa resta accesa e Domus non la comanda.')).toBeTruthy();
-    expect(screen.getByText('Gestione disattivata')).toBeTruthy();
-    expect(screen.getByRole('switch', { name: 'Gestione automatica' }).getAttribute('aria-checked')).toBe('false');
-    // Nothing else to save: the switch is not part of the form.
-    expect(screen.getByRole('button', { name: 'Salva' }).hasAttribute('disabled')).toBe(true);
+    expect(automationSwitch().getAttribute('aria-checked')).toBe('false');
+    await waitFor(() => expect(screen.queryByLabelText('Avvia ricarica sotto')).toBeNull());
+    // The configuration is kept and can still be removed.
+    expect(screen.getByRole('button', { name: 'Rimuovi configurazione' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Gestione automatica' }));
+    fireEvent.click(automationSwitch());
     expect(await screen.findByText('Gestione automatica attivata.')).toBeTruthy();
     expect(integration.sent('save_policy')[1][0]).toMatchObject({ expected_revision: 2, policy: { enabled: true } });
-  });
-
-  it('turns the automation off without saving or losing the edits in progress', async () => {
-    const integration = fakeIntegration([wirePolicy()]);
-    renderPage(integration);
-    await screen.findByText('In carica');
-
-    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '20' } });
-    fireEvent.click(screen.getByRole('switch', { name: 'Gestione automatica' }));
-    await screen.findByText('Gestione automatica disattivata. La presa non è stata modificata.');
-
-    expect(integration.sent('save_policy')[0][0]).toMatchObject({ policy: { enabled: false, start_threshold: 30 } });
-    expect((screen.getByLabelText('Avvia ricarica sotto') as HTMLInputElement).value).toBe('20');
-    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
-
-    expect(await screen.findByText('Configurazione salvata.')).toBeTruthy();
-    expect(integration.sent('save_policy')[1][0]).toMatchObject({
-      expected_revision: 2,
-      policy: { enabled: false, start_threshold: 20 },
-    });
+    expect(thresholdInput('Avvia ricarica sotto').value).toBe('30');
   });
 
   it('shows the newer version when the policy was changed elsewhere', async () => {
@@ -366,24 +400,25 @@ describe('DevicePowerSettings', () => {
     await screen.findByText('In carica');
 
     integration.changeElsewhere();
-    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '20' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    fireEvent.change(thresholdInput('Avvia ricarica sotto'), { target: { value: '20' } });
 
-    expect(await screen.findByText(/Questa configurazione è stata modificata altrove\./)).toBeTruthy();
-    await waitFor(() => expect((screen.getByLabelText('Interrompi ricarica sopra') as HTMLInputElement).value).toBe('90'));
-    expect((screen.getByLabelText('Avvia ricarica sotto') as HTMLInputElement).value).toBe('30');
+    expect(await screen.findByText(/Questa configurazione è stata modificata altrove\./, {}, SAVE_WAIT)).toBeTruthy();
+    await waitFor(() => expect(thresholdInput('Interrompi ricarica sopra').value).toBe('90'));
+    expect(thresholdInput('Avvia ricarica sotto').value).toBe('30');
   });
 
-  it('explains a switch already managed by another policy', async () => {
+  it('explains a switch already managed by another policy, and does not insist', async () => {
     const integration = fakeIntegration([wirePolicy()]);
     renderPage(integration);
     await screen.findByText('In carica');
 
-    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '20' } });
     integration.failNextWith({ code: 'switch_in_use', message: 'switch_in_use' });
-    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    fireEvent.change(thresholdInput('Avvia ricarica sotto'), { target: { value: '20' } });
 
-    expect(await screen.findByText('Questo switch è già gestito da un’altra configurazione attiva.')).toBeTruthy();
+    expect(await screen.findByText('Questo switch è già gestito da un’altra configurazione attiva.', {}, SAVE_WAIT)).toBeTruthy();
+    const attempts = integration.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+    expect(integration.calls.length).toBe(attempts);
   });
 
   it('removes the policy after confirmation, leaving the switch as it is', async () => {
@@ -402,7 +437,8 @@ describe('DevicePowerSettings', () => {
       policy_id: OWN_ID,
       expected_revision: 1,
     });
-    expect(screen.getByText('Configurazione incompleta')).toBeTruthy();
+    expect(automationSwitch().getAttribute('aria-checked')).toBe('false');
+    expect(screen.queryByRole('button', { name: 'Rimuovi configurazione' })).toBeNull();
   });
 
   it('lets an administrator link a policy whose browser was cleared', async () => {
@@ -450,7 +486,7 @@ describe('DevicePowerSettings', () => {
     expect(integration.sent('get_state').length).toBe(before + 1);
   });
 
-  it('follows a change made elsewhere, unless this form was touched', async () => {
+  it('follows a change made elsewhere while nobody is editing', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const integration = fakeIntegration([wirePolicy()]);
     renderPage(integration);
@@ -460,15 +496,9 @@ describe('DevicePowerSettings', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(15_000);
     });
-    expect((screen.getByLabelText('Interrompi ricarica sopra') as HTMLInputElement).value).toBe('90');
 
-    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '15' } });
-    integration.changeElsewhere();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(15_000);
-    });
-    expect((screen.getByLabelText('Avvia ricarica sotto') as HTMLInputElement).value).toBe('15');
-    expect((screen.getByLabelText('Interrompi ricarica sopra') as HTMLInputElement).value).toBe('90');
+    expect(thresholdInput('Interrompi ricarica sopra').value).toBe('90');
+    expect(integration.sent('save_policy')).toHaveLength(0);
   });
 
   it('keeps the page when one periodic read fails', async () => {

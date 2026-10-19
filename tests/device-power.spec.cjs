@@ -227,14 +227,17 @@ async function choose(page, label, query, option) {
   await expect(input).toHaveValue(/\./);
 }
 
+const automationSwitch = (page) => page.getByRole('switch', { name: 'Gestione automatica' });
+
+/** Switch on, then choose: there is no Save, the policy is created once both entities are there. */
 async function configure(page) {
-  await choose(page, 'Sensore batteria', 'batteria', 'Batteria tablet');
-  await choose(page, 'Alimentazione caricatore', 'presa tablet', 'Presa tablet');
+  if ((await automationSwitch(page).getAttribute('aria-checked')) !== 'true') await automationSwitch(page).click();
   await page.getByLabel('Nome del dispositivo').fill('Tablet soggiorno');
   await expect(page.getByLabel('Avvia ricarica sotto')).toHaveValue('30');
   await expect(page.getByLabel('Interrompi ricarica sopra')).toHaveValue('80');
-  await page.getByRole('button', { name: 'Salva' }).click();
-  await expect(page.getByText('Configurazione salvata.')).toBeVisible();
+  await choose(page, 'Sensore batteria', 'batteria', 'Batteria tablet');
+  await choose(page, 'Alimentazione caricatore', 'presa tablet', 'Presa tablet');
+  await expect(page.getByText('Gestione automatica attivata.')).toBeVisible();
 }
 
 test('A–C: reached from Settings › This device, saved once and kept after a reload', async ({ page }) => {
@@ -246,6 +249,11 @@ test('A–C: reached from Settings › This device, saved once and kept after a 
   await device.getByRole('button', { name: /Alimentazione e ricarica/ }).click();
   await expect(page).toHaveURL(new RegExp(`${ROUTE}$`));
   await expect(page.getByRole('heading', { name: 'Alimentazione e ricarica' })).toBeVisible();
+  // Off until switched on; the settings open with it.
+  await expect(automationSwitch(page)).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByRole('combobox', { name: 'Sensore batteria' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Salva' })).toHaveCount(0);
+  await automationSwitch(page).click();
   await expect(page.getByText('Configurazione incompleta')).toBeVisible();
 
   // Only fitting entities: batteries and switches, never a light or a temperature.
@@ -272,7 +280,7 @@ test('A–C: reached from Settings › This device, saved once and kept after a 
   await expect(page.getByLabel('Nome del dispositivo')).toHaveValue('Tablet soggiorno');
   await expect(page.getByRole('combobox', { name: 'Sensore batteria' })).toHaveValue(BATTERY);
   await expect(page.getByRole('combobox', { name: 'Alimentazione caricatore' })).toHaveValue(CHARGER);
-  await expect(page.getByRole('button', { name: 'Salva' })).toBeDisabled();
+  await expect(automationSwitch(page)).toHaveAttribute('aria-checked', 'true');
   // The same browser keeps its reference: still one policy, still this device's.
   expect(home.policies).toHaveLength(1);
   expect(home.policies[0].client_id).toBe(save.policy.client_id);
@@ -325,8 +333,8 @@ test('G–H: turned off it sends nothing more, and removing it leaves the switch
   await page.getByRole('switch', { name: 'Gestione automatica' }).click();
   await expect(page.getByText('Gestione automatica disattivata. La presa non è stata modificata.')).toBeVisible();
   await expect(page.getByText('Disattivata: la presa resta accesa e Domus non la comanda.')).toBeVisible();
-  await expect(statusValue(page, 'Stato automazione')).toContainText('Gestione disattivata');
-  await expect(page.getByRole('button', { name: 'Salva' })).toBeDisabled();
+  // Its settings close with it; the configuration itself is kept.
+  await expect(page.getByLabel('Avvia ricarica sotto')).toHaveCount(0);
   // Still on: turning the automation off does not switch the charger.
   expect(home.states[CHARGER].state).toBe('on');
 
@@ -349,7 +357,7 @@ test('G–H: turned off it sends nothing more, and removing it leaves the switch
   await expect(dialog.getByText('La configurazione verrà rimossa. Lo stato attuale dello switch non verrà modificato.')).toBeVisible();
   await dialog.getByRole('button', { name: 'Rimuovi' }).click();
   await expect(page.getByText('Configurazione rimossa.')).toBeVisible();
-  await expect(page.getByText('Configurazione incompleta')).toBeVisible();
+  await expect(automationSwitch(page)).toHaveAttribute('aria-checked', 'false');
 
   expect(home.policies).toEqual([]);
   expect(home.commands).toHaveLength(2);
@@ -361,12 +369,13 @@ test('validation reports a start level above the stop level and saves nothing', 
   await page.setViewportSize({ width: 390, height: 844 });
   const home = await simulateHomeAssistant(page);
   await page.goto(ROUTE);
+  await automationSwitch(page).click();
+  await page.getByLabel('Avvia ricarica sotto').fill('90');
   await choose(page, 'Sensore batteria', 'batteria', 'Batteria tablet');
   await choose(page, 'Alimentazione caricatore', 'presa tablet', 'Presa tablet');
-  await page.getByLabel('Avvia ricarica sotto').fill('90');
-  await page.getByRole('button', { name: 'Salva' }).click();
 
   await expect(page.getByText('Deve essere maggiore della soglia di avvio.')).toBeVisible();
+  await page.waitForTimeout(1000);
   await expect(page.getByLabel('Avvia ricarica sotto')).toHaveValue('90');
   expect(home.messages.filter((message) => message.type === 'domusos/device_power/save_policy')).toEqual([]);
 });
@@ -393,8 +402,8 @@ test('another device keeps its own policy, listed for the administrator', async 
 
   const existing = page.getByRole('region', { name: 'Configurazioni esistenti' });
   await expect(existing.getByText('Tablet camera')).toBeVisible();
-  await expect(page.getByText('Configurazione incompleta')).toBeVisible();
-  await expect(page.getByLabel('Nome del dispositivo')).toHaveValue('');
+  await expect(automationSwitch(page)).toHaveAttribute('aria-checked', 'false');
+  await expect(page.getByLabel('Nome del dispositivo')).toHaveCount(0);
   await expect(existing.getByRole('button', { name: 'Collega a questo dispositivo' })).toBeVisible();
   await capture(page, 'device-power-existing-390-light');
   expectNoSwitchCommandFromPage(home);
@@ -430,7 +439,7 @@ for (const width of [390, 820, 1440]) {
         page.getByRole('combobox', { name: 'Alimentazione caricatore' }),
         page.getByLabel('Avvia ricarica sotto'),
         page.getByLabel('Interrompi ricarica sopra'),
-        page.getByRole('button', { name: 'Salva' }),
+        page.getByLabel('Nome del dispositivo'),
         page.getByRole('button', { name: 'Rimuovi configurazione' }),
       ]) {
         const box = await control.boundingBox();
