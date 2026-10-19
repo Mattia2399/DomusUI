@@ -223,7 +223,7 @@ async function choose(page, label, query, option) {
   await input.fill(query);
   await page.getByRole('option', { name: new RegExp(option) }).click();
   // The list keeps the focus until it has closed.
-  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await expect(page.locator('[role="listbox"]:visible')).toHaveCount(0);
   await expect(input).toHaveValue(/\./);
 }
 
@@ -253,7 +253,7 @@ test('A–C: reached from Settings › This device, saved once and kept after a 
   await page.getByRole('combobox', { name: 'Sensore batteria' }).click();
   await expect(page.getByRole('option')).toHaveText([/Batteria tablet/]);
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('listbox')).toHaveCount(0);
+  await expect(page.locator('[role="listbox"]:visible')).toHaveCount(0);
 
   await configure(page);
   const [save] = home.messages.filter((message) => message.type === 'domusos/device_power/save_policy');
@@ -319,17 +319,30 @@ test('G–H: turned off it sends nothing more, and removing it leaves the switch
   home.setState(BATTERY, '25');
   expect(home.commands).toHaveLength(1);
 
+  await expect(page.getByText(/^Attiva: la presa si accende con la batteria a 30 % o meno e si spegne a 80 % o più/)).toBeVisible();
   await expect(page.getByText('Disattivando la gestione automatica, lo stato attuale dell’alimentazione non verrà modificato.')).toBeVisible();
+  // The switch applies at once: no Save.
   await page.getByRole('switch', { name: 'Gestione automatica' }).click();
-  await page.getByRole('button', { name: 'Salva' }).click();
-  await expect(page.getByText('Configurazione salvata.')).toBeVisible();
+  await expect(page.getByText('Gestione automatica disattivata. La presa non è stata modificata.')).toBeVisible();
+  await expect(page.getByText('Disattivata: la presa resta accesa e Domus non la comanda.')).toBeVisible();
   await expect(statusValue(page, 'Stato automazione')).toContainText('Gestione disattivata');
+  await expect(page.getByRole('button', { name: 'Salva' })).toBeDisabled();
   // Still on: turning the automation off does not switch the charger.
   expect(home.states[CHARGER].state).toBe('on');
 
   home.setState(BATTERY, '90');
   home.setState(BATTERY, '10');
+  home.setState(BATTERY, '90');
   expect(home.commands).toHaveLength(1);
+
+  // Turned back on, the battery is checked at once: 90 % switches the charger off.
+  await page.getByRole('switch', { name: 'Gestione automatica' }).click();
+  await expect(page.getByText('Gestione automatica attivata.')).toBeVisible();
+  expect(home.commands).toEqual([
+    { service: 'turn_on', entity_id: CHARGER },
+    { service: 'turn_off', entity_id: CHARGER },
+  ]);
+  await expect(statusValue(page, 'Alimentazione')).toContainText('Spenta');
 
   await page.getByRole('button', { name: 'Rimuovi configurazione' }).click();
   const dialog = page.getByRole('dialog', { name: 'Rimuovere la configurazione?' });
@@ -339,8 +352,8 @@ test('G–H: turned off it sends nothing more, and removing it leaves the switch
   await expect(page.getByText('Configurazione incompleta')).toBeVisible();
 
   expect(home.policies).toEqual([]);
-  expect(home.commands).toHaveLength(1);
-  expect(home.states[CHARGER].state).toBe('on');
+  expect(home.commands).toHaveLength(2);
+  expect(home.states[CHARGER].state).toBe('off');
   expectNoSwitchCommandFromPage(home);
 });
 

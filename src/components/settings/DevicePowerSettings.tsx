@@ -74,7 +74,8 @@ type DevicePowerSettingsProps = {
   haStates: MockEntityStateMap;
 };
 
-type Feedback = { tone: 'success' | 'error'; text: string } | null;
+/** `automation`: shown under the switch it answers; otherwise next to Save. */
+type Feedback = { tone: 'success' | 'error'; text: string; at?: 'automation' } | null;
 
 function sameDraft(first: PolicyDraft, second: PolicyDraft) {
   return (Object.keys(first) as (keyof PolicyDraft)[]).every((key) => first[key] === second[key]);
@@ -124,7 +125,8 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
   const [draft, setDraft] = useState<PolicyDraft>(() => draftFromPolicy(null));
   const [baseline, setBaseline] = useState<PolicyDraft>(() => draftFromPolicy(null));
   const [showErrors, setShowErrors] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<false | 'form' | 'automation'>(false);
+  const busy = pending !== false;
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [pendingRemoval, setPendingRemoval] = useState<PowerPolicy | null>(null);
   const usable = supported && isAdmin && connected && Boolean(callApi);
@@ -144,7 +146,10 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
       const previous = baselineRef.current;
       baselineRef.current = nextBaseline;
       setBaseline(nextBaseline);
-      setDraft((current) => (options.resetDraft || sameDraft(current, previous) ? nextBaseline : current));
+      // The automation switch is saved on its own: an edited form keeps its edits, not an old switch.
+      setDraft((current) =>
+        options.resetDraft || sameDraft(current, previous) ? nextBaseline : { ...current, enabled: nextBaseline.enabled },
+      );
       if (options.resetDraft) setShowErrors(false);
     },
     [clientId],
@@ -202,8 +207,8 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
   const describeError = (code: string) =>
     code === 'switch_in_use' ? c('switchInUse') : code === 'client_already_bound' ? c('clientBound') : c('saveError');
 
-  const run = async (action: () => Promise<void>) => {
-    setBusy(true);
+  const run = async (action: () => Promise<void>, at?: 'automation') => {
+    setPending(at ?? 'form');
     setFeedback(null);
     try {
       await action();
@@ -211,13 +216,23 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
       const { code } = toDevicePowerClientError(error);
       if (code === 'revision_conflict' || code === 'policy_not_found') {
         await refresh({ resetDraft: true });
-        setFeedback({ tone: 'error', text: c('conflict') });
+        setFeedback({ tone: 'error', text: c('conflict'), at });
       } else {
-        setFeedback({ tone: 'error', text: describeError(code) });
+        setFeedback({ tone: 'error', text: describeError(code), at });
       }
     } finally {
-      setBusy(false);
+      setPending(false);
     }
+  };
+
+  /** Turns the saved policy on or off at once, leaving the rest of the form alone. */
+  const setAutomation = (enabled: boolean) => {
+    if (!callApi || !bound) return;
+    const { policyId, revision, runtime: _runtime, createdAt: _created, updatedAt: _updated, ...settings } = bound;
+    void run(async () => {
+      adopt(await saveDevicePowerPolicy(callApi, { ...settings, enabled }, { policyId, revision }));
+      setFeedback({ tone: 'success', text: c(enabled ? 'automationOn' : 'automationOff'), at: 'automation' });
+    }, 'automation');
   };
 
   const save = () => {
@@ -308,6 +323,19 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
     const error = errors[field];
     return error ? c(FIELD_ERROR_COPY[error]) : null;
   };
+  // What the switch means right now, in words: the saved policy, never the form.
+  const boundPower = bound ? switchOn(haStates, bound.switchEntityId, bound.runtime.switchOn) : null;
+  const automationBody = !bound
+    ? c('automationPending')
+    : bound.enabled
+      ? c('automationOnBody', { start: bound.startThreshold, stop: bound.stopThreshold })
+      : boundPower === true
+        ? c('automationOffBodyOn')
+        : boundPower === false
+          ? c('automationOffBodyOff')
+          : c('automationOffBody');
+  const automationFeedback = feedback?.at === 'automation' ? feedback : null;
+  const formFeedback = feedback && feedback.at !== 'automation' ? feedback : null;
 
   return (
     <div className="space-y-6">
@@ -319,17 +347,36 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-sm font-semibold">{c('automationTitle')}</span>
-              <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">{c('automationBody')}</span>
+              <span id={`${fieldId}-automation`} className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
+                {automationBody}
+              </span>
             </span>
-            <GlassToggle
-              checked={draft.enabled}
-              onChange={(enabled) => setDraft({ ...draft, enabled })}
-              label={c('automationTitle')}
-              disabled={busy}
-            />
+            {/* Until the first save there is nothing to turn on or off. */}
+            {bound ? (
+              <GlassToggle
+                checked={bound.enabled}
+                onChange={setAutomation}
+                label={c('automationTitle')}
+                disabled={busy}
+                busy={pending === 'automation'}
+              />
+            ) : null}
           </div>
         </ProfileGroup>
-        <p className="mt-2 px-1 text-xs leading-5 text-[color:var(--ui-text-secondary)]">{c('disableNote')}</p>
+        {automationFeedback ? (
+          <p
+            role="status"
+            className={`mt-2 px-1 text-xs font-medium leading-5 ${
+              automationFeedback.tone === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'
+            }`}
+          >
+            {automationFeedback.text}
+          </p>
+        ) : bound ? (
+          <p className="mt-2 px-1 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
+            {bound.enabled ? c('disableNote') : c('enableNote')}
+          </p>
+        ) : null}
       </div>
 
       <ProfileGroup title={c('statusGroup')}>
@@ -337,13 +384,13 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
           icon={BatteryCharging}
           iconClassName="bg-emerald-600"
           title={c('battery')}
-          value={level === null ? c('notAvailable') : `${Math.round(level)} %`}
+          value={!batteryId ? '—' : level === null ? c('notAvailable') : `${Math.round(level)} %`}
         />
         <SettingsListRow
           icon={PlugZap}
           iconClassName="bg-amber-500"
           title={c('power')}
-          value={power === null ? c('notAvailable') : power ? c('powerOn') : c('powerOff')}
+          value={!switchId ? '—' : power === null ? c('notAvailable') : power ? c('powerOn') : c('powerOff')}
         />
         <SettingsListRow
           icon={Activity}
@@ -452,7 +499,7 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <button type="button" className={PRIMARY_BUTTON} disabled={busy || (!dirty && Boolean(bound))} onClick={save}>
-          {busy ? c('saving') : c('save')}
+          {pending === 'form' ? c('saving') : c('save')}
         </button>
         {bound ? (
           <button type="button" className={DANGER_BUTTON} disabled={busy} onClick={() => setPendingRemoval(bound)}>
@@ -460,9 +507,9 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
             {c('remove')}
           </button>
         ) : null}
-        {feedback ? (
-          <p role="status" className={`text-sm font-medium ${feedback.tone === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
-            {feedback.text}
+        {formFeedback ? (
+          <p role="status" className={`text-sm font-medium ${formFeedback.tone === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+            {formFeedback.text}
           </p>
         ) : null}
       </div>

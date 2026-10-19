@@ -288,19 +288,76 @@ describe('DevicePowerSettings', () => {
     expect(screen.getByText('L’ultimo comando non è riuscito: Domus riproverà.')).toBeTruthy();
   });
 
-  it('turns the automation off without touching the switch', async () => {
+  it('has nothing to turn on or off before the first save', async () => {
+    renderPage(fakeIntegration());
+
+    expect(await screen.findByText('Si attiva quando salvi la configurazione qui sotto.')).toBeTruthy();
+    expect(screen.queryByRole('switch', { name: 'Gestione automatica' })).toBeNull();
+  });
+
+  it('says in words what the automation does now', async () => {
+    renderPage(fakeIntegration([wirePolicy({ start_threshold: 25, stop_threshold: 85 })]));
+
+    expect(
+      await screen.findByText(
+        'Attiva: la presa si accende con la batteria a 25 % o meno e si spegne a 85 % o più, anche a schermo spento o con Domus chiusa.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText('Disattivando la gestione automatica, lo stato attuale dell’alimentazione non verrà modificato.')).toBeTruthy();
+  });
+
+  it('turns the automation off at once, without touching the switch', async () => {
     const integration = fakeIntegration([wirePolicy()]);
     renderPage(integration);
     await screen.findByText('In carica');
 
-    expect(screen.getByText('Disattivando la gestione automatica, lo stato attuale dell’alimentazione non verrà modificato.')).toBeTruthy();
     fireEvent.click(screen.getByRole('switch', { name: 'Gestione automatica' }));
+
+    expect(await screen.findByText('Gestione automatica disattivata. La presa non è stata modificata.')).toBeTruthy();
+    const [[message]] = integration.sent('save_policy');
+    expect(message).toEqual({
+      type: 'domusos/device_power/save_policy',
+      policy_id: OWN_ID,
+      expected_revision: 1,
+      policy: {
+        client_id: CLIENT_ID,
+        label: 'Tablet soggiorno',
+        enabled: false,
+        battery_entity_id: 'sensor.tablet_battery',
+        switch_entity_id: 'switch.presa_tablet',
+        start_threshold: 30,
+        stop_threshold: 80,
+      },
+    });
+    expect(screen.getByText('Disattivata: la presa resta accesa e Domus non la comanda.')).toBeTruthy();
+    expect(screen.getByText('Gestione disattivata')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Gestione automatica' }).getAttribute('aria-checked')).toBe('false');
+    // Nothing else to save: the switch is not part of the form.
+    expect(screen.getByRole('button', { name: 'Salva' }).hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(screen.getByRole('switch', { name: 'Gestione automatica' }));
+    expect(await screen.findByText('Gestione automatica attivata.')).toBeTruthy();
+    expect(integration.sent('save_policy')[1][0]).toMatchObject({ expected_revision: 2, policy: { enabled: true } });
+  });
+
+  it('turns the automation off without saving or losing the edits in progress', async () => {
+    const integration = fakeIntegration([wirePolicy()]);
+    renderPage(integration);
+    await screen.findByText('In carica');
+
+    fireEvent.change(screen.getByLabelText('Avvia ricarica sotto'), { target: { value: '20' } });
+    fireEvent.click(screen.getByRole('switch', { name: 'Gestione automatica' }));
+    await screen.findByText('Gestione automatica disattivata. La presa non è stata modificata.');
+
+    expect(integration.sent('save_policy')[0][0]).toMatchObject({ policy: { enabled: false, start_threshold: 30 } });
+    expect((screen.getByLabelText('Avvia ricarica sotto') as HTMLInputElement).value).toBe('20');
     fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
 
     expect(await screen.findByText('Configurazione salvata.')).toBeTruthy();
-    const [[message]] = integration.sent('save_policy');
-    expect(message).toMatchObject({ policy_id: OWN_ID, expected_revision: 1, policy: { enabled: false } });
-    expect(screen.getByText('Gestione disattivata')).toBeTruthy();
+    expect(integration.sent('save_policy')[1][0]).toMatchObject({
+      expected_revision: 2,
+      policy: { enabled: false, start_threshold: 20 },
+    });
   });
 
   it('shows the newer version when the policy was changed elsewhere', async () => {

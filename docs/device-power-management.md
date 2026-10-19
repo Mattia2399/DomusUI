@@ -163,9 +163,13 @@ Due configurazioni **attive** non possono usare lo stesso switch:
 
 ## Disattivazione ed eliminazione
 
-- **Disattivare** ferma il controller e lascia lo switch com'è: «Disattivando
-  la gestione automatica, lo stato attuale dell'alimentazione non verrà
-  modificato.»
+- **Disattivare** (interruttore «Gestione automatica») vale subito, senza
+  Salva, e cambia solo `enabled`: le modifiche ancora non salvate del modulo
+  restano lì. Ferma il controller e lascia lo switch com'è; la riga dice in
+  parole lo stato («Disattivata: la presa resta accesa e Domus non la
+  comanda.»). Prima del primo salvataggio l'interruttore non c'è.
+- **Riattivare** riavvia il controller, che valuta subito la batteria e, se
+  serve, accende o spegne la presa.
 - **Eliminare** ferma il controller e rimuove la configurazione; lo switch
   resta com'è: «La configurazione verrà rimossa. Lo stato attuale dello switch
   non verrà modificato.»
