@@ -71,6 +71,14 @@ import {
   stabilizeRootRuntimeCollisions,
 } from './gridEngine2/gridEngineRootRuntimeLayout';
 import { GRID_ENGINE_2_RENDERER_ENABLED } from './gridEngine2/rendererFeatureFlag';
+import {
+  createRuntimeRenderDecisionConsolePayload,
+  resolveGridEngineRootRuntimeRenderDecision,
+} from './gridEngine2/gridEngineRootRuntimeRenderDecision';
+import {
+  GRID_ENGINE_2_RUNTIME_SOLVER_RENDERER_ENABLED,
+  GRID_ENGINE_2_RUNTIME_SOLVER_RENDERER_REQUESTED,
+} from './gridEngine2/runtimeSolverRendererFeatureFlag';
 import { GRID_ENGINE_2_SHADOW_ENABLED } from './gridEngine2/shadowFeatureFlag';
 import {
   GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED,
@@ -95,6 +103,7 @@ export function preloadDashboardCatalog() {
 }
 
 const ResponsiveGridLayout = Responsive;
+const GRID_ENGINE_2_RUNTIME_RENDER_LOG_PREFIX = '[DomusUI:grid-engine2:runtime-render]';
 type GridBreakpoint = keyof typeof GRID_ENGINE_BREAKPOINTS;
 type GridLayouts = Partial<Record<GridBreakpoint, GridItem[]>>;
 type HouseMemberCardItem = {
@@ -1203,6 +1212,7 @@ export function GridCanvas({
   const [gridEngineLayouts, setGridEngineLayouts] = useState<GridLayouts>({});
   const gridEngine2ShadowSignatureRef = useRef<string | null>(null);
   const gridEngine2RuntimeShadowSignatureRef = useRef<string | null>(null);
+  const gridEngine2RuntimeRenderSignatureRef = useRef<string | null>(null);
   const structuralLoadSnapshotContextRef = useRef({
     generation: structuralLoadSnapshot.generation,
     revision: structuralLoadSnapshot.revision,
@@ -2242,17 +2252,131 @@ export function GridCanvas({
     widgets,
   ]);
   const liveGridEngineLayout = liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [];
-  const liveGridUsedRows = useMemo(
+  const runtimeRenderRootElements = useMemo(
+    () => [
+      ...sections.map((section) => ({
+        id: section.id,
+        role: (
+          section.kind === 'stack-vertical' ||
+          section.kind === 'stack-horizontal' ||
+          section.kind === 'stack-grid'
+            ? 'stack'
+            : 'section'
+        ) as 'stack' | 'section',
+        kind: section.kind,
+      })),
+      ...rootWidgets.map((widget) => ({
+        id: widget.id,
+        role: 'widget' as const,
+        kind: widget.kind,
+      })),
+    ],
+    [rootWidgets, sections],
+  );
+  const runtimeRenderLightStates = useMemo(
+    () => rootWidgets
+      .filter((widget) => widget.kind === 'light')
+      .flatMap((widget) => {
+        const hasRuntimeState = widget.dataSource === 'mock' ||
+          Object.prototype.hasOwnProperty.call(haStates, widget.entityId);
+        return hasRuntimeState ? [{ id: widget.id, isOn: widget.isOn }] : [];
+      }),
+    [haStates, rootWidgets],
+  );
+  const runtimeRenderDecision = useMemo(() => {
+    const structuralDashboard = structuralLoadSnapshot.dashboard;
+    const explicitRootLayouts = structuralDashboard?.responsiveLayouts.root;
+    const hasExplicitLayout = Object.prototype.hasOwnProperty.call(
+      explicitRootLayouts ?? {},
+      gridEngineActiveBreakpoint,
+    );
+    return resolveGridEngineRootRuntimeRenderDecision({
+      development: import.meta.env.DEV === true,
+      customRendererEnabled: GRID_ENGINE_2_RENDERER_ENABLED,
+      runtimeSolverRendererRequested: GRID_ENGINE_2_RUNTIME_SOLVER_RENDERER_REQUESTED,
+      isEditMode,
+      gridInitialized: isRuntimeGridReady,
+      hasPendingAuthoritativeLayout,
+      hasNonAuthoritativeDraft: isEditMode,
+      breakpoint: gridEngineActiveBreakpoint,
+      cols: gridEngineActiveCols,
+      snapshot: {
+        phase: structuralLoadSnapshot.phase,
+        source: structuralLoadSnapshot.source,
+        coherent: structuralLoadSnapshot.coherent,
+        generation: structuralLoadSnapshot.generation,
+        revision: structuralLoadSnapshot.revision,
+        fingerprint: structuralLoadSnapshot.fingerprint,
+      },
+      currentStructuralContext: {
+        generation: structuralLoadSnapshot.generation,
+        revision: structuralLoadSnapshot.revision,
+        fingerprint: structuralLoadSnapshot.fingerprint,
+      },
+      baseline: hasExplicitLayout
+        ? { kind: 'explicit', layout: explicitRootLayouts?.[gridEngineActiveBreakpoint] ?? [] }
+        : { kind: 'missing' },
+      rootElements: runtimeRenderRootElements,
+      lightStates: runtimeRenderLightStates,
+      legacyRuntimeLayout: liveGridEngineLayout,
+      widgetTypeLayoutOverrides: structuralDashboard?.widgetTypeLayoutOverrides,
+      widgetLayoutOverrides: structuralDashboard?.widgetLayoutOverrides,
+    });
+  }, [
+    gridEngineActiveBreakpoint,
+    gridEngineActiveCols,
+    hasPendingAuthoritativeLayout,
+    isEditMode,
+    isRuntimeGridReady,
+    liveGridEngineLayout,
+    runtimeRenderLightStates,
+    runtimeRenderRootElements,
+    structuralLoadSnapshot,
+  ]);
+  useEffect(() => {
+    if (!GRID_ENGINE_2_RUNTIME_SOLVER_RENDERER_ENABLED) {
+      gridEngine2RuntimeRenderSignatureRef.current = null;
+      return;
+    }
+    const payload = createRuntimeRenderDecisionConsolePayload(runtimeRenderDecision);
+    const signature = JSON.stringify(payload);
+    if (signature === gridEngine2RuntimeRenderSignatureRef.current) return;
+    gridEngine2RuntimeRenderSignatureRef.current = signature;
+    try {
+      console.info(GRID_ENGINE_2_RUNTIME_RENDER_LOG_PREFIX, payload);
+    } catch {
+      // Experimental diagnostics must never affect Home rendering.
+    }
+  }, [runtimeRenderDecision]);
+  const rootRendererLayout = runtimeRenderDecision.kind === 'custom-solver'
+    ? runtimeRenderDecision.layout
+    : liveGridEngineLayout;
+  const rootRendererLayoutHasExactIds = useMemo(() => {
+    if (rootRendererLayout.length !== runtimeRenderRootElements.length) return false;
+    const layoutIds = new Set(rootRendererLayout.map((item) => item.i));
+    return layoutIds.size === rootRendererLayout.length &&
+      runtimeRenderRootElements.every((element) => layoutIds.has(element.id));
+  }, [rootRendererLayout, runtimeRenderRootElements]);
+  const rootRendererEnabled = rootRendererLayoutHasExactIds && (
+    runtimeRenderDecision.kind === 'custom-solver' || (
+      runtimeRenderDecision.kind === 'existing-renderer' &&
+      runtimeRenderDecision.renderer === 'custom'
+    )
+  );
+  const runtimeSolverSpans = runtimeRenderDecision.kind === 'custom-solver'
+    ? runtimeRenderDecision.runtimeSpans
+    : null;
+  const rootRendererUsedRows = useMemo(
     () =>
-      liveGridEngineLayout.reduce(
+      rootRendererLayout.reduce(
         (maxRows, item) => Math.max(maxRows, Math.max(0, Math.round(item.y)) + Math.max(1, Math.round(item.h))),
         0,
       ),
-    [liveGridEngineLayout],
+    [rootRendererLayout],
   );
-  const liveGridEngineLayoutMap = useMemo(
-    () => new Map(liveGridEngineLayout.map((item) => [item.i, item])),
-    [liveGridEngineLayout],
+  const rootRendererLayoutMap = useMemo(
+    () => new Map(rootRendererLayout.map((item) => [item.i, item])),
+    [rootRendererLayout],
   );
   const hasGridItemMoved = useCallback((start: GridItem | null, next: GridItem | undefined | null) => {
     if (!start || !next) {
@@ -3035,6 +3159,14 @@ export function GridCanvas({
         <div
           ref={runtimeGridHostRef}
           data-preview-width={previewGridWidth ?? 'auto'}
+            data-grid-engine-runtime-render-decision={
+              GRID_ENGINE_2_RUNTIME_SOLVER_RENDERER_ENABLED ? runtimeRenderDecision.kind : undefined
+            }
+            data-grid-engine-runtime-render-fallback={
+              GRID_ENGINE_2_RUNTIME_SOLVER_RENDERER_ENABLED && runtimeRenderDecision.kind === 'legacy-fallback'
+                ? runtimeRenderDecision.reason
+                : undefined
+            }
           className={`relative behance-canvas-shell rounded-[2rem] pt-0.5 pb-4 md:pt-2 min-h-[48rem] ${
             isEditMode ? 'bg-white/5 border border-white/10' : 'bg-transparent border border-transparent'
           }`}
@@ -3071,17 +3203,17 @@ export function GridCanvas({
           ) : null}
           {developerMode ? (
             <div className="liquid-glass-card pointer-events-none absolute left-4 top-4 z-30 rounded-xl px-3 py-2 text-[10px] font-medium uppercase tracking-[0.18em] text-cyan-100">
-              {`dev ${gridEngineActiveBreakpoint} | cols ${gridEngineActiveCols} | rows ${Math.max(1, liveGridUsedRows)}`}
+              {`dev ${gridEngineActiveBreakpoint} | cols ${gridEngineActiveCols} | rows ${Math.max(1, rootRendererUsedRows)}`}
             </div>
           ) : null}
 
           <div className={`transition-opacity duration-300 ${isRuntimeGridReady ? 'opacity-100' : 'opacity-0'}`}>
             {isRuntimeGridReady ? (
             <GridEngineRootRendererSwitch
-              enabled={shouldAlignDynamicRootPositions}
+              enabled={rootRendererEnabled}
               breakpoint={gridEngineActiveBreakpoint}
               className={rootGridClassName}
-              layout={liveGridEngineLayout}
+              layout={rootRendererLayout}
               width={Math.max(runtimeGridEffectiveWidth, 1)}
               cols={gridEngineActiveCols}
               rowHeight={GRID_ENGINE_ROW_UNIT}
@@ -3173,9 +3305,10 @@ export function GridCanvas({
               )}
             >
               {sections.map((section) => {
-                const sectionLayoutItem = liveGridEngineLayoutMap.get(section.id);
-                const sectionSpanW = Math.max(1, Math.round(sectionLayoutItem?.w ?? section.layout.w));
-                const sectionSpanH = Math.max(1, Math.round(sectionLayoutItem?.h ?? section.layout.h));
+                const sectionLayoutItem = rootRendererLayoutMap.get(section.id);
+                const sectionRuntimeSpan = runtimeSolverSpans?.get(section.id);
+                const sectionSpanW = Math.max(1, Math.round(sectionRuntimeSpan?.w ?? sectionLayoutItem?.w ?? section.layout.w));
+                const sectionSpanH = Math.max(1, Math.round(sectionRuntimeSpan?.h ?? sectionLayoutItem?.h ?? section.layout.h));
                 const sectionCanvasCols = sectionSpanW;
                 const stackWidth = Math.max(
                   1,
@@ -3238,7 +3371,8 @@ export function GridCanvas({
                       ? haStates[widget.entityId]?.numericValue
                       : undefined
                     : widget.value ?? 0;
-                const runtimeLayoutItem = liveGridEngineLayoutMap.get(widget.id);
+                const runtimeLayoutItem = rootRendererLayoutMap.get(widget.id);
+                const runtimeSolverSpan = runtimeSolverSpans?.get(widget.id);
                 const runtimeWidget = runtimeLayoutItem
                   ? {
                       ...widget,
@@ -3247,8 +3381,8 @@ export function GridCanvas({
                         i: widget.id,
                         x: runtimeLayoutItem.x,
                         y: runtimeLayoutItem.y,
-                        w: runtimeLayoutItem.w,
-                        h: runtimeLayoutItem.h,
+                        w: runtimeSolverSpan?.w ?? runtimeLayoutItem.w,
+                        h: runtimeSolverSpan?.h ?? runtimeLayoutItem.h,
                       },
                     }
                   : widget;
