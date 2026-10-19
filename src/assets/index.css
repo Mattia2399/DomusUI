@@ -1195,6 +1195,24 @@
   }
 }
 
+/* Kiosk exit handle: the ring fills while it is held (DomusKiosk). */
+.kiosk-exit-progress {
+  opacity: 0;
+  transition: stroke-dashoffset 120ms ease-out, opacity 120ms ease-out;
+}
+
+.kiosk-exit-progress[data-holding='true'] {
+  opacity: 0.9;
+  transition: stroke-dashoffset 3s linear, opacity 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-exit-progress,
+  .kiosk-exit-progress[data-holding='true'] {
+    transition: none;
+  }
+}
+
 .dashboard-skip-link {
   position: fixed;
   top: max(0.5rem, env(safe-area-inset-top));

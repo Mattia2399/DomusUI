@@ -179,6 +179,19 @@ describe('Home Assistant panel distribution contract', () => {
     expect([...HA_PANEL_ALLOWED_API_TYPES].some((type) => type.startsWith('domusos/notifications/'))).toBe(false);
   });
 
+  it('lets the Domus frame ask for full screen and a wake lock, and nothing of Home Assistant is touched', () => {
+    const bridge = readPanelBridgeSource();
+    expect(bridge).toContain('this._iframe.allow = "fullscreen; screen-wake-lock";');
+    expect(bridge).toContain('this._iframe.allowFullscreen = true;');
+    // Kiosk works inside its own frame: never the parent page, its DOM or its styles.
+    const kioskSources = ['DomusKiosk.tsx', 'KioskRuntime.tsx', 'kioskLaunch.ts', 'kioskDisplay.ts', 'kioskSession.ts', 'kioskPreferences.ts'].map((file) =>
+      readFileSync(resolve(process.cwd(), 'src/components/kiosk', file), 'utf8'),
+    );
+    for (const source of kioskSources) {
+      expect(source).not.toMatch(/window\.parent|parent\.document|window\.top|top\.document|shadowRoot|home-assistant-main/);
+    }
+  });
+
   it('allowlists exactly the device power commands in both bridge halves, all administrative', () => {
     const bridge = readPanelBridgeSource();
     const hostTypes = [...bridge.matchAll(/"(domusos\/device_power\/[a-z_]+)"/g)].map((match) => match[1]);

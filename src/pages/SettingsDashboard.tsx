@@ -95,6 +95,7 @@ import {
 } from '../components/settings/settingsScopes';
 import {
   DEVICE_APPEARANCE_ROUTE,
+  DEVICE_KIOSK_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
   DEVICE_POWER_ROUTE,
   DEVICE_SCREENSAVER_ROUTE,
@@ -105,6 +106,7 @@ import {
 import type { DashboardAppearanceMode, DashboardBackgroundPreset } from '../theme/dashboardTheme';
 import LazyLoadBoundary from '../components/common/LazyLoadBoundary';
 import { useScreensaverPreferences } from '../components/screensaver/screensaverPreferences';
+import { useKioskPreferences } from '../components/kiosk/kioskPreferences';
 
 // Only the pages of This device need their controls; the overview needs none.
 const DeviceAppearanceSettings = React.lazy(() =>
@@ -119,6 +121,7 @@ const DeviceLanguageSettings = React.lazy(() =>
 );
 const DevicePowerSettings = React.lazy(() => import('../components/settings/DevicePowerSettings'));
 const ScreensaverSettings = React.lazy(() => import('../components/settings/ScreensaverSettings'));
+const KioskSettings = React.lazy(() => import('../components/settings/KioskSettings'));
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -146,6 +149,8 @@ type SettingsDashboardProps = {
   recipientsSupported?: boolean;
   /** The integration manages this device's charger (`device_power_v1`). */
   devicePowerSupported?: boolean;
+  /** The main pages a Kiosk panel can open on, as the navigation names them. */
+  kioskStartRoutes?: readonly { path: string; label: string }[];
   /** Turns a Home Assistant picture path into a loadable URL. */
   resolveAssetUrl?: (url: string) => string;
   /** Home Assistant's own words for entity states, when they can be asked for. */
@@ -573,6 +578,7 @@ export default function SettingsDashboard({
   onCallApi,
   recipientsSupported = false,
   devicePowerSupported = false,
+  kioskStartRoutes = [],
   resolveAssetUrl,
   loadStateTranslations,
   onAreasChanged,
@@ -619,6 +625,7 @@ export default function SettingsDashboard({
 
   const isConnected = haStatus === 'connected';
   const screensaver = useScreensaverPreferences();
+  const kiosk = useKioskPreferences();
   // The rows only follow Home Assistant; every device power command is checked there again.
   const isAdministrator =
     security.runtimeMode === 'real' &&
@@ -963,6 +970,11 @@ export default function SettingsDashboard({
           ? t('settings.device.screensaverAfter', { count: screensaver.timeoutMinutes })
           : t('settings.device.screensaverOff'),
       },
+      kiosk: {
+        icon: MonitorSmartphone,
+        color: 'bg-slate-600',
+        value: kiosk.enabled ? t('settings.device.kioskOn') : t('settings.device.screensaverOff'),
+      },
       power: { icon: BatteryCharging, color: 'bg-emerald-600' },
       attention: {
         icon: BellRing,
@@ -1160,6 +1172,20 @@ export default function SettingsDashboard({
       >
         <LazyLoadBoundary mode="section" fallback={null}>
           <ScreensaverSettings />
+        </LazyLoadBoundary>
+      </SettingsDetailShell>
+    );
+  }
+
+  if (settingsPath === DEVICE_KIOSK_ROUTE) {
+    return (
+      <SettingsDetailShell
+        title={t('settings.device.kiosk')}
+        subtitle={t('settings.device.kioskSubtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <LazyLoadBoundary mode="section" fallback={null}>
+          <KioskSettings startRoutes={kioskStartRoutes} />
         </LazyLoadBoundary>
       </SettingsDetailShell>
     );

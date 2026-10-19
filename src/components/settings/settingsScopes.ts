@@ -2,6 +2,7 @@ import type { TranslationKey } from '../../i18n/translations';
 import type { DashboardCapability } from '../../security/dashboardAccess';
 import {
   DEVICE_APPEARANCE_ROUTE,
+  DEVICE_KIOSK_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
   DEVICE_POWER_ROUTE,
   DEVICE_SCREENSAVER_ROUTE,
@@ -59,6 +60,7 @@ export type SettingsEntryId =
   | 'appearance'
   | 'language'
   | 'screensaver'
+  | 'kiosk'
   | 'power'
   | 'attention'
   | 'advanced';
@@ -239,6 +241,18 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     storage: 'browser_local',
     titleKey: 'settings.device.screensaver',
     descriptionKey: 'settings.device.screensaverSubtitle',
+  },
+  {
+    // A wall panel: the navigation of Domus hidden on this browser only.
+    // Not a lock and not a permission (docs/device-kiosk.md).
+    id: 'kiosk',
+    scope: 'device',
+    owner: 'core',
+    section: 'device',
+    route: DEVICE_KIOSK_ROUTE,
+    storage: 'browser_local',
+    titleKey: 'settings.device.kiosk',
+    descriptionKey: 'settings.device.kioskSubtitle',
   },
   {
     // The charger of this device, switched by DomusOS in Home Assistant

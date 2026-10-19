@@ -474,6 +474,9 @@ class HaDashboardBuilderPanel extends HTMLElement {
     if (appUrl.origin !== window.location.origin) throw new Error("Il panel deve essere same-origin.");
     this._iframe = document.createElement("iframe");
     this._iframe.id = "ha-dashboard-frame";
+    // Kiosk mode: Domus may ask for full screen and to keep the screen on, for its own frame only.
+    this._iframe.allow = "fullscreen; screen-wake-lock";
+    this._iframe.allowFullscreen = true;
     this._iframe.src = appUrl.toString();
     this._iframe.style.cssText = "width:100%;height:100%;border:none;display:block";
     this.replaceChildren(this._iframe);
@@ -782,6 +785,8 @@ La destinazione è risolta in questo ordine:
 4. `/lovelace` come ultima compatibilità per frontend molto vecchi o payload incompleti.
 
 Se il contenitore o `navigate()` non sono disponibili, oppure il router genera un errore sincrono, il bridge usa `window.location.assign(targetPath)`. Il fallback forza una navigazione reale e non simula mai il router tramite `history.pushState`, `history.replaceState` o eventi `location-changed` manuali. Una guardia locale scarta i doppi tap mentre la navigazione è in corso.
+
+L'iframe di Domus ha `allow="fullscreen; screen-wake-lock"`: la [modalità Kiosk](device-kiosk.md) può chiedere lo schermo intero e lo schermo acceso per Domus stessa, senza toccare il frontend di Home Assistant.
 
 Il bridge accetta messaggi soltanto dal `contentWindow` dell’iframe e dallo stesso origin, valida request ID, domain, service, payload e una allowlist dei tipi WebSocket effettivamente usati. L’identità e i ruoli non vengono accettati dal payload del parent: la dashboard li richiede con `auth/current_user`, lasciando a Home Assistant l’autorità finale. Timeout e correlazione richiesta/risposta restano obbligatori anche se il browser e il parent sono controllati dallo stesso utente.
 

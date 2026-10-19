@@ -24,7 +24,8 @@ dispositivi. Non usa il `client_id` di Domus.
   il pannello di Home Assistant e in PWA);
 - non usa la Screen Wake Lock API: **non garantisce** che il tablet tenga lo
   schermo acceso. Se il sistema spegne il display, lo screensaver non lo
-  impedisce. Se ne occuperà la futura modalità Kiosk / Wall Tablet.
+  impedisce. Lo chiede la [modalità Kiosk](device-kiosk.md), quando il
+  browser lo consente.
 
 È indipendente da [Alimentazione e ricarica](device-power-management.md):
 funziona senza sensore batteria e senza presa smart, anche su un PC, e non

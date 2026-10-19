@@ -9,6 +9,7 @@ export const DEVICE_APPEARANCE_ROUTE = '/settings/device/appearance';
 export const DEVICE_LANGUAGE_ROUTE = '/settings/device/language';
 export const DEVICE_POWER_ROUTE = '/settings/device/power';
 export const DEVICE_SCREENSAVER_ROUTE = '/settings/device/screensaver';
+export const DEVICE_KIOSK_ROUTE = '/settings/device/kiosk';
 
 /** The Profile opens from the account card at the top of Settings. */
 export const PROFILE_ROUTE = '/settings/profile';

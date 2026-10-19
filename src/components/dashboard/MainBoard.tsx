@@ -389,6 +389,8 @@ import {
 } from '../../utils/coverUtils';
 import { translateMediaPlayerState } from '../../utils/mediaPlayerState';
 import { DomusScreensaver } from '../screensaver/DomusScreensaver';
+import { DomusKiosk, useKioskChrome } from '../kiosk/DomusKiosk';
+import { KIOSK_START_ROUTES } from '../kiosk/kioskPreferences';
 import {
   createOAuthNonce,
   isAppGalleryNavigationTarget,
@@ -2705,6 +2707,17 @@ export function MainBoard() {
   }, []);
 
   const visibleSidebarPaths = sidebarPaths;
+  // Kiosk hides Domus's own navigation only; pages and their links still work.
+  const isKioskChrome = useKioskChrome();
+  // A wall panel opens on a main page the person can reach from the navigation; Home always.
+  const kioskStartRoutes = useMemo(
+    () =>
+      KIOSK_START_ROUTES.flatMap((path) => {
+        const entry = visibleSidebarPaths.find((candidate) => candidate.path === path);
+        return entry || path === '/home' ? [{ path, label: entry?.label ?? 'Home' }] : [];
+      }),
+    [visibleSidebarPaths],
+  );
   const canToggleEditMode =
     runtimeMode !== null &&
     isEditAvailableForRoute &&
@@ -10880,7 +10893,7 @@ export function MainBoard() {
     ? ['auto', 'desktop', 'tablet', 'compact', 'mobile']
     : ['auto', 'tablet', 'compact', 'mobile'];
   const shouldShowMobileSidebarShell =
-    !isImmersiveView && isCompactViewport && !isCatalogOpen && isDashboardCanvasView && !isProfileOpen;
+    !isImmersiveView && isCompactViewport && !isCatalogOpen && isDashboardCanvasView && !isProfileOpen && !isKioskChrome;
   const isNestedDashboardPage = isNestedDashboardNavigationTarget(currentNavigationRoute);
   const shouldShowBottomBar =
     !isImmersiveView &&
@@ -10888,7 +10901,8 @@ export function MainBoard() {
     !isEditMode &&
     !isCatalogOpen &&
     !isProfileOpen &&
-    !isNestedDashboardPage;
+    !isNestedDashboardPage &&
+    !isKioskChrome;
 
   useEffect(() => {
     if (!shouldShowMobileSidebarShell) {
@@ -11004,7 +11018,9 @@ export function MainBoard() {
       } ${
         shouldShowMobileSidebarShell
           ? '!pt-[calc(env(safe-area-inset-top)+4rem)]'
-          : ''
+          : isKioskChrome && isDashboardCanvasView && !isImmersiveView
+            ? '!pt-[max(0.375rem,env(safe-area-inset-top))]'
+            : ''
       } ${
         appearance === 'light'
           ? 'dashboard-theme-light text-[var(--dashboard-text)]'
@@ -11193,7 +11209,7 @@ export function MainBoard() {
         </>
       ) : null}
 
-      {!isImmersiveView && !isCompactViewport ? (
+      {!isImmersiveView && !isCompactViewport && !isKioskChrome ? (
         <LeftSidebar
           isEditMode={isEditMode}
           userAvatarUrl={currentUserAvatarUrl}
@@ -11365,6 +11381,7 @@ export function MainBoard() {
               onCallApi={callHaApi}
               recipientsSupported={profileRecipientsSupported}
               devicePowerSupported={devicePowerSupported}
+              kioskStartRoutes={kioskStartRoutes}
               loadStateTranslations={loadStateTranslations}
               onAreasChanged={handleSettingsAreasChanged}
               alarmCards={securityAlarmProfiles.map(({ widgetId, entityId, requireDeviceConfirmation }) => ({
@@ -12138,6 +12155,11 @@ export function MainBoard() {
 
       {/* Above everything, whatever page is open; off unless turned on in Settings › This device. */}
       <DomusScreensaver route={activeNavigationRoute} appearance={appearance} background={background} />
+      <DomusKiosk
+        route={activeNavigationRoute}
+        navigate={navigateWithinDashboard}
+        availableStartRoutes={kioskStartRoutes.map(({ path }) => path)}
+      />
     </div>
     </SensitiveActionGateProvider>
     </DashboardSecurityProvider>

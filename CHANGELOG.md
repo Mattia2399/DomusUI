@@ -4,6 +4,16 @@
 
 ### Added
 
+- Settings › This device › Kiosk mode turns a wall tablet or a dedicated PC
+  into a Domus panel: "Start panel mode" hides Domus's own navigation, opens
+  the chosen start page and, when the browser allows it, goes full screen and
+  keeps the screen on. The panel comes back by itself after a reload; leaving
+  full screen keeps it; the screensaver works as before on top of it. To leave,
+  press and hold the bottom-left corner for three seconds or press
+  Ctrl+Alt+K. Kept in this browser only, off by default, and not a security
+  feature: it hides the navigation, it does not lock anything. Inside Home
+  Assistant, the Domus panel frame now allows full screen and the screen wake
+  lock for Domus itself.
 - Settings › This device › Screensaver: after 1 to 30 minutes without a
   touch, a key or a mouse movement, Domus shows the time, and the date if
   wanted, over whatever page is open. Minimal is the time on true black;

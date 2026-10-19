@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { createDevicePreferenceStore } from '../../services/devicePreferenceStore';
 
 /**
  * Screensaver preferences of this browser (Settings › This device). They
@@ -26,8 +26,6 @@ export const DEFAULT_SCREENSAVER_PREFERENCES: ScreensaverPreferences = Object.fr
   mode: 'minimal',
   showDate: true,
 });
-
-type PreferenceStorage = Pick<Storage, 'getItem' | 'setItem'>;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -62,82 +60,20 @@ export function serializeScreensaverPreferences(preferences: ScreensaverPreferen
   return JSON.stringify({ version: SCREENSAVER_STORAGE_VERSION, enabled, timeoutMinutes, mode, showDate });
 }
 
-function browserStorage(): PreferenceStorage | null {
-  try {
-    return typeof window === 'undefined' ? null : window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-export function readScreensaverPreferences(storage: PreferenceStorage | null = browserStorage()): ScreensaverPreferences {
-  try {
-    const raw = storage?.getItem(SCREENSAVER_STORAGE_KEY);
-    return raw ? parseScreensaverPreferences(JSON.parse(raw)) : DEFAULT_SCREENSAVER_PREFERENCES;
-  } catch {
-    return DEFAULT_SCREENSAVER_PREFERENCES;
-  }
-}
-
 // One shared copy for the whole page: the Settings page writes, the runtime follows at once.
-let current: ScreensaverPreferences | null = null;
-const listeners = new Set<() => void>();
+const store = createDevicePreferenceStore<ScreensaverPreferences>({
+  key: SCREENSAVER_STORAGE_KEY,
+  defaults: DEFAULT_SCREENSAVER_PREFERENCES,
+  parse: parseScreensaverPreferences,
+  serialize: serializeScreensaverPreferences,
+});
 
-function snapshot(): ScreensaverPreferences {
-  if (current === null) current = readScreensaverPreferences();
-  return current;
-}
-
-function publish(next: ScreensaverPreferences) {
-  current = next;
-  listeners.forEach((listener) => listener());
-}
-
-// Another tab of this browser changed them.
-function handleStorage(event: StorageEvent) {
-  if (event.key === SCREENSAVER_STORAGE_KEY || event.key === null) publish(readScreensaverPreferences());
-}
-
-function subscribe(listener: () => void) {
-  if (listeners.size === 0) {
-    // Nobody was listening: another tab may have changed them meanwhile.
-    current = readScreensaverPreferences();
-    if (typeof window !== 'undefined') window.addEventListener('storage', handleStorage);
-  }
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size === 0 && typeof window !== 'undefined') window.removeEventListener('storage', handleStorage);
-  };
-}
-
+export const readScreensaverPreferences = store.read;
 /** Saves and applies the preferences; false when this browser keeps nothing. */
-export function saveScreensaverPreferences(
-  next: ScreensaverPreferences,
-  storage: PreferenceStorage | null = browserStorage(),
-): boolean {
-  const serialized = serializeScreensaverPreferences(next);
-  const normalized = parseScreensaverPreferences(JSON.parse(serialized));
-  let saved = false;
-  try {
-    storage?.setItem(SCREENSAVER_STORAGE_KEY, serialized);
-    saved = Boolean(storage);
-  } catch {
-    saved = false;
-  }
-  // Applied for this visit even when it cannot be kept.
-  publish(normalized);
-  return saved;
-}
-
-export function useScreensaverPreferences(): ScreensaverPreferences {
-  return useSyncExternalStore(subscribe, snapshot, () => DEFAULT_SCREENSAVER_PREFERENCES);
-}
-
+export const saveScreensaverPreferences = store.save;
+export const useScreensaverPreferences = store.use;
 /** Forget the shared copy (tests). */
-export function resetScreensaverPreferencesCache() {
-  current = null;
-}
+export const resetScreensaverPreferencesCache = store.reset;
 
 // Settings › Screensaver asks the runtime for a preview; nothing is saved or reset by it.
 type PreviewListener = (preferences: ScreensaverPreferences) => void;

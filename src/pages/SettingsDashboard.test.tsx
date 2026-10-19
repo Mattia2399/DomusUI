@@ -114,6 +114,21 @@ describe('SettingsDashboard', () => {
     ).toContain('10 min');
   });
 
+  it('opens Kiosk mode as its own page, loaded only then, with the start pages of the navigation', async () => {
+    render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/device/kiosk"
+          kioskStartRoutes={[{ path: '/home', label: 'Home' }, { path: '/rooms', label: 'Stanze' }]}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Modalità Kiosk' })).toBeTruthy();
+    expect(await screen.findByRole('switch', { name: 'Modalità Kiosk' })).toBeTruthy();
+  });
+
   it('opens the Screensaver as its own page, loaded only then', async () => {
     render(
       <DashboardSecurityProvider value={security}>
@@ -209,6 +224,7 @@ describe('SettingsDashboard', () => {
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
       expect.stringContaining('Screensaver'),
+      expect.stringContaining('Modalità Kiosk'),
       expect.stringContaining('Alimentazione e ricarica'),
       expect.stringContaining('Avvisi e attenzione'),
       expect.stringContaining('Avanzate e supporto'),
@@ -295,6 +311,7 @@ describe('SettingsDashboard', () => {
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
       expect.stringContaining('Screensaver'),
+      expect.stringContaining('Modalità Kiosk'),
     ]);
   });
 

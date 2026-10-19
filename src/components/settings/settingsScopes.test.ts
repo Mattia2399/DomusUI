@@ -5,6 +5,7 @@ import type { DashboardCapability } from '../../security/dashboardAccess';
 import { italianTranslations } from '../../i18n/translations';
 import {
   DEVICE_APPEARANCE_ROUTE,
+  DEVICE_KIOSK_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
   DEVICE_POWER_ROUTE,
   DEVICE_SCREENSAVER_ROUTE,
@@ -83,7 +84,7 @@ describe('settings scopes', () => {
   });
 
   it('classifies the preferences saved in this browser as device settings', () => {
-    (['appearance', 'language', 'screensaver', 'attention', 'advanced'] as const).forEach((id) => {
+    (['appearance', 'language', 'screensaver', 'kiosk', 'attention', 'advanced'] as const).forEach((id) => {
       expect(entry(id), id).toMatchObject({ scope: 'device', section: 'device', storage: 'browser_local' });
     });
     expect(entry('appearance').route).toBe(DEVICE_APPEARANCE_ROUTE);
@@ -103,6 +104,19 @@ describe('settings scopes', () => {
     });
   });
 
+  it('keeps Kiosk mode in This device, saved in this browser and without a capability', () => {
+    expect(entry('kiosk')).toEqual({
+      id: 'kiosk',
+      scope: 'device',
+      owner: 'core',
+      section: 'device',
+      route: DEVICE_KIOSK_ROUTE,
+      storage: 'browser_local',
+      titleKey: 'settings.device.kiosk',
+      descriptionKey: 'settings.device.kioskSubtitle',
+    });
+  });
+
   it('keeps the charger of this device in This device, saved and run by DomusOS', () => {
     expect(entry('power')).toEqual({
       id: 'power',
@@ -118,7 +132,7 @@ describe('settings scopes', () => {
     // Administrators only, without a capability of its own.
     expect(entry('power').capability).toBeUndefined();
     const ids = SETTINGS_ENTRIES.filter(({ section }) => section === 'device').map(({ id }) => id);
-    expect(ids).toEqual(['appearance', 'language', 'screensaver', 'power', 'attention', 'advanced']);
+    expect(ids).toEqual(['appearance', 'language', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
   });
 
   it('keeps only the person in the Profile', () => {
@@ -150,7 +164,7 @@ describe('settings scopes', () => {
       'entities',
       'system',
     ]);
-    expect(selectVisibleSettingsEntries('device', none).map(({ id }) => id)).toEqual(['appearance', 'language', 'screensaver']);
+    expect(selectVisibleSettingsEntries('device', none).map(({ id }) => id)).toEqual(['appearance', 'language', 'screensaver', 'kiosk']);
 
     const all = () => true;
     expect(selectVisibleSettingsEntries('house', all).map(({ id }) => id)).toEqual([
@@ -161,7 +175,7 @@ describe('settings scopes', () => {
       'waste',
     ]);
     expect(selectVisibleSettingsEntries('system', all)).toHaveLength(5);
-    expect(selectVisibleSettingsEntries('device', all)).toHaveLength(5);
+    expect(selectVisibleSettingsEntries('device', all)).toHaveLength(6);
   });
 
   it('shows the administrators-only entries to administrators alone', () => {
@@ -171,6 +185,7 @@ describe('settings scopes', () => {
       'appearance',
       'language',
       'screensaver',
+      'kiosk',
       'power',
       'attention',
       'advanced',
@@ -179,6 +194,7 @@ describe('settings scopes', () => {
       'appearance',
       'language',
       'screensaver',
+      'kiosk',
       'power',
     ]);
   });
@@ -193,6 +209,8 @@ describe('settings overview weight', () => {
     expect(settingsPage).not.toContain("from '../components/settings/DevicePreferencesSettings'");
     expect(settingsPage).toContain("import('../components/settings/DevicePowerSettings')");
     expect(settingsPage).toContain("import('../components/settings/ScreensaverSettings')");
+    expect(settingsPage).toContain("import('../components/settings/KioskSettings')");
+    expect(settingsPage).not.toContain("from '../components/settings/KioskSettings'");
     expect(settingsPage).not.toContain("from '../components/settings/ScreensaverSettings'");
     expect(settingsPage).not.toMatch(/from '\.\.\/(components\/settings\/DevicePowerSettings|services\/devicePowerClient|i18n\/devicePowerCopy)'/);
   });
