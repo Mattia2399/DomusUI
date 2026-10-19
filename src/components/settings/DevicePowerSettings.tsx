@@ -609,10 +609,17 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
       </AnimatePresence>
 
       {bound ? (
-        <button type="button" className={`${DANGER_BUTTON} w-full sm:w-auto`} disabled={busy} onClick={() => setPendingRemoval(bound)}>
-          <Trash2 size={15} aria-hidden="true" />
-          {c('remove')}
-        </button>
+        // A row on its own at the bottom, like Forget This Device on iOS; the dialog asks first.
+        <div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
+          <button
+            type="button"
+            className="flex min-h-12 w-full items-center justify-center px-4 py-3 text-sm font-medium text-rose-500 transition-colors hover:bg-[color:var(--ui-fill-tertiary)] focus-visible:bg-[color:var(--ui-fill-tertiary)] focus-visible:outline-none disabled:opacity-45"
+            disabled={busy}
+            onClick={() => setPendingRemoval(bound)}
+          >
+            {c('remove')}
+          </button>
+        </div>
       ) : null}
 
       {others.length > 0 ? (
