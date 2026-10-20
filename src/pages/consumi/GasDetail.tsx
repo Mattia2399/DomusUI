@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Flame } from 'lucide-react';
-import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip, PreviewDataNotice } from './shared';
+import { ChartCard, DetailScaffold, IntervalKey, PreviewDataNotice } from './shared';
+import { LazyConsumptionChart } from './LazyConsumptionChart';
 import { MOCK_DEVICES, OrbitalDevices } from './orbitalDevices';
 import { useConsumptionCopy } from '../../i18n/consumptionCopy';
 
@@ -78,30 +78,9 @@ export function GasDetail({
         {c('Il grafico mensile e i dispositivi mostrati sono esempi e non misurazioni dell’impianto.')}
       </PreviewDataNotice>
       <ChartCard title={c('Consumo mensile')}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <defs>
-            <filter id="gasLineGlow" x="-40%" y="-40%" width="180%" height="180%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--ui-text-tertiary)', fontSize: 11 }} />
-          <YAxis axisLine={false} tickLine={false} tick={false} width={0} />
-          <Tooltip content={<PremiumTooltip suffix=" Sm3" />} />
-          <Line
-            type="monotone"
-            dataKey="consumo"
-            stroke="rgba(251,146,60,0.98)"
-            strokeWidth={4}
-            dot={false}
-            filter="url(#gasLineGlow)"
-          />
-          </LineChart>
-        </ResponsiveContainer>
+        <LazyConsumptionChart>
+          {({ GasMonthChart }) => <GasMonthChart data={chartData} />}
+        </LazyConsumptionChart>
       </ChartCard>
     </>
   );

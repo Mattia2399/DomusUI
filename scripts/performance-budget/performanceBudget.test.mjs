@@ -303,3 +303,59 @@ describe('performance budget accounting (PERF.2)', () => {
     expect(ownerOf('src/i18n/onboarding/fr.ts')).toBe('I18N');
   });
 });
+
+describe('performance budget accounting (PERF.E1)', () => {
+  /*
+   * The fixture's Energy route with a chart library chunk, imported either
+   * statically by the route or by a charts module the route loads on demand.
+   */
+  function withCharts(lazyCharts, hash = 'a1') {
+    const { graph, contents, file } = fixture(hash);
+    const energy = graph.chunks[file('Energy')];
+    graph.chunks[file('chartLib')] = { src: null, name: 'CartesianChart', imports: [], dynamicImports: [], css: [], modules: { 'node_modules/recharts/es6/index.js': 10 } };
+    contents[file('chartLib')] = Buffer.from('chartLib'.repeat(400).slice(0, 3000));
+    if (lazyCharts) {
+      energy.dynamicImports.push(file('charts'));
+      graph.chunks[file('charts')] = { src: 'src/pages/consumi/consumptionCharts.tsx', isDynamicEntry: true, imports: [file('chartLib')], dynamicImports: [], css: [], modules: { 'src/pages/consumi/consumptionCharts.tsx': 10 } };
+      contents[file('charts')] = Buffer.from('charts'.repeat(60).slice(0, 300));
+    } else {
+      energy.imports.push(file('chartLib'));
+      contents[file('Energy')] = Buffer.from('Energy'.repeat(200).slice(0, 800));
+    }
+    return { build: loadGraph(graph), sizer: createSizer((name) => contents[name] ?? null), codeFiles: Object.keys(contents), file };
+  }
+  const charts = { id: 'consumption-charts', label: 'Grafici', sources: ['src/pages/consumi/consumptionCharts.tsx'], requires: 'energy', kind: 'feature' };
+  const byId = (current, list) => Object.fromEntries(measureSurfaces(current.build, current.sizer, list).map((surface) => [surface.id, surface]));
+
+  it('takes the chart library off the route when the charts load on demand', () => {
+    const eager = withCharts(false);
+    const lazy = withCharts(true);
+    const before = byId(eager, surfaces);
+    const after = byId(lazy, [...surfaces, charts]);
+    expect(before.energy.added.has(eager.file('chartLib'))).toBe(true);
+    expect(after.energy.added.has(lazy.file('chartLib'))).toBe(false);
+    expect([...after.energy.onDemand]).toContain(lazy.file('charts'));
+    // The library and the charts now count in their own surface, over the route.
+    expect([...after['consumption-charts'].added].sort()).toEqual([lazy.file('charts'), lazy.file('chartLib')].sort());
+    // Never in Boot or Home.
+    for (const id of ['boot', 'home']) expect(after[id].files.has(lazy.file('chartLib'))).toBe(false);
+  });
+
+  it('keeps every byte: the route and its charts add up, the total counts each file once', () => {
+    const lazy = withCharts(true);
+    const measured = byId(lazy, [...surfaces, charts]);
+    const sum = (files) => [...files].reduce((total, name) => total + lazy.sizer.sizeOf(name).raw, 0);
+    expect(measured.energy.incremental.raw + measured['consumption-charts'].incremental.raw)
+      .toBe(sum(new Set([...measured.energy.added, ...measured['consumption-charts'].added])));
+    const total = (list) => evaluate(lazy.build, lazy.sizer, { ...config, surfaces: list }, lazy.codeFiles).total.values.raw;
+    expect(total([...surfaces, charts])).toBe(total(surfaces));
+  });
+
+  it('reports lazy charts without a surface as unattributed, never as free', () => {
+    const lazy = withCharts(true);
+    const result = evaluate(lazy.build, lazy.sizer, config, lazy.codeFiles);
+    expect(result.unattributed.details.map((entry) => entry.label)).toEqual(expect.arrayContaining(['src/pages/consumi/consumptionCharts.tsx']));
+    expect(ownerOf('src/pages/consumi/consumptionCharts.tsx')).toBe('ENERGY');
+    expect(ownerOf('node_modules/recharts/es6/index.js')).toBe('vendor:recharts');
+  });
+});

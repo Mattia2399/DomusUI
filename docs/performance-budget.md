@@ -127,6 +127,10 @@ Motivazioni:
   quello francese (il più grande) come caso peggiore. Le schermate della
   configurazione restano fuori dal Boot; l'ultimo passo ha una superficie
   informativa propria ([Onboarding fuori dal Boot](performance-onboarding-boot.md)).
+- **Grafici di Consumi (PERF.E1)**: Recharts entra solo con i dettagli Acqua
+  e Gas, attraverso `consumptionCharts.tsx`; la superficie informativa
+  «Consumi · Grafici Acqua e Gas» lo misura sopra Consumi, che torna sotto il
+  suo limite senza cambiarlo ([Bundle di Consumi · Energia](performance-energy-bundle.md)).
 
 Un limite superato (**FAIL**) blocca la CI; un **WARN** la lascia passare con un
 avviso. Restano sempre bloccanti avvio, Home, route, funzioni con budget,

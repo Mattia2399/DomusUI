@@ -185,3 +185,100 @@ test('inside Home Assistant the page stays on index.html and Energia loads one i
   expect(new URL(page.url()).pathname).toBe('/index.html');
   await expectSingleHouseImage(page, images);
 });
+
+/*
+ * The Water and Gas charts and the chart library load on demand
+ * (docs/performance-energy-bundle.md): Consumi and Energia never ask for
+ * them, a detail asks once, and a chart that cannot load stays in its card.
+ * File names come from build/bundle-graph.json, never from guessed hashes.
+ */
+const graph = JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'build', 'bundle-graph.json'), 'utf8'));
+const CHART_FILES = Object.entries(graph.chunks)
+  .filter(([, chunk]) => chunk.src === 'src/pages/consumi/consumptionCharts.tsx' || Object.keys(chunk.modules).some((name) => name.startsWith('node_modules/recharts/')))
+  .map(([file]) => `/${file}`);
+const CHARTS_ENTRY = `/${Object.entries(graph.chunks).find(([, chunk]) => chunk.src === 'src/pages/consumi/consumptionCharts.tsx')[0]}`;
+
+function watchCharts(page) {
+  const requested = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (CHART_FILES.includes(path)) requested.push(path);
+  });
+  return requested;
+}
+
+async function expectChartDrawn(card) {
+  const chart = card.locator('.recharts-responsive-container');
+  await expect(chart).toBeVisible();
+  await expect.poll(() => chart.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return box.width > 100 && box.height > 100;
+  })).toBe(true);
+  await expect(card.locator('svg.recharts-surface path').first()).toBeAttached();
+}
+
+test('Consumi and Energia start without the chart library; a detail loads it once', async ({ page, baseURL }) => {
+  const problems = watchProblems(page);
+  const charts = watchCharts(page);
+  await simulateHomeAssistant(page, new URL(baseURL).origin);
+
+  await page.goto('/');
+  await expectHealthy(page, problems, 'Home');
+  await page.getByRole('button', { name: 'Apri Consumi' }).click();
+  await expectHealthy(page, problems, '/consumi');
+  await expect(page.getByRole('heading', { name: 'Consumi' }).first()).toBeVisible();
+  await navigate(page, '/consumi/energia');
+  await expectHealthy(page, problems, '/consumi/energia');
+  await expect(page.getByRole('list', { name: 'Componenti dell’impianto' })).toBeVisible();
+  expect(charts, 'Consumi and Energia asked for chart code').toEqual([]);
+
+  await navigate(page, '/consumi/gas');
+  await expectHealthy(page, problems, '/consumi/gas');
+  const gasCard = page.locator('.liquid-glass-card', { hasText: 'Consumo mensile' });
+  await expectChartDrawn(gasCard);
+  // The tooltip still follows the pointer.
+  const box = await gasCard.locator('.recharts-responsive-container').boundingBox();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await expect(gasCard.getByText(/Sm3/)).toBeVisible();
+  const afterGas = charts.length;
+  expect(afterGas).toBeGreaterThan(0);
+
+  // Back and forward redraw the chart; Water reuses the code already there.
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Dettaglio Energia' })).toBeVisible();
+  await page.goForward();
+  await expectChartDrawn(page.locator('.liquid-glass-card', { hasText: 'Consumo mensile' }));
+  await navigate(page, '/consumi/acqua');
+  await expectHealthy(page, problems, '/consumi/acqua');
+  await expectChartDrawn(page.locator('.liquid-glass-card', { hasText: 'Consumo ultimi 7 giorni' }));
+  await expectChartDrawn(page.locator('.liquid-glass-card', { hasText: 'Origine approvvigionamento' }));
+  expect(charts.length, 'the chart code was asked for twice').toBe(afterGas);
+  expect(problems).toEqual([]);
+});
+
+test('a chart that cannot load stays in its card, and a reload brings it back', async ({ page, baseURL }) => {
+  await simulateHomeAssistant(page, new URL(baseURL).origin);
+  const blocked = (url) => new URL(url).pathname === CHARTS_ENTRY;
+  await page.route(blocked, (route) => route.abort('failed'));
+  const openGas = async () => {
+    await page.getByRole('button', { name: 'Apri Consumi' }).click();
+    await page.getByRole('button', { name: /Gas/ }).first().click();
+    await expect(page.getByRole('heading', { name: 'Dettaglio Gas' })).toBeVisible();
+  };
+
+  // As in the panel iframe: the page stays on index.html.
+  await page.goto('/index.html');
+  await openGas();
+  const gasCard = page.locator('.liquid-glass-card', { hasText: 'Consumo mensile' });
+  await expect(gasCard.getByText('Grafico non caricato')).toBeVisible();
+  // The detail around it stays: notice and way back; no page error screen.
+  await expect(page.getByText('Anteprima dimostrativa.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Torna a Consumi' })).toBeVisible();
+  await expect(page.getByText('Contenuto non caricato')).toHaveCount(0);
+
+  await page.unroute(blocked);
+  await gasCard.getByRole('button', { name: 'Ricarica Domus UI' }).click();
+  await expect(page.getByRole('main').first()).toBeVisible();
+  await openGas();
+  await expectChartDrawn(page.locator('.liquid-glass-card', { hasText: 'Consumo mensile' }));
+});

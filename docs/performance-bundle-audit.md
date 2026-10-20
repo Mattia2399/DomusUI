@@ -286,6 +286,8 @@ build pulite consecutive danno report e chunk map identici, hash a parte.
 - **Consumi · Energia (FAIL, preesistente)**: 668,8 KB, di cui `recharts`
   ~320 KB (chunk `CartesianChart` 274,5 + `BarChart` 45,9), il codice Energy
   306,3 e `tailwind-merge` 26,3. Non toccato (mini-app autonoma).
+  **Risolto in PERF.E1** (281,3 / 86,7 KB): Recharts entra solo con i
+  dettagli Acqua e Gas ([Bundle di Consumi · Energia](performance-energy-bundle.md)).
 - **Totale al 98,4% gzip**: dominato da MapLibre (1,07 MB, solo mappa
   membri), Home (1,04 MB), recharts, i tre cataloghi (~590 KB).
 - **Onboarding nel Boot** (34 KB di testi più i componenti): vedi PERF.2.

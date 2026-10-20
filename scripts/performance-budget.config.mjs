@@ -96,6 +96,10 @@ export const surfaces = [
     id: 'energy-settings', label: 'Energy · Impostazioni', sources: ['src/pages/consumi/energy/EnergySettings.tsx'], requires: 'consumi', kind: 'feature',
     budget: { metric: 'incremental', raw: { warning: 90 * KB, limit: 100 * KB }, gzip: { warning: 28 * KB, limit: 32 * KB } },
   },
+  // The Water and Gas preview charts and the chart library (Recharts), loaded
+  // when one of those details opens (PERF.E1). Reported only: a budget of its
+  // own is a proposal in docs/performance-energy-bundle.md.
+  { id: 'consumption-charts', label: 'Consumi · Grafici Acqua e Gas', sources: ['src/pages/consumi/consumptionCharts.tsx'], requires: 'consumi', kind: 'feature' },
   // Dashboard builder: the card catalog opened while editing Home. Baseline 44,500 / 16,000.
   {
     id: 'dashboard-builder', label: 'Builder · catalogo card', sources: ['src/components/dashboard/DashboardCatalogModal.tsx'], requires: 'home', kind: 'feature',

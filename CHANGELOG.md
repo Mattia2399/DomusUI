@@ -95,6 +95,10 @@
 
 ### Changed
 
+- Consumption opens with about 388 KB less code (117 KB compressed): the
+  chart library now loads only when the Water or Gas details open, and their
+  charts show a placeholder in the same space while it arrives. Nothing else
+  changes on screen.
 - Domus starts with about 27 KB less code (8 KB compressed) on a home that
   is already set up: the first-run setup screens are no longer part of
   startup, and only the setup words of the current language come with it,
