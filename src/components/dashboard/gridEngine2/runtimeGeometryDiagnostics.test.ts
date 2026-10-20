@@ -80,10 +80,11 @@ function snapshot(
     renderer: 'legacy',
     structuralContext: report.structuralContext,
     canvasRect: { left: 0, top: 0, width: 600, height: 600 },
+    observedRootIds: report.elements.map(({ id }) => id),
     elements: report.elements.map(({ id }) => ({
       id,
       rect: rects[id] ?? null,
-      hasRunningAnimation: false,
+      hasRunningGeometryAnimation: false,
     })),
     acquisitionMs: 0.25,
     ...overrides,

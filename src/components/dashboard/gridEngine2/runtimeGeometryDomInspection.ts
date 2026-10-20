@@ -9,6 +9,15 @@ import type {
 import { fingerprintRuntimeShadowId } from './runtimeShadowIdAudit';
 
 export const GRID_ENGINE_2_RUNTIME_GEOMETRY_LOG_PREFIX = '[DomusUI:grid-engine2:runtime-geometry]';
+export const GRID_ENGINE_2_RUNTIME_GEOMETRY_DEADLINE_MS = 1_200;
+
+export type RuntimeGeometryDomMeasurementReason =
+  | 'geometry-animation-running'
+  | 'inter-frame-rect-delta'
+  | 'measurement-deadline-exceeded'
+  | 'measurement-context-invalidated'
+  | 'root-container-not-observable'
+  | 'two-consecutive-dom-observations-agree';
 
 export type RuntimeGeometryDomRect = Readonly<{
   left: number;
@@ -20,13 +29,14 @@ export type RuntimeGeometryDomRect = Readonly<{
 export type RuntimeGeometryDomSnapshotElement = Readonly<{
   id: string;
   rect: RuntimeGeometryDomRect | null;
-  hasRunningAnimation: boolean;
+  hasRunningGeometryAnimation: boolean;
 }>;
 
 export type RuntimeGeometryDomSnapshot = Readonly<{
   renderer: 'legacy' | 'grid-engine-2' | 'unavailable';
   structuralContext: RuntimeGeometryStructuralContext | null;
   canvasRect: RuntimeGeometryDomRect | null;
+  observedRootIds: readonly string[];
   elements: readonly RuntimeGeometryDomSnapshotElement[];
   acquisitionMs: number;
 }>;
@@ -43,7 +53,16 @@ export type RuntimeGeometryDomElementResult = Readonly<{
     deltaW: number;
     deltaH: number;
   }> | null;
-  reason: string;
+  maxInterFrameDeltaPx: number | null;
+  reason: RuntimeGeometryDomMeasurementReason;
+}>;
+
+export type RuntimeGeometryDomAcquisition = Readonly<{
+  stabilizationWaitMs: number;
+  snapshotCount: number;
+  relevantGeometryAnimationCount: number;
+  deadlineReached: boolean;
+  reducedMotion: boolean;
 }>;
 
 export type RuntimeGeometryDomInspection = Readonly<{
@@ -57,7 +76,32 @@ export type RuntimeGeometryDomInspection = Readonly<{
   overlapPairs: readonly (readonly [string, string])[];
   elements: readonly RuntimeGeometryDomElementResult[];
   timingMs: number;
+  acquisition: RuntimeGeometryDomAcquisition;
   limitations: readonly string[];
+}>;
+
+export type RuntimeGeometryDomMeasurementContext = Readonly<{
+  breakpoint: string;
+  renderer: Exclude<RuntimeGeometryDomSnapshot['renderer'], 'unavailable'>;
+  diagnosticSignature: string;
+  geometrySignature: string;
+  structuralContext: RuntimeGeometryStructuralContext | null;
+  rootIds: readonly string[];
+}>;
+
+export type RuntimeGeometryDomScheduleMetrics = Readonly<{
+  stabilizationWaitMs: number;
+  snapshotCount: number;
+  relevantGeometryAnimationCount: number;
+  deadlineReached: boolean;
+  cancellationCount: number;
+  contextInvalidated: boolean;
+  reported: boolean;
+}>;
+
+export type RuntimeGeometryDomInspectionHandle = Readonly<{
+  cancel: () => void;
+  getMetrics: () => RuntimeGeometryDomScheduleMetrics;
 }>;
 
 type RuntimeGeometryLogger = Readonly<{
@@ -77,6 +121,11 @@ type FinalizeDomInspectionInput = Readonly<{
   second: RuntimeGeometryDomSnapshot;
   geometry: RootRendererGeometry;
   tolerancePx?: number;
+  forcedTransientReason?: Extract<
+    RuntimeGeometryDomMeasurementReason,
+    'measurement-deadline-exceeded'
+  >;
+  acquisition?: Partial<RuntimeGeometryDomAcquisition>;
 }>;
 
 type ScheduleDomInspectionInput = Readonly<{
@@ -85,8 +134,36 @@ type ScheduleDomInspectionInput = Readonly<{
   geometry: RootRendererGeometry;
   signature: string;
   logger?: RuntimeGeometryLogger;
-  getCurrentStructuralContext: () => RuntimeGeometryStructuralContext | null;
+  measurementContext: RuntimeGeometryDomMeasurementContext;
+  getCurrentMeasurementContext: () => RuntimeGeometryDomMeasurementContext;
+  deadlineMs?: number;
+  runtime?: Partial<RuntimeGeometryDomSchedulerRuntime>;
 }>;
+
+type RuntimeGeometryDomSchedulerRuntime = Readonly<{
+  now: () => number;
+  requestAnimationFrame: (callback: FrameRequestCallback) => number;
+  cancelAnimationFrame: (handle: number) => void;
+  setTimeout: (callback: () => void, delayMs: number) => number;
+  clearTimeout: (handle: number) => void;
+}>;
+
+type ResolvedCanvas = Readonly<{
+  canvas: HTMLElement | null;
+  renderer: RuntimeGeometryDomSnapshot['renderer'];
+}>;
+
+const GEOMETRY_ANIMATION_PROPERTIES = new Set([
+  'transform', 'translate', 'scale', 'rotate',
+  'left', 'right', 'top', 'bottom',
+  'inset', 'inset-block', 'inset-block-start', 'inset-block-end',
+  'inset-inline', 'inset-inline-start', 'inset-inline-end',
+  'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height',
+  'margin', 'margin-left', 'margin-right', 'margin-top', 'margin-bottom',
+  'padding', 'padding-left', 'padding-right', 'padding-top', 'padding-bottom',
+  'border-width', 'border-left-width', 'border-right-width', 'border-top-width', 'border-bottom-width',
+  'box-sizing', 'flex-basis', 'grid-area', 'grid-row', 'grid-column',
+]);
 
 function defaultNow() {
   return typeof performance === 'undefined' ? Date.now() : performance.now();
@@ -118,6 +195,25 @@ function sameContext(
   );
 }
 
+function sameStrings(first: readonly string[], second: readonly string[]) {
+  if (first.length !== second.length) return false;
+  const sortedFirst = [...first].sort();
+  const sortedSecond = [...second].sort();
+  return sortedFirst.every((value, index) => value === sortedSecond[index]);
+}
+
+function sameMeasurementContext(
+  first: RuntimeGeometryDomMeasurementContext,
+  second: RuntimeGeometryDomMeasurementContext,
+) {
+  return first.breakpoint === second.breakpoint &&
+    first.renderer === second.renderer &&
+    first.diagnosticSignature === second.diagnosticSignature &&
+    first.geometrySignature === second.geometrySignature &&
+    sameContext(first.structuralContext, second.structuralContext) &&
+    sameStrings(first.rootIds, second.rootIds);
+}
+
 function rectStable(first: RuntimeGeometryDomRect, second: RuntimeGeometryDomRect, tolerance: number) {
   return (
     Math.abs(first.left - second.left) <= tolerance &&
@@ -125,6 +221,15 @@ function rectStable(first: RuntimeGeometryDomRect, second: RuntimeGeometryDomRec
     Math.abs(first.width - second.width) <= tolerance &&
     Math.abs(first.height - second.height) <= tolerance
   );
+}
+
+function maxRectDelta(first: RuntimeGeometryDomRect, second: RuntimeGeometryDomRect) {
+  return round(Math.max(
+    Math.abs(first.left - second.left),
+    Math.abs(first.top - second.top),
+    Math.abs(first.width - second.width),
+    Math.abs(first.height - second.height),
+  ));
 }
 
 function rectsOverlap(first: RuntimeGeometryDomRect, second: RuntimeGeometryDomRect, tolerance: number) {
@@ -136,45 +241,126 @@ function rectsOverlap(first: RuntimeGeometryDomRect, second: RuntimeGeometryDomR
   );
 }
 
-function runningAnimation(element: Element) {
-  if (typeof element.getAnimations !== 'function') return false;
-  return element.getAnimations().some((animation) => animation.playState === 'running');
+function normalizeAnimationProperty(property: string) {
+  return property
+    .replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+    .toLowerCase();
+}
+
+function isGeometryAnimationProperty(property: string) {
+  return GEOMETRY_ANIMATION_PROPERTIES.has(normalizeAnimationProperty(property));
+}
+
+function animationProperties(animation: Animation) {
+  const properties = new Set<string>();
+  const transitionProperty = (animation as Animation & { readonly transitionProperty?: unknown }).transitionProperty;
+  if (typeof transitionProperty === 'string') {
+    transitionProperty.split(',').map((entry) => entry.trim()).filter(Boolean).forEach((entry) => properties.add(entry));
+  }
+  const effect = animation.effect;
+  if (effect && 'getKeyframes' in effect && typeof effect.getKeyframes === 'function') {
+    try {
+      effect.getKeyframes().forEach((keyframe) => {
+        Object.keys(keyframe).forEach((property) => {
+          if (property !== 'offset' && property !== 'computedOffset' && property !== 'easing' && property !== 'composite') {
+            properties.add(property);
+          }
+        });
+      });
+    } catch {
+      // A browser may expose an animation whose keyframes are not inspectable.
+    }
+  }
+  return properties;
+}
+
+function isRunningAnimation(animation: Animation) {
+  return animation.playState === 'running' || animation.pending === true;
+}
+
+function isRelevantGeometryAnimation(animation: Animation, root: HTMLElement) {
+  if (!isRunningAnimation(animation)) return false;
+  const effect = animation.effect;
+  if (effect && 'target' in effect && effect.target !== root) return false;
+  return [...animationProperties(animation)].some(isGeometryAnimationProperty);
+}
+
+function rootAnimations(root: HTMLElement) {
+  if (typeof root.getAnimations !== 'function') return [];
+  try {
+    // Explicitly exclude descendants: content-only animations must not delay
+    // root geometry diagnostics.
+    return root.getAnimations({ subtree: false });
+  } catch {
+    return root.getAnimations();
+  }
+}
+
+function relevantGeometryAnimations(root: HTMLElement) {
+  return rootAnimations(root).filter((animation) => isRelevantGeometryAnimation(animation, root));
+}
+
+function resolveCanvas(host: HTMLElement | null): ResolvedCanvas {
+  const customCanvas = host?.querySelector<HTMLElement>('[data-grid-engine-root-renderer="grid-engine-2"]') ?? null;
+  if (customCanvas) return { canvas: customCanvas, renderer: 'grid-engine-2' };
+  const legacyCanvas = host?.querySelector<HTMLElement>('.sections-grid.react-grid-layout') ?? null;
+  return legacyCanvas
+    ? { canvas: legacyCanvas, renderer: 'legacy' }
+    : { canvas: null, renderer: 'unavailable' };
+}
+
+function resolveRootElements(canvas: HTMLElement, renderer: RuntimeGeometryDomSnapshot['renderer']) {
+  const roots = new Map<string, HTMLElement>();
+  [...canvas.querySelectorAll<HTMLElement>('[data-grid-engine-runtime-geometry-id]')].forEach((marker) => {
+    const id = marker.dataset.gridEngineRuntimeGeometryId ?? '';
+    const root = marker.closest<HTMLElement>(
+      renderer === 'grid-engine-2' ? '[data-grid-engine-root-item]' : '.react-grid-item',
+    );
+    if (id && root && root.closest('.sections-grid') === canvas) roots.set(id, root);
+  });
+  return roots;
+}
+
+function collectRelevantGeometryAnimations(
+  roots: ReadonlyMap<string, HTMLElement>,
+  expectedIds: readonly string[],
+) {
+  const animations = new Set<Animation>();
+  expectedIds.forEach((id) => {
+    const root = roots.get(id);
+    if (root) relevantGeometryAnimations(root).forEach((animation) => animations.add(animation));
+  });
+  return [...animations];
 }
 
 /** Performs one batched, read-only layout acquisition. */
 export function readRuntimeGeometryDomSnapshot(input: ReadDomSnapshotInput): RuntimeGeometryDomSnapshot {
   const now = input.now ?? defaultNow;
   const startedAt = now();
-  const customCanvas = input.host?.querySelector<HTMLElement>('[data-grid-engine-root-renderer="grid-engine-2"]') ?? null;
-  const canvas = customCanvas ?? input.host?.querySelector<HTMLElement>('.sections-grid.react-grid-layout') ?? null;
+  const resolved = resolveCanvas(input.host);
+  const { canvas, renderer } = resolved;
   if (!canvas) {
     return {
       renderer: 'unavailable',
       structuralContext: input.structuralContext,
       canvasRect: null,
-      elements: input.elementIds.map((id) => ({ id, rect: null, hasRunningAnimation: false })),
+      observedRootIds: [],
+      elements: input.elementIds.map((id) => ({ id, rect: null, hasRunningGeometryAnimation: false })),
       acquisitionMs: round(now() - startedAt),
     };
   }
 
-  const renderer = customCanvas ? 'grid-engine-2' : 'legacy';
   const canvasBounds = canvas.getBoundingClientRect();
-  const markers = new Map(
-    [...canvas.querySelectorAll<HTMLElement>('[data-grid-engine-runtime-geometry-id]')]
-      .map((marker) => [marker.dataset.gridEngineRuntimeGeometryId ?? '', marker] as const),
-  );
+  const roots = resolveRootElements(canvas, renderer);
   const elements = input.elementIds.map((id): RuntimeGeometryDomSnapshotElement => {
-    const marker = markers.get(id);
-    const root = marker?.closest<HTMLElement>(
-      renderer === 'grid-engine-2' ? '[data-grid-engine-root-item]' : '.react-grid-item',
-    ) ?? null;
-    if (!root || root.closest('.sections-grid') !== canvas) {
-      return { id, rect: null, hasRunningAnimation: false };
+    const root = roots.get(id);
+    if (!root) {
+      return { id, rect: null, hasRunningGeometryAnimation: false };
     }
     return {
       id,
       rect: domRect(root.getBoundingClientRect(), canvasBounds),
-      hasRunningAnimation: runningAnimation(root),
+      hasRunningGeometryAnimation: relevantGeometryAnimations(root).length > 0,
     };
   });
 
@@ -187,6 +373,7 @@ export function readRuntimeGeometryDomSnapshot(input: ReadDomSnapshotInput): Run
       width: round(canvasBounds.width),
       height: round(canvasBounds.height),
     },
+    observedRootIds: [...roots.keys()].sort(),
     elements,
     acquisitionMs: round(now() - startedAt),
   };
@@ -200,13 +387,19 @@ export function finalizeRuntimeGeometryDomInspection(
   input: FinalizeDomInspectionInput,
 ): RuntimeGeometryDomInspection {
   const tolerance = input.tolerancePx ?? 1;
+  const rendererMatches = input.first.renderer === input.second.renderer;
+  const renderer = rendererMatches ? input.second.renderer : 'unavailable';
   const contextMatches = (
+    rendererMatches &&
     sameContext(input.first.structuralContext, input.second.structuralContext) &&
-    sameContext(input.second.structuralContext, input.comparison.structuralContext)
+    sameContext(input.second.structuralContext, input.comparison.structuralContext) &&
+    (
+      renderer === 'unavailable' || (
+        sameStrings(input.first.observedRootIds, input.second.observedRootIds) &&
+        sameStrings(input.second.observedRootIds, input.comparison.elements.map((element) => element.id))
+      )
+    )
   );
-  const renderer = input.first.renderer === input.second.renderer
-    ? input.second.renderer
-    : 'unavailable';
   const firstById = new Map(input.first.elements.map((element) => [element.id, element]));
   const secondById = new Map(input.second.elements.map((element) => [element.id, element]));
 
@@ -221,7 +414,8 @@ export function finalizeRuntimeGeometryDomInspection(
         observed: null,
         legacyExpectedPixels: null,
         legacyInputToObservedPixels: null,
-        reason: 'structural-context-changed-before-dom-acquisition',
+        maxInterFrameDeltaPx: null,
+        reason: 'measurement-context-invalidated',
       };
     }
     if (renderer === 'unavailable' || !first?.rect || !second?.rect) {
@@ -232,6 +426,7 @@ export function finalizeRuntimeGeometryDomInspection(
         observed: null,
         legacyExpectedPixels: null,
         legacyInputToObservedPixels: null,
+        maxInterFrameDeltaPx: null,
         reason: 'root-container-not-observable',
       };
     }
@@ -243,7 +438,17 @@ export function finalizeRuntimeGeometryDomInspection(
       width: expected.width,
       height: expected.height,
     };
-    const transient = first.hasRunningAnimation || second.hasRunningAnimation || !rectStable(first.rect, second.rect, tolerance);
+    const maximumDelta = maxRectDelta(first.rect, second.rect);
+    const animationRunning = first.hasRunningGeometryAnimation || second.hasRunningGeometryAnimation;
+    const geometryStable = rectStable(first.rect, second.rect, tolerance);
+    const reason: RuntimeGeometryDomMeasurementReason = input.forcedTransientReason ?? (
+      animationRunning
+        ? 'geometry-animation-running'
+        : !geometryStable
+          ? 'inter-frame-rect-delta'
+          : 'two-consecutive-dom-observations-agree'
+    );
+    const transient = reason !== 'two-consecutive-dom-observations-agree';
     return {
       id: comparison.id,
       status: transient ? 'measurement-transient' : 'stable',
@@ -256,7 +461,8 @@ export function finalizeRuntimeGeometryDomInspection(
         deltaW: round(second.rect.width - expected.width),
         deltaH: round(second.rect.height - expected.height),
       },
-      reason: transient ? 'consecutive-dom-observations-not-stable' : 'two-consecutive-dom-observations-agree',
+      maxInterFrameDeltaPx: maximumDelta,
+      reason,
     };
   });
 
@@ -272,6 +478,17 @@ export function finalizeRuntimeGeometryDomInspection(
     : transientCount > 0
       ? 'measurement-transient'
       : 'stable';
+  const defaultAcquisition: RuntimeGeometryDomAcquisition = {
+    stabilizationWaitMs: 0,
+    snapshotCount: 2,
+    relevantGeometryAnimationCount: 0,
+    deadlineReached: input.forcedTransientReason === 'measurement-deadline-exceeded',
+    reducedMotion: false,
+  };
+  const acquisition = { ...defaultAcquisition, ...input.acquisition };
+  const transientReasons = new Set(
+    elements.filter((element) => element.status === 'measurement-transient').map((element) => element.reason),
+  );
 
   return {
     status,
@@ -284,9 +501,11 @@ export function finalizeRuntimeGeometryDomInspection(
     overlapPairs,
     elements,
     timingMs: round(input.first.acquisitionMs + input.second.acquisitionMs),
+    acquisition,
     limitations: [
       'only-the-active-renderer-was-observed',
       ...(status === 'measurement-transient' ? ['dom-transition-or-animation-observed'] : []),
+      ...[...transientReasons],
       ...(status === 'unavailable' ? ['dom-geometry-unavailable'] : []),
     ],
   };
@@ -331,6 +550,7 @@ export function createRuntimeGeometryConsolePayload(
       transientDom: dom.transientCount,
       unavailableDom: dom.unavailableCount,
       observedDomOverlaps: dom.overlapCount,
+      domSnapshots: dom.acquisition.snapshotCount,
     },
     elements: comparison.elements.map((element) => {
       const observed = domById.get(element.id);
@@ -358,6 +578,7 @@ export function createRuntimeGeometryConsolePayload(
           renderer: observed.renderer,
           observed: observed.observed,
           expectedFromLegacyPixels: observed.legacyExpectedPixels,
+          maxInterFrameDeltaPx: observed.maxInterFrameDeltaPx,
           reason: observed.reason,
         } : null,
       };
@@ -366,6 +587,7 @@ export function createRuntimeGeometryConsolePayload(
       status: dom.status,
       renderer: dom.renderer,
       limitations: dom.limitations,
+      acquisition: dom.acquisition,
       overlapPairs: dom.overlapPairs.map(([first, second]) => [
         fingerprintRuntimeShadowId(first),
         fingerprintRuntimeShadowId(second),
@@ -375,51 +597,296 @@ export function createRuntimeGeometryConsolePayload(
       differenceAnalysisMs: comparison.timings.differenceAnalysisMs,
       collisionAnalysisMs: comparison.timings.collisionAnalysisMs,
       totalCellAnalysisMs: comparison.timings.totalMs,
+      domStabilizationWaitMs: dom.acquisition.stabilizationWaitMs,
       domAcquisitionMs: dom.timingMs,
     },
   };
 }
 
-/** Schedules exactly two animation frames and is fully cancellable. */
-export function scheduleRuntimeGeometryDomInspection(input: ScheduleDomInspectionInput) {
+function schedulerRuntime(overrides: Partial<RuntimeGeometryDomSchedulerRuntime> | undefined) {
+  return {
+    now: overrides?.now ?? defaultNow,
+    requestAnimationFrame: overrides?.requestAnimationFrame ?? window.requestAnimationFrame.bind(window),
+    cancelAnimationFrame: overrides?.cancelAnimationFrame ?? window.cancelAnimationFrame.bind(window),
+    setTimeout: overrides?.setTimeout ?? ((callback: () => void, delayMs: number) => window.setTimeout(callback, delayMs)),
+    clearTimeout: overrides?.clearTimeout ?? ((handle: number) => window.clearTimeout(handle)),
+  } satisfies RuntimeGeometryDomSchedulerRuntime;
+}
+
+function reducedMotionRequested() {
+  try {
+    return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Waits at most once for relevant root geometry animations, then performs two
+ * frame-separated DOM reads. A global deadline guarantees that an infinite
+ * animation or a throttled frame cannot keep the observation alive forever.
+ */
+export function scheduleRuntimeGeometryDomInspection(
+  input: ScheduleDomInspectionInput,
+): RuntimeGeometryDomInspectionHandle {
+  const runtime = schedulerRuntime(input.runtime);
+  const deadlineMs = Math.max(1, Math.round(input.deadlineMs ?? GRID_ENGINE_2_RUNTIME_GEOMETRY_DEADLINE_MS));
+  const scheduledAt = runtime.now();
+  const deadlineAt = scheduledAt + deadlineMs;
+  const ids = input.comparison.elements.map((element) => element.id);
+  let observedCanvas: HTMLElement | null = null;
+  let observedRenderer: Exclude<RuntimeGeometryDomSnapshot['renderer'], 'unavailable'> | null = null;
+  let observedRootNodes = new Map<string, HTMLElement>();
+  let observationStarted = false;
   let cancelled = false;
+  let reported = false;
+  let contextInvalidated = false;
+  let cancellationCount = 0;
+  let deadlineReached = false;
+  let snapshotCount = 0;
+  let relevantGeometryAnimationCount = 0;
+  let stabilizationWaitMs = 0;
+  let waitStartedAt: number | null = null;
+  let waitedForAnimations = false;
   let firstFrame = 0;
   let secondFrame = 0;
-  const ids = input.comparison.elements.map((element) => element.id);
-  firstFrame = window.requestAnimationFrame(() => {
-    if (cancelled) return;
-    const first = readRuntimeGeometryDomSnapshot({
-      host: input.host,
-      elementIds: ids,
-      structuralContext: input.getCurrentStructuralContext(),
-    });
-    secondFrame = window.requestAnimationFrame(() => {
-      if (cancelled) return;
-      const second = readRuntimeGeometryDomSnapshot({
-        host: input.host,
-        elementIds: ids,
-        structuralContext: input.getCurrentStructuralContext(),
-      });
-      const dom = finalizeRuntimeGeometryDomInspection({
-        comparison: input.comparison,
-        first,
-        second,
-        geometry: input.geometry,
-      });
-      try {
-        (input.logger ?? console).info(
-          GRID_ENGINE_2_RUNTIME_GEOMETRY_LOG_PREFIX,
-          createRuntimeGeometryConsolePayload(input.comparison, dom, input.signature),
-        );
-      } catch {
-        // Console diagnostics must never affect Home rendering.
-      }
-    });
+  let deadlineTimer = 0;
+  let rendererObserver: MutationObserver | null = null;
+
+  const metrics = (): RuntimeGeometryDomScheduleMetrics => ({
+    stabilizationWaitMs: round(stabilizationWaitMs),
+    snapshotCount,
+    relevantGeometryAnimationCount,
+    deadlineReached,
+    cancellationCount,
+    contextInvalidated,
+    reported,
   });
 
-  return () => {
+  const clearScheduledWork = () => {
+    if (firstFrame) runtime.cancelAnimationFrame(firstFrame);
+    if (secondFrame) runtime.cancelAnimationFrame(secondFrame);
+    if (deadlineTimer) runtime.clearTimeout(deadlineTimer);
+    rendererObserver?.disconnect();
+    firstFrame = 0;
+    secondFrame = 0;
+    deadlineTimer = 0;
+    rendererObserver = null;
+  };
+
+  const invalidate = () => {
+    if (cancelled || reported) return;
     cancelled = true;
-    window.cancelAnimationFrame(firstFrame);
-    window.cancelAnimationFrame(secondFrame);
+    contextInvalidated = true;
+    cancellationCount += 1;
+    clearScheduledWork();
+  };
+
+  const measurementContextStillMatches = () => {
+    if (cancelled || !input.host.isConnected) return false;
+    return sameMeasurementContext(input.measurementContext, input.getCurrentMeasurementContext());
+  };
+
+  const initializeExpectedDom = () => {
+    if (!measurementContextStillMatches()) return false;
+    const current = resolveCanvas(input.host);
+    if (!current.canvas || current.renderer !== input.measurementContext.renderer) return false;
+    const roots = resolveRootElements(current.canvas, current.renderer);
+    if (!sameStrings([...roots.keys()], ids)) return false;
+    if (!ids.every((id) => roots.has(id))) return false;
+    observedCanvas = current.canvas;
+    observedRenderer = current.renderer;
+    observedRootNodes = new Map(ids.map((id) => [id, roots.get(id)!]));
+    return true;
+  };
+
+  const currentDomStillMatches = () => {
+    if (!measurementContextStillMatches() || !observedCanvas || !observedRenderer) return false;
+    const current = resolveCanvas(input.host);
+    if (current.canvas !== observedCanvas || current.renderer !== observedRenderer) return false;
+    const roots = resolveRootElements(current.canvas, current.renderer);
+    if (!sameStrings([...roots.keys()], ids)) return false;
+    return ids.every((id) => roots.get(id) === observedRootNodes.get(id));
+  };
+
+  const readSnapshot = () => {
+    snapshotCount += 1;
+    return readRuntimeGeometryDomSnapshot({
+      host: input.host,
+      elementIds: ids,
+      structuralContext: input.getCurrentMeasurementContext().structuralContext,
+      now: runtime.now,
+    });
+  };
+
+  const publish = (
+    first: RuntimeGeometryDomSnapshot,
+    second: RuntimeGeometryDomSnapshot,
+    forcedTransientReason?: 'measurement-deadline-exceeded',
+  ) => {
+    if (cancelled || reported) return;
+    if (!currentDomStillMatches()) {
+      invalidate();
+      return;
+    }
+    reported = true;
+    clearScheduledWork();
+    const dom = finalizeRuntimeGeometryDomInspection({
+      comparison: input.comparison,
+      first,
+      second,
+      geometry: input.geometry,
+      forcedTransientReason,
+      acquisition: {
+        stabilizationWaitMs: round(stabilizationWaitMs),
+        snapshotCount,
+        relevantGeometryAnimationCount,
+        deadlineReached,
+        reducedMotion: reducedMotionRequested(),
+      },
+    });
+    try {
+      (input.logger ?? console).info(
+        GRID_ENGINE_2_RUNTIME_GEOMETRY_LOG_PREFIX,
+        createRuntimeGeometryConsolePayload(input.comparison, dom, input.signature),
+      );
+    } catch {
+      // Console diagnostics must never affect Home rendering.
+    }
+  };
+
+  const publishDeadline = () => {
+    if (cancelled || reported) return;
+    if (!measurementContextStillMatches()) {
+      invalidate();
+      return;
+    }
+    if (!observedCanvas) {
+      // The expected renderer never committed. Do not diagnose its temporary
+      // fallback as though it were the requested measurement context.
+      deadlineReached = true;
+      cancelled = true;
+      cancellationCount += 1;
+      clearScheduledWork();
+      return;
+    }
+    if (!currentDomStillMatches()) {
+      invalidate();
+      return;
+    }
+    deadlineReached = true;
+    if (waitStartedAt !== null) stabilizationWaitMs = Math.max(0, runtime.now() - waitStartedAt);
+    if (firstFrame) runtime.cancelAnimationFrame(firstFrame);
+    if (secondFrame) runtime.cancelAnimationFrame(secondFrame);
+    firstFrame = 0;
+    secondFrame = 0;
+    // At the deadline we deliberately do not infer stability from synchronous
+    // reads; the forced reason keeps the result transient.
+    const first = readSnapshot();
+    const second = readSnapshot();
+    publish(first, second, 'measurement-deadline-exceeded');
+  };
+
+  const scheduleTwoFrames = () => {
+    if (cancelled || reported) return;
+    firstFrame = runtime.requestAnimationFrame(() => {
+      firstFrame = 0;
+      if (!currentDomStillMatches()) {
+        invalidate();
+        return;
+      }
+      const current = resolveCanvas(input.host);
+      const roots = current.canvas ? resolveRootElements(current.canvas, current.renderer) : new Map<string, HTMLElement>();
+      const animations = collectRelevantGeometryAnimations(roots, ids);
+      relevantGeometryAnimationCount = Math.max(relevantGeometryAnimationCount, animations.length);
+      if (!waitedForAnimations && animations.length > 0) {
+        waitedForAnimations = true;
+        waitStartedAt = runtime.now();
+        void Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+          if (cancelled || reported) return;
+          if (!currentDomStillMatches()) {
+            invalidate();
+            return;
+          }
+          stabilizationWaitMs = Math.max(0, runtime.now() - (waitStartedAt ?? runtime.now()));
+          scheduleTwoFrames();
+        });
+        return;
+      }
+      const first = readSnapshot();
+      secondFrame = runtime.requestAnimationFrame(() => {
+        secondFrame = 0;
+        if (!currentDomStillMatches()) {
+          invalidate();
+          return;
+        }
+        const second = readSnapshot();
+        publish(first, second);
+      });
+    });
+  };
+
+  const beginObservation = () => {
+    if (cancelled || reported || observationStarted) return;
+    observationStarted = true;
+    if (!currentDomStillMatches()) {
+      invalidate();
+      return;
+    }
+    const animations = collectRelevantGeometryAnimations(observedRootNodes, ids);
+    relevantGeometryAnimationCount = animations.length;
+    if (animations.length > 0) {
+      waitedForAnimations = true;
+      waitStartedAt = runtime.now();
+      void Promise.allSettled(animations.map((animation) => animation.finished)).then(() => {
+        if (cancelled || reported) return;
+        if (!currentDomStillMatches()) {
+          invalidate();
+          return;
+        }
+        stabilizationWaitMs = Math.max(0, runtime.now() - (waitStartedAt ?? runtime.now()));
+        scheduleTwoFrames();
+      });
+    } else {
+      scheduleTwoFrames();
+    }
+  };
+
+  deadlineTimer = runtime.setTimeout(publishDeadline, Math.max(1, deadlineAt - runtime.now()));
+  if (!measurementContextStillMatches()) {
+    invalidate();
+  } else if (initializeExpectedDom()) {
+    beginObservation();
+  } else if (typeof MutationObserver === 'function') {
+    // React may temporarily expose the legacy Suspense fallback while the
+    // development-only custom renderer chunk is loading. Observe that commit
+    // event once instead of sampling or accepting the fallback as definitive.
+    rendererObserver = new MutationObserver(() => {
+      if (!measurementContextStillMatches()) {
+        invalidate();
+        return;
+      }
+      if (initializeExpectedDom()) {
+        rendererObserver?.disconnect();
+        rendererObserver = null;
+        beginObservation();
+      }
+    });
+    rendererObserver.observe(input.host, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['data-grid-engine-root-renderer'],
+    });
+  }
+
+  return {
+    cancel: () => {
+      if (cancelled || reported) return;
+      cancelled = true;
+      cancellationCount += 1;
+      clearScheduledWork();
+    },
+    getMetrics: metrics,
   };
 }

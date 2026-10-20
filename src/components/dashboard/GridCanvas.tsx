@@ -233,6 +233,20 @@ const COMPACT_DRAG_LONG_PRESS_MS = 650;
 const COMPACT_DRAG_HOLD_MOVE_TOLERANCE_PX = 10;
 const GRID_ENGINE_2_SHADOW_SETTLE_MS = 160;
 
+function createRuntimeGeometryMeasurementSignature(
+  breakpoint: GridBreakpoint,
+  width: number,
+) {
+  return JSON.stringify({
+    breakpoint,
+    width: Math.round(width * 100) / 100,
+    cols: GRID_ENGINE_COLS[breakpoint],
+    rowHeight: GRID_ENGINE_ROW_UNIT,
+    gap: [GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX],
+    padding: GRID_ENGINE_CONTAINER_PADDING[breakpoint],
+  });
+}
+
 type CompactTouchSnapshot = {
   identifier: number;
   clientX: number;
@@ -1213,6 +1227,7 @@ export function GridCanvas({
   const gridEngine2ShadowSignatureRef = useRef<string | null>(null);
   const gridEngine2RuntimeShadowSignatureRef = useRef<string | null>(null);
   const gridEngine2RuntimeRenderSignatureRef = useRef<string | null>(null);
+  const runtimeGeometryExpectedRendererRef = useRef<'legacy' | 'grid-engine-2'>('legacy');
   const structuralLoadSnapshotContextRef = useRef({
     generation: structuralLoadSnapshot.generation,
     revision: structuralLoadSnapshot.revision,
@@ -2075,6 +2090,28 @@ export function GridCanvas({
     sections,
     widgets,
   ]);
+  const runtimeGeometryLiveContextRef = useRef({
+    breakpoint: gridEngineActiveBreakpoint,
+    geometrySignature: createRuntimeGeometryMeasurementSignature(
+      gridEngineActiveBreakpoint,
+      runtimeGridEffectiveWidth,
+    ),
+    rootIds: [
+      ...sections.map((section) => section.id),
+      ...widgets.filter((widget) => !widget.parentSectionId).map((widget) => widget.id),
+    ].sort(),
+  });
+  runtimeGeometryLiveContextRef.current = {
+    breakpoint: gridEngineActiveBreakpoint,
+    geometrySignature: createRuntimeGeometryMeasurementSignature(
+      gridEngineActiveBreakpoint,
+      runtimeGridEffectiveWidth,
+    ),
+    rootIds: [
+      ...sections.map((section) => section.id),
+      ...widgets.filter((widget) => !widget.parentSectionId).map((widget) => widget.id),
+    ].sort(),
+  };
   useEffect(() => {
     if (
       !GRID_ENGINE_2_RUNTIME_SHADOW_ENABLED ||
@@ -2201,7 +2238,11 @@ export function GridCanvas({
             void import('./gridEngine2/runtimeGeometryDomInspection')
               .then(({ scheduleRuntimeGeometryDomInspection }) => {
                 if (cancelled || isCanvasInteractingRef.current) return;
-                cancelDomInspection = scheduleRuntimeGeometryDomInspection({
+                const geometrySignature = createRuntimeGeometryMeasurementSignature(
+                  gridEngineActiveBreakpoint,
+                  runtimeGridEffectiveWidth,
+                );
+                const inspection = scheduleRuntimeGeometryDomInspection({
                   host,
                   comparison: result.report.geometryInspection!,
                   signature: result.nextSignature,
@@ -2212,8 +2253,24 @@ export function GridCanvas({
                     gap: [GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX],
                     padding: GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint],
                   },
-                  getCurrentStructuralContext: () => structuralLoadSnapshotContextRef.current,
+                  measurementContext: {
+                    breakpoint: gridEngineActiveBreakpoint,
+                    renderer: runtimeGeometryExpectedRendererRef.current,
+                    diagnosticSignature: result.nextSignature,
+                    geometrySignature,
+                    structuralContext: result.report.geometryInspection!.structuralContext,
+                    rootIds: rootElements.map((element) => element.id).sort(),
+                  },
+                  getCurrentMeasurementContext: () => ({
+                    breakpoint: runtimeGeometryLiveContextRef.current.breakpoint,
+                    renderer: runtimeGeometryExpectedRendererRef.current,
+                    diagnosticSignature: gridEngine2RuntimeShadowSignatureRef.current ?? '',
+                    geometrySignature: runtimeGeometryLiveContextRef.current.geometrySignature,
+                    structuralContext: structuralLoadSnapshotContextRef.current,
+                    rootIds: runtimeGeometryLiveContextRef.current.rootIds,
+                  }),
                 });
+                cancelDomInspection = inspection.cancel;
               })
               .catch((error: unknown) => {
                 if (!cancelled) {
@@ -2248,6 +2305,7 @@ export function GridCanvas({
     isRuntimeGridReady,
     liveGridEngineLayouts,
     runtimeGridEffectiveWidth,
+    sections,
     structuralLoadSnapshot,
     widgets,
   ]);
@@ -2363,6 +2421,7 @@ export function GridCanvas({
       runtimeRenderDecision.renderer === 'custom'
     )
   );
+  runtimeGeometryExpectedRendererRef.current = rootRendererEnabled ? 'grid-engine-2' : 'legacy';
   const runtimeSolverSpans = runtimeRenderDecision.kind === 'custom-solver'
     ? runtimeRenderDecision.runtimeSpans
     : null;

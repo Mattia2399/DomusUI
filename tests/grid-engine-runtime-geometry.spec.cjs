@@ -31,7 +31,7 @@ function geometryFixture() {
     'geometry.direct',
     'geometry.chain',
     'geometry.other-lane',
-    ...Array.from({ length: 18 }, (_, index) => `geometry.fill-${index + 1}`),
+    ...Array.from({ length: 17 }, (_, index) => `geometry.fill-${index + 1}`),
   ];
   const layoutFor = (cols) => {
     const span = cols <= 4 ? 1 : 2;
@@ -169,7 +169,7 @@ test(`runtime geometry inspection ${EXPECT_GEOMETRY ? 'enabled' : 'disabled'} is
   await page.setViewportSize({ width: 1920, height: 1080 });
   await installFixture(page);
   await page.goto('/?view=home');
-  await expect(page.locator('.sections-grid > .react-grid-item')).toHaveCount(22);
+  await expect(page.locator('.sections-grid > .react-grid-item')).toHaveCount(21);
   await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveCount(EXPECT_RENDERER ? 1 : 0);
   await page.evaluate(() => { window.__trackRuntimeGeometryWrites = true; });
 
@@ -185,14 +185,18 @@ test(`runtime geometry inspection ${EXPECT_GEOMETRY ? 'enabled' : 'disabled'} is
     return;
   }
 
-  await expect(page.locator('[data-grid-engine-runtime-geometry-id]')).toHaveCount(22);
+  await expect(page.locator('[data-grid-engine-runtime-geometry-id]')).toHaveCount(21);
   const initial = await waitForGeometryReport(reports, (report) =>
     report.event === 'geometry-report' && report.counts.solverChanges === 0);
-  expect(initial.counts.roots).toBe(22);
+  expect(initial.counts.roots).toBe(21);
   expect(initial.counts.finalCellOverlaps).toBe(0);
   expect(initial.counts.observedDomOverlaps).toBe(0);
+  expect(initial.counts.stableDom).toBe(21);
+  expect(initial.counts.transientDom).toBe(0);
+  expect(initial.counts.domSnapshots).toBe(2);
+  expect(initial.dom.status).toBe('stable');
   expect(initial.dom.renderer).toBe(EXPECT_RENDERER ? 'grid-engine-2' : 'legacy');
-  expect(initial.elements).toHaveLength(22);
+  expect(initial.elements).toHaveLength(21);
   expect(initial.elements.every((entry) => entry.classification.solver === 'unchanged')).toBe(true);
   expect(JSON.stringify(initial)).not.toContain('geometry.private-light');
   const collapsedRects = await rootRects(page);
@@ -209,6 +213,8 @@ test(`runtime geometry inspection ${EXPECT_GEOMETRY ? 'enabled' : 'disabled'} is
   expect(on.counts.collisionChainCandidates).toBeGreaterThanOrEqual(1);
   expect(on.counts.unexplainedMovements).toBe(0);
   expect(on.counts.finalCellOverlaps).toBe(0);
+  expect(on.dom.status).toBe('stable');
+  expect(on.counts.stableDom).toBe(21);
   expect(on.elements.filter((entry) => entry.classification.solver === 'direct-collision')).toHaveLength(1);
   expect(on.elements.filter((entry) => entry.classification.solver === 'collision-chain-candidate')).toHaveLength(1);
 
@@ -218,6 +224,7 @@ test(`runtime geometry inspection ${EXPECT_GEOMETRY ? 'enabled' : 'disabled'} is
   const offAgain = await waitForGeometryReport(reports, (report) =>
     report.event === 'geometry-report' && report.counts.solverChanges === 0, reportsBeforeOff);
   expect(offAgain.signature).toBe(initial.signature);
+  expect(offAgain.dom.status).toBe('stable');
   await expect.poll(async () => await rootRects(page)).toEqual(collapsedRects);
 
   for (const viewport of [
@@ -231,14 +238,41 @@ test(`runtime geometry inspection ${EXPECT_GEOMETRY ? 'enabled' : 'disabled'} is
     await page.setViewportSize(viewport);
     await page.waitForTimeout(700);
     for (const responsive of reports.slice(before)) {
-      expect(responsive.counts.roots).toBe(22);
+      expect(responsive.counts.roots).toBe(21);
       expect(responsive.counts.finalCellOverlaps).toBe(0);
       expect(responsive.counts.observedDomOverlaps).toBe(0);
+      expect(responsive.dom.status).toBe('stable');
       observedRendererModes.push(responsive.dom.renderer);
     }
   }
   expect(new Set(observedRendererModes)).toEqual(new Set([EXPECT_RENDERER ? 'grid-engine-2' : 'legacy']));
   expect(new Set(reports.map((report) => report.breakpoint)).size).toBeGreaterThanOrEqual(3);
+
+  // Invalidate an in-flight LG observation with a breakpoint change and a
+  // second Light update. Only the final, current context may be published.
+  const beforeLgSettle = reports.length;
+  await page.setViewportSize({ width: 1200, height: 900 });
+  const lgSettled = await waitForGeometryReport(reports, (report) =>
+    report.event === 'geometry-report', beforeLgSettle);
+  const beforeRapidChanges = reports.length;
+  await lightRoot.locator('.light-card__toggle').press('Enter');
+  await expect(lightRoot.locator('.light-card')).toHaveAttribute('data-light-state', 'on');
+  await page.waitForTimeout(40);
+  await page.setViewportSize({ width: 900, height: 850 });
+  await page.waitForTimeout(40);
+  await lightRoot.locator('.light-card__toggle').press('Enter');
+  await expect(lightRoot.locator('.light-card')).toHaveAttribute('data-light-state', 'off');
+  const rapidFinal = await waitForGeometryReport(reports, (report) =>
+    report.event === 'geometry-report' &&
+      report.breakpoint !== lgSettled.breakpoint &&
+      report.counts.solverChanges === 0,
+  beforeRapidChanges);
+  await page.waitForTimeout(1_400);
+  const rapidReports = reports.slice(beforeRapidChanges);
+  expect(rapidReports.every((report) => report.breakpoint === rapidFinal.breakpoint)).toBe(true);
+  expect(rapidReports.every((report) => report.counts.solverChanges === 0)).toBe(true);
+  expect(rapidReports.filter((report) => report.signature === rapidFinal.signature)).toHaveLength(1);
+  expect(rapidFinal.dom.status).toBe('stable');
 
   await page.waitForTimeout(500);
   const reportCount = reports.length;
@@ -251,12 +285,12 @@ test(`runtime geometry inspection ${EXPECT_GEOMETRY ? 'enabled' : 'disabled'} is
   await expect(page.locator('.dashboard-edit-overlay')).toHaveCount(0);
   console.log('[runtime-geometry browser performance]', JSON.stringify({
     renderer: EXPECT_RENDERER ? 'grid-engine-2' : 'legacy',
-    roots: 22,
+    roots: 21,
     samples: reports.map((report) => report.timings),
   }));
 });
 
-test('runtime geometry inspection measures a 30-root fixture once', async ({ page }) => {
+for (const rootCount of [11, 30]) test(`runtime geometry inspection measures a ${rootCount}-root fixture once`, async ({ page }) => {
   test.skip(!EXPECT_GEOMETRY, 'requires the separate runtime geometry inspection flag');
   test.setTimeout(90_000);
   const reports = [];
@@ -272,20 +306,25 @@ test('runtime geometry inspection measures a 30-root fixture once', async ({ pag
   });
 
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await installFixture(page, densityFixture(30));
+  await installFixture(page, densityFixture(rootCount));
   await page.goto('/?view=home');
-  await expect(page.locator('.sections-grid > .react-grid-item')).toHaveCount(30);
+  await expect(page.locator('.sections-grid > .react-grid-item')).toHaveCount(rootCount);
   const report = await waitForGeometryReport(reports, (entry) =>
-    entry.event === 'geometry-report' && entry.counts.roots === 30);
+    entry.event === 'geometry-report' && entry.counts.roots === rootCount);
   expect(report.status).toBe('available');
-  expect(report.elements).toHaveLength(30);
+  expect(report.elements).toHaveLength(rootCount);
   expect(report.counts.finalCellOverlaps).toBe(0);
   expect(report.counts.observedDomOverlaps).toBe(0);
-  expect(report.counts.stableDom + report.counts.transientDom + report.counts.unavailableDom).toBe(30);
+  expect(report.counts.stableDom).toBe(rootCount);
+  expect(report.counts.transientDom).toBe(0);
+  expect(report.counts.unavailableDom).toBe(0);
+  expect(report.counts.domSnapshots).toBe(2);
+  expect(report.dom.status).toBe('stable');
+  expect(report.dom.renderer).toBe(EXPECT_RENDERER ? 'grid-engine-2' : 'legacy');
   expect(haRequests).toEqual([]);
-  console.log('[runtime-geometry browser performance 30]', JSON.stringify({
+  console.log(`[runtime-geometry browser performance ${rootCount}]`, JSON.stringify({
     renderer: EXPECT_RENDERER ? 'grid-engine-2' : 'legacy',
-    roots: 30,
+    roots: rootCount,
     timings: report.timings,
   }));
 });
