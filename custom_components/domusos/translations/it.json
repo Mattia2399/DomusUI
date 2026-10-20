@@ -16,12 +16,17 @@
     "stop_irrigation_zone": { "name": "Ferma zona irrigazione", "description": "Chiude una zona e annulla la relativa sessione.", "fields": { "zone_id": { "name": "ID zona", "description": "Identificatore stabile della zona configurata in Domus UI." } } },
     "pause_irrigation": { "name": "Metti in pausa l'irrigazione", "description": "Chiude le zone attive e conserva il tempo residuo." },
     "resume_irrigation": { "name": "Riprendi irrigazione", "description": "Riprende esplicitamente le sessioni in pausa." },
-    "stop_all_irrigation": { "name": "Arresta tutta l'irrigazione", "description": "Chiude tutte le zone, svuota la coda e ferma le programmazioni." }
+    "stop_all_irrigation": { "name": "Arresta tutta l'irrigazione", "description": "Chiude tutte le zone, svuota la coda e ferma le programmazioni." },
+    "reset_access_policy": { "name": "Reimposta i permessi Domus", "description": "Solo per amministratori. Mette da parte la policy di accesso Domus attuale e riporta ogni account al ruolo predefinito: gli amministratori di Home Assistant restano amministratori, tutti gli altri diventano membri." }
   },
   "issues": {
     "irrigation_close_failed": {
       "title": "La zona di irrigazione non si è chiusa",
       "description": "Domus Core non ha potuto confermare la chiusura di {zone} dopo più tentativi ({reason}). Controlla l'attuatore e, se necessario, chiudi manualmente l'acqua."
+    },
+    "access_policy_untrusted": {
+      "title": "Impossibile leggere i permessi Domus",
+      "description": "La policy di accesso Domus è {state}. Gli account non amministratori mantengono solo le viste di base finché un amministratore non esegue l'azione Domus \"Reimposta i permessi Domus\". La policy precedente viene conservata accanto allo store, mai eliminata."
     }
   }
 }

@@ -18,6 +18,8 @@ from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
+from .access import DATA_ACCESS_MANAGER, AccessPolicyManager
+from .access.api import async_register_access_api
 from .calendar_store import DomusCalendarStore
 from .const import (
     DOMAIN,
@@ -66,6 +68,8 @@ class DomusEntryData:
     notification_router: NotificationRouter | None = None
     # Optional: None when device power management failed to start.
     device_power_manager: DevicePowerManager | None = None
+    # Optional: None when access control failed to start; nothing is enforced with it yet.
+    access_manager: AccessPolicyManager | None = None
 
 
 DomusConfigEntry = ConfigEntry[DomusEntryData]
@@ -90,6 +94,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await async_register_energy_api(hass)
     await async_register_profile_api(hass)
     await async_register_device_power_api(hass)
+    await async_register_access_api(hass)
     return True
 
 
@@ -180,6 +185,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
         await _async_setup_profile(hass, entry_data)
         await _async_setup_notifications(hass, entry_data)
         await _async_setup_device_power(hass, entry_data)
+        await _async_setup_access(hass, entry_data)
         await panel_custom.async_register_panel(hass=hass, **panel_options)
         domain_data["irrigation_manager"] = manager
         domain_data["calendar_manager"] = calendar_manager
@@ -197,6 +203,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             domain_data.pop("waste_collection_manager", None)
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
+        _teardown_access(hass, entry_data)
         await _async_teardown_device_power(hass, entry_data)
         await _async_teardown_energy(hass, entry_data)
         await _async_teardown_notifications(hass, entry_data)
@@ -228,6 +235,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
     entry_data = getattr(entry, "runtime_data", None)
     if isinstance(entry_data, DomusEntryData):
+        _teardown_access(hass, entry_data)
         await _async_teardown_device_power(hass, entry_data)
         await _async_teardown_energy(hass, entry_data)
         await _async_teardown_notifications(hass, entry_data)
@@ -427,6 +435,30 @@ async def _async_teardown_device_power(hass: HomeAssistant, entry_data: DomusEnt
         domain_data = hass.data.get(DOMAIN, {})
         if manager is not None and domain_data.get(DATA_DEVICE_POWER_MANAGER) is manager:
             domain_data.pop(DATA_DEVICE_POWER_MANAGER, None)
+
+
+async def _async_setup_access(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Load the access policy without risking the other modules.
+
+    Nothing is enforced with it yet; a policy that cannot be trusted is kept
+    as it is and reported, never rewritten.
+    """
+    manager = AccessPolicyManager(hass, runtime=lambda: entry_data.runtime)
+    try:
+        await manager.async_setup()
+    except Exception:
+        _LOGGER.exception("Domus access control could not start; the other modules keep running")
+        return
+    entry_data.access_manager = manager
+    hass.data.setdefault(DOMAIN, {})[DATA_ACCESS_MANAGER] = manager
+
+
+def _teardown_access(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    manager = entry_data.access_manager
+    entry_data.access_manager = None
+    domain_data = hass.data.get(DOMAIN, {})
+    if manager is not None and domain_data.get(DATA_ACCESS_MANAGER) is manager:
+        domain_data.pop(DATA_ACCESS_MANAGER, None)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

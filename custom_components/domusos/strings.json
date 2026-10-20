@@ -16,12 +16,17 @@
     "stop_irrigation_zone": { "name": "Stop irrigation zone", "description": "Closes one zone and cancels its session.", "fields": { "zone_id": { "name": "Zone ID", "description": "Stable zone identifier configured in Domus UI." } } },
     "pause_irrigation": { "name": "Pause irrigation", "description": "Closes active zones and preserves their remaining time." },
     "resume_irrigation": { "name": "Resume irrigation", "description": "Resumes explicitly paused sessions." },
-    "stop_all_irrigation": { "name": "Stop all irrigation", "description": "Closes all zones, clears the queue and stops schedules." }
+    "stop_all_irrigation": { "name": "Stop all irrigation", "description": "Closes all zones, clears the queue and stops schedules." },
+    "reset_access_policy": { "name": "Reset Domus access policy", "description": "Administrators only. Sets the current Domus access policy aside and returns every account to its default role: Home Assistant administrators are administrators and everyone else a member." }
   },
   "issues": {
     "irrigation_close_failed": {
       "title": "Irrigation zone did not close",
       "description": "Domus Core could not confirm that {zone} closed after multiple attempts ({reason}). Check the actuator and close the water supply manually if necessary."
+    },
+    "access_policy_untrusted": {
+      "title": "Domus access policy cannot be read",
+      "description": "The Domus access policy is {state}. Accounts other than administrators keep only the basic views until an administrator runs the Domus action \"Reset Domus access policy\". The previous policy is kept beside the store, never deleted."
     }
   }
 }

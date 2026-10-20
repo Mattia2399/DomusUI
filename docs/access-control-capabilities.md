@@ -1,7 +1,8 @@
 # Domus Access Control — capability, route e azioni (P2.0)
 
-Proposta iniziale del registro capability e delle matrici, costruita dalle
-funzioni reali del repository (base `f5eb98d`). Nulla di questo è implementato.
+Registro capability e matrici, costruiti dalle funzioni reali del repository
+(base `f5eb98d`). Registro e ruoli sono implementati da P2.1
+([fondamento](access-control-foundation.md)); l'enforcement non ancora.
 Principi e decisioni in
 [access-control-architecture.md](access-control-architecture.md); rischi in
 [access-control-threat-model.md](access-control-threat-model.md).
@@ -14,71 +15,90 @@ Principi e decisioni in
 
 **HA admin**: la capability richiede comunque `is_admin` in HA.
 
-## Registro proposto (V1)
+## Registro (implementato in P2.1)
 
-| Capability | Dominio | Descrizione | Rischio | HA admin | Enforcement |
-| --- | --- | --- | --- | --- | --- |
-| `dashboard.view` | Home | Vedere la Home e le sue card | low | — | ha_native |
-| `dashboard.edit` | Home | Modificare layout e card condivisi | medium | sì (`set_system_data`) | ha_native |
-| `dashboard.reset` | Home | Ripristinare la configurazione iniziale | high | sì | ha_native |
-| `rooms.view` | Stanze | Vedere le stanze | low | — | ha_native |
-| `devices.control` | Dispositivi | Luci, prese, clima, tapparelle, media, aspirapolvere, ventole | medium | — | ha_native (`check_entity`) |
-| `security.view` | Sicurezza | Pagina Sicurezza, telecamere, sensori | medium | — | ha_native |
-| `security.control` | Sicurezza | Serrature, allarme, cancelli e garage (Q4) | high | — | ha_native (+ codici HA) |
-| `security.manage` | Sicurezza | Configurazione di sicurezza, card protette | high | sì | ha_native |
-| `automations.view` | Automazioni | Vedere le automazioni | low | — | ha_native |
-| `automations.run` | Automazioni | Eseguire scene, script, automazioni | medium | — | ha_native |
-| `automations.manage` | Automazioni | Creare e modificare automazioni | high | sì (REST config) | ha_native |
-| `energy.view` | Energy | Stato e storia dell'energia | low | — | **domus** |
-| `energy.manage` | Energy | Profilo dell'impianto, discovery | medium | sì (oggi) | **domus** |
-| `irrigation.view` | Irrigazione | Zone, calendario, attività, consumi | low | — | **domus** (+ lettura HA) |
-| `irrigation.control` | Irrigazione | Avviare, fermare, mettere in pausa | medium | — | **domus** (+ `check_entity`) |
-| `irrigation.manage` | Irrigazione | Configurazione, migrazione automazioni | medium | sì (oggi) | **domus** |
-| `waste.manage` | Raccolta rifiuti | Configurazione e notifica di prova | low | sì (oggi) | **domus** |
-| `house.manage` | Casa | Piani, aree, stanze | medium | sì (registri) | ha_native |
-| `people.view` | Persone | Elenco membri e persone | low | — | ha_native (`person/list`) |
-| `people.manage` | Persone | Creare persone, collegare account, foto | high | sì | ha_native |
-| `access.manage` | Accessi | Assegnare ruoli Domus, recupero | critical | sì (sempre) | **domus** |
-| `system.view` | Sistema | Pagina Sistema, diagnostica | low | — | ha_native |
-| `system.manage` | Sistema | Connessione, dispositivi, entità | high | sì (registri) | ha_native / local |
-| `backup.export` | Dati | Scaricare la configurazione | medium | — (oggi admin) | local |
-| `backup.restore` | Dati | Ripristinare una configurazione | high | sì | ha_native |
-| `ha.restart` | Sistema | Riavviare Home Assistant | critical | sì (servizio admin) | ha_native |
-| `device.manage` | Questo dispositivo | Aspetto, lingua, screensaver, kiosk, attenzione | low | — | local |
-| `device_power.manage` | Questo dispositivo | Alimentazione e ricarica | high | sì (oggi) | **domus** |
-| `profile.manage` | Profilo | Il proprio profilo, dispositivi personali, notifica di prova | low | — | **domus** (solo sé) |
-| `notifications.recipients` | Notifiche | Scegliere i destinatari | medium | sì (oggi) | **domus** |
-| `developer.use` | Avanzate | Modalità sviluppatore | low | — (oggi admin) | local |
+Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
+`Concedibile` = si può dare a un singolo account oltre al ruolo.
 
-31 capability. Sono abbastanza larghe da durare (una per area e verbo) e
-abbastanza strette da distinguere davvero i ruoli.
+| Capability | Descrizione | Rischio | HA admin | Enforcement | Concedibile |
+| --- | --- | --- | :---: | --- | :---: |
+| `dashboard.view` | Vedere la Home e le sue card | low | — | ha_native | — |
+| `dashboard.edit` | Modificare layout e card condivisi | medium | sì (`set_system_data`) | ha_native | — |
+| `dashboard.reset` | Ripristinare la configurazione iniziale | high | sì | ha_native | — |
+| `rooms.view` | Vedere le stanze | low | — | ha_native | — |
+| `devices.control` | Luci, prese, clima, tapparelle, media, aspirapolvere, ventole | medium | — | ha_native (`check_entity`) | — |
+| `access.control` | Accesso fisico: serrature, porte, cancelli, garage, ingressi motorizzati | high | — | ha_native (+ codici HA) | **sì** |
+| `security.view` | Pagina Sicurezza, telecamere, sensori | medium | — | ha_native | — |
+| `security.control` | Antifurto: armare, disarmare, modalità | high | — | ha_native (+ codici HA) | **sì** |
+| `security.manage` | Configurazione di sicurezza, card protette | high | sì | ha_native | — |
+| `automations.view` | Vedere le automazioni | low | — | ha_native | — |
+| `automations.run` | Eseguire scene, script, automazioni | medium | — | ha_native | — |
+| `automations.manage` | Creare e modificare automazioni | high | sì (REST config) | ha_native | — |
+| `energy.view` | Stato e storia dell'energia | low | — | **domus** | — |
+| `energy.manage` | Profilo dell'impianto, discovery | medium | sì | **domus** | — |
+| `irrigation.view` | Zone, calendario, attività, consumi | low | — | **domus** (+ lettura HA) | — |
+| `irrigation.control` | Avviare, fermare, mettere in pausa | medium | — | **domus** (+ `check_entity`) | — |
+| `irrigation.manage` | Configurazione | medium | sì | **domus** | — |
+| `waste.manage` | Raccolta rifiuti: configurazione e prova | low | sì | **domus** | — |
+| `house.manage` | Piani, aree, stanze | medium | sì (registri) | ha_native | — |
+| `people.view` | Elenco membri e persone | low | — | ha_native (`person/list`) | — |
+| `people.manage` | Creare persone, collegare account, foto | high | sì | ha_native | — |
+| `access.manage` | Ruoli Domus e recupero | critical | sì (sempre a ogni admin HA) | **domus** | — |
+| `system.view` | Pagina Sistema, diagnostica | low | — | ha_native | — |
+| `system.manage` | Connessione, dispositivi, entità | high | sì (registri) | ha_native | — |
+| `backup.export` | Scaricare la configurazione | medium | — | local | — |
+| `backup.restore` | Ripristinare una configurazione | high | sì | ha_native | — |
+| `ha.restart` | Riavviare Home Assistant | critical | sì (servizio admin) | ha_native | — |
+| `ha_frontend.open` | Comando «Torna a Home Assistant»; nasconderlo non impedisce di aprire HA | low | — | local | — |
+| `device.manage` | Aspetto, lingua, screensaver, kiosk, attenzione | low | — | local | — |
+| `device_power.manage` | Alimentazione e ricarica | high | sì | **domus** | — |
+| `profile.manage` | Il proprio profilo, dispositivi personali, notifica di prova | low | — | **domus** (solo sé) | — |
+| `notifications.recipients` | Scegliere i destinatari | medium | sì | **domus** | — |
+| `developer.use` | Modalità sviluppatore | low | — | local | — |
 
-## Ruoli di sistema proposti
+33 capability. Regole verificate dai test:
 
-`●` concessa, `—` no, `admin` = solo se l'utente è anche admin HA.
+- solo `access.control` e `security.control` sono concedibili;
+- una capability concedibile non richiede mai l'admin HA e non è mai critica;
+- `access.manage`, `system.manage`, `backup.restore`, `ha.restart`,
+  `people.manage`, `device_power.manage`, `automations.manage` non sono
+  concedibili.
 
-| Capability | admin | member | restricted | wall_panel |
-| --- | :---: | :---: | :---: | :---: |
-| `dashboard.view`, `rooms.view` | ● | ● | ● | ● |
-| `devices.control` | ● | ● | ● | ● |
-| `security.view` | ● | ● | — | ● |
-| `security.control` | ● | ● | — | — |
-| `automations.view` | ● | ● | — | — |
-| `automations.run` | ● | ● | — | ● |
-| `energy.view` | ● | ● | — | — (Q6) |
-| `irrigation.view` | ● | ● | ● | ● |
-| `irrigation.control` | ● | ● | — | — |
-| `people.view` | ● | ● | — | — |
-| `system.view` | ● | ● | — | — |
-| `device.manage` | ● | ● | — | — |
-| `profile.manage` | ● | ● | ● | — |
-| Tutte quelle con «HA admin: sì», `backup.export`, `developer.use` | admin | — | — | — |
-| `access.manage` | admin (sempre per ogni admin HA) | — | — | — |
+## Ruoli di sistema
 
-- `member` riproduce ciò che un utente HA non admin può fare oggi in Domus: è
-  il default che non rompe nulla.
-- `locked` (interno, mai assegnabile, usato quando lo store non è leggibile)
-  contiene `dashboard.view`, `rooms.view`, `profile.manage`.
+`●` concessa. Le capability con «HA admin: sì» arrivano solo a chi è anche admin
+HA, qualunque sia il ruolo.
+
+| Capability | admin | member | restricted | wall_panel | Concedibile |
+| --- | :---: | :---: | :---: | :---: | :---: |
+| `dashboard.view` | ● | ● | ● | ● | — |
+| `rooms.view` | ● | ● | ● | ● | — |
+| `devices.control` | ● | ● | ● | ● | — |
+| `access.control` | ● | — | — | — | **sì** |
+| `security.view` | ● | ● | — | ● | — |
+| `security.control` | ● | — | — | — | **sì** |
+| `automations.view` | ● | ● | — | — | — |
+| `automations.run` | ● | ● | — | ● | — |
+| `energy.view` | ● | ● | — | ● | — |
+| `energy.manage` | ● | — | — | — | — |
+| `irrigation.view` | ● | ● | ● | ● | — |
+| `irrigation.control` | ● | ● | — | — | — |
+| `people.view` | ● | ● | — | — | — |
+| `system.view` | ● | ● | — | — | — |
+| `device.manage` | ● | ● | — | — | — |
+| `profile.manage` | ● | ● | ● | — | — |
+| `ha_frontend.open` | ● | — | — | — | — |
+| `backup.export`, `developer.use` | ● | — | — | — | — |
+| Tutte quelle con «HA admin: sì» | ● (solo admin HA) | — | — | — | — |
+| `access.manage` | ● (sempre per ogni admin HA, anche con un altro ruolo) | — | — | — | — |
+
+- Nomi in UI: `admin` Amministratore, `member` Membro, `restricted` Accesso
+  limitato, `wall_panel` Pannello.
+- `member` è il default di ogni non admin. Serrature, cancelli e allarme gli
+  arrivano solo con un grant personale.
+- `locked` (interno, mai assegnabile; usato quando lo store non è affidabile)
+  contiene `dashboard.view`, `rooms.view`, `profile.manage`; a un admin HA si
+  aggiunge `access.manage` per il recupero.
 
 ## Migrazione delle capability esistenti
 
@@ -107,8 +127,10 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | Home | Modifica layout, undo, versioni | `dashboard.edit` | medium | no | Edit mode, Impostazioni › Dashboard | `set_system_data` admin |
 | Home | Reset dashboard | `dashboard.reset` | high | no | Impostazioni › Dati | `set_system_data` admin |
 | Card luce/presa/clima/tapparella/media/aspirapolvere | Comandare | `devices.control` | medium | no | card disabilitata | `check_entity` control |
-| Card serratura | Sblocca, apri | `security.control` | high | no | card disabilitata | `check_entity` + codice HA |
-| Card allarme | Arma, disarma | `security.control` | high | no | card disabilitata | `check_entity` + codice HA |
+| Card serratura, porta | Sblocca, apri | `access.control` | high | no | card disabilitata | `check_entity` + codice HA |
+| Cancello, garage (`cover` con device class `gate`/`garage`) | Apri, chiudi | `access.control` | high | no | card disabilitata | `check_entity` |
+| Card allarme | Arma, disarma, modalità | `security.control` | high | no | card disabilitata | `check_entity` + codice HA |
+| Navigazione | «Torna a Home Assistant» | `ha_frontend.open` | low | no | pulsante nascosto (P2.4) | — (solo UX) |
 | Card scena/script | Eseguire | `automations.run` | medium | no | card disabilitata | `check_entity` |
 | Telecamere | Vedere flusso e storia | `security.view` | medium | no | route `/security/cameras` | lettura entità |
 | Stanze | Vedere; rinominare/organizzare | `rooms.view`; `house.manage` | low; medium | no | route; voci di gestione | registri admin |
@@ -171,9 +193,9 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | --- | --- | --- | --- | --- | --- |
 | Accendere/spegnere luce, presa | `call_service` dal browser | `light.*`, `switch.*` | no | `devices.control` | medium |
 | Setpoint e modi clima | `call_service` | `climate.*` | no | `devices.control` | medium |
-| Tapparelle | `call_service` | `cover.*` | no | `devices.control` (garage/cancello: `security.control`) | medium/high |
+| Tapparelle | `call_service` | `cover.*` | no | `devices.control` (garage/cancello: `access.control`) | medium/high |
 | Media, aspirapolvere, ventole | `call_service` | `media_player.*`, `vacuum.*`, `fan.*` | no | `devices.control` | low |
-| Sblocca/apri serratura | `call_service` + gate locale + codice | `lock.unlock`, `lock.open` | no | `security.control` | high |
+| Sblocca/apri serratura | `call_service` + gate locale + codice | `lock.unlock`, `lock.open` | no | `access.control` | high |
 | Arma/disarma allarme | `call_service` + codice | `alarm_control_panel.*` | no | `security.control` | high |
 | Scena, script | `call_service` | `scene.turn_on`, `script.*` | no | `automations.run` | medium |
 | Salvare la dashboard | `frontend/set_system_data` | — | no | `dashboard.edit` | medium |
@@ -192,5 +214,7 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | Raccolta rifiuti | WS | — | `waste_collection/save_config`, `test_notification` (`get_config`, `preview` aperti) | `waste.manage` | low |
 | Profilo | WS | — | `profile/get_self`, `save_self`, `*_device`, `test_self` | `profile.manage` | low |
 | Destinatari notifiche | WS | — | `profile/list_recipients` | `notifications.recipients` | medium |
-| Ruoli Domus | — (futuro) | — | `domusos/access/*` | `access.manage` | critical |
-| Recupero policy | — (futuro) | `domusos.reset_access_policy` (admin) | sì | `access.manage` | critical |
+| Profilo d'accesso proprio | WS | — | `domusos/access/get_self` (P2.1) | — (ogni account domestico) | low |
+| Ruoli Domus | — (P2.6) | — | `domusos/access/*` | `access.manage` | critical |
+| Recupero policy | servizio | `domusos.reset_access_policy` (admin, P2.1) | sì | `access.manage` (admin HA) | critical |
+| Torna a Home Assistant | navigazione del pannello | — | no | `ha_frontend.open` | low (solo UX) |

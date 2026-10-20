@@ -28,7 +28,8 @@ può modificare HA e i file `.storage`.
   e le API di storia con la propria sessione, dalla console del pannello o con
   un client qualsiasi.
 - HA dà a `system-users` controllo su **tutte** le entità. Una capability Domus
-  negata su `security.control` non impedisce `lock.unlock` dalla sessione HA.
+  negata su `access.control` non impedisce `lock.unlock` dalla sessione HA, né
+  una negata su `security.control` impedisce di disarmare l'allarme.
 
 Mitigazione: dichiararlo (D6), usare i permessi nativi di HA per i limiti veri
 (utente di sola lettura, account dedicati), affidarsi ai codici validati da HA
@@ -54,7 +55,7 @@ della [roadmap](access-control-architecture.md#19-roadmap).
 | T11 | Ruolo cambiato a tab aperta | Admin che restringe | Come T10 | Come T10 | Come T10 | Come T10 + chiusura della pagina con avviso | (4) + UX | Media | P2.4 |
 | T12 | Utente rimosso da HA | — | Sessioni chiuse da HA | Assignment orfano | HA chiude l'accesso | Ascoltare `user_removed`, ripulire l'assignment; mai riusato da un nuovo account | (4) | Bassa | P2.1 |
 | T13 | Downgrade admin → utente | Admin HA che si declassa | Gruppi HA cambiati | Capability admin residue | `is_admin` vivo in HA; `require_admin` per richiesta | `requires_ha_admin` valutato a ogni richiesta, mai salvato nello store | (4)(5) | Media | P2.2 |
-| T14 | Policy store corrotto | Guasto | File `.storage` non valido | Restrizioni perse → ristretti tornano membri (fail open) | — | Stato `corrupt`, quarantena, ruolo `locked` per non admin, issue HA, recupero admin | (4) | Alta | P2.1 |
+| T14 | Policy store corrotto | Guasto | File `.storage` non valido | Restrizioni perse → ristretti tornano membri (fail open) | P2.1: stato `corrupt`, file mai riscritto, quarantena HA rispettata, `locked` per non admin, issue HA, recupero admin | — | (4) | Alta | P2.1 ✓ |
 | T15 | Store mancante | Guasto o prima installazione | File assente | Nessuna restrizione | — (non esiste) | `absent` = default di oggi; se lo store era già stato creato, la sparizione è `corrupt` (marcatore nello stato HA) | (4) | Media | P2.1 |
 | T16 | Migrazione non riuscita | Guasto | Aggiornamento dell'integrazione | Come T14 | — | `migration_failed` = `corrupt` senza riscrivere l'originale | (4) | Media | P2.1 |
 | T17 | Versione dello schema più nuova (rollback) | Guasto | Downgrade dell'integrazione | Lettura errata | — | `unsupported`: file intatto, ruolo `locked` per non admin | (4) | Media | P2.1 |
@@ -69,8 +70,11 @@ della [roadmap](access-control-architecture.md#19-roadmap).
 | T26 | Confused deputy nel backend | Membro | Comando Domus che esegue servizi con privilegi di sistema | Domus concede ciò che HA nega | Irrigazione usa `check_entity`; Alimentazione solo admin | Invariante D14 + test S4 | (4) | Alta | P2.2 |
 | T27 | Azione dell'AI come bypass | Futuro | «Apri la serratura» via assistente | Come T1 ma con privilegi di sistema | — (non esiste) | Azioni AI con utente richiedente e `authorize()`; `DomusAction` con principal | (4) | Alta | prima di Intelligence |
 | T28 | Modulo Domus Lab come bypass | Futuro | Modulo custom che chiama servizi direttamente | Come T26 | — | Stessa pipeline, capability dichiarate | (4) | Alta | prima di Lab |
-| T29 | Lockout dell'amministrazione | Guasto, errore umano | Ultimo admin declassato, store corrotto | Nessuno amministra Domus | — | `access.manage` sempre agli admin HA; recupero via servizio admin | (4)(5) | Alta | P2.1 |
+| T29 | Lockout dell'amministrazione | Guasto, errore umano | Ultimo admin declassato, store corrotto | Nessuno amministra Domus | P2.1: `access.manage` sempre agli admin HA; servizio admin `domusos.reset_access_policy` | — | (4)(5) | Alta | P2.1 ✓ |
 | T30 | Fail open per errore | Guasto | Eccezione nel motore → «consenti» | Escalation | — | Qualsiasi eccezione nel motore = DENY; test dedicati | (4) | Alta | P2.2 |
+| T31 | Grant fuori registro nello store | Guasto, file modificato a mano | `grants: ["access.manage"]` o una capability sconosciuta | Un Membro diventa amministratore | P2.1: solo capability `user_grantable` (`access.control`, `security.control`); qualsiasi altro grant, ruolo sconosciuto o `locked` rende lo store `corrupt`, mai filtrato | — | (4) | Alta | P2.1 ✓ |
+| T32 | Pulsante «Torna a Home Assistant» nascosto scambiato per sicurezza | Pannello, Membro | Aprire HA con l'indirizzo, l'app o le credenziali | Accesso all'interfaccia HA | `ha_frontend.open` classificata `local` (solo UX) e documentata così | Per un pannello: account HA dedicato e limiti di HA (T1) | UX | Bassa | P2.4 |
+| T33 | Admin HA declassato a un ruolo basso che, a store corrotto, torna `admin` | Guasto | Store corrotto con un admin HA usato su un pannello | Ritorno inatteso dell'interfaccia completa sul muro | P2.1: a store non affidabile anche l'admin HA scende a `locked` + `access.manage` (D23) | — | (4) | Media | P2.1 ✓ |
 
 ## Minacce critiche
 
@@ -87,7 +91,8 @@ della [roadmap](access-control-architecture.md#19-roadmap).
 | `access.manage` | Cambia chi può fare cosa (critica) |
 | `ha.restart` | Ferma la casa (critica) |
 | `backup.restore`, `dashboard.reset` | Sovrascrivono la configurazione condivisa |
-| `security.control` | Serrature, allarme, cancelli e garage (Q4) |
+| `access.control` | Serrature, porte, cancelli, garage (concedibile a un singolo Membro) |
+| `security.control` | Antifurto: armare, disarmare, modalità (concedibile a un singolo Membro) |
 | `security.manage` | Configurazione di sicurezza e card protette |
 | `people.manage` | Account e persone collegati |
 | `system.manage` | Dispositivi, entità, connessione |

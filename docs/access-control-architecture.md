@@ -1,8 +1,9 @@
 # Domus Access Control — architettura (P2.0)
 
-Progetto di Domus Access Control prima di qualsiasi implementazione. Questo
-documento non introduce comportamento: descrive cosa esiste oggi, cosa Domus
-può davvero garantire e come costruirlo. Base `f5eb98d` (`main`, con Power,
+Progetto di Domus Access Control. Descrive cosa esiste oggi, cosa Domus può
+davvero garantire e come costruirlo. Il fondamento (registro, ruoli, store,
+`get_self`, recupero) è implementato da P2.1 senza alcun enforcement:
+[fondamento](access-control-foundation.md). Base `f5eb98d` (`main`, con Power,
 Screensaver, Kiosk e il ciclo performance), branch
 `feature/access-control-architecture`.
 
@@ -225,8 +226,11 @@ Browser (non fidato) ──bridge/WS/REST──▶ Home Assistant (autorità) �
 ### Ruoli
 
 - **V1: solo ruoli di sistema**, definiti nel codice e quindi versionati con
-  l'integrazione: `admin`, `member`, `restricted`, `wall_panel`. Nomi da
-  validare lato prodotto (domanda aperta Q1).
+  l'integrazione: `admin` (Amministratore), `member` (Membro), `restricted`
+  (Accesso limitato), `wall_panel` (Pannello). `locked` è interno e non si
+  assegna.
+- `wall_panel` è un ruolo per l'account HA di un pannello dedicato; il Kiosk
+  resta una modalità del browser. I due si combinano, non si sostituiscono.
 - `guest` arriva solo con credenziali HA temporanee e revocabili, come dice la
   roadmap.
 - **Ruoli personalizzati**: V2, se servono, nello stesso store.
@@ -238,7 +242,13 @@ Browser (non fidato) ──bridge/WS/REST──▶ Home Assistant (autorità) �
 
 ### Assignment
 
-- `user_id → role_id`, **un solo ruolo per utente in V1**. Ruoli multipli
+- `user_id → role_id + grants`, **un solo ruolo per utente in V1**.
+- **Grant personali**: capability aggiunte a un singolo account, solo se il
+  registro le dichiara `user_grantable`. In V1 sono `access.control`
+  (serrature, cancelli, garage, porte) e `security.control` (antifurto).
+  Capability effettive = ruolo ∪ grant validi. Un grant non concedibile o
+  sconosciuto rende lo store corrotto, mai filtrato.
+- Ruoli multipli
   creerebbero problemi di semantica (unione, priorità) senza un bisogno
   concreto. Se in futuro servissero: sola unione, mai deny.
 - **Solo ALLOW, nessun deny esplicito in V1**: restringere vuol dire non
@@ -254,9 +264,9 @@ Browser (non fidato) ──bridge/WS/REST──▶ Home Assistant (autorità) �
 ```
 authorize(user, capability, resource?):
   user mancante, di sistema o disattivato        → DENY
-  store non affidabile (§ 10)                     → solo capability del ruolo "locked", tranne admin HA
+  store non affidabile (§ 10)                     → solo capability del ruolo "locked" (+ access.manage agli admin HA)
   capability.requires_ha_admin e non user.is_admin → DENY
-  capability ∉ ruolo(user)                         → DENY
+  capability ∉ ruolo(user) ∪ grant(user)           → DENY (access.manage è sempre concessa agli admin HA)
   resource è un'entità → HA user.permissions.check_entity(resource, policy) deve essere vero
   → ALLOW
 ```
@@ -354,7 +364,7 @@ richiesta → principal (HA, lato server) → capability Domus → permesso HA �
 | --- | --- | --- |
 | `absent` | Mai creato | Default del § 7 (nessuna restrizione nuova) |
 | `ready` | Valido | Policy applicata |
-| `corrupt` | JSON non valido, campi errati | File in quarantena (`.corrupt.<ts>`), issue di riparazione HA. Non admin → ruolo `locked` (solo viste e Profile). Admin HA → `admin` + recupero. |
+| `corrupt` | JSON non valido, campi errati | File in quarantena (`.corrupt.<ts>`), issue di riparazione HA. Non admin → ruolo `locked` (solo viste e Profile). Admin HA → `locked` + `access.manage` per il recupero (D23). |
 | `unsupported` | `version` più nuova | Come `corrupt`, senza toccare il file (rollback dell'integrazione) |
 | `migration_failed` | Migrazione non riuscita | Come `corrupt`; l'originale resta |
 
@@ -402,7 +412,8 @@ policy non si può leggere.
   - le letture rispettano le capability `*.view` dell'utente;
   - le azioni passano da `authorize()` con l'utente che ha chiesto, non con il
     sistema;
-  - «Chiedi a Domus di aprire la serratura» senza `security.control` → DENY.
+  - «Chiedi a Domus di aprire la serratura» senza `access.control` → DENY;
+    «disarma l'allarme» senza `security.control` → DENY.
   - `DomusAction` (`core/actions.py`) dovrà portare l'id dell'utente richiedente
     e la capability: oggi ha `safety_policy` e `requesting_decision_id`, ma non
     il principal.
@@ -478,7 +489,7 @@ I cinque test di sicurezza obbligatori sono nel
 
 | Fase | Contenuto |
 | --- | --- |
-| **P2.1** | Registro capability (backend, versionato) + ruoli di sistema + store `domusos.access.v1` con stati, quarantena, revisione + `domusos/access/get_self`. Nessun enforcement. |
+| **P2.1** ✓ | Registro capability (backend, versionato) + ruoli di sistema + grant personali + store `domusos.access.v1` con stati, quarantena, revisione + `domusos/access/get_self` + servizio `domusos.reset_access_policy`. Nessun enforcement. [Fondamento](access-control-foundation.md). |
 | **P2.2** | Primitive backend `can`/`authorize`/`require_capability`/`authorize_service_call`; test di contratto che ogni comando dichiari una capability. |
 | **P2.3** | Shadow authorization + diagnostiche (differenze rispetto a oggi) + audit V1. |
 | **P2.4** | Frontend: `can()` da `get_self`, migrazione di `DashboardCapability`, route guard e schermata «Non disponibile». |
@@ -505,15 +516,27 @@ I cinque test di sicurezza obbligatori sono nel
 | D13 | Rollout: default identico a oggi → shadow → enforcement con flag. |
 | D14 | Nessun confused deputy: il backend agisce con il contesto o il controllo `check_entity` dell'utente. |
 | D15 | Notifiche: destinatario Person, principal User; invariato. |
+| D16 | (rivede Q4) `access.control` = accesso fisico (serrature, porte, cancelli, garage); `security.control` = solo antifurto. Due capability separate. |
+| D17 | `member` non include `access.control` né `security.control`: arrivano solo da un grant personale. |
+| D18 | Assignment = ruolo + grant personali; capability effettive = ruolo ∪ grant validi. |
+| D19 | `ha_frontend.open` (comando «Torna a Home Assistant») è solo UX: `admin` sì, `member`/`restricted`/`wall_panel` no. Nasconderlo non impedisce di aprire HA. |
+| D20 | In V1 solo `access.control` e `security.control` sono `user_grantable`. |
+| D21 | `access.manage` non è concedibile, richiede l'admin HA ed è sempre disponibile agli admin HA. |
+| D22 | (rivede Q6) `wall_panel` include `energy.view`, non `energy.manage`; `restricted` non vede l'energia. |
+| D23 | (rivede la tabella del § 10) Store non affidabile: anche l'admin HA scende a `locked` + `access.manage`, non ad `admin`. Recupera senza ottenere altro per sorpresa. |
+| D24 | Reset = store `absent` (default), file precedenti spostati accanto e mai cancellati, audit nel `DomusAuditService`; mai «tutti admin». |
+| D25 | `get_self` restituisce anche `user_id`, perché il client verifichi che la risposta sia dell'account mostrato; non è mai un input. |
+| D26 | `domusos/access/subscribe` rimandato a P2.3/P2.4: in P2.1 non esistono scritture da client, quindi niente da notificare. |
+| D27 | (rafforza D6) Persone e accessi dichiarerà che le autorizzazioni Domus valgono dentro Domus e che Home Assistant mantiene i propri permessi. |
 
 ## 21. Domande aperte
 
 | Id | Domanda | Proposta |
 | --- | --- | --- |
-| Q1 | Nomi e contenuto dei ruoli di sistema (`admin`, `member`, `restricted`, `wall_panel`): bastano? «Bambino» è un nome di prodotto per `restricted`? | Quattro ruoli, nomi in UI da decidere |
-| Q2 | Un nuovo utente HA parte `member` (compatibile) o `restricted` (più prudente)? | `member` di default, opzione per la casa |
-| Q3 | `access.manage` delegabile a un non admin (es. un genitore non admin)? | No in V1 |
-| Q4 | Cancelli e garage (`cover` con device class `gate`/`garage`) contano come `security.control`? | Sì |
-| Q5 | La UI dice esplicitamente che i limiti valgono solo dentro Domus (D6)? | Sì, in Persone e accessi |
-| Q6 | `energy.view` va negato a `restricted`? | Sì per `restricted` e `wall_panel` |
+| Q1 | Nomi e contenuto dei ruoli | **Deciso in P2.1**: Amministratore, Membro, Accesso limitato, Pannello |
+| Q2 | Un nuovo utente HA parte `member` o `restricted`? | **Deciso**: `member` (default calcolato) |
+| Q3 | `access.manage` delegabile a un non admin? | **Deciso**: no (D21) |
+| Q4 | Cancelli e garage | **Deciso**: `access.control`, separato dall'allarme (D16) |
+| Q5 | La UI dice che i limiti valgono solo dentro Domus? | **Deciso**: sì (D27) |
+| Q6 | `energy.view` per `restricted` e `wall_panel` | **Deciso**: `restricted` no, `wall_panel` sì (D22) |
 | Q7 | Ospiti: si aspetta il supporto HA a credenziali temporanee, o un account HA dedicato con ruolo `guest`? | Account dedicato, dopo P2.6 |

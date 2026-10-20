@@ -4,6 +4,12 @@
 
 ### Added
 
+- Groundwork for Domus Access Control: each Home Assistant account now has a
+  Domus role (administrators are Administrators, everyone else a Member) and,
+  in the future, personal permissions for locks and gates and for the alarm.
+  Nothing changes yet in what anyone can see or do. Home Assistant
+  administrators get a "Reset Domus access policy" action and a repair
+  notice if the stored permissions ever become unreadable.
 - Settings › This device › Kiosk mode turns a wall tablet or a dedicated PC
   into a Domus panel: "Start panel mode" hides Domus's own navigation, opens
   the chosen start page and, when the browser allows it, goes full screen and
