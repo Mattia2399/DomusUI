@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SetupJourney } from '../../services/setupJourney';
 import { OnboardingExperience } from './OnboardingExperience';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { loadDashboardLayout } from '../../services/dashboardStorage';
+import { loadOnboardingTranslations } from '../../i18n/onboardingTranslations';
 
 const panelCallApi = vi.fn(async (_message?: Record<string, unknown>) => null as unknown);
 const panelConnect = vi.fn(async () => undefined);
@@ -44,6 +45,8 @@ vi.mock('../../hooks/useHaPanelBridgeConnection', () => ({
 
 describe('OnboardingExperience panel discovery', () => {
   afterEach(cleanup);
+  // As at startup (main.tsx), the setup words of the language are already there.
+  beforeAll(() => loadOnboardingTranslations('it'));
 
   beforeEach(() => {
     window.localStorage.clear();

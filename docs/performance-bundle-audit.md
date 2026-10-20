@@ -205,6 +205,8 @@ Restano sezioni piccole e realmente secondarie; nessuna funzione intera.
     `OnboardingGlass.tsx`. Correzione provata (Boot −39,8 / −11,6 KB) e
     **ritirata**: i byte passano all'onboarding, che supera il suo limite
     (134 su 120 KB). Richiede una decisione sul budget (vedi PERF.2).
+    **Ripreso in PERF.2** con una variante conforme (Boot −27,5 / −7,8 KB):
+    [Onboarding fuori dal Boot](performance-onboarding-boot.md).
 - **Barrel**: nessun `index.ts`/`index.tsx` nel sorgente.
 - **Icone**: solo import nominativi da `lucide-react`; nessun namespace import
   o set intero.

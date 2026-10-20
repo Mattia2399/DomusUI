@@ -20,7 +20,11 @@ import {
   WizardActions,
 } from './OnboardingGlass';
 import { useI18n } from '../../i18n/I18nProvider';
-import { translateOnboarding, type OnboardingTranslationKey } from '../../i18n/onboardingTranslations';
+import {
+  translateOnboarding,
+  useOnboardingTranslations,
+  type OnboardingTranslationKey,
+} from '../../i18n/onboardingTranslations';
 
 type CallApi = <TResponse = unknown>(
   message: Record<string, unknown>,
@@ -205,6 +209,7 @@ function changedEntity(entity: EntityDraft) {
 }
 
 export function OnboardingOrganizer({ callApi, canManage, onBack, onComplete, onReconnect }: OrganizerProps) {
+  useOnboardingTranslations();
   const { locale } = useI18n();
   const ot = (key: OnboardingTranslationKey, parameters?: Record<string, string | number>) =>
     translateOnboarding(locale, key, parameters);

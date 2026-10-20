@@ -1,4 +1,4 @@
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { useEffect, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import clsx from 'clsx';
 import {
   ArrowLeft,
@@ -12,6 +12,7 @@ import {
 import { GlassButton } from '../ui/GlassButton';
 import { useI18n } from '../../i18n/I18nProvider';
 import { translateOnboarding } from '../../i18n/onboardingTranslations';
+import { useDeviceAppearance } from './deviceAppearance';
 
 const SETUP_STEPS = [
   { labelKey: 'wizard.connection', icon: Link2 },
@@ -20,42 +21,8 @@ const SETUP_STEPS = [
   { labelKey: 'wizard.organize', icon: Sparkles },
 ] as const;
 
-type DeviceAppearance = 'dark' | 'light';
-
-function readDeviceAppearance(): DeviceAppearance {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return 'dark';
-  }
-  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
-}
-
-export function useDeviceAppearance() {
-  const [appearance, setAppearance] = useState<DeviceAppearance>(readDeviceAppearance);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') return undefined;
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
-    const handleChange = (event: MediaQueryListEvent) => setAppearance(event.matches ? 'light' : 'dark');
-    setAppearance(mediaQuery.matches ? 'light' : 'dark');
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-    mediaQuery.addListener(handleChange);
-    return () => mediaQuery.removeListener(handleChange);
-  }, []);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-    const root = document.documentElement;
-    root.classList.toggle('dashboard-theme-light', appearance === 'light');
-    root.classList.toggle('dashboard-theme-dark', appearance === 'dark');
-    root.dataset.dashboardAppearance = appearance;
-    root.style.colorScheme = appearance;
-  }, [appearance]);
-
-  return appearance;
-}
+// The appearance hook lives on its own so startup does not load these screens.
+export { useDeviceAppearance } from './deviceAppearance';
 
 export function SetupBackdrop({ children }: { children: ReactNode }) {
   const appearance = useDeviceAppearance();

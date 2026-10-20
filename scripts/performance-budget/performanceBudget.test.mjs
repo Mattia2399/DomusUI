@@ -247,3 +247,59 @@ describe('performance budget accounting (PERF.1)', () => {
     expect(chunkLabel({ src: null, name: 'icons', modules: {} })).toBe('icons (empty)');
   });
 });
+
+describe('performance budget accounting (PERF.2)', () => {
+  /*
+   * The fixture plus first-run setup: the entry loads one language catalog and
+   * the setup words of that language (one chunk per language), and setup
+   * itself is a dynamic entry that needs both.
+   */
+  function withSetup(hash = 'a1') {
+    const { graph, contents, file } = fixture(hash);
+    const entry = graph.chunks[file('index')];
+    entry.dynamicImports.push(file('catalog-fr'), file('catalog-it'), file('setup-fr'), file('setup-it'), file('Setup'));
+    graph.chunks[file('catalog-fr')] = { src: 'virtual:domus-i18n/fr', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'virtual:domus-i18n/fr': 10 } };
+    graph.chunks[file('catalog-it')] = { src: 'virtual:domus-i18n/it', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'virtual:domus-i18n/it': 10 } };
+    graph.chunks[file('setup-fr')] = { src: 'src/i18n/onboarding/fr.ts', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'src/i18n/onboarding/fr.ts': 10 } };
+    graph.chunks[file('setup-it')] = { src: 'src/i18n/onboarding/it.ts', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'src/i18n/onboarding/it.ts': 10 } };
+    graph.chunks[file('Setup')] = { src: 'src/components/onboarding/OnboardingExperience.tsx', isDynamicEntry: true, imports: [file('index'), file('vendor')], dynamicImports: [], css: [], modules: { 'src/components/onboarding/OnboardingExperience.tsx': 10 } };
+    for (const [name, size] of [['catalog-fr', 800], ['catalog-it', 700], ['setup-fr', 120], ['setup-it', 110], ['Setup', 400]]) {
+      contents[file(name)] = Buffer.from(name.repeat(size).slice(0, size));
+    }
+    return { build: loadGraph(graph), sizer: createSizer((name) => contents[name] ?? null), codeFiles: Object.keys(contents), file };
+  }
+  const bootWith = (...sources) => ({ ...surfaces[0], sources: ['index.html', ...sources], budget: { metric: 'cold', raw: { limit: 5000 }, gzip: { limit: 5000 } } });
+  const setup = (...sources) => ({ id: 'onboarding', label: 'Onboarding', sources: ['src/components/onboarding/OnboardingExperience.tsx', ...sources], requires: 'boot', kind: 'route', budget: { metric: 'incremental', raw: { limit: 5000 }, gzip: { limit: 5000 } } });
+  const localeIt = { id: 'locale-it', label: 'Lingua · Italiano', sources: ['virtual:domus-i18n/it', 'src/i18n/onboarding/it.ts'], requires: 'boot', kind: 'feature' };
+  const measure = (current, list) => Object.fromEntries(measureSurfaces(current.build, current.sizer, list).map((surface) => [surface.id, surface]));
+
+  it('counts the setup words of the starting language in Boot when they load at startup', () => {
+    const current = withSetup();
+    const { boot, onboarding, 'locale-it': it } = measure(current, [bootWith('virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'), surfaces[1], setup(), localeIt]);
+    const { file } = current;
+    expect(boot.cold.raw).toBe(1000 + 400 + 800 + 120);
+    // Setup adds only its own code: the words it needs are already there.
+    expect([...onboarding.added].sort()).toEqual([file('Setup'), file('vendor')].sort());
+    // Another language costs its catalog and its setup words together.
+    expect(it.incremental.raw).toBe(700 + 110);
+  });
+
+  it('moves the words between Boot and Onboarding without losing or adding a byte', () => {
+    const current = withSetup();
+    const startup = measure(current, [bootWith('virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'), setup()]);
+    const lazy = measure(current, [bootWith('virtual:domus-i18n/fr'), setup('src/i18n/onboarding/fr.ts')]);
+    expect(startup.boot.cold.raw - lazy.boot.cold.raw).toBe(120);
+    expect(lazy.onboarding.incremental.raw - startup.onboarding.incremental.raw).toBe(120);
+    const totals = [[bootWith('virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'), setup()], [bootWith('virtual:domus-i18n/fr'), setup('src/i18n/onboarding/fr.ts')]]
+      .map((list) => evaluate(current.build, current.sizer, { ...config, surfaces: list }, current.codeFiles).total.values.raw);
+    expect(totals[0]).toBe(totals[1]);
+  });
+
+  it('reports words no surface claims as unattributed, never as free', () => {
+    const current = withSetup();
+    const result = evaluate(current.build, current.sizer, { ...config, surfaces: [bootWith('virtual:domus-i18n/fr'), setup()] }, current.codeFiles);
+    const labels = result.unattributed.details.map((entry) => entry.label);
+    expect(labels).toEqual(expect.arrayContaining(['src/i18n/onboarding/fr.ts', 'src/i18n/onboarding/it.ts', 'virtual:domus-i18n/it']));
+    expect(ownerOf('src/i18n/onboarding/fr.ts')).toBe('I18N');
+  });
+});

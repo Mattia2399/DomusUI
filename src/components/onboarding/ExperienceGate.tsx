@@ -8,7 +8,8 @@ import {
 } from '../../services/setupJourney';
 import GlassLoader from '../ui/GlassLoader';
 import LazyLoadBoundary from '../common/LazyLoadBoundary';
-import { useDeviceAppearance } from './OnboardingGlass';
+// Only the appearance hook: the setup screens load on their own, with setup.
+import { useDeviceAppearance } from './deviceAppearance';
 import { ArrowLeft, Languages } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 

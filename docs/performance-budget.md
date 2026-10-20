@@ -122,6 +122,11 @@ Motivazioni:
   dal budget di Home. Margine come le altre funzioni su richiesta (+20% / +35%).
   Il report elenca per nome i file che restano fuori dalle superfici
   ([audit PERF.1](performance-bundle-audit.md)).
+- **Testi della configurazione (PERF.2)**: un modulo per lingua; l'avvio
+  carica quello della lingua iniziale insieme al catalogo, e il Boot conta
+  quello francese (il più grande) come caso peggiore. Le schermate della
+  configurazione restano fuori dal Boot; l'ultimo passo ha una superficie
+  informativa propria ([Onboarding fuori dal Boot](performance-onboarding-boot.md)).
 
 Un limite superato (**FAIL**) blocca la CI; un **WARN** la lascia passare con un
 avviso. Restano sempre bloccanti avvio, Home, route, funzioni con budget,

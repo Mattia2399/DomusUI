@@ -1,8 +1,9 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { OnboardingOrganizer } from './OnboardingOrganizer';
 import { I18nProvider } from '../../i18n/I18nProvider';
+import { loadOnboardingTranslations } from '../../i18n/onboardingTranslations';
 
 function renderOrganizer(ui: React.ReactNode) {
   window.localStorage.setItem('domusui.language.v1', 'it');
@@ -11,6 +12,7 @@ function renderOrganizer(ui: React.ReactNode) {
 
 describe('OnboardingOrganizer', () => {
   afterEach(cleanup);
+  beforeAll(() => loadOnboardingTranslations('it'));
 
   it('keeps edits local until the final confirmation', async () => {
     const callApi = vi.fn(async (message: Record<string, unknown>) => {

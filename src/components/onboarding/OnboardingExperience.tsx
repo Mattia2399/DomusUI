@@ -71,7 +71,11 @@ import {
   WizardShell,
 } from './OnboardingGlass';
 import { useI18n } from '../../i18n/I18nProvider';
-import { translateOnboarding, type OnboardingTranslationKey } from '../../i18n/onboardingTranslations';
+import {
+  translateOnboarding,
+  useOnboardingTranslations,
+  type OnboardingTranslationKey,
+} from '../../i18n/onboardingTranslations';
 
 const HA_OAUTH_CALLBACK_PARAM = 'ha_oauth_callback';
 const HA_OAUTH_SESSION_STATE_KEY = 'ha.dashboard.oauth.state';
@@ -290,6 +294,8 @@ function hasCategorizedSetupSummary(summary: SetupScanSummary | undefined) {
 }
 
 export function OnboardingExperience({ journey, onJourneyChange, forceConfiguration = false }: Props) {
+  // The words of setup arrive with this screen, in the current language only.
+  useOnboardingTranslations();
   const { locale, setHomeAssistantLocale, formatDate } = useI18n();
   const ot = useCallback(
     (key: OnboardingTranslationKey, parameters?: Record<string, string | number>) =>
@@ -1117,6 +1123,7 @@ const DEMO_LOCKED_SECTION_KEYS = {
 } as const;
 
 export function DemoLockedRoute({ pathname, onConnect }: { pathname: string; onConnect: () => void }) {
+  useOnboardingTranslations();
   const { locale, t } = useI18n();
   const firstSegment = pathname.split('/').filter(Boolean)[0]?.toLowerCase() ?? '';
   const sectionKey = DEMO_LOCKED_SECTION_KEYS[firstSegment as keyof typeof DEMO_LOCKED_SECTION_KEYS];

@@ -23,11 +23,12 @@ const MB = 1_000_000;
 /** Surfaces, named by source module id; `requires` is what is already loaded. */
 export const surfaces = [
   // Startup: index.html, its entry chunk, the global stylesheet and exactly one
-  // language catalog. French is the largest catalog, so it guards the worst case.
+  // language catalog with the words of first-run setup in that language, which
+  // start loading with it. French is the largest of both, so it guards the worst case.
   // Baseline before locale splitting: 1,154,500 / 252,300.
   // Headroom ~4% (warning) and ~8% (limit): every byte here delays the first paint.
   {
-    id: 'boot', label: 'Boot', sources: ['index.html', 'virtual:domus-i18n/fr'],
+    id: 'boot', label: 'Boot', sources: ['index.html', 'virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'],
     budget: { metric: 'cold', raw: { warning: 1.2 * MB, limit: 1.25 * MB }, gzip: { warning: 265 * KB, limit: 275 * KB } },
   },
   // Home and the dashboard shell every route lives in. Baseline 2,437,600 / 615,700 cold.
@@ -81,8 +82,8 @@ export const surfaces = [
 
   // Alternative language catalogs are fetched only after the user changes
   // language. French is already counted in Boot as the largest startup case.
-  { id: 'locale-it', label: 'Lingua · Italiano', sources: ['virtual:domus-i18n/it'], requires: 'boot', kind: 'feature' },
-  { id: 'locale-en', label: 'Lingua · English', sources: ['virtual:domus-i18n/en'], requires: 'boot', kind: 'feature' },
+  { id: 'locale-it', label: 'Lingua · Italiano', sources: ['virtual:domus-i18n/it', 'src/i18n/onboarding/it.ts'], requires: 'boot', kind: 'feature' },
+  { id: 'locale-en', label: 'Lingua · English', sources: ['virtual:domus-i18n/en', 'src/i18n/onboarding/en.ts'], requires: 'boot', kind: 'feature' },
 
   // On-demand features, loaded only after a user action, measured over their parent (~15-20% warning, ~30-40% limit).
   // Energy setup wizard, from /consumi/energia. Baseline 105,700 / 33,600.
@@ -146,6 +147,8 @@ export const surfaces = [
   // Reported only: small administrative panels, below any useful budget.
   { id: 'settings-management', label: 'Gestione impostazioni', sources: ['src/components/settings/SettingsManagementPanel.tsx'], requires: 'home', kind: 'feature' },
   { id: 'guided-setup', label: 'Configurazione guidata HA', sources: ['src/components/settings/GuidedSetupOverlay.tsx'], requires: 'home', kind: 'feature' },
+  // The last setup step (floors, rooms, entities), loaded when the person reaches it.
+  { id: 'onboarding-organizer', label: 'Onboarding · Organizzazione', sources: ['src/components/onboarding/OnboardingOrganizer.tsx'], requires: 'onboarding', kind: 'feature' },
 ];
 
 /*

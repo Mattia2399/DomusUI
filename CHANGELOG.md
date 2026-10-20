@@ -95,6 +95,10 @@
 
 ### Changed
 
+- Domus starts with about 27 KB less code (8 KB compressed) on a home that
+  is already set up: the first-run setup screens are no longer part of
+  startup, and only the setup words of the current language come with it,
+  instead of all three. Nothing changes on screen.
 - Settings opens with about 288 KB less code (90 KB compressed): the chart
   library now loads only for the processor trend of Settings › System. Domus
   also starts with 15 KB less, and the screensaver's on-screen part loads
