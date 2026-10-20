@@ -38,7 +38,7 @@ export type GridStructuralInventoryState =
   | 'uncertain'
   | 'ambiguous';
 
-export type GridStructuralElementKind = 'widget' | 'special-section';
+export type GridStructuralElementKind = 'widget' | 'special-section' | 'stack-container';
 
 export type GridPolicyDeclaration = Readonly<{
   /** Identifies the metadata source; it is never interpreted as a priority. */

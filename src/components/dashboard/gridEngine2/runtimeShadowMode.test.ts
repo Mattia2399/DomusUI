@@ -525,7 +525,10 @@ describe('Runtime Shadow lifecycle, safety and performance', () => {
     expect(report.rootElementCount).toBe(22);
     expect(report.matchCount).toBe(22);
     expect(Object.keys(report.timings)).toEqual(['baselineMs', 'overridesMs', 'solverMs', 'comparisonMs', 'totalMs']);
-    console.info('[runtime-shadow perf 22]', report.timings);
+    console.info('[runtime-shadow perf 22]', {
+      ...report.timings,
+      structuralPolicyMs: report.structuralPolicy.analysisMs,
+    });
   });
 
   it('31. analyzes a 30-root fixture and records all four stages', () => {
@@ -533,14 +536,22 @@ describe('Runtime Shadow lifecycle, safety and performance', () => {
     expect(report.rootElementCount).toBe(30);
     expect(report.matchCount).toBe(30);
     expect(report.timings.totalMs).toBeGreaterThanOrEqual(0);
-    console.info('[runtime-shadow perf 30]', report.timings);
+    console.info('[runtime-shadow perf 30]', {
+      ...report.timings,
+      structuralPolicyMs: report.structuralPolicy.analysisMs,
+    });
   });
 
   it('32. runs as pure data code without a renderer, storage or persistence adapter', () => {
     const input = packedFixture(22);
     const first = analyzeRuntimeShadow(input);
     const second = analyzeRuntimeShadow(structuredClone(input));
-    expect({ ...first, timings: undefined }).toEqual({ ...second, timings: undefined });
+    const withoutTimings = (report: typeof first) => ({
+      ...report,
+      timings: undefined,
+      structuralPolicy: { ...report.structuralPolicy, analysisMs: undefined },
+    });
+    expect(withoutTimings(first)).toEqual(withoutTimings(second));
     expect(first.comparison).toBe('exact-match');
   });
 });

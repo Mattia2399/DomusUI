@@ -289,13 +289,18 @@ test('verified HA snapshot drives a reversible Runtime Solver custom render', as
   page.on('pageerror', (error) => browserErrors.push(error.message));
 
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await installPanelBridge(page, dashboard());
+  const serverDashboard = dashboard();
+  const expectedRootCount = serverDashboard.sections.length +
+    serverDashboard.widgets.filter((widget) => !widget.parentSectionId).length;
+  await installPanelBridge(page, serverDashboard);
   const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
-  await expect(frame.locator('.sections-grid > .react-grid-item')).toHaveCount(21);
   const host = frame.locator('[data-grid-engine-runtime-render-decision]');
   await expect(host).toHaveAttribute('data-grid-engine-runtime-render-decision', 'legacy-fallback');
   await expect(host).toHaveAttribute('data-grid-engine-runtime-render-fallback', 'snapshot-not-authoritative');
   await expect(frame.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveCount(0);
+  await expect(frame.locator(
+    '.sections-grid:not([data-grid-engine-root-renderer]) > .react-grid-item:not(.grid-engine-2-root-item)',
+  )).toHaveCount(expectedRootCount);
   await page.evaluate(() => window.__releaseRuntimeSolverConfiguration());
   await waitForSolverDecision(frame);
   await expect(frame.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveCount(1);

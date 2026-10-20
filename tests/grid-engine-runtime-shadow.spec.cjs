@@ -194,6 +194,22 @@ test(`Runtime Shadow ${EXPECT_RUNTIME_SHADOW ? 'enabled' : 'disabled'} is indepe
     expect(initialReport.baselineIdAudit.unknownIdsCount).toBe(0);
     expect(initialReport.baselineIdAudit.missingIdsCount).toBe(0);
     expect(initialReport.baselineIdAudit.affectedBreakpoints).toEqual([]);
+    expect(initialReport.structuralPolicy).toMatchObject({
+      version: 1,
+      scope: 'root',
+      // This fixture is loaded from demo storage, not from a verified HA receipt.
+      diagnosticStatus: 'limited',
+      renderingAuthority: 'not-authorized',
+    });
+    expect(Object.keys(initialReport.structuralPolicy.breakpoints)).toEqual(['2xl', 'xl', 'lg', 'md', 'sm', 'xs']);
+    expect(Object.values(initialReport.structuralPolicy.breakpoints).map((breakpoint) => breakpoint.cols))
+      .toEqual([12, 12, 8, 6, 4, 2]);
+    expect(Object.values(initialReport.structuralPolicy.breakpoints).every((breakpoint) =>
+      breakpoint.mode === null &&
+      breakpoint.provenance === 'legacy-implicit' &&
+      breakpoint.policyStatus === 'legacy-preserved' &&
+      breakpoint.renderingAuthority === 'not-authorized'
+    )).toBe(true);
     expect(JSON.stringify(initialReport)).not.toContain('runtime.light');
     expect(initialReport.timings.totalMs).toBeGreaterThanOrEqual(0);
     expect(await stableGeometry(page)).toEqual(initialGeometry);
@@ -288,6 +304,8 @@ test(`Runtime Shadow reconciliation ${EXPECT_RECONCILIATION ? 'enabled' : 'inact
     const report = reports.find((entry) => entry.event === 'report');
     expect(report.baseline.quality).toBe('unreliable');
     expect(report.baselineIdAudit.unknownIdsCount).toBe(1);
+    expect(report.structuralPolicy.breakpoints.xl.renderingAuthority).toBe('not-authorized');
+    expect(report.structuralPolicy.breakpoints.xl.mode).toBeNull();
     expect(report.reconciliation.originalIssues).toContain('UNKNOWN_LAYOUT_ID');
     expect(report.reconciliation.classifications[0]).toMatchObject({
       classification: 'EXISTING_NESTED_WIDGET',

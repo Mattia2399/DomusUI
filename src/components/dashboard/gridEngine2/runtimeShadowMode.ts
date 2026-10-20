@@ -178,6 +178,7 @@ function compactPayload(report: RuntimeShadowReport, signature: string) {
     limitations: report.baseline.limitations,
     baselineIdAudit: compactIdAudit(report),
     reconciliation: compactReconciliation(report),
+    structuralPolicy: report.structuralPolicy,
     timings: report.timings,
     reference: 'legacy-runtime-input',
   };

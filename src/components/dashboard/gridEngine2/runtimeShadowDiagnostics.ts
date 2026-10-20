@@ -31,6 +31,11 @@ import {
   type RuntimeShadowLightState,
   type RuntimeShadowOverrideIssue,
 } from './runtimeShadowOverrides';
+import {
+  analyzeGridStructuralPolicyShadow,
+  type GridStructuralPolicyShadowReport,
+  type GridStructuralShadowSnapshotState,
+} from './gridStructuralPolicyShadowAdapter';
 
 export type RuntimeShadowInput = {
   readonly breakpoint: DashboardGridBreakpoint;
@@ -93,6 +98,7 @@ export type RuntimeShadowReport = {
   readonly baseline: RuntimeShadowBaselineResult;
   readonly baselineIdAudit: RuntimeShadowBaselineIdAudit;
   readonly reconciliation: RuntimeShadowReconciliationResult;
+  readonly structuralPolicy: GridStructuralPolicyShadowReport;
   readonly comparisonConfidence: 'reliable' | 'provisional' | 'unavailable';
   readonly comparison: RuntimeShadowDifferenceCategory;
   readonly solverStatus: 'not-run' | 'unchanged' | 'resolved' | 'invalid';
@@ -135,6 +141,7 @@ function unavailableReport(
   baseline: RuntimeShadowBaselineResult,
   baselineIdAudit: RuntimeShadowBaselineIdAudit,
   reconciliation: RuntimeShadowReconciliationResult,
+  structuralPolicy: GridStructuralPolicyShadowReport,
   issueCodes: readonly string[],
   timings: RuntimeShadowReport['timings'],
 ): RuntimeShadowReport {
@@ -148,6 +155,7 @@ function unavailableReport(
     baseline,
     baselineIdAudit,
     reconciliation,
+    structuralPolicy,
     comparisonConfidence: 'unavailable',
     comparison: 'insufficient-data',
     solverStatus: 'not-run',
@@ -261,6 +269,25 @@ export function analyzeRuntimeShadow(
     originalBaseline: baseline,
     includeRawIds: input.includeRawIdDetails,
   });
+  const structuralPolicySnapshotState: GridStructuralShadowSnapshotState =
+    input.configurationCompleteness === 'verified-complete'
+      ? 'verified-home-assistant'
+      : input.configurationCompleteness === 'hydration-uncertain'
+        ? 'incoherent'
+        : 'unknown';
+  const structuralPolicy = analyzeGridStructuralPolicyShadow({
+    structuralContext: input.structuralContext ?? null,
+    snapshotState: structuralPolicySnapshotState,
+    configurationCompleteness: input.configurationCompleteness ?? 'unknown',
+    rootElements: input.rootElements,
+    knownNonRootElements: input.knownNonRootElements,
+    structuralLayouts: input.explicitRootLayouts,
+    baselineIdAudit,
+    reconciliationEnabled: input.reconciliationEnabled === true,
+    activeBreakpoint: input.breakpoint,
+    activeReconciliation: reconciliation,
+    legacyLayouts: input.legacyRuntimeLayouts,
+  }, { now }).report;
   const baselineMs = roundDuration(now() - baselineStartedAt);
   const diagnosticBaselineLayout = baseline.layout ?? reconciliation.projectedLayout;
   if (!diagnosticBaselineLayout) {
@@ -269,6 +296,7 @@ export function analyzeRuntimeShadow(
       baseline,
       baselineIdAudit,
       reconciliation,
+      structuralPolicy,
       baseline.issues.map((issue) => issue.code),
       emptyTimings(startedAt, now, baselineMs),
     );
@@ -287,7 +315,7 @@ export function analyzeRuntimeShadow(
   });
   const overridesMs = roundDuration(now() - overridesStartedAt);
   if (derived.issues.length > 0) {
-    return unavailableReport(input, baseline, baselineIdAudit, reconciliation, derived.issues.map((issue: RuntimeShadowOverrideIssue) => issue.code), {
+    return unavailableReport(input, baseline, baselineIdAudit, reconciliation, structuralPolicy, derived.issues.map((issue: RuntimeShadowOverrideIssue) => issue.code), {
       baselineMs,
       overridesMs,
       solverMs: 0,
@@ -305,7 +333,7 @@ export function analyzeRuntimeShadow(
   const solverMs = roundDuration(now() - solverStartedAt);
   if (solved.status === 'invalid') {
     return {
-      ...unavailableReport(input, baseline, baselineIdAudit, reconciliation, solved.issues.map((issue) => issue.code), {
+      ...unavailableReport(input, baseline, baselineIdAudit, reconciliation, structuralPolicy, solved.issues.map((issue) => issue.code), {
         baselineMs,
         overridesMs,
         solverMs,
@@ -357,6 +385,7 @@ export function analyzeRuntimeShadow(
     baseline,
     baselineIdAudit,
     reconciliation,
+    structuralPolicy,
     comparisonConfidence,
     comparison: comparison.comparison,
     solverStatus: solved.status,
