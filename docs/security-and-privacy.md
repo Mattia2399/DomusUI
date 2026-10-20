@@ -10,6 +10,7 @@ Domus UI is a client interface for Home Assistant. It is not a certified alarm s
 - Owner and Admin users can modify the dashboard structure.
 - Limited users can use only the features allowed by the centralized policy and Home Assistant.
 - If identity or connection cannot be verified, real mode becomes read-only and blocks commands and autosave.
+- The planned Domus Access Control (roles and capabilities on top of Home Assistant, never above it) is designed in [access-control-architecture.md](access-control-architecture.md); it is not implemented yet.
 
 ## Data stored in the browser
 
