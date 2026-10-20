@@ -292,7 +292,8 @@ build pulite consecutive danno report e chunk map identici, hash a parte.
   membri), Home (1,04 MB), recharts, i tre cataloghi (~590 KB).
 - **Onboarding nel Boot** (34 KB di testi più i componenti): vedi PERF.2.
 - **Sito oltre budget (preesistente)**: demo e catalogo; non condivide il
-  codice toccato qui.
+  codice toccato qui. **Risolto in PERF.S1** (1.083,4 / 307,4 KB): il sito non
+  pubblica più il catalogo francese ([budget del sito](performance-site-budget.md)).
 
 ## Proposte per PERF.2 (non applicate)
 

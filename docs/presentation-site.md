@@ -64,6 +64,8 @@ Playwright Chromium, max width 1200, quality 0.78; originals remain untouched.
 The production browser checks cover both languages, mobile and desktop, live
 light controls, lazy mounting, navigation and optional-demo failure recovery.
 `site:budget` caps both raw and gzip initial/total JS and CSS and runs in CI.
+The build ships only the app catalogs of its two languages (Italian and
+English); see [the site budget](performance-site-budget.md).
 
 For exploratory browser measurements:
 

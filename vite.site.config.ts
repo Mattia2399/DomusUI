@@ -19,7 +19,8 @@ export default defineConfig({
   base: './',
   // Host files copied verbatim to dist-site/ (_headers, robots.txt).
   publicDir: path.resolve(__dirname, 'site/public'),
-  plugins: [productionCspPlugin(buildPresentationSiteCsp()), i18nCatalogPlugin(), react(), tailwindcss()],
+  // Only the languages of its pages: the French app catalog is never published here.
+  plugins: [productionCspPlugin(buildPresentationSiteCsp()), i18nCatalogPlugin({ locales: ['it', 'en'] }), react(), tailwindcss()],
   define: {
     __APP_VERSION__: JSON.stringify(packageVersion),
   },
