@@ -58,7 +58,6 @@ import NestedPageHeader from '../components/ui/NestedPageHeader';
 import { UpdatesCenterModal } from '../components/settings/UpdatesCenterModal';
 import type { DashboardSection, Widget } from '../types/dashboardModels';
 import type { MockEntityState, MockEntityStateMap } from '../types/ha';
-import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 import { useDashboardSecurity } from '../security/dashboardAccess';
 import {
   useHomeAttentionPreferences,
@@ -104,7 +103,7 @@ import {
   isProfileSettingsRoute,
 } from '../navigation/settingsRoutes';
 import type { DashboardAppearanceMode, DashboardBackgroundPreset } from '../theme/dashboardTheme';
-import LazyLoadBoundary from '../components/common/LazyLoadBoundary';
+import LazyLoadBoundary, { LazyLoadErrorBoundary } from '../components/common/LazyLoadBoundary';
 import { useScreensaverPreferences } from '../components/screensaver/screensaverPreferences';
 import { useKioskPreferences } from '../components/kiosk/kioskPreferences';
 
@@ -122,6 +121,8 @@ const DeviceLanguageSettings = React.lazy(() =>
 const DevicePowerSettings = React.lazy(() => import('../components/settings/DevicePowerSettings'));
 const ScreensaverSettings = React.lazy(() => import('../components/settings/ScreensaverSettings'));
 const KioskSettings = React.lazy(() => import('../components/settings/KioskSettings'));
+// The chart library loads only with the CPU trend of Settings › System, never with Settings itself.
+const MiniSparkline = React.lazy(() => import('../components/settings/SettingsMiniSparkline'));
 
 type SettingsDashboardProps = {
   developerMode: boolean;
@@ -460,39 +461,6 @@ function collectUpdateEntities(haStates: MockEntityStateMap): UpdateEntityMatch[
       };
     })
     .sort((first, second) => Number(second.available) - Number(first.available) || first.title.localeCompare(second.title));
-}
-
-function MiniSparkline({ id, data }: { id: string; data: number[] }) {
-  const { t } = useI18n();
-  const chartData = useMemo(() => data.slice(-24).map((value, index) => ({ index, value })), [data]);
-  if (chartData.length < 2) {
-    return (
-      <div className="flex h-full w-full items-center justify-center rounded-lg bg-[color:var(--ui-surface-glass)] text-[11px] font-medium text-[color:var(--ui-text-secondary)]">
-        {t('settings.system.insufficientData')}
-      </div>
-    );
-  }
-  return (
-    <ResponsiveContainer width="100%" height="100%">
-      <AreaChart data={chartData} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
-        <defs>
-          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity={0.24} />
-            <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity={0.02} />
-          </linearGradient>
-        </defs>
-        <Area
-          type="monotone"
-          dataKey="value"
-          stroke="rgb(99,102,241)"
-          strokeWidth={1.8}
-          fill={`url(#${id})`}
-          dot={false}
-          isAnimationActive={false}
-        />
-      </AreaChart>
-    </ResponsiveContainer>
-  );
 }
 
 function InfoRow({ icon: Icon, title, subtitle }: { icon: LucideIcon; title: string; subtitle: string }) {
@@ -1680,7 +1648,11 @@ export default function SettingsDashboard({
       >
         {processorUseHistory.length >= 2 ? (
           <span className="mt-2 block h-10 min-w-0">
-            <MiniSparkline id="settings-cpu-trend" data={processorUseHistory} />
+            <LazyLoadErrorBoundary failure={null}>
+              <React.Suspense fallback={null}>
+                <MiniSparkline id="settings-cpu-trend" data={processorUseHistory} />
+              </React.Suspense>
+            </LazyLoadErrorBoundary>
           </span>
         ) : null}
       </SettingsListRow>

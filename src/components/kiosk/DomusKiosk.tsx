@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
+import { LazyLoadErrorBoundary } from '../common/LazyLoadBoundary';
 import { resolveKioskStartRoute, useKioskPreferences } from './kioskPreferences';
 import { getKioskSession, onKioskLaunchRequest, updateKioskSession, useKioskSession } from './kioskSession';
 
@@ -82,10 +83,13 @@ export function DomusKiosk({ route, navigate, availableStartRoutes }: DomusKiosk
     [openStartPage],
   );
 
+  // If the running panel cannot load, the navigation stays hidden and the dashboard works on.
   return active ? (
-    <React.Suspense fallback={null}>
-      <KioskRuntime />
-    </React.Suspense>
+    <LazyLoadErrorBoundary failure={null}>
+      <React.Suspense fallback={null}>
+        <KioskRuntime />
+      </React.Suspense>
+    </LazyLoadErrorBoundary>
   ) : null;
 }
 

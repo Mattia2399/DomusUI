@@ -12,6 +12,7 @@ import {
   measureSurfaces,
   statusOf,
 } from './metrics.mjs';
+import { chunkLabel, chunkMap, ownerOf } from './chunk-map.mjs';
 import { evaluate, render } from './report.mjs';
 
 /*
@@ -163,5 +164,86 @@ describe('performance budget metrics', () => {
     const sizer = createSizer((name) => (name.includes('vendor') ? null : contents[name]));
     expect(() => sizer.measure(new Set([file('vendor')]))).toThrow(/Missing build file/);
     expect(() => measureSurfaces(loadGraph(fixture().graph), createSizer((name) => contents[name]), [{ id: 'x', sources: ['index.html'], requires: 'nowhere' }])).toThrow(/Unknown surface nowhere/);
+  });
+});
+
+describe('performance budget accounting (PERF.1)', () => {
+  /** The fixture plus a lazy feature behind Energy: its page and a runtime sharing a helper chunk. */
+  function withFeature(hash = 'a1') {
+    const { graph, contents, file } = fixture(hash);
+    graph.chunks[file('Energy')].dynamicImports.push(file('FeaturePage'), file('FeatureRuntime'));
+    graph.chunks[file('FeaturePage')] = { src: 'src/components/settings/FeaturePage.tsx', isDynamicEntry: true, imports: [file('index'), file('featureHelper')], dynamicImports: [], css: [], modules: { 'src/components/settings/FeaturePage.tsx': 10 } };
+    graph.chunks[file('FeatureRuntime')] = { src: 'src/components/kiosk/FeatureRuntime.tsx', isDynamicEntry: true, imports: [file('index'), file('featureHelper')], dynamicImports: [], css: [], modules: { 'src/components/kiosk/FeatureRuntime.tsx': 10 } };
+    graph.chunks[file('featureHelper')] = { src: null, name: 'featureHelper', imports: [], dynamicImports: [], css: [], modules: { 'src/components/kiosk/helper.ts': 30, 'src/components/kiosk/other.ts': 5 } };
+    for (const [name, size] of [['FeaturePage', 300], ['FeatureRuntime', 200], ['featureHelper', 100]]) {
+      contents[file(name)] = Buffer.from(name.repeat(size).slice(0, size));
+    }
+    return { build: loadGraph(graph), sizer: createSizer((name) => contents[name] ?? null), codeFiles: Object.keys(contents), file };
+  }
+  const feature = { id: 'feature', label: 'Feature', sources: ['src/components/settings/FeaturePage.tsx', 'src/components/kiosk/FeatureRuntime.tsx'], requires: 'energy', kind: 'feature', budget: { metric: 'incremental', raw: { warning: 700, limit: 800 }, gzip: { limit: 2000 } } };
+  const sum = (files, sizer) => [...files].reduce((total, name) => total + sizer.sizeOf(name).raw, 0);
+
+  it('measures a feature from several entries, counting the chunk they share once', () => {
+    const { build, sizer, file } = withFeature();
+    const measured = measureSurfaces(build, sizer, [...surfaces, feature]).find((surface) => surface.id === 'feature');
+    expect([...measured.added].sort()).toEqual([file('FeaturePage'), file('FeatureRuntime'), file('featureHelper')].sort());
+    expect(measured.incremental.raw).toBe(300 + 200 + 100);
+  });
+
+  it('never loses or adds bytes: the total is every file, whatever the surfaces', () => {
+    const { build, sizer, codeFiles } = withFeature();
+    const without = evaluate(build, sizer, config, codeFiles);
+    const withSurface = evaluate(build, sizer, { ...config, surfaces: [...surfaces, feature] }, codeFiles);
+    const all = sum(codeFiles, sizer);
+
+    expect(without.total.values.raw).toBe(all);
+    expect(withSurface.total.values.raw).toBe(all);
+    // Giving the feature a surface moves its files out of the unattributed code, nothing else.
+    expect(without.unattributed.values.raw - withSurface.unattributed.values.raw).toBe(600);
+    const reached = new Set(measureSurfaces(build, sizer, [...surfaces, feature]).flatMap((surface) => [...surface.files]));
+    expect(sum(reached, sizer) + withSurface.unattributed.values.raw).toBe(all);
+  });
+
+  it('names the unattributed files by source, largest first, never by hash', () => {
+    const names = (hash) => {
+      const { build, sizer, codeFiles } = withFeature(hash);
+      return evaluate(build, sizer, config, codeFiles).unattributed.details.map((entry) => [entry.label, entry.raw]);
+    };
+    expect(names('a1')).toEqual([
+      ['node_modules/map/worker.mjs', 900],
+      ['src/components/settings/FeaturePage.tsx', 300],
+      ['src/components/kiosk/FeatureRuntime.tsx', 200],
+      ['featureHelper (src/components/kiosk/helper.ts)', 100],
+    ]);
+    expect(names('zz9')).toEqual(names('a1'));
+    const { build, sizer, codeFiles } = withFeature();
+    expect(render(evaluate(build, sizer, config, codeFiles))).toContain('src/components/settings/FeaturePage.tsx');
+  });
+
+  it('maps every file to its kind, importers, surfaces and owner, the same way on every build', () => {
+    const map = (hash) => {
+      const { build, sizer, codeFiles } = withFeature(hash);
+      // The fixture's bytes include the file name, so only gzip may differ between hashes.
+      return chunkMap(build, sizer, [...surfaces, feature], codeFiles).map(({ file, gzip, ...entry }) => entry);
+    };
+    const first = map('a1');
+    expect(map('zz9')).toEqual(first);
+    const helper = first.find((entry) => entry.label.startsWith('featureHelper'));
+    expect(helper).toMatchObject({ kind: 'shared', owner: 'KIOSK', surfaces: ['feature'] });
+    expect(helper.importedBy).toEqual(['src/components/kiosk/FeatureRuntime.tsx', 'src/components/settings/FeaturePage.tsx']);
+    const page = first.find((entry) => entry.label === 'src/components/settings/FeaturePage.tsx');
+    expect(page).toMatchObject({ kind: 'dynamic', owner: 'SETTINGS', loadedLaterBy: ['src/pages/Energy.tsx'] });
+    expect(first.find((entry) => entry.label === 'index.html')).toMatchObject({ kind: 'entry' });
+  });
+
+  it('attributes owners from module paths, vendors by package', () => {
+    expect(ownerOf('src/components/kiosk/DomusKiosk.tsx')).toBe('KIOSK');
+    expect(ownerOf('src/components/settings/KioskSettings.tsx')).toBe('KIOSK');
+    expect(ownerOf('src/components/settings/DevicePowerSettings.tsx')).toBe('POWER');
+    expect(ownerOf('src/components/screensaver/idleController.ts')).toBe('SCREENSAVER');
+    expect(ownerOf('src/components/settings/SettingsList.tsx')).toBe('SETTINGS');
+    expect(ownerOf('node_modules/@headlessui/react/dist/index.js')).toBe('vendor:@headlessui/react');
+    expect(ownerOf('node_modules/recharts/es6/index.js')).toBe('vendor:recharts');
+    expect(chunkLabel({ src: null, name: 'icons', modules: {} })).toBe('icons (empty)');
   });
 });

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render as renderTestingLibrary, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderTestingLibrary, screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../i18n/I18nProvider';
@@ -112,6 +112,31 @@ describe('SettingsDashboard', () => {
     expect(
       within(screen.getByRole('region', { name: 'Questo dispositivo' })).getByRole('button', { name: /^Screensaver/ }).textContent,
     ).toContain('10 min');
+  });
+
+  it('draws the CPU trend of System with the chart library loaded only for it', async () => {
+    const { container } = render(
+      <DashboardSecurityProvider value={security}>
+        <SettingsDashboard
+          {...baseProps}
+          navigationRoute="/settings/system"
+          haStates={{
+            'sensor.processor_use': {
+              state: '23',
+              unit: '%',
+              numericValue: 23,
+              rawAttributes: { friendly_name: 'Processor use', unit_of_measurement: '%' },
+            } as never,
+          }}
+          sensorHistoryByEntity={{ 'sensor.processor_use': [12, 18, 23, 31] }}
+        />
+      </DashboardSecurityProvider>,
+    );
+
+    // The chart library is a lazy chunk of its own: give it time to load under a busy test run.
+    await waitFor(() => expect(container.ownerDocument.querySelector('.recharts-responsive-container')).not.toBeNull(), {
+      timeout: 5000,
+    });
   });
 
   it('opens Kiosk mode as its own page, loaded only then, with the start pages of the navigation', async () => {

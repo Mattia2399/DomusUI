@@ -1,3 +1,4 @@
+import { chunkLabel } from './chunk-map.mjs';
 import { difference, measureSurfaces, staticCycles, statusOf, worst } from './metrics.mjs';
 
 /*
@@ -48,7 +49,18 @@ export function evaluate(build, sizer, config, codeFiles) {
   const totalCheck = check('Totale JS + CSS', totals, config.total);
   // Always a hard failure: a static cycle between chunks can break module initialisation.
   const cycles = staticCycles(build);
-  const unattributedCheck = check('Codice fuori dalle superfici', unattributed, config.unattributed, { files: [...unattributedFiles] });
+  // Named by source, largest first, so a growing feature is easy to spot.
+  const looseFiles = [...unattributedFiles]
+    .map((file) => ({
+      file,
+      label: build.chunks.has(file) ? chunkLabel(build.chunks.get(file)) : file,
+      ...sizer.sizeOf(file),
+    }))
+    .sort((a, b) => b.raw - a.raw || a.label.localeCompare(b.label));
+  const unattributedCheck = check('Codice fuori dalle superfici', unattributed, config.unattributed, {
+    files: [...unattributedFiles],
+    details: looseFiles,
+  });
   const statuses = [
     ...surfaceChecks.map((item) => item.status),
     ...fileChecks.map((item) => item.status),
@@ -123,6 +135,9 @@ export function render(result) {
   for (const cycle of result.cycles) lines.push(`    ${cycle.join(' -> ')}`);
   const loose = result.unattributed;
   lines.push(`  ${loose.label}: ${kb(loose.values.raw)} raw in ${loose.files.length} file (warning oltre ${kb(loose.budget.raw.warning)})  ${loose.status}`);
+  const shown = loose.details.slice(0, 8);
+  for (const entry of shown) lines.push(`    ${pad(kb(entry.raw), 10, true)} raw ${pad(kb(entry.gzip), 9, true)} gzip  ${entry.label}`);
+  if (loose.details.length > shown.length) lines.push(`    … altri ${loose.details.length - shown.length} file`);
 
   lines.push('', result.failed
     ? 'Performance budget superato: la release viene bloccata.'

@@ -1,4 +1,4 @@
-import { loadHaLiveConfig, HASS_TOKENS_KEY } from './haLive';
+import { loadHaLiveConfig, HASS_TOKENS_KEY } from './haLiveConfig';
 import {
   DASHBOARD_RUNTIME_MODE_STORAGE_KEY,
   REAL_DASHBOARD_LAYOUT_STORAGE_KEY,

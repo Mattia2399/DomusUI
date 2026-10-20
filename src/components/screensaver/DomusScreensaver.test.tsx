@@ -69,6 +69,10 @@ async function idle(ms = MINUTE) {
   await act(async () => {
     vi.advanceTimersByTime(ms);
   });
+  // The overlay is its own chunk: let a first load settle, as it has long before in a browser.
+  await act(async () => {
+    await vi.dynamicImportSettled();
+  });
 }
 
 beforeEach(() => {
@@ -321,6 +325,9 @@ describe('DomusScreensaver', () => {
     await idle(MINUTE);
 
     act(() => requestScreensaverPreview({ ...DEFAULT_SCREENSAVER_PREFERENCES, enabled: true, mode: 'ambient' }));
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
     expect(overlay()!.getAttribute('data-source')).toBe('preview');
     expect(overlay()!.getAttribute('data-mode')).toBe('ambient');
 
@@ -339,6 +346,9 @@ describe('DomusScreensaver', () => {
   it('can be previewed while still off', async () => {
     renderDashboard();
     act(() => requestScreensaverPreview(DEFAULT_SCREENSAVER_PREFERENCES));
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
     expect(overlay()!.getAttribute('data-source')).toBe('preview');
   });
 

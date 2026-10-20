@@ -3,14 +3,18 @@ import type { MockEntityStateMap, MockWeatherForecastEntry } from '../types/ha';
 import { translateMediaPlayerState } from '../utils/mediaPlayerState';
 import { sanitizeDynamicUrl } from '../security/safeUrl';
 
-const STORAGE_KEY = 'ha-external-dashboard:ha-live:v1';
-export const HASS_TOKENS_KEY = 'hass_auth_tokens';
+import { HASS_TOKENS_KEY, saveHaLiveConfig } from './haLiveConfig';
 
-export interface HaLiveConfig {
-  url: string;
-  token: string;
-  rememberToken: boolean;
-}
+// The saved connection lives on its own (haLiveConfig) so startup reads it
+// without this module; it is re-exported here for every other caller.
+export {
+  HASS_TOKENS_KEY,
+  clearHaLiveConfigStorage,
+  defaultHaLiveConfig,
+  loadHaLiveConfig,
+  saveHaLiveConfig,
+  type HaLiveConfig,
+} from './haLiveConfig';
 
 export type HaOAuthAuthorizeParams = {
   hassUrl: string;
@@ -113,12 +117,6 @@ export function persistHaOAuthSession(params: {
   });
   return authData;
 }
-
-export const defaultHaLiveConfig: HaLiveConfig = {
-  url: 'http://homeassistant.local:8123',
-  token: '',
-  rememberToken: false,
-};
 
 export type HassUrlValidation =
   | { ok: true; url: string; warning?: string }
@@ -881,49 +879,4 @@ export function mapHassEntitiesToMock(
   });
 
   return nextStates;
-}
-
-export function loadHaLiveConfig(): HaLiveConfig {
-  if (typeof window === 'undefined') {
-    return defaultHaLiveConfig;
-  }
-
-  const raw = window.localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    return defaultHaLiveConfig;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as Partial<HaLiveConfig>;
-    return {
-      url: parsed.url ?? defaultHaLiveConfig.url,
-      token: parsed.token ?? '',
-      rememberToken: parsed.rememberToken ?? false,
-    };
-  } catch {
-    return defaultHaLiveConfig;
-  }
-}
-
-export function saveHaLiveConfig(config: HaLiveConfig) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      url: config.url,
-      token: config.rememberToken ? config.token : '',
-      rememberToken: config.rememberToken,
-    }),
-  );
-}
-
-export function clearHaLiveConfigStorage() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.removeItem(STORAGE_KEY);
 }

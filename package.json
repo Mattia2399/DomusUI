@@ -22,6 +22,7 @@
     "audit:release": "node scripts/audit-release.mjs",
     "i18n:audit": "node scripts/check-i18n-scope.mjs",
     "build:budget": "node scripts/check-bundle-budget.mjs",
+    "build:budget:map": "node scripts/bundle-chunk-map.mjs",
     "release:notes": "node scripts/generate-release-notes.mjs",
     "release:notes:check": "node scripts/generate-release-notes.mjs --check",
     "release:package": "node scripts/build-release-package.mjs",

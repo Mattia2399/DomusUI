@@ -95,6 +95,11 @@
 
 ### Changed
 
+- Settings opens with about 288 KB less code (90 KB compressed): the chart
+  library now loads only for the processor trend of Settings › System. Domus
+  also starts with 15 KB less, and the screensaver's on-screen part loads
+  only on devices where it is turned on. Nothing changes on screen.
+
 - Settings and Profile are organized by who a setting belongs to. The
   Profile shows only the person: account, activity, My devices, the Home
   Assistant startup panel and device confirmation. Settings groups the house

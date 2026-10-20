@@ -376,6 +376,9 @@ describe('DomusKiosk', () => {
     await act(async () => {
       vi.advanceTimersByTime(60_000);
     });
+    await act(async () => {
+      await vi.dynamicImportSettled();
+    });
     const overlay = screen.getByTestId('domus-screensaver');
 
     // The Kiosk shortcut only wakes the screensaver while it shows.
