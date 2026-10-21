@@ -10,6 +10,7 @@ ancora nulla**:
 Architettura e decisioni in [access-control-architecture.md](access-control-architecture.md),
 capability e matrici in [access-control-capabilities.md](access-control-capabilities.md),
 rischi in [access-control-threat-model.md](access-control-threat-model.md).
+Il motore che decide sulle richieste è in [access-control-authorization.md](access-control-authorization.md) (P2.2).
 
 ## Dove sta
 

@@ -490,7 +490,7 @@ I cinque test di sicurezza obbligatori sono nel
 | Fase | Contenuto |
 | --- | --- |
 | **P2.1** ✓ | Registro capability (backend, versionato) + ruoli di sistema + grant personali + store `domusos.access.v1` con stati, quarantena, revisione + `domusos/access/get_self` + recupero `domusos/access/reset_policy` (WebSocket, P2.1.2). Nessun enforcement. [Fondamento](access-control-foundation.md). |
-| **P2.2** | Primitive backend `can`/`authorize`/`require_capability`/`authorize_service_call`; test di contratto che ogni comando dichiari una capability. |
+| **P2.2** ✓ | Motore centrale (`authorize`, `can`, `require_capability`, `authorize_action`), adattatori WebSocket e servizi, registro delle 38 superfici backend, contratto S8. Nessun enforcement. [Autorizzazione](access-control-authorization.md). |
 | **P2.3** | Shadow authorization + diagnostiche (differenze rispetto a oggi) + audit V1. |
 | **P2.4** | Frontend: `can()` da `get_self`, migrazione di `DashboardCapability`, route guard e schermata «Non disponibile». |
 | **P2.5** | Enforcement sui comandi Domus (Energy view, Irrigazione, Raccolta rifiuti, Profile, Alimentazione) + i 5 test di sicurezza. |
@@ -529,6 +529,14 @@ I cinque test di sicurezza obbligatori sono nel
 | D26 | `domusos/access/subscribe` rimandato a P2.3/P2.4: in P2.1 non esistono scritture da client, quindi niente da notificare. |
 | D27 | (rafforza D6) Persone e accessi dichiarerà che le autorizzazioni Domus valgono dentro Domus e che Home Assistant mantiene i propri permessi. |
 | D28 | **Approvata e implementata (P2.1.2)**: il reset della policy richiede l'admin HA attivo della connessione WebSocket (`connection.user`) e non è disponibile ad automazioni e script. Il servizio `domusos.reset_access_policy` è stato rimosso. Una credenziale admin usata da uno strumento esterno agisce come quell'admin: è il perimetro di HA, non un aggiramento. |
+| D29 | (P2.2) L'autorizzazione è centralizzata in `access/authorization.py`: le funzioni chiedono `can`/`authorize`/`require_capability`, mai `is_admin`, ruoli o liste di capability. |
+| D30 | Eccezione = deny: qualsiasi errore nel motore o negli adattatori è un deny `internal_error`, mai un allow; `can` restituisce `False`. |
+| D31 | Ogni comando WebSocket `domusos/*` e servizio `domusos.*` è dichiarato in `access/actions.py` con la capability richiesta (e solo capability `domus`). |
+| D32 | Una superficie backend registrata senza dichiarazione fa fallire i contratti (S8), sia dal sorgente sia dalle registrazioni reali di HA. |
+| D33 | Le uniche eccezioni a «una capability per azione» sono nominate e motivate: `get_self` (`authenticated_bootstrap`) e `reset_policy` (`recovery`, `access.manage`). |
+| D34 | Un servizio chiamato senza utente produce una decisione deny `no_principal`; non viene applicata in P2.2, e la regola per P2.5 dipende dalle misure di P2.3 (Q10). |
+| D35 | Nessun principal di sistema, di automazione o «fidato» in V1. |
+| D36 | Nuova capability `waste.view` (bassa, `domus`) per `waste_collection/get_config` e `preview`, in tutti i ruoli, come oggi (Q9). |
 
 ## 21. Domande aperte
 
@@ -542,3 +550,5 @@ I cinque test di sicurezza obbligatori sono nel
 | Q6 | `energy.view` per `restricted` e `wall_panel` | **Deciso**: `restricted` no, `wall_panel` sì (D22) |
 | Q7 | Ospiti: si aspetta il supporto HA a credenziali temporanee, o un account HA dedicato con ruolo `guest`? | Account dedicato, dopo P2.6 |
 | Q8 | Il reset della policy deve essere una richiesta diretta di un admin HA attivo, mai un'automazione o uno script (D28 proposta). Un servizio HA non può garantirlo: le automazioni chiamano senza `user_id` (e `async_register_admin_service` le lascia passare); uno script avviato da un admin chiama con il suo stesso `Context`, indistinguibile da una chiamata diretta ([limite verificato](access-control-foundation.md#perché-non-un-servizio-audit-p211)). | **Chiusa: opzione B** (D28). Servizio rimosso, comando WebSocket `domusos/access/reset_policy` legato a `connection.user`. |
+| Q9 | `waste.view` (calendario della Raccolta rifiuti, nella card rapida) va lasciata anche a `restricted` e `wall_panel`? | Sì: è ciò che vedono oggi (D36) |
+| Q10 | In P2.5, cosa fare dei servizi chiamati senza utente (automazioni di Irrigazione)? Il deny `no_principal` le romperebbe | Decidere dopo le misure di P2.3; nessun principal di sistema (D35) |

@@ -12,6 +12,9 @@
   and an administrator can reset them with the Domus command
   `domusos/access/reset_policy`, sent from their own signed-in session. It
   is not a Home Assistant action, so no automation or script can run it.
+  The integration also has a central authorization check and a list of
+  every Domus command with the permission it will require; it is not
+  switched on yet, so nothing is blocked.
 - Settings › This device › Kiosk mode turns a wall tablet or a dedicated PC
   into a Domus panel: "Start panel mode" hides Domus's own navigation, opens
   the chosen start page and, when the browser allows it, goes full screen and

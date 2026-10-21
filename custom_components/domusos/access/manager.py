@@ -25,7 +25,7 @@ from homeassistant.util import dt as dt_util
 from ..const import DOMAIN
 from ..core import DomusRuntime
 from ..core.audit import AuditEntry
-from ..profile.identity import AccountEligibility, account_eligibility
+from .authorization import identify
 from .models import (
     STORAGE_KEY,
     STORAGE_VERSION,
@@ -65,9 +65,10 @@ _RESET_MARK = ".reset."
 
 def principal_from_user(user: User | None) -> Principal:
     """The principal of a request: a household account of Home Assistant, read on the server."""
-    if user is None or account_eligibility(user) is not AccountEligibility.HOUSEHOLD:
+    principal, _reason = identify(user)
+    if principal is None:
         raise AccessDeniedError("This account has no access to Domus")
-    return Principal(user_id=user.id, is_admin=bool(user.is_admin), is_owner=bool(user.is_owner))
+    return principal
 
 
 class SetAsideError(Exception):
@@ -181,7 +182,11 @@ class AccessPolicyManager:
 
     def profile_for(self, user: User | None) -> AccessProfile:
         """What Domus allows this account now; Home Assistant still decides its own half."""
-        return resolve_access_profile(principal_from_user(user), self._state, self._policy)
+        return self.profile_for_principal(principal_from_user(user))
+
+    def profile_for_principal(self, principal: Principal) -> AccessProfile:
+        """The profile of an already verified principal; reads the policy, never changes it."""
+        return resolve_access_profile(principal, self._state, self._policy)
 
     def orphaned_assignments(self, known_user_ids: Iterable[str]) -> list[str]:
         """Assignments of accounts Home Assistant no longer has; kept until someone removes them."""

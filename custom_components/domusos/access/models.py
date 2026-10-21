@@ -191,6 +191,7 @@ ACCESS_CAPABILITIES: Mapping[str, AccessCapability] = {
         _capability("irrigation.view", Risk.LOW, _D, "Irrigation zones, calendar, activity and usage"),
         _capability("irrigation.control", Risk.MEDIUM, _D, "Start, stop and pause irrigation"),
         _capability("irrigation.manage", Risk.MEDIUM, _D, "Irrigation configuration", requires_ha_admin=True),
+        _capability("waste.view", Risk.LOW, _D, "The waste collection calendar and its preview"),
         _capability("waste.manage", Risk.LOW, _D, "Waste collection settings and test", requires_ha_admin=True),
         _capability("house.manage", Risk.MEDIUM, _N, "Floors, areas and rooms", requires_ha_admin=True),
         _capability("people.view", Risk.LOW, _N, "The members and people of the house"),
@@ -257,6 +258,7 @@ SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
         "energy.view",
         "irrigation.view",
         "irrigation.control",
+        "waste.view",
         "people.view",
         "system.view",
         "device.manage",
@@ -268,6 +270,7 @@ SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
         "rooms.view",
         "devices.control",
         "irrigation.view",
+        "waste.view",
         "profile.manage",
     ),
     # A Home Assistant account used by a dedicated panel; not the Kiosk mode of a browser.
@@ -279,6 +282,7 @@ SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
         "automations.run",
         "energy.view",
         "irrigation.view",
+        "waste.view",
     ),
     RoleId.LOCKED: _ids("dashboard.view", "rooms.view", "profile.manage"),
 }

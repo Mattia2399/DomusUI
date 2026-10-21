@@ -39,6 +39,7 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `irrigation.view` | Zone, calendario, attività, consumi | low | — | **domus** (+ lettura HA) | — |
 | `irrigation.control` | Avviare, fermare, mettere in pausa | medium | — | **domus** (+ `check_entity`) | — |
 | `irrigation.manage` | Configurazione | medium | sì | **domus** | — |
+| `waste.view` | Raccolta rifiuti: calendario e anteprima (P2.2) | low | — | **domus** | — |
 | `waste.manage` | Raccolta rifiuti: configurazione e prova | low | sì | **domus** | — |
 | `house.manage` | Piani, aree, stanze | medium | sì (registri) | ha_native | — |
 | `people.view` | Elenco membri e persone | low | — | ha_native (`person/list`) | — |
@@ -56,7 +57,7 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `notifications.recipients` | Scegliere i destinatari | medium | sì | **domus** | — |
 | `developer.use` | Modalità sviluppatore | low | — | local | — |
 
-33 capability. Regole verificate dai test:
+34 capability (`waste.view` aggiunta in P2.2). Regole verificate dai test:
 
 - solo `access.control` e `security.control` sono concedibili;
 - una capability concedibile non richiede mai l'admin HA e non è mai critica;
@@ -82,6 +83,7 @@ HA, qualunque sia il ruolo.
 | `energy.view` | ● | ● | — | ● | — |
 | `energy.manage` | ● | — | — | — | — |
 | `irrigation.view` | ● | ● | ● | ● | — |
+| `waste.view` | ● | ● | ● | ● | — |
 | `irrigation.control` | ● | ● | — | — | — |
 | `people.view` | ● | ● | — | — | — |
 | `system.view` | ● | ● | — | — | — |
@@ -211,7 +213,8 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | Irrigazione: zona, pausa, stop | WS o servizio | `domusos.*_irrigation*` | `irrigation/start_zone`, `stop_zone`, `pause`, `resume`, `stop_all` | `irrigation.control` | medium |
 | Irrigazione: configurazione | WS | — | `irrigation/save_config`, `prepare_legacy_removal` | `irrigation.manage` | medium |
 | Alimentazione | WS | (il controller agisce in HA) | `device_power/get_state`, `save_policy`, `bind_policy`, `delete_policy` | `device_power.manage` | high |
-| Raccolta rifiuti | WS | — | `waste_collection/save_config`, `test_notification` (`get_config`, `preview` aperti) | `waste.manage` | low |
+| Raccolta rifiuti: lettura | WS | — | `waste_collection/get_config`, `preview` | `waste.view` | low |
+| Raccolta rifiuti: modifica | WS | — | `waste_collection/save_config`, `test_notification` | `waste.manage` | low |
 | Profilo | WS | — | `profile/get_self`, `save_self`, `*_device`, `test_self` | `profile.manage` | low |
 | Destinatari notifiche | WS | — | `profile/list_recipients` | `notifications.recipients` | medium |
 | Profilo d'accesso proprio | WS | — | `domusos/access/get_self` (P2.1) | — (ogni account domestico) | low |
