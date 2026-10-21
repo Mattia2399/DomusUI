@@ -528,6 +528,7 @@ I cinque test di sicurezza obbligatori sono nel
 | D25 | `get_self` restituisce anche `user_id`, perché il client verifichi che la risposta sia dell'account mostrato; non è mai un input. |
 | D26 | `domusos/access/subscribe` rimandato a P2.3/P2.4: in P2.1 non esistono scritture da client, quindi niente da notificare. |
 | D27 | (rafforza D6) Persone e accessi dichiarerà che le autorizzazioni Domus valgono dentro Domus e che Home Assistant mantiene i propri permessi. |
+| D28 | **Proposta, non implementata** (vedi Q8): il reset della policy richiede un principal admin HA attivo e diretto e non è disponibile ad automazioni e script. |
 
 ## 21. Domande aperte
 
@@ -540,3 +541,4 @@ I cinque test di sicurezza obbligatori sono nel
 | Q5 | La UI dice che i limiti valgono solo dentro Domus? | **Deciso**: sì (D27) |
 | Q6 | `energy.view` per `restricted` e `wall_panel` | **Deciso**: `restricted` no, `wall_panel` sì (D22) |
 | Q7 | Ospiti: si aspetta il supporto HA a credenziali temporanee, o un account HA dedicato con ruolo `guest`? | Account dedicato, dopo P2.6 |
+| Q8 | Il reset della policy deve essere una richiesta diretta di un admin HA attivo, mai un'automazione o uno script (D28 proposta). Un servizio HA non può garantirlo: le automazioni chiamano senza `user_id` (e `async_register_admin_service` le lascia passare); uno script avviato da un admin chiama con il suo stesso `Context`, indistinguibile da una chiamata diretta ([limite verificato](access-control-foundation.md#limite-verificato-del-servizio-p211)). | Sostituire il servizio con un comando WebSocket `domusos/access/reset_policy` legato a `connection.user` (admin attivo): automazioni e script non inviano comandi WebSocket. Decisione da approvare. |

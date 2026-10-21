@@ -172,9 +172,32 @@ amministrativo: HA lo rifiuta (`Unauthorized`) a chi non è admin.
 - Lascia una voce di audit nel `DomusAuditService` (`access.policy`,
   `policy_reset`, autore, stato e revisione precedenti, file conservati) e un
   warning nel log. Rimuove l'avviso di riparazione.
-- Non viene mai invocato in automatico.
+- Domus non lo invoca mai da solo.
 
 In ultima istanza, a HA fermo, si può spostare a mano `.storage/domusos.access.v1`.
+
+### Limite verificato del servizio (P2.1.1)
+
+Requisito: il reset deve essere una richiesta diretta di un admin HA attivo, mai
+un'automazione o uno script. Con un servizio HA **non si può garantire**.
+Verificato sul sorgente di HA 2026.2 e con una chiamata reale su un core HA
+locale:
+
+| Chi chiama | `user_id` | `parent_id` | Esito oggi |
+| --- | --- | --- | --- |
+| Admin, chiamata diretta (WS `call_service`: `Context(user_id=…)`) | admin | nessuno | consentito |
+| Script avviato da un admin (`Script` usa lo stesso `Context` del chiamante per ogni azione) | admin | nessuno | consentito: **identico** alla chiamata diretta |
+| Automazione, anche avviata a mano (`Context(parent_id=…)` senza utente) | nessuno | presente | **consentito**: `async_register_admin_service` controlla l'admin solo se `user_id` c'è |
+| Non admin, diretto o con uno script | non admin | nessuno | rifiutato (`Unauthorized`) |
+
+- `parent_id` non distingue lo script dalla chiamata diretta.
+- `origin_event` lo farebbe, ma è un dettaglio interno usato da logbook e
+  telegram_bot, non un contratto: non è un criterio di sicurezza.
+
+Decisione aperta (Q8 in [architettura](access-control-architecture.md#21-domande-aperte)).
+Il comportamento del servizio resta quello di P2.1 finché non si sceglie. Nulla
+viene ancora applicato con la policy, quindi oggi un reset cambia solo cosa
+risponde `get_self`.
 
 ## `domusos/access/get_self`
 
