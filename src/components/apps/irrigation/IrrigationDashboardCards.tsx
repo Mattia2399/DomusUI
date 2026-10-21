@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { useCan } from '../../../security/AccessControlProvider';
 import {
   CalendarDays,
   ChevronRight,
@@ -61,6 +62,8 @@ export function IrrigationHero({
   onPrimaryAction,
   onStop,
 }: IrrigationHeroProps) {
+  // irrigation.control: without it the state shows and no command is offered.
+  const canControl = useCan('irrigation.control');
   const { t } = useI18n();
   return (
     <div
@@ -143,7 +146,7 @@ export function IrrigationHero({
               size="compact"
             />
           </div>
-          {!masterIsStopped ? (
+          {canControl && !masterIsStopped ? (
             <button
               type="button"
               onClick={onStop}
@@ -153,6 +156,7 @@ export function IrrigationHero({
               <Square className="h-4 w-4" fill="currentColor" />
             </button>
           ) : null}
+          {canControl ? (
           <button
             type="button"
             onClick={onPrimaryAction}
@@ -162,6 +166,7 @@ export function IrrigationHero({
           >
             {masterIsRunning ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
           </button>
+          ) : null}
           </div>
 
           <p className="mt-3 line-clamp-2 px-1 text-[11px] leading-4 text-white/55 sm:text-xs">
@@ -189,6 +194,8 @@ export function IrrigationMobileOverview({
   onStop,
   onConfigure,
 }: IrrigationHeroProps & { onConfigure?: () => void }) {
+  // irrigation.control: without it the state shows and no command is offered.
+  const canControl = useCan('irrigation.control');
   const { t } = useI18n();
   return (
     <div data-testid="irrigation-mobile-overview" className="space-y-3 md:hidden">
@@ -216,7 +223,7 @@ export function IrrigationMobileOverview({
             </p>
           </div>
           <div className="flex shrink-0 translate-y-1 items-center gap-2">
-            {!masterIsStopped ? (
+            {canControl && !masterIsStopped ? (
               <button
                 type="button"
                 onClick={onStop}
@@ -226,6 +233,7 @@ export function IrrigationMobileOverview({
                 <Square className="h-4 w-4" fill="currentColor" />
               </button>
             ) : null}
+            {canControl ? (
             <button
               type="button"
               onClick={onPrimaryAction}
@@ -235,6 +243,7 @@ export function IrrigationMobileOverview({
             >
               {masterIsRunning ? <Pause className="h-4 w-4" fill="currentColor" /> : <Play className="ml-0.5 h-4 w-4" fill="currentColor" />}
             </button>
+            ) : null}
           </div>
         </div>
 
@@ -336,6 +345,8 @@ type ZoneCardProps = {
 };
 
 export function IrrigationZoneCard({ zone, onProgram, onDurationChange, onManualToggle }: ZoneCardProps) {
+  // irrigation.control: without it the state shows and no command is offered.
+  const canControl = useCan('irrigation.control');
   const { t } = useI18n();
   const Icon = zone.icon;
   const isAlert = zone.status === 'alert';
@@ -377,6 +388,8 @@ export function IrrigationZoneCard({ zone, onProgram, onDurationChange, onManual
         >
           <Clock3 className="h-3.5 w-3.5" />
         </button>
+        {canControl ? (
+        <>
         <div className="flex h-9 min-w-0 flex-1 items-center justify-between rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-1">
           <button type="button" onClick={() => onDurationChange(zone.manualDurationMin - 1)} disabled={zone.manualDurationMin <= 1 || isAlert || hasSession} className="flex h-7 w-7 items-center justify-center rounded-full disabled:opacity-30" aria-label={t('irrigation.zone.timerDecrease', { name: zone.name })}>
             <Minus className="h-3 w-3" />
@@ -396,6 +409,8 @@ export function IrrigationZoneCard({ zone, onProgram, onDurationChange, onManual
         >
           {zone.isCommandPending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : zone.isManualActive ? <Square className="h-3.5 w-3.5" fill="currentColor" /> : <Play className="ml-0.5 h-3.5 w-3.5" fill="currentColor" />}
         </button>
+        </>
+        ) : null}
       </div>
     </article>
   );

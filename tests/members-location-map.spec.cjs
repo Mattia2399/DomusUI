@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 const ownerId = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const unlinkedAccountId = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
@@ -108,7 +109,7 @@ const states = {
 async function installPanelBridge(page, panelStates = states) {
   await page.goto('/home');
   await page.evaluate(
-    ({ ownerId, sharedConfiguration, states, users }) => {
+    ({ ownerId, sharedConfiguration, states, users, accessSelf }) => {
       localStorage.clear();
       sessionStorage.clear();
       localStorage.setItem('ha.dashboard.setupJourney.v2', JSON.stringify({
@@ -147,6 +148,8 @@ async function installPanelBridge(page, panelStates = states) {
           let result = [];
           if (message.type === 'auth/current_user') {
             result = users.find((user) => user.id === ownerId);
+          } else if (message.type === 'domusos/access/get_self') {
+            result = accessSelf;
           } else if (message.type === 'config/auth/list' || message.type === 'auth/list') {
             result = users;
           } else if (message.type === 'frontend/get_system_data') {
@@ -178,7 +181,13 @@ async function installPanelBridge(page, panelStates = states) {
 
       document.body.innerHTML = '<iframe title="Home Assistant panel" src="/home" style="width:100vw;height:100vh;border:0"></iframe>';
     },
-    { ownerId, sharedConfiguration, states: panelStates, users },
+    {
+      ownerId,
+      sharedConfiguration,
+      states: panelStates,
+      users,
+      accessSelf: accessSelfFor(users.find((user) => user.id === ownerId)),
+    },
   );
 }
 

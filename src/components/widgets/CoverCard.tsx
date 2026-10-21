@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
+import { useCan } from '../../security/AccessControlProvider';
+import { isPhysicalAccessCover } from '../../security/entityControlAccess';
 import { useObservedElementSize } from '../../hooks/useObservedElementSize';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
@@ -46,7 +48,27 @@ export function CoverCard({
   const { locale } = useI18n();
   const { ref: cardRef, size: observedSize } = useObservedElementSize<HTMLDivElement>(widget.id);
   const measuredSize = observedSize?.identity === widget.id ? observedSize : null;
-  const model = useMemo(() => buildCoverCardModel({ widget, liveEntity, locale }), [liveEntity, locale, widget]);
+  const builtModel = useMemo(() => buildCoverCardModel({ widget, liveEntity, locale }), [liveEntity, locale, widget]);
+  // A gate, a garage or a motorized door is physical access (access.control): without it the
+  // card shows where the cover is and offers no command.
+  const canControlAccess = useCan('access.control');
+  const readOnly = isPhysicalAccessCover(builtModel.deviceClass) && !canControlAccess;
+  const model = useMemo(
+    () =>
+      readOnly
+        ? {
+            ...builtModel,
+            supportsSetPosition: false,
+            supportsSetTiltPosition: false,
+            supportsOpen: false,
+            supportsStop: false,
+            supportsClose: false,
+            supportsOpenTilt: false,
+            supportsCloseTilt: false,
+          }
+        : builtModel,
+    [builtModel, readOnly],
+  );
   const effectiveDisplayVariant =
     displayVariant ??
     (measuredSize
@@ -74,11 +96,11 @@ export function CoverCard({
       gridBreakpoint={gridBreakpoint}
       rootRef={cardRef}
       onOpen={onClick}
-      onPositionChange={onPositionChange}
-      onTiltPositionChange={onTiltPositionChange}
-      onOpenCover={onOpenCover}
-      onStopCover={onStopCover}
-      onCloseCover={onCloseCover}
+      onPositionChange={readOnly ? undefined : onPositionChange}
+      onTiltPositionChange={readOnly ? undefined : onTiltPositionChange}
+      onOpenCover={readOnly ? undefined : onOpenCover}
+      onStopCover={readOnly ? undefined : onStopCover}
+      onCloseCover={readOnly ? undefined : onCloseCover}
     />
   );
 }

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { connectHomeAssistant } = require('./support/fakeHomeAssistant.cjs');
 
 function installCompletedRealWorkspace(page) {
   return page.addInitScript(() => {
@@ -23,6 +24,7 @@ test('secondary workspaces load on demand without replacing the dashboard shell'
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
 
   await page.goto('/rooms');
   await expect(page.locator('.dashboard-shell')).toBeVisible();

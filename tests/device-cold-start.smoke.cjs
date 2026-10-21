@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Cold starts of the distributed build (dist/, production CSP) on the paths
@@ -23,6 +24,9 @@ async function simulateHomeAssistant(page, origin, preferences = {}) {
           case 'subscribe_entities':
             reply(null);
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: {} } }));
+            break;
+          case 'domusos/access/get_self':
+            reply(accessSelfFor(USER));
             break;
           case 'auth/current_user':
             reply(USER);

@@ -1,4 +1,6 @@
 const { test, expect } = require('@playwright/test');
+const { connectHomeAssistant } = require('./support/fakeHomeAssistant.cjs');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 // Settings is organized by who a setting belongs to: the house (Home and
 // System groups) or this device; the Profile is the person. See
@@ -26,6 +28,7 @@ function installCompletedRealWorkspace(page) {
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
 });
 
 test('Settings groups the house, its system and this device, each with its scope', async ({ page }) => {
@@ -183,6 +186,8 @@ async function simulateOwnerHomeAssistant(page) {
         } else if (message.type === 'subscribe_entities') {
           reply(null);
           ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: {} } }));
+        } else if (message.type === 'domusos/access/get_self') {
+          reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
         } else if (message.type === 'auth/current_user') {
           reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });
         } else if (message.type === 'config/entity_registry/list_for_display') {

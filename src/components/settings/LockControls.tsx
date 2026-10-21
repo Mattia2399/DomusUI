@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from 'react';
+import { useCan } from '../../security/AccessControlProvider';
 import { AlertTriangle, ArrowLeft, BatteryLow, BatteryMedium, DoorOpen, Lock, LockOpen, ShieldCheck, Timer, WifiOff, type LucideIcon } from 'lucide-react';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { SettingsListGroup, SettingsListRow } from './SettingsList';
@@ -148,6 +149,8 @@ export function LockControls({
     ].slice(0, maxTimelineEntries));
   };
 
+  // access.control: without it the panel shows the state and the history, never a command.
+  const canControl = useCan('access.control');
   // The ring and the plain commands share these, so both go through the same confirmation.
   const unlockNow = () => {
     const didUnlock = onUnlock();
@@ -170,8 +173,8 @@ export function LockControls({
   };
 
   const ring = useLockRingPress({
-    mode: resolveLockRingMode({ enabled: true, state: model.state, canOpen: model.canOpenLatch }),
-    canOpenAfterUnlock: model.canOpenLatch,
+    mode: resolveLockRingMode({ enabled: canControl, state: model.state, canOpen: canControl && model.canOpenLatch }),
+    canOpenAfterUnlock: canControl && model.canOpenLatch,
     onUnlock: unlockNow,
     onLock: lockNow,
     onOpen: openNow,
@@ -394,7 +397,7 @@ export function LockControls({
         ) : null}
       </section>
 
-      {commands.length > 0 && !model.isTransitioning ? (
+      {canControl && commands.length > 0 && !model.isTransitioning ? (
         <div role="group" aria-label={t('controls.lock.commands')} className="-mt-1 flex gap-2.5">
           {commands.map((command) => {
             const Icon = command.icon;
@@ -425,7 +428,7 @@ export function LockControls({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <p className="text-sm font-semibold leading-snug text-[color:var(--ui-text-primary)]">{alert.title}</p>
             <p className="text-[13px] leading-snug text-[color:var(--ui-text-secondary)]">{alert.body}</p>
-            {'action' in alert && alert.action ? (
+            {canControl && 'action' in alert && alert.action ? (
               <button
                 type="button"
                 onClick={lockNow}

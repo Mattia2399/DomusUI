@@ -21,6 +21,8 @@ type DomusKioskProps = {
   navigate: KioskNavigate;
   /** The start pages the person can open now. */
   availableStartRoutes: readonly string[];
+  /** False while the account's access profile is still unknown: the start page waits for it. */
+  startRoutesKnown?: boolean;
 };
 
 /** Whether the dashboard hides its navigation now. */
@@ -45,7 +47,7 @@ function isTechnicalLocation() {
   return params.has('ha_oauth_callback') || params.has('auth_callback') || (params.has('code') && params.has('state'));
 }
 
-export function DomusKiosk({ route, navigate, availableStartRoutes }: DomusKioskProps) {
+export function DomusKiosk({ route, navigate, availableStartRoutes, startRoutesKnown = true }: DomusKioskProps) {
   const preferences = useKioskPreferences();
   const session = useKioskSession();
   const latest = useRef({ preferences, route, navigate, availableStartRoutes });
@@ -66,13 +68,14 @@ export function DomusKiosk({ route, navigate, availableStartRoutes }: DomusKiosk
     else if (getKioskSession().active) updateKioskSession({ active: false });
   }, [enabled]);
 
-  // Opening Domus on a Kiosk device starts on its start page, once.
+  // Opening Domus on a Kiosk device starts on its start page, once, as soon as
+  // the pages this account may open are known.
   const startedRef = useRef(false);
   useEffect(() => {
-    if (startedRef.current) return;
+    if (startedRef.current || !startRoutesKnown) return;
     startedRef.current = true;
     if (getKioskSession().active && !isTechnicalLocation()) openStartPage(true);
-  }, [openStartPage]);
+  }, [openStartPage, startRoutesKnown]);
 
   useEffect(
     () =>

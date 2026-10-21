@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Waste Collection reminders to people, against a simulated Home Assistant:
@@ -74,6 +75,9 @@ async function simulateHomeAssistant(page, notifications, readiness = {}) {
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: states } }));
             break;
           }
+          case 'domusos/access/get_self':
+            reply(accessSelfFor(USER));
+            break;
           case 'auth/current_user':
             reply(USER);
             break;

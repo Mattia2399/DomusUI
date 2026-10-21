@@ -243,6 +243,9 @@ loop di HA.
 
 ## QA reale proposto
 
+Il QA nella casa reale continua durante P2.4: il frontend non cambia lo shadow,
+non azzera i contatori e non tocca Q10, che resta aperta.
+
 1. Installare la build sull'HA di casa.
 2. Da admin, `domusos/access/reset_shadow_diagnostics`.
 3. Usare Domus normalmente per qualche giorno, con:

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Settings › This device › Screensaver, against a simulated Home Assistant.
@@ -44,6 +45,9 @@ async function simulateHomeAssistant(page, { screensaver, background } = {}) {
             }));
             break;
           }
+          case 'domusos/access/get_self':
+            reply(accessSelfFor(USER));
+            break;
           case 'auth/current_user':
             reply(USER);
             break;

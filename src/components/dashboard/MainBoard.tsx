@@ -296,6 +296,17 @@ import {
   isDashboardRestartService,
   type DashboardRuntimeMode,
 } from '../../security/dashboardAccess';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import { useAccessProfile } from '../../hooks/useAccessProfile';
+import { filterNavigation, resolveRouteAccessState } from '../../navigation/routeAccess';
+import { AccessLockedBanner, AccessNotice } from '../access/AccessScreens';
+import { useAccessCopy } from '../../i18n/accessCopy';
+
+/** Connection states after which Domus has no account until Home Assistant answers again. */
+const HA_DEFINITELY_OFFLINE_STATUSES: ReadonlySet<string> = new Set(['offline', 'reauth_required', 'error', 'disconnected_by_user']);
+const HA_DISCONNECTION_SETTLE_MS = 1500;
+import type { AccessCapability } from '../../security/accessControl';
+import { entityServiceAllowed } from '../../security/entityControlAccess';
 import {
   SensitiveActionGateProvider,
 } from '../../security/SensitiveActionGate';
@@ -1762,6 +1773,10 @@ export function MainBoard() {
   );
   setActiveWidgetTypeLayoutOverrides(widgetTypeLayoutOverrides);
   const administrativeAccessRef = useRef({ manageRooms: false, restartHomeAssistant: false });
+  // Set once the access profile is known (below); until then no lock, alarm or entrance command leaves Domus.
+  const entityControlAccessRef = useRef<(capability: AccessCapability) => boolean>(() => false);
+  const haStatesForAccessRef = useRef(haStates);
+  haStatesForAccessRef.current = haStates;
   useEffect(() => {
     if (!isHaManagedByParent || runtimeMode === 'real' || typeof window === 'undefined') {
       return;
@@ -1785,6 +1800,11 @@ export function MainBoard() {
         return false;
       }
       if (isDashboardRestartService(domain, service) && !administrativeAccessRef.current.restartHomeAssistant) {
+        return false;
+      }
+      // The same rule as the cards and panels, for any screen that would still offer the command.
+      // Interface only: Home Assistant decides the command itself.
+      if (!entityServiceAllowed(domain, serviceData, haStatesForAccessRef.current, entityControlAccessRef.current)) {
         return false;
       }
       return rawCallHaService(domain, service, serviceData);
@@ -1884,14 +1904,35 @@ export function MainBoard() {
     isConnected: effectiveRuntimeMode === 'real' && isHaConnected,
     callApi: callHaApi,
   });
+  // What the interface offers this account, as the Domus backend resolved it (docs/access-control-frontend.md).
+  const { access, refresh: refreshAccess } = useAccessProfile({
+    runtimeMode: effectiveRuntimeMode,
+    identity: haCurrentUser,
+    callApi: callHaApi,
+  });
+  entityControlAccessRef.current = access.can;
+  const accessCopy = useAccessCopy();
+  const [isAccessLockedNoticeDismissed, setIsAccessLockedNoticeDismissed] = useState(false);
+  // Plain "disconnected" also comes for a moment while Domus starts and reconnects by itself:
+  // only one that lasts means Home Assistant is not connected.
+  const [isDisconnectionSettled, setIsDisconnectionSettled] = useState(false);
+  useEffect(() => {
+    if (haStatus !== 'disconnected') {
+      setIsDisconnectionSettled(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setIsDisconnectionSettled(true), HA_DISCONNECTION_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [haStatus]);
   const dashboardSecurity = useMemo(
     () =>
       createDashboardSecurityValue({
         runtimeMode: effectiveRuntimeMode,
         haStatus,
         user: haCurrentUser,
+        access,
       }),
-    [effectiveRuntimeMode, haCurrentUser, haStatus],
+    [access, effectiveRuntimeMode, haCurrentUser, haStatus],
   );
   // Developer mode only applies when the Settings toggle is on and the current
   // user is allowed to use it; a stale stored flag never enables it.
@@ -2706,7 +2747,8 @@ export function MainBoard() {
     };
   }, []);
 
-  const visibleSidebarPaths = sidebarPaths;
+  // Every navigation (sidebar, drawer, bottom bar) shows only what the account may open; nothing while loading.
+  const visibleSidebarPaths = useMemo(() => filterNavigation(sidebarPaths, access.can), [access, sidebarPaths]);
   // Kiosk hides Domus's own navigation only; pages and their links still work.
   const isKioskChrome = useKioskChrome();
   // A wall panel opens on a main page the person can reach from the navigation; Home always.
@@ -2800,8 +2842,8 @@ export function MainBoard() {
   }, [pendingStackRemovalId, sections, widgets]);
 
   const selectedSidebarPath = useMemo(
-    () => visibleSidebarPaths.find((entry) => entry.id === selectedSidebarPathId) ?? null,
-    [selectedSidebarPathId, visibleSidebarPaths],
+    () => sidebarPaths.find((entry) => entry.id === selectedSidebarPathId) ?? null,
+    [selectedSidebarPathId, sidebarPaths],
   );
   const LIGHT_WIDGET_HEIGHT_OFF = 1;
   const LIGHT_WIDGET_HEIGHT_ON = 2;
@@ -6153,11 +6195,11 @@ export function MainBoard() {
   useEffect(() => {
     if (
       selectedSidebarPathId &&
-      !visibleSidebarPaths.some((entry) => entry.id === selectedSidebarPathId)
+      !sidebarPaths.some((entry) => entry.id === selectedSidebarPathId)
     ) {
       setSelectedSidebarPathId(null);
     }
-  }, [selectedSidebarPathId, visibleSidebarPaths]);
+  }, [selectedSidebarPathId, sidebarPaths]);
 
   useEffect(() => {
     const currentRoute = canUseBrowserRouteNavigation
@@ -10329,7 +10371,10 @@ export function MainBoard() {
   const standaloneHomeAssistantUrl = !isHaManagedByParent && effectiveRuntimeMode === 'real'
     ? normalizeHassUrl(haUrl)
     : '';
-  const showHomeAssistantReturn = panelHaBridgeConnection.supportsHostNavigation || Boolean(standaloneHomeAssistantUrl);
+  // A convenience of the interface only (ha_frontend.open): Home Assistant stays one address away for anyone.
+  const showHomeAssistantReturn =
+    access.can('ha_frontend.open') &&
+    (panelHaBridgeConnection.supportsHostNavigation || Boolean(standaloneHomeAssistantUrl));
   const returnToHomeAssistant = useCallback(() => {
     if (isEditMode) return;
     if (panelHaBridgeConnection.supportsHostNavigation) {
@@ -10915,6 +10960,15 @@ export function MainBoard() {
   // Read from the address itself: the state set after a navigation would let
   // Settings render a Profile address for one frame.
   const isProfileRoute = isProfileSettingsRoute(activeNavigationRoute);
+  // The page of this address shows only once Access Control says the account may open it;
+  // a profile that goes away while the page is open replaces the page at once.
+  // Not connected and not trying: no account, so a notice instead of an endless check.
+  const haConnection =
+    effectiveRuntimeMode === 'real' &&
+    (HA_DEFINITELY_OFFLINE_STATUSES.has(haStatus) || (haStatus === 'disconnected' && isDisconnectionSettled))
+      ? 'offline'
+      : 'online';
+  const routeAccessState = resolveRouteAccessState(activeNavigationRoute, access, haConnection);
   // Opening an app from the App Gallery, and back, pushes like a subpage; the
   // sections inside an app are tabs, so only the gallery and the app count.
   usePagePushTransition(
@@ -11008,6 +11062,7 @@ export function MainBoard() {
   const quickSecurityAuthError = quickLockRateLimitMessage || quickAlarmAuthError;
 
   return (
+    <AccessControlProvider access={access} refresh={refreshAccess}>
     <DashboardSecurityProvider value={dashboardSecurity}>
     <SensitiveActionGateProvider user={deviceAuthUser}>
     <div
@@ -11031,6 +11086,17 @@ export function MainBoard() {
       <a href="#dashboard-main-content" className="dashboard-skip-link">
         Vai al contenuto principale
       </a>
+
+      {access.status === 'locked' && !isAccessLockedNoticeDismissed && !isKioskChrome ? (
+        <div className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[216] flex justify-center">
+          <div className="pointer-events-auto w-full max-w-xl">
+            <AccessLockedBanner
+              isAdministrator={access.profile?.isAdmin === true}
+              onDismiss={() => setIsAccessLockedNoticeDismissed(true)}
+            />
+          </div>
+        </div>
+      ) : null}
 
       {canPersistDashboardLayout && !isCompactViewport ? (
         <div className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[215] -translate-x-1/2 md:top-6 lg:hidden">
@@ -11245,7 +11311,19 @@ export function MainBoard() {
           mode="section"
           resetKey={activeNavigationRoute}
         >
-        {isConsumptionView ? (
+        {routeAccessState === 'checking' ? (
+          <SecondaryWorkspaceLoading label={accessCopy('checking')} />
+        ) : routeAccessState !== 'open' ? (
+          <AccessNotice
+            kind={routeAccessState}
+            onRetry={routeAccessState === 'error' || routeAccessState === 'unavailable' ? refreshAccess : undefined}
+            onGoHome={
+              routeAccessState === 'denied' && access.can('dashboard.view')
+                ? () => navigateWithinDashboard('/home')
+                : undefined
+            }
+          />
+        ) : isConsumptionView ? (
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <ConsumptionDashboardPage
               embedded
@@ -11271,7 +11349,7 @@ export function MainBoard() {
         ) : isAppGalleryView ? (
           <div {...{ [PUSH_PAGE_ATTRIBUTE]: 'appgallery' }} className="h-full min-h-0 flex-1 overflow-hidden">
             <AppGallery
-              canConfigureApps={dashboardSecurity.can('edit_dashboard')}
+              canConfigureApps={access.can('irrigation.manage')}
               currentUserId={haCurrentUser?.id ?? null}
               runtimeMode={effectiveRuntimeMode}
               suppressBrowserNavigation={!canUseBrowserRouteNavigation}
@@ -11799,7 +11877,7 @@ export function MainBoard() {
               selectedWidgetActiveLayout={selectedWidgetActiveLayout}
               selectedSection={selectedSection}
               selectedSidebarPath={selectedSidebarPath}
-              sidebarPaths={visibleSidebarPaths}
+              sidebarPaths={sidebarPaths}
               weatherConfig={weatherSection}
               activeGridBreakpoint={canvasGridBreakpoint}
               activeGridWidth={canvasGridWidth}
@@ -12159,10 +12237,12 @@ export function MainBoard() {
         route={activeNavigationRoute}
         navigate={navigateWithinDashboard}
         availableStartRoutes={kioskStartRoutes.map(({ path }) => path)}
+        startRoutesKnown={access.status !== 'loading' || haConnection === 'offline'}
       />
     </div>
     </SensitiveActionGateProvider>
     </DashboardSecurityProvider>
+    </AccessControlProvider>
   );
 }
 

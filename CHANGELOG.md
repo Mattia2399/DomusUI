@@ -19,6 +19,14 @@
   content, so an administrator can read what would change with
   `domusos/access/get_shadow_diagnostics`. No new access restriction is
   enforced: every request runs exactly as before.
+- The interface now follows each account's Domus role: pages, navigation,
+  Settings entries and controls an account may not use are not shown, and
+  an address it may not open says "Not available for your account". Only
+  administrators see "Return to Home Assistant". Members no longer see
+  the commands of locks, gates, garage doors and the alarm until they are
+  given that permission. This is how the interface looks, not protection:
+  the Domus backend and Home Assistant still decide every request as
+  before.
 - Settings › This device › Kiosk mode turns a wall tablet or a dedicated PC
   into a Domus panel: "Start panel mode" hides Domus's own navigation, opens
   the chosen start page and, when the browser allows it, goes full screen and

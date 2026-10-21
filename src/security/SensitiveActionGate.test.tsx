@@ -1,8 +1,10 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { DashboardSecurityProvider, createDashboardSecurityValue } from './dashboardAccess';
+import { createDashboardSecurityValue } from './dashboardAccess';
 import { SensitiveActionGateProvider, useSensitiveActionGate } from './SensitiveActionGate';
+import { defaultAccessFor } from '../test/accessFixtures';
+import { AccessTestProviders } from '../test/AccessTestProviders';
 
 function Probe() {
   const gate = useSensitiveActionGate();
@@ -27,13 +29,14 @@ describe('SensitiveActionGate destructive confirmation', () => {
   it('always displays the summary and requires the RESET phrase', async () => {
     const security = createDashboardSecurityValue({
       runtimeMode: 'real', haStatus: 'connected', user: { id: 'owner', isOwner: true },
+      access: defaultAccessFor({ id: 'owner', isOwner: true }),
     });
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SensitiveActionGateProvider user={{ id: 'owner' }}>
           <Probe />
         </SensitiveActionGateProvider>
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Avvia reset' }));

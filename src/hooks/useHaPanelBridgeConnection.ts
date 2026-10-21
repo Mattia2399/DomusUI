@@ -111,6 +111,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'profile_notifications_v1',
   'profile_recipients_v1',
   'device_power_v1',
+  'access_v1',
   'state_translations_v1',
   'host_navigation',
   'person_links',
@@ -203,6 +204,8 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/energy/discover',
   'domusos/energy/get_profile',
   'domusos/energy/save_profile',
+  // Access Control: only the account's own profile; its administrative commands stay out.
+  'domusos/access/get_self',
   'calendar/event/subscribe',
   'calendar/event/create',
   'calendar/event/update',
@@ -394,6 +397,9 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type.startsWith('domusos/profile/')) {
     return isValidProfileMessage(message);
+  }
+  if (message.type === 'domusos/access/get_self') {
+    return Object.keys(message).every((key) => key === 'type');
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});

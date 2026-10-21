@@ -104,6 +104,8 @@ HA, qualunque sia il ruolo.
 
 ## Migrazione delle capability esistenti
 
+**Fatta in P2.4** ([frontend](access-control-frontend.md#migrazione-dei-controlli-legacy)): i nomi restano, decide il profilo del backend.
+
 | Oggi (`DashboardCapability`) | Domani |
 | --- | --- |
 | `edit_dashboard` | `dashboard.edit` |
@@ -185,7 +187,7 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | `/settings/data` | `download_backup` | `backup.export`; restore `backup.restore` | «Non disponibile» | |
 | `/settings/device/appearance`, `/language`, `/screensaver`, `/kiosk` | Ogni utente | `device.manage` | «Non disponibile» | Preferenze del browser |
 | `/settings/device/power` | Solo admin HA | `device_power.manage` | «Non disponibile» | |
-| `/settings/attention` | `edit_dashboard` | `device.manage` | «Non disponibile» | Oggi admin: va deciso se resta |
+| `/settings/attention` | `edit_dashboard` | `device.manage` | «Non disponibile» | P2.4: resta `dashboard.edit` (Q11) |
 | `/settings/advanced` | `developer_mode` | `developer.use` | «Non disponibile» | |
 | `/setup` | Solo a configurazione non completata o `?reconnect=1` | — | — | Onboarding, prima dell'identità; fuori dalla policy |
 

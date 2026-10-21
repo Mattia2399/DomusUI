@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useCan } from '../security/AccessControlProvider';
 import {
   AlertTriangle,
   Blinds,
@@ -436,9 +437,21 @@ function SecurityMainShield({
   alarmOptions,
   disabled,
   commandFeedback,
+  canControl = true,
 }) {
   const { t } = useI18n();
   const Icon = visual.icon;
+  // security.control: without it the shield is only the state, never a command.
+  const ShieldElement = canControl ? motion.button : motion.div;
+  const shieldInteraction = canControl
+    ? {
+        type: 'button',
+        onClick: onPrimaryAction,
+        disabled,
+        whileTap: disabled ? undefined : { scale: 0.985 },
+        'aria-label': `${statusLabel}. ${primaryActionLabel}`,
+      }
+    : { role: 'img', 'aria-label': statusLabel };
   return (
     <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
       <div className="flex items-center justify-between gap-3">
@@ -452,18 +465,14 @@ function SecurityMainShield({
 
       <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] items-center gap-5 sm:mt-6">
         <div className="flex items-center justify-center py-2">
-          <motion.button
-            type="button"
-            onClick={onPrimaryAction}
-            disabled={disabled}
-            whileTap={disabled ? undefined : { scale: 0.985 }}
+          <ShieldElement
+            {...shieldInteraction}
             className={cn(
               'relative flex aspect-square w-[clamp(11.5rem,52vw,16.5rem)] items-center justify-center rounded-full border',
-              disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer',
+              !canControl ? '' : disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer',
             )}
             animate={{ backgroundColor: visual.backgroundColor, borderColor: visual.borderColor, boxShadow: visual.boxShadow }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            aria-label={`${statusLabel}. ${primaryActionLabel}`}
           >
             <motion.div
               className="pointer-events-none absolute -inset-3 rounded-full sm:-inset-4"
@@ -493,10 +502,11 @@ function SecurityMainShield({
               <p className="mt-1.5 text-[11px] leading-snug text-[color:var(--ui-text-secondary)] sm:text-xs">{visual.helper}</p>
               {showDelayProgress ? <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{t('security.exitIn', { seconds: delayRemainingSeconds })}</p> : null}
             </div>
-          </motion.button>
+          </ShieldElement>
         </div>
 
         <div className="min-w-0">
+          {canControl ? (
           <GlassSegmentSelect
             ariaLabel={t('security.mode.aria')}
             options={alarmOptions.map((option) => {
@@ -515,6 +525,7 @@ function SecurityMainShield({
             scrollable
             optionClassName="h-10 px-2 sm:h-11 sm:px-3"
           />
+          ) : null}
 
           {commandFeedback ? (
             <p className="mt-3 rounded-xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 py-2 text-xs text-[color:var(--ui-text-secondary)]" role="status">
@@ -880,6 +891,7 @@ export function SecurityDashboard({
   onCameraPtzMove,
   onCameraPtzStop,
 }) {
+  const canControlAlarm = useCan('security.control');
   const { t, locale } = useI18n();
   const localizedDemoLogs = useMemo(() => [
     { ...DEMO_SECURITY_LOGS[0], message: t('security.logs.motion') },
@@ -1751,6 +1763,7 @@ export function SecurityDashboard({
                 alarmOptions={alarmOptions}
                 disabled={!alarmCommandsAvailable || isAlarmTransitioning || !primaryShieldActionTarget}
                 commandFeedback={commandFeedback}
+                canControl={canControlAlarm}
               />
             ) : (
               <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
@@ -1843,7 +1856,7 @@ export function SecurityDashboard({
                         {t('security.logs.demo')}
                       </span>
                     ) : null}
-                  {triggerSupported ? (
+                  {triggerSupported && canControlAlarm ? (
                     <button
                       type="button"
                       onClick={() => requestAlarmStateChange('triggered')}

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { DashboardCapability } from '../../security/dashboardAccess';
+import { canOpenRoute, resolveRouteAccess } from '../../navigation/routeAccess';
+import { accessFor } from '../../test/accessFixtures';
 import { italianTranslations } from '../../i18n/translations';
 import {
   DEVICE_APPEARANCE_ROUTE,
@@ -44,7 +45,8 @@ describe('settings scopes', () => {
   it('classifies the house configuration as shared by the whole home', () => {
     expect(entry('waste')).toMatchObject({ scope: 'house', section: 'house', storage: 'integration_store' });
     expect(entry('dashboard')).toMatchObject({ scope: 'house', section: 'house', storage: 'ha_shared_house' });
-    expect(entry('access')).toMatchObject({ scope: 'house', section: 'house', capability: 'manage_rooms' });
+    expect(entry('access')).toMatchObject({ scope: 'house', section: 'house' });
+    expect(resolveRouteAccess(entry('access').route)).toEqual({ kind: 'capability', capability: 'people.view' });
     expect(entry('security')).toMatchObject({ scope: 'house', owner: 'core', storage: 'ha_shared_house' });
   });
 
@@ -80,7 +82,8 @@ describe('settings scopes', () => {
   it('keeps the Home Assistant connection in System, a house group', () => {
     expect(entry('connection')).toMatchObject({ scope: 'house', section: 'system', route: '/settings/connections' });
     expect(entry('system')).toMatchObject({ scope: 'house', section: 'system', storage: 'ha_runtime' });
-    expect(entry('data')).toMatchObject({ scope: 'house', section: 'system', capability: 'download_backup' });
+    expect(entry('data')).toMatchObject({ scope: 'house', section: 'system' });
+    expect(resolveRouteAccess(entry('data').route)).toEqual({ kind: 'capability', capability: 'backup.export' });
   });
 
   it('classifies the preferences saved in this browser as device settings', () => {
@@ -104,7 +107,7 @@ describe('settings scopes', () => {
     });
   });
 
-  it('keeps Kiosk mode in This device, saved in this browser and without a capability', () => {
+  it('keeps Kiosk mode in This device, saved in this browser, a device preference', () => {
     expect(entry('kiosk')).toEqual({
       id: 'kiosk',
       scope: 'device',
@@ -115,6 +118,8 @@ describe('settings scopes', () => {
       titleKey: 'settings.device.kiosk',
       descriptionKey: 'settings.device.kioskSubtitle',
     });
+    // A preference of this browser (device.manage), never a permission of the account.
+    expect(resolveRouteAccess(DEVICE_KIOSK_ROUTE)).toEqual({ kind: 'capability', capability: 'device.manage' });
   });
 
   it('keeps the charger of this device in This device, saved and run by DomusOS', () => {
@@ -124,13 +129,12 @@ describe('settings scopes', () => {
       owner: 'device_power',
       section: 'device',
       route: DEVICE_POWER_ROUTE,
-      administratorsOnly: true,
       storage: 'integration_store',
       titleKey: 'settings.device.power',
       descriptionKey: 'settings.device.powerSubtitle',
     });
-    // Administrators only, without a capability of its own.
-    expect(entry('power').capability).toBeUndefined();
+    // Who opens it is the route's rule: device_power.manage, which Home Assistant keeps to administrators.
+    expect(resolveRouteAccess(DEVICE_POWER_ROUTE)).toEqual({ kind: 'capability', capability: 'device_power.manage' });
     const ids = SETTINGS_ENTRIES.filter(({ section }) => section === 'device').map(({ id }) => id);
     expect(ids).toEqual(['appearance', 'language', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
   });
@@ -155,48 +159,26 @@ describe('settings scopes', () => {
     });
   });
 
-  it('applies the existing capabilities and never invents new ones', () => {
-    const none = (_capability: DashboardCapability) => false;
-    expect(selectVisibleSettingsEntries('house', none).map(({ id }) => id)).toEqual(['floors', 'waste']);
-    expect(selectVisibleSettingsEntries('system', none).map(({ id }) => id)).toEqual([
-      'connection',
-      'devices',
-      'entities',
-      'system',
-    ]);
-    expect(selectVisibleSettingsEntries('device', none).map(({ id }) => id)).toEqual(['appearance', 'language', 'screensaver', 'kiosk']);
-
-    const all = () => true;
-    expect(selectVisibleSettingsEntries('house', all).map(({ id }) => id)).toEqual([
-      'dashboard',
-      'floors',
-      'access',
-      'security',
-      'waste',
-    ]);
-    expect(selectVisibleSettingsEntries('system', all)).toHaveLength(5);
-    expect(selectVisibleSettingsEntries('device', all)).toHaveLength(6);
+  it('lists for each role exactly the entries its capabilities open', () => {
+    const visible = (role: Parameters<typeof accessFor>[0], section: 'house' | 'system' | 'device') =>
+      selectVisibleSettingsEntries(section, (route) => canOpenRoute(route, accessFor(role).can)).map(({ id }) => id);
+    expect(visible('admin', 'house')).toEqual(['dashboard', 'floors', 'access', 'security', 'waste']);
+    expect(visible('admin', 'system')).toEqual(['connection', 'devices', 'entities', 'system', 'data']);
+    expect(visible('admin', 'device')).toEqual(['appearance', 'language', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
+    // A member: the people of the house, the system status and this device's preferences.
+    expect(visible('member', 'house')).toEqual(['access']);
+    expect(visible('member', 'system')).toEqual(['system']);
+    expect(visible('member', 'device')).toEqual(['appearance', 'language', 'screensaver', 'kiosk']);
+    // Restricted and wall panel accounts have no Settings entry of their own.
+    for (const role of ['restricted', 'wall_panel', 'locked'] as const) {
+      expect([...visible(role, 'house'), ...visible(role, 'system'), ...visible(role, 'device')], role).toEqual([]);
+    }
   });
 
-  it('shows the administrators-only entries to administrators alone', () => {
-    const all = () => true;
-    expect(selectVisibleSettingsEntries('device', all, false).map(({ id }) => id)).not.toContain('power');
-    expect(selectVisibleSettingsEntries('device', all, true).map(({ id }) => id)).toEqual([
-      'appearance',
-      'language',
-      'screensaver',
-      'kiosk',
-      'power',
-      'attention',
-      'advanced',
-    ]);
-    expect(selectVisibleSettingsEntries('device', () => false, true).map(({ id }) => id)).toEqual([
-      'appearance',
-      'language',
-      'screensaver',
-      'kiosk',
-      'power',
-    ]);
+  it('never lists an entry without a route rule of its own', () => {
+    for (const settingsEntry of SETTINGS_ENTRIES) {
+      expect(resolveRouteAccess(settingsEntry.route).kind, settingsEntry.id).toBe('capability');
+    }
   });
 });
 

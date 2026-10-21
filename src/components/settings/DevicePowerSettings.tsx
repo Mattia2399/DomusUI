@@ -76,8 +76,8 @@ type DevicePowerSettingsProps = {
   connected: boolean;
   /** The integration offers device power management (`device_power_v1`). */
   supported: boolean;
-  /** Home Assistant administrators only; the server checks it again. */
-  isAdmin: boolean;
+  /** device_power.manage of Domus Access Control; Home Assistant checks the administrator again. */
+  canManage: boolean;
   haStates: MockEntityStateMap;
 };
 
@@ -128,7 +128,7 @@ function Notice({ icon: Icon, title, body, children }: { icon: LucideIcon; title
  * Like an iOS settings page: the switch turns the automation on or off at
  * once and opens the rest of the page; every change saves itself.
  */
-export function DevicePowerSettings({ callApi, connected, supported, isAdmin, haStates }: DevicePowerSettingsProps) {
+export function DevicePowerSettings({ callApi, connected, supported, canManage, haStates }: DevicePowerSettingsProps) {
   const c = useDevicePowerCopy();
   const fieldId = useId();
   const reduceMotion = useReducedMotion();
@@ -146,7 +146,7 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
   const [pendingRemoval, setPendingRemoval] = useState<PowerPolicy | null>(null);
   // A draft the server refused is not sent again until it changes.
   const refusedDraftRef = useRef<PolicyDraft | null>(null);
-  const usable = supported && isAdmin && connected && Boolean(callApi);
+  const usable = supported && canManage && connected && Boolean(callApi);
 
   const bound = state?.policies.find((policy) => clientId !== null && policy.clientId === clientId) ?? null;
   const others = state?.policies.filter((policy) => policy !== bound) ?? [];
@@ -355,7 +355,7 @@ export function DevicePowerSettings({ callApi, connected, supported, isAdmin, ha
   if (!supported || load === 'unsupported') {
     return <Notice icon={PlugZap} title={c('unsupportedTitle')} body={c('unsupportedBody')} />;
   }
-  if (!isAdmin) {
+  if (!canManage) {
     return <Notice icon={LockKeyhole} title={c('title')} body={c('adminOnly')} />;
   }
   if (!connected || !callApi) {

@@ -2,6 +2,9 @@ import React from 'react';
 import { cleanup, fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LockControls } from './LockControls';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import type { AccessSnapshot } from '../../security/accessControl';
+import { accessFor } from '../../test/accessFixtures';
 import type { LockActivityEntry, LockPanelData } from './lockPanelTypes';
 
 const now = Date.now();
@@ -13,7 +16,11 @@ const timeline: LockActivityEntry[] = [
   { id: '5', text: '', timestampMs: now - 300_000, kind: 'unlock', source: { kind: 'lock' } },
 ];
 
-function renderPanel(lock: Partial<LockPanelData> = {}, handlers: Partial<React.ComponentProps<typeof LockControls>> = {}) {
+function renderPanel(
+  lock: Partial<LockPanelData> = {},
+  handlers: Partial<React.ComponentProps<typeof LockControls>> = {},
+  access: AccessSnapshot = accessFor('admin'),
+) {
   const props = {
     onLock: vi.fn(),
     onUnlock: vi.fn(() => true),
@@ -21,6 +28,7 @@ function renderPanel(lock: Partial<LockPanelData> = {}, handlers: Partial<React.
     ...handlers,
   };
   const view = render(
+    <AccessControlProvider access={access}>
     <LockControls
       lock={{
         name: 'Porta ingresso',
@@ -35,7 +43,8 @@ function renderPanel(lock: Partial<LockPanelData> = {}, handlers: Partial<React.
         ...lock,
       }}
       {...props}
-    />,
+    />
+    </AccessControlProvider>,
   );
   return { ...view, ...props };
 }
@@ -101,5 +110,11 @@ describe('LockControls', () => {
 
     fireEvent.click(getByRole('button', { name: 'Serratura' }));
     expect(onSecondaryPageChange).toHaveBeenLastCalledWith(false);
+  });
+  it('shows a member the lock and its history, never a command', () => {
+    const view = renderPanel({}, {}, accessFor('member'));
+    expect(view.queryByRole('group', { name: /comandi/i })).toBeNull();
+    expect(view.getByText('Porta ingresso')).not.toBeNull();
+    expect(view.onUnlock).not.toHaveBeenCalled();
   });
 });

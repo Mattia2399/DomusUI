@@ -1,4 +1,6 @@
 import React from 'react';
+import { useCan } from '../../security/AccessControlProvider';
+import { AccessRestrictedCard } from '../access/AccessScreens';
 import { ClimateCard } from './ClimateCard';
 import { LightCard } from './LightCard';
 import { SwitchCard } from './SwitchCard';
@@ -147,6 +149,11 @@ function WidgetCardRendererComponent({
   onDisplayMetricsChange,
 }: WidgetCardRendererProps) {
   const controlsEnabled = !isEditMode && isInteractive;
+  // security.view: the alarm and the cameras of a shared Home are not shown to an account without it.
+  const canViewSecurity = useCan('security.view');
+  if ((widget.kind === 'alarm' || widget.kind === 'camera') && !canViewSecurity) {
+    return <AccessRestrictedCard />;
+  }
   const displayVariant = resolveWidgetDisplayVariant({
     kind: widget.kind,
     breakpoint: gridBreakpoint,

@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const path = require('node:path');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Period analytics of the Energy page (A2.2B) against a simulated Home
@@ -178,6 +179,9 @@ async function simulateHomeAssistant(page, history, state = energyState()) {
             break;
           case 'subscribe_entities':
             reply(null);
+            break;
+          case 'domusos/access/get_self':
+            reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
             break;
           case 'auth/current_user':
             reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });

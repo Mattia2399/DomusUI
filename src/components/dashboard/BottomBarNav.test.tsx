@@ -1,10 +1,22 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { BottomBarNav } from './BottomBarNav';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import { LOADING_ACCESS, type AccessSnapshot } from '../../security/accessControl';
+import { accessFor } from '../../test/accessFixtures';
 
-const renderNavigation = (node: ReactElement) => render(node, { wrapper: I18nProvider });
+const withAccess = (access: AccessSnapshot) =>
+  function Providers({ children }: { children: ReactNode }) {
+    return (
+      <I18nProvider>
+        <AccessControlProvider access={access}>{children}</AccessControlProvider>
+      </I18nProvider>
+    );
+  };
+const renderNavigation = (node: ReactElement, access: AccessSnapshot = accessFor('admin')) =>
+  render(node, { wrapper: withAccess(access) });
 
 describe('BottomBarNav', () => {
   beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
@@ -138,5 +150,24 @@ describe('BottomBarNav', () => {
     expect(screen.getByRole('button', { name: 'Apri Impostazioni' }).querySelector('img')?.getAttribute('src')).toBe(
       '/avatars/mattia.jpg',
     );
+  });
+  it('offers a restricted account only the pages its role opens, and nothing while the profile loads', () => {
+    const view = renderNavigation(
+      <BottomBarNav isEditMode={false} quickPaths={[]} activeRoute="/home" onPathClick={vi.fn()} onOpenSettings={vi.fn()} />,
+      accessFor('restricted'),
+    );
+    expect(screen.getByRole('button', { name: 'Apri Dashboard' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Apri Stanze' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Apri Sicurezza' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Apri Consumi' })).toBeNull();
+    view.unmount();
+
+    renderNavigation(
+      <BottomBarNav isEditMode={false} quickPaths={[]} activeRoute="/home" onPathClick={vi.fn()} onOpenSettings={vi.fn()} />,
+      LOADING_ACCESS,
+    );
+    expect(screen.queryByRole('button', { name: 'Apri Dashboard' })).toBeNull();
+    // Settings stays: it always shows what the account may open.
+    expect(screen.getByRole('button', { name: 'Apri Impostazioni' })).toBeTruthy();
   });
 });

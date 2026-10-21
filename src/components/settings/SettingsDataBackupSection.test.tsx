@@ -3,11 +3,12 @@ import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import {
-  DashboardSecurityProvider,
   createDashboardSecurityValue,
 } from '../../security/dashboardAccess';
 import { SensitiveActionGateProvider } from '../../security/SensitiveActionGate';
 import SettingsDataBackupSection from './SettingsDataBackupSection';
+import { defaultAccessFor } from '../../test/accessFixtures';
+import { AccessTestProviders } from '../../test/AccessTestProviders';
 
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
 beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
@@ -20,12 +21,14 @@ const ownerSecurity = createDashboardSecurityValue({
   runtimeMode: 'real',
   haStatus: 'connected',
   user: { id: 'owner-1', isOwner: true },
+  access: defaultAccessFor({ id: 'owner-1', isOwner: true }),
 });
 
 const limitedSecurity = createDashboardSecurityValue({
   runtimeMode: 'real',
   haStatus: 'connected',
   user: { id: 'limited-1' },
+  access: defaultAccessFor({ id: 'limited-1' }),
 });
 
 const baseProps = {
@@ -47,11 +50,11 @@ function renderSection({
   props?: Partial<typeof baseProps>;
 } = {}) {
   return render(
-    <DashboardSecurityProvider value={security}>
+    <AccessTestProviders security={security}>
       <SensitiveActionGateProvider user={{ id: security.user?.id ?? 'test-user' }}>
         <SettingsDataBackupSection {...baseProps} {...props} />
       </SensitiveActionGateProvider>
-    </DashboardSecurityProvider>,
+    </AccessTestProviders>,
   );
 }
 

@@ -492,7 +492,8 @@ I cinque test di sicurezza obbligatori sono nel
 | **P2.1** ✓ | Registro capability (backend, versionato) + ruoli di sistema + grant personali + store `domusos.access.v1` con stati, quarantena, revisione + `domusos/access/get_self` + recupero `domusos/access/reset_policy` (WebSocket, P2.1.2). Nessun enforcement. [Fondamento](access-control-foundation.md). |
 | **P2.2** ✓ | Motore centrale (`authorize`, `can`, `require_capability`, `authorize_action`), adattatori WebSocket e servizi, registro delle 38 superfici backend, contratto S8. Nessun enforcement. [Autorizzazione](access-control-authorization.md). |
 | **P2.3** ✓ | Shadow authorization su tutte le 36 superfici backend osservabili, confronto con l'esito reale, contatori in memoria senza identità, diagnostica admin (`get_shadow_diagnostics`, `reset_shadow_diagnostics`). Nessun enforcement. [Shadow](access-control-shadow.md). L'audit V1 delle decisioni resta fuori: lo shadow non è un audit (D41). |
-| **P2.4** | Frontend: `can()` da `get_self`, migrazione di `DashboardCapability`, route guard e schermata «Non disponibile». |
+| **P2.4** ✓ | Frontend: profilo da `get_self` (anche nel bridge, solo quello), `can()`, tabella unica delle route, guardia e «Non disponibile», navigazione e Impostazioni filtrate, controlli di allarme, serrature e ingressi nascosti senza capability, «Torna in Home Assistant» con `ha_frontend.open`, `DashboardCapability` decisa da Access Control. Solo esperienza d'uso. [Frontend](access-control-frontend.md). |
+| **P2.4.1** (proposta) | Persone e accessi minima, **prima** dell'enforcement: un admin HA assegna il ruolo e i grant `access.control` / `security.control` a un account (scrittura con `expected_revision`, audit). Senza, un member non può ricevere i grant e da P2.4 non vede più serrature e allarme (vedi [impatto](access-control-frontend.md#impatto-sugli-account-prima-dellenforcement)). |
 | **P2.5** | Enforcement sui comandi Domus (Energy view, Irrigazione, Raccolta rifiuti, Profile, Alimentazione) + i 5 test di sicurezza. |
 | **P2.6** | Persone e accessi: ruoli per utente, recupero, messaggio onesto sui limiti nativi HA. |
 | **P2.7** | Resource scope (aree/piani), ruoli personalizzati se confermati. |
@@ -546,6 +547,13 @@ I cinque test di sicurezza obbligatori sono nel
 | D43 | `reset_policy` resta enforced (P2.1.2) ed è esente dallo shadow, come `get_self` (bootstrap) e la diagnostica stessa; le esenzioni sono nel contratto, con il motivo. |
 | D44 | Le statistiche si riferiscono a una sola policy: una nuova finestra si apre all'avvio, al reset manuale e a ogni cambio di stato o revisione della policy. |
 | D45 | La diagnostica shadow è un comando WebSocket per l'admin HA attivo (`access.manage`), protetto direttamente come il reset; nessun principal di sistema (D35) e Q10 decisa sui dati. |
+| D46 | (P2.4) Il frontend legge ruolo e capability solo da `domusos/access/get_self`, in memoria, una volta per account e connessione; nessun polling. È esperienza d'uso, non un limite di sicurezza. |
+| D47 | Una sola tabella delle route (`navigation/routeAccess.ts`): ogni route ha una capability o un'esenzione motivata; guardia, navigazione e Impostazioni la leggono. Contratto come S8. |
+| D48 | Fail closed: in caricamento, in errore o senza Access Control non si concede nulla; nessuna UI privilegiata compare per un istante; un cambio di account invalida il profilo nello stesso render. |
+| D49 | Le voci non concesse sono nascoste; un'informazione resta visibile senza il suo comando; un'azione autorizzata ma non disponibile resta disabilitata. |
+| D50 | `DashboardCapability` resta come nome legacy, decisa dal profilo (`LEGACY_CAPABILITY_MAP`); niente `isAdmin` come capability, niente controlli sul ruolo nel codice delle funzioni. |
+| D51 | Il bridge del pannello inoltra solo `get_self` di Access Control; `reset_policy` e la diagnostica shadow restano fuori finché una pagina non le usa. |
+| D52 | Proposta: Persone e accessi minima (ruolo e grant) prima dell'enforcement P2.5 (P2.4.1). |
 
 ## 21. Domande aperte
 
@@ -560,4 +568,7 @@ I cinque test di sicurezza obbligatori sono nel
 | Q7 | Ospiti: si aspetta il supporto HA a credenziali temporanee, o un account HA dedicato con ruolo `guest`? | Account dedicato, dopo P2.6 |
 | Q8 | Il reset della policy deve essere una richiesta diretta di un admin HA attivo, mai un'automazione o uno script (D28 proposta). Un servizio HA non può garantirlo: le automazioni chiamano senza `user_id` (e `async_register_admin_service` le lascia passare); uno script avviato da un admin chiama con il suo stesso `Context`, indistinguibile da una chiamata diretta ([limite verificato](access-control-foundation.md#perché-non-un-servizio-audit-p211)). | **Chiusa: opzione B** (D28). Servizio rimosso, comando WebSocket `domusos/access/reset_policy` legato a `connection.user`. |
 | Q9 | `waste.view` (calendario della Raccolta rifiuti, nella card rapida) va lasciata anche a `restricted` e `wall_panel`? | **Chiusa (approvata)**: `waste.view` resta ad `admin`, `member`, `restricted` e `wall_panel`. È un'informazione domestica di sola lettura, usata anche dalla card rapida della Raccolta rifiuti (D36). Comportamento invariato. |
+| Q11 | `/settings/attention` (Centro attenzione): resta `dashboard.edit` come oggi o diventa una preferenza del dispositivo (`device.manage`)? | Resta `dashboard.edit` in P2.4; da decidere |
+| Q12 | Fuori dal pannello di HA, il logout di un member su desktop era in Connessioni (`system.manage`): va reso un'esenzione (la propria sessione) o basta quello del drawer mobile? | Da decidere prima del rilascio |
+| Q13 | Senza connessione a Home Assistant le pagine protette mostrano «Home Assistant non collegato» invece del proprio stato «non collegato», e Impostazioni non elenca voci: va bene così (fail closed) o certe pagine del browser (Aspetto, Lingua, Connessioni) devono restare aperte offline? | Fail closed in P2.4; da confermare |
 | Q10 | In P2.5, cosa fare dei servizi chiamati senza utente (automazioni di Irrigazione)? Il deny `no_principal` le romperebbe | **Aperta** fino ai dati reali. P2.3 conta per ognuno dei 5 servizi: chiamate, con e senza principal, senza utente con e senza parent, allow e deny, `no_principal`, esito reale, `would_block` ([dati per Q10](access-control-shadow.md#dati-per-q10)). Nessun principal di sistema (D35) |

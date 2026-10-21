@@ -98,14 +98,14 @@ const haStates: MockEntityStateMap = {
 
 function renderPage(
   integration: ReturnType<typeof fakeIntegration>,
-  props: Partial<{ supported: boolean; isAdmin: boolean; connected: boolean; haStates: MockEntityStateMap }> = {},
+  props: Partial<{ supported: boolean; canManage: boolean; connected: boolean; haStates: MockEntityStateMap }> = {},
 ) {
   return render(
     <DevicePowerSettings
       callApi={integration.callApi}
       connected={props.connected ?? true}
       supported={props.supported ?? true}
-      isAdmin={props.isAdmin ?? true}
+      canManage={props.canManage ?? true}
       haStates={props.haStates ?? haStates}
     />,
   );
@@ -155,7 +155,7 @@ describe('DevicePowerSettings', () => {
 
   it('is for administrators only', () => {
     const integration = fakeIntegration([wirePolicy()]);
-    renderPage(integration, { isAdmin: false });
+    renderPage(integration, { canManage: false });
 
     expect(screen.getByText(/Solo un amministratore di Home Assistant/)).toBeTruthy();
     expect(integration.calls).toHaveLength(0);

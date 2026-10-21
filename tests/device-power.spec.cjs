@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Settings › This device › Power and charging, against a simulated Home
@@ -138,6 +139,9 @@ async function simulateHomeAssistant(page, { policies = [], user = USER } = {}) 
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: states } }));
             break;
           }
+          case 'domusos/access/get_self':
+            reply(accessSelfFor(user));
+            break;
           case 'auth/current_user':
             reply(user);
             break;
@@ -416,8 +420,9 @@ test('Power and charging is not offered to a person without administration right
   await expect(page.getByRole('region', { name: 'Questo dispositivo' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Alimentazione e ricarica/ })).toHaveCount(0);
 
+  // The page is an administrator's (device_power.manage): a member reaches "not available", never the page.
   await page.goto(ROUTE);
-  await expect(page.getByText(/Solo un amministratore di Home Assistant/)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Non disponibile per il tuo account' })).toBeVisible();
   expect(home.messages.filter((message) => message.type.startsWith('domusos/device_power/'))).toEqual([]);
 });
 

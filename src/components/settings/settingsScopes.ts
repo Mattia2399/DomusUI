@@ -1,5 +1,4 @@
 import type { TranslationKey } from '../../i18n/translations';
-import type { DashboardCapability } from '../../security/dashboardAccess';
 import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_KIOSK_ROUTE,
@@ -72,13 +71,7 @@ export type SettingsEntry = Readonly<{
   owner: Extract<SettingsOwner, 'core' | 'waste' | 'device_power'>;
   section: SettingsSectionId;
   route: string;
-  /** Existing capability needed to see the entry; the page keeps its own checks. */
-  capability?: DashboardCapability;
-  /**
-   * Shown to Home Assistant administrators only. Not a capability: the
-   * integration checks the administrator itself on every command.
-   */
-  administratorsOnly?: true;
+  /** Who may open it is the route's rule (navigation/routeAccess.ts), never a list of its own. */
   storage: SettingsStorage;
   titleKey: TranslationKey;
   descriptionKey: TranslationKey;
@@ -109,7 +102,6 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'core',
     section: 'house',
     route: '/settings/dashboard',
-    capability: 'edit_dashboard',
     storage: 'ha_shared_house',
     titleKey: 'settings.dashboard.title',
     descriptionKey: 'settings.dashboard.subtitle',
@@ -130,7 +122,6 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'core',
     section: 'house',
     route: HOUSE_ACCESS_ROUTE,
-    capability: 'manage_rooms',
     storage: 'ha_registry',
     titleKey: 'settings.access.title',
     descriptionKey: 'settings.access.subtitle',
@@ -141,7 +132,6 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'core',
     section: 'house',
     route: '/settings/safety',
-    capability: 'manage_security_config',
     storage: 'ha_shared_house',
     titleKey: 'settings.security.title',
     descriptionKey: 'settings.security.subtitle',
@@ -206,7 +196,6 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'core',
     section: 'system',
     route: '/settings/data',
-    capability: 'download_backup',
     storage: 'ha_shared_house',
     titleKey: 'settings.data.title',
     descriptionKey: 'settings.data.subtitle',
@@ -262,7 +251,6 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'device_power',
     section: 'device',
     route: DEVICE_POWER_ROUTE,
-    administratorsOnly: true,
     storage: 'integration_store',
     titleKey: 'settings.device.power',
     descriptionKey: 'settings.device.powerSubtitle',
@@ -274,7 +262,6 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'core',
     section: 'device',
     route: '/settings/attention',
-    capability: 'edit_dashboard',
     storage: 'browser_local',
     titleKey: 'settings.attention.title',
     descriptionKey: 'settings.attention.subtitle',
@@ -286,7 +273,6 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'core',
     section: 'device',
     route: '/settings/advanced',
-    capability: 'developer_mode',
     storage: 'browser_local',
     titleKey: 'settings.advanced.hubTitle',
     descriptionKey: 'settings.advanced.hubSubtitle',
@@ -333,16 +319,10 @@ export const PROFILE_ENTRIES: readonly ProfileEntry[] = [
   { id: 'security', scope: 'profile', route: `${PROFILE_ROUTE}/security`, storage: 'browser_local' },
 ];
 
-/** The entries of one section that the current user may open. */
+/** The entries of one section that the current account may open (`canOpenRoute` of Access Control). */
 export function selectVisibleSettingsEntries(
   section: SettingsSectionId,
-  can: (capability: DashboardCapability) => boolean,
-  isAdministrator = false,
+  canOpen: (route: string) => boolean,
 ): SettingsEntry[] {
-  return SETTINGS_ENTRIES.filter(
-    (entry) =>
-      entry.section === section &&
-      (!entry.capability || can(entry.capability)) &&
-      (!entry.administratorsOnly || isAdministrator),
-  );
+  return SETTINGS_ENTRIES.filter((entry) => entry.section === section && canOpen(entry.route));
 }

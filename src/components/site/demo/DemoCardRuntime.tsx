@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 import { I18nProvider } from '../../../i18n/I18nProvider';
+import { AccessControlProvider } from '../../../security/AccessControlProvider';
+import { DEMO_ACCESS } from '../../../security/accessControl';
 import { WidgetCardRenderer } from '../../widgets/CardRenderer';
 import { createVacuumStateMocks, VACUUM_MAX_COMPAT_MOCK_ENTITY_ID } from '../../widgets/vacuumMock';
 import { useSiteCopy, useSiteLocale } from '../i18n/SiteLocaleProvider';
@@ -14,7 +16,10 @@ export default function DemoCardRuntime(props: DemoCardProps) {
   const { locale } = useSiteLocale();
   return (
     <I18nProvider forcedLocale={locale}>
-      <RealDemoCard {...props} />
+      {/* The demo house has no account: its cards show every control, as before Access Control. */}
+      <AccessControlProvider access={DEMO_ACCESS}>
+        <RealDemoCard {...props} />
+      </AccessControlProvider>
     </I18nProvider>
   );
 }

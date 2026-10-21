@@ -32,6 +32,8 @@ type AlarmCardViewProps = {
   onConfirmArm: () => void;
   onDisarm: () => void;
   onArm: (mode: AlarmArmMode) => void;
+  /** security.control: without it the card shows the state, never arm, disarm or a mode. */
+  canControl?: boolean;
 };
 
 const MODE_LABEL_KEYS: Record<AlarmArmMode, TranslationKey> = {
@@ -132,6 +134,7 @@ export function AlarmCardView({
   onConfirmArm,
   onDisarm,
   onArm,
+  canControl = true,
 }: AlarmCardViewProps) {
   const { t } = useI18n();
   const isCompact = layoutVariant === 'compact' || layoutVariant === 'mini';
@@ -223,7 +226,7 @@ export function AlarmCardView({
                 <p className={`mt-0.5 truncate text-[0.68rem] font-medium ${model.isTriggered ? 'text-rose-200' : tertiaryTextClass}`}>{localizedState}</p>
               </div>
             </div>
-            <div className="relative z-10 mt-auto">{actionButton(true)}</div>
+            {canControl ? <div className="relative z-10 mt-auto">{actionButton(true)}</div> : null}
           </>
         ) : (
           <>
@@ -245,7 +248,7 @@ export function AlarmCardView({
               <p className={`${isFull ? 'mt-1' : 'mt-1.5'} truncate text-[0.68rem] font-medium ${tertiaryTextClass}`}>{stateCaption(model, t)}</p>
             </div>
 
-            {isFull && !model.isTriggered && !model.isUnavailable && model.supportedModes.length > 0 ? (
+            {canControl && isFull && !model.isTriggered && !model.isUnavailable && model.supportedModes.length > 0 ? (
               <div className="relative z-10 mt-2.5" onClick={(event) => event.stopPropagation()}>
                 <GlassSegmentSelect
                   ariaLabel={t('alarm.card.modeAria')}
@@ -272,11 +275,13 @@ export function AlarmCardView({
               </div>
             ) : null}
 
-            <div className={`relative z-10 ${isFull ? 'mt-auto pt-2.5' : 'mt-auto border-t border-[color:var(--ui-border)] pt-3'}`}>{actionButton()}</div>
+            {canControl ? (
+              <div className={`relative z-10 ${isFull ? 'mt-auto pt-2.5' : 'mt-auto border-t border-[color:var(--ui-border)] pt-3'}`}>{actionButton()}</div>
+            ) : null}
           </>
         )}
 
-        {isModeMenuOpen ? (
+        {canControl && isModeMenuOpen ? (
           <div
             role="dialog"
             aria-modal="true"

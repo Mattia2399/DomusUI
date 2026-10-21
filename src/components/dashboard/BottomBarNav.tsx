@@ -1,4 +1,5 @@
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
+import { useAccessControl } from '../../security/AccessControlProvider';
 import type { HaConnectionStatus } from '../../services/haConnectionState';
 import { useI18n } from '../../i18n/I18nProvider';
 import {
@@ -45,10 +46,12 @@ export function BottomBarNav({
   haStatus = 'disconnected',
 }: BottomBarNavProps) {
   const { t } = useI18n();
+  const { can } = useAccessControl();
   const primaryActions = resolveDashboardNavigationEntries(
     quickPaths,
     PRIMARY_DASHBOARD_ROUTE_IDS,
     t,
+    can,
   ).map((entry) => ({ entry }) satisfies BottomBarPrimaryAction);
 
   const activeStates = primaryActions.map(({ entry }) =>

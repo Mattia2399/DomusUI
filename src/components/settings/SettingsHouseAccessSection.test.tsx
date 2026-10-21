@@ -3,11 +3,12 @@ import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import {
-  DashboardSecurityProvider,
   createDashboardSecurityValue,
 } from '../../security/dashboardAccess';
 import SettingsHouseAccessSection from './SettingsHouseAccessSection';
 import type { HouseAccessView, PersonAccountLinking } from './settingsHouseAccessModel';
+import { defaultAccessFor } from '../../test/accessFixtures';
+import { AccessTestProviders } from '../../test/AccessTestProviders';
 
 // Canvas cropping is not available in jsdom: the chooser receives a prepared image.
 vi.mock('../../services/personPicture', async (importOriginal) => ({
@@ -29,12 +30,14 @@ const ownerSecurity = createDashboardSecurityValue({
   runtimeMode: 'real',
   haStatus: 'connected',
   user: { id: 'owner-1', isOwner: true },
+  access: defaultAccessFor({ id: 'owner-1', isOwner: true }),
 });
 
 const limitedSecurity = createDashboardSecurityValue({
   runtimeMode: 'real',
   haStatus: 'connected',
   user: { id: 'limited-1' },
+  access: defaultAccessFor({ id: 'limited-1' }),
 });
 
 const members = [
@@ -49,7 +52,7 @@ function renderSection(params: {
   showSubviewHeader?: boolean;
 } = {}) {
   return render(
-    <DashboardSecurityProvider value={params.security ?? ownerSecurity}>
+    <AccessTestProviders security={params.security ?? ownerSecurity}>
       <SettingsHouseAccessSection
         view={params.view ?? 'overview'}
         onViewChange={params.onViewChange ?? vi.fn()}
@@ -58,7 +61,7 @@ function renderSection(params: {
         currentUserRole="Owner"
         showSubviewHeader={params.showSubviewHeader}
       />
-    </DashboardSecurityProvider>,
+    </AccessTestProviders>,
   );
 }
 
@@ -71,7 +74,7 @@ const householdMembers = [
 describe('SettingsHouseAccessSection', () => {
   it('lists people apart from Home Assistant logins that no person represents', () => {
     render(
-      <DashboardSecurityProvider value={ownerSecurity}>
+      <AccessTestProviders security={ownerSecurity}>
         <SettingsHouseAccessSection
           view="members"
           onViewChange={vi.fn()}
@@ -79,7 +82,7 @@ describe('SettingsHouseAccessSection', () => {
           currentUserName="Mattia"
           currentUserRole="Creatore"
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByText('Persone')).toBeTruthy();
@@ -92,7 +95,7 @@ describe('SettingsHouseAccessSection', () => {
 
   const renderMembers = (personLinking?: PersonAccountLinking) =>
     render(
-      <DashboardSecurityProvider value={ownerSecurity}>
+      <AccessTestProviders security={ownerSecurity}>
         <SettingsHouseAccessSection
           view="members"
           onViewChange={vi.fn()}
@@ -101,7 +104,7 @@ describe('SettingsHouseAccessSection', () => {
           currentUserName="Mattia"
           currentUserRole="Creatore"
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
   it('offers no link actions without the administrator linking capability', () => {
@@ -243,14 +246,14 @@ describe('SettingsHouseAccessSection', () => {
   it('removes an existing photo', async () => {
     const personLinking = linking({ supportsPictures: true });
     render(
-      <DashboardSecurityProvider value={ownerSecurity}>
+      <AccessTestProviders security={ownerSecurity}>
         <SettingsHouseAccessSection
           view="members"
           onViewChange={vi.fn()}
           houseMembers={[{ ...householdMembers[0], avatarUrl: '/api/image/serve/abc/512x512' }]}
           personLinking={personLinking}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Foto di Mattia' }));
@@ -277,7 +280,7 @@ describe('SettingsHouseAccessSection', () => {
 
   it('counts only people in the overview when Home Assistant people exist', () => {
     render(
-      <DashboardSecurityProvider value={ownerSecurity}>
+      <AccessTestProviders security={ownerSecurity}>
         <SettingsHouseAccessSection
           view="overview"
           onViewChange={vi.fn()}
@@ -285,7 +288,7 @@ describe('SettingsHouseAccessSection', () => {
           currentUserName="Mattia"
           currentUserRole="Creatore"
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByText('2 persone disponibili')).toBeTruthy();

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Settings › This device › Kiosk mode, against a simulated Home Assistant.
@@ -28,6 +29,9 @@ async function simulateHomeAssistant(page, { kiosk, screensaver, fullscreen = 'o
           case 'subscribe_entities':
             reply(null);
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: {} } }));
+            break;
+          case 'domusos/access/get_self':
+            reply(accessSelfFor(USER));
             break;
           case 'auth/current_user':
             reply(USER);

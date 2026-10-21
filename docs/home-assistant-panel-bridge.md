@@ -25,6 +25,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "profile_notifications_v1",
   "profile_recipients_v1",
   "device_power_v1",
+  "access_v1",
   "state_translations_v1",
   "host_navigation",
   "person_links",
@@ -63,6 +64,7 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/profile/test_self", "domusos/profile/list_recipients",
   "domusos/device_power/get_state", "domusos/device_power/save_policy",
   "domusos/device_power/bind_policy", "domusos/device_power/delete_policy",
+  "domusos/access/get_self",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -349,6 +351,8 @@ const isValidWsMessage = (message) => {
   if (message.type.startsWith("domusos/device_power/")) {
     return isValidDevicePowerMessage(message);
   }
+  // The account is the connection's: get_self names no user, role or capability.
+  if (message.type === "domusos/access/get_self") return hasExactKeys(message, ["type"]);
   if (message.type === "get_panels") {
     return Object.keys(message).every((key) => key === "type");
   }
@@ -768,6 +772,8 @@ L'elenco dei destinatari (capability `profile_recipients_v1`) è `domusos/profil
 Le traduzioni degli stati (capability `state_translations_v1`) sono `frontend/get_translations` con solo `type`, `language` e `category`, e `category` può essere soltanto `entity_component` o `entity`: Domus legge le stesse parole che il frontend Home Assistant usa per gli stati delle entità ("Acceso", "Aperta", "Fuori casa"). Senza la capability Domus usa un piccolo dizionario proprio.
 
 La gestione dell'alimentazione dei dispositivi (capability `device_power_v1`) usa quattro comandi, tutti riservati agli amministratori: `domusos/device_power/get_state` (solo `type`), `save_policy` (una `policy` con esattamente `client_id`, `label`, `enabled`, `battery_entity_id` di tipo `sensor.*`, `switch_entity_id` di tipo `switch.*`, `start_threshold` e `stop_threshold` interi con inizio minore della fine; senza `policy_id` né `expected_revision` per una nuova policy, con entrambi per modificarne una), `bind_policy` (`policy_id`, `expected_revision`, `client_id`) e `delete_policy` (`policy_id`, `expected_revision`). Non esiste un comando che accenda o spenga uno switch: i controller girano in Home Assistant, che ripete ogni controllo. Vedi [Device Power Management](device-power-management.md).
+
+Il profilo d'accesso (capability `access_v1`) è `domusos/access/get_self`, con solo `type`: Domus lo legge per mostrare all'account ciò che può usare, e il backend ricava l'account dalla connessione. Il bridge non inoltra le API amministrative di Access Control (`reset_policy`, la diagnostica shadow): nessuna pagina del pannello le usa.
 
 La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 

@@ -1,4 +1,6 @@
 import React, { useMemo } from 'react';
+import { useCan } from '../../security/AccessControlProvider';
+import { isPhysicalAccessCover } from '../../security/entityControlAccess';
 import type { LockPanelData } from './lockPanelTypes';
 import { Crown, Lightbulb, MapPin, Smartphone, Tablet, Users, Watch, X } from 'lucide-react';
 import { ActiveDevice } from './types';
@@ -391,6 +393,9 @@ export function ContextSidebar({
   actions: providedActions,
 }: ContextSidebarProps) {
   const { t } = useI18n();
+  // A gate, a garage or a motorized door is physical access: without access.control its panel only shows it.
+  const canControlAccess = useCan('access.control');
+  const coverIsReadOnly = !canControlAccess && isPhysicalAccessCover(cover.rawAttributes?.device_class);
   const actions = useMemo<ContextSidebarProps['actions']>(() => {
     if (commandsEnabled) {
       return providedActions;
@@ -691,6 +696,7 @@ export function ContextSidebar({
       {activeDevice?.type === 'cover' ? (
         <CoverControls
           cover={{ ...cover, name: activeDevice.name }}
+          readOnly={coverIsReadOnly}
           onOpen={actions.openCover}
           onClose={actions.closeCover}
           onStop={actions.stopCover}

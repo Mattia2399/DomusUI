@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { HaConnectionStatus } from '../hooks/useHaLiveConnection';
+import { LEGACY_CAPABILITY_MAP, LOADING_ACCESS, type AccessSnapshot } from './accessControl';
+
+/*
+ * The capabilities the screens used before Domus Access Control. Each one now
+ * stands for a capability of the profile the backend resolved
+ * (`LEGACY_CAPABILITY_MAP`): the names stay, the decision is Access Control's.
+ * New code asks `useCan` (AccessControlProvider) directly.
+ */
 
 export type DashboardRuntimeMode = 'real' | 'demo';
 
@@ -24,7 +32,7 @@ export type DashboardAccessUser = {
 
 export type AccessDecision = {
   allowed: boolean;
-  reason?: 'demo_restricted' | 'identity_resolving' | 'identity_unavailable' | 'admin_required';
+  reason?: 'demo_restricted' | 'identity_resolving' | 'identity_unavailable' | 'not_permitted';
 };
 
 export type DashboardSecurityValue = {
@@ -33,6 +41,8 @@ export type DashboardSecurityValue = {
   user: DashboardAccessUser | null;
   decisions: Record<DashboardCapability, AccessDecision>;
   can: (capability: DashboardCapability) => boolean;
+  /** The Access Control profile these decisions come from. */
+  access: AccessSnapshot;
 };
 
 const ALL_CAPABILITIES: DashboardCapability[] = [
@@ -113,28 +123,34 @@ export function resolveDashboardAccessDecision(params: {
   runtimeMode: DashboardRuntimeMode;
   identityStatus: DashboardIdentityStatus;
   user: DashboardAccessUser | null;
+  access: AccessSnapshot;
 }): AccessDecision {
   if (params.runtimeMode === 'demo') {
     return DEMO_CAPABILITIES.has(params.capability)
       ? { allowed: true }
       : { allowed: false, reason: 'demo_restricted' };
   }
-  if (params.identityStatus === 'resolving') {
+  if (params.identityStatus === 'resolving' || (params.user && params.access.status === 'loading')) {
     return { allowed: false, reason: 'identity_resolving' };
   }
-  if (params.identityStatus !== 'authenticated' || !params.user) {
+  if (params.identityStatus !== 'authenticated' || !params.user || !params.access.profile) {
     return { allowed: false, reason: 'identity_unavailable' };
   }
-  if (params.user.isOwner || params.user.isAdmin) {
-    return { allowed: true };
+  // The profile must be the one of the account the interface shows.
+  if (params.access.profile.userId !== params.user.id) {
+    return { allowed: false, reason: 'identity_unavailable' };
   }
-  return { allowed: false, reason: 'admin_required' };
+  return params.access.can(LEGACY_CAPABILITY_MAP[params.capability])
+    ? { allowed: true }
+    : { allowed: false, reason: 'not_permitted' };
 }
 
 export function createDashboardSecurityValue(params: {
   runtimeMode: DashboardRuntimeMode;
   haStatus: HaConnectionStatus;
   user: DashboardAccessUser | null;
+  /** The Domus access profile of `user` (useAccessProfile); nothing is allowed without it. */
+  access: AccessSnapshot;
 }): DashboardSecurityValue {
   const identityStatus = resolveDashboardIdentityStatus(params);
   const decisions = Object.fromEntries(
@@ -145,6 +161,7 @@ export function createDashboardSecurityValue(params: {
         runtimeMode: params.runtimeMode,
         identityStatus,
         user: params.user,
+        access: params.access,
       }),
     ]),
   ) as Record<DashboardCapability, AccessDecision>;
@@ -155,6 +172,7 @@ export function createDashboardSecurityValue(params: {
     user: params.user,
     decisions,
     can: (capability) => decisions[capability].allowed,
+    access: params.access,
   };
 }
 
@@ -162,6 +180,7 @@ const fallbackSecurityValue = createDashboardSecurityValue({
   runtimeMode: 'real',
   haStatus: 'disconnected',
   user: null,
+  access: LOADING_ACCESS,
 });
 
 const DashboardSecurityContext = createContext<DashboardSecurityValue>(fallbackSecurityValue);

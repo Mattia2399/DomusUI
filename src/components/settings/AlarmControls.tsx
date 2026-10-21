@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useCan } from '../../security/AccessControlProvider';
 import { AlertTriangle, Home, LockOpen, Moon, Plane, Shield, ShieldBan, ShieldEllipsis, ShieldPlus, ShieldQuestionMark } from 'lucide-react';
 import SecurityAuthModal from '../security/SecurityAuthModal';
 import {
@@ -210,6 +211,8 @@ export function AlarmControls({
   onArmCustomBypass,
   onTrigger,
 }: AlarmControlsProps) {
+  // security.control: without it the panel shows the state and the activity, never arm or disarm.
+  const canControl = useCan('security.control');
   const { t, formatDate } = useI18n();
   const [pendingAction, setPendingAction] = useState<PendingAlarmAction | null>(null);
   const [authCode, setAuthCode] = useState('');
@@ -681,6 +684,7 @@ export function AlarmControls({
         </div>
       </div>
 
+      {canControl ? (
       <div className={`${CONTEXT_PANEL_LAYOUT.sectionCompact} mb-1`}>
         <div className="mb-2 flex items-center justify-between gap-3 px-1">
           <span className="min-w-0 truncate text-xs font-semibold text-[color:var(--ui-text-tertiary)]">{t('alarm.panel.mode')}</span>
@@ -730,8 +734,9 @@ export function AlarmControls({
           </span>
         </button>
       </div>
+      ) : null}
 
-      {triggerAction ? (
+      {canControl && triggerAction ? (
         <button
           type="button"
           onClick={() => openActionDialog(triggerAction)}

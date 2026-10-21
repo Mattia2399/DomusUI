@@ -1,9 +1,12 @@
 import { cleanup, fireEvent, render as renderTestingLibrary, screen, within } from '@testing-library/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 import { SIDEBAR_QUICK_CARD_STORAGE_KEY } from './sidebarQuickCard';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import type { AccessSnapshot } from '../../security/accessControl';
+import { accessFor } from '../../test/accessFixtures';
 
 const { energyState } = vi.hoisted(() => ({
   energyState: {
@@ -20,13 +23,24 @@ vi.mock('../../services/energyCoreClient', async (importOriginal) => ({
   getEnergyState: vi.fn(async () => energyState),
 }));
 
-const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
+let drawerAccess: AccessSnapshot = accessFor('admin');
+function Providers({ children }: { children: ReactNode }) {
+  return (
+    <I18nProvider>
+      <AccessControlProvider access={drawerAccess}>{children}</AccessControlProvider>
+    </I18nProvider>
+  );
+}
+const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: Providers });
 
 beforeEach(() => {
   window.localStorage.clear();
   window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it');
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  drawerAccess = accessFor('admin');
+});
 
 const tomorrow = new Date();
 tomorrow.setDate(tomorrow.getDate() + 1);
@@ -192,5 +206,13 @@ describe('MobileSidebarDrawer', () => {
     expect(onDisconnectHomeAssistant).not.toHaveBeenCalled();
     fireEvent.click(within(screen.getAllByRole('dialog').at(-1)!).getByRole('button', { name: 'Esci' }));
     expect(onDisconnectHomeAssistant).toHaveBeenCalledOnce();
+  });
+  it('lists for a restricted account only the sections its role opens', () => {
+    drawerAccess = accessFor('restricted');
+    renderDrawer();
+    expect(screen.queryByRole('button', { name: /Consumi/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Automazioni/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Sicurezza/ })).toBeNull();
+    expect(screen.getAllByRole('button', { name: /Stanze/ }).length).toBeGreaterThan(0);
   });
 });

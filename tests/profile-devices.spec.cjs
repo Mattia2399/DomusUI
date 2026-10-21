@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Profile → My devices against a simulated Home Assistant that applies the
@@ -153,6 +154,9 @@ async function simulateHomeAssistant(page, options) {
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: states } }));
             break;
           }
+          case 'domusos/access/get_self':
+            reply(accessSelfFor(USER));
+            break;
           case 'auth/current_user':
             reply(USER);
             break;

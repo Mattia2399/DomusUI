@@ -192,6 +192,26 @@ describe('Home Assistant panel distribution contract', () => {
     }
   });
 
+  it('forwards only the own access profile of the account, never an administrative Access Control command', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = [...bridge.matchAll(/"(domusos\/access\/[a-z_]+)"/g)].map((match) => match[1]);
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/access/'));
+
+    expect(hostTypes).toEqual(['domusos/access/get_self', 'domusos/access/get_self']);
+    expect(appTypes).toEqual(['domusos/access/get_self']);
+    expect(bridge).toContain('"access_v1"');
+    for (const type of ['reset_policy', 'get_shadow_diagnostics', 'reset_shadow_diagnostics']) {
+      expect(bridge).not.toContain(`"domusos/access/${type}"`);
+      expect(validatePanelApiMessage({ type: `domusos/access/${type}` })).toBe(false);
+    }
+    // The account is the connection's: nothing else may travel with the request.
+    expect(validatePanelApiMessage({ type: 'domusos/access/get_self' })).toBe(true);
+    for (const extra of [{ user_id: 'x' }, { role: 'admin' }, { capabilities: ['energy.manage'] }]) {
+      expect(validatePanelApiMessage({ type: 'domusos/access/get_self', ...extra })).toBe(false);
+    }
+    expect(isDashboardAdministrativeApiMessage({ type: 'domusos/access/get_self' })).toBe(false);
+  });
+
   it('allowlists exactly the device power commands in both bridge halves, all administrative', () => {
     const bridge = readPanelBridgeSource();
     const hostTypes = [...bridge.matchAll(/"(domusos\/device_power\/[a-z_]+)"/g)].map((match) => match[1]);

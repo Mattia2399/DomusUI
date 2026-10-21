@@ -3,10 +3,11 @@ import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../i18n/I18nProvider';
 import {
-  DashboardSecurityProvider,
   createDashboardSecurityValue,
 } from '../security/dashboardAccess';
 import SettingsDashboard from './SettingsDashboard';
+import { defaultAccessFor } from '../test/accessFixtures';
+import { AccessTestProviders } from '../test/AccessTestProviders';
 
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
 
@@ -25,6 +26,7 @@ const security = createDashboardSecurityValue({
   runtimeMode: 'real',
   haStatus: 'connected',
   user: { id: 'owner-1', isOwner: true },
+  access: defaultAccessFor({ id: 'owner-1', isOwner: true }),
 });
 
 const baseProps = {
@@ -66,19 +68,20 @@ describe('SettingsDashboard', () => {
       runtimeMode: 'real',
       haStatus: 'connected',
       user: { id: 'member-1' },
+      access: defaultAccessFor({ id: 'member-1' }),
     });
     const { unmount } = render(
-      <DashboardSecurityProvider value={member}>
+      <AccessTestProviders security={member}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
     expect(screen.queryByRole('button', { name: /Alimentazione e ricarica/ })).toBeNull();
     unmount();
 
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings" onNavigate={onNavigate} />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
     const device = within(screen.getByRole('region', { name: 'Questo dispositivo' }));
     fireEvent.click(device.getByRole('button', { name: /^Alimentazione e ricarica/ }));
@@ -87,11 +90,11 @@ describe('SettingsDashboard', () => {
 
   it('lists the Screensaver of this device with its state, for everyone', async () => {
     const onNavigate = vi.fn();
-    const member = createDashboardSecurityValue({ runtimeMode: 'real', haStatus: 'connected', user: { id: 'member-1' } });
+    const member = createDashboardSecurityValue({ runtimeMode: 'real', haStatus: 'connected', user: { id: 'member-1' }, access: defaultAccessFor({ id: 'member-1' }) });
     const { unmount } = render(
-      <DashboardSecurityProvider value={member}>
+      <AccessTestProviders security={member}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings" onNavigate={onNavigate} />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
     const row = within(screen.getByRole('region', { name: 'Questo dispositivo' })).getByRole('button', { name: /^Screensaver/ });
     expect(row.textContent).toContain('No');
@@ -105,9 +108,9 @@ describe('SettingsDashboard', () => {
     );
     window.dispatchEvent(new StorageEvent('storage', { key: 'domusui.screensaver.v1' }));
     render(
-      <DashboardSecurityProvider value={member}>
+      <AccessTestProviders security={member}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
     expect(
       within(screen.getByRole('region', { name: 'Questo dispositivo' })).getByRole('button', { name: /^Screensaver/ }).textContent,
@@ -116,7 +119,7 @@ describe('SettingsDashboard', () => {
 
   it('draws the CPU trend of System with the chart library loaded only for it', async () => {
     const { container } = render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/system"
@@ -130,7 +133,7 @@ describe('SettingsDashboard', () => {
           }}
           sensorHistoryByEntity={{ 'sensor.processor_use': [12, 18, 23, 31] }}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     // The chart library is a lazy chunk of its own: give it time to load under a busy test run.
@@ -141,13 +144,13 @@ describe('SettingsDashboard', () => {
 
   it('opens Kiosk mode as its own page, loaded only then, with the start pages of the navigation', async () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/device/kiosk"
           kioskStartRoutes={[{ path: '/home', label: 'Home' }, { path: '/rooms', label: 'Stanze' }]}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Modalità Kiosk' })).toBeTruthy();
@@ -156,9 +159,9 @@ describe('SettingsDashboard', () => {
 
   it('opens the Screensaver as its own page, loaded only then', async () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/device/screensaver" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Screensaver' })).toBeTruthy();
@@ -167,9 +170,9 @@ describe('SettingsDashboard', () => {
 
   it('opens Power and charging as its own page, loaded only then', async () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/device/power" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Alimentazione e ricarica' })).toBeTruthy();
@@ -180,9 +183,9 @@ describe('SettingsDashboard', () => {
   it('renders the overview in English when selected on this device', () => {
     window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'en');
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Settings' })).toBeTruthy();
@@ -197,14 +200,14 @@ describe('SettingsDashboard', () => {
   it('opens with the person, then groups the settings by scope', () => {
     const onNavigate = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           account={{ name: 'Mattia', email: 'mattia@example.com', roleLabel: 'Owner' }}
           navigationRoute="/settings"
           onNavigate={onNavigate}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
@@ -273,9 +276,9 @@ describe('SettingsDashboard', () => {
 
   it('starts with the person instead of a title, and moves them into a bar while scrolling', () => {
     const { container } = render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} account={{ name: 'Mattia' }} navigationRoute="/settings" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     // The title stays for assistive technology only; no connection badge.
@@ -297,9 +300,9 @@ describe('SettingsDashboard', () => {
 
   it('leaves the Energy and Irrigation configuration to their apps, even for an Owner', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(security.can('manage_energy')).toBe(true);
@@ -313,25 +316,20 @@ describe('SettingsDashboard', () => {
       runtimeMode: 'real',
       haStatus: 'connected',
       user: { id: 'member-1' },
+      access: defaultAccessFor({ id: 'member-1' }),
     });
     render(
-      <DashboardSecurityProvider value={member}>
+      <AccessTestProviders security={member}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     const cards = (name: string) =>
       within(screen.getByRole('region', { name })).getAllByRole('button').map((card) => card.textContent);
-    expect(cards('Casa')).toEqual([
-      expect.stringContaining('Piani e stanze'),
-      expect.stringContaining('Raccolta rifiuti'),
-    ]);
-    expect(cards('Sistema')).toEqual([
-      expect.stringContaining('Connessioni'),
-      expect.stringContaining('Dispositivi'),
-      expect.stringContaining('Entità'),
-      expect.stringContaining('Sistema'),
-    ]);
+    // What a member's Domus role opens (access-control-capabilities.md): the people of the house,
+    // the system status and this device; managing floors, collection, devices or the connection is an administrator's.
+    expect(cards('Casa')).toEqual([expect.stringContaining('Persone e accessi')]);
+    expect(cards('Sistema')).toEqual([expect.stringContaining('Sistema')]);
     expect(cards('Questo dispositivo')).toEqual([
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
@@ -345,7 +343,7 @@ describe('SettingsDashboard', () => {
     const onAppearanceModeChange = vi.fn();
     const onBackgroundChange = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/device/appearance"
@@ -353,7 +351,7 @@ describe('SettingsDashboard', () => {
           onAppearanceModeChange={onAppearanceModeChange}
           onBackgroundChange={onBackgroundChange}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Aspetto', level: 1 })).toBeTruthy();
@@ -370,9 +368,9 @@ describe('SettingsDashboard', () => {
   it('keeps the language of this device in the same browser preference', async () => {
     const onNavigate = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/device/language" onNavigate={onNavigate} />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Lingua', level: 1 })).toBeTruthy();
@@ -392,9 +390,9 @@ describe('SettingsDashboard', () => {
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
     try {
       render(
-        <DashboardSecurityProvider value={security}>
+        <AccessTestProviders security={security}>
           <SettingsDashboard {...baseProps} navigationRoute="/settings/device" />
-        </DashboardSecurityProvider>,
+        </AccessTestProviders>,
       );
 
       expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
@@ -407,9 +405,9 @@ describe('SettingsDashboard', () => {
 
   it('keeps the old house page address on the overview', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/home" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Impostazioni' })).toBeTruthy();
@@ -418,9 +416,9 @@ describe('SettingsDashboard', () => {
   it('opens the security settings from the Home group', () => {
     const onNavigate = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/safety" onNavigate={onNavigate} />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Sicurezza della casa' })).toBeTruthy();
@@ -431,13 +429,13 @@ describe('SettingsDashboard', () => {
   it('opens administrative destinations as stable nested URLs', () => {
     const onNavigate = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings"
           onNavigate={onNavigate}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Persone e accessi/ }));
@@ -446,12 +444,12 @@ describe('SettingsDashboard', () => {
 
   it('opens the system page at the top after scrolling the settings overview', () => {
     const { container, rerender } = render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings"
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     const overviewScroller = container.querySelector<HTMLElement>('.dashboard-page-scroll');
@@ -459,12 +457,12 @@ describe('SettingsDashboard', () => {
     overviewScroller!.scrollTop = 420;
 
     rerender(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/system"
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     const systemScroller = container.querySelector<HTMLElement>('.dashboard-page-scroll');
@@ -477,26 +475,26 @@ describe('SettingsDashboard', () => {
   it('opens shared alert preferences as a nested page', () => {
     const onNavigate = vi.fn();
     const { rerender } = render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings"
           onNavigate={onNavigate}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Avvisi e attenzione/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/attention');
 
     rerender(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/attention"
           onNavigate={onNavigate}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Avvisi e attenzione' })).toBeTruthy();
@@ -505,13 +503,13 @@ describe('SettingsDashboard', () => {
 
   it('renders managed settings inside the routed page instead of opening a popup', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/access"
           managedSectionContent={<div>Contenuto membri incorporato</div>}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Persone e accessi' })).toBeTruthy();
@@ -522,14 +520,14 @@ describe('SettingsDashboard', () => {
   it('renders house access subpages with a single page header that goes back to access', () => {
     const onNavigate = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/access/members"
           onNavigate={onNavigate}
           managedSectionContent={<div>Elenco membri</div>}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getAllByRole('heading', { name: 'Membri della casa' })).toHaveLength(1);
@@ -551,7 +549,7 @@ describe('SettingsDashboard', () => {
       responsiveLayouts: {},
     };
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/data/history"
@@ -571,7 +569,7 @@ describe('SettingsDashboard', () => {
             bytes: 1,
           }))}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Versioni del layout' })).toBeTruthy();
@@ -582,23 +580,23 @@ describe('SettingsDashboard', () => {
   it('opens devices from the System group and comes back to the overview', () => {
     const onNavigate = vi.fn();
     const { rerender } = render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           haDeviceRegistry={[{ id: 'kitchen-light', name: 'Luce cucina' }]}
           navigationRoute="/settings"
           onNavigate={onNavigate}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /^Dispositivi / }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/devices');
 
     rerender(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/devices" onNavigate={onNavigate} />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
     expect(onNavigate).toHaveBeenLastCalledWith('/settings');
@@ -606,13 +604,13 @@ describe('SettingsDashboard', () => {
 
   it('keeps layout actions and sharing on the Dashboard page', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/dashboard"
           managedSectionContent={<div>Azioni del layout</div>}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeTruthy();
@@ -622,14 +620,14 @@ describe('SettingsDashboard', () => {
   it('brings sharing and layout versions back to the Dashboard page', () => {
     const onNavigate = vi.fn();
     const { rerender } = render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/access/sharing"
           onNavigate={onNavigate}
           managedSectionContent={<div>Condivisione</div>}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     let back = screen.getByRole('button', { name: 'Indietro' });
@@ -638,9 +636,9 @@ describe('SettingsDashboard', () => {
     expect(onNavigate).toHaveBeenLastCalledWith('/settings/dashboard');
 
     rerender(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/data/history" onNavigate={onNavigate} />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
     back = screen.getByRole('button', { name: 'Indietro' });
     fireEvent.click(back);
@@ -650,14 +648,14 @@ describe('SettingsDashboard', () => {
   it('starts the Home Assistant backup from Data and backup', () => {
     const onCallService = vi.fn(async () => true);
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           onCallService={onCallService}
           navigationRoute="/settings/data"
           managedSectionContent={<div>Esportazione</div>}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Backup di Home Assistant' })).toBeTruthy();
@@ -669,9 +667,9 @@ describe('SettingsDashboard', () => {
   it('shows the latest backup on the system page without its actions', () => {
     const onNavigate = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/system" onNavigate={onNavigate} />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     const backup = screen.getByRole('button', { name: /Ultimo backup/ });
@@ -684,7 +682,7 @@ describe('SettingsDashboard', () => {
 
   it('groups the system status and shows only the values Home Assistant reports', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/system"
@@ -697,7 +695,7 @@ describe('SettingsDashboard', () => {
             },
           }}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     const groups = screen.getAllByRole('heading', { level: 2 }).map((heading) => heading.textContent);
@@ -720,13 +718,13 @@ describe('SettingsDashboard', () => {
       ]),
     );
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/system"
           haStates={{ ...pending, 'update.zulu': { state: 'off', rawAttributes: { installed_version: '3.0' } } }}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     const updates = within(screen.getByRole('heading', { name: 'Aggiornamenti' }).closest('section')!);
@@ -738,7 +736,7 @@ describe('SettingsDashboard', () => {
 
   it('counts skipped versions apart from the components up to date', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/system"
@@ -747,7 +745,7 @@ describe('SettingsDashboard', () => {
             'update.esphome': { state: 'off', rawAttributes: { installed_version: '2.0', latest_version: '2.0' } },
           }}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /Una versione saltata/ }));
@@ -757,9 +755,9 @@ describe('SettingsDashboard', () => {
 
   it('explains how to get the system health when no sensor is available', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} navigationRoute="/settings/system" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByText('Telemetria non disponibile')).toBeTruthy();
@@ -769,9 +767,9 @@ describe('SettingsDashboard', () => {
   it('restarts Home Assistant only after the confirmation', () => {
     const onCallService = vi.fn(async () => true);
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard {...baseProps} onCallService={onCallService} navigationRoute="/settings/system" />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: /^Riavvia Home Assistant/ }));
@@ -795,12 +793,12 @@ describe('SettingsDashboard', () => {
       .mockImplementation(() => undefined);
 
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/advanced"
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Avanzate e supporto' })).toBeTruthy();
@@ -817,13 +815,13 @@ describe('SettingsDashboard', () => {
 
   it('hides the card sizing engine selector from Advanced settings until Developer Mode is enabled', () => {
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/advanced"
           developerMode={false}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.queryByRole('switch', { name: /Dimensionamento adattivo/ })).toBeNull();
@@ -832,7 +830,7 @@ describe('SettingsDashboard', () => {
   it('lets developers switch the local card sizing engine from Advanced settings', () => {
     const onCardSizingEngineChange = vi.fn();
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/settings/advanced"
@@ -840,7 +838,7 @@ describe('SettingsDashboard', () => {
           cardSizingEngine="adaptive"
           onCardSizingEngineChange={onCardSizingEngineChange}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     fireEvent.click(screen.getByRole('switch', { name: /Dimensionamento adattivo/ }));
@@ -856,13 +854,13 @@ describe('SettingsDashboard', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
 
     render(
-      <DashboardSecurityProvider value={security}>
+      <AccessTestProviders security={security}>
         <SettingsDashboard
           {...baseProps}
           navigationRoute="/support"
           onNavigate={onNavigate}
         />
-      </DashboardSecurityProvider>,
+      </AccessTestProviders>,
     );
 
     expect(screen.getByRole('heading', { name: 'Supporto e feedback' })).toBeTruthy();

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useCan } from '../../security/AccessControlProvider';
 import { useObservedElementSize } from '../../hooks/useObservedElementSize';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
@@ -49,6 +50,7 @@ export function AlarmCard({
     ? resolveAlarmPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
     : fallbackVariant;
   const model = useMemo(() => buildAlarmCardModel(widget, liveEntity), [liveEntity, widget]);
+  const canControl = useCan('security.control');
   const [isModeMenuOpen, setIsModeMenuOpen] = useState(false);
   const [selectedArmMode, setSelectedArmMode] = useState<AlarmArmMode | undefined>(
     model.activeMode ?? model.supportedModes[0]?.id,
@@ -126,6 +128,7 @@ export function AlarmCard({
       }}
       onDisarm={disarm}
       onArm={arm}
+      canControl={canControl}
     />
   );
 }

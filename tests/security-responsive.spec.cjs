@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { connectHomeAssistant } = require('./support/fakeHomeAssistant.cjs');
 
 function installCompletedRealWorkspace(page) {
   return page.addInitScript(() => {
@@ -25,6 +26,7 @@ for (const viewport of [
   test(`/security stays inside ${viewport.width}px and keeps controls touch friendly`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await installCompletedRealWorkspace(page);
+    await connectHomeAssistant(page);
     await page.goto('/security');
 
     await expect(page.getByRole('heading', { name: 'Sicurezza', exact: true })).toBeVisible();

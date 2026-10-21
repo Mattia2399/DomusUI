@@ -104,6 +104,8 @@ import {
 } from '../navigation/settingsRoutes';
 import type { DashboardAppearanceMode, DashboardBackgroundPreset } from '../theme/dashboardTheme';
 import LazyLoadBoundary, { LazyLoadErrorBoundary } from '../components/common/LazyLoadBoundary';
+import { useAccessControl } from '../security/AccessControlProvider';
+import { canOpenRoute } from '../navigation/routeAccess';
 import { useScreensaverPreferences } from '../components/screensaver/screensaverPreferences';
 import { useKioskPreferences } from '../components/kiosk/kioskPreferences';
 
@@ -595,10 +597,7 @@ export default function SettingsDashboard({
   const screensaver = useScreensaverPreferences();
   const kiosk = useKioskPreferences();
   // The rows only follow Home Assistant; every device power command is checked there again.
-  const isAdministrator =
-    security.runtimeMode === 'real' &&
-    security.identityStatus === 'authenticated' &&
-    Boolean(security.user?.isOwner || security.user?.isAdmin);
+  const access = useAccessControl();
   const systemSensors = useMemo(() => pickSystemSensors(haStates), [haStates]);
   const updateEntities = useMemo(() => collectUpdateEntities(haStates), [haStates]);
   const availableUpdates = updateEntities.filter((entry) => entry.available);
@@ -1063,11 +1062,7 @@ export default function SettingsDashboard({
           </section>
 
           {SETTINGS_SECTIONS.map((section) => {
-            const entries = selectVisibleSettingsEntries(
-              section.id,
-              (capability) => security.can(capability),
-              isAdministrator,
-            );
+            const entries = selectVisibleSettingsEntries(section.id, (route) => canOpenRoute(route, access.can));
             if (entries.length === 0) return null;
             return (
               <SettingsListGroup
@@ -1171,7 +1166,7 @@ export default function SettingsDashboard({
             callApi={onCallApi}
             connected={isConnected}
             supported={devicePowerSupported}
-            isAdmin={isAdministrator}
+            canManage={access.can('device_power.manage')}
             haStates={haStates}
           />
         </LazyLoadBoundary>

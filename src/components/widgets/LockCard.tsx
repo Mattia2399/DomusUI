@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
+import { useCan } from '../../security/AccessControlProvider';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
 import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
@@ -90,11 +91,13 @@ export function LockCard({
   const cardRef = useRef<HTMLDivElement | null>(null);
   useReportedCardSize(cardRef, widget.id, sizeVariant, onDisplayMetricsChange);
   const model = useMemo(() => buildLockCardModel(widget, liveEntity, locale), [liveEntity, locale, widget]);
-  const canOpen = model.canOpenLatch && Boolean(onOpenDoor);
+  // access.control: without it the ring shows the state and does nothing.
+  const canControl = useCan('access.control');
+  const canOpen = canControl && model.canOpenLatch && Boolean(onOpenDoor);
 
   // First lap unlocks, a second lap opens the latch; from unlocked a tap locks.
   const ring = useLockRingPress({
-    mode: resolveLockRingMode({ enabled: !isEditMode && Boolean(onToggleLock), state: model.state, canOpen }),
+    mode: resolveLockRingMode({ enabled: canControl && !isEditMode && Boolean(onToggleLock), state: model.state, canOpen }),
     canOpenAfterUnlock: canOpen,
     onUnlock: () => onToggleLock?.(),
     onLock: () => {

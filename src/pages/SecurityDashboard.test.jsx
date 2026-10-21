@@ -2,6 +2,8 @@ import React from 'react';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SecurityDashboard } from './SecurityDashboard';
+import { AccessControlProvider } from '../security/AccessControlProvider';
+import { accessFor } from '../test/accessFixtures';
 
 const deviceAuth = vi.hoisted(() => ({
   isEnrolled: false,
@@ -42,6 +44,7 @@ function renderSecurity({
   sensorEntityOptions = [],
   cameraEntityOptions = [],
   canManageSecurity = false,
+  access = accessFor('admin'),
 } = {}) {
   const props = {
     runtimeMode: 'real',
@@ -54,7 +57,9 @@ function renderSecurity({
     canManageSecurity,
     onCallService,
   };
-  return { ...render(<SecurityDashboard {...props} />), props, onCallService };
+  // The account's Access Control profile; rerender keeps it.
+  const wrapper = ({ children }) => <AccessControlProvider access={access}>{children}</AccessControlProvider>;
+  return { ...render(<SecurityDashboard {...props} />, { wrapper }), props, onCallService };
 }
 
 function enterNumericCode(getByRole, code) {
@@ -80,6 +85,22 @@ describe('/security alarm authorization', () => {
     expect(view.queryByText('Dati demo')).toBeNull();
     expect(view.queryByText('Movimento rilevato')).toBeNull();
     expect(view.queryByText('Allarme inserito')).toBeNull();
+  });
+
+  it('shows a member the state of the alarm and no way to change it', async () => {
+    const view = renderSecurity({ access: accessFor('member') });
+
+    expect((await view.findAllByText('Disinserito')).length).toBeGreaterThan(0);
+    expect(view.queryByRole('radio', { name: 'Casa' })).toBeNull();
+    expect(view.queryByRole('button', { name: /SOS/ })).toBeNull();
+    expect(view.onCallService).not.toHaveBeenCalled();
+  });
+
+  it('gives a member with the alarm grant the same commands as an administrator', async () => {
+    const view = renderSecurity({ access: accessFor('member', { grants: ['security.control'] }) });
+
+    await view.findAllByText('Disinserito');
+    expect(view.getByRole('radio', { name: 'Casa' })).not.toBeNull();
   });
 
   it('validates the combined local credential and sends only the HA PIN', async () => {

@@ -64,6 +64,9 @@ async function simulateHomeAssistant(page, origin) {
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: { 'sensor.grid_power': state(400), 'sensor.pv': state(1800) } } }));
             break;
           }
+          case 'domusos/access/get_self':
+            reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
+            break;
           case 'auth/current_user':
             reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });
             break;
@@ -193,6 +196,7 @@ test('inside Home Assistant the page stays on index.html and Energia loads one i
  * File names come from build/bundle-graph.json, never from guessed hashes.
  */
 const graph = JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'build', 'bundle-graph.json'), 'utf8'));
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 const CHART_FILES = Object.entries(graph.chunks)
   .filter(([, chunk]) => chunk.src === 'src/pages/consumi/consumptionCharts.tsx' || Object.keys(chunk.modules).some((name) => name.startsWith('node_modules/recharts/')))
   .map(([file]) => `/${file}`);

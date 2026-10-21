@@ -32,9 +32,41 @@ describe('access authority', () => {
     expect(api).not.toMatch(/msg\[["'](user_id|person_id|role)["']\]/);
   });
 
-  it('keeps the policy reset out of the panel bridge until Persone e accessi uses it', () => {
-    // P2.6 opens it for that flow only; until then no panel page can send it.
+  it('keeps the policy reset and the shadow diagnostics out of the panel bridge', () => {
+    // P2.6 opens the reset for Persone e accessi only; until then no panel page can send it.
     const bridge = read('src/hooks/useHaPanelBridgeConnection.ts');
-    expect(bridge).not.toContain("'domusos/access/reset_policy'");
+    expect(bridge).toContain("'domusos/access/get_self'");
+    for (const type of ['reset_policy', 'get_shadow_diagnostics', 'reset_shadow_diagnostics']) {
+      expect(bridge).not.toContain(`'domusos/access/${type}'`);
+    }
+  });
+
+  it('keeps the access profile in memory only, from get_self alone', () => {
+    for (const path of ['src/security/accessControl.ts', 'src/security/AccessControlProvider.tsx', 'src/hooks/useAccessProfile.ts', 'src/navigation/routeAccess.ts']) {
+      expect(read(path), path).not.toMatch(/localStorage|sessionStorage|indexedDB|document\.cookie/);
+    }
+    const hook = read('src/hooks/useAccessProfile.ts');
+    expect(hook).toContain("{ type: 'domusos/access/get_self' }");
+    expect(hook).not.toMatch(/setInterval|setTimeout/);
+  });
+
+  it('decides with capabilities, not with roles or Home Assistant flags, outside Access Control', () => {
+    const files = [
+      'src/components/dashboard/MainBoard.tsx',
+      'src/pages/SettingsDashboard.tsx',
+      'src/pages/AppGallery.jsx',
+      'src/pages/SecurityDashboard.jsx',
+      'src/components/settings/settingsScopes.ts',
+      'src/components/settings/DevicePowerSettings.tsx',
+      'src/components/dashboard/LeftSidebar.tsx',
+      'src/components/dashboard/MobileSidebarDrawer.tsx',
+      'src/components/dashboard/BottomBarNav.tsx',
+    ];
+    for (const path of files) {
+      const source = read(path);
+      expect(source, path).not.toMatch(/role\s*===\s*['"](admin|member|restricted|wall_panel)['"]/);
+      expect(source, path).not.toContain('administratorsOnly');
+    }
+    expect(read('src/components/dashboard/MainBoard.tsx')).toContain("access.can('ha_frontend.open')");
   });
 });

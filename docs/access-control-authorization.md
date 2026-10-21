@@ -220,8 +220,7 @@ I comandi WebSocket non sono raggiungibili dalle automazioni.
 - Nessun handler applica il motore: da P2.3 lo shadow lo consulta su ogni
   superficie, ma nessun handler usa le primitive `require_*` (contratto).
 - Nessun log persistente delle decisioni, nessun evento, nessun `subscribe`.
-- Nessuna modifica al frontend: `can()` TypeScript, guard, «Torna a Home
-  Assistant» restano per P2.4.
+- Il frontend usa il profilo da P2.4 ([frontend](access-control-frontend.md)), solo per l'esperienza d'uso.
 - Nessun resource scope (P2.7), nessun ruolo personalizzato, nessun ospite.
 
 ## Test

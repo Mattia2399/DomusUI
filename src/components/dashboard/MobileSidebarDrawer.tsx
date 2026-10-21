@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAccessControl } from '../../security/AccessControlProvider';
 import {
   ChevronRight,
   ExternalLink,
@@ -368,8 +369,9 @@ export function MobileSidebarDrawer({
     widgets,
     enabled: isOpen,
   });
-  const homeEntries = resolveDashboardNavigationEntries(quickPaths, PRIMARY_DASHBOARD_ROUTE_IDS, t);
-  const toolEntries = resolveDashboardNavigationEntries(quickPaths, TOOL_DASHBOARD_ROUTE_IDS, t);
+  const { can } = useAccessControl();
+  const homeEntries = resolveDashboardNavigationEntries(quickPaths, PRIMARY_DASHBOARD_ROUTE_IDS, t, can);
+  const toolEntries = resolveDashboardNavigationEntries(quickPaths, TOOL_DASHBOARD_ROUTE_IDS, t, can);
   const displayUserName = userAvatarAlt?.trim() || t('profile.fallback.name');
   const accountLine = [
     userRole ? t(ROLE_LABEL_KEYS[userRole]) : userEmail?.trim(),
