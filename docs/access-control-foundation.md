@@ -302,3 +302,33 @@ La pagina dovrà dichiarare (testo da rifinire in P2.6):
 | `tests_python/test_access_websocket.py` | `get_self` e `reset_policy` sullo stack reale: admin, membro, sola lettura, payload falsificato, persona collegata, store corrotto o `ready`, guasto interno, modulo assente, nessun servizio di reset (`ServiceNotFound`), ciclo di vita dell'integrazione. |
 | `tests_python/test_access_contract.py` | Contratti dal sorgente, anche senza HA: nessun servizio di reset in `services.yaml` o nelle traduzioni, il modulo non registra servizi, `reset_policy` legge solo la connessione e controlla l'account prima di toccare i file. |
 | `src/security/accessAuthority.test.ts` | Contratto: l'autorità UX del frontend non legge storage del browser; `get_self` non accetta un account; il bridge non inoltra `reset_policy`. |
+
+## Validazione Linux (P2.1.2)
+
+I test con il fixture di Home Assistant non girano su Windows (manca `fcntl`).
+Li ha eseguiti GitHub Actions sul repository privato `archive`.
+
+- **Come**: un branch temporaneo `ci/access-control-linux-validation`, uguale al
+  codice validato più un solo commit che aggiungeva quel nome al trigger `push`
+  di `irrigation-core.yml`. Il branch è stato eliminato dopo la run e il
+  commit temporaneo non è nella storia del feature branch.
+- **Codice validato**: `1f98f94`.
+
+| Run | Job | HA | Python | Test | Esito |
+| --- | --- | --- | --- | --- | --- |
+| 39570521308 (`22bc3c9`) | backend | 2025.1.0 | 3.12 | 929 passati, 2 falliti | fallita |
+| 39570521308 (`22bc3c9`) | backend | 2026.2.3 | 3.13 | 963 passati, 2 falliti | fallita |
+| 39571012986 (`1f98f94`) | backend | 2025.1.0 | 3.12 | 931 passati | **verde** |
+| 39571012986 (`1f98f94`) | backend | 2026.2.3 | 3.13 | 965 passati | **verde** |
+
+- **Job HA 2025.1**: `test_access_models` (70 test), `test_access_manager` (37),
+  `test_access_contract` (4).
+- **Job HA 2026.2.3**: tutta `tests_python`, comprese `test_access_manager` (37)
+  e `test_access_websocket` (16).
+- **I 2 fallimenti della prima run** erano nella preparazione dei test, non nel
+  codice. HA rende owner il primo utente creato, e un owner è sempre admin: il
+  test del downgrade e quello dell'account disattivato usavano proprio l'owner.
+  Ora i test creano prima un owner apposta.
+- **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
+  repository pubblici. È un workflow separato: non blocca né sostituisce il job
+  backend.
