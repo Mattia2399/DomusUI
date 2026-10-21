@@ -63,7 +63,14 @@ async def loaded(hass: HomeAssistant) -> AccessPolicyManager:
     return manager
 
 
+async def house_owner(hass: HomeAssistant):
+    """Home Assistant makes its first user the owner, and an owner is always an admin."""
+    return await hass.auth.async_create_user("Owner", group_ids=["system-admin"])
+
+
 async def users(hass: HomeAssistant):
+    # Created after the owner: a plain administrator whose groups decide it.
+    await house_owner(hass)
     admin = await hass.auth.async_create_user("Admin", group_ids=["system-admin"])
     member = await hass.auth.async_create_user("Member", group_ids=["system-users"])
     return admin, member
@@ -264,6 +271,7 @@ async def test_a_demotion_in_home_assistant_applies_at_the_next_request(hass: Ho
 
 async def test_system_and_disabled_accounts_have_no_profile(hass: HomeAssistant, hass_storage) -> None:
     manager = await loaded(hass)
+    await house_owner(hass)
     system = await hass.auth.async_create_system_user("Supervisor", group_ids=["system-admin"])
     disabled = await hass.auth.async_create_user("Ex", group_ids=["system-users"])
     await hass.auth.async_deactivate_user(disabled)
