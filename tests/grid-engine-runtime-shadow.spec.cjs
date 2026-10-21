@@ -201,6 +201,19 @@ test(`Runtime Shadow ${EXPECT_RUNTIME_SHADOW ? 'enabled' : 'disabled'} is indepe
       diagnosticStatus: 'limited',
       renderingAuthority: 'not-authorized',
     });
+    expect(initialReport.structuralPolicy.policyConfiguration).toMatchObject({
+      version: 1,
+      requestedScope: { kind: 'root' },
+      requestedBreakpoint: 'xl',
+      parsing: { status: 'legacy-absent' },
+      declaration: {
+        primaryMode: null,
+        effectiveMode: null,
+        overrideApplied: false,
+      },
+      lineage: { status: 'not-applicable', declared: false },
+      renderingAuthority: 'not-authorized',
+    });
     expect(Object.keys(initialReport.structuralPolicy.breakpoints)).toEqual(['2xl', 'xl', 'lg', 'md', 'sm', 'xs']);
     expect(Object.values(initialReport.structuralPolicy.breakpoints).map((breakpoint) => breakpoint.cols))
       .toEqual([12, 12, 8, 6, 4, 2]);
@@ -228,6 +241,12 @@ test(`Runtime Shadow ${EXPECT_RUNTIME_SHADOW ? 'enabled' : 'disabled'} is indepe
     const reportsBeforeBreakpoint = reports.length;
     await page.setViewportSize({ width: 500, height: 820 });
     await expect.poll(() => reports.slice(reportsBeforeBreakpoint).some((report) => report.breakpoint === 'xs')).toBe(true);
+    const xsReport = reports.slice(reportsBeforeBreakpoint).find((report) => report.breakpoint === 'xs');
+    expect(xsReport.structuralPolicy.policyConfiguration).toMatchObject({
+      requestedBreakpoint: 'xs',
+      parsing: { status: 'legacy-absent' },
+      renderingAuthority: 'not-authorized',
+    });
     const xsGeometry = await stableGeometry(page);
     const xsReportCount = reports.length;
     await page.evaluate(() => window.dispatchEvent(new Event('resize')));
@@ -306,6 +325,11 @@ test(`Runtime Shadow reconciliation ${EXPECT_RECONCILIATION ? 'enabled' : 'inact
     expect(report.baselineIdAudit.unknownIdsCount).toBe(1);
     expect(report.structuralPolicy.breakpoints.xl.renderingAuthority).toBe('not-authorized');
     expect(report.structuralPolicy.breakpoints.xl.mode).toBeNull();
+    expect(report.structuralPolicy.policyConfiguration).toMatchObject({
+      parsing: { status: 'legacy-absent' },
+      declaration: { effectiveMode: null },
+      renderingAuthority: 'not-authorized',
+    });
     expect(report.reconciliation.originalIssues).toContain('UNKNOWN_LAYOUT_ID');
     expect(report.reconciliation.classifications[0]).toMatchObject({
       classification: 'EXISTING_NESTED_WIDGET',

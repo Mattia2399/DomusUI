@@ -17,6 +17,12 @@ import {
   type RuntimeShadowInput,
 } from './runtimeShadowDiagnostics';
 import { runGridEngine2RuntimeShadowMode } from './runtimeShadowMode';
+import {
+  choiceDeclaration,
+  createGridStructuralPolicyConfigurationFixture,
+  explicitGeometry,
+  manualMobileOverride,
+} from './gridStructuralPolicyConfiguration.fixtures';
 
 const roots: RuntimeShadowRootElement[] = [
   { id: 'light', role: 'widget', kind: 'light' },
@@ -416,6 +422,73 @@ describe('Runtime Shadow comparison', () => {
 });
 
 describe('Runtime Shadow lifecycle, safety and performance', () => {
+  it('integrates the current HA schema as an absent V1 policy', () => {
+    const report = analyzeRuntimeShadow(runtimeInput({
+      configurationCompleteness: 'verified-complete',
+      structuralContext: { generation: 84, revision: 84, fingerprint: 'dsl-v1-current' },
+      explicitRootLayouts: { xl: structural },
+      legacyRuntimeLayouts: { xl: structural },
+    }));
+    expect(report.structuralPolicy.policyConfiguration).toMatchObject({
+      parsing: { status: 'legacy-absent' },
+      declaration: { primaryMode: null, effectiveMode: null },
+      lineage: { status: 'not-applicable' },
+      renderingAuthority: 'not-authorized',
+    });
+  });
+
+  it('integrates synthetic V1 declarations only when explicitly supplied', () => {
+    const manual = createGridStructuralPolicyConfigurationFixture({
+      primary: choiceDeclaration('choice.root', 'manual'),
+      geometries: [explicitGeometry('xl')],
+    });
+    const override = manualMobileOverride();
+    const mobile = createGridStructuralPolicyConfigurationFixture({
+      overrides: [override],
+      geometries: [
+        explicitGeometry('xl'),
+        explicitGeometry('xs', override.declaration.declarationId, 'geometry.xs.explicit'),
+      ],
+    });
+    expect(analyzeRuntimeShadow(runtimeInput({
+      structuralPolicyConfiguration: manual,
+    })).structuralPolicy.policyConfiguration.declaration.effectiveMode).toBe('manual');
+    expect(analyzeRuntimeShadow(runtimeInput({
+      breakpoint: 'xs',
+      cols: 2,
+      structuralPolicyConfiguration: mobile,
+    })).structuralPolicy.policyConfiguration.declaration).toMatchObject({
+      effectiveMode: 'manual',
+      overrideApplied: true,
+    });
+  });
+
+  it('preserves a pending structural revision in the integrated inspection', () => {
+    const report = analyzeRuntimeShadow(runtimeInput({
+      configurationCompleteness: 'hydration-uncertain',
+      structuralContext: { generation: 85, revision: null, fingerprint: 'dsl-v1-pending' },
+    }));
+    expect(report.structuralPolicy.policyConfiguration.snapshot).toMatchObject({
+      state: 'revision-pending',
+      reliability: 'revision-pending',
+    });
+  });
+
+  it('includes meaningful V1 changes in Runtime Shadow deduplication', () => {
+    const automatic = runtimeInput({
+      structuralPolicyConfiguration: createGridStructuralPolicyConfigurationFixture(),
+    });
+    const manual = runtimeInput({
+      structuralPolicyConfiguration: createGridStructuralPolicyConfigurationFixture({
+        primary: choiceDeclaration('choice.root', 'manual'),
+      }),
+    });
+    expect(createRuntimeShadowInputSignature(manual))
+      .not.toBe(createRuntimeShadowInputSignature(automatic));
+    expect(createRuntimeShadowInputSignature(structuredClone(automatic)))
+      .toBe(createRuntimeShadowInputSignature(automatic));
+  });
+
   it('25. creates a stable signature and deduplicates equivalent inputs', () => {
     const input = runtimeInput();
     const signature = createRuntimeShadowInputSignature(input);
@@ -474,6 +547,12 @@ describe('Runtime Shadow lifecycle, safety and performance', () => {
       ...runtimeInput(),
       explicitRootLayouts: { xl: [...structural, { i: 'private.entity_identifier', x: 4, y: 0, w: 2, h: 1 }] },
       legacyRuntimeLayouts: { xl: structural },
+      structuralPolicyConfiguration: createGridStructuralPolicyConfigurationFixture({
+        primary: choiceDeclaration('choice.private-policy-identifier'),
+        geometries: [
+          explicitGeometry('xl', 'choice.private-policy-identifier', 'geometry.private-policy-identifier'),
+        ],
+      }),
       haState: { access_token: 'DO-NOT-LOG', attributes: { password: 'SECRET' } },
     } as RuntimeShadowInput;
     runGridEngine2RuntimeShadowMode(input, { enabled: true, logger });
@@ -483,6 +562,7 @@ describe('Runtime Shadow lifecycle, safety and performance', () => {
     expect(logged).not.toContain('SECRET');
     expect(logged).not.toContain('access_token');
     expect(logged).not.toContain('private.entity_identifier');
+    expect(logged).not.toContain('private-policy-identifier');
     expect(logged).toContain('fingerprint');
   });
 

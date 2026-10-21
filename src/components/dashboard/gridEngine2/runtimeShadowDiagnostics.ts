@@ -36,6 +36,15 @@ import {
   type GridStructuralPolicyShadowReport,
   type GridStructuralShadowSnapshotState,
 } from './gridStructuralPolicyShadowAdapter';
+import {
+  analyzeGridStructuralPolicyConfigurationShadowBridge,
+  createGridStructuralPolicyConfigurationShadowSignature,
+  type GridStructuralPolicyConfigurationShadowReport,
+} from './gridStructuralPolicyConfigurationShadowBridge';
+
+export type RuntimeShadowStructuralPolicyReport = GridStructuralPolicyShadowReport & Readonly<{
+  policyConfiguration: GridStructuralPolicyConfigurationShadowReport;
+}>;
 
 export type RuntimeShadowInput = {
   readonly breakpoint: DashboardGridBreakpoint;
@@ -62,6 +71,8 @@ export type RuntimeShadowInput = {
     revision: number | null;
     fingerprint: string | null;
   }>;
+  /** Current HA schema omits this field; synthetic V1 declarations are test-only. */
+  readonly structuralPolicyConfiguration?: unknown;
   readonly lightStates: readonly RuntimeShadowLightState[];
   readonly widgetTypeLayoutOverrides?: WidgetTypeLayoutOverrides;
   readonly widgetLayoutOverrides?: WidgetLayoutOverrides;
@@ -98,7 +109,7 @@ export type RuntimeShadowReport = {
   readonly baseline: RuntimeShadowBaselineResult;
   readonly baselineIdAudit: RuntimeShadowBaselineIdAudit;
   readonly reconciliation: RuntimeShadowReconciliationResult;
-  readonly structuralPolicy: GridStructuralPolicyShadowReport;
+  readonly structuralPolicy: RuntimeShadowStructuralPolicyReport;
   readonly comparisonConfidence: 'reliable' | 'provisional' | 'unavailable';
   readonly comparison: RuntimeShadowDifferenceCategory;
   readonly solverStatus: 'not-run' | 'unchanged' | 'resolved' | 'invalid';
@@ -141,7 +152,7 @@ function unavailableReport(
   baseline: RuntimeShadowBaselineResult,
   baselineIdAudit: RuntimeShadowBaselineIdAudit,
   reconciliation: RuntimeShadowReconciliationResult,
-  structuralPolicy: GridStructuralPolicyShadowReport,
+  structuralPolicy: RuntimeShadowStructuralPolicyReport,
   issueCodes: readonly string[],
   timings: RuntimeShadowReport['timings'],
 ): RuntimeShadowReport {
@@ -272,10 +283,14 @@ export function analyzeRuntimeShadow(
   const structuralPolicySnapshotState: GridStructuralShadowSnapshotState =
     input.configurationCompleteness === 'verified-complete'
       ? 'verified-home-assistant'
+      : input.configurationCompleteness === 'hydration-uncertain' &&
+          (input.structuralContext?.generation ?? 0) > 0 &&
+          input.structuralContext?.revision === null
+        ? 'revision-pending'
       : input.configurationCompleteness === 'hydration-uncertain'
         ? 'incoherent'
         : 'unknown';
-  const structuralPolicy = analyzeGridStructuralPolicyShadow({
+  const structuralPolicyProjection = analyzeGridStructuralPolicyShadow({
     structuralContext: input.structuralContext ?? null,
     snapshotState: structuralPolicySnapshotState,
     configurationCompleteness: input.configurationCompleteness ?? 'unknown',
@@ -288,6 +303,24 @@ export function analyzeRuntimeShadow(
     activeReconciliation: reconciliation,
     legacyLayouts: input.legacyRuntimeLayouts,
   }, { now }).report;
+  const policyConfiguration = analyzeGridStructuralPolicyConfigurationShadowBridge({
+    policy: input.structuralPolicyConfiguration,
+    requestedBreakpoint: input.breakpoint,
+    structuralContext: input.structuralContext ?? null,
+    snapshotState: structuralPolicySnapshotState,
+    snapshotCoherent: structuralPolicySnapshotState === 'verified-home-assistant',
+    applicationReceipt: structuralPolicySnapshotState === 'verified-home-assistant' &&
+        input.configurationCompleteness === 'verified-complete'
+      ? 'verified-match'
+      : 'missing',
+    configurationCompleteness: input.configurationCompleteness ?? 'unknown',
+    breakpointProjection: structuralPolicyProjection.breakpoints[input.breakpoint],
+    activeBaseline: baseline,
+  });
+  const structuralPolicy: RuntimeShadowStructuralPolicyReport = {
+    ...structuralPolicyProjection,
+    policyConfiguration,
+  };
   const baselineMs = roundDuration(now() - baselineStartedAt);
   const diagnosticBaselineLayout = baseline.layout ?? reconciliation.projectedLayout;
   if (!diagnosticBaselineLayout) {
@@ -462,6 +495,9 @@ export function createRuntimeShadowInputSignature(input: RuntimeShadowInput) {
     reconciliationEnabled: input.reconciliationEnabled === true,
     configurationCompleteness: input.configurationCompleteness ?? 'unknown',
     structuralContext: input.structuralContext ?? null,
+    policyConfiguration: createGridStructuralPolicyConfigurationShadowSignature(
+      input.structuralPolicyConfiguration,
+    ),
     lights: [...input.lightStates].sort((first, second) => first.id.localeCompare(second.id)),
     lightTypeOverride: spanOverrideSignature(input.widgetTypeLayoutOverrides?.light?.[input.breakpoint]),
     widgetOverrides: relevantWidgetOverrides,
