@@ -1,8 +1,14 @@
-"""Websocket API and recovery service of Domus Access Control.
+"""Websocket API of Domus Access Control.
 
-``domusos/access/get_self`` answers what Domus allows the account of the
-connection. It takes no parameter: the account is the one Home Assistant
-authenticated, never an id sent by the client. Nothing is enforced yet.
+Both commands take no parameter: the account is the one Home Assistant
+authenticated for the connection, never an id, a role or a flag sent by the
+client. Nothing is enforced yet.
+
+The recovery is a websocket command on purpose, and never a Home Assistant
+service: automations and scripts call services, and a service cannot tell a
+script started by an administrator from that administrator acting directly,
+while an automation calls with no user at all
+(docs/access-control-foundation.md#recupero).
 """
 
 from __future__ import annotations
@@ -12,9 +18,7 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.components import websocket_api
-from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.service import async_register_admin_service
+from homeassistant.core import HomeAssistant, callback
 
 from ..const import DOMAIN
 from .manager import AccessPolicyManager, principal_from_user
@@ -22,7 +26,6 @@ from .models import AccessError, AccessUnavailableError
 
 WS_PREFIX = f"{DOMAIN}/access"
 DATA_ACCESS_MANAGER = "access_manager"
-SERVICE_RESET_ACCESS_POLICY = "reset_access_policy"
 
 
 def _manager(hass: HomeAssistant) -> AccessPolicyManager:
@@ -68,19 +71,27 @@ def websocket_get_self(
     )
 
 
-WEBSOCKET_COMMANDS = (websocket_get_self,)
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/reset_policy"})
+@websocket_api.async_response
+async def websocket_reset_policy(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return every account to its default role; only for an active Home Assistant administrator."""
+    try:
+        result = await _manager(hass).async_reset(connection.user)
+    except AccessError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+        return
+    except Exception:  # noqa: BLE001 - never answer success for a reset that did not happen
+        connection.send_error(msg["id"], "unknown_error", "Domus access control failed")
+        return
+    connection.send_result(msg["id"], result)
+
+
+WEBSOCKET_COMMANDS = (websocket_get_self, websocket_reset_policy)
 
 
 async def async_register_access_api(hass: HomeAssistant) -> None:
-    """Register the websocket command and the administrator recovery service once."""
+    """Register the websocket commands once; Access Control registers no service."""
     for command in WEBSOCKET_COMMANDS:
         websocket_api.async_register_command(hass, command)
-
-    async def handle_reset(call: ServiceCall) -> None:
-        # Home Assistant refuses this service to anyone but an administrator.
-        try:
-            await _manager(hass).async_reset(call.context.user_id)
-        except AccessError as err:
-            raise HomeAssistantError(str(err)) from err
-
-    async_register_admin_service(hass, DOMAIN, SERVICE_RESET_ACCESS_POLICY, handle_reset)

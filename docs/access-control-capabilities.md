@@ -216,5 +216,5 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | Destinatari notifiche | WS | — | `profile/list_recipients` | `notifications.recipients` | medium |
 | Profilo d'accesso proprio | WS | — | `domusos/access/get_self` (P2.1) | — (ogni account domestico) | low |
 | Ruoli Domus | — (P2.6) | — | `domusos/access/*` | `access.manage` | critical |
-| Recupero policy | servizio | `domusos.reset_access_policy` (admin, P2.1) | sì | `access.manage` (admin HA) | critical |
+| Recupero policy | WS (nessun servizio) | — | `domusos/access/reset_policy` (admin HA attivo della connessione, P2.1.2) | `access.manage` (admin HA) | critical |
 | Torna a Home Assistant | navigazione del pannello | — | no | `ha_frontend.open` | low (solo UX) |

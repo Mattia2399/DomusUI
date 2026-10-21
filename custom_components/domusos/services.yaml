@@ -31,5 +31,3 @@ pause_irrigation: {}
 resume_irrigation: {}
 
 stop_all_irrigation: {}
-
-reset_access_policy: {}

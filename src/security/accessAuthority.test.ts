@@ -31,4 +31,10 @@ describe('access authority', () => {
     expect(api).toContain('principal_from_user(connection.user)');
     expect(api).not.toMatch(/msg\[["'](user_id|person_id|role)["']\]/);
   });
+
+  it('keeps the policy reset out of the panel bridge until Persone e accessi uses it', () => {
+    // P2.6 opens it for that flow only; until then no panel page can send it.
+    const bridge = read('src/hooks/useHaPanelBridgeConnection.ts');
+    expect(bridge).not.toContain("'domusos/access/reset_policy'");
+  });
 });

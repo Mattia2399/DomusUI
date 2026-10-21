@@ -16,8 +16,7 @@
     "stop_irrigation_zone": { "name": "Arrêter une zone d'irrigation", "description": "Ferme une zone et annule sa session.", "fields": { "zone_id": { "name": "ID de zone", "description": "Identifiant stable de la zone configurée dans Domus UI." } } },
     "pause_irrigation": { "name": "Mettre l'irrigation en pause", "description": "Ferme les zones actives et conserve leur temps restant." },
     "resume_irrigation": { "name": "Reprendre l'irrigation", "description": "Reprend explicitement les sessions en pause." },
-    "stop_all_irrigation": { "name": "Arrêter toute l'irrigation", "description": "Ferme toutes les zones, vide la file et arrête les programmations." },
-    "reset_access_policy": { "name": "Réinitialiser les autorisations Domus", "description": "Réservé aux administrateurs. Met de côté la politique d'accès Domus actuelle et remet chaque compte à son rôle par défaut : les administrateurs de Home Assistant restent administrateurs, tous les autres deviennent membres." }
+    "stop_all_irrigation": { "name": "Arrêter toute l'irrigation", "description": "Ferme toutes les zones, vide la file et arrête les programmations." }
   },
   "issues": {
     "irrigation_close_failed": {
@@ -26,7 +25,7 @@
     },
     "access_policy_untrusted": {
       "title": "Impossible de lire les autorisations Domus",
-      "description": "La politique d'accès Domus est {state}. Les comptes non administrateurs ne gardent que les vues de base jusqu'à ce qu'un administrateur exécute l'action Domus « Réinitialiser les autorisations Domus ». La politique précédente est conservée à côté du stockage, jamais supprimée."
+      "description": "La politique d'accès Domus est {state}. Les comptes non administrateurs ne gardent que les vues de base jusqu'à ce qu'un administrateur de Home Assistant réinitialise la politique depuis Domus (commande domusos/access/reset_policy). La politique précédente est conservée à côté du stockage, jamais supprimée."
     }
   }
 }

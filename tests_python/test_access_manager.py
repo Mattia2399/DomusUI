@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -14,6 +16,7 @@ from homeassistant.helpers import issue_registry as ir
 from custom_components.domusos.access.manager import (
     ISSUE_POLICY_UNTRUSTED,
     AccessPolicyManager,
+    SetAsideError,
     principal_from_user,
     set_aside_policy_files,
 )
@@ -24,6 +27,7 @@ from custom_components.domusos.access.models import (
     AccessDeniedError,
     InvalidAssignmentError,
     MigrationFailedError,
+    ResetFailedError,
     RevisionConflictError,
     RoleId,
     SaveFailedError,
@@ -31,6 +35,7 @@ from custom_components.domusos.access.models import (
     StoreUntrustedError,
 )
 from custom_components.domusos.const import DOMAIN
+from custom_components.domusos.core.audit import DomusAuditService
 
 NOW = "2026-10-20T10:00:00+00:00"
 
@@ -279,19 +284,26 @@ async def test_orphaned_assignments_are_reported_and_kept(hass: HomeAssistant, h
 
 # --- Recovery ------------------------------------------------------------------------
 
+SET_ASIDE = "custom_components.domusos.access.manager.set_aside_policy_files"
+
+
+async def audited(hass: HomeAssistant) -> tuple[AccessPolicyManager, DomusAuditService]:
+    audit = DomusAuditService()
+    await audit.async_setup()
+    manager = AccessPolicyManager(hass, runtime=lambda: SimpleNamespace(audit=audit))
+    await manager.async_setup()
+    return manager, audit
+
 
 async def test_a_reset_returns_everyone_to_defaults_and_keeps_the_old_policy_aside(
     hass: HomeAssistant, hass_storage
 ) -> None:
     admin, member = await users(hass)
-    hass_storage[STORAGE_KEY] = stored({"x"[0] * 32: member_assignment("owner")})
-    manager = await loaded(hass)
+    hass_storage[STORAGE_KEY] = stored({"x" * 32: member_assignment("owner")})
+    manager, audit = await audited(hass)
     assert manager.state is StoreState.CORRUPT and untrusted_issue(hass) is not None
-    with patch(
-        "custom_components.domusos.access.manager.set_aside_policy_files",
-        return_value=["domusos.access.v1.reset.stamp"],
-    ) as set_aside:
-        result = await manager.async_reset(admin.id)
+    with patch(SET_ASIDE, return_value=["domusos.access.v1.reset.stamp"]) as set_aside:
+        result = await manager.async_reset(admin)
     set_aside.assert_called_once()
     assert result == {
         "state": "absent",
@@ -304,6 +316,106 @@ async def test_a_reset_returns_everyone_to_defaults_and_keeps_the_old_policy_asi
     assert manager.profile_for(member).role is RoleId.MEMBER
     assert STORAGE_KEY not in hass_storage
     assert untrusted_issue(hass) is None
+    (entry,) = audit.snapshot()
+    assert (entry.source, entry.reason, entry.result) == ("access.policy", "policy_reset", "absent")
+    assert entry.metadata["actor"] == admin.id
+    assert entry.metadata["previous_state"] == "corrupt"
+    assert entry.metadata["previous_revision"] is None
+    assert list(entry.metadata["kept"]) == ["domusos.access.v1.reset.stamp"]
+
+
+async def test_a_ready_policy_can_be_reset_on_purpose(hass: HomeAssistant, hass_storage) -> None:
+    admin, member = await users(hass)
+    hass_storage[STORAGE_KEY] = stored({member.id: member_assignment("restricted")})
+    manager, audit = await audited(hass)
+    assert manager.profile_for(member).role is RoleId.RESTRICTED
+    with patch(SET_ASIDE, return_value=[]):
+        result = await manager.async_reset(admin)
+    assert result["previous_state"] == "ready" and result["previous_revision"] == 5
+    assert manager.state is StoreState.ABSENT and manager.revision == 0
+    assert manager.profile_for(member).role is RoleId.MEMBER
+    assert manager.profile_for(member).source.value == "default"
+    assert audit.snapshot()[-1].metadata["previous_revision"] == 5
+
+
+@pytest.mark.parametrize(
+    ("state_data", "expected"),
+    [
+        (stored(version=SCHEMA_VERSION + 1), "unsupported"),
+        (stored({"x" * 32: member_assignment("owner")}), "corrupt"),
+    ],
+)
+async def test_an_administrator_recovers_any_untrusted_policy(
+    hass: HomeAssistant, hass_storage, state_data, expected
+) -> None:
+    admin, _ = await users(hass)
+    hass_storage[STORAGE_KEY] = state_data
+    manager = await loaded(hass)
+    before = manager.profile_for(admin)
+    assert manager.state.value == expected
+    assert before.role is RoleId.LOCKED and before.has("access.manage") and not before.has("access.control")
+    with patch(SET_ASIDE, return_value=[]):
+        await manager.async_reset(admin)
+    assert manager.state is StoreState.ABSENT
+    assert manager.profile_for(admin).role is RoleId.ADMIN
+
+
+async def test_a_policy_that_failed_to_migrate_can_be_recovered(hass: HomeAssistant, hass_storage) -> None:
+    admin, _ = await users(hass)
+    hass_storage[STORAGE_KEY] = stored()
+    with patch(
+        "custom_components.domusos.access.manager.parse_stored_document",
+        side_effect=MigrationFailedError("boom"),
+    ):
+        manager = await loaded(hass)
+    assert manager.state is StoreState.MIGRATION_FAILED
+    with patch(SET_ASIDE, return_value=[]):
+        result = await manager.async_reset(admin)
+    assert result["previous_state"] == "migration_failed"
+    assert manager.state is StoreState.ABSENT
+
+
+async def test_only_an_active_home_assistant_administrator_can_reset(hass: HomeAssistant, hass_storage) -> None:
+    _, member = await users(hass)
+    system = await hass.auth.async_create_system_user("Supervisor", group_ids=["system-admin"])
+    disabled = await hass.auth.async_create_user("Ex admin", group_ids=["system-admin"])
+    await hass.auth.async_deactivate_user(disabled)
+    hass_storage[STORAGE_KEY] = stored({member.id: member_assignment("restricted")})
+    manager, audit = await audited(hass)
+    with patch(SET_ASIDE, return_value=[]) as set_aside:
+        for actor in (member, system, disabled, None):
+            with pytest.raises(AccessDeniedError):
+                await manager.async_reset(actor)
+    set_aside.assert_not_called()
+    assert manager.state is StoreState.READY and manager.revision == 5
+    assert hass_storage[STORAGE_KEY]["data"]["assignments"][member.id]["role"] == "restricted"
+    assert audit.snapshot() == ()
+
+
+async def test_a_reset_that_fails_halfway_is_never_reported_as_done(hass: HomeAssistant, hass_storage) -> None:
+    admin, member = await users(hass)
+    hass_storage[STORAGE_KEY] = stored({member.id: member_assignment("restricted")})
+    manager, audit = await audited(hass)
+    with patch(SET_ASIDE, side_effect=SetAsideError(["domusos.access.v1.reset.x.corrupt-1"])):
+        with pytest.raises(ResetFailedError):
+            await manager.async_reset(admin)
+    # The store was still in place, so the policy stays in force.
+    assert manager.state is StoreState.READY and manager.revision == 5
+    assert manager.profile_for(member).role is RoleId.RESTRICTED
+    (entry,) = audit.snapshot()
+    assert entry.reason == "policy_reset_failed" and entry.result == "ready"
+    assert list(entry.metadata["kept"]) == ["domusos.access.v1.reset.x.corrupt-1"]
+
+
+async def test_a_reset_whose_store_removal_fails_reports_the_failure(hass: HomeAssistant, hass_storage) -> None:
+    admin, _ = await users(hass)
+    hass_storage[STORAGE_KEY] = stored({"x" * 32: member_assignment("owner")})
+    manager = await loaded(hass)
+    manager.store.async_remove = AsyncMock(side_effect=OSError("busy"))
+    with patch(SET_ASIDE, return_value=[]), pytest.raises(ResetFailedError):
+        await manager.async_reset(admin)
+    # Reloaded from what is there: the broken store is still corrupt.
+    assert manager.state is StoreState.CORRUPT
 
 
 def test_setting_aside_moves_the_store_and_quarantined_copies_and_deletes_nothing(tmp_path: Path) -> None:
@@ -317,11 +429,33 @@ def test_setting_aside_moves_the_store_and_quarantined_copies_and_deletes_nothin
 
     moved = set_aside_policy_files(str(store), "STAMP")
 
+    # Quarantined copies first, the store last.
     assert moved == [
-        "domusos.access.v1.reset.STAMP",
         "domusos.access.v1.reset.STAMP.corrupt-2026-10-20T10-00-00",
+        "domusos.access.v1.reset.STAMP",
     ]
     assert not store.exists() and not quarantined.exists() and other.exists()
-    assert (tmp_path / moved[0]).read_text(encoding="utf-8") == '{"policy": 1}'
-    assert (tmp_path / moved[1]).read_text(encoding="utf-8") == "{broken"
+    assert (tmp_path / moved[1]).read_text(encoding="utf-8") == '{"policy": 1}'
+    assert (tmp_path / moved[0]).read_text(encoding="utf-8") == "{broken"
     assert set_aside_policy_files(str(store), "AGAIN") == []
+
+
+def test_a_move_that_fails_keeps_the_store_in_place_and_says_what_moved(tmp_path: Path) -> None:
+    store = tmp_path / "domusos.access.v1"
+    store.write_text("{}", encoding="utf-8")
+    (tmp_path / "domusos.access.v1.corrupt.A").write_text("{", encoding="utf-8")
+    (tmp_path / "domusos.access.v1.corrupt.B").write_text("{", encoding="utf-8")
+    real_replace = os.replace
+    calls = []
+
+    def flaky(source, target):
+        calls.append(source)
+        if len(calls) == 2:
+            raise OSError("disk")
+        real_replace(source, target)
+
+    with patch("custom_components.domusos.access.manager.os.replace", side_effect=flaky):
+        with pytest.raises(SetAsideError) as raised:
+            set_aside_policy_files(str(store), "STAMP")
+    assert raised.value.moved == ["domusos.access.v1.reset.STAMP.corrupt-A"]
+    assert store.exists()

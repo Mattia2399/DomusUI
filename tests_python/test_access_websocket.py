@@ -11,11 +11,11 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from homeassistant.core import Context, HomeAssistant
-from homeassistant.exceptions import Unauthorized
+from homeassistant.exceptions import ServiceNotFound
 
 from custom_components.domusos import DomusEntryData, async_setup_entry, async_unload_entry
 from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager
-from custom_components.domusos.access.api import SERVICE_RESET_ACCESS_POLICY, async_register_access_api
+from custom_components.domusos.access.api import async_register_access_api
 from custom_components.domusos.access.models import SCHEMA, SCHEMA_VERSION, STORAGE_KEY
 from custom_components.domusos.calendar_store import DomusCalendarStore
 from custom_components.domusos.const import DOMAIN
@@ -139,25 +139,124 @@ async def test_without_the_manager_nothing_is_answered_as_allowed(hass: HomeAssi
     assert not reply["success"] and reply["error"]["code"] == "access_unavailable"
 
 
-async def test_only_an_administrator_can_reset_the_policy(
+async def reset(client, **extra: Any) -> dict[str, Any]:
+    await client.send_json_auto_id({"type": "domusos/access/reset_policy", **extra})
+    return await client.receive_json()
+
+
+def assignment(role: str) -> dict[str, Any]:
+    return {"role": role, "grants": [], "assigned_at": NOW, "assigned_by": None}
+
+
+async def test_an_administrator_resets_a_ready_policy(
     hass: HomeAssistant, hass_ws_client, hass_admin_user, hass_storage
 ) -> None:
-    hass_storage[STORAGE_KEY] = policy({"x" * 32: {"role": "owner"}})
+    member, token = await member_token(hass)
+    hass_storage[STORAGE_KEY] = policy({member.id: assignment("restricted")})
     manager = await registered(hass)
-    member, _ = await member_token(hass)
+    with patch("custom_components.domusos.access.manager.set_aside_policy_files", return_value=["kept"]):
+        reply = await reset(await hass_ws_client(hass))
+    assert reply["success"]
+    assert reply["result"] == {"state": "absent", "previous_state": "ready", "previous_revision": 2, "kept": ["kept"]}
+    assert manager.state.value == "absent" and STORAGE_KEY not in hass_storage
+    member_view = (await get_self(await hass_ws_client(hass, token)))["result"]["access"]
+    assert member_view["role"] == "member" and member_view["revision"] == 0 and member_view["assigned"] is False
+    admin_view = (await get_self(await hass_ws_client(hass)))["result"]["access"]
+    assert admin_view["role"] == "admin"
 
-    with pytest.raises(Unauthorized):
+
+async def test_an_administrator_recovers_a_corrupt_policy_from_the_safe_floor(
+    hass: HomeAssistant, hass_ws_client, hass_storage
+) -> None:
+    hass_storage[STORAGE_KEY] = policy({"x" * 32: {"role": "owner"}})
+    await registered(hass)
+    client = await hass_ws_client(hass)
+    before = (await get_self(client))["result"]["access"]
+    assert before["role"] == "locked" and "access.manage" in before["capabilities"]
+    assert "access.control" not in before["capabilities"]
+    with patch("custom_components.domusos.access.manager.set_aside_policy_files", return_value=[]):
+        reply = await reset(client)
+    assert reply["success"] and reply["result"]["previous_state"] == "corrupt"
+    after = (await get_self(client))["result"]["access"]
+    assert after["state"] == "absent" and after["role"] == "admin"
+
+
+async def test_a_member_cannot_reset_and_nothing_changes(hass: HomeAssistant, hass_ws_client, hass_storage) -> None:
+    member, token = await member_token(hass)
+    hass_storage[STORAGE_KEY] = policy({member.id: assignment("restricted")})
+    manager = await registered(hass)
+    with patch("custom_components.domusos.access.manager.set_aside_policy_files") as set_aside:
+        reply = await reset(await hass_ws_client(hass, token))
+    assert not reply["success"] and reply["error"]["code"] == "access_denied"
+    set_aside.assert_not_called()
+    assert manager.state.value == "ready"
+    assert hass_storage[STORAGE_KEY]["data"]["assignments"][member.id]["role"] == "restricted"
+
+
+async def test_a_read_only_user_cannot_reset(
+    hass: HomeAssistant, hass_ws_client, hass_read_only_access_token: str, hass_storage
+) -> None:
+    hass_storage[STORAGE_KEY] = policy({})
+    manager = await registered(hass)
+    reply = await reset(await hass_ws_client(hass, hass_read_only_access_token))
+    assert not reply["success"] and reply["error"]["code"] == "access_denied"
+    assert manager.state.value == "ready"
+
+
+async def test_nothing_in_the_message_can_make_someone_an_administrator(
+    hass: HomeAssistant, hass_ws_client, hass_admin_user, hass_storage
+) -> None:
+    member, token = await member_token(hass)
+    hass_storage[STORAGE_KEY] = policy({member.id: assignment("restricted")})
+    manager = await registered(hass)
+    client = await hass_ws_client(hass, token)
+    for forged in (
+        {"user_id": hass_admin_user.id},
+        {"is_admin": True},
+        {"role": "admin"},
+        {"person_id": "mario"},
+        {"is_owner": True},
+        {"confirmed": True},
+    ):
+        refused = await reset(client, **forged)
+        assert not refused["success"] and refused["error"]["code"] == "invalid_format"
+    plain = await reset(client)
+    assert not plain["success"] and plain["error"]["code"] == "access_denied"
+    assert manager.state.value == "ready"
+
+
+async def test_a_reset_that_fails_inside_is_never_answered_as_done(
+    hass: HomeAssistant, hass_ws_client, hass_storage
+) -> None:
+    hass_storage[STORAGE_KEY] = policy({})
+    manager = await registered(hass)
+    with patch.object(manager, "async_reset", AsyncMock(side_effect=RuntimeError("boom"))):
+        crashed = await reset(await hass_ws_client(hass))
+    assert not crashed["success"] and crashed["error"]["code"] == "unknown_error"
+    with patch(
+        "custom_components.domusos.access.manager.set_aside_policy_files",
+        side_effect=OSError("disk"),
+    ):
+        failed = await reset(await hass_ws_client(hass))
+    assert not failed["success"] and failed["error"]["code"] == "reset_failed"
+    assert manager.state.value == "ready"
+
+
+async def test_without_the_manager_there_is_no_reset(hass: HomeAssistant, hass_ws_client) -> None:
+    await async_register_access_api(hass)
+    reply = await reset(await hass_ws_client(hass))
+    assert not reply["success"] and reply["error"]["code"] == "access_unavailable"
+
+
+async def test_no_service_can_reset_the_policy(hass: HomeAssistant) -> None:
+    """Automations and scripts call services; the recovery is not one of them."""
+    await registered(hass)
+    assert not hass.services.has_service(DOMAIN, "reset_access_policy")
+    assert not [service for service in hass.services.async_services().get(DOMAIN, {}) if "access" in service]
+    with pytest.raises(ServiceNotFound):
         await hass.services.async_call(
-            DOMAIN, SERVICE_RESET_ACCESS_POLICY, {}, blocking=True, context=Context(user_id=member.id)
+            DOMAIN, "reset_access_policy", {}, blocking=True, context=Context(user_id=None)
         )
-    assert manager.state.value == "corrupt"
-
-    await hass.services.async_call(
-        DOMAIN, SERVICE_RESET_ACCESS_POLICY, {}, blocking=True, context=Context(user_id=hass_admin_user.id)
-    )
-    assert manager.state.value == "absent"
-    reply = await get_self(await hass_ws_client(hass))
-    assert reply["result"]["access"]["role"] == "admin"
 
 
 # --- Integration lifecycle -------------------------------------------------------------

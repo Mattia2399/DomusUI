@@ -327,9 +327,9 @@ richiesta → principal (HA, lato server) → capability Domus → permesso HA �
   inesistente è rifiutato. Con i ruoli personalizzati (V2), un ruolo assegnato
   non si può eliminare.
 - **Recupero.**
-  - Servizio HA solo admin `domusos.reset_access_policy`
-    (`async_register_admin_service`): mette in quarantena lo store e torna al
-    default.
+  - Comando WebSocket `domusos/access/reset_policy`, solo per l'admin HA
+    attivo della connessione: mette da parte lo store e torna al default. Non
+    è un servizio HA, quindi automazioni e script non lo raggiungono (D28).
   - Lo stesso dalla pagina Persone e accessi quando lo store è illeggibile.
   - In ultima istanza, eliminare `.storage/domusos.access.v1` a HA fermo
     (documentato).
@@ -489,7 +489,7 @@ I cinque test di sicurezza obbligatori sono nel
 
 | Fase | Contenuto |
 | --- | --- |
-| **P2.1** ✓ | Registro capability (backend, versionato) + ruoli di sistema + grant personali + store `domusos.access.v1` con stati, quarantena, revisione + `domusos/access/get_self` + servizio `domusos.reset_access_policy`. Nessun enforcement. [Fondamento](access-control-foundation.md). |
+| **P2.1** ✓ | Registro capability (backend, versionato) + ruoli di sistema + grant personali + store `domusos.access.v1` con stati, quarantena, revisione + `domusos/access/get_self` + recupero `domusos/access/reset_policy` (WebSocket, P2.1.2). Nessun enforcement. [Fondamento](access-control-foundation.md). |
 | **P2.2** | Primitive backend `can`/`authorize`/`require_capability`/`authorize_service_call`; test di contratto che ogni comando dichiari una capability. |
 | **P2.3** | Shadow authorization + diagnostiche (differenze rispetto a oggi) + audit V1. |
 | **P2.4** | Frontend: `can()` da `get_self`, migrazione di `DashboardCapability`, route guard e schermata «Non disponibile». |
@@ -512,7 +512,7 @@ I cinque test di sicurezza obbligatori sono nel
 | D9 | Default senza assignment: admin HA → `admin`, altri → `member` (= oggi). |
 | D10 | `access.manage` richiede admin HA ed è sempre concesso agli admin HA: niente lockout, niente bootstrap speciale. |
 | D11 | Store backend `domusos.access.v1` con revisione, quarantena, stati; non leggibile → `locked` per i non admin, mai fail open. |
-| D12 | Recupero = servizio HA admin `domusos.reset_access_policy` + pagina; mai `localStorage`. |
+| D12 | Recupero = comando WebSocket admin `domusos/access/reset_policy` (D28) + pagina in P2.6; mai `localStorage`. |
 | D13 | Rollout: default identico a oggi → shadow → enforcement con flag. |
 | D14 | Nessun confused deputy: il backend agisce con il contesto o il controllo `check_entity` dell'utente. |
 | D15 | Notifiche: destinatario Person, principal User; invariato. |
@@ -528,7 +528,7 @@ I cinque test di sicurezza obbligatori sono nel
 | D25 | `get_self` restituisce anche `user_id`, perché il client verifichi che la risposta sia dell'account mostrato; non è mai un input. |
 | D26 | `domusos/access/subscribe` rimandato a P2.3/P2.4: in P2.1 non esistono scritture da client, quindi niente da notificare. |
 | D27 | (rafforza D6) Persone e accessi dichiarerà che le autorizzazioni Domus valgono dentro Domus e che Home Assistant mantiene i propri permessi. |
-| D28 | **Proposta, non implementata** (vedi Q8): il reset della policy richiede un principal admin HA attivo e diretto e non è disponibile ad automazioni e script. |
+| D28 | **Approvata e implementata (P2.1.2)**: il reset della policy richiede l'admin HA attivo della connessione WebSocket (`connection.user`) e non è disponibile ad automazioni e script. Il servizio `domusos.reset_access_policy` è stato rimosso. Una credenziale admin usata da uno strumento esterno agisce come quell'admin: è il perimetro di HA, non un aggiramento. |
 
 ## 21. Domande aperte
 
@@ -541,4 +541,4 @@ I cinque test di sicurezza obbligatori sono nel
 | Q5 | La UI dice che i limiti valgono solo dentro Domus? | **Deciso**: sì (D27) |
 | Q6 | `energy.view` per `restricted` e `wall_panel` | **Deciso**: `restricted` no, `wall_panel` sì (D22) |
 | Q7 | Ospiti: si aspetta il supporto HA a credenziali temporanee, o un account HA dedicato con ruolo `guest`? | Account dedicato, dopo P2.6 |
-| Q8 | Il reset della policy deve essere una richiesta diretta di un admin HA attivo, mai un'automazione o uno script (D28 proposta). Un servizio HA non può garantirlo: le automazioni chiamano senza `user_id` (e `async_register_admin_service` le lascia passare); uno script avviato da un admin chiama con il suo stesso `Context`, indistinguibile da una chiamata diretta ([limite verificato](access-control-foundation.md#limite-verificato-del-servizio-p211)). | Sostituire il servizio con un comando WebSocket `domusos/access/reset_policy` legato a `connection.user` (admin attivo): automazioni e script non inviano comandi WebSocket. Decisione da approvare. |
+| Q8 | Il reset della policy deve essere una richiesta diretta di un admin HA attivo, mai un'automazione o uno script (D28 proposta). Un servizio HA non può garantirlo: le automazioni chiamano senza `user_id` (e `async_register_admin_service` le lascia passare); uno script avviato da un admin chiama con il suo stesso `Context`, indistinguibile da una chiamata diretta ([limite verificato](access-control-foundation.md#perché-non-un-servizio-audit-p211)). | **Chiusa: opzione B** (D28). Servizio rimosso, comando WebSocket `domusos/access/reset_policy` legato a `connection.user`. |

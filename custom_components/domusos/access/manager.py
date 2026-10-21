@@ -37,6 +37,7 @@ from .models import (
     MigrationFailedError,
     PolicyDocument,
     Principal,
+    ResetFailedError,
     RevisionConflictError,
     SaveFailedError,
     StoreState,
@@ -69,18 +70,33 @@ def principal_from_user(user: User | None) -> Principal:
     return Principal(user_id=user.id, is_admin=bool(user.is_admin), is_owner=bool(user.is_owner))
 
 
+class SetAsideError(Exception):
+    """Moving the policy files stopped halfway; ``moved`` lists what was already moved."""
+
+    def __init__(self, moved: list[str]) -> None:
+        super().__init__(f"stopped after moving {len(moved)} file(s)")
+        self.moved = moved
+
+
 def set_aside_policy_files(path: str, stamp: str) -> list[str]:
-    """Move the store and anything Home Assistant quarantined out of Domus's way; delete nothing."""
+    """Move the store and anything Home Assistant quarantined out of Domus's way; delete nothing.
+
+    The quarantined copies go first and the store last: if a move fails, the
+    store is still in place, so what is left on disk is never read as absent.
+    """
     moved: list[str] = []
-    if os.path.exists(path):
-        target = f"{path}{_RESET_MARK}{stamp}"
-        os.replace(path, target)
-        moved.append(os.path.basename(target))
-    for quarantined in sorted(glob.glob(f"{glob.escape(path)}{_QUARANTINE_MARK}*")):
-        suffix = quarantined[len(path) + len(_QUARANTINE_MARK):]
-        target = f"{path}{_RESET_MARK}{stamp}.corrupt-{suffix}"
-        os.replace(quarantined, target)
-        moved.append(os.path.basename(target))
+    try:
+        for quarantined in sorted(glob.glob(f"{glob.escape(path)}{_QUARANTINE_MARK}*")):
+            suffix = quarantined[len(path) + len(_QUARANTINE_MARK):]
+            target = f"{path}{_RESET_MARK}{stamp}.corrupt-{suffix}"
+            os.replace(quarantined, target)
+            moved.append(os.path.basename(target))
+        if os.path.exists(path):
+            target = f"{path}{_RESET_MARK}{stamp}"
+            os.replace(path, target)
+            moved.append(os.path.basename(target))
+    except OSError as err:
+        raise SetAsideError(moved) from err
     return moved
 
 
@@ -106,6 +122,9 @@ class AccessPolicyManager:
 
     async def async_setup(self) -> None:
         """Load the policy; one that cannot be trusted is kept as it is and never used."""
+        await self._async_load()
+
+    async def _async_load(self) -> None:
         try:
             stored = await self.store.async_load()
         except NotImplementedError:
@@ -144,7 +163,7 @@ class AccessPolicyManager:
         self._policy = None
         _LOGGER.error(
             "The Domus access policy %s; accounts other than administrators keep only "
-            "the safe floor until an administrator runs %s.reset_access_policy",
+            "the safe floor until a Home Assistant administrator resets it (%s/access/reset_policy)",
             reason,
             DOMAIN,
         )
@@ -232,49 +251,86 @@ class AccessPolicyManager:
 
     # --- Recovery ----------------------------------------------------------------------
 
-    async def async_reset(self, actor_user_id: str | None) -> dict[str, Any]:
+    async def async_reset(self, actor: User | None) -> dict[str, Any]:
         """Return every account to its default role, whatever the state of the store.
 
-        Called only through the administrator service. The previous policy is
-        kept beside the store, never deleted, and Domus never reads it again.
-        Afterwards no policy exists: administrators are administrators and
-        everyone else a member, exactly as before Access Control.
+        Only an active Home Assistant administrator, the account of the
+        websocket connection, may ask; there is no service an automation or a
+        script could call. The account is checked before anything changes.
+        The previous policy is kept beside the store, never deleted, and Domus
+        never reads it again. Afterwards no policy exists: administrators are
+        administrators and everyone else a member, exactly as before Access Control.
         """
+        principal = principal_from_user(actor)
+        if not principal.is_admin:
+            raise AccessDeniedError("Only Home Assistant administrators reset Domus access")
         async with self._lock:
             previous_state = self._state
             previous_revision = self._policy.revision if self._policy is not None else None
             stamp = dt_util.utcnow().strftime("%Y-%m-%dT%H-%M-%S.%fZ")
-            kept = await self.hass.async_add_executor_job(set_aside_policy_files, self.store.path, stamp)
-            await self.store.async_remove()
+            try:
+                kept = await self.hass.async_add_executor_job(set_aside_policy_files, self.store.path, stamp)
+                await self.store.async_remove()
+            except Exception as err:  # noqa: BLE001 - never reported as done
+                moved = err.moved if isinstance(err, SetAsideError) else []
+                _LOGGER.error(
+                    "The Domus access policy reset by %s did not finish (%s); moved %s; reloading what is on disk",
+                    principal.user_id,
+                    err,
+                    ", ".join(moved) or "nothing",
+                )
+                # What is on disk decides the state again: a store still in place stays in force.
+                await self._async_load()
+                self._audit(
+                    "policy_reset_failed",
+                    self._state.value,
+                    principal.user_id,
+                    previous_state,
+                    previous_revision,
+                    moved,
+                )
+                raise ResetFailedError("The access policy could not be reset; nothing was deleted") from err
             self._set_trusted(StoreState.ABSENT, None)
         _LOGGER.warning(
             "The Domus access policy was reset by %s (previous state %s, revision %s); kept as %s",
-            actor_user_id or "an automation",
+            principal.user_id,
             previous_state.value,
             previous_revision,
             ", ".join(kept) or "nothing",
         )
-        runtime = self._runtime()
-        if runtime is not None and runtime.audit.running:
-            runtime.audit.record(
-                AuditEntry.create(
-                    "access.policy",
-                    "policy_reset",
-                    result=StoreState.ABSENT.value,
-                    metadata={
-                        "actor": actor_user_id,
-                        "previous_state": previous_state.value,
-                        "previous_revision": previous_revision,
-                        "kept": kept,
-                    },
-                )
-            )
+        self._audit("policy_reset", StoreState.ABSENT.value, principal.user_id, previous_state, previous_revision, kept)
         return {
             "state": StoreState.ABSENT.value,
             "previous_state": previous_state.value,
             "previous_revision": previous_revision,
             "kept": kept,
         }
+
+    def _audit(
+        self,
+        reason: str,
+        result: str,
+        actor: str,
+        previous_state: StoreState,
+        previous_revision: int | None,
+        files: list[str],
+    ) -> None:
+        runtime = self._runtime()
+        if runtime is None or not runtime.audit.running:
+            return
+        runtime.audit.record(
+            AuditEntry.create(
+                "access.policy",
+                reason,
+                result=result,
+                metadata={
+                    "actor": actor,
+                    "previous_state": previous_state.value,
+                    "previous_revision": previous_revision,
+                    "kept": files,
+                },
+            )
+        )
 
     async def _async_quarantined_files(self) -> bool:
         pattern = f"{glob.escape(self.store.path)}{_QUARANTINE_MARK}*"

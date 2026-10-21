@@ -77,6 +77,12 @@ class SaveFailedError(AccessError):
     code = "save_failed"
 
 
+class ResetFailedError(AccessError):
+    """A reset did not finish; the policy is reloaded from what is on disk, nothing is deleted."""
+
+    code = "reset_failed"
+
+
 class InvalidStoredDocumentError(Exception):
     """The stored policy breaks the schema: the whole document is refused."""
 

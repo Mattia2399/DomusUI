@@ -17,7 +17,7 @@ rischi in [access-control-threat-model.md](access-control-threat-model.md).
 | --- | --- |
 | `custom_components/domusos/access/models.py` | Registro, ruoli, schema, validazione, migrazioni, risoluzione. Python puro, senza import di Home Assistant. |
 | `custom_components/domusos/access/manager.py` | Store `domusos.access.v1`, stati, quarantena, scritture con revisione, reset. |
-| `custom_components/domusos/access/api.py` | WebSocket `domusos/access/get_self` e servizio admin `domusos.reset_access_policy`. |
+| `custom_components/domusos/access/api.py` | WebSocket `domusos/access/get_self` e `domusos/access/reset_policy`; nessun servizio HA. |
 | `custom_components/domusos/__init__.py` | Avvio isolato: se l'accesso non parte, gli altri moduli continuano. |
 
 Le capability di accesso hanno un tipo proprio (`AccessCapability`,
@@ -162,42 +162,74 @@ dati di policy: nessun nome, email, foto o persona.
 
 ## Recupero
 
-Servizio HA `domusos.reset_access_policy`, registrato come servizio
-amministrativo: HA lo rifiuta (`Unauthorized`) a chi non è admin.
+Comando WebSocket `domusos/access/reset_policy` (P2.1.2). Non esiste più un
+servizio Home Assistant per il reset.
 
-- Funziona in ogni stato. Sposta lo store attuale e le copie in quarantena
-  accanto a sé (`domusos.access.v1.reset.<data>…`), **senza cancellare nulla**.
-- Riporta lo store ad `absent`: admin HA → `admin`, altri → `member`. Non scrive
-  mai «tutti admin».
-- Lascia una voce di audit nel `DomusAuditService` (`access.policy`,
-  `policy_reset`, autore, stato e revisione precedenti, file conservati) e un
-  warning nel log. Rimuove l'avviso di riparazione.
-- Domus non lo invoca mai da solo.
+- **Richiesta**: solo `{"type": "domusos/access/reset_policy"}`. Qualsiasi altro
+  campo (`user_id`, `role`, `is_admin`, `is_owner`, `person_id`, `confirmed`…)
+  fa rispondere HA con `invalid_format`.
+- **Chi**: l'account della connessione (`connection.user`), controllato prima di
+  toccare qualsiasi cosa:
+  - deve essere un account domestico attivo, con la stessa regola di
+    `get_self`: niente account di sistema né disattivati;
+  - deve essere amministratore di Home Assistant (`is_admin`). Non serve essere
+    owner.
+  - Altrimenti `access_denied`, e nulla cambia.
+- **Cosa fa**: funziona in ogni stato (`ready`, `corrupt`, `unsupported`,
+  `migration_failed`).
+  - Sposta accanto allo store prima le copie in quarantena, poi lo store
+    (`domusos.access.v1.reset.<data>…`), **senza cancellare nulla**.
+  - Riporta lo store ad `absent`: admin HA → `admin`, altri → `member`. Non
+    crea assignment, non scrive mai «tutti admin», non tocca utenti né persone
+    di HA.
+  - Rimuove l'avviso di riparazione.
+- **Risposta**: `{state: "absent", previous_state, previous_revision, kept}`.
+- **Se si ferma a metà** (spostamento o rimozione falliti): risponde
+  `reset_failed`, mai successo.
+  - Rilegge lo stato da ciò che è rimasto su disco: le copie in quarantena
+    vanno via prima dello store, quindi uno store ancora al suo posto resta in
+    vigore.
+  - Registra `policy_reset_failed` con i file già spostati.
+- **Audit**: `DomusAuditService` (`access.policy`, `policy_reset`), con autore
+  (l'id della connessione), stato e revisione precedenti, file conservati;
+  più un warning nel log.
+- **Domus non lo invoca mai da solo.**
+- **UI**: nessuna fino a P2.6. Il bridge del pannello non lo inoltra (contratto
+  in `accessAuthority.test.ts`). P2.6 dovrà permetterlo solo dal flusso
+  Persone e accessi.
+  - Fino ad allora un admin può inviarlo dalla console del browser con HA
+    aperto:
+    `document.querySelector("home-assistant").hass.connection.sendMessagePromise({type: "domusos/access/reset_policy"})`.
+- In ultima istanza, a HA fermo, si può spostare a mano
+  `.storage/domusos.access.v1`.
 
-In ultima istanza, a HA fermo, si può spostare a mano `.storage/domusos.access.v1`.
-
-### Limite verificato del servizio (P2.1.1)
+### Perché non un servizio (audit P2.1.1)
 
 Requisito: il reset deve essere una richiesta diretta di un admin HA attivo, mai
-un'automazione o uno script. Con un servizio HA **non si può garantire**.
+un'automazione o uno script. Con un servizio HA non si poteva garantire.
 Verificato sul sorgente di HA 2026.2 e con una chiamata reale su un core HA
 locale:
 
-| Chi chiama | `user_id` | `parent_id` | Esito oggi |
+| Chi chiama un servizio | `user_id` | `parent_id` | Con il vecchio servizio admin |
 | --- | --- | --- | --- |
 | Admin, chiamata diretta (WS `call_service`: `Context(user_id=…)`) | admin | nessuno | consentito |
 | Script avviato da un admin (`Script` usa lo stesso `Context` del chiamante per ogni azione) | admin | nessuno | consentito: **identico** alla chiamata diretta |
 | Automazione, anche avviata a mano (`Context(parent_id=…)` senza utente) | nessuno | presente | **consentito**: `async_register_admin_service` controlla l'admin solo se `user_id` c'è |
-| Non admin, diretto o con uno script | non admin | nessuno | rifiutato (`Unauthorized`) |
+| Non admin, diretto o con uno script | non admin | nessuno | rifiutato |
 
 - `parent_id` non distingue lo script dalla chiamata diretta.
-- `origin_event` lo farebbe, ma è un dettaglio interno usato da logbook e
-  telegram_bot, non un contratto: non è un criterio di sicurezza.
+- `origin_event` lo farebbe, ma è un dettaglio interno (logbook, telegram_bot),
+  non un criterio di sicurezza.
 
-Decisione aperta (Q8 in [architettura](access-control-architecture.md#21-domande-aperte)).
-Il comportamento del servizio resta quello di P2.1 finché non si sceglie. Nulla
-viene ancora applicato con la policy, quindi oggi un reset cambia solo cosa
-risponde `get_self`.
+Scelta B (Q8, D28): il servizio è stato rimosso, insieme alle sue voci in
+`services.yaml` e nelle traduzioni. Automazioni e script chiamano servizi: per
+loro il reset non esiste più (`ServiceNotFound`). Un comando WebSocket arriva
+solo da una connessione autenticata e porta il suo utente.
+
+**Credenziali admin.** Un programma esterno con il token di un admin HA agisce
+come quell'admin. Non è un aggiramento: chi ha una credenziale admin ha già HA
+intero. Il problema appartiene alla protezione delle credenziali in Home
+Assistant.
 
 ## `domusos/access/get_self`
 
@@ -266,6 +298,7 @@ La pagina dovrà dichiarare (testo da rifinire in P2.6):
 | File | Cosa |
 | --- | --- |
 | `tests_python/test_access_models.py` | Registro (nomi, metadati, concedibili), matrice dei ruoli, scenari Membro/Pannello/Accesso limitato/Admin, limite HA, `locked`, recupero admin, grant, schema, migrazioni, audit, orfani, indipendenza da persone e dispositivi. Gira anche senza Home Assistant. |
-| `tests_python/test_access_manager.py` | Stati con lo store di HA, quarantena, scritture, conflitti, scrittura fallita, account di sistema, downgrade, reset, spostamento dei file. |
-| `tests_python/test_access_websocket.py` | `get_self` sullo stack reale: admin, membro, payload falsificato, persona collegata, store corrotto, modulo assente, servizio di reset solo admin, ciclo di vita dell'integrazione. |
-| `src/security/accessAuthority.test.ts` | Contratto: l'autorità UX del frontend non legge storage del browser; `get_self` non accetta un account. |
+| `tests_python/test_access_manager.py` | Stati con lo store di HA, quarantena, scritture, conflitti, scrittura fallita, account di sistema, downgrade; reset da admin in ogni stato, rifiutato a membro, sistema, disattivato e senza utente, reset fermato a metà, audit; spostamento dei file. |
+| `tests_python/test_access_websocket.py` | `get_self` e `reset_policy` sullo stack reale: admin, membro, sola lettura, payload falsificato, persona collegata, store corrotto o `ready`, guasto interno, modulo assente, nessun servizio di reset (`ServiceNotFound`), ciclo di vita dell'integrazione. |
+| `tests_python/test_access_contract.py` | Contratti dal sorgente, anche senza HA: nessun servizio di reset in `services.yaml` o nelle traduzioni, il modulo non registra servizi, `reset_policy` legge solo la connessione e controlla l'account prima di toccare i file. |
+| `src/security/accessAuthority.test.ts` | Contratto: l'autorità UX del frontend non legge storage del browser; `get_self` non accetta un account; il bridge non inoltra `reset_policy`. |
