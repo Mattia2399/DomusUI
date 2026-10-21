@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
+from ..access.instrumentation import register_websocket_commands
 from ..const import DOMAIN
 from .manager import WasteCollectionManager
 from .models import WasteCollectionError, WasteCollectionOperationError
@@ -125,5 +126,4 @@ WEBSOCKET_COMMANDS = (
 
 async def async_register_waste_collection_api(hass: HomeAssistant) -> None:
     """Register websocket commands once during integration setup."""
-    for command in WEBSOCKET_COMMANDS:
-        websocket_api.async_register_command(hass, command)
+    register_websocket_commands(hass, WEBSOCKET_COMMANDS)

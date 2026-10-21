@@ -17,6 +17,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
+from ..access.instrumentation import register_websocket_commands
 from ..const import DOMAIN
 from .context import async_energy_state
 from .discovery import EnergyDiscoveryService
@@ -173,5 +174,4 @@ WEBSOCKET_COMMANDS = (
 
 async def async_register_energy_api(hass: HomeAssistant) -> None:
     """Register the Energy websocket commands once."""
-    for command in WEBSOCKET_COMMANDS:
-        websocket_api.async_register_command(hass, command)
+    register_websocket_commands(hass, WEBSOCKET_COMMANDS)

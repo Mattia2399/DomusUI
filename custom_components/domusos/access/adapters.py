@@ -3,7 +3,8 @@
 The account always comes from Home Assistant: ``connection.user`` on a
 websocket command, ``call.context.user_id`` resolved by Home Assistant on a
 service call. Never from a field of the request. These adapters only decide;
-no command uses them yet (docs/access-control-authorization.md).
+shadow authorization uses them to observe, and no command enforces them yet
+(docs/access-control-authorization.md, docs/access-control-shadow.md).
 
 A service call without a user (an automation, a script started by one, a
 timer) has no principal: the decision is a deny with ``no_principal``. Domus
@@ -112,6 +113,22 @@ async def authorize_service_call(
         return authorize_user(manager, user, capability, action=action)
     except Exception:  # noqa: BLE001 - fail closed
         return deny(DecisionReason.INTERNAL_ERROR, capability, action=action)
+
+
+async def authorize_service_action(
+    hass: HomeAssistant,
+    manager: AccessPolicyManager | None,
+    call: ServiceCall,
+    action: str,
+) -> AuthorizationDecision:
+    """Decide a declared service for the user Home Assistant attached to the call, following its contract."""
+    try:
+        user, reason = await _service_user(hass, call)
+        if reason is not None:
+            return deny(reason, action=action)
+        return authorize_user_action(manager, user, action)
+    except Exception:  # noqa: BLE001 - fail closed
+        return deny(DecisionReason.INTERNAL_ERROR, action=action)
 
 
 async def require_service_capability(

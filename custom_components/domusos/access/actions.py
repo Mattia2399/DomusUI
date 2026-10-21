@@ -13,6 +13,10 @@ reach Domus, so ``ha_native`` and ``local`` capabilities have no entry.
 ``ha_check`` records what Home Assistant already checks today on that entry
 point: it stays in place, because the final rule is Home Assistant AND Domus.
 
+Every entry point is observed by shadow authorization
+(docs/access-control-shadow.md), except the few whose ``shadow_exemption``
+says why not.
+
 Plain Python on purpose: no Home Assistant import.
 """
 
@@ -64,6 +68,8 @@ class ActionContract:
     ha_check: HaCheck = HaCheck.NONE
     # Required for anything that is not a plain capability check.
     rationale: str | None = None
+    # Why shadow authorization does not observe this entry point; None means it is observed.
+    shadow_exemption: str | None = None
 
 
 def _ws(command: str, capability: str, ha_check: HaCheck = HaCheck.NONE) -> ActionContract:
@@ -87,6 +93,7 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
         HaCheck.HOUSEHOLD_SELF,
         rationale="How a client learns its own role and capabilities: it cannot require one of them. "
         "Still refused without a valid household account.",
+        shadow_exemption="Bootstrap: it never requires a capability, so it can never be a future denial.",
     ),
     ActionContract(
         "domusos/access/reset_policy",
@@ -96,6 +103,23 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
         HaCheck.ADMIN,
         rationale="Recovery of an untrusted policy: only the active Home Assistant administrator of the "
         "connection, who always holds access.manage. A websocket command, never a service.",
+        shadow_exemption="Already enforced since P2.1.2 (active Home Assistant administrator); not a shadow surface.",
+    ),
+    ActionContract(
+        "domusos/access/get_shadow_diagnostics",
+        SurfaceKind.WEBSOCKET,
+        AuthMode.CAPABILITY,
+        ACCESS_MANAGE,
+        HaCheck.ADMIN,
+        shadow_exemption="The shadow diagnostics themselves: observing them would count the reader in what it reads.",
+    ),
+    ActionContract(
+        "domusos/access/reset_shadow_diagnostics",
+        SurfaceKind.WEBSOCKET,
+        AuthMode.CAPABILITY,
+        ACCESS_MANAGE,
+        HaCheck.ADMIN,
+        shadow_exemption="Clears the shadow diagnostics: observing it would dirty the counters it just cleared.",
     ),
     # --- Device power (administrators only today) ------------------------------------------
     _ws("device_power/get_state", "device_power.manage", _A),
@@ -145,6 +169,11 @@ ACTION_CONTRACTS: Mapping[str, ActionContract] = {contract.id: contract for cont
 
 def contracts_for(surface: SurfaceKind) -> list[ActionContract]:
     return [contract for contract in ACTION_CONTRACTS.values() if contract.surface is surface]
+
+
+def shadow_contracts() -> list[ActionContract]:
+    """The entry points shadow authorization observes, in declaration order."""
+    return [contract for contract in ACTION_CONTRACT_LIST if contract.shadow_exemption is None]
 
 
 def undeclared_actions(registered: Iterable[str]) -> list[str]:

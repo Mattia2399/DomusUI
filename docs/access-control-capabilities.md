@@ -213,11 +213,12 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | Irrigazione: zona, pausa, stop | WS o servizio | `domusos.*_irrigation*` | `irrigation/start_zone`, `stop_zone`, `pause`, `resume`, `stop_all` | `irrigation.control` | medium |
 | Irrigazione: configurazione | WS | — | `irrigation/save_config`, `prepare_legacy_removal` | `irrigation.manage` | medium |
 | Alimentazione | WS | (il controller agisce in HA) | `device_power/get_state`, `save_policy`, `bind_policy`, `delete_policy` | `device_power.manage` | high |
-| Raccolta rifiuti: lettura | WS | — | `waste_collection/get_config`, `preview` | `waste.view` | low |
+| Raccolta rifiuti: lettura | WS | — | `waste_collection/get_config`, `preview` (Q9 chiusa: tutti i ruoli) | `waste.view` | low |
 | Raccolta rifiuti: modifica | WS | — | `waste_collection/save_config`, `test_notification` | `waste.manage` | low |
 | Profilo | WS | — | `profile/get_self`, `save_self`, `*_device`, `test_self` | `profile.manage` | low |
 | Destinatari notifiche | WS | — | `profile/list_recipients` | `notifications.recipients` | medium |
 | Profilo d'accesso proprio | WS | — | `domusos/access/get_self` (P2.1) | — (ogni account domestico) | low |
 | Ruoli Domus | — (P2.6) | — | `domusos/access/*` | `access.manage` | critical |
 | Recupero policy | WS (nessun servizio) | — | `domusos/access/reset_policy` (admin HA attivo della connessione, P2.1.2) | `access.manage` (admin HA) | critical |
+| Diagnostica shadow | WS (nessun servizio) | — | `domusos/access/get_shadow_diagnostics`, `reset_shadow_diagnostics` (admin HA attivo, P2.3) | `access.manage` (admin HA) | medium |
 | Torna a Home Assistant | navigazione del pannello | — | no | `ha_frontend.open` | low (solo UX) |

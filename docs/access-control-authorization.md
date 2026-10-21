@@ -1,9 +1,10 @@
 # Domus Access Control — autorizzazione (P2.2)
 
 Il motore centrale che decide se una richiesta è autorizzata, e il registro di
-tutte le superfici backend di Domus. **Non è collegato a nessun comando**:
-nessuna richiesta viene bloccata, nessun comportamento cambia. L'enforcement
-arriva in P2.5, dopo le misure in shadow mode (P2.3).
+tutte le superfici backend di Domus. Da P2.3 è collegato a ogni superficie
+**solo in shadow** ([shadow](access-control-shadow.md)): decide e conta, ma
+nessuna richiesta viene bloccata e nessun comportamento cambia.
+L'enforcement arriva in P2.5.
 
 Collegati: [architettura](access-control-architecture.md),
 [fondamento P2.1](access-control-foundation.md),
@@ -17,6 +18,7 @@ Collegati: [architettura](access-control-architecture.md),
 | Identità: chi è l'utente | `connection.user` / `call.context.user_id` → `identify` | P2.1, rifinita in P2.2 |
 | Policy: ruolo, grant, capability | `resolve_access_profile`, store | P2.1 |
 | **Autorizzazione: può farlo?** | `access/authorization.py`, `access/actions.py`, `access/adapters.py` | **P2.2** |
+| Shadow: decide e conta, non blocca | `access/instrumentation.py`, `access/shadow.py` | P2.3 |
 | Enforcement: blocca davvero | gli handler dei comandi | P2.5 |
 
 Le funzioni non chiedono mai `user.is_admin`, il ruolo o una lista di
@@ -28,7 +30,7 @@ capability. Chiedono al motore: `can`, `authorize`, `require_capability`.
 | --- | --- | --- |
 | `access/authorization.py` | `identify`, `authorize`, `can`, `require_capability`, `authorize_action`, `require_action`, `AuthorizationDecision`, `DecisionReason`, `AuthorizationDeniedError` | solo `models`, `actions` (Python puro) |
 | `access/actions.py` | `ACTION_CONTRACTS`: ogni comando WebSocket e servizio Domus con la capability richiesta | solo `models` (Python puro) |
-| `access/adapters.py` | `authorize_user`, `authorize_user_action`, `require_user_capability`, `authorize_service_call`, `require_service_capability` | Home Assistant (contesto, utenti) |
+| `access/adapters.py` | `authorize_user`, `authorize_user_action`, `require_user_capability`, `authorize_service_call`, `authorize_service_action` (P2.3), `require_service_capability` | Home Assistant (contesto, utenti) |
 
 `manager.principal_from_user` usa ora `identify`: una sola regola d'identità per
 `get_self`, `reset_policy` e il motore. È la stessa regola di P2.1: niente
@@ -133,8 +135,9 @@ L'admin HA **non è un bypass**:
 
 ## Registro delle azioni
 
-`ACTION_CONTRACTS` dichiara **38 superfici**: 33 comandi WebSocket e 5 servizi.
-Sono tutte quelle che l'integrazione registra.
+`ACTION_CONTRACTS` dichiara **40 superfici**: 35 comandi WebSocket e 5 servizi.
+Sono tutte quelle che l'integrazione registra. In P2.2 erano 38 (33 + 5); P2.3
+ha aggiunto i due comandi della diagnostica shadow.
 
 - La lista viene letta dal sorgente nel test e confrontata con le registrazioni
   reali di HA (`hass.data["websocket_api"]`, `hass.services`).
@@ -146,14 +149,16 @@ Campi di ogni contratto:
 - `auth_mode`;
 - `capability`;
 - `ha_check`: cosa HA o il modulo controllano già oggi, e che resta;
-- `rationale`: obbligatorio per i casi non `capability`.
+- `rationale`: obbligatorio per i casi non `capability`;
+- `shadow_exemption` (P2.3): perché lo shadow non osserva l'azione; vuoto per
+  le 36 osservate.
 
 Rischio, descrizione e `requires_ha_admin` si leggono dal registro delle
 capability, non vengono ripetuti.
 
 | Modalità | Uso | Azioni |
 | --- | --- | --- |
-| `capability` | La capability dell'azione decide | 36 |
+| `capability` | La capability dell'azione decide | 38 |
 | `authenticated_bootstrap` | Basta un account valido con una policy: è il modo in cui il client scopre le proprie capability | `domusos/access/get_self` |
 | `recovery` | `access.manage`, che solo un admin HA possiede (sempre, anche `locked`) | `domusos/access/reset_policy` (resta anche il controllo diretto admin di P2.1.2) |
 
@@ -163,6 +168,7 @@ capability, non vengono ripetuti.
 | --- | --- | --- |
 | `domusos/access/get_self` | — (bootstrap) | account domestico |
 | `domusos/access/reset_policy` | `access.manage` (recovery) | admin |
+| `domusos/access/get_shadow_diagnostics`, `reset_shadow_diagnostics` (P2.3) | `access.manage` | admin |
 | `domusos/device_power/get_state`, `save_policy`, `bind_policy`, `delete_policy` | `device_power.manage` | admin |
 | `domusos/energy/get_state`, `get_history` | `energy.view` | — (aperti a ogni utente oggi) |
 | `domusos/energy/get_profile`, `save_profile`, `discover` | `energy.manage` | admin |
@@ -178,7 +184,7 @@ capability, non vengono ripetuti.
 - **`waste.view`** è l'unica capability nuova: rischio basso, `domus`. I due
   comandi di lettura della Raccolta rifiuti non avevano una capability, e la
   card rapida della barra laterale li usa per chiunque. È nei ruoli `admin`,
-  `member`, `restricted` e `wall_panel`, come oggi (D36, domanda aperta Q9).
+  `member`, `restricted` e `wall_panel`, come oggi (D36; Q9 chiusa e approvata in P2.3).
 - **Esclusi** dal registro, perché il backend Domus non li esegue:
   - le azioni native di HA dal browser, cioè le capability `ha_native`:
     `access.control`, `security.control`, `devices.control`, registri,
@@ -203,15 +209,17 @@ I cinque servizi di Irrigazione sono pensati anche per le automazioni:
 Per questo:
 - P2.2 non lo applica;
 - non esiste un «principal di sistema» o «automazione fidata» (D35);
-- P2.3 misurerà in shadow mode quante chiamate senza utente arrivano davvero;
+- P2.3 misura in shadow quante chiamate senza utente arrivano davvero, con e
+  senza parent ([dati per Q10](access-control-shadow.md#dati-per-q10));
 - la regola per P2.5 va decisa sui dati (domanda aperta Q10).
 
 I comandi WebSocket non sono raggiungibili dalle automazioni.
 
 ## Cosa non c'è ancora
 
-- Nessun handler chiama il motore: un contratto lo verifica.
-- Nessun log delle decisioni, nessun evento, nessun `subscribe`: tutto P2.3.
+- Nessun handler applica il motore: da P2.3 lo shadow lo consulta su ogni
+  superficie, ma nessun handler usa le primitive `require_*` (contratto).
+- Nessun log persistente delle decisioni, nessun evento, nessun `subscribe`.
 - Nessuna modifica al frontend: `can()` TypeScript, guard, «Torna a Home
   Assistant» restano per P2.4.
 - Nessun resource scope (P2.7), nessun ruolo personalizzato, nessun ospite.
@@ -221,7 +229,7 @@ I comandi WebSocket non sono raggiungibili dalle automazioni.
 | File | Cosa | Dove gira |
 | --- | --- | --- |
 | `tests_python/test_access_authorization.py` | Matrice ruoli × capability, grant, `locked`, admin `locked`, admin senza bypass, profilo costruito male, capability sconosciuta, nessun principal o profilo, eccezione = deny, `require`, decisione senza dati personali, determinismo, `identify`, azioni, bootstrap, recovery, azione non dichiarata | ovunque (68 test) |
-| `tests_python/test_access_actions.py` | S8 dal sorgente; superficie nuova non dichiarata scoperta; nessun'altra forma di registrazione; mappa esatta; nessun duplicato; capability esistenti e `domus`; superfici e nomi; solo due eccezioni motivate; controlli HA registrati; `ha_native`/`local` senza azioni; nessun modulo usa ancora il motore | ovunque (34 test) |
+| `tests_python/test_access_actions.py` | S8 dal sorgente; superficie nuova non dichiarata scoperta; nessun'altra forma di registrazione; mappa esatta; nessun duplicato; capability esistenti e `domus`; superfici e nomi; solo due eccezioni motivate; controlli HA registrati; `ha_native`/`local` senza azioni; da P2.3 anche esenzioni shadow e nessun enforcement ([shadow](access-control-shadow.md#test)) | ovunque (34 test in P2.2, 39 in P2.3) |
 | `tests_python/test_access_authorization_ha.py` | Registrazioni reali di HA = registro (S8); adattatore WebSocket con utenti HA veri; account di sistema e disattivati; policy assente o rotta; servizio con e senza utente, utente sconosciuto, HA in errore; nessuna scrittura né cambio di revisione | Linux con fixture HA (7 test) |
 
 ## Validazione Linux

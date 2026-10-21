@@ -2,13 +2,17 @@
 
 Both commands take no parameter: the account is the one Home Assistant
 authenticated for the connection, never an id, a role or a flag sent by the
-client. Nothing is enforced yet.
+client. Nothing is enforced yet, except the recovery.
 
 The recovery is a websocket command on purpose, and never a Home Assistant
 service: automations and scripts call services, and a service cannot tell a
 script started by an administrator from that administrator acting directly,
 while an automation calls with no user at all
 (docs/access-control-foundation.md#recupero).
+
+The shadow diagnostics tell an administrator what Access Control would have
+decided on the requests observed so far; they are counters in memory, read
+and cleared here, never stored (docs/access-control-shadow.md).
 """
 
 from __future__ import annotations
@@ -21,11 +25,12 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 
 from ..const import DOMAIN
-from .manager import AccessPolicyManager, principal_from_user
-from .models import AccessError, AccessUnavailableError
+from .authorization import identify
+from .instrumentation import register_websocket_commands, shadow_stats
+from .manager import DATA_ACCESS_MANAGER, AccessPolicyManager, principal_from_user
+from .models import AccessDeniedError, AccessError, AccessUnavailableError
 
 WS_PREFIX = f"{DOMAIN}/access"
-DATA_ACCESS_MANAGER = "access_manager"
 
 
 def _manager(hass: HomeAssistant) -> AccessPolicyManager:
@@ -88,10 +93,70 @@ async def websocket_reset_policy(
     connection.send_result(msg["id"], result)
 
 
-WEBSOCKET_COMMANDS = (websocket_get_self, websocket_reset_policy)
+def _manages_access(user: Any) -> bool:
+    """An active Home Assistant administrator, who always holds access.manage."""
+    principal, _reason = identify(user)
+    return principal is not None and principal.is_admin
+
+
+def _shadow_diagnostics(hass: HomeAssistant) -> dict[str, Any]:
+    manager = hass.data.get(DOMAIN, {}).get(DATA_ACCESS_MANAGER)
+    running = isinstance(manager, AccessPolicyManager)
+    return shadow_stats(hass).snapshot(
+        policy_state=manager.state.value if running else None,
+        policy_revision=manager.revision if running else None,
+    )
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/get_shadow_diagnostics"})
+@websocket_api.require_admin
+@callback
+def websocket_get_shadow_diagnostics(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """What Access Control would have decided in the current window; read only, administrators only."""
+    if not _manages_access(connection.user):
+        connection.send_error(msg["id"], AccessDeniedError.code, "This account cannot read the access diagnostics")
+        return
+    try:
+        result = _shadow_diagnostics(hass)
+    except Exception:  # noqa: BLE001 - always answer the client
+        connection.send_error(msg["id"], "unknown_error", "Domus access control failed")
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/reset_shadow_diagnostics"})
+@websocket_api.require_admin
+@callback
+def websocket_reset_shadow_diagnostics(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Start a new observation window; only the in-memory counters change, never the policy."""
+    if not _manages_access(connection.user):
+        connection.send_error(msg["id"], AccessDeniedError.code, "This account cannot reset the access diagnostics")
+        return
+    try:
+        shadow_stats(hass).reset()
+        result = _shadow_diagnostics(hass)
+    except Exception:  # noqa: BLE001 - always answer the client
+        connection.send_error(msg["id"], "unknown_error", "Domus access control failed")
+        return
+    connection.send_result(msg["id"], result)
+
+
+WEBSOCKET_COMMANDS = (
+    websocket_get_self,
+    websocket_reset_policy,
+    websocket_get_shadow_diagnostics,
+    websocket_reset_shadow_diagnostics,
+)
 
 
 async def async_register_access_api(hass: HomeAssistant) -> None:
-    """Register the websocket commands once; Access Control registers no service."""
-    for command in WEBSOCKET_COMMANDS:
-        websocket_api.async_register_command(hass, command)
+    """Register the websocket commands once; Access Control registers no service.
+
+    The shadow counters start here, with the integration.
+    """
+    shadow_stats(hass)
+    register_websocket_commands(hass, WEBSOCKET_COMMANDS)

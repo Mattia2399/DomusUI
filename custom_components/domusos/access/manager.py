@@ -56,6 +56,8 @@ _LOGGER = logging.getLogger(__name__)
 
 RuntimeProvider = Callable[[], DomusRuntime | None]
 
+# Where the running manager is kept in ``hass.data[DOMAIN]``.
+DATA_ACCESS_MANAGER = "access_manager"
 ISSUE_POLICY_UNTRUSTED = "access_policy_untrusted"
 # Files Home Assistant set aside because they could not be decoded.
 _QUARANTINE_MARK = ".corrupt."

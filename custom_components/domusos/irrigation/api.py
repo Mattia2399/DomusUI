@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 
+from ..access.instrumentation import register_service, register_websocket_commands
 from ..const import DOMAIN
 from .manager import IrrigationManager
 from .models import IrrigationError, IrrigationOperationError
@@ -231,8 +232,7 @@ async def _service_user(hass: HomeAssistant, call: ServiceCall):
 
 async def async_register_irrigation_api(hass: HomeAssistant) -> None:
     """Register websocket commands and Home Assistant actions once."""
-    for command in WEBSOCKET_COMMANDS:
-        websocket_api.async_register_command(hass, command)
+    register_websocket_commands(hass, WEBSOCKET_COMMANDS)
 
     async def handle_start(call: ServiceCall) -> None:
         await _manager(hass).async_start_zone(
@@ -259,8 +259,8 @@ async def async_register_irrigation_api(hass: HomeAssistant) -> None:
             await _service_user(hass, call), reason="service_stop_all"
         )
 
-    hass.services.async_register(
-        DOMAIN,
+    register_service(
+        hass,
         "start_irrigation_zone",
         handle_start,
         schema=vol.Schema(
@@ -271,9 +271,9 @@ async def async_register_irrigation_api(hass: HomeAssistant) -> None:
             }
         ),
     )
-    hass.services.async_register(
-        DOMAIN, "stop_irrigation_zone", handle_stop, schema=vol.Schema({vol.Required("zone_id"): str})
+    register_service(
+        hass, "stop_irrigation_zone", handle_stop, schema=vol.Schema({vol.Required("zone_id"): str})
     )
-    hass.services.async_register(DOMAIN, "pause_irrigation", handle_pause)
-    hass.services.async_register(DOMAIN, "resume_irrigation", handle_resume)
-    hass.services.async_register(DOMAIN, "stop_all_irrigation", handle_stop_all)
+    register_service(hass, "pause_irrigation", handle_pause)
+    register_service(hass, "resume_irrigation", handle_resume)
+    register_service(hass, "stop_all_irrigation", handle_stop_all)

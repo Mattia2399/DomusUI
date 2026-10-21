@@ -491,7 +491,7 @@ I cinque test di sicurezza obbligatori sono nel
 | --- | --- |
 | **P2.1** ✓ | Registro capability (backend, versionato) + ruoli di sistema + grant personali + store `domusos.access.v1` con stati, quarantena, revisione + `domusos/access/get_self` + recupero `domusos/access/reset_policy` (WebSocket, P2.1.2). Nessun enforcement. [Fondamento](access-control-foundation.md). |
 | **P2.2** ✓ | Motore centrale (`authorize`, `can`, `require_capability`, `authorize_action`), adattatori WebSocket e servizi, registro delle 38 superfici backend, contratto S8. Nessun enforcement. [Autorizzazione](access-control-authorization.md). |
-| **P2.3** | Shadow authorization + diagnostiche (differenze rispetto a oggi) + audit V1. |
+| **P2.3** ✓ | Shadow authorization su tutte le 36 superfici backend osservabili, confronto con l'esito reale, contatori in memoria senza identità, diagnostica admin (`get_shadow_diagnostics`, `reset_shadow_diagnostics`). Nessun enforcement. [Shadow](access-control-shadow.md). L'audit V1 delle decisioni resta fuori: lo shadow non è un audit (D41). |
 | **P2.4** | Frontend: `can()` da `get_self`, migrazione di `DashboardCapability`, route guard e schermata «Non disponibile». |
 | **P2.5** | Enforcement sui comandi Domus (Energy view, Irrigazione, Raccolta rifiuti, Profile, Alimentazione) + i 5 test di sicurezza. |
 | **P2.6** | Persone e accessi: ruoli per utente, recupero, messaggio onesto sui limiti nativi HA. |
@@ -536,7 +536,16 @@ I cinque test di sicurezza obbligatori sono nel
 | D33 | Le uniche eccezioni a «una capability per azione» sono nominate e motivate: `get_self` (`authenticated_bootstrap`) e `reset_policy` (`recovery`, `access.manage`). |
 | D34 | Un servizio chiamato senza utente produce una decisione deny `no_principal`; non viene applicata in P2.2, e la regola per P2.5 dipende dalle misure di P2.3 (Q10). |
 | D35 | Nessun principal di sistema, di automazione o «fidato» in V1. |
-| D36 | Nuova capability `waste.view` (bassa, `domus`) per `waste_collection/get_config` e `preview`, in tutti i ruoli, come oggi (Q9). |
+| D36 | Nuova capability `waste.view` (bassa, `domus`) per `waste_collection/get_config` e `preview`, in tutti i ruoli, come oggi (Q9, chiusa). |
+| D37 | (P2.3) Lo shadow non blocca: la decisione viene calcolata e contata, la richiesta corre identica (stessa risposta, stessi errori, stesse eccezioni). Un deny shadow non è un deny reale. |
+| D38 | Le statistiche shadow sono solo in memoria: niente Store, file, recorder o audit; si azzerano al riavvio di HA, non alla ricarica dell'integrazione. |
+| D39 | Diagnostica limitata: contatori su dimensioni chiuse (azione, origine, principal presente, ruolo, motivo, esito, confronto), tetto rigido di 2048 chiavi, al massimo 50 campioni recenti di differenze. |
+| D40 | Nessun dato personale nella diagnostica: niente `user_id`, nome, persona, token, payload o stato delle entità; si conta *cosa* verrebbe bloccato, non *chi*. |
+| D41 | Lo shadow non scrive nel `DomusAuditService`: è osservabilità, non audit di sicurezza. |
+| D42 | Le protezioni di oggi restano: `require_admin`, `check_entity`, il solo profilo proprio, il controllo admin del reset. Lo shadow riguarda solo il nuovo motore. |
+| D43 | `reset_policy` resta enforced (P2.1.2) ed è esente dallo shadow, come `get_self` (bootstrap) e la diagnostica stessa; le esenzioni sono nel contratto, con il motivo. |
+| D44 | Le statistiche si riferiscono a una sola policy: una nuova finestra si apre all'avvio, al reset manuale e a ogni cambio di stato o revisione della policy. |
+| D45 | La diagnostica shadow è un comando WebSocket per l'admin HA attivo (`access.manage`), protetto direttamente come il reset; nessun principal di sistema (D35) e Q10 decisa sui dati. |
 
 ## 21. Domande aperte
 
@@ -550,5 +559,5 @@ I cinque test di sicurezza obbligatori sono nel
 | Q6 | `energy.view` per `restricted` e `wall_panel` | **Deciso**: `restricted` no, `wall_panel` sì (D22) |
 | Q7 | Ospiti: si aspetta il supporto HA a credenziali temporanee, o un account HA dedicato con ruolo `guest`? | Account dedicato, dopo P2.6 |
 | Q8 | Il reset della policy deve essere una richiesta diretta di un admin HA attivo, mai un'automazione o uno script (D28 proposta). Un servizio HA non può garantirlo: le automazioni chiamano senza `user_id` (e `async_register_admin_service` le lascia passare); uno script avviato da un admin chiama con il suo stesso `Context`, indistinguibile da una chiamata diretta ([limite verificato](access-control-foundation.md#perché-non-un-servizio-audit-p211)). | **Chiusa: opzione B** (D28). Servizio rimosso, comando WebSocket `domusos/access/reset_policy` legato a `connection.user`. |
-| Q9 | `waste.view` (calendario della Raccolta rifiuti, nella card rapida) va lasciata anche a `restricted` e `wall_panel`? | Sì: è ciò che vedono oggi (D36) |
-| Q10 | In P2.5, cosa fare dei servizi chiamati senza utente (automazioni di Irrigazione)? Il deny `no_principal` le romperebbe | Decidere dopo le misure di P2.3; nessun principal di sistema (D35) |
+| Q9 | `waste.view` (calendario della Raccolta rifiuti, nella card rapida) va lasciata anche a `restricted` e `wall_panel`? | **Chiusa (approvata)**: `waste.view` resta ad `admin`, `member`, `restricted` e `wall_panel`. È un'informazione domestica di sola lettura, usata anche dalla card rapida della Raccolta rifiuti (D36). Comportamento invariato. |
+| Q10 | In P2.5, cosa fare dei servizi chiamati senza utente (automazioni di Irrigazione)? Il deny `no_principal` le romperebbe | **Aperta** fino ai dati reali. P2.3 conta per ognuno dei 5 servizi: chiamate, con e senza principal, senza utente con e senza parent, allow e deny, `no_principal`, esito reale, `would_block` ([dati per Q10](access-control-shadow.md#dati-per-q10)). Nessun principal di sistema (D35) |

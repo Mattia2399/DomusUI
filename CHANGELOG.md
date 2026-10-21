@@ -13,8 +13,12 @@
   `domusos/access/reset_policy`, sent from their own signed-in session. It
   is not a Home Assistant action, so no automation or script can run it.
   The integration also has a central authorization check and a list of
-  every Domus command with the permission it will require; it is not
-  switched on yet, so nothing is blocked.
+  every Domus command with the permission it will require. It now runs
+  in shadow mode on every Domus command and action: it works out what it
+  would allow or refuse and counts it in memory, without names or
+  content, so an administrator can read what would change with
+  `domusos/access/get_shadow_diagnostics`. No new access restriction is
+  enforced: every request runs exactly as before.
 - Settings › This device › Kiosk mode turns a wall tablet or a dedicated PC
   into a Domus panel: "Start panel mode" hides Domus's own navigation, opens
   the chosen start page and, when the browser allows it, goes full screen and

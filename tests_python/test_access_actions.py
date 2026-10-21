@@ -22,6 +22,8 @@ EXPECTED = {
     # Access Control
     "domusos/access/get_self": None,
     "domusos/access/reset_policy": "access.manage",
+    "domusos/access/get_shadow_diagnostics": "access.manage",
+    "domusos/access/reset_shadow_diagnostics": "access.manage",
     # Device power
     "domusos/device_power/get_state": "device_power.manage",
     "domusos/device_power/save_policy": "device_power.manage",
@@ -72,7 +74,9 @@ _PREFIX = re.compile(r'WS_PREFIX\s*=\s*f"\{DOMAIN\}/([a-z_]+)"')
 _COMMAND = re.compile(r'f"\{WS_PREFIX\}/([a-z_]+)"')
 _GENERATED = re.compile(r'f"\{WS_PREFIX\}/\{command\}"')
 _SIMPLE = re.compile(r'_simple_command\("([a-z_]+)"\)')
-_SERVICE = re.compile(r'hass\.services\.async_register\(\s*DOMAIN,\s*"([a-z_]+)"', re.S)
+_SERVICE = re.compile(r'register_service\(\s*hass,\s*"([a-z_]+)"', re.S)
+# The one module that hands registrations to Home Assistant, wrapping each for shadow authorization.
+INSTRUMENTATION = INTEGRATION_DIR / "access" / "instrumentation.py"
 _OTHER_REGISTRATIONS = (
     "async_register_admin_service",
     "async_register_entity_service",
@@ -119,9 +123,29 @@ def test_the_integration_has_no_other_way_to_register_an_entry_point() -> None:
         source = path.read_text(encoding="utf-8")
         for pattern in _OTHER_REGISTRATIONS:
             assert pattern not in source, f"{path.name} uses {pattern}: declare it in access/actions.py"
-        # Websocket commands are registered only from each module's WEBSOCKET_COMMANDS.
-        for call in re.findall(r"async_register_command\(([^)]*)\)", source):
-            assert call.strip() == "hass, command", f"{path.name}: async_register_command({call})"
+        if path == INSTRUMENTATION:
+            continue
+        # Home Assistant receives registrations only from the instrumentation, never directly.
+        assert "async_register_command" not in source, f"{path.name} registers a command around shadow authorization"
+        assert "services.async_register(" not in source, f"{path.name} registers a service around shadow authorization"
+        # Websocket commands go through it only as each module's WEBSOCKET_COMMANDS.
+        for call in re.findall(r"register_websocket_commands\(([^)]*)\)", source):
+            assert call.strip() == "hass, WEBSOCKET_COMMANDS", f"{path.name}: register_websocket_commands({call})"
+    instrumentation = INSTRUMENTATION.read_text(encoding="utf-8")
+    assert instrumentation.count("async_register_command(") == 1
+    assert "websocket_api.async_register_command(hass, observed_command(command))" in instrumentation
+    assert instrumentation.count("services.async_register(") == 1
+    assert "hass.services.async_register(DOMAIN, service, target, schema=schema)" in instrumentation
+
+
+def test_every_module_with_commands_registers_them_through_the_instrumentation() -> None:
+    modules = 0
+    for path in INTEGRATION_DIR.rglob("*.py"):
+        source = path.read_text(encoding="utf-8")
+        if re.search(r"^WEBSOCKET_COMMANDS = \(", source, re.M):
+            modules += 1
+            assert "register_websocket_commands(hass, WEBSOCKET_COMMANDS)" in source, path.name
+    assert modules == 6
 
 
 # --- The registry itself ------------------------------------------------------------------
@@ -133,7 +157,8 @@ def test_every_action_maps_to_the_audited_capability_and_mode() -> None:
 
 def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 38
+    # 38 in P2.2, plus the two shadow diagnostics commands of P2.3.
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 40
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:
@@ -152,7 +177,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 33
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 35
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 
@@ -186,11 +211,68 @@ def test_ha_native_and_local_capabilities_have_no_backend_action(capability) -> 
     assert capability not in {contract.capability for contract in actions.ACTION_CONTRACT_LIST}
 
 
-def test_nothing_outside_access_control_uses_the_evaluator_yet() -> None:
-    """P2.2 builds the engine without switching it on: no command calls it."""
+# --- Shadow authorization (P2.3) ------------------------------------------------------------
+
+SHADOW_EXEMPT = {
+    "domusos/access/get_self",
+    "domusos/access/reset_policy",
+    "domusos/access/get_shadow_diagnostics",
+    "domusos/access/reset_shadow_diagnostics",
+}
+ENFORCEMENT_PRIMITIVES = (
+    "require_capability",
+    "require_action",
+    "require_user_capability",
+    "require_service_capability",
+    "AuthorizationDeniedError",
+)
+
+
+def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> None:
+    exempt = {contract.id: contract for contract in actions.ACTION_CONTRACT_LIST if contract.shadow_exemption is not None}
+    assert set(exempt) == SHADOW_EXEMPT
+    for contract in exempt.values():
+        assert len(contract.shadow_exemption) > 40, contract.id
+    observed = actions.shadow_contracts()
+    assert {contract.id for contract in observed} == set(EXPECTED) - SHADOW_EXEMPT
+    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 31
+    assert len([contract for contract in observed if contract.surface is Surface.SERVICE]) == 5
+
+
+def test_the_shadow_diagnostics_are_protected_not_bootstrap() -> None:
+    for action in ("domusos/access/get_shadow_diagnostics", "domusos/access/reset_shadow_diagnostics"):
+        contract = actions.ACTION_CONTRACTS[action]
+        assert contract.auth_mode is AuthMode.CAPABILITY and contract.capability == "access.manage"
+        assert contract.ha_check is actions.HaCheck.ADMIN
+
+
+def test_no_handler_enforces_the_evaluator_yet() -> None:
+    """P2.3 observes: no command calls a primitive that could refuse it."""
+    for path in INTEGRATION_DIR.rglob("*.py"):
+        if path.parent.name == "access" and path.name in ("authorization.py", "adapters.py"):
+            continue
+        source = path.read_text(encoding="utf-8")
+        for name in ENFORCEMENT_PRIMITIVES:
+            assert name not in source, f"{path.relative_to(INTEGRATION_DIR)} uses {name}"
+
+
+def test_modules_reach_access_control_only_through_the_instrumentation() -> None:
     for path in INTEGRATION_DIR.rglob("*.py"):
         if path.parent.name == "access":
             continue
         source = path.read_text(encoding="utf-8")
-        for name in ("access.authorization", "access.adapters", "require_capability", "authorize_service_call", "authorize_user"):
+        for name in ("access.authorization", "access.adapters", "access.shadow", "authorize_user", "authorize_service"):
             assert name not in source, f"{path.relative_to(INTEGRATION_DIR)} uses {name}"
+        for imported in re.findall(r"from \.\.access\.instrumentation import ([^\n]+)", source):
+            assert set(map(str.strip, imported.split(","))) <= {"register_service", "register_websocket_commands"}, path.name
+
+
+def test_every_refusal_code_of_the_modules_is_read_as_a_refusal() -> None:
+    shadow = load("shadow")
+    refusal = re.compile(r'class (\w*(?:Permission|Denied|NotHousehold|Disabled)\w*Error)\([^)]*\):\n(?:(?!class )[^\n]*\n)*?\s+code = "([a-z_]+)"')
+    found = {}
+    for path in INTEGRATION_DIR.rglob("models.py"):
+        found.update(dict(refusal.findall(path.read_text(encoding="utf-8"))))
+    assert len(found) >= 6, found
+    for name, code in found.items():
+        assert code in shadow.PERMISSION_ERROR_CODES, (name, code)

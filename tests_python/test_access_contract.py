@@ -30,10 +30,16 @@ def test_the_reset_is_no_service_anywhere() -> None:
 
 
 def test_access_control_registers_no_service_at_all() -> None:
+    """The instrumentation hands the other modules' services to Home Assistant; Access Control has none."""
     for path in ACCESS.glob("*.py"):
         source = read(path)
-        for registration in ("async_register_admin_service", "services.async_register", "async_register_entity_service"):
+        for registration in ("async_register_admin_service", "async_register_entity_service"):
             assert registration not in source, f"{path.name} registers a service"
+        if path.name == "instrumentation.py":
+            assert source.count("services.async_register(") == 1 and "def register_service(" in source
+            continue
+        assert "services.async_register" not in source, f"{path.name} registers a service"
+        assert "register_service(" not in source, f"{path.name} registers a service"
 
 
 def test_the_reset_command_takes_nothing_but_its_type_and_reads_the_connection() -> None:

@@ -13,6 +13,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant
 
+from ..access.instrumentation import register_websocket_commands
 from ..const import DOMAIN
 from .manager import DevicePowerManager
 from .models import DevicePowerError, DevicePowerUnavailableError, InvalidPolicyError
@@ -136,5 +137,4 @@ WEBSOCKET_COMMANDS = (
 
 async def async_register_device_power_api(hass: HomeAssistant) -> None:
     """Register websocket commands once during integration setup."""
-    for command in WEBSOCKET_COMMANDS:
-        websocket_api.async_register_command(hass, command)
+    register_websocket_commands(hass, WEBSOCKET_COMMANDS)
