@@ -223,3 +223,33 @@ I comandi WebSocket non sono raggiungibili dalle automazioni.
 | `tests_python/test_access_authorization.py` | Matrice ruoli × capability, grant, `locked`, admin `locked`, admin senza bypass, profilo costruito male, capability sconosciuta, nessun principal o profilo, eccezione = deny, `require`, decisione senza dati personali, determinismo, `identify`, azioni, bootstrap, recovery, azione non dichiarata | ovunque (68 test) |
 | `tests_python/test_access_actions.py` | S8 dal sorgente; superficie nuova non dichiarata scoperta; nessun'altra forma di registrazione; mappa esatta; nessun duplicato; capability esistenti e `domus`; superfici e nomi; solo due eccezioni motivate; controlli HA registrati; `ha_native`/`local` senza azioni; nessun modulo usa ancora il motore | ovunque (34 test) |
 | `tests_python/test_access_authorization_ha.py` | Registrazioni reali di HA = registro (S8); adattatore WebSocket con utenti HA veri; account di sistema e disattivati; policy assente o rotta; servizio con e senza utente, utente sconosciuto, HA in errore; nessuna scrittura né cambio di revisione | Linux con fixture HA (7 test) |
+
+## Validazione Linux
+
+I test con il fixture di Home Assistant non girano su Windows (manca `fcntl`).
+Li ha eseguiti GitHub Actions sul repository privato `archive`, con lo stesso
+metodo di P2.1.2.
+
+- **Come**: un branch temporaneo `ci/access-control-p22-linux-validation`,
+  uguale al codice validato più un solo commit che aggiungeva quel nome al
+  trigger `push` di `irrigation-core.yml`. Il branch è stato eliminato dopo la
+  run e il commit temporaneo non è nella storia del feature branch.
+- **Codice validato**: `731d277`.
+
+| Run | Job | HA | Python | Test | Esito |
+| --- | --- | --- | --- | --- | --- |
+| 39578757178 | backend | 2025.1.0 | 3.12.15 | 1040 passati | **verde** |
+| 39578757178 | backend | 2026.2.3 | 3.13.16 | 1074 passati | **verde** |
+
+- **Job HA 2025.1**: `test_access_models` (70 test), `test_access_manager` (37),
+  `test_access_contract` (4), `test_access_authorization` (68),
+  `test_access_actions` (34), `test_access_authorization_ha` (7).
+- **Job HA 2026.2.3**: tutta `tests_python`, comprese le stesse suite e
+  `test_access_websocket` (16).
+- **Registro**: `test_access_authorization_ha` ha confrontato le registrazioni
+  reali di HA con il registro, in entrambe le versioni: 33 comandi WebSocket e
+  5 servizi, nessuna superficie non dichiarata.
+- **Nessun fallimento**, nessun test saltato.
+- **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
+  repository pubblici. È un workflow separato: non blocca né sostituisce il job
+  backend.
