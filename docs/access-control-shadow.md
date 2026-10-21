@@ -263,3 +263,42 @@ loop di HA.
 | `tests_python/test_access_shadow.py` | Categorie di confronto, codici di rifiuto, nessuna identità nelle osservazioni e nella diagnostica, contatori, `pending`, dati Q10, reset, finestre al cambio di policy e non alla ricarica, campioni limitati a 50, tetto delle chiavi, dimensioni chiuse, righe per ogni azione osservata, determinismo, `locked` e default, costo | ovunque (43 test) |
 | `tests_python/test_access_actions.py` | S8 con le due superfici nuove (35 + 5); registrazioni solo dall'instrumentation; ogni modulo con comandi passa da lì; esenzioni esatte e motivate; diagnostica protetta, non bootstrap; nessuna primitiva di enforcement negli handler; i moduli raggiungono Access Control solo dall'instrumentation; codici di rifiuto riconosciuti | ovunque (39 test) |
 | `tests_python/test_access_shadow_ha.py` | Ogni superficie osservata è strumentata nelle registrazioni reali, gli schemi restano; risposta identica senza shadow; `would_block` con handler eseguito; rifiuti di oggi invariati (`require_admin`, `check_entity`); errori invariati; servizio senza utente eseguito (Q10); rifiuto di un servizio rilanciato identico; shadow rotto senza effetti; diagnostica solo admin, non contata, reset senza toccare la policy; `get_self` e reset fuori dallo shadow; nuova finestra al cambio di revisione | Linux con fixture HA (11 test) |
+
+## Validazione Linux
+
+I test con il fixture di Home Assistant non girano su Windows (manca `fcntl`).
+Li ha eseguiti GitHub Actions sul repository privato `archive`, con lo stesso
+metodo di P2.2: un branch temporaneo `ci/access-control-p23-linux-validation`,
+uguale al codice validato più un solo commit sul trigger `push` di
+`irrigation-core.yml`, poi eliminato. Il commit temporaneo non è nella storia
+del feature branch.
+
+| Run | Codice | HA | Python | Test | Esito |
+| --- | --- | --- | --- | --- | --- |
+| 39589533708 (2 tentativi) | `4988d00` | 2025.1.0 | 3.12.15 | 1099 passati, 1 errore in teardown | fallita |
+| 39589533708 | `4988d00` | 2026.2.3 | 3.13.16 | 1133 passati | verde |
+| 39590575540 | `e0c71fc` | 2025.1.0 | 3.12.15 | 1099 passati | **verde** |
+| 39590575540 | `e0c71fc` | 2026.2.3 | 3.13.16 | 1133 passati | **verde** |
+
+- **L'errore della prima run** non era nel codice né in un'asserzione del test.
+  - pycares 5 avvia un solo thread di chiusura per processo con il primo canale
+    DNS, cioè con il primo client WebSocket di test, e lo tiene fino alla fine.
+  - Il plugin di test di HA 2025.1 (`pytest-homeassistant-custom-component`
+    0.13.201) lo segnala come thread lasciato aperto da quel test. Era
+    `test_an_allowed_request_answers_exactly_as_without_shadow`, la prima suite
+    del job ad aprire un client WebSocket.
+  - Il plugin di HA 2026.2.3 lo ammette.
+  - La correzione (`e0c71fc`) tocca solo i test: `tests_python/conftest.py`
+    avvia quel thread prima di ogni test.
+- **Job HA 2025.1**: `test_access_shadow_ha` (11), `test_access_shadow` (43),
+  `test_access_authorization_ha` (7), `test_access_authorization` (68),
+  `test_access_actions` (39), `test_access_manager` (37), `test_access_models`
+  (70), `test_access_contract` (4).
+- **Job HA 2026.2.3**: tutta `tests_python`, comprese le stesse suite e
+  `test_access_websocket` (16).
+- **Registrazioni reali**, verificate in entrambe le versioni:
+  - 35 comandi WebSocket e 5 servizi, nessuna superficie non dichiarata;
+  - 31 WebSocket e 5 servizi strumentati con la propria azione;
+  - 4 esenzioni registrate senza wrapper.
+- **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
+  repository pubblici: è un workflow separato.
