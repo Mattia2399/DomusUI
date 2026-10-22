@@ -184,7 +184,7 @@ mai un account host o di servizio.
 | File | Cosa | Dove |
 | --- | --- | --- |
 | `tests_python/test_access_administration.py` | Account elencati e no, tipi, vista per stato, ordine, richiesta di assegnazione: ruoli, grant, duplicati, admin senza grant, `locked` rifiutato | ovunque (37 test) |
-| `tests_python/test_access_people_ha.py` | Comandi con HA vero: elenco, member e account di sistema rifiutati, grant che arriva al member, campi falsificati, revisione vecchia, bersaglio sconosciuto, disattivato o di sistema, ruolo e grant non validi, admin senza grant ridondanti, rimozione e orfano, store non affidabile e ripristino, auto-declassamento, nome della persona | Linux con fixture HA (12 test) |
+| `tests_python/test_access_people_ha.py` | Comandi con HA vero: elenco, member e account di sistema rifiutati, grant che arriva al member, campi falsificati, revisione vecchia, bersaglio sconosciuto, disattivato o di sistema, ruolo e grant non validi, admin senza grant ridondanti, rimozione e orfano, store non affidabile e ripristino, auto-declassamento, nome della persona; campi obbligatori e nient'altro, `restricted` e `wall_panel` con grant, admin disattivato | Linux con fixture HA (16 test) |
 | `tests_python/test_access_manager.py` | Record di audit per ogni cambio (nessuno per no-op, conflitto o rifiuto); `require_access_manager` in ogni stato | Linux con fixture HA |
 | `tests_python/test_access_actions.py`, `test_access_contract.py`, `test_access_shadow_ha.py` | 43 superfici (38 + 5); tre esenzioni nuove motivate; chi agisce mai letto dal messaggio | ovunque / Linux |
 | `src/services/accessAdminClient.test.ts` | Messaggi esatti, niente campi del server, grant ordinati e senza duplicati, admin senza grant, errori | Vitest |
@@ -202,17 +202,25 @@ GitHub Actions sul repository privato `archive`.
   uguale al codice validato più un solo commit che aggiungeva quel nome al
   trigger `push` di `irrigation-core.yml`. Il branch è stato eliminato dopo la
   run e il commit temporaneo non è nella storia del feature branch.
-- **Codice validato**: `3cf2eaa`.
+- **Codice validato**: `3cf2eaa` (applicazione) e `d909ce7` (lo stesso codice
+  con quattro test HA in più, chiesti dalla validazione completa).
 
 | Run | Commit | HA | Python | Test | Esito |
 | --- | --- | --- | --- | --- | --- |
 | 39758189365 | `3cf2eaa` | 2025.1.0 | 3.12.15 | 1151 passati | **verde** |
 | 39758189365 | `3cf2eaa` | 2026.2.3 | 3.13.16 | 1185 passati | **verde** |
+| 39760657395 | `d909ce7` | 2025.1.0 | 3.12.15 | 1155 passati | **verde** |
+| 39760657395 | `d909ce7` | 2026.2.3 | 3.13.16 | 1189 passati | **verde** |
 
 - Rispetto a P2.3 (run 39590575540: 1099 e 1133) entrambi i job hanno 52 test
   in più: `test_access_administration` (37), `test_access_people_ha` (12), due
-  in `test_access_manager` e uno in `test_access_contract`.
-- **Job HA 2025.1**: `test_access_people_ha` (12), `test_access_administration`
+  in `test_access_manager` e uno in `test_access_contract`. La run 39760657395
+  ne aggiunge 4 a `test_access_people_ha`: ogni campo obbligatorio e nessun
+  campo in più, anche sui comandi con solo `type`; `restricted` e `wall_panel`
+  con entrambi i grant, che arrivano al profilo senza `access.manage`; un admin
+  disattivato che non può nemmeno connettersi (HA ne revoca i token). Nessun
+  test fallito, saltato o in errore di setup o teardown.
+- **Job HA 2025.1**: `test_access_people_ha` (16), `test_access_administration`
   (37), `test_access_manager` (39), `test_access_actions` (39),
   `test_access_contract` (5), `test_access_models` (70),
   `test_access_authorization` (68), `test_access_authorization_ha` (7),
