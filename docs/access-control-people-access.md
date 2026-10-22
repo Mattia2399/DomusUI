@@ -192,3 +192,36 @@ mai un account host o di servizio.
 | `SettingsHouseAccessSection.test.tsx`, `SettingsDashboard.test.tsx`, `routeAccess.test.ts` | Voce solo con `access.manage`; route protetta; Esci per tutti | Vitest |
 | `panelDistributionContract.test.ts`, `accessAuthority.test.ts` | Bridge: solo i comandi elencati, campi esatti, niente diagnostica | Vitest |
 | `tests/people-access.spec.cjs` | Due sessioni sullo stesso HA finto: l'admin concede e toglie il controllo allarme a Mario e Mario lo vede dopo il ricaricamento; ruolo `restricted` e `wall_panel`; ripristino del default; conflitto; Mario non vede la voce; 390, 820 e 1440 px; Esci anche offline | Playwright |
+
+## Validazione Linux
+
+I test con il fixture di Home Assistant non girano su Windows. Li ha eseguiti
+GitHub Actions sul repository privato `archive`.
+
+- **Come**: un branch temporaneo `ci/access-control-p241-linux-validation`,
+  uguale al codice validato più un solo commit che aggiungeva quel nome al
+  trigger `push` di `irrigation-core.yml`. Il branch è stato eliminato dopo la
+  run e il commit temporaneo non è nella storia del feature branch.
+- **Codice validato**: `3cf2eaa`.
+
+| Run | Commit | HA | Python | Test | Esito |
+| --- | --- | --- | --- | --- | --- |
+| 39758189365 | `3cf2eaa` | 2025.1.0 | 3.12.15 | 1151 passati | **verde** |
+| 39758189365 | `3cf2eaa` | 2026.2.3 | 3.13.16 | 1185 passati | **verde** |
+
+- Rispetto a P2.3 (run 39590575540: 1099 e 1133) entrambi i job hanno 52 test
+  in più: `test_access_administration` (37), `test_access_people_ha` (12), due
+  in `test_access_manager` e uno in `test_access_contract`.
+- **Job HA 2025.1**: `test_access_people_ha` (12), `test_access_administration`
+  (37), `test_access_manager` (39), `test_access_actions` (39),
+  `test_access_contract` (5), `test_access_models` (70),
+  `test_access_authorization` (68), `test_access_authorization_ha` (7),
+  `test_access_shadow` (43), `test_access_shadow_ha` (11).
+- **Job HA 2026.2.3**: tutta `tests_python`, comprese le stesse suite e
+  `test_access_websocket` (16: `get_self` e `reset_policy` invariati).
+- **Registrazioni reali**, verificate in entrambe le versioni: 38 comandi
+  WebSocket e 5 servizi, nessuna superficie non dichiarata; 31 WebSocket e 5
+  servizi osservati dallo shadow; 7 esenzioni, fra cui i tre comandi di Persone
+  e accessi.
+- **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
+  repository pubblici: è un workflow separato.
