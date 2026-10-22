@@ -195,9 +195,9 @@ La diagnostica si costruisce solo quando qualcuno la chiede.
 
 ## Dati per Q10
 
-Q10, cioè come trattare in enforcement i servizi chiamati senza `user_id`,
-**resta aperta**. Per ognuno dei 5 servizi di Irrigazione la diagnostica
-raccoglie:
+Q10, cioè come trattare in enforcement i servizi chiamati senza `user_id`, è
+**chiusa in P2.5A** su questi dati ([enforcement](access-control-enforcement.md#2-q10-levidenza-reale)).
+Per ognuno dei 5 servizi di Irrigazione la diagnostica raccoglie:
 
 | Campo | Significato |
 | --- | --- |
@@ -213,11 +213,17 @@ raccoglie:
 Regole di lettura:
 - Il contatore si chiama `no_principal`, non «automazioni»: HA non prova che una
   chiamata senza utente venga da un'automazione.
-- Il `parent_id` è solo diagnostica: non decide nulla, oggi né in futuro.
+- Il `parent_id` non è mai authority: non dice chi, non concede capability.
+  In P2.3 è solo diagnostica; da P2.5B rende *idonea* una chiamata senza
+  utente per le sole azioni che lo ammettono (D63).
 - Uno script avviato a mano eredita lo `user_id` di chi lo avvia: viene contato
   come chiamata con principal. Non ci sono euristiche per riconoscere gli
   script.
 - Nessun principal di sistema, nessuna automazione fidata, nessun bypass (D35).
+- Dopo la regola Q10 (P2.5B) il caso reale di `start_irrigation_zone` senza
+  utente con parent diventa `shadow_allow` (`allowed_unattributed_ha_context`)
+  e non più `would_block`: è la policy a essere cambiata, non il conteggio. I
+  numeri prima e dopo P2.5B non si confrontano.
 
 ## Cosa lo shadow non vede
 

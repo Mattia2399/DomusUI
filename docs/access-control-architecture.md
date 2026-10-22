@@ -11,6 +11,7 @@ Documenti collegati:
 
 - [threat model](access-control-threat-model.md);
 - [Persone e accessi](access-control-people-access.md) (P2.4.1);
+- [enforcement](access-control-enforcement.md) (design P2.5A, Q10);
 - [capability, route e azioni](access-control-capabilities.md);
 - [sicurezza e privacy](security-and-privacy.md);
 - [bridge del pannello](home-assistant-panel-bridge.md);
@@ -495,7 +496,10 @@ I cinque test di sicurezza obbligatori sono nel
 | **P2.3** ✓ | Shadow authorization su tutte le 36 superfici backend osservabili, confronto con l'esito reale, contatori in memoria senza identità, diagnostica admin (`get_shadow_diagnostics`, `reset_shadow_diagnostics`). Nessun enforcement. [Shadow](access-control-shadow.md). L'audit V1 delle decisioni resta fuori: lo shadow non è un audit (D41). |
 | **P2.4** ✓ | Frontend: profilo da `get_self` (anche nel bridge, solo quello), `can()`, tabella unica delle route, guardia e «Non disponibile», navigazione e Impostazioni filtrate, controlli di allarme, serrature e ingressi nascosti senza capability, «Torna in Home Assistant» con `ha_frontend.open`, `DashboardCapability` decisa da Access Control. Solo esperienza d'uso. [Frontend](access-control-frontend.md). |
 | **P2.4.1** ✓ | Persone e accessi minima, **prima** dell'enforcement: Impostazioni › Persone e accessi › Ruoli e permessi. Un admin HA attivo assegna a un account il ruolo (`admin`, `member`, `restricted`, `wall_panel`) e i grant `access.control` / `security.control`, con `expected_revision`, conflitto senza sovrascrittura e audit; ripristino della policy con conferma. Comandi `list_accounts`, `set_assignment`, `remove_assignment` (43 superfici); bridge `access_admin_v1`. Esci per ogni account (Q12), offline fail closed (Q13). Nessun enforcement nuovo. [Persone e accessi](access-control-people-access.md). |
-| **P2.5** | Enforcement sui comandi Domus (Energy view, Irrigazione, Raccolta rifiuti, Profile, Alimentazione) + i 5 test di sicurezza. |
+| **P2.5A** ✓ | Design dell'enforcement e chiusura di Q10: due percorsi (utente, contesto HA non attribuito), `allow_unattributed_ha_context` per azione con default falso, solo i cinque servizi dell'Irrigazione, nessun principal sintetico, rollout per dominio. Nessun comportamento cambia. [Enforcement](access-control-enforcement.md). |
+| **P2.5B** | Regola Q10 nel motore e negli adattatori, metadato nel registro, motivo `allowed_unattributed_ha_context`, diagnostica aggiornata; ancora shadow. Poi validazione Linux. |
+| **P2.5C** | QA shadow reale in casa con la regola Q10: i servizi opt-in senza utente devono risultare `shadow_allow`, nessun `would_block` non spiegato. |
+| **P2.5D** | Enforcement sui comandi Domus, un dominio alla volta (Alimentazione, Raccolta rifiuti, Energy, Profile, Irrigazione WebSocket, Irrigazione servizi) + i 5 test di sicurezza. |
 | **P2.6** | Persone e accessi completa: ospiti, pannelli dedicati, messaggio onesto sui limiti nativi HA dove si agisce. Ruoli per utente e recupero sono arrivati in P2.4.1. |
 | **P2.7** | Resource scope (aree/piani), ruoli personalizzati se confermati. |
 
@@ -536,7 +540,7 @@ I cinque test di sicurezza obbligatori sono nel
 | D31 | Ogni comando WebSocket `domusos/*` e servizio `domusos.*` è dichiarato in `access/actions.py` con la capability richiesta (e solo capability `domus`). |
 | D32 | Una superficie backend registrata senza dichiarazione fa fallire i contratti (S8), sia dal sorgente sia dalle registrazioni reali di HA. |
 | D33 | Le uniche eccezioni a «una capability per azione» sono nominate e motivate: `get_self` (`authenticated_bootstrap`) e `reset_policy` (`recovery`, `access.manage`). |
-| D34 | Un servizio chiamato senza utente produce una decisione deny `no_principal`; non viene applicata in P2.2, e la regola per P2.5 dipende dalle misure di P2.3 (Q10). |
+| D34 | Un servizio chiamato senza utente produce una decisione deny `no_principal`; non viene applicata in P2.2, e la regola per P2.5 dipende dalle misure di P2.3 (Q10). Precisata da D61–D65. |
 | D35 | Nessun principal di sistema, di automazione o «fidato» in V1. |
 | D36 | Nuova capability `waste.view` (bassa, `domus`) per `waste_collection/get_config` e `preview`, in tutti i ruoli, come oggi (Q9, chiusa). |
 | D37 | (P2.3) Lo shadow non blocca: la decisione viene calcolata e contata, la richiesta corre identica (stessa risposta, stessi errori, stesse eccezioni). Un deny shadow non è un deny reale. |
@@ -563,6 +567,18 @@ I cinque test di sicurezza obbligatori sono nel
 | D58 | Chi agisce e cosa possiede non vengono mai dal messaggio: schema chiuso, `assigned_by`/`assigned_at` scritti dal server, bersaglio letto da HA (esistente, attivo, non di sistema). Ogni cambio è un record nel `DomusAuditService`, con soli id. |
 | D59 | Il bridge del pannello inoltra anche `list_accounts`, `set_assignment`, `remove_assignment` e `reset_policy` (capability `access_admin_v1`) con un validatore a chiavi esatte; i comandi girano sulla connessione `hass` dell'utente del pannello, mai con un'identità host. La diagnostica shadow resta fuori. |
 | D60 | Ogni account autenticato può uscire da Home Assistant da Impostazioni (Q12). Offline, Domus resta fail closed con riprova, riconnessione e logout raggiungibili (Q13). |
+| D61 | (P2.5A, Q10) Due percorsi di autorizzazione: l'utente (`connection.user`, `context.user_id`) e il contesto HA non attribuito. Nessun principal sintetico, nessun ruolo di sistema o di automazione (rafforza D35). |
+| D62 | Se c'è un utente, decide solo l'ACL dell'utente: un suo deny non ricade mai sul percorso senza utente, anche con un `parent_id` (nessun downgrade). Le WebSocket non hanno percorso senza utente. |
+| D63 | `parent_id` è un segnale di provenienza, mai authority: rende solo idonea una chiamata senza utente per le azioni che lo ammettono. Aggiorna la regola dello shadow «il `parent_id` non decide nulla». |
+| D64 | Il percorso senza utente è opt-in per azione nel registro: `allow_unattributed_ha_context`, booleano, default falso, solo superfici `service` con capability `domus` non admin. In V1 è vero esattamente per i cinque servizi dell'Irrigazione; mai per amministrazione, recovery, bootstrap, diagnostica, `access.*` o capability critiche. |
+| D65 | Senza utente e senza `parent_id`, o con un contesto malformato: deny `no_principal`. |
+| D66 | Un'esecuzione HA non attribuita è autorità della casa, non delega di un utente. Un'automazione innescata da un utente vale come decisione della casa; nessuna euristica per ricostruire chi l'ha innescata. |
+| D67 | Un solo motivo nuovo, `allowed_unattributed_ha_context`, per gli allow del percorso senza utente; la decisione non ha `principal_id` né ruolo. I deny restano `no_principal`, distinti dall'origine. |
+| D68 | La regola sta nel motore (`authorize_unattributed_action`, puro) e nell'adattatore dei servizi; nessun controllo su `parent_id` negli handler. La classificazione del contesto è una sola per decisione e diagnostica. |
+| D69 | L'enforcement si accende per superficie nel registro (`enforced`, default falso), con un contratto che elenca le superfici enforced; nessun interruttore a runtime né da interfaccia; rollback = versione precedente (Q15). |
+| D70 | P2.5 in quattro passi: A design, B regola Q10 in shadow, C QA reale in casa, D enforcement per dominio dal meno rischioso; letture e scritture di un dominio insieme. |
+| D71 | Una volta enforced, security > availability: ogni errore di autorizzazione è un deny (WebSocket `access_denied`, servizi `Unauthorized`); audit dei deny applicati, nessun audit per chiamata degli allow senza utente, mai un attore inventato. |
+| D72 | Lo shadow resta come diagnostica dell'enforcement con una sola decisione per richiesta; dopo P2.5B `would_block` si riferisce alle regole nuove e la diagnostica dichiara la versione delle regole. |
 
 ## 21. Domande aperte
 
@@ -580,4 +596,6 @@ I cinque test di sicurezza obbligatori sono nel
 | Q11 | `/settings/attention` (Centro attenzione): resta `dashboard.edit` come oggi o diventa una preferenza del dispositivo (`device.manage`)? | **Aperta / rimandata**: resta `dashboard.edit`; nessuna capability nuova solo per chiuderla |
 | Q12 | Fuori dal pannello di HA, il logout di un member su desktop era in Connessioni (`system.manage`): va reso un'esenzione (la propria sessione) o basta quello del drawer mobile? | **Chiusa (P2.4.1)**: Esci in Impostazioni per ogni account autenticato, con conferma (D60) |
 | Q13 | Senza connessione a Home Assistant le pagine protette mostrano «Home Assistant non collegato» invece del proprio stato «non collegato», e Impostazioni non elenca voci: va bene così (fail closed) o certe pagine del browser (Aspetto, Lingua, Connessioni) devono restare aperte offline? | **Chiusa per V1**: fail closed; restano riprova, riconnessione, logout e il recupero minimo (D60) |
-| Q10 | In P2.5, cosa fare dei servizi chiamati senza utente (automazioni di Irrigazione)? Il deny `no_principal` le romperebbe | **Aperta** fino ai dati reali. P2.3 conta per ognuno dei 5 servizi: chiamate, con e senza principal, senza utente con e senza parent, allow e deny, `no_principal`, esito reale, `would_block` ([dati per Q10](access-control-shadow.md#dati-per-q10)). Nessun principal di sistema (D35) |
+| Q10 | In P2.5, cosa fare dei servizi chiamati senza utente (automazioni di Irrigazione)? Il deny `no_principal` le romperebbe | **Chiusa (P2.5A)** sull'evidenza reale del 22 ottobre 2026 (`start_irrigation_zone`: 3 chiamate senza utente con parent, 1 riuscita che sarebbe stata bloccata). Utente presente → ACL utente; senza utente con parent → solo azioni opt-in (i cinque servizi dell'Irrigazione); senza parent → deny. Nessun principal sintetico (D61–D66, [enforcement](access-control-enforcement.md)) |
+| Q14 | Con lo store non affidabile, il percorso senza utente resta aperto per i servizi opt-in? | **Aperta.** Proposta: no, fail closed (deny `locked`); da decidere prima di P2.5B ([enforcement](access-control-enforcement.md#15-domande-nuove)) |
+| Q15 | Serve un interruttore d'emergenza per tornare allo shadow senza reinstallare? | **Aperta.** Proposta: no in V1; rollback con la versione precedente; da decidere prima di P2.5D |

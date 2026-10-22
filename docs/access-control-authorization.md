@@ -213,7 +213,15 @@ Per questo:
 - non esiste un «principal di sistema» o «automazione fidata» (D35);
 - P2.3 misura in shadow quante chiamate senza utente arrivano davvero, con e
   senza parent ([dati per Q10](access-control-shadow.md#dati-per-q10));
-- la regola per P2.5 va decisa sui dati (domanda aperta Q10).
+- la regola per P2.5 va decisa sui dati (Q10).
+
+**Q10 chiusa in P2.5A** sull'evidenza reale
+([enforcement](access-control-enforcement.md)). Con un utente decide l'ACL
+dell'utente, senza ripiego. Senza utente ma con un `parent_id`, passano solo le
+azioni con `allow_unattributed_ha_context` (in V1 i cinque servizi
+dell'Irrigazione), con il motivo `allowed_unattributed_ha_context` e nessun
+principal. Senza utente né parent: deny `no_principal`. La regola arriva nel
+motore in P2.5B, ancora in shadow.
 
 I comandi WebSocket non sono raggiungibili dalle automazioni.
 
