@@ -134,9 +134,10 @@ dati di policy: nessun nome, email, foto o persona.
   sovrascrittura. Un assignment identico non crea una revisione.
 - Una scrittura fallita non cambia nulla in memoria.
 - **Audit** limitato agli ultimi 200 cambi di assignment.
-- **Scritture**: solo primitive backend (`async_assign`, `async_unassign`), per
-  i test e per P2.6. Nessun client può chiamarle: nessuna mutazione pubblica in
-  P2.1.
+- **Scritture**: solo primitive backend (`async_assign`, `async_unassign`).
+  Nessuna mutazione pubblica in P2.1; da P2.4.1 le chiamano i comandi admin di
+  [Persone e accessi](access-control-people-access.md), e ogni cambio è anche
+  un record nel `DomusAuditService`.
 
 ### Stati
 

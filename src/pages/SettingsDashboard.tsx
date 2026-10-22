@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BatteryCharging,
   Bell,
+  LogOut,
   BellRing,
   Box,
   ChevronRight,
@@ -105,6 +106,7 @@ import {
 import type { DashboardAppearanceMode, DashboardBackgroundPreset } from '../theme/dashboardTheme';
 import LazyLoadBoundary, { LazyLoadErrorBoundary } from '../components/common/LazyLoadBoundary';
 import { useAccessControl } from '../security/AccessControlProvider';
+import { usePeopleAccessCopy } from '../i18n/peopleAccessCopy';
 import { canOpenRoute } from '../navigation/routeAccess';
 import { useScreensaverPreferences } from '../components/screensaver/screensaverPreferences';
 import { useKioskPreferences } from '../components/kiosk/kioskPreferences';
@@ -175,6 +177,12 @@ type SettingsDashboardProps = {
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   managedSectionContent?: React.ReactNode;
+  /**
+   * Signs this browser out of Home Assistant: for every signed-in account,
+   * whatever its role (Q12). Absent inside the Home Assistant panel, where
+   * Home Assistant signs out itself.
+   */
+  onSignOut?: () => void;
 };
 
 type SystemSensorKind =
@@ -562,6 +570,7 @@ export default function SettingsDashboard({
   navigationRoute,
   onNavigate,
   managedSectionContent,
+  onSignOut,
 }: SettingsDashboardProps) {
   const { locale, t } = useI18n();
   const security = useDashboardSecurity();
@@ -581,6 +590,7 @@ export default function SettingsDashboard({
   const [wasteLeaveConfirmOpen, setWasteLeaveConfirmOpen] = useState(false);
   const [updatesPageOpen, setUpdatesPageOpen] = useState(false);
   const [accountAvatarFailed, setAccountAvatarFailed] = useState(false);
+  const [isSignOutOpen, setIsSignOutOpen] = useState(false);
   // 0 → 1 while the person scrolls out of the overview and into its top bar:
   // the bar's surface first, so it covers what passes under it, then its content.
   const [accountBar, setAccountBar] = useState({ surface: 0, content: 0 });
@@ -598,6 +608,7 @@ export default function SettingsDashboard({
   const kiosk = useKioskPreferences();
   // The rows only follow Home Assistant; every device power command is checked there again.
   const access = useAccessControl();
+  const peopleAccessCopy = usePeopleAccessCopy();
   const systemSensors = useMemo(() => pickSystemSensors(haStates), [haStates]);
   const updateEntities = useMemo(() => collectUpdateEntities(haStates), [haStates]);
   const availableUpdates = updateEntities.filter((entry) => entry.available);
@@ -1050,15 +1061,59 @@ export default function SettingsDashboard({
                 <ChevronRight size={13} aria-hidden="true" />
               </span>
             </button>
-            <div className="overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
-              <SettingsListRow
-                icon={Bell}
-                iconClassName="bg-rose-500"
-                title={t('profile.devices.title')}
-                subtitle={t('profile.devices.subtitle')}
-                onClick={() => navigateTo(`${PROFILE_ROUTE}/devices`)}
-              />
+            {access.can('profile.manage') || onSignOut ? (
+            <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
+              {access.can('profile.manage') ? (
+                <SettingsListRow
+                  icon={Bell}
+                  iconClassName="bg-rose-500"
+                  title={t('profile.devices.title')}
+                  subtitle={t('profile.devices.subtitle')}
+                  onClick={() => navigateTo(`${PROFILE_ROUTE}/devices`)}
+                />
+              ) : null}
+              {onSignOut ? (
+                <SettingsListRow
+                  icon={LogOut}
+                  destructive
+                  title={t('navigation.logout.confirm')}
+                  subtitle={t('navigation.logout.description')}
+                  onClick={() => setIsSignOutOpen(true)}
+                />
+              ) : null}
             </div>
+            ) : null}
+            {onSignOut ? (
+              <GlassModal
+                isOpen={isSignOutOpen}
+                onClose={() => setIsSignOutOpen(false)}
+                title={t('navigation.logout.title')}
+                description={t('navigation.logout.description')}
+                variant="dialog"
+                size="sm"
+                footer={(
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      className="liquid-glass-control inline-flex min-h-10 items-center justify-center rounded-full px-4 text-sm font-semibold"
+                      onClick={() => setIsSignOutOpen(false)}
+                    >
+                      {t('navigation.logout.cancel')}
+                    </button>
+                    <button
+                      type="button"
+                      className="inline-flex min-h-10 items-center justify-center rounded-full bg-[color:var(--ui-danger)] px-4 text-sm font-semibold text-[color:var(--ui-danger-contrast)]"
+                      onClick={() => {
+                        setIsSignOutOpen(false);
+                        onSignOut();
+                      }}
+                    >
+                      {t('navigation.logout.confirm')}
+                    </button>
+                  </div>
+                )}
+              />
+            ) : null}
           </section>
 
           {SETTINGS_SECTIONS.map((section) => {
@@ -1522,9 +1577,10 @@ export default function SettingsDashboard({
     settingsPath === '/settings/connections' ||
     settingsPath === '/settings/data'
   ) {
+    // People and access: its route already asked for people.view, and Roles and permissions for access.manage.
     const canOpenManagedPage =
       settingsPath === '/settings/connections' ||
-      (houseAccessView !== null && security.can('manage_rooms')) ||
+      houseAccessView !== null ||
       (settingsPath === '/settings/data' &&
         (security.can('download_backup') ||
           security.can('restore_backup') ||
@@ -1534,6 +1590,11 @@ export default function SettingsDashboard({
         ? {
             title: t('settings.access.membersTitle'),
             subtitle: t('settings.access.membersDescription'),
+          }
+        : houseAccessView === 'roles'
+        ? {
+            title: peopleAccessCopy('title'),
+            subtitle: peopleAccessCopy('subtitle'),
           }
         : houseAccessView === 'guest'
         ? {

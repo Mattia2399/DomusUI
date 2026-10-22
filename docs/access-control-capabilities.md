@@ -59,7 +59,9 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 
 34 capability (`waste.view` aggiunta in P2.2). Regole verificate dai test:
 
-- solo `access.control` e `security.control` sono concedibili;
+- solo `access.control` e `security.control` sono concedibili, e da P2.4.1 un
+  admin HA li concede da Impostazioni › Persone e accessi › Ruoli e permessi
+  ([Persone e accessi](access-control-people-access.md));
 - una capability concedibile non richiede mai l'admin HA e non è mai critica;
 - `access.manage`, `system.manage`, `backup.restore`, `ha.restart`,
   `people.manage`, `device_power.manage`, `automations.manage` non sono
@@ -149,7 +151,7 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | Notifiche | Elenco destinatari | `notifications.recipients` | medium | **sì** | scelta destinatari | — (oggi admin) |
 | Persone e accessi | Elenco membri | `people.view` | low | no | `/settings/access` | `config/auth/list` admin, `person/list` aperto |
 | Persone e accessi | Crea persona, collega account, foto | `people.manage` | high | no | azioni | `person/*` admin, upload admin |
-| Persone e accessi | Ruoli Domus | `access.manage` | critical | **sì** | futura sezione Accessi | admin |
+| Persone e accessi | Ruoli Domus e grant personali | `access.manage` | critical | **sì** | `/settings/access/roles` (P2.4.1) | admin |
 | Sicurezza | Configurazione e card protette | `security.manage` | high | no | Impostazioni › Sicurezza | `set_system_data` admin |
 | Sistema | Connessione | `system.manage` | high | no (browser) | Impostazioni › Connessioni | — |
 | Sistema | Dispositivi, entità | `system.manage` | high | no | Impostazioni › Dispositivi/Entità | registri admin |
@@ -178,7 +180,8 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | `/settings/profile/*` | Ogni account domestico | `profile.manage` | «Non disponibile» | Non per `wall_panel` |
 | `/settings/dashboard` | `edit_dashboard` | `dashboard.edit` | «Non disponibile» | |
 | `/settings/floors` | Ogni utente, azioni admin | `house.manage` | «Non disponibile» | |
-| `/settings/access/*` | `manage_rooms` | `people.view`; azioni `people.manage` / `access.manage` | «Non disponibile» | Futura sezione Accessi |
+| `/settings/access/*` | `manage_rooms` | `people.view`; azioni `people.manage` / `access.manage` | «Non disponibile» | Persone e accessi |
+| `/settings/access/roles` | — | `access.manage` | «Non disponibile» | Ruoli e permessi (P2.4.1, [Persone e accessi](access-control-people-access.md)) |
 | `/settings/safety` | `manage_security_config` | `security.manage` | «Non disponibile» | |
 | `/settings/home/waste-collection` | Ogni utente, salvataggio admin | `waste.manage` | «Non disponibile» | |
 | `/settings/connections` | Ogni utente | `system.manage` | «Non disponibile» | Nel pannello è informativa |

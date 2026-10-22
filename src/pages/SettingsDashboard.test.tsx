@@ -6,7 +6,7 @@ import {
   createDashboardSecurityValue,
 } from '../security/dashboardAccess';
 import SettingsDashboard from './SettingsDashboard';
-import { defaultAccessFor } from '../test/accessFixtures';
+import { accessFor, defaultAccessFor } from '../test/accessFixtures';
 import { AccessTestProviders } from '../test/AccessTestProviders';
 
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
@@ -880,5 +880,34 @@ describe('SettingsDashboard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/profile');
+  });
+  it('lets every signed-in account sign out, whatever its role, after a confirmation', async () => {
+    const onSignOut = vi.fn();
+    const member = createDashboardSecurityValue({
+      runtimeMode: 'real',
+      haStatus: 'connected',
+      user: { id: 'member-1' },
+      access: accessFor('wall_panel', { userId: 'member-1' }),
+    });
+    const { unmount } = render(
+      <AccessTestProviders security={member}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" onSignOut={onSignOut} />
+      </AccessTestProviders>,
+    );
+    // A panel account has no profile of its own: no My devices, but signing out is always there.
+    expect(screen.queryByRole('button', { name: /I miei dispositivi/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^Esci/ }));
+    const confirm = within(screen.getByRole('dialog'));
+    fireEvent.click(confirm.getByRole('button', { name: 'Esci' }));
+    expect(onSignOut).toHaveBeenCalledTimes(1);
+    unmount();
+
+    // Inside the Home Assistant panel the session is Home Assistant's: Domus offers nothing to sign out.
+    render(
+      <AccessTestProviders security={security}>
+        <SettingsDashboard {...baseProps} navigationRoute="/settings" />
+      </AccessTestProviders>,
+    );
+    expect(screen.queryByRole('button', { name: /^Esci/ })).toBeNull();
   });
 });

@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ChangeEvent, type ComponentType } from 'react';
+import React, { useEffect, useRef, useState, type ChangeEvent, type ComponentType } from 'react';
 import {
   Camera,
   ChevronLeft,
   ChevronRight,
   Clock3,
+  KeyRound,
   Link2,
   Pencil,
   ShieldCheck,
@@ -12,6 +13,13 @@ import {
   Users,
 } from 'lucide-react';
 import { useDashboardSecurity } from '../../security/dashboardAccess';
+import { useCan } from '../../security/AccessControlProvider';
+import type { AccessAdminCallApi } from '../../services/accessAdminClient';
+import { usePeopleAccessCopy } from '../../i18n/peopleAccessCopy';
+import DeferredGlassLoader from '../ui/DeferredGlassLoader';
+
+// Roles and permissions load only for an administrator who opens them.
+const PeopleAccessManager = React.lazy(() => import('./PeopleAccessManager'));
 import { useI18n } from '../../i18n/I18nProvider';
 import {
   applyDashboardUserDataPayload,
@@ -49,6 +57,8 @@ export type SettingsHouseAccessSectionProps = {
    * back button (Settings > Access routes), so they are not rendered twice.
    */
   showSubviewHeader?: boolean;
+  /** The Home Assistant connection, for Roles and permissions (access.manage only). */
+  onCallApi?: AccessAdminCallApi;
 };
 
 type Feedback = {
@@ -75,8 +85,12 @@ export function SettingsHouseAccessSection({
   currentUserName,
   currentUserRole,
   showSubviewHeader = true,
+  onCallApi,
 }: SettingsHouseAccessSectionProps) {
   const { t } = useI18n();
+  const peopleAccessCopy = usePeopleAccessCopy();
+  // Seeing the people of the house (people.view) is not managing their access (access.manage).
+  const canManageAccess = useCan('access.manage');
   const dashboardSecurity = useDashboardSecurity();
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [shareFeedback, setShareFeedback] = useState<Feedback>({
@@ -535,6 +549,14 @@ export function SettingsHouseAccessSection({
     );
   }
 
+  if (view === 'roles') {
+    return canManageAccess && onCallApi ? (
+      <React.Suspense fallback={<DeferredGlassLoader label={peopleAccessCopy('loading')} />}>
+        <PeopleAccessManager callApi={onCallApi} />
+      </React.Suspense>
+    ) : null;
+  }
+
   if (view === 'guest') {
     return (
       <section className="pb-6">
@@ -678,6 +700,24 @@ export function SettingsHouseAccessSection({
           ) : null}
           <ChevronRight size={16} className={subtleTextClass} />
         </button>
+
+        {canManageAccess && onCallApi ? (
+          <>
+            <div className={settingsDividerClass} />
+            <button
+              type="button"
+              onClick={() => onViewChange('roles')}
+              className={`${settingsRowClass} ${buttonMotionClass}`}
+            >
+              {renderSettingsIcon(KeyRound)}
+              <div className="min-w-0 flex-1">
+                <p className={settingsTitleClass}>{peopleAccessCopy('entryTitle')}</p>
+                <p className={settingsSubtitleClass}>{peopleAccessCopy('entrySubtitle')}</p>
+              </div>
+              <ChevronRight size={16} className={subtleTextClass} />
+            </button>
+          </>
+        ) : null}
 
         <div className={settingsDividerClass} />
 

@@ -27,6 +27,15 @@
   given that permission. This is how the interface looks, not protection:
   the Domus backend and Home Assistant still decide every request as
   before.
+- Settings › People and access › Roles and permissions lets a Home
+  Assistant administrator choose the Domus role of each account
+  (Administrator, Member, Limited access, Panel) and give a person
+  "Access control" for locks, gates and garage doors or "Alarm control".
+  A change made meanwhile from another session is never overwritten: the
+  page says so and reloads. If the stored permissions become unreadable,
+  the same page offers to restore them, after a confirmation. Every account
+  can now sign out from Settings. No new restriction is enforced by the
+  Domus backend yet.
 - Settings › This device › Kiosk mode turns a wall tablet or a dedicated PC
   into a Domus panel: "Start panel mode" hides Domus's own navigation, opens
   the chosen start page and, when the browser allows it, goes full screen and

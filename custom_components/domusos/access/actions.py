@@ -121,6 +121,19 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
         HaCheck.ADMIN,
         shadow_exemption="Clears the shadow diagnostics: observing it would dirty the counters it just cleared.",
     ),
+    # People and access: enforced from the start (active Home Assistant administrator with access.manage).
+    *(
+        ActionContract(
+            f"domusos/access/{command}",
+            SurfaceKind.WEBSOCKET,
+            AuthMode.CAPABILITY,
+            ACCESS_MANAGE,
+            HaCheck.ADMIN,
+            shadow_exemption="Access Control administration: already enforced on the connection's administrator, "
+            "like the recovery; not a shadow surface.",
+        )
+        for command in ("list_accounts", "set_assignment", "remove_assignment")
+    ),
     # --- Device power (administrators only today) ------------------------------------------
     _ws("device_power/get_state", "device_power.manage", _A),
     _ws("device_power/save_policy", "device_power.manage", _A),

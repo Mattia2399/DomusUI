@@ -135,9 +135,10 @@ L'admin HA **non è un bypass**:
 
 ## Registro delle azioni
 
-`ACTION_CONTRACTS` dichiara **40 superfici**: 35 comandi WebSocket e 5 servizi.
+`ACTION_CONTRACTS` dichiara **43 superfici**: 38 comandi WebSocket e 5 servizi.
 Sono tutte quelle che l'integrazione registra. In P2.2 erano 38 (33 + 5); P2.3
-ha aggiunto i due comandi della diagnostica shadow.
+ha aggiunto i due comandi della diagnostica shadow, P2.4.1 i tre di Persone e
+accessi ([Persone e accessi](access-control-people-access.md)).
 
 - La lista viene letta dal sorgente nel test e confrontata con le registrazioni
   reali di HA (`hass.data["websocket_api"]`, `hass.services`).
@@ -158,7 +159,7 @@ capability, non vengono ripetuti.
 
 | Modalità | Uso | Azioni |
 | --- | --- | --- |
-| `capability` | La capability dell'azione decide | 38 |
+| `capability` | La capability dell'azione decide | 41 |
 | `authenticated_bootstrap` | Basta un account valido con una policy: è il modo in cui il client scopre le proprie capability | `domusos/access/get_self` |
 | `recovery` | `access.manage`, che solo un admin HA possiede (sempre, anche `locked`) | `domusos/access/reset_policy` (resta anche il controllo diretto admin di P2.1.2) |
 
@@ -169,6 +170,7 @@ capability, non vengono ripetuti.
 | `domusos/access/get_self` | — (bootstrap) | account domestico |
 | `domusos/access/reset_policy` | `access.manage` (recovery) | admin |
 | `domusos/access/get_shadow_diagnostics`, `reset_shadow_diagnostics` (P2.3) | `access.manage` | admin |
+| `domusos/access/list_accounts`, `set_assignment`, `remove_assignment` (P2.4.1) | `access.manage` | admin, più `access.manage` sul principal nello stesso handler |
 | `domusos/device_power/get_state`, `save_policy`, `bind_policy`, `delete_policy` | `device_power.manage` | admin |
 | `domusos/energy/get_state`, `get_history` | `energy.view` | — (aperti a ogni utente oggi) |
 | `domusos/energy/get_profile`, `save_profile`, `discover` | `energy.manage` | admin |
@@ -222,6 +224,8 @@ I comandi WebSocket non sono raggiungibili dalle automazioni.
 - Nessun log persistente delle decisioni, nessun evento, nessun `subscribe`.
 - Il frontend usa il profilo da P2.4 ([frontend](access-control-frontend.md)), solo per l'esperienza d'uso.
 - Nessun resource scope (P2.7), nessun ruolo personalizzato, nessun ospite.
+- Da P2.4.1 un admin HA scrive ruoli e grant ([Persone e accessi](access-control-people-access.md)):
+  la policy diventa configurabile, ma nessun comando Domus la applica ancora.
 
 ## Test
 

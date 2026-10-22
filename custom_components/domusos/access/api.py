@@ -13,6 +13,13 @@ while an automation calls with no user at all
 The shadow diagnostics tell an administrator what Access Control would have
 decided on the requests observed so far; they are counters in memory, read
 and cleared here, never stored (docs/access-control-shadow.md).
+
+People and access (docs/access-control-people-access.md): an active Home
+Assistant administrator lists the accounts and changes the role and personal
+grants of one of them. The administrator is always the connection's account;
+the request names only the account it changes, which must be an active
+household account of Home Assistant. Who changed it and when are written by
+the server, and every change needs the policy revision the page last read.
 """
 
 from __future__ import annotations
@@ -28,7 +35,8 @@ from ..const import DOMAIN
 from .authorization import identify
 from .instrumentation import register_websocket_commands, shadow_stats
 from .manager import DATA_ACCESS_MANAGER, AccessPolicyManager, principal_from_user
-from .models import AccessDeniedError, AccessError, AccessUnavailableError
+from .administration import AccountFacts, account_view, accounts_view, assignment_request, require_manageable
+from .models import AccessDeniedError, AccessError, AccessUnavailableError, UnknownAccountError
 
 WS_PREFIX = f"{DOMAIN}/access"
 
@@ -145,11 +153,146 @@ def websocket_reset_shadow_diagnostics(
     connection.send_result(msg["id"], result)
 
 
+def _person_names(hass: HomeAssistant) -> dict[str, str]:
+    """The name of the person linked to each account, to show; never an authority."""
+    names: dict[str, str] = {}
+    for state in hass.states.async_all("person"):
+        user_id = state.attributes.get("user_id")
+        name = state.attributes.get("friendly_name")
+        if isinstance(user_id, str) and isinstance(name, str) and name.strip():
+            names[user_id] = name.strip()
+    return names
+
+
+def _facts(user: Any, names: dict[str, str]) -> AccountFacts:
+    return AccountFacts(
+        user_id=user.id,
+        name=names.get(user.id) or (user.name or "").strip() or user.id[:8],
+        is_admin=user.is_admin is True,
+        is_owner=user.is_owner is True,
+        is_active=user.is_active is True,
+        system_generated=user.system_generated is True,
+    )
+
+
+def _policy_summary(manager: AccessPolicyManager) -> dict[str, Any]:
+    return {"state": manager.state.value, "revision": manager.revision}
+
+
+async def _target(hass: HomeAssistant, user_id: str) -> AccountFacts:
+    user = await hass.auth.async_get_user(user_id)
+    if user is None:
+        raise UnknownAccountError("No Home Assistant account has this id")
+    return _facts(user, _person_names(hass))
+
+
+def _send_access_error(connection: websocket_api.ActiveConnection, msg_id: int, err: Exception) -> None:
+    if isinstance(err, AccessError):
+        connection.send_error(msg_id, err.code, str(err))
+    else:
+        connection.send_error(msg_id, "unknown_error", "Domus access control failed")
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/list_accounts"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_list_accounts(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Every household account with its Domus role and grants; for an administrator, read only."""
+    try:
+        manager = _manager(hass)
+        manager.require_access_manager(connection.user)
+        names = _person_names(hass)
+        accounts = [_facts(user, names) for user in await hass.auth.async_get_users()]
+        result = {
+            **_policy_summary(manager),
+            "accounts": accounts_view(accounts, manager.state, manager.assignments),
+        }
+    except Exception as err:  # noqa: BLE001 - always answer the client
+        _send_access_error(connection, msg["id"], err)
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/set_assignment",
+        vol.Required("user_id"): str,
+        vol.Required("role"): str,
+        vol.Required("grants"): [str],
+        vol.Required("expected_revision"): int,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_set_assignment(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Give one account a role and personal grants, in one write, if the revision still matches."""
+    try:
+        manager = _manager(hass)
+        manager.require_access_manager(connection.user)
+        target = await _target(hass, msg["user_id"])
+        require_manageable(target)
+        role, grants = assignment_request(msg["role"], msg["grants"])
+        await manager.async_assign(connection.user, target.user_id, role, list(grants), msg["expected_revision"])
+        result = {
+            **_policy_summary(manager),
+            "account": account_view(target, manager.state, manager.assignments.get(target.user_id)),
+        }
+    except Exception as err:  # noqa: BLE001 - nothing is reported as saved unless it was
+        _send_access_error(connection, msg["id"], err)
+        return
+    connection.send_result(msg["id"], result)
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{WS_PREFIX}/remove_assignment",
+        vol.Required("user_id"): str,
+        vol.Required("expected_revision"): int,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_remove_assignment(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]
+) -> None:
+    """Return one account to its default role.
+
+    An assignment left by an account Home Assistant no longer has can be
+    removed too; a disabled account keeps its assignment, which may hold it
+    back, until it is active again.
+    """
+    try:
+        manager = _manager(hass)
+        manager.require_access_manager(connection.user)
+        user = await hass.auth.async_get_user(msg["user_id"])
+        target = _facts(user, _person_names(hass)) if user is not None else None
+        if target is not None:
+            require_manageable(target)
+        elif msg["user_id"] not in manager.assignments:
+            raise UnknownAccountError("No Home Assistant account has this id")
+        await manager.async_unassign(connection.user, msg["user_id"], msg["expected_revision"])
+        result = {
+            **_policy_summary(manager),
+            "account": account_view(target, manager.state, None) if target is not None else None,
+        }
+    except Exception as err:  # noqa: BLE001 - nothing is reported as saved unless it was
+        _send_access_error(connection, msg["id"], err)
+        return
+    connection.send_result(msg["id"], result)
+
+
 WEBSOCKET_COMMANDS = (
     websocket_get_self,
     websocket_reset_policy,
     websocket_get_shadow_diagnostics,
     websocket_reset_shadow_diagnostics,
+    websocket_list_accounts,
+    websocket_set_assignment,
+    websocket_remove_assignment,
 )
 
 

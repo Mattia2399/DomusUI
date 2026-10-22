@@ -105,8 +105,9 @@ Il contesto senza provider non concede nulla.
   istante da `disconnected` prima di riconnettersi da sola: in quell'istante
   mostra ancora «Verifica dell'account…».
 - Prima di P2.4 ogni pagina mostrava da sola il proprio «non collegato» e
-  Impostazioni elencava tutto. Ora no: è una scelta fail-closed da confermare
-  (Q13).
+  Impostazioni elencava tutto. Ora no: è una scelta fail-closed, **confermata
+  per V1 in P2.4.1** (Q13). Restano raggiungibili riprova, riconnessione ed
+  Esci.
 
 ## Avvio senza flash
 
@@ -136,6 +137,7 @@ dalla navigazione e dall'elenco di Impostazioni. Vale la regola più specifica.
 | `/settings/dashboard`, `/settings/data/history`, `/settings/attention` | `dashboard.edit` |
 | `/settings/floors` | `house.manage` |
 | `/settings/access/*` | `people.view` |
+| `/settings/access/roles` (P2.4.1) | `access.manage` |
 | `/settings/safety`, `/settings/security` | `security.manage` |
 | `/settings/home/waste-collection` | `waste.manage` |
 | `/settings/connections`, `/settings/devices/*`, `/settings/entities/*` | `system.manage` |
@@ -206,7 +208,10 @@ voci.
 | member | Persone e accessi | Sistema | Aspetto, Lingua, Screensaver, Kiosk |
 | restricted, wall_panel, locked | — | — | — |
 
-Restano sempre la scheda dell'account e, con `profile.manage`, il Profilo.
+Restano sempre la scheda dell'account, **Esci** (P2.4.1, Q12) e, con
+`profile.manage`, il Profilo e «I miei dispositivi». In Persone e accessi la
+voce «Ruoli e permessi» compare solo con `access.manage`
+([Persone e accessi](access-control-people-access.md)).
 `profile.manage` (il proprio profilo) non va confuso con `people.manage`
 (creare persone e collegare account).
 
@@ -287,7 +292,10 @@ Punti del frontend che portano a Home Assistant o fuori da Domus:
   - le etichette di ruolo HA mostrate nel profilo e nei membri;
   - `canManageHa` dell'onboarding, che gira prima dell'identità;
   - il report di diagnostica.
-- Nessuna API di scrittura di ruoli o grant: Persone e accessi arriva dopo.
+- Da P2.4.1 ruoli e grant si scrivono da Ruoli e permessi
+  ([Persone e accessi](access-control-people-access.md)); dopo un cambio del
+  proprio account il profilo si ricarica con `refresh()`, gli altri account lo
+  vedono alla prossima lettura di `get_self` (ricaricamento o riconnessione).
 
 ## Impatto sugli account (prima dell'enforcement)
 
@@ -302,8 +310,8 @@ Rispetto a prima di P2.4, con la matrice approvata e senza grant:
 - In Impostazioni perde Piani e stanze, Raccolta rifiuti, Connessioni,
   Dispositivi ed Entità, che prima vedeva in sola lettura.
 - **Logout.** Fuori dal pannello di HA, su desktop, il logout era in
-  Connessioni: resta quello del drawer mobile. Va deciso se il logout della
-  propria sessione debba essere un'esenzione.
+  Connessioni. **Risolto in P2.4.1** (Q12): Esci è in Impostazioni per ogni
+  account.
 
 **restricted**
 - Niente Sicurezza, Automazioni, Consumi.
@@ -323,8 +331,9 @@ Rispetto a prima di P2.4, con la matrice approvata e senza grant:
 **member locked**
 - Solo Home, Stanze e Profilo, con l'avviso.
 
-Per questo, prima dell'enforcement (P2.5), serve una UI minima per assegnare
-ruoli e grant: vedi la [roadmap](access-control-architecture.md#19-roadmap).
+Per questo, prima dell'enforcement (P2.5), serviva una UI minima per assegnare
+ruoli e grant: è arrivata in P2.4.1
+([Persone e accessi](access-control-people-access.md)).
 
 ## Test
 
@@ -337,6 +346,6 @@ ruoli e grant: vedi la [roadmap](access-control-architecture.md#19-roadmap).
 | `src/components/access/AccessScreens.test.tsx` | Titolo, sezione, azioni, nessun termine tecnico, lingue; avviso locked; card allarme nascosta senza `security.view` |
 | card e pannelli (`AlarmCard`, `CoverCard`, `LockControls`, `SecurityDashboard`) | stato senza comandi per member, comandi con il grant |
 | navigazione (`LeftSidebar`, `BottomBarNav`, `MobileSidebarDrawer`) | restricted coerente su desktop e mobile; niente durante il caricamento |
-| `src/services/panelDistributionContract.test.ts`, `src/security/accessAuthority.test.ts` | Bridge: solo `get_self`, solo `type`, niente reset né diagnostica; nessuno storage; nessun polling; nessun controllo sul ruolo |
+| `src/services/panelDistributionContract.test.ts`, `src/security/accessAuthority.test.ts` | Bridge: `get_self` con solo `type`; da P2.4.1 anche i comandi di Persone e accessi e `reset_policy`, a chiavi esatte; mai la diagnostica; nessuno storage; nessun polling; nessun controllo sul ruolo |
 | e2e esistenti | Ogni HA finto risponde a `get_self` come il backend (`tests/support/accessSelf.cjs`). Le suite che aprivano pagine senza HA ora si collegano a un HA finto (`tests/support/fakeHomeAssistant.cjs`) o verificano l'avviso «non collegato». Il test del member in Impostazioni segue la nuova matrice |
 | `tests/access-control.spec.cjs` (e2e) | admin, member, restricted, member locked e admin locked sull'app vera; URL diretto; avvio lento; errore e `unavailable`; telefono 390×844; `wall_panel` in Kiosk 820×1180 |

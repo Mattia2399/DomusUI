@@ -192,23 +192,44 @@ describe('Home Assistant panel distribution contract', () => {
     }
   });
 
-  it('forwards only the own access profile of the account, never an administrative Access Control command', () => {
+  it('forwards the own access profile and People and access, never the shadow diagnostics', () => {
     const bridge = readPanelBridgeSource();
-    const hostTypes = [...bridge.matchAll(/"(domusos\/access\/[a-z_]+)"/g)].map((match) => match[1]);
-    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/access/'));
+    const hostTypes = new Set([...bridge.matchAll(/"(domusos\/access\/[a-z_]+)"/g)].map((match) => match[1]));
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/access/')).sort();
+    const expected = [
+      'domusos/access/get_self',
+      'domusos/access/list_accounts',
+      'domusos/access/remove_assignment',
+      'domusos/access/reset_policy',
+      'domusos/access/set_assignment',
+    ];
 
-    expect(hostTypes).toEqual(['domusos/access/get_self', 'domusos/access/get_self']);
-    expect(appTypes).toEqual(['domusos/access/get_self']);
+    expect([...hostTypes].sort()).toEqual(expected);
+    expect(appTypes).toEqual(expected);
     expect(bridge).toContain('"access_v1"');
-    for (const type of ['reset_policy', 'get_shadow_diagnostics', 'reset_shadow_diagnostics']) {
+    expect(bridge).toContain('"access_admin_v1"');
+    for (const type of ['get_shadow_diagnostics', 'reset_shadow_diagnostics']) {
       expect(bridge).not.toContain(`"domusos/access/${type}"`);
       expect(validatePanelApiMessage({ type: `domusos/access/${type}` })).toBe(false);
     }
-    // The account is the connection's: nothing else may travel with the request.
-    expect(validatePanelApiMessage({ type: 'domusos/access/get_self' })).toBe(true);
-    for (const extra of [{ user_id: 'x' }, { role: 'admin' }, { capabilities: ['energy.manage'] }]) {
-      expect(validatePanelApiMessage({ type: 'domusos/access/get_self', ...extra })).toBe(false);
+    // Who acts is the connection's: nothing about it may travel with any request.
+    for (const type of ['get_self', 'list_accounts', 'reset_policy']) {
+      expect(validatePanelApiMessage({ type: `domusos/access/${type}` })).toBe(true);
+      for (const extra of [{ user_id: 'a'.repeat(32) }, { role: 'admin' }, { capabilities: ['energy.manage'] }]) {
+        expect(validatePanelApiMessage({ type: `domusos/access/${type}`, ...extra })).toBe(false);
+      }
     }
+    const set = { type: 'domusos/access/set_assignment', user_id: 'b'.repeat(32), role: 'member', grants: ['access.control'], expected_revision: 3 };
+    expect(validatePanelApiMessage(set)).toBe(true);
+    for (const spoof of [{ assigned_by: 'a'.repeat(32) }, { assigned_at: 'now' }, { is_admin: true }, { capabilities: [] }, { policy_state: 'ready' }]) {
+      expect(validatePanelApiMessage({ ...set, ...spoof })).toBe(false);
+    }
+    expect(validatePanelApiMessage({ ...set, role: 'locked' })).toBe(false);
+    expect(validatePanelApiMessage({ ...set, grants: ['access.manage'] })).toBe(false);
+    expect(validatePanelApiMessage({ ...set, user_id: 'person.mario' })).toBe(false);
+    expect(validatePanelApiMessage({ ...set, expected_revision: -1 })).toBe(false);
+    expect(validatePanelApiMessage({ type: 'domusos/access/remove_assignment', user_id: 'b'.repeat(32), expected_revision: 3 })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/access/remove_assignment', user_id: 'b'.repeat(32), expected_revision: 3, role: 'admin' })).toBe(false);
     expect(isDashboardAdministrativeApiMessage({ type: 'domusos/access/get_self' })).toBe(false);
   });
 

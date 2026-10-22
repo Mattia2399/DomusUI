@@ -4,6 +4,7 @@ import { useI18n, type AppLocale } from './I18nProvider';
 /** The words Access Control shows in the interface; no technical term, no capability name. */
 const it = {
   dismiss: 'Chiudi',
+  lockedAction: 'Apri Ruoli e permessi',
   cardUnavailable: 'Non disponibile',
   checking: 'Verifica dell’account…',
   deniedTitle: 'Non disponibile per il tuo account',
@@ -28,6 +29,7 @@ type AccessCopyKey = keyof typeof it;
 
 const en: Record<AccessCopyKey, string> = {
   dismiss: 'Dismiss',
+  lockedAction: 'Open Roles and permissions',
   cardUnavailable: 'Not available',
   checking: 'Checking your account…',
   deniedTitle: 'Not available for your account',
@@ -50,6 +52,7 @@ const en: Record<AccessCopyKey, string> = {
 
 const fr: Record<AccessCopyKey, string> = {
   dismiss: 'Fermer',
+  lockedAction: 'Ouvrir Rôles et autorisations',
   cardUnavailable: 'Non disponible',
   checking: 'Vérification du compte…',
   deniedTitle: 'Non disponible pour votre compte',

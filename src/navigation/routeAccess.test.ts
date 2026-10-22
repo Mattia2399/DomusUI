@@ -151,6 +151,17 @@ describe('route guard', () => {
     for (const route of routes) expect(resolveRouteAccessState(route, accessFor(role)), route).toBe('denied');
   });
 
+  it('keeps Roles and permissions to whoever manages access, apart from the people of the house', () => {
+    expect(resolveRouteAccess('/settings/access/roles')).toEqual({ kind: 'capability', capability: 'access.manage' });
+    expect(resolveRouteAccess('/settings/access/members')).toEqual({ kind: 'capability', capability: 'people.view' });
+    expect(resolveRouteAccessState('/settings/access/roles', accessFor('member'))).toBe('denied');
+    expect(resolveRouteAccessState('/settings/access/members', accessFor('member'))).toBe('open');
+    expect(resolveRouteAccessState('/settings/access/roles', accessFor('admin'))).toBe('open');
+    // The recovery stays reachable on the safe floor: every Home Assistant administrator keeps access.manage.
+    expect(resolveRouteAccessState('/settings/access/roles', accessFor('locked', { isAdmin: true }))).toBe('open');
+    expect(resolveRouteAccessState('/settings/access/roles', accessFor('locked'))).toBe('denied');
+  });
+
   it('does not open everything to a Home Assistant administrator on the safe floor', () => {
     const lockedAdmin = accessFor('locked', { isAdmin: true });
     expect(resolveRouteAccessState('/consumi', lockedAdmin)).toBe('denied');

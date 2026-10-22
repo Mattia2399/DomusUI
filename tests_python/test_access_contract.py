@@ -42,6 +42,12 @@ def test_access_control_registers_no_service_at_all() -> None:
         assert "register_service(" not in source, f"{path.name} registers a service"
 
 
+def _function(source: str, name: str) -> str:
+    start = source.index(f"def {name}(")
+    following = source.find("\n@websocket_api.websocket_command", start)
+    return source[start:] if following < 0 else source[start:following]
+
+
 def test_the_reset_command_takes_nothing_but_its_type_and_reads_the_connection() -> None:
     api = read(ACCESS / "api.py")
     assert 'websocket_command({vol.Required("type"): f"{WS_PREFIX}/reset_policy"})' in api
@@ -49,7 +55,30 @@ def test_the_reset_command_takes_nothing_but_its_type_and_reads_the_connection()
     forbidden = re.compile(r"msg\[[\"'](user_id|person_id|role|is_admin|is_owner|confirmed)[\"']\]")
     # The check itself catches what it must catch.
     assert forbidden.search('msg["user_id"]') and forbidden.search("msg['role']")
-    assert not forbidden.search(api)
+    for name in ("websocket_get_self", "websocket_reset_policy"):
+        assert not forbidden.search(_function(api, name)), name
+
+
+def test_people_and_access_never_reads_who_acts_or_what_they_hold_from_the_request() -> None:
+    """The administrator is the connection's account; the request only names the account it changes."""
+    api = read(ACCESS / "api.py")
+    spoofable = re.compile(
+        r"msg\[[\"'](assigned_by|assigned_at|actor|is_admin|is_owner|capabilities|policy_state|state|person_id)[\"']\]"
+    )
+    for name in ("websocket_list_accounts", "websocket_set_assignment", "websocket_remove_assignment"):
+        body = _function(api, name)
+        assert not spoofable.search(body), name
+        assert "manager.require_access_manager(connection.user)" in body, name
+        assert "@websocket_api.require_admin" in api.split(f"def {name}(")[0].rsplit("@websocket_api.websocket_command", 1)[1], name
+    for name in ("websocket_set_assignment", "websocket_remove_assignment"):
+        body = _function(api, name)
+        assert "connection.user" in body and 'msg["expected_revision"]' in body, name
+    # Who assigned and when are the server's: never a field of the request schema.
+    for field in ("assigned_by", "assigned_at", "is_admin", "is_owner", "capabilities", "policy_state"):
+        assert f'vol.Required("{field}")' not in api and f'vol.Optional("{field}")' not in api, field
+    manager = read(ACCESS / "manager.py")
+    assert "assigned_at=dt_util.utcnow().isoformat()" in manager
+    assert "assigned_by=principal.user_id" in manager
 
 
 def test_the_reset_checks_the_account_before_touching_anything() -> None:

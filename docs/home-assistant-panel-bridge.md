@@ -26,6 +26,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "profile_recipients_v1",
   "device_power_v1",
   "access_v1",
+  "access_admin_v1",
   "state_translations_v1",
   "host_navigation",
   "person_links",
@@ -65,6 +66,8 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/device_power/get_state", "domusos/device_power/save_policy",
   "domusos/device_power/bind_policy", "domusos/device_power/delete_policy",
   "domusos/access/get_self",
+  "domusos/access/list_accounts", "domusos/access/set_assignment",
+  "domusos/access/remove_assignment", "domusos/access/reset_policy",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -353,6 +356,22 @@ const isValidWsMessage = (message) => {
   }
   // The account is the connection's: get_self names no user, role or capability.
   if (message.type === "domusos/access/get_self") return hasExactKeys(message, ["type"]);
+  // People and access: the panel runs them on the signed-in person's own connection, so Home
+  // Assistant and Domus check that person. Only the account to change travels, never who acts.
+  if (message.type === "domusos/access/list_accounts" || message.type === "domusos/access/reset_policy") {
+    return hasExactKeys(message, ["type"]);
+  }
+  if (message.type === "domusos/access/set_assignment" || message.type === "domusos/access/remove_assignment") {
+    const setting = message.type === "domusos/access/set_assignment";
+    const keys = setting ? ["type", "user_id", "role", "grants", "expected_revision"] : ["type", "user_id", "expected_revision"];
+    if (!hasExactKeys(message, keys)) return false;
+    if (typeof message.user_id !== "string" || !/^[a-f0-9]{32}$/.test(message.user_id)) return false;
+    if (!Number.isInteger(message.expected_revision) || message.expected_revision < 0) return false;
+    if (!setting) return true;
+    return ["admin", "member", "restricted", "wall_panel"].includes(message.role) &&
+      Array.isArray(message.grants) && message.grants.length <= 2 &&
+      message.grants.every((grant) => grant === "access.control" || grant === "security.control");
+  }
   if (message.type === "get_panels") {
     return Object.keys(message).every((key) => key === "type");
   }
@@ -773,7 +792,9 @@ Le traduzioni degli stati (capability `state_translations_v1`) sono `frontend/ge
 
 La gestione dell'alimentazione dei dispositivi (capability `device_power_v1`) usa quattro comandi, tutti riservati agli amministratori: `domusos/device_power/get_state` (solo `type`), `save_policy` (una `policy` con esattamente `client_id`, `label`, `enabled`, `battery_entity_id` di tipo `sensor.*`, `switch_entity_id` di tipo `switch.*`, `start_threshold` e `stop_threshold` interi con inizio minore della fine; senza `policy_id` né `expected_revision` per una nuova policy, con entrambi per modificarne una), `bind_policy` (`policy_id`, `expected_revision`, `client_id`) e `delete_policy` (`policy_id`, `expected_revision`). Non esiste un comando che accenda o spenga uno switch: i controller girano in Home Assistant, che ripete ogni controllo. Vedi [Device Power Management](device-power-management.md).
 
-Il profilo d'accesso (capability `access_v1`) è `domusos/access/get_self`, con solo `type`: Domus lo legge per mostrare all'account ciò che può usare, e il backend ricava l'account dalla connessione. Il bridge non inoltra le API amministrative di Access Control (`reset_policy`, la diagnostica shadow): nessuna pagina del pannello le usa.
+Il profilo d'accesso (capability `access_v1`) è `domusos/access/get_self`, con solo `type`: Domus lo legge per mostrare all'account ciò che può usare, e il backend ricava l'account dalla connessione.
+
+Persone e accessi (capability `access_admin_v1`) usa `domusos/access/list_accounts` e `reset_policy` (solo `type`), `set_assignment` (`user_id` di 32 caratteri esadecimali, `role` tra `admin`, `member`, `restricted`, `wall_panel`, `grants` con al più `access.control` e `security.control`, `expected_revision` intero) e `remove_assignment` (`user_id`, `expected_revision`). Il pannello li esegue sulla connessione della persona che lo ha aperto: Home Assistant e Domus controllano quella persona (admin HA attivo con `access.manage`), mai un'identità del pannello. Chi modifica e quando li scrive il server. La diagnostica shadow resta fuori dal bridge.
 
 La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 

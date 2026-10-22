@@ -343,4 +343,34 @@ describe('SettingsHouseAccessSection', () => {
     expect(screen.queryByRole('heading', { name: 'Membri della casa' })).toBeNull();
     expect(screen.getByText('Sara')).toBeTruthy();
   });
+  it('offers Roles and permissions only to an account that manages access', () => {
+    const onViewChange = vi.fn();
+    const callApi = vi.fn();
+    const view = render(
+      <AccessTestProviders security={ownerSecurity}>
+        <SettingsHouseAccessSection view="overview" onViewChange={onViewChange} houseMembers={householdMembers} onCallApi={callApi} />
+      </AccessTestProviders>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Ruoli e permessi/ }));
+    expect(onViewChange).toHaveBeenCalledWith('roles');
+    view.unmount();
+
+    // A member sees the people of the house (people.view), not their access (access.manage).
+    render(
+      <AccessTestProviders security={limitedSecurity}>
+        <SettingsHouseAccessSection view="overview" onViewChange={vi.fn()} houseMembers={householdMembers} onCallApi={callApi} />
+      </AccessTestProviders>,
+    );
+    expect(screen.queryByRole('button', { name: /Ruoli e permessi/ })).toBeNull();
+    expect(screen.getByText('2 persone disponibili')).toBeTruthy();
+  });
+
+  it('never shows the roles page to an account that does not manage access, even by its address', () => {
+    const { container } = render(
+      <AccessTestProviders security={limitedSecurity}>
+        <SettingsHouseAccessSection view="roles" onViewChange={vi.fn()} houseMembers={householdMembers} onCallApi={vi.fn()} />
+      </AccessTestProviders>,
+    );
+    expect(container.querySelector('[data-people-access]')).toBeNull();
+  });
 });

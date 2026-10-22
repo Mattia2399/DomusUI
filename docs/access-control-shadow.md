@@ -67,7 +67,9 @@ e non viene osservata.
 | Profile | `get_self`, `save_self`, `discover_devices`, `add_device`, `remove_device`, `update_device`, `test_self`, `list_recipients` |
 | Raccolta rifiuti | `get_config`, `preview`, `save_config`, `test_notification` |
 
-In totale 36 superfici osservate: 31 WebSocket e 5 servizi.
+In totale 36 superfici osservate: 31 WebSocket e 5 servizi. I tre comandi di
+Persone e accessi (P2.4.1) sono esenti: le superfici dichiarate diventano 43,
+le osservate restano 36.
 `domusos/profile/get_self` è il profilo personale ed è osservato: non va confuso
 con `domusos/access/get_self`.
 
@@ -82,6 +84,7 @@ impone che siano esattamente queste.
 | `domusos/access/reset_policy` | È già protetto davvero da P2.1.2 (admin HA attivo); resta **enforced**, non diventa shadow |
 | `domusos/access/get_shadow_diagnostics` | La diagnostica stessa: osservarla conterebbe chi legge in ciò che legge |
 | `domusos/access/reset_shadow_diagnostics` | Sporcherebbe i contatori appena azzerati |
+| `domusos/access/list_accounts`, `set_assignment`, `remove_assignment` (P2.4.1) | Amministrazione di Access Control: già enforced sull'admin della connessione, come il ripristino ([Persone e accessi](access-control-people-access.md)) |
 
 ## Esito reale
 

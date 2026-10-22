@@ -1,4 +1,4 @@
-export type HouseAccessView = 'overview' | 'members' | 'guest' | 'share';
+export type HouseAccessView = 'overview' | 'members' | 'roles' | 'guest' | 'share';
 
 export const HOUSE_ACCESS_ROUTE = '/settings/access';
 
@@ -6,6 +6,8 @@ export const HOUSE_ACCESS_ROUTE = '/settings/access';
 export const HOUSE_ACCESS_VIEW_ROUTES: Record<HouseAccessView, string> = {
   overview: HOUSE_ACCESS_ROUTE,
   members: `${HOUSE_ACCESS_ROUTE}/members`,
+  // Roles and permissions: access.manage (navigation/routeAccess.ts).
+  roles: `${HOUSE_ACCESS_ROUTE}/roles`,
   guest: `${HOUSE_ACCESS_ROUTE}/guests`,
   share: `${HOUSE_ACCESS_ROUTE}/sharing`,
 };

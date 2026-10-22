@@ -10,10 +10,11 @@ Domus would allow (docs/access-control-foundation.md).
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 import glob
 import logging
 import os
+from types import MappingProxyType
 from typing import Any
 
 from homeassistant.auth.models import User
@@ -194,12 +195,29 @@ class AccessPolicyManager:
         """Assignments of accounts Home Assistant no longer has; kept until someone removes them."""
         return orphaned_assignments(self._policy, known_user_ids)
 
-    # --- Changing (backend only: no client can call these yet) --------------------------
+    @property
+    def assignments(self) -> Mapping[str, Assignment]:
+        """The stored assignments, read only; none while the policy cannot be trusted."""
+        if self._policy is None or self._state not in TRUSTED_STATES:
+            return {}
+        return MappingProxyType(dict(self._policy.assignments))
+
+    # --- Changing (People and access, docs/access-control-people-access.md) -------------
+
+    def require_access_manager(self, actor: User | None) -> Principal:
+        """The account of the request, if it manages Domus access: an active Home Assistant administrator.
+
+        Checked on the account itself: Home Assistant says it is an administrator
+        and its Domus profile holds access.manage, which every administrator
+        keeps even on the safe floor. Works whatever the state of the store.
+        """
+        principal = principal_from_user(actor)
+        if not principal.is_admin or not self.profile_for_principal(principal).has("access.manage"):
+            raise AccessDeniedError("Only Home Assistant administrators manage Domus access")
+        return principal
 
     def _require_manager(self, actor: User | None) -> Principal:
-        principal = principal_from_user(actor)
-        if not self.profile_for(actor).has("access.manage"):
-            raise AccessDeniedError("Only Home Assistant administrators manage Domus access")
+        principal = self.require_access_manager(actor)
         if self._state not in TRUSTED_STATES:
             raise StoreUntrustedError("The access policy cannot be trusted; reset it first")
         return principal
@@ -227,6 +245,7 @@ class AccessPolicyManager:
                 # Nothing changes: no new revision, no write.
                 return self.revision
             await self._async_write(user_id, assignment, principal.user_id)
+            self._audit_assignment("assignment_changed", principal.user_id, user_id, current, assignment)
             return self.revision
 
     async def async_unassign(self, actor: User | None, user_id: str, expected_revision: int) -> int:
@@ -236,7 +255,9 @@ class AccessPolicyManager:
             self._check_revision(expected_revision)
             if self._policy is None or user_id not in self._policy.assignments:
                 return self.revision
+            current = self._policy.assignments[user_id]
             await self._async_write(user_id, None, principal.user_id)
+            self._audit_assignment("assignment_removed", principal.user_id, user_id, current, None)
             return self.revision
 
     def _check_revision(self, expected_revision: Any) -> None:
@@ -312,6 +333,35 @@ class AccessPolicyManager:
             "previous_revision": previous_revision,
             "kept": kept,
         }
+
+    def _audit_assignment(
+        self,
+        reason: str,
+        actor: str,
+        user_id: str,
+        previous: Assignment | None,
+        current: Assignment | None,
+    ) -> None:
+        """A security record of who changed whose access, from what to what; ids only, no names."""
+        runtime = self._runtime()
+        if runtime is None or not runtime.audit.running:
+            return
+        runtime.audit.record(
+            AuditEntry.create(
+                "access.policy",
+                reason,
+                result=StoreState.READY.value,
+                metadata={
+                    "actor": actor,
+                    "user_id": user_id,
+                    "revision": self.revision,
+                    "previous_role": previous.role.value if previous is not None else None,
+                    "previous_grants": list(previous.grants) if previous is not None else [],
+                    "role": current.role.value if current is not None else None,
+                    "grants": list(current.grants) if current is not None else [],
+                },
+            )
+        )
 
     def _audit(
         self,

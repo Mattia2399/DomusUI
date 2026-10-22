@@ -55,6 +55,8 @@ export const ROUTE_ACCESS_RULES: readonly RouteRule[] = [
   { path: '/settings/dashboard', access: needs('dashboard.edit') },
   { path: '/settings/floors', subpaths: true, access: needs('house.manage') },
   { path: '/settings/access', subpaths: true, access: needs('people.view') },
+  // Changing roles and personal grants is access management, not seeing the people of the house.
+  { path: '/settings/access/roles', subpaths: true, access: needs('access.manage') },
   { path: '/settings/safety', access: needs('security.manage') },
   { path: '/settings/security', access: needs('security.manage') },
   { path: '/settings/home/waste-collection', access: needs('waste.manage') },

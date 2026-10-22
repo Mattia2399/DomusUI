@@ -303,6 +303,59 @@ async def audited(hass: HomeAssistant) -> tuple[AccessPolicyManager, DomusAuditS
     return manager, audit
 
 
+def plain(metadata: Any) -> dict[str, Any]:
+    return {key: list(value) if isinstance(value, (list, tuple)) else value for key, value in metadata.items()}
+
+
+async def test_every_change_of_access_is_a_security_record_of_who_changed_what(hass: HomeAssistant, hass_storage) -> None:
+    admin, member = await users(hass)
+    manager, audit = await audited(hass)
+    await manager.async_assign(admin, member.id, "member", ["security.control"], 0)
+    # Nothing changed, a stale revision, a refused account: no record.
+    await manager.async_assign(admin, member.id, "member", ["security.control"], 1)
+    with pytest.raises(RevisionConflictError):
+        await manager.async_assign(admin, member.id, "restricted", [], 0)
+    with pytest.raises(AccessDeniedError):
+        await manager.async_assign(member, member.id, "admin", [], 1)
+    await manager.async_assign(admin, member.id, "restricted", [], 1)
+    await manager.async_unassign(admin, member.id, 2)
+    changed, restricted, removed = audit.snapshot()
+    assert [(entry.source, entry.reason) for entry in (changed, restricted, removed)] == [
+        ("access.policy", "assignment_changed"),
+        ("access.policy", "assignment_changed"),
+        ("access.policy", "assignment_removed"),
+    ]
+    assert plain(changed.metadata) == {
+        "actor": admin.id,
+        "user_id": member.id,
+        "revision": 1,
+        "previous_role": None,
+        "previous_grants": [],
+        "role": "member",
+        "grants": ["security.control"],
+    }
+    assert plain(restricted.metadata)["previous_grants"] == ["security.control"]
+    assert (restricted.metadata["previous_role"], restricted.metadata["role"]) == ("member", "restricted")
+    assert (removed.metadata["role"], removed.metadata["revision"]) == (None, 3)
+    # Ids only: no names of who acted or of whom.
+    assert not any(name in repr(audit.snapshot()) for name in ("Admin", "Member"))
+
+
+async def test_only_an_active_administrator_manages_access_whatever_the_policy(hass: HomeAssistant, hass_storage) -> None:
+    admin, member = await users(hass)
+    hass_storage[STORAGE_KEY] = stored({member.id: member_assignment("owner")})
+    manager = await loaded(hass)
+    assert manager.state is StoreState.CORRUPT
+    assert manager.require_access_manager(admin).user_id == admin.id
+    assert manager.assignments == {}
+    for actor in (member, None):
+        with pytest.raises(AccessDeniedError):
+            manager.require_access_manager(actor)
+    await hass.auth.async_update_user(admin, is_active=False)
+    with pytest.raises(AccessDeniedError):
+        manager.require_access_manager(admin)
+
+
 async def test_a_reset_returns_everyone_to_defaults_and_keeps_the_old_policy_aside(
     hass: HomeAssistant, hass_storage
 ) -> None:

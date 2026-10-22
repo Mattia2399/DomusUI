@@ -112,6 +112,7 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'profile_recipients_v1',
   'device_power_v1',
   'access_v1',
+  'access_admin_v1',
   'state_translations_v1',
   'host_navigation',
   'person_links',
@@ -204,8 +205,13 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/energy/discover',
   'domusos/energy/get_profile',
   'domusos/energy/save_profile',
-  // Access Control: only the account's own profile; its administrative commands stay out.
+  // Access Control: the account's own profile, and People and access for an administrator.
+  // The shadow diagnostics stay out of the bridge.
   'domusos/access/get_self',
+  'domusos/access/list_accounts',
+  'domusos/access/set_assignment',
+  'domusos/access/remove_assignment',
+  'domusos/access/reset_policy',
   'calendar/event/subscribe',
   'calendar/event/create',
   'calendar/event/update',
@@ -388,6 +394,39 @@ export function isValidProfileMessage(message: Record<string, unknown>) {
   }
 }
 
+const ACCESS_ROLES_ASSIGNABLE = ['admin', 'member', 'restricted', 'wall_panel'];
+const ACCESS_GRANTABLE = ['access.control', 'security.control'];
+
+/** Access Control: only the account to change travels; who acts is the connection's, never the message's. */
+export function isValidAccessMessage(message: Record<string, unknown>) {
+  const exactly = (keys: string[]) =>
+    Object.keys(message).length === keys.length && keys.every((key) => Object.prototype.hasOwnProperty.call(message, key));
+  if (
+    message.type === 'domusos/access/get_self' ||
+    message.type === 'domusos/access/list_accounts' ||
+    message.type === 'domusos/access/reset_policy'
+  ) {
+    return exactly(['type']);
+  }
+  if (message.type !== 'domusos/access/set_assignment' && message.type !== 'domusos/access/remove_assignment') {
+    return false;
+  }
+  const setting = message.type === 'domusos/access/set_assignment';
+  if (!exactly(setting ? ['type', 'user_id', 'role', 'grants', 'expected_revision'] : ['type', 'user_id', 'expected_revision'])) {
+    return false;
+  }
+  if (typeof message.user_id !== 'string' || !/^[a-f0-9]{32}$/.test(message.user_id)) return false;
+  if (!Number.isInteger(message.expected_revision) || Number(message.expected_revision) < 0) return false;
+  if (!setting) return true;
+  return (
+    typeof message.role === 'string' &&
+    ACCESS_ROLES_ASSIGNABLE.includes(message.role) &&
+    Array.isArray(message.grants) &&
+    message.grants.length <= ACCESS_GRANTABLE.length &&
+    message.grants.every((grant) => typeof grant === 'string' && ACCESS_GRANTABLE.includes(grant))
+  );
+}
+
 export function validatePanelApiMessage(message: unknown): message is Record<string, unknown> {
   if (!isRecord(message) || typeof message.type !== 'string' || !HA_PANEL_ALLOWED_API_TYPES.has(message.type)) {
     return false;
@@ -398,8 +437,8 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   if (message.type.startsWith('domusos/profile/')) {
     return isValidProfileMessage(message);
   }
-  if (message.type === 'domusos/access/get_self') {
-    return Object.keys(message).every((key) => key === 'type');
+  if (message.type.startsWith('domusos/access/')) {
+    return isValidAccessMessage(message);
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});

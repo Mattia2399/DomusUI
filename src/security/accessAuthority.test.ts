@@ -29,14 +29,17 @@ describe('access authority', () => {
     const api = read('custom_components/domusos/access/api.py');
     expect(api).toContain('websocket_command({vol.Required("type"): f"{WS_PREFIX}/get_self"})');
     expect(api).toContain('principal_from_user(connection.user)');
-    expect(api).not.toMatch(/msg\[["'](user_id|person_id|role)["']\]/);
+    // get_self never names an account; only People and access names the account it changes.
+    const getSelf = api.slice(api.indexOf('def websocket_get_self('), api.indexOf('def websocket_reset_policy('));
+    expect(getSelf).toContain('connection.user');
+    expect(getSelf).not.toMatch(/msg\[["'](user_id|person_id|role)["']\]/);
   });
 
-  it('keeps the policy reset and the shadow diagnostics out of the panel bridge', () => {
-    // P2.6 opens the reset for Persone e accessi only; until then no panel page can send it.
+  it('keeps the shadow diagnostics out of the panel bridge; the reset travels only for Persone e accessi', () => {
     const bridge = read('src/hooks/useHaPanelBridgeConnection.ts');
     expect(bridge).toContain("'domusos/access/get_self'");
-    for (const type of ['reset_policy', 'get_shadow_diagnostics', 'reset_shadow_diagnostics']) {
+    expect(bridge).toContain("'domusos/access/reset_policy'");
+    for (const type of ['get_shadow_diagnostics', 'reset_shadow_diagnostics']) {
       expect(bridge).not.toContain(`'domusos/access/${type}'`);
     }
   });

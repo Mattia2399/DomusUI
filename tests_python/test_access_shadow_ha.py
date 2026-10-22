@@ -93,7 +93,7 @@ async def test_every_observed_entry_point_is_instrumented_where_home_assistant_r
     await domus(hass)
     commands = {command: handler for command, (handler, _) in hass.data["websocket_api"].items() if command.startswith("domusos/")}
     services = hass.services.async_services().get(DOMAIN, {})
-    assert (len(commands), len(services)) == (35, 5)
+    assert (len(commands), len(services)) == (38, 5)
     observed = {contract.id for contract in shadow_contracts()}
     assert len(observed) == 36
     for action in ACTION_CONTRACTS:

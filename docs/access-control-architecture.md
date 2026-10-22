@@ -10,6 +10,7 @@ Screensaver, Kiosk e il ciclo performance), branch
 Documenti collegati:
 
 - [threat model](access-control-threat-model.md);
+- [Persone e accessi](access-control-people-access.md) (P2.4.1);
 - [capability, route e azioni](access-control-capabilities.md);
 - [sicurezza e privacy](security-and-privacy.md);
 - [bridge del pannello](home-assistant-panel-bridge.md);
@@ -493,9 +494,9 @@ I cinque test di sicurezza obbligatori sono nel
 | **P2.2** ✓ | Motore centrale (`authorize`, `can`, `require_capability`, `authorize_action`), adattatori WebSocket e servizi, registro delle 38 superfici backend, contratto S8. Nessun enforcement. [Autorizzazione](access-control-authorization.md). |
 | **P2.3** ✓ | Shadow authorization su tutte le 36 superfici backend osservabili, confronto con l'esito reale, contatori in memoria senza identità, diagnostica admin (`get_shadow_diagnostics`, `reset_shadow_diagnostics`). Nessun enforcement. [Shadow](access-control-shadow.md). L'audit V1 delle decisioni resta fuori: lo shadow non è un audit (D41). |
 | **P2.4** ✓ | Frontend: profilo da `get_self` (anche nel bridge, solo quello), `can()`, tabella unica delle route, guardia e «Non disponibile», navigazione e Impostazioni filtrate, controlli di allarme, serrature e ingressi nascosti senza capability, «Torna in Home Assistant» con `ha_frontend.open`, `DashboardCapability` decisa da Access Control. Solo esperienza d'uso. [Frontend](access-control-frontend.md). |
-| **P2.4.1** (proposta) | Persone e accessi minima, **prima** dell'enforcement: un admin HA assegna il ruolo e i grant `access.control` / `security.control` a un account (scrittura con `expected_revision`, audit). Senza, un member non può ricevere i grant e da P2.4 non vede più serrature e allarme (vedi [impatto](access-control-frontend.md#impatto-sugli-account-prima-dellenforcement)). |
+| **P2.4.1** ✓ | Persone e accessi minima, **prima** dell'enforcement: Impostazioni › Persone e accessi › Ruoli e permessi. Un admin HA attivo assegna a un account il ruolo (`admin`, `member`, `restricted`, `wall_panel`) e i grant `access.control` / `security.control`, con `expected_revision`, conflitto senza sovrascrittura e audit; ripristino della policy con conferma. Comandi `list_accounts`, `set_assignment`, `remove_assignment` (43 superfici); bridge `access_admin_v1`. Esci per ogni account (Q12), offline fail closed (Q13). Nessun enforcement nuovo. [Persone e accessi](access-control-people-access.md). |
 | **P2.5** | Enforcement sui comandi Domus (Energy view, Irrigazione, Raccolta rifiuti, Profile, Alimentazione) + i 5 test di sicurezza. |
-| **P2.6** | Persone e accessi: ruoli per utente, recupero, messaggio onesto sui limiti nativi HA. |
+| **P2.6** | Persone e accessi completa: ospiti, pannelli dedicati, messaggio onesto sui limiti nativi HA dove si agisce. Ruoli per utente e recupero sono arrivati in P2.4.1. |
 | **P2.7** | Resource scope (aree/piani), ruoli personalizzati se confermati. |
 
 ## 20. Decisioni
@@ -552,8 +553,16 @@ I cinque test di sicurezza obbligatori sono nel
 | D48 | Fail closed: in caricamento, in errore o senza Access Control non si concede nulla; nessuna UI privilegiata compare per un istante; un cambio di account invalida il profilo nello stesso render. |
 | D49 | Le voci non concesse sono nascoste; un'informazione resta visibile senza il suo comando; un'azione autorizzata ma non disponibile resta disabilitata. |
 | D50 | `DashboardCapability` resta come nome legacy, decisa dal profilo (`LEGACY_CAPABILITY_MAP`); niente `isAdmin` come capability, niente controlli sul ruolo nel codice delle funzioni. |
-| D51 | Il bridge del pannello inoltra solo `get_self` di Access Control; `reset_policy` e la diagnostica shadow restano fuori finché una pagina non le usa. |
-| D52 | Proposta: Persone e accessi minima (ruolo e grant) prima dell'enforcement P2.5 (P2.4.1). |
+| D51 | Il bridge del pannello inoltra solo `get_self` di Access Control; `reset_policy` e la diagnostica shadow restano fuori finché una pagina non le usa. Aggiornata da D59. |
+| D52 | Persone e accessi minima (ruolo e grant) prima dell'enforcement P2.5 (P2.4.1). **Fatta.** |
+| D53 | (P2.4.1) Solo un admin HA attivo assegna ruoli e grant: `require_admin` di HA più `access.manage` sul principal della connessione, nello stesso handler. Nessuna delega a un non admin (D21). |
+| D54 | In V1 si assegnano solo i ruoli `admin`, `member`, `restricted`, `wall_panel` e i grant `access.control`, `security.control`. `locked` non è assegnabile; a un `admin` i grant non vengono salvati. |
+| D55 | Nessun deny esplicito, ruolo personalizzato o resource scope in V1: un account ha il suo ruolo più i grant, nient'altro. |
+| D56 | Ogni scrittura porta `expected_revision`; un conflitto non sovrascrive mai, la UI lo dice e ricarica dal backend scartando la bozza. «Ripristina ruolo predefinito» rimuove l'assegnazione invece di scrivere il default. |
+| D57 | Il ripristino della policy resta `domusos/access/reset_policy` (P2.1.2), ora raggiungibile da Ruoli e permessi con conferma esplicita, anche da un admin `locked`. |
+| D58 | Chi agisce e cosa possiede non vengono mai dal messaggio: schema chiuso, `assigned_by`/`assigned_at` scritti dal server, bersaglio letto da HA (esistente, attivo, non di sistema). Ogni cambio è un record nel `DomusAuditService`, con soli id. |
+| D59 | Il bridge del pannello inoltra anche `list_accounts`, `set_assignment`, `remove_assignment` e `reset_policy` (capability `access_admin_v1`) con un validatore a chiavi esatte; i comandi girano sulla connessione `hass` dell'utente del pannello, mai con un'identità host. La diagnostica shadow resta fuori. |
+| D60 | Ogni account autenticato può uscire da Home Assistant da Impostazioni (Q12). Offline, Domus resta fail closed con riprova, riconnessione e logout raggiungibili (Q13). |
 
 ## 21. Domande aperte
 
@@ -568,7 +577,7 @@ I cinque test di sicurezza obbligatori sono nel
 | Q7 | Ospiti: si aspetta il supporto HA a credenziali temporanee, o un account HA dedicato con ruolo `guest`? | Account dedicato, dopo P2.6 |
 | Q8 | Il reset della policy deve essere una richiesta diretta di un admin HA attivo, mai un'automazione o uno script (D28 proposta). Un servizio HA non può garantirlo: le automazioni chiamano senza `user_id` (e `async_register_admin_service` le lascia passare); uno script avviato da un admin chiama con il suo stesso `Context`, indistinguibile da una chiamata diretta ([limite verificato](access-control-foundation.md#perché-non-un-servizio-audit-p211)). | **Chiusa: opzione B** (D28). Servizio rimosso, comando WebSocket `domusos/access/reset_policy` legato a `connection.user`. |
 | Q9 | `waste.view` (calendario della Raccolta rifiuti, nella card rapida) va lasciata anche a `restricted` e `wall_panel`? | **Chiusa (approvata)**: `waste.view` resta ad `admin`, `member`, `restricted` e `wall_panel`. È un'informazione domestica di sola lettura, usata anche dalla card rapida della Raccolta rifiuti (D36). Comportamento invariato. |
-| Q11 | `/settings/attention` (Centro attenzione): resta `dashboard.edit` come oggi o diventa una preferenza del dispositivo (`device.manage`)? | Resta `dashboard.edit` in P2.4; da decidere |
-| Q12 | Fuori dal pannello di HA, il logout di un member su desktop era in Connessioni (`system.manage`): va reso un'esenzione (la propria sessione) o basta quello del drawer mobile? | Da decidere prima del rilascio |
-| Q13 | Senza connessione a Home Assistant le pagine protette mostrano «Home Assistant non collegato» invece del proprio stato «non collegato», e Impostazioni non elenca voci: va bene così (fail closed) o certe pagine del browser (Aspetto, Lingua, Connessioni) devono restare aperte offline? | Fail closed in P2.4; da confermare |
+| Q11 | `/settings/attention` (Centro attenzione): resta `dashboard.edit` come oggi o diventa una preferenza del dispositivo (`device.manage`)? | **Aperta / rimandata**: resta `dashboard.edit`; nessuna capability nuova solo per chiuderla |
+| Q12 | Fuori dal pannello di HA, il logout di un member su desktop era in Connessioni (`system.manage`): va reso un'esenzione (la propria sessione) o basta quello del drawer mobile? | **Chiusa (P2.4.1)**: Esci in Impostazioni per ogni account autenticato, con conferma (D60) |
+| Q13 | Senza connessione a Home Assistant le pagine protette mostrano «Home Assistant non collegato» invece del proprio stato «non collegato», e Impostazioni non elenca voci: va bene così (fail closed) o certe pagine del browser (Aspetto, Lingua, Connessioni) devono restare aperte offline? | **Chiusa per V1**: fail closed; restano riprova, riconnessione, logout e il recupero minimo (D60) |
 | Q10 | In P2.5, cosa fare dei servizi chiamati senza utente (automazioni di Irrigazione)? Il deny `no_principal` le romperebbe | **Aperta** fino ai dati reali. P2.3 conta per ognuno dei 5 servizi: chiamate, con e senza principal, senza utente con e senza parent, allow e deny, `no_principal`, esito reale, `would_block` ([dati per Q10](access-control-shadow.md#dati-per-q10)). Nessun principal di sistema (D35) |

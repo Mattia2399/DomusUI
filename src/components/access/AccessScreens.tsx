@@ -76,9 +76,12 @@ export function AccessNotice({
 export function AccessLockedBanner({
   isAdministrator,
   onDismiss,
+  onOpenRecovery,
 }: {
   isAdministrator: boolean;
   onDismiss: () => void;
+  /** For whoever manages access: the way to Roles and permissions, where the policy is restored. */
+  onOpenRecovery?: () => void;
 }) {
   const copy = useAccessCopy();
   return (
@@ -93,6 +96,15 @@ export function AccessLockedBanner({
         <p className="mt-0.5 text-xs leading-5 text-[color:var(--ui-text-secondary)]">
           {copy(isAdministrator ? 'lockedAdminBody' : 'lockedBody')}
         </p>
+        {onOpenRecovery ? (
+          <button
+            type="button"
+            onClick={onOpenRecovery}
+            className="mt-2 text-xs font-semibold text-[color:var(--ui-accent)]"
+          >
+            {copy('lockedAction')}
+          </button>
+        ) : null}
       </div>
       <button
         type="button"

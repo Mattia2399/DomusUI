@@ -24,6 +24,9 @@ EXPECTED = {
     "domusos/access/reset_policy": "access.manage",
     "domusos/access/get_shadow_diagnostics": "access.manage",
     "domusos/access/reset_shadow_diagnostics": "access.manage",
+    "domusos/access/list_accounts": "access.manage",
+    "domusos/access/set_assignment": "access.manage",
+    "domusos/access/remove_assignment": "access.manage",
     # Device power
     "domusos/device_power/get_state": "device_power.manage",
     "domusos/device_power/save_policy": "device_power.manage",
@@ -157,8 +160,8 @@ def test_every_action_maps_to_the_audited_capability_and_mode() -> None:
 
 def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
-    # 38 in P2.2, plus the two shadow diagnostics commands of P2.3.
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 40
+    # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1).
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 43
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:
@@ -177,7 +180,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 35
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 38
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 
@@ -218,6 +221,9 @@ SHADOW_EXEMPT = {
     "domusos/access/reset_policy",
     "domusos/access/get_shadow_diagnostics",
     "domusos/access/reset_shadow_diagnostics",
+    "domusos/access/list_accounts",
+    "domusos/access/set_assignment",
+    "domusos/access/remove_assignment",
 }
 ENFORCEMENT_PRIMITIVES = (
     "require_capability",
@@ -240,7 +246,13 @@ def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> N
 
 
 def test_the_shadow_diagnostics_are_protected_not_bootstrap() -> None:
-    for action in ("domusos/access/get_shadow_diagnostics", "domusos/access/reset_shadow_diagnostics"):
+    for action in (
+        "domusos/access/get_shadow_diagnostics",
+        "domusos/access/reset_shadow_diagnostics",
+        "domusos/access/list_accounts",
+        "domusos/access/set_assignment",
+        "domusos/access/remove_assignment",
+    ):
         contract = actions.ACTION_CONTRACTS[action]
         assert contract.auth_mode is AuthMode.CAPABILITY and contract.capability == "access.manage"
         assert contract.ha_check is actions.HaCheck.ADMIN

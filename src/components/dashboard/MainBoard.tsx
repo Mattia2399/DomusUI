@@ -10433,6 +10433,11 @@ export function MainBoard() {
     setHaRememberToken(false);
     navigate('/setup?reconnect=1');
   };
+  // Signing out of Home Assistant is every signed-in account's, whatever its Domus role (Q12): the
+  // session of this browser ends and Domus asks to sign in again. Inside the Home Assistant panel the
+  // session is Home Assistant's own, which signs out from its profile.
+  const signOutOfHomeAssistant =
+    effectiveRuntimeMode === 'real' && !isHaManagedByParent ? returnToHomeAssistantConnection : undefined;
 
   const downloadConfigurationBackup = () => {
     if (
@@ -11093,6 +11098,9 @@ export function MainBoard() {
             <AccessLockedBanner
               isAdministrator={access.profile?.isAdmin === true}
               onDismiss={() => setIsAccessLockedNoticeDismissed(true)}
+              onOpenRecovery={
+                access.can('access.manage') ? () => navigateWithinDashboard(HOUSE_ACCESS_VIEW_ROUTES.roles) : undefined
+              }
             />
           </div>
         </div>
@@ -11267,7 +11275,7 @@ export function MainBoard() {
             showHomeAssistantReturn={showHomeAssistantReturn}
             canReturnToHomeAssistant={!isEditMode}
             onReturnToHomeAssistant={returnToHomeAssistant}
-            onDisconnectHomeAssistant={disconnectHa}
+            onDisconnectHomeAssistant={signOutOfHomeAssistant ?? disconnectHa}
             onClose={() => setIsMobileSidebarOpen(false)}
             onPrefetchRoute={prefetchDashboardWorkspace}
             onPrefetchEditMode={prefetchDashboardBuilder}
@@ -11481,6 +11489,7 @@ export function MainBoard() {
               onBackgroundChange={setBackground}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}
+              onSignOut={signOutOfHomeAssistant}
               managedSectionContent={
                 settingsManagementSection ? (
                   <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura impostazioni…" />}>
@@ -11490,6 +11499,7 @@ export function MainBoard() {
                       presentation="embedded"
                       onClose={() => navigateWithinDashboard('/settings')}
                       initialSection={settingsManagementSection}
+                      onCallApi={callHaApi}
                       userAvatarUrl={currentUserAvatarUrl}
                       userAvatarAlt={stateWithConnectedUser.userName}
                       userEmail={profileUserEmail}

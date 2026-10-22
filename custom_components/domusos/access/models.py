@@ -63,6 +63,18 @@ class InvalidAssignmentError(AccessError):
     code = "invalid_assignment"
 
 
+class UnknownAccountError(AccessError):
+    """No Home Assistant account has this id: no new assignment is ever made for it."""
+
+    code = "unknown_account"
+
+
+class AccountNotManageableError(AccessError):
+    """A system or disabled account: its access is never changed from Domus."""
+
+    code = "account_not_manageable"
+
+
 class RevisionConflictError(AccessError):
     code = "revision_conflict"
 
