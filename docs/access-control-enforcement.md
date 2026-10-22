@@ -570,3 +570,40 @@ Test:
 | `tests_python/test_access_unattributed.py` | Default falso, insieme esatto, solo servizi `domus` non admin, nessuna WebSocket, nessuna azione di gestione; albero di decisione per i cinque servizi; `absent` e `ready`; `corrupt`, `unsupported`, `migration_failed`; senza manager; parent non valido; azione non opt-in; WebSocket marcata a mano; gestione o admin marcati a mano; capability e azione sconosciute; errore; motivi; utente `restricted` mai lasciato passare; shadow e regressione del caso reale del 22 ottobre 2026; solo l'adattatore legge `parent_id` | ovunque (68 test) |
 | `tests_python/test_access_authorization_ha.py` | `Context` reali di HA: automazione su ognuno dei cinque servizi; senza parent; parent vuoto; admin, member, restricted e wall_panel con e senza parent; utente sconosciuto; i tre stati non affidabili con il recupero dell'admin; `ready`; senza manager; servizio sconosciuto | Linux con fixture HA |
 | `tests_python/test_access_shadow_ha.py` | Chiamate di servizio reali: il caso del 22 ottobre (riuscita e zona in errore), un restricted con parent, uno store non affidabile; gli handler eseguono sempre | Linux con fixture HA |
+
+## 17. Validazione Linux (P2.5B)
+
+I test con il fixture di Home Assistant non girano su Windows. Li ha eseguiti
+GitHub Actions sul repository privato `archive`.
+
+- **Come**: un branch temporaneo `ci/access-control-p25b-linux-validation`,
+  uguale al codice validato più un solo commit che aggiungeva quel nome al
+  trigger `push` di `irrigation-core.yml`. Il branch è stato eliminato dopo la
+  run e il commit temporaneo non è nella storia del feature branch.
+- **Codice validato**: `8963261`.
+
+| Run | Commit | HA | Python | Test | Esito |
+| --- | --- | --- | --- | --- | --- |
+| 39794988320 | `8963261` | 2025.1.0 | 3.12.15 | 1242 passati | **verde** |
+| 39794988320 | `8963261` | 2026.2.3 | 3.13.16 | 1276 passati | **verde** |
+
+- Rispetto a P2.4.1 (run 39760657395: 1155 e 1189) entrambi i job hanno 87
+  test in più: `test_access_unattributed` (68), `test_access_authorization_ha`
+  (da 7 a 23), `test_access_shadow_ha` (da 11 a 14). Nessun test fallito,
+  saltato o in errore di setup o teardown.
+- **Job HA 2025.1**: `test_access_unattributed` (68),
+  `test_access_authorization_ha` (23), `test_access_shadow_ha` (14),
+  `test_access_authorization` (68), `test_access_shadow` (43),
+  `test_access_actions` (39), `test_access_contract` (5), `test_access_models`
+  (70), `test_access_manager` (39), `test_access_administration` (37),
+  `test_access_people_ha` (16).
+- **Job HA 2026.2.3**: tutta `tests_python`, comprese le stesse suite e
+  `test_access_websocket` (16).
+- **Registrazioni reali**, verificate in entrambe le versioni: 38 comandi
+  WebSocket e 5 servizi, nessuna superficie non dichiarata; i cinque servizi
+  dell'Irrigazione restano osservati, le esenzioni restano 7.
+- L'API dei job di GitHub ha continuato a mostrarli «in coda» a run conclusa:
+  la run è `completed` / `success` al primo tentativo, e il log di entrambi i
+  job contiene i risultati e la chiusura senza errori.
+- **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
+  repository pubblici: è un workflow separato.
