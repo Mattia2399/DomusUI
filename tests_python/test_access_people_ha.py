@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
 from homeassistant.core import HomeAssistant
 
 from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager
@@ -271,3 +273,59 @@ async def test_a_person_lends_its_name_never_its_identity(hass: HomeAssistant, h
     hass.states.async_set("person.mario", "home", {"friendly_name": "Mario Rossi", "user_id": member.id})
     accounts = by_id(await ask(await hass_ws_client(hass), {"type": "domusos/access/list_accounts"}))
     assert accounts[member.id]["name"] == "Mario Rossi" and accounts[member.id]["user_id"] == member.id
+
+
+async def test_every_field_is_required_and_nothing_else_is_accepted(hass: HomeAssistant, hass_ws_client, hass_storage) -> None:
+    manager = await registered(hass)
+    member, _ = await member_token(hass)
+    admin = await hass_ws_client(hass)
+    complete = {"type": "domusos/access/set_assignment", "user_id": member.id, "role": "member", "grants": [], "expected_revision": 0}
+    for field in ("user_id", "role", "grants", "expected_revision"):
+        partial = {key: value for key, value in complete.items() if key != field}
+        reply = await ask(admin, partial)
+        assert not reply["success"] and reply["error"]["code"] == "invalid_format", field
+    for message in (
+        {"type": "domusos/access/remove_assignment", "user_id": member.id},
+        {"type": "domusos/access/remove_assignment", "expected_revision": 0},
+        {"type": "domusos/access/remove_assignment", "user_id": member.id, "expected_revision": 0, "assigned_by": "x" * 32},
+        {"type": "domusos/access/list_accounts", "user_id": member.id},
+        {**complete, "expected_revision": "0"},
+        {**complete, "grants": "access.control"},
+    ):
+        reply = await ask(admin, message)
+        assert not reply["success"] and reply["error"]["code"] == "invalid_format", message
+    assert manager.revision == 0 and STORAGE_KEY not in hass_storage
+
+
+@pytest.mark.parametrize("role", ["restricted", "wall_panel"])
+async def test_limited_and_panel_accounts_can_hold_personal_grants(
+    hass: HomeAssistant, hass_ws_client, hass_storage, role: str
+) -> None:
+    await registered(hass)
+    member, token = await member_token(hass)
+    reply = await ask(
+        await hass_ws_client(hass),
+        {
+            "type": "domusos/access/set_assignment",
+            "user_id": member.id,
+            "role": role,
+            "grants": ["access.control", "security.control"],
+            "expected_revision": 0,
+        },
+    )
+    assert reply["success"] and reply["result"]["account"]["grants"] == ["access.control", "security.control"]
+    assert hass_storage[STORAGE_KEY]["data"]["assignments"][member.id]["role"] == role
+    profile = (await ask(await hass_ws_client(hass, token), {"type": "domusos/access/get_self"}))["result"]["access"]
+    assert profile["role"] == role
+    assert {"access.control", "security.control"} <= set(profile["capabilities"])
+    assert "access.manage" not in profile["capabilities"]
+
+
+async def test_a_disabled_administrator_cannot_even_reach_people_and_access(hass: HomeAssistant, hass_ws_client) -> None:
+    await registered(hass)
+    former = await hass.auth.async_create_user("Former admin", group_ids=["system-admin"])
+    token = hass.auth.async_create_access_token(await hass.auth.async_create_refresh_token(former, CLIENT_ID))
+    await hass.auth.async_deactivate_user(former)
+    # Home Assistant drops the account's sessions and refuses its token; Domus never sees it as an actor.
+    with pytest.raises(AssertionError):
+        await hass_ws_client(hass, token)
