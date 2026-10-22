@@ -6,10 +6,12 @@ service call. Never from a field of the request. These adapters only decide;
 shadow authorization uses them to observe, and no command enforces them yet
 (docs/access-control-authorization.md, docs/access-control-shadow.md).
 
-A service call without a user (an automation, a script started by one, a
-timer) has no principal: the decision is a deny with ``no_principal``. Domus
-has no system or automation principal; how existing automations are treated
-is decided before enforcement, from what shadow mode measures.
+A service call without a user (an automation, a timer) has no principal.
+Domus never makes one up. Such a call is allowed only for a declared service
+that opts in, when the context derives from another one and the policy can be
+trusted (Q10, docs/access-control-enforcement.md); otherwise it is a deny
+with ``no_principal``. A call with a user is always decided for that user,
+and a denial never falls back to the path without one.
 """
 
 from __future__ import annotations
@@ -24,11 +26,13 @@ from .authorization import (
     DecisionReason,
     authorize,
     authorize_action,
+    authorize_unattributed_action,
     deny,
     identify,
 )
 from .manager import AccessPolicyManager
 from .models import AccessProfile, Principal
+from .shadow import Origin
 
 
 def _resolve(manager: AccessPolicyManager | None, user: Any) -> tuple[Principal | None, AccessProfile | None, DecisionReason | None]:
@@ -84,6 +88,21 @@ def require_user_capability(
     return decision
 
 
+def has_parent_context(call: ServiceCall) -> bool:
+    """Whether Home Assistant derived the call's context from another one; only "there is a parent", never its id."""
+    parent_id = getattr(call.context, "parent_id", None)
+    return isinstance(parent_id, str) and parent_id != ""
+
+
+def service_origin(call: ServiceCall) -> Origin:
+    """Where a service call came from, as Home Assistant attached it; the one classification for decisions and diagnostics."""
+    if call.context.user_id is not None:
+        return Origin.SERVICE_WITH_USER
+    if has_parent_context(call):
+        return Origin.SERVICE_NO_USER_WITH_PARENT
+    return Origin.SERVICE_NO_USER_WITHOUT_PARENT
+
+
 async def _service_user(hass: HomeAssistant, call: ServiceCall) -> tuple[Any, DecisionReason | None]:
     user_id = call.context.user_id
     if user_id is None:
@@ -121,8 +140,20 @@ async def authorize_service_action(
     call: ServiceCall,
     action: str,
 ) -> AuthorizationDecision:
-    """Decide a declared service for the user Home Assistant attached to the call, following its contract."""
+    """Decide a declared service for the user Home Assistant attached to the call, following its contract.
+
+    With a user, only that user's decision counts. Without one, the call can
+    only be allowed as an unattributed Home Assistant context (Q10).
+    """
     try:
+        if service_origin(call) is not Origin.SERVICE_WITH_USER:
+            trusted_manager = manager if isinstance(manager, AccessPolicyManager) else None
+            return authorize_unattributed_action(
+                action,
+                has_parent=has_parent_context(call),
+                policy_state=trusted_manager.state if trusted_manager is not None else None,
+                policy_revision=trusted_manager.revision if trusted_manager is not None else None,
+            )
         user, reason = await _service_user(hass, call)
         if reason is not None:
             return deny(reason, action=action)

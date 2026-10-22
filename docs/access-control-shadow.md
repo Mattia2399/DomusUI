@@ -181,6 +181,7 @@ Risposta, in ordine stabile:
 | Campo | Contenuto |
 | --- | --- |
 | `mode`, `enforced` | `"shadow"`, `false` |
+| `rules_version` | Le regole con cui sono state prese le decisioni: `2` da P2.5B (regola Q10) |
 | `session_started_at` | Avvio dei contatori (avvio di HA) |
 | `window` | `started_at`, `reason`, stato e revisione della policy della finestra |
 | `policy` | Stato e revisione attuali |
@@ -205,7 +206,7 @@ Per ognuno dei 5 servizi di Irrigazione la diagnostica raccoglie:
 | `with_principal` / `without_principal` | Con o senza un account valido |
 | `no_user_with_parent` | Senza `user_id`, con un `parent_id` nel contesto (tipicamente un'automazione o uno script avviato da essa) |
 | `no_user_without_parent` | Senza `user_id` e senza parent |
-| `shadow_allow` / `shadow_deny` | Decisione |
+| `shadow_allow` / `shadow_deny` | Decisione; da P2.5B `shadow_allow` conta anche gli allow senza utente (`allowed_unattributed_ha_context`) |
 | `no_principal` | Deny `no_principal` |
 | `current_success` / `current_deny` / `current_error` | Esito reale |
 | `would_block` | Chiamate che l'enforcement bloccherebbe |

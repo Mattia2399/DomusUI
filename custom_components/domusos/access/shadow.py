@@ -24,7 +24,7 @@ from enum import StrEnum
 from typing import Any
 
 from .actions import ActionContract, SurfaceKind, shadow_contracts
-from .authorization import AuthorizationDecision, DecisionReason
+from .authorization import ALLOW_REASONS, AUTHORIZATION_RULES_VERSION, AuthorizationDecision, DecisionReason
 
 MAX_RECENT_MISMATCHES = 50
 # Every dimension is a closed set, so this is never reached in practice; it is the hard ceiling anyway.
@@ -69,11 +69,12 @@ MISMATCHES = frozenset({Comparison.WOULD_BLOCK, Comparison.CURRENT_STRICTER, Com
 
 
 class Origin(StrEnum):
-    """Where a request came from, as Home Assistant attached it. Diagnostic only, never a security input."""
+    """Where a request came from, as Home Assistant attached it. Never an identity, never an authority."""
 
     WEBSOCKET = "websocket"
     SERVICE_WITH_USER = "service_with_user"
-    # No user, but a parent context: typically an automation or a script it started.
+    # No user, but a parent context: typically an automation. Only makes the call
+    # eligible for a service that opts in (Q10); it proves nothing about who.
     SERVICE_NO_USER_WITH_PARENT = "service_no_user_with_parent"
     SERVICE_NO_USER_WITHOUT_PARENT = "service_no_user_without_parent"
 
@@ -283,12 +284,13 @@ class ShadowStats:
             for contract in self._contracts
             if contract.surface is SurfaceKind.SERVICE
         }
+        allow_reasons = {reason.value for reason in ALLOW_REASONS}
         for (action, origin, principal_present, role, reason, outcome, comparison), count in self._counters.items():
             comparisons[Comparison(comparison)] += count
             reasons[reason] = reasons.get(reason, 0) + count
+            allowed = reason in allow_reasons
             row = rows.get(action)
             if row is not None:
-                allowed = reason == DecisionReason.ALLOWED.value
                 row["total"] += count
                 row["shadow_allow" if allowed else "shadow_deny"] += count
                 row["outcomes"][outcome] += count
@@ -303,7 +305,7 @@ class ShadowStats:
                     service["no_user_with_parent"] += count
                 elif origin == Origin.SERVICE_NO_USER_WITHOUT_PARENT.value:
                     service["no_user_without_parent"] += count
-                service["shadow_allow" if reason == DecisionReason.ALLOWED.value else "shadow_deny"] += count
+                service["shadow_allow" if allowed else "shadow_deny"] += count
                 if reason == DecisionReason.NO_PRINCIPAL.value:
                     service["no_principal"] += count
                 service[f"current_{outcome}"] += count
@@ -315,6 +317,8 @@ class ShadowStats:
         return {
             "mode": "shadow",
             "enforced": False,
+            # The rules the decisions follow: numbers taken under different rules are not compared.
+            "rules_version": AUTHORIZATION_RULES_VERSION,
             "session_started_at": _iso(self.session_started_at),
             "window": {
                 "started_at": _iso(self._started_at),

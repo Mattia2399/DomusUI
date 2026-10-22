@@ -1,9 +1,11 @@
-# Domus Access Control — enforcement (design P2.5A)
+# Domus Access Control — enforcement (design P2.5A, regola Q10 P2.5B)
 
 Come Domus passerà dallo shadow (P2.3) a un backend che blocca davvero le
 richieste, e dove passa la frontiera di fiducia per le esecuzioni di Home
-Assistant senza utente (Q10). **È solo design**: nessun comportamento cambia in
-P2.5A. Ogni superficie osservata resta `mode = "shadow"`, `enforced = false`.
+Assistant senza utente (Q10). P2.5A è il design; **P2.5B** ha messo la regola
+Q10 nel motore, ma solo nella decisione simulata dallo shadow: nessun
+comportamento reale cambia. Ogni superficie osservata resta `mode = "shadow"`,
+`enforced = false` (vedi [P2.5B](#16-p25b-cosa-è-stato-implementato)).
 
 Collegati: [architettura](access-control-architecture.md),
 [autorizzazione](access-control-authorization.md),
@@ -149,7 +151,7 @@ Servizio
     parent_id presente (stringa non vuota)
       E azione con allow_unattributed_ha_context = true
       E capability dell'azione nota
-      E policy affidabile (vedi Q14) ............................. ALLOW allowed_unattributed_ha_context
+      E policy affidabile (absent, ready; Q14) ................... ALLOW allowed_unattributed_ha_context
     altrimenti .................................................. DENY no_principal
 qualsiasi eccezione ............................................. DENY internal_error
 ```
@@ -211,7 +213,7 @@ Nessuna euristica viene introdotta per risolverlo (D66).
 
 ## 6. Metadato nel registro delle azioni
 
-Il registro resta la fonte unica. P2.5B aggiungerà un campo a `ActionContract`:
+Il registro resta la fonte unica. P2.5B ha aggiunto un campo a `ActionContract`:
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -270,19 +272,20 @@ if call.context.parent_id:
     execute()
 ```
 
-Proposta per P2.5B:
+Implementato in P2.5B:
 
 - **`authorization.py`** (puro, senza HA): una funzione nuova,
-  `authorize_unattributed_action(action, *, has_parent, policy_state, contracts=None)`.
+  `authorize_unattributed_action(action, *, has_parent, policy_state, policy_revision, contracts=None)`.
   Applica l'albero della sezione 4 per la parte senza utente e restituisce
   sempre una `AuthorizationDecision`; eccezione = deny.
 - **`adapters.py`**: `authorize_service_action` legge il `Context` una volta.
   Con `user_id` usa il percorso A come oggi; senza `user_id` chiama la funzione
   nuova. Nessun altro adattatore la usa: `authorize_user_action` (WebSocket)
   resta senza percorso B.
-- **Classificazione del contesto**: `_service_origin` passa da
-  `instrumentation.py` agli adattatori, così decisione e diagnostica leggono lo
-  stesso fatto nello stesso modo.
+- **Classificazione del contesto**: `service_origin` e `has_parent_context`
+  stanno negli adattatori; l'instrumentation usa la stessa funzione, così
+  decisione e diagnostica leggono lo stesso fatto nello stesso modo. Un
+  contratto sul sorgente verifica che nessun altro modulo legga `parent_id`.
 
 ## 8. Decisione, motivi, audit e diagnostica
 
@@ -323,12 +326,15 @@ nuovi:
 | Categoria | Da |
 | --- | --- |
 | `user_allow` / `user_deny` | principal presente, allow / deny |
-| `unattributed_allow` | origine con parent, motivo `allowed_unattributed_ha_context` |
+| `unattributed_allow` | `by_action[*].reasons.allowed_unattributed_ha_context` |
 | `unattributed_deny` | origine senza utente, motivo `no_principal` |
 | `no_principal` | per motivo |
 
 Per i servizi restano `with_principal`, `without_principal`,
-`no_user_with_parent` e `no_user_without_parent`, più `unattributed_allow`.
+`no_user_with_parent` e `no_user_without_parent`; `shadow_allow` conta ogni
+allow, con o senza utente. In P2.5B nessun contatore nuovo: gli allow senza
+utente si leggono dal motivo, per azione e in `by_reason`; il ruolo di queste
+osservazioni è il `none` che esiste già.
 
 **Privacy.** Nessun `context.id`, `parent_id`, payload, dato di entità o
 utente viene conservato. Del `parent_id` si usa solo «presente / assente», al
@@ -343,8 +349,8 @@ momento della decisione.
 - Da P2.5B `would_block` significa «ciò che la policy corretta bloccherebbe».
   I numeri raccolti prima di P2.5B non si confrontano con quelli dopo: il
   riavvio di HA per l'aggiornamento apre comunque una finestra nuova (D38,
-  D44). La diagnostica dichiarerà la versione delle regole (per esempio
-  `rules: "p2.5"`), così un confronto sbagliato si vede.
+  D44). La diagnostica dichiara la versione delle regole
+  (`rules_version: 2`, P2.5B), così un confronto sbagliato si vede.
 - Con l'enforcement acceso lo shadow non sparisce: diventa la diagnostica
   dell'enforcement. Una sola decisione per richiesta serve a entrambi:
   - superficie non ancora enforced: la decisione viene contata e la richiesta
@@ -430,7 +436,7 @@ P2.5 si divide in quattro passi (D70):
 | Passo | Contenuto | Comportamento |
 | --- | --- | --- |
 | **P2.5A** | Questo design | Invariato |
-| **P2.5B** | `allow_unattributed_ha_context` nel registro, regola Q10 nel motore e negli adattatori, nuovo motivo, diagnostica (`rules`, `unattributed_allow`), plumbing di `enforced` (tutto `False`), contratti e test della matrice | Invariato: ancora shadow |
+| **P2.5B** | `allow_unattributed_ha_context` nel registro, regola Q10 nel motore e negli adattatori, nuovo motivo, `rules_version` nella diagnostica, contratti e test della matrice. `enforced` arriva in P2.5D con il primo dominio che lo usa | Invariato: ancora shadow |
 | **Validazione Linux** | Le suite HA su 2025.1 e 2026.2.3 | — |
 | **P2.5C** | QA shadow reale in casa con la regola Q10 | Invariato |
 | **P2.5D** | Enforcement acceso per dominio, un commit e una validazione per passo | Cambia |
@@ -514,9 +520,53 @@ contratto rosso; eccezione nel motore → DENY `internal_error`.
   `aligned_allow`, nessun `would_block`;
 - P2.5D (enforced): la zona parte.
 
-## 15. Domande nuove
+## 15. Domande nate dal design
 
 | Id | Domanda | Proposta |
 | --- | --- | --- |
-| Q14 | Con lo store non affidabile (`corrupt`, `unsupported`, `migration_failed`), il percorso B resta aperto per i cinque servizi? Pro: l'opt-in è codice, non dati dello store, e il giardino non resta a secco. Contro: «policy non affidabile = pavimento minimo» vale per tutto, e il pavimento non contiene azioni senza utente | **Aperta.** Proposta: fail closed, cioè con store non affidabile il percorso B è deny `locked`; il recupero è un clic in Ruoli e permessi. Da decidere prima di P2.5B |
-| Q15 | Serve un interruttore d'emergenza per tornare allo shadow senza reinstallare? | **Aperta.** Proposta: no in V1, perché sarebbe un bypass globale da proteggere a sua volta; il rollback è la versione precedente. Da decidere prima di P2.5D |
+| Q14 | Con lo store non affidabile (`corrupt`, `unsupported`, `migration_failed`), il percorso B resta aperto per i cinque servizi? Pro: l'opt-in è codice, non dati dello store, e il giardino non resta a secco. Contro: «policy non affidabile = pavimento minimo» vale per tutto, e il pavimento non contiene azioni senza utente | **Chiusa (P2.5B)**: no. Con store non affidabile il percorso B è deny `locked`, senza eccezioni per l'Irrigazione; il recupero resta `reset_policy` per l'admin HA. Security > availability (D73) |
+| Q15 | Serve un interruttore d'emergenza per tornare allo shadow senza reinstallare? | **Chiusa per V1**: no. Nessun interruttore a runtime, da interfaccia, da variabile d'ambiente, servizio, WebSocket, impostazione o flag nascosto; il rollback è la versione precedente (D74) |
+
+## 16. P2.5B: cosa è stato implementato
+
+Ancora shadow: la decisione cambia, gli handler no. Un'automazione che avvia
+una zona esegue come prima; lo shadow ora la conta come allow.
+
+| Pezzo | Dove | Cosa |
+| --- | --- | --- |
+| Metadato | `actions.py` | `ActionContract.allow_unattributed_ha_context: bool = False`; vero esattamente per i cinque servizi dell'Irrigazione; `unattributed_contracts()` |
+| Motivo | `authorization.py` | `DecisionReason.ALLOWED_UNATTRIBUTED_HA_CONTEXT`; `ALLOW_REASONS` = `allowed` e quello nuovo |
+| Regola | `authorization.py` | `authorize_unattributed_action`: azione sconosciuta → `unknown_action`; senza parent, non servizio, non `capability` o senza opt-in → `no_principal`; senza manager → `policy_unavailable`; store non affidabile → `locked`; capability sconosciuta → `unknown_capability`; capability admin → `requires_ha_admin`; altrimenti allow senza principal e senza ruolo; eccezione → `internal_error` |
+| Adattatore | `adapters.py` | `authorize_service_action`: senza `user_id` → regola Q10; con `user_id` → solo l'ACL dell'utente, mai la regola Q10. `service_origin` e `has_parent_context` sono l'unica classificazione |
+| Shadow | `shadow.py`, `instrumentation.py` | `shadow_allow` conta ogni motivo di allow; `rules_version: 2` nella diagnostica; l'instrumentation usa `service_origin` |
+| Versione delle regole | `authorization.py` | `AUTHORIZATION_RULES_VERSION = 2`, solo per la diagnostica, mai nello store |
+
+Scelte fatte in P2.5B:
+
+- **`absent` è affidabile**, come in tutto Access Control (`TRUSTED_STATES` =
+  `absent`, `ready`): è uno stato valido, senza assegnazioni, con i ruoli
+  predefiniti. Un'automazione della casa funziona prima che qualcuno abbia mai
+  salvato un ruolo. Solo `corrupt`, `unsupported` e `migration_failed` sono non
+  affidabili.
+- **Store non affidabile → `locked`**, lo stesso motivo che riceve un account
+  sul pavimento di sicurezza; un manager mancante → `policy_unavailable`.
+- **Nessuna finestra nuova a mano**: una versione nuova delle regole richiede
+  un riavvio di HA, che apre già una sessione e una finestra nuove (D38, D44).
+  `rules_version` rende visibile con quali regole sono stati contati i numeri.
+- **`enforced` non è stato aggiunto**: un campo che nessuno legge e un test
+  «tutto falso» non proteggerebbero nulla. Arriva in P2.5D con il primo
+  dominio acceso, insieme al codice che lo applica.
+- **Gli adattatori per capability** (`authorize_service_call`,
+  `require_service_capability`) non conoscono l'azione, quindi non hanno la
+  regola Q10: senza utente restano `no_principal`. L'opt-in vive solo
+  nell'azione.
+- **Contesto malformato**: un `parent_id` vuoto conta come assente; un
+  `user_id` che HA non conosce è `invalid_principal`, mai «nessun utente».
+
+Test:
+
+| File | Cosa | Dove |
+| --- | --- | --- |
+| `tests_python/test_access_unattributed.py` | Default falso, insieme esatto, solo servizi `domus` non admin, nessuna WebSocket, nessuna azione di gestione; albero di decisione per i cinque servizi; `absent` e `ready`; `corrupt`, `unsupported`, `migration_failed`; senza manager; parent non valido; azione non opt-in; WebSocket marcata a mano; gestione o admin marcati a mano; capability e azione sconosciute; errore; motivi; utente `restricted` mai lasciato passare; shadow e regressione del caso reale del 22 ottobre 2026; solo l'adattatore legge `parent_id` | ovunque (68 test) |
+| `tests_python/test_access_authorization_ha.py` | `Context` reali di HA: automazione su ognuno dei cinque servizi; senza parent; parent vuoto; admin, member, restricted e wall_panel con e senza parent; utente sconosciuto; i tre stati non affidabili con il recupero dell'admin; `ready`; senza manager; servizio sconosciuto | Linux con fixture HA |
+| `tests_python/test_access_shadow_ha.py` | Chiamate di servizio reali: il caso del 22 ottobre (riuscita e zona in errore), un restricted con parent, uno store non affidabile; gli handler eseguono sempre | Linux con fixture HA |

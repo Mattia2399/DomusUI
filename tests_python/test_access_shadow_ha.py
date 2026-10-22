@@ -161,7 +161,7 @@ async def test_a_failing_request_fails_as_before(hass: HomeAssistant, hass_ws_cl
 
 
 async def test_a_service_without_a_user_still_runs(hass: HomeAssistant, hass_ws_client, hass_admin_user) -> None:
-    """The automation case of Q10: denied with no_principal in the shadow, executed for real."""
+    """Q10 in the shadow: an automation context is allowed, a call with no parent is not; all of them run for real."""
     _, _, irrigation = await domus(hass)
     await hass.services.async_call(DOMAIN, "pause_irrigation", {}, blocking=True, context=Context())
     await hass.services.async_call(DOMAIN, "pause_irrigation", {}, blocking=True, context=Context(parent_id="0" * 26))
@@ -175,14 +175,72 @@ async def test_a_service_without_a_user_still_runs(hass: HomeAssistant, hass_ws_
         "without_principal": 2,
         "no_user_with_parent": 1,
         "no_user_without_parent": 1,
-        "shadow_allow": 1,
-        "shadow_deny": 2,
-        "no_principal": 2,
+        "shadow_allow": 2,
+        "shadow_deny": 1,
+        "no_principal": 1,
         "current_success": 3,
         "current_deny": 0,
         "current_error": 0,
-        "would_block": 2,
+        "would_block": 1,
     }
+
+
+async def test_real_home_2026_10_22_an_automation_starting_a_zone_is_a_shadow_allow(
+    hass: HomeAssistant, hass_ws_client
+) -> None:
+    """Regression for the case that closed Q10.
+
+    At home on 2026-10-22, start_irrigation_zone ran from an automation
+    (no user, a parent context) and succeeded, and the P2.3 rules counted it as
+    would_block. Under the Q10 rules it is an aligned shadow allow, and the
+    handler still runs exactly as before; a failing zone stays a current error.
+    """
+    _, _, irrigation = await domus(hass)
+    automation = Context(parent_id="01JAUTOMATIONPARENTCONTEXT")
+    await hass.services.async_call(DOMAIN, "start_irrigation_zone", {"zone_id": "front"}, blocking=True, context=automation)
+    irrigation.async_start_zone.side_effect = RuntimeError("zone disabled")
+    with pytest.raises(RuntimeError):
+        await hass.services.async_call(DOMAIN, "start_irrigation_zone", {"zone_id": "back"}, blocking=True, context=automation)
+    assert irrigation.async_start_zone.await_count == 2
+    # Still the household account the handler sees: none.
+    assert irrigation.async_start_zone.await_args_list[0].args[2] is None
+    snapshot = await diagnostics(await hass_ws_client(hass))
+    assert (snapshot["mode"], snapshot["enforced"], snapshot["rules_version"]) == ("shadow", False, 2)
+    start = service_row(snapshot, "domusos.start_irrigation_zone")
+    assert (start["no_user_with_parent"], start["shadow_allow"], start["shadow_deny"], start["no_principal"]) == (2, 2, 0, 0)
+    assert (start["current_success"], start["current_error"], start["would_block"]) == (1, 1, 0)
+    observed = row(snapshot, "domusos.start_irrigation_zone")
+    assert observed["reasons"] == {"allowed_unattributed_ha_context": 2}
+    assert observed["roles"] == {"none": 2}
+    assert observed["comparisons"]["aligned_allow"] == 1 and observed["comparisons"]["current_error"] == 1
+    assert not [sample for sample in snapshot["recent_mismatches"] if sample["action"] == "domusos.start_irrigation_zone"]
+
+
+async def test_a_member_without_irrigation_control_is_never_let_through_by_a_parent(
+    hass: HomeAssistant, hass_ws_client, hass_storage
+) -> None:
+    child, _ = await member_token(hass, "Child")
+    hass_storage[STORAGE_KEY] = policy({child.id: {"role": "restricted", "grants": [], "assigned_at": NOW, "assigned_by": None}})
+    _, _, irrigation = await domus(hass)
+    context = Context(user_id=child.id, parent_id="01JAUTOMATIONPARENTCONTEXT")
+    await hass.services.async_call(DOMAIN, "stop_all_irrigation", {}, blocking=True, context=context)
+    # Shadow only: the call still ran as before.
+    assert irrigation.async_stop_all.await_count == 1
+    stop_all = service_row(await diagnostics(await hass_ws_client(hass)), "domusos.stop_all_irrigation")
+    assert (stop_all["with_principal"], stop_all["shadow_deny"], stop_all["would_block"]) == (1, 1, 1)
+    assert stop_all["no_user_with_parent"] == 0
+
+
+async def test_an_untrusted_policy_is_a_shadow_deny_for_automations(hass: HomeAssistant, hass_ws_client, hass_storage) -> None:
+    hass_storage[STORAGE_KEY] = policy({}, version=SCHEMA_VERSION + 1)
+    _, _, irrigation = await domus(hass)
+    await hass.services.async_call(
+        DOMAIN, "resume_irrigation", {}, blocking=True, context=Context(parent_id="01JAUTOMATIONPARENTCONTEXT")
+    )
+    assert irrigation.async_resume.await_count == 1
+    snapshot = await diagnostics(await hass_ws_client(hass))
+    resume = row(snapshot, "domusos.resume_irrigation")
+    assert resume["reasons"] == {"locked": 1} and resume["shadow_deny"] == 1
 
 
 async def test_a_service_refusal_is_raised_unchanged(hass: HomeAssistant, hass_ws_client) -> None:

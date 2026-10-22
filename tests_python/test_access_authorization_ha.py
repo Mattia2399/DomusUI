@@ -13,6 +13,7 @@ from homeassistant.core import Context, HomeAssistant
 from custom_components.domusos import async_setup
 from custom_components.domusos.access.actions import ACTION_CONTRACTS, stale_contracts, undeclared_actions
 from custom_components.domusos.access.adapters import (
+    authorize_service_action,
     authorize_service_call,
     authorize_user,
     authorize_user_action,
@@ -21,7 +22,7 @@ from custom_components.domusos.access.adapters import (
 )
 from custom_components.domusos.access.authorization import AuthorizationDeniedError, DecisionReason
 from custom_components.domusos.access.manager import AccessPolicyManager
-from custom_components.domusos.access.models import SCHEMA, SCHEMA_VERSION, STORAGE_KEY
+from custom_components.domusos.access.models import SCHEMA, SCHEMA_VERSION, STORAGE_KEY, MigrationFailedError, StoreState
 from custom_components.domusos.const import DOMAIN
 
 NOW = "2026-10-21T10:00:00+00:00"
@@ -142,3 +143,127 @@ async def test_deciding_never_writes_the_policy_or_changes_its_revision(hass: Ho
     assert authorize_user(manager, member, "access.control").allowed
     assert not authorize_user(manager, member, "security.control").allowed
     assert manager.revision == 5 and hass_storage[STORAGE_KEY]["data"] == before
+
+
+# --- Q10: service calls without a user (docs/access-control-enforcement.md) ------------------
+
+IRRIGATION_SERVICES = (
+    "domusos.start_irrigation_zone",
+    "domusos.stop_irrigation_zone",
+    "domusos.pause_irrigation",
+    "domusos.resume_irrigation",
+    "domusos.stop_all_irrigation",
+)
+PARENT = "01JAUTOMATIONPARENTCONTEXT"
+
+
+def call_in(context: Context) -> Any:
+    return SimpleNamespace(context=context)
+
+
+def stored_policy(assignments: dict[str, Any], **overrides: Any) -> dict[str, Any]:
+    data = {
+        "schema": SCHEMA,
+        "version": SCHEMA_VERSION,
+        "revision": 5,
+        "updated_at": NOW,
+        "assignments": assignments,
+        "audit": [],
+    }
+    data.update(overrides)
+    return {"version": 1, "minor_version": 1, "key": STORAGE_KEY, "data": data}
+
+
+def assigned(role: str) -> dict[str, Any]:
+    return {"role": role, "grants": [], "assigned_at": NOW, "assigned_by": None}
+
+
+@pytest.mark.parametrize("action", IRRIGATION_SERVICES)
+async def test_an_automation_context_runs_an_opted_in_service_without_a_principal(
+    hass: HomeAssistant, hass_storage, action: str
+) -> None:
+    await accounts(hass)
+    manager = await loaded(hass)
+    decision = await authorize_service_action(hass, manager, call_in(Context(parent_id=PARENT)), action)
+    assert decision.allowed and decision.reason is DecisionReason.ALLOWED_UNATTRIBUTED_HA_CONTEXT
+    assert decision.principal_id is None and decision.role is None
+    assert (decision.action, decision.capability) == (action, "irrigation.control")
+    assert (decision.policy_state, decision.policy_revision) == (StoreState.ABSENT, 0)
+    # No user and no parent: still nobody to decide for.
+    orphan = await authorize_service_action(hass, manager, call_in(Context()), action)
+    assert not orphan.allowed and orphan.reason is DecisionReason.NO_PRINCIPAL
+    # An empty parent id is no parent.
+    empty = await authorize_service_action(hass, manager, call_in(Context(parent_id="")), action)
+    assert not empty.allowed and empty.reason is DecisionReason.NO_PRINCIPAL
+
+
+@pytest.mark.parametrize("action", IRRIGATION_SERVICES)
+async def test_a_user_with_a_parent_context_is_decided_for_the_user_alone(
+    hass: HomeAssistant, hass_storage, action: str
+) -> None:
+    """User precedence: a user's denial never falls back to the path without a user."""
+    admin, member = await accounts(hass)
+    restricted = await hass.auth.async_create_user("Child", group_ids=["system-users"])
+    panel = await hass.auth.async_create_user("Panel", group_ids=["system-users"])
+    hass_storage[STORAGE_KEY] = stored_policy({restricted.id: assigned("restricted"), panel.id: assigned("wall_panel")})
+    manager = await loaded(hass)
+    for user, allowed in ((admin, True), (member, True), (restricted, False), (panel, False)):
+        # A script started by a user carries the user's context, with or without a parent.
+        for context in (Context(user_id=user.id), Context(user_id=user.id, parent_id=PARENT)):
+            decision = await authorize_service_action(hass, manager, call_in(context), action)
+            assert decision.allowed is allowed, (user.name, context.parent_id)
+            assert decision.principal_id == user.id
+            if allowed:
+                assert decision.reason is DecisionReason.ALLOWED
+            else:
+                assert decision.reason is DecisionReason.MISSING_CAPABILITY
+    # A user Home Assistant does not know is refused, never treated as no user.
+    unknown = await authorize_service_action(hass, manager, call_in(Context(user_id="f" * 32, parent_id=PARENT)), action)
+    assert not unknown.allowed and unknown.reason is DecisionReason.INVALID_PRINCIPAL
+
+
+@pytest.mark.parametrize("state", ["corrupt", "unsupported", "migration_failed"])
+async def test_an_untrusted_policy_stops_the_house_automations_too(hass: HomeAssistant, hass_storage, state: str) -> None:
+    """Q14: no exception for Irrigation; an administrator restores the policy first."""
+    admin, _ = await accounts(hass)
+    if state == "corrupt":
+        hass_storage[STORAGE_KEY] = stored_policy({"x" * 32: {"role": "owner"}})
+        manager = await loaded(hass)
+    elif state == "unsupported":
+        hass_storage[STORAGE_KEY] = stored_policy({}, version=SCHEMA_VERSION + 1)
+        manager = await loaded(hass)
+    else:
+        hass_storage[STORAGE_KEY] = stored_policy({})
+        with patch(
+            "custom_components.domusos.access.manager.parse_stored_document",
+            side_effect=MigrationFailedError("boom"),
+        ):
+            manager = await loaded(hass)
+    assert manager.state.value == state
+    for action in IRRIGATION_SERVICES:
+        decision = await authorize_service_action(hass, manager, call_in(Context(parent_id=PARENT)), action)
+        assert not decision.allowed and decision.reason is DecisionReason.LOCKED, action
+    # The recovery stays the administrator's.
+    assert authorize_user_action(manager, admin, "domusos/access/reset_policy").allowed
+
+
+async def test_a_ready_policy_lets_the_house_automations_run(hass: HomeAssistant, hass_storage) -> None:
+    _, member = await accounts(hass)
+    hass_storage[STORAGE_KEY] = stored_policy({member.id: assigned("restricted")})
+    manager = await loaded(hass)
+    assert manager.state is StoreState.READY
+    decision = await authorize_service_action(hass, manager, call_in(Context(parent_id=PARENT)), "domusos.start_irrigation_zone")
+    assert decision.allowed and (decision.policy_state, decision.policy_revision) == (StoreState.READY, 5)
+
+
+async def test_without_the_policy_manager_an_automation_context_is_refused(hass: HomeAssistant) -> None:
+    decision = await authorize_service_action(hass, None, call_in(Context(parent_id=PARENT)), "domusos.start_irrigation_zone")
+    assert not decision.allowed and decision.reason is DecisionReason.POLICY_UNAVAILABLE
+
+
+async def test_an_unknown_service_is_refused_with_or_without_a_user(hass: HomeAssistant, hass_storage) -> None:
+    admin, _ = await accounts(hass)
+    manager = await loaded(hass)
+    for context in (Context(parent_id=PARENT), Context(), Context(user_id=admin.id)):
+        decision = await authorize_service_action(hass, manager, call_in(context), "domusos.water_everything")
+        assert not decision.allowed and decision.reason is DecisionReason.UNKNOWN_ACTION

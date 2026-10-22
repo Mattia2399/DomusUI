@@ -17,6 +17,12 @@ Every entry point is observed by shadow authorization
 (docs/access-control-shadow.md), except the few whose ``shadow_exemption``
 says why not.
 
+A service Home Assistant calls with no user (an automation, for example) has
+no principal. Only a service whose contract sets
+``allow_unattributed_ha_context`` may run from such a context, and only when
+the context derives from another one (Q10, docs/access-control-enforcement.md).
+Today those are exactly the five Irrigation services.
+
 Plain Python on purpose: no Home Assistant import.
 """
 
@@ -70,14 +76,30 @@ class ActionContract:
     rationale: str | None = None
     # Why shadow authorization does not observe this entry point; None means it is observed.
     shadow_exemption: str | None = None
+    # A Home Assistant context without a user, derived from another context, may run it (Q10).
+    # A deliberate opt-in: only services, never Access Control, never a websocket command.
+    allow_unattributed_ha_context: bool = False
 
 
 def _ws(command: str, capability: str, ha_check: HaCheck = HaCheck.NONE) -> ActionContract:
     return ActionContract(f"domusos/{command}", SurfaceKind.WEBSOCKET, AuthMode.CAPABILITY, capability, ha_check)
 
 
-def _service(service: str, capability: str, ha_check: HaCheck = HaCheck.NONE) -> ActionContract:
-    return ActionContract(f"domusos.{service}", SurfaceKind.SERVICE, AuthMode.CAPABILITY, capability, ha_check)
+def _service(
+    service: str,
+    capability: str,
+    ha_check: HaCheck = HaCheck.NONE,
+    *,
+    allow_unattributed_ha_context: bool = False,
+) -> ActionContract:
+    return ActionContract(
+        f"domusos.{service}",
+        SurfaceKind.SERVICE,
+        AuthMode.CAPABILITY,
+        capability,
+        ha_check,
+        allow_unattributed_ha_context=allow_unattributed_ha_context,
+    )
 
 
 _A, _R, _C, _H = HaCheck.ADMIN, HaCheck.ENTITY_READ, HaCheck.ENTITY_CONTROL, HaCheck.HOUSEHOLD_SELF
@@ -156,11 +178,12 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
     _ws("irrigation/pause", "irrigation.control", _C),
     _ws("irrigation/resume", "irrigation.control", _C),
     _ws("irrigation/stop_all", "irrigation.control", _C),
-    _service("start_irrigation_zone", "irrigation.control", _C),
-    _service("stop_irrigation_zone", "irrigation.control", _C),
-    _service("pause_irrigation", "irrigation.control", _C),
-    _service("resume_irrigation", "irrigation.control", _C),
-    _service("stop_all_irrigation", "irrigation.control", _C),
+    # The house's own automations run these with no user (Q10): the only unattributed opt-in.
+    _service("start_irrigation_zone", "irrigation.control", _C, allow_unattributed_ha_context=True),
+    _service("stop_irrigation_zone", "irrigation.control", _C, allow_unattributed_ha_context=True),
+    _service("pause_irrigation", "irrigation.control", _C, allow_unattributed_ha_context=True),
+    _service("resume_irrigation", "irrigation.control", _C, allow_unattributed_ha_context=True),
+    _service("stop_all_irrigation", "irrigation.control", _C, allow_unattributed_ha_context=True),
     # --- Profile (always the account's own) ------------------------------------------------
     _ws("profile/get_self", "profile.manage", _H),
     _ws("profile/save_self", "profile.manage", _H),
@@ -187,6 +210,11 @@ def contracts_for(surface: SurfaceKind) -> list[ActionContract]:
 def shadow_contracts() -> list[ActionContract]:
     """The entry points shadow authorization observes, in declaration order."""
     return [contract for contract in ACTION_CONTRACT_LIST if contract.shadow_exemption is None]
+
+
+def unattributed_contracts() -> list[ActionContract]:
+    """The entry points a Home Assistant context without a user may run (Q10), in declaration order."""
+    return [contract for contract in ACTION_CONTRACT_LIST if contract.allow_unattributed_ha_context]
 
 
 def undeclared_actions(registered: Iterable[str]) -> list[str]:

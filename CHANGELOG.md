@@ -18,7 +18,10 @@
   would allow or refuse and counts it in memory, without names or
   content, so an administrator can read what would change with
   `domusos/access/get_shadow_diagnostics`. No new access restriction is
-  enforced: every request runs exactly as before.
+  enforced: every request runs exactly as before. Home Assistant
+  automations calling the five Irrigation actions without a user now count
+  as allowed in those diagnostics, unless the stored permissions are
+  unreadable; nothing else may run without a user.
 - The interface now follows each account's Domus role: pages, navigation,
   Settings entries and controls an account may not use are not shown, and
   an address it may not open says "Not available for your account". Only

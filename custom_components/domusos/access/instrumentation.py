@@ -28,7 +28,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import DOMAIN
 from .actions import ACTION_CONTRACTS, ActionContract
-from .adapters import authorize_service_action, authorize_user_action
+from .adapters import authorize_service_action, authorize_user_action, service_origin
 from .authorization import AuthorizationDecision
 from .manager import DATA_ACCESS_MANAGER, AccessPolicyManager
 from .shadow import CurrentOutcome, Origin, ShadowStats, observe, outcome_for_code
@@ -197,16 +197,6 @@ def register_websocket_commands(hass: HomeAssistant, commands: Iterable[Callable
         websocket_api.async_register_command(hass, observed_command(command))
 
 
-def _service_origin(call: ServiceCall) -> Origin:
-    context = call.context
-    if context.user_id is not None:
-        return Origin.SERVICE_WITH_USER
-    # Diagnostic only: a parent context hints at an automation, it proves nothing.
-    if context.parent_id is not None:
-        return Origin.SERVICE_NO_USER_WITH_PARENT
-    return Origin.SERVICE_NO_USER_WITHOUT_PARENT
-
-
 def _observed_service(
     hass: HomeAssistant, contract: ActionContract, handler: Callable[[ServiceCall], Awaitable[Any]]
 ) -> Callable[[ServiceCall], Awaitable[Any]]:
@@ -217,7 +207,7 @@ def _observed_service(
         if started is not None:
             stats, generation, manager = started
             try:
-                origin = _service_origin(call)
+                origin = service_origin(call)
                 decision: AuthorizationDecision | None = await authorize_service_action(hass, manager, call, contract.id)
                 probe = _Probe(hass, stats, generation, contract, origin, decision)
             except Exception:  # noqa: BLE001 - nothing may reach the request

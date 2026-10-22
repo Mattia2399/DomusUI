@@ -152,7 +152,10 @@ Campi di ogni contratto:
 - `ha_check`: cosa HA o il modulo controllano già oggi, e che resta;
 - `rationale`: obbligatorio per i casi non `capability`;
 - `shadow_exemption` (P2.3): perché lo shadow non osserva l'azione; vuoto per
-  le 36 osservate.
+  le 36 osservate;
+- `allow_unattributed_ha_context` (P2.5B): se un contesto HA senza utente, ma
+  derivato da un altro, può eseguirla. Default falso; vero esattamente per i
+  cinque servizi dell'Irrigazione ([enforcement](access-control-enforcement.md)).
 
 Rischio, descrizione e `requires_ha_admin` si leggono dal registro delle
 capability, non vengono ripetuti.
@@ -220,8 +223,10 @@ Per questo:
 dell'utente, senza ripiego. Senza utente ma con un `parent_id`, passano solo le
 azioni con `allow_unattributed_ha_context` (in V1 i cinque servizi
 dell'Irrigazione), con il motivo `allowed_unattributed_ha_context` e nessun
-principal. Senza utente né parent: deny `no_principal`. La regola arriva nel
-motore in P2.5B, ancora in shadow.
+principal. Senza utente né parent: deny `no_principal`. La regola è nel
+motore da P2.5B (`authorize_unattributed_action`, chiamata solo da
+`authorize_service_action` quando manca l'utente), ancora in shadow. Con lo
+store non affidabile è deny `locked` anche senza utente (Q14).
 
 I comandi WebSocket non sono raggiungibili dalle automazioni.
 

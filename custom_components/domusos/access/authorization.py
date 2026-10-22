@@ -20,8 +20,9 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
-from .actions import ACTION_CONTRACTS, ActionContract, AuthMode
+from .actions import ACTION_CONTRACTS, ActionContract, AuthMode, SurfaceKind
 from .models import (
+    TRUSTED_STATES,
     AccessDeniedError,
     AccessProfile,
     EnforcementKind,
@@ -32,11 +33,18 @@ from .models import (
     is_user_id,
 )
 
+# Which rules the decisions follow, for the diagnostics only: 2 adds the
+# unattributed Home Assistant context (Q10). Never stored with the policy.
+AUTHORIZATION_RULES_VERSION = 2
+
 
 class DecisionReason(StrEnum):
     """Why a request was allowed or denied; stable codes, never UI text."""
 
     ALLOWED = "allowed"
+    # No user, but a Home Assistant context derived from another one, on an action
+    # that opts in (Q10). Not a principal: the decision has no account and no role.
+    ALLOWED_UNATTRIBUTED_HA_CONTEXT = "allowed_unattributed_ha_context"
     # The account is valid but its role and grants do not include the capability.
     MISSING_CAPABILITY = "missing_capability"
     # The policy cannot be trusted: the account is on the safe floor.
@@ -54,6 +62,10 @@ class DecisionReason(StrEnum):
     # An action nobody declared in the action registry.
     UNKNOWN_ACTION = "unknown_action"
     INTERNAL_ERROR = "internal_error"
+
+
+# Every reason a decision allows with; anything else is a deny.
+ALLOW_REASONS = frozenset({DecisionReason.ALLOWED, DecisionReason.ALLOWED_UNATTRIBUTED_HA_CONTEXT})
 
 
 @dataclass(frozen=True, slots=True)
@@ -279,6 +291,75 @@ def authorize_action(
                 return deny(DecisionReason.POLICY_UNAVAILABLE, action=action, principal=principal)
             return _decision(True, DecisionReason.ALLOWED, None, action=action, principal=principal, profile=profile)
         return authorize(principal, profile, contract.capability, action=action)
+    except Exception:  # noqa: BLE001 - fail closed
+        return AuthorizationDecision(
+            allowed=False,
+            reason=DecisionReason.INTERNAL_ERROR,
+            capability=None,
+            action=action if isinstance(action, str) else None,
+        )
+
+
+def authorize_unattributed_action(
+    action: str,
+    *,
+    has_parent: bool,
+    policy_state: StoreState | None,
+    policy_revision: int | None = None,
+    contracts: Mapping[str, ActionContract] | None = None,
+) -> AuthorizationDecision:
+    """The decision for a service Home Assistant called with no user at all (Q10).
+
+    Only for a call without a user: when there is one, the user's own decision
+    is the only one, and a denial never falls back to this path. No principal
+    is made up here: an allow has no account and no role, only the action, its
+    capability (how sensitive the action is, not something the context holds)
+    and the policy it was taken under.
+
+    Allowed only when all of these hold, else denied:
+    - the action is a declared service that opts in (``allow_unattributed_ha_context``);
+    - the context derives from another one (``has_parent``): a signal, not an identity;
+    - the policy can be trusted (``absent`` or ``ready``): with an untrusted one
+      even the house's automations wait for an administrator to restore it (Q14);
+    - the capability is a known Domus capability that does not need an administrator.
+    """
+    try:
+        registry = ACTION_CONTRACTS if contracts is None else contracts
+        contract = registry.get(action) if isinstance(action, str) else None
+        if contract is None:
+            return deny(DecisionReason.UNKNOWN_ACTION, action=action if isinstance(action, str) else None)
+
+        def decided(allowed: bool, reason: DecisionReason) -> AuthorizationDecision:
+            entry = capability_entry(contract.capability) if contract.capability is not None else None
+            return AuthorizationDecision(
+                allowed=allowed,
+                reason=reason,
+                capability=contract.capability,
+                action=contract.id,
+                policy_state=policy_state if isinstance(policy_state, StoreState) else None,
+                policy_revision=policy_revision if isinstance(policy_revision, int) else None,
+                requires_ha_admin=entry.requires_ha_admin if entry is not None else None,
+                enforcement=entry.enforcement if entry is not None else None,
+            )
+
+        if (
+            has_parent is not True
+            or contract.surface is not SurfaceKind.SERVICE
+            or contract.auth_mode is not AuthMode.CAPABILITY
+            or contract.allow_unattributed_ha_context is not True
+        ):
+            return decided(False, DecisionReason.NO_PRINCIPAL)
+        if not isinstance(policy_state, StoreState):
+            return decided(False, DecisionReason.POLICY_UNAVAILABLE)
+        if policy_state not in TRUSTED_STATES:
+            return decided(False, DecisionReason.LOCKED)
+        entry = capability_entry(contract.capability) if contract.capability is not None else None
+        if entry is None:
+            return decided(False, DecisionReason.UNKNOWN_CAPABILITY)
+        if entry.requires_ha_admin or entry.enforcement is not EnforcementKind.DOMUS:
+            # Defense in depth: the contract tests forbid such an opt-in.
+            return decided(False, DecisionReason.REQUIRES_HA_ADMIN if entry.requires_ha_admin else DecisionReason.NO_PRINCIPAL)
+        return decided(True, DecisionReason.ALLOWED_UNATTRIBUTED_HA_CONTEXT)
     except Exception:  # noqa: BLE001 - fail closed
         return AuthorizationDecision(
             allowed=False,
