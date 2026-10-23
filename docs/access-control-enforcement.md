@@ -799,3 +799,39 @@ interruttore.
 | `tests_python/test_access_enforcement_ha.py` | Utenti e WebSocket veri: l'admin lavora come prima; member, restricted, wall_panel, sola lettura e account di sistema rifiutati su tutti e quattro i comandi senza effetti; `corrupt`, `unsupported`, `migration_failed` e ripristino; senza policy; errore del motore; diagnostica rotta; una sola decisione per richiesta; audit che fallisce senza aprire nulla; audit; diagnostica | Linux con fixture HA (13 test) |
 | `tests_python/test_device_power_websocket.py` | Registra la policy come l'integrazione vera; i non admin ricevono `access_denied` | Linux con fixture HA |
 | `src/services/devicePowerClient.test.ts` | `access_denied` letto come `unauthorized` | Vitest |
+
+## 20. Validazione Linux (P2.5D.1)
+
+I test con il fixture di Home Assistant non girano su Windows. Li ha eseguiti
+GitHub Actions sul repository privato `archive`.
+
+- **Come**: un branch temporaneo `ci/access-control-p25d1-linux-validation`,
+  uguale al codice validato più un solo commit che aggiungeva quel nome al
+  trigger `push` di `irrigation-core.yml`. Il branch è stato eliminato dopo la
+  run e il commit temporaneo non è nella storia del feature branch.
+- **Codice validato**: `b119190`, cioè il codice applicativo di `d92ba3a` più
+  4 test HA chiesti dalla validazione: `unsupported` e `migration_failed` sulle
+  WebSocket, una sola decisione per richiesta, audit che fallisce.
+
+| Run | Commit | HA | Python | Test | Esito |
+| --- | --- | --- | --- | --- | --- |
+| 39929518474 | `b119190` | 2025.1.0 | 3.12.15 | 1302 passati | **verde** |
+| 39929518474 | `b119190` | 2026.2.3 | 3.13.16 | 1336 passati | **verde** |
+
+- Rispetto a P2.5B (run 39794988320: 1242 e 1276) entrambi i job hanno 60 test
+  in più: `test_access_enforcement` (47) e `test_access_enforcement_ha` (13).
+  Nessun test fallito, saltato o in errore di setup o teardown.
+- **Job HA 2025.1**: le 13 suite Access Control dell'elenco, tra cui
+  `test_access_enforcement` (47), `test_access_enforcement_ha` (13),
+  `test_access_unattributed` (68), `test_access_shadow_ha` (14),
+  `test_access_authorization_ha` (23) e `test_access_people_ha` (16).
+- **Job HA 2026.2.3**: tutta `tests_python`, comprese le stesse suite,
+  `test_access_websocket` (16) e `test_device_power_websocket` (6, con
+  `access_denied` per i non admin).
+- **Registrazioni reali**, verificate in entrambe le versioni: 38 comandi
+  WebSocket e 5 servizi, nessuna superficie non dichiarata; esattamente i
+  quattro comandi dell'Alimentazione enforced.
+- **Frontend**: non è nel workflow backend; in locale Vitest 1729/1729,
+  typecheck pulito, budget invariato (1642,2/1650 KB gzip).
+- **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
+  repository pubblici: è un workflow separato.
