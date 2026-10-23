@@ -293,6 +293,19 @@ describe('semantic theme CSS contract', () => {
     expect(camera).toContain('camera-card__scrim');
   });
 
+  it('blends the Dynamic glows through registered properties, without blur or motion', () => {
+    for (const [name, syntax] of [['--ambient-a', '<color>'], ['--ambient-b', '<color>'], ['--ambient-opacity', '<number>']]) {
+      expect(css).toMatch(new RegExp(`@property ${name} \\{\\s*syntax: '${syntax}'`));
+    }
+    const dynamic = css.slice(css.indexOf('@property --ambient-a'), css.indexOf('.profile-background-thumb-dynamic'));
+    expect(dynamic).not.toMatch(/filter:\s*blur|backdrop-filter|transform:(?!\s*none;)/);
+    expect(dynamic).toMatch(/--ambient-a 900ms/);
+    expect(dynamic).toMatch(/ambient-breath 3s ease-in-out infinite/);
+    expect(dynamic).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.ambient-glow \{\s*transition: none;[\s\S]*animation: none;/);
+    const ceilings = [...dynamic.matchAll(/--ambient-opacity: ([\d.]+);/g)].map((match) => Number(match[1]));
+    expect(ceilings).toEqual([0.5, 0.22, 0.38, 0.18]);
+  });
+
   it('does not rely on global Light appearance class-substring corrections', () => {
     expect(css).not.toMatch(/\.dashboard-theme-light\s+\[class\*=/);
   });
