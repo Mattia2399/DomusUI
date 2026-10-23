@@ -22,6 +22,12 @@
   automations calling the five Irrigation actions without a user now count
   as allowed in those diagnostics, unless the stored permissions are
   unreadable; nothing else may run without a user.
+- Device power is the first part of Domus that Access Control enforces:
+  reading, saving, linking or removing a power policy is refused by the
+  Domus backend for anyone who is not a Home Assistant administrator, even
+  when the request does not come from the interface, and it changes
+  nothing. If the stored permissions are unreadable, administrators restore
+  them first. Every other part of Domus is still only observed.
 - The interface now follows each account's Domus role: pages, navigation,
   Settings entries and controls an account may not use are not shown, and
   an address it may not open says "Not available for your account". Only

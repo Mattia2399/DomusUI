@@ -34,8 +34,9 @@ from .models import (
 )
 
 # Which rules the decisions follow, for the diagnostics only: 2 adds the
-# unattributed Home Assistant context (Q10). Never stored with the policy.
-AUTHORIZATION_RULES_VERSION = 2
+# unattributed Home Assistant context (Q10), 3 the first enforced actions
+# (P2.5D.1). Never stored with the policy.
+AUTHORIZATION_RULES_VERSION = 3
 
 
 class DecisionReason(StrEnum):

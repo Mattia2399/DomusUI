@@ -1,16 +1,22 @@
-"""Shadow authorization on every Domus backend entry point: it observes, it never decides.
+"""Access Control on every Domus backend entry point: observed everywhere, enforced where the registry says so.
 
 Every websocket command and service of Domus is registered through here
 (``register_websocket_commands``, ``register_service``). Each declared action
 that is not exempt is wrapped: before the handler runs, the central evaluator
-decides what Access Control would do, then the handler runs exactly as before,
-with the same arguments, response and errors, and what it actually did is
-compared with the decision (docs/access-control-shadow.md).
+decides once (docs/access-control-shadow.md).
 
-A deny is only counted. Nothing here raises, blocks or changes a response;
-when the observation itself fails, that is counted and the request runs
-untouched. The checks that exist today (``require_admin``, entity
-permissions, the own-profile rule) stay where they are.
+- An action that is not ``enforced`` only observes: the handler runs exactly
+  as before, with the same arguments, response and errors, and what it did is
+  compared with the decision. Nothing raises, blocks or changes a response;
+  when the observation itself fails, that is counted and the request runs
+  untouched.
+- An ``enforced`` action (docs/access-control-enforcement.md) is refused for
+  real when the decision is not an allow: the handler never runs and the
+  client receives ``access_denied``. Fail closed: a decision that cannot be
+  taken is a refusal, and the refusal never depends on the counters.
+
+The checks that exist today (``require_admin``, entity permissions, the
+own-profile rule) stay where they are: Home Assistant AND Domus.
 """
 
 from __future__ import annotations
@@ -29,13 +35,16 @@ from homeassistant.util import dt as dt_util
 from ..const import DOMAIN
 from .actions import ACTION_CONTRACTS, ActionContract
 from .adapters import authorize_service_action, authorize_user_action, service_origin
-from .authorization import AuthorizationDecision
+from .authorization import AuthorizationDecision, DecisionReason, deny
 from .manager import DATA_ACCESS_MANAGER, AccessPolicyManager
+from .models import AccessDeniedError
 from .shadow import CurrentOutcome, Origin, ShadowStats, observe, outcome_for_code
 
 _LOGGER = logging.getLogger(__name__)
 
 DATA_ACCESS_SHADOW = "access_shadow"
+# What a client receives when an enforced action is refused: no detail of the policy.
+ENFORCED_DENIAL_MESSAGE = "Not allowed for this account in Domus"
 # Set on every wrapped handler: the contract tests check each registration carries its own action.
 SHADOW_ACTION_ATTR = "domus_shadow_action"
 
@@ -50,7 +59,10 @@ def shadow_stats(hass: HomeAssistant) -> ShadowStats:
 
 
 def _access_manager(hass: HomeAssistant) -> AccessPolicyManager | None:
-    manager = hass.data.get(DOMAIN, {}).get(DATA_ACCESS_MANAGER)
+    try:
+        manager = hass.data.get(DOMAIN, {}).get(DATA_ACCESS_MANAGER)
+    except Exception:  # noqa: BLE001 - no manager, no allow
+        return None
     return manager if isinstance(manager, AccessPolicyManager) else None
 
 
@@ -153,18 +165,50 @@ class _ObservedConnection:
         self._connection.async_handle_exception(msg, err)
 
 
+def _refuse(
+    hass: HomeAssistant,
+    manager: AccessPolicyManager | None,
+    contract: ActionContract,
+    decision: AuthorizationDecision,
+    origin: Origin,
+) -> None:
+    """Record a denial that is applied; never raises, never changes the refusal."""
+    try:
+        if manager is not None:
+            manager.audit_enforced_denial(
+                action=contract.id,
+                capability=contract.capability,
+                reason=decision.reason.value,
+                origin=origin.value,
+                principal_id=decision.principal_id,
+            )
+    except Exception:  # noqa: BLE001 - the refusal stands either way
+        _instrumentation_failed(hass)
+
+
 def _observed_command(contract: ActionContract, handler: Callable[..., None]) -> Callable[..., None]:
     @wraps(handler)
     def observed(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
         probe: _Probe | None = None
         started = _begin(hass)
+        manager = started[2] if started is not None else _access_manager(hass)
+        try:
+            decision: AuthorizationDecision | None = authorize_user_action(manager, connection.user, contract.id)
+        except Exception:  # noqa: BLE001 - a shadow error when observing, a refusal when enforced
+            decision = None
         if started is not None:
-            stats, generation, manager = started
-            try:
-                decision: AuthorizationDecision | None = authorize_user_action(manager, connection.user, contract.id)
-            except Exception:  # noqa: BLE001 - counted as a shadow error, never applied
-                decision = None
+            stats, generation, _ = started
             probe = _Probe(hass, stats, generation, contract, Origin.WEBSOCKET, decision)
+        if contract.enforced and not (isinstance(decision, AuthorizationDecision) and decision.allowed is True):
+            # One decision for both: what is counted is what is applied. The handler never runs.
+            refused = decision if isinstance(decision, AuthorizationDecision) else deny(
+                DecisionReason.INTERNAL_ERROR, contract.capability, action=contract.id
+            )
+            if probe is not None:
+                probe.finish(CurrentOutcome.DENY)
+            _refuse(hass, manager, contract, refused, Origin.WEBSOCKET)
+            connection.send_error(msg["id"], AccessDeniedError.code, ENFORCED_DENIAL_MESSAGE)
+            return
         if probe is None:
             handler(hass, connection, msg)
             return
@@ -187,6 +231,9 @@ def observed_command(handler: Callable[..., None]) -> Callable[..., None]:
         _LOGGER.warning("Websocket command %s is not declared in access/actions.py; it is not observed", action)
         return handler
     if contract.shadow_exemption is not None:
+        if contract.enforced:
+            # Exempt means unwrapped, so nothing would refuse it: never register it open.
+            raise ValueError(f"{contract.id} cannot be enforced and exempt from observation")
         return handler
     return _observed_command(contract, handler)
 
@@ -238,6 +285,9 @@ def register_service(
     target: Callable[..., Any] = handler
     if contract is None:
         _LOGGER.warning("Service %s is not declared in access/actions.py; it is not observed", action)
+    elif contract.enforced:
+        # Services are not enforced yet (P2.5D.1): a service marked enforced would stay open, so refuse it.
+        raise ValueError(f"{action} cannot be enforced: services are only observed")
     elif contract.shadow_exemption is None and inspect.iscoroutinefunction(handler):
         target = _observed_service(hass, contract, handler)
     hass.services.async_register(DOMAIN, service, target, schema=schema)

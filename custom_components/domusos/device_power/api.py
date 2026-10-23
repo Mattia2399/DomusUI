@@ -2,6 +2,10 @@
 
 There is no command that turns a switch on or off: clients only read, save,
 link and remove policies, and the server's controllers do the rest.
+
+Every command is enforced by Access Control (``device_power.manage``,
+P2.5D.1): a refused request never reaches these handlers. ``require_admin``
+stays behind it: Home Assistant AND Domus.
 """
 
 from __future__ import annotations

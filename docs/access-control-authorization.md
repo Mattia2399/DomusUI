@@ -155,7 +155,10 @@ Campi di ogni contratto:
   le 36 osservate;
 - `allow_unattributed_ha_context` (P2.5B): se un contesto HA senza utente, ma
   derivato da un altro, può eseguirla. Default falso; vero esattamente per i
-  cinque servizi dell'Irrigazione ([enforcement](access-control-enforcement.md)).
+  cinque servizi dell'Irrigazione ([enforcement](access-control-enforcement.md));
+- `enforced` (P2.5D.1): se Access Control rifiuta davvero l'azione quando la
+  nega. Default falso; vero esattamente per i quattro comandi
+  dell'Alimentazione.
 
 Rischio, descrizione e `requires_ha_admin` si leggono dal registro delle
 capability, non vengono ripetuti.
@@ -232,13 +235,15 @@ I comandi WebSocket non sono raggiungibili dalle automazioni.
 
 ## Cosa non c'è ancora
 
-- Nessun handler applica il motore: da P2.3 lo shadow lo consulta su ogni
-  superficie, ma nessun handler usa le primitive `require_*` (contratto).
+- Nessun handler applica il motore da sé (contratto: niente `require_*` negli
+  handler). Da P2.5D.1 l'instrumentation rifiuta le azioni `enforced`, oggi
+  solo l'Alimentazione; le altre sono ancora solo osservate.
 - Nessun log persistente delle decisioni, nessun evento, nessun `subscribe`.
 - Il frontend usa il profilo da P2.4 ([frontend](access-control-frontend.md)), solo per l'esperienza d'uso.
 - Nessun resource scope (P2.7), nessun ruolo personalizzato, nessun ospite.
 - Da P2.4.1 un admin HA scrive ruoli e grant ([Persone e accessi](access-control-people-access.md)):
-  la policy diventa configurabile, ma nessun comando Domus la applica ancora.
+  la policy diventa configurabile; da P2.5D.1 la applicano i comandi
+  dell'Alimentazione.
 
 ## Test
 

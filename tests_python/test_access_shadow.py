@@ -194,6 +194,8 @@ def test_counters_follow_every_category() -> None:
         "aligned_deny": 1,
         "current_error": 1,
         "shadow_error": 1,
+        # Only an enforced action is ever refused for real (P2.5D).
+        "enforced_deny": 0,
         "instrumentation_failures": 0,
         "dropped_stale": 0,
         "dropped_overflow": 0,
@@ -319,7 +321,9 @@ def test_a_policy_that_is_not_running_never_resets_the_window() -> None:
 def test_the_snapshot_reports_the_current_policy_apart_from_the_window() -> None:
     result = stats().snapshot(policy_state="corrupt", policy_revision=7)
     assert result["policy"] == {"state": "corrupt", "revision": 7}
-    assert result["mode"] == "shadow" and result["enforced"] is False
+    # Device power is enforced since P2.5D.1, everything else only observed.
+    assert result["mode"] == "partial" and result["enforced"] is True
+    assert result["enforced_actions"] == ["domusos/device_power/bind_policy", "domusos/device_power/delete_policy", "domusos/device_power/get_state", "domusos/device_power/save_policy"]
 
 
 # --- Bounds ---------------------------------------------------------------------------

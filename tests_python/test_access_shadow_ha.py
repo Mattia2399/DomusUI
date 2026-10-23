@@ -205,7 +205,7 @@ async def test_real_home_2026_10_22_an_automation_starting_a_zone_is_a_shadow_al
     # Still the household account the handler sees: none.
     assert irrigation.async_start_zone.await_args_list[0].args[2] is None
     snapshot = await diagnostics(await hass_ws_client(hass))
-    assert (snapshot["mode"], snapshot["enforced"], snapshot["rules_version"]) == ("shadow", False, 2)
+    assert (snapshot["mode"], snapshot["enforced"], snapshot["rules_version"]) == ("partial", True, 3)
     start = service_row(snapshot, "domusos.start_irrigation_zone")
     assert (start["no_user_with_parent"], start["shadow_allow"], start["shadow_deny"], start["no_principal"]) == (2, 2, 0, 0)
     assert (start["current_success"], start["current_error"], start["would_block"]) == (1, 1, 0)

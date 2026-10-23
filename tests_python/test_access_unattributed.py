@@ -211,7 +211,7 @@ def test_an_error_is_a_deny() -> None:
 def test_the_allow_reasons_are_exactly_two() -> None:
     assert authorization.ALLOW_REASONS == {Reason.ALLOWED, Reason.ALLOWED_UNATTRIBUTED_HA_CONTEXT}
     assert Reason.ALLOWED_UNATTRIBUTED_HA_CONTEXT.value == "allowed_unattributed_ha_context"
-    assert authorization.AUTHORIZATION_RULES_VERSION == 2
+    assert authorization.AUTHORIZATION_RULES_VERSION == 3
 
 
 def test_a_user_is_always_decided_for_that_user() -> None:
@@ -298,6 +298,10 @@ def test_a_call_without_a_parent_still_counts_as_a_would_block() -> None:
     assert (service["shadow_deny"], service["no_principal"], service["would_block"]) == (1, 1, 1)
 
 
-def test_the_diagnostics_stay_in_shadow_and_say_which_rules_they_follow() -> None:
+def test_the_irrigation_services_stay_observed_only_and_the_rules_are_said() -> None:
     snapshot = snapshot_after([])
-    assert (snapshot["mode"], snapshot["enforced"], snapshot["rules_version"]) == ("shadow", False, 2)
+    assert (snapshot["mode"], snapshot["rules_version"]) == ("partial", 3)
+    for action in IRRIGATION_SERVICES:
+        assert actions.ACTION_CONTRACTS[action].enforced is False
+        assert action not in snapshot["enforced_actions"]
+        assert next(row for row in snapshot["by_action"] if row["action"] == action)["enforced"] is False

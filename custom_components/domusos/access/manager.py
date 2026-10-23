@@ -363,6 +363,42 @@ class AccessPolicyManager:
             )
         )
 
+    def audit_enforced_denial(
+        self,
+        *,
+        action: str,
+        capability: str | None,
+        reason: str,
+        origin: str,
+        principal_id: str | None,
+    ) -> None:
+        """A security record of a request Access Control refused for real.
+
+        Ids and codes only: never the request, its payload or a name. A
+        record that cannot be written never changes the refusal.
+        """
+        try:
+            runtime = self._runtime()
+            if runtime is None or not runtime.audit.running:
+                return
+            runtime.audit.record(
+                AuditEntry.create(
+                    "access.enforcement",
+                    "request_denied",
+                    result=reason,
+                    metadata={
+                        "action": action,
+                        "capability": capability,
+                        "origin": origin,
+                        "principal_id": principal_id,
+                        "policy_state": self.state.value,
+                        "policy_revision": self.revision,
+                    },
+                )
+            )
+        except Exception:  # noqa: BLE001 - the refusal stands either way
+            _LOGGER.debug("The Access Control denial of %s could not be audited", action, exc_info=True)
+
     def _audit(
         self,
         reason: str,

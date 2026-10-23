@@ -1,4 +1,4 @@
-# Domus Access Control — enforcement (design P2.5A, regola Q10 P2.5B)
+# Domus Access Control — enforcement (design P2.5A, Q10 P2.5B, Alimentazione P2.5D.1)
 
 Come Domus passerà dallo shadow (P2.3) a un backend che blocca davvero le
 richieste, e dove passa la frontiera di fiducia per le esecuzioni di Home
@@ -364,9 +364,9 @@ momento della decisione.
 
 ## 10. Enforcement: modalità, risposte, guasti
 
-**Modalità.** Per superficie, dichiarata nel registro in P2.5D
-(`enforced: bool = False` su `ActionContract`). Un contratto di test elenca
-esattamente le superfici enforced a ogni passo. Nessun interruttore a runtime,
+**Modalità.** Per superficie, dichiarata nel registro
+(`enforced: bool = False` su `ActionContract`, da P2.5D.1). Un contratto di
+test elenca esattamente le superfici enforced a ogni passo. Nessun interruttore a runtime,
 nessuna opzione da interfaccia o da store: un interruttore che spegne
 l'enforcement sarebbe esso stesso un bypass globale (D69; la conferma è Q15).
 
@@ -706,3 +706,96 @@ handler hanno eseguito.
 - nessun `would_block`;
 - i due percorsi, utente e contesto HA non attribuito, restano distinti;
 - l'enforcement è rimasto spento per tutto il test.
+
+## 19. P2.5D.1: Alimentazione enforced
+
+Il primo dominio in cui una richiesta Domus viene rifiutata davvero.
+Tutti gli altri restano solo osservati.
+
+**Insieme enforced**, esattamente, nel registro:
+
+| Azione | Capability |
+| --- | --- |
+| `domusos/device_power/get_state` | `device_power.manage` |
+| `domusos/device_power/save_policy` | `device_power.manage` |
+| `domusos/device_power/bind_policy` | `device_power.manage` |
+| `domusos/device_power/delete_policy` | `device_power.manage` |
+
+`device_power.manage` richiede un admin HA e non si concede con un grant: la
+ha solo il ruolo `admin`. Nessuna capability nuova, nessun cambio di ruoli.
+
+**Dove.** Nell'instrumentation dei comandi WebSocket, cioè nel punto da cui
+ogni comando Domus è già registrato, guidato da `contract.enforced`:
+
+```text
+richiesta → una decisione (authorize_user_action)
+  ├─ conteggiata nella diagnostica (se i contatori funzionano)
+  ├─ azione non enforced → l'handler corre come prima (shadow)
+  └─ azione enforced
+       ├─ allow → l'handler corre, risposta invariata
+       └─ qualsiasi altra cosa → handler mai eseguito,
+          errore access_denied, voce di audit
+```
+
+- **Una sola decisione** per diagnostica e rifiuto: ciò che si conta è ciò che
+  si applica.
+- **Fail closed, indipendente dai contatori**: se la diagnostica non funziona,
+  il rifiuto resta; se il motore solleva un'eccezione o non c'è il manager
+  della policy, è un rifiuto.
+- **Risposta**: `access_denied`, messaggio «Not allowed for this account in
+  Domus», nessun dettaglio della policy. Domus decide **prima** di
+  `require_admin`, che resta dietro (HA AND Domus): un non admin riceve ora
+  `access_denied` invece di `unauthorized`. Il client dell'Alimentazione lo
+  legge come `unauthorized`, lo stesso messaggio di prima.
+- **Nessun effetto**: un rifiuto non legge, salva, collega o rimuove policy e
+  non tocca nessuno switch.
+- **Audit**: ogni rifiuto applicato è una voce nel `DomusAuditService`
+  (`access.enforcement`, `request_denied`, con il motivo come esito). La voce
+  contiene azione, capability, origine, `principal_id` se c'è, stato e
+  revisione della policy; nessun payload, nessun nome. Se l'audit fallisce, il
+  rifiuto resta. Gli allow non vengono registrati.
+- **Difese nella registrazione**: un'azione `enforced` esente dallo shadow
+  resterebbe senza wrapper, e un servizio `enforced` non avrebbe ancora un
+  rifiuto. In entrambi i casi la registrazione fallisce invece di lasciare
+  l'azione aperta, e i contratti di test lo impediscono prima.
+
+**Diagnostica** (`rules_version: 3`):
+
+| Campo | Valore |
+| --- | --- |
+| `mode` | `"shadow"` (nessuna enforced), `"partial"` (alcune), `"enforced"` (tutte quelle osservate). Ora `"partial"` |
+| `enforced` | Se una richiesta può essere rifiutata davvero: ora `true` |
+| `enforced_actions` | Le quattro azioni dell'Alimentazione, in ordine |
+| `by_action[*].enforced` | Per azione |
+| `enforced_deny` | Nuovo confronto: un rifiuto applicato, l'handler non è stato eseguito. Non è un mismatch e non entra in `recent_mismatches` |
+
+Su un'azione enforced un allow riuscito è `aligned_allow`; su un'azione non
+enforced i confronti restano quelli di P2.3 e P2.5B.
+
+**Chi passa**:
+
+| Chi | Esito |
+| --- | --- |
+| Admin HA, policy `absent` o `ready` | allow, l'handler corre |
+| Member, restricted, wall_panel (anche con grant), utente di sola lettura | deny `requires_ha_admin` |
+| Account di sistema | deny `invalid_principal` |
+| Account disattivato | HA rifiuta il token; con una sessione aperta `inactive_user` |
+| Admin con store `corrupt`, `unsupported`, `migration_failed` | deny `locked`; `reset_policy` resta, poi l'Alimentazione torna |
+| Senza manager della policy | deny `policy_unavailable` |
+| Errore del motore | deny `internal_error` |
+
+**Ancora solo osservati**: Energy, Irrigazione (WebSocket e i cinque servizi
+Q10), Profile, Raccolta rifiuti. L'amministrazione di Access Control era già
+protetta e non cambia.
+
+**Rollback**: la versione precedente dell'integrazione (Q15); nessun
+interruttore.
+
+**Test**:
+
+| File | Cosa | Dove |
+| --- | --- | --- |
+| `tests_python/test_access_enforcement.py` | Default falso; insieme esatto; solo WebSocket `capability` osservate; ogni altro dominio non enforced; `device_power.manage` solo admin e non concedibile; nessuna lettura da ambiente; matrice per ruolo e stato dello store; senza principal, policy o identità valida; azione e capability sconosciute; errore; `enforced_deny` non è un mismatch; diagnostica | ovunque (47 test) |
+| `tests_python/test_access_enforcement_ha.py` | Utenti e WebSocket veri: l'admin lavora come prima; member, restricted, wall_panel, sola lettura e account di sistema rifiutati su tutti e quattro i comandi senza effetti; store non affidabile e ripristino; senza policy; errore del motore; diagnostica rotta; audit; diagnostica | Linux con fixture HA (9 test) |
+| `tests_python/test_device_power_websocket.py` | Registra la policy come l'integrazione vera; i non admin ricevono `access_denied` | Linux con fixture HA |
+| `src/services/devicePowerClient.test.ts` | `access_denied` letto come `unauthorized` | Vitest |

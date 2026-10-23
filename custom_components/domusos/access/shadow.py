@@ -1,10 +1,11 @@
-"""Shadow authorization: what Access Control would decide, measured and never applied.
+"""Shadow authorization: what Access Control decides, measured on every observed request.
 
-Each observed backend request is decided by the central evaluator and then
-runs exactly as before, whatever the decision (docs/access-control-shadow.md).
-This module only counts: it compares each decision with what the request
-actually did today and keeps aggregate counters plus a short list of recent
-mismatches.
+Each observed backend request is decided by the central evaluator. On an
+action that is not enforced it then runs exactly as before, whatever the
+decision (docs/access-control-shadow.md); on an enforced one a denial was
+applied and the request never ran (docs/access-control-enforcement.md). This
+module only counts: it compares each decision with what the request actually
+did and keeps aggregate counters plus a short list of recent mismatches.
 
 Everything stays in memory and a restart starts from zero. No user id, name,
 person, payload or entity state is kept: an observation knows the action, the
@@ -63,6 +64,8 @@ class Comparison(StrEnum):
     CURRENT_ERROR = "current_error"
     # No decision, or the evaluator answered internal_error.
     SHADOW_ERROR = "shadow_error"
+    # An enforced action Access Control refused: the denial was applied, the handler never ran.
+    ENFORCED_DENY = "enforced_deny"
 
 
 MISMATCHES = frozenset({Comparison.WOULD_BLOCK, Comparison.CURRENT_STRICTER, Comparison.SHADOW_ERROR})
@@ -90,7 +93,10 @@ def outcome_for_code(code: Any) -> CurrentOutcome:
     return CurrentOutcome.DENY if isinstance(code, str) and code in PERMISSION_ERROR_CODES else CurrentOutcome.ERROR
 
 
-def compare(decision: AuthorizationDecision | None, outcome: CurrentOutcome) -> Comparison:
+def compare(decision: AuthorizationDecision | None, outcome: CurrentOutcome, *, enforced: bool = False) -> Comparison:
+    if enforced and not (isinstance(decision, AuthorizationDecision) and decision.allowed is True):
+        # Enforced: any decision that is not an allow (including none at all) was a refusal.
+        return Comparison.ENFORCED_DENY
     if not isinstance(decision, AuthorizationDecision) or decision.reason is DecisionReason.INTERNAL_ERROR:
         return Comparison.SHADOW_ERROR
     if outcome is CurrentOutcome.ERROR:
@@ -147,7 +153,7 @@ def observe(
         reason=decision.reason if valid else None,
         role=decision.role.value if valid and decision.role is not None else None,
         outcome=outcome,
-        comparison=compare(decision, outcome),
+        comparison=compare(decision, outcome, enforced=contract.enforced),
     )
 
 
@@ -257,6 +263,7 @@ class ShadowStats:
                 "action": contract.id,
                 "surface": contract.surface.value,
                 "capability": contract.capability,
+                "enforced": contract.enforced,
                 "total": 0,
                 "shadow_allow": 0,
                 "shadow_deny": 0,
@@ -314,9 +321,19 @@ class ShadowStats:
         for row in rows.values():
             row["reasons"] = _sorted_counts(row["reasons"])
             row["roles"] = _sorted_counts(row["roles"])
+        enforced_actions = sorted(contract.id for contract in self._contracts if contract.enforced)
+        if not enforced_actions:
+            mode = "shadow"
+        elif len(enforced_actions) == len(self._contracts):
+            mode = "enforced"
+        else:
+            # Some actions are refused for real, the others are only observed.
+            mode = "partial"
         return {
-            "mode": "shadow",
-            "enforced": False,
+            "mode": mode,
+            # Whether any request can be refused for real; which ones, in enforced_actions.
+            "enforced": bool(enforced_actions),
+            "enforced_actions": enforced_actions,
             # The rules the decisions follow: numbers taken under different rules are not compared.
             "rules_version": AUTHORIZATION_RULES_VERSION,
             "session_started_at": _iso(self.session_started_at),

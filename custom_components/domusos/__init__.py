@@ -68,7 +68,8 @@ class DomusEntryData:
     notification_router: NotificationRouter | None = None
     # Optional: None when device power management failed to start.
     device_power_manager: DevicePowerManager | None = None
-    # Optional: None when access control failed to start; nothing is enforced with it yet.
+    # Optional: None when access control failed to start. The actions it enforces
+    # (device power, P2.5D.1) are then refused, fail closed.
     access_manager: AccessPolicyManager | None = None
 
 

@@ -132,6 +132,8 @@ describe('device power client', () => {
     expect(toDevicePowerClientError({ code: 'unknown_command', message: 'Unknown command.' }).code).toBe('unsupported');
     expect(toDevicePowerClientError(new Error('Comando non ammesso dal pannello.')).code).toBe('unsupported');
     expect(toDevicePowerClientError({ code: 'unauthorized', message: 'Unauthorized' }).code).toBe('unauthorized');
+    expect(toDevicePowerClientError({ code: 'access_denied', message: 'Not allowed for this account in Domus' }).code).toBe('unauthorized');
+    expect(toDevicePowerClientError(new Error('Richiesta rifiutata [access_denied]')).code).toBe('unauthorized');
     expect(toDevicePowerClientError(new Error('socket closed')).code).toBe('network');
 
     const failing = vi.fn(async () => {

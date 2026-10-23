@@ -175,6 +175,8 @@ export function toDevicePowerClientError(error: unknown): DevicePowerClientError
   if ((DEVICE_POWER_ERROR_CODES as readonly string[]).includes(rawCode)) {
     return new DevicePowerClientError(rawCode as DevicePowerErrorCode);
   }
+  // Access Control refuses device power before Home Assistant does (P2.5D.1): the same refusal.
+  if (rawCode === 'access_denied') return new DevicePowerClientError('unauthorized');
   if (rawCode === 'unknown_command' || rawCode === 'invalid_format' || /non ammess[oa]/i.test(message)) {
     return new DevicePowerClientError('unsupported');
   }

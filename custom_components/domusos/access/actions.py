@@ -1,10 +1,14 @@
 """Every backend entry point of Domus and what Access Control will require for it.
 
 Each websocket command ``domusos/*`` and each service ``domusos.*`` the
-integration registers is declared here, with the capability it will need once
-enforcement is on (docs/access-control-authorization.md). A contract test
-fails when one is registered without being declared, so no entry point is
-forgotten. Nothing is enforced from this table yet.
+integration registers is declared here, with the capability it needs
+(docs/access-control-authorization.md). A contract test fails when one is
+registered without being declared, so no entry point is forgotten.
+
+Enforcement is switched on per action, here and only here: a contract with
+``enforced`` is refused for real when Access Control denies it, before its
+handler runs; every other one is still only observed (docs/access-control-enforcement.md).
+Nothing can change that at runtime.
 
 Only what the Domus backend runs belongs here. Native Home Assistant
 commands sent by the browser (lights, locks, the alarm, registries...) never
@@ -79,10 +83,15 @@ class ActionContract:
     # A Home Assistant context without a user, derived from another context, may run it (Q10).
     # A deliberate opt-in: only services, never Access Control, never a websocket command.
     allow_unattributed_ha_context: bool = False
+    # Access Control refuses the request for real when it denies it (P2.5D); otherwise shadow only.
+    # Set per action in this table, never at runtime.
+    enforced: bool = False
 
 
-def _ws(command: str, capability: str, ha_check: HaCheck = HaCheck.NONE) -> ActionContract:
-    return ActionContract(f"domusos/{command}", SurfaceKind.WEBSOCKET, AuthMode.CAPABILITY, capability, ha_check)
+def _ws(command: str, capability: str, ha_check: HaCheck = HaCheck.NONE, *, enforced: bool = False) -> ActionContract:
+    return ActionContract(
+        f"domusos/{command}", SurfaceKind.WEBSOCKET, AuthMode.CAPABILITY, capability, ha_check, enforced=enforced
+    )
 
 
 def _service(
@@ -156,11 +165,11 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
         )
         for command in ("list_accounts", "set_assignment", "remove_assignment")
     ),
-    # --- Device power (administrators only today) ------------------------------------------
-    _ws("device_power/get_state", "device_power.manage", _A),
-    _ws("device_power/save_policy", "device_power.manage", _A),
-    _ws("device_power/bind_policy", "device_power.manage", _A),
-    _ws("device_power/delete_policy", "device_power.manage", _A),
+    # --- Device power: enforced since P2.5D.1, the first domain ------------------------------
+    _ws("device_power/get_state", "device_power.manage", _A, enforced=True),
+    _ws("device_power/save_policy", "device_power.manage", _A, enforced=True),
+    _ws("device_power/bind_policy", "device_power.manage", _A, enforced=True),
+    _ws("device_power/delete_policy", "device_power.manage", _A, enforced=True),
     # --- Energy ----------------------------------------------------------------------------
     _ws("energy/get_state", "energy.view"),
     _ws("energy/get_history", "energy.view"),
@@ -210,6 +219,11 @@ def contracts_for(surface: SurfaceKind) -> list[ActionContract]:
 def shadow_contracts() -> list[ActionContract]:
     """The entry points shadow authorization observes, in declaration order."""
     return [contract for contract in ACTION_CONTRACT_LIST if contract.shadow_exemption is None]
+
+
+def enforced_contracts() -> list[ActionContract]:
+    """The entry points Access Control refuses for real, in declaration order."""
+    return [contract for contract in ACTION_CONTRACT_LIST if contract.enforced]
 
 
 def unattributed_contracts() -> list[ActionContract]:

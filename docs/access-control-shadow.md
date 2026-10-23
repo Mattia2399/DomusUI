@@ -180,8 +180,9 @@ Risposta, in ordine stabile:
 
 | Campo | Contenuto |
 | --- | --- |
-| `mode`, `enforced` | `"shadow"`, `false` |
-| `rules_version` | Le regole con cui sono state prese le decisioni: `2` da P2.5B (regola Q10) |
+| `mode`, `enforced` | `"shadow"`, `false` fino a P2.5C; da P2.5D.1 `"partial"`, `true` |
+| `rules_version` | Le regole con cui sono state prese le decisioni: `2` da P2.5B (regola Q10), `3` da P2.5D.1 (prime azioni enforced) |
+| `enforced_actions` | Da P2.5D.1: le azioni rifiutate davvero; `mode` diventa `partial` ed `enforced` vero ([enforcement](access-control-enforcement.md#19-p25d1-alimentazione-enforced)) |
 | `session_started_at` | Avvio dei contatori (avvio di HA) |
 | `window` | `started_at`, `reason`, stato e revisione della policy della finestra |
 | `policy` | Stato e revisione attuali |

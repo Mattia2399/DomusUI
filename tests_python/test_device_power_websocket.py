@@ -12,6 +12,7 @@ from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from custom_components.domusos import DomusEntryData, async_setup_entry, async_unload_entry
+from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager
 from custom_components.domusos.calendar_store import DomusCalendarStore
 from custom_components.domusos.const import DOMAIN
 from custom_components.domusos.device_power import DATA_DEVICE_POWER_MANAGER, DevicePowerManager
@@ -44,6 +45,10 @@ async def registered_manager(hass: HomeAssistant) -> DevicePowerManager:
     manager = DevicePowerManager(hass, runtime=lambda: None)
     await manager.async_setup()
     hass.data.setdefault(DOMAIN, {})[DATA_DEVICE_POWER_MANAGER] = manager
+    # Device power is enforced by Access Control (P2.5D.1): without a policy nothing would be allowed.
+    access = AccessPolicyManager(hass, runtime=lambda: None)
+    await access.async_setup()
+    hass.data[DOMAIN][DATA_ACCESS_MANAGER] = access
     await async_register_device_power_api(hass)
     return manager
 
@@ -123,7 +128,8 @@ async def test_non_administrators_are_refused_by_every_command(
         await client.send_json_auto_id(message)
         response = await client.receive_json()
         assert not response["success"]
-        assert response["error"]["code"] == "unauthorized"
+        # Access Control refuses first since P2.5D.1; require_admin stays behind it.
+        assert response["error"]["code"] == "access_denied"
     assert manager.state_for_user(SimpleNamespace(is_admin=True))["policies"] == []
     await manager.async_shutdown()
 
