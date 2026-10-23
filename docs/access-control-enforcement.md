@@ -835,3 +835,77 @@ GitHub Actions sul repository privato `archive`.
   typecheck pulito, budget invariato (1642,2/1650 KB gzip).
 - **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
   repository pubblici: è un workflow separato.
+
+## 21. Validazione reale in casa (P2.5D.1)
+
+Il primo enforcement reale, sull'installazione di casa, il 23 ottobre 2026.
+Nessun codice è stato cambiato durante il QA.
+
+**Installazione**
+
+| Voce | Valore |
+| --- | --- |
+| Pacchetto | `domusos.zip` = `domusos-p25d1-enforcement-test-ee1d31c.zip` |
+| Versione | `1.6.0-dev.20261023.1` (iniettata con `DOMUSOS_PACKAGE_VERSION`, nessun file modificato) |
+| SHA-256 | `a6c8b2455553d6d613abef3c878bb5eaf48f2ce25089098c1a9ca7ed3a29d232` |
+| Sorgente | `ee1d31c` (codice applicativo `d92ba3a`, test `b119190`) |
+| Versione di Home Assistant | non riportata |
+| Avvio | riuscito, nessun errore Domus nei registri di HA |
+
+**Controllo iniziale** (finestra `startup` dalle 09:29:49 UTC):
+- `rules_version` 3, `mode` `partial`, `enforced` `true`;
+- `enforced_actions`: esattamente i quattro comandi dell'Alimentazione; nessun
+  altro dominio enforced;
+- policy `ready`, revisione 10, invariata per tutto il QA;
+- contatori a zero.
+
+**Admin**: Impostazioni › Alimentazione si apre normalmente;
+`domusos/device_power/get_state` dalla console risponde `ready` con 1 policy.
+Nella diagnostica le richieste admin sono `allowed`, ruolo `admin`,
+`aligned_allow`: passano per la capability, non per un bypass.
+
+**Non admin** (un account HA esistente, ruolo `member`):
+- nell'interfaccia la voce Alimentazione non compare;
+- chiamata diretta dalla console, saltando l'interfaccia, a
+  `domusos/device_power/get_state`: rifiutata con `access_denied`, «Not allowed
+  for this account in Domus»;
+- nella diagnostica la richiesta risulta `requires_ha_admin`, ruolo `member`,
+  `enforced_deny`, e non compare in `recent_mismatches`;
+- dopo il rifiuto l'Alimentazione ha ancora 1 policy, `ready`: nessun effetto.
+
+Non sono state provate scritture dal non admin: quei casi sono coperti dalla
+validazione Linux. L'audit dei rifiuti sta solo in memoria e non è esposto da
+nessun comando, quindi in casa non è osservabile; il suo contenuto è validato
+su Linux.
+
+**Altri domini**: l'automazione «TEST P2.5C irrigazione» eseguita una volta, e
+Raccolta rifiuti, Energy e Profilo aperti normalmente. Diagnostica finale:
+
+| Azione | Totale | Motivo | Ruolo | Confronto | Enforced |
+| --- | --- | --- | --- | --- | --- |
+| `domusos/device_power/get_state` | 8 | `allowed` 7, `requires_ha_admin` 1 | `admin` 7, `member` 1 | `aligned_allow` 7, `enforced_deny` 1 | sì |
+| `domusos.start_irrigation_zone` | 3 | `allowed_unattributed_ha_context` | `none` | `aligned_allow` 2, `current_error` 1 | no |
+| `pause`, `resume`, `stop_irrigation_zone`, `stop_all` (servizi) | 1 ciascuno | `allowed_unattributed_ha_context` | `none` | `aligned_allow` | no |
+| Irrigazione WebSocket (`get_config` 2, `get_state`, `subscribe`, `resume`) | 5 | `allowed` | `admin` | `aligned_allow` | no |
+| Energy (`get_state`, `get_history`) | 2 | `allowed` | `admin` | `aligned_allow` | no |
+| Raccolta rifiuti (`get_config` 2, `preview` 2) | 4 | `allowed` | `admin` | `aligned_allow` | no |
+| `domusos/profile/get_self` | 1 | `allowed` | `admin` | `aligned_allow` | no |
+
+- Totali:
+  - `evaluated` 27, `observed` 27, `pending` 0;
+  - `aligned_allow` 25, `enforced_deny` 1, `current_error` 1;
+  - `would_block`, `current_stricter`, `aligned_deny` e `shadow_error`: 0;
+  - `instrumentation_failures`, `dropped_stale` e `dropped_overflow`: 0;
+  - `recent_mismatches` vuoto.
+- Il `current_error` è un avvio di zona fallito per un motivo dell'Irrigazione
+  (causa non verificata), con l'autorizzazione `allowed_unattributed_ha_context`:
+  è contato come errore dell'handler, non come blocco.
+- I sette servizi dell'Irrigazione sono tutti senza utente con parent e
+  `shadow_allow`, `would_block` 0: Q10 invariata e non enforced.
+
+**Esito: PASS.**
+- L'admin usa l'Alimentazione come prima.
+- Il non admin viene rifiutato dal backend anche saltando l'interfaccia, senza
+  effetti.
+- Il rifiuto è `enforced_deny` e non un mismatch.
+- Tutti gli altri domini restano solo osservati e la diagnostica è pulita.
