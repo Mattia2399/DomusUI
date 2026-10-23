@@ -73,7 +73,7 @@ export function BottomBarNav({
       className="mobile-drawer-push pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
     >
       <nav
-        className="liquid-glass-navigation liquid-glass-tabbar pointer-events-auto relative mx-auto max-w-xl"
+        className="liquid-glass-navigation liquid-glass-tabbar pointer-events-auto relative mx-auto max-w-[21rem]"
         aria-label={t('navigation.main')}
       >
           <div
