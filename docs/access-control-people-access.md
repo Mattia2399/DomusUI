@@ -291,3 +291,19 @@ Amministratore per un admin HA, Residente, transizioni, assegnazione vecchia),
 `test_access_enforcement_ha.py` (Residente rifiutato sull'Alimentazione),
 `PeopleAccessManager.test.tsx` (+2), `accessAdminClient.test.ts`, i contratti del
 bridge e delle fixture, `tests/people-access.spec.cjs` (+2).
+
+### Validazione Linux (P2.5D.1.1B)
+
+Codice validato: `e2d01a3`, con un branch temporaneo `ci/access-control-resident-linux-validation`
+sul repository privato `archive` (un solo commit di trigger, branch eliminato dopo la run).
+
+| Run | Commit | HA | Python | Test | Esito |
+| --- | --- | --- | --- | --- | --- |
+| 39957158433 | `e2d01a3` | 2025.1.0 | 3.12.15 | 1315 passati | **verde** |
+| 39957158433 | `e2d01a3` | 2026.2.3 | 3.13.16 | 1349 passati | **verde** |
+
+- Rispetto a P2.5D.1 (run 39929518474: 1302 e 1336) entrambi i job hanno 13 test
+  in più: `test_access_administration` da 37 a 45, `test_access_people_ha` da 16
+  a 21. Nessun test fallito, saltato o in errore di setup o teardown.
+- HACS validation fallisce su `archive` perché valida solo repository pubblici:
+  è un workflow separato.
