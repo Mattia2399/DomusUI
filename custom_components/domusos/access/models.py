@@ -75,6 +75,16 @@ class AccountNotManageableError(AccessError):
     code = "account_not_manageable"
 
 
+class RoleRequiresHaAdminError(AccessError):
+    """The Administrator role for an account Home Assistant does not make an administrator.
+
+    Domus never grants more than Home Assistant: such an account could never
+    hold what the role promises (Q24).
+    """
+
+    code = "role_requires_ha_admin"
+
+
 class RevisionConflictError(AccessError):
     code = "revision_conflict"
 
@@ -241,6 +251,8 @@ def capability(capability_id: str) -> AccessCapability | None:
 
 class RoleId(StrEnum):
     ADMIN = "admin"
+    # Full access to the house, without administration (Q23).
+    RESIDENT = "resident"
     MEMBER = "member"
     RESTRICTED = "restricted"
     WALL_PANEL = "wall_panel"
@@ -248,7 +260,7 @@ class RoleId(StrEnum):
     LOCKED = "locked"
 
 
-ASSIGNABLE_ROLES = frozenset({RoleId.ADMIN, RoleId.MEMBER, RoleId.RESTRICTED, RoleId.WALL_PANEL})
+ASSIGNABLE_ROLES = frozenset({RoleId.ADMIN, RoleId.RESIDENT, RoleId.MEMBER, RoleId.RESTRICTED, RoleId.WALL_PANEL})
 
 
 def _ids(*ids: str) -> frozenset[AccessCapabilityId]:
@@ -259,6 +271,26 @@ def _ids(*ids: str) -> frozenset[AccessCapabilityId]:
 SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
     # Everything; what Home Assistant keeps to administrators still needs one.
     RoleId.ADMIN: frozenset(ACCESS_CAPABILITIES),
+    # A trusted adult of the house: the member's everyday use plus locks, gates and the
+    # alarm. Nothing that administers Domus or Home Assistant.
+    RoleId.RESIDENT: _ids(
+        "dashboard.view",
+        "rooms.view",
+        "devices.control",
+        "access.control",
+        "security.view",
+        "security.control",
+        "automations.view",
+        "automations.run",
+        "energy.view",
+        "irrigation.view",
+        "irrigation.control",
+        "waste.view",
+        "people.view",
+        "system.view",
+        "device.manage",
+        "profile.manage",
+    ),
     # The everyday user of the house. Locks, gates and the alarm only by a personal grant.
     RoleId.MEMBER: _ids(
         "dashboard.view",
@@ -285,7 +317,8 @@ SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
         "waste.view",
         "profile.manage",
     ),
-    # A Home Assistant account used by a dedicated panel; not the Kiosk mode of a browser.
+    # The technical Home Assistant account of one shared panel (Q16, Q19): never the person
+    # in front of it, and not the Kiosk mode of a browser.
     RoleId.WALL_PANEL: _ids(
         "dashboard.view",
         "rooms.view",

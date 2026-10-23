@@ -72,32 +72,35 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 `●` concessa. Le capability con «HA admin: sì» arrivano solo a chi è anche admin
 HA, qualunque sia il ruolo.
 
-| Capability | admin | member | restricted | wall_panel | Concedibile |
-| --- | :---: | :---: | :---: | :---: | :---: |
-| `dashboard.view` | ● | ● | ● | ● | — |
-| `rooms.view` | ● | ● | ● | ● | — |
-| `devices.control` | ● | ● | ● | ● | — |
-| `access.control` | ● | — | — | — | **sì** |
-| `security.view` | ● | ● | — | ● | — |
-| `security.control` | ● | — | — | — | **sì** |
-| `automations.view` | ● | ● | — | — | — |
-| `automations.run` | ● | ● | — | ● | — |
-| `energy.view` | ● | ● | — | ● | — |
-| `energy.manage` | ● | — | — | — | — |
-| `irrigation.view` | ● | ● | ● | ● | — |
-| `waste.view` | ● | ● | ● | ● | — |
-| `irrigation.control` | ● | ● | — | — | — |
-| `people.view` | ● | ● | — | — | — |
-| `system.view` | ● | ● | — | — | — |
-| `device.manage` | ● | ● | — | — | — |
-| `profile.manage` | ● | ● | ● | — | — |
-| `ha_frontend.open` | ● | — | — | — | — |
-| `backup.export`, `developer.use` | ● | — | — | — | — |
-| Tutte quelle con «HA admin: sì» | ● (solo admin HA) | — | — | — | — |
-| `access.manage` | ● (sempre per ogni admin HA, anche con un altro ruolo) | — | — | — | — |
+| Capability | admin | resident | member | restricted | wall_panel | Concedibile |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `dashboard.view` | ● | ● | ● | ● | ● | — |
+| `rooms.view` | ● | ● | ● | ● | ● | — |
+| `devices.control` | ● | ● | ● | ● | ● | — |
+| `access.control` | ● | ● | — | — | — | **sì** |
+| `security.view` | ● | ● | ● | — | ● | — |
+| `security.control` | ● | ● | — | — | — | **sì** |
+| `automations.view` | ● | ● | ● | — | — | — |
+| `automations.run` | ● | ● | ● | — | ● | — |
+| `energy.view` | ● | ● | ● | — | ● | — |
+| `energy.manage` | ● | — | — | — | — | — |
+| `irrigation.view` | ● | ● | ● | ● | ● | — |
+| `waste.view` | ● | ● | ● | ● | ● | — |
+| `irrigation.control` | ● | ● | ● | — | — | — |
+| `people.view` | ● | ● | ● | — | — | — |
+| `system.view` | ● | ● | ● | — | — | — |
+| `device.manage` | ● | ● | ● | — | — | — |
+| `profile.manage` | ● | ● | ● | ● | — | — |
+| `ha_frontend.open` | ● | — | — | — | — | — |
+| `backup.export`, `developer.use` | ● | — | — | — | — | — |
+| Tutte quelle con «HA admin: sì» | ● (solo admin HA) | — | — | — | — | — |
+| `access.manage` | ● (sempre per ogni admin HA, anche con un altro ruolo) | — | — | — | — | — |
 
-- Nomi in UI: `admin` Amministratore, `member` Membro, `restricted` Accesso
-  limitato, `wall_panel` Pannello.
+- Nomi in UI: `admin` Amministratore, `resident` Residente (P2.5D.1.1B), `member`
+  Membro, `restricted` Accesso limitato, `wall_panel` Pannello.
+- `resident` è `member` più `access.control` e `security.control`, senza
+  nessuna capability da admin: l'accesso completo alla casa (Q23). `admin` si
+  assegna solo a un admin HA (Q24).
 - `member` è il default di ogni non admin. Serrature, cancelli e allarme gli
   arrivano solo con un grant personale.
 - `locked` (interno, mai assegnabile; usato quando lo store non è affidabile)

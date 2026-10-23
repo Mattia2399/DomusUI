@@ -44,7 +44,10 @@ function fakeBackend({ state = 'absent', assignments = {} as Record<string, Assi
         if (!user) return fail('unknown_account');
         if (!user.is_active) return fail('account_not_manageable');
         if (message.type === 'domusos/access/set_assignment') {
-          policy.assignments[user.user_id] = { role: String(message.role), grants: message.grants as string[] };
+          // As the backend: the Administrator role only for a Home Assistant administrator (Q24).
+          if (message.role === 'admin' && !user.is_admin) return fail('role_requires_ha_admin');
+          const redundant = message.role === 'admin' || message.role === 'resident';
+          policy.assignments[user.user_id] = { role: String(message.role), grants: redundant ? [] : (message.grants as string[]) };
         } else {
           delete policy.assignments[user.user_id];
         }
@@ -170,16 +173,54 @@ describe('People and access', () => {
     expect((within(dialog()).getByRole('radio', { name: /Pannello/ }) as HTMLInputElement).checked).toBe(true);
   });
 
-  it('keeps an Administrator without redundant permissions', async () => {
-    const { callApi } = fakeBackend();
+  it('offers a non-administrator full house access as a Resident, never the Administrator role', async () => {
+    const { callApi, policy } = fakeBackend();
     renderManager(callApi, adminAccess());
     fireEvent.click(await screen.findByRole('button', { name: /Mario Rossi/ }));
-    fireEvent.click(within(dialog()).getByRole('radio', { name: /Amministratore/ }));
-    expect(within(dialog()).getByText('Un amministratore ha già questi permessi.')).toBeTruthy();
+    expect(within(dialog()).queryByRole('radio', { name: /Amministratore/ })).toBeNull();
+    expect(within(dialog()).getByText('Amministratore è disponibile solo per gli amministratori di Home Assistant.')).toBeTruthy();
+    fireEvent.click(within(dialog()).getByRole('radio', { name: /Residente/ }));
+    expect(within(dialog()).getByText('Accesso completo alla casa, senza funzioni amministrative.')).toBeTruthy();
+    expect(within(dialog()).getByText('Un residente ha già questi permessi.')).toBeTruthy();
     const accessSwitch = within(dialog()).getByRole('switch', { name: 'Controllo accessi' }) as HTMLButtonElement;
     expect(accessSwitch.disabled).toBe(true);
+    expect(accessSwitch.getAttribute('aria-checked')).toBe('true');
+    // Two axes, for reading only: the capabilities decide.
+    const summary = within(dialog()).getByText('Accesso alla casa').closest('dl') as HTMLElement;
+    expect(summary.textContent).toContain('Completo');
+    expect(summary.textContent).toContain('AmministrazioneNo');
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Salva' }));
-    await waitFor(() => expect(callApi).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'admin', grants: [] }), expect.anything()));
+    await waitFor(() => expect(callApi).toHaveBeenLastCalledWith(expect.objectContaining({ role: 'resident', grants: [] }), expect.anything()));
+    await waitFor(() => expect(policy.assignments[MARIO]).toEqual({ role: 'resident', grants: [] }));
+  });
+
+  it('keeps the Administrator role for a Home Assistant administrator, without redundant permissions', async () => {
+    const { callApi } = fakeBackend();
+    renderManager(callApi, adminAccess());
+    fireEvent.click(await screen.findByRole('button', { name: /Mattia/ }));
+    const administrator = within(dialog()).getByRole('radio', { name: /Amministratore/ }) as HTMLInputElement;
+    expect(administrator.checked).toBe(true);
+    expect(within(dialog()).getByText('Gestisce Domus, persone, accessi e configurazione.')).toBeTruthy();
+    expect(within(dialog()).getByText('Un amministratore ha già questi permessi.')).toBeTruthy();
+    expect((within(dialog()).getByText('Accesso alla casa').closest('dl') as HTMLElement).textContent).toContain('AmministrazioneSì');
+    fireEvent.click(within(dialog()).getByRole('radio', { name: /Residente/ }));
+    expect((within(dialog()).getByText('Accesso alla casa').closest('dl') as HTMLElement).textContent).toContain('AmministrazioneNo');
+  });
+
+  it('shows a legacy Administrator role on a non-administrator as something to review, and lets it become Resident', async () => {
+    const { callApi, policy } = fakeBackend({ state: 'ready', revision: 3, assignments: { [MARIO]: { role: 'admin', grants: [] } } });
+    renderManager(callApi, adminAccess());
+    const mario = await screen.findByRole('button', { name: /Mario Rossi/ });
+    expect(mario.textContent).toContain('Da rivedere');
+    fireEvent.click(mario);
+    expect(within(dialog()).getByRole('status').textContent).toContain('Scegli Residente');
+    expect((within(dialog()).getByText('Accesso alla casa').closest('dl') as HTMLElement).textContent).toContain('AmministrazioneNo');
+    expect(within(dialog()).queryByRole('radio', { name: /Amministratore/ })).toBeNull();
+    // Nothing is changed by itself.
+    expect(policy.assignments[MARIO]).toEqual({ role: 'admin', grants: [] });
+    fireEvent.click(within(dialog()).getByRole('radio', { name: /Residente/ }));
+    fireEvent.click(within(dialog()).getByRole('button', { name: 'Salva' }));
+    await waitFor(() => expect(policy.assignments[MARIO]).toEqual({ role: 'resident', grants: [] }));
   });
 
   it('refreshes the interface at once when an administrator changes their own account', async () => {

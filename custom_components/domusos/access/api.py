@@ -35,7 +35,14 @@ from ..const import DOMAIN
 from .authorization import identify
 from .instrumentation import register_websocket_commands, shadow_stats
 from .manager import DATA_ACCESS_MANAGER, AccessPolicyManager, principal_from_user
-from .administration import AccountFacts, account_view, accounts_view, assignment_request, require_manageable
+from .administration import (
+    AccountFacts,
+    account_view,
+    accounts_view,
+    assignment_request,
+    require_manageable,
+    require_role_eligible,
+)
 from .models import AccessDeniedError, AccessError, AccessUnavailableError, UnknownAccountError
 
 WS_PREFIX = f"{DOMAIN}/access"
@@ -236,6 +243,8 @@ async def websocket_set_assignment(
         target = await _target(hass, msg["user_id"])
         require_manageable(target)
         role, grants = assignment_request(msg["role"], msg["grants"])
+        # Refused before anything is written: no revision, no audit record.
+        require_role_eligible(target, role)
         await manager.async_assign(connection.user, target.user_id, role, list(grants), msg["expected_revision"])
         result = {
             **_policy_summary(manager),

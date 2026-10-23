@@ -149,15 +149,19 @@ async def test_a_member_calling_device_power_directly_is_refused_with_no_effect(
     await power.async_shutdown()
 
 
-async def test_limited_panel_and_read_only_accounts_are_refused(
+async def test_limited_panel_resident_and_read_only_accounts_are_refused(
     hass: HomeAssistant, hass_ws_client, hass_storage, hass_read_only_access_token: str
 ) -> None:
     child, child_token = await account(hass, "Child")
     panel, panel_token = await account(hass, "Panel")
-    hass_storage[STORAGE_KEY] = policy({child.id: assigned("restricted"), panel.id: assigned("wall_panel")})
+    spouse, spouse_token = await account(hass, "Spouse")
+    # A Resident has the whole house, not the administration of its devices.
+    hass_storage[STORAGE_KEY] = policy(
+        {child.id: assigned("restricted"), panel.id: assigned("wall_panel"), spouse.id: assigned("resident")}
+    )
     power, _, switched = await domus(hass)
     created = await saved_policy(await hass_ws_client(hass))
-    for token in (child_token, panel_token, hass_read_only_access_token):
+    for token in (child_token, panel_token, spouse_token, hass_read_only_access_token):
         await assert_refused_without_effects(await hass_ws_client(hass, token), power, switched, created["policy_id"], created["revision"])
     await power.async_shutdown()
 

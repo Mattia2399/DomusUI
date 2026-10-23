@@ -9,7 +9,9 @@
 
 import { ACCESS_POLICY_STATES, type AccessPolicyState } from '../security/accessControl';
 
-export const ASSIGNABLE_ROLES = ['admin', 'member', 'restricted', 'wall_panel'] as const;
+export const ASSIGNABLE_ROLES = ['admin', 'resident', 'member', 'restricted', 'wall_panel'] as const;
+/** Roles that already hold both personal grants: nothing redundant is sent or stored. */
+export const ROLES_WITH_PERSONAL_GRANTS: readonly AssignableRole[] = ['admin', 'resident'];
 export type AssignableRole = (typeof ASSIGNABLE_ROLES)[number];
 
 /** The only capabilities an account can receive on top of its role (V1). */
@@ -43,6 +45,7 @@ export const ACCESS_ADMIN_ERROR_CODES = [
   'unauthorized',
   'unknown_account',
   'account_not_manageable',
+  'role_requires_ha_admin',
   'invalid_assignment',
   'access_store_untrusted',
   'save_failed',
@@ -152,8 +155,8 @@ export function setAssignment(
       type: 'domusos/access/set_assignment',
       user_id: userId,
       role,
-      // An Administrator already holds both: nothing redundant is sent.
-      grants: role === 'admin' ? [] : [...new Set(grants)].sort(),
+      // An Administrator or a Resident already holds both: nothing redundant is sent.
+      grants: ROLES_WITH_PERSONAL_GRANTS.includes(role) ? [] : [...new Set(grants)].sort(),
       expected_revision: expectedRevision,
     },
     parseSaved,

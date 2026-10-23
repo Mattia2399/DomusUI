@@ -48,7 +48,8 @@ da Domus, i permessi di Home Assistant restano indipendenti (D6, T1).
 
 Toccando un account si apre l'editor (`GlassModal`):
 
-- **Ruolo**: uno fra `admin`, `member`, `restricted`, `wall_panel`. `locked` non
+- **Ruolo**: uno fra `admin`, `resident` (da P2.5D.1.1B), `member`, `restricted`,
+  `wall_panel`. `admin` solo per un admin HA (Q24). `locked` non
   si assegna mai: è lo stato di sicurezza di una policy non affidabile.
 - **Permessi personali**: solo i due `user_grantable` del registro (D20):
   - «Controllo accessi» (`access.control`): serrature, cancelli, garage;
@@ -153,7 +154,7 @@ mai un account host o di servizio.
 - Nuova capability del bridge `access_admin_v1`.
 - Il bridge inoltra `list_accounts`, `set_assignment`, `remove_assignment` e
   `reset_policy`, con un validatore dedicato (`isValidAccessMessage`): chiavi
-  esatte, `user_id` di 32 caratteri esadecimali, uno dei quattro ruoli, al più i
+  esatte, `user_id` di 32 caratteri esadecimali, uno dei cinque ruoli, al più i
   due grant, revisione intera non negativa.
 - `reset_policy` entra nel bridge per la pagina di ripristino con conferma, solo
   con `type`: la protezione di P2.1.2 resta nel backend, sull'admin della
@@ -233,3 +234,60 @@ GitHub Actions sul repository privato `archive`.
   e accessi.
 - **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
   repository pubblici: è un workflow separato.
+
+## Residente e ruolo Amministratore (P2.5D.1.1B)
+
+**Ruoli** che si possono assegnare:
+
+| Ruolo | Nome | Descrizione | Accesso alla casa | Amministrazione |
+| --- | --- | --- | --- | --- |
+| `admin` | Amministratore | Gestisce Domus, persone, accessi e configurazione | Completo | Sì, solo per un admin HA |
+| `resident` | Residente | Accesso completo alla casa, senza funzioni amministrative | Completo | No |
+| `member` | Membro | Accesso standard alle funzioni della casa | Standard | No |
+| `restricted` | Accesso limitato | Solo le aree essenziali | Limitato | No |
+| `wall_panel` | Pannello | Account tecnico per un pannello condiviso | Pannello | No |
+
+- **Residente** = Membro più `access.control` e `security.control`: serrature,
+  cancelli, garage e allarme. Nessuna capability che HA riserva agli
+  amministratori, quindi niente `access.manage` né `device_power.manage`
+  (contratto). È per il coniuge e per gli adulti di casa.
+- **I default non cambiano**: admin HA → Amministratore, gli altri → Membro.
+  Residente si assegna sempre a mano; rimuovere l'assegnazione torna al default,
+  mai a Residente.
+- **Amministratore solo per un admin HA (Q24)**:
+  - `set_assignment` con `role: "admin"` per un account che HA non considera
+    amministratore risponde `role_requires_ha_admin`;
+  - nulla viene scritto: stessa revisione, nessuna voce di audit;
+  - Domus non concede mai più di quanto concede HA.
+- **Grant ridondanti**: per Amministratore e Residente, che hanno già i due
+  grant, i grant inviati vengono validati e poi non salvati. Il client non li
+  invia.
+- **Assegnazioni vecchie** (`admin` su un account che non è admin HA, salvate
+  prima di P2.5D.1.1B):
+  - restano valide: lo store non diventa `corrupt`, nulla viene migrato o
+    cancellato;
+  - come prima, l'account non riceve nessuna capability riservata agli admin HA;
+  - nella pagina la riga mostra «Da rivedere» e l'editor spiega di scegliere
+    Residente;
+  - una nuova scrittura `admin` è rifiutata, il passaggio a Residente è
+    accettato.
+- **L'editor** mostra Amministratore solo per un admin HA; per gli altri
+  spiega perché non c'è. Due righe di riepilogo, solo per leggere: «Accesso
+  alla casa» (Completo, Standard, Limitato, Pannello) e «Amministrazione» (Sì
+  solo per Amministratore su un admin HA). Non sono due autorità nello store:
+  decide il ruolo, cioè le sue capability.
+- **Store**: `resident` si salva così com'è, `"resident"`. Lo schema non cambia
+  e non c'è migrazione: un ruolo sconosciuto resta `corrupt`.
+- **Pagine e Impostazioni**: seguono le capability, senza controlli sul ruolo.
+  Un Residente non vede Persone e accessi né l'Alimentazione, e le richieste
+  dirette all'Alimentazione ricevono `access_denied` (P2.5D.1).
+- **Bridge**: il validatore del pannello accetta i cinque ruoli.
+
+Test: `test_access_administration.py` (Residente = Membro più i due grant, niente
+capability da admin, eleggibilità, grant ridondanti, assegnazione vecchia, default
+invariati), `test_access_models.py` (matrice a cinque ruoli),
+`test_access_people_ha.py` (+5: Amministratore rifiutato senza effetti,
+Amministratore per un admin HA, Residente, transizioni, assegnazione vecchia),
+`test_access_enforcement_ha.py` (Residente rifiutato sull'Alimentazione),
+`PeopleAccessManager.test.tsx` (+2), `accessAdminClient.test.ts`, i contratti del
+bridge e delle fixture, `tests/people-access.spec.cjs` (+2).

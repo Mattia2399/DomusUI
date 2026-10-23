@@ -64,7 +64,7 @@ describe('the capability registry the frontend knows', () => {
 
   it('builds test profiles from the backend role table and administrator-only list', () => {
     const roles = backendRoles();
-    for (const role of ['member', 'restricted', 'wall_panel', 'locked'] as const) {
+    for (const role of ['resident', 'member', 'restricted', 'wall_panel', 'locked'] as const) {
       expect([...ROLE_CAPABILITIES[role]].sort(), role).toEqual(roles[role]);
     }
     const adminOnly = backendCapabilities()

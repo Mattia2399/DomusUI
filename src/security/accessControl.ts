@@ -58,7 +58,7 @@ export function isAccessCapability(value: unknown): value is AccessCapability {
   return typeof value === 'string' && KNOWN_CAPABILITIES.has(value);
 }
 
-export const ACCESS_ROLES = ['admin', 'member', 'restricted', 'wall_panel', 'locked'] as const;
+export const ACCESS_ROLES = ['admin', 'resident', 'member', 'restricted', 'wall_panel', 'locked'] as const;
 export type AccessRole = (typeof ACCESS_ROLES)[number];
 
 /** What the backend says of its policy store; the backend has already resolved the profile from it. */

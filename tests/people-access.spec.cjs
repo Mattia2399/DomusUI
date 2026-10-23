@@ -54,9 +54,13 @@ function accessBackend(policy, user) {
         if (!user.is_admin) fail('unauthorized', 'Unauthorized');
         else if (message.expected_revision !== policy.revision) fail('revision_conflict', 'changed elsewhere');
         else if (!target) fail('unknown_account', 'no account');
-        else {
+        // As the backend: the Administrator role only for a Home Assistant administrator (Q24).
+        else if (message.type === 'domusos/access/set_assignment' && message.role === 'admin' && !target.is_admin) {
+          fail('role_requires_ha_admin', 'needs a Home Assistant administrator');
+        } else {
           if (message.type === 'domusos/access/set_assignment') {
-            policy.assignments[target.id] = { role: message.role, grants: message.grants };
+            const redundant = message.role === 'admin' || message.role === 'resident';
+            policy.assignments[target.id] = { role: message.role, grants: redundant ? [] : message.grants };
           } else {
             delete policy.assignments[target.id];
           }
@@ -154,6 +158,56 @@ test('a role change reaches Mario: restricted loses Security, wall panel keeps i
 
   await admin.context.close();
   await mario.context.close();
+});
+
+test('Mario becomes a Resident: the whole house, never the Administrator role, and back to Member', async ({ browser }) => {
+  const policy = sharedPolicy();
+  const admin = await openAs(browser, ADMIN, policy);
+  const mario = await openAs(browser, MARIO, policy);
+  await mario.page.goto('/security');
+  await expect(mario.page.getByRole('heading', { name: 'Sicurezza', exact: true })).toBeVisible();
+  await expect(alarmModes(mario.page)).toHaveCount(0);
+
+  let editor = await editMario(admin.page);
+  await expect(editor.getByRole('radio', { name: /Amministratore/ })).toHaveCount(0);
+  await expect(editor.getByText('Amministratore è disponibile solo per gli amministratori di Home Assistant.')).toBeVisible();
+  await editor.getByRole('radio', { name: /Residente/ }).check();
+  await expect(editor.getByText('Un residente ha già questi permessi.')).toBeVisible();
+  await expect(editor.getByRole('switch', { name: 'Controllo allarme' })).toBeDisabled();
+  await editor.getByRole('button', { name: 'Salva' }).click();
+  await expect(editor.getByText('Salvato.')).toBeVisible();
+  expect(policy.assignments[MARIO.id]).toEqual({ role: 'resident', grants: [] });
+  // The role alone opens the alarm: no grant was needed.
+  await mario.page.reload();
+  await expect(alarmModes(mario.page)).toBeVisible();
+
+  await editor.getByRole('radio', { name: /Membro/ }).check();
+  await editor.getByRole('button', { name: 'Salva' }).click();
+  await expect(editor.getByText('Salvato.')).toBeVisible();
+  expect(policy.assignments[MARIO.id].role).toBe('member');
+  await mario.page.reload();
+  await expect(mario.page.getByRole('heading', { name: 'Sicurezza', exact: true })).toBeVisible();
+  await expect(alarmModes(mario.page)).toHaveCount(0);
+
+  await admin.context.close();
+  await mario.context.close();
+});
+
+test('an old Administrator role on Mario is flagged, kept until changed, and can become Resident', async ({ browser }) => {
+  const policy = { state: 'ready', revision: 4, assignments: { [MARIO.id]: { role: 'admin', grants: [] } } };
+  const admin = await openAs(browser, ADMIN, policy);
+  await admin.page.goto('/settings/access/roles');
+  const mario = admin.page.getByRole('button', { name: /Mario/ });
+  await expect(mario).toContainText('Da rivedere');
+  await mario.click();
+  const editor = admin.page.getByRole('dialog');
+  await expect(editor.getByRole('status').filter({ hasText: 'Scegli Residente' })).toBeVisible();
+  expect(policy.assignments[MARIO.id].role).toBe('admin');
+  await editor.getByRole('radio', { name: /Residente/ }).check();
+  await editor.getByRole('button', { name: 'Salva' }).click();
+  await expect(editor.getByText('Salvato.')).toBeVisible();
+  expect(policy.assignments[MARIO.id]).toEqual({ role: 'resident', grants: [] });
+  await admin.context.close();
 });
 
 test('a change made in another session is never overwritten', async ({ browser }) => {

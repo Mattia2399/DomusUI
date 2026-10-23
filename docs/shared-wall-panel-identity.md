@@ -310,7 +310,8 @@ con «Limitato» = `restricted`, «Standard» = `member`, «Completo» = `reside
 crea utenti HA da sé: i comandi che usa l'interfaccia di HA sono interni al
 suo frontend, non un'API di sviluppo da automatizzare. Un account solo per più
 pannelli resta possibile per una casa con un unico tablet. **Q19 resta aperta**
-fino a una tua conferma, perché è un compromesso di configurazione.
+fino a una tua conferma, perché è un compromesso di configurazione. **Chiusa
+in P2.5D.1.1B** con un account per pannello (D88).
 
 **Ruolo `wall_panel` (Q22): KEEP per V1** come ruolo dell'account tecnico di
 base, con le capability di oggi. In futuro si potrà rinominarlo nell'interfaccia
@@ -356,7 +357,7 @@ fissata ora; l'implementazione si può fare a fasi.
 | Fase | Contenuto |
 | --- | --- |
 | **P2.5D.1.1A** ✓ | Questo design |
-| P2.5D.1.1B | Significato dei ruoli nell'interfaccia: descrizioni corrette, «Accesso alla casa» separato da «Amministrazione», eventuale ruolo `resident` (Q23) |
+| P2.5D.1.1B ✓ (locale) | Ruolo `resident`, Amministratore solo per un admin HA (Q24), descrizioni corrette, «Accesso alla casa» e «Amministrazione» in Ruoli e permessi ([Persone e accessi](access-control-people-access.md#residente-e-ruolo-amministratore-p25d11b)) |
 | P2.5D.1.1C | Modalità pannello come impostazione di **questo dispositivo** e `personal_session_timeout`, configurabili da un admin |
 | P2.5D.1.1D | Spike, poi sessione personale sicura (opzione B, Q18) nelle tre modalità |
 | P2.5D.1.1E | QA in casa con il tablet condiviso |

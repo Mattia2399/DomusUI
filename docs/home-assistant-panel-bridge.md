@@ -368,7 +368,7 @@ const isValidWsMessage = (message) => {
     if (typeof message.user_id !== "string" || !/^[a-f0-9]{32}$/.test(message.user_id)) return false;
     if (!Number.isInteger(message.expected_revision) || message.expected_revision < 0) return false;
     if (!setting) return true;
-    return ["admin", "member", "restricted", "wall_panel"].includes(message.role) &&
+    return ["admin", "resident", "member", "restricted", "wall_panel"].includes(message.role) &&
       Array.isArray(message.grants) && message.grants.length <= 2 &&
       message.grants.every((grant) => grant === "access.control" || grant === "security.control");
   }
@@ -794,7 +794,7 @@ La gestione dell'alimentazione dei dispositivi (capability `device_power_v1`) us
 
 Il profilo d'accesso (capability `access_v1`) è `domusos/access/get_self`, con solo `type`: Domus lo legge per mostrare all'account ciò che può usare, e il backend ricava l'account dalla connessione.
 
-Persone e accessi (capability `access_admin_v1`) usa `domusos/access/list_accounts` e `reset_policy` (solo `type`), `set_assignment` (`user_id` di 32 caratteri esadecimali, `role` tra `admin`, `member`, `restricted`, `wall_panel`, `grants` con al più `access.control` e `security.control`, `expected_revision` intero) e `remove_assignment` (`user_id`, `expected_revision`). Il pannello li esegue sulla connessione della persona che lo ha aperto: Home Assistant e Domus controllano quella persona (admin HA attivo con `access.manage`), mai un'identità del pannello. Chi modifica e quando li scrive il server. La diagnostica shadow resta fuori dal bridge.
+Persone e accessi (capability `access_admin_v1`) usa `domusos/access/list_accounts` e `reset_policy` (solo `type`), `set_assignment` (`user_id` di 32 caratteri esadecimali, `role` tra `admin`, `resident`, `member`, `restricted`, `wall_panel`, `grants` con al più `access.control` e `security.control`, `expected_revision` intero) e `remove_assignment` (`user_id`, `expected_revision`). Il pannello li esegue sulla connessione della persona che lo ha aperto: Home Assistant e Domus controllano quella persona (admin HA attivo con `access.manage`), mai un'identità del pannello. Chi modifica e quando li scrive il server. La diagnostica shadow resta fuori dal bridge.
 
 La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 

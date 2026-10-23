@@ -24,7 +24,7 @@ Python 3.12.15: 1155 passati; HA 2026.2.3 / Python 3.13.16: 1189 passati).
 | Pezzo | Dove | Stato |
 | --- | --- | --- |
 | Principal = utente HA (`user_id`) | `authorization.identify`, `manager.principal_from_user` | Solo account domestici attivi; niente account di sistema, disattivati o id malformati |
-| Registro capability (34) e ruoli (`admin`, `member`, `restricted`, `wall_panel`, `locked`) | `models.py` | Versionato; `locked` è il pavimento di sicurezza |
+| Registro capability (34) e ruoli (`admin`, `member`, `restricted`, `wall_panel`, `locked`; `resident` da P2.5D.1.1B) | `models.py` | Versionato; `locked` è il pavimento di sicurezza |
 | Grant personali | `models.py`, `administration.py` | Solo `access.control`, `security.control` |
 | Policy store `domusos.access.v1` | `manager.py` | `absent`, `ready`, `corrupt`, `unsupported`, `migration_failed`; revisione; quarantena |
 | Motore | `authorization.py` | `authorize`, `can`, `require_capability`, `authorize_action`; eccezione = deny |

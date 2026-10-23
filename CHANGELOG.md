@@ -28,6 +28,12 @@
   when the request does not come from the interface, and it changes
   nothing. If the stored permissions are unreadable, administrators restore
   them first. Every other part of Domus is still only observed.
+- Roles and permissions has a new Resident role: full access to the home,
+  locks, gates and the alarm included, without administering Domus. The
+  Administrator role is now described as what it is and can be given only
+  to Home Assistant administrators; an older Administrator role on any
+  other account is flagged for review and can be changed to Resident.
+  Each role shows its home access and whether it administers.
 - The interface now follows each account's Domus role: pages, navigation,
   Settings entries and controls an account may not use are not shown, and
   an address it may not open says "Not available for your account". Only

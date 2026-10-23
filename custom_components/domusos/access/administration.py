@@ -17,12 +17,14 @@ from enum import StrEnum
 from typing import Any
 
 from .models import (
+    SYSTEM_ROLES,
     TRUSTED_STATES,
     AccessCapabilityId,
     AccountNotManageableError,
     Assignment,
     InvalidAssignmentError,
     RoleId,
+    RoleRequiresHaAdminError,
     StoreState,
     default_role,
     normalize_grants,
@@ -69,17 +71,27 @@ def require_manageable(facts: AccountFacts) -> None:
 def assignment_request(role: Any, grants: Any) -> tuple[RoleId, tuple[AccessCapabilityId, ...]]:
     """The role and grants an administrator asked for, as the policy will hold them.
 
-    Only the four assignable roles; only grants that are personally grantable
-    (``access.control``, ``security.control``), each once. An Administrator
-    already has both: they are not stored for that role.
+    Only the assignable roles; only grants that are personally grantable
+    (``access.control``, ``security.control``), each once. A grant the role
+    already holds (an Administrator or a Resident has both) is validated, then
+    not stored: the policy keeps only what adds to the role.
     """
     parsed = parse_role(role)
     if not isinstance(grants, (list, tuple)) or not all(isinstance(grant, str) for grant in grants):
         raise InvalidAssignmentError("The grants must be a list of names")
-    if parsed is RoleId.ADMIN:
-        normalize_grants(sorted(set(grants)))  # still refuse what could never be granted
-        return parsed, ()
-    return parsed, normalize_grants(sorted(set(grants)))
+    valid = normalize_grants(sorted(set(grants)))  # refuses what could never be granted
+    return parsed, tuple(grant for grant in valid if grant not in SYSTEM_ROLES[parsed])
+
+
+def require_role_eligible(facts: AccountFacts, role: RoleId) -> None:
+    """The Administrator role only for an account Home Assistant makes an administrator (Q24).
+
+    Domus never grants more than Home Assistant does, and a non-administrator
+    could never hold what the role promises. A Resident has full access to the
+    house without administration.
+    """
+    if role is RoleId.ADMIN and facts.is_admin is not True:
+        raise RoleRequiresHaAdminError("The Administrator role needs a Home Assistant administrator")
 
 
 def account_view(

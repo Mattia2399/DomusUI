@@ -17,6 +17,11 @@ const ALL = [
 
 const ROLE_CAPABILITIES = {
   admin: ALL,
+  resident: [
+    'dashboard.view', 'rooms.view', 'devices.control', 'access.control', 'security.view', 'security.control',
+    'automations.view', 'automations.run', 'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view',
+    'people.view', 'system.view', 'device.manage', 'profile.manage',
+  ],
   member: [
     'dashboard.view', 'rooms.view', 'devices.control', 'security.view', 'automations.view', 'automations.run',
     'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view', 'people.view', 'system.view',

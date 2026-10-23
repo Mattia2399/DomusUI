@@ -225,6 +225,7 @@ describe('Home Assistant panel distribution contract', () => {
       expect(validatePanelApiMessage({ ...set, ...spoof })).toBe(false);
     }
     expect(validatePanelApiMessage({ ...set, role: 'locked' })).toBe(false);
+    expect(validatePanelApiMessage({ ...set, role: 'resident' })).toBe(true);
     expect(validatePanelApiMessage({ ...set, grants: ['access.manage'] })).toBe(false);
     expect(validatePanelApiMessage({ ...set, user_id: 'person.mario' })).toBe(false);
     expect(validatePanelApiMessage({ ...set, expected_revision: -1 })).toBe(false);

@@ -68,6 +68,13 @@ describe('People and access client', () => {
     }
   });
 
+  it('sends no redundant grant for a Resident either', async () => {
+    const callApi = vi.fn(async (_message: Record<string, unknown>) => ({ state: 'ready', revision: 5, account: account({ role: 'resident', assigned: true }) }));
+    const saved = await setAssignment(callApi, MARIO, 'resident', ['access.control', 'security.control'], 4);
+    expect(callApi.mock.calls[0][0]).toMatchObject({ role: 'resident', grants: [] });
+    expect(saved.account?.role).toBe('resident');
+  });
+
   it('sends no redundant grant for an Administrator', async () => {
     const callApi = vi.fn(async (_message: Record<string, unknown>) => ({ state: 'ready', revision: 5, account: account({ role: 'admin', assigned: true }) }));
     await setAssignment(callApi, MARIO, 'admin', ['access.control'], 4);
@@ -98,6 +105,7 @@ describe('People and access client', () => {
     [{ code: 'revision_conflict', message: 'changed elsewhere' }, 'revision_conflict'],
     [{ code: 'unauthorized', message: 'Unauthorized' }, 'unauthorized'],
     [{ code: 'account_not_manageable', message: 'x' }, 'account_not_manageable'],
+    [{ code: 'role_requires_ha_admin', message: 'x' }, 'role_requires_ha_admin'],
     [{ code: 'unknown_command', message: 'Unknown command.' }, 'unsupported'],
     [new Error('Comando non ammesso dal bridge'), 'unsupported'],
     [new Error('socket closed'), 'network'],

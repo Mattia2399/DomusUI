@@ -198,13 +198,14 @@ async def test_refuses_unknown_disabled_and_system_accounts_and_anything_not_gra
 
 async def test_an_administrator_role_keeps_no_redundant_grant(hass: HomeAssistant, hass_ws_client, hass_storage) -> None:
     await registered(hass)
-    member, _ = await member_token(hass)
+    # Only a Home Assistant administrator can hold the Administrator role (Q24).
+    other = await hass.auth.async_create_user("Second admin", group_ids=["system-admin"])
     reply = await ask(
         await hass_ws_client(hass),
-        {"type": "domusos/access/set_assignment", "user_id": member.id, "role": "admin", "grants": ["access.control"], "expected_revision": 0},
+        {"type": "domusos/access/set_assignment", "user_id": other.id, "role": "admin", "grants": ["access.control"], "expected_revision": 0},
     )
     assert reply["success"] and reply["result"]["account"]["grants"] == []
-    assert hass_storage[STORAGE_KEY]["data"]["assignments"][member.id]["grants"] == []
+    assert hass_storage[STORAGE_KEY]["data"]["assignments"][other.id]["grants"] == []
 
 
 async def test_removing_the_assignment_returns_to_the_default_role(hass: HomeAssistant, hass_ws_client, hass_storage) -> None:
@@ -329,3 +330,113 @@ async def test_a_disabled_administrator_cannot_even_reach_people_and_access(hass
     # Home Assistant drops the account's sessions and refuses its token; Domus never sees it as an actor.
     with pytest.raises(AssertionError):
         await hass_ws_client(hass, token)
+
+
+# --- Resident and the Administrator role (Q23, Q24) -------------------------------------
+
+
+async def test_the_administrator_role_is_refused_for_a_non_administrator_and_nothing_changes(
+    hass: HomeAssistant, hass_ws_client, hass_storage
+) -> None:
+    manager = await registered(hass)
+    member, _ = await member_token(hass)
+    admin = await hass_ws_client(hass)
+    reply = await ask(
+        admin,
+        {"type": "domusos/access/set_assignment", "user_id": member.id, "role": "admin", "grants": [], "expected_revision": 0},
+    )
+    assert not reply["success"] and reply["error"]["code"] == "role_requires_ha_admin"
+    assert manager.revision == 0 and STORAGE_KEY not in hass_storage and manager.assignments == {}
+
+
+async def test_a_home_assistant_administrator_can_be_given_the_administrator_role(
+    hass: HomeAssistant, hass_ws_client, hass_storage
+) -> None:
+    await registered(hass)
+    other = await hass.auth.async_create_user("Second admin", group_ids=["system-admin"])
+    admin = await hass_ws_client(hass)
+    to_resident = await ask(
+        admin,
+        {"type": "domusos/access/set_assignment", "user_id": other.id, "role": "resident", "grants": [], "expected_revision": 0},
+    )
+    assert to_resident["success"] and to_resident["result"]["account"]["role"] == "resident"
+    back = await ask(
+        admin,
+        {"type": "domusos/access/set_assignment", "user_id": other.id, "role": "admin", "grants": [], "expected_revision": 1},
+    )
+    assert back["success"] and back["result"]["account"]["role"] == "admin"
+    assert hass_storage[STORAGE_KEY]["data"]["assignments"][other.id]["role"] == "admin"
+
+
+async def test_a_resident_has_the_whole_house_and_no_administration(hass: HomeAssistant, hass_ws_client, hass_storage) -> None:
+    manager = await registered(hass)
+    member, token = await member_token(hass)
+    admin = await hass_ws_client(hass)
+    reply = await ask(
+        admin,
+        {
+            "type": "domusos/access/set_assignment",
+            "user_id": member.id,
+            "role": "resident",
+            "grants": ["access.control", "security.control"],
+            "expected_revision": 0,
+        },
+    )
+    assert reply["success"] and reply["result"]["account"]["role"] == "resident"
+    # The role already holds both grants: nothing redundant is stored.
+    stored = hass_storage[STORAGE_KEY]["data"]["assignments"][member.id]
+    assert (stored["role"], stored["grants"]) == ("resident", [])
+    profile = (await ask(await hass_ws_client(hass, token), {"type": "domusos/access/get_self"}))["result"]["access"]
+    assert profile["role"] == "resident"
+    assert {"access.control", "security.control", "irrigation.control"} <= set(profile["capabilities"])
+    assert not {"access.manage", "device_power.manage", "people.manage", "system.manage"} & set(profile["capabilities"])
+    assert manager.revision == 1
+
+
+async def test_roles_change_both_ways_and_the_administrator_role_stays_closed(
+    hass: HomeAssistant, hass_ws_client, hass_storage
+) -> None:
+    manager = await registered(hass)
+    member, _ = await member_token(hass)
+    admin = await hass_ws_client(hass)
+    for role in ("resident", "member", "resident", "restricted", "resident", "wall_panel", "resident"):
+        reply = await ask(
+            admin,
+            {"type": "domusos/access/set_assignment", "user_id": member.id, "role": role, "grants": [], "expected_revision": manager.revision},
+        )
+        assert reply["success"] and reply["result"]["account"]["role"] == role, role
+    revision = manager.revision
+    refused = await ask(
+        admin,
+        {"type": "domusos/access/set_assignment", "user_id": member.id, "role": "admin", "grants": [], "expected_revision": revision},
+    )
+    assert refused["error"]["code"] == "role_requires_ha_admin" and manager.revision == revision
+    assert hass_storage[STORAGE_KEY]["data"]["assignments"][member.id]["role"] == "resident"
+    # Removing the assignment returns to the default Member, never Resident.
+    removed = await ask(admin, {"type": "domusos/access/remove_assignment", "user_id": member.id, "expected_revision": revision})
+    assert removed["result"]["account"]["role"] == "member"
+
+
+async def test_a_legacy_administrator_role_on_a_non_administrator_is_kept_and_never_more_than_home_assistant_allows(
+    hass: HomeAssistant, hass_ws_client, hass_storage
+) -> None:
+    member, token = await member_token(hass)
+    hass_storage[STORAGE_KEY] = policy({member.id: {"role": "admin", "grants": [], "assigned_at": NOW, "assigned_by": None}})
+    manager = await registered(hass)
+    assert manager.state.value == "ready"
+    admin = await hass_ws_client(hass)
+    accounts = by_id(await ask(admin, {"type": "domusos/access/list_accounts"}))
+    assert (accounts[member.id]["role"], accounts[member.id]["is_admin"], accounts[member.id]["assigned"]) == ("admin", False, True)
+    profile = (await ask(await hass_ws_client(hass, token), {"type": "domusos/access/get_self"}))["result"]["access"]
+    assert profile["role"] == "admin"
+    assert not {"access.manage", "device_power.manage", "system.manage", "people.manage"} & set(profile["capabilities"])
+    again = await ask(
+        admin,
+        {"type": "domusos/access/set_assignment", "user_id": member.id, "role": "admin", "grants": [], "expected_revision": 2},
+    )
+    assert again["error"]["code"] == "role_requires_ha_admin" and manager.revision == 2
+    resident = await ask(
+        admin,
+        {"type": "domusos/access/set_assignment", "user_id": member.id, "role": "resident", "grants": [], "expected_revision": 2},
+    )
+    assert resident["success"] and resident["result"]["account"]["role"] == "resident"

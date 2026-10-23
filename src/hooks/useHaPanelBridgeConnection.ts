@@ -394,7 +394,7 @@ export function isValidProfileMessage(message: Record<string, unknown>) {
   }
 }
 
-const ACCESS_ROLES_ASSIGNABLE = ['admin', 'member', 'restricted', 'wall_panel'];
+const ACCESS_ROLES_ASSIGNABLE = ['admin', 'resident', 'member', 'restricted', 'wall_panel'];
 const ACCESS_GRANTABLE = ['access.control', 'security.control'];
 
 /** Access Control: only the account to change travels; who acts is the connection's, never the message's. */

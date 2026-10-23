@@ -118,43 +118,43 @@ def test_access_capabilities_are_not_device_capabilities() -> None:
 # --- Roles ---------------------------------------------------------------------------
 
 ROLE_MATRIX = {
-    # capability: (admin, member, restricted, wall_panel)
-    "dashboard.view": (1, 1, 1, 1),
-    "dashboard.edit": (1, 0, 0, 0),
-    "dashboard.reset": (1, 0, 0, 0),
-    "rooms.view": (1, 1, 1, 1),
-    "devices.control": (1, 1, 1, 1),
-    "access.control": (1, 0, 0, 0),
-    "security.view": (1, 1, 0, 1),
-    "security.control": (1, 0, 0, 0),
-    "security.manage": (1, 0, 0, 0),
-    "automations.view": (1, 1, 0, 0),
-    "automations.run": (1, 1, 0, 1),
-    "automations.manage": (1, 0, 0, 0),
-    "energy.view": (1, 1, 0, 1),
-    "energy.manage": (1, 0, 0, 0),
-    "irrigation.view": (1, 1, 1, 1),
-    "irrigation.control": (1, 1, 0, 0),
-    "irrigation.manage": (1, 0, 0, 0),
-    "waste.view": (1, 1, 1, 1),
-    "waste.manage": (1, 0, 0, 0),
-    "house.manage": (1, 0, 0, 0),
-    "people.view": (1, 1, 0, 0),
-    "people.manage": (1, 0, 0, 0),
-    "access.manage": (1, 0, 0, 0),
-    "system.view": (1, 1, 0, 0),
-    "system.manage": (1, 0, 0, 0),
-    "backup.export": (1, 0, 0, 0),
-    "backup.restore": (1, 0, 0, 0),
-    "ha.restart": (1, 0, 0, 0),
-    "ha_frontend.open": (1, 0, 0, 0),
-    "device.manage": (1, 1, 0, 0),
-    "device_power.manage": (1, 0, 0, 0),
-    "profile.manage": (1, 1, 1, 0),
-    "notifications.recipients": (1, 0, 0, 0),
-    "developer.use": (1, 0, 0, 0),
+    # capability: (admin, resident, member, restricted, wall_panel)
+    "dashboard.view": (1, 1, 1, 1, 1),
+    "dashboard.edit": (1, 0, 0, 0, 0),
+    "dashboard.reset": (1, 0, 0, 0, 0),
+    "rooms.view": (1, 1, 1, 1, 1),
+    "devices.control": (1, 1, 1, 1, 1),
+    "access.control": (1, 1, 0, 0, 0),
+    "security.view": (1, 1, 1, 0, 1),
+    "security.control": (1, 1, 0, 0, 0),
+    "security.manage": (1, 0, 0, 0, 0),
+    "automations.view": (1, 1, 1, 0, 0),
+    "automations.run": (1, 1, 1, 0, 1),
+    "automations.manage": (1, 0, 0, 0, 0),
+    "energy.view": (1, 1, 1, 0, 1),
+    "energy.manage": (1, 0, 0, 0, 0),
+    "irrigation.view": (1, 1, 1, 1, 1),
+    "irrigation.control": (1, 1, 1, 0, 0),
+    "irrigation.manage": (1, 0, 0, 0, 0),
+    "waste.view": (1, 1, 1, 1, 1),
+    "waste.manage": (1, 0, 0, 0, 0),
+    "house.manage": (1, 0, 0, 0, 0),
+    "people.view": (1, 1, 1, 0, 0),
+    "people.manage": (1, 0, 0, 0, 0),
+    "access.manage": (1, 0, 0, 0, 0),
+    "system.view": (1, 1, 1, 0, 0),
+    "system.manage": (1, 0, 0, 0, 0),
+    "backup.export": (1, 0, 0, 0, 0),
+    "backup.restore": (1, 0, 0, 0, 0),
+    "ha.restart": (1, 0, 0, 0, 0),
+    "ha_frontend.open": (1, 0, 0, 0, 0),
+    "device.manage": (1, 1, 1, 0, 0),
+    "device_power.manage": (1, 0, 0, 0, 0),
+    "profile.manage": (1, 1, 1, 1, 0),
+    "notifications.recipients": (1, 0, 0, 0, 0),
+    "developer.use": (1, 0, 0, 0, 0),
 }
-ROLES = (RoleId.ADMIN, RoleId.MEMBER, RoleId.RESTRICTED, RoleId.WALL_PANEL)
+ROLES = (RoleId.ADMIN, RoleId.RESIDENT, RoleId.MEMBER, RoleId.RESTRICTED, RoleId.WALL_PANEL)
 
 
 def test_the_role_matrix_is_exactly_the_approved_one() -> None:
@@ -166,7 +166,7 @@ def test_the_role_matrix_is_exactly_the_approved_one() -> None:
 
 def test_only_the_administrator_role_holds_what_home_assistant_keeps_to_administrators() -> None:
     admin_only = {entry.id for entry in models.ACCESS_CAPABILITIES.values() if entry.requires_ha_admin}
-    for role in (RoleId.MEMBER, RoleId.RESTRICTED, RoleId.WALL_PANEL, RoleId.LOCKED):
+    for role in (RoleId.RESIDENT, RoleId.MEMBER, RoleId.RESTRICTED, RoleId.WALL_PANEL, RoleId.LOCKED):
         assert not admin_only & models.SYSTEM_ROLES[role], role
 
 
@@ -175,7 +175,7 @@ def test_roles_only_name_known_capabilities_and_locked_is_internal() -> None:
         assert capabilities <= set(models.ACCESS_CAPABILITIES)
     assert RoleId.LOCKED not in models.ASSIGNABLE_ROLES
     assert models.SYSTEM_ROLES[RoleId.LOCKED] == {"dashboard.view", "rooms.view", "profile.manage"}
-    assert {role.value for role in RoleId} == {"admin", "member", "restricted", "wall_panel", "locked"}
+    assert {role.value for role in RoleId} == {"admin", "resident", "member", "restricted", "wall_panel", "locked"}
 
 
 # --- Resolution: the approved scenarios ----------------------------------------------

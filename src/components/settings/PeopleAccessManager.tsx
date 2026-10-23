@@ -9,6 +9,7 @@ import {
   ASSIGNABLE_ROLES,
   AccessAdminError,
   PERSONAL_GRANTS,
+  ROLES_WITH_PERSONAL_GRANTS,
   listAccounts,
   removeAssignment,
   resetAccessPolicy,
@@ -22,6 +23,7 @@ import {
 
 const ROLE_KEYS: Record<ManagedAccount['role'], PeopleAccessCopyKey> = {
   admin: 'roleAdmin',
+  resident: 'roleResident',
   member: 'roleMember',
   restricted: 'roleRestricted',
   wall_panel: 'roleWallPanel',
@@ -29,6 +31,7 @@ const ROLE_KEYS: Record<ManagedAccount['role'], PeopleAccessCopyKey> = {
 };
 const ROLE_DESCRIPTION_KEYS: Record<AssignableRole, PeopleAccessCopyKey> = {
   admin: 'roleAdminDescription',
+  resident: 'roleResidentDescription',
   member: 'roleMemberDescription',
   restricted: 'roleRestrictedDescription',
   wall_panel: 'roleWallPanelDescription',
@@ -37,7 +40,22 @@ const GRANT_KEYS: Record<PersonalGrant, [PeopleAccessCopyKey, PeopleAccessCopyKe
   'access.control': ['grantAccess', 'grantAccessDescription'],
   'security.control': ['grantSecurity', 'grantSecurityDescription'],
 };
+// What each role means for the house; presentation only, the capabilities decide.
+const HOUSE_ACCESS_KEYS: Record<ManagedAccount['role'], PeopleAccessCopyKey> = {
+  admin: 'houseFull',
+  resident: 'houseFull',
+  member: 'houseStandard',
+  restricted: 'houseLimited',
+  wall_panel: 'housePanel',
+  locked: 'houseLimited',
+};
 const TRUSTED_STATES = new Set(['absent', 'ready']);
+
+const holdsPersonalGrants = (role: AssignableRole) => ROLES_WITH_PERSONAL_GRANTS.includes(role);
+// Administration is real only for a Home Assistant administrator (Q24).
+const administers = (role: ManagedAccount['role'], account: ManagedAccount) => role === 'admin' && account.isAdmin;
+// A stored Administrator role that Home Assistant cannot honour: shown, never silently changed.
+const isLegacyAdmin = (account: ManagedAccount) => account.role === 'admin' && !account.isAdmin;
 
 type Draft = { role: AssignableRole; grants: PersonalGrant[] };
 type Notice = { tone: 'info' | 'error' | 'conflict'; key: PeopleAccessCopyKey } | null;
@@ -54,6 +72,7 @@ const errorKey = (error: unknown): PeopleAccessCopyKey => {
   const code = error instanceof AccessAdminError ? error.code : 'network';
   if (code === 'account_not_manageable') return 'notManageable';
   if (code === 'unknown_account') return 'unknownAccount';
+  if (code === 'role_requires_ha_admin') return 'roleRequiresHaAdmin';
   if (code === 'access_denied' || code === 'unauthorized') return 'denied';
   if (code === 'access_store_untrusted') return 'lockedTitle';
   if (code === 'unsupported') return 'unsupported';
@@ -213,7 +232,7 @@ export function PeopleAccessManager({ callApi }: { callApi: AccessAdminCallApi }
 
   const summary = (account: ManagedAccount) => {
     const parts = [copy(ROLE_KEYS[account.role])];
-    if (account.grants.length > 0 && account.role !== 'admin') {
+    if (account.grants.length > 0 && !(account.role !== 'locked' && holdsPersonalGrants(account.role))) {
       parts.push(copy('extraGrants', { grants: account.grants.map((grant) => copy(GRANT_KEYS[grant][0])).join(', ') }));
     }
     return parts.join(' · ');
@@ -236,6 +255,7 @@ export function PeopleAccessManager({ callApi }: { callApi: AccessAdminCallApi }
           <span className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{account.name}</span>
           {account.userId === currentUserId ? <Badge tone="accent">{copy('youBadge')}</Badge> : null}
           {account.isOwner ? <Badge>{copy('ownerBadge')}</Badge> : null}
+          {isLegacyAdmin(account) ? <Badge>{copy('legacyBadge')}</Badge> : null}
           {trusted ? <Badge>{copy(account.assigned ? 'assignedBadge' : 'defaultBadge')}</Badge> : null}
         </span>
         <span className="mt-0.5 block truncate text-xs text-[color:var(--ui-text-secondary)]">{summary(account)}</span>
@@ -377,12 +397,32 @@ export function PeopleAccessManager({ callApi }: { callApi: AccessAdminCallApi }
               <p className="text-xs leading-5 text-[color:var(--ui-text-secondary)]">{copy('selfNotice')}</p>
             ) : null}
 
+            {isLegacyAdmin(selected) ? (
+              <p role="status" className="rounded-[1.2rem] border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs leading-5 text-[color:var(--ui-text-primary)]">
+                {copy('legacyAdmin')}
+              </p>
+            ) : null}
+
+            <dl className="grid grid-cols-2 gap-2 text-xs">
+              {(
+                [
+                  ['houseAccess', HOUSE_ACCESS_KEYS[draft.role]],
+                  ['administration', administers(draft.role, selected) ? 'yes' : 'no'],
+                ] as const
+              ).map(([term, value]) => (
+                <div key={term} className="rounded-[1rem] bg-[color:var(--ui-fill-tertiary)] px-3 py-2">
+                  <dt className="text-[color:var(--ui-text-secondary)]">{copy(term)}</dt>
+                  <dd className="font-semibold text-[color:var(--ui-text-primary)]">{copy(value)}</dd>
+                </div>
+              ))}
+            </dl>
+
             <fieldset aria-labelledby={roleLegendId} disabled={saving}>
               <legend id={roleLegendId} className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
                 {copy('role')}
               </legend>
               <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.2rem] border border-[color:var(--ui-border)]">
-                {ASSIGNABLE_ROLES.map((role) => (
+                {ASSIGNABLE_ROLES.filter((role) => role !== 'admin' || selected.isAdmin).map((role) => (
                   <label key={role} className="flex min-h-[3.25rem] cursor-pointer items-center gap-3 px-4 py-2.5 hover:bg-[color:var(--ui-fill-tertiary)]">
                     <input
                       type="radio"
@@ -399,19 +439,22 @@ export function PeopleAccessManager({ callApi }: { callApi: AccessAdminCallApi }
                   </label>
                 ))}
               </div>
+              {selected.isAdmin ? null : (
+                <p className="mt-2 text-xs text-[color:var(--ui-text-secondary)]">{copy('adminOnlyForHa')}</p>
+              )}
             </fieldset>
 
-            <fieldset aria-labelledby={grantsLegendId} disabled={saving || draft.role === 'admin'}>
+            <fieldset aria-labelledby={grantsLegendId} disabled={saving || holdsPersonalGrants(draft.role)}>
               <legend id={grantsLegendId} className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
                 {copy('grants')}
               </legend>
               <p className="mb-2 text-xs text-[color:var(--ui-text-secondary)]">
-                {copy(draft.role === 'admin' ? 'grantsAdmin' : 'grantsDescription')}
+                {copy(draft.role === 'admin' ? 'grantsAdmin' : draft.role === 'resident' ? 'grantsResident' : 'grantsDescription')}
               </p>
               <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.2rem] border border-[color:var(--ui-border)]">
                 {PERSONAL_GRANTS.map((grant) => {
                   const [titleKey, descriptionKey] = GRANT_KEYS[grant];
-                  const checked = draft.role === 'admin' || draft.grants.includes(grant);
+                  const checked = holdsPersonalGrants(draft.role) || draft.grants.includes(grant);
                   return (
                     <div key={grant} className="flex min-h-[3.25rem] items-center gap-3 px-4 py-2.5">
                       <span className="min-w-0 flex-1">
@@ -420,7 +463,7 @@ export function PeopleAccessManager({ callApi }: { callApi: AccessAdminCallApi }
                       </span>
                       <GlassToggle
                         checked={checked}
-                        disabled={saving || draft.role === 'admin'}
+                        disabled={saving || holdsPersonalGrants(draft.role)}
                         label={copy(titleKey)}
                         onChange={(next) =>
                           setDraft((current) =>

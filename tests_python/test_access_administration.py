@@ -89,8 +89,8 @@ def test_only_an_active_household_account_can_be_changed() -> None:
 # --- Requests -----------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("role", ["admin", "member", "restricted", "wall_panel"])
-def test_accepts_the_four_assignable_roles(role) -> None:
+@pytest.mark.parametrize("role", ["admin", "resident", "member", "restricted", "wall_panel"])
+def test_accepts_the_five_assignable_roles(role) -> None:
     assert administration.assignment_request(role, [])[0] is RoleId(role)
 
 
@@ -134,6 +134,66 @@ def test_an_administrator_role_never_stores_the_grants_it_already_has() -> None:
     # Something that could never be granted is still refused.
     with pytest.raises(models.InvalidAssignmentError):
         administration.assignment_request("admin", ["access.manage"])
+
+
+def test_a_resident_never_stores_the_grants_it_already_has() -> None:
+    assert administration.assignment_request("resident", ["security.control", "access.control"]) == (RoleId.RESIDENT, ())
+    with pytest.raises(models.InvalidAssignmentError):
+        administration.assignment_request("resident", ["device_power.manage"])
+
+
+# --- The Administrator role needs a Home Assistant administrator (Q24) -------------------
+
+
+def test_only_a_home_assistant_administrator_can_be_made_administrator() -> None:
+    administration.require_role_eligible(OWNER, RoleId.ADMIN)
+    with pytest.raises(models.RoleRequiresHaAdminError) as refused:
+        administration.require_role_eligible(MARIO, RoleId.ADMIN)
+    assert refused.value.code == "role_requires_ha_admin"
+    # Every other role stays open to anyone, administrators included.
+    for role in (RoleId.RESIDENT, RoleId.MEMBER, RoleId.RESTRICTED, RoleId.WALL_PANEL):
+        administration.require_role_eligible(MARIO, role)
+        administration.require_role_eligible(OWNER, role)
+
+
+def test_a_stored_administrator_role_for_a_non_administrator_is_shown_as_it_is() -> None:
+    """A legacy assignment stays readable: shown, not migrated, never more than Home Assistant allows."""
+    view = administration.account_view(MARIO, StoreState.READY, assignment("admin"))
+    assert (view["role"], view["is_admin"], view["assigned"], view["manageable"]) == ("admin", False, True, True)
+
+
+# --- Resident: full house access, no administration (Q23) --------------------------------
+
+
+def test_a_resident_is_a_member_with_locks_and_the_alarm() -> None:
+    member = models.SYSTEM_ROLES[RoleId.MEMBER]
+    grantable = {entry.id for entry in models.ACCESS_CAPABILITIES.values() if entry.user_grantable}
+    assert models.SYSTEM_ROLES[RoleId.RESIDENT] == member | grantable
+
+
+def test_a_resident_holds_nothing_home_assistant_keeps_to_administrators() -> None:
+    admin_only = {entry.id for entry in models.ACCESS_CAPABILITIES.values() if entry.requires_ha_admin}
+    assert not admin_only & models.SYSTEM_ROLES[RoleId.RESIDENT]
+    assert {"access.manage", "device_power.manage"} & models.SYSTEM_ROLES[RoleId.RESIDENT] == set()
+    principal = models.Principal(user_id="b" * 32, is_admin=False)
+    policy = models.PolicyDocument(revision=1, updated_at=NOW, assignments={principal.user_id: assignment("resident")})
+    profile = models.resolve_access_profile(principal, StoreState.READY, policy)
+    assert profile.role is RoleId.RESIDENT
+    assert {"access.control", "security.control"} <= profile.capabilities
+    assert not admin_only & profile.capabilities
+
+
+def test_a_non_administrator_with_a_legacy_administrator_role_still_gets_nothing_reserved() -> None:
+    principal = models.Principal(user_id="b" * 32, is_admin=False)
+    policy = models.PolicyDocument(revision=1, updated_at=NOW, assignments={principal.user_id: assignment("admin")})
+    profile = models.resolve_access_profile(principal, StoreState.READY, policy)
+    admin_only = {entry.id for entry in models.ACCESS_CAPABILITIES.values() if entry.requires_ha_admin}
+    assert profile.role is RoleId.ADMIN and not admin_only & profile.capabilities
+
+
+def test_the_default_roles_do_not_change() -> None:
+    assert models.default_role(True) is RoleId.ADMIN
+    assert models.default_role(False) is RoleId.MEMBER
 
 
 def test_exactly_two_capabilities_are_personally_grantable() -> None:
