@@ -15,6 +15,17 @@ const backgroundPreviewClassById: Record<DashboardBackgroundPreset, string> = {
   'ocean-mist': 'profile-background-thumb-ocean-mist',
   'sunset-amber': 'profile-background-thumb-sunset-amber',
   'forest-glass': 'profile-background-thumb-forest-glass',
+  dynamic: 'profile-background-thumb-dynamic',
+};
+
+// Name and description of each background, in the device language.
+const BACKGROUND_COPY: Record<DashboardBackgroundPreset, [TranslationKey, TranslationKey]> = {
+  neutral: ['settings.device.background.neutral', 'settings.device.background.neutralDescription'],
+  'home-hub': ['settings.device.background.homeHub', 'settings.device.background.homeHubDescription'],
+  'ocean-mist': ['settings.device.background.oceanMist', 'settings.device.background.oceanMistDescription'],
+  'sunset-amber': ['settings.device.background.sunsetAmber', 'settings.device.background.sunsetAmberDescription'],
+  'forest-glass': ['settings.device.background.forestGlass', 'settings.device.background.forestGlassDescription'],
+  dynamic: ['settings.device.background.dynamic', 'settings.device.background.dynamicDescription'],
 };
 
 function SelectedMark({ selected }: { selected: boolean }) {
@@ -87,9 +98,9 @@ export function DeviceAppearanceSettings({
                 <span className={`profile-background-thumb absolute inset-[-18%] ${backgroundPreviewClassById[preset.id]}`} />
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">{preset.label}</span>
+                <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">{t(BACKGROUND_COPY[preset.id][0])}</span>
                 <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                  {preset.description}
+                  {t(BACKGROUND_COPY[preset.id][1])}
                 </span>
               </span>
               <SelectedMark selected={selected} />
