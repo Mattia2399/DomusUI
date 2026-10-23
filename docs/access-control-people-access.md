@@ -307,3 +307,61 @@ sul repository privato `archive` (un solo commit di trigger, branch eliminato do
   a 21. Nessun test fallito, saltato o in errore di setup o teardown.
 - HACS validation fallisce su `archive` perché valida solo repository pubblici:
   è un workflow separato.
+
+### Validazione reale in casa (P2.5D.1.1B)
+
+Sull'installazione di casa il 23 ottobre 2026, senza modifiche al codice
+durante il QA.
+
+| Voce | Valore |
+| --- | --- |
+| Pacchetto | `domusos.zip` = `domusos-p25d1-1b-resident-test-a4e0ef6.zip`, versione `1.6.0-dev.20261023.2` (iniettata con `DOMUSOS_PACKAGE_VERSION`, nessun file modificato) |
+| SHA-256 | `d2e5140928c04ae23a0644aadbc998edb05c74a119260efa0afd54dd05a955ca` |
+| Sorgente | `a4e0ef6` (codice applicativo `e2d01a3`) |
+| Versione di Home Assistant | non riportata |
+| Avvio e registri | nessun errore Domus |
+
+**Da admin, in Ruoli e permessi**: per un account non admin (Angela, Membro)
+l'editor offre Residente, Membro, Accesso limitato e Pannello, **non**
+Amministratore, con la nota «Amministratore è disponibile solo per gli
+amministratori di Home Assistant.». Riepilogo di un Membro: «Accesso alla casa:
+Standard», «Amministrazione: No». L'account di prova non admin è stato portato a
+Residente; il suo riepilogo è «Accesso alla casa: Completo», «Amministrazione:
+No». Revisione della policy: 12.
+
+**Con l'account Residente:**
+- profilo da `get_self`: `role: resident`, con `access.control` e
+  `security.control`, senza `access.manage` né `device_power.manage`;
+- serrature, cancelli e allarme sono disponibili (visti dall'utente; il
+  dettaglio di eventuali comandi eseguiti non è riportato);
+- in Impostazioni c'è Persone e accessi (`people.view`), ma non la voce Ruoli e
+  permessi (`access.manage`); l'Alimentazione non c'è;
+- chiamata diretta dalla console a `domusos/device_power/get_state`:
+  `access_denied`, «Not allowed for this account in Domus»;
+- interfaccia regolare, nessun errore o rallentamento segnalato.
+
+**Diagnostica** (finestra `startup` dalle 13:17:14 UTC, policy `ready`
+revisione 12):
+- `mode` `partial`, `enforced` `true`, `rules_version` 3;
+- `enforced_actions`: esattamente i quattro comandi dell'Alimentazione, nessun
+  altro dominio enforced;
+- `device_power/get_state`: 2 richieste, motivo `requires_ha_admin`, ruolo
+  `resident`, `enforced_deny` 2;
+- totali:
+  - `evaluated` 2, `observed` 2, `pending` 0, `enforced_deny` 2;
+  - `aligned_allow`, `would_block`, `current_stricter`, `aligned_deny`,
+    `current_error` e `shadow_error`: 0;
+  - `instrumentation_failures`, `dropped_stale` e `dropped_overflow`: 0;
+  - `recent_mismatches` vuoto;
+- dopo i rifiuti l'Alimentazione ha ancora 1 policy, `ready`: nessun effetto.
+
+Q10 (Irrigazione senza utente) non è stata ritestata in questa sessione: nessun
+servizio dell'Irrigazione nella finestra. Resta coperta dalle validazioni
+precedenti (Linux e casa, P2.5C e P2.5D.1).
+
+**Esito: PASS.**
+- Il Residente ha l'accesso completo alla casa senza amministrazione.
+- Amministratore non viene offerto a chi non è admin HA.
+- Il backend rifiuta il Residente sull'Alimentazione, con `enforced_deny`,
+  senza mismatch e senza effetti.
+- P2.5D.1 è invariata.
