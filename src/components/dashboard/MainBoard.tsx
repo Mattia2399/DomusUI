@@ -72,6 +72,7 @@ import {
   toTimestampMs,
   toTrimmedString,
 } from './mainboard/mainBoardValueUtils';
+import { AmbientBackground, AmbientProvider } from '../../theme/ambient/AmbientProvider';
 import {
   useLightSwitchPendingController,
 } from './mainboard/useLightSwitchPendingController';
@@ -11068,6 +11069,7 @@ export function MainBoard() {
 
   return (
     <AccessControlProvider access={access} refresh={refreshAccess}>
+    <AmbientProvider enabled={background === 'dynamic'} resolveAssetUrl={(value) => resolveRelativeHaUrl(value, haUrl)}>
     <DashboardSecurityProvider value={dashboardSecurity}>
     <SensitiveActionGateProvider user={deviceAuthUser}>
     <div
@@ -11087,7 +11089,9 @@ export function MainBoard() {
           : 'dashboard-theme-dark text-[var(--dashboard-text)]'
       } dashboard-shell ${dashboardBackgroundClass}`}
     >
-      <div aria-hidden className="dashboard-background-layer" />
+      <div aria-hidden className="dashboard-background-layer">
+        <AmbientBackground />
+      </div>
       <a href="#dashboard-main-content" className="dashboard-skip-link">
         Vai al contenuto principale
       </a>
@@ -12252,6 +12256,7 @@ export function MainBoard() {
     </div>
     </SensitiveActionGateProvider>
     </DashboardSecurityProvider>
+    </AmbientProvider>
     </AccessControlProvider>
   );
 }

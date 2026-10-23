@@ -33,6 +33,8 @@ import GlassModal from '../components/ui/GlassModal';
 import GlassSegmentSelect from '../components/ui/GlassSegmentSelect';
 import NestedPageHeader from '../components/ui/NestedPageHeader';
 import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
+import { useAmbient } from '../theme/ambient/AmbientProvider';
+import { resolveAlarmAmbient } from '../theme/ambient/ambientModel';
 import { CameraCardView } from '../components/widgets/CameraCardView';
 import { buildCameraCardModel } from '../components/widgets/cameraCardModel';
 import CameraViewer from '../components/camera/CameraViewer';
@@ -1122,6 +1124,8 @@ export function SecurityDashboard({
   const delayProgress = hasActiveArmingDelay ? Math.min(1, Math.max(0, 1 - remainingDelayMs / armingDelayTotalMs)) : 0;
   const delayRemainingSeconds = hasActiveArmingDelay ? Math.max(0, Math.ceil(remainingDelayMs / 1000)) : 0;
   const resolvedShieldState = hasActiveArmingDelay && baseResolvedShieldState !== 'pending' ? 'pending' : baseResolvedShieldState;
+  // The Dynamic background takes the colour of the alarm state, soberly.
+  useAmbient(resolveAlarmAmbient(resolvedShieldState));
 
   const alarmStateLabel = React.useCallback((state) => {
     const normalizedState = normalizeAlarmState(state);
