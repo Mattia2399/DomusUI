@@ -607,3 +607,102 @@ GitHub Actions sul repository privato `archive`.
   job contiene i risultati e la chiusura senza errori.
 - **HACS validation** fallisce su `archive` perché l'azione HACS valida solo
   repository pubblici: è un workflow separato.
+
+## 18. Validazione reale in casa (P2.5C)
+
+QA della regola Q10 sull'installazione reale, ancora in shadow. Nessun
+codice è stato cambiato in P2.5C.
+
+**Installazione**
+
+| Voce | Valore |
+| --- | --- |
+| Pacchetto | `domusos.zip` = `domusos-p25c-shadow-test-871f184.zip` |
+| Versione | `1.6.0-dev.20261022.2` (iniettata con `DOMUSOS_PACKAGE_VERSION`, nessun file modificato) |
+| SHA-256 | `66a0200d58b9ba8267b485b9340b1071c37159824069bd89094b5445bcd64ae5` |
+| Sorgente | `871f184` (codice applicativo `8963261`, poi solo documentazione) |
+| Versione di Home Assistant | non riportata |
+| Avvio | riuscito, nessun errore Domus nei registri di HA |
+
+**Controllo iniziale** (2026-10-22, dopo l'installazione): `mode` `shadow`,
+`enforced` `false`, `rules_version` 2, policy `ready` revisione 3, finestra
+`startup` dalle 14:51:57 UTC, tutti i contatori a zero.
+
+**Prima del test** HA è stato riavviato (sessione dalle 2026-10-22 19:13:02
+UTC) e i ruoli sono stati cambiati per prova in Persone e accessi: revisione da
+3 a 10, nuova finestra `policy_changed` dalle 2026-10-23 06:32:08 UTC. Tutti i
+numeri qui sotto appartengono a quella sola finestra (`ready`, revisione 10).
+
+**Test Q10.** Un'automazione HA senza trigger, «TEST P2.5C irrigazione»,
+avviata a mano con «Esegui azioni» il 2026-10-23 alle 08:38:18 (ora italiana),
+completata in 75,97 s, probabilmente eseguita due volte:
+
+```text
+start_irrigation_zone (zona-6 «Terrazzo», 1 min) → pausa → ripresa
+→ stop_irrigation_zone → start_irrigation_zone → stop_all_irrigation
+```
+
+Nella stessa finestra hanno girato anche le automazioni dell'Irrigazione della
+casa (3 avvii in più). Diagnostica dopo il test:
+
+| Servizio | Totale | Senza utente, con parent | `shadow_allow` | `shadow_deny` | `no_principal` | Successo | Errore | `would_block` |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `start_irrigation_zone` | 7 | 7 | 7 | 0 | 0 | 4 | 3 | 0 |
+| `pause_irrigation` | 2 | 2 | 2 | 0 | 0 | 2 | 0 | 0 |
+| `resume_irrigation` | 2 | 2 | 2 | 0 | 0 | 2 | 0 | 0 |
+| `stop_irrigation_zone` | 2 | 2 | 2 | 0 | 0 | 2 | 0 | 0 |
+| `stop_all_irrigation` | 2 | 2 | 2 | 0 | 0 | 2 | 0 | 0 |
+
+- Motivo di tutte le 15 chiamate di servizio: `allowed_unattributed_ha_context`,
+  ruolo `none` (nessun account), nessun principal.
+- Le 10 richieste dall'interfaccia, tutte WebSocket da admin, sono passate dal
+  percorso utente: `allowed`, ruolo `admin`, `aligned_allow`. Erano
+  `irrigation/get_config` 4, `get_state` 2, `subscribe` 2, `resume` 1,
+  `save_config` 1.
+- Totali della finestra:
+  - `evaluated` 25, `observed` 25, `pending` 0;
+  - `aligned_allow` 22, `current_error` 3;
+  - `would_block`, `current_stricter`, `aligned_deny` e `shadow_error`: 0;
+  - `instrumentation_failures`, `dropped_stale` e `dropped_overflow`: 0;
+  - `recent_mismatches` vuoto.
+- I 3 `current_error` sono avvii fatti mentre l'irrigazione era bloccata:
+  errori dell'Irrigazione, non di autorizzazione. Sono contati come
+  `current_error` e mai come `would_block`.
+
+**Prima e dopo**:
+
+| | Prima (regole 1, P2.3) | Dopo (regole 2, P2.5B) |
+| --- | --- | --- |
+| Origine | `service_no_user_with_parent` | `service_no_user_with_parent` |
+| Motivo | `no_principal` | `allowed_unattributed_ha_context` |
+| Decisione shadow | deny | allow |
+| Esito reale | success | success |
+| Confronto | `would_block` | `aligned_allow` |
+
+I numeri delle due regole non si sommano: si confronta il comportamento.
+
+**Altri controlli**: Raccolta rifiuti, Energy e Impostazioni › Persone e
+accessi › Ruoli e permessi si aprono senza errori. Nei registri di HA non ci
+sono errori Domus, Access Control o shadow. Lo store reale è rimasto `ready`,
+nessun reset della policy né della diagnostica. Gli account non admin
+sono stati provati solo cambiando i ruoli (revisione 3 → 10); il dettaglio dei
+ruoli non è stato riportato.
+
+**Osservazione d'ambiente (aperta, non Access Control)**: come attuatore di
+prova la zona usa `switch.asciugatrice`, la presa dell'asciugatrice. La presa
+si spegne da sola dopo circa 3–37 secondi: nel registro di HA lo spegnimento
+risulta «Via Interruttore», e tutte le 15 sessioni di oggi della storia
+dell'Irrigazione finiscono con `actuator_closed_externally`, mai con
+`deadline_reached`. Domus fa quello che deve: chiude la sessione quando
+l'attuatore si spegne da fuori. Questa logica dell'Irrigazione non è cambiata
+con Access Control. La scheda «Correlati» della presa non mostra automazioni;
+la causa, un'automazione o un timer della presa, è da verificare più avanti.
+Non incide sull'esito Q10: autorizzazione e classificazione sono corrette e gli
+handler hanno eseguito.
+
+**Esito: PASS.** La regola Q10 è confermata sulla casa reale:
+- un'automazione HA senza utente che chiama i cinque servizi dell'Irrigazione è
+  `shadow_allow` / `aligned_allow`;
+- nessun `would_block`;
+- i due percorsi, utente e contesto HA non attribuito, restano distinti;
+- l'enforcement è rimasto spento per tutto il test.
