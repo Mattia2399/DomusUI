@@ -1061,9 +1061,8 @@ export default function SettingsDashboard({
                 <ChevronRight size={13} aria-hidden="true" />
               </span>
             </button>
-            {access.can('profile.manage') || onSignOut ? (
-            <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
-              {access.can('profile.manage') ? (
+            {access.can('profile.manage') ? (
+              <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
                 <SettingsListRow
                   icon={Bell}
                   iconClassName="bg-rose-500"
@@ -1071,17 +1070,7 @@ export default function SettingsDashboard({
                   subtitle={t('profile.devices.subtitle')}
                   onClick={() => navigateTo(`${PROFILE_ROUTE}/devices`)}
                 />
-              ) : null}
-              {onSignOut ? (
-                <SettingsListRow
-                  icon={LogOut}
-                  destructive
-                  title={t('navigation.logout.confirm')}
-                  subtitle={t('navigation.logout.description')}
-                  onClick={() => setIsSignOutOpen(true)}
-                />
-              ) : null}
-            </div>
+              </div>
             ) : null}
             {onSignOut ? (
               <GlassModal
@@ -1143,6 +1132,19 @@ export default function SettingsDashboard({
               </SettingsListGroup>
             );
           })}
+
+          {/* Signing out closes the list, as in the settings of an iOS app. */}
+          {onSignOut ? (
+            <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.4rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-glass-soft)] shadow-[0_16px_34px_var(--ui-shadow-soft)] backdrop-blur-2xl">
+              <SettingsListRow
+                icon={LogOut}
+                destructive
+                title={t('navigation.logout.confirm')}
+                subtitle={t('navigation.logout.description')}
+                onClick={() => setIsSignOutOpen(true)}
+              />
+            </div>
+          ) : null}
         </main>
       </div>
     );
