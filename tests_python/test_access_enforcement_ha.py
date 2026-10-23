@@ -9,14 +9,16 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+
+import pytest
 
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager
+from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager, instrumentation
 from custom_components.domusos.access.api import async_register_access_api
-from custom_components.domusos.access.models import SCHEMA, SCHEMA_VERSION, STORAGE_KEY
+from custom_components.domusos.access.models import SCHEMA, SCHEMA_VERSION, STORAGE_KEY, MigrationFailedError
 from custom_components.domusos.const import DOMAIN
 from custom_components.domusos.core.audit import DomusAuditService
 from custom_components.domusos.device_power import DATA_DEVICE_POWER_MANAGER, DevicePowerManager
@@ -172,12 +174,24 @@ async def test_a_system_account_is_refused(hass: HomeAssistant, hass_ws_client) 
 # --- Fail closed ----------------------------------------------------------------------
 
 
+@pytest.mark.parametrize("state", ["corrupt", "unsupported", "migration_failed"])
 async def test_an_untrusted_policy_refuses_even_the_administrator_until_it_is_restored(
-    hass: HomeAssistant, hass_ws_client, hass_storage
+    hass: HomeAssistant, hass_ws_client, hass_storage, state: str
 ) -> None:
-    hass_storage[STORAGE_KEY] = policy({"x" * 32: {"role": "owner"}})
-    power, access, switched = await domus(hass)
-    assert access.state.value == "corrupt"
+    if state == "corrupt":
+        hass_storage[STORAGE_KEY] = policy({"x" * 32: {"role": "owner"}})
+        power, access, switched = await domus(hass)
+    elif state == "unsupported":
+        hass_storage[STORAGE_KEY] = policy({}, version=SCHEMA_VERSION + 1)
+        power, access, switched = await domus(hass)
+    else:
+        hass_storage[STORAGE_KEY] = policy({})
+        with patch(
+            "custom_components.domusos.access.manager.parse_stored_document",
+            side_effect=MigrationFailedError("boom"),
+        ):
+            power, access, switched = await domus(hass)
+    assert access.state.value == state
     admin = await hass_ws_client(hass)
     before = power.state_for_user(ADMIN_VIEW)
     for message in every_command("0" * 32, 1):
@@ -260,4 +274,29 @@ async def test_an_applied_refusal_is_a_security_record_and_an_enforced_deny(hass
     assert (row["comparisons"]["enforced_deny"], row["comparisons"]["aligned_allow"]) == (1, 1)
     assert diagnostics["totals"]["would_block"] == 0
     assert not [sample for sample in diagnostics["recent_mismatches"] if sample["action"].startswith("domusos/device_power/")]
+    await power.async_shutdown()
+
+
+async def test_one_decision_serves_the_diagnostics_and_the_refusal(hass: HomeAssistant, hass_ws_client) -> None:
+    power, _, _ = await domus(hass)
+    _, token = await account(hass, "Mario")
+    member = await hass_ws_client(hass, token)
+    admin = await hass_ws_client(hass)
+    with patch.object(
+        instrumentation, "authorize_user_action", wraps=instrumentation.authorize_user_action
+    ) as decide:
+        assert (await ask(member, {"type": "domusos/device_power/get_state"}))["error"]["code"] == "access_denied"
+        assert (await ask(admin, {"type": "domusos/device_power/get_state"}))["success"]
+    # Once per request: never decided again to enforce what was decided to count.
+    assert decide.call_count == 2
+    await power.async_shutdown()
+
+
+async def test_a_failing_audit_never_turns_a_refusal_into_an_allow(hass: HomeAssistant, hass_ws_client) -> None:
+    broken = SimpleNamespace(running=True, record=Mock(side_effect=RuntimeError("audit down")))
+    power, _, switched = await domus(hass, broken)
+    created = await saved_policy(await hass_ws_client(hass))
+    _, token = await account(hass, "Mario")
+    await assert_refused_without_effects(await hass_ws_client(hass, token), power, switched, created["policy_id"], created["revision"])
+    assert broken.record.call_count == 4
     await power.async_shutdown()

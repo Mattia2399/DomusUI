@@ -796,6 +796,6 @@ interruttore.
 | File | Cosa | Dove |
 | --- | --- | --- |
 | `tests_python/test_access_enforcement.py` | Default falso; insieme esatto; solo WebSocket `capability` osservate; ogni altro dominio non enforced; `device_power.manage` solo admin e non concedibile; nessuna lettura da ambiente; matrice per ruolo e stato dello store; senza principal, policy o identità valida; azione e capability sconosciute; errore; `enforced_deny` non è un mismatch; diagnostica | ovunque (47 test) |
-| `tests_python/test_access_enforcement_ha.py` | Utenti e WebSocket veri: l'admin lavora come prima; member, restricted, wall_panel, sola lettura e account di sistema rifiutati su tutti e quattro i comandi senza effetti; store non affidabile e ripristino; senza policy; errore del motore; diagnostica rotta; audit; diagnostica | Linux con fixture HA (9 test) |
+| `tests_python/test_access_enforcement_ha.py` | Utenti e WebSocket veri: l'admin lavora come prima; member, restricted, wall_panel, sola lettura e account di sistema rifiutati su tutti e quattro i comandi senza effetti; `corrupt`, `unsupported`, `migration_failed` e ripristino; senza policy; errore del motore; diagnostica rotta; una sola decisione per richiesta; audit che fallisce senza aprire nulla; audit; diagnostica | Linux con fixture HA (13 test) |
 | `tests_python/test_device_power_websocket.py` | Registra la policy come l'integrazione vera; i non admin ricevono `access_denied` | Linux con fixture HA |
 | `src/services/devicePowerClient.test.ts` | `access_denied` letto come `unauthorized` | Vitest |
