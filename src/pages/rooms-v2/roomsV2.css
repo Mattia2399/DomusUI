@@ -206,6 +206,27 @@ button.rv2-chip {
   gap: 28px;
 }
 
+/* Climate: the main unit across two columns, the other units as small cards. */
+.rv2-climate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+  gap: 10px;
+}
+
+.rv2-climate-main {
+  grid-column: span 2;
+}
+
+.rv2-climate-extra {
+  height: 82px;
+}
+
+@media (max-width: 480px) {
+  .rv2-climate-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .rv2-row-wrap {
   display: flex;
   flex-wrap: wrap;

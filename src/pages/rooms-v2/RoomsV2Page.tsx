@@ -15,6 +15,9 @@ import { useProtectedEntities, useRoomPinnedEntities, useRoomsStoredState } from
 import { LightCard } from '../../components/devices/cards/LightCard';
 import { DeviceCard } from '../../components/devices/cards/DeviceCard';
 import { DevicePanel } from '../../components/devices/panels/DevicePanel';
+import { ClimateCard } from '../../components/devices/cards/ClimateCard';
+import { ClimatePanel } from '../../components/devices/panels/ClimatePanel';
+import { climateIsOn, type ClimateModel } from '../../components/devices/model/climate';
 import { deviceKindOf, findPowerSensor, isStandby, type DeviceAction, type DeviceModel } from '../../components/devices/model/device';
 import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
@@ -48,6 +51,7 @@ import {
 import { RoomSection } from './RoomSection';
 import { SectionPage, type SectionCandidate } from './SectionPage';
 import { useDeviceCommands } from './useDeviceCommands';
+import { useClimateCommands } from './useClimateCommands';
 import { useLightCommands } from './useLightCommands';
 import { useRoomsRegistry } from './useRoomsRegistry';
 import './roomsV2.css';
@@ -91,6 +95,7 @@ function usePhoneLayout() {
 type RoomLightItem = SectionItem & { model: LightModel };
 type RoomDeviceItem = SectionItem & { model: DeviceModel };
 type SectionKey = 'lights' | 'devices';
+type PanelKind = SectionKey | 'climate';
 
 const byRoomThenName = (a: SectionCandidate, b: SectionCandidate) =>
   (a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1;
@@ -106,6 +111,17 @@ const DEVICE_TINT: Record<DeviceModel['kind'], string> = {
 };
 
 const NO_IDS: string[] = [];
+
+// The tint of a climate panel by mode, "r g b", as the cards' mode colours.
+const CLIMATE_TINT: Record<ClimateModel['mode'], string> = {
+  off: '142 142 147',
+  heat: '255 122 26',
+  cool: '10 132 255',
+  heat_cool: '48 209 88',
+  auto: '48 209 88',
+  dry: '50 173 230',
+  fan_only: '148 163 184',
+};
 
 const CLIMATE_TONE: Record<ClimateGlance['mode'], string> = {
   off: 'idle',
@@ -209,7 +225,7 @@ export function RoomsV2Page({
   const [demoRoomByEntity, setDemoRoomByEntity] = React.useState<Record<string, string>>(DEMO_ROOMS);
   const [selectedFloorId, setSelectedFloorId] = React.useState('all');
   const [sectionOpen, setSectionOpen] = React.useState<SectionKey | null>(null);
-  const [panel, setPanel] = React.useState<{ kind: SectionKey; id: string } | null>(null);
+  const [panel, setPanel] = React.useState<{ kind: PanelKind; id: string } | null>(null);
   const [confirmOffId, setConfirmOffId] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const { locale } = useI18n();
@@ -270,6 +286,8 @@ export function RoomsV2Page({
   }, [deviceIds, registry.registryEntityById, states]);
   const powerSensorOf = React.useCallback((entityId: string) => powerSensorById.get(entityId) ?? null, [powerSensorById]);
   const devices = useDeviceCommands({ demo, states, onCallService, powerSensorOf });
+  const climates = useClimateCommands({ demo, states, onCallService });
+  const climateIds = React.useMemo(() => Object.keys(states).filter((entityId) => entityId.startsWith('climate.')), [states]);
   const protectedSet = React.useMemo(() => new Set(protectedIds), [protectedIds]);
 
   function sectionItems<M>(ids: string[], modelOf: (entityId: string) => M, attention: (model: M) => boolean, active: (model: M) => boolean, name: (model: M) => string) {
@@ -319,6 +337,17 @@ export function RoomsV2Page({
       : [];
   const candidates = candidatesFrom(lightIds, (entityId) => lights.modelOf(entityId).name);
   const deviceCandidates = candidatesFrom(deviceIds, (entityId) => devices.modelOf(entityId).name);
+  const climateCandidates = candidatesFrom(climateIds, (entityId) => climates.modelOf(entityId).name);
+
+  // The main unit of the room is the one that does the most (an air conditioner before a radiator valve).
+  const roomClimates: ClimateModel[] = React.useMemo(() => {
+    if (!activeRoom) return [];
+    const hidden = new Set(hiddenRoomEntitiesByRoom[activeRoom.id] ?? []);
+    return climateIds
+      .filter((entityId) => roomOf(entityId) === activeRoom.id && !hidden.has(entityId))
+      .map((entityId) => climates.modelOf(entityId))
+      .sort((a, b) => b.modes.length - a.modes.length || a.name.localeCompare(b.name));
+  }, [activeRoom, climateIds, climates, hiddenRoomEntitiesByRoom, roomOf]);
 
   /** Device commands; a protected plug asks before it turns off. */
   const actOnDevice = (entityId: string, action: DeviceAction) => {
@@ -409,6 +438,7 @@ export function RoomsV2Page({
   const activeCount =
     roomItems.filter((item) => item.active).length +
     deviceItems.filter((item) => item.active).length +
+    roomClimates.filter(climateIsOn).length +
     buckets.medias.filter((entityId) => `${states[entityId]?.state ?? ''}` === 'playing').length;
   const subtitle = [
     typeof readings.temperature === 'number' ? formatDegrees(readings.temperature, locale) : null,
@@ -487,6 +517,7 @@ export function RoomsV2Page({
       return [
         ...candidates.map((candidate) => ({ ...candidate, kind: dt('chipLights') })),
         ...deviceCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionDevices') })),
+        ...climateCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionClimate') })),
       ].sort(byRoomThenName);
     }
     return Object.keys(haStates)
@@ -501,7 +532,7 @@ export function RoomsV2Page({
         };
       })
       .sort(byRoomThenName);
-  }, [activeRoom, candidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById]);
+  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById]);
   const missing = missingSections(buckets);
   const scenes = buckets.others.filter((entityId) => entityId.startsWith('scene.'));
   const hasClimate = buckets.climates.some((entityId) => entityId.startsWith('climate.'));
@@ -573,6 +604,7 @@ export function RoomsV2Page({
     : null;
   const panelLight = panel?.kind === 'lights' ? lights.modelOf(panel.id) : null;
   const panelDevice = panel?.kind === 'devices' ? devices.modelOf(panel.id) : null;
+  const panelClimate = panel?.kind === 'climate' ? climates.modelOf(panel.id) : null;
   const confirmDevice = confirmOffId ? devices.modelOf(confirmOffId) : null;
 
   if (roomTabs.length === 0) {
@@ -613,7 +645,29 @@ export function RoomsV2Page({
           <div className="rv2-columns">
             {hasSide ? (
               <div className="rv2-column-side">
-                {hasClimate ? <SectionComing id="rv2-climate" title={dt('sectionClimate')} /> : null}
+                {roomClimates.length > 0 ? (
+                  <section id="rv2-climate" aria-labelledby="rv2-climate-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-v2-climate">
+                    <h2 id="rv2-climate-title" className="rv2-section-heading flex min-h-11 items-center px-1">
+                      {dt('sectionClimate')}
+                    </h2>
+                    <div className="rv2-climate-grid">
+                      {roomClimates.map((model, index) => (
+                        <div key={model.entityId} className={index === 0 ? 'rv2-climate-main' : 'rv2-climate-extra'}>
+                          <ClimateCard
+                            model={model}
+                            size={index === 0 ? 'large' : 'small'}
+                            roomTemperature={readings.temperature ?? null}
+                            roomHumidity={readings.humidity ?? null}
+                            onAction={(action) => climates.act(model.entityId, action)}
+                            onOpenPanel={() => setPanel({ kind: 'climate', id: model.entityId })}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : hasClimate ? (
+                  <SectionComing id="rv2-climate" title={dt('sectionClimate')} />
+                ) : null}
                 {buckets.sensors.length > 0 ? <SectionComing id="rv2-environment" title={dt('sectionEnvironment')} /> : null}
               </div>
             ) : null}
@@ -789,6 +843,26 @@ export function RoomsV2Page({
                 : undefined
             }
             onAction={(action) => actOnDevice(panelDevice.entityId, action)}
+            onClose={() => setPanel(null)}
+          />
+        ) : null}
+      </PanelHost>
+
+      <PanelHost
+        presentation={phone ? 'sheet' : 'dialog'}
+        isOpen={Boolean(panelClimate)}
+        onClose={() => setPanel(null)}
+        title={panelClimate?.name ?? ''}
+        tintRgb={panelClimate && climateIsOn(panelClimate) ? CLIMATE_TINT[panelClimate.mode] : null}
+        softTint
+      >
+        {panelClimate ? (
+          <ClimatePanel
+            model={panelClimate}
+            roomName={activeRoom?.name}
+            roomTemperature={readings.temperature ?? null}
+            roomHumidity={readings.humidity ?? null}
+            onAction={(action) => climates.act(panelClimate.entityId, action)}
             onClose={() => setPanel(null)}
           />
         ) : null}

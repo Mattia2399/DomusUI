@@ -3,15 +3,18 @@ import { clsx } from 'clsx';
 import { LightCard } from '../components/devices/cards/LightCard';
 import { DeviceCard } from '../components/devices/cards/DeviceCard';
 import { DevicePanel } from '../components/devices/panels/DevicePanel';
+import { ClimateCard } from '../components/devices/cards/ClimateCard';
+import { ClimatePanel } from '../components/devices/panels/ClimatePanel';
 import { findPowerSensor } from '../components/devices/model/device';
 import { DEVICE_CARD_FORMATS, deviceCardHeightPx, type DeviceCardFormat } from '../components/devices/cards/DeviceCardShell';
 import { LightPanel } from '../components/devices/panels/LightPanel';
 import { PanelHost, type PanelPresentation } from '../components/devices/panels/PanelHost';
 import { lightRgb } from '../components/devices/model/tileColor';
 import { useDevicesTranslations } from '../i18n/devicesTranslations';
-import { DEMO_DEVICE_STATES, DEMO_LIGHT_STATES } from './rooms-v2/demoRoomsFixtures';
+import { DEMO_CLIMATE_STATES, DEMO_DEVICE_STATES, DEMO_LIGHT_STATES } from './rooms-v2/demoRoomsFixtures';
 import { useLightCommands } from './rooms-v2/useLightCommands';
 import { useDeviceCommands } from './rooms-v2/useDeviceCommands';
+import { useClimateCommands } from './rooms-v2/useClimateCommands';
 
 /*
  * Development only (/devices-lab): the light and device cards in every
@@ -43,6 +46,7 @@ const LAB_DEVICE_STATES = {
   ...DEMO_DEVICE_STATES,
   'switch.demo_broken': { state: 'unavailable', rawAttributes: { friendly_name: 'Presa giardino', device_class: 'outlet' } },
 };
+const CLIMATE_SAMPLES = ['climate.demo_living_ac', 'climate.demo_bedroom_ac', 'climate.demo_living_radiator', 'climate.demo_bathroom_floor'];
 const powerSensorOf = (entityId: string) => findPowerSensor(entityId, LAB_DEVICE_STATES);
 
 function widthOf(format: DeviceCardFormat) {
@@ -54,6 +58,9 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
   const dt = useDevicesTranslations();
   const lights = useLightCommands({ demo: true, states: DEMO_LIGHT_STATES });
   const devices = useDeviceCommands({ demo: true, states: LAB_DEVICE_STATES, powerSensorOf });
+  const climates = useClimateCommands({ demo: true, states: DEMO_CLIMATE_STATES });
+  const [climatePanelId, setClimatePanelId] = React.useState<string | null>(null);
+  const climatePanel = climatePanelId ? climates.modelOf(climatePanelId) : null;
   const [panelId, setPanelId] = React.useState<string | null>(null);
   const [devicePanelId, setDevicePanelId] = React.useState<string | null>(null);
   const devicePanel = devicePanelId ? devices.modelOf(devicePanelId) : null;
@@ -133,6 +140,33 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
           </div>
         );
       })}
+      <div className="flex flex-col gap-3">
+        <h2 className="dv-t2 m-0 text-[13px] font-bold uppercase tracking-[0.06em]">climate · large · small</h2>
+        <div className="flex flex-wrap items-start gap-7">
+          {CLIMATE_SAMPLES.map((entityId, index) => (
+            <div key={entityId} style={{ width: index < 2 ? widthOf('W×4') : widthOf('U×2'), height: index < 2 ? undefined : deviceCardHeightPx('U×2') }}>
+              <ClimateCard
+                model={climates.modelOf(entityId)}
+                size={index < 2 ? 'large' : 'small'}
+                roomHumidity={48}
+                onAction={(action) => climates.act(entityId, action)}
+                onOpenPanel={() => setClimatePanelId(entityId)}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+      <PanelHost presentation={presentation} isOpen={Boolean(climatePanel)} onClose={() => setClimatePanelId(null)} title={climatePanel?.name ?? ''}>
+        {climatePanel ? (
+          <ClimatePanel
+            model={climatePanel}
+            roomName={dt('sectionClimate')}
+            roomHumidity={48}
+            onAction={(action) => climates.act(climatePanel.entityId, action)}
+            onClose={() => setClimatePanelId(null)}
+          />
+        ) : null}
+      </PanelHost>
       <PanelHost
         presentation={presentation}
         isOpen={Boolean(devicePanel)}

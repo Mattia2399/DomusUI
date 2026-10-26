@@ -124,5 +124,68 @@ export const DEMO_DEVICE_ROOMS: Record<string, string> = {
 /** Plugs that ask before turning off in the demo, until the demo is changed. */
 export const DEMO_PROTECTED_ENTITIES = ['switch.demo_fridge'];
 
-export const DEMO_STATES: MockEntityStateMap = { ...DEMO_LIGHT_STATES, ...DEMO_DEVICE_STATES };
-export const DEMO_ROOMS: Record<string, string> = { ...DEMO_LIGHT_ROOMS, ...DEMO_DEVICE_ROOMS };
+const AC_MODES = ['off', 'heat', 'cool', 'heat_cool', 'dry', 'fan_only'];
+
+export const DEMO_CLIMATE_STATES: MockEntityStateMap = {
+  'climate.demo_living_ac': device('Climatizzatore', 'heat', {
+    hvac_modes: AC_MODES,
+    hvac_action: 'heating',
+    temperature: 23,
+    current_temperature: 21.5,
+    target_temp_low: 20,
+    target_temp_high: 24,
+    min_temp: 16,
+    max_temp: 30,
+    target_temp_step: 0.5,
+    fan_modes: ['auto', 'low', 'medium', 'high'],
+    fan_mode: 'auto',
+    swing_modes: ['off', 'vertical'],
+    swing_mode: 'off',
+    preset_modes: ['none', 'comfort', 'eco', 'boost', 'sleep'],
+    preset_mode: 'comfort',
+  }),
+  'climate.demo_living_radiator': device('Termosifone', 'heat', {
+    hvac_modes: ['off', 'heat'],
+    temperature: 21,
+    current_temperature: 20.5,
+    min_temp: 5,
+    max_temp: 28,
+    target_temp_step: 0.5,
+  }),
+  'climate.demo_bedroom_ac': device('Climatizzatore', 'cool', {
+    hvac_modes: AC_MODES,
+    hvac_action: 'idle',
+    temperature: 23,
+    current_temperature: 19.5,
+    target_temp_low: 21,
+    target_temp_high: 25,
+    min_temp: 16,
+    max_temp: 30,
+    target_temp_step: 0.5,
+    fan_modes: ['auto', 'low', 'medium', 'high'],
+    fan_mode: 'low',
+    swing_modes: ['off', 'vertical'],
+    swing_mode: 'vertical',
+    preset_modes: ['none', 'comfort', 'eco', 'sleep'],
+    preset_mode: 'sleep',
+  }),
+  'climate.demo_bathroom_floor': device('Pavimento radiante', 'heat', {
+    hvac_modes: ['off', 'heat'],
+    hvac_action: 'idle',
+    temperature: 24,
+    current_temperature: 23.1,
+    min_temp: 18,
+    max_temp: 28,
+    target_temp_step: 0.5,
+  }),
+};
+
+export const DEMO_CLIMATE_ROOMS: Record<string, string> = {
+  'climate.demo_living_ac': 'demo-living-room',
+  'climate.demo_living_radiator': 'demo-living-room',
+  'climate.demo_bedroom_ac': 'demo-bedroom',
+  'climate.demo_bathroom_floor': 'demo-bathroom',
+};
+
+export const DEMO_STATES: MockEntityStateMap = { ...DEMO_LIGHT_STATES, ...DEMO_DEVICE_STATES, ...DEMO_CLIMATE_STATES };
+export const DEMO_ROOMS: Record<string, string> = { ...DEMO_LIGHT_ROOMS, ...DEMO_DEVICE_ROOMS, ...DEMO_CLIMATE_ROOMS };

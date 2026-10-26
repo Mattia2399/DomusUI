@@ -21,20 +21,20 @@ describe('the second Rooms page in the demo', () => {
 
   it('heads the room like the design: summary, rooms as pills, statuses and what it lacks', () => {
     renderDemo();
-    expect(screen.getByText('21,5° · umidità 48% · 7 accessori accesi')).toBeTruthy();
+    expect(screen.getByText('21,5° · umidità 48% · 9 accessori accesi')).toBeTruthy();
     const rooms = screen.getByRole('navigation', { name: 'Stanze' });
     expect(within(rooms).getByRole('button', { name: 'Soggiorno' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Tutta la casa' })).toBeTruthy();
     const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
-    expect(statuses).toEqual(['Luci3 accese', 'Umidità48%']);
-    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: clima, sicurezza, media');
+    expect(statuses).toEqual(['ClimaRiscalda a 23°', 'Luci3 accese', 'Umidità48%']);
+    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: sicurezza, media');
   });
 
   it('changes room from the pills', () => {
     renderDemo();
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Stanze' })).getByRole('button', { name: 'Camera' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Camera' })).toBeTruthy();
-    expect(screen.getByText('19,5° · umidità 52% · 1 accessorio acceso')).toBeTruthy();
+    expect(screen.getByText('19,5° · umidità 52% · 2 accessori accesi')).toBeTruthy();
   });
 
   it('brings a light from another room through the add sheet', () => {
@@ -82,6 +82,30 @@ describe('the second Rooms page in the demo', () => {
     fireEvent.click(within(page).getByRole('button', { name: /^Controlli di Ventilatore/ }));
     expect(screen.getByRole('slider', { name: 'Velocità Ventilatore' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Notte' })).toBeTruthy();
+  });
+
+  it('shows the main climate unit large, with its target and steps, and the others small', () => {
+    renderDemo();
+    const climate = screen.getByTestId('rooms-v2-climate');
+    const main = within(climate).getByTestId('climate-card');
+    expect(within(main).getByText('Riscalda a')).toBeTruthy();
+    expect(within(main).getByText('23°')).toBeTruthy();
+    expect(within(main).getByText('Sta riscaldando · ora 21,5°')).toBeTruthy();
+    fireEvent.click(within(main).getByRole('button', { name: 'Alza la temperatura, ora 23°' }));
+    expect(within(main).getByText('23,5°')).toBeTruthy();
+    expect(within(climate).getByText('20,5° → 21°')).toBeTruthy();
+  });
+
+  it('turns the climate off from its icon and opens its panel with the modes', () => {
+    renderDemo();
+    const main = within(screen.getByTestId('rooms-v2-climate')).getByTestId('climate-card');
+    fireEvent.click(within(main).getByRole('button', { name: 'Spegni Climatizzatore' }));
+    expect(within(main).getByText('In stanza')).toBeTruthy();
+    fireEvent.click(within(main).getByRole('button', { name: /^Controlli di Climatizzatore/ }));
+    const modes = screen.getByRole('radiogroup', { name: 'Modalità' });
+    fireEvent.click(within(modes).getByRole('radio', { name: 'Raffresca' }));
+    expect(within(main).getByText('Raffresca a')).toBeTruthy();
+    expect(screen.getByRole('slider', { name: 'Temperatura obiettivo Climatizzatore' })).toBeTruthy();
   });
 
   it('turns every light off', () => {
