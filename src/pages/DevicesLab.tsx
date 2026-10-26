@@ -1,17 +1,21 @@
 import React from 'react';
 import { clsx } from 'clsx';
 import { LightCard } from '../components/devices/cards/LightCard';
+import { DeviceCard } from '../components/devices/cards/DeviceCard';
+import { DevicePanel } from '../components/devices/panels/DevicePanel';
+import { findPowerSensor } from '../components/devices/model/device';
 import { DEVICE_CARD_FORMATS, deviceCardHeightPx, type DeviceCardFormat } from '../components/devices/cards/DeviceCardShell';
 import { LightPanel } from '../components/devices/panels/LightPanel';
 import { PanelHost, type PanelPresentation } from '../components/devices/panels/PanelHost';
 import { lightRgb } from '../components/devices/model/tileColor';
 import { useDevicesTranslations } from '../i18n/devicesTranslations';
-import { DEMO_LIGHT_STATES } from './rooms-v2/demoLightsFixtures';
+import { DEMO_DEVICE_STATES, DEMO_LIGHT_STATES } from './rooms-v2/demoRoomsFixtures';
 import { useLightCommands } from './rooms-v2/useLightCommands';
+import { useDeviceCommands } from './rooms-v2/useDeviceCommands';
 
 /*
- * Development only (/devices-lab): the light card in every format, lit, off
- * and away, in Dark and Light, at the sizes of the Home grid (columns of
+ * Development only (/devices-lab): the light and device cards in every
+ * format, on, off, on standby and away, in Dark and Light, at the sizes of the Home grid (columns of
  * 188 px, rows of 36 px, gaps of 10 px), to set beside the design boards.
  */
 
@@ -26,6 +30,20 @@ const SAMPLES = [
   'light.demo_reading_lamp',
   'light.demo_hood',
 ];
+const DEVICE_SAMPLES = [
+  'switch.demo_tv_plug',
+  'switch.demo_console_plug',
+  'fan.demo_fan',
+  'cover.demo_living_blind',
+  'humidifier.demo_dehumidifier',
+  'input_boolean.demo_do_not_disturb',
+  'switch.demo_broken',
+];
+const LAB_DEVICE_STATES = {
+  ...DEMO_DEVICE_STATES,
+  'switch.demo_broken': { state: 'unavailable', rawAttributes: { friendly_name: 'Presa giardino', device_class: 'outlet' } },
+};
+const powerSensorOf = (entityId: string) => findPowerSensor(entityId, LAB_DEVICE_STATES);
 
 function widthOf(format: DeviceCardFormat) {
   const columns = format.startsWith('X') ? 4 : format.startsWith('W') ? 2 : 1;
@@ -35,7 +53,10 @@ function widthOf(format: DeviceCardFormat) {
 function Board({ theme }: { theme: 'dark' | 'light' }) {
   const dt = useDevicesTranslations();
   const lights = useLightCommands({ demo: true, states: DEMO_LIGHT_STATES });
+  const devices = useDeviceCommands({ demo: true, states: LAB_DEVICE_STATES, powerSensorOf });
   const [panelId, setPanelId] = React.useState<string | null>(null);
+  const [devicePanelId, setDevicePanelId] = React.useState<string | null>(null);
+  const devicePanel = devicePanelId ? devices.modelOf(devicePanelId) : null;
   const [presentation, setPresentation] = React.useState<PanelPresentation>('dialog');
   const panelModel = panelId ? lights.modelOf(panelId) : null;
 
@@ -85,6 +106,51 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
           </div>
         );
       })}
+      {DEVICE_SAMPLES.map((entityId) => {
+        const model = devices.modelOf(entityId);
+        return (
+          <div key={entityId} className="flex flex-col gap-3">
+            <h2 className="dv-t2 m-0 text-[13px] font-bold uppercase tracking-[0.06em]">
+              {model.name} · {model.kind}
+            </h2>
+            <div className="flex flex-wrap items-start gap-7">
+              {DEVICE_CARD_FORMATS.map((format) => (
+                <figure key={format} className="m-0 flex flex-col gap-1.5">
+                  <figcaption className="dv-t3 text-[11px] font-semibold tabular-nums">
+                    {format} · {widthOf(format)}×{deviceCardHeightPx(format)}
+                  </figcaption>
+                  <div style={{ width: widthOf(format), height: deviceCardHeightPx(format) }}>
+                    <DeviceCard
+                      model={model}
+                      format={format}
+                      onAction={(action) => devices.act(entityId, action)}
+                      onOpenPanel={() => setDevicePanelId(entityId)}
+                    />
+                  </div>
+                </figure>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+      <PanelHost
+        presentation={presentation}
+        isOpen={Boolean(devicePanel)}
+        onClose={() => setDevicePanelId(null)}
+        title={devicePanel?.name ?? ''}
+        tintRgb={devicePanel && devicePanel.on ? '100 210 255' : null}
+        softTint
+      >
+        {devicePanel ? (
+          <DevicePanel
+            model={devicePanel}
+            roomName={dt('sectionDevices')}
+            protectedPlug={false}
+            onAction={(action) => devices.act(devicePanel.entityId, action)}
+            onClose={() => setDevicePanelId(null)}
+          />
+        ) : null}
+      </PanelHost>
       <PanelHost
         presentation={presentation}
         isOpen={Boolean(panelModel)}
