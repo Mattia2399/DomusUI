@@ -22,6 +22,8 @@ const GridTestView = import.meta.env.DEV
       };
     })
   : null;
+// The shared device cards in every format, to compare with the design boards.
+const DevicesLab = import.meta.env.DEV ? React.lazy(() => import('./pages/DevicesLab')) : null;
 
 export default function App() {
   return (
@@ -33,6 +35,16 @@ export default function App() {
             element={
               <LazyLoadBoundary fallback={null}>
                 <GridTestView />
+              </LazyLoadBoundary>
+            }
+          />
+        ) : null}
+        {DevicesLab ? (
+          <Route
+            path="/devices-lab/*"
+            element={
+              <LazyLoadBoundary fallback={null}>
+                <DevicesLab />
               </LazyLoadBoundary>
             }
           />
