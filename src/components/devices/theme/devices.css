@@ -840,6 +840,246 @@
   box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.6);
 }
 
+/* Sensors: each kind has its tint, the card shows a line of the day. */
+
+.dv-sn-temp {
+  --sn-tint: #ff9f0a;
+  --sn-rgb: 255 159 10;
+}
+
+.dv-sn-hum {
+  --sn-tint: #32ade6;
+  --sn-rgb: 50 173 230;
+}
+
+.dv-sn-co2,
+.dv-sn-pm {
+  --sn-tint: #30d158;
+  --sn-rgb: 48 209 88;
+}
+
+.dv-sn-lux {
+  --sn-tint: #ffd60a;
+  --sn-rgb: 255 214 10;
+}
+
+.dv-sn-noise {
+  --sn-tint: #bf5af2;
+  --sn-rgb: 191 90 242;
+}
+
+.dv-sn-smoke {
+  --sn-tint: #ff453a;
+  --sn-rgb: 255 69 58;
+}
+
+.dv-sensor {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dv-sensor:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-sensor-tint {
+  color: var(--sn-tint);
+}
+
+.dv-sensor-badge {
+  background: rgb(var(--sn-rgb) / 0.2);
+  color: var(--sn-tint);
+}
+
+.dv-spark-wrap {
+  display: block;
+  height: 26px;
+  margin: 2px -2px 0;
+}
+
+.dv-spark {
+  display: block;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.dv-spark polygon {
+  fill: var(--sn-tint);
+  fill-opacity: 0.16;
+  stroke: none;
+}
+
+.dv-spark polyline {
+  fill: none;
+  stroke: var(--sn-tint);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: 0.75;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.dv-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgb(255 159 10 / 0.16);
+  color: var(--dv-amber);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.dv-banner svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.dv-chart {
+  position: relative;
+  height: 180px;
+  margin-right: 6px;
+}
+
+.dv-chart svg {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+}
+
+.dv-chart-band {
+  fill: rgb(48 209 88 / 0.12);
+}
+
+.dv-chart-area {
+  fill: var(--sn-tint);
+  fill-opacity: 0.16;
+  stroke: none;
+}
+
+.dv-chart-line {
+  fill: none;
+  stroke: var(--sn-tint);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.dv-chart-y {
+  position: absolute;
+  left: 4px;
+  color: var(--dv-t3);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.dv-chart-band-label {
+  position: absolute;
+  right: 6px;
+  color: #30d158;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+  transform: translateY(3px);
+}
+
+.dv-chart-dot {
+  position: absolute;
+  right: 0;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: var(--sn-tint);
+  box-shadow: 0 0 0 3px var(--dv-sheet-ring);
+  transform: translate(50%, -50%);
+}
+
+.dv-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border-top: 1px solid var(--dv-separator);
+  padding-top: 12px;
+}
+
+.dv-stats div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dv-stats span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dv-stats strong {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-scale {
+  position: relative;
+  display: flex;
+  height: 10px;
+  overflow: visible;
+  border-radius: 5px;
+}
+
+.dv-scale span {
+  height: 100%;
+}
+
+.dv-scale span:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.dv-scale span:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.dv-scale-zone-0 {
+  background: rgb(100 210 255 / 0.4);
+}
+
+.dv-scale-zone-1 {
+  background: rgb(48 209 88 / 0.55);
+}
+
+.dv-scale-zone-2 {
+  background: rgb(255 159 10 / 0.5);
+}
+
+.dv-scale i {
+  position: absolute;
+  top: 50%;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: var(--dv-pill-on);
+  box-shadow: 0 0 0 3px var(--dv-sheet-ring), 0 4px 10px rgb(0 0 0 / 0.35);
+  transform: translate(-50%, -50%);
+}
+
 /* The light panel. */
 
 .dv-panel {
