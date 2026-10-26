@@ -20,28 +20,36 @@ export type PanelHostProps = {
   title: string;
   /** The light's colour, "r g b", to tint the panel with; none for a plain panel. */
   tintRgb?: string | null;
+  /** A lighter tint, for devices that are not lights. */
+  softTint?: boolean;
   children: React.ReactNode;
 };
 
 /** Tints the dialog that holds the content, which the shared modal renders elsewhere. */
-function useDialogTint(contentRef: React.RefObject<HTMLDivElement | null>, tintRgb: string | null | undefined, isOpen: boolean) {
+function useDialogTint(
+  contentRef: React.RefObject<HTMLDivElement | null>,
+  tintRgb: string | null | undefined,
+  softTint: boolean,
+  isOpen: boolean,
+) {
   React.useLayoutEffect(() => {
     const dialog = contentRef.current?.closest<HTMLElement>('[role="dialog"]');
     if (!dialog) return undefined;
     if (tintRgb) {
       dialog.style.setProperty('--dv-light-rgb', tintRgb);
       dialog.classList.add('dv-panel-tinted');
+      dialog.classList.toggle('dv-panel-tint-soft', softTint);
     } else {
-      dialog.classList.remove('dv-panel-tinted');
+      dialog.classList.remove('dv-panel-tinted', 'dv-panel-tint-soft');
     }
     return () => {
-      dialog.classList.remove('dv-panel-tinted');
+      dialog.classList.remove('dv-panel-tinted', 'dv-panel-tint-soft');
       dialog.style.removeProperty('--dv-light-rgb');
     };
-  }, [contentRef, tintRgb, isOpen]);
+  }, [contentRef, tintRgb, softTint, isOpen]);
 }
 
-function SidePanel({ isOpen, onClose, title, tintRgb, children }: Omit<PanelHostProps, 'presentation'>) {
+function SidePanel({ isOpen, onClose, title, tintRgb, softTint = false, children }: Omit<PanelHostProps, 'presentation'>) {
   const titleId = React.useId();
   React.useEffect(() => {
     if (!isOpen) return undefined;
@@ -61,6 +69,7 @@ function SidePanel({ isOpen, onClose, title, tintRgb, children }: Omit<PanelHost
         className={clsx(
           'dv-glass pointer-events-auto max-h-full w-96 max-w-full self-start overflow-y-auto rounded-[30px] p-[18px]',
           tintRgb && 'dv-panel-tinted',
+          tintRgb && softTint && 'dv-panel-tint-soft',
         )}
         style={tintRgb ? ({ '--dv-light-rgb': tintRgb } as React.CSSProperties) : undefined}
       >
@@ -73,9 +82,9 @@ function SidePanel({ isOpen, onClose, title, tintRgb, children }: Omit<PanelHost
   );
 }
 
-export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, children }: PanelHostProps) {
+export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softTint = false, children }: PanelHostProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
-  useDialogTint(contentRef, presentation === 'side' ? null : tintRgb, isOpen);
+  useDialogTint(contentRef, presentation === 'side' ? null : tintRgb, softTint, isOpen);
   const content = (
     <div ref={contentRef} className="dv-panel-frame">
       {children}
@@ -84,7 +93,7 @@ export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, child
 
   if (presentation === 'side') {
     return (
-      <SidePanel isOpen={isOpen} onClose={onClose} title={title} tintRgb={tintRgb}>
+      <SidePanel isOpen={isOpen} onClose={onClose} title={title} tintRgb={tintRgb} softTint={softTint}>
         {content}
       </SidePanel>
     );

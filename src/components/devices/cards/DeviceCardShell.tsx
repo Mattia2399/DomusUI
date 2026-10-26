@@ -40,6 +40,10 @@ export type DeviceCardShellProps = {
   available: boolean;
   /** The card's own colour when it is lit, with the light's colour for the shadow. */
   lit?: { background: string; lightRgb: string } | null;
+  /** A device that is on (not a light): the card turns light and the icon takes this tone. */
+  tone?: string | null;
+  /** The status line in a warning ink, for a plug on standby. */
+  statusTone?: 'standby' | null;
   hasPanel: boolean;
   editing?: boolean;
   selected?: boolean;
@@ -66,6 +70,8 @@ export function DeviceCardShell({
   isOn,
   available,
   lit,
+  tone = null,
+  statusTone = null,
   hasPanel,
   editing = false,
   selected = false,
@@ -107,7 +113,7 @@ export function DeviceCardShell({
       </button>
       <span className={clsx('flex min-w-0 flex-col gap-px', layout !== 'split' && 'flex-1')}>
         <span className={clsx('dv-name', oneLineName && 'dv-name-1')}>{name}</span>
-        <span className="dv-status">{status}</span>
+        <span className={clsx('dv-status', statusTone === 'standby' && 'is-standby')}>{status}</span>
       </span>
     </>
   );
@@ -117,6 +123,7 @@ export function DeviceCardShell({
       className={clsx(
         'dv-tile',
         lit && 'is-lit',
+        !lit && tone && 'is-on',
         editing && 'is-editing',
         editing && selected && 'is-selected',
         hiddenItem && 'is-hidden-item',
@@ -125,6 +132,7 @@ export function DeviceCardShell({
       )}
       style={style}
       data-format={format}
+      data-tone={!lit && tone ? tone : undefined}
     >
       <button
         type="button"

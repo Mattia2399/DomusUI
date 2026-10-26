@@ -31,6 +31,8 @@
   --dv-blue: #4da3ff;
   --dv-red: #ff6961;
   --dv-lit-shadow-alpha: 0.7;
+  --dv-standby-ink: #a84d00;
+  --dv-tone-tint-alpha: 0.14;
   --dv-panel-tint-alpha: 0.2;
 }
 
@@ -61,6 +63,8 @@
   --dv-blue: #0a6fdb;
   --dv-red: #d70015;
   --dv-lit-shadow-alpha: 0.55;
+  --dv-standby-ink: #a84d00;
+  --dv-tone-tint-alpha: 0.16;
   --dv-panel-tint-alpha: 0.24;
 }
 
@@ -115,6 +119,72 @@
   border-color: transparent;
   color: var(--dv-lit-ink);
   box-shadow: 0 18px 38px -18px rgb(var(--dv-light-rgb) / var(--dv-lit-shadow-alpha));
+}
+
+/* A device that is on: a light card with dark ink, its icon in the colour of its kind. */
+.dv-tile.is-on {
+  border-color: transparent;
+  background: var(--dv-tile-on);
+  color: var(--dv-tile-on-ink);
+  box-shadow: 0 16px 36px -18px rgb(0 0 0 / 0.55);
+}
+
+.dv-tile.is-on .dv-status,
+.dv-tile.is-on .dv-chevron {
+  color: var(--dv-tile-on-ink-2);
+}
+
+.dv-tile.is-on .dv-status.is-standby {
+  color: var(--dv-standby-ink);
+}
+
+.dv-tile.is-on .dv-icon-button {
+  background: var(--dv-tone);
+  color: var(--dv-tone-ink);
+  box-shadow: 0 6px 16px -4px var(--dv-tone-glow);
+}
+
+.dv-tile[data-tone='power'],
+.dv-tone-power {
+  --dv-tone: #30d158;
+  --dv-tone-ink: #04310f;
+  --dv-tone-glow: rgb(48 209 88 / 0.7);
+  --dv-tone-rgb: 48 209 88;
+}
+
+.dv-tile[data-tone='fan'],
+.dv-tone-fan {
+  --dv-tone: #64d2ff;
+  --dv-tone-ink: #00263a;
+  --dv-tone-glow: rgb(100 210 255 / 0.7);
+  --dv-tone-rgb: 100 210 255;
+}
+
+.dv-tile[data-tone='cover'],
+.dv-tone-cover {
+  --dv-tone: #ff9f0a;
+  --dv-tone-ink: #3a2000;
+  --dv-tone-glow: rgb(255 159 10 / 0.7);
+  --dv-tone-rgb: 255 159 10;
+}
+
+.dv-tile[data-tone='humid'],
+.dv-tone-humid {
+  --dv-tone: #5ac8fa;
+  --dv-tone-ink: #00263a;
+  --dv-tone-glow: rgb(90 200 250 / 0.7);
+  --dv-tone-rgb: 90 200 250;
+}
+
+/* A fan that is on turns its icon; still for reduced motion. */
+.dv-spin svg {
+  animation: dv-spin var(--dv-spin, 1.2s) linear infinite;
+}
+
+@keyframes dv-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .dv-tile.is-selected {
@@ -426,6 +496,120 @@
   color: var(--dv-lit-ink);
 }
 
+/* Pieces of the device panels. */
+
+.dv-option {
+  height: 40px;
+  border: 0;
+  border-radius: 20px;
+  padding: 0 16px;
+  background: var(--dv-icon-off);
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dv-option.is-on {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-option:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-card {
+  border-radius: 22px;
+  background: var(--dv-icon-off);
+  padding: 16px;
+}
+
+.dv-tag {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  border-radius: 14px;
+  padding: 0 12px;
+  background: rgb(255 159 10 / 0.18);
+  color: var(--dv-amber);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* A cover as a window: sky behind, the shutter coming down as it closes. */
+.dv-vslider.dv-cover {
+  background: linear-gradient(180deg, #3e8ef0, #9fd0ff);
+}
+
+.dv-cover-shut {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  background: repeating-linear-gradient(180deg, #e6e6eb 0 12px, #c9c9d1 12px 14px);
+  box-shadow: 0 2px 0 #a9a9b3, 0 8px 14px -6px rgb(0 0 0 / 0.45);
+  transition: height 200ms linear;
+}
+
+.dv-cover-tag {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  height: 30px;
+  align-items: center;
+  border-radius: 15px;
+  padding: 0 12px;
+  background: rgb(0 0 0 / 0.42);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateX(-50%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.dv-hslider {
+  position: relative;
+  display: block;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--dv-track);
+}
+
+.dv-hslider span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--dv-tone, #ff9f0a);
+}
+
+.dv-hslider input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dv-hslider:has(input:focus-visible) {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 3px;
+}
+
+.dv-panel-tint-soft {
+  --dv-panel-tint-alpha: var(--dv-tone-tint-alpha);
+}
+
 /* The light panel. */
 
 .dv-panel {
@@ -539,6 +723,7 @@
   .dv-icon-button,
   .dv-slider-fill,
   .dv-vslider-fill,
+  .dv-cover-shut,
   .dv-swatch,
   .dv-check,
   .dv-panel-tinted {
@@ -548,5 +733,9 @@
   .dv-tile:active,
   .dv-icon-button:active {
     transform: none;
+  }
+
+  .dv-spin svg {
+    animation: none;
   }
 }
