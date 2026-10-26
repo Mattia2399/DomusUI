@@ -610,6 +610,236 @@
   --dv-panel-tint-alpha: var(--dv-tone-tint-alpha);
 }
 
+/* Climate: the colours of each mode, the large card and its panel pieces. */
+
+.dv-cl-off {
+  --cl-solid: #4b5563;
+  --cl-solid-dark: #363e48;
+  --cl-rgb: 142 142 147;
+}
+
+.dv-cl-heat {
+  --cl-solid: #b4480f;
+  --cl-solid-dark: #82340b;
+  --cl-rgb: 255 122 26;
+}
+
+.dv-cl-cool {
+  --cl-solid: #0b5cc0;
+  --cl-solid-dark: #08428a;
+  --cl-rgb: 10 132 255;
+}
+
+.dv-cl-auto {
+  --cl-solid: #17784a;
+  --cl-solid-dark: #115635;
+  --cl-rgb: 48 209 88;
+}
+
+.dv-cl-dry {
+  --cl-solid: #136f8e;
+  --cl-solid-dark: #0e5066;
+  --cl-rgb: 50 173 230;
+}
+
+.dv-cl-fan {
+  --cl-solid: #475569;
+  --cl-solid-dark: #333d4c;
+  --cl-rgb: 148 163 184;
+}
+
+.dv-tile[data-tone='cl-heat'] {
+  --dv-tone: #ff7a1a;
+  --dv-tone-ink: #3a1500;
+  --dv-tone-glow: rgb(255 122 26 / 0.7);
+}
+
+.dv-tile[data-tone='cl-cool'] {
+  --dv-tone: #0a84ff;
+  --dv-tone-ink: #ffffff;
+  --dv-tone-glow: rgb(10 132 255 / 0.7);
+}
+
+.dv-tile[data-tone='cl-auto'] {
+  --dv-tone: #30d158;
+  --dv-tone-ink: #04310f;
+  --dv-tone-glow: rgb(48 209 88 / 0.7);
+}
+
+.dv-tile[data-tone='cl-dry'] {
+  --dv-tone: #32ade6;
+  --dv-tone-ink: #00263a;
+  --dv-tone-glow: rgb(50 173 230 / 0.7);
+}
+
+.dv-tile[data-tone='cl-fan'] {
+  --dv-tone: #94a3b8;
+  --dv-tone-ink: #1f2937;
+  --dv-tone-glow: rgb(148 163 184 / 0.7);
+}
+
+.dv-climate {
+  display: flex;
+  min-height: 174px;
+  height: auto;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 28px;
+  padding: 14px 16px 14px 14px;
+  transition: background 420ms ease, box-shadow 420ms ease, color 300ms ease;
+}
+
+.dv-climate.is-lit-climate {
+  border-color: rgb(255 255 255 / 0.14);
+  background:
+    radial-gradient(120% 100% at 100% 0%, rgb(var(--cl-rgb) / 0.55), rgb(var(--cl-rgb) / 0) 62%),
+    linear-gradient(150deg, var(--cl-solid), var(--cl-solid-dark));
+  color: #ffffff;
+  box-shadow: 0 26px 50px -24px rgb(var(--cl-rgb) / 0.85), inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.dv-climate-sub {
+  color: var(--dv-t2);
+}
+
+.dv-climate.is-lit-climate .dv-climate-sub {
+  color: rgb(255 255 255 / 0.8);
+}
+
+.dv-climate.is-lit-climate .dv-icon-button,
+.dv-climate.is-lit-climate .dv-step {
+  background: rgb(255 255 255 / 0.2);
+  color: #ffffff;
+}
+
+.dv-climate-top,
+.dv-climate-mid,
+.dv-climate-foot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.dv-climate-top button,
+.dv-climate-mid button {
+  pointer-events: auto;
+}
+
+.dv-climate-top {
+  align-items: center;
+  gap: 12px;
+}
+
+.dv-climate-mid {
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 2px;
+}
+
+.dv-climate-foot {
+  min-height: 22px;
+  align-items: center;
+  gap: 8px;
+  padding-left: 2px;
+}
+
+.dv-step {
+  display: flex;
+  height: 46px;
+  width: 46px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--dv-icon-off);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 120ms ease, background 200ms ease;
+}
+
+.dv-step:active {
+  transform: scale(0.9);
+}
+
+.dv-step:focus-visible,
+.dv-climate-mode:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-step-strong {
+  height: 44px;
+  width: 44px;
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-step[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.dv-climate-now {
+  position: absolute;
+  right: 12px;
+  left: 12px;
+  height: 0;
+  border-top: 2px dashed currentColor;
+  opacity: 0.6;
+  pointer-events: none;
+  transition: bottom 200ms ease;
+}
+
+.dv-climate-now span {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-climate-side {
+  width: 228px;
+  flex: none;
+  box-sizing: border-box;
+}
+
+@container (max-width: 520px) {
+  .dv-climate-side {
+    width: 100%;
+  }
+}
+
+.dv-climate-mode {
+  display: flex;
+  min-height: 64px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 18px;
+  padding: 6px 4px;
+  background: var(--dv-icon-off);
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 220ms ease, color 220ms ease;
+}
+
+.dv-climate-mode.is-on {
+  background: var(--cl-solid);
+  color: #ffffff;
+  box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.6);
+}
+
 /* The light panel. */
 
 .dv-panel {
@@ -724,6 +954,10 @@
   .dv-slider-fill,
   .dv-vslider-fill,
   .dv-cover-shut,
+  .dv-climate,
+  .dv-climate-now,
+  .dv-step,
+  .dv-climate-mode,
   .dv-swatch,
   .dv-check,
   .dv-panel-tinted {
