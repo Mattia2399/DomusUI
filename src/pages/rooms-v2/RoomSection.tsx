@@ -22,6 +22,7 @@ export function RoomSection<T extends SectionItem>({
   renderCard,
   onOpenPage,
   testId,
+  gridClassName = 'rv2-grid',
 }: {
   id: string;
   title: string;
@@ -33,6 +34,8 @@ export function RoomSection<T extends SectionItem>({
   renderCard: (item: T, context: SectionCardContext) => React.ReactNode;
   onOpenPage: () => void;
   testId?: string;
+  /** The grid of the cards: rows of 82 px, or another for taller cards. */
+  gridClassName?: string;
 }) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
@@ -73,7 +76,7 @@ export function RoomSection<T extends SectionItem>({
           <ChevronRight size={15} strokeWidth={2.4} aria-hidden="true" className="dv-t3" />
         </button>
       ) : (
-        <div className="rv2-grid">
+        <div className={gridClassName}>
           {preview.items.map((item) => (
             <React.Fragment key={item.id}>{renderCard(item, { editing: false, selected: false, onSelect: () => undefined })}</React.Fragment>
           ))}

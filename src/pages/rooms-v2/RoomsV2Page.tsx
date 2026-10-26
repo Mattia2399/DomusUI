@@ -18,6 +18,15 @@ import { DevicePanel } from '../../components/devices/panels/DevicePanel';
 import { ClimateCard } from '../../components/devices/cards/ClimateCard';
 import { ClimatePanel } from '../../components/devices/panels/ClimatePanel';
 import { climateIsOn, type ClimateModel } from '../../components/devices/model/climate';
+import { SensorCard } from '../../components/devices/cards/SensorCard';
+import { SensorPanel, SENSOR_PERIOD_HOURS, type SensorPeriod } from '../../components/devices/panels/SensorPanel';
+import {
+  findBatterySensor,
+  sensorKindOf,
+  sensorNeedsAttention,
+  toSensorModel,
+  type SensorModel,
+} from '../../components/devices/model/sensor';
 import { deviceKindOf, findPowerSensor, isStandby, type DeviceAction, type DeviceModel } from '../../components/devices/model/device';
 import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
@@ -35,7 +44,8 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { useAmbient } from '../../theme/ambient/AmbientProvider';
 import { resolveRoomAmbient } from '../../theme/ambient/ambientModel';
 import { useRoomPictureColor } from '../../theme/ambient/roomPictureColor';
-import { DEMO_PROTECTED_ENTITIES, DEMO_ROOM_READINGS, DEMO_ROOMS, DEMO_STATES } from './demoRoomsFixtures';
+import { DEMO_PROTECTED_ENTITIES, DEMO_ROOM_READINGS, DEMO_ROOMS, DEMO_STATES, demoSensorSeries } from './demoRoomsFixtures';
+import { useSensorHistory } from './useSensorHistory';
 import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
 import { RoomHead, type FloorOption, type StatusChip } from './RoomHead';
 import {
@@ -94,8 +104,9 @@ function usePhoneLayout() {
 
 type RoomLightItem = SectionItem & { model: LightModel };
 type RoomDeviceItem = SectionItem & { model: DeviceModel };
-type SectionKey = 'lights' | 'devices';
+type SectionKey = 'lights' | 'devices' | 'sensors';
 type PanelKind = SectionKey | 'climate';
+type RoomSensorItem = SectionItem & { model: SensorModel };
 
 const byRoomThenName = (a: SectionCandidate, b: SectionCandidate) =>
   (a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1;
@@ -288,6 +299,21 @@ export function RoomsV2Page({
   const devices = useDeviceCommands({ demo, states, onCallService, powerSensorOf });
   const climates = useClimateCommands({ demo, states, onCallService });
   const climateIds = React.useMemo(() => Object.keys(states).filter((entityId) => entityId.startsWith('climate.')), [states]);
+  const sensorIds = React.useMemo(
+    () => Object.keys(states).filter((entityId) => sensorKindOf(entityId, states[entityId]) !== null),
+    [states],
+  );
+  const sensorModels = React.useMemo(() => {
+    const deviceIdOf = (entityId: string) => registry.registryEntityById.get(entityId)?.deviceId ?? null;
+    return new Map(
+      sensorIds.map((entityId) => {
+        const batteryId = findBatterySensor(entityId, states, deviceIdOf);
+        const level = batteryId ? Number(states[batteryId]?.state) : Number.NaN;
+        return [entityId, toSensorModel(entityId, states[entityId], { battery: Number.isFinite(level) ? level : null }) as SensorModel];
+      }),
+    );
+  }, [registry.registryEntityById, sensorIds, states]);
+  const sensorModelOf = React.useCallback((entityId: string) => sensorModels.get(entityId) as SensorModel, [sensorModels]);
   const protectedSet = React.useMemo(() => new Set(protectedIds), [protectedIds]);
 
   function sectionItems<M>(ids: string[], modelOf: (entityId: string) => M, attention: (model: M) => boolean, active: (model: M) => boolean, name: (model: M) => string) {
@@ -324,6 +350,22 @@ export function RoomsV2Page({
     (model) => model.available && model.on,
     (model) => model.name,
   );
+  const sensorItems: RoomSensorItem[] = sectionItems(
+    sensorIds,
+    sensorModelOf,
+    sensorNeedsAttention,
+    () => false,
+    (model) => model.name,
+  );
+  // The cards draw the last 24 hours; a detail draws the period chosen in it.
+  const [sensorPeriod, setSensorPeriod] = React.useState<SensorPeriod>('24h');
+  const sensorDemoSeries = demo ? demoSensorSeries : undefined;
+  const roomSensorHistory = useSensorHistory({
+    entityIds: sensorItems.filter((item) => item.model.kind !== 'smoke').map((item) => item.id),
+    hours: 24,
+    onCallApi,
+    demoSeries: sensorDemoSeries,
+  });
 
   const candidatesFrom = (ids: string[], nameOf: (entityId: string) => string): SectionCandidate[] =>
     activeRoom
@@ -338,6 +380,7 @@ export function RoomsV2Page({
   const candidates = candidatesFrom(lightIds, (entityId) => lights.modelOf(entityId).name);
   const deviceCandidates = candidatesFrom(deviceIds, (entityId) => devices.modelOf(entityId).name);
   const climateCandidates = candidatesFrom(climateIds, (entityId) => climates.modelOf(entityId).name);
+  const sensorCandidates = candidatesFrom(sensorIds, (entityId) => sensorModelOf(entityId).name);
 
   // The main unit of the room is the one that does the most (an air conditioner before a radiator valve).
   const roomClimates: ClimateModel[] = React.useMemo(() => {
@@ -518,25 +561,29 @@ export function RoomsV2Page({
         ...candidates.map((candidate) => ({ ...candidate, kind: dt('chipLights') })),
         ...deviceCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionDevices') })),
         ...climateCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionClimate') })),
+        ...sensorCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionEnvironment') })),
       ].sort(byRoomThenName);
     }
+    // Environment sensors are offered by kind, not every sensor of the home.
+    const sectionKeyOf = (entityId: string) =>
+      ADDABLE_DOMAINS[entityId.split('.')[0]] ?? (sensorKindOf(entityId, haStates[entityId]) ? 'sectionEnvironment' : null);
     return Object.keys(haStates)
-      .filter((entityId) => ADDABLE_DOMAINS[entityId.split('.')[0]] && registry.entityAreaByEntityId[entityId] !== activeRoom.id)
+      .filter((entityId) => sectionKeyOf(entityId) && registry.entityAreaByEntityId[entityId] !== activeRoom.id)
       .map((entityId) => {
         const room = registry.entityAreaByEntityId[entityId];
         return {
           id: entityId,
           name: getEntityFriendlyName(entityId, haStates[entityId]),
           roomName: room ? roomNameById.get(room) ?? null : null,
-          kind: dt(ADDABLE_DOMAINS[entityId.split('.')[0]]),
+          kind: dt(sectionKeyOf(entityId) as NonNullable<ReturnType<typeof sectionKeyOf>>),
         };
       })
       .sort(byRoomThenName);
-  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById]);
+  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById, sensorCandidates]);
   const missing = missingSections(buckets);
   const scenes = buckets.others.filter((entityId) => entityId.startsWith('scene.'));
   const hasClimate = buckets.climates.some((entityId) => entityId.startsWith('climate.'));
-  const hasSide = hasClimate || buckets.sensors.length > 0;
+  const hasSide = hasClimate || sensorItems.length > 0;
   const hasSecurity = buckets.locks.length > 0 || buckets.cameras.length > 0;
   const hasMedia = buckets.medias.length > 0;
 
@@ -605,6 +652,27 @@ export function RoomsV2Page({
   const panelLight = panel?.kind === 'lights' ? lights.modelOf(panel.id) : null;
   const panelDevice = panel?.kind === 'devices' ? devices.modelOf(panel.id) : null;
   const panelClimate = panel?.kind === 'climate' ? climates.modelOf(panel.id) : null;
+  const panelSensor = panel?.kind === 'sensors' ? sensorModelOf(panel.id) ?? null : null;
+  const panelSensorHistory = useSensorHistory({
+    entityIds: panelSensor && panelSensor.kind !== 'smoke' ? [panelSensor.entityId] : [],
+    hours: SENSOR_PERIOD_HOURS[sensorPeriod],
+    onCallApi,
+    demoSeries: sensorDemoSeries,
+  });
+  const renderSensor = (item: RoomSensorItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
+    <SensorCard
+      model={item.model}
+      history={roomSensorHistory.points[item.id] ?? []}
+      editing={context.editing}
+      selected={context.selected}
+      hiddenItem={item.hidden}
+      onOpenPanel={() => {
+        setSensorPeriod('24h');
+        setPanel({ kind: 'sensors', id: item.id });
+      }}
+      onSelect={context.onSelect}
+    />
+  );
   const confirmDevice = confirmOffId ? devices.modelOf(confirmOffId) : null;
 
   if (roomTabs.length === 0) {
@@ -668,7 +736,19 @@ export function RoomsV2Page({
                 ) : hasClimate ? (
                   <SectionComing id="rv2-climate" title={dt('sectionClimate')} />
                 ) : null}
-                {buckets.sensors.length > 0 ? <SectionComing id="rv2-environment" title={dt('sectionEnvironment')} /> : null}
+                {sensorItems.length > 0 ? (
+                  <RoomSection
+                    id="rv2-environment"
+                    testId="rooms-v2-sensors"
+                    title={dt('sectionEnvironment')}
+                    items={sensorItems}
+                    count={String(sensorItems.length)}
+                    moreLabel={dt('moreSensors')}
+                    renderCard={renderSensor}
+                    onOpenPage={() => setSectionOpen('sensors')}
+                    gridClassName="rv2-grid-sensors"
+                  />
+                ) : null}
               </div>
             ) : null}
             <div className="rv2-column-main">
@@ -788,6 +868,24 @@ export function RoomsV2Page({
           {...sectionHandlers}
         />
       ) : null}
+      {sectionOpen === 'sensors' && activeRoom && sectionHandlers ? (
+        <SectionPage
+          title={dt('sectionEnvironment')}
+          roomName={activeRoom.name}
+          items={sensorItems}
+          candidatesEmptyLabel={dt('noSensorCandidates')}
+          renderCard={renderSensor}
+          gridClassName="rv2-grid-sensors"
+          canOrganize={canOrganize}
+          canMove={canMove}
+          busy={busy}
+          error={error}
+          candidates={sensorCandidates}
+          rooms={moveRooms}
+          onClose={() => setSectionOpen(null)}
+          {...sectionHandlers}
+        />
+      ) : null}
 
       <AddAccessoriesSheet
         isOpen={addOpen}
@@ -843,6 +941,25 @@ export function RoomsV2Page({
                 : undefined
             }
             onAction={(action) => actOnDevice(panelDevice.entityId, action)}
+            onClose={() => setPanel(null)}
+          />
+        ) : null}
+      </PanelHost>
+
+      <PanelHost
+        presentation={phone ? 'sheet' : 'dialog'}
+        isOpen={Boolean(panelSensor)}
+        onClose={() => setPanel(null)}
+        title={panelSensor?.name ?? ''}
+      >
+        {panelSensor ? (
+          <SensorPanel
+            model={panelSensor}
+            roomName={activeRoom?.name}
+            history={panelSensorHistory.points[panelSensor.entityId] ?? []}
+            historyLoading={panelSensorHistory.loading}
+            period={sensorPeriod}
+            onPeriod={setSensorPeriod}
             onClose={() => setPanel(null)}
           />
         ) : null}

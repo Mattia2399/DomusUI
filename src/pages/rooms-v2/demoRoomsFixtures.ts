@@ -187,5 +187,85 @@ export const DEMO_CLIMATE_ROOMS: Record<string, string> = {
   'climate.demo_bathroom_floor': 'demo-bathroom',
 };
 
-export const DEMO_STATES: MockEntityStateMap = { ...DEMO_LIGHT_STATES, ...DEMO_DEVICE_STATES, ...DEMO_CLIMATE_STATES };
-export const DEMO_ROOMS: Record<string, string> = { ...DEMO_LIGHT_ROOMS, ...DEMO_DEVICE_ROOMS, ...DEMO_CLIMATE_ROOMS };
+const sensor = (name: string, state: string, deviceClass: string, unit: string) =>
+  device(name, state, { device_class: deviceClass, unit_of_measurement: unit, state_class: 'measurement' });
+const battery = (pct: number) => device('Batteria', String(pct), { device_class: 'battery', unit_of_measurement: '%' });
+
+export const DEMO_SENSOR_STATES: MockEntityStateMap = {
+  'sensor.demo_living_temperature': sensor('Temperatura', '21.5', 'temperature', '°C'),
+  'sensor.demo_living_temperature_battery': battery(82),
+  'sensor.demo_living_humidity': sensor('Umidità', '48', 'humidity', '%'),
+  'sensor.demo_living_humidity_battery': battery(82),
+  'sensor.demo_living_co2': sensor('CO₂', '640', 'carbon_dioxide', 'ppm'),
+  'sensor.demo_living_light': sensor('Luminosità', '320', 'illuminance', 'lx'),
+  'sensor.demo_living_light_battery': battery(9),
+  'sensor.demo_living_pm25': sensor('PM2.5', '9', 'pm25', 'µg/m³'),
+  'sensor.demo_living_noise': sensor('Rumore', 'unavailable', 'sound_pressure', 'dB'),
+  'sensor.demo_kitchen_temperature': sensor('Temperatura', '22.8', 'temperature', '°C'),
+  'sensor.demo_kitchen_humidity': sensor('Umidità', '55', 'humidity', '%'),
+  'binary_sensor.demo_kitchen_smoke': device('Fumo', 'off', { device_class: 'smoke' }),
+  'sensor.demo_kitchen_smoke_battery': battery(91),
+  'sensor.demo_bedroom_temperature': sensor('Temperatura', '19.5', 'temperature', '°C'),
+  'sensor.demo_bedroom_humidity': sensor('Umidità', '52', 'humidity', '%'),
+  'sensor.demo_bathroom_temperature': sensor('Temperatura', '23.1', 'temperature', '°C'),
+  'sensor.demo_bathroom_humidity': sensor('Umidità', '71', 'humidity', '%'),
+};
+
+export const DEMO_SENSOR_ROOMS: Record<string, string> = {
+  'sensor.demo_living_temperature': 'demo-living-room',
+  'sensor.demo_living_humidity': 'demo-living-room',
+  'sensor.demo_living_co2': 'demo-living-room',
+  'sensor.demo_living_light': 'demo-living-room',
+  'sensor.demo_living_pm25': 'demo-living-room',
+  'sensor.demo_living_noise': 'demo-living-room',
+  'sensor.demo_kitchen_temperature': 'demo-kitchen',
+  'sensor.demo_kitchen_humidity': 'demo-kitchen',
+  'binary_sensor.demo_kitchen_smoke': 'demo-kitchen',
+  'sensor.demo_bedroom_temperature': 'demo-bedroom',
+  'sensor.demo_bedroom_humidity': 'demo-bedroom',
+  'sensor.demo_bathroom_temperature': 'demo-bathroom',
+  'sensor.demo_bathroom_humidity': 'demo-bathroom',
+};
+
+// How much each kind moves over a day, and its daily shape, for the made-up history.
+const DEMO_SWING: Record<string, [number, (hour: number) => number]> = {
+  temperature: [1.1, (h) => Math.sin((2 * Math.PI * (h - 9)) / 24)],
+  humidity: [5, (h) => -Math.sin((2 * Math.PI * (h - 9)) / 24)],
+  carbon_dioxide: [160, (h) => (h >= 18 || h < 7 ? 0.8 : 0.2 + 0.3 * Math.sin((Math.PI * (h - 7)) / 11))],
+  pm25: [4, (h) => Math.sin((2 * Math.PI * (h - 9)) / 24)],
+  illuminance: [260, (h) => Math.max(0, Math.sin((Math.PI * (h - 6)) / 14))],
+  sound_pressure: [7, (h) => (h >= 7 && h <= 23 ? 0.6 + 0.4 * Math.sin((Math.PI * (h - 7)) / 16) : 0)],
+};
+
+/** A believable history of a demo sensor that ends at its value now; the same every time. */
+export function demoSensorSeries(entityId: string, hours: number, now = Date.now()) {
+  const entity = DEMO_SENSOR_STATES[entityId];
+  const value = Number(entity?.state);
+  const swing = DEMO_SWING[`${entity?.rawAttributes?.device_class ?? ''}`];
+  if (!swing || !Number.isFinite(value)) return [];
+  const [amplitude, shape] = swing;
+  const seed = entityId.split('').reduce((sum, character) => sum * 31 + character.charCodeAt(0), 7) % 997;
+  const steps = hours <= 6 ? 36 : hours <= 24 ? 48 : 84;
+  const hourNow = new Date(now).getHours() + new Date(now).getMinutes() / 60;
+  return Array.from({ length: steps + 1 }, (_, index) => {
+    const ago = hours * (1 - index / steps);
+    const hour = (((hourNow - ago) % 24) + 24) % 24;
+    const fade = (steps - index) / steps;
+    const drift = amplitude * (shape(hour) - shape(hourNow)) * Math.min(1, ago / 2 + 0.15);
+    const wobble = amplitude * 0.22 * fade * (Math.sin(index * 1.7 + seed) + Math.sin(index * 0.41 + seed * 2));
+    return { t: now - ago * 3_600_000, v: index === steps ? value : Math.max(0, value + drift + wobble) };
+  });
+}
+
+export const DEMO_STATES: MockEntityStateMap = {
+  ...DEMO_LIGHT_STATES,
+  ...DEMO_DEVICE_STATES,
+  ...DEMO_CLIMATE_STATES,
+  ...DEMO_SENSOR_STATES,
+};
+export const DEMO_ROOMS: Record<string, string> = {
+  ...DEMO_LIGHT_ROOMS,
+  ...DEMO_DEVICE_ROOMS,
+  ...DEMO_CLIMATE_ROOMS,
+  ...DEMO_SENSOR_ROOMS,
+};

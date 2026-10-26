@@ -17,6 +17,8 @@ export type SectionPageProps<T extends SectionItem> = {
   items: T[];
   candidatesEmptyLabel: string;
   renderCard: (item: T, context: SectionCardContext) => React.ReactNode;
+  /** The grid of the cards: rows of 82 px, or another for taller cards. */
+  gridClassName?: string;
   canOrganize: boolean;
   canMove: boolean;
   busy: boolean;
@@ -40,6 +42,7 @@ export function SectionPage<T extends SectionItem>({
   items,
   candidatesEmptyLabel,
   renderCard,
+  gridClassName = 'rv2-grid',
   canOrganize,
   canMove,
   busy,
@@ -153,7 +156,7 @@ export function SectionPage<T extends SectionItem>({
               <h2 className="dv-t2 m-0 px-1 text-[13px] font-bold uppercase tracking-[0.06em]">
                 {group.label} <span className="dv-t3">{group.items.length}</span>
               </h2>
-              <div className="rv2-grid">
+              <div className={gridClassName}>
                 {group.items.map((item) => (
                   <React.Fragment key={item.id}>
                     {renderCard(item, {

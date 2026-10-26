@@ -108,6 +108,30 @@ describe('the second Rooms page in the demo', () => {
     expect(screen.getByRole('slider', { name: 'Temperatura obiettivo Climatizzatore' })).toBeTruthy();
   });
 
+  it('shows the sensors of the room, those to check first, with their value and where it sits', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-sensors');
+    // The light sensor is low on battery and the noise sensor is away: they come first, then by name.
+    const names = Array.from(section.querySelectorAll('.dv-sensor .truncate.min-w-0')).map((node) => node.textContent);
+    expect(names).toEqual(['Luminosità', 'Rumore', 'CO₂']);
+    expect(within(section).getByRole('button', { name: 'Mostra tutti: Ambiente, altri 3' })).toBeTruthy();
+    expect(within(section).getByText('Aria buona')).toBeTruthy();
+    expect(within(section).getByText('Non disponibile')).toBeTruthy();
+  });
+
+  it('opens the detail of a sensor with its history and statistics', () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole('button', { name: /^Mostra tutti: Ambiente, 6/ }));
+    const page = screen.getByTestId('rooms-v2-section-page');
+    fireEvent.click(within(page).getByRole('button', { name: /^Umidità 48%, Ideale/ }));
+    const dialog = screen.getByRole('dialog', { name: 'Umidità' });
+    expect(within(dialog).getByText('Fascia ideale 40–60%')).toBeTruthy();
+    expect(within(dialog).getByRole('img', { name: /^Umidità, ultime 24 ore: minimo/ })).toBeTruthy();
+    expect(within(dialog).getByText('Batteria 82%')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('radio', { name: '7 giorni' }));
+    expect(within(dialog).getByRole('img', { name: /^Umidità, ultime 7 giorni/ })).toBeTruthy();
+  });
+
   it('turns every light off', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Spegni tutte' }));

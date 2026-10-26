@@ -268,6 +268,24 @@ button.rv2-add-row {
   }
 }
 
+/* Sensors: taller cards, two side by side in the room as on the design board. */
+.rv2-grid-sensors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 140px;
+  gap: 10px;
+}
+
+.rv2-page .rv2-grid-sensors {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+@media (max-width: 480px) {
+  .rv2-page .rv2-grid-sensors {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .rv2-more {
   display: flex;
   height: 100%;
