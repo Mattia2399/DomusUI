@@ -21,13 +21,14 @@ describe('the second Rooms page in the demo', () => {
 
   it('heads the room like the design: summary, rooms as pills, statuses and what it lacks', () => {
     renderDemo();
-    expect(screen.getByText('21,5° · umidità 48% · 9 accessori accesi')).toBeTruthy();
+    expect(screen.getByText('21,5° · umidità 48% · 10 accessori accesi')).toBeTruthy();
     const rooms = screen.getByRole('navigation', { name: 'Stanze' });
     expect(within(rooms).getByRole('button', { name: 'Soggiorno' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Tutta la casa' })).toBeTruthy();
     const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
-    expect(statuses).toEqual(['ClimaRiscalda a 23°', 'Luci3 accese', 'Umidità48%']);
-    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: media');
+    expect(statuses).toEqual(['ClimaRiscalda a 23°', 'Luci3 accese', 'Umidità48%', 'MediaIl viaggio di ritorno']);
+    // The living room has every section: nothing left to add.
+    expect(screen.queryByTestId('rooms-v2-add-row')).toBeNull();
   });
 
   it('changes room from the pills', () => {
@@ -240,6 +241,47 @@ describe('the second Rooms page in the demo', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('shows what plays in the room, and pauses and moves on from the card', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-media');
+    const card = within(section).getByRole('group', { name: 'In riproduzione su TV Soggiorno' });
+    expect(within(card).getByText('Il viaggio di ritorno')).toBeTruthy();
+    expect(within(card).getByText('TV Soggiorno · App TV')).toBeTruthy();
+    fireEvent.click(within(card).getByRole('button', { name: 'Metti in pausa' }));
+    expect(within(card).getByRole('button', { name: 'Riproduci' })).toBeTruthy();
+    fireEvent.click(within(card).getByRole('button', { name: 'Successivo' }));
+    expect(within(card).getByText('Le Alpi viste dal cielo')).toBeTruthy();
+    fireEvent.change(within(card).getByRole('slider', { name: 'Volume' }), { target: { value: '60' } });
+    expect((within(card).getByRole('slider', { name: 'Volume' }) as HTMLInputElement).value).toBe('60');
+  });
+
+  it('chooses the player of the room; the one playing pauses', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-media');
+    fireEvent.click(within(section).getByRole('button', { name: 'Scegli il lettore, ora TV Soggiorno' }));
+    fireEvent.click(screen.getByRole('radio', { name: /^Soundbar/ }));
+    expect(within(section).getByTestId('media-off').textContent).toContain('Spento · ultimo: Strade di sera');
+    // Starting it from where it was.
+    fireEvent.click(within(section).getByRole('button', { name: 'Avvia Soundbar' }));
+    fireEvent.click(screen.getByRole('button', { name: /Riprendi l’ascolto/ }));
+    expect(within(section).getByRole('group', { name: 'In riproduzione su Soundbar' })).toBeTruthy();
+  });
+
+  it('opens the full player with its sources and sound modes', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-media');
+    fireEvent.click(within(section).getByRole('button', { name: 'Apri il player completo' }));
+    const player = screen.getByTestId('media-player');
+    expect(within(player).getByRole('heading', { name: 'Il viaggio di ritorno' })).toBeTruthy();
+    fireEvent.click(within(player).getByRole('radio', { name: 'HDMI 1 · Console' }));
+    expect(within(player).getByRole('radio', { name: 'HDMI 1 · Console' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(within(player).getByRole('tab', { name: 'Audio' }));
+    fireEvent.click(within(player).getByRole('radio', { name: 'Film' }));
+    expect(within(player).getByRole('radio', { name: 'Film' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(within(player).getByRole('button', { name: 'Riduci il player' }));
+    expect(screen.queryByTestId('media-player')).toBeNull();
   });
 
   it('marks the room with a window open and says it in the status row', () => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronRight, House, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, House, Plus } from 'lucide-react';
 import {
   assignRoomAreaTargets,
   filterRoomTabsByFloor,
@@ -43,6 +43,10 @@ import {
   type LockState,
   type SecurityModel,
 } from '../../components/devices/model/security';
+import { MediaKindIcon, MediaOffCard, NowPlayingCard } from '../../components/devices/cards/MediaCard';
+import { MediaPlayer, type MediaGroupCandidate } from '../../components/devices/panels/MediaPlayer';
+import { pickRoomPlayer, type MediaAction, type MediaModel } from '../../components/devices/model/media';
+import { useAmbientAssetUrl } from '../../theme/ambient/AmbientProvider';
 import { CameraViewer, type CameraViewerItem } from '../../components/camera/CameraViewer';
 import { buildCameraCardModel } from '../../components/widgets/cameraCardModel';
 import type { Widget } from '../../types/dashboardModels';
@@ -70,13 +74,22 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { useAmbient } from '../../theme/ambient/AmbientProvider';
 import { resolveRoomAmbient } from '../../theme/ambient/ambientModel';
 import { useRoomPictureColor } from '../../theme/ambient/roomPictureColor';
-import { DEMO_PROTECTED_ENTITIES, DEMO_ROOM_READINGS, DEMO_ROOMS, DEMO_STATES, demoSecurityHistory, demoSensorSeries } from './demoRoomsFixtures';
+import {
+  DEMO_MEDIA_TRACKS,
+  DEMO_PROTECTED_ENTITIES,
+  DEMO_ROOM_READINGS,
+  DEMO_ROOMS,
+  DEMO_STATES,
+  demoSecurityHistory,
+  demoSensorSeries,
+} from './demoRoomsFixtures';
+import { MediaPickPanel, MediaStartPanel } from './MediaSheets';
+import { useMediaPlayerCommands } from './useMediaPlayerCommands';
 import { useSensorHistory } from './useSensorHistory';
 import { useStateHistory } from './useStateHistory';
 import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
 import { RoomHead, type FloorOption, type StatusChip } from './RoomHead';
 import {
-  anyMediaPlaying,
   bucketRoomEntities,
   climateGlance,
   formatDegrees,
@@ -96,8 +109,8 @@ import './roomsV2.css';
 /*
  * The second Rooms page, on the Rooms board of the design: the head of the
  * room, its sections in two columns where there is room, and what the room
- * still lacks. Media still shows where it will be. Rooms, floors, local rooms
- * and hidden devices are the ones of the Rooms page, from the same storage.
+ * still lacks. Rooms, floors, local rooms and hidden devices are the ones of
+ * the Rooms page, from the same storage.
  */
 
 export type RoomsV2PageProps = {
@@ -277,6 +290,9 @@ export function RoomsV2Page({
   const [panel, setPanel] = React.useState<{ kind: PanelKind; id: string } | null>(null);
   const [confirmOffId, setConfirmOffId] = React.useState<string | null>(null);
   const [cameraOpenId, setCameraOpenId] = React.useState<string | null>(null);
+  // Media: the player chosen in each room, and which of its sheets is open.
+  const [chosenPlayerByRoom, setChosenPlayerByRoom] = React.useState<Record<string, string>>({});
+  const [mediaSheet, setMediaSheet] = React.useState<'player' | 'pick' | 'start' | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const { locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
@@ -312,6 +328,7 @@ export function RoomsV2Page({
     setPanel(null);
     setConfirmOffId(null);
     setCameraOpenId(null);
+    setMediaSheet(null);
     setAddOpen(false);
     setError(null);
   }, [activeRoom?.id]);
@@ -586,6 +603,57 @@ export function RoomsV2Page({
       .sort((a, b) => b.modes.length - a.modes.length || a.name.localeCompare(b.name));
   }, [activeRoom, climateIds, climates, hiddenRoomEntitiesByRoom, roomOf]);
 
+  // Media: the room shows one player, the one chosen unless another starts playing on its own.
+  const media = useMediaPlayerCommands({ demo, states, onCallService });
+  const resolveAssetUrl = useAmbientAssetUrl();
+  const mediaIds = React.useMemo(() => Object.keys(states).filter((entityId) => entityId.startsWith('media_player.')), [states]);
+  const roomPlayers: MediaModel[] = activeRoom
+    ? mediaIds
+        .filter((entityId) => roomOf(entityId) === activeRoom.id && !(hiddenRoomEntitiesByRoom[activeRoom.id] ?? []).includes(entityId))
+        .map((entityId) => media.modelOf(entityId))
+    : [];
+  const chosenPlayer = roomPlayers.find((model) => model.entityId === (activeRoom ? chosenPlayerByRoom[activeRoom.id] : null)) ?? null;
+  const shownPlayer =
+    chosenPlayer && (chosenPlayer.playing || !roomPlayers.some((model) => model.playing)) ? chosenPlayer : pickRoomPlayer(roomPlayers, null);
+  const pictureOfPlayer = (model: MediaModel) => (model.picture ? resolveAssetUrl(model.picture) ?? null : null);
+  const mediaGroupCandidates: MediaGroupCandidate[] = shownPlayer
+    ? mediaIds
+        .filter((entityId) => entityId !== shownPlayer.entityId && media.modelOf(entityId).supports.group && media.modelOf(entityId).available)
+        .map((entityId) => {
+          const room = roomOf(entityId);
+          return { entityId, name: media.modelOf(entityId).name, roomName: room ? roomNameById.get(room) ?? null : null };
+        })
+    : [];
+
+  const mediaCandidates = candidatesFrom(mediaIds, (entityId) => media.modelOf(entityId).name);
+
+  /** A media command; the demo, which has no player to ask, moves through its own tracks. */
+  const actOnMedia = (entityId: string, action: MediaAction) => {
+    const tracks = demo ? DEMO_MEDIA_TRACKS[entityId] : undefined;
+    if (tracks && (action.type === 'next' || action.type === 'previous')) {
+      const model = media.modelOf(entityId);
+      const index = Math.max(0, tracks.findIndex(([title]) => title === model.title));
+      const [title, artist, duration] = tracks[(index + (action.type === 'next' ? 1 : tracks.length - 1)) % tracks.length];
+      media.act(entityId, { type: 'show_track', title, artist, duration });
+      return;
+    }
+    media.act(entityId, action);
+  };
+  /** Shows another player; the one playing pauses, as the board says. */
+  const pickPlayer = (entityId: string) => {
+    if (!activeRoom) return;
+    const playing = roomPlayers.find((model) => model.playing && model.entityId !== entityId);
+    if (playing && shownPlayer?.entityId !== entityId) actOnMedia(playing.entityId, { type: 'play_pause' });
+    setChosenPlayerByRoom((current) => ({ ...current, [activeRoom.id]: entityId }));
+    setMediaSheet(null);
+  };
+  /** Starts a player that is off from one of its sources: on first, then the source. */
+  const startFromSource = async (model: MediaModel, source: string) => {
+    setMediaSheet(null);
+    if (!demo && onCallService) await onCallService('media_player', 'turn_on', { entity_id: model.entityId });
+    actOnMedia(model.entityId, { type: 'source', source });
+  };
+
   /** Device commands; a protected plug asks before it turns off. */
   const actOnDevice = (entityId: string, action: DeviceAction) => {
     if (action.type === 'turn_off' && protectedSet.has(entityId)) {
@@ -676,7 +744,7 @@ export function RoomsV2Page({
     roomItems.filter((item) => item.active).length +
     deviceItems.filter((item) => item.active).length +
     roomClimates.filter(climateIsOn).length +
-    buckets.medias.filter((entityId) => `${states[entityId]?.state ?? ''}` === 'playing').length;
+    roomPlayers.filter((model) => model.playing).length;
   const subtitle = [
     typeof readings.temperature === 'number' ? formatDegrees(readings.temperature, locale) : null,
     typeof readings.humidity === 'number' ? dt('humidityPct', { pct: Math.round(readings.humidity) }) : null,
@@ -739,8 +807,16 @@ export function RoomsV2Page({
           },
         ]
       : []),
-    ...(anyMediaPlaying(buckets, haStates)
-      ? [{ key: 'media' as const, title: dt('chipMedia'), status: dt('playing'), tone: 'media', target: 'rv2-media' }]
+    ...(roomPlayers.some((model) => model.playing)
+      ? [
+          {
+            key: 'media' as const,
+            title: dt('chipMedia'),
+            status: roomPlayers.find((model) => model.playing)?.title ?? dt('playing'),
+            tone: 'media',
+            target: 'rv2-media',
+          },
+        ]
       : []),
   ];
 
@@ -772,6 +848,7 @@ export function RoomsV2Page({
         ...sensorCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionEnvironment') })),
         ...sceneCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionScenes') })),
         ...securityCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionSecurity') })),
+        ...mediaCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionMedia') })),
       ].sort(byRoomThenName);
     }
     // Sensors are offered by kind, not every sensor of the home.
@@ -794,12 +871,14 @@ export function RoomsV2Page({
         };
       })
       .sort(byRoomThenName);
-  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById, sceneCandidates, securityCandidates, sensorCandidates]);
-  const missing = missingSections(buckets).filter((key) => key !== 'security' || securityItems.length === 0);
+  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, mediaCandidates, registry.entityAreaByEntityId, roomNameById, sceneCandidates, securityCandidates, sensorCandidates]);
+  const missing = missingSections(buckets).filter(
+    (key) => (key !== 'security' || securityItems.length === 0) && (key !== 'media' || roomPlayers.length === 0),
+  );
   const hasClimate = buckets.climates.some((entityId) => entityId.startsWith('climate.'));
   const hasSide = hasClimate || sensorItems.length > 0;
   const hasSecurity = securityItems.length > 0;
-  const hasMedia = buckets.medias.length > 0;
+  const hasMedia = shownPlayer !== null;
 
   const renderLight = (item: RoomLightItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
     <LightCard
@@ -1061,10 +1140,40 @@ export function RoomsV2Page({
                   />
                 </div>
               ) : null}
-              {hasMedia ? (
-                <div className="min-w-0 flex-[1_1_320px]">
-                  <SectionComing id="rv2-media" title={dt('sectionMedia')} />
-                </div>
+              {hasMedia && shownPlayer ? (
+                <section id="rv2-media" aria-labelledby="rv2-media-title" className="flex min-w-0 flex-[1_1_320px] flex-col gap-3" data-testid="rooms-v2-media">
+                  <div className="flex min-h-11 items-center justify-between gap-3">
+                    <h2 id="rv2-media-title" className="rv2-section-heading m-0 px-1">
+                      {dt('sectionMedia')}
+                    </h2>
+                    {roomPlayers.length > 1 ? (
+                      <button
+                        type="button"
+                        className="dv-glass rv2-player-pick"
+                        aria-label={dt('mediaPickPlayer', { name: shownPlayer.name })}
+                        onClick={() => setMediaSheet('pick')}
+                      >
+                        <MediaKindIcon model={shownPlayer} />
+                        <span className="truncate">{shownPlayer.name}</span>
+                        <ChevronDown size={14} strokeWidth={2.6} aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                  {shownPlayer.on ? (
+                    <NowPlayingCard
+                      model={shownPlayer}
+                      pictureUrl={pictureOfPlayer(shownPlayer)}
+                      onAction={(action) => actOnMedia(shownPlayer.entityId, action)}
+                      onOpenPlayer={() => setMediaSheet('player')}
+                    />
+                  ) : (
+                    <MediaOffCard
+                      model={shownPlayer}
+                      onPowerOn={() => actOnMedia(shownPlayer.entityId, { type: 'power', on: true })}
+                      onOpen={() => setMediaSheet('start')}
+                    />
+                  )}
+                </section>
               ) : null}
             </div>
           ) : null}
@@ -1301,6 +1410,52 @@ export function RoomsV2Page({
             history={panelSecurityHistory}
             onLockCommand={(command) => void commandLock(securityModelOf(panelSecurity.entityId), command)}
             onClose={() => setPanel(null)}
+          />
+        ) : null}
+      </PanelHost>
+
+      {mediaSheet === 'player' && shownPlayer?.on ? (
+        <MediaPlayer
+          model={shownPlayer}
+          pictureUrl={pictureOfPlayer(shownPlayer)}
+          groupCandidates={mediaGroupCandidates}
+          onAction={(action) => actOnMedia(shownPlayer.entityId, action)}
+          onClose={() => setMediaSheet(null)}
+        />
+      ) : null}
+
+      <PanelHost
+        presentation={phone ? 'sheet' : 'dialog'}
+        isOpen={mediaSheet === 'pick' && roomPlayers.length > 1}
+        onClose={() => setMediaSheet(null)}
+        title={dt('mediaPickTitle')}
+      >
+        {mediaSheet === 'pick' ? (
+          <MediaPickPanel players={roomPlayers} shownId={shownPlayer?.entityId ?? null} onPick={pickPlayer} onClose={() => setMediaSheet(null)} />
+        ) : null}
+      </PanelHost>
+
+      <PanelHost
+        presentation={phone ? 'sheet' : 'dialog'}
+        isOpen={mediaSheet === 'start' && Boolean(shownPlayer) && !shownPlayer?.on}
+        onClose={() => setMediaSheet(null)}
+        title={shownPlayer?.name ?? ''}
+      >
+        {mediaSheet === 'start' && shownPlayer && !shownPlayer.on ? (
+          <MediaStartPanel
+            model={shownPlayer}
+            roomName={activeRoom?.name ?? ''}
+            pictureUrl={pictureOfPlayer(shownPlayer)}
+            onPowerOn={() => {
+              setMediaSheet(null);
+              actOnMedia(shownPlayer.entityId, { type: 'power', on: true });
+            }}
+            onResume={() => {
+              setMediaSheet(null);
+              actOnMedia(shownPlayer.entityId, { type: 'play_pause' });
+            }}
+            onSource={(source) => void startFromSource(shownPlayer, source)}
+            onClose={() => setMediaSheet(null)}
           />
         ) : null}
       </PanelHost>

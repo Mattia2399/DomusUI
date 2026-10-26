@@ -337,6 +337,99 @@ export function demoSecurityHistory(entityId: string, now = Date.now()) {
   return changes;
 }
 
+// The players of the board: what each can do, as Home Assistant's supported_features.
+const TV_FEATURES = 1 | 2 | 4 | 8 | 16 | 32 | 128 | 256 | 2048 | 16384 | 65536;
+const SPEAKER_FEATURES = 1 | 2 | 4 | 8 | 16 | 32 | 128 | 256 | 2048 | 16384 | 32768 | 65536 | 262144 | 524288;
+const DEMO_MEDIA_LOADED = new Date().toISOString();
+
+/** What the demo players play next: title, artist, seconds. */
+export const DEMO_MEDIA_TRACKS: Record<string, Array<[string, string, number]>> = {
+  'media_player.demo_living_tv': [
+    ['Il viaggio di ritorno', 'Stagione 2 · Episodio 4', 2820],
+    ['Le Alpi viste dal cielo', 'Documentario', 3120],
+  ],
+  'media_player.demo_soundbar': [
+    ['Strade di sera', 'Marea Quieta', 248],
+    ['Onde lente', 'Ninfea', 192],
+  ],
+  'media_player.demo_kitchen_speaker': [
+    ['Radio Jazz · in diretta', 'Radio', 3600],
+    ['Luce del mattino', 'Marea Quieta', 214],
+  ],
+  'media_player.demo_bedroom_speaker': [
+    ['Luce del mattino', 'Marea Quieta', 214],
+    ['Strade di sera', 'Marea Quieta', 248],
+    ['Onde lente', 'Ninfea', 192],
+  ],
+};
+
+const player = (
+  id: string,
+  name: string,
+  state: string,
+  kind: 'tv' | 'speaker',
+  extra: { app: string; position: number; sources: string[]; modes: string[]; volume: number },
+) => {
+  const [title, artist, duration] = DEMO_MEDIA_TRACKS[id][0];
+  // A player off keeps what it last played, so switching it on plays on from there.
+  return device(name, state, {
+    device_class: kind,
+    supported_features: kind === 'tv' ? TV_FEATURES : SPEAKER_FEATURES,
+    volume_level: extra.volume / 100,
+    is_volume_muted: false,
+    source_list: extra.sources,
+    sound_mode_list: extra.modes,
+    app_name: extra.app,
+    source: extra.app,
+    sound_mode: extra.modes[0],
+    media_title: title,
+    media_artist: artist,
+    media_duration: duration,
+    media_position: extra.position,
+    media_position_updated_at: DEMO_MEDIA_LOADED,
+    shuffle: false,
+    repeat: 'off',
+  });
+};
+
+export const DEMO_MEDIA_STATES: MockEntityStateMap = {
+  'media_player.demo_living_tv': player('media_player.demo_living_tv', 'TV Soggiorno', 'playing', 'tv', {
+    app: 'App TV',
+    position: 1210,
+    sources: ['App TV', 'HDMI 1 · Console', 'HDMI 2 · Decoder', 'Antenna TV'],
+    modes: ['Standard', 'Film', 'Voce chiara', 'Notte'],
+    volume: 42,
+  }),
+  'media_player.demo_soundbar': player('media_player.demo_soundbar', 'Soundbar', 'off', 'speaker', {
+    app: 'Musica',
+    position: 30,
+    sources: ['Musica', 'Radio', 'Bluetooth', 'TV · HDMI eARC'],
+    modes: ['Standard', 'Musica', 'Voce chiara', 'Notte'],
+    volume: 35,
+  }),
+  'media_player.demo_kitchen_speaker': player('media_player.demo_kitchen_speaker', 'Altoparlante cucina', 'off', 'speaker', {
+    app: 'Radio',
+    position: 0,
+    sources: ['Musica', 'Radio', 'Bluetooth'],
+    modes: ['Standard', 'Musica'],
+    volume: 30,
+  }),
+  'media_player.demo_bedroom_speaker': player('media_player.demo_bedroom_speaker', 'Altoparlante camera', 'paused', 'speaker', {
+    app: 'Musica',
+    position: 64,
+    sources: ['Musica', 'Radio', 'Bluetooth'],
+    modes: ['Standard', 'Musica', 'Bassi potenziati', 'Notte'],
+    volume: 28,
+  }),
+};
+
+export const DEMO_MEDIA_ROOMS: Record<string, string> = {
+  'media_player.demo_living_tv': 'demo-living-room',
+  'media_player.demo_soundbar': 'demo-living-room',
+  'media_player.demo_kitchen_speaker': 'demo-kitchen',
+  'media_player.demo_bedroom_speaker': 'demo-bedroom',
+};
+
 export const DEMO_STATES: MockEntityStateMap = {
   ...DEMO_LIGHT_STATES,
   ...DEMO_DEVICE_STATES,
@@ -344,6 +437,7 @@ export const DEMO_STATES: MockEntityStateMap = {
   ...DEMO_SENSOR_STATES,
   ...DEMO_SCENE_STATES,
   ...DEMO_SECURITY_STATES,
+  ...DEMO_MEDIA_STATES,
 };
 export const DEMO_ROOMS: Record<string, string> = {
   ...DEMO_LIGHT_ROOMS,
@@ -352,4 +446,5 @@ export const DEMO_ROOMS: Record<string, string> = {
   ...DEMO_SENSOR_ROOMS,
   ...DEMO_SCENE_ROOMS,
   ...DEMO_SECURITY_ROOMS,
+  ...DEMO_MEDIA_ROOMS,
 };

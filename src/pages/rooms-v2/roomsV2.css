@@ -573,3 +573,89 @@ button.rv2-add-row {
     animation: none;
   }
 }
+
+/* Media: the player chooser in the heading, and the rows and "resume" of its sheets. */
+
+.rv2-player-pick {
+  display: flex;
+  height: 34px;
+  max-width: 60%;
+  align-items: center;
+  gap: 6px;
+  border-radius: 17px;
+  padding: 0 12px;
+  color: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rv2-player-pick:focus-visible,
+.rv2-media-row:focus-visible,
+.rv2-resume:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.rv2-media-row {
+  display: flex;
+  min-height: 60px;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+.rv2-media-row + .rv2-media-row {
+  border-top: 1px solid var(--dv-separator);
+}
+
+.rv2-resume {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 22px;
+  background: #1c1c1e;
+  padding: 14px;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.rv2-resume::after {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgb(0 0 0 / 0.28);
+  content: '';
+}
+
+.rv2-resume-bg {
+  position: absolute;
+  inset: -40px;
+  z-index: -2;
+  filter: blur(36px) saturate(1.5);
+  opacity: 0.9;
+}
+
+.rv2-resume-bg svg {
+  display: none;
+}
+
+.rv2-resume-art {
+  position: relative;
+  height: 64px;
+  width: 64px;
+  flex: none;
+  border-radius: 14px;
+  box-shadow: 0 12px 24px -10px rgb(0 0 0 / 0.6);
+}
