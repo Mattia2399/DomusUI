@@ -1,14 +1,16 @@
-import { Check, ChevronRight, Droplet, Lock, LockOpen, PersonStanding, Activity, AppWindow, Video, type LucideIcon } from 'lucide-react';
+import { Check, ChevronRight, Droplet, Lock, PersonStanding, Activity, AppWindow, Video, type LucideIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
-import { motionNow, securityWarns, type SecurityKind, type SecurityModel } from '../model/security';
+import { LOW_BATTERY_PCT } from '../model/sensor';
+import { motionNow, securityWarns, type LockCommand, type SecurityKind, type SecurityModel } from '../model/security';
+import { LockRing, lockRingInk, lockRingText, useLockRing } from './LockRing';
 import { securityStatus } from './securityText';
 import '../theme/devices.css';
 
 /*
  * A security device of the room. Its icon only shows: green when all is well,
- * amber when something needs a look, blue while it sees motion. A lock's icon
- * is a button that locks it (unlocking asks first); a camera shows its
+ * amber when something needs a look, blue while it sees motion. A lock has the
+ * two rings of the board instead, held to unlock and open; a camera shows its
  * picture. The body opens the detail, or the live view of a camera.
  */
 
@@ -30,10 +32,11 @@ export type SecurityCardProps = {
   selected?: boolean;
   hiddenItem?: boolean;
   onOpen: () => void;
-  onLock?: () => void;
-  onUnlock?: () => void;
+  onLockCommand?: (command: LockCommand) => void;
   onSelect?: () => void;
 };
+
+const NO_COMMAND = () => undefined;
 
 export function securityTone(model: SecurityModel) {
   if (securityWarns(model)) return 'warn';
@@ -41,15 +44,23 @@ export function securityTone(model: SecurityModel) {
   return 'ok';
 }
 
-export function SecurityCard({ model, pictureUrl, cameraLabel, editing = false, selected = false, hiddenItem = false, onOpen, onLock, onUnlock, onSelect }: SecurityCardProps) {
+export function SecurityCard({ model, pictureUrl, cameraLabel, editing = false, selected = false, hiddenItem = false, onOpen, onLockCommand, onSelect }: SecurityCardProps) {
   const dt = useDevicesTranslations();
-  const status = securityStatus(model, dt, cameraLabel);
+  const isLock = model.kind === 'lock';
+  const ring = useLockRing(model, onLockCommand ?? NO_COMMAND, editing || !isLock);
+  const ringText = isLock ? lockRingText(model, ring, dt) : null;
+  const lowBattery = model.battery !== null && model.battery <= LOW_BATTERY_PCT;
+  const status = ringText
+    ? (() => {
+        const line = ringText.short ? `${ringText.headline} · ${ringText.short}` : ringText.headline;
+        return lowBattery ? dt('withBattery', { status: line, pct: Math.round(model.battery as number) }) : line;
+      })()
+    : securityStatus(model, dt, cameraLabel);
   const tone = securityTone(model);
-  const locked = model.lock === 'locked' || model.lock === 'locking';
-  const Icon = model.kind === 'lock' && !locked ? LockOpen : SECURITY_ICONS[model.kind];
+  const Icon = SECURITY_ICONS[model.kind];
 
   return (
-    <div className={clsx('dv-tile dv-security', `is-${tone}`, editing && 'is-editing', editing && selected && 'is-selected', hiddenItem && 'is-hidden-item')}>
+    <div className={clsx('dv-tile dv-security', !isLock && `is-${tone}`, editing && 'is-editing', editing && selected && 'is-selected', hiddenItem && 'is-hidden-item')}>
       <button
         type="button"
         className="dv-tile-body"
@@ -63,18 +74,8 @@ export function SecurityCard({ model, pictureUrl, cameraLabel, editing = false, 
           <span className="dv-camera-thumb" aria-hidden="true">
             {pictureUrl ? <img src={pictureUrl} alt="" loading="lazy" /> : null}
           </span>
-        ) : model.kind === 'lock' ? (
-          <button
-            type="button"
-            className="dv-icon-button dv-security-icon"
-            disabled={!model.available || model.lock === 'jammed'}
-            aria-label={locked ? dt('unlockAria', { name: model.name }) : dt('lockAria', { name: model.name })}
-            tabIndex={editing ? -1 : undefined}
-            aria-hidden={editing ? true : undefined}
-            onClick={() => (locked ? onUnlock?.() : onLock?.())}
-          >
-            <Icon size={21} strokeWidth={2} aria-hidden="true" />
-          </button>
+        ) : ringText ? (
+          <LockRing model={model} ring={ring} label={ringText.aria} inert={editing} />
         ) : (
           <span className="dv-icon-button dv-security-icon pointer-events-none" aria-hidden="true">
             <Icon size={21} strokeWidth={2} />
@@ -82,7 +83,7 @@ export function SecurityCard({ model, pictureUrl, cameraLabel, editing = false, 
         )}
         <span className="flex min-w-0 flex-1 flex-col gap-px">
           <span className="dv-name">{model.name}</span>
-          <span className="dv-status dv-security-status">{status}</span>
+          <span className={clsx('dv-status dv-security-status', isLock && lockRingInk(model, ring))}>{status}</span>
         </span>
       </div>
       {!editing ? (

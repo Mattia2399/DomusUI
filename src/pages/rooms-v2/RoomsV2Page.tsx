@@ -139,8 +139,10 @@ type RoomSecurityItem = SectionItem & { model: SecurityModel };
 // How long a scene reads as applying, and how long its undo stays offered.
 const SCENE_APPLYING_MS = 900;
 const SCENE_UNDO_MS = 6000;
-// How long a lock of the demo takes to turn, and how long a real one may take before its command is given up.
-const DEMO_LOCK_MS = 900;
+// How long a lock of the demo takes to turn and its door stays open, as on the board, and how long a real one may take before its command is given up.
+const DEMO_LOCK_MS = 1400;
+const DEMO_OPEN_MS = 1200;
+const DEMO_DOOR_OPEN_MS = 2600;
 const LOCK_WAIT_MS = 30_000;
 
 const byRoomThenName = (a: SectionCandidate, b: SectionCandidate) =>
@@ -274,7 +276,6 @@ export function RoomsV2Page({
   const [sectionOpen, setSectionOpen] = React.useState<SectionKey | null>(null);
   const [panel, setPanel] = React.useState<{ kind: PanelKind; id: string } | null>(null);
   const [confirmOffId, setConfirmOffId] = React.useState<string | null>(null);
-  const [confirmLock, setConfirmLock] = React.useState<{ id: string; command: 'unlock' | 'open' } | null>(null);
   const [cameraOpenId, setCameraOpenId] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const { locale } = useI18n();
@@ -310,7 +311,6 @@ export function RoomsV2Page({
     setSectionOpen(null);
     setPanel(null);
     setConfirmOffId(null);
-    setConfirmLock(null);
     setCameraOpenId(null);
     setAddOpen(false);
     setError(null);
@@ -361,6 +361,11 @@ export function RoomsV2Page({
     [states],
   );
   const [lockPending, setLockPending] = React.useState<Record<string, { lock: LockState; from: string; at: number | null }>>({});
+  const demoLockTimers = React.useRef(new Map<string, number[]>());
+  React.useEffect(() => {
+    const timers = demoLockTimers.current;
+    return () => timers.forEach((list) => list.forEach((timer) => window.clearTimeout(timer)));
+  }, []);
   const securityModels = React.useMemo(() => {
     const deviceIdOf = (entityId: string) => registry.registryEntityById.get(entityId)?.deviceId ?? null;
     return new Map(
@@ -392,10 +397,21 @@ export function RoomsV2Page({
       });
     setLockPending((current) => ({ ...current, [entityId]: { lock: moving, from, at: model.changedAt } }));
     if (demo) {
-      window.setTimeout(
-        () => setLockPending((current) => ({ ...current, [entityId]: { lock: command === 'lock' ? 'locked' : 'unlocked', from, at: Date.now() } })),
-        DEMO_LOCK_MS,
-      );
+      // A new command of the same lock replaces what the last one was still to do.
+      demoLockTimers.current.get(entityId)?.forEach((timer) => window.clearTimeout(timer));
+      const timers: number[] = [];
+      demoLockTimers.current.set(entityId, timers);
+      const settle = (lock: LockState) => setLockPending((current) => ({ ...current, [entityId]: { lock, from, at: Date.now() } }));
+      if (command === 'open') {
+        timers.push(
+          window.setTimeout(() => {
+            settle('open');
+            timers.push(window.setTimeout(() => settle('unlocked'), DEMO_DOOR_OPEN_MS));
+          }, DEMO_OPEN_MS),
+        );
+      } else {
+        timers.push(window.setTimeout(() => settle(command === 'lock' ? 'locked' : 'unlocked'), DEMO_LOCK_MS));
+      }
       return;
     }
     const call = lockServiceCall(model, command);
@@ -894,8 +910,7 @@ export function RoomsV2Page({
       selected={context.selected}
       hiddenItem={item.hidden}
       onOpen={() => (item.model.kind === 'camera' ? setCameraOpenId(item.id) : setPanel({ kind: 'security', id: item.id }))}
-      onLock={() => void commandLock(item.model, 'lock')}
-      onUnlock={() => setConfirmLock({ id: item.id, command: 'unlock' })}
+      onLockCommand={(command) => void commandLock(securityModelOf(item.id), command)}
       onSelect={context.onSelect}
     />
   );
@@ -906,7 +921,6 @@ export function RoomsV2Page({
     onCallApi,
     demoHistory: demo ? demoSecurityHistory : undefined,
   });
-  const confirmLockModel = confirmLock ? securityModelOf(confirmLock.id) ?? null : null;
 
   if (roomTabs.length === 0) {
     return (
@@ -1285,9 +1299,7 @@ export function RoomsV2Page({
             model={panelSecurity}
             roomName={activeRoom?.name}
             history={panelSecurityHistory}
-            onLock={() => void commandLock(panelSecurity, 'lock')}
-            onUnlock={() => setConfirmLock({ id: panelSecurity.entityId, command: 'unlock' })}
-            onOpenDoor={() => setConfirmLock({ id: panelSecurity.entityId, command: 'open' })}
+            onLockCommand={(command) => void commandLock(securityModelOf(panelSecurity.entityId), command)}
             onClose={() => setPanel(null)}
           />
         ) : null}
@@ -1300,35 +1312,6 @@ export function RoomsV2Page({
         onActiveEntityChange={setCameraOpenId}
         onClose={() => setCameraOpenId(null)}
         commandsEnabled={haConnected && !demo}
-      />
-
-      <GlassModal
-        isOpen={Boolean(confirmLockModel)}
-        onClose={() => setConfirmLock(null)}
-        title={
-          confirmLockModel
-            ? dt(confirmLock?.command === 'open' ? 'confirmOpenTitle' : 'confirmUnlockTitle', { name: confirmLockModel.name })
-            : ''
-        }
-        description={dt(confirmLock?.command === 'open' ? 'confirmOpenText' : 'confirmUnlockText')}
-        size="sm"
-        footer={
-          <div className="flex w-full justify-end gap-2">
-            <button type="button" className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold" onClick={() => setConfirmLock(null)}>
-              {dt('cancel')}
-            </button>
-            <button
-              type="button"
-              className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold text-[color:var(--dv-amber)]"
-              onClick={() => {
-                if (confirmLockModel && confirmLock) void commandLock(confirmLockModel, confirmLock.command);
-                setConfirmLock(null);
-              }}
-            >
-              {dt(confirmLock?.command === 'open' ? 'openAction' : 'unlockAction')}
-            </button>
-          </div>
-        }
       />
 
       {sceneUndo ? (

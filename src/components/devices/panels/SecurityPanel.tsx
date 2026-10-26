@@ -1,43 +1,43 @@
-import { Lock, LockOpen, X } from 'lucide-react';
+import { LockOpen, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
-import { onSpans, type SecurityModel, type StateChange } from '../model/security';
+import { onSpans, type LockCommand, type SecurityModel, type StateChange } from '../model/security';
 import { SECURITY_ICONS, securityTone } from '../cards/SecurityCard';
+import { LockRing, lockRingInk, lockRingText, useLockRing } from '../cards/LockRing';
 import { clockOf, durationWord, LOCK_KEY, SECURITY_KIND_KEY, securityStatus } from '../cards/securityText';
 
 /*
  * The detail of a security device: what it says now and since when, the
- * day of a contact or a motion sensor as a strip, its last changes, and for
- * a lock the buttons to lock, unlock and open.
+ * day of a contact or a motion sensor as a strip, and its last changes. A
+ * lock shows its two rings large, with what they do.
  */
 
 export type SecurityPanelProps = {
   model: SecurityModel;
   roomName?: string;
   history: StateChange[];
-  onLock: () => void;
-  onUnlock: () => void;
-  onOpenDoor: () => void;
+  onLockCommand: (command: LockCommand) => void;
   onClose: () => void;
 };
 
 const DAY_MS = 24 * 3_600_000;
 
-export function SecurityPanel({ model, roomName, history, onLock, onUnlock, onOpenDoor, onClose }: SecurityPanelProps) {
+export function SecurityPanel({ model, roomName, history, onLockCommand, onClose }: SecurityPanelProps) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
   const now = Date.now();
-  const Icon = SECURITY_ICONS[model.kind];
+  const isLock = model.kind === 'lock';
+  const ring = useLockRing(model, onLockCommand, !isLock);
+  const ringText = isLock ? lockRingText(model, ring, dt) : null;
+  const Icon = isLock && (model.lock === 'unlocked' || model.lock === 'open') ? LockOpen : SECURITY_ICONS[model.kind];
   const tone = securityTone(model);
   const kind = dt(SECURITY_KIND_KEY[model.kind]);
   const subtitle = roomName ? `${roomName} · ${kind}` : kind;
   const since = model.changedAt === null ? null : now - model.changedAt;
-  const locked = model.lock === 'locked' || model.lock === 'locking';
 
   const hero = (() => {
     if (!model.available) return dt('unavailable');
-    if (model.kind === 'lock') return model.lock === 'locked' ? dt('lockLockedHero') : model.lock ? dt(LOCK_KEY[model.lock]) : dt('unavailable');
     if (model.kind === 'contact') return model.active ? dt('contactOpen') : dt('contactClosed');
     if (model.kind === 'motion') return model.active ? dt('motionNowWord') : dt('motionNone');
     return securityStatus(model, dt);
@@ -47,7 +47,6 @@ export function SecurityPanel({ model, roomName, history, onLock, onUnlock, onOp
     const clock = clockOf(model.changedAt, locale);
     if (model.kind === 'contact') return model.active ? dt('sinceOpen', { time: durationWord(since, dt), clock }) : dt('sinceClosed', { clock });
     if (model.kind === 'motion') return model.active ? dt('sinceMotionNow') : dt('sinceMotion', { clock, time: durationWord(since, dt) });
-    if (model.kind === 'lock') return locked ? dt('sinceLock', { clock }) : dt('sinceUnlocked', { clock });
     return dt('sinceLock', { clock });
   })();
 
@@ -68,7 +67,7 @@ export function SecurityPanel({ model, roomName, history, onLock, onUnlock, onOp
     <div className="dv-panel">
       <div className="flex items-center gap-3">
         <span aria-hidden="true" className={clsx('dv-security-badge flex h-12 w-12 flex-none items-center justify-center rounded-full', `is-${tone}`)}>
-          {model.kind === 'lock' && !locked ? <LockOpen size={23} strokeWidth={2} /> : <Icon size={23} strokeWidth={2} />}
+          <Icon size={23} strokeWidth={2} />
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="m-0 truncate text-xl font-bold tracking-[-0.02em]">{model.name}</p>
@@ -79,33 +78,28 @@ export function SecurityPanel({ model, roomName, history, onLock, onUnlock, onOp
         </button>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <span className={clsx('text-[34px] font-bold tracking-[-0.03em]', `dv-security-hero is-${tone}`)} aria-live="polite">
-          {hero}
-        </span>
-        {sinceLine ? <span className="dv-t2 text-sm font-medium">{sinceLine}</span> : null}
-      </div>
-
-      {model.kind === 'lock' && model.available ? (
-        <div className="flex flex-wrap gap-2">
-          {locked ? (
-            <button type="button" className="dv-option is-on inline-flex items-center gap-2" onClick={onUnlock}>
-              <LockOpen size={16} strokeWidth={2.4} aria-hidden="true" />
-              {dt('unlockAction')}
-            </button>
-          ) : (
-            <button type="button" className="dv-option is-on inline-flex items-center gap-2" onClick={onLock}>
-              <Lock size={16} strokeWidth={2.4} aria-hidden="true" />
-              {dt('lockAction')}
-            </button>
-          )}
-          {model.canOpen ? (
-            <button type="button" className="dv-option" onClick={onOpenDoor}>
-              {dt('openAction')}
-            </button>
-          ) : null}
+      {ringText ? (
+        <div className="flex flex-col items-center gap-3.5 pb-0.5 pt-1.5">
+          <LockRing model={model} ring={ring} label={ringText.aria} size="lg" />
+          <div className="flex flex-col items-center gap-1 text-center">
+            <span className={clsx('text-[30px] font-bold leading-[1.1] tracking-[-0.025em]', lockRingInk(model, ring))} aria-live="polite">
+              {ringText.headline}
+            </span>
+            {ringText.caption ? (
+              <span className={clsx('text-[13px] font-semibold leading-[1.35]', ring.nudge || ring.phase === 'lap2' || ring.phase === 'lap2b' ? lockRingInk(model, ring) : 'dv-t2')}>
+                {ringText.caption}
+              </span>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="flex flex-col gap-1">
+          <span className={clsx('text-[34px] font-bold tracking-[-0.03em]', `dv-security-hero is-${tone}`)} aria-live="polite">
+            {hero}
+          </span>
+          {sinceLine ? <span className="dv-t2 text-sm font-medium">{sinceLine}</span> : null}
+        </div>
+      )}
 
       {model.kind === 'contact' || model.kind === 'motion' ? (
         <div className="flex flex-col gap-2">

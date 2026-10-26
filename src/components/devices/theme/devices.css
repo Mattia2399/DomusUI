@@ -34,6 +34,12 @@
   --dv-standby-ink: #a84d00;
   --dv-tone-tint-alpha: 0.14;
   --dv-panel-tint-alpha: 0.2;
+  --dv-ring-alpha: 0.2;
+  --dv-ring-core-off: rgb(255 255 255 / 0.1);
+  --dv-ring-secure-ink: #4ade9b;
+  --dv-ring-open-ink: #fbbf4a;
+  --dv-ring-transition-ink: #7cc0ff;
+  --dv-ring-warning-ink: #ff8a8e;
 }
 
 .dashboard-theme-light {
@@ -66,6 +72,12 @@
   --dv-standby-ink: #a84d00;
   --dv-tone-tint-alpha: 0.16;
   --dv-panel-tint-alpha: 0.24;
+  --dv-ring-alpha: 0.13;
+  --dv-ring-core-off: #ffffff;
+  --dv-ring-secure-ink: #0b7a55;
+  --dv-ring-open-ink: #9a5500;
+  --dv-ring-transition-ink: #0867c7;
+  --dv-ring-warning-ink: #c2262c;
 }
 
 /* Ink on a lit light card, whatever the theme: the card is always light. */
@@ -877,6 +889,256 @@
 
 .dv-security-hero.is-live {
   color: var(--dv-blue);
+}
+
+/*
+ * The lock's two rings: green for the first lap (unlock), blue for the second
+ * (open). The laps take 900 ms, as the timers of LockRing.
+ */
+
+.dv-ring.is-secure,
+.dv-ring-ink.is-secure {
+  --ring-rgb: 18 163 114;
+  --ring-solid: #12a372;
+  --ring-ink: var(--dv-ring-secure-ink);
+}
+
+.dv-ring.is-open,
+.dv-ring-ink.is-open {
+  --ring-rgb: 217 119 6;
+  --ring-solid: #d97706;
+  --ring-ink: var(--dv-ring-open-ink);
+}
+
+.dv-ring.is-transition,
+.dv-ring-ink.is-transition {
+  --ring-rgb: 10 132 255;
+  --ring-solid: #0a84ff;
+  --ring-ink: var(--dv-ring-transition-ink);
+}
+
+.dv-ring.is-warning,
+.dv-ring-ink.is-warning {
+  --ring-rgb: 229 72 77;
+  --ring-solid: #e5484d;
+  --ring-ink: var(--dv-ring-warning-ink);
+}
+
+.dv-ring.is-off,
+.dv-ring-ink.is-off {
+  --ring-rgb: 142 142 147;
+  --ring-solid: #8e8e93;
+  --ring-ink: var(--dv-t2);
+}
+
+.dv-ring-ink,
+.dv-security .dv-security-status.dv-ring-ink {
+  color: var(--ring-ink);
+}
+
+.dv-ring {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 58px;
+  width: 58px;
+  flex: none;
+  margin-left: -7px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: rgb(var(--ring-rgb) / var(--dv-ring-alpha));
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: background 240ms ease;
+}
+
+.dv-ring:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dv-ring:focus-visible {
+  outline: 2px solid #0a84ff;
+  outline-offset: 3px;
+}
+
+.dv-ring-lg {
+  height: 136px;
+  width: 136px;
+  margin-left: 0;
+}
+
+.dv-ring-laps,
+.dv-ring-busy {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  pointer-events: none;
+}
+
+.dv-ring-laps {
+  transform: rotate(-90deg);
+}
+
+.dv-ring-laps circle,
+.dv-ring-busy circle {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.dv-ring-lg .dv-ring-laps circle,
+.dv-ring-lg .dv-ring-busy circle {
+  stroke-width: 3;
+}
+
+.dv-ring-laps circle {
+  stroke-dasharray: 289;
+  stroke-dashoffset: 289;
+  opacity: 0;
+}
+
+.dv-ring-lg .dv-ring-laps circle {
+  stroke-dasharray: 296;
+  stroke-dashoffset: 296;
+}
+
+.dv-ring-lap1 {
+  stroke: #12a372;
+}
+
+.dv-ring-lap2 {
+  stroke: #0a84ff;
+}
+
+.dv-ring-busy {
+  animation: dv-spin 1s linear infinite;
+}
+
+.dv-ring-busy circle {
+  stroke: var(--ring-solid);
+  stroke-dasharray: 70 220;
+}
+
+.dv-ring.is-lap1 .dv-ring-lap1 {
+  animation: dv-ring-lap 900ms linear both;
+}
+
+.dv-ring.is-lap2 .dv-ring-lap1 {
+  opacity: 1;
+  stroke-dashoffset: 0;
+}
+
+.dv-ring.is-lap2 .dv-ring-lap2 {
+  animation: dv-ring-lap 900ms linear 150ms both;
+}
+
+.dv-ring.is-lap2b .dv-ring-lap2 {
+  animation: dv-ring-lap 900ms linear 220ms both;
+}
+
+.dv-ring-lg.is-lap1 .dv-ring-lap1,
+.dv-ring-lg.is-lap2 .dv-ring-lap2,
+.dv-ring-lg.is-lap2b .dv-ring-lap2 {
+  animation-name: dv-ring-lap-lg;
+}
+
+@keyframes dv-ring-lap {
+  0% {
+    stroke-dashoffset: 289;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes dv-ring-lap-lg {
+  0% {
+    stroke-dashoffset: 296;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.dv-ring-core {
+  display: flex;
+  height: 46px;
+  width: 46px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--dv-ring-core-off);
+  color: var(--ring-ink);
+  transition:
+    background 240ms ease,
+    color 240ms ease,
+    transform 140ms ease;
+}
+
+.dv-ring-lg .dv-ring-core {
+  height: 112px;
+  width: 112px;
+}
+
+.dv-ring.is-solid .dv-ring-core {
+  background: var(--ring-solid);
+  color: #ffffff;
+  box-shadow: 0 8px 20px -6px rgb(var(--ring-rgb) / 0.55);
+}
+
+.dv-ring.is-press .dv-ring-core {
+  transform: scale(0.93);
+}
+
+.dv-ring.is-busy .dv-ring-core svg {
+  animation: dv-spin 900ms linear infinite;
+}
+
+.dv-ring.is-nudge {
+  animation: dv-ring-nudge 420ms ease-in-out;
+}
+
+@keyframes dv-ring-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-ring.is-nudge {
+    animation: none;
+  }
 }
 
 .dv-camera-thumb {

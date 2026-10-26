@@ -1,6 +1,6 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoomsV2Page } from './RoomsV2Page';
 
 beforeEach(() => window.localStorage.clear());
@@ -190,17 +190,56 @@ describe('the second Rooms page in the demo', () => {
     expect(within(section).getByRole('button', { name: 'Mostra tutti: Sicurezza, altri 4' })).toBeTruthy();
   });
 
-  it('asks before unlocking, and locks again without asking', async () => {
-    renderDemo();
-    const section = screen.getByTestId('rooms-v2-security');
-    fireEvent.click(within(section).getByRole('button', { name: 'Sblocca Serratura ingresso' }));
-    const dialog = screen.getByRole('dialog', { name: 'Sbloccare Serratura ingresso?' });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Sblocca' }));
-    expect(within(section).getByText('Sblocco…')).toBeTruthy();
-    expect(await within(section).findByText('Sbloccata')).toBeTruthy();
-    fireEvent.click(within(section).getByRole('button', { name: 'Chiudi a chiave Serratura ingresso' }));
-    expect(screen.queryByRole('dialog', { name: /Sbloccare/ })).toBeNull();
-    expect(await within(section).findByText('Chiusa')).toBeTruthy();
+  it('unlocks the lock by holding its ring, and locks it again with a tap', () => {
+    vi.useFakeTimers();
+    try {
+      renderDemo();
+      const section = screen.getByTestId('rooms-v2-security');
+      const ring = within(section).getByRole('button', {
+        name: 'Tieni premuto per sbloccare Serratura ingresso, continua per aprire la porta',
+      });
+      // Let go too soon: it asks to hold longer.
+      fireEvent.pointerDown(ring);
+      act(() => vi.advanceTimersByTime(300));
+      fireEvent.pointerUp(ring);
+      expect(within(section).getByText('Chiusa · tieni premuto di più')).toBeTruthy();
+      // The first lap unlocks; letting go in the second does not open the door.
+      fireEvent.pointerDown(ring);
+      act(() => vi.advanceTimersByTime(900));
+      expect(within(section).getByText('Sblocco… · continua per aprire')).toBeTruthy();
+      fireEvent.pointerUp(ring);
+      act(() => vi.advanceTimersByTime(1400));
+      expect(within(section).getByText('Sbloccata · tieni per aprire')).toBeTruthy();
+      // Unlocked, a tap locks it.
+      const unlocked = within(section).getByRole('button', {
+        name: 'Tocca per bloccare Serratura ingresso, tieni premuto per aprire la porta',
+      });
+      fireEvent.pointerDown(unlocked);
+      fireEvent.pointerUp(unlocked);
+      expect(within(section).getByText('Blocco… · in attesa…')).toBeTruthy();
+      act(() => vi.advanceTimersByTime(1400));
+      expect(within(section).getByText('Chiusa · tieni premuto')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens the door when the ring is held through both laps', () => {
+    vi.useFakeTimers();
+    try {
+      renderDemo();
+      const section = screen.getByTestId('rooms-v2-security');
+      const ring = within(section).getByRole('button', { name: /^Tieni premuto per sbloccare Serratura ingresso/ });
+      fireEvent.pointerDown(ring);
+      act(() => vi.advanceTimersByTime(900 + 1050));
+      expect(within(section).getByText('Apertura… · in attesa…')).toBeTruthy();
+      act(() => vi.advanceTimersByTime(1200));
+      expect(within(section).getByText('Porta aperta · scrocco rilasciato')).toBeTruthy();
+      act(() => vi.advanceTimersByTime(2600));
+      expect(within(section).getByText('Sbloccata · tieni per aprire')).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('marks the room with a window open and says it in the status row', () => {
