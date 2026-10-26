@@ -2,15 +2,20 @@ import React from 'react';
 import { ChevronDown, ChevronRight, House, Plus } from 'lucide-react';
 import {
   assignRoomAreaTargets,
+  DEMO_ROOM_TABS,
   filterRoomTabsByFloor,
   getEntityFriendlyName,
+  isAreaSensorEntityCandidate,
   mergeRoomTabs,
   resolveRoomClimateReadings,
   toCustomRoomTabs,
   toHaRoomTabs,
   type RoomAreaTarget,
   type RoomsApiCall,
+  type RoomTab,
 } from '../../components/rooms/roomsDirectory';
+import type { CameraPtzDirection } from '../../components/camera/CameraPtzJoystick';
+import type { GlassDropdownOption } from '../../components/ui/GlassDropdown';
 import { useProtectedEntities, useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
 import { LightCard } from '../../components/devices/cards/LightCard';
 import { DeviceCard } from '../../components/devices/cards/DeviceCard';
@@ -84,6 +89,8 @@ import {
   demoSensorSeries,
 } from './demoRoomsFixtures';
 import { MediaPickPanel, MediaStartPanel } from './MediaSheets';
+import { RoomEditPanel } from './RoomManageSheets';
+import { useRoomManagement } from './useRoomManagement';
 import { useMediaPlayerCommands } from './useMediaPlayerCommands';
 import { useSensorHistory } from './useSensorHistory';
 import { useStateHistory } from './useStateHistory';
@@ -107,10 +114,9 @@ import { useRoomsRegistry } from './useRoomsRegistry';
 import './roomsV2.css';
 
 /*
- * The second Rooms page, on the Rooms board of the design: the head of the
- * room, its sections in two columns where there is room, and what the room
- * still lacks. Rooms, floors, local rooms and hidden devices are the ones of
- * the Rooms page, from the same storage.
+ * The Rooms page, on the Rooms board of the design: the head of the room,
+ * its sections in two columns where there is room, and what the room still
+ * lacks. Rooms are changed from here; floors in Settings.
  */
 
 export type RoomsV2PageProps = {
@@ -122,6 +128,12 @@ export type RoomsV2PageProps = {
   haStates: MockEntityStateMap;
   onCallService?: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
   onCallApi?: RoomsApiCall;
+  /** Cameras that pan and tilt, and how to move them. */
+  cameraPtzEntityIds?: string[];
+  onCameraPtzMove?: (entityId: string, direction: CameraPtzDirection) => void;
+  onCameraPtzStop?: (entityId: string) => void;
+  /** Opens another page of the app, as Settings for the floors. */
+  onNavigate?: (path: string) => void;
 };
 
 const PHONE_QUERY = '(max-width: 760px)';
@@ -172,6 +184,15 @@ const DEVICE_TINT: Record<DeviceModel['kind'], string> = {
 };
 
 const NO_IDS: string[] = [];
+const DEMO_ROOM_IDS = new Set(DEMO_ROOM_TABS.map((tab) => tab.id));
+
+/** The sensors a room can read its temperature or humidity from, by name. */
+function sensorOptionsOf(states: MockEntityStateMap, kind: 'temperature' | 'humidity'): GlassDropdownOption[] {
+  return Object.keys(states)
+    .filter((entityId) => isAreaSensorEntityCandidate(entityId, states[entityId], kind))
+    .map((entityId) => ({ id: entityId, name: getEntityFriendlyName(entityId, states[entityId]) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
 
 // The tint of a climate panel by mode, "r g b", as the cards' mode colours.
 const CLIMATE_TINT: Record<ClimateModel['mode'], string> = {
@@ -271,6 +292,10 @@ export function RoomsV2Page({
   haStates,
   onCallService,
   onCallApi,
+  cameraPtzEntityIds = NO_IDS,
+  onCameraPtzMove,
+  onCameraPtzStop,
+  onNavigate,
 }: RoomsV2PageProps) {
   const rt = useRoomsTranslations();
   const dt = useDevicesTranslations();
@@ -278,7 +303,7 @@ export function RoomsV2Page({
   const phone = usePhoneLayout();
   // The demo keeps its own copy of what is saved, so organising it is always allowed.
   const canOrganize = canManageRooms || demo;
-  const { customRooms, hiddenRoomEntitiesByRoom, setHiddenRoomEntitiesByRoom, roomsStateRuntime, activeRoomId, setActiveRoomId } =
+  const { customRooms, setCustomRooms, hiddenRoomEntitiesByRoom, setHiddenRoomEntitiesByRoom, roomsStateRuntime, activeRoomId, setActiveRoomId } =
     useRoomsStoredState(runtimeMode, canOrganize);
   const { pinnedByRoom, setPinnedByRoom } = useRoomPinnedEntities(runtimeMode, canOrganize);
   const registry = useRoomsRegistry(haConnected, onCallApi);
@@ -298,7 +323,21 @@ export function RoomsV2Page({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const areas = React.useMemo(() => (haConnected ? haAreas : []), [haAreas, haConnected]);
+  // Rooms, changed from the page; the areas show those changes at once. Floors live in Settings.
+  const [roomSheet, setRoomSheet] = React.useState<{ room: RoomTab | null } | null>(null);
+  const management = useRoomManagement({
+    demo,
+    haConnected,
+    canManageRooms,
+    onCallApi,
+    haAreas,
+    setCustomRooms,
+    onRoomCreated: (roomId) => {
+      setSelectedFloorId('all');
+      setActiveRoomId(roomId);
+    },
+  });
+  const areas = management.areas;
   const allRoomTabs = React.useMemo(
     () =>
       mergeRoomTabs(
@@ -558,6 +597,7 @@ export function RoomsV2Page({
         streamUrl: camera.streamUrl,
         snapshotUrl: camera.imageUrl,
         isOffline: !camera.isAvailable,
+        supportsPtz: cameraPtzEntityIds.includes(item.id),
       };
     });
 
@@ -1001,6 +1041,40 @@ export function RoomsV2Page({
     demoHistory: demo ? demoSecurityHistory : undefined,
   });
 
+  // A room that can be changed here: not one of the demo's own, and an area only with Home Assistant.
+  const canEditRoom = (room: RoomTab | null) =>
+    Boolean(room) && management.canManage && !DEMO_ROOM_IDS.has(room!.id) && (room!.source === 'custom' || management.canManageHa);
+  const temperatureSensors = sensorOptionsOf(haStates, 'temperature');
+  const humiditySensors = sensorOptionsOf(haStates, 'humidity');
+  const sheetRoom = roomSheet?.room ?? null;
+  const newRoom = () => {
+    management.clearError();
+    setRoomSheet({ room: null });
+  };
+  // Floors, and the rooms on them, are managed in Settings.
+  const manageFloors = management.canManageHa && onNavigate ? () => onNavigate('/settings/floors') : undefined;
+  const roomSheetLayer = (
+    <>
+      <PanelHost presentation={phone ? 'sheet' : 'dialog'} isOpen={Boolean(roomSheet)} onClose={() => setRoomSheet(null)} title={sheetRoom ? rt('editRoom') : rt('newRoom')}>
+        {roomSheet ? (
+          <RoomEditPanel
+            key={sheetRoom?.id ?? 'new'}
+            room={sheetRoom}
+            area={sheetRoom?.source === 'ha' ? areas.find((area) => area.area_id === sheetRoom.id) ?? null : null}
+            haFields={sheetRoom ? sheetRoom.source === 'ha' : management.canManageHa}
+            floors={registry.floors}
+            sensors={{ temperature: temperatureSensors, humidity: humiditySensors }}
+            busy={management.busy}
+            error={management.error}
+            onSave={(draft) => management.saveRoom(sheetRoom, draft)}
+            onDelete={() => (sheetRoom ? management.deleteRoom(sheetRoom) : Promise.resolve(false))}
+            onClose={() => setRoomSheet(null)}
+          />
+        ) : null}
+      </PanelHost>
+    </>
+  );
+
   if (roomTabs.length === 0) {
     return (
       <div className="rooms-dashboard dashboard-page-scroll" data-testid="rooms-v2">
@@ -1011,8 +1085,26 @@ export function RoomsV2Page({
               {isLoading ? rt('loadingRooms') : rt('noRooms')}
             </h1>
             {isLoading ? null : <p className="mt-2 max-w-md text-sm text-[color:var(--ui-text-secondary)]">{rt('noRoomsDescription')}</p>}
+            {!isLoading && management.canManage ? (
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  className="rv2-form-save inline-flex items-center gap-1.5"
+                  onClick={newRoom}
+                >
+                  <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
+                  {rt('newRoom')}
+                </button>
+                {manageFloors ? (
+                  <button type="button" className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold" onClick={manageFloors}>
+                    {rt('manageFloors')}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         </div>
+        {roomSheetLayer}
       </div>
     );
   }
@@ -1032,6 +1124,16 @@ export function RoomsV2Page({
             onSelectRoom={setActiveRoomId}
             chips={chips}
             onAdd={canMove ? () => setAddOpen(true) : undefined}
+            onEditRoom={
+              canEditRoom(activeRoom)
+                ? () => {
+                    management.clearError();
+                    setRoomSheet({ room: activeRoom });
+                  }
+                : undefined
+            }
+            onNewRoom={management.canManage ? newRoom : undefined}
+            onManageFloors={manageFloors}
           />
 
           {sceneItems.length > 0 ? (
@@ -1467,6 +1569,8 @@ export function RoomsV2Page({
         onActiveEntityChange={setCameraOpenId}
         onClose={() => setCameraOpenId(null)}
         commandsEnabled={haConnected && !demo}
+        onPtzMove={onCameraPtzMove}
+        onPtzStop={onCameraPtzStop}
       />
 
       {sceneUndo ? (
@@ -1502,6 +1606,8 @@ export function RoomsV2Page({
           </div>
         }
       />
+
+      {roomSheetLayer}
     </div>
   );
 }

@@ -10,7 +10,7 @@ function renderDemo() {
   return render(<RoomsV2Page runtimeMode="demo" haConnected={false} haAreas={[]} haStates={{}} />);
 }
 
-describe('the second Rooms page in the demo', () => {
+describe('the Rooms page in the demo', () => {
   it('shows the room, its lights as three cards and a card for the rest', () => {
     renderDemo();
     expect(screen.getByRole('heading', { level: 1, name: 'Soggiorno' })).toBeTruthy();
@@ -292,5 +292,78 @@ describe('the second Rooms page in the demo', () => {
     fireEvent.click(within(rooms).getByRole('button', { name: /^Camera/ }));
     const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
     expect(statuses[0]).toBe('SicurezzaFinestra · Aperta da 25 min');
+  });
+
+  it('adds a local room next to the demo rooms, renames it and deletes it', async () => {
+    renderDemo();
+    // The demo's own rooms cannot be changed.
+    expect(screen.queryByRole('button', { name: 'Modifica stanza' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tutta la casa' }));
+    expect(screen.queryByRole('menuitem', { name: 'Gestisci piani' })).toBeNull();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Nuova stanza' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Nome' }), { target: { value: '  Studio ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Studio' })).toBeTruthy();
+    const rooms = screen.getByRole('navigation', { name: 'Stanze' });
+    expect(within(rooms).getByRole('button', { name: 'Soggiorno' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Modifica stanza' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Nome' }), { target: { value: 'Studio nord' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Studio nord' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Modifica stanza' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Elimina stanza' }));
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Eliminare Studio nord?' })).getByRole('button', { name: 'Elimina' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Soggiorno' })).toBeTruthy();
+    expect(within(screen.getByRole('navigation', { name: 'Stanze' })).queryByRole('button', { name: 'Studio nord' })).toBeNull();
+  });
+});
+
+describe('the Rooms page with Home Assistant', () => {
+  const living = { area_id: 'living', name: 'Soggiorno', floor_id: null, icon: null };
+
+  function renderConnected(onCallApi: (message: Record<string, unknown>) => Promise<unknown>, onNavigate = vi.fn()) {
+    render(
+      <RoomsV2Page
+        runtimeMode="real"
+        haConnected
+        canManageRooms
+        haAreas={[living]}
+        haStates={{ 'sensor.living_temperature': { state: '21', rawAttributes: { friendly_name: 'Temperatura soggiorno', device_class: 'temperature', unit_of_measurement: '°C' } } }}
+        onCallApi={onCallApi}
+        onNavigate={onNavigate}
+      />,
+    );
+    return onNavigate;
+  }
+
+  it('changes an area in Home Assistant: icon and temperature sensor', async () => {
+    const onCallApi = vi.fn(async (message: Record<string, unknown>) =>
+      message.type === 'config/area_registry/update' ? { ...living, icon: message.icon, temperature_entity_id: message.temperature_entity_id } : [],
+    );
+    renderConnected(onCallApi);
+    fireEvent.click(screen.getByRole('button', { name: 'Modifica stanza' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Divano' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Entità temperatura' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Temperatura soggiorno' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    await vi.waitFor(() =>
+      expect(onCallApi).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'config/area_registry/update',
+          area_id: 'living',
+          icon: 'mdi:sofa',
+          temperature_entity_id: 'sensor.living_temperature',
+        }),
+      ),
+    );
+  });
+
+  it('manages the floors in Settings', () => {
+    const onNavigate = renderConnected(async () => []);
+    fireEvent.click(screen.getByRole('button', { name: 'Tutta la casa' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Gestisci piani' }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/floors');
   });
 });

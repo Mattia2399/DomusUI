@@ -51,7 +51,7 @@ export const surfaces = [
   },
   // /rooms. Baseline 266,400 / 78,800.
   {
-    id: 'rooms', label: 'Stanze', sources: ['src/pages/RoomsDashboard.tsx'], requires: 'home', kind: 'route',
+    id: 'rooms', label: 'Stanze', sources: ['src/pages/rooms-v2/RoomsV2Page.tsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 100 * KB } },
   },
   // /security. Baseline 123,400 / 41,400.

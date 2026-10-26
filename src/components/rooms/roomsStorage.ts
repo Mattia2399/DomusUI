@@ -2,9 +2,8 @@ import type { DashboardRuntimeMode } from '../../security/dashboardAccess';
 import { normalizeRoomName, ROOM_ID_CUSTOM_PREFIX, uniqueStrings } from './roomsDirectory';
 
 /*
- * What the Rooms pages remember in this browser, per runtime (the demo keeps
- * its own copy). Moved from RoomsDashboard unchanged; the formats are stored
- * and must not change.
+ * What the Rooms page remembers in this browser, per runtime (the demo keeps
+ * its own copy). The formats are stored and must not change.
  */
 
 export const CUSTOM_ROOMS_STORAGE_KEY = 'ha.dashboard.rooms.customRooms.v1';
@@ -13,10 +12,10 @@ export const ACTIVE_ROOM_STORAGE_KEY = 'ha.dashboard.rooms.activeRoomId.v1';
 
 export const ROOM_ENTITY_VISIBILITY_STORAGE_KEY = 'ha.dashboard.rooms.hiddenEntitiesByRoom.v1';
 
-// The devices in evidence in each room, in the order they were chosen (new with the second Rooms page).
+// The devices in evidence in each room, in the order they were chosen.
 export const ROOM_PINNED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.pinnedEntitiesByRoom.v1';
 
-// Plugs that ask before turning off, wherever they are (new with the second Rooms page).
+// Plugs that ask before turning off, wherever they are.
 export const PROTECTED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.protectedEntities.v1';
 
 export function getRoomsRuntimeStorageKey(baseKey: string, runtimeMode: DashboardRuntimeMode) {

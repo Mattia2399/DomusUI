@@ -1,7 +1,7 @@
 import type { MockEntityStateMap } from '../../types/ha';
 
 /*
- * The demo home of the second Rooms page: every kind of light and device, on
+ * The demo home of the Rooms page: every kind of light and device, on
  * and off, some away, some in no room, as on the design board. They live in
  * the page while the demo runs; nothing reaches Home Assistant.
  */

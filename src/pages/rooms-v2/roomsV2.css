@@ -1,4 +1,4 @@
-/* Layout of the second Rooms page: CSS grids of its own, independent of the dashboard grid. */
+/* Layout of the Rooms page: CSS grids of its own, independent of the dashboard grid. */
 
 /* Marks of the status row: the colour says what is going on, the same in Dark and Light. */
 :root {
@@ -658,4 +658,120 @@ button.rv2-add-row {
   flex: none;
   border-radius: 14px;
   box-shadow: 0 12px 24px -10px rgb(0 0 0 / 0.6);
+}
+
+/* Rooms and floors: the grouped rows of the Profile page, the icons of a room, the menu's last item. */
+
+.rv2-floor-menu-sep {
+  display: block;
+  height: 1px;
+  margin: 4px 10px;
+  background: var(--dv-separator);
+}
+
+.rv2-form-group {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.rv2-form-row {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 12px;
+}
+
+.rv2-form-row + .rv2-form-row {
+  border-top: 1px solid var(--dv-separator);
+}
+
+.rv2-form-label {
+  flex: none;
+  width: 38%;
+  max-width: 180px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.rv2-form-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  text-align: right;
+}
+
+.rv2-form-input::placeholder {
+  color: var(--dv-t3);
+}
+
+.rv2-form-input:focus-visible {
+  outline: none;
+}
+
+.rv2-form-row:has(.rv2-form-input:focus-visible) {
+  box-shadow: inset 0 -2px 0 var(--dv-focus);
+}
+
+.rv2-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+  gap: 8px;
+}
+
+.rv2-icon-choice {
+  display: flex;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 16px;
+  background: var(--dv-icon-off);
+  color: inherit;
+  cursor: pointer;
+}
+
+.rv2-icon-choice.is-on {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.rv2-form-delete {
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  padding: 0 8px;
+  color: var(--dv-red);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rv2-form-save {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--dv-pill-on);
+  padding: 0 22px;
+  color: var(--dv-pill-on-ink);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rv2-icon-choice:focus-visible,
+.rv2-form-delete:focus-visible,
+.rv2-form-save:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.rv2-form-delete:disabled,
+.rv2-form-save:disabled {
+  cursor: default;
+  opacity: 0.5;
 }

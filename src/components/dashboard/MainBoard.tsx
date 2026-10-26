@@ -433,7 +433,7 @@ import {
 const loadConsumptionDashboard = () => import('../../pages/Consumi');
 const loadAutomationsBuilder = () => import('../../pages/AutomationsBuilder');
 const loadAppGallery = () => import('../../pages/AppGallery');
-const loadRoomsDashboard = () => import('../../pages/RoomsDashboard');
+const loadRoomsDashboard = () => import('../../pages/rooms-v2/RoomsV2Page');
 const loadSecurityDashboard = () => import('../../pages/SecurityDashboard');
 const loadSettingsDashboard = () => import('../../pages/SettingsDashboard');
 const loadRightSidebarManager = () =>
@@ -11382,9 +11382,6 @@ export function MainBoard() {
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <RoomsDashboard
               runtimeMode={effectiveRuntimeMode}
-              isEditMode={isEditMode}
-              suppressBrowserNavigation={!canUseBrowserRouteNavigation}
-              navigationRoute={internalNavigationRoute}
               isLoading={haStatus === 'connecting'}
               haConnected={isHaConnected}
               canManageRooms={canManageRooms}
@@ -11395,6 +11392,7 @@ export function MainBoard() {
               cameraPtzEntityIds={cameraPtzEntityIds}
               onCameraPtzMove={(entityId, direction) => moveCameraPtz(direction, entityId)}
               onCameraPtzStop={(entityId) => stopCameraPtz(entityId)}
+              onNavigate={navigateWithinDashboard}
             />
           </div>
         ) : isSecurityView ? (

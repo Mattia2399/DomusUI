@@ -9,7 +9,9 @@ import {
   Droplet,
   Lightbulb,
   Monitor,
+  Pencil,
   Plus,
+  Settings2,
   ShieldAlert,
   Sofa,
   Thermometer,
@@ -20,6 +22,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../i18n/devicesTranslations';
+import { useRoomsTranslations } from '../../i18n/roomsTranslations';
 import type { RoomIconKind } from './roomSummary';
 
 /*
@@ -28,7 +31,7 @@ import type { RoomIconKind } from './roomSummary';
  * lead to their sections.
  */
 
-const ROOM_ICONS: Record<RoomIconKind, LucideIcon> = {
+export const ROOM_ICONS: Record<RoomIconKind, LucideIcon> = {
   sofa: Sofa,
   kitchen: CookingPot,
   bed: BedDouble,
@@ -58,8 +61,21 @@ const CHIP_ICONS: Record<StatusChip['key'], LucideIcon> = {
   media: Tv,
 };
 
-function FloorMenu({ floors, selectedId, onSelect }: { floors: FloorOption[]; selectedId: string; onSelect: (id: string) => void }) {
+function FloorMenu({
+  floors,
+  selectedId,
+  onSelect,
+  onNewRoom,
+  onManageFloors,
+}: {
+  floors: FloorOption[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onNewRoom?: () => void;
+  onManageFloors?: () => void;
+}) {
   const dt = useDevicesTranslations();
+  const rt = useRoomsTranslations();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
   const selected = floors.find((floor) => floor.id === selectedId) ?? floors[0];
@@ -115,6 +131,29 @@ function FloorMenu({ floors, selectedId, onSelect }: { floors: FloorOption[]; se
               </span>
             </button>
           ))}
+          {onNewRoom || onManageFloors ? <span className="rv2-floor-menu-sep" aria-hidden="true" /> : null}
+          {[
+            onNewRoom ? { key: 'room', label: rt('newRoom'), Icon: Plus, run: onNewRoom } : null,
+            onManageFloors ? { key: 'floors', label: rt('manageFloors'), Icon: Settings2, run: onManageFloors } : null,
+          ]
+            .filter((item): item is NonNullable<typeof item> => item !== null)
+            .map(({ key, label, Icon, run }) => (
+              <button
+                key={key}
+                type="button"
+                role="menuitem"
+                className="flex h-11 items-center gap-2.5 rounded-2xl border-0 bg-transparent px-3 text-left text-[15px] font-medium text-inherit"
+                onClick={() => {
+                  setOpen(false);
+                  run();
+                }}
+              >
+                <span className="flex w-[18px] justify-center" aria-hidden="true">
+                  <Icon size={16} strokeWidth={2.2} />
+                </span>
+                <span className="flex-1">{label}</span>
+              </button>
+            ))}
         </div>
       ) : null}
     </div>
@@ -132,6 +171,9 @@ export function RoomHead({
   onSelectRoom,
   chips,
   onAdd,
+  onEditRoom,
+  onNewRoom,
+  onManageFloors,
 }: {
   name: string;
   subtitle: string;
@@ -143,8 +185,12 @@ export function RoomHead({
   onSelectRoom: (id: string) => void;
   chips: StatusChip[];
   onAdd?: () => void;
+  onEditRoom?: () => void;
+  onNewRoom?: () => void;
+  onManageFloors?: () => void;
 }) {
   const dt = useDevicesTranslations();
+  const rt = useRoomsTranslations();
   const goTo = (target: string | null) => {
     if (!target) return;
     const reduce = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -155,12 +201,19 @@ export function RoomHead({
     <>
       <div className="rv2-head">
         <div className="rv2-head-tools">
-          <FloorMenu floors={floors} selectedId={selectedFloorId} onSelect={onSelectFloor} />
-          {onAdd ? (
-            <button type="button" className="dv-glass dv-round !h-11 !w-11" aria-label={dt('addAccessory')} onClick={onAdd}>
-              <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
-            </button>
-          ) : null}
+          <FloorMenu floors={floors} selectedId={selectedFloorId} onSelect={onSelectFloor} onNewRoom={onNewRoom} onManageFloors={onManageFloors} />
+          <div className="flex gap-2.5">
+            {onAdd ? (
+              <button type="button" className="dv-glass dv-round !h-11 !w-11" aria-label={dt('addAccessory')} onClick={onAdd}>
+                <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            ) : null}
+            {onEditRoom ? (
+              <button type="button" className="dv-glass dv-round !h-11 !w-11" aria-label={rt('editRoom')} onClick={onEditRoom}>
+                <Pencil size={18} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            ) : null}
+          </div>
         </div>
         <div className="rv2-head-title">
           <h1 className="rv2-title" aria-live="polite">

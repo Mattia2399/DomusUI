@@ -78,12 +78,12 @@ test('mobile navigation keeps a live adaptive backdrop in Light and Dark', async
   )).toBe('0.3');
 });
 
-test('Rooms content surfaces follow the resolved appearance through semantic tokens', async ({ page }) => {
+test('Rooms tiles follow the resolved appearance through semantic tokens', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   await installCompletedDemo(page, { theme: 'auto' });
   await page.goto('/rooms');
 
-  const surface = page.locator('.rooms-surface').first();
+  const surface = page.getByTestId('rooms-v2').locator('.dv-tile').first();
   await expect(surface).toBeVisible();
   const lightBorder = await surface.evaluate((element) => getComputedStyle(element).borderColor);
 

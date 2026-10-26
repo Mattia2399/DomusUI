@@ -2,8 +2,7 @@ import type { MockEntityState } from '../../types/ha';
 
 /*
  * Rooms, the entities in them and the Home Assistant registry that places
- * them: plain functions shared by the Rooms pages. Moved from RoomsDashboard
- * unchanged.
+ * them: plain functions of the Rooms page.
  */
 
 export type RoomsApiCall = (
@@ -143,56 +142,6 @@ export function bucketEntityId(entityId: string, buckets: RoomEntityBuckets) {
     return;
   }
   buckets.others.push(entityId);
-}
-
-export function filterRoomEntityBuckets(
-  buckets: RoomEntityBuckets,
-  predicate: (entityId: string) => boolean,
-): RoomEntityBuckets {
-  return {
-    lights: buckets.lights.filter(predicate),
-    climates: buckets.climates.filter(predicate),
-    locks: buckets.locks.filter(predicate),
-    medias: buckets.medias.filter(predicate),
-    switches: buckets.switches.filter(predicate),
-    sensors: buckets.sensors.filter(predicate),
-    covers: buckets.covers.filter(predicate),
-    cameras: buckets.cameras.filter(predicate),
-    weathers: buckets.weathers.filter(predicate),
-    others: buckets.others.filter(predicate),
-  };
-}
-
-export function getRoomSectionEntityIds(sectionId: string, buckets: RoomEntityBuckets) {
-  if (sectionId === 'lights') {
-    return buckets.lights;
-  }
-  if (sectionId === 'switches') {
-    return buckets.switches;
-  }
-  if (sectionId === 'lights_switches') {
-    return [...buckets.lights, ...buckets.switches];
-  }
-  if (sectionId === 'clima') {
-    return buckets.climates;
-  }
-  if (sectionId === 'media') {
-    return buckets.medias;
-  }
-  if (sectionId === 'sensors') {
-    return buckets.sensors;
-  }
-  if (sectionId === 'security') {
-    return [...buckets.locks, ...buckets.cameras];
-  }
-  if (sectionId === 'accessories') {
-    return uniqueStrings([
-      ...buckets.covers,
-      ...buckets.weathers,
-      ...buckets.others.filter((entityId) => !entityId.startsWith('automation.') && !entityId.startsWith('script.')),
-    ]);
-  }
-  return [];
 }
 
 export function readTrimmedRecordString(record: Record<string, unknown>, key: string) {
@@ -353,10 +302,10 @@ export function toCustomRoomTabs(customRooms: Array<{ id: string; name: string; 
     }));
 }
 
-/** Areas first, then local rooms; the demo rooms when there are none at all. */
+/** Areas first, then local rooms; the demo keeps its own rooms before the local ones added to it. */
 export function mergeRoomTabs(haRoomTabs: RoomTab[], customRoomTabs: RoomTab[], runtimeMode: string): RoomTab[] {
-  const merged = [...haRoomTabs, ...customRoomTabs];
-  return merged.length > 0 ? merged : runtimeMode === 'demo' ? DEMO_ROOM_TABS : [];
+  if (runtimeMode === 'demo' && haRoomTabs.length === 0) return [...DEMO_ROOM_TABS, ...customRoomTabs];
+  return [...haRoomTabs, ...customRoomTabs];
 }
 
 /** A device with its entities, or entities on their own, to place in an area. */
@@ -453,28 +402,6 @@ export function parseHaFloorList(payload: unknown): HaFloorEntry[] {
     .filter((entry): entry is HaFloorEntry => entry !== null);
 }
 
-export function parseHaFloorEntry(payload: unknown): HaFloorEntry | null {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-  const record = payload as Record<string, unknown>;
-  const floorId = typeof record.floor_id === 'string' ? record.floor_id.trim() : '';
-  const name = typeof record.name === 'string' ? record.name.trim() : '';
-  const aliases = Array.isArray(record.aliases)
-    ? record.aliases.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : undefined;
-  if (!floorId || !name) {
-    return null;
-  }
-  return {
-    floor_id: floorId,
-    name,
-    aliases,
-    level: typeof record.level === 'number' ? record.level : null,
-    icon: typeof record.icon === 'string' ? record.icon : null,
-  };
-}
-
 /** The rooms of a floor ('all' for every room); local rooms belong to no floor. */
 export function filterRoomTabsByFloor(
   tabs: RoomTab[],
@@ -532,14 +459,6 @@ export function getEntityNumericValue(entity?: MockEntityState) {
     toNumber(entity?.targetValue) ??
     toNumber(entity?.state)
   );
-}
-
-export function formatAmbientTemperature(value: number) {
-  return `${value.toFixed(1)}\u00b0C`;
-}
-
-export function formatAmbientHumidity(value: number) {
-  return `${Math.round(value)}%`;
 }
 
 /** Temperature and humidity of a room: the area's own sensors first, else the first matching sensor in it. */
