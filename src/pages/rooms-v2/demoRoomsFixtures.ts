@@ -257,15 +257,40 @@ export function demoSensorSeries(entityId: string, hours: number, now = Date.now
   });
 }
 
+const scene = (name: string, entities: string[], icon?: string) =>
+  device(name, 'unknown', { entity_id: entities, ...(icon ? { icon } : {}) });
+
+export const DEMO_SCENE_STATES: MockEntityStateMap = {
+  'scene.demo_relax': scene('Relax', ['light.demo_floor_lamp', 'light.demo_spots', 'light.demo_led_strip', 'cover.demo_living_blind']),
+  'scene.demo_movie': scene('Film', ['light.demo_led_strip', 'light.demo_spots', 'cover.demo_living_blind', 'switch.demo_tv_plug'], 'mdi:movie-open'),
+  'scene.demo_reading': scene('Lettura', ['light.demo_reading_lamp', 'light.demo_floor_lamp']),
+  'scene.demo_focus': scene('Concentrazione', ['light.demo_spots', 'light.demo_chandelier', 'fan.demo_fan']),
+  'scene.demo_guests': scene('Ospiti', ['light.demo_floor_lamp', 'light.demo_spots', 'light.demo_chandelier', 'light.demo_wall_lamp', 'climate.demo_living_ac']),
+  'scene.demo_goodnight': scene('Buonanotte', ['light.demo_bedside', 'light.demo_ceiling', 'cover.demo_bedroom_blind']),
+  'scene.demo_breakfast': scene('Colazione', ['light.demo_cabinets', 'light.demo_island', 'switch.demo_coffee']),
+};
+
+export const DEMO_SCENE_ROOMS: Record<string, string> = {
+  'scene.demo_relax': 'demo-living-room',
+  'scene.demo_movie': 'demo-living-room',
+  'scene.demo_reading': 'demo-living-room',
+  'scene.demo_focus': 'demo-living-room',
+  'scene.demo_guests': 'demo-living-room',
+  'scene.demo_goodnight': 'demo-bedroom',
+  'scene.demo_breakfast': 'demo-kitchen',
+};
+
 export const DEMO_STATES: MockEntityStateMap = {
   ...DEMO_LIGHT_STATES,
   ...DEMO_DEVICE_STATES,
   ...DEMO_CLIMATE_STATES,
   ...DEMO_SENSOR_STATES,
+  ...DEMO_SCENE_STATES,
 };
 export const DEMO_ROOMS: Record<string, string> = {
   ...DEMO_LIGHT_ROOMS,
   ...DEMO_DEVICE_ROOMS,
   ...DEMO_CLIMATE_ROOMS,
   ...DEMO_SENSOR_ROOMS,
+  ...DEMO_SCENE_ROOMS,
 };

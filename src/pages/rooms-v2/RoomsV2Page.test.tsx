@@ -132,6 +132,18 @@ describe('the second Rooms page in the demo', () => {
     expect(within(dialog).getByRole('img', { name: /^Umidità, ultime 7 giorni/ })).toBeTruthy();
   });
 
+  it('shows the scenes of the room as a strip, runs one, and offers to undo it', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-scenes');
+    expect(within(section).getByRole('button', { name: 'Mostra tutti: Scene, altri 2' })).toBeTruthy();
+    fireEvent.click(within(section).getByRole('button', { name: /^Avvia la scena Concentrazione/ }));
+    expect(within(section).getByText('Applico · 3 dispositivi')).toBeTruthy();
+    const toast = screen.getByTestId('rooms-v2-scene-undo');
+    expect(within(toast).getByText('Scena Concentrazione attivata')).toBeTruthy();
+    fireEvent.click(within(toast).getByRole('button', { name: 'Annulla' }));
+    expect(screen.queryByTestId('rooms-v2-scene-undo')).toBeNull();
+  });
+
   it('turns every light off', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Spegni tutte' }));

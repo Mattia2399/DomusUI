@@ -268,6 +268,62 @@ button.rv2-add-row {
   }
 }
 
+/* Scenes: a strip in the room, a grid of pills on their page. */
+.rv2-scene-strip > .dv-scene,
+.rv2-scene-strip > .rv2-more {
+  flex: none;
+}
+
+.rv2-scene-strip > .rv2-more {
+  height: 64px;
+  width: auto;
+  min-width: 132px;
+  border-radius: 22px;
+}
+
+.rv2-grid-scenes {
+  grid-auto-rows: 64px;
+}
+
+.rv2-grid-scenes > .dv-scene {
+  min-width: 0;
+}
+
+/* The undo of a scene: above the app navigation and the section page. */
+.rv2-toast {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 104px);
+  left: 50%;
+  z-index: 230;
+  display: flex;
+  max-width: calc(100vw - 32px);
+  align-items: center;
+  gap: 14px;
+  border-radius: 24px;
+  padding: 8px 8px 8px 18px;
+  color: var(--dv-text);
+  transform: translateX(-50%);
+}
+
+@media (min-width: 761px) {
+  .rv2-toast {
+    bottom: 28px;
+  }
+}
+
+.rv2-toast-action {
+  height: 36px;
+  flex: none;
+  border: 0;
+  border-radius: 18px;
+  padding: 0 14px;
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 /* Sensors: taller cards, two side by side in the room as on the design board. */
 .rv2-grid-sensors {
   display: grid;

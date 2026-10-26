@@ -19,6 +19,14 @@ import { ClimateCard } from '../../components/devices/cards/ClimateCard';
 import { ClimatePanel } from '../../components/devices/panels/ClimatePanel';
 import { climateIsOn, type ClimateModel } from '../../components/devices/model/climate';
 import { SensorCard } from '../../components/devices/cards/SensorCard';
+import { SceneCard } from '../../components/devices/cards/SceneCard';
+import {
+  activeSceneOf,
+  runSceneCalls,
+  toSceneModel,
+  undoSceneCall,
+  type SceneModel,
+} from '../../components/devices/model/scene';
 import { SensorPanel, SENSOR_PERIOD_HOURS, type SensorPeriod } from '../../components/devices/panels/SensorPanel';
 import {
   findBatterySensor,
@@ -104,9 +112,14 @@ function usePhoneLayout() {
 
 type RoomLightItem = SectionItem & { model: LightModel };
 type RoomDeviceItem = SectionItem & { model: DeviceModel };
-type SectionKey = 'lights' | 'devices' | 'sensors';
+type SectionKey = 'lights' | 'devices' | 'sensors' | 'scenes';
 type PanelKind = SectionKey | 'climate';
 type RoomSensorItem = SectionItem & { model: SensorModel };
+type RoomSceneItem = SectionItem & { model: SceneModel };
+
+// How long a scene reads as applying, and how long its undo stays offered.
+const SCENE_APPLYING_MS = 900;
+const SCENE_UNDO_MS = 6000;
 
 const byRoomThenName = (a: SectionCandidate, b: SectionCandidate) =>
   (a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1;
@@ -144,7 +157,7 @@ const CLIMATE_TONE: Record<ClimateGlance['mode'], string> = {
 };
 
 // Accessories that can be brought into a room from the head of the page, by the section they go to.
-const ADDABLE_DOMAINS: Record<string, 'chipLights' | 'sectionDevices' | 'sectionClimate' | 'sectionMedia' | 'sectionSecurity'> = {
+const ADDABLE_DOMAINS: Record<string, 'chipLights' | 'sectionDevices' | 'sectionClimate' | 'sectionMedia' | 'sectionSecurity' | 'sectionScenes'> = {
   light: 'chipLights',
   switch: 'sectionDevices',
   input_boolean: 'sectionDevices',
@@ -155,6 +168,7 @@ const ADDABLE_DOMAINS: Record<string, 'chipLights' | 'sectionDevices' | 'section
   media_player: 'sectionMedia',
   lock: 'sectionSecurity',
   camera: 'sectionSecurity',
+  scene: 'sectionScenes',
 };
 
 const MISSING_KEY: Record<MissingSection, 'missingClimate' | 'missingDevices' | 'missingSecurity' | 'missingMedia'> = {
@@ -382,6 +396,57 @@ export function RoomsV2Page({
   const climateCandidates = candidatesFrom(climateIds, (entityId) => climates.modelOf(entityId).name);
   const sensorCandidates = candidatesFrom(sensorIds, (entityId) => sensorModelOf(entityId).name);
 
+  // Scenes: the snapshots that undo them are scenes too, kept out of sight.
+  const sceneIds = React.useMemo(
+    () => Object.keys(states).filter((entityId) => entityId.startsWith('scene.') && !entityId.startsWith('scene.domus_undo_')),
+    [states],
+  );
+  const [sceneRanAt, setSceneRanAt] = React.useState<Record<string, number | null>>({});
+  const [applyingSceneId, setApplyingSceneId] = React.useState<string | null>(null);
+  const [sceneUndo, setSceneUndo] = React.useState<{ roomId: string; name: string; sceneId: string; previous: number | null } | null>(null);
+  const sceneModelOf = React.useCallback(
+    (entityId: string) => {
+      const model = toSceneModel(entityId, states[entityId]);
+      return entityId in sceneRanAt ? { ...model, ranAt: sceneRanAt[entityId] } : model;
+    },
+    [sceneRanAt, states],
+  );
+  const sceneItems: RoomSceneItem[] = sectionItems(sceneIds, sceneModelOf, () => false, () => false, (model) => model.name);
+  const activeSceneId = activeSceneOf(sceneItems.map((item) => item.model));
+  const sceneCandidates = candidatesFrom(sceneIds, (entityId) => sceneModelOf(entityId).name);
+
+  React.useEffect(() => {
+    if (!applyingSceneId) return undefined;
+    const timer = window.setTimeout(() => setApplyingSceneId(null), SCENE_APPLYING_MS);
+    return () => window.clearTimeout(timer);
+  }, [applyingSceneId]);
+  React.useEffect(() => {
+    if (!sceneUndo) return undefined;
+    const timer = window.setTimeout(() => setSceneUndo(null), SCENE_UNDO_MS);
+    return () => window.clearTimeout(timer);
+  }, [sceneUndo]);
+
+  /** Runs a scene, after a snapshot of what it changes so it can be undone for a few seconds. */
+  const runScene = async (model: SceneModel) => {
+    if (!activeRoom) return;
+    setApplyingSceneId(model.entityId);
+    setSceneRanAt((current) => ({ ...current, [model.entityId]: Date.now() }));
+    setSceneUndo({ roomId: activeRoom.id, name: model.name, sceneId: model.entityId, previous: model.ranAt });
+    if (demo || !onCallService) return;
+    for (const call of runSceneCalls(model, activeRoom.id)) {
+      await onCallService(call.domain, call.service, call.data);
+    }
+  };
+  const undoScene = () => {
+    if (!sceneUndo) return;
+    const { roomId, sceneId, previous } = sceneUndo;
+    setSceneUndo(null);
+    setSceneRanAt((current) => ({ ...current, [sceneId]: previous }));
+    if (demo || !onCallService) return;
+    const call = undoSceneCall(roomId);
+    void onCallService(call.domain, call.service, call.data);
+  };
+
   // The main unit of the room is the one that does the most (an air conditioner before a radiator valve).
   const roomClimates: ClimateModel[] = React.useMemo(() => {
     if (!activeRoom) return [];
@@ -562,6 +627,7 @@ export function RoomsV2Page({
         ...deviceCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionDevices') })),
         ...climateCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionClimate') })),
         ...sensorCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionEnvironment') })),
+        ...sceneCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionScenes') })),
       ].sort(byRoomThenName);
     }
     // Environment sensors are offered by kind, not every sensor of the home.
@@ -579,9 +645,8 @@ export function RoomsV2Page({
         };
       })
       .sort(byRoomThenName);
-  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById, sensorCandidates]);
+  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById, sceneCandidates, sensorCandidates]);
   const missing = missingSections(buckets);
-  const scenes = buckets.others.filter((entityId) => entityId.startsWith('scene.'));
   const hasClimate = buckets.climates.some((entityId) => entityId.startsWith('climate.'));
   const hasSide = hasClimate || sensorItems.length > 0;
   const hasSecurity = buckets.locks.length > 0 || buckets.cameras.length > 0;
@@ -653,6 +718,18 @@ export function RoomsV2Page({
   const panelDevice = panel?.kind === 'devices' ? devices.modelOf(panel.id) : null;
   const panelClimate = panel?.kind === 'climate' ? climates.modelOf(panel.id) : null;
   const panelSensor = panel?.kind === 'sensors' ? sensorModelOf(panel.id) ?? null : null;
+  const renderScene = (item: RoomSceneItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
+    <SceneCard
+      model={item.model}
+      active={activeSceneId === item.id}
+      applying={applyingSceneId === item.id}
+      editing={context.editing}
+      selected={context.selected}
+      hiddenItem={item.hidden}
+      onRun={() => void runScene(item.model)}
+      onSelect={context.onSelect}
+    />
+  );
   const panelSensorHistory = useSensorHistory({
     entityIds: panelSensor && panelSensor.kind !== 'smoke' ? [panelSensor.entityId] : [],
     hours: SENSOR_PERIOD_HOURS[sensorPeriod],
@@ -708,7 +785,19 @@ export function RoomsV2Page({
             onAdd={canMove ? () => setAddOpen(true) : undefined}
           />
 
-          {scenes.length > 0 ? <SectionComing id="rv2-scenes" title={dt('sectionScenes')} /> : null}
+          {sceneItems.length > 0 ? (
+            <RoomSection
+              id="rv2-scenes"
+              testId="rooms-v2-scenes"
+              title={dt('sectionScenes')}
+              items={sceneItems}
+              count={String(sceneItems.length)}
+              moreLabel={dt('moreScenes')}
+              renderCard={renderScene}
+              onOpenPage={() => setSectionOpen('scenes')}
+              gridClassName="rv2-strip rv2-scene-strip"
+            />
+          ) : null}
 
           <div className="rv2-columns">
             {hasSide ? (
@@ -868,6 +957,24 @@ export function RoomsV2Page({
           {...sectionHandlers}
         />
       ) : null}
+      {sectionOpen === 'scenes' && activeRoom && sectionHandlers ? (
+        <SectionPage
+          title={dt('sectionScenes')}
+          roomName={activeRoom.name}
+          items={sceneItems}
+          candidatesEmptyLabel={dt('noSceneCandidates')}
+          renderCard={renderScene}
+          gridClassName="rv2-grid rv2-grid-scenes"
+          canOrganize={canOrganize}
+          canMove={canMove}
+          busy={busy}
+          error={error}
+          candidates={sceneCandidates}
+          rooms={moveRooms}
+          onClose={() => setSectionOpen(null)}
+          {...sectionHandlers}
+        />
+      ) : null}
       {sectionOpen === 'sensors' && activeRoom && sectionHandlers ? (
         <SectionPage
           title={dt('sectionEnvironment')}
@@ -984,6 +1091,15 @@ export function RoomsV2Page({
           />
         ) : null}
       </PanelHost>
+
+      {sceneUndo ? (
+        <div className="rv2-toast dv-glass" role="status" data-testid="rooms-v2-scene-undo">
+          <span className="min-w-0 truncate text-sm font-semibold">{dt('sceneDone', { name: sceneUndo.name })}</span>
+          <button type="button" className="rv2-toast-action" onClick={undoScene}>
+            {dt('undo')}
+          </button>
+        </div>
+      ) : null}
 
       <GlassModal
         isOpen={Boolean(confirmDevice)}
