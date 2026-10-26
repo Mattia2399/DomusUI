@@ -1197,6 +1197,529 @@
   border-top: 1px solid var(--dv-separator);
 }
 
+/*
+ * Media: the card of what plays and the full player, white on the artwork
+ * blurred behind them in either theme. Without a picture, one of the board's
+ * colour fields stands in for it.
+ */
+
+.dv-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.dv-art img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-art[data-art='a'] {
+  background:
+    radial-gradient(circle at 28% 22%, #ffc371 0%, rgb(255 195 113 / 0) 55%),
+    radial-gradient(circle at 78% 78%, #ff375f 0%, rgb(255 55 95 / 0) 60%),
+    linear-gradient(140deg, #4a1d6b, #c2415b);
+}
+
+.dv-art[data-art='b'] {
+  background:
+    radial-gradient(circle at 70% 25%, #9be7c4 0%, rgb(155 231 196 / 0) 55%),
+    radial-gradient(circle at 25% 80%, #1e6fa8 0%, rgb(30 111 168 / 0) 60%),
+    linear-gradient(140deg, #0f3d3e, #2c7a7b);
+}
+
+.dv-art[data-art='c'] {
+  background:
+    radial-gradient(circle at 30% 25%, #ffd6a5 0%, rgb(255 214 165 / 0) 55%),
+    radial-gradient(circle at 75% 75%, #5e5ce6 0%, rgb(94 92 230 / 0) 60%),
+    linear-gradient(140deg, #1b1f4b, #6a4c93);
+}
+
+.dv-art[data-art='d'] {
+  background:
+    radial-gradient(circle at 70% 30%, #64d2ff 0%, rgb(100 210 255 / 0) 55%),
+    radial-gradient(circle at 25% 75%, #bf5af2 0%, rgb(191 90 242 / 0) 60%),
+    linear-gradient(140deg, #141e46, #3b2667);
+}
+
+.dv-art[data-art='e'] {
+  background:
+    radial-gradient(circle at 35% 30%, #a8ff78 0%, rgb(168 255 120 / 0) 50%),
+    radial-gradient(circle at 75% 70%, #30d158 0%, rgb(48 209 88 / 0) 60%),
+    linear-gradient(140deg, #0b2e26, #1f6f5c);
+}
+
+.dv-media-off {
+  height: 82px;
+}
+
+.dv-np {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 28px;
+  /* Under the blurred artwork, whose edges the blur leaves see-through. */
+  background: #1c1c1e;
+  color: #ffffff;
+  box-shadow: 0 30px 70px -34px rgb(0 0 0 / 0.85);
+}
+
+.dv-np-bg {
+  position: absolute;
+  inset: -60px;
+  z-index: -2;
+  filter: blur(46px) saturate(1.5);
+  transform: scale(1.15);
+}
+
+.dv-np-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.18) 0%, rgb(0 0 0 / 0.38) 55%, rgb(0 0 0 / 0.6) 100%);
+}
+
+.dv-np-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 18px 18px;
+}
+
+.dv-np-open {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dv-np-art {
+  height: 92px;
+  width: 92px;
+  flex: none;
+  border-radius: 18px;
+  box-shadow:
+    0 18px 36px -14px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dv-np-art.is-resting,
+.dv-mp-art.is-resting {
+  transform: scale(0.9);
+}
+
+.dv-np-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.dv-np-track {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.22);
+}
+
+.dv-np-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.92);
+}
+
+.dv-np-range {
+  position: absolute;
+  top: -14px;
+  right: 0;
+  left: 0;
+  height: 34px;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dv-np-track.is-disabled .dv-np-range {
+  cursor: default;
+}
+
+.dv-np-track:has(.dv-np-range:focus-visible) {
+  outline: 2px solid #ffffff;
+  outline-offset: 4px;
+}
+
+.dv-np-btn,
+.dv-np-play,
+.dv-np-mini,
+.dv-mp-iconbtn,
+.dv-mp-toggle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.dv-np-btn {
+  height: 48px;
+  width: 48px;
+  background: transparent;
+  transition: background 160ms ease;
+}
+
+.dv-np-btn.is-large {
+  height: 56px;
+  width: 56px;
+}
+
+.dv-np-btn:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.14);
+}
+
+.dv-np-play {
+  height: 64px;
+  width: 64px;
+  background: #ffffff;
+  color: #0b0b0f;
+  box-shadow: 0 14px 30px -12px rgb(0 0 0 / 0.6);
+  transition: transform 140ms ease;
+}
+
+.dv-np-play.is-large {
+  height: 76px;
+  width: 76px;
+}
+
+.dv-np-play:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.dv-np-mini {
+  height: 36px;
+  width: 36px;
+  background: rgb(255 255 255 / 0.16);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.dv-np-mini:hover {
+  background: rgb(255 255 255 / 0.26);
+}
+
+.dv-np button:disabled,
+.dv-mp button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.dv-np button:focus-visible,
+.dv-mp button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.dv-eq {
+  display: flex;
+  height: 14px;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.dv-eq span {
+  height: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: #ffffff;
+  opacity: 0.85;
+}
+
+.dv-eq.is-on span {
+  animation: dv-eq 900ms ease-in-out infinite;
+}
+
+.dv-eq.is-on span:nth-child(2) {
+  animation-delay: -300ms;
+}
+
+.dv-eq.is-on span:nth-child(3) {
+  animation-delay: -600ms;
+}
+
+.dv-eq.is-on span:nth-child(4) {
+  animation-delay: -150ms;
+}
+
+@keyframes dv-eq {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 14px;
+  }
+}
+
+.dv-mp {
+  position: fixed;
+  inset: 0;
+  /* As the section pages: above the app navigation (170), below panels and sheets (260). */
+  z-index: 200;
+  isolation: isolate;
+  overflow-y: auto;
+  background: #0b0b0f;
+  color: #ffffff;
+  animation: dv-mp-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes dv-mp-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dv-mp-bg {
+  position: fixed;
+  inset: -200px;
+  z-index: -2;
+  filter: blur(70px) saturate(1.6);
+  transform: scale(1.2);
+}
+
+.dv-mp-shade {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.55) 60%, rgb(0 0 0 / 0.7));
+}
+
+.dv-mp-inner {
+  box-sizing: border-box;
+  display: flex;
+  max-width: 1120px;
+  flex-direction: column;
+  gap: 26px;
+  margin: 0 auto;
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 28px calc(40px + env(safe-area-inset-bottom, 0px));
+}
+
+.dv-mp-iconbtn {
+  height: 44px;
+  width: 44px;
+  background: rgb(255 255 255 / 0.16);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.dv-mp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  align-items: start;
+  gap: 40px;
+}
+
+.dv-mp-grid.is-single {
+  grid-template-columns: minmax(0, 420px);
+  justify-content: center;
+}
+
+.dv-mp-left,
+.dv-mp-right {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.dv-mp-left {
+  gap: 22px;
+}
+
+.dv-mp-right {
+  gap: 16px;
+}
+
+.dv-mp-art {
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 26px;
+  box-shadow:
+    0 40px 80px -30px rgb(0 0 0 / 0.8),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+  transition: transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dv-mp-toggle {
+  height: 44px;
+  width: 44px;
+  background: transparent;
+  color: rgb(255 255 255 / 0.7);
+}
+
+.dv-mp-toggle.is-on {
+  background: rgb(255 255 255 / 0.2);
+  color: #ffffff;
+}
+
+.dv-mp-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  border-radius: 20px;
+  background: rgb(255 255 255 / 0.12);
+  padding: 4px;
+  scrollbar-width: none;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.dv-mp-tabs button {
+  height: 40px;
+  flex: 1 0 auto;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  padding: 0 14px;
+  color: rgb(255 255 255 / 0.75);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dv-mp-tabs button.is-on {
+  background: #ffffff;
+  color: #0b0b0f;
+}
+
+.dv-mp-label {
+  padding: 6px 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.dv-mp-group {
+  border-radius: 20px;
+  background: rgb(255 255 255 / 0.1);
+  padding: 0 16px;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.dv-mp-row {
+  display: flex;
+  min-height: 60px;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.dv-mp-row + .dv-mp-row {
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.dv-mp-check {
+  display: flex;
+  height: 24px;
+  width: 24px;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgb(255 255 255 / 0.5);
+  border-radius: 50%;
+  color: transparent;
+}
+
+.dv-mp-check.is-sel {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #0b0b0f;
+}
+
+.dv-mp-pill {
+  height: 40px;
+  border: 0;
+  border-radius: 20px;
+  background: rgb(255 255 255 / 0.14);
+  padding: 0 16px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dv-mp-pill.is-on {
+  background: #ffffff;
+  color: #0b0b0f;
+}
+
+@media (max-width: 760px) {
+  .dv-mp-inner {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .dv-mp-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .dv-mp-art {
+    max-width: 340px;
+    justify-self: center;
+    align-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-eq.is-on span,
+  .dv-mp {
+    animation: none;
+  }
+
+  .dv-np-art,
+  .dv-mp-art {
+    transition: none;
+  }
+}
+
 /* Scenes: a pill with a coloured mark; the scene in place turns light. */
 
 .dv-scene {
