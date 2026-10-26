@@ -13,6 +13,9 @@ export const ACTIVE_ROOM_STORAGE_KEY = 'ha.dashboard.rooms.activeRoomId.v1';
 
 export const ROOM_ENTITY_VISIBILITY_STORAGE_KEY = 'ha.dashboard.rooms.hiddenEntitiesByRoom.v1';
 
+// The devices in evidence in each room, in the order they were chosen (new with the second Rooms page).
+export const ROOM_PINNED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.pinnedEntitiesByRoom.v1';
+
 export function getRoomsRuntimeStorageKey(baseKey: string, runtimeMode: DashboardRuntimeMode) {
   return runtimeMode === 'demo' ? `${baseKey}.demo` : baseKey;
 }
@@ -115,5 +118,21 @@ export function readStoredHiddenRoomEntitiesByRoom(runtimeMode: DashboardRuntime
   }
   return parseHiddenRoomEntitiesByRoom(
     window.localStorage.getItem(getRoomsRuntimeStorageKey(ROOM_ENTITY_VISIBILITY_STORAGE_KEY, runtimeMode)),
+  );
+}
+
+/** Same shape as the hidden devices: room id → entity ids, in order, without repeats. */
+export type PinnedRoomEntitiesByRoom = Record<string, string[]>;
+
+export function parsePinnedRoomEntitiesByRoom(raw: string | null): PinnedRoomEntitiesByRoom {
+  return parseHiddenRoomEntitiesByRoom(raw);
+}
+
+export function readStoredPinnedRoomEntitiesByRoom(runtimeMode: DashboardRuntimeMode) {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  return parsePinnedRoomEntitiesByRoom(
+    window.localStorage.getItem(getRoomsRuntimeStorageKey(ROOM_PINNED_ENTITIES_STORAGE_KEY, runtimeMode)),
   );
 }

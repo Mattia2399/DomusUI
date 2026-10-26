@@ -81,6 +81,7 @@ import {
   createEmptyBuckets,
   fetchRegistrySnapshot,
   filterRoomEntityBuckets,
+  filterRoomTabsByFloor,
   getEntityFriendlyName,
   getRoomSectionEntityIds,
   mergeRoomTabs,
@@ -92,6 +93,9 @@ import {
   toHaRoomTabs,
   toTitleCase,
   uniqueStrings,
+  parseHaFloorEntry,
+  parseHaFloorList,
+  type HaFloorEntry,
   type HaRegistryDeviceEntry,
   type HaRegistryEntityEntry,
   type RegistrySnapshot,
@@ -229,14 +233,6 @@ type HaAreaCreateResult = {
   icon?: unknown;
   picture?: unknown;
   temperature_entity_id?: unknown;
-};
-
-type HaFloorEntry = {
-  floor_id: string;
-  name: string;
-  aliases?: string[];
-  level?: number | null;
-  icon?: string | null;
 };
 
 type FloorDraft = {
@@ -1247,57 +1243,6 @@ function parseHaAreaEntry(payload: unknown): HaArea | null {
   return area;
 }
 
-function parseHaFloorList(payload: unknown): HaFloorEntry[] {
-  if (!Array.isArray(payload)) {
-    return [];
-  }
-  return payload
-    .map((entry): HaFloorEntry | null => {
-      if (!entry || typeof entry !== 'object') {
-        return null;
-      }
-      const record = entry as Record<string, unknown>;
-      const floorId = typeof record.floor_id === 'string' ? record.floor_id.trim() : '';
-      const name = typeof record.name === 'string' ? record.name.trim() : '';
-      const aliases = Array.isArray(record.aliases)
-        ? record.aliases.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-        : undefined;
-      if (!floorId || !name) {
-        return null;
-      }
-      return {
-        floor_id: floorId,
-        name,
-        aliases,
-        level: typeof record.level === 'number' ? record.level : null,
-        icon: typeof record.icon === 'string' ? record.icon : null,
-      } satisfies HaFloorEntry;
-    })
-    .filter((entry): entry is HaFloorEntry => entry !== null);
-}
-
-function parseHaFloorEntry(payload: unknown): HaFloorEntry | null {
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-  const record = payload as Record<string, unknown>;
-  const floorId = typeof record.floor_id === 'string' ? record.floor_id.trim() : '';
-  const name = typeof record.name === 'string' ? record.name.trim() : '';
-  const aliases = Array.isArray(record.aliases)
-    ? record.aliases.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    : undefined;
-  if (!floorId || !name) {
-    return null;
-  }
-  return {
-    floor_id: floorId,
-    name,
-    aliases,
-    level: typeof record.level === 'number' ? record.level : null,
-    icon: typeof record.icon === 'string' ? record.icon : null,
-  };
-}
-
 function RoomIconButton({
   children,
   onClick,
@@ -1617,18 +1562,10 @@ export function RoomsDashboard({
     () => mergeRoomTabs(haRoomTabs, customRoomTabs, runtimeMode),
     [customRoomTabs, haRoomTabs, runtimeMode],
   );
-  const roomTabs = React.useMemo<RoomTab[]>(() => {
-    if (selectedFloorId === 'all') {
-      return allRoomTabs;
-    }
-    return allRoomTabs.filter((tab) => {
-      if (tab.source !== 'ha') {
-        return false;
-      }
-      const area = effectiveHaAreas.find((haArea) => haArea.area_id === tab.id);
-      return area?.floor_id === selectedFloorId;
-    });
-  }, [allRoomTabs, effectiveHaAreas, selectedFloorId]);
+  const roomTabs = React.useMemo<RoomTab[]>(
+    () => filterRoomTabsByFloor(allRoomTabs, effectiveHaAreas, selectedFloorId),
+    [allRoomTabs, effectiveHaAreas, selectedFloorId],
+  );
   const persistedCustomRoomIds = React.useMemo(
     () => new Set(customRooms.map((room) => room.id)),
     [customRooms],

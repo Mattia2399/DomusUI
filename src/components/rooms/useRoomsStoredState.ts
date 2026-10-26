@@ -7,9 +7,12 @@ import {
   readStoredActiveRoomId,
   readStoredCustomRooms,
   readStoredHiddenRoomEntitiesByRoom,
+  readStoredPinnedRoomEntitiesByRoom,
+  ROOM_PINNED_ENTITIES_STORAGE_KEY,
   ROOM_ENTITY_VISIBILITY_STORAGE_KEY,
   type CustomRoomRecord,
   type HiddenRoomEntitiesByRoom,
+  type PinnedRoomEntitiesByRoom,
 } from './roomsStorage';
 
 /*
@@ -73,4 +76,30 @@ export function useRoomsStoredState(runtimeMode: DashboardRuntimeMode, canManage
     activeRoomId,
     setActiveRoomId,
   };
+}
+
+/** The devices in evidence in each room; written by whoever can manage rooms, like the hidden ones. */
+export function useRoomPinnedEntities(runtimeMode: DashboardRuntimeMode, canManageRooms: boolean) {
+  const [pinnedByRoom, setPinnedByRoom] = React.useState<PinnedRoomEntitiesByRoom>(() =>
+    readStoredPinnedRoomEntitiesByRoom(runtimeMode),
+  );
+  const [pinnedRuntime, setPinnedRuntime] = React.useState<DashboardRuntimeMode>(runtimeMode);
+
+  React.useEffect(() => {
+    if (pinnedRuntime === runtimeMode) return;
+    setPinnedByRoom(readStoredPinnedRoomEntitiesByRoom(runtimeMode));
+    setPinnedRuntime(runtimeMode);
+  }, [pinnedRuntime, runtimeMode]);
+
+  React.useEffect(() => {
+    if (!canManageRooms || pinnedRuntime !== runtimeMode || typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(
+      getRoomsRuntimeStorageKey(ROOM_PINNED_ENTITIES_STORAGE_KEY, runtimeMode),
+      JSON.stringify(pinnedByRoom),
+    );
+  }, [canManageRooms, pinnedByRoom, pinnedRuntime, runtimeMode]);
+
+  return { pinnedByRoom, setPinnedByRoom };
 }

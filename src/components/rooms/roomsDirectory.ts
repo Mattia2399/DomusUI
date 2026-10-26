@@ -414,3 +414,81 @@ export async function assignRoomAreaTargets(
     }
   }
 }
+
+/** The floors of Home Assistant, from the floor registry. */
+export type HaFloorEntry = {
+  floor_id: string;
+  name: string;
+  aliases?: string[];
+  level?: number | null;
+  icon?: string | null;
+};
+
+export function parseHaFloorList(payload: unknown): HaFloorEntry[] {
+  if (!Array.isArray(payload)) {
+    return [];
+  }
+  return payload
+    .map((entry): HaFloorEntry | null => {
+      if (!entry || typeof entry !== 'object') {
+        return null;
+      }
+      const record = entry as Record<string, unknown>;
+      const floorId = typeof record.floor_id === 'string' ? record.floor_id.trim() : '';
+      const name = typeof record.name === 'string' ? record.name.trim() : '';
+      const aliases = Array.isArray(record.aliases)
+        ? record.aliases.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+        : undefined;
+      if (!floorId || !name) {
+        return null;
+      }
+      return {
+        floor_id: floorId,
+        name,
+        aliases,
+        level: typeof record.level === 'number' ? record.level : null,
+        icon: typeof record.icon === 'string' ? record.icon : null,
+      } satisfies HaFloorEntry;
+    })
+    .filter((entry): entry is HaFloorEntry => entry !== null);
+}
+
+export function parseHaFloorEntry(payload: unknown): HaFloorEntry | null {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  const record = payload as Record<string, unknown>;
+  const floorId = typeof record.floor_id === 'string' ? record.floor_id.trim() : '';
+  const name = typeof record.name === 'string' ? record.name.trim() : '';
+  const aliases = Array.isArray(record.aliases)
+    ? record.aliases.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    : undefined;
+  if (!floorId || !name) {
+    return null;
+  }
+  return {
+    floor_id: floorId,
+    name,
+    aliases,
+    level: typeof record.level === 'number' ? record.level : null,
+    icon: typeof record.icon === 'string' ? record.icon : null,
+  };
+}
+
+/** The rooms of a floor ('all' for every room); local rooms belong to no floor. */
+export function filterRoomTabsByFloor(
+  tabs: RoomTab[],
+  areas: Array<{ area_id: string; floor_id?: string | null }>,
+  floorId: string,
+): RoomTab[] {
+  if (floorId === 'all') {
+    return tabs;
+  }
+  return tabs.filter((tab) => {
+    if (tab.source !== 'ha') {
+      return false;
+    }
+    const area = areas.find((haArea) => haArea.area_id === tab.id);
+    return area?.floor_id === floorId;
+  });
+}
