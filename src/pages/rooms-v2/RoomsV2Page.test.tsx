@@ -21,13 +21,13 @@ describe('the second Rooms page in the demo', () => {
 
   it('heads the room like the design: summary, rooms as pills, statuses and what it lacks', () => {
     renderDemo();
-    expect(screen.getByText('21,5° · umidità 48% · 3 accessori accesi')).toBeTruthy();
+    expect(screen.getByText('21,5° · umidità 48% · 7 accessori accesi')).toBeTruthy();
     const rooms = screen.getByRole('navigation', { name: 'Stanze' });
     expect(within(rooms).getByRole('button', { name: 'Soggiorno' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Tutta la casa' })).toBeTruthy();
     const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
     expect(statuses).toEqual(['Luci3 accese', 'Umidità48%']);
-    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: clima, dispositivi, sicurezza, media');
+    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: clima, sicurezza, media');
   });
 
   it('changes room from the pills', () => {
@@ -43,6 +43,45 @@ describe('the second Rooms page in the demo', () => {
     fireEvent.click(screen.getByRole('button', { name: /Luce del giardino/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Aggiungi 1' }));
     return screen.findByText('3/7');
+  });
+
+  it('shows the devices of the room by the section rule, with what each is doing', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-devices');
+    expect(within(section).getByText('4/6')).toBeTruthy();
+    // To check first (the console on standby), then those on, then the rest; three cards and "+3".
+    const names = Array.from(section.querySelectorAll('.dv-name')).map((node) => node.textContent);
+    expect(names).toEqual(['Presa console', 'Presa TV', 'Tapparella']);
+    expect(within(section).getByText('In standby · 4 W')).toBeTruthy();
+    expect(within(section).getByText('Aperta 60%')).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Mostra tutti: Dispositivi, altri 3' })).toBeTruthy();
+  });
+
+  it('closes a cover from its icon and shows it straight away', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-devices');
+    fireEvent.click(within(section).getByRole('button', { name: 'Chiudi Tapparella' }));
+    expect(within(section).getByText('In chiusura · 60%')).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Ferma Tapparella' })).toBeTruthy();
+  });
+
+  it('asks before turning off a protected plug', () => {
+    renderDemo();
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Stanze' })).getByRole('button', { name: 'Cucina' }));
+    const section = screen.getByTestId('rooms-v2-devices');
+    fireEvent.click(within(section).getByRole('button', { name: 'Spegni Frigorifero, protetta' }));
+    expect(screen.getByRole('dialog', { name: 'Spegnere Frigorifero?' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Spegni' }));
+    expect(within(section).getByRole('button', { name: 'Accendi Frigorifero, protetta' })).toBeTruthy();
+  });
+
+  it('opens the panel of a fan from its card', () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole('button', { name: /^Mostra tutti: Dispositivi, 6/ }));
+    const page = screen.getByTestId('rooms-v2-section-page');
+    fireEvent.click(within(page).getByRole('button', { name: /^Controlli di Ventilatore/ }));
+    expect(screen.getByRole('slider', { name: 'Velocità Ventilatore' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Notte' })).toBeTruthy();
   });
 
   it('turns every light off', () => {

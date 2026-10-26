@@ -1,9 +1,9 @@
 import type { MockEntityStateMap } from '../../types/ha';
 
 /*
- * The lights of the demo home for the second Rooms page: every kind of light,
- * on and off, one away, and one in no room. They live in the page while the
- * demo runs; nothing reaches Home Assistant.
+ * The demo home of the second Rooms page: every kind of light and device, on
+ * and off, some away, some in no room, as on the design board. They live in
+ * the page while the demo runs; nothing reaches Home Assistant.
  */
 
 const light = (name: string, state: string, attributes: Record<string, unknown> = {}) => ({
@@ -54,3 +54,75 @@ export const DEMO_ROOM_READINGS: Record<string, { temperature?: number; humidity
   'demo-kitchen': { temperature: 22.8, humidity: 55 },
   'demo-bathroom': { temperature: 23.1, humidity: 71 },
 };
+
+const device = (name: string, state: string, attributes: Record<string, unknown> = {}) => ({
+  state,
+  rawAttributes: { friendly_name: name, ...attributes },
+});
+const outlet = { device_class: 'outlet' };
+const power = (watts: number) => device('Potenza', String(watts), { device_class: 'power', unit_of_measurement: 'W' });
+
+export const DEMO_DEVICE_STATES: MockEntityStateMap = {
+  'switch.demo_tv_plug': device('Presa TV', 'on', outlet),
+  'sensor.demo_tv_plug_power': power(86),
+  'switch.demo_console_plug': device('Presa console', 'on', outlet),
+  'sensor.demo_console_plug_power': power(4),
+  'switch.demo_lamp_plug': device('Presa lampada', 'off', outlet),
+  'fan.demo_fan': device('Ventilatore', 'on', {
+    percentage: 66,
+    percentage_step: 33.33,
+    oscillating: true,
+    preset_modes: ['Auto', 'Notte', 'Naturale'],
+    preset_mode: null,
+    supported_features: 11,
+  }),
+  'cover.demo_living_blind': device('Tapparella', 'open', { current_position: 60, current_tilt_position: 40, supported_features: 15 + 128 }),
+  'humidifier.demo_dehumidifier': device('Deumidificatore', 'off', {
+    device_class: 'dehumidifier',
+    current_humidity: 48,
+    humidity: 50,
+    min_humidity: 30,
+    max_humidity: 70,
+    available_modes: ['Normale', 'Auto', 'Notte', 'Biancheria'],
+    mode: 'Auto',
+  }),
+  'switch.demo_fridge': device('Frigorifero', 'on', outlet),
+  'sensor.demo_fridge_power': power(96),
+  'switch.demo_coffee': device('Macchina caffè', 'off', outlet),
+  'sensor.demo_coffee_power': power(0),
+  'fan.demo_hood_fan': device('Cappa', 'off', { percentage: 25, percentage_step: 25, supported_features: 1 }),
+  'cover.demo_bedroom_blind': device('Tapparella', 'closed', { current_position: 0, supported_features: 15 }),
+  'fan.demo_ceiling_fan': device('Ventilatore a soffitto', 'off', {
+    percentage: 40,
+    direction: 'forward',
+    preset_modes: ['Notte'],
+    preset_mode: null,
+    supported_features: 13,
+  }),
+  'input_boolean.demo_do_not_disturb': device('Non disturbare', 'off'),
+  'switch.demo_towel_rail': device('Scaldasalviette', 'on', outlet),
+  'sensor.demo_towel_rail_power': power(420),
+  'switch.demo_garden_plug': device('Presa giardino', 'off', outlet),
+};
+
+export const DEMO_DEVICE_ROOMS: Record<string, string> = {
+  'switch.demo_tv_plug': 'demo-living-room',
+  'switch.demo_console_plug': 'demo-living-room',
+  'switch.demo_lamp_plug': 'demo-living-room',
+  'fan.demo_fan': 'demo-living-room',
+  'cover.demo_living_blind': 'demo-living-room',
+  'humidifier.demo_dehumidifier': 'demo-living-room',
+  'switch.demo_fridge': 'demo-kitchen',
+  'switch.demo_coffee': 'demo-kitchen',
+  'fan.demo_hood_fan': 'demo-kitchen',
+  'cover.demo_bedroom_blind': 'demo-bedroom',
+  'fan.demo_ceiling_fan': 'demo-bedroom',
+  'input_boolean.demo_do_not_disturb': 'demo-bedroom',
+  'switch.demo_towel_rail': 'demo-bathroom',
+};
+
+/** Plugs that ask before turning off in the demo, until the demo is changed. */
+export const DEMO_PROTECTED_ENTITIES = ['switch.demo_fridge'];
+
+export const DEMO_STATES: MockEntityStateMap = { ...DEMO_LIGHT_STATES, ...DEMO_DEVICE_STATES };
+export const DEMO_ROOMS: Record<string, string> = { ...DEMO_LIGHT_ROOMS, ...DEMO_DEVICE_ROOMS };

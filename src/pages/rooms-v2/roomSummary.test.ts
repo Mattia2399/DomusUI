@@ -54,6 +54,7 @@ describe('the head of a room', () => {
     expect(missingSections(bucketRoomEntities(['light.a']))).toEqual(['climate', 'devices', 'security', 'media']);
     expect(missingSections(bucketRoomEntities(['climate.ac', 'switch.plug', 'lock.door', 'media_player.tv']))).toEqual([]);
     expect(missingSections(bucketRoomEntities(['cover.blind', 'camera.door']))).toEqual(['climate', 'media']);
+    expect(missingSections(bucketRoomEntities(['humidifier.dry']))).toEqual(['climate', 'security', 'media']);
   });
 
   it('writes degrees like the design', () => {

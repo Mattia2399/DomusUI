@@ -16,6 +16,9 @@ export const ROOM_ENTITY_VISIBILITY_STORAGE_KEY = 'ha.dashboard.rooms.hiddenEnti
 // The devices in evidence in each room, in the order they were chosen (new with the second Rooms page).
 export const ROOM_PINNED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.pinnedEntitiesByRoom.v1';
 
+// Plugs that ask before turning off, wherever they are (new with the second Rooms page).
+export const PROTECTED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.protectedEntities.v1';
+
 export function getRoomsRuntimeStorageKey(baseKey: string, runtimeMode: DashboardRuntimeMode) {
   return runtimeMode === 'demo' ? `${baseKey}.demo` : baseKey;
 }
@@ -135,4 +138,26 @@ export function readStoredPinnedRoomEntitiesByRoom(runtimeMode: DashboardRuntime
   return parsePinnedRoomEntitiesByRoom(
     window.localStorage.getItem(getRoomsRuntimeStorageKey(ROOM_PINNED_ENTITIES_STORAGE_KEY, runtimeMode)),
   );
+}
+
+/** A list of entity ids, in order, without repeats. */
+export function parseEntityIdList(raw: string | null): string[] {
+  if (!raw) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? uniqueStrings(parsed.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The protected plugs, or null when none were ever saved here. */
+export function readStoredProtectedEntities(runtimeMode: DashboardRuntimeMode): string[] | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const raw = window.localStorage.getItem(getRoomsRuntimeStorageKey(PROTECTED_ENTITIES_STORAGE_KEY, runtimeMode));
+  return raw === null ? null : parseEntityIdList(raw);
 }

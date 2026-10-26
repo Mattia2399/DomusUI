@@ -11,7 +11,14 @@ import {
   type RoomAreaTarget,
   type RoomsApiCall,
 } from '../../components/rooms/roomsDirectory';
-import { useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
+import { useProtectedEntities, useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
+import { LightCard } from '../../components/devices/cards/LightCard';
+import { DeviceCard } from '../../components/devices/cards/DeviceCard';
+import { DevicePanel } from '../../components/devices/panels/DevicePanel';
+import { deviceKindOf, findPowerSensor, isStandby, type DeviceAction, type DeviceModel } from '../../components/devices/model/device';
+import type { LightModel } from '../../components/devices/model/light';
+import type { SectionItem } from '../../components/devices/model/sectionRules';
+import GlassModal from '../../components/ui/GlassModal';
 import { LightPanel } from '../../components/devices/panels/LightPanel';
 import { PanelHost } from '../../components/devices/panels/PanelHost';
 import { lightRgb } from '../../components/devices/model/tileColor';
@@ -25,22 +32,22 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { useAmbient } from '../../theme/ambient/AmbientProvider';
 import { resolveRoomAmbient } from '../../theme/ambient/ambientModel';
 import { useRoomPictureColor } from '../../theme/ambient/roomPictureColor';
-import { DEMO_LIGHT_ROOMS, DEMO_LIGHT_STATES, DEMO_ROOM_READINGS } from './demoLightsFixtures';
+import { DEMO_PROTECTED_ENTITIES, DEMO_ROOM_READINGS, DEMO_ROOMS, DEMO_STATES } from './demoRoomsFixtures';
 import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
 import { RoomHead, type FloorOption, type StatusChip } from './RoomHead';
 import {
   anyMediaPlaying,
   bucketRoomEntities,
   climateGlance,
-  countActiveAccessories,
   formatDegrees,
   missingSections,
   roomIconKind,
   type ClimateGlance,
   type MissingSection,
 } from './roomSummary';
-import { LightsSection, type RoomLightItem } from './LightsSection';
-import { LightsSectionPage, type LightCandidate } from './LightsSectionPage';
+import { RoomSection } from './RoomSection';
+import { SectionPage, type SectionCandidate } from './SectionPage';
+import { useDeviceCommands } from './useDeviceCommands';
 import { useLightCommands } from './useLightCommands';
 import { useRoomsRegistry } from './useRoomsRegistry';
 import './roomsV2.css';
@@ -48,8 +55,9 @@ import './roomsV2.css';
 /*
  * The second Rooms page, on the Rooms board of the design: the head of the
  * room, its sections in two columns where there is room, and what the room
- * still lacks. Lights are done; the other sections show where they will be. Rooms, floors, local rooms and hidden devices are the
- * ones of the Rooms page, from the same storage.
+ * still lacks. Lights and devices are done; the other sections show where
+ * they will be. Rooms, floors, local rooms and hidden devices are the ones of
+ * the Rooms page, from the same storage.
  */
 
 export type RoomsV2PageProps = {
@@ -79,6 +87,25 @@ function usePhoneLayout() {
   }, []);
   return phone;
 }
+
+type RoomLightItem = SectionItem & { model: LightModel };
+type RoomDeviceItem = SectionItem & { model: DeviceModel };
+type SectionKey = 'lights' | 'devices';
+
+const byRoomThenName = (a: SectionCandidate, b: SectionCandidate) =>
+  (a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1;
+
+// The tint of a device panel when the device is on: the colour of its kind, "r g b".
+const DEVICE_TINT: Record<DeviceModel['kind'], string> = {
+  outlet: '48 209 88',
+  switch: '48 209 88',
+  virtual: '48 209 88',
+  fan: '100 210 255',
+  cover: '255 159 10',
+  humidifier: '90 200 250',
+};
+
+const NO_IDS: string[] = [];
 
 const CLIMATE_TONE: Record<ClimateGlance['mode'], string> = {
   off: 'idle',
@@ -177,10 +204,13 @@ export function RoomsV2Page({
     useRoomsStoredState(runtimeMode, canOrganize);
   const { pinnedByRoom, setPinnedByRoom } = useRoomPinnedEntities(runtimeMode, canOrganize);
   const registry = useRoomsRegistry(haConnected, onCallApi);
-  const [demoRoomByLight, setDemoRoomByLight] = React.useState<Record<string, string>>(DEMO_LIGHT_ROOMS);
+  // The demo's plugs ask before turning off until the demo is changed.
+  const { protectedIds, setProtectedIds } = useProtectedEntities(runtimeMode, canOrganize, demo ? DEMO_PROTECTED_ENTITIES : NO_IDS);
+  const [demoRoomByEntity, setDemoRoomByEntity] = React.useState<Record<string, string>>(DEMO_ROOMS);
   const [selectedFloorId, setSelectedFloorId] = React.useState('all');
-  const [sectionOpen, setSectionOpen] = React.useState(false);
-  const [panelLightId, setPanelLightId] = React.useState<string | null>(null);
+  const [sectionOpen, setSectionOpen] = React.useState<SectionKey | null>(null);
+  const [panel, setPanel] = React.useState<{ kind: SectionKey; id: string } | null>(null);
+  const [confirmOffId, setConfirmOffId] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const { locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
@@ -212,53 +242,92 @@ export function RoomsV2Page({
   }, [activeRoomId, roomTabs, setActiveRoomId]);
 
   React.useEffect(() => {
-    setSectionOpen(false);
-    setPanelLightId(null);
+    setSectionOpen(null);
+    setPanel(null);
+    setConfirmOffId(null);
     setAddOpen(false);
     setError(null);
   }, [activeRoom?.id]);
 
-  const states = demo ? DEMO_LIGHT_STATES : haStates;
+  const states = demo ? DEMO_STATES : haStates;
   const lights = useLightCommands({ demo, states, onCallService });
-  const roomOfLight = React.useCallback(
-    (entityId: string): string | null => (demo ? demoRoomByLight[entityId] : registry.entityAreaByEntityId[entityId]) ?? null,
-    [demo, demoRoomByLight, registry.entityAreaByEntityId],
+  const roomOf = React.useCallback(
+    (entityId: string): string | null => (demo ? demoRoomByEntity[entityId] : registry.entityAreaByEntityId[entityId]) ?? null,
+    [demo, demoRoomByEntity, registry.entityAreaByEntityId],
   );
   const lightIds = React.useMemo(() => Object.keys(states).filter((entityId) => entityId.startsWith('light.')), [states]);
+  const deviceIds = React.useMemo(
+    () => Object.keys(states).filter((entityId) => deviceKindOf(entityId, states[entityId]) !== null),
+    [states],
+  );
+  const powerSensorById = React.useMemo(() => {
+    const deviceIdOf = (entityId: string) => registry.registryEntityById.get(entityId)?.deviceId ?? null;
+    const map = new Map<string, string | null>();
+    deviceIds
+      .filter((entityId) => entityId.startsWith('switch.'))
+      .forEach((entityId) => map.set(entityId, findPowerSensor(entityId, states, deviceIdOf)));
+    return map;
+  }, [deviceIds, registry.registryEntityById, states]);
+  const powerSensorOf = React.useCallback((entityId: string) => powerSensorById.get(entityId) ?? null, [powerSensorById]);
+  const devices = useDeviceCommands({ demo, states, onCallService, powerSensorOf });
+  const protectedSet = React.useMemo(() => new Set(protectedIds), [protectedIds]);
 
-  const roomItems = React.useMemo<RoomLightItem[]>(() => {
+  function sectionItems<M>(ids: string[], modelOf: (entityId: string) => M, attention: (model: M) => boolean, active: (model: M) => boolean, name: (model: M) => string) {
     if (!activeRoom) return [];
     const ranks = pinRanks(pinnedByRoom[activeRoom.id] ?? []);
     const hidden = new Set(hiddenRoomEntitiesByRoom[activeRoom.id] ?? []);
-    return lightIds
-      .filter((entityId) => roomOfLight(entityId) === activeRoom.id)
+    return ids
+      .filter((entityId) => roomOf(entityId) === activeRoom.id)
       .map((entityId) => {
-        const model = lights.modelOf(entityId);
+        const model = modelOf(entityId);
         return {
           id: entityId,
-          name: model.name,
+          name: name(model),
           pinRank: ranks.get(entityId) ?? null,
-          needsAttention: !model.available,
-          active: model.available && model.on,
+          needsAttention: attention(model),
+          active: active(model),
           hidden: hidden.has(entityId),
           model,
         };
       });
-  }, [activeRoom, hiddenRoomEntitiesByRoom, lightIds, lights, pinnedByRoom, roomOfLight]);
+  }
 
-  const candidates = React.useMemo<LightCandidate[]>(
-    () =>
-      activeRoom
-        ? lightIds
-            .filter((entityId) => roomOfLight(entityId) !== activeRoom.id)
-            .map((entityId) => {
-              const room = roomOfLight(entityId);
-              return { id: entityId, name: lights.modelOf(entityId).name, roomName: room ? roomNameById.get(room) ?? null : null };
-            })
-            .sort((a, b) => (a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1)
-        : [],
-    [activeRoom, lightIds, lights, roomNameById, roomOfLight],
+  const roomItems: RoomLightItem[] = sectionItems(
+    lightIds,
+    lights.modelOf,
+    (model) => !model.available,
+    (model) => model.available && model.on,
+    (model) => model.name,
   );
+  const deviceItems: RoomDeviceItem[] = sectionItems(
+    deviceIds,
+    devices.modelOf,
+    (model) => !model.available || isStandby(model),
+    (model) => model.available && model.on,
+    (model) => model.name,
+  );
+
+  const candidatesFrom = (ids: string[], nameOf: (entityId: string) => string): SectionCandidate[] =>
+    activeRoom
+      ? ids
+          .filter((entityId) => roomOf(entityId) !== activeRoom.id)
+          .map((entityId) => {
+            const room = roomOf(entityId);
+            return { id: entityId, name: nameOf(entityId), roomName: room ? roomNameById.get(room) ?? null : null };
+          })
+          .sort(byRoomThenName)
+      : [];
+  const candidates = candidatesFrom(lightIds, (entityId) => lights.modelOf(entityId).name);
+  const deviceCandidates = candidatesFrom(deviceIds, (entityId) => devices.modelOf(entityId).name);
+
+  /** Device commands; a protected plug asks before it turns off. */
+  const actOnDevice = (entityId: string, action: DeviceAction) => {
+    if (action.type === 'turn_off' && protectedSet.has(entityId)) {
+      setConfirmOffId(entityId);
+      return;
+    }
+    devices.act(entityId, action);
+  };
 
   const canMove = demo || Boolean(canManageRooms && haConnected && onCallApi && activeRoom?.source === 'ha');
   const moveRooms = React.useMemo(
@@ -269,7 +338,7 @@ export function RoomsV2Page({
   const placeAccessories = async (ids: string[], areaId: string | null) => {
     if (!activeRoom || ids.length === 0) return false;
     if (demo) {
-      setDemoRoomByLight((current) => {
+      setDemoRoomByEntity((current) => {
         const next = { ...current };
         ids.forEach((id) => {
           if (areaId) next[id] = areaId;
@@ -321,17 +390,10 @@ export function RoomsV2Page({
   );
   const roomEntityIds = React.useMemo(() => {
     if (!activeRoom) return [];
-    if (demo) return lightIds.filter((entityId) => roomOfLight(entityId) === activeRoom.id);
+    if (demo) return Object.keys(states).filter((entityId) => roomOf(entityId) === activeRoom.id);
     return Object.keys(haStates).filter((entityId) => registry.entityAreaByEntityId[entityId] === activeRoom.id);
-  }, [activeRoom, demo, haStates, lightIds, registry.entityAreaByEntityId, roomOfLight]);
+  }, [activeRoom, demo, haStates, registry.entityAreaByEntityId, roomOf, states]);
   const buckets = React.useMemo(() => bucketRoomEntities(roomEntityIds), [roomEntityIds]);
-  const lightOn = React.useCallback(
-    (entityId: string) => {
-      const model = lights.modelOf(entityId);
-      return model.available && model.on;
-    },
-    [lights],
-  );
 
   // The glows of the Dynamic background follow the room, as on the Rooms page.
   const pictureColor = useRoomPictureColor(activeArea?.area_id, activeArea?.picture);
@@ -344,7 +406,10 @@ export function RoomsV2Page({
   const readings = demo
     ? (activeRoom && DEMO_ROOM_READINGS[activeRoom.id]) || {}
     : resolveRoomClimateReadings(activeArea, buckets.sensors, haStates);
-  const activeCount = countActiveAccessories(buckets, states, lightOn);
+  const activeCount =
+    roomItems.filter((item) => item.active).length +
+    deviceItems.filter((item) => item.active).length +
+    buckets.medias.filter((entityId) => `${states[entityId]?.state ?? ''}` === 'playing').length;
   const subtitle = [
     typeof readings.temperature === 'number' ? formatDegrees(readings.temperature, locale) : null,
     typeof readings.humidity === 'number' ? dt('humidityPct', { pct: Math.round(readings.humidity) }) : null,
@@ -353,7 +418,7 @@ export function RoomsV2Page({
     .filter(Boolean)
     .join(' · ');
 
-  const climate = climateGlance(buckets, haStates);
+  const climate = climateGlance(buckets, states);
   const litCount = roomItems.filter((item) => item.model.available && item.model.on).length;
   const climateStatus = (glance: ClimateGlance) => {
     const degrees = (value?: number) => (typeof value === 'number' ? formatDegrees(value, locale) : '');
@@ -418,7 +483,12 @@ export function RoomsV2Page({
 
   const addCandidates = React.useMemo<AccessoryCandidate[]>(() => {
     if (!activeRoom) return [];
-    if (demo) return candidates.map((candidate) => ({ ...candidate, kind: dt('chipLights') }));
+    if (demo) {
+      return [
+        ...candidates.map((candidate) => ({ ...candidate, kind: dt('chipLights') })),
+        ...deviceCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionDevices') })),
+      ].sort(byRoomThenName);
+    }
     return Object.keys(haStates)
       .filter((entityId) => ADDABLE_DOMAINS[entityId.split('.')[0]] && registry.entityAreaByEntityId[entityId] !== activeRoom.id)
       .map((entityId) => {
@@ -430,14 +500,80 @@ export function RoomsV2Page({
           kind: dt(ADDABLE_DOMAINS[entityId.split('.')[0]]),
         };
       })
-      .sort((a, b) => ((a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1));
-  }, [activeRoom, candidates, demo, dt, haStates, registry.entityAreaByEntityId, roomNameById]);
+      .sort(byRoomThenName);
+  }, [activeRoom, candidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById]);
   const missing = missingSections(buckets);
   const scenes = buckets.others.filter((entityId) => entityId.startsWith('scene.'));
-  const hasSide = buckets.climates.length > 0 || buckets.sensors.length > 0;
+  const hasClimate = buckets.climates.some((entityId) => entityId.startsWith('climate.'));
+  const hasSide = hasClimate || buckets.sensors.length > 0;
   const hasSecurity = buckets.locks.length > 0 || buckets.cameras.length > 0;
   const hasMedia = buckets.medias.length > 0;
-  const panelModel = panelLightId ? lights.modelOf(panelLightId) : null;
+
+  const renderLight = (item: RoomLightItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
+    <LightCard
+      model={item.model}
+      format="U×2"
+      editing={context.editing}
+      selected={context.selected}
+      onAction={(action) => lights.act(item.id, action)}
+      onOpenPanel={() => setPanel({ kind: 'lights', id: item.id })}
+      onSelect={context.onSelect}
+    />
+  );
+  const renderDevice = (item: RoomDeviceItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
+    <DeviceCard
+      model={item.model}
+      format="U×2"
+      protectedPlug={protectedSet.has(item.id)}
+      editing={context.editing}
+      selected={context.selected}
+      onAction={(action) => actOnDevice(item.id, action)}
+      onOpenPanel={() => setPanel({ kind: 'devices', id: item.id })}
+      onSelect={context.onSelect}
+    />
+  );
+  const sectionHandlers = activeRoom
+    ? {
+        onPin: (ids: string[]) => {
+          setPinnedByRoom((current) => {
+            const next = { ...current, [activeRoom.id]: togglePinned(current[activeRoom.id] ?? [], ids) };
+            if (next[activeRoom.id].length === 0) delete next[activeRoom.id];
+            return next;
+          });
+          // In evidence means visible.
+          setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
+        },
+        onToggleHidden: (ids: string[], hide: boolean) => {
+          if (hide) {
+            setHiddenRoomEntitiesByRoom((current) => ({
+              ...current,
+              [activeRoom.id]: Array.from(new Set([...(current[activeRoom.id] ?? []), ...ids])),
+            }));
+            setPinnedByRoom((current) => withoutIds(current, activeRoom.id, ids));
+          } else {
+            setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
+          }
+        },
+        onMove: async (ids: string[], roomId: string) => {
+          const done = await placeAccessories(ids, roomId);
+          if (done) leaveRoom(ids);
+          return done;
+        },
+        onRemove: async (ids: string[]) => {
+          const done = await placeAccessories(ids, null);
+          if (done) leaveRoom(ids);
+          return done;
+        },
+        onAdd: async (ids: string[]) => {
+          const done = await placeAccessories(ids, activeRoom.id);
+          if (done) setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
+          return done;
+        },
+      }
+    : null;
+  const panelLight = panel?.kind === 'lights' ? lights.modelOf(panel.id) : null;
+  const panelDevice = panel?.kind === 'devices' ? devices.modelOf(panel.id) : null;
+  const confirmDevice = confirmOffId ? devices.modelOf(confirmOffId) : null;
 
   if (roomTabs.length === 0) {
     return (
@@ -477,24 +613,41 @@ export function RoomsV2Page({
           <div className="rv2-columns">
             {hasSide ? (
               <div className="rv2-column-side">
-                {buckets.climates.length > 0 ? <SectionComing id="rv2-climate" title={dt('sectionClimate')} /> : null}
+                {hasClimate ? <SectionComing id="rv2-climate" title={dt('sectionClimate')} /> : null}
                 {buckets.sensors.length > 0 ? <SectionComing id="rv2-environment" title={dt('sectionEnvironment')} /> : null}
               </div>
             ) : null}
             <div className="rv2-column-main">
               {roomItems.length > 0 ? (
-                <LightsSection
+                <RoomSection
+                  id="rv2-lights"
+                  testId="rooms-v2-lights"
+                  title={dt('lights')}
                   items={roomItems}
-                  onAction={lights.act}
-                  onOpenPanel={setPanelLightId}
-                  onOpenPage={() => setSectionOpen(true)}
-                  onTurnOffAll={() => lights.turnOffAll(roomItems.map((item) => item.id))}
+                  count={`${roomItems.filter((item) => item.active).length}/${roomItems.length}`}
+                  moreLabel={dt('moreLights')}
+                  action={
+                    roomItems.some((item) => item.active)
+                      ? { label: dt('lightsOff'), onPress: () => lights.turnOffAll(roomItems.map((item) => item.id)) }
+                      : null
+                  }
+                  renderCard={renderLight}
+                  onOpenPage={() => setSectionOpen('lights')}
                 />
               ) : (
                 <p className="dv-t2 m-0 px-1 text-sm">{dt('noLightsInRoom')}</p>
               )}
-              {buckets.switches.length > 0 || buckets.covers.length > 0 ? (
-                <SectionComing id="rv2-devices" title={dt('sectionDevices')} />
+              {deviceItems.length > 0 ? (
+                <RoomSection
+                  id="rv2-devices"
+                  testId="rooms-v2-devices"
+                  title={dt('sectionDevices')}
+                  items={deviceItems}
+                  count={`${deviceItems.filter((item) => item.active).length}/${deviceItems.length}`}
+                  moreLabel={dt('moreDevices')}
+                  renderCard={renderDevice}
+                  onOpenPage={() => setSectionOpen('devices')}
+                />
               ) : null}
             </div>
           </div>
@@ -524,54 +677,61 @@ export function RoomsV2Page({
         </main>
       </div>
 
-      {sectionOpen && activeRoom ? (
-        <LightsSectionPage
+      {sectionOpen === 'lights' && activeRoom && sectionHandlers ? (
+        <SectionPage
+          title={dt('lights')}
           roomName={activeRoom.name}
           items={roomItems}
+          candidatesEmptyLabel={dt('noCandidates')}
+          renderCard={(item, context) => (
+            <LightCard
+              model={item.model}
+              format="U×2"
+              editing={context.editing}
+              selected={context.selected}
+              hiddenItem={item.hidden}
+              onAction={(action) => lights.act(item.id, action)}
+              onOpenPanel={() => setPanel({ kind: 'lights', id: item.id })}
+              onSelect={context.onSelect}
+            />
+          )}
           canOrganize={canOrganize}
           canMove={canMove}
           busy={busy}
           error={error}
           candidates={candidates}
           rooms={moveRooms}
-          onClose={() => setSectionOpen(false)}
-          onAction={lights.act}
-          onOpenPanel={setPanelLightId}
-          onPin={(ids) => {
-            setPinnedByRoom((current) => {
-              const next = { ...current, [activeRoom.id]: togglePinned(current[activeRoom.id] ?? [], ids) };
-              if (next[activeRoom.id].length === 0) delete next[activeRoom.id];
-              return next;
-            });
-            // In evidence means visible.
-            setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
-          }}
-          onToggleHidden={(ids, hide) => {
-            if (hide) {
-              setHiddenRoomEntitiesByRoom((current) => ({
-                ...current,
-                [activeRoom.id]: Array.from(new Set([...(current[activeRoom.id] ?? []), ...ids])),
-              }));
-              setPinnedByRoom((current) => withoutIds(current, activeRoom.id, ids));
-            } else {
-              setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
-            }
-          }}
-          onMove={async (ids, roomId) => {
-            const done = await placeAccessories(ids, roomId);
-            if (done) leaveRoom(ids);
-            return done;
-          }}
-          onRemove={async (ids) => {
-            const done = await placeAccessories(ids, null);
-            if (done) leaveRoom(ids);
-            return done;
-          }}
-          onAdd={async (ids) => {
-            const done = await placeAccessories(ids, activeRoom.id);
-            if (done) setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
-            return done;
-          }}
+          onClose={() => setSectionOpen(null)}
+          {...sectionHandlers}
+        />
+      ) : null}
+      {sectionOpen === 'devices' && activeRoom && sectionHandlers ? (
+        <SectionPage
+          title={dt('sectionDevices')}
+          roomName={activeRoom.name}
+          items={deviceItems}
+          candidatesEmptyLabel={dt('noDeviceCandidates')}
+          renderCard={(item, context) => (
+            <DeviceCard
+              model={item.model}
+              format="U×2"
+              protectedPlug={protectedSet.has(item.id)}
+              editing={context.editing}
+              selected={context.selected}
+              hiddenItem={item.hidden}
+              onAction={(action) => actOnDevice(item.id, action)}
+              onOpenPanel={() => setPanel({ kind: 'devices', id: item.id })}
+              onSelect={context.onSelect}
+            />
+          )}
+          canOrganize={canOrganize}
+          canMove={canMove}
+          busy={busy}
+          error={error}
+          candidates={deviceCandidates}
+          rooms={moveRooms}
+          onClose={() => setSectionOpen(null)}
+          {...sectionHandlers}
         />
       ) : null}
 
@@ -592,20 +752,72 @@ export function RoomsV2Page({
 
       <PanelHost
         presentation={phone ? 'sheet' : 'dialog'}
-        isOpen={Boolean(panelModel)}
-        onClose={() => setPanelLightId(null)}
-        title={panelModel?.name ?? ''}
-        tintRgb={panelModel && panelModel.on && panelModel.available ? lightRgb(panelModel).join(' ') : null}
+        isOpen={Boolean(panelLight)}
+        onClose={() => setPanel(null)}
+        title={panelLight?.name ?? ''}
+        tintRgb={panelLight && panelLight.on && panelLight.available ? lightRgb(panelLight).join(' ') : null}
       >
-        {panelModel ? (
+        {panelLight ? (
           <LightPanel
-            model={panelModel}
+            model={panelLight}
             roomName={activeRoom?.name}
-            onAction={(action) => lights.act(panelModel.entityId, action)}
-            onClose={() => setPanelLightId(null)}
+            onAction={(action) => lights.act(panelLight.entityId, action)}
+            onClose={() => setPanel(null)}
           />
         ) : null}
       </PanelHost>
+
+      <PanelHost
+        presentation={phone ? 'sheet' : 'dialog'}
+        isOpen={Boolean(panelDevice)}
+        onClose={() => setPanel(null)}
+        title={panelDevice?.name ?? ''}
+        tintRgb={panelDevice && panelDevice.on && panelDevice.available ? DEVICE_TINT[panelDevice.kind] : null}
+        softTint
+      >
+        {panelDevice ? (
+          <DevicePanel
+            model={panelDevice}
+            roomName={activeRoom?.name}
+            protectedPlug={protectedSet.has(panelDevice.entityId)}
+            onToggleProtected={
+              canOrganize && (panelDevice.kind === 'outlet' || panelDevice.kind === 'switch')
+                ? (value) =>
+                    setProtectedIds((current) =>
+                      value ? Array.from(new Set([...current, panelDevice.entityId])) : current.filter((id) => id !== panelDevice.entityId),
+                    )
+                : undefined
+            }
+            onAction={(action) => actOnDevice(panelDevice.entityId, action)}
+            onClose={() => setPanel(null)}
+          />
+        ) : null}
+      </PanelHost>
+
+      <GlassModal
+        isOpen={Boolean(confirmDevice)}
+        onClose={() => setConfirmOffId(null)}
+        title={confirmDevice ? dt('confirmOffTitle', { name: confirmDevice.name }) : ''}
+        description={dt('confirmOffText')}
+        size="sm"
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <button type="button" className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold" onClick={() => setConfirmOffId(null)}>
+              {dt('cancel')}
+            </button>
+            <button
+              type="button"
+              className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold text-[color:var(--dv-red)]"
+              onClick={() => {
+                if (confirmOffId) devices.act(confirmOffId, { type: 'turn_off' });
+                setConfirmOffId(null);
+              }}
+            >
+              {dt('turnOffShort')}
+            </button>
+          </div>
+        }
+      />
     </div>
   );
 }

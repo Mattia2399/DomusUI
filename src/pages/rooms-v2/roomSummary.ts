@@ -76,8 +76,10 @@ export type MissingSection = 'climate' | 'devices' | 'security' | 'media';
 /** The kinds of accessory the room has none of yet, in the order the page shows them. */
 export function missingSections(buckets: RoomEntityBuckets): MissingSection[] {
   const missing: MissingSection[] = [];
-  if (buckets.climates.length === 0) missing.push('climate');
-  if (buckets.switches.length === 0 && buckets.covers.length === 0) missing.push('devices');
+  // Humidifiers sit with the climate entities in the buckets, but they are devices.
+  const humidifiers = buckets.climates.filter((entityId) => entityId.startsWith('humidifier.'));
+  if (buckets.climates.length === humidifiers.length) missing.push('climate');
+  if (buckets.switches.length === 0 && buckets.covers.length === 0 && humidifiers.length === 0) missing.push('devices');
   if (buckets.locks.length === 0 && buckets.cameras.length === 0) missing.push('security');
   if (buckets.medias.length === 0) missing.push('media');
   return missing;

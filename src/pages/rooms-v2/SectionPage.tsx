@@ -2,29 +2,28 @@ import React from 'react';
 import { ChevronLeft, Eye, EyeOff, MapPinHouse, Plus, Search, Star, StarOff, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassBottomSheet from '../../components/ui/GlassBottomSheet';
-import { LightCard } from '../../components/devices/cards/LightCard';
-import type { LightAction } from '../../components/devices/model/light';
-import { groupSectionPage } from '../../components/devices/model/sectionRules';
+import { groupSectionPage, type SectionItem } from '../../components/devices/model/sectionRules';
 import { useDevicesTranslations } from '../../i18n/devicesTranslations';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { RoomLightItem } from './LightsSection';
+import type { SectionCardContext } from './RoomSection';
 import { AddAccessoriesSheet, SelectionMark, type AccessoryCandidate } from './AddAccessoriesSheet';
 
-export type LightCandidate = AccessoryCandidate;
+export type SectionCandidate = AccessoryCandidate;
 export type RoomChoice = { id: string; name: string };
 
-export type LightsSectionPageProps = {
+export type SectionPageProps<T extends SectionItem> = {
+  title: string;
   roomName: string;
-  items: RoomLightItem[];
+  items: T[];
+  candidatesEmptyLabel: string;
+  renderCard: (item: T, context: SectionCardContext) => React.ReactNode;
   canOrganize: boolean;
   canMove: boolean;
   busy: boolean;
   error: string | null;
-  candidates: LightCandidate[];
+  candidates: SectionCandidate[];
   rooms: RoomChoice[];
   onClose: () => void;
-  onAction: (entityId: string, action: LightAction) => void;
-  onOpenPanel: (entityId: string) => void;
   onPin: (ids: string[]) => void;
   onToggleHidden: (ids: string[], hide: boolean) => void;
   onMove: (ids: string[], roomId: string) => Promise<boolean>;
@@ -34,10 +33,13 @@ export type LightsSectionPageProps = {
 
 type Sheet = 'add' | 'move' | 'remove' | null;
 
-/** Every light of the room: search, the three groups, and Edit to organise them. */
-export function LightsSectionPage({
+/** Every device of a section of the room: search, the three groups, and Edit to organise them. */
+export function SectionPage<T extends SectionItem>({
+  title,
   roomName,
   items,
+  candidatesEmptyLabel,
+  renderCard,
   canOrganize,
   canMove,
   busy,
@@ -45,14 +47,12 @@ export function LightsSectionPage({
   candidates,
   rooms,
   onClose,
-  onAction,
-  onOpenPanel,
   onPin,
   onToggleHidden,
   onMove,
   onRemove,
   onAdd,
-}: LightsSectionPageProps) {
+}: SectionPageProps<T>) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
   const [query, setQuery] = React.useState('');
@@ -60,7 +60,6 @@ export function LightsSectionPage({
   const [selected, setSelected] = React.useState<Record<string, boolean>>({});
   const [sheet, setSheet] = React.useState<Sheet>(null);
   const [moveTo, setMoveTo] = React.useState<string | null>(null);
-  const title = dt('lights');
   const groups = groupSectionPage(items, query, locale);
   const ordered = [...groups.pinned, ...groups.others, ...groups.hidden];
   const selection = ordered.filter((item) => selected[item.id]);
@@ -77,9 +76,15 @@ export function LightsSectionPage({
     .filter(Boolean)
     .join(' · ');
 
+  const pageRef = React.useRef<HTMLDivElement | null>(null);
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !sheet) onClose();
+      if (event.key !== 'Escape' || sheet) return;
+      // A panel or sheet open above the page closes on its own; the page stays.
+      const above = Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some(
+        (dialog) => dialog !== pageRef.current,
+      );
+      if (!above) onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -91,14 +96,14 @@ export function LightsSectionPage({
     setSheet(null);
     clearSelection();
   };
-  const groupList: Array<{ key: string; label: string; items: RoomLightItem[] }> = [
+  const groupList: Array<{ key: string; label: string; items: T[] }> = [
     { key: 'pinned', label: dt('pinned'), items: groups.pinned },
     { key: 'others', label: groups.pinned.length ? dt('others') : dt('all'), items: groups.others },
     { key: 'hidden', label: dt('hiddenInRoom'), items: groups.hidden },
   ].filter((group) => group.items.length > 0);
 
   return (
-    <div className="rv2-page" role="dialog" aria-modal="true" aria-labelledby="rv2-page-title" data-testid="rooms-v2-section-page">
+    <div ref={pageRef} className="rv2-page" role="dialog" aria-modal="true" aria-labelledby="rv2-page-title" data-testid="rooms-v2-section-page">
       <div className="rv2-page-inner">
         <div className="flex items-center justify-between gap-3">
           <button type="button" className="dv-glass dv-round" aria-label={dt('back')} onClick={onClose}>
@@ -150,17 +155,13 @@ export function LightsSectionPage({
               </h2>
               <div className="rv2-grid">
                 {group.items.map((item) => (
-                  <LightCard
-                    key={item.id}
-                    model={item.model}
-                    format="U×2"
-                    editing={editing}
-                    selected={Boolean(selected[item.id])}
-                    hiddenItem={item.hidden}
-                    onAction={(action) => onAction(item.id, action)}
-                    onOpenPanel={() => onOpenPanel(item.id)}
-                    onSelect={() => setSelected((current) => ({ ...current, [item.id]: !current[item.id] }))}
-                  />
+                  <React.Fragment key={item.id}>
+                    {renderCard(item, {
+                      editing,
+                      selected: Boolean(selected[item.id]),
+                      onSelect: () => setSelected((current) => ({ ...current, [item.id]: !current[item.id] })),
+                    })}
+                  </React.Fragment>
                 ))}
               </div>
             </section>
@@ -247,7 +248,7 @@ export function LightsSectionPage({
         isOpen={sheet === 'add'}
         title={dt('addTo', { section: title })}
         candidates={candidates}
-        emptyLabel={dt('noCandidates')}
+        emptyLabel={candidatesEmptyLabel}
         busy={busy}
         onClose={() => setSheet(null)}
         onAdd={onAdd}
@@ -317,4 +318,4 @@ export function LightsSectionPage({
   );
 }
 
-export default LightsSectionPage;
+export default SectionPage;
