@@ -1,11 +1,11 @@
 import React from 'react';
-import { House } from 'lucide-react';
-import GlassDropdown, { type GlassDropdownOption } from '../../components/ui/GlassDropdown';
-import { RoomsTopTab } from '../../components/rooms/RoomsTopTab';
+import { ChevronRight, House, Plus } from 'lucide-react';
 import {
   assignRoomAreaTargets,
   filterRoomTabsByFloor,
+  getEntityFriendlyName,
   mergeRoomTabs,
+  resolveRoomClimateReadings,
   toCustomRoomTabs,
   toHaRoomTabs,
   type RoomAreaTarget,
@@ -21,7 +21,24 @@ import type { MockEntityStateMap } from '../../types/ha';
 import type { DashboardRuntimeMode } from '../../security/dashboardAccess';
 import { useDevicesTranslations } from '../../i18n/devicesTranslations';
 import { useRoomsTranslations } from '../../i18n/roomsTranslations';
-import { DEMO_LIGHT_ROOMS, DEMO_LIGHT_STATES } from './demoLightsFixtures';
+import { useI18n } from '../../i18n/I18nProvider';
+import { useAmbient } from '../../theme/ambient/AmbientProvider';
+import { resolveRoomAmbient } from '../../theme/ambient/ambientModel';
+import { useRoomPictureColor } from '../../theme/ambient/roomPictureColor';
+import { DEMO_LIGHT_ROOMS, DEMO_LIGHT_STATES, DEMO_ROOM_READINGS } from './demoLightsFixtures';
+import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
+import { RoomHead, type FloorOption, type StatusChip } from './RoomHead';
+import {
+  anyMediaPlaying,
+  bucketRoomEntities,
+  climateGlance,
+  countActiveAccessories,
+  formatDegrees,
+  missingSections,
+  roomIconKind,
+  type ClimateGlance,
+  type MissingSection,
+} from './roomSummary';
 import { LightsSection, type RoomLightItem } from './LightsSection';
 import { LightsSectionPage, type LightCandidate } from './LightsSectionPage';
 import { useLightCommands } from './useLightCommands';
@@ -29,9 +46,9 @@ import { useRoomsRegistry } from './useRoomsRegistry';
 import './roomsV2.css';
 
 /*
- * The second Rooms page, first slice: the room, its selector and the Lights
- * section with its page. The other sections follow; until then a quiet line
- * stands in for them. Rooms, floors, local rooms and hidden devices are the
+ * The second Rooms page, on the Rooms board of the design: the head of the
+ * room, its sections in two columns where there is room, and what the room
+ * still lacks. Lights are done; the other sections show where they will be. Rooms, floors, local rooms and hidden devices are the
  * ones of the Rooms page, from the same storage.
  */
 
@@ -61,6 +78,74 @@ function usePhoneLayout() {
     return () => query.removeEventListener('change', update);
   }, []);
   return phone;
+}
+
+const CLIMATE_TONE: Record<ClimateGlance['mode'], string> = {
+  off: 'idle',
+  heat: 'heat',
+  cool: 'cool',
+  heat_cool: 'auto',
+  dry: 'dry',
+  fan_only: 'fan',
+};
+
+// Accessories that can be brought into a room from the head of the page, by the section they go to.
+const ADDABLE_DOMAINS: Record<string, 'chipLights' | 'sectionDevices' | 'sectionClimate' | 'sectionMedia' | 'sectionSecurity'> = {
+  light: 'chipLights',
+  switch: 'sectionDevices',
+  input_boolean: 'sectionDevices',
+  fan: 'sectionDevices',
+  cover: 'sectionDevices',
+  humidifier: 'sectionDevices',
+  climate: 'sectionClimate',
+  media_player: 'sectionMedia',
+  lock: 'sectionSecurity',
+  camera: 'sectionSecurity',
+};
+
+const MISSING_KEY: Record<MissingSection, 'missingClimate' | 'missingDevices' | 'missingSecurity' | 'missingMedia'> = {
+  climate: 'missingClimate',
+  devices: 'missingDevices',
+  security: 'missingSecurity',
+  media: 'missingMedia',
+};
+
+/** Where a section will be, until it is built. */
+function SectionComing({ id, title }: { id: string; title: string }) {
+  const dt = useDevicesTranslations();
+  return (
+    <section id={id} aria-labelledby={`${id}-title`} className="flex min-w-0 flex-col gap-3" data-testid={`${id}-coming`}>
+      <h2 id={`${id}-title`} className="rv2-section-heading flex min-h-11 items-center px-1">
+        {title}
+      </h2>
+      <p className="dv-glass dv-t2 m-0 rounded-[20px] px-4 py-3.5 text-sm font-medium">{dt('sectionComing')}</p>
+    </section>
+  );
+}
+
+/** What the room still lacks; it opens the add sheet when accessories can be brought in. */
+function AddAccessoriesRow({ label, detail, onOpen }: { label: string; detail: string; onOpen?: () => void }) {
+  const content = (
+    <>
+      <span className="dv-icon-button pointer-events-none !h-10 !w-10" aria-hidden="true">
+        <Plus size={20} strokeWidth={2.2} />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-[15px] font-semibold">{label}</span>
+        <span className="dv-t2 text-[13px] font-medium">{detail}</span>
+      </span>
+      {onOpen ? <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" className="dv-t3" /> : null}
+    </>
+  );
+  return onOpen ? (
+    <button type="button" className="dv-glass rv2-add-row" onClick={onOpen} data-testid="rooms-v2-add-row">
+      {content}
+    </button>
+  ) : (
+    <div className="dv-glass rv2-add-row" data-testid="rooms-v2-add-row">
+      {content}
+    </div>
+  );
 }
 
 function withoutIds(byRoom: Record<string, string[]>, roomId: string, ids: string[]) {
@@ -96,6 +181,8 @@ export function RoomsV2Page({
   const [selectedFloorId, setSelectedFloorId] = React.useState('all');
   const [sectionOpen, setSectionOpen] = React.useState(false);
   const [panelLightId, setPanelLightId] = React.useState<string | null>(null);
+  const [addOpen, setAddOpen] = React.useState(false);
+  const { locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -127,6 +214,7 @@ export function RoomsV2Page({
   React.useEffect(() => {
     setSectionOpen(false);
     setPanelLightId(null);
+    setAddOpen(false);
     setError(null);
   }, [activeRoom?.id]);
 
@@ -178,7 +266,7 @@ export function RoomsV2Page({
     [activeRoom?.id, allRoomTabs, demo],
   );
 
-  const placeLights = async (ids: string[], areaId: string | null) => {
+  const placeAccessories = async (ids: string[], areaId: string | null) => {
     if (!activeRoom || ids.length === 0) return false;
     if (demo) {
       setDemoRoomByLight((current) => {
@@ -192,7 +280,7 @@ export function RoomsV2Page({
       return true;
     }
     if (!onCallApi) return false;
-    // A light that only follows its device leaves the room with the device.
+    // An accessory that only follows its device leaves the room with the device.
     const targets: RoomAreaTarget[] = ids.map((id) => {
       const entry = registry.registryEntityById.get(id);
       return areaId === null && entry?.deviceId && !entry.areaId
@@ -227,10 +315,128 @@ export function RoomsV2Page({
     setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
   };
 
-  const floorOptions = React.useMemo<GlassDropdownOption[]>(
-    () => [{ id: 'all', name: rt('allFloors') }, ...registry.floors.map((floor) => ({ id: floor.floor_id, name: floor.name }))],
-    [registry.floors, rt],
+  const activeArea = React.useMemo(
+    () => (activeRoom?.source === 'ha' ? areas.find((area) => area.area_id === activeRoom.id) ?? null : null),
+    [activeRoom, areas],
   );
+  const roomEntityIds = React.useMemo(() => {
+    if (!activeRoom) return [];
+    if (demo) return lightIds.filter((entityId) => roomOfLight(entityId) === activeRoom.id);
+    return Object.keys(haStates).filter((entityId) => registry.entityAreaByEntityId[entityId] === activeRoom.id);
+  }, [activeRoom, demo, haStates, lightIds, registry.entityAreaByEntityId, roomOfLight]);
+  const buckets = React.useMemo(() => bucketRoomEntities(roomEntityIds), [roomEntityIds]);
+  const lightOn = React.useCallback(
+    (entityId: string) => {
+      const model = lights.modelOf(entityId);
+      return model.available && model.on;
+    },
+    [lights],
+  );
+
+  // The glows of the Dynamic background follow the room, as on the Rooms page.
+  const pictureColor = useRoomPictureColor(activeArea?.area_id, activeArea?.picture);
+  useAmbient(
+    activeRoom
+      ? resolveRoomAmbient({ id: activeRoom.id, name: activeRoom.name, icon: activeArea?.icon, picture: activeArea?.picture }, pictureColor)
+      : null,
+  );
+
+  const readings = demo
+    ? (activeRoom && DEMO_ROOM_READINGS[activeRoom.id]) || {}
+    : resolveRoomClimateReadings(activeArea, buckets.sensors, haStates);
+  const activeCount = countActiveAccessories(buckets, states, lightOn);
+  const subtitle = [
+    typeof readings.temperature === 'number' ? formatDegrees(readings.temperature, locale) : null,
+    typeof readings.humidity === 'number' ? dt('humidityPct', { pct: Math.round(readings.humidity) }) : null,
+    activeCount === 0 ? dt('activeNone') : activeCount === 1 ? dt('activeOne') : dt('activeMany', { count: activeCount }),
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+  const climate = climateGlance(buckets, haStates);
+  const litCount = roomItems.filter((item) => item.model.available && item.model.on).length;
+  const climateStatus = (glance: ClimateGlance) => {
+    const degrees = (value?: number) => (typeof value === 'number' ? formatDegrees(value, locale) : '');
+    if (glance.mode === 'off') return dt('climateOff');
+    if (glance.mode === 'heat') return glance.target !== undefined ? dt('climateHeatTo', { t: degrees(glance.target) }) : dt('sectionClimate');
+    if (glance.mode === 'cool') return glance.target !== undefined ? dt('climateCoolTo', { t: degrees(glance.target) }) : dt('sectionClimate');
+    if (glance.mode === 'heat_cool') {
+      return glance.low !== undefined && glance.high !== undefined
+        ? dt('climateAutoRange', { low: degrees(glance.low).replace('°', ''), high: degrees(glance.high) })
+        : dt('climateAuto');
+    }
+    return glance.mode === 'dry' ? dt('climateDry') : dt('climateFan');
+  };
+  const chips: StatusChip[] = [
+    ...(climate
+      ? [{ key: 'climate' as const, title: dt('chipClimate'), status: climateStatus(climate), tone: CLIMATE_TONE[climate.mode], target: 'rv2-climate' }]
+      : []),
+    ...(roomItems.length > 0
+      ? [
+          {
+            key: 'lights' as const,
+            title: dt('chipLights'),
+            status: litCount === 0 ? dt('lightsAllOff') : litCount === 1 ? dt('lightsOnOne') : dt('lightsOnMany', { count: litCount }),
+            tone: litCount > 0 ? 'light' : 'idle',
+            target: 'rv2-lights',
+          },
+        ]
+      : []),
+    ...(typeof readings.humidity === 'number'
+      ? [
+          {
+            key: 'humidity' as const,
+            title: dt('chipHumidity'),
+            status: `${Math.round(readings.humidity)}%`,
+            tone: 'humidity',
+            target: buckets.sensors.length > 0 ? 'rv2-environment' : null,
+          },
+        ]
+      : []),
+    ...(anyMediaPlaying(buckets, haStates)
+      ? [{ key: 'media' as const, title: dt('chipMedia'), status: dt('playing'), tone: 'media', target: 'rv2-media' }]
+      : []),
+  ];
+
+  const floorOptions = React.useMemo<FloorOption[]>(
+    () => [
+      { id: 'all', name: dt('wholeHome'), roomCount: allRoomTabs.length },
+      ...registry.floors.map((floor) => ({
+        id: floor.floor_id,
+        name: floor.name,
+        roomCount: areas.filter((area) => area.floor_id === floor.floor_id).length,
+      })),
+    ],
+    [allRoomTabs.length, areas, dt, registry.floors],
+  );
+  const pills = roomTabs.map((tab) => ({
+    id: tab.id,
+    name: tab.name,
+    icon: roomIconKind(areas.find((area) => area.area_id === tab.id)?.icon, tab.name),
+    alert: false,
+  }));
+
+  const addCandidates = React.useMemo<AccessoryCandidate[]>(() => {
+    if (!activeRoom) return [];
+    if (demo) return candidates.map((candidate) => ({ ...candidate, kind: dt('chipLights') }));
+    return Object.keys(haStates)
+      .filter((entityId) => ADDABLE_DOMAINS[entityId.split('.')[0]] && registry.entityAreaByEntityId[entityId] !== activeRoom.id)
+      .map((entityId) => {
+        const room = registry.entityAreaByEntityId[entityId];
+        return {
+          id: entityId,
+          name: getEntityFriendlyName(entityId, haStates[entityId]),
+          roomName: room ? roomNameById.get(room) ?? null : null,
+          kind: dt(ADDABLE_DOMAINS[entityId.split('.')[0]]),
+        };
+      })
+      .sort((a, b) => ((a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1));
+  }, [activeRoom, candidates, demo, dt, haStates, registry.entityAreaByEntityId, roomNameById]);
+  const missing = missingSections(buckets);
+  const scenes = buckets.others.filter((entityId) => entityId.startsWith('scene.'));
+  const hasSide = buckets.climates.length > 0 || buckets.sensors.length > 0;
+  const hasSecurity = buckets.locks.length > 0 || buckets.cameras.length > 0;
+  const hasMedia = buckets.medias.length > 0;
   const panelModel = panelLightId ? lights.modelOf(panelLightId) : null;
 
   if (roomTabs.length === 0) {
@@ -252,47 +458,69 @@ export function RoomsV2Page({
   return (
     <div className="rooms-dashboard dashboard-page-scroll" data-testid="rooms-v2">
       <div className="dashboard-page-content dashboard-page-content-wide min-w-0 max-w-full">
-        <main className="flex min-w-0 max-w-full flex-col gap-7 pb-10 text-[color:var(--dv-text)]">
-          <header className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div className="flex min-w-0 flex-col gap-2">
-              <h1 className="dashboard-page-title truncate pb-[0.14em]" aria-live="polite">
-                {activeRoom?.name}
-              </h1>
-              <nav aria-label={rt('selectRoom')} className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto pb-1 hide-scrollbar">
-                {roomTabs
-                  .filter((tab) => tab.id !== activeRoom?.id)
-                  .map((tab) => (
-                    <RoomsTopTab key={tab.id} tab={tab} isActive={false} onClick={() => setActiveRoomId(tab.id)} />
-                  ))}
-              </nav>
-            </div>
-            {registry.floors.length > 0 ? (
-              <GlassDropdown
-                size="compact"
-                ariaLabel={rt('floors')}
-                options={floorOptions}
-                selected={floorOptions.find((option) => option.id === selectedFloorId) ?? floorOptions[0]}
-                onChange={(option) => setSelectedFloorId(option.id)}
-                className="w-full sm:w-56"
-              />
+        <main className="rv2-main">
+          <RoomHead
+            name={activeRoom?.name ?? ''}
+            subtitle={subtitle}
+            floors={floorOptions}
+            selectedFloorId={selectedFloorId}
+            onSelectFloor={setSelectedFloorId}
+            rooms={pills}
+            activeRoomId={activeRoom?.id ?? ''}
+            onSelectRoom={setActiveRoomId}
+            chips={chips}
+            onAdd={canMove ? () => setAddOpen(true) : undefined}
+          />
+
+          {scenes.length > 0 ? <SectionComing id="rv2-scenes" title={dt('sectionScenes')} /> : null}
+
+          <div className="rv2-columns">
+            {hasSide ? (
+              <div className="rv2-column-side">
+                {buckets.climates.length > 0 ? <SectionComing id="rv2-climate" title={dt('sectionClimate')} /> : null}
+                {buckets.sensors.length > 0 ? <SectionComing id="rv2-environment" title={dt('sectionEnvironment')} /> : null}
+              </div>
             ) : null}
-          </header>
+            <div className="rv2-column-main">
+              {roomItems.length > 0 ? (
+                <LightsSection
+                  items={roomItems}
+                  onAction={lights.act}
+                  onOpenPanel={setPanelLightId}
+                  onOpenPage={() => setSectionOpen(true)}
+                  onTurnOffAll={() => lights.turnOffAll(roomItems.map((item) => item.id))}
+                />
+              ) : (
+                <p className="dv-t2 m-0 px-1 text-sm">{dt('noLightsInRoom')}</p>
+              )}
+              {buckets.switches.length > 0 || buckets.covers.length > 0 ? (
+                <SectionComing id="rv2-devices" title={dt('sectionDevices')} />
+              ) : null}
+            </div>
+          </div>
 
-          {roomItems.length > 0 ? (
-            <LightsSection
-              items={roomItems}
-              onAction={lights.act}
-              onOpenPanel={setPanelLightId}
-              onOpenPage={() => setSectionOpen(true)}
-              onTurnOffAll={() => lights.turnOffAll(roomItems.map((item) => item.id))}
+          {hasSecurity || hasMedia ? (
+            <div className="rv2-row-wrap">
+              {hasSecurity ? (
+                <div className="min-w-0 flex-[1_1_440px]">
+                  <SectionComing id="rv2-security" title={dt('sectionSecurity')} />
+                </div>
+              ) : null}
+              {hasMedia ? (
+                <div className="min-w-0 flex-[1_1_320px]">
+                  <SectionComing id="rv2-media" title={dt('sectionMedia')} />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {missing.length > 0 ? (
+            <AddAccessoriesRow
+              label={dt('addAccessories')}
+              detail={dt('missingIn', { list: missing.map((key) => dt(MISSING_KEY[key])).join(', ') })}
+              onOpen={canMove ? () => setAddOpen(true) : undefined}
             />
-          ) : (
-            <p className="dv-t2 m-0 text-sm">{dt('noLightsInRoom')}</p>
-          )}
-
-          <p className="dv-glass dv-t2 m-0 rounded-[18px] px-4 py-3.5 text-sm font-medium" data-testid="rooms-v2-placeholder">
-            {dt('comingSoon', { sections: dt('comingSoonSections') })}
-          </p>
+          ) : null}
         </main>
       </div>
 
@@ -330,22 +558,37 @@ export function RoomsV2Page({
             }
           }}
           onMove={async (ids, roomId) => {
-            const done = await placeLights(ids, roomId);
+            const done = await placeAccessories(ids, roomId);
             if (done) leaveRoom(ids);
             return done;
           }}
           onRemove={async (ids) => {
-            const done = await placeLights(ids, null);
+            const done = await placeAccessories(ids, null);
             if (done) leaveRoom(ids);
             return done;
           }}
           onAdd={async (ids) => {
-            const done = await placeLights(ids, activeRoom.id);
+            const done = await placeAccessories(ids, activeRoom.id);
             if (done) setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
             return done;
           }}
         />
       ) : null}
+
+      <AddAccessoriesSheet
+        isOpen={addOpen}
+        title={dt('addAccessories')}
+        candidates={addCandidates}
+        emptyLabel={dt('noCandidates')}
+        busy={busy}
+        onClose={() => setAddOpen(false)}
+        onAdd={async (ids) => {
+          if (!activeRoom) return false;
+          const done = await placeAccessories(ids, activeRoom.id);
+          if (done) setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
+          return done;
+        }}
+      />
 
       <PanelHost
         presentation={phone ? 'sheet' : 'dialog'}

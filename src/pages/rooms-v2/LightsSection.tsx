@@ -29,7 +29,7 @@ export function LightsSection({
   const title = dt('lights');
 
   return (
-    <section aria-labelledby="rv2-lights-title" className="flex flex-col gap-3" data-testid="rooms-v2-lights">
+    <section id="rv2-lights" aria-labelledby="rv2-lights-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-v2-lights">
       <div className="flex min-h-11 items-center justify-between gap-3">
         <h2 id="rv2-lights-title" className="m-0 text-[21px] font-bold tracking-[-0.02em]">
           <button

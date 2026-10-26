@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ChevronLeft, Eye, EyeOff, MapPinHouse, Plus, Search, Star, StarOff, Trash2 } from 'lucide-react';
+import { ChevronLeft, Eye, EyeOff, MapPinHouse, Plus, Search, Star, StarOff, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassBottomSheet from '../../components/ui/GlassBottomSheet';
 import { LightCard } from '../../components/devices/cards/LightCard';
@@ -8,8 +8,9 @@ import { groupSectionPage } from '../../components/devices/model/sectionRules';
 import { useDevicesTranslations } from '../../i18n/devicesTranslations';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { RoomLightItem } from './LightsSection';
+import { AddAccessoriesSheet, SelectionMark, type AccessoryCandidate } from './AddAccessoriesSheet';
 
-export type LightCandidate = { id: string; name: string; roomName: string | null };
+export type LightCandidate = AccessoryCandidate;
 export type RoomChoice = { id: string; name: string };
 
 export type LightsSectionPageProps = {
@@ -32,14 +33,6 @@ export type LightsSectionPageProps = {
 };
 
 type Sheet = 'add' | 'move' | 'remove' | null;
-
-function Radio({ on }: { on: boolean }) {
-  return (
-    <span className={clsx('rv2-radio', on && 'is-on')} aria-hidden="true">
-      <Check size={12} strokeWidth={3.2} />
-    </span>
-  );
-}
 
 /** Every light of the room: search, the three groups, and Edit to organise them. */
 export function LightsSectionPage({
@@ -66,8 +59,6 @@ export function LightsSectionPage({
   const [editing, setEditing] = React.useState(false);
   const [selected, setSelected] = React.useState<Record<string, boolean>>({});
   const [sheet, setSheet] = React.useState<Sheet>(null);
-  const [addSelected, setAddSelected] = React.useState<Record<string, boolean>>({});
-  const [addQuery, setAddQuery] = React.useState('');
   const [moveTo, setMoveTo] = React.useState<string | null>(null);
   const title = dt('lights');
   const groups = groupSectionPage(items, query, locale);
@@ -85,9 +76,6 @@ export function LightsSectionPage({
   ]
     .filter(Boolean)
     .join(' · ');
-  const needle = addQuery.trim().toLocaleLowerCase(locale);
-  const shownCandidates = candidates.filter((candidate) => !needle || candidate.name.toLocaleLowerCase(locale).includes(needle));
-  const addIds = candidates.filter((candidate) => addSelected[candidate.id]).map((candidate) => candidate.id);
 
   React.useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -245,11 +233,7 @@ export function LightsSectionPage({
                 type="button"
                 className="rv2-action"
                 disabled={!canMove}
-                onClick={() => {
-                  setAddSelected({});
-                  setAddQuery('');
-                  setSheet('add');
-                }}
+                onClick={() => setSheet('add')}
               >
                 <Plus size={20} aria-hidden="true" />
                 {dt('add')}
@@ -259,60 +243,15 @@ export function LightsSectionPage({
         ) : null}
       </div>
 
-      <GlassBottomSheet
+      <AddAccessoriesSheet
         isOpen={sheet === 'add'}
-        onClose={() => setSheet(null)}
         title={dt('addTo', { section: title })}
-        footer={
-          <div className="flex w-full justify-end gap-2">
-            <button type="button" className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold" onClick={() => setSheet(null)}>
-              {dt('cancel')}
-            </button>
-            <button
-              type="button"
-              className="glass-button glass-button-primary min-h-11 rounded-full px-5 text-sm font-semibold disabled:opacity-40"
-              disabled={addIds.length === 0 || busy}
-              onClick={() => void onAdd(addIds).then(finish)}
-            >
-              {dt('addCount', { count: addIds.length })}
-            </button>
-          </div>
-        }
-      >
-        <div className="flex flex-col gap-3">
-          <input
-            className="rv2-search !pl-4"
-            type="search"
-            value={addQuery}
-            aria-label={dt('searchIn', { section: title.toLocaleLowerCase(locale) })}
-            placeholder={dt('searchIn', { section: title.toLocaleLowerCase(locale) })}
-            onChange={(event) => setAddQuery(event.target.value)}
-          />
-          {shownCandidates.length === 0 ? (
-            <p className="dv-t2 m-0 text-sm">{dt('noCandidates')}</p>
-          ) : (
-            <div role="group" aria-label={dt('addTo', { section: title })}>
-              {shownCandidates.map((candidate) => (
-                <button
-                  key={candidate.id}
-                  type="button"
-                  className="rv2-row"
-                  aria-pressed={Boolean(addSelected[candidate.id])}
-                  onClick={() => setAddSelected((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}
-                >
-                  <Radio on={Boolean(addSelected[candidate.id])} />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-[15px] font-semibold">{candidate.name}</span>
-                    <span className="dv-t2 text-[13px]">
-                      {candidate.roomName ? dt('nowIn', { room: candidate.roomName }) : dt('noRoom')}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </GlassBottomSheet>
+        candidates={candidates}
+        emptyLabel={dt('noCandidates')}
+        busy={busy}
+        onClose={() => setSheet(null)}
+        onAdd={onAdd}
+      />
 
       <GlassBottomSheet
         isOpen={sheet === 'move'}
@@ -344,7 +283,7 @@ export function LightsSectionPage({
               className="rv2-row"
               onClick={() => setMoveTo(room.id)}
             >
-              <Radio on={moveTo === room.id} />
+              <SelectionMark on={moveTo === room.id} />
               <span className="text-[15px] font-semibold">{room.name}</span>
             </button>
           ))}

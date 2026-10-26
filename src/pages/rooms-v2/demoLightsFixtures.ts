@@ -46,3 +46,11 @@ export const DEMO_LIGHT_ROOMS: Record<string, string> = {
   'light.demo_hood': 'demo-kitchen',
   'light.demo_mirror': 'demo-bathroom',
 };
+
+/** Temperature and humidity of the demo rooms, as on the design board. */
+export const DEMO_ROOM_READINGS: Record<string, { temperature?: number; humidity?: number }> = {
+  'demo-living-room': { temperature: 21.5, humidity: 48 },
+  'demo-bedroom': { temperature: 19.5, humidity: 52 },
+  'demo-kitchen': { temperature: 22.8, humidity: 55 },
+  'demo-bathroom': { temperature: 23.1, humidity: 71 },
+};

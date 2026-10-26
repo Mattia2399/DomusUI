@@ -17,7 +17,32 @@ describe('the second Rooms page in the demo', () => {
     const lights = screen.getByTestId('rooms-v2-lights');
     expect(within(lights).getByText('3/6')).toBeTruthy();
     expect(within(lights).getByRole('button', { name: 'Mostra tutti: Luci, altri 3' })).toBeTruthy();
-    expect(screen.getByTestId('rooms-v2-placeholder')).toBeTruthy();
+  });
+
+  it('heads the room like the design: summary, rooms as pills, statuses and what it lacks', () => {
+    renderDemo();
+    expect(screen.getByText('21,5° · umidità 48% · 3 accessori accesi')).toBeTruthy();
+    const rooms = screen.getByRole('navigation', { name: 'Stanze' });
+    expect(within(rooms).getByRole('button', { name: 'Soggiorno' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'Tutta la casa' })).toBeTruthy();
+    const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
+    expect(statuses).toEqual(['Luci3 accese', 'Umidità48%']);
+    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: clima, dispositivi, sicurezza, media');
+  });
+
+  it('changes room from the pills', () => {
+    renderDemo();
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Stanze' })).getByRole('button', { name: 'Camera' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Camera' })).toBeTruthy();
+    expect(screen.getByText('19,5° · umidità 52% · 1 accessorio acceso')).toBeTruthy();
+  });
+
+  it('brings a light from another room through the add sheet', () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi accessorio' }));
+    fireEvent.click(screen.getByRole('button', { name: /Luce del giardino/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi 1' }));
+    return screen.findByText('3/7');
   });
 
   it('turns every light off', () => {
