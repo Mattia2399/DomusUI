@@ -1227,12 +1227,13 @@
   color: var(--ui-text-primary, #f5f5f7);
   font-size: 0.875rem;
   font-weight: 600;
-  box-shadow: 0 14px 36px var(--ui-shadow, rgb(0 0 0 / 0.38));
   transition: transform 180ms ease;
 }
 
+/* The shadow only while it shows: hidden above the screen, it would still darken the top. */
 .dashboard-skip-link:focus-visible {
   transform: translate(-50%, 0);
+  box-shadow: 0 14px 36px var(--ui-shadow, rgb(0 0 0 / 0.38));
 }
 
 html,
