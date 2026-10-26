@@ -326,6 +326,16 @@ const it = {
   sensorAria: '{name} {value}, {note}. Apri il dettaglio',
   moreSensors: 'Altri sensori',
   noSensorCandidates: 'Nessun sensore in altre stanze.',
+  sceneDevicesOne: '1 dispositivo',
+  sceneDevicesMany: '{count} dispositivi',
+  sceneApplying: 'Applico · {count} dispositivi',
+  sceneApplyingPlain: 'Applico…',
+  sceneActive: 'Attiva',
+  sceneRunAria: 'Avvia la scena {name}, {status}',
+  moreScenes: 'Altre scene',
+  sceneDone: 'Scena {name} attivata',
+  undo: 'Annulla',
+  noSceneCandidates: 'Nessuna scena in altre stanze.',
 } as const;
 
 type DevicesTranslationKey = keyof typeof it;
@@ -655,6 +665,16 @@ const en: DevicesCatalog = {
   sensorAria: '{name} {value}, {note}. Open the detail',
   moreSensors: 'More sensors',
   noSensorCandidates: 'No sensors in other rooms.',
+  sceneDevicesOne: '1 device',
+  sceneDevicesMany: '{count} devices',
+  sceneApplying: 'Applying · {count} devices',
+  sceneApplyingPlain: 'Applying…',
+  sceneActive: 'Active',
+  sceneRunAria: 'Run the scene {name}, {status}',
+  moreScenes: 'More scenes',
+  sceneDone: 'Scene {name} on',
+  undo: 'Undo',
+  noSceneCandidates: 'No scenes in other rooms.',
 };
 
 const fr: DevicesCatalog = {
@@ -981,6 +1001,16 @@ const fr: DevicesCatalog = {
   sensorAria: '{name} {value}, {note}. Ouvrir le détail',
   moreSensors: 'Autres capteurs',
   noSensorCandidates: 'Aucun capteur dans d’autres pièces.',
+  sceneDevicesOne: '1 appareil',
+  sceneDevicesMany: '{count} appareils',
+  sceneApplying: 'Application · {count} appareils',
+  sceneApplyingPlain: 'Application…',
+  sceneActive: 'Active',
+  sceneRunAria: 'Lancer la scène {name}, {status}',
+  moreScenes: 'Autres scènes',
+  sceneDone: 'Scène {name} activée',
+  undo: 'Annuler',
+  noSceneCandidates: 'Aucune scène dans d’autres pièces.',
 };
 
 const catalogs: Record<AppLocale, DevicesCatalog> = { it, en, fr };
