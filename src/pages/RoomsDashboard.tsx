@@ -105,6 +105,7 @@ import {
 import type { CustomRoomRecord } from '../components/rooms/roomsStorage';
 import { useRoomsStoredState } from '../components/rooms/useRoomsStoredState';
 import { RoomsTopTab } from '../components/rooms/RoomsTopTab';
+import { readRoomsV2Enabled } from '../services/roomsV2';
 
 export type { CustomRoomRecord, RoomEntityBuckets, RoomTab };
 
@@ -340,7 +341,7 @@ type RoomSectionDeviceEntityTarget = {
 type SectionDeviceSheetMode = 'add' | 'move' | null;
 
 
-type RoomsDashboardProps = {
+export type RoomsDashboardProps = {
   runtimeMode?: DashboardRuntimeMode;
   isEditMode?: boolean;
   suppressBrowserNavigation?: boolean;
@@ -7013,4 +7014,26 @@ export function RoomsDashboard({
   );
 }
 
-export default RoomsDashboard;
+// The second Rooms page, while it is built, behind its option (src/services/roomsV2.ts).
+// It ships only in development and in builds made with VITE_ROOMS_V2=on, so a
+// release stays within its bundle budget until the page replaces this one.
+const RoomsV2Page =
+  import.meta.env.DEV || import.meta.env.VITE_ROOMS_V2 === 'on'
+    ? React.lazy(() => import('./rooms-v2/RoomsV2Page'))
+    : null;
+
+function RoomsPageEntry(props: RoomsDashboardProps) {
+  const [roomsV2] = React.useState(() =>
+    typeof window === 'undefined' ? false : readRoomsV2Enabled(window.localStorage, window.location.search),
+  );
+  if (!roomsV2 || !RoomsV2Page) {
+    return <RoomsDashboard {...props} />;
+  }
+  return (
+    <React.Suspense fallback={null}>
+      <RoomsV2Page {...props} />
+    </React.Suspense>
+  );
+}
+
+export default RoomsPageEntry;
