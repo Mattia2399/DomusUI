@@ -1,0 +1,552 @@
+/*
+ * Shared device cards and panels. Every colour they use is a token here, for
+ * Dark and Light, next to the app tokens (--ui-*); components never carry
+ * colours of their own, except the light's own colour, which is data.
+ */
+
+.dashboard-theme-dark {
+  --dv-text: var(--ui-text-primary);
+  --dv-t2: rgb(235 235 245 / 0.68);
+  --dv-t3: rgb(235 235 245 / 0.46);
+  --dv-glass: rgb(38 38 42 / 0.48);
+  --dv-glass-border: rgb(255 255 255 / 0.11);
+  --dv-glass-highlight: rgb(255 255 255 / 0.12);
+  --dv-glass-shadow: rgb(0 0 0 / 0.8);
+  --dv-tile-off: rgb(255 255 255 / 0.075);
+  --dv-tile-off-border: rgb(255 255 255 / 0.09);
+  --dv-tile-on: rgb(245 245 247 / 0.96);
+  --dv-tile-on-ink: #0b0b0f;
+  --dv-tile-on-ink-2: rgb(60 60 67 / 0.8);
+  --dv-pill-on: #f5f5f7;
+  --dv-pill-on-ink: #000000;
+  --dv-icon-off: rgb(255 255 255 / 0.12);
+  --dv-separator: rgb(255 255 255 / 0.08);
+  --dv-track: rgb(255 255 255 / 0.12);
+  --dv-slider-track: rgb(0 0 0 / 0.16);
+  --dv-slider-fill-off: rgb(127 127 127 / 0.4);
+  --dv-sheet: rgb(30 30 34 / 0.9);
+  --dv-sheet-ring: #1e1e22;
+  --dv-page: rgb(0 0 0 / 0.84);
+  --dv-amber: #ffb340;
+  --dv-blue: #4da3ff;
+  --dv-red: #ff6961;
+  --dv-lit-shadow-alpha: 0.7;
+  --dv-panel-tint-alpha: 0.2;
+}
+
+.dashboard-theme-light {
+  --dv-text: var(--ui-text-primary);
+  --dv-t2: rgb(60 60 67 / 0.74);
+  --dv-t3: rgb(60 60 67 / 0.52);
+  --dv-glass: rgb(255 255 255 / 0.52);
+  --dv-glass-border: rgb(255 255 255 / 0.85);
+  --dv-glass-highlight: rgb(255 255 255 / 0.95);
+  --dv-glass-shadow: rgb(30 41 59 / 0.3);
+  --dv-tile-off: rgb(255 255 255 / 0.46);
+  --dv-tile-off-border: rgb(255 255 255 / 0.75);
+  --dv-tile-on: #ffffff;
+  --dv-tile-on-ink: #0b0b0f;
+  --dv-tile-on-ink-2: rgb(60 60 67 / 0.76);
+  --dv-pill-on: #0b0b0f;
+  --dv-pill-on-ink: #ffffff;
+  --dv-icon-off: rgb(118 118 128 / 0.16);
+  --dv-separator: rgb(60 60 67 / 0.1);
+  --dv-track: rgb(118 118 128 / 0.18);
+  --dv-slider-track: rgb(0 0 0 / 0.09);
+  --dv-slider-fill-off: rgb(127 127 127 / 0.4);
+  --dv-sheet: rgb(250 250 252 / 0.94);
+  --dv-sheet-ring: #ffffff;
+  --dv-page: rgb(233 236 242 / 0.88);
+  --dv-amber: #9a5800;
+  --dv-blue: #0a6fdb;
+  --dv-red: #d70015;
+  --dv-lit-shadow-alpha: 0.55;
+  --dv-panel-tint-alpha: 0.24;
+}
+
+/* Ink on a lit light card, whatever the theme: the card is always light. */
+:root {
+  --dv-lit-ink: #1c1405;
+  --dv-lit-ink-2: rgb(43 29 0 / 0.72);
+  --dv-lit-icon: rgb(255 255 255 / 0.55);
+  --dv-lit-icon-ink: #2b1d00;
+  --dv-focus: #0a84ff;
+  --dv-select: #0a84ff;
+}
+
+.dv-t2 {
+  color: var(--dv-t2);
+}
+
+.dv-t3 {
+  color: var(--dv-t3);
+}
+
+.dv-glass {
+  background: var(--dv-glass);
+  border: 1px solid var(--dv-glass-border);
+  box-shadow: inset 0 1px 0 var(--dv-glass-highlight), 0 26px 60px -32px var(--dv-glass-shadow);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+}
+
+/* The card. */
+
+.dv-tile {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid var(--dv-tile-off-border);
+  background: var(--dv-tile-off);
+  color: var(--dv-text);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  transition: background 280ms ease, box-shadow 280ms ease, transform 160ms ease, color 280ms ease;
+}
+
+.dv-tile:active {
+  transform: scale(0.97);
+}
+
+.dv-tile.is-lit {
+  border-color: transparent;
+  color: var(--dv-lit-ink);
+  box-shadow: 0 18px 38px -18px rgb(var(--dv-light-rgb) / var(--dv-lit-shadow-alpha));
+}
+
+.dv-tile.is-selected {
+  box-shadow: 0 0 0 2px var(--dv-select), 0 16px 36px -18px rgb(10 132 255 / 0.6);
+}
+
+.dv-tile.is-hidden-item {
+  opacity: 0.5;
+}
+
+.dv-tile.is-unavailable {
+  opacity: 0.55;
+}
+
+.dv-tile-body {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dv-tile-body:focus-visible,
+.dv-icon-button:focus-visible,
+.dv-slider:has(input:focus-visible),
+.dv-swatch:focus-visible,
+.dv-segment button:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-tile-inner {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.dv-tile-inner button,
+.dv-tile-inner input,
+.dv-tile-inner label {
+  pointer-events: auto;
+}
+
+/* While editing, a touch anywhere on the card reaches the body, which selects. */
+.dv-tile.is-editing .dv-tile-inner * {
+  pointer-events: none;
+}
+
+.dv-icon-button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--dv-icon-off);
+  color: var(--dv-t2);
+  cursor: pointer;
+  transition: background 280ms ease, color 280ms ease, transform 120ms ease;
+}
+
+.dv-icon-button:active {
+  transform: scale(0.92);
+}
+
+.dv-icon-button:disabled {
+  cursor: default;
+}
+
+.dv-tile.is-lit .dv-icon-button {
+  background: var(--dv-lit-icon);
+  color: var(--dv-lit-icon-ink);
+}
+
+.dv-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.dv-name-1 {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 1;
+}
+
+.dv-status {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dv-t2);
+}
+
+.dv-tile.is-lit .dv-status {
+  color: var(--dv-lit-ink-2);
+}
+
+.dv-chevron {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  display: flex;
+  color: var(--dv-t2);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.dv-tile.is-lit .dv-chevron {
+  color: var(--dv-lit-ink-2);
+}
+
+.dv-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  height: 24px;
+  width: 24px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--dv-t3);
+  border-radius: 50%;
+  color: transparent;
+  pointer-events: none;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.dv-check.is-selected {
+  border-color: var(--dv-select);
+  background: var(--dv-select);
+  color: #ffffff;
+}
+
+/* The brightness slider: an inset track, a white fill 5 px inside it, always 46 px tall. */
+
+.dv-slider {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 46px;
+  width: 100%;
+  flex: none;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--dv-slider-track);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.dv-slider-fill {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  transition: width 160ms ease;
+}
+
+.dv-slider.is-off .dv-slider-fill {
+  background: var(--dv-slider-fill-off);
+  box-shadow: none;
+}
+
+.dv-slider input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+
+/* Colour and temperature swatches. */
+
+.dv-swatches {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 2px;
+}
+
+.dv-swatch {
+  position: relative;
+  z-index: 1;
+  height: 28px;
+  width: 28px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.3);
+  transition: box-shadow 200ms ease;
+}
+
+.dv-swatch[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--dv-sheet-ring), 0 0 0 4px var(--dv-swatch);
+}
+
+.dv-swatch-lg {
+  height: 32px;
+  width: 32px;
+}
+
+.dv-swatch-hit {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.dv-wheel {
+  position: relative;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(#ff3b30, #ff9500, #ffcc00, #34c759, #32ade6, #5856d6, #af52de, #ff2d55, #ff3b30);
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
+  cursor: pointer;
+}
+
+.dv-wheel input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dv-wheel:has(input:focus-visible) {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 3px;
+}
+
+/* White or colour. */
+
+.dv-segment {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-self: flex-start;
+  gap: 2px;
+  border-radius: 16px;
+  padding: 3px;
+  background: var(--dv-icon-off);
+}
+
+.dv-segment button {
+  height: 38px;
+  border: 0;
+  border-radius: 13px;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--dv-t2);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dv-segment button[aria-checked='true'] {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-tile.is-lit .dv-segment {
+  background: rgb(0 0 0 / 0.08);
+}
+
+.dv-tile.is-lit .dv-segment button {
+  color: var(--dv-lit-ink-2);
+}
+
+.dv-tile.is-lit .dv-segment button[aria-checked='true'] {
+  background: #ffffff;
+  color: var(--dv-lit-ink);
+}
+
+/* The light panel. */
+
+.dv-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--dv-text);
+}
+
+.dv-panel-tinted {
+  background-image: linear-gradient(rgb(var(--dv-light-rgb) / var(--dv-panel-tint-alpha)), rgb(var(--dv-light-rgb) / var(--dv-panel-tint-alpha))) !important;
+  transition: background 400ms ease;
+}
+
+.dv-panel-body {
+  display: flex;
+  align-items: stretch;
+  gap: 22px;
+}
+
+.dv-panel-side {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dv-vslider {
+  position: relative;
+  height: 300px;
+  width: 128px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 36px;
+  background: var(--dv-track);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.dv-vslider-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transition: height 120ms ease, background 300ms ease;
+}
+
+.dv-vslider input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ns-resize;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.dv-vslider:has(input:focus-visible) {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 3px;
+}
+
+.dv-round {
+  display: flex;
+  height: 48px;
+  width: 48px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dv-icon-off);
+  color: inherit;
+  cursor: pointer;
+}
+
+.dv-round.is-on {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-round-sm {
+  height: 40px;
+  width: 40px;
+}
+
+@container (max-width: 520px) {
+  .dv-panel-body {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .dv-vslider {
+    height: 260px;
+    width: 140px;
+  }
+
+  .dv-panel-side {
+    width: 100%;
+  }
+}
+
+.dv-panel-frame {
+  container-type: inline-size;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-tile,
+  .dv-icon-button,
+  .dv-slider-fill,
+  .dv-vslider-fill,
+  .dv-swatch,
+  .dv-check,
+  .dv-panel-tinted {
+    transition: none;
+  }
+
+  .dv-tile:active,
+  .dv-icon-button:active {
+    transform: none;
+  }
+}
