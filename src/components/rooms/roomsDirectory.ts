@@ -492,3 +492,69 @@ export function filterRoomTabsByFloor(
     return area?.floor_id === floorId;
   });
 }
+
+/** Numbers as Home Assistant sends them, also "21,5". */
+export function toNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().replace(',', '.');
+    if (!normalized) {
+      return undefined;
+    }
+    const parsed = Number.parseFloat(normalized);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+}
+
+export function isAreaSensorEntityCandidate(entityId: string, state: MockEntityState | undefined, kind: 'temperature' | 'humidity') {
+  const domain = entityId.split('.')[0];
+  if (domain !== 'sensor') {
+    return false;
+  }
+  const deviceClass = `${state?.rawAttributes?.device_class ?? ''}`.trim().toLowerCase();
+  const unit = `${state?.unit ?? state?.rawAttributes?.unit_of_measurement ?? ''}`.trim().toLowerCase();
+  const normalizedEntityId = entityId.toLowerCase();
+  if (kind === 'temperature') {
+    return deviceClass === 'temperature' || ['c', 'f', '\u00b0c', '\u00b0f'].includes(unit) || normalizedEntityId.includes('temperature');
+  }
+  return deviceClass === 'humidity' || unit === '%' || normalizedEntityId.includes('humidity');
+}
+
+export function getEntityNumericValue(entity?: MockEntityState) {
+  return (
+    toNumber(entity?.numericValue) ??
+    toNumber(entity?.currentValue) ??
+    toNumber(entity?.targetValue) ??
+    toNumber(entity?.state)
+  );
+}
+
+export function formatAmbientTemperature(value: number) {
+  return `${value.toFixed(1)}\u00b0C`;
+}
+
+export function formatAmbientHumidity(value: number) {
+  return `${Math.round(value)}%`;
+}
+
+/** Temperature and humidity of a room: the area's own sensors first, else the first matching sensor in it. */
+export function resolveRoomClimateReadings(
+  area: { temperature_entity_id?: string | null; humidity_entity_id?: string | null } | null | undefined,
+  sensorIds: string[],
+  states: Record<string, MockEntityState | undefined>,
+) {
+  const roomSensorFor = (kind: 'temperature' | 'humidity') =>
+    sensorIds.find((entityId) => isAreaSensorEntityCandidate(entityId, states[entityId], kind)) ?? null;
+  const temperatureEntityId = area?.temperature_entity_id ?? roomSensorFor('temperature');
+  const humidityEntityId = area?.humidity_entity_id ?? roomSensorFor('humidity');
+  return {
+    temperature: temperatureEntityId ? getEntityNumericValue(states[temperatureEntityId]) : undefined,
+    humidity: humidityEntityId ? getEntityNumericValue(states[humidityEntityId]) : undefined,
+  };
+}
+

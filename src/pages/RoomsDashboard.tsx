@@ -85,15 +85,21 @@ import {
   fetchRegistrySnapshot,
   filterRoomEntityBuckets,
   filterRoomTabsByFloor,
+  formatAmbientHumidity,
+  formatAmbientTemperature,
   getEntityFriendlyName,
+  getEntityNumericValue,
+  isAreaSensorEntityCandidate,
   getRoomSectionEntityIds,
   mergeRoomTabs,
   normalizeRoomName,
   parseRegistryDeviceEntries,
   parseRegistryEntityEntries,
+  resolveRoomClimateReadings,
   ROOM_ID_CUSTOM_PREFIX,
   toCustomRoomTabs,
   toHaRoomTabs,
+  toNumber,
   toTitleCase,
   uniqueStrings,
   parseHaFloorEntry,
@@ -525,23 +531,6 @@ function useGridEngineBreakpoint() {
   return breakpoint;
 }
 
-function toNumber(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const normalized = value.trim().replace(',', '.');
-    if (!normalized) {
-      return undefined;
-    }
-    const parsed = Number.parseFloat(normalized);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-  return undefined;
-}
-
 function toStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -734,20 +723,6 @@ function getFloorIcon(floor: HaFloorEntry | undefined): LucideIcon {
 
 function buildRandomId() {
   return `${Date.now()}-${Math.round(Math.random() * 1_000_000)}`;
-}
-
-function isAreaSensorEntityCandidate(entityId: string, state: MockEntityState | undefined, kind: 'temperature' | 'humidity') {
-  const domain = entityId.split('.')[0];
-  if (domain !== 'sensor') {
-    return false;
-  }
-  const deviceClass = `${state?.rawAttributes?.device_class ?? ''}`.trim().toLowerCase();
-  const unit = `${state?.unit ?? state?.rawAttributes?.unit_of_measurement ?? ''}`.trim().toLowerCase();
-  const normalizedEntityId = entityId.toLowerCase();
-  if (kind === 'temperature') {
-    return deviceClass === 'temperature' || ['c', 'f', '\u00b0c', '\u00b0f'].includes(unit) || normalizedEntityId.includes('temperature');
-  }
-  return deviceClass === 'humidity' || unit === '%' || normalizedEntityId.includes('humidity');
 }
 
 function resolveWidgetKindFromEntityId(entityId: string): WidgetKind | null {
@@ -1184,23 +1159,6 @@ function isMediaEntityPlaying(entity?: MockEntityState) {
   const state = `${entity?.state ?? ''}`.trim().toLowerCase();
   const stateLabel = `${entity?.stateLabel ?? ''}`.trim().toLowerCase();
   return state === 'playing' || state === 'on' || stateLabel.includes('playing') || stateLabel.includes('riprodu');
-}
-
-function getEntityNumericValue(entity?: MockEntityState) {
-  return (
-    toNumber(entity?.numericValue) ??
-    toNumber(entity?.currentValue) ??
-    toNumber(entity?.targetValue) ??
-    toNumber(entity?.state)
-  );
-}
-
-function formatAmbientTemperature(value: number) {
-  return `${value.toFixed(1)}\u00b0C`;
-}
-
-function formatAmbientHumidity(value: number) {
-  return `${Math.round(value)}%`;
 }
 
 function parseEntityAreaMap(payload: unknown, deviceAreaByDeviceId: Record<string, string>) {
@@ -2522,12 +2480,11 @@ export function RoomsDashboard({
 
   const roomAmbientSubtitle = React.useMemo(() => {
     // The area's own sensors first, else the first matching sensor of the room.
-    const roomSensorFor = (kind: 'temperature' | 'humidity') =>
-      visibleActiveBuckets.sensors.find((entityId) => isAreaSensorEntityCandidate(entityId, haStates[entityId], kind)) ?? null;
-    const temperatureEntityId = activeRoomArea?.temperature_entity_id ?? roomSensorFor('temperature');
-    const humidityEntityId = activeRoomArea?.humidity_entity_id ?? roomSensorFor('humidity');
-    const temperatureValue = temperatureEntityId ? getEntityNumericValue(haStates[temperatureEntityId]) : undefined;
-    const humidityValue = humidityEntityId ? getEntityNumericValue(haStates[humidityEntityId]) : undefined;
+    const { temperature: temperatureValue, humidity: humidityValue } = resolveRoomClimateReadings(
+      activeRoomArea,
+      visibleActiveBuckets.sensors,
+      haStates,
+    );
     const temperatureLabel = typeof temperatureValue === 'number' ? formatAmbientTemperature(temperatureValue) : null;
     const humidityLabel = typeof humidityValue === 'number' ? formatAmbientHumidity(humidityValue) : null;
 
