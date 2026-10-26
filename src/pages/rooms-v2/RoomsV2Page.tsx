@@ -28,6 +28,24 @@ import {
   type SceneModel,
 } from '../../components/devices/model/scene';
 import { SensorPanel, SENSOR_PERIOD_HOURS, type SensorPeriod } from '../../components/devices/panels/SensorPanel';
+import { SecurityCard } from '../../components/devices/cards/SecurityCard';
+import { SecurityPanel } from '../../components/devices/panels/SecurityPanel';
+import { securityStatus } from '../../components/devices/cards/securityText';
+import {
+  applyLockCommand,
+  lockServiceCall,
+  motionNow,
+  securityAlerts,
+  securityKindOf,
+  securityWarns,
+  toSecurityModel,
+  type LockCommand,
+  type LockState,
+  type SecurityModel,
+} from '../../components/devices/model/security';
+import { CameraViewer, type CameraViewerItem } from '../../components/camera/CameraViewer';
+import { buildCameraCardModel } from '../../components/widgets/cameraCardModel';
+import type { Widget } from '../../types/dashboardModels';
 import {
   findBatterySensor,
   sensorKindOf,
@@ -52,8 +70,9 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { useAmbient } from '../../theme/ambient/AmbientProvider';
 import { resolveRoomAmbient } from '../../theme/ambient/ambientModel';
 import { useRoomPictureColor } from '../../theme/ambient/roomPictureColor';
-import { DEMO_PROTECTED_ENTITIES, DEMO_ROOM_READINGS, DEMO_ROOMS, DEMO_STATES, demoSensorSeries } from './demoRoomsFixtures';
+import { DEMO_PROTECTED_ENTITIES, DEMO_ROOM_READINGS, DEMO_ROOMS, DEMO_STATES, demoSecurityHistory, demoSensorSeries } from './demoRoomsFixtures';
 import { useSensorHistory } from './useSensorHistory';
+import { useStateHistory } from './useStateHistory';
 import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
 import { RoomHead, type FloorOption, type StatusChip } from './RoomHead';
 import {
@@ -77,9 +96,8 @@ import './roomsV2.css';
 /*
  * The second Rooms page, on the Rooms board of the design: the head of the
  * room, its sections in two columns where there is room, and what the room
- * still lacks. Lights and devices are done; the other sections show where
- * they will be. Rooms, floors, local rooms and hidden devices are the ones of
- * the Rooms page, from the same storage.
+ * still lacks. Media still shows where it will be. Rooms, floors, local rooms
+ * and hidden devices are the ones of the Rooms page, from the same storage.
  */
 
 export type RoomsV2PageProps = {
@@ -112,14 +130,18 @@ function usePhoneLayout() {
 
 type RoomLightItem = SectionItem & { model: LightModel };
 type RoomDeviceItem = SectionItem & { model: DeviceModel };
-type SectionKey = 'lights' | 'devices' | 'sensors' | 'scenes';
+type SectionKey = 'lights' | 'devices' | 'sensors' | 'scenes' | 'security';
 type PanelKind = SectionKey | 'climate';
 type RoomSensorItem = SectionItem & { model: SensorModel };
 type RoomSceneItem = SectionItem & { model: SceneModel };
+type RoomSecurityItem = SectionItem & { model: SecurityModel };
 
 // How long a scene reads as applying, and how long its undo stays offered.
 const SCENE_APPLYING_MS = 900;
 const SCENE_UNDO_MS = 6000;
+// How long a lock of the demo takes to turn, and how long a real one may take before its command is given up.
+const DEMO_LOCK_MS = 900;
+const LOCK_WAIT_MS = 30_000;
 
 const byRoomThenName = (a: SectionCandidate, b: SectionCandidate) =>
   (a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1;
@@ -252,6 +274,8 @@ export function RoomsV2Page({
   const [sectionOpen, setSectionOpen] = React.useState<SectionKey | null>(null);
   const [panel, setPanel] = React.useState<{ kind: PanelKind; id: string } | null>(null);
   const [confirmOffId, setConfirmOffId] = React.useState<string | null>(null);
+  const [confirmLock, setConfirmLock] = React.useState<{ id: string; command: 'unlock' | 'open' } | null>(null);
+  const [cameraOpenId, setCameraOpenId] = React.useState<string | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const { locale } = useI18n();
   const [busy, setBusy] = React.useState(false);
@@ -286,6 +310,8 @@ export function RoomsV2Page({
     setSectionOpen(null);
     setPanel(null);
     setConfirmOffId(null);
+    setConfirmLock(null);
+    setCameraOpenId(null);
     setAddOpen(false);
     setError(null);
   }, [activeRoom?.id]);
@@ -328,6 +354,56 @@ export function RoomsV2Page({
     );
   }, [registry.registryEntityById, sensorIds, states]);
   const sensorModelOf = React.useCallback((entityId: string) => sensorModels.get(entityId) as SensorModel, [sensorModels]);
+
+  // Security: a lock shows what it was asked until Home Assistant says it moved.
+  const securityIds = React.useMemo(
+    () => Object.keys(states).filter((entityId) => securityKindOf(entityId, states[entityId]) !== null),
+    [states],
+  );
+  const [lockPending, setLockPending] = React.useState<Record<string, { lock: LockState; from: string; at: number | null }>>({});
+  const securityModels = React.useMemo(() => {
+    const deviceIdOf = (entityId: string) => registry.registryEntityById.get(entityId)?.deviceId ?? null;
+    return new Map(
+      securityIds.map((entityId) => {
+        const batteryId = findBatterySensor(entityId, states, deviceIdOf);
+        const level = batteryId ? Number(states[batteryId]?.state) : Number.NaN;
+        const model = toSecurityModel(entityId, states[entityId], { battery: Number.isFinite(level) ? level : null }) as SecurityModel;
+        const pending = lockPending[entityId];
+        const stillPending = pending && `${states[entityId]?.state ?? ''}` === pending.from;
+        return [
+          entityId,
+          stillPending ? { ...model, lock: pending.lock, active: pending.lock !== 'locked' && pending.lock !== 'locking', changedAt: pending.at } : model,
+        ];
+      }),
+    );
+  }, [lockPending, registry.registryEntityById, securityIds, states]);
+  const securityModelOf = React.useCallback((entityId: string) => securityModels.get(entityId) as SecurityModel, [securityModels]);
+
+  const commandLock = async (model: SecurityModel, command: LockCommand) => {
+    const entityId = model.entityId;
+    const from = `${states[entityId]?.state ?? ''}`;
+    const moving = applyLockCommand(model, command).lock as LockState;
+    const forget = (lock: LockState) =>
+      setLockPending((current) => {
+        if (current[entityId]?.lock !== lock || current[entityId]?.from !== from) return current;
+        const next = { ...current };
+        delete next[entityId];
+        return next;
+      });
+    setLockPending((current) => ({ ...current, [entityId]: { lock: moving, from, at: model.changedAt } }));
+    if (demo) {
+      window.setTimeout(
+        () => setLockPending((current) => ({ ...current, [entityId]: { lock: command === 'lock' ? 'locked' : 'unlocked', from, at: Date.now() } })),
+        DEMO_LOCK_MS,
+      );
+      return;
+    }
+    const call = lockServiceCall(model, command);
+    const done = onCallService ? await onCallService(call.domain, call.service, call.data).catch(() => false) : false;
+    if (!done) forget(moving);
+    else window.setTimeout(() => forget(moving), LOCK_WAIT_MS);
+  };
+
   const protectedSet = React.useMemo(() => new Set(protectedIds), [protectedIds]);
 
   function sectionItems<M>(ids: string[], modelOf: (entityId: string) => M, attention: (model: M) => boolean, active: (model: M) => boolean, name: (model: M) => string) {
@@ -414,6 +490,43 @@ export function RoomsV2Page({
   const sceneItems: RoomSceneItem[] = sectionItems(sceneIds, sceneModelOf, () => false, () => false, (model) => model.name);
   const activeSceneId = activeSceneOf(sceneItems.map((item) => item.model));
   const sceneCandidates = candidatesFrom(sceneIds, (entityId) => sceneModelOf(entityId).name);
+
+  // Locks and cameras, which are used, come before the sensors that only watch.
+  const securityItems: RoomSecurityItem[] = sectionItems(
+    securityIds,
+    securityModelOf,
+    securityWarns,
+    (model) => motionNow(model) || model.kind === 'lock' || model.kind === 'camera',
+    (model) => model.name,
+  );
+  const securityCandidates = candidatesFrom(securityIds, (entityId) => securityModelOf(entityId).name);
+  const roomAlerts = securityItems.filter((item) => !item.hidden && securityAlerts(item.model));
+  // The rooms with something open, wet or stuck show a dot on their pill.
+  const alertRoomIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    securityIds.forEach((entityId) => {
+      const room = roomOf(entityId);
+      if (room && !(hiddenRoomEntitiesByRoom[room] ?? []).includes(entityId) && securityAlerts(securityModelOf(entityId))) ids.add(room);
+    });
+    return ids;
+  }, [hiddenRoomEntitiesByRoom, roomOf, securityIds, securityModelOf]);
+  // The cameras of the room, as the camera viewer of the Rooms page shows them.
+  const roomCameras: CameraViewerItem[] = securityItems
+    .filter((item) => item.model.kind === 'camera')
+    .map((item) => {
+      if (demo) return { entityId: item.id, name: item.model.name, statusLabel: dt('cameraLive') };
+      const entity = states[item.id];
+      const camera = buildCameraCardModel({ entityId: item.id, title: item.model.name, status: entity?.state } as Widget, entity);
+      return {
+        entityId: item.id,
+        name: camera.title,
+        statusLabel: camera.statusLabel,
+        subtitle: camera.subtitle,
+        streamUrl: camera.streamUrl,
+        snapshotUrl: camera.imageUrl,
+        isOffline: !camera.isAvailable,
+      };
+    });
 
   React.useEffect(() => {
     if (!applyingSceneId) return undefined;
@@ -571,6 +684,20 @@ export function RoomsV2Page({
     return glance.mode === 'dry' ? dt('climateDry') : dt('climateFan');
   };
   const chips: StatusChip[] = [
+    ...(roomAlerts.length > 0
+      ? [
+          {
+            key: 'security' as const,
+            title: dt('chipSecurity'),
+            status:
+              roomAlerts.length === 1
+                ? `${roomAlerts[0].model.name} · ${securityStatus(roomAlerts[0].model, dt)}`
+                : dt('securityAlertsMany', { count: roomAlerts.length }),
+            tone: 'security',
+            target: 'rv2-security',
+          },
+        ]
+      : []),
     ...(climate
       ? [{ key: 'climate' as const, title: dt('chipClimate'), status: climateStatus(climate), tone: CLIMATE_TONE[climate.mode], target: 'rv2-climate' }]
       : []),
@@ -616,7 +743,7 @@ export function RoomsV2Page({
     id: tab.id,
     name: tab.name,
     icon: roomIconKind(areas.find((area) => area.area_id === tab.id)?.icon, tab.name),
-    alert: false,
+    alert: alertRoomIds.has(tab.id),
   }));
 
   const addCandidates = React.useMemo<AccessoryCandidate[]>(() => {
@@ -628,11 +755,17 @@ export function RoomsV2Page({
         ...climateCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionClimate') })),
         ...sensorCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionEnvironment') })),
         ...sceneCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionScenes') })),
+        ...securityCandidates.map((candidate) => ({ ...candidate, kind: dt('sectionSecurity') })),
       ].sort(byRoomThenName);
     }
-    // Environment sensors are offered by kind, not every sensor of the home.
+    // Sensors are offered by kind, not every sensor of the home.
     const sectionKeyOf = (entityId: string) =>
-      ADDABLE_DOMAINS[entityId.split('.')[0]] ?? (sensorKindOf(entityId, haStates[entityId]) ? 'sectionEnvironment' : null);
+      ADDABLE_DOMAINS[entityId.split('.')[0]] ??
+      (sensorKindOf(entityId, haStates[entityId])
+        ? 'sectionEnvironment'
+        : securityKindOf(entityId, haStates[entityId])
+          ? 'sectionSecurity'
+          : null);
     return Object.keys(haStates)
       .filter((entityId) => sectionKeyOf(entityId) && registry.entityAreaByEntityId[entityId] !== activeRoom.id)
       .map((entityId) => {
@@ -645,11 +778,11 @@ export function RoomsV2Page({
         };
       })
       .sort(byRoomThenName);
-  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById, sceneCandidates, sensorCandidates]);
-  const missing = missingSections(buckets);
+  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, registry.entityAreaByEntityId, roomNameById, sceneCandidates, securityCandidates, sensorCandidates]);
+  const missing = missingSections(buckets).filter((key) => key !== 'security' || securityItems.length === 0);
   const hasClimate = buckets.climates.some((entityId) => entityId.startsWith('climate.'));
   const hasSide = hasClimate || sensorItems.length > 0;
-  const hasSecurity = buckets.locks.length > 0 || buckets.cameras.length > 0;
+  const hasSecurity = securityItems.length > 0;
   const hasMedia = buckets.medias.length > 0;
 
   const renderLight = (item: RoomLightItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
@@ -751,6 +884,29 @@ export function RoomsV2Page({
     />
   );
   const confirmDevice = confirmOffId ? devices.modelOf(confirmOffId) : null;
+
+  const pictureOf = (entityId: string) => roomCameras.find((camera) => camera.entityId === entityId)?.snapshotUrl ?? null;
+  const renderSecurity = (item: RoomSecurityItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
+    <SecurityCard
+      model={item.model}
+      pictureUrl={item.model.kind === 'camera' ? pictureOf(item.id) : null}
+      editing={context.editing}
+      selected={context.selected}
+      hiddenItem={item.hidden}
+      onOpen={() => (item.model.kind === 'camera' ? setCameraOpenId(item.id) : setPanel({ kind: 'security', id: item.id }))}
+      onLock={() => void commandLock(item.model, 'lock')}
+      onUnlock={() => setConfirmLock({ id: item.id, command: 'unlock' })}
+      onSelect={context.onSelect}
+    />
+  );
+  const panelSecurity = panel?.kind === 'security' ? securityModelOf(panel.id) ?? null : null;
+  const panelSecurityHistory = useStateHistory({
+    entityId: panelSecurity && panelSecurity.kind !== 'camera' ? panelSecurity.entityId : null,
+    changedAt: panelSecurity?.changedAt,
+    onCallApi,
+    demoHistory: demo ? demoSecurityHistory : undefined,
+  });
+  const confirmLockModel = confirmLock ? securityModelOf(confirmLock.id) ?? null : null;
 
   if (roomTabs.length === 0) {
     return (
@@ -879,7 +1035,16 @@ export function RoomsV2Page({
             <div className="rv2-row-wrap">
               {hasSecurity ? (
                 <div className="min-w-0 flex-[1_1_440px]">
-                  <SectionComing id="rv2-security" title={dt('sectionSecurity')} />
+                  <RoomSection
+                    id="rv2-security"
+                    testId="rooms-v2-security"
+                    title={dt('sectionSecurity')}
+                    items={securityItems}
+                    count={String(securityItems.length)}
+                    moreLabel={dt('moreSecurity')}
+                    renderCard={renderSecurity}
+                    onOpenPage={() => setSectionOpen('security')}
+                  />
                 </div>
               ) : null}
               {hasMedia ? (
@@ -993,6 +1158,23 @@ export function RoomsV2Page({
           {...sectionHandlers}
         />
       ) : null}
+      {sectionOpen === 'security' && activeRoom && sectionHandlers ? (
+        <SectionPage
+          title={dt('sectionSecurity')}
+          roomName={activeRoom.name}
+          items={securityItems}
+          candidatesEmptyLabel={dt('noSecurityCandidates')}
+          renderCard={renderSecurity}
+          canOrganize={canOrganize}
+          canMove={canMove}
+          busy={busy}
+          error={error}
+          candidates={securityCandidates}
+          rooms={moveRooms}
+          onClose={() => setSectionOpen(null)}
+          {...sectionHandlers}
+        />
+      ) : null}
 
       <AddAccessoriesSheet
         isOpen={addOpen}
@@ -1091,6 +1273,63 @@ export function RoomsV2Page({
           />
         ) : null}
       </PanelHost>
+
+      <PanelHost
+        presentation={phone ? 'sheet' : 'dialog'}
+        isOpen={Boolean(panelSecurity)}
+        onClose={() => setPanel(null)}
+        title={panelSecurity?.name ?? ''}
+      >
+        {panelSecurity ? (
+          <SecurityPanel
+            model={panelSecurity}
+            roomName={activeRoom?.name}
+            history={panelSecurityHistory}
+            onLock={() => void commandLock(panelSecurity, 'lock')}
+            onUnlock={() => setConfirmLock({ id: panelSecurity.entityId, command: 'unlock' })}
+            onOpenDoor={() => setConfirmLock({ id: panelSecurity.entityId, command: 'open' })}
+            onClose={() => setPanel(null)}
+          />
+        ) : null}
+      </PanelHost>
+
+      <CameraViewer
+        isOpen={Boolean(cameraOpenId)}
+        cameras={roomCameras}
+        activeEntityId={cameraOpenId}
+        onActiveEntityChange={setCameraOpenId}
+        onClose={() => setCameraOpenId(null)}
+        commandsEnabled={haConnected && !demo}
+      />
+
+      <GlassModal
+        isOpen={Boolean(confirmLockModel)}
+        onClose={() => setConfirmLock(null)}
+        title={
+          confirmLockModel
+            ? dt(confirmLock?.command === 'open' ? 'confirmOpenTitle' : 'confirmUnlockTitle', { name: confirmLockModel.name })
+            : ''
+        }
+        description={dt(confirmLock?.command === 'open' ? 'confirmOpenText' : 'confirmUnlockText')}
+        size="sm"
+        footer={
+          <div className="flex w-full justify-end gap-2">
+            <button type="button" className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold" onClick={() => setConfirmLock(null)}>
+              {dt('cancel')}
+            </button>
+            <button
+              type="button"
+              className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold text-[color:var(--dv-amber)]"
+              onClick={() => {
+                if (confirmLockModel && confirmLock) void commandLock(confirmLockModel, confirmLock.command);
+                setConfirmLock(null);
+              }}
+            >
+              {dt(confirmLock?.command === 'open' ? 'openAction' : 'unlockAction')}
+            </button>
+          </div>
+        }
+      />
 
       {sceneUndo ? (
         <div className="rv2-toast dv-glass" role="status" data-testid="rooms-v2-scene-undo">

@@ -10,6 +10,7 @@ import {
   Lightbulb,
   Monitor,
   Plus,
+  ShieldAlert,
   Sofa,
   Thermometer,
   Trees,
@@ -41,7 +42,7 @@ const ROOM_ICONS: Record<RoomIconKind, LucideIcon> = {
 export type FloorOption = { id: string; name: string; roomCount: number };
 export type RoomPill = { id: string; name: string; icon: RoomIconKind; alert: boolean };
 export type StatusChip = {
-  key: 'climate' | 'lights' | 'humidity' | 'media';
+  key: 'security' | 'climate' | 'lights' | 'humidity' | 'media';
   title: string;
   status: string;
   /** Colour of the round mark: a token of the room page. */
@@ -50,6 +51,7 @@ export type StatusChip = {
 };
 
 const CHIP_ICONS: Record<StatusChip['key'], LucideIcon> = {
+  security: ShieldAlert,
   climate: Thermometer,
   lights: Lightbulb,
   humidity: Droplet,

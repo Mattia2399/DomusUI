@@ -280,12 +280,70 @@ export const DEMO_SCENE_ROOMS: Record<string, string> = {
   'scene.demo_breakfast': 'demo-kitchen',
 };
 
+const MINUTE = 60_000;
+const ago = (minutes: number) => new Date(Date.now() - minutes * MINUTE).toISOString();
+const watch = (name: string, state: string, deviceClass: string, minutesAgo: number) =>
+  device(name, state, { device_class: deviceClass, __last_changed: ago(minutesAgo) });
+
+export const DEMO_SECURITY_STATES: MockEntityStateMap = {
+  'binary_sensor.demo_living_window': watch('Finestra', 'off', 'window', 140),
+  'binary_sensor.demo_living_french_door': watch('Portafinestra', 'off', 'door', 95),
+  'binary_sensor.demo_living_motion': watch('Movimento', 'on', 'motion', 1),
+  'binary_sensor.demo_living_side_window': watch('Finestra laterale', 'off', 'window', 400),
+  'sensor.demo_living_side_window_battery': battery(12),
+  'binary_sensor.demo_living_glass': watch('Vibrazione vetri', 'off', 'vibration', 900),
+  'lock.demo_front_door': device('Serratura ingresso', 'locked', { supported_features: 1, __last_changed: ago(70) }),
+  'camera.demo_living_camera': device('Telecamera soggiorno', 'idle', { __last_changed: ago(600) }),
+  'binary_sensor.demo_kitchen_leak': watch("Perdita d'acqua", 'off', 'moisture', 2000),
+  'binary_sensor.demo_kitchen_window': watch('Finestra', 'off', 'window', 50),
+  'binary_sensor.demo_bedroom_window': watch('Finestra', 'on', 'window', 25),
+  'binary_sensor.demo_bedroom_motion': watch('Movimento', 'off', 'motion', 38),
+};
+
+export const DEMO_SECURITY_ROOMS: Record<string, string> = {
+  'binary_sensor.demo_living_window': 'demo-living-room',
+  'binary_sensor.demo_living_french_door': 'demo-living-room',
+  'binary_sensor.demo_living_motion': 'demo-living-room',
+  'binary_sensor.demo_living_side_window': 'demo-living-room',
+  'binary_sensor.demo_living_glass': 'demo-living-room',
+  'lock.demo_front_door': 'demo-living-room',
+  'camera.demo_living_camera': 'demo-living-room',
+  'binary_sensor.demo_kitchen_leak': 'demo-kitchen',
+  'binary_sensor.demo_kitchen_window': 'demo-kitchen',
+  'binary_sensor.demo_bedroom_window': 'demo-bedroom',
+  'binary_sensor.demo_bedroom_motion': 'demo-bedroom',
+};
+
+/** A believable day of a demo security device that ends in its state now; the same every time. */
+export function demoSecurityHistory(entityId: string, now = Date.now()) {
+  const entity = DEMO_SECURITY_STATES[entityId];
+  if (!entity) return [];
+  const last = Date.parse(`${entity.rawAttributes?.__last_changed ?? ''}`) || now;
+  const isLock = entityId.startsWith('lock.');
+  const [on, off] = isLock ? ['unlocked', 'locked'] : ['on', 'off'];
+  const seed = entityId.split('').reduce((sum, character) => sum * 31 + character.charCodeAt(0), 7) % 997;
+  const motion = entity.rawAttributes?.device_class === 'motion';
+  const count = motion ? 9 : 3;
+  const changes: Array<{ t: number; state: string }> = [];
+  let t = now - 23 * 60 * MINUTE + (seed % 90) * MINUTE;
+  for (let index = 0; index < count && t < last - 20 * MINUTE; index += 1) {
+    const length = motion ? 2 + (seed % 5) : 10 + ((seed + index * 37) % 50);
+    changes.push({ t, state: on }, { t: t + length * MINUTE, state: off });
+    t += (motion ? 80 : 280) * MINUTE + ((seed * (index + 3)) % 120) * MINUTE;
+  }
+  // The day ends in the change the device shows now.
+  if (changes.length > 0 && changes[changes.length - 1].state === entity.state) changes[changes.length - 1].t = last;
+  else changes.push({ t: last, state: entity.state });
+  return changes;
+}
+
 export const DEMO_STATES: MockEntityStateMap = {
   ...DEMO_LIGHT_STATES,
   ...DEMO_DEVICE_STATES,
   ...DEMO_CLIMATE_STATES,
   ...DEMO_SENSOR_STATES,
   ...DEMO_SCENE_STATES,
+  ...DEMO_SECURITY_STATES,
 };
 export const DEMO_ROOMS: Record<string, string> = {
   ...DEMO_LIGHT_ROOMS,
@@ -293,4 +351,5 @@ export const DEMO_ROOMS: Record<string, string> = {
   ...DEMO_CLIMATE_ROOMS,
   ...DEMO_SENSOR_ROOMS,
   ...DEMO_SCENE_ROOMS,
+  ...DEMO_SECURITY_ROOMS,
 };

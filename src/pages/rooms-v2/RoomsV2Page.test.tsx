@@ -27,12 +27,12 @@ describe('the second Rooms page in the demo', () => {
     expect(screen.getByRole('button', { name: 'Tutta la casa' })).toBeTruthy();
     const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
     expect(statuses).toEqual(['ClimaRiscalda a 23°', 'Luci3 accese', 'Umidità48%']);
-    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: sicurezza, media');
+    expect(screen.getByTestId('rooms-v2-add-row').textContent).toContain('Non ancora in questa stanza: media');
   });
 
   it('changes room from the pills', () => {
     renderDemo();
-    fireEvent.click(within(screen.getByRole('navigation', { name: 'Stanze' })).getByRole('button', { name: 'Camera' }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Stanze' })).getByRole('button', { name: 'Camera Richiede attenzione' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Camera' })).toBeTruthy();
     expect(screen.getByText('19,5° · umidità 52% · 2 accessori accesi')).toBeTruthy();
   });
@@ -178,5 +178,38 @@ describe('the second Rooms page in the demo', () => {
     expect(JSON.parse(window.localStorage.getItem('ha.dashboard.rooms.hiddenEntitiesByRoom.v1.demo') ?? '{}')).toEqual({
       'demo-living-room': ['light.demo_spots'],
     });
+  });
+
+  it('shows the security of the room: to check first, then motion and the lock', () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-security');
+    const names = Array.from(section.querySelectorAll('.dv-name')).map((node) => node.textContent);
+    expect(names).toEqual(['Finestra laterale', 'Movimento', 'Serratura ingresso']);
+    expect(within(section).getByText('Chiusa · batteria 12%')).toBeTruthy();
+    expect(within(section).getByText('Movimento adesso')).toBeTruthy();
+    expect(within(section).getByRole('button', { name: 'Mostra tutti: Sicurezza, altri 4' })).toBeTruthy();
+  });
+
+  it('asks before unlocking, and locks again without asking', async () => {
+    renderDemo();
+    const section = screen.getByTestId('rooms-v2-security');
+    fireEvent.click(within(section).getByRole('button', { name: 'Sblocca Serratura ingresso' }));
+    const dialog = screen.getByRole('dialog', { name: 'Sbloccare Serratura ingresso?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Sblocca' }));
+    expect(within(section).getByText('Sblocco…')).toBeTruthy();
+    expect(await within(section).findByText('Sbloccata')).toBeTruthy();
+    fireEvent.click(within(section).getByRole('button', { name: 'Chiudi a chiave Serratura ingresso' }));
+    expect(screen.queryByRole('dialog', { name: /Sbloccare/ })).toBeNull();
+    expect(await within(section).findByText('Chiusa')).toBeTruthy();
+  });
+
+  it('marks the room with a window open and says it in the status row', () => {
+    renderDemo();
+    const rooms = screen.getByRole('navigation', { name: 'Stanze' });
+    expect(within(within(rooms).getByRole('button', { name: /^Camera/ })).getByRole('img', { name: 'Richiede attenzione' })).toBeTruthy();
+    expect(within(within(rooms).getByRole('button', { name: 'Soggiorno' })).queryByRole('img')).toBeNull();
+    fireEvent.click(within(rooms).getByRole('button', { name: /^Camera/ }));
+    const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
+    expect(statuses[0]).toBe('SicurezzaFinestra · Aperta da 25 min');
   });
 });

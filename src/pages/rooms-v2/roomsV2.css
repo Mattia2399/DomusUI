@@ -21,6 +21,8 @@
   --rv2-fan: rgb(148 163 184);
   --rv2-fan-ink: #ffffff;
   --rv2-attention: #ff9f0a;
+  --rv2-security: #ff9f0a;
+  --rv2-security-ink: #ffffff;
 }
 
 .rv2-main {
