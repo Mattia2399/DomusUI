@@ -73,6 +73,9 @@ import type { DashboardRuntimeMode } from '../security/dashboardAccess';
 import { useRoomsTranslations, type RoomsTranslator } from '../i18n/roomsTranslations';
 import { useI18n } from '../i18n/I18nProvider';
 import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
+import { useAmbient } from '../theme/ambient/AmbientProvider';
+import { resolveRoomAmbient } from '../theme/ambient/ambientModel';
+import { useRoomPictureColor } from '../theme/ambient/roomPictureColor';
 import {
   assignRoomAreaTargets,
   bucketEntityId,
@@ -2284,6 +2287,16 @@ export function RoomsDashboard({
   const activeRoomArea = React.useMemo(
     () => (activeRoomTab?.source === 'ha' ? areaById.get(activeRoomTab.id) ?? null : null),
     [activeRoomTab, areaById],
+  );
+  // The Dynamic background takes the colour of the room on screen.
+  const activeRoomPictureColor = useRoomPictureColor(activeRoomArea?.area_id, activeRoomArea?.picture);
+  useAmbient(
+    activeRoomTab
+      ? resolveRoomAmbient(
+          { id: activeRoomTab.id, name: activeRoomTab.name, icon: activeRoomArea?.icon, picture: activeRoomArea?.picture },
+          activeRoomPictureColor,
+        )
+      : null,
   );
   const registryEntityByEntityId = React.useMemo(
     () => new Map(registryEntityEntries.map((entry) => [entry.entityId, entry])),

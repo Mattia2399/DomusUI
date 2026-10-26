@@ -1726,6 +1726,110 @@ body {
     linear-gradient(160deg, rgb(17 47 41 / 0.76), rgb(20 29 53 / 0.58));
 }
 
+/*
+ * Dynamic: two soft glows that follow the room or the alarm. Registered
+ * custom properties let the browser blend the gradients itself; only colour
+ * and opacity ever animate, with no blur and no transform.
+ */
+@property --ambient-a {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #0a84ff;
+}
+
+@property --ambient-b {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #bf5af2;
+}
+
+@property --ambient-opacity {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0.5;
+}
+
+.dashboard-background-dynamic .dashboard-background-layer::before {
+  inset: 0;
+  filter: none;
+  transform: none;
+  opacity: 1;
+  background: #000000;
+}
+
+.dashboard-theme-light.dashboard-background-dynamic .dashboard-background-layer::before {
+  background: #eceef2;
+}
+
+.dashboard-background-dynamic .dashboard-background-layer::after {
+  background: none;
+}
+
+.ambient-background {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ambient-background[data-pulse] {
+  animation: ambient-breath 3s ease-in-out infinite;
+}
+
+.ambient-glow {
+  --ambient-opacity: 0.5;
+  position: absolute;
+  inset: 0;
+  opacity: var(--ambient-opacity);
+  background:
+    radial-gradient(40% 34% at 22% -6%, var(--ambient-a), transparent),
+    radial-gradient(34% 38% at 100% 52%, var(--ambient-b), transparent);
+  transition:
+    --ambient-a 900ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    --ambient-b 900ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    --ambient-opacity 900ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.ambient-glow[data-intensity="subtle"] {
+  --ambient-opacity: 0.22;
+}
+
+.dashboard-theme-light .ambient-glow {
+  --ambient-opacity: 0.38;
+}
+
+.dashboard-theme-light .ambient-glow[data-intensity="subtle"] {
+  --ambient-opacity: 0.18;
+}
+
+@keyframes ambient-breath {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glow {
+    transition: none;
+  }
+
+  .ambient-background[data-pulse] {
+    animation: none;
+  }
+}
+
+.profile-background-thumb-dynamic {
+  background:
+    radial-gradient(70% 60% at 22% 4%, rgb(10 132 255 / 0.7), transparent),
+    radial-gradient(60% 64% at 100% 56%, rgb(191 90 242 / 0.62), transparent),
+    #000000;
+}
+
 .profile-background-thumb {
   background-position: center;
   background-size: cover;

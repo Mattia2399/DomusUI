@@ -13,6 +13,11 @@ describe('dashboard theme contract', () => {
     });
   });
 
+  it('accepts the Dynamic background without making it the default', () => {
+    expect(normalizeDashboardBackground('dynamic')).toBe('dynamic');
+    expect(resolveDashboardThemePreferences('auto', null)).toMatchObject({ background: 'neutral' });
+  });
+
   it('rejects removed and unknown backgrounds', () => {
     expect(normalizeDashboardBackground('total-white')).toBeNull();
     expect(normalizeDashboardBackground('custom-css')).toBeNull();

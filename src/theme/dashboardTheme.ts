@@ -7,6 +7,7 @@ export const DASHBOARD_BACKGROUND_PRESETS = [
   { id: 'ocean-mist', label: 'Ocean Mist', description: 'Freddo azzurro con riflessi' },
   { id: 'sunset-amber', label: 'Sunset Amber', description: 'Caldo tramonto morbido' },
   { id: 'forest-glass', label: 'Forest Glass', description: 'Toni naturali e profondi' },
+  { id: 'dynamic', label: 'Dinamico', description: 'Si adatta alla stanza e allo stato dell’allarme' },
 ] as const;
 
 export type DashboardBackgroundPreset = (typeof DASHBOARD_BACKGROUND_PRESETS)[number]['id'];
