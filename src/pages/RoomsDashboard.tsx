@@ -73,15 +73,38 @@ import type { DashboardRuntimeMode } from '../security/dashboardAccess';
 import { useRoomsTranslations, type RoomsTranslator } from '../i18n/roomsTranslations';
 import { useI18n } from '../i18n/I18nProvider';
 import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
+import {
+  assignRoomAreaTargets,
+  bucketEntityId,
+  buildDeviceAreaMap,
+  buildEntityAreaMap,
+  createEmptyBuckets,
+  fetchRegistrySnapshot,
+  filterRoomEntityBuckets,
+  getEntityFriendlyName,
+  getRoomSectionEntityIds,
+  mergeRoomTabs,
+  normalizeRoomName,
+  parseRegistryDeviceEntries,
+  parseRegistryEntityEntries,
+  ROOM_ID_CUSTOM_PREFIX,
+  toCustomRoomTabs,
+  toHaRoomTabs,
+  toTitleCase,
+  uniqueStrings,
+  type HaRegistryDeviceEntry,
+  type HaRegistryEntityEntry,
+  type RegistrySnapshot,
+  type RoomEntityBuckets,
+  type RoomTab,
+} from '../components/rooms/roomsDirectory';
+import type { CustomRoomRecord } from '../components/rooms/roomsStorage';
+import { useRoomsStoredState } from '../components/rooms/useRoomsStoredState';
+import { RoomsTopTab } from '../components/rooms/RoomsTopTab';
 
-const CUSTOM_ROOMS_STORAGE_KEY = 'ha.dashboard.rooms.customRooms.v1';
-const ACTIVE_ROOM_STORAGE_KEY = 'ha.dashboard.rooms.activeRoomId.v1';
-const ROOM_ENTITY_VISIBILITY_STORAGE_KEY = 'ha.dashboard.rooms.hiddenEntitiesByRoom.v1';
+export type { CustomRoomRecord, RoomEntityBuckets, RoomTab };
 
-function getRoomsRuntimeStorageKey(baseKey: string, runtimeMode: DashboardRuntimeMode) {
-  return runtimeMode === 'demo' ? `${baseKey}.demo` : baseKey;
-}
-const ROOM_ID_CUSTOM_PREFIX = 'custom:';
+
 const ROOM_TITLE_TRANSITION = { duration: 0.2, ease: [0.22, 1, 0.36, 1] } as const;
 const ROOM_HEADER_COMPACT_SCROLL_PX = 48;
 const ROOM_HEADER_EXPAND_SCROLL_PX = 32;
@@ -148,31 +171,6 @@ const EMPTY_AREA_CREATION_DRAFT: AreaCreationDraft = {
   picture: '',
   temperatureEntityId: '',
   humidityEntityId: '',
-};
-
-export type RoomTab = {
-  id: string;
-  name: string;
-  source: 'ha' | 'custom';
-};
-
-export type CustomRoomRecord = {
-  id: string;
-  name: string;
-  createdAt: number;
-};
-
-export type RoomEntityBuckets = {
-  lights: string[];
-  climates: string[];
-  locks: string[];
-  medias: string[];
-  switches: string[];
-  sensors: string[];
-  covers: string[];
-  cameras: string[];
-  weathers: string[];
-  others: string[];
 };
 
 type RoomQuickTile = {
@@ -310,32 +308,6 @@ type AreaEditDraft = AreaCreationDraft & {
   name: string;
 };
 
-type HaRegistryEntityEntry = {
-  entityId: string;
-  deviceId: string | null;
-  areaId: string | null;
-  name: string | null;
-  originalName: string | null;
-  disabledBy: string | null;
-  hiddenBy: string | null;
-  platform: string | null;
-};
-
-type HaRegistryDeviceEntry = {
-  id: string;
-  areaId: string | null;
-  name: string;
-  nameByUser: string | null;
-  manufacturer: string | null;
-  model: string | null;
-};
-
-type RegistrySnapshot = {
-  entityAreaByEntityId: Record<string, string>;
-  registryEntities: HaRegistryEntityEntry[];
-  registryDevices: HaRegistryDeviceEntry[];
-};
-
 type RoomEditTarget = {
   id: string;
   source: 'custom' | 'ha';
@@ -371,7 +343,6 @@ type RoomSectionDeviceEntityTarget = {
 
 type SectionDeviceSheetMode = 'add' | 'move' | null;
 
-type HiddenRoomEntitiesByRoom = Record<string, string[]>;
 
 type RoomsDashboardProps = {
   runtimeMode?: DashboardRuntimeMode;
@@ -396,13 +367,6 @@ type RoomsDashboardProps = {
   onCameraPtzMove?: (entityId: string, direction: CameraPtzDirection) => void;
   onCameraPtzStop?: (entityId: string) => void;
 };
-
-const DEMO_ROOM_TABS: RoomTab[] = [
-  { id: 'demo-living-room', name: 'Soggiorno', source: 'custom' },
-  { id: 'demo-bedroom', name: 'Camera', source: 'custom' },
-  { id: 'demo-kitchen', name: 'Cucina', source: 'custom' },
-  { id: 'demo-bathroom', name: 'Bagno', source: 'custom' },
-];
 
 const GLASS_CARD_CLASS =
   'rooms-surface';
@@ -518,10 +482,6 @@ function parseDelimitedList(value: string) {
     .filter(Boolean);
 }
 
-function uniqueStrings(values: string[]) {
-  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
-}
-
 function trimToNull(value: string) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
@@ -590,17 +550,6 @@ function toStringArray(value: unknown): string[] {
     .filter((entry): entry is string => typeof entry === 'string')
     .map((entry) => entry.trim())
     .filter(Boolean);
-}
-
-function toTitleCase(value: string) {
-  return value
-    .split('_')
-    .map((token) => (token ? `${token[0].toUpperCase()}${token.slice(1)}` : token))
-    .join(' ');
-}
-
-function normalizeRoomName(value: string) {
-  return value.trim().replace(/\s+/g, ' ');
 }
 
 function buildAreaEditDraft(area: HaArea): AreaEditDraft {
@@ -785,15 +734,6 @@ function getFloorIcon(floor: HaFloorEntry | undefined): LucideIcon {
 
 function buildRandomId() {
   return `${Date.now()}-${Math.round(Math.random() * 1_000_000)}`;
-}
-
-function getEntityFriendlyName(entityId: string, state?: MockEntityState) {
-  const friendly = state?.rawAttributes?.friendly_name;
-  if (typeof friendly === 'string' && friendly.trim().length > 0) {
-    return friendly.trim();
-  }
-  const fallback = entityId.split('.').at(1) ?? entityId;
-  return toTitleCase(fallback);
 }
 
 function isAreaSensorEntityCandidate(entityId: string, state: MockEntityState | undefined, kind: 'temperature' | 'humidity') {
@@ -1214,205 +1154,6 @@ function RoomCardSlot({
   return <div className={cn('min-h-[236px] min-w-0', className)}>{children}</div>;
 }
 
-function parseCustomRooms(raw: string | null): CustomRoomRecord[] {
-  if (!raw) {
-    return [];
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return parsed
-      .map((entry) => {
-        if (!entry || typeof entry !== 'object') {
-          return null;
-        }
-        const id =
-          typeof (entry as { id?: unknown }).id === 'string'
-            ? (entry as { id: string }).id.trim()
-            : '';
-        const name =
-          typeof (entry as { name?: unknown }).name === 'string'
-            ? normalizeRoomName((entry as { name: string }).name)
-            : '';
-        const createdAtRaw = (entry as { createdAt?: unknown }).createdAt;
-        const createdAt =
-          typeof createdAtRaw === 'number' && Number.isFinite(createdAtRaw)
-            ? createdAtRaw
-            : Date.now();
-        if (!id || !name) {
-          return null;
-        }
-        return {
-          id: id.startsWith(ROOM_ID_CUSTOM_PREFIX) ? id : `${ROOM_ID_CUSTOM_PREFIX}${id}`,
-          name,
-          createdAt,
-        } satisfies CustomRoomRecord;
-      })
-      .filter((entry): entry is CustomRoomRecord => entry !== null);
-  } catch {
-    return [];
-  }
-}
-
-function readStoredCustomRooms(runtimeMode: DashboardRuntimeMode) {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-  return parseCustomRooms(
-    window.localStorage.getItem(getRoomsRuntimeStorageKey(CUSTOM_ROOMS_STORAGE_KEY, runtimeMode)),
-  );
-}
-
-function readStoredActiveRoomId(runtimeMode: DashboardRuntimeMode) {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-  const raw = window.localStorage.getItem(getRoomsRuntimeStorageKey(ACTIVE_ROOM_STORAGE_KEY, runtimeMode));
-  return typeof raw === 'string' ? raw.trim() : '';
-}
-
-function parseHiddenRoomEntitiesByRoom(raw: string | null): HiddenRoomEntitiesByRoom {
-  if (!raw) {
-    return {};
-  }
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {};
-    }
-    return Object.entries(parsed as Record<string, unknown>).reduce<HiddenRoomEntitiesByRoom>((acc, [roomId, value]) => {
-      const normalizedRoomId = roomId.trim();
-      if (!normalizedRoomId || !Array.isArray(value)) {
-        return acc;
-      }
-      const entityIds = uniqueStrings(value.filter((entry): entry is string => typeof entry === 'string'));
-      if (entityIds.length > 0) {
-        acc[normalizedRoomId] = entityIds;
-      }
-      return acc;
-    }, {});
-  } catch {
-    return {};
-  }
-}
-
-function readStoredHiddenRoomEntitiesByRoom(runtimeMode: DashboardRuntimeMode) {
-  if (typeof window === 'undefined') {
-    return {};
-  }
-  return parseHiddenRoomEntitiesByRoom(
-    window.localStorage.getItem(getRoomsRuntimeStorageKey(ROOM_ENTITY_VISIBILITY_STORAGE_KEY, runtimeMode)),
-  );
-}
-
-function createEmptyBuckets(): RoomEntityBuckets {
-  return {
-    lights: [],
-    climates: [],
-    locks: [],
-    medias: [],
-    switches: [],
-    sensors: [],
-    covers: [],
-    cameras: [],
-    weathers: [],
-    others: [],
-  };
-}
-
-function bucketEntityId(entityId: string, buckets: RoomEntityBuckets) {
-  const domain = entityId.split('.')[0];
-  if (domain === 'light') {
-    buckets.lights.push(entityId);
-    return;
-  }
-  if (domain === 'climate' || domain === 'humidifier') {
-    buckets.climates.push(entityId);
-    return;
-  }
-  if (domain === 'lock') {
-    buckets.locks.push(entityId);
-    return;
-  }
-  if (domain === 'media_player') {
-    buckets.medias.push(entityId);
-    return;
-  }
-  if (domain === 'switch' || domain === 'input_boolean' || domain === 'fan') {
-    buckets.switches.push(entityId);
-    return;
-  }
-  if (domain === 'sensor' || domain === 'binary_sensor') {
-    buckets.sensors.push(entityId);
-    return;
-  }
-  if (domain === 'cover') {
-    buckets.covers.push(entityId);
-    return;
-  }
-  if (domain === 'camera') {
-    buckets.cameras.push(entityId);
-    return;
-  }
-  if (domain === 'weather') {
-    buckets.weathers.push(entityId);
-    return;
-  }
-  buckets.others.push(entityId);
-}
-
-function filterRoomEntityBuckets(
-  buckets: RoomEntityBuckets,
-  predicate: (entityId: string) => boolean,
-): RoomEntityBuckets {
-  return {
-    lights: buckets.lights.filter(predicate),
-    climates: buckets.climates.filter(predicate),
-    locks: buckets.locks.filter(predicate),
-    medias: buckets.medias.filter(predicate),
-    switches: buckets.switches.filter(predicate),
-    sensors: buckets.sensors.filter(predicate),
-    covers: buckets.covers.filter(predicate),
-    cameras: buckets.cameras.filter(predicate),
-    weathers: buckets.weathers.filter(predicate),
-    others: buckets.others.filter(predicate),
-  };
-}
-
-function getRoomSectionEntityIds(sectionId: string, buckets: RoomEntityBuckets) {
-  if (sectionId === 'lights') {
-    return buckets.lights;
-  }
-  if (sectionId === 'switches') {
-    return buckets.switches;
-  }
-  if (sectionId === 'lights_switches') {
-    return [...buckets.lights, ...buckets.switches];
-  }
-  if (sectionId === 'clima') {
-    return buckets.climates;
-  }
-  if (sectionId === 'media') {
-    return buckets.medias;
-  }
-  if (sectionId === 'sensors') {
-    return buckets.sensors;
-  }
-  if (sectionId === 'security') {
-    return [...buckets.locks, ...buckets.cameras];
-  }
-  if (sectionId === 'accessories') {
-    return uniqueStrings([
-      ...buckets.covers,
-      ...buckets.weathers,
-      ...buckets.others.filter((entityId) => !entityId.startsWith('automation.') && !entityId.startsWith('script.')),
-    ]);
-  }
-  return [];
-}
-
 function isEntityOn(entityId: string, entity?: MockEntityState) {
   const state = `${entity?.state ?? ''}`.trim().toLowerCase();
   const domain = entityId.split('.')[0];
@@ -1460,128 +1201,6 @@ function formatAmbientTemperature(value: number) {
 
 function formatAmbientHumidity(value: number) {
   return `${Math.round(value)}%`;
-}
-
-function readTrimmedRecordString(record: Record<string, unknown>, key: string) {
-  const value = record[key];
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function extractRegistryArray(payload: unknown, key: 'entities' | 'devices') {
-  if (Array.isArray(payload)) {
-    return payload;
-  }
-  if (!payload || typeof payload !== 'object') {
-    return [];
-  }
-  const record = payload as Record<string, unknown>;
-  const direct = record[key];
-  if (Array.isArray(direct)) {
-    return direct;
-  }
-  const result = record.result;
-  if (result && typeof result === 'object') {
-    const resultDirect = (result as Record<string, unknown>)[key];
-    if (Array.isArray(resultDirect)) {
-      return resultDirect;
-    }
-  }
-  return [];
-}
-
-function parseRegistryEntityEntries(payload: unknown): HaRegistryEntityEntry[] {
-  return extractRegistryArray(payload, 'entities')
-    .map((entry): HaRegistryEntityEntry | null => {
-      if (!entry || typeof entry !== 'object') {
-        return null;
-      }
-      const record = entry as Record<string, unknown>;
-      const entityId = readTrimmedRecordString(record, 'entity_id');
-      if (!entityId) {
-        return null;
-      }
-      const deviceId = readTrimmedRecordString(record, 'device_id');
-      const areaId = readTrimmedRecordString(record, 'area_id');
-      const name = readTrimmedRecordString(record, 'name') || readTrimmedRecordString(record, 'name_by_user');
-      const originalName = readTrimmedRecordString(record, 'original_name');
-      const disabledBy = readTrimmedRecordString(record, 'disabled_by');
-      const hiddenBy = readTrimmedRecordString(record, 'hidden_by');
-      const platform = readTrimmedRecordString(record, 'platform');
-      return {
-        entityId,
-        deviceId: deviceId || null,
-        areaId: areaId || null,
-        name: name || null,
-        originalName: originalName || null,
-        disabledBy: disabledBy || null,
-        hiddenBy: hiddenBy || null,
-        platform: platform || null,
-      };
-    })
-    .filter((entry): entry is HaRegistryEntityEntry => entry !== null);
-}
-
-function parseRegistryDeviceEntries(payload: unknown): HaRegistryDeviceEntry[] {
-  return extractRegistryArray(payload, 'devices')
-    .map((entry): HaRegistryDeviceEntry | null => {
-      if (!entry || typeof entry !== 'object') {
-        return null;
-      }
-      const record = entry as Record<string, unknown>;
-      const id = readTrimmedRecordString(record, 'id') || readTrimmedRecordString(record, 'device_id');
-      if (!id) {
-        return null;
-      }
-      const nameByUser = readTrimmedRecordString(record, 'name_by_user');
-      const manufacturer = readTrimmedRecordString(record, 'manufacturer');
-      const model = readTrimmedRecordString(record, 'model');
-      const registryName =
-        nameByUser ||
-        readTrimmedRecordString(record, 'name') ||
-        readTrimmedRecordString(record, 'original_name') ||
-        model ||
-        id;
-      const areaId = readTrimmedRecordString(record, 'area_id');
-      return {
-        id,
-        areaId: areaId || null,
-        name: registryName,
-        nameByUser: nameByUser || null,
-        manufacturer: manufacturer || null,
-        model: model || null,
-      };
-    })
-    .filter((entry): entry is HaRegistryDeviceEntry => entry !== null);
-}
-
-function buildDeviceAreaMap(registryDevices: HaRegistryDeviceEntry[]) {
-  return registryDevices.reduce<Record<string, string>>((acc, device) => {
-    if (device.areaId) {
-      acc[device.id] = device.areaId;
-    }
-    return acc;
-  }, {});
-}
-
-function buildEntityAreaMap(
-  registryEntities: HaRegistryEntityEntry[],
-  deviceAreaByDeviceId: Record<string, string>,
-) {
-  const result: Record<string, string> = {};
-  registryEntities.forEach((entry) => {
-    if (entry.areaId) {
-      result[entry.entityId] = entry.areaId;
-      return;
-    }
-    if (!entry.deviceId) {
-      return;
-    }
-    const areaFromDevice = deviceAreaByDeviceId[entry.deviceId];
-    if (areaFromDevice) {
-      result[entry.entityId] = areaFromDevice;
-    }
-  });
-  return result;
 }
 
 function parseEntityAreaMap(payload: unknown, deviceAreaByDeviceId: Record<string, string>) {
@@ -1677,50 +1296,6 @@ function parseHaFloorEntry(payload: unknown): HaFloorEntry | null {
     level: typeof record.level === 'number' ? record.level : null,
     icon: typeof record.icon === 'string' ? record.icon : null,
   };
-}
-
-async function fetchRegistrySnapshot(
-  onCallApi: NonNullable<RoomsDashboardProps['onCallApi']>,
-): Promise<RegistrySnapshot> {
-  const [entityPayload, devicePayload] = await Promise.all([
-    (await onCallApi({ type: 'config/entity_registry/list' }, { reportError: false })) ??
-      (await onCallApi({ type: 'config/entity_registry/list_for_display' }, { reportError: false })),
-    (await onCallApi({ type: 'config/device_registry/list' }, { reportError: false })) ??
-      (await onCallApi({ type: 'config/device_registry/list_for_display' }, { reportError: false })),
-  ]);
-  const registryDevices = parseRegistryDeviceEntries(devicePayload);
-  const registryEntities = parseRegistryEntityEntries(entityPayload);
-  const deviceAreaByDeviceId = buildDeviceAreaMap(registryDevices);
-  const entityAreaByEntityId = buildEntityAreaMap(registryEntities, deviceAreaByDeviceId);
-  return { entityAreaByEntityId, registryEntities, registryDevices };
-}
-
-function RoomsTopTab({
-  tab,
-  isActive,
-  onClick,
-}: {
-  tab: RoomTab;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'group relative inline-block rounded-lg px-3 pb-1 text-sm font-semibold leading-none tracking-normal transition-colors sm:px-4 sm:text-base',
-        isActive
-          ? 'text-[color:var(--ui-text-primary)]'
-          : 'text-[color:var(--ui-text-tertiary)] hover:text-[color:var(--ui-text-primary)]',
-      )}
-    >
-      <span className="truncate">{tab.name}</span>
-      {tab.source === 'custom' ? (
-        <span className="ml-2 inline-flex h-1.5 w-1.5 rounded-full bg-sky-300/85" />
-      ) : null}
-    </button>
-  );
 }
 
 function RoomIconButton({
@@ -1823,18 +1398,22 @@ export function RoomsDashboard({
   const mediaSwiperSuppressClickRef = React.useRef(false);
   const sectionTargetLongPressRef = React.useRef<RoomSectionTargetLongPressState | null>(null);
   const suppressNextSectionTargetClickRef = React.useRef<string | null>(null);
-  const [customRooms, setCustomRooms] = React.useState<CustomRoomRecord[]>(() => readStoredCustomRooms(runtimeMode));
+  const {
+    customRooms,
+    setCustomRooms,
+    hiddenRoomEntitiesByRoom,
+    setHiddenRoomEntitiesByRoom,
+    roomsStateRuntime,
+    activeRoomId,
+    setActiveRoomId,
+  } = useRoomsStoredState(runtimeMode, canManageRooms);
   const [isRoomsHeaderCompact, setIsRoomsHeaderCompact] = React.useState(false);
   const [roomTitleScrollEdges, setRoomTitleScrollEdges] = React.useState({
     start: false,
     end: false,
   });
-  const [hiddenRoomEntitiesByRoom, setHiddenRoomEntitiesByRoom] =
-    React.useState<HiddenRoomEntitiesByRoom>(() => readStoredHiddenRoomEntitiesByRoom(runtimeMode));
-  const [roomsStateRuntime, setRoomsStateRuntime] = React.useState<DashboardRuntimeMode>(runtimeMode);
   const [createdHaAreas, setCreatedHaAreas] = React.useState<HaArea[]>([]);
   const [deletedHaAreaIds, setDeletedHaAreaIds] = React.useState<string[]>([]);
-  const [activeRoomId, setActiveRoomId] = React.useState<string>(() => readStoredActiveRoomId(runtimeMode));
   const [activeCameraViewerEntityId, setActiveCameraViewerEntityId] = React.useState<string | null>(null);
   const [selectedFloorId, setSelectedFloorId] = React.useState<string>('all');
   const [selectedClimateEntityId, setSelectedClimateEntityId] = React.useState('');
@@ -1891,14 +1470,6 @@ export function RoomsDashboard({
     'demo-monitoring': true,
   });
   const [sceneByRoomId, setSceneByRoomId] = React.useState<Record<string, string>>({});
-
-  React.useEffect(() => {
-    if (roomsStateRuntime === runtimeMode) return;
-    setCustomRooms(readStoredCustomRooms(runtimeMode));
-    setHiddenRoomEntitiesByRoom(readStoredHiddenRoomEntitiesByRoom(runtimeMode));
-    setActiveRoomId(readStoredActiveRoomId(runtimeMode));
-    setRoomsStateRuntime(runtimeMode);
-  }, [roomsStateRuntime, runtimeMode]);
 
   React.useEffect(() => {
     if (canManageRooms) {
@@ -2035,32 +1606,17 @@ export function RoomsDashboard({
     }, {});
   }, [effectiveHaAreas]);
 
-  const haRoomTabs = React.useMemo<RoomTab[]>(
-    () =>
-      effectiveHaAreas.map((area) => ({
-        id: area.area_id,
-        name: area.name,
-        source: 'ha',
-      })),
-    [effectiveHaAreas],
-  );
+  const haRoomTabs = React.useMemo<RoomTab[]>(() => toHaRoomTabs(effectiveHaAreas), [effectiveHaAreas]);
 
   const customRoomTabs = React.useMemo<RoomTab[]>(
-    () =>
-      [...(roomsStateRuntime === runtimeMode ? customRooms : [])]
-        .sort((a, b) => a.createdAt - b.createdAt)
-        .map((room) => ({
-          id: room.id,
-          name: room.name,
-          source: 'custom',
-        })),
+    () => toCustomRoomTabs(roomsStateRuntime === runtimeMode ? customRooms : []),
     [customRooms, roomsStateRuntime, runtimeMode],
   );
 
-  const allRoomTabs = React.useMemo<RoomTab[]>(() => {
-    const merged = [...haRoomTabs, ...customRoomTabs];
-    return merged.length > 0 ? merged : runtimeMode === 'demo' ? DEMO_ROOM_TABS : [];
-  }, [customRoomTabs, haRoomTabs, runtimeMode]);
+  const allRoomTabs = React.useMemo<RoomTab[]>(
+    () => mergeRoomTabs(haRoomTabs, customRoomTabs, runtimeMode),
+    [customRoomTabs, haRoomTabs, runtimeMode],
+  );
   const roomTabs = React.useMemo<RoomTab[]>(() => {
     if (selectedFloorId === 'all') {
       return allRoomTabs;
@@ -2188,37 +1744,6 @@ export function RoomsDashboard({
     }
     resetRoomForm();
   }, [isManageOpen, resetRoomForm]);
-
-  React.useEffect(() => {
-    if (!canManageRooms || roomsStateRuntime !== runtimeMode || typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem(
-      getRoomsRuntimeStorageKey(CUSTOM_ROOMS_STORAGE_KEY, runtimeMode),
-      JSON.stringify(customRooms),
-    );
-  }, [canManageRooms, customRooms, roomsStateRuntime, runtimeMode]);
-
-  React.useEffect(() => {
-    if (!canManageRooms || roomsStateRuntime !== runtimeMode || typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem(
-      getRoomsRuntimeStorageKey(ROOM_ENTITY_VISIBILITY_STORAGE_KEY, runtimeMode),
-      JSON.stringify(hiddenRoomEntitiesByRoom),
-    );
-  }, [canManageRooms, hiddenRoomEntitiesByRoom, roomsStateRuntime, runtimeMode]);
-
-  React.useEffect(() => {
-    if (roomsStateRuntime !== runtimeMode || typeof window === 'undefined') {
-      return;
-    }
-    if (!activeRoomId) {
-      window.localStorage.removeItem(getRoomsRuntimeStorageKey(ACTIVE_ROOM_STORAGE_KEY, runtimeMode));
-      return;
-    }
-    window.localStorage.setItem(getRoomsRuntimeStorageKey(ACTIVE_ROOM_STORAGE_KEY, runtimeMode), activeRoomId);
-  }, [activeRoomId, roomsStateRuntime, runtimeMode]);
 
   React.useEffect(() => {
     setEditingRoomSection(null);
@@ -3939,42 +3464,12 @@ export function RoomsDashboard({
       setSectionActionError(null);
       const normalizedAreaId = nextAreaId && nextAreaId.trim().length > 0 ? nextAreaId : null;
       try {
-        for (const target of targets) {
-          if (target.kind === 'device' && target.deviceId) {
-            const deviceResult = await onCallApi({
-              type: 'config/device_registry/update',
-              device_id: target.deviceId,
-              area_id: normalizedAreaId,
-            });
-            if (deviceResult === null) {
-              throw new Error('device update failed');
-            }
-
-            const directEntityIds = target.entityIds.filter((entityId) => registryEntityByEntityId.get(entityId)?.areaId);
-            for (const entityId of directEntityIds) {
-              const entityResult = await onCallApi({
-                type: 'config/entity_registry/update',
-                entity_id: entityId,
-                area_id: normalizedAreaId,
-              });
-              if (entityResult === null) {
-                throw new Error('entity update failed');
-              }
-            }
-            continue;
-          }
-
-          for (const entityId of target.entityIds) {
-            const entityResult = await onCallApi({
-              type: 'config/entity_registry/update',
-              entity_id: entityId,
-              area_id: normalizedAreaId,
-            });
-            if (entityResult === null) {
-              throw new Error('entity update failed');
-            }
-          }
-        }
+        await assignRoomAreaTargets(
+          onCallApi,
+          targets,
+          normalizedAreaId,
+          (entityId) => Boolean(registryEntityByEntityId.get(entityId)?.areaId),
+        );
 
         applyOptimisticRegistryAreaUpdate(targets, normalizedAreaId);
         const movedEntityIds = new Set(targets.flatMap((target) => target.entityIds));
@@ -7582,4 +7077,3 @@ export function RoomsDashboard({
 }
 
 export default RoomsDashboard;
-
