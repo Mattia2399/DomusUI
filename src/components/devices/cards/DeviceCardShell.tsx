@@ -97,8 +97,10 @@ export function DeviceCardShell({
         className="dv-icon-button"
         onClick={pressIcon}
         disabled={!available && !editing}
-        aria-pressed={editing ? selected : isOn}
-        aria-label={editing ? selectLabel : toggleLabel}
+        // While editing the body alone selects; the icon steps aside for touch and assistive technology.
+        aria-pressed={editing ? undefined : isOn}
+        aria-label={editing ? undefined : toggleLabel}
+        aria-hidden={editing ? true : undefined}
         tabIndex={editing ? -1 : undefined}
       >
         {icon}

@@ -73,7 +73,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
       controls = (
         <>
           <span className="min-h-2.5 flex-auto" />
-          bar()
+          {bar()}
         </>
       );
       break;
@@ -82,7 +82,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
         <>
           {swatches.length > 0 ? <div className="mt-3">{swatchRow(true)}</div> : null}
           <span className="min-h-2.5 flex-auto" />
-          bar()
+          {bar()}
         </>
       );
       break;
@@ -94,7 +94,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
         <>
           <span className="min-h-2.5 flex-auto" />
           <div className="flex min-w-0 items-center gap-3">
-            {bar('flex-1 !w-auto')}
+            {bar(undefined, { flex: '1 1 0%', width: 'auto', minWidth: 0 })}
             {swatches.length > 0 ? <div className="flex-none">{swatchRow(true)}</div> : null}
           </div>
         </>
