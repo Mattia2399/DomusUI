@@ -160,6 +160,11 @@ function readTime(value: unknown) {
   return null;
 }
 
+/** When the state last changed: the live map keeps it as `__last_changed`. */
+export function entityChangedAt(entity: MockEntityState | undefined) {
+  return readTime(entity?.rawAttributes?.__last_changed ?? entity?.rawAttributes?.last_changed);
+}
+
 export function sensorKindOf(entityId: string, entity: MockEntityState | undefined): SensorKind | null {
   const domain = entityId.split('.')[0];
   const deviceClass = `${entity?.rawAttributes?.device_class ?? ''}`.trim().toLowerCase();
@@ -210,7 +215,7 @@ export function toSensorModel(
     value,
     alarm: kind === 'smoke' && state === 'on',
     battery: options.battery ?? null,
-    changedAt: readTime(entity?.rawAttributes?.last_changed) ?? null,
+    changedAt: entityChangedAt(entity),
   };
 }
 

@@ -840,6 +840,101 @@
   box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.6);
 }
 
+/* Security: green when all is well, amber to check, blue while it sees motion. */
+
+.dv-security.is-ok,
+.dv-security-badge.is-ok {
+  --sec-tint: #30d158;
+  --sec-rgb: 48 209 88;
+}
+
+.dv-security.is-warn,
+.dv-security-badge.is-warn {
+  --sec-tint: var(--dv-amber);
+  --sec-rgb: 255 159 10;
+}
+
+.dv-security.is-live,
+.dv-security-badge.is-live {
+  --sec-tint: var(--dv-blue);
+  --sec-rgb: 10 132 255;
+}
+
+.dv-security .dv-security-icon,
+.dv-security-badge {
+  background: rgb(var(--sec-rgb) / 0.16);
+  color: var(--sec-tint);
+}
+
+.dv-security.is-warn .dv-security-status,
+.dv-security.is-live .dv-security-status {
+  color: var(--sec-tint);
+}
+
+.dv-security-hero.is-warn {
+  color: var(--dv-amber);
+}
+
+.dv-security-hero.is-live {
+  color: var(--dv-blue);
+}
+
+.dv-camera-thumb {
+  position: relative;
+  display: block;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 70% 30%, rgb(255 214 165 / 0.9) 0%, rgb(255 214 165 / 0) 40%),
+    linear-gradient(160deg, #3b4a5a 0%, #1f2833 55%, #2e3b2c 100%);
+}
+
+.dv-camera-thumb img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-day-strip {
+  position: relative;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--dv-track);
+}
+
+.dv-day-span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  background: var(--dv-amber);
+}
+
+.dv-day-tick {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--dv-blue);
+  transform: translateX(-50%);
+}
+
+.dv-history-row {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+}
+
+.dv-history-row + .dv-history-row {
+  border-top: 1px solid var(--dv-separator);
+}
+
 /* Scenes: a pill with a coloured mark; the scene in place turns light. */
 
 .dv-scene {
