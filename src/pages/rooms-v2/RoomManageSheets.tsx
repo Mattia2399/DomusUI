@@ -40,26 +40,29 @@ export type RoomSheetResult = { draft: RoomDraft; look: Pick<RoomLook, 'glow' | 
 
 export const glowCss = ([a, b]: [string, string]) => `linear-gradient(145deg, ${a}, ${b})`;
 
-function TextRow({ label, value, placeholder, onChange }: { label: string; value: string; placeholder?: string; onChange: (value: string) => void }) {
+/** A field as the name of the room: its label above, the field across the sheet, a note below. */
+function TextField({ label, value, placeholder, note, onChange }: { label: string; value: string; placeholder?: string; note?: string; onChange: (value: string) => void }) {
   return (
-    <label className="rv2-form-row">
-      <span className="rv2-form-label">{label}</span>
-      <input className="rv2-form-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+    <label className="flex flex-col gap-1.5">
+      <span className="dv-t2 text-[13px] font-bold">{label}</span>
+      <input className="rv2-text-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+      {note ? <span className="dv-t2 text-xs leading-[1.4]">{note}</span> : null}
     </label>
   );
 }
 
-function DropdownRow({ label, options, value, onChange }: { label: string; options: GlassDropdownOption[]; value: string; onChange: (id: string) => void }) {
+function SelectField({ label, options, value, onChange }: { label: string; options: GlassDropdownOption[]; value: string; onChange: (id: string) => void }) {
   return (
-    <div className="rv2-form-row">
-      <span className="rv2-form-label">{label}</span>
+    <div className="flex flex-col gap-1.5">
+      <span className="dv-t2 text-[13px] font-bold" aria-hidden="true">
+        {label}
+      </span>
       <GlassDropdown
-        className="min-w-0 flex-1"
-        size="compact"
         ariaLabel={label}
         options={options}
         selected={options.find((option) => option.id === value) ?? options[0] ?? null}
         onChange={(option) => onChange(option.id)}
+        buttonClassName="rv2-select"
         portalZIndex={DROPDOWN_Z}
       />
     </div>
@@ -232,16 +235,28 @@ export function RoomEditPanel({
       ) : null}
 
       {haFields ? (
-        <div className="flex flex-col gap-2">
-          <span className="dv-t2 text-[13px] font-bold">{rt('haDetails')}</span>
-          <div className="dv-card rv2-form-group">
-            <TextRow label={rt('image')} value={draft.picture} placeholder="/local/rooms/studio.jpg" onChange={(picture) => set({ picture })} />
-            <TextRow label={rt('aliases')} value={draft.aliases} placeholder="studio, ufficio" onChange={(aliases) => set({ aliases })} />
-            <DropdownRow label={rt('temperatureEntity')} options={[none, ...sensors.temperature]} value={draft.temperatureEntityId} onChange={(temperatureEntityId) => set({ temperatureEntityId })} />
-            <DropdownRow label={rt('humidityEntity')} options={[none, ...sensors.humidity]} value={draft.humidityEntityId} onChange={(humidityEntityId) => set({ humidityEntityId })} />
-          </div>
-          <p className="dv-t2 m-0 px-1 text-xs leading-[1.4]">{rt('aliasesDescription')}</p>
-        </div>
+        <>
+          <TextField label={rt('image')} value={draft.picture} placeholder="/local/rooms/studio.jpg" onChange={(picture) => set({ picture })} />
+          <TextField
+            label={rt('aliases')}
+            value={draft.aliases}
+            placeholder="studio, ufficio"
+            note={rt('aliasesDescription')}
+            onChange={(aliases) => set({ aliases })}
+          />
+          <SelectField
+            label={rt('temperatureEntity')}
+            options={[none, ...sensors.temperature]}
+            value={draft.temperatureEntityId}
+            onChange={(temperatureEntityId) => set({ temperatureEntityId })}
+          />
+          <SelectField
+            label={rt('humidityEntity')}
+            options={[none, ...sensors.humidity]}
+            value={draft.humidityEntityId}
+            onChange={(humidityEntityId) => set({ humidityEntityId })}
+          />
+        </>
       ) : null}
 
       {!room && !haFields ? <p className="dv-t2 m-0 px-1 text-[13px] leading-[1.45]">{rt('roomSavedOffline')}</p> : null}
