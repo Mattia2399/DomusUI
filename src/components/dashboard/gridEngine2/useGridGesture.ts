@@ -14,6 +14,9 @@ export const GRID_GESTURE_LONG_PRESS_MS = 650;
 export const GRID_GESTURE_PRESS_TOLERANCE_PX = 8;
 export const GRID_GESTURE_MOUSE_THRESHOLD_PX = 4;
 export const GRID_GESTURE_HYSTERESIS_CELLS = 0.15;
+export const GRID_GESTURE_AUTOSCROLL_EDGE_PX = 192;
+export const GRID_GESTURE_AUTOSCROLL_MAX_PX = 7;
+export const GRID_GESTURE_AUTOSCROLL_REDUCED_MAX_PX = 3.5;
 
 export type GridGesturePhase = 'IDLE' | 'PRESSING' | 'DRAGGING' | 'RESIZING';
 
@@ -65,6 +68,7 @@ type ActiveInteraction = {
   lastClientY: number;
   readonly startWindowScrollX: number;
   readonly startWindowScrollY: number;
+  readonly scrollContainer: HTMLElement | null;
   readonly scrollOrigins: readonly {
     readonly element: HTMLElement;
     readonly left: number;
@@ -78,6 +82,7 @@ type ActiveInteraction = {
 
 type UseGridGestureOptions = {
   readonly canvasRef: RefObject<HTMLDivElement | null>;
+  readonly scrollContainerRef?: RefObject<HTMLElement | null>;
   readonly items: readonly GridLayoutItem[];
   readonly cols: number;
   readonly mode: GridLayoutMode;
@@ -108,6 +113,34 @@ function clamp(value: number, minimum: number, maximum: number) {
 function numericStyleValue(value: string) {
   const parsed = Number.parseFloat(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function gridGestureAutoScrollVelocity(
+  clientY: number,
+  bounds: Readonly<{ top: number; bottom: number }>,
+  reducedMotion = false,
+) {
+  const height = bounds.bottom - bounds.top;
+  if (!Number.isFinite(clientY) || !Number.isFinite(height) || height <= 0) return 0;
+
+  const edge = Math.max(1, Math.min(GRID_GESTURE_AUTOSCROLL_EDGE_PX, height / 2));
+  const topDistance = clientY - bounds.top;
+  const bottomDistance = bounds.bottom - clientY;
+  const maximum = reducedMotion
+    ? GRID_GESTURE_AUTOSCROLL_REDUCED_MAX_PX
+    : GRID_GESTURE_AUTOSCROLL_MAX_PX;
+  const velocityForDistance = (distance: number) => {
+    const intensity = clamp(1 - distance / edge, 0, 1);
+    return intensity === 0 ? 0 : Math.min(maximum, Math.max(0.75, intensity * maximum));
+  };
+
+  if (topDistance < edge && topDistance <= bottomDistance) {
+    return -velocityForDistance(topDistance);
+  }
+  if (bottomDistance < edge) {
+    return velocityForDistance(bottomDistance);
+  }
+  return 0;
 }
 
 export function readGridMetrics(
@@ -191,19 +224,31 @@ export function shouldCancelGridGestureOnLostPointerCapture(
   return pointerType !== 'mouse' || buttons === 0 || !targetConnected;
 }
 
-function scrollOriginsFor(element: HTMLElement) {
+function scrollOriginsFor(element: HTMLElement, preferredScrollContainer: HTMLElement | null) {
   const origins: { element: HTMLElement; left: number; top: number }[] = [];
   let ancestor = element.parentElement;
   while (ancestor) {
     const styles = window.getComputedStyle(ancestor);
-    const canScrollX = /(auto|scroll|overlay)/.test(styles.overflowX)
-      && ancestor.scrollWidth > ancestor.clientWidth;
-    const canScrollY = /(auto|scroll|overlay)/.test(styles.overflowY)
-      && ancestor.scrollHeight > ancestor.clientHeight;
-    if (ancestor !== document.scrollingElement && (canScrollX || canScrollY)) {
+    const canScrollX = /(auto|scroll|overlay)/.test(styles.overflowX);
+    const canScrollY = /(auto|scroll|overlay)/.test(styles.overflowY);
+    if (
+      ancestor !== document.scrollingElement
+      && (canScrollX || canScrollY || ancestor === preferredScrollContainer)
+    ) {
       origins.push({ element: ancestor, left: ancestor.scrollLeft, top: ancestor.scrollTop });
     }
     ancestor = ancestor.parentElement;
+  }
+  if (
+    preferredScrollContainer
+    && preferredScrollContainer !== document.scrollingElement
+    && !origins.some((origin) => origin.element === preferredScrollContainer)
+  ) {
+    origins.push({
+      element: preferredScrollContainer,
+      left: preferredScrollContainer.scrollLeft,
+      top: preferredScrollContainer.scrollTop,
+    });
   }
   return origins;
 }
@@ -231,6 +276,8 @@ export function useGridGesture(options: UseGridGestureOptions) {
   const longPressTimerRef = useRef<number | null>(null);
   const suppressClickRef = useRef<string | null>(null);
   const suppressClickTimerRef = useRef<number | null>(null);
+  const autoScrollFrameRef = useRef<number | null>(null);
+  const autoScrollVelocityRef = useRef(0);
   const [state, setState] = useState<GridGestureState>(IDLE_STATE);
 
   const clearLongPressTimer = useCallback(() => {
@@ -252,10 +299,19 @@ export function useGridGesture(options: UseGridGestureOptions) {
     });
   }, []);
 
+  const stopAutoScroll = useCallback(() => {
+    autoScrollVelocityRef.current = 0;
+    if (autoScrollFrameRef.current !== null) {
+      window.cancelAnimationFrame(autoScrollFrameRef.current);
+      autoScrollFrameRef.current = null;
+    }
+  }, []);
+
   const finish = useCallback((commit: boolean) => {
     const interaction = interactionRef.current;
     if (!interaction) return;
     clearLongPressTimer();
+    stopAutoScroll();
     interactionRef.current = null;
     releasePointerCapture(interaction.captureElement, interaction.pointerId);
 
@@ -272,7 +328,7 @@ export function useGridGesture(options: UseGridGestureOptions) {
     }
 
     setState({ ...IDLE_STATE, solverCalls: interaction.solverCalls });
-  }, [clearLongPressTimer]);
+  }, [clearLongPressTimer, stopAutoScroll]);
 
   const cancel = useCallback(() => finish(false), [finish]);
 
@@ -401,12 +457,56 @@ export function useGridGesture(options: UseGridGestureOptions) {
     publish(interaction, visualOffset);
   }, [pointerDelta, publish, solveDestination]);
 
+  const runAutoScroll = useCallback(() => {
+    const interaction = interactionRef.current;
+    const scrollContainer = interaction?.scrollContainer;
+    const velocity = autoScrollVelocityRef.current;
+    if (!interaction || interaction.phase !== 'DRAGGING' || !scrollContainer || velocity === 0) {
+      autoScrollFrameRef.current = null;
+      return;
+    }
+
+    const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+    const nextScrollTop = clamp(scrollContainer.scrollTop + velocity, 0, maxScrollTop);
+    if (nextScrollTop === scrollContainer.scrollTop) {
+      stopAutoScroll();
+      return;
+    }
+
+    scrollContainer.scrollTop = nextScrollTop;
+    updateFromPointer(interaction, interaction.lastClientX, interaction.lastClientY);
+    autoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll);
+  }, [stopAutoScroll, updateFromPointer]);
+
+  const updateAutoScroll = useCallback((interaction: ActiveInteraction, clientY: number) => {
+    const scrollContainer = interaction.scrollContainer;
+    if (interaction.phase !== 'DRAGGING' || !scrollContainer) {
+      stopAutoScroll();
+      return;
+    }
+
+    const rect = scrollContainer.getBoundingClientRect();
+    const top = Math.max(0, rect.top);
+    const bottom = Math.min(window.innerHeight, rect.bottom);
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    const velocity = gridGestureAutoScrollVelocity(clientY, { top, bottom }, reducedMotion);
+    autoScrollVelocityRef.current = velocity;
+    if (velocity === 0) {
+      stopAutoScroll();
+      return;
+    }
+    if (autoScrollFrameRef.current === null) {
+      autoScrollFrameRef.current = window.requestAnimationFrame(runAutoScroll);
+    }
+  }, [runAutoScroll, stopAutoScroll]);
+
   const activateDrag = useCallback((interaction: ActiveInteraction, clientX: number, clientY: number) => {
     clearLongPressTimer();
     interaction.phase = 'DRAGGING';
     setPointerCapture(interaction.captureElement, interaction.pointerId);
     updateFromPointer(interaction, clientX, clientY);
-  }, [clearLongPressTimer, updateFromPointer]);
+    updateAutoScroll(interaction, clientY);
+  }, [clearLongPressTimer, updateAutoScroll, updateFromPointer]);
 
   const begin = useCallback((
     kind: GestureKind,
@@ -423,6 +523,7 @@ export function useGridGesture(options: UseGridGestureOptions) {
 
     try {
       const source = cloneLayout(optionsRef.current.items);
+      const scrollContainer = optionsRef.current.scrollContainerRef?.current ?? null;
       const metrics = readGridMetrics(
         canvas,
         optionsRef.current.cols,
@@ -444,7 +545,8 @@ export function useGridGesture(options: UseGridGestureOptions) {
         lastClientY: event.clientY,
         startWindowScrollX: window.scrollX,
         startWindowScrollY: window.scrollY,
-        scrollOrigins: scrollOriginsFor(canvas),
+        scrollContainer,
+        scrollOrigins: scrollOriginsFor(canvas, scrollContainer),
         captureElement: event.currentTarget,
         target: {
           x: sourceItem.x,
@@ -514,6 +616,7 @@ export function useGridGesture(options: UseGridGestureOptions) {
 
       event.preventDefault();
       updateFromPointer(interaction, event.clientX, event.clientY);
+      updateAutoScroll(interaction, event.clientY);
     };
     const handlePointerUp = (event: PointerEvent) => {
       const interaction = interactionRef.current;
@@ -541,7 +644,7 @@ export function useGridGesture(options: UseGridGestureOptions) {
       window.removeEventListener('pointercancel', handlePointerCancel);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [activateDrag, finish, updateFromPointer]);
+  }, [activateDrag, finish, updateAutoScroll, updateFromPointer]);
 
   useEffect(() => {
     const canvas = options.canvasRef.current;
@@ -558,9 +661,10 @@ export function useGridGesture(options: UseGridGestureOptions) {
 
   useEffect(() => () => {
     clearLongPressTimer();
+    stopAutoScroll();
     if (suppressClickTimerRef.current !== null) window.clearTimeout(suppressClickTimerRef.current);
     interactionRef.current = null;
-  }, [clearLongPressTimer]);
+  }, [clearLongPressTimer, stopAutoScroll]);
 
   const consumeSuppressedClick = useCallback((itemId: string) => {
     if (suppressClickRef.current !== itemId) return false;

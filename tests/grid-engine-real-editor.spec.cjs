@@ -165,6 +165,32 @@ function automaticReorderFixture({ mixedHeights = false } = {}) {
   };
 }
 
+function autoscrollFixture() {
+  const ids = Array.from({ length: 20 }, (_, index) => `root.scroll-${String(index).padStart(2, '0')}`);
+  const breakpoints = Object.keys(BREAKPOINT_COLS);
+  const root = Object.fromEntries(breakpoints.map((breakpoint) => {
+    const width = Math.min(3, BREAKPOINT_COLS[breakpoint]);
+    return [breakpoint, ids.map((id, index) => ({ i: id, x: 0, y: index, w: width, h: 1 }))];
+  }));
+  const sensorOverrides = Object.fromEntries(breakpoints.map((breakpoint) => [
+    breakpoint,
+    { w: Math.min(3, BREAKPOINT_COLS[breakpoint]), h: 1 },
+  ]));
+  return {
+    version: 14,
+    widgetTypeLayoutOverrides: { sensor: sensorOverrides },
+    widgetLayoutOverrides: {},
+    responsiveLayouts: { root },
+    sections: [],
+    widgets: ids.map((id, index) => widget(
+      id,
+      'sensor',
+      `Scroll ${index + 1}`,
+      { x: 0, y: index, w: 3, h: 1 },
+    )),
+  };
+}
+
 async function installDemo(page, layout) {
   await page.addInitScript(({ key, value }) => {
     if (localStorage.getItem('__gridEngineRealEditorFixture') !== 'installed') {
@@ -197,6 +223,14 @@ async function selectDesktopPreview(page) {
 
 function rootItem(page, id) {
   return page.locator(`[data-grid-engine-root-item="${id}"]`);
+}
+
+function editorScrollContainer(page) {
+  return page.locator('[data-grid-engine-editor="active"]').locator('xpath=..');
+}
+
+async function scrollTopOf(locator) {
+  return locator.evaluate((element) => element.scrollTop);
 }
 
 async function cellGeometry(page, id) {
@@ -720,6 +754,199 @@ test('Automatic REORDER preserves mixed-height order without collisions', async 
   ]);
   await expectNoCellCollisions(page);
   expect(drag.renderer).toBeDefined();
+});
+
+test('real editor autoscroll follows the mouse, stops safely, and preserves one Manual transaction', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1920, height: 760 });
+  await installDemo(page, autoscrollFixture());
+  const apiRequests = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/') || request.resourceType() === 'websocket') apiRequests.push(request.url());
+  });
+  await page.goto('/home');
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+
+  const id = 'root.scroll-00';
+  const target = page.locator(`[data-grid-engine-editor-item="${id}"]`);
+  const renderer = page.locator('[data-grid-engine-root-renderer="grid-engine-2"]');
+  const scrollContainer = editorScrollContainer(page);
+  await expect(scrollContainer).toHaveClass(/glass-scrollbar/);
+  await scrollContainer.evaluate((element) => { element.scrollTop = 0; });
+  const persistedBaseline = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+  const initial = await cellGeometry(page, id);
+  const targetBounds = await target.boundingBox();
+  const scrollBounds = await scrollContainer.boundingBox();
+  if (!targetBounds || !scrollBounds) throw new Error('Autoscroll surface has no browser bounds.');
+  const startX = targetBounds.x + Math.min(36, targetBounds.width / 3);
+  const startY = targetBounds.y + Math.min(28, targetBounds.height / 2);
+  const bottomEdgeY = scrollBounds.y + scrollBounds.height - 4;
+  const topEdgeY = scrollBounds.y + 4;
+  const centerY = scrollBounds.y + scrollBounds.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX, bottomEdgeY, { steps: 12 });
+  await expect(renderer).toHaveAttribute('data-grid-engine-editor-gesture', 'DRAGGING');
+  await expect.poll(() => scrollTopOf(scrollContainer)).toBeGreaterThan(100);
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
+  const downGeometry = await cellGeometry(page, id);
+  expect(downGeometry.y).toBeGreaterThan(initial.y);
+
+  await page.mouse.move(startX, centerY);
+  await page.waitForTimeout(120);
+  const stoppedAt = await scrollTopOf(scrollContainer);
+  await page.waitForTimeout(250);
+  expect(Math.abs(await scrollTopOf(scrollContainer) - stoppedAt)).toBeLessThanOrEqual(1);
+
+  await page.mouse.move(startX, bottomEdgeY);
+  await expect.poll(() => scrollTopOf(scrollContainer)).toBeGreaterThan(stoppedAt + 50);
+  const beforeUp = await scrollTopOf(scrollContainer);
+  await page.mouse.move(startX, topEdgeY);
+  await expect.poll(() => scrollTopOf(scrollContainer)).toBeLessThan(beforeUp - 50);
+  await page.mouse.up();
+  await expect(renderer).toHaveAttribute('data-grid-engine-editor-gesture', 'IDLE');
+  const releasedAt = await scrollTopOf(scrollContainer);
+  await page.waitForTimeout(250);
+  expect(Math.abs(await scrollTopOf(scrollContainer) - releasedAt)).toBeLessThanOrEqual(1);
+
+  const committed = await cellGeometry(page, id);
+  expect(committed.y).toBeGreaterThan(initial.y);
+  await expectNoCellCollisions(page);
+  await expect.poll(async () => page.evaluate((key) => {
+    const draft = JSON.parse(sessionStorage.getItem(key));
+    return draft?.dashboard?.responsiveLayouts?.root?.xl?.find((item) => item.i === 'root.scroll-00');
+  }, DRAFT_KEY)).toMatchObject(committed);
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+  expect(apiRequests).toEqual([]);
+
+  await page.waitForTimeout(320);
+  await page.getByRole('button', { name: 'Annulla ultima modifica' }).filter({ visible: true }).first().click();
+  await expect.poll(() => cellGeometry(page, id)).toEqual(initial);
+  await page.getByRole('button', { name: 'Ripeti ultima modifica' }).filter({ visible: true }).first().click();
+  await expect.poll(() => cellGeometry(page, id)).toEqual(committed);
+
+  await target.scrollIntoViewIfNeeded();
+  const cancelBounds = await target.boundingBox();
+  const cancelScrollBounds = await scrollContainer.boundingBox();
+  if (!cancelBounds || !cancelScrollBounds) throw new Error('Cancel surface has no browser bounds.');
+  const cancelX = cancelBounds.x + 24;
+  const cancelY = cancelBounds.y + Math.min(28, cancelBounds.height / 2);
+  await page.mouse.move(cancelX, cancelY);
+  await page.mouse.down();
+  await page.mouse.move(cancelX, cancelScrollBounds.y + cancelScrollBounds.height - 4, { steps: 10 });
+  await expect(renderer).toHaveAttribute('data-grid-engine-editor-gesture', 'DRAGGING');
+  const beforeEscape = await scrollTopOf(scrollContainer);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect(renderer).toHaveAttribute('data-grid-engine-editor-gesture', 'IDLE');
+  // Cancelling restores the immutable layout and may trigger one native scroll
+  // anchoring adjustment. The autoscroll loop itself must remain stopped after
+  // that layout has settled.
+  await page.waitForTimeout(80);
+  const settledAfterEscape = await scrollTopOf(scrollContainer);
+  await page.waitForTimeout(250);
+  expect(Math.abs(await scrollTopOf(scrollContainer) - settledAfterEscape)).toBeLessThanOrEqual(1);
+  expect(Math.abs(settledAfterEscape - beforeEscape)).toBeLessThanOrEqual(20);
+  expect(await cellGeometry(page, id)).toEqual(committed);
+});
+
+test('real editor autoscroll keeps Automatic reorder stable and touch cancel fail-closed', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1920, height: 760 });
+  await installDemo(page, autoscrollFixture());
+  await page.goto('/home');
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+  await page.getByTestId('grid-engine-2-editor-mode-automatic').click();
+
+  const ids = Array.from({ length: 20 }, (_, index) => `root.scroll-${String(index).padStart(2, '0')}`);
+  const id = ids[0];
+  const target = page.locator(`[data-grid-engine-editor-item="${id}"]`);
+  const renderer = page.locator('[data-grid-engine-root-renderer="grid-engine-2"]');
+  const scrollContainer = editorScrollContainer(page);
+  await scrollContainer.evaluate((element) => { element.scrollTop = 0; });
+  const targetBounds = await target.boundingBox();
+  const scrollBounds = await scrollContainer.boundingBox();
+  if (!targetBounds || !scrollBounds) throw new Error('Automatic autoscroll surface has no browser bounds.');
+  const x = targetBounds.x + 24;
+  const y = targetBounds.y + Math.min(28, targetBounds.height / 2);
+
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, scrollBounds.y + scrollBounds.height - 4, { steps: 12 });
+  await expect.poll(() => scrollTopOf(scrollContainer)).toBeGreaterThan(100);
+  await page.mouse.up();
+  await expect(renderer).toHaveAttribute('data-grid-engine-editor-gesture', 'IDLE');
+  const orderAfterMouse = await rootOrder(page, ids);
+  expect(orderAfterMouse[0]).not.toBe(id);
+  expect(orderAfterMouse.indexOf(id)).toBeGreaterThan(5);
+  await expectNoCellCollisions(page);
+
+  const touchId = orderAfterMouse[0];
+  const touchTarget = page.locator(`[data-grid-engine-editor-item="${touchId}"]`);
+  await scrollContainer.evaluate((element) => { element.scrollTop = 0; });
+  await touchTarget.scrollIntoViewIfNeeded();
+  const touchBounds = await touchTarget.boundingBox();
+  const touchScrollBounds = await scrollContainer.boundingBox();
+  if (!touchBounds || !touchScrollBounds) throw new Error('Touch autoscroll surface has no browser bounds.');
+  const touchPoint = { x: touchBounds.x + 24, y: touchBounds.y + Math.min(28, touchBounds.height / 2) };
+  const beforeTouch = await cellGeometry(page, touchId);
+  const draftBeforeTouch = await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY);
+  await touchTarget.dispatchEvent('pointerdown', {
+    pointerId: 91,
+    pointerType: 'touch',
+    isPrimary: true,
+    clientX: touchPoint.x,
+    clientY: touchPoint.y,
+    button: 0,
+  });
+  await page.waitForTimeout(700);
+  await expect(renderer).toHaveAttribute('data-grid-engine-editor-gesture', 'DRAGGING');
+  await page.evaluate(({ pointerId, x: clientX, y: clientY }) => {
+    window.dispatchEvent(new PointerEvent('pointermove', {
+      bubbles: true,
+      cancelable: true,
+      pointerId,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX,
+      clientY,
+      buttons: 1,
+    }));
+  }, {
+    pointerId: 91,
+    x: touchPoint.x,
+    y: touchScrollBounds.y + touchScrollBounds.height - 4,
+  });
+  const touchStartScroll = await scrollTopOf(scrollContainer);
+  await expect.poll(() => scrollTopOf(scrollContainer)).toBeGreaterThan(touchStartScroll + 30);
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBe(draftBeforeTouch);
+  await page.evaluate(({ pointerId, x: clientX, y: clientY }) => {
+    window.dispatchEvent(new PointerEvent('pointercancel', {
+      bubbles: true,
+      cancelable: true,
+      pointerId,
+      pointerType: 'touch',
+      isPrimary: true,
+      clientX,
+      clientY,
+    }));
+  }, {
+    pointerId: 91,
+    x: touchPoint.x,
+    y: touchScrollBounds.y + touchScrollBounds.height - 4,
+  });
+  await expect(renderer).toHaveAttribute('data-grid-engine-editor-gesture', 'IDLE');
+  const cancelledAt = await scrollTopOf(scrollContainer);
+  await page.waitForTimeout(250);
+  expect(Math.abs(await scrollTopOf(scrollContainer) - cancelledAt)).toBeLessThanOrEqual(1);
+  expect(await cellGeometry(page, touchId)).toEqual(beforeTouch);
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBe(draftBeforeTouch);
 });
 
 test('unsupported dynamic Stack geometry falls back to RGL without a GE2 commit surface', async ({ page }) => {

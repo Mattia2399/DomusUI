@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   GRID_GESTURE_HYSTERESIS_CELLS,
+  GRID_GESTURE_AUTOSCROLL_MAX_PX,
+  GRID_GESTURE_AUTOSCROLL_REDUCED_MAX_PX,
+  gridGestureAutoScrollVelocity,
   gridGestureDestinationIsOccupied,
   readGridMetrics,
   shouldCancelGridGestureOnLostPointerCapture,
@@ -110,5 +113,32 @@ describe('Grid Engine laboratory gesture math', () => {
       stepY: 46,
       rows: 6,
     });
+  });
+
+  it('derives progressive autoscroll velocity from the visible container edges', () => {
+    const bounds = { top: 100, bottom: 700 };
+
+    expect(gridGestureAutoScrollVelocity(400, bounds)).toBe(0);
+    expect(gridGestureAutoScrollVelocity(150, bounds)).toBeLessThan(0);
+    expect(gridGestureAutoScrollVelocity(110, bounds)).toBeLessThan(
+      gridGestureAutoScrollVelocity(150, bounds),
+    );
+    expect(gridGestureAutoScrollVelocity(650, bounds)).toBeGreaterThan(0);
+    expect(gridGestureAutoScrollVelocity(690, bounds)).toBeGreaterThan(
+      gridGestureAutoScrollVelocity(650, bounds),
+    );
+    expect(gridGestureAutoScrollVelocity(800, bounds)).toBe(GRID_GESTURE_AUTOSCROLL_MAX_PX);
+    expect(gridGestureAutoScrollVelocity(0, bounds)).toBe(-GRID_GESTURE_AUTOSCROLL_MAX_PX);
+  });
+
+  it('caps rather than disables autoscroll for reduced-motion users', () => {
+    const bounds = { top: 100, bottom: 700 };
+
+    expect(gridGestureAutoScrollVelocity(700, bounds, true)).toBe(
+      GRID_GESTURE_AUTOSCROLL_REDUCED_MAX_PX,
+    );
+    expect(gridGestureAutoScrollVelocity(700, bounds, true)).toBeLessThan(
+      gridGestureAutoScrollVelocity(700, bounds),
+    );
   });
 });

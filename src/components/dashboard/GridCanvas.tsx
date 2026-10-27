@@ -83,7 +83,11 @@ import {
 import { LEGACY_GRID_METRICS } from './gridEngine2/gridMetrics';
 import type { GridLayoutMode } from './gridEngine2/model';
 import { solveLayout } from './gridEngine2/solveLayout';
-import { useGridGesture, type GridGesturePreview } from './gridEngine2/useGridGesture';
+import {
+  gridGestureAutoScrollVelocity,
+  useGridGesture,
+  type GridGesturePreview,
+} from './gridEngine2/useGridGesture';
 import { deriveGridEngineRuntimeOverrides } from './gridEngine2/gridEngineRuntimeOverrides';
 import { solveGridEngineRootRuntimeLayout } from './gridEngine2/gridEngineRootRuntimeSolver';
 import {
@@ -329,8 +333,6 @@ const GRID_ENGINE_CONTAINER_PADDING: Record<GridBreakpoint, [number, number]> = 
 };
 const XS_CONTEXT_OPEN_LONG_PRESS_MS = 420;
 const XS_CONTEXT_OPEN_MOVE_TOLERANCE_PX = 14;
-const COMPACT_DRAG_AUTOSCROLL_EDGE_PX = 192;
-const COMPACT_DRAG_AUTOSCROLL_MAX_PX = 7;
 const COMPACT_DRAG_LONG_PRESS_MS = 650;
 const COMPACT_DRAG_HOLD_MOVE_TOLERANCE_PX = 10;
 const GRID_ENGINE_2_SHADOW_SETTLE_MS = 160;
@@ -1578,17 +1580,11 @@ export function GridCanvas({
       }
 
       const rect = scrollNode.getBoundingClientRect();
-      const topDistance = clientY - rect.top;
-      const bottomDistance = rect.bottom - clientY;
-      let nextVelocity = 0;
-
-      if (topDistance < COMPACT_DRAG_AUTOSCROLL_EDGE_PX) {
-        const intensity = Math.max(0, 1 - topDistance / COMPACT_DRAG_AUTOSCROLL_EDGE_PX);
-        nextVelocity = -Math.max(0.75, intensity * COMPACT_DRAG_AUTOSCROLL_MAX_PX);
-      } else if (bottomDistance < COMPACT_DRAG_AUTOSCROLL_EDGE_PX) {
-        const intensity = Math.max(0, 1 - bottomDistance / COMPACT_DRAG_AUTOSCROLL_EDGE_PX);
-        nextVelocity = Math.max(0.75, intensity * COMPACT_DRAG_AUTOSCROLL_MAX_PX);
-      }
+      const nextVelocity = gridGestureAutoScrollVelocity(
+        clientY,
+        { top: Math.max(0, rect.top), bottom: Math.min(window.innerHeight, rect.bottom) },
+        window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
+      );
 
       if (nextVelocity === 0) {
         stopCanvasAutoScroll();
@@ -2821,6 +2817,7 @@ export function GridCanvas({
 
   const gridEngine2EditorGesture = useGridGesture({
     canvasRef: gridEngine2EditorCanvasRef,
+    scrollContainerRef: canvasScrollRef,
     items: gridEngine2EditorBaseline,
     cols: gridEngineActiveCols,
     mode: gridEngine2EditorMode,
