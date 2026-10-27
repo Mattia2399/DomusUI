@@ -1,14 +1,19 @@
-import { forwardRef, type RefObject } from 'react';
+import { forwardRef, type ReactNode, type RefObject } from 'react';
 import { Grip, Maximize2 } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
-import {
-  GRID_ENGINE_LAB_GAP,
-  GRID_ENGINE_LAB_ROW_HEIGHT,
-} from './labFixtures';
+import type { GridMetricsDefinition } from './gridMetrics';
 import type { GridLayoutItem } from './model';
 import type { useGridGesture } from './useGridGesture';
+import type { DashboardGridBreakpoint } from '../../../types/widgetTypeLayout';
 
 type GridGestureController = ReturnType<typeof useGridGesture>;
+
+export type GridGestureRenderContext = Readonly<{
+  item: GridLayoutItem;
+  selected: boolean;
+  breakpoint: DashboardGridBreakpoint;
+  canvasWidth: number;
+}>;
 
 const CARD_TONES = [
   'from-cyan-400/28 to-blue-500/12 border-cyan-300/28',
@@ -36,7 +41,10 @@ type GridGestureCanvasProps = {
   readonly gestureEnabled?: boolean;
   readonly cols: number;
   readonly canvasWidth: number;
-  readonly breakpoint: string;
+  readonly breakpoint: DashboardGridBreakpoint;
+  readonly metrics: GridMetricsDefinition;
+  readonly itemKinds?: Readonly<Record<string, string>>;
+  readonly renderItem?: (context: GridGestureRenderContext) => ReactNode;
 };
 
 export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasProps>(
@@ -51,6 +59,9 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
       cols,
       canvasWidth,
       breakpoint,
+      metrics,
+      itemKinds,
+      renderItem,
     },
     forwardedRef,
   ) {
@@ -65,8 +76,9 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
     ));
     const gridStyle = {
       gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-      gridTemplateRows: `repeat(${rows}, ${GRID_ENGINE_LAB_ROW_HEIGHT}px)`,
-      gap: `${GRID_ENGINE_LAB_GAP}px`,
+      gridTemplateRows: `repeat(${rows}, ${metrics.rowHeight}px)`,
+      columnGap: `${metrics.horizontalGap}px`,
+      rowGap: `${metrics.verticalGap}px`,
       width: `${canvasWidth}px`,
     };
 
@@ -105,6 +117,7 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
           ) : null}
 
           {renderItems.map((item) => {
+            const itemKind = itemKinds?.[item.i] ?? 'widget';
             const isSelected = selectedId === item.i;
             const isActive = gestureState?.activeId === item.i && gestureState.phase !== 'IDLE';
             const isPressing = isActive && gestureState.phase === 'PRESSING';
@@ -120,13 +133,23 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
               'data-y': String(item.y),
               'data-w': String(item.w),
               'data-h': String(item.h),
+              'data-item-kind': itemKind,
             };
+            const renderedItem = renderItem?.({
+              item,
+              selected: isSelected,
+              breakpoint,
+              canvasWidth,
+            });
             const cardContent = (
               <>
                 <span className="truncate text-[11px] font-semibold uppercase tracking-[0.09em] text-white/92">
                   {item.i}
                 </span>
                 <span className="mt-1 text-[10px] font-medium text-white/58">{geometry(item)}</span>
+                <span className="mt-1 w-fit rounded-full border border-white/10 bg-black/20 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-[0.1em] text-white/48">
+                  {itemKind === 'stack-root' ? 'Stack root' : itemKind.replace('-', ' ')}
+                </span>
                 {isPressing ? (
                   <span className="mt-auto pt-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-amber-100/75">
                     Hold…
@@ -153,7 +176,59 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
                 style={style}
                 {...dataProps}
               >
-                {onSelect ? (
+                {renderedItem ? (
+                  <div
+                    role={onSelect ? 'button' : undefined}
+                    tabIndex={onSelect ? 0 : undefined}
+                    aria-label={onSelect ? `Seleziona ${item.i}` : undefined}
+                    title={gestureEnabled ? 'Click per selezionare, trascina con il mouse o tieni premuto su touch' : undefined}
+                    data-testid={`experimental-real-card-${item.i}`}
+                    data-grid-safe-visual-only="true"
+                    className={[
+                      'absolute inset-0 min-h-0 min-w-0 overflow-hidden rounded-xl text-left',
+                      'transition-[filter,box-shadow,opacity] duration-200 motion-reduce:transition-none',
+                      isSelected ? 'ring-2 ring-cyan-300/85 ring-offset-2 ring-offset-[#080b12]' : '',
+                      isPressing ? 'brightness-110 ring-2 ring-amber-200/75' : '',
+                      isDragging || isResizing ? 'brightness-110 shadow-[0_18px_42px_rgba(0,0,0,0.3),0_0_0_1px_rgba(103,232,249,0.28)]' : '',
+                      gestureEnabled ? 'cursor-grab active:cursor-grabbing' : onSelect ? 'cursor-pointer' : '',
+                    ].join(' ')}
+                    style={{
+                      touchAction: 'pan-y',
+                      transform: isDragging
+                        ? `translate3d(${gestureState?.visualOffset.x ?? 0}px, ${gestureState?.visualOffset.y ?? 0}px, 0)`
+                        : undefined,
+                    }}
+                    onPointerDown={(event) => {
+                      if (gestureEnabled) gesture?.onDragPointerDown(item.i, event);
+                    }}
+                    onLostPointerCapture={gesture?.onLostPointerCapture}
+                    onClick={(event) => {
+                      if (!onSelect) return;
+                      if (gesture?.consumeSuppressedClick(item.i)) {
+                        event.preventDefault();
+                        return;
+                      }
+                      onSelect(item.i);
+                    }}
+                    onKeyDown={(event) => {
+                      if (!onSelect || (event.key !== 'Enter' && event.key !== ' ')) return;
+                      event.preventDefault();
+                      onSelect(item.i);
+                    }}
+                  >
+                    <div
+                      inert
+                      aria-hidden="true"
+                      data-testid={`experimental-real-card-content-${item.i}`}
+                      className="pointer-events-none h-full w-full select-none"
+                    >
+                      {renderedItem}
+                    </div>
+                    <span className="pointer-events-none absolute bottom-1 left-1 z-20 max-w-[calc(100%-0.5rem)] truncate rounded-full border border-black/15 bg-black/55 px-2 py-0.5 font-mono text-[8px] text-white/72 backdrop-blur-md">
+                      {item.i} · {geometry(item)}
+                    </span>
+                  </div>
+                ) : onSelect ? (
                   <button
                     type="button"
                     className={[

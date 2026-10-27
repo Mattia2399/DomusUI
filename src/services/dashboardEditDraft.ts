@@ -8,6 +8,11 @@ import { stripWidgetSecretsFromWidgets } from './widgetSecrets';
 
 const DRAFT_SCHEMA = 'premium-home-dashboard-edit-draft';
 const DRAFT_VERSION = 1;
+export const GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION =
+  'grid-engine-2-experimental' as const;
+
+export type DashboardEditDraftPersistenceProtection =
+  typeof GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION;
 
 type StoredDashboardEditDraft = {
   schema: typeof DRAFT_SCHEMA;
@@ -16,6 +21,7 @@ type StoredDashboardEditDraft = {
   createdAt: number;
   updatedAt: number;
   baseRevision: number | null;
+  persistenceProtection?: DashboardEditDraftPersistenceProtection;
   dashboard: DashboardLayoutConfiguration;
 };
 
@@ -62,7 +68,9 @@ export function readDashboardEditDraft(
       typeof parsed.updatedAt !== 'number' ||
       !Number.isFinite(parsed.updatedAt) ||
       (parsed.baseRevision !== null &&
-        (typeof parsed.baseRevision !== 'number' || !Number.isSafeInteger(parsed.baseRevision)))
+        (typeof parsed.baseRevision !== 'number' || !Number.isSafeInteger(parsed.baseRevision))) ||
+      (parsed.persistenceProtection !== undefined &&
+        parsed.persistenceProtection !== GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION)
     ) {
       storage.removeItem(getDashboardEditDraftKey(runtimeMode));
       return null;
@@ -77,6 +85,9 @@ export function readDashboardEditDraft(
       createdAt: parsed.createdAt,
       updatedAt: parsed.updatedAt,
       baseRevision: parsed.baseRevision,
+      ...(parsed.persistenceProtection
+        ? { persistenceProtection: parsed.persistenceProtection }
+        : null),
       dashboard,
     };
   } catch {

@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import React, { Suspense, useEffect, useMemo, useRef, type ReactNode, type Ref } from 'react';
 import type { GridItem } from '../../../types/dashboardModels';
 import { GridEngineRootRendererBoundary } from './GridEngineRootRendererBoundary';
 import { validateGridEngineRootGeometry, type RootRendererGeometry } from './gridEngineRootGeometry';
@@ -15,6 +15,10 @@ type GridEngineRootRendererSwitchProps = RootRendererGeometry & {
   readonly className?: string;
   readonly layout: readonly GridItem[];
   readonly children: ReactNode;
+  readonly containerRef?: Ref<HTMLDivElement>;
+  readonly gestureState?: string;
+  readonly gestureActiveId?: string | null;
+  readonly gestureVisualOffset?: Readonly<{ x: number; y: number }>;
   readonly legacyRenderer: (children: ReactNode) => ReactNode;
 };
 
@@ -28,6 +32,10 @@ function rendererProps(props: GridEngineRootRendererSwitchProps): GridEngineRoot
     rowHeight: props.rowHeight,
     gap: props.gap,
     padding: props.padding,
+    containerRef: props.containerRef,
+    gestureState: props.gestureState,
+    gestureActiveId: props.gestureActiveId,
+    gestureVisualOffset: props.gestureVisualOffset,
     children: props.children,
   };
 }

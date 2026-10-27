@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Responsive, type ResponsiveLayouts } from 'react-grid-layout/legacy';
 import {
+  Maximize2,
   MoreHorizontal,
 } from 'lucide-react';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
@@ -30,7 +31,9 @@ import type {
   SceneKey,
 } from '../../types/dashboardModels';
 import type {
+  DashboardGridBreakpoint,
   DashboardResponsiveLayouts,
+  WidgetTypeBreakpointLayoutOverride,
   WidgetLayoutOverrides,
   WidgetTypeLayoutOverrides,
 } from '../../types/widgetTypeLayout';
@@ -66,11 +69,23 @@ import {
 import { resolveGridStackContainerSpan } from './gridStackLayoutSolver';
 import { isCardContextLongPressBlockedTarget } from './cardLongPressTarget';
 import { GridEngineRootRendererSwitch } from './gridEngine2/GridEngineRootRendererSwitch';
+import { calculateGridEngineRootItemPosition } from './gridEngine2/gridEngineRootGeometry';
 import {
   alignDynamicRootPositions,
   stabilizeRootRuntimeCollisions,
 } from './gridEngine2/gridEngineRootRuntimeLayout';
 import { GRID_ENGINE_2_RENDERER_ENABLED } from './gridEngine2/rendererFeatureFlag';
+import { GRID_ENGINE_2_EDITOR_ENABLED } from './gridEngine2/editorFeatureFlag';
+import {
+  createGridEngineEditorResizeOverride,
+  prepareGridEngineEditorLayout,
+} from './gridEngine2/gridEngineEditorIntegration';
+import { LEGACY_GRID_METRICS } from './gridEngine2/gridMetrics';
+import type { GridLayoutMode } from './gridEngine2/model';
+import { solveLayout } from './gridEngine2/solveLayout';
+import { useGridGesture, type GridGesturePreview } from './gridEngine2/useGridGesture';
+import { deriveGridEngineRuntimeOverrides } from './gridEngine2/gridEngineRuntimeOverrides';
+import { solveGridEngineRootRuntimeLayout } from './gridEngine2/gridEngineRootRuntimeSolver';
 import {
   createRuntimeRenderDecisionConsolePayload,
   resolveGridEngineRootRuntimeRenderDecision,
@@ -106,6 +121,12 @@ const ResponsiveGridLayout = Responsive;
 const GRID_ENGINE_2_RUNTIME_RENDER_LOG_PREFIX = '[DomusUI:grid-engine2:runtime-render]';
 type GridBreakpoint = keyof typeof GRID_ENGINE_BREAKPOINTS;
 type GridLayouts = Partial<Record<GridBreakpoint, GridItem[]>>;
+export type GridCanvasEditorGeometrySnapshot = Readonly<{
+  breakpoint: DashboardGridBreakpoint;
+  cols: number;
+  gridWidth: number;
+  layouts: Readonly<Partial<Record<DashboardGridBreakpoint, readonly GridItem[]>>>;
+}>;
 type HouseMemberCardItem = {
   id: string;
   name: string;
@@ -121,6 +142,7 @@ type GridCanvasProps = {
   developerMode: boolean;
   isXsViewport: boolean;
   onActiveBreakpointChange?: (breakpoint: GridBreakpoint, gridWidth: number) => void;
+  onEditorGeometrySnapshotChange?: (snapshot: GridCanvasEditorGeometrySnapshot) => void;
   topRightOverlay?: React.ReactNode;
   state: DashboardStateShape;
   sections: DashboardSection[];
@@ -182,8 +204,17 @@ type GridCanvasProps = {
   onWidgetCoverClose: (widget: Widget) => void;
   onOpenMembersPanel: () => void;
   onWidgetLayoutChange: (sectionId: string, next: GridItem[]) => void;
-  onSectionsLayoutChange: (next: GridItem[]) => void;
+  onSectionsLayoutChange: (
+    next: GridItem[],
+    options?: Readonly<{ preserveSolverGeometry?: boolean }>,
+  ) => void;
   onRootBreakpointLayoutChange: (breakpoint: GridBreakpoint, next: GridItem[]) => void;
+  onWidgetBreakpointLayoutOverrideChange: (
+    widgetId: string,
+    breakpoint: GridBreakpoint,
+    next: WidgetTypeBreakpointLayoutOverride,
+  ) => void;
+  onExperimentalGridEngine2Commit: () => void;
   onStackBreakpointLayoutChange: (sectionId: string, breakpoint: GridBreakpoint, next: GridItem[]) => void;
   onAddWidget: (kind: WidgetKind, destination: WidgetCatalogDestination) => string;
   onAddSection: (kind: SectionKind) => string;
@@ -195,6 +226,77 @@ type GridCanvasProps = {
   houseMembers?: HouseMemberCardItem[];
   onWidgetDisplayMetricsChange?: (metrics: WidgetDisplayMetrics) => void;
 };
+
+type GridEngineEditorGestureController = ReturnType<typeof useGridGesture>;
+
+function GridEngineEditorInteractionLayer({
+  id,
+  label,
+  selected,
+  canResize,
+  gesture,
+  onSelect,
+  onKeyDown,
+}: Readonly<{
+  id: string;
+  label: string;
+  selected: boolean;
+  canResize: boolean;
+  gesture: GridEngineEditorGestureController;
+  onSelect: () => void;
+  onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+}>) {
+  const active = gesture.state.activeId === id && gesture.state.phase !== 'IDLE';
+  return (
+    <>
+      <button
+        type="button"
+        data-grid-engine-editor-item={id}
+        aria-label={`Sposta ${label}`}
+        aria-describedby="dashboard-grid-keyboard-help"
+        className={`absolute inset-0 z-30 rounded-xl bg-transparent text-left outline-none transition-shadow ${
+          selected ? 'ring-2 ring-cyan-300/85 ring-inset' : 'focus-visible:ring-2 focus-visible:ring-cyan-200/75 focus-visible:ring-inset'
+        } ${active ? 'cursor-grabbing shadow-[0_16px_38px_rgba(0,0,0,0.32)]' : 'cursor-grab'}`}
+        style={{ touchAction: 'pan-y' }}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          gesture.onDragPointerDown(id, event);
+        }}
+        onLostPointerCapture={gesture.onLostPointerCapture}
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!gesture.consumeSuppressedClick(id)) onSelect();
+        }}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onSelect();
+            return;
+          }
+          onKeyDown(event);
+        }}
+      />
+      {canResize && selected ? (
+        <button
+          type="button"
+          data-grid-no-drag="true"
+          data-grid-engine-editor-resize={id}
+          aria-label={`Ridimensiona ${label}`}
+          className="absolute -bottom-1 -right-1 z-40 flex h-9 w-9 touch-none items-center justify-center rounded-xl border border-cyan-200/45 bg-[#10232a]/95 text-cyan-50 shadow-[0_8px_22px_rgba(0,0,0,0.34)] transition hover:scale-105 hover:bg-[#15313a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+          style={{ touchAction: 'none' }}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            gesture.onResizePointerDown(id, event);
+          }}
+          onLostPointerCapture={gesture.onLostPointerCapture}
+        >
+          <Maximize2 className="h-4 w-4" aria-hidden="true" />
+        </button>
+      ) : null}
+    </>
+  );
+}
 
 const SECTION_LABEL_KEYS: Record<SectionKind, TranslationKey> = {
   greeting: 'home.catalog.section.greeting',
@@ -986,8 +1088,14 @@ function buildResponsiveLayoutsFromDesktop(
   vacuumWidgetIds: ReadonlySet<string>,
   lockWidgetIds: ReadonlySet<string>,
   coverWidgetIds: ReadonlySet<string>,
+  preserveExplicitVerticalGaps = false,
 ): GridLayouts {
-  const normalizeForBreakpoint = (layouts: GridItem[], breakpoint: GridBreakpoint, cols: number) => {
+  const normalizeForBreakpoint = (
+    layouts: GridItem[],
+    breakpoint: GridBreakpoint,
+    cols: number,
+    preserveVerticalGaps = false,
+  ) => {
     const enforced = enforceRootWidgetSpans(
       normalizeRuntimeLayout(layouts, cols),
       breakpoint,
@@ -1011,10 +1119,11 @@ function buildResponsiveLayoutsFromDesktop(
     const hasCollisions = enforced.some((item, itemIndex) =>
       enforced.slice(0, itemIndex).some((previous) => intersects(item, previous)),
     );
-    // A stored breakpoint layout is an explicit user composition. Preserve
-    // its horizontal positions when it is valid; only repack when a span
-    // change creates a real collision. This matches the live layout path and
-    // prevents route/remount from moving cards into different columns.
+    // Direct Grid Engine editing owns vertical placement. A valid explicit
+    // composition must therefore survive this legacy projection unchanged;
+    // Automatic mode has already compacted its solver output before it gets
+    // here. Legacy paths retain their historical compaction behavior.
+    if (preserveVerticalGaps && !hasCollisions) return enforced;
     return hasCollisions ? packLayoutDense(enforced, cols) : compactLayoutUp(enforced, cols);
   };
   const mergeExplicitWithFallback = (explicit: GridItem[] | undefined, fallback: GridItem[]) => {
@@ -1061,36 +1170,42 @@ function buildResponsiveLayoutsFromDesktop(
     mergeExplicitWithFallback(explicitRootLayouts?.xl, xlFallback),
     'xl',
     GRID_ENGINE_XL_COLS,
+    preserveExplicitVerticalGaps && Boolean(explicitRootLayouts?.xl?.length),
   );
   const twoXlFallback = deriveFrom(xl, 'xl', '2xl');
   const twoXl = normalizeForBreakpoint(
     mergeExplicitWithFallback(explicitRootLayouts?.['2xl'], twoXlFallback),
     '2xl',
     GRID_ENGINE_2XL_COLS,
+    preserveExplicitVerticalGaps && Boolean(explicitRootLayouts?.['2xl']?.length),
   );
   const lgFallback = deriveFrom(xl, 'xl', 'lg');
   const lg = normalizeForBreakpoint(
     mergeExplicitWithFallback(explicitRootLayouts?.lg, lgFallback),
     'lg',
     GRID_ENGINE_LG_COLS,
+    preserveExplicitVerticalGaps && Boolean(explicitRootLayouts?.lg?.length),
   );
   const mdFallback = deriveFrom(lg, 'lg', 'md');
   const md = normalizeForBreakpoint(
     mergeExplicitWithFallback(explicitRootLayouts?.md, mdFallback),
     'md',
     GRID_ENGINE_MD_COLS,
+    preserveExplicitVerticalGaps && Boolean(explicitRootLayouts?.md?.length),
   );
   const smFallback = deriveFrom(md, 'md', 'sm');
   const sm = normalizeForBreakpoint(
     mergeExplicitWithFallback(explicitRootLayouts?.sm, smFallback),
     'sm',
     GRID_ENGINE_SM_COLS,
+    preserveExplicitVerticalGaps && Boolean(explicitRootLayouts?.sm?.length),
   );
   const xsFallback = deriveFrom(sm, 'sm', 'xs');
   const xs = normalizeForBreakpoint(
     mergeExplicitWithFallback(explicitRootLayouts?.xs, xsFallback),
     'xs',
     GRID_ENGINE_XS_COLS,
+    preserveExplicitVerticalGaps && Boolean(explicitRootLayouts?.xs?.length),
   );
   return { '2xl': twoXl, xl, lg, md, sm, xs };
 }
@@ -1102,6 +1217,7 @@ export function GridCanvas({
   developerMode,
   isXsViewport,
   onActiveBreakpointChange,
+  onEditorGeometrySnapshotChange,
   topRightOverlay,
   state,
   sections,
@@ -1165,6 +1281,8 @@ export function GridCanvas({
   onWidgetLayoutChange,
   onSectionsLayoutChange,
   onRootBreakpointLayoutChange,
+  onWidgetBreakpointLayoutOverrideChange,
+  onExperimentalGridEngine2Commit,
   onStackBreakpointLayoutChange,
   onAddWidget,
   onAddSection,
@@ -1184,6 +1302,7 @@ export function GridCanvas({
   const xsLongPressTriggeredRef = useRef(false);
   const xsSuppressNextCardClickRef = useRef(false);
   const runtimeGridHostRef = useRef<HTMLDivElement | null>(null);
+  const gridEngine2EditorCanvasRef = useRef<HTMLDivElement | null>(null);
   const canvasScrollRef = useRef<HTMLDivElement | null>(null);
   const canvasDragStartItemRef = useRef<GridItem | null>(null);
   const canvasAutoScrollFrameRef = useRef<number | null>(null);
@@ -1196,11 +1315,15 @@ export function GridCanvas({
   const resolvedRuntimeStackWidthsRef = useRef<Set<string>>(new Set());
   const runtimeStackWidthSettleTimersRef = useRef<Map<string, number>>(new Map());
   const lastLiveGridEngineLayoutsRef = useRef<GridLayouts>({});
+  const gridEngine2EditorWasRequestedRef = useRef(false);
   const [isMounted, setIsMounted] = useState(false);
   const [runtimeGridWidth, setRuntimeGridWidth] = useState(0);
   const [isCanvasTouchLocked, setIsCanvasTouchLocked] = useState(false);
   const [compactDragArmedItemId, setCompactDragArmedItemId] = useState<string | null>(null);
   const [keyboardLayoutAnnouncement, setKeyboardLayoutAnnouncement] = useState('');
+  const [gridEngine2EditorMode, setGridEngine2EditorMode] = useState<GridLayoutMode>('manual');
+  const [gridEngine2EditorError, setGridEngine2EditorError] = useState<string | null>(null);
+  const gridEngine2EditorRequested = GRID_ENGINE_2_EDITOR_ENABLED && isEditMode;
   useEffect(
     () => () => {
       runtimeStackWidthSettleTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -1631,6 +1754,10 @@ export function GridCanvas({
     () => new Set(rootLightWidgetStateById.keys()),
     [rootLightWidgetStateById],
   );
+  const rootStructuralLightStateById = useMemo(
+    () => new Map([...rootLightWidgetStateById.keys()].map((id) => [id, false] as const)),
+    [rootLightWidgetStateById],
+  );
   const shouldAlignDynamicRootPositions = GRID_ENGINE_2_RENDERER_ENABLED && !isEditMode;
   const rootSwitchWidgetIds = useMemo(
     () =>
@@ -1785,6 +1912,7 @@ export function GridCanvas({
         rootVacuumWidgetIds,
         rootLockWidgetIds,
         rootCoverWidgetIds,
+        gridEngine2EditorRequested,
       ),
     [
       desktopLayout,
@@ -1802,6 +1930,48 @@ export function GridCanvas({
       rootAlarmWidgetIds,
       rootVacuumWidgetIds,
       rootCoverWidgetIds,
+      gridEngine2EditorRequested,
+    ],
+  );
+  const structuralGridEngineLayouts = useMemo(
+    () =>
+      buildResponsiveLayoutsFromDesktop(
+        desktopLayout,
+        rootScenesSectionIds,
+        widgetTypeLayoutOverrides,
+        widgetLayoutOverrides,
+        responsiveLayouts.root,
+        rootStructuralLightStateById,
+        rootSwitchWidgetIds,
+        rootClimateWidgetIds,
+        rootCameraWidgetIds,
+        rootMediaWidgetIds,
+        rootSensorWidgetIds,
+        rootMembersWidgetIds,
+        rootAlarmWidgetIds,
+        rootVacuumWidgetIds,
+        rootLockWidgetIds,
+        rootCoverWidgetIds,
+        gridEngine2EditorRequested,
+      ),
+    [
+      desktopLayout,
+      responsiveLayouts.root,
+      rootAlarmWidgetIds,
+      rootCameraWidgetIds,
+      rootClimateWidgetIds,
+      rootCoverWidgetIds,
+      rootLockWidgetIds,
+      rootMediaWidgetIds,
+      rootMembersWidgetIds,
+      rootScenesSectionIds,
+      rootSensorWidgetIds,
+      rootStructuralLightStateById,
+      rootSwitchWidgetIds,
+      rootVacuumWidgetIds,
+      gridEngine2EditorRequested,
+      widgetLayoutOverrides,
+      widgetTypeLayoutOverrides,
     ],
   );
   const gridEngineActiveCols = GRID_ENGINE_COLS[gridEngineActiveBreakpoint];
@@ -1814,6 +1984,33 @@ export function GridCanvas({
     [runtimeGridWidth],
   );
   const hasPendingAuthoritativeLayout = synchronizedLayoutRevision !== layoutRevision;
+  useLayoutEffect(() => {
+    const wasRequested = gridEngine2EditorWasRequestedRef.current;
+    gridEngine2EditorWasRequestedRef.current = gridEngine2EditorRequested;
+    if (!gridEngine2EditorRequested || wasRequested) return;
+
+    // View mode may have cached the same explicit breakpoint after legacy
+    // vertical compaction. Entering the direct editor must rebase only its
+    // transient render cache on the verified explicit coordinates; this is
+    // not an editor mutation and must not create history or a draft.
+    setGridEngineLayouts((current) => {
+      const rebased = Object.fromEntries(
+        GRID_ENGINE_BREAKPOINT_ORDER.map((breakpoint) => [
+          breakpoint,
+          (derivedGridEngineLayouts[breakpoint] ?? []).map((derivedItem) => {
+            const currentItem = current[breakpoint]?.find((item) => item.i === derivedItem.i);
+            const stack = stackSectionsById.get(derivedItem.i);
+            const preservesRuntimeSpan = stack?.kind === 'stack-grid' && stack.stackColumnsMode !== 'manual';
+            return currentItem && preservesRuntimeSpan
+              ? { ...derivedItem, w: currentItem.w, h: currentItem.h }
+              : derivedItem;
+          }),
+        ]),
+      ) as GridLayouts;
+      lastLiveGridEngineLayoutsRef.current = rebased;
+      return rebased;
+    });
+  }, [derivedGridEngineLayouts, gridEngine2EditorRequested, stackSectionsById]);
   useLayoutEffect(() => {
     if (!hasPendingAuthoritativeLayout) {
       return;
@@ -1854,7 +2051,12 @@ export function GridCanvas({
           rootCoverWidgetIds,
       );
       if (breakpoint !== 'xs' || rootFanHumidifierKindsById.size === 0) {
-        const compacted = compactLayoutUp(enforced, cols);
+        const hasCollisions = enforced.some((item, index) =>
+          enforced.slice(0, index).some((previous) => intersects(item, previous)),
+        );
+        const compacted = gridEngine2EditorRequested && !hasCollisions
+          ? enforced
+          : compactLayoutUp(enforced, cols);
         return shouldAlignDynamicRootPositions
           ? stabilizeRootRuntimeCollisions(compacted, cols)
           : compacted;
@@ -1872,7 +2074,9 @@ export function GridCanvas({
       const hasCollisions = aligned.some((item, index) =>
         aligned.slice(0, index).some((previous) => intersects(item, previous)),
       );
-      const normalized = hasCollisions ? packLayoutDense(aligned, cols) : compactLayoutUp(aligned, cols);
+      const normalized = gridEngine2EditorRequested && !hasCollisions
+        ? aligned
+        : hasCollisions ? packLayoutDense(aligned, cols) : compactLayoutUp(aligned, cols);
       return shouldAlignDynamicRootPositions
         ? stabilizeRootRuntimeCollisions(normalized, cols)
         : normalized;
@@ -1893,6 +2097,7 @@ export function GridCanvas({
       rootLockWidgetIds,
       rootCoverWidgetIds,
       rootFanHumidifierKindsById,
+      gridEngine2EditorRequested,
       shouldAlignDynamicRootPositions,
     ],
   );
@@ -1989,6 +2194,38 @@ export function GridCanvas({
     rootLightWidgetIds,
     shouldAlignDynamicRootPositions,
     widgetTypeLayoutOverrides,
+  ]);
+  useLayoutEffect(() => {
+    if (
+      !import.meta.env.DEV
+      || !isEditMode
+      || !isRuntimeGridReady
+      || hasPendingAuthoritativeLayout
+      || !onEditorGeometrySnapshotChange
+    ) {
+      return;
+    }
+    const layouts = Object.fromEntries(
+      Object.entries(liveGridEngineLayouts).map(([breakpoint, layout]) => [
+        breakpoint,
+        (layout ?? []).map((item) => ({ ...item })),
+      ]),
+    ) as Partial<Record<DashboardGridBreakpoint, readonly GridItem[]>>;
+    onEditorGeometrySnapshotChange({
+      breakpoint: gridEngineActiveBreakpoint,
+      cols: gridEngineActiveCols,
+      gridWidth: runtimeGridEffectiveWidth,
+      layouts,
+    });
+  }, [
+    gridEngineActiveBreakpoint,
+    gridEngineActiveCols,
+    hasPendingAuthoritativeLayout,
+    isEditMode,
+    isRuntimeGridReady,
+    liveGridEngineLayouts,
+    onEditorGeometrySnapshotChange,
+    runtimeGridEffectiveWidth,
   ]);
   useEffect(() => {
     if (!GRID_ENGINE_2_SHADOW_ENABLED) return undefined;
@@ -2406,36 +2643,20 @@ export function GridCanvas({
       // Experimental diagnostics must never affect Home rendering.
     }
   }, [runtimeRenderDecision]);
-  const rootRendererLayout = runtimeRenderDecision.kind === 'custom-solver'
+  const runtimeRootRendererLayout = runtimeRenderDecision.kind === 'custom-solver'
     ? runtimeRenderDecision.layout
     : liveGridEngineLayout;
-  const rootRendererLayoutHasExactIds = useMemo(() => {
-    if (rootRendererLayout.length !== runtimeRenderRootElements.length) return false;
-    const layoutIds = new Set(rootRendererLayout.map((item) => item.i));
-    return layoutIds.size === rootRendererLayout.length &&
+  const runtimeRootRendererLayoutHasExactIds = useMemo(() => {
+    if (runtimeRootRendererLayout.length !== runtimeRenderRootElements.length) return false;
+    const layoutIds = new Set(runtimeRootRendererLayout.map((item) => item.i));
+    return layoutIds.size === runtimeRootRendererLayout.length &&
       runtimeRenderRootElements.every((element) => layoutIds.has(element.id));
-  }, [rootRendererLayout, runtimeRenderRootElements]);
-  const rootRendererEnabled = rootRendererLayoutHasExactIds && (
+  }, [runtimeRootRendererLayout, runtimeRenderRootElements]);
+  const runtimeRootRendererEnabled = runtimeRootRendererLayoutHasExactIds && (
     runtimeRenderDecision.kind === 'custom-solver' || (
       runtimeRenderDecision.kind === 'existing-renderer' &&
       runtimeRenderDecision.renderer === 'custom'
     )
-  );
-  runtimeGeometryExpectedRendererRef.current = rootRendererEnabled ? 'grid-engine-2' : 'legacy';
-  const runtimeSolverSpans = runtimeRenderDecision.kind === 'custom-solver'
-    ? runtimeRenderDecision.runtimeSpans
-    : null;
-  const rootRendererUsedRows = useMemo(
-    () =>
-      rootRendererLayout.reduce(
-        (maxRows, item) => Math.max(maxRows, Math.max(0, Math.round(item.y)) + Math.max(1, Math.round(item.h))),
-        0,
-      ),
-    [rootRendererLayout],
-  );
-  const rootRendererLayoutMap = useMemo(
-    () => new Map(rootRendererLayout.map((item) => [item.i, item])),
-    [rootRendererLayout],
   );
   const hasGridItemMoved = useCallback((start: GridItem | null, next: GridItem | undefined | null) => {
     if (!start || !next) {
@@ -2458,6 +2679,256 @@ export function GridCanvas({
     [sections],
   );
   const rootWidgetIdSet = useMemo(() => new Set(rootWidgets.map((widget) => widget.id)), [rootWidgets]);
+  const rootWidgetById = useMemo(
+    () => new Map(rootWidgets.map((widget) => [widget.id, widget] as const)),
+    [rootWidgets],
+  );
+  const gridEngine2EditorPreparation = useMemo(() => prepareGridEngineEditorLayout({
+    effectiveLayout: liveGridEngineLayout,
+    structuralLayout: structuralGridEngineLayouts[gridEngineActiveBreakpoint] ?? [],
+    rootIds: runtimeRenderRootElements.map((element) => element.id),
+    stackIds: new Set(stackSectionsById.keys()),
+    cols: gridEngineActiveCols,
+    origin: Object.prototype.hasOwnProperty.call(
+      responsiveLayouts.root ?? {},
+      gridEngineActiveBreakpoint,
+    ) ? 'explicit' : 'legacy-derived',
+  }), [
+    gridEngineActiveBreakpoint,
+    gridEngineActiveCols,
+    liveGridEngineLayout,
+    responsiveLayouts.root,
+    runtimeRenderRootElements,
+    stackSectionsById,
+    structuralGridEngineLayouts,
+  ]);
+  const gridEngine2EditorReady = gridEngine2EditorRequested &&
+    isRuntimeGridReady &&
+    !hasPendingAuthoritativeLayout &&
+    gridEngine2EditorPreparation.status === 'ready';
+  const gridEngine2EditorBaseline = gridEngine2EditorPreparation.status === 'ready'
+    ? gridEngine2EditorPreparation.layout
+    : liveGridEngineLayout;
+
+  const commitCanonicalRootLayout = useCallback((
+    activeLayout: readonly GridItem[],
+    preserveSolverGeometry = false,
+  ) => {
+    if (gridEngineActiveBreakpoint !== GRID_ENGINE_CANONICAL_BREAKPOINT) return;
+    onSectionsLayoutChange(
+      activeLayout.map((item) =>
+        scaleLayoutColumns(
+          {
+            i: item.i,
+            x: Math.max(0, Math.round(item.x)),
+            y: Math.max(0, Math.round(item.y)),
+            w: Math.max(1, Math.round(item.w)),
+            h: Math.max(1, Math.round(item.h)),
+          },
+          gridEngineActiveCols,
+          ROOT_CANVAS_COLS,
+        ),
+      ),
+      preserveSolverGeometry ? { preserveSolverGeometry: true } : undefined,
+    );
+  }, [gridEngineActiveBreakpoint, gridEngineActiveCols, onSectionsLayoutChange]);
+
+  const commitGridEngine2EditorPreview = useCallback((preview: GridGesturePreview) => {
+    if (!gridEngine2EditorReady) return;
+    let solverOutput = preview.output;
+    if (
+      preview.mode === 'automatic' &&
+      (preview.intent.type === 'MOVE' || preview.intent.type === 'REORDER')
+    ) {
+      try {
+        // During the gesture Automatic keeps the active card fixed so it can
+        // follow the pointer. Completing the operation is the deterministic
+        // compaction boundary: remove every remaining vertical hole before
+        // validation and before MainBoard receives the single committed draft.
+        solverOutput = solveLayout({
+          items: solverOutput,
+          cols: gridEngineActiveCols,
+          mode: 'automatic',
+          intent: { type: 'COMPACT' },
+        });
+      } catch (error) {
+        setGridEngine2EditorError(
+          error instanceof Error ? error.message : 'Compattazione Grid Engine 2.0 non valida.',
+        );
+        return;
+      }
+    }
+    const validation = solveGridEngineRootRuntimeLayout({
+      structuralLayout: solverOutput,
+      cols: gridEngineActiveCols,
+    });
+    if (validation.status === 'invalid') {
+      setGridEngine2EditorError('La geometria proposta non supera la validazione strutturale.');
+      return;
+    }
+    const committed = validation.layout.map((item) => ({ ...item }));
+    const committedId = 'id' in preview.intent ? preview.intent.id : null;
+    if (committedId && sectionIdSet.has(committedId)) {
+      onSelectSection(committedId);
+      onSelectWidget(null);
+    } else if (committedId && rootWidgetIdSet.has(committedId)) {
+      onSelectWidget(committedId);
+      onSelectSection(null);
+    }
+    onExperimentalGridEngine2Commit();
+    setGridEngineLayouts((current) => ({
+      ...current,
+      [gridEngineActiveBreakpoint]: committed,
+    }));
+    onRootBreakpointLayoutChange(gridEngineActiveBreakpoint, committed);
+
+    if (preview.intent.type === 'RESIZE') {
+      const resizedId = preview.intent.id;
+      const widget = rootWidgetById.get(resizedId);
+      const resized = committed.find((item) => item.i === resizedId);
+      if (widget && resized) {
+        onWidgetBreakpointLayoutOverrideChange(
+          widget.id,
+          gridEngineActiveBreakpoint,
+          createGridEngineEditorResizeOverride(
+            widget.kind,
+            resized.w,
+            resized.h,
+            widgetLayoutOverrides[widget.id]?.[gridEngineActiveBreakpoint],
+            widgetTypeLayoutOverrides[widget.kind]?.[gridEngineActiveBreakpoint],
+          ),
+        );
+      }
+    }
+    commitCanonicalRootLayout(committed, true);
+    setGridEngine2EditorError(null);
+  }, [
+    commitCanonicalRootLayout,
+    gridEngine2EditorReady,
+    gridEngineActiveBreakpoint,
+    gridEngineActiveCols,
+    onExperimentalGridEngine2Commit,
+    onRootBreakpointLayoutChange,
+    onSelectSection,
+    onSelectWidget,
+    onWidgetBreakpointLayoutOverrideChange,
+    rootWidgetIdSet,
+    rootWidgetById,
+    sectionIdSet,
+    widgetLayoutOverrides,
+    widgetTypeLayoutOverrides,
+  ]);
+
+  const gridEngine2EditorGesture = useGridGesture({
+    canvasRef: gridEngine2EditorCanvasRef,
+    items: gridEngine2EditorBaseline,
+    cols: gridEngineActiveCols,
+    mode: gridEngine2EditorMode,
+    metrics: LEGACY_GRID_METRICS,
+    containerPadding: GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint],
+    moveIntentType: gridEngine2EditorMode === 'automatic'
+      ? 'REORDER_WHEN_COLLIDING'
+      : 'MOVE',
+    enabled: gridEngine2EditorReady,
+    onActivate: () => setGridEngine2EditorError(null),
+    onCommit: commitGridEngine2EditorPreview,
+    onCancel: () => setGridEngine2EditorError(null),
+    onError: (error) => setGridEngine2EditorError(
+      error instanceof Error ? error.message : 'Gesture Grid Engine 2.0 non valida.',
+    ),
+  });
+  useEffect(() => {
+    gridEngine2EditorGesture.cancel();
+    setGridEngine2EditorError(null);
+  }, [gridEngine2EditorGesture.cancel, gridEngine2EditorMode, gridEngineActiveBreakpoint, isEditMode]);
+
+  const gridEngine2EditorStructuralLayout = gridEngine2EditorGesture.state.preview?.output
+    ?? gridEngine2EditorBaseline;
+  const gridEngine2EditorRuntimeLayout = useMemo(() => {
+    if (!gridEngine2EditorReady) return gridEngine2EditorStructuralLayout;
+    const derived = deriveGridEngineRuntimeOverrides({
+      breakpoint: gridEngineActiveBreakpoint,
+      cols: gridEngineActiveCols,
+      structuralLayout: gridEngine2EditorStructuralLayout,
+      legacyRuntimeLayout: liveGridEngineLayout,
+      rootElements: runtimeRenderRootElements,
+      lightStates: runtimeRenderLightStates,
+      widgetTypeLayoutOverrides,
+      widgetLayoutOverrides,
+      metricsVersion: 'legacy',
+    });
+    const blockingIssue = derived.issues.find((issue) => issue.code !== 'AMBIGUOUS_LIGHT_BASELINE');
+    if (blockingIssue) return gridEngine2EditorStructuralLayout;
+    const solved = solveGridEngineRootRuntimeLayout({
+      structuralLayout: derived.structuralLayout,
+      cols: gridEngineActiveCols,
+      overrides: derived.overrides,
+    });
+    return solved.status === 'invalid' ? gridEngine2EditorStructuralLayout : solved.layout;
+  }, [
+    gridEngine2EditorReady,
+    gridEngine2EditorStructuralLayout,
+    gridEngineActiveBreakpoint,
+    gridEngineActiveCols,
+    liveGridEngineLayout,
+    runtimeRenderLightStates,
+    runtimeRenderRootElements,
+    widgetLayoutOverrides,
+    widgetTypeLayoutOverrides,
+  ]);
+  const rootRendererLayout = gridEngine2EditorReady
+    ? gridEngine2EditorRuntimeLayout
+    : runtimeRootRendererLayout;
+  const rootRendererEnabled = gridEngine2EditorReady || runtimeRootRendererEnabled;
+  runtimeGeometryExpectedRendererRef.current = rootRendererEnabled ? 'grid-engine-2' : 'legacy';
+  const runtimeSolverSpans = !gridEngine2EditorReady && runtimeRenderDecision.kind === 'custom-solver'
+    ? runtimeRenderDecision.runtimeSpans
+    : null;
+  const rootRendererUsedRows = useMemo(
+    () => rootRendererLayout.reduce(
+      (maxRows, item) => Math.max(maxRows, Math.max(0, Math.round(item.y)) + Math.max(1, Math.round(item.h))),
+      0,
+    ),
+    [rootRendererLayout],
+  );
+  const rootRendererLayoutMap = useMemo(
+    () => new Map(rootRendererLayout.map((item) => [item.i, item])),
+    [rootRendererLayout],
+  );
+  const gridEngine2EditorVisualOffset = useMemo(() => {
+    const rawOffset = gridEngine2EditorGesture.state.visualOffset;
+    const activeId = gridEngine2EditorGesture.state.activeId;
+    if (!gridEngine2EditorReady || gridEngine2EditorGesture.state.phase !== 'DRAGGING' || !activeId) {
+      return rawOffset;
+    }
+    const structuralItem = gridEngine2EditorStructuralLayout.find((item) => item.i === activeId);
+    const renderedItem = rootRendererLayoutMap.get(activeId);
+    if (!structuralItem || !renderedItem) return rawOffset;
+
+    const geometry = {
+      width: Math.max(runtimeGridEffectiveWidth, 1),
+      cols: gridEngineActiveCols,
+      rowHeight: GRID_ENGINE_ROW_UNIT,
+      gap: [GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX] as const,
+      padding: GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint],
+    };
+    const structuralPosition = calculateGridEngineRootItemPosition(structuralItem, geometry);
+    const renderedPosition = calculateGridEngineRootItemPosition(renderedItem, geometry);
+    return {
+      x: rawOffset.x + structuralPosition.left - renderedPosition.left,
+      y: rawOffset.y + structuralPosition.top - renderedPosition.top,
+    };
+  }, [
+    gridEngine2EditorGesture.state.activeId,
+    gridEngine2EditorGesture.state.phase,
+    gridEngine2EditorGesture.state.visualOffset,
+    gridEngine2EditorReady,
+    gridEngine2EditorStructuralLayout,
+    gridEngineActiveBreakpoint,
+    gridEngineActiveCols,
+    rootRendererLayoutMap,
+    runtimeGridEffectiveWidth,
+  ]);
   const commitGridEngineLayouts = useCallback(
     (layouts: GridLayouts, activeLayout?: GridItem[]) => {
       const activeCols = GRID_ENGINE_COLS[gridEngineActiveBreakpoint];
@@ -2471,30 +2942,13 @@ export function GridCanvas({
         activeCols,
       );
       onRootBreakpointLayoutChange(gridEngineActiveBreakpoint, normalizedActive);
-      if (gridEngineActiveBreakpoint !== GRID_ENGINE_CANONICAL_BREAKPOINT) {
-        return;
-      }
-      onSectionsLayoutChange(
-        normalizedActive.map((item) =>
-          scaleLayoutColumns(
-            {
-              i: item.i,
-              x: Math.max(0, Math.round(item.x)),
-              y: Math.max(0, Math.round(item.y)),
-              w: Math.max(1, Math.round(item.w)),
-              h: Math.max(1, Math.round(item.h)),
-            },
-            activeCols,
-            ROOT_CANVAS_COLS,
-          ),
-        ),
-      );
+      commitCanonicalRootLayout(normalizedActive);
     },
     [
       gridEngineActiveBreakpoint,
+      commitCanonicalRootLayout,
       normalizeRootLayoutForBreakpoint,
       onRootBreakpointLayoutChange,
-      onSectionsLayoutChange,
     ],
   );
   const updateGridEngineLayouts = useCallback(
@@ -2745,7 +3199,9 @@ export function GridCanvas({
         return;
       }
 
-      const source = liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [];
+      const source = gridEngine2EditorReady
+        ? gridEngine2EditorBaseline
+        : liveGridEngineLayouts[gridEngineActiveBreakpoint] ?? [];
       const current = source.find((item) => item.i === itemId);
       if (!current) {
         return;
@@ -2774,6 +3230,47 @@ export function GridCanvas({
       }
 
       if (hasGridItemMoved(current, nextItem)) {
+        if (gridEngine2EditorReady) {
+          const intent = isResize
+            ? {
+                type: 'RESIZE' as const,
+                id: itemId,
+                w: nextItem.w,
+                h: nextItem.h,
+                anchor: 'top-left' as const,
+              }
+            : {
+                type: 'MOVE' as const,
+                id: itemId,
+                x: nextItem.x,
+                y: nextItem.y,
+              };
+          try {
+            const output = solveLayout({
+              items: source,
+              cols: gridEngineActiveCols,
+              mode: gridEngine2EditorMode,
+              intent,
+            });
+            commitGridEngine2EditorPreview({
+              source,
+              output,
+              intent,
+              mode: gridEngine2EditorMode,
+            });
+            const resolved = output.find((item) => item.i === itemId) ?? nextItem;
+            setKeyboardLayoutAnnouncement(
+              isResize
+                ? `${itemLabel}: dimensione ${resolved.w} colonne per ${resolved.h} righe.`
+                : `${itemLabel}: posizione colonna ${resolved.x + 1}, riga ${resolved.y + 1}.`,
+            );
+          } catch (error) {
+            setGridEngine2EditorError(
+              error instanceof Error ? error.message : 'Modifica da tastiera Grid Engine 2.0 non valida.',
+            );
+          }
+          return;
+        }
         const nextActiveLayout = source.map((item) => (item.i === itemId ? nextItem : item));
         const committed = updateGridEngineLayouts({
           ...liveGridEngineLayouts,
@@ -2794,9 +3291,13 @@ export function GridCanvas({
     },
     [
       commitGridEngineLayouts,
+      commitGridEngine2EditorPreview,
       focusCanvasOverlayItem,
       gridEngineActiveBreakpoint,
       gridEngineActiveCols,
+      gridEngine2EditorBaseline,
+      gridEngine2EditorMode,
+      gridEngine2EditorReady,
       hasGridItemMoved,
       isEditMode,
       liveGridEngineLayouts,
@@ -3204,6 +3705,8 @@ export function GridCanvas({
   );
 
   const rootGridClassName = `sections-grid behance-grid relative ${isEditMode ? 'is-editing' : ''} ${
+    gridEngine2EditorReady ? 'is-grid-engine-2-editing' : ''
+  } ${
     isCompactEditCardMenuMode ? 'is-compact-editing' : ''
   }`;
 
@@ -3218,6 +3721,27 @@ export function GridCanvas({
         <div
           ref={runtimeGridHostRef}
           data-preview-width={previewGridWidth ?? 'auto'}
+            data-grid-engine-editor={
+              gridEngine2EditorRequested
+                ? gridEngine2EditorReady ? 'active' : 'legacy-fallback'
+                : undefined
+            }
+            data-grid-engine-editor-renderer={
+              gridEngine2EditorRequested
+                ? gridEngine2EditorReady ? 'grid-engine-2' : 'react-grid-layout'
+                : undefined
+            }
+            data-grid-engine-editor-mode={gridEngine2EditorReady ? gridEngine2EditorMode : undefined}
+            data-grid-engine-editor-operation={
+              gridEngine2EditorReady
+                ? gridEngine2EditorGesture.state.preview?.intent.type
+                : undefined
+            }
+            data-grid-engine-editor-fallback={
+              gridEngine2EditorRequested && gridEngine2EditorPreparation.status === 'fallback'
+                ? gridEngine2EditorPreparation.reason
+                : undefined
+            }
             data-grid-engine-runtime-render-decision={
               GRID_ENGINE_2_RUNTIME_SOLVER_RENDERER_ENABLED ? runtimeRenderDecision.kind : undefined
             }
@@ -3257,6 +3781,53 @@ export function GridCanvas({
               {topRightOverlay}
             </div>
           ) : null}
+          {gridEngine2EditorRequested ? (
+            <div
+              data-testid="grid-engine-2-editor-status"
+              className={`absolute right-2 top-14 z-50 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full border px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] shadow-xl backdrop-blur-xl sm:right-3 ${
+                gridEngine2EditorReady
+                  ? 'border-cyan-300/30 bg-[#071722]/92 text-cyan-50'
+                  : 'border-amber-300/30 bg-[#241807]/92 text-amber-50'
+              }`}
+            >
+              <span className="px-1">
+                {gridEngine2EditorReady ? 'Grid Engine 2.0' : `RGL fallback · ${
+                  gridEngine2EditorPreparation.status === 'fallback'
+                    ? gridEngine2EditorPreparation.reason
+                    : 'geometry-pending'
+                }`}
+              </span>
+              {gridEngine2EditorReady ? (
+                <>
+                  {(['manual', 'automatic'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      data-testid={`grid-engine-2-editor-mode-${mode}`}
+                      aria-pressed={gridEngine2EditorMode === mode}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={() => setGridEngine2EditorMode(mode)}
+                      className={`rounded-full px-2 py-1 transition ${
+                        gridEngine2EditorMode === mode
+                          ? 'bg-cyan-300/20 text-cyan-50'
+                          : 'text-white/48 hover:bg-white/10 hover:text-white/78'
+                      }`}
+                    >
+                      {mode}
+                    </button>
+                  ))}
+                </>
+              ) : null}
+            </div>
+          ) : null}
+          {gridEngine2EditorError ? (
+            <p
+              role="alert"
+              className="absolute left-3 top-14 z-50 max-w-[min(34rem,calc(100%-1.5rem))] rounded-xl border border-rose-300/25 bg-[#2a0d14]/92 px-3 py-2 text-xs text-rose-50 shadow-xl backdrop-blur-xl"
+            >
+              {gridEngine2EditorError}
+            </p>
+          ) : null}
           {isEditMode ? (
             <div className="pointer-events-none absolute inset-0 rounded-[2rem] dashboard-edit-overlay" />
           ) : null}
@@ -3278,6 +3849,10 @@ export function GridCanvas({
               rowHeight={GRID_ENGINE_ROW_UNIT}
               gap={[GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX]}
               padding={GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint]}
+              containerRef={gridEngine2EditorReady ? gridEngine2EditorCanvasRef : undefined}
+              gestureState={gridEngine2EditorReady ? gridEngine2EditorGesture.state.phase : undefined}
+              gestureActiveId={gridEngine2EditorReady ? gridEngine2EditorGesture.state.activeId : undefined}
+              gestureVisualOffset={gridEngine2EditorReady ? gridEngine2EditorVisualOffset : undefined}
               legacyRenderer={(rootChildren) => (
                 <ResponsiveGridLayout
                   key={`dashboard-grid:${layoutRevision}`}
@@ -3375,33 +3950,50 @@ export function GridCanvas({
                     gridEngineColumnWidth * sectionSpanW + GRID_ENGINE_GAP_PX * Math.max(0, sectionSpanW - 1),
                   ),
                 );
+                const sectionEditorLabel = section.title?.trim() || sectionLabel(section.kind);
                 return (
                   <div
                     key={section.id}
                     data-grid-engine-runtime-geometry-id={
                       GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED ? section.id : undefined
                     }
-                    tabIndex={isEditMode ? 0 : undefined}
-                    role={isEditMode ? 'group' : undefined}
+                    tabIndex={isEditMode && !gridEngine2EditorReady ? 0 : undefined}
+                    role={isEditMode && !gridEngine2EditorReady ? 'group' : undefined}
                     aria-label={
                       isEditMode
-                        ? `${t('home.catalog.fallbackSection')} ${section.title?.trim() || sectionLabel(section.kind)}`
+                        ? `${t('home.catalog.fallbackSection')} ${sectionEditorLabel}`
                         : undefined
                     }
                     aria-describedby={isEditMode ? 'dashboard-grid-keyboard-help' : undefined}
                     className={`relative h-full w-full min-h-0 min-w-0 ${
                       isStackSection(section) ? 'overflow-visible' : 'overflow-hidden'
                     } ${
-                      isCompactEditCardMenuMode ? 'compact-edit-hold-target' : ''
+                      isCompactEditCardMenuMode && !gridEngine2EditorReady ? 'compact-edit-hold-target' : ''
                     } ${compactDragArmedItemId === section.id ? 'compact-edit-drag-handle' : ''}`}
-                    onTouchStart={(event) => handleCompactDragTouchStart(event, section.id)}
-                    onTouchMove={handleCompactDragTouchMove}
-                    onTouchEnd={handleCompactDragHoldEnd}
-                    onTouchCancel={handleCompactDragHoldEnd}
-                    onPointerDown={(event) => handleCompactDragPointerDown(event, section.id)}
-                    onMouseUp={handleCompactDragHoldEnd}
-                    onMouseLeave={handleCompactDragHoldEnd}
-                    onFocus={() => focusCanvasOverlayItem(section.id)}
+                    onTouchStart={(event) => {
+                      if (!gridEngine2EditorReady) handleCompactDragTouchStart(event, section.id);
+                    }}
+                    onTouchMove={(event) => {
+                      if (!gridEngine2EditorReady) handleCompactDragTouchMove(event);
+                    }}
+                    onTouchEnd={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onTouchCancel={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onPointerDown={(event) => {
+                      if (!gridEngine2EditorReady) handleCompactDragPointerDown(event, section.id);
+                    }}
+                    onMouseUp={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onMouseLeave={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onFocus={() => {
+                      if (!gridEngine2EditorReady) focusCanvasOverlayItem(section.id);
+                    }}
                     onKeyDown={(event) =>
                       handleCanvasItemKeyDown(
                         event,
@@ -3410,16 +4002,40 @@ export function GridCanvas({
                       )
                     }
                   >
-                    {renderSectionCard(
-                      section,
-                      sectionSpanW,
-                      sectionSpanH,
-                      sectionCanvasCols,
-                      stackWidth,
-                      GRID_ENGINE_ROW_UNIT,
-                      GRID_ENGINE_GAP_PX,
-                      runtimeGridEffectiveWidth > 0,
-                    )}
+                    <div
+                      inert={gridEngine2EditorReady ? true : undefined}
+                      aria-hidden={gridEngine2EditorReady ? true : undefined}
+                      className={gridEngine2EditorReady ? 'pointer-events-none h-full w-full select-none' : 'contents'}
+                    >
+                      {renderSectionCard(
+                        section,
+                        sectionSpanW,
+                        sectionSpanH,
+                        sectionCanvasCols,
+                        stackWidth,
+                        GRID_ENGINE_ROW_UNIT,
+                        GRID_ENGINE_GAP_PX,
+                        runtimeGridEffectiveWidth > 0,
+                      )}
+                    </div>
+                    {gridEngine2EditorReady ? (
+                      <GridEngineEditorInteractionLayer
+                        id={section.id}
+                        label={sectionEditorLabel}
+                        selected={selectedSectionId === section.id}
+                        canResize={false}
+                        gesture={gridEngine2EditorGesture}
+                        onSelect={() => {
+                          onSelectSection(section.id);
+                          onSelectWidget(null);
+                        }}
+                        onKeyDown={(event) => handleCanvasItemKeyDown(
+                          event,
+                          section.id,
+                          sectionEditorLabel,
+                        )}
+                      />
+                    ) : null}
                   </div>
                 );
               })}
@@ -3451,12 +4067,12 @@ export function GridCanvas({
                     data-grid-engine-runtime-geometry-id={
                       GRID_ENGINE_2_RUNTIME_GEOMETRY_INSPECT_ENABLED ? widget.id : undefined
                     }
-                    tabIndex={isEditMode ? 0 : undefined}
-                    role={isEditMode ? 'group' : undefined}
+                    tabIndex={isEditMode && !gridEngine2EditorReady ? 0 : undefined}
+                    role={isEditMode && !gridEngine2EditorReady ? 'group' : undefined}
                     aria-label={isEditMode ? t('home.catalog.editCardAria', { name: widget.title?.trim() || widget.id }) : undefined}
                     aria-describedby={isEditMode ? 'dashboard-grid-keyboard-help' : undefined}
                     className={`relative h-full w-full min-h-0 min-w-0 overflow-hidden ${
-                      isCompactEditCardMenuMode ? 'compact-edit-hold-target' : ''
+                      isCompactEditCardMenuMode && !gridEngine2EditorReady ? 'compact-edit-hold-target' : ''
                     } ${compactDragArmedItemId === widget.id ? 'compact-edit-drag-handle' : ''}`}
                     style={
                       isXsLongPressMode
@@ -3466,19 +4082,33 @@ export function GridCanvas({
                           }
                         : undefined
                     }
-                    onTouchStart={(event) => handleCompactDragTouchStart(event, widget.id)}
-                    onTouchMove={handleCompactDragTouchMove}
-                    onTouchEnd={handleCompactDragHoldEnd}
-                    onTouchCancel={handleCompactDragHoldEnd}
-                    onMouseUp={handleCompactDragHoldEnd}
-                    onMouseLeave={handleCompactDragHoldEnd}
-                    onFocus={() => focusCanvasOverlayItem(widget.id)}
+                    onTouchStart={(event) => {
+                      if (!gridEngine2EditorReady) handleCompactDragTouchStart(event, widget.id);
+                    }}
+                    onTouchMove={(event) => {
+                      if (!gridEngine2EditorReady) handleCompactDragTouchMove(event);
+                    }}
+                    onTouchEnd={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onTouchCancel={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onMouseUp={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onMouseLeave={() => {
+                      if (!gridEngine2EditorReady) handleCompactDragHoldEnd();
+                    }}
+                    onFocus={() => {
+                      if (!gridEngine2EditorReady) focusCanvasOverlayItem(widget.id);
+                    }}
                     onKeyDown={(event) =>
                       handleCanvasItemKeyDown(event, widget.id, widget.title?.trim() || widget.id)
                     }
                     onClick={(event) => {
                       event.stopPropagation();
-                      if (isEditMode && !isCompactEditCardMenuMode) {
+                      if (isEditMode && !isCompactEditCardMenuMode && !gridEngine2EditorReady) {
                         onSelectWidget(widget.id);
                       }
                     }}
@@ -3489,7 +4119,7 @@ export function GridCanvas({
                       }
                       // In edit mode, let RGL own pointerdown for drag-start.
                       // Selection still happens via click (non-drag) or onDragStart.
-                      if (isCompactEditCardMenuMode) {
+                      if (isCompactEditCardMenuMode && !gridEngine2EditorReady) {
                         handleCompactDragPointerDown(event, widget.id);
                       }
                     }}
@@ -3518,6 +4148,11 @@ export function GridCanvas({
                       clearXsLongPressTimer();
                     }}
                   >
+                    <div
+                      inert={gridEngine2EditorReady ? true : undefined}
+                      aria-hidden={gridEngine2EditorReady ? true : undefined}
+                      className={gridEngine2EditorReady ? 'pointer-events-none h-full w-full select-none' : 'contents'}
+                    >
                     <WidgetCardRenderer
                       widget={runtimeWidget}
                       dashboardState={state}
@@ -3602,7 +4237,26 @@ export function GridCanvas({
                         selectedWidgetId === widget.id ? onWidgetDisplayMetricsChange : undefined
                       }
                     />
-                    {isCompactEditCardMenuMode ? (
+                    </div>
+                    {gridEngine2EditorReady ? (
+                      <GridEngineEditorInteractionLayer
+                        id={widget.id}
+                        label={widget.title?.trim() || widget.id}
+                        selected={selectedWidgetId === widget.id}
+                        canResize
+                        gesture={gridEngine2EditorGesture}
+                        onSelect={() => {
+                          onSelectWidget(widget.id);
+                          onSelectSection(null);
+                        }}
+                        onKeyDown={(event) => handleCanvasItemKeyDown(
+                          event,
+                          widget.id,
+                          widget.title?.trim() || widget.id,
+                        )}
+                      />
+                    ) : null}
+                    {isCompactEditCardMenuMode && !gridEngine2EditorReady ? (
                       <button
                         type="button"
                         className="widget-action absolute right-2 top-2 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-black/35 text-white/85 shadow-[0_10px_24px_rgba(0,0,0,0.28)] backdrop-blur-xl transition hover:bg-white/15 hover:text-white active:scale-95"
@@ -3704,6 +4358,12 @@ export function GridCanvas({
               transition-property: transform, width, height;
               transition-duration: 260ms;
               transition-timing-function: cubic-bezier(0.22, 0.9, 0.25, 1);
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+              .sections-grid .react-grid-item {
+                transition: none !important;
+              }
             }
 
             @media (hover: none) and (pointer: coarse) {

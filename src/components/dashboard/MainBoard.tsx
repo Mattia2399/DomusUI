@@ -12,7 +12,11 @@ import { XsNotificationBell } from './XsNotificationBell';
 import { XsProfileChip } from './XsProfileChip';
 import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 import { DashboardSidebarPlaceholder } from './DashboardSidebarPlaceholder';
-import { GridCanvas, preloadDashboardCatalog } from './GridCanvas';
+import {
+  GridCanvas,
+  preloadDashboardCatalog,
+  type GridCanvasEditorGeometrySnapshot,
+} from './GridCanvas';
 import { HomeAssistantRecoveryBanner } from './HomeAssistantRecoveryBanner';
 import { DashboardEditToolbar } from './DashboardEditToolbar';
 import { DashboardViewportPreviewBar } from './DashboardViewportPreviewBar';
@@ -139,7 +143,7 @@ import {
   type DashboardViewportPreviewMode,
 } from './dashboardViewport';
 import { hasFavoriteGridProjection, resolveFavoriteGridTargetSectionId } from './favoriteGridPlacement';
-import { LayoutDashboard, Lightbulb, Menu, MousePointerClick, PanelRightOpen, PencilRuler, Plus, Settings2, X } from 'lucide-react';
+import { FlaskConical, LayoutDashboard, Lightbulb, Menu, MousePointerClick, PanelRightOpen, PencilRuler, Plus, Settings2, X } from 'lucide-react';
 import {
   normalizeWidgetTypeLayoutOverrides,
   resolveWidgetTypeLayoutSpan,
@@ -225,7 +229,12 @@ import { useHaDashboardLayoutPersistence } from '../../hooks/useHaDashboardLayou
 import { useDashboardEditorHistory } from '../../hooks/useDashboardEditorHistory';
 import { createDashboardStructuralFingerprint } from '../../services/dashboardPersistenceProjection';
 import type { DashboardLayoutConfiguration } from '../../services/dashboardConfigurationRepository';
-import { createDashboardStructuralApplicationReceipt } from '../../services/dashboardStructuralLoadSnapshot';
+import {
+  createDashboardStructuralApplicationReceipt,
+  isolateDashboardStructuralConfiguration,
+} from '../../services/dashboardStructuralLoadSnapshot';
+import type { GridEditorPreviewSession } from './gridEngine2/GridEditorPreviewDialog';
+import type { GridEngineDraftSourceIdentity } from './gridEngine2/gridEngineDraftChangeSet';
 import {
   createDashboardRecoverySnapshot,
   discardDashboardRecoverySnapshot,
@@ -234,6 +243,7 @@ import {
 } from '../../services/dashboardRecovery';
 import {
   discardDashboardEditDraft,
+  GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
   readDashboardEditDraft,
   saveDashboardEditDraft,
   type DashboardEditDraft,
@@ -435,6 +445,7 @@ const loadGuidedSetupOverlay = () => import('../settings/GuidedSetupOverlay');
 const loadStarterLayoutChoiceModal = () => import('../onboarding/StarterLayoutChoiceModal');
 const loadSecurityAuthModal = () => import('../security/SecurityAuthModal');
 const loadDashboardRecoveryModal = () => import('./DashboardRecoveryModal');
+const loadGridEditorPreviewDialog = () => import('./gridEngine2/GridEditorPreviewDialog');
 
 const ConsumptionDashboardPage = React.lazy(loadConsumptionDashboard);
 const AutomationsBuilder = React.lazy(loadAutomationsBuilder);
@@ -449,6 +460,9 @@ const GuidedSetupOverlay = React.lazy(loadGuidedSetupOverlay);
 const StarterLayoutChoiceModal = React.lazy(loadStarterLayoutChoiceModal);
 const SecurityAuthModal = React.lazy(loadSecurityAuthModal);
 const DashboardRecoveryModal = React.lazy(loadDashboardRecoveryModal);
+const GridEditorPreviewDialog = import.meta.env.DEV
+  ? React.lazy(loadGridEditorPreviewDialog)
+  : null;
 
 function prefetchDashboardWorkspace(path: string) {
   const normalizedPath = path.trim().toLowerCase().split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
@@ -499,6 +513,13 @@ function fingerprintDashboardEditorSnapshot(snapshot: DashboardEditorSnapshot) {
   return createDashboardStructuralFingerprint({
     storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
     ...snapshot,
+  });
+}
+
+function fingerprintDashboardEditorInventory(snapshot: DashboardEditorSnapshot) {
+  return JSON.stringify({
+    sections: snapshot.sections.map((section) => [section.id, section.kind]),
+    widgets: snapshot.widgets.map((widget) => [widget.id, widget.kind, widget.parentSectionId ?? null]),
   });
 }
 
@@ -2456,6 +2477,9 @@ export function MainBoard() {
   }, []);
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasUnsavedDashboardEdits, setHasUnsavedDashboardEdits] = useState(false);
+  const [hasExperimentalGridEngine2Edits, setHasExperimentalGridEngine2Edits] = useState(false);
+  const [gridEditorPreviewSession, setGridEditorPreviewSession] = useState<GridEditorPreviewSession | null>(null);
+  const gridEditorGeometrySnapshotRef = useRef<GridCanvasEditorGeometrySnapshot | null>(null);
   const [isDashboardSaveBusy, setIsDashboardSaveBusy] = useState(false);
   const [isDashboardConflictOpen, setIsDashboardConflictOpen] = useState(false);
   const editSessionBaselineRef = useRef<DashboardEditorSnapshot | null>(null);
@@ -6468,11 +6492,19 @@ export function MainBoard() {
   const requiresDashboardLayoutMigration =
     effectiveRuntimeMode === 'real' &&
     haDashboardLayoutPersistence.loadStatus === 'migration_required';
-  const saveDashboardLayoutNow = useCallback(async () => (
-    effectiveRuntimeMode === 'demo'
+  const saveDashboardLayoutNow = useCallback(async () => {
+    if (hasExperimentalGridEngine2Edits) {
+      return { ok: false as const, code: 'experimental_grid_engine2_blocked' as const };
+    }
+    return effectiveRuntimeMode === 'demo'
       ? localDashboardLayoutPersistence.saveNow()
-      : haDashboardLayoutPersistence.saveNow()
-  ), [effectiveRuntimeMode, haDashboardLayoutPersistence.saveNow, localDashboardLayoutPersistence.saveNow]);
+      : haDashboardLayoutPersistence.saveNow();
+  }, [
+    effectiveRuntimeMode,
+    haDashboardLayoutPersistence.saveNow,
+    hasExperimentalGridEngine2Edits,
+    localDashboardLayoutPersistence.saveNow,
+  ]);
   const [dashboardEditorLayoutRevision, setDashboardEditorLayoutRevision] = useState(0);
   const dashboardEditorSnapshot = useMemo<DashboardEditorSnapshot>(() => ({
     sections,
@@ -6481,6 +6513,70 @@ export function MainBoard() {
     responsiveLayouts,
     widgetLayoutOverrides,
   }), [responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
+  const gridEditorCurrentSourceIdentity = useMemo<GridEngineDraftSourceIdentity>(() => {
+    const structuralSource = haDashboardLayoutPersistence.structuralLoadSnapshot;
+    return {
+      editSessionId: !isEditMode || editSessionCreatedAtRef.current === null
+        ? null
+        : String(editSessionCreatedAtRef.current),
+      draftFingerprint: fingerprintDashboardEditorSnapshot(dashboardEditorSnapshot),
+      inventoryFingerprint: fingerprintDashboardEditorInventory(dashboardEditorSnapshot),
+      structuralGeneration: structuralSource.generation,
+      structuralRevision: structuralSource.revision,
+      structuralFingerprint: structuralSource.fingerprint,
+    };
+  }, [dashboardEditorSnapshot, haDashboardLayoutPersistence.structuralLoadSnapshot, isEditMode]);
+  const handleEditorGeometrySnapshotChange = useCallback((snapshot: GridCanvasEditorGeometrySnapshot) => {
+    // DEV-only read model: keeping this in a ref avoids changing Home render state.
+    gridEditorGeometrySnapshotRef.current = snapshot;
+  }, []);
+  const openGridEditorPreview = useCallback(() => {
+    if (!import.meta.env.DEV || !isEditMode) return;
+    const structuralSource = haDashboardLayoutPersistence.structuralLoadSnapshot;
+    const dashboard: DashboardLayoutConfiguration = {
+      storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
+      ...cloneDashboardEditorSnapshot(dashboardEditorSnapshot),
+    };
+    setGridEditorPreviewSession({
+      dashboard: isolateDashboardStructuralConfiguration(dashboard),
+      visualWidgets: structuredClone(dashboard.widgets),
+      dashboardState: structuredClone(stateWithConnectedUser),
+      haStates: structuredClone(haStatesForUi),
+      sensorHistoryByEntity: structuredClone(sensorHistoryByEntity),
+      houseMembers: structuredClone(householdPeople),
+      source: {
+        phase: structuralSource.phase,
+        source: structuralSource.source,
+        generation: structuralSource.generation,
+        revision: structuralSource.revision,
+        storageVersion: structuralSource.storageVersion,
+        coherent: structuralSource.coherent,
+        reason: structuralSource.reason,
+      },
+      hasUnsavedEdits: hasUnsavedDashboardEdits,
+      sourceIdentity: gridEditorCurrentSourceIdentity,
+      initialBreakpoint: canvasGridBreakpoint,
+      editorGeometry: gridEditorGeometrySnapshotRef.current,
+      persistedDashboard: structuralSource.dashboard,
+    });
+  }, [
+    canvasGridBreakpoint,
+    dashboardEditorSnapshot,
+    haDashboardLayoutPersistence.structuralLoadSnapshot,
+    haStatesForUi,
+    hasUnsavedDashboardEdits,
+    householdPeople,
+    gridEditorCurrentSourceIdentity,
+    isEditMode,
+    sensorHistoryByEntity,
+    stateWithConnectedUser,
+  ]);
+  useEffect(() => {
+    if (!isEditMode) {
+      setGridEditorPreviewSession(null);
+      gridEditorGeometrySnapshotRef.current = null;
+    }
+  }, [isEditMode]);
   const applyDashboardEditorSnapshot = useCallback((snapshot: typeof dashboardEditorSnapshot) => {
     setSections(snapshot.sections);
     setWidgets((currentWidgets) => {
@@ -6523,6 +6619,7 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
     }
     setHasUnsavedDashboardEdits(false);
+    setHasExperimentalGridEngine2Edits(false);
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
@@ -6641,23 +6738,32 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
       return;
     }
-    const timeoutId = window.setTimeout(() => {
+    const persistDraft = () => {
       try {
         saveDashboardEditDraft(window.sessionStorage, {
           runtimeMode: effectiveRuntimeMode,
           createdAt: editSessionCreatedAtRef.current ?? Date.now(),
           baseRevision: haDashboardLayoutPersistence.serverRevision,
+          ...(hasExperimentalGridEngine2Edits
+            ? { persistenceProtection: GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION }
+            : null),
           dashboard: authoritativeDashboardLayout,
         });
       } catch {
         // A recovery draft is best-effort and never changes save authority.
       }
-    }, 450);
+    };
+    if (hasExperimentalGridEngine2Edits) {
+      persistDraft();
+      return;
+    }
+    const timeoutId = window.setTimeout(persistDraft, 450);
     return () => window.clearTimeout(timeoutId);
   }, [
     authoritativeDashboardLayout,
     effectiveRuntimeMode,
     haDashboardLayoutPersistence.serverRevision,
+    hasExperimentalGridEngine2Edits,
     hasUnsavedDashboardEdits,
     isEditMode,
   ]);
@@ -6973,7 +7079,10 @@ export function MainBoard() {
     });
   };
 
-  const handleSectionsLayoutChange = (nextLayout: GridItem[]) => {
+  const handleSectionsLayoutChange = (
+    nextLayout: GridItem[],
+    options?: Readonly<{ preserveSolverGeometry?: boolean }>,
+  ) => {
     beginDashboardEditorMutation();
     const nextLayoutMap = new Map(nextLayout.map((item) => [item.i, item]));
     const expandedAnchorIds = new Set<string>();
@@ -7025,6 +7134,14 @@ export function MainBoard() {
             layout: constrainedLayout,
           };
     });
+    if (options?.preserveSolverGeometry) {
+      // Grid Engine 2 has already returned collision-free geometry. Mirroring
+      // XL must not run the legacy packer, which would erase Manual gaps and
+      // make its result indistinguishable from Automatic.
+      setSections(nextSections);
+      setWidgets(nextWidgets);
+      return;
+    }
     if (expandedAnchorIds.size > 0) {
       const pushed = Array.from(expandedAnchorIds).reduce(
         (current, anchorId) => pushRootCanvasLayoutDown(current.sections, current.widgets, anchorId),
@@ -10441,6 +10558,7 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
     }
     setHasUnsavedDashboardEdits(false);
+    setHasExperimentalGridEngine2Edits(false);
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
@@ -10463,6 +10581,9 @@ export function MainBoard() {
           runtimeMode: effectiveRuntimeMode,
           createdAt: editSessionCreatedAtRef.current ?? Date.now(),
           baseRevision: haDashboardLayoutPersistence.serverRevision,
+          ...(hasExperimentalGridEngine2Edits
+            ? { persistenceProtection: GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION }
+            : null),
           dashboard: authoritativeDashboardLayout,
         });
         setPendingDashboardEditDraft(
@@ -10478,6 +10599,7 @@ export function MainBoard() {
     editSessionCreatedAtRef.current = null;
     editSessionRouteRef.current = null;
     setHasUnsavedDashboardEdits(false);
+    setHasExperimentalGridEngine2Edits(false);
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
@@ -10489,6 +10611,7 @@ export function MainBoard() {
     authoritativeDashboardLayout,
     effectiveRuntimeMode,
     haDashboardLayoutPersistence.serverRevision,
+    hasExperimentalGridEngine2Edits,
     hasUnsavedDashboardEdits,
   ]);
 
@@ -10512,6 +10635,9 @@ export function MainBoard() {
       responsiveLayouts: draft.dashboard.responsiveLayouts,
       widgetLayoutOverrides: draft.dashboard.widgetLayoutOverrides,
     });
+    setHasExperimentalGridEngine2Edits(
+      draft.persistenceProtection === GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
+    );
     setPendingDashboardEditDraft(null);
     setIsEditMode(true);
   }, [
@@ -10535,6 +10661,9 @@ export function MainBoard() {
         runtimeMode: effectiveRuntimeMode,
         createdAt: editSessionCreatedAtRef.current ?? Date.now(),
         baseRevision: haDashboardLayoutPersistence.serverRevision,
+        ...(hasExperimentalGridEngine2Edits
+          ? { persistenceProtection: GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION }
+          : null),
         dashboard: authoritativeDashboardLayout,
       });
     } catch {
@@ -10546,6 +10675,7 @@ export function MainBoard() {
     authoritativeDashboardLayout,
     effectiveRuntimeMode,
     haDashboardLayoutPersistence.serverRevision,
+    hasExperimentalGridEngine2Edits,
   ]);
 
   const applyPendingDashboardRemoteUpdate = useCallback(() => {
@@ -10559,6 +10689,7 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
     }
     setHasUnsavedDashboardEdits(false);
+    setHasExperimentalGridEngine2Edits(false);
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
@@ -10579,6 +10710,21 @@ export function MainBoard() {
   const confirmEditAction = async () => {
     if (isDashboardSaveBusy) return;
     if (editConfirm === 'refresh') {
+      if (hasUnsavedDashboardEdits) {
+        try {
+          saveDashboardEditDraft(window.sessionStorage, {
+            runtimeMode: effectiveRuntimeMode,
+            createdAt: editSessionCreatedAtRef.current ?? Date.now(),
+            baseRevision: haDashboardLayoutPersistence.serverRevision,
+            ...(hasExperimentalGridEngine2Edits
+              ? { persistenceProtection: GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION }
+              : null),
+            dashboard: authoritativeDashboardLayout,
+          });
+        } catch {
+          // The normal beforeunload guard remains fail-closed if recovery cannot be refreshed.
+        }
+      }
       allowDashboardUnloadRef.current = true;
       window.location.reload();
       return;
@@ -10640,6 +10786,7 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
       setPendingDashboardEditDraft(null);
       setHasUnsavedDashboardEdits(false);
+      setHasExperimentalGridEngine2Edits(false);
     }
     if (editConfirm === 'exit') {
       if (!dashboardSecurity.can('edit_dashboard')) {
@@ -10656,6 +10803,8 @@ export function MainBoard() {
             'alert',
             saveResult.code === 'server_conflict'
               ? t('home.persistence.changedElsewhere')
+              : saveResult.code === 'experimental_grid_engine2_blocked'
+                ? 'Le geometrie Grid Engine 2.0 sono sperimentali e non possono essere salvate. Usa Scarta per ripristinare la disposizione iniziale.'
               : 'Home Assistant non ha confermato il salvataggio. Le modifiche restano aperte e non sono state perse.',
           );
           setEditConfirm(null);
@@ -10670,6 +10819,7 @@ export function MainBoard() {
         discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
       }
       setHasUnsavedDashboardEdits(false);
+      setHasExperimentalGridEngine2Edits(false);
       setIsCatalogOpen(false);
       setSelectedWidgetId(null);
       setSelectedSectionId(null);
@@ -11374,12 +11524,27 @@ export function MainBoard() {
               />
             ) : null}
             <GridCanvas
+              topRightOverlay={import.meta.env.DEV && GridEditorPreviewDialog && isEditMode ? (
+                <button
+                  type="button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={openGridEditorPreview}
+                  onMouseEnter={() => void loadGridEditorPreviewDialog()}
+                  onFocus={() => void loadGridEditorPreviewDialog()}
+                  className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-300/20 bg-[#07101b]/85 px-3 text-xs font-semibold text-cyan-50 shadow-xl transition hover:border-cyan-200/35 hover:bg-[#0b1b2b] active:scale-95"
+                  aria-label="Prova Grid Engine 2.0"
+                >
+                  <FlaskConical className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Prova Grid Engine 2.0</span>
+                </button>
+              ) : undefined}
               isEditMode={isEditMode}
               layoutRevision={dashboardEditorLayoutRevision}
               previewGridWidth={viewportPreviewGridWidth}
               developerMode={developerMode}
               isXsViewport={isXsViewport}
               onActiveBreakpointChange={handleCanvasGridGeometryChange}
+              onEditorGeometrySnapshotChange={handleEditorGeometrySnapshotChange}
               state={stateWithConnectedUser}
               houseMembers={householdPeople}
               sections={sections}
@@ -11582,6 +11747,10 @@ export function MainBoard() {
               onWidgetLayoutChange={handleWidgetLayoutChange}
               onSectionsLayoutChange={handleSectionsLayoutChange}
               onRootBreakpointLayoutChange={updateRootResponsiveLayout}
+              onWidgetBreakpointLayoutOverrideChange={updateWidgetLayoutOverride}
+              onExperimentalGridEngine2Commit={() => {
+                setHasExperimentalGridEngine2Edits(true);
+              }}
               onStackBreakpointLayoutChange={updateStackResponsiveLayout}
               onAddWidget={addWidget}
               onAddSection={addSection}
@@ -11892,6 +12061,29 @@ export function MainBoard() {
         </React.Suspense>
       ) : null}
 
+      {import.meta.env.DEV && GridEditorPreviewDialog && gridEditorPreviewSession ? (
+        <React.Suspense
+          fallback={
+            <GlassModal
+              isOpen
+              onClose={() => setGridEditorPreviewSession(null)}
+              title="Editor sperimentale Grid Engine 2.0"
+              description="Preparazione della copia isolata in memoria…"
+              variant="fullscreen"
+              zIndex={320}
+            >
+              <DeferredGlassLoader label="Preparazione editor sperimentale" />
+            </GlassModal>
+          }
+        >
+          <GridEditorPreviewDialog
+            session={gridEditorPreviewSession}
+            currentSourceIdentity={gridEditorCurrentSourceIdentity}
+            onClose={() => setGridEditorPreviewSession(null)}
+          />
+        </React.Suspense>
+      ) : null}
+
       <GlassModal
         isOpen={Boolean(pendingStackRemoval)}
         onClose={() => setPendingStackRemovalId(null)}
@@ -11961,7 +12153,9 @@ export function MainBoard() {
                 ? t('dashboard.edit.description.refreshDirty')
                 : t('dashboard.edit.description.refreshClean')
               : hasUnsavedDashboardEdits
-                ? t('dashboard.edit.description.exitDirty')
+                ? hasExperimentalGridEngine2Edits
+                  ? 'Questa sessione contiene geometrie Grid Engine 2.0 sperimentali. Il salvataggio è bloccato anche dopo recovery: usa Scarta per tornare alla disposizione iniziale.'
+                  : t('dashboard.edit.description.exitDirty')
                 : t('dashboard.edit.description.exitClean')
         }
         variant="responsive"
@@ -11987,7 +12181,10 @@ export function MainBoard() {
             ) : null}
             <button
               type="button"
-              disabled={isDashboardSaveBusy}
+              disabled={
+                isDashboardSaveBusy ||
+                (editConfirm === 'exit' && hasUnsavedDashboardEdits && hasExperimentalGridEngine2Edits)
+              }
               onClick={confirmEditAction}
               className={`glass-button rounded-xl px-4 py-2 text-sm font-semibold ${
                 editConfirm === 'enter'
@@ -12004,7 +12201,9 @@ export function MainBoard() {
                 : editConfirm === 'refresh'
                   ? t('dashboard.edit.reload')
                   : hasUnsavedDashboardEdits
-                    ? t('dashboard.edit.saveExit')
+                    ? hasExperimentalGridEngine2Edits
+                      ? 'Salvataggio sperimentale bloccato'
+                      : t('dashboard.edit.saveExit')
                     : t('dashboard.edit.exitShort')}
             </button>
           </>

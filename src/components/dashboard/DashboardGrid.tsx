@@ -7,6 +7,7 @@ import {
   type ResponsiveLayouts,
   type ResizeHandleAxis,
 } from 'react-grid-layout/legacy';
+import { LEGACY_GRID_METRICS } from './gridEngine2/gridMetrics';
 
 type DashboardGridProps = {
   children: ReactNode;
@@ -31,8 +32,8 @@ type DashboardGridProps = {
   onResizeStop?: (...args: unknown[]) => void;
 };
 
-export const GRID_ENGINE_ROW_UNIT_PX = 48;
-export const GRID_ENGINE_GAP_PX = 16;
+export const GRID_ENGINE_ROW_UNIT_PX = LEGACY_GRID_METRICS.rowHeight;
+export const GRID_ENGINE_GAP_PX = LEGACY_GRID_METRICS.horizontalGap;
 export const GRID_ENGINE_BREAKPOINTS = {
   '2xl': 1536,
   xl: 1280,

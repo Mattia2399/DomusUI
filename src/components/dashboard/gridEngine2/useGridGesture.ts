@@ -6,6 +6,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react';
+import type { GridMetricsDefinition } from './gridMetrics';
 import type { GridLayoutIntent, GridLayoutItem, GridLayoutMode } from './model';
 import { solveLayout } from './solveLayout';
 
@@ -80,7 +81,9 @@ type UseGridGestureOptions = {
   readonly items: readonly GridLayoutItem[];
   readonly cols: number;
   readonly mode: GridLayoutMode;
-  readonly rowHeight: number;
+  readonly metrics: GridMetricsDefinition;
+  readonly containerPadding?: readonly [number, number];
+  readonly moveIntentType?: 'MOVE' | 'REORDER' | 'REORDER_WHEN_COLLIDING';
   readonly enabled?: boolean;
   readonly onActivate?: (id: string) => void;
   readonly onCommit: (preview: GridGesturePreview) => void;
@@ -107,14 +110,21 @@ function numericStyleValue(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function readGridMetrics(canvas: HTMLDivElement, cols: number, configuredRowHeight: number): GridMetrics {
+export function readGridMetrics(
+  canvas: HTMLDivElement,
+  cols: number,
+  configuredMetrics: GridMetricsDefinition,
+  containerPadding: readonly [number, number] = [0, 0],
+): GridMetrics {
   const bounds = canvas.getBoundingClientRect();
-  const styles = window.getComputedStyle(canvas);
-  const columnGap = numericStyleValue(styles.columnGap);
-  const rowGap = numericStyleValue(styles.rowGap);
+  const columnGap = Math.max(0, numericStyleValue(String(configuredMetrics.horizontalGap)));
+  const rowGap = Math.max(0, numericStyleValue(String(configuredMetrics.verticalGap)));
   const safeCols = Math.max(1, Math.round(cols));
-  const rowHeight = Math.max(1, configuredRowHeight);
-  const cellWidth = (bounds.width - columnGap * (safeCols - 1)) / safeCols;
+  const rowHeight = Math.max(1, configuredMetrics.rowHeight);
+  const horizontalPadding = Math.max(0, numericStyleValue(String(containerPadding[0])));
+  const cellWidth = (
+    bounds.width - horizontalPadding * 2 - columnGap * (safeCols - 1)
+  ) / safeCols;
   const rows = Math.max(1, Math.round((bounds.height + rowGap) / (rowHeight + rowGap)));
 
   if (!Number.isFinite(cellWidth) || cellWidth <= 0 || bounds.height <= 0) {
@@ -157,6 +167,28 @@ function sameDestination(first: GridGestureDestination, second: GridGestureDesti
 
 function cloneLayout(items: readonly GridLayoutItem[]) {
   return items.map((item) => ({ ...item }));
+}
+
+export function gridGestureDestinationIsOccupied(
+  source: readonly GridLayoutItem[],
+  activeId: string,
+  destination: GridGestureDestination,
+) {
+  const active = { i: activeId, ...destination };
+  return source.some((item) => item.i !== activeId && (
+    active.x < item.x + item.w &&
+    active.x + active.w > item.x &&
+    active.y < item.y + item.h &&
+    active.y + active.h > item.y
+  ));
+}
+
+export function shouldCancelGridGestureOnLostPointerCapture(
+  pointerType: string,
+  buttons: number,
+  targetConnected: boolean,
+) {
+  return pointerType !== 'mouse' || buttons === 0 || !targetConnected;
 }
 
 function scrollOriginsFor(element: HTMLElement) {
@@ -245,9 +277,15 @@ export function useGridGesture(options: UseGridGestureOptions) {
   const cancel = useCallback(() => finish(false), [finish]);
 
   const solveDestination = useCallback((interaction: ActiveInteraction, destination: GridGestureDestination) => {
+    const requestedMoveIntent = optionsRef.current.moveIntentType ?? 'REORDER';
+    const moveIntentType = requestedMoveIntent === 'REORDER_WHEN_COLLIDING'
+      ? gridGestureDestinationIsOccupied(interaction.source, interaction.itemId, destination)
+        ? 'REORDER'
+        : 'MOVE'
+      : requestedMoveIntent;
     const intent: GridLayoutIntent = interaction.kind === 'MOVE'
       ? {
-          type: 'REORDER',
+          type: moveIntentType,
           id: interaction.itemId,
           x: destination.x,
           y: destination.y,
@@ -306,7 +344,9 @@ export function useGridGesture(options: UseGridGestureOptions) {
 
     if (interaction.kind === 'MOVE') {
       const maxX = Math.max(0, optionsRef.current.cols - sourceItem.w);
-      const maxY = Math.max(0, metrics.rows - sourceItem.h);
+      // Root grids grow vertically with their content. The measured canvas
+      // height is therefore the current extent, not a placement boundary.
+      const maxY = Number.MAX_SAFE_INTEGER - sourceItem.h;
       const nextX = snapWithHysteresis(
         sourceItem.x + delta.x / metrics.stepX,
         interaction.target.x,
@@ -321,21 +361,22 @@ export function useGridGesture(options: UseGridGestureOptions) {
       );
       destination = { x: nextX, y: nextY, w: sourceItem.w, h: sourceItem.h };
 
-      const residualX = delta.x - (nextX - sourceItem.x) * metrics.stepX;
-      const residualY = delta.y - (nextY - sourceItem.y) * metrics.stepY;
-      const maxVisualX = metrics.stepX * 0.42;
-      const maxVisualY = metrics.stepY * 0.42;
+      // The solver target remains snapped to cells, while the active card
+      // follows the pointer continuously. Keeping the unsnapped residual is
+      // what makes crossing a hysteresis boundary visually continuous.
+      const clampedDeltaX = clamp(
+        delta.x,
+        -sourceItem.x * metrics.stepX,
+        (maxX - sourceItem.x) * metrics.stepX,
+      );
+      const clampedDeltaY = Math.max(delta.y, -sourceItem.y * metrics.stepY);
       visualOffset = {
-        x: nextX === 0 && residualX < 0 || nextX === maxX && residualX > 0
-          ? 0
-          : clamp(residualX, -maxVisualX, maxVisualX),
-        y: nextY === 0 && residualY < 0 || nextY === maxY && residualY > 0
-          ? 0
-          : clamp(residualY, -maxVisualY, maxVisualY),
+        x: clampedDeltaX - (nextX - sourceItem.x) * metrics.stepX,
+        y: clampedDeltaY - (nextY - sourceItem.y) * metrics.stepY,
       };
     } else {
       const maxW = Math.max(1, optionsRef.current.cols - sourceItem.x);
-      const maxH = Math.max(1, metrics.rows - sourceItem.y);
+      const maxH = Number.MAX_SAFE_INTEGER - sourceItem.y;
       destination = {
         x: sourceItem.x,
         y: sourceItem.y,
@@ -382,7 +423,12 @@ export function useGridGesture(options: UseGridGestureOptions) {
 
     try {
       const source = cloneLayout(optionsRef.current.items);
-      const metrics = readGridMetrics(canvas, optionsRef.current.cols, optionsRef.current.rowHeight);
+      const metrics = readGridMetrics(
+        canvas,
+        optionsRef.current.cols,
+        optionsRef.current.metrics,
+        optionsRef.current.containerPadding,
+      );
       const interaction: ActiveInteraction = {
         phase: kind === 'RESIZE' ? 'RESIZING' : 'PRESSING',
         kind,
@@ -524,7 +570,19 @@ export function useGridGesture(options: UseGridGestureOptions) {
 
   const onLostPointerCapture = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const interaction = interactionRef.current;
-    if (interaction && interaction.pointerId === event.pointerId) finish(false);
+    if (!interaction || interaction.pointerId !== event.pointerId) return;
+    // Chromium can transiently drop mouse capture when a positioned grid item
+    // changes transform during preview. Window listeners still own the active
+    // pointer, so cancelling here would discard a valid drag. Real loss paths
+    // (touch, detached target, released button) remain fail-closed.
+    if (!shouldCancelGridGestureOnLostPointerCapture(
+      interaction.pointerType,
+      event.buttons,
+      event.currentTarget.isConnected,
+    )) {
+      return;
+    }
+    finish(false);
   }, [finish]);
 
   return {

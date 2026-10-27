@@ -3,6 +3,7 @@ import type { DashboardLayoutConfiguration } from './dashboardConfigurationRepos
 import {
   discardDashboardEditDraft,
   getDashboardEditDraftKey,
+  GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
   readDashboardEditDraft,
   saveDashboardEditDraft,
 } from './dashboardEditDraft';
@@ -60,5 +61,19 @@ describe('dashboard edit draft', () => {
     expect(readDashboardEditDraft(window.sessionStorage, 'demo')).not.toBeNull();
     discardDashboardEditDraft(window.sessionStorage, 'demo');
     expect(readDashboardEditDraft(window.sessionStorage, 'demo')).toBeNull();
+  });
+
+  it('round-trips the experimental persistence guard through recovery metadata', () => {
+    saveDashboardEditDraft(window.sessionStorage, {
+      runtimeMode: 'real',
+      createdAt: 300,
+      baseRevision: 9,
+      persistenceProtection: GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
+      dashboard,
+    });
+
+    expect(readDashboardEditDraft(window.sessionStorage, 'real')).toMatchObject({
+      persistenceProtection: GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
+    });
   });
 });

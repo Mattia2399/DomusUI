@@ -81,6 +81,35 @@ describe('Grid Engine 2.0 root renderer', () => {
     expect(document.querySelectorAll('[data-grid-engine-root-item]')).toHaveLength(4);
   });
 
+  it('applies the unsnapped drag offset only to the active item without CSS interpolation', () => {
+    render(
+      <GridEngineRootRenderer
+        {...geometry}
+        breakpoint="xl"
+        layout={[
+          { i: 'active', x: 1, y: 2, w: 2, h: 1 },
+          { i: 'stable', x: 4, y: 2, w: 2, h: 1 },
+        ]}
+        gestureState="DRAGGING"
+        gestureActiveId="active"
+        gestureVisualOffset={{ x: 17.5, y: -9 }}
+      >
+        <div key="active">Active</div>
+        <div key="stable">Stable</div>
+      </GridEngineRootRenderer>,
+    );
+
+    const active = document.querySelector<HTMLElement>('[data-grid-engine-root-item="active"]')!;
+    const stable = document.querySelector<HTMLElement>('[data-grid-engine-root-item="stable"]')!;
+    expect(active.classList.contains('react-draggable-dragging')).toBe(true);
+    expect(active.style.transform).toBe('translate(118.5px, 125px)');
+    expect(active.dataset.gridVisualOffsetX).toBe('17.5');
+    expect(active.dataset.gridVisualOffsetY).toBe('-9');
+    expect(stable.classList.contains('react-draggable-dragging')).toBe(false);
+    expect(stable.dataset.gridVisualOffsetX).toBe('0');
+    expect(stable.style.transform).toBe('translate(404px, 134px)');
+  });
+
   it('supports 22 and 30 root items without changing their coordinates', () => {
     for (const count of [22, 30]) {
       const cols = 12;

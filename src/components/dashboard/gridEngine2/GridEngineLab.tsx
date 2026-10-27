@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ArrowRight,
+  ClipboardList,
   Check,
   FlaskConical,
   Gauge,
@@ -12,12 +13,18 @@ import {
   Smartphone,
   Sparkles,
   Tablet,
+  Trash2,
+  Undo2,
+  Redo2,
   X,
 } from 'lucide-react';
-import type { DashboardGridBreakpoint } from '../../../types/widgetTypeLayout';
+import {
+  DASHBOARD_GRID_BREAKPOINT_ORDER,
+  type DashboardGridBreakpoint,
+} from '../../../types/widgetTypeLayout';
 import {
   GRID_ENGINE_LAB_COLS,
-  GRID_ENGINE_LAB_ROW_HEIGHT,
+  GRID_ENGINE_LAB_METRICS,
   GRID_ENGINE_LAB_SCENARIOS,
   cloneLabLayout,
   type GridEngineLabScenario,
@@ -30,20 +37,50 @@ import {
   type GridResizeAnchor,
 } from './model';
 import { solveLayout } from './solveLayout';
-import { GridGestureCanvas } from './GridGestureCanvas';
+import {
+  GridGestureCanvas,
+  type GridGestureRenderContext,
+} from './GridGestureCanvas';
 import { RglReadOnlyCanvas } from './RglReadOnlyCanvas';
 import { useGridGesture, type GridGesturePreview } from './useGridGesture';
 import {
   RESPONSIVE_LAB_BREAKPOINTS,
   breakpointForCanvasWidth,
   colsForBreakpoint,
-  commitBreakpointLayout,
-  createResponsiveLabState,
-  layoutForBreakpoint,
-  originForBreakpoint,
   previewWidthForBreakpoint,
-  restoreAutomaticBreakpoint,
 } from './responsiveLayout';
+import {
+  confirmGridPreviewInMemory,
+  confirmedGridPreviewLayout,
+  createGridPreviewController,
+  createManualGridPreviewOverride,
+  deriveSyntheticMissingGridPreview,
+  displayGridPreviewLayout,
+  effectiveGridPreviewMode,
+  gridPreviewConfirmationRevision,
+  gridPreviewLayoutOrigin,
+  hasGridPreviewOverride,
+  isGridPreviewBreakpointConfirmable,
+  isGridPreviewBreakpointMissing,
+  isGridPreviewBreakpointProvisional,
+  isGridPreviewDirty,
+  isSyntheticMissingGridPreview,
+  primaryGridPreviewMode,
+  redoGridPreview,
+  removeGridPreviewOverride,
+  resetGridPreviewController,
+  resetGridPreviewDraft,
+  restoreAutomaticGridPreviewBreakpoint,
+  setGridPreviewPrimaryMode,
+  stageGridPreviewLayout,
+  structuralGridPreviewLayout,
+  undoGridPreview,
+} from './gridPreviewController';
+import {
+  createGridEngineDraftChangeSet,
+  type GridEngineDraftOperationHint,
+  type GridEngineDraftReviewContext,
+} from './gridEngineDraftChangeSet';
 
 type LabOperation = 'MOVE' | 'REORDER' | 'RESIZE';
 
@@ -75,10 +112,17 @@ function profileForBreakpoint(breakpoint: DashboardGridBreakpoint) {
 }
 
 const INITIAL_LAB_SCENARIO = GRID_ENGINE_LAB_SCENARIOS[0];
-const INITIAL_RESPONSIVE_STATE = createResponsiveLabState(
-  INITIAL_LAB_SCENARIO.items,
-  GRID_ENGINE_LAB_COLS,
-);
+function createScenarioController(scenario: GridEngineLabScenario) {
+  return createGridPreviewController(scenario.items, scenario.sourceCols ?? GRID_ENGINE_LAB_COLS, {
+    primaryMode: scenario.primaryMode,
+    overrides: scenario.overrides,
+    missingBreakpoints: scenario.missingBreakpoints,
+    initialLayouts: scenario.initialLayouts,
+    provisionalLayouts: scenario.provisionalLayouts,
+  });
+}
+
+const INITIAL_PREVIEW_CONTROLLER = createScenarioController(INITIAL_LAB_SCENARIO);
 
 function geometry(item: GridLayoutItem) {
   return `x${item.x} y${item.y} · ${item.w}×${item.h}`;
@@ -96,6 +140,10 @@ function formatSolverError(error: unknown) {
 
 function findItem(items: readonly GridLayoutItem[], id: string) {
   return items.find((item) => item.i === id);
+}
+
+function draftOperationHint(intent: GridLayoutIntent): GridEngineDraftOperationHint {
+  return intent.type === 'NORMALIZE' ? 'UNKNOWN' : intent.type;
 }
 
 function solveModeLayout(
@@ -124,6 +172,27 @@ function listChanges(before: readonly GridLayoutItem[], after: readonly GridLayo
     }
     return changes;
   }, []);
+}
+
+function layoutOrderChanged(before: readonly GridLayoutItem[], after: readonly GridLayoutItem[]) {
+  return before.map(({ i }) => i).join('|') !== after.map(({ i }) => i).join('|');
+}
+
+function geometryIssueCounts(items: readonly GridLayoutItem[], cols: number) {
+  const outOfBounds = items.filter((item) => (
+    item.x < 0 || item.y < 0 || item.w < 1 || item.h < 1 || item.x + item.w > cols
+  )).length;
+  let collisions = 0;
+  for (let first = 0; first < items.length; first += 1) {
+    for (let second = first + 1; second < items.length; second += 1) {
+      const a = items[first];
+      const b = items[second];
+      if (a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y) {
+        collisions += 1;
+      }
+    }
+  }
+  return { outOfBounds, collisions };
 }
 
 function CoordinateTable({ items, label }: { items: readonly GridLayoutItem[]; label: string }) {
@@ -171,43 +240,86 @@ function ScenarioButton({
   );
 }
 
-export function GridEngineLab() {
-  const initialScenario = INITIAL_LAB_SCENARIO;
+export type GridEngineLabProps = Readonly<{
+  scenarios?: readonly GridEngineLabScenario[];
+  initialBreakpoint?: DashboardGridBreakpoint;
+  context?: ReactNode;
+  presentation?: 'laboratory' | 'editor-preview';
+  renderItem?: (context: GridGestureRenderContext) => ReactNode;
+  draftReview?: GridEngineDraftReviewContext;
+}>;
+
+export function GridEngineLab({
+  scenarios = GRID_ENGINE_LAB_SCENARIOS,
+  initialBreakpoint = 'xl',
+  context,
+  presentation = 'laboratory',
+  renderItem,
+  draftReview,
+}: GridEngineLabProps = {}) {
+  const scenarioList = scenarios.length > 0 ? scenarios : GRID_ENGINE_LAB_SCENARIOS;
+  const initialScenario = scenarioList[0] ?? INITIAL_LAB_SCENARIO;
   const [scenarioId, setScenarioId] = useState(initialScenario.id);
-  const [responsiveState, setResponsiveState] = useState(
-    () => INITIAL_RESPONSIVE_STATE,
+  const [previewController, setPreviewController] = useState(
+    () => presentation === 'laboratory' && initialScenario === INITIAL_LAB_SCENARIO
+      ? INITIAL_PREVIEW_CONTROLLER
+      : createScenarioController(initialScenario),
   );
-  const [canvasWidth, setCanvasWidth] = useState(previewWidthForBreakpoint('xl'));
+  const [canvasWidth, setCanvasWidth] = useState(previewWidthForBreakpoint(initialBreakpoint));
   const [selectedId, setSelectedId] = useState(initialScenario.selectedId);
-  const [mode, setMode] = useState<GridLayoutMode>('manual');
   const [operation, setOperation] = useState<LabOperation>('MOVE');
   const [moveX, setMoveX] = useState(String(initialScenario.suggestedMove.x));
   const [moveY, setMoveY] = useState(String(initialScenario.suggestedMove.y));
-  const initialSelected = findItem(INITIAL_RESPONSIVE_STATE.reference, initialScenario.selectedId)!;
-  const [resizeW, setResizeW] = useState(String(initialSelected.w));
-  const [resizeH, setResizeH] = useState(String(initialSelected.h));
+  const initialSelected = findItem(
+    structuralGridPreviewLayout(
+      presentation === 'laboratory' && initialScenario === INITIAL_LAB_SCENARIO
+        ? INITIAL_PREVIEW_CONTROLLER
+        : createScenarioController(initialScenario),
+      initialBreakpoint,
+    ) ?? [],
+    initialScenario.selectedId,
+  ) ?? initialScenario.items[0];
+  const [resizeW, setResizeW] = useState(String(initialSelected?.w ?? 1));
+  const [resizeH, setResizeH] = useState(String(initialSelected?.h ?? 1));
   const [anchor, setAnchor] = useState<GridResizeAnchor>('top-left');
   const [preview, setPreview] = useState<PreviewSnapshot | null>(null);
-  const [committedSnapshot, setCommittedSnapshot] = useState<GridLayoutItem[] | null>(null);
   const [runtimeExpanded, setRuntimeExpanded] = useState(false);
-  const [showRglExperiment, setShowRglExperiment] = useState(true);
+  const [showRglExperiment, setShowRglExperiment] = useState(!renderItem);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [showDraftReview, setShowDraftReview] = useState(false);
+  const [touchedBreakpoints, setTouchedBreakpoints] = useState<ReadonlySet<DashboardGridBreakpoint>>(
+    () => new Set(),
+  );
+  const [operationHints, setOperationHints] = useState<Readonly<Partial<Record<
+    DashboardGridBreakpoint,
+    GridEngineDraftOperationHint
+  >>>>({});
   const gestureCanvasRef = useRef<HTMLDivElement>(null);
 
-  const scenario = GRID_ENGINE_LAB_SCENARIOS.find((entry) => entry.id === scenarioId) ?? initialScenario;
+  const scenario = scenarioList.find((entry) => entry.id === scenarioId) ?? initialScenario;
   const activeBreakpoint = breakpointForCanvasWidth(canvasWidth);
   const activeCols = colsForBreakpoint(activeBreakpoint);
   const activeProfile = profileForBreakpoint(activeBreakpoint);
+  const mode = effectiveGridPreviewMode(previewController, activeBreakpoint);
+  const primaryMode = primaryGridPreviewMode(previewController);
+  const overridePresent = hasGridPreviewOverride(previewController, activeBreakpoint);
+  const dirty = isGridPreviewDirty(previewController);
+  const missingBreakpoint = isGridPreviewBreakpointMissing(previewController, activeBreakpoint);
+  const provisionalBreakpoint = isGridPreviewBreakpointProvisional(previewController, activeBreakpoint);
+  const confirmableBreakpoint = isGridPreviewBreakpointConfirmable(previewController, activeBreakpoint);
+  const syntheticMissingPreview = isSyntheticMissingGridPreview(previewController, activeBreakpoint);
+  const breakpointStatus = scenario.breakpointStatus?.[activeBreakpoint];
   const responsiveCalculation = useMemo(() => {
     const startedAt = performance.now();
-    const layout = layoutForBreakpoint(responsiveState, activeBreakpoint);
+    const layout = structuralGridPreviewLayout(previewController, activeBreakpoint) ?? [];
     return { layout, durationMs: performance.now() - startedAt };
-  }, [activeBreakpoint, responsiveState]);
+  }, [activeBreakpoint, previewController]);
   const structuralLayout = responsiveCalculation.layout;
-  const layoutOrigin = originForBreakpoint(responsiveState, activeBreakpoint);
+  const confirmedLayout = confirmedGridPreviewLayout(previewController, activeBreakpoint) ?? [];
+  const layoutOrigin = gridPreviewLayoutOrigin(previewController, activeBreakpoint);
   const modeLayout = useMemo(
-    () => committedSnapshot ?? solveModeLayout(structuralLayout, mode, activeCols),
-    [activeCols, committedSnapshot, mode, structuralLayout],
+    () => displayGridPreviewLayout(previewController, activeBreakpoint, activeCols) ?? [],
+    [activeBreakpoint, activeCols, previewController],
   );
   const automaticLayout = useMemo(
     () => solveModeLayout(structuralLayout, 'automatic', activeCols),
@@ -218,6 +330,58 @@ export function GridEngineLab() {
     [automaticLayout, structuralLayout],
   );
   const selectedItem = findItem(modeLayout, selectedId) ?? modeLayout[0];
+  const initialReviewController = useMemo(() => createScenarioController(scenario), [scenario]);
+  const draftChangeSet = useMemo(() => {
+    if (!draftReview) return null;
+    return createGridEngineDraftChangeSet({
+      sourceIdentity: draftReview.sourceIdentity,
+      currentSourceIdentity: draftReview.currentSourceIdentity,
+      inventory: draftReview.inventory,
+      authority: draftReview.authority,
+      breakpoints: DASHBOARD_GRID_BREAKPOINT_ORDER.map((breakpoint) => {
+        const metadata = draftReview.breakpoints[breakpoint];
+        const before = confirmedGridPreviewLayout(initialReviewController, breakpoint);
+        const breakpointTouched = touchedBreakpoints.has(breakpoint)
+          || (breakpoint === activeBreakpoint && preview !== null);
+        const after = breakpointTouched
+          ? breakpoint === activeBreakpoint && preview
+            ? cloneLabLayout(preview.output)
+            : displayGridPreviewLayout(previewController, breakpoint, colsForBreakpoint(breakpoint))
+          : before;
+        return {
+          breakpoint,
+          cols: colsForBreakpoint(breakpoint),
+          before,
+          after,
+          mode: effectiveGridPreviewMode(previewController, breakpoint),
+          origin: metadata.origin,
+          baselineState: metadata.baselineState,
+          explicitOverride: hasGridPreviewOverride(previewController, breakpoint),
+          operationHint: breakpoint === activeBreakpoint && preview
+            ? draftOperationHint(preview.intent)
+            : operationHints[breakpoint],
+        };
+      }),
+    });
+  }, [
+    activeBreakpoint,
+    draftReview,
+    initialReviewController,
+    operationHints,
+    preview,
+    previewController,
+    touchedBreakpoints,
+  ]);
+
+  const markBreakpointTouched = (
+    breakpoint: DashboardGridBreakpoint,
+    operationHint?: GridEngineDraftOperationHint,
+  ) => {
+    setTouchedBreakpoints((current) => new Set([...current, breakpoint]));
+    if (operationHint) {
+      setOperationHints((current) => ({ ...current, [breakpoint]: operationHint }));
+    }
+  };
 
   const syncControlsToItem = (item: GridLayoutItem, suggestedMove?: Readonly<{ x: number; y: number }>) => {
     setMoveX(String(suggestedMove?.x ?? item.x));
@@ -227,11 +391,11 @@ export function GridEngineLab() {
   };
 
   const commitPreview = (nextPreview: PreviewSnapshot) => {
-    // Commit the exact validated array. committedSnapshot prevents a second
-    // solver pass from changing what was visible at pointer release.
+    // Stage the exact validated array. Confirmation remains an explicit,
+    // in-memory lab action and never triggers another solver pass.
     const committed = cloneLabLayout(nextPreview.output);
-    setResponsiveState((current) => commitBreakpointLayout(current, activeBreakpoint, committed));
-    setCommittedSnapshot(committed);
+    setPreviewController((current) => stageGridPreviewLayout(current, activeBreakpoint, committed));
+    markBreakpointTouched(activeBreakpoint, draftOperationHint(nextPreview.intent));
     const activeId = 'id' in nextPreview.intent ? nextPreview.intent.id : null;
     const active = activeId ? findItem(committed, activeId) : undefined;
     if (active) syncControlsToItem(active);
@@ -245,7 +409,7 @@ export function GridEngineLab() {
     items: modeLayout,
     cols: activeCols,
     mode,
-    rowHeight: GRID_ENGINE_LAB_ROW_HEIGHT,
+    metrics: GRID_ENGINE_LAB_METRICS,
     enabled: !runtimeExpanded && !preview,
     onActivate: (id) => {
       const item = findItem(modeLayout, id);
@@ -287,10 +451,18 @@ export function GridEngineLab() {
   const displayedSelected = findItem(displayLayout, selectedId) ?? displayLayout[0];
   const referenceLayout = gesture.state.preview?.source
     ?? preview?.source
-    ?? (runtimeExpanded ? modeLayout : structuralLayout);
+    ?? (runtimeExpanded ? modeLayout : confirmedLayout);
   const changes = useMemo(
     () => listChanges(referenceLayout, displayLayout),
     [displayLayout, referenceLayout],
+  );
+  const orderChanged = useMemo(
+    () => layoutOrderChanged(referenceLayout, displayLayout),
+    [displayLayout, referenceLayout],
+  );
+  const geometryIssues = useMemo(
+    () => geometryIssueCounts(displayLayout, activeCols),
+    [activeCols, displayLayout],
   );
   const shownError = validationError ?? runtimeCalculation.error;
   const stage = gesture.state.phase !== 'IDLE'
@@ -299,7 +471,11 @@ export function GridEngineLab() {
       ? 'Runtime preview'
       : preview
         ? 'Operation preview'
-        : 'Committed';
+        : dirty
+          ? 'Unconfirmed preview'
+          : gridPreviewConfirmationRevision(previewController) > 0
+            ? 'Confirmed in lab memory'
+            : 'Initial fixture';
 
   const clearTransientState = () => {
     gesture.cancel();
@@ -309,22 +485,25 @@ export function GridEngineLab() {
   };
 
   const loadScenario = (nextScenario: GridEngineLabScenario) => {
-    const nextResponsiveState = createResponsiveLabState(nextScenario.items, GRID_ENGINE_LAB_COLS);
+    const nextPreviewController = createScenarioController(nextScenario);
     const selected = findItem(
-      layoutForBreakpoint(nextResponsiveState, activeBreakpoint),
+      structuralGridPreviewLayout(nextPreviewController, activeBreakpoint) ?? [],
       nextScenario.selectedId,
-    )!;
+    ) ?? nextScenario.items[0];
     const suggestedMove = {
-      x: Math.round(nextScenario.suggestedMove.x * activeCols / GRID_ENGINE_LAB_COLS),
+      x: Math.round(
+        nextScenario.suggestedMove.x * activeCols / (nextScenario.sourceCols ?? GRID_ENGINE_LAB_COLS),
+      ),
       y: nextScenario.suggestedMove.y,
     };
     setScenarioId(nextScenario.id);
-    setResponsiveState(nextResponsiveState);
-    setCommittedSnapshot(null);
+    setPreviewController(nextPreviewController);
     setSelectedId(nextScenario.selectedId);
-    setMode('manual');
     setOperation('MOVE');
     setAnchor('top-left');
+    setTouchedBreakpoints(new Set());
+    setOperationHints({});
+    setShowDraftReview(false);
     syncControlsToItem(selected, suggestedMove);
     clearTransientState();
   };
@@ -338,8 +517,10 @@ export function GridEngineLab() {
   };
 
   const handleModeChange = (nextMode: GridLayoutMode) => {
-    setCommittedSnapshot(null);
-    setMode(nextMode);
+    setPreviewController((current) => (
+      setGridPreviewPrimaryMode(current, nextMode, activeBreakpoint, activeCols)
+    ));
+    markBreakpointTouched(activeBreakpoint, nextMode === 'automatic' ? 'COMPACT' : 'UNKNOWN');
     clearTransientState();
   };
 
@@ -347,11 +528,13 @@ export function GridEngineLab() {
     if (!Number.isFinite(nextWidth) || nextWidth < 1) return;
     const normalizedWidth = Math.min(1920, Math.max(1, Math.round(nextWidth)));
     const nextBreakpoint = breakpointForCanvasWidth(normalizedWidth);
-    const nextSelected = findItem(layoutForBreakpoint(responsiveState, nextBreakpoint), selectedId);
+    const nextSelected = findItem(
+      structuralGridPreviewLayout(previewController, nextBreakpoint) ?? [],
+      selectedId,
+    );
     gesture.cancel();
     setPreview(null);
     setRuntimeExpanded(false);
-    setCommittedSnapshot(null);
     setValidationError(null);
     if (nextSelected) syncControlsToItem(nextSelected);
     setCanvasWidth(normalizedWidth);
@@ -363,11 +546,53 @@ export function GridEngineLab() {
 
   const handleRestoreAutomatic = () => {
     gesture.cancel();
-    setResponsiveState((current) => restoreAutomaticBreakpoint(current, activeBreakpoint));
-    setCommittedSnapshot(null);
+    setPreviewController((current) => (
+      restoreAutomaticGridPreviewBreakpoint(current, activeBreakpoint)
+    ));
+    markBreakpointTouched(activeBreakpoint, 'COMPACT');
     setPreview(null);
     setRuntimeExpanded(false);
     setValidationError(null);
+  };
+
+  const handleCreateOverride = () => {
+    setPreviewController((current) => (
+      createManualGridPreviewOverride(current, activeBreakpoint, activeCols)
+    ));
+    markBreakpointTouched(activeBreakpoint, 'UNKNOWN');
+    clearTransientState();
+  };
+
+  const handleRemoveOverride = () => {
+    setPreviewController((current) => removeGridPreviewOverride(current, activeBreakpoint));
+    markBreakpointTouched(activeBreakpoint, 'UNKNOWN');
+    clearTransientState();
+  };
+
+  const handleDeriveMissing = () => {
+    setPreviewController((current) => (
+      deriveSyntheticMissingGridPreview(current, activeBreakpoint, activeCols)
+    ));
+    markBreakpointTouched(activeBreakpoint, 'UNKNOWN');
+    clearTransientState();
+  };
+
+  const handleResetPreview = () => {
+    setPreviewController((current) => resetGridPreviewDraft(current));
+    setOperationHints({});
+    clearTransientState();
+  };
+
+  const handleUndo = () => {
+    setPreviewController((current) => undoGridPreview(current));
+    setOperationHints({});
+    clearTransientState();
+  };
+
+  const handleRedo = () => {
+    setPreviewController((current) => redoGridPreview(current));
+    setOperationHints({});
+    clearTransientState();
   };
 
   const handleOperationChange = (nextOperation: LabOperation) => {
@@ -421,8 +646,22 @@ export function GridEngineLab() {
   };
 
   const handleConfirm = () => {
-    if (!preview) return;
-    commitPreview(preview);
+    if (!confirmableBreakpoint) return;
+    if (preview) {
+      markBreakpointTouched(activeBreakpoint, draftOperationHint(preview.intent));
+      setPreviewController((current) => {
+        const staged = stageGridPreviewLayout(current, activeBreakpoint, preview.output);
+        return confirmGridPreviewInMemory(staged, activeBreakpoint, activeCols);
+      });
+      const activeId = 'id' in preview.intent ? preview.intent.id : null;
+      const active = activeId ? findItem(preview.output, activeId) : undefined;
+      if (active) syncControlsToItem(active);
+      setPreview(null);
+    } else {
+      setPreviewController((current) => confirmGridPreviewInMemory(current, activeBreakpoint, activeCols));
+    }
+    setRuntimeExpanded(false);
+    setValidationError(null);
   };
 
   const handleCompactPreview = () => {
@@ -440,7 +679,23 @@ export function GridEngineLab() {
     }
   };
 
-  const handleReset = () => loadScenario(scenario);
+  const setModeControlsFromScenario = () => {
+    const selected = findItem(
+      structuralGridPreviewLayout(createScenarioController(scenario), activeBreakpoint) ?? [],
+      scenario.selectedId,
+    ) ?? scenario.items[0];
+    if (selected) syncControlsToItem(selected, scenario.suggestedMove);
+  };
+
+  const handleReset = () => {
+    setPreviewController((current) => resetGridPreviewController(current));
+    setSelectedId(scenario.selectedId);
+    setModeControlsFromScenario();
+    setTouchedBreakpoints(new Set());
+    setOperationHints({});
+    setShowDraftReview(false);
+    clearTransientState();
+  };
 
   return (
     <section
@@ -458,10 +713,14 @@ export function GridEngineLab() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.2em]">Isolated development surface</p>
             </div>
             <h2 id="grid-engine-lab-title" className="mt-2 text-2xl font-semibold tracking-[-0.025em] text-white sm:text-3xl">
-              Grid Engine 2.0 — Laboratory
+              {presentation === 'editor-preview'
+                ? 'Grid Engine 2.0 — Editor sperimentale'
+                : 'Grid Engine 2.0 — Laboratory'}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-white/58">
-              Fixture locali, preview deterministica e commit esplicito. Nessun dato di questa sezione viene letto o salvato nella Home reale.
+              {presentation === 'editor-preview'
+                ? 'Copia isolata della configurazione visualizzata. Ogni modifica resta nella finestra e non può essere applicata alla Home.'
+                : 'Fixture locali, preview deterministica e commit esplicito. Nessun dato di questa sezione viene letto o salvato nella Home reale.'}
             </p>
             <p className="mt-2 text-xs leading-5 text-white/38">
               Mouse: trascina direttamente. Touch: pressione prolungata di 650 ms; la maniglia superiore offre il fallback più affidabile senza bloccare lo scroll della pagina.
@@ -475,29 +734,203 @@ export function GridEngineLab() {
             <span
               data-testid="responsive-origin"
               className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
-                layoutOrigin === 'custom'
+                layoutOrigin === 'custom' || layoutOrigin === 'preview' || layoutOrigin === 'provisional'
                   ? 'border-amber-300/25 bg-amber-300/[0.08] text-amber-100/78'
-                  : 'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100/72'
+                  : layoutOrigin === 'missing'
+                    ? 'border-rose-300/25 bg-rose-300/[0.08] text-rose-100/78'
+                    : 'border-emerald-300/20 bg-emerald-300/[0.07] text-emerald-100/72'
               }`}
             >
-              {layoutOrigin === 'custom' ? 'Custom' : 'Generated'}
+              {layoutOrigin === 'preview'
+                ? 'Preview'
+                : layoutOrigin === 'custom'
+                  ? 'Custom'
+                  : layoutOrigin === 'provisional'
+                    ? 'Provisional'
+                  : layoutOrigin === 'missing'
+                    ? 'Missing'
+                    : 'Generated'}
             </span>
-            <span className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1.5 text-xs font-medium text-cyan-50/78">
+            <span
+              data-testid="preview-stage"
+              className="rounded-full border border-cyan-300/20 bg-cyan-300/[0.08] px-3 py-1.5 text-xs font-medium text-cyan-50/78"
+            >
               <span aria-live="polite">{stage}</span>
             </span>
+            <span data-testid="effective-mode" className="rounded-full border border-violet-300/20 bg-violet-300/[0.07] px-3 py-1.5 text-xs font-medium text-violet-100/78">
+              Effective: {mode}
+            </span>
+            <span data-testid="override-status" className="rounded-full border border-white/[0.08] bg-white/[0.035] px-3 py-1.5 text-xs font-medium text-white/58">
+              Override: {overridePresent ? 'manual' : 'none'}
+            </span>
+            <span data-testid="draft-status" className={`rounded-full border px-3 py-1.5 text-xs font-medium ${dirty ? 'border-amber-300/25 bg-amber-300/[0.08] text-amber-100/78' : 'border-white/[0.08] bg-white/[0.035] text-white/52'}`}>
+              {dirty
+                ? 'Unconfirmed changes'
+                : presentation === 'editor-preview'
+                  ? `Snapshot isolata · r${gridPreviewConfirmationRevision(previewController)}`
+                  : `Saved in lab · r${gridPreviewConfirmationRevision(previewController)}`}
+            </span>
+            {draftChangeSet ? (
+              <button
+                type="button"
+                data-testid="review-draft-changes"
+                aria-expanded={showDraftReview}
+                onClick={() => setShowDraftReview((current) => !current)}
+                className="inline-flex items-center gap-2 rounded-full border border-cyan-300/25 bg-cyan-300/[0.08] px-3 py-1.5 text-xs font-semibold text-cyan-50 transition hover:bg-cyan-300/[0.13] active:scale-95"
+              >
+                <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
+                Rivedi modifiche
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={handleReset}
               className="inline-flex items-center gap-2 rounded-full border border-white/[0.09] bg-white/[0.045] px-3 py-1.5 text-xs font-semibold text-white/72 transition-all hover:bg-white/[0.08] hover:text-white active:scale-95"
             >
               <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-              Reset fixture
+              {presentation === 'editor-preview' ? 'Reset anteprima' : 'Reset fixture'}
             </button>
           </div>
         </header>
 
-        <div className="flex gap-3 overflow-x-auto pb-1">
-          {GRID_ENGINE_LAB_SCENARIOS.map((entry) => (
+        {context ? <div data-testid="grid-editor-preview-context">{context}</div> : null}
+
+        {showDraftReview && draftChangeSet ? (
+          <section
+            data-testid="grid-engine-draft-review"
+            aria-labelledby="grid-engine-draft-review-title"
+            className="space-y-4 rounded-[1.5rem] border border-cyan-300/20 bg-cyan-300/[0.045] p-4 sm:p-5"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-100/55">
+                  Change set V{draftChangeSet.version} · staging in memoria
+                </p>
+                <h3 id="grid-engine-draft-review-title" className="mt-1 text-lg font-semibold text-white/90">
+                  Rivedi modifiche
+                </h3>
+                <p className="mt-1 text-xs leading-5 text-white/50">
+                  {draftChangeSet.changedRootCount} card modificate ·{' '}
+                  {draftChangeSet.affectedBreakpoints.length > 0
+                    ? draftChangeSet.affectedBreakpoints.map((entry) => entry.toUpperCase()).join(', ')
+                    : 'nessun breakpoint'}
+                  {' · '}{draftChangeSet.modes.length > 0 ? draftChangeSet.modes.join(' / ') : 'nessuna modalità'}
+                </p>
+              </div>
+              <span
+                data-testid="draft-applicability-status"
+                className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  draftChangeSet.applicability.state === 'no-changes'
+                    ? 'border-white/[0.1] bg-white/[0.04] text-white/60'
+                    : draftChangeSet.applicability.geometricallyValid
+                      ? 'border-amber-300/25 bg-amber-300/[0.08] text-amber-100'
+                      : 'border-rose-300/25 bg-rose-300/[0.08] text-rose-100'
+                }`}
+              >
+                {draftChangeSet.applicability.state}
+              </span>
+            </div>
+
+            <div className="grid gap-2 text-xs sm:grid-cols-3">
+              <div className={`rounded-xl border p-3 ${draftChangeSet.applicability.geometricallyValid ? 'border-emerald-300/15 bg-emerald-300/[0.05]' : 'border-rose-300/20 bg-rose-300/[0.06]'}`}>
+                <strong className="block text-white/82">Geometria</strong>
+                <span className="mt-1 block text-white/52">
+                  {draftChangeSet.applicability.geometricallyValid ? 'Valida' : 'Non valida'}
+                </span>
+              </div>
+              <div className="rounded-xl border border-cyan-300/15 bg-cyan-300/[0.04] p-3">
+                <strong className="block text-white/82">Preview</strong>
+                <span className="mt-1 block text-white/52">
+                  {draftChangeSet.applicability.previewable ? 'Visualizzabile in memoria' : 'Nessuna proposta valida'}
+                </span>
+              </div>
+              <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-3">
+                <strong className="block text-white/82">Draft editor</strong>
+                <span className="mt-1 block text-amber-100/75">Applicazione bloccata</span>
+              </div>
+            </div>
+
+            {draftChangeSet.changes.length > 0 ? (
+              <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
+                <table className="min-w-[880px] text-left text-xs">
+                  <thead className="bg-white/[0.04] text-[10px] uppercase tracking-[0.12em] text-white/45">
+                    <tr>
+                      <th className="px-3 py-2">Card</th>
+                      <th className="px-3 py-2">Breakpoint</th>
+                      <th className="px-3 py-2">Prima</th>
+                      <th className="px-3 py-2">Dopo</th>
+                      <th className="px-3 py-2">Operazione</th>
+                      <th className="px-3 py-2">Contesto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {draftChangeSet.changes.map((change) => (
+                      <tr
+                        key={`${change.breakpoint}:${change.rootId}`}
+                        data-testid={`draft-change-${change.breakpoint}-${change.rootId}`}
+                        className="border-t border-white/[0.06]"
+                      >
+                        <td className="px-3 py-2">
+                          <strong className="block text-white/82">{change.title}</strong>
+                          <code className="text-[10px] text-cyan-100/55">{change.rootId}</code>
+                        </td>
+                        <td className="px-3 py-2 font-semibold text-white/70">{change.breakpoint.toUpperCase()}</td>
+                        <td className="px-3 py-2 font-mono text-white/58">{geometry(change.before)}</td>
+                        <td className="px-3 py-2 font-mono text-cyan-50/78">{geometry(change.after)}</td>
+                        <td className="px-3 py-2">{change.operation}</td>
+                        <td className="px-3 py-2 text-white/48">
+                          {change.mode} · {change.origin} · {change.baselineState}
+                          {change.explicitOverride ? ' · override esplicito' : ''}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p data-testid="draft-review-no-changes" className="rounded-xl border border-white/[0.07] bg-black/10 px-4 py-3 text-sm text-white/55">
+                Nessuna differenza geometrica effettiva rispetto alla snapshot iniziale.
+              </p>
+            )}
+
+            {draftChangeSet.issues.length > 0 ? (
+              <div data-testid="draft-review-blockers" className="rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-4">
+                <strong className="text-sm text-amber-50/90">Motivi e controlli preflight</strong>
+                <ul className="mt-2 space-y-1 text-xs leading-5 text-amber-50/68">
+                  {draftChangeSet.issues.slice(0, 8).map((entry, index) => (
+                    <li key={`${entry.code}:${entry.breakpoint ?? 'global'}:${entry.rootId ?? index}`}>
+                      <code className="mr-2 text-[10px] text-amber-100/80">{entry.code}</code>
+                      {entry.message}
+                    </li>
+                  ))}
+                </ul>
+                {draftChangeSet.issues.length > 8 ? (
+                  <p className="mt-2 text-[10px] text-amber-100/55">
+                    Altri {draftChangeSet.issues.length - 8} rilievi disponibili nel change set tipizzato.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="grid gap-2 text-xs md:grid-cols-3">
+              <div className="rounded-xl border border-emerald-300/15 bg-emerald-300/[0.045] p-3 text-emerald-50/70">
+                <strong className="block text-emerald-50/90">Conferma nella preview</strong>
+                Disponibile tramite il comando locale; resta nella sessione sperimentale.
+              </div>
+              <div className="rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-3 text-amber-50/70">
+                <strong className="block text-amber-50/90">Applica al draft dell’editor</strong>
+                Non disponibile: autorità strutturale e quarantena del salvataggio non presenti.
+              </div>
+              <div className="rounded-xl border border-rose-300/20 bg-rose-300/[0.055] p-3 text-rose-50/70">
+                <strong className="block text-rose-50/90">Salva su Home Assistant</strong>
+                Non disponibile in questa fase.
+              </div>
+            </div>
+          </section>
+        ) : null}
+
+        {scenarioList.length > 1 ? <div className="flex gap-3 overflow-x-auto pb-1">
+          {scenarioList.map((entry) => (
             <ScenarioButton
               key={entry.id}
               scenario={entry}
@@ -505,7 +938,7 @@ export function GridEngineLab() {
               onClick={() => loadScenario(entry)}
             />
           ))}
-        </div>
+        </div> : null}
 
         <section
           aria-labelledby="responsive-lab-title"
@@ -567,12 +1000,59 @@ export function GridEngineLab() {
             <button
               type="button"
               onClick={handleRestoreAutomatic}
-              disabled={layoutOrigin === 'generated'}
+              disabled={missingBreakpoint || provisionalBreakpoint || (layoutOrigin === 'generated' && !overridePresent)}
               className="rounded-xl border border-emerald-300/20 bg-emerald-300/[0.07] px-4 py-2.5 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-300/[0.12] disabled:cursor-not-allowed disabled:opacity-35"
             >
               Ripristina layout generated
             </button>
           </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {!overridePresent ? (
+              <button
+                type="button"
+                onClick={handleCreateOverride}
+                disabled={missingBreakpoint && !syntheticMissingPreview}
+                className="rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-3 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-300/[0.11] disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                Crea override manuale {activeBreakpoint.toUpperCase()}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleRemoveOverride}
+                className="inline-flex items-center gap-2 rounded-xl border border-rose-300/20 bg-rose-300/[0.06] px-3 py-2 text-xs font-semibold text-rose-100 transition hover:bg-rose-300/[0.11]"
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Elimina override preview
+              </button>
+            )}
+            {missingBreakpoint && !syntheticMissingPreview ? (
+              <button
+                type="button"
+                onClick={handleDeriveMissing}
+                className="rounded-xl border border-amber-300/25 bg-amber-300/[0.08] px-3 py-2 text-xs font-semibold text-amber-100 transition hover:bg-amber-300/[0.13]"
+              >
+                Deriva preview sintetica non persistita
+              </button>
+            ) : null}
+          </div>
+
+          {missingBreakpoint ? (
+            <p data-testid="missing-breakpoint-status" className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/78">
+              {syntheticMissingPreview
+                ? 'Geometria sintetica visibile: il breakpoint resta missing e non può essere confermato.'
+                : 'Geometria mancante: nessuna baseline viene inventata o promossa.'}
+            </p>
+          ) : null}
+
+          {provisionalBreakpoint ? (
+            <p data-testid="provisional-breakpoint-status" className="mt-3 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2 text-xs leading-5 text-amber-100/78">
+              Geometria provvisoria visibile: {breakpointStatus?.validItemCount ?? structuralLayout.length} root validi
+              {breakpointStatus ? ` su ${breakpointStatus.itemCount} coordinate sorgente` : ''}.
+              {' '}Gli ID legacy, duplicati o non validi restano esclusi; questa baseline non Ã¨ autorevole nÃ© confermabile.
+            </p>
+          ) : null}
 
           <details className="mt-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3">
             <summary className="cursor-pointer text-xs font-semibold text-white/58">Pannello avanzato · sei breakpoint reali</summary>
@@ -644,10 +1124,10 @@ export function GridEngineLab() {
                   <button
                     key={entry}
                     type="button"
-                    aria-pressed={mode === entry}
+                    aria-pressed={primaryMode === entry}
                     onClick={() => handleModeChange(entry)}
                     className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize transition-all ${
-                      mode === entry ? 'bg-white/[0.11] text-white shadow-sm' : 'text-white/42 hover:text-white/72'
+                      primaryMode === entry ? 'bg-white/[0.11] text-white shadow-sm' : 'text-white/42 hover:text-white/72'
                     }`}
                   >
                     {entry}
@@ -793,11 +1273,40 @@ export function GridEngineLab() {
               <button
                 type="button"
                 onClick={handleConfirm}
-                disabled={!preview}
+                disabled={(!preview && !dirty) || !confirmableBreakpoint}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-300/25 bg-emerald-300/[0.08] px-3 py-2.5 text-xs font-bold text-emerald-100 transition-all hover:bg-emerald-300/[0.13] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                Conferma
+                Conferma in memoria
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={previewController.past.length === 0}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] px-2 py-2 text-[11px] font-semibold text-white/58 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={handleRedo}
+                disabled={previewController.future.length === 0}
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] px-2 py-2 text-[11px] font-semibold text-white/58 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
+                Ripristina
+              </button>
+              <button
+                type="button"
+                onClick={handleResetPreview}
+                disabled={!dirty}
+                className="rounded-xl border border-white/[0.08] px-2 py-2 text-[11px] font-semibold text-white/58 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                Reset preview
               </button>
             </div>
 
@@ -837,8 +1346,8 @@ export function GridEngineLab() {
                 }`}
               >
                 <span>
-                  <span className="block text-xs font-semibold">Simula espansione dispositivo</span>
-                  <span className="mt-1 block text-[10px] leading-4 opacity-55">RUNTIME_RESIZE +1W / +1H</span>
+                  <span className="block text-xs font-semibold">Simula espansione Light / dispositivo</span>
+                  <span data-testid="runtime-expansion-status" className="mt-1 block text-[10px] leading-4 opacity-55">RUNTIME_RESIZE +1W / +1H · baseline immutata</span>
                 </span>
                 <Sparkles className="h-4 w-4 shrink-0" aria-hidden="true" />
               </button>
@@ -852,47 +1361,108 @@ export function GridEngineLab() {
               </div>
             ) : null}
 
-            <div className="grid gap-4 2xl:grid-cols-2">
-              <div className="min-w-0 space-y-2">
-                <div className="flex items-center justify-between gap-3 px-1">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">Before</p>
-                    <h3 className="text-sm font-semibold text-white/82">Riferimento strutturale</h3>
+            {renderItem ? (
+              <div className="space-y-4">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-cyan-100/48">After · card autentiche</p>
+                      <h3 className="text-sm font-semibold text-white/82">Grid Engine 2.0 · visual-only</h3>
+                    </div>
+                    <span className="text-[10px] text-white/36">seleziona, trascina o ridimensiona</span>
                   </div>
-                  <span className="text-[10px] text-white/36">read only</span>
+                  <GridGestureCanvas
+                    ref={gestureCanvasRef}
+                    items={displayLayout}
+                    selectedId={selectedId}
+                    onSelect={handleSelect}
+                    testIdPrefix="result"
+                    gesture={gesture}
+                    gestureEnabled={!runtimeExpanded && !preview}
+                    cols={activeCols}
+                    canvasWidth={canvasWidth}
+                    breakpoint={activeBreakpoint}
+                    metrics={GRID_ENGINE_LAB_METRICS}
+                    itemKinds={scenario.itemKinds}
+                    renderItem={renderItem}
+                  />
                 </div>
-                <GridGestureCanvas
-                  items={referenceLayout}
-                  selectedId={selectedId}
-                  testIdPrefix="reference"
-                  cols={activeCols}
-                  canvasWidth={canvasWidth}
-                  breakpoint={activeBreakpoint}
-                />
-              </div>
 
-              <div className="min-w-0 space-y-2">
-                <div className="flex items-center justify-between gap-3 px-1">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-cyan-100/48">After</p>
-                    <h3 className="text-sm font-semibold text-white/82">Grid Engine 2.0</h3>
+                <details
+                  data-testid="experimental-before-diagnostics"
+                  className="rounded-[1.2rem] border border-white/[0.07] bg-black/10 p-3"
+                >
+                  <summary className="cursor-pointer text-xs font-semibold text-white/58">
+                    Diagnostica avanzata · BEFORE strutturale
+                  </summary>
+                  <div className="mt-3 min-w-0 space-y-2">
+                    <div className="flex items-center justify-between gap-3 px-1">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">Before</p>
+                        <h3 className="text-sm font-semibold text-white/82">Riferimento strutturale</h3>
+                      </div>
+                      <span className="text-[10px] text-white/36">read only</span>
+                    </div>
+                    <GridGestureCanvas
+                      items={referenceLayout}
+                      selectedId={selectedId}
+                      testIdPrefix="reference"
+                      cols={activeCols}
+                      canvasWidth={canvasWidth}
+                      breakpoint={activeBreakpoint}
+                      metrics={GRID_ENGINE_LAB_METRICS}
+                      itemKinds={scenario.itemKinds}
+                    />
                   </div>
-                  <span className="text-[10px] text-white/36">click, drag or resize</span>
-                </div>
-                <GridGestureCanvas
-                  ref={gestureCanvasRef}
-                  items={displayLayout}
-                  selectedId={selectedId}
-                  onSelect={handleSelect}
-                  testIdPrefix="result"
-                  gesture={gesture}
-                  gestureEnabled={!runtimeExpanded && !preview}
-                  cols={activeCols}
-                  canvasWidth={canvasWidth}
-                  breakpoint={activeBreakpoint}
-                />
+                </details>
               </div>
-            </div>
+            ) : (
+              <div className="grid gap-4 2xl:grid-cols-2">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-white/38">Before</p>
+                      <h3 className="text-sm font-semibold text-white/82">Riferimento strutturale</h3>
+                    </div>
+                    <span className="text-[10px] text-white/36">read only</span>
+                  </div>
+                  <GridGestureCanvas
+                    items={referenceLayout}
+                    selectedId={selectedId}
+                    testIdPrefix="reference"
+                    cols={activeCols}
+                    canvasWidth={canvasWidth}
+                    breakpoint={activeBreakpoint}
+                    metrics={GRID_ENGINE_LAB_METRICS}
+                    itemKinds={scenario.itemKinds}
+                  />
+                </div>
+
+                <div className="min-w-0 space-y-2">
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.17em] text-cyan-100/48">After</p>
+                      <h3 className="text-sm font-semibold text-white/82">Grid Engine 2.0</h3>
+                    </div>
+                    <span className="text-[10px] text-white/36">click, drag or resize</span>
+                  </div>
+                  <GridGestureCanvas
+                    ref={gestureCanvasRef}
+                    items={displayLayout}
+                    selectedId={selectedId}
+                    onSelect={handleSelect}
+                    testIdPrefix="result"
+                    gesture={gesture}
+                    gestureEnabled={!runtimeExpanded && !preview}
+                    cols={activeCols}
+                    canvasWidth={canvasWidth}
+                    breakpoint={activeBreakpoint}
+                    metrics={GRID_ENGINE_LAB_METRICS}
+                    itemKinds={scenario.itemKinds}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="min-w-0 space-y-2 rounded-[1.4rem] border border-violet-300/[0.12] bg-violet-300/[0.025] p-3">
               <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
@@ -958,10 +1528,20 @@ export function GridEngineLab() {
               <dd className="text-right font-mono text-white/72">
                 {mode === 'automatic' ? 'COMPACT' : 'NONE'}
               </dd>
+              <dt className="text-white/36">Primary / effective</dt>
+              <dd className="text-right font-mono text-white/72">{primaryMode} / {mode}</dd>
+              <dt className="text-white/36">Override</dt>
+              <dd className="text-right font-mono text-white/72">
+                {overridePresent ? activeBreakpoint : 'none'}
+              </dd>
               <dt className="text-white/36">Stage</dt>
               <dd className="text-right font-medium text-white/72">{stage}</dd>
               <dt className="text-white/36">Layout source</dt>
               <dd className="text-right font-medium capitalize text-white/72">{layoutOrigin}</dd>
+              <dt className="text-white/36">Validation</dt>
+              <dd data-testid="preview-validation" className="text-right font-mono text-white/72">
+                collisions={geometryIssues.collisions} / out={geometryIssues.outOfBounds}
+              </dd>
               <dt className="text-white/36">Final selected</dt>
               <dd data-testid="final-selected-position" className="text-right font-mono text-white/72">
                 {displayedSelected
@@ -979,6 +1559,9 @@ export function GridEngineLab() {
             <div className="mt-4 border-t border-white/[0.07] pt-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/38">
                 Changed elements · {changes.length}
+              </p>
+              <p data-testid="order-change-status" className="mt-1 text-[10px] text-white/38">
+                Order: {orderChanged ? 'changed' : 'stable'} · Dimensions: {changes.filter((change) => change.before.w !== change.after.w || change.before.h !== change.after.h).length} changed
               </p>
               {changes.length > 0 ? (
                 <div className="mt-2 space-y-2">
@@ -1008,8 +1591,8 @@ export function GridEngineLab() {
               </span>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <CoordinateTable items={responsiveState.reference} label="Desktop structural · 12 col" />
-              <CoordinateTable items={structuralLayout} label={`${activeBreakpoint} derived · ${activeCols} col`} />
+              <CoordinateTable items={confirmedLayout} label={`${activeBreakpoint} confirmed in lab`} />
+              <CoordinateTable items={structuralLayout} label={`${activeBreakpoint} structural preview · ${activeCols} col`} />
               <CoordinateTable items={displayLayout} label="Final / preview" />
             </div>
           </div>

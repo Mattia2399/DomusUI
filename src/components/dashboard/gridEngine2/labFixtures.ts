@@ -1,4 +1,19 @@
-import type { GridLayoutItem } from './model';
+import type { DashboardGridBreakpoint } from '../../../types/widgetTypeLayout';
+import type { GridMetricsDefinition } from './gridMetrics';
+import type { GridLayoutItem, GridLayoutMode } from './model';
+
+export type GridEngineLabItemKind = 'widget' | 'light' | 'special-section' | 'stack-root';
+
+export type GridEngineLabBreakpointStatus = Readonly<{
+  breakpoint: DashboardGridBreakpoint;
+  cols: number;
+  state: 'complete' | 'missing' | 'incomplete';
+  itemCount: number;
+  validItemCount: number;
+  missingIds: readonly string[];
+  unknownIds: readonly string[];
+  invalidIds: readonly string[];
+}>;
 
 export type GridEngineLabScenario = {
   readonly id: string;
@@ -6,13 +21,26 @@ export type GridEngineLabScenario = {
   readonly eyebrow: string;
   readonly description: string;
   readonly items: readonly GridLayoutItem[];
+  readonly sourceCols?: number;
+  readonly initialLayouts?: Readonly<Partial<Record<DashboardGridBreakpoint, readonly GridLayoutItem[]>>>;
+  readonly provisionalLayouts?: Readonly<Partial<Record<DashboardGridBreakpoint, readonly GridLayoutItem[]>>>;
+  readonly breakpointStatus?: Readonly<Partial<Record<DashboardGridBreakpoint, GridEngineLabBreakpointStatus>>>;
   readonly selectedId: string;
   readonly suggestedMove: Readonly<{ x: number; y: number }>;
+  readonly itemKinds?: Readonly<Record<string, GridEngineLabItemKind>>;
+  readonly primaryMode?: GridLayoutMode;
+  readonly overrides?: Readonly<Partial<Record<DashboardGridBreakpoint, GridLayoutMode>>>;
+  readonly missingBreakpoints?: readonly DashboardGridBreakpoint[];
 };
 
 export const GRID_ENGINE_LAB_COLS = 6;
-export const GRID_ENGINE_LAB_ROW_HEIGHT = 58;
-export const GRID_ENGINE_LAB_GAP = 6;
+export const GRID_ENGINE_LAB_METRICS: GridMetricsDefinition = Object.freeze({
+  rowHeight: 58,
+  horizontalGap: 6,
+  verticalGap: 6,
+});
+export const GRID_ENGINE_LAB_ROW_HEIGHT = GRID_ENGINE_LAB_METRICS.rowHeight;
+export const GRID_ENGINE_LAB_GAP = GRID_ENGINE_LAB_METRICS.horizontalGap;
 
 const RESPONSIVE_DENSITY_ITEMS: readonly GridLayoutItem[] = Array.from(
   { length: 30 },
@@ -96,6 +124,41 @@ export const GRID_ENGINE_LAB_SCENARIOS: readonly GridEngineLabScenario[] = [
     selectedId: 'density-01',
     suggestedMove: { x: 0, y: 1 },
     items: RESPONSIVE_DENSITY_ITEMS,
+  },
+  {
+    id: 'interactive-content',
+    title: 'Light, Stack e sezioni',
+    eyebrow: 'Scenario 06',
+    description: 'Widget standard, Light dinamica, sezione speciale e Stack root atomico.',
+    selectedId: 'light-dynamic',
+    suggestedMove: { x: 2, y: 0 },
+    itemKinds: {
+      'widget-standard': 'widget',
+      'light-dynamic': 'light',
+      'special-section': 'special-section',
+      'stack-root': 'stack-root',
+    },
+    items: [
+      { i: 'widget-standard', x: 0, y: 0, w: 2, h: 1 },
+      { i: 'light-dynamic', x: 2, y: 0, w: 2, h: 1 },
+      { i: 'special-section', x: 0, y: 2, w: 4, h: 1 },
+      { i: 'stack-root', x: 4, y: 0, w: 2, h: 3 },
+    ],
+  },
+  {
+    id: 'missing-breakpoint',
+    title: 'Breakpoint mancante',
+    eyebrow: 'Scenario 07',
+    description: '2XL non possiede geometria: la derivazione resta una preview sintetica non confermabile.',
+    selectedId: 'missing-a',
+    suggestedMove: { x: 0, y: 0 },
+    primaryMode: 'automatic',
+    missingBreakpoints: ['2xl'],
+    items: [
+      { i: 'missing-a', x: 0, y: 0, w: 2, h: 1 },
+      { i: 'missing-b', x: 2, y: 2, w: 2, h: 2 },
+      { i: 'missing-c', x: 4, y: 5, w: 2, h: 1 },
+    ],
   },
 ] as const;
 

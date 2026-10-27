@@ -101,7 +101,7 @@ test('Grid Engine 2.0 laboratory previews and commits the exact solver geometry'
   await expect(mover).toHaveAttribute('data-y', '0');
   await expect(target).toHaveAttribute('data-y', '1');
 
-  await laboratory.getByRole('button', { name: 'Conferma' }).click();
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   await expect(mover).toHaveAttribute('data-x', '0');
   await expect(mover).toHaveAttribute('data-y', '0');
   await expect(target).toHaveAttribute('data-y', '1');
@@ -142,6 +142,9 @@ test('mouse drag previews a collision and commits the exact visible coordinates'
   await page.mouse.up();
   await expect(canvas).toHaveAttribute('data-gesture-state', 'IDLE');
   expect(await layoutSnapshot(laboratory)).toEqual(lastPreview);
+  await expect(laboratory.getByTestId('draft-status')).toHaveText('Unconfirmed changes');
+  expect(await layoutSnapshot(laboratory, 'reference')).not.toEqual(lastPreview);
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   expect(await layoutSnapshot(laboratory, 'reference')).toEqual(lastPreview);
 });
 
@@ -158,6 +161,8 @@ test('drag exposes a three-card collision chain before release', async ({ page }
   await expect(laboratory.getByTestId('result-card-chain-c')).toHaveAttribute('data-y', '3');
   await expect(laboratory.getByTestId('reference-card-chain-a')).toHaveAttribute('data-y', '0');
   await page.mouse.up();
+  await expect(laboratory.getByTestId('reference-card-chain-c')).toHaveAttribute('data-y', '2');
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   await expect(laboratory.getByTestId('reference-card-chain-c')).toHaveAttribute('data-y', '3');
 });
 
@@ -188,6 +193,8 @@ test('downward drag reorders the complete vertical sequence without moving unrel
 
   await page.mouse.up();
   expect(await layoutSnapshot(laboratory)).toEqual(expected);
+  expect(await layoutSnapshot(laboratory, 'reference')).toEqual(before);
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   expect(await layoutSnapshot(laboratory, 'reference')).toEqual(expected);
   await expect(laboratory.getByTestId('final-selected-position')).toHaveText(/chain-a · x0 y2/);
 });
@@ -230,6 +237,8 @@ test('bottom-right resize previews collisions, commits exactly, and supports Esc
   const resizePreview = await layoutSnapshot(laboratory);
   await page.mouse.up();
   expect(await layoutSnapshot(laboratory)).toEqual(resizePreview);
+  await expect(laboratory.getByTestId('reference-card-target-b')).toHaveAttribute('data-w', '4');
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   expect(await layoutSnapshot(laboratory, 'reference')).toEqual(resizePreview);
 
   const committedHandle = laboratory.getByRole('button', { name: 'Ridimensiona target-b', exact: true });
@@ -349,6 +358,8 @@ test('mobile long-press supports commit and pointer cancellation without hijacki
   const touchPreview = await layoutSnapshot(laboratory);
   await dispatchTouch('pointerup', 73, point.x + metrics.stepX, point.y);
   expect(await layoutSnapshot(laboratory)).toEqual(touchPreview);
+  await expect(laboratory.getByTestId('reference-card-gap-a')).toHaveAttribute('data-x', '0');
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   expect(await layoutSnapshot(laboratory, 'reference')).toEqual(touchPreview);
 });
 
@@ -411,6 +422,8 @@ test('responsive Tablet drag and resize commit their exact previews', async ({ p
   const dragPreview = await layoutSnapshot(laboratory);
   await page.mouse.up();
   expect(await layoutSnapshot(laboratory)).toEqual(dragPreview);
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Preview');
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Custom');
   await expect(laboratory.getByTestId('rgl-experiment')).toHaveAttribute('data-rgl-fidelity', 'exact');
 
@@ -440,7 +453,7 @@ test('custom Mobile survives a Desktop edit and can return to automatic provenan
   await laboratory.getByLabel('Destinazione X').fill('0');
   await laboratory.getByLabel('Destinazione Y').fill('5');
   await laboratory.getByRole('button', { name: 'Anteprima' }).click();
-  await laboratory.getByRole('button', { name: 'Conferma' }).click();
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   const customizedMobile = await layoutSnapshot(laboratory);
   await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Custom');
 
@@ -451,7 +464,7 @@ test('custom Mobile survives a Desktop edit and can return to automatic provenan
   await laboratory.getByLabel('Destinazione X').fill('0');
   await laboratory.getByLabel('Destinazione Y').fill('0');
   await laboratory.getByRole('button', { name: 'Anteprima' }).click();
-  await laboratory.getByRole('button', { name: 'Conferma' }).click();
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   await laboratory.getByRole('button', { name: 'Vista Tablet' }).click();
   const tabletAfterDesktopEdit = await layoutSnapshot(laboratory);
   expect(tabletAfterDesktopEdit).not.toEqual(tabletBeforeDesktopEdit);
@@ -502,6 +515,8 @@ test('30-card stress fixture keeps drag and resize previews stable and collision
   await expect(laboratory.getByTestId('rgl-experiment')).toHaveAttribute('data-rgl-fidelity', 'exact');
   await page.mouse.up();
   expect(await layoutSnapshot(laboratory)).toEqual(dragPreview);
+  expect(await layoutSnapshot(laboratory, 'reference')).not.toEqual(dragPreview);
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   expect(await layoutSnapshot(laboratory, 'reference')).toEqual(dragPreview);
 
   const handle = laboratory.getByRole('button', { name: 'Ridimensiona density-01', exact: true });
@@ -520,7 +535,122 @@ test('30-card stress fixture keeps drag and resize previews stable and collision
   await expect(laboratory.getByTestId('rgl-experiment')).toHaveAttribute('data-rgl-fidelity', 'exact');
   await page.mouse.up();
   expect(await layoutSnapshot(laboratory)).toEqual(resizePreview);
+  expect(await layoutSnapshot(laboratory, 'reference')).toEqual(dragPreview);
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
   expect(await layoutSnapshot(laboratory, 'reference')).toEqual(resizePreview);
+});
+
+test('manual and automatic transitions support undo, redo, reset, and memory-only confirmation', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 1000 });
+  await page.goto('/grid-test');
+  const laboratory = laboratoryFor(page);
+  await laboratory.getByRole('button', { name: /Spazi manuali/ }).click();
+  const manual = await layoutSnapshot(laboratory);
+  await expect(laboratory.getByTestId('result-card-gap-b')).toHaveAttribute('data-y', '4');
+
+  await laboratory.getByRole('button', { name: 'automatic', exact: true }).click();
+  const automatic = await layoutSnapshot(laboratory);
+  expect(automatic).not.toEqual(manual);
+  await expect(laboratory.getByTestId('result-card-gap-b')).toHaveAttribute('data-y', '1');
+  await expect(laboratory.getByTestId('reference-card-gap-b')).toHaveAttribute('data-y', '4');
+  await expect(laboratory.getByTestId('draft-status')).toHaveText('Unconfirmed changes');
+
+  await laboratory.getByRole('button', { name: 'Annulla', exact: true }).click();
+  expect(await layoutSnapshot(laboratory)).toEqual(manual);
+  await laboratory.getByRole('button', { name: 'Ripristina', exact: true }).click();
+  expect(await layoutSnapshot(laboratory)).toEqual(automatic);
+
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
+  expect(await layoutSnapshot(laboratory, 'reference')).toEqual(automatic);
+  await expect(laboratory.getByTestId('draft-status')).toContainText('Saved in lab');
+
+  await laboratory.getByRole('button', { name: 'manual', exact: true }).click();
+  await expect(laboratory.getByTestId('solver-mode-status')).toHaveText('manual');
+  expect(await layoutSnapshot(laboratory)).toEqual(automatic);
+  await laboratory.getByRole('button', { name: 'Reset preview' }).click();
+  await expect(laboratory.getByTestId('solver-mode-status')).toHaveText('automatic');
+  expect(await layoutSnapshot(laboratory)).toEqual(automatic);
+
+  await page.reload();
+  const reloadedLaboratory = laboratoryFor(page);
+  await expect(reloadedLaboratory.getByTestId('result-card-move-a')).toHaveAttribute('data-x', '8');
+  await expect(reloadedLaboratory.getByTestId('result-card-move-a')).toHaveAttribute('data-y', '3');
+  await expect(reloadedLaboratory.getByTestId('draft-status')).toHaveText(/Saved in lab.*r0/);
+});
+
+test('explicit XS manual override survives XL round trips without altering XL geometry', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 1000 });
+  await page.goto('/grid-test');
+  const laboratory = laboratoryFor(page);
+  await laboratory.getByRole('button', { name: /Spazi manuali/ }).click();
+  await laboratory.getByRole('button', { name: 'automatic', exact: true }).click();
+  await laboratory.getByRole('button', { name: 'Vista Desktop' }).click();
+  const automaticXl = await layoutSnapshot(laboratory);
+
+  await laboratory.getByRole('button', { name: 'Vista Mobile' }).click();
+  await laboratory.getByRole('button', { name: 'Crea override manuale XS' }).click();
+  await expect(laboratory.getByTestId('effective-mode')).toContainText('manual');
+  await expect(laboratory.getByTestId('override-status')).toContainText('manual');
+  await laboratory.getByRole('button', { name: 'Seleziona gap-c', exact: true }).click();
+  await laboratory.getByLabel('Destinazione Y').fill('7');
+  await laboratory.getByRole('button', { name: 'Anteprima' }).click();
+  await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();
+  const customXs = await layoutSnapshot(laboratory);
+  await expect(laboratory.getByTestId('result-card-gap-c')).toHaveAttribute('data-y', '7');
+
+  await laboratory.getByRole('button', { name: 'Vista Desktop' }).click();
+  expect(await layoutSnapshot(laboratory)).toEqual(automaticXl);
+  await expect(laboratory.getByTestId('effective-mode')).toContainText('automatic');
+  await expect(laboratory.getByTestId('override-status')).toContainText('none');
+
+  await laboratory.getByRole('button', { name: 'Vista Mobile' }).click();
+  expect(await layoutSnapshot(laboratory)).toEqual(customXs);
+  await expect(laboratory.getByTestId('effective-mode')).toContainText('manual');
+  await laboratory.getByRole('button', { name: 'Elimina override preview' }).click();
+  await expect(laboratory.getByTestId('effective-mode')).toContainText('automatic');
+  await expect(laboratory.getByTestId('result-card-gap-c')).toHaveAttribute('data-y', '2');
+  await expect(laboratory.getByTestId('draft-status')).toHaveText('Unconfirmed changes');
+});
+
+test('missing breakpoint remains synthetic and cannot be confirmed', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 1000 });
+  await page.goto('/grid-test');
+  const laboratory = laboratoryFor(page);
+  await laboratory.getByRole('button', { name: /Breakpoint mancante/ }).click();
+  await setCanvasWidth(laboratory, 1536, '2xl', 12, 'Desktop');
+  await expect(laboratory.getByTestId('responsive-origin')).toHaveText('Missing');
+  await expect(laboratory.locator('[data-testid^="result-card-missing-"]')).toHaveCount(0);
+
+  await laboratory.getByRole('button', { name: 'Deriva preview sintetica non persistita' }).click();
+  await expect(laboratory.locator('[data-testid^="result-card-missing-"]')).toHaveCount(3);
+  await expect(laboratory.getByTestId('missing-breakpoint-status')).toContainText(/non pu/);
+  await expect(laboratory.getByRole('button', { name: 'Conferma in memoria' })).toBeDisabled();
+  await expectValidGeometry(laboratory, 12);
+});
+
+test('synthetic Light runtime expansion restores its baseline and keeps Stack root atomic', async ({ page }) => {
+  await page.setViewportSize({ width: 1536, height: 1000 });
+  await page.goto('/grid-test');
+  const laboratory = laboratoryFor(page);
+  await laboratory.getByRole('button', { name: /Light, Stack e sezioni/ }).click();
+  const light = laboratory.getByTestId('result-card-light-dynamic');
+  const referenceLight = laboratory.getByTestId('reference-card-light-dynamic');
+  const stack = laboratory.getByTestId('result-card-stack-root');
+  await expect(light).toHaveAttribute('data-item-kind', 'light');
+  await expect(stack).toHaveAttribute('data-item-kind', 'stack-root');
+  await expect(laboratory.getByTestId('result-card-special-section')).toHaveAttribute('data-item-kind', 'special-section');
+  const initial = await layoutSnapshot(laboratory);
+
+  await laboratory.getByRole('button', { name: /Simula espansione Light \/ dispositivo/ }).click();
+  await expect(light).toHaveAttribute('data-w', '5');
+  await expect(light).toHaveAttribute('data-h', '2');
+  await expect(referenceLight).toHaveAttribute('data-w', '4');
+  await expect(referenceLight).toHaveAttribute('data-h', '1');
+  await expect(laboratory.getByTestId('preview-validation')).toHaveText('collisions=0 / out=0');
+
+  await laboratory.getByRole('button', { name: /Simula espansione Light \/ dispositivo/ }).click();
+  expect(await layoutSnapshot(laboratory)).toEqual(initial);
+  expect(await layoutSnapshot(laboratory, 'reference')).toEqual(initial);
 });
 
 test('30-card mixed fixture reports measured responsive derivation and render costs', async ({ page }) => {
