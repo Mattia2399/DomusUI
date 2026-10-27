@@ -235,6 +235,36 @@ button.rv2-chip {
   gap: 28px;
 }
 
+/* The sections of a room; on a phone, one below the other in the order chosen in "Stanze e sezioni". */
+.rv2-secs {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.rv2-sec {
+  min-width: 0;
+}
+
+@container rv2 (max-width: 760px) {
+  .rv2-columns,
+  .rv2-column-side,
+  .rv2-column-main,
+  .rv2-row-wrap {
+    display: contents;
+  }
+
+  .rv2-secs {
+    gap: 28px;
+  }
+
+  .rv2-secs .rv2-sec {
+    order: var(--ord);
+    flex: none;
+  }
+}
+
 .rv2-section-heading {
   margin: 0;
   font-size: 21px;
@@ -660,14 +690,7 @@ button.rv2-add-row {
   box-shadow: 0 12px 24px -10px rgb(0 0 0 / 0.6);
 }
 
-/* Rooms and floors: the grouped rows of the Profile page, the icons of a room, the menu's last item. */
-
-.rv2-floor-menu-sep {
-  display: block;
-  height: 1px;
-  margin: 4px 10px;
-  background: var(--dv-separator);
-}
+/* Rooms: the grouped rows of the Profile page and the icons of a room. */
 
 .rv2-form-group {
   padding-top: 0 !important;
@@ -740,38 +763,410 @@ button.rv2-add-row {
   color: var(--dv-pill-on-ink);
 }
 
-.rv2-form-delete {
-  min-height: 44px;
-  border: 0;
-  background: transparent;
-  padding: 0 8px;
-  color: var(--dv-red);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.rv2-form-save {
-  min-height: 44px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--dv-pill-on);
-  padding: 0 22px;
-  color: var(--dv-pill-on-ink);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.rv2-icon-choice:focus-visible,
-.rv2-form-delete:focus-visible,
-.rv2-form-save:focus-visible {
+.rv2-icon-choice:focus-visible {
   outline: 2px solid var(--dv-focus);
   outline-offset: 2px;
 }
 
-.rv2-form-delete:disabled,
-.rv2-form-save:disabled {
+
+/* The "+" menu of the head, as the floor menu. */
+.rv2-add-menu {
+  position: absolute;
+  top: 52px;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  width: 236px;
+  box-sizing: border-box;
+  flex-direction: column;
+  border-radius: 20px;
+  padding: 6px;
+}
+
+.rv2-add-menu button {
+  display: flex;
+  height: 46px;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  padding: 0 12px;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rv2-add-menu button:hover {
+  background: var(--dv-icon-off);
+}
+
+.rv2-add-menu button:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: -2px;
+}
+
+/* The room sheet of the board. */
+.rv2-room-preview {
+  display: flex;
+  height: 88px;
+  align-items: center;
+  gap: 12px;
+  overflow: hidden;
+  border-radius: 22px;
+  padding: 0 18px;
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.rv2-text-input {
+  height: 46px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--dv-tile-off-border);
+  border-radius: 23px;
+  background: var(--dv-tile-off);
+  padding: 0 16px;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+}
+
+.rv2-text-input:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 1px;
+}
+
+.rv2-text-input:disabled {
+  opacity: 0.6;
+}
+
+.rv2-swatch {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.rv2-swatch span {
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  transition: box-shadow 200ms ease;
+}
+
+.rv2-switch {
+  position: relative;
+  height: 31px;
+  width: 51px;
+  flex: none;
+  border: 0;
+  border-radius: 16px;
+  background: rgb(120 120 128 / 0.36);
+  padding: 0;
+  cursor: pointer;
+  transition: background 200ms ease;
+}
+
+.rv2-switch span {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  height: 27px;
+  width: 27px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 3px 8px rgb(0 0 0 / 0.25);
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.rv2-switch.is-on {
+  background: #30d158;
+}
+
+.rv2-switch.is-on span {
+  transform: translateX(20px);
+}
+
+.rv2-sheet-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 22px;
+  background: var(--dv-icon-off);
+  padding: 0 16px;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rv2-sheet-button.is-primary {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.rv2-sheet-button.is-danger {
+  color: #ff453a;
+}
+
+.rv2-sheet-button:disabled {
   cursor: default;
+  opacity: 0.4;
+}
+
+/* "Stanze e sezioni". */
+.rv2-seg {
+  display: flex;
+  max-width: 100%;
+  align-self: flex-start;
+  gap: 2px;
+  overflow-x: auto;
+  border-radius: 16px;
+  background: var(--dv-icon-off);
+  padding: 3px;
+  scrollbar-width: none;
+}
+
+.rv2-seg button {
+  height: 38px;
+  flex: none;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  padding: 0 16px;
+  color: var(--dv-t2);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rv2-seg button.is-on {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.rv2-seg-lg button {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 15px;
+}
+
+.rv2-manage-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
+  align-items: start;
+  gap: 20px;
+}
+
+.rv2-manage-list {
+  border-radius: 22px;
+  padding: 2px 14px;
+}
+
+.rv2-manage-row {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  gap: 10px;
+}
+
+.rv2-manage-row + .rv2-manage-row {
+  border-top: 1px solid var(--dv-separator);
+}
+
+.rv2-manage-row.is-dim .rv2-room-badge,
+.rv2-manage-row.is-dim .rv2-manage-main {
   opacity: 0.5;
+}
+
+.rv2-manage-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  padding: 6px 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rv2-manage-main:disabled {
+  cursor: default;
+}
+
+.rv2-room-badge {
+  display: flex;
+  height: 40px;
+  width: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  color: #ffffff;
+}
+
+.rv2-now {
+  flex: none;
+  border-radius: 9px;
+  background: var(--dv-pill-on);
+  padding: 2px 7px;
+  color: var(--dv-pill-on-ink);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.rv2-step {
+  display: flex;
+  height: 36px;
+  width: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dv-icon-off);
+  color: inherit;
+  cursor: pointer;
+}
+
+.rv2-step.is-danger {
+  color: #ff453a;
+}
+
+.rv2-step[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.rv2-inline-input {
+  height: 36px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  padding: 0 2px;
+  color: inherit;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.rv2-inline-input:hover:not(:disabled) {
+  background: var(--dv-icon-off);
+}
+
+.rv2-inline-input:focus {
+  border-color: var(--dv-focus);
+  background: var(--dv-icon-off);
+  padding: 0 8px;
+  outline: none;
+}
+
+.rv2-manage-sections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 28px;
+}
+
+/* A phone with the sections in their order, beside the list on a large screen. */
+.rv2-phone {
+  position: relative;
+  display: flex;
+  min-height: 440px;
+  width: 236px;
+  box-sizing: border-box;
+  flex: none;
+  flex-direction: column;
+  gap: 8px;
+  border: 6px solid rgb(127 127 127 / 0.35);
+  border-radius: 38px;
+  background: var(--dv-glass);
+  padding: 44px 14px 18px;
+}
+
+.rv2-phone-notch {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  height: 18px;
+  width: 76px;
+  border-radius: 10px;
+  background: rgb(127 127 127 / 0.35);
+  transform: translateX(-50%);
+}
+
+.rv2-phone-title {
+  padding: 0 2px 4px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.rv2-phone-block {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  background: var(--dv-icon-off);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  transition: height 200ms ease;
+}
+
+.rv2-phone-block b {
+  display: flex;
+  height: 18px;
+  width: 18px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+  font-size: 10px;
+}
+
+.rv2-seg button:focus-visible,
+.rv2-manage-main:focus-visible,
+.rv2-step:focus-visible,
+.rv2-switch:focus-visible,
+.rv2-swatch:focus-visible,
+.rv2-sheet-button:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+@container rv2 (max-width: 760px) {
+  .rv2-add-menu {
+    right: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .rv2-phone {
+    display: none;
+  }
 }

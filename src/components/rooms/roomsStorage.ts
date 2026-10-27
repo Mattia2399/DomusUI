@@ -18,6 +18,9 @@ export const ROOM_PINNED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.pinnedEntiti
 // Plugs that ask before turning off, wherever they are.
 export const PROTECTED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.protectedEntities.v1';
 
+// The order of the rooms, their look, local floors and the sections of each room.
+export const ROOM_LAYOUT_STORAGE_KEY = 'ha.dashboard.rooms.layout.v1';
+
 export function getRoomsRuntimeStorageKey(baseKey: string, runtimeMode: DashboardRuntimeMode) {
   return runtimeMode === 'demo' ? `${baseKey}.demo` : baseKey;
 }

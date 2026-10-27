@@ -35,9 +35,11 @@ export const ROOM_ICON_CHOICES: Array<[RoomIconKind, string]> = [
   ['bed', 'mdi:bed'],
   ['bath', 'mdi:shower'],
   ['desk', 'mdi:desk'],
-  ['garage', 'mdi:garage'],
   ['garden', 'mdi:flower'],
-  ['room', 'mdi:door'],
+  ['garage', 'mdi:garage'],
+  ['washer', 'mdi:washing-machine'],
+  ['tv', 'mdi:television'],
+  ['book', 'mdi:bookshelf'],
 ];
 
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');

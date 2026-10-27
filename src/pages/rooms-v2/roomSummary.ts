@@ -6,9 +6,12 @@ import type { MockEntityState } from '../../types/ha';
  * on, the climate in a few words, and which kinds of accessory it still lacks.
  */
 
-export type RoomIconKind = 'sofa' | 'kitchen' | 'bed' | 'bath' | 'desk' | 'garage' | 'garden' | 'room';
+export type RoomIconKind = 'sofa' | 'kitchen' | 'bed' | 'bath' | 'desk' | 'garage' | 'garden' | 'washer' | 'tv' | 'book' | 'room';
 
 const ICONS: Array<[RegExp, RoomIconKind]> = [
+  [/washing|washer|laundry|lavanderia|buanderie/i, 'washer'],
+  [/television|cinema|theater|theatre/i, 'tv'],
+  [/book|library|libreria|biblioteca|biblioth/i, 'book'],
   [/sofa|couch|tv|soggiorno|salotto|living|salon/i, 'sofa'],
   [/silverware|stove|fridge|pot|chef|cucina|kitchen|cuisine/i, 'kitchen'],
   [/bed|camera|letto|bedroom|chambre/i, 'bed'],

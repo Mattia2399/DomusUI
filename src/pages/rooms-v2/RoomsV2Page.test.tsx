@@ -40,7 +40,8 @@ describe('the Rooms page in the demo', () => {
 
   it('brings a light from another room through the add sheet', () => {
     renderDemo();
-    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi accessorio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Aggiungi accessorio' }));
     fireEvent.click(screen.getByRole('button', { name: /Luce del giardino/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Aggiungi 1' }));
     return screen.findByText('3/7');
@@ -294,29 +295,84 @@ describe('the Rooms page in the demo', () => {
     expect(statuses[0]).toBe('SicurezzaFinestra · Aperta da 25 min');
   });
 
-  it('adds a local room next to the demo rooms, renames it and deletes it', async () => {
+  it('adds a local room from the + menu, changes it from Stanze e sezioni and deletes it', async () => {
     renderDemo();
-    // The demo's own rooms cannot be changed.
-    expect(screen.queryByRole('button', { name: 'Modifica stanza' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Tutta la casa' }));
-    expect(screen.queryByRole('menuitem', { name: 'Gestisci piani' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi' }));
     fireEvent.click(screen.getByRole('menuitem', { name: 'Nuova stanza' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Nome' }), { target: { value: '  Studio ' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Scrivania' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Primo piano' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Crea stanza' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Studio' })).toBeTruthy();
     const rooms = screen.getByRole('navigation', { name: 'Stanze' });
     expect(within(rooms).getByRole('button', { name: 'Soggiorno' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Modifica stanza' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    const manage = screen.getByTestId('rooms-v2-manage');
+    const firstFloor = within(manage).getByRole('region', { name: 'Primo piano' });
+    expect(within(firstFloor).getByRole('button', { name: 'Modifica Studio' })).toBeTruthy();
+    fireEvent.click(within(firstFloor).getByRole('button', { name: 'Modifica Studio' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Nome' }), { target: { value: 'Studio nord' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Studio nord' })).toBeTruthy();
+    expect(await within(manage).findByRole('button', { name: 'Modifica Studio nord' })).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Modifica stanza' }));
+    fireEvent.click(within(manage).getByRole('button', { name: 'Modifica Studio nord' }));
     fireEvent.click(screen.getByRole('button', { name: 'Elimina stanza' }));
-    fireEvent.click(within(screen.getByRole('dialog', { name: 'Eliminare Studio nord?' })).getByRole('button', { name: 'Elimina' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Soggiorno' })).toBeTruthy();
-    expect(within(screen.getByRole('navigation', { name: 'Stanze' })).queryByRole('button', { name: 'Studio nord' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tocca di nuovo: i dispositivi restano senza stanza' }));
+    await vi.waitFor(() => expect(within(manage).queryByRole('button', { name: 'Modifica Studio nord' })).toBeNull());
+  });
+
+  it('orders the rooms of a floor and hides one from the bar', () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    const manage = screen.getByTestId('rooms-v2-manage');
+    fireEvent.click(within(manage).getByRole('button', { name: 'Sposta Cucina prima' }));
+    fireEvent.click(within(manage).getByRole('button', { name: 'Modifica Bagno' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Nascondi dalla barra' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salva' }));
+    fireEvent.click(within(manage).getByRole('button', { name: /^Soggiorno|Chiudi/ }));
+    const names = within(screen.getByRole('navigation', { name: 'Stanze' }))
+      .getAllByRole('button')
+      .map((pill) => pill.textContent);
+    // Kitchen and living room swap places in the bar; the bathroom no longer shows.
+    expect(names).toEqual(['Cucina', 'Camera', 'Soggiorno']);
+    expect(JSON.parse(window.localStorage.getItem('ha.dashboard.rooms.layout.v1.demo') ?? '{}').looks['demo-bathroom']).toMatchObject({ hidden: true });
+  });
+
+  it('orders and turns off the sections, for every room or only for one', () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    const manage = screen.getByTestId('rooms-v2-manage');
+    fireEvent.click(within(manage).getByRole('tab', { name: 'Sezioni' }));
+    fireEvent.click(within(manage).getByRole('button', { name: 'Sposta Media più in alto' }));
+    fireEvent.click(within(manage).getByRole('switch', { name: 'Scene' }));
+    fireEvent.click(within(manage).getByRole('radio', { name: 'Solo Soggiorno' }));
+    expect(within(manage).getByText('Soggiorno usa l’ordine di tutte le stanze.')).toBeTruthy();
+    fireEvent.click(within(manage).getByRole('switch', { name: 'Luci' }));
+    expect(within(manage).getByText('Soggiorno ha un ordine suo.')).toBeTruthy();
+    const layout = JSON.parse(window.localStorage.getItem('ha.dashboard.rooms.layout.v1.demo') ?? '{}');
+    expect(layout.sections.all.order.slice(-2)).toEqual(['media', 'security']);
+    expect(layout.sections.all.hidden).toEqual({ scenes: true });
+    expect(layout.sections.rooms['demo-living-room'].hidden).toEqual({ scenes: true, lights: true });
+    fireEvent.click(within(manage).getByRole('button', { name: 'Usa l’ordine comune' }));
+    fireEvent.click(within(manage).getByRole('button', { name: /^Soggiorno/ }));
+    // Scenes are off for every room now.
+    expect(screen.queryByTestId('rooms-v2-scenes')).toBeNull();
+    expect(screen.getByTestId('rooms-v2-lights')).toBeTruthy();
+  });
+
+  it('adds, renames and deletes a floor of the demo, only when it has no rooms', () => {
+    renderDemo();
+    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    const manage = screen.getByTestId('rooms-v2-manage');
+    fireEvent.click(within(manage).getByRole('tab', { name: 'Piani' }));
+    expect(within(manage).getByRole('button', { name: 'Sposta prima le stanze di Piano terra' }).getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(within(manage).getByRole('button', { name: 'Nuovo piano' }));
+    const name = within(manage).getByRole('textbox', { name: 'Nome del piano 3' });
+    fireEvent.change(name, { target: { value: 'Mansarda' } });
+    fireEvent.blur(name);
+    fireEvent.click(within(manage).getByRole('button', { name: 'Elimina Mansarda' }));
+    expect(within(manage).queryByRole('textbox', { name: 'Nome del piano 3' })).toBeNull();
   });
 });
 
@@ -343,7 +399,8 @@ describe('the Rooms page with Home Assistant', () => {
       message.type === 'config/area_registry/update' ? { ...living, icon: message.icon, temperature_entity_id: message.temperature_entity_id } : [],
     );
     renderConnected(onCallApi);
-    fireEvent.click(screen.getByRole('button', { name: 'Modifica stanza' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    fireEvent.click(within(screen.getByTestId('rooms-v2-manage')).getByRole('button', { name: 'Modifica Soggiorno' }));
     fireEvent.click(screen.getByRole('radio', { name: 'Divano' }));
     fireEvent.click(screen.getByRole('button', { name: 'Entità temperatura' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Temperatura soggiorno' }));
@@ -360,10 +417,16 @@ describe('the Rooms page with Home Assistant', () => {
     );
   });
 
-  it('manages the floors in Settings', () => {
-    const onNavigate = renderConnected(async () => []);
-    fireEvent.click(screen.getByRole('button', { name: 'Tutta la casa' }));
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Gestisci piani' }));
-    expect(onNavigate).toHaveBeenCalledWith('/settings/floors');
+  it('creates a floor in Home Assistant from Stanze e sezioni', async () => {
+    const onCallApi = vi.fn(async (message: Record<string, unknown>) =>
+      message.type === 'config/floor_registry/create' ? { floor_id: 'attic', name: message.name } : [],
+    );
+    renderConnected(onCallApi);
+    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    const manage = screen.getByTestId('rooms-v2-manage');
+    fireEvent.click(within(manage).getByRole('tab', { name: 'Piani' }));
+    fireEvent.click(within(manage).getByRole('button', { name: 'Nuovo piano' }));
+    expect(await within(manage).findByRole('textbox', { name: 'Nome del piano 1' })).toBeTruthy();
+    expect(onCallApi).toHaveBeenCalledWith({ type: 'config/floor_registry/create', name: 'Nuovo piano' });
   });
 });

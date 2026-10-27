@@ -2,22 +2,24 @@ import React from 'react';
 import {
   Bath,
   BedDouble,
+  BookOpen,
   Check,
   ChevronDown,
   CookingPot,
   DoorOpen,
   Droplet,
   Lightbulb,
+  House,
   Monitor,
-  Pencil,
   Plus,
-  Settings2,
+  SlidersHorizontal,
   ShieldAlert,
   Sofa,
   Thermometer,
   Trees,
   Tv,
   Warehouse,
+  WashingMachine,
   type LucideIcon,
 } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -26,7 +28,7 @@ import { useRoomsTranslations } from '../../i18n/roomsTranslations';
 import type { RoomIconKind } from './roomSummary';
 
 /*
- * The head of a room: the floor menu and the add button, the room's name
+ * The head of a room: the floor menu, the add menu and "Stanze e sezioni", the room's name
  * with a line about it, the rooms as pills, and a row of short statuses that
  * lead to their sections.
  */
@@ -39,6 +41,9 @@ export const ROOM_ICONS: Record<RoomIconKind, LucideIcon> = {
   desk: Monitor,
   garage: Warehouse,
   garden: Trees,
+  washer: WashingMachine,
+  tv: Tv,
+  book: BookOpen,
   room: DoorOpen,
 };
 
@@ -61,32 +66,15 @@ const CHIP_ICONS: Record<StatusChip['key'], LucideIcon> = {
   media: Tv,
 };
 
-function FloorMenu({
-  floors,
-  selectedId,
-  onSelect,
-  onNewRoom,
-  onManageFloors,
-}: {
-  floors: FloorOption[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-  onNewRoom?: () => void;
-  onManageFloors?: () => void;
-}) {
-  const dt = useDevicesTranslations();
-  const rt = useRoomsTranslations();
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  const selected = floors.find((floor) => floor.id === selectedId) ?? floors[0];
-
+/** A menu closes on a press outside it or on Escape. */
+function useDismiss(open: boolean, ref: React.RefObject<HTMLDivElement | null>, close: () => void) {
   React.useEffect(() => {
     if (!open) return undefined;
     const onPointer = (event: PointerEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      if (!ref.current?.contains(event.target as Node)) close();
     };
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') close();
     };
     window.addEventListener('pointerdown', onPointer);
     window.addEventListener('keydown', onKey);
@@ -94,7 +82,16 @@ function FloorMenu({
       window.removeEventListener('pointerdown', onPointer);
       window.removeEventListener('keydown', onKey);
     };
-  }, [open]);
+  }, [close, open, ref]);
+}
+
+function FloorMenu({ floors, selectedId, onSelect }: { floors: FloorOption[]; selectedId: string; onSelect: (id: string) => void }) {
+  const dt = useDevicesTranslations();
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const close = React.useCallback(() => setOpen(false), []);
+  useDismiss(open, ref, close);
+  const selected = floors.find((floor) => floor.id === selectedId) ?? floors[0];
 
   return (
     <div ref={ref} className="relative">
@@ -131,29 +128,53 @@ function FloorMenu({
               </span>
             </button>
           ))}
-          {onNewRoom || onManageFloors ? <span className="rv2-floor-menu-sep" aria-hidden="true" /> : null}
-          {[
-            onNewRoom ? { key: 'room', label: rt('newRoom'), Icon: Plus, run: onNewRoom } : null,
-            onManageFloors ? { key: 'floors', label: rt('manageFloors'), Icon: Settings2, run: onManageFloors } : null,
-          ]
-            .filter((item): item is NonNullable<typeof item> => item !== null)
-            .map(({ key, label, Icon, run }) => (
-              <button
-                key={key}
-                type="button"
-                role="menuitem"
-                className="flex h-11 items-center gap-2.5 rounded-2xl border-0 bg-transparent px-3 text-left text-[15px] font-medium text-inherit"
-                onClick={() => {
-                  setOpen(false);
-                  run();
-                }}
-              >
-                <span className="flex w-[18px] justify-center" aria-hidden="true">
-                  <Icon size={16} strokeWidth={2.2} />
-                </span>
-                <span className="flex-1">{label}</span>
-              </button>
-            ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** The "+" of the board: a new room, or a device brought into this one. */
+function AddMenu({ onNewRoom, onAddDevice }: { onNewRoom?: () => void; onAddDevice?: () => void }) {
+  const dt = useDevicesTranslations();
+  const rt = useRoomsTranslations();
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const close = React.useCallback(() => setOpen(false), []);
+  useDismiss(open, ref, close);
+  const items = [
+    onNewRoom ? { key: 'room', label: rt('newRoom'), Icon: House, run: onNewRoom } : null,
+    onAddDevice ? { key: 'device', label: dt('addAccessory'), Icon: Plus, run: onAddDevice } : null,
+  ].filter((item): item is NonNullable<typeof item> => item !== null);
+  if (items.length === 0) return null;
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        className="dv-glass dv-round !h-11 !w-11"
+        aria-label={rt('add')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
+      </button>
+      {open ? (
+        <div role="menu" aria-label={rt('add')} className="dv-glass rv2-add-menu">
+          {items.map(({ key, label, Icon, run }) => (
+            <button
+              key={key}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                run();
+              }}
+            >
+              <Icon size={18} strokeWidth={2.2} aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          ))}
         </div>
       ) : null}
     </div>
@@ -170,10 +191,9 @@ export function RoomHead({
   activeRoomId,
   onSelectRoom,
   chips,
-  onAdd,
-  onEditRoom,
   onNewRoom,
-  onManageFloors,
+  onAddDevice,
+  onManage,
 }: {
   name: string;
   subtitle: string;
@@ -184,10 +204,10 @@ export function RoomHead({
   activeRoomId: string;
   onSelectRoom: (id: string) => void;
   chips: StatusChip[];
-  onAdd?: () => void;
-  onEditRoom?: () => void;
   onNewRoom?: () => void;
-  onManageFloors?: () => void;
+  onAddDevice?: () => void;
+  /** Opens "Stanze e sezioni". */
+  onManage?: () => void;
 }) {
   const dt = useDevicesTranslations();
   const rt = useRoomsTranslations();
@@ -201,16 +221,12 @@ export function RoomHead({
     <>
       <div className="rv2-head">
         <div className="rv2-head-tools">
-          <FloorMenu floors={floors} selectedId={selectedFloorId} onSelect={onSelectFloor} onNewRoom={onNewRoom} onManageFloors={onManageFloors} />
+          <FloorMenu floors={floors} selectedId={selectedFloorId} onSelect={onSelectFloor} />
           <div className="flex gap-2.5">
-            {onAdd ? (
-              <button type="button" className="dv-glass dv-round !h-11 !w-11" aria-label={dt('addAccessory')} onClick={onAdd}>
-                <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
-              </button>
-            ) : null}
-            {onEditRoom ? (
-              <button type="button" className="dv-glass dv-round !h-11 !w-11" aria-label={rt('editRoom')} onClick={onEditRoom}>
-                <Pencil size={18} strokeWidth={2.2} aria-hidden="true" />
+            <AddMenu onNewRoom={onNewRoom} onAddDevice={onAddDevice} />
+            {onManage ? (
+              <button type="button" className="dv-glass dv-round !h-11 !w-11" aria-label={rt('manageRoomsSections')} onClick={onManage}>
+                <SlidersHorizontal size={18} strokeWidth={2.2} aria-hidden="true" />
               </button>
             ) : null}
           </div>

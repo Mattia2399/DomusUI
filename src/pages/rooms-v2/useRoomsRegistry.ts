@@ -62,5 +62,5 @@ export function useRoomsRegistry(haConnected: boolean, onCallApi?: RoomsApiCall)
     [registryEntities],
   );
 
-  return { entityAreaByEntityId, setEntityAreaByEntityId, registryEntityById, floors, refresh };
+  return { entityAreaByEntityId, setEntityAreaByEntityId, registryEntityById, floors, setFloors, refresh };
 }

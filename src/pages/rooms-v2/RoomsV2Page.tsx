@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight, House, Plus } from 'lucide-react';
 import {
   assignRoomAreaTargets,
   DEMO_ROOM_TABS,
-  filterRoomTabsByFloor,
   getEntityFriendlyName,
   isAreaSensorEntityCandidate,
   mergeRoomTabs,
@@ -89,7 +88,19 @@ import {
   demoSensorSeries,
 } from './demoRoomsFixtures';
 import { MediaPickPanel, MediaStartPanel } from './MediaSheets';
-import { RoomEditPanel } from './RoomManageSheets';
+import { RoomEditPanel, type RoomSheetResult } from './RoomManageSheets';
+import { RoomsManagePage, type ManagedRoom, type ManageTab } from './RoomsManagePage';
+import {
+  DEMO_LAYOUT,
+  EMPTY_LAYOUT,
+  moveRoom,
+  orderRooms,
+  ROOM_GLOWS,
+  sectionsFor,
+  type LayoutSection,
+  type RoomLook,
+} from './roomLayout';
+import { useRoomLayout } from './useRoomLayout';
 import { useRoomManagement } from './useRoomManagement';
 import { useMediaPlayerCommands } from './useMediaPlayerCommands';
 import { useSensorHistory } from './useSensorHistory';
@@ -323,14 +334,21 @@ export function RoomsV2Page({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  // Rooms, changed from the page; the areas show those changes at once. Floors live in Settings.
+  // How the home is laid out (room order and looks, local floors, sections), and the rooms and
+  // floors changed from the page; the areas show those changes at once.
+  const { layout, updateLayout } = useRoomLayout(runtimeMode, canOrganize, demo ? DEMO_LAYOUT : EMPTY_LAYOUT);
   const [roomSheet, setRoomSheet] = React.useState<{ room: RoomTab | null } | null>(null);
+  const [manageTab, setManageTab] = React.useState<ManageTab | null>(null);
   const management = useRoomManagement({
     demo,
     haConnected,
     canManageRooms,
     onCallApi,
     haAreas,
+    haFloors: registry.floors,
+    setHaFloors: registry.setFloors,
+    localFloors: layout.floors,
+    setLocalFloors: (change) => updateLayout((current) => ({ ...current, floors: change(current.floors) })),
     setCustomRooms,
     onRoomCreated: (roomId) => {
       setSelectedFloorId('all');
@@ -338,18 +356,26 @@ export function RoomsV2Page({
     },
   });
   const areas = management.areas;
+  const areaById = React.useMemo(() => new Map(areas.map((area) => [area.area_id, area])), [areas]);
+  // An area's floor is Home Assistant's; a local room's is kept with its look.
+  const floorOfRoom = React.useCallback(
+    (tab: RoomTab) => (tab.source === 'ha' ? areaById.get(tab.id)?.floor_id ?? null : layout.looks[tab.id]?.floor ?? null),
+    [areaById, layout.looks],
+  );
   const allRoomTabs = React.useMemo(
     () =>
-      mergeRoomTabs(
-        toHaRoomTabs(areas),
-        toCustomRoomTabs(roomsStateRuntime === runtimeMode ? customRooms : []),
-        runtimeMode,
+      orderRooms(
+        mergeRoomTabs(toHaRoomTabs(areas), toCustomRoomTabs(roomsStateRuntime === runtimeMode ? customRooms : []), runtimeMode),
+        layout.order,
       ),
-    [areas, customRooms, roomsStateRuntime, runtimeMode],
+    [areas, customRooms, layout.order, roomsStateRuntime, runtimeMode],
   );
   const roomTabs = React.useMemo(
-    () => filterRoomTabsByFloor(allRoomTabs, areas, selectedFloorId),
-    [allRoomTabs, areas, selectedFloorId],
+    () =>
+      allRoomTabs.filter(
+        (tab) => !layout.looks[tab.id]?.hidden && (selectedFloorId === 'all' || floorOfRoom(tab) === selectedFloorId),
+      ),
+    [allRoomTabs, floorOfRoom, layout.looks, selectedFloorId],
   );
   const activeRoom = roomTabs.find((tab) => tab.id === activeRoomId) ?? roomTabs[0] ?? null;
   const roomNameById = React.useMemo(() => new Map(allRoomTabs.map((tab) => [tab.id, tab.name])), [allRoomTabs]);
@@ -769,11 +795,14 @@ export function RoomsV2Page({
   }, [activeRoom, demo, haStates, registry.entityAreaByEntityId, roomOf, states]);
   const buckets = React.useMemo(() => bucketRoomEntities(roomEntityIds), [roomEntityIds]);
 
-  // The glows of the Dynamic background follow the room, as on the Rooms page.
+  // The glows of the Dynamic background follow the room: the colour chosen for it, else its picture, icon or name.
   const pictureColor = useRoomPictureColor(activeArea?.area_id, activeArea?.picture);
+  const chosenGlow = activeRoom ? layout.looks[activeRoom.id]?.glow : undefined;
   useAmbient(
     activeRoom
-      ? resolveRoomAmbient({ id: activeRoom.id, name: activeRoom.name, icon: activeArea?.icon, picture: activeArea?.picture }, pictureColor)
+      ? chosenGlow !== undefined
+        ? { a: ROOM_GLOWS[chosenGlow][0], b: ROOM_GLOWS[chosenGlow][1], intensity: 'base' }
+        : resolveRoomAmbient({ id: activeRoom.id, name: activeRoom.name, icon: activeArea?.icon ?? layout.looks[activeRoom.id]?.icon, picture: activeArea?.picture }, pictureColor)
       : null,
   );
 
@@ -860,21 +889,29 @@ export function RoomsV2Page({
       : []),
   ];
 
-  const floorOptions = React.useMemo<FloorOption[]>(
-    () => [
-      { id: 'all', name: dt('wholeHome'), roomCount: allRoomTabs.length },
-      ...registry.floors.map((floor) => ({
-        id: floor.floor_id,
-        name: floor.name,
-        roomCount: areas.filter((area) => area.floor_id === floor.floor_id).length,
-      })),
-    ],
-    [allRoomTabs.length, areas, dt, registry.floors],
-  );
+  // Each room's icon and colour, for the pills and "Stanze e sezioni".
+  const iconOfRoom = (tab: RoomTab) =>
+    roomIconKind(tab.source === 'ha' ? areaById.get(tab.id)?.icon : layout.looks[tab.id]?.icon, tab.name);
+  const glowOfRoom = (tab: RoomTab): [string, string] => {
+    const chosen = layout.looks[tab.id]?.glow;
+    if (chosen !== undefined) return ROOM_GLOWS[chosen];
+    const area = areaById.get(tab.id);
+    const ambient = resolveRoomAmbient({ id: tab.id, name: tab.name, icon: area?.icon ?? layout.looks[tab.id]?.icon, picture: area?.picture });
+    return [ambient.a, ambient.b];
+  };
+  const visibleRooms = allRoomTabs.filter((tab) => !layout.looks[tab.id]?.hidden);
+  const floorOptions: FloorOption[] = [
+    { id: 'all', name: dt('wholeHome'), roomCount: visibleRooms.length },
+    ...management.floors.map((floor) => ({
+      id: floor.id,
+      name: floor.name,
+      roomCount: visibleRooms.filter((tab) => floorOfRoom(tab) === floor.id).length,
+    })),
+  ];
   const pills = roomTabs.map((tab) => ({
     id: tab.id,
     name: tab.name,
-    icon: roomIconKind(areas.find((area) => area.area_id === tab.id)?.icon, tab.name),
+    icon: iconOfRoom(tab),
     alert: alertRoomIds.has(tab.id),
   }));
 
@@ -1041,9 +1078,9 @@ export function RoomsV2Page({
     demoHistory: demo ? demoSecurityHistory : undefined,
   });
 
-  // A room that can be changed here: not one of the demo's own, and an area only with Home Assistant.
-  const canEditRoom = (room: RoomTab | null) =>
-    Boolean(room) && management.canManage && !DEMO_ROOM_IDS.has(room!.id) && (room!.source === 'custom' || management.canManageHa);
+  // Who changes what: an area needs Home Assistant; the demo's own rooms change their look, not their name.
+  const canEditRoom = (room: RoomTab | null): room is RoomTab =>
+    room !== null && management.canManage && (room.source === 'custom' || management.canManageHa);
   const temperatureSensors = sensorOptionsOf(haStates, 'temperature');
   const humiditySensors = sensorOptionsOf(haStates, 'humidity');
   const sheetRoom = roomSheet?.room ?? null;
@@ -1051,23 +1088,139 @@ export function RoomsV2Page({
     management.clearError();
     setRoomSheet({ room: null });
   };
-  // Floors, and the rooms on them, are managed in Settings.
-  const manageFloors = management.canManageHa && onNavigate ? () => onNavigate('/settings/floors') : undefined;
+  const openManage = () => {
+    management.clearError();
+    setManageTab('rooms');
+  };
+
+  /** Saves the sheet: name, icon and floor of an area in Home Assistant; the rest, and all of a local room, here. */
+  const saveRoomSheet = async (room: RoomTab | null, { draft, look }: RoomSheetResult) => {
+    const demoRoom = room !== null && DEMO_ROOM_IDS.has(room.id);
+    const roomId = demoRoom ? room.id : await management.saveRoom(room, draft);
+    if (!roomId) return false;
+    const local = demoRoom || (room ? room.source === 'custom' : !management.canManageHa);
+    updateLayout((current) => {
+      const next: RoomLook = { ...(current.looks[roomId] ?? {}) };
+      if (local) {
+        if (draft.icon) next.icon = draft.icon;
+        else delete next.icon;
+        next.floor = draft.floorId || null;
+      }
+      if (look.glow === undefined) delete next.glow;
+      else next.glow = look.glow;
+      if (look.hidden) next.hidden = true;
+      else delete next.hidden;
+      return { ...current, looks: { ...current.looks, [roomId]: next } };
+    });
+    return true;
+  };
+  const deleteRoomSheet = async (room: RoomTab) => {
+    const done = await management.deleteRoom(room);
+    if (done) {
+      updateLayout((current) => {
+        const looks = { ...current.looks };
+        delete looks[room.id];
+        const rooms = { ...current.sections.rooms };
+        delete rooms[room.id];
+        return { ...current, order: current.order.filter((id) => id !== room.id), looks, sections: { ...current.sections, rooms } };
+      });
+    }
+    return done;
+  };
+
+  // "Stanze e sezioni": rooms in the order of the bar, with what the board shows of each.
+  const deviceCountByRoom = new Map<string, number>();
+  [...lightIds, ...deviceIds, ...climateIds, ...sensorIds, ...securityIds, ...mediaIds].forEach((entityId) => {
+    const room = roomOf(entityId);
+    if (room) deviceCountByRoom.set(room, (deviceCountByRoom.get(room) ?? 0) + 1);
+  });
+  const managedRooms: ManagedRoom[] = allRoomTabs.map((tab) => ({
+    tab,
+    floorId: floorOfRoom(tab),
+    icon: iconOfRoom(tab),
+    glow: glowOfRoom(tab),
+    hidden: Boolean(layout.looks[tab.id]?.hidden),
+    devices: deviceCountByRoom.get(tab.id) ?? 0,
+    editable: canEditRoom(tab),
+  }));
+  const reorderRoom = (roomId: string, direction: -1 | 1) => {
+    const order = moveRoom(allRoomTabs, roomId, direction, floorOfRoom);
+    updateLayout((current) => ({ ...current, order }));
+    // Home Assistant keeps an order of its areas too; it follows when it can, and the bar keeps its own.
+    if (management.canManageHa && onCallApi) {
+      void onCallApi({ type: 'config/area_registry/reorder', area_ids: order.filter((id) => areaById.has(id)) }, { reportError: false }).catch(() => undefined);
+    }
+  };
+  const sectionLayout = sectionsFor(layout, activeRoom?.id);
+  const ord = Object.fromEntries(sectionLayout.order.map((key, index) => [key, index])) as Record<LayoutSection, number>;
+  const shows = (key: LayoutSection) => !sectionLayout.hidden[key];
+  const orderStyle = (key: LayoutSection) => ({ '--ord': ord[key] }) as React.CSSProperties;
+  const showClimate = shows('climate') && (roomClimates.length > 0 || hasClimate);
+  const showSensors = shows('sensors') && sensorItems.length > 0;
+
   const roomSheetLayer = (
     <>
+      {manageTab ? (
+        <RoomsManagePage
+          tab={manageTab}
+          onTab={setManageTab}
+          currentRoom={activeRoom}
+          rooms={managedRooms}
+          floors={management.floors}
+          canManageFloors={management.canManageFloors}
+          sectionsAll={layout.sections.all}
+          sectionsRoom={activeRoom ? layout.sections.rooms[activeRoom.id] ?? null : null}
+          busy={management.busy}
+          error={roomSheet ? null : management.error}
+          onClose={() => setManageTab(null)}
+          onNewRoom={newRoom}
+          onEditRoom={(room) => {
+            management.clearError();
+            setRoomSheet({ room });
+          }}
+          onMoveRoom={reorderRoom}
+          onNewFloor={() => void management.createFloor(rt('newFloor'))}
+          onRenameFloor={(floorId, name) => void management.renameFloor(floorId, name)}
+          onMoveFloor={(floorId, direction) => void management.moveFloor(floorId, direction)}
+          onDeleteFloor={(floorId) => void management.deleteFloor(floorId)}
+          onSections={(scope, next) =>
+            updateLayout((current) => ({
+              ...current,
+              sections:
+                scope === 'all' || !activeRoom
+                  ? { ...current.sections, all: next }
+                  : { ...current.sections, rooms: { ...current.sections.rooms, [activeRoom.id]: next } },
+            }))
+          }
+          onResetRoomSections={() =>
+            updateLayout((current) => {
+              if (!activeRoom) return current;
+              const rooms = { ...current.sections.rooms };
+              delete rooms[activeRoom.id];
+              return { ...current, sections: { ...current.sections, rooms } };
+            })
+          }
+        />
+      ) : null}
+
       <PanelHost presentation={phone ? 'sheet' : 'dialog'} isOpen={Boolean(roomSheet)} onClose={() => setRoomSheet(null)} title={sheetRoom ? rt('editRoom') : rt('newRoom')}>
         {roomSheet ? (
           <RoomEditPanel
             key={sheetRoom?.id ?? 'new'}
             room={sheetRoom}
-            area={sheetRoom?.source === 'ha' ? areas.find((area) => area.area_id === sheetRoom.id) ?? null : null}
+            area={sheetRoom?.source === 'ha' ? areaById.get(sheetRoom.id) ?? null : null}
+            look={sheetRoom ? layout.looks[sheetRoom.id] ?? {} : {}}
+            fallbackGlow={sheetRoom ? glowOfRoom(sheetRoom) : ROOM_GLOWS[0]}
             haFields={sheetRoom ? sheetRoom.source === 'ha' : management.canManageHa}
-            floors={registry.floors}
+            nameLocked={sheetRoom !== null && DEMO_ROOM_IDS.has(sheetRoom.id)}
+            floors={management.floors}
             sensors={{ temperature: temperatureSensors, humidity: humiditySensors }}
+            canHide={sheetRoom !== null && visibleRooms.some((tab) => tab.id !== sheetRoom.id)}
+            canDelete={sheetRoom !== null && !DEMO_ROOM_IDS.has(sheetRoom.id) && allRoomTabs.length > 1}
             busy={management.busy}
             error={management.error}
-            onSave={(draft) => management.saveRoom(sheetRoom, draft)}
-            onDelete={() => (sheetRoom ? management.deleteRoom(sheetRoom) : Promise.resolve(false))}
+            onSave={(result) => saveRoomSheet(sheetRoom, result)}
+            onDelete={() => (sheetRoom ? deleteRoomSheet(sheetRoom) : Promise.resolve(false))}
             onClose={() => setRoomSheet(null)}
           />
         ) : null}
@@ -1087,19 +1240,13 @@ export function RoomsV2Page({
             {isLoading ? null : <p className="mt-2 max-w-md text-sm text-[color:var(--ui-text-secondary)]">{rt('noRoomsDescription')}</p>}
             {!isLoading && management.canManage ? (
               <div className="mt-6 flex flex-wrap justify-center gap-2">
-                <button
-                  type="button"
-                  className="rv2-form-save inline-flex items-center gap-1.5"
-                  onClick={newRoom}
-                >
+                <button type="button" className="rv2-sheet-button is-primary !px-5" onClick={newRoom}>
                   <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
                   {rt('newRoom')}
                 </button>
-                {manageFloors ? (
-                  <button type="button" className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold" onClick={manageFloors}>
-                    {rt('manageFloors')}
-                  </button>
-                ) : null}
+                <button type="button" className="rv2-sheet-button !px-5" onClick={openManage}>
+                  {rt('roomsAndSections')}
+                </button>
               </div>
             ) : null}
           </section>
@@ -1123,162 +1270,172 @@ export function RoomsV2Page({
             activeRoomId={activeRoom?.id ?? ''}
             onSelectRoom={setActiveRoomId}
             chips={chips}
-            onAdd={canMove ? () => setAddOpen(true) : undefined}
-            onEditRoom={
-              canEditRoom(activeRoom)
-                ? () => {
-                    management.clearError();
-                    setRoomSheet({ room: activeRoom });
-                  }
-                : undefined
-            }
             onNewRoom={management.canManage ? newRoom : undefined}
-            onManageFloors={manageFloors}
+            onAddDevice={canMove ? () => setAddOpen(true) : undefined}
+            onManage={management.canManage ? openManage : undefined}
           />
 
-          {sceneItems.length > 0 ? (
-            <RoomSection
-              id="rv2-scenes"
-              testId="rooms-v2-scenes"
-              title={dt('sectionScenes')}
-              items={sceneItems}
-              count={String(sceneItems.length)}
-              moreLabel={dt('moreScenes')}
-              renderCard={renderScene}
-              onOpenPage={() => setSectionOpen('scenes')}
-              gridClassName="rv2-strip rv2-scene-strip"
-            />
-          ) : null}
+          <div className="rv2-secs">
+            {sceneItems.length > 0 && shows('scenes') ? (
+              <div className="rv2-sec" style={orderStyle('scenes')}>
+                <RoomSection
+                  id="rv2-scenes"
+                  testId="rooms-v2-scenes"
+                  title={dt('sectionScenes')}
+                  items={sceneItems}
+                  count={String(sceneItems.length)}
+                  moreLabel={dt('moreScenes')}
+                  renderCard={renderScene}
+                  onOpenPage={() => setSectionOpen('scenes')}
+                  gridClassName="rv2-strip rv2-scene-strip"
+                />
+              </div>
+            ) : null}
 
-          <div className="rv2-columns">
-            {hasSide ? (
-              <div className="rv2-column-side">
-                {roomClimates.length > 0 ? (
-                  <section id="rv2-climate" aria-labelledby="rv2-climate-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-v2-climate">
-                    <h2 id="rv2-climate-title" className="rv2-section-heading flex min-h-11 items-center px-1">
-                      {dt('sectionClimate')}
-                    </h2>
-                    <div className="rv2-climate-grid">
-                      {roomClimates.map((model, index) => (
-                        <div key={model.entityId} className={index === 0 ? 'rv2-climate-main' : 'rv2-climate-extra'}>
-                          <ClimateCard
-                            model={model}
-                            size={index === 0 ? 'large' : 'small'}
-                            roomTemperature={readings.temperature ?? null}
-                            roomHumidity={readings.humidity ?? null}
-                            onAction={(action) => climates.act(model.entityId, action)}
-                            onOpenPanel={() => setPanel({ kind: 'climate', id: model.entityId })}
-                          />
-                        </div>
-                      ))}
+            <div className="rv2-columns">
+              {showClimate || showSensors ? (
+                <div className="rv2-column-side">
+                  {showClimate ? (
+                    <div className="rv2-sec" style={orderStyle('climate')}>
+                      {roomClimates.length > 0 ? (
+                        <section id="rv2-climate" aria-labelledby="rv2-climate-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-v2-climate">
+                          <h2 id="rv2-climate-title" className="rv2-section-heading flex min-h-11 items-center px-1">
+                            {dt('sectionClimate')}
+                          </h2>
+                          <div className="rv2-climate-grid">
+                            {roomClimates.map((model, index) => (
+                              <div key={model.entityId} className={index === 0 ? 'rv2-climate-main' : 'rv2-climate-extra'}>
+                                <ClimateCard
+                                  model={model}
+                                  size={index === 0 ? 'large' : 'small'}
+                                  roomTemperature={readings.temperature ?? null}
+                                  roomHumidity={readings.humidity ?? null}
+                                  onAction={(action) => climates.act(model.entityId, action)}
+                                  onOpenPanel={() => setPanel({ kind: 'climate', id: model.entityId })}
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </section>
+                      ) : (
+                        <SectionComing id="rv2-climate" title={dt('sectionClimate')} />
+                      )}
                     </div>
-                  </section>
-                ) : hasClimate ? (
-                  <SectionComing id="rv2-climate" title={dt('sectionClimate')} />
+                  ) : null}
+                  {showSensors ? (
+                    <div className="rv2-sec" style={orderStyle('sensors')}>
+                      <RoomSection
+                        id="rv2-environment"
+                        testId="rooms-v2-sensors"
+                        title={dt('sectionEnvironment')}
+                        items={sensorItems}
+                        count={String(sensorItems.length)}
+                        moreLabel={dt('moreSensors')}
+                        renderCard={renderSensor}
+                        onOpenPage={() => setSectionOpen('sensors')}
+                        gridClassName="rv2-grid-sensors"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              <div className="rv2-column-main">
+                {shows('lights') ? (
+                  <div className="rv2-sec" style={orderStyle('lights')}>
+                    {roomItems.length > 0 ? (
+                      <RoomSection
+                        id="rv2-lights"
+                        testId="rooms-v2-lights"
+                        title={dt('lights')}
+                        items={roomItems}
+                        count={`${roomItems.filter((item) => item.active).length}/${roomItems.length}`}
+                        moreLabel={dt('moreLights')}
+                        action={
+                          roomItems.some((item) => item.active)
+                            ? { label: dt('lightsOff'), onPress: () => lights.turnOffAll(roomItems.map((item) => item.id)) }
+                            : null
+                        }
+                        renderCard={renderLight}
+                        onOpenPage={() => setSectionOpen('lights')}
+                      />
+                    ) : (
+                      <p className="dv-t2 m-0 px-1 text-sm">{dt('noLightsInRoom')}</p>
+                    )}
+                  </div>
                 ) : null}
-                {sensorItems.length > 0 ? (
-                  <RoomSection
-                    id="rv2-environment"
-                    testId="rooms-v2-sensors"
-                    title={dt('sectionEnvironment')}
-                    items={sensorItems}
-                    count={String(sensorItems.length)}
-                    moreLabel={dt('moreSensors')}
-                    renderCard={renderSensor}
-                    onOpenPage={() => setSectionOpen('sensors')}
-                    gridClassName="rv2-grid-sensors"
-                  />
+                {deviceItems.length > 0 && shows('switches') ? (
+                  <div className="rv2-sec" style={orderStyle('switches')}>
+                    <RoomSection
+                      id="rv2-devices"
+                      testId="rooms-v2-devices"
+                      title={dt('sectionDevices')}
+                      items={deviceItems}
+                      count={`${deviceItems.filter((item) => item.active).length}/${deviceItems.length}`}
+                      moreLabel={dt('moreDevices')}
+                      renderCard={renderDevice}
+                      onOpenPage={() => setSectionOpen('devices')}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {(hasSecurity && shows('security')) || (hasMedia && shows('media')) ? (
+              <div className="rv2-row-wrap">
+                {hasSecurity && shows('security') ? (
+                  <div className="rv2-sec min-w-0 flex-[1_1_440px]" style={orderStyle('security')}>
+                    <RoomSection
+                      id="rv2-security"
+                      testId="rooms-v2-security"
+                      title={dt('sectionSecurity')}
+                      items={securityItems}
+                      count={String(securityItems.length)}
+                      moreLabel={dt('moreSecurity')}
+                      renderCard={renderSecurity}
+                      onOpenPage={() => setSectionOpen('security')}
+                    />
+                  </div>
+                ) : null}
+                {hasMedia && shownPlayer && shows('media') ? (
+                  <div className="rv2-sec min-w-0 flex-[1_1_320px]" style={orderStyle('media')}>
+                    <section id="rv2-media" aria-labelledby="rv2-media-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-v2-media">
+                      <div className="flex min-h-11 items-center justify-between gap-3">
+                        <h2 id="rv2-media-title" className="rv2-section-heading m-0 px-1">
+                          {dt('sectionMedia')}
+                        </h2>
+                        {roomPlayers.length > 1 ? (
+                          <button
+                            type="button"
+                            className="dv-glass rv2-player-pick"
+                            aria-label={dt('mediaPickPlayer', { name: shownPlayer.name })}
+                            onClick={() => setMediaSheet('pick')}
+                          >
+                            <MediaKindIcon model={shownPlayer} />
+                            <span className="truncate">{shownPlayer.name}</span>
+                            <ChevronDown size={14} strokeWidth={2.6} aria-hidden="true" />
+                          </button>
+                        ) : null}
+                      </div>
+                      {shownPlayer.on ? (
+                        <NowPlayingCard
+                          model={shownPlayer}
+                          pictureUrl={pictureOfPlayer(shownPlayer)}
+                          onAction={(action) => actOnMedia(shownPlayer.entityId, action)}
+                          onOpenPlayer={() => setMediaSheet('player')}
+                        />
+                      ) : (
+                        <MediaOffCard
+                          model={shownPlayer}
+                          onPowerOn={() => actOnMedia(shownPlayer.entityId, { type: 'power', on: true })}
+                          onOpen={() => setMediaSheet('start')}
+                        />
+                      )}
+                    </section>
+                  </div>
                 ) : null}
               </div>
             ) : null}
-            <div className="rv2-column-main">
-              {roomItems.length > 0 ? (
-                <RoomSection
-                  id="rv2-lights"
-                  testId="rooms-v2-lights"
-                  title={dt('lights')}
-                  items={roomItems}
-                  count={`${roomItems.filter((item) => item.active).length}/${roomItems.length}`}
-                  moreLabel={dt('moreLights')}
-                  action={
-                    roomItems.some((item) => item.active)
-                      ? { label: dt('lightsOff'), onPress: () => lights.turnOffAll(roomItems.map((item) => item.id)) }
-                      : null
-                  }
-                  renderCard={renderLight}
-                  onOpenPage={() => setSectionOpen('lights')}
-                />
-              ) : (
-                <p className="dv-t2 m-0 px-1 text-sm">{dt('noLightsInRoom')}</p>
-              )}
-              {deviceItems.length > 0 ? (
-                <RoomSection
-                  id="rv2-devices"
-                  testId="rooms-v2-devices"
-                  title={dt('sectionDevices')}
-                  items={deviceItems}
-                  count={`${deviceItems.filter((item) => item.active).length}/${deviceItems.length}`}
-                  moreLabel={dt('moreDevices')}
-                  renderCard={renderDevice}
-                  onOpenPage={() => setSectionOpen('devices')}
-                />
-              ) : null}
-            </div>
           </div>
-
-          {hasSecurity || hasMedia ? (
-            <div className="rv2-row-wrap">
-              {hasSecurity ? (
-                <div className="min-w-0 flex-[1_1_440px]">
-                  <RoomSection
-                    id="rv2-security"
-                    testId="rooms-v2-security"
-                    title={dt('sectionSecurity')}
-                    items={securityItems}
-                    count={String(securityItems.length)}
-                    moreLabel={dt('moreSecurity')}
-                    renderCard={renderSecurity}
-                    onOpenPage={() => setSectionOpen('security')}
-                  />
-                </div>
-              ) : null}
-              {hasMedia && shownPlayer ? (
-                <section id="rv2-media" aria-labelledby="rv2-media-title" className="flex min-w-0 flex-[1_1_320px] flex-col gap-3" data-testid="rooms-v2-media">
-                  <div className="flex min-h-11 items-center justify-between gap-3">
-                    <h2 id="rv2-media-title" className="rv2-section-heading m-0 px-1">
-                      {dt('sectionMedia')}
-                    </h2>
-                    {roomPlayers.length > 1 ? (
-                      <button
-                        type="button"
-                        className="dv-glass rv2-player-pick"
-                        aria-label={dt('mediaPickPlayer', { name: shownPlayer.name })}
-                        onClick={() => setMediaSheet('pick')}
-                      >
-                        <MediaKindIcon model={shownPlayer} />
-                        <span className="truncate">{shownPlayer.name}</span>
-                        <ChevronDown size={14} strokeWidth={2.6} aria-hidden="true" />
-                      </button>
-                    ) : null}
-                  </div>
-                  {shownPlayer.on ? (
-                    <NowPlayingCard
-                      model={shownPlayer}
-                      pictureUrl={pictureOfPlayer(shownPlayer)}
-                      onAction={(action) => actOnMedia(shownPlayer.entityId, action)}
-                      onOpenPlayer={() => setMediaSheet('player')}
-                    />
-                  ) : (
-                    <MediaOffCard
-                      model={shownPlayer}
-                      onPowerOn={() => actOnMedia(shownPlayer.entityId, { type: 'power', on: true })}
-                      onOpen={() => setMediaSheet('start')}
-                    />
-                  )}
-                </section>
-              ) : null}
-            </div>
-          ) : null}
 
           {missing.length > 0 ? (
             <AddAccessoriesRow
