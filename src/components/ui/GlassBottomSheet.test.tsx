@@ -18,7 +18,7 @@ describe('GlassBottomSheet', () => {
     expect(dialog.className).toContain('glass-sheet-surface');
     expect(dialog.className).toContain('rounded-[30px]');
     expect(dialog.className).toContain('!max-w-none');
-    expect(dialog.className).toContain('sm:!max-w-md');
+    expect(dialog.className).toContain('md:!max-w-md');
     expect(dialog.parentElement?.className).toContain('items-end');
     fireEvent.click(dialog.previousElementSibling as Element);
     expect(onClose).toHaveBeenCalledTimes(1);

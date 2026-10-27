@@ -50,7 +50,7 @@ export function DashboardSidePanel({
       showCloseButton={false}
       zIndex={zIndex}
       className={clsx(
-        'items-end justify-center !p-0 md:items-stretch md:justify-end md:!p-4',
+        'items-end justify-center !p-0 md:!items-stretch md:justify-end md:!p-4',
         className,
       )}
       panelClassName={clsx(

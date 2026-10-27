@@ -53,12 +53,12 @@ export function GlassBottomSheet({
       usePortal={usePortal}
       zIndex={zIndex}
       className={clsx(
-        'items-end justify-center !p-2 !pb-[calc(env(safe-area-inset-bottom)+8px)] sm:items-center sm:!p-6',
+        'items-end justify-center !p-2 !pb-[calc(env(safe-area-inset-bottom)+8px)] md:items-center md:!p-6',
         position === 'container' && '!absolute',
         className,
       )}
       panelClassName={clsx(
-        '!max-w-none sm:!max-w-md',
+        '!max-w-none md:!max-w-md',
         panelClassName,
       )}
       headerClassName={clsx(

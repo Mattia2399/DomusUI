@@ -453,16 +453,22 @@
     @apply h-1.5 w-12 rounded-full;
   }
 
+  /* The buttons of the Rooms board: pills, a soft grey, the main action solid. */
   .glass-button {
-    --ui-glass-blur: 18px;
-    --ui-glass-opacity: var(--ui-glass-control-opacity, 0.24);
-    --ui-glass-saturation: 1.8;
+    border-color: transparent;
+    background: var(--ui-control-fill, rgb(255 255 255 / 0.12));
     color: var(--ui-text-primary, #f5f5f7);
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .glass-button::after {
+    content: none;
   }
 
   .glass-button:hover {
-    border-color: var(--ui-border-strong, rgb(255 255 255 / 0.2));
     filter: brightness(1.08);
   }
 
@@ -506,7 +512,7 @@
     justify-content: center;
     border: 0;
     border-radius: 50%;
-    background: var(--ui-sheet-control, rgb(255 255 255 / 0.12));
+    background: var(--ui-control-fill, rgb(255 255 255 / 0.12));
     color: inherit;
     cursor: pointer;
   }
@@ -548,34 +554,113 @@
     @apply shadow-[0_0_20px_rgba(50,215,75,0.35)];
   }
 
+  /* The main action: the solid pill of the board, light in Dark, dark in Light. */
   .glass-button-primary {
-    border-color: rgb(var(--ui-accent-rgb, 10 132 255) / 0.48);
-    background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.2), transparent 52%),
-      rgb(var(--ui-accent-rgb, 10 132 255) / 0.7);
-    color: var(--ui-accent-contrast, #ffffff);
-    box-shadow: 0 10px 26px rgb(var(--ui-accent-rgb, 10 132 255) / 0.24), inset 0 1px 0 rgb(255 255 255 / 0.22);
-    -webkit-backdrop-filter: blur(16px) saturate(1.7);
-    backdrop-filter: blur(16px) saturate(1.7);
+    background: var(--ui-segment-on, var(--ui-text-primary, #f5f5f7));
+    color: var(--ui-segment-on-ink, var(--ui-bg-canvas, #000000));
   }
 
-  .glass-button-primary:hover {
-    border-color: rgb(var(--ui-accent-rgb, 10 132 255) / 0.64);
-    background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.24), transparent 52%),
-      rgb(var(--ui-accent-rgb, 10 132 255) / 0.8);
-  }
-
+  /* Switching off, deleting: solid red, as the board's confirmation. */
   .glass-button-danger {
-    border-color: color-mix(in srgb, var(--ui-danger, #ff453a) 52%, transparent);
-    background: color-mix(in srgb, var(--ui-danger, #ff453a) 16%, var(--ui-surface-glass, transparent));
-    color: var(--ui-danger, #ff453a);
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--ui-danger, #ff453a) 18%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.1);
+    background: var(--ui-danger, #ff453a);
+    color: #ffffff;
   }
 
-  .glass-button-danger:hover {
-    border-color: color-mix(in srgb, var(--ui-danger, #ff453a) 68%, transparent);
-    background: color-mix(in srgb, var(--ui-danger, #ff453a) 22%, var(--ui-surface-glass, transparent));
+  /* Going on with something that opens or unlocks: solid blue. */
+  .glass-button-accent {
+    background: var(--ui-accent, #0a84ff);
+    color: var(--ui-accent-contrast, #ffffff);
+  }
+
+  /* The round mark above a question to confirm. */
+  .glass-confirm-mark {
+    display: flex;
+    height: 44px;
+    width: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .glass-confirm-mark.is-warning {
+    background: rgb(255 159 10 / 0.18);
+    color: var(--ui-warning, #ff9f0a);
+  }
+
+  .glass-confirm-mark.is-danger {
+    background: color-mix(in srgb, var(--ui-danger, #ff453a) 18%, transparent);
+    color: var(--ui-danger, #ff453a);
+  }
+
+  .glass-confirm-mark.is-accent {
+    background: rgb(var(--ui-accent-rgb, 10 132 255) / 0.18);
+    color: var(--ui-accent, #0a84ff);
+  }
+
+  /* The picture of a camera in its sheet: rounded, live and the time on it. */
+  .camera-frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 22px;
+    background: #000000;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  }
+
+  .camera-frame:fullscreen {
+    border-radius: 0;
+  }
+
+  .camera-live {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    display: flex;
+    height: 26px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 13px;
+    background: rgb(0 0 0 / 0.5);
+    padding: 0 10px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  .camera-live i {
+    height: 8px;
+    width: 8px;
+    border-radius: 50%;
+    background: #ff453a;
+    animation: camera-blink 1.4s ease-in-out infinite;
+  }
+
+  .camera-clock {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    z-index: 2;
+    color: rgb(255 255 255 / 0.9);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+  }
+
+  @keyframes camera-blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .camera-live i {
+      animation: none;
+    }
   }
 
   .glass-button-ghost {
@@ -1362,7 +1447,7 @@ body {
   --ui-sheet-surface: rgb(30 30 34 / 0.9);
   --ui-sheet-border: rgb(255 255 255 / 0.11);
   --ui-sheet-highlight: rgb(255 255 255 / 0.12);
-  --ui-sheet-control: rgb(255 255 255 / 0.12);
+  --ui-control-fill: rgb(255 255 255 / 0.12);
   --ui-segment-on-ink: #000000;
   --ui-switch-off: rgb(120 120 128 / 0.36);
   --ui-accent: #0a84ff;
@@ -1425,7 +1510,7 @@ body {
   --ui-sheet-surface: rgb(250 250 252 / 0.94);
   --ui-sheet-border: rgb(255 255 255 / 0.85);
   --ui-sheet-highlight: rgb(255 255 255 / 0.95);
-  --ui-sheet-control: rgb(118 118 128 / 0.16);
+  --ui-control-fill: rgb(118 118 128 / 0.16);
   --ui-segment-on-ink: #ffffff;
   --ui-switch-off: rgb(120 120 128 / 0.16);
   --ui-accent: #007aff;
@@ -1527,7 +1612,7 @@ body {
   }
 
   .liquid-glass-card,
-  .glass-button,
+  .glass-button:not(.glass-button-primary, .glass-button-danger, .glass-button-accent),
   .glass-icon-button,
   .liquid-segmented-control {
     background-color: var(--ui-surface-primary) !important;

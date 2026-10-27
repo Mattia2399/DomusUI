@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, ChevronRight, House, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, House, Plug, Plus } from 'lucide-react';
 import {
   assignRoomAreaTargets,
   DEMO_ROOM_TABS,
@@ -64,7 +64,7 @@ import {
 import { deviceKindOf, findPowerSensor, isStandby, type DeviceAction, type DeviceModel } from '../../components/devices/model/device';
 import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
-import GlassModal from '../../components/ui/GlassModal';
+import GlassConfirmDialog from '../../components/ui/GlassConfirmDialog';
 import { LightPanel } from '../../components/devices/panels/LightPanel';
 import { PanelHost } from '../../components/devices/panels/PanelHost';
 import { lightRgb } from '../../components/devices/model/tileColor';
@@ -1739,29 +1739,18 @@ export function RoomsV2Page({
         </div>
       ) : null}
 
-      <GlassModal
+      <GlassConfirmDialog
         isOpen={Boolean(confirmDevice)}
         onClose={() => setConfirmOffId(null)}
+        icon={<Plug size={22} strokeWidth={2} />}
         title={confirmDevice ? dt('confirmOffTitle', { name: confirmDevice.name }) : ''}
         description={dt('confirmOffText')}
-        size="sm"
-        footer={
-          <div className="flex w-full justify-end gap-2">
-            <button type="button" className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold" onClick={() => setConfirmOffId(null)}>
-              {dt('cancel')}
-            </button>
-            <button
-              type="button"
-              className="glass-button min-h-11 rounded-full px-5 text-sm font-semibold text-[color:var(--dv-red)]"
-              onClick={() => {
-                if (confirmOffId) devices.act(confirmOffId, { type: 'turn_off' });
-                setConfirmOffId(null);
-              }}
-            >
-              {dt('turnOffShort')}
-            </button>
-          </div>
-        }
+        cancelLabel={dt('cancel')}
+        confirmLabel={dt('turnOffShort')}
+        onConfirm={() => {
+          if (confirmOffId) devices.act(confirmOffId, { type: 'turn_off' });
+          setConfirmOffId(null);
+        }}
       />
 
       {roomSheetLayer}
