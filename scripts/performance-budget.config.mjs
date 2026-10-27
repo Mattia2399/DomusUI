@@ -115,13 +115,6 @@ export const surfaces = [
     id: 'context-sidebar', label: 'Sidebar contesto', sources: ['src/components/settings/ContextSidebar.tsx'], requires: 'home', kind: 'feature',
     budget: { metric: 'incremental', raw: { warning: 760 * KB, limit: 840 * KB }, gzip: { warning: 225 * KB, limit: 250 * KB } },
   },
-  // Members map: MapLibre runtime, its shared module, stylesheet and worker. Baseline 1,180,900 / 315,800.
-  {
-    id: 'members-map', label: 'Mappa membri (MapLibre)', requires: 'context-sidebar', kind: 'feature',
-    sources: ['src/components/settings/MembersLocationMap.tsx', 'src/components/settings/maplibreRuntime.ts'],
-    files: ['maplibre-gl-worker.js'],
-    budget: { metric: 'incremental', raw: { warning: 1.25 * MB, limit: 1.35 * MB }, gzip: { warning: 335 * KB, limit: 360 * KB } },
-  },
 
   // Settings › This device features, measured as what they add to Settings
   // (their pages and the code they load on demand). Their always-on part is

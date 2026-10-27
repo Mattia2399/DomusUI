@@ -59,13 +59,6 @@ export default defineConfig(({ mode }) => {
       '@': path.resolve(__dirname, '.'),
     },
   },
-  optimizeDeps: {
-    // Pre-bundle the runtime hidden behind the members-map lazy boundary so
-    // opening it for the first time never forces a Vite full-page reload.
-    // The dedicated worker is a separate Rollup entry in production and must
-    // not be optimized as a regular window dependency during development.
-    include: ['maplibre-gl'],
-  },
   esbuild: {
     // Keep every third-party license notice once per file instead of once per
     // module: each lucide icon otherwise repeats the same ISC header.
@@ -73,18 +66,9 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     rollupOptions: {
-      input: [
-        path.resolve(__dirname, 'index.html'),
-        path.resolve(__dirname, 'node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs'),
-      ],
+      input: [path.resolve(__dirname, 'index.html')],
       output: {
-        entryFileNames: (chunkInfo) => {
-          const moduleId = chunkInfo.facadeModuleId?.replaceAll('\\', '/');
-          if (moduleId?.endsWith('/maplibre-gl-worker.mjs')) {
-            return 'assets/maplibre-gl-worker.js';
-          }
-          return 'assets/[name]-[hash].js';
-        },
+        entryFileNames: 'assets/[name]-[hash].js',
         // No manual chunks: Rollup keeps the dashboard cards in the Home chunk and
         // orders their modules itself. A separate cards chunk (0985b01) imported
         // icons and helpers back from Home, the two chunks formed a cycle and the
