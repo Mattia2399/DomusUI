@@ -2,6 +2,7 @@ import React from 'react';
 import { Trash2, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassDropdown, { type GlassDropdownOption } from '../../components/ui/GlassDropdown';
+import GlassToggle from '../../components/ui/GlassToggle';
 import type { RoomTab } from '../../components/rooms/roomsDirectory';
 import type { HaArea } from '../../hooks/useHaLiveConnection';
 import { useRoomsTranslations, type RoomsTranslationKey } from '../../i18n/roomsTranslations';
@@ -215,21 +216,10 @@ export function RoomEditPanel({
         <div className="dv-card !py-1">
           <div className="flex min-h-14 items-center gap-3">
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span id="rv2-room-hide" className="text-[15px] font-semibold">
-                {rt('hideFromBar')}
-              </span>
+              <span className="text-[15px] font-semibold">{rt('hideFromBar')}</span>
               <span className="dv-t2 text-[13px] font-medium">{rt('hideFromBarNote')}</span>
             </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hidden}
-              aria-labelledby="rv2-room-hide"
-              className={clsx('rv2-switch', hidden && 'is-on')}
-              onClick={() => setHidden((value) => !value)}
-            >
-              <span />
-            </button>
+            <GlassToggle checked={hidden} label={rt('hideFromBar')} onChange={setHidden} />
           </div>
         </div>
       ) : null}

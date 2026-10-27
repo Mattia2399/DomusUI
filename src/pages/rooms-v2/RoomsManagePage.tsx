@@ -17,6 +17,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import GlassSegmentSelect from '../../components/ui/GlassSegmentSelect';
+import GlassToggle from '../../components/ui/GlassToggle';
 import type { RoomTab } from '../../components/rooms/roomsDirectory';
 import { useDevicesTranslations, type DevicesTranslationKey } from '../../i18n/devicesTranslations';
 import { useRoomsTranslations } from '../../i18n/roomsTranslations';
@@ -212,13 +214,13 @@ export function RoomsManagePage({
           <p className="dv-t2 m-0 text-[15px] font-medium">{subtitle}</p>
         </div>
 
-        <div className="rv2-seg rv2-seg-lg" role="tablist" aria-label={rt('manageWhat')}>
-          {tabs.map(([key, label]) => (
-            <button key={key} type="button" role="tab" aria-selected={tab === key} className={clsx(tab === key && 'is-on')} onClick={() => onTab(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
+        <GlassSegmentSelect<ManageTab>
+          className="rv2-seg-shared"
+          ariaLabel={rt('manageWhat')}
+          options={tabs.map(([key, label]) => ({ value: key, label }))}
+          value={tab}
+          onChange={onTab}
+        />
 
         {error ? (
           <p role="alert" className="m-0 px-1 text-[13px] font-semibold text-[color:var(--dv-red)]">
@@ -320,13 +322,16 @@ export function RoomsManagePage({
           <div className="rv2-manage-sections">
             <div className="flex min-w-0 max-w-[560px] flex-[1_1_360px] flex-col gap-3">
               {currentRoom ? (
-                <div className="rv2-seg" role="radiogroup" aria-label={rt('scopeAria')}>
-                  {(['all', 'room'] as const).map((key) => (
-                    <button key={key} type="button" role="radio" aria-checked={scope === key} className={clsx(scope === key && 'is-on')} onClick={() => setScope(key)}>
-                      {key === 'all' ? rt('scopeAll') : rt('scopeRoom', { room: currentRoom.name })}
-                    </button>
-                  ))}
-                </div>
+                <GlassSegmentSelect<'all' | 'room'>
+                  className="rv2-seg-shared"
+                  ariaLabel={rt('scopeAria')}
+                  options={[
+                    { value: 'all', label: rt('scopeAll') },
+                    { value: 'room', label: rt('scopeRoom', { room: currentRoom.name }) },
+                  ]}
+                  value={scope}
+                  onChange={setScope}
+                />
               ) : null}
               {currentRoom ? (
                 <div className="flex min-h-8 items-center justify-between gap-2.5 px-1">
@@ -350,7 +355,7 @@ export function RoomsManagePage({
                       <span className={clsx('dv-icon-button pointer-events-none !h-9 !w-9 !rounded-[11px]', !on && 'opacity-45')} aria-hidden="true">
                         <Icon size={17} strokeWidth={2} />
                       </span>
-                      <span id={`rv2-sec-${key}`} className={clsx('min-w-0 flex-1 text-[15px] font-semibold', !on && 'opacity-45')}>
+                      <span className={clsx('min-w-0 flex-1 text-[15px] font-semibold', !on && 'opacity-45')}>
                         {name}
                       </span>
                       <Step label={rt('moveSectionUp', { name })} disabled={index === 0} onClick={() => changeSections(moveSection(sections, key, -1))}>
@@ -359,16 +364,7 @@ export function RoomsManagePage({
                       <Step label={rt('moveSectionDown', { name })} disabled={index === sections.order.length - 1} onClick={() => changeSections(moveSection(sections, key, 1))}>
                         <ChevronDown size={16} strokeWidth={2.4} aria-hidden="true" />
                       </Step>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={on}
-                        aria-labelledby={`rv2-sec-${key}`}
-                        className={clsx('rv2-switch', on && 'is-on')}
-                        onClick={() => changeSections(toggleSection(sections, key))}
-                      >
-                        <span />
-                      </button>
+                      <GlassToggle checked={on} label={name} onChange={() => changeSections(toggleSection(sections, key))} />
                     </div>
                   );
                 })}

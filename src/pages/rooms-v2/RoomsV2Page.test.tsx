@@ -278,7 +278,7 @@ describe('the Rooms page in the demo', () => {
     expect(within(player).getByRole('heading', { name: 'Il viaggio di ritorno' })).toBeTruthy();
     fireEvent.click(within(player).getByRole('radio', { name: 'HDMI 1 · Console' }));
     expect(within(player).getByRole('radio', { name: 'HDMI 1 · Console' }).getAttribute('aria-checked')).toBe('true');
-    fireEvent.click(within(player).getByRole('tab', { name: 'Audio' }));
+    fireEvent.click(within(player).getByRole('radio', { name: 'Audio' }));
     fireEvent.click(within(player).getByRole('radio', { name: 'Film' }));
     expect(within(player).getByRole('radio', { name: 'Film' }).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(within(player).getByRole('button', { name: 'Riduci il player' }));
@@ -343,7 +343,7 @@ describe('the Rooms page in the demo', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
     const manage = screen.getByTestId('rooms-v2-manage');
-    fireEvent.click(within(manage).getByRole('tab', { name: 'Sezioni' }));
+    fireEvent.click(within(manage).getByRole('radio', { name: 'Sezioni' }));
     fireEvent.click(within(manage).getByRole('button', { name: 'Sposta Media più in alto' }));
     fireEvent.click(within(manage).getByRole('switch', { name: 'Scene' }));
     fireEvent.click(within(manage).getByRole('radio', { name: 'Solo Soggiorno' }));
@@ -365,7 +365,7 @@ describe('the Rooms page in the demo', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
     const manage = screen.getByTestId('rooms-v2-manage');
-    fireEvent.click(within(manage).getByRole('tab', { name: 'Piani' }));
+    fireEvent.click(within(manage).getByRole('radio', { name: 'Piani' }));
     expect(within(manage).getByRole('button', { name: 'Sposta prima le stanze di Piano terra' }).getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(within(manage).getByRole('button', { name: 'Nuovo piano' }));
     const name = within(manage).getByRole('textbox', { name: 'Nome del piano 3' });
@@ -424,7 +424,7 @@ describe('the Rooms page with Home Assistant', () => {
     renderConnected(onCallApi);
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
     const manage = screen.getByTestId('rooms-v2-manage');
-    fireEvent.click(within(manage).getByRole('tab', { name: 'Piani' }));
+    fireEvent.click(within(manage).getByRole('radio', { name: 'Piani' }));
     fireEvent.click(within(manage).getByRole('button', { name: 'Nuovo piano' }));
     expect(await within(manage).findByRole('textbox', { name: 'Nome del piano 1' })).toBeTruthy();
     expect(onCallApi).toHaveBeenCalledWith({ type: 'config/floor_registry/create', name: 'Nuovo piano' });

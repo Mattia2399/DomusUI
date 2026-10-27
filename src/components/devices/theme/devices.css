@@ -228,8 +228,7 @@
 .dv-tile-body:focus-visible,
 .dv-icon-button:focus-visible,
 .dv-slider:has(input:focus-visible),
-.dv-swatch:focus-visible,
-.dv-segment button:focus-visible {
+.dv-swatch:focus-visible {
   outline: 2px solid var(--dv-focus);
   outline-offset: 2px;
 }
@@ -465,45 +464,25 @@
   outline-offset: 3px;
 }
 
-/* White or colour. */
+/* The segmented controls of the devices: the shared one, as wide as its choices, light on a lit card. */
 
-.dv-segment {
+.dv-seg {
   position: relative;
   z-index: 1;
-  display: flex;
+  width: fit-content;
+  max-width: 100%;
   align-self: flex-start;
-  gap: 2px;
-  border-radius: 16px;
-  padding: 3px;
-  background: var(--dv-icon-off);
 }
 
-.dv-segment button {
-  height: 38px;
-  border: 0;
-  border-radius: 13px;
-  padding: 0 16px;
-  background: transparent;
-  color: var(--dv-t2);
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.dv-segment button[aria-checked='true'] {
-  background: var(--dv-pill-on);
-  color: var(--dv-pill-on-ink);
-}
-
-.dv-tile.is-lit .dv-segment {
+.dv-tile.is-lit .dv-seg {
   background: rgb(0 0 0 / 0.08);
 }
 
-.dv-tile.is-lit .dv-segment button {
+.dv-tile.is-lit .dv-seg .liquid-segmented-option-inactive {
   color: var(--dv-lit-ink-2);
 }
 
-.dv-tile.is-lit .dv-segment button[aria-checked='true'] {
+.dv-tile.is-lit .dv-seg .liquid-segmented-option-active {
   background: #ffffff;
   color: var(--dv-lit-ink);
 }
@@ -1589,33 +1568,16 @@
   color: #ffffff;
 }
 
-.dv-mp-tabs {
-  display: flex;
-  gap: 4px;
-  overflow-x: auto;
-  border-radius: 20px;
+/* The shared segmented control, white on the artwork whatever the theme. */
+.dv-mp .dv-mp-seg {
   background: rgb(255 255 255 / 0.12);
-  padding: 4px;
-  scrollbar-width: none;
-  -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: blur(20px);
 }
 
-.dv-mp-tabs button {
-  height: 40px;
-  flex: 1 0 auto;
-  border: 0;
-  border-radius: 16px;
-  background: transparent;
-  padding: 0 14px;
+.dv-mp .dv-mp-seg .liquid-segmented-option-inactive {
   color: rgb(255 255 255 / 0.75);
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
 }
 
-.dv-mp-tabs button.is-on {
+.dv-mp .dv-mp-seg .liquid-segmented-option-active {
   background: #ffffff;
   color: #0b0b0f;
 }

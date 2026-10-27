@@ -1,5 +1,6 @@
 import React from 'react';
 import { clsx } from 'clsx';
+import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import type { DevicesTranslator } from '../../../i18n/devicesTranslations';
 import { LIGHT_HUE_PRESETS, LIGHT_TEMPERATURE_PRESETS, lightTone, type LightModel, type LightMode } from '../model/light';
 import { hueToRgb, kelvinToRgb, rgbCss } from '../model/tileColor';
@@ -149,13 +150,16 @@ export function LightKindSegment({
   disabled?: boolean;
 }) {
   return (
-    <div className="dv-segment" role="radiogroup" aria-label={dt('lightKind')}>
-      <button type="button" role="radio" aria-checked={mode === 'temp'} disabled={disabled} onClick={() => onChange('temp')}>
-        {dt('white')}
-      </button>
-      <button type="button" role="radio" aria-checked={mode === 'color'} disabled={disabled} onClick={() => onChange('color')}>
-        {dt('color')}
-      </button>
-    </div>
+    <GlassSegmentSelect<LightMode>
+      className="dv-seg"
+      ariaLabel={dt('lightKind')}
+      options={[
+        { value: 'temp', label: dt('white') },
+        { value: 'color', label: dt('color') },
+      ]}
+      value={mode}
+      disabled={disabled}
+      onChange={onChange}
+    />
   );
 }

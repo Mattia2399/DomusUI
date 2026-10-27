@@ -463,30 +463,6 @@ button.rv2-add-row {
   }
 }
 
-.rv2-search {
-  height: 46px;
-  width: 100%;
-  box-sizing: border-box;
-  border-radius: 23px;
-  border: 1px solid var(--dv-tile-off-border);
-  background: var(--dv-tile-off);
-  padding: 0 16px 0 40px;
-  color: inherit;
-  font-size: 15px;
-}
-
-.rv2-search::placeholder {
-  color: var(--dv-t3);
-}
-
-/* The focus ring is drawn inside the field: a sheet that scrolls up to its edges would cut one drawn outside. */
-.rv2-search:focus,
-.rv2-search:focus-visible {
-  border-color: var(--dv-focus);
-  outline: none;
-  box-shadow: inset 0 0 0 1px var(--dv-focus);
-}
-
 .rv2-bar {
   position: sticky;
   bottom: 16px;
@@ -751,7 +727,6 @@ button.rv2-add-row {
   outline-offset: 2px;
 }
 
-
 /* The "+" menu of the head, as the floor menu. */
 .rv2-add-menu {
   position: absolute;
@@ -849,39 +824,6 @@ button.rv2-add-row {
   transition: box-shadow 200ms ease;
 }
 
-.rv2-switch {
-  position: relative;
-  height: 31px;
-  width: 51px;
-  flex: none;
-  border: 0;
-  border-radius: 16px;
-  background: rgb(120 120 128 / 0.36);
-  padding: 0;
-  cursor: pointer;
-  transition: background 200ms ease;
-}
-
-.rv2-switch span {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  height: 27px;
-  width: 27px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 3px 8px rgb(0 0 0 / 0.25);
-  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.rv2-switch.is-on {
-  background: #30d158;
-}
-
-.rv2-switch.is-on span {
-  transform: translateX(20px);
-}
-
 .rv2-sheet-button {
   display: inline-flex;
   min-height: 44px;
@@ -912,42 +854,11 @@ button.rv2-add-row {
   opacity: 0.4;
 }
 
-/* "Stanze e sezioni". */
-.rv2-seg {
-  display: flex;
+/* "Stanze e sezioni": its segmented controls as wide as their choices, as on the board. */
+.rv2-seg-shared {
+  width: fit-content;
   max-width: 100%;
   align-self: flex-start;
-  gap: 2px;
-  overflow-x: auto;
-  border-radius: 16px;
-  background: var(--dv-icon-off);
-  padding: 3px;
-  scrollbar-width: none;
-}
-
-.rv2-seg button {
-  height: 38px;
-  flex: none;
-  border: 0;
-  border-radius: 13px;
-  background: transparent;
-  padding: 0 16px;
-  color: var(--dv-t2);
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.rv2-seg button.is-on {
-  background: var(--dv-pill-on);
-  color: var(--dv-pill-on-ink);
-}
-
-.rv2-seg-lg button {
-  height: 40px;
-  padding: 0 20px;
-  font-size: 15px;
 }
 
 .rv2-manage-cols {
@@ -1130,16 +1041,6 @@ button.rv2-add-row {
   background: var(--dv-pill-on);
   color: var(--dv-pill-on-ink);
   font-size: 10px;
-}
-
-.rv2-seg button:focus-visible,
-.rv2-manage-main:focus-visible,
-.rv2-step:focus-visible,
-.rv2-switch:focus-visible,
-.rv2-swatch:focus-visible,
-.rv2-sheet-button:focus-visible {
-  outline: 2px solid var(--dv-focus);
-  outline-offset: 2px;
 }
 
 @container rv2 (max-width: 760px) {

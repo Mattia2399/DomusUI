@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check, ChevronDown, Power, Repeat, Repeat1, Shuffle, Speaker, Volume2, VolumeX } from 'lucide-react';
 import { clsx } from 'clsx';
+import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { REPEAT_NEXT, type MediaAction, type MediaModel } from '../model/media';
 import { MediaArt, MediaBackdrop, MediaKindIcon, MediaProgress, MediaSlider, MediaTransport, useMediaClock } from '../cards/MediaCard';
@@ -56,14 +57,6 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, onAction, onCl
       before?.focus();
     };
   }, [onClose]);
-
-  const onTabKey = (event: React.KeyboardEvent) => {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
-    const index = tabs.findIndex((entry) => entry.key === current);
-    const next = tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-    setTab(next.key);
-    dialogRef.current?.querySelector<HTMLButtonElement>(`[data-tab="${next.key}"]`)?.focus();
-  };
 
   const RepeatIcon = model.repeat === 'one' ? Repeat1 : Repeat;
   const repeatLabel = model.repeat === 'off' ? dt('mediaRepeatOff') : model.repeat === 'all' ? dt('mediaRepeatAll') : dt('mediaRepeatOne');
@@ -173,30 +166,19 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, onAction, onCl
           {current ? (
             <div className="dv-mp-right">
               {tabs.length > 1 ? (
-                <div role="tablist" aria-label={dt('mediaControls')} className="dv-mp-tabs" onKeyDown={onTabKey}>
-                  {tabs.map((entry) => (
-                    <button
-                      key={entry.key}
-                      type="button"
-                      role="tab"
-                      data-tab={entry.key}
-                      id={`dv-mp-tab-${entry.key}`}
-                      aria-selected={current === entry.key}
-                      aria-controls={`dv-mp-panel-${entry.key}`}
-                      tabIndex={current === entry.key ? 0 : -1}
-                      className={clsx(current === entry.key && 'is-on')}
-                      onClick={() => setTab(entry.key)}
-                    >
-                      {entry.label}
-                    </button>
-                  ))}
-                </div>
+                <GlassSegmentSelect<Tab>
+                  className="dv-mp-seg"
+                  ariaLabel={dt('mediaControls')}
+                  options={tabs.map((entry) => ({ value: entry.key, label: entry.label }))}
+                  value={current}
+                  onChange={setTab}
+                />
               ) : (
                 <h3 className="dv-mp-label m-0">{tabs[0].label}</h3>
               )}
 
               {current === 'source' ? (
-                <div id="dv-mp-panel-source" role={tabs.length > 1 ? 'tabpanel' : undefined} aria-labelledby={tabs.length > 1 ? 'dv-mp-tab-source' : undefined} className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
                   {hasSources ? (
                     <>
                       <span className="dv-mp-label">{dt('mediaSourceLabel')}</span>
@@ -248,7 +230,7 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, onAction, onCl
                   ) : null}
                 </div>
               ) : (
-                <div id="dv-mp-panel-audio" role={tabs.length > 1 ? 'tabpanel' : undefined} aria-labelledby={tabs.length > 1 ? 'dv-mp-tab-audio' : undefined} className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3">
                   <span className="dv-mp-label">{dt('mediaSoundMode')}</span>
                   <div role="radiogroup" aria-label={dt('mediaSoundMode')} className="flex flex-wrap gap-2">
                     {model.soundModes.map((mode) => (

@@ -2,6 +2,7 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassBottomSheet from '../../components/ui/GlassBottomSheet';
+import GlassSearchFilterBar from '../../components/ui/GlassSearchFilterBar';
 import { useDevicesTranslations } from '../../i18n/devicesTranslations';
 import { useI18n } from '../../i18n/I18nProvider';
 
@@ -70,14 +71,7 @@ export function AddAccessoriesSheet({
       }
     >
       <div className="flex flex-col gap-3">
-        <input
-          className="rv2-search !pl-4"
-          type="search"
-          value={query}
-          aria-label={title}
-          placeholder={title}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <GlassSearchFilterBar query={query} onQueryChange={setQuery} filters={[]} placeholder={title} />
         {shown.length === 0 ? (
           <p className="dv-t2 m-0 text-sm">{emptyLabel}</p>
         ) : (

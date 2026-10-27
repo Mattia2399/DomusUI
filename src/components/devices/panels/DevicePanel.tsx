@@ -1,6 +1,7 @@
 import React from 'react';
 import { Droplets, Power, Square, X } from 'lucide-react';
 import { clsx } from 'clsx';
+import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import GlassToggle from '../../ui/GlassToggle';
 import { useDevicesTranslations, type DevicesTranslator } from '../../../i18n/devicesTranslations';
 import { fanLevel, isStandby, type DeviceAction, type DeviceModel } from '../model/device';
@@ -161,14 +162,16 @@ function FanBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTrans
         {fan.direction !== null ? (
           <div className="flex flex-col gap-2">
             <span className="dv-t2 text-[13px] font-bold">{dt('direction')}</span>
-            <div className="dv-segment" role="radiogroup" aria-label={dt('direction')}>
-              <button type="button" role="radio" aria-checked={fan.direction === 'forward'} onClick={() => onAction({ type: 'fan_direction', direction: 'forward' })}>
-                {dt('summer')}
-              </button>
-              <button type="button" role="radio" aria-checked={fan.direction === 'reverse'} onClick={() => onAction({ type: 'fan_direction', direction: 'reverse' })}>
-                {dt('winter')}
-              </button>
-            </div>
+            <GlassSegmentSelect
+              className="dv-seg"
+              ariaLabel={dt('direction')}
+              options={[
+                { value: 'forward', label: dt('summer') },
+                { value: 'reverse', label: dt('winter') },
+              ]}
+              value={fan.direction}
+              onChange={(direction) => onAction({ type: 'fan_direction', direction })}
+            />
             <span className="dv-t2 text-[13px] font-medium leading-[1.4]">
               {fan.direction === 'reverse' ? dt('dirWinterNote') : dt('dirSummerNote')}
             </span>

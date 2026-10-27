@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, Lightbulb, X } from 'lucide-react';
 import { clsx } from 'clsx';
+import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import {
@@ -162,13 +163,13 @@ export function SensorPanel({ model, roomName, history, historyLoading, period, 
           <span className="dv-t2 text-[13px] font-bold">
             {dt('idealRange', { lo: format(spec.ideal[0]), hi: unitText(spec.ideal[1]) })}
           </span>
-          <div className="dv-segment" role="radiogroup" aria-label={dt('periodLabel')}>
-            {periods.map(([key, label]) => (
-              <button key={key} type="button" role="radio" aria-checked={period === key} onClick={() => onPeriod(key)}>
-                {dt(label)}
-              </button>
-            ))}
-          </div>
+          <GlassSegmentSelect<SensorPeriod>
+            className="dv-seg"
+            ariaLabel={dt('periodLabel')}
+            options={periods.map(([key, label]) => ({ value: key, label: dt(label) }))}
+            value={period}
+            onChange={onPeriod}
+          />
         </div>
         {history.length > 1 && stats ? (
           <>

@@ -1,7 +1,8 @@
 import React from 'react';
-import { ChevronLeft, Eye, EyeOff, MapPinHouse, Plus, Search, Star, StarOff, Trash2 } from 'lucide-react';
+import { ChevronLeft, Eye, EyeOff, MapPinHouse, Plus, Star, StarOff, Trash2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassBottomSheet from '../../components/ui/GlassBottomSheet';
+import GlassSearchFilterBar from '../../components/ui/GlassSearchFilterBar';
 import { groupSectionPage, type SectionItem } from '../../components/devices/model/sectionRules';
 import { useDevicesTranslations } from '../../i18n/devicesTranslations';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -134,17 +135,12 @@ export function SectionPage<T extends SectionItem>({
           <span className="dv-t2 text-sm font-medium">{subtitle}</span>
         </div>
 
-        <label className="relative block">
-          <span className="sr-only">{dt('searchIn', { section: title.toLocaleLowerCase(locale) })}</span>
-          <Search size={16} strokeWidth={2.2} aria-hidden="true" className="dv-t3 absolute left-4 top-1/2 -translate-y-1/2" />
-          <input
-            className="rv2-search"
-            type="search"
-            value={query}
-            placeholder={dt('searchIn', { section: title.toLocaleLowerCase(locale) })}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </label>
+        <GlassSearchFilterBar
+          query={query}
+          onQueryChange={setQuery}
+          filters={[]}
+          placeholder={dt('searchIn', { section: title.toLocaleLowerCase(locale) })}
+        />
 
         <p className="dv-t2 m-0 text-[13px] leading-[1.45]">{dt('sectionRule')}</p>
 
