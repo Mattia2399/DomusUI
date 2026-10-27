@@ -83,7 +83,7 @@ test('Rooms tiles follow the resolved appearance through semantic tokens', async
   await installCompletedDemo(page, { theme: 'auto' });
   await page.goto('/rooms');
 
-  const surface = page.getByTestId('rooms-v2').locator('.dv-tile').first();
+  const surface = page.getByTestId('rooms').locator('.dv-tile').first();
   await expect(surface).toBeVisible();
   const lightBorder = await surface.evaluate((element) => getComputedStyle(element).borderColor);
 

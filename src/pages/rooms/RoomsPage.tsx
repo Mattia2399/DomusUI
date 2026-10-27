@@ -138,7 +138,7 @@ import { useDeviceCommands } from './useDeviceCommands';
 import { useClimateCommands } from './useClimateCommands';
 import { useLightCommands } from './useLightCommands';
 import { useRoomsRegistry } from './useRoomsRegistry';
-import './roomsV2.css';
+import './rooms.css';
 
 /*
  * The Rooms page, on the Rooms board of the design: the head of the room,
@@ -146,7 +146,7 @@ import './roomsV2.css';
  * lacks. Rooms are changed from here; floors in Settings.
  */
 
-export type RoomsV2PageProps = {
+export type RoomsPageProps = {
   runtimeMode?: DashboardRuntimeMode;
   isLoading?: boolean;
   haConnected: boolean;
@@ -270,7 +270,7 @@ function SectionComing({ id, title }: { id: string; title: string }) {
   const dt = useDevicesTranslations();
   return (
     <section id={id} aria-labelledby={`${id}-title`} className="flex min-w-0 flex-col gap-3" data-testid={`${id}-coming`}>
-      <h2 id={`${id}-title`} className="rv2-section-heading flex min-h-11 items-center px-1">
+      <h2 id={`${id}-title`} className="rooms-section-heading flex min-h-11 items-center px-1">
         {title}
       </h2>
       <p className="dv-glass dv-t2 m-0 rounded-[20px] px-4 py-3.5 text-sm font-medium">{dt('sectionComing')}</p>
@@ -293,11 +293,11 @@ function AddAccessoriesRow({ label, detail, onOpen }: { label: string; detail: s
     </>
   );
   return onOpen ? (
-    <button type="button" className="dv-glass rv2-add-row" onClick={onOpen} data-testid="rooms-v2-add-row">
+    <button type="button" className="dv-glass rooms-add-row" onClick={onOpen} data-testid="rooms-add-row">
       {content}
     </button>
   ) : (
-    <div className="dv-glass rv2-add-row" data-testid="rooms-v2-add-row">
+    <div className="dv-glass rooms-add-row" data-testid="rooms-add-row">
       {content}
     </div>
   );
@@ -312,7 +312,7 @@ function withoutIds(byRoom: Record<string, string[]>, roomId: string, ids: strin
   return next;
 }
 
-export function RoomsV2Page({
+export function RoomsPage({
   runtimeMode = 'real',
   isLoading = false,
   haConnected,
@@ -326,7 +326,7 @@ export function RoomsV2Page({
   onCameraPtzMove,
   onCameraPtzStop,
   onNavigate,
-}: RoomsV2PageProps) {
+}: RoomsPageProps) {
   const rt = useRoomsTranslations();
   const dt = useDevicesTranslations();
   const demo = runtimeMode === 'demo';
@@ -893,12 +893,12 @@ export function RoomsV2Page({
                 ? `${roomAlerts[0].model.name} · ${securityStatus(roomAlerts[0].model, dt)}`
                 : dt('securityAlertsMany', { count: roomAlerts.length }),
             tone: 'security',
-            target: 'rv2-security',
+            target: 'rooms-security',
           },
         ]
       : []),
     ...(climate
-      ? [{ key: 'climate' as const, title: dt('chipClimate'), status: climateStatus(climate), tone: CLIMATE_TONE[climate.mode], target: 'rv2-climate' }]
+      ? [{ key: 'climate' as const, title: dt('chipClimate'), status: climateStatus(climate), tone: CLIMATE_TONE[climate.mode], target: 'rooms-climate' }]
       : []),
     ...(roomItems.length > 0
       ? [
@@ -907,7 +907,7 @@ export function RoomsV2Page({
             title: dt('chipLights'),
             status: litCount === 0 ? dt('lightsAllOff') : litCount === 1 ? dt('lightsOnOne') : dt('lightsOnMany', { count: litCount }),
             tone: litCount > 0 ? 'light' : 'idle',
-            target: 'rv2-lights',
+            target: 'rooms-lights',
           },
         ]
       : []),
@@ -918,7 +918,7 @@ export function RoomsV2Page({
             title: dt('chipHumidity'),
             status: `${Math.round(readings.humidity)}%`,
             tone: 'humidity',
-            target: buckets.sensors.length > 0 ? 'rv2-environment' : null,
+            target: buckets.sensors.length > 0 ? 'rooms-environment' : null,
           },
         ]
       : []),
@@ -929,7 +929,7 @@ export function RoomsV2Page({
             title: dt('chipMedia'),
             status: roomPlayers.find((model) => model.playing)?.title ?? dt('playing'),
             tone: 'media',
-            target: 'rv2-media',
+            target: 'rooms-media',
           },
         ]
       : []),
@@ -1284,7 +1284,7 @@ export function RoomsV2Page({
 
   if (roomTabs.length === 0) {
     return (
-      <div className="rooms-dashboard dashboard-page-scroll" data-testid="rooms-v2">
+      <div className="rooms-dashboard dashboard-page-scroll" data-testid="rooms">
         <div className="dashboard-page-content dashboard-page-content-wide flex min-h-[calc(100dvh-5rem)] items-center justify-center px-4">
           <section className="dashboard-content-surface flex w-full max-w-xl flex-col items-center rounded-[2rem] px-6 py-10 text-center">
             <House size={24} aria-hidden="true" className="text-[color:var(--ui-text-secondary)]" />
@@ -1294,11 +1294,11 @@ export function RoomsV2Page({
             {isLoading ? null : <p className="mt-2 max-w-md text-sm text-[color:var(--ui-text-secondary)]">{rt('noRoomsDescription')}</p>}
             {!isLoading && management.canManage ? (
               <div className="mt-6 flex flex-wrap justify-center gap-2">
-                <button type="button" className="rv2-sheet-button is-primary !px-5" onClick={newRoom}>
+                <button type="button" className="rooms-sheet-button is-primary !px-5" onClick={newRoom}>
                   <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
                   {rt('newRoom')}
                 </button>
-                <button type="button" className="rv2-sheet-button !px-5" onClick={openManage}>
+                <button type="button" className="rooms-sheet-button !px-5" onClick={openManage}>
                   {rt('roomsAndSections')}
                 </button>
               </div>
@@ -1311,9 +1311,9 @@ export function RoomsV2Page({
   }
 
   return (
-    <div className="rooms-dashboard dashboard-page-scroll" data-testid="rooms-v2">
+    <div className="rooms-dashboard dashboard-page-scroll" data-testid="rooms">
       <div className="dashboard-page-content dashboard-page-content-wide min-w-0 max-w-full">
-        <main className="rv2-main">
+        <main className="rooms-main">
           <RoomHead
             name={activeRoom?.name ?? ''}
             subtitle={subtitle}
@@ -1329,36 +1329,36 @@ export function RoomsV2Page({
             onManage={management.canManage ? openManage : undefined}
           />
 
-          <div className="rv2-secs">
+          <div className="rooms-secs">
             {sceneItems.length > 0 && shows('scenes') ? (
-              <div className="rv2-sec" style={orderStyle('scenes')}>
+              <div className="rooms-sec" style={orderStyle('scenes')}>
                 <RoomSection
-                  id="rv2-scenes"
-                  testId="rooms-v2-scenes"
+                  id="rooms-scenes"
+                  testId="rooms-scenes"
                   title={dt('sectionScenes')}
                   items={sceneItems}
                   count={String(sceneItems.length)}
                   moreLabel={dt('moreScenes')}
                   renderCard={renderScene}
                   onOpenPage={() => setSectionOpen('scenes')}
-                  gridClassName="rv2-strip rv2-scene-strip"
+                  gridClassName="rooms-strip rooms-scene-strip"
                 />
               </div>
             ) : null}
 
-            <div className="rv2-columns">
+            <div className="rooms-columns">
               {showClimate || showSensors ? (
-                <div className="rv2-column-side">
+                <div className="rooms-column-side">
                   {showClimate ? (
-                    <div className="rv2-sec" style={orderStyle('climate')}>
+                    <div className="rooms-sec" style={orderStyle('climate')}>
                       {roomClimates.length > 0 ? (
-                        <section id="rv2-climate" aria-labelledby="rv2-climate-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-v2-climate">
-                          <h2 id="rv2-climate-title" className="rv2-section-heading flex min-h-11 items-center px-1">
+                        <section id="rooms-climate" aria-labelledby="rooms-climate-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-climate">
+                          <h2 id="rooms-climate-title" className="rooms-section-heading flex min-h-11 items-center px-1">
                             {dt('sectionClimate')}
                           </h2>
-                          <div className="rv2-climate-grid">
+                          <div className="rooms-climate-grid">
                             {roomClimates.map((model, index) => (
-                              <div key={model.entityId} className={index === 0 ? 'rv2-climate-main' : 'rv2-climate-extra'}>
+                              <div key={model.entityId} className={index === 0 ? 'rooms-climate-main' : 'rooms-climate-extra'}>
                                 <ClimateCard
                                   model={model}
                                   size={index === 0 ? 'large' : 'small'}
@@ -1372,34 +1372,34 @@ export function RoomsV2Page({
                           </div>
                         </section>
                       ) : (
-                        <SectionComing id="rv2-climate" title={dt('sectionClimate')} />
+                        <SectionComing id="rooms-climate" title={dt('sectionClimate')} />
                       )}
                     </div>
                   ) : null}
                   {showSensors ? (
-                    <div className="rv2-sec" style={orderStyle('sensors')}>
+                    <div className="rooms-sec" style={orderStyle('sensors')}>
                       <RoomSection
-                        id="rv2-environment"
-                        testId="rooms-v2-sensors"
+                        id="rooms-environment"
+                        testId="rooms-sensors"
                         title={dt('sectionEnvironment')}
                         items={sensorItems}
                         count={String(sensorItems.length)}
                         moreLabel={dt('moreSensors')}
                         renderCard={renderSensor}
                         onOpenPage={() => setSectionOpen('sensors')}
-                        gridClassName="rv2-grid-sensors"
+                        gridClassName="rooms-grid-sensors"
                       />
                     </div>
                   ) : null}
                 </div>
               ) : null}
-              <div className="rv2-column-main">
+              <div className="rooms-column-main">
                 {shows('lights') ? (
-                  <div className="rv2-sec" style={orderStyle('lights')}>
+                  <div className="rooms-sec" style={orderStyle('lights')}>
                     {roomItems.length > 0 ? (
                       <RoomSection
-                        id="rv2-lights"
-                        testId="rooms-v2-lights"
+                        id="rooms-lights"
+                        testId="rooms-lights"
                         title={dt('lights')}
                         items={roomItems}
                         count={`${roomItems.filter((item) => item.active).length}/${roomItems.length}`}
@@ -1418,10 +1418,10 @@ export function RoomsV2Page({
                   </div>
                 ) : null}
                 {deviceItems.length > 0 && shows('switches') ? (
-                  <div className="rv2-sec" style={orderStyle('switches')}>
+                  <div className="rooms-sec" style={orderStyle('switches')}>
                     <RoomSection
-                      id="rv2-devices"
-                      testId="rooms-v2-devices"
+                      id="rooms-devices"
+                      testId="rooms-devices"
                       title={dt('sectionDevices')}
                       items={deviceItems}
                       count={`${deviceItems.filter((item) => item.active).length}/${deviceItems.length}`}
@@ -1435,12 +1435,12 @@ export function RoomsV2Page({
             </div>
 
             {(hasSecurity && shows('security')) || (hasMedia && shows('media')) ? (
-              <div className="rv2-row-wrap">
+              <div className="rooms-row-wrap">
                 {hasSecurity && shows('security') ? (
-                  <div className="rv2-sec min-w-0 flex-[1_1_440px]" style={orderStyle('security')}>
+                  <div className="rooms-sec min-w-0 flex-[1_1_440px]" style={orderStyle('security')}>
                     <RoomSection
-                      id="rv2-security"
-                      testId="rooms-v2-security"
+                      id="rooms-security"
+                      testId="rooms-security"
                       title={dt('sectionSecurity')}
                       items={securityItems}
                       count={String(securityItems.length)}
@@ -1451,16 +1451,16 @@ export function RoomsV2Page({
                   </div>
                 ) : null}
                 {hasMedia && shownPlayer && shows('media') ? (
-                  <div className="rv2-sec min-w-0 flex-[1_1_320px]" style={orderStyle('media')}>
-                    <section id="rv2-media" aria-labelledby="rv2-media-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-v2-media">
+                  <div className="rooms-sec min-w-0 flex-[1_1_320px]" style={orderStyle('media')}>
+                    <section id="rooms-media" aria-labelledby="rooms-media-title" className="flex min-w-0 flex-col gap-3" data-testid="rooms-media">
                       <div className="flex min-h-11 items-center justify-between gap-3">
-                        <h2 id="rv2-media-title" className="rv2-section-heading m-0 px-1">
+                        <h2 id="rooms-media-title" className="rooms-section-heading m-0 px-1">
                           {dt('sectionMedia')}
                         </h2>
                         {roomPlayers.length > 1 ? (
                           <button
                             type="button"
-                            className="dv-glass rv2-player-pick"
+                            className="dv-glass rooms-player-pick"
                             aria-label={dt('mediaPickPlayer', { name: shownPlayer.name })}
                             onClick={() => setMediaSheet('pick')}
                           >
@@ -1572,7 +1572,7 @@ export function RoomsV2Page({
             items={sceneItems}
             candidatesEmptyLabel={dt('noSceneCandidates')}
             renderCard={renderScene}
-            gridClassName="rv2-grid rv2-grid-scenes"
+            gridClassName="rooms-grid rooms-grid-scenes"
             canOrganize={canOrganize}
             canMove={canMove}
             busy={busy}
@@ -1592,7 +1592,7 @@ export function RoomsV2Page({
             items={sensorItems}
             candidatesEmptyLabel={dt('noSensorCandidates')}
             renderCard={renderSensor}
-            gridClassName="rv2-grid-sensors"
+            gridClassName="rooms-grid-sensors"
             canOrganize={canOrganize}
             canMove={canMove}
             busy={busy}
@@ -1829,15 +1829,15 @@ export function RoomsV2Page({
       />
 
       {timerNotice && !sceneUndo ? (
-        <div className="rv2-toast dv-glass" role="status" data-testid="rooms-v2-timer-notice">
+        <div className="rooms-toast dv-glass" role="status" data-testid="rooms-timer-notice">
           <span className="min-w-0 truncate text-sm font-semibold">{timerNotice}</span>
         </div>
       ) : null}
 
       {sceneUndo ? (
-        <div className="rv2-toast dv-glass" role="status" data-testid="rooms-v2-scene-undo">
+        <div className="rooms-toast dv-glass" role="status" data-testid="rooms-scene-undo">
           <span className="min-w-0 truncate text-sm font-semibold">{dt('sceneDone', { name: sceneUndo.name })}</span>
-          <button type="button" className="rv2-toast-action" onClick={undoScene}>
+          <button type="button" className="rooms-toast-action" onClick={undoScene}>
             {dt('undo')}
           </button>
         </div>
@@ -1862,4 +1862,4 @@ export function RoomsV2Page({
   );
 }
 
-export default RoomsV2Page;
+export default RoomsPage;

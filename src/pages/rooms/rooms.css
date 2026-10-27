@@ -2,32 +2,32 @@
 
 /* Marks of the status row: the colour says what is going on, the same in Dark and Light. */
 :root {
-  --rv2-light: #ffd60a;
-  --rv2-light-ink: #3a2a00;
-  --rv2-idle: #8e8e93;
-  --rv2-idle-ink: #ffffff;
-  --rv2-humidity: #32ade6;
-  --rv2-humidity-ink: #ffffff;
-  --rv2-media: #ff375f;
-  --rv2-media-ink: #ffffff;
-  --rv2-heat: rgb(255 122 26);
-  --rv2-heat-ink: #ffffff;
-  --rv2-cool: rgb(10 132 255);
-  --rv2-cool-ink: #ffffff;
-  --rv2-auto: rgb(48 209 88);
-  --rv2-auto-ink: #ffffff;
-  --rv2-dry: rgb(50 173 230);
-  --rv2-dry-ink: #ffffff;
-  --rv2-fan: rgb(148 163 184);
-  --rv2-fan-ink: #ffffff;
-  --rv2-attention: #ff9f0a;
-  --rv2-security: #ff9f0a;
-  --rv2-security-ink: #ffffff;
+  --rooms-light: #ffd60a;
+  --rooms-light-ink: #3a2a00;
+  --rooms-idle: #8e8e93;
+  --rooms-idle-ink: #ffffff;
+  --rooms-humidity: #32ade6;
+  --rooms-humidity-ink: #ffffff;
+  --rooms-media: #ff375f;
+  --rooms-media-ink: #ffffff;
+  --rooms-heat: rgb(255 122 26);
+  --rooms-heat-ink: #ffffff;
+  --rooms-cool: rgb(10 132 255);
+  --rooms-cool-ink: #ffffff;
+  --rooms-auto: rgb(48 209 88);
+  --rooms-auto-ink: #ffffff;
+  --rooms-dry: rgb(50 173 230);
+  --rooms-dry-ink: #ffffff;
+  --rooms-fan: rgb(148 163 184);
+  --rooms-fan-ink: #ffffff;
+  --rooms-attention: #ff9f0a;
+  --rooms-security: #ff9f0a;
+  --rooms-security-ink: #ffffff;
 }
 
-.rv2-main {
+.rooms-main {
   container-type: inline-size;
-  container-name: rv2;
+  container-name: rooms;
   display: flex;
   /* A size container has no width of its own: it takes the page's. */
   width: 100%;
@@ -40,7 +40,7 @@
   color: var(--dv-text);
 }
 
-.rv2-head {
+.rooms-head {
   display: grid;
   grid-template-areas: 'title tools';
   grid-template-columns: minmax(0, 1fr) auto;
@@ -49,7 +49,7 @@
   row-gap: 18px;
 }
 
-.rv2-head-tools {
+.rooms-head-tools {
   position: relative;
   z-index: 5;
   grid-area: tools;
@@ -59,7 +59,7 @@
   gap: 10px;
 }
 
-.rv2-head-title {
+.rooms-head-title {
   display: flex;
   min-width: 0;
   grid-area: title;
@@ -68,7 +68,7 @@
   padding: 0 4px;
 }
 
-.rv2-title {
+.rooms-title {
   margin: 0;
   font-size: clamp(40px, 5.2cqi, 64px);
   font-weight: 700;
@@ -78,18 +78,18 @@
   text-wrap: balance;
 }
 
-@container rv2 (max-width: 760px) {
-  .rv2-head {
+@container rooms (max-width: 760px) {
+  .rooms-head {
     grid-template-areas: 'tools' 'title';
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .rv2-head-tools {
+  .rooms-head-tools {
     justify-content: space-between;
   }
 }
 
-.rv2-strip {
+.rooms-strip {
   display: flex;
   gap: 10px;
   overflow-x: auto;
@@ -98,18 +98,18 @@
   scrollbar-width: none;
 }
 
-.rv2-strip::-webkit-scrollbar {
+.rooms-strip::-webkit-scrollbar {
   display: none;
 }
 
-@container rv2 (max-width: 760px) {
-  .rv2-strip {
+@container rooms (max-width: 760px) {
+  .rooms-strip {
     margin: -6px -16px;
     padding: 6px 16px;
   }
 }
 
-.rv2-room-pill {
+.rooms-room-pill {
   display: flex;
   height: 44px;
   flex: none;
@@ -125,14 +125,14 @@
   transition: background 260ms ease, color 260ms ease, box-shadow 260ms ease;
 }
 
-.rv2-room-pill.is-on {
+.rooms-room-pill.is-on {
   border-color: transparent;
   background: var(--dv-pill-on);
   color: var(--dv-pill-on-ink);
   box-shadow: 0 12px 30px -14px rgb(0 0 0 / 0.6);
 }
 
-.rv2-floor-menu {
+.rooms-floor-menu {
   position: absolute;
   top: 52px;
   right: 0;
@@ -141,23 +141,23 @@
   box-sizing: border-box;
 }
 
-@container rv2 (max-width: 760px) {
+@container rooms (max-width: 760px) {
   /* On a phone the floor pill is on the left: the menu opens from there. */
-  .rv2-floor-menu {
+  .rooms-floor-menu {
     right: auto;
     left: 0;
   }
 }
 
-.rv2-alert-dot {
+.rooms-alert-dot {
   height: 8px;
   width: 8px;
   border-radius: 4px;
-  background: var(--rv2-attention);
+  background: var(--rooms-attention);
   box-shadow: 0 0 10px rgb(255 159 10 / 0.9);
 }
 
-.rv2-chip {
+.rooms-chip {
   display: flex;
   height: 56px;
   box-sizing: border-box;
@@ -169,11 +169,11 @@
   text-align: left;
 }
 
-button.rv2-chip {
+button.rooms-chip {
   cursor: pointer;
 }
 
-.rv2-chip-mark {
+.rooms-chip-mark {
   display: flex;
   height: 40px;
   width: 40px;
@@ -185,14 +185,14 @@ button.rv2-chip {
 }
 
 /* Sections side by side when there is room: climate and environment, then lights and devices. */
-.rv2-columns {
+.rooms-columns {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
   gap: 28px;
 }
 
-.rv2-column-side {
+.rooms-column-side {
   display: flex;
   min-width: 0;
   flex: 1 1 380px;
@@ -200,7 +200,7 @@ button.rv2-chip {
   gap: 28px;
 }
 
-.rv2-column-main {
+.rooms-column-main {
   display: flex;
   min-width: 0;
   flex: 999 1 560px;
@@ -209,70 +209,70 @@ button.rv2-chip {
 }
 
 /* Climate: the main unit across two columns, the other units as small cards. */
-.rv2-climate-grid {
+.rooms-climate-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   gap: 10px;
 }
 
-.rv2-climate-main {
+.rooms-climate-main {
   grid-column: span 2;
 }
 
-.rv2-climate-extra {
+.rooms-climate-extra {
   height: 82px;
 }
 
 @media (max-width: 480px) {
-  .rv2-climate-grid {
+  .rooms-climate-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-.rv2-row-wrap {
+.rooms-row-wrap {
   display: flex;
   flex-wrap: wrap;
   gap: 28px;
 }
 
 /* The sections of a room; on a phone, one below the other in the order chosen in "Stanze e sezioni". */
-.rv2-secs {
+.rooms-secs {
   display: flex;
   min-width: 0;
   flex-direction: column;
   gap: 26px;
 }
 
-.rv2-sec {
+.rooms-sec {
   min-width: 0;
 }
 
-@container rv2 (max-width: 760px) {
-  .rv2-columns,
-  .rv2-column-side,
-  .rv2-column-main,
-  .rv2-row-wrap {
+@container rooms (max-width: 760px) {
+  .rooms-columns,
+  .rooms-column-side,
+  .rooms-column-main,
+  .rooms-row-wrap {
     display: contents;
   }
 
-  .rv2-secs {
+  .rooms-secs {
     gap: 28px;
   }
 
-  .rv2-secs .rv2-sec {
+  .rooms-secs .rooms-sec {
     order: var(--ord);
     flex: none;
   }
 }
 
-.rv2-section-heading {
+.rooms-section-heading {
   margin: 0;
   font-size: 21px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.rv2-add-row {
+.rooms-add-row {
   display: flex;
   min-height: 60px;
   align-items: center;
@@ -283,11 +283,11 @@ button.rv2-chip {
   text-align: left;
 }
 
-button.rv2-add-row {
+button.rooms-add-row {
   cursor: pointer;
 }
 
-.rv2-grid {
+.rooms-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
   grid-auto-rows: 82px;
@@ -295,34 +295,34 @@ button.rv2-add-row {
 }
 
 @media (max-width: 480px) {
-  .rv2-grid {
+  .rooms-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 /* Scenes: a strip in the room, a grid of pills on their page. */
-.rv2-scene-strip > .dv-scene,
-.rv2-scene-strip > .rv2-more {
+.rooms-scene-strip > .dv-scene,
+.rooms-scene-strip > .rooms-more {
   flex: none;
 }
 
-.rv2-scene-strip > .rv2-more {
+.rooms-scene-strip > .rooms-more {
   height: 64px;
   width: auto;
   min-width: 132px;
   border-radius: 22px;
 }
 
-.rv2-grid-scenes {
+.rooms-grid-scenes {
   grid-auto-rows: 64px;
 }
 
-.rv2-grid-scenes > .dv-scene {
+.rooms-grid-scenes > .dv-scene {
   min-width: 0;
 }
 
 /* The undo of a scene: above the app navigation and the section page. */
-.rv2-toast {
+.rooms-toast {
   position: fixed;
   bottom: calc(env(safe-area-inset-bottom) + 104px);
   left: 50%;
@@ -338,12 +338,12 @@ button.rv2-add-row {
 }
 
 @media (min-width: 761px) {
-  .rv2-toast {
+  .rooms-toast {
     bottom: 28px;
   }
 }
 
-.rv2-toast-action {
+.rooms-toast-action {
   height: 36px;
   flex: none;
   border: 0;
@@ -357,24 +357,24 @@ button.rv2-add-row {
 }
 
 /* Sensors: taller cards, two side by side in the room as on the design board. */
-.rv2-grid-sensors {
+.rooms-grid-sensors {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   grid-auto-rows: 140px;
   gap: 10px;
 }
 
-.rv2-page .rv2-grid-sensors {
+.rooms-page .rooms-grid-sensors {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
 }
 
 @media (max-width: 480px) {
-  .rv2-page .rv2-grid-sensors {
+  .rooms-page .rooms-grid-sensors {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-.rv2-more {
+.rooms-more {
   display: flex;
   height: 100%;
   width: 100%;
@@ -392,7 +392,7 @@ button.rv2-add-row {
   backdrop-filter: blur(24px) saturate(170%);
 }
 
-.rv2-more-count {
+.rooms-more-count {
   display: flex;
   height: 44px;
   width: 44px;
@@ -405,7 +405,7 @@ button.rv2-add-row {
   font-weight: 700;
 }
 
-.rv2-title-button {
+.rooms-title-button {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -419,7 +419,7 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-pill {
+.rooms-pill {
   height: 36px;
   border-radius: 18px;
   padding: 0 14px;
@@ -429,7 +429,7 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-page {
+.rooms-page {
   position: fixed;
   inset: 0;
   /* Above the app navigation (170), below panels and sheets (260). */
@@ -439,10 +439,10 @@ button.rv2-add-row {
   color: var(--dv-text);
   -webkit-backdrop-filter: blur(30px) saturate(160%);
   backdrop-filter: blur(30px) saturate(160%);
-  animation: rv2-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: rooms-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.rv2-page-inner {
+.rooms-page-inner {
   display: flex;
   min-height: 100%;
   max-width: 1120px;
@@ -453,17 +453,17 @@ button.rv2-add-row {
   padding: 28px 28px 24px;
 }
 
-.rv2-page .rv2-grid {
+.rooms-page .rooms-grid {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
 }
 
 @media (max-width: 480px) {
-  .rv2-page .rv2-grid {
+  .rooms-page .rooms-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-.rv2-bar {
+.rooms-bar {
   position: sticky;
   bottom: 16px;
   z-index: 2;
@@ -477,7 +477,7 @@ button.rv2-add-row {
   padding: 8px 8px 8px 18px;
 }
 
-.rv2-action {
+.rooms-action {
   display: flex;
   height: 56px;
   min-width: 64px;
@@ -495,21 +495,21 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-action:hover {
+.rooms-action:hover {
   background: var(--dv-icon-off);
 }
 
-.rv2-action:disabled {
+.rooms-action:disabled {
   background: transparent;
   cursor: default;
   opacity: 0.35;
 }
 
-.rv2-danger {
+.rooms-danger {
   color: var(--dv-red);
 }
 
-.rv2-row {
+.rooms-row {
   display: flex;
   min-height: 56px;
   width: 100%;
@@ -523,11 +523,11 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-row + .rv2-row {
+.rooms-row + .rooms-row {
   border-top: 1px solid var(--dv-separator);
 }
 
-.rv2-radio {
+.rooms-radio {
   display: flex;
   height: 24px;
   width: 24px;
@@ -540,37 +540,37 @@ button.rv2-add-row {
   color: transparent;
 }
 
-.rv2-radio.is-on {
+.rooms-radio.is-on {
   border-color: var(--dv-select);
   background: var(--dv-select);
   color: #ffffff;
 }
 
 @media (max-width: 760px) {
-  .rv2-page-inner {
+  .rooms-page-inner {
     padding: 20px 16px 16px;
   }
 
-  .rv2-bar {
+  .rooms-bar {
     padding: 8px;
   }
 
-  .rv2-bar-count {
+  .rooms-bar-count {
     width: 100%;
     padding: 2px 10px 0;
   }
 
-  .rv2-bar-actions {
+  .rooms-bar-actions {
     width: 100%;
   }
 
-  .rv2-action {
+  .rooms-action {
     min-width: 0;
     flex: 1;
   }
 }
 
-@keyframes rv2-in {
+@keyframes rooms-in {
   from {
     opacity: 0;
     transform: translateY(16px);
@@ -583,14 +583,14 @@ button.rv2-add-row {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .rv2-page {
+  .rooms-page {
     animation: none;
   }
 }
 
 /* Media: the player chooser in the heading, and the rows and "resume" of its sheets. */
 
-.rv2-player-pick {
+.rooms-player-pick {
   display: flex;
   height: 34px;
   max-width: 60%;
@@ -605,14 +605,14 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-player-pick:focus-visible,
-.rv2-media-row:focus-visible,
-.rv2-resume:focus-visible {
+.rooms-player-pick:focus-visible,
+.rooms-media-row:focus-visible,
+.rooms-resume:focus-visible {
   outline: 2px solid var(--dv-focus);
   outline-offset: 2px;
 }
 
-.rv2-media-row {
+.rooms-media-row {
   display: flex;
   min-height: 60px;
   width: 100%;
@@ -625,11 +625,11 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-media-row + .rv2-media-row {
+.rooms-media-row + .rooms-media-row {
   border-top: 1px solid var(--dv-separator);
 }
 
-.rv2-resume {
+.rooms-resume {
   position: relative;
   isolation: isolate;
   display: flex;
@@ -645,7 +645,7 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-resume::after {
+.rooms-resume::after {
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -653,7 +653,7 @@ button.rv2-add-row {
   content: '';
 }
 
-.rv2-resume-bg {
+.rooms-resume-bg {
   position: absolute;
   inset: -40px;
   z-index: -2;
@@ -661,11 +661,11 @@ button.rv2-add-row {
   opacity: 0.9;
 }
 
-.rv2-resume-bg svg {
+.rooms-resume-bg svg {
   display: none;
 }
 
-.rv2-resume-art {
+.rooms-resume-art {
   position: relative;
   height: 64px;
   width: 64px;
@@ -676,7 +676,7 @@ button.rv2-add-row {
 
 /* The room sheet: a choice of sensor looks like the name field above it. */
 
-.dv-panel .rv2-select {
+.dv-panel .rooms-select {
   height: 46px;
   border: 1px solid var(--dv-tile-off-border);
   border-radius: 23px;
@@ -690,22 +690,22 @@ button.rv2-add-row {
   backdrop-filter: none;
 }
 
-.dv-panel .rv2-select::after {
+.dv-panel .rooms-select::after {
   display: none;
 }
 
-.dv-panel .rv2-select:focus-visible {
+.dv-panel .rooms-select:focus-visible {
   outline: 2px solid var(--dv-focus);
   outline-offset: 1px;
 }
 
-.rv2-icon-grid {
+.rooms-icon-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
   gap: 8px;
 }
 
-.rv2-icon-choice {
+.rooms-icon-choice {
   display: flex;
   height: 48px;
   align-items: center;
@@ -717,18 +717,18 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-icon-choice.is-on {
+.rooms-icon-choice.is-on {
   background: var(--dv-pill-on);
   color: var(--dv-pill-on-ink);
 }
 
-.rv2-icon-choice:focus-visible {
+.rooms-icon-choice:focus-visible {
   outline: 2px solid var(--dv-focus);
   outline-offset: 2px;
 }
 
 /* The "+" menu of the head, as the floor menu. */
-.rv2-add-menu {
+.rooms-add-menu {
   position: absolute;
   top: 52px;
   right: 0;
@@ -741,7 +741,7 @@ button.rv2-add-row {
   padding: 6px;
 }
 
-.rv2-add-menu button {
+.rooms-add-menu button {
   display: flex;
   height: 46px;
   align-items: center;
@@ -757,17 +757,17 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-add-menu button:hover {
+.rooms-add-menu button:hover {
   background: var(--dv-icon-off);
 }
 
-.rv2-add-menu button:focus-visible {
+.rooms-add-menu button:focus-visible {
   outline: 2px solid var(--dv-focus);
   outline-offset: -2px;
 }
 
 /* The room sheet of the board. */
-.rv2-room-preview {
+.rooms-room-preview {
   display: flex;
   height: 88px;
   align-items: center;
@@ -781,7 +781,7 @@ button.rv2-add-row {
   letter-spacing: -0.02em;
 }
 
-.rv2-text-input {
+.rooms-text-input {
   height: 46px;
   width: 100%;
   box-sizing: border-box;
@@ -794,16 +794,16 @@ button.rv2-add-row {
   font-size: 15px;
 }
 
-.rv2-text-input:focus-visible {
+.rooms-text-input:focus-visible {
   outline: 2px solid var(--dv-focus);
   outline-offset: 1px;
 }
 
-.rv2-text-input:disabled {
+.rooms-text-input:disabled {
   opacity: 0.6;
 }
 
-.rv2-swatch {
+.rooms-swatch {
   display: flex;
   height: 44px;
   width: 44px;
@@ -817,14 +817,14 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-swatch span {
+.rooms-swatch span {
   height: 32px;
   width: 32px;
   border-radius: 50%;
   transition: box-shadow 200ms ease;
 }
 
-.rv2-sheet-button {
+.rooms-sheet-button {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -840,56 +840,56 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-sheet-button.is-primary {
+.rooms-sheet-button.is-primary {
   background: var(--dv-pill-on);
   color: var(--dv-pill-on-ink);
 }
 
-.rv2-sheet-button.is-danger {
+.rooms-sheet-button.is-danger {
   color: #ff453a;
 }
 
-.rv2-sheet-button:disabled {
+.rooms-sheet-button:disabled {
   cursor: default;
   opacity: 0.4;
 }
 
 /* "Stanze e sezioni": its segmented controls as wide as their choices, as on the board. */
-.rv2-seg-shared {
+.rooms-seg-shared {
   width: fit-content;
   max-width: 100%;
   align-self: flex-start;
 }
 
-.rv2-manage-cols {
+.rooms-manage-cols {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(360px, 100%), 1fr));
   align-items: start;
   gap: 20px;
 }
 
-.rv2-manage-list {
+.rooms-manage-list {
   border-radius: 22px;
   padding: 2px 14px;
 }
 
-.rv2-manage-row {
+.rooms-manage-row {
   display: flex;
   min-height: 60px;
   align-items: center;
   gap: 10px;
 }
 
-.rv2-manage-row + .rv2-manage-row {
+.rooms-manage-row + .rooms-manage-row {
   border-top: 1px solid var(--dv-separator);
 }
 
-.rv2-manage-row.is-dim .rv2-room-badge,
-.rv2-manage-row.is-dim .rv2-manage-main {
+.rooms-manage-row.is-dim .rooms-room-badge,
+.rooms-manage-row.is-dim .rooms-manage-main {
   opacity: 0.5;
 }
 
-.rv2-manage-main {
+.rooms-manage-main {
   display: flex;
   min-width: 0;
   flex: 1;
@@ -904,11 +904,11 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-manage-main:disabled {
+.rooms-manage-main:disabled {
   cursor: default;
 }
 
-.rv2-room-badge {
+.rooms-room-badge {
   display: flex;
   height: 40px;
   width: 40px;
@@ -919,7 +919,7 @@ button.rv2-add-row {
   color: #ffffff;
 }
 
-.rv2-now {
+.rooms-now {
   flex: none;
   border-radius: 9px;
   background: var(--dv-pill-on);
@@ -929,7 +929,7 @@ button.rv2-add-row {
   font-weight: 700;
 }
 
-.rv2-step {
+.rooms-step {
   display: flex;
   height: 36px;
   width: 36px;
@@ -943,16 +943,16 @@ button.rv2-add-row {
   cursor: pointer;
 }
 
-.rv2-step.is-danger {
+.rooms-step.is-danger {
   color: #ff453a;
 }
 
-.rv2-step[aria-disabled='true'] {
+.rooms-step[aria-disabled='true'] {
   cursor: default;
   opacity: 0.3;
 }
 
-.rv2-inline-input {
+.rooms-inline-input {
   height: 36px;
   width: 100%;
   box-sizing: border-box;
@@ -966,18 +966,18 @@ button.rv2-add-row {
   font-weight: 600;
 }
 
-.rv2-inline-input:hover:not(:disabled) {
+.rooms-inline-input:hover:not(:disabled) {
   background: var(--dv-icon-off);
 }
 
-.rv2-inline-input:focus {
+.rooms-inline-input:focus {
   border-color: var(--dv-focus);
   background: var(--dv-icon-off);
   padding: 0 8px;
   outline: none;
 }
 
-.rv2-manage-sections {
+.rooms-manage-sections {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -985,7 +985,7 @@ button.rv2-add-row {
 }
 
 /* A phone with the sections in their order, beside the list on a large screen. */
-.rv2-phone {
+.rooms-phone {
   position: relative;
   display: flex;
   min-height: 440px;
@@ -1000,7 +1000,7 @@ button.rv2-add-row {
   padding: 44px 14px 18px;
 }
 
-.rv2-phone-notch {
+.rooms-phone-notch {
   position: absolute;
   top: 10px;
   left: 50%;
@@ -1011,14 +1011,14 @@ button.rv2-add-row {
   transform: translateX(-50%);
 }
 
-.rv2-phone-title {
+.rooms-phone-title {
   padding: 0 2px 4px;
   font-size: 20px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.rv2-phone-block {
+.rooms-phone-block {
   display: flex;
   flex: none;
   align-items: center;
@@ -1031,7 +1031,7 @@ button.rv2-add-row {
   transition: height 200ms ease;
 }
 
-.rv2-phone-block b {
+.rooms-phone-block b {
   display: flex;
   height: 18px;
   width: 18px;
@@ -1043,14 +1043,14 @@ button.rv2-add-row {
   font-size: 10px;
 }
 
-@container rv2 (max-width: 760px) {
-  .rv2-add-menu {
+@container rooms (max-width: 760px) {
+  .rooms-add-menu {
     right: 0;
   }
 }
 
 @media (max-width: 760px) {
-  .rv2-phone {
+  .rooms-phone {
     display: none;
   }
 }

@@ -44,7 +44,7 @@ export function MediaPickPanel({
             type="button"
             role="radio"
             aria-checked={model.entityId === shownId}
-            className="rv2-media-row"
+            className="rooms-media-row"
             onClick={() => onPick(model.entityId)}
           >
             <span className="dv-icon-button pointer-events-none !h-10 !w-10" aria-hidden="true">
@@ -105,9 +105,9 @@ export function MediaStartPanel({
       </div>
 
       {model.title && model.supports.turnOn ? (
-        <button type="button" className="rv2-resume" onClick={onResume}>
-          <MediaArt model={model} pictureUrl={pictureUrl} className="rv2-resume-bg" />
-          <MediaArt model={model} pictureUrl={pictureUrl} className="rv2-resume-art" />
+        <button type="button" className="rooms-resume" onClick={onResume}>
+          <MediaArt model={model} pictureUrl={pictureUrl} className="rooms-resume-bg" />
+          <MediaArt model={model} pictureUrl={pictureUrl} className="rooms-resume-art" />
           <span className="relative flex min-w-0 flex-1 flex-col gap-0.5 text-left">
             <span className="text-xs font-bold uppercase tracking-[0.06em] opacity-75">
               {model.kind === 'tv' ? dt('mediaResumeWatch') : dt('mediaResumeListen')}
@@ -126,7 +126,7 @@ export function MediaStartPanel({
           <span className="dv-t2 text-[13px] font-bold">{dt('mediaSourceLabel')}</span>
           <div className="dv-card !py-0">
             {sources.map((source) => (
-              <button key={source} type="button" className="rv2-media-row" onClick={() => onSource(source)}>
+              <button key={source} type="button" className="rooms-media-row" onClick={() => onSource(source)}>
                 <span className="flex-1 text-left text-[15px] font-semibold">{source}</span>
                 <Play size={16} strokeWidth={0} fill="currentColor" aria-hidden="true" className="dv-t3" />
               </button>

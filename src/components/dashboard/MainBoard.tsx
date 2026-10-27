@@ -433,7 +433,7 @@ import {
 const loadConsumptionDashboard = () => import('../../pages/Consumi');
 const loadAutomationsBuilder = () => import('../../pages/AutomationsBuilder');
 const loadAppGallery = () => import('../../pages/AppGallery');
-const loadRoomsDashboard = () => import('../../pages/rooms-v2/RoomsV2Page');
+const loadRoomsDashboard = () => import('../../pages/rooms/RoomsPage');
 const loadSecurityDashboard = () => import('../../pages/SecurityDashboard');
 const loadSettingsDashboard = () => import('../../pages/SettingsDashboard');
 const loadRightSidebarManager = () =>

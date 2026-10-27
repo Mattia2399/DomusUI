@@ -71,7 +71,7 @@ export type ManagedRoom = {
 
 function Step({ label, disabled, onClick, children, danger = false }: { label: string; disabled?: boolean; onClick: () => void; children: React.ReactNode; danger?: boolean }) {
   return (
-    <button type="button" className={clsx('rv2-step', danger && 'is-danger')} aria-label={label} aria-disabled={disabled || undefined} onClick={() => !disabled && onClick()}>
+    <button type="button" className={clsx('rooms-step', danger && 'is-danger')} aria-label={label} aria-disabled={disabled || undefined} onClick={() => !disabled && onClick()}>
       {children}
     </button>
   );
@@ -90,7 +90,7 @@ function FloorName({ name, label, disabled, onRename }: { name: string; label: s
     <label className="block">
       <span className="sr-only">{label}</span>
       <input
-        className="rv2-inline-input"
+        className="rooms-inline-input"
         value={value}
         disabled={disabled}
         onChange={(event) => setValue(event.target.value)}
@@ -187,20 +187,20 @@ export function RoomsManagePage({
   });
 
   return (
-    <div ref={pageRef} className="rv2-page" role="dialog" aria-modal="true" aria-labelledby="rv2-manage-title" data-testid="rooms-v2-manage">
-      <div className="rv2-page-inner">
+    <div ref={pageRef} className="rooms-page" role="dialog" aria-modal="true" aria-labelledby="rooms-manage-title" data-testid="rooms-manage">
+      <div className="rooms-page-inner">
         <div className="flex items-center justify-between gap-3">
-          <button type="button" className="dv-glass rv2-pill inline-flex !h-11 items-center gap-1.5 !rounded-[22px] !pl-2.5 !pr-4 !text-[15px]" onClick={onClose}>
+          <button type="button" className="dv-glass rooms-pill inline-flex !h-11 items-center gap-1.5 !rounded-[22px] !pl-2.5 !pr-4 !text-[15px]" onClick={onClose}>
             <ChevronLeft size={18} strokeWidth={2.4} aria-hidden="true" />
             <span className="max-w-[40vw] truncate">{currentRoom?.name ?? rt('close')}</span>
           </button>
           {tab === 'rooms' ? (
-            <button type="button" className="dv-glass rv2-pill inline-flex !h-11 items-center gap-1.5 !rounded-[22px] !pl-3 !pr-4 !text-[15px]" onClick={onNewRoom}>
+            <button type="button" className="dv-glass rooms-pill inline-flex !h-11 items-center gap-1.5 !rounded-[22px] !pl-3 !pr-4 !text-[15px]" onClick={onNewRoom}>
               <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
               {rt('newRoom')}
             </button>
           ) : tab === 'floors' && canManageFloors ? (
-            <button type="button" className="dv-glass rv2-pill inline-flex !h-11 items-center gap-1.5 !rounded-[22px] !pl-3 !pr-4 !text-[15px]" disabled={busy} onClick={onNewFloor}>
+            <button type="button" className="dv-glass rooms-pill inline-flex !h-11 items-center gap-1.5 !rounded-[22px] !pl-3 !pr-4 !text-[15px]" disabled={busy} onClick={onNewFloor}>
               <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
               {rt('newFloor')}
             </button>
@@ -208,14 +208,14 @@ export function RoomsManagePage({
         </div>
 
         <div className="flex flex-col gap-1.5 px-1">
-          <h1 id="rv2-manage-title" className="m-0 text-[clamp(34px,4.2cqi,48px)] font-bold leading-[1.05] tracking-[-0.035em]">
+          <h1 id="rooms-manage-title" className="m-0 text-[clamp(34px,4.2cqi,48px)] font-bold leading-[1.05] tracking-[-0.035em]">
             {rt('roomsAndSections')}
           </h1>
           <p className="dv-t2 m-0 text-[15px] font-medium">{subtitle}</p>
         </div>
 
         <GlassSegmentSelect<ManageTab>
-          className="rv2-seg-shared"
+          className="rooms-seg-shared"
           ariaLabel={rt('manageWhat')}
           options={tabs.map(([key, label]) => ({ value: key, label }))}
           value={tab}
@@ -230,35 +230,35 @@ export function RoomsManagePage({
 
         {tab === 'rooms' ? (
           <>
-            <div className="rv2-manage-cols">
+            <div className="rooms-manage-cols">
               {groups.map((group) => (
                 <section key={group.key || 'none'} className="flex flex-col gap-2" aria-label={group.name}>
                   <div className="flex items-baseline justify-between px-1">
                     <span className="text-[17px] font-bold">{group.name}</span>
                     <span className="dv-t3 text-[13px] font-semibold">{countRooms(group.rooms.length)}</span>
                   </div>
-                  <div className="dv-glass rv2-manage-list">
-                    {group.rooms.length === 0 ? <div className="rv2-manage-row dv-t2 text-sm font-medium">{rt('noRoomsOnFloor')}</div> : null}
+                  <div className="dv-glass rooms-manage-list">
+                    {group.rooms.length === 0 ? <div className="rooms-manage-row dv-t2 text-sm font-medium">{rt('noRoomsOnFloor')}</div> : null}
                     {group.rooms.map((room, index) => {
                       const Icon = ROOM_ICONS[room.icon];
                       const sub = [room.devices === 1 ? rt('devicesOne') : rt('devicesMany', { count: room.devices }), room.hidden ? rt('hiddenTag') : null]
                         .filter(Boolean)
                         .join(' · ');
                       return (
-                        <div key={room.tab.id} className={clsx('rv2-manage-row', room.hidden && 'is-dim')}>
-                          <span className="rv2-room-badge" aria-hidden="true" style={{ background: glowCss(room.glow) }}>
+                        <div key={room.tab.id} className={clsx('rooms-manage-row', room.hidden && 'is-dim')}>
+                          <span className="rooms-room-badge" aria-hidden="true" style={{ background: glowCss(room.glow) }}>
                             <Icon size={19} strokeWidth={2} />
                           </span>
                           <button
                             type="button"
-                            className="rv2-manage-main"
+                            className="rooms-manage-main"
                             disabled={!room.editable}
                             aria-label={rt('editNamed', { name: room.tab.name })}
                             onClick={() => onEditRoom(room.tab)}
                           >
                             <span className="flex min-w-0 items-center gap-1.5">
                               <span className="truncate text-[15px] font-semibold">{room.tab.name}</span>
-                              {room.tab.id === currentRoom?.id ? <span className="rv2-now">{rt('roomOpenTag')}</span> : null}
+                              {room.tab.id === currentRoom?.id ? <span className="rooms-now">{rt('roomOpenTag')}</span> : null}
                             </span>
                             <span className="dv-t2 text-[13px] font-medium">{sub}</span>
                           </button>
@@ -282,13 +282,13 @@ export function RoomsManagePage({
 
         {tab === 'floors' ? (
           <>
-            <div className="dv-glass rv2-manage-list max-w-[640px]">
-              {floors.length === 0 ? <div className="rv2-manage-row dv-t2 text-sm font-medium">{rt('noFloors')}</div> : null}
+            <div className="dv-glass rooms-manage-list max-w-[640px]">
+              {floors.length === 0 ? <div className="rooms-manage-row dv-t2 text-sm font-medium">{rt('noFloors')}</div> : null}
               {floors.map((floor, index) => {
                 const count = rooms.filter((room) => room.floorId === floor.id).length;
                 const canDelete = canManageFloors && count === 0;
                 return (
-                  <div key={floor.id} className="rv2-manage-row">
+                  <div key={floor.id} className="rooms-manage-row">
                     <span className="dv-icon-button pointer-events-none !h-10 !w-10 !rounded-[13px]" aria-hidden="true">
                       <Layers size={18} strokeWidth={2} />
                     </span>
@@ -319,11 +319,11 @@ export function RoomsManagePage({
         ) : null}
 
         {tab === 'sections' ? (
-          <div className="rv2-manage-sections">
+          <div className="rooms-manage-sections">
             <div className="flex min-w-0 max-w-[560px] flex-[1_1_360px] flex-col gap-3">
               {currentRoom ? (
                 <GlassSegmentSelect<'all' | 'room'>
-                  className="rv2-seg-shared"
+                  className="rooms-seg-shared"
                   ariaLabel={rt('scopeAria')}
                   options={[
                     { value: 'all', label: rt('scopeAll') },
@@ -345,13 +345,13 @@ export function RoomsManagePage({
                   ) : null}
                 </div>
               ) : null}
-              <div className="dv-glass rv2-manage-list">
+              <div className="dv-glass rooms-manage-list">
                 {sections.order.map((key, index) => {
                   const Icon = SECTION_ICON[key];
                   const name = dt(SECTION_LABEL[key]);
                   const on = !sections.hidden[key];
                   return (
-                    <div key={key} className="rv2-manage-row">
+                    <div key={key} className="rooms-manage-row">
                       <span className={clsx('dv-icon-button pointer-events-none !h-9 !w-9 !rounded-[11px]', !on && 'opacity-45')} aria-hidden="true">
                         <Icon size={17} strokeWidth={2} />
                       </span>
@@ -371,13 +371,13 @@ export function RoomsManagePage({
               </div>
               <p className="dv-t2 m-0 px-1 text-[13px] font-medium leading-[1.45]">{rt('sectionsNote')}</p>
             </div>
-            <div className="rv2-phone" aria-hidden="true">
-              <span className="rv2-phone-notch" />
-              <span className="rv2-phone-title">{currentRoom?.name}</span>
+            <div className="rooms-phone" aria-hidden="true">
+              <span className="rooms-phone-notch" />
+              <span className="rooms-phone-title">{currentRoom?.name}</span>
               {sections.order
                 .filter((key) => !sections.hidden[key])
                 .map((key, index) => (
-                  <span key={key} className="rv2-phone-block" style={{ height: PREVIEW_HEIGHT[key] }}>
+                  <span key={key} className="rooms-phone-block" style={{ height: PREVIEW_HEIGHT[key] }}>
                     <b>{index + 1}</b>
                     {dt(SECTION_LABEL[key])}
                   </span>

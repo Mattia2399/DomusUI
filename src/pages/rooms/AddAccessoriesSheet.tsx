@@ -10,7 +10,7 @@ export type AccessoryCandidate = { id: string; name: string; roomName: string | 
 
 export function SelectionMark({ on }: { on: boolean }) {
   return (
-    <span className={clsx('rv2-radio', on && 'is-on')} aria-hidden="true">
+    <span className={clsx('rooms-radio', on && 'is-on')} aria-hidden="true">
       <Check size={12} strokeWidth={3.2} />
     </span>
   );
@@ -80,7 +80,7 @@ export function AddAccessoriesSheet({
               <button
                 key={candidate.id}
                 type="button"
-                className="rv2-row"
+                className="rooms-row"
                 aria-pressed={Boolean(chosen[candidate.id])}
                 onClick={() => setChosen((current) => ({ ...current, [candidate.id]: !current[candidate.id] }))}
               >

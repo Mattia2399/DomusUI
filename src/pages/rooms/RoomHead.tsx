@@ -97,7 +97,7 @@ function FloorMenu({ floors, selectedId, onSelect }: { floors: FloorOption[]; se
     <div ref={ref} className="relative">
       <button
         type="button"
-        className="dv-glass rv2-room-pill !pl-4 !pr-3.5"
+        className="dv-glass rooms-room-pill !pl-4 !pr-3.5"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -106,7 +106,7 @@ function FloorMenu({ floors, selectedId, onSelect }: { floors: FloorOption[]; se
         <ChevronDown size={16} strokeWidth={2.4} aria-hidden="true" className={clsx('transition-transform', open && 'rotate-180')} />
       </button>
       {open ? (
-        <div role="menu" aria-label={dt('floor')} className="dv-glass rv2-floor-menu flex flex-col rounded-[22px] p-1.5">
+        <div role="menu" aria-label={dt('floor')} className="dv-glass rooms-floor-menu flex flex-col rounded-[22px] p-1.5">
           {floors.map((floor) => (
             <button
               key={floor.id}
@@ -160,7 +160,7 @@ function AddMenu({ onNewRoom, onAddDevice }: { onNewRoom?: () => void; onAddDevi
         <Plus size={20} strokeWidth={2.2} aria-hidden="true" />
       </button>
       {open ? (
-        <div role="menu" aria-label={rt('add')} className="dv-glass rv2-add-menu">
+        <div role="menu" aria-label={rt('add')} className="dv-glass rooms-add-menu">
           {items.map(({ key, label, Icon, run }) => (
             <button
               key={key}
@@ -219,8 +219,8 @@ export function RoomHead({
 
   return (
     <>
-      <div className="rv2-head">
-        <div className="rv2-head-tools">
+      <div className="rooms-head">
+        <div className="rooms-head-tools">
           <FloorMenu floors={floors} selectedId={selectedFloorId} onSelect={onSelectFloor} />
           <div className="flex gap-2.5">
             <AddMenu onNewRoom={onNewRoom} onAddDevice={onAddDevice} />
@@ -231,15 +231,15 @@ export function RoomHead({
             ) : null}
           </div>
         </div>
-        <div className="rv2-head-title">
-          <h1 className="rv2-title" aria-live="polite">
+        <div className="rooms-head-title">
+          <h1 className="rooms-title" aria-live="polite">
             {name}
           </h1>
           <p className="dv-t2 m-0 text-base font-medium">{subtitle}</p>
         </div>
       </div>
 
-      <nav aria-label={dt('roomsNav')} className="rv2-strip">
+      <nav aria-label={dt('roomsNav')} className="rooms-strip">
         {rooms.map((room) => {
           const Icon = ROOM_ICONS[room.icon];
           const current = room.id === activeRoomId;
@@ -247,25 +247,25 @@ export function RoomHead({
             <button
               key={room.id}
               type="button"
-              className={clsx('dv-glass rv2-room-pill', current && 'is-on')}
+              className={clsx('dv-glass rooms-room-pill', current && 'is-on')}
               aria-current={current ? 'page' : undefined}
               onClick={() => onSelectRoom(room.id)}
             >
               <Icon size={18} strokeWidth={2} aria-hidden="true" />
               <span>{room.name}</span>
-              {room.alert ? <span role="img" aria-label={dt('needsAttention')} className="rv2-alert-dot" /> : null}
+              {room.alert ? <span role="img" aria-label={dt('needsAttention')} className="rooms-alert-dot" /> : null}
             </button>
           );
         })}
       </nav>
 
       {chips.length > 0 ? (
-        <div className="rv2-strip" role="list">
+        <div className="rooms-strip" role="list">
           {chips.map((chip) => {
             const Icon = CHIP_ICONS[chip.key];
             const content = (
               <>
-                <span className="rv2-chip-mark" style={{ background: `var(--rv2-${chip.tone})`, color: `var(--rv2-${chip.tone}-ink)` }}>
+                <span className="rooms-chip-mark" style={{ background: `var(--rooms-${chip.tone})`, color: `var(--rooms-${chip.tone}-ink)` }}>
                   <Icon size={18} strokeWidth={2.2} aria-hidden="true" />
                 </span>
                 <span className="flex flex-col gap-px">
@@ -277,11 +277,11 @@ export function RoomHead({
             return (
               <div key={chip.key} role="listitem" className="flex-none">
                 {chip.target ? (
-                  <button type="button" className="dv-glass rv2-chip" onClick={() => goTo(chip.target)}>
+                  <button type="button" className="dv-glass rooms-chip" onClick={() => goTo(chip.target)}>
                     {content}
                   </button>
                 ) : (
-                  <span className="dv-glass rv2-chip">{content}</span>
+                  <span className="dv-glass rooms-chip">{content}</span>
                 )}
               </div>
             );

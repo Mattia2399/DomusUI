@@ -43,7 +43,7 @@ export function SectionPage<T extends SectionItem>({
   items,
   candidatesEmptyLabel,
   renderCard,
-  gridClassName = 'rv2-grid',
+  gridClassName = 'rooms-grid',
   canOrganize,
   canMove,
   busy,
@@ -107,8 +107,8 @@ export function SectionPage<T extends SectionItem>({
   ].filter((group) => group.items.length > 0);
 
   return (
-    <div ref={pageRef} className="rv2-page" role="dialog" aria-modal="true" aria-labelledby="rv2-page-title" data-testid="rooms-v2-section-page">
-      <div className="rv2-page-inner">
+    <div ref={pageRef} className="rooms-page" role="dialog" aria-modal="true" aria-labelledby="rooms-page-title" data-testid="rooms-section-page">
+      <div className="rooms-page-inner">
         <div className="flex items-center justify-between gap-3">
           <button type="button" className="dv-glass dv-round" aria-label={dt('back')} onClick={onClose}>
             <ChevronLeft size={20} strokeWidth={2.4} aria-hidden="true" />
@@ -116,7 +116,7 @@ export function SectionPage<T extends SectionItem>({
           {canOrganize ? (
             <button
               type="button"
-              className={clsx('dv-glass rv2-pill !h-11 !rounded-[22px] !px-4 !text-[15px]', editing && '!bg-[color:var(--dv-pill-on)] !text-[color:var(--dv-pill-on-ink)]')}
+              className={clsx('dv-glass rooms-pill !h-11 !rounded-[22px] !px-4 !text-[15px]', editing && '!bg-[color:var(--dv-pill-on)] !text-[color:var(--dv-pill-on-ink)]')}
               aria-pressed={editing}
               onClick={() => {
                 setEditing((value) => !value);
@@ -129,7 +129,7 @@ export function SectionPage<T extends SectionItem>({
         </div>
 
         <div className="flex flex-col gap-1">
-          <h1 id="rv2-page-title" className="m-0 text-[30px] font-bold tracking-[-0.03em]">
+          <h1 id="rooms-page-title" className="m-0 text-[30px] font-bold tracking-[-0.03em]">
             {title}
           </h1>
           <span className="dv-t2 text-sm font-medium">{subtitle}</span>
@@ -175,18 +175,18 @@ export function SectionPage<T extends SectionItem>({
         {editing && !canMove ? <p className="dv-t2 m-0 text-[13px]">{dt('manageNeedsHa')}</p> : null}
 
         {editing ? (
-          <div className="dv-glass rv2-bar" role="toolbar" aria-label={dt('edit')}>
-            <span className="rv2-bar-count text-sm font-semibold" aria-live="polite">
+          <div className="dv-glass rooms-bar" role="toolbar" aria-label={dt('edit')}>
+            <span className="rooms-bar-count text-sm font-semibold" aria-live="polite">
               {selection.length === 0
                 ? dt('tapToSelect')
                 : selection.length === 1
                   ? dt('selectedOne')
                   : dt('selectedMany', { count: selection.length })}
             </span>
-            <div className="rv2-bar-actions flex items-center gap-0.5">
+            <div className="rooms-bar-actions flex items-center gap-0.5">
               <button
                 type="button"
-                className="rv2-action"
+                className="rooms-action"
                 disabled={selection.length === 0}
                 onClick={() => {
                   onPin(selectedIds);
@@ -198,7 +198,7 @@ export function SectionPage<T extends SectionItem>({
               </button>
               <button
                 type="button"
-                className="rv2-action"
+                className="rooms-action"
                 disabled={selection.length === 0}
                 onClick={() => {
                   onToggleHidden(selectedIds, !allHidden);
@@ -210,7 +210,7 @@ export function SectionPage<T extends SectionItem>({
               </button>
               <button
                 type="button"
-                className="rv2-action"
+                className="rooms-action"
                 disabled={selection.length === 0 || !canMove || rooms.length === 0}
                 onClick={() => {
                   setMoveTo(null);
@@ -222,7 +222,7 @@ export function SectionPage<T extends SectionItem>({
               </button>
               <button
                 type="button"
-                className="rv2-action rv2-danger"
+                className="rooms-action rooms-danger"
                 disabled={selection.length === 0 || !canMove}
                 onClick={() => setSheet('remove')}
               >
@@ -231,7 +231,7 @@ export function SectionPage<T extends SectionItem>({
               </button>
               <button
                 type="button"
-                className="rv2-action"
+                className="rooms-action"
                 disabled={!canMove}
                 onClick={() => setSheet('add')}
               >
@@ -280,7 +280,7 @@ export function SectionPage<T extends SectionItem>({
               type="button"
               role="radio"
               aria-checked={moveTo === room.id}
-              className="rv2-row"
+              className="rooms-row"
               onClick={() => setMoveTo(room.id)}
             >
               <SelectionMark on={moveTo === room.id} />

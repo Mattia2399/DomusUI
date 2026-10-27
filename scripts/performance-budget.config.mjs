@@ -51,7 +51,7 @@ export const surfaces = [
   },
   // /rooms. Baseline 266,400 / 78,800.
   {
-    id: 'rooms', label: 'Stanze', sources: ['src/pages/rooms-v2/RoomsV2Page.tsx'], requires: 'home', kind: 'route',
+    id: 'rooms', label: 'Stanze', sources: ['src/pages/rooms/RoomsPage.tsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 100 * KB } },
   },
   // What /rooms opens on request (device panels, section pages, sheets, management), fetched when idle. Baseline 106,000 / 38,600.
@@ -64,11 +64,11 @@ export const surfaces = [
       'src/components/devices/panels/SensorPanel.tsx',
       'src/components/devices/panels/SecurityPanel.tsx',
       'src/components/devices/panels/MediaPlayer.tsx',
-      'src/pages/rooms-v2/MediaSheets.tsx',
-      'src/pages/rooms-v2/SectionPage.tsx',
-      'src/pages/rooms-v2/AddAccessoriesSheet.tsx',
-      'src/pages/rooms-v2/RoomsManagePage.tsx',
-      'src/pages/rooms-v2/RoomManageSheets.tsx',
+      'src/pages/rooms/MediaSheets.tsx',
+      'src/pages/rooms/SectionPage.tsx',
+      'src/pages/rooms/AddAccessoriesSheet.tsx',
+      'src/pages/rooms/RoomsManagePage.tsx',
+      'src/pages/rooms/RoomManageSheets.tsx',
     ],
     budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 46 * KB } },
   },

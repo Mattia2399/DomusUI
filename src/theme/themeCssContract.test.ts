@@ -51,7 +51,7 @@ describe('semantic theme CSS contract', () => {
   it('uses one responsive title scale across the primary dashboard pages', () => {
     const titleConsumers = [
       'src/components/widgets/GreetingCard.tsx',
-      // Rooms follows the larger title of its design board (rv2-title).
+      // Rooms follows the larger title of its design board (rooms-title).
       'src/pages/SecurityDashboard.jsx',
       // Settings starts with the person instead of a visible title.
       'src/pages/Consumi.tsx',

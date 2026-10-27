@@ -1,7 +1,7 @@
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RoomsV2Page } from './RoomsV2Page';
+import { RoomsPage } from './RoomsPage';
 
 // The parts the page opens on request, here at once: how they load is tested in roomsParts.test.tsx.
 vi.mock('./roomsParts', async () => {
@@ -40,14 +40,14 @@ beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 function renderDemo() {
-  return render(<RoomsV2Page runtimeMode="demo" haConnected={false} haAreas={[]} haStates={{}} />);
+  return render(<RoomsPage runtimeMode="demo" haConnected={false} haAreas={[]} haStates={{}} />);
 }
 
 describe('the Rooms page in the demo', () => {
   it('shows the room, its lights as three cards and a card for the rest', () => {
     renderDemo();
     expect(screen.getByRole('heading', { level: 1, name: 'Soggiorno' })).toBeTruthy();
-    const lights = screen.getByTestId('rooms-v2-lights');
+    const lights = screen.getByTestId('rooms-lights');
     expect(within(lights).getByText('3/6')).toBeTruthy();
     expect(within(lights).getByRole('button', { name: 'Mostra tutti: Luci, altri 3' })).toBeTruthy();
   });
@@ -61,7 +61,7 @@ describe('the Rooms page in the demo', () => {
     const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
     expect(statuses).toEqual(['ClimaRiscalda a 23°', 'Luci3 accese', 'Umidità48%', 'MediaIl viaggio di ritorno']);
     // The living room has every section: nothing left to add.
-    expect(screen.queryByTestId('rooms-v2-add-row')).toBeNull();
+    expect(screen.queryByTestId('rooms-add-row')).toBeNull();
   });
 
   it('changes room from the pills', () => {
@@ -82,7 +82,7 @@ describe('the Rooms page in the demo', () => {
 
   it('shows the devices of the room by the section rule, with what each is doing', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-devices');
+    const section = screen.getByTestId('rooms-devices');
     expect(within(section).getByText('4/6')).toBeTruthy();
     // To check first (the console on standby), then those on, then the rest; three cards and "+3".
     const names = Array.from(section.querySelectorAll('.dv-name')).map((node) => node.textContent);
@@ -94,7 +94,7 @@ describe('the Rooms page in the demo', () => {
 
   it('closes a cover from its icon and shows it straight away', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-devices');
+    const section = screen.getByTestId('rooms-devices');
     fireEvent.click(within(section).getByRole('button', { name: 'Chiudi Tapparella' }));
     expect(within(section).getByText('In chiusura · 60%')).toBeTruthy();
     expect(within(section).getByRole('button', { name: 'Ferma Tapparella' })).toBeTruthy();
@@ -103,7 +103,7 @@ describe('the Rooms page in the demo', () => {
   it('asks before turning off a protected plug', () => {
     renderDemo();
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Stanze' })).getByRole('button', { name: 'Cucina' }));
-    const section = screen.getByTestId('rooms-v2-devices');
+    const section = screen.getByTestId('rooms-devices');
     fireEvent.click(within(section).getByRole('button', { name: 'Spegni Frigorifero, protetta' }));
     expect(screen.getByRole('dialog', { name: 'Spegnere Frigorifero?' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Spegni' }));
@@ -113,7 +113,7 @@ describe('the Rooms page in the demo', () => {
   it('opens the panel of a fan from its card', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: /^Mostra tutti: Dispositivi, 6/ }));
-    const page = screen.getByTestId('rooms-v2-section-page');
+    const page = screen.getByTestId('rooms-section-page');
     fireEvent.click(within(page).getByRole('button', { name: /^Controlli di Ventilatore/ }));
     expect(screen.getByRole('slider', { name: 'Velocità Ventilatore' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Notte' })).toBeTruthy();
@@ -121,7 +121,7 @@ describe('the Rooms page in the demo', () => {
 
   it('shows the main climate unit large, with its target and steps, and the others small', () => {
     renderDemo();
-    const climate = screen.getByTestId('rooms-v2-climate');
+    const climate = screen.getByTestId('rooms-climate');
     const main = within(climate).getByTestId('climate-card');
     expect(within(main).getByText('Riscalda a')).toBeTruthy();
     expect(within(main).getByText('23°')).toBeTruthy();
@@ -133,7 +133,7 @@ describe('the Rooms page in the demo', () => {
 
   it('turns the climate off from its icon and opens its panel with the modes', () => {
     renderDemo();
-    const main = within(screen.getByTestId('rooms-v2-climate')).getByTestId('climate-card');
+    const main = within(screen.getByTestId('rooms-climate')).getByTestId('climate-card');
     fireEvent.click(within(main).getByRole('button', { name: 'Spegni Climatizzatore' }));
     expect(within(main).getByText('In stanza')).toBeTruthy();
     fireEvent.click(within(main).getByRole('button', { name: /^Controlli di Climatizzatore/ }));
@@ -145,7 +145,7 @@ describe('the Rooms page in the demo', () => {
 
   it('shows the sensors of the room, those to check first, with their value and where it sits', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-sensors');
+    const section = screen.getByTestId('rooms-sensors');
     // The light sensor is low on battery and the noise sensor is away: they come first, then by name.
     const names = Array.from(section.querySelectorAll('.dv-sensor .truncate.min-w-0')).map((node) => node.textContent);
     expect(names).toEqual(['Luminosità', 'Rumore', 'CO₂']);
@@ -157,7 +157,7 @@ describe('the Rooms page in the demo', () => {
   it('opens the detail of a sensor with its history and statistics', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: /^Mostra tutti: Ambiente, 6/ }));
-    const page = screen.getByTestId('rooms-v2-section-page');
+    const page = screen.getByTestId('rooms-section-page');
     fireEvent.click(within(page).getByRole('button', { name: /^Umidità 48%, Ideale/ }));
     const dialog = screen.getByRole('dialog', { name: 'Umidità' });
     expect(within(dialog).getByText('Fascia ideale 40–60%')).toBeTruthy();
@@ -169,33 +169,33 @@ describe('the Rooms page in the demo', () => {
 
   it('shows the scenes of the room as a strip, runs one, and offers to undo it', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-scenes');
+    const section = screen.getByTestId('rooms-scenes');
     expect(within(section).getByRole('button', { name: 'Mostra tutti: Scene, altri 2' })).toBeTruthy();
     fireEvent.click(within(section).getByRole('button', { name: /^Avvia la scena Concentrazione/ }));
     expect(within(section).getByText('Applico · 3 dispositivi')).toBeTruthy();
-    const toast = screen.getByTestId('rooms-v2-scene-undo');
+    const toast = screen.getByTestId('rooms-scene-undo');
     expect(within(toast).getByText('Scena Concentrazione attivata')).toBeTruthy();
     fireEvent.click(within(toast).getByRole('button', { name: 'Annulla' }));
-    expect(screen.queryByTestId('rooms-v2-scene-undo')).toBeNull();
+    expect(screen.queryByTestId('rooms-scene-undo')).toBeNull();
   });
 
   it('turns every light off', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Spegni tutte' }));
-    expect(within(screen.getByTestId('rooms-v2-lights')).getByText('0/6')).toBeTruthy();
+    expect(within(screen.getByTestId('rooms-lights')).getByText('0/6')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Spegni tutte' })).toBeNull();
   });
 
   it('puts a light in evidence from the section page, first in the room, and remembers it', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: /^Mostra tutti: Luci, 6/ }));
-    const page = screen.getByTestId('rooms-v2-section-page');
+    const page = screen.getByTestId('rooms-section-page');
     fireEvent.click(within(page).getByRole('button', { name: 'Modifica' }));
     fireEvent.click(within(page).getByRole('button', { name: 'Seleziona Applique' }));
     fireEvent.click(within(page).getByRole('button', { name: 'In evidenza' }));
     fireEvent.click(within(page).getByRole('button', { name: 'Fine' }));
     fireEvent.click(within(page).getByRole('button', { name: 'Indietro' }));
-    const names = Array.from(screen.getByTestId('rooms-v2-lights').querySelectorAll('.dv-name')).map((node) => node.textContent);
+    const names = Array.from(screen.getByTestId('rooms-lights').querySelectorAll('.dv-name')).map((node) => node.textContent);
     expect(names[0]).toBe('Applique');
     expect(JSON.parse(window.localStorage.getItem('ha.dashboard.rooms.pinnedEntitiesByRoom.v1.demo') ?? '{}')).toEqual({
       'demo-living-room': ['light.demo_wall_lamp'],
@@ -205,7 +205,7 @@ describe('the Rooms page in the demo', () => {
   it('hides a light from the room, never from its page', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: /^Mostra tutti: Luci, 6/ }));
-    const page = screen.getByTestId('rooms-v2-section-page');
+    const page = screen.getByTestId('rooms-section-page');
     fireEvent.click(within(page).getByRole('button', { name: 'Modifica' }));
     fireEvent.click(within(page).getByRole('button', { name: 'Seleziona Faretti' }));
     fireEvent.click(within(page).getByRole('button', { name: 'Nascondi' }));
@@ -217,7 +217,7 @@ describe('the Rooms page in the demo', () => {
 
   it('shows the security of the room: to check first, then motion and the lock', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-security');
+    const section = screen.getByTestId('rooms-security');
     const names = Array.from(section.querySelectorAll('.dv-name')).map((node) => node.textContent);
     expect(names).toEqual(['Finestra laterale', 'Movimento', 'Serratura ingresso']);
     expect(within(section).getByText('Chiusa · batteria 12%')).toBeTruthy();
@@ -229,7 +229,7 @@ describe('the Rooms page in the demo', () => {
     vi.useFakeTimers();
     try {
       renderDemo();
-      const section = screen.getByTestId('rooms-v2-security');
+      const section = screen.getByTestId('rooms-security');
       const ring = within(section).getByRole('button', {
         name: 'Tieni premuto per sbloccare Serratura ingresso, continua per aprire la porta',
       });
@@ -263,7 +263,7 @@ describe('the Rooms page in the demo', () => {
     vi.useFakeTimers();
     try {
       renderDemo();
-      const section = screen.getByTestId('rooms-v2-security');
+      const section = screen.getByTestId('rooms-security');
       const ring = within(section).getByRole('button', { name: /^Tieni premuto per sbloccare Serratura ingresso/ });
       fireEvent.pointerDown(ring);
       act(() => vi.advanceTimersByTime(900 + 1050));
@@ -279,7 +279,7 @@ describe('the Rooms page in the demo', () => {
 
   it('shows what plays in the room, and pauses and moves on from the card', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-media');
+    const section = screen.getByTestId('rooms-media');
     const card = within(section).getByRole('group', { name: 'In riproduzione su TV Soggiorno' });
     expect(within(card).getByText('Il viaggio di ritorno')).toBeTruthy();
     expect(within(card).getByText('TV Soggiorno · App TV')).toBeTruthy();
@@ -293,7 +293,7 @@ describe('the Rooms page in the demo', () => {
 
   it('chooses the player of the room; the one playing pauses', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-media');
+    const section = screen.getByTestId('rooms-media');
     fireEvent.click(within(section).getByRole('button', { name: 'Scegli il lettore, ora TV Soggiorno' }));
     fireEvent.click(screen.getByRole('radio', { name: /^Soundbar/ }));
     expect(within(section).getByTestId('media-off').textContent).toContain('Spento · ultimo: Strade di sera');
@@ -305,7 +305,7 @@ describe('the Rooms page in the demo', () => {
 
   it('opens the full player with its sources and sound modes', () => {
     renderDemo();
-    const section = screen.getByTestId('rooms-v2-media');
+    const section = screen.getByTestId('rooms-media');
     fireEvent.click(within(section).getByRole('button', { name: 'Apri il player completo' }));
     const player = screen.getByTestId('media-player');
     expect(within(player).getByRole('heading', { name: 'Il viaggio di ritorno' })).toBeTruthy();
@@ -341,7 +341,7 @@ describe('the Rooms page in the demo', () => {
     expect(within(rooms).getByRole('button', { name: 'Soggiorno' })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
-    const manage = screen.getByTestId('rooms-v2-manage');
+    const manage = screen.getByTestId('rooms-manage');
     const firstFloor = within(manage).getByRole('region', { name: 'Primo piano' });
     expect(within(firstFloor).getByRole('button', { name: 'Modifica Studio' })).toBeTruthy();
     fireEvent.click(within(firstFloor).getByRole('button', { name: 'Modifica Studio' }));
@@ -358,7 +358,7 @@ describe('the Rooms page in the demo', () => {
   it('orders the rooms of a floor and hides one from the bar', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
-    const manage = screen.getByTestId('rooms-v2-manage');
+    const manage = screen.getByTestId('rooms-manage');
     fireEvent.click(within(manage).getByRole('button', { name: 'Sposta Cucina prima' }));
     fireEvent.click(within(manage).getByRole('button', { name: 'Modifica Bagno' }));
     fireEvent.click(screen.getByRole('switch', { name: 'Nascondi dalla barra' }));
@@ -375,7 +375,7 @@ describe('the Rooms page in the demo', () => {
   it('orders and turns off the sections, for every room or only for one', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
-    const manage = screen.getByTestId('rooms-v2-manage');
+    const manage = screen.getByTestId('rooms-manage');
     fireEvent.click(within(manage).getByRole('radio', { name: 'Sezioni' }));
     fireEvent.click(within(manage).getByRole('button', { name: 'Sposta Media più in alto' }));
     fireEvent.click(within(manage).getByRole('switch', { name: 'Scene' }));
@@ -390,14 +390,14 @@ describe('the Rooms page in the demo', () => {
     fireEvent.click(within(manage).getByRole('button', { name: 'Usa l’ordine comune' }));
     fireEvent.click(within(manage).getByRole('button', { name: /^Soggiorno/ }));
     // Scenes are off for every room now.
-    expect(screen.queryByTestId('rooms-v2-scenes')).toBeNull();
-    expect(screen.getByTestId('rooms-v2-lights')).toBeTruthy();
+    expect(screen.queryByTestId('rooms-scenes')).toBeNull();
+    expect(screen.getByTestId('rooms-lights')).toBeTruthy();
   });
 
   it('adds, renames and deletes a floor of the demo, only when it has no rooms', () => {
     renderDemo();
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
-    const manage = screen.getByTestId('rooms-v2-manage');
+    const manage = screen.getByTestId('rooms-manage');
     fireEvent.click(within(manage).getByRole('radio', { name: 'Piani' }));
     expect(within(manage).getByRole('button', { name: 'Sposta prima le stanze di Piano terra' }).getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(within(manage).getByRole('button', { name: 'Nuovo piano' }));
@@ -414,7 +414,7 @@ describe('the Rooms page with Home Assistant', () => {
 
   function renderConnected(onCallApi: (message: Record<string, unknown>) => Promise<unknown>, onNavigate = vi.fn()) {
     render(
-      <RoomsV2Page
+      <RoomsPage
         runtimeMode="real"
         haConnected
         canManageRooms
@@ -433,7 +433,7 @@ describe('the Rooms page with Home Assistant', () => {
     );
     renderConnected(onCallApi);
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
-    fireEvent.click(within(screen.getByTestId('rooms-v2-manage')).getByRole('button', { name: 'Modifica Soggiorno' }));
+    fireEvent.click(within(screen.getByTestId('rooms-manage')).getByRole('button', { name: 'Modifica Soggiorno' }));
     fireEvent.click(screen.getByRole('radio', { name: 'Divano' }));
     fireEvent.click(screen.getByRole('button', { name: 'Entità temperatura' }));
     fireEvent.click(await screen.findByRole('option', { name: 'Temperatura soggiorno' }));
@@ -456,7 +456,7 @@ describe('the Rooms page with Home Assistant', () => {
     );
     renderConnected(onCallApi);
     fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
-    const manage = screen.getByTestId('rooms-v2-manage');
+    const manage = screen.getByTestId('rooms-manage');
     fireEvent.click(within(manage).getByRole('radio', { name: 'Piani' }));
     fireEvent.click(within(manage).getByRole('button', { name: 'Nuovo piano' }));
     expect(await within(manage).findByRole('textbox', { name: 'Nome del piano 1' })).toBeTruthy();

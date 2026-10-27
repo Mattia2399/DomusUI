@@ -11,10 +11,10 @@ import { LightPanel } from '../components/devices/panels/LightPanel';
 import { PanelHost, type PanelPresentation } from '../components/devices/panels/PanelHost';
 import { lightRgb } from '../components/devices/model/tileColor';
 import { useDevicesTranslations } from '../i18n/devicesTranslations';
-import { DEMO_CLIMATE_STATES, DEMO_DEVICE_STATES, DEMO_LIGHT_STATES } from './rooms-v2/demoRoomsFixtures';
-import { useLightCommands } from './rooms-v2/useLightCommands';
-import { useDeviceCommands } from './rooms-v2/useDeviceCommands';
-import { useClimateCommands } from './rooms-v2/useClimateCommands';
+import { DEMO_CLIMATE_STATES, DEMO_DEVICE_STATES, DEMO_LIGHT_STATES } from './rooms/demoRoomsFixtures';
+import { useLightCommands } from './rooms/useLightCommands';
+import { useDeviceCommands } from './rooms/useDeviceCommands';
+import { useClimateCommands } from './rooms/useClimateCommands';
 
 /*
  * Development only (/devices-lab): the light and device cards in every
@@ -78,7 +78,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
           <button
             key={option}
             type="button"
-            className={clsx('dv-glass rv2-pill h-9 rounded-full px-3.5 text-[13px] font-semibold', presentation === option && 'ring-2 ring-[color:var(--dv-select)]')}
+            className={clsx('dv-glass rooms-pill h-9 rounded-full px-3.5 text-[13px] font-semibold', presentation === option && 'ring-2 ring-[color:var(--dv-select)]')}
             aria-pressed={presentation === option}
             onClick={() => setPresentation(option)}
           >

@@ -15,7 +15,7 @@ describe('MainBoard lazy boundaries', () => {
       ['loadConsumptionDashboard', '../../pages/Consumi'],
       ['loadAutomationsBuilder', '../../pages/AutomationsBuilder'],
       ['loadAppGallery', '../../pages/AppGallery'],
-      ['loadRoomsDashboard', '../../pages/rooms-v2/RoomsV2Page'],
+      ['loadRoomsDashboard', '../../pages/rooms/RoomsPage'],
       ['loadSecurityDashboard', '../../pages/SecurityDashboard'],
       ['loadSettingsDashboard', '../../pages/SettingsDashboard'],
     ];

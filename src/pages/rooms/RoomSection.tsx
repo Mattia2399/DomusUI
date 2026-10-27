@@ -22,7 +22,7 @@ export function RoomSection<T extends SectionItem>({
   renderCard,
   onOpenPage,
   testId,
-  gridClassName = 'rv2-grid',
+  gridClassName = 'rooms-grid',
 }: {
   id: string;
   title: string;
@@ -49,7 +49,7 @@ export function RoomSection<T extends SectionItem>({
         <h2 id={titleId} className="m-0 text-[21px] font-bold tracking-[-0.02em]">
           <button
             type="button"
-            className="rv2-title-button"
+            className="rooms-title-button"
             onClick={onOpenPage}
             aria-label={dt('showAllIn', { section: title, count: items.length })}
           >
@@ -61,7 +61,7 @@ export function RoomSection<T extends SectionItem>({
           </button>
         </h2>
         {action ? (
-          <button type="button" className="dv-glass rv2-pill" onClick={action.onPress}>
+          <button type="button" className="dv-glass rooms-pill" onClick={action.onPress}>
             {action.label}
           </button>
         ) : null}
@@ -83,11 +83,11 @@ export function RoomSection<T extends SectionItem>({
           {preview.more > 0 ? (
             <button
               type="button"
-              className="rv2-more"
+              className="rooms-more"
               onClick={onOpenPage}
               aria-label={dt('showMore', { section: title, count: preview.more })}
             >
-              <span className="rv2-more-count">+{preview.more}</span>
+              <span className="rooms-more-count">+{preview.more}</span>
               <span className="text-[15px] font-semibold">{moreLabel}</span>
             </button>
           ) : null}

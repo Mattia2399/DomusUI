@@ -46,7 +46,7 @@ function TextField({ label, value, placeholder, note, onChange }: { label: strin
   return (
     <label className="flex flex-col gap-1.5">
       <span className="dv-t2 text-[13px] font-bold">{label}</span>
-      <input className="rv2-text-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+      <input className="rooms-text-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
       {note ? <span className="dv-t2 text-xs leading-[1.4]">{note}</span> : null}
     </label>
   );
@@ -63,7 +63,7 @@ function SelectField({ label, options, value, onChange }: { label: string; optio
         options={options}
         selected={options.find((option) => option.id === value) ?? options[0] ?? null}
         onChange={(option) => onChange(option.id)}
-        buttonClassName="rv2-select"
+        buttonClassName="rooms-select"
         portalZIndex={DROPDOWN_Z}
       />
     </div>
@@ -124,7 +124,7 @@ export function RoomEditPanel({
   const floorChoices: FloorChoice[] = [...floors, ...(haFields || floors.length === 0 ? [{ id: '', name: rt('noFloor') }] : [])];
 
   return (
-    <div className="dv-panel" data-testid="rooms-v2-room-edit">
+    <div className="dv-panel" data-testid="rooms-room-edit">
       <div className="flex items-center gap-3">
         <h2 className="m-0 min-w-0 flex-1 truncate text-[19px] font-bold">{room ? rt('editRoom') : rt('newRoom')}</h2>
         <button type="button" className="dv-round dv-round-sm" aria-label={rt('close')} onClick={onClose}>
@@ -132,7 +132,7 @@ export function RoomEditPanel({
         </button>
       </div>
 
-      <div className="rv2-room-preview" aria-hidden="true" style={{ background: glowCss(preview) }}>
+      <div className="rooms-room-preview" aria-hidden="true" style={{ background: glowCss(preview) }}>
         <PreviewIcon size={26} strokeWidth={2} />
         <span className="truncate">{draft.name.trim() || rt('newRoom')}</span>
       </div>
@@ -140,7 +140,7 @@ export function RoomEditPanel({
       <label className="flex flex-col gap-1.5">
         <span className="dv-t2 text-[13px] font-bold">{rt('nameLabel')}</span>
         <input
-          className="rv2-text-input"
+          className="rooms-text-input"
           value={draft.name}
           placeholder={rt('roomNamePlaceholder')}
           disabled={nameLocked}
@@ -152,7 +152,7 @@ export function RoomEditPanel({
 
       <div className="flex flex-col gap-2">
         <span className="dv-t2 text-[13px] font-bold">{rt('icon')}</span>
-        <div className="rv2-icon-grid" role="radiogroup" aria-label={rt('icon')}>
+        <div className="rooms-icon-grid" role="radiogroup" aria-label={rt('icon')}>
           {ROOM_ICON_CHOICES.map(([kind, icon]) => {
             const Icon = ROOM_ICONS[kind];
             const chosen = iconKind === kind;
@@ -163,7 +163,7 @@ export function RoomEditPanel({
                 role="radio"
                 aria-checked={chosen}
                 aria-label={rt(ICON_LABEL[kind])}
-                className={clsx('rv2-icon-choice', chosen && 'is-on')}
+                className={clsx('rooms-icon-choice', chosen && 'is-on')}
                 onClick={() => set({ icon })}
               >
                 <Icon size={20} strokeWidth={2} aria-hidden="true" />
@@ -203,7 +203,7 @@ export function RoomEditPanel({
               role="radio"
               aria-checked={glow === index}
               aria-label={rt('glowAria', { n: index + 1 })}
-              className="rv2-swatch"
+              className="rooms-swatch"
               onClick={() => setGlow(glow === index ? undefined : index)}
             >
               <span style={{ background: glowCss(colours), boxShadow: glow === index ? `0 0 0 2px var(--dv-sheet-ring), 0 0 0 4px ${colours[0]}` : 'none' }} />
@@ -260,7 +260,7 @@ export function RoomEditPanel({
         {canDelete ? (
           <button
             type="button"
-            className="rv2-sheet-button is-danger basis-full"
+            className="rooms-sheet-button is-danger basis-full"
             disabled={busy}
             onClick={() => {
               if (!askingDelete) {
@@ -274,12 +274,12 @@ export function RoomEditPanel({
             {askingDelete ? rt('deleteRoomAgain') : rt('deleteRoom')}
           </button>
         ) : null}
-        <button type="button" className="rv2-sheet-button flex-1" onClick={onClose}>
+        <button type="button" className="rooms-sheet-button flex-1" onClick={onClose}>
           {rt('cancel')}
         </button>
         <button
           type="button"
-          className="rv2-sheet-button is-primary flex-[2]"
+          className="rooms-sheet-button is-primary flex-[2]"
           disabled={busy || !valid}
           onClick={() => void onSave({ draft, look: { glow, hidden } }).then((done) => done && onClose())}
         >
