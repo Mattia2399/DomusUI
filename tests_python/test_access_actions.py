@@ -32,6 +32,11 @@ EXPECTED = {
     "domusos/device_power/save_policy": "device_power.manage",
     "domusos/device_power/bind_policy": "device_power.manage",
     "domusos/device_power/delete_policy": "device_power.manage",
+    # Device timers
+    "domusos/device_timers/get_state": "devices.timers",
+    "domusos/device_timers/subscribe": "devices.timers",
+    "domusos/device_timers/set_timer": "devices.timers",
+    "domusos/device_timers/cancel_timer": "devices.timers",
     # Energy
     "domusos/energy/get_state": "energy.view",
     "domusos/energy/get_history": "energy.view",
@@ -148,7 +153,7 @@ def test_every_module_with_commands_registers_them_through_the_instrumentation()
         if re.search(r"^WEBSOCKET_COMMANDS = \(", source, re.M):
             modules += 1
             assert "register_websocket_commands(hass, WEBSOCKET_COMMANDS)" in source, path.name
-    assert modules == 6
+    assert modules == 7
 
 
 # --- The registry itself ------------------------------------------------------------------
@@ -160,8 +165,9 @@ def test_every_action_maps_to_the_audited_capability_and_mode() -> None:
 
 def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
-    # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1).
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 43
+    # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1),
+    # the four of device timers.
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 47
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:
@@ -180,7 +186,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 38
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 42
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 
@@ -241,7 +247,7 @@ def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> N
         assert len(contract.shadow_exemption) > 40, contract.id
     observed = actions.shadow_contracts()
     assert {contract.id for contract in observed} == set(EXPECTED) - SHADOW_EXEMPT
-    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 31
+    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 35
     assert len([contract for contract in observed if contract.surface is Surface.SERVICE]) == 5
 
 

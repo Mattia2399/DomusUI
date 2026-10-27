@@ -45,7 +45,7 @@ dell'account:
 
 | Modulo | Contenuto |
 | --- | --- |
-| `src/security/accessControl.ts` | Registro delle 34 capability (uguale a `access/models.py`, contratto), ruoli, stati, `parseAccessSelf`, snapshot, `can`, profilo demo, mappa delle capability legacy |
+| `src/security/accessControl.ts` | Registro delle 35 capability (uguale a `access/models.py`, contratto), ruoli, stati, `parseAccessSelf`, snapshot, `can`, profilo demo, mappa delle capability legacy |
 | `src/hooks/useAccessProfile.ts` | Legge il profilo una volta per account e connessione |
 | `src/security/AccessControlProvider.tsx` | Contesto, `useAccessControl`, `useCan` |
 | `src/navigation/routeAccess.ts` | La tabella delle route: capability o esenzione motivata, guardia, filtro della navigazione |

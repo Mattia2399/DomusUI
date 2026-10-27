@@ -135,10 +135,11 @@ L'admin HA **non è un bypass**:
 
 ## Registro delle azioni
 
-`ACTION_CONTRACTS` dichiara **43 superfici**: 38 comandi WebSocket e 5 servizi.
+`ACTION_CONTRACTS` dichiara **47 superfici**: 42 comandi WebSocket e 5 servizi.
 Sono tutte quelle che l'integrazione registra. In P2.2 erano 38 (33 + 5); P2.3
 ha aggiunto i due comandi della diagnostica shadow, P2.4.1 i tre di Persone e
-accessi ([Persone e accessi](access-control-people-access.md)).
+accessi ([Persone e accessi](access-control-people-access.md)), i timer di
+spegnimento i loro quattro (osservati, non enforced).
 
 - La lista viene letta dal sorgente nel test e confrontata con le registrazioni
   reali di HA (`hass.data["websocket_api"]`, `hass.services`).
@@ -178,6 +179,8 @@ capability, non vengono ripetuti.
 | `domusos/access/get_shadow_diagnostics`, `reset_shadow_diagnostics` (P2.3) | `access.manage` | admin |
 | `domusos/access/list_accounts`, `set_assignment`, `remove_assignment` (P2.4.1) | `access.manage` | admin, più `access.manage` sul principal nello stesso handler |
 | `domusos/device_power/get_state`, `save_policy`, `bind_policy`, `delete_policy` | `device_power.manage` | admin |
+| `domusos/device_timers/get_state`, `subscribe` | `devices.timers` | `check_entity` lettura (filtra) |
+| `domusos/device_timers/set_timer`, `cancel_timer` | `devices.timers` | `check_entity` controllo |
 | `domusos/energy/get_state`, `get_history` | `energy.view` | — (aperti a ogni utente oggi) |
 | `domusos/energy/get_profile`, `save_profile`, `discover` | `energy.manage` | admin |
 | `domusos/irrigation/get_config`, `get_state`, `subscribe` | `irrigation.view` | `check_entity` lettura (filtra) |

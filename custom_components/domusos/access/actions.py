@@ -170,6 +170,11 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
     _ws("device_power/save_policy", "device_power.manage", _A, enforced=True),
     _ws("device_power/bind_policy", "device_power.manage", _A, enforced=True),
     _ws("device_power/delete_policy", "device_power.manage", _A, enforced=True),
+    # --- Device timers: the switch-off the account could make now (HA entity control) --------
+    _ws("device_timers/get_state", "devices.timers", _R),
+    _ws("device_timers/subscribe", "devices.timers", _R),
+    _ws("device_timers/set_timer", "devices.timers", _C),
+    _ws("device_timers/cancel_timer", "devices.timers", _C),
     # --- Energy ----------------------------------------------------------------------------
     _ws("energy/get_state", "energy.view"),
     _ws("energy/get_history", "energy.view"),

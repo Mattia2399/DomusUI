@@ -378,7 +378,7 @@ def test_every_observed_action_has_a_row_and_no_exempt_one_does() -> None:
     result = snap(stats())
     observed = sorted(contract.id for contract in actions.shadow_contracts())
     assert [entry["action"] for entry in result["by_action"]] == observed
-    assert len(observed) == 36
+    assert len(observed) == 40
     for exempt in ("domusos/access/get_self", "domusos/access/reset_policy", "domusos/access/get_shadow_diagnostics"):
         assert exempt not in observed
 
