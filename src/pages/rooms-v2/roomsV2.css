@@ -479,6 +479,14 @@ button.rv2-add-row {
   color: var(--dv-t3);
 }
 
+/* The focus ring is drawn inside the field: a sheet that scrolls up to its edges would cut one drawn outside. */
+.rv2-search:focus,
+.rv2-search:focus-visible {
+  border-color: var(--dv-focus);
+  outline: none;
+  box-shadow: inset 0 0 0 1px var(--dv-focus);
+}
+
 .rv2-bar {
   position: sticky;
   bottom: 16px;
