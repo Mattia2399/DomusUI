@@ -324,15 +324,13 @@
     background: var(--ui-fill-tertiary);
   }
 
+  /* The segmented control of the Rooms board: a soft track, the choice a solid pill. */
   .liquid-segmented-control {
-    border-color: var(--ui-glass-border, var(--ui-border));
-    background:
-      linear-gradient(180deg, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.14), transparent 54%),
-      rgb(var(--ui-glass-base-rgb, 28 28 30) / var(--ui-glass-control-opacity, 0.24));
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 10px 24px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
+    border-color: transparent;
+    background: var(--ui-segment-track, rgb(235 235 245 / 0.1));
     -webkit-backdrop-filter: blur(18px) saturate(1.7);
     backdrop-filter: blur(18px) saturate(1.7);
-    @apply relative overflow-hidden rounded-full border p-1 transition-all duration-200 ease-out;
+    @apply relative overflow-hidden rounded-[16px] border p-[3px] transition-all duration-200 ease-out;
   }
   .segmented-options {
     display: grid;
@@ -340,7 +338,7 @@
     min-width: 0;
     grid-auto-flow: column;
     grid-auto-columns: minmax(var(--segmented-option-min, 2.5rem), 1fr);
-    gap: 0.25rem;
+    gap: 2px;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
@@ -360,20 +358,19 @@
 
   .liquid-segmented-thumb,
   .liquid-segmented-option-active {
-    background: var(--ui-segment-active, rgb(235 235 245 / 0.24));
-    color: var(--ui-text-primary, #f5f5f7);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
-    @apply relative overflow-hidden rounded-full backdrop-blur-xl transition-all duration-200 ease-out;
+    background: var(--ui-segment-on, var(--ui-text-primary, #f5f5f7));
+    color: var(--ui-segment-on-ink, var(--ui-bg-canvas, #000000));
+    @apply relative overflow-hidden rounded-[13px] transition-all duration-200 ease-out;
   }
 
   .liquid-segmented-option-active:is(:hover, :focus-visible),
   .liquid-segmented-thumb:is(:hover, :focus-visible) {
-    background: var(--ui-segment-active, rgb(235 235 245 / 0.24));
+    background: var(--ui-segment-on, var(--ui-text-primary, #f5f5f7));
   }
 
   .liquid-segmented-option-inactive {
     color: var(--ui-text-secondary, rgb(235 235 245 / 0.72));
-    @apply transition-all duration-200 ease-out;
+    @apply rounded-[13px] transition-all duration-200 ease-out;
   }
 
   .liquid-segmented-option-inactive:hover {
@@ -492,29 +489,24 @@
   }
 
   .ios-glass-switch {
-    border-color: var(--ui-border, rgb(255 255 255 / 0.13));
-    background: var(--ui-fill-secondary, rgb(235 235 245 / 0.16));
-    box-shadow: inset 0 1px 2px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
-    @apply relative inline-flex h-8 w-[3.25rem] shrink-0 items-center rounded-full border backdrop-blur-xl transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
+    border-color: transparent;
+    background: var(--ui-switch-off, rgb(120 120 128 / 0.36));
+    @apply relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full border-0 transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
     --tw-ring-color: var(--ui-focus-ring, rgb(100 210 255 / 0.62));
   }
 
   .ios-glass-switch-on {
-    border-color: color-mix(in srgb, var(--ui-success, #30d158) 58%, transparent);
     background: var(--ui-success, #30d158);
-    box-shadow: 0 0 22px color-mix(in srgb, var(--ui-success, #30d158) 38%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.32);
   }
 
   .ios-glass-switch-blue-on {
-    border-color: rgb(var(--ui-accent-rgb, 10 132 255) / 0.58);
     background: var(--ui-accent, #0a84ff);
-    box-shadow: 0 0 22px rgb(var(--ui-accent-rgb, 10 132 255) / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.32);
   }
 
   .ios-glass-switch-thumb {
     background: #ffffff;
-    box-shadow: 0 2px 8px rgb(0 0 0 / 0.28);
-    @apply absolute left-[3px] h-[1.625rem] w-[1.625rem] rounded-full transition-transform duration-200 ease-out;
+    box-shadow: 0 3px 8px rgb(0 0 0 / 0.25);
+    @apply absolute left-[2px] h-[27px] w-[27px] rounded-full transition-transform duration-200 ease-out;
   }
 
   /* Glow per gli stati attivi (Usa queste classi aggiuntive quando un widget è ON) */
@@ -1338,6 +1330,9 @@ body {
   --ui-fill-tertiary: rgb(235 235 245 / 0.1);
   --ui-segment-track: rgb(235 235 245 / 0.1);
   --ui-segment-active: rgb(235 235 245 / 0.24);
+  --ui-segment-on: #f5f5f7;
+  --ui-segment-on-ink: #000000;
+  --ui-switch-off: rgb(120 120 128 / 0.36);
   --ui-accent: #0a84ff;
   --ui-accent-strong: #0a84ff;
   --ui-accent-rgb: 10 132 255;
@@ -1394,6 +1389,9 @@ body {
   --ui-fill-tertiary: rgb(120 120 128 / 0.09);
   --ui-segment-track: rgb(120 120 128 / 0.12);
   --ui-segment-active: #ffffff;
+  --ui-segment-on: #0b0b0f;
+  --ui-segment-on-ink: #ffffff;
+  --ui-switch-off: rgb(120 120 128 / 0.16);
   --ui-accent: #007aff;
   --ui-accent-strong: #0066cc;
   --ui-accent-rgb: 0 122 255;

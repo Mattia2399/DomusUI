@@ -21,8 +21,9 @@ type GlassSearchFilterBarProps = {
   query: string;
   onQueryChange: (value: string) => void;
   filters: GlassSearchFilterDefinition[];
-  resultCount: number;
-  onReset: () => void;
+  /** Shown under the field on a phone; left out, no count is shown. */
+  resultCount?: number;
+  onReset?: () => void;
   placeholder?: string;
   resultLabel?: (count: number) => string;
   className?: string;
@@ -58,7 +59,7 @@ export function GlassSearchFilterBar({
     <>
       <div className={clsx('min-w-0', className)}>
         <div className="flex min-w-0 items-center gap-2.5">
-          <div className="liquid-glass-control flex min-h-12 min-w-0 flex-1 items-center gap-2.5 rounded-2xl px-3.5 md:min-h-11">
+          <div className="liquid-glass-control flex min-h-[46px] min-w-0 flex-1 items-center gap-2.5 rounded-full px-4 focus-within:shadow-[inset_0_0_0_2px_var(--ui-focus-ring,#0a84ff)]">
             <Search
               size={17}
               aria-hidden="true"
@@ -71,7 +72,7 @@ export function GlassSearchFilterBar({
               placeholder={resolvedPlaceholder}
               aria-label={resolvedPlaceholder}
               autoComplete="off"
-              className="min-w-0 flex-1 appearance-none bg-transparent text-sm text-[color:var(--ui-text-primary)] outline-none placeholder:text-[color:var(--ui-text-tertiary)] [&::-webkit-search-cancel-button]:hidden"
+              className="min-w-0 flex-1 appearance-none bg-transparent text-[15px] text-[color:var(--ui-text-primary)] outline-none placeholder:text-[color:var(--ui-text-tertiary)] [&::-webkit-search-cancel-button]:hidden"
             />
             {query ? (
               <button
@@ -89,7 +90,7 @@ export function GlassSearchFilterBar({
             <button
               type="button"
               onClick={() => setIsFilterSheetOpen(true)}
-              className="liquid-glass-control relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-[color:var(--ui-text-primary)] md:hidden"
+              className="liquid-glass-control relative flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] md:hidden"
               aria-label={
                 activeFilters.length > 0
                   ? t('common.filtersActive', { count: activeFilters.length })
@@ -128,7 +129,7 @@ export function GlassSearchFilterBar({
           </div> : null}
         </div>
 
-        <div className="mt-2.5 flex min-w-0 items-center gap-2 md:hidden">
+        {hasFilters || resultCount !== undefined ? <div className="mt-2.5 flex min-w-0 items-center gap-2 md:hidden">
           {activeFilters.length > 0 ? (
             <div className="glass-scrollbar flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
               {activeFilters.map((filter) => (
@@ -153,9 +154,9 @@ export function GlassSearchFilterBar({
             aria-live="polite"
             className="shrink-0 text-[11px] font-semibold text-[color:var(--ui-text-tertiary)]"
           >
-            {resolvedResultLabel(resultCount)}
+            {resolvedResultLabel(resultCount ?? 0)}
           </span>
-        </div>
+        </div> : null}
       </div>
 
       {hasFilters ? <GlassBottomSheet
@@ -181,7 +182,7 @@ export function GlassSearchFilterBar({
               onClick={() => setIsFilterSheetOpen(false)}
               className="liquid-glass-selection min-h-12 min-w-0 rounded-2xl px-4 text-sm font-semibold"
             >
-              {resolvedResultLabel(resultCount)}
+              {resolvedResultLabel(resultCount ?? 0)}
             </button>
           </>
         }
