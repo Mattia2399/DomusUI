@@ -198,7 +198,8 @@ test.describe('Access Control on a phone', () => {
     await page.goto('/home');
     const bar = page.getByRole('navigation', { name: 'Navigazione principale' });
     await expect(bar).toBeVisible();
-    expect(await visiblePages(bar)).toEqual(expect.arrayContaining(['Dashboard']));
+    // The pages appear as the account's access resolves: wait for the bar to settle.
+    await expect.poll(() => visiblePages(bar)).toEqual(expect.arrayContaining(['Dashboard']));
     expect(await visiblePages(bar)).not.toContain('Consumi');
     expect(await visiblePages(bar)).not.toContain('Sicurezza');
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

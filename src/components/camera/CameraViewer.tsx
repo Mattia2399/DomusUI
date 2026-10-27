@@ -10,9 +10,11 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Volume2,
+  Video,
   VolumeX,
   WifiOff,
 } from 'lucide-react';
+import clsx from 'clsx';
 import GlassModal from '../ui/GlassModal';
 import CameraPtzJoystick, { type CameraPtzDirection } from './CameraPtzJoystick';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -61,7 +63,7 @@ export function CameraViewer({
   onPtzMove,
   onPtzStop,
 }: CameraViewerProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const stageRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isPaused, setIsPaused] = useState(false);
@@ -73,6 +75,15 @@ export function CameraViewer({
   const [refreshNonce, setRefreshNonce] = useState(0);
   const [feedback, setFeedback] = useState('');
   const [isSnapshotBusy, setIsSnapshotBusy] = useState(false);
+  // The time on the picture, as on the board, every second while the sheet is open.
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    setNow(new Date());
+    const timer = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isOpen]);
 
   const activeIndex = Math.max(0, cameras.findIndex((camera) => camera.entityId === activeEntityId));
   const activeCamera = cameras[activeIndex] ?? null;
@@ -195,28 +206,35 @@ export function CameraViewer({
     onPtzMove?.(activeCamera.entityId, direction);
   };
 
-  const controlClass = 'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/14 bg-black/30 text-white/82 shadow-[0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-2xl transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-35';
+  const isLive = Boolean(activeCamera && !activeCamera.isOffline && !isPaused && (activeVideoUrl || activeStreamUrl));
+  const clock = new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(now);
+  const arrowClass =
+    'absolute top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-md transition hover:bg-black/60';
 
   return (
     <GlassModal
       isOpen={isOpen}
       onClose={onClose}
-      eyebrow={t('camera.viewer.eyebrow')}
+      icon={
+        <span className="glass-confirm-mark is-accent !h-12 !w-12">
+          {activeCamera?.isOffline ? <WifiOff size={22} strokeWidth={2} /> : <Video size={22} strokeWidth={2} />}
+        </span>
+      }
       title={activeCamera?.name ?? t('camera.fallback')}
       description={statusDescription}
-      variant="fullscreen"
+      size="xl"
       zIndex={310}
       closeLabel={t('camera.viewer.close')}
-      panelClassName="bg-[color:var(--ui-page-bg)]"
-      bodyClassName="flex min-h-0 flex-1 overflow-hidden rounded-[1.5rem] bg-black p-0 sm:rounded-[2rem]"
+      panelClassName="!max-w-[640px]"
+      bodyClassName="flex flex-col gap-3.5"
     >
-      <div ref={stageRef} className="relative flex h-full min-h-0 w-full items-center justify-center overflow-hidden bg-black">
+      <div ref={stageRef} className="camera-frame">
         {activeCamera && visualUrl && !activeCamera.isOffline ? (
           activeVideoUrl ? (
             <video
               ref={videoRef}
               src={activeVideoUrl}
-              className="absolute inset-0 h-full w-full object-contain"
+              className="absolute inset-0 h-full w-full object-cover"
               autoPlay={!isPaused}
               muted={isMuted}
               playsInline
@@ -226,7 +244,7 @@ export function CameraViewer({
             <img
               src={visualUrl}
               alt={t('camera.viewer.previewAlt', { name: activeCamera.name })}
-              className="absolute inset-0 h-full w-full object-contain"
+              className="absolute inset-0 h-full w-full object-cover"
               onError={() => {
                 if (activeStreamUrl) setStreamFailed(true);
                 else setSnapshotFailed(true);
@@ -234,40 +252,98 @@ export function CameraViewer({
             />
           )
         ) : (
-          <div className="flex max-w-sm flex-col items-center px-6 text-center text-white/62">
-            {activeCamera?.isOffline ? <WifiOff className="h-10 w-10" /> : <Camera className="h-10 w-10" />}
-            <p className="mt-4 text-sm font-semibold text-white/84">{activeCamera?.isOffline ? t('camera.events.cameraOffline') : t('camera.viewer.previewUnavailable')}</p>
-            <p className="mt-1 text-xs leading-relaxed text-white/48">{t('camera.viewer.checkConnection')}</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-6 text-center text-white/70">
+            {activeCamera?.isOffline ? <WifiOff className="h-9 w-9" /> : <Camera className="h-9 w-9" />}
+            <p className="m-0 mt-2 text-base font-bold text-white/85">
+              {activeCamera?.isOffline ? t('camera.events.cameraOffline') : t('camera.viewer.previewUnavailable')}
+            </p>
+            <p className="m-0 text-[13px] font-medium text-white/60">{t('camera.viewer.checkConnection')}</p>
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/24 via-transparent to-black/52" aria-hidden="true" />
+        {isLive ? (
+          <span className="camera-live">
+            <i aria-hidden="true" />
+            LIVE
+          </span>
+        ) : null}
+        {activeCamera && !activeCamera.isOffline ? (
+          <span className="camera-clock" aria-hidden="true">
+            {clock}
+          </span>
+        ) : null}
 
         {cameras.length > 1 ? (
           <>
-            <button type="button" className={`${controlClass} absolute left-3 top-1/2 z-20 -translate-y-1/2 sm:left-5`} onClick={() => selectRelativeCamera(-1)} aria-label={t('camera.viewer.previous')}><ChevronLeft size={20} /></button>
-            <button type="button" className={`${controlClass} absolute right-3 top-1/2 z-20 -translate-y-1/2 sm:right-5`} onClick={() => selectRelativeCamera(1)} aria-label={t('camera.viewer.next')}><ChevronRight size={20} /></button>
+            <button type="button" className={`${arrowClass} left-3`} onClick={() => selectRelativeCamera(-1)} aria-label={t('camera.viewer.previous')}>
+              <ChevronLeft size={20} />
+            </button>
+            <button type="button" className={`${arrowClass} right-3`} onClick={() => selectRelativeCamera(1)} aria-label={t('camera.viewer.next')}>
+              <ChevronRight size={20} />
+            </button>
           </>
         ) : null}
 
         {isPtzVisible && canUsePtz ? (
-          <div className="absolute bottom-20 right-3 z-30 sm:bottom-24 sm:right-5">
+          <div className="absolute bottom-10 right-3 z-30">
             <CameraPtzJoystick activeDirection={activePtzDirection} onDirectionStart={startPtz} onDirectionStop={stopPtz} compact />
           </div>
         ) : null}
 
-        <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-1.5 overflow-x-auto rounded-full border border-white/12 bg-black/28 p-1.5 shadow-[0_14px_38px_rgba(0,0,0,0.34)] backdrop-blur-2xl">
-          {canUseAudio ? (
-          <button type="button" className={controlClass} onClick={() => setIsMuted((value) => !value)} aria-label={isMuted ? t('camera.preview.audioOn') : t('camera.preview.audioOff')}>{isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}</button>
-          ) : null}
-          <button type="button" className={controlClass} onClick={togglePlayback} disabled={!activeCamera || activeCamera.isOffline || (!activeCamera.streamUrl && !activeCamera.videoUrl)} aria-label={isPaused ? t('camera.preview.play') : t('camera.preview.pause')}>{isPaused ? <Play size={16} /> : <Pause size={16} />}</button>
-          {activeCamera?.supportsPtz ? <button type="button" className={controlClass} onClick={() => setIsPtzVisible((value) => !value)} disabled={!canUsePtz} aria-label={isPtzVisible ? t('camera.preview.hidePtz') : t('camera.preview.showPtz')}><SlidersHorizontal size={16} /></button> : null}
-          <button type="button" className={controlClass} onClick={refreshVisual} disabled={!activeCamera || activeCamera.isOffline} aria-label={t('camera.viewer.refresh')}><RefreshCw size={16} /></button>
-          <button type="button" className={controlClass} onClick={() => void downloadSnapshot()} disabled={!activeCamera || activeCamera.isOffline || isSnapshotBusy} aria-label={t('camera.viewer.saveSnapshot')}><Download size={16} /></button>
-          <button type="button" className={controlClass} onClick={() => void toggleNativeFullscreen()} aria-label={t('camera.viewer.nativeFullscreen')}><Expand size={16} /></button>
-        </div>
+        {feedback ? (
+          <div role="status" className="absolute left-1/2 top-3 z-30 -translate-x-1/2 rounded-full bg-black/55 px-4 py-2 text-xs font-semibold text-white backdrop-blur-md">
+            {feedback}
+          </div>
+        ) : null}
+      </div>
 
-        {feedback ? <div role="status" className="absolute left-1/2 top-4 z-30 -translate-x-1/2 rounded-full border border-white/12 bg-black/42 px-4 py-2 text-xs font-semibold text-white/80 shadow-[0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-2xl">{feedback}</div> : null}
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="glass-button min-h-10"
+          onClick={togglePlayback}
+          disabled={!activeCamera || activeCamera.isOffline || (!activeCamera.streamUrl && !activeCamera.videoUrl)}
+        >
+          {isPaused ? <Play size={16} aria-hidden="true" /> : <Pause size={16} aria-hidden="true" />}
+          {isPaused ? t('camera.preview.play') : t('camera.preview.pause')}
+        </button>
+        <button type="button" className="glass-button min-h-10" onClick={refreshVisual} disabled={!activeCamera || activeCamera.isOffline} aria-label={t('camera.viewer.refresh')}>
+          <RefreshCw size={16} aria-hidden="true" />
+          {t('camera.viewer.refreshShort')}
+        </button>
+        <button
+          type="button"
+          className="glass-button min-h-10"
+          onClick={() => void downloadSnapshot()}
+          disabled={!activeCamera || activeCamera.isOffline || isSnapshotBusy}
+          aria-label={t('camera.viewer.saveSnapshot')}
+        >
+          <Download size={16} aria-hidden="true" />
+          {t('camera.viewer.snapshotShort')}
+        </button>
+        <button type="button" className="glass-button min-h-10" onClick={() => void toggleNativeFullscreen()} aria-label={t('camera.viewer.nativeFullscreen')}>
+          <Expand size={16} aria-hidden="true" />
+          {t('camera.preview.fullscreen')}
+        </button>
+        {activeCamera?.supportsPtz ? (
+          <button
+            type="button"
+            className={clsx('glass-button min-h-10', isPtzVisible && 'glass-button-primary')}
+            onClick={() => setIsPtzVisible((value) => !value)}
+            disabled={!canUsePtz}
+            aria-pressed={isPtzVisible}
+            aria-label={isPtzVisible ? t('camera.preview.hidePtz') : t('camera.preview.showPtz')}
+          >
+            <SlidersHorizontal size={16} aria-hidden="true" />
+            {t('camera.preview.ptz')}
+          </button>
+        ) : null}
+        {canUseAudio ? (
+          <button type="button" className={clsx('glass-button min-h-10', !isMuted && 'glass-button-primary')} onClick={() => setIsMuted((value) => !value)} aria-pressed={!isMuted}>
+            {isMuted ? <VolumeX size={16} aria-hidden="true" /> : <Volume2 size={16} aria-hidden="true" />}
+            {isMuted ? t('camera.preview.audioOn') : t('camera.preview.audioOff')}
+          </button>
+        ) : null}
       </div>
     </GlassModal>
   );

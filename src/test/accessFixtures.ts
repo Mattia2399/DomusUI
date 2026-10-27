@@ -17,18 +17,18 @@ import {
 export const ROLE_CAPABILITIES: Readonly<Record<AccessRole, readonly AccessCapability[]>> = {
   admin: ACCESS_CAPABILITY_IDS,
   resident: [
-    'dashboard.view', 'rooms.view', 'devices.control', 'access.control', 'security.view', 'security.control',
+    'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'access.control', 'security.view', 'security.control',
     'automations.view', 'automations.run', 'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view',
     'people.view', 'system.view', 'device.manage', 'profile.manage',
   ],
   member: [
-    'dashboard.view', 'rooms.view', 'devices.control', 'security.view', 'automations.view', 'automations.run',
+    'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'security.view', 'automations.view', 'automations.run',
     'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view', 'people.view', 'system.view',
     'device.manage', 'profile.manage',
   ],
-  restricted: ['dashboard.view', 'rooms.view', 'devices.control', 'irrigation.view', 'waste.view', 'profile.manage'],
+  restricted: ['dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'irrigation.view', 'waste.view', 'profile.manage'],
   wall_panel: [
-    'dashboard.view', 'rooms.view', 'devices.control', 'security.view', 'automations.run', 'energy.view',
+    'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'security.view', 'automations.run', 'energy.view',
     'irrigation.view', 'waste.view',
   ],
   locked: ['dashboard.view', 'rooms.view', 'profile.manage'],

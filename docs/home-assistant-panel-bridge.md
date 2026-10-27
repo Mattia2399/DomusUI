@@ -25,6 +25,8 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "profile_notifications_v1",
   "profile_recipients_v1",
   "device_power_v1",
+  "device_timers_v1",
+  "statistics_v1",
   "access_v1",
   "access_admin_v1",
   "state_translations_v1",
@@ -36,6 +38,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
 const ALLOWED_WS_TYPES = new Set([
   "auth/current_user", "auth/list", "config/auth/list", "get_services",
   "weather/get_forecasts", "call_service", "history/history_during_period",
+  "recorder/statistics_during_period",
   "logbook/get_events", "get_panels",
   "frontend/get_translations",
   "frontend/get_user_data", "frontend/set_user_data",
@@ -65,6 +68,8 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/profile/test_self", "domusos/profile/list_recipients",
   "domusos/device_power/get_state", "domusos/device_power/save_policy",
   "domusos/device_power/bind_policy", "domusos/device_power/delete_policy",
+  "domusos/device_timers/get_state", "domusos/device_timers/subscribe",
+  "domusos/device_timers/set_timer", "domusos/device_timers/cancel_timer",
   "domusos/access/get_self",
   "domusos/access/list_accounts", "domusos/access/set_assignment",
   "domusos/access/remove_assignment", "domusos/access/reset_policy",
@@ -72,6 +77,8 @@ const ALLOWED_WS_TYPES = new Set([
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
 ]);
+// The only subscriptions: what changes while a page is open.
+const SUBSCRIBE_TYPES = new Set(["domusos/irrigation/subscribe", "domusos/device_timers/subscribe", "calendar/event/subscribe"]);
 const HA_NAME = /^[a-z0-9_]+$/;
 const REQUEST_ID = /^ha-panel-(?:call-(?:service|api)|subscribe-api|upload-image)-\d{10,}-[a-z0-9]+$/;
 // Person pictures: Domus uploads a small square image, stored like the HA frontend does.
@@ -338,6 +345,36 @@ const isValidDevicePowerMessage = (message) => {
     isThreshold(policy.start_threshold) && isThreshold(policy.stop_threshold) &&
     policy.start_threshold < policy.stop_threshold;
 };
+// Device timers: a device that switches itself off after a few minutes. Home Assistant
+// checks that the person may control the device, and switches it off itself.
+const DEVICE_TIMER_ENTITY = /^(?:switch|fan|humidifier)\.[a-z0-9_]+$/;
+const isValidDeviceTimerMessage = (message) => {
+  const isDevice = (value) => typeof value === "string" && DEVICE_TIMER_ENTITY.test(value);
+  if (message.type === "domusos/device_timers/get_state" || message.type === "domusos/device_timers/subscribe") {
+    return hasExactKeys(message, ["type"]);
+  }
+  if (message.type === "domusos/device_timers/cancel_timer") {
+    return hasExactKeys(message, ["type", "entity_id"]) && isDevice(message.entity_id);
+  }
+  return message.type === "domusos/device_timers/set_timer" &&
+    hasExactKeys(message, ["type", "entity_id", "minutes"]) && isDevice(message.entity_id) &&
+    Number.isInteger(message.minutes) && message.minutes >= 1 && message.minutes <= 1440;
+};
+// Long-term statistics are read only: a few sensors, the periods and units of a meter.
+const STATISTICS_KEYS = ["type", "start_time", "end_time", "statistic_ids", "period", "types", "units"];
+const STATISTICS_PERIODS = ["5minute", "hour", "day", "week", "month"];
+const STATISTICS_UNITS = { energy: ["Wh", "kWh", "MWh"], power: ["W", "kW"] };
+const isValidStatisticsMessage = (message) =>
+  hasExactKeys(message, STATISTICS_KEYS) &&
+  [message.start_time, message.end_time].every((value) =>
+    typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value))) &&
+  Array.isArray(message.statistic_ids) && message.statistic_ids.length >= 1 && message.statistic_ids.length <= 10 &&
+  message.statistic_ids.every((id) => typeof id === "string" && /^sensor\.[a-z0-9_]+$/.test(id)) &&
+  STATISTICS_PERIODS.includes(message.period) &&
+  Array.isArray(message.types) && message.types.length >= 1 && message.types.length <= 2 &&
+  message.types.every((type) => type === "change" || type === "mean") &&
+  isRecord(message.units) && Object.entries(message.units).every(([kind, unit]) =>
+    Object.prototype.hasOwnProperty.call(STATISTICS_UNITS, kind) && STATISTICS_UNITS[kind].includes(unit));
 // Only the words for entity states, in one language: no integration or config flow text.
 const isValidTranslationsMessage = (message) =>
   hasExactKeys(message, ["type", "language", "category"]) &&
@@ -353,6 +390,12 @@ const isValidWsMessage = (message) => {
   }
   if (message.type.startsWith("domusos/device_power/")) {
     return isValidDevicePowerMessage(message);
+  }
+  if (message.type.startsWith("domusos/device_timers/")) {
+    return isValidDeviceTimerMessage(message);
+  }
+  if (message.type === "recorder/statistics_during_period") {
+    return isValidStatisticsMessage(message);
   }
   // The account is the connection's: get_self names no user, role or capability.
   if (message.type === "domusos/access/get_self") return hasExactKeys(message, ["type"]);
@@ -662,7 +705,7 @@ class HaDashboardBuilderPanel extends HTMLElement {
       try {
         const message = payload.message;
         if (!REQUEST_ID.test(requestId) ||
-            (message?.type !== "domusos/irrigation/subscribe" && message?.type !== "calendar/event/subscribe") ||
+            !SUBSCRIBE_TYPES.has(message?.type) ||
             !isValidWsMessage(message)) {
           throw new Error("Sottoscrizione API non ammessa.");
         }
@@ -789,6 +832,10 @@ customElements.define("ha-dashboard-builder-panel", HaDashboardBuilderPanel);
 L'elenco dei destinatari (capability `profile_recipients_v1`) è `domusos/profile/list_recipients`, solo per amministratori e senza parametri: per ogni persona restituisce id interno, entità, stato di prontezza e se è selezionabile, mai account, dispositivi, preferenze o target. Home Assistant rifiuta la richiesta a chi non è amministratore.
 
 Le traduzioni degli stati (capability `state_translations_v1`) sono `frontend/get_translations` con solo `type`, `language` e `category`, e `category` può essere soltanto `entity_component` o `entity`: Domus legge le stesse parole che il frontend Home Assistant usa per gli stati delle entità ("Acceso", "Aperta", "Fuori casa"). Senza la capability Domus usa un piccolo dizionario proprio.
+
+I timer di spegnimento (capability `device_timers_v1`) usano quattro comandi: `domusos/device_timers/get_state` e `subscribe` (solo `type`), `set_timer` (esattamente `entity_id` di tipo `switch.*`, `fan.*` o `humidifier.*` e `minutes` intero da 1 a 1440) e `cancel_timer` (solo `entity_id`). Home Assistant verifica che la persona possa comandare quel dispositivo, e lo spegnimento lo fa l'integrazione allo scadere del timer. `subscribe` è l'unica sottoscrizione oltre a irrigazione e calendario.
+
+Le statistiche a lungo termine (capability `statistics_v1`) sono `recorder/statistics_during_period` in sola lettura, con esattamente `start_time`, `end_time`, da 1 a 10 `statistic_ids` di tipo `sensor.*`, un `period` tra `5minute`, `hour`, `day`, `week` e `month`, `types` tra `change` e `mean`, e `units` solo per `energy` (Wh, kWh, MWh) e `power` (W, kW). Servono al consumo di una presa nella pagina Stanze.
 
 La gestione dell'alimentazione dei dispositivi (capability `device_power_v1`) usa quattro comandi, tutti riservati agli amministratori: `domusos/device_power/get_state` (solo `type`), `save_policy` (una `policy` con esattamente `client_id`, `label`, `enabled`, `battery_entity_id` di tipo `sensor.*`, `switch_entity_id` di tipo `switch.*`, `start_threshold` e `stop_threshold` interi con inizio minore della fine; senza `policy_id` né `expected_revision` per una nuova policy, con entrambi per modificarne una), `bind_policy` (`policy_id`, `expected_revision`, `client_id`) e `delete_policy` (`policy_id`, `expected_revision`). Non esiste un comando che accenda o spenga uno switch: i controller girano in Home Assistant, che ripete ogni controllo. Vedi [Device Power Management](device-power-management.md).
 

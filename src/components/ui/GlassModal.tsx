@@ -13,6 +13,9 @@ export type GlassModalProps = {
   isOpen: boolean;
   onClose: () => void;
   title: React.ReactNode;
+  /** A round mark before the title: beside it (a device), or above it (a question to confirm). */
+  icon?: React.ReactNode;
+  iconLayout?: 'inline' | 'stacked';
   eyebrow?: React.ReactNode;
   description?: React.ReactNode;
   children?: React.ReactNode;
@@ -85,6 +88,8 @@ export function GlassModal({
   isOpen,
   onClose,
   title,
+  icon,
+  iconLayout = 'inline',
   eyebrow,
   description,
   children,
@@ -183,14 +188,15 @@ export function GlassModal({
   const isFullscreen = variant === 'fullscreen';
   const overlayClassName = clsx(
     usePortal && themeClass,
-    'fixed inset-0 flex min-h-0 items-center justify-center',
+    'fixed inset-0 flex min-h-0 justify-center',
     isResponsive && 'items-stretch justify-stretch p-0 md:items-center md:justify-center md:p-8',
     isFullscreen && 'items-stretch justify-stretch p-0',
-    variant === 'dialog' && 'p-4 sm:p-6',
+    // As on the Rooms board: on a phone a dialog rises from the bottom, 8 px above it; on a large screen it is centred.
+    variant === 'dialog' && 'items-end p-2 pb-[calc(env(safe-area-inset-bottom)+8px)] md:items-center md:p-6',
     className,
   );
   const responsivePanelClass = isResponsive
-    ? 'h-[100dvh] max-w-none rounded-none border-0 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] md:h-auto md:max-h-[calc(100dvh-4rem)] md:rounded-[2rem] md:border md:p-6'
+    ? 'h-[100dvh] max-w-none rounded-none border-0 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] md:h-auto md:max-h-[90dvh] md:rounded-[30px] md:border md:p-[18px]'
     : '';
   const fullscreenPanelClass = isFullscreen
     ? 'h-[100dvh] max-w-none rounded-none border-0 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)]'
@@ -209,7 +215,7 @@ export function GlassModal({
         >
           <div
             aria-hidden="true"
-            className={clsx('absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-2xl', backdropClassName)}
+            className={clsx('absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-[8px]', backdropClassName)}
             onClick={dismissible ? onClose : undefined}
           />
 
@@ -221,12 +227,12 @@ export function GlassModal({
             aria-describedby={description ? descriptionId : undefined}
             tabIndex={-1}
             className={clsx(
-              'liquid-glass-panel relative z-10 flex w-full min-h-0 flex-col overflow-hidden text-[color:var(--ui-text-primary)] outline-none',
+              'glass-sheet-surface relative z-10 flex w-full min-h-0 flex-col overflow-hidden text-[color:var(--ui-text-primary)] outline-none',
               !isFullscreen && !isResponsive && SIZE_CLASS[size],
               isResponsive && RESPONSIVE_SIZE_CLASS[size],
               responsivePanelClass,
               fullscreenPanelClass,
-              variant === 'dialog' && 'max-h-[calc(100dvh-2rem)] rounded-[2rem] p-5 sm:max-h-[calc(100dvh-3rem)] sm:p-6',
+              variant === 'dialog' && 'max-h-[90dvh] rounded-[30px] p-[18px]',
               panelClassName,
             )}
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -235,27 +241,68 @@ export function GlassModal({
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
             onClick={(event) => event.stopPropagation()}
           >
-            <header className={clsx('relative shrink-0 pr-10', headerClassName)}>
-              {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">{eyebrow}</p> : null}
-              <h2 id={titleId} className={clsx('font-semibold tracking-tight text-[color:var(--ui-text-primary)]', eyebrow ? 'mt-2 text-xl sm:text-2xl' : 'text-xl sm:text-2xl')}>
-                {title}
-              </h2>
-              {description ? <p id={descriptionId} className="mt-2 text-sm leading-relaxed text-[color:var(--ui-text-secondary)]">{description}</p> : null}
+            <header
+              className={clsx(
+                'relative shrink-0',
+                showCloseButton && 'min-h-10 pr-12',
+                icon && iconLayout === 'inline' && 'flex items-center gap-3',
+                icon && iconLayout === 'stacked' && 'flex flex-col items-start gap-3.5',
+                headerClassName,
+              )}
+            >
+              {icon ? <span aria-hidden="true" className="flex shrink-0">{icon}</span> : null}
+              {icon ? (
+                <div className="min-w-0 flex-1">
+                  {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">{eyebrow}</p> : null}
+                  <h2
+                    id={titleId}
+                    className={clsx(
+                      'font-bold leading-tight tracking-[-0.02em] text-[color:var(--ui-text-primary)]',
+                      iconLayout === 'inline' ? 'truncate text-[20px]' : 'text-[19px]',
+                      eyebrow && 'mt-1',
+                    )}
+                  >
+                    {title}
+                  </h2>
+                  {description ? (
+                    <p
+                      id={descriptionId}
+                      className={clsx(
+                        'text-[color:var(--ui-text-secondary)]',
+                        iconLayout === 'inline' ? 'mt-0.5 truncate text-[13px] font-semibold' : 'mt-2 text-sm font-medium leading-[1.45]',
+                      )}
+                    >
+                      {description}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">{eyebrow}</p> : null}
+                  <h2
+                    id={titleId}
+                    className={clsx('text-[19px] font-bold leading-tight tracking-[-0.02em] text-[color:var(--ui-text-primary)]', eyebrow ? 'mt-1.5' : 'pt-2')}
+                  >
+                    {title}
+                  </h2>
+                  {description ? <p id={descriptionId} className="mt-1.5 text-sm leading-relaxed text-[color:var(--ui-text-secondary)]">{description}</p> : null}
+                </>
+              )}
               {showCloseButton ? (
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={!dismissible}
-                  className="glass-icon-button absolute right-0 top-0 h-11 w-11 disabled:opacity-35"
+                  className={clsx('glass-sheet-close h-10 w-10 disabled:opacity-35', icon && iconLayout === 'inline' ? 'absolute right-0 top-1/2 -translate-y-1/2' : 'absolute right-0 top-0')}
                   aria-label={resolvedCloseLabel}
                 >
-                  <X size={16} />
+                  <X size={15} strokeWidth={2.4} />
                 </button>
               ) : null}
             </header>
 
-            {children ? <div className={clsx('mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain glass-scrollbar', bodyClassName)}>{children}</div> : null}
-            {footer ? <footer className={clsx('mt-auto flex shrink-0 items-center justify-end gap-3 pt-5', footerClassName)}>{footer}</footer> : null}
+            {children ? <div className={clsx('mt-[14px] min-h-0 flex-1 overflow-y-auto overscroll-contain glass-scrollbar', bodyClassName)}>{children}</div> : null}
+            {footer ? <footer className={clsx('mt-auto flex shrink-0 items-center justify-end gap-2.5 pt-[14px]', footerClassName)}>{footer}</footer> : null}
           </motion.div>
         </motion.div>
       ) : null}

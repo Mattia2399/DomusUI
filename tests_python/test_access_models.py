@@ -57,7 +57,7 @@ def ready(assignments):
 
 def test_every_capability_follows_the_naming_convention_and_has_valid_metadata() -> None:
     registry = models.ACCESS_CAPABILITIES
-    assert len(registry) == 34
+    assert len(registry) == 35
     for capability_id, entry in registry.items():
         assert capability_id == entry.id
         assert re.fullmatch(r"[a-z][a-z_]*\.[a-z][a-z_]*", capability_id)
@@ -124,6 +124,7 @@ ROLE_MATRIX = {
     "dashboard.reset": (1, 0, 0, 0, 0),
     "rooms.view": (1, 1, 1, 1, 1),
     "devices.control": (1, 1, 1, 1, 1),
+    "devices.timers": (1, 1, 1, 1, 1),
     "access.control": (1, 1, 0, 0, 0),
     "security.view": (1, 1, 1, 0, 1),
     "security.control": (1, 1, 0, 0, 0),

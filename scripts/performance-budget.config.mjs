@@ -51,8 +51,26 @@ export const surfaces = [
   },
   // /rooms. Baseline 266,400 / 78,800.
   {
-    id: 'rooms', label: 'Stanze', sources: ['src/pages/RoomsDashboard.tsx'], requires: 'home', kind: 'route',
+    id: 'rooms', label: 'Stanze', sources: ['src/pages/rooms/RoomsPage.tsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 100 * KB } },
+  },
+  // What /rooms opens on request (device panels, section pages, sheets, management), fetched when idle. Baseline 106,000 / 38,600.
+  {
+    id: 'rooms-parts', label: 'Stanze · pannelli e gestione', requires: 'rooms', kind: 'feature',
+    sources: [
+      'src/components/devices/panels/LightPanel.tsx',
+      'src/components/devices/panels/DevicePanel.tsx',
+      'src/components/devices/panels/ClimatePanel.tsx',
+      'src/components/devices/panels/SensorPanel.tsx',
+      'src/components/devices/panels/SecurityPanel.tsx',
+      'src/components/devices/panels/MediaPlayer.tsx',
+      'src/pages/rooms/MediaSheets.tsx',
+      'src/pages/rooms/SectionPage.tsx',
+      'src/pages/rooms/AddAccessoriesSheet.tsx',
+      'src/pages/rooms/RoomsManagePage.tsx',
+      'src/pages/rooms/RoomManageSheets.tsx',
+    ],
+    budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 46 * KB } },
   },
   // /security. Baseline 123,400 / 41,400.
   {
@@ -114,13 +132,6 @@ export const surfaces = [
   {
     id: 'context-sidebar', label: 'Sidebar contesto', sources: ['src/components/settings/ContextSidebar.tsx'], requires: 'home', kind: 'feature',
     budget: { metric: 'incremental', raw: { warning: 760 * KB, limit: 840 * KB }, gzip: { warning: 225 * KB, limit: 250 * KB } },
-  },
-  // Members map: MapLibre runtime, its shared module, stylesheet and worker. Baseline 1,180,900 / 315,800.
-  {
-    id: 'members-map', label: 'Mappa membri (MapLibre)', requires: 'context-sidebar', kind: 'feature',
-    sources: ['src/components/settings/MembersLocationMap.tsx', 'src/components/settings/maplibreRuntime.ts'],
-    files: ['maplibre-gl-worker.js'],
-    budget: { metric: 'incremental', raw: { warning: 1.25 * MB, limit: 1.35 * MB }, gzip: { warning: 335 * KB, limit: 360 * KB } },
   },
 
   // Settings › This device features, measured as what they add to Settings

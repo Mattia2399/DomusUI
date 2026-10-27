@@ -53,21 +53,21 @@ export function GlassBottomSheet({
       usePortal={usePortal}
       zIndex={zIndex}
       className={clsx(
-        'items-end justify-center !p-0 sm:items-center sm:!p-6',
+        'items-end justify-center !p-2 !pb-[calc(env(safe-area-inset-bottom)+8px)] md:items-center md:!p-6',
         position === 'container' && '!absolute',
         className,
       )}
       panelClassName={clsx(
-        'liquid-glass-sheet !max-w-none !rounded-b-none !rounded-t-[2rem] border-x border-b-0 border-t !p-4 !pb-[calc(env(safe-area-inset-bottom)+1rem)] !pt-8 before:absolute before:left-1/2 before:top-3 before:h-1 before:w-10 before:-translate-x-1/2 before:rounded-full before:bg-[color:var(--ui-border-strong)] sm:!max-w-md sm:!rounded-[2rem] sm:border-b sm:!p-4 sm:!pt-8',
+        '!max-w-none md:!max-w-md',
         panelClassName,
       )}
       headerClassName={clsx(
-        showHeader ? '!pr-0 text-center' : 'sr-only',
+        showHeader ? undefined : 'sr-only',
         headerClassName,
       )}
       bodyClassName={clsx(showHeader ? undefined : '!mt-0', bodyClassName)}
       footerClassName={clsx('w-full', footerClassName)}
-      backdropClassName="!bg-[color:var(--ui-scrim)] !backdrop-blur-md"
+      backdropClassName="!bg-[color:var(--ui-scrim)]"
       footer={footer}
     >
       {children}

@@ -121,7 +121,7 @@ export function GlassSegmentSelect<T extends GlassSegmentValue>({
               tabIndex={active || (value === undefined && index === enabledIndexes[0]) ? 0 : -1}
               onClick={() => onChange(option.value)}
               className={clsx(
-                'flex h-10 min-w-0 items-center justify-center rounded-full px-3 text-xs font-semibold transition-all active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35',
+                'flex h-[38px] min-w-0 items-center justify-center rounded-[13px] px-3 text-[13px] font-semibold transition-all active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35',
                 active ? 'liquid-segmented-option-active' : 'liquid-segmented-option-inactive',
                 customClassName,
               )}

@@ -19,6 +19,7 @@ export const ACCESS_CAPABILITY_IDS = [
   'dashboard.reset',
   'rooms.view',
   'devices.control',
+  'devices.timers',
   'access.control',
   'security.view',
   'security.control',

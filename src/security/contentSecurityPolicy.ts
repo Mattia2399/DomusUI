@@ -7,8 +7,6 @@ function normalizeCspOrigin(value: string) {
   }
 }
 
-export const CARTO_MAP_ORIGIN = 'https://tiles.basemaps.cartocdn.com';
-
 function normalizeCspOrigins(values: readonly string[]) {
   return [...new Set(
     values
@@ -21,23 +19,14 @@ function appendSources(sources: readonly string[]) {
   return sources.length > 0 ? ` ${sources.join(' ')}` : '';
 }
 
-function buildCsp(
-  configuredOrigins: readonly string[],
-  mapAssetOrigins: readonly string[],
-) {
-  const normalizedMapOrigins = normalizeCspOrigins(mapAssetOrigins);
-  const mapOriginSet = new Set(normalizedMapOrigins);
-  const normalizedConfiguredOrigins = normalizeCspOrigins(configuredOrigins)
-    .filter((origin) => !mapOriginSet.has(origin));
+// No third-party origin: only the Home Assistant origins a build is configured with.
+function buildCsp(configuredOrigins: readonly string[]) {
+  const normalizedConfiguredOrigins = normalizeCspOrigins(configuredOrigins);
   const websocketOrigins = normalizedConfiguredOrigins.map((origin) =>
     origin.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:'),
   );
-  const imageSources = [...normalizedMapOrigins, ...normalizedConfiguredOrigins];
-  const connectSources = [
-    ...normalizedMapOrigins,
-    ...normalizedConfiguredOrigins,
-    ...websocketOrigins,
-  ];
+  const imageSources = normalizedConfiguredOrigins;
+  const connectSources = [...normalizedConfiguredOrigins, ...websocketOrigins];
   return [
     "default-src 'self'",
     "script-src 'self'",
@@ -57,10 +46,10 @@ function buildCsp(
 
 /** CSP for the dashboard distributed standalone and through HACS. */
 export function buildProductionCsp(configuredOrigins: readonly string[]) {
-  return buildCsp(configuredOrigins, [CARTO_MAP_ORIGIN]);
+  return buildCsp(configuredOrigins);
 }
 
-/** The presentation site does not load the dashboard map or CARTO assets. */
+/** The presentation site talks to no Home Assistant. */
 export function buildPresentationSiteCsp() {
-  return buildCsp([], []);
+  return buildCsp([]);
 }

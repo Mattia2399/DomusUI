@@ -95,6 +95,7 @@ def test_two_band_contracts_group_f2_and_f3() -> None:
         "band": "F1",
         "band_label": "F1",
         "price": 0.3,
+        "prices": {"f1": 0.3, "f23": 0.2},
         "export_price": None,
         "vat_percent": None,
         "currency": "EUR",

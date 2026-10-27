@@ -4,7 +4,6 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root = process.cwd();
-const CARTO_MAP_ORIGIN = 'https://tiles.basemaps.cartocdn.com';
 
 function extractCsp(html, sourceLabel) {
   const metaTag = html.match(
@@ -26,16 +25,6 @@ function parseDirectives(policy) {
 
 function assertDefaultDistributionPolicy(policy, sourceLabel) {
   const directives = parseDirectives(policy);
-  const imageSources = directives.get('img-src') ?? [];
-  const connectSources = directives.get('connect-src') ?? [];
-
-  if (imageSources.filter((source) => source === CARTO_MAP_ORIGIN).length !== 1) {
-    throw new Error(`${sourceLabel}: CARTO deve comparire una volta in img-src.`);
-  }
-  if (connectSources.filter((source) => source === CARTO_MAP_ORIGIN).length !== 1) {
-    throw new Error(`${sourceLabel}: CARTO deve comparire una volta in connect-src.`);
-  }
-
   const broadSources = new Set(['*', 'http:', 'https:', 'ws:', 'wss:']);
   const externalOrigins = new Set();
   for (const [directive, sources] of directives) {
@@ -46,16 +35,10 @@ function assertDefaultDistributionPolicy(policy, sourceLabel) {
       if (/^(?:https?|wss?):\/\//.test(source)) {
         externalOrigins.add(source);
       }
-      if (source === CARTO_MAP_ORIGIN && directive !== 'img-src' && directive !== 'connect-src') {
-        throw new Error(`${sourceLabel}: CARTO non deve essere autorizzato in ${directive}.`);
-      }
     }
   }
 
-  if (
-    externalOrigins.size !== 1
-    || !externalOrigins.has(CARTO_MAP_ORIGIN)
-  ) {
+  if (externalOrigins.size !== 0) {
     throw new Error(
       `${sourceLabel}: la build distribuibile contiene origin esterni inattesi: ${[...externalOrigins].join(', ')}`,
     );
@@ -100,4 +83,4 @@ if (distPolicy !== hacsPolicy) {
   throw new Error('La CSP del pacchetto HACS differisce dalla build standalone.');
 }
 
-console.log('CSP standalone e HACS verificate: CARTO limitato a img-src e connect-src; nessun origin personale.');
+console.log('CSP standalone e HACS verificate: nessun origin esterno né personale.');
