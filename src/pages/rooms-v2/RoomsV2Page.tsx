@@ -18,9 +18,7 @@ import type { GlassDropdownOption } from '../../components/ui/GlassDropdown';
 import { useProtectedEntities, useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
 import { LightCard } from '../../components/devices/cards/LightCard';
 import { DeviceCard } from '../../components/devices/cards/DeviceCard';
-import { DevicePanel } from '../../components/devices/panels/DevicePanel';
 import { ClimateCard } from '../../components/devices/cards/ClimateCard';
-import { ClimatePanel } from '../../components/devices/panels/ClimatePanel';
 import { climateIsOn, type ClimateModel } from '../../components/devices/model/climate';
 import { SensorCard } from '../../components/devices/cards/SensorCard';
 import { SceneCard } from '../../components/devices/cards/SceneCard';
@@ -31,9 +29,7 @@ import {
   undoSceneCall,
   type SceneModel,
 } from '../../components/devices/model/scene';
-import { SensorPanel, SENSOR_PERIOD_HOURS, type SensorPeriod } from '../../components/devices/panels/SensorPanel';
 import { SecurityCard } from '../../components/devices/cards/SecurityCard';
-import { SecurityPanel } from '../../components/devices/panels/SecurityPanel';
 import { securityStatus } from '../../components/devices/cards/securityText';
 import {
   applyLockCommand,
@@ -48,7 +44,7 @@ import {
   type SecurityModel,
 } from '../../components/devices/model/security';
 import { MediaKindIcon, MediaOffCard, NowPlayingCard } from '../../components/devices/cards/MediaCard';
-import { MediaPlayer, type MediaGroupCandidate } from '../../components/devices/panels/MediaPlayer';
+import type { MediaGroupCandidate } from '../../components/devices/panels/MediaPlayer';
 import { pickRoomPlayer, type MediaAction, type MediaModel } from '../../components/devices/model/media';
 import { useAmbientAssetUrl } from '../../theme/ambient/AmbientProvider';
 import { CameraViewer, type CameraViewerItem } from '../../components/camera/CameraViewer';
@@ -67,7 +63,6 @@ import { canHaveTimer } from '../../components/devices/model/deviceTimer';
 import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
 import GlassConfirmDialog from '../../components/ui/GlassConfirmDialog';
-import { LightPanel } from '../../components/devices/panels/LightPanel';
 import { PanelHost } from '../../components/devices/panels/PanelHost';
 import { lightRgb } from '../../components/devices/model/tileColor';
 import { pinRanks, togglePinned } from '../../components/devices/model/sectionRules';
@@ -90,9 +85,8 @@ import {
   demoSecurityHistory,
   demoSensorSeries,
 } from './demoRoomsFixtures';
-import { MediaPickPanel, MediaStartPanel } from './MediaSheets';
-import { RoomEditPanel, type RoomSheetResult } from './RoomManageSheets';
-import { RoomsManagePage, type ManagedRoom, type ManageTab } from './RoomsManagePage';
+import type { RoomSheetResult } from './RoomManageSheets';
+import type { ManagedRoom, ManageTab } from './RoomsManagePage';
 import {
   DEMO_LAYOUT,
   EMPTY_LAYOUT,
@@ -110,7 +104,7 @@ import { usePlugEnergy } from './usePlugEnergy';
 import { useDeviceTimers, type RoomsSubscribeApi } from './useDeviceTimers';
 import { useSensorHistory } from './useSensorHistory';
 import { useStateHistory } from './useStateHistory';
-import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
+import type { AccessoryCandidate } from './AddAccessoriesSheet';
 import { RoomHead, type FloorOption, type StatusChip } from './RoomHead';
 import {
   bucketRoomEntities,
@@ -122,7 +116,24 @@ import {
   type MissingSection,
 } from './roomSummary';
 import { RoomSection } from './RoomSection';
-import { SectionPage, type SectionCandidate } from './SectionPage';
+import type { SectionCandidate } from './SectionPage';
+import {
+  AddAccessoriesSheet,
+  ClimatePanel,
+  Deferred,
+  DevicePanel,
+  LightPanel,
+  MediaPickPanel,
+  MediaPlayer,
+  MediaStartPanel,
+  preloadRoomsParts,
+  RoomEditPanel,
+  RoomsManagePage,
+  SectionPage,
+  SecurityPanel,
+  SensorPanel,
+} from './roomsParts';
+import { SENSOR_PERIOD_HOURS, type SensorPeriod } from '../../components/devices/model/sensor';
 import { useDeviceCommands } from './useDeviceCommands';
 import { useClimateCommands } from './useClimateCommands';
 import { useLightCommands } from './useLightCommands';
@@ -430,6 +441,12 @@ export function RoomsV2Page({
   }, [deviceIdOf, deviceIds, states]);
   const powerSensorOf = React.useCallback((entityId: string) => powerSensorById.get(entityId) ?? null, [powerSensorById]);
   const devices = useDeviceCommands({ demo, states, onCallService, powerSensorOf });
+  React.useEffect(() => {
+    const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 600));
+    const cancel = window.cancelIdleCallback ?? window.clearTimeout;
+    const handle = idle(() => preloadRoomsParts());
+    return () => cancel(handle);
+  }, []);
   const deviceTimers = useDeviceTimers({
     demo,
     isOn: (entityId) => devices.modelOf(entityId)?.on ?? false,
@@ -1194,68 +1211,72 @@ export function RoomsV2Page({
   const roomSheetLayer = (
     <>
       {manageTab ? (
-        <RoomsManagePage
-          tab={manageTab}
-          onTab={setManageTab}
-          currentRoom={activeRoom}
-          rooms={managedRooms}
-          floors={management.floors}
-          canManageFloors={management.canManageFloors}
-          sectionsAll={layout.sections.all}
-          sectionsRoom={activeRoom ? layout.sections.rooms[activeRoom.id] ?? null : null}
-          busy={management.busy}
-          error={roomSheet ? null : management.error}
-          onClose={() => setManageTab(null)}
-          onNewRoom={newRoom}
-          onEditRoom={(room) => {
-            management.clearError();
-            setRoomSheet({ room });
-          }}
-          onMoveRoom={reorderRoom}
-          onNewFloor={() => void management.createFloor(rt('newFloor'))}
-          onRenameFloor={(floorId, name) => void management.renameFloor(floorId, name)}
-          onMoveFloor={(floorId, direction) => void management.moveFloor(floorId, direction)}
-          onDeleteFloor={(floorId) => void management.deleteFloor(floorId)}
-          onSections={(scope, next) =>
-            updateLayout((current) => ({
-              ...current,
-              sections:
-                scope === 'all' || !activeRoom
-                  ? { ...current.sections, all: next }
-                  : { ...current.sections, rooms: { ...current.sections.rooms, [activeRoom.id]: next } },
-            }))
-          }
-          onResetRoomSections={() =>
-            updateLayout((current) => {
-              if (!activeRoom) return current;
-              const rooms = { ...current.sections.rooms };
-              delete rooms[activeRoom.id];
-              return { ...current, sections: { ...current.sections, rooms } };
-            })
-          }
-        />
+        <Deferred>
+          <RoomsManagePage
+            tab={manageTab}
+            onTab={setManageTab}
+            currentRoom={activeRoom}
+            rooms={managedRooms}
+            floors={management.floors}
+            canManageFloors={management.canManageFloors}
+            sectionsAll={layout.sections.all}
+            sectionsRoom={activeRoom ? layout.sections.rooms[activeRoom.id] ?? null : null}
+            busy={management.busy}
+            error={roomSheet ? null : management.error}
+            onClose={() => setManageTab(null)}
+            onNewRoom={newRoom}
+            onEditRoom={(room) => {
+              management.clearError();
+              setRoomSheet({ room });
+            }}
+            onMoveRoom={reorderRoom}
+            onNewFloor={() => void management.createFloor(rt('newFloor'))}
+            onRenameFloor={(floorId, name) => void management.renameFloor(floorId, name)}
+            onMoveFloor={(floorId, direction) => void management.moveFloor(floorId, direction)}
+            onDeleteFloor={(floorId) => void management.deleteFloor(floorId)}
+            onSections={(scope, next) =>
+              updateLayout((current) => ({
+                ...current,
+                sections:
+                  scope === 'all' || !activeRoom
+                    ? { ...current.sections, all: next }
+                    : { ...current.sections, rooms: { ...current.sections.rooms, [activeRoom.id]: next } },
+              }))
+            }
+            onResetRoomSections={() =>
+              updateLayout((current) => {
+                if (!activeRoom) return current;
+                const rooms = { ...current.sections.rooms };
+                delete rooms[activeRoom.id];
+                return { ...current, sections: { ...current.sections, rooms } };
+              })
+            }
+          />
+        </Deferred>
       ) : null}
 
       <PanelHost presentation={phone ? 'sheet' : 'dialog'} isOpen={Boolean(roomSheet)} onClose={() => setRoomSheet(null)} title={sheetRoom ? rt('editRoom') : rt('newRoom')}>
         {roomSheet ? (
-          <RoomEditPanel
-            key={sheetRoom?.id ?? 'new'}
-            room={sheetRoom}
-            area={sheetRoom?.source === 'ha' ? areaById.get(sheetRoom.id) ?? null : null}
-            look={sheetRoom ? layout.looks[sheetRoom.id] ?? {} : {}}
-            fallbackGlow={sheetRoom ? glowOfRoom(sheetRoom) : ROOM_GLOWS[0]}
-            haFields={sheetRoom ? sheetRoom.source === 'ha' : management.canManageHa}
-            nameLocked={sheetRoom !== null && DEMO_ROOM_IDS.has(sheetRoom.id)}
-            floors={management.floors}
-            sensors={{ temperature: temperatureSensors, humidity: humiditySensors }}
-            canHide={sheetRoom !== null && visibleRooms.some((tab) => tab.id !== sheetRoom.id)}
-            canDelete={sheetRoom !== null && !DEMO_ROOM_IDS.has(sheetRoom.id) && allRoomTabs.length > 1}
-            busy={management.busy}
-            error={management.error}
-            onSave={(result) => saveRoomSheet(sheetRoom, result)}
-            onDelete={() => (sheetRoom ? deleteRoomSheet(sheetRoom) : Promise.resolve(false))}
-            onClose={() => setRoomSheet(null)}
-          />
+          <Deferred>
+            <RoomEditPanel
+              key={sheetRoom?.id ?? 'new'}
+              room={sheetRoom}
+              area={sheetRoom?.source === 'ha' ? areaById.get(sheetRoom.id) ?? null : null}
+              look={sheetRoom ? layout.looks[sheetRoom.id] ?? {} : {}}
+              fallbackGlow={sheetRoom ? glowOfRoom(sheetRoom) : ROOM_GLOWS[0]}
+              haFields={sheetRoom ? sheetRoom.source === 'ha' : management.canManageHa}
+              nameLocked={sheetRoom !== null && DEMO_ROOM_IDS.has(sheetRoom.id)}
+              floors={management.floors}
+              sensors={{ temperature: temperatureSensors, humidity: humiditySensors }}
+              canHide={sheetRoom !== null && visibleRooms.some((tab) => tab.id !== sheetRoom.id)}
+              canDelete={sheetRoom !== null && !DEMO_ROOM_IDS.has(sheetRoom.id) && allRoomTabs.length > 1}
+              busy={management.busy}
+              error={management.error}
+              onSave={(result) => saveRoomSheet(sheetRoom, result)}
+              onDelete={() => (sheetRoom ? deleteRoomSheet(sheetRoom) : Promise.resolve(false))}
+              onClose={() => setRoomSheet(null)}
+            />
+          </Deferred>
         ) : null}
       </PanelHost>
     </>
@@ -1481,132 +1502,144 @@ export function RoomsV2Page({
       </div>
 
       {sectionOpen === 'lights' && activeRoom && sectionHandlers ? (
-        <SectionPage
-          title={dt('lights')}
-          roomName={activeRoom.name}
-          items={roomItems}
-          candidatesEmptyLabel={dt('noCandidates')}
-          renderCard={(item, context) => (
-            <LightCard
-              model={item.model}
-              format="U×2"
-              editing={context.editing}
-              selected={context.selected}
-              hiddenItem={item.hidden}
-              onAction={(action) => lights.act(item.id, action)}
-              onOpenPanel={() => setPanel({ kind: 'lights', id: item.id })}
-              onSelect={context.onSelect}
-            />
-          )}
-          canOrganize={canOrganize}
-          canMove={canMove}
-          busy={busy}
-          error={error}
-          candidates={candidates}
-          rooms={moveRooms}
-          onClose={() => setSectionOpen(null)}
-          {...sectionHandlers}
-        />
+        <Deferred>
+          <SectionPage
+            title={dt('lights')}
+            roomName={activeRoom.name}
+            items={roomItems}
+            candidatesEmptyLabel={dt('noCandidates')}
+            renderCard={(item, context) => (
+              <LightCard
+                model={item.model}
+                format="U×2"
+                editing={context.editing}
+                selected={context.selected}
+                hiddenItem={item.hidden}
+                onAction={(action) => lights.act(item.id, action)}
+                onOpenPanel={() => setPanel({ kind: 'lights', id: item.id })}
+                onSelect={context.onSelect}
+              />
+            )}
+            canOrganize={canOrganize}
+            canMove={canMove}
+            busy={busy}
+            error={error}
+            candidates={candidates}
+            rooms={moveRooms}
+            onClose={() => setSectionOpen(null)}
+            {...sectionHandlers}
+          />
+        </Deferred>
       ) : null}
       {sectionOpen === 'devices' && activeRoom && sectionHandlers ? (
-        <SectionPage
-          title={dt('sectionDevices')}
-          roomName={activeRoom.name}
-          items={deviceItems}
-          candidatesEmptyLabel={dt('noDeviceCandidates')}
-          renderCard={(item, context) => (
-            <DeviceCard
-              model={item.model}
-              format="U×2"
-              protectedPlug={protectedSet.has(item.id)}
-              timer={deviceTimers.timers[item.id]}
-              timerNow={deviceTimers.now}
-              editing={context.editing}
-              selected={context.selected}
-              hiddenItem={item.hidden}
-              onAction={(action) => actOnDevice(item.id, action)}
-              onOpenPanel={() => setPanel({ kind: 'devices', id: item.id })}
-              onSelect={context.onSelect}
-            />
-          )}
-          canOrganize={canOrganize}
-          canMove={canMove}
-          busy={busy}
-          error={error}
-          candidates={deviceCandidates}
-          rooms={moveRooms}
-          onClose={() => setSectionOpen(null)}
-          {...sectionHandlers}
-        />
+        <Deferred>
+          <SectionPage
+            title={dt('sectionDevices')}
+            roomName={activeRoom.name}
+            items={deviceItems}
+            candidatesEmptyLabel={dt('noDeviceCandidates')}
+            renderCard={(item, context) => (
+              <DeviceCard
+                model={item.model}
+                format="U×2"
+                protectedPlug={protectedSet.has(item.id)}
+                timer={deviceTimers.timers[item.id]}
+                timerNow={deviceTimers.now}
+                editing={context.editing}
+                selected={context.selected}
+                hiddenItem={item.hidden}
+                onAction={(action) => actOnDevice(item.id, action)}
+                onOpenPanel={() => setPanel({ kind: 'devices', id: item.id })}
+                onSelect={context.onSelect}
+              />
+            )}
+            canOrganize={canOrganize}
+            canMove={canMove}
+            busy={busy}
+            error={error}
+            candidates={deviceCandidates}
+            rooms={moveRooms}
+            onClose={() => setSectionOpen(null)}
+            {...sectionHandlers}
+          />
+        </Deferred>
       ) : null}
       {sectionOpen === 'scenes' && activeRoom && sectionHandlers ? (
-        <SectionPage
-          title={dt('sectionScenes')}
-          roomName={activeRoom.name}
-          items={sceneItems}
-          candidatesEmptyLabel={dt('noSceneCandidates')}
-          renderCard={renderScene}
-          gridClassName="rv2-grid rv2-grid-scenes"
-          canOrganize={canOrganize}
-          canMove={canMove}
-          busy={busy}
-          error={error}
-          candidates={sceneCandidates}
-          rooms={moveRooms}
-          onClose={() => setSectionOpen(null)}
-          {...sectionHandlers}
-        />
+        <Deferred>
+          <SectionPage
+            title={dt('sectionScenes')}
+            roomName={activeRoom.name}
+            items={sceneItems}
+            candidatesEmptyLabel={dt('noSceneCandidates')}
+            renderCard={renderScene}
+            gridClassName="rv2-grid rv2-grid-scenes"
+            canOrganize={canOrganize}
+            canMove={canMove}
+            busy={busy}
+            error={error}
+            candidates={sceneCandidates}
+            rooms={moveRooms}
+            onClose={() => setSectionOpen(null)}
+            {...sectionHandlers}
+          />
+        </Deferred>
       ) : null}
       {sectionOpen === 'sensors' && activeRoom && sectionHandlers ? (
-        <SectionPage
-          title={dt('sectionEnvironment')}
-          roomName={activeRoom.name}
-          items={sensorItems}
-          candidatesEmptyLabel={dt('noSensorCandidates')}
-          renderCard={renderSensor}
-          gridClassName="rv2-grid-sensors"
-          canOrganize={canOrganize}
-          canMove={canMove}
-          busy={busy}
-          error={error}
-          candidates={sensorCandidates}
-          rooms={moveRooms}
-          onClose={() => setSectionOpen(null)}
-          {...sectionHandlers}
-        />
+        <Deferred>
+          <SectionPage
+            title={dt('sectionEnvironment')}
+            roomName={activeRoom.name}
+            items={sensorItems}
+            candidatesEmptyLabel={dt('noSensorCandidates')}
+            renderCard={renderSensor}
+            gridClassName="rv2-grid-sensors"
+            canOrganize={canOrganize}
+            canMove={canMove}
+            busy={busy}
+            error={error}
+            candidates={sensorCandidates}
+            rooms={moveRooms}
+            onClose={() => setSectionOpen(null)}
+            {...sectionHandlers}
+          />
+        </Deferred>
       ) : null}
       {sectionOpen === 'security' && activeRoom && sectionHandlers ? (
-        <SectionPage
-          title={dt('sectionSecurity')}
-          roomName={activeRoom.name}
-          items={securityItems}
-          candidatesEmptyLabel={dt('noSecurityCandidates')}
-          renderCard={renderSecurity}
-          canOrganize={canOrganize}
-          canMove={canMove}
-          busy={busy}
-          error={error}
-          candidates={securityCandidates}
-          rooms={moveRooms}
-          onClose={() => setSectionOpen(null)}
-          {...sectionHandlers}
-        />
+        <Deferred>
+          <SectionPage
+            title={dt('sectionSecurity')}
+            roomName={activeRoom.name}
+            items={securityItems}
+            candidatesEmptyLabel={dt('noSecurityCandidates')}
+            renderCard={renderSecurity}
+            canOrganize={canOrganize}
+            canMove={canMove}
+            busy={busy}
+            error={error}
+            candidates={securityCandidates}
+            rooms={moveRooms}
+            onClose={() => setSectionOpen(null)}
+            {...sectionHandlers}
+          />
+        </Deferred>
       ) : null}
 
-      <AddAccessoriesSheet
-        isOpen={addOpen}
-        title={dt('addAccessories')}
-        candidates={addCandidates}
-        emptyLabel={dt('noCandidates')}
-        busy={busy}
-        onClose={() => setAddOpen(false)}
-        onAdd={async (ids) => {
-          if (!activeRoom) return false;
-          const done = await placeAccessories(ids, activeRoom.id);
-          if (done) setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
-          return done;
-        }}
-      />
+      <Deferred>
+        <AddAccessoriesSheet
+          isOpen={addOpen}
+          title={dt('addAccessories')}
+          candidates={addCandidates}
+          emptyLabel={dt('noCandidates')}
+          busy={busy}
+          onClose={() => setAddOpen(false)}
+          onAdd={async (ids) => {
+            if (!activeRoom) return false;
+            const done = await placeAccessories(ids, activeRoom.id);
+            if (done) setHiddenRoomEntitiesByRoom((current) => withoutIds(current, activeRoom.id, ids));
+            return done;
+          }}
+        />
+      </Deferred>
 
       <PanelHost
         presentation={phone ? 'sheet' : 'dialog'}
@@ -1616,12 +1649,14 @@ export function RoomsV2Page({
         tintRgb={panelLight && panelLight.on && panelLight.available ? lightRgb(panelLight).join(' ') : null}
       >
         {panelLight ? (
-          <LightPanel
-            model={panelLight}
-            roomName={activeRoom?.name}
-            onAction={(action) => lights.act(panelLight.entityId, action)}
-            onClose={() => setPanel(null)}
-          />
+          <Deferred>
+            <LightPanel
+              model={panelLight}
+              roomName={activeRoom?.name}
+              onAction={(action) => lights.act(panelLight.entityId, action)}
+              onClose={() => setPanel(null)}
+            />
+          </Deferred>
         ) : null}
       </PanelHost>
 
@@ -1634,35 +1669,37 @@ export function RoomsV2Page({
         softTint
       >
         {panelDevice ? (
-          <DevicePanel
-            model={panelDevice}
-            roomName={activeRoom?.name}
-            protectedPlug={protectedSet.has(panelDevice.entityId)}
-            onToggleProtected={
-              canOrganize && (panelDevice.kind === 'outlet' || panelDevice.kind === 'switch')
-                ? (value) =>
-                    setProtectedIds((current) =>
-                      value ? Array.from(new Set([...current, panelDevice.entityId])) : current.filter((id) => id !== panelDevice.entityId),
-                    )
-                : undefined
-            }
-            energy={panelEnergy.energy}
-            timer={deviceTimers.timers[panelDevice.entityId]}
-            timerNow={deviceTimers.now}
-            onSetTimer={
-              deviceTimers.available && canHaveTimer(panelDevice) ? (minutes) => setDeviceTimer(panelDevice.entityId, minutes) : undefined
-            }
-            onSetTariff={
-              panelEnergy.tariff === 'missing' && canManageRooms && onNavigate
-                ? () => {
-                    setPanel(null);
-                    onNavigate('/consumi/energia');
-                  }
-                : undefined
-            }
-            onAction={(action) => actOnDevice(panelDevice.entityId, action)}
-            onClose={() => setPanel(null)}
-          />
+          <Deferred>
+            <DevicePanel
+              model={panelDevice}
+              roomName={activeRoom?.name}
+              protectedPlug={protectedSet.has(panelDevice.entityId)}
+              onToggleProtected={
+                canOrganize && (panelDevice.kind === 'outlet' || panelDevice.kind === 'switch')
+                  ? (value) =>
+                      setProtectedIds((current) =>
+                        value ? Array.from(new Set([...current, panelDevice.entityId])) : current.filter((id) => id !== panelDevice.entityId),
+                      )
+                  : undefined
+              }
+              energy={panelEnergy.energy}
+              timer={deviceTimers.timers[panelDevice.entityId]}
+              timerNow={deviceTimers.now}
+              onSetTimer={
+                deviceTimers.available && canHaveTimer(panelDevice) ? (minutes) => setDeviceTimer(panelDevice.entityId, minutes) : undefined
+              }
+              onSetTariff={
+                panelEnergy.tariff === 'missing' && canManageRooms && onNavigate
+                  ? () => {
+                      setPanel(null);
+                      onNavigate('/consumi/energia');
+                    }
+                  : undefined
+              }
+              onAction={(action) => actOnDevice(panelDevice.entityId, action)}
+              onClose={() => setPanel(null)}
+            />
+          </Deferred>
         ) : null}
       </PanelHost>
 
@@ -1673,15 +1710,17 @@ export function RoomsV2Page({
         title={panelSensor?.name ?? ''}
       >
         {panelSensor ? (
-          <SensorPanel
-            model={panelSensor}
-            roomName={activeRoom?.name}
-            history={panelSensorHistory.points[panelSensor.entityId] ?? []}
-            historyLoading={panelSensorHistory.loading}
-            period={sensorPeriod}
-            onPeriod={setSensorPeriod}
-            onClose={() => setPanel(null)}
-          />
+          <Deferred>
+            <SensorPanel
+              model={panelSensor}
+              roomName={activeRoom?.name}
+              history={panelSensorHistory.points[panelSensor.entityId] ?? []}
+              historyLoading={panelSensorHistory.loading}
+              period={sensorPeriod}
+              onPeriod={setSensorPeriod}
+              onClose={() => setPanel(null)}
+            />
+          </Deferred>
         ) : null}
       </PanelHost>
 
@@ -1694,14 +1733,16 @@ export function RoomsV2Page({
         softTint
       >
         {panelClimate ? (
-          <ClimatePanel
-            model={panelClimate}
-            roomName={activeRoom?.name}
-            roomTemperature={readings.temperature ?? null}
-            roomHumidity={readings.humidity ?? null}
-            onAction={(action) => climates.act(panelClimate.entityId, action)}
-            onClose={() => setPanel(null)}
-          />
+          <Deferred>
+            <ClimatePanel
+              model={panelClimate}
+              roomName={activeRoom?.name}
+              roomTemperature={readings.temperature ?? null}
+              roomHumidity={readings.humidity ?? null}
+              onAction={(action) => climates.act(panelClimate.entityId, action)}
+              onClose={() => setPanel(null)}
+            />
+          </Deferred>
         ) : null}
       </PanelHost>
 
@@ -1712,24 +1753,28 @@ export function RoomsV2Page({
         title={panelSecurity?.name ?? ''}
       >
         {panelSecurity ? (
-          <SecurityPanel
-            model={panelSecurity}
-            roomName={activeRoom?.name}
-            history={panelSecurityHistory}
-            onLockCommand={(command) => void commandLock(securityModelOf(panelSecurity.entityId), command)}
-            onClose={() => setPanel(null)}
-          />
+          <Deferred>
+            <SecurityPanel
+              model={panelSecurity}
+              roomName={activeRoom?.name}
+              history={panelSecurityHistory}
+              onLockCommand={(command) => void commandLock(securityModelOf(panelSecurity.entityId), command)}
+              onClose={() => setPanel(null)}
+            />
+          </Deferred>
         ) : null}
       </PanelHost>
 
       {mediaSheet === 'player' && shownPlayer?.on ? (
-        <MediaPlayer
-          model={shownPlayer}
-          pictureUrl={pictureOfPlayer(shownPlayer)}
-          groupCandidates={mediaGroupCandidates}
-          onAction={(action) => actOnMedia(shownPlayer.entityId, action)}
-          onClose={() => setMediaSheet(null)}
-        />
+        <Deferred>
+          <MediaPlayer
+            model={shownPlayer}
+            pictureUrl={pictureOfPlayer(shownPlayer)}
+            groupCandidates={mediaGroupCandidates}
+            onAction={(action) => actOnMedia(shownPlayer.entityId, action)}
+            onClose={() => setMediaSheet(null)}
+          />
+        </Deferred>
       ) : null}
 
       <PanelHost
@@ -1739,7 +1784,9 @@ export function RoomsV2Page({
         title={dt('mediaPickTitle')}
       >
         {mediaSheet === 'pick' ? (
-          <MediaPickPanel players={roomPlayers} shownId={shownPlayer?.entityId ?? null} onPick={pickPlayer} onClose={() => setMediaSheet(null)} />
+          <Deferred>
+            <MediaPickPanel players={roomPlayers} shownId={shownPlayer?.entityId ?? null} onPick={pickPlayer} onClose={() => setMediaSheet(null)} />
+          </Deferred>
         ) : null}
       </PanelHost>
 
@@ -1750,21 +1797,23 @@ export function RoomsV2Page({
         title={shownPlayer?.name ?? ''}
       >
         {mediaSheet === 'start' && shownPlayer && !shownPlayer.on ? (
-          <MediaStartPanel
-            model={shownPlayer}
-            roomName={activeRoom?.name ?? ''}
-            pictureUrl={pictureOfPlayer(shownPlayer)}
-            onPowerOn={() => {
-              setMediaSheet(null);
-              actOnMedia(shownPlayer.entityId, { type: 'power', on: true });
-            }}
-            onResume={() => {
-              setMediaSheet(null);
-              actOnMedia(shownPlayer.entityId, { type: 'play_pause' });
-            }}
-            onSource={(source) => void startFromSource(shownPlayer, source)}
-            onClose={() => setMediaSheet(null)}
-          />
+          <Deferred>
+            <MediaStartPanel
+              model={shownPlayer}
+              roomName={activeRoom?.name ?? ''}
+              pictureUrl={pictureOfPlayer(shownPlayer)}
+              onPowerOn={() => {
+                setMediaSheet(null);
+                actOnMedia(shownPlayer.entityId, { type: 'power', on: true });
+              }}
+              onResume={() => {
+                setMediaSheet(null);
+                actOnMedia(shownPlayer.entityId, { type: 'play_pause' });
+              }}
+              onSource={(source) => void startFromSource(shownPlayer, source)}
+              onClose={() => setMediaSheet(null)}
+            />
+          </Deferred>
         ) : null}
       </PanelHost>
 

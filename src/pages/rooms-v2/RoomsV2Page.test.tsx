@@ -3,6 +3,39 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoomsV2Page } from './RoomsV2Page';
 
+// The parts the page opens on request, here at once: how they load is tested in roomsParts.test.tsx.
+vi.mock('./roomsParts', async () => {
+  const [light, device, climate, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets] = await Promise.all([
+    import('../../components/devices/panels/LightPanel'),
+    import('../../components/devices/panels/DevicePanel'),
+    import('../../components/devices/panels/ClimatePanel'),
+    import('../../components/devices/panels/SensorPanel'),
+    import('../../components/devices/panels/SecurityPanel'),
+    import('../../components/devices/panels/MediaPlayer'),
+    import('./MediaSheets'),
+    import('./SectionPage'),
+    import('./AddAccessoriesSheet'),
+    import('./RoomsManagePage'),
+    import('./RoomManageSheets'),
+  ]);
+  return {
+    LightPanel: light.LightPanel,
+    DevicePanel: device.DevicePanel,
+    ClimatePanel: climate.ClimatePanel,
+    SensorPanel: sensor.SensorPanel,
+    SecurityPanel: security.SecurityPanel,
+    MediaPlayer: media.MediaPlayer,
+    MediaPickPanel: mediaSheets.MediaPickPanel,
+    MediaStartPanel: mediaSheets.MediaStartPanel,
+    SectionPage: section.SectionPage,
+    AddAccessoriesSheet: accessories.AddAccessoriesSheet,
+    RoomsManagePage: manage.RoomsManagePage,
+    RoomEditPanel: roomSheets.RoomEditPanel,
+    Deferred: ({ children }: { children: React.ReactNode }) => children,
+    preloadRoomsParts: () => undefined,
+  };
+});
+
 beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 

@@ -54,6 +54,24 @@ export const surfaces = [
     id: 'rooms', label: 'Stanze', sources: ['src/pages/rooms-v2/RoomsV2Page.tsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 100 * KB } },
   },
+  // What /rooms opens on request (device panels, section pages, sheets, management), fetched when idle. Baseline 106,000 / 38,600.
+  {
+    id: 'rooms-parts', label: 'Stanze · pannelli e gestione', requires: 'rooms', kind: 'feature',
+    sources: [
+      'src/components/devices/panels/LightPanel.tsx',
+      'src/components/devices/panels/DevicePanel.tsx',
+      'src/components/devices/panels/ClimatePanel.tsx',
+      'src/components/devices/panels/SensorPanel.tsx',
+      'src/components/devices/panels/SecurityPanel.tsx',
+      'src/components/devices/panels/MediaPlayer.tsx',
+      'src/pages/rooms-v2/MediaSheets.tsx',
+      'src/pages/rooms-v2/SectionPage.tsx',
+      'src/pages/rooms-v2/AddAccessoriesSheet.tsx',
+      'src/pages/rooms-v2/RoomsManagePage.tsx',
+      'src/pages/rooms-v2/RoomManageSheets.tsx',
+    ],
+    budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 46 * KB } },
+  },
   // /security. Baseline 123,400 / 41,400.
   {
     id: 'security', label: 'Sicurezza', sources: ['src/pages/SecurityDashboard.jsx'], requires: 'home', kind: 'route',

@@ -287,3 +287,7 @@ export function sparkline(points: SeriesPoint[], height = 32, top = 2, bottom = 
   );
   return { line: coordinates.join(' '), area: `0,${height} ${coordinates.join(' ')} 100,${height}` };
 }
+
+/** The periods of a sensor's history, and their hours. */
+export type SensorPeriod = '6h' | '24h' | '7d';
+export const SENSOR_PERIOD_HOURS: Record<SensorPeriod, number> = { '6h': 6, '24h': 24, '7d': 168 };

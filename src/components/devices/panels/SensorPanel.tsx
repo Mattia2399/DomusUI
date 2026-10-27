@@ -9,6 +9,7 @@ import {
   seriesStats,
   seriesTrend,
   type SensorModel,
+  type SensorPeriod,
   type SeriesPoint,
 } from '../model/sensor';
 import { SENSOR_ICONS } from '../cards/SensorCard';
@@ -21,8 +22,6 @@ import { formatSensorValue, sensorFace, sensorUpdated, TIP_KEY, withUnit, ZONE_K
  * battery. A smoke detector shows its state; a sensor that is away says so.
  */
 
-export type SensorPeriod = '6h' | '24h' | '7d';
-export const SENSOR_PERIOD_HOURS: Record<SensorPeriod, number> = { '6h': 6, '24h': 24, '7d': 168 };
 
 export type SensorPanelProps = {
   model: SensorModel;
