@@ -1,3 +1,4 @@
+import type { PlugEnergy } from '../../components/devices/model/plugEnergy';
 import type { MockEntityStateMap } from '../../types/ha';
 
 /*
@@ -255,6 +256,21 @@ export function demoSensorSeries(entityId: string, hours: number, now = Date.now
     const wobble = amplitude * 0.22 * fade * (Math.sin(index * 1.7 + seed) + Math.sin(index * 0.41 + seed * 2));
     return { t: now - ago * 3_600_000, v: index === steps ? value : Math.max(0, value + drift + wobble) };
   });
+}
+
+/** A believable day of a demo plug, from its power now; the same every time, at 0,30 € per kWh. */
+export function demoPlugEnergy(statisticId: string, now = new Date()): PlugEnergy {
+  const nominal = Math.max(Number(DEMO_DEVICE_STATES[statisticId]?.state) || 0, 60) / 1000;
+  const seed = statisticId.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0);
+  const usage = (hour: number) =>
+    nominal * (0.35 + 0.65 * Math.abs(Math.sin((hour + seed) * 0.55)) * (hour >= 7 && hour <= 23 ? 1 : 0.35));
+  const hourNow = now.getHours();
+  const hours = Array.from({ length: 24 }, (_, hour) =>
+    hour < hourNow ? usage(hour) : hour === hourNow ? usage(hour) * Math.max(0.15, now.getMinutes() / 60) : null,
+  );
+  const today = hours.reduce<number>((sum, value) => sum + (value ?? 0), 0);
+  const day = Array.from({ length: 24 }, (_, hour) => usage(hour)).reduce((sum, value) => sum + value, 0);
+  return { hours, hourNow, today, month: today + day * 0.92 * (now.getDate() - 1), cost: today * 0.3 };
 }
 
 const scene = (name: string, entities: string[], icon?: string) =>

@@ -3,8 +3,10 @@ import { Droplets, Power, Square, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import GlassToggle from '../../ui/GlassToggle';
+import { useI18n } from '../../../i18n/I18nProvider';
 import { useDevicesTranslations, type DevicesTranslator } from '../../../i18n/devicesTranslations';
 import { fanLevel, isStandby, type DeviceAction, type DeviceModel } from '../model/device';
+import type { PlugEnergy } from '../model/plugEnergy';
 import { DeviceIcon } from '../cards/DeviceCard';
 import { formatDeviceStatus } from '../cards/deviceText';
 
@@ -19,6 +21,10 @@ export type DevicePanelProps = {
   roomName?: string;
   protectedPlug: boolean;
   onToggleProtected?: (value: boolean) => void;
+  /** What a plug used today and this month, when its meter keeps statistics. */
+  energy?: PlugEnergy | null;
+  /** Without a tariff, the cost opens the Energy page to set one. */
+  onSetTariff?: () => void;
   onAction: (action: DeviceAction) => void;
   onClose: () => void;
 };
@@ -79,22 +85,93 @@ function VerticalSlider({
   );
 }
 
-function PlugBody({ model, dt, protectedPlug, onToggleProtected }: { model: DeviceModel; dt: DevicesTranslator; protectedPlug: boolean; onToggleProtected?: (value: boolean) => void }) {
+function PlugEnergyView({ energy, dt, onSetTariff }: { energy: PlugEnergy; dt: DevicesTranslator; onSetTariff?: () => void }) {
+  const { locale } = useI18n();
+  const peak = Math.max(0, ...energy.hours.map((value) => value ?? 0));
+  const kwh = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const euro = new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' });
+  return (
+    <>
+      <div className="flex flex-col gap-1.5" aria-hidden="true">
+        <div className="dv-bars">
+          {energy.hours.map((value, hour) => (
+            <span
+              key={hour}
+              className={clsx(hour === energy.hourNow && 'is-now', hour > energy.hourNow && 'is-later')}
+              style={{ height: `${hour > energy.hourNow ? 4 : Math.max(8, peak > 0 ? Math.round(((value ?? 0) / peak) * 100) : 0)}%` }}
+            />
+          ))}
+        </div>
+        <div className="dv-bars-axis">
+          {['00', '06', '12', '18', '24'].map((label) => (
+            <span key={label}>{label}</span>
+          ))}
+        </div>
+      </div>
+      <div className="dv-stats">
+        <div>
+          <span>{dt('energyToday')}</span>
+          <strong>{kwh.format(energy.today)} kWh</strong>
+        </div>
+        {energy.month !== null ? (
+          <div>
+            <span>{dt('energyMonth')}</span>
+            <strong>{kwh.format(energy.month)} kWh</strong>
+          </div>
+        ) : null}
+        {energy.cost !== null ? (
+          <div>
+            <span>{dt('energyCost')}</span>
+            <strong>≈ {euro.format(energy.cost)}</strong>
+          </div>
+        ) : onSetTariff ? (
+          <div>
+            <span>{dt('energyCost')}</span>
+            <button type="button" onClick={onSetTariff}>
+              {dt('setTariff')}
+            </button>
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function PlugBody({
+  model,
+  dt,
+  protectedPlug,
+  onToggleProtected,
+  energy,
+  onSetTariff,
+}: {
+  model: DeviceModel;
+  dt: DevicesTranslator;
+  protectedPlug: boolean;
+  onToggleProtected?: (value: boolean) => void;
+  energy?: PlugEnergy | null;
+  onSetTariff?: () => void;
+}) {
   const standby = isStandby(model);
   return (
     <>
-      {model.watts !== null ? (
-        <div className="dv-card flex flex-wrap items-end justify-between gap-3">
-          <div className="flex flex-col gap-0.5">
-            <span className="flex items-baseline gap-1.5">
-              <span className="text-[46px] font-bold leading-none tracking-[-0.035em] tabular-nums">{model.on ? model.watts : 0}</span>
-              <span className="dv-t2 text-lg font-semibold">W</span>
-            </span>
-            <span className="dv-t2 text-[13px] font-semibold">
-              {!model.on ? dt('plugOffNoUse') : standby ? dt('standbyNote') : dt('wattsNow')}
-            </span>
-          </div>
-          {standby ? <span className="dv-tag">{dt('standbyTag')}</span> : null}
+      {model.watts !== null || energy ? (
+        <div className="dv-card flex flex-col gap-3.5">
+          {model.watts !== null ? (
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="flex items-baseline gap-1.5">
+                  <span className="text-[46px] font-bold leading-none tracking-[-0.035em] tabular-nums">{model.on ? model.watts : 0}</span>
+                  <span className="dv-t2 text-lg font-semibold">W</span>
+                </span>
+                <span className="dv-t2 text-[13px] font-semibold">
+                  {!model.on ? dt('plugOffNoUse') : standby ? dt('standbyNote') : dt('wattsNow')}
+                </span>
+              </div>
+              {standby ? <span className="dv-tag">{dt('standbyTag')}</span> : null}
+            </div>
+          ) : null}
+          {energy ? <PlugEnergyView energy={energy} dt={dt} onSetTariff={onSetTariff} /> : null}
         </div>
       ) : null}
       {onToggleProtected ? (
@@ -315,7 +392,7 @@ function HumidifierBody({ model, dt, onAction }: { model: DeviceModel; dt: Devic
   );
 }
 
-export function DevicePanel({ model, roomName, protectedPlug, onToggleProtected, onAction, onClose }: DevicePanelProps) {
+export function DevicePanel({ model, roomName, protectedPlug, onToggleProtected, energy, onSetTariff, onAction, onClose }: DevicePanelProps) {
   const dt = useDevicesTranslations();
   const status = formatDeviceStatus(model, dt);
   const subtitle = roomName ? `${roomName} · ${status}` : status;
@@ -359,7 +436,9 @@ export function DevicePanel({ model, roomName, protectedPlug, onToggleProtected,
         </button>
       </div>
 
-      {isPlug ? <PlugBody model={model} dt={dt} protectedPlug={protectedPlug} onToggleProtected={onToggleProtected} /> : null}
+      {isPlug ? (
+        <PlugBody model={model} dt={dt} protectedPlug={protectedPlug} onToggleProtected={onToggleProtected} energy={energy} onSetTariff={onSetTariff} />
+      ) : null}
       {model.kind === 'fan' ? <FanBody model={model} dt={dt} onAction={onAction} /> : null}
       {model.kind === 'cover' ? <CoverBody model={model} dt={dt} onAction={onAction} /> : null}
       {model.kind === 'humidifier' ? <HumidifierBody model={model} dt={dt} onAction={onAction} /> : null}

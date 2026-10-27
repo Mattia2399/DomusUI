@@ -22,6 +22,7 @@
   --dv-icon-off: rgb(255 255 255 / 0.12);
   --dv-separator: rgb(255 255 255 / 0.08);
   --dv-track: rgb(255 255 255 / 0.12);
+  --dv-bar-past: 0.45;
   --dv-slider-track: rgb(0 0 0 / 0.16);
   --dv-slider-fill-off: rgb(127 127 127 / 0.4);
   --dv-sheet: rgb(30 30 34 / 0.9);
@@ -60,6 +61,7 @@
   --dv-icon-off: rgb(118 118 128 / 0.16);
   --dv-separator: rgb(60 60 67 / 0.1);
   --dv-track: rgb(118 118 128 / 0.18);
+  --dv-bar-past: 0.55;
   --dv-slider-track: rgb(0 0 0 / 0.09);
   --dv-slider-fill-off: rgb(127 127 127 / 0.4);
   --dv-sheet: rgb(250 250 252 / 0.94);
@@ -516,6 +518,91 @@
   border-radius: 22px;
   background: var(--dv-icon-off);
   padding: 16px;
+}
+
+/* A plug's day hour by hour: past hours soft, the hour now full, the rest a track. */
+.dv-bars {
+  display: flex;
+  height: 64px;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.dv-bars span {
+  min-width: 0;
+  flex: 1;
+  border-radius: 3px;
+  background: rgb(var(--dv-tone-rgb) / var(--dv-bar-past));
+  transition: height 300ms ease;
+}
+
+.dv-bars span.is-now {
+  background: var(--dv-tone);
+}
+
+.dv-bars span.is-later {
+  background: var(--dv-track);
+}
+
+.dv-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--dv-t3);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border-top: 1px solid var(--dv-separator);
+  padding-top: 12px;
+}
+
+.dv-stats > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dv-stats span {
+  color: var(--dv-t2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dv-stats strong,
+.dv-stats button {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* No tariff yet: the cost is a way to set it. */
+.dv-stats button {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--dv-blue);
+  cursor: pointer;
+}
+
+.dv-stats button:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-bars span {
+    transition: none;
+  }
 }
 
 .dv-tag {

@@ -62,6 +62,7 @@ import {
   type SensorModel,
 } from '../../components/devices/model/sensor';
 import { deviceKindOf, findPowerSensor, isStandby, type DeviceAction, type DeviceModel } from '../../components/devices/model/device';
+import { findEnergySource } from '../../components/devices/model/plugEnergy';
 import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
 import GlassConfirmDialog from '../../components/ui/GlassConfirmDialog';
@@ -84,6 +85,7 @@ import {
   DEMO_ROOM_READINGS,
   DEMO_ROOMS,
   DEMO_STATES,
+  demoPlugEnergy,
   demoSecurityHistory,
   demoSensorSeries,
 } from './demoRoomsFixtures';
@@ -103,6 +105,7 @@ import {
 import { useRoomLayout } from './useRoomLayout';
 import { useRoomManagement } from './useRoomManagement';
 import { useMediaPlayerCommands } from './useMediaPlayerCommands';
+import { usePlugEnergy } from './usePlugEnergy';
 import { useSensorHistory } from './useSensorHistory';
 import { useStateHistory } from './useStateHistory';
 import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
@@ -409,14 +412,17 @@ export function RoomsV2Page({
     () => Object.keys(states).filter((entityId) => deviceKindOf(entityId, states[entityId]) !== null),
     [states],
   );
+  const deviceIdOf = React.useCallback(
+    (entityId: string) => registry.registryEntityById.get(entityId)?.deviceId ?? null,
+    [registry.registryEntityById],
+  );
   const powerSensorById = React.useMemo(() => {
-    const deviceIdOf = (entityId: string) => registry.registryEntityById.get(entityId)?.deviceId ?? null;
     const map = new Map<string, string | null>();
     deviceIds
       .filter((entityId) => entityId.startsWith('switch.'))
       .forEach((entityId) => map.set(entityId, findPowerSensor(entityId, states, deviceIdOf)));
     return map;
-  }, [deviceIds, registry.registryEntityById, states]);
+  }, [deviceIdOf, deviceIds, states]);
   const powerSensorOf = React.useCallback((entityId: string) => powerSensorById.get(entityId) ?? null, [powerSensorById]);
   const devices = useDeviceCommands({ demo, states, onCallService, powerSensorOf });
   const climates = useClimateCommands({ demo, states, onCallService });
@@ -1021,6 +1027,12 @@ export function RoomsV2Page({
     : null;
   const panelLight = panel?.kind === 'lights' ? lights.modelOf(panel.id) : null;
   const panelDevice = panel?.kind === 'devices' ? devices.modelOf(panel.id) : null;
+  const panelPlugId = panelDevice && (panelDevice.kind === 'outlet' || panelDevice.kind === 'switch') ? panelDevice.entityId : null;
+  const panelEnergySource = React.useMemo(
+    () => (panelPlugId ? findEnergySource(panelPlugId, states, powerSensorOf(panelPlugId), deviceIdOf) : null),
+    [deviceIdOf, panelPlugId, powerSensorOf, states],
+  );
+  const panelEnergy = usePlugEnergy({ source: panelEnergySource, onCallApi, demoEnergy: demo ? demoPlugEnergy : undefined });
   const panelClimate = panel?.kind === 'climate' ? climates.modelOf(panel.id) : null;
   const panelSensor = panel?.kind === 'sensors' ? sensorModelOf(panel.id) ?? null : null;
   const renderScene = (item: RoomSceneItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
@@ -1609,6 +1621,15 @@ export function RoomsV2Page({
                     setProtectedIds((current) =>
                       value ? Array.from(new Set([...current, panelDevice.entityId])) : current.filter((id) => id !== panelDevice.entityId),
                     )
+                : undefined
+            }
+            energy={panelEnergy.energy}
+            onSetTariff={
+              panelEnergy.tariff === 'missing' && canManageRooms && onNavigate
+                ? () => {
+                    setPanel(null);
+                    onNavigate('/consumi/energia');
+                  }
                 : undefined
             }
             onAction={(action) => actOnDevice(panelDevice.entityId, action)}

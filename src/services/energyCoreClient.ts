@@ -81,6 +81,8 @@ export type EnergyTariffState = {
   band: 'F1' | 'F2' | 'F3';
   band_label: string;
   price: number;
+  /** Every band's price; integrations before it gave only the price now. */
+  prices?: Record<string, number>;
   export_price: number | null;
   /** VAT rate the prices exclude, when the user set one. */
   vat_percent?: number | null;
