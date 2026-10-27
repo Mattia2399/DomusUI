@@ -13,11 +13,13 @@ describe('GlassBottomSheet', () => {
       </GlassBottomSheet>,
     );
 
+    // The sheet of the Rooms board: the shared surface, rounded all round, floating at the bottom on a phone.
     const dialog = screen.getByRole('dialog');
-    expect(dialog.className).toContain('liquid-glass-sheet');
+    expect(dialog.className).toContain('glass-sheet-surface');
+    expect(dialog.className).toContain('rounded-[30px]');
     expect(dialog.className).toContain('!max-w-none');
     expect(dialog.className).toContain('sm:!max-w-md');
-    expect(dialog.className).toContain('before:rounded-full');
+    expect(dialog.parentElement?.className).toContain('items-end');
     fireEvent.click(dialog.previousElementSibling as Element);
     expect(onClose).toHaveBeenCalledTimes(1);
   });

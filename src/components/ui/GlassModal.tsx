@@ -190,7 +190,7 @@ export function GlassModal({
     className,
   );
   const responsivePanelClass = isResponsive
-    ? 'h-[100dvh] max-w-none rounded-none border-0 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] md:h-auto md:max-h-[calc(100dvh-4rem)] md:rounded-[2rem] md:border md:p-6'
+    ? 'h-[100dvh] max-w-none rounded-none border-0 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)] md:h-auto md:max-h-[90dvh] md:rounded-[30px] md:border md:p-[18px]'
     : '';
   const fullscreenPanelClass = isFullscreen
     ? 'h-[100dvh] max-w-none rounded-none border-0 p-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)]'
@@ -209,7 +209,7 @@ export function GlassModal({
         >
           <div
             aria-hidden="true"
-            className={clsx('absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-2xl', backdropClassName)}
+            className={clsx('absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-[8px]', backdropClassName)}
             onClick={dismissible ? onClose : undefined}
           />
 
@@ -221,12 +221,12 @@ export function GlassModal({
             aria-describedby={description ? descriptionId : undefined}
             tabIndex={-1}
             className={clsx(
-              'liquid-glass-panel relative z-10 flex w-full min-h-0 flex-col overflow-hidden text-[color:var(--ui-text-primary)] outline-none',
+              'glass-sheet-surface relative z-10 flex w-full min-h-0 flex-col overflow-hidden text-[color:var(--ui-text-primary)] outline-none',
               !isFullscreen && !isResponsive && SIZE_CLASS[size],
               isResponsive && RESPONSIVE_SIZE_CLASS[size],
               responsivePanelClass,
               fullscreenPanelClass,
-              variant === 'dialog' && 'max-h-[calc(100dvh-2rem)] rounded-[2rem] p-5 sm:max-h-[calc(100dvh-3rem)] sm:p-6',
+              variant === 'dialog' && 'max-h-[90dvh] rounded-[30px] p-[18px]',
               panelClassName,
             )}
             initial={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -235,27 +235,30 @@ export function GlassModal({
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
             onClick={(event) => event.stopPropagation()}
           >
-            <header className={clsx('relative shrink-0 pr-10', headerClassName)}>
+            <header className={clsx('relative shrink-0', showCloseButton && 'min-h-10 pr-12', headerClassName)}>
               {eyebrow ? <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">{eyebrow}</p> : null}
-              <h2 id={titleId} className={clsx('font-semibold tracking-tight text-[color:var(--ui-text-primary)]', eyebrow ? 'mt-2 text-xl sm:text-2xl' : 'text-xl sm:text-2xl')}>
+              <h2
+                id={titleId}
+                className={clsx('text-[19px] font-bold leading-tight tracking-[-0.02em] text-[color:var(--ui-text-primary)]', eyebrow ? 'mt-1.5' : 'pt-2')}
+              >
                 {title}
               </h2>
-              {description ? <p id={descriptionId} className="mt-2 text-sm leading-relaxed text-[color:var(--ui-text-secondary)]">{description}</p> : null}
+              {description ? <p id={descriptionId} className="mt-1.5 text-sm leading-relaxed text-[color:var(--ui-text-secondary)]">{description}</p> : null}
               {showCloseButton ? (
                 <button
                   type="button"
                   onClick={onClose}
                   disabled={!dismissible}
-                  className="glass-icon-button absolute right-0 top-0 h-11 w-11 disabled:opacity-35"
+                  className="glass-sheet-close absolute right-0 top-0 h-10 w-10 disabled:opacity-35"
                   aria-label={resolvedCloseLabel}
                 >
-                  <X size={16} />
+                  <X size={15} strokeWidth={2.4} />
                 </button>
               ) : null}
             </header>
 
-            {children ? <div className={clsx('mt-5 min-h-0 flex-1 overflow-y-auto overscroll-contain glass-scrollbar', bodyClassName)}>{children}</div> : null}
-            {footer ? <footer className={clsx('mt-auto flex shrink-0 items-center justify-end gap-3 pt-5', footerClassName)}>{footer}</footer> : null}
+            {children ? <div className={clsx('mt-[14px] min-h-0 flex-1 overflow-y-auto overscroll-contain glass-scrollbar', bodyClassName)}>{children}</div> : null}
+            {footer ? <footer className={clsx('mt-auto flex shrink-0 items-center justify-end gap-2.5 pt-[14px]', footerClassName)}>{footer}</footer> : null}
           </motion.div>
         </motion.div>
       ) : null}

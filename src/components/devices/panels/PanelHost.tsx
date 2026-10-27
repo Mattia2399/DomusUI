@@ -114,7 +114,6 @@ export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softT
       showCloseButton={false}
       headerClassName="sr-only"
       bodyClassName="!mt-0"
-      panelClassName="!rounded-[30px] !p-[18px]"
     >
       {content}
     </GlassModal>
