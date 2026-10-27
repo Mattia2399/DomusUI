@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toDeviceModel } from '../model/device';
 import type { PlugEnergy } from '../model/plugEnergy';
@@ -44,5 +44,26 @@ describe('the plug panel', () => {
     renderPanel({ energy: null });
     expect(screen.getByText('96')).toBeTruthy();
     expect(screen.queryByText('Oggi')).toBeNull();
+  });
+
+  it('sets, shows and cancels the switch-off timer', () => {
+    const onSetTimer = vi.fn();
+    renderPanel({ timer: null, timerNow: 0, onSetTimer });
+    expect(screen.getByText(/Nessun timer attivo/)).toBeTruthy();
+    const group = screen.getByRole('group', { name: 'Spegnimento automatico' });
+    expect(within(group).getByRole('button', { name: 'Off' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(within(group).getByRole('button', { name: '30 min' }));
+    expect(onSetTimer).toHaveBeenCalledWith(30);
+    cleanup();
+
+    renderPanel({ timer: { entityId: plug.entityId, minutes: 60, endsAt: 47 * 60_000 }, timerNow: 0, onSetTimer });
+    expect(screen.getByText(/tra 47\smin/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: '1 h' }).getAttribute('aria-pressed')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Off' }));
+    expect(onSetTimer).toHaveBeenLastCalledWith(0);
+    cleanup();
+
+    renderPanel({});
+    expect(screen.queryByRole('group', { name: 'Spegnimento automatico' })).toBeNull();
   });
 });

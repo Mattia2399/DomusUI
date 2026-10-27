@@ -97,6 +97,8 @@ const HA_NAME_PATTERN = /^[a-z0-9_]+$/;
 const HA_ENTITY_ID_PATTERN = /^[a-z0-9_]+\.[a-z0-9_]+$/;
 const REQUEST_ID_PATTERN = /^ha-panel-(?:call-(?:service|api)|subscribe-api|upload-image)-\d{10,}-[a-z0-9]+$/;
 const MAX_BRIDGE_STATES = 20_000;
+// The only subscriptions: what changes while a page is open. Mirrors the panel bridge.
+const PANEL_SUBSCRIBE_TYPES = new Set(['domusos/irrigation/subscribe', 'domusos/device_timers/subscribe', 'calendar/event/subscribe']);
 const PANEL_BRIDGE_CAPABILITIES = new Set([
   'shared_configuration',
   'app_configurations',
@@ -111,6 +113,8 @@ const PANEL_BRIDGE_CAPABILITIES = new Set([
   'profile_notifications_v1',
   'profile_recipients_v1',
   'device_power_v1',
+  'device_timers_v1',
+  'statistics_v1',
   'access_v1',
   'access_admin_v1',
   'state_translations_v1',
@@ -151,6 +155,7 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'weather/get_forecasts',
   'call_service',
   'history/history_during_period',
+  'recorder/statistics_during_period',
   'logbook/get_events',
   'config/entity_registry/list',
   'config/entity_registry/list_for_display',
@@ -200,6 +205,10 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/device_power/save_policy',
   'domusos/device_power/bind_policy',
   'domusos/device_power/delete_policy',
+  'domusos/device_timers/get_state',
+  'domusos/device_timers/subscribe',
+  'domusos/device_timers/set_timer',
+  'domusos/device_timers/cancel_timer',
   'domusos/energy/get_state',
   'domusos/energy/get_history',
   'domusos/energy/discover',
@@ -427,6 +436,41 @@ export function isValidAccessMessage(message: Record<string, unknown>) {
   );
 }
 
+const DEVICE_TIMER_ENTITY = /^(?:switch|fan|humidifier)\.[a-z0-9_]+$/;
+
+/** Device timers: the device and the minutes only; Home Assistant checks the person may control it. */
+export function isValidDeviceTimerMessage(message: Record<string, unknown>) {
+  const isDevice = (value: unknown) => typeof value === 'string' && DEVICE_TIMER_ENTITY.test(value);
+  if (message.type === 'domusos/device_timers/get_state' || message.type === 'domusos/device_timers/subscribe') {
+    return hasExactKeys(message, ['type']);
+  }
+  if (message.type === 'domusos/device_timers/cancel_timer') {
+    return hasExactKeys(message, ['type', 'entity_id']) && isDevice(message.entity_id);
+  }
+  return message.type === 'domusos/device_timers/set_timer'
+    && hasExactKeys(message, ['type', 'entity_id', 'minutes']) && isDevice(message.entity_id)
+    && Number.isInteger(message.minutes) && Number(message.minutes) >= 1 && Number(message.minutes) <= 1440;
+}
+
+const STATISTICS_KEYS = ['type', 'start_time', 'end_time', 'statistic_ids', 'period', 'types', 'units'];
+const STATISTICS_PERIODS = ['5minute', 'hour', 'day', 'week', 'month'];
+const STATISTICS_UNITS: Record<string, readonly string[]> = { energy: ['Wh', 'kWh', 'MWh'], power: ['W', 'kW'] };
+
+/** Long-term statistics, read only: a few sensors, the periods and units of a meter. */
+export function isValidStatisticsMessage(message: Record<string, unknown>) {
+  const { statistic_ids: ids, types, units } = message;
+  return hasExactKeys(message, STATISTICS_KEYS)
+    && [message.start_time, message.end_time].every((value) =>
+      typeof value === 'string' && value.length <= 40 && Number.isFinite(Date.parse(value)))
+    && Array.isArray(ids) && ids.length >= 1 && ids.length <= 10
+    && ids.every((id) => typeof id === 'string' && /^sensor\.[a-z0-9_]+$/.test(id))
+    && typeof message.period === 'string' && STATISTICS_PERIODS.includes(message.period)
+    && Array.isArray(types) && types.length >= 1 && types.length <= 2
+    && types.every((type) => type === 'change' || type === 'mean')
+    && isRecord(units) && Object.entries(units).every(([kind, unit]) =>
+      Object.prototype.hasOwnProperty.call(STATISTICS_UNITS, kind) && typeof unit === 'string' && STATISTICS_UNITS[kind].includes(unit));
+}
+
 export function validatePanelApiMessage(message: unknown): message is Record<string, unknown> {
   if (!isRecord(message) || typeof message.type !== 'string' || !HA_PANEL_ALLOWED_API_TYPES.has(message.type)) {
     return false;
@@ -439,6 +483,12 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type.startsWith('domusos/access/')) {
     return isValidAccessMessage(message);
+  }
+  if (message.type.startsWith('domusos/device_timers/')) {
+    return isValidDeviceTimerMessage(message);
+  }
+  if (message.type === 'recorder/statistics_during_period') {
+    return isValidStatisticsMessage(message);
   }
   if (message.type === 'call_service') {
     return validatePanelServiceRequest(message.domain, message.service, message.service_data ?? {});
@@ -1092,7 +1142,7 @@ export function useHaPanelBridgeConnection() {
       callback: (event: TEvent) => void,
     ) => {
       if (!validatePanelApiMessage(message) ||
-          (message.type !== 'domusos/irrigation/subscribe' && message.type !== 'calendar/event/subscribe')) {
+          !PANEL_SUBSCRIBE_TYPES.has(String(message.type))) {
         throw new Error('Sottoscrizione Home Assistant non ammessa dal bridge.');
       }
       if (!isInIframe || !isManagedByParent || isPaused || status !== 'connected') {
@@ -1138,6 +1188,8 @@ export function useHaPanelBridgeConnection() {
     supportsProfileDevices: bridgeCapabilities.includes('profile_devices_v1'),
     supportsProfileRecipients: bridgeCapabilities.includes('profile_recipients_v1'),
     supportsDevicePower: bridgeCapabilities.includes('device_power_v1'),
+    supportsDeviceTimers: bridgeCapabilities.includes('device_timers_v1'),
+    supportsStatistics: bridgeCapabilities.includes('statistics_v1'),
     supportsStateTranslations: bridgeCapabilities.includes('state_translations_v1'),
     hassUrl: hassUrlRef.current,
     status,

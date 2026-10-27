@@ -6,6 +6,7 @@ import { deviceHasPanel, fanLevel, iconActionOf, isStandby, type DeviceAction, t
 import { DeviceCardShell, type DeviceCardFormat } from './DeviceCardShell';
 import { LevelBar } from './LevelBar';
 import { deviceIconLabel, formatDeviceStatus } from './deviceText';
+import { withTimer, type DeviceTimer } from '../model/deviceTimer';
 
 /*
  * A plug, switch, fan, cover or humidifier in any card format. On, the card
@@ -58,6 +59,9 @@ export type DeviceCardProps = {
   editing?: boolean;
   selected?: boolean;
   hiddenItem?: boolean;
+  /** Its switch-off timer: the status says when it turns off. */
+  timer?: DeviceTimer | null;
+  timerNow?: number;
   onAction: (action: DeviceAction) => void;
   onOpenPanel?: () => void;
   onSelect?: () => void;
@@ -120,12 +124,14 @@ export function DeviceCard({
   editing = false,
   selected = false,
   hiddenItem = false,
+  timer = null,
+  timerNow = Date.now(),
   onAction,
   onOpenPanel,
   onSelect,
 }: DeviceCardProps) {
   const dt = useDevicesTranslations();
-  const status = formatDeviceStatus(model, dt);
+  const status = model.on ? withTimer(formatDeviceStatus(model, dt), timer, timerNow, dt) : formatDeviceStatus(model, dt);
   const hasPanel = deviceHasPanel(model);
   const iconLabel = deviceIconLabel(model, dt);
   const label = protectedPlug ? dt('protectedSuffix', { label: iconLabel }) : iconLabel;

@@ -31,6 +31,13 @@ describe('the device card', () => {
     expect(screen.getByRole('button', { name: 'Spegni Presa TV' })).toBeTruthy();
   });
 
+  it('a plug with a timer says when it turns off', () => {
+    const model = toDeviceModel('switch.tv', e('on', { friendly_name: 'Presa TV', device_class: 'outlet' }), { watts: 86 })!;
+    const timer = { entityId: 'switch.tv', minutes: 60, endsAt: 47 * 60_000 };
+    render(<DeviceCard model={model} format="U×2" timer={timer} timerNow={0} onAction={vi.fn()} onOpenPanel={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Controlli di Presa TV, 86 W · spegne tra 47 min' })).toBeTruthy();
+  });
+
   it('a fan shows its speed as a slider from U×3', () => {
     const onAction = vi.fn();
     const model = toDeviceModel('fan.f', e('on', { friendly_name: 'Ventilatore', percentage: 66, percentage_step: 33.33 }))!;

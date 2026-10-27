@@ -7,6 +7,7 @@ import { useI18n } from '../../../i18n/I18nProvider';
 import { useDevicesTranslations, type DevicesTranslator } from '../../../i18n/devicesTranslations';
 import { fanLevel, isStandby, type DeviceAction, type DeviceModel } from '../model/device';
 import type { PlugEnergy } from '../model/plugEnergy';
+import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../model/deviceTimer';
 import { DeviceIcon } from '../cards/DeviceCard';
 import { formatDeviceStatus } from '../cards/deviceText';
 
@@ -25,15 +26,33 @@ export type DevicePanelProps = {
   energy?: PlugEnergy | null;
   /** Without a tariff, the cost opens the Energy page to set one. */
   onSetTariff?: () => void;
+  /** The switch-off timer, when the integration runs them for this device. */
+  timer?: DeviceTimer | null;
+  timerNow?: number;
+  onSetTimer?: (minutes: number) => void;
   onAction: (action: DeviceAction) => void;
   onClose: () => void;
 };
 
-function Options({ label, options, onPick }: { label: string; options: Array<{ key: string; label: string; on: boolean }>; onPick: (key: string) => void }) {
+function Options({
+  label,
+  note,
+  options,
+  onPick,
+}: {
+  label: string;
+  /** Said after the label: "Spegnimento automatico · Nessun timer attivo". */
+  note?: string;
+  options: Array<{ key: string; label: string; on: boolean }>;
+  onPick: (key: string) => void;
+}) {
   if (options.length === 0) return null;
   return (
     <div className="flex flex-col gap-2">
-      <span className="dv-t2 text-[13px] font-bold">{label}</span>
+      <span className="dv-t2 text-[13px] font-bold" aria-live={note ? 'polite' : undefined}>
+        {label}
+        {note ? <span className="font-semibold"> · {note}</span> : null}
+      </span>
       <div className="flex flex-wrap gap-2" role="group" aria-label={label}>
         {options.map((option) => (
           <button
@@ -392,7 +411,42 @@ function HumidifierBody({ model, dt, onAction }: { model: DeviceModel; dt: Devic
   );
 }
 
-export function DevicePanel({ model, roomName, protectedPlug, onToggleProtected, energy, onSetTariff, onAction, onClose }: DevicePanelProps) {
+function TimerOptions({ timer, now, dt, onSetTimer }: { timer: DeviceTimer | null; now: number; dt: DevicesTranslator; onSetTimer: (minutes: number) => void }) {
+  const { locale } = useI18n();
+  const active = timer && timer.endsAt > now ? timer : null;
+  const note = active
+    ? dt('timerEnds', {
+        time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(active.endsAt),
+        left: formatTimerDuration(minutesLeft(active, now), dt),
+      })
+    : dt('timerNone');
+  return (
+    <Options
+      label={dt('timerTitle')}
+      note={note}
+      options={TIMER_PRESETS.map((minutes) => ({
+        key: String(minutes),
+        label: minutes === 0 ? dt('timerOff') : formatTimerDuration(minutes, dt),
+        on: minutes === 0 ? active === null : active?.minutes === minutes,
+      }))}
+      onPick={(key) => onSetTimer(Number(key))}
+    />
+  );
+}
+
+export function DevicePanel({
+  model,
+  roomName,
+  protectedPlug,
+  onToggleProtected,
+  energy,
+  onSetTariff,
+  timer = null,
+  timerNow = Date.now(),
+  onSetTimer,
+  onAction,
+  onClose,
+}: DevicePanelProps) {
   const dt = useDevicesTranslations();
   const status = formatDeviceStatus(model, dt);
   const subtitle = roomName ? `${roomName} · ${status}` : status;
@@ -442,6 +496,7 @@ export function DevicePanel({ model, roomName, protectedPlug, onToggleProtected,
       {model.kind === 'fan' ? <FanBody model={model} dt={dt} onAction={onAction} /> : null}
       {model.kind === 'cover' ? <CoverBody model={model} dt={dt} onAction={onAction} /> : null}
       {model.kind === 'humidifier' ? <HumidifierBody model={model} dt={dt} onAction={onAction} /> : null}
+      {onSetTimer && model.available ? <TimerOptions timer={timer} now={timerNow} dt={dt} onSetTimer={onSetTimer} /> : null}
     </div>
   );
 }

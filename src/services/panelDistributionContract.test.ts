@@ -5,6 +5,8 @@ import {
   HA_PANEL_ALLOWED_API_TYPES,
   isValidEnergyMessage as isValidAppEnergyMessage,
   isValidProfileMessage as isValidAppProfileMessage,
+  isValidDeviceTimerMessage as isValidAppDeviceTimerMessage,
+  isValidStatisticsMessage as isValidAppStatisticsMessage,
   validatePanelApiMessage,
 } from '../hooks/useHaPanelBridgeConnection';
 import { isDashboardAdministrativeApiMessage } from '../security/dashboardAccess';
@@ -303,6 +305,105 @@ describe('Home Assistant panel distribution contract', () => {
     expect(validate({ ...save, policy: { ...policy, client_id: 'short' } })).toBe(false);
     expect(validate({ type: 'domusos/device_power/delete_policy', policy_id: 'nope', expected_revision: 1 })).toBe(false);
     expect(validate({ type: 'domusos/device_power/turn_on', entity_id: 'switch.presa_tablet' })).toBe(false);
+  });
+
+  it('allowlists the device timer commands and the statistics in both bridge halves, none administrative', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = [...bridge.matchAll(/"(domusos\/device_timers\/[a-z_]+|recorder\/[a-z_]+)"/g)].map((match) => match[1]);
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter(
+      (type) => type.startsWith('domusos/device_timers/') || type.startsWith('recorder/'),
+    );
+
+    expect(new Set(hostTypes)).toEqual(new Set(appTypes));
+    expect(appTypes.sort()).toEqual([
+      'domusos/device_timers/cancel_timer',
+      'domusos/device_timers/get_state',
+      'domusos/device_timers/set_timer',
+      'domusos/device_timers/subscribe',
+      'recorder/statistics_during_period',
+    ]);
+    expect(bridge).toContain('"device_timers_v1"');
+    expect(bridge).toContain('"statistics_v1"');
+    expect(bridge).toContain('const SUBSCRIBE_TYPES = new Set(["domusos/irrigation/subscribe", "domusos/device_timers/subscribe", "calendar/event/subscribe"]);');
+    for (const type of appTypes) {
+      expect(isDashboardAdministrativeApiMessage({ type })).toBe(false);
+    }
+  });
+
+  it('validates device timer and statistics shapes alike in the HACS host script and the app', () => {
+    const bridge = readPanelBridgeSource();
+    const pick = (pattern: RegExp) => {
+      const match = bridge.match(pattern);
+      if (!match) throw new Error(`Host bridge fragment not found: ${pattern}`);
+      return match[0];
+    };
+    const source = [
+      pick(/const isRecord = [^\r\n]+\r?\n/),
+      pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
+      pick(/const DEVICE_TIMER_ENTITY = [^\r\n]+\r?\n/),
+      pick(/const isValidDeviceTimerMessage = [\s\S]*?\r?\n};\r?\n/),
+      pick(/const STATISTICS_KEYS = [^\r\n]+\r?\n/),
+      pick(/const STATISTICS_PERIODS = [^\r\n]+\r?\n/),
+      pick(/const STATISTICS_UNITS = [^\r\n]+\r?\n/),
+      pick(/const isValidStatisticsMessage = [\s\S]*?includes\(unit\)\);\r?\n/),
+    ].join('');
+    const [hostTimer, hostStatistics] = new Function(`${source}return [isValidDeviceTimerMessage, isValidStatisticsMessage];`)() as Array<
+      (message: Record<string, unknown>) => boolean
+    >;
+    const set = { type: 'domusos/device_timers/set_timer', entity_id: 'switch.presa_tv', minutes: 30 };
+    const statistics = {
+      type: 'recorder/statistics_during_period',
+      start_time: '2026-10-27T00:00:00.000Z',
+      end_time: '2026-10-27T10:30:00.000Z',
+      statistic_ids: ['sensor.presa_tv_energy'],
+      period: 'hour',
+      types: ['change'],
+      units: { energy: 'kWh' },
+    };
+    const timers: Array<[Record<string, unknown>, boolean]> = [
+      [{ type: 'domusos/device_timers/get_state' }, true],
+      [{ type: 'domusos/device_timers/subscribe' }, true],
+      [set, true],
+      [{ ...set, entity_id: 'fan.soffitto', minutes: 1440 }, true],
+      [{ ...set, entity_id: 'humidifier.bagno', minutes: 1 }, true],
+      [{ type: 'domusos/device_timers/cancel_timer', entity_id: 'switch.presa_tv' }, true],
+      [{ type: 'domusos/device_timers/get_state', entity_id: 'switch.presa_tv' }, false],
+      [{ ...set, entity_id: 'light.salotto' }, false],
+      [{ ...set, entity_id: 'lock.porta' }, false],
+      [{ ...set, minutes: 0 }, false],
+      [{ ...set, minutes: 1441 }, false],
+      [{ ...set, minutes: 1.5 }, false],
+      [{ ...set, minutes: '30' }, false],
+      [{ ...set, user_id: 'a'.repeat(32) }, false],
+      [{ type: 'domusos/device_timers/cancel_timer' }, false],
+      [{ type: 'domusos/device_timers/turn_off', entity_id: 'switch.presa_tv' }, false],
+    ];
+    const reads: Array<[Record<string, unknown>, boolean]> = [
+      [statistics, true],
+      [{ ...statistics, period: '5minute', types: ['mean'], units: { power: 'W' } }, true],
+      [{ ...statistics, statistic_ids: ['sensor.a', 'sensor.b'], types: ['change', 'mean'], units: {} }, true],
+      [{ ...statistics, statistic_ids: [] }, false],
+      [{ ...statistics, statistic_ids: Array.from({ length: 11 }, (_, index) => `sensor.s${index}`) }, false],
+      [{ ...statistics, statistic_ids: ['switch.presa_tv'] }, false],
+      [{ ...statistics, period: 'year' }, false],
+      [{ ...statistics, types: ['sum'] }, false],
+      [{ ...statistics, units: { energy: 'J' } }, false],
+      [{ ...statistics, units: { constructor: 'kWh' } }, false],
+      [{ ...statistics, start_time: 'yesterday' }, false],
+      [{ ...statistics, units: undefined }, false],
+      [{ ...statistics, extra: true }, false],
+    ];
+    for (const [message, expected] of timers) {
+      expect(hostTimer(message), JSON.stringify(message)).toBe(expected);
+      expect(isValidAppDeviceTimerMessage(message), JSON.stringify(message)).toBe(expected);
+      if (message.type === 'domusos/device_timers/turn_off') continue;
+      expect(validatePanelApiMessage(message), JSON.stringify(message)).toBe(expected);
+    }
+    for (const [message, expected] of reads) {
+      expect(hostStatistics(message), JSON.stringify(message)).toBe(expected);
+      expect(isValidAppStatisticsMessage(message), JSON.stringify(message)).toBe(expected);
+      expect(validatePanelApiMessage(message), JSON.stringify(message)).toBe(expected);
+    }
   });
 
   it('lets only the entity state words cross the bridge', () => {

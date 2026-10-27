@@ -63,6 +63,7 @@ import {
 } from '../../components/devices/model/sensor';
 import { deviceKindOf, findPowerSensor, isStandby, type DeviceAction, type DeviceModel } from '../../components/devices/model/device';
 import { findEnergySource } from '../../components/devices/model/plugEnergy';
+import { canHaveTimer } from '../../components/devices/model/deviceTimer';
 import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
 import GlassConfirmDialog from '../../components/ui/GlassConfirmDialog';
@@ -106,6 +107,7 @@ import { useRoomLayout } from './useRoomLayout';
 import { useRoomManagement } from './useRoomManagement';
 import { useMediaPlayerCommands } from './useMediaPlayerCommands';
 import { usePlugEnergy } from './usePlugEnergy';
+import { useDeviceTimers, type RoomsSubscribeApi } from './useDeviceTimers';
 import { useSensorHistory } from './useSensorHistory';
 import { useStateHistory } from './useStateHistory';
 import { AddAccessoriesSheet, type AccessoryCandidate } from './AddAccessoriesSheet';
@@ -142,6 +144,8 @@ export type RoomsV2PageProps = {
   haStates: MockEntityStateMap;
   onCallService?: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
   onCallApi?: RoomsApiCall;
+  /** Live updates from the integration, as the switch-off timers. */
+  onSubscribeApi?: RoomsSubscribeApi;
   /** Cameras that pan and tilt, and how to move them. */
   cameraPtzEntityIds?: string[];
   onCameraPtzMove?: (entityId: string, direction: CameraPtzDirection) => void;
@@ -306,6 +310,7 @@ export function RoomsV2Page({
   haStates,
   onCallService,
   onCallApi,
+  onSubscribeApi,
   cameraPtzEntityIds = NO_IDS,
   onCameraPtzMove,
   onCameraPtzStop,
@@ -425,6 +430,24 @@ export function RoomsV2Page({
   }, [deviceIdOf, deviceIds, states]);
   const powerSensorOf = React.useCallback((entityId: string) => powerSensorById.get(entityId) ?? null, [powerSensorById]);
   const devices = useDeviceCommands({ demo, states, onCallService, powerSensorOf });
+  const deviceTimers = useDeviceTimers({
+    demo,
+    isOn: (entityId) => devices.modelOf(entityId)?.on ?? false,
+    onCallApi,
+    onSubscribeApi,
+    onDemoSwitch: (entityId, on) => devices.act(entityId, { type: on ? 'turn_on' : 'turn_off' }),
+  });
+  const [timerNotice, setTimerNotice] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!timerNotice) return undefined;
+    const timer = window.setTimeout(() => setTimerNotice(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [timerNotice]);
+  const setDeviceTimer = (entityId: string, minutes: number) => {
+    void deviceTimers.setTimer(entityId, minutes).then((done) => {
+      if (!done) setTimerNotice(dt('timerFailed'));
+    });
+  };
   const climates = useClimateCommands({ demo, states, onCallService });
   const climateIds = React.useMemo(() => Object.keys(states).filter((entityId) => entityId.startsWith('climate.')), [states]);
   const sensorIds = React.useMemo(
@@ -979,6 +1002,8 @@ export function RoomsV2Page({
       model={item.model}
       format="U×2"
       protectedPlug={protectedSet.has(item.id)}
+      timer={deviceTimers.timers[item.id]}
+      timerNow={deviceTimers.now}
       editing={context.editing}
       selected={context.selected}
       onAction={(action) => actOnDevice(item.id, action)}
@@ -1498,6 +1523,8 @@ export function RoomsV2Page({
               model={item.model}
               format="U×2"
               protectedPlug={protectedSet.has(item.id)}
+              timer={deviceTimers.timers[item.id]}
+              timerNow={deviceTimers.now}
               editing={context.editing}
               selected={context.selected}
               hiddenItem={item.hidden}
@@ -1624,6 +1651,11 @@ export function RoomsV2Page({
                 : undefined
             }
             energy={panelEnergy.energy}
+            timer={deviceTimers.timers[panelDevice.entityId]}
+            timerNow={deviceTimers.now}
+            onSetTimer={
+              deviceTimers.available && canHaveTimer(panelDevice) ? (minutes) => setDeviceTimer(panelDevice.entityId, minutes) : undefined
+            }
             onSetTariff={
               panelEnergy.tariff === 'missing' && canManageRooms && onNavigate
                 ? () => {
@@ -1750,6 +1782,12 @@ export function RoomsV2Page({
         onPtzMove={onCameraPtzMove}
         onPtzStop={onCameraPtzStop}
       />
+
+      {timerNotice && !sceneUndo ? (
+        <div className="rv2-toast dv-glass" role="status" data-testid="rooms-v2-timer-notice">
+          <span className="min-w-0 truncate text-sm font-semibold">{timerNotice}</span>
+        </div>
+      ) : null}
 
       {sceneUndo ? (
         <div className="rv2-toast dv-glass" role="status" data-testid="rooms-v2-scene-undo">

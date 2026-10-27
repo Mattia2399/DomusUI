@@ -11389,6 +11389,7 @@ export function MainBoard() {
               haStates={haStatesForUi}
               onCallService={callHaService}
               onCallApi={callHaApi}
+              onSubscribeApi={subscribeHaApi}
               cameraPtzEntityIds={cameraPtzEntityIds}
               onCameraPtzMove={(entityId, direction) => moveCameraPtz(direction, entityId)}
               onCameraPtzStop={(entityId) => stopCameraPtz(entityId)}
