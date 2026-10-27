@@ -1180,13 +1180,9 @@ export function RoomsV2Page({
     devices: deviceCountByRoom.get(tab.id) ?? 0,
     editable: canEditRoom(tab),
   }));
+  // The order of the rooms is DomusUI's own: Home Assistant does not order its areas.
   const reorderRoom = (roomId: string, direction: -1 | 1) => {
-    const order = moveRoom(allRoomTabs, roomId, direction, floorOfRoom);
-    updateLayout((current) => ({ ...current, order }));
-    // Home Assistant keeps an order of its areas too; it follows when it can, and the bar keeps its own.
-    if (management.canManageHa && onCallApi) {
-      void onCallApi({ type: 'config/area_registry/reorder', area_ids: order.filter((id) => areaById.has(id)) }, { reportError: false }).catch(() => undefined);
-    }
+    updateLayout((current) => ({ ...current, order: moveRoom(allRoomTabs, roomId, direction, floorOfRoom) }));
   };
   const sectionLayout = sectionsFor(layout, activeRoom?.id);
   const ord = Object.fromEntries(sectionLayout.order.map((key, index) => [key, index])) as Record<LayoutSection, number>;
