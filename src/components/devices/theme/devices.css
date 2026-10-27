@@ -2085,6 +2085,12 @@
   width: 40px;
 }
 
+/* A round button of glass keeps the glass, as the pills beside it. */
+.dv-glass.dv-round {
+  border: 1px solid var(--dv-glass-border);
+  background: var(--dv-glass);
+}
+
 @container (max-width: 520px) {
   .dv-panel-body {
     flex-direction: column;
