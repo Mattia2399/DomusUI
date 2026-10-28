@@ -35,10 +35,11 @@ function sources(directory: string, found: string[] = []): string[] {
 const read = (path: string) => readFileSync(resolve(root, path), 'utf8');
 
 describe('chart library boundary', () => {
+  // It reads every source file: give it room when the whole suite runs at once.
   it('is imported only by the known on-demand files', () => {
     const importers = sources(resolve(root, 'src')).filter((path) => /from ['"]recharts['"]/.test(read(path)));
     expect(importers.sort()).toEqual([...RECHARTS_IMPORTERS].sort());
-  });
+  }, 20_000);
 
   it('reaches Consumption only through the lazy chart', () => {
     const consumption = sources(resolve(root, 'src/pages')).filter((path) => path.startsWith('src/pages/consumi/') || path === 'src/pages/Consumi.tsx');

@@ -78,7 +78,7 @@ export function GasDetail({
         {c('Il grafico mensile e i dispositivi mostrati sono esempi e non misurazioni dell’impianto.')}
       </PreviewDataNotice>
       <ChartCard title={c('Consumo mensile')}>
-        <LazyConsumptionChart>
+        <LazyConsumptionChart outline="line">
           {({ GasMonthChart }) => <GasMonthChart data={chartData} />}
         </LazyConsumptionChart>
       </ChartCard>

@@ -13,6 +13,7 @@ import { EnergiaDetailView } from './consumi/EnergiaDetail';
 import { buildEnergyOverview, type EnergyOverview, type EnergyOverviewMetric, type EnergyOverviewTone } from './consumi/energy/energyOverviewModel';
 import { useEnergyCore, type EnergyPageContext } from './consumi/energy/useEnergyCore';
 import { GasDetail } from './consumi/GasDetail';
+import { preloadConsumptionCharts } from './consumi/LazyConsumptionChart';
 import { ReportDetail } from './consumi/ReportDetail';
 import type { IntervalKey } from './consumi/shared';
 import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
@@ -382,6 +383,7 @@ function UtilityCard({
   backdropStyle,
   preview = false,
   onClick,
+  onPrefetch,
 }: {
   title: string;
   metrics: UtilityMetric[];
@@ -391,12 +393,17 @@ function UtilityCard({
   backdropStyle: React.CSSProperties;
   preview?: boolean;
   onClick: () => void;
+  /** Fetch what the detail needs as soon as the card is about to be opened. */
+  onPrefetch?: () => void;
 }) {
   const { c } = useConsumptionCopy();
   return (
     <button
       type="button"
       onClick={onClick}
+      onPointerEnter={onPrefetch}
+      onPointerDown={onPrefetch}
+      onFocus={onPrefetch}
       className={cn(
         'group relative min-h-[10rem] cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#071018] p-4 text-left backdrop-blur-2xl sm:min-h-[12rem] sm:rounded-[1.75rem] sm:p-5 xl:min-h-0 xl:flex-1',
         'flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 active:translate-y-0',
@@ -571,6 +578,18 @@ export function ConsumptionDashboardPage({
   React.useEffect(() => {
     onDetailViewChange?.(activeView !== 'overview');
   }, [activeView, onDetailViewChange]);
+
+  // With the overview on screen and nothing else to do, fetch the Water and Gas
+  // charts: a detail then opens with its chart already there.
+  React.useEffect(() => {
+    if (activeView !== 'overview' || typeof window === 'undefined') return undefined;
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(preloadConsumptionCharts, { timeout: 4000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(preloadConsumptionCharts, 1500);
+    return () => window.clearTimeout(timer);
+  }, [activeView]);
 
   const setIntervalForCard = React.useCallback((cardId: ConsumptionCardId, value: IntervalKey) => {
     setDetailIntervals((current) => ({
@@ -778,6 +797,7 @@ export function ConsumptionDashboardPage({
                       backdropStyle={card.backdropStyle}
                       preview={card.preview}
                       onClick={() => handleCardClick(card.id)}
+                      onPrefetch={card.id === 'water' || card.id === 'gas' ? preloadConsumptionCharts : undefined}
                     />
                   ))}
                 </div>

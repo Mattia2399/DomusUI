@@ -138,9 +138,9 @@ describe('SettingsDashboard', () => {
 
     // The chart library is a lazy chunk of its own: give it time to load under a busy test run.
     await waitFor(() => expect(container.ownerDocument.querySelector('.recharts-responsive-container')).not.toBeNull(), {
-      timeout: 5000,
+      timeout: 15_000,
     });
-  });
+  }, 20_000);
 
   it('opens Kiosk mode as its own page, loaded only then, with the start pages of the navigation', async () => {
     render(

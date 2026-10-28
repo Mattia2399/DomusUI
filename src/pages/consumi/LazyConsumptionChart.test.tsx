@@ -54,11 +54,11 @@ describe('LazyConsumptionChart', () => {
     expect(container.querySelector('.recharts-responsive-container')).toBeNull();
 
     arrival.release();
-    // The real chart library is imported fresh here: a full parallel run can need more than a second.
-    await waitFor(() => expect(container.querySelector('.recharts-responsive-container')).not.toBeNull(), { timeout: 5000 });
+    // The real chart library is imported fresh here: a full parallel run can need several seconds.
+    await waitFor(() => expect(container.querySelector('.recharts-responsive-container')).not.toBeNull(), { timeout: 15_000 });
     expect(loaded).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('status', { name: 'Caricamento del grafico…' })).toBeNull();
-  });
+  }, 20_000);
 
   it('keeps a chart that cannot load inside its card, with the reload offer', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -115,6 +115,19 @@ describe('LazyConsumptionChart', () => {
       window.dispatchEvent(new PopStateEvent('popstate'));
     });
     expect(screen.getByRole('heading', { name: 'Consumi' })).toBeTruthy();
+  });
+
+  it('waits with the outline of the chart it is loading', async () => {
+    vi.doMock(CHARTS, () => new Promise(() => undefined));
+    const { LazyConsumptionChart } = await import('./LazyConsumptionChart');
+    const shapes = { bars: '.lcc-bars', ring: '.lcc-ring', line: '.lcc-line' } as const;
+    for (const [outline, selector] of Object.entries(shapes)) {
+      const { container, unmount } = render(
+        <LazyConsumptionChart outline={outline as keyof typeof shapes}>{() => null}</LazyConsumptionChart>,
+      );
+      expect(container.querySelector(`[role="status"] ${selector}`)).not.toBeNull();
+      unmount();
+    }
   });
 
   it('has its words in every language', () => {

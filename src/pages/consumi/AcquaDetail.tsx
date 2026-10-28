@@ -429,7 +429,7 @@ export function AcquaDetail({
       <ChartCard title={c('Origine approvvigionamento')}>
         <div className="flex h-full flex-col items-center justify-center">
           <div className="relative h-44 w-full">
-            <LazyConsumptionChart>
+            <LazyConsumptionChart outline="ring">
               {({ WaterSourceChart }) => <WaterSourceChart data={sourcePieData} />}
             </LazyConsumptionChart>
 
