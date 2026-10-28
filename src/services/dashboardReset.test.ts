@@ -84,7 +84,7 @@ describe('remote authoritative reset invalidation', () => {
     expect(window.localStorage.getItem(DASHBOARD_RUNTIME_MODE_STORAGE_KEY)).toBe('real');
     expect(window.localStorage.getItem(DASHBOARD_RESET_ACK_STORAGE_KEY)).toBe(marker.resetId);
     expect(JSON.parse(window.localStorage.getItem(SETUP_JOURNEY_STORAGE_KEY) ?? '{}')).toMatchObject({
-      phase: 'welcome',
+      phase: 'intro',
       mode: null,
     });
   });

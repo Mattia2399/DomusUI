@@ -162,8 +162,10 @@ export const surfaces = [
   // Reported only: small administrative panels, below any useful budget.
   { id: 'settings-management', label: 'Gestione impostazioni', sources: ['src/components/settings/SettingsManagementPanel.tsx'], requires: 'home', kind: 'feature' },
   { id: 'guided-setup', label: 'Configurazione guidata HA', sources: ['src/components/settings/GuidedSetupOverlay.tsx'], requires: 'home', kind: 'feature' },
-  // The last setup step (floors, rooms, entities), loaded when the person reaches it.
-  { id: 'onboarding-organizer', label: 'Onboarding · Organizzazione', sources: ['src/components/onboarding/OnboardingOrganizer.tsx'], requires: 'onboarding', kind: 'feature' },
+  // The drifting cards behind the setup intro, loaded after its words.
+  { id: 'setup-mosaic', label: 'Onboarding · Sfondo della intro', sources: ['src/components/onboarding/SetupMosaic.tsx'], requires: 'onboarding', kind: 'feature' },
+  // The three-step guide of the Home after setup.
+  { id: 'first-run-guide', label: 'Guida del primo accesso', sources: ['src/components/onboarding/FirstRunGuide.tsx'], requires: 'home', kind: 'feature' },
 ];
 
 /*

@@ -220,6 +220,7 @@ import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfil
 import { resolveApplicationRoutePath } from '../../navigation/applicationRoutes';
 import { isProfileSettingsRoute, resolveLegacySettingsRoute } from '../../navigation/settingsRoutes';
 import { loadHaStateTranslations } from '../../services/haStateTranslations';
+import { readSetupStart, shouldAskHomeStart } from '../../services/setupJourney';
 import { useHaLiveConnection, type HaArea } from '../../hooks/useHaLiveConnection';
 import { useHaPanelBridgeConnection } from '../../hooks/useHaPanelBridgeConnection';
 import { useHaIdentityRevalidation } from '../../hooks/useHaIdentityRevalidation';
@@ -446,6 +447,7 @@ const loadSettingsManagementPanel = () =>
     default: module.SettingsManagementPanel,
   }));
 const loadGuidedSetupOverlay = () => import('../settings/GuidedSetupOverlay');
+const loadFirstRunGuide = () => import('../onboarding/FirstRunGuide');
 const loadStarterLayoutChoiceModal = () => import('../onboarding/StarterLayoutChoiceModal');
 const loadSecurityAuthModal = () => import('../security/SecurityAuthModal');
 const loadDashboardRecoveryModal = () => import('./DashboardRecoveryModal');
@@ -460,6 +462,7 @@ const RightSidebarManager = React.lazy(loadRightSidebarManager);
 const ModernProfilePage = React.lazy(loadModernProfilePage);
 const SettingsManagementPanel = React.lazy(loadSettingsManagementPanel);
 const GuidedSetupOverlay = React.lazy(loadGuidedSetupOverlay);
+const FirstRunGuide = React.lazy(loadFirstRunGuide);
 const StarterLayoutChoiceModal = React.lazy(loadStarterLayoutChoiceModal);
 const SecurityAuthModal = React.lazy(loadSecurityAuthModal);
 const DashboardRecoveryModal = React.lazy(loadDashboardRecoveryModal);
@@ -11945,7 +11948,26 @@ export function MainBoard() {
       ) : null}
 
 
-      {activeMainGuide ? (
+      {activeMainGuideKind === 'welcome' ? (
+        <React.Suspense fallback={null}>
+          <FirstRunGuide
+            variant={runtimeMode === 'demo' ? 'demo' : readSetupStart(window.localStorage) === 'empty' ? 'empty' : 'recommended'}
+            onFinish={() => {
+              // A Home chosen in setup is not asked again; a home set up before still chooses here.
+              if (shouldAskHomeStart(window.localStorage)) {
+                setStarterLayoutChoiceError(null);
+                setIsStarterLayoutChoiceOpen(true);
+                return;
+              }
+              dismissActiveMainGuide();
+            }}
+            onConnect={() => {
+              dismissActiveMainGuide();
+              navigateWithinDashboard('/setup');
+            }}
+          />
+        </React.Suspense>
+      ) : activeMainGuide ? (
         <React.Suspense fallback={<SecondaryWorkspaceLoading label="Preparazione guida…" overlay />}>
           <GuidedSetupOverlay
             isOpen
@@ -11954,14 +11976,7 @@ export function MainBoard() {
             description={activeMainGuide.description}
             steps={activeMainGuideSteps}
             onDismiss={dismissActiveMainGuide}
-            onComplete={() => {
-              if (activeMainGuideKind === 'welcome') {
-                setStarterLayoutChoiceError(null);
-                setIsStarterLayoutChoiceOpen(true);
-                return;
-              }
-              dismissActiveMainGuide();
-            }}
+            onComplete={dismissActiveMainGuide}
             onStepChange={(step) => setActiveMainGuideStepId(step.id ?? null)}
             isStepComplete={(step) => step.id === 'edit-mode' && isEditMode}
             completeLabel={activeMainGuide.completeLabel}

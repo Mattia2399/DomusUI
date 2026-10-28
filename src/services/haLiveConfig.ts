@@ -20,6 +20,11 @@ export const defaultHaLiveConfig: HaLiveConfig = {
   rememberToken: false,
 };
 
+/** Whether this browser saved a connection at all (loadHaLiveConfig falls back to a default address). */
+export function hasSavedHaLiveConfig() {
+  return typeof window !== 'undefined' && window.localStorage.getItem(STORAGE_KEY) !== null;
+}
+
 export function loadHaLiveConfig(): HaLiveConfig {
   if (typeof window === 'undefined') {
     return defaultHaLiveConfig;

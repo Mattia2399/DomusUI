@@ -10,11 +10,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * a finished setup.
  */
 
-const JOURNEY_KEY = 'ha.dashboard.setupJourney.v2';
+const JOURNEY_KEY = 'ha.dashboard.setupJourney.v3';
 
 function storeJourney(phase: string) {
   window.localStorage.setItem(JOURNEY_KEY, JSON.stringify({
-    version: 2, phase, mode: 'real', connectionMethod: 'direct', updatedAt: Date.now(),
+    version: 3, phase, mode: 'real', connectionMethod: 'direct', updatedAt: Date.now(),
   }));
 }
 
@@ -29,7 +29,7 @@ async function mockSetupScreens(onLoad = () => undefined) {
     function OnboardingExperience({ journey }: { journey: { phase: string } }) {
       words.useOnboardingTranslations();
       const { locale } = useI18n();
-      return <h1>{words.translateOnboarding(locale, 'welcome.start')} · {journey.phase}</h1>;
+      return <h1>{words.translateOnboarding(locale, 'intro.start')} · {journey.phase}</h1>;
     }
     return { OnboardingExperience, DemoLockedRoute: () => null };
   });
@@ -75,7 +75,7 @@ describe('ExperienceGate lazy setup', () => {
   });
 
   it('shows the loading state until setup and its words have arrived', async () => {
-    storeJourney('welcome');
+    storeJourney('intro');
     let release: () => void = () => undefined;
     const arrived = new Promise<void>((resolve) => {
       release = resolve;
@@ -90,20 +90,20 @@ describe('ExperienceGate lazy setup', () => {
     expect(await screen.findByRole('status')).toBeTruthy();
     expect(screen.queryByRole('heading')).toBeNull();
     release();
-    expect(await screen.findByRole('heading', { name: 'Inizia ora · welcome' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Inizia · intro' })).toBeTruthy();
   });
 
   it('resumes an interrupted setup at the step it reached', async () => {
     storeJourney('scan');
     await mockSetupScreens();
     await renderGate();
-    expect(await screen.findByRole('heading', { name: 'Inizia ora · scan' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Inizia · scan' })).toBeTruthy();
     expect(storedPhase()).toBe('scan');
   });
 
   it('offers to reload when the words cannot be loaded, without finishing setup', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    storeJourney('welcome');
+    storeJourney('intro');
     vi.doMock('../../i18n/onboarding/it', () => {
       throw new Error('Failed to fetch dynamically imported module');
     });
@@ -114,12 +114,12 @@ describe('ExperienceGate lazy setup', () => {
     expect(screen.getByText('Contenuto non caricato')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Ricarica Domus UI' })).toBeTruthy();
     expect(screen.queryByText('Dashboard Domus UI')).toBeNull();
-    expect(storedPhase()).toBe('welcome');
+    expect(storedPhase()).toBe('intro');
   });
 
   it('offers to reload when setup itself cannot be loaded, without finishing setup', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    storeJourney('discover');
+    storeJourney('connect');
     vi.doMock('./OnboardingExperience', () => {
       throw new Error('Failed to fetch dynamically imported module');
     });
@@ -127,6 +127,6 @@ describe('ExperienceGate lazy setup', () => {
 
     expect(await screen.findByRole('button', { name: 'Ricarica Domus UI' })).toBeTruthy();
     expect(screen.queryByText('Dashboard Domus UI')).toBeNull();
-    expect(storedPhase()).toBe('discover');
+    expect(storedPhase()).toBe('connect');
   });
 });
