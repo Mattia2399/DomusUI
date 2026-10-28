@@ -980,127 +980,12 @@
     filter: brightness(1.08);
   }
 
-  .onboarding-step-rail {
-    width: 15.5rem;
-    flex-shrink: 0;
-    flex-direction: column;
-    border-right: 1px solid var(--ui-border);
-    padding: 1.75rem;
-    background: linear-gradient(165deg, var(--ui-surface-glass), var(--ui-surface-glass-soft));
-  }
-
-  .onboarding-step-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    border: 1px solid transparent;
-    border-radius: 1.15rem;
-    padding: 0.7rem;
-    color: var(--ui-text-secondary);
-    transition: 180ms ease;
-  }
-
-  .onboarding-step-item-active {
-    border-color: rgb(var(--ui-accent-rgb) / 0.28);
-    color: var(--ui-text-primary);
-    background: rgb(var(--ui-accent-rgb) / 0.12);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
-  }
-
-  .onboarding-step-item-complete {
-    color: var(--ui-text-primary);
-  }
-
-  .onboarding-step-icon {
-    display: inline-flex;
-    height: 2rem;
-    width: 2rem;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--ui-border);
-    border-radius: 9999px;
-    background: var(--ui-surface-glass);
-  }
-
-  .onboarding-step-item-active .onboarding-step-icon,
-  .onboarding-step-item-complete .onboarding-step-icon {
-    border-color: rgb(var(--ui-accent-rgb) / 0.36);
-    color: var(--ui-text-primary);
-    background: rgb(var(--ui-accent-rgb) / 0.18);
-  }
-
-  .onboarding-mobile-header {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--ui-border);
-    padding: 0.8rem 1rem 0.7rem;
-    background: var(--ui-page-bg);
-    backdrop-filter: blur(28px) saturate(145%);
-  }
-
-  .onboarding-progress-track {
-    grid-column: 1 / -1;
-    height: 0.2rem;
-    overflow: hidden;
-    border-radius: 9999px;
-    background: var(--ui-surface-glass-strong);
-  }
-
-  .onboarding-progress-track > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, rgb(var(--ui-accent-rgb)), rgb(var(--ui-accent-secondary-rgb)));
-    box-shadow: 0 0 12px rgb(var(--ui-accent-rgb) / 0.45);
-    transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .onboarding-content {
-    margin: 0 auto;
-    width: 100%;
-    max-width: 48rem;
-    padding: 1.2rem 1rem 1.4rem;
-  }
-
-  .onboarding-step-chip,
-  .onboarding-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--ui-border);
-    border-radius: 9999px;
-    background: var(--ui-surface-glass);
-    color: var(--ui-text-secondary);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
-    backdrop-filter: blur(18px);
-  }
-
-  .onboarding-step-chip {
-    padding: 0.45rem 0.7rem;
-    font-size: 0.64rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .onboarding-card,
   .onboarding-choice-card,
-  .onboarding-notice,
-  .onboarding-input-shell {
+  .onboarding-notice {
     border: 1px solid var(--ui-border);
     background: var(--ui-surface-glass-soft);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09), 0 14px 36px rgb(0 0 0 / 0.08);
     backdrop-filter: blur(22px) saturate(145%);
-  }
-
-  .onboarding-card {
-    border-radius: 1.45rem;
   }
 
   .onboarding-choice-card {
@@ -1143,32 +1028,6 @@
     border-radius: 1rem;
   }
 
-  .onboarding-input-shell {
-    position: relative;
-    border-radius: 1rem;
-    transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
-  }
-
-  .onboarding-input-shell:focus-within {
-    border-color: rgb(var(--ui-accent-rgb) / 0.52);
-    background: var(--ui-surface-glass);
-    box-shadow: 0 0 0 3px rgb(var(--ui-accent-rgb) / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.12);
-  }
-
-  .onboarding-input {
-    height: 3.25rem;
-    width: 100%;
-    border: 0;
-    background: transparent;
-    color: var(--ui-text-primary);
-    outline: none;
-  }
-
-  .onboarding-input::placeholder {
-    color: var(--ui-text-secondary);
-    opacity: 0.58;
-  }
-
   .onboarding-notice {
     display: flex;
     align-items: flex-start;
@@ -1187,81 +1046,9 @@
     background: rgb(244 63 94 / 0.1);
   }
 
-  .guided-setup-modal {
-    color: var(--ui-text-primary);
-    background: var(--ui-panel-bg);
-  }
-
-  .guided-setup-header h2 {
-    color: var(--ui-text-primary) !important;
-  }
-
-  .guided-setup-header > p {
-    color: var(--ui-text-secondary) !important;
-  }
-
-  .guided-setup-header > p:first-child {
-    color: rgb(var(--ui-accent-rgb)) !important;
-  }
-
-  .guided-setup-footer {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 0.6rem !important;
-    padding-top: 1rem !important;
-  }
-
-  .guided-setup-skip,
-  .guided-setup-navigation {
-    width: 100%;
-  }
-
-  .guided-setup-navigation > button:only-child {
-    width: 100%;
-  }
-
-  .guided-setup-progress {
-    margin-bottom: 1.15rem;
-  }
-
   @media (min-width: 640px) {
-    .onboarding-content {
-      padding: 1.8rem 2rem 2rem;
-    }
-
-    .onboarding-summary-groups {
-      max-height: clamp(10.5rem, 30dvh, 16rem);
-      overflow-y: auto;
-      overscroll-behavior: contain;
-    }
-
     .onboarding-choice-card {
       padding: 1.4rem;
-    }
-
-    .guided-setup-footer {
-      flex-direction: row;
-      align-items: center !important;
-      justify-content: space-between !important;
-    }
-
-    .guided-setup-skip,
-    .guided-setup-navigation {
-      width: auto;
-    }
-
-    .guided-setup-navigation > button:only-child {
-      width: auto;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .onboarding-content {
-      padding: 2rem 2.4rem 2.4rem;
-    }
-
-    .guided-setup-body {
-      overflow: hidden !important;
     }
   }
 
@@ -1273,29 +1060,6 @@
       box-shadow: none;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
-    }
-
-    .onboarding-mobile-header {
-      padding-top: max(0.8rem, env(safe-area-inset-top));
-    }
-
-    .onboarding-content {
-      padding-bottom: calc(12rem + env(safe-area-inset-bottom));
-    }
-
-    .onboarding-actions {
-      position: fixed;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      z-index: 20;
-      margin: 0;
-      flex-direction: column !important;
-      padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
-      background: var(--ui-page-bg);
-      box-shadow: 0 -18px 44px rgb(0 0 0 / 0.08);
-      backdrop-filter: blur(28px) saturate(135%);
-      -webkit-backdrop-filter: blur(28px) saturate(135%);
     }
   }
 }

@@ -20,7 +20,7 @@ describe('onboarding translations', () => {
     expect(translateOnboarding('en', 'intro.start')).toBe('Get started');
     expect(translateOnboarding('fr', 'intro.start')).toBe('Commencer');
     expect(translateOnboarding('en', 'compose.open')).toBe('Open Home');
-    expect(translateOnboarding('fr', 'organizer.tab.rooms')).toBe('Pièces');
+    expect(translateOnboarding('fr', 'choice.title')).toBe('Comment voulez-vous commencer ?');
   });
 
   it('interpolates user and progress values', async () => {

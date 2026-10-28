@@ -66,7 +66,6 @@ const ENERGY_REFRESH_MS = 15_000;
 type MobileSidebarDrawerProps = {
   isOpen: boolean;
   isEditMode: boolean;
-  isEditTourActive?: boolean;
   canToggleEditMode: boolean;
   quickPaths: SidebarQuickPath[];
   selectedPathId?: string | null;
@@ -279,14 +278,12 @@ const DrawerAction = React.forwardRef<
     badge?: { count: number; label: string };
     onClick: () => void;
     onPrefetch?: () => void;
-    tourTarget?: string;
   }
->(function DrawerAction({ icon: Icon, label, active = false, toggle = false, disabled = false, title, badge, onClick, onPrefetch, tourTarget }, ref) {
+>(function DrawerAction({ icon: Icon, label, active = false, toggle = false, disabled = false, title, badge, onClick, onPrefetch }, ref) {
   return (
     <button
       ref={ref}
       type="button"
-      data-tour-target={tourTarget}
       onPointerEnter={onPrefetch}
       onPointerDown={onPrefetch}
       onFocus={onPrefetch}
@@ -316,7 +313,6 @@ const DrawerAction = React.forwardRef<
 export function MobileSidebarDrawer({
   isOpen,
   isEditMode,
-  isEditTourActive = false,
   canToggleEditMode,
   quickPaths,
   selectedPathId = null,
@@ -353,7 +349,6 @@ export function MobileSidebarDrawer({
 }: MobileSidebarDrawerProps) {
   const { locale, t } = useI18n();
   const drawerRef = React.useRef<HTMLElement | null>(null);
-  const editButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = React.useState(false);
   const [isQuickChooserOpen, setIsQuickChooserOpen] = React.useState(false);
@@ -379,8 +374,8 @@ export function MobileSidebarDrawer({
   ]
     .filter(Boolean)
     .join(' · ');
-  // Edit mode only where a page can be edited (or while it is on, or the tour shows it).
-  const showEditMode = canToggleEditMode || isEditMode || isEditTourActive;
+  // Edit mode only where a page can be edited (or while it is on).
+  const showEditMode = canToggleEditMode || isEditMode;
   const updateCount = isOpen ? availableUpdateCount(states) : 0;
   const securityCount = securityAttentionCount(attentionItems);
   const litLights = isOpen ? lightsOn(states) : [];
@@ -452,14 +447,6 @@ export function MobileSidebarDrawer({
       setIsQuickChooserOpen(false);
     }
   }, [isOpen]);
-
-  React.useEffect(() => {
-    if (!isOpen || !isEditTourActive) return undefined;
-    const timer = window.setTimeout(() => {
-      editButtonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
-    }, 220);
-    return () => window.clearTimeout(timer);
-  }, [isEditTourActive, isOpen]);
 
   const overlayOpen = isLogoutConfirmOpen || isQuickChooserOpen;
   React.useEffect(() => {
@@ -693,8 +680,6 @@ export function MobileSidebarDrawer({
             />
             {showEditMode ? (
               <DrawerAction
-                ref={editButtonRef}
-                tourTarget="edit-mode"
                 icon={PencilLine}
                 label={isEditMode ? t('navigation.edit.exit') : t('navigation.edit.enter')}
                 active={isEditMode}

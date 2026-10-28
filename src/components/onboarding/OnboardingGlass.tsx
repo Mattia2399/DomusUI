@@ -77,35 +77,3 @@ export function SetupSecondaryButton({ className, children, ...props }: ButtonHT
     </GlassButton>
   );
 }
-
-export function WizardActions({ children }: { children: ReactNode }) {
-  return (
-    <div className="onboarding-actions mt-7 flex flex-col-reverse gap-2 border-t border-[color:var(--ui-border)] pt-5 sm:flex-row sm:justify-end">
-      {children}
-    </div>
-  );
-}
-
-export function SetupNotice({
-  icon,
-  title,
-  children,
-  tone = 'neutral',
-}: {
-  icon: ReactNode;
-  title?: string;
-  children: ReactNode;
-  tone?: 'neutral' | 'success' | 'danger';
-}) {
-  return (
-    <div className={clsx('onboarding-notice', `onboarding-notice-${tone}`)}>
-      <span className="onboarding-notice-icon">{icon}</span>
-      <div className="min-w-0">
-        {title ? <div className="text-sm font-semibold text-[color:var(--ui-text-primary)]">{title}</div> : null}
-        <div className={clsx('text-sm leading-6 text-[color:var(--ui-text-secondary)]', title && 'mt-1')}>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}

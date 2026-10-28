@@ -11024,7 +11024,6 @@ export function MainBoard() {
               primaryAction={
                 <button
                   type="button"
-                  data-tour-target="widget-catalog"
                   onClick={() => setIsCatalogOpen(true)}
                   className="flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
                   aria-label={t('dashboard.catalog.open')}
@@ -11088,7 +11087,6 @@ export function MainBoard() {
               <>
                 <button
                   type="button"
-                  data-tour-target="widget-catalog"
                   onClick={() => setIsCatalogOpen(true)}
                   className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:scale-95"
                   aria-label={t('dashboard.catalog.open')}
