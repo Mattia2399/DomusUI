@@ -142,7 +142,7 @@ import {
   type DashboardViewportPreviewMode,
 } from './dashboardViewport';
 import { hasFavoriteGridProjection, resolveFavoriteGridTargetSectionId } from './favoriteGridPlacement';
-import { LayoutDashboard, Lightbulb, Menu, MousePointerClick, PanelRightOpen, PencilRuler, Plus, Settings2, X } from 'lucide-react';
+import { Menu, Plus, X } from 'lucide-react';
 import {
   normalizeWidgetTypeLayoutOverrides,
   resolveWidgetTypeLayoutSpan,
@@ -169,7 +169,6 @@ import {
   type PersonEdit,
   type ProfileHouseMember,
 } from '../settings/settingsHouseAccessModel';
-import type { GuidedSetupStep } from '../settings/GuidedSetupOverlay';
 import {
   FAVORITES_GRID_TITLE,
   GREETING_SECTION_ROWS,
@@ -446,7 +445,6 @@ const loadSettingsManagementPanel = () =>
   import('../settings/SettingsManagementPanel').then((module) => ({
     default: module.SettingsManagementPanel,
   }));
-const loadGuidedSetupOverlay = () => import('../settings/GuidedSetupOverlay');
 const loadFirstRunGuide = () => import('../onboarding/FirstRunGuide');
 const loadStarterLayoutChoiceModal = () => import('../onboarding/StarterLayoutChoiceModal');
 const loadSecurityAuthModal = () => import('../security/SecurityAuthModal');
@@ -461,7 +459,6 @@ const SettingsDashboard = React.lazy(loadSettingsDashboard);
 const RightSidebarManager = React.lazy(loadRightSidebarManager);
 const ModernProfilePage = React.lazy(loadModernProfilePage);
 const SettingsManagementPanel = React.lazy(loadSettingsManagementPanel);
-const GuidedSetupOverlay = React.lazy(loadGuidedSetupOverlay);
 const FirstRunGuide = React.lazy(loadFirstRunGuide);
 const StarterLayoutChoiceModal = React.lazy(loadStarterLayoutChoiceModal);
 const SecurityAuthModal = React.lazy(loadSecurityAuthModal);
@@ -677,97 +674,6 @@ type LockQuickAuthAction = {
 };
 
 type MainGuidedSetupKind = keyof typeof MAIN_GUIDED_SETUP_STORAGE_KEYS;
-
-function createMainGuidedSetupContent(t: ReturnType<typeof useI18n>['t']): Record<
-  MainGuidedSetupKind,
-  {
-    tag: string;
-    heading: string;
-    description: string;
-    steps: GuidedSetupStep[];
-    completeLabel?: string;
-    skipLabel?: string;
-  }
-> {
- return {
-  welcome: {
-    tag: t('home.guide.welcome.tag'), heading: t('home.guide.welcome.heading'), description: t('home.guide.welcome.description'),
-    steps: [
-      {
-        id: 'overview',
-        title: t('home.guide.overview.title'), description: t('home.guide.overview.description'), hint: t('home.guide.overview.hint'),
-        icon: LayoutDashboard,
-      },
-      {
-        id: 'edit-mode',
-        title: t('home.guide.edit.title'), description: t('home.guide.edit.description'), hint: t('home.guide.edit.hint'),
-        icon: PencilRuler,
-        target: '[data-tour-target="edit-mode"]',
-        actionLabel: t('home.guide.edit.action'),
-      },
-      {
-        id: 'widget-catalog',
-        title: t('home.guide.catalog.title'), description: t('home.guide.catalog.description'), hint: t('home.guide.catalog.hint'),
-        icon: Plus,
-        target: '[data-tour-target="widget-catalog"]',
-        actionLabel: t('home.guide.catalog.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'catalog-light',
-        title: t('home.guide.light.title'), description: t('home.guide.light.description'), hint: t('home.guide.light.hint'),
-        icon: Lightbulb,
-        target: '[data-tour-target="catalog-light"]',
-        actionLabel: t('home.guide.light.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'catalog-add-light',
-        title: t('home.guide.add.title'), description: t('home.guide.add.description'), hint: t('home.guide.add.hint'),
-        icon: Plus,
-        target: '[data-tour-target="catalog-confirm"]',
-        actionLabel: t('home.guide.add.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'catalog-finish',
-        title: t('home.guide.finish.title'), description: t('home.guide.finish.description'),
-        icon: PanelRightOpen,
-        target: '[data-tour-target="catalog-finish"]',
-        actionLabel: t('home.guide.finish.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'builder-entity',
-        title: t('home.guide.entity.title'), description: t('home.guide.entity.description'), hint: t('home.guide.entity.hint'),
-        icon: Settings2,
-        target: '[data-tour-target="builder-entity"]',
-        actionLabel: t('home.guide.entity.action'),
-        actionBehavior: 'continue',
-      },
-    ],
-    completeLabel: t('home.guide.welcome.complete'), skipLabel: t('home.guide.closeGuide'),
-  },
-  context: {
-    tag: t('home.guide.context.tag'), heading: t('home.guide.context.heading'), description: t('home.guide.context.description'),
-    steps: [
-      {
-        title: t('home.guide.context.select.title'), description: t('home.guide.context.select.description'),
-        icon: MousePointerClick,
-      },
-      {
-        title: t('home.guide.context.info.title'), description: t('home.guide.context.info.description'), hint: t('home.guide.context.info.hint'),
-        icon: PanelRightOpen,
-      },
-      {
-        title: t('home.guide.context.change.title'), description: t('home.guide.context.change.description'),
-        icon: LayoutDashboard,
-      },
-    ],
-    completeLabel: t('home.guide.context.complete'), skipLabel: t('home.guide.close'),
-  },
- };
-}
 
 function almostEqual(value: number | undefined, expected: number | undefined, tolerance = 0.15) {
   if (!Number.isFinite(value) || !Number.isFinite(expected)) {
@@ -2579,7 +2485,6 @@ export function MainBoard() {
     welcome: isOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS.welcome),
     context: isOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS.context),
   }));
-  const [activeMainGuideStepId, setActiveMainGuideStepId] = useState<string | null>(null);
   const [isStarterLayoutChoiceOpen, setIsStarterLayoutChoiceOpen] = useState(false);
   const [isStarterLayoutChoiceBusy, setIsStarterLayoutChoiceBusy] = useState(false);
   const [starterLayoutChoiceError, setStarterLayoutChoiceError] = useState<string | null>(null);
@@ -3750,7 +3655,6 @@ export function MainBoard() {
   );
   const activeWidget = selectedWidget;
   const activeWidgetSecrets = useWidgetSecrets(activeWidget?.id);
-  const mainGuidedSetupContent = useMemo(() => createMainGuidedSetupContent(t), [t]);
   const shouldShowWelcomeGuide = !completedMainGuides.welcome;
   const shouldShowContextGuide =
     !completedMainGuides.context &&
@@ -3764,30 +3668,12 @@ export function MainBoard() {
     : shouldShowContextGuide
       ? 'context'
       : null;
-  const activeMainGuide = activeMainGuideKind ? mainGuidedSetupContent[activeMainGuideKind] : null;
-  const activeMainGuideSteps = activeMainGuideKind === 'welcome' && !canToggleEditMode
-    ? activeMainGuide?.steps.filter((step) => !step.target) ?? []
-    : activeMainGuide?.steps ?? [];
-  const isGuidedEditTargetActive =
-    activeMainGuideKind === 'welcome' &&
-    activeMainGuideStepId === 'edit-mode' &&
-    !isEditMode &&
-    editConfirm === null;
-
-  useEffect(() => {
-    if (isGuidedEditTargetActive && isCompactViewport) {
-      setIsMobileSidebarOpen(true);
-    }
-  }, [isCompactViewport, isGuidedEditTargetActive]);
-
   const completeMainGuide = (kind: MainGuidedSetupKind) => {
     markOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS[kind]);
     setCompletedMainGuides((current) => ({
       ...current,
       [kind]: true,
     }));
-    setActiveMainGuideStepId(null);
-    setIsMobileSidebarOpen(false);
   };
 
   const dismissActiveMainGuide = () => {
@@ -11250,7 +11136,6 @@ export function MainBoard() {
           <MobileSidebarDrawer
             isOpen={isMobileSidebarOpen}
             isEditMode={isEditMode}
-            isEditTourActive={isGuidedEditTargetActive}
             canToggleEditMode={canToggleEditMode}
             quickPaths={visibleSidebarPaths}
             selectedPathId={selectedSidebarPathId}
@@ -11299,7 +11184,6 @@ export function MainBoard() {
           quickPaths={visibleSidebarPaths}
           selectedPathId={selectedSidebarPathId}
           activeRoute={activeNavigationRoute}
-          isEditTourActive={isGuidedEditTargetActive}
           canToggleEditMode={canToggleEditMode}
           onPathClick={handleSidebarPathClick}
           onToggleEditMode={requestToggleEditMode}
@@ -11948,13 +11832,17 @@ export function MainBoard() {
       ) : null}
 
 
-      {activeMainGuideKind === 'welcome' ? (
+      {activeMainGuideKind ? (
         <React.Suspense fallback={null}>
           <FirstRunGuide
-            variant={runtimeMode === 'demo' ? 'demo' : readSetupStart(window.localStorage) === 'empty' ? 'empty' : 'recommended'}
+            variant={
+              activeMainGuideKind === 'context'
+                ? 'controls'
+                : runtimeMode === 'demo' ? 'demo' : readSetupStart(window.localStorage) === 'empty' ? 'empty' : 'recommended'
+            }
             onFinish={() => {
               // A Home chosen in setup is not asked again; a home set up before still chooses here.
-              if (shouldAskHomeStart(window.localStorage)) {
+              if (activeMainGuideKind === 'welcome' && shouldAskHomeStart(window.localStorage)) {
                 setStarterLayoutChoiceError(null);
                 setIsStarterLayoutChoiceOpen(true);
                 return;
@@ -11965,22 +11853,6 @@ export function MainBoard() {
               dismissActiveMainGuide();
               navigateWithinDashboard('/setup');
             }}
-          />
-        </React.Suspense>
-      ) : activeMainGuide ? (
-        <React.Suspense fallback={<SecondaryWorkspaceLoading label="Preparazione guida…" overlay />}>
-          <GuidedSetupOverlay
-            isOpen
-            tag={activeMainGuide.tag}
-            heading={activeMainGuide.heading}
-            description={activeMainGuide.description}
-            steps={activeMainGuideSteps}
-            onDismiss={dismissActiveMainGuide}
-            onComplete={dismissActiveMainGuide}
-            onStepChange={(step) => setActiveMainGuideStepId(step.id ?? null)}
-            isStepComplete={(step) => step.id === 'edit-mode' && isEditMode}
-            completeLabel={activeMainGuide.completeLabel}
-            skipLabel={activeMainGuide.skipLabel}
           />
         </React.Suspense>
       ) : null}

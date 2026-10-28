@@ -35,6 +35,20 @@ describe('the first-run guide of the Home', () => {
     expect(onFinish).toHaveBeenCalledTimes(2);
   });
 
+  it('explains the controls of the first device opened, at the top of a phone', async () => {
+    const { onFinish } = renderGuide('controls');
+    const dialog = await screen.findByRole('dialog', { name: 'I comandi del dispositivo' });
+    expect(dialog.className).toContain('is-top');
+    expect(screen.getByText('Comandi')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    expect(screen.getByRole('dialog', { name: 'Passa a un altro' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Avanti' }));
+    expect(screen.getByRole('dialog', { name: 'Torna alla Home' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Collega la tua casa' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Ho capito' }));
+    expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+
   it('in the Demo, ends by offering to connect the real home', async () => {
     const { onConnect } = renderGuide('demo');
     expect(await screen.findByRole('dialog', { name: 'Questa è la casa Demo' })).toBeTruthy();

@@ -1,5 +1,14 @@
 const { test, expect } = require('@playwright/test');
 
+async function longPress(page, locator) {
+  const bounds = await locator.boundingBox();
+  const client = await page.context().newCDPSession(page);
+  const point = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2, id: 1, radiusX: 2, radiusY: 2, force: 1 };
+  await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [point] });
+  await page.waitForTimeout(540);
+  await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+}
+
 async function enterFreshDemo(page) {
   await page.goto('/home');
   await page.evaluate(() => {
@@ -59,3 +68,39 @@ test('the first-run guide sits above the mobile bar and can be skipped', async (
   await expect(page.getByRole('button', { name: /Demo · Collega la tua casa/i })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Questa è la casa Demo' })).toHaveCount(0);
 });
+
+for (const viewport of [{ width: 1440, height: 900, phone: false }, { width: 390, height: 844, phone: true }]) {
+  test(`the first device opened explains its controls at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize({ width: viewport.width, height: viewport.height });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const welcome = await enterFreshDemo(page);
+    await welcome.getByRole('button', { name: 'Salta' }).click();
+    await expect(welcome).toBeHidden();
+
+    // A sensor has no switch: a click opens its controls, on a phone a long press.
+    const sensor = page.getByRole('button', { name: 'Apri Sensor' }).first();
+    await sensor.scrollIntoViewIfNeeded();
+    if (viewport.phone) {
+      await longPress(page, sensor);
+    } else {
+      await sensor.click();
+    }
+
+    const guide = page.getByRole('dialog', { name: 'I comandi del dispositivo' });
+    await expect(guide).toBeVisible();
+    await expect(guide.getByText('Comandi', { exact: true })).toBeVisible();
+    const bounds = await guide.boundingBox();
+    expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
+    if (viewport.phone) {
+      // The controls fill the bottom of a phone: the guide sits above them.
+      expect(bounds?.y ?? viewport.height).toBeLessThan(80);
+    }
+    await page.screenshot({ path: `test-results/controls-guide-${viewport.width}.png` });
+
+    await guide.getByRole('button', { name: 'Avanti' }).click();
+    await page.getByRole('dialog', { name: 'Passa a un altro' }).getByRole('button', { name: 'Avanti' }).click();
+    await page.getByRole('dialog', { name: 'Torna alla Home' }).getByRole('button', { name: 'Ho capito' }).click();
+    await expect(page.getByRole('dialog', { name: 'Torna alla Home' })).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('ha.dashboard.onboarding.context.v1'))).toBe('done');
+  });
+}

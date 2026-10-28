@@ -9,10 +9,12 @@ import './firstRunGuide.css';
  * The first look at the Home after setup: three short steps in a sheet at the
  * bottom, with dots, "Skip" and "Next / Start". It does not point at anything
  * on the page: it says what the Home is, where to change it and where Rooms
- * are. The Demo has its own words and a way to connect the real home.
+ * are. The Demo has its own words and a way to connect the real home. The
+ * first device opened gets the same sheet about its controls; on a phone it
+ * sits at the top, since the controls fill the bottom.
  */
 
-export type FirstRunGuideVariant = 'recommended' | 'empty' | 'demo';
+export type FirstRunGuideVariant = 'recommended' | 'empty' | 'demo' | 'controls';
 
 const STEPS: Record<FirstRunGuideVariant, Array<[TranslationKey, TranslationKey]>> = {
   recommended: [
@@ -30,6 +32,18 @@ const STEPS: Record<FirstRunGuideVariant, Array<[TranslationKey, TranslationKey]
     ['home.firstRun.demoRooms.title', 'home.firstRun.demoRooms.description'],
     ['home.firstRun.demoConnect.title', 'home.firstRun.demoConnect.description'],
   ],
+  controls: [
+    ['home.firstRun.controls.title', 'home.firstRun.controls.description'],
+    ['home.firstRun.switch.title', 'home.firstRun.switch.description'],
+    ['home.firstRun.close.title', 'home.firstRun.close.description'],
+  ],
+};
+
+const TAGS: Record<FirstRunGuideVariant, TranslationKey> = {
+  recommended: 'home.firstRun.tag',
+  empty: 'home.firstRun.tag',
+  demo: 'home.firstRun.demoTag',
+  controls: 'home.firstRun.controlsTag',
 };
 
 export function FirstRunGuide({
@@ -56,7 +70,7 @@ export function FirstRunGuide({
 
   return (
     <div
-      className="frg-sheet"
+      className={clsx('frg-sheet', variant === 'controls' && 'is-top')}
       role="dialog"
       aria-modal="false"
       aria-labelledby="frg-title"
@@ -66,8 +80,8 @@ export function FirstRunGuide({
       }}
     >
       <div className="frg-top">
-        <span className={clsx('frg-tag', variant === 'demo' && 'is-demo')}>
-          {variant === 'demo' ? t('home.firstRun.demoTag') : t('home.firstRun.tag')}
+        <span className={clsx('frg-tag', variant === 'demo' && 'is-demo', variant === 'controls' && 'is-info')}>
+          {t(TAGS[variant])}
         </span>
         <span className="frg-dots" aria-label={t('home.firstRun.step', { current: index + 1, total: steps.length })} role="img">
           {steps.map(([key], dot) => <i key={key} className={dot === index ? 'is-on' : undefined} />)}
@@ -91,7 +105,7 @@ export function FirstRunGuide({
           className="frg-btn is-main"
           onClick={() => (last ? onFinish() : setIndex((current) => current + 1))}
         >
-          {last ? t('home.firstRun.start') : t('home.firstRun.next')}
+          {last ? t(variant === 'controls' ? 'home.firstRun.gotIt' : 'home.firstRun.start') : t('home.firstRun.next')}
         </button>
       </div>
     </div>

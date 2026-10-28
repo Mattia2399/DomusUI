@@ -46,6 +46,11 @@
   color: var(--dv-amber);
 }
 
+.frg-tag.is-info {
+  background: rgb(10 132 255 / 0.18);
+  color: var(--dv-blue);
+}
+
 .frg-dots {
   display: flex;
   gap: 6px;
@@ -128,10 +133,28 @@
   }
 }
 
-/* On a phone it sits above the bottom bar. */
+@keyframes frg-down {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}
+
+/* On a phone it sits above the bottom bar; about the controls, above them. */
 @media (max-width: 760px) {
   .frg-sheet {
     bottom: calc(env(safe-area-inset-bottom) + 96px);
+  }
+
+  .frg-sheet.is-top {
+    top: calc(env(safe-area-inset-top) + 12px);
+    bottom: auto;
+    animation-name: frg-down;
   }
 }
 
