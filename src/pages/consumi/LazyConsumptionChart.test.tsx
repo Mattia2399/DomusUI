@@ -54,7 +54,8 @@ describe('LazyConsumptionChart', () => {
     expect(container.querySelector('.recharts-responsive-container')).toBeNull();
 
     arrival.release();
-    await waitFor(() => expect(container.querySelector('.recharts-responsive-container')).not.toBeNull());
+    // The real chart library is imported fresh here: a full parallel run can need more than a second.
+    await waitFor(() => expect(container.querySelector('.recharts-responsive-container')).not.toBeNull(), { timeout: 5000 });
     expect(loaded).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('status', { name: 'Caricamento del grafico…' })).toBeNull();
   });
