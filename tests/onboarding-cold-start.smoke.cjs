@@ -12,14 +12,18 @@ const path = require('node:path');
  */
 
 const graph = JSON.parse(readFileSync(path.join(__dirname, '..', 'build', 'bundle-graph.json'), 'utf8'));
+// A dynamic chunk that also exports parts to other chunks has no facade
+// module, so it is found by the module it is loaded for.
 const chunkOf = (source) => {
-  const file = Object.entries(graph.chunks).find(([, chunk]) => chunk.src === source)?.[0];
+  const file = Object.entries(graph.chunks).find(([, chunk]) =>
+    chunk.src === source || (chunk.isDynamicEntry && Object.keys(chunk.modules ?? {}).includes(source)))?.[0];
   if (!file) throw new Error(`No chunk for ${source} in build/bundle-graph.json`);
   return `/${file}`;
 };
 const SETUP = chunkOf('src/components/onboarding/OnboardingExperience.tsx');
 const WORDS = Object.fromEntries(['it', 'en', 'fr'].map((locale) => [locale, chunkOf(`src/i18n/onboarding/${locale}.ts`)]));
-const JOURNEY_KEY = 'ha.dashboard.setupJourney.v2';
+const JOURNEY_KEY = 'ha.dashboard.setupJourney.v3';
+const LEGACY_JOURNEY_KEY = 'ha.dashboard.setupJourney.v2';
 
 /** A clean device, with a setup journey at `phase` when given (once per test, not on reload). */
 async function startDevice(page, phase) {
@@ -28,7 +32,7 @@ async function startDevice(page, phase) {
     sessionStorage.setItem('onboarding-cold-start.smoke', '1');
     localStorage.clear();
     localStorage.setItem('domusui.language.v1', 'it');
-    if (stored) localStorage.setItem(key, JSON.stringify({ version: 2, ...stored, updatedAt: Date.now() }));
+    if (stored) localStorage.setItem(key, JSON.stringify({ version: 3, ...stored, updatedAt: Date.now() }));
   }, [JOURNEY_KEY, phase ? { phase, mode: phase === 'done' ? 'demo' : 'real', connectionMethod: 'direct' } : null]);
 }
 
@@ -61,7 +65,7 @@ test('a new home gets the setup screens in its language', async ({ page }) => {
   await startDevice(page);
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Tutta la casa\.\s*Un solo gesto\./ })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Inizia ora' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Inizia', exact: true })).toBeVisible();
   expect(seen.asked(SETUP)).toBe(true);
   expect(seen.asked(WORDS.en) || seen.asked(WORDS.fr)).toBe(false);
   expect(seen.problems).toEqual([]);
@@ -76,22 +80,45 @@ test('an interrupted setup resumes at the step it reached', async ({ page }) => 
   expect(seen.problems).toEqual([]);
 });
 
+test('a setup saved by the previous version moves to the new one and offers to resume', async ({ page }) => {
+  const seen = watch(page);
+  await page.addInitScript((key) => {
+    if (sessionStorage.getItem('onboarding-cold-start.smoke')) return;
+    sessionStorage.setItem('onboarding-cold-start.smoke', '1');
+    localStorage.clear();
+    localStorage.setItem('domusui.language.v1', 'it');
+    localStorage.setItem(key, JSON.stringify({
+      version: 2,
+      phase: 'organize',
+      mode: 'real',
+      connectionMethod: 'direct',
+      hassUrl: 'http://homeassistant.local:8123',
+      updatedAt: Date.now(),
+    }));
+  }, LEGACY_JOURNEY_KEY);
+  await page.goto('/');
+  await expect(page.getByText('Eri alla scelta della Home · homeassistant.local:8123')).toBeVisible();
+  expect(await storedPhase(page)).toBe('compose');
+  expect(await page.evaluate((key) => localStorage.getItem(key), LEGACY_JOURNEY_KEY)).toBeNull();
+  expect(seen.problems).toEqual([]);
+});
+
 for (const [what, file] of [['the setup words', WORDS.it], ['the setup code', SETUP]]) {
   test(`when ${what} cannot be loaded, setup offers to reload and is not finished`, async ({ page }) => {
-    await startDevice(page, 'welcome');
+    await startDevice(page, 'intro');
     const blocked = (url) => new URL(url).pathname.endsWith(file);
     await page.route(blocked, (route) => route.abort('failed'));
     await page.goto('/');
 
     await expect(page.getByText('Contenuto non caricato')).toBeVisible();
     await expect(page.getByRole('heading', { name: /Tutta la casa/ })).toHaveCount(0);
-    expect(await storedPhase(page)).toBe('welcome');
+    expect(await storedPhase(page)).toBe('intro');
     await expect(page).not.toHaveURL(/\/home$/);
 
     // Once the network is back, reloading brings setup back where it was.
     await page.unroute(blocked);
     await page.getByRole('button', { name: 'Ricarica Domus UI' }).click();
     await expect(page.getByRole('heading', { name: /Tutta la casa\.\s*Un solo gesto\./ })).toBeVisible();
-    expect(await storedPhase(page)).toBe('welcome');
+    expect(await storedPhase(page)).toBe('intro');
   });
 }
