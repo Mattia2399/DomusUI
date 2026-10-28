@@ -1099,6 +1099,7 @@ export function RoomsPage({
     <SensorCard
       model={item.model}
       history={roomSensorHistory.points[item.id] ?? []}
+      historyLoading={roomSensorHistory.loading && !(item.id in roomSensorHistory.points)}
       editing={context.editing}
       selected={context.selected}
       hiddenItem={item.hidden}

@@ -8,8 +8,9 @@ import '../theme/devices.css';
 
 /*
  * A sensor of the room: its name and icon, the value in large type with a
- * trend arrow, a line of the last 24 hours and where the value sits. The card
- * only opens the detail; while editing it selects.
+ * trend arrow, a line of the last 24 hours and where the value sits. While
+ * the history is on its way the line is a faint outline; the real one fades
+ * in. The card only opens the detail; while editing it selects.
  */
 
 export const SENSOR_ICONS: Record<SensorKind, LucideIcon> = {
@@ -25,6 +26,8 @@ export const SENSOR_ICONS: Record<SensorKind, LucideIcon> = {
 export type SensorCardProps = {
   model: SensorModel;
   history: SeriesPoint[];
+  /** The history has not arrived yet. */
+  historyLoading?: boolean;
   editing?: boolean;
   selected?: boolean;
   hiddenItem?: boolean;
@@ -32,7 +35,7 @@ export type SensorCardProps = {
   onSelect?: () => void;
 };
 
-export function SensorCard({ model, history, editing = false, selected = false, hiddenItem = false, onOpenPanel, onSelect }: SensorCardProps) {
+export function SensorCard({ model, history, historyLoading = false, editing = false, selected = false, hiddenItem = false, onOpenPanel, onSelect }: SensorCardProps) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
   const Icon = SENSOR_ICONS[model.kind];
@@ -75,6 +78,10 @@ export function SensorCard({ model, history, editing = false, selected = false, 
           <svg className="dv-spark" viewBox="0 0 100 32" preserveAspectRatio="none">
             <polygon points={line.area} />
             <polyline points={line.line} />
+          </svg>
+        ) : historyLoading && model.available && model.kind !== 'smoke' ? (
+          <svg className="dv-spark is-waiting" viewBox="0 0 100 32" preserveAspectRatio="none">
+            <polyline points="0,22 18,18 36,20 54,14 72,17 100,12" />
           </svg>
         ) : null}
       </span>

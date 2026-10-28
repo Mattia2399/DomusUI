@@ -1807,6 +1807,41 @@
   vector-effect: non-scaling-stroke;
 }
 
+/* The real line fades in; while the history is on its way, a faint outline breathes. */
+.dv-spark:not(.is-waiting) {
+  animation: dv-spark-in 360ms ease-out;
+}
+
+.dv-spark.is-waiting polyline {
+  stroke: var(--dv-t3);
+  stroke-opacity: 0.35;
+  animation: dv-spark-wait 1.4s ease-in-out infinite;
+}
+
+@keyframes dv-spark-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dv-spark-wait {
+  0%,
+  100% {
+    stroke-opacity: 0.18;
+  }
+
+  50% {
+    stroke-opacity: 0.42;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-spark:not(.is-waiting),
+  .dv-spark.is-waiting polyline {
+    animation: none;
+  }
+}
+
 .dv-banner {
   display: flex;
   align-items: flex-start;
