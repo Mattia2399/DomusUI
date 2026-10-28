@@ -46,6 +46,8 @@ export type GridEngineRuntimeOverrideInput = Readonly<{
   widgetLayoutOverrides?: WidgetLayoutOverrides;
   /** Defaults to legacy until a future dashboard-level metrics version is explicit. */
   metricsVersion?: GridMetricsVersion;
+  /** GE2 Homes can express measured Stack spans as presentation-only overrides. */
+  supportDynamicStacks?: boolean;
 }>;
 
 export type GridEngineRuntimeOverrideResult = Readonly<{
@@ -89,7 +91,11 @@ export function deriveGridEngineRuntimeOverrides(
       const legacy = legacyById.get(element.id);
       if (legacy && (legacy.w !== structural.w || legacy.h !== structural.h)) {
         dynamicStackIds.push(element.id);
-        issues.push({ code: 'UNSUPPORTED_DYNAMIC_STACK', id: element.id });
+        if (input.supportDynamicStacks) {
+          overrides.push({ id: element.id, w: legacy.w, h: legacy.h });
+        } else {
+          issues.push({ code: 'UNSUPPORTED_DYNAMIC_STACK', id: element.id });
+        }
       }
       return;
     }

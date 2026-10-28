@@ -6,6 +6,7 @@ import type {
   WidgetTypeLayoutOverrides,
 } from '../types/widgetTypeLayout';
 import type { DashboardRuntimeMode } from '../security/dashboardAccess';
+import type { DashboardLayoutEngine } from '../services/dashboardConfigurationRepository';
 import {
   saveDashboardLayout,
   type DashboardLayoutSaveErrorCode,
@@ -27,6 +28,7 @@ type DashboardLayoutPersistenceInput = {
   widgetTypeLayoutOverrides: WidgetTypeLayoutOverrides;
   responsiveLayouts: DashboardResponsiveLayouts;
   widgetLayoutOverrides: WidgetLayoutOverrides;
+  layoutEngine?: DashboardLayoutEngine;
   debounceMs?: number;
 };
 
@@ -45,6 +47,7 @@ export function useDashboardLayoutPersistence({
   widgetTypeLayoutOverrides,
   responsiveLayouts,
   widgetLayoutOverrides,
+  layoutEngine,
   debounceMs = 220,
 }: DashboardLayoutPersistenceInput) {
   const [status, setStatus] = useState<DashboardLayoutSaveStatus>({ phase: 'idle' });
@@ -76,13 +79,14 @@ export function useDashboardLayoutPersistence({
       responsiveLayouts,
       widgetLayoutOverrides,
       runtimeMode,
+      layoutEngine,
     );
 
     if (sequence === saveSequenceRef.current) {
       setStatus(statusFromSaveResult(result));
     }
     return result;
-  }, [responsiveLayouts, runtimeMode, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
+  }, [layoutEngine, responsiveLayouts, runtimeMode, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
 
   useEffect(() => {
     if (!enabled || runtimeMode === null) {
@@ -100,6 +104,7 @@ export function useDashboardLayoutPersistence({
         responsiveLayouts,
         widgetLayoutOverrides,
         runtimeMode,
+        layoutEngine,
       );
       if (sequence !== saveSequenceRef.current) {
         return;
@@ -117,6 +122,7 @@ export function useDashboardLayoutPersistence({
   }, [
     debounceMs,
     enabled,
+    layoutEngine,
     responsiveLayouts,
     runtimeMode,
     sections,

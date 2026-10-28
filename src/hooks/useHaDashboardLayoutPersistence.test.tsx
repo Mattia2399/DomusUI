@@ -742,12 +742,54 @@ describe('useHaDashboardLayoutPersistence', () => {
     };
 
     await act(async () => {
-      await expect(result.current.saveDashboard(emptyDashboard)).resolves.toMatchObject({ ok: true });
+      await expect(result.current.saveDashboard(emptyDashboard, { requireRevisionArchive: true }))
+        .resolves.toMatchObject({ ok: true });
     });
 
     expect(stored.revision).toBe(2);
     expect(stored.dashboard.sections).toEqual([]);
     expect(stored.dashboard.widgets).toEqual([]);
+    expect(storedHistory).toEqual(expect.objectContaining({
+      entries: [expect.objectContaining({ revision: 1 })],
+    }));
+  });
+
+  it('blocks an archive-required explicit save before the authoritative HA write', async () => {
+    const stored = buildDocument(buildDashboard('Authoritative source'));
+    let authoritativeWrites = 0;
+    const callApi = vi.fn(async (message: Record<string, unknown>) => {
+      if (message.type === 'frontend/get_system_data') {
+        return { value: message.key === HA_DASHBOARD_REVISION_HISTORY_KEY ? null : stored };
+      }
+      if (message.type === 'frontend/set_system_data') {
+        if (message.key === HA_DASHBOARD_REVISION_HISTORY_KEY) {
+          throw new Error('history storage unavailable');
+        }
+        authoritativeWrites += 1;
+      }
+      return undefined;
+    });
+    const { result } = renderHook(() => useHaDashboardLayoutPersistence({
+      active: true,
+      autoSaveEnabled: false,
+      isConnected: true,
+      canManage: true,
+      userId: 'owner',
+      callApi,
+      dashboard: buildDashboard('Local'),
+      onHydrate: vi.fn(),
+    }));
+
+    await waitFor(() => expect(result.current.loadStatus).toBe('ready'));
+    await act(async () => {
+      await expect(result.current.saveDashboard(
+        buildDashboard('Blocked edit'),
+        { requireRevisionArchive: true },
+      )).resolves.toMatchObject({ ok: false, code: 'revision_archive_required' });
+    });
+
+    expect(authoritativeWrites).toBe(0);
+    expect(result.current.status).toMatchObject({ phase: 'error', code: 'revision_archive_required' });
   });
 
   it('restores an archived layout as a new increasing revision', async () => {

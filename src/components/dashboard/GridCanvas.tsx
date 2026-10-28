@@ -79,6 +79,7 @@ import { GRID_ENGINE_2_EDITOR_ENABLED } from './gridEngine2/editorFeatureFlag';
 import {
   createGridEngineEditorResizeOverride,
   prepareGridEngineEditorLayout,
+  type GridEngineEditorGeometryOrigin,
 } from './gridEngine2/gridEngineEditorIntegration';
 import { LEGACY_GRID_METRICS } from './gridEngine2/gridMetrics';
 import type { GridLayoutMode } from './gridEngine2/model';
@@ -141,6 +142,7 @@ type HouseMemberCardItem = {
 
 type GridCanvasProps = {
   isEditMode: boolean;
+  gridEngine2Active: boolean;
   layoutRevision?: number;
   previewGridWidth?: number;
   developerMode: boolean;
@@ -218,7 +220,10 @@ type GridCanvasProps = {
     breakpoint: GridBreakpoint,
     next: WidgetTypeBreakpointLayoutOverride,
   ) => void;
-  onExperimentalGridEngine2Commit: () => void;
+  onExperimentalGridEngine2Commit: (commit: Readonly<{
+    breakpoint: DashboardGridBreakpoint;
+    origin: GridEngineEditorGeometryOrigin;
+  }>) => void;
   onStackBreakpointLayoutChange: (sectionId: string, breakpoint: GridBreakpoint, next: GridItem[]) => void;
   onAddWidget: (kind: WidgetKind, destination: WidgetCatalogDestination) => string;
   onAddSection: (kind: SectionKind) => string;
@@ -1214,6 +1219,7 @@ function buildResponsiveLayoutsFromDesktop(
 
 export function GridCanvas({
   isEditMode,
+  gridEngine2Active,
   layoutRevision = 0,
   previewGridWidth,
   developerMode,
@@ -1325,7 +1331,8 @@ export function GridCanvas({
   const [keyboardLayoutAnnouncement, setKeyboardLayoutAnnouncement] = useState('');
   const [gridEngine2EditorMode, setGridEngine2EditorMode] = useState<GridLayoutMode>('manual');
   const [gridEngine2EditorError, setGridEngine2EditorError] = useState<string | null>(null);
-  const gridEngine2EditorRequested = GRID_ENGINE_2_EDITOR_ENABLED && isEditMode;
+  const gridEngine2EditorRequested = isEditMode && (gridEngine2Active || GRID_ENGINE_2_EDITOR_ENABLED);
+  const gridEngine2OwnsGeometry = gridEngine2Active || gridEngine2EditorRequested;
   useEffect(
     () => () => {
       runtimeStackWidthSettleTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
@@ -1754,7 +1761,7 @@ export function GridCanvas({
     () => new Map([...rootLightWidgetStateById.keys()].map((id) => [id, false] as const)),
     [rootLightWidgetStateById],
   );
-  const shouldAlignDynamicRootPositions = GRID_ENGINE_2_RENDERER_ENABLED && !isEditMode;
+  const shouldAlignDynamicRootPositions = (gridEngine2Active || GRID_ENGINE_2_RENDERER_ENABLED) && !isEditMode;
   const rootSwitchWidgetIds = useMemo(
     () =>
       new Set(
@@ -1908,7 +1915,7 @@ export function GridCanvas({
         rootVacuumWidgetIds,
         rootLockWidgetIds,
         rootCoverWidgetIds,
-        gridEngine2EditorRequested,
+        gridEngine2OwnsGeometry,
       ),
     [
       desktopLayout,
@@ -1926,7 +1933,7 @@ export function GridCanvas({
       rootAlarmWidgetIds,
       rootVacuumWidgetIds,
       rootCoverWidgetIds,
-      gridEngine2EditorRequested,
+      gridEngine2OwnsGeometry,
     ],
   );
   const structuralGridEngineLayouts = useMemo(
@@ -1948,7 +1955,7 @@ export function GridCanvas({
         rootVacuumWidgetIds,
         rootLockWidgetIds,
         rootCoverWidgetIds,
-        gridEngine2EditorRequested,
+        gridEngine2OwnsGeometry,
       ),
     [
       desktopLayout,
@@ -1965,7 +1972,7 @@ export function GridCanvas({
       rootStructuralLightStateById,
       rootSwitchWidgetIds,
       rootVacuumWidgetIds,
-      gridEngine2EditorRequested,
+      gridEngine2OwnsGeometry,
       widgetLayoutOverrides,
       widgetTypeLayoutOverrides,
     ],
@@ -2050,7 +2057,7 @@ export function GridCanvas({
         const hasCollisions = enforced.some((item, index) =>
           enforced.slice(0, index).some((previous) => intersects(item, previous)),
         );
-        const compacted = gridEngine2EditorRequested && !hasCollisions
+        const compacted = gridEngine2OwnsGeometry && !hasCollisions
           ? enforced
           : compactLayoutUp(enforced, cols);
         return shouldAlignDynamicRootPositions
@@ -2070,7 +2077,7 @@ export function GridCanvas({
       const hasCollisions = aligned.some((item, index) =>
         aligned.slice(0, index).some((previous) => intersects(item, previous)),
       );
-      const normalized = gridEngine2EditorRequested && !hasCollisions
+      const normalized = gridEngine2OwnsGeometry && !hasCollisions
         ? aligned
         : hasCollisions ? packLayoutDense(aligned, cols) : compactLayoutUp(aligned, cols);
       return shouldAlignDynamicRootPositions
@@ -2093,7 +2100,7 @@ export function GridCanvas({
       rootLockWidgetIds,
       rootCoverWidgetIds,
       rootFanHumidifierKindsById,
-      gridEngine2EditorRequested,
+      gridEngine2OwnsGeometry,
       shouldAlignDynamicRootPositions,
     ],
   );
@@ -2654,6 +2661,40 @@ export function GridCanvas({
       runtimeRenderDecision.renderer === 'custom'
     )
   );
+  const gridEngine2HomeRuntimeLayout = useMemo(() => {
+    if (!gridEngine2Active) return null;
+    const structuralLayout = structuralGridEngineLayouts[gridEngineActiveBreakpoint] ?? [];
+    const derived = deriveGridEngineRuntimeOverrides({
+      breakpoint: gridEngineActiveBreakpoint,
+      cols: gridEngineActiveCols,
+      structuralLayout,
+      legacyRuntimeLayout: liveGridEngineLayout,
+      rootElements: runtimeRenderRootElements,
+      lightStates: runtimeRenderLightStates,
+      widgetTypeLayoutOverrides,
+      widgetLayoutOverrides,
+      metricsVersion: 'legacy',
+      supportDynamicStacks: true,
+    });
+    const blockingIssue = derived.issues.find((issue) => issue.code !== 'AMBIGUOUS_LIGHT_BASELINE');
+    if (blockingIssue) return structuralLayout;
+    const solved = solveGridEngineRootRuntimeLayout({
+      structuralLayout: derived.structuralLayout,
+      cols: gridEngineActiveCols,
+      overrides: derived.overrides,
+    });
+    return solved.status === 'invalid' ? structuralLayout : solved.layout;
+  }, [
+    gridEngine2Active,
+    gridEngineActiveBreakpoint,
+    gridEngineActiveCols,
+    liveGridEngineLayout,
+    runtimeRenderLightStates,
+    runtimeRenderRootElements,
+    structuralGridEngineLayouts,
+    widgetLayoutOverrides,
+    widgetTypeLayoutOverrides,
+  ]);
   const hasGridItemMoved = useCallback((start: GridItem | null, next: GridItem | undefined | null) => {
     if (!start || !next) {
       return false;
@@ -2680,7 +2721,9 @@ export function GridCanvas({
     [rootWidgets],
   );
   const gridEngine2EditorPreparation = useMemo(() => prepareGridEngineEditorLayout({
-    effectiveLayout: liveGridEngineLayout,
+    effectiveLayout: gridEngine2Active
+      ? structuralGridEngineLayouts[gridEngineActiveBreakpoint] ?? []
+      : liveGridEngineLayout,
     structuralLayout: structuralGridEngineLayouts[gridEngineActiveBreakpoint] ?? [],
     rootIds: runtimeRenderRootElements.map((element) => element.id),
     stackIds: new Set(stackSectionsById.keys()),
@@ -2692,6 +2735,7 @@ export function GridCanvas({
   }), [
     gridEngineActiveBreakpoint,
     gridEngineActiveCols,
+    gridEngine2Active,
     liveGridEngineLayout,
     responsiveLayouts.root,
     runtimeRenderRootElements,
@@ -2771,7 +2815,6 @@ export function GridCanvas({
       onSelectWidget(committedId);
       onSelectSection(null);
     }
-    onExperimentalGridEngine2Commit();
     setGridEngineLayouts((current) => ({
       ...current,
       [gridEngineActiveBreakpoint]: committed,
@@ -2797,10 +2840,17 @@ export function GridCanvas({
       }
     }
     commitCanonicalRootLayout(committed, true);
+    onExperimentalGridEngine2Commit({
+      breakpoint: gridEngineActiveBreakpoint,
+      origin: gridEngine2EditorPreparation.status === 'ready'
+        ? gridEngine2EditorPreparation.origin
+        : 'legacy-derived',
+    });
     setGridEngine2EditorError(null);
   }, [
     commitCanonicalRootLayout,
     gridEngine2EditorReady,
+    gridEngine2EditorPreparation,
     gridEngineActiveBreakpoint,
     gridEngineActiveCols,
     onExperimentalGridEngine2Commit,
@@ -2853,6 +2903,7 @@ export function GridCanvas({
       widgetTypeLayoutOverrides,
       widgetLayoutOverrides,
       metricsVersion: 'legacy',
+      supportDynamicStacks: gridEngine2Active,
     });
     const blockingIssue = derived.issues.find((issue) => issue.code !== 'AMBIGUOUS_LIGHT_BASELINE');
     if (blockingIssue) return gridEngine2EditorStructuralLayout;
@@ -2864,6 +2915,7 @@ export function GridCanvas({
     return solved.status === 'invalid' ? gridEngine2EditorStructuralLayout : solved.layout;
   }, [
     gridEngine2EditorReady,
+    gridEngine2Active,
     gridEngine2EditorStructuralLayout,
     gridEngineActiveBreakpoint,
     gridEngineActiveCols,
@@ -2875,12 +2927,14 @@ export function GridCanvas({
   ]);
   const rootRendererLayout = gridEngine2EditorReady
     ? gridEngine2EditorRuntimeLayout
-    : runtimeRootRendererLayout;
-  const rootRendererEnabled = gridEngine2EditorReady || runtimeRootRendererEnabled;
+    : gridEngine2HomeRuntimeLayout ?? runtimeRootRendererLayout;
+  const rootRendererEnabled = gridEngine2EditorReady || gridEngine2Active || runtimeRootRendererEnabled;
   runtimeGeometryExpectedRendererRef.current = rootRendererEnabled ? 'grid-engine-2' : 'legacy';
-  const runtimeSolverSpans = !gridEngine2EditorReady && runtimeRenderDecision.kind === 'custom-solver'
-    ? runtimeRenderDecision.runtimeSpans
-    : null;
+  const runtimeSolverSpans = gridEngine2Active
+    ? new Map(rootRendererLayout.map((item) => [item.i, { w: item.w, h: item.h }]))
+    : !gridEngine2EditorReady && runtimeRenderDecision.kind === 'custom-solver'
+      ? runtimeRenderDecision.runtimeSpans
+      : null;
   const rootRendererUsedRows = useMemo(
     () => rootRendererLayout.reduce(
       (maxRows, item) => Math.max(maxRows, Math.max(0, Math.round(item.y)) + Math.max(1, Math.round(item.h))),
@@ -3153,7 +3207,7 @@ export function GridCanvas({
       // Geometry produced by live entity state is presentation state. Persist
       // it only while editing the dashboard; normal controls must not mutate
       // the configured layout.
-      if (isEditMode) {
+      if (isEditMode && !gridEngine2Active) {
         commitGridEngineLayouts(committed, nextActiveLayout);
       }
     },
@@ -3165,6 +3219,7 @@ export function GridCanvas({
       gridEngineActiveBreakpoint,
       gridEngineActiveCols,
       isEditMode,
+      gridEngine2Active,
       shouldAlignDynamicRootPositions,
       updateGridEngineLayouts,
       commitGridEngineLayouts,

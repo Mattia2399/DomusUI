@@ -81,6 +81,11 @@ export type DashboardRemoteUpdate = {
   updatedByUserId: string;
 };
 
+export type HaDashboardExplicitSaveOptions = Readonly<{
+  /** Fail before the authoritative write unless the source revision is archived and read back. */
+  requireRevisionArchive?: boolean;
+}>;
+
 function dashboardSignature(dashboard: DashboardLayoutConfiguration) {
   return createDashboardStructuralFingerprint(dashboard);
 }
@@ -328,6 +333,7 @@ export function useHaDashboardLayoutPersistence({
           result.document.dashboard.responsiveLayouts,
           result.document.dashboard.widgetLayoutOverrides,
           'real',
+          result.document.dashboard.layoutEngine,
         );
         setLoadStatus(canManage ? 'ready' : 'read_only');
         if (canManage) {
@@ -450,6 +456,7 @@ export function useHaDashboardLayoutPersistence({
       document.dashboard.responsiveLayouts,
       document.dashboard.widgetLayoutOverrides,
       'real',
+      document.dashboard.layoutEngine,
     );
     setLoadStatus(permissionRef.current ? 'ready' : 'read_only');
   }, [cache, stageAuthoritativeDocument]);
@@ -657,6 +664,7 @@ export function useHaDashboardLayoutPersistence({
     nextDashboard: DashboardLayoutConfiguration,
     publication: { source: DashboardRevisionSource; restoredFromRevision?: number } = { source: 'edit' },
     explicit = false,
+    options: HaDashboardExplicitSaveOptions = {},
   ): Promise<DashboardLayoutSaveResult> => {
     const run = async (): Promise<DashboardLayoutSaveResult> => {
       if (!active || !connectionRef.current) {
@@ -760,10 +768,6 @@ export function useHaDashboardLayoutPersistence({
         undefined,
         { ...publication, originClientId: clientIdRef.current },
       );
-      pendingLocalPublicationRef.current = {
-        revision: next.revision,
-        updatedAt: next.updatedAt,
-      };
       const archived = await repository.archiveDashboardRevision(current);
       if (archived.status === 'archived') {
         setRevisionHistory(archived.document.entries);
@@ -778,6 +782,18 @@ export function useHaDashboardLayoutPersistence({
             : 'error',
         );
       }
+      if (options.requireRevisionArchive && archived.status !== 'archived') {
+        console.warn('[DomusUI:persistence] persist:blocked', {
+          reason: 'source-revision-archive-not-confirmed',
+          revision: current.revision,
+          archiveStatus: archived.status,
+        });
+        return errorResult('revision_archive_required');
+      }
+      pendingLocalPublicationRef.current = {
+        revision: next.revision,
+        updatedAt: next.updatedAt,
+      };
       const result = await repository.saveSharedHouseConfiguration(next, current.revision);
       pendingLocalPublicationRef.current = null;
       if (result.status === 'saved') {
@@ -797,6 +813,7 @@ export function useHaDashboardLayoutPersistence({
           nextDashboard.responsiveLayouts,
           nextDashboard.widgetLayoutOverrides,
           'real',
+          nextDashboard.layoutEngine,
         );
         return {
           ok: true,
@@ -839,8 +856,11 @@ export function useHaDashboardLayoutPersistence({
     return persist(dashboard);
   }, [dashboard, persist]);
 
-  const saveDashboard = useCallback((nextDashboard: DashboardLayoutConfiguration) => (
-    persist(nextDashboard, { source: 'edit' }, true)
+  const saveDashboard = useCallback((
+    nextDashboard: DashboardLayoutConfiguration,
+    options?: HaDashboardExplicitSaveOptions,
+  ) => (
+    persist(nextDashboard, { source: 'edit' }, true, options)
   ), [persist]);
 
   const initializeDashboard = useCallback(async (
@@ -932,6 +952,7 @@ export function useHaDashboardLayoutPersistence({
       nextDashboard.responsiveLayouts,
       nextDashboard.widgetLayoutOverrides,
       'real',
+      nextDashboard.layoutEngine,
     );
     setLoadStatus('ready');
     const result: DashboardLayoutSaveResult = {

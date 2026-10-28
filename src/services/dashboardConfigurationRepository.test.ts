@@ -81,6 +81,20 @@ describe('shared house configuration contract', () => {
     expect(parseSharedHouseConfiguration({ ...buildDocument(), dashboard: { widgets: [] } })).toBeNull();
   });
 
+  it('accepts only the versioned Grid Engine 2.0 Home marker', () => {
+    const marked = parseSharedHouseConfiguration({
+      ...buildDocument(),
+      dashboard: { ...dashboard, layoutEngine: 'grid-engine-2' },
+    });
+    const unknown = parseSharedHouseConfiguration({
+      ...buildDocument(),
+      dashboard: { ...dashboard, layoutEngine: 'future-engine' },
+    });
+
+    expect(marked?.dashboard.layoutEngine).toBe('grid-engine-2');
+    expect(unknown?.dashboard.layoutEngine).toBeUndefined();
+  });
+
   it('increments the revision without mutating the previous document', () => {
     const current = buildDocument();
     const next = createNextSharedHouseConfiguration(

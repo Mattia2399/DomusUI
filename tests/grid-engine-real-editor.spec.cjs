@@ -1,8 +1,12 @@
 const { test, expect } = require('@playwright/test');
 
 const STORAGE_KEY = 'ha.dashboard.demo.builder.layout.v1';
+const REAL_STORAGE_KEY = 'ha.dashboard.builder.layout.v1';
 const DRAFT_KEY = 'premium-home.dashboard-edit-draft.demo.v1';
+const SHARED_CONFIGURATION_KEY = 'premium-home.shared-house.v1';
+const REVISION_HISTORY_KEY = 'premium-home.dashboard-revisions.v1';
 const EXPECT_EDITOR = process.env.VITE_GRID_ENGINE_2_EDITOR === 'true';
+const EXPECT_QA_SAVE = process.env.VITE_GRID_ENGINE_2_QA_SAVE === 'true';
 
 const BREAKPOINT_COLS = { '2xl': 12, xl: 12, lg: 8, md: 6, sm: 4, xs: 2 };
 
@@ -79,6 +83,21 @@ function editorFixture({ dynamicStack = false } = {}) {
       widget('stack.child', 'sensor', 'Figlio Stack', { x: 0, y: 0, w: 2, h: dynamicStack ? 2 : 1 }, 'section.stack'),
     ],
   };
+}
+
+function historicalSpanFixture() {
+  const layout = editorFixture();
+  delete layout.widgetTypeLayoutOverrides.sensor;
+  for (const breakpoint of Object.keys(BREAKPOINT_COLS)) {
+    const sensor = layout.responsiveLayouts.root[breakpoint]
+      .find((item) => item.i === 'root.sensor');
+    sensor.w = Math.min(2, BREAKPOINT_COLS[breakpoint]);
+    sensor.h = 1;
+  }
+  const sensor = layout.widgets.find((item) => item.id === 'root.sensor');
+  sensor.layout.w = 2;
+  sensor.layout.h = 1;
+  return layout;
 }
 
 function automaticModeFixture() {
@@ -208,10 +227,160 @@ async function installDemo(page, layout) {
   }, { key: STORAGE_KEY, value: layout });
 }
 
+async function installSimulatedHaQa(page, layout) {
+  const dashboard = structuredClone(layout);
+  dashboard.storageVersion = dashboard.version;
+  delete dashboard.version;
+  await page.goto('/home');
+  await page.evaluate(({
+    layoutValue,
+    dashboardValue,
+    realStorageKey,
+    sharedKey,
+    historyKey,
+  }) => {
+    localStorage.clear();
+    sessionStorage.clear();
+    localStorage.setItem('ha.dashboard.setupJourney.v2', JSON.stringify({
+      version: 2, phase: 'done', mode: 'real', updatedAt: Date.now(),
+    }));
+    localStorage.setItem('ha.dashboard.runtimeMode.v1', 'real');
+    localStorage.setItem('ha.dashboard.onboarding.welcome.v1', 'done');
+    localStorage.setItem('ha.dashboard.onboarding.context.v1', 'done');
+    localStorage.setItem(realStorageKey, JSON.stringify(layoutValue));
+
+    const origin = window.location.origin;
+    const owner = {
+      id: 'qa-save-owner',
+      name: 'QA Save Owner',
+      username: 'qa-save@example.test',
+      is_owner: true,
+      is_admin: true,
+      is_active: true,
+      system_generated: false,
+      group_ids: ['system-admin'],
+    };
+    let sharedDocument = {
+      schema: 'premium-home-house-configuration',
+      version: 1,
+      revision: 84,
+      updatedAt: '2026-10-28T08:00:00.000Z',
+      updatedByUserId: owner.id,
+      publication: { source: 'edit', originClientId: 'qa-save-fixture' },
+      dashboard: dashboardValue,
+      security: { alarmEntityId: null, visibleSensorEntityIds: null, visibleCameraEntityIds: null },
+      rooms: { customRooms: [], hiddenEntitiesByRoom: {} },
+    };
+    let revisionHistory = null;
+    let failNextSharedWrite = false;
+    window.__qaSaveHaState = {
+      sharedReads: 0,
+      sharedWrites: 0,
+      historyReads: 0,
+      historyWrites: 0,
+      sharedDocument,
+      revisionHistory,
+    };
+    const syncState = () => {
+      window.__qaSaveHaState.sharedDocument = sharedDocument;
+      window.__qaSaveHaState.revisionHistory = revisionHistory;
+    };
+    window.__publishQaSaveRemoteRevision = () => {
+      const next = structuredClone(sharedDocument);
+      next.revision += 1;
+      next.updatedAt = '2026-10-28T08:05:00.000Z';
+      next.updatedByUserId = 'other-ha-owner';
+      next.publication = { source: 'edit', originClientId: 'other-ha-client' };
+      const responsiveSensor = next.dashboard.responsiveLayouts.root.xl
+        .find((item) => item.i === 'root.sensor');
+      const canonicalSensor = next.dashboard.widgets
+        .find((item) => item.id === 'root.sensor');
+      responsiveSensor.y += 2;
+      canonicalSensor.layout.y += 2;
+      sharedDocument = next;
+      syncState();
+    };
+    window.__failNextQaSave = () => {
+      failNextSharedWrite = true;
+    };
+    const reply = (target, requestId, result) => target.postMessage({
+      type: 'ha-panel-call-api-result', requestId, ok: true, result,
+    }, origin);
+
+    window.addEventListener('message', (event) => {
+      if (event.origin !== origin || !event.source || !event.data) return;
+      if (event.data.type === 'ha-panel-ready' || event.data.type === 'ha-panel-request-sync') {
+        event.source.postMessage({
+          type: 'ha-panel-context', hassUrl: origin, bridgeProtocolVersion: 1,
+          capabilities: ['shared_configuration'],
+        }, origin);
+        event.source.postMessage({
+          type: 'ha-panel-snapshot', hassUrl: origin, bridgeProtocolVersion: 1,
+          capabilities: ['shared_configuration'], states: {}, areas: [],
+        }, origin);
+        return;
+      }
+      if (event.data.type === 'ha-panel-call-api') {
+        const message = event.data.message ?? {};
+        if (message.type === 'auth/current_user') {
+          reply(event.source, event.data.requestId, owner);
+        } else if (message.type === 'config/auth/list' || message.type === 'auth/list') {
+          reply(event.source, event.data.requestId, [owner]);
+        } else if (message.type === 'frontend/get_system_data' && message.key === sharedKey) {
+          window.__qaSaveHaState.sharedReads += 1;
+          reply(event.source, event.data.requestId, { value: sharedDocument });
+        } else if (message.type === 'frontend/set_system_data' && message.key === sharedKey) {
+          if (failNextSharedWrite) {
+            failNextSharedWrite = false;
+            event.source.postMessage({
+              type: 'ha-panel-call-api-result', requestId: event.data.requestId,
+              ok: false, error: 'simulated-write-failure',
+            }, origin);
+            return;
+          }
+          window.__qaSaveHaState.sharedWrites += 1;
+          sharedDocument = message.value;
+          syncState();
+          reply(event.source, event.data.requestId, undefined);
+        } else if (message.type === 'frontend/get_system_data' && message.key === historyKey) {
+          window.__qaSaveHaState.historyReads += 1;
+          reply(event.source, event.data.requestId, { value: revisionHistory });
+        } else if (message.type === 'frontend/set_system_data' && message.key === historyKey) {
+          window.__qaSaveHaState.historyWrites += 1;
+          revisionHistory = message.value;
+          syncState();
+          reply(event.source, event.data.requestId, undefined);
+        } else if (message.type === 'frontend/get_system_data' || message.type === 'frontend/get_user_data') {
+          reply(event.source, event.data.requestId, { value: null });
+        } else if (message.type === 'frontend/set_system_data') {
+          reply(event.source, event.data.requestId, undefined);
+        } else if (message.type === 'get_services') {
+          reply(event.source, event.data.requestId, {});
+        } else {
+          reply(event.source, event.data.requestId, []);
+        }
+        return;
+      }
+      if (event.data.type === 'ha-panel-subscribe-api') {
+        event.source.postMessage({
+          type: 'ha-panel-subscribe-api-result', requestId: event.data.requestId, ok: true,
+        }, origin);
+      }
+    });
+    document.body.innerHTML = '<iframe title="Home Assistant panel" src="/home" style="width:100vw;height:100vh;border:0"></iframe>';
+  }, {
+    layoutValue: layout,
+    dashboardValue: dashboard,
+    realStorageKey: REAL_STORAGE_KEY,
+    sharedKey: SHARED_CONFIGURATION_KEY,
+    historyKey: REVISION_HISTORY_KEY,
+  });
+}
+
 async function enterEditMode(page) {
   await page.locator('button[aria-label="Attiva o disattiva modalità modifica"]:visible').first().click();
   await page.getByRole('button', { name: 'Attiva', exact: true }).click();
-  await page.waitForSelector('.sections-grid.is-editing');
+  await expect(page.locator('.sections-grid.is-editing')).toBeVisible();
 }
 
 async function selectDesktopPreview(page) {
@@ -384,6 +553,16 @@ async function expectNoCellCollisions(page) {
   }
 }
 
+async function saveAndExitQa(page) {
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const dialog = page.getByRole('dialog', { name: 'Uscire dalla modalità modifica?' });
+  const save = dialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true });
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+  await expect(dialog).not.toBeVisible();
+}
+
 test('flag OFF keeps the legacy editor and ordinary Demo persistence unchanged', async ({ page }) => {
   test.skip(EXPECT_EDITOR, 'This assertion exercises the default disabled path.');
   await page.setViewportSize({ width: 1920, height: 1000 });
@@ -411,6 +590,183 @@ test('flag OFF keeps the legacy editor and ordinary Demo persistence unchanged',
   await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
   const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
   expect(after.responsiveLayouts.root.xl).not.toEqual(before.responsiveLayouts.root.xl);
+});
+
+test('explicit Home 2.0 cutover works without DEV flags, saves normally, and reloads exact geometry', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const source = editorFixture();
+  await installDemo(page, source);
+  const apiRequests = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/') || request.resourceType() === 'websocket') apiRequests.push(request.url());
+  });
+  await page.goto('/home');
+  await enterEditMode(page);
+  const persistedBaseline = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+
+  await page.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  const activation = page.getByRole('dialog', { name: 'Attiva nuova Home 2.0' });
+  await expect(activation).toContainText('I widget e le relative configurazioni saranno conservati');
+  await activation.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+
+  await expect(page.locator('[data-grid-engine-editor="active"]')).toBeVisible();
+  await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toBeVisible();
+  await expect(page.locator('[data-grid-engine-root-item]')).toHaveCount(5);
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+
+  await expect.poll(async () => page.evaluate((key) => {
+    const value = sessionStorage.getItem(key);
+    return value ? JSON.parse(value) : null;
+  }, DRAFT_KEY)).toMatchObject({
+    persistenceProtection: 'grid-engine-2-experimental',
+    dashboard: { layoutEngine: 'grid-engine-2' },
+  });
+
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = page.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(exit).toContainText('nuova geometria Home 2.0 è valida');
+  const save = exit.getByRole('button', { name: 'Salva ed esci', exact: true });
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+
+  const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  expect(saved.layoutEngine).toBe('grid-engine-2');
+  expect(Object.keys(saved.responsiveLayouts.root).sort()).toEqual(Object.keys(BREAKPOINT_COLS).sort());
+  expect(saved.sections.map((section) => [section.id, section.kind, section.title]))
+    .toEqual(source.sections.map((section) => [section.id, section.kind, section.title]));
+  expect(saved.widgets.map((widget) => [widget.id, widget.kind, widget.entityId, widget.parentSectionId ?? null]))
+    .toEqual(source.widgets.map((widget) => [widget.id, widget.kind, widget.entityId, widget.parentSectionId ?? null]));
+  expect(saved.responsiveLayouts.root).not.toEqual(source.responsiveLayouts.root);
+  expect(apiRequests).toEqual([]);
+
+  const savedGeometry = structuredClone(saved.responsiveLayouts);
+  await page.reload();
+  await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toBeVisible();
+  const reloaded = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  expect(reloaded.layoutEngine).toBe('grid-engine-2');
+  expect(reloaded.responsiveLayouts).toEqual(savedGeometry);
+});
+
+test('discarding an unsaved Home 2.0 cutover restores the complete legacy Home', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, editorFixture());
+  await page.goto('/home');
+  await enterEditMode(page);
+  const persistedBaseline = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+
+  await page.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Attiva nuova Home 2.0' })
+    .getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await expect(page.locator('[data-grid-engine-editor="active"]')).toBeVisible();
+
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = page.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await exit.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
+  await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
+});
+
+test('simulated HA cutover archives the legacy revision before publishing Home 2.0', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installSimulatedHaQa(page, editorFixture());
+  const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
+  await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
+  const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
+  if (!panelFrame) throw new Error('Simulated Home Assistant panel frame not found.');
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedReads ?? 0))
+    .toBeGreaterThan(0);
+
+  await enterEditMode(frame);
+  await frame.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await frame.getByRole('dialog', { name: 'Attiva nuova Home 2.0' })
+    .getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await expect(frame.locator('[data-grid-engine-editor="active"]')).toBeVisible();
+
+  await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(exit.getByRole('button', { name: 'Salva ed esci', exact: true })).toBeEnabled();
+  await exit.getByRole('button', { name: 'Salva ed esci', exact: true }).click();
+  await expect(frame.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedWrites ?? 0)).toBe(1);
+  const state = await page.evaluate(() => structuredClone(window.__qaSaveHaState));
+  expect(state.historyWrites).toBe(1);
+  expect(state.revisionHistory.entries.map((entry) => entry.revision)).toContain(84);
+  expect(state.sharedDocument.revision).toBe(85);
+  expect(state.sharedDocument.dashboard.layoutEngine).toBe('grid-engine-2');
+  expect(Object.keys(state.sharedDocument.dashboard.responsiveLayouts.root).sort())
+    .toEqual(Object.keys(BREAKPOINT_COLS).sort());
+});
+
+test('simulated HA cutover stays open and unwritten when a newer revision is pending', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installSimulatedHaQa(page, editorFixture());
+  const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
+  await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
+  const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
+  if (!panelFrame) throw new Error('Simulated Home Assistant panel frame not found.');
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedReads ?? 0))
+    .toBeGreaterThan(0);
+
+  await enterEditMode(frame);
+  await frame.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await frame.getByRole('dialog', { name: 'Attiva nuova Home 2.0' })
+    .getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  const readsBeforeRemote = await page.evaluate(() => window.__qaSaveHaState.sharedReads);
+  await page.evaluate(() => window.__publishQaSaveRemoteRevision());
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState.sharedReads))
+    .toBeGreaterThan(readsBeforeRemote);
+
+  await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(exit.getByRole('button', { name: 'Salvataggio sperimentale bloccato' })).toBeDisabled();
+  await expect(exit).toContainText('pendente la revisione Home Assistant 85');
+  expect(await page.evaluate(() => window.__qaSaveHaState.sharedWrites)).toBe(0);
+  expect(await page.evaluate(() => window.__qaSaveHaState.historyWrites)).toBe(0);
+  await exit.getByRole('button', { name: 'Annulla', exact: true }).click();
+  await expect(frame.locator('.sections-grid')).toHaveClass(/is-editing/);
+});
+
+test('simulated HA write failure keeps the cutover retryable and discard restores legacy', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installSimulatedHaQa(page, editorFixture());
+  const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
+  await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
+  const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
+  if (!panelFrame) throw new Error('Simulated Home Assistant panel frame not found.');
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedReads ?? 0))
+    .toBeGreaterThan(0);
+
+  await enterEditMode(frame);
+  await frame.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await frame.getByRole('dialog', { name: 'Attiva nuova Home 2.0' })
+    .getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await page.evaluate(() => window.__failNextQaSave());
+
+  await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  await frame.getByRole('dialog').filter({ hasText: 'Uscire' })
+    .getByRole('button', { name: 'Salva ed esci', exact: true }).click();
+  await expect(frame.locator('.sections-grid')).toHaveClass(/is-editing/);
+  expect(await page.evaluate(() => window.__qaSaveHaState.sharedWrites)).toBe(0);
+  expect(await page.evaluate(() => window.__qaSaveHaState.sharedDocument.revision)).toBe(84);
+  expect(await page.evaluate(() => window.__qaSaveHaState.sharedDocument.dashboard.layoutEngine)).toBeUndefined();
+
+  await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  await frame.getByRole('dialog').filter({ hasText: 'Uscire' })
+    .getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
+  await expect(frame.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+  expect(await page.evaluate(() => window.__qaSaveHaState.sharedWrites)).toBe(0);
 });
 
 test('DEV flag ON integrates authentic cards, GE2 gestures, history, breakpoints, and protected recovery', async ({ page }) => {
@@ -519,6 +875,26 @@ test('DEV flag ON integrates authentic cards, GE2 gestures, history, breakpoints
   await exitDialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
   await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
   expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
+
+  // Discarding a recovered draft must end the protected session completely.
+  // A subsequent activation starts from the authoritative baseline and can
+  // become a fresh QA-save candidate instead of inheriting recovered-blocked.
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+  await dragEditorItem(page, 'root.sensor', 1);
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const freshExitDialog = page.getByRole('dialog').filter({ hasText: 'Uscire' });
+  if (EXPECT_QA_SAVE) {
+    await expect(freshExitDialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true }))
+      .toBeEnabled();
+    await expect(freshExitDialog).toContainText('hanno superato la validazione QA');
+  } else {
+    await expect(freshExitDialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' }))
+      .toBeDisabled();
+    await expect(freshExitDialog).toContainText('flag dellâ€™editor da solo non abilita scritture');
+  }
+  await freshExitDialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
 });
 
@@ -947,6 +1323,229 @@ test('real editor autoscroll keeps Automatic reorder stable and touch cancel fai
   expect(Math.abs(await scrollTopOf(scrollContainer) - cancelledAt)).toBeLessThanOrEqual(1);
   expect(await cellGeometry(page, touchId)).toEqual(beforeTouch);
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBe(draftBeforeTouch);
+});
+
+test('editor flag alone keeps a fresh GE2 save blocked by default', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR || EXPECT_QA_SAVE, 'Requires editor ON with the independent QA save flag OFF.');
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, editorFixture());
+  await page.goto('/home');
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+
+  await dragEditorItem(page, 'root.sensor', 2);
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const dialog = page.getByRole('dialog', { name: 'Uscire dalla modalità modifica?' });
+  await expect(dialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' })).toBeDisabled();
+  await expect(dialog).toContainText('flag dell’editor da solo non abilita scritture');
+  await dialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
+});
+
+test('real Home QA save accepts a verified historical span and archives revision 84 before writing 85', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installSimulatedHaQa(page, historicalSpanFixture());
+  const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
+
+  await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
+  const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
+  if (!panelFrame) throw new Error('Simulated Home Assistant panel frame not found.');
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedReads ?? 0))
+    .toBeGreaterThan(0);
+  await enterEditMode(frame);
+  await frame.getByRole('radio', { name: 'Anteprima desktop' }).click();
+  await expect(frame.locator('[data-grid-engine-root-renderer="grid-engine-2"]'))
+    .toHaveAttribute('data-breakpoint', 'xl');
+  await expect(rootItem(frame, 'root.sensor')).toHaveAttribute('data-grid-w', '2');
+  await expect(rootItem(frame, 'root.sensor')).toHaveAttribute('data-grid-h', '1');
+
+  const before = await cellGeometry(frame, 'root.sensor');
+  const editorItem = frame.locator('[data-grid-engine-editor-item="root.sensor"]');
+  await editorItem.focus();
+  await editorItem.press('ArrowDown');
+  await expect.poll(() => cellGeometry(frame, 'root.sensor')).toMatchObject({
+    y: before.y + 1,
+    w: 2,
+    h: 1,
+  });
+
+  await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const dialog = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(dialog).toContainText('hanno superato la validazione QA');
+  await expect(dialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true }))
+    .toBeEnabled();
+  await dialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true }).click();
+  await expect(frame.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedWrites ?? 0))
+    .toBe(1);
+  const state = await page.evaluate(() => structuredClone(window.__qaSaveHaState));
+  expect(state.historyWrites).toBe(1);
+  expect(state.revisionHistory.entries.map((entry) => entry.revision)).toContain(84);
+  expect(state.sharedDocument.revision).toBe(85);
+  expect(state.sharedDocument.dashboard.responsiveLayouts.root.xl
+    .find((item) => item.i === 'root.sensor')).toMatchObject({
+    x: before.x,
+    y: before.y + 1,
+    w: 2,
+    h: 1,
+  });
+  expect(state.sharedDocument.dashboard.widgets
+    .find((item) => item.id === 'root.sensor').layout).toMatchObject({
+    x: before.x,
+    y: before.y + 1,
+    w: 2,
+    h: 1,
+  });
+});
+
+test('real Home blocks QA save when a newer HA revision makes the structural baseline non-current', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installSimulatedHaQa(page, historicalSpanFixture());
+  const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
+
+  await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
+  const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
+  if (!panelFrame) throw new Error('Simulated Home Assistant panel frame not found.');
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedReads ?? 0))
+    .toBeGreaterThan(0);
+  await enterEditMode(frame);
+  await frame.getByRole('radio', { name: 'Anteprima desktop' }).click();
+  const editorItem = frame.locator('[data-grid-engine-editor-item="root.sensor"]');
+  await editorItem.focus();
+  await editorItem.press('ArrowDown');
+
+  const readsBeforeRemote = await page.evaluate(() => window.__qaSaveHaState.sharedReads);
+  await page.evaluate(() => window.__publishQaSaveRemoteRevision());
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState.sharedReads))
+    .toBeGreaterThan(readsBeforeRemote);
+
+  await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const dialog = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(dialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' }))
+    .toBeDisabled();
+  await expect(dialog).toContainText('È pendente la revisione Home Assistant 85');
+  await expect(dialog).toContainText('Applica o risolvi l’aggiornamento remoto prima di salvare');
+  expect(await page.evaluate(() => window.__qaSaveHaState.sharedWrites)).toBe(0);
+  expect(await page.evaluate(() => window.__qaSaveHaState.historyWrites)).toBe(0);
+  await dialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
+});
+
+test('explicit QA save persists Manual XL geometry through the existing flow without runtime Light contamination', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, editorFixture());
+  const apiRequests = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/') || request.resourceType() === 'websocket') apiRequests.push(request.url());
+  });
+  await page.goto('/home');
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+
+  const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  await expect(rootItem(page, 'root.light')).toHaveAttribute('data-grid-h', '2');
+  await dragEditorItem(page, 'root.sensor', 2);
+  const committed = await cellGeometry(page, 'root.sensor');
+  await saveAndExitQa(page);
+
+  const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  expect(after.responsiveLayouts.root.xl.find((item) => item.i === 'root.sensor')).toEqual({
+    i: 'root.sensor', ...committed,
+  });
+  expect(after.widgets.find((item) => item.id === 'root.sensor').layout).toEqual({
+    i: 'root.sensor', ...committed,
+  });
+  expect(after.responsiveLayouts.root.xl.find((item) => item.i === 'root.light').h).toBe(1);
+  expect(after.widgets.find((item) => item.id === 'root.light').layout.h).toBe(1);
+  expect(after.widgets.find((item) => item.id === 'root.light').isOn).toBe(true);
+  expect(after.widgets.find((item) => item.id === 'stack.child')).toEqual(
+    before.widgets.find((item) => item.id === 'stack.child'),
+  );
+  for (const breakpoint of ['2xl', 'lg', 'md', 'sm', 'xs']) {
+    expect(after.responsiveLayouts.root[breakpoint]).toEqual(before.responsiveLayouts.root[breakpoint]);
+  }
+  expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
+  expect(apiRequests).toEqual([]);
+
+  await page.reload();
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+  expect(await cellGeometry(page, 'root.sensor')).toEqual(committed);
+  await expect(rootItem(page, 'root.light')).toHaveAttribute('data-grid-h', '2');
+});
+
+test('explicit QA save changes LG only and leaves XL plus canonical geometry byte-equivalent', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, editorFixture());
+  await page.goto('/home');
+  await enterEditMode(page);
+  await page.getByRole('radio', { name: 'Anteprima automatica' }).click();
+  for (const width of [1900, 1800, 1700, 1600, 1500]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.waitForTimeout(120);
+    if (await page.locator('[data-grid-engine-root-renderer="grid-engine-2"][data-breakpoint="lg"]').count()) break;
+  }
+  await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveAttribute('data-breakpoint', 'lg');
+
+  const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  await dragEditorItem(page, 'root.sensor', 2);
+  const committedLg = await cellGeometry(page, 'root.sensor');
+  await saveAndExitQa(page);
+  const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+
+  expect(after.responsiveLayouts.root.lg.find((item) => item.i === 'root.sensor')).toEqual({
+    i: 'root.sensor', ...committedLg,
+  });
+  expect(after.responsiveLayouts.root.xl).toEqual(before.responsiveLayouts.root.xl);
+  expect(after.sections.map((section) => section.layout)).toEqual(before.sections.map((section) => section.layout));
+  expect(after.widgets.map((item) => item.layout)).toEqual(before.widgets.map((item) => item.layout));
+  for (const breakpoint of ['2xl', 'md', 'sm', 'xs']) {
+    expect(after.responsiveLayouts.root[breakpoint]).toEqual(before.responsiveLayouts.root[breakpoint]);
+  }
+
+  await page.reload();
+  await enterEditMode(page);
+  await page.getByRole('radio', { name: 'Anteprima automatica' }).click();
+  await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveAttribute('data-breakpoint', 'lg');
+  expect(await cellGeometry(page, 'root.sensor')).toEqual(committedLg);
+});
+
+test('explicit QA save preserves Automatic reorder and compact geometry after reload', async ({ page }) => {
+  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, automaticReorderFixture());
+  await page.goto('/home');
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+  await page.getByTestId('grid-engine-2-editor-mode-automatic').click();
+
+  const ids = ['root.order-a', 'root.order-b', 'root.order-c'];
+  const drag = await beginEditorDragWithCadence(page, ids[0], 2, { steps: 12, delayMs: 15 });
+  await page.mouse.up();
+  await expect.poll(() => rootOrder(page, ids)).toEqual([ids[1], ids[2], ids[0]]);
+  const committed = await Promise.all(ids.map((id) => cellGeometry(page, id)));
+  await saveAndExitQa(page);
+  expect(drag.renderer).toBeDefined();
+
+  await page.reload();
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+  expect(await rootOrder(page, ids)).toEqual([ids[1], ids[2], ids[0]]);
+  expect(await Promise.all(ids.map((id) => cellGeometry(page, id)))).toEqual(committed);
+  await expectNoCellCollisions(page);
 });
 
 test('unsupported dynamic Stack geometry falls back to RGL without a GE2 commit surface', async ({ page }) => {

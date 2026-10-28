@@ -214,6 +214,7 @@ import type {
   WidgetTypeBreakpointLayoutOverride,
   WidgetTypeLayoutOverrides,
 } from '../../types/widgetTypeLayout';
+import { DASHBOARD_GRID_BREAKPOINT_ORDER } from '../../types/widgetTypeLayout';
 import {
   createConsumptionDashboardData,
   useConsumptionConfig,
@@ -228,13 +229,28 @@ import { useDashboardLayoutPersistence } from '../../hooks/useDashboardLayoutPer
 import { useHaDashboardLayoutPersistence } from '../../hooks/useHaDashboardLayoutPersistence';
 import { useDashboardEditorHistory } from '../../hooks/useDashboardEditorHistory';
 import { createDashboardStructuralFingerprint } from '../../services/dashboardPersistenceProjection';
-import type { DashboardLayoutConfiguration } from '../../services/dashboardConfigurationRepository';
+import {
+  GRID_ENGINE_2_LAYOUT_ENGINE,
+  type DashboardLayoutConfiguration,
+  type DashboardLayoutEngine,
+} from '../../services/dashboardConfigurationRepository';
 import {
   createDashboardStructuralApplicationReceipt,
   isolateDashboardStructuralConfiguration,
+  isDashboardStructuralSnapshotAuthoritative,
 } from '../../services/dashboardStructuralLoadSnapshot';
 import type { GridEditorPreviewSession } from './gridEngine2/GridEditorPreviewDialog';
 import type { GridEngineDraftSourceIdentity } from './gridEngine2/gridEngineDraftChangeSet';
+import { GRID_ENGINE_2_EDITOR_ENABLED } from './gridEngine2/editorFeatureFlag';
+import { GRID_ENGINE_2_QA_SAVE_ENABLED } from './gridEngine2/saveFeatureFlag';
+import {
+  validateGridEngine2DashboardForSave,
+  type GridEngine2TouchedBreakpoint,
+} from './gridEngine2/gridEngineSaveValidation';
+import {
+  createGridEngine2HomeConfiguration,
+  isGridEngine2Home,
+} from './gridEngine2/homeGridEngine2Cutover';
 import {
   createDashboardRecoverySnapshot,
   discardDashboardRecoverySnapshot,
@@ -503,6 +519,16 @@ function SecondaryWorkspaceLoading({
 }
 
 type DashboardEditorSnapshot = Omit<DashboardLayoutConfiguration, 'storageVersion'>;
+
+type GridEngine2SaveSessionState = Readonly<{
+  source: 'none' | 'fresh' | 'recovered-blocked';
+  touchedBreakpoints: readonly GridEngine2TouchedBreakpoint[];
+}>;
+
+const EMPTY_GRID_ENGINE_2_SAVE_SESSION: GridEngine2SaveSessionState = Object.freeze({
+  source: 'none',
+  touchedBreakpoints: Object.freeze([]),
+});
 
 function cloneDashboardEditorSnapshot(snapshot: DashboardEditorSnapshot): DashboardEditorSnapshot {
   if (typeof structuredClone === 'function') return structuredClone(snapshot);
@@ -1741,6 +1767,9 @@ export function MainBoard() {
   const [responsiveLayouts, setResponsiveLayouts] = useState<DashboardResponsiveLayouts>(
     () => initialLayout.responsiveLayouts,
   );
+  const [layoutEngine, setLayoutEngine] = useState<DashboardLayoutEngine | undefined>(
+    () => initialLayout.layoutEngine,
+  );
   explicitMockEntityIdsRef.current = new Set(
     widgets
       .filter((widget) => effectiveRuntimeMode === 'demo' && widget.dataSource === 'mock' && !haStates[widget.entityId.trim()])
@@ -2478,10 +2507,19 @@ export function MainBoard() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasUnsavedDashboardEdits, setHasUnsavedDashboardEdits] = useState(false);
   const [hasExperimentalGridEngine2Edits, setHasExperimentalGridEngine2Edits] = useState(false);
+  const [gridEngine2SaveSession, setGridEngine2SaveSession] = useState<GridEngine2SaveSessionState>(
+    EMPTY_GRID_ENGINE_2_SAVE_SESSION,
+  );
+  const clearGridEngine2SaveSession = useCallback(() => {
+    setHasExperimentalGridEngine2Edits(false);
+    setGridEngine2SaveSession(EMPTY_GRID_ENGINE_2_SAVE_SESSION);
+  }, []);
   const [gridEditorPreviewSession, setGridEditorPreviewSession] = useState<GridEditorPreviewSession | null>(null);
   const gridEditorGeometrySnapshotRef = useRef<GridCanvasEditorGeometrySnapshot | null>(null);
   const [isDashboardSaveBusy, setIsDashboardSaveBusy] = useState(false);
   const [isDashboardConflictOpen, setIsDashboardConflictOpen] = useState(false);
+  const [isHome2ActivationOpen, setIsHome2ActivationOpen] = useState(false);
+  const [home2ActivationError, setHome2ActivationError] = useState<string | null>(null);
   const editSessionBaselineRef = useRef<DashboardEditorSnapshot | null>(null);
   const editSessionCreatedAtRef = useRef<number | null>(null);
   const allowDashboardUnloadRef = useRef(false);
@@ -5603,8 +5641,9 @@ export function MainBoard() {
           } else if (widget.kind === 'lock') {
             statusLabel = normalizeLockState(liveEntity.stateLabel ?? liveEntity.state ?? widget.status);
           }
-          const nextLayout =
-            widget.kind === 'light'
+          const nextLayout = layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
+            ? widget.layout
+            : widget.kind === 'light'
               ? resolveLightLayoutForState(widget, isOn)
               : widget.kind === 'switch'
                 ? resolveSwitchLayout(widget)
@@ -5664,7 +5703,9 @@ export function MainBoard() {
           widget.dataSource === 'mock' &&
           widget.id === 'light.living_room_lamp'
         ) {
-          const nextLayout = resolveLightLayoutForState(widget, state.lamp.isOn);
+          const nextLayout = layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
+            ? widget.layout
+            : resolveLightLayoutForState(widget, state.lamp.isOn);
           if (
             widget.status === state.lamp.status &&
             widget.isOn === state.lamp.isOn &&
@@ -5686,7 +5727,9 @@ export function MainBoard() {
           widget.dataSource === 'mock' &&
           widget.id === 'climate.air_conditioner'
         ) {
-          const nextLayout = resolveClimateLayout(widget);
+          const nextLayout = layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
+            ? widget.layout
+            : resolveClimateLayout(widget);
           if (
             widget.status === state.climate.status &&
             widget.isOn === state.climate.isOn &&
@@ -5702,6 +5745,9 @@ export function MainBoard() {
             value: state.climate.currentTemp,
             layout: nextLayout,
           };
+        }
+        if (layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE) {
+          return widget;
         }
         if (widget.kind === 'climate') {
           const nextLayout = resolveClimateLayout(widget);
@@ -5862,6 +5908,7 @@ export function MainBoard() {
     state.climate.currentTemp,
     sections,
     canvasGridBreakpoint,
+    layoutEngine,
   ]);
 
   useEffect(() => {
@@ -6377,6 +6424,7 @@ export function MainBoard() {
     widgetTypeLayoutOverrides,
     responsiveLayouts,
     widgetLayoutOverrides,
+    layoutEngine,
   });
   const authoritativeDashboardLayout = useMemo(() => ({
     storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
@@ -6385,7 +6433,8 @@ export function MainBoard() {
     widgetTypeLayoutOverrides,
     responsiveLayouts,
     widgetLayoutOverrides,
-  }), [responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
+    ...(layoutEngine ? { layoutEngine } : null),
+  }), [layoutEngine, responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
   const hydrateAuthoritativeDashboardLayout = useCallback((layout: typeof authoritativeDashboardLayout) => {
     setSections(layout.sections);
     const widgetsWithSecrets = typeof window === 'undefined'
@@ -6396,6 +6445,7 @@ export function MainBoard() {
     setActiveWidgetTypeLayoutOverrides(layout.widgetTypeLayoutOverrides);
     setResponsiveLayouts(layout.responsiveLayouts);
     setWidgetLayoutOverrides(layout.widgetLayoutOverrides);
+    setLayoutEngine(layout.layoutEngine);
   }, [effectiveRuntimeMode]);
   const handleAuthoritativeDashboardReset = useCallback((marker: DashboardResetMarker) => {
     if (typeof window === 'undefined') return;
@@ -6492,15 +6542,113 @@ export function MainBoard() {
   const requiresDashboardLayoutMigration =
     effectiveRuntimeMode === 'real' &&
     haDashboardLayoutPersistence.loadStatus === 'migration_required';
+  const isGridEngine2HomeActive = layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE;
+  const gridEngine2SaveValidation = useMemo(() => {
+    if (gridEngine2SaveSession.source !== 'fresh') return null;
+    const baseline = editSessionBaselineRef.current;
+    if (!baseline) return null;
+    return validateGridEngine2DashboardForSave({
+      dashboard: authoritativeDashboardLayout,
+      baseline: {
+        storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
+        ...baseline,
+      },
+      touchedBreakpoints: gridEngine2SaveSession.touchedBreakpoints,
+    });
+  }, [authoritativeDashboardLayout, gridEngine2SaveSession]);
+  const gridEngine2SaveGate = useMemo(() => {
+    if (!hasExperimentalGridEngine2Edits) {
+      return { allowed: true as const, code: null, reason: null };
+    }
+    if (gridEngine2SaveSession.source === 'recovered-blocked') {
+      return {
+        allowed: false as const,
+        code: 'experimental_grid_engine2_recovery_blocked' as const,
+        reason: 'La bozza Grid Engine è stata recuperata da una sessione precedente e deve essere scartata o verificata in una nuova sessione.',
+      };
+    }
+    if (!isGridEngine2HomeActive && (!GRID_ENGINE_2_EDITOR_ENABLED || !GRID_ENGINE_2_QA_SAVE_ENABLED)) {
+      return {
+        allowed: false as const,
+        code: 'experimental_grid_engine2_qa_disabled' as const,
+        reason: 'Il salvataggio QA Grid Engine è disabilitato. Il flag dell’editor da solo non abilita scritture.',
+      };
+    }
+    if (!gridEngine2SaveValidation?.valid) {
+      return {
+        allowed: false as const,
+        code: 'experimental_grid_engine2_validation_failed' as const,
+        reason: gridEngine2SaveValidation?.issues[0]?.message
+          ?? 'La geometria Grid Engine non dispone di una baseline verificabile.',
+      };
+    }
+    if (effectiveRuntimeMode === 'real') {
+      const snapshot = haDashboardLayoutPersistence.structuralLoadSnapshot;
+      if (haDashboardLayoutPersistence.loadStatus !== 'ready') {
+        return {
+          allowed: false as const,
+          code: 'experimental_grid_engine2_source_unverified' as const,
+          reason: `La configurazione Home Assistant non ha completato il caricamento autorevole (stato: ${haDashboardLayoutPersistence.loadStatus}). Attendi il completamento e riapri la finestra di uscita.`,
+        };
+      }
+      if (haDashboardLayoutPersistence.pendingRemoteUpdate !== null) {
+        return {
+          allowed: false as const,
+          code: 'experimental_grid_engine2_source_unverified' as const,
+          reason: `È pendente la revisione Home Assistant ${haDashboardLayoutPersistence.pendingRemoteUpdate.revision}. Applica o risolvi l’aggiornamento remoto prima di salvare.`,
+        };
+      }
+      if (!isDashboardStructuralSnapshotAuthoritative(snapshot)) {
+        return {
+          allowed: false as const,
+          code: 'experimental_grid_engine2_source_unverified' as const,
+          reason: `La baseline strutturale non è autorevole (fase: ${snapshot.phase}, origine: ${snapshot.source}, motivo: ${snapshot.reason ?? 'non disponibile'}). Attendi una lettura Home Assistant completa prima di salvare.`,
+        };
+      }
+      if (snapshot.revision !== haDashboardLayoutPersistence.serverRevision) {
+        return {
+          allowed: false as const,
+          code: 'experimental_grid_engine2_source_unverified' as const,
+          reason: `La baseline strutturale è alla revisione ${snapshot.revision ?? 'sconosciuta'}, mentre Home Assistant indica la revisione ${haDashboardLayoutPersistence.serverRevision ?? 'sconosciuta'}. Ricarica in sicurezza la configurazione prima di salvare.`,
+        };
+      }
+    }
+    return { allowed: true as const, code: null, reason: null };
+  }, [
+    effectiveRuntimeMode,
+    gridEngine2SaveSession.source,
+    gridEngine2SaveValidation,
+    haDashboardLayoutPersistence.loadStatus,
+    haDashboardLayoutPersistence.pendingRemoteUpdate,
+    haDashboardLayoutPersistence.serverRevision,
+    haDashboardLayoutPersistence.structuralLoadSnapshot,
+    hasExperimentalGridEngine2Edits,
+    isGridEngine2HomeActive,
+  ]);
   const saveDashboardLayoutNow = useCallback(async () => {
     if (hasExperimentalGridEngine2Edits) {
-      return { ok: false as const, code: 'experimental_grid_engine2_blocked' as const };
+      if (!gridEngine2SaveGate.allowed) {
+        return {
+          ok: false as const,
+          code: gridEngine2SaveGate.code,
+          reason: gridEngine2SaveGate.reason,
+        };
+      }
+      return effectiveRuntimeMode === 'demo'
+        ? localDashboardLayoutPersistence.saveNow()
+        : haDashboardLayoutPersistence.saveDashboard(
+            authoritativeDashboardLayout,
+            { requireRevisionArchive: true },
+          );
     }
     return effectiveRuntimeMode === 'demo'
       ? localDashboardLayoutPersistence.saveNow()
       : haDashboardLayoutPersistence.saveNow();
   }, [
     effectiveRuntimeMode,
+    authoritativeDashboardLayout,
+    gridEngine2SaveGate,
+    haDashboardLayoutPersistence.saveDashboard,
     haDashboardLayoutPersistence.saveNow,
     hasExperimentalGridEngine2Edits,
     localDashboardLayoutPersistence.saveNow,
@@ -6512,7 +6660,8 @@ export function MainBoard() {
     widgetTypeLayoutOverrides,
     responsiveLayouts,
     widgetLayoutOverrides,
-  }), [responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
+    ...(layoutEngine ? { layoutEngine } : null),
+  }), [layoutEngine, responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
   const gridEditorCurrentSourceIdentity = useMemo<GridEngineDraftSourceIdentity>(() => {
     const structuralSource = haDashboardLayoutPersistence.structuralLoadSnapshot;
     return {
@@ -6601,6 +6750,7 @@ export function MainBoard() {
     setWidgetTypeLayoutOverrides(snapshot.widgetTypeLayoutOverrides);
     setResponsiveLayouts(snapshot.responsiveLayouts);
     setWidgetLayoutOverrides(snapshot.widgetLayoutOverrides);
+    setLayoutEngine(snapshot.layoutEngine);
     setActiveWidgetTypeLayoutOverrides(snapshot.widgetTypeLayoutOverrides);
     setDashboardEditorLayoutRevision((current) => current + 1);
     setSelectedWidgetId((current) =>
@@ -6619,7 +6769,7 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
     }
     setHasUnsavedDashboardEdits(false);
-    setHasExperimentalGridEngine2Edits(false);
+    clearGridEngine2SaveSession();
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
@@ -6719,6 +6869,80 @@ export function MainBoard() {
   const beginDashboardEditorMutation = useCallback(() => {
     beginDashboardEditorHistoryMutation();
   }, [beginDashboardEditorHistoryMutation]);
+
+  const openHome2Activation = useCallback(() => {
+    if (!isEditMode || isGridEngine2Home(authoritativeDashboardLayout)) return;
+    setHome2ActivationError(null);
+    setIsHome2ActivationOpen(true);
+  }, [authoritativeDashboardLayout, isEditMode]);
+
+  const activateGridEngine2Home = useCallback(() => {
+    if (!isEditMode || !dashboardSecurity.can('edit_dashboard')) {
+      setHome2ActivationError('Apri una sessione di modifica autorizzata prima di attivare la nuova Home.');
+      return;
+    }
+    if (effectiveRuntimeMode === 'real') {
+      const snapshot = haDashboardLayoutPersistence.structuralLoadSnapshot;
+      if (haDashboardLayoutPersistence.loadStatus !== 'ready') {
+        setHome2ActivationError(
+          `La configurazione Home Assistant non è ancora autorevole (stato: ${haDashboardLayoutPersistence.loadStatus}).`,
+        );
+        return;
+      }
+      if (snapshot.revision !== haDashboardLayoutPersistence.serverRevision) {
+        setHome2ActivationError(
+          `La baseline è alla revisione ${snapshot.revision ?? 'sconosciuta'}, mentre Home Assistant indica ${haDashboardLayoutPersistence.serverRevision ?? 'sconosciuta'}.`,
+        );
+        return;
+      }
+      if (haDashboardLayoutPersistence.pendingRemoteUpdate) {
+        setHome2ActivationError(
+          `È disponibile la revisione ${haDashboardLayoutPersistence.pendingRemoteUpdate.revision}. Applica prima l'aggiornamento remoto.`,
+        );
+        return;
+      }
+      if (!isDashboardStructuralSnapshotAuthoritative(snapshot)) {
+        setHome2ActivationError(
+          `La baseline strutturale non è verificata (${snapshot.phase}: ${snapshot.reason ?? 'origine non disponibile'}).`,
+        );
+        return;
+      }
+    }
+
+    try {
+      const nextDashboard = createGridEngine2HomeConfiguration(authoritativeDashboardLayout);
+      beginDashboardEditorMutation();
+      const { storageVersion: _storageVersion, ...nextSnapshot } = nextDashboard;
+      applyDashboardEditorSnapshot(nextSnapshot);
+      setHasExperimentalGridEngine2Edits(true);
+      setGridEngine2SaveSession({
+        source: 'fresh',
+        touchedBreakpoints: DASHBOARD_GRID_BREAKPOINT_ORDER.map((breakpoint) => ({
+          breakpoint,
+          origin: 'explicit' as const,
+        })),
+      });
+      setHome2ActivationError(null);
+      setIsHome2ActivationOpen(false);
+      addNotification('info', 'Nuova Home 2.0 preparata. Le modifiche saranno definitive solo dopo il salvataggio.');
+    } catch (error) {
+      setHome2ActivationError(
+        error instanceof Error ? error.message : 'Non è stato possibile preparare la nuova geometria.',
+      );
+    }
+  }, [
+    addNotification,
+    applyDashboardEditorSnapshot,
+    authoritativeDashboardLayout,
+    beginDashboardEditorMutation,
+    dashboardSecurity,
+    effectiveRuntimeMode,
+    haDashboardLayoutPersistence.loadStatus,
+    haDashboardLayoutPersistence.pendingRemoteUpdate,
+    haDashboardLayoutPersistence.serverRevision,
+    haDashboardLayoutPersistence.structuralLoadSnapshot,
+    isEditMode,
+  ]);
 
   useEffect(() => {
     const baseline = editSessionBaselineRef.current;
@@ -7123,7 +7347,11 @@ export function MainBoard() {
         w: nextItem.w,
         h: nextItem.h,
       });
-      const constrainedLayout = resolveWidgetLayoutByKind(widget, normalizedLayout);
+      const constrainedLayout = options?.preserveSolverGeometry
+        // GE2 commits capability-validated structural spans. Legacy runtime
+        // minimums and isOn expansion must not rewrite the canonical mirror.
+        ? normalizedLayout
+        : resolveWidgetLayoutByKind(widget, normalizedLayout);
       if (layoutExpandsFootprint(widget.layout, constrainedLayout)) {
         expandedAnchorIds.add(widget.id);
       }
@@ -10558,14 +10786,14 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
     }
     setHasUnsavedDashboardEdits(false);
-    setHasExperimentalGridEngine2Edits(false);
+    clearGridEngine2SaveSession();
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
     setSelectedSidebarPathId(null);
     setIsEditMode(false);
     setEditConfirm(null);
-  }, [applyDashboardEditorSnapshot, effectiveRuntimeMode]);
+  }, [applyDashboardEditorSnapshot, clearGridEngine2SaveSession, effectiveRuntimeMode]);
 
   const discardPendingDashboardEditDraft = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -10599,7 +10827,7 @@ export function MainBoard() {
     editSessionCreatedAtRef.current = null;
     editSessionRouteRef.current = null;
     setHasUnsavedDashboardEdits(false);
-    setHasExperimentalGridEngine2Edits(false);
+    clearGridEngine2SaveSession();
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
@@ -10609,6 +10837,7 @@ export function MainBoard() {
   }, [
     applyDashboardEditorSnapshot,
     authoritativeDashboardLayout,
+    clearGridEngine2SaveSession,
     effectiveRuntimeMode,
     haDashboardLayoutPersistence.serverRevision,
     hasExperimentalGridEngine2Edits,
@@ -10634,9 +10863,15 @@ export function MainBoard() {
       widgetTypeLayoutOverrides: draft.dashboard.widgetTypeLayoutOverrides,
       responsiveLayouts: draft.dashboard.responsiveLayouts,
       widgetLayoutOverrides: draft.dashboard.widgetLayoutOverrides,
+      ...(draft.dashboard.layoutEngine ? { layoutEngine: draft.dashboard.layoutEngine } : null),
     });
     setHasExperimentalGridEngine2Edits(
       draft.persistenceProtection === GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
+    );
+    setGridEngine2SaveSession(
+      draft.persistenceProtection === GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION
+        ? { source: 'recovered-blocked', touchedBreakpoints: [] }
+        : EMPTY_GRID_ENGINE_2_SAVE_SESSION,
     );
     setPendingDashboardEditDraft(null);
     setIsEditMode(true);
@@ -10689,7 +10924,7 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
     }
     setHasUnsavedDashboardEdits(false);
-    setHasExperimentalGridEngine2Edits(false);
+    clearGridEngine2SaveSession();
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
@@ -10699,6 +10934,7 @@ export function MainBoard() {
     setIsEditMode(false);
   }, [
     effectiveRuntimeMode,
+    clearGridEngine2SaveSession,
     haDashboardLayoutPersistence.applyPendingRemoteUpdate,
     haDashboardLayoutPersistence.pendingRemoteUpdate,
   ]);
@@ -10786,7 +11022,7 @@ export function MainBoard() {
       discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
       setPendingDashboardEditDraft(null);
       setHasUnsavedDashboardEdits(false);
-      setHasExperimentalGridEngine2Edits(false);
+      clearGridEngine2SaveSession();
     }
     if (editConfirm === 'exit') {
       if (!dashboardSecurity.can('edit_dashboard')) {
@@ -10803,8 +11039,10 @@ export function MainBoard() {
             'alert',
             saveResult.code === 'server_conflict'
               ? t('home.persistence.changedElsewhere')
-              : saveResult.code === 'experimental_grid_engine2_blocked'
-                ? 'Le geometrie Grid Engine 2.0 sono sperimentali e non possono essere salvate. Usa Scarta per ripristinare la disposizione iniziale.'
+              : 'reason' in saveResult && typeof saveResult.reason === 'string'
+                ? saveResult.reason
+              : saveResult.code === 'revision_archive_required'
+                ? 'La revisione sorgente non è stata archiviata e verificata. Nessuna geometria Grid Engine è stata scritta.'
               : 'Home Assistant non ha confermato il salvataggio. Le modifiche restano aperte e non sono state perse.',
           );
           setEditConfirm(null);
@@ -10819,7 +11057,7 @@ export function MainBoard() {
         discardDashboardEditDraft(window.sessionStorage, effectiveRuntimeMode);
       }
       setHasUnsavedDashboardEdits(false);
-      setHasExperimentalGridEngine2Edits(false);
+      clearGridEngine2SaveSession();
       setIsCatalogOpen(false);
       setSelectedWidgetId(null);
       setSelectedSectionId(null);
@@ -11524,21 +11762,38 @@ export function MainBoard() {
               />
             ) : null}
             <GridCanvas
-              topRightOverlay={import.meta.env.DEV && GridEditorPreviewDialog && isEditMode ? (
-                <button
-                  type="button"
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={openGridEditorPreview}
-                  onMouseEnter={() => void loadGridEditorPreviewDialog()}
-                  onFocus={() => void loadGridEditorPreviewDialog()}
-                  className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-300/20 bg-[#07101b]/85 px-3 text-xs font-semibold text-cyan-50 shadow-xl transition hover:border-cyan-200/35 hover:bg-[#0b1b2b] active:scale-95"
-                  aria-label="Prova Grid Engine 2.0"
-                >
-                  <FlaskConical className="h-4 w-4" aria-hidden="true" />
-                  <span className="hidden sm:inline">Prova Grid Engine 2.0</span>
-                </button>
+              topRightOverlay={isEditMode ? (
+                <div className="flex items-center gap-2">
+                  {!isGridEngine2HomeActive ? (
+                    <button
+                      type="button"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={openHome2Activation}
+                      className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full border border-emerald-300/25 bg-[#07150f]/90 px-3 text-xs font-semibold text-emerald-50 shadow-xl transition hover:border-emerald-200/45 hover:bg-[#0b2419] active:scale-95"
+                      aria-label="Attiva nuova Home 2.0"
+                    >
+                      <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                      <span>Attiva nuova Home 2.0</span>
+                    </button>
+                  ) : null}
+                  {import.meta.env.DEV && GridEditorPreviewDialog ? (
+                    <button
+                      type="button"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={openGridEditorPreview}
+                      onMouseEnter={() => void loadGridEditorPreviewDialog()}
+                      onFocus={() => void loadGridEditorPreviewDialog()}
+                      className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full border border-cyan-300/20 bg-[#07101b]/85 px-3 text-xs font-semibold text-cyan-50 shadow-xl transition hover:border-cyan-200/35 hover:bg-[#0b1b2b] active:scale-95"
+                      aria-label="Prova Grid Engine 2.0"
+                    >
+                      <FlaskConical className="h-4 w-4" aria-hidden="true" />
+                      <span className="hidden sm:inline">Prova Grid Engine 2.0</span>
+                    </button>
+                  ) : null}
+                </div>
               ) : undefined}
               isEditMode={isEditMode}
+              gridEngine2Active={isGridEngine2HomeActive}
               layoutRevision={dashboardEditorLayoutRevision}
               previewGridWidth={viewportPreviewGridWidth}
               developerMode={developerMode}
@@ -11748,8 +12003,20 @@ export function MainBoard() {
               onSectionsLayoutChange={handleSectionsLayoutChange}
               onRootBreakpointLayoutChange={updateRootResponsiveLayout}
               onWidgetBreakpointLayoutOverrideChange={updateWidgetLayoutOverride}
-              onExperimentalGridEngine2Commit={() => {
+              onExperimentalGridEngine2Commit={(commit) => {
                 setHasExperimentalGridEngine2Edits(true);
+                setGridEngine2SaveSession((current) => {
+                  if (current.source === 'recovered-blocked') return current;
+                  return {
+                    source: 'fresh',
+                    touchedBreakpoints: [
+                      ...current.touchedBreakpoints.filter(
+                        (entry) => entry.breakpoint !== commit.breakpoint,
+                      ),
+                      commit,
+                    ],
+                  };
+                });
               }}
               onStackBreakpointLayoutChange={updateStackResponsiveLayout}
               onAddWidget={addWidget}
@@ -12137,6 +12404,54 @@ export function MainBoard() {
       />
 
       <GlassModal
+        isOpen={isHome2ActivationOpen}
+        onClose={() => {
+          setIsHome2ActivationOpen(false);
+          setHome2ActivationError(null);
+        }}
+        eyebrow="Grid Engine 2.0"
+        title="Attiva nuova Home 2.0"
+        description="Grid Engine 2.0 introduce una nuova gestione della disposizione delle card. I widget e le relative configurazioni saranno conservati, ma dovrai organizzare nuovamente la tua Home."
+        variant="responsive"
+        size="md"
+        zIndex={235}
+        showCloseButton={false}
+        backdropClassName="bg-black/65 backdrop-blur-3xl"
+        footerClassName="flex-col-reverse items-stretch sm:flex-row sm:items-center"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setIsHome2ActivationOpen(false);
+                setHome2ActivationError(null);
+              }}
+              className="glass-button rounded-xl px-4 py-2.5 text-sm text-[color:var(--ui-text-secondary)]"
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={activateGridEngine2Home}
+              className="glass-button rounded-xl border-emerald-300/45 bg-emerald-500/16 px-4 py-2.5 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/26"
+            >
+              Attiva nuova Home 2.0
+            </button>
+          </>
+        }
+      >
+        {home2ActivationError ? (
+          <div role="alert" className="rounded-xl border border-rose-300/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+            {home2ActivationError}
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-[color:var(--ui-text-secondary)]">
+            La disposizione attuale resterà recuperabile fino al primo salvataggio riuscito. Annullando o scartando la sessione non verrà scritto nulla.
+          </p>
+        )}
+      </GlassModal>
+
+      <GlassModal
         isOpen={Boolean(editConfirm)}
         onClose={() => {
           if (!isDashboardSaveBusy) setEditConfirm(null);
@@ -12154,7 +12469,11 @@ export function MainBoard() {
                 : t('dashboard.edit.description.refreshClean')
               : hasUnsavedDashboardEdits
                 ? hasExperimentalGridEngine2Edits
-                  ? 'Questa sessione contiene geometrie Grid Engine 2.0 sperimentali. Il salvataggio è bloccato anche dopo recovery: usa Scarta per tornare alla disposizione iniziale.'
+                  ? gridEngine2SaveGate.allowed
+                    ? isGridEngine2HomeActive
+                      ? 'La nuova geometria Home 2.0 è valida. Il salvataggio userà il normale flusso e conserverà una revisione recuperabile della configurazione precedente.'
+                      : 'Le geometrie Grid Engine 2.0 hanno superato la validazione QA. Il salvataggio userà il normale flusso e richiederà un backup verificato della revisione sorgente.'
+                    : `${gridEngine2SaveGate.reason ?? 'Le geometrie Grid Engine 2.0 non sono verificabili.'} Il salvataggio è bloccato: usa Scarta per tornare alla disposizione iniziale.`
                   : t('dashboard.edit.description.exitDirty')
                 : t('dashboard.edit.description.exitClean')
         }
@@ -12183,7 +12502,7 @@ export function MainBoard() {
               type="button"
               disabled={
                 isDashboardSaveBusy ||
-                (editConfirm === 'exit' && hasUnsavedDashboardEdits && hasExperimentalGridEngine2Edits)
+                (editConfirm === 'exit' && hasUnsavedDashboardEdits && hasExperimentalGridEngine2Edits && !gridEngine2SaveGate.allowed)
               }
               onClick={confirmEditAction}
               className={`glass-button rounded-xl px-4 py-2 text-sm font-semibold ${
@@ -12202,7 +12521,11 @@ export function MainBoard() {
                   ? t('dashboard.edit.reload')
                   : hasUnsavedDashboardEdits
                     ? hasExperimentalGridEngine2Edits
-                      ? 'Salvataggio sperimentale bloccato'
+                      ? gridEngine2SaveGate.allowed
+                        ? isGridEngine2HomeActive
+                          ? t('dashboard.edit.saveExit')
+                          : 'Salva QA Grid Engine'
+                        : 'Salvataggio sperimentale bloccato'
                       : t('dashboard.edit.saveExit')
                     : t('dashboard.edit.exitShort')}
             </button>

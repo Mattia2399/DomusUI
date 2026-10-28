@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test('production always keeps the legacy root renderer even when the environment opt-in is true', async ({ page }) => {
+test('production keeps the legacy root renderer before explicit Home 2.0 activation', async ({ page }) => {
   const runtimeSolverReports = [];
   page.on('console', (message) => {
     if (message.text().includes('[DomusUI:grid-engine2:runtime-render]')) {

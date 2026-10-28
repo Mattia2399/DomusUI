@@ -25,6 +25,9 @@ export const SHARED_HOUSE_CONFIGURATION_VERSION = 1;
 export const HA_SHARED_HOUSE_CONFIGURATION_KEY = 'premium-home.shared-house.v1';
 export const HA_USER_CONFIGURATION_KEY = 'premium-home.user-preferences.v1';
 
+export const GRID_ENGINE_2_LAYOUT_ENGINE = 'grid-engine-2' as const;
+export type DashboardLayoutEngine = typeof GRID_ENGINE_2_LAYOUT_ENGINE;
+
 export type DashboardLayoutConfiguration = {
   /** Version of the existing dashboard layout serializer. */
   storageVersion: number;
@@ -33,6 +36,8 @@ export type DashboardLayoutConfiguration = {
   widgetTypeLayoutOverrides: WidgetTypeLayoutOverrides;
   widgetLayoutOverrides: WidgetLayoutOverrides;
   responsiveLayouts: DashboardResponsiveLayouts;
+  /** Present only after the user explicitly adopts the Grid Engine 2.0 Home. */
+  layoutEngine?: DashboardLayoutEngine;
 };
 
 export type SecurityPresentationConfiguration = {
@@ -162,6 +167,9 @@ export function parseDashboardLayout(value: unknown): DashboardLayoutConfigurati
     responsiveLayouts: isRecord(value.responsiveLayouts)
       ? value.responsiveLayouts as DashboardResponsiveLayouts
       : {},
+    ...(value.layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
+      ? { layoutEngine: GRID_ENGINE_2_LAYOUT_ENGINE }
+      : null),
   };
 }
 

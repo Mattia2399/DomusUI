@@ -14,6 +14,7 @@ const ERROR_KEYS: Record<Extract<DashboardLayoutSaveStatus, { phase: 'error' }>[
   server_unauthorized: 'dashboard.save.error.server_unauthorized',
   server_unsupported: 'dashboard.save.error.server_unsupported',
   server_conflict: 'dashboard.save.error.server_conflict',
+  revision_archive_required: 'dashboard.save.error.server_unavailable',
   migration_required: 'dashboard.save.error.migration_required',
   quota_exceeded: 'dashboard.save.error.quota_exceeded',
   security_error: 'dashboard.save.error.security_error',

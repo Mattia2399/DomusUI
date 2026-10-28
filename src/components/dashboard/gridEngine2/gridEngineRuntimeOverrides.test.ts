@@ -65,4 +65,22 @@ describe('Grid Engine runtime overrides', () => {
     expect(result.overrides).toEqual([]);
     expect(result.structuralLayout).toEqual(structural);
   });
+
+  it('keeps dynamic Stack measurement runtime-only for an activated GE2 Home', () => {
+    const structural = [{ i: 'stack', x: 0, y: 0, w: 6, h: 4 }] as const;
+    const result = deriveGridEngineRuntimeOverrides({
+      breakpoint: 'md',
+      cols: 6,
+      structuralLayout: structural,
+      legacyRuntimeLayout: [{ i: 'stack', x: 0, y: 0, w: 6, h: 7 }],
+      rootElements: [{ id: 'stack', role: 'stack', kind: 'stack-grid' }],
+      lightStates: [],
+      supportDynamicStacks: true,
+    });
+
+    expect(result.issues).toEqual([]);
+    expect(result.dynamicStackIds).toEqual(['stack']);
+    expect(result.overrides).toEqual([{ id: 'stack', w: 6, h: 7 }]);
+    expect(structural[0]).toEqual({ i: 'stack', x: 0, y: 0, w: 6, h: 4 });
+  });
 });

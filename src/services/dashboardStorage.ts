@@ -34,6 +34,10 @@ import {
   hydrateWidgetRuntimeDefaults,
   stripWidgetRuntimeState,
 } from './dashboardPersistenceProjection';
+import {
+  GRID_ENGINE_2_LAYOUT_ENGINE,
+  type DashboardLayoutEngine,
+} from './dashboardConfigurationRepository';
 
 export const DASHBOARD_LAYOUT_STORAGE_VERSION = 14;
 const STORAGE_VERSION = DASHBOARD_LAYOUT_STORAGE_VERSION;
@@ -67,6 +71,7 @@ type StoredLayout = {
   widgetTypeLayoutOverrides?: WidgetTypeLayoutOverrides;
   widgetLayoutOverrides?: WidgetLayoutOverrides;
   responsiveLayouts?: DashboardResponsiveLayouts;
+  layoutEngine?: DashboardLayoutEngine;
 };
 
 export type DashboardLayoutSaveErrorCode =
@@ -75,6 +80,7 @@ export type DashboardLayoutSaveErrorCode =
   | 'server_unauthorized'
   | 'server_unsupported'
   | 'server_conflict'
+  | 'revision_archive_required'
   | 'migration_required'
   | 'quota_exceeded'
   | 'security_error'
@@ -1137,6 +1143,7 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
   widgetTypeLayoutOverrides: WidgetTypeLayoutOverrides;
   widgetLayoutOverrides: WidgetLayoutOverrides;
   responsiveLayouts: DashboardResponsiveLayouts;
+  layoutEngine?: DashboardLayoutEngine;
 } {
   const initial = getInitialDashboardFixtures(runtimeMode);
   if (typeof window === 'undefined') {
@@ -1231,6 +1238,9 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
       responsiveLayouts.root || responsiveLayouts.stacks
         ? responsiveLayouts
         : createInitialResponsiveLayouts(sections, widgets),
+    ...(hydrated.layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
+      ? { layoutEngine: GRID_ENGINE_2_LAYOUT_ENGINE }
+      : null),
   };
 }
 
@@ -1241,6 +1251,7 @@ export function saveDashboardLayout(
   responsiveLayouts: DashboardResponsiveLayouts = {},
   widgetLayoutOverrides: WidgetLayoutOverrides = {},
   runtimeMode: DashboardRuntimeMode = 'real',
+  layoutEngine?: DashboardLayoutEngine,
 ): DashboardLayoutSaveResult {
   const attemptedAt = Date.now();
   if (typeof window === 'undefined') {
@@ -1261,6 +1272,9 @@ export function saveDashboardLayout(
     widgetTypeLayoutOverrides: normalizeWidgetTypeLayoutOverrides(widgetTypeLayoutOverrides),
     widgetLayoutOverrides: normalizeWidgetLayoutOverrides(widgetLayoutOverrides),
     responsiveLayouts: normalizeResponsiveLayouts(responsiveLayouts),
+    ...(layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
+      ? { layoutEngine: GRID_ENGINE_2_LAYOUT_ENGINE }
+      : null),
   };
 
   const storageKey = getDashboardLayoutStorageKey(runtimeMode);

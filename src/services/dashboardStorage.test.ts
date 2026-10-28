@@ -75,6 +75,12 @@ describe('dashboard storage widget secrets', () => {
     expect(restored.widgets).toEqual([]);
   });
 
+  it('persists the explicit Grid Engine 2.0 Home marker across reloads', () => {
+    expect(saveDashboardLayout([], [], {}, {}, {}, 'demo', 'grid-engine-2').ok).toBe(true);
+
+    expect(loadDashboardLayout('demo').layoutEngine).toBe('grid-engine-2');
+  });
+
   it('reports exhausted browser storage without throwing', () => {
     const setItemSpy = vi
       .spyOn(Storage.prototype, 'setItem')
