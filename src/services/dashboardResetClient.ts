@@ -53,7 +53,7 @@ export function invalidateLocalDashboardAfterAuthoritativeReset(
   ];
   removedKeys.forEach((key) => storage.removeItem(key));
   if (sessionStorage) discardDashboardEditDraft(sessionStorage, 'real');
-  saveSetupJourney({ phase: 'welcome', mode: null }, storage);
+  saveSetupJourney({ phase: 'intro', mode: null }, storage);
   if (marker) acknowledgeAuthoritativeDashboardReset(storage, marker);
   return removedKeys;
 }

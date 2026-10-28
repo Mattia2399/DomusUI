@@ -99,16 +99,17 @@ describe('semantic theme CSS contract', () => {
     const settings = readSource('src/pages/SettingsDashboard.tsx');
     const security = readSource('src/pages/SecurityDashboard.jsx');
     const consumptions = readSource('src/pages/Consumi.tsx');
-    const roomTiles = readSource('src/components/devices/theme/devices.css');
+    const roomTiles = readSource('src/components/devices/theme/tokens.css');
 
     expect(settings).toContain('dashboard-content-surface');
     expect(settings).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
     expect(security).toContain('dashboard-content-surface');
     expect(security).not.toContain('className="liquid-glass-panel rounded-[26px]');
     expect(consumptions).toContain('dashboard-content-surface');
-    // The room tiles take their colours from tokens defined for both appearances.
+    // The room tiles take their colours from tokens defined for both appearances, shared with setup.
     expect(roomTiles).toMatch(/\.dashboard-theme-dark\s*\{[\s\S]*?--dv-tile-off:/);
     expect(roomTiles).toMatch(/\.dashboard-theme-light\s*\{[\s\S]*?--dv-tile-off:/);
+    expect(readSource('src/components/devices/theme/devices.css')).toContain("@import './tokens.css';");
   });
 
   it('keeps Builder and context-panel structure independent from white/black utility overrides', () => {
@@ -182,11 +183,12 @@ describe('semantic theme CSS contract', () => {
     expect(vacuum).toContain('bg-slate-950/30');
   });
 
-  it('keeps supporting editor and guided panels on the shared semantic contract', () => {
-    const guidedSetup = readSource('src/components/settings/GuidedSetupOverlay.tsx');
+  it('keeps the Home guides on the shared device tokens', () => {
+    const guideCss = readSource('src/components/onboarding/firstRunGuide.css');
 
-    expect(guidedSetup).toContain('var(--ui-scrim)');
-    expect(guidedSetup).not.toMatch(/bg-black(?:\/|\b)/);
+    expect(guideCss).toContain('var(--dv-sheet)');
+    expect(guideCss).toContain('var(--dv-text)');
+    expect(guideCss).not.toMatch(/bg-black(?:\/|\b)/);
   });
 
   it('keeps Sensor, Light and Switch cards semantic outside intrinsic light controls', () => {

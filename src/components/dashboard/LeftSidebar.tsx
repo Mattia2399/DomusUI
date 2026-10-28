@@ -29,7 +29,6 @@ type LeftSidebarProps = {
   selectedPathId?: string | null;
   activeRoute?: string;
   isSettingsActive?: boolean;
-  isEditTourActive?: boolean;
   canToggleEditMode: boolean;
   onPathClick: (entry: SidebarQuickPath) => void;
   onToggleEditMode: () => void;
@@ -160,7 +159,6 @@ export function LeftSidebar({
         <div className={`relative ${isCompactSidebar ? 'mb-2' : 'mb-3'}`}>
           <button
             type="button"
-            data-tour-target="edit-mode"
             onPointerEnter={onPrefetchEditMode}
             onPointerDown={onPrefetchEditMode}
             onFocus={onPrefetchEditMode}

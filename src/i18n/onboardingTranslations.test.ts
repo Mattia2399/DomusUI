@@ -16,16 +16,16 @@ describe('onboarding translations', () => {
 
   it('provides localized first-run copy in every supported language', async () => {
     await Promise.all([loadOnboardingTranslations('it'), loadOnboardingTranslations('en'), loadOnboardingTranslations('fr')]);
-    expect(translateOnboarding('it', 'welcome.start')).toBe('Inizia ora');
-    expect(translateOnboarding('en', 'welcome.start')).toBe('Get started');
-    expect(translateOnboarding('fr', 'welcome.start')).toBe('Commencer');
-    expect(translateOnboarding('en', 'complete.open')).toBe('Open the dashboard');
-    expect(translateOnboarding('fr', 'organizer.tab.rooms')).toBe('Pièces');
+    expect(translateOnboarding('it', 'intro.start')).toBe('Inizia');
+    expect(translateOnboarding('en', 'intro.start')).toBe('Get started');
+    expect(translateOnboarding('fr', 'intro.start')).toBe('Commencer');
+    expect(translateOnboarding('en', 'compose.open')).toBe('Open Home');
+    expect(translateOnboarding('fr', 'choice.title')).toBe('Comment voulez-vous commencer ?');
   });
 
   it('interpolates user and progress values', async () => {
     await Promise.all([loadOnboardingTranslations('en'), loadOnboardingTranslations('fr')]);
-    expect(translateOnboarding('en', 'scan.found', { name: ', Alex' })).toBe('Home found, Alex');
+    expect(translateOnboarding('en', 'summary.title', { name: 'Alex' })).toBe('Here is Alex’s home');
     expect(translateOnboarding('fr', 'wizard.counter', { current: 2, total: 4 })).toBe('2 sur 4');
   });
 
@@ -39,11 +39,11 @@ describe('onboarding translations', () => {
   });
 
   it('keeps the previous language until the new one has arrived', async () => {
-    expect(translateOnboarding('it', 'welcome.start')).toBe('welcome.start');
+    expect(translateOnboarding('it', 'intro.start')).toBe('intro.start');
     await loadOnboardingTranslations('it');
-    expect(translateOnboarding('fr', 'welcome.start')).toBe('Inizia ora');
+    expect(translateOnboarding('fr', 'intro.start')).toBe('Inizia');
     await loadOnboardingTranslations('fr');
-    expect(translateOnboarding('fr', 'welcome.start')).toBe('Commencer');
+    expect(translateOnboarding('fr', 'intro.start')).toBe('Commencer');
   });
 
   it('has every word in every language, with the same placeholders', () => {

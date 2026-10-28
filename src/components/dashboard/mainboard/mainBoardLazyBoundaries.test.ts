@@ -64,7 +64,7 @@ describe('MainBoard lazy boundaries', () => {
 
   it('loads rare dashboard overlays only when their flows are requested', () => {
     const overlayModules = [
-      ['loadGuidedSetupOverlay', '../settings/GuidedSetupOverlay'],
+      ['loadFirstRunGuide', '../onboarding/FirstRunGuide'],
       ['loadStarterLayoutChoiceModal', '../onboarding/StarterLayoutChoiceModal'],
       ['loadSecurityAuthModal', '../security/SecurityAuthModal'],
       ['loadDashboardRecoveryModal', './DashboardRecoveryModal'],

@@ -4,9 +4,9 @@ import { isSetupRoute, shouldForceCompletedConfiguration } from './ExperienceGat
 describe('ExperienceGate setup routing', () => {
   it('keeps a first-time configuration inside the complete wizard', () => {
     expect(isSetupRoute('/setup')).toBe(true);
-    expect(shouldForceCompletedConfiguration('/setup', 'detected')).toBe(false);
-    expect(shouldForceCompletedConfiguration('/setup', 'server')).toBe(false);
-    expect(shouldForceCompletedConfiguration('/setup', 'authorize')).toBe(false);
+    expect(shouldForceCompletedConfiguration('/setup', 'connect')).toBe(false);
+    expect(shouldForceCompletedConfiguration('/setup', 'redirect')).toBe(false);
+    expect(shouldForceCompletedConfiguration('/setup', 'summary')).toBe(false);
     expect(shouldForceCompletedConfiguration('/setup', 'scan')).toBe(false);
   });
 

@@ -51,7 +51,7 @@ Il gate (`ExperienceGate.tsx`) caricava già `OnboardingExperience` con
    - `loadOnboardingTranslations(locale)` carica una lingua una volta e
      permette di riprovare dopo un errore;
    - `useOnboardingTranslations()` nelle schermate (`OnboardingExperience`,
-     `DemoLockedRoute`, `OnboardingOrganizer`): sospende solo se non c'è
+     `DemoLockedRoute`): sospende solo se non c'è
      ancora nessuna lingua, e dopo un cambio di lingua lascia i testi
      precedenti finché arrivano i nuovi;
    - `translateOnboarding` è invariata per chi la chiama.
