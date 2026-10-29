@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import { useHoldToConfirm } from '../../hooks/useHoldToConfirm';
-import { useObservedElementSize } from '../../hooks/useObservedElementSize';
+import { useCan } from '../../security/AccessControlProvider';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
 import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
 import { LockCardView } from './LockCardView';
 import { buildLockCardModel } from './lockCardModel';
+import { resolveLockRingMode, useLockRingPress } from './useLockRingPress';
 import {
-  resolveLockPixelDisplayVariant,
   resolveWidgetDisplayVariant,
   type WidgetDisplayMetrics,
   type WidgetDisplayVariant,
@@ -27,6 +26,48 @@ type LockCardProps = {
   onDisplayMetricsChange?: (metrics: WidgetDisplayMetrics) => void;
 };
 
+// Reports the card's size to the builder while it asks for it, without
+// re-rendering the card: the composition itself comes from container queries.
+function useReportedCardSize(
+  ref: React.RefObject<HTMLDivElement | null>,
+  widgetId: string,
+  variant: WidgetDisplayVariant,
+  onChange: ((metrics: WidgetDisplayMetrics) => void) | undefined,
+) {
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || !onChange) return;
+    let frame = 0;
+    const report = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const bounds = element.getBoundingClientRect();
+        if (bounds.width <= 0 || bounds.height <= 0) return;
+        onChange({
+          widgetId,
+          width: Math.round(bounds.width),
+          height: Math.round(bounds.height),
+          variant,
+        });
+      });
+    };
+    report();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', report);
+      return () => {
+        window.cancelAnimationFrame(frame);
+        window.removeEventListener('resize', report);
+      };
+    }
+    const observer = new ResizeObserver(report);
+    observer.observe(element);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [onChange, ref, variant, widgetId]);
+}
+
 export function LockCard({
   widget,
   isSelected,
@@ -40,79 +81,43 @@ export function LockCard({
   onDisplayMetricsChange,
 }: LockCardProps) {
   const { locale } = useI18n();
-  const fallbackVariant = displayVariant ?? resolveWidgetDisplayVariant({
+  // The size name (mini, standard, expanded) comes from the grid.
+  const sizeVariant = displayVariant ?? resolveWidgetDisplayVariant({
     kind: 'lock',
     breakpoint: gridBreakpoint,
     layout: widget.layout,
     parentSectionId: widget.parentSectionId,
   });
-  const { ref: cardRef, size: observedSize } = useObservedElementSize<HTMLDivElement>(widget.id);
-  const measuredSize = observedSize?.identity === widget.id ? observedSize : null;
-  const layoutVariant = measuredSize
-    ? resolveLockPixelDisplayVariant({ width: measuredSize.width, height: measuredSize.height })
-    : fallbackVariant;
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  useReportedCardSize(cardRef, widget.id, sizeVariant, onDisplayMetricsChange);
   const model = useMemo(() => buildLockCardModel(widget, liveEntity, locale), [liveEntity, locale, widget]);
-  const suppressNextClickRef = useRef(false);
+  // access.control: without it the ring shows the state and does nothing.
+  const canControl = useCan('access.control');
+  const canOpen = canControl && model.canOpenLatch && Boolean(onOpenDoor);
 
-  const runPrimaryAction = () => {
-    if (isEditMode || model.primaryAction === 'none') return;
-    const didStartAction = onToggleLock?.();
-    suppressNextClickRef.current = true;
-    if (didStartAction === false) return;
-  };
-
-  const {
-    progress,
-    isHolding,
-    isSuccessPulse,
-    startHold,
-    endHold,
-    forceReset,
-  } = useHoldToConfirm({
-    enabled: !isEditMode && model.primaryAction === 'unlock',
-    durationMs: 1000,
-    onComplete: runPrimaryAction,
+  // First lap unlocks, a second lap opens the latch; from unlocked a tap locks.
+  const ring = useLockRingPress({
+    mode: resolveLockRingMode({ enabled: canControl && !isEditMode && Boolean(onToggleLock), state: model.state, canOpen }),
+    canOpenAfterUnlock: canOpen,
+    onUnlock: () => onToggleLock?.(),
+    onLock: () => {
+      onToggleLock?.();
+    },
+    onOpen: () => onOpenDoor?.(),
   });
-
-  useEffect(() => {
-    if (!measuredSize || !onDisplayMetricsChange) return;
-    onDisplayMetricsChange({
-      widgetId: widget.id,
-      width: measuredSize.width,
-      height: measuredSize.height,
-      variant: layoutVariant,
-    });
-  }, [layoutVariant, measuredSize, onDisplayMetricsChange, widget.id]);
 
   return (
     <LockCardView
       model={model}
-      layoutVariant={layoutVariant}
       isSelected={isSelected}
       isEditMode={isEditMode}
       rootRef={cardRef}
-      holdProgress={progress}
-      isHolding={isHolding}
-      isSuccessPulse={isSuccessPulse}
+      ring={ring}
       onOpen={() => {
-        if (suppressNextClickRef.current) {
-          suppressNextClickRef.current = false;
-          return;
-        }
-        forceReset();
+        ring.reset();
         onClick();
       }}
-      onPrimaryAction={() => {
-        forceReset();
-        runPrimaryAction();
-      }}
-      onOpenLatch={() => {
-        suppressNextClickRef.current = true;
-        onOpenDoor?.();
-      }}
-      onStartHold={startHold}
-      onEndHold={endHold}
-      onResetHold={forceReset}
+      onResetHold={ring.reset}
     />
   );
 }

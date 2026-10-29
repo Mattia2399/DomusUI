@@ -157,6 +157,8 @@ def tariff_state(tariff: EnergyTariff | None, now: datetime) -> dict[str, Any] |
         "band": band,
         "band_label": label,
         "price": price,
+        # Every band's price, so a cost over the day can price each hour in its band.
+        "prices": dict(tariff.prices),
         "export_price": tariff.export_price,
         # Prices exclude VAT when a rate is set; consumers add it to estimates.
         "vat_percent": tariff.vat_percent,

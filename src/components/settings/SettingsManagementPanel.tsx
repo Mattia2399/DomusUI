@@ -4,6 +4,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { DashboardResetProgressReporter } from '../../services/dashboardReset';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
+import type { AccessAdminCallApi } from '../../services/accessAdminClient';
 import SettingsManagementShell from './SettingsManagementShell';
 import SettingsSectionNavigation from './SettingsSectionNavigation';
 import {
@@ -64,6 +65,8 @@ export type SettingsManagementPanelProps = {
   /** Route-driven house access subpage (embedded presentation). */
   houseAccessView?: HouseAccessView;
   onHouseAccessViewChange?: (view: HouseAccessView) => void;
+  /** The Home Assistant connection, for Roles and permissions (access.manage only). */
+  onCallApi?: AccessAdminCallApi;
 };
 
 const SETTINGS_BREAKPOINT_PX = 768;
@@ -110,6 +113,7 @@ export function SettingsManagementPanel({
   onOpenSharing,
   houseAccessView: controlledHouseAccessView,
   onHouseAccessViewChange,
+  onCallApi,
 }: SettingsManagementPanelProps) {
   const { t } = useI18n();
   const localizedSections = SETTINGS_MANAGEMENT_SECTIONS.map((section) => ({
@@ -263,6 +267,7 @@ export function SettingsManagementPanel({
             personLinking={personLinking}
             currentUserName={displayName}
             currentUserRole={displayRole}
+            onCallApi={onCallApi}
           />
         </React.Suspense>
       ) : null}

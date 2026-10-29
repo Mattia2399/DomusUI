@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { connectHomeAssistant } = require('./support/fakeHomeAssistant.cjs');
 
 function installCompletedRealWorkspace(page) {
   return page.addInitScript(() => {
@@ -19,12 +20,16 @@ function installCompletedRealWorkspace(page) {
   });
 }
 
-test('Profile is a personal desktop page without administrative settings', async ({ page }) => {
+test('Profile is the personal page at the top of Settings', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
-  await page.goto('/profile');
+  await connectHomeAssistant(page);
+  await page.goto('/settings');
 
-  await expect(page.getByText('Aspetto e lingua')).toBeVisible();
+  // The account card opens the Profile, inside the Settings page.
+  await page.getByRole('region', { name: 'Profilo', exact: true }).getByRole('button').first().click();
+  await expect(page).toHaveURL(/\/settings\/profile$/);
+  await expect(page.locator('.dashboard-shell > aside')).toBeVisible();
   await expect(
     page.getByRole('button', {
       name: /Informazioni personali Nome, email e ruolo/,
@@ -32,21 +37,31 @@ test('Profile is a personal desktop page without administrative settings', async
   ).toBeVisible();
   await expect(page.getByRole('button', { name: /Attività e spostamenti/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /Accesso e sicurezza/ })).toBeVisible();
-  await expect(page.getByRole('radiogroup', { name: 'Tema del dispositivo' })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Temi colorati/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Preferenze' })).toBeVisible();
+  // Theme, background and language are saved in this browser: Settings, This device.
+  await expect(page.getByRole('radiogroup', { name: 'Tema del dispositivo' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Temi colorati/ })).toHaveCount(0);
   await expect(page.getByText('Persone/Membri')).toHaveCount(0);
 
   await page.getByRole('button', { name: /Attività e spostamenti/ }).click();
   await expect(page.getByRole('heading', { name: 'Attività e spostamenti' })).toBeVisible();
   await expect(page.getByText('Cronologia recente')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings\/profile$/);
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
 });
 
-test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) => {
+test('Profile uses drill-in navigation on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
+  // The old address opens Settings, whose top is the person.
   await page.goto('/profile');
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole('region', { name: 'Profilo', exact: true }).getByRole('button').first().click();
 
-  await expect(page.getByText('Aspetto e lingua')).toBeVisible();
   const securityButton = page.getByRole('button', { name: /Accesso e sicurezza/ });
   await expect(securityButton).toBeVisible();
   await securityButton.click();
@@ -55,28 +70,36 @@ test('Profile uses fullscreen drill-in navigation on mobile', async ({ page }) =
   await expect(page.getByText('Conferma dispositivo', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Indietro' }).click();
-  await expect(page.getByText('Aspetto e lingua')).toBeVisible();
   await expect(page.getByRole('button', { name: /Accesso e sicurezza/ })).toBeVisible();
 
-  await page.getByRole('button', { name: /Temi colorati/ }).click();
-  await expect(page.getByRole('heading', { name: 'Temi colorati' })).toBeVisible();
+  // Back from the Profile is the Settings page, with this device further down.
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await page.getByRole('region', { name: 'Questo dispositivo' }).getByRole('button', { name: /^Aspetto/ }).click();
+  await expect(page.getByRole('heading', { name: 'Aspetto', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /Sunset Amber/ })).toBeVisible();
 });
 
 test('Settings remains useful while administrative destinations stay fail-closed', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
+  // A member: what its Domus role opens (docs/access-control-frontend.md#impostazioni).
+  await connectHomeAssistant(page, {
+    user: { id: 'member', name: 'Member', is_owner: false, is_admin: false, credentials: [], mfa_modules: [] },
+  });
   await page.goto('/settings');
 
   await expect(page.getByRole('heading', { name: 'Impostazioni', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Aspetto/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Persone e accessi/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Connessioni/ })).toBeVisible();
+  // Preferences of this device and the people of the house; house administration stays closed.
+  await expect(page.getByRole('button', { name: /^Aspetto/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Lingua/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Persone e accessi/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Sistema/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Energia/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Connessioni/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Dati e backup/ })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /Sistema/ })).toBeVisible();
 
-  await page.getByRole('button', { name: /Connessioni/ }).click();
-  await expect(page).toHaveURL(/\/settings\/connections$/);
-  await expect(page.getByRole('heading', { name: 'Connessioni' })).toBeVisible();
+  await page.goto('/settings/connections');
+  await expect(page.getByRole('heading', { name: 'Non disponibile per il tuo account' })).toBeVisible();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });

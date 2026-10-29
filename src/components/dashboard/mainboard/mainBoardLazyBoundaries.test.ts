@@ -15,7 +15,7 @@ describe('MainBoard lazy boundaries', () => {
       ['loadConsumptionDashboard', '../../pages/Consumi'],
       ['loadAutomationsBuilder', '../../pages/AutomationsBuilder'],
       ['loadAppGallery', '../../pages/AppGallery'],
-      ['loadRoomsDashboard', '../../pages/RoomsDashboard'],
+      ['loadRoomsDashboard', '../../pages/rooms/RoomsPage'],
       ['loadSecurityDashboard', '../../pages/SecurityDashboard'],
       ['loadSettingsDashboard', '../../pages/SettingsDashboard'],
     ];
@@ -33,8 +33,9 @@ describe('MainBoard lazy boundaries', () => {
     expect(mainBoardSource).toContain(
       'const ModernProfilePage = React.lazy(loadModernProfilePage)',
     );
-    expect(mainBoardSource).toContain('{isProfileOpen ? (');
-    expect(mainBoardSource).toContain('<React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" overlay />}>');
+    // The profile is the top of Settings: it renders in the Settings area.
+    expect(mainBoardSource).toContain(') : isSettingsView && isProfileRoute ? (');
+    expect(mainBoardSource).toContain('<React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" />}>');
   });
 
   it('loads the Settings management container only for nested Settings pages', () => {
@@ -63,7 +64,7 @@ describe('MainBoard lazy boundaries', () => {
 
   it('loads rare dashboard overlays only when their flows are requested', () => {
     const overlayModules = [
-      ['loadGuidedSetupOverlay', '../settings/GuidedSetupOverlay'],
+      ['loadFirstRunGuide', '../onboarding/FirstRunGuide'],
       ['loadStarterLayoutChoiceModal', '../onboarding/StarterLayoutChoiceModal'],
       ['loadSecurityAuthModal', '../security/SecurityAuthModal'],
       ['loadDashboardRecoveryModal', './DashboardRecoveryModal'],

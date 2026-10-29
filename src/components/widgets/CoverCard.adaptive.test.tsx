@@ -6,13 +6,22 @@ import path from 'node:path';
 import type { Widget } from '../../types/dashboardModels';
 import { COVER_FEATURE_CLOSE, COVER_FEATURE_OPEN, COVER_FEATURE_SET_POSITION, COVER_FEATURE_SET_TILT_POSITION } from '../../utils/coverUtils';
 import { CoverCard } from './CoverCard';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import type { AccessSnapshot } from '../../security/accessControl';
+import { accessFor } from '../../test/accessFixtures';
 
 const widget: Widget = {
   id: 'cover-adaptive-test', kind: 'cover', title: 'Garage', entityId: 'cover.garage',
   status: 'closed', isOn: false, layout: { i: 'cover-adaptive-test', x: 0, y: 0, w: 2, h: 3 },
 };
 
-const renderCard = (features: number, state = 'open', displayVariant: 'mini' | 'compact' | 'standard' | 'full' = 'standard') => renderToStaticMarkup(
+const renderCard = (
+  features: number,
+  state = 'open',
+  displayVariant: 'mini' | 'compact' | 'standard' | 'full' = 'standard',
+  access: AccessSnapshot = accessFor('admin'),
+) => renderToStaticMarkup(
+  <AccessControlProvider access={access}>
   <CoverCard
     widget={widget}
     liveEntity={{ state, supportedFeatures: features, rawAttributes: { device_class: 'garage', current_cover_position: 40 } }}
@@ -20,7 +29,8 @@ const renderCard = (features: number, state = 'open', displayVariant: 'mini' | '
     displayVariant={displayVariant}
     onPositionChange={() => undefined} onTiltPositionChange={() => undefined}
     onOpenCover={() => undefined} onStopCover={() => undefined} onCloseCover={() => undefined}
-  />,
+  />
+  </AccessControlProvider>,
 );
 
 describe('Cover card adaptive capabilities', () => {
@@ -84,5 +94,14 @@ describe('Cover card adaptive capabilities', () => {
     expect(css).toContain('@container cover-card (min-width: 176px) and (min-height: 250px) and (max-width: 299px)');
     expect(css).toContain(".cover-card:not([data-cover-display-variant='standard']) .cover-card__quick-actions { display: flex; }");
     expect(css).not.toContain('data-cover-variant');
+  });
+  it('shows a garage to a member as a state, with no command, unless the member holds access.control', () => {
+    const features = COVER_FEATURE_OPEN | COVER_FEATURE_CLOSE | COVER_FEATURE_SET_POSITION;
+    const member = renderCard(features, 'open', 'standard', accessFor('member'));
+    expect(member).toContain('data-cover-has-actions="false"');
+    expect(member).toContain('data-cover-has-position="false"');
+    const granted = renderCard(features, 'open', 'standard', accessFor('member', { grants: ['access.control'] }));
+    expect(granted).toContain('data-cover-has-actions="true"');
+    expect(granted).toContain('data-cover-has-position="true"');
   });
 });

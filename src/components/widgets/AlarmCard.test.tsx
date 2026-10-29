@@ -5,10 +5,17 @@ import type { Widget } from '../../types/dashboardModels';
 import { AlarmCard } from './AlarmCard';
 import { createHomeAlarmMock } from './alarmMock';
 import { I18nProvider } from '../../i18n/I18nProvider';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import { LOADING_ACCESS, type AccessSnapshot } from '../../security/accessControl';
+import { accessFor } from '../../test/accessFixtures';
 
-const render = (ui: React.ReactElement) => {
+const render = (ui: React.ReactElement, access: AccessSnapshot = accessFor('admin')) => {
   window.localStorage.setItem('domusui.language.v1', 'it');
-  return renderUi(<I18nProvider>{ui}</I18nProvider>);
+  return renderUi(
+    <I18nProvider>
+      <AccessControlProvider access={access}>{ui}</AccessControlProvider>
+    </I18nProvider>,
+  );
 };
 
 const widget: Widget = {
@@ -132,5 +139,25 @@ describe('AlarmCard responsive safety compositions', () => {
 
     fireEvent.click(getByRole('button', { name: 'Disinserisci' }));
     expect(onQuickDisarm).toHaveBeenCalledOnce();
+  });
+  it('shows the state without a command to an account without security.control, and the commands with the grant', () => {
+    const card = (
+      <AlarmCard
+        widget={widget}
+        isSelected={false}
+        isEditMode={false}
+        onClick={() => undefined}
+        onQuickArm={vi.fn()}
+        liveEntity={createHomeAlarmMock()}
+      />
+    );
+    for (const access of [accessFor('member'), accessFor('wall_panel'), LOADING_ACCESS]) {
+      const view = render(card, access);
+      expect(view.getByLabelText('Allarme Casa, Disinserito')).not.toBeNull();
+      expect(view.queryByRole('button', { name: 'Inserisci' })).toBeNull();
+      view.unmount();
+    }
+    const granted = render(card, accessFor('member', { grants: ['security.control'] }));
+    expect(granted.getByRole('button', { name: 'Inserisci' })).not.toBeNull();
   });
 });

@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { connectHomeAssistant } = require('./support/fakeHomeAssistant.cjs');
 
 function installCompletedRealWorkspace(page) {
   return page.addInitScript(() => {
@@ -19,6 +20,7 @@ function installCompletedRealWorkspace(page) {
 test('App Library detail routes use an immersive contextual workspace', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
 
   await page.goto('/appgallery/irrigation');
 
@@ -47,12 +49,13 @@ test('App Library detail routes use an immersive contextual workspace', async ({
 
   await page.getByRole('button', { name: 'Torna alla libreria' }).click();
   await expect(page).toHaveURL(/\/appgallery$/);
-  await expect(page.getByRole('heading', { name: 'App Library', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'App Gallery', exact: true })).toBeVisible();
 });
 
 test('App Library apps use a contextual bottom bar on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
 
   await page.goto('/appgallery/pool');
 
@@ -122,6 +125,7 @@ test('App Library apps use a contextual bottom bar on mobile', async ({ page }) 
 test('Irrigation uses the hero as mobile header and keeps the library exit in the bottom bar', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
 
   await page.goto('/appgallery/irrigation');
 
@@ -166,6 +170,7 @@ test('Irrigation uses the hero as mobile header and keeps the library exit in th
 test('Irrigation nested routes survive direct navigation and refresh', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
   await page.goto('/appgallery/irrigation');
 
   const navigation = page.getByRole('navigation', { name: 'Navigazione Irrigazione Smart' });

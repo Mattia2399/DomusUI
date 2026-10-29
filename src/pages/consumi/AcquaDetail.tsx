@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CloudRain, Droplets, Home, Waves } from 'lucide-react';
 import type { ConsumptionDashboardData, ConsumptionEntityConfig } from '../../hooks/useConsumptionConfig';
-import { ChartCard, DetailScaffold, IntervalKey, PremiumTooltip, PreviewDataNotice } from './shared';
+import { ChartCard, DetailScaffold, IntervalKey, PreviewDataNotice } from './shared';
+import { LazyConsumptionChart } from './LazyConsumptionChart';
 import { MOCK_DEVICES, OrbitalDevices } from './orbitalDevices';
 import { useConsumptionCopy } from '../../i18n/consumptionCopy';
 
@@ -421,45 +421,17 @@ export function AcquaDetail({
         {c('Grafici storici, ripartizione e flussi calcolati non provengono ancora da statistiche Home Assistant.')}
       </PreviewDataNotice>
       <ChartCard title={c('Consumo ultimi 7 giorni')}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={waterWeekData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap={14}>
-            <defs>
-              <linearGradient id="acquaBarFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="rgba(34,211,238,0.95)" />
-                <stop offset="100%" stopColor="rgba(8,145,178,0.58)" />
-              </linearGradient>
-            </defs>
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'rgba(255,255,255,0.5)', fontSize: 11 }} />
-            <YAxis axisLine={false} tickLine={false} tick={false} width={0} />
-            <Tooltip content={<PremiumTooltip suffix=" L" />} />
-            <Bar dataKey="litri" fill="url(#acquaBarFill)" radius={[10, 10, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        <LazyConsumptionChart>
+          {({ WaterWeekChart }) => <WaterWeekChart data={waterWeekData} />}
+        </LazyConsumptionChart>
       </ChartCard>
 
       <ChartCard title={c('Origine approvvigionamento')}>
         <div className="flex h-full flex-col items-center justify-center">
           <div className="relative h-44 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Tooltip content={<PremiumTooltip suffix="%" />} />
-                <Pie
-                  data={sourcePieData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={48}
-                  outerRadius={76}
-                  startAngle={90}
-                  endAngle={-270}
-                  paddingAngle={2}
-                  stroke="rgba(255,255,255,0.05)"
-                >
-                  {sourcePieData.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
+            <LazyConsumptionChart outline="ring">
+              {({ WaterSourceChart }) => <WaterSourceChart data={sourcePieData} />}
+            </LazyConsumptionChart>
 
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="text-center">

@@ -1,10 +1,19 @@
+/*
+ * The lock card picks its composition from its own box with container queries,
+ * so it is right from the first frame, in the grid, in stacks and in previews:
+ *
+ *   height < 80                     row        (a phone mini, one grid row)
+ *   80 <= height < 150              compact    (a phone mini, two grid rows)
+ *   150 <= height < 230, w < 280    tile       (one column by three rows)
+ *   150 <= height < 230, w >= 280   wide       (the ring beside the state)
+ *   height >= 230, ratio < 8/5      tall       (expanded, two columns by seven rows)
+ *   height >= 230, ratio >= 8/5     panorama   (expanded, four columns by four rows)
+ *
+ * Every part is in the markup; each composition shows the ones it has room for.
+ */
+
 .lock-card {
-  --lock-accent-rgb: 198 209 226;
-  --lock-surface-rgb: 198 209 226;
-  --lock-surface-tint: 0.055;
-  --lock-surface-border: 0.075;
-  --lock-surface-glow: 0.08;
-  --lock-hold-progress: 0;
+  --lock-tone: #8e929c;
   container-name: lock-card;
   container-type: size;
   position: relative;
@@ -12,64 +21,37 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  border-radius: 1.2rem;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
-.lock-card[data-lock-variant='mini'] {
-  border-radius: 1.05rem;
-}
-
-.lock-card[data-lock-variant='compact'] {
-  border-radius: 1.2rem;
-}
-
-.lock-card[data-lock-variant='standard'] {
-  border-radius: 1.55rem;
-}
-
-.lock-card[data-lock-variant='full'] {
-  border-radius: 1.68rem;
-}
-
+/* The lock keeps its own palette: emerald when secure, amber when open. */
 .lock-card[data-lock-tone='secure'] {
-  --lock-accent-rgb: 158 230 197;
-  --lock-surface-rgb: 98 211 164;
-  --lock-surface-tint: 0.095;
-  --lock-surface-border: 0.095;
-  --lock-surface-glow: 0.1;
+  --lock-tone: #12a372;
 }
 
 .lock-card[data-lock-tone='open'] {
-  --lock-accent-rgb: 239 186 121;
-  --lock-surface-rgb: 239 186 121;
-  --lock-surface-tint: 0.105;
-  --lock-surface-border: 0.1;
-  --lock-surface-glow: 0.11;
-}
-
-.lock-card[data-lock-tone='warning'] {
-  --lock-accent-rgb: 244 113 143;
-  --lock-surface-rgb: 244 113 143;
-  --lock-surface-tint: 0.11;
-  --lock-surface-border: 0.105;
-  --lock-surface-glow: 0.12;
+  --lock-tone: #d97706;
 }
 
 .lock-card[data-lock-tone='transition'] {
-  --lock-accent-rgb: 147 211 244;
-  --lock-surface-rgb: 147 211 244;
-  --lock-surface-tint: 0.1;
-  --lock-surface-border: 0.095;
-  --lock-surface-glow: 0.11;
+  --lock-tone: #0a84ff;
+}
+
+.lock-card[data-lock-tone='warning'] {
+  --lock-tone: #e5484d;
 }
 
 .lock-card[data-lock-tone='offline'] {
-  --lock-accent-rgb: 164 174 190;
-  --lock-surface-rgb: 164 174 190;
-  --lock-surface-tint: 0.045;
-  --lock-surface-border: 0.06;
-  --lock-surface-glow: 0.045;
+  --lock-tone: #8e929c;
+}
+
+/* The shape carries the corner radius, so the selection outline follows it. */
+.lock-card__shape {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 1.5rem;
 }
 
 .lock-card__surface {
@@ -82,478 +64,9 @@
   min-height: 0;
   box-sizing: border-box;
   overflow: hidden;
-  border-color: rgb(var(--lock-surface-rgb) / var(--lock-surface-border));
   border-radius: inherit;
-  background:
-    radial-gradient(120% 90% at 10% 0%, rgb(var(--lock-surface-rgb) / var(--lock-surface-tint)), transparent 62%),
-    radial-gradient(95% 90% at 100% 100%, rgb(var(--lock-surface-rgb) / calc(var(--lock-surface-tint) * 0.58)), transparent 68%),
-    linear-gradient(145deg, rgb(var(--ui-glass-highlight-rgb) / 0.062), transparent 54%, rgb(var(--lock-surface-rgb) / 0.035)),
-    var(--ui-surface-glass);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.16),
-    0 14px 34px var(--ui-shadow-soft),
-    0 0 30px rgb(var(--lock-surface-rgb) / var(--lock-surface-glow));
-  backdrop-filter: blur(22px) saturate(1.24);
-  -webkit-backdrop-filter: blur(22px) saturate(1.24);
-}
-
-.lock-card__meta,
-.lock-card__mini-toggle,
-.lock-card__control,
-.lock-card__caption,
-.lock-card__details,
-.lock-card__actions {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-}
-
-.lock-card__meta {
-  grid-area: meta;
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: start;
-}
-
-.lock-card__title,
-.lock-card__status,
-.lock-card__caption,
-.lock-card__details small,
-.lock-card__details strong,
-.lock-card__secondary-action span,
-.lock-card__slider-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lock-card__title {
+  background: var(--ui-surface-glass);
   color: var(--ui-text-primary);
-  font-size: clamp(0.76rem, 7.4cqi, 1.05rem);
-  font-weight: var(--ui-card-title-weight);
-  letter-spacing: var(--ui-card-title-tracking);
-  line-height: 1.02;
-}
-
-.lock-card__status {
-  margin-top: 0.24rem;
-  color: var(--ui-text-tertiary);
-  font-size: clamp(0.54rem, 4.3cqi, 0.72rem);
-  font-weight: 620;
-  letter-spacing: -0.01em;
-  line-height: 1;
-}
-
-.lock-card[data-lock-tone='open'] .lock-card__status,
-.lock-card[data-lock-tone='warning'] .lock-card__status {
-  color: rgb(var(--lock-accent-rgb) / 0.74);
-}
-
-.lock-card__control {
-  grid-area: control;
-  --lock-slider-thumb-size: 2rem;
-  position: relative;
-  display: block;
-  width: 100%;
-  align-self: end;
-  height: 2.36rem;
-  min-height: 2.36rem;
-  border: 1px solid var(--ui-border);
-  border-radius: 999px;
-  background:
-    radial-gradient(85% 170% at 12% 0%, rgb(var(--ui-glass-highlight-rgb) / 0.13), transparent 58%),
-    var(--ui-fill-tertiary);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.18),
-    inset 0 -1px 0 var(--ui-shadow-soft),
-    0 8px 18px var(--ui-shadow-soft);
-  color: var(--ui-text-primary);
-  overflow: hidden;
-  padding: 0.18rem;
-  backdrop-filter: blur(16px) saturate(1.28);
-  -webkit-backdrop-filter: blur(16px) saturate(1.28);
-  touch-action: none;
-  user-select: none;
-  transition: border-color 180ms ease, box-shadow 180ms ease, opacity 180ms ease, transform 160ms ease;
-}
-
-.lock-card__control:not(:disabled) {
-  cursor: grab;
-}
-
-.lock-card__control[data-control='button']:not(:disabled) {
-  cursor: pointer;
-}
-
-.lock-card__control[data-dragging='true'] {
-  cursor: grabbing;
-}
-
-.lock-card__control[data-control='button'] {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  touch-action: manipulation;
-}
-
-.lock-card__control:disabled {
-  cursor: default;
-  opacity: 0.54;
-}
-
-.lock-card__control:focus-visible {
-  outline: 2px solid rgb(var(--lock-accent-rgb) / 0.62);
-  outline-offset: 3px;
-}
-
-.lock-card__control:not(:disabled):hover {
-  border-color: var(--ui-border-strong);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.2),
-    inset 0 -1px 0 var(--ui-shadow-soft),
-    0 10px 22px var(--ui-shadow-soft);
-}
-
-.lock-card__control[data-control='button']:not(:disabled):hover {
-  border-color: rgb(var(--lock-accent-rgb) / 0.18);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.22),
-    inset 0 -1px 0 var(--ui-shadow-soft),
-    0 10px 22px var(--ui-shadow-soft),
-    0 0 18px rgb(var(--lock-accent-rgb) / 0.08);
-}
-
-.lock-card__control[data-control='button']:not(:disabled):active {
-  transform: scale(0.985);
-}
-
-.lock-card__slider-fill {
-  position: absolute;
-  inset-block: 0.18rem;
-  left: 0.18rem;
-  z-index: 0;
-  width: max(var(--lock-slider-thumb-size), var(--lock-slide-fill));
-  max-width: calc(100% - 0.36rem);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 22% 20%, rgb(var(--ui-glass-highlight-rgb) / 0.26), transparent 36%),
-    var(--ui-fill-secondary);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.16),
-    inset 0 -1px 0 var(--ui-shadow-soft);
-  opacity: 0.78;
-  transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease;
-  pointer-events: none;
-}
-
-.lock-card__slider-label {
-  position: absolute;
-  inset-block: 0;
-  left: calc(var(--lock-slider-thumb-size) + 0.88rem);
-  right: 2.25rem;
-  z-index: 1;
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-text-secondary);
-  pointer-events: none;
-  transition: opacity 180ms ease, transform 180ms ease;
-}
-
-.lock-card__slider-text {
-  display: block;
-  font-size: clamp(0.58rem, 4.8cqi, 0.7rem);
-  font-weight: 730;
-  letter-spacing: -0.018em;
-}
-
-.lock-card__slider-chevron {
-  position: absolute;
-  right: 0.78rem;
-  top: 50%;
-  z-index: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ui-text-disabled);
-  opacity: 0.78;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.lock-card__slider-thumb {
-  position: absolute;
-  left: 0.18rem;
-  top: 0.18rem;
-  bottom: 0.18rem;
-  z-index: 2;
-  display: inline-flex;
-  width: var(--lock-slider-thumb-size);
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 22%, rgb(var(--ui-glass-highlight-rgb) / 0.48), transparent 38%),
-    linear-gradient(145deg, rgb(var(--lock-accent-rgb) / 0.36), rgb(var(--lock-accent-rgb) / 0.18) 54%, var(--ui-fill-tertiary));
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.42),
-    inset 0 -10px 14px var(--ui-shadow-soft),
-    0 5px 13px var(--ui-shadow),
-    0 0 18px rgb(var(--lock-accent-rgb) / 0.18);
-  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 180ms ease, background 180ms ease;
-  pointer-events: none;
-}
-
-.lock-card__control[data-dragging='true'] .lock-card__slider-thumb,
-.lock-card__control[data-dragging='true'] .lock-card__slider-fill {
-  transition: none;
-}
-
-.lock-card__control[data-complete='true'] .lock-card__slider-thumb {
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.48),
-    inset 0 -10px 14px var(--ui-shadow-soft),
-    0 6px 15px var(--ui-shadow),
-    0 0 28px rgb(var(--lock-accent-rgb) / 0.24);
-}
-
-.lock-card__control[data-complete='true'] .lock-card__slider-label,
-.lock-card__control[data-complete='true'] .lock-card__slider-chevron {
-  opacity: 0.2;
-}
-
-.lock-card__slider-icon {
-  width: 1rem;
-  height: 1rem;
-  stroke-width: 2.25;
-  color: var(--ui-text-primary);
-  filter: drop-shadow(0 1px 2px var(--ui-shadow-soft));
-}
-
-.lock-card[data-lock-tone='open'] .lock-card__slider-thumb,
-.lock-card[data-lock-tone='warning'] .lock-card__slider-thumb {
-  background:
-    radial-gradient(circle at 35% 22%, rgb(var(--ui-glass-highlight-rgb) / 0.5), transparent 38%),
-    linear-gradient(145deg, rgb(var(--lock-accent-rgb) / 0.44), rgb(var(--lock-accent-rgb) / 0.22) 54%, var(--ui-fill-tertiary));
-}
-
-.lock-card__button-glow {
-  position: absolute;
-  inset: 0.18rem;
-  z-index: 0;
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 30% 12%, rgb(var(--ui-glass-highlight-rgb) / 0.18), transparent 38%),
-    var(--ui-fill-tertiary);
-  opacity: 0.9;
-  pointer-events: none;
-}
-
-.lock-card__button-content {
-  position: relative;
-  z-index: 1;
-  display: inline-flex;
-  max-width: calc(100% - 0.7rem);
-  min-width: 0;
-  align-items: center;
-  justify-content: center;
-  gap: 0.42rem;
-  color: var(--ui-text-primary);
-  pointer-events: none;
-}
-
-.lock-card__button-label {
-  min-width: 0;
-  overflow: hidden;
-  font-size: clamp(0.62rem, 5cqi, 0.74rem);
-  font-weight: 760;
-  letter-spacing: -0.018em;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.lock-card__mini-toggle {
-  grid-area: toggle;
-  display: none;
-  width: clamp(3.55rem, 52cqi, 4.35rem);
-  height: clamp(3.55rem, 52cqi, 4.35rem);
-  align-self: center;
-  justify-self: center;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 34% 22%, rgb(var(--ui-glass-highlight-rgb) / 0.28), transparent 38%),
-    var(--ui-fill-secondary);
-  color: var(--ui-text-primary);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.24),
-    inset 0 -10px 18px var(--ui-shadow-soft),
-    0 12px 26px var(--ui-shadow),
-    0 0 24px rgb(var(--lock-accent-rgb) / 0.14);
-  transition: border-color 180ms ease, box-shadow 180ms ease, transform 150ms ease, opacity 180ms ease;
-}
-
-.lock-card__mini-toggle:not(:disabled) {
-  cursor: pointer;
-}
-
-.lock-card__mini-toggle:disabled {
-  cursor: default;
-  opacity: 0.64;
-}
-
-.lock-card__mini-toggle:focus-visible {
-  outline: 2px solid rgb(var(--lock-accent-rgb) / 0.72);
-  outline-offset: 3px;
-}
-
-.lock-card__mini-toggle:not(:disabled):hover {
-  border-color: rgb(var(--lock-accent-rgb) / 0.3);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.28),
-    inset 0 -10px 18px var(--ui-shadow-soft),
-    0 14px 30px var(--ui-shadow),
-    0 0 30px rgb(var(--lock-accent-rgb) / 0.2);
-  transform: translateY(-1px);
-}
-
-.lock-card__mini-toggle:not(:disabled):active,
-.lock-card[data-lock-holding='true'] .lock-card__mini-toggle {
-  transform: scale(0.965);
-}
-
-.lock-card__mini-icon {
-  width: clamp(1.35rem, 18cqi, 1.7rem);
-  height: clamp(1.35rem, 18cqi, 1.7rem);
-  stroke-width: 2.15;
-  filter: drop-shadow(0 1px 2px var(--ui-shadow-soft));
-}
-
-.lock-card__hold-ring {
-  position: absolute;
-  inset: 0.12rem;
-  border-radius: inherit;
-  background:
-    conic-gradient(rgb(var(--lock-accent-rgb) / 0.95) calc(var(--lock-hold-progress) * 1turn), transparent 0);
-  opacity: 0;
-  transition: opacity 160ms ease;
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
-  pointer-events: none;
-}
-
-.lock-card[data-lock-holding='true'] .lock-card__mini-toggle .lock-card__hold-ring {
-  opacity: 1;
-}
-
-.lock-card[data-lock-tone='transition'] .lock-card__mini-toggle .lock-card__hold-ring {
-  opacity: 0.55;
-  animation: lock-card-orbit 1.6s linear infinite;
-}
-
-.lock-card__caption {
-  grid-area: caption;
-  display: -webkit-box;
-  overflow: hidden;
-  color: var(--ui-text-tertiary);
-  font-size: 0.61rem;
-  font-weight: 560;
-  line-height: 1.18;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.lock-card__details {
-  grid-area: details;
-  display: grid;
-  gap: 0.45rem;
-}
-
-.lock-card__details span {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: center;
-  border-bottom: 1px solid var(--ui-border);
-  padding: 0.18rem 0 0.42rem;
-}
-
-.lock-card__details small {
-  color: var(--ui-text-disabled);
-  font-size: 0.48rem;
-  font-weight: 660;
-  letter-spacing: 0.08em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.lock-card__details strong {
-  margin-top: 0.22rem;
-  color: var(--ui-text-secondary);
-  font-size: 0.6rem;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.lock-card__actions {
-  grid-area: actions;
-  display: grid;
-  min-width: 0;
-  gap: 0.45rem;
-}
-
-.lock-card__secondary-action {
-  display: inline-flex;
-  min-width: 0;
-  min-height: 2.16rem;
-  align-items: center;
-  justify-content: center;
-  gap: 0.34rem;
-  border: 1px solid var(--ui-border);
-  border-radius: 999px;
-  background: var(--ui-fill-tertiary);
-  color: var(--ui-text-secondary);
-  padding: 0.42rem 0.65rem;
-  transition:
-    background 180ms ease,
-    border-color 180ms ease,
-    transform 150ms ease,
-    opacity 180ms ease,
-    box-shadow 180ms ease;
-}
-
-.lock-card__secondary-action span {
-  font-size: 0.58rem;
-  font-weight: 690;
-}
-
-.lock-card__secondary-action:not(:disabled) {
-  cursor: pointer;
-}
-
-.lock-card__secondary-action:disabled {
-  cursor: default;
-  opacity: 0.42;
-}
-
-.lock-card__secondary-action:not(:disabled):hover {
-  border-color: rgb(var(--lock-accent-rgb) / 0.26);
-  background: rgb(var(--lock-accent-rgb) / 0.07);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.16),
-    0 10px 22px var(--ui-shadow-soft);
-  transform: translateY(-1px);
-}
-
-.lock-card__secondary-action:not(:disabled):active {
-  transform: scale(0.985);
 }
 
 .lock-card__edit-handle {
@@ -563,304 +76,546 @@
   border-radius: inherit;
 }
 
-.lock-card[data-lock-variant='mini'] .lock-card__surface {
+/* Parts */
+
+.lock-card__ring {
+  grid-area: ring;
+}
+
+.lock-card__title,
+.lock-card__hint {
+  grid-area: name;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lock-card__meta {
+  grid-area: meta;
+}
+
+.lock-card__corner-meta,
+.lock-card__chip {
+  grid-area: chip;
+}
+
+.lock-card__meta,
+.lock-card__corner-meta {
+  align-self: center;
+  justify-self: end;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lock-card__headline {
+  grid-area: headline;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--lock-tone) 70%, var(--ui-text-primary));
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color 240ms ease;
+}
+
+.lock-card__caption {
+  grid-area: caption;
+  display: -webkit-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  transition: color 200ms ease;
+}
+
+.lock-card__caption[data-highlight='true'],
+.lock-card__hint[data-highlight='true'] {
+  color: color-mix(in srgb, var(--lock-tone) 70%, var(--ui-text-primary));
+  font-weight: 600;
+}
+
+.lock-card[data-lock-stage='bridge'] [data-highlight='true'],
+.lock-card[data-lock-stage='open'] [data-highlight='true'] {
+  color: color-mix(in srgb, #0a84ff 70%, var(--ui-text-primary));
+}
+
+.lock-card [data-nudge='true'] {
+  animation: lock-ring-nudge 420ms ease-in-out;
+}
+
+/* Hidden until a composition asks for them. */
+.lock-card__hint,
+.lock-card__meta,
+.lock-card__corner-meta,
+.lock-card__chip,
+.lock-card__caption--long,
+.lock-card__details,
+.lock-card__activity {
+  display: none;
+}
+
+/* Tile, also the fallback: the ring on top, the name, state and hint below. */
+
+.lock-card__surface {
+  grid-template-areas:
+    'ring'
+    'name'
+    'headline'
+    'caption';
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas:
-    'meta'
-    'toggle';
-  gap: 0.48rem;
-  padding: 0.62rem;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
+  row-gap: 0.0625rem;
+  padding: 0.875rem;
 }
 
-.lock-card[data-lock-variant='mini'] .lock-card__title {
-  font-size: clamp(0.68rem, 8cqi, 0.82rem);
-}
-
-.lock-card[data-lock-variant='mini'] .lock-card__status {
-  font-size: clamp(0.5rem, 5.6cqi, 0.62rem);
-}
-
-.lock-card[data-lock-variant='mini'] .lock-card__caption,
-.lock-card[data-lock-variant='mini'] .lock-card__details,
-.lock-card[data-lock-variant='mini'] .lock-card__actions {
-  display: none;
-}
-
-.lock-card[data-lock-variant='mini'] .lock-card__mini-toggle {
-  display: inline-flex;
-}
-
-.lock-card[data-lock-variant='mini'] .lock-card__control {
-  display: none;
-}
-
-.lock-card[data-lock-variant='compact'] .lock-card__surface {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 1fr);
-  grid-template-areas:
-    'meta state'
-    'control control';
-  gap: 0.55rem;
-  padding: 0.75rem;
-}
-
-.lock-card[data-lock-variant='compact'] .lock-card__meta {
+.lock-card__ring {
+  --lock-ring-size: 3.625rem;
+  --lock-ring-stroke: 7;
   align-self: start;
-  justify-content: start;
 }
 
-.lock-card[data-lock-variant='compact'] .lock-card__title {
-  font-size: 0.86rem;
-  font-weight: var(--ui-card-title-weight);
-  letter-spacing: var(--ui-card-title-tracking);
-  line-height: 1.08;
-}
-
-.lock-card[data-lock-variant='compact'] .lock-card__status {
-  margin-top: 0.125rem;
-  font-size: 0.68rem;
-  font-weight: 520;
-  line-height: 1;
-}
-
-.lock-card[data-lock-variant='compact'] .lock-card__caption,
-.lock-card[data-lock-variant='compact'] .lock-card__details,
-.lock-card[data-lock-variant='compact'] .lock-card__actions {
-  display: none;
-}
-
-.lock-card[data-lock-variant='standard'] .lock-card__surface {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  grid-template-areas:
-    'meta state'
-    'caption caption'
-    'control control';
-  gap: 0.68rem;
-  padding: 0.94rem;
-}
-
-.lock-card[data-lock-variant='standard'] .lock-card__caption {
-  align-self: center;
-  max-width: 92%;
-}
-
-.lock-card[data-lock-variant='standard'] .lock-card__details,
-.lock-card[data-lock-variant='standard'] .lock-card__actions {
-  display: none;
-}
-
-.lock-card[data-lock-variant='full'] .lock-card__surface {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto;
-  grid-template-areas:
-    'meta state'
-    'caption caption'
-    'details details'
-    'control control'
-    'actions actions';
-  gap: 0.72rem;
-  padding: 1rem;
-}
-
-.lock-card[data-lock-variant='full'] .lock-card__title {
-  font-size: 0.98rem;
-}
-
-.lock-card[data-lock-variant='full'] .lock-card__status {
-  font-size: 0.64rem;
-}
-
-.lock-card[data-lock-variant='full'] .lock-card__caption {
-  align-self: center;
-  max-width: 94%;
-}
-
-.lock-card[data-lock-variant='full'] .lock-card__details {
-  grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
-}
-
-.lock-card[data-lock-variant='full'] .lock-card__actions:empty {
-  display: none;
-}
-
-@container lock-card (max-height: 82px) {
-  .lock-card[data-lock-variant='compact'] .lock-card__surface,
-  .lock-card[data-lock-variant='standard'] .lock-card__surface,
-  .lock-card[data-lock-variant='full'] .lock-card__surface {
-    grid-template-columns: minmax(0, 0.82fr) minmax(5.2rem, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-areas: 'meta control';
-    align-items: center;
-    gap: 0.72rem;
-    padding: 0.55rem 0.68rem;
-  }
-
-  .lock-card[data-lock-variant='standard'] .lock-card__caption,
-  .lock-card[data-lock-variant='standard'] .lock-card__actions,
-  .lock-card[data-lock-variant='full'] .lock-card__caption,
-  .lock-card[data-lock-variant='full'] .lock-card__details,
-  .lock-card[data-lock-variant='full'] .lock-card__actions {
-    display: none;
-  }
-
-  .lock-card[data-lock-variant='compact'] .lock-card__control,
-  .lock-card[data-lock-variant='standard'] .lock-card__control,
-  .lock-card[data-lock-variant='full'] .lock-card__control {
-    --lock-slider-thumb-size: 1.78rem;
-    min-height: 2.2rem;
-  }
-
-  .lock-card[data-lock-variant='compact'] .lock-card__slider-label,
-  .lock-card[data-lock-variant='standard'] .lock-card__slider-label,
-  .lock-card[data-lock-variant='full'] .lock-card__slider-label {
-    left: calc(var(--lock-slider-thumb-size) + 0.52rem);
-    right: 1.8rem;
-  }
-
-  .lock-card[data-lock-variant='compact'] .lock-card__slider-text,
-  .lock-card[data-lock-variant='standard'] .lock-card__slider-text,
-  .lock-card[data-lock-variant='full'] .lock-card__slider-text {
-    display: none;
-  }
-}
-
-@container lock-card (max-width: 132px) {
-  .lock-card__caption,
-  .lock-card__details,
-  .lock-card__actions {
-    display: none;
-  }
-
+@container lock-card (width <= 130px) {
   .lock-card__surface {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      'meta'
-      'toggle';
-  }
-
-  .lock-card__control {
-    display: none;
-  }
-
-  .lock-card__mini-toggle {
-    display: inline-flex;
-  }
-
-  .lock-card__mini-toggle {
-    width: clamp(3.1rem, 58cqi, 3.8rem);
-    height: clamp(3.1rem, 58cqi, 3.8rem);
-  }
-}
-
-@container lock-card (min-width: 136px) and (min-height: 112px) {
-  .lock-card[data-lock-variant='mini'] .lock-card__surface {
-    grid-template-areas:
-      'meta'
-      'control';
-  }
-
-  .lock-card[data-lock-variant='mini'] .lock-card__mini-toggle {
-    display: none;
-  }
-
-  .lock-card[data-lock-variant='mini'] .lock-card__control {
-    --lock-slider-thumb-size: 2rem;
-    display: block;
-    min-height: 2.36rem;
-    justify-self: stretch;
-  }
-
-  .lock-card[data-lock-variant='mini'] .lock-card__slider-text {
-    display: none;
-  }
-}
-
-@container lock-card (max-width: 172px) and (min-width: 136px) and (min-height: 112px) {
-  .lock-card[data-lock-variant='mini'] .lock-card__surface {
     padding: 0.75rem;
   }
 
-  .lock-card[data-lock-variant='mini'] .lock-card__control {
-    --lock-slider-thumb-size: 2rem;
-    width: 100%;
-    min-height: 2.36rem;
-    margin-inline: 0;
+  .lock-card__ring {
+    --lock-ring-size: 3.25rem;
+  }
+
+  .lock-card__title {
+    font-size: 0.75rem;
+  }
+
+  .lock-card__headline {
+    font-size: 1.0625rem;
+  }
+
+  .lock-card__caption {
+    font-size: 0.6875rem;
   }
 }
 
-@container lock-card (max-width: 220px) and (max-height: 140px) and (min-width: 133px) {
-  .lock-card__control {
-    --lock-slider-thumb-size: 2rem;
-    width: 100%;
-    min-height: 2.36rem;
-    margin-inline: 0;
-    justify-self: stretch;
+/* Row: the ring beside the name and state. The hint takes the name's place while it matters. */
+@container lock-card (height < 80px) {
+  .lock-card__shape {
+    border-radius: 1rem;
+  }
+
+  .lock-card__surface {
+    grid-template-areas:
+      'ring name'
+      'ring headline';
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: 1fr 1fr;
+    column-gap: 0.625rem;
+    row-gap: 0;
+    padding: 0.3125rem 0.75rem 0.3125rem 0.3125rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: min(2.25rem, calc(100cqb - 0.625rem));
+    --lock-ring-stroke: 8;
+    align-self: center;
+  }
+
+  .lock-card__title,
+  .lock-card__hint {
+    align-self: end;
+    font-size: 0.75rem;
+  }
+
+  .lock-card__headline {
+    align-self: start;
+    font-size: 0.9375rem;
+  }
+
+  .lock-card__caption {
+    display: none;
+  }
+
+  .lock-card[data-lock-hint='true'] .lock-card__title {
+    display: none;
+  }
+
+  .lock-card[data-lock-hint='true'] .lock-card__hint {
+    display: block;
   }
 }
 
-@container lock-card (min-width: 176px) and (min-height: 112px) {
-  .lock-card[data-lock-variant='mini'] .lock-card__slider-text {
-    display: inline;
+/* Compact: the ring with its hint, the name and state below. */
+@container lock-card (80px <= height < 150px) {
+  .lock-card__shape {
+    border-radius: 1.25rem;
+  }
+
+  .lock-card__surface {
+    grid-template-areas:
+      'ring caption'
+      'name name'
+      'headline headline';
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    column-gap: 0.625rem;
+    padding: 0.75rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: min(2.75rem, calc(100cqb - 4.25rem));
+    --lock-ring-stroke: 7;
+  }
+
+  .lock-card__caption {
+    align-self: center;
+    -webkit-line-clamp: 2;
+  }
+
+  .lock-card__title {
+    align-self: end;
+    font-size: 0.75rem;
+  }
+
+  .lock-card__headline {
+    font-size: 1.0625rem;
   }
 }
 
-@container lock-card (max-height: 132px) {
-  .lock-card[data-lock-variant='standard'] .lock-card__caption,
-  .lock-card[data-lock-variant='full'] .lock-card__caption,
-  .lock-card[data-lock-variant='full'] .lock-card__details,
-  .lock-card[data-lock-variant='full'] .lock-card__actions {
+/* Wide: name and last change, then the ring beside the state and the whole gesture. */
+@container lock-card (150px <= height < 230px) and (width >= 280px) {
+  .lock-card__shape {
+    border-radius: 1.75rem;
+  }
+
+  .lock-card__surface {
+    grid-template-areas:
+      'name name meta'
+      'ring headline headline'
+      'ring caption caption';
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 1.125rem;
+    row-gap: 0.25rem;
+    padding: 1rem;
+  }
+
+  .lock-card__title {
+    align-self: center;
+    padding-bottom: 0.5rem;
+    font-size: 0.9375rem;
+  }
+
+  .lock-card__meta {
+    display: block;
+    padding-bottom: 0.5rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: min(5.75rem, calc(100cqb - 4.25rem));
+    --lock-ring-stroke: 4;
+    align-self: center;
+  }
+
+  .lock-card__headline {
+    align-self: end;
+    font-size: 1.75rem;
+  }
+
+  .lock-card__caption--short {
+    display: none;
+  }
+
+  .lock-card__caption--long {
+    display: -webkit-box;
+    align-self: start;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
+  }
+}
+
+/* Expanded, both shapes: battery or last change in the corner, details and activity. */
+@container lock-card (height >= 230px) {
+  .lock-card__shape {
+    border-radius: 1.75rem;
+  }
+
+  .lock-card__surface {
+    padding: 1rem;
+  }
+
+  .lock-card__title {
+    align-self: center;
+    color: var(--ui-text-primary);
+    font-size: 1rem;
+  }
+
+  .lock-card__chip {
+    display: inline-flex;
+  }
+
+  .lock-card__corner-meta {
+    display: block;
+  }
+
+  .lock-card__details {
+    display: block;
+  }
+
+  .lock-card__activity {
+    display: flex;
+  }
+
+  .lock-card__ring {
+    --lock-ring-stroke: 3;
+    justify-self: center;
+  }
+
+  .lock-card__headline,
+  .lock-card__caption {
+    justify-self: center;
+    text-align: center;
+  }
+}
+
+/* Tall: the ring centred over the state, then the details and the last activity. */
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) {
+  .lock-card__surface {
+    grid-template-areas:
+      'name chip'
+      'ring ring'
+      'headline headline'
+      'caption caption'
+      'details details'
+      'activity activity';
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
+    column-gap: 0.625rem;
+    row-gap: 0.5rem;
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: clamp(4.5rem, min(48cqi, 28cqb), 7.25rem);
+    --lock-fill-reach: 1.25;
+    align-self: center;
+  }
+
+  .lock-card__headline {
+    font-size: 1.625rem;
+  }
+
+  .lock-card__caption--short {
+    display: none;
+  }
+
+  .lock-card__caption--long {
+    display: -webkit-box;
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    -webkit-line-clamp: 2;
+  }
+}
+
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) and (height < 400px) {
+  .lock-card__activity {
     display: none;
   }
 }
 
-@container lock-card (min-width: 250px) and (min-height: 188px) {
-  .lock-card[data-lock-variant='full'] .lock-card__surface {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
-    grid-template-areas:
-      'meta state'
-      'caption caption'
-      'details details'
-      'control actions';
-    gap: 0.86rem 0.92rem;
-    padding: 1.06rem;
-  }
-
-  .lock-card[data-lock-variant='full'] .lock-card__caption {
-    display: -webkit-box;
-    max-width: 84%;
-  }
-
-  .lock-card[data-lock-variant='full'] .lock-card__control {
-    align-self: end;
-  }
-
-  .lock-card[data-lock-variant='full'] .lock-card__actions {
-    align-self: end;
-    min-width: 6.2rem;
-  }
-
-  .lock-card[data-lock-variant='full'] .lock-card__details {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(3.5rem, 1fr));
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) and (height < 330px) {
+  .lock-card__details {
+    display: none;
   }
 }
 
-@keyframes lock-card-orbit {
-  to {
-    transform: rotate(360deg);
+@container lock-card (height >= 230px) and (aspect-ratio < 8 / 5) and (height < 260px) {
+  .lock-card__caption--long {
+    display: none;
   }
+}
+
+/* Panorama: the state on the left, the details and the last activity on the right. */
+@container lock-card (height >= 230px) and (aspect-ratio >= 8 / 5) {
+  .lock-card__surface {
+    grid-template-areas:
+      'name chip'
+      'ring details'
+      'headline details'
+      'caption activity';
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    column-gap: 1.375rem;
+    row-gap: 0.375rem;
+  }
+
+  .lock-card[data-lock-has-details='false'] .lock-card__surface {
+    grid-template-areas:
+      'name chip'
+      'ring activity'
+      'headline activity'
+      'caption activity';
+  }
+
+  .lock-card__ring {
+    --lock-ring-size: min(6rem, calc(100cqb - 8.5rem));
+    --lock-fill-reach: 1.7;
+    align-self: end;
+  }
+
+  .lock-card__headline {
+    font-size: 1.5rem;
+  }
+
+  .lock-card__caption--short {
+    display: block;
+    font-size: 0.8125rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .lock-card__details,
+  .lock-card__activity {
+    align-self: end;
+  }
+
+  .lock-card[data-lock-has-details='false'] .lock-card__activity {
+    align-self: center;
+  }
+}
+
+/* Expanded parts */
+
+.lock-card__chip {
+  height: 1.625rem;
+  align-items: center;
+  align-self: center;
+  justify-self: end;
+  gap: 0.3125rem;
+  padding-inline: 0.5625rem;
+  border-radius: 999px;
+  background: var(--ui-fill-tertiary);
+  color: var(--ui-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.lock-card__chip[data-tone='warning'] {
+  background: color-mix(in srgb, #e5484d 14%, transparent);
+  color: color-mix(in srgb, #e5484d 70%, var(--ui-text-primary));
+}
+
+.lock-card__details {
+  grid-area: details;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 1rem;
+  background: var(--ui-fill-tertiary);
+  list-style: none;
+}
+
+.lock-card__detail {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  padding-inline: 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.lock-card__detail + .lock-card__detail {
+  border-top: 1px solid var(--ui-border);
+}
+
+.lock-card__detail span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lock-card__detail strong {
+  flex: none;
+  color: var(--ui-text-secondary);
+  font-weight: 600;
+}
+
+.lock-card__detail[data-tone='open'] strong {
+  color: color-mix(in srgb, #d97706 70%, var(--ui-text-primary));
+}
+
+.lock-card__activity {
+  --lock-activity-tone: var(--lock-tone);
+  grid-area: activity;
+  min-width: 0;
+  align-items: center;
+  gap: 0.625rem;
+  padding-inline: 0.125rem;
+}
+
+.lock-card__activity-icon {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lock-activity-tone) 17%, transparent);
+  color: color-mix(in srgb, var(--lock-activity-tone) 70%, var(--ui-text-primary));
+}
+
+.lock-card__activity-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ui-text-primary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lock-card__activity-time {
+  flex: none;
+  color: var(--ui-text-secondary);
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lock-card__control,
-  .lock-card__slider-fill,
-  .lock-card__slider-thumb,
-  .lock-card__mini-toggle,
-  .lock-card__secondary-action,
-  .lock-card__surface {
+  .lock-card [data-nudge='true'] {
+    animation: none;
+  }
+
+  .lock-card__headline,
+  .lock-card__caption {
     transition: none;
   }
 }

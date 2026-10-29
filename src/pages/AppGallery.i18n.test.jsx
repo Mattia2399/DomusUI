@@ -1,8 +1,18 @@
 import React from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render as renderUi, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../i18n/I18nProvider';
 import { AppGallery } from './AppGallery';
+import { AccessControlProvider } from '../security/AccessControlProvider';
+import { accessFor } from '../test/accessFixtures';
+
+// Every render as an administrator would see it; Access Control is tested on its own.
+function AdminAccess({ children }) {
+  return <AccessControlProvider access={accessFor('admin')}>{children}</AccessControlProvider>;
+}
+const render = (ui, options) =>
+  renderUi(ui, { wrapper: AdminAccess, ...options });
+
 
 function renderGallery(locale, route) {
   window.localStorage.setItem(LANGUAGE_STORAGE_KEY, locale);
@@ -20,8 +30,8 @@ describe('App Gallery localization', () => {
 
   it('renders the launcher in English', () => {
     renderGallery('en', '/appgallery');
-    expect(screen.getByRole('heading', { name: 'App Library' })).toBeTruthy();
-    expect(screen.getByText('Dedicated apps and workspaces')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'App Gallery' })).toBeTruthy();
+    expect(screen.getByText('Systems')).toBeTruthy();
     expect(screen.getByText('Smart Irrigation')).toBeTruthy();
   });
 

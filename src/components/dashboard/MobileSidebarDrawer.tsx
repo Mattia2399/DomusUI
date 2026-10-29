@@ -1,45 +1,50 @@
 import React from 'react';
+import { useAccessControl } from '../../security/AccessControlProvider';
 import {
-  Bell,
-  Check,
   ChevronRight,
   ExternalLink,
-  Lightbulb,
+  LogOut,
   PencilLine,
-  Recycle,
+  Plus,
   Settings,
-  Shield,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
 import type { HaArea, HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { fallbackStateWord } from '../../i18n/entityStateFallback';
 import { useI18n } from '../../i18n/I18nProvider';
+import type { EnergyCallApi } from '../../services/energyCoreClient';
 import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import { readSecurityCenterAlarm, securityAlarmCandidates } from '../../services/securityCenterSelection';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityStateMap } from '../../types/ha';
 import { useHomeAttentionItems } from '../homeAttention/useHomeAttentionItems';
 import { haStatusLabel } from '../settings/haStatusLabel';
-import { DomusMark } from '../site/ui/Logo';
-import GlassBottomSheet from '../ui/GlassBottomSheet';
 import GlassModal from '../ui/GlassModal';
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
-  normalizeDashboardNavigationPath,
   PRIMARY_DASHBOARD_ROUTE_IDS,
   resolveDashboardNavigationEntries,
   TOOL_DASHBOARD_ROUTE_IDS,
 } from './dashboardNavigation';
 import { DashboardProfileAvatar } from './DashboardProfileAvatar';
 import {
-  SIDEBAR_QUICK_CARD_KINDS,
+  QUICK_GROUP_SURFACE,
+  SidebarQuickCard,
+  SidebarQuickCardGallery,
+  type SidebarQuickCardData,
+  type SidebarQuickTone,
+  type SidebarScene,
+} from './SidebarQuickCardView';
+import {
   availableUpdateCount,
-  formatCollectionDay,
   lightsOn,
   nextWasteCollection,
+  readEnergyNow,
   readSidebarQuickCard,
+  roomsOfLights,
   securityAttentionCount,
   writeSidebarQuickCard,
   type SidebarQuickCardKind,
@@ -53,25 +58,14 @@ const ROLE_LABEL_KEYS = {
   member: 'settings.access.role.member',
 } as const;
 
-const QUICK_KIND_LABELS = {
-  attention: 'navigation.quick.kind.attention',
-  alarm: 'navigation.quick.kind.alarm',
-  lights: 'navigation.quick.kind.lights',
-  waste: 'navigation.quick.kind.waste',
-  none: 'navigation.quick.kind.none',
-} as const;
+const GROUP_SURFACE = QUICK_GROUP_SURFACE;
 
-const QUICK_KIND_ICONS: Record<Exclude<SidebarQuickCardKind, 'none'>, LucideIcon> = {
-  attention: Bell,
-  alarm: Shield,
-  lights: Lightbulb,
-  waste: Recycle,
-};
+/** How often the energy card reads the energy core again while the menu is open. */
+const ENERGY_REFRESH_MS = 15_000;
 
 type MobileSidebarDrawerProps = {
   isOpen: boolean;
   isEditMode: boolean;
-  isEditTourActive?: boolean;
   canToggleEditMode: boolean;
   quickPaths: SidebarQuickPath[];
   selectedPathId?: string | null;
@@ -89,6 +83,12 @@ type MobileSidebarDrawerProps = {
   areas?: HaArea[];
   widgets?: Widget[];
   onCallService?: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
+  /** Reads the energy core for the "Energy now" card. */
+  energyCallApi?: EnergyCallApi;
+  /** The scenes of the Home scenes card, for the "Scenes" card. */
+  scenes?: SidebarScene[];
+  runningSceneId?: string | null;
+  onRunScene?: (sceneId: string) => void;
   onNavigate?: (path: string) => void;
   onPathClick: (entry: SidebarQuickPath) => void;
   onToggleEditMode: () => void;
@@ -103,71 +103,205 @@ type MobileSidebarDrawerProps = {
   onPrefetchEditMode?: () => void;
 };
 
-/** A section of the sidebar, as on iPad: a plain title and its rows, no frame. */
-function DrawerGroup({ title, children }: { title?: string; children: React.ReactNode }) {
+function useEnergyNow(callApi: EnergyCallApi | undefined, enabled: boolean): SidebarQuickCardData['energy'] {
+  const [energy, setEnergy] = React.useState<SidebarQuickCardData['energy']>({ status: 'loading' });
+  React.useEffect(() => {
+    if (!enabled || !callApi) return undefined;
+    let cancelled = false;
+    const load = () => {
+      readEnergyNow(callApi).then(
+        (now) => {
+          if (!cancelled) setEnergy(now ? { status: 'ok', now } : { status: 'unavailable' });
+        },
+        () => {
+          // A failed refresh keeps the last value.
+          if (!cancelled) setEnergy((current) => (current.status === 'ok' ? current : { status: 'unavailable' }));
+        },
+      );
+    };
+    load();
+    const timer = window.setInterval(load, ENERGY_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [callApi, enabled]);
+  return callApi ? energy : { status: 'unavailable' };
+}
+
+/** A section of the menu: a small title over its content. */
+function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
   const titleId = React.useId();
   return (
-    <section aria-labelledby={title ? titleId : undefined}>
-      {title ? (
-        <h2 id={titleId} className="mb-1 px-3 text-[13px] font-semibold text-[color:var(--ui-text-secondary)]">
-          {title}
-        </h2>
-      ) : null}
-      <div className="space-y-0.5">{children}</div>
+    <section aria-labelledby={titleId}>
+      <h2 id={titleId} className="mb-2 px-1.5 text-[13px] font-semibold text-[color:var(--ui-text-secondary)]">
+        {title}
+      </h2>
+      {children}
     </section>
   );
 }
 
-/** A sidebar row: a thin accent icon, its name and a count; the current page is a filled pill. */
-const DrawerRow = React.forwardRef<
+/** A home section as a glass tile, as in Control Center; the current page is tinted, not filled. */
+function DrawerTile({
+  icon: Icon,
+  label,
+  detail,
+  detailTone = 'neutral',
+  badgeCount = 0,
+  active = false,
+  onClick,
+  onPrefetch,
+}: {
+  icon: LucideIcon;
+  label: string;
+  detail?: string;
+  detailTone?: 'neutral' | 'danger';
+  badgeCount?: number;
+  active?: boolean;
+  onClick: () => void;
+  onPrefetch?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerEnter={onPrefetch}
+      onPointerDown={onPrefetch}
+      onFocus={onPrefetch}
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      className={`relative flex h-[6.5rem] min-w-0 flex-col items-start justify-between rounded-[1.5rem] px-3.5 pb-3 pt-3 text-left transition-[background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97] motion-reduce:transition-none ${
+        active
+          ? 'border border-[color:rgb(var(--ui-accent-rgb)/0.34)] bg-[color:rgb(var(--ui-accent-rgb)/0.14)] shadow-[0_10px_28px_-12px_rgb(var(--ui-accent-rgb)/0.6)]'
+          : `${GROUP_SURFACE} hover:bg-[color:var(--ui-fill-tertiary)]`
+      }`}
+    >
+      <span
+        className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${
+          active
+            ? 'bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)]'
+            : 'bg-[color:var(--ui-fill-secondary)] text-[color:var(--ui-text-primary)]'
+        }`}
+      >
+        <Icon size={19} strokeWidth={1.9} aria-hidden="true" />
+      </span>
+      {badgeCount > 0 ? (
+        <span
+          aria-hidden="true"
+          className="absolute right-3 top-3 inline-flex h-[1.375rem] min-w-[1.375rem] items-center justify-center rounded-full bg-[color:var(--ui-danger)] px-1.5 text-xs font-bold tabular-nums text-[color:var(--ui-danger-contrast)] shadow-[0_2px_8px_color-mix(in_srgb,var(--ui-danger)_40%,transparent)]"
+        >
+          {badgeCount}
+        </span>
+      ) : null}
+      <span className="flex min-w-0 max-w-full flex-col">
+        <span
+          className={`truncate text-[0.95rem] font-semibold tracking-[-0.01em] ${
+            active ? 'text-[color:var(--ui-accent)]' : 'text-[color:var(--ui-text-primary)]'
+          }`}
+        >
+          {label}
+        </span>
+        {detail ? (
+          <span
+            className={`truncate text-xs ${
+              detailTone === 'danger' ? 'font-medium text-[color:var(--ui-danger)]' : 'text-[color:var(--ui-text-secondary)]'
+            }`}
+          >
+            {detail}
+          </span>
+        ) : null}
+      </span>
+    </button>
+  );
+}
+
+/** A row of the tools group, as in Settings: a small icon, the name and a chevron. */
+function DrawerToolRow({
+  icon: Icon,
+  label,
+  active = false,
+  onClick,
+  onPrefetch,
+}: {
+  icon: LucideIcon;
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+  onPrefetch?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onPointerEnter={onPrefetch}
+      onPointerDown={onPrefetch}
+      onFocus={onPrefetch}
+      onClick={onClick}
+      aria-current={active ? 'page' : undefined}
+      className={`flex min-h-[3.25rem] w-full min-w-0 items-center gap-3 pl-2.5 pr-3 text-left transition-colors ${
+        active
+          ? 'bg-[color:rgb(var(--ui-accent-rgb)/0.12)]'
+          : 'hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]'
+      }`}
+    >
+      <span
+        className={`flex h-[1.875rem] w-[1.875rem] shrink-0 items-center justify-center rounded-[0.6rem] ${
+          active
+            ? 'bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)]'
+            : 'bg-[color:var(--ui-fill-secondary)] text-[color:var(--ui-text-primary)]'
+        }`}
+      >
+        <Icon size={17} strokeWidth={1.9} aria-hidden="true" />
+      </span>
+      <span
+        className={`min-w-0 flex-1 truncate text-[0.95rem] font-medium ${
+          active ? 'text-[color:var(--ui-accent)]' : 'text-[color:var(--ui-text-primary)]'
+        }`}
+      >
+        {label}
+      </span>
+      <ChevronRight size={16} strokeWidth={2.2} className="shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** A round action of the bottom capsule; its name is read, not shown. */
+const DrawerAction = React.forwardRef<
   HTMLButtonElement,
   {
     icon: LucideIcon;
     label: string;
     active?: boolean;
+    /** A toggle (edit mode) reads as pressed; a page reads as current. */
+    toggle?: boolean;
     disabled?: boolean;
     title?: string;
-    badge?: { count: number; label: string; tone: 'accent' | 'danger' };
+    badge?: { count: number; label: string };
     onClick: () => void;
     onPrefetch?: () => void;
-    tourTarget?: string;
   }
->(function DrawerRow({ icon: Icon, label, active = false, disabled = false, title, badge, onClick, onPrefetch, tourTarget }, ref) {
+>(function DrawerAction({ icon: Icon, label, active = false, toggle = false, disabled = false, title, badge, onClick, onPrefetch }, ref) {
   return (
     <button
       ref={ref}
       type="button"
-      data-tour-target={tourTarget}
       onPointerEnter={onPrefetch}
       onPointerDown={onPrefetch}
       onFocus={onPrefetch}
       onClick={onClick}
       disabled={disabled}
-      title={title}
-      aria-current={active ? 'page' : undefined}
-      className={`flex min-h-11 w-full min-w-0 items-center gap-3 rounded-full px-3.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45 ${
+      title={title ?? label}
+      aria-pressed={toggle ? active : undefined}
+      aria-current={!toggle && active ? 'page' : undefined}
+      className={`relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         active
-          ? 'bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)] shadow-[0_8px_22px_-10px_rgb(var(--ui-accent-rgb)/0.7)]'
+          ? 'bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)]'
           : 'text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]'
       }`}
     >
-      <Icon
-        size={20}
-        strokeWidth={1.8}
-        className={`shrink-0 ${active ? 'text-[color:var(--ui-accent-contrast)]' : 'text-[color:var(--ui-text-secondary)]'}`}
-        aria-hidden="true"
-      />
-      <span className={`min-w-0 flex-1 truncate text-[0.95rem] ${active ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+      <Icon size={21} strokeWidth={1.8} aria-hidden="true" />
+      <span className="sr-only">{label}</span>
       {badge && badge.count > 0 ? (
-        <span
-          className={`inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${
-            active
-              ? 'bg-white/25 text-[color:var(--ui-accent-contrast)]'
-              : badge.tone === 'danger'
-                ? 'bg-[color:var(--ui-danger)] text-[color:var(--ui-danger-contrast)]'
-                : 'bg-[color:rgb(var(--ui-accent-rgb)/0.16)] text-[color:var(--ui-accent)]'
-          }`}
-        >
+        <span className="absolute right-0.5 top-1 inline-flex h-[1.15rem] min-w-[1.15rem] items-center justify-center rounded-full bg-[color:var(--ui-danger)] px-1 text-[10px] font-bold tabular-nums text-[color:var(--ui-danger-contrast)] ring-2 ring-[color:var(--ui-bg-elevated)]">
           <span aria-hidden="true">{badge.count}</span>
           <span className="sr-only">{badge.label}</span>
         </span>
@@ -179,7 +313,6 @@ const DrawerRow = React.forwardRef<
 export function MobileSidebarDrawer({
   isOpen,
   isEditMode,
-  isEditTourActive = false,
   canToggleEditMode,
   quickPaths,
   selectedPathId = null,
@@ -197,6 +330,10 @@ export function MobileSidebarDrawer({
   areas = [],
   widgets = [],
   onCallService,
+  energyCallApi,
+  scenes = [],
+  runningSceneId = null,
+  onRunScene,
   onNavigate,
   onPathClick,
   onToggleEditMode,
@@ -212,10 +349,8 @@ export function MobileSidebarDrawer({
 }: MobileSidebarDrawerProps) {
   const { locale, t } = useI18n();
   const drawerRef = React.useRef<HTMLElement | null>(null);
-  const editButtonRef = React.useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = React.useRef<HTMLElement | null>(null);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = React.useState(false);
-  const [isLightsConfirmOpen, setIsLightsConfirmOpen] = React.useState(false);
   const [isQuickChooserOpen, setIsQuickChooserOpen] = React.useState(false);
   const [quickKind, setQuickKind] = React.useState<SidebarQuickCardKind>(() => readSidebarQuickCard());
   const connected = haStatus === 'connected';
@@ -229,22 +364,40 @@ export function MobileSidebarDrawer({
     widgets,
     enabled: isOpen,
   });
-  const routeGroups = [
-    { id: 'home', label: t('navigation.section.home'), entries: resolveDashboardNavigationEntries(quickPaths, PRIMARY_DASHBOARD_ROUTE_IDS, t) },
-    { id: 'tools', label: t('navigation.section.tools'), entries: resolveDashboardNavigationEntries(quickPaths, TOOL_DASHBOARD_ROUTE_IDS, t) },
-  ];
+  const { can } = useAccessControl();
+  const homeEntries = resolveDashboardNavigationEntries(quickPaths, PRIMARY_DASHBOARD_ROUTE_IDS, t, can);
+  const toolEntries = resolveDashboardNavigationEntries(quickPaths, TOOL_DASHBOARD_ROUTE_IDS, t, can);
   const displayUserName = userAvatarAlt?.trim() || t('profile.fallback.name');
   const accountLine = [
     userRole ? t(ROLE_LABEL_KEYS[userRole]) : userEmail?.trim(),
-    `Home Assistant ${haStatusLabel(haStatus, t).toLocaleLowerCase()}`,
+    `HA ${haStatusLabel(haStatus, t).toLocaleLowerCase()}`,
   ]
     .filter(Boolean)
     .join(' · ');
-  // Edit mode only where a page can be edited (or while it is on, or the tour shows it).
-  const showEditMode = canToggleEditMode || isEditMode || isEditTourActive;
+  // Edit mode only where a page can be edited (or while it is on).
+  const showEditMode = canToggleEditMode || isEditMode;
   const updateCount = isOpen ? availableUpdateCount(states) : 0;
   const securityCount = securityAttentionCount(attentionItems);
   const litLights = isOpen ? lightsOn(states) : [];
+
+  const tileDetails: Record<(typeof PRIMARY_DASHBOARD_ROUTE_IDS)[number], { detail: string; tone?: 'danger'; badge?: number }> = {
+    home: { detail: t('navigation.tile.dashboard') },
+    rooms: {
+      detail: areas.length === 0
+        ? t('navigation.tile.roomsNone')
+        : areas.length === 1
+          ? t('navigation.tile.roomsOne')
+          : t('navigation.tile.roomsMany', { count: areas.length }),
+    },
+    security: securityCount === 0
+      ? { detail: t('navigation.tile.securityClear') }
+      : {
+          detail: securityCount === 1 ? t('navigation.tile.securityOne') : t('navigation.tile.securityMany', { count: securityCount }),
+          tone: 'danger',
+          badge: securityCount,
+        },
+    consumi: { detail: t('navigation.tile.consumption') },
+  };
 
   const navigate = (path: string) => {
     onNavigate?.(path);
@@ -285,35 +438,30 @@ export function MobileSidebarDrawer({
     setIsQuickChooserOpen(false);
   };
   const turnOffLights = () => {
-    setIsLightsConfirmOpen(false);
     if (litLights.length > 0) void onCallService?.('light', 'turn_off', { entity_id: litLights });
   };
 
   React.useEffect(() => {
     if (!isOpen) {
       setIsLogoutConfirmOpen(false);
-      setIsLightsConfirmOpen(false);
       setIsQuickChooserOpen(false);
     }
   }, [isOpen]);
 
-  React.useEffect(() => {
-    if (!isOpen || !isEditTourActive) return undefined;
-    const timer = window.setTimeout(() => {
-      editButtonRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
-    }, 220);
-    return () => window.clearTimeout(timer);
-  }, [isEditTourActive, isOpen]);
-
-  const overlayOpen = isLogoutConfirmOpen || isLightsConfirmOpen || isQuickChooserOpen;
+  const overlayOpen = isLogoutConfirmOpen || isQuickChooserOpen;
   React.useEffect(() => {
     if (!isOpen) {
       return;
     }
     previousFocusRef.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // The current page takes the focus, else the first control.
     const focusTimer = window.setTimeout(() => {
-      drawerRef.current?.querySelector<HTMLElement>('button:not([disabled]), a[href]')?.focus();
+      const drawer = drawerRef.current;
+      (
+        drawer?.querySelector<HTMLElement>('nav [aria-current="page"]') ??
+        drawer?.querySelector<HTMLElement>('button:not([disabled]), a[href]')
+      )?.focus();
     }, 0);
 
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -360,114 +508,49 @@ export function MobileSidebarDrawer({
     };
   }, [isOpen, onClose, overlayOpen]);
 
-  const renderQuickCard = () => {
-    if (quickKind === 'none') {
-      return (
-        <button
-          type="button"
-          onClick={() => setIsQuickChooserOpen(true)}
-          className="inline-flex min-h-10 w-full items-center justify-center rounded-full text-xs font-semibold text-[color:var(--ui-accent)] hover:bg-[color:var(--ui-fill-tertiary)]"
-        >
-          {t('navigation.quick.add')}
-        </button>
-      );
-    }
-
-    let title: string;
-    let detail: string;
-    let action: { label: string; onClick: () => void } | null = null;
-    if (quickKind === 'attention') {
-      const count = attentionItems.length;
-      title = count === 0
-        ? t('navigation.quick.attentionClear')
-        : count === 1
-          ? t('navigation.quick.attentionOne')
-          : t('navigation.quick.attentionMany', { count });
-      detail = count === 0 ? t('navigation.quick.attentionClearHint') : attentionItems[0].title;
-      if (count > 0) action = { label: t('navigation.quick.open'), onClick: () => navigate('/home') };
-    } else if (quickKind === 'alarm') {
-      const alarms = securityAlarmCandidates(states, locale);
-      const stored = readSecurityCenterAlarm();
-      const alarmId = stored && alarms.includes(stored) ? stored : alarms[0];
-      const alarm = alarmId ? states[alarmId] : undefined;
-      if (!alarmId || !alarm) {
-        title = t('navigation.quick.alarmNone');
-        detail = t('navigation.quick.alarmNoneHint');
-      } else {
-        const state = `${alarm.state ?? ''}`;
-        title = fallbackStateWord(locale, 'alarm_control_panel', state) ?? state.replace(/_/g, ' ');
-        const name = alarm.rawAttributes?.friendly_name;
-        detail = typeof name === 'string' && name.trim() ? name.trim() : alarmId;
-        action = { label: t('navigation.quick.open'), onClick: () => navigate('/security') };
-      }
-    } else if (quickKind === 'lights') {
-      const count = litLights.length;
-      title = count === 0
-        ? t('navigation.quick.lightsOff')
-        : count === 1
-          ? t('navigation.quick.lightsOne')
-          : t('navigation.quick.lightsMany', { count });
-      detail = count === 0
-        ? t('navigation.quick.lightsOffHint')
-        : litLights
-            .slice(0, 2)
-            .map((id) => {
-              const name = states[id]?.rawAttributes?.friendly_name;
-              return typeof name === 'string' && name.trim() ? name.trim() : id;
-            })
-            .join(', ') + (count > 2 ? '…' : '');
-      if (count > 0 && onCallService) {
-        action = { label: t('navigation.quick.lightsTurnOff'), onClick: () => setIsLightsConfirmOpen(true) };
-      }
-    } else {
-      const next = nextWasteCollection(states);
-      if (next === undefined) {
-        title = t('navigation.quick.kind.waste');
-        detail = t('navigation.quick.wasteNotConfigured');
-        action = { label: t('navigation.quick.open'), onClick: () => navigate('/settings/home/waste-collection') };
-      } else if (next === null) {
-        title = t('navigation.quick.wasteNone');
-        detail = t('navigation.quick.kind.waste');
-      } else {
-        title = next.summary;
-        const day = formatCollectionDay(next.start, locale);
-        detail = `${t('navigation.quick.wasteNext')} · ${day.charAt(0).toUpperCase()}${day.slice(1)}`;
-      }
-    }
-    const KindIcon = QUICK_KIND_ICONS[quickKind];
-
-    return (
-      <section
-        aria-label={t(QUICK_KIND_LABELS[quickKind])}
-        className="rounded-[1.4rem] border border-[color:rgb(var(--ui-accent-rgb)/0.22)] bg-[color:rgb(var(--ui-accent-rgb)/0.1)] p-3.5"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--ui-accent)]">
-            <KindIcon size={13} aria-hidden="true" />
-            <span className="truncate">{t(QUICK_KIND_LABELS[quickKind])}</span>
-          </span>
-          <button
-            type="button"
-            onClick={() => setIsQuickChooserOpen(true)}
-            aria-label={t('navigation.quick.changeAria')}
-            className="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-tertiary)]"
-          >
-            {t('navigation.quick.change')}
-          </button>
-        </div>
-        <p className="mt-2 text-base font-semibold leading-tight tracking-[-0.01em] text-[color:var(--ui-text-primary)]">{title}</p>
-        <p className="mt-1 line-clamp-2 text-xs leading-5 text-[color:var(--ui-text-secondary)]">{detail}</p>
-        {action ? (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="mt-3 inline-flex min-h-9 items-center justify-center rounded-full bg-[color:var(--ui-accent)] px-4 text-xs font-semibold text-[color:var(--ui-accent-contrast)] hover:opacity-90"
-          >
-            {action.label}
-          </button>
-        ) : null}
-      </section>
-    );
+  const energy = useEnergyNow(
+    runtimeMode === 'real' && connected ? energyCallApi : undefined,
+    isOpen && (quickKind === 'energy' || isQuickChooserOpen),
+  );
+  const alarm = (() => {
+    const alarms = securityAlarmCandidates(states, locale);
+    const stored = readSecurityCenterAlarm();
+    const alarmId = stored && alarms.includes(stored) ? stored : alarms[0];
+    const entity = alarmId ? states[alarmId] : undefined;
+    if (!alarmId || !entity) return null;
+    const state = `${entity.state ?? ''}`;
+    const name = entity.rawAttributes?.friendly_name;
+    const tone: SidebarQuickTone = state === 'triggered'
+      ? 'danger'
+      : state === 'pending' || state === 'arming'
+        ? 'warning'
+        : state.startsWith('armed')
+          ? 'accent'
+          : state === 'disarmed'
+            ? 'success'
+            : 'neutral';
+    return {
+      word: fallbackStateWord(locale, 'alarm_control_panel', state) ?? state.replace(/_/g, ' '),
+      name: typeof name === 'string' && name.trim() ? name.trim() : alarmId,
+      tone,
+    };
+  })();
+  const quickCardData: SidebarQuickCardData = {
+    attentionItems,
+    alarm,
+    lights: {
+      ids: litLights,
+      names: litLights.map((id) => {
+        const name = states[id]?.rawAttributes?.friendly_name;
+        return typeof name === 'string' && name.trim() ? name.trim() : id;
+      }),
+      rooms: roomsOfLights(litLights, entityRegistry, deviceRegistry, areas),
+    },
+    canTurnOffLights: Boolean(onCallService),
+    waste: isOpen ? nextWasteCollection(states) : undefined,
+    energy,
+    scenes,
+    runningSceneId,
   };
 
   return (
@@ -478,8 +561,8 @@ export function MobileSidebarDrawer({
         tabIndex={isOpen ? 0 : -1}
         aria-hidden={!isOpen}
         aria-label={t('navigation.menu.close')}
-        className={`fixed inset-0 z-[176] bg-[color:var(--ui-scrim)] backdrop-blur-md transition-opacity duration-200 md:hidden ${
-          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        className={`fixed inset-0 z-[176] bg-[rgb(8_10_16/0.3)] transition-[opacity,backdrop-filter] duration-[420ms] ease-out motion-reduce:transition-none md:hidden ${
+          isOpen ? 'opacity-100 backdrop-blur-[6px]' : 'pointer-events-none opacity-0 backdrop-blur-0'
         }`}
       />
 
@@ -490,62 +573,124 @@ export function MobileSidebarDrawer({
         aria-label={t('navigation.menu.main')}
         tabIndex={-1}
         inert={!isOpen}
-        className={`liquid-glass-panel fixed left-0 top-0 z-[181] flex h-[100dvh] w-[min(86vw,22rem)] max-w-[22rem] flex-col overflow-hidden rounded-none border-y-0 border-l-0 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-[calc(env(safe-area-inset-top)+1.1rem)] text-[color:var(--ui-text-primary)] shadow-[24px_0_70px_var(--ui-glass-shadow)] transition-transform duration-250 ease-out motion-reduce:transition-none md:hidden ${
-          isOpen ? 'translate-x-0' : '-translate-x-[105%]'
+        className={`liquid-glass-panel fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[181] flex w-[min(calc(100vw-4.5rem),20rem)] flex-col overflow-hidden text-[color:var(--ui-text-primary)] transition-transform duration-[560ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none md:hidden ${
+          isOpen ? 'translate-x-0' : 'translate-x-[calc(-100%-1.5rem)]'
         }`}
         aria-hidden={!isOpen}
       >
-        <div className="flex items-center gap-2.5 px-2">
-          <DomusMark className="h-9 w-9 shrink-0" />
-          <span className="text-lg font-semibold tracking-[-0.02em] text-[color:var(--ui-text-primary)]">Domus</span>
+        <div className="flex items-center gap-2 px-4 pb-1 pt-4">
+          <button
+            type="button"
+            onPointerEnter={() => onPrefetchRoute?.('/profile')}
+            onPointerDown={() => onPrefetchRoute?.('/profile')}
+            onFocus={() => onPrefetchRoute?.('/profile')}
+            onClick={handleOpenProfile}
+            aria-label={t('navigation.profile.open')}
+            className="-m-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-[1.4rem] p-1.5 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
+          >
+            <span className="relative flex h-11 w-11 shrink-0">
+              <DashboardProfileAvatar userAvatarUrl={userAvatarUrl} userName={displayUserName} haStatus={haStatus} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[1.0625rem] font-semibold tracking-[-0.015em] text-[color:var(--ui-text-primary)]">{displayUserName}</span>
+              <span className="block truncate text-[13px] text-[color:var(--ui-text-secondary)]">{accountLine}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('navigation.menu.close')}
+            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-secondary)] transition-colors hover:text-[color:var(--ui-text-primary)] ${GROUP_SURFACE}`}
+          >
+            <X size={17} strokeWidth={2.2} aria-hidden="true" />
+          </button>
         </div>
 
         <nav
           aria-label={t('navigation.menu.main')}
-          className="mt-5 min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain pb-3 glass-scrollbar"
+          className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 pb-4 pt-4 glass-scrollbar"
         >
-          {routeGroups.map((group) => (
-            <DrawerGroup key={group.id} title={group.label}>
-              {group.entries.map((entry) => {
-                const isSecurity = normalizeDashboardNavigationPath(entry.path) === '/security';
+          <DrawerSection title={t('navigation.section.home')}>
+            <div className="grid grid-cols-2 gap-2.5">
+              {homeEntries.map((entry, index) => {
+                const routeDetail = tileDetails[PRIMARY_DASHBOARD_ROUTE_IDS[index]];
                 return (
-                  <DrawerRow
+                  <DrawerTile
                     key={entry.id}
                     icon={getDashboardNavigationIcon(entry.icon)}
                     label={entry.label}
+                    detail={routeDetail?.detail}
+                    detailTone={routeDetail?.tone}
+                    badgeCount={routeDetail?.badge}
                     active={isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute })}
-                    badge={isSecurity ? { count: securityCount, label: t('navigation.badge.security', { count: securityCount }), tone: 'danger' } : undefined}
                     onPrefetch={() => onPrefetchRoute?.(entry.path)}
                     onClick={() => handlePathClick(entry)}
                   />
                 );
               })}
-            </DrawerGroup>
-          ))}
+            </div>
+          </DrawerSection>
 
-          <DrawerGroup>
-            <DrawerRow
+          <DrawerSection title={t('navigation.section.tools')}>
+            <div className={`divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.25rem] ${GROUP_SURFACE}`}>
+              {toolEntries.map((entry) => (
+                <DrawerToolRow
+                  key={entry.id}
+                  icon={getDashboardNavigationIcon(entry.icon)}
+                  label={entry.label}
+                  active={isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute })}
+                  onPrefetch={() => onPrefetchRoute?.(entry.path)}
+                  onClick={() => handlePathClick(entry)}
+                />
+              ))}
+            </div>
+          </DrawerSection>
+        </nav>
+
+        <div className="space-y-2.5 border-t border-[color:var(--ui-separator)] px-4 pb-4 pt-3">
+          {quickKind === 'none' ? (
+            <button
+              type="button"
+              onClick={() => setIsQuickChooserOpen(true)}
+              className="inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-[1.4rem] border-[1.5px] border-dashed border-[color:var(--ui-border-strong)] text-[0.95rem] font-semibold text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
+            >
+              <Plus size={16} strokeWidth={2.2} aria-hidden="true" />
+              {t('navigation.quick.add')}
+            </button>
+          ) : (
+            <SidebarQuickCard
+              kind={quickKind}
+              data={quickCardData}
+              onChange={() => setIsQuickChooserOpen(true)}
+              onOpen={navigate}
+              onTurnOffLights={turnOffLights}
+              onRunScene={onRunScene}
+            />
+          )}
+
+        <div className="flex items-center gap-2.5">
+          <div className={`flex h-[3.75rem] min-w-0 flex-1 items-center justify-around rounded-full px-1.5 ${GROUP_SURFACE}`}>
+            <DrawerAction
               icon={Settings}
               label={t('navigation.settings')}
               active={isSettingsActive}
-              badge={{ count: updateCount, label: t('navigation.badge.updates', { count: updateCount }), tone: 'accent' }}
+              badge={{ count: updateCount, label: t('navigation.badge.updates', { count: updateCount }) }}
               onPrefetch={() => onPrefetchRoute?.('/settings')}
               onClick={handleOpenSettings}
             />
             {showEditMode ? (
-              <DrawerRow
-                ref={editButtonRef}
-                tourTarget="edit-mode"
+              <DrawerAction
                 icon={PencilLine}
                 label={isEditMode ? t('navigation.edit.exit') : t('navigation.edit.enter')}
                 active={isEditMode}
+                toggle
                 disabled={!canToggleEditMode}
                 onPrefetch={onPrefetchEditMode}
                 onClick={handleToggleEditMode}
               />
             ) : null}
             {showHomeAssistantReturn ? (
-              <DrawerRow
+              <DrawerAction
                 icon={ExternalLink}
                 label={t('navigation.homeAssistant.return')}
                 disabled={!canReturnToHomeAssistant}
@@ -553,92 +698,26 @@ export function MobileSidebarDrawer({
                 onClick={handleReturnToHomeAssistant}
               />
             ) : null}
-          </DrawerGroup>
-        </nav>
-
-        <div className="space-y-2 border-t border-[color:var(--ui-separator)] pt-3">
-          {renderQuickCard()}
-
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onPointerEnter={() => onPrefetchRoute?.('/profile')}
-              onPointerDown={() => onPrefetchRoute?.('/profile')}
-              onFocus={() => onPrefetchRoute?.('/profile')}
-              onClick={handleOpenProfile}
-              aria-label={t('navigation.profile.open')}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-full py-1.5 pl-1.5 pr-2 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
-            >
-              <span className="relative flex h-10 w-10 shrink-0">
-                <DashboardProfileAvatar userAvatarUrl={userAvatarUrl} userName={displayUserName} haStatus={haStatus} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{displayUserName}</span>
-                <span className="block truncate text-[11px] text-[color:var(--ui-text-secondary)]">{accountLine}</span>
-              </span>
-              <ChevronRight size={16} className="shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
-            </button>
           </div>
-
           <button
             type="button"
             onClick={() => setIsLogoutConfirmOpen(true)}
-            className="inline-flex min-h-10 w-full items-center justify-center rounded-full text-sm font-semibold text-[color:var(--ui-danger)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
+            title={t('navigation.logout.confirm')}
+            className={`inline-flex h-[3.75rem] w-[3.75rem] shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] text-[color:var(--ui-danger)] transition-colors bg-[color:color-mix(in_srgb,var(--ui-danger)_12%,transparent)] hover:bg-[color:color-mix(in_srgb,var(--ui-danger)_20%,transparent)]`}
           >
-            {t('navigation.logout.confirm')}
+            <LogOut size={21} strokeWidth={1.9} aria-hidden="true" />
+            <span className="sr-only">{t('navigation.logout.confirm')}</span>
           </button>
+        </div>
         </div>
       </aside>
 
-      <GlassBottomSheet
+      <SidebarQuickCardGallery
         isOpen={isOpen && isQuickChooserOpen}
+        kind={quickKind}
+        data={quickCardData}
+        onPick={chooseQuickKind}
         onClose={() => setIsQuickChooserOpen(false)}
-        title={t('navigation.quick.chooseTitle')}
-        description={t('navigation.quick.chooseHint')}
-        zIndex={330}
-      >
-        <div className="divide-y divide-[color:var(--ui-separator)] overflow-hidden rounded-[1.2rem] border border-[color:var(--ui-border)]">
-          {SIDEBAR_QUICK_CARD_KINDS.map((kind) => (
-            <button
-              key={kind}
-              type="button"
-              onClick={() => chooseQuickKind(kind)}
-              aria-pressed={kind === quickKind}
-              className="flex min-h-[3.25rem] w-full items-center gap-3 px-4 text-left text-sm font-semibold text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]"
-            >
-              <span className="min-w-0 flex-1 truncate">{t(QUICK_KIND_LABELS[kind])}</span>
-              {kind === quickKind ? <Check size={17} className="shrink-0 text-[color:var(--ui-accent)]" aria-hidden="true" /> : null}
-            </button>
-          ))}
-        </div>
-      </GlassBottomSheet>
-
-      <GlassModal
-        isOpen={isOpen && isLightsConfirmOpen}
-        onClose={() => setIsLightsConfirmOpen(false)}
-        title={t('navigation.quick.lightsConfirmTitle')}
-        description={t('navigation.quick.lightsConfirmBody')}
-        variant="dialog"
-        size="sm"
-        zIndex={330}
-        footer={(
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              className="liquid-glass-control inline-flex min-h-10 items-center justify-center rounded-full px-4 text-sm font-semibold"
-              onClick={() => setIsLightsConfirmOpen(false)}
-            >
-              {t('navigation.logout.cancel')}
-            </button>
-            <button
-              type="button"
-              className="inline-flex min-h-10 items-center justify-center rounded-full bg-[color:var(--ui-accent)] px-4 text-sm font-semibold text-[color:var(--ui-accent-contrast)]"
-              onClick={turnOffLights}
-            >
-              {t('navigation.quick.lightsConfirm')}
-            </button>
-          </div>
-        )}
       />
 
       <GlassModal

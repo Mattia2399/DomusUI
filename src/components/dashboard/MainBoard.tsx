@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { ActiveDevice, SensorConnectionState } from '../settings/types';
+import type { LockActivityEntry, LockActivityKind } from '../settings/lockPanelTypes';
 import { useLocation, useNavigate } from 'react-router';
 import { useDashboardState } from '../../hooks/useDashboardState';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
@@ -9,7 +10,6 @@ import GlassModal from '../ui/GlassModal';
 import { LeftSidebar } from './LeftSidebar';
 import { BottomBarNav } from './BottomBarNav';
 import { XsNotificationBell } from './XsNotificationBell';
-import { XsProfileChip } from './XsProfileChip';
 import { MobileSidebarDrawer } from './MobileSidebarDrawer';
 import { DashboardSidebarPlaceholder } from './DashboardSidebarPlaceholder';
 import {
@@ -76,12 +76,15 @@ import {
   toTimestampMs,
   toTrimmedString,
 } from './mainboard/mainBoardValueUtils';
+import { AmbientBackground, AmbientProvider } from '../../theme/ambient/AmbientProvider';
 import {
   useLightSwitchPendingController,
 } from './mainboard/useLightSwitchPendingController';
 import { useLightSwitchCommands } from './mainboard/useLightSwitchCommands';
 import { useFanCommands, enrichFanPending } from './mainboard/useFanCommands';
 import { createFanStateMocks } from '../widgets/fanMock';
+import { getSceneIconNode, SCENES_CATALOG } from '../widgets/ScenesCard';
+import { PUSH_PAGE_ATTRIBUTE, routeDepth, usePagePushTransition } from '../ui/usePagePushTransition';
 import { resolveFanModel, type FanPending } from '../widgets/fanModel';
 import { useHumidifierCommands, enrichHumidifierPending } from './mainboard/useHumidifierCommands';
 import { createHumidifierStateMocks } from '../widgets/humidifierMock';
@@ -143,7 +146,7 @@ import {
   type DashboardViewportPreviewMode,
 } from './dashboardViewport';
 import { hasFavoriteGridProjection, resolveFavoriteGridTargetSectionId } from './favoriteGridPlacement';
-import { FlaskConical, LayoutDashboard, Lightbulb, Menu, MousePointerClick, PanelRightOpen, PencilRuler, Plus, Settings2, X } from 'lucide-react';
+import { FlaskConical, LayoutDashboard, Menu, Plus, X } from 'lucide-react';
 import {
   normalizeWidgetTypeLayoutOverrides,
   resolveWidgetTypeLayoutSpan,
@@ -162,7 +165,6 @@ import { useNotifications } from '../../context/NotificationProvider';
 import type {
   ProfileMovementMapPoint,
   ProfileMovementTimelineEntry,
-  ProfileSectionId,
 } from '../settings/profileModels';
 import type { SettingsManagementSectionId } from '../settings/settingsManagementRegistry';
 import {
@@ -171,7 +173,6 @@ import {
   type PersonEdit,
   type ProfileHouseMember,
 } from '../settings/settingsHouseAccessModel';
-import type { GuidedSetupStep } from '../settings/GuidedSetupOverlay';
 import {
   FAVORITES_GRID_TITLE,
   GREETING_SECTION_ROWS,
@@ -221,7 +222,9 @@ import {
 } from '../../hooks/useConsumptionConfig';
 import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfileSettings';
 import { resolveApplicationRoutePath } from '../../navigation/applicationRoutes';
+import { isProfileSettingsRoute, resolveLegacySettingsRoute } from '../../navigation/settingsRoutes';
 import { loadHaStateTranslations } from '../../services/haStateTranslations';
+import { readSetupStart, shouldAskHomeStart } from '../../services/setupJourney';
 import { useHaLiveConnection, type HaArea } from '../../hooks/useHaLiveConnection';
 import { useHaPanelBridgeConnection } from '../../hooks/useHaPanelBridgeConnection';
 import { useHaIdentityRevalidation } from '../../hooks/useHaIdentityRevalidation';
@@ -321,6 +324,17 @@ import {
   isDashboardRestartService,
   type DashboardRuntimeMode,
 } from '../../security/dashboardAccess';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import { useAccessProfile } from '../../hooks/useAccessProfile';
+import { filterNavigation, resolveRouteAccessState } from '../../navigation/routeAccess';
+import { AccessLockedBanner, AccessNotice } from '../access/AccessScreens';
+import { useAccessCopy } from '../../i18n/accessCopy';
+
+/** Connection states after which Domus has no account until Home Assistant answers again. */
+const HA_DEFINITELY_OFFLINE_STATUSES: ReadonlySet<string> = new Set(['offline', 'reauth_required', 'error', 'disconnected_by_user']);
+const HA_DISCONNECTION_SETTLE_MS = 1500;
+import type { AccessCapability } from '../../security/accessControl';
+import { entityServiceAllowed } from '../../security/entityControlAccess';
 import {
   SensitiveActionGateProvider,
 } from '../../security/SensitiveActionGate';
@@ -413,6 +427,9 @@ import {
   translateCoverState,
 } from '../../utils/coverUtils';
 import { translateMediaPlayerState } from '../../utils/mediaPlayerState';
+import { DomusScreensaver } from '../screensaver/DomusScreensaver';
+import { DomusKiosk, useKioskChrome } from '../kiosk/DomusKiosk';
+import { KIOSK_START_ROUTES } from '../kiosk/kioskPreferences';
 import {
   createOAuthNonce,
   isAppGalleryNavigationTarget,
@@ -423,7 +440,6 @@ import {
   isHomeNavigationTarget,
   isNestedDashboardNavigationTarget,
   isNavigationPathnameAllowed,
-  isProfileNavigationTarget,
   isRoomsNavigationTarget,
   isSecurityCamerasNavigationTarget,
   isSecurityNavigationTarget,
@@ -434,7 +450,6 @@ import {
   resolveConsumptionDetailFromLocation,
   resolveConsumptionFromLocation,
   resolveEditAvailabilityFromLocation,
-  resolveProfileFromLocation,
   resolveRoomsFromLocation,
   resolveSecurityCamerasFromLocation,
   resolveSecurityFromLocation,
@@ -445,7 +460,7 @@ import {
 const loadConsumptionDashboard = () => import('../../pages/Consumi');
 const loadAutomationsBuilder = () => import('../../pages/AutomationsBuilder');
 const loadAppGallery = () => import('../../pages/AppGallery');
-const loadRoomsDashboard = () => import('../../pages/RoomsDashboard');
+const loadRoomsDashboard = () => import('../../pages/rooms/RoomsPage');
 const loadSecurityDashboard = () => import('../../pages/SecurityDashboard');
 const loadSettingsDashboard = () => import('../../pages/SettingsDashboard');
 const loadRightSidebarManager = () =>
@@ -457,7 +472,7 @@ const loadSettingsManagementPanel = () =>
   import('../settings/SettingsManagementPanel').then((module) => ({
     default: module.SettingsManagementPanel,
   }));
-const loadGuidedSetupOverlay = () => import('../settings/GuidedSetupOverlay');
+const loadFirstRunGuide = () => import('../onboarding/FirstRunGuide');
 const loadStarterLayoutChoiceModal = () => import('../onboarding/StarterLayoutChoiceModal');
 const loadSecurityAuthModal = () => import('../security/SecurityAuthModal');
 const loadDashboardRecoveryModal = () => import('./DashboardRecoveryModal');
@@ -472,7 +487,7 @@ const SettingsDashboard = React.lazy(loadSettingsDashboard);
 const RightSidebarManager = React.lazy(loadRightSidebarManager);
 const ModernProfilePage = React.lazy(loadModernProfilePage);
 const SettingsManagementPanel = React.lazy(loadSettingsManagementPanel);
-const GuidedSetupOverlay = React.lazy(loadGuidedSetupOverlay);
+const FirstRunGuide = React.lazy(loadFirstRunGuide);
 const StarterLayoutChoiceModal = React.lazy(loadStarterLayoutChoiceModal);
 const SecurityAuthModal = React.lazy(loadSecurityAuthModal);
 const DashboardRecoveryModal = React.lazy(loadDashboardRecoveryModal);
@@ -488,9 +503,10 @@ function prefetchDashboardWorkspace(path: string) {
   if (normalizedPath.startsWith('/consumi')) return void loadConsumptionDashboard();
   if (normalizedPath.startsWith('/automations')) return void loadAutomationsBuilder();
   if (normalizedPath.startsWith('/appgallery')) return void loadAppGallery();
+  if (normalizedPath.startsWith('/settings/profile')) return void loadModernProfilePage();
   if (normalizedPath.startsWith('/settings')) return void loadSettingsDashboard();
   if (normalizedPath === '/support') return void loadSettingsDashboard();
-  if (normalizedPath.startsWith('/profile')) return void loadModernProfilePage();
+  if (normalizedPath.startsWith('/profile')) return void loadSettingsDashboard();
 }
 
 function prefetchDashboardBuilder() {
@@ -694,7 +710,7 @@ type ActivityTimelineEntry = {
   timestampMs: number;
   actor: string;
   entityId: string | undefined;
-};
+} & Partial<Pick<LockActivityEntry, 'kind' | 'userActor' | 'source'>>;
 
 type ActivityTimelineStatus = 'idle' | 'loading' | 'available' | 'empty' | 'unavailable' | 'offline';
 
@@ -706,97 +722,6 @@ type LockQuickAuthAction = {
 };
 
 type MainGuidedSetupKind = keyof typeof MAIN_GUIDED_SETUP_STORAGE_KEYS;
-
-function createMainGuidedSetupContent(t: ReturnType<typeof useI18n>['t']): Record<
-  MainGuidedSetupKind,
-  {
-    tag: string;
-    heading: string;
-    description: string;
-    steps: GuidedSetupStep[];
-    completeLabel?: string;
-    skipLabel?: string;
-  }
-> {
- return {
-  welcome: {
-    tag: t('home.guide.welcome.tag'), heading: t('home.guide.welcome.heading'), description: t('home.guide.welcome.description'),
-    steps: [
-      {
-        id: 'overview',
-        title: t('home.guide.overview.title'), description: t('home.guide.overview.description'), hint: t('home.guide.overview.hint'),
-        icon: LayoutDashboard,
-      },
-      {
-        id: 'edit-mode',
-        title: t('home.guide.edit.title'), description: t('home.guide.edit.description'), hint: t('home.guide.edit.hint'),
-        icon: PencilRuler,
-        target: '[data-tour-target="edit-mode"]',
-        actionLabel: t('home.guide.edit.action'),
-      },
-      {
-        id: 'widget-catalog',
-        title: t('home.guide.catalog.title'), description: t('home.guide.catalog.description'), hint: t('home.guide.catalog.hint'),
-        icon: Plus,
-        target: '[data-tour-target="widget-catalog"]',
-        actionLabel: t('home.guide.catalog.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'catalog-light',
-        title: t('home.guide.light.title'), description: t('home.guide.light.description'), hint: t('home.guide.light.hint'),
-        icon: Lightbulb,
-        target: '[data-tour-target="catalog-light"]',
-        actionLabel: t('home.guide.light.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'catalog-add-light',
-        title: t('home.guide.add.title'), description: t('home.guide.add.description'), hint: t('home.guide.add.hint'),
-        icon: Plus,
-        target: '[data-tour-target="catalog-confirm"]',
-        actionLabel: t('home.guide.add.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'catalog-finish',
-        title: t('home.guide.finish.title'), description: t('home.guide.finish.description'),
-        icon: PanelRightOpen,
-        target: '[data-tour-target="catalog-finish"]',
-        actionLabel: t('home.guide.finish.action'),
-        advanceOnTargetClick: true,
-      },
-      {
-        id: 'builder-entity',
-        title: t('home.guide.entity.title'), description: t('home.guide.entity.description'), hint: t('home.guide.entity.hint'),
-        icon: Settings2,
-        target: '[data-tour-target="builder-entity"]',
-        actionLabel: t('home.guide.entity.action'),
-        actionBehavior: 'continue',
-      },
-    ],
-    completeLabel: t('home.guide.welcome.complete'), skipLabel: t('home.guide.closeGuide'),
-  },
-  context: {
-    tag: t('home.guide.context.tag'), heading: t('home.guide.context.heading'), description: t('home.guide.context.description'),
-    steps: [
-      {
-        title: t('home.guide.context.select.title'), description: t('home.guide.context.select.description'),
-        icon: MousePointerClick,
-      },
-      {
-        title: t('home.guide.context.info.title'), description: t('home.guide.context.info.description'), hint: t('home.guide.context.info.hint'),
-        icon: PanelRightOpen,
-      },
-      {
-        title: t('home.guide.context.change.title'), description: t('home.guide.context.change.description'),
-        icon: LayoutDashboard,
-      },
-    ],
-    completeLabel: t('home.guide.context.complete'), skipLabel: t('home.guide.close'),
-  },
- };
-}
 
 function almostEqual(value: number | undefined, expected: number | undefined, tolerance = 0.15) {
   if (!Number.isFinite(value) || !Number.isFinite(expected)) {
@@ -1104,6 +1029,35 @@ function resolveLockActivityVerb(event: HaLogbookEvent) {
   return 'ha aggiornato la serratura';
 }
 
+function resolveLockActivityKind(event: HaLogbookEvent): LockActivityKind {
+  const normalizedState = normalizeLockState(toTrimmedString(event.state));
+  const message = normalizeLower(toTrimmedString(event.message));
+  if (normalizedState === 'jammed' || message.includes('jam') || message.includes('incepp')) return 'jam';
+  if (normalizedState === 'open' || normalizedState === 'opening') return 'open';
+  if (normalizedState === 'unlocked' || normalizedState === 'unlocking' || message.includes('unlock') || message.includes('sblocc')) {
+    return 'unlock';
+  }
+  if (normalizedState === 'locked' || normalizedState === 'locking' || message.includes('locked') || message.includes('blocc')) {
+    return 'lock';
+  }
+  return 'other';
+}
+
+// Where a lock change came from: an automation or script that called the
+// service, or the lock itself when nobody and nothing in Home Assistant did.
+function resolveLockActivitySource(event: HaLogbookEvent, userActor: string | undefined): LockActivityEntry['source'] {
+  const contextDomain = normalizeLower(toTrimmedString(event.context_domain));
+  const contextEntityId = normalizeLower(toTrimmedString(event.context_entity_id));
+  if (contextDomain === 'automation' || contextDomain === 'script' || contextEntityId.startsWith('automation.') || contextEntityId.startsWith('script.')) {
+    const name = toTrimmedString(event.context_name) ?? toTrimmedString(event.context_entity_id_name);
+    return name ? { kind: 'automation', name } : undefined;
+  }
+  if (!userActor && !toTrimmedString(event.context_event_type) && !contextDomain) {
+    return { kind: 'lock' };
+  }
+  return undefined;
+}
+
 function resolveAlarmActivityVerb(event: HaLogbookEvent) {
   const normalizedState = normalizeAlarmState(toTrimmedString(event.state));
   const message = normalizeLower(toTrimmedString(event.message));
@@ -1155,6 +1109,7 @@ function buildTimelineEntries(
   verbResolver: (event: HaLogbookEvent) => string,
   maxEntries: number,
   textResolver?: (event: HaLogbookEvent, timestampMs: number, actor: string, verb: string) => string,
+  detailResolver?: (event: HaLogbookEvent) => Partial<Pick<ActivityTimelineEntry, 'kind' | 'userActor' | 'source'>>,
 ) {
   return events
     .map((event, index) => {
@@ -1171,6 +1126,7 @@ function buildTimelineEntries(
         timestampMs,
         actor,
         text: textResolver?.(event, timestampMs, actor, verb) ?? `${actor} ${verb} ${formatActivityTimeLabel(timestampMs)}`,
+        ...detailResolver?.(event),
       } satisfies ActivityTimelineEntry;
     })
     .filter((entry): entry is ActivityTimelineEntry => entry !== null)
@@ -1778,6 +1734,10 @@ export function MainBoard() {
   );
   setActiveWidgetTypeLayoutOverrides(widgetTypeLayoutOverrides);
   const administrativeAccessRef = useRef({ manageRooms: false, restartHomeAssistant: false });
+  // Set once the access profile is known (below); until then no lock, alarm or entrance command leaves Domus.
+  const entityControlAccessRef = useRef<(capability: AccessCapability) => boolean>(() => false);
+  const haStatesForAccessRef = useRef(haStates);
+  haStatesForAccessRef.current = haStates;
   useEffect(() => {
     if (!isHaManagedByParent || runtimeMode === 'real' || typeof window === 'undefined') {
       return;
@@ -1801,6 +1761,11 @@ export function MainBoard() {
         return false;
       }
       if (isDashboardRestartService(domain, service) && !administrativeAccessRef.current.restartHomeAssistant) {
+        return false;
+      }
+      // The same rule as the cards and panels, for any screen that would still offer the command.
+      // Interface only: Home Assistant decides the command itself.
+      if (!entityServiceAllowed(domain, serviceData, haStatesForAccessRef.current, entityControlAccessRef.current)) {
         return false;
       }
       return rawCallHaService(domain, service, serviceData);
@@ -1900,14 +1865,35 @@ export function MainBoard() {
     isConnected: effectiveRuntimeMode === 'real' && isHaConnected,
     callApi: callHaApi,
   });
+  // What the interface offers this account, as the Domus backend resolved it (docs/access-control-frontend.md).
+  const { access, refresh: refreshAccess } = useAccessProfile({
+    runtimeMode: effectiveRuntimeMode,
+    identity: haCurrentUser,
+    callApi: callHaApi,
+  });
+  entityControlAccessRef.current = access.can;
+  const accessCopy = useAccessCopy();
+  const [isAccessLockedNoticeDismissed, setIsAccessLockedNoticeDismissed] = useState(false);
+  // Plain "disconnected" also comes for a moment while Domus starts and reconnects by itself:
+  // only one that lasts means Home Assistant is not connected.
+  const [isDisconnectionSettled, setIsDisconnectionSettled] = useState(false);
+  useEffect(() => {
+    if (haStatus !== 'disconnected') {
+      setIsDisconnectionSettled(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setIsDisconnectionSettled(true), HA_DISCONNECTION_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [haStatus]);
   const dashboardSecurity = useMemo(
     () =>
       createDashboardSecurityValue({
         runtimeMode: effectiveRuntimeMode,
         haStatus,
         user: haCurrentUser,
+        access,
       }),
-    [effectiveRuntimeMode, haCurrentUser, haStatus],
+    [access, effectiveRuntimeMode, haCurrentUser, haStatus],
   );
   // Developer mode only applies when the Settings toggle is on and the current
   // user is allowed to use it; a stale stored flag never enables it.
@@ -2536,9 +2522,10 @@ export function MainBoard() {
   const [selectedSidebarPathId, setSelectedSidebarPathId] = useState<string | null>(null);
   const [runningSceneBySectionId, setRunningSceneBySectionId] = useState<Partial<Record<string, SceneRunState>>>({});
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(resolveProfileFromLocation);
+  const [isProfileOpen, setIsProfileOpen] = useState(
+    () => typeof window !== 'undefined' && isProfileSettingsRoute(window.location.pathname),
+  );
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [profileInitialSection, setProfileInitialSection] = useState<ProfileSectionId>('members');
   const [editConfirm, setEditConfirm] = useState<'enter' | 'exit' | 'refresh' | null>(null);
   const [pendingStackRemovalId, setPendingStackRemovalId] = useState<string | null>(null);
   const [isConsumptionView, setIsConsumptionView] = useState(resolveConsumptionFromLocation);
@@ -2561,7 +2548,6 @@ export function MainBoard() {
     welcome: isOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS.welcome),
     context: isOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS.context),
   }));
-  const [activeMainGuideStepId, setActiveMainGuideStepId] = useState<string | null>(null);
   const [isStarterLayoutChoiceOpen, setIsStarterLayoutChoiceOpen] = useState(false);
   const [isStarterLayoutChoiceBusy, setIsStarterLayoutChoiceBusy] = useState(false);
   const [starterLayoutChoiceError, setStarterLayoutChoiceError] = useState<string | null>(null);
@@ -2574,7 +2560,6 @@ export function MainBoard() {
   const alarmActivityRefreshTimeoutRef = useRef<Record<string, number[]>>({});
   const activityFetchSeqRef = useRef(0);
   const vacuumReturnToBaseTimeoutRef = useRef<Record<string, number>>({});
-  const profileReturnRouteRef = useRef('/home');
   const cameraPtzControlModeRef = useRef<'button' | 'service' | null>(null);
   const previousHaStatusRef = useRef<typeof haStatus | null>(null);
   const reconnectToastIdRef = useRef<string | null>(null);
@@ -2734,7 +2719,19 @@ export function MainBoard() {
     };
   }, []);
 
-  const visibleSidebarPaths = sidebarPaths;
+  // Every navigation (sidebar, drawer, bottom bar) shows only what the account may open; nothing while loading.
+  const visibleSidebarPaths = useMemo(() => filterNavigation(sidebarPaths, access.can), [access, sidebarPaths]);
+  // Kiosk hides Domus's own navigation only; pages and their links still work.
+  const isKioskChrome = useKioskChrome();
+  // A wall panel opens on a main page the person can reach from the navigation; Home always.
+  const kioskStartRoutes = useMemo(
+    () =>
+      KIOSK_START_ROUTES.flatMap((path) => {
+        const entry = visibleSidebarPaths.find((candidate) => candidate.path === path);
+        return entry || path === '/home' ? [{ path, label: entry?.label ?? 'Home' }] : [];
+      }),
+    [visibleSidebarPaths],
+  );
   const canToggleEditMode =
     runtimeMode !== null &&
     isEditAvailableForRoute &&
@@ -2817,8 +2814,8 @@ export function MainBoard() {
   }, [pendingStackRemovalId, sections, widgets]);
 
   const selectedSidebarPath = useMemo(
-    () => visibleSidebarPaths.find((entry) => entry.id === selectedSidebarPathId) ?? null,
-    [selectedSidebarPathId, visibleSidebarPaths],
+    () => sidebarPaths.find((entry) => entry.id === selectedSidebarPathId) ?? null,
+    [selectedSidebarPathId, sidebarPaths],
   );
   const LIGHT_WIDGET_HEIGHT_OFF = 1;
   const LIGHT_WIDGET_HEIGHT_ON = 2;
@@ -3721,7 +3718,6 @@ export function MainBoard() {
   );
   const activeWidget = selectedWidget;
   const activeWidgetSecrets = useWidgetSecrets(activeWidget?.id);
-  const mainGuidedSetupContent = useMemo(() => createMainGuidedSetupContent(t), [t]);
   const shouldShowWelcomeGuide = !completedMainGuides.welcome;
   const shouldShowContextGuide =
     !completedMainGuides.context &&
@@ -3735,30 +3731,12 @@ export function MainBoard() {
     : shouldShowContextGuide
       ? 'context'
       : null;
-  const activeMainGuide = activeMainGuideKind ? mainGuidedSetupContent[activeMainGuideKind] : null;
-  const activeMainGuideSteps = activeMainGuideKind === 'welcome' && !canToggleEditMode
-    ? activeMainGuide?.steps.filter((step) => !step.target) ?? []
-    : activeMainGuide?.steps ?? [];
-  const isGuidedEditTargetActive =
-    activeMainGuideKind === 'welcome' &&
-    activeMainGuideStepId === 'edit-mode' &&
-    !isEditMode &&
-    editConfirm === null;
-
-  useEffect(() => {
-    if (isGuidedEditTargetActive && isCompactViewport) {
-      setIsMobileSidebarOpen(true);
-    }
-  }, [isCompactViewport, isGuidedEditTargetActive]);
-
   const completeMainGuide = (kind: MainGuidedSetupKind) => {
     markOnboardingCompleted(MAIN_GUIDED_SETUP_STORAGE_KEYS[kind]);
     setCompletedMainGuides((current) => ({
       ...current,
       [kind]: true,
     }));
-    setActiveMainGuideStepId(null);
-    setIsMobileSidebarOpen(false);
   };
 
   const dismissActiveMainGuide = () => {
@@ -4679,6 +4657,7 @@ export function MainBoard() {
         connection: undefined as ReturnType<typeof resolveDeviceConnection>,
         rawAttributes: undefined as Record<string, unknown> | undefined,
         lockCode: undefined as string | undefined,
+        protection: 'none' as const,
       };
     }
 
@@ -4735,6 +4714,12 @@ export function MainBoard() {
       connection,
       rawAttributes,
       lockCode: activeWidgetSecrets.values.lockCode?.trim() || undefined,
+      // What an unlock asks for, so the panel can say so before it happens.
+      protection: activeWidget.lockRequireAuthToUnlock
+        ? ('device' as const)
+        : activeWidgetSecrets.values.lockCode?.trim()
+          ? ('code' as const)
+          : ('none' as const),
     };
   }, [activeWidget, activeWidgetSecrets.values, haCurrentUser?.name, haEntityRegistry, haStatesForUi, isHaConnected, lockActivityStatusByEntity, lockTimelineByEntity, t]);
 
@@ -5493,6 +5478,16 @@ export function MainBoard() {
             ? (event, timestampMs, actor, verb) =>
                 resolveAlarmLogbookText(actor, verb, toTrimmedString(event.name) ?? activeActivityEntityName, timestampMs)
           : undefined,
+        activeActivityKind === 'lock'
+          ? (event) => {
+              const userActor = resolveActivityActor(event, haUserNamesById) || undefined;
+              return {
+                kind: resolveLockActivityKind(event),
+                userActor,
+                source: resolveLockActivitySource(event, userActor),
+              };
+            }
+          : undefined,
       );
 
       if (cancelled || fetchSeq !== activityFetchSeqRef.current) {
@@ -6162,11 +6157,11 @@ export function MainBoard() {
   useEffect(() => {
     if (
       selectedSidebarPathId &&
-      !visibleSidebarPaths.some((entry) => entry.id === selectedSidebarPathId)
+      !sidebarPaths.some((entry) => entry.id === selectedSidebarPathId)
     ) {
       setSelectedSidebarPathId(null);
     }
-  }, [selectedSidebarPathId, visibleSidebarPaths]);
+  }, [selectedSidebarPathId, sidebarPaths]);
 
   useEffect(() => {
     const currentRoute = canUseBrowserRouteNavigation
@@ -6179,7 +6174,7 @@ export function MainBoard() {
     const nextIsRooms = isRoomsNavigationTarget(currentRoute);
     const nextIsSecurity = isSecurityNavigationTarget(currentRoute);
     const nextIsSecurityCameras = isSecurityCamerasNavigationTarget(currentRoute);
-    const nextIsProfile = isProfileNavigationTarget(currentRoute);
+    const nextIsProfile = isProfileSettingsRoute(currentRoute);
     const nextIsSettings = isSettingsNavigationTarget(currentRoute);
     const nextIsKnownRoute =
       isHomeNavigationTarget(currentRoute) ||
@@ -6204,14 +6199,6 @@ export function MainBoard() {
     setIsSecurityCamerasView(nextIsSecurityCameras);
     setIsSettingsView(nextIsSettings);
     setIsProfileOpen(nextIsProfile);
-    if (nextIsProfile) {
-      setProfileInitialSection((currentSection) => {
-        if (currentSection === 'movements' || currentSection === 'members' || currentSection === 'security') {
-          return currentSection;
-        }
-        return 'members';
-      });
-    }
     setIsEditAvailableForRoute(nextEditAvailability);
   }, [
     canUseBrowserRouteNavigation,
@@ -10083,6 +10070,22 @@ export function MainBoard() {
     });
   }, [haStates, isHaConnected]);
 
+  // The scenes of the first Home scenes card, for the scenes quick card of the mobile menu.
+  const sidebarScenesSection = useMemo(() => sections.find((section) => section.kind === 'scenes'), [sections]);
+  const sidebarScenes = useMemo(() => {
+    if (!sidebarScenesSection) return [];
+    const ids = sidebarScenesSection.scenes ?? SCENES_CATALOG.slice(0, 4).map((scene) => scene.id);
+    return ids.slice(0, 4).flatMap((id) => {
+      const scene = SCENES_CATALOG.find((item) => item.id === id);
+      if (!scene) return [];
+      return [{
+        id,
+        label: sidebarScenesSection.sceneLabels?.[id]?.trim() || scene.label,
+        icon: getSceneIconNode(sidebarScenesSection.sceneIcons?.[id] ?? scene.defaultIcon, 21),
+      }];
+    });
+  }, [sidebarScenesSection]);
+
   const triggerSceneAction = async (section: DashboardSection, sceneId: SceneKey) => {
     if (isEditMode || section.kind !== 'scenes') {
       return;
@@ -10631,7 +10634,10 @@ export function MainBoard() {
   const standaloneHomeAssistantUrl = !isHaManagedByParent && effectiveRuntimeMode === 'real'
     ? normalizeHassUrl(haUrl)
     : '';
-  const showHomeAssistantReturn = panelHaBridgeConnection.supportsHostNavigation || Boolean(standaloneHomeAssistantUrl);
+  // A convenience of the interface only (ha_frontend.open): Home Assistant stays one address away for anyone.
+  const showHomeAssistantReturn =
+    access.can('ha_frontend.open') &&
+    (panelHaBridgeConnection.supportsHostNavigation || Boolean(standaloneHomeAssistantUrl));
   const returnToHomeAssistant = useCallback(() => {
     if (isEditMode) return;
     if (panelHaBridgeConnection.supportsHostNavigation) {
@@ -10690,6 +10696,11 @@ export function MainBoard() {
     setHaRememberToken(false);
     navigate('/setup?reconnect=1');
   };
+  // Signing out of Home Assistant is every signed-in account's, whatever its Domus role (Q12): the
+  // session of this browser ends and Domus asks to sign in again. Inside the Home Assistant panel the
+  // session is Home Assistant's own, which signs out from its profile.
+  const signOutOfHomeAssistant =
+    effectiveRuntimeMode === 'real' && !isHaManagedByParent ? returnToHomeAssistantConnection : undefined;
 
   const downloadConfigurationBackup = () => {
     if (
@@ -11106,7 +11117,7 @@ export function MainBoard() {
       const nextIsRooms = isRoomsNavigationTarget(normalizedRouteForNavigate);
       const nextIsSecurity = isSecurityNavigationTarget(normalizedRouteForNavigate);
       const nextIsSecurityCameras = isSecurityCamerasNavigationTarget(normalizedRouteForNavigate);
-      const nextIsProfile = isProfileNavigationTarget(normalizedRouteForNavigate);
+      const nextIsProfile = isProfileSettingsRoute(normalizedRouteForNavigate);
       const nextIsSettings = isSettingsNavigationTarget(normalizedRouteForNavigate);
       const nextIsKnownRoute =
         isHomeNavigationTarget(normalizedRouteForNavigate) ||
@@ -11131,14 +11142,6 @@ export function MainBoard() {
       setIsSecurityCamerasView(nextIsSecurityCameras);
       setIsSettingsView(nextIsSettings);
       setIsProfileOpen(nextIsProfile);
-      if (nextIsProfile) {
-        setProfileInitialSection((currentSection) => {
-          if (currentSection === 'movements' || currentSection === 'members' || currentSection === 'security') {
-            return currentSection;
-          }
-          return 'members';
-        });
-      }
       setIsEditAvailableForRoute(nextEditAvailability);
       setActiveDevice(null);
       setSelectedWidgetId(null);
@@ -11215,6 +11218,7 @@ export function MainBoard() {
   // Choosing people as notification recipients, inside the panel only with the bridge capability.
   const profileRecipientsSupported =
     !isHaManagedByParent || panelHaBridgeConnection.supportsProfileRecipients;
+  const devicePowerSupported = !isHaManagedByParent || panelHaBridgeConnection.supportsDevicePower;
   // Home Assistant's own words for entity states; inside the panel only with the bridge capability.
   const stateTranslationsSupported =
     isHaConnected && (!isHaManagedByParent || panelHaBridgeConnection.supportsStateTranslations);
@@ -11245,7 +11249,7 @@ export function MainBoard() {
     ? ['auto', 'desktop', 'tablet', 'compact', 'mobile']
     : ['auto', 'tablet', 'compact', 'mobile'];
   const shouldShowMobileSidebarShell =
-    !isImmersiveView && isCompactViewport && !isCatalogOpen && isDashboardCanvasView && !isProfileOpen;
+    !isImmersiveView && isCompactViewport && !isCatalogOpen && isDashboardCanvasView && !isProfileOpen && !isKioskChrome;
   const isNestedDashboardPage = isNestedDashboardNavigationTarget(currentNavigationRoute);
   const shouldShowBottomBar =
     !isImmersiveView &&
@@ -11253,7 +11257,8 @@ export function MainBoard() {
     !isEditMode &&
     !isCatalogOpen &&
     !isProfileOpen &&
-    !isNestedDashboardPage;
+    !isNestedDashboardPage &&
+    !isKioskChrome;
 
   useEffect(() => {
     if (!shouldShowMobileSidebarShell) {
@@ -11263,6 +11268,27 @@ export function MainBoard() {
 
   const getCurrentNavigationRoute = () => currentNavigationRoute;
   const activeNavigationRoute = getCurrentNavigationRoute();
+  // Read from the address itself: the state set after a navigation would let
+  // Settings render a Profile address for one frame.
+  const isProfileRoute = isProfileSettingsRoute(activeNavigationRoute);
+  // The page of this address shows only once Access Control says the account may open it;
+  // a profile that goes away while the page is open replaces the page at once.
+  // Not connected and not trying: no account, so a notice instead of an endless check.
+  const haConnection =
+    effectiveRuntimeMode === 'real' &&
+    (HA_DEFINITELY_OFFLINE_STATUSES.has(haStatus) || (haStatus === 'disconnected' && isDisconnectionSettled))
+      ? 'offline'
+      : 'online';
+  const routeAccessState = resolveRouteAccessState(activeNavigationRoute, access, haConnection);
+  // Opening an app from the App Gallery, and back, pushes like a subpage; the
+  // sections inside an app are tabs, so only the gallery and the app count.
+  usePagePushTransition(
+    'appgallery',
+    isAppGalleryView
+      ? activeNavigationRoute.split(/[?#]/, 1)[0].split('/').filter(Boolean).slice(0, 2).join('/')
+      : '',
+    routeDepth,
+  );
   const settingsPath = activeNavigationRoute.split(/[?#]/, 1)[0].replace(/\/+$/, '');
   const houseAccessView = resolveHouseAccessView(settingsPath);
   // The Dashboard page shows the layout part of Data and backup.
@@ -11276,40 +11302,36 @@ export function MainBoard() {
           : null;
   const settingsDataScope = settingsPath === '/settings/dashboard' ? 'layout' : 'data';
 
-  const navigateWithinDashboard = (path: string) => {
+  const navigateWithinDashboard = (path: string, options?: { replace?: boolean }) => {
     prefetchDashboardWorkspace(path);
     if (canUseBrowserRouteNavigation) {
       const currentRoute = `${routerLocation.pathname}${routerLocation.search}${routerLocation.hash}`;
       if (path !== currentRoute) {
-        navigate(path);
+        if (options?.replace) {
+          navigate(path, { replace: true });
+        } else {
+          navigate(path);
+        }
       }
       return;
     }
     setInternalNavigationRoute(path);
   };
 
-  const openProfileRoute = (section: ProfileSectionId = 'members') => {
-    const currentRoute = getCurrentNavigationRoute();
-    if (!isProfileNavigationTarget(currentRoute) && !isSettingsNavigationTarget(currentRoute)) {
-      profileReturnRouteRef.current = currentRoute || '/home';
+  // Appearance and language moved from the Profile to Settings › This device.
+  // The old address is replaced before it paints, so Back never returns to it.
+  const legacySettingsRoute = resolveLegacySettingsRoute(activeNavigationRoute);
+  React.useLayoutEffect(() => {
+    if (legacySettingsRoute) {
+      navigateWithinDashboard(legacySettingsRoute, { replace: true });
     }
-    setProfileInitialSection(section);
-    setIsProfileOpen(true);
-    navigateWithinDashboard('/profile');
-  };
+  }, [legacySettingsRoute]);
 
+  // Profile and Settings are one page: the avatar and the gear both open it,
+  // and the person is at its top.
   const openSettingsRoute = () => {
     setIsProfileOpen(false);
     navigateWithinDashboard('/settings');
-  };
-
-  const closeProfileRoute = () => {
-    setIsProfileOpen(false);
-    setProfileInitialSection('members');
-    const currentRoute = getCurrentNavigationRoute();
-    if (isProfileNavigationTarget(currentRoute)) {
-      navigateWithinDashboard(profileReturnRouteRef.current || '/home');
-    }
   };
   const quickAlarmRequiresCode = Boolean(pendingQuickAlarmAction?.requiresCode);
   const quickLockRequiresCode = Boolean(pendingQuickLockAction);
@@ -11351,6 +11373,8 @@ export function MainBoard() {
   const quickSecurityAuthError = quickLockRateLimitMessage || quickAlarmAuthError;
 
   return (
+    <AccessControlProvider access={access} refresh={refreshAccess}>
+    <AmbientProvider enabled={background === 'dynamic'} resolveAssetUrl={(value) => resolveRelativeHaUrl(value, haUrl)}>
     <DashboardSecurityProvider value={dashboardSecurity}>
     <SensitiveActionGateProvider user={deviceAuthUser}>
     <div
@@ -11361,17 +11385,35 @@ export function MainBoard() {
       } ${
         shouldShowMobileSidebarShell
           ? '!pt-[calc(env(safe-area-inset-top)+4rem)]'
-          : ''
+          : isKioskChrome && isDashboardCanvasView && !isImmersiveView
+            ? '!pt-[max(0.375rem,env(safe-area-inset-top))]'
+            : ''
       } ${
         appearance === 'light'
           ? 'dashboard-theme-light text-[var(--dashboard-text)]'
           : 'dashboard-theme-dark text-[var(--dashboard-text)]'
       } dashboard-shell ${dashboardBackgroundClass}`}
     >
-      <div aria-hidden className="dashboard-background-layer" />
+      <div aria-hidden className="dashboard-background-layer">
+        <AmbientBackground />
+      </div>
       <a href="#dashboard-main-content" className="dashboard-skip-link">
         Vai al contenuto principale
       </a>
+
+      {access.status === 'locked' && !isAccessLockedNoticeDismissed && !isKioskChrome ? (
+        <div className="pointer-events-none fixed inset-x-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[216] flex justify-center">
+          <div className="pointer-events-auto w-full max-w-xl">
+            <AccessLockedBanner
+              isAdministrator={access.profile?.isAdmin === true}
+              onDismiss={() => setIsAccessLockedNoticeDismissed(true)}
+              onOpenRecovery={
+                access.can('access.manage') ? () => navigateWithinDashboard(HOUSE_ACCESS_VIEW_ROUTES.roles) : undefined
+              }
+            />
+          </div>
+        </div>
+      ) : null}
 
       {canPersistDashboardLayout && !isCompactViewport ? (
         <div className="fixed left-1/2 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[215] -translate-x-1/2 md:top-6 lg:hidden">
@@ -11398,7 +11440,6 @@ export function MainBoard() {
               primaryAction={
                 <button
                   type="button"
-                  data-tour-target="widget-catalog"
                   onClick={() => setIsCatalogOpen(true)}
                   className="flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)]"
                   aria-label={t('dashboard.catalog.open')}
@@ -11424,11 +11465,11 @@ export function MainBoard() {
         </div>
       ) : null}
 
-      {runtimeMode === 'demo' ? (
+      {runtimeMode === 'demo' && !isMobileSidebarOpen ? (
         <button
           type="button"
           onClick={() => navigateWithinDashboard('/setup')}
-          className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] right-3 top-auto z-[210] rounded-full border border-amber-200/30 bg-amber-400/15 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-100 shadow-lg backdrop-blur-2xl transition hover:bg-amber-400/22 sm:bottom-auto sm:top-3"
+          className="fixed bottom-[calc(env(safe-area-inset-bottom)+6.5rem)] right-3 top-auto z-[210] rounded-full border border-[color:color-mix(in_srgb,var(--ui-warning)_35%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-warning)_15%,var(--ui-bg-elevated))] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-warning)] shadow-lg backdrop-blur-2xl transition hover:brightness-105 sm:bottom-auto sm:top-3"
         >
           {t('dashboard.demo.connect')}
         </button>
@@ -11450,7 +11491,9 @@ export function MainBoard() {
           <div
             role={isEditMode ? 'toolbar' : undefined}
             aria-label={isEditMode ? t('dashboard.history') : undefined}
-            className={`fixed top-0 z-[174] md:hidden ${
+            data-drawer-push="top"
+            data-drawer-open={isMobileSidebarOpen}
+            className={`mobile-drawer-push fixed top-0 z-[174] md:hidden ${
             isEditMode
               ? 'liquid-glass-navigation left-3 right-3 mt-[calc(env(safe-area-inset-top)+0.5rem)] flex items-center gap-1 p-1'
               : 'inset-x-0 flex items-center justify-between px-4 pt-[calc(env(safe-area-inset-top)+0.65rem)]'
@@ -11460,7 +11503,6 @@ export function MainBoard() {
               <>
                 <button
                   type="button"
-                  data-tour-target="widget-catalog"
                   onClick={() => setIsCatalogOpen(true)}
                   className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-3 text-[color:var(--ui-accent)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:scale-95"
                   aria-label={t('dashboard.catalog.open')}
@@ -11491,31 +11533,23 @@ export function MainBoard() {
               </>
             ) : (
               <>
+                {/* The same Liquid Glass as the tab bar; the person is in the tab bar, not here. */}
                 <button
                   type="button"
                   onClick={() => setIsMobileSidebarOpen(true)}
-                  className="liquid-glass-control inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-all hover:brightness-110 active:scale-95"
+                  className="liquid-glass-navigation liquid-glass-chrome inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-transform active:scale-95"
                   aria-label={t('dashboard.menu.open')}
                   aria-expanded={isMobileSidebarOpen}
                 >
                   <Menu size={18} />
                 </button>
-                <div className="flex min-w-0 items-center gap-2">
-                  <XsNotificationBell />
-                  <XsProfileChip
-                    userAvatarUrl={currentUserAvatarUrl}
-                    userName={stateWithConnectedUser.userName}
-                    haStatus={haStatus}
-                    onOpenProfile={() => openProfileRoute('members')}
-                  />
-                </div>
+                <XsNotificationBell />
               </>
             )}
           </div>
           <MobileSidebarDrawer
             isOpen={isMobileSidebarOpen}
             isEditMode={isEditMode}
-            isEditTourActive={isGuidedEditTargetActive}
             canToggleEditMode={canToggleEditMode}
             quickPaths={visibleSidebarPaths}
             selectedPathId={selectedSidebarPathId}
@@ -11533,15 +11567,21 @@ export function MainBoard() {
             areas={haAreas}
             widgets={widgets}
             onCallService={callHaService}
+            energyCallApi={callHaApi}
+            scenes={sidebarScenes}
+            runningSceneId={sidebarScenesSection ? runningSceneBySectionId[sidebarScenesSection.id]?.sceneId : null}
+            onRunScene={(sceneId) => {
+              if (sidebarScenesSection) void triggerSceneAction(sidebarScenesSection, sceneId as SceneKey);
+            }}
             onNavigate={navigateWithinDashboard}
             onPathClick={handleSidebarPathClick}
             onToggleEditMode={requestToggleEditMode}
-            onOpenProfile={() => openProfileRoute('members')}
+            onOpenProfile={openSettingsRoute}
             onOpenSettings={openSettingsRoute}
             showHomeAssistantReturn={showHomeAssistantReturn}
             canReturnToHomeAssistant={!isEditMode}
             onReturnToHomeAssistant={returnToHomeAssistant}
-            onDisconnectHomeAssistant={disconnectHa}
+            onDisconnectHomeAssistant={signOutOfHomeAssistant ?? disconnectHa}
             onClose={() => setIsMobileSidebarOpen(false)}
             onPrefetchRoute={prefetchDashboardWorkspace}
             onPrefetchEditMode={prefetchDashboardBuilder}
@@ -11549,7 +11589,7 @@ export function MainBoard() {
         </>
       ) : null}
 
-      {!isImmersiveView && !isCompactViewport ? (
+      {!isImmersiveView && !isCompactViewport && !isKioskChrome ? (
         <LeftSidebar
           isEditMode={isEditMode}
           userAvatarUrl={currentUserAvatarUrl}
@@ -11558,11 +11598,10 @@ export function MainBoard() {
           quickPaths={visibleSidebarPaths}
           selectedPathId={selectedSidebarPathId}
           activeRoute={activeNavigationRoute}
-          isEditTourActive={isGuidedEditTargetActive}
           canToggleEditMode={canToggleEditMode}
           onPathClick={handleSidebarPathClick}
           onToggleEditMode={requestToggleEditMode}
-          onOpenProfile={() => openProfileRoute('members')}
+          onOpenProfile={openSettingsRoute}
           onOpenSettings={openSettingsRoute}
           showHomeAssistantReturn={showHomeAssistantReturn}
           canReturnToHomeAssistant={!isEditMode}
@@ -11576,14 +11615,28 @@ export function MainBoard() {
       <main
         id="dashboard-main-content"
         tabIndex={-1}
-        className={isImmersiveView ? 'h-full min-h-0 flex-1 min-w-0 flex overflow-hidden outline-none' : 'h-full min-h-0 flex-1 min-w-0 flex gap-1.5 overflow-hidden outline-none sm:gap-2 md:gap-2.5 lg:gap-4 xl:gap-6'}
+        data-drawer-push="page"
+        data-drawer-open={isMobileSidebarOpen}
+        className={`mobile-drawer-push ${isImmersiveView ? 'h-full min-h-0 flex-1 min-w-0 flex overflow-hidden outline-none' : 'h-full min-h-0 flex-1 min-w-0 flex gap-1.5 overflow-hidden outline-none sm:gap-2 md:gap-2.5 lg:gap-4 xl:gap-6'}`}
       >
         <LazyLoadBoundary
           fallback={<SecondaryWorkspaceLoading />}
           mode="section"
           resetKey={activeNavigationRoute}
         >
-        {isConsumptionView ? (
+        {routeAccessState === 'checking' ? (
+          <SecondaryWorkspaceLoading label={accessCopy('checking')} />
+        ) : routeAccessState !== 'open' ? (
+          <AccessNotice
+            kind={routeAccessState}
+            onRetry={routeAccessState === 'error' || routeAccessState === 'unavailable' ? refreshAccess : undefined}
+            onGoHome={
+              routeAccessState === 'denied' && access.can('dashboard.view')
+                ? () => navigateWithinDashboard('/home')
+                : undefined
+            }
+          />
+        ) : isConsumptionView ? (
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <ConsumptionDashboardPage
               embedded
@@ -11607,9 +11660,9 @@ export function MainBoard() {
             />
           </div>
         ) : isAppGalleryView ? (
-          <div className="h-full min-h-0 flex-1 overflow-hidden">
+          <div {...{ [PUSH_PAGE_ATTRIBUTE]: 'appgallery' }} className="h-full min-h-0 flex-1 overflow-hidden">
             <AppGallery
-              canConfigureApps={dashboardSecurity.can('edit_dashboard')}
+              canConfigureApps={access.can('irrigation.manage')}
               currentUserId={haCurrentUser?.id ?? null}
               runtimeMode={effectiveRuntimeMode}
               suppressBrowserNavigation={!canUseBrowserRouteNavigation}
@@ -11630,9 +11683,6 @@ export function MainBoard() {
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <RoomsDashboard
               runtimeMode={effectiveRuntimeMode}
-              isEditMode={isEditMode}
-              suppressBrowserNavigation={!canUseBrowserRouteNavigation}
-              navigationRoute={internalNavigationRoute}
               isLoading={haStatus === 'connecting'}
               haConnected={isHaConnected}
               canManageRooms={canManageRooms}
@@ -11640,9 +11690,11 @@ export function MainBoard() {
               haStates={haStatesForUi}
               onCallService={callHaService}
               onCallApi={callHaApi}
+              onSubscribeApi={subscribeHaApi}
               cameraPtzEntityIds={cameraPtzEntityIds}
               onCameraPtzMove={(entityId, direction) => moveCameraPtz(direction, entityId)}
               onCameraPtzStop={(entityId) => stopCameraPtz(entityId)}
+              onNavigate={navigateWithinDashboard}
             />
           </div>
         ) : isSecurityView ? (
@@ -11665,6 +11717,33 @@ export function MainBoard() {
               onCameraPtzMove={(entityId, direction) => moveCameraPtz(direction, entityId)}
               onCameraPtzStop={(entityId) => stopCameraPtz(entityId)}
             />
+          </div>
+        ) : isSettingsView && isProfileRoute ? (
+          <div className="h-full min-h-0 flex-1 overflow-hidden">
+            <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" />}>
+              <ModernProfilePage
+                isOpen
+                onClose={openSettingsRoute}
+                currentUserId={deviceAuthUser.id}
+                haUserId={haCurrentUser?.id}
+                userAvatarUrl={currentUserAvatarUrl}
+                userAvatarAlt={stateWithConnectedUser.userName}
+                userEmail={profileUserEmail}
+                userRoleLabel={profileUserRoleLabel}
+                houseMembers={profileHouseMembers}
+                presenceTrackerCount={profilePresenceTrackerCount}
+                profileDevicesSupported={profileDevicesSupported}
+                movementTimeline={profileMovementTimeline}
+                movementPoints={profileMovementPoints}
+                movementUpdatedLabel={profileMovementUpdatedLabel}
+                haStatus={haStatus}
+                navigationRoute={activeNavigationRoute}
+                onNavigate={navigateWithinDashboard}
+                runtimeMode={effectiveRuntimeMode}
+                onCallApi={callHaApi}
+                onNotify={addNotification}
+              />
+            </React.Suspense>
           </div>
         ) : isSettingsView ? (
           <div className="h-full min-h-0 flex-1 overflow-hidden">
@@ -11691,6 +11770,8 @@ export function MainBoard() {
               onCallService={callHaService}
               onCallApi={callHaApi}
               recipientsSupported={profileRecipientsSupported}
+              devicePowerSupported={devicePowerSupported}
+              kioskStartRoutes={kioskStartRoutes}
               loadStateTranslations={loadStateTranslations}
               onAreasChanged={handleSettingsAreasChanged}
               alarmCards={securityAlarmProfiles.map(({ widgetId, entityId, requireDeviceConfirmation }) => ({
@@ -11700,8 +11781,19 @@ export function MainBoard() {
               }))}
               deviceAuthUser={deviceAuthUser}
               resolveAssetUrl={resolveSettingsAssetUrl}
+              account={{
+                name: stateWithConnectedUser.userName,
+                email: profileUserEmail,
+                roleLabel: profileUserRoleLabel,
+                avatarUrl: currentUserAvatarUrl,
+              }}
+              appearanceMode={appearanceMode}
+              onAppearanceModeChange={setAppearanceMode}
+              background={background}
+              onBackgroundChange={setBackground}
               navigationRoute={activeNavigationRoute}
               onNavigate={navigateWithinDashboard}
+              onSignOut={signOutOfHomeAssistant}
               managedSectionContent={
                 settingsManagementSection ? (
                   <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura impostazioni…" />}>
@@ -11711,6 +11803,7 @@ export function MainBoard() {
                       presentation="embedded"
                       onClose={() => navigateWithinDashboard('/settings')}
                       initialSection={settingsManagementSection}
+                      onCallApi={callHaApi}
                       userAvatarUrl={currentUserAvatarUrl}
                       userAvatarAlt={stateWithConnectedUser.userName}
                       userEmail={profileUserEmail}
@@ -12147,7 +12240,7 @@ export function MainBoard() {
               selectedWidgetActiveLayout={selectedWidgetActiveLayout}
               selectedSection={selectedSection}
               selectedSidebarPath={selectedSidebarPath}
-              sidebarPaths={visibleSidebarPaths}
+              sidebarPaths={sidebarPaths}
               weatherConfig={weatherSection}
               activeGridBreakpoint={canvasGridBreakpoint}
               activeGridWidth={canvasGridWidth}
@@ -12186,6 +12279,7 @@ export function MainBoard() {
 
       {shouldShowBottomBar ? (
         <BottomBarNav
+          isPushedByDrawer={isMobileSidebarOpen}
           isEditMode={isEditMode}
           quickPaths={visibleSidebarPaths}
           selectedPathId={selectedSidebarPathId}
@@ -12194,62 +12288,34 @@ export function MainBoard() {
           onPathClick={handleSidebarPathClick}
           onOpenSettings={openSettingsRoute}
           onPrefetchRoute={prefetchDashboardWorkspace}
+          userAvatarUrl={currentUserAvatarUrl}
+          userName={stateWithConnectedUser.userName}
+          haStatus={haStatus}
         />
       ) : null}
 
-      {isProfileOpen ? (
-        <React.Suspense fallback={<SecondaryWorkspaceLoading label="Apertura profilo…" overlay />}>
-          <ModernProfilePage
-            isOpen
-            onClose={closeProfileRoute}
-            initialSection={profileInitialSection}
-            currentUserId={deviceAuthUser.id}
-            haUserId={haCurrentUser?.id}
-            userAvatarUrl={currentUserAvatarUrl}
-            userAvatarAlt={stateWithConnectedUser.userName}
-            userEmail={profileUserEmail}
-            userRoleLabel={profileUserRoleLabel}
-            houseMembers={profileHouseMembers}
-            presenceTrackerCount={profilePresenceTrackerCount}
-            profileDevicesSupported={profileDevicesSupported}
-            movementTimeline={profileMovementTimeline}
-            movementPoints={profileMovementPoints}
-            movementUpdatedLabel={profileMovementUpdatedLabel}
-            haStatus={haStatus}
-            appearanceMode={appearanceMode}
-            onAppearanceModeChange={setAppearanceMode}
-            background={background}
-            onBackgroundChange={setBackground}
-            navigationRoute={activeNavigationRoute}
-            onNavigate={navigateWithinDashboard}
-            runtimeMode={effectiveRuntimeMode}
-            onCallApi={callHaApi}
-            onNotify={addNotification}
-          />
-        </React.Suspense>
-      ) : null}
 
-      {activeMainGuide ? (
-        <React.Suspense fallback={<SecondaryWorkspaceLoading label="Preparazione guida…" overlay />}>
-          <GuidedSetupOverlay
-            isOpen
-            tag={activeMainGuide.tag}
-            heading={activeMainGuide.heading}
-            description={activeMainGuide.description}
-            steps={activeMainGuideSteps}
-            onDismiss={dismissActiveMainGuide}
-            onComplete={() => {
-              if (activeMainGuideKind === 'welcome') {
+      {activeMainGuideKind ? (
+        <React.Suspense fallback={null}>
+          <FirstRunGuide
+            variant={
+              activeMainGuideKind === 'context'
+                ? 'controls'
+                : runtimeMode === 'demo' ? 'demo' : readSetupStart(window.localStorage) === 'empty' ? 'empty' : 'recommended'
+            }
+            onFinish={() => {
+              // A Home chosen in setup is not asked again; a home set up before still chooses here.
+              if (activeMainGuideKind === 'welcome' && shouldAskHomeStart(window.localStorage)) {
                 setStarterLayoutChoiceError(null);
                 setIsStarterLayoutChoiceOpen(true);
                 return;
               }
               dismissActiveMainGuide();
             }}
-            onStepChange={(step) => setActiveMainGuideStepId(step.id ?? null)}
-            isStepComplete={(step) => step.id === 'edit-mode' && isEditMode}
-            completeLabel={activeMainGuide.completeLabel}
-            skipLabel={activeMainGuide.skipLabel}
+            onConnect={() => {
+              dismissActiveMainGuide();
+              navigateWithinDashboard('/setup');
+            }}
           />
         </React.Suspense>
       ) : null}
@@ -12613,9 +12679,20 @@ export function MainBoard() {
         onResume={resumePendingDashboardEditDraft}
         onDiscard={discardPendingDashboardEditDraft}
       />
+
+      {/* Above everything, whatever page is open; off unless turned on in Settings › This device. */}
+      <DomusScreensaver route={activeNavigationRoute} appearance={appearance} background={background} />
+      <DomusKiosk
+        route={activeNavigationRoute}
+        navigate={navigateWithinDashboard}
+        availableStartRoutes={kioskStartRoutes.map(({ path }) => path)}
+        startRoutesKnown={access.status !== 'loading' || haConnection === 'offline'}
+      />
     </div>
     </SensitiveActionGateProvider>
     </DashboardSecurityProvider>
+    </AmbientProvider>
+    </AccessControlProvider>
   );
 }
 

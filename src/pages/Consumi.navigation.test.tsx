@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConsumptionDashboardPage } from './Consumi';
 import type { EnergyPageContext } from './consumi/energy/useEnergyCore';
 
-const OVERVIEW = 'Hub Sostenibilità e Consumi';
+const OVERVIEW = 'Consumi';
 
 beforeEach(() => window.history.replaceState({}, '', '/consumi'));
 afterEach(cleanup);

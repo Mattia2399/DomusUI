@@ -555,6 +555,18 @@ function formatForecastLabel(
   }
 }
 
+/** A date for a sample forecast entry, so its day or hour reads right. */
+function mockForecastDatetime({ days = 0, hours = 0, hour }: { days?: number; hours?: number; hour?: number }) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  if (hour === undefined) {
+    date.setHours(date.getHours() + hours, 0, 0, 0);
+  } else {
+    date.setHours(hour, 0, 0, 0);
+  }
+  return date.toISOString();
+}
+
 export function useDashboardState(): ReturnType<typeof useDashboardStateInternal>;
 export function useDashboardState(options: UseDashboardStateOptions): ReturnType<typeof useDashboardStateInternal>;
 export function useDashboardState(options?: UseDashboardStateOptions) {
@@ -1281,8 +1293,10 @@ function useDashboardStateInternal(options?: UseDashboardStateOptions) {
         ? Array.from({ length: 5 }, (_, index) => {
             const baseline = Math.round(weatherTemp) + (index === 0 ? 0 : index % 2 === 0 ? 1 : -1);
             const precipitationProbability = Math.max(0, 8 + index * 3);
+            const datetime = mockForecastDatetime({ hours: index });
             return {
-              label: formatForecastLabel(undefined, undefined, index, 'hourly'),
+              label: formatForecastLabel(datetime, undefined, index, 'hourly'),
+              datetime,
               condition: liveWeather?.state ?? 'partlycloudy',
               high: baseline,
               low: baseline,
@@ -1296,8 +1310,10 @@ function useDashboardStateInternal(options?: UseDashboardStateOptions) {
               const baseline = Math.round(weatherTemp) + (isDaytime ? 1 : -1);
               const low = baseline - (isDaytime ? 2 : 3);
               const precipitationProbability = Math.max(0, 10 + index * 4);
+              const datetime = mockForecastDatetime({ days: Math.floor(index / 2), hour: isDaytime ? 12 : 0 });
               return {
-                label: formatForecastLabel(undefined, isDaytime, index, 'twice_daily'),
+                label: formatForecastLabel(datetime, isDaytime, index, 'twice_daily'),
+                datetime,
                 isDaytime,
                 condition: liveWeather?.state ?? 'partlycloudy',
                 high: baseline,
@@ -1310,8 +1326,10 @@ function useDashboardStateInternal(options?: UseDashboardStateOptions) {
             const baseline = Math.round(weatherTemp) + (index === 0 ? 0 : index % 2 === 0 ? 1 : -1);
             const low = baseline - 4;
             const precipitationProbability = Math.max(0, 12 + index * 5);
+            const datetime = mockForecastDatetime({ days: index, hour: 12 });
             return {
-              label: formatForecastLabel(undefined, undefined, index, 'daily'),
+              label: formatForecastLabel(datetime, undefined, index, 'daily'),
+              datetime,
               condition: liveWeather?.state ?? 'partlycloudy',
               high: baseline,
               low,

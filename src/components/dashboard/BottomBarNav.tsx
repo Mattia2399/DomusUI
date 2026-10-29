@@ -1,5 +1,6 @@
-import { Settings } from 'lucide-react';
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
+import { useAccessControl } from '../../security/AccessControlProvider';
+import type { HaConnectionStatus } from '../../services/haConnectionState';
 import { useI18n } from '../../i18n/I18nProvider';
 import {
   getDashboardNavigationIcon,
@@ -7,8 +8,11 @@ import {
   PRIMARY_DASHBOARD_ROUTE_IDS,
   resolveDashboardNavigationEntries,
 } from './dashboardNavigation';
+import { DashboardProfileAvatar } from './DashboardProfileAvatar';
 
 type BottomBarNavProps = {
+  /** Steps aside with the page while the mobile side menu is open. */
+  isPushedByDrawer?: boolean;
   isEditMode: boolean;
   quickPaths: SidebarQuickPath[];
   selectedPathId?: string | null;
@@ -17,6 +21,10 @@ type BottomBarNavProps = {
   onPathClick: (entry: SidebarQuickPath) => void;
   onOpenSettings: () => void;
   onPrefetchRoute?: (path: string) => void;
+  /** Settings opens with the person at its top, so its tab shows their photo. */
+  userAvatarUrl?: string;
+  userName?: string;
+  haStatus?: HaConnectionStatus;
 };
 
 type BottomBarPrimaryAction = {
@@ -24,6 +32,7 @@ type BottomBarPrimaryAction = {
 };
 
 export function BottomBarNav({
+  isPushedByDrawer = false,
   isEditMode,
   quickPaths,
   selectedPathId = null,
@@ -32,30 +41,63 @@ export function BottomBarNav({
   onPathClick,
   onOpenSettings,
   onPrefetchRoute,
+  userAvatarUrl,
+  userName,
+  haStatus = 'disconnected',
 }: BottomBarNavProps) {
   const { t } = useI18n();
+  const { can } = useAccessControl();
   const primaryActions = resolveDashboardNavigationEntries(
     quickPaths,
     PRIMARY_DASHBOARD_ROUTE_IDS,
     t,
+    can,
   ).map((entry) => ({ entry }) satisfies BottomBarPrimaryAction);
 
+  const activeStates = primaryActions.map(({ entry }) =>
+    isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute }),
+  );
+  // The drop sits under the active destination: one of the routes, or Settings last.
+  const activeIndex = isSettingsActive ? primaryActions.length : activeStates.indexOf(true);
+  const tabClassName = (active: boolean) =>
+    `group relative z-10 flex h-12 min-w-0 items-center justify-center rounded-full transition-[color,transform] duration-[420ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-[0.94] ${
+      active
+        ? 'scale-110 text-[color:var(--ui-accent)]'
+        : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)]'
+    }`;
+
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+    <div
+      data-drawer-push="bottom"
+      data-drawer-open={isPushedByDrawer}
+      className="mobile-drawer-push pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
+    >
       <nav
-        className="liquid-glass-navigation pointer-events-auto relative mx-auto max-w-xl"
+        className="liquid-glass-navigation liquid-glass-tabbar pointer-events-auto relative mx-auto max-w-[21rem]"
         aria-label={t('navigation.main')}
       >
-          <div className="relative grid grid-cols-5 gap-1 p-1.5">
-            {primaryActions.map((action) => {
+          <div
+            className="relative grid p-1.5"
+            style={{ gridTemplateColumns: `repeat(${primaryActions.length + 1}, minmax(0, 1fr))` }}
+          >
+            {/* A drop of glass under the active tab; it slides to the next one. */}
+            <span aria-hidden="true" className="pointer-events-none absolute inset-1.5">
+              <span
+                data-testid="bottom-bar-drop"
+                data-index={activeIndex}
+                className="liquid-glass-drop absolute inset-y-0 left-0"
+                style={{
+                  width: `${100 / (primaryActions.length + 1)}%`,
+                  transform: `translateX(${Math.max(activeIndex, 0) * 100}%)`,
+                  opacity: activeIndex < 0 ? 0 : 1,
+                }}
+              />
+            </span>
+
+            {primaryActions.map((action, index) => {
               const entry = action.entry;
               const Icon = getDashboardNavigationIcon(entry.icon);
-              const active = isDashboardNavigationEntryActive({
-                entry,
-                isEditMode,
-                selectedPathId,
-                activeRoute,
-              });
+              const active = activeStates[index];
               return (
                 <button
                   key={entry.id}
@@ -66,29 +108,11 @@ export function BottomBarNav({
                   onClick={() => {
                     onPathClick(entry);
                   }}
-                  className={`group relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[0.95rem] px-1 py-1.5 transition-[background-color,color,transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.96] ${
-                    active
-                      ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
-                      : 'text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-tertiary)] hover:text-[color:var(--ui-text-primary)]'
-                  }`}
+                  className={tabClassName(active)}
                   aria-label={t('navigation.open', { label: entry.label })}
                   aria-current={active ? 'page' : undefined}
                 >
-                  <span
-                    className={`flex h-6 w-6 items-center justify-center rounded-lg transition-all ${
-                      active ? 'bg-transparent' : 'bg-transparent group-hover:bg-[color:var(--ui-fill-tertiary)]'
-                    }`}
-                  >
-                    <Icon
-                      size={16}
-                      strokeWidth={active ? 1.85 : 2}
-                      fill={active ? 'currentColor' : 'none'}
-                      className={active ? '' : 'group-hover:scale-105 transition-transform'}
-                    />
-                  </span>
-                  <span className={`max-w-full truncate text-[9.5px] leading-none tracking-[0.01em] ${active ? 'font-semibold' : 'font-medium'}`}>
-                    {entry.label}
-                  </span>
+                  <Icon size={22} strokeWidth={active ? 2.1 : 1.85} aria-hidden="true" />
                 </button>
               );
             })}
@@ -99,18 +123,14 @@ export function BottomBarNav({
               onPointerDown={() => onPrefetchRoute?.('/settings')}
               onFocus={() => onPrefetchRoute?.('/settings')}
               onClick={onOpenSettings}
-              className={`group relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[0.95rem] px-1 py-1.5 transition-[background-color,color,transform,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.96] ${
-                isSettingsActive
-                  ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
-                  : 'text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-tertiary)] hover:text-[color:var(--ui-text-primary)]'
-              }`}
+              className={tabClassName(isSettingsActive)}
               aria-label={t('navigation.open', { label: t('navigation.settings') })}
               aria-current={isSettingsActive ? 'page' : undefined}
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-transparent transition-all group-hover:bg-[color:var(--ui-fill-tertiary)]">
-                <Settings size={16} strokeWidth={isSettingsActive ? 1.85 : 2} className="transition-transform group-hover:scale-105" />
+              {/* The photo alone, as the account tab of an iOS app; the label stays for assistive technology. */}
+              <span className="flex h-8 w-8 items-center justify-center rounded-full">
+                <DashboardProfileAvatar userAvatarUrl={userAvatarUrl} userName={userName} haStatus={haStatus} size="sm" />
               </span>
-              <span className="max-w-full truncate text-[9.5px] font-medium leading-none tracking-[0.01em]">{t('navigation.settings')}</span>
             </button>
           </div>
       </nav>

@@ -19,7 +19,8 @@ type LazyLoadErrorBoundaryState = {
   failed: boolean;
 };
 
-class LazyLoadErrorBoundary extends React.Component<
+/** Shows `failure` instead of lazy code that could not load; usable on its own for quiet fallbacks. */
+export class LazyLoadErrorBoundary extends React.Component<
   LazyLoadErrorBoundaryProps,
   LazyLoadErrorBoundaryState
 > {

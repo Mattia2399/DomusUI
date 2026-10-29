@@ -1,6 +1,6 @@
 # Feature status
 
-Updated: 2026-10-08
+Updated: 2026-10-15
 
 This page distinguishes stable functionality from previews and planned work. **Operational** means that the primary path is implemented and covered by project tests; it does not guarantee compatibility with every Home Assistant hardware integration.
 
@@ -13,12 +13,15 @@ This page distinguishes stable functionality from previews and planned work. **O
 | Security    | Operational      | Alarm hub, cameras, selectable sensors, and shared authorization                                   |
 | Consumption | Operational      | Views based on data actually available in HA                                                       |
 | Domus Energy Core | Operational in 1.5.0 | Read-only live energy, guided setup, multi-device installations, tariffs and Recorder-backed history charts |
-| Profile     | Operational      | Personal preferences, device theme, language, and startup panel                                    |
-| Settings    | Operational      | Home, entities, people/account linking and member photos (administrators), system, backups, versions, and attention preferences |
+| Profile     | Operational      | The top of Settings (one page): account, activity, My devices with personal notifications, startup panel and device confirmation |
+| Settings    | Operational      | Domus core configuration grouped by scope: Home (dashboard, rooms, people and access, security, waste collection), System (connections, devices, entities, status, backups) and This device (appearance, language, screensaver, kiosk mode, power and charging, attention, advanced); Energy and Irrigation are configured inside their apps; see [settings scopes](settings-scopes.md) |
 | App Gallery | Partial          | Launcher and Irrigation beta are available; Utility Room and Pool & Spa are marked as coming later |
 | Automations | Coming later     | The old workspace remains disabled until its workflow is ready for public use                      |
 | Calendar    | Operational      | Native Domus UI calendar and compatible Home Assistant calendar entities                           |
 | Waste collection | Beta in 1.5.0 | Fixed days (weekly or every 2–4 weeks) or a Home Assistant calendar as source, waste types with icon, color and other names, special days, one aggregated reminder the evening before, 7-day preview; collections appear read-only in Calendar with their type icon and color. Not released yet: reminders go to Home Assistant people through Domus notifications; previous configurations keep their technical targets until an administrator converts them |
+| Kiosk mode | Implemented, not released | A device-local wall panel: Domus's navigation hidden, a start page chosen from the main pages, full screen and the screen kept on when the browser allows, a press-and-hold corner or Ctrl+Alt+K to leave. Works with the screensaver, without full screen or a wake lock, and inside the Home Assistant panel. A user-experience feature, not access control. See [device kiosk](device-kiosk.md) |
+| Screensaver | Implemented, not released | Per-device clock screen after 1–30 minutes without use, Minimal (true black) or Ambient (the Domus background, dimmed), optional date, burn-in shifts and a preview; the first touch only wakes Domus and the page below is left as it was. Browser-only: it never turns the screen off or keeps it on. See [device screensaver](device-screensaver.md) |
+| Device power and charging | Implemented, not released | Administrators keep a wall tablet's battery between two levels: DomusOS in Home Assistant switches the charger's smart plug on at or below the start level and off at or above the stop level, with hysteresis, a 60-second pause between commands and no command when the sensor or switch is unavailable. Settings › This device › Power and charging; see [device power management](device-power-management.md). Schedules and smart charging come later |
 | Domus Profile Core | Implemented, not released | Per-user profile store; Profile → My devices lets each user link the Companion App devices Home Assistant ties to their account, rename or remove them and set the general and per-device notification switches, with live status and presence shown read-only. A backend Notification Router (person-based, multi-device, with optional per-device deduplication), a self-only test notification command, an administrator-only recipient readiness list and a reusable person recipient picker are implemented; Waste Collection is the first feature using them. Other features, preference sync, category preferences, quiet hours and an inbox come in later phases |
 
 ## Cards and controls

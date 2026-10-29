@@ -208,6 +208,79 @@
       0 5px 16px rgb(var(--ui-accent-rgb, 10 132 255) / 0.12);
   }
 
+  /*
+   * The mobile chrome (the tab bar and the floating buttons at the top): a
+   * pill of Liquid Glass with a specular sheen and a rim that catches the
+   * light, over the Regular navigation material.
+   */
+  .liquid-glass-tabbar,
+  .liquid-glass-chrome {
+    --ui-glass-blur: 18px;
+    --ui-glass-saturation: 2;
+    border-radius: 999px;
+    box-shadow:
+      0 18px 44px var(--ui-glass-shadow, var(--ui-shadow)),
+      inset 0 1.5px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.5),
+      inset 0 -1px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.16),
+      inset 0 -12px 26px rgb(var(--ui-accent-rgb, 10 132 255) / 0.1);
+  }
+
+  .liquid-glass-tabbar::before,
+  .liquid-glass-chrome::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      radial-gradient(34% 60% at 16% 0%, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.32), transparent 70%),
+      radial-gradient(46% 70% at 86% 100%, rgb(var(--ui-accent-rgb, 10 132 255) / 0.14), transparent 70%);
+  }
+
+  /* A floating button keeps its badge, which sits past its edge. */
+  .liquid-glass-chrome {
+    overflow: visible;
+    box-shadow:
+      0 10px 26px var(--ui-glass-shadow, var(--ui-shadow)),
+      inset 0 1.5px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.5),
+      inset 0 -1px 1px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.16),
+      inset 0 -8px 16px rgb(var(--ui-accent-rgb, 10 132 255) / 0.1);
+  }
+
+  /*
+   * The drop under the active tab: a lens of glass lit from above, that
+   * slides with a small elastic overshoot. It paints its light instead of
+   * sampling the backdrop again, so there is no glass on glass.
+   */
+  .liquid-glass-drop {
+    border-radius: 999px;
+    border: 1px solid rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.55);
+    background:
+      radial-gradient(120% 95% at 50% 0%, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.34), rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.08) 55%, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.03)),
+      radial-gradient(80% 60% at 50% 110%, rgb(var(--ui-accent-rgb, 10 132 255) / 0.3), transparent 70%);
+    box-shadow:
+      inset 0 2px 2px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.7),
+      inset 0 -3px 6px rgb(var(--ui-accent-rgb, 10 132 255) / 0.3),
+      inset 0 0 14px rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.12),
+      0 8px 18px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
+    transition:
+      transform 520ms cubic-bezier(0.34, 1.56, 0.64, 1),
+      opacity 200ms ease;
+  }
+
+  .liquid-glass-drop::before {
+    content: "";
+    position: absolute;
+    left: 14%;
+    top: 8%;
+    width: 44%;
+    height: 30%;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.7), transparent);
+    filter: blur(1px);
+  }
+
   .liquid-glass-navigation :is(button, a):focus-visible,
   .liquid-glass-control:focus-visible {
     outline: 2px solid var(--ui-focus-ring);
@@ -251,15 +324,13 @@
     background: var(--ui-fill-tertiary);
   }
 
+  /* The segmented control of the Rooms board: a soft track, the choice a solid pill. */
   .liquid-segmented-control {
-    border-color: var(--ui-glass-border, var(--ui-border));
-    background:
-      linear-gradient(180deg, rgb(var(--ui-glass-highlight-rgb, 255 255 255) / 0.14), transparent 54%),
-      rgb(var(--ui-glass-base-rgb, 28 28 30) / var(--ui-glass-control-opacity, 0.24));
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12), 0 10px 24px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
+    border-color: transparent;
+    background: var(--ui-segment-track, rgb(235 235 245 / 0.1));
     -webkit-backdrop-filter: blur(18px) saturate(1.7);
     backdrop-filter: blur(18px) saturate(1.7);
-    @apply relative overflow-hidden rounded-full border p-1 transition-all duration-200 ease-out;
+    @apply relative overflow-hidden rounded-[16px] border p-[3px] transition-all duration-200 ease-out;
   }
   .segmented-options {
     display: grid;
@@ -267,7 +338,7 @@
     min-width: 0;
     grid-auto-flow: column;
     grid-auto-columns: minmax(var(--segmented-option-min, 2.5rem), 1fr);
-    gap: 0.25rem;
+    gap: 2px;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: none;
@@ -287,20 +358,19 @@
 
   .liquid-segmented-thumb,
   .liquid-segmented-option-active {
-    background: var(--ui-segment-active, rgb(235 235 245 / 0.24));
-    color: var(--ui-text-primary, #f5f5f7);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16), 0 8px 20px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
-    @apply relative overflow-hidden rounded-full backdrop-blur-xl transition-all duration-200 ease-out;
+    background: var(--ui-segment-on, var(--ui-text-primary, #f5f5f7));
+    color: var(--ui-segment-on-ink, var(--ui-bg-canvas, #000000));
+    @apply relative overflow-hidden rounded-[13px] transition-all duration-200 ease-out;
   }
 
   .liquid-segmented-option-active:is(:hover, :focus-visible),
   .liquid-segmented-thumb:is(:hover, :focus-visible) {
-    background: var(--ui-segment-active, rgb(235 235 245 / 0.24));
+    background: var(--ui-segment-on, var(--ui-text-primary, #f5f5f7));
   }
 
   .liquid-segmented-option-inactive {
     color: var(--ui-text-secondary, rgb(235 235 245 / 0.72));
-    @apply transition-all duration-200 ease-out;
+    @apply rounded-[13px] transition-all duration-200 ease-out;
   }
 
   .liquid-segmented-option-inactive:hover {
@@ -383,16 +453,22 @@
     @apply h-1.5 w-12 rounded-full;
   }
 
+  /* The buttons of the Rooms board: pills, a soft grey, the main action solid. */
   .glass-button {
-    --ui-glass-blur: 18px;
-    --ui-glass-opacity: var(--ui-glass-control-opacity, 0.24);
-    --ui-glass-saturation: 1.8;
+    border-color: transparent;
+    background: var(--ui-control-fill, rgb(255 255 255 / 0.12));
     color: var(--ui-text-primary, #f5f5f7);
-    @apply inline-flex items-center justify-center gap-2 rounded-2xl px-3.5 py-2.5 text-sm font-medium transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
+    box-shadow: none;
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+
+  .glass-button::after {
+    content: none;
   }
 
   .glass-button:hover {
-    border-color: var(--ui-border-strong, rgb(255 255 255 / 0.2));
     filter: brightness(1.08);
   }
 
@@ -418,30 +494,53 @@
     --tw-ring-color: var(--ui-focus-ring, rgb(100 210 255 / 0.62));
   }
 
+  /* The sheet of the Rooms board: GlassModal and GlassBottomSheet. */
+  .glass-sheet-surface {
+    border: 1px solid var(--ui-sheet-border, rgb(255 255 255 / 0.11));
+    background: var(--ui-sheet-surface, rgb(30 30 34 / 0.9));
+    color: var(--ui-text-primary, #f5f5f7);
+    box-shadow:
+      inset 0 1px 0 var(--ui-sheet-highlight, rgb(255 255 255 / 0.12)),
+      0 40px 90px -30px rgb(0 0 0 / 0.7);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    backdrop-filter: blur(40px) saturate(180%);
+  }
+
+  .glass-sheet-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--ui-control-fill, rgb(255 255 255 / 0.12));
+    color: inherit;
+    cursor: pointer;
+  }
+
+  .glass-sheet-close:focus-visible {
+    outline: 2px solid var(--ui-focus-ring, #0a84ff);
+    outline-offset: 2px;
+  }
+
   .ios-glass-switch {
-    border-color: var(--ui-border, rgb(255 255 255 / 0.13));
-    background: var(--ui-fill-secondary, rgb(235 235 245 / 0.16));
-    box-shadow: inset 0 1px 2px var(--ui-shadow-soft, rgb(0 0 0 / 0.28));
-    @apply relative inline-flex h-8 w-[3.25rem] shrink-0 items-center rounded-full border backdrop-blur-xl transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
+    border-color: transparent;
+    background: var(--ui-switch-off, rgb(120 120 128 / 0.36));
+    @apply relative inline-flex h-[31px] w-[51px] shrink-0 items-center rounded-full border-0 transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-45;
     --tw-ring-color: var(--ui-focus-ring, rgb(100 210 255 / 0.62));
   }
 
   .ios-glass-switch-on {
-    border-color: color-mix(in srgb, var(--ui-success, #30d158) 58%, transparent);
     background: var(--ui-success, #30d158);
-    box-shadow: 0 0 22px color-mix(in srgb, var(--ui-success, #30d158) 38%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.32);
   }
 
   .ios-glass-switch-blue-on {
-    border-color: rgb(var(--ui-accent-rgb, 10 132 255) / 0.58);
     background: var(--ui-accent, #0a84ff);
-    box-shadow: 0 0 22px rgb(var(--ui-accent-rgb, 10 132 255) / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.32);
   }
 
   .ios-glass-switch-thumb {
     background: #ffffff;
-    box-shadow: 0 2px 8px rgb(0 0 0 / 0.28);
-    @apply absolute left-[3px] h-[1.625rem] w-[1.625rem] rounded-full transition-transform duration-200 ease-out;
+    box-shadow: 0 3px 8px rgb(0 0 0 / 0.25);
+    @apply absolute left-[2px] h-[27px] w-[27px] rounded-full transition-transform duration-200 ease-out;
   }
 
   /* Glow per gli stati attivi (Usa queste classi aggiuntive quando un widget è ON) */
@@ -455,34 +554,113 @@
     @apply shadow-[0_0_20px_rgba(50,215,75,0.35)];
   }
 
+  /* The main action: the solid pill of the board, light in Dark, dark in Light. */
   .glass-button-primary {
-    border-color: rgb(var(--ui-accent-rgb, 10 132 255) / 0.48);
-    background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.2), transparent 52%),
-      rgb(var(--ui-accent-rgb, 10 132 255) / 0.7);
-    color: var(--ui-accent-contrast, #ffffff);
-    box-shadow: 0 10px 26px rgb(var(--ui-accent-rgb, 10 132 255) / 0.24), inset 0 1px 0 rgb(255 255 255 / 0.22);
-    -webkit-backdrop-filter: blur(16px) saturate(1.7);
-    backdrop-filter: blur(16px) saturate(1.7);
+    background: var(--ui-segment-on, var(--ui-text-primary, #f5f5f7));
+    color: var(--ui-segment-on-ink, var(--ui-bg-canvas, #000000));
   }
 
-  .glass-button-primary:hover {
-    border-color: rgb(var(--ui-accent-rgb, 10 132 255) / 0.64);
-    background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.24), transparent 52%),
-      rgb(var(--ui-accent-rgb, 10 132 255) / 0.8);
-  }
-
+  /* Switching off, deleting: solid red, as the board's confirmation. */
   .glass-button-danger {
-    border-color: color-mix(in srgb, var(--ui-danger, #ff453a) 52%, transparent);
-    background: color-mix(in srgb, var(--ui-danger, #ff453a) 16%, var(--ui-surface-glass, transparent));
-    color: var(--ui-danger, #ff453a);
-    box-shadow: 0 10px 26px color-mix(in srgb, var(--ui-danger, #ff453a) 18%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.1);
+    background: var(--ui-danger, #ff453a);
+    color: #ffffff;
   }
 
-  .glass-button-danger:hover {
-    border-color: color-mix(in srgb, var(--ui-danger, #ff453a) 68%, transparent);
-    background: color-mix(in srgb, var(--ui-danger, #ff453a) 22%, var(--ui-surface-glass, transparent));
+  /* Going on with something that opens or unlocks: solid blue. */
+  .glass-button-accent {
+    background: var(--ui-accent, #0a84ff);
+    color: var(--ui-accent-contrast, #ffffff);
+  }
+
+  /* The round mark above a question to confirm. */
+  .glass-confirm-mark {
+    display: flex;
+    height: 44px;
+    width: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .glass-confirm-mark.is-warning {
+    background: rgb(255 159 10 / 0.18);
+    color: var(--ui-warning, #ff9f0a);
+  }
+
+  .glass-confirm-mark.is-danger {
+    background: color-mix(in srgb, var(--ui-danger, #ff453a) 18%, transparent);
+    color: var(--ui-danger, #ff453a);
+  }
+
+  .glass-confirm-mark.is-accent {
+    background: rgb(var(--ui-accent-rgb, 10 132 255) / 0.18);
+    color: var(--ui-accent, #0a84ff);
+  }
+
+  /* The picture of a camera in its sheet: rounded, live and the time on it. */
+  .camera-frame {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: 22px;
+    background: #000000;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+  }
+
+  .camera-frame:fullscreen {
+    border-radius: 0;
+  }
+
+  .camera-live {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 2;
+    display: flex;
+    height: 26px;
+    align-items: center;
+    gap: 6px;
+    border-radius: 13px;
+    background: rgb(0 0 0 / 0.5);
+    padding: 0 10px;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  .camera-live i {
+    height: 8px;
+    width: 8px;
+    border-radius: 50%;
+    background: #ff453a;
+    animation: camera-blink 1.4s ease-in-out infinite;
+  }
+
+  .camera-clock {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    z-index: 2;
+    color: rgb(255 255 255 / 0.9);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+  }
+
+  @keyframes camera-blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .camera-live i {
+      animation: none;
+    }
   }
 
   .glass-button-ghost {
@@ -802,127 +980,12 @@
     filter: brightness(1.08);
   }
 
-  .onboarding-step-rail {
-    width: 15.5rem;
-    flex-shrink: 0;
-    flex-direction: column;
-    border-right: 1px solid var(--ui-border);
-    padding: 1.75rem;
-    background: linear-gradient(165deg, var(--ui-surface-glass), var(--ui-surface-glass-soft));
-  }
-
-  .onboarding-step-item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    border: 1px solid transparent;
-    border-radius: 1.15rem;
-    padding: 0.7rem;
-    color: var(--ui-text-secondary);
-    transition: 180ms ease;
-  }
-
-  .onboarding-step-item-active {
-    border-color: rgb(var(--ui-accent-rgb) / 0.28);
-    color: var(--ui-text-primary);
-    background: rgb(var(--ui-accent-rgb) / 0.12);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.1);
-  }
-
-  .onboarding-step-item-complete {
-    color: var(--ui-text-primary);
-  }
-
-  .onboarding-step-icon {
-    display: inline-flex;
-    height: 2rem;
-    width: 2rem;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--ui-border);
-    border-radius: 9999px;
-    background: var(--ui-surface-glass);
-  }
-
-  .onboarding-step-item-active .onboarding-step-icon,
-  .onboarding-step-item-complete .onboarding-step-icon {
-    border-color: rgb(var(--ui-accent-rgb) / 0.36);
-    color: var(--ui-text-primary);
-    background: rgb(var(--ui-accent-rgb) / 0.18);
-  }
-
-  .onboarding-mobile-header {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    gap: 0.75rem;
-    border-bottom: 1px solid var(--ui-border);
-    padding: 0.8rem 1rem 0.7rem;
-    background: var(--ui-page-bg);
-    backdrop-filter: blur(28px) saturate(145%);
-  }
-
-  .onboarding-progress-track {
-    grid-column: 1 / -1;
-    height: 0.2rem;
-    overflow: hidden;
-    border-radius: 9999px;
-    background: var(--ui-surface-glass-strong);
-  }
-
-  .onboarding-progress-track > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, rgb(var(--ui-accent-rgb)), rgb(var(--ui-accent-secondary-rgb)));
-    box-shadow: 0 0 12px rgb(var(--ui-accent-rgb) / 0.45);
-    transition: width 400ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .onboarding-content {
-    margin: 0 auto;
-    width: 100%;
-    max-width: 48rem;
-    padding: 1.2rem 1rem 1.4rem;
-  }
-
-  .onboarding-step-chip,
-  .onboarding-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid var(--ui-border);
-    border-radius: 9999px;
-    background: var(--ui-surface-glass);
-    color: var(--ui-text-secondary);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
-    backdrop-filter: blur(18px);
-  }
-
-  .onboarding-step-chip {
-    padding: 0.45rem 0.7rem;
-    font-size: 0.64rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-  }
-
-  .onboarding-card,
   .onboarding-choice-card,
-  .onboarding-notice,
-  .onboarding-input-shell {
+  .onboarding-notice {
     border: 1px solid var(--ui-border);
     background: var(--ui-surface-glass-soft);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.09), 0 14px 36px rgb(0 0 0 / 0.08);
     backdrop-filter: blur(22px) saturate(145%);
-  }
-
-  .onboarding-card {
-    border-radius: 1.45rem;
   }
 
   .onboarding-choice-card {
@@ -965,32 +1028,6 @@
     border-radius: 1rem;
   }
 
-  .onboarding-input-shell {
-    position: relative;
-    border-radius: 1rem;
-    transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
-  }
-
-  .onboarding-input-shell:focus-within {
-    border-color: rgb(var(--ui-accent-rgb) / 0.52);
-    background: var(--ui-surface-glass);
-    box-shadow: 0 0 0 3px rgb(var(--ui-accent-rgb) / 0.1), inset 0 1px 0 rgb(255 255 255 / 0.12);
-  }
-
-  .onboarding-input {
-    height: 3.25rem;
-    width: 100%;
-    border: 0;
-    background: transparent;
-    color: var(--ui-text-primary);
-    outline: none;
-  }
-
-  .onboarding-input::placeholder {
-    color: var(--ui-text-secondary);
-    opacity: 0.58;
-  }
-
   .onboarding-notice {
     display: flex;
     align-items: flex-start;
@@ -1009,81 +1046,9 @@
     background: rgb(244 63 94 / 0.1);
   }
 
-  .guided-setup-modal {
-    color: var(--ui-text-primary);
-    background: var(--ui-panel-bg);
-  }
-
-  .guided-setup-header h2 {
-    color: var(--ui-text-primary) !important;
-  }
-
-  .guided-setup-header > p {
-    color: var(--ui-text-secondary) !important;
-  }
-
-  .guided-setup-header > p:first-child {
-    color: rgb(var(--ui-accent-rgb)) !important;
-  }
-
-  .guided-setup-footer {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 0.6rem !important;
-    padding-top: 1rem !important;
-  }
-
-  .guided-setup-skip,
-  .guided-setup-navigation {
-    width: 100%;
-  }
-
-  .guided-setup-navigation > button:only-child {
-    width: 100%;
-  }
-
-  .guided-setup-progress {
-    margin-bottom: 1.15rem;
-  }
-
   @media (min-width: 640px) {
-    .onboarding-content {
-      padding: 1.8rem 2rem 2rem;
-    }
-
-    .onboarding-summary-groups {
-      max-height: clamp(10.5rem, 30dvh, 16rem);
-      overflow-y: auto;
-      overscroll-behavior: contain;
-    }
-
     .onboarding-choice-card {
       padding: 1.4rem;
-    }
-
-    .guided-setup-footer {
-      flex-direction: row;
-      align-items: center !important;
-      justify-content: space-between !important;
-    }
-
-    .guided-setup-skip,
-    .guided-setup-navigation {
-      width: auto;
-    }
-
-    .guided-setup-navigation > button:only-child {
-      width: auto;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .onboarding-content {
-      padding: 2rem 2.4rem 2.4rem;
-    }
-
-    .guided-setup-body {
-      overflow: hidden !important;
     }
   }
 
@@ -1096,29 +1061,24 @@
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
     }
+  }
+}
 
-    .onboarding-mobile-header {
-      padding-top: max(0.8rem, env(safe-area-inset-top));
-    }
+/* Kiosk exit handle: the ring fills while it is held (DomusKiosk). */
+.kiosk-exit-progress {
+  opacity: 0;
+  transition: stroke-dashoffset 120ms ease-out, opacity 120ms ease-out;
+}
 
-    .onboarding-content {
-      padding-bottom: calc(12rem + env(safe-area-inset-bottom));
-    }
+.kiosk-exit-progress[data-holding='true'] {
+  opacity: 0.9;
+  transition: stroke-dashoffset 3s linear, opacity 120ms ease-out;
+}
 
-    .onboarding-actions {
-      position: fixed;
-      right: 0;
-      bottom: 0;
-      left: 0;
-      z-index: 20;
-      margin: 0;
-      flex-direction: column !important;
-      padding: 0.85rem 1rem calc(0.85rem + env(safe-area-inset-bottom));
-      background: var(--ui-page-bg);
-      box-shadow: 0 -18px 44px rgb(0 0 0 / 0.08);
-      backdrop-filter: blur(28px) saturate(135%);
-      -webkit-backdrop-filter: blur(28px) saturate(135%);
-    }
+@media (prefers-reduced-motion: reduce) {
+  .kiosk-exit-progress,
+  .kiosk-exit-progress[data-holding='true'] {
+    transition: none;
   }
 }
 
@@ -1136,12 +1096,13 @@
   color: var(--ui-text-primary, #f5f5f7);
   font-size: 0.875rem;
   font-weight: 600;
-  box-shadow: 0 14px 36px var(--ui-shadow, rgb(0 0 0 / 0.38));
   transition: transform 180ms ease;
 }
 
+/* The shadow only while it shows: hidden above the screen, it would still darken the top. */
 .dashboard-skip-link:focus-visible {
   transform: translate(-50%, 0);
+  box-shadow: 0 14px 36px var(--ui-shadow, rgb(0 0 0 / 0.38));
 }
 
 html,
@@ -1246,6 +1207,13 @@ body {
   --ui-fill-tertiary: rgb(235 235 245 / 0.1);
   --ui-segment-track: rgb(235 235 245 / 0.1);
   --ui-segment-active: rgb(235 235 245 / 0.24);
+  --ui-segment-on: #f5f5f7;
+  --ui-sheet-surface: rgb(30 30 34 / 0.9);
+  --ui-sheet-border: rgb(255 255 255 / 0.11);
+  --ui-sheet-highlight: rgb(255 255 255 / 0.12);
+  --ui-control-fill: rgb(255 255 255 / 0.12);
+  --ui-segment-on-ink: #000000;
+  --ui-switch-off: rgb(120 120 128 / 0.36);
   --ui-accent: #0a84ff;
   --ui-accent-strong: #0a84ff;
   --ui-accent-rgb: 10 132 255;
@@ -1263,7 +1231,7 @@ body {
   --ui-selection-border-alpha: 0.74;
   --ui-selection-inner-alpha: 0.16;
   --ui-selection-outer-alpha: 0.34;
-  --ui-scrim: rgb(0 0 0 / 0.7);
+  --ui-scrim: rgb(0 0 0 / 0.45);
   --ui-shadow: rgb(0 0 0 / 0.56);
   --ui-shadow-soft: rgb(0 0 0 / 0.28);
 }
@@ -1302,6 +1270,13 @@ body {
   --ui-fill-tertiary: rgb(120 120 128 / 0.09);
   --ui-segment-track: rgb(120 120 128 / 0.12);
   --ui-segment-active: #ffffff;
+  --ui-segment-on: #0b0b0f;
+  --ui-sheet-surface: rgb(250 250 252 / 0.94);
+  --ui-sheet-border: rgb(255 255 255 / 0.85);
+  --ui-sheet-highlight: rgb(255 255 255 / 0.95);
+  --ui-control-fill: rgb(118 118 128 / 0.16);
+  --ui-segment-on-ink: #ffffff;
+  --ui-switch-off: rgb(120 120 128 / 0.16);
   --ui-accent: #007aff;
   --ui-accent-strong: #0066cc;
   --ui-accent-rgb: 0 122 255;
@@ -1319,7 +1294,7 @@ body {
   --ui-selection-border-alpha: 0.46;
   --ui-selection-inner-alpha: 0.64;
   --ui-selection-outer-alpha: 0.14;
-  --ui-scrim: rgb(28 28 30 / 0.32);
+  --ui-scrim: rgb(0 0 0 / 0.45);
   --ui-shadow: rgb(28 28 30 / 0.18);
   --ui-shadow-soft: rgb(28 28 30 / 0.09);
 }
@@ -1343,6 +1318,10 @@ body {
 }
 
 @media (prefers-contrast: more) {
+  .liquid-glass-drop {
+    border-color: var(--ui-border-strong);
+  }
+
   .dashboard-theme-dark {
     --ui-text-secondary: rgb(255 255 255 / 0.9);
     --ui-text-tertiary: rgb(255 255 255 / 0.78);
@@ -1377,17 +1356,27 @@ body {
 }
 
 @media (prefers-reduced-transparency: reduce) {
+  .liquid-glass-drop {
+    background: rgb(var(--ui-accent-rgb, 10 132 255) / 0.18);
+    box-shadow: none;
+  }
+
+  .liquid-glass-drop::before {
+    display: none;
+  }
+
   .liquid-glass-panel,
   .liquid-glass-sheet,
   .liquid-glass-navigation,
-  .liquid-glass-control {
+  .liquid-glass-control,
+  .glass-sheet-surface {
     background: var(--ui-bg-elevated) !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
 
   .liquid-glass-card,
-  .glass-button,
+  .glass-button:not(.glass-button-primary, .glass-button-danger, .glass-button-accent),
   .glass-icon-button,
   .liquid-segmented-control {
     background-color: var(--ui-surface-primary) !important;
@@ -1400,7 +1389,8 @@ body {
   .liquid-glass-panel,
   .liquid-glass-sheet,
   .liquid-glass-navigation,
-  .liquid-glass-control {
+  .liquid-glass-control,
+  .glass-sheet-surface {
     background: var(--ui-bg-elevated);
   }
 }
@@ -1622,6 +1612,110 @@ body {
     linear-gradient(160deg, rgb(17 47 41 / 0.76), rgb(20 29 53 / 0.58));
 }
 
+/*
+ * Dynamic: two soft glows that follow the room or the alarm. Registered
+ * custom properties let the browser blend the gradients itself; only colour
+ * and opacity ever animate, with no blur and no transform.
+ */
+@property --ambient-a {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #0a84ff;
+}
+
+@property --ambient-b {
+  syntax: '<color>';
+  inherits: false;
+  initial-value: #bf5af2;
+}
+
+@property --ambient-opacity {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0.5;
+}
+
+.dashboard-background-dynamic .dashboard-background-layer::before {
+  inset: 0;
+  filter: none;
+  transform: none;
+  opacity: 1;
+  background: #000000;
+}
+
+.dashboard-theme-light.dashboard-background-dynamic .dashboard-background-layer::before {
+  background: #eceef2;
+}
+
+.dashboard-background-dynamic .dashboard-background-layer::after {
+  background: none;
+}
+
+.ambient-background {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.ambient-background[data-pulse] {
+  animation: ambient-breath 3s ease-in-out infinite;
+}
+
+.ambient-glow {
+  --ambient-opacity: 0.5;
+  position: absolute;
+  inset: 0;
+  opacity: var(--ambient-opacity);
+  background:
+    radial-gradient(40% 34% at 22% -6%, var(--ambient-a), transparent),
+    radial-gradient(34% 38% at 100% 52%, var(--ambient-b), transparent);
+  transition:
+    --ambient-a 900ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    --ambient-b 900ms cubic-bezier(0.25, 0.1, 0.25, 1),
+    --ambient-opacity 900ms cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.ambient-glow[data-intensity="subtle"] {
+  --ambient-opacity: 0.22;
+}
+
+.dashboard-theme-light .ambient-glow {
+  --ambient-opacity: 0.38;
+}
+
+.dashboard-theme-light .ambient-glow[data-intensity="subtle"] {
+  --ambient-opacity: 0.18;
+}
+
+@keyframes ambient-breath {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glow {
+    transition: none;
+  }
+
+  .ambient-background[data-pulse] {
+    animation: none;
+  }
+}
+
+.profile-background-thumb-dynamic {
+  background:
+    radial-gradient(70% 60% at 22% 4%, rgb(10 132 255 / 0.7), transparent),
+    radial-gradient(60% 64% at 100% 56%, rgb(191 90 242 / 0.62), transparent),
+    #000000;
+}
+
 .profile-background-thumb {
   background-position: center;
   background-size: cover;
@@ -1666,132 +1760,6 @@ body {
   color: var(--ui-text-primary);
 }
 
-.rooms-page-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  align-self: start;
-  isolation: isolate;
-}
-
-.rooms-page-header-surface {
-  position: relative;
-  padding-block: 0.1rem;
-  transition: padding 280ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.rooms-page-header-surface::before {
-  content: "";
-  position: absolute;
-  inset: -0.55rem -0.7rem;
-  z-index: -1;
-  border: 1px solid transparent;
-  border-radius: 1.35rem;
-  background:
-    linear-gradient(180deg, rgb(var(--ui-glass-highlight-rgb) / 0.09), transparent 58%),
-    var(--ui-surface-glass-strong);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.08),
-    0 16px 38px var(--ui-shadow-soft);
-  opacity: 0;
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  transform: translateY(-0.3rem) scale(0.985);
-  transition:
-    opacity 240ms ease,
-    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 240ms ease;
-}
-
-.rooms-page-header-compact .rooms-page-header-surface {
-  padding-block: 0.35rem;
-}
-
-.rooms-page-header-compact .rooms-page-header-surface::before {
-  border-color: var(--ui-border);
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-@media (max-width: 639px) {
-  .rooms-page-header-surface::before {
-    inset: calc(-1rem - env(safe-area-inset-top)) -1rem -0.55rem;
-    border: 0;
-    border-radius: 0;
-    background: var(--dashboard-bg);
-    box-shadow: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    transform: none;
-    transition: opacity 280ms cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .rooms-page-header-compact .rooms-page-header-surface::before {
-    transform: none;
-  }
-}
-
-.rooms-page-title {
-  transition:
-    font-size 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    line-height 280ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.rooms-page-header-compact .rooms-page-title {
-  font-size: 1.15rem;
-  line-height: 1.2;
-}
-
-.rooms-page-header-details {
-  display: grid;
-  grid-template-rows: 1fr;
-  opacity: 1;
-  transition:
-    grid-template-rows 280ms cubic-bezier(0.22, 1, 0.36, 1),
-    opacity 180ms ease;
-}
-
-.rooms-page-header-compact .rooms-page-header-details {
-  grid-template-rows: 0fr;
-  opacity: 0;
-  pointer-events: none;
-}
-
-@media (min-width: 640px) {
-  .rooms-page-header-compact .rooms-page-title {
-    font-size: 1.35rem;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .rooms-page-header-surface,
-  .rooms-page-header-surface::before,
-  .rooms-page-title,
-  .rooms-page-header-details {
-    transition-duration: 1ms;
-  }
-}
-
-.rooms-surface {
-  border-radius: 24px;
-  border: 1px solid var(--ui-border);
-  background:
-    linear-gradient(180deg, rgb(var(--ui-glass-highlight-rgb) / 0.055), transparent 44%),
-    var(--ui-surface-secondary);
-  box-shadow:
-    inset 0 1px 0 rgb(var(--ui-glass-highlight-rgb) / 0.07),
-    0 18px 48px var(--ui-shadow-soft);
-}
-
-.rooms-chip {
-  background: var(--ui-fill-tertiary);
-  color: var(--ui-text-secondary);
-}
-
-.rooms-chip:hover {
-  background: var(--ui-fill-secondary);
-  color: var(--ui-text-primary);
-}
 button,
 a,
 input,
@@ -2219,4 +2187,52 @@ button:not(:disabled):active,
 
 .weather-condition-visual[data-weather='windy'] .weather-condition-atmosphere {
   background-image: repeating-linear-gradient(172deg, transparent 0 18px, rgb(255 255 255 / 0.13) 19px, transparent 21px 38px);
+}
+
+/*
+ * While the mobile side menu is open the page steps aside, a little smaller.
+ * The top bar, the page and the bottom bar scale around the same point (the
+ * right edge, half the screen high), so they move as one sheet.
+ */
+.mobile-drawer-push {
+  transition:
+    transform 560ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-radius 560ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.mobile-drawer-push[data-drawer-push='top'] {
+  transform-origin: 100% 50dvh;
+}
+
+.mobile-drawer-push[data-drawer-push='page'] {
+  transform-origin: 100% calc(50dvh - env(safe-area-inset-top) - 4rem);
+}
+
+.mobile-drawer-push[data-drawer-push='bottom'] {
+  transform-origin: 100% calc(100% - 50dvh);
+}
+
+.mobile-drawer-push[data-drawer-open='true'] {
+  transform: translateX(0.875rem) scale(0.965);
+}
+
+.mobile-drawer-push[data-drawer-push='page'][data-drawer-open='true'] {
+  border-radius: 1.75rem;
+}
+
+@media (min-width: 768px) {
+  .mobile-drawer-push[data-drawer-open='true'] {
+    transform: none;
+    border-radius: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-drawer-push {
+    transition: none;
+  }
+
+  .mobile-drawer-push[data-drawer-open='true'] {
+    transform: none;
+  }
 }

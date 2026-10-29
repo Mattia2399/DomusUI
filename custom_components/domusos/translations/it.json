@@ -22,6 +22,10 @@
     "irrigation_close_failed": {
       "title": "La zona di irrigazione non si è chiusa",
       "description": "Domus Core non ha potuto confermare la chiusura di {zone} dopo più tentativi ({reason}). Controlla l'attuatore e, se necessario, chiudi manualmente l'acqua."
+    },
+    "access_policy_untrusted": {
+      "title": "Impossibile leggere i permessi Domus",
+      "description": "La policy di accesso Domus è {state}. Gli account non amministratori mantengono solo le viste di base finché un amministratore di Home Assistant non reimposta la policy da Domus (comando domusos/access/reset_policy). La policy precedente viene conservata accanto allo store, mai eliminata."
     }
   }
 }

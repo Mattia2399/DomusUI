@@ -1,42 +1,30 @@
-import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft,
   BadgeCheck,
   Bell,
-  Check,
   CheckCircle2,
   ChevronRight,
   Clock3,
   Fingerprint,
   KeyRound,
-  Languages,
   LifeBuoy,
   Mail,
   MapPin,
-  Palette,
   Route,
   ShieldCheck,
-  SunMoon,
   Trash2,
   UserRound,
-  WifiOff,
   XCircle,
   type LucideIcon,
 } from 'lucide-react';
-import { SUPPORTED_LOCALES, useI18n, type AppLocale } from '../../i18n/I18nProvider';
-import type { TranslationKey } from '../../i18n/translations';
+import { useI18n } from '../../i18n/I18nProvider';
 import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import type { DashboardRuntimeMode } from '../../security/dashboardAccess';
 import type { HaFrontendPreferencesCallApi } from '../../services/haFrontendPreferences';
 import { useDeviceAuth } from '../../hooks/useDeviceAuth';
 import { usePersonalDevices } from '../../hooks/usePersonalDevices';
 import { appendSecurityAuditEvent } from '../../services/securityAuth';
-import {
-  DASHBOARD_BACKGROUND_PRESETS,
-  type DashboardAppearanceMode,
-  type DashboardBackgroundPreset,
-} from '../../theme/dashboardTheme';
-import GlassSegmentSelect from '../ui/GlassSegmentSelect';
+import { PROFILE_ROUTE } from '../../navigation/settingsRoutes';
 import NestedPageHeader from '../ui/NestedPageHeader';
 import ProfileGroup from './ProfileGroup';
 import ProfileStartupPanelPreference from './ProfileStartupPanelPreference';
@@ -48,11 +36,17 @@ import type {
   ProfileSectionId,
 } from './profileModels';
 import type { ProfileHouseMember } from './settingsHouseAccessModel';
+import { PUSH_PAGE_ATTRIBUTE, playPagePush, usePagePushTransition } from '../ui/usePagePushTransition';
+
+// The overview, then each profile page one level below.
+const profileViewDepth = (view: string) => (view === 'overview' ? 1 : 2);
 
 // Only users who open My devices download its screens and dialogs.
 const PersonalDevicesView = lazy(() => import('./profileDevices/PersonalDevicesView'));
 
-type ProfileView = 'overview' | 'personal' | 'activity' | 'devices' | 'security' | 'themes' | 'language';
+// Appearance and language are device settings: Settings › This device.
+// The Profile is the top of Settings: its pages live below `/settings/profile`.
+type ProfileView = 'overview' | 'personal' | 'activity' | 'devices' | 'security';
 
 type ModernProfilePageProps = {
   isOpen: boolean;
@@ -73,10 +67,6 @@ type ModernProfilePageProps = {
   movementPoints?: ProfileMovementMapPoint[];
   movementUpdatedLabel?: string;
   haStatus: HaConnectionStatus;
-  appearanceMode: DashboardAppearanceMode;
-  onAppearanceModeChange: (mode: DashboardAppearanceMode) => void;
-  background: DashboardBackgroundPreset;
-  onBackgroundChange: (background: DashboardBackgroundPreset) => void;
   navigationRoute?: string;
   onNavigate?: (path: string) => void;
   runtimeMode?: DashboardRuntimeMode;
@@ -93,23 +83,6 @@ type ProfileRowProps = {
   tone?: 'default' | 'success' | 'warning';
 };
 
-const statusLabelKeyByConnection: Partial<Record<HaConnectionStatus, TranslationKey>> = {
-  connected: 'profile.status.connected',
-  connecting: 'profile.status.connecting',
-  reconnecting: 'profile.status.reconnecting',
-  reauth_required: 'profile.status.reauth',
-  error: 'profile.status.unavailable',
-  disconnected: 'profile.status.disconnected',
-};
-
-const backgroundPreviewClassById: Record<DashboardBackgroundPreset, string> = {
-  neutral: 'profile-background-thumb-neutral',
-  'home-hub': 'profile-background-thumb-home-hub',
-  'ocean-mist': 'profile-background-thumb-ocean-mist',
-  'sunset-amber': 'profile-background-thumb-sunset-amber',
-  'forest-glass': 'profile-background-thumb-forest-glass',
-};
-
 function resolveInitialView(section: ProfileSectionId | undefined): ProfileView {
   if (section === 'movements') {
     return 'activity';
@@ -124,24 +97,20 @@ function resolveProfileViewFromRoute(route: string | undefined): ProfileView | n
   if (!route) {
     return null;
   }
-  const path = route.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/profile';
-  if (path === '/profile/personal') return 'personal';
-  if (path === '/profile/activity') return 'activity';
-  if (path === '/profile/devices') return 'devices';
-  if (path === '/profile/security') return 'security';
-  if (path === '/profile/themes') return 'themes';
-  if (path === '/profile/language') return 'language';
-  return path === '/profile' ? 'overview' : null;
+  const path = route.split(/[?#]/, 1)[0].replace(/\/+$/, '');
+  if (path === `${PROFILE_ROUTE}/personal`) return 'personal';
+  if (path === `${PROFILE_ROUTE}/activity`) return 'activity';
+  if (path === `${PROFILE_ROUTE}/devices`) return 'devices';
+  if (path === `${PROFILE_ROUTE}/security`) return 'security';
+  return path === PROFILE_ROUTE ? 'overview' : null;
 }
 
 const profilePathByView: Record<ProfileView, string> = {
-  overview: '/profile',
-  personal: '/profile/personal',
-  activity: '/profile/activity',
-  devices: '/profile/devices',
-  security: '/profile/security',
-  themes: '/profile/themes',
-  language: '/profile/language',
+  overview: PROFILE_ROUTE,
+  personal: `${PROFILE_ROUTE}/personal`,
+  activity: `${PROFILE_ROUTE}/activity`,
+  devices: `${PROFILE_ROUTE}/devices`,
+  security: `${PROFILE_ROUTE}/security`,
 };
 
 function ProfileRow({
@@ -200,108 +169,12 @@ function ProfileRow({
   return <div className={className}>{content}</div>;
 }
 
-function ProfileOverviewHeader({
-  collapseProgress,
-  displayName,
-  displayEmail,
-  displayInitials,
-  userAvatarUrl,
-  avatarFailed,
-  onAvatarError,
-  isConnected,
-  connectionLabel,
-  backLabel,
-  onBack,
-}: {
-  collapseProgress: number;
-  displayName: string;
-  displayEmail: string;
-  displayInitials: string;
-  userAvatarUrl?: string;
-  avatarFailed: boolean;
-  onAvatarError: () => void;
-  isConnected: boolean;
-  connectionLabel: string;
-  backLabel: string;
-  onBack: () => void;
-}) {
-  const collapsed = collapseProgress >= 0.98;
-  const identityTransform = `translate3d(${Math.round((1 - collapseProgress) * -14)}px, ${Math.round(
-    (1 - collapseProgress) * 4,
-  )}px, 0) scale(${0.9 + collapseProgress * 0.1})`;
-
-  return (
-    <header
-      data-testid="profile-collapsing-header"
-      data-collapsed={collapsed ? 'true' : 'false'}
-      data-collapse-progress={collapseProgress.toFixed(2)}
-      className="sticky top-0 z-30 sm:relative sm:z-10"
-    >
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 border-b border-[color:var(--ui-separator)] bg-[color:var(--ui-bg-grouped)] shadow-[0_10px_30px_var(--ui-shadow-soft)] backdrop-blur-3xl sm:hidden"
-        style={{ opacity: collapseProgress }}
-      />
-      <div className="relative mx-auto flex min-h-[calc(env(safe-area-inset-top)+4.5rem)] w-full max-w-[48rem] items-center gap-3 px-4 pt-[env(safe-area-inset-top)] sm:min-h-14 sm:px-6 sm:pt-0 lg:px-8">
-        <button
-          type="button"
-          onClick={onBack}
-          className="liquid-glass-control flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-primary)] transition-transform active:scale-[0.96]"
-          aria-label={backLabel}
-        >
-          <ArrowLeft size={18} />
-        </button>
-
-        <div
-          aria-hidden={collapseProgress < 0.5}
-          className={`flex min-w-0 flex-1 items-center gap-2.5 sm:hidden ${
-            collapseProgress < 0.05 ? 'pointer-events-none' : ''
-          }`}
-          style={{
-            opacity: collapseProgress,
-            transform: identityTransform,
-            willChange: 'opacity, transform',
-          }}
-        >
-          <span className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-secondary)] text-[11px] font-semibold shadow-[0_8px_20px_var(--ui-shadow-soft)]">
-            {userAvatarUrl && !avatarFailed ? (
-              <img
-                src={userAvatarUrl}
-                alt=""
-                className="h-full w-full object-cover"
-                onError={onAvatarError}
-              />
-            ) : (
-              displayInitials
-            )}
-            <span
-              className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--ui-bg-grouped)] ${
-                isConnected ? 'bg-emerald-500' : 'bg-amber-500'
-              }`}
-            />
-          </span>
-          <span className="min-w-0">
-            <span className="block truncate text-[13px] font-semibold leading-tight tracking-[-0.015em]">
-              {displayName}
-            </span>
-            <span className="mt-0.5 block truncate text-[10px] font-medium leading-tight text-[color:var(--ui-text-secondary)]">
-              {displayEmail}
-            </span>
-          </span>
-          <span className="sr-only">{connectionLabel}</span>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 export function ModernProfilePage({
   isOpen,
   onClose,
   initialSection,
   currentUserId,
   haUserId,
-  userAvatarUrl,
   userAvatarAlt,
   userEmail,
   userRoleLabel,
@@ -312,23 +185,17 @@ export function ModernProfilePage({
   movementPoints = [],
   movementUpdatedLabel,
   haStatus,
-  appearanceMode,
-  onAppearanceModeChange,
-  background,
-  onBackgroundChange,
   navigationRoute,
   onNavigate,
   runtimeMode = 'demo',
   onCallApi,
   onNotify,
 }: ModernProfilePageProps) {
-  const { locale, setLocale, t } = useI18n();
+  const { t } = useI18n();
   const [view, setView] = useState<ProfileView>(
     () => resolveProfileViewFromRoute(navigationRoute) ?? resolveInitialView(initialSection),
   );
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [avatarFailed, setAvatarFailed] = useState(false);
-  const [overviewHeaderCollapseProgress, setOverviewHeaderCollapseProgress] = useState(0);
   const [securityBusy, setSecurityBusy] = useState(false);
   const [securityAvailable, setSecurityAvailable] = useState(false);
   const [securityFeedback, setSecurityFeedback] = useState<{
@@ -348,14 +215,6 @@ export function ModernProfilePage({
   const accountEmail = userEmail?.trim() || '';
   const displayEmail = accountEmail || t('profile.fallback.account');
   const displayRole = userRoleLabel?.trim() || currentMember?.roleLabel?.trim() || t('profile.fallback.role');
-  const displayInitials =
-    displayName
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join('') || 'U';
-  const connectionLabel = t(statusLabelKeyByConnection[haStatus] ?? 'profile.status.unavailable');
   const isConnected = haStatus === 'connected';
   const latestMovement = movementTimeline[0];
   // The person and its tracker report the same move: show it once, keeping the first (the person).
@@ -405,25 +264,6 @@ export function ModernProfilePage({
     };
   }, [deviceAuth]);
 
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!isOpen || view !== 'overview' || !container) {
-      setOverviewHeaderCollapseProgress(0);
-      return;
-    }
-
-    const updateCollapseProgress = () => {
-      const nextProgress = Math.min(1, Math.max(0, (container.scrollTop - 20) / 76));
-      setOverviewHeaderCollapseProgress((current) =>
-        Math.abs(current - nextProgress) < 0.005 ? current : nextProgress,
-      );
-    };
-
-    updateCollapseProgress();
-    container.addEventListener('scroll', updateCollapseProgress, { passive: true });
-    return () => container.removeEventListener('scroll', updateCollapseProgress);
-  }, [isOpen, view]);
-
   if (!isOpen) {
     return null;
   }
@@ -434,7 +274,7 @@ export function ModernProfilePage({
       return;
     }
     setView('overview');
-    onNavigate?.('/profile');
+    onNavigate?.(PROFILE_ROUTE);
   };
 
   const openView = (nextView: Exclude<ProfileView, 'overview'>) => {
@@ -499,105 +339,45 @@ export function ModernProfilePage({
     });
   };
 
+  usePagePushTransition('profile', view, profileViewDepth);
+  // Opening the profile from Settings is itself a push from the page below.
+  useLayoutEffect(() => {
+    playPagePush('profile-root', 'forward');
+  }, []);
+
   return (
     <div
       ref={scrollContainerRef}
+      {...{ [PUSH_PAGE_ATTRIBUTE]: 'profile-root' }}
       data-testid="modern-profile-scroll"
-      className="fixed inset-0 z-[220] h-[100dvh] overflow-y-auto bg-[var(--ui-bg-grouped)] text-[color:var(--ui-text-primary)]"
+      className="dashboard-page-scroll !p-0 text-[color:var(--ui-text-primary)]"
     >
-      {view !== 'overview' ? (
-        <NestedPageHeader
-          title={
-            view === 'personal'
+      <NestedPageHeader
+        title={
+          view === 'overview'
+            ? t('profile.title')
+            : view === 'personal'
               ? t('profile.view.personal')
               : view === 'activity'
-              ? t('profile.view.activity')
-              : view === 'devices'
-                ? t('profile.view.devices')
-              : view === 'security'
-                ? t('profile.view.security')
-                : view === 'themes'
-                  ? t('profile.view.themes')
-                  : t('language.page.title')
-          }
-          subtitle={displayName}
-          backLabel={t('profile.title')}
-          backAriaLabel={t('profile.back')}
-          onBack={handleBack}
-          scrollContainerRef={scrollContainerRef}
-          maxWidthClassName="max-w-[48rem]"
-        />
-      ) : (
-        <ProfileOverviewHeader
-          collapseProgress={overviewHeaderCollapseProgress}
-          displayName={displayName}
-          displayEmail={accountEmail || displayRole}
-          displayInitials={displayInitials}
-          userAvatarUrl={userAvatarUrl}
-          avatarFailed={avatarFailed}
-          onAvatarError={() => setAvatarFailed(true)}
-          isConnected={isConnected}
-          connectionLabel={connectionLabel}
-          backLabel={t('profile.back')}
-          onBack={handleBack}
-        />
-      )}
+                ? t('profile.view.activity')
+                : view === 'devices'
+                  ? t('profile.view.devices')
+                  : t('profile.view.security')
+        }
+        subtitle={displayName}
+        backLabel={view === 'overview' ? t('settings.back') : t('profile.title')}
+        backAriaLabel={t('profile.back')}
+        onBack={handleBack}
+        scrollContainerRef={scrollContainerRef}
+        maxWidthClassName="max-w-[48rem]"
+      />
 
       <main
-        className={`mx-auto w-full max-w-[48rem] px-4 pb-[calc(env(safe-area-inset-bottom)+2.5rem)] sm:px-6 lg:px-8 ${
-          view === 'overview'
-            ? 'pt-3 sm:pt-2'
-            : 'pt-5 sm:pt-7'
-        }`}
+        {...{ [PUSH_PAGE_ATTRIBUTE]: 'profile' }}
+        className="mx-auto w-full max-w-[48rem] px-4 pb-[calc(env(safe-area-inset-bottom)+2.5rem)] pt-5 sm:px-6 sm:pt-7 lg:px-8"
       >
         {view === 'overview' ? (
           <div className="space-y-6">
-            <h1 className="sr-only">{t('profile.title')}</h1>
-            <section className="flex items-center gap-4 px-1 py-1 sm:gap-5">
-              <div className="relative shrink-0">
-                <span className="flex h-[4.75rem] w-[4.75rem] items-center justify-center overflow-hidden rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-secondary)] text-xl font-semibold text-[color:var(--ui-text-primary)] shadow-[0_14px_34px_var(--ui-shadow)] sm:h-20 sm:w-20">
-                  {userAvatarUrl && !avatarFailed ? (
-                    <img
-                      src={userAvatarUrl}
-                      alt={displayName}
-                      className="h-full w-full object-cover"
-                      onError={() => setAvatarFailed(true)}
-                    />
-                  ) : (
-                    displayInitials
-                  )}
-                </span>
-                <span
-                  className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-[3px] border-[color:var(--ui-bg-grouped)] ${
-                    isConnected ? 'bg-emerald-500' : 'bg-amber-500'
-                  }`}
-                  aria-label={connectionLabel}
-                />
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <h2 className="truncate text-[clamp(1.55rem,5vw,2rem)] font-semibold tracking-[-0.045em]">
-                  {displayName}
-                </h2>
-                {accountEmail ? (
-                  <p className="mt-0.5 truncate text-sm text-[color:var(--ui-text-secondary)]">{accountEmail}</p>
-                ) : null}
-                <div className="mt-2.5 flex flex-wrap gap-2">
-                  <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 text-[11px] font-semibold text-[color:var(--ui-text-secondary)]">
-                    <BadgeCheck size={13} />
-                    {displayRole}
-                  </span>
-                  {/* Connected is the normal case, shown by the dot on the avatar; only a problem gets a chip. */}
-                  {!isConnected ? (
-                    <span className="inline-flex min-h-7 items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/10 px-2.5 text-[11px] font-semibold text-amber-600 dark:text-amber-300">
-                      <WifiOff size={13} />
-                      {connectionLabel}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </section>
-
             <ProfileGroup title={t('profile.account.group')}>
               <ProfileRow
                 icon={UserRound}
@@ -611,9 +391,6 @@ export function ModernProfilePage({
                 subtitle={latestMovement?.title ?? t('profile.activity.emptyRecent')}
                 onClick={() => openView('activity')}
               />
-            </ProfileGroup>
-
-            <ProfileGroup title={t('profile.group.notifications')}>
               <ProfileRow
                 icon={Bell}
                 title={t('profile.devices.title')}
@@ -627,60 +404,6 @@ export function ModernProfilePage({
                 }
                 onClick={() => openView('devices')}
               />
-            </ProfileGroup>
-
-            <ProfileGroup title={t('profile.group.appearance')}>
-              <div className="px-4 py-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)]">
-                    <SunMoon size={17} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold">{t('profile.appearance.title')}</span>
-                    <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                      {t('profile.appearance.description')}
-                    </span>
-                  </span>
-                </div>
-                <GlassSegmentSelect
-                  ariaLabel={t('profile.appearance.aria')}
-                  className="mt-3"
-                  value={appearanceMode}
-                  onChange={onAppearanceModeChange}
-                  options={[
-                    { value: 'auto', label: t('profile.appearance.system') },
-                    { value: 'light', label: t('profile.appearance.light') },
-                    { value: 'dark', label: t('profile.appearance.dark') },
-                  ]}
-                />
-              </div>
-
-              <ProfileRow
-                icon={Palette}
-                title={t('profile.themes.title')}
-                subtitle={t('profile.themes.subtitle')}
-                value={DASHBOARD_BACKGROUND_PRESETS.find((preset) => preset.id === background)?.label}
-                onClick={() => openView('themes')}
-              />
-
-              <ProfileRow
-                icon={Languages}
-                title={t('language.selector.label')}
-                subtitle={t('language.selector.description')}
-                value={t(`language.name.${locale}` as TranslationKey)}
-                onClick={() => openView('language')}
-              />
-
-              <ProfileStartupPanelPreference
-                runtimeMode={runtimeMode}
-                haStatus={haStatus}
-                haUserId={haUserId}
-                onCallApi={onCallApi}
-                onNotify={onNotify}
-              />
-            </ProfileGroup>
-
-            <ProfileGroup title={t('profile.group.security')}>
               <ProfileRow
                 icon={ShieldCheck}
                 title={t('profile.security.title')}
@@ -695,6 +418,19 @@ export function ModernProfilePage({
               />
             </ProfileGroup>
 
+            {/* The startup panel is a Home Assistant preference of the person, so it needs Home Assistant. */}
+            {runtimeMode === 'real' ? (
+              <ProfileGroup title={t('profile.group.preferences')}>
+                <ProfileStartupPanelPreference
+                  runtimeMode={runtimeMode}
+                  haStatus={haStatus}
+                  haUserId={haUserId}
+                  onCallApi={onCallApi}
+                  onNotify={onNotify}
+                />
+              </ProfileGroup>
+            ) : null}
+
             <ProfileGroup title={t('profile.group.help')}>
               <ProfileRow
                 icon={LifeBuoy}
@@ -704,9 +440,6 @@ export function ModernProfilePage({
               />
             </ProfileGroup>
 
-            <p className="px-1 text-center text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-              {t('profile.preferences.note')}
-            </p>
           </div>
         ) : null}
 
@@ -788,86 +521,6 @@ export function ModernProfilePage({
                   </p>
                 </div>
               )}
-            </ProfileGroup>
-          </div>
-        ) : null}
-
-        {view === 'themes' ? (
-          <div className="space-y-6">
-            <p className="px-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              {t('profile.themes.description')}
-            </p>
-            <ProfileGroup title={t('profile.themes.group')}>
-              {DASHBOARD_BACKGROUND_PRESETS.map((preset) => {
-                const selected = background === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    type="button"
-                    onClick={() => onBackgroundChange(preset.id)}
-                    aria-pressed={selected}
-                    className="flex min-h-[4.8rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]"
-                  >
-                    <span className="relative h-12 w-12 shrink-0 overflow-hidden rounded-[1rem] border border-[color:var(--ui-border-strong)] shadow-[0_8px_18px_var(--ui-shadow-soft)]">
-                      <span
-                        className={`profile-background-thumb absolute inset-[-18%] ${backgroundPreviewClassById[preset.id]}`}
-                      />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                        {preset.label}
-                      </span>
-                      <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">
-                        {preset.description}
-                      </span>
-                    </span>
-                    {selected ? (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-accent-strong)] text-[color:var(--ui-accent-contrast)]">
-                        <Check size={15} strokeWidth={2.5} />
-                      </span>
-                    ) : (
-                      <span className="h-7 w-7 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </ProfileGroup>
-          </div>
-        ) : null}
-
-        {view === 'language' ? (
-          <div className="space-y-6">
-            <p className="px-1 text-sm leading-6 text-[color:var(--ui-text-secondary)]">
-              {t('language.page.description')}
-            </p>
-            <ProfileGroup title={t('language.page.group')}>
-              {SUPPORTED_LOCALES.map((language) => {
-                const selected = locale === language;
-                const label = t(`language.name.${language}` as TranslationKey);
-                return (
-                  <button
-                    key={language}
-                    type="button"
-                    onClick={() => setLocale(language as AppLocale)}
-                    aria-pressed={selected}
-                    className="flex min-h-[4.4rem] w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)] active:bg-[color:var(--ui-fill-secondary)]"
-                  >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-xs font-semibold uppercase text-[color:var(--ui-text-secondary)]">
-                      {language}
-                    </span>
-                    <span className="min-w-0 flex-1 text-sm font-semibold text-[color:var(--ui-text-primary)]">
-                      {label}
-                    </span>
-                    {selected ? (
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-accent-strong)] text-[color:var(--ui-accent-contrast)]">
-                        <Check size={15} strokeWidth={2.5} />
-                      </span>
-                    ) : (
-                      <span className="h-7 w-7 shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
             </ProfileGroup>
           </div>
         ) : null}

@@ -1,4 +1,6 @@
 import React from 'react';
+import type { LockPanelData } from '../settings/lockPanelTypes';
+import { normalizeLockCardState, resolveLockLastChange, translateLockCardState } from '../widgets/lockCardModel';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart3,
@@ -751,27 +753,7 @@ type RightSidebarManagerProps = {
     relatedEntities?: VacuumRelatedEntityInfo[];
     rawAttributes?: Record<string, unknown>;
   };
-  lock: {
-    name: string;
-    state: string;
-    status?: string;
-    changedBy?: string;
-    activityLogLimit?: number;
-    activityLogHours?: number;
-    activityTimeline?: Array<{
-      id: string;
-      text: string;
-    }>;
-    activityTimelineStatus?: 'idle' | 'loading' | 'available' | 'empty' | 'unavailable' | 'offline';
-    supportedFeatures?: number;
-    batteryLevel?: number;
-    connection?: {
-      state: 'online' | 'offline' | 'unknown';
-      label: string;
-    };
-    rawAttributes?: Record<string, unknown>;
-    lockCode?: string;
-  };
+  lock: LockPanelData;
   cover: {
     name: string;
     state: string;
@@ -1359,7 +1341,11 @@ export function RightSidebarManager({
         : 'off'
       : String(contextSwitchEntity?.stateLabel ?? contextSwitchEntity?.state ?? '').trim().toLowerCase();
   const contextDeviceSubtitle =
-    activeDevice?.type === 'climate'
+    activeDevice?.type === 'lock'
+      ? normalizeLockCardState(lock.state) === 'unavailable'
+        ? t('controls.lock.unreachable')
+        : resolveLockLastChange(lock, locale) ?? translateLockCardState(normalizeLockCardState(lock.state), locale)
+      : activeDevice?.type === 'climate'
       ? translateClimateStatus(
           state.climate.status ?? state.climate.hvacAction ?? state.climate.mode,
           state.climate.mode,
@@ -2907,6 +2893,27 @@ export function RightSidebarManager({
                         className={`${BUILDER_TEXTAREA_CLASS} disabled:cursor-not-allowed disabled:opacity-60`}
                       />
                     </label>
+                    <div className={`${BUILDER_CONTENT_CARD_CLASS} flex items-center justify-between gap-3`}>
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">
+                          {bt('Data')}
+                        </p>
+                        <p className="mt-1 text-[11px] text-[color:var(--ui-text-tertiary)]">
+                          {bt('Mostra la data sopra il saluto.')}
+                        </p>
+                      </div>
+                      <GlassToggle
+                        checked={selectedSection.greetingShowDate ?? false}
+                        onChange={(nextChecked) =>
+                          onUpdateSection(selectedSection.id, (section) => ({
+                            ...section,
+                            greetingShowDate: nextChecked,
+                          }))
+                        }
+                        label={bt('Mostra la data nella card saluto')}
+                        tone="green"
+                      />
+                    </div>
                   </>
                 ) : (
                   <div className={`${BUILDER_CONTENT_CARD_CLASS} space-y-3`}>
@@ -2936,7 +2943,7 @@ export function RightSidebarManager({
                       <div className="dashboard-content-surface-soft rounded-xl px-3 py-2.5">
                         <p className="text-[11px] font-medium text-[color:var(--ui-text-primary)]">{bt('Layout meteo responsive')}</p>
                         <p className="mt-1 text-[11px] text-[color:var(--ui-text-secondary)]">
-                          {bt('In questa card unificata il meteo usa chip su xs/sm e card previsioni su md/lg.')}
+                          {bt('Il meteo usa il chip quando la card è stretta e le previsioni quando c’è spazio.')}
                         </p>
                       </div>
                       <label className="block">
@@ -3842,6 +3849,7 @@ export function RightSidebarManager({
                             variant={option.previewVariant}
                             active={option.isActive}
                             disabled={!option.isAvailable}
+                            phone={activeGridBreakpoint === 'sm' || activeGridBreakpoint === 'xs'}
                           />
                         ) : selectedWidgetSkeletonKind === 'cover' ? (
                           <CoverDisplayVariantSkeleton

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAccessControl } from '../../security/AccessControlProvider';
 import {
   Bell,
   ExternalLink,
@@ -28,7 +29,6 @@ type LeftSidebarProps = {
   selectedPathId?: string | null;
   activeRoute?: string;
   isSettingsActive?: boolean;
-  isEditTourActive?: boolean;
   canToggleEditMode: boolean;
   onPathClick: (entry: SidebarQuickPath) => void;
   onToggleEditMode: () => void;
@@ -84,7 +84,8 @@ export function LeftSidebar({
   }, []);
 
   const badgeValue = unreadCount > 99 ? '99+' : `${unreadCount}`;
-  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, SIDEBAR_ROUTE_IDS, t);
+  const { can } = useAccessControl();
+  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, SIDEBAR_ROUTE_IDS, t, can);
   const isPathEntryActive = (entry: SidebarQuickPath) =>
     isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute });
   const sidebarWidthClass = isCompactSidebar ? 'w-14 sm:w-[3.75rem] lg:w-[4.25rem]' : 'w-14 sm:w-16 lg:w-20';
@@ -158,7 +159,6 @@ export function LeftSidebar({
         <div className={`relative ${isCompactSidebar ? 'mb-2' : 'mb-3'}`}>
           <button
             type="button"
-            data-tour-target="edit-mode"
             onPointerEnter={onPrefetchEditMode}
             onPointerDown={onPrefetchEditMode}
             onFocus={onPrefetchEditMode}

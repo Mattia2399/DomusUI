@@ -113,33 +113,6 @@ function PreferenceRow({
   );
 }
 
-export function SettingsAttentionPreview({
-  preferences,
-}: {
-  preferences: HomeAttentionPreferences;
-}) {
-  const { t } = useI18n();
-  const activeCount = Object.values(preferences.categories).filter(Boolean).length;
-  return (
-    <span className="relative flex min-h-[4.4rem] w-full items-center gap-3 overflow-hidden rounded-[1rem] bg-[color:var(--ui-fill-tertiary)] px-3 py-2.5 sm:min-h-[4.9rem] sm:rounded-[1.15rem] sm:px-3.5">
-      <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[color:var(--ui-warning)]/12 text-[color:var(--ui-warning)]">
-        <BellRing size={18} />
-        {preferences.enabled ? (
-          <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-[color:var(--ui-bg-elevated)] bg-emerald-500" />
-        ) : null}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-xs font-semibold text-[color:var(--ui-text-primary)]">
-          {preferences.enabled ? t('settings.attention.activeCategories', { count: activeCount }) : t('settings.attention.disabled')}
-        </span>
-        <span className="mt-0.5 block truncate text-[10px] text-[color:var(--ui-text-secondary)]">
-          {t('settings.attention.previewThresholds', { minutes: preferences.openingWarningMinutes, battery: preferences.batteryWarningThreshold })}
-        </span>
-      </span>
-    </span>
-  );
-}
-
 export function SettingsAttentionSection({
   preferences,
   onChange,

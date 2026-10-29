@@ -50,6 +50,8 @@ type CoverControlsProps = {
   onCloseTilt?: () => void;
   onStopTilt?: () => void;
   onSetTiltPosition?: (position: number) => void;
+  /** A gate, garage or motorized door without access.control: the position shows, no command does. */
+  readOnly?: boolean;
 };
 
 function clamp(value: number, min: number, max: number) {
@@ -80,6 +82,7 @@ export function CoverControls({
   onCloseTilt,
   onStopTilt,
   onSetTiltPosition,
+  readOnly = false,
 }: CoverControlsProps) {
   const { t } = useI18n();
   const normalizedState = normalizeCoverState(cover.state);
@@ -234,6 +237,7 @@ export function CoverControls({
                 <span className={`cover-card__blind ${visualMovementClass}`} />
                 <span className="cover-card__handle-line" />
 
+                {readOnly ? null : (
                 <GlassSlider
                   variant="overlay"
                   min={0}
@@ -246,10 +250,12 @@ export function CoverControls({
                   } [writing-mode:vertical-lr] [-webkit-appearance:slider-vertical]`}
                   aria-label={t('controls.cover.position')}
                 />
+                )}
               </span>
             </div>
           </div>
 
+          {readOnly ? null : (
           <div className="grid grid-cols-3 gap-2">
             <button
               type="button"
@@ -302,8 +308,9 @@ export function CoverControls({
               <ArrowDown size={16} />
             </button>
           </div>
+          )}
 
-          {supportsTilt ? (
+          {!readOnly && supportsTilt ? (
             <div className="dashboard-content-surface-soft rounded-[1.65rem] p-4">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="min-w-0">

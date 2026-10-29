@@ -148,6 +148,8 @@ export type DashboardSection = {
   titleAuto?: boolean;
   subtitleAuto?: boolean;
   showWeather?: boolean;
+  /** The greeting shows a small date line above the title. */
+  greetingShowDate?: boolean;
   weatherLayout?: WeatherLayoutMode;
   weatherUnit?: WeatherUnit;
   weatherShowCondition?: boolean;

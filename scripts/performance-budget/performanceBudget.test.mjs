@@ -12,6 +12,7 @@ import {
   measureSurfaces,
   statusOf,
 } from './metrics.mjs';
+import { chunkLabel, chunkMap, ownerOf } from './chunk-map.mjs';
 import { evaluate, render } from './report.mjs';
 
 /*
@@ -163,5 +164,198 @@ describe('performance budget metrics', () => {
     const sizer = createSizer((name) => (name.includes('vendor') ? null : contents[name]));
     expect(() => sizer.measure(new Set([file('vendor')]))).toThrow(/Missing build file/);
     expect(() => measureSurfaces(loadGraph(fixture().graph), createSizer((name) => contents[name]), [{ id: 'x', sources: ['index.html'], requires: 'nowhere' }])).toThrow(/Unknown surface nowhere/);
+  });
+});
+
+describe('performance budget accounting (PERF.1)', () => {
+  /** The fixture plus a lazy feature behind Energy: its page and a runtime sharing a helper chunk. */
+  function withFeature(hash = 'a1') {
+    const { graph, contents, file } = fixture(hash);
+    graph.chunks[file('Energy')].dynamicImports.push(file('FeaturePage'), file('FeatureRuntime'));
+    graph.chunks[file('FeaturePage')] = { src: 'src/components/settings/FeaturePage.tsx', isDynamicEntry: true, imports: [file('index'), file('featureHelper')], dynamicImports: [], css: [], modules: { 'src/components/settings/FeaturePage.tsx': 10 } };
+    graph.chunks[file('FeatureRuntime')] = { src: 'src/components/kiosk/FeatureRuntime.tsx', isDynamicEntry: true, imports: [file('index'), file('featureHelper')], dynamicImports: [], css: [], modules: { 'src/components/kiosk/FeatureRuntime.tsx': 10 } };
+    graph.chunks[file('featureHelper')] = { src: null, name: 'featureHelper', imports: [], dynamicImports: [], css: [], modules: { 'src/components/kiosk/helper.ts': 30, 'src/components/kiosk/other.ts': 5 } };
+    for (const [name, size] of [['FeaturePage', 300], ['FeatureRuntime', 200], ['featureHelper', 100]]) {
+      contents[file(name)] = Buffer.from(name.repeat(size).slice(0, size));
+    }
+    return { build: loadGraph(graph), sizer: createSizer((name) => contents[name] ?? null), codeFiles: Object.keys(contents), file };
+  }
+  const feature = { id: 'feature', label: 'Feature', sources: ['src/components/settings/FeaturePage.tsx', 'src/components/kiosk/FeatureRuntime.tsx'], requires: 'energy', kind: 'feature', budget: { metric: 'incremental', raw: { warning: 700, limit: 800 }, gzip: { limit: 2000 } } };
+  const sum = (files, sizer) => [...files].reduce((total, name) => total + sizer.sizeOf(name).raw, 0);
+
+  it('measures a feature from several entries, counting the chunk they share once', () => {
+    const { build, sizer, file } = withFeature();
+    const measured = measureSurfaces(build, sizer, [...surfaces, feature]).find((surface) => surface.id === 'feature');
+    expect([...measured.added].sort()).toEqual([file('FeaturePage'), file('FeatureRuntime'), file('featureHelper')].sort());
+    expect(measured.incremental.raw).toBe(300 + 200 + 100);
+  });
+
+  it('never loses or adds bytes: the total is every file, whatever the surfaces', () => {
+    const { build, sizer, codeFiles } = withFeature();
+    const without = evaluate(build, sizer, config, codeFiles);
+    const withSurface = evaluate(build, sizer, { ...config, surfaces: [...surfaces, feature] }, codeFiles);
+    const all = sum(codeFiles, sizer);
+
+    expect(without.total.values.raw).toBe(all);
+    expect(withSurface.total.values.raw).toBe(all);
+    // Giving the feature a surface moves its files out of the unattributed code, nothing else.
+    expect(without.unattributed.values.raw - withSurface.unattributed.values.raw).toBe(600);
+    const reached = new Set(measureSurfaces(build, sizer, [...surfaces, feature]).flatMap((surface) => [...surface.files]));
+    expect(sum(reached, sizer) + withSurface.unattributed.values.raw).toBe(all);
+  });
+
+  it('names the unattributed files by source, largest first, never by hash', () => {
+    const names = (hash) => {
+      const { build, sizer, codeFiles } = withFeature(hash);
+      return evaluate(build, sizer, config, codeFiles).unattributed.details.map((entry) => [entry.label, entry.raw]);
+    };
+    expect(names('a1')).toEqual([
+      ['node_modules/map/worker.mjs', 900],
+      ['src/components/settings/FeaturePage.tsx', 300],
+      ['src/components/kiosk/FeatureRuntime.tsx', 200],
+      ['featureHelper (src/components/kiosk/helper.ts)', 100],
+    ]);
+    expect(names('zz9')).toEqual(names('a1'));
+    const { build, sizer, codeFiles } = withFeature();
+    expect(render(evaluate(build, sizer, config, codeFiles))).toContain('src/components/settings/FeaturePage.tsx');
+  });
+
+  it('maps every file to its kind, importers, surfaces and owner, the same way on every build', () => {
+    const map = (hash) => {
+      const { build, sizer, codeFiles } = withFeature(hash);
+      // The fixture's bytes include the file name, so only gzip may differ between hashes.
+      return chunkMap(build, sizer, [...surfaces, feature], codeFiles).map(({ file, gzip, ...entry }) => entry);
+    };
+    const first = map('a1');
+    expect(map('zz9')).toEqual(first);
+    const helper = first.find((entry) => entry.label.startsWith('featureHelper'));
+    expect(helper).toMatchObject({ kind: 'shared', owner: 'KIOSK', surfaces: ['feature'] });
+    expect(helper.importedBy).toEqual(['src/components/kiosk/FeatureRuntime.tsx', 'src/components/settings/FeaturePage.tsx']);
+    const page = first.find((entry) => entry.label === 'src/components/settings/FeaturePage.tsx');
+    expect(page).toMatchObject({ kind: 'dynamic', owner: 'SETTINGS', loadedLaterBy: ['src/pages/Energy.tsx'] });
+    expect(first.find((entry) => entry.label === 'index.html')).toMatchObject({ kind: 'entry' });
+  });
+
+  it('attributes owners from module paths, vendors by package', () => {
+    expect(ownerOf('src/components/kiosk/DomusKiosk.tsx')).toBe('KIOSK');
+    expect(ownerOf('src/components/settings/KioskSettings.tsx')).toBe('KIOSK');
+    expect(ownerOf('src/components/settings/DevicePowerSettings.tsx')).toBe('POWER');
+    expect(ownerOf('src/components/screensaver/idleController.ts')).toBe('SCREENSAVER');
+    expect(ownerOf('src/components/settings/SettingsList.tsx')).toBe('SETTINGS');
+    expect(ownerOf('node_modules/@headlessui/react/dist/index.js')).toBe('vendor:@headlessui/react');
+    expect(ownerOf('node_modules/recharts/es6/index.js')).toBe('vendor:recharts');
+    expect(chunkLabel({ src: null, name: 'icons', modules: {} })).toBe('icons (empty)');
+  });
+});
+
+describe('performance budget accounting (PERF.2)', () => {
+  /*
+   * The fixture plus first-run setup: the entry loads one language catalog and
+   * the setup words of that language (one chunk per language), and setup
+   * itself is a dynamic entry that needs both.
+   */
+  function withSetup(hash = 'a1') {
+    const { graph, contents, file } = fixture(hash);
+    const entry = graph.chunks[file('index')];
+    entry.dynamicImports.push(file('catalog-fr'), file('catalog-it'), file('setup-fr'), file('setup-it'), file('Setup'));
+    graph.chunks[file('catalog-fr')] = { src: 'virtual:domus-i18n/fr', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'virtual:domus-i18n/fr': 10 } };
+    graph.chunks[file('catalog-it')] = { src: 'virtual:domus-i18n/it', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'virtual:domus-i18n/it': 10 } };
+    graph.chunks[file('setup-fr')] = { src: 'src/i18n/onboarding/fr.ts', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'src/i18n/onboarding/fr.ts': 10 } };
+    graph.chunks[file('setup-it')] = { src: 'src/i18n/onboarding/it.ts', isDynamicEntry: true, imports: [], dynamicImports: [], css: [], modules: { 'src/i18n/onboarding/it.ts': 10 } };
+    graph.chunks[file('Setup')] = { src: 'src/components/onboarding/OnboardingExperience.tsx', isDynamicEntry: true, imports: [file('index'), file('vendor')], dynamicImports: [], css: [], modules: { 'src/components/onboarding/OnboardingExperience.tsx': 10 } };
+    for (const [name, size] of [['catalog-fr', 800], ['catalog-it', 700], ['setup-fr', 120], ['setup-it', 110], ['Setup', 400]]) {
+      contents[file(name)] = Buffer.from(name.repeat(size).slice(0, size));
+    }
+    return { build: loadGraph(graph), sizer: createSizer((name) => contents[name] ?? null), codeFiles: Object.keys(contents), file };
+  }
+  const bootWith = (...sources) => ({ ...surfaces[0], sources: ['index.html', ...sources], budget: { metric: 'cold', raw: { limit: 5000 }, gzip: { limit: 5000 } } });
+  const setup = (...sources) => ({ id: 'onboarding', label: 'Onboarding', sources: ['src/components/onboarding/OnboardingExperience.tsx', ...sources], requires: 'boot', kind: 'route', budget: { metric: 'incremental', raw: { limit: 5000 }, gzip: { limit: 5000 } } });
+  const localeIt = { id: 'locale-it', label: 'Lingua · Italiano', sources: ['virtual:domus-i18n/it', 'src/i18n/onboarding/it.ts'], requires: 'boot', kind: 'feature' };
+  const measure = (current, list) => Object.fromEntries(measureSurfaces(current.build, current.sizer, list).map((surface) => [surface.id, surface]));
+
+  it('counts the setup words of the starting language in Boot when they load at startup', () => {
+    const current = withSetup();
+    const { boot, onboarding, 'locale-it': it } = measure(current, [bootWith('virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'), surfaces[1], setup(), localeIt]);
+    const { file } = current;
+    expect(boot.cold.raw).toBe(1000 + 400 + 800 + 120);
+    // Setup adds only its own code: the words it needs are already there.
+    expect([...onboarding.added].sort()).toEqual([file('Setup'), file('vendor')].sort());
+    // Another language costs its catalog and its setup words together.
+    expect(it.incremental.raw).toBe(700 + 110);
+  });
+
+  it('moves the words between Boot and Onboarding without losing or adding a byte', () => {
+    const current = withSetup();
+    const startup = measure(current, [bootWith('virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'), setup()]);
+    const lazy = measure(current, [bootWith('virtual:domus-i18n/fr'), setup('src/i18n/onboarding/fr.ts')]);
+    expect(startup.boot.cold.raw - lazy.boot.cold.raw).toBe(120);
+    expect(lazy.onboarding.incremental.raw - startup.onboarding.incremental.raw).toBe(120);
+    const totals = [[bootWith('virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'), setup()], [bootWith('virtual:domus-i18n/fr'), setup('src/i18n/onboarding/fr.ts')]]
+      .map((list) => evaluate(current.build, current.sizer, { ...config, surfaces: list }, current.codeFiles).total.values.raw);
+    expect(totals[0]).toBe(totals[1]);
+  });
+
+  it('reports words no surface claims as unattributed, never as free', () => {
+    const current = withSetup();
+    const result = evaluate(current.build, current.sizer, { ...config, surfaces: [bootWith('virtual:domus-i18n/fr'), setup()] }, current.codeFiles);
+    const labels = result.unattributed.details.map((entry) => entry.label);
+    expect(labels).toEqual(expect.arrayContaining(['src/i18n/onboarding/fr.ts', 'src/i18n/onboarding/it.ts', 'virtual:domus-i18n/it']));
+    expect(ownerOf('src/i18n/onboarding/fr.ts')).toBe('I18N');
+  });
+});
+
+describe('performance budget accounting (PERF.E1)', () => {
+  /*
+   * The fixture's Energy route with a chart library chunk, imported either
+   * statically by the route or by a charts module the route loads on demand.
+   */
+  function withCharts(lazyCharts, hash = 'a1') {
+    const { graph, contents, file } = fixture(hash);
+    const energy = graph.chunks[file('Energy')];
+    graph.chunks[file('chartLib')] = { src: null, name: 'CartesianChart', imports: [], dynamicImports: [], css: [], modules: { 'node_modules/recharts/es6/index.js': 10 } };
+    contents[file('chartLib')] = Buffer.from('chartLib'.repeat(400).slice(0, 3000));
+    if (lazyCharts) {
+      energy.dynamicImports.push(file('charts'));
+      graph.chunks[file('charts')] = { src: 'src/pages/consumi/consumptionCharts.tsx', isDynamicEntry: true, imports: [file('chartLib')], dynamicImports: [], css: [], modules: { 'src/pages/consumi/consumptionCharts.tsx': 10 } };
+      contents[file('charts')] = Buffer.from('charts'.repeat(60).slice(0, 300));
+    } else {
+      energy.imports.push(file('chartLib'));
+      contents[file('Energy')] = Buffer.from('Energy'.repeat(200).slice(0, 800));
+    }
+    return { build: loadGraph(graph), sizer: createSizer((name) => contents[name] ?? null), codeFiles: Object.keys(contents), file };
+  }
+  const charts = { id: 'consumption-charts', label: 'Grafici', sources: ['src/pages/consumi/consumptionCharts.tsx'], requires: 'energy', kind: 'feature' };
+  const byId = (current, list) => Object.fromEntries(measureSurfaces(current.build, current.sizer, list).map((surface) => [surface.id, surface]));
+
+  it('takes the chart library off the route when the charts load on demand', () => {
+    const eager = withCharts(false);
+    const lazy = withCharts(true);
+    const before = byId(eager, surfaces);
+    const after = byId(lazy, [...surfaces, charts]);
+    expect(before.energy.added.has(eager.file('chartLib'))).toBe(true);
+    expect(after.energy.added.has(lazy.file('chartLib'))).toBe(false);
+    expect([...after.energy.onDemand]).toContain(lazy.file('charts'));
+    // The library and the charts now count in their own surface, over the route.
+    expect([...after['consumption-charts'].added].sort()).toEqual([lazy.file('charts'), lazy.file('chartLib')].sort());
+    // Never in Boot or Home.
+    for (const id of ['boot', 'home']) expect(after[id].files.has(lazy.file('chartLib'))).toBe(false);
+  });
+
+  it('keeps every byte: the route and its charts add up, the total counts each file once', () => {
+    const lazy = withCharts(true);
+    const measured = byId(lazy, [...surfaces, charts]);
+    const sum = (files) => [...files].reduce((total, name) => total + lazy.sizer.sizeOf(name).raw, 0);
+    expect(measured.energy.incremental.raw + measured['consumption-charts'].incremental.raw)
+      .toBe(sum(new Set([...measured.energy.added, ...measured['consumption-charts'].added])));
+    const total = (list) => evaluate(lazy.build, lazy.sizer, { ...config, surfaces: list }, lazy.codeFiles).total.values.raw;
+    expect(total([...surfaces, charts])).toBe(total(surfaces));
+  });
+
+  it('reports lazy charts without a surface as unattributed, never as free', () => {
+    const lazy = withCharts(true);
+    const result = evaluate(lazy.build, lazy.sizer, config, lazy.codeFiles);
+    expect(result.unattributed.details.map((entry) => entry.label)).toEqual(expect.arrayContaining(['src/pages/consumi/consumptionCharts.tsx']));
+    expect(ownerOf('src/pages/consumi/consumptionCharts.tsx')).toBe('ENERGY');
+    expect(ownerOf('node_modules/recharts/es6/index.js')).toBe('vendor:recharts');
   });
 });

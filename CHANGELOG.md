@@ -4,6 +4,85 @@
 
 ### Added
 
+- Groundwork for Domus Access Control: each Home Assistant account now has a
+  Domus role (administrators are Administrators, everyone else a Member) and,
+  in the future, personal permissions for locks and gates and for the alarm.
+  Nothing changes yet in what anyone can see or do. If the stored
+  permissions ever become unreadable, Home Assistant shows a repair notice
+  and an administrator can reset them with the Domus command
+  `domusos/access/reset_policy`, sent from their own signed-in session. It
+  is not a Home Assistant action, so no automation or script can run it.
+  The integration also has a central authorization check and a list of
+  every Domus command with the permission it will require. It now runs
+  in shadow mode on every Domus command and action: it works out what it
+  would allow or refuse and counts it in memory, without names or
+  content, so an administrator can read what would change with
+  `domusos/access/get_shadow_diagnostics`. No new access restriction is
+  enforced: every request runs exactly as before. Home Assistant
+  automations calling the five Irrigation actions without a user now count
+  as allowed in those diagnostics, unless the stored permissions are
+  unreadable; nothing else may run without a user.
+- Device power is the first part of Domus that Access Control enforces:
+  reading, saving, linking or removing a power policy is refused by the
+  Domus backend for anyone who is not a Home Assistant administrator, even
+  when the request does not come from the interface, and it changes
+  nothing. If the stored permissions are unreadable, administrators restore
+  them first. Every other part of Domus is still only observed.
+- Roles and permissions has a new Resident role: full access to the home,
+  locks, gates and the alarm included, without administering Domus. The
+  Administrator role is now described as what it is and can be given only
+  to Home Assistant administrators; an older Administrator role on any
+  other account is flagged for review and can be changed to Resident.
+  Each role shows its home access and whether it administers.
+- The interface now follows each account's Domus role: pages, navigation,
+  Settings entries and controls an account may not use are not shown, and
+  an address it may not open says "Not available for your account". Only
+  administrators see "Return to Home Assistant". Members no longer see
+  the commands of locks, gates, garage doors and the alarm until they are
+  given that permission. This is how the interface looks, not protection:
+  the Domus backend and Home Assistant still decide every request as
+  before.
+- Settings › People and access › Roles and permissions lets a Home
+  Assistant administrator choose the Domus role of each account
+  (Administrator, Member, Limited access, Panel) and give a person
+  "Access control" for locks, gates and garage doors or "Alarm control".
+  A change made meanwhile from another session is never overwritten: the
+  page says so and reloads. If the stored permissions become unreadable,
+  the same page offers to restore them, after a confirmation. Every account
+  can now sign out from Settings. No new restriction is enforced by the
+  Domus backend yet.
+- Settings › This device › Kiosk mode turns a wall tablet or a dedicated PC
+  into a Domus panel: "Start panel mode" hides Domus's own navigation, opens
+  the chosen start page and, when the browser allows it, goes full screen and
+  keeps the screen on. The panel comes back by itself after a reload; leaving
+  full screen keeps it; the screensaver works as before on top of it. To leave,
+  press and hold the bottom-left corner for three seconds or press
+  Ctrl+Alt+K. Kept in this browser only, off by default, and not a security
+  feature: it hides the navigation, it does not lock anything. Inside Home
+  Assistant, the Domus panel frame now allows full screen and the screen wake
+  lock for Domus itself.
+- Settings › This device › Screensaver: after 1 to 30 minutes without a
+  touch, a key or a mouse movement, Domus shows the time, and the date if
+  wanted, over whatever page is open. Minimal is the time on true black;
+  Ambient uses this device's Domus background, dimmed. The first touch only
+  wakes Domus: it never presses what is below, and the page, its forms and
+  open windows are left as they were. The clock moves a few pixels every few
+  minutes against burn-in, follows reduced motion, never counts Home
+  Assistant updates as activity and does not run while the tab is hidden.
+  Off by default and kept in this browser only; it does not turn the screen
+  off or keep it on.
+- Settings › This device › Power and charging: an administrator can keep a
+  wall tablet's battery between two levels (30 % and 80 % by default). The
+  DomusOS integration switches the charger's smart plug in Home Assistant, so
+  it works with the screen off, Domus closed or after a restart: on at or
+  below the start level, off at or above the stop level, nothing in between.
+  Only a battery `sensor` and a `switch` can be chosen; an unavailable or
+  implausible reading never switches anything, commands are at least 60
+  seconds apart and two active configurations cannot share a switch. Turning
+  the automation off or removing it leaves the switch as it is. Each device
+  is recognised by a random reference kept in its browser, never by a
+  fingerprint; an administrator can link a configuration to the device again
+  after its browser is cleared. Needs the updated integration.
 - Domus Profile Core, the backend foundation for personal settings: each
   Home Assistant user can read and save their own Domus profile through
   `domusos/profile/get_self` and `domusos/profile/save_self`, which always act
@@ -63,6 +142,48 @@
 
 ### Changed
 
+- Consumption opens with about 388 KB less code (117 KB compressed): the
+  chart library now loads only when the Water or Gas details open, and their
+  charts show a placeholder in the same space while it arrives. Nothing else
+  changes on screen.
+- Domus starts with about 27 KB less code (8 KB compressed) on a home that
+  is already set up: the first-run setup screens are no longer part of
+  startup, and only the setup words of the current language come with it,
+  instead of all three. Nothing changes on screen.
+- Settings opens with about 288 KB less code (90 KB compressed): the chart
+  library now loads only for the processor trend of Settings › System. Domus
+  also starts with 15 KB less, and the screensaver's on-screen part loads
+  only on devices where it is turned on. Nothing changes on screen.
+
+- Settings and Profile are organized by who a setting belongs to. The
+  Profile shows only the person: account, activity, My devices, the Home
+  Assistant startup panel and device confirmation. Settings groups the house
+  (Home: dashboard, floors and rooms, people and access, security and waste
+  collection; System: connections, devices, entities, system status, data
+  and backup) and This
+  device (appearance, language, alerts and advanced options, which were always
+  saved in this browser). Appearance and language moved from the Profile to
+  Settings › This device: their values stay where they were, and the old
+  `/profile/themes` and `/profile/language` links open the new pages.
+  Energy and Irrigation keep their configuration inside their own apps:
+  Settings holds Domus core configuration only. See
+  [settings scopes](docs/settings-scopes.md).
+- Profile and Settings are one page, in the style of iPhone Settings: the
+  person comes first (an account card that opens the Profile, and My devices
+  right below it), then Home, System and This device as grouped lists. The
+  avatar and the gear both open it, the Profile is a page inside Settings
+  instead of a full-screen layer, and `/profile` links open the same pages
+  below `/settings/profile`. The page starts with the person, without a
+  title or connection badge (the dot on the photo shows the connection); on
+  a phone or tablet the photo and name move into a bar at the top while the
+  page scrolls, and the Settings tab of the mobile bar is the person's
+  photo, without a label.
+- The mobile tab bar is a pill of Liquid Glass with icons only: a drop of
+  glass sits under the active destination and slides to the next one with
+  a small elastic overshoot (no movement when reduced motion is asked for,
+  a plain tint when reduced transparency is). The menu and notification
+  buttons at the top of a phone use the same glass, and the profile chip
+  next to them is gone: the person is the last tab of the bar.
 - Translation catalogs are now split by language: startup downloads only the
   selected language, while another catalog is fetched on demand when the user
   changes language. The interface keeps the current language visible until

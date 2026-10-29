@@ -51,9 +51,9 @@ describe('semantic theme CSS contract', () => {
   it('uses one responsive title scale across the primary dashboard pages', () => {
     const titleConsumers = [
       'src/components/widgets/GreetingCard.tsx',
-      'src/pages/RoomsDashboard.tsx',
+      // Rooms follows the larger title of its design board (rooms-title).
       'src/pages/SecurityDashboard.jsx',
-      'src/pages/SettingsDashboard.tsx',
+      // Settings starts with the person instead of a visible title.
       'src/pages/Consumi.tsx',
     ].map(readSource);
 
@@ -99,15 +99,17 @@ describe('semantic theme CSS contract', () => {
     const settings = readSource('src/pages/SettingsDashboard.tsx');
     const security = readSource('src/pages/SecurityDashboard.jsx');
     const consumptions = readSource('src/pages/Consumi.tsx');
-    const rooms = readSource('src/pages/RoomsDashboard.tsx');
+    const roomTiles = readSource('src/components/devices/theme/tokens.css');
 
     expect(settings).toContain('dashboard-content-surface');
     expect(settings).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
     expect(security).toContain('dashboard-content-surface');
     expect(security).not.toContain('className="liquid-glass-panel rounded-[26px]');
     expect(consumptions).toContain('dashboard-content-surface');
-    expect(rooms).toContain('rooms-surface');
-    expect(css).not.toContain('.dashboard-theme-light .rooms-surface');
+    // The room tiles take their colours from tokens defined for both appearances, shared with setup.
+    expect(roomTiles).toMatch(/\.dashboard-theme-dark\s*\{[\s\S]*?--dv-tile-off:/);
+    expect(roomTiles).toMatch(/\.dashboard-theme-light\s*\{[\s\S]*?--dv-tile-off:/);
+    expect(readSource('src/components/devices/theme/devices.css')).toContain("@import './tokens.css';");
   });
 
   it('keeps Builder and context-panel structure independent from white/black utility overrides', () => {
@@ -156,7 +158,7 @@ describe('semantic theme CSS contract', () => {
     expect(alarm).toContain('stateVisual.surface');
     expect(alarmControls).toContain('dashboard-content-surface');
     expect(alarmControls).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
-    expect(lock).toContain('var(--ui-surface-glass-strong)');
+    expect(readSource('src/components/widgets/LockRing.css')).toContain('var(--ui-surface-glass-strong)');
     expect(lock).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
   });
 
@@ -181,11 +183,12 @@ describe('semantic theme CSS contract', () => {
     expect(vacuum).toContain('bg-slate-950/30');
   });
 
-  it('keeps supporting editor and guided panels on the shared semantic contract', () => {
-    const guidedSetup = readSource('src/components/settings/GuidedSetupOverlay.tsx');
+  it('keeps the Home guides on the shared device tokens', () => {
+    const guideCss = readSource('src/components/onboarding/firstRunGuide.css');
 
-    expect(guidedSetup).toContain('var(--ui-scrim)');
-    expect(guidedSetup).not.toMatch(/bg-black(?:\/|\b)/);
+    expect(guideCss).toContain('var(--dv-sheet)');
+    expect(guideCss).toContain('var(--dv-text)');
+    expect(guideCss).not.toMatch(/bg-black(?:\/|\b)/);
   });
 
   it('keeps Sensor, Light and Switch cards semantic outside intrinsic light controls', () => {
@@ -291,6 +294,19 @@ describe('semantic theme CSS contract', () => {
     expect(scenes).toContain('text-white');
     expect(camera).toContain('var(--ui-surface-glass)');
     expect(camera).toContain('camera-card__scrim');
+  });
+
+  it('blends the Dynamic glows through registered properties, without blur or motion', () => {
+    for (const [name, syntax] of [['--ambient-a', '<color>'], ['--ambient-b', '<color>'], ['--ambient-opacity', '<number>']]) {
+      expect(css).toMatch(new RegExp(`@property ${name} \\{\\s*syntax: '${syntax}'`));
+    }
+    const dynamic = css.slice(css.indexOf('@property --ambient-a'), css.indexOf('.profile-background-thumb-dynamic'));
+    expect(dynamic).not.toMatch(/filter:\s*blur|backdrop-filter|transform:(?!\s*none;)/);
+    expect(dynamic).toMatch(/--ambient-a 900ms/);
+    expect(dynamic).toMatch(/ambient-breath 3s ease-in-out infinite/);
+    expect(dynamic).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\.ambient-glow \{\s*transition: none;[\s\S]*animation: none;/);
+    const ceilings = [...dynamic.matchAll(/--ambient-opacity: ([\d.]+);/g)].map((match) => Number(match[1]));
+    expect(ceilings).toEqual([0.5, 0.22, 0.38, 0.18]);
   });
 
   it('does not rely on global Light appearance class-substring corrections', () => {

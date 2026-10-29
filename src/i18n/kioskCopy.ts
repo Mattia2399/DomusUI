@@ -1,0 +1,121 @@
+import { useCallback } from 'react';
+import { useI18n, type AppLocale } from './I18nProvider';
+
+/** The words of Settings › This device › Kiosk mode; they load with the page. */
+const it = {
+  group: 'Modalità Kiosk',
+  toggle: 'Modalità Kiosk',
+  offBody: 'Trasforma Domus in un’interfaccia dedicata per questo dispositivo.',
+  onBody: 'Attiva su questo dispositivo: avvia il pannello qui sotto.',
+  notSecurity:
+    'Non è una protezione: nasconde la navigazione di Domus ma non limita ciò che si può fare con questo dispositivo.',
+  experienceGroup: 'Esperienza',
+  hideNavigation: 'Nascondi navigazione',
+  hideNavigationHint: 'Barra laterale, menu e barra in basso non vengono mostrati.',
+  startPage: 'Pagina iniziale',
+  startPageHint: 'Il pannello si apre qui all’avvio di Domus.',
+  displayGroup: 'Schermo',
+  keepAwake: 'Mantieni schermo attivo',
+  keepAwakeHint: 'Chiede al browser di non spegnere lo schermo mentre Domus è aperta.',
+  fullscreen: 'Schermo intero',
+  fullscreenHint: 'All’avvio del pannello, Domus prova a occupare tutto lo schermo.',
+  statusGroup: 'Stato',
+  statusFullscreen: 'Schermo intero',
+  statusWakeLock: 'Schermo sempre attivo',
+  fullscreenActive: 'Attivo',
+  fullscreenInactive: 'Non attivo',
+  fullscreenUnsupported: 'Non supportato dal browser',
+  fullscreenRejected: 'Il browser ha rifiutato lo schermo intero',
+  fullscreenStandalone: 'Già a schermo intero',
+  wakeLockActive: 'Attivo',
+  wakeLockInactive: 'Non attivo',
+  wakeLockReleased: 'Rilasciato: torna quando la pagina è di nuovo visibile',
+  wakeLockUnsupported: 'Non supportato dal browser',
+  wakeLockError: 'Il browser non lo consente ora',
+  launch: 'Avvia modalità pannello',
+  launchHint: 'Apre la pagina iniziale a schermo intero, se il browser lo consente.',
+  exitHint: 'Per uscire, tieni premuto per 3 secondi l’angolo in basso a sinistra, oppure premi Ctrl+Alt+K.',
+  storageUnavailable: 'Questo browser non conserva dati locali: la scelta vale solo finché la pagina resta aperta.',
+};
+
+type KioskCopyKey = keyof typeof it;
+
+const en: Record<KioskCopyKey, string> = {
+  group: 'Kiosk mode',
+  toggle: 'Kiosk mode',
+  offBody: 'Turns Domus into a dedicated interface for this device.',
+  onBody: 'On for this device: start the panel below.',
+  notSecurity: 'Not a protection: it hides Domus’s navigation but does not limit what can be done with this device.',
+  experienceGroup: 'Experience',
+  hideNavigation: 'Hide navigation',
+  hideNavigationHint: 'The sidebar, the menu and the bottom bar are not shown.',
+  startPage: 'Start page',
+  startPageHint: 'The panel opens here when Domus starts.',
+  displayGroup: 'Screen',
+  keepAwake: 'Keep the screen on',
+  keepAwakeHint: 'Asks the browser not to turn the screen off while Domus is open.',
+  fullscreen: 'Full screen',
+  fullscreenHint: 'When the panel starts, Domus tries to fill the whole screen.',
+  statusGroup: 'Status',
+  statusFullscreen: 'Full screen',
+  statusWakeLock: 'Screen kept on',
+  fullscreenActive: 'On',
+  fullscreenInactive: 'Off',
+  fullscreenUnsupported: 'Not supported by the browser',
+  fullscreenRejected: 'The browser refused full screen',
+  fullscreenStandalone: 'Already full screen',
+  wakeLockActive: 'On',
+  wakeLockInactive: 'Off',
+  wakeLockReleased: 'Released: back when the page is visible again',
+  wakeLockUnsupported: 'Not supported by the browser',
+  wakeLockError: 'The browser does not allow it now',
+  launch: 'Start panel mode',
+  launchHint: 'Opens the start page in full screen, if the browser allows it.',
+  exitHint: 'To leave, press and hold the bottom-left corner for 3 seconds, or press Ctrl+Alt+K.',
+  storageUnavailable: 'This browser keeps no local data: the choice lasts only while the page stays open.',
+};
+
+const fr: Record<KioskCopyKey, string> = {
+  group: 'Mode kiosque',
+  toggle: 'Mode kiosque',
+  offBody: 'Transforme Domus en interface dédiée pour cet appareil.',
+  onBody: 'Activé sur cet appareil : lancez le panneau ci-dessous.',
+  notSecurity:
+    'Ce n’est pas une protection : il masque la navigation de Domus mais ne limite pas ce qu’on peut faire avec cet appareil.',
+  experienceGroup: 'Expérience',
+  hideNavigation: 'Masquer la navigation',
+  hideNavigationHint: 'La barre latérale, le menu et la barre du bas ne sont pas affichés.',
+  startPage: 'Page d’accueil',
+  startPageHint: 'Le panneau s’ouvre ici au démarrage de Domus.',
+  displayGroup: 'Écran',
+  keepAwake: 'Garder l’écran allumé',
+  keepAwakeHint: 'Demande au navigateur de ne pas éteindre l’écran tant que Domus est ouvert.',
+  fullscreen: 'Plein écran',
+  fullscreenHint: 'Au lancement du panneau, Domus essaie d’occuper tout l’écran.',
+  statusGroup: 'État',
+  statusFullscreen: 'Plein écran',
+  statusWakeLock: 'Écran toujours allumé',
+  fullscreenActive: 'Actif',
+  fullscreenInactive: 'Inactif',
+  fullscreenUnsupported: 'Non pris en charge par le navigateur',
+  fullscreenRejected: 'Le navigateur a refusé le plein écran',
+  fullscreenStandalone: 'Déjà en plein écran',
+  wakeLockActive: 'Actif',
+  wakeLockInactive: 'Inactif',
+  wakeLockReleased: 'Relâché : revient quand la page est de nouveau visible',
+  wakeLockUnsupported: 'Non pris en charge par le navigateur',
+  wakeLockError: 'Le navigateur ne l’autorise pas pour le moment',
+  launch: 'Lancer le mode panneau',
+  launchHint: 'Ouvre la page d’accueil en plein écran, si le navigateur le permet.',
+  exitHint: 'Pour quitter, maintenez le coin inférieur gauche pendant 3 secondes, ou appuyez sur Ctrl+Alt+K.',
+  storageUnavailable: 'Ce navigateur ne conserve aucune donnée locale : le choix ne vaut que tant que la page reste ouverte.',
+};
+
+const COPY: Record<AppLocale, Record<KioskCopyKey, string>> = { it, en, fr };
+
+export type { KioskCopyKey };
+
+export function useKioskCopy() {
+  const { locale } = useI18n();
+  return useCallback((key: KioskCopyKey) => COPY[locale]?.[key] ?? it[key], [locale]);
+}

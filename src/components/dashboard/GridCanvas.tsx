@@ -3445,7 +3445,10 @@ export function GridCanvas({
               ? 'p-3'
               : 'p-4';
       const sectionOverflowClass = isStack ? 'overflow-visible' : 'overflow-hidden';
-      const sectionRadiusClass = isGreetingSection ? 'rounded-none' : 'rounded-[2rem]';
+      // A scenes card with neither background nor border sits flush on the page:
+      // rounded corners would only clip its title.
+      const isFlushScenesSection = isScenesSection && !showBackground && !showBorder;
+      const sectionRadiusClass = isGreetingSection || isFlushScenesSection ? 'rounded-none' : 'rounded-[2rem]';
       const stackWidgets = widgets.filter((widget) => widget.parentSectionId === section.id);
       const sectionCompactPreview =
         sectionSpanH <= ROOT_CANVAS_ROW_UNITS ||

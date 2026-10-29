@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 const STORAGE_KEY = 'ha.dashboard.demo.builder.layout.v1';
 const REAL_STORAGE_KEY = 'ha.dashboard.builder.layout.v1';
@@ -231,6 +232,16 @@ async function installSimulatedHaQa(page, layout) {
   const dashboard = structuredClone(layout);
   dashboard.storageVersion = dashboard.version;
   delete dashboard.version;
+  const owner = {
+    id: 'qa-save-owner',
+    name: 'QA Save Owner',
+    username: 'qa-save@example.test',
+    is_owner: true,
+    is_admin: true,
+    is_active: true,
+    system_generated: false,
+    group_ids: ['system-admin'],
+  };
   await page.goto('/home');
   await page.evaluate(({
     layoutValue,
@@ -238,6 +249,8 @@ async function installSimulatedHaQa(page, layout) {
     realStorageKey,
     sharedKey,
     historyKey,
+    owner,
+    accessProfile,
   }) => {
     localStorage.clear();
     sessionStorage.clear();
@@ -250,16 +263,6 @@ async function installSimulatedHaQa(page, layout) {
     localStorage.setItem(realStorageKey, JSON.stringify(layoutValue));
 
     const origin = window.location.origin;
-    const owner = {
-      id: 'qa-save-owner',
-      name: 'QA Save Owner',
-      username: 'qa-save@example.test',
-      is_owner: true,
-      is_admin: true,
-      is_active: true,
-      system_generated: false,
-      group_ids: ['system-admin'],
-    };
     let sharedDocument = {
       schema: 'premium-home-house-configuration',
       version: 1,
@@ -324,6 +327,8 @@ async function installSimulatedHaQa(page, layout) {
         const message = event.data.message ?? {};
         if (message.type === 'auth/current_user') {
           reply(event.source, event.data.requestId, owner);
+        } else if (message.type === 'domusos/access/get_self') {
+          reply(event.source, event.data.requestId, accessProfile);
         } else if (message.type === 'config/auth/list' || message.type === 'auth/list') {
           reply(event.source, event.data.requestId, [owner]);
         } else if (message.type === 'frontend/get_system_data' && message.key === sharedKey) {
@@ -374,6 +379,8 @@ async function installSimulatedHaQa(page, layout) {
     realStorageKey: REAL_STORAGE_KEY,
     sharedKey: SHARED_CONFIGURATION_KEY,
     historyKey: REVISION_HISTORY_KEY,
+    owner,
+    accessProfile: accessSelfFor(owner),
   });
 }
 

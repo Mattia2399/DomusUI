@@ -25,6 +25,8 @@ export type SettingsListRowProps = {
   /** Short value on the right, such as a percentage or a count. */
   value?: string;
   tone?: SettingsListTone;
+  /** A filled, coloured icon tile (as on the Settings overview); replaces the tone. */
+  iconClassName?: string;
   /** A destructive action: the title is drawn in the danger color. */
   destructive?: boolean;
   /** A thin 0–100 bar under the text, coloured by `meterTone`. */
@@ -42,6 +44,7 @@ export function SettingsListRow({
   subtitle,
   value,
   tone = 'default',
+  iconClassName,
   destructive = false,
   meter,
   onClick,
@@ -50,23 +53,22 @@ export function SettingsListRow({
 }: SettingsListRowProps) {
   const content = (
     <>
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border ${ICON_TONE[tone]}`}>
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[0.95rem] border ${
+          iconClassName
+            ? `border-transparent text-white shadow-[0_6px_14px_var(--ui-shadow-soft)] ${iconClassName}`
+            : ICON_TONE[tone]
+        }`}
+      >
         <Icon size={17} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex items-baseline justify-between gap-3">
-          <span
-            className={`min-w-0 truncate text-sm font-semibold tracking-[-0.01em] ${
-              destructive ? 'text-[color:var(--ui-danger)]' : 'text-[color:var(--ui-text-primary)]'
-            }`}
-          >
-            {title}
-          </span>
-          {value ? (
-            <span className="min-w-0 max-w-[50%] truncate text-right text-sm font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">
-              {value}
-            </span>
-          ) : null}
+        <span
+          className={`block truncate text-sm font-semibold tracking-[-0.01em] ${
+            destructive ? 'text-[color:var(--ui-danger)]' : 'text-[color:var(--ui-text-primary)]'
+          }`}
+        >
+          {title}
         </span>
         {subtitle ? (
           <span className="mt-0.5 block text-xs leading-5 text-[color:var(--ui-text-secondary)]">{subtitle}</span>
@@ -81,6 +83,12 @@ export function SettingsListRow({
         ) : null}
         {children}
       </span>
+      {/* The value sits on the right, centred with the arrow, as in iOS Settings. */}
+      {value ? (
+        <span className="min-w-0 max-w-[40%] shrink-0 truncate text-right text-sm font-semibold tabular-nums text-[color:var(--ui-text-secondary)]">
+          {value}
+        </span>
+      ) : null}
       {onClick ? <ChevronRight size={17} className="shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" /> : null}
     </>
   );

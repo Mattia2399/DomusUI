@@ -58,6 +58,7 @@ const englishCopy = {
   'Apri i flussi energetici': 'Open energy flows',
   'Anteprima': 'Preview',
   'Hub Sostenibilità e Consumi': 'Sustainability and Consumption Hub',
+  'Nascondi avviso': 'Hide notice',
   'Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.':
     'Energy measurements come exclusively from Domus Energy. Water, Gas, and Reports remain previews where indicated.',
   'Panoramica consumi': 'Consumption overview',
@@ -244,6 +245,8 @@ const englishCopy = {
   'Aggiorna l’integrazione Domus UI su Home Assistant per vedere lo storico energetico.': 'Update the Domus UI integration in Home Assistant to view energy history.',
   'Storico non caricato': 'History could not be loaded',
   'Caricamento dello storico…': 'Loading history…',
+  'Grafico non caricato': 'Chart could not be loaded',
+  'Caricamento del grafico…': 'Loading chart…',
   'Lo storico non è ancora configurato': 'History is not configured yet',
   'Domus Energy continua comunque a funzionare in tempo reale.': 'Domus Energy continues to work in real time.',
   'I contatori scelti non sono adatti allo storico': 'The selected meters are not suitable for history',
@@ -887,6 +890,7 @@ const frenchCopy: Record<ConsumptionCopyKey, string> = {
   'Apri i flussi energetici': 'Ouvrir les flux énergétiques',
   'Anteprima': 'Aperçu',
   'Hub Sostenibilità e Consumi': 'Centre durabilité et consommation',
+  'Nascondi avviso': 'Masquer l’avis',
   'Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.':
     'Les mesures d’énergie proviennent exclusivement de Domus Energy. L’eau, le gaz et les rapports restent des aperçus lorsqu’ils sont signalés.',
   'Panoramica consumi': 'Vue d’ensemble de la consommation',
@@ -1073,6 +1077,8 @@ const frenchCopy: Record<ConsumptionCopyKey, string> = {
   'Aggiorna l’integrazione Domus UI su Home Assistant per vedere lo storico energetico.': 'Mettez à jour l’intégration Domus UI dans Home Assistant pour afficher l’historique énergétique.',
   'Storico non caricato': 'Historique non chargé',
   'Caricamento dello storico…': 'Chargement de l’historique…',
+  'Grafico non caricato': 'Graphique non chargé',
+  'Caricamento del grafico…': 'Chargement du graphique…',
   'Lo storico non è ancora configurato': 'L’historique n’est pas encore configuré',
   'Domus Energy continua comunque a funzionare in tempo reale.': 'Domus Energy continue de fonctionner en temps réel.',
   'I contatori scelti non sono adatti allo storico': 'Les compteurs choisis ne conviennent pas à l’historique',

@@ -15,7 +15,7 @@ Le route non ancora tradotte dovranno mostrare, quando la lingua attiva non è l
 - Lingue disponibili: `it`, `en`, `fr`.
 - Lingua iniziale da Home Assistant, poi browser, con italiano come fallback.
 - Preferenza esplicita salvata solo sul dispositivo corrente.
-- Selettore lingua nella pagina Profilo.
+- Selettore lingua in Impostazioni › Questo dispositivo (`/settings/device/language`; prima nel Profilo).
 - Shell di navigazione principale, Profilo, onboarding, setup, organizzazione e riconnessione.
 - Parti essenziali della Home già migrate: saluto, notifiche, Undo/Redo, indicatore di salvataggio, azioni principali Edit Mode e relativi dialoghi.
 - Home: migrati anche catalogo componenti, selezione destinazione, anteprima breakpoint, recupero bozze, stato connessione, guida iniziale e dialoghi di stack/versione remota.

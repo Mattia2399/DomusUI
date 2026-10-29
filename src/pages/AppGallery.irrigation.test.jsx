@@ -1,7 +1,17 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as renderUi, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppGallery } from './AppGallery';
+import { AccessControlProvider } from '../security/AccessControlProvider';
+import { accessFor } from '../test/accessFixtures';
+
+// Every render as an administrator would see it; Access Control is tested on its own.
+function AdminAccess({ children }) {
+  return <AccessControlProvider access={accessFor('admin')}>{children}</AccessControlProvider>;
+}
+const render = (ui, options) =>
+  renderUi(ui, { wrapper: AdminAccess, ...options });
+
 
 const buildConsumptionCoreDocument = () => ({
   schema: 'domusos-irrigation',

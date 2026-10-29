@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useCan } from '../security/AccessControlProvider';
 import {
   AlertTriangle,
   Blinds,
@@ -31,6 +32,9 @@ import GlassDropdown from '../components/ui/GlassDropdown';
 import GlassModal from '../components/ui/GlassModal';
 import GlassSegmentSelect from '../components/ui/GlassSegmentSelect';
 import NestedPageHeader from '../components/ui/NestedPageHeader';
+import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
+import { useAmbient } from '../theme/ambient/AmbientProvider';
+import { resolveAlarmAmbient } from '../theme/ambient/ambientModel';
 import { CameraCardView } from '../components/widgets/CameraCardView';
 import { buildCameraCardModel } from '../components/widgets/cameraCardModel';
 import CameraViewer from '../components/camera/CameraViewer';
@@ -78,6 +82,8 @@ const UI_FLAGS = Object.freeze({
 const SECURITY_OVERVIEW_PATH = '/security';
 const SECURITY_CAMERAS_PATH = '/security/cameras';
 const SECURITY_SENSORS_PATH = '/security/sensors';
+// The overview, then its camera and sensor directories one level below.
+const securityViewDepth = (view) => (view === 'overview' ? 1 : 2);
 const MAX_CAMERAS_ON_DASHBOARD = 4;
 const SECURITY_CAMERA_PREVIEW_REFRESH_MS = 10_000;
 const SHIELD_SIZE = 304;
@@ -433,9 +439,21 @@ function SecurityMainShield({
   alarmOptions,
   disabled,
   commandFeedback,
+  canControl = true,
 }) {
   const { t } = useI18n();
   const Icon = visual.icon;
+  // security.control: without it the shield is only the state, never a command.
+  const ShieldElement = canControl ? motion.button : motion.div;
+  const shieldInteraction = canControl
+    ? {
+        type: 'button',
+        onClick: onPrimaryAction,
+        disabled,
+        whileTap: disabled ? undefined : { scale: 0.985 },
+        'aria-label': `${statusLabel}. ${primaryActionLabel}`,
+      }
+    : { role: 'img', 'aria-label': statusLabel };
   return (
     <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
       <div className="flex items-center justify-between gap-3">
@@ -449,18 +467,14 @@ function SecurityMainShield({
 
       <div className="mt-5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,14rem),1fr))] items-center gap-5 sm:mt-6">
         <div className="flex items-center justify-center py-2">
-          <motion.button
-            type="button"
-            onClick={onPrimaryAction}
-            disabled={disabled}
-            whileTap={disabled ? undefined : { scale: 0.985 }}
+          <ShieldElement
+            {...shieldInteraction}
             className={cn(
               'relative flex aspect-square w-[clamp(11.5rem,52vw,16.5rem)] items-center justify-center rounded-full border',
-              disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer',
+              !canControl ? '' : disabled ? 'cursor-not-allowed opacity-80' : 'cursor-pointer',
             )}
             animate={{ backgroundColor: visual.backgroundColor, borderColor: visual.borderColor, boxShadow: visual.boxShadow }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-            aria-label={`${statusLabel}. ${primaryActionLabel}`}
           >
             <motion.div
               className="pointer-events-none absolute -inset-3 rounded-full sm:-inset-4"
@@ -490,10 +504,11 @@ function SecurityMainShield({
               <p className="mt-1.5 text-[11px] leading-snug text-[color:var(--ui-text-secondary)] sm:text-xs">{visual.helper}</p>
               {showDelayProgress ? <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-text-secondary)]">{t('security.exitIn', { seconds: delayRemainingSeconds })}</p> : null}
             </div>
-          </motion.button>
+          </ShieldElement>
         </div>
 
         <div className="min-w-0">
+          {canControl ? (
           <GlassSegmentSelect
             ariaLabel={t('security.mode.aria')}
             options={alarmOptions.map((option) => {
@@ -512,6 +527,7 @@ function SecurityMainShield({
             scrollable
             optionClassName="h-10 px-2 sm:h-11 sm:px-3"
           />
+          ) : null}
 
           {commandFeedback ? (
             <p className="mt-3 rounded-xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 py-2 text-xs text-[color:var(--ui-text-secondary)]" role="status">
@@ -561,25 +577,25 @@ function SecurityEntityPickerModal({
       size="xl"
       zIndex={290}
       closeLabel={t('security.picker.close')}
-      backdropClassName="bg-white/[0.02] backdrop-blur-2xl"
+      backdropClassName="bg-[color:var(--ui-scrim)] backdrop-blur-2xl"
       bodyClassName="flex flex-col overflow-hidden"
     >
             <div className="liquid-glass-card mt-4 px-4 py-3">
               <label className="flex items-center gap-3">
-                <span className="inline-flex rounded-full border border-white/10 bg-white/10 p-2"><Search className="h-3.5 w-3.5 text-white/75" /></span>
-                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent text-sm text-white placeholder:text-white/45 outline-none" placeholder={t('security.picker.searchDevice')} />
+                <span className="inline-flex rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-2"><Search className="h-3.5 w-3.5 text-[color:var(--ui-text-secondary)]" /></span>
+                <input value={query} onChange={(event) => setQuery(event.target.value)} className="w-full bg-transparent text-sm text-[color:var(--ui-text-primary)] placeholder:text-[color:var(--ui-text-tertiary)] outline-none" placeholder={t('security.picker.searchDevice')} />
               </label>
             </div>
 
             <div className="mt-4 flex items-center justify-between gap-2">
-              <p className="text-xs text-white/60">
+              <p className="text-xs text-[color:var(--ui-text-secondary)]">
                 {t('security.picker.selected', { selected: selectedEntityIds.length, total: entities.length })}
               </p>
               <div className="flex items-center gap-2">
-                <button type="button" onClick={onSelectAll} className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs font-semibold text-white/85 hover:bg-white/[0.14]">
+                <button type="button" onClick={onSelectAll} className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 py-1 text-xs font-semibold text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-secondary)]">
                   {t('security.picker.all')}
                 </button>
-                <button type="button" onClick={onSelectNone} className="rounded-full border border-white/15 bg-white/[0.08] px-3 py-1 text-xs font-semibold text-white/85 hover:bg-white/[0.14]">
+                <button type="button" onClick={onSelectNone} className="rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 py-1 text-xs font-semibold text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-secondary)]">
                   {t('security.picker.none')}
                 </button>
               </div>
@@ -596,23 +612,25 @@ function SecurityEntityPickerModal({
                       onClick={() => onToggleEntity(entry.entityId)}
                       className={cn(
                         'w-full rounded-2xl border px-3 py-2.5 text-left transition-colors',
-                        checked ? 'border-white/25 bg-white/[0.12]' : 'border-white/10 bg-white/[0.04] hover:bg-white/[0.08]',
+                        checked
+                          ? 'border-[color:rgb(var(--ui-accent-rgb)/0.35)] bg-[color:rgb(var(--ui-accent-rgb)/0.1)]'
+                          : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] hover:bg-[color:var(--ui-fill-secondary)]',
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-md border', checked ? 'border-emerald-300/70 bg-emerald-400/20 text-emerald-100' : 'border-white/20 bg-white/[0.04] text-transparent')}>
+                        <span className={cn('inline-flex h-5 w-5 items-center justify-center rounded-md border', checked ? 'border-[color:var(--ui-accent)] bg-[color:var(--ui-accent)] text-[color:var(--ui-accent-contrast)]' : 'border-[color:var(--ui-border-strong)] bg-transparent text-transparent')}>
                           <Check className="h-3.5 w-3.5" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-white">{entry.name}</p>
-                          <p className="truncate text-[11px] font-light text-white/50">{entry.entityId}</p>
+                          <p className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{entry.name}</p>
+                          <p className="truncate text-[11px] font-light text-[color:var(--ui-text-tertiary)]">{entry.entityId}</p>
                         </div>
                       </div>
                     </button>
                   );
                 })
               ) : (
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/55">
+                <div className="dashboard-content-surface-soft rounded-2xl px-4 py-3 text-sm text-[color:var(--ui-text-secondary)]">
                   {t('security.picker.empty')}
                 </div>
               )}
@@ -636,7 +654,9 @@ function SecuritySensorRows({ sensors, limitOnMobile = false }) {
         key={sensor.entityId}
         className={cn(
           'dashboard-content-surface-soft rounded-2xl px-4 py-3',
-          sensor.isOpen ? 'border-[#FF3B30]/40 bg-[#FF3B30]/12' : '',
+          sensor.isOpen
+            ? 'border-[color:color-mix(in_srgb,var(--ui-danger)_35%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-danger)_9%,transparent)]'
+            : '',
           limitOnMobile && index >= 5 ? 'hidden sm:block' : '',
         )}
       >
@@ -644,9 +664,11 @@ function SecuritySensorRows({ sensors, limitOnMobile = false }) {
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)]"><Icon className="h-4.5 w-4.5 text-[color:var(--ui-text-secondary)]" /></span>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-[color:var(--ui-text-primary)]">{sensor.name}</p>
-            <p className="truncate text-[11px] font-light text-[color:var(--ui-text-tertiary)]">{sensor.entityId}</p>
+            <p className="truncate text-[11px] font-light text-[color:var(--ui-text-tertiary)]">{t(`security.sensor.kind.${sensor.type}`)}</p>
           </div>
-          <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold', sensor.isOpen ? 'border-[#FF3B30]/45 bg-[#FF3B30]/20 text-[#FFD2CF]' : 'border-[#34C759]/45 bg-[#34C759]/18 text-[#CDF9D8]')}>
+          <span className={cn('inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold', sensor.isOpen
+              ? 'border-[color:color-mix(in_srgb,var(--ui-danger)_40%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-danger)_14%,transparent)] text-[color:var(--ui-danger)]'
+              : 'border-[color:color-mix(in_srgb,var(--ui-success)_40%,transparent)] bg-[color:color-mix(in_srgb,var(--ui-success)_14%,transparent)] text-[color:var(--ui-success)]')}>
             {sensor.isOpen ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
             {sensor.isOpen ? t('security.sensor.open') : t('security.sensor.closed')}
           </span>
@@ -871,6 +893,7 @@ export function SecurityDashboard({
   onCameraPtzMove,
   onCameraPtzStop,
 }) {
+  const canControlAlarm = useCan('security.control');
   const { t, locale } = useI18n();
   const localizedDemoLogs = useMemo(() => [
     { ...DEMO_SECURITY_LOGS[0], message: t('security.logs.motion') },
@@ -1101,6 +1124,8 @@ export function SecurityDashboard({
   const delayProgress = hasActiveArmingDelay ? Math.min(1, Math.max(0, 1 - remainingDelayMs / armingDelayTotalMs)) : 0;
   const delayRemainingSeconds = hasActiveArmingDelay ? Math.max(0, Math.ceil(remainingDelayMs / 1000)) : 0;
   const resolvedShieldState = hasActiveArmingDelay && baseResolvedShieldState !== 'pending' ? 'pending' : baseResolvedShieldState;
+  // The Dynamic background takes the colour of the alarm state, soberly.
+  useAmbient(resolveAlarmAmbient(resolvedShieldState));
 
   const alarmStateLabel = React.useCallback((state) => {
     const normalizedState = normalizeAlarmState(state);
@@ -1670,9 +1695,14 @@ export function SecurityDashboard({
   };
   const openSecurityOverviewPage = () => navigateSecurityPage(SECURITY_OVERVIEW_PATH);
   const isSecurityDirectoryView = isCameraDirectoryView || isSensorDirectoryView;
+  usePagePushTransition(
+    'security',
+    isCameraDirectoryView ? 'cameras' : isSensorDirectoryView ? 'sensors' : 'overview',
+    securityViewDepth,
+  );
 
   return (
-    <div ref={isSecurityDirectoryView ? securityDirectoryScrollRef : undefined} className={isSecurityDirectoryView ? 'h-full w-full overflow-y-auto p-0' : 'dashboard-page-scroll'}>
+    <div {...{ [PUSH_PAGE_ATTRIBUTE]: 'security' }} ref={isSecurityDirectoryView ? securityDirectoryScrollRef : undefined} className={isSecurityDirectoryView ? 'h-full w-full overflow-y-auto p-0' : 'dashboard-page-scroll'}>
       {!isSecurityDirectoryView ? (
         <header className="dashboard-page-content-wide">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -1737,6 +1767,7 @@ export function SecurityDashboard({
                 alarmOptions={alarmOptions}
                 disabled={!alarmCommandsAvailable || isAlarmTransitioning || !primaryShieldActionTarget}
                 commandFeedback={commandFeedback}
+                canControl={canControlAlarm}
               />
             ) : (
               <section className="dashboard-content-surface rounded-[26px] p-4 sm:rounded-[32px] sm:p-6">
@@ -1829,7 +1860,7 @@ export function SecurityDashboard({
                         {t('security.logs.demo')}
                       </span>
                     ) : null}
-                  {triggerSupported ? (
+                  {triggerSupported && canControlAlarm ? (
                     <button
                       type="button"
                       onClick={() => requestAlarmStateChange('triggered')}

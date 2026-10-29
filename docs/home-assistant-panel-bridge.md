@@ -24,6 +24,11 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
   "profile_devices_v1",
   "profile_notifications_v1",
   "profile_recipients_v1",
+  "device_power_v1",
+  "device_timers_v1",
+  "statistics_v1",
+  "access_v1",
+  "access_admin_v1",
   "state_translations_v1",
   "host_navigation",
   "person_links",
@@ -33,6 +38,7 @@ const PANEL_BRIDGE_CAPABILITIES = Object.freeze([
 const ALLOWED_WS_TYPES = new Set([
   "auth/current_user", "auth/list", "config/auth/list", "get_services",
   "weather/get_forecasts", "call_service", "history/history_during_period",
+  "recorder/statistics_during_period",
   "logbook/get_events", "get_panels",
   "frontend/get_translations",
   "frontend/get_user_data", "frontend/set_user_data",
@@ -60,10 +66,19 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/profile/discover_devices", "domusos/profile/add_device",
   "domusos/profile/remove_device", "domusos/profile/update_device",
   "domusos/profile/test_self", "domusos/profile/list_recipients",
+  "domusos/device_power/get_state", "domusos/device_power/save_policy",
+  "domusos/device_power/bind_policy", "domusos/device_power/delete_policy",
+  "domusos/device_timers/get_state", "domusos/device_timers/subscribe",
+  "domusos/device_timers/set_timer", "domusos/device_timers/cancel_timer",
+  "domusos/access/get_self",
+  "domusos/access/list_accounts", "domusos/access/set_assignment",
+  "domusos/access/remove_assignment", "domusos/access/reset_policy",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
 ]);
+// The only subscriptions: what changes while a page is open.
+const SUBSCRIBE_TYPES = new Set(["domusos/irrigation/subscribe", "domusos/device_timers/subscribe", "calendar/event/subscribe"]);
 const HA_NAME = /^[a-z0-9_]+$/;
 const REQUEST_ID = /^ha-panel-(?:call-(?:service|api)|subscribe-api|upload-image)-\d{10,}-[a-z0-9]+$/;
 // Person pictures: Domus uploads a small square image, stored like the HA frontend does.
@@ -291,6 +306,75 @@ const isValidProfileMessage = (message) => {
     return false;
   }
 };
+// Device power is administrative and never switches anything itself: a client sends a
+// policy (a battery sensor, a charger switch and two thresholds), and Home Assistant's
+// controllers do the rest. There is no command that turns a switch on or off.
+const DEVICE_POWER_POLICY_KEYS = [
+  "client_id", "label", "enabled", "battery_entity_id", "switch_entity_id",
+  "start_threshold", "stop_threshold",
+];
+const isValidDevicePowerMessage = (message) => {
+  const isPolicyId = (value) => typeof value === "string" && /^[a-f0-9]{32}$/.test(value);
+  const isRevision = (value) => Number.isInteger(value) && value >= 1;
+  const isClientId = (value) => typeof value === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(value);
+  const isEntity = (value, domain) =>
+    typeof value === "string" && value.startsWith(`${domain}.`) && /^[a-z0-9_]+\.[a-z0-9_]+$/.test(value);
+  const isThreshold = (value) => Number.isInteger(value) && value >= 0 && value <= 100;
+  if (message.type === "domusos/device_power/get_state") return hasExactKeys(message, ["type"]);
+  if (message.type === "domusos/device_power/delete_policy") {
+    return hasExactKeys(message, ["type", "policy_id", "expected_revision"]) &&
+      isPolicyId(message.policy_id) && isRevision(message.expected_revision);
+  }
+  if (message.type === "domusos/device_power/bind_policy") {
+    return hasExactKeys(message, ["type", "policy_id", "expected_revision", "client_id"]) &&
+      isPolicyId(message.policy_id) && isRevision(message.expected_revision) && isClientId(message.client_id);
+  }
+  if (message.type !== "domusos/device_power/save_policy") return false;
+  const keys = Object.keys(message);
+  const { policy } = message;
+  // A new policy has no id and no revision; a change carries both.
+  const isNew = !("policy_id" in message) && !("expected_revision" in message);
+  const isChange = isPolicyId(message.policy_id) && isRevision(message.expected_revision);
+  return keys.every((key) => ["type", "policy_id", "expected_revision", "policy"].includes(key)) &&
+    (isNew || isChange) &&
+    isRecord(policy) && hasExactKeys(policy, DEVICE_POWER_POLICY_KEYS) &&
+    (policy.client_id === null || isClientId(policy.client_id)) &&
+    (policy.label === null || (typeof policy.label === "string" && policy.label.length <= 64)) &&
+    typeof policy.enabled === "boolean" &&
+    isEntity(policy.battery_entity_id, "sensor") && isEntity(policy.switch_entity_id, "switch") &&
+    isThreshold(policy.start_threshold) && isThreshold(policy.stop_threshold) &&
+    policy.start_threshold < policy.stop_threshold;
+};
+// Device timers: a device that switches itself off after a few minutes. Home Assistant
+// checks that the person may control the device, and switches it off itself.
+const DEVICE_TIMER_ENTITY = /^(?:switch|fan|humidifier)\.[a-z0-9_]+$/;
+const isValidDeviceTimerMessage = (message) => {
+  const isDevice = (value) => typeof value === "string" && DEVICE_TIMER_ENTITY.test(value);
+  if (message.type === "domusos/device_timers/get_state" || message.type === "domusos/device_timers/subscribe") {
+    return hasExactKeys(message, ["type"]);
+  }
+  if (message.type === "domusos/device_timers/cancel_timer") {
+    return hasExactKeys(message, ["type", "entity_id"]) && isDevice(message.entity_id);
+  }
+  return message.type === "domusos/device_timers/set_timer" &&
+    hasExactKeys(message, ["type", "entity_id", "minutes"]) && isDevice(message.entity_id) &&
+    Number.isInteger(message.minutes) && message.minutes >= 1 && message.minutes <= 1440;
+};
+// Long-term statistics are read only: a few sensors, the periods and units of a meter.
+const STATISTICS_KEYS = ["type", "start_time", "end_time", "statistic_ids", "period", "types", "units"];
+const STATISTICS_PERIODS = ["5minute", "hour", "day", "week", "month"];
+const STATISTICS_UNITS = { energy: ["Wh", "kWh", "MWh"], power: ["W", "kW"] };
+const isValidStatisticsMessage = (message) =>
+  hasExactKeys(message, STATISTICS_KEYS) &&
+  [message.start_time, message.end_time].every((value) =>
+    typeof value === "string" && value.length <= 40 && Number.isFinite(Date.parse(value))) &&
+  Array.isArray(message.statistic_ids) && message.statistic_ids.length >= 1 && message.statistic_ids.length <= 10 &&
+  message.statistic_ids.every((id) => typeof id === "string" && /^sensor\.[a-z0-9_]+$/.test(id)) &&
+  STATISTICS_PERIODS.includes(message.period) &&
+  Array.isArray(message.types) && message.types.length >= 1 && message.types.length <= 2 &&
+  message.types.every((type) => type === "change" || type === "mean") &&
+  isRecord(message.units) && Object.entries(message.units).every(([kind, unit]) =>
+    Object.prototype.hasOwnProperty.call(STATISTICS_UNITS, kind) && STATISTICS_UNITS[kind].includes(unit));
 // Only the words for entity states, in one language: no integration or config flow text.
 const isValidTranslationsMessage = (message) =>
   hasExactKeys(message, ["type", "language", "category"]) &&
@@ -303,6 +387,33 @@ const isValidWsMessage = (message) => {
   }
   if (message.type.startsWith("domusos/profile/")) {
     return isValidProfileMessage(message);
+  }
+  if (message.type.startsWith("domusos/device_power/")) {
+    return isValidDevicePowerMessage(message);
+  }
+  if (message.type.startsWith("domusos/device_timers/")) {
+    return isValidDeviceTimerMessage(message);
+  }
+  if (message.type === "recorder/statistics_during_period") {
+    return isValidStatisticsMessage(message);
+  }
+  // The account is the connection's: get_self names no user, role or capability.
+  if (message.type === "domusos/access/get_self") return hasExactKeys(message, ["type"]);
+  // People and access: the panel runs them on the signed-in person's own connection, so Home
+  // Assistant and Domus check that person. Only the account to change travels, never who acts.
+  if (message.type === "domusos/access/list_accounts" || message.type === "domusos/access/reset_policy") {
+    return hasExactKeys(message, ["type"]);
+  }
+  if (message.type === "domusos/access/set_assignment" || message.type === "domusos/access/remove_assignment") {
+    const setting = message.type === "domusos/access/set_assignment";
+    const keys = setting ? ["type", "user_id", "role", "grants", "expected_revision"] : ["type", "user_id", "expected_revision"];
+    if (!hasExactKeys(message, keys)) return false;
+    if (typeof message.user_id !== "string" || !/^[a-f0-9]{32}$/.test(message.user_id)) return false;
+    if (!Number.isInteger(message.expected_revision) || message.expected_revision < 0) return false;
+    if (!setting) return true;
+    return ["admin", "resident", "member", "restricted", "wall_panel"].includes(message.role) &&
+      Array.isArray(message.grants) && message.grants.length <= 2 &&
+      message.grants.every((grant) => grant === "access.control" || grant === "security.control");
   }
   if (message.type === "get_panels") {
     return Object.keys(message).every((key) => key === "type");
@@ -429,6 +540,9 @@ class HaDashboardBuilderPanel extends HTMLElement {
     if (appUrl.origin !== window.location.origin) throw new Error("Il panel deve essere same-origin.");
     this._iframe = document.createElement("iframe");
     this._iframe.id = "ha-dashboard-frame";
+    // Kiosk mode: Domus may ask for full screen and to keep the screen on, for its own frame only.
+    this._iframe.allow = "fullscreen; screen-wake-lock";
+    this._iframe.allowFullscreen = true;
     this._iframe.src = appUrl.toString();
     this._iframe.style.cssText = "width:100%;height:100%;border:none;display:block";
     this.replaceChildren(this._iframe);
@@ -591,7 +705,7 @@ class HaDashboardBuilderPanel extends HTMLElement {
       try {
         const message = payload.message;
         if (!REQUEST_ID.test(requestId) ||
-            (message?.type !== "domusos/irrigation/subscribe" && message?.type !== "calendar/event/subscribe") ||
+            !SUBSCRIBE_TYPES.has(message?.type) ||
             !isValidWsMessage(message)) {
           throw new Error("Sottoscrizione API non ammessa.");
         }
@@ -719,6 +833,16 @@ L'elenco dei destinatari (capability `profile_recipients_v1`) è `domusos/profil
 
 Le traduzioni degli stati (capability `state_translations_v1`) sono `frontend/get_translations` con solo `type`, `language` e `category`, e `category` può essere soltanto `entity_component` o `entity`: Domus legge le stesse parole che il frontend Home Assistant usa per gli stati delle entità ("Acceso", "Aperta", "Fuori casa"). Senza la capability Domus usa un piccolo dizionario proprio.
 
+I timer di spegnimento (capability `device_timers_v1`) usano quattro comandi: `domusos/device_timers/get_state` e `subscribe` (solo `type`), `set_timer` (esattamente `entity_id` di tipo `switch.*`, `fan.*` o `humidifier.*` e `minutes` intero da 1 a 1440) e `cancel_timer` (solo `entity_id`). Home Assistant verifica che la persona possa comandare quel dispositivo, e lo spegnimento lo fa l'integrazione allo scadere del timer. `subscribe` è l'unica sottoscrizione oltre a irrigazione e calendario.
+
+Le statistiche a lungo termine (capability `statistics_v1`) sono `recorder/statistics_during_period` in sola lettura, con esattamente `start_time`, `end_time`, da 1 a 10 `statistic_ids` di tipo `sensor.*`, un `period` tra `5minute`, `hour`, `day`, `week` e `month`, `types` tra `change` e `mean`, e `units` solo per `energy` (Wh, kWh, MWh) e `power` (W, kW). Servono al consumo di una presa nella pagina Stanze.
+
+La gestione dell'alimentazione dei dispositivi (capability `device_power_v1`) usa quattro comandi, tutti riservati agli amministratori: `domusos/device_power/get_state` (solo `type`), `save_policy` (una `policy` con esattamente `client_id`, `label`, `enabled`, `battery_entity_id` di tipo `sensor.*`, `switch_entity_id` di tipo `switch.*`, `start_threshold` e `stop_threshold` interi con inizio minore della fine; senza `policy_id` né `expected_revision` per una nuova policy, con entrambi per modificarne una), `bind_policy` (`policy_id`, `expected_revision`, `client_id`) e `delete_policy` (`policy_id`, `expected_revision`). Non esiste un comando che accenda o spenga uno switch: i controller girano in Home Assistant, che ripete ogni controllo. Vedi [Device Power Management](device-power-management.md).
+
+Il profilo d'accesso (capability `access_v1`) è `domusos/access/get_self`, con solo `type`: Domus lo legge per mostrare all'account ciò che può usare, e il backend ricava l'account dalla connessione.
+
+Persone e accessi (capability `access_admin_v1`) usa `domusos/access/list_accounts` e `reset_policy` (solo `type`), `set_assignment` (`user_id` di 32 caratteri esadecimali, `role` tra `admin`, `resident`, `member`, `restricted`, `wall_panel`, `grants` con al più `access.control` e `security.control`, `expected_revision` intero) e `remove_assignment` (`user_id`, `expected_revision`). Il pannello li esegue sulla connessione della persona che lo ha aperto: Home Assistant e Domus controllano quella persona (admin HA attivo con `access.manage`), mai un'identità del pannello. Chi modifica e quando li scrive il server. La diagnostica shadow resta fuori dal bridge.
+
 La notifica di prova (capability `profile_notifications_v1`) è `domusos/profile/test_self`, che accetta solo `type` e un `personal_device_id` facoltativo: il testo lo decide Home Assistant e non si possono indicare destinatari, persone, utenti, servizi o target. Non esiste un comando generico per inviare notifiche: il Notification Router è solo backend.
 
 I dispositivi personali (capability `profile_devices_v1`) cambiano solo con comandi dedicati: `discover_devices` (solo `type`), `add_device` (`expected_revision`, `ha_device_id`, `label` facoltativa), `remove_device` (`expected_revision`, `device_id`) e `update_device` (`expected_revision`, `device_id` e almeno uno tra `label` e `notifications: { enabled }`). Il client non sceglie mai id né data di un nuovo dispositivo: li genera il Profile Core, che verifica la proprietà con Home Assistant al momento dell'aggiunta.
@@ -735,6 +859,8 @@ La destinazione è risolta in questo ordine:
 4. `/lovelace` come ultima compatibilità per frontend molto vecchi o payload incompleti.
 
 Se il contenitore o `navigate()` non sono disponibili, oppure il router genera un errore sincrono, il bridge usa `window.location.assign(targetPath)`. Il fallback forza una navigazione reale e non simula mai il router tramite `history.pushState`, `history.replaceState` o eventi `location-changed` manuali. Una guardia locale scarta i doppi tap mentre la navigazione è in corso.
+
+L'iframe di Domus ha `allow="fullscreen; screen-wake-lock"`: la [modalità Kiosk](device-kiosk.md) può chiedere lo schermo intero e lo schermo acceso per Domus stessa, senza toccare il frontend di Home Assistant.
 
 Il bridge accetta messaggi soltanto dal `contentWindow` dell’iframe e dallo stesso origin, valida request ID, domain, service, payload e una allowlist dei tipi WebSocket effettivamente usati. L’identità e i ruoli non vengono accettati dal payload del parent: la dashboard li richiede con `auth/current_user`, lasciando a Home Assistant l’autorità finale. Timeout e correlazione richiesta/risposta restano obbligatori anche se il browser e il parent sono controllati dallo stesso utente.
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowUpRight, BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, SunMedium, TowerControl } from 'lucide-react';
+import { ArrowUpRight, BarChart3, Battery, Bolt, Droplets, Flame, FlaskConical, SunMedium, TowerControl, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -13,8 +13,10 @@ import { EnergiaDetailView } from './consumi/EnergiaDetail';
 import { buildEnergyOverview, type EnergyOverview, type EnergyOverviewMetric, type EnergyOverviewTone } from './consumi/energy/energyOverviewModel';
 import { useEnergyCore, type EnergyPageContext } from './consumi/energy/useEnergyCore';
 import { GasDetail } from './consumi/GasDetail';
+import { preloadConsumptionCharts } from './consumi/LazyConsumptionChart';
 import { ReportDetail } from './consumi/ReportDetail';
 import type { IntervalKey } from './consumi/shared';
+import { PUSH_PAGE_ATTRIBUTE, usePagePushTransition } from '../components/ui/usePagePushTransition';
 import { useConsumptionCopy, type ConsumptionCopyKey } from '../i18n/consumptionCopy';
 
 type Props = {
@@ -381,6 +383,7 @@ function UtilityCard({
   backdropStyle,
   preview = false,
   onClick,
+  onPrefetch,
 }: {
   title: string;
   metrics: UtilityMetric[];
@@ -390,15 +393,20 @@ function UtilityCard({
   backdropStyle: React.CSSProperties;
   preview?: boolean;
   onClick: () => void;
+  /** Fetch what the detail needs as soon as the card is about to be opened. */
+  onPrefetch?: () => void;
 }) {
   const { c } = useConsumptionCopy();
   return (
     <button
       type="button"
       onClick={onClick}
+      onPointerEnter={onPrefetch}
+      onPointerDown={onPrefetch}
+      onFocus={onPrefetch}
       className={cn(
-        'group relative min-h-[10rem] cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 bg-white/[0.06] p-4 text-left backdrop-blur-2xl sm:min-h-[12rem] sm:rounded-[1.75rem] sm:p-5 xl:min-h-0 xl:flex-1',
-        'flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/[0.1] active:translate-y-0',
+        'group relative min-h-[10rem] cursor-pointer overflow-hidden rounded-[1.35rem] border border-white/10 bg-[#071018] p-4 text-left backdrop-blur-2xl sm:min-h-[12rem] sm:rounded-[1.75rem] sm:p-5 xl:min-h-0 xl:flex-1',
+        'flex flex-col justify-between transition-all duration-300 hover:-translate-y-0.5 hover:border-white/20 active:translate-y-0',
         'shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_24px_50px_rgba(0,0,0,0.3)]',
       )}
     >
@@ -436,6 +444,28 @@ function UtilityCard({
   );
 }
 
+// The overview, then the Energy, Water, Gas and Reports details one level below.
+const consumptionViewDepth = (view: string) => (view === 'overview' ? 1 : 2);
+
+const NOTICE_DISMISSED_STORAGE_KEY = 'ha.dashboard.consumi.noticeDismissed.v1';
+
+/** The page notice, once hidden, stays hidden on this device. */
+function readNoticeDismissed() {
+  try {
+    return window.localStorage.getItem(NOTICE_DISMISSED_STORAGE_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeNoticeDismissed() {
+  try {
+    window.localStorage.setItem(NOTICE_DISMISSED_STORAGE_KEY, '1');
+  } catch {
+    // Without storage the notice simply comes back next time.
+  }
+}
+
 export function ConsumptionDashboardPage({
   embedded,
   suppressBrowserNavigation = false,
@@ -449,6 +479,11 @@ export function ConsumptionDashboardPage({
   const dashboardData = data ?? DEFAULT_DASHBOARD_DATA;
   const energyCore = useEnergyCore(energy);
   const energyOverview = buildEnergyOverview(energyCore, locale);
+  const [isNoticeVisible, setIsNoticeVisible] = React.useState(() => !readNoticeDismissed());
+  const dismissNotice = () => {
+    setIsNoticeVisible(false);
+    writeNoticeDismissed();
+  };
 
   const cardTitles = React.useMemo<Record<ConsumptionCardId, string>>(() => ({
     electricity: c(DEFAULT_CARD_TITLES.electricity),
@@ -543,6 +578,18 @@ export function ConsumptionDashboardPage({
   React.useEffect(() => {
     onDetailViewChange?.(activeView !== 'overview');
   }, [activeView, onDetailViewChange]);
+
+  // With the overview on screen and nothing else to do, fetch the Water and Gas
+  // charts: a detail then opens with its chart already there.
+  React.useEffect(() => {
+    if (activeView !== 'overview' || typeof window === 'undefined') return undefined;
+    if (typeof window.requestIdleCallback === 'function') {
+      const handle = window.requestIdleCallback(preloadConsumptionCharts, { timeout: 4000 });
+      return () => window.cancelIdleCallback(handle);
+    }
+    const timer = window.setTimeout(preloadConsumptionCharts, 1500);
+    return () => window.clearTimeout(timer);
+  }, [activeView]);
 
   const setIntervalForCard = React.useCallback((cardId: ConsumptionCardId, value: IntervalKey) => {
     setDetailIntervals((current) => ({
@@ -695,9 +742,10 @@ export function ConsumptionDashboardPage({
       />
     );
   }, [activeView, c, cardTitles, config, dashboardData, detailIntervals, energy, energyCore, handleBackToOverview, setIntervalForCard]);
+  usePagePushTransition('consumi', activeView, consumptionViewDepth);
 
   return (
-    <div className={cn('relative h-full w-full overflow-hidden text-[color:var(--ui-text-primary)]', embedded ? '' : 'min-h-screen')}>
+    <div {...{ [PUSH_PAGE_ATTRIBUTE]: 'consumi' }} className={cn('relative h-full w-full overflow-hidden text-[color:var(--ui-text-primary)]', embedded ? '' : 'min-h-screen')}>
       <div className="relative z-10 h-full min-h-0">
         {activeView === 'overview' ? (
           <div className="h-full min-h-0 overflow-y-auto px-4 py-4 pb-[calc(env(safe-area-inset-bottom)+6.25rem)] sm:p-6 sm:pb-[calc(env(safe-area-inset-bottom)+1.5rem)] lg:p-10">
@@ -705,16 +753,28 @@ export function ConsumptionDashboardPage({
               <header>
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="dashboard-page-title">
-                    {c('Hub Sostenibilità e Consumi')}
+                    {c('Consumi')}
                   </h1>
                   <span className="inline-flex h-8 items-center gap-1.5 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-3 text-[10px] font-semibold uppercase tracking-[0.13em] text-[color:var(--ui-text-secondary)]">
                     <FlaskConical size={13} />
                     {c('Anteprima beta')}
                   </span>
                 </div>
-                <p className="dashboard-content-surface mt-3 max-w-3xl rounded-2xl px-4 py-2.5 text-xs leading-relaxed text-[color:var(--ui-text-secondary)] sm:text-sm">
-                  {c('Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.')}
-                </p>
+                {isNoticeVisible ? (
+                  <div className="dashboard-content-surface mt-3 flex max-w-3xl items-start gap-2 rounded-2xl py-2.5 pl-4 pr-2">
+                    <p className="min-w-0 flex-1 py-0.5 text-xs leading-relaxed text-[color:var(--ui-text-secondary)] sm:text-sm">
+                      {c('Le misurazioni Energia arrivano esclusivamente da Domus Energy. Acqua, Gas e Report restano anteprime dove indicato.')}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={dismissNotice}
+                      aria-label={c('Nascondi avviso')}
+                      className="-my-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[color:var(--ui-text-tertiary)] transition-colors hover:bg-[color:var(--ui-fill-tertiary)] hover:text-[color:var(--ui-text-primary)]"
+                    >
+                      <X size={15} strokeWidth={2.2} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
               </header>
 
               <section className="mt-5 grid gap-4 sm:mt-7 sm:gap-6 xl:grid-cols-12 xl:gap-8" aria-label={c('Panoramica consumi')}>
@@ -737,6 +797,7 @@ export function ConsumptionDashboardPage({
                       backdropStyle={card.backdropStyle}
                       preview={card.preview}
                       onClick={() => handleCardClick(card.id)}
+                      onPrefetch={card.id === 'water' || card.id === 'gas' ? preloadConsumptionCharts : undefined}
                     />
                   ))}
                 </div>

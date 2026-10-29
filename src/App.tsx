@@ -5,7 +5,25 @@ import LazyLoadBoundary from './components/common/LazyLoadBoundary';
 
 // The presentation site (src/pages/BetaLandingPage) is built on its own with
 // `npm run build:site`; the dashboard does not ship it.
-const GridTestView = import.meta.env.DEV ? React.lazy(() => import('./pages/GridTestView')) : null;
+// Its sample cards show everything, like the demo; loaded with the page, never in the dashboard bundle.
+const GridTestView = import.meta.env.DEV
+  ? React.lazy(async () => {
+      const [{ default: View }, { AccessControlProvider }, { DEMO_ACCESS }] = await Promise.all([
+        import('./pages/GridTestView'),
+        import('./security/AccessControlProvider'),
+        import('./security/accessControl'),
+      ]);
+      return {
+        default: () => (
+          <AccessControlProvider access={DEMO_ACCESS}>
+            <View />
+          </AccessControlProvider>
+        ),
+      };
+    })
+  : null;
+// The shared device cards in every format, to compare with the design boards.
+const DevicesLab = import.meta.env.DEV ? React.lazy(() => import('./pages/DevicesLab')) : null;
 
 export default function App() {
   return (
@@ -17,6 +35,16 @@ export default function App() {
             element={
               <LazyLoadBoundary fallback={null}>
                 <GridTestView />
+              </LazyLoadBoundary>
+            }
+          />
+        ) : null}
+        {DevicesLab ? (
+          <Route
+            path="/devices-lab/*"
+            element={
+              <LazyLoadBoundary fallback={null}>
+                <DevicesLab />
               </LazyLoadBoundary>
             }
           />

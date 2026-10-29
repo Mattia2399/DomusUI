@@ -1,4 +1,4 @@
-import { HASS_TOKENS_KEY } from './haLive';
+import { HASS_TOKENS_KEY } from './haLiveConfig';
 import type { DashboardRuntimeMode } from '../security/dashboardAccess';
 
 export const DASHBOARD_RUNTIME_MODE_STORAGE_KEY = 'ha.dashboard.runtimeMode.v1';

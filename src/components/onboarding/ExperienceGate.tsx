@@ -8,7 +8,8 @@ import {
 } from '../../services/setupJourney';
 import GlassLoader from '../ui/GlassLoader';
 import LazyLoadBoundary from '../common/LazyLoadBoundary';
-import { useDeviceAppearance } from './OnboardingGlass';
+// Only the appearance hook: the setup screens load on their own, with setup.
+import { useDeviceAppearance } from './deviceAppearance';
 import { ArrowLeft, Languages } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 
@@ -64,6 +65,18 @@ export function ExperienceGate() {
   });
   const handleJourneyChange = useCallback((next: SetupJourney) => setJourney(next), []);
   const setupRoute = isSetupRoute(location.pathname);
+  const [connectingFromDemo, setConnectingFromDemo] = useState(false);
+  // From the Demo, connecting the home starts at the address (inside the panel, at the reading).
+  const connectFromDemo = useCallback(() => {
+    const embedded = window.parent !== window;
+    setConnectingFromDemo(true);
+    setJourney(saveSetupJourney({
+      phase: embedded ? 'scan' : 'connect',
+      mode: 'real',
+      connectionMethod: embedded ? 'panel' : 'direct',
+    }, window.localStorage));
+  }, []);
+  const demoAsksToConnect = journey.phase === 'done' && journey.mode === 'demo' && setupRoute;
   const forceConfiguration = shouldForceCompletedConfiguration(
     location.pathname,
     journey.phase,
@@ -76,6 +89,12 @@ export function ExperienceGate() {
     }
   }, [journey.mode, journey.phase, location.pathname, navigate]);
 
+  useEffect(() => {
+    if (demoAsksToConnect) connectFromDemo();
+  }, [connectFromDemo, demoAsksToConnect]);
+
+  if (demoAsksToConnect) return <DashboardLoading />;
+
   if (journey.phase !== 'done' || (setupRoute && forceConfiguration)) {
     return (
       <LazyLoadBoundary fallback={<DashboardLoading />}>
@@ -83,6 +102,7 @@ export function ExperienceGate() {
           journey={journey}
           onJourneyChange={handleJourneyChange}
           forceConfiguration={forceConfiguration}
+          offerResume={!connectingFromDemo}
         />
       </LazyLoadBoundary>
     );
@@ -94,13 +114,7 @@ export function ExperienceGate() {
         <DemoLockedRoute
           pathname={location.pathname}
           onConnect={() => {
-            const embedded = window.parent !== window;
-            const next = saveSetupJourney({
-              phase: 'discover',
-              mode: 'real',
-              connectionMethod: embedded ? 'panel' : 'direct',
-            }, window.localStorage);
-            setJourney(next);
+            connectFromDemo();
             navigate('/setup');
           }}
         />

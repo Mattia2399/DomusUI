@@ -298,7 +298,6 @@ export function DashboardCatalogModal({
           <button
             type="button"
             onClick={onClose}
-            data-tour-target="catalog-finish"
             className="liquid-glass-control h-11 rounded-2xl px-5 text-sm font-semibold text-[color:var(--ui-text-secondary)] transition hover:brightness-110 hover:text-[color:var(--ui-text-primary)]"
           >
             {t('home.catalog.done')}
@@ -307,7 +306,6 @@ export function DashboardCatalogModal({
             type="button"
             onClick={confirmCatalogSelection}
             disabled={!canConfirmCatalogSelection}
-            data-tour-target="catalog-confirm"
             className="liquid-glass-selection h-11 min-w-0 flex-1 rounded-2xl px-5 text-sm font-semibold shadow-[0_8px_24px_var(--ui-shadow-soft)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-35 sm:flex-none"
           >
             <span className="block max-w-[15rem] truncate">{catalogConfirmLabel}</span>
@@ -414,7 +412,6 @@ export function DashboardCatalogModal({
                       <button
                         key={item.kind}
                         type="button"
-                        data-tour-target={item.kind === 'light' ? 'catalog-light' : undefined}
                         aria-pressed={isSelected}
                         onClick={() => {
                           setSelectedCatalogWidgetKind(item.kind);

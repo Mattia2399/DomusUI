@@ -5,10 +5,14 @@ import { NotificationProvider } from '../../context/NotificationProvider';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { createDefaultSidebarPaths } from '../../navigation/applicationRoutes';
 import { LeftSidebar } from './LeftSidebar';
+import { AccessControlProvider } from '../../security/AccessControlProvider';
+import type { AccessSnapshot } from '../../security/accessControl';
+import { accessFor } from '../../test/accessFixtures';
 
 beforeEach(() => window.localStorage.setItem(LANGUAGE_STORAGE_KEY, 'it'));
 afterEach(() => {
   cleanup();
+  sidebarAccess = accessFor('admin');
   window.localStorage.removeItem(LANGUAGE_STORAGE_KEY);
 });
 
@@ -17,6 +21,8 @@ function setViewport(width: number, height: number) {
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
 }
 
+let sidebarAccess: AccessSnapshot = accessFor('admin');
+
 describe('LeftSidebar tablet density', () => {
   it('keeps every route and Edit Mode directly available in the compact rail', () => {
     setViewport(1024, 600);
@@ -24,6 +30,7 @@ describe('LeftSidebar tablet density', () => {
 
     render(
       <I18nProvider>
+        <AccessControlProvider access={sidebarAccess}>
         <NotificationProvider>
           <LeftSidebar
           isEditMode={false}
@@ -37,6 +44,7 @@ describe('LeftSidebar tablet density', () => {
           onOpenSettings={vi.fn()}
           />
         </NotificationProvider>
+        </AccessControlProvider>
       </I18nProvider>,
     );
 
@@ -56,6 +64,7 @@ describe('LeftSidebar tablet density', () => {
 
     render(
       <I18nProvider>
+        <AccessControlProvider access={sidebarAccess}>
         <NotificationProvider>
           <LeftSidebar
             isEditMode={false}
@@ -71,10 +80,40 @@ describe('LeftSidebar tablet density', () => {
             onReturnToHomeAssistant={onReturnToHomeAssistant}
           />
         </NotificationProvider>
+        </AccessControlProvider>
       </I18nProvider>,
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Torna in Home Assistant' }));
     expect(onReturnToHomeAssistant).toHaveBeenCalledTimes(1);
+  });
+  it('shows a restricted account the same pages as its phone navigation', () => {
+    setViewport(1280, 800);
+    sidebarAccess = accessFor('restricted');
+    render(
+      <I18nProvider>
+        <AccessControlProvider access={sidebarAccess}>
+          <NotificationProvider>
+            <LeftSidebar
+              isEditMode={false}
+              haStatus="connected"
+              quickPaths={createDefaultSidebarPaths()}
+              activeRoute="/home"
+              canToggleEditMode={false}
+              onPathClick={vi.fn()}
+              onToggleEditMode={vi.fn()}
+              onOpenProfile={vi.fn()}
+              onOpenSettings={vi.fn()}
+            />
+          </NotificationProvider>
+        </AccessControlProvider>
+      </I18nProvider>,
+    );
+    for (const label of ['Dashboard', 'Stanze', 'App Gallery']) {
+      expect(screen.getByRole('button', { name: `Apri ${label}` })).toBeTruthy();
+    }
+    for (const label of ['Sicurezza', 'Consumi', 'Automazioni']) {
+      expect(screen.queryByRole('button', { name: `Apri ${label}` })).toBeNull();
+    }
   });
 });

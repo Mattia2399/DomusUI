@@ -50,6 +50,8 @@ import {
   saveIrrigationCoreConfig,
 } from '../services/irrigationCoreClient';
 import { useI18n } from '../i18n/I18nProvider';
+import { useAccessControl, useCan } from '../security/AccessControlProvider';
+import { canOpenRoute } from '../navigation/routeAccess';
 import {
   ChevronRight,
   CalendarDays,
@@ -1340,6 +1342,9 @@ function ZoneConfigModal({
 
 function LauncherView({ onNavigate = navigateTo }) {
   const { t } = useI18n();
+  // An app the account may not open is not offered at all (the route would only say "not available").
+  const access = useAccessControl();
+  const portals = SYSTEM_PORTALS.filter((portal) => canOpenRoute(portal.route, access.can));
   const portalKeys = {
     'technical-room': ['apps.portal.technical.title', 'apps.portal.technical.description'],
     'smart-irrigation': ['apps.portal.irrigation.title', 'apps.portal.irrigation.description'],
@@ -1374,7 +1379,7 @@ function LauncherView({ onNavigate = navigateTo }) {
           animate="visible"
           className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
         >
-          {SYSTEM_PORTALS.map((portal) => {
+          {portals.map((portal) => {
             const [titleKey, descriptionKey] = portalKeys[portal.id];
             return <PortalCard key={portal.id} portal={{ ...portal, title: t(titleKey), description: t(descriptionKey) }} onNavigate={onNavigate} />;
           })}
@@ -1431,6 +1436,8 @@ function IrrigationDashboardView({
   navigationRoute = '',
   onNavigate = navigateTo,
 }) {
+  // irrigation.control in the interface; the integration decides every command again.
+  const canControlIrrigation = useCan('irrigation.control');
   const { locale, t } = useI18n();
   // App settings live in the dedicated house-wide configuration page.
   // Keep the legacy inline editor unreachable until its markup is removed.
@@ -2684,7 +2691,7 @@ function IrrigationDashboardView({
 
   const setZonePowerState = async (zone, shouldTurnOn) => {
     const entityId = normalizeEntityId(zone.entityId);
-    if (!entityId) return false;
+    if (!entityId || !canControlIrrigation) return false;
 
     if (runtimeMode === 'demo') {
       setZoneEnabled((current) => ({ ...current, [zone.id]: shouldTurnOn }));
@@ -2807,6 +2814,7 @@ function IrrigationDashboardView({
       ? t('irrigation.summary.systemStopped')
       : t('irrigation.summary.systemPaused');
   const handleMasterPrimaryAction = async () => {
+    if (!canControlIrrigation) return;
     const nextState = masterIsRunning ? 'paused' : 'running';
     if (runtimeMode === 'demo') {
       setMasterControlState(nextState);
@@ -2827,6 +2835,7 @@ function IrrigationDashboardView({
   };
 
   const handleMasterStop = async () => {
+    if (!canControlIrrigation) return;
     if (runtimeMode === 'demo') {
       setMasterControlState('stopped');
       return;

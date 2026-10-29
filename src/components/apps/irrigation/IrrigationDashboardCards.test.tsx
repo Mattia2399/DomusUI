@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render as renderUi, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Sprout } from 'lucide-react';
 import {
@@ -10,6 +10,17 @@ import {
   IrrigationZoneCard,
   IrrigationZonesSnapshotCard,
 } from './IrrigationDashboardCards';
+import React from 'react';
+import { AccessControlProvider } from '../../../security/AccessControlProvider';
+import { accessFor } from '../../../test/accessFixtures';
+
+// Every render as an administrator would see it; Access Control is tested on its own.
+function AdminAccess({ children }: { children: React.ReactNode }) {
+  return <AccessControlProvider access={accessFor('admin')}>{children}</AccessControlProvider>;
+}
+const render = (ui: React.ReactElement, options?: Parameters<typeof renderUi>[1]) =>
+  renderUi(ui, { wrapper: AdminAccess, ...options });
+
 
 afterEach(() => cleanup());
 
@@ -174,5 +185,29 @@ describe('Irrigation dashboard cards', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Apri riepilogo idrico' }));
     expect(onOpenZones).toHaveBeenCalledTimes(1);
     expect(onOpenConsumption).toHaveBeenCalledTimes(1);
+  });
+  it('shows the garden to an account without irrigation.control, and no command', () => {
+    const hero = (
+      <IrrigationHero
+        masterTitle="Sistema attivo"
+        masterIsRunning
+        masterIsStopped={false}
+        masterIsPaused={false}
+        temperature={18}
+        humidity={54}
+        rainStatusLabel="Sereno"
+        rainSummaryTitle="Nessuna pioggia"
+        rainSummaryDescription="Sensore disponibile"
+        rainSensorEnabled
+        rainSensorSyncing={false}
+        onRainSensorToggle={vi.fn()}
+        onPrimaryAction={vi.fn()}
+        onStop={vi.fn()}
+      />
+    );
+    renderUi(<AccessControlProvider access={accessFor('restricted')}>{hero}</AccessControlProvider>);
+    expect(screen.getByText('Protezione pioggia')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Metti in pausa l’irrigazione' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /pausa|Ferma|Avvia/i })).toBeNull();
   });
 });

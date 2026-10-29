@@ -1,5 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const path = require('node:path');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Energy history (Andamento) against a simulated Home Assistant: the websocket
@@ -115,6 +116,9 @@ async function simulateHomeAssistant(page, history) {
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: Object.fromEntries(Object.entries(SENSORS).map(([id, value]) => [id, state(value)])) } }));
             break;
           }
+          case 'domusos/access/get_self':
+            reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
+            break;
           case 'auth/current_user':
             reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });
             break;

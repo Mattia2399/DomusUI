@@ -59,13 +59,6 @@ export default defineConfig(({ mode }) => {
       '@': path.resolve(__dirname, '.'),
     },
   },
-  optimizeDeps: {
-    // Pre-bundle the runtime hidden behind the members-map lazy boundary so
-    // opening it for the first time never forces a Vite full-page reload.
-    // The dedicated worker is a separate Rollup entry in production and must
-    // not be optimized as a regular window dependency during development.
-    include: ['maplibre-gl'],
-  },
   esbuild: {
     // Keep every third-party license notice once per file instead of once per
     // module: each lucide icon otherwise repeats the same ISC header.
@@ -73,18 +66,9 @@ export default defineConfig(({ mode }) => {
   },
   build: {
     rollupOptions: {
-      input: [
-        path.resolve(__dirname, 'index.html'),
-        path.resolve(__dirname, 'node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs'),
-      ],
+      input: [path.resolve(__dirname, 'index.html')],
       output: {
-        entryFileNames: (chunkInfo) => {
-          const moduleId = chunkInfo.facadeModuleId?.replaceAll('\\', '/');
-          if (moduleId?.endsWith('/maplibre-gl-worker.mjs')) {
-            return 'assets/maplibre-gl-worker.js';
-          }
-          return 'assets/[name]-[hash].js';
-        },
+        entryFileNames: 'assets/[name]-[hash].js',
         // No manual chunks: Rollup keeps the dashboard cards in the Home chunk and
         // orders their modules itself. A separate cards chunk (0985b01) imported
         // icons and helpers back from Home, the two chunks formed a cycle and the
@@ -93,6 +77,22 @@ export default defineConfig(({ mode }) => {
         // the shared icons in the cards chunk, which Rollup then preloads at
         // startup, or a hand-made ownership analysis that barrel re-exports
         // defeat. The performance budget checks the Home critical path instead.
+        //
+        // The one exception is a leaf of libraries with no app code, so no cycle:
+        // the menus and popovers (headlessui with floating-ui and react-aria).
+        // Home loads them at once and the pages with dropdowns find them there,
+        // but in their own file, which keeps the Home file under its limit.
+        // Only these libraries and what they alone use, so they import nothing
+        // back from Home: React itself stays where Rollup puts it, or startup
+        // would load the popovers too. The react-dom wrapper is the import form
+        // their portals use; Home then takes it from here.
+        onlyExplicitManualChunks: true,
+        manualChunks(id) {
+          return /node_modules[\\/](@headlessui|@floating-ui|react-aria|@react-aria|react-stately|@tanstack|use-sync-external-store|tabbable)[\\/]/.test(id) ||
+            /node_modules[\\/]react-dom[\\/]index\.js\?commonjs-es-import$/.test(id)
+            ? 'vendor-popover'
+            : undefined;
+        },
       },
     },
   },

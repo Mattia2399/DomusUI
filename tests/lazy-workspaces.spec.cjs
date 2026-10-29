@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { connectHomeAssistant } = require('./support/fakeHomeAssistant.cjs');
 
 function installCompletedRealWorkspace(page) {
   return page.addInitScript(() => {
@@ -23,6 +24,7 @@ test('secondary workspaces load on demand without replacing the dashboard shell'
   test.setTimeout(90000);
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
+  await connectHomeAssistant(page);
 
   await page.goto('/rooms');
   await expect(page.locator('.dashboard-shell')).toBeVisible();
@@ -31,9 +33,9 @@ test('secondary workspaces load on demand without replacing the dashboard shell'
 
   const workspaces = [
     { path: '/security', heading: 'Sicurezza' },
-    { path: '/consumi', heading: 'Hub Sostenibilità e Consumi' },
-    { path: '/automations', heading: 'Costruttore Automazioni' },
-    { path: '/appgallery', heading: 'App Library' },
+    { path: '/consumi', heading: 'Consumi' },
+    { path: '/automations', heading: 'Automazioni' },
+    { path: '/appgallery', heading: 'App Gallery' },
     { path: '/settings', heading: 'Impostazioni' },
     { path: '/support', heading: 'Supporto e feedback' },
   ];
@@ -45,9 +47,9 @@ test('secondary workspaces load on demand without replacing the dashboard shell'
     await expect(page.getByText('Carichiamo soltanto gli strumenti necessari.')).toHaveCount(0);
   }
 
-  await page.goto('/profile');
+  await page.goto('/settings/profile');
   await expect(page.locator('.dashboard-shell')).toBeVisible();
-  await expect(page.getByText('Aspetto e lingua')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Informazioni personali/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Indietro' })).toBeVisible();
   await expect(page.getByText('Carichiamo soltanto gli strumenti necessari.')).toHaveCount(0);
 });

@@ -23,11 +23,12 @@ const MB = 1_000_000;
 /** Surfaces, named by source module id; `requires` is what is already loaded. */
 export const surfaces = [
   // Startup: index.html, its entry chunk, the global stylesheet and exactly one
-  // language catalog. French is the largest catalog, so it guards the worst case.
+  // language catalog with the words of first-run setup in that language, which
+  // start loading with it. French is the largest of both, so it guards the worst case.
   // Baseline before locale splitting: 1,154,500 / 252,300.
   // Headroom ~4% (warning) and ~8% (limit): every byte here delays the first paint.
   {
-    id: 'boot', label: 'Boot', sources: ['index.html', 'virtual:domus-i18n/fr'],
+    id: 'boot', label: 'Boot', sources: ['index.html', 'virtual:domus-i18n/fr', 'src/i18n/onboarding/fr.ts'],
     budget: { metric: 'cold', raw: { warning: 1.2 * MB, limit: 1.25 * MB }, gzip: { warning: 265 * KB, limit: 275 * KB } },
   },
   // Home and the dashboard shell every route lives in. Baseline 2,437,600 / 615,700 cold.
@@ -50,8 +51,26 @@ export const surfaces = [
   },
   // /rooms. Baseline 266,400 / 78,800.
   {
-    id: 'rooms', label: 'Stanze', sources: ['src/pages/RoomsDashboard.tsx'], requires: 'home', kind: 'route',
+    id: 'rooms', label: 'Stanze', sources: ['src/pages/rooms/RoomsPage.tsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 100 * KB } },
+  },
+  // What /rooms opens on request (device panels, section pages, sheets, management), fetched when idle. Baseline 106,000 / 38,600.
+  {
+    id: 'rooms-parts', label: 'Stanze · pannelli e gestione', requires: 'rooms', kind: 'feature',
+    sources: [
+      'src/components/devices/panels/LightPanel.tsx',
+      'src/components/devices/panels/DevicePanel.tsx',
+      'src/components/devices/panels/ClimatePanel.tsx',
+      'src/components/devices/panels/SensorPanel.tsx',
+      'src/components/devices/panels/SecurityPanel.tsx',
+      'src/components/devices/panels/MediaPlayer.tsx',
+      'src/pages/rooms/MediaSheets.tsx',
+      'src/pages/rooms/SectionPage.tsx',
+      'src/pages/rooms/AddAccessoriesSheet.tsx',
+      'src/pages/rooms/RoomsManagePage.tsx',
+      'src/pages/rooms/RoomManageSheets.tsx',
+    ],
+    budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 46 * KB } },
   },
   // /security. Baseline 123,400 / 41,400.
   {
@@ -81,8 +100,8 @@ export const surfaces = [
 
   // Alternative language catalogs are fetched only after the user changes
   // language. French is already counted in Boot as the largest startup case.
-  { id: 'locale-it', label: 'Lingua · Italiano', sources: ['virtual:domus-i18n/it'], requires: 'boot', kind: 'feature' },
-  { id: 'locale-en', label: 'Lingua · English', sources: ['virtual:domus-i18n/en'], requires: 'boot', kind: 'feature' },
+  { id: 'locale-it', label: 'Lingua · Italiano', sources: ['virtual:domus-i18n/it', 'src/i18n/onboarding/it.ts'], requires: 'boot', kind: 'feature' },
+  { id: 'locale-en', label: 'Lingua · English', sources: ['virtual:domus-i18n/en', 'src/i18n/onboarding/en.ts'], requires: 'boot', kind: 'feature' },
 
   // On-demand features, loaded only after a user action, measured over their parent (~15-20% warning, ~30-40% limit).
   // Energy setup wizard, from /consumi/energia. Baseline 105,700 / 33,600.
@@ -95,6 +114,10 @@ export const surfaces = [
     id: 'energy-settings', label: 'Energy · Impostazioni', sources: ['src/pages/consumi/energy/EnergySettings.tsx'], requires: 'consumi', kind: 'feature',
     budget: { metric: 'incremental', raw: { warning: 90 * KB, limit: 100 * KB }, gzip: { warning: 28 * KB, limit: 32 * KB } },
   },
+  // The Water and Gas preview charts and the chart library (Recharts), loaded
+  // when one of those details opens (PERF.E1). Reported only: a budget of its
+  // own is a proposal in docs/performance-energy-bundle.md.
+  { id: 'consumption-charts', label: 'Consumi · Grafici Acqua e Gas', sources: ['src/pages/consumi/consumptionCharts.tsx'], requires: 'consumi', kind: 'feature' },
   // Dashboard builder: the card catalog opened while editing Home. Baseline 44,500 / 16,000.
   {
     id: 'dashboard-builder', label: 'Builder · catalogo card', sources: ['src/components/dashboard/DashboardCatalogModal.tsx'], requires: 'home', kind: 'feature',
@@ -110,17 +133,38 @@ export const surfaces = [
     id: 'context-sidebar', label: 'Sidebar contesto', sources: ['src/components/settings/ContextSidebar.tsx'], requires: 'home', kind: 'feature',
     budget: { metric: 'incremental', raw: { warning: 760 * KB, limit: 840 * KB }, gzip: { warning: 225 * KB, limit: 250 * KB } },
   },
-  // Members map: MapLibre runtime, its shared module, stylesheet and worker. Baseline 1,180,900 / 315,800.
+
+  // Settings › This device features, measured as what they add to Settings
+  // (their pages and the code they load on demand). Their always-on part is
+  // small and lives in Home (the screensaver countdown, the Kiosk gate), so
+  // Home's budget covers it. PERF.1 baselines (raw / gzip), ~20% warning, ~35% limit.
+  // Power and charging: its page, client and words (32,800 / 10,900), plus the
+  // entity picker it shares with App Gallery and the right sidebar (GlassCombobox
+  // with its list virtualizer, 45,300 / 14,500), not loaded by Settings itself.
+  // Baseline 78,200 / 25,600.
   {
-    id: 'members-map', label: 'Mappa membri (MapLibre)', requires: 'context-sidebar', kind: 'feature',
-    sources: ['src/components/settings/MembersLocationMap.tsx', 'src/components/settings/maplibreRuntime.ts'],
-    files: ['maplibre-gl-worker.js'],
-    budget: { metric: 'incremental', raw: { warning: 1.25 * MB, limit: 1.35 * MB }, gzip: { warning: 335 * KB, limit: 360 * KB } },
+    id: 'device-power', label: 'Questo dispositivo · Alimentazione', sources: ['src/components/settings/DevicePowerSettings.tsx'], requires: 'settings', kind: 'feature',
+    budget: { metric: 'incremental', raw: { warning: 94 * KB, limit: 105 * KB }, gzip: { warning: 31 * KB, limit: 35 * KB } },
+  },
+  // Screensaver: its settings page and the overlay shown when idle (loaded ahead once it is on). Baseline 15,600 / 6,200.
+  {
+    id: 'screensaver', label: 'Questo dispositivo · Screensaver', requires: 'settings', kind: 'feature',
+    sources: ['src/components/settings/ScreensaverSettings.tsx', 'src/components/screensaver/ScreensaverOverlay.tsx'],
+    budget: { metric: 'incremental', raw: { warning: 18.5 * KB, limit: 21 * KB }, gzip: { warning: 7.5 * KB, limit: 8.5 * KB } },
+  },
+  // Kiosk: its settings page and the running panel (full screen, wake lock, the way out). Baseline 17,400 / 7,100.
+  {
+    id: 'kiosk', label: 'Questo dispositivo · Kiosk', requires: 'settings', kind: 'feature',
+    sources: ['src/components/settings/KioskSettings.tsx', 'src/components/kiosk/KioskRuntime.tsx'],
+    budget: { metric: 'incremental', raw: { warning: 20 * KB, limit: 23 * KB }, gzip: { warning: 8 * KB, limit: 9 * KB } },
   },
 
   // Reported only: small administrative panels, below any useful budget.
   { id: 'settings-management', label: 'Gestione impostazioni', sources: ['src/components/settings/SettingsManagementPanel.tsx'], requires: 'home', kind: 'feature' },
-  { id: 'guided-setup', label: 'Configurazione guidata HA', sources: ['src/components/settings/GuidedSetupOverlay.tsx'], requires: 'home', kind: 'feature' },
+  // The drifting cards behind the setup intro, loaded after its words.
+  { id: 'setup-mosaic', label: 'Onboarding · Sfondo della intro', sources: ['src/components/onboarding/SetupMosaic.tsx'], requires: 'onboarding', kind: 'feature' },
+  // The three-step guides of the Home: after setup, and on the first device opened.
+  { id: 'first-run-guide', label: 'Guida del primo accesso', sources: ['src/components/onboarding/FirstRunGuide.tsx'], requires: 'home', kind: 'feature' },
 ];
 
 /*
@@ -156,6 +200,9 @@ export const total = {
  * Code no surface above reaches (deeper on-demand panels, new features).
  * Baseline 66,100 (settings sections, onboarding organizer, recovery and
  * starter-layout modals). A warning asks to give a growing feature its own surface.
+ * PERF.1: the This device features got theirs (above); what remains is the
+ * deeper Settings and Profile sections, the recipient picker and the
+ * onboarding organizer, listed by the report. The warning is unchanged.
  */
 export const unattributed = { raw: { warning: 150 * KB } };
 

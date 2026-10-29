@@ -25,6 +25,13 @@ export type HaLogbookEvent = {
   user_id?: string;
   user_name?: string;
   context?: { user_id?: string; user_name?: string };
+  /** What caused the change, when it was a service call (an automation, a script). */
+  context_domain?: string;
+  context_service?: string;
+  context_entity_id?: string;
+  context_entity_id_name?: string;
+  context_name?: string;
+  context_event_type?: string;
 };
 
 function toTrimmedString(value: unknown) {

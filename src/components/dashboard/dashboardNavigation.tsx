@@ -1,3 +1,5 @@
+import type { AccessCapability } from '../../security/accessControl';
+import { canOpenRoute } from '../../navigation/routeAccess';
 import {
   BarChart3,
   DoorOpen,
@@ -68,12 +70,17 @@ export function resolveDashboardNavigationEntries(
   quickPaths: SidebarQuickPath[],
   routeIds: readonly ApplicationRouteId[],
   translate?: (key: TranslationKey) => string,
+  /** Access Control: only the pages the account may open (navigation/routeAccess.ts). */
+  can?: (capability: AccessCapability) => boolean,
 ) {
   const configuredByPath = new Map(
     quickPaths.map((entry) => [normalizeDashboardNavigationPath(entry.path), entry] as const),
   );
+  const allowedRouteIds = can
+    ? routeIds.filter((routeId) => canOpenRoute(getApplicationRoute(routeId).path, can))
+    : routeIds;
 
-  return routeIds.map((routeId) => {
+  return allowedRouteIds.map((routeId) => {
     const fallback = getApplicationRoute(routeId);
     const configured = configuredByPath.get(normalizeDashboardNavigationPath(fallback.path));
     return {

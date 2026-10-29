@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { connectHomeAssistant } = require('./support/fakeHomeAssistant.cjs');
 
 function installCompletedWorkspace(page, mode) {
   return page.addInitScript((runtimeMode) => {
@@ -19,8 +20,10 @@ async function expectNoHorizontalOverflow(page) {
   expect(overflow).toBeLessThanOrEqual(1);
 }
 
+// Without Home Assistant there is no account: Domus says so instead of showing the page (Access Control).
 async function expectCenteredMessage(page, title) {
-  const card = page.getByText(title).locator('xpath=ancestor::div[contains(@class, "liquid-glass-card")][1]');
+  await expect(page.getByRole('heading', { name: title })).toBeVisible();
+  const card = page.locator('[data-access-notice="offline"] > div');
   const box = await card.boundingBox();
   const content = await page.locator('#dashboard-main-content').boundingBox();
   expect(box).not.toBeNull();
@@ -38,6 +41,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 820, height: 1180 
   test(`Energy remains the primary responsive overview at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await installCompletedWorkspace(page, 'real');
+    await connectHomeAssistant(page);
     await page.goto('/consumi');
 
     const energy = page.getByRole('button', { name: /^Energia/ });
@@ -65,8 +69,7 @@ test('Energy page never invents values without Home Assistant', async ({ page })
 
   await page.goto('/consumi/energia');
 
-  await expect(page.getByRole('heading', { name: 'Dettaglio Energia' })).toBeVisible();
-  await expect(page.getByText('Home Assistant non collegato')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Home Assistant non collegato' })).toBeVisible();
   await expect(page.getByRole('img', { name: /Flussi energetici/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /rilevamento/ })).toHaveCount(0);
   await expectNoHorizontalOverflow(page);
@@ -74,10 +77,11 @@ test('Energy page never invents values without Home Assistant', async ({ page })
 
 test('Energy page returns to Consumi and Demo keeps the workspace gate', async ({ page }) => {
   await installCompletedWorkspace(page, 'real');
+  await connectHomeAssistant(page);
   await page.goto('/consumi/energia');
   await page.getByRole('button', { name: 'Torna a Consumi' }).click();
   await expect(page).toHaveURL(/\/consumi$/);
-  await expect(page.getByRole('heading', { name: 'Hub Sostenibilità e Consumi', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Consumi', exact: true })).toBeVisible();
 
   await installCompletedWorkspace(page, 'demo');
   await page.goto('/consumi/energia');

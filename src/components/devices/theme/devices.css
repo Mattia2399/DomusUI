@@ -1,0 +1,2136 @@
+/*
+ * Shared device cards and panels. Every colour they use is a token of
+ * tokens.css, for Dark and Light, next to the app tokens (--ui-*); components
+ * never carry colours of their own, except the light's own colour, which is data.
+ */
+
+@import './tokens.css';
+
+.dv-t2 {
+  color: var(--dv-t2);
+}
+
+.dv-t3 {
+  color: var(--dv-t3);
+}
+
+.dv-glass {
+  background: var(--dv-glass);
+  border: 1px solid var(--dv-glass-border);
+  box-shadow: inset 0 1px 0 var(--dv-glass-highlight), 0 26px 60px -32px var(--dv-glass-shadow);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+}
+
+/* The card. */
+
+.dv-tile {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid var(--dv-tile-off-border);
+  background: var(--dv-tile-off);
+  color: var(--dv-text);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+  transition: background 280ms ease, box-shadow 280ms ease, transform 160ms ease, color 280ms ease;
+}
+
+.dv-tile:active {
+  transform: scale(0.97);
+}
+
+.dv-tile.is-lit {
+  border-color: transparent;
+  color: var(--dv-lit-ink);
+  box-shadow: 0 18px 38px -18px rgb(var(--dv-light-rgb) / var(--dv-lit-shadow-alpha));
+}
+
+/* A device that is on: a light card with dark ink, its icon in the colour of its kind. */
+.dv-tile.is-on {
+  border-color: transparent;
+  background: var(--dv-tile-on);
+  color: var(--dv-tile-on-ink);
+  box-shadow: 0 16px 36px -18px rgb(0 0 0 / 0.55);
+}
+
+.dv-tile.is-on .dv-status,
+.dv-tile.is-on .dv-chevron {
+  color: var(--dv-tile-on-ink-2);
+}
+
+.dv-tile.is-on .dv-status.is-standby {
+  color: var(--dv-standby-ink);
+}
+
+.dv-tile.is-on .dv-icon-button {
+  background: var(--dv-tone);
+  color: var(--dv-tone-ink);
+  box-shadow: 0 6px 16px -4px var(--dv-tone-glow);
+}
+
+.dv-tile[data-tone='power'],
+.dv-tone-power {
+  --dv-tone: #30d158;
+  --dv-tone-ink: #04310f;
+  --dv-tone-glow: rgb(48 209 88 / 0.7);
+  --dv-tone-rgb: 48 209 88;
+}
+
+.dv-tile[data-tone='fan'],
+.dv-tone-fan {
+  --dv-tone: #64d2ff;
+  --dv-tone-ink: #00263a;
+  --dv-tone-glow: rgb(100 210 255 / 0.7);
+  --dv-tone-rgb: 100 210 255;
+}
+
+.dv-tile[data-tone='cover'],
+.dv-tone-cover {
+  --dv-tone: #ff9f0a;
+  --dv-tone-ink: #3a2000;
+  --dv-tone-glow: rgb(255 159 10 / 0.7);
+  --dv-tone-rgb: 255 159 10;
+}
+
+.dv-tile[data-tone='humid'],
+.dv-tone-humid {
+  --dv-tone: #5ac8fa;
+  --dv-tone-ink: #00263a;
+  --dv-tone-glow: rgb(90 200 250 / 0.7);
+  --dv-tone-rgb: 90 200 250;
+}
+
+/* A fan that is on turns its icon; still for reduced motion. */
+.dv-spin svg {
+  animation: dv-spin var(--dv-spin, 1.2s) linear infinite;
+}
+
+@keyframes dv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dv-tile.is-selected {
+  box-shadow: 0 0 0 2px var(--dv-select), 0 16px 36px -18px rgb(10 132 255 / 0.6);
+}
+
+.dv-tile.is-hidden-item {
+  opacity: 0.5;
+}
+
+.dv-tile.is-unavailable {
+  opacity: 0.55;
+}
+
+.dv-tile-body {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dv-tile-body:focus-visible,
+.dv-icon-button:focus-visible,
+.dv-slider:has(input:focus-visible),
+.dv-swatch:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-tile-inner {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.dv-tile-inner button,
+.dv-tile-inner input,
+.dv-tile-inner label {
+  pointer-events: auto;
+}
+
+/* While editing, a touch anywhere on the card reaches the body, which selects. */
+.dv-tile.is-editing .dv-tile-inner * {
+  pointer-events: none;
+}
+
+.dv-icon-button {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--dv-icon-off);
+  color: var(--dv-t2);
+  cursor: pointer;
+  transition: background 280ms ease, color 280ms ease, transform 120ms ease;
+}
+
+.dv-icon-button:active {
+  transform: scale(0.92);
+}
+
+.dv-icon-button:disabled {
+  cursor: default;
+}
+
+.dv-tile.is-lit .dv-icon-button {
+  background: var(--dv-lit-icon);
+  color: var(--dv-lit-icon-ink);
+}
+
+.dv-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.dv-name-1 {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  -webkit-line-clamp: 1;
+}
+
+.dv-status {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dv-t2);
+}
+
+.dv-tile.is-lit .dv-status {
+  color: var(--dv-lit-ink-2);
+}
+
+.dv-chevron {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  display: flex;
+  color: var(--dv-t2);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.dv-tile.is-lit .dv-chevron {
+  color: var(--dv-lit-ink-2);
+}
+
+.dv-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  height: 24px;
+  width: 24px;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--dv-t3);
+  border-radius: 50%;
+  color: transparent;
+  pointer-events: none;
+  transition: background 160ms ease, border-color 160ms ease;
+}
+
+.dv-check.is-selected {
+  border-color: var(--dv-select);
+  background: var(--dv-select);
+  color: #ffffff;
+}
+
+/* The brightness slider: an inset track, a white fill 5 px inside it, always 46 px tall. */
+
+.dv-slider {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 46px;
+  width: 100%;
+  flex: none;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--dv-slider-track);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.dv-slider-fill {
+  position: absolute;
+  top: 5px;
+  bottom: 5px;
+  left: 5px;
+  border-radius: 11px;
+  background: #ffffff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+  transition: width 160ms ease;
+}
+
+.dv-slider.is-off .dv-slider-fill {
+  background: var(--dv-slider-fill-off);
+  box-shadow: none;
+}
+
+.dv-slider input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+
+/* Colour and temperature swatches. */
+
+.dv-swatches {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 2px;
+}
+
+.dv-swatch {
+  position: relative;
+  z-index: 1;
+  height: 28px;
+  width: 28px;
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.3);
+  transition: box-shadow 200ms ease;
+}
+
+.dv-swatch[aria-checked='true'] {
+  box-shadow: 0 0 0 2px var(--dv-sheet-ring), 0 0 0 4px var(--dv-swatch);
+}
+
+.dv-swatch-lg {
+  height: 32px;
+  width: 32px;
+}
+
+.dv-swatch-hit {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.dv-wheel {
+  position: relative;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  border-radius: 50%;
+  background: conic-gradient(#ff3b30, #ff9500, #ffcc00, #34c759, #32ade6, #5856d6, #af52de, #ff2d55, #ff3b30);
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
+  cursor: pointer;
+}
+
+.dv-wheel input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  border: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dv-wheel:has(input:focus-visible) {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 3px;
+}
+
+/* The segmented controls of the devices: the shared one, as wide as its choices, light on a lit card. */
+
+.dv-seg {
+  position: relative;
+  z-index: 1;
+  width: fit-content;
+  max-width: 100%;
+  align-self: flex-start;
+}
+
+.dv-tile.is-lit .dv-seg {
+  background: rgb(0 0 0 / 0.08);
+}
+
+.dv-tile.is-lit .dv-seg .liquid-segmented-option-inactive {
+  color: var(--dv-lit-ink-2);
+}
+
+.dv-tile.is-lit .dv-seg .liquid-segmented-option-active {
+  background: #ffffff;
+  color: var(--dv-lit-ink);
+}
+
+/* Pieces of the device panels. */
+
+.dv-option {
+  height: 40px;
+  border: 0;
+  border-radius: 20px;
+  padding: 0 16px;
+  background: var(--dv-icon-off);
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.dv-option.is-on {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-option:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-card {
+  border-radius: 22px;
+  background: var(--dv-icon-off);
+  padding: 16px;
+}
+
+/* A plug's day hour by hour: past hours soft, the hour now full, the rest a track. */
+.dv-bars {
+  display: flex;
+  height: 64px;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.dv-bars span {
+  min-width: 0;
+  flex: 1;
+  border-radius: 3px;
+  background: rgb(var(--dv-tone-rgb) / var(--dv-bar-past));
+  transition: height 300ms ease;
+}
+
+.dv-bars span.is-now {
+  background: var(--dv-tone);
+}
+
+.dv-bars span.is-later {
+  background: var(--dv-track);
+}
+
+.dv-bars-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--dv-t3);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border-top: 1px solid var(--dv-separator);
+  padding-top: 12px;
+}
+
+.dv-stats > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dv-stats span {
+  color: var(--dv-t2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dv-stats strong,
+.dv-stats button {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* No tariff yet: the cost is a way to set it. */
+.dv-stats button {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--dv-blue);
+  cursor: pointer;
+}
+
+.dv-stats button:focus-visible {
+  border-radius: 6px;
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-bars span {
+    transition: none;
+  }
+}
+
+.dv-tag {
+  display: flex;
+  height: 28px;
+  align-items: center;
+  border-radius: 14px;
+  padding: 0 12px;
+  background: rgb(255 159 10 / 0.18);
+  color: var(--dv-amber);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* A cover as a window: sky behind, the shutter coming down as it closes. */
+.dv-vslider.dv-cover {
+  background: linear-gradient(180deg, #3e8ef0, #9fd0ff);
+}
+
+.dv-cover-shut {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  background: repeating-linear-gradient(180deg, #e6e6eb 0 12px, #c9c9d1 12px 14px);
+  box-shadow: 0 2px 0 #a9a9b3, 0 8px 14px -6px rgb(0 0 0 / 0.45);
+  transition: height 200ms linear;
+}
+
+.dv-cover-tag {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  height: 30px;
+  align-items: center;
+  border-radius: 15px;
+  padding: 0 12px;
+  background: rgb(0 0 0 / 0.42);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateX(-50%);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.dv-hslider {
+  position: relative;
+  display: block;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--dv-track);
+}
+
+.dv-hslider span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--dv-tone, #ff9f0a);
+}
+
+.dv-hslider input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dv-hslider:has(input:focus-visible) {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 3px;
+}
+
+.dv-panel-tint-soft {
+  --dv-panel-tint-alpha: var(--dv-tone-tint-alpha);
+}
+
+/* Climate: the colours of each mode, the large card and its panel pieces. */
+
+.dv-cl-off {
+  --cl-solid: #4b5563;
+  --cl-solid-dark: #363e48;
+  --cl-rgb: 142 142 147;
+}
+
+.dv-cl-heat {
+  --cl-solid: #b4480f;
+  --cl-solid-dark: #82340b;
+  --cl-rgb: 255 122 26;
+}
+
+.dv-cl-cool {
+  --cl-solid: #0b5cc0;
+  --cl-solid-dark: #08428a;
+  --cl-rgb: 10 132 255;
+}
+
+.dv-cl-auto {
+  --cl-solid: #17784a;
+  --cl-solid-dark: #115635;
+  --cl-rgb: 48 209 88;
+}
+
+.dv-cl-dry {
+  --cl-solid: #136f8e;
+  --cl-solid-dark: #0e5066;
+  --cl-rgb: 50 173 230;
+}
+
+.dv-cl-fan {
+  --cl-solid: #475569;
+  --cl-solid-dark: #333d4c;
+  --cl-rgb: 148 163 184;
+}
+
+.dv-tile[data-tone='cl-heat'] {
+  --dv-tone: #ff7a1a;
+  --dv-tone-ink: #3a1500;
+  --dv-tone-glow: rgb(255 122 26 / 0.7);
+}
+
+.dv-tile[data-tone='cl-cool'] {
+  --dv-tone: #0a84ff;
+  --dv-tone-ink: #ffffff;
+  --dv-tone-glow: rgb(10 132 255 / 0.7);
+}
+
+.dv-tile[data-tone='cl-auto'] {
+  --dv-tone: #30d158;
+  --dv-tone-ink: #04310f;
+  --dv-tone-glow: rgb(48 209 88 / 0.7);
+}
+
+.dv-tile[data-tone='cl-dry'] {
+  --dv-tone: #32ade6;
+  --dv-tone-ink: #00263a;
+  --dv-tone-glow: rgb(50 173 230 / 0.7);
+}
+
+.dv-tile[data-tone='cl-fan'] {
+  --dv-tone: #94a3b8;
+  --dv-tone-ink: #1f2937;
+  --dv-tone-glow: rgb(148 163 184 / 0.7);
+}
+
+.dv-climate {
+  display: flex;
+  min-height: 174px;
+  height: auto;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 28px;
+  padding: 14px 16px 14px 14px;
+  transition: background 420ms ease, box-shadow 420ms ease, color 300ms ease;
+}
+
+.dv-climate.is-lit-climate {
+  border-color: rgb(255 255 255 / 0.14);
+  background:
+    radial-gradient(120% 100% at 100% 0%, rgb(var(--cl-rgb) / 0.55), rgb(var(--cl-rgb) / 0) 62%),
+    linear-gradient(150deg, var(--cl-solid), var(--cl-solid-dark));
+  color: #ffffff;
+  box-shadow: 0 26px 50px -24px rgb(var(--cl-rgb) / 0.85), inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.dv-climate-sub {
+  color: var(--dv-t2);
+}
+
+.dv-climate.is-lit-climate .dv-climate-sub {
+  color: rgb(255 255 255 / 0.8);
+}
+
+.dv-climate.is-lit-climate .dv-icon-button,
+.dv-climate.is-lit-climate .dv-step {
+  background: rgb(255 255 255 / 0.2);
+  color: #ffffff;
+}
+
+.dv-climate-top,
+.dv-climate-mid,
+.dv-climate-foot {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.dv-climate-top button,
+.dv-climate-mid button {
+  pointer-events: auto;
+}
+
+.dv-climate-top {
+  align-items: center;
+  gap: 12px;
+}
+
+.dv-climate-mid {
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding-left: 2px;
+}
+
+.dv-climate-foot {
+  min-height: 22px;
+  align-items: center;
+  gap: 8px;
+  padding-left: 2px;
+}
+
+.dv-step {
+  display: flex;
+  height: 46px;
+  width: 46px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--dv-icon-off);
+  color: inherit;
+  cursor: pointer;
+  transition: transform 120ms ease, background 200ms ease;
+}
+
+.dv-step:active {
+  transform: scale(0.9);
+}
+
+.dv-step:focus-visible,
+.dv-climate-mode:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-step-strong {
+  height: 44px;
+  width: 44px;
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-step[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.dv-climate-now {
+  position: absolute;
+  right: 12px;
+  left: 12px;
+  height: 0;
+  border-top: 2px dashed currentColor;
+  opacity: 0.6;
+  pointer-events: none;
+  transition: bottom 200ms ease;
+}
+
+.dv-climate-now span {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-climate-side {
+  width: 228px;
+  flex: none;
+  box-sizing: border-box;
+}
+
+@container (max-width: 520px) {
+  .dv-climate-side {
+    width: 100%;
+  }
+}
+
+.dv-climate-mode {
+  display: flex;
+  min-height: 64px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 18px;
+  padding: 6px 4px;
+  background: var(--dv-icon-off);
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 220ms ease, color 220ms ease;
+}
+
+.dv-climate-mode.is-on {
+  background: var(--cl-solid);
+  color: #ffffff;
+  box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.6);
+}
+
+/* Security: green when all is well, amber to check, blue while it sees motion. */
+
+.dv-security.is-ok,
+.dv-security-badge.is-ok {
+  --sec-tint: #30d158;
+  --sec-rgb: 48 209 88;
+}
+
+.dv-security.is-warn,
+.dv-security-badge.is-warn {
+  --sec-tint: var(--dv-amber);
+  --sec-rgb: 255 159 10;
+}
+
+.dv-security.is-live,
+.dv-security-badge.is-live {
+  --sec-tint: var(--dv-blue);
+  --sec-rgb: 10 132 255;
+}
+
+.dv-security .dv-security-icon,
+.dv-security-badge {
+  background: rgb(var(--sec-rgb) / 0.16);
+  color: var(--sec-tint);
+}
+
+.dv-security.is-warn .dv-security-status,
+.dv-security.is-live .dv-security-status {
+  color: var(--sec-tint);
+}
+
+.dv-security-hero.is-warn {
+  color: var(--dv-amber);
+}
+
+.dv-security-hero.is-live {
+  color: var(--dv-blue);
+}
+
+/*
+ * The lock's two rings: green for the first lap (unlock), blue for the second
+ * (open). The laps take 900 ms, as the timers of LockRing.
+ */
+
+.dv-ring.is-secure,
+.dv-ring-ink.is-secure {
+  --ring-rgb: 18 163 114;
+  --ring-solid: #12a372;
+  --ring-ink: var(--dv-ring-secure-ink);
+}
+
+.dv-ring.is-open,
+.dv-ring-ink.is-open {
+  --ring-rgb: 217 119 6;
+  --ring-solid: #d97706;
+  --ring-ink: var(--dv-ring-open-ink);
+}
+
+.dv-ring.is-transition,
+.dv-ring-ink.is-transition {
+  --ring-rgb: 10 132 255;
+  --ring-solid: #0a84ff;
+  --ring-ink: var(--dv-ring-transition-ink);
+}
+
+.dv-ring.is-warning,
+.dv-ring-ink.is-warning {
+  --ring-rgb: 229 72 77;
+  --ring-solid: #e5484d;
+  --ring-ink: var(--dv-ring-warning-ink);
+}
+
+.dv-ring.is-off,
+.dv-ring-ink.is-off {
+  --ring-rgb: 142 142 147;
+  --ring-solid: #8e8e93;
+  --ring-ink: var(--dv-t2);
+}
+
+.dv-ring-ink,
+.dv-security .dv-security-status.dv-ring-ink {
+  color: var(--ring-ink);
+}
+
+.dv-ring {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  height: 58px;
+  width: 58px;
+  flex: none;
+  margin-left: -7px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: rgb(var(--ring-rgb) / var(--dv-ring-alpha));
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: background 240ms ease;
+}
+
+.dv-ring:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dv-ring:focus-visible {
+  outline: 2px solid #0a84ff;
+  outline-offset: 3px;
+}
+
+.dv-ring-lg {
+  height: 136px;
+  width: 136px;
+  margin-left: 0;
+}
+
+.dv-ring-laps,
+.dv-ring-busy {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  pointer-events: none;
+}
+
+.dv-ring-laps {
+  transform: rotate(-90deg);
+}
+
+.dv-ring-laps circle,
+.dv-ring-busy circle {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.dv-ring-lg .dv-ring-laps circle,
+.dv-ring-lg .dv-ring-busy circle {
+  stroke-width: 3;
+}
+
+.dv-ring-laps circle {
+  stroke-dasharray: 289;
+  stroke-dashoffset: 289;
+  opacity: 0;
+}
+
+.dv-ring-lg .dv-ring-laps circle {
+  stroke-dasharray: 296;
+  stroke-dashoffset: 296;
+}
+
+.dv-ring-lap1 {
+  stroke: #12a372;
+}
+
+.dv-ring-lap2 {
+  stroke: #0a84ff;
+}
+
+.dv-ring-busy {
+  animation: dv-spin 1s linear infinite;
+}
+
+.dv-ring-busy circle {
+  stroke: var(--ring-solid);
+  stroke-dasharray: 70 220;
+}
+
+.dv-ring.is-lap1 .dv-ring-lap1 {
+  animation: dv-ring-lap 900ms linear both;
+}
+
+.dv-ring.is-lap2 .dv-ring-lap1 {
+  opacity: 1;
+  stroke-dashoffset: 0;
+}
+
+.dv-ring.is-lap2 .dv-ring-lap2 {
+  animation: dv-ring-lap 900ms linear 150ms both;
+}
+
+.dv-ring.is-lap2b .dv-ring-lap2 {
+  animation: dv-ring-lap 900ms linear 220ms both;
+}
+
+.dv-ring-lg.is-lap1 .dv-ring-lap1,
+.dv-ring-lg.is-lap2 .dv-ring-lap2,
+.dv-ring-lg.is-lap2b .dv-ring-lap2 {
+  animation-name: dv-ring-lap-lg;
+}
+
+@keyframes dv-ring-lap {
+  0% {
+    stroke-dashoffset: 289;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes dv-ring-lap-lg {
+  0% {
+    stroke-dashoffset: 296;
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+.dv-ring-core {
+  display: flex;
+  height: 46px;
+  width: 46px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--dv-ring-core-off);
+  color: var(--ring-ink);
+  transition:
+    background 240ms ease,
+    color 240ms ease,
+    transform 140ms ease;
+}
+
+.dv-ring-lg .dv-ring-core {
+  height: 112px;
+  width: 112px;
+}
+
+.dv-ring.is-solid .dv-ring-core {
+  background: var(--ring-solid);
+  color: #ffffff;
+  box-shadow: 0 8px 20px -6px rgb(var(--ring-rgb) / 0.55);
+}
+
+.dv-ring.is-press .dv-ring-core {
+  transform: scale(0.93);
+}
+
+.dv-ring.is-busy .dv-ring-core svg {
+  animation: dv-spin 900ms linear infinite;
+}
+
+.dv-ring.is-nudge {
+  animation: dv-ring-nudge 420ms ease-in-out;
+}
+
+@keyframes dv-ring-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-ring.is-nudge {
+    animation: none;
+  }
+}
+
+.dv-camera-thumb {
+  position: relative;
+  display: block;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 70% 30%, rgb(255 214 165 / 0.9) 0%, rgb(255 214 165 / 0) 40%),
+    linear-gradient(160deg, #3b4a5a 0%, #1f2833 55%, #2e3b2c 100%);
+}
+
+.dv-camera-thumb img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-day-strip {
+  position: relative;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--dv-track);
+}
+
+.dv-day-span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  background: var(--dv-amber);
+}
+
+.dv-day-tick {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--dv-blue);
+  transform: translateX(-50%);
+}
+
+.dv-history-row {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+}
+
+.dv-history-row + .dv-history-row {
+  border-top: 1px solid var(--dv-separator);
+}
+
+/*
+ * Media: the card of what plays and the full player, white on the artwork
+ * blurred behind them in either theme. Without a picture, one of the board's
+ * colour fields stands in for it.
+ */
+
+.dv-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: rgb(255 255 255 / 0.55);
+}
+
+.dv-art img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-art[data-art='a'] {
+  background:
+    radial-gradient(circle at 28% 22%, #ffc371 0%, rgb(255 195 113 / 0) 55%),
+    radial-gradient(circle at 78% 78%, #ff375f 0%, rgb(255 55 95 / 0) 60%),
+    linear-gradient(140deg, #4a1d6b, #c2415b);
+}
+
+.dv-art[data-art='b'] {
+  background:
+    radial-gradient(circle at 70% 25%, #9be7c4 0%, rgb(155 231 196 / 0) 55%),
+    radial-gradient(circle at 25% 80%, #1e6fa8 0%, rgb(30 111 168 / 0) 60%),
+    linear-gradient(140deg, #0f3d3e, #2c7a7b);
+}
+
+.dv-art[data-art='c'] {
+  background:
+    radial-gradient(circle at 30% 25%, #ffd6a5 0%, rgb(255 214 165 / 0) 55%),
+    radial-gradient(circle at 75% 75%, #5e5ce6 0%, rgb(94 92 230 / 0) 60%),
+    linear-gradient(140deg, #1b1f4b, #6a4c93);
+}
+
+.dv-art[data-art='d'] {
+  background:
+    radial-gradient(circle at 70% 30%, #64d2ff 0%, rgb(100 210 255 / 0) 55%),
+    radial-gradient(circle at 25% 75%, #bf5af2 0%, rgb(191 90 242 / 0) 60%),
+    linear-gradient(140deg, #141e46, #3b2667);
+}
+
+.dv-art[data-art='e'] {
+  background:
+    radial-gradient(circle at 35% 30%, #a8ff78 0%, rgb(168 255 120 / 0) 50%),
+    radial-gradient(circle at 75% 70%, #30d158 0%, rgb(48 209 88 / 0) 60%),
+    linear-gradient(140deg, #0b2e26, #1f6f5c);
+}
+
+.dv-media-off {
+  height: 82px;
+}
+
+.dv-np {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.12);
+  border-radius: 28px;
+  /* Under the blurred artwork, whose edges the blur leaves see-through. */
+  background: #1c1c1e;
+  color: #ffffff;
+  box-shadow: 0 30px 70px -34px rgb(0 0 0 / 0.85);
+}
+
+.dv-np-bg {
+  position: absolute;
+  inset: -60px;
+  z-index: -2;
+  filter: blur(46px) saturate(1.5);
+  transform: scale(1.15);
+}
+
+.dv-np-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.18) 0%, rgb(0 0 0 / 0.38) 55%, rgb(0 0 0 / 0.6) 100%);
+}
+
+.dv-np-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 18px 18px;
+}
+
+.dv-np-open {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 16px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dv-np-art {
+  height: 92px;
+  width: 92px;
+  flex: none;
+  border-radius: 18px;
+  box-shadow:
+    0 18px 36px -14px rgb(0 0 0 / 0.7),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dv-np-art.is-resting,
+.dv-mp-art.is-resting {
+  transform: scale(0.9);
+}
+
+.dv-np-title {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.dv-np-track {
+  position: relative;
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.22);
+}
+
+.dv-np-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.92);
+}
+
+.dv-np-range {
+  position: absolute;
+  top: -14px;
+  right: 0;
+  left: 0;
+  height: 34px;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dv-np-track.is-disabled .dv-np-range {
+  cursor: default;
+}
+
+.dv-np-track:has(.dv-np-range:focus-visible) {
+  outline: 2px solid #ffffff;
+  outline-offset: 4px;
+}
+
+.dv-np-btn,
+.dv-np-play,
+.dv-np-mini,
+.dv-mp-iconbtn,
+.dv-mp-toggle {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.dv-np-btn {
+  height: 48px;
+  width: 48px;
+  background: transparent;
+  transition: background 160ms ease;
+}
+
+.dv-np-btn.is-large {
+  height: 56px;
+  width: 56px;
+}
+
+.dv-np-btn:hover:not(:disabled) {
+  background: rgb(255 255 255 / 0.14);
+}
+
+.dv-np-play {
+  height: 64px;
+  width: 64px;
+  background: #ffffff;
+  color: #0b0b0f;
+  box-shadow: 0 14px 30px -12px rgb(0 0 0 / 0.6);
+  transition: transform 140ms ease;
+}
+
+.dv-np-play.is-large {
+  height: 76px;
+  width: 76px;
+}
+
+.dv-np-play:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.dv-np-mini {
+  height: 36px;
+  width: 36px;
+  background: rgb(255 255 255 / 0.16);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.dv-np-mini:hover {
+  background: rgb(255 255 255 / 0.26);
+}
+
+.dv-np button:disabled,
+.dv-mp button:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+.dv-np button:focus-visible,
+.dv-mp button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 3px;
+}
+
+.dv-eq {
+  display: flex;
+  height: 14px;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.dv-eq span {
+  height: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background: #ffffff;
+  opacity: 0.85;
+}
+
+.dv-eq.is-on span {
+  animation: dv-eq 900ms ease-in-out infinite;
+}
+
+.dv-eq.is-on span:nth-child(2) {
+  animation-delay: -300ms;
+}
+
+.dv-eq.is-on span:nth-child(3) {
+  animation-delay: -600ms;
+}
+
+.dv-eq.is-on span:nth-child(4) {
+  animation-delay: -150ms;
+}
+
+@keyframes dv-eq {
+  0%,
+  100% {
+    height: 4px;
+  }
+  50% {
+    height: 14px;
+  }
+}
+
+.dv-mp {
+  position: fixed;
+  inset: 0;
+  /* As the section pages: above the app navigation (170), below panels and sheets (260). */
+  z-index: 200;
+  isolation: isolate;
+  overflow-y: auto;
+  background: #0b0b0f;
+  color: #ffffff;
+  animation: dv-mp-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes dv-mp-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.dv-mp-bg {
+  position: fixed;
+  inset: -200px;
+  z-index: -2;
+  filter: blur(70px) saturate(1.6);
+  transform: scale(1.2);
+}
+
+.dv-mp-shade {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.35), rgb(0 0 0 / 0.55) 60%, rgb(0 0 0 / 0.7));
+}
+
+.dv-mp-inner {
+  box-sizing: border-box;
+  display: flex;
+  max-width: 1120px;
+  flex-direction: column;
+  gap: 26px;
+  margin: 0 auto;
+  padding: calc(22px + env(safe-area-inset-top, 0px)) 28px calc(40px + env(safe-area-inset-bottom, 0px));
+}
+
+.dv-mp-iconbtn {
+  height: 44px;
+  width: 44px;
+  background: rgb(255 255 255 / 0.16);
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.dv-mp-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  align-items: start;
+  gap: 40px;
+}
+
+.dv-mp-grid.is-single {
+  grid-template-columns: minmax(0, 420px);
+  justify-content: center;
+}
+
+.dv-mp-left,
+.dv-mp-right {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.dv-mp-left {
+  gap: 22px;
+}
+
+.dv-mp-right {
+  gap: 16px;
+}
+
+.dv-mp-art {
+  aspect-ratio: 1;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 26px;
+  box-shadow:
+    0 40px 80px -30px rgb(0 0 0 / 0.8),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+  transition: transform 480ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.dv-mp-toggle {
+  height: 44px;
+  width: 44px;
+  background: transparent;
+  color: rgb(255 255 255 / 0.7);
+}
+
+.dv-mp-toggle.is-on {
+  background: rgb(255 255 255 / 0.2);
+  color: #ffffff;
+}
+
+/* The shared segmented control, white on the artwork whatever the theme. */
+.dv-mp .dv-mp-seg {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.dv-mp .dv-mp-seg .liquid-segmented-option-inactive {
+  color: rgb(255 255 255 / 0.75);
+}
+
+.dv-mp .dv-mp-seg .liquid-segmented-option-active {
+  background: #ffffff;
+  color: #0b0b0f;
+}
+
+.dv-mp-label {
+  padding: 6px 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+
+.dv-mp-group {
+  border-radius: 20px;
+  background: rgb(255 255 255 / 0.1);
+  padding: 0 16px;
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
+.dv-mp-row {
+  display: flex;
+  min-height: 60px;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.dv-mp-row + .dv-mp-row {
+  border-top: 1px solid rgb(255 255 255 / 0.1);
+}
+
+.dv-mp-check {
+  display: flex;
+  height: 24px;
+  width: 24px;
+  box-sizing: border-box;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgb(255 255 255 / 0.5);
+  border-radius: 50%;
+  color: transparent;
+}
+
+.dv-mp-check.is-sel {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: #0b0b0f;
+}
+
+.dv-mp-pill {
+  height: 40px;
+  border: 0;
+  border-radius: 20px;
+  background: rgb(255 255 255 / 0.14);
+  padding: 0 16px;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dv-mp-pill.is-on {
+  background: #ffffff;
+  color: #0b0b0f;
+}
+
+@media (max-width: 760px) {
+  .dv-mp-inner {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .dv-mp-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .dv-mp-art {
+    max-width: 340px;
+    justify-self: center;
+    align-self: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-eq.is-on span,
+  .dv-mp {
+    animation: none;
+  }
+
+  .dv-np-art,
+  .dv-mp-art {
+    transition: none;
+  }
+}
+
+/* Scenes: a pill with a coloured mark; the scene in place turns light. */
+
+.dv-scene {
+  display: flex;
+  height: 64px;
+  /* As wide as its name in the strip; a grid cell stretches it anyway. */
+  width: auto;
+  min-width: 164px;
+  align-items: center;
+  gap: 12px;
+  border-radius: 22px;
+  padding: 0 18px 0 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dv-scene:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-scene.is-on .dv-status {
+  color: var(--dv-tile-on-ink-2);
+}
+
+.dv-scene-mark {
+  display: flex;
+  height: 40px;
+  width: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45), inset 0 -6px 10px rgb(0 0 0 / 0.12);
+}
+
+/* Sensors: each kind has its tint, the card shows a line of the day. */
+
+.dv-sn-temp {
+  --sn-tint: #ff9f0a;
+  --sn-rgb: 255 159 10;
+}
+
+.dv-sn-hum {
+  --sn-tint: #32ade6;
+  --sn-rgb: 50 173 230;
+}
+
+.dv-sn-co2,
+.dv-sn-pm {
+  --sn-tint: #30d158;
+  --sn-rgb: 48 209 88;
+}
+
+.dv-sn-lux {
+  --sn-tint: #ffd60a;
+  --sn-rgb: 255 214 10;
+}
+
+.dv-sn-noise {
+  --sn-tint: #bf5af2;
+  --sn-rgb: 191 90 242;
+}
+
+.dv-sn-smoke {
+  --sn-tint: #ff453a;
+  --sn-rgb: 255 69 58;
+}
+
+.dv-sensor {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dv-sensor:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-sensor-tint {
+  color: var(--sn-tint);
+}
+
+.dv-sensor-badge {
+  background: rgb(var(--sn-rgb) / 0.2);
+  color: var(--sn-tint);
+}
+
+.dv-spark-wrap {
+  display: block;
+  height: 26px;
+  margin: 2px -2px 0;
+}
+
+.dv-spark {
+  display: block;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.dv-spark polygon {
+  fill: var(--sn-tint);
+  fill-opacity: 0.16;
+  stroke: none;
+}
+
+.dv-spark polyline {
+  fill: none;
+  stroke: var(--sn-tint);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: 0.75;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The real line fades in; while the history is on its way, a faint outline breathes. */
+.dv-spark:not(.is-waiting) {
+  animation: dv-spark-in 360ms ease-out;
+}
+
+.dv-spark.is-waiting polyline {
+  stroke: var(--dv-t3);
+  stroke-opacity: 0.35;
+  animation: dv-spark-wait 1.4s ease-in-out infinite;
+}
+
+@keyframes dv-spark-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dv-spark-wait {
+  0%,
+  100% {
+    stroke-opacity: 0.18;
+  }
+
+  50% {
+    stroke-opacity: 0.42;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-spark:not(.is-waiting),
+  .dv-spark.is-waiting polyline {
+    animation: none;
+  }
+}
+
+.dv-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: rgb(255 159 10 / 0.16);
+  color: var(--dv-amber);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.dv-banner svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.dv-chart {
+  position: relative;
+  height: 180px;
+  margin-right: 6px;
+}
+
+.dv-chart svg {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+}
+
+.dv-chart-band {
+  fill: rgb(48 209 88 / 0.12);
+}
+
+.dv-chart-area {
+  fill: var(--sn-tint);
+  fill-opacity: 0.16;
+  stroke: none;
+}
+
+.dv-chart-line {
+  fill: none;
+  stroke: var(--sn-tint);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.dv-chart-y {
+  position: absolute;
+  left: 4px;
+  color: var(--dv-t3);
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.dv-chart-band-label {
+  position: absolute;
+  right: 6px;
+  color: #30d158;
+  font-size: 11px;
+  font-weight: 700;
+  pointer-events: none;
+  transform: translateY(3px);
+}
+
+.dv-chart-dot {
+  position: absolute;
+  right: 0;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: var(--sn-tint);
+  box-shadow: 0 0 0 3px var(--dv-sheet-ring);
+  transform: translate(50%, -50%);
+}
+
+.dv-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  border-top: 1px solid var(--dv-separator);
+  padding-top: 12px;
+}
+
+.dv-stats div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dv-stats span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dv-stats strong {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-scale {
+  position: relative;
+  display: flex;
+  height: 10px;
+  overflow: visible;
+  border-radius: 5px;
+}
+
+.dv-scale span {
+  height: 100%;
+}
+
+.dv-scale span:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.dv-scale span:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.dv-scale-zone-0 {
+  background: rgb(100 210 255 / 0.4);
+}
+
+.dv-scale-zone-1 {
+  background: rgb(48 209 88 / 0.55);
+}
+
+.dv-scale-zone-2 {
+  background: rgb(255 159 10 / 0.5);
+}
+
+.dv-scale i {
+  position: absolute;
+  top: 50%;
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: var(--dv-pill-on);
+  box-shadow: 0 0 0 3px var(--dv-sheet-ring), 0 4px 10px rgb(0 0 0 / 0.35);
+  transform: translate(-50%, -50%);
+}
+
+/* The light panel. */
+
+.dv-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  color: var(--dv-text);
+}
+
+.dv-panel-tinted {
+  background-image: linear-gradient(rgb(var(--dv-light-rgb) / var(--dv-panel-tint-alpha)), rgb(var(--dv-light-rgb) / var(--dv-panel-tint-alpha))) !important;
+  transition: background 400ms ease;
+}
+
+.dv-panel-body {
+  display: flex;
+  align-items: stretch;
+  gap: 22px;
+}
+
+.dv-panel-side {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dv-vslider {
+  position: relative;
+  height: 300px;
+  width: 128px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 36px;
+  background: var(--dv-track);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.dv-vslider-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  transition: height 120ms ease, background 300ms ease;
+}
+
+.dv-vslider input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ns-resize;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.dv-vslider:has(input:focus-visible) {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 3px;
+}
+
+.dv-round {
+  display: flex;
+  height: 48px;
+  width: 48px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--dv-icon-off);
+  color: inherit;
+  cursor: pointer;
+}
+
+.dv-round.is-on {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-round-sm {
+  height: 40px;
+  width: 40px;
+}
+
+/* A round button of glass keeps the glass, as the pills beside it. */
+.dv-glass.dv-round {
+  border: 1px solid var(--dv-glass-border);
+  background: var(--dv-glass);
+}
+
+@container (max-width: 520px) {
+  .dv-panel-body {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .dv-vslider {
+    height: 260px;
+    width: 140px;
+  }
+
+  .dv-panel-side {
+    width: 100%;
+  }
+}
+
+.dv-panel-frame {
+  container-type: inline-size;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-tile,
+  .dv-icon-button,
+  .dv-slider-fill,
+  .dv-vslider-fill,
+  .dv-cover-shut,
+  .dv-climate,
+  .dv-climate-now,
+  .dv-step,
+  .dv-climate-mode,
+  .dv-swatch,
+  .dv-check,
+  .dv-panel-tinted {
+    transition: none;
+  }
+
+  .dv-tile:active,
+  .dv-icon-button:active {
+    transform: none;
+  }
+
+  .dv-spin svg {
+    animation: none;
+  }
+}

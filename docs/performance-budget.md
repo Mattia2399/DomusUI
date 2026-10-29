@@ -77,6 +77,9 @@ Baseline: build A2.0 (`16a7226`). KB = 1000 byte.
 | Sidebar destra | + Home | 245,4 / 62,6 | 280 / 72 | 320 / 82 |
 | Sidebar contesto | + Home | 697,0 / 206,1 | 760 / 225 | 840 / 250 |
 | Mappa membri (MapLibre, worker incluso) | + sidebar contesto | 1.180,9 / 315,8 | 1.250 / 335 | 1.350 / 360 |
+| Questo dispositivo · Alimentazione (PERF.1) | + Impostazioni | 78,2 / 25,6 | 94 / 31 | 105 / 35 |
+| Questo dispositivo · Screensaver (PERF.1) | + Impostazioni | 15,6 / 6,2 | 18,5 / 7,5 | 21 / 8,5 |
+| Questo dispositivo · Kiosk (PERF.1) | + Impostazioni | 17,4 / 7,1 | 20 / 8 | 23 / 9 |
 | Singolo file JS | raw | 985,8 (Home) | 1.050 | 1.100 |
 | Singolo file CSS | raw | 406,8 (globale) | 450 | 500 |
 | Totale JS + CSS | raw / gzip | 5.500,0 / 1.460,8 | 5.800 / 1.550 | 6.200 / 1.650 |
@@ -112,6 +115,22 @@ Motivazioni:
   configurazione guidata) sono riportati senza budget; il codice non raggiunto
   da nessuna superficie ha un warning, per dare una superficie propria a una
   funzione che cresce.
+- **Questo dispositivo (PERF.1)**: Alimentazione, Screensaver e Kiosk hanno una
+  superficie ciascuna, misurata come costo aggiunto alle Impostazioni: la
+  pagina e il codice che caricano su richiesta (l'overlay dello Screensaver, il
+  pannello Kiosk). La loro parte sempre attiva è piccola e sta in Home, coperta
+  dal budget di Home. Margine come le altre funzioni su richiesta (+20% / +35%).
+  Il report elenca per nome i file che restano fuori dalle superfici
+  ([audit PERF.1](performance-bundle-audit.md)).
+- **Testi della configurazione (PERF.2)**: un modulo per lingua; l'avvio
+  carica quello della lingua iniziale insieme al catalogo, e il Boot conta
+  quello francese (il più grande) come caso peggiore. Le schermate della
+  configurazione restano fuori dal Boot; l'ultimo passo ha una superficie
+  informativa propria ([Onboarding fuori dal Boot](performance-onboarding-boot.md)).
+- **Grafici di Consumi (PERF.E1)**: Recharts entra solo con i dettagli Acqua
+  e Gas, attraverso `consumptionCharts.tsx`; la superficie informativa
+  «Consumi · Grafici Acqua e Gas» lo misura sopra Consumi, che torna sotto il
+  suo limite senza cambiarlo ([Bundle di Consumi · Energia](performance-energy-bundle.md)).
 
 Un limite superato (**FAIL**) blocca la CI; un **WARN** la lascia passare con un
 avviso. Restano sempre bloccanti avvio, Home, route, funzioni con budget,
@@ -143,6 +162,12 @@ Per cambiarne una:
 
 Una nuova route o funzione su richiesta si aggiunge come superficie, con il
 modulo sorgente da cui si carica e la superficie di partenza.
+
+`npm run build:budget:map` stampa la mappa dei chunk dell'ultima build (raw,
+gzip, come si carica, chi lo importa, quali superfici lo raggiungono e l'area
+di sorgente che pesa di più); `--outside` mostra solo il codice fuori dalle
+superfici, `--json` tutti i dati. È informativo: il controllo resta
+`npm run build:budget`.
 
 ## Audit A2.0
 

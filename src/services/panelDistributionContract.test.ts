@@ -5,6 +5,8 @@ import {
   HA_PANEL_ALLOWED_API_TYPES,
   isValidEnergyMessage as isValidAppEnergyMessage,
   isValidProfileMessage as isValidAppProfileMessage,
+  isValidDeviceTimerMessage as isValidAppDeviceTimerMessage,
+  isValidStatisticsMessage as isValidAppStatisticsMessage,
   validatePanelApiMessage,
 } from '../hooks/useHaPanelBridgeConnection';
 import { isDashboardAdministrativeApiMessage } from '../security/dashboardAccess';
@@ -177,6 +179,231 @@ describe('Home Assistant panel distribution contract', () => {
     // The router is backend only: no generic send command crosses the bridge.
     expect(bridge).not.toMatch(/"domusos\/notifications\//);
     expect([...HA_PANEL_ALLOWED_API_TYPES].some((type) => type.startsWith('domusos/notifications/'))).toBe(false);
+  });
+
+  it('lets the Domus frame ask for full screen and a wake lock, and nothing of Home Assistant is touched', () => {
+    const bridge = readPanelBridgeSource();
+    expect(bridge).toContain('this._iframe.allow = "fullscreen; screen-wake-lock";');
+    expect(bridge).toContain('this._iframe.allowFullscreen = true;');
+    // Kiosk works inside its own frame: never the parent page, its DOM or its styles.
+    const kioskSources = ['DomusKiosk.tsx', 'KioskRuntime.tsx', 'kioskLaunch.ts', 'kioskDisplay.ts', 'kioskSession.ts', 'kioskPreferences.ts'].map((file) =>
+      readFileSync(resolve(process.cwd(), 'src/components/kiosk', file), 'utf8'),
+    );
+    for (const source of kioskSources) {
+      expect(source).not.toMatch(/window\.parent|parent\.document|window\.top|top\.document|shadowRoot|home-assistant-main/);
+    }
+  });
+
+  it('forwards the own access profile and People and access, never the shadow diagnostics', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = new Set([...bridge.matchAll(/"(domusos\/access\/[a-z_]+)"/g)].map((match) => match[1]));
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/access/')).sort();
+    const expected = [
+      'domusos/access/get_self',
+      'domusos/access/list_accounts',
+      'domusos/access/remove_assignment',
+      'domusos/access/reset_policy',
+      'domusos/access/set_assignment',
+    ];
+
+    expect([...hostTypes].sort()).toEqual(expected);
+    expect(appTypes).toEqual(expected);
+    expect(bridge).toContain('"access_v1"');
+    expect(bridge).toContain('"access_admin_v1"');
+    for (const type of ['get_shadow_diagnostics', 'reset_shadow_diagnostics']) {
+      expect(bridge).not.toContain(`"domusos/access/${type}"`);
+      expect(validatePanelApiMessage({ type: `domusos/access/${type}` })).toBe(false);
+    }
+    // Who acts is the connection's: nothing about it may travel with any request.
+    for (const type of ['get_self', 'list_accounts', 'reset_policy']) {
+      expect(validatePanelApiMessage({ type: `domusos/access/${type}` })).toBe(true);
+      for (const extra of [{ user_id: 'a'.repeat(32) }, { role: 'admin' }, { capabilities: ['energy.manage'] }]) {
+        expect(validatePanelApiMessage({ type: `domusos/access/${type}`, ...extra })).toBe(false);
+      }
+    }
+    const set = { type: 'domusos/access/set_assignment', user_id: 'b'.repeat(32), role: 'member', grants: ['access.control'], expected_revision: 3 };
+    expect(validatePanelApiMessage(set)).toBe(true);
+    for (const spoof of [{ assigned_by: 'a'.repeat(32) }, { assigned_at: 'now' }, { is_admin: true }, { capabilities: [] }, { policy_state: 'ready' }]) {
+      expect(validatePanelApiMessage({ ...set, ...spoof })).toBe(false);
+    }
+    expect(validatePanelApiMessage({ ...set, role: 'locked' })).toBe(false);
+    expect(validatePanelApiMessage({ ...set, role: 'resident' })).toBe(true);
+    expect(validatePanelApiMessage({ ...set, grants: ['access.manage'] })).toBe(false);
+    expect(validatePanelApiMessage({ ...set, user_id: 'person.mario' })).toBe(false);
+    expect(validatePanelApiMessage({ ...set, expected_revision: -1 })).toBe(false);
+    expect(validatePanelApiMessage({ type: 'domusos/access/remove_assignment', user_id: 'b'.repeat(32), expected_revision: 3 })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/access/remove_assignment', user_id: 'b'.repeat(32), expected_revision: 3, role: 'admin' })).toBe(false);
+    expect(isDashboardAdministrativeApiMessage({ type: 'domusos/access/get_self' })).toBe(false);
+  });
+
+  it('allowlists exactly the device power commands in both bridge halves, all administrative', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = [...bridge.matchAll(/"(domusos\/device_power\/[a-z_]+)"/g)].map((match) => match[1]);
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/device_power/'));
+
+    expect(new Set(hostTypes)).toEqual(new Set(appTypes));
+    expect(appTypes.sort()).toEqual([
+      'domusos/device_power/bind_policy',
+      'domusos/device_power/delete_policy',
+      'domusos/device_power/get_state',
+      'domusos/device_power/save_policy',
+    ]);
+    expect(bridge).toContain('"device_power_v1"');
+    for (const type of appTypes) {
+      expect(isDashboardAdministrativeApiMessage({ type })).toBe(true);
+    }
+    // The controllers run in Home Assistant: no command switches anything from a client.
+    expect(appTypes.some((type) => /turn_|switch_on|switch_off|set_switch/.test(type))).toBe(false);
+  });
+
+  it('validates device power message shapes in the HACS host script', () => {
+    const bridge = readPanelBridgeSource();
+    const pick = (pattern: RegExp) => {
+      const match = bridge.match(pattern);
+      if (!match) throw new Error(`Host bridge fragment not found: ${pattern}`);
+      return match[0];
+    };
+    const source = [
+      pick(/const isRecord = [^\r\n]+\r?\n/),
+      pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
+      pick(/const DEVICE_POWER_POLICY_KEYS = [\s\S]*?\];\r?\n/),
+      pick(/const isValidDevicePowerMessage = [\s\S]*?\r?\n};\r?\n/),
+    ].join('');
+    const validate = new Function(`${source}return isValidDevicePowerMessage;`)() as (
+      message: Record<string, unknown>,
+    ) => boolean;
+    const policy = {
+      client_id: 'client-0001',
+      label: 'Tablet soggiorno',
+      enabled: true,
+      battery_entity_id: 'sensor.tablet_battery_level',
+      switch_entity_id: 'switch.presa_tablet',
+      start_threshold: 30,
+      stop_threshold: 80,
+    };
+    const id = '0123456789abcdef0123456789abcdef';
+    const save = { type: 'domusos/device_power/save_policy', policy };
+
+    expect(validate({ type: 'domusos/device_power/get_state' })).toBe(true);
+    expect(validate(save)).toBe(true);
+    expect(validate({ ...save, policy_id: id, expected_revision: 2 })).toBe(true);
+    expect(validate({ ...save, policy: { ...policy, client_id: null, label: null } })).toBe(true);
+    expect(validate({ type: 'domusos/device_power/bind_policy', policy_id: id, expected_revision: 1, client_id: 'client-0002' })).toBe(true);
+    expect(validate({ type: 'domusos/device_power/delete_policy', policy_id: id, expected_revision: 1 })).toBe(true);
+
+    expect(validate({ type: 'domusos/device_power/get_state', client_id: 'client-0001' })).toBe(false);
+    expect(validate({ ...save, policy_id: id })).toBe(false);
+    expect(validate({ ...save, expected_revision: 1 })).toBe(false);
+    expect(validate({ ...save, entity_id: 'switch.presa_tablet' })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, strategy: 'schedule' } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, switch_entity_id: 'light.presa' } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, battery_entity_id: 'switch.presa_tablet' } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, start_threshold: 80, stop_threshold: 30 } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, stop_threshold: 101 } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, start_threshold: 30.5 } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, label: 'x'.repeat(65) } })).toBe(false);
+    expect(validate({ ...save, policy: { ...policy, client_id: 'short' } })).toBe(false);
+    expect(validate({ type: 'domusos/device_power/delete_policy', policy_id: 'nope', expected_revision: 1 })).toBe(false);
+    expect(validate({ type: 'domusos/device_power/turn_on', entity_id: 'switch.presa_tablet' })).toBe(false);
+  });
+
+  it('allowlists the device timer commands and the statistics in both bridge halves, none administrative', () => {
+    const bridge = readPanelBridgeSource();
+    const hostTypes = [...bridge.matchAll(/"(domusos\/device_timers\/[a-z_]+|recorder\/[a-z_]+)"/g)].map((match) => match[1]);
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter(
+      (type) => type.startsWith('domusos/device_timers/') || type.startsWith('recorder/'),
+    );
+
+    expect(new Set(hostTypes)).toEqual(new Set(appTypes));
+    expect(appTypes.sort()).toEqual([
+      'domusos/device_timers/cancel_timer',
+      'domusos/device_timers/get_state',
+      'domusos/device_timers/set_timer',
+      'domusos/device_timers/subscribe',
+      'recorder/statistics_during_period',
+    ]);
+    expect(bridge).toContain('"device_timers_v1"');
+    expect(bridge).toContain('"statistics_v1"');
+    expect(bridge).toContain('const SUBSCRIBE_TYPES = new Set(["domusos/irrigation/subscribe", "domusos/device_timers/subscribe", "calendar/event/subscribe"]);');
+    for (const type of appTypes) {
+      expect(isDashboardAdministrativeApiMessage({ type })).toBe(false);
+    }
+  });
+
+  it('validates device timer and statistics shapes alike in the HACS host script and the app', () => {
+    const bridge = readPanelBridgeSource();
+    const pick = (pattern: RegExp) => {
+      const match = bridge.match(pattern);
+      if (!match) throw new Error(`Host bridge fragment not found: ${pattern}`);
+      return match[0];
+    };
+    const source = [
+      pick(/const isRecord = [^\r\n]+\r?\n/),
+      pick(/const hasExactKeys = [\s\S]*?;\r?\n/),
+      pick(/const DEVICE_TIMER_ENTITY = [^\r\n]+\r?\n/),
+      pick(/const isValidDeviceTimerMessage = [\s\S]*?\r?\n};\r?\n/),
+      pick(/const STATISTICS_KEYS = [^\r\n]+\r?\n/),
+      pick(/const STATISTICS_PERIODS = [^\r\n]+\r?\n/),
+      pick(/const STATISTICS_UNITS = [^\r\n]+\r?\n/),
+      pick(/const isValidStatisticsMessage = [\s\S]*?includes\(unit\)\);\r?\n/),
+    ].join('');
+    const [hostTimer, hostStatistics] = new Function(`${source}return [isValidDeviceTimerMessage, isValidStatisticsMessage];`)() as Array<
+      (message: Record<string, unknown>) => boolean
+    >;
+    const set = { type: 'domusos/device_timers/set_timer', entity_id: 'switch.presa_tv', minutes: 30 };
+    const statistics = {
+      type: 'recorder/statistics_during_period',
+      start_time: '2026-10-27T00:00:00.000Z',
+      end_time: '2026-10-27T10:30:00.000Z',
+      statistic_ids: ['sensor.presa_tv_energy'],
+      period: 'hour',
+      types: ['change'],
+      units: { energy: 'kWh' },
+    };
+    const timers: Array<[Record<string, unknown>, boolean]> = [
+      [{ type: 'domusos/device_timers/get_state' }, true],
+      [{ type: 'domusos/device_timers/subscribe' }, true],
+      [set, true],
+      [{ ...set, entity_id: 'fan.soffitto', minutes: 1440 }, true],
+      [{ ...set, entity_id: 'humidifier.bagno', minutes: 1 }, true],
+      [{ type: 'domusos/device_timers/cancel_timer', entity_id: 'switch.presa_tv' }, true],
+      [{ type: 'domusos/device_timers/get_state', entity_id: 'switch.presa_tv' }, false],
+      [{ ...set, entity_id: 'light.salotto' }, false],
+      [{ ...set, entity_id: 'lock.porta' }, false],
+      [{ ...set, minutes: 0 }, false],
+      [{ ...set, minutes: 1441 }, false],
+      [{ ...set, minutes: 1.5 }, false],
+      [{ ...set, minutes: '30' }, false],
+      [{ ...set, user_id: 'a'.repeat(32) }, false],
+      [{ type: 'domusos/device_timers/cancel_timer' }, false],
+      [{ type: 'domusos/device_timers/turn_off', entity_id: 'switch.presa_tv' }, false],
+    ];
+    const reads: Array<[Record<string, unknown>, boolean]> = [
+      [statistics, true],
+      [{ ...statistics, period: '5minute', types: ['mean'], units: { power: 'W' } }, true],
+      [{ ...statistics, statistic_ids: ['sensor.a', 'sensor.b'], types: ['change', 'mean'], units: {} }, true],
+      [{ ...statistics, statistic_ids: [] }, false],
+      [{ ...statistics, statistic_ids: Array.from({ length: 11 }, (_, index) => `sensor.s${index}`) }, false],
+      [{ ...statistics, statistic_ids: ['switch.presa_tv'] }, false],
+      [{ ...statistics, period: 'year' }, false],
+      [{ ...statistics, types: ['sum'] }, false],
+      [{ ...statistics, units: { energy: 'J' } }, false],
+      [{ ...statistics, units: { constructor: 'kWh' } }, false],
+      [{ ...statistics, start_time: 'yesterday' }, false],
+      [{ ...statistics, units: undefined }, false],
+      [{ ...statistics, extra: true }, false],
+    ];
+    for (const [message, expected] of timers) {
+      expect(hostTimer(message), JSON.stringify(message)).toBe(expected);
+      expect(isValidAppDeviceTimerMessage(message), JSON.stringify(message)).toBe(expected);
+      if (message.type === 'domusos/device_timers/turn_off') continue;
+      expect(validatePanelApiMessage(message), JSON.stringify(message)).toBe(expected);
+    }
+    for (const [message, expected] of reads) {
+      expect(hostStatistics(message), JSON.stringify(message)).toBe(expected);
+      expect(isValidAppStatisticsMessage(message), JSON.stringify(message)).toBe(expected);
+      expect(validatePanelApiMessage(message), JSON.stringify(message)).toBe(expected);
+    }
   });
 
   it('lets only the entity state words cross the bridge', () => {

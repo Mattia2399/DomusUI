@@ -160,7 +160,7 @@ export function measureSurfaces(build, sizer, surfaces) {
   });
 }
 
-/** An entry chunk by its exact output name (the MapLibre worker has a stable name). */
+/** An entry chunk by its exact output name, for the files that keep a stable name. */
 export function findEntryFile(build, fileName) {
   const file = [...build.chunks.keys()].find((name) => path.posix.basename(name) === fileName);
   if (!file) throw new BudgetInputError(`No output file named ${fileName}`);

@@ -54,14 +54,17 @@ describe('resolveWidgetDisplayVariant', () => {
     expect(resolveWidgetDisplayVariant({ kind: 'alarm', breakpoint: 'xs', layout: { w: 2, h: 4 } })).toBe('full');
   });
 
-  it('uses dedicated lock compositions with a safe mini variant', () => {
-    expect(resolveWidgetDisplayVariant({ kind: 'lock', breakpoint: 'xl', layout: { w: 1, h: 1 } })).toBe('mini');
-    expect(resolveWidgetDisplayVariant({ kind: 'lock', breakpoint: 'xl', layout: { w: 1, h: 2 } })).toBe('mini');
-    expect(resolveWidgetDisplayVariant({ kind: 'lock', breakpoint: 'xl', layout: { w: 2, h: 1 } })).toBe('compact');
-    expect(resolveWidgetDisplayVariant({ kind: 'lock', breakpoint: 'xl', layout: { w: 2, h: 2 } })).toBe('compact');
-    expect(resolveWidgetDisplayVariant({ kind: 'lock', breakpoint: 'xl', layout: { w: 2, h: 3 } })).toBe('standard');
-    expect(resolveWidgetDisplayVariant({ kind: 'lock', breakpoint: 'xl', layout: { w: 2, h: 4 } })).toBe('full');
-    expect(resolveWidgetDisplayVariant({ kind: 'lock', breakpoint: 'xl', layout: { w: 3, h: 2 } })).toBe('full');
+  it('maps lock grid sizes to mini, standard and expanded per breakpoint', () => {
+    const lock = (breakpoint: 'xl' | 'xs', w: number, h: number) =>
+      resolveWidgetDisplayVariant({ kind: 'lock', breakpoint, layout: { w, h } });
+    expect(lock('xs', 1, 1)).toBe('mini');
+    expect(lock('xs', 1, 2)).toBe('mini');
+    expect(lock('xs', 1, 3)).toBe('compact');
+    expect(lock('xs', 2, 3)).toBe('full');
+    expect(lock('xl', 1, 3)).toBe('mini');
+    expect(lock('xl', 3, 3)).toBe('compact');
+    expect(lock('xl', 4, 4)).toBe('full');
+    expect(lock('xl', 2, 7)).toBe('full');
   });
 
   it('uses dedicated cover compositions with position-first layouts', () => {

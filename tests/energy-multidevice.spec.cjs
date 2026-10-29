@@ -1,4 +1,5 @@
 const { test, expect } = require('@playwright/test');
+const { accessSelfFor } = require('./support/accessSelf.cjs');
 
 /*
  * Energy page with several inverters, batteries and wallboxes against a
@@ -146,6 +147,9 @@ async function simulateHomeAssistant(page) {
           case 'subscribe_entities':
             reply(null);
             ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: Object.fromEntries(Object.entries(SENSORS).map(([id, value]) => [id, entity(value, /soc/.test(id) ? '%' : 'W')])) } }));
+            break;
+          case 'domusos/access/get_self':
+            reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
             break;
           case 'auth/current_user':
             reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });

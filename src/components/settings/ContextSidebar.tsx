@@ -1,4 +1,7 @@
 import React, { useMemo } from 'react';
+import { useCan } from '../../security/AccessControlProvider';
+import { isPhysicalAccessCover } from '../../security/entityControlAccess';
+import type { LockPanelData } from './lockPanelTypes';
 import { Crown, Lightbulb, MapPin, Smartphone, Tablet, Users, Watch, X } from 'lucide-react';
 import { ActiveDevice } from './types';
 import { ClimateControls } from './ClimateControls';
@@ -41,13 +44,7 @@ import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { AlarmActionAuthOptions } from '../../utils/alarmSecurityPolicy';
 import { useI18n } from '../../i18n/I18nProvider';
-import LazyLoadBoundary from '../common/LazyLoadBoundary';
 import { parseWasteTypeStyles, WASTE_TYPES_ATTRIBUTE } from '../../services/calendarClient';
-
-const loadMembersLocationMap = () => import('./MembersLocationMap');
-const MembersLocationMap = React.lazy(() =>
-  loadMembersLocationMap().then((module) => ({ default: module.MembersLocationMap })),
-);
 
 type MediaRepeatMode = 'off' | 'all' | 'one';
 type MediaOutputKind = 'speaker' | 'tv' | 'cast';
@@ -245,23 +242,7 @@ interface ContextSidebarProps {
     supportedFeatures?: number;
     rawAttributes?: Record<string, unknown>;
   };
-  lock: {
-    name: string;
-    state: string;
-    status?: string;
-    changedBy?: string;
-    activityLogLimit?: number;
-    activityLogHours?: number;
-    activityTimeline?: Array<{
-      id: string;
-      text: string;
-    }>;
-    activityTimelineStatus?: 'idle' | 'loading' | 'available' | 'empty' | 'unavailable' | 'offline';
-    supportedFeatures?: number;
-    batteryLevel?: number;
-    rawAttributes?: Record<string, unknown>;
-    lockCode?: string;
-  };
+  lock: LockPanelData;
   cover: {
     name: string;
     state: string;
@@ -406,6 +387,9 @@ export function ContextSidebar({
   actions: providedActions,
 }: ContextSidebarProps) {
   const { t } = useI18n();
+  // A gate, a garage or a motorized door is physical access: without access.control its panel only shows it.
+  const canControlAccess = useCan('access.control');
+  const coverIsReadOnly = !canControlAccess && isPhysicalAccessCover(cover.rawAttributes?.device_class);
   const actions = useMemo<ContextSidebarProps['actions']>(() => {
     if (commandsEnabled) {
       return providedActions;
@@ -420,20 +404,7 @@ export function ContextSidebar({
   const activeDeviceLayoutClass = externalScrollContainer
     ? 'overflow-visible pb-3 pt-2'
     : 'overflow-y-auto overscroll-contain glass-scrollbar [touch-action:pan-y] [-webkit-overflow-scrolling:touch] pb-4 lg:pb-6';
-  const membersMapPoints = activeDevice?.membersMapPoints ?? [];
-  const membersPresence = activeDevice?.membersPresence ?? membersMapPoints;
-  const membersMapRenderKey = useMemo(
-    () =>
-      membersMapPoints.length > 0
-        ? membersMapPoints
-            .map(
-              (point) =>
-                `${point.personEntityId}:${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}:${point.isCurrent ? '1' : '0'}`,
-            )
-            .join('|')
-        : 'empty',
-    [membersMapPoints],
-  );
+  const membersPresence = activeDevice?.membersPresence ?? activeDevice?.membersMapPoints ?? [];
   const microWidgets = activeDevice?.microWidgets ?? [];
   return (
     <aside
@@ -699,12 +670,14 @@ export function ContextSidebar({
           onLock={actions.lockDoor}
           onUnlock={actions.unlockDoor}
           onOpen={actions.openDoor}
+          onSecondaryPageChange={onSecondaryPageChange}
         />
       ) : null}
 
       {activeDevice?.type === 'cover' ? (
         <CoverControls
           cover={{ ...cover, name: activeDevice.name }}
+          readOnly={coverIsReadOnly}
           onOpen={actions.openCover}
           onClose={actions.closeCover}
           onStop={actions.stopCover}
@@ -732,38 +705,11 @@ export function ContextSidebar({
         <div className={CONTEXT_PANEL_LAYOUT.shell}>
           <ContextPanelHeader
             title={activeDevice.name}
-            subtitle={`${membersPresence.length} ${membersPresence.length === 1 ? 'membro' : 'membri'} · ${membersMapPoints.length} ${membersMapPoints.length === 1 ? 'posizione disponibile' : 'posizioni disponibili'}`}
+            subtitle={`${membersPresence.length} ${membersPresence.length === 1 ? 'membro' : 'membri'}`}
             icon={<Users size={21} />}
             fallbackTitle="Members"
             iconClassName="border-cyan-300/25 bg-cyan-500/12 text-cyan-100"
           />
-
-          <div className="context-content-surface mb-1 rounded-[clamp(1.25rem,4.6vw,2rem)] p-[clamp(0.9rem,3vw,1.6rem)]">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Mappa Presenze</p>
-            <div className="dashboard-content-surface-soft relative mt-2 h-56 overflow-hidden rounded-xl">
-              {membersMapPoints.length > 0 ? (
-                <LazyLoadBoundary
-                  mode="section"
-                  resetKey={`${theme}:${membersMapRenderKey}`}
-                  fallback={
-                    <div
-                      className="absolute inset-0 flex items-center justify-center text-xs text-[color:var(--ui-text-secondary)]"
-                      aria-busy="true"
-                    >
-                      {t('home.loading.section')}
-                    </div>
-                  }
-                >
-                  <MembersLocationMap points={membersMapPoints} theme={theme} />
-                </LazyLoadBoundary>
-              ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-4 text-center text-[color:var(--ui-text-secondary)]">
-                  <MapPin size={18} />
-                  <p className="text-xs">{t('context.members.noCoordinates')}</p>
-                </div>
-              )}
-            </div>
-          </div>
 
           {membersPresence.length > 0 ? (
             <div className="context-content-surface rounded-[clamp(1.25rem,4.6vw,2rem)] p-[clamp(0.8rem,2.4vw,1.15rem)]">

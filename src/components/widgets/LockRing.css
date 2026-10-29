@@ -1,0 +1,252 @@
+.lock-ring {
+  --lock-ring-size: 3.6rem;
+  --lock-ring-stroke: 6;
+  --lock-ring-core: 80%;
+  --lock-ring-icon: 38%;
+  --lock-ring-tone: #8e929c;
+  --lock-ring-press: 0;
+  position: relative;
+  display: inline-flex;
+  width: var(--lock-ring-size);
+  height: var(--lock-ring-size);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lock-ring-tone) 17%, transparent);
+  color: var(--lock-ring-tone);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 240ms ease, box-shadow 240ms ease;
+}
+
+.lock-ring[data-tone='secure'] {
+  --lock-ring-tone: #12a372;
+}
+
+.lock-ring[data-tone='open'] {
+  --lock-ring-tone: #d97706;
+}
+
+.lock-ring[data-tone='transition'] {
+  --lock-ring-tone: #0a84ff;
+}
+
+.lock-ring[data-tone='warning'] {
+  --lock-ring-tone: #e5484d;
+}
+
+.lock-ring[data-tone='offline'] {
+  --lock-ring-tone: #8e929c;
+}
+
+.lock-ring[aria-disabled='true'] {
+  cursor: default;
+}
+
+.lock-ring:focus-visible {
+  outline: 2px solid var(--ui-focus-ring);
+  outline-offset: 3px;
+}
+
+.lock-ring__laps,
+.lock-ring__spinner {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.lock-ring__laps {
+  transform: rotate(-90deg);
+}
+
+.lock-ring__lap,
+.lock-ring__spinner circle {
+  fill: none;
+  stroke-width: var(--lock-ring-stroke);
+  stroke-linecap: round;
+}
+
+.lock-ring__lap {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.lock-ring__lap[data-visible='true'] {
+  opacity: 1;
+}
+
+.lock-ring__lap--unlock {
+  stroke: #12a372;
+}
+
+.lock-ring__lap--open {
+  stroke: #0a84ff;
+}
+
+.lock-ring__spinner {
+  animation: lock-ring-spin 1s linear infinite;
+}
+
+.lock-ring__spinner circle {
+  stroke: var(--lock-ring-tone);
+}
+
+.lock-ring__core {
+  display: inline-flex;
+  width: var(--lock-ring-core);
+  height: var(--lock-ring-core);
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--ui-surface-glass-strong);
+  color: color-mix(in srgb, var(--lock-ring-tone) 72%, var(--ui-text-primary));
+  box-shadow: 0 4px 12px -6px var(--ui-shadow-soft);
+  transform: scale(calc(1 - var(--lock-ring-press) * 0.07));
+  transition: background 240ms ease, color 240ms ease, box-shadow 240ms ease, transform 120ms ease;
+}
+
+.lock-ring[data-solid='true'] .lock-ring__core {
+  background: var(--lock-ring-tone);
+  color: #ffffff;
+  box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--lock-ring-tone) 58%, transparent);
+}
+
+.lock-ring__icon {
+  width: var(--lock-ring-icon);
+  height: var(--lock-ring-icon);
+  stroke-width: 2.1;
+}
+
+.lock-ring__icon--spin {
+  animation: lock-ring-spin 900ms linear infinite;
+}
+
+.lock-ring[data-outcome] {
+  animation: lock-ring-outcome 520ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.lock-ring[data-outcome='open'] {
+  box-shadow: 0 0 0 4px color-mix(in srgb, #0a84ff 22%, transparent);
+}
+
+.lock-ring[data-outcome='unlock'],
+.lock-ring[data-outcome='lock'] {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--lock-ring-tone) 22%, transparent);
+}
+
+/*
+ * The fill: a circle centred on the ring that grows with each lap, green for the
+ * unlock and blue for the door. It sits behind the card's content and the card
+ * clips it, so it starts from the ring wherever the composition puts it. Its
+ * diameter is the card's diagonal times --lock-fill-reach: 2 when the ring sits
+ * by an edge, less when the card centres it, so each lap reaches the farthest
+ * corner as it ends. A finished lap fades where it is; a hold released early
+ * shrinks back into the ring.
+ */
+.lock-ring__fill {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: calc(var(--lock-fill-reach, 2) * (100cqw + 100cqh));
+  width: calc(var(--lock-fill-reach, 2) * hypot(100cqw, 100cqh));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(var(--lock-fill-scale));
+  transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1), opacity 0s 300ms;
+}
+
+.lock-ring__fill--unlock {
+  --lock-fill-scale: var(--lock-fill-unlock);
+  background: color-mix(in srgb, #12a372 var(--lock-fill-strength, 20%), transparent);
+}
+
+.lock-ring__fill--open {
+  --lock-fill-scale: var(--lock-fill-open);
+  background: color-mix(in srgb, #0a84ff var(--lock-fill-strength, 20%), transparent);
+}
+
+/* In the contextual panel the tint stays inside the state area, an inline-size container. */
+.lock-ring[data-fill-scope='panel'] .lock-ring__fill {
+  width: calc(var(--lock-fill-reach, 1.6) * 100cqi);
+}
+
+.lock-ring[data-pressing='true'] .lock-ring__fill {
+  transition: none;
+}
+
+.lock-ring[data-outcome='unlock'] .lock-ring__fill--unlock,
+.lock-ring[data-outcome='open'] .lock-ring__fill {
+  --lock-fill-scale: 1;
+  opacity: 0;
+  transition: opacity 520ms ease;
+}
+
+@keyframes lock-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lock-ring-outcome {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes lock-ring-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-5px);
+  }
+  40% {
+    transform: translateX(5px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lock-ring__fill {
+    --lock-fill-scale: 1;
+    opacity: var(--lock-fill-unlock);
+  }
+
+  .lock-ring__fill--open {
+    opacity: var(--lock-fill-open);
+  }
+
+  .lock-ring,
+  .lock-ring__core,
+  .lock-ring__lap {
+    transition: none;
+  }
+
+  .lock-ring[data-outcome] {
+    animation: none;
+  }
+}
