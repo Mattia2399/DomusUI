@@ -482,6 +482,208 @@
   transform: translate(-50%, -50%);
 }
 
+.dv-pn-value {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dv-pn-value > span:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dv-pn-value b {
+  font-size: 52px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.dv-pn-value.is-word b {
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.dv-pn-value i {
+  color: var(--dv-t2);
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.dv-pn-note {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.dv-pn-trend {
+  color: var(--dv-t2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dv-pn-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dv-pn-chart-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dv-pn-chart-title {
+  color: var(--dv-t2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dv-pn-bars {
+  display: flex;
+  height: 150px;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.dv-pn-bars > i {
+  min-height: 3px;
+  min-width: 0;
+  flex: 1;
+  border-radius: 4px 4px 2px 2px;
+  background: var(--dv-pn-chart);
+  transition: height 300ms ease;
+}
+
+.dv-pn-strip {
+  position: relative;
+  height: 44px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--dv-track);
+}
+
+.dv-pn-strip > i {
+  position: absolute;
+  min-width: 4px;
+  top: 0;
+  bottom: 0;
+  border-radius: 6px;
+  background: var(--dv-pn-chart);
+}
+
+.dv-pn-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--dv-t3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dv-pn-scale {
+  position: relative;
+  display: flex;
+  height: 10px;
+  overflow: visible;
+  border-radius: 5px;
+}
+
+.dv-pn-scale > span:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.dv-pn-scale > span:nth-last-child(2) {
+  border-radius: 0 5px 5px 0;
+}
+
+.dv-pn-scale > i {
+  position: absolute;
+  top: -3px;
+  height: 16px;
+  width: 4px;
+  border-radius: 2px;
+  background: var(--dv-text);
+  transform: translateX(-50%);
+}
+
+.dv-pn-zones {
+  display: flex;
+  color: var(--dv-t3);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dv-pn-zones > span {
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.dv-pn-dot {
+  height: 10px;
+  width: 10px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.dv-pn-steps {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.dv-pn-more {
+  display: none;
+}
+
+.dv-pn-more-body {
+  display: contents;
+}
+
+.dv-pn-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--dv-t2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* A phone keeps the chart first and folds what comes after it. */
+@media (max-width: 767px) {
+  .dv-pn-more {
+    display: flex;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: 16px;
+    background: var(--dv-icon-off);
+    color: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .dv-pn-more-body.is-closed {
+    display: none;
+  }
+
+  .dv-pn-steps .dv-round {
+    height: 44px;
+    width: 44px;
+  }
+}
+
 /* A column or a phone: the modes in two rows, and every control reached with a finger. */
 @container (max-width: 520px) {
   .dv-pn-modes {
@@ -517,6 +719,7 @@
   .dv-pn-hero > b,
   .dv-pn-mode,
   .dv-pn-bar > i,
+  .dv-pn-bars > i,
   .dv-pn-vring circle + circle {
     transition: none;
   }

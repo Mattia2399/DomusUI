@@ -124,6 +124,7 @@ export function homePanelOf(props: HomePanelProps) {
   const { activeDevice, coverIsReadOnly, haStates } = props;
   const { panel } = resolvePanel(activeDevice.type as DeviceKind);
   if (panel === 'light' || panel === 'climate' || panel === 'alarm' || panel === 'vacuum' || panel === 'calendar' || panel === 'members') return panel;
+  if (panel === 'sensor') return homeEntityOf(haStates, activeDevice.sensorEntityId) ? panel : null;
   if (panel !== 'device') return null;
   if (activeDevice.type === 'cover') return coverIsReadOnly ? null : panel;
   const entityId = homeDeviceEntityId(props);

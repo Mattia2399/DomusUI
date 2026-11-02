@@ -649,14 +649,14 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'sensor' && activeDevice.sensorEntityId?.startsWith('binary_sensor.') ? (
+      {activeDevice?.type === 'sensor' && !homePanel && activeDevice.sensorEntityId?.startsWith('binary_sensor.') ? (
         <BinarySensorControls
           name={activeDevice.name}
           rawState={activeDevice.sensorRawState}
           deviceClass={activeDevice.sensorDeviceClass}
           battery={activeDevice.sensorBattery}
         />
-      ) : activeDevice?.type === 'sensor' ? (
+      ) : activeDevice?.type === 'sensor' && !homePanel ? (
         <SensorControls
           name={activeDevice.name}
           status={activeDevice.status}

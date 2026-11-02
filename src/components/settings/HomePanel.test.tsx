@@ -162,6 +162,7 @@ describe('what the Home opens', () => {
     expect(homePanelOf(propsFor({ type: 'light' }))).toBe('light');
     expect(homePanelOf(propsFor({ type: 'climate' }))).toBe('climate');
     expect(homePanelOf(propsFor({ type: 'cover' }))).toBe('device');
+    expect(homePanelOf(propsFor({ type: 'sensor', sensorEntityId: 'sensor.a' }, { haStates: { 'sensor.a': fan } }))).toBe('sensor');
     for (const type of ['alarm', 'vacuum', 'calendar', 'members'] as const) {
       expect(homePanelOf(propsFor({ type })), type).toBe(type);
     }
@@ -172,6 +173,7 @@ describe('what the Home opens', () => {
     expect(homePanelOf(propsFor({ type: 'fan', fanEntityId: 'fan.a' }))).toBeNull();
     expect(homePanelOf(propsFor({ type: 'switch' }))).toBeNull();
     expect(homePanelOf(propsFor({ type: 'cover' }, { coverIsReadOnly: true }))).toBeNull();
+    expect(homePanelOf(propsFor({ type: 'sensor', sensorEntityId: 'sensor.a' }))).toBeNull();
     for (const type of ['lock', 'camera', 'media', 'sensor', 'weather'] as const) {
       expect(homePanelOf(propsFor({ type })), type).toBeNull();
     }

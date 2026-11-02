@@ -2,6 +2,8 @@ import React from 'react';
 import type { MockEntityState } from '../types/ha';
 import { SensorFamilyCard, toFamilySensorModel } from '../components/devices/cards/SensorFamilyCard';
 import { HouseStatesProvider } from '../components/devices/cards/houseStatesContext';
+import { PanelServicesProvider, type PanelServices } from '../components/devices/panels/panelServicesContext';
+import { SensorFamilyPanel } from '../components/devices/panels/SensorFamilyPanel';
 import { deviceCardHeightPx, type DeviceCardFormat } from '../components/devices/cards/DeviceCardShell';
 import type { SeriesPoint } from '../components/devices/model/sensor';
 import type { StateChange } from '../components/devices/model/security';
@@ -215,16 +217,34 @@ function SampleRow({ sample, now }: { sample: Sample; now: number }) {
     return map;
   }, [entity, now, sample]);
   const model = toFamilySensorModel(sample.entityId, entity, { battery: sample.battery ?? null });
+  const [panelOpen, setPanelOpen] = React.useState(false);
+  // The history of the sample, as Home Assistant would answer it to the panel.
+  const services = React.useMemo<PanelServices>(() => ({
+    callApi: (async (message: Record<string, unknown>) => {
+      if (message.type !== 'history/history_during_period') return null;
+      const points = sample.history?.(now) ?? [];
+      const changes = sample.changes?.(now) ?? [];
+      return { [sample.entityId]: [...points.map((point) => ({ s: String(point.v), lu: point.t / 1000 })), ...changes.map((change) => ({ s: change.state, lu: change.t / 1000 }))] };
+    }) as PanelServices['callApi'],
+    callService: async () => true,
+  }), [now, sample]);
   if (!model) return null;
   return (
     <HouseStatesProvider value={states}>
-      <div className="flex flex-wrap items-start gap-[10px]">
+      <div className="flex flex-wrap items-start gap-[10px]" data-sample={sample.entityId}>
         {SIZES.map((format) => (
           <div key={format} style={{ width: format.startsWith('W') ? COLUMN_PX * 2 + 10 : COLUMN_PX, height: deviceCardHeightPx(format) }}>
-            <SensorFamilyCard model={model} history={sample.history?.(now)} changes={sample.changes?.(now)} format={format} now={now} onOpen={() => undefined} />
+            <SensorFamilyCard model={model} history={sample.history?.(now)} changes={sample.changes?.(now)} format={format} now={now} onOpen={() => setPanelOpen((open) => !open)} />
           </div>
         ))}
       </div>
+      {panelOpen ? (
+        <div className="dv-panel-frame w-full max-w-[384px]" data-testid="lab-sensor-panel">
+          <PanelServicesProvider value={services}>
+            <SensorFamilyPanel entityId={sample.entityId} name={model.name} haStates={states} onClose={() => setPanelOpen(false)} />
+          </PanelServicesProvider>
+        </div>
+      ) : null}
     </HouseStatesProvider>
   );
 }

@@ -1245,6 +1245,30 @@ const FACES: Record<SensorFamily, (c: Context) => Face> = {
   device: deviceFace,
 };
 
+/** What the card reads of a sensor: its alert and its words, for the panel to say the same. */
+export function describeFamilySensor(
+  model: FamilySensorModel,
+  options: { history: SeriesPoint[]; changes: StateChange[]; house: SensorHouse | null; meterKw?: number; now: number; dt: DevicesTranslator; locale: string },
+) {
+  const { history, now, meterKw = T.energy.meterKw } = options;
+  const prices = model.family === 'price' ? dayPrices(model.attributes, now) : null;
+  const alert = model.available
+    ? resolveSensorAlert({
+      family: model.family,
+      deviceClass: model.deviceClass,
+      unit: model.unit,
+      value: model.value,
+      state: model.state,
+      history,
+      now,
+      dayMean: prices ? prices.reduce((sum, value) => sum + value, 0) / prices.length : null,
+      meterKw,
+    })
+    : null;
+  const face = model.available ? FACES[model.family]({ ...options, model, alert, meterKw }) : null;
+  return { alert, face, reading: reading(model, options.locale, model.family === 'temperature' ? 1 : model.family === 'price' ? 2 : undefined) };
+}
+
 export function SensorFamilyCard({
   model,
   history = [],

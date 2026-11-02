@@ -20,6 +20,7 @@ const AlarmPanel = React.lazy(() => import('../devices/panels/AlarmPanel'));
 const VacuumPanel = React.lazy(() => import('../devices/panels/VacuumPanel'));
 const CalendarPanel = React.lazy(() => import('../devices/panels/CalendarPanel'));
 const MembersPanel = React.lazy(() => import('../devices/panels/MembersPanel'));
+const SensorFamilyPanel = React.lazy(() => import('../devices/panels/SensorFamilyPanel'));
 
 // The sheet keeps its height while a panel loads: the finger that opened it with
 // a long press is lifted over the sheet, not over the backdrop that would close it.
@@ -96,6 +97,20 @@ export function HomePanel(props: HomePanelProps) {
           agenda={props.calendarAgenda}
           wasteTypes={props.calendarWasteTypes}
           onConfigureWaste={props.onConfigureWaste}
+          embedded={embedded}
+          onClose={onClose}
+        />
+      </React.Suspense>
+    );
+  }
+  if (panel === 'sensor' && activeDevice.sensorEntityId) {
+    return (
+      <React.Suspense fallback={LOADING_SHEET}>
+        <SensorFamilyPanel
+          entityId={activeDevice.sensorEntityId}
+          name={activeDevice.name}
+          history={activeDevice.sensorHistory}
+          haStates={props.haStates}
           embedded={embedded}
           onClose={onClose}
         />
