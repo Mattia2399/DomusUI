@@ -31,6 +31,7 @@ import { CalendarControls } from './CalendarControls';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
+import { homePanelOf, type HomePanelProps } from './homePanelRoute';
 import { StatusGlow } from '../widgets/micro/StatusGlow';
 import { ValuePill } from '../widgets/micro/ValuePill';
 import { MiniRing } from '../widgets/micro/MiniRing';
@@ -48,6 +49,9 @@ import { parseWasteTypeStyles, WASTE_TYPES_ATTRIBUTE } from '../../services/cale
 
 type MediaRepeatMode = 'off' | 'all' | 'one';
 type MediaOutputKind = 'speaker' | 'tv' | 'cast';
+
+// The shared panels load only when a card opens one.
+const HomePanel = React.lazy(() => import('./HomePanel'));
 
 function resolveEntityStateById(haStates: MockEntityStateMap, entityId: string | undefined) {
   const normalizedEntityId = (entityId ?? '').trim();
@@ -406,6 +410,21 @@ export function ContextSidebar({
     : 'overflow-y-auto overscroll-contain glass-scrollbar [touch-action:pan-y] [-webkit-overflow-scrolling:touch] pb-4 lg:pb-6';
   const membersPresence = activeDevice?.membersPresence ?? activeDevice?.membersMapPoints ?? [];
   const microWidgets = activeDevice?.microWidgets ?? [];
+  const homePanelProps: HomePanelProps | null = activeDevice
+    ? {
+        activeDevice,
+        lamp,
+        climate,
+        cover,
+        coverIsReadOnly,
+        haStates,
+        actions,
+        embedded: externalScrollContainer,
+        onClose: onClose ?? (() => undefined),
+      }
+    : null;
+  // The cards with a shared panel open it in place of their old content.
+  const homePanel = homePanelProps ? homePanelOf(homePanelProps) : null;
   return (
     <aside
       className={`context-sidebar w-full shrink-0 relative ${
@@ -414,7 +433,7 @@ export function ContextSidebar({
         activeDevice ? activeDeviceLayoutClass : 'overflow-hidden'
       }`}
     >
-      {activeDevice && onClose && showCloseButton ? (
+      {activeDevice && onClose && showCloseButton && !homePanel ? (
         <button
           type="button"
           onClick={onClose}
@@ -438,7 +457,15 @@ export function ContextSidebar({
         </div>
       ) : null}
 
-      {activeDevice?.type === 'climate' ? (
+      {homePanel && homePanelProps ? (
+        <div className={`${CONTEXT_PANEL_LAYOUT.shell} dv-panel-frame`}>
+          <React.Suspense fallback={null}>
+            <HomePanel {...homePanelProps} />
+          </React.Suspense>
+        </div>
+      ) : null}
+
+      {activeDevice?.type === 'climate' && !homePanel ? (
         <ClimateControls
           climate={{ ...climate, name: activeDevice.name }}
           onTogglePower={actions.toggleClimatePower}
@@ -457,7 +484,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'light' ? (
+      {activeDevice?.type === 'light' && !homePanel ? (
         <LightControls
           lamp={{ ...lamp, name: activeDevice.name }}
           onToggle={actions.toggleLamp}
@@ -470,7 +497,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'switch' ? (
+      {activeDevice?.type === 'switch' && !homePanel ? (
         <SwitchControls
           name={activeDevice.name}
           entityId={activeDevice.switchEntityId}
@@ -488,7 +515,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'fan' ? (
+      {activeDevice?.type === 'fan' && !homePanel ? (
         <FanControls
           name={activeDevice.name}
           entity={resolveEntityStateById(haStates, activeDevice.fanEntityId)}
@@ -501,7 +528,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'humidifier' ? (
+      {activeDevice?.type === 'humidifier' && !homePanel ? (
         <HumidifierControls
           name={activeDevice.name}
           entity={resolveEntityStateById(haStates, activeDevice.humidifierEntityId)}
@@ -674,7 +701,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'cover' ? (
+      {activeDevice?.type === 'cover' && !homePanel ? (
         <CoverControls
           cover={{ ...cover, name: activeDevice.name }}
           readOnly={coverIsReadOnly}
