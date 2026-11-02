@@ -443,6 +443,7 @@ import { DomusScreensaver } from '../screensaver/DomusScreensaver';
 import { DomusKiosk, useKioskChrome } from '../kiosk/DomusKiosk';
 import { KIOSK_START_ROUTES } from '../kiosk/kioskPreferences';
 import { HouseStatesProvider } from '../devices/cards/houseStatesContext';
+import { PanelServicesProvider } from '../devices/panels/panelServicesContext';
 import {
   createOAuthNonce,
   isAppGalleryNavigationTarget,
@@ -1821,6 +1822,10 @@ export function MainBoard() {
       return rawCallHaApi<TResponse>(message, options);
     },
     [effectiveRuntimeMode, rawCallHaApi],
+  );
+  const panelServices = useMemo(
+    () => ({ callApi: callHaApi, callService: callHaService }),
+    [callHaApi, callHaService],
   );
   const commandCoordinator = useDeviceCommandCoordinator({
     entities: haStates,
@@ -12465,6 +12470,7 @@ export function MainBoard() {
                   />
                 }
               >
+              <PanelServicesProvider value={panelServices}>
               <RightSidebarManager
               isEditMode={isEditMode}
               commandsEnabled={effectiveRuntimeMode === 'demo' || isHaConnected}
@@ -12606,6 +12612,7 @@ export function MainBoard() {
                 }
               }}
               />
+              </PanelServicesProvider>
               </React.Suspense>
             ) : (
               <DashboardSidebarPlaceholder isCompactViewport={isCompactViewport} />
