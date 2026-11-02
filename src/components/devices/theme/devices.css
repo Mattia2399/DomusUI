@@ -335,6 +335,24 @@
   transition: box-shadow 200ms ease;
 }
 
+/* U×4 keeps its four swatches in one row: smaller under 170 px, three under 148 (§5). */
+.dv-tile[data-format='U×4'] {
+  container-type: inline-size;
+}
+
+@container (max-width: 169px) {
+  .dv-tile[data-format='U×4'] .dv-swatches .dv-swatch {
+    height: 24px;
+    width: 24px;
+  }
+}
+
+@container (max-width: 147px) {
+  .dv-tile[data-format='U×4'] .dv-swatches > :nth-child(n + 4) {
+    display: none;
+  }
+}
+
 .dv-swatch[aria-checked='true'] {
   box-shadow: 0 0 0 2px var(--dv-sheet-ring), 0 0 0 4px var(--dv-swatch);
 }
@@ -832,6 +850,67 @@
   box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.6);
 }
 
+/*
+ * Climate on the Home: the Standard and Expanded cards fill their box
+ * (docs/design-reference/CoreCards.dc.html); the room keeps its large card.
+ */
+
+.dv-climate.dv-climate-format {
+  display: block;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border-radius: 24px;
+}
+
+.dv-climate-format .dv-climate-mid {
+  padding-left: 0;
+}
+
+.dv-step-m {
+  height: 40px;
+  width: 40px;
+}
+
+.dv-climate-room {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.dv-climate-room b {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-climate-room span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dv-t2);
+  white-space: nowrap;
+}
+
+.dv-climate.is-lit-climate .dv-climate-room span {
+  color: rgb(255 255 255 / 0.75);
+}
+
+.dv-climate-modes .dv-pill {
+  height: 32px;
+  padding: 0 12px;
+}
+
+.dv-climate.is-lit-climate .dv-pill {
+  background: rgb(255 255 255 / 0.16);
+  color: #ffffff;
+}
+
+.dv-climate.is-lit-climate .dv-pill.is-on {
+  background: #ffffff;
+  color: #111111;
+}
+
 /* Security: green when all is well, amber to check, blue while it sees motion. */
 
 .dv-security.is-ok,
@@ -1138,6 +1217,41 @@
   height: 100%;
   width: 100%;
   object-fit: cover;
+}
+
+/* Home: the camera picture fills its Standard and Expanded cards. */
+.dv-camera-picture {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: var(--dv-icon-off);
+  pointer-events: none;
+}
+
+.dv-camera-picture img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-camera-caption {
+  background: linear-gradient(to top, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0) 55%);
+  color: #ffffff;
+}
+
+.dv-camera-full {
+  border-color: transparent;
+  color: #ffffff;
+}
+
+/* Until the picture arrives, a dark scene in both themes, as on the board. */
+.dv-camera-full .dv-camera-picture {
+  background: radial-gradient(120% 90% at 70% 20%, #56697b 0%, #2a3642 45%, #0f161c 100%);
+}
+
+.dv-camera-full .dv-status,
+.dv-camera-full .dv-chevron {
+  color: rgb(255 255 255 / 0.8);
 }
 
 .dv-day-strip {
@@ -1805,6 +1919,15 @@
   stroke-opacity: 0.75;
   stroke-width: 2;
   vector-effect: non-scaling-stroke;
+}
+
+/* A room shows its sensors at U×3; the Home draws them by family (SensorFamilyCard). */
+.dv-sensor-u3 {
+  padding: 12px 16px;
+}
+
+.dv-sensor-u3 .dv-sensor-note {
+  display: none;
 }
 
 /* The real line fades in; while the history is on its way, a faint outline breathes. */

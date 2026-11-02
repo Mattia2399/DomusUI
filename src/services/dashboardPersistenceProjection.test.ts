@@ -92,4 +92,19 @@ describe('dashboard persistence projection', () => {
       value: 67,
     });
   });
+
+  it('includes the metrics version in structural fingerprints', () => {
+    const legacy = buildDashboard();
+    const v2: DashboardLayoutConfiguration = {
+      ...legacy,
+      gridMetricsVersion: 'v2',
+      widgetLayoutOverrides: {
+        light: { xl: { w: 2, hOff: 2, hOn: 3, autoExpand: true } },
+      },
+    };
+
+    expect(createDashboardStructuralFingerprint(v2))
+      .not.toBe(createDashboardStructuralFingerprint(legacy));
+    expect(projectDashboardForPersistence(v2).gridMetricsVersion).toBe('v2');
+  });
 });

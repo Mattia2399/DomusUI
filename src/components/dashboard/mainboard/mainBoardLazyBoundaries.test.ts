@@ -93,10 +93,26 @@ describe('MainBoard lazy boundaries', () => {
     expect(mainBoardSource).toContain('onPrefetchRoute={prefetchDashboardWorkspace}');
     expect(mainBoardSource).toContain('function prefetchDashboardBuilder()');
     expect(mainBoardSource).toContain(
-      'Promise.all([loadRightSidebarManager(), preloadDashboardCatalog()])',
+      'Promise.all([loadRightSidebarManager(), preloadDashboardCatalog(), loadGridEngineSaveValidation()])',
     );
     expect(mainBoardSource).toContain('onPrefetchEditMode={prefetchDashboardBuilder}');
     expect(mainBoardSource).toContain("import DeferredGlassLoader from '../ui/DeferredGlassLoader'");
+  });
+
+  it('keeps the phone menu and the Edit Mode tools out of the Home chunk', () => {
+    expect(mainBoardSource).toContain("from './LazyMobileSidebarDrawer'");
+    expect(mainBoardSource).not.toContain("from './MobileSidebarDrawer'");
+    expect(mainBoardSource).toContain('onPointerDown={preloadMobileSidebarDrawer}');
+    for (const [loaderName, modulePath] of [
+      ['loadGridEngineSaveValidation', './gridEngine2/gridEngineSaveValidation'],
+      ['loadGridEngine2Activation', './gridEngine2/gridEngine2Activation'],
+      ['loadDashboardEditDraftRecoveryModal', './DashboardEditDraftRecoveryModal'],
+    ]) {
+      expect(mainBoardSource).toContain(`const ${loaderName} = () => import('${modulePath}')`);
+      expect(mainBoardSource).not.toMatch(new RegExp(`^import (?!type )[^;]*from '${modulePath.replace(/[./]/g, '\$&')}'`, 'm'));
+    }
+    // The v2 conversion loads only when its preview is asked for.
+    expect(mainBoardSource).toContain("await import('./gridEngine2/gridV2Conversion')");
   });
 
   it('keeps a local Suspense boundary around secondary workspaces', () => {

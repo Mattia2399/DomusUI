@@ -76,4 +76,16 @@ describe('dashboard edit draft', () => {
       persistenceProtection: GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
     });
   });
+
+  it('round-trips the v2 metrics marker through draft recovery', () => {
+    saveDashboardEditDraft(window.sessionStorage, {
+      runtimeMode: 'real',
+      createdAt: 400,
+      baseRevision: 10,
+      dashboard: { ...dashboard, layoutEngine: 'grid-engine-2', gridMetricsVersion: 'v2' },
+    });
+
+    expect(readDashboardEditDraft(window.sessionStorage, 'real')?.dashboard)
+      .toMatchObject({ layoutEngine: 'grid-engine-2', gridMetricsVersion: 'v2' });
+  });
 });

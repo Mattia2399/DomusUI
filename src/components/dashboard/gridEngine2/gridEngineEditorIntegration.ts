@@ -1,6 +1,7 @@
 import type { GridItem, WidgetKind } from '../../../types/dashboardModels';
 import type { WidgetTypeBreakpointLayoutOverride } from '../../../types/widgetTypeLayout';
 import { solveGridEngineRootRuntimeLayout } from './gridEngineRootRuntimeSolver';
+import { resolveGridLightRuntimeMetrics, type GridMetricsVersion } from './gridMetrics';
 
 export type GridEngineEditorGeometryOrigin = 'explicit' | 'legacy-derived';
 
@@ -20,6 +21,37 @@ export type GridEngineEditorLayoutPreparation =
       status: 'fallback';
       reason: GridEngineEditorFallbackReason;
     }>;
+
+function sameGeometry(left: GridItem | undefined, right: GridItem | undefined) {
+  return Boolean(left && right) && left!.x === right!.x && left!.y === right!.y
+    && left!.w === right!.w && left!.h === right!.h;
+}
+
+/**
+ * Canonical geometry is the XL mirror. A legacy dashboard may nevertheless
+ * start an edit session with a historical canonical/XL difference. Keep that
+ * difference only while the XL item itself is untouched; a real solver change
+ * must mirror the committed XL geometry into the canonical item.
+ */
+export function shouldMirrorGridEngineCanonicalSection(input: Readonly<{
+  baselineCanonical?: GridItem;
+  baselineXl?: GridItem;
+  currentCanonical?: GridItem;
+  currentXl?: GridItem;
+  committedXl: GridItem;
+  allowHistoricalDifference?: boolean;
+}>) {
+  const hasUnchangedHistoricalDifference = Boolean(
+    input.allowHistoricalDifference !== false
+    && input.baselineCanonical
+    && input.baselineXl
+    && !sameGeometry(input.baselineCanonical, input.baselineXl)
+    && sameGeometry(input.currentCanonical, input.baselineCanonical)
+    && sameGeometry(input.currentXl, input.baselineXl)
+    && sameGeometry(input.committedXl, input.currentXl)
+  );
+  return !hasUnchangedHistoricalDifference;
+}
 
 type PrepareGridEngineEditorLayoutInput = Readonly<{
   /** Exact geometry currently supplied to the legacy root renderer. */
@@ -100,14 +132,16 @@ export function createGridEngineEditorResizeOverride(
   height: number,
   currentWidgetOverride?: WidgetTypeBreakpointLayoutOverride,
   currentTypeOverride?: WidgetTypeBreakpointLayoutOverride,
+  metricsVersion?: GridMetricsVersion,
 ): WidgetTypeBreakpointLayoutOverride {
   const safeW = Math.max(1, Math.round(width));
   const safeH = Math.max(1, Math.round(height));
   if (kind !== 'light') return { w: safeW, h: safeH };
 
   const allowAutoExpand = currentWidgetOverride?.autoExpand ?? currentTypeOverride?.autoExpand ?? true;
-  const canAutoExpand = allowAutoExpand && safeH <= 1;
+  const lightMetrics = resolveGridLightRuntimeMetrics(metricsVersion);
+  const canAutoExpand = allowAutoExpand && safeH <= lightMetrics.hOff;
   return canAutoExpand
-    ? { w: safeW, hOff: safeH, hOn: 2, autoExpand: true }
+    ? { w: safeW, hOff: safeH, hOn: lightMetrics.hOn, autoExpand: true }
     : { w: safeW, h: safeH, hOff: safeH, hOn: safeH, autoExpand: false };
 }

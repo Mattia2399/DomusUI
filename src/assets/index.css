@@ -2000,6 +2000,141 @@ button:not(:disabled):active,
   }
 }
 
+/*
+ * The canvas of Grid Engine 2.0 in edit mode: a touch selects, a long press
+ * lifts. The ring says which card is in hand; the round buttons on it are the
+ * only way to its settings and its size.
+ */
+.grid-editor-item {
+  border-radius: 24px;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  transition: background-color 280ms ease 120ms, box-shadow 160ms ease;
+}
+
+.grid-editor-item:focus-visible,
+.grid-editor-item[data-editor-state='selected'] {
+  box-shadow: inset 0 0 0 2px #0a84ff;
+}
+
+/* The finger is holding: the card answers before it lifts. */
+.grid-editor-item[data-editor-state='pressing'] {
+  background-color: rgb(10 132 255 / 0.14);
+  box-shadow: inset 0 0 0 2px rgb(10 132 255 / 0.55);
+}
+
+.grid-editor-item[data-editor-state='lifted'] {
+  background-color: rgb(10 132 255 / 0.08);
+  box-shadow: inset 0 0 0 2px #0a84ff, 0 18px 40px rgb(0 0 0 / 0.32);
+}
+
+/* 44 px to touch, 32 px to see. */
+.grid-editor-chip {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.grid-editor-chip > span {
+  display: flex;
+  height: 32px;
+  width: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #0a84ff;
+  color: #ffffff;
+  box-shadow: 0 0 0 2px rgb(255 255 255 / 0.9), 0 6px 14px rgb(0 0 0 / 0.28);
+  transition: transform 140ms ease;
+}
+
+.grid-editor-chip:active > span {
+  transform: scale(0.9);
+}
+
+.grid-editor-chip:focus-visible {
+  outline: none;
+}
+
+.grid-editor-chip:focus-visible > span {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px #0a84ff;
+}
+
+/*
+ * The size of a card: a line inside its lower right corner, parallel to the
+ * edge and clear of the ring, which leaves the low cards room for the settings
+ * button.
+ */
+.grid-editor-resize {
+  display: flex;
+  height: 36px;
+  width: 56px;
+  align-items: flex-end;
+  justify-content: flex-end;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: #0a84ff;
+  cursor: nwse-resize;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.grid-editor-resize svg {
+  display: block;
+  height: 32px;
+  width: 32px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  transition: stroke-width 140ms ease;
+}
+
+.grid-editor-resize:active svg {
+  stroke-width: 4.5;
+}
+
+.grid-editor-resize:focus-visible {
+  outline: none;
+}
+
+.grid-editor-resize:focus-visible svg {
+  filter: drop-shadow(0 0 2px #0a84ff) drop-shadow(0 0 3px #ffffff);
+}
+
+/* Above the home indicator of a phone. */
+.grid-editor-dock {
+  bottom: calc(env(safe-area-inset-bottom) + 0.75rem);
+  border-radius: 26px;
+}
+
+/* The ring and the buttons say what is selected: no tick on every card. */
+.is-grid-engine-2-editing .dv-check {
+  display: none;
+}
+
+/* The ring of the canvas is the selection: the card's own would be clipped by its cell. */
+.is-grid-engine-2-editing .dv-tile.is-selected {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grid-editor-item,
+  .grid-editor-chip > span,
+  .grid-editor-resize svg {
+    transition: none;
+  }
+}
+
 .selection-corners {
   position: relative;
   isolation: isolate;

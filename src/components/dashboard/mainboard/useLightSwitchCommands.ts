@@ -415,8 +415,8 @@ export function useLightSwitchCommands({
     applyLocal();
   };
 
-  const setLightColorTemp = (kelvin: number, options?: LightCommandOptions) => {
-    const targetWidget = activeWidget;
+  const setLightColorTemp = (kelvin: number, options?: LightCommandOptions, widget?: Widget) => {
+    const targetWidget = widget?.kind === 'light' ? widget : activeWidget;
     const entityId = targetWidget?.kind === 'light' ? targetWidget.entityId : undefined;
     const liveEntity = entityId && isHaConnected ? haStatesForUi[entityId] : undefined;
     const capabilities = resolveLightCapabilities(liveEntity);

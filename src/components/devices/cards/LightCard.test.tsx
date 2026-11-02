@@ -47,15 +47,22 @@ describe('the light card', () => {
     expect(onOpenPanel).not.toHaveBeenCalled();
   });
 
-  it('gives the slider only to the formats that have one, and sends the level', () => {
+  it('takes the three sizes of the board: the tile, then the level and slider, then the tones', () => {
     const onAction = vi.fn();
-    const { rerender } = render(<LightCard model={dimmable} format="U×2" onAction={onAction} />);
+    const { container, rerender } = render(<LightCard model={dimmable} format="U×2" onAction={onAction} />);
     expect(screen.queryByRole('slider')).toBeNull();
-    rerender(<LightCard model={dimmable} format="U×3" onAction={onAction} />);
+    rerender(<LightCard model={dimmable} format="U×4" onAction={onAction} />);
+    expect(screen.getByText('% luminosità')).toBeTruthy();
     fireEvent.change(screen.getByRole('slider', { name: 'Luminosità Lampada da terra' }), { target: { value: '40' } });
     expect(onAction).toHaveBeenCalledWith({ type: 'brightness', pct: 40 });
-    rerender(<LightCard model={dimmable} format="U×4" onAction={onAction} />);
-    expect(screen.getAllByRole('radio')).toHaveLength(4);
+    rerender(<LightCard model={dimmable} format="W×4" onAction={onAction} />);
+    const tones = Array.from(container.querySelectorAll<HTMLButtonElement>('.dv-pills .dv-pill'));
+    expect(tones).toHaveLength(3);
+    fireEvent.click(tones[2]);
+    expect(onAction).toHaveBeenCalledWith({ type: 'kelvin', kelvin: 6500 });
+    // A lit light that grew to three rows keeps the slider of the tile.
+    rerender(<LightCard model={dimmable} format="U×3" onAction={onAction} />);
+    expect(screen.getByRole('slider')).toBeTruthy();
   });
 
   it('cannot be commanded when the light is away', () => {

@@ -1,0 +1,95 @@
+/* The scenes section of a v2 Home: the strip of pills of a room. */
+
+.dv-scenes {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  container-type: size;
+  color: var(--dv-text);
+}
+
+.dv-scenes-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--dv-t2);
+}
+
+.dv-scenes-strip {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  gap: 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 6px 0;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.dv-scenes-strip::-webkit-scrollbar {
+  display: none;
+}
+
+.dv-scenes-strip > .dv-scene {
+  flex: none;
+}
+
+.dv-scenes[data-framed] {
+  padding: 0 14px;
+}
+
+.dv-scenes[data-framed] .dv-scenes-title {
+  padding-top: 6px;
+}
+
+/* A scene that runs fills its pill with the colour of its icon; once in place it stays full. */
+.dv-scene.is-toned {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.dv-scene-fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: rgb(var(--dv-scene-tone) / 0.34);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 320ms ease-out;
+  pointer-events: none;
+}
+
+.dv-scene.is-toned[aria-pressed='true'] {
+  border-color: rgb(var(--dv-scene-tone) / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-scene-fill {
+    transition: none;
+  }
+}
+
+.dv-scenes-add {
+  border-style: dashed;
+}
+
+.dv-scenes-add .dv-scene-mark {
+  box-shadow: none;
+  background: var(--dv-icon-off);
+  color: var(--dv-t2);
+}
+
+/* Two rows hold the strip alone. */
+@container (max-height: 104px) {
+  .dv-scenes-title {
+    display: none;
+  }
+}

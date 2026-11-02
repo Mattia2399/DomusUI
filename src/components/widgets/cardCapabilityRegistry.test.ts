@@ -12,6 +12,13 @@ import {
   LOCK_CARD_CAPABILITY,
   MEMBERS_CARD_CAPABILITY,
   MEDIA_CARD_CAPABILITY,
+  GRID_V2_WIDTH_CLASS_COLS,
+  gridV2FormatSpan,
+  resolveGridV2DefaultFormat,
+  resolveGridV2EntityCapability,
+  resolveGridV2PresetFormat,
+  resolveGridV2SupportedFormats,
+  resolveNearestGridV2Format,
   resolveCardLayoutVariant,
   SENSOR_CARD_CAPABILITY,
   SWITCH_CARD_CAPABILITY,
@@ -389,5 +396,110 @@ describe('cardCapabilityRegistry', () => {
         isInsideStack: false,
       }),
     ).toBe('standard');
+  });
+
+  it('defines the single responsive U/W/X matrix for all six breakpoints', () => {
+    expect(GRID_V2_WIDTH_CLASS_COLS).toEqual({
+      '2xl': { cols: 12, U: 2, W: 4, X: 8 },
+      xl: { cols: 12, U: 2, W: 4, X: 8 },
+      lg: { cols: 8, U: 2, W: 4, X: 8 },
+      md: { cols: 6, U: 2, W: 4, X: 6 },
+      sm: { cols: 4, U: 1, W: 2, X: 4 },
+      xs: { cols: 2, U: 1, W: 2, X: 2 },
+    });
+    expect(gridV2FormatSpan('X×4', 'md')).toEqual({ w: 6, h: 4 });
+    expect(gridV2FormatSpan('W×6', 'xs')).toEqual({ w: 2, h: 6 });
+  });
+
+  it('exposes the format matrix from the v2 contract, including entity capabilities', () => {
+    expect(resolveGridV2SupportedFormats('light', 'light-color'))
+      .toEqual(['U×2', 'U×3', 'U×4', 'W×2', 'W×3', 'W×4', 'W×6', 'X×4']);
+    expect(resolveGridV2SupportedFormats('light', 'light-dimmer'))
+      .toEqual(['U×2', 'U×3', 'W×2', 'W×3']);
+    expect(resolveGridV2SupportedFormats('light', 'light-on-off')).toEqual(['U×2', 'W×2']);
+    expect(resolveGridV2SupportedFormats('switch')).toEqual(['U×2', 'W×2']);
+    expect(resolveGridV2SupportedFormats('cover', 'cover-position'))
+      .toEqual(['U×2', 'U×3', 'W×2', 'W×3']);
+    expect(resolveGridV2SupportedFormats('cover', 'cover-binary')).toEqual(['U×2', 'W×2']);
+    expect(resolveGridV2SupportedFormats('sensor', 'sensor-numeric'))
+      .toEqual(['U×2', 'U×3', 'U×4', 'W×2', 'W×3']);
+    expect(resolveGridV2SupportedFormats('sensor', 'sensor-binary')).toEqual(['U×2', 'W×2']);
+    expect(resolveGridV2SupportedFormats('media')).toEqual(['U×2', 'W×3', 'W×4', 'X×4']);
+    expect(resolveGridV2DefaultFormat('climate')).toBe('W×4');
+    expect(resolveGridV2DefaultFormat('sensor', 'sensor-numeric')).toBe('U×3');
+    expect(resolveGridV2DefaultFormat('cover', 'cover-position')).toBe('U×3');
+    expect(resolveGridV2DefaultFormat('media')).toBe('W×3');
+    expect(resolveGridV2DefaultFormat('camera')).toBe('W×4');
+    expect(LIGHT_CARD_CAPABILITY.defaultSpans.xl).toEqual({ w: 2, hOff: 1, hOn: 2 });
+    expect(resolveGridV2EntityCapability({
+      kind: 'light',
+      rawAttributes: { supported_color_modes: ['onoff'] },
+    })).toBe('light-on-off');
+    expect(resolveGridV2EntityCapability({
+      kind: 'light',
+      rawAttributes: { supported_color_modes: ['brightness'] },
+    })).toBe('light-dimmer');
+  });
+
+  it('snaps deterministically, preferring wider and taller formats on ties', () => {
+    expect(resolveNearestGridV2Format({
+      kind: 'climate', breakpoint: 'xl', width: 3, height: 4,
+    })).toEqual({ format: 'W×4', span: { w: 4, h: 4 } });
+    expect(resolveNearestGridV2Format({
+      kind: 'sensor', breakpoint: 'xl', width: 2, height: 3.5,
+    })).toEqual({ format: 'U×4', span: { w: 2, h: 4 } });
+    expect(resolveNearestGridV2Format({
+      kind: 'camera', breakpoint: 'xs', width: 2, height: 4,
+    })).toEqual({ format: 'W×4', span: { w: 2, h: 4 } });
+    expect(resolveNearestGridV2Format({
+      kind: 'light', breakpoint: 'xl', width: 2, height: 4, entityCapability: 'light-on-off',
+    })).toEqual({ format: 'U×2', span: { w: 2, h: 2 } });
+    expect(resolveNearestGridV2Format({
+      kind: 'climate', breakpoint: 'xl', width: 2, height: 6,
+    })).toEqual({ format: 'U×4', span: { w: 2, h: 4 } });
+    expect(resolveNearestGridV2Format({
+      kind: 'switch', breakpoint: 'xl', width: 8, height: 4,
+    })).toEqual({ format: 'W×2', span: { w: 4, h: 2 } });
+  });
+
+  it('reads a light without colour modes by its features, as the room cards do', () => {
+    const plain = { state: 'on', rawAttributes: { friendly_name: 'Ingresso' } };
+    expect(resolveGridV2EntityCapability({ kind: 'light', rawAttributes: plain.rawAttributes, entity: plain }))
+      .toBe('light-on-off');
+    const dimmable = { state: 'on', rawAttributes: { brightness: 128, supported_features: 1 } };
+    expect(resolveGridV2EntityCapability({ kind: 'light', rawAttributes: dimmable.rawAttributes, entity: dimmable }))
+      .not.toBe('light-on-off');
+    // Without the entity nothing is known: every format stays available.
+    expect(resolveGridV2EntityCapability({ kind: 'light' })).toBe('default');
+  });
+
+  it('clamps snapped spans to a narrower canvas instead of dropping formats', () => {
+    expect(resolveNearestGridV2Format({
+      kind: 'sensor', breakpoint: 'xl', width: 1, height: 4, maxCols: 1,
+    }).span).toEqual({ w: 1, h: 4 });
+    expect(resolveNearestGridV2Format({
+      kind: 'climate', breakpoint: 'xl', width: 8, height: 4, maxCols: 6,
+    }).span).toEqual({ w: 6, h: 4 });
+  });
+
+  it('maps builder presets to the type and capability-specific v2 formats', () => {
+    expect(resolveGridV2PresetFormat({
+      kind: 'light', variant: 'expanded', breakpoint: 'xl', entityCapability: 'light-dimmer',
+    })).toBe('W×3');
+    expect(resolveGridV2PresetFormat({
+      kind: 'light', variant: 'standard', breakpoint: 'xl', entityCapability: 'light-on-off',
+    })).toBe('W×2');
+    expect(resolveGridV2PresetFormat({ kind: 'switch', variant: 'expanded', breakpoint: 'xl' })).toBe('W×2');
+    expect(resolveGridV2PresetFormat({ kind: 'sensor', variant: 'standard', breakpoint: 'xl' })).toBe('U×3');
+    expect(resolveGridV2PresetFormat({ kind: 'lock', variant: 'expanded', breakpoint: 'xl' })).toBe('U×4');
+    expect(resolveGridV2PresetFormat({ kind: 'climate', variant: 'expanded', breakpoint: 'xl' })).toBe('X×4');
+    expect(resolveGridV2PresetFormat({
+      kind: 'climate', variant: 'expanded', breakpoint: 'xl', isInsideStack: true,
+    })).toBe('W×6');
+    expect(resolveGridV2PresetFormat({ kind: 'camera', variant: 'expanded', breakpoint: 'xs' })).toBe('W×4');
+    expect(resolveGridV2PresetFormat({ kind: 'camera', variant: 'expanded', breakpoint: 'xl' })).toBe('X×4');
+    for (const breakpoint of BREAKPOINTS) {
+      expect(gridV2FormatSpan('W×4', breakpoint).w).toBeLessThanOrEqual(GRID_V2_WIDTH_CLASS_COLS[breakpoint].cols);
+    }
   });
 });

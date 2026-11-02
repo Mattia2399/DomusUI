@@ -21,6 +21,7 @@ export type GridEngineRuntimeRootElement = Readonly<{
 export type GridEngineRuntimeLightState = Readonly<{
   id: string;
   isOn: boolean;
+  canAutoExpand?: boolean;
 }>;
 
 export type GridEngineRuntimeOverrideIssueCode =
@@ -120,9 +121,9 @@ export function deriveGridEngineRuntimeOverrides(
     const configuredWidth = positiveInteger(widgetOverride?.w)
       ?? positiveInteger(typeOverride?.w)
       ?? structural.w;
-    const autoExpand = widgetOverride?.autoExpand
+    const autoExpand = (widgetOverride?.autoExpand
       ?? typeOverride?.autoExpand
-      ?? runtimeDefaults.autoExpand;
+      ?? runtimeDefaults.autoExpand) && light.canAutoExpand !== false;
 
     if (configuredWidth > input.cols || structural.x + configuredWidth > input.cols) {
       issues.push({ code: 'INVALID_CONFIGURED_SPAN', id: element.id });

@@ -55,14 +55,20 @@ import {
   FAN_CARD_CAPABILITY,
   HUMIDIFIER_CARD_CAPABILITY,
   getCardCapability,
+  gridV2FormatSpan,
   LIGHT_CARD_CAPABILITY,
   LOCK_CARD_CAPABILITY,
   MEDIA_CARD_CAPABILITY,
   resolveCardLayoutVariant,
+  resolveGridV2EntityCapability,
+  resolveGridV2PresetFormat,
+  resolveNearestGridV2Format,
   SENSOR_CARD_CAPABILITY,
   SWITCH_CARD_CAPABILITY,
   VACUUM_CARD_CAPABILITY,
 } from '../widgets/cardCapabilityRegistry';
+import { resolveGridLightRuntimeMetrics, type GridMetricsVersion } from './gridEngine2/gridMetrics';
+import { isMeteredPower, SENSOR_ALERT_THRESHOLDS } from '../devices/model/sensorFamily';
 import { MiniRing } from '../widgets/micro/MiniRing';
 import { MicroButton } from '../widgets/micro/MicroButton';
 import { MicroStep } from '../widgets/micro/MicroStep';
@@ -142,6 +148,7 @@ import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 const loadContextSidebar = () =>
   import('../settings/ContextSidebar').then((module) => ({ default: module.ContextSidebar }));
 const ContextSidebar = React.lazy(loadContextSidebar);
+const GridV2ScenesCard = React.lazy(() => import('../widgets/GridV2ScenesCard'));
 const loadMicroSuperChart = () =>
   import('../widgets/micro/MicroSuperChart').then((module) => ({
     default: module.MicroSuperChart,
@@ -346,14 +353,15 @@ function clampGridSpan(value: number, max: number) {
 function createLightLayoutOverride(
   width: number,
   collapsedHeight: number,
-  options: { allowAutoExpand?: boolean } = {},
+  options: { allowAutoExpand?: boolean; metricsVersion?: GridMetricsVersion } = {},
 ): WidgetTypeBreakpointLayoutOverride {
   const safeHeight = Math.max(1, Math.round(collapsedHeight));
-  const canAutoExpand = options.allowAutoExpand !== false && safeHeight <= 1;
+  const lightMetrics = resolveGridLightRuntimeMetrics(options.metricsVersion);
+  const canAutoExpand = options.allowAutoExpand !== false && safeHeight <= lightMetrics.hOff;
   if (!canAutoExpand) {
     return { w: width, h: safeHeight, hOff: safeHeight, hOn: safeHeight, autoExpand: false };
   }
-  return { w: width, hOff: safeHeight, hOn: 2, autoExpand: true };
+  return { w: width, hOff: safeHeight, hOn: lightMetrics.hOn, autoExpand: true };
 }
 
 function resolveLightPresetTarget(
@@ -688,6 +696,8 @@ type RightSidebarManagerProps = {
   isEditMode: boolean;
   commandsEnabled?: boolean;
   isCompactViewport?: boolean;
+  /** On a phone: what is selected stays on the canvas, its settings closed. */
+  compactEditSheetHeld?: boolean;
   theme?: DashboardAppearance;
   activeDevice: ActiveDevice | null;
   onCloseContextSidebar: () => void;
@@ -789,6 +799,8 @@ type RightSidebarManagerProps = {
   weatherConfig: DashboardSection | null;
   activeGridBreakpoint: DashboardGridBreakpoint;
   activeGridWidth?: number;
+  /** v2 sizes every preset and manual pick to a card format (U/W/X). */
+  gridMetricsVersion?: GridMetricsVersion;
   cardSizingEngine?: CardSizingEngine;
   showCardSizingEngineControl?: boolean;
   onCardSizingEngineChange?: (value: CardSizingEngine) => void;
@@ -1105,6 +1117,7 @@ export function RightSidebarManager({
   isEditMode,
   commandsEnabled = true,
   isCompactViewport = false,
+  compactEditSheetHeld = false,
   theme = 'dark',
   activeDevice,
   onCloseContextSidebar,
@@ -1132,6 +1145,7 @@ export function RightSidebarManager({
   weatherConfig,
   activeGridBreakpoint,
   activeGridWidth = 0,
+  gridMetricsVersion,
   cardSizingEngine = CARD_SIZING_ENGINE,
   showCardSizingEngineControl = false,
   onCardSizingEngineChange,
@@ -1175,7 +1189,7 @@ export function RightSidebarManager({
   const contextSheetDragOffsetRef = React.useRef(0);
   const CONTEXT_SHEET_CLOSE_THRESHOLD_PX = 88;
   const shouldShowCompactContextSheet = !isEditMode && isCompactViewport && Boolean(activeDevice);
-  const shouldShowCompactEditSheet = isEditMode && isCompactViewport && hasEditSelection;
+  const shouldShowCompactEditSheet = isEditMode && isCompactViewport && hasEditSelection && !compactEditSheetHeld;
   const shouldShowAnyCompactSheet = shouldShowCompactContextSheet || shouldShowCompactEditSheet;
 
   React.useEffect(() => {
@@ -1270,11 +1284,43 @@ export function RightSidebarManager({
     });
   }, [selectedWidgetMicroWidgets]);
 
+  const isGridV2Metrics = gridMetricsVersion === 'v2';
+  const selectedLightMetrics = resolveGridLightRuntimeMetrics(gridMetricsVersion);
+  const selectedWidgetIsMeteredPower = React.useMemo(() => {
+    if (selectedWidget?.kind !== 'sensor') return false;
+    const attributes = resolveEntityStateById(haStates, selectedWidget.entityId)?.rawAttributes;
+    return isMeteredPower(attributes?.device_class, attributes?.unit_of_measurement ?? selectedWidget.unit);
+  }, [haStates, selectedWidget]);
+  const selectedWidgetEntityCapability = React.useMemo(() => {
+    if (!selectedWidget) return 'default' as const;
+    const entity = resolveEntityStateById(haStates, selectedWidget.entityId);
+    return resolveGridV2EntityCapability({
+      kind: selectedWidget.kind,
+      entityId: selectedWidget.entityId,
+      state: entity?.state,
+      rawAttributes: entity?.rawAttributes,
+      entity,
+    });
+  }, [haStates, selectedWidget]);
+  const canSelectedLightGrow = !isGridV2Metrics || selectedWidgetEntityCapability !== 'light-on-off';
+  // With v2 metrics every size the panel applies is one of the card's formats.
+  const snapGridV2Selection = React.useCallback((nextW: number, nextH: number) => {
+    if (!isGridV2Metrics || !selectedWidget) return { w: nextW, h: nextH };
+    return resolveNearestGridV2Format({
+      kind: selectedWidget.kind,
+      breakpoint: activeGridBreakpoint,
+      width: nextW,
+      height: nextH,
+      entityCapability: selectedWidgetEntityCapability,
+    }).span;
+  }, [activeGridBreakpoint, isGridV2Metrics, selectedWidget, selectedWidgetEntityCapability]);
+
   const applyWidgetTypeLayoutSelection = React.useCallback(
-    (nextW: number, nextH: number) => {
+    (requestedW: number, requestedH: number) => {
       if (!selectedWidget) {
         return;
       }
+      const { w: nextW, h: nextH } = snapGridV2Selection(requestedW, requestedH);
       const layoutCols = Math.max(1, Math.round(GRID_ENGINE_COLS[activeGridBreakpoint] ?? 1));
       const minimumW = selectedWidget.kind === 'cover' && activeGridBreakpoint !== 'xs' && activeGridBreakpoint !== 'sm'
         ? Math.min(layoutCols, 2)
@@ -1287,7 +1333,8 @@ export function RightSidebarManager({
       const nextOverride =
         selectedWidget.kind === 'light'
           ? createLightLayoutOverride(safeW, safeH, {
-              allowAutoExpand: lightAutoExpand,
+              allowAutoExpand: lightAutoExpand && canSelectedLightGrow,
+              metricsVersion: gridMetricsVersion,
             })
           : {
               w: safeW,
@@ -1303,10 +1350,13 @@ export function RightSidebarManager({
     },
     [
       activeGridBreakpoint,
+      canSelectedLightGrow,
+      gridMetricsVersion,
       layoutApplyScope,
       onUpdateWidgetLayoutOverride,
       onUpdateWidgetTypeLayoutOverride,
       selectedWidget,
+      snapGridV2Selection,
       widgetLayoutOverrides,
       widgetTypeLayoutOverrides,
     ],
@@ -1642,8 +1692,9 @@ export function RightSidebarManager({
   const sceneScriptSuggestions = haConnected
     ? haEntityIds.filter((entityId) => entityId.startsWith('script.'))
     : [];
-  const scenesShowBackground = selectedSection?.scenesShowBackground ?? true;
-  const scenesShowBorder = selectedSection?.scenesShowBorder ?? true;
+  // On a v2 Home the strip of a room sits on the page, as in Stanze.
+  const scenesShowBackground = selectedSection?.scenesShowBackground ?? !isGridV2Metrics;
+  const scenesShowBorder = selectedSection?.scenesShowBorder ?? !isGridV2Metrics;
   const stackShowBackground = selectedSection?.stackShowBackground ?? true;
   const stackShowBorder = selectedSection?.stackShowBorder ?? true;
   const stackShowHeader = selectedSection?.stackShowHeader ?? true;
@@ -1738,9 +1789,12 @@ export function RightSidebarManager({
     ? (layoutApplyScope === 'type'
       ? selectedWidgetTypeOverride?.autoExpand ?? true
       : selectedWidgetLayoutOverride?.autoExpand ?? selectedWidgetTypeOverride?.autoExpand ?? true) &&
-        selectedLightOffHeight <= 1
+        selectedLightOffHeight <= selectedLightMetrics.hOff &&
+        canSelectedLightGrow
     : false;
-  const canSelectedLightAutoExpand = selectedWidget?.kind === 'light' && selectedLightOffHeight <= 1;
+  const canSelectedLightAutoExpand = selectedWidget?.kind === 'light' &&
+    selectedLightOffHeight <= selectedLightMetrics.hOff &&
+    canSelectedLightGrow;
   const selectedLightOnHeight = selectedWidget?.kind === 'light'
     ? clampGridSpan(
         layoutApplyScope === 'type'
@@ -1754,7 +1808,7 @@ export function RightSidebarManager({
     ? `Spenta ${layoutPickerWidth}×${selectedLightOffHeight} → Accesa ${layoutPickerWidth}×${selectedLightOnHeight}`
     : canSelectedLightAutoExpand
       ? `Dimensione fissa ${layoutPickerWidth}×${layoutPickerHeight}`
-      : `Disponibile solo per il formato Mini ${layoutPickerWidth}×1`;
+      : `Disponibile solo per il formato Mini ${layoutPickerWidth}×${selectedLightMetrics.hOff}`;
   const handleLayoutApplyScopeChange = (nextScope: 'widget' | 'type') => {
     if (!selectedWidget || nextScope === layoutApplyScope) {
       return;
@@ -1764,6 +1818,7 @@ export function RightSidebarManager({
         selectedWidget.kind === 'light'
           ? createLightLayoutOverride(layoutPickerWidth, selectedLightOffHeight, {
               allowAutoExpand: selectedLightAutoExpand,
+              metricsVersion: gridMetricsVersion,
             })
           : {
               w: layoutPickerWidth,
@@ -1774,11 +1829,15 @@ export function RightSidebarManager({
     }
     setLayoutApplyScope(nextScope);
   };
-  const applyLightVariantSelection = (nextW: number, collapsedH: number) => {
+  const applyLightVariantSelection = (requestedW: number, requestedOffH: number) => {
     if (selectedWidget?.kind !== 'light') return;
+    const { w: nextW, h: collapsedH } = snapGridV2Selection(requestedW, requestedOffH);
     const safeW = clampGridSpan(nextW, layoutEditorCols);
     const safeOffH = clampGridSpan(collapsedH, GRID_LAYOUT_PREVIEW_MAX_ROWS);
-    const nextOverride = createLightLayoutOverride(safeW, safeOffH);
+    const nextOverride = createLightLayoutOverride(safeW, safeOffH, {
+      allowAutoExpand: canSelectedLightGrow,
+      metricsVersion: gridMetricsVersion,
+    });
     if (layoutApplyScope === 'widget') {
       onUpdateWidgetLayoutOverride(selectedWidget.id, activeGridBreakpoint, nextOverride);
     } else {
@@ -1789,6 +1848,7 @@ export function RightSidebarManager({
     if (selectedWidget?.kind !== 'light') return;
     const nextOverride = createLightLayoutOverride(layoutPickerWidth, selectedLightOffHeight, {
       allowAutoExpand: nextAutoExpand,
+      metricsVersion: gridMetricsVersion,
     });
     if (layoutApplyScope === 'widget') {
       onUpdateWidgetLayoutOverride(selectedWidget.id, activeGridBreakpoint, nextOverride);
@@ -2221,6 +2281,34 @@ export function RightSidebarManager({
                       : selectedWidget?.kind === 'calendar'
                         ? calendarDisplayVariantOptions
                       : [];
+  // v2 presets are formats (spec §3.1); two presets with the same format show once.
+  const displayVariantOptions = (() => {
+    if (!isGridV2Metrics || !selectedWidget) return selectedDisplayVariantOptions;
+    const seen = new Set<string>();
+    const currentH = selectedWidget.kind === 'light' ? selectedLightOffHeight : layoutPickerHeight;
+    return (selectedDisplayVariantOptions as Array<(typeof selectedDisplayVariantOptions)[number]>).flatMap((option) => {
+      const span = gridV2FormatSpan(resolveGridV2PresetFormat({
+        kind: selectedWidget.kind,
+        variant: option.id,
+        breakpoint: activeGridBreakpoint,
+        entityCapability: selectedWidgetEntityCapability,
+        isInsideStack: Boolean(selectedWidget.parentSectionId),
+      }), activeGridBreakpoint);
+      const targetW = clampGridSpan(span.w, layoutEditorCols);
+      const targetH = span.h;
+      if (seen.has(`${targetW}x${targetH}`)) return [];
+      seen.add(`${targetW}x${targetH}`);
+      const grows = canSelectedLightGrow && targetH <= selectedLightMetrics.hOff;
+      return [{
+        ...option,
+        targetW,
+        targetH,
+        ...('expandedH' in option ? { expandedH: grows ? selectedLightMetrics.hOn : targetH } : null),
+        isActive: targetW === layoutPickerWidth && targetH === currentH,
+        isAvailable: true,
+      }];
+    });
+  })();
   const shouldShowCardSizingEngineControl =
     showCardSizingEngineControl &&
     Boolean(onCardSizingEngineChange) &&
@@ -2656,9 +2744,9 @@ export function RightSidebarManager({
     };
   };
   const isCompactEditOverlayMode = isEditMode && isCompactViewport;
-  const compactEditPanelVisible = isCompactEditOverlayMode && hasEditSelection;
+  const compactEditPanelVisible = shouldShowCompactEditSheet;
   const editSidebarContainerClass = isCompactEditOverlayMode
-    ? `liquid-glass-sheet fixed inset-x-0 bottom-0 z-[219] flex max-h-[92dvh] min-h-[16rem] w-full flex-col p-3 py-2 transition-all duration-250 ${
+    ? `liquid-glass-sheet fixed inset-x-0 bottom-0 z-[219] flex max-h-[78dvh] min-h-[16rem] w-full flex-col p-3 py-2 transition-all duration-250 ${
         compactEditPanelVisible ? 'translate-y-0 opacity-100 pointer-events-auto' : 'translate-y-full opacity-0 pointer-events-none'
       }`
     : `liquid-glass-panel ${sidebarWidthClass} flex flex-col p-3 py-1 sm:p-4 sm:py-2 lg:p-5`;
@@ -2679,7 +2767,7 @@ export function RightSidebarManager({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onCloseContextSidebar}
-            className="fixed inset-0 z-[218] bg-[color:var(--ui-scrim)] backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 z-[218] bg-[color:var(--ui-scrim)] transition-opacity"
             aria-label={t('builder.closeConfiguration')}
           />
         ) : null}
@@ -2697,10 +2785,19 @@ export function RightSidebarManager({
         </div>
       ) : null}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">Builder</p>
-          <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">{t('builder.title')}</h3>
-        </div>
+        {isCompactEditOverlayMode ? (
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-[color:var(--ui-text-secondary)]">{t('builder.title')}</p>
+            <h3 className="mt-0.5 truncate text-xl font-semibold text-[color:var(--ui-text-primary)]">
+              {selectedWidget?.title?.trim() || selectedSection?.title?.trim() || selectedSidebarPath?.label || t('builder.title')}
+            </h3>
+          </div>
+        ) : (
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-text-tertiary)]">Builder</p>
+            <h3 className="mt-2 text-xl font-semibold text-[color:var(--ui-text-primary)]">{t('builder.title')}</h3>
+          </div>
+        )}
         {hasEditSelection ? (
           <button
             type="button"
@@ -3213,13 +3310,25 @@ export function RightSidebarManager({
                     <p className={BUILDER_LABEL_CLASS}>{bt('Anteprima')}</p>
                     <div className="dashboard-content-surface overflow-hidden rounded-[1.5rem] p-0">
                       <div className="h-[7rem] w-full">
-                        <ScenesCard
-                          title={selectedSection.title ?? 'Scenari'}
-                          scenes={scenesSelected}
-                          sceneLabels={sceneLabels}
-                          sceneIcons={sceneIcons}
-                          compact
-                        />
+                        {isGridV2Metrics ? (
+                          <React.Suspense fallback={null}>
+                            <GridV2ScenesCard
+                              title={selectedSection.title ?? 'Scenari'}
+                              scenes={scenesSelected}
+                              sceneLabels={sceneLabels}
+                              sceneIcons={sceneIcons}
+                              framed
+                            />
+                          </React.Suspense>
+                        ) : (
+                          <ScenesCard
+                            title={selectedSection.title ?? 'Scenari'}
+                            scenes={scenesSelected}
+                            sceneLabels={sceneLabels}
+                            sceneIcons={sceneIcons}
+                            compact
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3230,7 +3339,7 @@ export function RightSidebarManager({
                       onClick={() =>
                         onUpdateSection(selectedSection.id, (section) => ({
                           ...section,
-                          scenesShowBackground: !(section.scenesShowBackground ?? true),
+                          scenesShowBackground: !(section.scenesShowBackground ?? !isGridV2Metrics),
                         }))
                       }
                       className={`rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.16em] transition-colors ${
@@ -3246,7 +3355,7 @@ export function RightSidebarManager({
                       onClick={() =>
                         onUpdateSection(selectedSection.id, (section) => ({
                           ...section,
-                          scenesShowBorder: !(section.scenesShowBorder ?? true),
+                          scenesShowBorder: !(section.scenesShowBorder ?? !isGridV2Metrics),
                         }))
                       }
                       className={`rounded-xl border px-3 py-2 text-xs uppercase tracking-[0.16em] transition-colors ${
@@ -3800,9 +3909,9 @@ export function RightSidebarManager({
                     />
                   </div>
                 ) : null}
-                {(selectedWidget.kind === 'sensor' || selectedWidget.kind === 'light' || selectedWidget.kind === 'switch' || selectedWidget.kind === 'fan' || selectedWidget.kind === 'humidifier' || selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum' || selectedWidget.kind === 'calendar') && selectedDisplayVariantOptions.length > 0 ? (
+                {(selectedWidget.kind === 'sensor' || selectedWidget.kind === 'light' || selectedWidget.kind === 'switch' || selectedWidget.kind === 'fan' || selectedWidget.kind === 'humidifier' || selectedWidget.kind === 'climate' || selectedWidget.kind === 'alarm' || selectedWidget.kind === 'lock' || selectedWidget.kind === 'cover' || selectedWidget.kind === 'media' || selectedWidget.kind === 'camera' || selectedWidget.kind === 'vacuum' || selectedWidget.kind === 'calendar') && displayVariantOptions.length > 0 ? (
                   <div className="grid grid-cols-2 gap-2">
-                    {selectedDisplayVariantOptions.map((option) => (
+                    {displayVariantOptions.map((option) => (
                       <button
                         key={option.id}
                         type="button"
@@ -4115,6 +4224,29 @@ export function RightSidebarManager({
                     {bt('Automatico usa la precisione suggerita da Home Assistant o il default del device class.')}
                   </p>
                 </label>
+                {isGridV2Metrics && selectedWidgetIsMeteredPower ? (
+                  <label className="block">
+                    <p className={BUILDER_LABEL_CLASS}>{bt('Potenza del contatore (kW)')}</p>
+                    <input
+                      type="number"
+                      min={0.1}
+                      step={0.1}
+                      value={selectedWidget.sensorMeterKw ?? ''}
+                      placeholder={String(SENSOR_ALERT_THRESHOLDS.energy.meterKw)}
+                      onChange={(event) => {
+                        const next = Number(event.target.value);
+                        onUpdateWidget(selectedWidget.id, (widget) => ({
+                          ...widget,
+                          sensorMeterKw: Number.isFinite(next) && next > 0 ? next : undefined,
+                        }));
+                      }}
+                      className={BUILDER_INPUT_CLASS}
+                    />
+                    <p className={BUILDER_HELPER_CLASS}>
+                      {bt('La potenza che il contatore regge prima di staccare: un contratto da 3 kW arriva a 3,3 kW. La card avvisa dal 90%. Se lasci vuoto vale 3,3 kW.')}
+                    </p>
+                  </label>
+                ) : null}
                 <div className={BUILDER_CONTENT_CARD_SOFT_CLASS}>
                   <p className="text-[11px] text-[color:var(--ui-text-secondary)]">
                     {bt('Entita opzionali per metadati sensore. Se lasci vuoto, il pannello contestuale prova a leggere batteria, stato e connessione dagli attributi dell\'entita principale.')}

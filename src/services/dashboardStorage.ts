@@ -38,6 +38,7 @@ import {
   GRID_ENGINE_2_LAYOUT_ENGINE,
   type DashboardLayoutEngine,
 } from './dashboardConfigurationRepository';
+import type { GridMetricsVersion } from '../components/dashboard/gridEngine2/gridMetrics';
 
 export const DASHBOARD_LAYOUT_STORAGE_VERSION = 14;
 const STORAGE_VERSION = DASHBOARD_LAYOUT_STORAGE_VERSION;
@@ -72,6 +73,7 @@ type StoredLayout = {
   widgetLayoutOverrides?: WidgetLayoutOverrides;
   responsiveLayouts?: DashboardResponsiveLayouts;
   layoutEngine?: DashboardLayoutEngine;
+  gridMetricsVersion?: GridMetricsVersion;
 };
 
 export type DashboardLayoutSaveErrorCode =
@@ -1054,9 +1056,16 @@ function normalizeSection(section: DashboardSection, index: number): DashboardSe
   };
 }
 
-function normalizeWidget(widget: Widget, index: number, isRootWidget: boolean, parentSection?: DashboardSection): Widget {
-  const minWidth =
-    widget.kind === 'light'
+function normalizeWidget(
+  widget: Widget,
+  index: number,
+  isRootWidget: boolean,
+  parentSection?: DashboardSection,
+  gridMetricsVersion: GridMetricsVersion = 'legacy',
+): Widget {
+  const minWidth = gridMetricsVersion === 'v2'
+    ? parentSection?.kind === 'stack-vertical' ? 1 : 2
+    : widget.kind === 'light'
       ? parentSection?.kind === 'stack-vertical'
         ? 1
         : 2
@@ -1073,8 +1082,9 @@ function normalizeWidget(widget: Widget, index: number, isRootWidget: boolean, p
       : widget.kind === 'members'
         ? 2
         : 1;
-  const minHeight =
-    widget.kind === 'light'
+  const minHeight = gridMetricsVersion === 'v2'
+    ? 2
+    : widget.kind === 'light'
       ? widget.isOn
         ? 2
         : 1
@@ -1103,11 +1113,19 @@ function normalizeWidget(widget: Widget, index: number, isRootWidget: boolean, p
     ? Math.min(ROOT_CANVAS_COLS, Math.max(minWidth, Math.round(normalizedLayout.w)))
     : Math.max(minWidth, Math.round(normalizedLayout.w));
   const targetHeight =
-    widget.kind === 'light'
+    widget.kind === 'light' && gridMetricsVersion !== 'v2'
       ? minHeight
       : Math.max(minHeight, Math.round(normalizedLayout.h));
   const maxX = isRootWidget ? Math.max(0, ROOT_CANVAS_COLS - targetWidth) : Number.POSITIVE_INFINITY;
-  const { sensorDisplayPrecision: _storedSensorDisplayPrecision, ...widgetWithoutSensorDisplayPrecision } = widget;
+  const {
+    sensorDisplayPrecision: _storedSensorDisplayPrecision,
+    sensorMeterKw: _storedSensorMeterKw,
+    ...widgetWithoutSensorDisplayPrecision
+  } = widget;
+  const sensorMeterKw =
+    widget.kind === 'sensor' && typeof widget.sensorMeterKw === 'number' && Number.isFinite(widget.sensorMeterKw) && widget.sensorMeterKw > 0
+      ? widget.sensorMeterKw
+      : undefined;
   const sensorDisplayPrecision =
     widget.kind === 'sensor'
       ? normalizeSensorDisplayPrecision(widget.sensorDisplayPrecision)
@@ -1117,6 +1135,7 @@ function normalizeWidget(widget: Widget, index: number, isRootWidget: boolean, p
     ...widgetWithoutSensorDisplayPrecision,
     dataSource: widget.dataSource === 'mock' ? 'mock' : 'ha',
     ...(sensorDisplayPrecision !== undefined ? { sensorDisplayPrecision } : null),
+    ...(sensorMeterKw !== undefined ? { sensorMeterKw } : null),
     layout: {
       ...normalizedLayout,
       x: Math.min(normalizedLayout.x, maxX),
@@ -1144,6 +1163,7 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
   widgetLayoutOverrides: WidgetLayoutOverrides;
   responsiveLayouts: DashboardResponsiveLayouts;
   layoutEngine?: DashboardLayoutEngine;
+  gridMetricsVersion?: GridMetricsVersion;
 } {
   const initial = getInitialDashboardFixtures(runtimeMode);
   if (typeof window === 'undefined') {
@@ -1203,7 +1223,13 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
       const parentSection =
         typeof widget.parentSectionId === 'string' ? sectionById.get(widget.parentSectionId) : undefined;
       const isRootWidget = !parentSection;
-      const next = normalizeWidget(hydrateWidgetRuntimeDefaults(widget), index, isRootWidget, parentSection);
+      const next = normalizeWidget(
+        hydrateWidgetRuntimeDefaults(widget),
+        index,
+        isRootWidget,
+        parentSection,
+        hydrated.gridMetricsVersion === 'v2' ? 'v2' : 'legacy',
+      );
       return {
         ...next,
         parentSectionId: isRootWidget ? undefined : parentSection?.id,
@@ -1241,6 +1267,9 @@ export function loadDashboardLayout(runtimeMode: DashboardRuntimeMode = 'real'):
     ...(hydrated.layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
       ? { layoutEngine: GRID_ENGINE_2_LAYOUT_ENGINE }
       : null),
+    ...(hydrated.gridMetricsVersion === 'legacy' || hydrated.gridMetricsVersion === 'v2'
+      ? { gridMetricsVersion: hydrated.gridMetricsVersion }
+      : null),
   };
 }
 
@@ -1252,6 +1281,7 @@ export function saveDashboardLayout(
   widgetLayoutOverrides: WidgetLayoutOverrides = {},
   runtimeMode: DashboardRuntimeMode = 'real',
   layoutEngine?: DashboardLayoutEngine,
+  gridMetricsVersion?: GridMetricsVersion,
 ): DashboardLayoutSaveResult {
   const attemptedAt = Date.now();
   if (typeof window === 'undefined') {
@@ -1274,6 +1304,9 @@ export function saveDashboardLayout(
     responsiveLayouts: normalizeResponsiveLayouts(responsiveLayouts),
     ...(layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
       ? { layoutEngine: GRID_ENGINE_2_LAYOUT_ENGINE }
+      : null),
+    ...(gridMetricsVersion === 'legacy' || gridMetricsVersion === 'v2'
+      ? { gridMetricsVersion }
       : null),
   };
 

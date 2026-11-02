@@ -7,6 +7,7 @@ import type {
 } from '../types/widgetTypeLayout';
 import type { DashboardRuntimeMode } from '../security/dashboardAccess';
 import type { DashboardLayoutEngine } from '../services/dashboardConfigurationRepository';
+import type { GridMetricsVersion } from '../components/dashboard/gridEngine2/gridMetrics';
 import {
   saveDashboardLayout,
   type DashboardLayoutSaveErrorCode,
@@ -29,6 +30,7 @@ type DashboardLayoutPersistenceInput = {
   responsiveLayouts: DashboardResponsiveLayouts;
   widgetLayoutOverrides: WidgetLayoutOverrides;
   layoutEngine?: DashboardLayoutEngine;
+  gridMetricsVersion?: GridMetricsVersion;
   debounceMs?: number;
 };
 
@@ -48,6 +50,7 @@ export function useDashboardLayoutPersistence({
   responsiveLayouts,
   widgetLayoutOverrides,
   layoutEngine,
+  gridMetricsVersion,
   debounceMs = 220,
 }: DashboardLayoutPersistenceInput) {
   const [status, setStatus] = useState<DashboardLayoutSaveStatus>({ phase: 'idle' });
@@ -80,13 +83,14 @@ export function useDashboardLayoutPersistence({
       widgetLayoutOverrides,
       runtimeMode,
       layoutEngine,
+      gridMetricsVersion,
     );
 
     if (sequence === saveSequenceRef.current) {
       setStatus(statusFromSaveResult(result));
     }
     return result;
-  }, [layoutEngine, responsiveLayouts, runtimeMode, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
+  }, [gridMetricsVersion, layoutEngine, responsiveLayouts, runtimeMode, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
 
   useEffect(() => {
     if (!enabled || runtimeMode === null) {
@@ -105,6 +109,7 @@ export function useDashboardLayoutPersistence({
         widgetLayoutOverrides,
         runtimeMode,
         layoutEngine,
+        gridMetricsVersion,
       );
       if (sequence !== saveSequenceRef.current) {
         return;
@@ -122,6 +127,7 @@ export function useDashboardLayoutPersistence({
   }, [
     debounceMs,
     enabled,
+    gridMetricsVersion,
     layoutEngine,
     responsiveLayouts,
     runtimeMode,

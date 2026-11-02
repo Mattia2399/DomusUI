@@ -86,6 +86,25 @@ function editorFixture({ dynamicStack = false } = {}) {
   };
 }
 
+/*
+ * Stacks are suspended (src/components/dashboard/legacyStacks.ts): the Home 2.0
+ * activation and the v2 conversion would rewrite a saved Stack, so they refuse a
+ * Home that has one. Their own flows are exercised on the same Home without it.
+ */
+function withoutStack(layout) {
+  return {
+    ...layout,
+    sections: layout.sections.filter((section) => !section.kind.startsWith('stack-')),
+    widgets: layout.widgets.filter((item) => !item.parentSectionId),
+    responsiveLayouts: {
+      root: Object.fromEntries(Object.entries(layout.responsiveLayouts.root).map(([breakpoint, items]) => [
+        breakpoint,
+        items.filter((item) => item.i !== 'section.stack'),
+      ])),
+    },
+  };
+}
+
 function historicalSpanFixture() {
   const layout = editorFixture();
   delete layout.widgetTypeLayoutOverrides.sensor;
@@ -541,6 +560,24 @@ async function resizeEditorItem(page, id, deltaCellsY) {
   await expect(page.locator('[data-grid-engine-editor-gesture="IDLE"]')).toBeVisible();
 }
 
+async function resizeEditorItemWithPreview(page, id, deltaRows, rowStep) {
+  await page.locator(`[data-grid-engine-editor-item="${id}"]`).click();
+  const target = page.locator(`[data-grid-engine-editor-resize="${id}"]`);
+  await target.scrollIntoViewIfNeeded();
+  const bounds = await target.boundingBox();
+  if (!bounds) throw new Error(`Resize handle ${id} has no browser bounds.`);
+  const startX = bounds.x + bounds.width / 2;
+  const startY = bounds.y + bounds.height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX, startY + deltaRows * rowStep, { steps: 12 });
+  await expect(page.locator('[data-grid-engine-editor-gesture="RESIZING"]')).toBeVisible();
+  const preview = await cellGeometry(page, id);
+  await page.mouse.up();
+  await expect(page.locator('[data-grid-engine-editor-gesture="IDLE"]')).toBeVisible();
+  return { preview, committed: await cellGeometry(page, id) };
+}
+
 async function expectNoCellCollisions(page) {
   const items = await page.locator('[data-grid-engine-root-item]').evaluateAll((nodes) => nodes.map((node) => ({
     id: node.getAttribute('data-grid-engine-root-item'),
@@ -602,7 +639,7 @@ test('flag OFF keeps the legacy editor and ordinary Demo persistence unchanged',
 test('explicit Home 2.0 cutover works without DEV flags, saves normally, and reloads exact geometry', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
-  const source = editorFixture();
+  const source = withoutStack(editorFixture());
   await installDemo(page, source);
   const apiRequests = [];
   page.on('request', (request) => {
@@ -620,7 +657,7 @@ test('explicit Home 2.0 cutover works without DEV flags, saves normally, and rel
 
   await expect(page.locator('[data-grid-engine-editor="active"]')).toBeVisible();
   await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toBeVisible();
-  await expect(page.locator('[data-grid-engine-root-item]')).toHaveCount(5);
+  await expect(page.locator('[data-grid-engine-root-item]')).toHaveCount(4);
   expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
 
   await expect.poll(async () => page.evaluate((key) => {
@@ -659,7 +696,7 @@ test('explicit Home 2.0 cutover works without DEV flags, saves normally, and rel
 
 test('discarding an unsaved Home 2.0 cutover restores the complete legacy Home', async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1000 });
-  await installDemo(page, editorFixture());
+  await installDemo(page, withoutStack(editorFixture()));
   await page.goto('/home');
   await enterEditMode(page);
   const persistedBaseline = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
@@ -677,10 +714,214 @@ test('discarding an unsaved Home 2.0 cutover restores the complete legacy Home',
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
 });
 
+test('metrics v2 conversion previews, cancels, saves, and reloads through the real editor flow', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const source = { ...withoutStack(editorFixture()), layoutEngine: 'grid-engine-2' };
+  await installDemo(page, source);
+  await page.goto('/home');
+  await enterEditMode(page);
+  const persistedBaseline = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+
+  await page.getByRole('button', { name: 'Passa al nuovo layout v2', exact: true }).click();
+  const conversion = page.getByRole('dialog', { name: 'Passa al nuovo layout v2' });
+  await expect(conversion).toContainText('widget, entità e configurazioni resteranno invariati');
+  await conversion.getByRole('button', { name: 'Mostra anteprima v2', exact: true }).click();
+
+  const lightEditorItem = page.locator('[data-grid-engine-editor-item="root.light"]');
+  await expect(lightEditorItem).toBeVisible();
+  // The item is already visible before the draft re-renders with v2 metrics.
+  const lightHeight = async () => (await lightEditorItem.boundingBox())?.height ?? 0;
+  await expect.poll(lightHeight).toBeLessThanOrEqual(83);
+  expect(await lightHeight()).toBeGreaterThanOrEqual(81);
+  const sensorBeforeResize = await cellGeometry(page, 'root.sensor');
+  const sensorResize = await resizeEditorItemWithPreview(page, 'root.sensor', 1, 46);
+  expect(sensorBeforeResize).toMatchObject({ w: 4, h: 2 });
+  expect(sensorResize.preview).toMatchObject({ w: 4, h: 3 });
+  expect(sensorResize.committed).toEqual(sensorResize.preview);
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+
+  await page.getByRole('button', { name: 'Annulla conversione v2', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Passa al nuovo layout v2', exact: true })).toBeVisible();
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+
+  await page.getByRole('button', { name: 'Passa al nuovo layout v2', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Passa al nuovo layout v2' })
+    .getByRole('button', { name: 'Mostra anteprima v2', exact: true }).click();
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = page.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(exit.getByRole('button', { name: 'Salva ed esci', exact: true })).toBeEnabled();
+  await exit.getByRole('button', { name: 'Salva ed esci', exact: true }).click();
+
+  const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  expect(saved.layoutEngine).toBe('grid-engine-2');
+  expect(saved.gridMetricsVersion).toBe('v2');
+  expect(Object.keys(saved.responsiveLayouts.root).sort()).toEqual(Object.keys(BREAKPOINT_COLS).sort());
+  expect(saved.widgets.map((item) => [item.id, item.kind, item.entityId, item.parentSectionId ?? null]))
+    .toEqual(source.widgets.map((item) => [item.id, item.kind, item.entityId, item.parentSectionId ?? null]));
+
+  const savedGeometry = structuredClone(saved.responsiveLayouts);
+  await page.reload();
+  await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toBeVisible();
+  const reloaded = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  expect(reloaded.gridMetricsVersion).toBe('v2');
+  expect(reloaded.responsiveLayouts).toEqual(savedGeometry);
+});
+
+test('editing another XL card keeps converted v2 Greeting canonical geometry equal to XL', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const source = { ...withoutStack(editorFixture()), layoutEngine: 'grid-engine-2' };
+  source.sections.find((section) => section.id === 'section.greeting').showWeather = true;
+  await installDemo(page, source);
+  await page.goto('/home');
+  await enterEditMode(page);
+
+  await page.getByRole('button', { name: 'Passa al nuovo layout v2', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Passa al nuovo layout v2' })
+    .getByRole('button', { name: 'Mostra anteprima v2', exact: true }).click();
+  await expect.poll(async () => page.evaluate((key) => {
+    const draft = JSON.parse(sessionStorage.getItem(key));
+    return draft?.dashboard?.gridMetricsVersion ?? null;
+  }, DRAFT_KEY)).toBe('v2');
+  const sensorEditorItem = page.locator('[data-grid-engine-editor-item="root.sensor"]');
+  await expect(sensorEditorItem).toBeVisible();
+  await sensorEditorItem.focus();
+  await page.keyboard.press('ArrowDown');
+
+  await expect.poll(async () => page.evaluate((key) => {
+    const draft = JSON.parse(sessionStorage.getItem(key));
+    const canonical = draft?.dashboard?.sections
+      ?.find((section) => section.id === 'section.greeting')?.layout;
+    const xl = draft?.dashboard?.responsiveLayouts?.root?.xl
+      ?.find((item) => item.i === 'section.greeting');
+    return canonical && xl ? { canonical, xl } : null;
+  }, DRAFT_KEY)).toEqual({
+    canonical: { i: 'section.greeting', x: 0, y: 0, w: 12, h: 3 },
+    xl: { i: 'section.greeting', x: 0, y: 0, w: 12, h: 3 },
+  });
+
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = page.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(exit.getByRole('button', { name: 'Salva ed esci', exact: true })).toBeEnabled();
+  await exit.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
+});
+
+test('an unchanged historical Greeting canonical/XL difference does not block another XL edit', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const source = { ...withoutStack(editorFixture()), layoutEngine: 'grid-engine-2' };
+  source.sections.find((section) => section.id === 'section.greeting').showWeather = true;
+  await installDemo(page, source);
+  await page.goto('/home');
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+  await dragEditorItem(page, 'root.sensor', 1);
+
+  await expect.poll(async () => page.evaluate((key) => {
+    const draft = JSON.parse(sessionStorage.getItem(key));
+    const canonical = draft?.dashboard?.sections
+      ?.find((section) => section.id === 'section.greeting')?.layout;
+    const xl = draft?.dashboard?.responsiveLayouts?.root?.xl
+      ?.find((item) => item.i === 'section.greeting');
+    return canonical && xl ? { canonical, xl } : null;
+  }, DRAFT_KEY)).toEqual({
+    canonical: { i: 'section.greeting', x: 0, y: 0, w: 12, h: 2 },
+    xl: { i: 'section.greeting', x: 0, y: 0, w: 4, h: 1 },
+  });
+
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = page.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(exit.getByRole('button', { name: 'Salva ed esci', exact: true })).toBeEnabled();
+  await exit.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
+});
+
+test('a Home with a saved Stack refuses the Home 2.0 activation and leaves it untouched', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, editorFixture());
+  await page.goto('/home');
+  await enterEditMode(page);
+  const persistedBaseline = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+
+  await page.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  const activation = page.getByRole('dialog', { name: 'Attiva nuova Home 2.0' });
+  await expect(activation.getByRole('alert')).toContainText('Stack salvati');
+  await activation.getByRole('button', { name: 'Attiva nuova Home 2.0', exact: true }).click();
+  await expect(activation.getByRole('alert')).toContainText('Stack salvati');
+  const draft = await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY);
+  expect(draft ? JSON.parse(draft).dashboard?.layoutEngine : undefined).not.toBe('grid-engine-2');
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+});
+
+test('a v2 Home conversion is refused while a saved Stack is present', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, { ...editorFixture(), layoutEngine: 'grid-engine-2' });
+  await page.goto('/home');
+  await enterEditMode(page);
+  const persistedBaseline = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+
+  await page.getByRole('button', { name: 'Passa al nuovo layout v2', exact: true }).click();
+  const conversion = page.getByRole('dialog', { name: 'Passa al nuovo layout v2' });
+  await expect(conversion.getByRole('alert')).toContainText('Stack salvati');
+  await conversion.getByRole('button', { name: 'Mostra anteprima v2', exact: true }).click();
+  await expect(conversion.getByRole('alert')).toContainText('Stack salvati');
+  await expect(page.getByRole('button', { name: 'Annulla conversione v2', exact: true })).toHaveCount(0);
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(persistedBaseline);
+});
+
+test('a saved Stack renders, never resizes, and stays identical when another card is moved and saved', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const source = { ...editorFixture(), layoutEngine: 'grid-engine-2' };
+  await installDemo(page, source);
+  await page.goto('/home');
+  await expect(page.getByText('Figlio Stack')).toBeVisible();
+  await enterEditMode(page);
+  await selectDesktopPreview(page);
+
+  // Shift+arrow resizes a card; on a saved Stack it does nothing.
+  const stackBefore = await cellGeometry(page, 'section.stack');
+  const stackItem = page.locator('[data-grid-engine-editor-item="section.stack"]');
+  await stackItem.focus();
+  await stackItem.press('Shift+ArrowRight');
+  await expect.poll(() => cellGeometry(page, 'section.stack')).toMatchObject({ w: stackBefore.w, h: stackBefore.h });
+
+  const before = await cellGeometry(page, 'root.switch');
+  const switchItem = page.locator('[data-grid-engine-editor-item="root.switch"]');
+  await switchItem.focus();
+  await switchItem.press('ArrowDown');
+  await expect.poll(() => cellGeometry(page, 'root.switch')).toMatchObject({ y: before.y + 1 });
+
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = page.getByRole('dialog').filter({ hasText: 'Uscire' });
+  const save = exit.getByRole('button', { name: 'Salva ed esci', exact: true });
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+
+  const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
+  const stackOf = (layout) => ({
+    section: (({ layout: _layout, ...settings }) => settings)(layout.sections.find((section) => section.id === 'section.stack')),
+    child: layout.widgets.find((item) => item.id === 'stack.child'),
+    inner: layout.responsiveLayouts.stacks['section.stack'],
+  });
+  const savedStack = stackOf(saved);
+  const sourceStack = stackOf(source);
+  expect(savedStack.section).toEqual(sourceStack.section);
+  expect(savedStack.child.parentSectionId).toBe('section.stack');
+  expect(savedStack.child.layout).toEqual(sourceStack.child.layout);
+  expect(savedStack.inner).toEqual(sourceStack.inner);
+  expect(saved.responsiveLayouts.root.xl.find((item) => item.i === 'section.stack').w)
+    .toBe(source.responsiveLayouts.root.xl.find((item) => item.i === 'section.stack').w);
+
+  await page.reload();
+  await expect(page.getByText('Figlio Stack')).toBeVisible();
+});
+
 test('simulated HA cutover archives the legacy revision before publishing Home 2.0', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
-  await installSimulatedHaQa(page, editorFixture());
+  await installSimulatedHaQa(page, withoutStack(editorFixture()));
   const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
   await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
   const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
@@ -711,10 +952,56 @@ test('simulated HA cutover archives the legacy revision before publishing Home 2
     .toEqual(Object.keys(BREAKPOINT_COLS).sort());
 });
 
+test('simulated HA v2 conversion preserves root inventory, saves revision 85, and reloads', async ({ page }) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  const source = { ...withoutStack(editorFixture()), layoutEngine: 'grid-engine-2' };
+  await installSimulatedHaQa(page, source);
+  const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
+  await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
+  const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
+  if (!panelFrame) throw new Error('Simulated Home Assistant panel frame not found.');
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedReads ?? 0))
+    .toBeGreaterThan(0);
+
+  await enterEditMode(frame);
+  await frame.getByRole('button', { name: 'Passa al nuovo layout v2', exact: true }).click();
+  await frame.getByRole('dialog', { name: 'Passa al nuovo layout v2' })
+    .getByRole('button', { name: 'Mostra anteprima v2', exact: true }).click();
+  await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  const exit = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
+  await expect(exit).toContainText('nuova geometria Home 2.0 è valida');
+  await expect(exit).not.toContainText('inventario root è cambiato');
+  await exit.getByRole('button', { name: 'Salva ed esci', exact: true }).click();
+
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedWrites ?? 0)).toBe(1);
+  const saved = await page.evaluate(() => structuredClone(window.__qaSaveHaState));
+  expect(saved.historyWrites).toBe(1);
+  expect(saved.sharedDocument.revision).toBe(85);
+  expect(saved.sharedDocument.dashboard.gridMetricsVersion).toBe('v2');
+  expect(saved.sharedDocument.dashboard.sections.map((section) => [section.id, section.kind]))
+    .toEqual(source.sections.map((section) => [section.id, section.kind]));
+  expect(saved.sharedDocument.dashboard.widgets.map((item) => [
+    item.id, item.kind, item.entityId, item.parentSectionId ?? null,
+  ])).toEqual(source.widgets.map((item) => [
+    item.id, item.kind, item.entityId, item.parentSectionId ?? null,
+  ]));
+
+  const readsBeforeReload = saved.sharedReads;
+  await panelFrame.evaluate(() => window.location.reload());
+  await expect(frame.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toBeVisible();
+  await panelFrame.evaluate(() => window.dispatchEvent(new Event('focus')));
+  await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedReads ?? 0))
+    .toBeGreaterThan(readsBeforeReload);
+  await enterEditMode(frame);
+  await expect(frame.getByRole('button', { name: 'Passa al nuovo layout v2', exact: true })).toHaveCount(0);
+});
+
 test('simulated HA cutover stays open and unwritten when a newer revision is pending', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
-  await installSimulatedHaQa(page, editorFixture());
+  await installSimulatedHaQa(page, withoutStack(editorFixture()));
   const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
   await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
   const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
@@ -746,7 +1033,7 @@ test('simulated HA cutover stays open and unwritten when a newer revision is pen
 test('simulated HA write failure keeps the cutover retryable and discard restores legacy', async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
-  await installSimulatedHaQa(page, editorFixture());
+  await installSimulatedHaQa(page, withoutStack(editorFixture()));
   const frame = page.frameLocator('iframe[title="Home Assistant panel"]');
   await expect(frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first()).toBeVisible();
   const panelFrame = page.frames().find((candidate) => candidate.parentFrame());
@@ -899,7 +1186,7 @@ test('DEV flag ON integrates authentic cards, GE2 gestures, history, breakpoints
   } else {
     await expect(freshExitDialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' }))
       .toBeDisabled();
-    await expect(freshExitDialog).toContainText('flag dellâ€™editor da solo non abilita scritture');
+    await expect(freshExitDialog).toContainText('flag dell’editor da solo non abilita scritture');
   }
   await freshExitDialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();

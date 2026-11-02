@@ -66,6 +66,28 @@ describe('Grid Engine runtime overrides', () => {
     expect(result.structuralLayout).toEqual(structural);
   });
 
+  it('keeps an ineligible on Light at its persisted v2 OFF height', () => {
+    const structural = [
+      { i: 'light', x: 0, y: 0, w: 2, h: 2 },
+      { i: 'below', x: 0, y: 2, w: 2, h: 2 },
+    ] as const;
+    const result = deriveGridEngineRuntimeOverrides({
+      breakpoint: 'xl',
+      cols: 12,
+      metricsVersion: 'v2',
+      structuralLayout: structural,
+      legacyRuntimeLayout: structural,
+      rootElements: roots,
+      lightStates: [{ id: 'light', isOn: true, canAutoExpand: false }],
+      widgetLayoutOverrides: {
+        light: { xl: { w: 2, hOff: 2, hOn: 3, autoExpand: true } },
+      },
+    });
+
+    expect(result.overrides).toEqual([]);
+    expect(result.structuralLayout).toEqual(structural);
+  });
+
   it('keeps dynamic Stack measurement runtime-only for an activated GE2 Home', () => {
     const structural = [{ i: 'stack', x: 0, y: 0, w: 6, h: 4 }] as const;
     const result = deriveGridEngineRuntimeOverrides({

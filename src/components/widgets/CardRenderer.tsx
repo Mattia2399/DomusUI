@@ -20,10 +20,20 @@ import { GreetingWeatherCard } from './GreetingWeatherCard';
 import { WeatherCard } from './WeatherCard';
 import { ScenesCard, SCENES_CATALOG } from './ScenesCard';
 import { resolveWidgetDisplayVariant, type WidgetDisplayMetrics } from './widgetDisplayVariant';
+import { resolveGridV2BoxFormat, resolveGridV2EntityCapability } from './cardCapabilityRegistry';
+import type { GridMetricsVersion } from '../dashboard/gridEngine2/gridMetrics';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
 import { ROOT_CANVAS_ROW_UNITS, type DashboardSection, type SceneKey, type Widget } from '../../types/dashboardModels';
 import type { GridEngineBreakpoint } from '../dashboard/dashboardBreakpointConfig';
 import type { MockEntityState } from '../../types/ha';
+
+// The cards of a room, drawn on a Home with the v2 metrics; legacy Homes never load them.
+const GridV2DeviceCard = React.lazy(() => import('./GridV2DeviceCard'));
+const GridV2ScenesCard = React.lazy(() => import('./GridV2ScenesCard'));
+const GRID_V2_SHARED_CARD_KINDS = new Set<Widget['kind']>([
+  'light', 'switch', 'fan', 'humidifier', 'cover', 'climate', 'sensor', 'lock', 'camera', 'media',
+  'alarm', 'vacuum', 'calendar', 'members',
+]);
 
 type HouseMemberCardItem = {
   id: string;
@@ -46,6 +56,8 @@ type WidgetCardRendererProps = {
   onClick: () => void;
   onLightBrightnessChange?: (widget: Widget, value: number) => void;
   onLightColorChange?: (widget: Widget, hs: [number, number]) => void;
+  /** v2 cards only: the white tone from the card; without it the tone stays in the panel. */
+  onLightColorTempChange?: (widget: Widget, kelvin: number) => void;
   onSwitchToggle?: (widget: Widget) => void;
   onFanToggle?: (widget: Widget) => void;
   onFanPercentageChange?: (widget: Widget, percentage: number) => void;
@@ -71,6 +83,8 @@ type WidgetCardRendererProps = {
   onMediaShuffle?: (widget: Widget) => void;
   onMediaRepeat?: (widget: Widget) => void;
   onMediaSelectSource?: (widget: Widget, source: string) => void;
+  /** v2 cards only: 0–100, as the Home volume control; without it the volume stays in the player. */
+  onMediaVolumeChange?: (widget: Widget, volume: number) => void;
   mediaHideHeader?: boolean;
   onAlarmDisarm?: (widget: Widget) => void;
   onAlarmArm?: (widget: Widget, mode: 'home' | 'away' | 'night' | 'vacation' | 'custom_bypass') => void;
@@ -89,70 +103,101 @@ type WidgetCardRendererProps = {
   gridBreakpoint?: GridEngineBreakpoint;
   houseMembers?: HouseMemberCardItem[];
   onDisplayMetricsChange?: (metrics: WidgetDisplayMetrics) => void;
+  /** 'v2' draws the cards of a room in the format of their box (docs/home-cards-grid-engine-2.md §7). */
+  gridMetricsVersion?: GridMetricsVersion;
 };
 
-function WidgetCardRendererComponent({
-  widget,
-  dashboardState,
-  isEditMode,
-  isInteractive = true,
-  isSelected,
-  value,
-  sensorHistory,
-  sensorBatteryEntity,
-  switchConsumptionEntity,
-  onClick,
-  onLightBrightnessChange,
-  onLightColorChange,
-  onSwitchToggle,
-  onFanToggle,
-  onFanPercentageChange,
-  onFanPresetChange,
-  onFanOscillationChange,
-  onFanDirectionChange,
-  onHumidifierToggle,
-  onHumidifierTargetHumidityChange,
-  onHumidifierModeChange,
-  onClimateTargetTempChange,
-  onClimateTargetRangeChange,
-  onClimateTargetHumidityChange,
-  onClimatePowerToggle,
-  onClimateModeChange,
-  onClimateFanModeChange,
-  onClimatePresetModeChange,
-  onClimateSwingModeChange,
-  onClimateSwingHorizontalModeChange,
-  onMediaToggle,
-  onMediaPrevious,
-  onMediaNext,
-  onMediaSeek,
-  onMediaShuffle,
-  onMediaRepeat,
-  onMediaSelectSource,
-  mediaHideHeader = false,
-  onAlarmDisarm,
-  onAlarmArm,
-  onVacuumStartPause,
-  onVacuumStop,
-  onVacuumReturnToBase,
-  onLockToggle,
-  onLockOpen,
-  onCoverPositionChange,
-  onCoverTiltPositionChange,
-  onCoverOpen,
-  onCoverStop,
-  onCoverClose,
-  onMembersOpenPanel,
-  liveEntity,
-  gridBreakpoint,
-  houseMembers,
-  onDisplayMetricsChange,
-}: WidgetCardRendererProps) {
+export type WidgetCardCallbacks = Pick<WidgetCardRendererProps, Extract<keyof WidgetCardRendererProps, `on${string}`>>;
+
+function WidgetCardRendererComponent(props: WidgetCardRendererProps) {
+  const {
+    widget,
+    dashboardState,
+    isEditMode,
+    isInteractive = true,
+    isSelected,
+    value,
+    sensorHistory,
+    sensorBatteryEntity,
+    switchConsumptionEntity,
+    onClick,
+    onLightBrightnessChange,
+    onLightColorChange,
+    onSwitchToggle,
+    onFanToggle,
+    onFanPercentageChange,
+    onFanPresetChange,
+    onFanOscillationChange,
+    onFanDirectionChange,
+    onHumidifierToggle,
+    onHumidifierTargetHumidityChange,
+    onHumidifierModeChange,
+    onClimateTargetTempChange,
+    onClimateTargetRangeChange,
+    onClimateTargetHumidityChange,
+    onClimatePowerToggle,
+    onClimateModeChange,
+    onClimateFanModeChange,
+    onClimatePresetModeChange,
+    onClimateSwingModeChange,
+    onClimateSwingHorizontalModeChange,
+    onMediaToggle,
+    onMediaPrevious,
+    onMediaNext,
+    onMediaSeek,
+    onMediaShuffle,
+    onMediaRepeat,
+    onMediaSelectSource,
+    mediaHideHeader = false,
+    onAlarmDisarm,
+    onAlarmArm,
+    onVacuumStartPause,
+    onVacuumStop,
+    onVacuumReturnToBase,
+    onLockToggle,
+    onLockOpen,
+    onCoverPositionChange,
+    onCoverTiltPositionChange,
+    onCoverOpen,
+    onCoverStop,
+    onCoverClose,
+    onMembersOpenPanel,
+    liveEntity,
+    gridBreakpoint,
+    houseMembers,
+    onDisplayMetricsChange,
+    gridMetricsVersion,
+  } = props;
   const controlsEnabled = !isEditMode && isInteractive;
   // security.view: the alarm and the cameras of a shared Home are not shown to an account without it.
   const canViewSecurity = useCan('security.view');
   if ((widget.kind === 'alarm' || widget.kind === 'camera') && !canViewSecurity) {
     return <AccessRestrictedCard />;
+  }
+  if (gridMetricsVersion === 'v2' && GRID_V2_SHARED_CARD_KINDS.has(widget.kind)) {
+    const format = resolveGridV2BoxFormat({
+      kind: widget.kind,
+      breakpoint: gridBreakpoint ?? 'xl',
+      width: widget.layout.w,
+      height: widget.layout.h,
+      entityCapability: resolveGridV2EntityCapability({
+        kind: widget.kind,
+        entityId: widget.entityId,
+        state: liveEntity?.state,
+        rawAttributes: liveEntity?.rawAttributes,
+        entity: liveEntity,
+      }),
+    });
+    return (
+      <React.Suspense fallback={<div className="h-full w-full" aria-hidden="true" />}>
+        <GridV2DeviceCard
+          {...props}
+          format={format}
+          controlsEnabled={controlsEnabled}
+          fallback={<WidgetCardRendererComponent {...props} gridMetricsVersion="legacy" />}
+        />
+      </React.Suspense>
+    );
   }
   const displayVariant = resolveWidgetDisplayVariant({
     kind: widget.kind,
@@ -477,6 +522,11 @@ function areWidgetCardRendererPropsEqual(prevProps: WidgetCardRendererProps, nex
   if (prevProps.onLightColorChange !== nextProps.onLightColorChange) {
     return false;
   }
+  if (prevProps.gridMetricsVersion !== nextProps.gridMetricsVersion ||
+      prevProps.onLightColorTempChange !== nextProps.onLightColorTempChange ||
+      prevProps.onMediaVolumeChange !== nextProps.onMediaVolumeChange) {
+    return false;
+  }
   if (prevProps.onFanToggle !== nextProps.onFanToggle ||
       prevProps.onFanPercentageChange !== nextProps.onFanPercentageChange ||
       prevProps.onFanPresetChange !== nextProps.onFanPresetChange ||
@@ -543,11 +593,12 @@ type SectionCardRendererProps = {
   state: DashboardStateShape;
   compact?: boolean;
   isEditMode?: boolean;
+  gridMetricsVersion?: GridMetricsVersion;
   onWeatherClick?: () => void;
   runningSceneId?: SceneKey | null;
   runningSceneStartedAt?: number | null;
   onAddScene?: (sceneId: SceneKey) => void;
-  onSceneTrigger?: (sceneId: SceneKey) => void;
+  onSceneTrigger?: (sceneId: SceneKey) => void | Promise<boolean | void>;
 };
 
 export function SectionCardRenderer({
@@ -555,6 +606,7 @@ export function SectionCardRenderer({
   state,
   compact = false,
   isEditMode = false,
+  gridMetricsVersion,
   onWeatherClick,
   runningSceneId,
   runningSceneStartedAt,
@@ -616,6 +668,26 @@ export function SectionCardRenderer({
         forecastDensity={section.weatherForecastDensity}
         secondaryInfo={section.weatherSecondaryInfo}
       />
+    );
+  }
+
+  if (gridMetricsVersion === 'v2') {
+    return (
+      <React.Suspense fallback={<div className="h-full w-full" aria-hidden="true" />}>
+        <GridV2ScenesCard
+          title={section.title ?? 'Scenari'}
+          scenes={section.scenes ?? SCENES_CATALOG.slice(0, 4).map((scene) => scene.id)}
+          sceneLabels={section.sceneLabels}
+          sceneIcons={section.sceneIcons}
+          framed={section.scenesShowBackground === true || section.scenesShowBorder === true}
+          isEditMode={isEditMode}
+          runningSceneId={runningSceneId}
+          runningSceneStartedAt={runningSceneStartedAt}
+          durationScope={section.id}
+          onAddScene={onAddScene}
+          onSceneTrigger={onSceneTrigger}
+        />
+      </React.Suspense>
     );
   }
 

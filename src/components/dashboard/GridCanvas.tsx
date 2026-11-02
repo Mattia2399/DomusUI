@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Responsive, type ResponsiveLayouts } from 'react-grid-layout/legacy';
 import {
-  Maximize2,
+  Settings2,
   MoreHorizontal,
 } from 'lucide-react';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
@@ -12,8 +12,6 @@ import { SCENES_CATALOG } from '../widgets/ScenesCard';
 import {
   GRID_ENGINE_BREAKPOINTS,
   GRID_ENGINE_COLS,
-  GRID_ENGINE_GAP_PX,
-  GRID_ENGINE_ROW_UNIT_PX,
 } from './DashboardGrid';
 import { StackGrid } from './StackGrid';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
@@ -81,7 +79,16 @@ import {
   prepareGridEngineEditorLayout,
   type GridEngineEditorGeometryOrigin,
 } from './gridEngine2/gridEngineEditorIntegration';
-import { LEGACY_GRID_METRICS } from './gridEngine2/gridMetrics';
+import {
+  resolveGridMetrics,
+  type GridMetricsDefinition,
+  type GridMetricsVersion,
+} from './gridEngine2/gridMetrics';
+import {
+  resolveGridV2EntityCapability,
+} from '../widgets/cardCapabilityRegistry';
+import { isLegacyStackKind, LEGACY_STACKS_READ_ONLY } from './legacyStacks';
+import { snapGridV2ResizeDestination } from './gridEngine2/gridV2ResizeAdapter';
 import type { GridLayoutMode } from './gridEngine2/model';
 import { solveLayout } from './gridEngine2/solveLayout';
 import {
@@ -143,6 +150,7 @@ type HouseMemberCardItem = {
 type GridCanvasProps = {
   isEditMode: boolean;
   gridEngine2Active: boolean;
+  gridMetricsVersion?: GridMetricsVersion;
   layoutRevision?: number;
   previewGridWidth?: number;
   developerMode: boolean;
@@ -165,7 +173,11 @@ type GridCanvasProps = {
   onSelectWidget: (id: string | null) => void;
   onSelectSection: (id: string | null) => void;
   onWeatherClick: () => void;
-  onSceneTrigger: (section: DashboardSection, sceneId: SceneKey) => void | Promise<void>;
+  onSceneTrigger: (section: DashboardSection, sceneId: SceneKey) => void | Promise<boolean | void>;
+  /** On a phone: what is selected next stays on the canvas, without opening its settings. */
+  onHoldEditSheet?: () => void;
+  /** On a phone: opens the settings of what is selected. */
+  onOpenEditSheet?: () => void;
   onWidgetClick: (widget: Widget) => void;
   onWidgetLongPress: (widget: Widget) => void;
   onWidgetLightToggle: (widget: Widget) => void;
@@ -180,6 +192,7 @@ type GridCanvasProps = {
   onWidgetHumidifierModeChange: (widget: Widget, mode: string) => void;
   onWidgetBrightnessChange: (widget: Widget, value: number) => void;
   onWidgetLightColorChange: (widget: Widget, hs: [number, number]) => void;
+  onWidgetLightColorTempChange?: (widget: Widget, kelvin: number) => void;
   onWidgetClimateTargetTempChange: (widget: Widget, value: number) => void;
   onWidgetClimateTargetRangeChange: (widget: Widget, low: number, high: number) => void;
   onWidgetClimateTargetHumidityChange: (widget: Widget, value: number) => void;
@@ -193,6 +206,7 @@ type GridCanvasProps = {
   onWidgetMediaPrevious: (widget: Widget) => void;
   onWidgetMediaNext: (widget: Widget) => void;
   onWidgetMediaSeek: (widget: Widget, position: number) => void;
+  onWidgetMediaVolumeChange?: (widget: Widget, volume: number) => void;
   onWidgetMediaShuffle: (widget: Widget) => void;
   onWidgetMediaRepeat: (widget: Widget) => void;
   onWidgetMediaSelectSource: (widget: Widget, source: string) => void;
@@ -245,6 +259,8 @@ function GridEngineEditorInteractionLayer({
   canResize,
   gesture,
   onSelect,
+  onOpenSettings,
+  settingsLabel,
   onKeyDown,
 }: Readonly<{
   id: string;
@@ -253,24 +269,33 @@ function GridEngineEditorInteractionLayer({
   canResize: boolean;
   gesture: GridEngineEditorGestureController;
   onSelect: () => void;
+  /** On a phone the settings open only from here: a touch selects, a long press lifts. */
+  onOpenSettings?: () => void;
+  settingsLabel?: string;
   onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
 }>) {
   const active = gesture.state.activeId === id && gesture.state.phase !== 'IDLE';
+  const lifted = active && gesture.state.phase === 'DRAGGING';
+  const pressing = active && gesture.state.phase === 'PRESSING' && gesture.state.pointerType === 'touch';
+  // A card that is lifted is the one being worked on.
+  useEffect(() => {
+    if (lifted && !selected) onSelect();
+  }, [lifted, onSelect, selected]);
   return (
     <>
       <button
         type="button"
         data-grid-engine-editor-item={id}
+        data-editor-state={lifted ? 'lifted' : pressing ? 'pressing' : selected ? 'selected' : undefined}
         aria-label={`Sposta ${label}`}
         aria-describedby="dashboard-grid-keyboard-help"
-        className={`absolute inset-0 z-30 rounded-xl bg-transparent text-left outline-none transition-shadow ${
-          selected ? 'ring-2 ring-cyan-300/85 ring-inset' : 'focus-visible:ring-2 focus-visible:ring-cyan-200/75 focus-visible:ring-inset'
-        } ${active ? 'cursor-grabbing shadow-[0_16px_38px_rgba(0,0,0,0.32)]' : 'cursor-grab'}`}
+        className={`grid-editor-item absolute inset-0 z-30 bg-transparent text-left outline-none ${active ? 'cursor-grabbing' : 'cursor-grab'}`}
         style={{ touchAction: 'pan-y' }}
         onPointerDown={(event) => {
           event.stopPropagation();
           gesture.onDragPointerDown(id, event);
         }}
+        onContextMenu={(event) => event.preventDefault()}
         onLostPointerCapture={gesture.onLostPointerCapture}
         onClick={(event) => {
           event.stopPropagation();
@@ -285,13 +310,32 @@ function GridEngineEditorInteractionLayer({
           onKeyDown(event);
         }}
       />
-      {canResize && selected ? (
+      {onOpenSettings && selected && !lifted ? (
+        <button
+          type="button"
+          data-grid-no-drag="true"
+          data-grid-engine-editor-settings={id}
+          aria-label={settingsLabel}
+          title={settingsLabel}
+          className="grid-editor-chip absolute right-0 top-0 z-40"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenSettings();
+          }}
+        >
+          <span aria-hidden="true">
+            <Settings2 className="h-4 w-4" />
+          </span>
+        </button>
+      ) : null}
+      {canResize && selected && !lifted ? (
         <button
           type="button"
           data-grid-no-drag="true"
           data-grid-engine-editor-resize={id}
           aria-label={`Ridimensiona ${label}`}
-          className="absolute -bottom-1 -right-1 z-40 flex h-9 w-9 touch-none items-center justify-center rounded-xl border border-cyan-200/45 bg-[#10232a]/95 text-cyan-50 shadow-[0_8px_22px_rgba(0,0,0,0.34)] transition hover:scale-105 hover:bg-[#15313a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+          className="grid-editor-resize absolute bottom-0 right-0 z-40 touch-none"
           style={{ touchAction: 'none' }}
           onPointerDown={(event) => {
             event.preventDefault();
@@ -300,7 +344,9 @@ function GridEngineEditorInteractionLayer({
           }}
           onLostPointerCapture={gesture.onLostPointerCapture}
         >
-          <Maximize2 className="h-4 w-4" aria-hidden="true" />
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M25 5V8A17 17 0 0 1 8 25H5" />
+          </svg>
         </button>
       ) : null}
     </>
@@ -325,7 +371,6 @@ const GRID_ENGINE_MD_COLS = GRID_ENGINE_COLS.md;
 const GRID_ENGINE_LG_COLS = GRID_ENGINE_COLS.lg;
 const GRID_ENGINE_CANONICAL_BREAKPOINT: GridBreakpoint = 'xl';
 const GRID_ENGINE_CANONICAL_COLS = GRID_ENGINE_XL_COLS;
-const GRID_ENGINE_ROW_UNIT = GRID_ENGINE_ROW_UNIT_PX;
 const GRID_ENGINE_BREAKPOINT_ORDER: GridBreakpoint[] = ['2xl', 'xl', 'lg', 'md', 'sm', 'xs'];
 const RUNTIME_GRID_WIDTH_JITTER_PX = 2;
 const GRID_ENGINE_CONTAINER_PADDING: Record<GridBreakpoint, [number, number]> = {
@@ -345,13 +390,14 @@ const GRID_ENGINE_2_SHADOW_SETTLE_MS = 160;
 function createRuntimeGeometryMeasurementSignature(
   breakpoint: GridBreakpoint,
   width: number,
+  metrics: GridMetricsDefinition,
 ) {
   return JSON.stringify({
     breakpoint,
     width: Math.round(width * 100) / 100,
     cols: GRID_ENGINE_COLS[breakpoint],
-    rowHeight: GRID_ENGINE_ROW_UNIT,
-    gap: [GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX],
+    rowHeight: metrics.rowHeight,
+    gap: [metrics.horizontalGap, metrics.verticalGap],
     padding: GRID_ENGINE_CONTAINER_PADDING[breakpoint],
   });
 }
@@ -1220,6 +1266,7 @@ function buildResponsiveLayoutsFromDesktop(
 export function GridCanvas({
   isEditMode,
   gridEngine2Active,
+  gridMetricsVersion,
   layoutRevision = 0,
   previewGridWidth,
   developerMode,
@@ -1243,6 +1290,8 @@ export function GridCanvas({
   onSelectSection,
   onWeatherClick,
   onSceneTrigger,
+  onHoldEditSheet,
+  onOpenEditSheet,
   onWidgetClick,
   onWidgetLongPress,
   onWidgetLightToggle,
@@ -1257,6 +1306,7 @@ export function GridCanvas({
   onWidgetHumidifierModeChange,
   onWidgetBrightnessChange,
   onWidgetLightColorChange,
+  onWidgetLightColorTempChange,
   onWidgetClimateTargetTempChange,
   onWidgetClimateTargetRangeChange,
   onWidgetClimateTargetHumidityChange,
@@ -1270,6 +1320,7 @@ export function GridCanvas({
   onWidgetMediaPrevious,
   onWidgetMediaNext,
   onWidgetMediaSeek,
+  onWidgetMediaVolumeChange,
   onWidgetMediaShuffle,
   onWidgetMediaRepeat,
   onWidgetMediaSelectSource,
@@ -1302,6 +1353,10 @@ export function GridCanvas({
   onWidgetDisplayMetricsChange,
 }: GridCanvasProps) {
   const { t } = useI18n();
+  const activeGridMetrics = useMemo(
+    () => resolveGridMetrics(gridEngine2Active ? gridMetricsVersion : 'legacy'),
+    [gridEngine2Active, gridMetricsVersion],
+  );
   const sectionLabel = useCallback((kind: SectionKind) => t(SECTION_LABEL_KEYS[kind]), [t]);
   const isCanvasInteractingRef = useRef(false);
   const xsLongPressTimerRef = useRef<number | null>(null);
@@ -2028,9 +2083,9 @@ export function GridCanvas({
     const activePadding = GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint] ?? [0, 0];
     const horizontalPadding = activePadding[0] * 2;
     const safeWidth = Math.max(runtimeGridEffectiveWidth - horizontalPadding, 1);
-    const totalGap = GRID_ENGINE_GAP_PX * Math.max(0, gridEngineActiveCols - 1);
+    const totalGap = activeGridMetrics.horizontalGap * Math.max(0, gridEngineActiveCols - 1);
     return Math.max(1, (safeWidth - totalGap) / Math.max(1, gridEngineActiveCols));
-  }, [gridEngineActiveBreakpoint, gridEngineActiveCols, runtimeGridEffectiveWidth]);
+  }, [activeGridMetrics.horizontalGap, gridEngineActiveBreakpoint, gridEngineActiveCols, runtimeGridEffectiveWidth]);
   const normalizeRootLayoutForBreakpoint = useCallback(
     (layouts: GridItem[], breakpoint: GridBreakpoint, cols: number) => {
       const enforced = enforceRootWidgetSpans(
@@ -2335,6 +2390,7 @@ export function GridCanvas({
     geometrySignature: createRuntimeGeometryMeasurementSignature(
       gridEngineActiveBreakpoint,
       runtimeGridEffectiveWidth,
+      activeGridMetrics,
     ),
     rootIds: [
       ...sections.map((section) => section.id),
@@ -2346,6 +2402,7 @@ export function GridCanvas({
     geometrySignature: createRuntimeGeometryMeasurementSignature(
       gridEngineActiveBreakpoint,
       runtimeGridEffectiveWidth,
+      activeGridMetrics,
     ),
     rootIds: [
       ...sections.map((section) => section.id),
@@ -2481,6 +2538,7 @@ export function GridCanvas({
                 const geometrySignature = createRuntimeGeometryMeasurementSignature(
                   gridEngineActiveBreakpoint,
                   runtimeGridEffectiveWidth,
+                  activeGridMetrics,
                 );
                 const inspection = scheduleRuntimeGeometryDomInspection({
                   host,
@@ -2489,8 +2547,8 @@ export function GridCanvas({
                   geometry: {
                     width: Math.max(runtimeGridEffectiveWidth, 1),
                     cols: GRID_ENGINE_COLS[gridEngineActiveBreakpoint],
-                    rowHeight: GRID_ENGINE_ROW_UNIT,
-                    gap: [GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX],
+                    rowHeight: activeGridMetrics.rowHeight,
+                    gap: [activeGridMetrics.horizontalGap, activeGridMetrics.verticalGap],
                     padding: GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint],
                   },
                   measurementContext: {
@@ -2577,9 +2635,31 @@ export function GridCanvas({
       .flatMap((widget) => {
         const hasRuntimeState = widget.dataSource === 'mock' ||
           Object.prototype.hasOwnProperty.call(haStates, widget.entityId);
-        return hasRuntimeState ? [{ id: widget.id, isOn: widget.isOn }] : [];
+        if (!hasRuntimeState) return [];
+        const entity = haStates[widget.entityId];
+        const entityCapability = resolveGridV2EntityCapability({
+          kind: widget.kind,
+          entityId: widget.entityId,
+          state: entity?.state,
+          rawAttributes: entity?.rawAttributes,
+          entity,
+        });
+        const unavailable = entity?.state === 'unavailable' || entity?.state === 'unknown';
+        return [{
+          id: widget.id,
+          isOn: widget.isOn,
+          ...(activeGridMetrics.version === 'v2'
+            ? {
+                // Without its entity the card cannot show a slider in the extra row.
+                canAutoExpand: !isEditMode &&
+                  Boolean(entity) &&
+                  !unavailable &&
+                  entityCapability !== 'light-on-off',
+              }
+            : null),
+        }];
       }),
-    [haStates, rootWidgets],
+    [activeGridMetrics.version, haStates, isEditMode, rootWidgets],
   );
   const runtimeRenderDecision = useMemo(() => {
     const structuralDashboard = structuralLoadSnapshot.dashboard;
@@ -2673,7 +2753,7 @@ export function GridCanvas({
       lightStates: runtimeRenderLightStates,
       widgetTypeLayoutOverrides,
       widgetLayoutOverrides,
-      metricsVersion: 'legacy',
+      metricsVersion: activeGridMetrics.version,
       supportDynamicStacks: true,
     });
     const blockingIssue = derived.issues.find((issue) => issue.code !== 'AMBIGUOUS_LIGHT_BASELINE');
@@ -2694,6 +2774,7 @@ export function GridCanvas({
     structuralGridEngineLayouts,
     widgetLayoutOverrides,
     widgetTypeLayoutOverrides,
+    activeGridMetrics.version,
   ]);
   const hasGridItemMoved = useCallback((start: GridItem | null, next: GridItem | undefined | null) => {
     if (!start || !next) {
@@ -2808,6 +2889,7 @@ export function GridCanvas({
     }
     const committed = validation.layout.map((item) => ({ ...item }));
     const committedId = 'id' in preview.intent ? preview.intent.id : null;
+    onHoldEditSheet?.();
     if (committedId && sectionIdSet.has(committedId)) {
       onSelectSection(committedId);
       onSelectWidget(null);
@@ -2835,6 +2917,7 @@ export function GridCanvas({
             resized.h,
             widgetLayoutOverrides[widget.id]?.[gridEngineActiveBreakpoint],
             widgetTypeLayoutOverrides[widget.kind]?.[gridEngineActiveBreakpoint],
+            activeGridMetrics.version,
           ),
         );
       }
@@ -2863,7 +2946,33 @@ export function GridCanvas({
     sectionIdSet,
     widgetLayoutOverrides,
     widgetTypeLayoutOverrides,
+    activeGridMetrics.version,
   ]);
+
+  const snapGridEngine2Resize = useCallback((input: Readonly<{
+    item: GridItem;
+    destination: Pick<GridItem, 'x' | 'y' | 'w' | 'h'>;
+    cols: number;
+  }>) => {
+    const widget = rootWidgetById.get(input.item.i);
+    if (activeGridMetrics.version !== 'v2' || !widget) return input.destination;
+    const entity = haStates[widget.entityId];
+    const entityCapability = resolveGridV2EntityCapability({
+      kind: widget.kind,
+      entityId: widget.entityId,
+      state: entity?.state,
+      rawAttributes: entity?.rawAttributes,
+      entity,
+    });
+    return snapGridV2ResizeDestination({
+      widget,
+      breakpoint: gridEngineActiveBreakpoint,
+      itemX: input.item.x,
+      cols: input.cols,
+      destination: input.destination,
+      entityCapability,
+    });
+  }, [activeGridMetrics.version, gridEngineActiveBreakpoint, haStates, rootWidgetById]);
 
   const gridEngine2EditorGesture = useGridGesture({
     canvasRef: gridEngine2EditorCanvasRef,
@@ -2871,12 +2980,13 @@ export function GridCanvas({
     items: gridEngine2EditorBaseline,
     cols: gridEngineActiveCols,
     mode: gridEngine2EditorMode,
-    metrics: LEGACY_GRID_METRICS,
+    metrics: activeGridMetrics,
     containerPadding: GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint],
     moveIntentType: gridEngine2EditorMode === 'automatic'
       ? 'REORDER_WHEN_COLLIDING'
       : 'MOVE',
     enabled: gridEngine2EditorReady,
+    snapResize: snapGridEngine2Resize,
     onActivate: () => setGridEngine2EditorError(null),
     onCommit: commitGridEngine2EditorPreview,
     onCancel: () => setGridEngine2EditorError(null),
@@ -2902,7 +3012,7 @@ export function GridCanvas({
       lightStates: runtimeRenderLightStates,
       widgetTypeLayoutOverrides,
       widgetLayoutOverrides,
-      metricsVersion: 'legacy',
+      metricsVersion: activeGridMetrics.version,
       supportDynamicStacks: gridEngine2Active,
     });
     const blockingIssue = derived.issues.find((issue) => issue.code !== 'AMBIGUOUS_LIGHT_BASELINE');
@@ -2924,6 +3034,7 @@ export function GridCanvas({
     runtimeRenderRootElements,
     widgetLayoutOverrides,
     widgetTypeLayoutOverrides,
+    activeGridMetrics.version,
   ]);
   const rootRendererLayout = gridEngine2EditorReady
     ? gridEngine2EditorRuntimeLayout
@@ -2959,8 +3070,8 @@ export function GridCanvas({
     const geometry = {
       width: Math.max(runtimeGridEffectiveWidth, 1),
       cols: gridEngineActiveCols,
-      rowHeight: GRID_ENGINE_ROW_UNIT,
-      gap: [GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX] as const,
+      rowHeight: activeGridMetrics.rowHeight,
+      gap: [activeGridMetrics.horizontalGap, activeGridMetrics.verticalGap] as const,
       padding: GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint],
     };
     const structuralPosition = calculateGridEngineRootItemPosition(structuralItem, geometry);
@@ -2979,6 +3090,7 @@ export function GridCanvas({
     gridEngineActiveCols,
     rootRendererLayoutMap,
     runtimeGridEffectiveWidth,
+    activeGridMetrics,
   ]);
   const commitGridEngineLayouts = useCallback(
     (layouts: GridLayouts, activeLayout?: GridItem[]) => {
@@ -3137,11 +3249,15 @@ export function GridCanvas({
       }
       const runtimeStackWidthKey = `${gridEngineActiveBreakpoint}:${sectionId}`;
       const hasResolvedRuntimeWidth = resolvedRuntimeStackWidthsRef.current.has(runtimeStackWidthKey);
+      // Saved Stacks keep the width they were saved with (legacyStacks.ts).
       const canAutoFitWidth =
+        !LEGACY_STACKS_READ_ONLY &&
         section?.stackColumnsMode !== 'manual' &&
         (isEditMode || !hasResolvedRuntimeWidth);
       const nextSpan = resolveGridStackContainerSpan({
-        geometry,
+        geometry: activeGridMetrics.version === 'v2' && headerVisible
+          ? { ...geometry, usedRows: geometry.usedRows + 1 }
+          : geometry,
         availableCols: gridEngineActiveCols,
         currentCols: currentItem.w,
         // Runtime state changes (for example a Light auto-expanding when it is
@@ -3214,6 +3330,7 @@ export function GridCanvas({
     [
       sectionById,
       sectionKindById,
+      activeGridMetrics.version,
       derivedGridEngineLayouts,
       liveGridEngineLayouts,
       gridEngineActiveBreakpoint,
@@ -3258,6 +3375,11 @@ export function GridCanvas({
       if (!current) {
         return;
       }
+      // A saved Stack moves whole but never resizes: its inner layout follows its width.
+      const itemSectionKind = sectionKindById.get(itemId);
+      if (event.shiftKey && LEGACY_STACKS_READ_ONLY && itemSectionKind && isLegacyStackKind(itemSectionKind)) {
+        return;
+      }
 
       event.preventDefault();
       event.stopPropagation();
@@ -3279,6 +3401,14 @@ export function GridCanvas({
         }
         if (event.key === 'ArrowUp') nextItem.y = Math.max(0, nextItem.y - 1);
         if (event.key === 'ArrowDown') nextItem.y += 1;
+      }
+
+      if (isResize && gridEngine2EditorReady) {
+        Object.assign(nextItem, snapGridEngine2Resize({
+          item: current,
+          destination: nextItem,
+          cols: gridEngineActiveCols,
+        }));
       }
 
       if (hasGridItemMoved(current, nextItem)) {
@@ -3353,6 +3483,8 @@ export function GridCanvas({
       hasGridItemMoved,
       isEditMode,
       liveGridEngineLayouts,
+      sectionKindById,
+      snapGridEngine2Resize,
       updateGridEngineLayouts,
     ],
   );
@@ -3387,7 +3519,6 @@ export function GridCanvas({
       sectionCanvasCols: number,
       stackWidth: number,
       stackRowHeight: number,
-      stackMargin: number,
       stackMounted: boolean,
     ) => {
       const isTransparentSection = section.kind === 'greeting' || section.kind === 'weather';
@@ -3401,13 +3532,13 @@ export function GridCanvas({
           : section.title;
       const showBackground =
         section.kind === 'scenes'
-          ? section.scenesShowBackground ?? true
+          ? section.scenesShowBackground ?? activeGridMetrics.version !== 'v2'
           : isStack
             ? section.stackShowBackground ?? true
             : !isTransparentSection;
       const showBorder =
         section.kind === 'scenes'
-          ? section.scenesShowBorder ?? true
+          ? section.scenesShowBorder ?? activeGridMetrics.version !== 'v2'
           : isStack
             ? section.stackShowBorder ?? true
             : !isTransparentSection;
@@ -3518,6 +3649,7 @@ export function GridCanvas({
               state={state}
               compact={sectionCompactPreview}
               isEditMode={isScenesSection && isEditMode}
+              gridMetricsVersion={activeGridMetrics.version}
               onWeatherClick={onWeatherClick}
               runningSceneId={runningSceneBySectionId[section.id]?.sceneId ?? null}
               runningSceneStartedAt={runningSceneBySectionId[section.id]?.startedAt ?? null}
@@ -3541,7 +3673,7 @@ export function GridCanvas({
                 if (section.kind !== 'scenes') {
                   return;
                 }
-                void onSceneTrigger(section, sceneId);
+                return onSceneTrigger(section, sceneId);
               }}
             />
           ) : (
@@ -3599,11 +3731,12 @@ export function GridCanvas({
                   1,
                   Math.round(
                     gridEngineColumnWidth * gridEngineActiveCols +
-                      GRID_ENGINE_GAP_PX * Math.max(0, gridEngineActiveCols - 1),
+                      activeGridMetrics.horizontalGap * Math.max(0, gridEngineActiveCols - 1),
                   ),
                 )}
                 rootRowHeight={stackRowHeight}
-                rootMargin={stackMargin}
+                rootMargin={[activeGridMetrics.horizontalGap, activeGridMetrics.verticalGap]}
+                gridMetricsVersion={activeGridMetrics.version}
                 selectedWidgetId={selectedWidgetId}
                 onWidgetDisplayMetricsChange={onWidgetDisplayMetricsChange}
                 onSelectWidget={onSelectWidget}
@@ -3622,6 +3755,7 @@ export function GridCanvas({
                 onWidgetHumidifierModeChange={onWidgetHumidifierModeChange}
                 onWidgetBrightnessChange={onWidgetBrightnessChange}
                 onWidgetLightColorChange={onWidgetLightColorChange}
+                onWidgetLightColorTempChange={onWidgetLightColorTempChange}
                 onWidgetClimateTargetTempChange={onWidgetClimateTargetTempChange}
                 onWidgetClimateTargetRangeChange={onWidgetClimateTargetRangeChange}
                 onWidgetClimateTargetHumidityChange={onWidgetClimateTargetHumidityChange}
@@ -3635,6 +3769,7 @@ export function GridCanvas({
                 onWidgetMediaPrevious={onWidgetMediaPrevious}
                 onWidgetMediaNext={onWidgetMediaNext}
                 onWidgetMediaSeek={onWidgetMediaSeek}
+                onWidgetMediaVolumeChange={onWidgetMediaVolumeChange}
                 onWidgetMediaShuffle={onWidgetMediaShuffle}
                 onWidgetMediaRepeat={onWidgetMediaRepeat}
                 onWidgetMediaSelectSource={onWidgetMediaSelectSource}
@@ -3685,6 +3820,7 @@ export function GridCanvas({
       );
     },
     [
+      activeGridMetrics.version,
       haConnected,
       haStates,
       sensorHistoryByEntity,
@@ -3704,6 +3840,7 @@ export function GridCanvas({
       onWidgetAlarmDisarm,
       onWidgetBrightnessChange,
       onWidgetLightColorChange,
+      onWidgetLightColorTempChange,
       onWidgetClick,
       onWidgetLongPress,
       onWidgetLightToggle,
@@ -3736,6 +3873,7 @@ export function GridCanvas({
       onWidgetMediaNext,
       onWidgetMediaRepeat,
       onWidgetMediaSeek,
+      onWidgetMediaVolumeChange,
       onWidgetMediaShuffle,
       onWidgetMediaSelectSource,
       onWidgetMediaToggle,
@@ -3769,6 +3907,13 @@ export function GridCanvas({
     <div className="relative flex-1 min-w-0 h-full min-h-0">
       <div
         ref={canvasScrollRef}
+        onClick={(event) => {
+          // On a phone a touch on the empty canvas lets go of the card in hand.
+          if (!gridEngine2EditorReady || !onOpenEditSheet) return;
+          if ((event.target as HTMLElement).closest('button, a, input, [role="dialog"]')) return;
+          onSelectWidget(null);
+          onSelectSection(null);
+        }}
         className={`h-full pb-[calc(env(safe-area-inset-bottom)+8.25rem)] sm:pb-10 [scroll-padding-bottom:calc(env(safe-area-inset-bottom)+8.25rem)] sm:[scroll-padding-bottom:2.5rem] glass-scrollbar ${
           isCompactEditCardMenuMode && isCanvasTouchLocked ? 'overflow-hidden [touch-action:none]' : 'overflow-y-scroll'
         }`}
@@ -3836,7 +3981,33 @@ export function GridCanvas({
               {topRightOverlay}
             </div>
           ) : null}
-          {gridEngine2EditorRequested ? (
+          {gridEngine2EditorReady && onOpenEditSheet ? (
+            // On a phone the canvas belongs to the cards: how they behave sits in a bar under them.
+            <div data-testid="grid-engine-2-editor-status" className="grid-editor-dock liquid-glass-navigation fixed inset-x-3 z-[60] flex flex-col items-center gap-1.5 px-3 py-2">
+              {!selectedWidgetId && !selectedSectionId ? (
+                <p className="m-0 text-center text-xs font-medium text-[color:var(--ui-text-secondary)]">{t('builder.editHint')}</p>
+              ) : null}
+              <div className="flex rounded-full bg-[color:var(--ui-fill-tertiary)] p-0.5" role="group" aria-label={t('builder.editMode')}>
+                {(['manual', 'automatic'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    data-testid={`grid-engine-2-editor-mode-${mode}`}
+                    aria-pressed={gridEngine2EditorMode === mode}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={() => setGridEngine2EditorMode(mode)}
+                    className={`min-h-9 rounded-full px-4 text-[13px] font-semibold transition-colors ${
+                      gridEngine2EditorMode === mode
+                        ? 'bg-[#0a84ff] text-white'
+                        : 'text-[color:var(--ui-text-secondary)]'
+                    }`}
+                  >
+                    {t(mode === 'manual' ? 'builder.editMode.manual' : 'builder.editMode.automatic')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : gridEngine2EditorRequested ? (
             <div
               data-testid="grid-engine-2-editor-status"
               className={`absolute right-2 top-14 z-50 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full border px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.1em] shadow-xl backdrop-blur-xl sm:right-3 ${
@@ -3901,8 +4072,8 @@ export function GridCanvas({
               layout={rootRendererLayout}
               width={Math.max(runtimeGridEffectiveWidth, 1)}
               cols={gridEngineActiveCols}
-              rowHeight={GRID_ENGINE_ROW_UNIT}
-              gap={[GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX]}
+              rowHeight={activeGridMetrics.rowHeight}
+              gap={[activeGridMetrics.horizontalGap, activeGridMetrics.verticalGap]}
               padding={GRID_ENGINE_CONTAINER_PADDING[gridEngineActiveBreakpoint]}
               containerRef={gridEngine2EditorReady ? gridEngine2EditorCanvasRef : undefined}
               gestureState={gridEngine2EditorReady ? gridEngine2EditorGesture.state.phase : undefined}
@@ -3917,8 +4088,8 @@ export function GridCanvas({
                   breakpoints={GRID_ENGINE_BREAKPOINTS}
                   cols={GRID_ENGINE_COLS}
                   layouts={liveGridEngineLayouts as ResponsiveLayouts<GridBreakpoint>}
-                  rowHeight={GRID_ENGINE_ROW_UNIT}
-                  margin={[GRID_ENGINE_GAP_PX, GRID_ENGINE_GAP_PX]}
+                  rowHeight={activeGridMetrics.rowHeight}
+                  margin={[activeGridMetrics.horizontalGap, activeGridMetrics.verticalGap]}
                   containerPadding={GRID_ENGINE_CONTAINER_PADDING}
                   useCSSTransforms
                   compactType="vertical"
@@ -4002,7 +4173,7 @@ export function GridCanvas({
                 const stackWidth = Math.max(
                   1,
                   Math.round(
-                    gridEngineColumnWidth * sectionSpanW + GRID_ENGINE_GAP_PX * Math.max(0, sectionSpanW - 1),
+                    gridEngineColumnWidth * sectionSpanW + activeGridMetrics.horizontalGap * Math.max(0, sectionSpanW - 1),
                   ),
                 );
                 const sectionEditorLabel = section.title?.trim() || sectionLabel(section.kind);
@@ -4068,8 +4239,7 @@ export function GridCanvas({
                         sectionSpanH,
                         sectionCanvasCols,
                         stackWidth,
-                        GRID_ENGINE_ROW_UNIT,
-                        GRID_ENGINE_GAP_PX,
+                        activeGridMetrics.rowHeight,
                         runtimeGridEffectiveWidth > 0,
                       )}
                     </div>
@@ -4081,9 +4251,12 @@ export function GridCanvas({
                         canResize={false}
                         gesture={gridEngine2EditorGesture}
                         onSelect={() => {
+                          onHoldEditSheet?.();
                           onSelectSection(section.id);
                           onSelectWidget(null);
                         }}
+                        onOpenSettings={onOpenEditSheet}
+                        settingsLabel={t('builder.configureNamed', { name: sectionEditorLabel })}
                         onKeyDown={(event) => handleCanvasItemKeyDown(
                           event,
                           section.id,
@@ -4215,6 +4388,7 @@ export function GridCanvas({
                       isInteractive={haConnected || runtimeWidget.dataSource === 'mock'}
                       isSelected={selectedWidgetId === widget.id}
                       gridBreakpoint={gridEngineActiveBreakpoint}
+                      gridMetricsVersion={activeGridMetrics.version}
                       value={value}
                       onClick={() => {
                         if (isCompactEditCardMenuMode) {
@@ -4238,6 +4412,7 @@ export function GridCanvas({
                       }}
                       onLightBrightnessChange={onWidgetBrightnessChange}
                       onLightColorChange={onWidgetLightColorChange}
+                      onLightColorTempChange={onWidgetLightColorTempChange}
                       onSwitchToggle={onWidgetSwitchToggle}
                       onFanToggle={onWidgetFanToggle}
                       onFanPercentageChange={onWidgetFanPercentageChange}
@@ -4260,6 +4435,7 @@ export function GridCanvas({
                       onMediaPrevious={onWidgetMediaPrevious}
                       onMediaNext={onWidgetMediaNext}
                       onMediaSeek={onWidgetMediaSeek}
+                      onMediaVolumeChange={onWidgetMediaVolumeChange}
                       onMediaShuffle={onWidgetMediaShuffle}
                       onMediaRepeat={onWidgetMediaRepeat}
                       onMediaSelectSource={onWidgetMediaSelectSource}
@@ -4301,9 +4477,12 @@ export function GridCanvas({
                         canResize
                         gesture={gridEngine2EditorGesture}
                         onSelect={() => {
+                          onHoldEditSheet?.();
                           onSelectWidget(widget.id);
                           onSelectSection(null);
                         }}
+                        onOpenSettings={onOpenEditSheet}
+                        settingsLabel={t('builder.configureNamed', { name: widget.title || widget.id })}
                         onKeyDown={(event) => handleCanvasItemKeyDown(
                           event,
                           widget.id,

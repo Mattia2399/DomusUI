@@ -38,13 +38,34 @@ describe('the device card', () => {
     expect(screen.getByRole('button', { name: 'Controlli di Presa TV, 86 W · spegne tra 47 min' })).toBeTruthy();
   });
 
-  it('a fan shows its speed as a slider from U×3', () => {
+  it('a fan shows its speeds in Standard and a slider in Expanded', () => {
     const onAction = vi.fn();
     const model = toDeviceModel('fan.f', e('on', { friendly_name: 'Ventilatore', percentage: 66, percentage_step: 33.33 }))!;
     const { rerender } = render(<DeviceCard model={model} format="U×2" onAction={onAction} />);
     expect(screen.queryByRole('slider')).toBeNull();
-    rerender(<DeviceCard model={model} format="U×3" onAction={onAction} />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Velocità Ventilatore' }), { target: { value: '3' } });
+    rerender(<DeviceCard model={model} format="U×4" onAction={onAction} />);
+    expect(screen.getAllByRole('radio')).toHaveLength(3);
+    fireEvent.click(screen.getByRole('radio', { name: '3' }));
     expect(onAction).toHaveBeenCalledWith({ type: 'fan_pct', pct: 100 });
+    rerender(<DeviceCard model={model} format="W×4" onAction={onAction} />);
+    fireEvent.change(screen.getByRole('slider', { name: 'Velocità Ventilatore' }), { target: { value: '1' } });
+    expect(onAction).toHaveBeenCalledWith({ type: 'fan_pct', pct: 33 });
+  });
+
+  it('a plug says its power and switches from the button, a cover has its three commands', () => {
+    const onAction = vi.fn();
+    const plug = toDeviceModel('switch.tv', e('on', { friendly_name: 'Presa TV', device_class: 'outlet' }), { watts: 28 })!;
+    const { rerender } = render(<DeviceCard model={plug} format="U×4" onAction={onAction} />);
+    expect(screen.getByText('28')).toBeTruthy();
+    fireEvent.click(screen.getByText('Spegni'));
+    expect(onAction).toHaveBeenCalledWith({ type: 'turn_off' });
+    rerender(<DeviceCard model={plug} format="W×4" onAction={onAction} />);
+    expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true');
+    const cover = toDeviceModel('cover.sala', e('open', { friendly_name: 'Tapparella sala', current_position: 60, supported_features: 15 }))!;
+    rerender(<DeviceCard model={cover} format="W×4" onAction={onAction} />);
+    const closes = screen.getAllByRole('button', { name: 'Chiudi Tapparella sala' });
+    fireEvent.click(closes[closes.length - 1]);
+    expect(onAction).toHaveBeenCalledWith({ type: 'cover_close' });
+    expect(screen.getByText('60%')).toBeTruthy();
   });
 });

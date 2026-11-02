@@ -72,6 +72,27 @@ function inventoryFingerprint(dashboard: DashboardLayoutConfiguration) {
   return JSON.stringify(rootInventory(dashboard));
 }
 
+function describeRootInventoryChange(
+  dashboard: DashboardLayoutConfiguration,
+  baseline: DashboardLayoutConfiguration,
+) {
+  const current = new Map(rootInventory(dashboard).map((entry) => [entry.id, entry.role]));
+  const source = new Map(rootInventory(baseline).map((entry) => [entry.id, entry.role]));
+  const added = [...current.keys()].filter((id) => !source.has(id));
+  const removed = [...source.keys()].filter((id) => !current.has(id));
+  const reclassified = [...current.entries()]
+    .filter(([id, role]) => source.has(id) && source.get(id) !== role)
+    .map(([id, role]) => `${id} (${source.get(id)} → ${role})`);
+  const details = [
+    added.length > 0 ? `aggiunti: ${added.join(', ')}` : null,
+    removed.length > 0 ? `rimossi o spostati in uno Stack: ${removed.join(', ')}` : null,
+    reclassified.length > 0 ? `riclassificati: ${reclassified.join(', ')}` : null,
+  ].filter((detail): detail is string => detail !== null);
+  return details.length > 0
+    ? `L’inventario root è cambiato durante la sessione Grid Engine (${details.join('; ')}).`
+    : 'L’inventario root è cambiato durante la sessione Grid Engine.';
+}
+
 function stackStructureFingerprint(dashboard: DashboardLayoutConfiguration) {
   const stacks = dashboard.sections
     .filter((section) => STACK_KINDS.has(section.kind))
@@ -189,6 +210,12 @@ function sameGeometry(left: GridItem | undefined, right: GridItem | undefined) {
     && left!.w === right!.w && left!.h === right!.h;
 }
 
+function describeGeometry(item: GridItem | undefined) {
+  return item
+    ? `x=${item.x}, y=${item.y}, w=${item.w}, h=${item.h}`
+    : 'assente';
+}
+
 export function validateGridEngine2DashboardForSave(input: Readonly<{
   dashboard: DashboardLayoutConfiguration;
   baseline: DashboardLayoutConfiguration;
@@ -206,7 +233,10 @@ export function validateGridEngine2DashboardForSave(input: Readonly<{
     issues.push({ code: 'DUPLICATE_INVENTORY_ID', id, message: `L'inventario contiene più volte ${id}.` });
   }
   if (inventoryFingerprint(input.dashboard) !== inventoryFingerprint(input.baseline)) {
-    issues.push({ code: 'INVENTORY_CHANGED', message: 'L’inventario root è cambiato durante la sessione Grid Engine.' });
+    issues.push({
+      code: 'INVENTORY_CHANGED',
+      message: describeRootInventoryChange(input.dashboard, input.baseline),
+    });
   }
 
   const stackIds = new Set(input.dashboard.sections
@@ -358,13 +388,30 @@ export function validateGridEngine2DashboardForSave(input: Readonly<{
   if (touchedByBreakpoint.has('xl')) {
     const canonical = canonicalById(input.dashboard);
     const xl = new Map((input.dashboard.responsiveLayouts.root?.xl ?? []).map((item) => [item.i, item]));
+    const baselineCanonical = canonicalById(input.baseline);
+    const baselineXl = new Map((input.baseline.responsiveLayouts.root?.xl ?? []).map((item) => [item.i, item]));
+    const sectionIds = new Set(input.dashboard.sections.map((section) => section.id));
     for (const id of rootIds) {
-      if (!sameGeometry(canonical.get(id), xl.get(id))) {
+      const currentCanonicalItem = canonical.get(id);
+      const currentXlItem = xl.get(id);
+      if (!sameGeometry(currentCanonicalItem, currentXlItem)) {
+        const baselineCanonicalItem = baselineCanonical.get(id);
+        const baselineXlItem = baselineXl.get(id);
+        const unchangedHistoricalDifference = Boolean(
+          sectionIds.has(id)
+          && input.baseline.gridMetricsVersion !== 'v2'
+          && baselineCanonicalItem
+          && baselineXlItem
+          && !sameGeometry(baselineCanonicalItem, baselineXlItem)
+          && sameGeometry(currentCanonicalItem, baselineCanonicalItem)
+          && sameGeometry(currentXlItem, baselineXlItem),
+        );
+        if (unchangedHistoricalDifference) continue;
         issues.push({
           code: 'XL_CANONICAL_MISMATCH',
           breakpoint: 'xl',
           id,
-          message: `La geometria canonica di ${id} non coincide con XL.`,
+          message: `La geometria canonica di ${id} (${describeGeometry(currentCanonicalItem)}) non coincide con XL (${describeGeometry(currentXlItem)}).`,
         });
       }
     }

@@ -1,5 +1,6 @@
 // @vitest-environment node
 
+import { sceneFill } from './scene';
 import { describe, expect, it } from 'vitest';
 import { activeSceneOf, runSceneCalls, sceneIconOf, toSceneModel, undoSceneCall, undoSceneId } from './scene';
 
@@ -42,5 +43,21 @@ describe('a scene', () => {
     expect(runSceneCalls(scene('scene.empty', 'unknown'), 'r')).toHaveLength(1);
     expect(undoSceneCall('living-room')).toEqual({ domain: 'scene', service: 'turn_on', data: { entity_id: 'scene.domus_undo_living_room' } });
     expect(undoSceneId('custom:Studio')).toBe('domus_undo_custom_studio');
+  });
+});
+
+describe('sceneFill', () => {
+  it('follows the real duration of the last run, and waits for the end near the top', () => {
+    expect(sceneFill(0, 20_000)).toBe(0);
+    expect(sceneFill(5_000, 20_000)).toBe(0.25);
+    expect(sceneFill(90_000, 20_000)).toBe(0.96);
+  });
+
+  it('slows down on a first run, without ever reaching the end', () => {
+    const early = sceneFill(5_000, null);
+    const later = sceneFill(30_000, null);
+    expect(early).toBeGreaterThan(0.2);
+    expect(later).toBeGreaterThan(early);
+    expect(sceneFill(600_000, null)).toBeLessThanOrEqual(0.9);
   });
 });

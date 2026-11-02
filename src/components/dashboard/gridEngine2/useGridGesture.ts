@@ -10,7 +10,7 @@ import type { GridMetricsDefinition } from './gridMetrics';
 import type { GridLayoutIntent, GridLayoutItem, GridLayoutMode } from './model';
 import { solveLayout } from './solveLayout';
 
-export const GRID_GESTURE_LONG_PRESS_MS = 650;
+export const GRID_GESTURE_LONG_PRESS_MS = 400;
 export const GRID_GESTURE_PRESS_TOLERANCE_PX = 8;
 export const GRID_GESTURE_MOUSE_THRESHOLD_PX = 4;
 export const GRID_GESTURE_HYSTERESIS_CELLS = 0.15;
@@ -91,6 +91,12 @@ type UseGridGestureOptions = {
   readonly moveIntentType?: 'MOVE' | 'REORDER' | 'REORDER_WHEN_COLLIDING';
   readonly enabled?: boolean;
   readonly onActivate?: (id: string) => void;
+  /** Optional editor adapter applied to RESIZE before the solver sees it. */
+  readonly snapResize?: (input: Readonly<{
+    item: GridLayoutItem;
+    destination: GridGestureDestination;
+    cols: number;
+  }>) => GridGestureDestination;
   readonly onCommit: (preview: GridGesturePreview) => void;
   readonly onCancel?: () => void;
   readonly onError?: (error: unknown) => void;
@@ -315,13 +321,17 @@ export function useGridGesture(options: UseGridGestureOptions) {
     interactionRef.current = null;
     releasePointerCapture(interaction.captureElement, interaction.pointerId);
 
-    if (commit && interaction.preview) {
+    // A card that was lifted is not a tap, even when it lands where it started.
+    if (interaction.phase !== 'PRESSING') {
       suppressClickRef.current = interaction.itemId;
       if (suppressClickTimerRef.current !== null) window.clearTimeout(suppressClickTimerRef.current);
       suppressClickTimerRef.current = window.setTimeout(() => {
         suppressClickRef.current = null;
         suppressClickTimerRef.current = null;
       }, 400);
+    }
+
+    if (commit && interaction.preview) {
       optionsRef.current.onCommit(interaction.preview);
     } else if (interaction.phase !== 'PRESSING') {
       optionsRef.current.onCancel?.();
@@ -449,6 +459,20 @@ export function useGridGesture(options: UseGridGestureOptions) {
           maxH,
         ),
       };
+      const snapped = optionsRef.current.snapResize?.({
+        item: sourceItem,
+        destination,
+        cols: optionsRef.current.cols,
+      });
+      if (snapped) {
+        const safeW = clamp(Math.round(snapped.w), 1, maxW);
+        destination = {
+          x: clamp(Math.round(snapped.x), 0, Math.max(0, optionsRef.current.cols - safeW)),
+          y: Math.max(0, Math.round(snapped.y)),
+          w: safeW,
+          h: Math.max(1, Math.round(snapped.h)),
+        };
+      }
     }
 
     if (!sameDestination(destination, interaction.target)) {
@@ -504,6 +528,7 @@ export function useGridGesture(options: UseGridGestureOptions) {
     clearLongPressTimer();
     interaction.phase = 'DRAGGING';
     setPointerCapture(interaction.captureElement, interaction.pointerId);
+    if (interaction.pointerType === 'touch') navigator.vibrate?.(10);
     updateFromPointer(interaction, clientX, clientY);
     updateAutoScroll(interaction, clientY);
   }, [clearLongPressTimer, updateAutoScroll, updateFromPointer]);
@@ -633,12 +658,20 @@ export function useGridGesture(options: UseGridGestureOptions) {
         finish(false);
       }
     };
+    // The card allows pan-y so that the page still scrolls under a finger: once
+    // it is lifted, the same vertical move must carry the card, not the page.
+    const handleTouchMove = (event: TouchEvent) => {
+      const phase = interactionRef.current?.phase;
+      if (event.cancelable && (phase === 'DRAGGING' || phase === 'RESIZING')) event.preventDefault();
+    };
 
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('pointermove', handlePointerMove, { passive: false });
     window.addEventListener('pointerup', handlePointerUp);
     window.addEventListener('pointercancel', handlePointerCancel);
     window.addEventListener('keydown', handleKeyDown);
     return () => {
+      window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       window.removeEventListener('pointercancel', handlePointerCancel);

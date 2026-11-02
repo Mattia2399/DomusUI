@@ -34,4 +34,33 @@ describe('DashboardCatalogModal', () => {
       'Luce aggiunta a Dashboard principale.',
     );
   });
+
+  it('offers no Stack to create and no Stack as a destination while Stacks are suspended', () => {
+    const onAddWidget = vi.fn(() => 'widget-light');
+    render(
+      <DashboardCatalogModal
+        isOpen
+        onClose={vi.fn()}
+        sections={[{ id: 'stack', kind: 'stack-grid', title: 'Soggiorno', layout: { i: 'stack', x: 0, y: 0, w: 4, h: 4 } }]}
+        widgets={[]}
+        selectedSectionId="stack"
+        onAddWidget={onAddWidget}
+        onAddSection={vi.fn(() => 'section-id')}
+      />,
+      { wrapper: I18nProvider },
+    );
+
+    // Even with a saved Stack selected, a new card goes to the main canvas.
+    fireEvent.click(screen.getByRole('button', { name: /Luce/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Aggiungi al canvas' }));
+    expect(onAddWidget).toHaveBeenCalledWith('light', { type: 'canvas' });
+    expect(screen.queryByText(/Soggiorno · /)).toBeNull();
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Sezioni' }));
+    expect(screen.queryByText('Stack verticale')).toBeNull();
+    expect(screen.queryByText('Stack orizzontale')).toBeNull();
+    expect(screen.queryByText('Stack a griglia')).toBeNull();
+    expect(screen.getByRole('button', { name: /Scenari/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Stack/ })).toBeNull();
+  });
 });

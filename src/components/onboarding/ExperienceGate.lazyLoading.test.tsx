@@ -107,13 +107,17 @@ describe('ExperienceGate lazy setup', () => {
   it('offers to reload when the words cannot be loaded, without finishing setup', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     storeJourney('intro');
+    let attempts = 0;
     vi.doMock('../../i18n/onboarding/it', () => {
+      attempts += 1;
       throw new Error('Failed to fetch dynamically imported module');
     });
     await mockSetupScreens();
     await renderGate();
 
     expect(await screen.findByRole('alert', undefined, LOADED)).toBeTruthy();
+    // One failed load reaches the boundary: React's retries reuse it instead of starting new ones.
+    expect(attempts).toBe(1);
     expect(screen.getByText('Contenuto non caricato')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Ricarica Domus UI' })).toBeTruthy();
     expect(screen.queryByText('Dashboard Domus UI')).toBeNull();

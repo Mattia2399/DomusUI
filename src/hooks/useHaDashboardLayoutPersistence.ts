@@ -334,6 +334,7 @@ export function useHaDashboardLayoutPersistence({
           result.document.dashboard.widgetLayoutOverrides,
           'real',
           result.document.dashboard.layoutEngine,
+          result.document.dashboard.gridMetricsVersion,
         );
         setLoadStatus(canManage ? 'ready' : 'read_only');
         if (canManage) {
@@ -457,6 +458,7 @@ export function useHaDashboardLayoutPersistence({
       document.dashboard.widgetLayoutOverrides,
       'real',
       document.dashboard.layoutEngine,
+      document.dashboard.gridMetricsVersion,
     );
     setLoadStatus(permissionRef.current ? 'ready' : 'read_only');
   }, [cache, stageAuthoritativeDocument]);
@@ -814,6 +816,7 @@ export function useHaDashboardLayoutPersistence({
           nextDashboard.widgetLayoutOverrides,
           'real',
           nextDashboard.layoutEngine,
+          nextDashboard.gridMetricsVersion,
         );
         return {
           ok: true,
@@ -953,6 +956,7 @@ export function useHaDashboardLayoutPersistence({
       nextDashboard.widgetLayoutOverrides,
       'real',
       nextDashboard.layoutEngine,
+      nextDashboard.gridMetricsVersion,
     );
     setLoadStatus('ready');
     const result: DashboardLayoutSaveResult = {

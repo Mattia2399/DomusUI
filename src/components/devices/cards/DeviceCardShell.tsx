@@ -24,6 +24,18 @@ export function deviceCardHeightPx(format: DeviceCardFormat) {
   return rows * 36 + (rows - 1) * 10;
 }
 
+/**
+ * The three sizes of the board (docs/design-reference/CoreCards.dc.html):
+ * Mini U×2, Standard U×4, Expanded W×4. Two rows draw the Mini, a U column the
+ * Standard, a wider box the Expanded.
+ */
+export type DeviceCardSize = 'mini' | 'standard' | 'expanded';
+
+export function deviceCardSize(format: DeviceCardFormat): DeviceCardSize {
+  if (deviceCardRows(format) <= 2) return 'mini';
+  return format.startsWith('U') ? 'standard' : 'expanded';
+}
+
 /** Header beside the command (a row), above it (a column), or beside a side panel (split). */
 export function deviceCardLayout(format: DeviceCardFormat): 'row' | 'column' | 'split' {
   if (format === 'U×2' || format === 'W×2') return 'row';

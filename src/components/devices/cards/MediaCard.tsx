@@ -1,14 +1,21 @@
 import React from 'react';
-import { ChevronRight, Maximize2, Music, Pause, Play, Power, SkipBack, SkipForward, Speaker, Tv, Volume2 } from 'lucide-react';
+import { Check, ChevronRight, Maximize2, Music, Pause, Play, Power, SkipBack, SkipForward, Speaker, Tv, Volume2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { formatMediaTime, mediaPositionNow, type MediaAction, type MediaModel } from '../model/media';
+import { CardFrame, CardHead } from './CardFrame';
+import { DeviceCardShell, deviceCardSize, type DeviceCardFormat } from './DeviceCardShell';
 import '../theme/devices.css';
 
 /*
  * The media of a room, as on the board: a card of what plays, its artwork
  * blurred behind it, with position, controls and volume; a plain tile when
  * the player is off. The pieces are shared with the full player.
+ *
+ * On the Home MediaCard takes the three sizes of the board
+ * (docs/design-reference/CoreCards.dc.html): Mini U×2 the artwork and the
+ * title, its icon plays or pauses; Standard U×4 the position and the controls;
+ * Expanded W×4 the artwork on the left, the position, controls and volume.
  */
 
 /** The time, every second while something plays, for the position. */
@@ -263,5 +270,168 @@ export function MediaOffCard({ model, onPowerOn, onOpen }: MediaOffCardProps) {
         <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" className="dv-t3 pointer-events-none flex-none" />
       </div>
     </div>
+  );
+}
+
+export type MediaCardProps = {
+  model: MediaModel;
+  pictureUrl: string | null;
+  format: DeviceCardFormat;
+  editing?: boolean;
+  selected?: boolean;
+  onAction: (action: MediaAction) => void;
+  /** The full player, or where to start from when the player is off. */
+  onOpen: () => void;
+  onSelect?: () => void;
+};
+
+export function MediaCard({ model, pictureUrl, format, editing = false, selected = false, onAction, onOpen, onSelect }: MediaCardProps) {
+  const dt = useDevicesTranslations();
+  const size = deviceCardSize(format);
+  const on = model.on && model.available;
+  const now = useMediaClock(on && model.playing && size !== 'mini');
+  const title = model.title ?? model.app ?? dt('mediaNothing');
+  const artist = model.title ? model.artist : model.playing ? null : dt('mediaPaused');
+  const offStatus = !model.available
+    ? dt('unavailable')
+    : model.title ? dt('mediaOffLast', { title: model.title }) : dt('mediaOff');
+  const openLabel = on ? dt('mediaOpenPlayerTitle', { title }) : dt('mediaStartTitle', { name: model.name });
+  const powerOn = () => onAction({ type: 'power', on: true });
+
+  if (size === 'mini') {
+    const canPlay = model.supports.pause || model.supports.play;
+    const status = !on ? offStatus : artist ?? (model.playing ? model.name : dt('mediaPaused'));
+    return (
+      <DeviceCardShell
+        format="U×2"
+        name={on && model.title ? model.title : model.name}
+        status={status}
+        icon={on ? <MediaArt model={model} pictureUrl={pictureUrl} className="dv-media-art is-round" /> : <MediaKindIcon model={model} size={21} />}
+        isOn={on && model.playing}
+        tone={on && model.playing ? 'power' : null}
+        available={model.available && (on ? canPlay : model.supports.turnOn)}
+        hasPanel
+        editing={editing}
+        selected={selected}
+        toggleLabel={on ? model.playing ? dt('mediaPause') : dt('mediaPlay') : dt('mediaPowerOn', { name: model.name })}
+        openLabel={openLabel}
+        selectLabel={dt('select', { name: model.name })}
+        onToggle={() => (on ? onAction({ type: 'play_pause' }) : powerOn())}
+        onOpenPanel={onOpen}
+        onSelect={onSelect}
+      />
+    );
+  }
+
+  const position = on ? mediaPositionNow(model, now) : null;
+  const share = position !== null && model.duration ? Math.min(100, (position / model.duration) * 100) : 0;
+  const canPause = model.supports.pause || model.supports.play;
+  // Standard keeps the three keys of the board (52 × 44); Expanded the round ones beside the volume.
+  const key = size === 'standard' && 'is-key';
+  const transport = (
+    <>
+      <button type="button" className={clsx('dv-size-round', key)} aria-label={dt('mediaPrevious')} disabled={editing || !on || !model.supports.previous} onClick={() => onAction({ type: 'previous' })}>
+        <SkipBack size={16} strokeWidth={2} fill="currentColor" aria-hidden="true" />
+      </button>
+      <button type="button" className={clsx('dv-size-round is-primary', key)} aria-label={model.playing ? dt('mediaPause') : dt('mediaPlay')} disabled={editing || !on || !canPause} onClick={() => onAction({ type: 'play_pause' })}>
+        {model.playing
+          ? <Pause size={17} strokeWidth={0} fill="currentColor" aria-hidden="true" />
+          : <Play size={17} strokeWidth={0} fill="currentColor" aria-hidden="true" className="translate-x-px" />}
+      </button>
+      <button type="button" className={clsx('dv-size-round', key)} aria-label={dt('mediaNext')} disabled={editing || !on || !model.supports.next} onClick={() => onAction({ type: 'next' })}>
+        <SkipForward size={16} strokeWidth={2} fill="currentColor" aria-hidden="true" />
+      </button>
+    </>
+  );
+  const progress = <span className="dv-progress" aria-hidden="true"><i style={{ width: `${share.toFixed(1)}%` }} /></span>;
+  const frame = (children: React.ReactNode, row = false) => (
+    <CardFrame
+      format={format}
+      available={model.available}
+      on={on && model.playing}
+      editing={editing}
+      selected={selected}
+      openLabel={openLabel}
+      selectLabel={dt('select', { name: model.name })}
+      onOpen={onOpen}
+      onSelect={onSelect}
+      testId="media-card"
+    >
+      <div className={clsx('dv-size-body', row && 'is-row')}>{children}</div>
+    </CardFrame>
+  );
+
+  if (!on) {
+    return frame(
+      <>
+        <CardHead
+          icon={<span className="dv-icon-button pointer-events-none" aria-hidden="true"><MediaKindIcon model={model} size={21} /></span>}
+          name={model.name}
+          status={offStatus}
+        />
+        <button type="button" className="dv-pill is-wide is-primary" disabled={editing || !model.available || !model.supports.turnOn} onClick={powerOn}>
+          {dt('mediaPowerOn', { name: model.name })}
+        </button>
+      </>,
+    );
+  }
+
+  if (size === 'standard') {
+    return frame(
+      <>
+        <CardHead
+          icon={<MediaArt model={model} pictureUrl={pictureUrl} className="dv-media-art" />}
+          name={title}
+          status={artist ?? model.name}
+        />
+        {progress}
+        <span className="flex items-center justify-between">{transport}</span>
+      </>,
+    );
+  }
+
+  return frame(
+    <>
+      <MediaArt model={model} pictureUrl={pictureUrl} className="dv-media-art is-large" />
+      <span className="dv-size-col">
+        <CardHead
+          name={title}
+          status={[artist, model.app].filter(Boolean).join(' · ') || model.name}
+          oneLine
+          aside={(
+            <span className="dv-media-source">
+              <MediaKindIcon model={model} size={12} />
+              {model.source ?? model.name}
+            </span>
+          )}
+        />
+        <span className="flex flex-col gap-1">
+          {progress}
+          {position !== null && model.duration ? (
+            <span className="dv-axis">
+              <span>{formatMediaTime(position)}</span>
+              <span>{formatMediaTime(model.duration)}</span>
+            </span>
+          ) : null}
+        </span>
+        <span className="flex items-center gap-2">
+          {transport}
+          {model.volume !== null && model.supports.volume ? (
+            <span className="dv-volume">
+              <Volume2 size={14} strokeWidth={2.2} aria-hidden="true" />
+              <MediaSlider
+                value={model.muted ? 0 : model.volume}
+                max={100}
+                label={dt('mediaVolume')}
+                valueText={`${model.muted ? 0 : model.volume}%`}
+                disabled={editing}
+                onChange={(value) => onAction({ type: 'volume', level: value })}
+              />
+            </span>
+          ) : null}
+        </span>
+      </span>
+    </>,
+    true,
   );
 }

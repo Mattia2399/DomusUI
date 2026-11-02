@@ -77,6 +77,18 @@ export function activeSceneOf(scenes: SceneModel[], now = Date.now()) {
   return recent[0]?.entityId ?? null;
 }
 
+/*
+ * How full a scene that is running reads, from 0 to 1. Home Assistant does not
+ * say how long a script lasts: once it has run here, its last real duration
+ * sets the pace; the first time, the fill slows down as it goes. Only the end
+ * of the scene takes it to 1.
+ */
+export function sceneFill(elapsedMs: number, expectedMs: number | null) {
+  const elapsed = Math.max(0, elapsedMs);
+  if (expectedMs && expectedMs > 0) return Math.min(0.96, elapsed / expectedMs);
+  return 0.9 * (1 - Math.exp(-elapsed / 12_000));
+}
+
 /** The id of the snapshot that undoes the last scene run in a room. */
 export function undoSceneId(roomId: string) {
   return `domus_undo_${roomId.replace(/[^a-z0-9_]/gi, '_').toLowerCase()}`;

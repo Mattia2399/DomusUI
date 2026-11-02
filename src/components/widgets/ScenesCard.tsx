@@ -234,7 +234,7 @@ type ScenesCardProps = {
   runningSceneId?: SceneKey | null;
   runningSceneStartedAt?: number | null;
   onAddScene?: (sceneId: SceneKey) => void;
-  onSceneTrigger?: (sceneId: SceneKey) => void;
+  onSceneTrigger?: (sceneId: SceneKey) => void | Promise<boolean | void>;
 };
 
 export function ScenesCard({

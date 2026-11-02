@@ -63,7 +63,7 @@ const GROUP_SURFACE = QUICK_GROUP_SURFACE;
 /** How often the energy card reads the energy core again while the menu is open. */
 const ENERGY_REFRESH_MS = 15_000;
 
-type MobileSidebarDrawerProps = {
+export type MobileSidebarDrawerProps = {
   isOpen: boolean;
   isEditMode: boolean;
   canToggleEditMode: boolean;

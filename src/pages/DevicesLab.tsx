@@ -6,7 +6,18 @@ import { DevicePanel } from '../components/devices/panels/DevicePanel';
 import { ClimateCard } from '../components/devices/cards/ClimateCard';
 import { ClimatePanel } from '../components/devices/panels/ClimatePanel';
 import { findPowerSensor } from '../components/devices/model/device';
-import { DEVICE_CARD_FORMATS, deviceCardHeightPx, type DeviceCardFormat } from '../components/devices/cards/DeviceCardShell';
+import { deviceCardHeightPx, type DeviceCardFormat } from '../components/devices/cards/DeviceCardShell';
+import { SecurityCard } from '../components/devices/cards/SecurityCard';
+import { MediaCard } from '../components/devices/cards/MediaCard';
+import { AlarmCard, toAlarmModel } from '../components/devices/cards/AlarmCard';
+import { VacuumCard, toVacuumModel } from '../components/devices/cards/VacuumCard';
+import { CalendarCard } from '../components/devices/cards/CalendarCard';
+import { MembersCard } from '../components/devices/cards/MembersCard';
+import { SensorFamilyLab } from './SensorFamilyLab';
+import GridV2ScenesCard from '../components/widgets/GridV2ScenesCard';
+import type { SceneKey } from '../types/dashboardModels';
+import { toSecurityModel } from '../components/devices/model/security';
+import { toMediaModel } from '../components/devices/model/media';
 import { LightPanel } from '../components/devices/panels/LightPanel';
 import { PanelHost, type PanelPresentation } from '../components/devices/panels/PanelHost';
 import { lightRgb } from '../components/devices/model/tileColor';
@@ -17,12 +28,14 @@ import { useDeviceCommands } from './rooms/useDeviceCommands';
 import { useClimateCommands } from './rooms/useClimateCommands';
 
 /*
- * Development only (/devices-lab): the light and device cards in every
- * format, on, off, on standby and away, in Dark and Light, at the sizes of the Home grid (columns of
- * 188 px, rows of 36 px, gaps of 10 px), to set beside the design boards.
+ * Development only (/devices-lab): every card in the three sizes of the board
+ * (docs/design-reference/CoreCards.dc.html), on, off, on standby and away, in
+ * Dark and Light, at its measures (columns of 200 px, rows of 36 px, gaps of
+ * 10 px), to set beside it.
  */
 
-const COLUMN_PX = 188;
+const SIZES: DeviceCardFormat[] = ['U×2', 'U×4', 'W×4'];
+const COLUMN_PX = 200;
 const GAP_PX = 10;
 const SAMPLES = [
   'light.demo_floor_lamp',
@@ -52,6 +65,70 @@ const powerSensorOf = (entityId: string) => findPowerSensor(entityId, LAB_DEVICE
 function widthOf(format: DeviceCardFormat) {
   const columns = format.startsWith('X') ? 4 : format.startsWith('W') ? 2 : 1;
   return columns * COLUMN_PX + (columns - 1) * GAP_PX;
+}
+
+const NOW = Date.now();
+const at = (hours: number, minutes = 0, days = 0) => {
+  const date = new Date(NOW + days * 86_400_000);
+  date.setHours(hours, minutes, 0, 0);
+  return date;
+};
+const LAB_LOCK = toSecurityModel('lock.lab_door', { state: 'locked', rawAttributes: { friendly_name: 'Ingresso', battery_level: 64, supported_features: 1 } })!;
+const LAB_CAMERA = toSecurityModel('camera.lab_door', { state: 'idle', rawAttributes: { friendly_name: 'Ingresso' } })!;
+const LAB_MEDIA = toMediaModel('media_player.lab', {
+  state: 'playing',
+  rawAttributes: {
+    friendly_name: 'Soggiorno', media_title: 'Blinding Lights', media_artist: 'The Weeknd', media_duration: 200, media_position: 81,
+    media_position_updated_at: new Date(NOW).toISOString(), volume_level: 0.4, supported_features: 0xffffff,
+  },
+});
+const LAB_ALARM = toAlarmModel('alarm_control_panel.lab', { state: 'disarmed', rawAttributes: { friendly_name: 'Allarme', supported_features: 7, code_arm_required: true } });
+const LAB_VACUUM = toVacuumModel('vacuum.lab', { state: 'cleaning', rawAttributes: { friendly_name: 'Aspirapolvere', battery_level: 72 } }, { area: 18, minutes: 24 });
+const LAB_EVENTS = [
+  { uid: 'a', title: 'Dentista', start: at(15, 30), end: at(16, 15), allDay: false, location: 'Studio Rossi, via Roma 12' },
+  { uid: 'b', title: 'Calcetto Luca', start: at(18), end: at(19), allDay: false },
+  { uid: 'c', title: 'Cena da Anna', start: at(20, 30), end: at(22), allDay: false },
+  { uid: 'd', title: 'Corso di yoga', start: at(19, 0, 1), end: at(20, 0, 1), allDay: false },
+];
+const LAB_MEMBERS = [
+  { id: 'm', name: 'Mattia', home: true },
+  { id: 'g', name: 'Giulia', home: true },
+  { id: 'l', name: 'Luca', home: false, place: 'Scuola · 2 km' },
+];
+
+/** A touch runs the scene for six seconds, as a script would. */
+function SceneRunLab() {
+  const [run, setRun] = React.useState<{ id: SceneKey; startedAt: number } | null>(null);
+  return (
+    <div className="flex flex-col gap-3" data-testid="scene-run-lab" style={{ height: 120 }}>
+      <GridV2ScenesCard
+        title="Scenari"
+        scenes={['night', 'movie', 'morning', 'music']}
+        runningSceneId={run?.id ?? null}
+        runningSceneStartedAt={run?.startedAt ?? null}
+        durationScope="devices-lab"
+        onSceneTrigger={(id) => {
+          setRun({ id, startedAt: Date.now() });
+          window.setTimeout(() => setRun(null), 6000);
+        }}
+      />
+    </div>
+  );
+}
+
+function SizeRow({ title, render }: { title: string; render: (format: DeviceCardFormat) => React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="dv-t2 m-0 text-[13px] font-bold uppercase tracking-[0.06em]">{title}</h2>
+      <div className="flex flex-wrap items-start gap-[10px]">
+        {SIZES.map((format) => (
+          <div key={format} style={{ width: widthOf(format), height: deviceCardHeightPx(format) }}>
+            {render(format)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function Board({ theme }: { theme: 'dark' | 'light' }) {
@@ -94,7 +171,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
               {model.name} · {model.caps}
             </h2>
             <div className="flex flex-wrap items-start gap-7">
-              {DEVICE_CARD_FORMATS.map((format) => (
+              {SIZES.map((format) => (
                 <figure key={format} className="m-0 flex flex-col gap-1.5">
                   <figcaption className="dv-t3 text-[11px] font-semibold tabular-nums">
                     {format} · {widthOf(format)}×{deviceCardHeightPx(format)}
@@ -121,7 +198,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
               {model.name} · {model.kind}
             </h2>
             <div className="flex flex-wrap items-start gap-7">
-              {DEVICE_CARD_FORMATS.map((format) => (
+              {SIZES.map((format) => (
                 <figure key={format} className="m-0 flex flex-col gap-1.5">
                   <figcaption className="dv-t3 text-[11px] font-semibold tabular-nums">
                     {format} · {widthOf(format)}×{deviceCardHeightPx(format)}
@@ -140,6 +217,18 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
           </div>
         );
       })}
+      <SizeRow title="climate" render={(format) => (
+        <ClimateCard model={climates.modelOf('climate.demo_living_ac')} format={format} roomHumidity={48} onAction={(action) => climates.act('climate.demo_living_ac', action)} onOpenPanel={() => undefined} />
+      )} />
+      <SizeRow title="lock" render={(format) => <SecurityCard model={LAB_LOCK} format={format} onOpen={() => undefined} onLockCommand={() => undefined} />} />
+      <SizeRow title="camera" render={(format) => <SecurityCard model={LAB_CAMERA} format={format} onOpen={() => undefined} />} />
+      <SizeRow title="media_player" render={(format) => <MediaCard model={LAB_MEDIA} pictureUrl={null} format={format} onAction={() => undefined} onOpen={() => undefined} />} />
+      <SizeRow title="alarm_control_panel" render={(format) => <AlarmCard model={LAB_ALARM} format={format} onArm={() => undefined} onDisarm={() => undefined} onOpen={() => undefined} />} />
+      <SizeRow title="vacuum" render={(format) => <VacuumCard model={LAB_VACUUM} format={format} onStartPause={() => undefined} onReturnToBase={() => undefined} onOpen={() => undefined} />} />
+      <SceneRunLab />
+      <SensorFamilyLab />
+      <SizeRow title="calendar" render={(format) => <CalendarCard name="Famiglia" events={LAB_EVENTS} available format={format} onOpen={() => undefined} />} />
+      <SizeRow title="person" render={(format) => <MembersCard title="Casa" members={LAB_MEMBERS} format={format} onOpen={() => undefined} />} />
       <div className="flex flex-col gap-3">
         <h2 className="dv-t2 m-0 text-[13px] font-bold uppercase tracking-[0.06em]">climate · large · small</h2>
         <div className="flex flex-wrap items-start gap-7">

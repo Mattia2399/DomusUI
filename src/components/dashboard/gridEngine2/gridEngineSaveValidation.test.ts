@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { DashboardLayoutConfiguration } from '../../../services/dashboardConfigurationRepository';
 import { DASHBOARD_GRID_BREAKPOINT_ORDER } from '../../../types/widgetTypeLayout';
-import { createGridEngine2HomeConfiguration } from './homeGridEngine2Cutover';
+import { createGridEngine2HomeConfiguration } from './gridEngine2Activation';
 import { validateGridEngine2DashboardForSave } from './gridEngineSaveValidation';
 
 function dashboard(): DashboardLayoutConfiguration {
@@ -58,6 +58,26 @@ function clone<T>(value: T): T {
   return structuredClone(value);
 }
 
+function addGreeting(
+  value: DashboardLayoutConfiguration,
+  canonicalHeight: number,
+  xlHeight: number,
+) {
+  value.sections.push({
+    id: 'section-greeting-1',
+    kind: 'greeting',
+    title: 'Greeting',
+    showWeather: true,
+    layout: { i: 'section-greeting-1', x: 4, y: 0, w: 8, h: canonicalHeight },
+  });
+  value.responsiveLayouts.root!.xl!.push({
+    i: 'section-greeting-1', x: 4, y: 0, w: 8, h: xlHeight,
+  });
+  value.responsiveLayouts.root!.lg!.push({
+    i: 'section-greeting-1', x: 4, y: 0, w: 4, h: 2,
+  });
+}
+
 describe('Grid Engine 2 controlled save validation', () => {
   it('accepts an XL structural move, canonical mirror, and runtime-expanded Light state', () => {
     const baseline = dashboard();
@@ -74,6 +94,109 @@ describe('Grid Engine 2 controlled save validation', () => {
     expect(result).toEqual({ valid: true, issues: [], touchedBreakpoints: ['xl'] });
     expect(current.responsiveLayouts.root!.xl!.find((item) => item.i === 'root.light')!.h).toBe(1);
     expect(current.widgets.find((widget) => widget.id === 'root.light')!.isOn).toBe(true);
+  });
+
+  it('accepts an unchanged historical Greeting canonical/XL difference when another card moves', () => {
+    const baseline = dashboard();
+    addGreeting(baseline, 2, 3);
+    const current = clone(baseline);
+    current.responsiveLayouts.root!.xl!.find((item) => item.i === 'root.sensor')!.y = 4;
+    current.widgets.find((widget) => widget.id === 'root.sensor')!.layout.y = 4;
+
+    const result = validateGridEngine2DashboardForSave({
+      dashboard: current,
+      baseline,
+      touchedBreakpoints: [{ breakpoint: 'xl', origin: 'explicit' }],
+    });
+
+    expect(result).toEqual({ valid: true, issues: [], touchedBreakpoints: ['xl'] });
+    expect(current.sections.find((section) => section.id === 'section-greeting-1')!.layout.h).toBe(2);
+    expect(current.responsiveLayouts.root!.xl!.find((item) => item.i === 'section-greeting-1')!.h).toBe(3);
+  });
+
+  it('blocks a canonical/XL Greeting difference introduced after a coherent baseline', () => {
+    const baseline = dashboard();
+    addGreeting(baseline, 3, 3);
+    const current = clone(baseline);
+    current.sections.find((section) => section.id === 'section-greeting-1')!.layout.h = 2;
+    current.responsiveLayouts.root!.xl!.find((item) => item.i === 'root.sensor')!.y = 4;
+    current.widgets.find((widget) => widget.id === 'root.sensor')!.layout.y = 4;
+
+    const result = validateGridEngine2DashboardForSave({
+      dashboard: current,
+      baseline,
+      touchedBreakpoints: [{ breakpoint: 'xl', origin: 'explicit' }],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: 'XL_CANONICAL_MISMATCH',
+      breakpoint: 'xl',
+      id: 'section-greeting-1',
+      message: expect.stringMatching(/h=2.*XL.*h=3/),
+    }));
+  });
+
+  it('still blocks a changed historical canonical/XL Greeting difference', () => {
+    const baseline = dashboard();
+    addGreeting(baseline, 2, 3);
+    const current = clone(baseline);
+    current.sections.find((section) => section.id === 'section-greeting-1')!.layout.y = 1;
+    current.responsiveLayouts.root!.xl!.find((item) => item.i === 'root.sensor')!.y = 4;
+    current.widgets.find((widget) => widget.id === 'root.sensor')!.layout.y = 4;
+
+    const result = validateGridEngine2DashboardForSave({
+      dashboard: current,
+      baseline,
+      touchedBreakpoints: [{ breakpoint: 'xl', origin: 'explicit' }],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: 'XL_CANONICAL_MISMATCH',
+      id: 'section-greeting-1',
+    }));
+  });
+
+  it('does not treat a historical runtime Light height as a persistible section difference', () => {
+    const baseline = dashboard();
+    baseline.widgets.find((widget) => widget.id === 'root.light')!.layout.h = 2;
+    const current = clone(baseline);
+    current.responsiveLayouts.root!.xl!.find((item) => item.i === 'root.sensor')!.y = 4;
+    current.widgets.find((widget) => widget.id === 'root.sensor')!.layout.y = 4;
+
+    const result = validateGridEngine2DashboardForSave({
+      dashboard: current,
+      baseline,
+      touchedBreakpoints: [{ breakpoint: 'xl', origin: 'explicit' }],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: 'XL_CANONICAL_MISMATCH',
+      id: 'root.light',
+    }));
+  });
+
+  it('does not grandfather a canonical/XL difference already stored as v2 geometry', () => {
+    const baseline = dashboard();
+    baseline.gridMetricsVersion = 'v2';
+    addGreeting(baseline, 2, 3);
+    const current = clone(baseline);
+    current.responsiveLayouts.root!.xl!.find((item) => item.i === 'root.sensor')!.y = 4;
+    current.widgets.find((widget) => widget.id === 'root.sensor')!.layout.y = 4;
+
+    const result = validateGridEngine2DashboardForSave({
+      dashboard: current,
+      baseline,
+      touchedBreakpoints: [{ breakpoint: 'xl', origin: 'explicit' }],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: 'XL_CANONICAL_MISMATCH',
+      id: 'section-greeting-1',
+    }));
   });
 
   it('accepts an LG-only move while XL and canonical coordinates remain unchanged', () => {
@@ -230,6 +353,28 @@ describe('Grid Engine 2 controlled save validation', () => {
 
     expect(result.valid).toBe(false);
     expect(result.issues[0]?.code).toBe('NO_TOUCHED_BREAKPOINT');
+  });
+
+  it('identifies the exact root inventory change without weakening the save block', () => {
+    const baseline = dashboard();
+    const current = clone(baseline);
+    current.widgets = current.widgets.filter((widget) => widget.id !== 'root.sensor');
+    current.widgets.push({
+      id: 'root.switch', kind: 'switch', title: 'Switch', entityId: 'switch.test', dataSource: 'mock',
+      isOn: false, status: 'off', layout: { i: 'root.switch', x: 0, y: 4, w: 3, h: 1 },
+    });
+
+    const result = validateGridEngine2DashboardForSave({
+      dashboard: current,
+      baseline,
+      touchedBreakpoints: [{ breakpoint: 'xl', origin: 'explicit' }],
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      code: 'INVENTORY_CHANGED',
+      message: expect.stringMatching(/aggiunti: root\.switch.*rimossi o spostati in uno Stack: root\.sensor/),
+    }));
   });
 
   it('accepts an explicit cutover with six fresh root and Stack layouts', () => {

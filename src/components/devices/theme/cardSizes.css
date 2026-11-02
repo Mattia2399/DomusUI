@@ -1,0 +1,983 @@
+/*
+ * The three sizes of every card (docs/design-reference/CoreCards.dc.html):
+ * Mini U×2 (82 px, the row of a room), Standard U×4 (174 px) and Expanded
+ * W×4 (wide, 174 px). These are the pieces the Standard and Expanded cards
+ * are made of; colours come from the --dv-* tokens of devices.css.
+ */
+
+.dv-size-body {
+  position: relative;
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px;
+  pointer-events: none;
+}
+
+.dv-size-body.is-row {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.dv-size-body button,
+.dv-size-body input,
+.dv-size-body label {
+  pointer-events: auto;
+}
+
+.dv-tile.is-editing .dv-size-body * {
+  pointer-events: none;
+}
+
+.dv-tile-inner > .dv-size-head {
+  min-width: 0;
+  flex: 1 1 0;
+}
+
+.dv-binary-active {
+  background: rgb(255 159 10 / 0.2);
+  color: var(--dv-amber);
+}
+
+.dv-size-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+
+.dv-size-text {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dv-size-col {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dv-val {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.dv-val b {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dv-val > span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dv-t2);
+}
+
+.dv-pct {
+  flex: none;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-pills {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.dv-pill {
+  display: inline-flex;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 18px;
+  padding: 0 14px;
+  background: var(--dv-icon-off);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.dv-pill.is-on,
+.dv-pill.is-primary {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-pill.is-wide {
+  width: 100%;
+  height: 40px;
+}
+
+.dv-pill.is-grow {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.dv-pill:focus-visible,
+.dv-size-round:focus-visible,
+.dv-size-switch:focus-visible,
+.dv-size-grid button:focus-visible,
+.dv-week button:focus-visible,
+.dv-people button:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 2px;
+}
+
+.dv-pill:disabled,
+.dv-size-round:disabled,
+.dv-size-grid button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dv-pill-label {
+  align-self: center;
+  margin-right: 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dv-t2);
+}
+
+.dv-size-round {
+  display: flex;
+  height: 40px;
+  width: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--dv-icon-off);
+  color: inherit;
+  cursor: pointer;
+}
+
+.dv-size-round.is-primary {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-size-round.is-key {
+  height: 44px;
+  width: 52px;
+  border-radius: 14px;
+}
+
+.dv-size-switch {
+  display: flex;
+  height: 31px;
+  width: 51px;
+  flex: none;
+  border: 0;
+  border-radius: 16px;
+  padding: 2px;
+  background: rgb(120 120 128 / 0.32);
+  cursor: pointer;
+  transition: background 200ms ease;
+}
+
+.dv-size-switch i {
+  height: 27px;
+  width: 27px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+  transition: transform 200ms ease;
+}
+
+.dv-size-switch[aria-checked='true'] {
+  background: #30d158;
+}
+
+.dv-size-switch[aria-checked='true'] i {
+  transform: translateX(20px);
+}
+
+/* Rows of equal buttons: fan speeds, cover commands, alarm modes. */
+.dv-size-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--dv-cols, 4), minmax(0, 1fr));
+  gap: 6px;
+}
+
+.dv-size-grid button {
+  display: flex;
+  height: 44px;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--dv-icon-off);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dv-size-grid.is-short button {
+  height: 40px;
+}
+
+.dv-size-grid button[aria-checked='true'],
+.dv-size-grid button.is-on {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-size-grid.is-speeds button[aria-checked='true'] {
+  background: #64d2ff;
+  color: #00263a;
+}
+
+.dv-size-grid.is-cover button.is-on {
+  background: #ff9f0a;
+  color: #3a2000;
+}
+
+.dv-slider.is-40 {
+  height: 40px;
+}
+
+.dv-size-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 2px;
+  background: var(--dv-separator);
+}
+
+/* A card that is on turns white: its controls take a darker veil. */
+.dv-tile.is-on .dv-pill:not(.is-on):not(.is-primary),
+.dv-tile.is-on .dv-size-round:not(.is-primary),
+.dv-tile.is-on .dv-size-grid button:not([aria-checked='true']):not(.is-on) {
+  background: rgb(0 0 0 / 0.07);
+}
+
+.dv-tile.is-on .dv-pill.is-on,
+.dv-tile.is-on .dv-size-round.is-primary {
+  background: #0b0b0f;
+  color: #ffffff;
+}
+
+.dv-tile.is-on .dv-val > span,
+.dv-tile.is-on .dv-pill-label,
+.dv-tile.is-on .dv-kpis > span {
+  color: var(--dv-tile-on-ink-2);
+}
+
+/* A lit light: its controls in the warm ink of the tile. */
+.dv-tile.is-lit .dv-val > span {
+  color: var(--dv-lit-ink-2);
+}
+
+.dv-tile.is-lit .dv-pill {
+  background: rgb(43 29 0 / 0.1);
+  color: var(--dv-lit-ink);
+}
+
+.dv-tile.is-lit .dv-pill.is-on {
+  background: var(--dv-lit-ink);
+  color: #fff6e6;
+}
+
+.dv-tile.is-lit .dv-size-round,
+.dv-tile.is-lit .dv-size-grid button {
+  background: rgb(43 29 0 / 0.1);
+}
+
+.dv-tile.is-lit .dv-size-sep {
+  background: rgb(43 29 0 / 0.16);
+}
+
+/* Small figures under a card: area, time, battery. */
+.dv-kpis {
+  display: flex;
+  gap: 10px;
+}
+
+.dv-kpis > span {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--dv-t2);
+}
+
+.dv-kpis b {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dv-text);
+  white-space: nowrap;
+}
+
+.dv-tile.is-on .dv-kpis b {
+  color: var(--dv-tile-on-ink);
+}
+
+/* Bars of a day: when a sensor was open, the energy of the last hours. */
+.dv-timeline {
+  position: relative;
+  display: block;
+  height: 16px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--dv-icon-off);
+}
+
+.dv-timeline i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 6px;
+  border-radius: 4px;
+  background: #ff9f0a;
+}
+
+.dv-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--dv-t3);
+}
+
+.dv-mini-bars {
+  display: flex;
+  height: 42px;
+  max-width: 200px;
+  flex: 1 1 0;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.dv-mini-bars i {
+  flex: 1 1 0;
+  border-radius: 3px;
+  background: rgb(48 209 88 / 0.75);
+}
+
+.dv-size-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dv-size-chart svg {
+  display: block;
+  height: 70px;
+  width: 100%;
+  overflow: visible;
+}
+
+.dv-size-chart path.is-area {
+  fill: var(--sn-tint, #ff9f0a);
+  fill-opacity: 0.16;
+  stroke: none;
+}
+
+.dv-size-chart path.is-line {
+  fill: none;
+  stroke: var(--sn-tint, #ff9f0a);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.dv-tank {
+  position: relative;
+  height: 38px;
+  width: 14px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 7px;
+  box-shadow: inset 0 0 0 2px rgb(90 200 250 / 0.6);
+}
+
+.dv-tank i {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: #5ac8fa;
+}
+
+/* Calendar: the day of the month, the events of the day, the week. */
+.dv-date {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 13px;
+  background: #ffffff;
+  color: #0b0b0f;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.15);
+}
+
+.dv-date > span {
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  color: #ff453a;
+  text-transform: uppercase;
+}
+
+.dv-date b {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.dv-events {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dv-events > span {
+  display: flex;
+  min-height: 28px;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  border-left: 3px solid var(--dv-event, #0a84ff);
+  padding-left: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dv-events b {
+  width: 38px;
+  flex: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dv-t2);
+  font-variant-numeric: tabular-nums;
+}
+
+.dv-week {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.dv-week button {
+  display: flex;
+  height: 58px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.dv-week button > span {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--dv-t2);
+  text-transform: uppercase;
+}
+
+.dv-week button b {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.dv-week button i {
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: #0a84ff;
+}
+
+.dv-week button[aria-pressed='true'] {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-week button[aria-pressed='true'] > span {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.dv-week button[aria-pressed='true'] i {
+  background: currentColor;
+}
+
+.dv-event-detail {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.dv-event-detail > i {
+  width: 4px;
+  flex: none;
+  border-radius: 2px;
+  background: var(--dv-event, #0a84ff);
+}
+
+/* Members: their faces, who is home. */
+.dv-avatars {
+  display: flex;
+  flex: none;
+  padding-left: 8px;
+}
+
+.dv-avatar {
+  display: flex;
+  height: 30px;
+  width: 30px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--dv-avatar, #8e8e93);
+  color: #ffffff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.dv-avatar img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-avatars .dv-avatar {
+  margin-left: -8px;
+  box-shadow: 0 0 0 2px var(--dv-page, #000000);
+}
+
+.dv-people {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dv-people > span {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.dv-people > span .dv-avatar {
+  height: 28px;
+  width: 28px;
+}
+
+.dv-people b {
+  min-width: 0;
+  flex: 1 1 0;
+  overflow: hidden;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dv-people em {
+  flex: none;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+  color: var(--dv-t2);
+}
+
+.dv-people em.is-home {
+  color: #30d158;
+}
+
+.dv-people.is-row {
+  position: relative;
+  z-index: 1;
+  flex-direction: row;
+}
+
+.dv-people.is-row button {
+  display: flex;
+  height: 50px;
+  min-width: 0;
+  flex: 1 1 0;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 16px;
+  padding: 0 8px;
+  background: var(--dv-tile-off);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+}
+
+.dv-people.is-row button .dv-avatar {
+  height: 24px;
+  width: 24px;
+}
+
+.dv-people.is-row button > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.dv-people.is-row button b {
+  flex: none;
+  font-size: 13px;
+}
+
+.dv-people.is-row button em {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dv-people.is-row button[aria-pressed='true'] {
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
+
+.dv-people.is-row button[aria-pressed='true'] em {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.dv-size-gridpaper {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 23px, rgb(128 128 128 / 0.12) 23px 24px),
+    repeating-linear-gradient(90deg, transparent 0 23px, rgb(128 128 128 / 0.12) 23px 24px);
+  pointer-events: none;
+}
+
+/* Vacuum: a plan of the rooms, the robot moving in it while it cleans. */
+.dv-vmap {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--dv-icon-off);
+}
+
+.dv-vmap.is-strip {
+  height: 46px;
+}
+
+.dv-vmap.is-side {
+  width: 150px;
+  flex: none;
+  border-radius: 16px;
+}
+
+.dv-vmap img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-vmap i {
+  position: absolute;
+  border-radius: 6px;
+  background: rgb(128 128 128 / 0.16);
+  box-shadow: inset 0 0 0 1.5px rgb(128 128 128 / 0.28);
+}
+
+.dv-vmap .r1 { left: 8%; top: 12%; width: 46%; height: 44%; }
+.dv-vmap .r2 { left: 56%; top: 12%; width: 36%; height: 30%; background: rgb(48 209 88 / 0.18); box-shadow: inset 0 0 0 1.5px rgb(48 209 88 / 0.45); }
+.dv-vmap .r3 { left: 8%; top: 60%; width: 84%; height: 28%; }
+
+.dv-vmap b {
+  position: absolute;
+  left: 70%;
+  top: 24%;
+  height: 12px;
+  width: 12px;
+  border-radius: 50%;
+  background: #30d158;
+  box-shadow: 0 0 0 4px rgb(48 209 88 / 0.3);
+}
+
+.dv-vmap b.is-moving {
+  animation: dv-vacuum 6s ease-in-out infinite;
+}
+
+@keyframes dv-vacuum {
+  0%, 100% { left: 62%; top: 20%; }
+  25% { left: 84%; top: 24%; }
+  50% { left: 80%; top: 34%; }
+  75% { left: 64%; top: 30%; }
+}
+
+/* Camera and media: the picture fills the card, the words sit on it. */
+.dv-live {
+  position: relative;
+  display: inline-flex;
+  height: 22px;
+  align-self: flex-start;
+  align-items: center;
+  gap: 5px;
+  border-radius: 11px;
+  padding: 0 8px;
+  background: rgb(0 0 0 / 0.5);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dv-live i {
+  height: 6px;
+  width: 6px;
+  border-radius: 50%;
+  background: #ff453a;
+}
+
+.dv-live.is-small {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  height: 18px;
+  padding: 0 6px;
+  font-size: 9px;
+}
+
+.dv-camera-round {
+  display: block;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  overflow: hidden;
+  border-radius: 50%;
+  background: radial-gradient(120% 90% at 70% 20%, #4b5d6e 0%, #26323d 45%, #10171d 100%);
+}
+
+.dv-camera-round img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-media-art {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 12px;
+  color: #ffffff;
+}
+
+.dv-media-art.is-round {
+  border-radius: 50%;
+}
+
+.dv-media-art.is-large {
+  height: auto;
+  width: 146px;
+  align-self: stretch;
+  border-radius: 20px;
+}
+
+.dv-media-art img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.dv-progress {
+  position: relative;
+  z-index: 1;
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--dv-icon-off);
+}
+
+.dv-progress i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: #30d158;
+}
+
+.dv-tile.is-on .dv-progress {
+  background: rgb(0 0 0 / 0.1);
+}
+
+.dv-tile.is-on .dv-progress i {
+  background: #0b0b0f;
+}
+
+.dv-media-source {
+  display: inline-flex;
+  height: 28px;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  border-radius: 14px;
+  padding: 0 10px;
+  background: var(--dv-icon-off);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dv-tile.is-on .dv-media-source {
+  background: rgb(0 0 0 / 0.07);
+}
+
+.dv-volume {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  opacity: 0.85;
+}
+
+.dv-volume .dv-np-track {
+  max-width: 70px;
+  flex: 1 1 0;
+  background: rgb(0 0 0 / 0.12);
+}
+
+.dv-volume .dv-np-fill {
+  background: currentColor;
+}
+
+/* Alarm: green while armed, amber while arming. */
+.dv-alarm.is-armed,
+.dv-alarm.is-pending {
+  border-color: transparent;
+  background: linear-gradient(150deg, #0a6e35, #064d25);
+  color: #ffffff;
+}
+
+.dv-alarm.is-pending {
+  background: linear-gradient(150deg, #b86e00, #7a4a00);
+}
+
+.dv-alarm.is-triggered {
+  border-color: transparent;
+  background: linear-gradient(150deg, #c62828, #8e1414);
+  color: #ffffff;
+}
+
+.dv-alarm .dv-alarm-icon {
+  background: rgb(48 209 88 / 0.16);
+  color: #30d158;
+}
+
+.dv-alarm:is(.is-armed, .is-pending, .is-triggered) .dv-alarm-icon,
+.dv-alarm:is(.is-armed, .is-pending, .is-triggered) .dv-size-grid button:not([aria-checked='true']) {
+  background: rgb(255 255 255 / 0.18);
+  color: #ffffff;
+}
+
+.dv-alarm:is(.is-armed, .is-pending, .is-triggered) .dv-status,
+.dv-alarm:is(.is-armed, .is-pending, .is-triggered) .dv-zones {
+  color: rgb(255 255 255 / 0.82);
+}
+
+.dv-alarm:is(.is-armed, .is-pending, .is-triggered) .dv-pill.is-primary,
+.dv-alarm:is(.is-armed, .is-pending, .is-triggered) .dv-size-grid button[aria-checked='true'] {
+  background: #ffffff;
+  color: #0b0b0f;
+}
+
+.dv-zones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dv-t2);
+}
+
+.dv-zones span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dv-zones i {
+  height: 7px;
+  width: 7px;
+  border-radius: 50%;
+  background: var(--dv-zone, #30d158);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-vmap b.is-moving {
+    animation: none;
+  }
+}

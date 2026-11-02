@@ -18,6 +18,8 @@ const loaders: Record<AppLocale, () => Promise<{ default: OnboardingMessages }>>
 
 const loaded = new Map<AppLocale, OnboardingMessages>();
 const pending = new Map<AppLocale, Promise<OnboardingMessages>>();
+// The last failed load of each language, kept for the setup screens (see useOnboardingTranslations).
+const failed = new Map<AppLocale, Promise<OnboardingMessages>>();
 const listeners = new Set<() => void>();
 let version = 0;
 // The language shown until another one has arrived (after a change of language).
@@ -34,12 +36,14 @@ export function loadOnboardingTranslations(locale: AppLocale): Promise<Onboardin
       loaded.set(locale, module.default);
       lastLoaded = locale;
       pending.delete(locale);
+      failed.delete(locale);
       version += 1;
       listeners.forEach((listener) => listener());
       return module.default;
     },
     (error: unknown) => {
       pending.delete(locale);
+      failed.set(locale, request);
       throw error;
     },
   );
@@ -64,13 +68,15 @@ const currentVersion = () => version;
  * Makes the words of the current language available to the setup screens.
  * With no language loaded yet it suspends (the screen's loading state shows);
  * after a change of language the previous words stay until the new ones arrive.
- * A failed load reaches the nearest error boundary, which offers to retry.
+ * A failed load reaches the nearest error boundary, which offers to retry:
+ * the screen keeps that failed request, because a new one on every render
+ * React retries would keep it suspended instead of showing the error.
  */
 export function useOnboardingTranslations(): void {
   const { locale } = useI18n();
   useSyncExternalStore(subscribe, currentVersion, currentVersion);
   if (loaded.has(locale)) return;
-  const request = loadOnboardingTranslations(locale);
+  const request = failed.get(locale) ?? loadOnboardingTranslations(locale);
   if (loaded.size === 0) use(request);
 }
 

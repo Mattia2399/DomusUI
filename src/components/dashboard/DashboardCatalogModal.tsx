@@ -34,6 +34,7 @@ import type {
   WidgetKind,
 } from '../../types/dashboardModels';
 import { SECTION_CATALOG, WIDGET_CATALOG } from '../../types/dashboardModels';
+import { isLegacyStackKind, LEGACY_STACKS_READ_ONLY } from './legacyStacks';
 import GlassDropdown from '../ui/GlassDropdown';
 import GlassModal from '../ui/GlassModal';
 import GlassSearchFilterBar from '../ui/GlassSearchFilterBar';
@@ -140,7 +141,8 @@ export function DashboardCatalogModal({
   const { t } = useI18n();
   const sectionLabel = useCallback((kind: SectionKind) => t(SECTION_LABEL_KEYS[kind]), [t]);
   const widgetLabel = useCallback((kind: WidgetKind) => t(WIDGET_LABEL_KEYS[kind]), [t]);
-  const selectedStack = selectedSectionId
+  // Stacks are suspended (legacyStacks.ts): no new Stack, no card added into a saved one.
+  const selectedStack = selectedSectionId && !LEGACY_STACKS_READ_ONLY
     ? sections.find((section) => section.id === selectedSectionId && isStackSection(section))
     : undefined;
   const [catalogTab, setCatalogTab] = useState<CatalogTab>('cards');
@@ -163,7 +165,10 @@ export function DashboardCatalogModal({
     }
   }, [catalogDestination, sections]);
 
-  const stackSections = useMemo(() => sections.filter(isStackSection), [sections]);
+  const stackSections = useMemo(
+    () => (LEGACY_STACKS_READ_ONLY ? [] : sections.filter(isStackSection)),
+    [sections],
+  );
   const catalogDestinationOptions = useMemo(
     () => [
       { id: 'canvas', name: t('home.catalog.mainDashboard') },
@@ -204,6 +209,7 @@ export function DashboardCatalogModal({
   const filteredSectionCatalog = useMemo(
     () =>
       SECTION_CATALOG.filter((item) => {
+        if (LEGACY_STACKS_READ_ONLY && isLegacyStackKind(item.kind)) return false;
         if (!normalizedCatalogQuery) return true;
         const meta = SECTION_CATALOG_META[item.kind];
         return `${sectionLabel(item.kind)} ${t(meta.descriptionKey)}`

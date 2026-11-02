@@ -579,18 +579,6 @@ export function ConsumptionDashboardPage({
     onDetailViewChange?.(activeView !== 'overview');
   }, [activeView, onDetailViewChange]);
 
-  // With the overview on screen and nothing else to do, fetch the Water and Gas
-  // charts: a detail then opens with its chart already there.
-  React.useEffect(() => {
-    if (activeView !== 'overview' || typeof window === 'undefined') return undefined;
-    if (typeof window.requestIdleCallback === 'function') {
-      const handle = window.requestIdleCallback(preloadConsumptionCharts, { timeout: 4000 });
-      return () => window.cancelIdleCallback(handle);
-    }
-    const timer = window.setTimeout(preloadConsumptionCharts, 1500);
-    return () => window.clearTimeout(timer);
-  }, [activeView]);
-
   const setIntervalForCard = React.useCallback((cardId: ConsumptionCardId, value: IntervalKey) => {
     setDetailIntervals((current) => ({
       ...current,

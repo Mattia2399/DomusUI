@@ -1,19 +1,23 @@
 import type React from 'react';
-import { Blinds, Droplets, Fan, Plug, Power, Square, ToggleRight, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, Blinds, Droplets, Fan, Minus, Plug, Plus, Power, RotateCw, Square, ToggleRight, type LucideIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { deviceHasPanel, fanLevel, iconActionOf, isStandby, type DeviceAction, type DeviceModel } from '../model/device';
-import { DeviceCardShell, type DeviceCardFormat } from './DeviceCardShell';
+import { CardFrame, CardHead, CardIcon } from './CardFrame';
+import { DeviceCardShell, deviceCardSize, type DeviceCardFormat } from './DeviceCardShell';
 import { LevelBar } from './LevelBar';
 import { deviceIconLabel, formatDeviceStatus } from './deviceText';
 import { withTimer, type DeviceTimer } from '../model/deviceTimer';
 
 /*
- * A plug, switch, fan, cover or humidifier in any card format. On, the card
- * turns light and its icon takes the colour of the kind of device. The icon
- * turns it on and off (a cover opens, closes, or stops while moving); the
- * body opens the panel when there is one. From U×3 up, a fan shows its speed,
- * a cover its opening and a humidifier its target as a slider.
+ * A plug, switch, fan, cover or humidifier in the three sizes of the board
+ * (docs/design-reference/CoreCards.dc.html). On, the card turns light and its
+ * icon takes the colour of the kind of device.
+ *
+ * Mini U×2      icon, name and status: the tile of a room
+ * Standard U×4  plug: power and a button; fan: the speeds; humidifier: the
+ *               target with − and +; cover: the opening and its commands
+ * Expanded W×4  the same with the slider, the modes and the switch
  */
 
 const ICONS: Record<DeviceModel['kind'], LucideIcon> = {
@@ -52,6 +56,8 @@ export function DeviceIcon({ model, size = 21 }: { model: DeviceModel; size?: nu
   );
 }
 
+const wordOf = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, ' ');
+
 export type DeviceCardProps = {
   model: DeviceModel;
   format: DeviceCardFormat;
@@ -66,56 +72,6 @@ export type DeviceCardProps = {
   onOpenPanel?: () => void;
   onSelect?: () => void;
 };
-
-function DeviceLevel({ model, onAction, disabled }: { model: DeviceModel; onAction: (action: DeviceAction) => void; disabled: boolean }) {
-  const dt = useDevicesTranslations();
-  if (model.fan) {
-    const steps = model.fan.steps;
-    const level = fanLevel(model.fan);
-    return (
-      <LevelBar
-        value={steps ? level : model.fan.pct}
-        min={steps ? 1 : 1}
-        max={steps || 100}
-        lit={model.on}
-        label={dt('speedOf', { name: model.name })}
-        valueText={!model.on ? dt('switchOff') : steps ? dt('speedText', { level, steps }) : `${model.fan.pct}%`}
-        disabled={disabled}
-        onChange={(value) => onAction({ type: 'fan_pct', pct: steps ? Math.round((value / steps) * 100) : value })}
-      />
-    );
-  }
-  if (model.cover?.canPosition && model.cover.position !== null) {
-    return (
-      <LevelBar
-        value={model.cover.position}
-        step={5}
-        lit={model.cover.position > 0}
-        label={dt('openingOf', { name: model.name })}
-        valueText={`${model.cover.position}%`}
-        disabled={disabled}
-        onChange={(position) => onAction({ type: 'cover_position', position })}
-      />
-    );
-  }
-  if (model.humidifier && model.humidifier.target !== null) {
-    const { min, max, target } = model.humidifier;
-    return (
-      <LevelBar
-        value={target}
-        min={min}
-        max={max}
-        step={5}
-        lit={model.on}
-        label={dt('humidityTarget')}
-        valueText={`${target}%`}
-        disabled={disabled}
-        onChange={(value) => onAction({ type: 'humidity', target: value })}
-      />
-    );
-  }
-  return null;
-}
 
 export function DeviceCard({
   model,
@@ -135,40 +91,241 @@ export function DeviceCard({
   const hasPanel = deviceHasPanel(model);
   const iconLabel = deviceIconLabel(model, dt);
   const label = protectedPlug ? dt('protectedSuffix', { label: iconLabel }) : iconLabel;
-  const level = format === 'U×2' || format === 'W×2' ? null : <DeviceLevel model={model} onAction={onAction} disabled={editing || !model.available} />;
-  const wideLevel = format === 'W×2' ? <DeviceLevel model={model} onAction={onAction} disabled={editing || !model.available} /> : null;
+  const openLabel = dt('controlsOf', { name: model.name, status: protectedPlug ? dt('protectedSuffix', { label: status }) : status });
+  const size = deviceCardSize(format);
+  const live = !editing && model.available;
+  const lit = model.on && model.available;
+  const iconAction = () => onAction(iconActionOf(model));
+
+  if (size === 'mini') {
+    return (
+      <DeviceCardShell
+        format="U×2"
+        name={model.name}
+        status={status}
+        icon={<DeviceIcon model={model} />}
+        isOn={model.on}
+        available={model.available}
+        tone={lit ? TONES[model.kind] : null}
+        statusTone={isStandby(model) ? 'standby' : null}
+        hasPanel={hasPanel}
+        editing={editing}
+        selected={selected}
+        hiddenItem={hiddenItem}
+        toggleLabel={label}
+        openLabel={openLabel}
+        selectLabel={dt('select', { name: model.name })}
+        onToggle={iconAction}
+        onOpenPanel={onOpenPanel}
+        onSelect={onSelect}
+      />
+    );
+  }
+
+  const expanded = size === 'expanded';
+  const icon = (command: boolean) => (
+    <CardIcon label={label} pressed={model.on} editing={editing} disabled={!model.available} onPress={command ? iconAction : undefined}>
+      <DeviceIcon model={model} />
+    </CardIcon>
+  );
+  let head: React.ReactNode = <CardHead icon={icon(true)} name={model.name} status={status} oneLine={expanded} />;
+  let body: React.ReactNode = null;
+
+  if (model.fan) {
+    const fan = model.fan;
+    const level = fanLevel(fan);
+    const speedBar = (
+      <LevelBar
+        className="is-40"
+        value={fan.steps ? level : fan.pct}
+        min={1}
+        max={fan.steps || 100}
+        lit={model.on}
+        label={dt('speedOf', { name: model.name })}
+        valueText={!model.on ? dt('switchOff') : fan.steps ? dt('speedText', { level, steps: fan.steps }) : `${fan.pct}%`}
+        disabled={!live}
+        onChange={(value) => onAction({ type: 'fan_pct', pct: fan.steps ? Math.round((value / fan.steps) * 100) : value })}
+      />
+    );
+    if (!expanded) {
+      body = fan.steps > 0 && fan.steps <= 6 ? (
+        <span className="dv-size-grid is-speeds" role="radiogroup" aria-label={dt('speedOf', { name: model.name })} style={{ '--dv-cols': fan.steps } as React.CSSProperties}>
+          {Array.from({ length: fan.steps }, (_, index) => index + 1).map((step) => (
+            <button
+              key={step}
+              type="button"
+              role="radio"
+              aria-checked={model.on && level === step}
+              disabled={!live}
+              onClick={() => onAction({ type: 'fan_pct', pct: Math.round((step / fan.steps) * 100) })}
+            >
+              {step}
+            </button>
+          ))}
+        </span>
+      ) : speedBar;
+    } else {
+      head = <CardHead icon={icon(true)} name={model.name} status={status} oneLine aside={<span className="dv-pct">{model.on ? `${fan.pct}%` : '0%'}</span>} />;
+      body = (
+        <>
+          {speedBar}
+          <div className="dv-pills">
+            {fan.presets.slice(0, 3).map((preset) => (
+              <button key={preset} type="button" className={clsx('dv-pill', model.on && fan.preset === preset && 'is-on')} disabled={!live} onClick={() => onAction({ type: 'fan_preset', preset })}>
+                {wordOf(preset)}
+              </button>
+            ))}
+            {fan.oscillating !== null ? (
+              <button type="button" className={clsx('dv-pill', model.on && fan.oscillating && 'is-on')} disabled={!live} onClick={() => onAction({ type: 'fan_oscillate', oscillating: !fan.oscillating })}>
+                <RotateCw size={14} strokeWidth={2.4} aria-hidden="true" />
+                {dt('oscillating')}
+              </button>
+            ) : null}
+          </div>
+        </>
+      );
+    }
+  } else if (model.humidifier) {
+    const humidifier = model.humidifier;
+    const target = humidifier.target;
+    const step = (delta: number) => {
+      if (target === null) return;
+      onAction({ type: 'humidity', target: Math.max(humidifier.min, Math.min(humidifier.max, target + delta)) });
+    };
+    const steps = target !== null ? (
+      <span className="flex gap-1.5">
+        <button type="button" className="dv-size-round" aria-label={dt('lowerHumidity')} disabled={!live} onClick={() => step(-5)}>
+          <Minus size={16} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+        <button type="button" className="dv-size-round" aria-label={dt('raiseHumidity')} disabled={!live} onClick={() => step(5)}>
+          <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
+        </button>
+      </span>
+    ) : null;
+    const now = humidifier.current;
+    if (!expanded) {
+      head = <CardHead icon={icon(true)} name={model.name} status={now !== null ? dt('humidityNowTarget', { pct: Math.round(now) }) : status} />;
+      body = (
+        <span className="flex items-end justify-between gap-3">
+          <span className="dv-val"><b>{target !== null ? `${target}%` : '—'}</b></span>
+          {steps}
+        </span>
+      );
+    } else {
+      body = (
+        <>
+          <span className="flex items-end justify-between gap-3">
+            <span className="dv-val">
+              <b>{target !== null ? `${target}%` : '—'}</b>
+              {now !== null ? <span>{dt('humidityTargetNow', { pct: Math.round(now) })}</span> : null}
+            </span>
+            {steps}
+          </span>
+          {humidifier.modes.length > 0 ? (
+            <div className="dv-pills">
+              {humidifier.modes.slice(0, 4).map((mode) => (
+                <button key={mode} type="button" className={clsx('dv-pill', model.on && humidifier.mode === mode && 'is-on')} disabled={!live} onClick={() => onAction({ type: 'humidifier_mode', mode })}>
+                  {wordOf(mode)}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
+      );
+    }
+  } else if (model.cover) {
+    const cover = model.cover;
+    const position = cover.canPosition && cover.position !== null ? (
+      <LevelBar
+        className="is-40"
+        value={cover.position}
+        step={5}
+        lit={cover.position > 0}
+        label={dt('openingOf', { name: model.name })}
+        valueText={`${cover.position}%`}
+        disabled={!live}
+        onChange={(value) => onAction({ type: 'cover_position', position: value })}
+      />
+    ) : null;
+    const commands: Array<{ action: DeviceAction; Icon: LucideIcon; word: string; aria: string; on: boolean; can: boolean }> = [
+      { action: { type: 'cover_close' }, Icon: ArrowDown, word: dt('close'), aria: dt('closeCover', { name: model.name }), on: cover.moving === 'closing', can: true },
+      { action: { type: 'cover_stop' }, Icon: Square, word: dt('stop'), aria: dt('stopCover', { name: model.name }), on: false, can: cover.canStop },
+      { action: { type: 'cover_open' }, Icon: ArrowUp, word: dt('openShort'), aria: dt('openCover', { name: model.name }), on: cover.moving === 'opening', can: true },
+    ];
+    head = expanded
+      ? <CardHead icon={icon(true)} name={model.name} status={status} oneLine aside={cover.position !== null ? <span className="dv-pct">{cover.position}%</span> : undefined} />
+      : <CardHead icon={icon(false)} name={model.name} status={status} />;
+    body = (
+      <>
+        {position}
+        <span className={clsx('dv-size-grid is-cover', !expanded && 'is-short')} style={{ '--dv-cols': 3 } as React.CSSProperties}>
+          {commands.filter((command) => command.can).map(({ action, Icon, word, aria, on }) => (
+            <button key={action.type} type="button" className={clsx(on && 'is-on')} aria-label={aria} disabled={!live} onClick={() => onAction(action)}>
+              <Icon size={15} strokeWidth={2.4} aria-hidden="true" />
+              {expanded ? word : null}
+            </button>
+          ))}
+        </span>
+      </>
+    );
+  } else {
+    // A plug, switch or helper: its power when it measures it, and the switch.
+    const watts = model.watts;
+    const value = watts !== null && watts !== undefined ? (
+      <span className="dv-val">
+        <b>{Math.round(watts)}</b>
+        <span>{dt('wattsNowUnit')}</span>
+      </span>
+    ) : (
+      <span className="dv-val"><b className="!text-[26px]">{model.on ? dt('switchOn') : dt('switchOff')}</b></span>
+    );
+    if (!expanded) {
+      head = <CardHead icon={icon(false)} name={model.name} status={status} />;
+      body = (
+        <>
+          {value}
+          <button type="button" className={clsx('dv-pill is-wide', !model.on && 'is-primary')} aria-label={label} disabled={!live} onClick={iconAction}>
+            {model.on ? dt('turnOffShort') : dt('turnOnShort')}
+          </button>
+        </>
+      );
+    } else {
+      head = (
+        <CardHead
+          icon={icon(false)}
+          name={model.name}
+          status={status}
+          oneLine
+          aside={(
+            <button type="button" className="dv-size-switch" role="switch" aria-checked={model.on} aria-label={label} disabled={!live} onClick={iconAction}>
+              <i />
+            </button>
+          )}
+        />
+      );
+      body = value;
+    }
+  }
 
   return (
-    <DeviceCardShell
+    <CardFrame
       format={format}
-      name={model.name}
-      status={status}
-      icon={<DeviceIcon model={model} />}
-      isOn={model.on}
       available={model.available}
-      tone={model.on && model.available ? TONES[model.kind] : null}
-      statusTone={isStandby(model) ? 'standby' : null}
-      hasPanel={hasPanel}
+      on={lit}
+      tone={lit ? TONES[model.kind] : null}
       editing={editing}
       selected={selected}
       hiddenItem={hiddenItem}
-      toggleLabel={label}
-      openLabel={dt('controlsOf', { name: model.name, status: protectedPlug ? dt('protectedSuffix', { label: status }) : status })}
+      openLabel={hasPanel ? openLabel : label}
       selectLabel={dt('select', { name: model.name })}
-      onToggle={() => onAction(iconActionOf(model))}
-      onOpenPanel={onOpenPanel}
+      onOpen={hasPanel ? onOpenPanel : iconAction}
       onSelect={onSelect}
-      controls={
-        wideLevel ? (
-          <span className="w-[44%] flex-none">{wideLevel}</span>
-        ) : level ? (
-          <>
-            <span className="min-h-2.5 flex-auto" />
-            {level}
-          </>
-        ) : null
-      }
-    />
+    >
+      <div className="dv-size-body">
+        {head}
+        {body}
+      </div>
+    </CardFrame>
   );
 }
 

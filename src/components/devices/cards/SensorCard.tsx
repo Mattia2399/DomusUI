@@ -11,7 +11,12 @@ import '../theme/devices.css';
  * trend arrow, a line of the last 24 hours and where the value sits. While
  * the history is on its way the line is a faint outline; the real one fades
  * in. The card only opens the detail; while editing it selects.
+ *
+ * A room shows it at U×3 (128 px, without the note). The Home draws its
+ * sensors by family instead (SensorFamilyCard).
  */
+
+export type SensorCardFormat = 'U×3';
 
 export const SENSOR_ICONS: Record<SensorKind, LucideIcon> = {
   temp: Thermometer,
@@ -31,11 +36,13 @@ export type SensorCardProps = {
   editing?: boolean;
   selected?: boolean;
   hiddenItem?: boolean;
+  /** U×3: the 128 px of a room, without the note; without it the 140 px composition. */
+  format?: SensorCardFormat;
   onOpenPanel: () => void;
   onSelect?: () => void;
 };
 
-export function SensorCard({ model, history, historyLoading = false, editing = false, selected = false, hiddenItem = false, onOpenPanel, onSelect }: SensorCardProps) {
+export function SensorCard({ model, history, historyLoading = false, editing = false, selected = false, hiddenItem = false, format, onOpenPanel, onSelect }: SensorCardProps) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
   const Icon = SENSOR_ICONS[model.kind];
@@ -43,16 +50,31 @@ export function SensorCard({ model, history, historyLoading = false, editing = f
   const trend = model.available ? seriesTrend(history, model.kind) : 0;
   const line = model.available && model.kind !== 'smoke' ? sparkline(history, 32) : null;
   const valueText = face.unit ? withUnit(model.kind, face.value) : face.value;
-  const trendWord = trend > 0 ? `, ${dt('trendRising')}` : trend < 0 ? `, ${dt('trendFalling')}` : '';
+  const trendWord = trend > 0 ? dt('trendRising') : trend < 0 ? dt('trendFalling') : '';
 
-  return (
-    <button
-      type="button"
-      className={clsx('dv-tile dv-sensor', `dv-sn-${model.kind}`, editing && selected && 'is-selected', hiddenItem && 'is-hidden-item')}
-      onClick={editing ? onSelect : onOpenPanel}
-      aria-pressed={editing ? selected : undefined}
-      aria-label={editing ? dt('select', { name: model.name }) : dt('sensorAria', { name: model.name, value: valueText, note: `${face.note}${trendWord}` })}
-    >
+  const valueStyle = { opacity: model.available || model.kind === 'smoke' ? 1 : 0.55 };
+  const trendArrow = trend !== 0 ? (
+    <span className="dv-t3 ml-0.5 flex self-center" aria-hidden="true">
+      {trend > 0 ? <ArrowUp size={15} strokeWidth={2.6} /> : <ArrowDown size={15} strokeWidth={2.6} />}
+    </span>
+  ) : null;
+  const sparkRow = (
+    <span className="dv-spark-wrap" aria-hidden="true">
+      {line ? (
+        <svg className="dv-spark" viewBox="0 0 100 32" preserveAspectRatio="none">
+          <polygon points={line.area} />
+          <polyline points={line.line} />
+        </svg>
+      ) : historyLoading && model.available && model.kind !== 'smoke' ? (
+        <svg className="dv-spark is-waiting" viewBox="0 0 100 32" preserveAspectRatio="none">
+          <polyline points="0,22 18,18 36,20 54,14 72,17 100,12" />
+        </svg>
+      ) : null}
+    </span>
+  );
+
+  const content = (
+    <>
       <span className={clsx('dv-t2 flex items-center gap-[7px] text-[13px] font-semibold', editing && 'pr-7')}>
         <span className="dv-sensor-tint flex" aria-hidden="true">
           <Icon size={16} strokeWidth={2.2} />
@@ -64,28 +86,32 @@ export function SensorCard({ model, history, historyLoading = false, editing = f
           </span>
         ) : null}
       </span>
-      <span className="flex items-baseline gap-[3px]" style={{ opacity: model.available || model.kind === 'smoke' ? 1 : 0.55 }}>
+      <span className="flex items-baseline gap-[3px]" style={valueStyle}>
         <span className="text-[30px] font-semibold leading-none tracking-[-0.03em] tabular-nums">{face.value}</span>
         {face.unit ? <span className="dv-t2 text-[15px] font-semibold">{face.unit}</span> : null}
-        {trend !== 0 ? (
-          <span className="dv-t3 ml-0.5 flex self-center" aria-hidden="true">
-            {trend > 0 ? <ArrowUp size={15} strokeWidth={2.6} /> : <ArrowDown size={15} strokeWidth={2.6} />}
-          </span>
-        ) : null}
+        {trendArrow}
       </span>
-      <span className="dv-spark-wrap" aria-hidden="true">
-        {line ? (
-          <svg className="dv-spark" viewBox="0 0 100 32" preserveAspectRatio="none">
-            <polygon points={line.area} />
-            <polyline points={line.line} />
-          </svg>
-        ) : historyLoading && model.available && model.kind !== 'smoke' ? (
-          <svg className="dv-spark is-waiting" viewBox="0 0 100 32" preserveAspectRatio="none">
-            <polyline points="0,22 18,18 36,20 54,14 72,17 100,12" />
-          </svg>
-        ) : null}
-      </span>
-      <span className={clsx('truncate text-xs font-semibold', face.warn ? 'text-[color:var(--dv-amber)]' : 'dv-t2')}>{face.note}</span>
+      {sparkRow}
+      <span className={clsx('dv-sensor-note truncate text-xs font-semibold', face.warn ? 'text-[color:var(--dv-amber)]' : 'dv-t2')}>{face.note}</span>
+    </>
+  );
+
+  return (
+    <button
+      type="button"
+      className={clsx(
+        'dv-tile dv-sensor',
+        `dv-sn-${model.kind}`,
+        format === 'U×3' && 'dv-sensor-u3',
+        editing && selected && 'is-selected',
+        hiddenItem && 'is-hidden-item',
+      )}
+      data-format={format}
+      onClick={editing ? onSelect : onOpenPanel}
+      aria-pressed={editing ? selected : undefined}
+      aria-label={editing ? dt('select', { name: model.name }) : dt('sensorAria', { name: model.name, value: valueText, note: `${face.note}${trendWord ? `, ${trendWord}` : ''}` })}
+    >
+      {content}
       {editing ? (
         <span className={clsx('dv-check', selected && 'is-selected')} aria-hidden="true">
           <Check size={12} strokeWidth={3.2} />

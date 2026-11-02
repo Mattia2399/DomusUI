@@ -10,8 +10,9 @@ import './lazyConsumptionChart.css';
  * the outline of the chart while the charts load, and the reload offer of the
  * other on-demand screens if they cannot (browsers keep a failed import
  * failed), so the rest of the page never waits for the chart library or
- * breaks with it. Consumption fetches the charts ahead (preloadConsumptionCharts),
- * so a detail usually opens with them already there.
+ * breaks with it. Consumption fetches the charts when a Water or Gas card is
+ * pointed at, touched or focused (preloadConsumptionCharts), never on its own:
+ * Consumption and Energy start without the chart library.
  */
 
 type Charts = typeof ChartModule;

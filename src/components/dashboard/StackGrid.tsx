@@ -35,6 +35,12 @@ import {
 } from './gridEngineGeometry';
 import { solveGridStackLayout } from './gridStackLayoutSolver';
 import { isCardContextLongPressBlockedTarget } from './cardLongPressTarget';
+import {
+  resolveGridLightRuntimeMetrics,
+  type GridMetricsVersion,
+} from './gridEngine2/gridMetrics';
+import { resolveGridV2EntityCapability } from '../widgets/cardCapabilityRegistry';
+import { LEGACY_STACKS_READ_ONLY } from './legacyStacks';
 
 type HouseMemberCardItem = {
   id: string;
@@ -514,11 +520,13 @@ function enforceLightWidgetSpan(
   lightWidgetStateById: ReadonlyMap<string, boolean>,
   useExplicitLightSpan: boolean,
   widgetTypeLayoutOverrides: WidgetTypeLayoutOverrides,
+  metricsVersion: GridMetricsVersion = 'legacy',
 ): GridItem[] {
   if (lightWidgetStateById.size === 0) {
     return normalizeRuntimeLayout(layouts);
   }
   const span = resolveWidgetTypeLayoutSpan('light', breakpoint, widgetTypeLayoutOverrides);
+  const runtimeMetrics = resolveGridLightRuntimeMetrics(metricsVersion);
   const safeCols = Math.max(1, Math.round(cols));
   const forcedW = Math.min(safeCols, Math.max(1, Math.round(span.w)));
   return normalizeRuntimeLayout(
@@ -528,10 +536,18 @@ function enforceLightWidgetSpan(
         return item;
       }
       const currentH = Math.max(1, Math.round(item.h));
-      const collapsedH = Math.max(1, Math.round(span.hOff ?? span.h ?? 1));
+      const collapsedH = Math.max(1, Math.round(
+        metricsVersion === 'v2' && !useExplicitLightSpan
+          ? runtimeMetrics.hOff
+          : span.hOff ?? span.h ?? runtimeMetrics.hOff,
+      ));
       const autoExpand = span.autoExpand ?? true;
-      const canAutoExpand = autoExpand && collapsedH <= 1;
-      const expandedH = Math.max(2, Math.round(span.hOn ?? Math.max(2, collapsedH + 1)));
+      const canAutoExpand = autoExpand && collapsedH <= runtimeMetrics.hOff;
+      const expandedH = Math.max(runtimeMetrics.hOn, Math.round(
+        metricsVersion === 'v2' && !useExplicitLightSpan
+          ? runtimeMetrics.hOn
+          : span.hOn ?? Math.max(runtimeMetrics.hOn, collapsedH + 1),
+      ));
       const configuredH = canAutoExpand
         ? Math.max(1, lightIsOn ? expandedH : collapsedH)
         : collapsedH;
@@ -561,11 +577,13 @@ function enforceWidgetLayoutOverrides(
   widgetLayoutOverrides: WidgetLayoutOverrides,
   lightWidgetStateById: ReadonlyMap<string, boolean>,
   coverWidgetIds: ReadonlySet<string> = new Set(),
+  metricsVersion: GridMetricsVersion = 'legacy',
 ): GridItem[] {
   if (!widgetLayoutOverrides || Object.keys(widgetLayoutOverrides).length === 0) {
     return normalizeRuntimeLayout(layouts);
   }
   const safeCols = Math.max(1, Math.round(cols));
+  const lightRuntimeMetrics = resolveGridLightRuntimeMetrics(metricsVersion);
   return normalizeRuntimeLayout(
     layouts.map((item) => {
       const override = widgetLayoutOverrides[item.i]?.[breakpoint];
@@ -575,14 +593,14 @@ function enforceWidgetLayoutOverrides(
       const lightIsOn = lightWidgetStateById.get(item.i);
       const autoExpand = override.autoExpand ?? true;
       const collapsedH = Math.max(1, Math.round(override.hOff ?? override.h ?? 1));
-      const canAutoExpand = autoExpand && collapsedH <= 1;
+      const canAutoExpand = autoExpand && collapsedH <= lightRuntimeMetrics.hOff;
       const rawH =
         lightIsOn === undefined
           ? override.h ?? override.hOn ?? override.hOff
           : !canAutoExpand
             ? override.h ?? override.hOff ?? override.hOn
           : lightIsOn
-            ? override.hOn ?? override.h ?? Math.max(2, collapsedH + 1)
+            ? override.hOn ?? override.h ?? Math.max(lightRuntimeMetrics.hOn, collapsedH + 1)
             : override.hOff ?? override.h;
       const minimumW = coverWidgetIds.has(item.i) && breakpoint !== 'xs' && breakpoint !== 'sm'
         ? Math.min(safeCols, 2)
@@ -591,8 +609,8 @@ function enforceWidgetLayoutOverrides(
         ? Math.min(safeCols, Math.max(minimumW, Math.round(override.w)))
         : Math.min(safeCols, Math.max(minimumW, Math.round(item.w)));
       const nextH = rawH
-        ? canAutoExpand && lightIsOn && rawH <= 1
-          ? Math.max(2, Math.round(rawH))
+        ? canAutoExpand && lightIsOn && rawH <= lightRuntimeMetrics.hOff
+          ? Math.max(lightRuntimeMetrics.hOn, Math.round(rawH))
           : Math.max(1, Math.round(rawH))
         : Math.max(1, Math.round(item.h));
       return {
@@ -622,6 +640,7 @@ function enforceGridStackWidgetSpans(
   vacuumWidgetIds: ReadonlySet<string>,
   lockWidgetIds: ReadonlySet<string>,
   coverWidgetIds: ReadonlySet<string>,
+  metricsVersion: GridMetricsVersion = 'legacy',
 ): GridItem[] {
   const withLight = enforceLightWidgetSpan(
     layouts,
@@ -630,6 +649,7 @@ function enforceGridStackWidgetSpans(
     lightWidgetStateById,
     useExplicitLightSpan,
     widgetTypeLayoutOverrides,
+    metricsVersion,
   );
   const withSwitch = enforceSwitchWidgetSpan(
     withLight,
@@ -708,6 +728,7 @@ function enforceGridStackWidgetSpans(
     widgetLayoutOverrides,
     lightWidgetStateById,
     coverWidgetIds,
+    metricsVersion,
   );
 }
 
@@ -729,7 +750,8 @@ type StackGridProps = {
   stackWidth: number;
   availableStackWidth: number;
   rootRowHeight: number;
-  rootMargin: number;
+  rootMargin: number | readonly [number, number];
+  gridMetricsVersion?: GridMetricsVersion;
   selectedWidgetId: string | null;
   onSelectWidget: (id: string | null) => void;
   onSelectSection: (id: string | null) => void;
@@ -747,6 +769,7 @@ type StackGridProps = {
   onWidgetHumidifierModeChange: (widget: Widget, mode: string) => void;
   onWidgetBrightnessChange: (widget: Widget, value: number) => void;
   onWidgetLightColorChange: (widget: Widget, hs: [number, number]) => void;
+  onWidgetLightColorTempChange?: (widget: Widget, kelvin: number) => void;
   onWidgetClimateTargetTempChange: (widget: Widget, value: number) => void;
   onWidgetClimateTargetRangeChange: (widget: Widget, low: number, high: number) => void;
   onWidgetClimateTargetHumidityChange: (widget: Widget, value: number) => void;
@@ -760,6 +783,7 @@ type StackGridProps = {
   onWidgetMediaPrevious: (widget: Widget) => void;
   onWidgetMediaNext: (widget: Widget) => void;
   onWidgetMediaSeek: (widget: Widget, position: number) => void;
+  onWidgetMediaVolumeChange?: (widget: Widget, volume: number) => void;
   onWidgetMediaShuffle: (widget: Widget) => void;
   onWidgetMediaRepeat: (widget: Widget) => void;
   onWidgetMediaSelectSource: (widget: Widget, source: string) => void;
@@ -810,6 +834,7 @@ function StackGridComponent({
   availableStackWidth,
   rootRowHeight,
   rootMargin,
+  gridMetricsVersion = 'legacy',
   selectedWidgetId,
   onSelectWidget,
   onSelectSection,
@@ -827,6 +852,7 @@ function StackGridComponent({
   onWidgetHumidifierModeChange,
   onWidgetBrightnessChange,
   onWidgetLightColorChange,
+  onWidgetLightColorTempChange,
   onWidgetClimateTargetTempChange,
   onWidgetClimateTargetRangeChange,
   onWidgetClimateTargetHumidityChange,
@@ -840,6 +866,7 @@ function StackGridComponent({
   onWidgetMediaPrevious,
   onWidgetMediaNext,
   onWidgetMediaSeek,
+  onWidgetMediaVolumeChange,
   onWidgetMediaShuffle,
   onWidgetMediaRepeat,
   onWidgetMediaSelectSource,
@@ -910,8 +937,8 @@ function StackGridComponent({
       : innerWidth,
     1,
   );
-  const marginX = rootMargin;
-  const marginY = rootMargin;
+  const marginX = Array.isArray(rootMargin) ? rootMargin[0] : rootMargin;
+  const marginY = Array.isArray(rootMargin) ? rootMargin[1] : rootMargin;
   const stackInsetX = 0;
   const horizontalContentCols = useMemo(
     () =>
@@ -1233,9 +1260,26 @@ function StackGridComponent({
       new Map(
         stackWidgets
           .filter((widget) => widget.kind === 'light')
-          .map((widget) => [widget.id, widget.isOn] as const),
+          .map((widget) => {
+            if (gridMetricsVersion !== 'v2') return [widget.id, widget.isOn] as const;
+            const entity = haStates[widget.entityId];
+            const capability = resolveGridV2EntityCapability({
+              kind: widget.kind,
+              entityId: widget.entityId,
+              state: entity?.state,
+              rawAttributes: entity?.rawAttributes,
+              entity,
+            });
+            const unavailable = entity?.state === 'unavailable' || entity?.state === 'unknown';
+            const eligible = !isEditMode &&
+              !isHorizontalStack &&
+              Boolean(entity) &&
+              !unavailable &&
+              capability !== 'light-on-off';
+            return [widget.id, eligible && widget.isOn] as const;
+          }),
       ),
-    [stackWidgets],
+    [gridMetricsVersion, haStates, isEditMode, isHorizontalStack, stackWidgets],
   );
   const stackSwitchWidgetIds = useMemo(
     () =>
@@ -1407,6 +1451,7 @@ function StackGridComponent({
             stackVacuumWidgetIds,
             stackLockWidgetIds,
             stackCoverWidgetIds,
+            gridMetricsVersion,
           ),
           measurementCols,
         );
@@ -1467,6 +1512,7 @@ function StackGridComponent({
           stackVacuumWidgetIds,
           stackLockWidgetIds,
           stackCoverWidgetIds,
+          gridMetricsVersion,
         );
         if (!ENABLE_STACK_ADAPTIVE_MIN_WIDTH || !isAdaptiveSpanEnabled) {
           return applyResponsiveLayout(compactAndResolveLayout(baseLayouts, measurementCols));
@@ -1496,6 +1542,7 @@ function StackGridComponent({
           stackVacuumWidgetIds,
           stackLockWidgetIds,
           stackCoverWidgetIds,
+          gridMetricsVersion,
         );
         return applyResponsiveLayout(compactAndResolveLayout(enforcedAdaptedLayouts, measurementCols));
       }
@@ -1604,6 +1651,7 @@ function StackGridComponent({
           stackVacuumWidgetIds,
           stackLockWidgetIds,
           stackCoverWidgetIds,
+          gridMetricsVersion,
         )
       : normalized;
     const nextPreview = isGridStack
@@ -1701,6 +1749,7 @@ function StackGridComponent({
             stackVacuumWidgetIds,
             stackLockWidgetIds,
             stackCoverWidgetIds,
+            gridMetricsVersion,
           ),
           cols,
           gridStackWidthMode,
@@ -2012,6 +2061,7 @@ function StackGridComponent({
                         }}
                         onLightBrightnessChange={onWidgetBrightnessChange}
                         onLightColorChange={onWidgetLightColorChange}
+                        onLightColorTempChange={onWidgetLightColorTempChange}
                         onSwitchToggle={onWidgetSwitchToggle}
                         onFanToggle={onWidgetFanToggle}
                         onFanPercentageChange={onWidgetFanPercentageChange}
@@ -2034,6 +2084,8 @@ function StackGridComponent({
                         onMediaPrevious={onWidgetMediaPrevious}
                         onMediaNext={onWidgetMediaNext}
                         onMediaSeek={onWidgetMediaSeek}
+                        onMediaVolumeChange={onWidgetMediaVolumeChange}
+                        gridMetricsVersion={gridMetricsVersion}
                         onMediaShuffle={onWidgetMediaShuffle}
                         onMediaRepeat={onWidgetMediaRepeat}
                         onMediaSelectSource={onWidgetMediaSelectSource}
@@ -2083,7 +2135,8 @@ function StackGridComponent({
                 margin={[marginX, marginY]}
                 containerPadding={[stackInsetX, 0]}
                 useCSSTransforms
-                isDraggable
+                // Saved Stacks are read-only until they return as Groups (legacyStacks.ts).
+                isDraggable={!LEGACY_STACKS_READ_ONLY}
                 isResizable={false}
                 resizeHandles={[]}
                 compactType={overlayCompactType}
@@ -2181,6 +2234,7 @@ function StackGridComponent({
                             onClick={() => {}}
                             onLightBrightnessChange={onWidgetBrightnessChange}
                             onLightColorChange={onWidgetLightColorChange}
+                            onLightColorTempChange={onWidgetLightColorTempChange}
                             onSwitchToggle={onWidgetSwitchToggle}
                             onFanToggle={onWidgetFanToggle}
                             onFanPercentageChange={onWidgetFanPercentageChange}
@@ -2203,6 +2257,8 @@ function StackGridComponent({
                             onMediaPrevious={onWidgetMediaPrevious}
                             onMediaNext={onWidgetMediaNext}
                             onMediaSeek={onWidgetMediaSeek}
+                            onMediaVolumeChange={onWidgetMediaVolumeChange}
+                            gridMetricsVersion={gridMetricsVersion}
                             onMediaShuffle={onWidgetMediaShuffle}
                             onMediaRepeat={onWidgetMediaRepeat}
                             onMediaSelectSource={onWidgetMediaSelectSource}

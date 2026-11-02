@@ -5,6 +5,7 @@ import type {
   WidgetTypeLayoutOverrides,
 } from '../types/widgetTypeLayout';
 import { hydrateWidgetRuntimeDefaults } from './dashboardPersistenceProjection';
+import type { GridMetricsVersion } from '../components/dashboard/gridEngine2/gridMetrics';
 
 export type DashboardRevisionSource = 'edit' | 'rollback' | 'migration';
 
@@ -38,6 +39,8 @@ export type DashboardLayoutConfiguration = {
   responsiveLayouts: DashboardResponsiveLayouts;
   /** Present only after the user explicitly adopts the Grid Engine 2.0 Home. */
   layoutEngine?: DashboardLayoutEngine;
+  /** Missing means the original 48/16/16 geometry. */
+  gridMetricsVersion?: GridMetricsVersion;
 };
 
 export type SecurityPresentationConfiguration = {
@@ -169,6 +172,9 @@ export function parseDashboardLayout(value: unknown): DashboardLayoutConfigurati
       : {},
     ...(value.layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE
       ? { layoutEngine: GRID_ENGINE_2_LAYOUT_ENGINE }
+      : null),
+    ...(value.gridMetricsVersion === 'legacy' || value.gridMetricsVersion === 'v2'
+      ? { gridMetricsVersion: value.gridMetricsVersion }
       : null),
   };
 }

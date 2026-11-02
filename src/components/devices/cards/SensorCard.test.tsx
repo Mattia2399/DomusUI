@@ -39,4 +39,11 @@ describe('SensorCard of a room', () => {
     const away = render(<SensorCard model={{ ...temperature, available: false }} history={[]} historyLoading onOpenPanel={() => undefined} />);
     expect(away.container.querySelector('.dv-spark')).toBeNull();
   });
+
+  it('keeps the U×3 of a room: the line without the note', () => {
+    const { container } = render(<SensorCard model={temperature} history={day} format="U×3" onOpenPanel={() => undefined} />);
+    expect(container.querySelector('.dv-sensor')?.getAttribute('data-format')).toBe('U×3');
+    expect(container.querySelector('.dv-spark polyline')).not.toBeNull();
+    expect(container.querySelector('.dv-sensor-u3')).not.toBeNull();
+  });
 });

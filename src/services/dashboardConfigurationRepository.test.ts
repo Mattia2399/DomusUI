@@ -95,6 +95,26 @@ describe('shared house configuration contract', () => {
     expect(unknown?.dashboard.layoutEngine).toBeUndefined();
   });
 
+  it('round-trips only supported grid metrics versions and keeps absence legacy', () => {
+    const v2 = parseSharedHouseConfiguration({
+      ...buildDocument(),
+      dashboard: { ...dashboard, gridMetricsVersion: 'v2' },
+    });
+    const explicitLegacy = parseSharedHouseConfiguration({
+      ...buildDocument(),
+      dashboard: { ...dashboard, gridMetricsVersion: 'legacy' },
+    });
+    const unknown = parseSharedHouseConfiguration({
+      ...buildDocument(),
+      dashboard: { ...dashboard, gridMetricsVersion: 'future' },
+    });
+
+    expect(v2?.dashboard.gridMetricsVersion).toBe('v2');
+    expect(explicitLegacy?.dashboard.gridMetricsVersion).toBe('legacy');
+    expect(unknown?.dashboard.gridMetricsVersion).toBeUndefined();
+    expect(parseSharedHouseConfiguration(buildDocument())?.dashboard.gridMetricsVersion).toBeUndefined();
+  });
+
   it('increments the revision without mutating the previous document', () => {
     const current = buildDocument();
     const next = createNextSharedHouseConfiguration(

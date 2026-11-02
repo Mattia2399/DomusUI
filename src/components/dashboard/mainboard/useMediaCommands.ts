@@ -322,8 +322,8 @@ export function useMediaCommands({
     speakerActions.setSpeakerProgress(progress);
   };
 
-  const setMediaVolume = (nextVolume: number) => {
-    const targetWidget = activeWidget?.kind === 'media' ? activeWidget : undefined;
+  const setMediaVolume = (nextVolume: number, widget?: Widget) => {
+    const targetWidget = widget?.kind === 'media' ? widget : activeWidget?.kind === 'media' ? activeWidget : undefined;
     const entityId = targetWidget?.entityId;
     const safeVolume = clamp(Math.round(nextVolume), 0, 100);
     if (isHaConnected && entityId) {

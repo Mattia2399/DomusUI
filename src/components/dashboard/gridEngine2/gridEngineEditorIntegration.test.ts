@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createGridEngineEditorResizeOverride,
   prepareGridEngineEditorLayout,
+  shouldMirrorGridEngineCanonicalSection,
 } from './gridEngineEditorIntegration';
 
 const structural = [
@@ -72,5 +73,58 @@ describe('Grid Engine 2 real editor integration', () => {
     expect(createGridEngineEditorResizeOverride('light', 3, 3)).toEqual({
       w: 3, h: 3, hOff: 3, hOn: 3, autoExpand: false,
     });
+    expect(createGridEngineEditorResizeOverride('light', 2, 2, undefined, undefined, 'v2')).toEqual({
+      w: 2, hOff: 2, hOn: 3, autoExpand: true,
+    });
+    expect(createGridEngineEditorResizeOverride('light', 4, 4, undefined, undefined, 'v2')).toEqual({
+      w: 4, h: 4, hOff: 4, hOn: 4, autoExpand: false,
+    });
+  });
+
+  it('mirrors coherent XL geometry exactly, including the v2 Greeting height', () => {
+    const greeting = { i: 'section-greeting-1', x: 0, y: 0, w: 12, h: 3 };
+
+    expect(shouldMirrorGridEngineCanonicalSection({
+      baselineCanonical: greeting,
+      baselineXl: greeting,
+      currentCanonical: greeting,
+      currentXl: greeting,
+      committedXl: greeting,
+    })).toBe(true);
+  });
+
+  it('preserves only an unchanged historical canonical/XL difference', () => {
+    const baselineCanonical = { i: 'section-greeting-1', x: 0, y: 0, w: 12, h: 2 };
+    const baselineXl = { i: 'section-greeting-1', x: 0, y: 0, w: 12, h: 3 };
+
+    expect(shouldMirrorGridEngineCanonicalSection({
+      baselineCanonical,
+      baselineXl,
+      currentCanonical: baselineCanonical,
+      currentXl: baselineXl,
+      committedXl: baselineXl,
+    })).toBe(false);
+    expect(shouldMirrorGridEngineCanonicalSection({
+      baselineCanonical,
+      baselineXl,
+      currentCanonical: baselineCanonical,
+      currentXl: baselineXl,
+      committedXl: { ...baselineXl, y: 4 },
+    })).toBe(true);
+    expect(shouldMirrorGridEngineCanonicalSection({
+      baselineCanonical,
+      baselineXl,
+      currentCanonical: baselineCanonical,
+      currentXl: { ...baselineXl, h: 4 },
+      committedXl: { ...baselineXl, h: 4 },
+    })).toBe(true);
+    expect(shouldMirrorGridEngineCanonicalSection({
+      baselineCanonical,
+      baselineXl,
+      currentCanonical: baselineCanonical,
+      currentXl: baselineXl,
+      committedXl: baselineXl,
+      allowHistoricalDifference: false,
+    })).toBe(true);
   });
 });

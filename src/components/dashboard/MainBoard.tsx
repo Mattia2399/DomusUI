@@ -10,7 +10,17 @@ import GlassModal from '../ui/GlassModal';
 import { LeftSidebar } from './LeftSidebar';
 import { BottomBarNav } from './BottomBarNav';
 import { XsNotificationBell } from './XsNotificationBell';
-import { MobileSidebarDrawer } from './MobileSidebarDrawer';
+import { LazyMobileSidebarDrawer, preloadMobileSidebarDrawer } from './LazyMobileSidebarDrawer';
+import {
+  describeLegacyStackChange,
+  hasLegacyStacks,
+  isLegacyStackChild,
+  isLegacyStackKind,
+  isLegacyStackSection,
+  LEGACY_STACK_OPERATION_BLOCKED_MESSAGE,
+  LEGACY_STACK_READ_ONLY_MESSAGE,
+  LEGACY_STACKS_READ_ONLY,
+} from './legacyStacks';
 import { DashboardSidebarPlaceholder } from './DashboardSidebarPlaceholder';
 import {
   GridCanvas,
@@ -20,7 +30,6 @@ import {
 import { HomeAssistantRecoveryBanner } from './HomeAssistantRecoveryBanner';
 import { DashboardEditToolbar } from './DashboardEditToolbar';
 import { DashboardViewportPreviewBar } from './DashboardViewportPreviewBar';
-import DashboardEditDraftRecoveryModal from './DashboardEditDraftRecoveryModal';
 import HomeAttentionCenter from '../homeAttention/HomeAttentionCenter';
 import type { HomeAttentionItem } from '../homeAttention/homeAttentionEngine';
 import {
@@ -246,14 +255,17 @@ import type { GridEditorPreviewSession } from './gridEngine2/GridEditorPreviewDi
 import type { GridEngineDraftSourceIdentity } from './gridEngine2/gridEngineDraftChangeSet';
 import { GRID_ENGINE_2_EDITOR_ENABLED } from './gridEngine2/editorFeatureFlag';
 import { GRID_ENGINE_2_QA_SAVE_ENABLED } from './gridEngine2/saveFeatureFlag';
-import {
+import type {
+  GridEngine2TouchedBreakpoint,
   validateGridEngine2DashboardForSave,
-  type GridEngine2TouchedBreakpoint,
 } from './gridEngine2/gridEngineSaveValidation';
 import {
-  createGridEngine2HomeConfiguration,
+  createGridV2NewWidgetOverrides,
   isGridEngine2Home,
 } from './gridEngine2/homeGridEngine2Cutover';
+import type { GridMetricsVersion } from './gridEngine2/gridMetrics';
+import { shouldMirrorGridEngineCanonicalSection } from './gridEngine2/gridEngineEditorIntegration';
+import { resolveGridV2EntityCapability } from '../widgets/cardCapabilityRegistry';
 import {
   createDashboardRecoverySnapshot,
   discardDashboardRecoverySnapshot,
@@ -430,6 +442,7 @@ import { translateMediaPlayerState } from '../../utils/mediaPlayerState';
 import { DomusScreensaver } from '../screensaver/DomusScreensaver';
 import { DomusKiosk, useKioskChrome } from '../kiosk/DomusKiosk';
 import { KIOSK_START_ROUTES } from '../kiosk/kioskPreferences';
+import { HouseStatesProvider } from '../devices/cards/houseStatesContext';
 import {
   createOAuthNonce,
   isAppGalleryNavigationTarget,
@@ -477,6 +490,10 @@ const loadStarterLayoutChoiceModal = () => import('../onboarding/StarterLayoutCh
 const loadSecurityAuthModal = () => import('../security/SecurityAuthModal');
 const loadDashboardRecoveryModal = () => import('./DashboardRecoveryModal');
 const loadGridEditorPreviewDialog = () => import('./gridEngine2/GridEditorPreviewDialog');
+// Edit Mode only: fetched with the Builder when editing is about to start.
+const loadGridEngineSaveValidation = () => import('./gridEngine2/gridEngineSaveValidation');
+const loadGridEngine2Activation = () => import('./gridEngine2/gridEngine2Activation');
+const loadDashboardEditDraftRecoveryModal = () => import('./DashboardEditDraftRecoveryModal');
 
 const ConsumptionDashboardPage = React.lazy(loadConsumptionDashboard);
 const AutomationsBuilder = React.lazy(loadAutomationsBuilder);
@@ -491,6 +508,7 @@ const FirstRunGuide = React.lazy(loadFirstRunGuide);
 const StarterLayoutChoiceModal = React.lazy(loadStarterLayoutChoiceModal);
 const SecurityAuthModal = React.lazy(loadSecurityAuthModal);
 const DashboardRecoveryModal = React.lazy(loadDashboardRecoveryModal);
+const DashboardEditDraftRecoveryModal = React.lazy(loadDashboardEditDraftRecoveryModal);
 const GridEditorPreviewDialog = import.meta.env.DEV
   ? React.lazy(loadGridEditorPreviewDialog)
   : null;
@@ -510,7 +528,7 @@ function prefetchDashboardWorkspace(path: string) {
 }
 
 function prefetchDashboardBuilder() {
-  void Promise.all([loadRightSidebarManager(), preloadDashboardCatalog()]);
+  void Promise.all([loadRightSidebarManager(), preloadDashboardCatalog(), loadGridEngineSaveValidation()]);
 }
 
 function preloadDashboardDeviceContext() {
@@ -535,6 +553,8 @@ function SecondaryWorkspaceLoading({
 }
 
 type DashboardEditorSnapshot = Omit<DashboardLayoutConfiguration, 'storageVersion'>;
+
+type GridEngine2SaveValidator = typeof validateGridEngine2DashboardForSave;
 
 type GridEngine2SaveSessionState = Readonly<{
   source: 'none' | 'fresh' | 'recovered-blocked';
@@ -1726,6 +1746,9 @@ export function MainBoard() {
   const [layoutEngine, setLayoutEngine] = useState<DashboardLayoutEngine | undefined>(
     () => initialLayout.layoutEngine,
   );
+  const [gridMetricsVersion, setGridMetricsVersion] = useState<GridMetricsVersion | undefined>(
+    () => initialLayout.gridMetricsVersion,
+  );
   explicitMockEntityIdsRef.current = new Set(
     widgets
       .filter((widget) => effectiveRuntimeMode === 'demo' && widget.dataSource === 'mock' && !haStates[widget.entityId.trim()])
@@ -2479,6 +2502,8 @@ export function MainBoard() {
   );
   const deviceAuth = useDeviceAuth(deviceAuthUser);
   const [sensorHistoryByEntity, setSensorHistoryByEntity] = useState<Record<string, number[]>>({});
+  // The states of the house, for the Expanded sensor cards of a v2 Home.
+  const sensorHouseStates = isHaConnected && gridMetricsVersion === 'v2' ? haStatesForUi : null;
   const [cameraHistory, setCameraHistory] = useState<{
     cameraEntityId?: string;
     status: CameraHistoryStatus;
@@ -2493,12 +2518,18 @@ export function MainBoard() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [hasUnsavedDashboardEdits, setHasUnsavedDashboardEdits] = useState(false);
   const [hasExperimentalGridEngine2Edits, setHasExperimentalGridEngine2Edits] = useState(false);
+  const gridV2ConversionBaselineRef = useRef<Readonly<{
+    snapshot: DashboardEditorSnapshot;
+    saveSession: GridEngine2SaveSessionState;
+    hadExperimentalEdits: boolean;
+  }> | null>(null);
   const [gridEngine2SaveSession, setGridEngine2SaveSession] = useState<GridEngine2SaveSessionState>(
     EMPTY_GRID_ENGINE_2_SAVE_SESSION,
   );
   const clearGridEngine2SaveSession = useCallback(() => {
     setHasExperimentalGridEngine2Edits(false);
     setGridEngine2SaveSession(EMPTY_GRID_ENGINE_2_SAVE_SESSION);
+    gridV2ConversionBaselineRef.current = null;
   }, []);
   const [gridEditorPreviewSession, setGridEditorPreviewSession] = useState<GridEditorPreviewSession | null>(null);
   const gridEditorGeometrySnapshotRef = useRef<GridCanvasEditorGeometrySnapshot | null>(null);
@@ -2506,6 +2537,8 @@ export function MainBoard() {
   const [isDashboardConflictOpen, setIsDashboardConflictOpen] = useState(false);
   const [isHome2ActivationOpen, setIsHome2ActivationOpen] = useState(false);
   const [home2ActivationError, setHome2ActivationError] = useState<string | null>(null);
+  const [isGridV2ConversionOpen, setIsGridV2ConversionOpen] = useState(false);
+  const [gridV2ConversionError, setGridV2ConversionError] = useState<string | null>(null);
   const editSessionBaselineRef = useRef<DashboardEditorSnapshot | null>(null);
   const editSessionCreatedAtRef = useRef<number | null>(null);
   const allowDashboardUnloadRef = useRef(false);
@@ -2519,6 +2552,15 @@ export function MainBoard() {
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
   const [selectedWidgetDisplayMetrics, setSelectedWidgetDisplayMetrics] = useState<WidgetDisplayMetrics | null>(null);
   const [selectedSectionId, setSelectedSectionId] = useState<string | null>(null);
+  // On a phone a touch on the Grid Engine 2.0 canvas only selects ('held'); the
+  // settings open from the button on the card ('open'). Every other selection
+  // keeps opening them ('auto').
+  const [compactEditSheet, setCompactEditSheet] = useState<'auto' | 'held' | 'open'>('auto');
+  const holdEditSheet = useCallback(() => setCompactEditSheet('held'), []);
+  const openEditSheet = useCallback(() => setCompactEditSheet('open'), []);
+  useEffect(() => {
+    if (!isEditMode || (!selectedWidgetId && !selectedSectionId)) setCompactEditSheet('auto');
+  }, [isEditMode, selectedSectionId, selectedWidgetId]);
   const [selectedSidebarPathId, setSelectedSidebarPathId] = useState<string | null>(null);
   const [runningSceneBySectionId, setRunningSceneBySectionId] = useState<Partial<Record<string, SceneRunState>>>({});
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
@@ -3458,7 +3500,7 @@ export function MainBoard() {
     });
   };
   useEffect(() => {
-    if (!favoriteGridSections.length) {
+    if (LEGACY_STACKS_READ_ONLY || !favoriteGridSections.length) {
       return;
     }
 
@@ -6412,6 +6454,7 @@ export function MainBoard() {
     responsiveLayouts,
     widgetLayoutOverrides,
     layoutEngine,
+    gridMetricsVersion,
   });
   const authoritativeDashboardLayout = useMemo(() => ({
     storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
@@ -6421,7 +6464,8 @@ export function MainBoard() {
     responsiveLayouts,
     widgetLayoutOverrides,
     ...(layoutEngine ? { layoutEngine } : null),
-  }), [layoutEngine, responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
+    ...(gridMetricsVersion ? { gridMetricsVersion } : null),
+  }), [gridMetricsVersion, layoutEngine, responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
   const hydrateAuthoritativeDashboardLayout = useCallback((layout: typeof authoritativeDashboardLayout) => {
     setSections(layout.sections);
     const widgetsWithSecrets = typeof window === 'undefined'
@@ -6433,6 +6477,7 @@ export function MainBoard() {
     setResponsiveLayouts(layout.responsiveLayouts);
     setWidgetLayoutOverrides(layout.widgetLayoutOverrides);
     setLayoutEngine(layout.layoutEngine);
+    setGridMetricsVersion(layout.gridMetricsVersion);
   }, [effectiveRuntimeMode]);
   const handleAuthoritativeDashboardReset = useCallback((marker: DashboardResetMarker) => {
     if (typeof window === 'undefined') return;
@@ -6530,11 +6575,24 @@ export function MainBoard() {
     effectiveRuntimeMode === 'real' &&
     haDashboardLayoutPersistence.loadStatus === 'migration_required';
   const isGridEngine2HomeActive = layoutEngine === GRID_ENGINE_2_LAYOUT_ENGINE;
+  const [gridEngine2SaveValidator, setGridEngine2SaveValidator] = useState<GridEngine2SaveValidator | null>(null);
+  useEffect(() => {
+    if (!isEditMode || gridEngine2SaveValidator) return undefined;
+    let cancelled = false;
+    void loadGridEngineSaveValidation()
+      .then((module) => {
+        if (!cancelled) setGridEngine2SaveValidator(() => module.validateGridEngine2DashboardForSave);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [gridEngine2SaveValidator, isEditMode]);
   const gridEngine2SaveValidation = useMemo(() => {
     if (gridEngine2SaveSession.source !== 'fresh') return null;
     const baseline = editSessionBaselineRef.current;
-    if (!baseline) return null;
-    return validateGridEngine2DashboardForSave({
+    if (!baseline || !gridEngine2SaveValidator) return null;
+    return gridEngine2SaveValidator({
       dashboard: authoritativeDashboardLayout,
       baseline: {
         storageVersion: DASHBOARD_LAYOUT_STORAGE_VERSION,
@@ -6542,7 +6600,7 @@ export function MainBoard() {
       },
       touchedBreakpoints: gridEngine2SaveSession.touchedBreakpoints,
     });
-  }, [authoritativeDashboardLayout, gridEngine2SaveSession]);
+  }, [authoritativeDashboardLayout, gridEngine2SaveSession, gridEngine2SaveValidator]);
   const gridEngine2SaveGate = useMemo(() => {
     if (!hasExperimentalGridEngine2Edits) {
       return { allowed: true as const, code: null, reason: null };
@@ -6559,6 +6617,13 @@ export function MainBoard() {
         allowed: false as const,
         code: 'experimental_grid_engine2_qa_disabled' as const,
         reason: 'Il salvataggio QA Grid Engine è disabilitato. Il flag dell’editor da solo non abilita scritture.',
+      };
+    }
+    if (gridEngine2SaveSession.source === 'fresh' && !gridEngine2SaveValidator) {
+      return {
+        allowed: false as const,
+        code: 'experimental_grid_engine2_validation_failed' as const,
+        reason: 'Verifica della geometria Grid Engine in corso…',
       };
     }
     if (!gridEngine2SaveValidation?.valid) {
@@ -6612,7 +6677,25 @@ export function MainBoard() {
     hasExperimentalGridEngine2Edits,
     isGridEngine2HomeActive,
   ]);
+  const legacyStackSaveBlock = useMemo(() => {
+    const baseline = editSessionBaselineRef.current;
+    if (!LEGACY_STACKS_READ_ONLY || !isEditMode || !baseline) return null;
+    return describeLegacyStackChange(baseline, authoritativeDashboardLayout);
+  }, [authoritativeDashboardLayout, isEditMode]);
+  // Selected before editing started (a card's live controls), a saved Stack still does not open the builder.
+  useEffect(() => {
+    if (!LEGACY_STACKS_READ_ONLY || !isEditMode) return;
+    if (selectedWidgetId && isLegacyStackChild(widgets.find((widget) => widget.id === selectedWidgetId), sections)) {
+      setSelectedWidgetId(null);
+    }
+    if (selectedSectionId && isLegacyStackSection(sections.find((section) => section.id === selectedSectionId))) {
+      setSelectedSectionId(null);
+    }
+  }, [isEditMode, sections, selectedSectionId, selectedWidgetId, widgets]);
   const saveDashboardLayoutNow = useCallback(async () => {
+    if (legacyStackSaveBlock) {
+      return { ok: false as const, code: 'legacy_stack_changed' as const, reason: legacyStackSaveBlock };
+    }
     if (hasExperimentalGridEngine2Edits) {
       if (!gridEngine2SaveGate.allowed) {
         return {
@@ -6634,6 +6717,7 @@ export function MainBoard() {
   }, [
     effectiveRuntimeMode,
     authoritativeDashboardLayout,
+    legacyStackSaveBlock,
     gridEngine2SaveGate,
     haDashboardLayoutPersistence.saveDashboard,
     haDashboardLayoutPersistence.saveNow,
@@ -6648,7 +6732,8 @@ export function MainBoard() {
     responsiveLayouts,
     widgetLayoutOverrides,
     ...(layoutEngine ? { layoutEngine } : null),
-  }), [layoutEngine, responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
+    ...(gridMetricsVersion ? { gridMetricsVersion } : null),
+  }), [gridMetricsVersion, layoutEngine, responsiveLayouts, sections, widgetLayoutOverrides, widgetTypeLayoutOverrides, widgets]);
   const gridEditorCurrentSourceIdentity = useMemo<GridEngineDraftSourceIdentity>(() => {
     const structuralSource = haDashboardLayoutPersistence.structuralLoadSnapshot;
     return {
@@ -6738,6 +6823,7 @@ export function MainBoard() {
     setResponsiveLayouts(snapshot.responsiveLayouts);
     setWidgetLayoutOverrides(snapshot.widgetLayoutOverrides);
     setLayoutEngine(snapshot.layoutEngine);
+    setGridMetricsVersion(snapshot.gridMetricsVersion);
     setActiveWidgetTypeLayoutOverrides(snapshot.widgetTypeLayoutOverrides);
     setDashboardEditorLayoutRevision((current) => current + 1);
     setSelectedWidgetId((current) =>
@@ -6859,11 +6945,20 @@ export function MainBoard() {
 
   const openHome2Activation = useCallback(() => {
     if (!isEditMode || isGridEngine2Home(authoritativeDashboardLayout)) return;
-    setHome2ActivationError(null);
+    void loadGridEngine2Activation().catch(() => undefined);
+    setHome2ActivationError(
+      LEGACY_STACKS_READ_ONLY && hasLegacyStacks(authoritativeDashboardLayout)
+        ? LEGACY_STACK_OPERATION_BLOCKED_MESSAGE
+        : null,
+    );
     setIsHome2ActivationOpen(true);
   }, [authoritativeDashboardLayout, isEditMode]);
 
-  const activateGridEngine2Home = useCallback(() => {
+  const activateGridEngine2Home = useCallback(async () => {
+    if (LEGACY_STACKS_READ_ONLY && hasLegacyStacks(authoritativeDashboardLayout)) {
+      setHome2ActivationError(LEGACY_STACK_OPERATION_BLOCKED_MESSAGE);
+      return;
+    }
     if (!isEditMode || !dashboardSecurity.can('edit_dashboard')) {
       setHome2ActivationError('Apri una sessione di modifica autorizzata prima di attivare la nuova Home.');
       return;
@@ -6897,6 +6992,7 @@ export function MainBoard() {
     }
 
     try {
+      const { createGridEngine2HomeConfiguration } = await loadGridEngine2Activation();
       const nextDashboard = createGridEngine2HomeConfiguration(authoritativeDashboardLayout);
       beginDashboardEditorMutation();
       const { storageVersion: _storageVersion, ...nextSnapshot } = nextDashboard;
@@ -6930,6 +7026,124 @@ export function MainBoard() {
     haDashboardLayoutPersistence.structuralLoadSnapshot,
     isEditMode,
   ]);
+
+  const openGridV2Conversion = useCallback(() => {
+    if (!isEditMode || !isGridEngine2HomeActive || gridMetricsVersion === 'v2') return;
+    // The conversion loads on demand; fetch it while the user reads the dialog.
+    void import('./gridEngine2/gridV2Conversion').catch(() => undefined);
+    setGridV2ConversionError(
+      LEGACY_STACKS_READ_ONLY && hasLegacyStacks(authoritativeDashboardLayout)
+        ? LEGACY_STACK_OPERATION_BLOCKED_MESSAGE
+        : null,
+    );
+    setIsGridV2ConversionOpen(true);
+  }, [gridMetricsVersion, isEditMode, isGridEngine2HomeActive]);
+
+  const activateGridV2Layout = useCallback(async () => {
+    if (LEGACY_STACKS_READ_ONLY && hasLegacyStacks(authoritativeDashboardLayout)) {
+      setGridV2ConversionError(LEGACY_STACK_OPERATION_BLOCKED_MESSAGE);
+      return;
+    }
+    if (!isEditMode || !dashboardSecurity.can('edit_dashboard') || !isGridEngine2HomeActive) {
+      setGridV2ConversionError('Apri una sessione di modifica Grid Engine 2.0 autorizzata.');
+      return;
+    }
+    if (effectiveRuntimeMode === 'real') {
+      const snapshot = haDashboardLayoutPersistence.structuralLoadSnapshot;
+      if (
+        haDashboardLayoutPersistence.loadStatus !== 'ready' ||
+        !isDashboardStructuralSnapshotAuthoritative(snapshot) ||
+        snapshot.revision !== haDashboardLayoutPersistence.serverRevision
+      ) {
+        setGridV2ConversionError(
+          'La configurazione Home Assistant non dispone ancora di una baseline strutturale autorevole e aggiornata.',
+        );
+        return;
+      }
+      if (haDashboardLayoutPersistence.pendingRemoteUpdate) {
+        setGridV2ConversionError(
+          `È disponibile la revisione ${haDashboardLayoutPersistence.pendingRemoteUpdate.revision}. Applica prima l'aggiornamento remoto.`,
+        );
+        return;
+      }
+    }
+
+    try {
+      const { createGridV2DashboardConfiguration } = await import('./gridEngine2/gridV2Conversion');
+      const previous = cloneDashboardEditorSnapshot(dashboardEditorSnapshot);
+      const previousSaveSession = gridEngine2SaveSession;
+      const previousExperimentalState = hasExperimentalGridEngine2Edits;
+      const nextDashboard = createGridV2DashboardConfiguration(
+        authoritativeDashboardLayout,
+        (widget) => {
+          const entity = haStates[widget.entityId];
+          return resolveGridV2EntityCapability({
+            kind: widget.kind,
+            entityId: widget.entityId,
+            state: entity?.state,
+            rawAttributes: entity?.rawAttributes,
+            entity,
+          });
+        },
+      );
+      beginDashboardEditorMutation();
+      const { storageVersion: _storageVersion, ...nextSnapshot } = nextDashboard;
+      gridV2ConversionBaselineRef.current = {
+        snapshot: previous,
+        saveSession: previousSaveSession,
+        hadExperimentalEdits: previousExperimentalState,
+      };
+      applyDashboardEditorSnapshot(nextSnapshot);
+      setHasExperimentalGridEngine2Edits(true);
+      setGridEngine2SaveSession({
+        source: 'fresh',
+        touchedBreakpoints: DASHBOARD_GRID_BREAKPOINT_ORDER.map((breakpoint) => ({
+          breakpoint,
+          origin: 'explicit' as const,
+        })),
+      });
+      setGridV2ConversionError(null);
+      setIsGridV2ConversionOpen(false);
+      addNotification(
+        'info',
+        'Anteprima layout v2 applicata alla bozza. Salva normalmente per confermare oppure annulla la conversione.',
+      );
+    } catch (error) {
+      setGridV2ConversionError(
+        error instanceof Error ? error.message : 'Non è stato possibile preparare il layout v2.',
+      );
+    }
+  }, [
+    addNotification,
+    applyDashboardEditorSnapshot,
+    authoritativeDashboardLayout,
+    beginDashboardEditorMutation,
+    dashboardEditorSnapshot,
+    dashboardSecurity,
+    effectiveRuntimeMode,
+    gridEngine2SaveSession,
+    haDashboardLayoutPersistence.loadStatus,
+    haDashboardLayoutPersistence.pendingRemoteUpdate,
+    haDashboardLayoutPersistence.serverRevision,
+    haDashboardLayoutPersistence.structuralLoadSnapshot,
+    haStates,
+    hasExperimentalGridEngine2Edits,
+    isEditMode,
+    isGridEngine2HomeActive,
+  ]);
+
+  const undoGridV2Conversion = useCallback(() => {
+    const baseline = gridV2ConversionBaselineRef.current;
+    if (!isEditMode || !baseline) return;
+    beginDashboardEditorMutation();
+    applyDashboardEditorSnapshot(cloneDashboardEditorSnapshot(baseline.snapshot));
+    setGridEngine2SaveSession(baseline.saveSession);
+    setHasExperimentalGridEngine2Edits(baseline.hadExperimentalEdits);
+    gridV2ConversionBaselineRef.current = null;
+    setGridV2ConversionError(null);
+    setIsGridV2ConversionOpen(false);
+    addNotification('info', 'Conversione v2 annullata. La configurazione precedente è stata ripristinata nella bozza.');
+  }, [addNotification, applyDashboardEditorSnapshot, beginDashboardEditorMutation, isEditMode]);
 
   useEffect(() => {
     const baseline = editSessionBaselineRef.current;
@@ -7053,6 +7267,9 @@ export function MainBoard() {
     breakpoint: DashboardGridBreakpoint,
     nextOverride: WidgetTypeBreakpointLayoutOverride | null,
   ) => {
+    if (LEGACY_STACKS_READ_ONLY && isLegacyStackChild(widgets.find((widget) => widget.id === widgetId), sections)) {
+      return;
+    }
     beginDashboardEditorMutation();
     setWidgetLayoutOverrides((prev) => {
       const next: WidgetLayoutOverrides = { ...prev };
@@ -7141,6 +7358,9 @@ export function MainBoard() {
   };
 
   const updateSection = (id: string, updater: (section: DashboardSection) => DashboardSection) => {
+    if (LEGACY_STACKS_READ_ONLY && isLegacyStackSection(sections.find((section) => section.id === id))) {
+      return;
+    }
     beginDashboardEditorMutation();
     setSections((prev) =>
       prev.map((section) => {
@@ -7210,9 +7430,11 @@ export function MainBoard() {
     );
   };
   const handleWidgetLayoutChange = (sectionId: string, nextLayout: GridItem[]) => {
+    const section = sections.find((entry) => entry.id === sectionId);
+    // A saved Stack keeps the layout it was saved with.
+    if (LEGACY_STACKS_READ_ONLY && isLegacyStackSection(section)) return;
     beginDashboardEditorMutation();
     const nextLayoutMap = new Map(nextLayout.map((item) => [item.i, item]));
-    const section = sections.find((entry) => entry.id === sectionId);
 
     setWidgets((prev) => {
       const expandedAnchorIds = new Set<string>();
@@ -7296,19 +7518,46 @@ export function MainBoard() {
   ) => {
     beginDashboardEditorMutation();
     const nextLayoutMap = new Map(nextLayout.map((item) => [item.i, item]));
+    const currentXlById = new Map(
+      (responsiveLayouts.root?.xl ?? []).map((item) => [item.i, item]),
+    );
+    const baseline = editSessionBaselineRef.current;
+    const baselineCanonicalById = new Map<string, GridItem>(baseline ? [
+      ...baseline.sections.map((section) => [section.id, section.layout] as const),
+      ...baseline.widgets
+        .filter((widget) => !widget.parentSectionId)
+        .map((widget) => [widget.id, widget.layout] as const),
+    ] : []);
+    const baselineXlById = new Map(
+      (baseline?.responsiveLayouts.root?.xl ?? []).map((item) => [item.i, item]),
+    );
+    const shouldMirrorCanonicalSection = (section: DashboardSection, item: GridItem) =>
+      !options?.preserveSolverGeometry || shouldMirrorGridEngineCanonicalSection({
+        baselineCanonical: baselineCanonicalById.get(item.i),
+        baselineXl: baselineXlById.get(item.i),
+        currentCanonical: section.layout,
+        currentXl: currentXlById.get(item.i),
+        committedXl: item,
+        allowHistoricalDifference: baseline?.gridMetricsVersion !== 'v2',
+      });
     const expandedAnchorIds = new Set<string>();
     const nextSections = sections.map((section) => {
       const nextItem = nextLayoutMap.get(section.id);
-      if (!nextItem) {
+      if (!nextItem || !shouldMirrorCanonicalSection(section, nextItem)) {
         return section;
       }
-      const normalizedLayout = normalizeSectionRootLayout(section, {
+      const incomingLayout = {
         i: section.id,
         x: nextItem.x,
         y: nextItem.y,
         w: nextItem.w,
         h: nextItem.h,
-      });
+      };
+      const normalizedLayout = options?.preserveSolverGeometry
+        // The GE2 solver has already validated this structural span. In
+        // particular, v2 Greeting is three rows rather than the legacy two.
+        ? normalizeRootLayout(incomingLayout)
+        : normalizeSectionRootLayout(section, incomingLayout);
       if (layoutExpandsFootprint(section.layout, normalizedLayout)) {
         expandedAnchorIds.add(section.id);
       }
@@ -10086,7 +10335,9 @@ export function MainBoard() {
     });
   }, [sidebarScenesSection]);
 
-  const triggerSceneAction = async (section: DashboardSection, sceneId: SceneKey) => {
+  /** False when Home Assistant refused the call, so that the card does not read as in place. */
+  const triggerSceneAction = async (section: DashboardSection, sceneId: SceneKey): Promise<boolean | void> => {
+    let failed = false;
     if (isEditMode || section.kind !== 'scenes') {
       return;
     }
@@ -10164,7 +10415,7 @@ export function MainBoard() {
       if (!serviceOk) {
         addNotification('alert', `Azione scena "${sceneLabel}" non riuscita.`);
       }
-      return;
+      return serviceOk;
     }
 
     const configuredScript = actionConfig?.scriptEntityId?.trim() ?? section.sceneScripts?.[sceneId]?.trim() ?? '';
@@ -10187,6 +10438,7 @@ export function MainBoard() {
     }));
     let scriptOk = false;
     scriptOk = await callHaService('script', 'turn_on', { entity_id: scriptEntityId });
+    if (!scriptOk) failed = true;
     if (!scriptOk) {
       setRunningSceneBySectionId((current) => {
         const runningScene = current[section.id];
@@ -10199,10 +10451,15 @@ export function MainBoard() {
       });
       addNotification('alert', `Esecuzione scena "${sceneLabel}" non riuscita.`);
     }
+    return !failed;
   };
 
   const handleWidgetClick = (widget: Widget) => {
     if (isEditMode) {
+      if (LEGACY_STACKS_READ_ONLY && isLegacyStackChild(widget, sections)) {
+        addNotification('info', LEGACY_STACK_READ_ONLY_MESSAGE);
+        return;
+      }
       setSelectedWidgetId(widget.id);
       setSelectedSectionId(null);
       setSelectedSidebarPathId(null);
@@ -10254,7 +10511,7 @@ export function MainBoard() {
   const addWidget = (kind: WidgetKind, destination: WidgetCatalogDestination) => {
     beginDashboardEditorMutation();
     const id = `${kind}.custom_${nextWidgetIdRef.current++}`;
-    const selectedStackSection = destination.type === 'stack'
+    const selectedStackSection = destination.type === 'stack' && !LEGACY_STACKS_READ_ONLY
       ? sections.find((section) => section.id === destination.sectionId && isStackSection(section))
       : undefined;
     const targetSection = selectedStackSection;
@@ -10418,6 +10675,20 @@ export function MainBoard() {
 
       return [...prev, newWidget];
     });
+    if (isGridEngine2HomeActive && gridMetricsVersion === 'v2') {
+      const entity = haStates[defaultEntityId];
+      const v2Overrides = createGridV2NewWidgetOverrides({
+        widget: { kind, entityId: defaultEntityId } as Widget,
+        entityCapability: resolveGridV2EntityCapability({
+          kind,
+          entityId: defaultEntityId,
+          state: entity?.state,
+          rawAttributes: entity?.rawAttributes,
+          entity,
+        }),
+      });
+      setWidgetLayoutOverrides((current) => ({ ...current, [id]: v2Overrides }));
+    }
     setSelectedWidgetId(id);
     if (shouldUseStarterLightSlot) {
       setResponsiveLayouts((current) => addStarterLightResponsiveLayout(current, id));
@@ -10427,6 +10698,10 @@ export function MainBoard() {
   };
 
   const addSection = (kind: SectionKind) => {
+    if (LEGACY_STACKS_READ_ONLY && isLegacyStackKind(kind)) {
+      addNotification('info', LEGACY_STACK_READ_ONLY_MESSAGE);
+      return '';
+    }
     beginDashboardEditorMutation();
     const id = `section-${kind}-${nextSectionIdRef.current++}`;
     const nextY = sections.reduce((maxY, section) => Math.max(maxY, section.layout.y + section.layout.h), 0);
@@ -10586,6 +10861,10 @@ export function MainBoard() {
 
   const removeSection = (id: string) => {
     const section = sections.find((candidate) => candidate.id === id);
+    if (LEGACY_STACKS_READ_ONLY && isLegacyStackSection(section)) {
+      addNotification('info', LEGACY_STACK_READ_ONLY_MESSAGE);
+      return;
+    }
     const hasStackCards = Boolean(
       section
       && isStackSection(section)
@@ -10875,6 +11154,9 @@ export function MainBoard() {
       responsiveLayouts: draft.dashboard.responsiveLayouts,
       widgetLayoutOverrides: draft.dashboard.widgetLayoutOverrides,
       ...(draft.dashboard.layoutEngine ? { layoutEngine: draft.dashboard.layoutEngine } : null),
+      ...(draft.dashboard.gridMetricsVersion
+        ? { gridMetricsVersion: draft.dashboard.gridMetricsVersion }
+        : null),
     });
     setHasExperimentalGridEngine2Edits(
       draft.persistenceProtection === GRID_ENGINE_2_EXPERIMENTAL_PERSISTENCE_PROTECTION,
@@ -11537,6 +11819,9 @@ export function MainBoard() {
                 <button
                   type="button"
                   onClick={() => setIsMobileSidebarOpen(true)}
+                  onPointerEnter={preloadMobileSidebarDrawer}
+                  onPointerDown={preloadMobileSidebarDrawer}
+                  onFocus={preloadMobileSidebarDrawer}
                   className="liquid-glass-navigation liquid-glass-chrome inline-flex h-11 w-11 items-center justify-center text-[color:var(--ui-text-primary)] transition-transform active:scale-95"
                   aria-label={t('dashboard.menu.open')}
                   aria-expanded={isMobileSidebarOpen}
@@ -11547,7 +11832,7 @@ export function MainBoard() {
               </>
             )}
           </div>
-          <MobileSidebarDrawer
+          <LazyMobileSidebarDrawer
             isOpen={isMobileSidebarOpen}
             isEditMode={isEditMode}
             canToggleEditMode={canToggleEditMode}
@@ -11854,6 +12139,7 @@ export function MainBoard() {
                 onOpenItem={handleOpenHomeAttentionItem}
               />
             ) : null}
+            <HouseStatesProvider value={sensorHouseStates}>
             <GridCanvas
               topRightOverlay={isEditMode ? (
                 <div className="flex items-center gap-2">
@@ -11869,7 +12155,29 @@ export function MainBoard() {
                       <span>Attiva nuova Home 2.0</span>
                     </button>
                   ) : null}
-                  {import.meta.env.DEV && GridEditorPreviewDialog ? (
+                  {isGridEngine2HomeActive && gridMetricsVersion !== 'v2' ? (
+                    <button
+                      type="button"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={openGridV2Conversion}
+                      className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full border border-violet-300/25 bg-[#120b20]/90 px-3 text-xs font-semibold text-violet-50 shadow-xl transition hover:border-violet-200/45 hover:bg-[#211039] active:scale-95"
+                      aria-label="Passa al nuovo layout v2"
+                    >
+                      <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                      <span>Passa al nuovo layout v2</span>
+                    </button>
+                  ) : null}
+                  {gridV2ConversionBaselineRef.current ? (
+                    <button
+                      type="button"
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={undoGridV2Conversion}
+                      className="liquid-glass-control inline-flex min-h-10 items-center gap-2 rounded-full border border-white/15 bg-black/35 px-3 text-xs font-semibold text-white/85 shadow-xl transition hover:bg-white/15 active:scale-95"
+                    >
+                      Annulla conversione v2
+                    </button>
+                  ) : null}
+                  {import.meta.env.DEV && GridEditorPreviewDialog && !isCompactViewport ? (
                     <button
                       type="button"
                       onPointerDown={(event) => event.stopPropagation()}
@@ -11887,6 +12195,7 @@ export function MainBoard() {
               ) : undefined}
               isEditMode={isEditMode}
               gridEngine2Active={isGridEngine2HomeActive}
+              gridMetricsVersion={gridMetricsVersion}
               layoutRevision={dashboardEditorLayoutRevision}
               previewGridWidth={viewportPreviewGridWidth}
               developerMode={developerMode}
@@ -11900,6 +12209,8 @@ export function MainBoard() {
               runningSceneBySectionId={runningSceneBySectionId}
               selectedWidgetId={selectedWidgetId}
               selectedSectionId={selectedSectionId}
+              onHoldEditSheet={holdEditSheet}
+              onOpenEditSheet={isCompactViewport ? openEditSheet : undefined}
               isCatalogOpen={isCatalogOpen}
               widgetTypeLayoutOverrides={widgetTypeLayoutOverrides}
               widgetLayoutOverrides={widgetLayoutOverrides}
@@ -11907,6 +12218,13 @@ export function MainBoard() {
               structuralLoadSnapshot={haDashboardLayoutPersistence.structuralLoadSnapshot}
               onCloseCatalog={() => setIsCatalogOpen(false)}
               onSelectWidget={(id) => {
+                if (
+                  isEditMode &&
+                  LEGACY_STACKS_READ_ONLY &&
+                  isLegacyStackChild(widgets.find((widget) => widget.id === id), sections)
+                ) {
+                  return;
+                }
                 setSelectedWidgetId(id);
                 if (id) {
                   setSelectedSectionId(null);
@@ -11914,6 +12232,13 @@ export function MainBoard() {
                 }
               }}
               onSelectSection={(id) => {
+                if (
+                  isEditMode &&
+                  LEGACY_STACKS_READ_ONLY &&
+                  isLegacyStackSection(sections.find((section) => section.id === id))
+                ) {
+                  return;
+                }
                 setSelectedSectionId(id);
                 if (id) {
                   setSelectedWidgetId(null);
@@ -11947,6 +12272,7 @@ export function MainBoard() {
               onWidgetHumidifierModeChange={(widget, mode) => setHumidifierMode(mode, widget)}
               onWidgetBrightnessChange={handleWidgetBrightnessChange}
               onWidgetLightColorChange={(widget, hs) => setLightHsColor(hs, undefined, widget)}
+              onWidgetLightColorTempChange={(widget, kelvin) => setLightColorTemp(kelvin, undefined, widget)}
               onWidgetClimateTargetTempChange={(widget, nextValue) => {
                 setClimateTargetTemp(nextValue, widget);
               }}
@@ -11985,6 +12311,12 @@ export function MainBoard() {
                   setSelectedWidgetId(widget.id);
                 }
                 seekMediaPosition(position, widget);
+              }}
+              onWidgetMediaVolumeChange={(widget, volume) => {
+                if (widget.kind !== 'media') {
+                  return;
+                }
+                setMediaVolume(volume, widget);
               }}
               onWidgetMediaShuffle={(widget) => {
                 if (widget.kind !== 'media') {
@@ -12121,6 +12453,7 @@ export function MainBoard() {
               sensorHistoryByEntity={sensorHistoryByEntity}
               onWidgetDisplayMetricsChange={handleWidgetDisplayMetricsChange}
             />
+            </HouseStatesProvider>
             </div>
 
             {isEditMode || activeDevice ? (
@@ -12138,7 +12471,12 @@ export function MainBoard() {
               isCompactViewport={isCompactViewport}
               theme={appearance}
               activeDevice={activeDevice}
-              onCloseContextSidebar={clearContextSelection}
+              compactEditSheetHeld={compactEditSheet === 'held'}
+              onCloseContextSidebar={() => {
+                // Closing the settings leaves the card selected on the canvas.
+                if (isEditMode && compactEditSheet === 'open') holdEditSheet();
+                else clearContextSelection();
+              }}
               state={contextState}
               camera={contextCamera}
               alarm={contextAlarm}
@@ -12244,6 +12582,7 @@ export function MainBoard() {
               weatherConfig={weatherSection}
               activeGridBreakpoint={canvasGridBreakpoint}
               activeGridWidth={canvasGridWidth}
+              gridMetricsVersion={isGridEngine2HomeActive ? gridMetricsVersion : undefined}
               cardSizingEngine={cardSizingEngine}
               showCardSizingEngineControl={developerMode}
               onCardSizingEngineChange={setCardSizingEngine}
@@ -12498,7 +12837,7 @@ export function MainBoard() {
             </button>
             <button
               type="button"
-              onClick={activateGridEngine2Home}
+              onClick={() => void activateGridEngine2Home()}
               className="glass-button rounded-xl border-emerald-300/45 bg-emerald-500/16 px-4 py-2.5 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/26"
             >
               Attiva nuova Home 2.0
@@ -12513,6 +12852,54 @@ export function MainBoard() {
         ) : (
           <p className="text-sm leading-6 text-[color:var(--ui-text-secondary)]">
             La disposizione attuale resterà recuperabile fino al primo salvataggio riuscito. Annullando o scartando la sessione non verrà scritto nulla.
+          </p>
+        )}
+      </GlassModal>
+
+      <GlassModal
+        isOpen={isGridV2ConversionOpen}
+        onClose={() => {
+          setIsGridV2ConversionOpen(false);
+          setGridV2ConversionError(null);
+        }}
+        eyebrow="Grid Engine 2.0"
+        title="Passa al nuovo layout v2"
+        description="Il nuovo layout utilizza dimensioni e formati delle card aggiornati. La disposizione verrà riorganizzata; widget, entità e configurazioni resteranno invariati."
+        variant="responsive"
+        size="md"
+        zIndex={235}
+        showCloseButton={false}
+        backdropClassName="bg-black/65 backdrop-blur-3xl"
+        footerClassName="flex-col-reverse items-stretch sm:flex-row sm:items-center"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setIsGridV2ConversionOpen(false);
+                setGridV2ConversionError(null);
+              }}
+              className="glass-button rounded-xl px-4 py-2.5 text-sm text-[color:var(--ui-text-secondary)]"
+            >
+              Annulla
+            </button>
+            <button
+              type="button"
+              onClick={() => void activateGridV2Layout()}
+              className="glass-button rounded-xl border-violet-300/45 bg-violet-500/16 px-4 py-2.5 text-sm font-semibold text-violet-100 hover:bg-violet-500/26"
+            >
+              Mostra anteprima v2
+            </button>
+          </>
+        }
+      >
+        {gridV2ConversionError ? (
+          <div role="alert" className="rounded-xl border border-rose-300/30 bg-rose-500/10 p-3 text-sm text-rose-100">
+            {gridV2ConversionError}
+          </div>
+        ) : (
+          <p className="text-sm leading-6 text-[color:var(--ui-text-secondary)]">
+            La conversione modifica soltanto la bozza aperta e prepara tutti e sei i breakpoint. Potrai provarla, modificarla e annullarla prima del normale salvataggio Home Assistant.
           </p>
         )}
       </GlassModal>
@@ -12534,7 +12921,9 @@ export function MainBoard() {
                 ? t('dashboard.edit.description.refreshDirty')
                 : t('dashboard.edit.description.refreshClean')
               : hasUnsavedDashboardEdits
-                ? hasExperimentalGridEngine2Edits
+                ? legacyStackSaveBlock
+                  ? legacyStackSaveBlock
+                  : hasExperimentalGridEngine2Edits
                   ? gridEngine2SaveGate.allowed
                     ? isGridEngine2HomeActive
                       ? 'La nuova geometria Home 2.0 è valida. Il salvataggio userà il normale flusso e conserverà una revisione recuperabile della configurazione precedente.'
@@ -12568,6 +12957,7 @@ export function MainBoard() {
               type="button"
               disabled={
                 isDashboardSaveBusy ||
+                (editConfirm === 'exit' && hasUnsavedDashboardEdits && Boolean(legacyStackSaveBlock)) ||
                 (editConfirm === 'exit' && hasUnsavedDashboardEdits && hasExperimentalGridEngine2Edits && !gridEngine2SaveGate.allowed)
               }
               onClick={confirmEditAction}
@@ -12586,7 +12976,9 @@ export function MainBoard() {
                 : editConfirm === 'refresh'
                   ? t('dashboard.edit.reload')
                   : hasUnsavedDashboardEdits
-                    ? hasExperimentalGridEngine2Edits
+                    ? legacyStackSaveBlock
+                      ? 'Salvataggio bloccato'
+                      : hasExperimentalGridEngine2Edits
                       ? gridEngine2SaveGate.allowed
                         ? isGridEngine2HomeActive
                           ? t('dashboard.edit.saveExit')
@@ -12673,12 +13065,16 @@ export function MainBoard() {
         </React.Suspense>
       ) : null}
 
-      <DashboardEditDraftRecoveryModal
-        draft={visibleDashboardEditDraft}
-        hasRevisionConflict={dashboardEditDraftHasRevisionConflict}
-        onResume={resumePendingDashboardEditDraft}
-        onDiscard={discardPendingDashboardEditDraft}
-      />
+      {visibleDashboardEditDraft ? (
+        <React.Suspense fallback={null}>
+          <DashboardEditDraftRecoveryModal
+            draft={visibleDashboardEditDraft}
+            hasRevisionConflict={dashboardEditDraftHasRevisionConflict}
+            onResume={resumePendingDashboardEditDraft}
+            onDiscard={discardPendingDashboardEditDraft}
+          />
+        </React.Suspense>
+      ) : null}
 
       {/* Above everything, whatever page is open; off unless turned on in Settings › This device. */}
       <DomusScreensaver route={activeNavigationRoute} appearance={appearance} background={background} />

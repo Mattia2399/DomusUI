@@ -55,6 +55,24 @@ describe('dashboard storage widget secrets', () => {
     expect(loadDashboardLayout('demo').widgets[0]?.dataSource).toBe('mock');
   });
 
+  it('keeps the meter of a power sensor, and drops one that is not a power', () => {
+    window.localStorage.setItem(
+      DASHBOARD_LAYOUT_STORAGE_KEY,
+      JSON.stringify({
+        version: 14,
+        sections: [],
+        widgets: [
+          buildWidget({ id: 'sensor.a', entityId: 'sensor.a', kind: 'sensor', sensorMeterKw: 6 }),
+          buildWidget({ id: 'sensor.b', entityId: 'sensor.b', kind: 'sensor', sensorMeterKw: -2 }),
+          buildWidget({ id: 'sensor.c', entityId: 'sensor.c', kind: 'sensor', sensorMeterKw: 'tanti' as unknown as number }),
+        ],
+      }),
+    );
+
+    const { widgets } = loadDashboardLayout('real');
+    expect(widgets.map((widget) => widget.sensorMeterKw)).toEqual([6, undefined, undefined]);
+  });
+
   it('reports a successful layout write instead of failing silently', () => {
     const result = saveDashboardLayout([], [], {}, {}, {}, 'demo');
 
@@ -79,6 +97,65 @@ describe('dashboard storage widget secrets', () => {
     expect(saveDashboardLayout([], [], {}, {}, {}, 'demo', 'grid-engine-2').ok).toBe(true);
 
     expect(loadDashboardLayout('demo').layoutEngine).toBe('grid-engine-2');
+  });
+
+  it('round-trips v2 metrics while an absent version remains legacy-compatible', () => {
+    const light = buildWidget({
+      id: 'light-v2',
+      kind: 'light',
+      entityId: 'light.v2',
+      layout: { i: 'light-v2', x: 0, y: 0, w: 2, h: 2 },
+    });
+    expect(saveDashboardLayout(
+      [],
+      [light],
+      {},
+      { root: { xl: [light.layout] } },
+      { 'light-v2': { xl: { w: 2, hOff: 2, hOn: 3, autoExpand: true } } },
+      'demo',
+      'grid-engine-2',
+      'v2',
+    ).ok).toBe(true);
+
+    const restored = loadDashboardLayout('demo');
+    expect(restored.gridMetricsVersion).toBe('v2');
+    expect(restored.widgets[0]?.layout.h).toBe(2);
+    expect(restored.widgetLayoutOverrides['light-v2']?.xl)
+      .toEqual({ w: 2, hOff: 2, hOn: 3, autoExpand: true });
+
+    expect(saveDashboardLayout([], [], {}, {}, {}, 'demo', 'grid-engine-2').ok).toBe(true);
+    expect(loadDashboardLayout('demo').gridMetricsVersion).toBeUndefined();
+  });
+
+  it('does not reapply legacy card minima when a v2 Home reloads', () => {
+    const widgets = [
+      buildWidget({
+        id: 'climate-v2', kind: 'climate', entityId: 'climate.v2',
+        layout: { i: 'climate-v2', x: 0, y: 0, w: 2, h: 2 },
+      }),
+      buildWidget({
+        id: 'media-v2', kind: 'media', entityId: 'media_player.v2',
+        layout: { i: 'media-v2', x: 2, y: 0, w: 2, h: 2 },
+      }),
+      buildWidget({
+        id: 'light-fixed-v2', kind: 'light', entityId: 'light.fixed_v2',
+        layout: { i: 'light-fixed-v2', x: 4, y: 0, w: 2, h: 4 },
+      }),
+    ];
+    expect(saveDashboardLayout(
+      [],
+      widgets,
+      {},
+      { root: { xl: widgets.map((widget) => widget.layout) } },
+      { 'light-fixed-v2': { xl: { w: 2, h: 4, hOff: 4, hOn: 4, autoExpand: false } } },
+      'demo',
+      'grid-engine-2',
+      'v2',
+    ).ok).toBe(true);
+
+    expect(loadDashboardLayout('demo').widgets.map((widget) => widget.layout)).toEqual(
+      widgets.map((widget) => widget.layout),
+    );
   });
 
   it('reports exhausted browser storage without throwing', () => {

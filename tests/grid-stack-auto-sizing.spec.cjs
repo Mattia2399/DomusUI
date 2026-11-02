@@ -226,7 +226,8 @@ test('Canvas and nested stack follow an in-app width change without a window res
   await expectContainedAndFitted(page);
 });
 
-test('Stack Grid auto can grow again from a previously narrow outer span', async ({ page }) => {
+// Suspended with the Stacks (legacyStacks.ts): automatic width comes back with the Groups.
+test.skip('Stack Grid auto can grow again from a previously narrow outer span', async ({ page }) => {
   const narrowSeed = structuredClone(seededLayout);
   narrowSeed.sections[0].layout.w = 2;
 
@@ -316,7 +317,8 @@ test('Horizontal Stack respects the same manual canvas column contract', async (
   }).toBeLessThan(0.55);
 });
 
-test('Builder switches a stack live between automatic and manual width', async ({ page }) => {
+// Suspended with the Stacks (legacyStacks.ts): automatic width comes back with the Groups.
+test.skip('Builder switches a stack live between automatic and manual width', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await page.addInitScript(
     ({ key, value, runtimeKey }) => {

@@ -123,6 +123,8 @@ export type Widget = {
   sensorStatusEntityId?: string;
   sensorConnectionEntityId?: string;
   sensorDisplayPrecision?: number;
+  /** The power the house meter holds, in kW, for a power sensor; without it the default of the sensor families. */
+  sensorMeterKw?: number;
   lockBatteryEntityId?: string;
   lockConnectionEntityId?: string;
   switchConsumptionEntityId?: string;
