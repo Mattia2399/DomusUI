@@ -66,6 +66,11 @@ const propsFor = (activeDevice: Partial<ActiveDevice> & Pick<ActiveDevice, 'type
   coverIsReadOnly: false,
   haStates: {},
   actions: actionsMock(),
+  alarm: { name: 'Allarme', state: 'disarmed' },
+  alarmCommands: { disarm: vi.fn(), home: vi.fn(), away: vi.fn(), night: vi.fn(), vacation: vi.fn(), custom_bypass: vi.fn(), trigger: vi.fn() },
+  vacuum: { name: 'Robot', state: 'docked' },
+  vacuumCommands: { start: vi.fn(), pause: vi.fn(), stop: vi.fn(), returnToBase: vi.fn(), locate: vi.fn(), cleanSpot: vi.fn(), cleanArea: vi.fn(), setFanSpeed: vi.fn() },
+  calendarAgenda: { entityId: 'calendar.a', status: 'ready', events: [], error: null, busy: false, createEvent: vi.fn(), updateEvent: vi.fn(), deleteEvent: vi.fn() } as unknown as HomePanelProps['calendarAgenda'],
   embedded: false,
   onClose: vi.fn(),
   ...extra,
@@ -157,6 +162,9 @@ describe('what the Home opens', () => {
     expect(homePanelOf(propsFor({ type: 'light' }))).toBe('light');
     expect(homePanelOf(propsFor({ type: 'climate' }))).toBe('climate');
     expect(homePanelOf(propsFor({ type: 'cover' }))).toBe('device');
+    for (const type of ['alarm', 'vacuum', 'calendar', 'members'] as const) {
+      expect(homePanelOf(propsFor({ type })), type).toBe(type);
+    }
     expect(homePanelOf(propsFor({ type: 'fan', fanEntityId: 'fan.a' }, { haStates: { 'fan.a': fan } }))).toBe('device');
   });
 
@@ -164,7 +172,7 @@ describe('what the Home opens', () => {
     expect(homePanelOf(propsFor({ type: 'fan', fanEntityId: 'fan.a' }))).toBeNull();
     expect(homePanelOf(propsFor({ type: 'switch' }))).toBeNull();
     expect(homePanelOf(propsFor({ type: 'cover' }, { coverIsReadOnly: true }))).toBeNull();
-    for (const type of ['lock', 'alarm', 'vacuum', 'calendar', 'members', 'camera', 'media', 'sensor', 'weather'] as const) {
+    for (const type of ['lock', 'camera', 'media', 'sensor', 'weather'] as const) {
       expect(homePanelOf(propsFor({ type })), type).toBeNull();
     }
   });

@@ -209,3 +209,31 @@ test('mobile long-press reaches Light and Calendar inside a stack', async ({ pag
   await longPress(page, page.locator('.calendar-card .widget-card-handle').first());
   await expectContextPanel(page, 'Stack Calendar');
 });
+
+test('mobile long-press on a card of the three sizes opens its shared panel', async ({ page }) => {
+  await installCompletedDemo(page, {
+    version: 14,
+    layoutEngine: 'grid-engine-2',
+    gridMetricsVersion: 'v2',
+    widgetTypeLayoutOverrides: {},
+    widgetLayoutOverrides: {},
+    responsiveLayouts: {},
+    sections: [],
+    widgets: [{
+      id: 'robot',
+      kind: 'vacuum',
+      title: 'Root Robot',
+      entityId: 'vacuum.demo_robot',
+      dataSource: 'ha',
+      isOn: false,
+      layout: { i: 'robot', x: 0, y: 0, w: 2, h: 4 },
+    }],
+  });
+  await page.goto('/home');
+
+  const body = page.locator('[data-grid-engine-root-item="robot"] .dv-tile-body');
+  await expect(body).toBeVisible({ timeout: 30_000 });
+  await longPress(page, body);
+  await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible({ timeout: 15_000 });
+  await expectContextPanel(page, 'Root Robot');
+});

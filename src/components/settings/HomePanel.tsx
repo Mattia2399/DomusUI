@@ -1,3 +1,4 @@
+import React from 'react';
 import { ClimatePanel } from '../devices/panels/ClimatePanel';
 import { DevicePanel } from '../devices/panels/DevicePanel';
 import { LightPanel } from '../devices/panels/LightPanel';
@@ -13,6 +14,16 @@ import {
 import { homePanelOf, type HomePanelProps } from './homePanelRoute';
 
 /* The shared panel a card of the Home opens, in place of its old content. */
+
+// Heavier and rarer than a light: each loads when its own card opens.
+const AlarmPanel = React.lazy(() => import('../devices/panels/AlarmPanel'));
+const VacuumPanel = React.lazy(() => import('../devices/panels/VacuumPanel'));
+const CalendarPanel = React.lazy(() => import('../devices/panels/CalendarPanel'));
+const MembersPanel = React.lazy(() => import('../devices/panels/MembersPanel'));
+
+// The sheet keeps its height while a panel loads: the finger that opened it with
+// a long press is lifted over the sheet, not over the backdrop that would close it.
+const LOADING_SHEET = <div className="min-h-[60vh] md:min-h-0" aria-hidden="true" />;
 
 export function HomePanel(props: HomePanelProps) {
   const { activeDevice, lamp, climate, actions, embedded, onClose } = props;
@@ -47,6 +58,61 @@ export function HomePanel(props: HomePanelProps) {
         onAction={(action) => runDeviceAction(action, kind, actions)}
         onClose={onClose}
       />
+    );
+  }
+  if (panel === 'alarm') {
+    return (
+      <React.Suspense fallback={LOADING_SHEET}>
+        <AlarmPanel
+          alarm={{ ...props.alarm, name: activeDevice.name }}
+          haStates={props.haStates}
+          commands={props.alarmCommands}
+          onAuthorizeDeviceAuth={props.onAuthorizeAlarmDeviceAuth}
+          embedded={embedded}
+          onClose={onClose}
+        />
+      </React.Suspense>
+    );
+  }
+  if (panel === 'vacuum') {
+    return (
+      <React.Suspense fallback={LOADING_SHEET}>
+        <VacuumPanel
+          vacuum={{ ...props.vacuum, name: activeDevice.name }}
+          areas={props.vacuumAreas}
+          commands={props.vacuumCommands}
+          embedded={embedded}
+          onClose={onClose}
+        />
+      </React.Suspense>
+    );
+  }
+  if (panel === 'calendar') {
+    return (
+      <React.Suspense fallback={LOADING_SHEET}>
+        <CalendarPanel
+          name={activeDevice.name}
+          supportedFeatures={activeDevice.calendarSupportedFeatures ?? 0}
+          agenda={props.calendarAgenda}
+          wasteTypes={props.calendarWasteTypes}
+          onConfigureWaste={props.onConfigureWaste}
+          embedded={embedded}
+          onClose={onClose}
+        />
+      </React.Suspense>
+    );
+  }
+  if (panel === 'members') {
+    return (
+      <React.Suspense fallback={LOADING_SHEET}>
+        <MembersPanel
+          name={activeDevice.name}
+          members={activeDevice.membersPresence ?? activeDevice.membersMapPoints ?? []}
+          haStates={props.haStates}
+          embedded={embedded}
+          onClose={onClose}
+        />
+      </React.Suspense>
     );
   }
   return null;

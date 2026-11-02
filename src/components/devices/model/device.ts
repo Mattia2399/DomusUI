@@ -12,6 +12,8 @@ export type DeviceKind = 'outlet' | 'switch' | 'virtual' | 'fan' | 'cover' | 'hu
 export type FanState = {
   /** 0–100. */
   pct: number;
+  /** Whether its speed can be set at all. */
+  canSetSpeed: boolean;
   /** Speeds the fan has, 0 when it takes any percentage. */
   steps: number;
   oscillating: boolean | null;
@@ -26,6 +28,9 @@ export type CoverState = {
   moving: 'opening' | 'closing' | null;
   canPosition: boolean;
   canStop: boolean;
+  /** Without a declaration, both: only what the entity rules out is taken away. */
+  canOpen: boolean;
+  canClose: boolean;
   tilt: number | null;
 };
 
@@ -57,6 +62,8 @@ export const STANDBY_WATTS = 8;
 const FAN_FEATURE_SET_SPEED = 1;
 const FAN_FEATURE_OSCILLATE = 2;
 const FAN_FEATURE_DIRECTION = 4;
+const COVER_FEATURE_OPEN = 1;
+const COVER_FEATURE_CLOSE = 2;
 const COVER_FEATURE_SET_POSITION = 4;
 const COVER_FEATURE_STOP = 8;
 const COVER_FEATURE_SET_TILT = 128;
@@ -135,6 +142,7 @@ function fanStateOf(entity: MockEntityState | undefined): FanState {
   const direction = attributes.direction === 'reverse' ? 'reverse' : attributes.direction === 'forward' ? 'forward' : null;
   return {
     pct: Math.max(0, Math.min(100, Math.round(readNumber(attributes.percentage) ?? 0))),
+    canSetSpeed,
     steps: steps > 0 && steps <= 10 ? steps : 0,
     oscillating:
       typeof attributes.oscillating === 'boolean' ? attributes.oscillating : (features & FAN_FEATURE_OSCILLATE) !== 0 ? false : null,
@@ -155,6 +163,8 @@ function coverStateOf(entity: MockEntityState | undefined): CoverState {
     moving: state === 'opening' ? 'opening' : state === 'closing' ? 'closing' : null,
     canPosition: (features & COVER_FEATURE_SET_POSITION) !== 0 || position !== undefined,
     canStop: (features & COVER_FEATURE_STOP) !== 0,
+    canOpen: features === 0 || (features & COVER_FEATURE_OPEN) !== 0,
+    canClose: features === 0 || (features & COVER_FEATURE_CLOSE) !== 0,
     tilt: (features & COVER_FEATURE_SET_TILT) !== 0 || tilt !== undefined ? Math.round(tilt ?? 0) : null,
   };
 }

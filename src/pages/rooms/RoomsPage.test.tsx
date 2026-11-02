@@ -5,7 +5,7 @@ import { RoomsPage } from './RoomsPage';
 
 // The parts the page opens on request, here at once: how they load is tested in roomsParts.test.tsx.
 vi.mock('./roomsParts', async () => {
-  const [light, device, climate, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets] = await Promise.all([
+  const [light, device, climate, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets, cameraViewer] = await Promise.all([
     import('../../components/devices/panels/LightPanel'),
     import('../../components/devices/panels/DevicePanel'),
     import('../../components/devices/panels/ClimatePanel'),
@@ -17,6 +17,7 @@ vi.mock('./roomsParts', async () => {
     import('./AddAccessoriesSheet'),
     import('./RoomsManagePage'),
     import('./RoomManageSheets'),
+    import('../../components/camera/CameraViewer'),
   ]);
   return {
     LightPanel: light.LightPanel,
@@ -31,6 +32,7 @@ vi.mock('./roomsParts', async () => {
     AddAccessoriesSheet: accessories.AddAccessoriesSheet,
     RoomsManagePage: manage.RoomsManagePage,
     RoomEditPanel: roomSheets.RoomEditPanel,
+    CameraViewer: cameraViewer.CameraViewer,
     Deferred: ({ children }: { children: React.ReactNode }) => children,
     preloadRoomsParts: () => undefined,
   };

@@ -12,27 +12,13 @@ import {
   alarmSupportsFeature,
   normalizeAlarmState,
 } from '../../utils/alarmUtils';
-import {
-  resolveAlarmManualCodeSubmission,
-  resolveAlarmSecurityRequirement,
-  type AlarmActionAuthOptions,
-  type AlarmSecurityActionKind,
-} from '../../utils/alarmSecurityPolicy';
-import {
-  INITIAL_AUTH_ATTEMPT_STATE,
-  appendSecurityAuditEvent,
-  formatAuthRateLimitMessage,
-  getAuthRateLimitStatus,
-  recordAuthFailure,
-  recordAuthSuccess,
-} from '../../services/securityAuth';
+import type { AlarmActionAuthOptions } from '../../utils/alarmSecurityPolicy';
+import { useAlarmGate, type AlarmActionResult } from './useAlarmGate';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { TranslationKey } from '../../i18n/translations';
-
-type AlarmActionResult = boolean | void | Promise<boolean | void>;
 
 type AlarmModeId = 'home' | 'away' | 'night' | 'vacation' | 'custom_bypass';
 
@@ -103,16 +89,6 @@ type PendingAlarmAction = {
   onPress: (code?: string, options?: AlarmActionAuthOptions) => AlarmActionResult;
   timelineText?: string;
   variant?: 'default' | 'danger' | 'safe';
-};
-
-const ALARM_ACTION_KIND_BY_ID: Record<PendingAlarmAction['id'], AlarmSecurityActionKind> = {
-  home: 'arm_home',
-  away: 'arm_away',
-  night: 'arm_night',
-  vacation: 'arm_vacation',
-  custom_bypass: 'arm_custom_bypass',
-  disarm: 'disarm',
-  trigger: 'trigger',
 };
 
 function resolveHeaderIcon(state: string) {
@@ -214,11 +190,6 @@ export function AlarmControls({
   // security.control: without it the panel shows the state and the activity, never arm or disarm.
   const canControl = useCan('security.control');
   const { t, formatDate } = useI18n();
-  const [pendingAction, setPendingAction] = useState<PendingAlarmAction | null>(null);
-  const [authCode, setAuthCode] = useState('');
-  const [authSubmissionError, setAuthSubmissionError] = useState('');
-  const [authAttemptState, setAuthAttemptState] = useState(INITIAL_AUTH_ATTEMPT_STATE);
-  const [isAuthBusy, setIsAuthBusy] = useState(false);
   const maxTimelineEntries = useMemo(() => {
     const parsed = Number(alarm.activityLogLimit);
     if (!Number.isFinite(parsed)) {
@@ -230,35 +201,8 @@ export function AlarmControls({
   const normalizedState = normalizeAlarmState(alarm.state || alarm.status);
   const translatedState = t(STATE_KEYS[normalizedState] ?? 'alarm.state.unknown');
   const changedBy = alarm.changedBy?.trim();
-  const codeRequired = Boolean(alarm.codeArmRequired);
-  const codeFormat = typeof alarm.rawAttributes?.code_format === 'string'
-    ? alarm.rawAttributes.code_format.toLowerCase()
-    : undefined;
-  const storedHaPin = alarm.unlockCode?.trim() ?? '';
-  const storedHaPinActive = storedHaPin.length > 0;
-  const localExtraCode = alarm.localExtraCode?.trim() ?? '';
-  const localExtraCodeActive = localExtraCode.length > 0;
-  const pendingSecurityRequirement = pendingAction
-    ? resolveAlarmSecurityRequirement({
-        action: ALARM_ACTION_KIND_BY_ID[pendingAction.id],
-        codeArmRequired: codeRequired,
-        codeFormat,
-        storedHaPinConfigured: storedHaPinActive,
-        localExtraPinConfigured: localExtraCodeActive,
-        deviceAuthEnabled: alarm.requireAuthToDisarm,
-      })
-    : null;
-  const numericCodeMode = pendingSecurityRequirement?.codeFormat !== 'text';
-  const alarmCodeTypeLabel = localExtraCodeActive ? t('alarm.auth.combinedPin') : t('alarm.auth.pin');
-  const trimmedCode = authCode.trim();
-  const pendingNeedsCode = Boolean(pendingSecurityRequirement?.needsCodeInput);
-  const pendingPrefersDeviceAuth = Boolean(pendingSecurityRequirement?.allowsDeviceAuth && onAuthorizeDeviceAuth);
-  const rateLimitStatus = getAuthRateLimitStatus(authAttemptState);
-  const rateLimitMessage = formatAuthRateLimitMessage(rateLimitStatus);
-  const authError = rateLimitMessage || authSubmissionError;
   const HeaderIcon = resolveHeaderIcon(normalizedState);
   const stateVisual = resolveAlarmVisual(normalizedState);
-  const codeLengthLimit = 12;
   const timelineActor = changedBy || t('alarm.system');
   const shouldUseLocalTimeline = !alarm.activityTimelineStatus || alarm.activityTimelineStatus === 'offline';
   const isTransitioning = normalizedState === 'pending' || normalizedState === 'arming' || normalizedState === 'disarming';
@@ -492,162 +436,16 @@ export function AlarmControls({
     ].slice(0, maxTimelineEntries));
   };
 
-  const closeActionDialog = () => {
-    if (isAuthBusy) {
-      return;
-    }
-    setPendingAction(null);
-    setAuthCode('');
-    setAuthSubmissionError('');
-  };
-
-  const runAlarmAction = async (action: PendingAlarmAction, code?: string, options?: AlarmActionAuthOptions) => {
-    if (isAuthBusy) {
-      return false;
-    }
-    setIsAuthBusy(true);
-    try {
-      const didRun = await action.onPress(code, options);
-      if (didRun === false) {
-        setAuthSubmissionError(t('alarm.auth.unauthorized'));
-        return false;
-      }
+  const gate = useAlarmGate<PendingAlarmAction>({
+    alarm,
+    onAuthorizeDeviceAuth,
+    onRan: (action) => {
       if (action.timelineText && shouldUseLocalTimeline) {
         pushTimeline(action.timelineText);
       }
-      setPendingAction(null);
-      setAuthCode('');
-      setAuthSubmissionError('');
-      return true;
-    } finally {
-      setIsAuthBusy(false);
-    }
-  };
-
-  const openActionDialog = (action: PendingAlarmAction) => {
-    const requirement = resolveAlarmSecurityRequirement({
-      action: ALARM_ACTION_KIND_BY_ID[action.id],
-      codeArmRequired: codeRequired,
-      codeFormat,
-      storedHaPinConfigured: storedHaPinActive,
-      localExtraPinConfigured: localExtraCodeActive,
-      deviceAuthEnabled: alarm.requireAuthToDisarm,
-    });
-    if (!requirement.needsCodeInput) {
-      if (requirement.allowsDeviceAuth && onAuthorizeDeviceAuth) {
-        setPendingAction(action);
-        setAuthCode('');
-        setAuthSubmissionError('');
-        return;
-      }
-      void runAlarmAction(action);
-      return;
-    }
-    setPendingAction(action);
-    setAuthCode('');
-    setAuthSubmissionError('');
-  };
-
-  const confirmPendingDeviceAuth = async () => {
-    if (!pendingAction || !pendingSecurityRequirement?.allowsDeviceAuth || !onAuthorizeDeviceAuth) {
-      return false;
-    }
-
-    const verified = await onAuthorizeDeviceAuth(pendingAction.label);
-    if (!verified) {
-      appendSecurityAuditEvent({
-        tone: 'warning',
-        message: t('alarm.audit.deviceFailed'),
-        context: alarm.name || t('alarm.fallback'),
-      });
-      return false;
-    }
-
-    if (pendingSecurityRequirement.needsCodeInput && !storedHaPinActive) {
-      return false;
-    }
-
-    appendSecurityAuditEvent({
-      tone: 'success',
-      message: t('alarm.audit.deviceAuthorized'),
-      context: alarm.name || t('alarm.fallback'),
-    });
-    const didRun = await runAlarmAction(
-      pendingAction,
-      pendingSecurityRequirement.needsCodeInput ? storedHaPin : undefined,
-      { deviceAuthVerified: true },
-    );
-    return didRun;
-  };
-
-  const confirmPendingAction = async () => {
-    if (!pendingAction || isAuthBusy) {
-      return;
-    }
-    if (!pendingSecurityRequirement?.needsCodeInput) {
-      await runAlarmAction(pendingAction);
-      return;
-    }
-    if (rateLimitStatus.isLocked) {
-      appendSecurityAuditEvent({
-        tone: 'warning',
-        message: t('alarm.audit.temporarilyLocked'),
-        context: alarm.name || t('alarm.fallback'),
-      });
-      return;
-    }
-    const manualCodeSubmission = resolveAlarmManualCodeSubmission({
-      inputCode: authCode,
-      localExtraCode,
-      storedHaCode: storedHaPin,
-      requiresCode: pendingSecurityRequirement.needsCodeInput,
-    });
-    if (manualCodeSubmission.ok === false && manualCodeSubmission.reason === 'missing') {
-      setAuthSubmissionError(t('alarm.auth.enterCode', { label: alarmCodeTypeLabel.toLocaleLowerCase() }));
-      return;
-    }
-    if (manualCodeSubmission.ok === false) {
-      setAuthSubmissionError(t('alarm.auth.failed'));
-      setAuthAttemptState(recordAuthFailure(authAttemptState));
-      appendSecurityAuditEvent({
-        tone: 'warning',
-        message: t('alarm.audit.invalidPin'),
-        context: alarm.name || t('alarm.fallback'),
-      });
-      return;
-    }
-    setAuthSubmissionError('');
-    const code = manualCodeSubmission.haCode;
-    const didRun = await runAlarmAction(pendingAction, code, { manualCodeVerified: true });
-    if (!didRun) {
-      setAuthAttemptState(recordAuthFailure(authAttemptState));
-      return;
-    }
-    setAuthAttemptState(recordAuthSuccess());
-    appendSecurityAuditEvent({
-      tone: 'success',
-      message: t('alarm.audit.pinVerified'),
-      context: alarm.name || t('alarm.fallback'),
-    });
-  };
-
-  const pushCodeDigit = (digit: string) => {
-    if (trimmedCode.length >= codeLengthLimit) {
-      return;
-    }
-    setAuthSubmissionError('');
-    setAuthCode((current) => `${current}${digit}`.slice(0, codeLengthLimit));
-  };
-
-  const popCodeDigit = () => {
-    setAuthSubmissionError('');
-    setAuthCode((current) => current.slice(0, -1));
-  };
-
-  const clearCode = () => {
-    setAuthSubmissionError('');
-    setAuthCode('');
-  };
+    },
+  });
+  const openActionDialog = gate.open;
 
   return (
     <div className={CONTEXT_PANEL_LAYOUT.shell}>
@@ -748,35 +546,7 @@ export function AlarmControls({
         </button>
       ) : null}
 
-      <SecurityAuthModal
-        isOpen={Boolean(pendingAction)}
-        pendingAlarmState={pendingAction?.state ?? null}
-        pendingStateRequiresCode={pendingNeedsCode}
-        title={pendingAction ? t('home.security.commandTitle') : undefined}
-        description={pendingSecurityRequirement?.needsCodeInput ? t('home.security.alarmDescription') : t('home.security.deviceDescription')}
-        authError={authError}
-        isAuthBusy={isAuthBusy}
-        isAlarmCodeNumeric={numericCodeMode}
-        alarmCodeTypeLabel={alarmCodeTypeLabel}
-        authPinInput={authCode}
-        preferDeviceAuth={pendingPrefersDeviceAuth}
-        deviceAuthLabel={t('alarm.auth.deviceVerify')}
-        onVerifyWithDevice={pendingPrefersDeviceAuth ? confirmPendingDeviceAuth : undefined}
-        onPinInputChange={(value) => {
-          setAuthSubmissionError('');
-          setAuthCode(
-            numericCodeMode
-              ? value.replace(/[^\d]/g, '').slice(0, codeLengthLimit)
-              : value.slice(0, codeLengthLimit),
-          );
-        }}
-        onVerifyWithPin={confirmPendingAction}
-        onPushPinDigit={pushCodeDigit}
-        onPopPinDigit={popCodeDigit}
-        onClearPin={clearCode}
-        onClose={closeActionDialog}
-        usePortal
-      />
+      <SecurityAuthModal {...gate.modalProps} />
 
       <div className={CONTEXT_PANEL_LAYOUT.sectionCompact}>
         <div className="flex items-center justify-between gap-3">

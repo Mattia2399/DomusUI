@@ -68,7 +68,7 @@ describe('the state of a device', () => {
 
   it('reads a cover: position, movement, stop and tilt', () => {
     const blind = toDeviceModel('cover.blind', e('opening', { current_position: 40, supported_features: 15 + 128, current_tilt_position: 30 }))!;
-    expect(blind.cover).toEqual({ position: 40, moving: 'opening', canPosition: true, canStop: true, tilt: 30 });
+    expect(blind.cover).toEqual({ position: 40, moving: 'opening', canPosition: true, canStop: true, canOpen: true, canClose: true, tilt: 30 });
     expect(blind.on).toBe(true);
     expect(deviceStatusOf(blind)).toEqual({ kind: 'cover', moving: 'opening', position: 40, open: true });
     expect(toDeviceModel('cover.door', e('closed', { supported_features: 3 }))!.cover).toMatchObject({ position: null, canPosition: false, canStop: false });

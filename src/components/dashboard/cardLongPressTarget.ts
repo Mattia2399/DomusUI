@@ -1,8 +1,9 @@
 const INTERACTIVE_CARD_TARGET_SELECTOR =
   'button,input,select,textarea,a,[contenteditable="true"]';
 
+// .dv-tile-body: the surface of the cards in three sizes, shared with Rooms.
 const CONTEXT_LONG_PRESS_TARGET_SELECTOR =
-  '[data-card-context-long-press="true"]';
+  '[data-card-context-long-press="true"],.dv-tile-body';
 
 /**
  * Operational controls (sliders, quick actions, links) own a press gesture and

@@ -69,6 +69,7 @@ export const surfaces = [
       'src/pages/rooms/AddAccessoriesSheet.tsx',
       'src/pages/rooms/RoomsManagePage.tsx',
       'src/pages/rooms/RoomManageSheets.tsx',
+      'src/components/camera/CameraViewer.tsx',
     ],
     budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 46 * KB } },
   },

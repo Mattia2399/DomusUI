@@ -20,6 +20,7 @@ const loaders = {
   accessories: () => import('./AddAccessoriesSheet'),
   manage: () => import('./RoomsManagePage'),
   roomSheets: () => import('./RoomManageSheets'),
+  cameraViewer: () => import('../../components/camera/CameraViewer'),
 };
 
 export const LightPanel = React.lazy(() => loaders.light().then((module) => ({ default: module.LightPanel })));
@@ -34,6 +35,8 @@ export const SectionPage = React.lazy(() => loaders.section().then((module) => (
 export const AddAccessoriesSheet = React.lazy(() => loaders.accessories().then((module) => ({ default: module.AddAccessoriesSheet })));
 export const RoomsManagePage = React.lazy(() => loaders.manage().then((module) => ({ default: module.RoomsManagePage })));
 export const RoomEditPanel = React.lazy(() => loaders.roomSheets().then((module) => ({ default: module.RoomEditPanel })));
+
+export const CameraViewer = React.lazy(() => loaders.cameraViewer().then((module) => ({ default: module.CameraViewer })));
 
 /** Fetch every part once the page is idle; a part that fails here is asked again when it opens. */
 export function preloadRoomsParts() {

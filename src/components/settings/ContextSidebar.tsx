@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useCan } from '../../security/AccessControlProvider';
 import { isPhysicalAccessCover } from '../../security/entityControlAccess';
 import type { LockPanelData } from './lockPanelTypes';
-import { Crown, Lightbulb, MapPin, Smartphone, Tablet, Users, Watch, X } from 'lucide-react';
+import { Lightbulb, X } from 'lucide-react';
 import { ActiveDevice } from './types';
 import { ClimateControls } from './ClimateControls';
 import { LightControls } from './LightControls';
@@ -19,15 +19,13 @@ import { MediaControls, type MediaPlayRequest } from './MediaControls';
 import { SensorControls } from './SensorControls';
 import { BinarySensorControls } from './BinarySensorControls';
 import { WeatherControls } from './WeatherControls';
-import { AlarmControls } from './AlarmControls';
-import { VacuumControls, type VacuumRelatedEntityActionRequest } from './VacuumControls';
+import type { VacuumRelatedEntityActionRequest } from './VacuumControls';
 import type { VacuumDeviceInfo, VacuumMappedArea, VacuumRelatedEntityInfo } from '../widgets/vacuumDeviceModel';
 import { LockControls } from './LockControls';
 import { CoverControls } from './CoverControls';
 import { SwitchControls } from './SwitchControls';
 import { FanControls } from './FanControls';
 import { HumidifierControls } from './HumidifierControls';
-import { CalendarControls } from './CalendarControls';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
@@ -408,7 +406,6 @@ export function ContextSidebar({
   const activeDeviceLayoutClass = externalScrollContainer
     ? 'overflow-visible pb-3 pt-2'
     : 'overflow-y-auto overscroll-contain glass-scrollbar [touch-action:pan-y] [-webkit-overflow-scrolling:touch] pb-4 lg:pb-6';
-  const membersPresence = activeDevice?.membersPresence ?? activeDevice?.membersMapPoints ?? [];
   const microWidgets = activeDevice?.microWidgets ?? [];
   const homePanelProps: HomePanelProps | null = activeDevice
     ? {
@@ -419,6 +416,35 @@ export function ContextSidebar({
         coverIsReadOnly,
         haStates,
         actions,
+        alarm,
+        alarmCommands: {
+          disarm: actions.disarmAlarm,
+          home: actions.armAlarmHome,
+          away: actions.armAlarmAway,
+          night: actions.armAlarmNight,
+          vacation: actions.armAlarmVacation,
+          custom_bypass: actions.armAlarmCustomBypass,
+          trigger: actions.triggerAlarm,
+        },
+        onAuthorizeAlarmDeviceAuth,
+        vacuum,
+        vacuumCommands: {
+          start: actions.startVacuum,
+          pause: actions.pauseVacuum,
+          stop: actions.stopVacuum,
+          returnToBase: actions.returnVacuumToBase,
+          locate: actions.locateVacuum,
+          cleanSpot: actions.cleanVacuumSpot,
+          cleanArea: actions.cleanVacuumArea,
+          setFanSpeed: actions.setVacuumFanSpeed,
+          related: actions.controlVacuumRelatedEntity,
+        },
+        vacuumAreas,
+        calendarAgenda,
+        calendarWasteTypes: activeDevice.type === 'calendar'
+          ? parseWasteTypeStyles(resolveEntityStateById(haStates, activeDevice.calendarEntityId ?? '')?.rawAttributes?.[WASTE_TYPES_ATTRIBUTE])
+          : undefined,
+        onConfigureWaste: onNavigateMicroWidgetPage ? () => onNavigateMicroWidgetPage('/settings/home/waste-collection') : undefined,
         embedded: externalScrollContainer,
         onClose: onClose ?? (() => undefined),
       }
@@ -459,7 +485,7 @@ export function ContextSidebar({
 
       {homePanel && homePanelProps ? (
         <div className={`${CONTEXT_PANEL_LAYOUT.shell} dv-panel-frame`}>
-          <React.Suspense fallback={null}>
+          <React.Suspense fallback={<div className="min-h-[60vh] md:min-h-0" aria-hidden="true" />}>
             <HomePanel {...homePanelProps} />
           </React.Suspense>
         </div>
@@ -659,38 +685,6 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'alarm' ? (
-        <AlarmControls
-          alarm={{ ...alarm, name: activeDevice.name }}
-          onAuthorizeDeviceAuth={onAuthorizeAlarmDeviceAuth}
-          onDisarm={actions.disarmAlarm}
-          onArmHome={actions.armAlarmHome}
-          onArmAway={actions.armAlarmAway}
-          onArmNight={actions.armAlarmNight}
-          onArmVacation={actions.armAlarmVacation}
-          onArmCustomBypass={actions.armAlarmCustomBypass}
-          onTrigger={actions.triggerAlarm}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'vacuum' ? (
-        <VacuumControls
-          vacuum={{ ...vacuum, name: activeDevice.name }}
-          areaOptions={vacuumAreas}
-          onStart={actions.startVacuum}
-          onPause={actions.pauseVacuum}
-          onStop={actions.stopVacuum}
-          onReturnToBase={actions.returnVacuumToBase}
-          onLocate={actions.locateVacuum}
-          onCleanSpot={actions.cleanVacuumSpot}
-          onCleanArea={actions.cleanVacuumArea}
-          onSetFanSpeed={actions.setVacuumFanSpeed}
-          onSendCommand={actions.sendVacuumCommand}
-          onRelatedEntityAction={actions.controlVacuumRelatedEntity}
-          onSecondaryPageChange={onSecondaryPageChange}
-        />
-      ) : null}
-
       {activeDevice?.type === 'lock' ? (
         <LockControls
           lock={{ ...lock, name: activeDevice.name }}
@@ -714,115 +708,6 @@ export function ContextSidebar({
           onStopTilt={actions.stopCoverTilt}
           onSetTiltPosition={actions.setCoverTiltPosition}
         />
-      ) : null}
-
-      {activeDevice?.type === 'calendar' ? (
-        <CalendarControls
-          name={activeDevice.name}
-          supportedFeatures={activeDevice.calendarSupportedFeatures ?? 0}
-          agenda={calendarAgenda}
-          wasteTypes={parseWasteTypeStyles(resolveEntityStateById(haStates, activeDevice.calendarEntityId)?.rawAttributes?.[WASTE_TYPES_ATTRIBUTE])}
-          onConfigureWaste={onNavigateMicroWidgetPage
-            ? () => onNavigateMicroWidgetPage('/settings/home/waste-collection')
-            : undefined}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'members' ? (
-        <div className={CONTEXT_PANEL_LAYOUT.shell}>
-          <ContextPanelHeader
-            title={activeDevice.name}
-            subtitle={`${membersPresence.length} ${membersPresence.length === 1 ? 'membro' : 'membri'}`}
-            icon={<Users size={21} />}
-            fallbackTitle="Members"
-            iconClassName="border-cyan-300/25 bg-cyan-500/12 text-cyan-100"
-          />
-
-          {membersPresence.length > 0 ? (
-            <div className="context-content-surface rounded-[clamp(1.25rem,4.6vw,2rem)] p-[clamp(0.8rem,2.4vw,1.15rem)]">
-              <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">Membri</p>
-              <div className="mt-3 max-h-44 space-y-2 overflow-y-auto pr-1 glass-scrollbar">
-                {membersPresence.map((point) => (
-                  <div key={point.personEntityId} className="context-content-surface-soft flex items-center justify-between gap-3 rounded-xl px-3 py-2">
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <span className="relative shrink-0">
-                        {point.avatarUrl ? (
-                          <img
-                            src={point.avatarUrl}
-                            alt={`Profilo ${point.name}`}
-                            className="h-9 w-9 rounded-full border border-[color:var(--ui-border-strong)] object-cover"
-                          />
-                        ) : (
-                          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-fill-tertiary)] text-[11px] font-semibold text-[color:var(--ui-text-primary)]">
-                            {(point.name.trim().charAt(0) || '?').toUpperCase()}
-                          </span>
-                        )}
-                        {(point.roleLabel?.trim().toLowerCase() === 'admin' ||
-                          point.roleLabel?.trim().toLowerCase() === 'creatore') ? (
-                          <span className="absolute -right-1 -top-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-200/80 bg-amber-400 text-amber-950 shadow-[0_4px_8px_rgba(0,0,0,0.22)]">
-                            <Crown size={9} />
-                          </span>
-                        ) : null}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-[color:var(--ui-text-primary)]">{point.name}</p>
-                        <p className="truncate text-[11px] text-[color:var(--ui-text-secondary)]">
-                          {point.locationLabel?.trim() || 'Posizione sconosciuta'}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex max-w-[10.5rem] shrink-0 flex-wrap justify-end gap-1.5">
-                      {(point.devices?.smartwatch ?? 0) > 0 ? (
-                        <span
-                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
-                          aria-label={`${point.devices.smartwatch} smartwatch`}
-                        >
-                          <Watch size={16} />
-                          <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
-                            {point.devices?.smartwatch}
-                          </span>
-                        </span>
-                      ) : null}
-                      {(point.devices?.tablet ?? 0) > 0 ? (
-                        <span
-                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
-                          aria-label={`${point.devices.tablet} tablet`}
-                        >
-                          <Tablet size={16} />
-                          <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
-                            {point.devices?.tablet}
-                          </span>
-                        </span>
-                      ) : null}
-                      {(point.devices?.smartphone ?? 0) > 0 ? (
-                        <span
-                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
-                          aria-label={`${point.devices.smartphone} smartphone`}
-                        >
-                          <Smartphone size={16} />
-                          <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
-                            {point.devices?.smartphone}
-                          </span>
-                        </span>
-                      ) : null}
-                      {(point.devices?.tracker ?? 0) > 0 ? (
-                        <span
-                          className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]"
-                          aria-label={`${point.devices.tracker} tracker`}
-                        >
-                          <MapPin size={16} />
-                          <span className="absolute -right-1 -top-1 inline-flex min-h-[1rem] min-w-[1rem] items-center justify-center rounded-full border border-[color:var(--ui-border-strong)] bg-[color:var(--ui-bg-elevated)] px-1 text-[9px] font-semibold leading-none text-[color:var(--ui-text-primary)]">
-                            {point.devices.tracker}
-                          </span>
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </div>
       ) : null}
 
       {activeDevice ? (

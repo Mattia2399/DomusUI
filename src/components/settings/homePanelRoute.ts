@@ -1,6 +1,11 @@
 import type { MockEntityStateMap } from '../../types/ha';
 import { resolveDeviceKind, type DeviceKind } from '../devices/model/entityKind';
 import { resolvePanel } from '../devices/panels/resolvePanel';
+import type { AlarmPanelCommands, AlarmPanelModel } from '../devices/panels/AlarmPanel';
+import type { VacuumPanelCommands, VacuumPanelModel } from '../devices/panels/VacuumPanel';
+import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
+import type { WasteTypeStyleMap } from '../../services/calendarClient';
+import type { VacuumMappedArea } from '../widgets/vacuumDeviceModel';
 import type { ActiveDevice } from './types';
 
 /*
@@ -88,6 +93,15 @@ export type HomePanelProps = {
   coverIsReadOnly: boolean;
   haStates: MockEntityStateMap;
   actions: HomePanelActions;
+  alarm: AlarmPanelModel;
+  alarmCommands: AlarmPanelCommands;
+  onAuthorizeAlarmDeviceAuth?: (label: string) => Promise<boolean>;
+  vacuum: VacuumPanelModel;
+  vacuumCommands: VacuumPanelCommands;
+  vacuumAreas?: VacuumMappedArea[];
+  calendarAgenda: CalendarAgendaController;
+  calendarWasteTypes?: WasteTypeStyleMap;
+  onConfigureWaste?: () => void;
   /** The sheet of a phone has its own title and Close. */
   embedded: boolean;
   onClose: () => void;
@@ -109,7 +123,7 @@ export function homeDeviceEntityId({ activeDevice }: Pick<HomePanelProps, 'activ
 export function homePanelOf(props: HomePanelProps) {
   const { activeDevice, coverIsReadOnly, haStates } = props;
   const { panel } = resolvePanel(activeDevice.type as DeviceKind);
-  if (panel === 'light' || panel === 'climate') return panel;
+  if (panel === 'light' || panel === 'climate' || panel === 'alarm' || panel === 'vacuum' || panel === 'calendar' || panel === 'members') return panel;
   if (panel !== 'device') return null;
   if (activeDevice.type === 'cover') return coverIsReadOnly ? null : panel;
   const entityId = homeDeviceEntityId(props);

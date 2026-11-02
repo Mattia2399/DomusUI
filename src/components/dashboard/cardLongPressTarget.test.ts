@@ -19,6 +19,16 @@ describe('isCardContextLongPressBlockedTarget', () => {
     expect(isCardContextLongPressBlockedTarget(slider)).toBe(true);
   });
 
+  it('allows the surface of the cards in three sizes, not their controls', () => {
+    const body = document.createElement('button');
+    body.className = 'dv-tile-body';
+    const pill = document.createElement('button');
+    pill.className = 'dv-pill';
+
+    expect(isCardContextLongPressBlockedTarget(body)).toBe(false);
+    expect(isCardContextLongPressBlockedTarget(pill)).toBe(true);
+  });
+
   it('allows an opted-in primary card action and its descendants', () => {
     const button = document.createElement('button');
     button.dataset.cardContextLongPress = 'true';

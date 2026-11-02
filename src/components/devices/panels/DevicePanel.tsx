@@ -217,6 +217,7 @@ function FanBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTrans
   const value = steps ? level : fan.pct;
   return (
     <div className="dv-panel-body">
+      {fan.canSetSpeed ? (
       <VerticalSlider
         fill={steps ? (level / steps) * 100 : fan.pct}
         fillColor={model.on ? 'rgb(var(--dv-tone-rgb) / 0.95)' : 'var(--dv-slider-fill-off)'}
@@ -241,6 +242,7 @@ function FanBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTrans
           />
         }
       />
+      ) : null}
       <div className="dv-panel-side">
         <Options
           label={dt('modes')}
@@ -315,7 +317,7 @@ function CoverBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTra
       <div className="dv-panel-side">
         <Options
           label={dt('position')}
-          options={(cover.canPosition ? presets : presets.filter(([value]) => value !== 50)).map(([value, label]) => ({
+          options={(cover.canPosition ? presets : presets.filter(([value]) => (value === 100 && cover.canOpen) || (value === 0 && cover.canClose))).map(([value, label]) => ({
             key: String(value),
             label,
             on: !cover.moving && (position === null ? (value === 100) === model.on : position === value),

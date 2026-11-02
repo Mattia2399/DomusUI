@@ -47,7 +47,7 @@ import { MediaKindIcon, MediaOffCard, NowPlayingCard } from '../../components/de
 import type { MediaGroupCandidate } from '../../components/devices/panels/MediaPlayer';
 import { pickRoomPlayer, type MediaAction, type MediaModel } from '../../components/devices/model/media';
 import { useAmbientAssetUrl } from '../../theme/ambient/AmbientProvider';
-import { CameraViewer, type CameraViewerItem } from '../../components/camera/CameraViewer';
+import type { CameraViewerItem } from '../../components/camera/CameraViewer';
 import { buildCameraCardModel } from '../../components/widgets/cameraCardModel';
 import type { Widget } from '../../types/dashboardModels';
 import {
@@ -119,6 +119,7 @@ import { RoomSection } from './RoomSection';
 import type { SectionCandidate } from './SectionPage';
 import {
   AddAccessoriesSheet,
+  CameraViewer,
   ClimatePanel,
   Deferred,
   DevicePanel,
@@ -1819,16 +1820,18 @@ export function RoomsPage({
         ) : null}
       </PanelHost>
 
-      <CameraViewer
-        isOpen={Boolean(cameraOpenId)}
-        cameras={roomCameras}
-        activeEntityId={cameraOpenId}
-        onActiveEntityChange={setCameraOpenId}
-        onClose={() => setCameraOpenId(null)}
-        commandsEnabled={haConnected && !demo}
-        onPtzMove={onCameraPtzMove}
-        onPtzStop={onCameraPtzStop}
-      />
+      <Deferred>
+        <CameraViewer
+          isOpen={Boolean(cameraOpenId)}
+          cameras={roomCameras}
+          activeEntityId={cameraOpenId}
+          onActiveEntityChange={setCameraOpenId}
+          onClose={() => setCameraOpenId(null)}
+          commandsEnabled={haConnected && !demo}
+          onPtzMove={onCameraPtzMove}
+          onPtzStop={onCameraPtzStop}
+        />
+      </Deferred>
 
       {timerNotice && !sceneUndo ? (
         <div className="rooms-toast dv-glass" role="status" data-testid="rooms-timer-notice">
