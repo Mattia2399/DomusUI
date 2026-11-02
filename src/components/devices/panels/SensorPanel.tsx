@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Lightbulb, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Lightbulb } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
@@ -14,6 +14,7 @@ import {
 } from '../model/sensor';
 import { SENSOR_ICONS } from '../cards/SensorCard';
 import { formatSensorValue, sensorFace, sensorUpdated, TIP_KEY, withUnit, ZONE_KEYS } from '../cards/sensorText';
+import { PanelShell } from './PanelShell';
 
 /*
  * The detail of a sensor: the value and where it sits, a tip when something
@@ -41,20 +42,14 @@ export function SensorPanel({ model, roomName, history, historyLoading, period, 
   const updated = sensorUpdated(model, dt);
   const subtitle = [roomName, model.available ? updated : dt('sensorAway')].filter(Boolean).join(' · ');
 
-  const header = (
-    <div className="flex items-center gap-3">
-      <span aria-hidden="true" className="dv-sensor-badge flex h-12 w-12 flex-none items-center justify-center rounded-full">
-        <Icon size={23} strokeWidth={2} />
-      </span>
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <p className="m-0 truncate text-xl font-bold tracking-[-0.02em]">{model.name}</p>
-        <span className="dv-t2 text-[13px] font-semibold">{subtitle}</span>
-      </div>
-      <button type="button" className="dv-round dv-round-sm" aria-label={dt('close')} onClick={onClose}>
-        <X size={15} strokeWidth={2.4} aria-hidden="true" />
-      </button>
-    </div>
-  );
+  const shell = {
+    className: `dv-sn-${model.kind}`,
+    icon: <Icon size={23} strokeWidth={2} />,
+    iconClassName: 'dv-sensor-badge',
+    name: model.name,
+    subtitle,
+    onClose,
+  };
 
   const battery =
     model.battery !== null ? (
@@ -68,8 +63,7 @@ export function SensorPanel({ model, roomName, history, historyLoading, period, 
 
   if (model.kind === 'smoke') {
     return (
-      <div className={clsx('dv-panel', `dv-sn-${model.kind}`)}>
-        {header}
+      <PanelShell {...shell}>
         <div className="flex flex-col gap-1">
           <span className={clsx('text-[34px] font-bold tracking-[-0.03em]', model.alarm && 'text-[color:var(--dv-red)]')}>
             {model.alarm ? dt('smokeDetected') : dt('smokeNone')}
@@ -77,19 +71,18 @@ export function SensorPanel({ model, roomName, history, historyLoading, period, 
           <span className="dv-t2 text-sm font-medium">{dt('smokeNote')}</span>
         </div>
         {battery}
-      </div>
+      </PanelShell>
     );
   }
 
   if (!model.available || model.value === null) {
     return (
-      <div className={clsx('dv-panel', `dv-sn-${model.kind}`)}>
-        {header}
+      <PanelShell {...shell}>
         <div className="dv-banner" role="status">
           <span>{dt('sensorAwayText')}</span>
         </div>
         {battery}
-      </div>
+      </PanelShell>
     );
   }
 
@@ -128,8 +121,7 @@ export function SensorPanel({ model, roomName, history, historyLoading, period, 
   const periodWord = dt(periods.find(([key]) => key === period)?.[1] ?? 'period24h');
 
   return (
-    <div className={clsx('dv-panel', `dv-sn-${model.kind}`)}>
-      {header}
+    <PanelShell {...shell}>
 
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div className="flex flex-col gap-1">
@@ -238,7 +230,7 @@ export function SensorPanel({ model, roomName, history, historyLoading, period, 
       </div>
 
       {battery}
-    </div>
+    </PanelShell>
   );
 }
 

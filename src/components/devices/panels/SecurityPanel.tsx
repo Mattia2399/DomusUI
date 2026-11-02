@@ -1,4 +1,4 @@
-import { LockOpen, X } from 'lucide-react';
+import { LockOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
@@ -6,6 +6,7 @@ import { onSpans, type LockCommand, type SecurityModel, type StateChange } from 
 import { SECURITY_ICONS, securityTone } from '../cards/SecurityCard';
 import { LockRing, lockRingInk, lockRingText, useLockRing } from '../cards/LockRing';
 import { clockOf, durationWord, LOCK_KEY, SECURITY_KIND_KEY, securityStatus } from '../cards/securityText';
+import { PanelShell } from './PanelShell';
 
 /*
  * The detail of a security device: what it says now and since when, the
@@ -64,19 +65,13 @@ export function SecurityPanel({ model, roomName, history, onLockCommand, onClose
   const events = [...history].reverse().filter((change) => model.kind !== 'motion' || change.state === 'on').slice(0, 5);
 
   return (
-    <div className="dv-panel">
-      <div className="flex items-center gap-3">
-        <span aria-hidden="true" className={clsx('dv-security-badge flex h-12 w-12 flex-none items-center justify-center rounded-full', `is-${tone}`)}>
-          <Icon size={23} strokeWidth={2} />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="m-0 truncate text-xl font-bold tracking-[-0.02em]">{model.name}</p>
-          <span className="dv-t2 text-[13px] font-semibold">{subtitle}</span>
-        </div>
-        <button type="button" className="dv-round dv-round-sm" aria-label={dt('close')} onClick={onClose}>
-          <X size={15} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      </div>
+    <PanelShell
+      icon={<Icon size={23} strokeWidth={2} />}
+      iconClassName={clsx('dv-security-badge', `is-${tone}`)}
+      name={model.name}
+      subtitle={subtitle}
+      onClose={onClose}
+    >
 
       {ringText ? (
         <div className="flex flex-col items-center gap-3.5 pb-0.5 pt-1.5">
@@ -133,7 +128,7 @@ export function SecurityPanel({ model, roomName, history, onLockCommand, onClose
           </div>
         </div>
       ) : null}
-    </div>
+    </PanelShell>
   );
 }
 

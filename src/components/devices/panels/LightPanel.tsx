@@ -1,11 +1,11 @@
 import React from 'react';
-import { Lightbulb, Power, Sun, X } from 'lucide-react';
-import { clsx } from 'clsx';
+import { Lightbulb, Sun } from 'lucide-react';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from '../model/light';
 import { hexToRgb, hueToRgb, lightRgb, rgbCss, rgbToHex } from '../model/tileColor';
 import { LightKindSegment, lightSwatches, SwatchRow } from '../cards/LightControls';
 import { toneTitle } from '../cards/lightText';
+import { PanelShell } from './PanelShell';
 
 /*
  * The controls of a light: a large vertical brightness slider, White / Colour
@@ -27,10 +27,12 @@ export type LightPanelProps = {
   model: LightModel;
   roomName?: string;
   onAction: (action: LightAction) => void;
+  /** Inside a sheet that has its own title and Close. */
+  embedded?: boolean;
   onClose: () => void;
 };
 
-export function LightPanel({ model, roomName, onAction, onClose }: LightPanelProps) {
+export function LightPanel({ model, roomName, embedded, onAction, onClose }: LightPanelProps) {
   const dt = useDevicesTranslations();
   const rgb = lightRgb(model);
   const pct = model.brightnessPct ?? 100;
@@ -56,39 +58,21 @@ export function LightPanel({ model, roomName, onAction, onClose }: LightPanelPro
   const showTemps = (model.caps === 'ct' || model.caps === 'color') && !isColorMode;
 
   return (
-    <div className="dv-panel">
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex h-12 w-12 flex-none items-center justify-center rounded-full transition-[background] duration-300"
-          style={
-            lit
-              ? { background: rgbCss(rgb), color: 'var(--dv-lit-icon-ink)', boxShadow: `0 8px 22px -6px ${rgbCss(rgb, 0.8)}` }
-              : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' }
-          }
-        >
-          <Lightbulb size={23} strokeWidth={2} />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="m-0 truncate text-xl font-bold tracking-[-0.02em]">{model.name}</p>
-          <span className="dv-t2 text-[13px] font-semibold" aria-live="polite">
-            {subtitle}
-          </span>
-        </div>
-        <button
-          type="button"
-          className={clsx('dv-round', lit && 'is-on')}
-          aria-pressed={model.on}
-          aria-label={dt(model.on ? 'turnOff' : 'turnOn', { name: model.name })}
-          disabled={!model.available}
-          onClick={() => onAction({ type: model.on ? 'turn_off' : 'turn_on' })}
-        >
-          <Power size={20} strokeWidth={2.2} aria-hidden="true" />
-        </button>
-        <button type="button" className="dv-round dv-round-sm" aria-label={dt('close')} onClick={onClose}>
-          <X size={15} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      </div>
+    <PanelShell
+      icon={<Lightbulb size={23} strokeWidth={2} />}
+      iconClassName="transition-[background] duration-300"
+      iconStyle={
+        lit
+          ? { background: rgbCss(rgb), color: 'var(--dv-lit-icon-ink)', boxShadow: `0 8px 22px -6px ${rgbCss(rgb, 0.8)}` }
+          : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' }
+      }
+      name={model.name}
+      subtitle={subtitle}
+      liveSubtitle
+      power={{ on: model.on, highlighted: lit, available: model.available, name: model.name, onToggle: () => onAction({ type: model.on ? 'turn_off' : 'turn_on' }) }}
+      embedded={embedded}
+      onClose={onClose}
+    >
 
       <div className="dv-panel-body">
         {model.caps !== 'onoff' ? (
@@ -158,7 +142,7 @@ export function LightPanel({ model, roomName, onAction, onClose }: LightPanelPro
           {model.caps === 'dim' ? <span className="dv-t2 text-sm font-medium leading-[1.45]">{dt('dimOnly')}</span> : null}
         </div>
       </div>
-    </div>
+    </PanelShell>
   );
 }
 

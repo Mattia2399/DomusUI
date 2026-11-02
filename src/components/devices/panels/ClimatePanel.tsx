@@ -1,4 +1,4 @@
-import { Minus, Plus, Power, X } from 'lucide-react';
+import { Minus, Plus } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassToggle from '../../ui/GlassToggle';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
@@ -6,6 +6,7 @@ import { useI18n } from '../../../i18n/I18nProvider';
 import { climateIsOn, climateSwingToggle, type ClimateAction, type ClimateModel } from '../model/climate';
 import { CLIMATE_ICONS, CLIMATE_TONE } from '../cards/ClimateCard';
 import { CLIMATE_MODE_KEY, climateStatus, degrees, fanPillLabel, presetLabel } from '../cards/climateText';
+import { PanelShell } from './PanelShell';
 
 /*
  * The controls of a climate device: the target as a large vertical slider
@@ -20,10 +21,12 @@ export type ClimatePanelProps = {
   roomTemperature?: number | null;
   roomHumidity?: number | null;
   onAction: (action: ClimateAction) => void;
+  /** Inside a sheet that has its own title and Close. */
+  embedded?: boolean;
   onClose: () => void;
 };
 
-export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, onAction, onClose }: ClimatePanelProps) {
+export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, embedded, onAction, onClose }: ClimatePanelProps) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
   const on = climateIsOn(model);
@@ -85,39 +88,22 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, o
   })();
 
   return (
-    <div className={clsx('dv-panel', `dv-cl-${tone}`)}>
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex h-12 w-12 flex-none items-center justify-center rounded-full transition-[background] duration-300"
-          style={
-            on
-              ? { background: 'var(--cl-solid)', color: '#ffffff', boxShadow: '0 8px 22px -6px rgb(var(--cl-rgb) / 0.8)' }
-              : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' }
-          }
-        >
-          <Icon size={23} strokeWidth={2} />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="m-0 truncate text-xl font-bold tracking-[-0.02em]">{model.name}</p>
-          <span className="dv-t2 text-[13px] font-semibold" aria-live="polite">
-            {subtitle}
-          </span>
-        </div>
-        <button
-          type="button"
-          className={clsx('dv-round', on && 'is-on')}
-          aria-pressed={on}
-          aria-label={dt(on ? 'turnOff' : 'turnOn', { name: model.name })}
-          disabled={!model.available}
-          onClick={() => onAction({ type: on ? 'turn_off' : 'turn_on' })}
-        >
-          <Power size={20} strokeWidth={2.2} aria-hidden="true" />
-        </button>
-        <button type="button" className="dv-round dv-round-sm" aria-label={dt('close')} onClick={onClose}>
-          <X size={15} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      </div>
+    <PanelShell
+      className={`dv-cl-${tone}`}
+      icon={<Icon size={23} strokeWidth={2} />}
+      iconClassName="transition-[background] duration-300"
+      iconStyle={
+        on
+          ? { background: 'var(--cl-solid)', color: '#ffffff', boxShadow: '0 8px 22px -6px rgb(var(--cl-rgb) / 0.8)' }
+          : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' }
+      }
+      name={model.name}
+      subtitle={subtitle}
+      liveSubtitle
+      power={{ on, highlighted: on, available: model.available, name: model.name, onToggle: () => onAction({ type: on ? 'turn_off' : 'turn_on' }) }}
+      embedded={embedded}
+      onClose={onClose}
+    >
 
       <div className="dv-panel-body">
         {single ? (
@@ -249,7 +235,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, o
           ) : null}
         </div>
       </div>
-    </div>
+    </PanelShell>
   );
 }
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Droplets, Power, Square, X } from 'lucide-react';
+import { Droplets, Square } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import GlassToggle from '../../ui/GlassToggle';
@@ -10,6 +10,7 @@ import type { PlugEnergy } from '../model/plugEnergy';
 import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../model/deviceTimer';
 import { DeviceIcon } from '../cards/DeviceCard';
 import { formatDeviceStatus } from '../cards/deviceText';
+import { PanelShell } from './PanelShell';
 
 /*
  * The controls of a device that has more than on and off: the power of a
@@ -30,6 +31,8 @@ export type DevicePanelProps = {
   timer?: DeviceTimer | null;
   timerNow?: number;
   onSetTimer?: (minutes: number) => void;
+  /** Inside a sheet that has its own title and Close. */
+  embedded?: boolean;
   onAction: (action: DeviceAction) => void;
   onClose: () => void;
 };
@@ -444,6 +447,7 @@ export function DevicePanel({
   timer = null,
   timerNow = Date.now(),
   onSetTimer,
+  embedded,
   onAction,
   onClose,
 }: DevicePanelProps) {
@@ -454,41 +458,26 @@ export function DevicePanel({
   const isPlug = model.kind === 'outlet' || model.kind === 'switch';
 
   return (
-    <div className={clsx('dv-panel', `dv-tone-${{ outlet: 'power', switch: 'power', virtual: 'power', fan: 'fan', cover: 'cover', humidifier: 'humid' }[model.kind]}`)}>
-      <div className="flex items-center gap-3">
-        <span
-          aria-hidden="true"
-          className="flex h-12 w-12 flex-none items-center justify-center rounded-full transition-[background] duration-300"
-          style={
-            lit
-              ? { background: 'var(--dv-tone)', color: 'var(--dv-tone-ink)', boxShadow: '0 8px 22px -6px var(--dv-tone-glow)' }
-              : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' }
-          }
-        >
-          <DeviceIcon model={model} size={23} />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="m-0 truncate text-xl font-bold tracking-[-0.02em]">{model.name}</p>
-          <span className="dv-t2 text-[13px] font-semibold" aria-live="polite">
-            {subtitle}
-          </span>
-        </div>
-        {model.kind !== 'cover' ? (
-          <button
-            type="button"
-            className={clsx('dv-round', model.on && 'is-on')}
-            aria-pressed={model.on}
-            aria-label={dt(model.on ? 'turnOff' : 'turnOn', { name: model.name })}
-            disabled={!model.available}
-            onClick={() => onAction({ type: model.on ? 'turn_off' : 'turn_on' })}
-          >
-            <Power size={20} strokeWidth={2.2} aria-hidden="true" />
-          </button>
-        ) : null}
-        <button type="button" className="dv-round dv-round-sm" aria-label={dt('close')} onClick={onClose}>
-          <X size={15} strokeWidth={2.4} aria-hidden="true" />
-        </button>
-      </div>
+    <PanelShell
+      className={`dv-tone-${{ outlet: 'power', switch: 'power', virtual: 'power', fan: 'fan', cover: 'cover', humidifier: 'humid' }[model.kind]}`}
+      icon={<DeviceIcon model={model} size={23} />}
+      iconClassName="transition-[background] duration-300"
+      iconStyle={
+        lit
+          ? { background: 'var(--dv-tone)', color: 'var(--dv-tone-ink)', boxShadow: '0 8px 22px -6px var(--dv-tone-glow)' }
+          : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' }
+      }
+      name={model.name}
+      subtitle={subtitle}
+      liveSubtitle
+      power={
+        model.kind !== 'cover'
+          ? { on: model.on, highlighted: model.on, available: model.available, name: model.name, onToggle: () => onAction({ type: model.on ? 'turn_off' : 'turn_on' }) }
+          : undefined
+      }
+      embedded={embedded}
+      onClose={onClose}
+    >
 
       {isPlug ? (
         <PlugBody model={model} dt={dt} protectedPlug={protectedPlug} onToggleProtected={onToggleProtected} energy={energy} onSetTariff={onSetTariff} />
@@ -497,7 +486,7 @@ export function DevicePanel({
       {model.kind === 'cover' ? <CoverBody model={model} dt={dt} onAction={onAction} /> : null}
       {model.kind === 'humidifier' ? <HumidifierBody model={model} dt={dt} onAction={onAction} /> : null}
       {onSetTimer && model.available ? <TimerOptions timer={timer} now={timerNow} dt={dt} onSetTimer={onSetTimer} /> : null}
-    </div>
+    </PanelShell>
   );
 }
 
