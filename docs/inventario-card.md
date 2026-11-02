@@ -73,3 +73,88 @@ Non esiste una funzione "Duplica". Non esistono nemmeno "Sposta su" e "Sposta gi
 ### Cosa non esiste ancora
 
 `resolveDeviceKind`, `isKindImplemented` e `growWhenOn` non esistono. `DeviceKind` esiste in `devices/model/device.ts`, ma comprende solo `outlet`, `switch`, `virtual`, `fan`, `cover` e `humidifier`. Esiste `resolveSensorFamily` (`devices/model/sensorFamily.ts`).
+
+## Pannelli
+
+Come sono oggi i pannelli di Stanze e il dettaglio che apre la Home, sul branch `feat/pannelli-comuni`. I riferimenti sono ai file e ai simboli, perché i numeri di riga cambiano.
+
+### I pannelli di Stanze
+
+I 10 pannelli sono fatti da 7 componenti. Sei stanno già in `src/components/devices/panels/`, accanto a `model` e `cards`. La telecamera sta in `src/components/camera/`.
+
+| Pannello | Componente | Card che lo apre | Cosa contiene |
+|---|---|---|---|
+| Luce | `panels/LightPanel.tsx` | `LightCard` | cursore verticale della luminosità, Bianco/Colore, bianchi e tinte |
+| Clima | `panels/ClimatePanel.tsx` | `ClimateCard` | obiettivo o intervallo con la temperatura della stanza, modalità, ventola, profilo, oscillazione |
+| Interruttore e presa | `panels/DevicePanel.tsx` (`PlugBody`) | `DeviceCard` | accensione, consumi e tariffa, timer di spegnimento |
+| Ventilatore | `panels/DevicePanel.tsx` (`FanBody`) | `DeviceCard` | velocità, modalità, oscillazione, direzione, timer |
+| Tapparella | `panels/DevicePanel.tsx` (`CoverBody`) | `DeviceCard` | apertura, inclinazione, comandi |
+| Umidificatore | `panels/DevicePanel.tsx` (`HumidifierBody`) | `DeviceCard` | obiettivo e modalità, timer |
+| Serratura | `panels/SecurityPanel.tsx` | `SecurityCard` | i due anelli grandi, cosa fanno, ultimi cambiamenti |
+| Sensore sì/no | `panels/SecurityPanel.tsx` | `SecurityCard` | stato e da quando, striscia del giorno, ultimi cambiamenti |
+| Sensore | `panels/SensorPanel.tsx` | `SensorCard` | valore, consiglio, storico 6 ore / 24 ore / 7 giorni con la fascia ideale, minimo, massimo, media, scala, batteria |
+| Media | `panels/MediaPlayer.tsx` | `MediaCard` | a tutta pagina: copertina, posizione, comandi, volume, sorgenti, gruppi, modalità audio |
+| Telecamera | `camera/CameraViewer.tsx` | `SecurityCard` | visore con più telecamere; non passa da `PanelHost` |
+
+Il prompt conta 10 pannelli con l'umidificatore insieme ai dispositivi; qui ha una riga sua perché ha un corpo suo.
+
+Il sensore sì/no di Stanze copre solo i tipi di `securityKindOf` (contatto, movimento, vibrazione, perdita). `SensorPanel` copre solo i 6 tipi di `sensorKindOf` e il fumo. Le famiglie di `resolveSensorFamily` esistono solo nelle card della Home.
+
+### Come Stanze apre e chiude i pannelli
+
+- **Stato:** `RoomsPage.tsx` tiene `panel` (`{ kind, id }`), più `cameraOpenId` per la telecamera. Ogni tipo ha il suo `PanelHost`, e la scelta è scritta nel JSX della pagina: non esiste una funzione unica.
+- **Apertura:** ogni card chiama `setPanel`. Il contenuto si carica su richiesta dentro `Deferred`.
+- **Chiusura:** `setPanel(null)`, dal pulsante del pannello o da `onClose` del contenitore.
+- **Telefono** (fino a 760 px, `usePhoneLayout`): `PanelHost` con `presentation="sheet"`, cioè `GlassBottomSheet`.
+- **Desktop:** `presentation="dialog"`, cioè `GlassModal` **al centro della pagina**, con la dashboard coperta.
+- **Colonna laterale:** `presentation="side"` esiste già in `PanelHost` (384 px, a destra), ma non la usa nessuno.
+- **Colore:** `tintRgb` e `softTint` tingono il pannello con il colore della luce o del dispositivo.
+
+### Cosa apre oggi la Home
+
+Una card chiama `onWidgetClick`, cioè `handleWidgetClick` in `MainBoard.tsx`, che seleziona la card e chiama `openLiveControls`. Questa riempie `activeDevice`. `RightSidebarManager.tsx` mostra `ContextSidebar.tsx`, che sceglie il contenuto con un `if` per ogni tipo.
+
+| Card | Contenuto aperto | Oltre ad aprire |
+|---|---|---|
+| Luce | `LightControls` | **accende o spegne la luce** (`toggleLightEntity`) |
+| Clima | `ClimateControls` | |
+| Interruttore e presa | `SwitchControls` | |
+| Ventilatore | `FanControls` | |
+| Umidificatore | `HumidifierControls` | |
+| Tapparella | `CoverControls` | |
+| Serratura | `LockControls` | |
+| Telecamera | `CameraControls` | |
+| Media | `MediaControls` | |
+| Sensore | `SensorControls` | carica lo storico |
+| Sensore sì/no | `BinarySensorControls` | |
+| Allarme | `AlarmControls` | |
+| Robot | `VacuumControls` | |
+| Calendario | `CalendarControls` | |
+| Membri | blocco scritto dentro `ContextSidebar.tsx` | |
+| Saluto con meteo, Meteo | `WeatherControls` (`onWeatherClick`) | |
+| Scene | nessun dettaglio: la scena parte | |
+
+**Sul telefono (`xs`).** In `GridCanvas.tsx` un tocco breve commuta luce e interruttore e, per le altre card, non chiama `onWidgetClick`. Il dettaglio si apre con la pressione lunga (`handleWidgetLongPress`), che non commuta niente.
+
+**Dove si apre.** Sopra il breakpoint `md` (768 px) è nella colonna di destra, larga fino a 384 px (`DASHBOARD_SIDEBAR_WIDTH_CLASS`), con la dashboard visibile accanto. Sotto è un foglio dal basso (`device-context-surface`), con il suo trascinamento dentro `RightSidebarManager.tsx`.
+
+### Differenze fra Home e Stanze
+
+| | Stanze | Home |
+|---|---|---|
+| Contenuto | `devices/panels/*` | `settings/*Controls` |
+| Desktop | finestra al centro | colonna di destra |
+| Soglia del telefono | 760 px | 768 px (`md`) |
+| Scelta del pannello | JSX di `RoomsPage.tsx` | `if` in `ContextSidebar.tsx` |
+| Intestazione | ogni pannello ha la sua | `ContextPanelHeader` |
+| Da dove vengono i dati | modelli (`toLightModel`…) da `states` | `activeDevice`, oggetti di stato e `actions` preparati da `MainBoard.tsx` |
+| Comandi | hook (`useLightCommands`…) e `onCallApi` | solo le voci di `actions` |
+| Storico del sensore | 6 ore, 24 ore, 7 giorni (`useSensorHistory`) | ultime 24 ore (`sensorHistoryByEntity`) |
+| Solo qui | timer, consumi della presa | allarme, robot, calendario, membri, meteo, micro-widget |
+| Tocco sulla luce | apre e basta; si commuta dall'icona | commuta e apre; su `xs` commuta soltanto |
+
+### Cosa non esiste o non arriva ai pannelli
+
+- `resolveDeviceKind` non esiste. `DeviceKind` copre solo `outlet`, `switch`, `virtual`, `fan`, `cover`, `humidifier`.
+- `ContextSidebar` non riceve `callApi` né una funzione generica per chiamare i servizi: ha `haStates`, gli oggetti di stato e `actions`. Tutto gli arriva da `RightSidebarManager.tsx` e `MainBoard.tsx`.
+- Esistono già, ma solo nei loro punti: statistiche del Recorder (`devices/model/plugEnergy.ts`, Energia), API calendario (`services/calendarClient.ts`), rifiuti (`services/wasteCollectionClient.ts`), logbook (`MainBoard.tsx`).
