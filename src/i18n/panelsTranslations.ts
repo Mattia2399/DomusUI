@@ -164,6 +164,20 @@ const it = {
   snSignalTip: 'Avvicina il ripetitore.',
   snHigh: 'Alto',
   snLimit: 'Limite',
+
+  lvAway: 'Non risponde.',
+  lvAwayFor: 'Non risponde da {time}.',
+  lvLastKnown: 'Ultimo stato noto: {state}, alle {time}.',
+  lvAwayTip: 'Controlla che sia acceso e collegato.',
+  lvRetry: 'Riprova',
+  lvOpenHa: 'Apri in Home Assistant',
+  lvSent: 'Comando inviato',
+  lvWaiting: 'Attendo la conferma dal dispositivo',
+  lvNoAnswer: 'Il dispositivo non ha risposto. Riprova',
+  lvStale: 'Non invia dati da {time}.',
+  lvStaleAt: 'Ultimo valore alle {time}.',
+  lvStaleBattery: 'La batteria è al {pct}%: probabilmente va cambiata.',
+  lvStaleTip: 'Controlla che sia alimentato e raggiungibile.',
 };
 
 type PanelsCatalog = Record<keyof typeof it, string>;
@@ -327,6 +341,20 @@ const en: PanelsCatalog = {
   snSignalTip: 'Move the repeater closer.',
   snHigh: 'High',
   snLimit: 'Limit',
+
+  lvAway: 'Not answering.',
+  lvAwayFor: 'Not answering for {time}.',
+  lvLastKnown: 'Last known state: {state}, at {time}.',
+  lvAwayTip: 'Check that it is on and connected.',
+  lvRetry: 'Try again',
+  lvOpenHa: 'Open in Home Assistant',
+  lvSent: 'Command sent',
+  lvWaiting: 'Waiting for the device to confirm',
+  lvNoAnswer: 'The device did not answer. Try again',
+  lvStale: 'No data for {time}.',
+  lvStaleAt: 'Last value at {time}.',
+  lvStaleBattery: 'The battery is at {pct}%: it probably needs changing.',
+  lvStaleTip: 'Check that it is powered and reachable.',
 };
 
 const fr: PanelsCatalog = {
@@ -487,6 +515,20 @@ const fr: PanelsCatalog = {
   snSignalTip: 'Rapprochez le répéteur.',
   snHigh: 'Élevé',
   snLimit: 'Limite',
+
+  lvAway: 'Ne répond pas.',
+  lvAwayFor: 'Ne répond plus depuis {time}.',
+  lvLastKnown: 'Dernier état connu : {state}, à {time}.',
+  lvAwayTip: 'Vérifiez qu’il est allumé et connecté.',
+  lvRetry: 'Réessayer',
+  lvOpenHa: 'Ouvrir dans Home Assistant',
+  lvSent: 'Commande envoyée',
+  lvWaiting: 'En attente de la confirmation de l’appareil',
+  lvNoAnswer: 'L’appareil n’a pas répondu. Réessayez',
+  lvStale: 'Aucune donnée depuis {time}.',
+  lvStaleAt: 'Dernière valeur à {time}.',
+  lvStaleBattery: 'La batterie est à {pct} % : elle est probablement à changer.',
+  lvStaleTip: 'Vérifiez qu’il est alimenté et joignable.',
 };
 
 const catalogs: Record<AppLocale, PanelsCatalog> = { it, en, fr };

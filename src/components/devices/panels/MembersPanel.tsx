@@ -7,7 +7,7 @@ import type { MockEntityStateMap } from '../../../types/ha';
 import type { MembersPresenceEntry } from '../../settings/types';
 import { entityChangedAt, formatPanelSpan, MEMBERS_MAP_ENABLED, memberBattery, memberIsHome } from '../model/panelRules';
 import { useEntityRegistry } from './panelData';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 import '../theme/panels.css';
 
 /*
@@ -23,6 +23,7 @@ export type MembersPanelProps = {
   haStates: MockEntityStateMap;
   mapEnabled?: boolean;
   embedded?: boolean;
+  live?: PanelLive;
   onClose: () => void;
 };
 
@@ -47,7 +48,7 @@ function mapPlaces(members: MembersPresenceEntry[], haStates: MockEntityStateMap
   };
 }
 
-export function MembersPanel({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENABLED, embedded = false, onClose }: MembersPanelProps) {
+export function MembersPanel({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENABLED, embedded = false, live, onClose }: MembersPanelProps) {
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
   const registry = useEntityRegistry();
@@ -95,6 +96,7 @@ export function MembersPanel({ name, members, haStates, mapEnabled = MEMBERS_MAP
       subtitle={subtitle}
       liveSubtitle
       embedded={embedded}
+      live={live}
       onClose={onClose}
     >
       {places && places.pins.length > 0 ? (

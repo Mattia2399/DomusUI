@@ -1,4 +1,4 @@
-import type { MockEntityState } from '../../types/ha';
+import type { MockEntityState, MockEntityStateMap } from '../../types/ha';
 import type { DeviceKind } from '../devices/model/entityKind';
 import { resolveClimateStep, toClimateModel, type ClimateAction, type ClimateModel } from '../devices/model/climate';
 import { toDeviceModel, type DeviceAction, type DeviceModel } from '../devices/model/device';
@@ -187,6 +187,43 @@ function readWatts(entity: MockEntityState | undefined) {
   if (!entity || entity.state === '' || !Number.isFinite(value)) return null;
   const unit = `${entity.rawAttributes?.unit_of_measurement ?? ''}`.trim();
   return unit === 'kW' ? value * 1000 : value;
+}
+
+const byName = (haStates: MockEntityStateMap, domain: string, name: string) =>
+  Object.keys(haStates).find((id) => id.startsWith(`${domain}.`) && haStates[id]?.rawAttributes?.friendly_name === name);
+
+const byAttributes = (haStates: MockEntityStateMap, domain: string, attributes: Record<string, unknown> | undefined) =>
+  attributes ? Object.keys(haStates).find((id) => id.startsWith(`${domain}.`) && haStates[id]?.rawAttributes === attributes) : undefined;
+
+/**
+ * The entity behind the open panel, for the states they all share. The Home
+ * hands over its attributes or its card, not always its id: a card without a
+ * readable entity simply has no such states.
+ */
+export function homeLiveEntityIdOf(props: HomePanelProps): string | null {
+  const { activeDevice, haStates } = props;
+  const direct = (domain: string) => (activeDevice.id.startsWith(`${domain}.`) && haStates[activeDevice.id] ? activeDevice.id : undefined);
+  switch (activeDevice.type) {
+    case 'sensor':
+      return activeDevice.sensorEntityId ?? null;
+    case 'calendar':
+      return activeDevice.calendarEntityId ?? null;
+    case 'light':
+    case 'climate':
+      return direct(activeDevice.type) ?? byName(haStates, activeDevice.type, activeDevice.name) ?? null;
+    case 'alarm':
+      return byAttributes(haStates, 'alarm_control_panel', props.alarm.rawAttributes) ?? direct('alarm_control_panel') ?? null;
+    case 'vacuum':
+      return byAttributes(haStates, 'vacuum', props.vacuum.rawAttributes) ?? direct('vacuum') ?? null;
+    case 'cover':
+      return byAttributes(haStates, 'cover', props.cover.rawAttributes) ?? direct('cover') ?? null;
+    case 'switch':
+    case 'fan':
+    case 'humidifier':
+      return homeDeviceEntityId(props) ?? null;
+    default:
+      return null;
+  }
 }
 
 export function deviceModelOf(props: HomePanelProps): DeviceModel | null {

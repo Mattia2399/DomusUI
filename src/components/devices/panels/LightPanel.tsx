@@ -5,7 +5,7 @@ import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from 
 import { hexToRgb, hueToRgb, lightRgb, rgbCss, rgbToHex } from '../model/tileColor';
 import { LightKindSegment, lightSwatches, SwatchRow } from '../cards/LightControls';
 import { toneTitle } from '../cards/lightText';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 
 /*
  * The controls of a light: a large vertical brightness slider, White / Colour
@@ -29,10 +29,11 @@ export type LightPanelProps = {
   onAction: (action: LightAction) => void;
   /** Inside a sheet that has its own title and Close. */
   embedded?: boolean;
+  live?: PanelLive;
   onClose: () => void;
 };
 
-export function LightPanel({ model, roomName, embedded, onAction, onClose }: LightPanelProps) {
+export function LightPanel({ model, roomName, embedded, live, onAction, onClose }: LightPanelProps) {
   const dt = useDevicesTranslations();
   const rgb = lightRgb(model);
   const pct = model.brightnessPct ?? 100;
@@ -71,6 +72,7 @@ export function LightPanel({ model, roomName, embedded, onAction, onClose }: Lig
       liveSubtitle
       power={{ on: model.on, highlighted: lit, available: model.available, name: model.name, onToggle: () => onAction({ type: model.on ? 'turn_off' : 'turn_on' }) }}
       embedded={embedded}
+      live={live}
       onClose={onClose}
     >
 

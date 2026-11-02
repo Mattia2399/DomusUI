@@ -14,7 +14,7 @@ import {
 } from '../../../services/calendarClient';
 import { CalendarEventForm, eventLook, initialForm, toDisplayDate, type EventFormState } from '../../settings/CalendarEventForm';
 import { localIsoDay, nextSevenDays, WeekDayStrip, type WeekDayBadge } from '../../ui/WeekDayStrip';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 import '../theme/panels.css';
 
 /*
@@ -30,10 +30,11 @@ export type CalendarPanelProps = {
   wasteTypes?: WasteTypeStyleMap;
   onConfigureWaste?: () => void;
   embedded?: boolean;
+  live?: PanelLive;
   onClose: () => void;
 };
 
-export function CalendarPanel({ name, supportedFeatures, agenda, wasteTypes = {}, onConfigureWaste, embedded = false, onClose }: CalendarPanelProps) {
+export function CalendarPanel({ name, supportedFeatures, agenda, wasteTypes = {}, onConfigureWaste, embedded = false, live, onClose }: CalendarPanelProps) {
   const pt = usePanelsTranslations();
   const { locale, t, formatDate } = useI18n();
   const [form, setForm] = useState<EventFormState | null>(null);
@@ -91,6 +92,7 @@ export function CalendarPanel({ name, supportedFeatures, agenda, wasteTypes = {}
       name={name}
       subtitle={subtitle}
       embedded={embedded}
+      live={live}
       onClose={onClose}
     >
       {form ? (

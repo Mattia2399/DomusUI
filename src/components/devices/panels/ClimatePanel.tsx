@@ -6,7 +6,7 @@ import { useI18n } from '../../../i18n/I18nProvider';
 import { climateIsOn, climateSwingToggle, type ClimateAction, type ClimateModel } from '../model/climate';
 import { CLIMATE_ICONS, CLIMATE_TONE } from '../cards/ClimateCard';
 import { CLIMATE_MODE_KEY, climateStatus, degrees, fanPillLabel, presetLabel } from '../cards/climateText';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 
 /*
  * The controls of a climate device: the target as a large vertical slider
@@ -23,10 +23,11 @@ export type ClimatePanelProps = {
   onAction: (action: ClimateAction) => void;
   /** Inside a sheet that has its own title and Close. */
   embedded?: boolean;
+  live?: PanelLive;
   onClose: () => void;
 };
 
-export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, embedded, onAction, onClose }: ClimatePanelProps) {
+export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, embedded, live, onAction, onClose }: ClimatePanelProps) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
   const on = climateIsOn(model);
@@ -102,6 +103,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
       liveSubtitle
       power={{ on, highlighted: on, available: model.available, name: model.name, onToggle: () => onAction({ type: on ? 'turn_off' : 'turn_on' }) }}
       embedded={embedded}
+      live={live}
       onClose={onClose}
     >
 

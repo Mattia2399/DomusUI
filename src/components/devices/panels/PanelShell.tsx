@@ -10,7 +10,15 @@ import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
  *
  * `embedded`: the Home's sheet on a phone has its own title and Close, so here
  * only the power stays.
+ *
+ * `live`: the states all panels share (panelLiveState.tsx). A device that does
+ * not answer has its controls off; Rooms does not pass it for now.
  */
+
+export type PanelLive = {
+  off?: boolean;
+  notice?: React.ReactNode;
+};
 
 export type PanelPower = {
   on: boolean;
@@ -33,6 +41,7 @@ export type PanelShellProps = {
   embedded?: boolean;
   onClose: () => void;
   className?: string;
+  live?: PanelLive;
   children: React.ReactNode;
 };
 
@@ -46,7 +55,7 @@ export function PanelHeader({
   power,
   embedded = false,
   onClose,
-}: Omit<PanelShellProps, 'className' | 'children'>) {
+}: Omit<PanelShellProps, 'className' | 'children' | 'live'>) {
   const dt = useDevicesTranslations();
   const powerButton = power ? (
     <button
@@ -82,11 +91,16 @@ export function PanelHeader({
   );
 }
 
-export function PanelShell({ className, children, ...header }: PanelShellProps) {
+export function PanelShell({ className, children, live, ...header }: PanelShellProps) {
   return (
-    <div className={clsx('dv-panel', className)}>
+    <div className={clsx('dv-panel', live?.off && 'dv-panel-off', className)}>
       <PanelHeader {...header} />
-      {children}
+      {live?.notice}
+      {live?.off ? (
+        <div className="dv-panel dv-pn-dis" aria-disabled="true" inert>
+          {children}
+        </div>
+      ) : children}
     </div>
   );
 }

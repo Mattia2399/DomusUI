@@ -6,12 +6,16 @@ import { resolveDeviceKind } from '../devices/model/entityKind';
 import {
   deviceModelOf,
   homeClimateToModel,
+  homeLiveEntityIdOf,
   lampToLightModel,
   runClimateAction,
   runDeviceAction,
   runLightAction,
 } from './homePanelModels';
 import { homePanelOf, type HomePanelProps } from './homePanelRoute';
+import { usePanelLiveState } from '../devices/panels/panelLiveState';
+import { findBatterySensor } from '../devices/model/sensor';
+import { resolveSensorFamily } from '../devices/model/sensorFamily';
 
 /* The shared panel a card of the Home opens, in place of its old content. */
 
@@ -30,9 +34,26 @@ export function HomePanel(props: HomePanelProps) {
   const { activeDevice, lamp, climate, actions, embedded, onClose } = props;
   const panel = homePanelOf(props);
 
+  const entityId = homeLiveEntityIdOf(props);
+  const entity = entityId ? props.haStates[entityId] : undefined;
+  const sensorAttributes = panel === 'sensor' ? entity?.rawAttributes : undefined;
+  const family = panel === 'sensor' && entityId
+    ? resolveSensorFamily({ entityId, deviceClass: `${sensorAttributes?.device_class ?? ''}`, unit: `${sensorAttributes?.unit_of_measurement ?? ''}`, state: `${entity?.state ?? ''}` })
+    : null;
+  const batteryId = panel === 'sensor' && entityId ? findBatterySensor(entityId, props.haStates) : null;
+  const batteryValue = batteryId ? Number(props.haStates[batteryId]?.state) : Number.NaN;
+  const { stale, ...live } = usePanelLiveState({
+    entityId,
+    entity,
+    away: panel === 'light' && lamp.status === 'unavailable',
+    unknownCounts: panel !== 'calendar' && panel !== 'members',
+    family,
+    battery: Number.isFinite(batteryValue) ? batteryValue : null,
+  });
+
   if (panel === 'light') {
     const model = lampToLightModel(activeDevice.id, activeDevice.name, lamp);
-    return <LightPanel model={model} embedded={embedded} onAction={(action) => runLightAction(action, model, actions)} onClose={onClose} />;
+    return <LightPanel model={model} embedded={embedded} live={live} onAction={(action) => runLightAction(action, model, actions)} onClose={onClose} />;
   }
   if (panel === 'climate') {
     const model = homeClimateToModel(activeDevice.id, activeDevice.name, climate);
@@ -42,6 +63,7 @@ export function HomePanel(props: HomePanelProps) {
         roomTemperature={model.current}
         roomHumidity={typeof climate.currentHumidity === 'number' ? climate.currentHumidity : null}
         embedded={embedded}
+        live={live}
         onAction={(action) => runClimateAction(action, model, actions)}
         onClose={onClose}
       />
@@ -56,6 +78,7 @@ export function HomePanel(props: HomePanelProps) {
         model={model}
         protectedPlug={false}
         embedded={embedded}
+        live={live}
         onAction={(action) => runDeviceAction(action, kind, actions)}
         onClose={onClose}
       />
@@ -70,6 +93,7 @@ export function HomePanel(props: HomePanelProps) {
           commands={props.alarmCommands}
           onAuthorizeDeviceAuth={props.onAuthorizeAlarmDeviceAuth}
           embedded={embedded}
+          live={live}
           onClose={onClose}
         />
       </React.Suspense>
@@ -83,6 +107,7 @@ export function HomePanel(props: HomePanelProps) {
           areas={props.vacuumAreas}
           commands={props.vacuumCommands}
           embedded={embedded}
+          live={live}
           onClose={onClose}
         />
       </React.Suspense>
@@ -98,6 +123,7 @@ export function HomePanel(props: HomePanelProps) {
           wasteTypes={props.calendarWasteTypes}
           onConfigureWaste={props.onConfigureWaste}
           embedded={embedded}
+          live={live}
           onClose={onClose}
         />
       </React.Suspense>
@@ -112,6 +138,8 @@ export function HomePanel(props: HomePanelProps) {
           history={activeDevice.sensorHistory}
           haStates={props.haStates}
           embedded={embedded}
+          live={live}
+          stale={stale}
           onClose={onClose}
         />
       </React.Suspense>

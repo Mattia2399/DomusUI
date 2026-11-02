@@ -27,7 +27,7 @@ import {
 } from '../model/panelRules';
 import { useEntityRegistry } from './panelData';
 import { usePanelServices } from './panelServicesContext';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 import '../theme/panels.css';
 
 /*
@@ -71,6 +71,7 @@ export type AlarmPanelProps = {
   commands: AlarmPanelCommands;
   onAuthorizeDeviceAuth?: (label: string) => Promise<boolean>;
   embedded?: boolean;
+  live?: PanelLive;
   onClose: () => void;
 };
 
@@ -94,7 +95,7 @@ const clock = (time: number, locale: string) => new Date(time).toLocaleTimeStrin
 
 const namesOf = (items: HouseEntity[]) => items.map((item) => item.name).join(', ');
 
-export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, embedded = false, onClose }: AlarmPanelProps) {
+export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, embedded = false, live, onClose }: AlarmPanelProps) {
   const pt = usePanelsTranslations();
   const { locale, t } = useI18n();
   const canControl = useCan('security.control');
@@ -225,6 +226,7 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, e
       subtitle={subtitle}
       liveSubtitle
       embedded={embedded}
+      live={live}
       onClose={onClose}
     >
       <div className="dv-pn-hero">

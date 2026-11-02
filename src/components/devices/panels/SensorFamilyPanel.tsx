@@ -28,7 +28,7 @@ import {
 } from '../model/sensorPanel';
 import { useEntityRegistry, useSensorSeries } from './panelData';
 import { usePanelServices } from './panelServicesContext';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 import '../theme/panels.css';
 
 /*
@@ -45,6 +45,9 @@ export type SensorFamilyPanelProps = {
   history?: number[];
   haStates: MockEntityStateMap;
   embedded?: boolean;
+  live?: PanelLive;
+  /** Its data are old: the value goes grey. */
+  stale?: boolean;
   onClose: () => void;
 };
 
@@ -104,7 +107,7 @@ const formatNumber = (value: number, locale: string, decimals?: number) =>
 
 type BlockRow = { key: string; label: string; value: string; note?: string; color?: string };
 
-export function SensorFamilyPanel({ entityId, name, history, haStates, embedded = false, onClose }: SensorFamilyPanelProps) {
+export function SensorFamilyPanel({ entityId, name, history, haStates, embedded = false, live, stale = false, onClose }: SensorFamilyPanelProps) {
   const dt = useSensorFamilyTranslations();
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
@@ -366,9 +369,10 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
         name={model.name}
         subtitle={subtitle}
         embedded={embedded}
+        live={live}
         onClose={onClose}
       >
-        <div className={clsx('dv-pn-value', isWord && 'is-word')}>
+        <div className={clsx('dv-pn-value', isWord && 'is-word', stale && 'is-stale')}>
           <span>
             <b style={showAlert ? { color: alertColor } : undefined}>{bigWord ?? reading.value}</b>
             {!isWord && reading.unit ? <i>{reading.unit}</i> : null}

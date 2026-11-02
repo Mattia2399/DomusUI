@@ -10,7 +10,7 @@ import type { PlugEnergy } from '../model/plugEnergy';
 import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../model/deviceTimer';
 import { DeviceIcon } from '../cards/DeviceCard';
 import { formatDeviceStatus } from '../cards/deviceText';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 
 /*
  * The controls of a device that has more than on and off: the power of a
@@ -33,6 +33,7 @@ export type DevicePanelProps = {
   onSetTimer?: (minutes: number) => void;
   /** Inside a sheet that has its own title and Close. */
   embedded?: boolean;
+  live?: PanelLive;
   onAction: (action: DeviceAction) => void;
   onClose: () => void;
 };
@@ -450,6 +451,7 @@ export function DevicePanel({
   timerNow = Date.now(),
   onSetTimer,
   embedded,
+  live,
   onAction,
   onClose,
 }: DevicePanelProps) {
@@ -478,6 +480,7 @@ export function DevicePanel({
           : undefined
       }
       embedded={embedded}
+      live={live}
       onClose={onClose}
     >
 

@@ -8,7 +8,7 @@ import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { formatVacuumOption, normalizeVacuumState } from '../../widgets/vacuumCardModel';
 import type { VacuumMappedArea, VacuumRelatedEntityInfo } from '../../widgets/vacuumDeviceModel';
 import { vacuumErrorText, vacuumModeControl, vacuumProgress } from '../model/panelRules';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 import '../theme/panels.css';
 
 /*
@@ -59,6 +59,7 @@ export type VacuumPanelProps = {
   areas?: VacuumMappedArea[];
   commands: VacuumPanelCommands;
   embedded?: boolean;
+  live?: PanelLive;
   onClose: () => void;
 };
 
@@ -77,7 +78,7 @@ const RING_LENGTH = 2 * Math.PI * 46;
 
 const meterTone = (percent: number) => (percent < 10 ? 'is-bad' : percent < 30 ? 'is-warn' : undefined);
 
-export function VacuumPanel({ vacuum, areas = [], commands, embedded = false, onClose }: VacuumPanelProps) {
+export function VacuumPanel({ vacuum, areas = [], commands, embedded = false, live, onClose }: VacuumPanelProps) {
   const pt = usePanelsTranslations();
   const { t } = useI18n();
   const state = normalizeVacuumState(vacuum.state);
@@ -131,6 +132,7 @@ export function VacuumPanel({ vacuum, areas = [], commands, embedded = false, on
       subtitle={subtitle}
       liveSubtitle
       embedded={embedded}
+      live={live}
       onClose={onClose}
     >
       <div className="dv-card dv-pn-vhero">
