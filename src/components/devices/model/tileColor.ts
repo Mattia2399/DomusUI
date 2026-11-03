@@ -46,7 +46,10 @@ export function hueToRgb(hue: number): Rgb {
 
 /** The colour the light gives off now; a plain dimmer reads as warm white. */
 export function lightRgb(model: LightModel): Rgb {
-  if (model.caps === 'color' && model.mode === 'color') return hueToRgb(model.hue);
+  if (model.caps === 'color' && model.mode === 'color') {
+    const pale = 1 - Math.max(0, Math.min(100, model.saturation)) / 100;
+    return hueToRgb(model.hue).map((channel) => Math.round(channel + (255 - channel) * pale)) as Rgb;
+  }
   if (model.caps === 'color' || model.caps === 'ct') return kelvinToRgb(model.kelvin);
   return kelvinToRgb(2700);
 }

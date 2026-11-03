@@ -371,33 +371,6 @@
   justify-content: center;
 }
 
-.dv-wheel {
-  position: relative;
-  height: 44px;
-  width: 44px;
-  flex: none;
-  border-radius: 50%;
-  background: conic-gradient(#ff3b30, #ff9500, #ffcc00, #34c759, #32ade6, #5856d6, #af52de, #ff2d55, #ff3b30);
-  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.35);
-  cursor: pointer;
-}
-
-.dv-wheel input {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  width: 100%;
-  border: 0;
-  padding: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.dv-wheel:has(input:focus-visible) {
-  outline: 2px solid var(--dv-focus);
-  outline-offset: 3px;
-}
-
 /* The segmented controls of the devices: the shared one, as wide as its choices, light on a lit card. */
 
 .dv-seg {
@@ -2265,6 +2238,42 @@
   flex-direction: column;
 }
 
+/* The colour disc: below the choices where there is room, in the place of the slider where there is not. */
+.dv-panel-wheel {
+  display: flex;
+  justify-content: center;
+  container-type: size;
+}
+
+.dv-panel-wheel .glass-color-picker {
+  width: min(100cqw, 100cqh);
+}
+
+@container (min-width: 521px) {
+  .dv-panel-stage:has(> .dv-panel-wheel) {
+    display: grid;
+    align-items: start;
+    gap: 14px 22px;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .dv-panel-stage:has(> .dv-panel-wheel) > .dv-vslider {
+    grid-row: 1 / span 2;
+  }
+
+  .dv-panel-stage > .dv-panel-side {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .dv-panel-stage > .dv-panel-wheel {
+    height: 190px;
+    width: 100%;
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
 .dv-panel-shortcut {
   display: flex;
   min-width: 0;
@@ -2362,6 +2371,23 @@
     width: 148px;
   }
 
+  .dv-panel-stage > .dv-panel-wheel {
+    display: none;
+    height: auto;
+    min-height: 0;
+    width: 100%;
+    grid-row: 1;
+    align-self: stretch;
+  }
+
+  .dv-panel-stage.shows-wheel > .dv-panel-wheel {
+    display: flex;
+  }
+
+  .dv-panel-stage.shows-wheel > .dv-vslider {
+    display: none;
+  }
+
   .dv-panel-stage > .dv-panel-side {
     display: none;
     grid-row: 2;
@@ -2428,11 +2454,6 @@
     flex: 0 1 44px;
   }
 
-  .dv-panel-section.is-open .dv-wheel {
-    height: 36px;
-    width: 36px;
-    margin-inline: 4px;
-  }
 
   .dv-panel-section.is-open .dv-hslider {
     width: 100%;

@@ -182,7 +182,7 @@ export type LightAction =
   | { type: 'turn_off' }
   | { type: 'brightness'; pct: number }
   | { type: 'kelvin'; kelvin: number }
-  | { type: 'hue'; hue: number }
+  | { type: 'hue'; hue: number; saturation?: number }
   | { type: 'mode'; mode: LightMode };
 
 export type LightServiceCall = { domain: 'light'; service: 'turn_on' | 'turn_off'; data: Record<string, unknown> };
@@ -205,7 +205,7 @@ export function lightServiceCall(model: LightModel, action: LightAction): LightS
       return {
         domain: 'light',
         service: 'turn_on',
-        data: { ...target, ...buildLightColorServicePayload(model.colorPayloadMode, [action.hue, model.saturation]) },
+        data: { ...target, ...buildLightColorServicePayload(model.colorPayloadMode, [action.hue, action.saturation ?? model.saturation]) },
       };
     case 'mode':
       return action.mode === 'color'
@@ -228,7 +228,7 @@ export function applyLightAction(model: LightModel, action: LightAction): LightM
     case 'kelvin':
       return { ...model, on: true, mode: 'temp', kelvin: Math.round(action.kelvin) };
     case 'hue':
-      return { ...model, on: true, mode: 'color', hue: Math.round(action.hue) };
+      return { ...model, on: true, mode: 'color', hue: Math.round(action.hue), saturation: action.saturation ?? model.saturation };
     case 'mode':
       return { ...model, on: true, mode: action.mode };
     default:

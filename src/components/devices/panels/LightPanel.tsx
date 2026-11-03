@@ -4,7 +4,8 @@ import { Lightbulb, Palette, Sparkles, Sun, SunDim, Thermometer, Zap } from 'luc
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from '../model/light';
-import { hexToRgb, hueToRgb, lightRgb, rgbCss, rgbToHex } from '../model/tileColor';
+import { hueToRgb, lightRgb, rgbCss } from '../model/tileColor';
+import { GlassColorPicker } from '../../ui/GlassColorPicker';
 import { LightKindSegment, lightSwatches, SwatchRow } from '../cards/LightControls';
 import { toneTitle } from '../cards/lightText';
 import type { LightExtraAction } from '../model/lightExtras';
@@ -19,16 +20,6 @@ import { PanelShell, PanelShortcut, type PanelLive } from './PanelShell';
  */
 
 type SectionKey = 'color' | 'white' | 'effects' | 'flash';
-
-function hueOfHex(hex: string) {
-  const [r, g, b] = hexToRgb(hex).map((channel) => channel / 255);
-  const max = Math.max(r, g, b);
-  const delta = max - Math.min(r, g, b);
-  if (!delta) return 0;
-  let hue = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
-  hue = Math.round(hue * 60);
-  return hue < 0 ? hue + 360 : hue;
-}
 
 export type LightPanelProps = {
   model: LightModel;
@@ -68,9 +59,9 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
   const hues = LIGHT_HUE_PRESETS.map((hue) => ({
     key: `h${hue}`,
     css: rgbCss(hueToRgb(hue)),
-    checked: isColorMode && Math.abs(model.hue - hue) < 6,
+    checked: isColorMode && Math.abs(model.hue - hue) < 6 && model.saturation >= 60,
     label: dt('hueSwatch', { hue }),
-    pick: () => onAction({ type: 'hue', hue }),
+    pick: () => onAction({ type: 'hue', hue, saturation: 100 }),
   }));
   const showTemps = (model.caps === 'ct' || model.caps === 'color') && !isColorMode;
 
@@ -108,7 +99,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
       onClose={onClose}
     >
 
-      <div className={clsx('dv-panel-body dv-panel-stage', (section || model.caps === 'dim') && 'has-section')}>
+      <div className={clsx('dv-panel-body dv-panel-stage', (section || model.caps === 'dim') && 'has-section', section === 'color' && isColorMode && 'shows-wheel')}>
         {model.caps !== 'onoff' ? (
           <div className="dv-vslider">
             <span
@@ -145,6 +136,19 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
           </div>
         ) : null}
 
+        {isColorMode ? (
+          <div className="dv-panel-wheel">
+            <GlassColorPicker
+              label={dt('customColor')}
+              value={{ hue: model.hue, saturation: model.saturation }}
+              valueText={(color) => dt('colorValue', { hue: color.hue, saturation: color.saturation })}
+              disabled={!model.available}
+              // A saturation of 0 is what a light reports when it is not in a colour.
+              onChange={(color) => onAction({ type: 'hue', hue: color.hue, saturation: Math.max(1, color.saturation) })}
+            />
+          </div>
+        ) : null}
+
         <div className="dv-panel-side">
           {model.caps === 'ct' || model.caps === 'color' ? (
             <div className={clsx(sectionClass('color'), 'gap-3.5')}>
@@ -162,17 +166,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
           {isColorMode ? (
             <div className="flex flex-col gap-2">
               <span className="dv-t2 text-[13px] font-bold">{dt('color')}</span>
-              <SwatchRow swatches={hues} label={dt('color')} large disabled={!model.available}>
-                <label className="dv-wheel" title={dt('customColor')}>
-                  <span className="sr-only">{dt('customColor')}</span>
-                  <input
-                    type="color"
-                    value={rgbToHex(hueToRgb(model.hue))}
-                    disabled={!model.available}
-                    onChange={(event) => onAction({ type: 'hue', hue: hueOfHex(event.target.value) })}
-                  />
-                </label>
-              </SwatchRow>
+              <SwatchRow swatches={hues} label={dt('color')} large disabled={!model.available} />
             </div>
           ) : null}
             </div>

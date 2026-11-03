@@ -61,7 +61,7 @@ export function runLightAction(action: LightAction, model: LightModel, actions: 
       actions.setLampColorTemp(action.kelvin);
       break;
     case 'hue':
-      actions.setLampHsColor([action.hue, 100]);
+      actions.setLampHsColor([action.hue, action.saturation ?? 100]);
       break;
     case 'mode':
       if (action.mode === 'color') actions.setLampHsColor([model.hue, 100]);

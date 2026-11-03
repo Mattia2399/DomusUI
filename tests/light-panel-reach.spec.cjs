@@ -72,4 +72,27 @@ test('the slider and the power stay still on every screen of the light panel', a
     await expect(page.locator('.dv-panel-stage.has-section')).toHaveCount(0);
   }
   expect(await place(slider)).toEqual(sliderPlace);
+
+  // Colour: the disc takes the place of the slider, and a drag on it changes the light.
+  await page.locator('.dv-panel-shortcuts .dv-panel-shortcut').first().click();
+  await page.locator('.dv-panel-section.is-open .dv-seg').getByText('Colore', { exact: true }).click();
+  const disc = page.getByRole('slider', { name: 'Colore personalizzato' });
+  await expect(disc).toBeVisible();
+  const round = await disc.boundingBox();
+  expect(Math.abs(round.width - round.height)).toBeLessThanOrEqual(1);
+  expect(Math.round(round.x + round.width / 2)).toBe(sliderPlace.centre);
+  expect(round.y).toBeGreaterThanOrEqual(sliderPlace.top - 1);
+  expect(round.y + round.height).toBeLessThanOrEqual(sliderPlace.bottom + 1);
+  expect(await place(power)).toEqual(powerPlace);
+
+  // To the right edge of the disc: the hue of a right angle clockwise from the top, fully saturated.
+  await page.mouse.move(round.x + round.width / 2, round.y + round.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(round.x + round.width * 0.96, round.y + round.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect.poll(() => disc.getAttribute('aria-valuenow')).toBe('90');
+  await expect(disc).toHaveAttribute('aria-valuetext', /Tonalità 90 gradi, saturazione 100%/);
+  // The panel takes the colour: the device received it, not only the handle.
+  await page.waitForTimeout(2200);
+  await expect(disc).toHaveAttribute('aria-valuenow', '90');
 });

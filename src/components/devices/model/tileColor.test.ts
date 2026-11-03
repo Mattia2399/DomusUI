@@ -8,6 +8,7 @@ import {
   hueToRgb,
   kelvinToRgb,
   LIT_TILE_INK,
+  lightRgb,
   lightTileColor,
   litTileRgb,
   MIN_LIT_TILE_CONTRAST,
@@ -52,9 +53,18 @@ describe('the colour of a lit card', () => {
     expect(lightTileColor(toLightModel('light.a', { state: 'off' }))).toBeNull();
     expect(lightTileColor(toLightModel('light.a', { state: 'unavailable' }))).toBeNull();
     const lit = lightTileColor(
-      toLightModel('light.a', { state: 'on', rawAttributes: { supported_color_modes: ['hs'], color_mode: 'hs', hs_color: [265, 90], brightness: 255 } }),
+      toLightModel('light.a', { state: 'on', rawAttributes: { supported_color_modes: ['hs'], color_mode: 'hs', hs_color: [265, 100], brightness: 255 } }),
     );
     expect(lit?.background).toMatch(/^rgb\(\d+, \d+, \d+\)$/);
     expect(lit?.light).toEqual(hueToRgb(265));
+  });
+
+  it('shows a pale colour as pale, going towards white with the saturation', () => {
+    const colour = (saturation: number) =>
+      lightRgb(toLightModel('light.a', { state: 'on', rawAttributes: { supported_color_modes: ['hs'], color_mode: 'hs', hs_color: [265, saturation] } }));
+    expect(colour(100)).toEqual(hueToRgb(265));
+    const pale = colour(30);
+    pale.forEach((channel, index) => expect(channel).toBeGreaterThanOrEqual(hueToRgb(265)[index]));
+    expect(Math.min(...pale)).toBeGreaterThan(170);
   });
 });
