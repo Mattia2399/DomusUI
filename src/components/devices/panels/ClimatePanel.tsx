@@ -1,6 +1,7 @@
 import { Minus, Plus } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassToggle from '../../ui/GlassToggle';
+import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { climateIsOn, climateSwingToggle, type ClimateAction, type ClimateModel } from '../model/climate';
@@ -21,15 +22,27 @@ export type ClimatePanelProps = {
   roomTemperature?: number | null;
   roomHumidity?: number | null;
   onAction: (action: ClimateAction) => void;
+  extras?: {
+    supportsTargetHumidity?: boolean;
+    targetHumidity?: number;
+    minHumidity?: number;
+    maxHumidity?: number;
+    targetHumidityStep?: number;
+    supportsHorizontalSwing?: boolean;
+    horizontalSwing?: string;
+    horizontalSwingModes?: string[];
+    supportsAutoAdjust?: boolean;
+  };
+  onExtraAction?: (action: { type: 'humidity'; value: number } | { type: 'horizontal_swing'; mode: string } | { type: 'auto_adjust' }) => void;
   /** Inside a sheet that has its own title and Close. */
   embedded?: boolean;
   live?: PanelLive;
   onClose: () => void;
 };
 
-export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, embedded, live, onAction, onClose }: ClimatePanelProps) {
+export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, extras, embedded, live, onAction, onExtraAction, onClose }: ClimatePanelProps) {
   const dt = useDevicesTranslations();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const on = climateIsOn(model);
   const tone = CLIMATE_TONE[model.mode];
   const Icon = CLIMATE_ICONS[on ? model.mode : 'off'];
@@ -234,6 +247,41 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
                 label={dt('swingLabel')}
               />
             </div>
+          ) : null}
+          {on && extras?.supportsTargetHumidity && typeof extras.targetHumidity === 'number' && onExtraAction ? (
+            <div className="flex flex-col gap-2.5">
+              <span className="dv-t2 text-[13px] font-bold">{dt('humidityTarget')}</span>
+              <span className="dv-hslider">
+                <span style={{ width: `${extras.targetHumidity}%` }} />
+                <input
+                  type="range"
+                  min={extras.minHumidity ?? 30}
+                  max={extras.maxHumidity ?? 99}
+                  step={extras.targetHumidityStep ?? 1}
+                  value={extras.targetHumidity}
+                  aria-label={dt('humidityTarget')}
+                  aria-valuetext={`${extras.targetHumidity}%`}
+                  onChange={(event) => onExtraAction({ type: 'humidity', value: Number(event.target.value) })}
+                />
+              </span>
+            </div>
+          ) : null}
+          {on && extras?.supportsHorizontalSwing && (extras.horizontalSwingModes?.length ?? 0) > 0 && onExtraAction ? (
+            <div className="flex flex-col gap-2">
+              <span className="dv-t2 text-[13px] font-bold">{t('controls.climate.horizontalLouvers')}</span>
+              <GlassSegmentSelect
+                ariaLabel={t('controls.climate.horizontalLouvers')}
+                options={(extras.horizontalSwingModes ?? []).map((mode) => ({ value: mode, label: mode }))}
+                value={extras.horizontalSwingModes?.includes(extras.horizontalSwing ?? '') ? extras.horizontalSwing : undefined}
+                onChange={(mode) => onExtraAction({ type: 'horizontal_swing', mode })}
+                scrollable
+              />
+            </div>
+          ) : null}
+          {on && extras?.supportsAutoAdjust && onExtraAction ? (
+            <button type="button" className="dv-option self-start" onClick={() => onExtraAction({ type: 'auto_adjust' })}>
+              {t('controls.climate.align')}
+            </button>
           ) : null}
         </div>
       </div>

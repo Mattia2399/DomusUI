@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import { ALARM_FEATURE_ARM_AWAY, ALARM_FEATURE_ARM_HOME, ALARM_FEATURE_ARM_VACATION, ALARM_FEATURE_TRIGGER } from '../../../utils/alarmUtils';
@@ -11,9 +11,11 @@ import { toDeviceModel } from '../model/device';
 import { alarmExitDelay, alarmHouseOf, alarmModesOf, alarmTriggerZone, memberBattery, secondsLeft, vacuumModeControl } from '../model/panelRules';
 import { AlarmPanel, type AlarmPanelCommands } from './AlarmPanel';
 import { CalendarPanel } from './CalendarPanel';
+import { CameraPanel } from './CameraPanel';
 import { DevicePanel } from './DevicePanel';
 import { MembersPanel } from './MembersPanel';
 import { PanelServicesProvider } from './panelServicesContext';
+import { SecurityPanel } from './SecurityPanel';
 import { VacuumPanel, type VacuumPanelCommands } from './VacuumPanel';
 
 const access = vi.hoisted(() => ({ canControl: true }));
@@ -22,6 +24,7 @@ vi.mock('../../../security/AccessControlProvider', () => ({ useCan: () => access
 afterEach(() => {
   cleanup();
   access.canControl = true;
+  vi.useRealTimers();
 });
 
 const entity = (state: string, rawAttributes: Record<string, unknown> = {}) => ({ state, rawAttributes }) as unknown as MockEntityState;
@@ -78,6 +81,7 @@ describe('the alarm panel', () => {
     const commands = renderAlarm({ state: 'armed_away', supportedFeatures: ALARM_FEATURE_ARM_AWAY, codeArmRequired: true, rawAttributes: { code_format: 'number' } });
     fireEvent.click(screen.getByRole('button', { name: 'Disinserito' }));
     expect(commands.disarm).not.toHaveBeenCalled();
+    expect(screen.getByLabelText(/PIN/).closest('.dv-panel')).toBeTruthy();
   });
 
   it('counts the time to leave only when the integration gives it', () => {
@@ -147,6 +151,87 @@ describe('the alarm panel', () => {
   });
 });
 
+describe('the camera panel', () => {
+  it('shows only the live capabilities and related controls that HA exposes', () => {
+    const action = vi.fn();
+    render(
+      <CameraPanel
+        camera={{
+          name: 'Ingresso',
+          entityId: 'camera.ingresso',
+          snapshotUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=',
+          relatedEntities: [
+            { entityId: 'switch.sirena', name: 'Sirena', domain: 'switch', category: 'control', state: 'off', stateLabel: 'Spenta' },
+            { entityId: 'binary_sensor.movimento', name: 'Movimento', domain: 'binary_sensor', category: 'detection', state: 'off' },
+          ],
+        }}
+        onRelatedAction={action}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('LIVE')).toBeTruthy();
+    expect(screen.getByRole('switch', { name: 'Sirena' })).toBeTruthy();
+    expect(screen.queryByText('Movimento')).toBeNull();
+    fireEvent.click(screen.getByRole('switch', { name: 'Sirena' }));
+    expect(action).toHaveBeenCalledWith(expect.objectContaining({ action: 'toggle', entity: expect.objectContaining({ entityId: 'switch.sirena' }) }));
+  });
+
+  it('does not invent a live view or controls when they are absent or disabled', () => {
+    const action = vi.fn();
+    render(
+      <CameraPanel
+        camera={{
+          name: 'Ingresso',
+          relatedEntities: [{ entityId: 'switch.sirena', name: 'Sirena', domain: 'switch', category: 'control', state: 'off' }],
+        }}
+        commandsEnabled={false}
+        onRelatedAction={action}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('Live stream non disponibile')).toBeTruthy();
+    expect(screen.queryByText('LIVE')).toBeNull();
+    expect(screen.queryByRole('switch', { name: 'Sirena' })).toBeNull();
+    expect(action).not.toHaveBeenCalled();
+  });
+});
+
+describe('the shared lock panel', () => {
+  it('stops the second lap when the existing Home authorization blocks unlock', () => {
+    vi.useFakeTimers();
+    const command = vi.fn(() => false);
+    render(
+      <SecurityPanel
+        model={{ entityId: 'lock.porta', name: 'Porta', kind: 'lock', available: true, active: false, lock: 'locked', canOpen: true, changedAt: null, battery: null }}
+        history={[]}
+        onLockCommand={command}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.pointerDown(screen.getByRole('button', { name: /sbloccare Porta/ }), { pointerId: 1, pointerType: 'touch' });
+    act(() => vi.advanceTimersByTime(900));
+    expect(command).toHaveBeenCalledWith('unlock');
+    act(() => vi.advanceTimersByTime(2_000));
+    expect(command).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the lock state visible but disables commands when the panel is read-only', () => {
+    const command = vi.fn();
+    render(
+      <SecurityPanel
+        model={{ entityId: 'lock.porta', name: 'Porta', kind: 'lock', available: true, active: false, lock: 'locked', canOpen: true, changedAt: null, battery: 80 }}
+        history={[]}
+        commandsEnabled={false}
+        onLockCommand={command}
+        onClose={vi.fn()}
+      />,
+    );
+    expect((screen.getByRole('button', { name: /sbloccare Porta/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('80%')).toBeTruthy();
+    expect(command).not.toHaveBeenCalled();
+  });
+});
+
 const vacuumCommands = (): VacuumPanelCommands => ({
   start: vi.fn(), pause: vi.fn(), stop: vi.fn(), returnToBase: vi.fn(), locate: vi.fn(), cleanSpot: vi.fn(), cleanArea: vi.fn(), setFanSpeed: vi.fn(),
 });
@@ -211,6 +296,14 @@ describe('the robot panel', () => {
     expect(screen.getByText('Manutenzione')).toBeTruthy();
     expect(screen.getByText('Filtro')).toBeTruthy();
     expect(screen.queryByText('Altri controlli')).toBeNull();
+  });
+
+  it('shows actual device information only when HA provides it', () => {
+    renderVacuum({ deviceInfo: { manufacturer: 'Acme', model: 'Clean 2', swVersion: '1.4' } });
+    expect(screen.getByText('Acme')).toBeTruthy();
+    expect(screen.getByText('Clean 2')).toBeTruthy();
+    expect(screen.getByText('1.4')).toBeTruthy();
+    expect(screen.queryByText('Hardware')).toBeNull();
   });
 });
 

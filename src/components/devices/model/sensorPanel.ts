@@ -31,7 +31,7 @@ const CHART_KINDS: Record<SensorFamily, SensorChartKind> = {
 
 export const chartKindOf = (family: SensorFamily) => CHART_KINDS[family];
 
-export type SensorPanelPeriod = '24h' | '7d' | '30d';
+export type SensorPanelPeriod = '24h' | '7d' | '30d' | '6mo' | '1y';
 
 /**
  * The periods of a sensor. 7 and 30 days come from the long-term statistics,
@@ -39,13 +39,16 @@ export type SensorPanelPeriod = '24h' | '7d' | '30d';
  * families and words have none, so they read the last 24 hours.
  */
 export function periodsOf(family: SensorFamily, attributes: Record<string, unknown>, statisticsMissing: boolean): SensorPanelPeriod[] {
-  if (statisticsMissing || chartKindOf(family) === 'strip' || family === 'motion') return ['24h'];
+  if (family === 'opening' || family === 'motion' || family === 'safety' || family === 'device') return ['24h', '7d'];
+  if (statisticsMissing) return ['24h'];
+  if (family === 'battery') return typeof attributes.state_class === 'string' && attributes.state_class ? ['6mo', '1y'] : ['24h'];
+  if (chartKindOf(family) === 'strip') return ['24h'];
   return typeof attributes.state_class === 'string' && attributes.state_class ? ['24h', '7d', '30d'] : ['24h'];
 }
 
 /** The question to the recorder for a period: by the hour over 7 days, by the day over 30. */
 export function statisticsQuery(entityId: string, period: Exclude<SensorPanelPeriod, '24h'>, now: number) {
-  const days = period === '7d' ? 7 : 30;
+  const days = period === '7d' ? 7 : period === '30d' ? 30 : period === '6mo' ? 183 : 365;
   return {
     type: 'recorder/statistics_during_period',
     start_time: new Date(now - days * 86_400_000).toISOString(),

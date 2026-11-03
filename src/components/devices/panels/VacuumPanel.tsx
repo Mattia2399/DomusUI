@@ -39,6 +39,12 @@ export type VacuumPanelModel = {
   supportsCleanArea?: boolean;
   supportsFanSpeed?: boolean;
   relatedEntities?: VacuumRelatedEntityInfo[];
+  deviceInfo?: {
+    manufacturer?: string;
+    model?: string;
+    swVersion?: string;
+    hwVersion?: string;
+  };
   rawAttributes?: Record<string, unknown>;
 };
 
@@ -102,6 +108,12 @@ export function VacuumPanel({ vacuum, areas = [], commands, embedded = false, li
   const modeControl = vacuumModeControl(related);
   const controls = related.filter((entity) => ['switch', 'select', 'number', 'button'].includes(entity.domain) && entity.entityId !== modeControl?.entityId);
   const readings = related.filter((entity) => !['switch', 'select', 'number', 'button'].includes(entity.domain));
+  const deviceInfo = [
+    [t('camera.info.manufacturer'), vacuum.deviceInfo?.manufacturer],
+    [t('camera.info.model'), vacuum.deviceInfo?.model],
+    [t('camera.info.firmware'), vacuum.deviceInfo?.swVersion],
+    [t('camera.info.hardware'), vacuum.deviceInfo?.hwVersion],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
 
   const note = cleaning
     ? pt('vcCleaning')
@@ -299,6 +311,20 @@ export function VacuumPanel({ vacuum, areas = [], commands, embedded = false, li
           <div className="dv-pn-label">{pt('vcControls')}</div>
           <div className="flex flex-col gap-2.5">
             {controls.map((entity) => <RelatedControl key={entity.entityId} entity={entity} onAction={commands.related} />)}
+          </div>
+        </>
+      ) : null}
+
+      {deviceInfo.length > 0 ? (
+        <>
+          <div className="dv-pn-label">{t('camera.settings.info')}</div>
+          <div className="dv-card dv-pn-rows">
+            {deviceInfo.map(([label, value]) => (
+              <div key={label} className="dv-pn-row">
+                <span className="dv-pn-rt"><b>{label}</b></span>
+                <span className="dv-pn-tm dv-t2">{value}</span>
+              </div>
+            ))}
           </div>
         </>
       ) : null}

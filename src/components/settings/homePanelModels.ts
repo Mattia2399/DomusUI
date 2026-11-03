@@ -3,9 +3,12 @@ import type { DeviceKind } from '../devices/model/entityKind';
 import { resolveClimateStep, toClimateModel, type ClimateAction, type ClimateModel } from '../devices/model/climate';
 import { toDeviceModel, type DeviceAction, type DeviceModel } from '../devices/model/device';
 import type { LightAction, LightCaps, LightModel } from '../devices/model/light';
+import { toMediaModel, type MediaAction, type MediaModel } from '../devices/model/media';
+import { toSecurityModel, type LockCommand, type SecurityModel } from '../devices/model/security';
 import {
   homeDeviceEntityId,
   homeEntityOf,
+  homeLiveEntityId,
   type HomeClimate,
   type HomeCover,
   type HomeLamp,
@@ -67,6 +70,15 @@ export function runLightAction(action: LightAction, model: LightModel, actions: 
   }
 }
 
+export function runHomeLightExtra(
+  action: { type: 'white'; value: number } | { type: 'effect'; effect: string } | { type: 'flash'; mode: 'short' | 'long' },
+  actions: HomePanelActions,
+) {
+  if (action.type === 'white') actions.setLampWhite(action.value);
+  else if (action.type === 'effect') actions.setLampEffect(action.effect);
+  else actions.flashLamp(action.mode);
+}
+
 /** The climate of the Home, read by the same builder Rooms uses. */
 export function homeClimateToModel(entityId: string, name: string, climate: HomeClimate): ClimateModel {
   // Without a live entity the Home gives every temperature as NaN.
@@ -88,11 +100,25 @@ export function homeClimateToModel(entityId: string, name: string, climate: Home
       fan_mode: climate.fanMode,
       swing_modes: climate.swingModes,
       swing_mode: climate.swingMode,
+      swing_horizontal_modes: climate.swingHorizontalModes,
+      swing_horizontal_mode: climate.swingHorizontalMode,
+      target_humidity: climate.targetHumidity,
+      min_humidity: climate.minHumidity,
+      max_humidity: climate.maxHumidity,
       preset_modes: climate.presetModes,
       preset_mode: climate.presetMode,
     },
   } as unknown as MockEntityState;
   return { ...toClimateModel(entityId, entity), name };
+}
+
+export function runHomeClimateExtra(
+  action: { type: 'humidity'; value: number } | { type: 'horizontal_swing'; mode: string } | { type: 'auto_adjust' },
+  actions: HomePanelActions,
+) {
+  if (action.type === 'humidity') actions.setClimateTargetHumidity?.(action.value);
+  else if (action.type === 'horizontal_swing') actions.setClimateSwingHorizontalMode?.(action.mode);
+  else actions.autoAdjustClimate();
 }
 
 export function runClimateAction(raw: ClimateAction, model: ClimateModel, actions: HomePanelActions) {
@@ -217,12 +243,55 @@ export function homeLiveEntityIdOf(props: HomePanelProps): string | null {
       return byAttributes(haStates, 'vacuum', props.vacuum.rawAttributes) ?? direct('vacuum') ?? null;
     case 'cover':
       return byAttributes(haStates, 'cover', props.cover.rawAttributes) ?? direct('cover') ?? null;
+    case 'lock':
+      return homeLiveEntityId(props, 'lock');
+    case 'camera':
+      return props.camera.entityId ?? null;
+    case 'media':
+      return homeLiveEntityId(props, 'media_player');
     case 'switch':
     case 'fan':
     case 'humidifier':
       return homeDeviceEntityId(props) ?? null;
     default:
       return null;
+  }
+}
+
+export function securityModelOf(props: HomePanelProps): SecurityModel | null {
+  const entityId = homeLiveEntityId(props, 'lock');
+  if (!entityId) return null;
+  const model = toSecurityModel(entityId, homeEntityOf(props.haStates, entityId), { battery: props.lock.batteryLevel ?? null });
+  return model ? { ...model, name: props.activeDevice.name } : null;
+}
+
+export function runLockAction(command: LockCommand, actions: HomePanelActions) {
+  if (command === 'lock') return actions.lockDoor();
+  if (command === 'unlock') return actions.unlockDoor();
+  return actions.openDoor();
+}
+
+export function mediaModelOf(props: HomePanelProps): MediaModel | null {
+  const entityId = homeLiveEntityId(props, 'media_player');
+  if (!entityId) return null;
+  return { ...toMediaModel(entityId, homeEntityOf(props.haStates, entityId)), name: props.activeDevice.name };
+}
+
+export function runMediaAction(action: MediaAction, actions: HomePanelActions) {
+  switch (action.type) {
+    case 'play_pause': actions.toggleSpeakerPlayback(); break;
+    case 'power': actions.toggleSpeakerPower(); break;
+    case 'previous': actions.previousSpeakerTrack(); break;
+    case 'next':
+    case 'show_track': actions.nextSpeakerTrack(); break;
+    case 'seek': actions.seekSpeakerPosition(action.position); break;
+    case 'volume': actions.setSpeakerVolume(action.level); break;
+    case 'mute': actions.toggleSpeakerMute(); break;
+    case 'shuffle': actions.toggleSpeakerShuffle(); break;
+    case 'repeat': actions.cycleSpeakerRepeatMode(); break;
+    case 'source': actions.selectSpeakerOutputDevice(action.source); break;
+    case 'sound_mode': actions.selectSpeakerSoundMode?.(action.mode); break;
+    case 'group': actions.toggleSpeakerGroupMember(action.member, action.joined); break;
   }
 }
 

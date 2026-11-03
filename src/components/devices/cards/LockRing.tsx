@@ -25,7 +25,7 @@ const NUDGE_MS = 1600;
 
 const BUSY = new Set(['locking', 'unlocking', 'opening']);
 
-export function useLockRing(model: SecurityModel, onCommand: (command: LockCommand) => void, disabled = false) {
+export function useLockRing(model: SecurityModel, onCommand: (command: LockCommand) => boolean | void, disabled = false) {
   const [press, setPress] = React.useState<{ phase: RingPhase; from: 'locked' | 'unlocked'; t0: number } | null>(null);
   const [nudge, setNudge] = React.useState(false);
   const timers = React.useRef<number[]>([]);
@@ -59,7 +59,11 @@ export function useLockRing(model: SecurityModel, onCommand: (command: LockComma
     if (lock === 'locked') {
       setPress({ phase: 'lap1', from: 'locked', t0 });
       later(() => {
-        command.current('unlock');
+        if (command.current('unlock') === false) {
+          setPress(null);
+          clear();
+          return;
+        }
         if (!model.canOpen) {
           setPress(null);
           return;
@@ -205,9 +209,11 @@ export type LockRingProps = {
   size?: 'sm' | 'lg';
   /** In the edit mode of a section the ring is only a picture. */
   inert?: boolean;
+  /** State remains visible, but no access command may be started. */
+  disabled?: boolean;
 };
 
-export function LockRing({ model, ring, label, size = 'sm', inert = false }: LockRingProps) {
+export function LockRing({ model, ring, label, size = 'sm', inert = false, disabled = false }: LockRingProps) {
   const lock = model.lock;
   const busy = lock !== null && BUSY.has(lock);
   const solid = lock === 'locked' || lock === 'jammed';
@@ -235,7 +241,7 @@ export function LockRing({ model, ring, label, size = 'sm', inert = false }: Loc
         busy && 'is-busy',
       )}
       aria-label={label}
-      disabled={!model.available}
+      disabled={!model.available || disabled}
       tabIndex={inert ? -1 : undefined}
       aria-hidden={inert ? true : undefined}
       {...(inert ? {} : ring.handlers)}

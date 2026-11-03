@@ -2,20 +2,30 @@ import React from 'react';
 import { ClimatePanel } from '../devices/panels/ClimatePanel';
 import { DevicePanel } from '../devices/panels/DevicePanel';
 import { LightPanel } from '../devices/panels/LightPanel';
+import { CameraPanel } from '../devices/panels/CameraPanel';
+import { SecurityPanel } from '../devices/panels/SecurityPanel';
 import { resolveDeviceKind } from '../devices/model/entityKind';
 import {
   deviceModelOf,
   homeClimateToModel,
   homeLiveEntityIdOf,
   lampToLightModel,
+  mediaModelOf,
+  runHomeClimateExtra,
+  runHomeLightExtra,
   runClimateAction,
   runDeviceAction,
   runLightAction,
+  runLockAction,
+  runMediaAction,
+  securityModelOf,
 } from './homePanelModels';
-import { homePanelOf, type HomePanelProps } from './homePanelRoute';
+import { homeLiveEntityId, homePanelOf, type HomePanelProps } from './homePanelRoute';
 import { usePanelLiveState } from '../devices/panels/panelLiveState';
 import { findBatterySensor } from '../devices/model/sensor';
 import { resolveSensorFamily } from '../devices/model/sensorFamily';
+import { findEnergySource } from '../devices/model/plugEnergy';
+import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../devices/panels/panelData';
 
 /* The shared panel a card of the Home opens, in place of its old content. */
 
@@ -25,6 +35,7 @@ const VacuumPanel = React.lazy(() => import('../devices/panels/VacuumPanel'));
 const CalendarPanel = React.lazy(() => import('../devices/panels/CalendarPanel'));
 const MembersPanel = React.lazy(() => import('../devices/panels/MembersPanel'));
 const SensorFamilyPanel = React.lazy(() => import('../devices/panels/SensorFamilyPanel'));
+const MediaPlayer = React.lazy(() => import('../devices/panels/MediaPlayer'));
 
 // The sheet keeps its height while a panel loads: the finger that opened it with
 // a long press is lifted over the sheet, not over the backdrop that would close it.
@@ -33,6 +44,7 @@ const LOADING_SHEET = <div className="min-h-[60vh] md:min-h-0" aria-hidden="true
 export function HomePanel(props: HomePanelProps) {
   const { activeDevice, lamp, climate, actions, embedded, onClose } = props;
   const panel = homePanelOf(props);
+  const registry = useEntityRegistry();
 
   const entityId = homeLiveEntityIdOf(props);
   const entity = entityId ? props.haStates[entityId] : undefined;
@@ -50,21 +62,65 @@ export function HomePanel(props: HomePanelProps) {
     family,
     battery: Number.isFinite(batteryValue) ? batteryValue : null,
   });
+  const areaId = entityId ? registry?.entityAreaByEntityId[entityId] : undefined;
+  const roomName = areaId ? registry?.areaNames[areaId] : undefined;
+  const securityEntityId = panel === 'security' ? homeLiveEntityId(props, 'lock') : null;
+  const securityHistory = useSecurityHistory(securityEntityId);
+  const deviceEntityId = panel === 'device' && activeDevice.type === 'switch' ? activeDevice.switchEntityId ?? null : null;
+  const energySource = deviceEntityId
+    ? findEnergySource(
+        deviceEntityId,
+        props.haStates,
+        activeDevice.switchConsumptionEntityId ?? null,
+        (id) => registry?.registryEntities.find((entry) => entry.entityId === id)?.deviceId,
+      )
+    : null;
+  const plugEnergy = usePanelPlugEnergy(energySource);
 
   if (panel === 'light') {
     const model = lampToLightModel(activeDevice.id, activeDevice.name, lamp);
-    return <LightPanel model={model} embedded={embedded} live={live} onAction={(action) => runLightAction(action, model, actions)} onClose={onClose} />;
+    return (
+      <LightPanel
+        model={model}
+        roomName={roomName}
+        extras={{
+          supportsWhite: lamp.supportsWhite === true,
+          supportsEffects: lamp.supportsEffects === true,
+          supportsFlash: lamp.supportsFlash === true,
+          effect: lamp.effect,
+          effects: lamp.effectList ?? [],
+        }}
+        embedded={embedded}
+        live={live}
+        onAction={(action) => runLightAction(action, model, actions)}
+        onExtraAction={(action) => runHomeLightExtra(action, actions)}
+        onClose={onClose}
+      />
+    );
   }
   if (panel === 'climate') {
     const model = homeClimateToModel(activeDevice.id, activeDevice.name, climate);
     return (
       <ClimatePanel
         model={model}
+        roomName={roomName}
         roomTemperature={model.current}
         roomHumidity={typeof climate.currentHumidity === 'number' ? climate.currentHumidity : null}
         embedded={embedded}
         live={live}
         onAction={(action) => runClimateAction(action, model, actions)}
+        extras={{
+          supportsTargetHumidity: climate.supportsTargetHumidity === true,
+          targetHumidity: climate.targetHumidity,
+          minHumidity: climate.minHumidity,
+          maxHumidity: climate.maxHumidity,
+          targetHumidityStep: climate.targetHumidityStep,
+          supportsHorizontalSwing: climate.supportsSwingHorizontalMode === true,
+          horizontalSwing: climate.swingHorizontalMode,
+          horizontalSwingModes: climate.swingHorizontalModes ?? [],
+          supportsAutoAdjust: true,
+        }}
+        onExtraAction={(action) => runHomeClimateExtra(action, actions)}
         onClose={onClose}
       />
     );
@@ -76,12 +132,68 @@ export function HomePanel(props: HomePanelProps) {
     return (
       <DevicePanel
         model={model}
+        roomName={roomName}
         protectedPlug={false}
+        energy={plugEnergy.energy}
         embedded={embedded}
         live={live}
         onAction={(action) => runDeviceAction(action, kind, actions)}
         onClose={onClose}
       />
+    );
+  }
+  if (panel === 'security') {
+    const model = securityModelOf(props);
+    if (!model) return null;
+    const timeline = (props.lock.activityTimeline ?? []).flatMap((entry) => {
+      if (typeof entry.timestampMs !== 'number') return [];
+      const state = entry.kind === 'lock' ? 'locked' : entry.kind === 'unlock' ? 'unlocked' : entry.kind === 'open' ? 'open' : entry.kind === 'jam' ? 'jammed' : null;
+      return state ? [{ t: entry.timestampMs, state }] : [];
+    });
+    return (
+      <SecurityPanel
+        model={model}
+        roomName={roomName}
+        history={securityHistory.length > 0 ? securityHistory : timeline}
+        details={{ rawAttributes: props.lock.rawAttributes, changedBy: props.lock.changedBy }}
+        commandsEnabled={props.panelCommandsEnabled}
+        embedded={embedded}
+        live={live}
+        onLockCommand={(command) => runLockAction(command, actions)}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel === 'camera') {
+    return (
+      <CameraPanel
+        camera={{ ...props.camera, name: activeDevice.name }}
+        roomName={roomName}
+        commandsEnabled={props.panelCommandsEnabled}
+        embedded={embedded}
+        live={live}
+        onPtzMove={actions.moveCameraPtz}
+        onPtzStop={actions.stopCameraPtz}
+        onRelatedAction={actions.runCameraRelatedEntityAction}
+        onClose={onClose}
+      />
+    );
+  }
+  if (panel === 'media') {
+    const model = mediaModelOf(props);
+    if (!model) return null;
+    return (
+      <React.Suspense fallback={LOADING_SHEET}>
+        <MediaPlayer
+          model={model}
+          pictureUrl={props.speaker.coverUrl ?? model.picture}
+          groupCandidates={(props.speaker.multiroomDevices ?? []).map((device) => ({ entityId: device.id, name: device.name, roomName: device.subtitle ?? null }))}
+          onAction={(action) => {
+            if (props.panelCommandsEnabled) runMediaAction(action, actions);
+          }}
+          onClose={onClose}
+        />
+      </React.Suspense>
     );
   }
   if (panel === 'alarm') {

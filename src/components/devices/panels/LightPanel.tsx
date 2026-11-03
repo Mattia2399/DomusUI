@@ -1,6 +1,7 @@
 import React from 'react';
 import { Lightbulb, Sun } from 'lucide-react';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
+import { useI18n } from '../../../i18n/I18nProvider';
 import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from '../model/light';
 import { hexToRgb, hueToRgb, lightRgb, rgbCss, rgbToHex } from '../model/tileColor';
 import { LightKindSegment, lightSwatches, SwatchRow } from '../cards/LightControls';
@@ -27,14 +28,23 @@ export type LightPanelProps = {
   model: LightModel;
   roomName?: string;
   onAction: (action: LightAction) => void;
+  extras?: {
+    supportsWhite?: boolean;
+    supportsEffects?: boolean;
+    supportsFlash?: boolean;
+    effect?: string;
+    effects?: string[];
+  };
+  onExtraAction?: (action: { type: 'white'; value: number } | { type: 'effect'; effect: string } | { type: 'flash'; mode: 'short' | 'long' }) => void;
   /** Inside a sheet that has its own title and Close. */
   embedded?: boolean;
   live?: PanelLive;
   onClose: () => void;
 };
 
-export function LightPanel({ model, roomName, embedded, live, onAction, onClose }: LightPanelProps) {
+export function LightPanel({ model, roomName, extras, embedded, live, onAction, onExtraAction, onClose }: LightPanelProps) {
   const dt = useDevicesTranslations();
+  const { t } = useI18n();
   const rgb = lightRgb(model);
   const pct = model.brightnessPct ?? 100;
   const isColorMode = model.caps === 'color' && model.mode === 'color';
@@ -142,6 +152,51 @@ export function LightPanel({ model, roomName, embedded, live, onAction, onClose 
             </div>
           ) : null}
           {model.caps === 'dim' ? <span className="dv-t2 text-sm font-medium leading-[1.45]">{dt('dimOnly')}</span> : null}
+          {extras?.supportsWhite && onExtraAction ? (
+            <div className="flex flex-col gap-2">
+              <span className="dv-t2 text-[13px] font-bold">{t('controls.light.whiteChannel')}</span>
+              <span className="dv-hslider">
+                <span style={{ width: `${pct}%` }} />
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={pct}
+                  disabled={!model.available}
+                  aria-label={t('controls.light.whiteChannel')}
+                  onChange={(event) => onExtraAction({ type: 'white', value: Number(event.target.value) })}
+                />
+              </span>
+            </div>
+          ) : null}
+          {extras?.supportsEffects && extras.effects && extras.effects.length > 0 && onExtraAction ? (
+            <div className="flex flex-col gap-2">
+              <span className="dv-t2 text-[13px] font-bold">{t('controls.light.effects')}</span>
+              <div className="flex flex-wrap gap-2" role="group" aria-label={t('controls.light.effects')}>
+                {extras.effects.map((effect) => (
+                  <button
+                    key={effect}
+                    type="button"
+                    className={`dv-option ${extras.effect === effect ? 'is-on' : ''}`}
+                    aria-pressed={extras.effect === effect}
+                    disabled={!model.available}
+                    onClick={() => onExtraAction({ type: 'effect', effect })}
+                  >
+                    {['off', 'none'].includes(effect.toLowerCase()) ? t('controls.light.noEffect') : effect}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {extras?.supportsFlash && onExtraAction ? (
+            <div className="flex flex-col gap-2">
+              <span className="dv-t2 text-[13px] font-bold">{t('controls.light.flash')}</span>
+              <div className="flex gap-2" role="group" aria-label={t('controls.light.flash')}>
+                <button type="button" className="dv-option" disabled={!model.available} onClick={() => onExtraAction({ type: 'flash', mode: 'short' })}>{t('controls.light.short')}</button>
+                <button type="button" className="dv-option" disabled={!model.available} onClick={() => onExtraAction({ type: 'flash', mode: 'long' })}>{t('controls.light.long')}</button>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </PanelShell>

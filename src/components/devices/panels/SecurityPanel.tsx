@@ -2,11 +2,12 @@ import { LockOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
+import { useCan } from '../../../security/AccessControlProvider';
 import { onSpans, type LockCommand, type SecurityModel, type StateChange } from '../model/security';
 import { SECURITY_ICONS, securityTone } from '../cards/SecurityCard';
 import { LockRing, lockRingInk, lockRingText, useLockRing } from '../cards/LockRing';
 import { clockOf, durationWord, LOCK_KEY, SECURITY_KIND_KEY, securityStatus } from '../cards/securityText';
-import { PanelShell } from './PanelShell';
+import { PanelShell, type PanelLive } from './PanelShell';
 
 /*
  * The detail of a security device: what it says now and since when, the
@@ -18,18 +19,23 @@ export type SecurityPanelProps = {
   model: SecurityModel;
   roomName?: string;
   history: StateChange[];
-  onLockCommand: (command: LockCommand) => void;
+  details?: { rawAttributes?: Record<string, unknown>; changedBy?: string };
+  commandsEnabled?: boolean;
+  embedded?: boolean;
+  live?: PanelLive;
+  onLockCommand: (command: LockCommand) => boolean | void;
   onClose: () => void;
 };
 
 const DAY_MS = 24 * 3_600_000;
 
-export function SecurityPanel({ model, roomName, history, onLockCommand, onClose }: SecurityPanelProps) {
+export function SecurityPanel({ model, roomName, history, details, commandsEnabled = true, embedded, live, onLockCommand, onClose }: SecurityPanelProps) {
   const dt = useDevicesTranslations();
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
+  const canControlAccess = useCan('access.control') && commandsEnabled;
   const now = Date.now();
   const isLock = model.kind === 'lock';
-  const ring = useLockRing(model, onLockCommand, !isLock);
+  const ring = useLockRing(model, onLockCommand, !isLock || !canControlAccess);
   const ringText = isLock ? lockRingText(model, ring, dt) : null;
   const Icon = isLock && (model.lock === 'unlocked' || model.lock === 'open') ? LockOpen : SECURITY_ICONS[model.kind];
   const tone = securityTone(model);
@@ -63,6 +69,27 @@ export function SecurityPanel({ model, roomName, history, onLockCommand, onClose
     return state === 'on' ? dt('historyVibration') : dt('vibrationNone');
   };
   const events = [...history].reverse().filter((change) => model.kind !== 'motion' || change.state === 'on').slice(0, 5);
+  const attributes = details?.rawAttributes ?? {};
+  const autoLock = typeof attributes.auto_lock === 'boolean'
+    ? attributes.auto_lock
+    : typeof attributes.auto_lock_enabled === 'boolean'
+      ? attributes.auto_lock_enabled
+      : null;
+  const autoLockDelay = Number(attributes.auto_lock_time ?? attributes.auto_lock_delay);
+  const detailRows = isLock ? [
+    typeof attributes.door_state === 'string' && attributes.door_state.trim()
+      ? [t('card.lock.door'), attributes.door_state.trim()]
+      : null,
+    autoLock !== null
+      ? [t('card.lock.autoLock'), autoLock
+          ? Number.isFinite(autoLockDelay) && autoLockDelay > 0
+            ? t('card.lock.autoLock.after', { seconds: Math.round(autoLockDelay) })
+            : t('card.lock.autoLock.on')
+          : t('card.lock.autoLock.off')]
+      : null,
+    model.battery !== null ? [t('card.lock.battery'), `${Math.round(model.battery)}%`] : null,
+    details?.changedBy ? [t('card.lock.lastActivity'), details.changedBy] : null,
+  ].filter((entry): entry is [string, string] => entry !== null) : [];
 
   return (
     <PanelShell
@@ -70,12 +97,14 @@ export function SecurityPanel({ model, roomName, history, onLockCommand, onClose
       iconClassName={clsx('dv-security-badge', `is-${tone}`)}
       name={model.name}
       subtitle={subtitle}
+      embedded={embedded}
+      live={live}
       onClose={onClose}
     >
 
       {ringText ? (
         <div className="flex flex-col items-center gap-3.5 pb-0.5 pt-1.5">
-          <LockRing model={model} ring={ring} label={ringText.aria} size="lg" />
+          <LockRing model={model} ring={ring} label={ringText.aria} size="lg" disabled={!canControlAccess} />
           <div className="flex flex-col items-center gap-1 text-center">
             <span className={clsx('text-[30px] font-bold leading-[1.1] tracking-[-0.025em]', lockRingInk(model, ring))} aria-live="polite">
               {ringText.headline}
@@ -112,6 +141,17 @@ export function SecurityPanel({ model, roomName, history, onLockCommand, onClose
             <span>{dt('ago12h')}</span>
             <span>{dt('agoNow')}</span>
           </div>
+        </div>
+      ) : null}
+
+      {detailRows.length > 0 ? (
+        <div className="dv-card dv-pn-rows">
+          {detailRows.map(([label, value]) => (
+            <div key={label} className="dv-pn-row">
+              <span className="dv-pn-rt"><b>{label}</b></span>
+              <span className="dv-pn-tm dv-t2">{value}</span>
+            </div>
+          ))}
         </div>
       ) : null}
 

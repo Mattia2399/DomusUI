@@ -393,7 +393,7 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, e
         </button>
       ) : null}
 
-      <SecurityAuthModal {...gate.modalProps} />
+      <SecurityAuthModal {...gate.modalProps} usePortal={false} inline />
 
       {cameraId ? (
         <React.Suspense fallback={null}>

@@ -30,6 +30,8 @@ type SecurityAuthModalProps = {
   onClearPin: () => void;
   onClose: () => void;
   usePortal?: boolean;
+  /** Keeps the existing secure gate, but places its keypad in the open panel. */
+  inline?: boolean;
 };
 
 function cn(...inputs: Parameters<typeof clsx>) {
@@ -57,6 +59,7 @@ export function SecurityAuthModal({
   onClearPin,
   onClose,
   usePortal = false,
+  inline = false,
 }: SecurityAuthModalProps) {
   const { t } = useI18n();
   const overlayTransition = { duration: 0.18, ease: [0.22, 1, 0.36, 1] } as const;
@@ -156,23 +159,30 @@ export function SecurityAuthModal({
     <AnimatePresence>
       {isOpen ? (
         <motion.div
-          className="fixed inset-0 z-[280] flex items-center justify-center p-4 sm:p-8"
+          className={inline ? 'relative z-10 w-full' : 'fixed inset-0 z-[280] flex items-center justify-center p-4 sm:p-8'}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={overlayTransition}
           style={{ willChange: 'opacity' }}
         >
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t('auth.close')}
-            className="absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-3xl"
-          />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgb(var(--ui-glass-highlight-rgb)/0.10),transparent_30%),radial-gradient(circle_at_52%_100%,rgb(var(--ui-accent-rgb)/0.08),transparent_38%)]" />
+          {!inline ? (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label={t('auth.close')}
+                className="absolute inset-0 bg-[color:var(--ui-scrim)] backdrop-blur-3xl"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgb(var(--ui-glass-highlight-rgb)/0.10),transparent_30%),radial-gradient(circle_at_52%_100%,rgb(var(--ui-accent-rgb)/0.08),transparent_38%)]" />
+            </>
+          ) : null}
 
           <motion.div
-            className="liquid-glass-panel relative z-10 isolate w-full max-w-[24rem] transform-gpu overflow-hidden rounded-[2.2rem] p-5 sm:p-6"
+            className={cn(
+              'relative z-10 isolate w-full transform-gpu overflow-hidden p-5 sm:p-6',
+              inline ? 'dv-card max-w-none rounded-[22px]' : 'liquid-glass-panel max-w-[24rem] rounded-[2.2rem]',
+            )}
             initial={{ y: -8, opacity: 0, scale: 0.985 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 8, opacity: 0, scale: 0.985 }}
@@ -369,7 +379,7 @@ export function SecurityAuthModal({
     </AnimatePresence>
   );
 
-  if (usePortal && typeof document !== 'undefined') {
+  if (usePortal && !inline && typeof document !== 'undefined') {
     return createPortal(modal, document.body);
   }
 

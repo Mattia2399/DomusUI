@@ -8,20 +8,29 @@ import {
   homeClimateToModel,
   homeCoverToModel,
   lampToLightModel,
+  runHomeClimateExtra,
+  runHomeLightExtra,
   runClimateAction,
   runDeviceAction,
   runLightAction,
+  runLockAction,
+  runMediaAction,
 } from './homePanelModels';
 import { homePanelOf, type HomeClimate, type HomePanelActions, type HomePanelProps } from './homePanelRoute';
 import type { ActiveDevice } from './types';
 
 afterEach(cleanup);
 
+const entity = (state: string, rawAttributes: Record<string, unknown> = {}) => ({ state, rawAttributes }) as unknown as MockEntityState;
+
 const actionsMock = (): HomePanelActions => ({
   toggleLamp: vi.fn(),
   setLampBrightness: vi.fn(),
   setLampColorTemp: vi.fn(),
   setLampHsColor: vi.fn(),
+  setLampWhite: vi.fn(),
+  setLampEffect: vi.fn(),
+  flashLamp: vi.fn(),
   toggleClimatePower: vi.fn(),
   setClimateMode: vi.fn(),
   setClimateTargetTemp: vi.fn(),
@@ -29,6 +38,9 @@ const actionsMock = (): HomePanelActions => ({
   setClimateFanMode: vi.fn(),
   setClimatePresetMode: vi.fn(),
   setClimateSwingMode: vi.fn(),
+  setClimateTargetHumidity: vi.fn(),
+  setClimateSwingHorizontalMode: vi.fn(),
+  autoAdjustClimate: vi.fn(),
   toggleSwitch: vi.fn(),
   toggleFan: vi.fn(),
   setFanPercentage: vi.fn(),
@@ -43,6 +55,24 @@ const actionsMock = (): HomePanelActions => ({
   stopCover: vi.fn(),
   setCoverPosition: vi.fn(),
   setCoverTiltPosition: vi.fn(),
+  lockDoor: vi.fn(),
+  unlockDoor: vi.fn(),
+  openDoor: vi.fn(),
+  toggleSpeakerPlayback: vi.fn(),
+  toggleSpeakerPower: vi.fn(),
+  previousSpeakerTrack: vi.fn(),
+  nextSpeakerTrack: vi.fn(),
+  seekSpeakerPosition: vi.fn(),
+  setSpeakerVolume: vi.fn(),
+  toggleSpeakerMute: vi.fn(),
+  toggleSpeakerShuffle: vi.fn(),
+  cycleSpeakerRepeatMode: vi.fn(),
+  selectSpeakerSoundMode: vi.fn(),
+  selectSpeakerOutputDevice: vi.fn(),
+  toggleSpeakerGroupMember: vi.fn(),
+  moveCameraPtz: vi.fn(),
+  stopCameraPtz: vi.fn(),
+  runCameraRelatedEntityAction: vi.fn(),
 });
 
 const climate: HomeClimate = {
@@ -63,6 +93,9 @@ const propsFor = (activeDevice: Partial<ActiveDevice> & Pick<ActiveDevice, 'type
   lamp: { name: 'Card', isOn: true, brightness: 72, colorTemp: 3000, supportsBrightness: true, supportsColorTemp: true },
   climate,
   cover: { state: 'open', position: 60, supportedFeatures: 15 },
+  camera: { name: 'Camera' },
+  speaker: { status: 'idle' },
+  lock: { name: 'Serratura', state: 'locked' },
   coverIsReadOnly: false,
   haStates: {},
   actions: actionsMock(),
@@ -71,6 +104,7 @@ const propsFor = (activeDevice: Partial<ActiveDevice> & Pick<ActiveDevice, 'type
   vacuum: { name: 'Robot', state: 'docked' },
   vacuumCommands: { start: vi.fn(), pause: vi.fn(), stop: vi.fn(), returnToBase: vi.fn(), locate: vi.fn(), cleanSpot: vi.fn(), cleanArea: vi.fn(), setFanSpeed: vi.fn() },
   calendarAgenda: { entityId: 'calendar.a', status: 'ready', events: [], error: null, busy: false, createEvent: vi.fn(), updateEvent: vi.fn(), deleteEvent: vi.fn() } as unknown as HomePanelProps['calendarAgenda'],
+  panelCommandsEnabled: true,
   embedded: false,
   onClose: vi.fn(),
   ...extra,
@@ -102,6 +136,12 @@ describe('the light of the Home', () => {
     expect(actions.setLampHsColor).toHaveBeenNthCalledWith(1, [30, 100]);
     expect(actions.setLampHsColor).toHaveBeenNthCalledWith(2, [120, 100]);
     expect(actions.setLampColorTemp).toHaveBeenNthCalledWith(2, 3000);
+    runHomeLightExtra({ type: 'white', value: 65 }, actions);
+    runHomeLightExtra({ type: 'effect', effect: 'rainbow' }, actions);
+    runHomeLightExtra({ type: 'flash', mode: 'short' }, actions);
+    expect(actions.setLampWhite).toHaveBeenCalledWith(65);
+    expect(actions.setLampEffect).toHaveBeenCalledWith('rainbow');
+    expect(actions.flashLamp).toHaveBeenCalledWith('short');
   });
 });
 
@@ -121,6 +161,12 @@ describe('the climate of the Home', () => {
     expect(actions.setClimateTargetTemp).toHaveBeenCalledWith(22.5);
     expect(actions.setClimateMode).toHaveBeenCalledWith('cool');
     expect(actions.setClimateFanMode).toHaveBeenCalledWith('high');
+    runHomeClimateExtra({ type: 'humidity', value: 48 }, actions);
+    runHomeClimateExtra({ type: 'horizontal_swing', mode: 'left' }, actions);
+    runHomeClimateExtra({ type: 'auto_adjust' }, actions);
+    expect(actions.setClimateTargetHumidity).toHaveBeenCalledWith(48);
+    expect(actions.setClimateSwingHorizontalMode).toHaveBeenCalledWith('left');
+    expect(actions.autoAdjustClimate).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -153,6 +199,27 @@ describe('the devices of the Home', () => {
     expect(actions.stopCover).toHaveBeenCalledTimes(1);
     expect(actions.setHumidifierTargetHumidity).toHaveBeenCalledWith(50);
   });
+
+  it('keeps the existing lock authorization result when the shared panel asks to unlock', () => {
+    const actions = actionsMock();
+    actions.unlockDoor = vi.fn(() => false);
+    expect(runLockAction('unlock', actions)).toBe(false);
+    expect(actions.unlockDoor).toHaveBeenCalledTimes(1);
+    expect(runLockAction('lock', actions)).toBeUndefined();
+    expect(actions.lockDoor).toHaveBeenCalledTimes(1);
+  });
+
+  it('routes media commands through the existing Home actions', () => {
+    const actions = actionsMock();
+    runMediaAction({ type: 'play_pause' }, actions);
+    runMediaAction({ type: 'volume', level: 0.35 }, actions);
+    runMediaAction({ type: 'source', source: 'TV' }, actions);
+    runMediaAction({ type: 'group', member: 'media_player.cucina', joined: true }, actions);
+    expect(actions.toggleSpeakerPlayback).toHaveBeenCalledTimes(1);
+    expect(actions.setSpeakerVolume).toHaveBeenCalledWith(0.35);
+    expect(actions.selectSpeakerOutputDevice).toHaveBeenCalledWith('TV');
+    expect(actions.toggleSpeakerGroupMember).toHaveBeenCalledWith('media_player.cucina', true);
+  });
 });
 
 describe('what the Home opens', () => {
@@ -177,6 +244,16 @@ describe('what the Home opens', () => {
     for (const type of ['lock', 'camera', 'media', 'sensor', 'weather'] as const) {
       expect(homePanelOf(propsFor({ type })), type).toBeNull();
     }
+  });
+
+  it('opens the shared security, camera and media panels only for their real HA entity', () => {
+    const lock = entity('locked', { friendly_name: 'Porta', supported_features: 1 });
+    const camera = entity('streaming', { friendly_name: 'Ingresso' });
+    const media = entity('playing', { friendly_name: 'Cassa' });
+    expect(homePanelOf(propsFor({ type: 'lock', id: 'lock.porta', name: 'Porta' }, { haStates: { 'lock.porta': lock } }))).toBe('security');
+    expect(homePanelOf(propsFor({ type: 'camera', name: 'Ingresso' }, { camera: { name: 'Ingresso', entityId: 'camera.ingresso' }, haStates: { 'camera.ingresso': camera } }))).toBe('camera');
+    expect(homePanelOf(propsFor({ type: 'media', name: 'Cassa' }, { haStates: { 'media_player.cassa': media } }))).toBe('media');
+    expect(homePanelOf(propsFor({ type: 'camera', name: 'Ingresso' }, { camera: { name: 'Ingresso', entityId: 'camera.ingresso' } }))).toBeNull();
   });
 
   it('shows the header of the panel in the column, and only the power in the sheet of a phone', () => {

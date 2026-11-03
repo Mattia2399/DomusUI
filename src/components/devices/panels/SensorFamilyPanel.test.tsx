@@ -40,17 +40,22 @@ describe('the chart of each family', () => {
     expect(by('strip')).toEqual(['device', 'opening', 'safety', 'state', 'time']);
   });
 
-  it('offers 7 and 30 days only to what the recorder keeps', () => {
+  it('offers recorder periods and the explicit door, device and battery windows', () => {
     expect(periodsOf('temperature', { state_class: 'measurement' }, false)).toEqual(['24h', '7d', '30d']);
     expect(periodsOf('temperature', {}, false)).toEqual(['24h']);
     expect(periodsOf('temperature', { state_class: 'measurement' }, true)).toEqual(['24h']);
-    expect(periodsOf('opening', { state_class: 'measurement' }, false)).toEqual(['24h']);
-    expect(periodsOf('motion', { state_class: 'measurement' }, false)).toEqual(['24h']);
+    expect(periodsOf('opening', {}, false)).toEqual(['24h', '7d']);
+    expect(periodsOf('motion', {}, false)).toEqual(['24h', '7d']);
+    expect(periodsOf('device', {}, false)).toEqual(['24h', '7d']);
+    expect(periodsOf('battery', { state_class: 'measurement' }, false)).toEqual(['6mo', '1y']);
+    expect(periodsOf('battery', {}, false)).toEqual(['24h']);
   });
 
   it('asks the recorder by the hour over a week and by the day over a month', () => {
     expect(statisticsQuery('sensor.a', '7d', 1000)).toMatchObject({ type: 'recorder/statistics_during_period', statistic_ids: ['sensor.a'], period: 'hour' });
     expect(statisticsQuery('sensor.a', '30d', 1000)).toMatchObject({ period: 'day' });
+    expect(statisticsQuery('sensor.a', '6mo', 1000)).toMatchObject({ period: 'day' });
+    expect(statisticsQuery('sensor.a', '1y', 1000)).toMatchObject({ period: 'day' });
   });
 
   it('reads the rows of the recorder and groups them by day', () => {
@@ -218,6 +223,106 @@ describe('the panel of a family', () => {
     fireEvent.click(await screen.findByRole('radio', { name: '7 giorni' }).catch(() => screen.getByRole('button', { name: '7 giorni' })));
     await waitFor(() => expect(callApi).toHaveBeenCalledWith(expect.objectContaining({ type: 'recorder/statistics_during_period' }), expect.anything()));
     await waitFor(() => expect(screen.queryByText('7 giorni')).toBeNull());
+  });
+
+  it('reads seven-day door history from HA instead of treating it as statistics', async () => {
+    const callApi = vi.fn(async (message: { type: string }) => {
+      if (message.type === 'history/history_during_period') return { 'binary_sensor.porta': [] };
+      return null;
+    });
+    render(
+      <PanelServicesProvider value={{ callApi: callApi as never, callService: vi.fn() }}>
+        <SensorFamilyPanel entityId="binary_sensor.porta" name="Porta" onClose={vi.fn()} haStates={{ 'binary_sensor.porta': entity('off', { device_class: 'door' }) }} />
+      </PanelServicesProvider>,
+    );
+    fireEvent.click(await screen.findByRole('radio', { name: '7 giorni' }).catch(() => screen.getByRole('button', { name: '7 giorni' })));
+    await waitFor(() => {
+      const request = callApi.mock.calls.map(([message]) => message as { type: string; start_time?: string }).find((message) =>
+        message.type === 'history/history_during_period' && Date.parse(message.start_time ?? '') < Date.now() - 6 * 86_400_000,
+      );
+      expect(request).toBeTruthy();
+    });
+    expect(callApi.mock.calls.some(([message]) => (message as { type: string }).type === 'recorder/statistics_during_period')).toBe(false);
+  });
+
+  it('starts a long-term battery at six months and offers one year', async () => {
+    const now = Date.now();
+    const callApi = vi.fn(async (message: { type: string }) => {
+      if (message.type === 'recorder/statistics_during_period') return { 'sensor.battery': [{ start: now - 86_400_000, mean: 82 }] };
+      return null;
+    });
+    render(
+      <PanelServicesProvider value={{ callApi: callApi as never, callService: vi.fn() }}>
+        <SensorFamilyPanel entityId="sensor.battery" name="Batteria" onClose={vi.fn()} haStates={{ 'sensor.battery': entity('82', { device_class: 'battery', unit_of_measurement: '%', state_class: 'measurement' }) }} />
+      </PanelServicesProvider>,
+    );
+    expect(await screen.findByRole('radio', { name: '6 mesi' }).catch(() => screen.getByRole('button', { name: '6 mesi' }))).toBeTruthy();
+    expect(screen.getByRole('radio', { name: '1 anno' })).toBeTruthy();
+    await waitFor(() => expect(callApi).toHaveBeenCalledWith(expect.objectContaining({ type: 'recorder/statistics_during_period' }), expect.anything()));
+    const first = callApi.mock.calls.map(([message]) => message as { type: string; start_time?: string }).find((message) => message.type === 'recorder/statistics_during_period');
+    expect(Date.parse(first?.start_time ?? '')).toBeLessThan(now - 180 * 86_400_000);
+  });
+
+  it('shows actual automations using light and price sensors, never placeholder relations', () => {
+    panel('sensor.lux', {
+      'sensor.lux': entity('320', { device_class: 'illuminance', unit_of_measurement: 'lx' }),
+      'automation.luce': entity('on', { friendly_name: 'Accensione ingresso', target: { entity_id: 'sensor.lux' } }),
+    });
+    expect(screen.getByText('Usata da')).toBeTruthy();
+    expect(screen.getByText('Accensione ingresso')).toBeTruthy();
+    cleanup();
+    panel('sensor.prezzo', {
+      'sensor.prezzo': entity('0.22', { device_class: 'monetary', unit_of_measurement: 'â‚¬/kWh' }),
+      'automation.ricarica': entity('on', { friendly_name: 'Ricarica economica', watched: ['sensor.prezzo'] }),
+    });
+    expect(screen.getByText('Dispositivi che seguono il prezzo')).toBeTruthy();
+    expect(screen.getByText('Ricarica economica')).toBeTruthy();
+  });
+
+  it('shows reminders and linked devices only when the registry proves the relation', async () => {
+    const callApi = vi.fn(async (message: { type: string }) => {
+      if (message.type === 'config/entity_registry/list') return [
+        { entity_id: 'sensor.prossimo', device_id: 'dev-1' },
+        { entity_id: 'calendar.famiglia', device_id: 'dev-1', name: 'Calendario famiglia' },
+        { entity_id: 'binary_sensor.movimento', device_id: 'dev-2' },
+        { entity_id: 'light.corridoio', device_id: 'dev-2', name: 'Luce corridoio' },
+      ];
+      if (message.type === 'config/device_registry/list' || message.type === 'config/area_registry/list') return [];
+      if (message.type === 'history/history_during_period') return {};
+      return null;
+    });
+    const services = { callApi: callApi as never, callService: vi.fn() };
+    render(
+      <PanelServicesProvider value={services}>
+        <SensorFamilyPanel
+          entityId="sensor.prossimo"
+          name="Prossimo evento"
+          onClose={vi.fn()}
+          haStates={{
+            'sensor.prossimo': entity(new Date(Date.now() + 3_600_000).toISOString(), { device_class: 'timestamp' }),
+            'calendar.famiglia': entity('on', { friendly_name: 'Calendario famiglia' }),
+          }}
+        />
+      </PanelServicesProvider>,
+    );
+    expect(await screen.findByText('Promemoria')).toBeTruthy();
+    expect(screen.getByText('Calendario famiglia')).toBeTruthy();
+    cleanup();
+    render(
+      <PanelServicesProvider value={services}>
+        <SensorFamilyPanel
+          entityId="binary_sensor.movimento"
+          name="Movimento"
+          onClose={vi.fn()}
+          haStates={{
+            'binary_sensor.movimento': entity('off', { device_class: 'motion' }),
+            'light.corridoio': entity('off', { friendly_name: 'Luce corridoio' }),
+          }}
+        />
+      </PanelServicesProvider>,
+    );
+    expect(await screen.findByText('Collegato a')).toBeTruthy();
+    expect(screen.getByText('Luce corridoio')).toBeTruthy();
   });
 
   it('shows every phase of a word, and the batteries of the house', () => {

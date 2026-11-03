@@ -415,6 +415,9 @@ export function ContextSidebar({
         lamp,
         climate,
         cover,
+        camera,
+        speaker,
+        lock,
         coverIsReadOnly,
         haStates,
         actions,
@@ -447,6 +450,7 @@ export function ContextSidebar({
           ? parseWasteTypeStyles(resolveEntityStateById(haStates, activeDevice.calendarEntityId ?? '')?.rawAttributes?.[WASTE_TYPES_ATTRIBUTE])
           : undefined,
         onConfigureWaste: onNavigateMicroWidgetPage ? () => onNavigateMicroWidgetPage('/settings/home/waste-collection') : undefined,
+        panelCommandsEnabled: commandsEnabled && !isEditMode,
         embedded: externalScrollContainer,
         onClose: onClose ?? (() => undefined),
       }
@@ -567,7 +571,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'camera' ? (
+      {activeDevice?.type === 'camera' && !homePanel ? (
         <CameraControls
           name={activeDevice.name}
           status={camera.status ?? activeDevice.status}
@@ -591,7 +595,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'media' ? (
+      {activeDevice?.type === 'media' && !homePanel ? (
         <MediaControls
           name={activeDevice.name}
           status={activeDevice.status}
@@ -687,7 +691,7 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'lock' ? (
+      {activeDevice?.type === 'lock' && !homePanel ? (
         <LockControls
           lock={{ ...lock, name: activeDevice.name }}
           onLock={actions.lockDoor}

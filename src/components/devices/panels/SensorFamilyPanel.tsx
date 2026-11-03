@@ -98,6 +98,8 @@ const PERIOD_WORDS: Record<SensorPanelPeriod, { label: PanelsTranslationKey; tit
   '24h': { label: 'sn24h', title: 'snLast24h' },
   '7d': { label: 'sn7d', title: 'snLast7d' },
   '30d': { label: 'sn30d', title: 'snLast30d' },
+  '6mo': { label: 'sn6mo', title: 'snLast6mo' },
+  '1y': { label: 'sn1y', title: 'snLast1y' },
 };
 
 const clock = (time: number, locale: string) => new Date(time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
@@ -107,14 +109,20 @@ const formatNumber = (value: number, locale: string, decimals?: number) =>
 
 type BlockRow = { key: string; label: string; value: string; note?: string; color?: string };
 
+function containsEntityReference(value: unknown, entityId: string, depth = 0): boolean {
+  if (depth > 4) return false;
+  if (typeof value === 'string') return value === entityId || value.split(/[\s,]+/).includes(entityId);
+  if (Array.isArray(value)) return value.some((entry) => containsEntityReference(entry, entityId, depth + 1));
+  if (!value || typeof value !== 'object') return false;
+  return Object.values(value as Record<string, unknown>).some((entry) => containsEntityReference(entry, entityId, depth + 1));
+}
+
 export function SensorFamilyPanel({ entityId, name, history, haStates, embedded = false, live, stale = false, onClose }: SensorFamilyPanelProps) {
   const dt = useSensorFamilyTranslations();
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
   const services = usePanelServices();
   const registry = useEntityRegistry();
-  const [period, setPeriod] = useState<SensorPanelPeriod>('24h');
-  const [moreOpen, setMoreOpen] = useState(false);
   const now = Date.now();
   const entity = haStates[entityId];
 
@@ -122,6 +130,10 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   const batteryValue = batteryId ? Number(haStates[batteryId]?.state) : Number.NaN;
   const battery = Number.isFinite(batteryValue) ? batteryValue : null;
   const model = toFamilySensorModel(entityId, entity, { name, battery });
+  const [period, setPeriod] = useState<SensorPanelPeriod>(() =>
+    model ? periodsOf(model.family, model.attributes, false)[0] ?? '24h' : '24h',
+  );
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const fallback = useMemo<SeriesPoint[]>(() => {
     const values = history ?? [];
@@ -129,7 +141,8 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
     // Drawn once from what the card had when the panel opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [history]);
-  const series = useSensorSeries(entityId, period, fallback);
+  const historyPeriods = Boolean(model && ['opening', 'motion', 'safety', 'device'].includes(model.family));
+  const series = useSensorSeries(entityId, period, fallback, { historyPeriods });
   const house = useMemo(() => buildSensorHouse(haStates), [haStates]);
 
   const rule = model ? thresholdRuleOf(model.family, model.deviceClass, model.unit) : null;
@@ -140,7 +153,7 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
 
   const periods = model ? periodsOf(model.family, model.attributes, series.statisticsMissing) : (['24h'] as SensorPanelPeriod[]);
   useEffect(() => {
-    if (!periods.includes(period)) setPeriod('24h');
+    if (!periods.includes(period)) setPeriod(periods[0] ?? '24h');
   }, [period, periods]);
 
   if (!model) return null;
@@ -195,7 +208,8 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
 
   /* ---- The chart ---- */
   const dayStart = startOfDay(now);
-  const dayLength = now - dayStart || 1;
+  const timelineStart = period === '7d' && historyPeriods ? now - 7 * 86_400_000 : dayStart;
+  const timelineLength = now - timelineStart || 1;
   const longPeriod = period !== '24h';
   const usesChange = model.family === 'water' || (model.family === 'energy' && model.deviceClass !== 'power');
   const linePoints = longPeriod ? statisticsToPoints(series.rows) : series.points;
@@ -206,7 +220,13 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   const bars = chart !== 'bars'
     ? []
     : model.family === 'motion'
-      ? hourlyYes(series.changes, now)
+      ? period === '7d'
+        ? Array.from({ length: 7 }, (_, index) => {
+            const from = now - (7 - index) * 86_400_000;
+            const to = from + 86_400_000;
+            return series.changes.filter((change) => change.state === 'on' && change.t >= from && change.t < to).length;
+          })
+        : hourlyYes(series.changes, now)
       : longPeriod
         ? dailyBars(series.rows, (row) => (usesChange ? row.change : row.mean), usesChange ? 'sum' : 'mean')
         : usesChange
@@ -219,10 +239,10 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   const dayChanges = series.changes.length > 0
     ? series.changes
     : model.changedAt !== null ? [{ t: model.changedAt, state: model.state.toLowerCase() }] : [];
-  const yesParts = chart === 'strip' && isYesNo ? yesSpans(dayChanges, dayStart, now) : [];
+  const yesParts = chart === 'strip' && isYesNo ? yesSpans(dayChanges, timelineStart, now) : [];
   const yesTotal = yesParts.reduce((sum, part) => sum + (part.end - part.start), 0);
   const wordParts = chart === 'strip' && !isYesNo && model.family === 'state'
-    ? series.changes.map((change, index) => ({ start: Math.max(change.t, dayStart), end: series.changes[index + 1]?.t ?? now, state: change.state })).filter((part) => part.end > dayStart)
+    ? series.changes.map((change, index) => ({ start: Math.max(change.t, timelineStart), end: series.changes[index + 1]?.t ?? now, state: change.state })).filter((part) => part.end > timelineStart)
     : [];
   const wordsSeen = [...new Set(wordParts.map((part) => part.state))];
 
@@ -240,10 +260,10 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   const coordinates = linePoints.map((point) => `${(((point.t - t0) / timeSpan) * 100).toFixed(2)},${yOf(point.v).toFixed(2)}`);
 
   const hasChart = chart === 'line' ? linePoints.length > 1 : chart === 'bars' ? bars.some((value) => value > 0) : yesParts.length > 0 || wordParts.length > 0;
-  const chartTitle = chart === 'strip' ? pt('snToday') : pt(PERIOD_WORDS[period].title);
-  const axis = chart === 'strip' || period === '24h'
+  const chartTitle = chart === 'strip' && period === '24h' ? pt('snToday') : pt(PERIOD_WORDS[period].title);
+  const axis = period === '24h'
     ? ['0:00', '6:00', '12:00', '18:00', pt('snNowWord')]
-    : period === '7d' ? [pt('sn7d'), pt('snNowWord')] : [pt('sn30d'), pt('snNowWord')];
+    : [pt(PERIOD_WORDS[period].label), pt('snNowWord')];
   const figures: Array<[string, string]> = chart === 'line'
     ? stats
       ? [[dt('statMin'), withUnit(longMin ?? stats.min)], [dt('statMax'), withUnit(longMax ?? stats.max)], [dt('statAvg'), withUnit(stats.avg)]]
@@ -262,6 +282,23 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   const scale = scaleOf(model.family, model.deviceClass, model.unit, model.value, 3.3);
 
   const rowsOf = (): { title: string; rows: BlockRow[] } | null => {
+    const currentRegistry = registry?.registryEntities.find((entry) => entry.entityId === entityId);
+    const sameDevice = currentRegistry?.deviceId
+      ? registry?.registryEntities.filter((entry) => entry.entityId !== entityId && entry.deviceId === currentRegistry.deviceId) ?? []
+      : [];
+    const relatedRows = sameDevice.flatMap((entry) => {
+      const relatedState = haStates[entry.entityId];
+      if (!relatedState) return [];
+      return [{
+        key: entry.entityId,
+        label: String(relatedState.rawAttributes?.friendly_name ?? entry.name ?? entry.originalName ?? entry.entityId),
+        value: String(relatedState.state ?? ''),
+      }];
+    }).slice(0, 6);
+    const automationRows = Object.entries(haStates)
+      .filter(([id, state]) => id.startsWith('automation.') && containsEntityReference(state.rawAttributes, entityId))
+      .map(([id, state]) => ({ key: id, label: String(state.rawAttributes?.friendly_name ?? id), value: String(state.state ?? '') }))
+      .slice(0, 6);
     const roomRows = (): BlockRow[] => [
       ...house.rows
         .filter((row) => row.entityId !== entityId && row.available && (row.family === 'temperature' || row.family === 'humidity') && area !== null && registry?.entityAreaByEntityId[row.entityId] === area)
@@ -284,6 +321,8 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
         const rows = housePowers(house, entityId).slice(0, 5).map(({ row, kw }) => ({ key: row.entityId, label: row.name, value: kw < 1 ? `${Math.round(kw * 1000)} W` : `${formatNumber(kw, locale, 1)} kW` }));
         return rows.length > 0 ? { title: pt('snWhoUses'), rows } : null;
       }
+      case 'light':
+        return automationRows.length > 0 ? { title: pt('snUsedBy'), rows: automationRows } : null;
       case 'battery': {
         const rows = houseBatteries(house)
           .filter((row) => row.entityId !== entityId)
@@ -312,6 +351,15 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
         }));
         return rows.length > 0 ? { title: pt('snPhases'), rows } : null;
       }
+      case 'time': {
+        const reminders = relatedRows.filter((row) => row.key.startsWith('calendar.') || row.key.startsWith('todo.') || row.key.startsWith('automation.'));
+        const rows = reminders.length > 0 ? reminders : automationRows;
+        return rows.length > 0 ? { title: pt('snReminders'), rows } : null;
+      }
+      case 'price':
+        return automationRows.length > 0 ? { title: pt('snPriceFollowers'), rows: automationRows } : null;
+      case 'motion':
+        return relatedRows.length > 0 ? { title: pt('snLinkedTo'), rows: relatedRows } : null;
       case 'opening': {
         const rows = [...yesParts].reverse().slice(0, 5).map((part) => ({
           key: String(part.start),
@@ -436,14 +484,14 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
             ) : (
               <div className="dv-pn-strip" role="img" aria-label={chartTitle} data-testid="sensor-panel-strip">
                 {yesParts.map((part) => (
-                  <i key={part.start} style={{ left: `${((part.start - dayStart) / dayLength) * 100}%`, width: `${((part.end - part.start) / dayLength) * 100}%` }} />
+                  <i key={part.start} style={{ left: `${((part.start - timelineStart) / timelineLength) * 100}%`, width: `${((part.end - part.start) / timelineLength) * 100}%` }} />
                 ))}
                 {wordParts.map((part) => (
                   <i
                     key={part.start}
                     style={{
-                      left: `${((part.start - dayStart) / dayLength) * 100}%`,
-                      width: `${((part.end - part.start) / dayLength) * 100}%`,
+                      left: `${((part.start - timelineStart) / timelineLength) * 100}%`,
+                      width: `${((part.end - part.start) / timelineLength) * 100}%`,
                       opacity: 0.4 + (0.6 * (wordsSeen.indexOf(part.state) + 1)) / wordsSeen.length,
                     }}
                   />

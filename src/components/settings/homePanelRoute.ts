@@ -6,6 +6,8 @@ import type { VacuumPanelCommands, VacuumPanelModel } from '../devices/panels/Va
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import type { WasteTypeStyleMap } from '../../services/calendarClient';
 import type { VacuumMappedArea } from '../widgets/vacuumDeviceModel';
+import type { LockPanelData } from './lockPanelTypes';
+import type { CameraPanelModel, CameraRelatedAction } from '../devices/panels/CameraPanel';
 import type { ActiveDevice } from './types';
 
 /*
@@ -24,8 +26,13 @@ export type HomeLamp = {
   supportsBrightness?: boolean;
   supportsColorTemp?: boolean;
   supportsColor?: boolean;
+  supportsWhite?: boolean;
+  supportsEffects?: boolean;
+  supportsFlash?: boolean;
   minColorTempKelvin?: number;
   maxColorTempKelvin?: number;
+  effect?: string;
+  effectList?: string[];
 };
 
 export type HomeClimate = {
@@ -42,10 +49,25 @@ export type HomeClimate = {
   fanMode?: string;
   fanModes?: string[];
   currentHumidity?: number;
+  targetHumidity?: number;
+  minHumidity?: number;
+  maxHumidity?: number;
+  targetHumidityStep?: number;
   presetMode?: string;
   presetModes?: string[];
   swingMode?: string;
   swingModes?: string[];
+  swingHorizontalMode?: string;
+  swingHorizontalModes?: string[];
+  supportsTargetHumidity?: boolean;
+  supportsSwingHorizontalMode?: boolean;
+};
+
+export type HomeSpeaker = {
+  status: string;
+  coverUrl?: string;
+  rawAttributes?: Record<string, unknown>;
+  multiroomDevices?: Array<{ id: string; name: string; subtitle?: string; grouped?: boolean }>;
 };
 
 export type HomeCover = {
@@ -61,6 +83,9 @@ export type HomePanelActions = {
   setLampBrightness: (value: number) => void;
   setLampColorTemp: (kelvin: number) => void;
   setLampHsColor: (hs: [number, number]) => void;
+  setLampWhite: (value: number) => void;
+  setLampEffect: (effect: string) => void;
+  flashLamp: (mode: 'short' | 'long') => void;
   toggleClimatePower: () => void;
   setClimateMode?: (mode: string) => void;
   setClimateTargetTemp?: (value: number) => void;
@@ -68,6 +93,9 @@ export type HomePanelActions = {
   setClimateFanMode?: (mode: string) => void;
   setClimatePresetMode?: (mode: string) => void;
   setClimateSwingMode?: (mode: string) => void;
+  setClimateTargetHumidity?: (value: number) => void;
+  setClimateSwingHorizontalMode?: (mode: string) => void;
+  autoAdjustClimate: () => void;
   toggleSwitch: () => void;
   toggleFan: () => void;
   setFanPercentage: (percentage: number) => void;
@@ -82,6 +110,24 @@ export type HomePanelActions = {
   stopCover?: () => void;
   setCoverPosition?: (position: number) => void;
   setCoverTiltPosition?: (position: number) => void;
+  lockDoor: (code?: string) => void;
+  unlockDoor: (code?: string) => boolean | void;
+  openDoor: (code?: string) => void;
+  toggleSpeakerPlayback: () => void;
+  toggleSpeakerPower: () => void;
+  previousSpeakerTrack: () => void;
+  nextSpeakerTrack: () => void;
+  seekSpeakerPosition: (position: number) => void;
+  setSpeakerVolume: (value: number) => void;
+  toggleSpeakerMute: () => void;
+  toggleSpeakerShuffle: () => void;
+  cycleSpeakerRepeatMode: () => void;
+  selectSpeakerSoundMode?: (mode: string) => void;
+  selectSpeakerOutputDevice: (source: string) => void;
+  toggleSpeakerGroupMember: (entityId: string, joined: boolean) => void;
+  moveCameraPtz?: (direction: import('../camera/CameraPtzJoystick').CameraPtzDirection) => void;
+  stopCameraPtz?: () => void;
+  runCameraRelatedEntityAction?: (request: CameraRelatedAction) => boolean | void | Promise<boolean | void>;
 };
 
 export type HomePanelProps = {
@@ -89,6 +135,9 @@ export type HomePanelProps = {
   lamp: HomeLamp;
   climate: HomeClimate;
   cover: HomeCover;
+  camera: CameraPanelModel;
+  speaker: HomeSpeaker;
+  lock: LockPanelData;
   /** The cover opens a way into the house and this person may not command it. */
   coverIsReadOnly: boolean;
   haStates: MockEntityStateMap;
@@ -102,6 +151,8 @@ export type HomePanelProps = {
   calendarAgenda: CalendarAgendaController;
   calendarWasteTypes?: WasteTypeStyleMap;
   onConfigureWaste?: () => void;
+  /** Commands are hidden while the real editor is configuring the card. */
+  panelCommandsEnabled: boolean;
   /** The sheet of a phone has its own title and Close. */
   embedded: boolean;
   onClose: () => void;
@@ -124,10 +175,32 @@ export function homePanelOf(props: HomePanelProps) {
   const { activeDevice, coverIsReadOnly, haStates } = props;
   const { panel } = resolvePanel(activeDevice.type as DeviceKind);
   if (panel === 'light' || panel === 'climate' || panel === 'alarm' || panel === 'vacuum' || panel === 'calendar' || panel === 'members') return panel;
+  if (panel === 'security') return homeLiveEntityId(props, 'lock') ? panel : null;
+  if (panel === 'camera') return props.camera.entityId && homeEntityOf(haStates, props.camera.entityId) ? panel : null;
+  if (panel === 'media') return homeLiveEntityId(props, 'media_player') ? panel : null;
   if (panel === 'sensor') return homeEntityOf(haStates, activeDevice.sensorEntityId) ? panel : null;
   if (panel !== 'device') return null;
   if (activeDevice.type === 'cover') return coverIsReadOnly ? null : panel;
   const entityId = homeDeviceEntityId(props);
   if (!entityId || !homeEntityOf(haStates, entityId)) return null;
   return resolvePanel(resolveDeviceKind(entityId)).panel === 'device' ? panel : null;
+}
+
+/** Finds the real HA entity behind cards whose widget id is not the entity id. */
+export function homeLiveEntityId(props: HomePanelProps, domain: 'lock' | 'media_player') {
+  const direct = props.activeDevice.id.startsWith(`${domain}.`) ? props.activeDevice.id : null;
+  if (direct && homeEntityOf(props.haStates, direct)) return direct;
+  const attributes = domain === 'lock' ? props.lock.rawAttributes : props.speaker.rawAttributes;
+  if (attributes) {
+    const bySameAttributes = Object.keys(props.haStates).find(
+      (entityId) => entityId.startsWith(`${domain}.`) && props.haStates[entityId]?.rawAttributes === attributes,
+    );
+    if (bySameAttributes) return bySameAttributes;
+  }
+  const expectedName = props.activeDevice.name.trim();
+  return Object.keys(props.haStates).find(
+    (entityId) =>
+      entityId.startsWith(`${domain}.`) &&
+      `${props.haStates[entityId]?.rawAttributes?.friendly_name ?? ''}`.trim() === expectedName,
+  ) ?? null;
 }

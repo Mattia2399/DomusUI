@@ -3,6 +3,15 @@ import { parseHaDeviceRegistry, parseHaEntityRegistry, type HaEntityRegistryEntr
 import { parseStateHistory, type StateChange } from '../model/security';
 import { parseHistoryPoints, type SeriesPoint } from '../model/sensor';
 import { parseStatistics, statisticsQuery, type SensorPanelPeriod, type StatisticPoint } from '../model/sensorPanel';
+import {
+  buildPlugEnergy,
+  readPlugTariff,
+  statisticRows,
+  statisticsRequest,
+  type EnergySource,
+  type PlugEnergy,
+  type PlugTariff,
+} from '../model/plugEnergy';
 import { usePanelServices, type PanelApiCall } from './panelServicesContext';
 
 /* What the panels read from Home Assistant beyond the states the Home already has. */
@@ -73,7 +82,12 @@ export type SensorSeries = {
 };
 
 /** The history of the last 24 hours, or the statistics of a longer period. */
-export function useSensorSeries(entityId: string, period: SensorPanelPeriod, fallback: SeriesPoint[]): SensorSeries {
+export function useSensorSeries(
+  entityId: string,
+  period: SensorPanelPeriod,
+  fallback: SeriesPoint[],
+  options: { historyPeriods?: boolean } = {},
+): SensorSeries {
   const callApi = usePanelServices()?.callApi;
   const [series, setSeries] = useState<SensorSeries>({ points: fallback, changes: [], rows: [], loading: Boolean(callApi), statisticsMissing: false });
 
@@ -83,14 +97,15 @@ export function useSensorSeries(entityId: string, period: SensorPanelPeriod, fal
     setSeries((current) => ({ ...current, loading: true }));
     const now = Date.now();
     const read = async () => {
-      if (period !== '24h') {
+      if (period !== '24h' && !options.historyPeriods) {
         const rows = parseStatistics(await callApi(statisticsQuery(entityId, period, now), { reportError: false }), entityId);
         if (alive) setSeries((current) => ({ ...current, rows, loading: false, statisticsMissing: rows.length === 0 }));
         return;
       }
+      const historyDays = period === '7d' ? 7 : 1;
       const payload = await callApi({
         type: 'history/history_during_period',
-        start_time: new Date(now - 24 * 3_600_000).toISOString(),
+        start_time: new Date(now - historyDays * 24 * 3_600_000).toISOString(),
         end_time: new Date(now).toISOString(),
         entity_ids: [entityId],
         include_start_time_state: true,
@@ -116,7 +131,89 @@ export function useSensorSeries(entityId: string, period: SensorPanelPeriod, fal
     };
     // The fallback is a copy of what the card already had: it does not ask again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [callApi, entityId, period]);
+  }, [callApi, entityId, options.historyPeriods, period]);
 
   return series;
+}
+
+/** The state changes of a lock. It is read-only and starts only for a real id. */
+export function useSecurityHistory(entityId: string | null) {
+  const callApi = usePanelServices()?.callApi;
+  const [history, setHistory] = useState<StateChange[]>([]);
+  useEffect(() => {
+    if (!callApi || !entityId) {
+      setHistory([]);
+      return undefined;
+    }
+    let alive = true;
+    const now = Date.now();
+    void callApi({
+      type: 'history/history_during_period',
+      start_time: new Date(now - 24 * 3_600_000).toISOString(),
+      end_time: new Date(now).toISOString(),
+      entity_ids: [entityId],
+      include_start_time_state: true,
+      significant_changes_only: false,
+      minimal_response: true,
+      no_attributes: true,
+    }, { reportError: false }).then((payload) => {
+      if (alive) setHistory(parseStateHistory(payload, entityId));
+    }).catch(() => {
+      if (alive) setHistory([]);
+    });
+    return () => { alive = false; };
+  }, [callApi, entityId]);
+  return history;
+}
+
+export type PanelPlugEnergyState = { energy: PlugEnergy | null; tariff: 'set' | 'missing' | 'unknown' };
+const EMPTY_ENERGY: PanelPlugEnergyState = { energy: null, tariff: 'unknown' };
+
+/** Actual recorder statistics for a Home plug; nothing is synthesized or stored. */
+export function usePanelPlugEnergy(source: EnergySource | null): PanelPlugEnergyState {
+  const callApi = usePanelServices()?.callApi;
+  const id = source?.statisticId ?? '';
+  const kind = source?.kind ?? 'energy';
+  const [state, setState] = useState<PanelPlugEnergyState & { id: string }>({ ...EMPTY_ENERGY, id: '' });
+  useEffect(() => {
+    if (!callApi || !id) return undefined;
+    let alive = true;
+    const load = async () => {
+      const now = new Date();
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const recent = new Date(Math.max(midnight.getTime(), now.getTime() - 3_600_000));
+      recent.setMinutes(0, 0, 0);
+      const meter: EnergySource = { statisticId: id, kind };
+      const ask = (message: Record<string, unknown>) => callApi(message, { reportError: false }).catch(() => null);
+      const [hours, fiveMinutes, days, energyState] = await Promise.all([
+        ask(statisticsRequest(meter, 'hour', midnight, now)),
+        ask(statisticsRequest(meter, '5minute', recent, now)),
+        monthStart < midnight ? ask(statisticsRequest(meter, 'day', monthStart, midnight)) : Promise.resolve({ [id]: [] }),
+        ask({ type: 'domusos/energy/get_state' }),
+      ]);
+      if (!alive) return;
+      const tariff: PlugTariff | null | undefined = readPlugTariff(energyState);
+      const hourRows = statisticRows(hours, id);
+      const recentRows = statisticRows(fiveMinutes, id);
+      const energy = hours === null || (hourRows.length === 0 && recentRows.length === 0)
+        ? null
+        : buildPlugEnergy({
+            kind,
+            hourRows,
+            fiveMinuteRows: recentRows,
+            dayRows: days === null ? null : statisticRows(days, id),
+            tariff: tariff ?? null,
+            now,
+          });
+      setState({ id, energy, tariff: tariff ? 'set' : tariff === null ? 'missing' : 'unknown' });
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 5 * 60_000);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [callApi, id, kind]);
+  return state.id === id ? { energy: state.energy, tariff: state.tariff } : EMPTY_ENERGY;
 }
