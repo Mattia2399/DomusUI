@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-test('production keeps the legacy editor until the user explicitly activates Home 2.0', async ({ page }) => {
+test('production opens the standard Grid Engine 2 editor without feature flags', async ({ page }) => {
   await page.addInitScript(() => {
     if (localStorage.getItem('__gridEngine2ProductionCutover') === 'installed') return;
     localStorage.clear();
@@ -18,9 +18,9 @@ test('production keeps the legacy editor until the user explicitly activates Hom
   await page.getByRole('button', { name: 'Attiva', exact: true }).click();
   await page.waitForSelector('.sections-grid.is-editing');
 
-  await expect(page.locator('[data-grid-engine-editor]')).toHaveCount(0);
-  await expect(page.getByTestId('grid-engine-2-editor-status')).toHaveCount(0);
-  await expect(page.locator('.sections-grid.grid-engine-2-root-renderer')).toHaveCount(0);
+  await expect(page.locator('[data-grid-engine-editor="active"]')).toBeVisible();
+  await expect(page.getByTestId('grid-engine-2-editor-status')).toBeVisible();
+  await expect(page.locator('.sections-grid.grid-engine-2-root-renderer')).toBeVisible();
 });
 
 test('production explicitly activates, saves, and reloads a Grid Engine 2.0 Home', async ({ page }) => {

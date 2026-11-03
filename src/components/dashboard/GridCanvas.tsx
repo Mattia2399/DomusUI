@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Responsive, type ResponsiveLayouts } from 'react-grid-layout/legacy';
 import {
+  GripVertical,
   Settings2,
   MoreHorizontal,
 } from 'lucide-react';
@@ -73,7 +74,7 @@ import {
   stabilizeRootRuntimeCollisions,
 } from './gridEngine2/gridEngineRootRuntimeLayout';
 import { GRID_ENGINE_2_RENDERER_ENABLED } from './gridEngine2/rendererFeatureFlag';
-import { GRID_ENGINE_2_EDITOR_ENABLED } from './gridEngine2/editorFeatureFlag';
+import { GRID_ENGINE_2_STANDARD_EDITOR_ENABLED } from './gridEngine2/editorFeatureFlag';
 import {
   createGridEngineEditorResizeOverride,
   prepareGridEngineEditorLayout,
@@ -234,7 +235,7 @@ type GridCanvasProps = {
     breakpoint: GridBreakpoint,
     next: WidgetTypeBreakpointLayoutOverride,
   ) => void;
-  onExperimentalGridEngine2Commit: (commit: Readonly<{
+  onGridEngine2Commit: (commit: Readonly<{
     breakpoint: DashboardGridBreakpoint;
     origin: GridEngineEditorGeometryOrigin;
   }>) => void;
@@ -258,6 +259,7 @@ function GridEngineEditorInteractionLayer({
   selected,
   canResize,
   gesture,
+  useTouchDragHandle,
   onSelect,
   onOpenSettings,
   settingsLabel,
@@ -268,8 +270,9 @@ function GridEngineEditorInteractionLayer({
   selected: boolean;
   canResize: boolean;
   gesture: GridEngineEditorGestureController;
+  useTouchDragHandle: boolean;
   onSelect: () => void;
-  /** On a phone the settings open only from here: a touch selects, a long press lifts. */
+  /** On a phone the settings open only from here; the drag handle lifts the card. */
   onOpenSettings?: () => void;
   settingsLabel?: string;
   onKeyDown: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
@@ -293,6 +296,12 @@ function GridEngineEditorInteractionLayer({
         style={{ touchAction: 'pan-y' }}
         onPointerDown={(event) => {
           event.stopPropagation();
+          // On compact touch layouts the card remains a native vertical-pan
+          // surface. The dedicated handle below owns drag gestures with
+          // touch-action:none from the very first pointerdown; attempting to
+          // change this surface after the long press would be too late for the
+          // browser's touch-action negotiation.
+          if (useTouchDragHandle && event.pointerType === 'touch') return;
           gesture.onDragPointerDown(id, event);
         }}
         onContextMenu={(event) => event.preventDefault()}
@@ -310,6 +319,26 @@ function GridEngineEditorInteractionLayer({
           onKeyDown(event);
         }}
       />
+      {useTouchDragHandle && selected ? (
+        <button
+          type="button"
+          data-grid-engine-editor-drag={id}
+          aria-label={`Trascina ${label}`}
+          title="Tieni premuto e trascina"
+          className="grid-editor-chip absolute left-0 top-0 z-40 touch-none"
+          style={{ touchAction: 'none' }}
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            gesture.onDragPointerDown(id, event);
+          }}
+          onLostPointerCapture={gesture.onLostPointerCapture}
+        >
+          <span aria-hidden="true">
+            <GripVertical className="h-4 w-4" />
+          </span>
+        </button>
+      ) : null}
       {onOpenSettings && selected && !lifted ? (
         <button
           type="button"
@@ -1341,7 +1370,7 @@ export function GridCanvas({
   onSectionsLayoutChange,
   onRootBreakpointLayoutChange,
   onWidgetBreakpointLayoutOverrideChange,
-  onExperimentalGridEngine2Commit,
+  onGridEngine2Commit,
   onStackBreakpointLayoutChange,
   onAddWidget,
   onAddSection,
@@ -1386,7 +1415,9 @@ export function GridCanvas({
   const [keyboardLayoutAnnouncement, setKeyboardLayoutAnnouncement] = useState('');
   const [gridEngine2EditorMode, setGridEngine2EditorMode] = useState<GridLayoutMode>('manual');
   const [gridEngine2EditorError, setGridEngine2EditorError] = useState<string | null>(null);
-  const gridEngine2EditorRequested = isEditMode && (gridEngine2Active || GRID_ENGINE_2_EDITOR_ENABLED);
+  const gridEngine2EditorRequested = isEditMode && (
+    gridEngine2Active || GRID_ENGINE_2_STANDARD_EDITOR_ENABLED
+  );
   const gridEngine2OwnsGeometry = gridEngine2Active || gridEngine2EditorRequested;
   useEffect(
     () => () => {
@@ -2857,9 +2888,12 @@ export function GridCanvas({
   const commitGridEngine2EditorPreview = useCallback((preview: GridGesturePreview) => {
     if (!gridEngine2EditorReady) return;
     let solverOutput = preview.output;
+    const isDirectHorizontalSwap = preview.intent.type === 'REORDER' &&
+      preview.intent.strategy === 'SWAP';
     if (
       preview.mode === 'automatic' &&
-      (preview.intent.type === 'MOVE' || preview.intent.type === 'REORDER')
+      (preview.intent.type === 'MOVE' || preview.intent.type === 'REORDER') &&
+      !isDirectHorizontalSwap
     ) {
       try {
         // During the gesture Automatic keeps the active card fixed so it can
@@ -2923,7 +2957,7 @@ export function GridCanvas({
       }
     }
     commitCanonicalRootLayout(committed, true);
-    onExperimentalGridEngine2Commit({
+    onGridEngine2Commit({
       breakpoint: gridEngineActiveBreakpoint,
       origin: gridEngine2EditorPreparation.status === 'ready'
         ? gridEngine2EditorPreparation.origin
@@ -2936,7 +2970,7 @@ export function GridCanvas({
     gridEngine2EditorPreparation,
     gridEngineActiveBreakpoint,
     gridEngineActiveCols,
-    onExperimentalGridEngine2Commit,
+    onGridEngine2Commit,
     onRootBreakpointLayoutChange,
     onSelectSection,
     onSelectWidget,
@@ -3934,7 +3968,10 @@ export function GridCanvas({
             data-grid-engine-editor-mode={gridEngine2EditorReady ? gridEngine2EditorMode : undefined}
             data-grid-engine-editor-operation={
               gridEngine2EditorReady
-                ? gridEngine2EditorGesture.state.preview?.intent.type
+                ? gridEngine2EditorGesture.state.preview?.intent.type === 'REORDER' &&
+                  gridEngine2EditorGesture.state.preview.intent.strategy === 'SWAP'
+                    ? 'SWAP'
+                    : gridEngine2EditorGesture.state.preview?.intent.type
                 : undefined
             }
             data-grid-engine-editor-fallback={
@@ -4250,6 +4287,7 @@ export function GridCanvas({
                         selected={selectedSectionId === section.id}
                         canResize={false}
                         gesture={gridEngine2EditorGesture}
+                        useTouchDragHandle={isCompactEditCardMenuMode}
                         onSelect={() => {
                           onHoldEditSheet?.();
                           onSelectSection(section.id);
@@ -4476,6 +4514,7 @@ export function GridCanvas({
                         selected={selectedWidgetId === widget.id}
                         canResize
                         gesture={gridEngine2EditorGesture}
+                        useTouchDragHandle={isCompactEditCardMenuMode}
                         onSelect={() => {
                           onHoldEditSheet?.();
                           onSelectWidget(widget.id);

@@ -5,7 +5,7 @@ import {
   type GridLayoutItem,
   type SolveLayoutInput,
 } from './model';
-import { solveLayout } from './solveLayout';
+import { canSwapGridItemsHorizontally, solveLayout } from './solveLayout';
 
 const manualMove = (
   items: readonly GridLayoutItem[],
@@ -489,6 +489,118 @@ describe('Grid Engine 2.0 solveLayout', () => {
     const second = solveLayout({ items: first, cols: 4, mode: 'automatic', intent });
 
     expect(second).toEqual(first);
+  });
+
+  describe('direct horizontal SWAP', () => {
+    const solveSwap = (
+      items: readonly GridLayoutItem[],
+      id: string,
+      x: number,
+      y: number,
+      cols: number,
+    ) => solveLayout({
+      items,
+      cols,
+      mode: 'automatic',
+      intent: { type: 'REORDER', strategy: 'SWAP', id, x, y },
+    });
+
+    it.each([
+      ['xs', 2],
+      ['sm', 4],
+      ['md', 6],
+      ['lg', 8],
+      ['xl', 12],
+    ])('exchanges equal cards directly on %s without moving a third card', (_breakpoint, cols) => {
+      const input = [
+        { i: 'a', x: 0, y: 0, w: 1, h: 1 },
+        { i: 'b', x: 1, y: 0, w: 1, h: 1 },
+        { i: 'unrelated', x: 0, y: 3, w: Math.min(2, cols), h: 1 },
+      ] as const;
+      const snapshot = structuredClone(input);
+
+      expect(canSwapGridItemsHorizontally(input, cols, 'a', { x: 1, y: 0 })).toBe(true);
+      const result = solveSwap(input, 'a', 1, 0, cols);
+
+      expect(getItem(result, 'a')).toEqual({ i: 'a', x: 1, y: 0, w: 1, h: 1 });
+      expect(getItem(result, 'b')).toEqual({ i: 'b', x: 0, y: 0, w: 1, h: 1 });
+      expect(getItem(result, 'unrelated')).toEqual(input[2]);
+      expect(input).toEqual(snapshot);
+      expectNoOverlaps(result);
+    });
+
+    it('exchanges different dimensions only when both destinations remain valid', () => {
+      const input = [
+        { i: 'wide-short', x: 0, y: 0, w: 2, h: 1 },
+        { i: 'narrow-tall', x: 3, y: 0, w: 1, h: 2 },
+        { i: 'unrelated', x: 5, y: 0, w: 1, h: 1 },
+      ] as const;
+
+      expect(canSwapGridItemsHorizontally(input, 6, 'wide-short', { x: 3, y: 0 })).toBe(true);
+      const result = solveSwap(input, 'wide-short', 3, 0, 6);
+
+      expect(getItem(result, 'wide-short')).toMatchObject({ x: 3, y: 0, w: 2, h: 1 });
+      expect(getItem(result, 'narrow-tall')).toMatchObject({ x: 0, y: 0, w: 1, h: 2 });
+      expect(getItem(result, 'unrelated')).toEqual(input[2]);
+      expectNoOverlaps(result);
+    });
+
+    it('rejects a mixed-size exchange that would leave the target out of bounds', () => {
+      const input = [
+        { i: 'wide', x: 0, y: 0, w: 2, h: 1 },
+        { i: 'right', x: 3, y: 0, w: 1, h: 1 },
+      ] as const;
+
+      expect(canSwapGridItemsHorizontally(input, 4, 'right', { x: 0, y: 0 })).toBe(false);
+      const result = solveSwap(input, 'right', 0, 0, 4);
+
+      expect(getItem(result, 'right')).toMatchObject({ x: 0, y: 0 });
+      expect(getItem(result, 'wide')).toMatchObject({ x: 0, y: 1 });
+      expectNoOverlaps(result);
+    });
+
+    it('rejects an exchange that would collide with a third card', () => {
+      const input = [
+        { i: 'short', x: 0, y: 0, w: 1, h: 1 },
+        { i: 'tall', x: 1, y: 0, w: 1, h: 2 },
+        { i: 'below-source', x: 0, y: 1, w: 1, h: 1 },
+      ] as const;
+
+      expect(canSwapGridItemsHorizontally(input, 2, 'short', { x: 1, y: 0 })).toBe(false);
+      const result = solveSwap(input, 'short', 1, 0, 2);
+
+      expect(result).not.toContainEqual({ i: 'tall', x: 0, y: 0, w: 1, h: 2 });
+      expectNoOverlaps(result);
+    });
+
+    it('does not reinterpret a diagonal or vertical crossing as a horizontal exchange', () => {
+      const input = [
+        { i: 'a', x: 0, y: 0, w: 1, h: 1 },
+        { i: 'diagonal', x: 1, y: 1, w: 1, h: 1 },
+        { i: 'vertical', x: 0, y: 2, w: 1, h: 1 },
+      ] as const;
+
+      expect(canSwapGridItemsHorizontally(input, 3, 'a', { x: 1, y: 1 })).toBe(false);
+      expect(canSwapGridItemsHorizontally(input, 3, 'a', { x: 0, y: 2 })).toBe(false);
+      expectNoOverlaps(solveSwap(input, 'a', 1, 1, 3));
+    });
+
+    it('keeps Manual REORDER semantics even if a caller supplies the optional strategy', () => {
+      const input = [
+        { i: 'a', x: 0, y: 0, w: 1, h: 1 },
+        { i: 'b', x: 1, y: 0, w: 1, h: 1 },
+      ] as const;
+      const result = solveLayout({
+        items: input,
+        cols: 2,
+        mode: 'manual',
+        intent: { type: 'REORDER', strategy: 'SWAP', id: 'a', x: 1, y: 0 },
+      });
+
+      expect(getItem(result, 'a')).toMatchObject({ x: 1, y: 0 });
+      expect(getItem(result, 'b')).toMatchObject({ x: 1, y: 1 });
+      expectNoOverlaps(result);
+    });
   });
 
   describe('directional REORDER and explicit COMPACT', () => {
