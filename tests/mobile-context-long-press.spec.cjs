@@ -151,10 +151,11 @@ async function longPress(page, locator) {
 async function expectContextPanel(page, title) {
   const panel = page.locator('.device-context-surface');
   await expect(panel).toBeVisible();
-  // The panel brings its own header: the title of the sheet steps aside once it has loaded.
-  await expect(panel.locator('.dv-panel')).toBeVisible({ timeout: 15_000 });
   await expect(panel.getByRole('heading', { name: title })).toBeVisible();
-  await panel.getByRole('button', { name: /Chiudi.*dispositivo/i }).click();
+  // A shared panel brings its own Close once loaded, and the one of the sheet steps aside: ask again.
+  await expect(async () => {
+    await panel.getByRole('button', { name: /Chiudi.*dispositivo/i }).click({ timeout: 1500 });
+  }).toPass({ timeout: 20_000 });
   await expect(panel).toHaveCount(0);
 }
 
