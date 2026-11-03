@@ -5,11 +5,11 @@ import { RoomsPage } from './RoomsPage';
 
 // The parts the page opens on request, here at once: how they load is tested in roomsParts.test.tsx.
 vi.mock('./roomsParts', async () => {
-  const [light, device, climate, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets, cameraViewer] = await Promise.all([
+  const [light, device, climate, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets, cameraPanel, liveGate] = await Promise.all([
     import('../../components/devices/panels/LightPanel'),
     import('../../components/devices/panels/DevicePanel'),
     import('../../components/devices/panels/ClimatePanel'),
-    import('../../components/devices/panels/SensorPanel'),
+    import('../../components/devices/panels/SensorFamilyPanel'),
     import('../../components/devices/panels/SecurityPanel'),
     import('../../components/devices/panels/MediaPlayer'),
     import('./MediaSheets'),
@@ -17,13 +17,14 @@ vi.mock('./roomsParts', async () => {
     import('./AddAccessoriesSheet'),
     import('./RoomsManagePage'),
     import('./RoomManageSheets'),
-    import('../../components/camera/CameraViewer'),
+    import('../../components/devices/panels/CameraPanel'),
+    import('../../components/devices/panels/PanelLiveGate'),
   ]);
   return {
     LightPanel: light.LightPanel,
     DevicePanel: device.DevicePanel,
     ClimatePanel: climate.ClimatePanel,
-    SensorPanel: sensor.SensorPanel,
+    SensorFamilyPanel: sensor.SensorFamilyPanel,
     SecurityPanel: security.SecurityPanel,
     MediaPlayer: media.MediaPlayer,
     MediaPickPanel: mediaSheets.MediaPickPanel,
@@ -32,7 +33,8 @@ vi.mock('./roomsParts', async () => {
     AddAccessoriesSheet: accessories.AddAccessoriesSheet,
     RoomsManagePage: manage.RoomsManagePage,
     RoomEditPanel: roomSheets.RoomEditPanel,
-    CameraViewer: cameraViewer.CameraViewer,
+    CameraPanel: cameraPanel.CameraPanel,
+    PanelLiveGate: liveGate.PanelLiveGate,
     Deferred: ({ children }: { children: React.ReactNode }) => children,
     preloadRoomsParts: () => undefined,
   };
@@ -162,11 +164,12 @@ describe('the Rooms page in the demo', () => {
     const page = screen.getByTestId('rooms-section-page');
     fireEvent.click(within(page).getByRole('button', { name: /^Umidità 48%, Ideale/ }));
     const dialog = screen.getByRole('dialog', { name: 'Umidità' });
-    expect(within(dialog).getByText('Fascia ideale 40–60%')).toBeTruthy();
-    expect(within(dialog).getByRole('img', { name: /^Umidità, ultime 24 ore: minimo/ })).toBeTruthy();
+    expect(within(dialog).getByRole('img', { name: 'Fascia ideale 40–60%' })).toBeTruthy();
+    expect(within(dialog).getByText('Minimo')).toBeTruthy();
     expect(within(dialog).getByText('Batteria 82%')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('radio', { name: '7 giorni' }));
-    expect(within(dialog).getByRole('img', { name: /^Umidità, ultime 7 giorni/ })).toBeTruthy();
+    expect(within(dialog).getByRole('radio', { name: '7 giorni' }).getAttribute('aria-checked')).toBe('true');
+    expect(within(dialog).getByRole('img', { name: 'Fascia ideale 40–60%' })).toBeTruthy();
   });
 
   it('shows the scenes of the room as a strip, runs one, and offers to undo it', () => {

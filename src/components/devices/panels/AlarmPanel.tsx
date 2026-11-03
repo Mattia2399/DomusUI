@@ -28,6 +28,7 @@ import {
 import { useEntityRegistry } from './panelData';
 import { usePanelServices } from './panelServicesContext';
 import { PanelShell, type PanelLive } from './PanelShell';
+import '../theme/panelLive.css';
 import '../theme/panels.css';
 
 /*

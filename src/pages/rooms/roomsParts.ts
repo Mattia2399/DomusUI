@@ -12,7 +12,7 @@ const loaders = {
   light: () => import('../../components/devices/panels/LightPanel'),
   device: () => import('../../components/devices/panels/DevicePanel'),
   climate: () => import('../../components/devices/panels/ClimatePanel'),
-  sensor: () => import('../../components/devices/panels/SensorPanel'),
+  live: () => import('../../components/devices/panels/PanelLiveGate'),
   security: () => import('../../components/devices/panels/SecurityPanel'),
   media: () => import('../../components/devices/panels/MediaPlayer'),
   mediaSheets: () => import('./MediaSheets'),
@@ -20,13 +20,16 @@ const loaders = {
   accessories: () => import('./AddAccessoriesSheet'),
   manage: () => import('./RoomsManagePage'),
   roomSheets: () => import('./RoomManageSheets'),
-  cameraViewer: () => import('../../components/camera/CameraViewer'),
 };
 
 export const LightPanel = React.lazy(() => loaders.light().then((module) => ({ default: module.LightPanel })));
 export const DevicePanel = React.lazy(() => loaders.device().then((module) => ({ default: module.DevicePanel })));
 export const ClimatePanel = React.lazy(() => loaders.climate().then((module) => ({ default: module.ClimatePanel })));
-export const SensorPanel = React.lazy(() => loaders.sensor().then((module) => ({ default: module.SensorPanel })));
+// The panels shared with the Home bring the reading of every sensor family and the camera viewer:
+// they load when one opens, not while the page is idle.
+export const SensorFamilyPanel = React.lazy(() => import('../../components/devices/panels/SensorFamilyPanel').then((module) => ({ default: module.SensorFamilyPanel })));
+export const CameraPanel = React.lazy(() => import('../../components/devices/panels/CameraPanel').then((module) => ({ default: module.CameraPanel })));
+export const PanelLiveGate = React.lazy(() => loaders.live().then((module) => ({ default: module.PanelLiveGate })));
 export const SecurityPanel = React.lazy(() => loaders.security().then((module) => ({ default: module.SecurityPanel })));
 export const MediaPlayer = React.lazy(() => loaders.media().then((module) => ({ default: module.MediaPlayer })));
 export const MediaPickPanel = React.lazy(() => loaders.mediaSheets().then((module) => ({ default: module.MediaPickPanel })));
@@ -35,8 +38,6 @@ export const SectionPage = React.lazy(() => loaders.section().then((module) => (
 export const AddAccessoriesSheet = React.lazy(() => loaders.accessories().then((module) => ({ default: module.AddAccessoriesSheet })));
 export const RoomsManagePage = React.lazy(() => loaders.manage().then((module) => ({ default: module.RoomsManagePage })));
 export const RoomEditPanel = React.lazy(() => loaders.roomSheets().then((module) => ({ default: module.RoomEditPanel })));
-
-export const CameraViewer = React.lazy(() => loaders.cameraViewer().then((module) => ({ default: module.CameraViewer })));
 
 /** Fetch every part once the page is idle; a part that fails here is asked again when it opens. */
 export function preloadRoomsParts() {

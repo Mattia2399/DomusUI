@@ -9,6 +9,7 @@ import { formatVacuumOption, normalizeVacuumState } from '../../widgets/vacuumCa
 import type { VacuumMappedArea, VacuumRelatedEntityInfo } from '../../widgets/vacuumDeviceModel';
 import { vacuumErrorText, vacuumModeControl, vacuumProgress } from '../model/panelRules';
 import { PanelShell, type PanelLive } from './PanelShell';
+import '../theme/panelLive.css';
 import '../theme/panels.css';
 
 /*

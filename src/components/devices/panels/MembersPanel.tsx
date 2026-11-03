@@ -8,6 +8,7 @@ import type { MembersPresenceEntry } from '../../settings/types';
 import { entityChangedAt, formatPanelSpan, MEMBERS_MAP_ENABLED, memberBattery, memberIsHome } from '../model/panelRules';
 import { useEntityRegistry } from './panelData';
 import { PanelShell, type PanelLive } from './PanelShell';
+import '../theme/panelLive.css';
 import '../theme/panels.css';
 
 /*

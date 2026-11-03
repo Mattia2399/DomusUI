@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, BatteryLow, Clock3 } from 'lucide-react';
-import { usePanelsTranslations } from '../../../i18n/panelsTranslations';
+import { usePanelLiveTranslations } from '../../../i18n/panelLiveTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { loadHassAuthTokensFromStorage } from '../../../services/haLive';
 import type { MockEntityState } from '../../../types/ha';
@@ -9,7 +9,7 @@ import { parseStateHistory } from '../model/security';
 import type { SensorFamily } from '../model/sensorFamily';
 import type { PanelLive } from './PanelShell';
 import { usePanelServices } from './panelServicesContext';
-import '../theme/panels.css';
+import '../theme/panelLive.css';
 
 /*
  * The three states every panel has in common: the device does not answer, its
@@ -67,7 +67,7 @@ export type PanelLiveInput = {
 };
 
 export function usePanelLiveState({ entityId, entity, away = false, unknownCounts = true, family = null, battery = null }: PanelLiveInput): PanelLive & { stale: boolean } {
-  const pt = usePanelsTranslations();
+  const pt = usePanelLiveTranslations();
   const { locale } = useI18n();
   const services = usePanelServices();
   const off = away || isEntityAway(entity, unknownCounts);

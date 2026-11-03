@@ -15,6 +15,7 @@ import {
 import { CalendarEventForm, eventLook, initialForm, toDisplayDate, type EventFormState } from '../../settings/CalendarEventForm';
 import { localIsoDay, nextSevenDays, WeekDayStrip, type WeekDayBadge } from '../../ui/WeekDayStrip';
 import { PanelShell, type PanelLive } from './PanelShell';
+import '../theme/panelLive.css';
 import '../theme/panels.css';
 
 /*

@@ -63,6 +63,8 @@ import { canHaveTimer } from '../../components/devices/model/deviceTimer';
 import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
 import GlassConfirmDialog from '../../components/ui/GlassConfirmDialog';
+import { PanelServicesProvider, type PanelApiCall } from '../../components/devices/panels/panelServicesContext';
+import type { PanelLive } from '../../components/devices/panels/PanelShell';
 import { PanelHost } from '../../components/devices/panels/PanelHost';
 import { lightRgb } from '../../components/devices/model/tileColor';
 import { CLIMATE_TINT, DEVICE_TINT } from '../../components/devices/model/panelTint';
@@ -120,7 +122,7 @@ import { RoomSection } from './RoomSection';
 import type { SectionCandidate } from './SectionPage';
 import {
   AddAccessoriesSheet,
-  CameraViewer,
+  CameraPanel,
   ClimatePanel,
   Deferred,
   DevicePanel,
@@ -132,10 +134,10 @@ import {
   RoomEditPanel,
   RoomsManagePage,
   SectionPage,
+  PanelLiveGate,
   SecurityPanel,
-  SensorPanel,
+  SensorFamilyPanel,
 } from './roomsParts';
-import { SENSOR_PERIOD_HOURS, type SensorPeriod } from '../../components/devices/model/sensor';
 import { useDeviceCommands } from './useDeviceCommands';
 import { useClimateCommands } from './useClimateCommands';
 import { useLightCommands } from './useLightCommands';
@@ -575,7 +577,6 @@ export function RoomsPage({
     (model) => model.name,
   );
   // The cards draw the last 24 hours; a detail draws the period chosen in it.
-  const [sensorPeriod, setSensorPeriod] = React.useState<SensorPeriod>('24h');
   const sensorDemoSeries = demo ? demoSensorSeries : undefined;
   const roomSensorHistory = useSensorHistory({
     entityIds: sensorItems.filter((item) => item.model.kind !== 'smoke').map((item) => item.id),
@@ -1072,12 +1073,6 @@ export function RoomsPage({
       onSelect={context.onSelect}
     />
   );
-  const panelSensorHistory = useSensorHistory({
-    entityIds: panelSensor && panelSensor.kind !== 'smoke' ? [panelSensor.entityId] : [],
-    hours: SENSOR_PERIOD_HOURS[sensorPeriod],
-    onCallApi,
-    demoSeries: sensorDemoSeries,
-  });
   const renderSensor = (item: RoomSensorItem, context: { editing: boolean; selected: boolean; onSelect: () => void }) => (
     <SensorCard
       model={item.model}
@@ -1087,10 +1082,7 @@ export function RoomsPage({
       editing={context.editing}
       selected={context.selected}
       hiddenItem={item.hidden}
-      onOpenPanel={() => {
-        setSensorPeriod('24h');
-        setPanel({ kind: 'sensors', id: item.id });
-      }}
+      onOpenPanel={() => setPanel({ kind: 'sensors', id: item.id })}
       onSelect={context.onSelect}
     />
   );
@@ -1110,8 +1102,21 @@ export function RoomsPage({
     />
   );
   const panelSecurity = panel?.kind === 'security' ? securityModelOf(panel.id) ?? null : null;
+  const panelCamera = cameraOpenId ? roomCameras.find((camera) => camera.entityId === cameraOpenId) ?? null : null;
+  const panelServices = React.useMemo(
+    () => (onCallApi && onCallService ? { callApi: onCallApi as PanelApiCall, callService: onCallService } : null),
+    [onCallApi, onCallService],
+  );
+  // The states all panels share, with the entity behind the panel.
+  const withLive = (entityId: string, render: (live: PanelLive, stale: boolean) => React.ReactNode) => (
+    <PanelServicesProvider value={panelServices}>
+      <PanelLiveGate entityId={entityId} entity={states[entityId]} states={states}>
+        {render}
+      </PanelLiveGate>
+    </PanelServicesProvider>
+  );
   const panelSecurityHistory = useStateHistory({
-    entityId: panelSecurity && panelSecurity.kind !== 'camera' ? panelSecurity.entityId : null,
+    entityId: panelSecurity && (panelSecurity.kind === 'lock' || demo) && panelSecurity.kind !== 'camera' ? panelSecurity.entityId : null,
     changedAt: panelSecurity?.changedAt,
     onCallApi,
     demoHistory: demo ? demoSecurityHistory : undefined,
@@ -1635,12 +1640,15 @@ export function RoomsPage({
       >
         {panelLight ? (
           <Deferred>
-            <LightPanel
-              model={panelLight}
-              roomName={activeRoom?.name}
-              onAction={(action) => lights.act(panelLight.entityId, action)}
-              onClose={() => setPanel(null)}
-            />
+            {withLive(panelLight.entityId, (live) => (
+              <LightPanel
+                model={panelLight}
+                roomName={activeRoom?.name}
+                live={live}
+                onAction={(action) => lights.act(panelLight.entityId, action)}
+                onClose={() => setPanel(null)}
+              />
+            ))}
           </Deferred>
         ) : null}
       </PanelHost>
@@ -1655,9 +1663,11 @@ export function RoomsPage({
       >
         {panelDevice ? (
           <Deferred>
+            {withLive(panelDevice.entityId, (live) => (
             <DevicePanel
               model={panelDevice}
               roomName={activeRoom?.name}
+              live={live}
               protectedPlug={protectedSet.has(panelDevice.entityId)}
               onToggleProtected={
                 canOrganize && (panelDevice.kind === 'outlet' || panelDevice.kind === 'switch')
@@ -1684,6 +1694,7 @@ export function RoomsPage({
               onAction={(action) => actOnDevice(panelDevice.entityId, action)}
               onClose={() => setPanel(null)}
             />
+            ))}
           </Deferred>
         ) : null}
       </PanelHost>
@@ -1696,15 +1707,19 @@ export function RoomsPage({
       >
         {panelSensor ? (
           <Deferred>
-            <SensorPanel
-              model={panelSensor}
-              roomName={activeRoom?.name}
-              history={panelSensorHistory.points[panelSensor.entityId] ?? []}
-              historyLoading={panelSensorHistory.loading}
-              period={sensorPeriod}
-              onPeriod={setSensorPeriod}
-              onClose={() => setPanel(null)}
-            />
+            {withLive(panelSensor.entityId, (live, stale) => (
+              <SensorFamilyPanel
+                entityId={panelSensor.entityId}
+                name={panelSensor.name}
+                roomName={activeRoom?.name}
+                givenSeries={demo && sensorDemoSeries ? (hours) => sensorDemoSeries(panelSensor.entityId, hours) : undefined}
+                givenBattery={panelSensor.battery}
+                haStates={states}
+                live={live}
+                stale={stale}
+                onClose={() => setPanel(null)}
+              />
+            ))}
           </Deferred>
         ) : null}
       </PanelHost>
@@ -1719,14 +1734,17 @@ export function RoomsPage({
       >
         {panelClimate ? (
           <Deferred>
-            <ClimatePanel
-              model={panelClimate}
-              roomName={activeRoom?.name}
-              roomTemperature={readings.temperature ?? null}
-              roomHumidity={readings.humidity ?? null}
-              onAction={(action) => climates.act(panelClimate.entityId, action)}
-              onClose={() => setPanel(null)}
-            />
+            {withLive(panelClimate.entityId, (live) => (
+              <ClimatePanel
+                model={panelClimate}
+                roomName={activeRoom?.name}
+                roomTemperature={readings.temperature ?? null}
+                roomHumidity={readings.humidity ?? null}
+                live={live}
+                onAction={(action) => climates.act(panelClimate.entityId, action)}
+                onClose={() => setPanel(null)}
+              />
+            ))}
           </Deferred>
         ) : null}
       </PanelHost>
@@ -1739,13 +1757,27 @@ export function RoomsPage({
       >
         {panelSecurity ? (
           <Deferred>
-            <SecurityPanel
-              model={panelSecurity}
-              roomName={activeRoom?.name}
-              history={panelSecurityHistory}
-              onLockCommand={(command) => void commandLock(securityModelOf(panelSecurity.entityId), command)}
-              onClose={() => setPanel(null)}
-            />
+            {withLive(panelSecurity.entityId, (live, stale) => (panelSecurity.kind === 'lock' ? (
+              <SecurityPanel
+                model={panelSecurity}
+                roomName={activeRoom?.name}
+                history={panelSecurityHistory}
+                live={live}
+                onLockCommand={(command) => void commandLock(securityModelOf(panelSecurity.entityId), command)}
+                onClose={() => setPanel(null)}
+              />
+            ) : (
+              <SensorFamilyPanel
+                entityId={panelSecurity.entityId}
+                name={panelSecurity.name}
+                roomName={activeRoom?.name}
+                givenChanges={demo ? panelSecurityHistory : undefined}
+                haStates={states}
+                live={live}
+                stale={stale}
+                onClose={() => setPanel(null)}
+              />
+            )))}
           </Deferred>
         ) : null}
       </PanelHost>
@@ -1802,18 +1834,36 @@ export function RoomsPage({
         ) : null}
       </PanelHost>
 
-      <Deferred>
-        <CameraViewer
-          isOpen={Boolean(cameraOpenId)}
-          cameras={roomCameras}
-          activeEntityId={cameraOpenId}
-          onActiveEntityChange={setCameraOpenId}
-          onClose={() => setCameraOpenId(null)}
-          commandsEnabled={haConnected && !demo}
-          onPtzMove={onCameraPtzMove}
-          onPtzStop={onCameraPtzStop}
-        />
-      </Deferred>
+      <PanelHost
+        presentation={phone ? 'sheet' : 'dialog'}
+        isOpen={Boolean(panelCamera)}
+        onClose={() => setCameraOpenId(null)}
+        title={panelCamera?.name ?? ''}
+      >
+        {panelCamera ? (
+          <Deferred>
+            {withLive(panelCamera.entityId, (live) => (
+              <CameraPanel
+                camera={{
+                  entityId: panelCamera.entityId,
+                  name: panelCamera.name,
+                  status: panelCamera.statusLabel,
+                  streamUrl: panelCamera.streamUrl,
+                  snapshotUrl: panelCamera.snapshotUrl,
+                  isOffline: panelCamera.isOffline,
+                  supportsPtz: panelCamera.supportsPtz,
+                }}
+                roomName={activeRoom?.name}
+                commandsEnabled={haConnected && !demo}
+                live={live}
+                onPtzMove={onCameraPtzMove ? (direction) => onCameraPtzMove(panelCamera.entityId, direction) : undefined}
+                onPtzStop={onCameraPtzStop ? () => onCameraPtzStop(panelCamera.entityId) : undefined}
+                onClose={() => setCameraOpenId(null)}
+              />
+            ))}
+          </Deferred>
+        ) : null}
+      </PanelHost>
 
       {timerNotice && !sceneUndo ? (
         <div className="rooms-toast dv-glass" role="status" data-testid="rooms-timer-notice">

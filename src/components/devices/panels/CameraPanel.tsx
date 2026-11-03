@@ -5,6 +5,7 @@ import CameraPtzJoystick, { type CameraPtzDirection } from '../../camera/CameraP
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import GlassToggle from '../../ui/GlassToggle';
 import { PanelShell, type PanelLive } from './PanelShell';
+import '../theme/panelLive.css';
 import '../theme/panels.css';
 
 /*

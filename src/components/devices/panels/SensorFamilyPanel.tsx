@@ -8,6 +8,7 @@ import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { describeFamilySensor, toFamilySensorModel } from '../cards/SensorFamilyCard';
 import { buildSensorHouse, houseBatteries, houseConnections, houseDetectors, housePowers, sensorPeers } from '../cards/sensorHouse';
+import type { StateChange } from '../model/security';
 import { findBatterySensor, seriesStats, type SeriesPoint } from '../model/sensor';
 import { formatPanelSpan } from '../model/panelRules';
 import { batteryBand, type SensorAlertReason, type SensorFamily } from '../model/sensorFamily';
@@ -29,6 +30,7 @@ import {
 import { useEntityRegistry, useSensorSeries } from './panelData';
 import { usePanelServices } from './panelServicesContext';
 import { PanelShell, type PanelLive } from './PanelShell';
+import '../theme/panelLive.css';
 import '../theme/panels.css';
 
 /*
@@ -43,6 +45,12 @@ export type SensorFamilyPanelProps = {
   entityId: string;
   name: string;
   history?: number[];
+  /** What a page without Home Assistant knows of the sensor: the demo of Rooms. */
+  givenSeries?: (hours: number) => SeriesPoint[];
+  givenChanges?: StateChange[];
+  givenBattery?: number | null;
+  /** The room, when the page already knows it. */
+  roomName?: string;
   haStates: MockEntityStateMap;
   /** What the card knows, for a sensor the Home cannot read. */
   fallbackEntity?: MockEntityState;
@@ -122,7 +130,9 @@ function containsEntityReference(value: unknown, entityId: string, depth = 0): b
   return Object.values(value as Record<string, unknown>).some((entry) => containsEntityReference(entry, entityId, depth + 1));
 }
 
-export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackEntity, embedded = false, live, stale = false, onClose }: SensorFamilyPanelProps) {
+const GIVEN_HOURS: Partial<Record<SensorPanelPeriod, number>> = { '24h': 24, '7d': 168, '30d': 720 };
+
+export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenChanges, givenBattery, roomName, haStates, fallbackEntity, embedded = false, live, stale = false, onClose }: SensorFamilyPanelProps) {
   const dt = useSensorFamilyTranslations();
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
@@ -133,7 +143,7 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackE
 
   const batteryId = findBatterySensor(entityId, haStates, (id) => registry?.registryEntities.find((entry) => entry.entityId === id)?.deviceId);
   const batteryValue = batteryId ? Number(haStates[batteryId]?.state) : Number.NaN;
-  const battery = Number.isFinite(batteryValue) ? batteryValue : null;
+  const battery = Number.isFinite(batteryValue) ? batteryValue : givenBattery ?? null;
   const model = toFamilySensorModel(entityId, entity, { name, battery, fallbackFamily: entityId.startsWith('binary_sensor.') ? 'device' : 'measure' });
   const [period, setPeriod] = useState<SensorPanelPeriod>(() =>
     model ? periodsOf(model.family, model.attributes, false)[0] ?? '24h' : '24h',
@@ -141,11 +151,12 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackE
   const [moreOpen, setMoreOpen] = useState(false);
 
   const fallback = useMemo<SeriesPoint[]>(() => {
+    if (givenSeries) return givenSeries(GIVEN_HOURS[period] ?? 24);
     const values = history ?? [];
     return values.map((v, index) => ({ t: now - (values.length - 1 - index) * ((24 * 3_600_000) / Math.max(1, values.length - 1)), v }));
     // Drawn once from what the card had when the panel opened.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [history]);
+  }, [givenSeries === undefined, history, period]);
   const historyPeriods = Boolean(model && ['opening', 'motion', 'safety', 'device'].includes(model.family));
   const series = useSensorSeries(entityId, period, fallback, { historyPeriods });
   const house = useMemo(() => buildSensorHouse(haStates), [haStates]);
@@ -156,16 +167,18 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackE
     setThreshold(readStoredThresholds()[entityId] ?? null);
   }, [entityId]);
 
-  const periods = model ? periodsOf(model.family, model.attributes, series.statisticsMissing) : (['24h'] as SensorPanelPeriod[]);
+  // Without Home Assistant there is nobody to ask for a longer period.
+  const periods = model && (services || givenSeries) ? periodsOf(model.family, model.attributes, series.statisticsMissing) : (['24h'] as SensorPanelPeriod[]);
   useEffect(() => {
     if (!periods.includes(period)) setPeriod(periods[0] ?? '24h');
   }, [period, periods]);
 
   if (!model) return null;
+  const changes = series.changes.length > 0 ? series.changes : givenChanges ?? [];
 
   const { alert, face, reading } = describeFamilySensor(model, {
     history: series.points,
-    changes: series.changes,
+    changes: changes,
     house,
     now,
     dt,
@@ -182,7 +195,7 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackE
   const withUnit = (value: number, decimals?: number) => `${formatNumber(value, locale, decimals)}${unitText}`;
 
   const area = registry?.entityAreaByEntityId[entityId] ?? null;
-  const areaName = area ? registry?.areaNames[area] : undefined;
+  const areaName = roomName ?? (area ? registry?.areaNames[area] : undefined);
   const updatedAt = model.changedAt;
   const subtitle = [
     areaName,
@@ -215,7 +228,7 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackE
   const dayStart = startOfDay(now);
   const timelineStart = period === '7d' && historyPeriods ? now - 7 * 86_400_000 : dayStart;
   const timelineLength = now - timelineStart || 1;
-  const longPeriod = period !== '24h';
+  const longPeriod = period !== '24h' && !givenSeries;
   const usesChange = model.family === 'water' || (model.family === 'energy' && model.deviceClass !== 'power');
   const linePoints = longPeriod ? statisticsToPoints(series.rows) : series.points;
   const stats = seriesStats(linePoints);
@@ -229,9 +242,9 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackE
         ? Array.from({ length: 7 }, (_, index) => {
             const from = now - (7 - index) * 86_400_000;
             const to = from + 86_400_000;
-            return series.changes.filter((change) => change.state === 'on' && change.t >= from && change.t < to).length;
+            return changes.filter((change) => change.state === 'on' && change.t >= from && change.t < to).length;
           })
-        : hourlyYes(series.changes, now)
+        : hourlyYes(changes, now)
       : longPeriod
         ? dailyBars(series.rows, (row) => (usesChange ? row.change : row.mean), usesChange ? 'sum' : 'mean')
         : usesChange
@@ -241,13 +254,13 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackE
   const barsTotal = bars.reduce((sum, value) => sum + value, 0);
 
   const isYesNo = model.state.toLowerCase() === 'on' || model.state.toLowerCase() === 'off' || entityId.startsWith('binary_sensor.');
-  const dayChanges = series.changes.length > 0
-    ? series.changes
+  const dayChanges = changes.length > 0
+    ? changes
     : model.changedAt !== null ? [{ t: model.changedAt, state: model.state.toLowerCase() }] : [];
   const yesParts = chart === 'strip' && isYesNo ? yesSpans(dayChanges, timelineStart, now) : [];
   const yesTotal = yesParts.reduce((sum, part) => sum + (part.end - part.start), 0);
   const wordParts = chart === 'strip' && !isYesNo && model.family === 'state'
-    ? series.changes.map((change, index) => ({ start: Math.max(change.t, timelineStart), end: series.changes[index + 1]?.t ?? now, state: change.state })).filter((part) => part.end > timelineStart)
+    ? changes.map((change, index) => ({ start: Math.max(change.t, timelineStart), end: changes[index + 1]?.t ?? now, state: change.state })).filter((part) => part.end > timelineStart)
     : [];
   const wordsSeen = [...new Set(wordParts.map((part) => part.state))];
 

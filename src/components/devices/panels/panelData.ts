@@ -133,7 +133,8 @@ export function useSensorSeries(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callApi, entityId, options.historyPeriods, period]);
 
-  return series;
+  // What a page already had stands in until, or instead of, what Home Assistant says.
+  return callApi && series.points.length > 0 ? series : { ...series, points: fallback };
 }
 
 /** The state changes of a lock. It is read-only and starts only for a real id. */
