@@ -8,8 +8,6 @@ import {
   readStoredCustomRooms,
   readStoredHiddenRoomEntitiesByRoom,
   readStoredPinnedRoomEntitiesByRoom,
-  readStoredProtectedEntities,
-  PROTECTED_ENTITIES_STORAGE_KEY,
   ROOM_PINNED_ENTITIES_STORAGE_KEY,
   ROOM_ENTITY_VISIBILITY_STORAGE_KEY,
   type CustomRoomRecord,
@@ -104,25 +102,4 @@ export function useRoomPinnedEntities(runtimeMode: DashboardRuntimeMode, canMana
   }, [canManageRooms, pinnedByRoom, pinnedRuntime, runtimeMode]);
 
   return { pinnedByRoom, setPinnedByRoom };
-}
-
-/** Plugs that ask before turning off; written by whoever can manage rooms. Until something is saved, the given ones. */
-export function useProtectedEntities(runtimeMode: DashboardRuntimeMode, canManageRooms: boolean, initial: string[] = []) {
-  const [protectedIds, setProtectedIds] = React.useState<string[]>(() => readStoredProtectedEntities(runtimeMode) ?? initial);
-  const [protectedRuntime, setProtectedRuntime] = React.useState<DashboardRuntimeMode>(runtimeMode);
-
-  React.useEffect(() => {
-    if (protectedRuntime === runtimeMode) return;
-    setProtectedIds(readStoredProtectedEntities(runtimeMode) ?? initial);
-    setProtectedRuntime(runtimeMode);
-  }, [initial, protectedRuntime, runtimeMode]);
-
-  React.useEffect(() => {
-    if (!canManageRooms || protectedRuntime !== runtimeMode || typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem(getRoomsRuntimeStorageKey(PROTECTED_ENTITIES_STORAGE_KEY, runtimeMode), JSON.stringify(protectedIds));
-  }, [canManageRooms, protectedIds, protectedRuntime, runtimeMode]);
-
-  return { protectedIds, setProtectedIds };
 }

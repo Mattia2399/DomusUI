@@ -8,6 +8,7 @@ import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityState } from '../../types/ha';
 import { WidgetCardRenderer } from './CardRenderer';
 import { resolveGridV2BoxFormat } from './cardCapabilityRegistry';
+import { DeviceExtrasProvider } from '../devices/cards/deviceExtrasContext';
 
 /*
  * On a Home with the v2 metrics the device cards are the cards of a room, in
@@ -120,12 +121,47 @@ describe('Home cards with the v2 metrics', () => {
       expect(onSwitchToggle).not.toHaveBeenCalled();
     });
 
-    it('a plug with nothing to show in a panel toggles from its surface too', async () => {
+    it('a plug opens its panel from the surface and commands from the icon, as in Rooms', async () => {
       const { onOpenPanel, onToggleOnly, view } = card(plug, livePlug);
       await waitFor(() => expect(view.container.querySelector('.dv-tile-body')).toBeTruthy(), LAZY);
       fireEvent.click(view.container.querySelector('.dv-tile-body')!);
-      expect(onToggleOnly).toHaveBeenCalledWith(plug);
+      expect(onOpenPanel).toHaveBeenCalledTimes(1);
+      expect(onToggleOnly).not.toHaveBeenCalled();
+    }, 15_000);
+
+    it('a virtual switch, with nothing to show in a panel, toggles from its surface too', async () => {
+      const virtual: Widget = { ...plug, id: 'input_boolean.ospiti', entityId: 'input_boolean.ospiti' };
+      const { onOpenPanel, onToggleOnly, view } = card(virtual, livePlug);
+      await waitFor(() => expect(view.container.querySelector('.dv-tile-body')).toBeTruthy(), LAZY);
+      fireEvent.click(view.container.querySelector('.dv-tile-body')!);
+      expect(onToggleOnly).toHaveBeenCalledWith(virtual);
       expect(onOpenPanel).not.toHaveBeenCalled();
+    }, 15_000);
+
+    it('a protected plug asks before turning off, and shows what it draws', async () => {
+      const guardTurnOff = vi.fn();
+      const extras = {
+        wattsOf: () => 42,
+        isProtected: () => true,
+        canProtect: true,
+        setProtected: vi.fn(),
+        guardTurnOff,
+        timers: {},
+        timerNow: 0,
+        timersAvailable: false,
+        setTimer: vi.fn(),
+      };
+      const onToggleOnly = vi.fn();
+      renderCard(
+        <DeviceExtrasProvider value={extras}>
+          <WidgetCardRenderer widget={plug} dashboardState={{} as never} isEditMode={false} isSelected={false} isInteractive liveEntity={livePlug} gridBreakpoint="xl" gridMetricsVersion="v2" onClick={vi.fn()} onOpenPanel={vi.fn()} onToggleOnly={onToggleOnly} />
+        </DeviceExtrasProvider>,
+      );
+      const [turnOff] = await screen.findAllByLabelText(/^Spegni Lampada/, undefined, LAZY);
+      fireEvent.click(turnOff);
+      expect(guardTurnOff).toHaveBeenCalledWith('switch.lampada', 'Lampada', expect.any(Function));
+      expect(onToggleOnly).not.toHaveBeenCalled();
+      expect(screen.getByText(/42/)).toBeTruthy();
     }, 15_000);
   });
 

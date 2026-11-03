@@ -1,5 +1,6 @@
 import type { DashboardRuntimeMode } from '../../security/dashboardAccess';
 import { normalizeRoomName, ROOM_ID_CUSTOM_PREFIX, uniqueStrings } from './roomsDirectory';
+import { getRoomsRuntimeStorageKey } from './roomsRuntimeKey';
 
 /*
  * What the Rooms page remembers in this browser, per runtime (the demo keeps
@@ -16,14 +17,11 @@ export const ROOM_ENTITY_VISIBILITY_STORAGE_KEY = 'ha.dashboard.rooms.hiddenEnti
 export const ROOM_PINNED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.pinnedEntitiesByRoom.v1';
 
 // Plugs that ask before turning off, wherever they are.
-export const PROTECTED_ENTITIES_STORAGE_KEY = 'ha.dashboard.rooms.protectedEntities.v1';
 
 // The order of the rooms, their look, local floors and the sections of each room.
 export const ROOM_LAYOUT_STORAGE_KEY = 'ha.dashboard.rooms.layout.v1';
 
-export function getRoomsRuntimeStorageKey(baseKey: string, runtimeMode: DashboardRuntimeMode) {
-  return runtimeMode === 'demo' ? `${baseKey}.demo` : baseKey;
-}
+export { getRoomsRuntimeStorageKey };
 
 export type CustomRoomRecord = {
   id: string;
@@ -156,10 +154,3 @@ export function parseEntityIdList(raw: string | null): string[] {
 }
 
 /** The protected plugs, or null when none were ever saved here. */
-export function readStoredProtectedEntities(runtimeMode: DashboardRuntimeMode): string[] | null {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  const raw = window.localStorage.getItem(getRoomsRuntimeStorageKey(PROTECTED_ENTITIES_STORAGE_KEY, runtimeMode));
-  return raw === null ? null : parseEntityIdList(raw);
-}

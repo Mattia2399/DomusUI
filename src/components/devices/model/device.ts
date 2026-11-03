@@ -1,4 +1,7 @@
 import type { MockEntityState } from '../../../types/ha';
+import { readNumber } from './powerSensor';
+
+export { findPowerSensor, readWatts } from './powerSensor';
 
 /*
  * The devices of a room that are not lights: plugs and switches (with their
@@ -68,15 +71,6 @@ const COVER_FEATURE_SET_POSITION = 4;
 const COVER_FEATURE_STOP = 8;
 const COVER_FEATURE_SET_TILT = 128;
 
-function readNumber(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value.replace(',', '.'));
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-  return undefined;
-}
-
 function readStrings(value: unknown) {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '') : [];
 }
@@ -100,37 +94,6 @@ export function deviceKindOf(entityId: string, entity: MockEntityState | undefin
   if (domain === 'input_boolean') return 'virtual';
   if (domain === 'switch') return `${entity?.rawAttributes?.device_class ?? ''}` === 'outlet' ? 'outlet' : 'switch';
   return null;
-}
-
-/*
- * The meter of a plug: a power sensor of the same device in the registry, or
- * one named after the plug ("switch.tv" → "sensor.tv_power").
- */
-export function findPowerSensor(
-  entityId: string,
-  states: Record<string, MockEntityState | undefined>,
-  deviceIdOf: (entityId: string) => string | null | undefined = () => null,
-) {
-  const objectId = entityId.split('.')[1] ?? '';
-  const deviceId = deviceIdOf(entityId);
-  const isPower = (id: string) => {
-    const state = states[id];
-    const unit = `${state?.rawAttributes?.unit_of_measurement ?? state?.unit ?? ''}`.trim();
-    return id.startsWith('sensor.') && (`${state?.rawAttributes?.device_class ?? ''}` === 'power' || unit === 'W' || unit === 'kW');
-  };
-  const candidates = Object.keys(states).filter(isPower);
-  return (
-    (deviceId ? candidates.find((id) => deviceIdOf(id) === deviceId) : undefined) ??
-    candidates.find((id) => id === `sensor.${objectId}_power` || id === `sensor.${objectId}_current_power`) ??
-    null
-  );
-}
-
-export function readWatts(sensor: MockEntityState | undefined) {
-  const value = readNumber(sensor?.state);
-  if (value === undefined) return null;
-  const unit = `${sensor?.rawAttributes?.unit_of_measurement ?? sensor?.unit ?? ''}`.trim();
-  return Math.round(unit === 'kW' ? value * 1000 : value);
 }
 
 function fanStateOf(entity: MockEntityState | undefined): FanState {
@@ -214,8 +177,9 @@ export function isStandby(model: DeviceModel) {
 }
 
 /** A panel for the devices with more than on and off. */
+/** Only a virtual switch with nothing to measure has nothing more than on and off. */
 export function deviceHasPanel(model: DeviceModel) {
-  return model.kind === 'fan' || model.kind === 'cover' || model.kind === 'humidifier' || model.watts !== null;
+  return model.kind !== 'virtual' || model.watts !== null;
 }
 
 export function fanLevel(fan: FanState) {

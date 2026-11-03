@@ -15,7 +15,8 @@ import {
 } from '../../components/rooms/roomsDirectory';
 import type { CameraPtzDirection } from '../../components/camera/CameraPtzJoystick';
 import type { GlassDropdownOption } from '../../components/ui/GlassDropdown';
-import { useProtectedEntities, useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
+import { useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
+import { useProtectedEntities } from '../../components/rooms/useProtectedEntities';
 import { LightCard } from '../../components/devices/cards/LightCard';
 import { DeviceCard } from '../../components/devices/cards/DeviceCard';
 import { ClimateCard } from '../../components/devices/cards/ClimateCard';

@@ -295,13 +295,13 @@ export function runMediaAction(action: MediaAction, actions: HomePanelActions) {
   }
 }
 
-export function deviceModelOf(props: HomePanelProps): DeviceModel | null {
+export function deviceModelOf(props: HomePanelProps, wattsOf?: (entityId: string) => number | null): DeviceModel | null {
   const { activeDevice, cover, haStates } = props;
   if (activeDevice.type === 'cover') return homeCoverToModel(activeDevice.name, cover);
   const entityId = homeDeviceEntityId(props);
   const entity = homeEntityOf(haStates, entityId);
   if (!entityId || !entity) return null;
-  const watts = readWatts(homeEntityOf(haStates, activeDevice.switchConsumptionEntityId));
+  const watts = readWatts(homeEntityOf(haStates, activeDevice.switchConsumptionEntityId)) ?? wattsOf?.(entityId) ?? null;
   const model = toDeviceModel(entityId, entity, { watts });
   return model ? { ...model, name: activeDevice.name } : null;
 }

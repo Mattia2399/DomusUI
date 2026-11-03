@@ -21,6 +21,7 @@ import { toMediaModel, type MediaAction } from '../devices/model/media';
 import { buildCameraCardModel } from './cameraCardModel';
 import type { GridV2CardFormat } from './cardCapabilityRegistry';
 import type { WidgetCardCallbacks } from './CardRenderer';
+import { useDeviceExtras } from '../devices/cards/deviceExtrasContext';
 
 /*
  * The cards of a room on a Home with the v2 metrics
@@ -95,6 +96,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
     selected: isSelected,
     onSelect: onClick,
   };
+  const extras = useDeviceExtras();
   // As in Rooms: the surface opens the panel and the icon commands the device.
   const openPanel = props.onOpenPanel ?? onClick;
 
@@ -115,15 +117,18 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
   }
 
   if (widget.kind === 'switch' || widget.kind === 'fan' || widget.kind === 'humidifier' || widget.kind === 'cover') {
-    const base = toDeviceModel(widget.entityId, entity);
+    const base = toDeviceModel(widget.entityId, entity, { watts: extras?.wattsOf(widget.entityId) ?? null });
     if (!base) return <>{fallback}</>;
     const model = { ...base, name: name ?? base.name };
     const toggle = widget.kind === 'fan' ? props.onFanToggle : widget.kind === 'humidifier' ? props.onHumidifierToggle : props.onToggleOnly;
     const onAction = run<DeviceAction>((action) => {
       switch (action.type) {
         case 'turn_on':
-        case 'turn_off':
           toggle?.(widget);
+          break;
+        case 'turn_off':
+          if (extras) extras.guardTurnOff(widget.entityId, model.name, () => toggle?.(widget));
+          else toggle?.(widget);
           break;
         case 'fan_pct':
           props.onFanPercentageChange?.(widget, action.pct);
@@ -160,7 +165,18 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
           break;
       }
     });
-    return <DeviceCard model={model} format={format} {...common} onAction={onAction} onOpenPanel={openPanel} />;
+    return (
+      <DeviceCard
+        model={model}
+        format={format}
+        {...common}
+        protectedPlug={extras?.isProtected(widget.entityId) ?? false}
+        timer={extras?.timers[widget.entityId]}
+        timerNow={extras?.timerNow}
+        onAction={onAction}
+        onOpenPanel={openPanel}
+      />
+    );
   }
 
   if (widget.kind === 'climate') {

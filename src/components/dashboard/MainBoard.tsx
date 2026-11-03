@@ -442,6 +442,8 @@ import { DomusScreensaver } from '../screensaver/DomusScreensaver';
 import { DomusKiosk, useKioskChrome } from '../kiosk/DomusKiosk';
 import { KIOSK_START_ROUTES } from '../kiosk/kioskPreferences';
 import { HouseStatesProvider } from '../devices/cards/houseStatesContext';
+import { DeviceExtrasProvider } from '../devices/cards/deviceExtrasContext';
+import { useHomeDeviceExtras } from './mainboard/useHomeDeviceExtras';
 import { PanelServicesProvider } from '../devices/panels/panelServicesContext';
 import {
   createOAuthNonce,
@@ -847,6 +849,8 @@ function resolveGuestAliasUserId(
   );
   return candidatesFromNames?.[0] ?? null;
 }
+
+const ProtectedOffDialog = React.lazy(() => import('../devices/panels/ProtectedOffDialog'));
 
 function resolveHaAssetUrl(candidate: string | undefined, haUrl: string) {
   if (!candidate) {
@@ -7749,6 +7753,46 @@ export function MainBoard() {
     setStateMocks: setHumidifierStateMocks,
   });
 
+  const entityDeviceIds = useMemo(() => new Map(haEntityRegistry.map((entry) => [entry.entityId, entry.deviceId])), [haEntityRegistry]);
+  const deviceIdOfEntity = useCallback((entityId: string) => entityDeviceIds.get(entityId) ?? null, [entityDeviceIds]);
+  const isDemoRuntime = effectiveRuntimeMode === 'demo';
+  const isDeviceOn = useCallback(
+    (entityId: string) =>
+      haStatesForUi[entityId]?.state === 'on' || (isDemoRuntime && widgets.some((widget) => widget.entityId === entityId && widget.isOn)),
+    [haStatesForUi, isDemoRuntime, widgets],
+  );
+  // The switches of the demo have no entity behind them: their panel reads what the card shows.
+  const panelHaStates = useMemo<MockEntityStateMap>(() => {
+    if (!isDemoRuntime) return haStatesForUi;
+    const standIns = widgets.filter((widget) => widget.kind === 'switch' && widget.entityId && !haStatesForUi[widget.entityId]);
+    if (standIns.length === 0) return haStatesForUi;
+    return {
+      ...haStatesForUi,
+      ...Object.fromEntries(
+        standIns.map((widget) => [widget.entityId, { state: widget.isOn ? 'on' : 'off', rawAttributes: { friendly_name: widget.title } } as MockEntityStateMap[string]]),
+      ),
+    };
+  }, [haStatesForUi, isDemoRuntime, widgets]);
+  const deviceExtras = useHomeDeviceExtras({
+    runtimeMode: effectiveRuntimeMode,
+    demo: isDemoRuntime,
+    canManage: dashboardSecurity.can('manage_rooms'),
+    states: haStatesForUi,
+    deviceIdOf: deviceIdOfEntity,
+    isOn: isDeviceOn,
+    onCallApi: callHaApi,
+    onSubscribeApi: subscribeHaApi,
+    onDemoSwitch: isDemoRuntime
+      ? (entityId, on) => {
+          const widget = widgets.find((candidate) => candidate.entityId === entityId);
+          if (!widget || isDeviceOn(entityId) === on) return;
+          if (widget.kind === 'switch') toggleSwitchEntity(widget);
+          else if (widget.kind === 'fan') toggleFan(widget);
+          else if (widget.kind === 'humidifier') toggleHumidifier(widget);
+        }
+      : undefined,
+  });
+
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
   const resolvePreferredHvacMode = (entity?: { hvacModes?: string[]; hvacMode?: string; state?: string }) => {
@@ -12149,6 +12193,7 @@ export function MainBoard() {
                 onOpenItem={handleOpenHomeAttentionItem}
               />
             ) : null}
+            <DeviceExtrasProvider value={deviceExtras.extras}>
             <HouseStatesProvider value={sensorHouseStates}>
             <GridCanvas
               topRightOverlay={isEditMode ? (
@@ -12468,6 +12513,12 @@ export function MainBoard() {
               onWidgetDisplayMetricsChange={handleWidgetDisplayMetricsChange}
             />
             </HouseStatesProvider>
+            </DeviceExtrasProvider>
+            {deviceExtras.confirmOff ? (
+              <React.Suspense fallback={null}>
+                <ProtectedOffDialog name={deviceExtras.confirmOff.name} onConfirm={deviceExtras.confirmOff.turnOff} onClose={deviceExtras.closeConfirmOff} />
+              </React.Suspense>
+            ) : null}
             </div>
 
             {isEditMode || activeDevice ? (
@@ -12479,6 +12530,7 @@ export function MainBoard() {
                   />
                 }
               >
+              <DeviceExtrasProvider value={deviceExtras.extras}>
               <PanelServicesProvider value={panelServices}>
               <RightSidebarManager
               isEditMode={isEditMode}
@@ -12606,7 +12658,7 @@ export function MainBoard() {
               entityOptions={entityOptions}
               haEntityIds={haEntityIds}
               haConnected={isHaConnected}
-              haStates={haStatesForUi}
+              haStates={panelHaStates}
               onUpdateWidget={updateWidget}
               onUpdateWidgetTypeLayoutOverride={updateWidgetTypeLayoutOverride}
               onUpdateWidgetLayoutOverride={updateWidgetLayoutOverride}
@@ -12622,6 +12674,7 @@ export function MainBoard() {
               }}
               />
               </PanelServicesProvider>
+              </DeviceExtrasProvider>
               </React.Suspense>
             ) : (
               <DashboardSidebarPlaceholder isCompactViewport={isCompactViewport} />

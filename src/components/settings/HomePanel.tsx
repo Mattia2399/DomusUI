@@ -30,6 +30,8 @@ import { usePanelLiveState } from '../devices/panels/panelLiveState';
 import { findBatterySensor } from '../devices/model/sensor';
 import { resolveSensorFamily } from '../devices/model/sensorFamily';
 import { findEnergySource } from '../devices/model/plugEnergy';
+import { useDeviceExtras } from '../devices/cards/deviceExtrasContext';
+import { canHaveTimer } from '../devices/model/deviceTimer';
 import { climateIsOn } from '../devices/model/climate';
 import { CLIMATE_TINT, DEVICE_TINT } from '../devices/model/panelTint';
 import { lightRgb } from '../devices/model/tileColor';
@@ -54,6 +56,7 @@ export function HomePanel(props: HomePanelProps) {
   const { activeDevice, lamp, climate, actions, embedded, onClose } = props;
   const panel = homePanelOf(props);
   const registry = useEntityRegistry();
+  const deviceExtras = useDeviceExtras();
   const pt = usePanelsTranslations();
 
   const entityId = homeLiveEntityIdOf(props);
@@ -144,22 +147,33 @@ export function HomePanel(props: HomePanelProps) {
     );
   }
   if (panel === 'device') {
-    const model = deviceModelOf(props);
+    const model = deviceModelOf(props, deviceExtras?.wattsOf);
     if (!model) return null;
     const kind = resolveDeviceKind(model.entityId);
     return (
       <DevicePanel
         model={model}
         roomName={roomName}
-        protectedPlug={false}
+        protectedPlug={deviceExtras?.isProtected(model.entityId) ?? false}
+        onToggleProtected={
+          deviceExtras?.canProtect && (model.kind === 'outlet' || model.kind === 'switch')
+            ? (value) => deviceExtras.setProtected(model.entityId, value)
+            : undefined
+        }
         energy={plugEnergy.energy}
+        timer={deviceExtras?.timers[model.entityId]}
+        timerNow={deviceExtras?.timerNow}
+        onSetTimer={deviceExtras?.timersAvailable && canHaveTimer(model) ? (minutes) => deviceExtras.setTimer(model.entityId, minutes) : undefined}
         embedded={embedded}
         live={
           activeDevice.type === 'cover' && props.coverIsReadOnly
             ? { off: true, notice: <div className="dv-banner dv-pn-banner is-grey" role="status"><span><b>{pt('lvReadOnly')}</b></span></div> }
             : { ...live, tint: model.on && model.available ? { rgb: DEVICE_TINT[model.kind], soft: true } : null }
         }
-        onAction={(action) => runDeviceAction(action, kind, actions)}
+        onAction={(action) => {
+          if (action.type === 'turn_off' && deviceExtras) deviceExtras.guardTurnOff(model.entityId, model.name, () => runDeviceAction(action, kind, actions));
+          else runDeviceAction(action, kind, actions);
+        }}
         onClose={onClose}
       />
     );

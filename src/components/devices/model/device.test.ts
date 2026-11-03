@@ -81,7 +81,7 @@ describe('the state of a device', () => {
   });
 
   it('opens a panel only when there is more than on and off', () => {
-    expect(deviceHasPanel(toDeviceModel('switch.x', e('on'))!)).toBe(false);
+    expect(deviceHasPanel(toDeviceModel('switch.x', e('on'))!)).toBe(true);
     expect(deviceHasPanel(toDeviceModel('input_boolean.x', e('on'))!)).toBe(false);
     expect(deviceHasPanel(toDeviceModel('switch.x', e('on'), { watts: 3 })!)).toBe(true);
     expect(deviceHasPanel(toDeviceModel('fan.x', e('off'))!)).toBe(true);
