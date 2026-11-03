@@ -32,7 +32,7 @@ export function LevelBar({
   const share = lit ? (Math.max(min, Math.min(max, value)) - min) / (max - min || 1) : 0;
   return (
     <span className={clsx('dv-slider', !lit && 'is-off', className)} style={style}>
-      <span className="dv-slider-fill" aria-hidden="true" style={{ width: `max(18px, calc((100% - 10px) * ${share.toFixed(3)}))` }} />
+      <span className="dv-slider-fill" aria-hidden="true" style={{ width: lit ? `max(32px, ${(share * 100).toFixed(1)}%)` : 0 }} />
       <input
         type="range"
         min={min}

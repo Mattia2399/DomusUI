@@ -135,6 +135,7 @@ export function CardHead({
   status,
   aside,
   oneLine = false,
+  nameNode,
   statusClassName,
 }: {
   icon?: React.ReactNode;
@@ -142,13 +143,15 @@ export function CardHead({
   status: React.ReactNode;
   aside?: React.ReactNode;
   oneLine?: boolean;
+  /** Draws the name in its own way, as one that scrolls. */
+  nameNode?: React.ReactNode;
   statusClassName?: string;
 }) {
   return (
     <div className="dv-size-head">
       {icon}
       <span className="dv-size-text">
-        <span className={clsx('dv-name', oneLine && 'dv-name-1')}>{name}</span>
+        {nameNode ?? <span className={clsx('dv-name', oneLine && 'dv-name-1')}>{name}</span>}
         <span className={clsx('dv-status', statusClassName)}>{status}</span>
       </span>
       {aside}

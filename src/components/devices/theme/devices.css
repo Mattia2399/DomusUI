@@ -217,6 +217,48 @@
   -webkit-line-clamp: 1;
 }
 
+/* The name on one line, that scrolls when it does not fit (ScrollingName). */
+.dv-name-scroll {
+  display: block;
+  white-space: nowrap;
+  -webkit-line-clamp: unset;
+}
+
+.dv-name-scroll.is-long {
+  -webkit-mask-image: linear-gradient(90deg, #000000 calc(100% - 14px), transparent);
+  mask-image: linear-gradient(90deg, #000000 calc(100% - 14px), transparent);
+}
+
+.dv-name-track {
+  display: inline-flex;
+  gap: 28px;
+}
+
+.dv-name-track > span {
+  flex: none;
+}
+
+.dv-name-scroll.is-moving .dv-name-track {
+  animation: dv-name-scroll var(--dv-name-time, 8s) linear infinite;
+}
+
+@keyframes dv-name-scroll {
+  0%,
+  20% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(calc(-50% - 14px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-name-scroll.is-moving .dv-name-track {
+    animation: none;
+  }
+}
+
 .dv-status {
   overflow: hidden;
   white-space: nowrap;
@@ -285,10 +327,10 @@
 
 .dv-slider-fill {
   position: absolute;
-  top: 5px;
-  bottom: 5px;
-  left: 5px;
-  border-radius: 11px;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 16px;
   background: #ffffff;
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
   transition: width 160ms ease;
@@ -2335,7 +2377,11 @@
     width: 100%;
     flex: none;
     align-items: center;
-    padding: 0 44px;
+    padding: 0;
+  }
+
+  .dv-panel.is-docked > .dv-panel-head > .flex-1 > * {
+    max-width: 100%;
   }
 
   .dv-panel.is-docked > .dv-panel-head > .dv-round-sm {

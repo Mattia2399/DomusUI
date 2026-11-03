@@ -46,6 +46,8 @@ export function deviceCardLayout(format: DeviceCardFormat): 'row' | 'column' | '
 export type DeviceCardShellProps = {
   format: DeviceCardFormat;
   name: string;
+  /** Draws the name in its own way, as one that scrolls. */
+  nameNode?: React.ReactNode;
   status: string;
   icon: React.ReactNode;
   isOn: boolean;
@@ -77,6 +79,7 @@ export type DeviceCardShellProps = {
 export function DeviceCardShell({
   format,
   name,
+  nameNode,
   status,
   icon,
   isOn,
@@ -124,7 +127,7 @@ export function DeviceCardShell({
         {icon}
       </button>
       <span className={clsx('flex min-w-0 flex-col gap-px', layout !== 'split' && 'flex-1')}>
-        <span className={clsx('dv-name', oneLineName && 'dv-name-1')}>{name}</span>
+        {nameNode ?? <span className={clsx('dv-name', oneLineName && 'dv-name-1')}>{name}</span>}
         <span className={clsx('dv-status', statusTone === 'standby' && 'is-standby')}>{status}</span>
       </span>
     </>

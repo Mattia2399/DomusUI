@@ -1,6 +1,6 @@
 /*
- * The sheet of a panel on a phone: floating above the edges of the screen, of
- * one height for every panel. What does not fit scrolls inside it.
+ * The sheet of a panel on a phone: it comes out from under the screen, from edge
+ * to edge, of one height for every panel. What does not fit scrolls inside it.
  */
 
 .dv-panel-sheet-scrim {
@@ -17,7 +17,6 @@
   inset: 0;
   display: flex;
   align-items: flex-end;
-  padding: 8px 8px calc(env(safe-area-inset-bottom) + 8px);
   pointer-events: none;
 }
 
@@ -27,7 +26,9 @@
   width: 100%;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 30px;
+  border-bottom: 0;
+  border-inline: 0;
+  border-radius: 30px 30px 0 0;
   outline: none;
   pointer-events: auto;
 }
@@ -58,6 +59,7 @@
   min-height: 0;
   flex: 1;
   overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom);
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;

@@ -6,6 +6,7 @@ import { lightTileColor } from '../model/tileColor';
 import { CardFrame, CardHead, CardIcon } from './CardFrame';
 import { DeviceCardShell, deviceCardSize, type DeviceCardFormat } from './DeviceCardShell';
 import { BrightnessBar, lightSwatches, SwatchRow } from './LightControls';
+import { ScrollingName } from './ScrollingName';
 import { formatLightStatus, toneTitle, toneWord } from './lightText';
 
 /*
@@ -42,6 +43,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
   const size = deviceCardSize(format);
   const toggle = () => onAction({ type: model.on ? 'turn_off' : 'turn_on' });
   const toggleLabel = dt(model.on ? 'turnOff' : 'turnOn', { name: model.name });
+  const nameNode = <ScrollingName name={model.name} still={editing} />;
   const bar = (short: boolean) =>
     dimmable ? (
       <BrightnessBar
@@ -62,6 +64,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
       <DeviceCardShell
         format={format === 'U×3' ? 'U×3' : 'U×2'}
         name={model.name}
+        nameNode={nameNode}
         status={status}
         icon={<Lightbulb size={21} strokeWidth={2} aria-hidden="true" />}
         isOn={model.on}
@@ -121,7 +124,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
   if (size === 'standard') {
     return frame(
       <>
-        <CardHead icon={icon} name={model.name} status={toneLine} />
+        <CardHead icon={icon} name={model.name} nameNode={nameNode} status={toneLine} />
         {dimmable ? (
           <span className="dv-val">
             <b>{pct}</b>
@@ -142,6 +145,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
       <CardHead
         icon={icon}
         name={model.name}
+        nameNode={nameNode}
         status={status}
         oneLine
         aside={<span className="dv-pct">{model.on ? `${pct}%` : dt('switchOff')}</span>}

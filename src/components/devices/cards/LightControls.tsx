@@ -32,7 +32,7 @@ export function BrightnessBar({
       <span
         className="dv-slider-fill"
         aria-hidden="true"
-        style={{ width: `max(18px, calc((100% - 10px) * ${(shown / 100).toFixed(3)}))` }}
+        style={{ width: model.on ? `max(32px, ${shown}%)` : 0 }}
       />
       <input
         type="range"
