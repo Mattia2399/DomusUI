@@ -28,6 +28,17 @@ const layout = {
 
 test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
 
+const devices = (id, kind, title, status, x, y) => ({
+  id,
+  kind,
+  title,
+  entityId: id,
+  dataSource: 'mock',
+  status,
+  isOn: true,
+  layout: { i: id, x, y, w: 2, h: 4 },
+});
+
 const place = (locator) => locator.evaluate((node) => {
   const rect = node.getBoundingClientRect();
   return { top: Math.round(rect.top), bottom: Math.round(rect.bottom), centre: Math.round(rect.left + rect.width / 2) };
@@ -95,4 +106,47 @@ test('the slider and the power stay still on every screen of the light panel', a
   // The panel takes the colour: the device received it, not only the handle.
   await page.waitForTimeout(2200);
   await expect(disc).toHaveAttribute('aria-valuenow', '90');
+});
+
+test('the panels with a slider have it in one place, and every screen leaves it there', async ({ page }) => {
+  const shared = [
+    devices('fan.demo_breeze', 'fan', 'Ventola', 'on', 0, 0),
+    devices('cover.living_room_shutter', 'cover', 'Tapparella', 'open', 2, 0),
+    devices('climate.living_room', 'climate', 'Clima', 'heat', 0, 4),
+  ];
+  await page.addInitScript((value) => {
+    localStorage.clear();
+    localStorage.setItem('domusui.language.v1', 'it');
+    localStorage.setItem('ha.dashboard.demo.builder.layout.v1', JSON.stringify(value));
+    localStorage.setItem('ha.dashboard.runtimeMode.v1', 'demo');
+    localStorage.setItem('ha.dashboard.setupJourney.v2', JSON.stringify({ version: 2, phase: 'done', mode: 'demo', updatedAt: Date.now() }));
+    localStorage.setItem('ha.dashboard.onboarding.welcome.v1', 'done');
+    localStorage.setItem('ha.dashboard.onboarding.context.v1', 'done');
+  }, { ...layout, widgets: [...layout.widgets.map((widget) => ({ ...widget, layout: { ...widget.layout, x: 2, y: 4 } })), ...shared] });
+  await page.goto('/home');
+  await expect(page.locator('.dv-tile-body')).toHaveCount(4, { timeout: 20_000 });
+
+  let reference = null;
+  for (const name of ['Lampada', 'Ventola', 'Tapparella', 'Clima']) {
+    const card = page.locator(`.dv-tile-body[aria-label*="${name}"]`);
+    const bounds = await card.boundingBox();
+    await card.tap({ position: { x: bounds.width - 12, y: 12 } });
+    await expect(page.locator('.dv-panel-stage')).toBeVisible({ timeout: 20_000 });
+    await page.waitForTimeout(600);
+
+    const slider = page.locator('.dv-vslider');
+    const here = await place(slider);
+    reference ??= here;
+    expect(here).toEqual(reference);
+
+    const shortcuts = page.locator('.dv-panel-shortcuts .dv-panel-shortcut');
+    for (let index = 0; index < (await shortcuts.count()); index += 1) {
+      if ((await shortcuts.nth(index).getAttribute('aria-expanded')) === null) continue;
+      await shortcuts.nth(index).click();
+      expect(await place(slider)).toEqual(reference);
+      await page.locator('.dv-panel-dock .dv-panel-shortcut').click();
+    }
+    await page.locator('.dv-panel-head .dv-round-sm').first().click();
+    await expect(page.locator('.dv-panel-stage')).toHaveCount(0);
+  }
 });

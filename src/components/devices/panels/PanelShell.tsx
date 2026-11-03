@@ -51,7 +51,8 @@ export type PanelShellProps = {
   onClose: () => void;
   className?: string;
   live?: PanelLive;
-  dock?: { back?: { label: string; onPress: () => void } };
+  /** `center` takes the place of the power, for a device that has none. */
+  dock?: { back?: { label: string; onPress: () => void }; center?: React.ReactNode };
   children: React.ReactNode;
 };
 
@@ -76,22 +77,73 @@ export function PanelShortcut({
   icon,
   label,
   expanded,
+  pressed,
   disabled,
   onPress,
 }: {
   icon: React.ReactNode;
   label: string;
   expanded?: boolean;
+  /** A shortcut that switches something by itself says whether it is on. */
+  pressed?: boolean;
   disabled?: boolean;
   onPress: () => void;
 }) {
   return (
-    <button type="button" className="dv-panel-shortcut" aria-expanded={expanded} disabled={disabled} onClick={onPress}>
-      <span className="dv-round" aria-hidden="true">
+    <button type="button" className="dv-panel-shortcut" aria-expanded={expanded} aria-pressed={pressed} disabled={disabled} onClick={onPress}>
+      <span className={clsx('dv-round', pressed && 'is-on')} aria-hidden="true">
         {icon}
       </span>
       {label}
     </button>
+  );
+}
+
+export type PanelSectionItem = {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  /** Does its job at once, instead of opening a screen. */
+  run?: () => void;
+  pressed?: boolean;
+};
+
+/**
+ * The row of shortcuts of a panel and the screen open now. The column of the Home
+ * changes device without closing: a screen belongs to its `owner`.
+ */
+export function usePanelSections(owner: string, items: PanelSectionItem[], disabled = false) {
+  const dt = useDevicesTranslations();
+  const [opened, setOpened] = React.useState<{ owner: string; key: string } | null>(null);
+  const section = opened?.owner === owner && items.some(({ key, run }) => key === opened.key && !run) ? opened.key : null;
+  return {
+    section,
+    sectionClass: (key: string) => clsx('dv-panel-section', section === key && 'is-open'),
+    back: section ? { label: dt('back'), onPress: () => setOpened(null) } : undefined,
+    row: (
+      <div className="dv-panel-shortcuts" role="group" aria-label={dt('panelAdjust')}>
+        {items.map(({ key, icon, label, run, pressed }) => (
+          <PanelShortcut
+            key={key}
+            icon={icon}
+            label={label}
+            expanded={run ? undefined : section === key}
+            pressed={pressed}
+            disabled={disabled}
+            onPress={run ?? (() => setOpened({ owner, key }))}
+          />
+        ))}
+      </div>
+    ),
+  };
+}
+
+/** Where a device has no slider, on a phone or in a column: what it is doing, large. */
+export function PanelHero({ label }: { label: string }) {
+  return (
+    <div className="dv-panel-hero" aria-hidden="true">
+      {label}
+    </div>
   );
 }
 
@@ -164,7 +216,7 @@ export function PanelShell({ className, children, live, dock, ...header }: Panel
           <span className="dv-panel-dock-side">
             {dock.back ? <PanelShortcut icon={<ChevronLeft size={20} strokeWidth={2.2} />} label={dock.back.label} onPress={dock.back.onPress} /> : null}
           </span>
-          {power ? <PowerButton power={power} /> : null}
+          {dock.center ?? (power ? <PowerButton power={power} /> : null)}
         </div>
       ) : null}
     </div>

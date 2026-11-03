@@ -2233,6 +2233,10 @@
   display: none;
 }
 
+.dv-panel-hero {
+  display: none;
+}
+
 .dv-panel-section {
   display: flex;
   flex-direction: column;
@@ -2250,6 +2254,21 @@
 }
 
 @container (min-width: 521px) {
+  /* What used to follow the body of a panel: the timer below everything, a plug as a column. */
+  .dv-panel-stage.is-wrap {
+    flex-wrap: wrap;
+    row-gap: 18px;
+  }
+
+  .dv-panel-stage.is-stack {
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .dv-panel-stage > .dv-panel-full {
+    flex: 0 0 100%;
+  }
+
   .dv-panel-stage:has(> .dv-panel-wheel) {
     display: grid;
     align-items: start;
@@ -2277,8 +2296,7 @@
 .dv-panel-shortcut {
   display: flex;
   min-width: 0;
-  max-width: 84px;
-  flex: 1 1 0;
+  flex: 0 0 25%;
   flex-direction: column;
   align-items: center;
   gap: 6px;
@@ -2365,6 +2383,11 @@
     justify-items: center;
   }
 
+  /* One column: what shares the zone below the slider shares its cell, never a column of its own. */
+  .dv-panel-stage > * {
+    grid-column: 1;
+  }
+
   .dv-panel-stage > .dv-vslider {
     grid-row: 1;
     height: 100%;
@@ -2393,14 +2416,43 @@
     grid-row: 2;
   }
 
+  /* What stands in for the slider of a device without one. */
+  .dv-panel-hero {
+    display: block;
+    grid-row: 1;
+    align-self: center;
+    font-size: 40px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    text-align: center;
+  }
+
+  .dv-panel-stage > .dv-panel-hero-card {
+    min-height: 0;
+    width: 100%;
+    grid-row: 1;
+    align-self: stretch;
+    overflow-y: auto;
+  }
+
+  /* A screen that is a direct part of the stage, as the timer. */
+  .dv-panel-stage > .dv-panel-section {
+    grid-row: 2;
+    max-height: 100%;
+    overflow-y: auto;
+  }
+
   .dv-panel-stage > .dv-panel-shortcuts {
     display: flex;
+    max-height: 100%;
     width: 100%;
     grid-row: 2;
     align-self: center;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: center;
-    gap: 6px;
+    gap: 8px 0;
+    overflow-y: auto;
   }
 
   .dv-panel-stage.has-section > .dv-panel-shortcuts {
@@ -2457,6 +2509,25 @@
 
   .dv-panel-section.is-open .dv-hslider {
     width: 100%;
+  }
+
+  .dv-panel-section.is-open[role='radiogroup'],
+  .dv-panel-section.is-open > [role='radiogroup'] {
+    width: 100%;
+  }
+
+  /* Buttons that say what they are need no title, and the room goes to them. */
+  .dv-panel-section.is-open:has(> [role='radiogroup']) > .dv-t2 {
+    display: none;
+  }
+
+  .dv-panel-section.is-open .dv-climate-mode {
+    min-height: 56px;
+  }
+
+  /* A climate device can have seven modes: two rows of four, where three rows would not fit. */
+  .dv-panel-section.is-open > [role='radiogroup']:has(> :nth-child(7)) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

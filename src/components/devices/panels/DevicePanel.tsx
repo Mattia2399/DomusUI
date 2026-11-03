@@ -1,5 +1,5 @@
 import React from 'react';
-import { Droplets, Square } from 'lucide-react';
+import { ArrowLeftRight, Droplets, Layers, MoveHorizontal, ShieldCheck, SlidersHorizontal, Square, Timer } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import GlassToggle from '../../ui/GlassToggle';
@@ -10,13 +10,17 @@ import type { PlugEnergy } from '../model/plugEnergy';
 import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../model/deviceTimer';
 import { DeviceIcon } from '../cards/DeviceCard';
 import { formatDeviceStatus } from '../cards/deviceText';
-import { PanelShell, type PanelLive } from './PanelShell';
+import { PanelHero, PanelShell, usePanelSections, type PanelLive, type PanelSectionItem } from './PanelShell';
 
 /*
  * The controls of a device that has more than on and off: the power of a
  * plug, a fan's speed and modes, a cover's opening, a humidifier's target.
- * The same content wherever the panel opens.
+ * The same content wherever the panel opens. On a phone or in a column the slider,
+ * or what stands in for it, has the panel to itself and the rest waits behind a row
+ * of round shortcuts, as in the light panel (devices.css).
  */
+
+type SectionClass = (key: string) => string;
 
 export type DevicePanelProps = {
   model: DeviceModel;
@@ -39,11 +43,13 @@ export type DevicePanelProps = {
 };
 
 function Options({
+  className,
   label,
   note,
   options,
   onPick,
 }: {
+  className?: string;
   label: string;
   /** Said after the label: "Spegnimento automatico · Nessun timer attivo". */
   note?: string;
@@ -52,7 +58,7 @@ function Options({
 }) {
   if (options.length === 0) return null;
   return (
-    <div className="flex flex-col gap-2">
+    <div className={clsx('flex flex-col gap-2', className)}>
       <span className="dv-t2 text-[13px] font-bold" aria-live={note ? 'polite' : undefined}>
         {label}
         {note ? <span className="font-semibold"> · {note}</span> : null}
@@ -167,6 +173,7 @@ function PlugBody({
   onToggleProtected,
   energy,
   onSetTariff,
+  hero,
 }: {
   model: DeviceModel;
   dt: DevicesTranslator;
@@ -174,12 +181,13 @@ function PlugBody({
   onToggleProtected?: (value: boolean) => void;
   energy?: PlugEnergy | null;
   onSetTariff?: () => void;
+  hero: React.ReactNode;
 }) {
   const standby = isStandby(model);
   return (
     <>
       {model.watts !== null || energy ? (
-        <div className="dv-card flex flex-col gap-3.5">
+        <div className="dv-card dv-panel-hero-card flex flex-col gap-3.5">
           {model.watts !== null ? (
             <div className="flex flex-wrap items-end justify-between gap-3">
               <div className="flex flex-col gap-0.5">
@@ -196,28 +204,30 @@ function PlugBody({
           ) : null}
           {energy ? <PlugEnergyView energy={energy} dt={dt} onSetTariff={onSetTariff} /> : null}
         </div>
-      ) : null}
+      ) : hero}
       {onToggleProtected ? (
-        <div className="dv-card flex items-center gap-3 !py-3">
-          <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span className="text-[15px] font-semibold">{dt('protectedLabel')}</span>
-            <span className="dv-t2 text-[13px] font-medium">{dt('protectedNote')}</span>
-          </span>
-          <GlassToggle checked={protectedPlug} onChange={onToggleProtected} label={dt('protectedLabel')} />
+        <div className="dv-panel-section">
+          <div className="dv-card flex items-center gap-3 !py-3">
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="text-[15px] font-semibold">{dt('protectedLabel')}</span>
+              <span className="dv-t2 text-[13px] font-medium">{dt('protectedNote')}</span>
+            </span>
+            <GlassToggle checked={protectedPlug} onChange={onToggleProtected} label={dt('protectedLabel')} />
+          </div>
         </div>
       ) : null}
     </>
   );
 }
 
-function FanBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTranslator; onAction: (action: DeviceAction) => void }) {
+function FanBody({ model, dt, sectionClass, hero, onAction }: { model: DeviceModel; dt: DevicesTranslator; sectionClass: SectionClass; hero: React.ReactNode; onAction: (action: DeviceAction) => void }) {
   const fan = model.fan;
   if (!fan) return null;
   const steps = fan.steps;
   const level = fanLevel(fan);
   const value = steps ? level : fan.pct;
   return (
-    <div className="dv-panel-body">
+    <>
       {fan.canSetSpeed ? (
       <VerticalSlider
         fill={steps ? (level / steps) * 100 : fan.pct}
@@ -243,26 +253,29 @@ function FanBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTrans
           />
         }
       />
-      ) : null}
+      ) : hero}
       <div className="dv-panel-side">
         <Options
+          className={sectionClass('modes')}
           label={dt('modes')}
           options={fan.presets.map((preset) => ({ key: preset, label: preset, on: fan.preset === preset }))}
           onPick={(preset) => onAction({ type: 'fan_preset', preset: fan.preset === preset ? null : preset })}
         />
         {fan.oscillating !== null ? (
-          <div className="dv-card flex items-center gap-3 !py-3">
-            <span className="flex-1 text-[15px] font-semibold">{dt('oscillation')}</span>
-            <GlassToggle
-              checked={fan.oscillating}
-              onChange={(oscillating) => onAction({ type: 'fan_oscillate', oscillating })}
-              label={dt('oscillation')}
-              disabled={!model.available}
-            />
+          <div className="dv-panel-section">
+            <div className="dv-card flex items-center gap-3 !py-3">
+              <span className="flex-1 text-[15px] font-semibold">{dt('oscillation')}</span>
+              <GlassToggle
+                checked={fan.oscillating}
+                onChange={(oscillating) => onAction({ type: 'fan_oscillate', oscillating })}
+                label={dt('oscillation')}
+                disabled={!model.available}
+              />
+            </div>
           </div>
         ) : null}
         {fan.direction !== null ? (
-          <div className="flex flex-col gap-2">
+          <div className={clsx(sectionClass('direction'), 'gap-2')}>
             <span className="dv-t2 text-[13px] font-bold">{dt('direction')}</span>
             <GlassSegmentSelect
               className="dv-seg"
@@ -280,11 +293,11 @@ function FanBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTrans
           </div>
         ) : null}
       </div>
-    </div>
+    </>
   );
 }
 
-function CoverBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTranslator; onAction: (action: DeviceAction) => void }) {
+function CoverBody({ model, dt, hero, onAction }: { model: DeviceModel; dt: DevicesTranslator; hero: React.ReactNode; onAction: (action: DeviceAction) => void }) {
   const cover = model.cover;
   if (!cover) return null;
   const position = cover.position;
@@ -294,7 +307,7 @@ function CoverBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTra
     [0, dt('coverClosed')],
   ];
   return (
-    <div className="dv-panel-body">
+    <>
       {cover.canPosition && position !== null ? (
         <div className="dv-vslider dv-cover">
           <span className="dv-cover-shut" aria-hidden="true" style={{ height: `${100 - position}%` }} />
@@ -314,9 +327,10 @@ function CoverBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTra
             aria-orientation="vertical"
           />
         </div>
-      ) : null}
+      ) : hero}
       <div className="dv-panel-side">
         <Options
+          className="dv-panel-section is-open"
           label={dt('position')}
           options={(cover.canPosition ? presets : presets.filter(([value]) => (value === 100 && cover.canOpen) || (value === 0 && cover.canClose))).map(([value, label]) => ({
             key: String(value),
@@ -329,14 +343,8 @@ function CoverBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTra
             else onAction({ type: value === 100 ? 'cover_open' : 'cover_close' });
           }}
         />
-        {cover.moving && cover.canStop ? (
-          <button type="button" className="dv-option is-on self-start" onClick={() => onAction({ type: 'cover_stop' })}>
-            <Square size={14} strokeWidth={2.4} aria-hidden="true" className="mr-1.5 inline" />
-            {dt('stop')}
-          </button>
-        ) : null}
         {cover.tilt !== null ? (
-          <div className="flex flex-col gap-2.5">
+          <div className="dv-panel-section is-open gap-2.5">
             <span className="dv-t2 text-[13px] font-bold">{dt('tiltNow', { pct: cover.tilt })}</span>
             <span className="dv-hslider">
               <span style={{ width: `${cover.tilt}%` }} />
@@ -354,15 +362,15 @@ function CoverBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTra
             </span>
           </div>
         ) : null}
-        <span className="dv-t2 text-[13px] font-medium leading-[1.45]">
+        <span className="dv-panel-section dv-t2 text-[13px] font-medium leading-[1.45]">
           {cover.canPosition ? dt('coverNote') : dt('coverNoteNoPosition')}
         </span>
       </div>
-    </div>
+    </>
   );
 }
 
-function HumidifierBody({ model, dt, onAction }: { model: DeviceModel; dt: DevicesTranslator; onAction: (action: DeviceAction) => void }) {
+function HumidifierBody({ model, dt, sectionClass, onAction }: { model: DeviceModel; dt: DevicesTranslator; sectionClass: SectionClass; onAction: (action: DeviceAction) => void }) {
   const humidifier = model.humidifier;
   if (!humidifier) return null;
   const { min, max, current, target, modes, mode } = humidifier;
@@ -376,7 +384,7 @@ function HumidifierBody({ model, dt, onAction }: { model: DeviceModel; dt: Devic
         ? dt('humNoteAdding', { n: -gap })
         : dt('humNoteReached');
   return (
-    <div className="dv-panel-body">
+    <>
       <VerticalSlider
         fill={((shownTarget - min) / (max - min || 1)) * 100}
         fillColor={model.on ? 'rgb(var(--dv-tone-rgb) / 0.95)' : 'var(--dv-slider-fill-off)'}
@@ -399,7 +407,7 @@ function HumidifierBody({ model, dt, onAction }: { model: DeviceModel; dt: Devic
         }
       />
       <div className="dv-panel-side">
-        <div className="dv-card flex flex-col gap-1">
+        <div className={clsx(sectionClass('now'), 'dv-card gap-1')}>
           <span className="dv-t2 text-[13px] font-bold">{dt('humidityNow')}</span>
           <span className="text-[34px] font-bold tracking-[-0.03em] tabular-nums">
             {current ?? '—'}
@@ -408,16 +416,17 @@ function HumidifierBody({ model, dt, onAction }: { model: DeviceModel; dt: Devic
           <span className="dv-t2 text-[13px] font-medium leading-[1.4]">{note}</span>
         </div>
         <Options
+          className={sectionClass('modes')}
           label={dt('modes')}
           options={modes.map((entry) => ({ key: entry, label: entry, on: entry === mode }))}
           onPick={(entry) => onAction({ type: 'humidifier_mode', mode: entry })}
         />
       </div>
-    </div>
+    </>
   );
 }
 
-function TimerOptions({ timer, now, dt, onSetTimer }: { timer: DeviceTimer | null; now: number; dt: DevicesTranslator; onSetTimer: (minutes: number) => void }) {
+function TimerOptions({ className, timer, now, dt, onSetTimer }: { className?: string; timer: DeviceTimer | null; now: number; dt: DevicesTranslator; onSetTimer: (minutes: number) => void }) {
   const { locale } = useI18n();
   const active = timer && timer.endsAt > now ? timer : null;
   const note = active
@@ -428,6 +437,7 @@ function TimerOptions({ timer, now, dt, onSetTimer }: { timer: DeviceTimer | nul
     : dt('timerNone');
   return (
     <Options
+      className={className}
       label={dt('timerTitle')}
       note={note}
       options={TIMER_PRESETS.map((minutes) => ({
@@ -460,17 +470,34 @@ export function DevicePanel({
   const subtitle = roomName ? `${roomName} · ${status}` : status;
   const lit = model.on && model.available;
   const isPlug = model.kind === 'outlet' || model.kind === 'switch';
+  const hasTimer = Boolean(onSetTimer && model.available);
+  const iconStyle = lit
+    ? { background: 'var(--dv-tone)', color: 'var(--dv-tone-ink)', boxShadow: '0 8px 22px -6px var(--dv-tone-glow)' }
+    : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' };
+  const hero = <PanelHero label={status} />;
+
+  const fan = model.fan;
+  const icon = { size: 20, strokeWidth: 2 };
+  const shortcuts: PanelSectionItem[] = [
+    ...(isPlug && onToggleProtected
+      ? [{ key: 'protect', icon: <ShieldCheck {...icon} />, label: dt('protectedLabel'), pressed: protectedPlug, run: () => onToggleProtected(!protectedPlug) }]
+      : []),
+    ...(model.kind === 'humidifier' ? [{ key: 'now', icon: <Droplets {...icon} />, label: dt('humidityNow') }] : []),
+    ...((fan?.presets.length ?? 0) > 0 || (model.humidifier?.modes.length ?? 0) > 0 ? [{ key: 'modes', icon: <SlidersHorizontal {...icon} />, label: dt('modes') }] : []),
+    ...(fan && fan.oscillating !== null
+      ? [{ key: 'oscillate', icon: <MoveHorizontal {...icon} />, label: dt('oscillation'), pressed: fan.oscillating, run: () => onAction({ type: 'fan_oscillate', oscillating: !fan.oscillating }) }]
+      : []),
+    ...(fan && fan.direction !== null ? [{ key: 'direction', icon: <ArrowLeftRight {...icon} />, label: dt('direction') }] : []),
+    ...(hasTimer ? [{ key: 'timer', icon: <Timer {...icon} />, label: dt('timerShort') }] : []),
+  ];
+  const { section, sectionClass, back, row } = usePanelSections(model.entityId, shortcuts, !model.available);
 
   return (
     <PanelShell
       className={`dv-tone-${{ outlet: 'power', switch: 'power', virtual: 'power', fan: 'fan', cover: 'cover', humidifier: 'humid' }[model.kind]}`}
       icon={<DeviceIcon model={model} size={23} />}
       iconClassName="transition-[background] duration-300"
-      iconStyle={
-        lit
-          ? { background: 'var(--dv-tone)', color: 'var(--dv-tone-ink)', boxShadow: '0 8px 22px -6px var(--dv-tone-glow)' }
-          : { background: 'var(--dv-icon-off)', color: 'var(--dv-t2)' }
-      }
+      iconStyle={iconStyle}
       name={model.name}
       subtitle={subtitle}
       liveSubtitle
@@ -481,16 +508,27 @@ export function DevicePanel({
       }
       embedded={embedded}
       live={live}
+      dock={{
+        back,
+        center: model.cover?.moving && model.cover.canStop ? (
+          <button type="button" className="dv-round is-on" aria-label={dt('stopCover', { name: model.name })} onClick={() => onAction({ type: 'cover_stop' })}>
+            <Square size={18} strokeWidth={2.4} aria-hidden="true" />
+          </button>
+        ) : undefined,
+      }}
       onClose={onClose}
     >
-
-      {isPlug ? (
-        <PlugBody model={model} dt={dt} protectedPlug={protectedPlug} onToggleProtected={onToggleProtected} energy={energy} onSetTariff={onSetTariff} />
-      ) : null}
-      {model.kind === 'fan' ? <FanBody model={model} dt={dt} onAction={onAction} /> : null}
-      {model.kind === 'cover' ? <CoverBody model={model} dt={dt} onAction={onAction} /> : null}
-      {model.kind === 'humidifier' ? <HumidifierBody model={model} dt={dt} onAction={onAction} /> : null}
-      {onSetTimer && model.available ? <TimerOptions timer={timer} now={timerNow} dt={dt} onSetTimer={onSetTimer} /> : null}
+      <div className={clsx('dv-panel-body dv-panel-stage', isPlug ? 'is-stack' : 'is-wrap', (section || model.kind === 'cover') && 'has-section')}>
+        {isPlug ? (
+          <PlugBody model={model} dt={dt} protectedPlug={protectedPlug} onToggleProtected={onToggleProtected} energy={energy} onSetTariff={onSetTariff} hero={hero} />
+        ) : null}
+        {model.kind === 'virtual' ? hero : null}
+        {model.kind === 'fan' ? <FanBody model={model} dt={dt} sectionClass={sectionClass} hero={hero} onAction={onAction} /> : null}
+        {model.kind === 'cover' ? <CoverBody model={model} dt={dt} hero={hero} onAction={onAction} /> : null}
+        {model.kind === 'humidifier' ? <HumidifierBody model={model} dt={dt} sectionClass={sectionClass} onAction={onAction} /> : null}
+        {hasTimer && onSetTimer ? <TimerOptions className={clsx(sectionClass('timer'), 'dv-panel-full')} timer={timer} now={timerNow} dt={dt} onSetTimer={onSetTimer} /> : null}
+        {row}
+      </div>
     </PanelShell>
   );
 }

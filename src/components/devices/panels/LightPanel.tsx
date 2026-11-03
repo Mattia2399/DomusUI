@@ -9,7 +9,7 @@ import { GlassColorPicker } from '../../ui/GlassColorPicker';
 import { LightKindSegment, lightSwatches, SwatchRow } from '../cards/LightControls';
 import { toneTitle } from '../cards/lightText';
 import type { LightExtraAction } from '../model/lightExtras';
-import { PanelShell, PanelShortcut, type PanelLive } from './PanelShell';
+import { PanelShell, usePanelSections, type PanelLive, type PanelSectionItem } from './PanelShell';
 
 /*
  * The controls of a light: a large vertical brightness slider, White / Colour
@@ -19,7 +19,6 @@ import { PanelShell, PanelShortcut, type PanelLive } from './PanelShell';
  * shortcuts, and takes the place of the row when opened (devices.css).
  */
 
-type SectionKey = 'color' | 'white' | 'effects' | 'flash';
 
 export type LightPanelProps = {
   model: LightModel;
@@ -68,17 +67,14 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
   const hasWhite = Boolean(extras?.supportsWhite && onExtraAction);
   const hasEffects = Boolean(extras?.supportsEffects && extras.effects && extras.effects.length > 0 && onExtraAction);
   const hasFlash = Boolean(extras?.supportsFlash && onExtraAction);
-  const shortcuts: Array<{ key: SectionKey; icon: React.ReactNode; label: string }> = [
-    ...(model.caps === 'color' ? [{ key: 'color' as const, icon: <Palette size={20} strokeWidth={2} />, label: dt('color') }] : []),
-    ...(model.caps === 'ct' ? [{ key: 'color' as const, icon: <Thermometer size={20} strokeWidth={2} />, label: dt('temperature') }] : []),
-    ...(hasWhite ? [{ key: 'white' as const, icon: <SunDim size={20} strokeWidth={2} />, label: t('controls.light.whiteChannel') }] : []),
-    ...(hasEffects ? [{ key: 'effects' as const, icon: <Sparkles size={20} strokeWidth={2} />, label: t('controls.light.effects') }] : []),
-    ...(hasFlash ? [{ key: 'flash' as const, icon: <Zap size={20} strokeWidth={2} />, label: t('controls.light.flash') }] : []),
+  const shortcuts: PanelSectionItem[] = [
+    ...(model.caps === 'color' ? [{ key: 'color', icon: <Palette size={20} strokeWidth={2} />, label: dt('color') }] : []),
+    ...(model.caps === 'ct' ? [{ key: 'color', icon: <Thermometer size={20} strokeWidth={2} />, label: dt('temperature') }] : []),
+    ...(hasWhite ? [{ key: 'white', icon: <SunDim size={20} strokeWidth={2} />, label: t('controls.light.whiteChannel') }] : []),
+    ...(hasEffects ? [{ key: 'effects', icon: <Sparkles size={20} strokeWidth={2} />, label: t('controls.light.effects') }] : []),
+    ...(hasFlash ? [{ key: 'flash', icon: <Zap size={20} strokeWidth={2} />, label: t('controls.light.flash') }] : []),
   ];
-  // The column of the Home changes light without closing: a screen belongs to its light.
-  const [opened, setOpened] = React.useState<{ entityId: string; key: SectionKey } | null>(null);
-  const section = opened?.entityId === model.entityId && shortcuts.some(({ key }) => key === opened.key) ? opened.key : null;
-  const sectionClass = (key: SectionKey) => clsx('dv-panel-section', section === key && 'is-open');
+  const { section, sectionClass, back, row } = usePanelSections(model.entityId, shortcuts, !model.available);
 
   return (
     <PanelShell
@@ -95,7 +91,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
       power={{ on: model.on, highlighted: lit, available: model.available, name: model.name, onToggle: () => onAction({ type: model.on ? 'turn_off' : 'turn_on' }) }}
       embedded={embedded}
       live={live}
-      dock={{ back: section ? { label: dt('back'), onPress: () => setOpened(null) } : undefined }}
+      dock={{ back }}
       onClose={onClose}
     >
 
@@ -219,18 +215,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
           ) : null}
         </div>
 
-        <div className="dv-panel-shortcuts" role="group" aria-label={dt('panelAdjust')}>
-          {shortcuts.map(({ key, icon, label }) => (
-            <PanelShortcut
-              key={key}
-              icon={icon}
-              label={label}
-              expanded={section === key}
-              disabled={!model.available}
-              onPress={() => setOpened({ entityId: model.entityId, key })}
-            />
-          ))}
-        </div>
+        {row}
       </div>
     </PanelShell>
   );

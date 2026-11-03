@@ -1,4 +1,4 @@
-import { Minus, Plus } from 'lucide-react';
+import { Crosshair, Fan, Leaf, Minus, MoveHorizontal, MoveVertical, Plus, SlidersHorizontal, Droplets } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassToggle from '../../ui/GlassToggle';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
@@ -7,13 +7,15 @@ import { useI18n } from '../../../i18n/I18nProvider';
 import { climateIsOn, climateSwingToggle, type ClimateAction, type ClimateModel } from '../model/climate';
 import { CLIMATE_ICONS, CLIMATE_TONE } from '../cards/ClimateCard';
 import { CLIMATE_MODE_KEY, climateStatus, degrees, fanPillLabel, presetLabel } from '../cards/climateText';
-import { PanelShell, type PanelLive } from './PanelShell';
+import { PanelShell, usePanelSections, type PanelLive, type PanelSectionItem } from './PanelShell';
 
 /*
  * The controls of a climate device: the target as a large vertical slider
  * with the room temperature marked on it, or the two ends of a range, or what
  * it is doing when there is nothing to aim at; the modes, the fan, the
- * profile and the swing. The same content wherever the panel opens.
+ * profile and the swing. The same content wherever the panel opens. On a phone or
+ * in a column the first has the panel to itself and the rest waits behind a row of
+ * round shortcuts, as in the light panel (devices.css).
  */
 
 export type ClimatePanelProps = {
@@ -92,6 +94,24 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
     );
   };
 
+  const icon = { size: 20, strokeWidth: 2 };
+  const hasHumidity = on && extras?.supportsTargetHumidity && typeof extras.targetHumidity === 'number' && Boolean(onExtraAction);
+  const hasLouvers = on && extras?.supportsHorizontalSwing && (extras.horizontalSwingModes?.length ?? 0) > 0 && Boolean(onExtraAction);
+  const shortcuts: PanelSectionItem[] = [
+    { key: 'modes', icon: <SlidersHorizontal {...icon} />, label: dt('modes') },
+    ...(on && model.fanModes.length > 0 ? [{ key: 'fan', icon: <Fan {...icon} />, label: dt('fanLabel') }] : []),
+    ...(on && model.presets.length > 0 ? [{ key: 'preset', icon: <Leaf {...icon} />, label: dt('presetLabel') }] : []),
+    ...(on && swing
+      ? [{ key: 'swing', icon: <MoveVertical {...icon} />, label: dt('panelSwing'), pressed: swing.on, run: () => onAction({ type: 'swing', swing: swing.on ? 'off' : swing.onMode }) }]
+      : []),
+    ...(hasHumidity ? [{ key: 'humidity', icon: <Droplets {...icon} />, label: dt('panelHumidity') }] : []),
+    ...(hasLouvers ? [{ key: 'louvers', icon: <MoveHorizontal {...icon} />, label: dt('panelLouvers') }] : []),
+    ...(on && extras?.supportsAutoAdjust && onExtraAction
+      ? [{ key: 'align', icon: <Crosshair {...icon} />, label: t('controls.climate.align'), run: () => onExtraAction({ type: 'auto_adjust' }) }]
+      : []),
+  ];
+  const { section, sectionClass, back, row } = usePanelSections(model.entityId, shortcuts, !model.available);
+
   const info = (() => {
     if (!on) return { big: now === null ? '—' : degrees(now, locale), caption: dt('infoRoomNow'), note: dt('infoOffNote') };
     if (model.mode === 'dry') {
@@ -117,10 +137,11 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
       power={{ on, highlighted: on, available: model.available, name: model.name, onToggle: () => onAction({ type: on ? 'turn_off' : 'turn_on' }) }}
       embedded={embedded}
       live={live}
+      dock={{ back }}
       onClose={onClose}
     >
 
-      <div className="dv-panel-body">
+      <div className={clsx('dv-panel-body dv-panel-stage', section && 'has-section')}>
         {single ? (
           <div className="dv-vslider">
             <span
@@ -155,7 +176,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
             />
           </div>
         ) : range ? (
-          <div className="dv-card dv-climate-side flex flex-col gap-1.5">
+          <div className="dv-card dv-climate-side dv-panel-hero-card flex flex-col gap-1.5">
             {rangeRow('high')}
             {rangeRow('low')}
             <span className="dv-t2 text-[13px] font-medium leading-[1.4]">
@@ -167,7 +188,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
             </span>
           </div>
         ) : (
-          <div className="dv-card dv-climate-side flex flex-col items-center justify-center gap-1.5 text-center">
+          <div className="dv-card dv-climate-side dv-panel-hero-card flex flex-col items-center justify-center gap-1.5 text-center">
             <span className="text-[44px] font-bold tracking-[-0.04em] tabular-nums">{info.big}</span>
             <span className="dv-t2 text-[13px] font-bold">{info.caption}</span>
             <span className="dv-t2 text-[13px] font-medium leading-[1.4]">{info.note}</span>
@@ -175,7 +196,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
         )}
 
         <div className="dv-panel-side">
-          <div className="flex flex-col gap-2">
+          <div className={clsx(sectionClass('modes'), 'gap-2')}>
             <span className="dv-t2 text-[13px] font-bold">{dt('modes')}</span>
             <div
               role="radiogroup"
@@ -203,7 +224,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
             </div>
           </div>
           {on && model.fanModes.length > 0 ? (
-            <div className="flex flex-col gap-2">
+            <div className={clsx(sectionClass('fan'), 'gap-2')}>
               <span className="dv-t2 text-[13px] font-bold">{dt('fanLabel')}</span>
               <div className="flex flex-wrap gap-2" role="group" aria-label={dt('fanLabel')}>
                 {model.fanModes.map((fanMode) => (
@@ -221,7 +242,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
             </div>
           ) : null}
           {on && model.presets.length > 0 ? (
-            <div className="flex flex-col gap-2">
+            <div className={clsx(sectionClass('preset'), 'gap-2')}>
               <span className="dv-t2 text-[13px] font-bold">{dt('presetLabel')}</span>
               <div className="flex flex-wrap gap-2" role="group" aria-label={dt('presetLabel')}>
                 {model.presets.map((preset) => (
@@ -239,17 +260,19 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
             </div>
           ) : null}
           {on && swing ? (
-            <div className="dv-card flex items-center gap-3 !py-3">
-              <span className="flex-1 text-[15px] font-semibold">{dt('swingLabel')}</span>
-              <GlassToggle
-                checked={swing.on}
-                onChange={(value) => onAction({ type: 'swing', swing: value ? swing.onMode : 'off' })}
-                label={dt('swingLabel')}
-              />
+            <div className="dv-panel-section">
+              <div className="dv-card flex items-center gap-3 !py-3">
+                <span className="flex-1 text-[15px] font-semibold">{dt('swingLabel')}</span>
+                <GlassToggle
+                  checked={swing.on}
+                  onChange={(value) => onAction({ type: 'swing', swing: value ? swing.onMode : 'off' })}
+                  label={dt('swingLabel')}
+                />
+              </div>
             </div>
           ) : null}
           {on && extras?.supportsTargetHumidity && typeof extras.targetHumidity === 'number' && onExtraAction ? (
-            <div className="flex flex-col gap-2.5">
+            <div className={clsx(sectionClass('humidity'), 'gap-2.5')}>
               <span className="dv-t2 text-[13px] font-bold">{dt('humidityTarget')}</span>
               <span className="dv-hslider">
                 <span style={{ width: `${extras.targetHumidity}%` }} />
@@ -267,7 +290,7 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
             </div>
           ) : null}
           {on && extras?.supportsHorizontalSwing && (extras.horizontalSwingModes?.length ?? 0) > 0 && onExtraAction ? (
-            <div className="flex flex-col gap-2">
+            <div className={clsx(sectionClass('louvers'), 'gap-2')}>
               <span className="dv-t2 text-[13px] font-bold">{t('controls.climate.horizontalLouvers')}</span>
               <GlassSegmentSelect
                 ariaLabel={t('controls.climate.horizontalLouvers')}
@@ -279,11 +302,15 @@ export function ClimatePanel({ model, roomName, roomTemperature, roomHumidity, e
             </div>
           ) : null}
           {on && extras?.supportsAutoAdjust && onExtraAction ? (
-            <button type="button" className="dv-option self-start" onClick={() => onExtraAction({ type: 'auto_adjust' })}>
-              {t('controls.climate.align')}
-            </button>
+            <div className="dv-panel-section">
+              <button type="button" className="dv-option self-start" onClick={() => onExtraAction({ type: 'auto_adjust' })}>
+                {t('controls.climate.align')}
+              </button>
+            </div>
           ) : null}
         </div>
+
+        {row}
       </div>
     </PanelShell>
   );
