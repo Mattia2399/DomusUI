@@ -23,7 +23,7 @@
 
 .dv-panel-sheet {
   display: flex;
-  height: min(86dvh, 720px);
+  height: min(90dvh, 720px);
   width: 100%;
   flex-direction: column;
   overflow: hidden;
@@ -83,7 +83,7 @@
     min-height: calc(100cqh - 22px);
   }
 
-  .dv-panel-stage > .dv-vslider {
-    flex-basis: 180px;
+  .dv-panel-sheet .dv-panel-stage {
+    grid-template-rows: minmax(150px, 1fr) 148px;
   }
 }

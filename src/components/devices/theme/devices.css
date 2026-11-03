@@ -2296,8 +2296,25 @@
 }
 
 @container (max-width: 520px) {
+  /* Everything on the middle axis: the icon above the name, and Close in its corner. */
+  .dv-panel.is-docked > .dv-panel-head {
+    position: relative;
+    flex-direction: column;
+    gap: 8px;
+    text-align: center;
+  }
+
   .dv-panel.is-docked > .dv-panel-head > .flex-1 {
-    padding-right: 0;
+    width: 100%;
+    flex: none;
+    align-items: center;
+    padding: 0 44px;
+  }
+
+  .dv-panel.is-docked > .dv-panel-head > .dv-round-sm {
+    position: absolute;
+    top: 0;
+    right: 0;
   }
 
   .dv-panel.is-docked > .dv-pn-dis {
@@ -2324,29 +2341,38 @@
 
   .dv-panel-dock-side {
     display: flex;
+    justify-content: center;
   }
 
+  /* The zone below the slider has one height, whatever it holds: the slider never changes. */
   .dv-panel-stage {
+    display: grid;
     min-height: 0;
+    width: 100%;
     flex: 1;
     gap: 18px;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 300px 148px;
+    justify-items: center;
   }
 
   .dv-panel-stage > .dv-vslider {
-    height: auto;
-    min-height: 180px;
+    grid-row: 1;
+    height: 100%;
     width: 148px;
-    flex: 1 1 300px;
   }
 
   .dv-panel-stage > .dv-panel-side {
     display: none;
+    grid-row: 2;
   }
 
   .dv-panel-stage > .dv-panel-shortcuts {
     display: flex;
     width: 100%;
-    flex: none;
+    grid-row: 2;
+    align-self: center;
+    align-items: flex-start;
     justify-content: center;
     gap: 6px;
   }
@@ -2355,11 +2381,11 @@
     display: none;
   }
 
-  /* The screen of a shortcut: its controls take the place of the row, and the slider shows what they do. */
   .dv-panel-stage.has-section > .dv-panel-side {
     display: flex;
-    max-height: 46%;
-    flex: none;
+    min-height: 0;
+    width: 100%;
+    align-self: stretch;
     overflow-y: auto;
   }
 
@@ -2367,8 +2393,49 @@
     display: none;
   }
 
+  /* The auto margins, not a centred column: what does not fit still scrolls from its top. */
   .dv-panel-section.is-open {
     display: flex;
+    width: 100%;
+    margin-block: auto;
+    align-items: center;
+    text-align: center;
+  }
+
+  .dv-panel-section.is-open > .flex-col {
+    width: 100%;
+    align-items: center;
+  }
+
+  .dv-panel-section.is-open .dv-seg {
+    align-self: center;
+  }
+
+  .dv-panel-section.is-open [role='group'] {
+    justify-content: center;
+  }
+
+  /* The colours on one line, however many: the zone has room for one. */
+  .dv-panel-section.is-open .dv-swatches {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .dv-panel-section.is-open .dv-swatch-hit {
+    min-width: 0;
+    flex: 0 1 44px;
+  }
+
+  .dv-panel-section.is-open .dv-wheel {
+    height: 36px;
+    width: 36px;
+    margin-inline: 4px;
+  }
+
+  .dv-panel-section.is-open .dv-hslider {
+    width: 100%;
   }
 }
 

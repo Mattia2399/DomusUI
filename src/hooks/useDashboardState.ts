@@ -677,6 +677,8 @@ function useDashboardStateInternal(options?: UseDashboardStateOptions) {
     const nextHue = clamp(Math.round(hs[0]), 0, 360);
     const nextSat = clamp(Math.round(hs[1]), 0, 100);
     setLampHsColorState([nextHue, nextSat]);
+    // A lamp in a colour has no temperature, as a real light reports it.
+    setLampColorTempState(0);
   };
 
   const setLampColorTemp = (kelvin: number) => {

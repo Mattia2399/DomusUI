@@ -108,7 +108,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
       onClose={onClose}
     >
 
-      <div className={clsx('dv-panel-body dv-panel-stage', section && 'has-section')}>
+      <div className={clsx('dv-panel-body dv-panel-stage', (section || model.caps === 'dim') && 'has-section')}>
         {model.caps !== 'onoff' ? (
           <div className="dv-vslider">
             <span
@@ -177,7 +177,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
           ) : null}
             </div>
           ) : null}
-          {model.caps === 'dim' ? <span className="dv-panel-section dv-t2 text-sm font-medium leading-[1.45]">{dt('dimOnly')}</span> : null}
+          {model.caps === 'dim' ? <span className="dv-panel-section is-open dv-t2 text-sm font-medium leading-[1.45]">{dt('dimOnly')}</span> : null}
           {extras?.supportsWhite && onExtraAction ? (
             <div className={clsx(sectionClass('white'), 'gap-2')}>
               <span className="dv-t2 text-[13px] font-bold">{t('controls.light.whiteChannel')}</span>
