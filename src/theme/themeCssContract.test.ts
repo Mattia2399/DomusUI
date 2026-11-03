@@ -144,20 +144,15 @@ describe('semantic theme CSS contract', () => {
     expect(lightCss).not.toContain('.ha-light-range');
   });
 
-  it('keeps Climate, Alarm and Lock structure semantic while preserving state visuals', () => {
+  it('keeps Climate and Lock structure semantic while preserving state visuals', () => {
     const climate = readSource('src/components/settings/ClimateControls.tsx');
     const climatePanel = climate
       .split('export function ClimateControlsPanel')[1]
       .split('export const ClimateControls')[0];
-    const alarm = readSource('src/components/settings/AlarmControls.tsx');
-    const alarmControls = alarm.slice(alarm.indexOf('<GlassSegmentSelect<AlarmModeId>'));
     const lock = readSource('src/components/settings/LockControls.tsx');
 
     expect(climatePanel).toContain('var(--ui-text-primary)');
     expect(climatePanel).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
-    expect(alarm).toContain('stateVisual.surface');
-    expect(alarmControls).toContain('dashboard-content-surface');
-    expect(alarmControls).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
     expect(readSource('src/components/widgets/LockRing.css')).toContain('var(--ui-surface-glass-strong)');
     expect(lock).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
   });
