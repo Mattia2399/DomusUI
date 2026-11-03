@@ -593,26 +593,19 @@ test('Mouse can drag cards in the mobile and portrait tablet previews', async ({
   await page.goto(`${BASE_URL}/home`);
   await enterEditMode(page);
 
-  // Compact previews keep the touch long-press, but a mouse must start the
-  // drag immediately: react-grid-layout replaces the item's onMouseDown, so a
-  // mouse long-press could never arm the card.
+  // Compact previews keep the touch long-press, but a mouse starts the
+  // standard GE2 gesture immediately on the editor's public drag surface.
   for (const preview of ['Anteprima mobile', 'Anteprima tablet verticale']) {
     await page.getByRole('radio', { name: preview }).click();
     await page.waitForTimeout(600);
 
-    const start = await page.evaluate(() => {
-      const blocked =
-        'button,input,select,textarea,a,[contenteditable="true"],.widget-action,.section-action,.builder-grid,.react-resizable-handle';
-      for (const item of document.querySelectorAll('.sections-grid > .react-grid-item:not(.react-grid-placeholder)')) {
-        const rect = item.getBoundingClientRect();
-        const x = rect.x + rect.width / 2;
-        const y = rect.y + rect.height / 2;
-        if (y > 0 && y < window.innerHeight && !document.elementFromPoint(x, y)?.closest(blocked)) {
-          return { x, y };
-        }
-      }
-      return null;
-    });
+    const dragSurface = page.locator('[data-grid-engine-editor-item]:visible').first();
+    await expect(dragSurface).toBeVisible();
+    await dragSurface.scrollIntoViewIfNeeded();
+    const bounds = await dragSurface.boundingBox();
+    const start = bounds
+      ? { x: bounds.x + Math.min(32, bounds.width / 2), y: bounds.y + Math.min(32, bounds.height / 2) }
+      : null;
     expect(start, `${preview}: a draggable card surface is visible`).not.toBeNull();
 
     await page.mouse.move(start.x, start.y);
@@ -620,11 +613,12 @@ test('Mouse can drag cards in the mobile and portrait tablet previews', async ({
     let dragging = false;
     for (let step = 1; step <= 10; step += 1) {
       await page.mouse.move(start.x + step * 12, start.y + step * 6);
-      dragging ||= await page.evaluate(() => Boolean(document.querySelector('.react-draggable-dragging')));
+      dragging ||= await page.locator('[data-grid-engine-editor-gesture="DRAGGING"]').count() > 0;
     }
     await page.mouse.up();
 
     expect(dragging, `${preview}: dragging starts with the mouse`).toBe(true);
+    await expect(page.locator('[data-grid-engine-editor-gesture="IDLE"]')).toBeVisible();
     await expect(page.locator('.react-draggable-dragging')).toHaveCount(0);
   }
 });

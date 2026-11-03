@@ -296,9 +296,14 @@ test('mobile long-press supports commit and pointer cancellation without hijacki
   await expect(card).toHaveCSS('touch-action', 'pan-y');
   await expect(dragHandle).toHaveCSS('touch-action', 'none');
   const bounds = await card.boundingBox();
-  if (!bounds) throw new Error('Touch card has no browser bounds.');
+  const handleBounds = await dragHandle.boundingBox();
+  if (!bounds || !handleBounds) throw new Error('Touch card or drag handle has no browser bounds.');
   const metrics = await gridMetrics(laboratory);
   const point = { x: bounds.x + 24, y: bounds.y + bounds.height * 0.42 };
+  const handlePoint = {
+    x: handleBounds.x + handleBounds.width / 2,
+    y: handleBounds.y + handleBounds.height / 2,
+  };
 
   const dispatchTouch = (type, pointerId, x, y) => page.evaluate(
     ({ type, pointerId, x, y }) => window.dispatchEvent(new PointerEvent(type, {
@@ -327,36 +332,36 @@ test('mobile long-press supports commit and pointer cancellation without hijacki
   await expect(canvas).toHaveAttribute('data-gesture-state', 'IDLE');
   await expect(laboratory.getByTestId('result-card-gap-a')).toHaveAttribute('data-x', '0');
 
-  await card.dispatchEvent('pointerdown', {
+  await dragHandle.dispatchEvent('pointerdown', {
     pointerId: 72,
     pointerType: 'touch',
     isPrimary: true,
-    clientX: point.x,
-    clientY: point.y,
+    clientX: handlePoint.x,
+    clientY: handlePoint.y,
     button: 0,
   });
   await page.waitForTimeout(700);
   await expect(canvas).toHaveAttribute('data-gesture-state', 'DRAGGING');
-  await dispatchTouch('pointermove', 72, point.x + metrics.stepX, point.y);
+  await dispatchTouch('pointermove', 72, handlePoint.x + metrics.stepX, handlePoint.y);
   await expect(laboratory.getByTestId('result-card-gap-a')).toHaveAttribute('data-x', '1');
-  await dispatchTouch('pointercancel', 72, point.x + metrics.stepX, point.y);
+  await dispatchTouch('pointercancel', 72, handlePoint.x + metrics.stepX, handlePoint.y);
   await expect(canvas).toHaveAttribute('data-gesture-state', 'IDLE');
   await expect(laboratory.getByTestId('result-card-gap-a')).toHaveAttribute('data-x', '0');
 
-  await card.dispatchEvent('pointerdown', {
+  await dragHandle.dispatchEvent('pointerdown', {
     pointerId: 73,
     pointerType: 'touch',
     isPrimary: true,
-    clientX: point.x,
-    clientY: point.y,
+    clientX: handlePoint.x,
+    clientY: handlePoint.y,
     button: 0,
   });
   await page.waitForTimeout(700);
   await expect(canvas).toHaveAttribute('data-gesture-state', 'DRAGGING');
-  await dispatchTouch('pointermove', 73, point.x + metrics.stepX, point.y);
+  await dispatchTouch('pointermove', 73, handlePoint.x + metrics.stepX, handlePoint.y);
   await expect(laboratory.getByTestId('result-card-gap-a')).toHaveAttribute('data-x', '1');
   const touchPreview = await layoutSnapshot(laboratory);
-  await dispatchTouch('pointerup', 73, point.x + metrics.stepX, point.y);
+  await dispatchTouch('pointerup', 73, handlePoint.x + metrics.stepX, handlePoint.y);
   expect(await layoutSnapshot(laboratory)).toEqual(touchPreview);
   await expect(laboratory.getByTestId('reference-card-gap-a')).toHaveAttribute('data-x', '0');
   await laboratory.getByRole('button', { name: 'Conferma in memoria' }).click();

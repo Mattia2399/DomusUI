@@ -6,8 +6,7 @@ const REAL_STORAGE_KEY = 'ha.dashboard.builder.layout.v1';
 const DRAFT_KEY = 'premium-home.dashboard-edit-draft.demo.v1';
 const SHARED_CONFIGURATION_KEY = 'premium-home.shared-house.v1';
 const REVISION_HISTORY_KEY = 'premium-home.dashboard-revisions.v1';
-const EXPECT_EDITOR = process.env.VITE_GRID_ENGINE_2_EDITOR === 'true';
-const EXPECT_QA_SAVE = process.env.VITE_GRID_ENGINE_2_QA_SAVE === 'true';
+const EXPECT_STANDARD_EDITOR = process.env.VITE_GRID_ENGINE_LEGACY_EDITOR_ROLLBACK !== 'true';
 
 const BREAKPOINT_COLS = { '2xl': 12, xl: 12, lg: 8, md: 6, sm: 4, xs: 2 };
 
@@ -156,6 +155,35 @@ function automaticModeFixture() {
       `Automatic ${index + 1}`,
       { x: geometryByBreakpoint.xl.positions[index][0], y: 0, w: 3, h: 1 },
     )),
+  };
+}
+
+function automaticHorizontalSwapFixture() {
+  const ids = ['root.swap-a', 'root.swap-b', 'root.swap-unrelated'];
+  const breakpoints = Object.keys(BREAKPOINT_COLS);
+  const root = Object.fromEntries(breakpoints.map((breakpoint) => [
+    breakpoint,
+    [
+      { i: ids[0], x: 0, y: 0, w: 1, h: 1 },
+      { i: ids[1], x: 1, y: 0, w: 1, h: 1 },
+      { i: ids[2], x: 0, y: 3, w: 1, h: 1 },
+    ],
+  ]));
+  const sensorOverrides = Object.fromEntries(breakpoints.map((breakpoint) => [
+    breakpoint,
+    { w: 1, h: 1 },
+  ]));
+  return {
+    version: 14,
+    widgetTypeLayoutOverrides: { sensor: sensorOverrides },
+    widgetLayoutOverrides: {},
+    responsiveLayouts: { root },
+    sections: [],
+    widgets: [
+      widget(ids[0], 'sensor', 'Swap A', { x: 0, y: 0, w: 1, h: 1 }),
+      widget(ids[1], 'sensor', 'Swap B', { x: 1, y: 0, w: 1, h: 1 }),
+      widget(ids[2], 'sensor', 'Swap invariata', { x: 0, y: 3, w: 1, h: 1 }),
+    ],
   };
 }
 
@@ -597,18 +625,18 @@ async function expectNoCellCollisions(page) {
   }
 }
 
-async function saveAndExitQa(page) {
+async function saveAndExit(page) {
   await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const dialog = page.getByRole('dialog', { name: 'Uscire dalla modalità modifica?' });
-  const save = dialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true });
+  const save = dialog.getByRole('button', { name: 'Salva ed esci', exact: true });
   await expect(save).toBeEnabled();
   await save.click();
   await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
   await expect(dialog).not.toBeVisible();
 }
 
-test('flag OFF keeps the legacy editor and ordinary Demo persistence unchanged', async ({ page }) => {
-  test.skip(EXPECT_EDITOR, 'This assertion exercises the default disabled path.');
+test('technical rollback keeps the legacy editor and ordinary Demo persistence unchanged', async ({ page }) => {
+  test.skip(EXPECT_STANDARD_EDITOR, 'Requires VITE_GRID_ENGINE_LEGACY_EDITOR_ROLLBACK=true.');
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, editorFixture());
   await page.goto('/home');
@@ -634,6 +662,23 @@ test('flag OFF keeps the legacy editor and ordinary Demo persistence unchanged',
   await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
   const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
   expect(after.responsiveLayouts.root.xl).not.toEqual(before.responsiveLayouts.root.xl);
+});
+
+test('technical rollback renders an activated GE2 Home with legacy but keeps it read-only', async ({ page }) => {
+  test.skip(EXPECT_STANDARD_EDITOR, 'Requires VITE_GRID_ENGINE_LEGACY_EDITOR_ROLLBACK=true.');
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, { ...editorFixture(), layoutEngine: 'grid-engine-2' });
+  await page.goto('/home');
+
+  await expect(page.locator('[data-grid-engine-root-renderer="grid-engine-2"]')).toHaveCount(0);
+  const storedBefore = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY);
+  await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
+  await page.getByRole('button', { name: 'Attiva', exact: true }).click();
+
+  await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
+  await expect(page.getByText('Il rollback tecnico dell’editor legacy è attivo. Questa Home Grid Engine 2.0 resta in sola lettura per evitare salvataggi non validati.'))
+    .toBeVisible();
+  expect(await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)).toBe(storedBefore);
 });
 
 test('explicit Home 2.0 cutover works without DEV flags, saves normally, and reloads exact geometry', async ({ page }) => {
@@ -670,7 +715,7 @@ test('explicit Home 2.0 cutover works without DEV flags, saves normally, and rel
 
   await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const exit = page.getByRole('dialog').filter({ hasText: 'Uscire' });
-  await expect(exit).toContainText('nuova geometria Home 2.0 è valida');
+  await expect(exit).toContainText('La geometria Grid Engine 2.0 è valida');
   const save = exit.getByRole('button', { name: 'Salva ed esci', exact: true });
   await expect(save).toBeEnabled();
   await save.click();
@@ -971,7 +1016,7 @@ test('simulated HA v2 conversion preserves root inventory, saves revision 85, an
     .getByRole('button', { name: 'Mostra anteprima v2', exact: true }).click();
   await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const exit = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
-  await expect(exit).toContainText('nuova geometria Home 2.0 è valida');
+  await expect(exit).toContainText('La geometria Grid Engine 2.0 è valida');
   await expect(exit).not.toContainText('inventario root è cambiato');
   await exit.getByRole('button', { name: 'Salva ed esci', exact: true }).click();
 
@@ -1022,7 +1067,7 @@ test('simulated HA cutover stays open and unwritten when a newer revision is pen
 
   await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const exit = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
-  await expect(exit.getByRole('button', { name: 'Salvataggio sperimentale bloccato' })).toBeDisabled();
+  await expect(exit.getByRole('button', { name: 'Salvataggio bloccato' })).toBeDisabled();
   await expect(exit).toContainText('pendente la revisione Home Assistant 85');
   expect(await page.evaluate(() => window.__qaSaveHaState.sharedWrites)).toBe(0);
   expect(await page.evaluate(() => window.__qaSaveHaState.historyWrites)).toBe(0);
@@ -1063,8 +1108,8 @@ test('simulated HA write failure keeps the cutover retryable and discard restore
   expect(await page.evaluate(() => window.__qaSaveHaState.sharedWrites)).toBe(0);
 });
 
-test('DEV flag ON integrates authentic cards, GE2 gestures, history, breakpoints, and protected recovery', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+test('standard editor integrates authentic cards, GE2 gestures, history, breakpoints, and protected recovery', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, editorFixture());
@@ -1164,7 +1209,7 @@ test('DEV flag ON integrates authentic cards, GE2 gestures, history, breakpoints
 
   await page.locator('button[aria-label="Attiva o disattiva modalità modifica"]:visible').first().click();
   const exitDialog = page.getByRole('dialog', { name: 'Uscire dalla modalità modifica?' });
-  await expect(exitDialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' })).toBeDisabled();
+  await expect(exitDialog.getByRole('button', { name: 'Salvataggio bloccato' })).toBeDisabled();
   await expect(exitDialog).toContainText('salvataggio è bloccato');
   await exitDialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
   await expect(page.locator('.sections-grid')).not.toHaveClass(/is-editing/);
@@ -1173,27 +1218,21 @@ test('DEV flag ON integrates authentic cards, GE2 gestures, history, breakpoints
 
   // Discarding a recovered draft must end the protected session completely.
   // A subsequent activation starts from the authoritative baseline and can
-  // become a fresh QA-save candidate instead of inheriting recovered-blocked.
+  // become a fresh standard-save candidate instead of inheriting recovered-blocked.
   await enterEditMode(page);
   await selectDesktopPreview(page);
   await dragEditorItem(page, 'root.sensor', 1);
   await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const freshExitDialog = page.getByRole('dialog').filter({ hasText: 'Uscire' });
-  if (EXPECT_QA_SAVE) {
-    await expect(freshExitDialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true }))
-      .toBeEnabled();
-    await expect(freshExitDialog).toContainText('hanno superato la validazione QA');
-  } else {
-    await expect(freshExitDialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' }))
-      .toBeDisabled();
-    await expect(freshExitDialog).toContainText('flag dell’editor da solo non abilita scritture');
-  }
+  await expect(freshExitDialog.getByRole('button', { name: 'Salva ed esci', exact: true }))
+    .toBeEnabled();
+  await expect(freshExitDialog).toContainText('La geometria Grid Engine 2.0 è valida');
   await freshExitDialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
 });
 
 test('real editor keeps Manual free placement, compacts only in Automatic, and previews drag continuously', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, editorFixture());
@@ -1274,7 +1313,7 @@ test('real editor keeps Manual free placement, compacts only in Automatic, and p
 });
 
 test('Automatic globally compacts a completed MOVE that Manual leaves in a free lower row', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, automaticModeFixture());
@@ -1337,8 +1376,114 @@ test('Automatic globally compacts a completed MOVE that Manual leaves in a free 
   await expect.poll(() => cellGeometry(page, 'root.auto-a')).toMatchObject({ x: 1, y: 0, w: 3, h: 1 });
 });
 
+test('Automatic horizontally swaps adjacent cards in preview and commits exactly once at every responsive width', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
+  test.setTimeout(180_000);
+  await page.setViewportSize({ width: 1920, height: 1000 });
+  await installDemo(page, automaticHorizontalSwapFixture());
+  const apiRequests = [];
+  page.on('request', (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/') || request.resourceType() === 'websocket') apiRequests.push(request.url());
+  });
+  await page.goto('/home');
+  await enterEditMode(page);
+  await page.getByTestId('grid-engine-2-editor-mode-automatic').click();
+
+  const renderer = page.locator('[data-grid-engine-root-renderer="grid-engine-2"]');
+  const host = page.locator('[data-grid-engine-editor="active"]');
+  const aId = 'root.swap-a';
+  const bId = 'root.swap-b';
+  const unrelatedId = 'root.swap-unrelated';
+
+  const swapCurrentBreakpoint = async (expectedBreakpoint) => {
+    await expect(renderer).toHaveAttribute('data-breakpoint', expectedBreakpoint);
+    const initial = {
+      a: await cellGeometry(page, aId),
+      b: await cellGeometry(page, bId),
+      unrelated: await cellGeometry(page, unrelatedId),
+    };
+    const source = await page.locator(`[data-grid-engine-editor-item="${aId}"]`).boundingBox();
+    const target = await rootItem(page, bId).boundingBox();
+    if (!source || !target) throw new Error(`Horizontal swap ${expectedBreakpoint} has no bounds.`);
+    const startX = source.x + Math.min(24, source.width / 3);
+    const startY = source.y + Math.min(24, source.height / 2);
+    const endX = target.x + (startX - source.x);
+
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    for (let step = 1; step <= 18; step += 1) {
+      await page.mouse.move(startX + (endX - startX) * step / 18, startY);
+      await page.waitForTimeout(12);
+    }
+    await expect(host).toHaveAttribute('data-grid-engine-editor-operation', 'SWAP');
+    const preview = {
+      a: await cellGeometry(page, aId),
+      b: await cellGeometry(page, bId),
+      unrelated: await cellGeometry(page, unrelatedId),
+    };
+    expect(preview).toEqual({
+      a: { ...initial.a, x: initial.b.x, y: initial.b.y },
+      b: { ...initial.b, x: initial.a.x, y: initial.a.y },
+      unrelated: initial.unrelated,
+    });
+
+    // Small movements around the landed cell remain behind the existing cell
+    // hysteresis and must not alternate the two cards back and forth.
+    for (const jitter of [-3, 2, -2, 3, 0]) {
+      await page.mouse.move(endX + jitter, startY);
+      await page.waitForTimeout(35);
+      expect({
+        a: await cellGeometry(page, aId),
+        b: await cellGeometry(page, bId),
+        unrelated: await cellGeometry(page, unrelatedId),
+      }).toEqual(preview);
+    }
+
+    await page.mouse.up();
+    await expect.poll(async () => ({
+      a: await cellGeometry(page, aId),
+      b: await cellGeometry(page, bId),
+      unrelated: await cellGeometry(page, unrelatedId),
+    })).toEqual(preview);
+    await expectNoCellCollisions(page);
+
+    await page.waitForTimeout(320);
+    await page.getByRole('button', { name: 'Annulla ultima modifica' }).filter({ visible: true }).first().click();
+    await expect.poll(() => cellGeometry(page, aId)).toEqual(initial.a);
+    await expect.poll(() => cellGeometry(page, bId)).toEqual(initial.b);
+    await page.getByRole('button', { name: 'Ripeti ultima modifica' }).filter({ visible: true }).first().click();
+    await expect.poll(() => cellGeometry(page, aId)).toEqual(preview.a);
+    await expect.poll(() => cellGeometry(page, bId)).toEqual(preview.b);
+    await page.waitForTimeout(320);
+    await page.getByRole('button', { name: 'Annulla ultima modifica' }).filter({ visible: true }).first().click();
+    await expect.poll(() => cellGeometry(page, aId)).toEqual(initial.a);
+    await expect.poll(() => cellGeometry(page, bId)).toEqual(initial.b);
+  };
+
+  await selectDesktopPreview(page);
+  await swapCurrentBreakpoint('xl');
+
+  await page.getByRole('radio', { name: 'Anteprima automatica' }).click();
+  for (const width of [1900, 1850, 1800, 1750, 1700, 1650, 1600, 1550, 1500]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await page.waitForTimeout(120);
+    if (await renderer.getAttribute('data-breakpoint') === 'lg') break;
+  }
+  await swapCurrentBreakpoint('lg');
+
+  await page.getByRole('radio', { name: 'Anteprima tablet', exact: true }).click();
+  await swapCurrentBreakpoint('md');
+  await page.getByRole('radio', { name: 'Anteprima tablet verticale' }).click();
+  await swapCurrentBreakpoint('sm');
+  await page.getByRole('radio', { name: 'Anteprima mobile' }).click();
+  await swapCurrentBreakpoint('xs');
+
+  expect(apiRequests).toEqual([]);
+});
+
 test('Automatic REORDER produces the same A-to-bottom order for slow and fast drags', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, automaticReorderFixture());
@@ -1404,7 +1549,7 @@ test('Automatic REORDER produces the same A-to-bottom order for slow and fast dr
 });
 
 test('Automatic REORDER preserves mixed-height order without collisions', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, automaticReorderFixture({ mixedHeights: true }));
@@ -1427,7 +1572,7 @@ test('Automatic REORDER preserves mixed-height order without collisions', async 
 });
 
 test('real editor autoscroll follows the mouse, stops safely, and preserves one Manual transaction', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1920, height: 760 });
   await installDemo(page, autoscrollFixture());
@@ -1525,7 +1670,7 @@ test('real editor autoscroll follows the mouse, stops safely, and preserves one 
 });
 
 test('real editor autoscroll keeps Automatic reorder stable and touch cancel fail-closed', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(180_000);
   await page.setViewportSize({ width: 1920, height: 760 });
   await installDemo(page, autoscrollFixture());
@@ -1619,25 +1764,26 @@ test('real editor autoscroll keeps Automatic reorder stable and touch cancel fai
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBe(draftBeforeTouch);
 });
 
-test('editor flag alone keeps a fresh GE2 save blocked by default', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR || EXPECT_QA_SAVE, 'Requires editor ON with the independent QA save flag OFF.');
+test('standard editor exposes normal save without editor or QA flags', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, editorFixture());
   await page.goto('/home');
   await enterEditMode(page);
   await selectDesktopPreview(page);
+  await expect(page.getByRole('button', { name: 'Prova Grid Engine 2.0' })).toHaveCount(0);
 
   await dragEditorItem(page, 'root.sensor', 2);
   await page.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const dialog = page.getByRole('dialog', { name: 'Uscire dalla modalità modifica?' });
-  await expect(dialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' })).toBeDisabled();
-  await expect(dialog).toContainText('flag dell’editor da solo non abilita scritture');
+  await expect(dialog.getByRole('button', { name: 'Salva ed esci', exact: true })).toBeEnabled();
+  await expect(dialog).toContainText('La geometria Grid Engine 2.0 è valida');
   await dialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
   expect(await page.evaluate((key) => sessionStorage.getItem(key), DRAFT_KEY)).toBeNull();
 });
 
-test('real Home QA save accepts a verified historical span and archives revision 84 before writing 85', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+test('real Home standard save accepts a verified historical span and archives revision 84 before writing 85', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installSimulatedHaQa(page, historicalSpanFixture());
@@ -1668,10 +1814,10 @@ test('real Home QA save accepts a verified historical span and archives revision
 
   await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const dialog = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
-  await expect(dialog).toContainText('hanno superato la validazione QA');
-  await expect(dialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true }))
+  await expect(dialog).toContainText('La geometria Grid Engine 2.0 è valida');
+  await expect(dialog.getByRole('button', { name: 'Salva ed esci', exact: true }))
     .toBeEnabled();
-  await dialog.getByRole('button', { name: 'Salva QA Grid Engine', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Salva ed esci', exact: true }).click();
   await expect(frame.locator('.sections-grid')).not.toHaveClass(/is-editing/);
 
   await expect.poll(async () => page.evaluate(() => window.__qaSaveHaState?.sharedWrites ?? 0))
@@ -1696,8 +1842,8 @@ test('real Home QA save accepts a verified historical span and archives revision
   });
 });
 
-test('real Home blocks QA save when a newer HA revision makes the structural baseline non-current', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+test('real Home blocks standard save when a newer HA revision makes the structural baseline non-current', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installSimulatedHaQa(page, historicalSpanFixture());
@@ -1723,7 +1869,7 @@ test('real Home blocks QA save when a newer HA revision makes the structural bas
 
   await frame.locator('button[aria-label^="Attiva o disattiva"]:visible').first().click();
   const dialog = frame.getByRole('dialog').filter({ hasText: 'Uscire' });
-  await expect(dialog.getByRole('button', { name: 'Salvataggio sperimentale bloccato' }))
+  await expect(dialog.getByRole('button', { name: 'Salvataggio bloccato' }))
     .toBeDisabled();
   await expect(dialog).toContainText('È pendente la revisione Home Assistant 85');
   await expect(dialog).toContainText('Applica o risolvi l’aggiornamento remoto prima di salvare');
@@ -1732,8 +1878,8 @@ test('real Home blocks QA save when a newer HA revision makes the structural bas
   await dialog.getByRole('button', { name: 'Scarta modifiche', exact: true }).click();
 });
 
-test('explicit QA save persists Manual XL geometry through the existing flow without runtime Light contamination', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+test('standard save persists Manual XL geometry through the existing flow without runtime Light contamination', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, editorFixture());
@@ -1750,7 +1896,7 @@ test('explicit QA save persists Manual XL geometry through the existing flow wit
   await expect(rootItem(page, 'root.light')).toHaveAttribute('data-grid-h', '2');
   await dragEditorItem(page, 'root.sensor', 2);
   const committed = await cellGeometry(page, 'root.sensor');
-  await saveAndExitQa(page);
+  await saveAndExit(page);
 
   const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
   expect(after.responsiveLayouts.root.xl.find((item) => item.i === 'root.sensor')).toEqual({
@@ -1778,8 +1924,8 @@ test('explicit QA save persists Manual XL geometry through the existing flow wit
   await expect(rootItem(page, 'root.light')).toHaveAttribute('data-grid-h', '2');
 });
 
-test('explicit QA save changes LG only and leaves XL plus canonical geometry byte-equivalent', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+test('standard save changes LG only and leaves XL plus canonical geometry byte-equivalent', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, editorFixture());
@@ -1796,7 +1942,7 @@ test('explicit QA save changes LG only and leaves XL plus canonical geometry byt
   const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
   await dragEditorItem(page, 'root.sensor', 2);
   const committedLg = await cellGeometry(page, 'root.sensor');
-  await saveAndExitQa(page);
+  await saveAndExit(page);
   const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
 
   expect(after.responsiveLayouts.root.lg.find((item) => item.i === 'root.sensor')).toEqual({
@@ -1816,8 +1962,8 @@ test('explicit QA save changes LG only and leaves XL plus canonical geometry byt
   expect(await cellGeometry(page, 'root.sensor')).toEqual(committedLg);
 });
 
-test('explicit QA save preserves Automatic reorder and compact geometry after reload', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR || !EXPECT_QA_SAVE, 'Requires both development-only editor and QA save flags.');
+test('standard save preserves Automatic reorder and compact geometry after reload', async ({ page }) => {
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, automaticReorderFixture());
@@ -1831,7 +1977,7 @@ test('explicit QA save preserves Automatic reorder and compact geometry after re
   await page.mouse.up();
   await expect.poll(() => rootOrder(page, ids)).toEqual([ids[1], ids[2], ids[0]]);
   const committed = await Promise.all(ids.map((id) => cellGeometry(page, id)));
-  await saveAndExitQa(page);
+  await saveAndExit(page);
   expect(drag.renderer).toBeDefined();
 
   await page.reload();
@@ -1843,7 +1989,7 @@ test('explicit QA save preserves Automatic reorder and compact geometry after re
 });
 
 test('unsupported dynamic Stack geometry falls back to RGL without a GE2 commit surface', async ({ page }) => {
-  test.skip(!EXPECT_EDITOR, 'Requires VITE_GRID_ENGINE_2_EDITOR=true on the development server.');
+  test.skip(!EXPECT_STANDARD_EDITOR, 'Disabled by the technical legacy-editor rollback.');
   await page.setViewportSize({ width: 1920, height: 1000 });
   await installDemo(page, editorFixture({ dynamicStack: true }));
   await page.goto('/home');

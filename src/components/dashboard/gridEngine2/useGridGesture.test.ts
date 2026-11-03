@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   GRID_GESTURE_HYSTERESIS_CELLS,
+  GRID_GESTURE_PRESS_TOLERANCE_PX,
   GRID_GESTURE_AUTOSCROLL_MAX_PX,
   GRID_GESTURE_AUTOSCROLL_REDUCED_MAX_PX,
   gridGestureAutoScrollVelocity,
@@ -18,6 +19,10 @@ const LAB_METRICS: GridMetricsDefinition = {
 };
 
 describe('Grid Engine laboratory gesture math', () => {
+  it('allows normal physical-finger jitter while recognizing a long press', () => {
+    expect(GRID_GESTURE_PRESS_TOLERANCE_PX).toBe(16);
+  });
+
   it('keeps a destination stable while the pointer oscillates around a cell boundary', () => {
     expect(GRID_GESTURE_HYSTERESIS_CELLS).toBe(0.15);
 
@@ -40,11 +45,14 @@ describe('Grid Engine laboratory gesture math', () => {
     expect(snapWithHysteresis(-99, 2, 0, 5)).toBe(0);
   });
 
-  it('continues only a connected mouse drag when Chromium transiently drops capture', () => {
+  it('continues a connected pressed pointer when Chromium transiently drops capture', () => {
     expect(shouldCancelGridGestureOnLostPointerCapture('mouse', 1, true)).toBe(false);
     expect(shouldCancelGridGestureOnLostPointerCapture('mouse', 0, true)).toBe(true);
     expect(shouldCancelGridGestureOnLostPointerCapture('mouse', 1, false)).toBe(true);
-    expect(shouldCancelGridGestureOnLostPointerCapture('touch', 1, true)).toBe(true);
+    expect(shouldCancelGridGestureOnLostPointerCapture('touch', 1, true)).toBe(false);
+    expect(shouldCancelGridGestureOnLostPointerCapture('touch', 0, true)).toBe(false);
+    expect(shouldCancelGridGestureOnLostPointerCapture('touch', 1, false)).toBe(true);
+    expect(shouldCancelGridGestureOnLostPointerCapture('touch', 0, false)).toBe(true);
   });
 
   it('selects REORDER only from collisions in the immutable operation snapshot', () => {

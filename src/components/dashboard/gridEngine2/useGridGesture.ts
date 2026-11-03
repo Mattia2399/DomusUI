@@ -8,10 +8,10 @@ import {
 } from 'react';
 import type { GridMetricsDefinition } from './gridMetrics';
 import type { GridLayoutIntent, GridLayoutItem, GridLayoutMode } from './model';
-import { solveLayout } from './solveLayout';
+import { canSwapGridItemsHorizontally, solveLayout } from './solveLayout';
 
 export const GRID_GESTURE_LONG_PRESS_MS = 400;
-export const GRID_GESTURE_PRESS_TOLERANCE_PX = 8;
+export const GRID_GESTURE_PRESS_TOLERANCE_PX = 16;
 export const GRID_GESTURE_MOUSE_THRESHOLD_PX = 4;
 export const GRID_GESTURE_HYSTERESIS_CELLS = 0.15;
 export const GRID_GESTURE_AUTOSCROLL_EDGE_PX = 192;
@@ -227,7 +227,12 @@ export function shouldCancelGridGestureOnLostPointerCapture(
   buttons: number,
   targetConnected: boolean,
 ) {
-  return pointerType !== 'mouse' || buttons === 0 || !targetConnected;
+  if (!targetConnected) return true;
+  // Chromium may report buttons=0 on a transient touch capture loss before
+  // dispatching pointerup. The window-level pointerup/pointercancel listeners
+  // are the reliable completion authority for a still-connected touch target.
+  if (pointerType === 'touch') return false;
+  return buttons === 0;
 }
 
 function scrollOriginsFor(element: HTMLElement, preferredScrollContainer: HTMLElement | null) {
@@ -344,17 +349,29 @@ export function useGridGesture(options: UseGridGestureOptions) {
 
   const solveDestination = useCallback((interaction: ActiveInteraction, destination: GridGestureDestination) => {
     const requestedMoveIntent = optionsRef.current.moveIntentType ?? 'REORDER';
+    const destinationIsOccupied = requestedMoveIntent === 'REORDER_WHEN_COLLIDING' &&
+      gridGestureDestinationIsOccupied(interaction.source, interaction.itemId, destination);
     const moveIntentType = requestedMoveIntent === 'REORDER_WHEN_COLLIDING'
-      ? gridGestureDestinationIsOccupied(interaction.source, interaction.itemId, destination)
-        ? 'REORDER'
-        : 'MOVE'
+      ? destinationIsOccupied ? 'REORDER' : 'MOVE'
       : requestedMoveIntent;
+    const usesDirectSwap = interaction.kind === 'MOVE' &&
+      destinationIsOccupied &&
+      optionsRef.current.mode === 'automatic' &&
+      canSwapGridItemsHorizontally(
+        interaction.source,
+        optionsRef.current.cols,
+        interaction.itemId,
+        destination,
+      );
     const intent: GridLayoutIntent = interaction.kind === 'MOVE'
       ? {
           type: moveIntentType,
           id: interaction.itemId,
           x: destination.x,
           y: destination.y,
+          ...(moveIntentType === 'REORDER' && usesDirectSwap
+            ? { strategy: 'SWAP' as const }
+            : {}),
         }
       : {
           type: 'RESIZE',
@@ -530,8 +547,10 @@ export function useGridGesture(options: UseGridGestureOptions) {
     setPointerCapture(interaction.captureElement, interaction.pointerId);
     if (interaction.pointerType === 'touch') navigator.vibrate?.(10);
     updateFromPointer(interaction, clientX, clientY);
-    updateAutoScroll(interaction, clientY);
-  }, [clearLongPressTimer, updateAutoScroll, updateFromPointer]);
+    // A stationary long press only lifts the card. Autoscroll begins from the
+    // first active pointermove near an edge, never merely because a compact
+    // viewport places the untouched handle inside the edge band.
+  }, [clearLongPressTimer, updateFromPointer]);
 
   const begin = useCallback((
     kind: GestureKind,
@@ -658,8 +677,9 @@ export function useGridGesture(options: UseGridGestureOptions) {
         finish(false);
       }
     };
-    // The card allows pan-y so that the page still scrolls under a finger: once
-    // it is lifted, the same vertical move must carry the card, not the page.
+    // The card allows pan-y so the page still scrolls under a finger. The
+    // dedicated touch handle is touch-action:none before pointerdown; this is
+    // an additional active-phase guard for browsers that still emit touchmove.
     const handleTouchMove = (event: TouchEvent) => {
       const phase = interactionRef.current?.phase;
       if (event.cancelable && (phase === 'DRAGGING' || phase === 'RESIZING')) event.preventDefault();
@@ -708,10 +728,11 @@ export function useGridGesture(options: UseGridGestureOptions) {
   const onLostPointerCapture = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     const interaction = interactionRef.current;
     if (!interaction || interaction.pointerId !== event.pointerId) return;
-    // Chromium can transiently drop mouse capture when a positioned grid item
-    // changes transform during preview. Window listeners still own the active
-    // pointer, so cancelling here would discard a valid drag. Real loss paths
-    // (touch, detached target, released button) remain fail-closed.
+    // Chromium can transiently drop capture when a positioned grid item
+    // changes transform during preview, including for a real touch pointer.
+    // Window listeners still own an active, pressed pointer, so cancelling
+    // here would snap the card back under the finger. Explicit pointercancel,
+    // pointerup or a detached target remain fail-closed.
     if (!shouldCancelGridGestureOnLostPointerCapture(
       interaction.pointerType,
       event.buttons,

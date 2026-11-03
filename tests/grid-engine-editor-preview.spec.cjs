@@ -1,5 +1,10 @@
 const { test, expect } = require('@playwright/test');
 
+test.skip(
+  process.env.VITE_GRID_ENGINE_2_PREVIEW_DIAGNOSTIC !== 'true',
+  'The historical preview is an opt-in DEV diagnostic after the editor cutover.',
+);
+
 const STORAGE_KEY = 'ha.dashboard.demo.builder.layout.v1';
 
 function widget(id, kind, title, layout, parentSectionId) {

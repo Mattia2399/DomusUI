@@ -110,6 +110,9 @@ function assertIntent(intent: GridLayoutIntent) {
     throw new GridLayoutError('INVALID_INTENT', 'Unsupported layout intent.');
   }
   if (intent.type !== 'COMPACT' && intent.type !== 'NORMALIZE') assertId(intent.id, 'intent.id');
+  if (intent.type === 'REORDER' && intent.strategy !== undefined && intent.strategy !== 'SWAP') {
+    throw new GridLayoutError('INVALID_INTENT', 'Unsupported reorder strategy.');
+  }
 }
 
 function assertAnchor(anchor: GridResizeAnchor) {
@@ -206,6 +209,65 @@ function normalizeCollisionsDown(items: readonly GridLayoutItem[]) {
 
 function hasCollision(items: readonly GridLayoutItem[]) {
   return items.some((item, index) => items.slice(index + 1).some((other) => intersects(item, other)));
+}
+
+/**
+ * Exchanges the origins of two cards on the same row. Dimensions remain owned
+ * by their cards, so mixed-size exchanges are accepted only when both new
+ * rectangles stay in bounds and remain collision-free against every third
+ * card. Requiring the target's exact origin makes the decision deterministic
+ * even when a large dragged rectangle overlaps multiple neighbours.
+ */
+function resolveDirectHorizontalSwap(
+  items: readonly GridLayoutItem[],
+  source: GridLayoutItem,
+  active: GridLayoutItem,
+  cols: number,
+) {
+  if (active.y !== source.y || active.x === source.x) return null;
+
+  const targets = items.filter((item) => (
+    item.i !== source.i &&
+    item.x === active.x &&
+    item.y === active.y
+  ));
+  if (targets.length !== 1) return null;
+
+  const target = targets[0];
+  const swappedActive = { ...source, x: target.x, y: target.y };
+  const swappedTarget = { ...target, x: source.x, y: source.y };
+  const inBounds = (item: GridLayoutItem) => (
+    item.x >= 0 && item.y >= 0 && item.x + item.w <= cols
+  );
+  if (!inBounds(swappedActive) || !inBounds(swappedTarget)) return null;
+
+  const swapped = items.map((item) => {
+    if (item.i === source.i) return swappedActive;
+    if (item.i === target.i) return swappedTarget;
+    return { ...item };
+  });
+  return hasCollision(swapped) ? null : swapped;
+}
+
+/** Used by the gesture adapter to advertise SWAP only when the solver can honor it. */
+export function canSwapGridItemsHorizontally(
+  items: readonly GridLayoutItem[],
+  colsInput: number,
+  activeId: string,
+  destination: Readonly<{ x: number; y: number }>,
+) {
+  const cols = normalizeColumns(colsInput);
+  const normalized = normalizeItems(items, cols);
+  const source = normalized.find((item) => item.i === activeId);
+  if (!source) return false;
+  const active = applyMove(source, {
+    type: 'REORDER',
+    strategy: 'SWAP',
+    id: activeId,
+    x: destination.x,
+    y: destination.y,
+  }, cols);
+  return resolveDirectHorizontalSwap(normalized, source, active, cols) !== null;
 }
 
 /**
@@ -336,6 +398,10 @@ export function solveLayout(input: SolveLayoutInput): GridLayoutItem[] {
   }
 
   const active = applyIntent(activeSource, intent, cols);
+  if (input.mode === 'automatic' && intent.type === 'REORDER' && intent.strategy === 'SWAP') {
+    const swapped = resolveDirectHorizontalSwap(normalized, activeSource, active, cols);
+    if (swapped) return swapped.sort(compareByTopLeft);
+  }
   const reordered = intent.type === 'REORDER'
     ? insertDownward(normalized, activeSource, active)
     : null;

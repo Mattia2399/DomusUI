@@ -199,6 +199,7 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
                         : undefined,
                     }}
                     onPointerDown={(event) => {
+                      if (event.pointerType === 'touch') return;
                       if (gestureEnabled) gesture?.onDragPointerDown(item.i, event);
                     }}
                     onLostPointerCapture={gesture?.onLostPointerCapture}
@@ -248,6 +249,7 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
                         : undefined,
                     }}
                     onPointerDown={(event) => {
+                      if (event.pointerType === 'touch') return;
                       if (gestureEnabled) gesture?.onDragPointerDown(item.i, event);
                     }}
                     onLostPointerCapture={gesture?.onLostPointerCapture}
@@ -275,12 +277,12 @@ export const GridGestureCanvas = forwardRef<HTMLDivElement, GridGestureCanvasPro
                   <>
                     <button
                       type="button"
-                      data-grid-no-drag="true"
                       aria-label={`Trascina ${item.i}`}
                       title="Maniglia drag touch: pressione prolungata"
                       className="absolute right-1 top-1 z-30 flex h-7 w-7 touch-none items-center justify-center rounded-lg border border-white/10 bg-black/45 text-white/60 shadow-sm backdrop-blur-md transition hover:bg-black/65 hover:text-white motion-reduce:transition-none"
                       style={{ touchAction: 'none' }}
                       onPointerDown={(event) => {
+                        event.preventDefault();
                         event.stopPropagation();
                         gesture.onDragPointerDown(item.i, event);
                       }}

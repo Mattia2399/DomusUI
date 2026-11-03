@@ -31,6 +31,8 @@ export type GridReorderIntent = {
   readonly id: string;
   readonly x: number;
   readonly y: number;
+  /** A validated direct exchange with the card rooted at the destination. */
+  readonly strategy?: 'SWAP';
 };
 
 /** Vertical-only compaction with no artificial active item. */
