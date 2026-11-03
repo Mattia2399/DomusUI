@@ -30,6 +30,7 @@ import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
 import { homePanelOf, type HomePanelProps } from './homePanelRoute';
+import { useLiftGuard } from './useLiftGuard';
 import { StatusGlow } from '../widgets/micro/StatusGlow';
 import { ValuePill } from '../widgets/micro/ValuePill';
 import { MiniRing } from '../widgets/micro/MiniRing';
@@ -407,6 +408,7 @@ export function ContextSidebar({
     ? 'overflow-visible pb-3 pt-2'
     : 'overflow-y-auto overscroll-contain glass-scrollbar [touch-action:pan-y] [-webkit-overflow-scrolling:touch] pb-4 lg:pb-6';
   const microWidgets = activeDevice?.microWidgets ?? [];
+  useLiftGuard(activeDevice?.id);
   const homePanelProps: HomePanelProps | null = activeDevice
     ? {
         activeDevice,
