@@ -237,3 +237,90 @@ test('mobile long-press on a card of the three sizes opens its shared panel', as
   await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible({ timeout: 15_000 });
   await expectContextPanel(page, 'Root Robot');
 });
+
+test('the finger that opened a panel neither closes it nor presses what lies under it', async ({ page }) => {
+  const widget = (id, kind, title, entityId, y) => ({ id, kind, title, entityId, dataSource: 'ha', isOn: false, layout: { i: id, x: 0, y, w: 2, h: 4 } });
+  await installCompletedDemo(page, {
+    version: 14,
+    layoutEngine: 'grid-engine-2',
+    gridMetricsVersion: 'v2',
+    widgetTypeLayoutOverrides: {},
+    widgetLayoutOverrides: {},
+    responsiveLayouts: {},
+    sections: [],
+    widgets: [
+      widget('alarm', 'alarm', 'Root Alarm', 'alarm_control_panel.home_alarm', 0),
+      widget('calendar', 'calendar', 'Root Agenda', 'calendar.domus_ui', 4),
+    ],
+  });
+  await page.goto('/home');
+  const body = (id) => page.locator(`[data-grid-engine-root-item="${id}"] .dv-tile-body`);
+  await expect(body('alarm')).toBeVisible({ timeout: 30_000 });
+
+  // Twice each: from the second time on the panel appears while the finger is still down.
+  for (const [id, title] of [['alarm', 'Root Alarm'], ['alarm', 'Root Alarm'], ['calendar', 'Root Agenda'], ['calendar', 'Root Agenda'], ['alarm', 'Root Alarm']]) {
+    await longPress(page, body(id));
+    await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(600);
+    await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible();
+    if (id === 'alarm') await expect(page.locator('.dv-pn-mode.is-on')).toHaveCount(1);
+    await expectContextPanel(page, title);
+    await page.waitForTimeout(500);
+  }
+});
+
+test('on a card of the three sizes a touch opens the panel, the icon only commands, and a swipe scrolls', async ({ page }) => {
+  const widget = (id, kind, y, h = 4) => ({ id, kind, title: `Root ${kind}`, entityId: id, dataSource: 'mock', isOn: false, value: 1, layout: { i: id, x: 0, y, w: 2, h } });
+  await installCompletedDemo(page, {
+    version: 14,
+    layoutEngine: 'grid-engine-2',
+    gridMetricsVersion: 'v2',
+    widgetTypeLayoutOverrides: {},
+    widgetLayoutOverrides: {},
+    responsiveLayouts: {},
+    sections: [],
+    widgets: [widget('fan.demo_breeze', 'fan', 0), ...Array.from({ length: 8 }, (_, index) => widget(`climate.filler_${index}`, 'climate', 4 + index * 4))],
+  });
+  await page.goto('/home');
+  const card = page.locator('[data-grid-engine-root-item="fan.demo_breeze"]');
+  const body = card.locator('.dv-tile-body');
+  await expect(body).toBeVisible({ timeout: 30_000 });
+  const client = await page.context().newCDPSession(page);
+  const touch = (type, x, y) => client.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1, radiusX: 8, radiusY: 8, force: 1 }] });
+  const tap = async (x, y) => {
+    await touch('touchStart', x, y);
+    await page.waitForTimeout(60);
+    await touch('touchEnd', x, y);
+  };
+
+  // The icon commands the device and opens nothing.
+  const icon = card.locator('button.dv-icon-button');
+  const pressed = await icon.getAttribute('aria-pressed');
+  const iconBox = await icon.boundingBox();
+  await tap(iconBox.x + iconBox.width / 2, iconBox.y + iconBox.height / 2);
+  await expect(icon).not.toHaveAttribute('aria-pressed', pressed ?? 'false');
+  await expect(page.locator('.device-context-surface')).toHaveCount(0);
+
+  // A swipe that starts on the card moves the page and opens nothing.
+  const box = await card.boundingBox();
+  const x = box.x + 16;
+  const y = box.y + box.height - 16;
+  await touch('touchStart', x, y);
+  for (let step = 1; step <= 8; step += 1) {
+    await touch('touchMove', x, y - step * 20);
+    await page.waitForTimeout(16);
+  }
+  await touch('touchEnd', x, y);
+  // Long enough for the page to stop gliding: a touch during the glide only stops it.
+  await page.waitForTimeout(2000);
+  await expect(page.locator('.device-context-surface')).toHaveCount(0);
+  expect((await card.boundingBox()).y).toBeLessThan(box.y);
+
+  // After scrolling, a touch on the surface of a card opens its panel, and it stays open.
+  const other = page.locator('[data-grid-engine-root-item="climate.filler_1"]');
+  const otherBox = await other.boundingBox();
+  await tap(otherBox.x + 14, otherBox.y + otherBox.height / 2);
+  await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(600);
+  await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible();
+});

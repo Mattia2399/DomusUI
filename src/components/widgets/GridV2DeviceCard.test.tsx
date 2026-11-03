@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { AccessControlProvider } from '../../security/AccessControlProvider';
@@ -83,6 +83,50 @@ describe('Home cards with the v2 metrics', () => {
     expect(card.textContent).toContain('Clima Soggiorno');
     fireEvent.click(screen.getByRole('button', { name: /alza/i }));
     expect(onClimateTargetTempChange).toHaveBeenCalledWith(climate, 22.5);
+  });
+
+  describe('as in Rooms', () => {
+    const light: Widget = {
+      id: 'light.sala',
+      kind: 'light',
+      title: 'Faretti',
+      entityId: 'light.sala',
+      status: 'on',
+      isOn: true,
+      layout: { i: 'light.sala', x: 0, y: 0, w: 2, h: 4 },
+    };
+    const liveLight = { state: 'on', rawAttributes: { friendly_name: 'Faretti', brightness: 128, supported_color_modes: ['brightness'], color_mode: 'brightness' } } as unknown as MockEntityState;
+    const plug: Widget = { ...light, id: 'switch.lampada', kind: 'switch', title: 'Lampada', entityId: 'switch.lampada', layout: { i: 'switch.lampada', x: 0, y: 0, w: 2, h: 4 } };
+    const livePlug = { state: 'on', rawAttributes: { friendly_name: 'Lampada' } } as unknown as MockEntityState;
+
+    const card = (widget: Widget, liveEntity: MockEntityState) => {
+      const callbacks = { onClick: vi.fn(), onOpenPanel: vi.fn(), onToggleOnly: vi.fn(), onSwitchToggle: vi.fn() };
+      const view = renderCard(
+        <WidgetCardRenderer widget={widget} dashboardState={{} as never} isEditMode={false} isSelected={false} isInteractive liveEntity={liveEntity} gridBreakpoint="xl" gridMetricsVersion="v2" {...callbacks} />,
+      );
+      return { ...callbacks, view };
+    };
+
+    it('the icon of a light only toggles it, and its surface only opens the panel', async () => {
+      const { onOpenPanel, onToggleOnly, onClick, onSwitchToggle, view } = card(light, liveLight);
+      const icon = await screen.findByRole('button', { name: 'Spegni Faretti' }, LAZY);
+      fireEvent.click(icon);
+      expect(onToggleOnly).toHaveBeenCalledWith(light);
+      expect(onOpenPanel).not.toHaveBeenCalled();
+      fireEvent.click(view.container.querySelector('.dv-tile-body')!);
+      expect(onOpenPanel).toHaveBeenCalledTimes(1);
+      expect(onToggleOnly).toHaveBeenCalledTimes(1);
+      expect(onClick).not.toHaveBeenCalled();
+      expect(onSwitchToggle).not.toHaveBeenCalled();
+    });
+
+    it('a plug with nothing to show in a panel toggles from its surface too', async () => {
+      const { onOpenPanel, onToggleOnly, view } = card(plug, livePlug);
+      await waitFor(() => expect(view.container.querySelector('.dv-tile-body')).toBeTruthy(), LAZY);
+      fireEvent.click(view.container.querySelector('.dv-tile-body')!);
+      expect(onToggleOnly).toHaveBeenCalledWith(plug);
+      expect(onOpenPanel).not.toHaveBeenCalled();
+    }, 15_000);
   });
 
   it('keeps the legacy Home card without the v2 metrics', () => {

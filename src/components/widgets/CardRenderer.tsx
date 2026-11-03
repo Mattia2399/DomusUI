@@ -59,6 +59,9 @@ type WidgetCardRendererProps = {
   /** v2 cards only: the white tone from the card; without it the tone stays in the panel. */
   onLightColorTempChange?: (widget: Widget, kelvin: number) => void;
   onSwitchToggle?: (widget: Widget) => void;
+  /** The cards in three sizes: only the panel, only the toggle, as in Rooms. */
+  onOpenPanel?: () => void;
+  onToggleOnly?: (widget: Widget) => void;
   onFanToggle?: (widget: Widget) => void;
   onFanPercentageChange?: (widget: Widget, percentage: number) => void;
   onFanPresetChange?: (widget: Widget, mode: string) => void;

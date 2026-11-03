@@ -183,6 +183,7 @@ type GridCanvasProps = {
   onWidgetLongPress: (widget: Widget) => void;
   onWidgetLightToggle: (widget: Widget) => void;
   onWidgetSwitchToggle: (widget: Widget) => void;
+  onWidgetToggleOnly: (widget: Widget) => void;
   onWidgetFanToggle: (widget: Widget) => void;
   onWidgetFanPercentageChange: (widget: Widget, percentage: number) => void;
   onWidgetFanPresetChange: (widget: Widget, mode: string) => void;
@@ -1325,6 +1326,7 @@ export function GridCanvas({
   onWidgetLongPress,
   onWidgetLightToggle,
   onWidgetSwitchToggle,
+  onWidgetToggleOnly,
   onWidgetFanToggle,
   onWidgetFanPercentageChange,
   onWidgetFanPresetChange,
@@ -4452,6 +4454,8 @@ export function GridCanvas({
                       onLightColorChange={onWidgetLightColorChange}
                       onLightColorTempChange={onWidgetLightColorTempChange}
                       onSwitchToggle={onWidgetSwitchToggle}
+                      onOpenPanel={() => onWidgetLongPress(widget)}
+                      onToggleOnly={onWidgetToggleOnly}
                       onFanToggle={onWidgetFanToggle}
                       onFanPercentageChange={onWidgetFanPercentageChange}
                       onFanPresetChange={onWidgetFanPresetChange}

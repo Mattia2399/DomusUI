@@ -12272,6 +12272,10 @@ export function MainBoard() {
                 }
                 toggleSwitchEntity(widget);
               }}
+              onWidgetToggleOnly={(widget) => {
+                if (widget.kind === 'light') toggleLightEntity(widget);
+                else if (widget.kind === 'switch') toggleSwitchEntity(widget);
+              }}
               onWidgetFanToggle={toggleFan}
               onWidgetFanPercentageChange={(widget, percentage) => setFanPercentage(percentage, widget)}
               onWidgetFanPresetChange={(widget, mode) => setFanPreset(mode, widget)}

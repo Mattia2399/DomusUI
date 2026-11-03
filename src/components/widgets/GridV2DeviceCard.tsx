@@ -92,12 +92,14 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
     selected: isSelected,
     onSelect: onClick,
   };
+  // As in Rooms: the surface opens the panel and the icon commands the device.
+  const openPanel = props.onOpenPanel ?? onClick;
 
   if (widget.kind === 'light') {
     const base = toLightModel(widget.entityId, entity);
     const model = { ...base, name: name ?? base.name };
     const onAction = run<LightAction>((action) => {
-      if (action.type === 'turn_on' || action.type === 'turn_off') props.onSwitchToggle?.(widget);
+      if (action.type === 'turn_on' || action.type === 'turn_off') props.onToggleOnly?.(widget);
       else if (action.type === 'brightness') props.onLightBrightnessChange?.(widget, action.pct);
       else if (action.type === 'hue') props.onLightColorChange?.(widget, [action.hue, 100]);
       else if (action.type === 'kelvin') props.onLightColorTempChange?.(widget, action.kelvin);
@@ -106,14 +108,14 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
     });
     // A lit light that grew to three rows keeps the slider of a room's tile.
     const lightFormat = format === 'U×2' && widget.layout.h >= 3 ? 'U×3' : format;
-    return <LightCard model={model} format={lightFormat} {...common} onAction={onAction} onOpenPanel={onClick} />;
+    return <LightCard model={model} format={lightFormat} {...common} onAction={onAction} onOpenPanel={openPanel} />;
   }
 
   if (widget.kind === 'switch' || widget.kind === 'fan' || widget.kind === 'humidifier' || widget.kind === 'cover') {
     const base = toDeviceModel(widget.entityId, entity);
     if (!base) return <>{fallback}</>;
     const model = { ...base, name: name ?? base.name };
-    const toggle = widget.kind === 'fan' ? props.onFanToggle : widget.kind === 'humidifier' ? props.onHumidifierToggle : props.onSwitchToggle;
+    const toggle = widget.kind === 'fan' ? props.onFanToggle : widget.kind === 'humidifier' ? props.onHumidifierToggle : props.onToggleOnly;
     const onAction = run<DeviceAction>((action) => {
       switch (action.type) {
         case 'turn_on':
@@ -155,7 +157,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
           break;
       }
     });
-    return <DeviceCard model={model} format={format} {...common} onAction={onAction} onOpenPanel={onClick} />;
+    return <DeviceCard model={model} format={format} {...common} onAction={onAction} onOpenPanel={openPanel} />;
   }
 
   if (widget.kind === 'climate') {
@@ -188,7 +190,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
           break;
       }
     });
-    return <ClimateCard model={model} format={format} {...common} onAction={onAction} onOpenPanel={onClick} />;
+    return <ClimateCard model={model} format={format} {...common} onAction={onAction} onOpenPanel={openPanel} />;
   }
 
   if (widget.kind === 'sensor') {
@@ -205,7 +207,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
       t: now - ((values.length - 1 - index) * 86_400_000) / Math.max(1, values.length - 1),
       v: value,
     }));
-    return <SensorFamilyCard model={model} history={history} format={format} meterKw={widget.sensorMeterKw} now={now} {...common} onOpen={onClick} />;
+    return <SensorFamilyCard model={model} history={history} format={format} meterKw={widget.sensorMeterKw} now={now} {...common} onOpen={openPanel} />;
   }
 
   if (widget.kind === 'lock' || widget.kind === 'camera') {
@@ -222,7 +224,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
         pictureUrl={picture ? resolveAssetUrl(picture) ?? null : null}
         format={format}
         {...common}
-        onOpen={onClick}
+        onOpen={openPanel}
         onLockCommand={onLockCommand}
       />
     );
@@ -246,7 +248,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
         format={format}
         {...common}
         onAction={onAction}
-        onOpen={onClick}
+        onOpen={openPanel}
       />
     );
   }
@@ -260,7 +262,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
         {...common}
         onArm={run((mode) => props.onAlarmArm?.(widget, mode as Parameters<NonNullable<typeof props.onAlarmArm>>[1]))}
         onDisarm={() => { if (controlsEnabled) props.onAlarmDisarm?.(widget); }}
-        onOpen={onClick}
+        onOpen={openPanel}
       />
     );
   }
@@ -279,7 +281,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
         {...common}
         onStartPause={() => { if (controlsEnabled) props.onVacuumStartPause?.(widget); }}
         onReturnToBase={() => { if (controlsEnabled) props.onVacuumReturnToBase?.(widget); }}
-        onOpen={onClick}
+        onOpen={openPanel}
       />
     );
   }
@@ -295,7 +297,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
         available={Boolean(liveEntity) || events.length > 0}
         format={format}
         {...common}
-        onOpen={onClick}
+        onOpen={openPanel}
       />
     );
   }
