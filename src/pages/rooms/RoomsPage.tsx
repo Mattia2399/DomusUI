@@ -1245,7 +1245,7 @@ export function RoomsPage({
         </Deferred>
       ) : null}
 
-      <PanelHost presentation={phone ? 'sheet' : 'dialog'} isOpen={Boolean(roomSheet)} onClose={() => setRoomSheet(null)} title={sheetRoom ? rt('editRoom') : rt('newRoom')}>
+      <PanelHost fitContent presentation={phone ? 'sheet' : 'dialog'} isOpen={Boolean(roomSheet)} onClose={() => setRoomSheet(null)} title={sheetRoom ? rt('editRoom') : rt('newRoom')}>
         {roomSheet ? (
           <Deferred>
             <RoomEditPanel
@@ -1797,6 +1797,7 @@ export function RoomsPage({
       <PanelHost
         presentation={phone ? 'sheet' : 'dialog'}
         isOpen={mediaSheet === 'pick' && roomPlayers.length > 1}
+        fitContent
         onClose={() => setMediaSheet(null)}
         title={dt('mediaPickTitle')}
       >
@@ -1810,6 +1811,7 @@ export function RoomsPage({
       <PanelHost
         presentation={phone ? 'sheet' : 'dialog'}
         isOpen={mediaSheet === 'start' && Boolean(shownPlayer) && !shownPlayer?.on}
+        fitContent
         onClose={() => setMediaSheet(null)}
         title={shownPlayer?.name ?? ''}
       >

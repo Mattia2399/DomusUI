@@ -139,6 +139,7 @@ import { useDashboardSecurity } from '../../security/dashboardAccess';
 import { useSensitiveActionGate } from '../../security/SensitiveActionGate';
 import { resolveCardDataSource } from '../../security/mockSourcePolicy';
 import { DASHBOARD_SIDEBAR_WIDTH_CLASS } from './DashboardSidebarPlaceholder';
+import { PanelSheet } from '../devices/panels/PanelSheet';
 import LazyLoadBoundary from '../common/LazyLoadBoundary';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -1499,48 +1500,13 @@ export function RightSidebarManager({
   if (!isEditMode) {
     if (isCompactViewport) {
       return (
-        <AnimatePresence>
-          {activeDevice ? (
-            <React.Fragment>
-              <motion.button
-                key="device-context-overlay"
-                type="button"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                onClick={onCloseContextSidebar}
-                className="fixed inset-0 z-[188] bg-[color:var(--ui-scrim)] backdrop-blur-sm transition-opacity"
-                aria-label={t('builder.closeContext')}
-              />
-
-              <div className="fixed inset-0 z-[189] pointer-events-none flex items-end">
-                <motion.section
-                  key="device-context-mobile"
-                  initial={{ y: '100%' }}
-                  animate={{ y: 0 }}
-                  exit={{ y: '100%' }}
-                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                  className="w-full"
-                >
-                  <div
-                    className="device-context-surface liquid-glass-sheet pointer-events-auto flex w-full max-h-[92dvh] flex-col overflow-hidden"
-                    style={
-                      contextSheetDragOffset > 0
-                        ? { transform: `translateY(${contextSheetDragOffset}px)`, transitionDuration: '0ms' }
-                        : undefined
-                    }
-                  >
-                    <div
-                      className={`touch-none ${isContextSheetDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-                      onPointerDown={handleContextSheetDragStart}
-                      onPointerMove={handleContextSheetDragMove}
-                      onPointerUp={finishContextSheetDrag}
-                      onPointerCancel={finishContextSheetDrag}
-                    >
-                      <span className="liquid-glass-drag-handle mx-auto mt-4 mb-2" />
-                    </div>
-
+        <PanelSheet
+          isOpen={Boolean(activeDevice)}
+          onClose={onCloseContextSidebar}
+          title={activeDevice?.name ?? ''}
+          closeLabel={t('builder.closeContext')}
+          zIndex={188}
+          head={
                     <div data-context-sheet-header className="flex items-start justify-between gap-3 px-4 pt-3 pb-3 md:px-5 md:pt-5 md:pb-4">
                       <div className="min-w-0">
                         <h2 className="truncate text-xl font-semibold tracking-tight text-[color:var(--ui-text-primary)]">{contextDeviceTitle}</h2>
@@ -1557,16 +1523,10 @@ export function RightSidebarManager({
                         </button>
                       ) : null}
                     </div>
-
-                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain glass-scrollbar [touch-action:pan-y] [-webkit-overflow-scrolling:touch] px-3 pb-[calc(env(safe-area-inset-bottom)+0.9rem)] [&_.context-panel-header]:hidden">
-                      {contextSidebarPanel}
-                    </div>
-                  </div>
-                </motion.section>
-              </div>
-            </React.Fragment>
-          ) : null}
-        </AnimatePresence>
+          }
+        >
+          {contextSidebarPanel}
+        </PanelSheet>
       );
     }
 

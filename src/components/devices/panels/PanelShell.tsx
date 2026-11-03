@@ -101,7 +101,7 @@ function useHostTint(ref: React.RefObject<HTMLDivElement | null>, tint: PanelTin
   const soft = Boolean(tint?.soft);
   React.useLayoutEffect(() => {
     const panel = ref.current;
-    const host = panel?.closest<HTMLElement>('.device-context-surface') ?? panel?.closest<HTMLElement>('aside');
+    const host = panel?.closest<HTMLElement>('.device-context-surface, [role="dialog"], .liquid-glass-panel');
     if (!host || !rgb) return undefined;
     host.style.setProperty('--dv-light-rgb', rgb);
     host.classList.add('dv-panel-tinted');

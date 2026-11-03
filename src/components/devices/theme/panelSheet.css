@@ -1,0 +1,74 @@
+/*
+ * The sheet of a panel on a phone: floating above the edges of the screen, of
+ * one height for every panel. What does not fit scrolls inside it.
+ */
+
+.dv-panel-sheet-scrim {
+  position: fixed;
+  inset: 0;
+  border: 0;
+  background: var(--ui-scrim);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.dv-panel-sheet-place {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 8px 8px calc(env(safe-area-inset-bottom) + 8px);
+  pointer-events: none;
+}
+
+.dv-panel-sheet {
+  display: flex;
+  height: min(86dvh, 720px);
+  width: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 30px;
+  outline: none;
+  pointer-events: auto;
+}
+
+.dv-panel-sheet.is-fit {
+  height: auto;
+  max-height: 92dvh;
+}
+
+.dv-panel-sheet-handle {
+  display: flex;
+  flex: none;
+  justify-content: center;
+  padding: 10px 0 6px;
+  cursor: grab;
+  touch-action: none;
+}
+
+.dv-panel-sheet-handle:active {
+  cursor: grabbing;
+}
+
+.dv-panel-sheet-handle .liquid-glass-drag-handle {
+  margin: 0;
+}
+
+.dv-panel-sheet-body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* The same margins, whoever fills the sheet. */
+.dv-panel-sheet .context-sidebar {
+  padding: 0;
+}
+
+.dv-panel-sheet .dv-panel-frame {
+  min-height: 100%;
+  padding: 6px 16px 16px;
+}

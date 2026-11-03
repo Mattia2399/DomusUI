@@ -1,6 +1,6 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import GlassBottomSheet from '../../ui/GlassBottomSheet';
+import { PanelSheet } from './PanelSheet';
 import GlassModal from '../../ui/GlassModal';
 import '../theme/devices.css';
 
@@ -22,6 +22,8 @@ export type PanelHostProps = {
   tintRgb?: string | null;
   /** A lighter tint, for devices that are not lights. */
   softTint?: boolean;
+  /** On a phone: a short sheet, as tall as what it holds, that is not a device panel. */
+  fitContent?: boolean;
   children: React.ReactNode;
 };
 
@@ -34,14 +36,10 @@ function useDialogTint(
 ) {
   React.useLayoutEffect(() => {
     const dialog = contentRef.current?.closest<HTMLElement>('[role="dialog"]');
-    if (!dialog) return undefined;
-    if (tintRgb) {
-      dialog.style.setProperty('--dv-light-rgb', tintRgb);
-      dialog.classList.add('dv-panel-tinted');
-      dialog.classList.toggle('dv-panel-tint-soft', softTint);
-    } else {
-      dialog.classList.remove('dv-panel-tinted', 'dv-panel-tint-soft');
-    }
+    if (!dialog || !tintRgb) return undefined;
+    dialog.style.setProperty('--dv-light-rgb', tintRgb);
+    dialog.classList.add('dv-panel-tinted');
+    dialog.classList.toggle('dv-panel-tint-soft', softTint);
     return () => {
       dialog.classList.remove('dv-panel-tinted', 'dv-panel-tint-soft');
       dialog.style.removeProperty('--dv-light-rgb');
@@ -82,7 +80,7 @@ function SidePanel({ isOpen, onClose, title, tintRgb, softTint = false, children
   );
 }
 
-export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softTint = false, children }: PanelHostProps) {
+export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softTint = false, fitContent = false, children }: PanelHostProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   useDialogTint(contentRef, presentation === 'side' ? null : tintRgb, softTint, isOpen);
   const content = (
@@ -100,9 +98,9 @@ export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softT
   }
   if (presentation === 'sheet') {
     return (
-      <GlassBottomSheet isOpen={isOpen} onClose={onClose} title={title} showHeader={false} bodyClassName="!mt-0">
+      <PanelSheet isOpen={isOpen} onClose={onClose} title={title} fitContent={fitContent}>
         {content}
-      </GlassBottomSheet>
+      </PanelSheet>
     );
   }
   return (
