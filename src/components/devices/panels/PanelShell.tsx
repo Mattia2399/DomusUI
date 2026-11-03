@@ -128,13 +128,13 @@ export function PanelHeader({
   );
 }
 
-/** The sheet or the column around the panel takes the colour of the device. */
+/** The sheet or the dialog around the panel takes the colour of the device; the column of a desktop stays neutral. */
 function useHostTint(ref: React.RefObject<HTMLDivElement | null>, tint: PanelTint | null | undefined) {
   const rgb = tint?.rgb;
   const soft = Boolean(tint?.soft);
   React.useLayoutEffect(() => {
     const panel = ref.current;
-    const host = panel?.closest<HTMLElement>('.device-context-surface, [role="dialog"], .liquid-glass-panel');
+    const host = panel?.closest<HTMLElement>('.device-context-surface, [role="dialog"]');
     if (!host || !rgb) return undefined;
     host.style.setProperty('--dv-light-rgb', rgb);
     host.classList.add('dv-panel-tinted');
