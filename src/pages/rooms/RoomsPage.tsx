@@ -17,6 +17,7 @@ import type { CameraPtzDirection } from '../../components/camera/CameraPtzJoysti
 import type { GlassDropdownOption } from '../../components/ui/GlassDropdown';
 import { useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
 import { useProtectedEntities } from '../../components/rooms/useProtectedEntities';
+import { lightExtraCall, lightExtrasOf } from '../../components/devices/model/lightExtras';
 import { LightCard } from '../../components/devices/cards/LightCard';
 import { DeviceCard } from '../../components/devices/cards/DeviceCard';
 import { ClimateCard } from '../../components/devices/cards/ClimateCard';
@@ -1645,8 +1646,13 @@ export function RoomsPage({
               <LightPanel
                 model={panelLight}
                 roomName={activeRoom?.name}
+                extras={lightExtrasOf(states[panelLight.entityId])}
                 live={live}
                 onAction={(action) => lights.act(panelLight.entityId, action)}
+                onExtraAction={(action) => {
+                  const { domain, service, data } = lightExtraCall(panelLight.entityId, action);
+                  void onCallService?.(domain, service, data);
+                }}
                 onClose={() => setPanel(null)}
               />
             ))}

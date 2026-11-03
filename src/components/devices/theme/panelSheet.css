@@ -72,3 +72,18 @@
   min-height: 100%;
   padding: 6px 16px 16px;
 }
+
+/* A panel with a dock fills the sheet, so that its dock is always at the bottom. */
+.dv-panel-sheet:not(.is-fit) .dv-panel-sheet-body {
+  container: dv-panel-sheet / size;
+}
+
+@container dv-panel-sheet (min-height: 1px) {
+  .dv-panel.is-docked {
+    min-height: calc(100cqh - 22px);
+  }
+
+  .dv-panel-stage > .dv-vslider {
+    flex-basis: 180px;
+  }
+}

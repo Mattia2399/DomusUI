@@ -151,7 +151,8 @@ async function longPress(page, locator) {
 async function expectContextPanel(page, title) {
   const panel = page.locator('.device-context-surface');
   await expect(panel).toBeVisible();
-  await expect(panel.getByRole('heading', { name: title })).toBeVisible();
+  // Right after a load the demo may not have the entity yet: for a moment the old content has a title of its own.
+  await expect(panel.getByRole('heading', { name: title }).first()).toBeVisible();
   // A shared panel brings its own Close once loaded, and the one of the sheet steps aside: ask again.
   await expect(async () => {
     await panel.getByRole('button', { name: /Chiudi.*dispositivo/i }).click({ timeout: 1500 });

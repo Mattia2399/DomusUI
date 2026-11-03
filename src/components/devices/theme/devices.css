@@ -2232,6 +2232,146 @@
   container-type: inline-size;
 }
 
+/*
+ * A panel with its power in a dock. Where there is room, the button stays in the
+ * header and everything is on show. On a phone or in a column the slider has the
+ * panel to itself; shortcuts, Back and the power sit at the bottom, under the thumb.
+ */
+.dv-panel.is-docked {
+  position: relative;
+}
+
+.dv-panel.is-docked > .dv-panel-head > .flex-1 {
+  padding-right: 60px;
+}
+
+.dv-panel-dock {
+  display: contents;
+}
+
+.dv-panel-dock > .dv-round {
+  position: absolute;
+  top: 1px;
+  right: 52px;
+}
+
+.dv-panel-dock-side,
+.dv-panel-shortcuts {
+  display: none;
+}
+
+.dv-panel-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.dv-panel-shortcut {
+  display: flex;
+  min-width: 0;
+  max-width: 84px;
+  flex: 1 1 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dv-panel-shortcut:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.dv-panel-shortcut:focus-visible {
+  outline: 2px solid var(--dv-focus);
+  outline-offset: 3px;
+  border-radius: 14px;
+}
+
+@container (max-width: 520px) {
+  .dv-panel.is-docked > .dv-panel-head > .flex-1 {
+    padding-right: 0;
+  }
+
+  .dv-panel.is-docked > .dv-pn-dis {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .dv-panel-dock {
+    display: grid;
+    min-height: 68px;
+    flex: none;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+
+  .dv-panel-dock > .dv-round {
+    position: static;
+    grid-column: 2;
+    height: 64px;
+    width: 64px;
+  }
+
+  .dv-panel-dock-side {
+    display: flex;
+  }
+
+  .dv-panel-stage {
+    min-height: 0;
+    flex: 1;
+    gap: 18px;
+  }
+
+  .dv-panel-stage > .dv-vslider {
+    height: auto;
+    min-height: 180px;
+    width: 148px;
+    flex: 1 1 300px;
+  }
+
+  .dv-panel-stage > .dv-panel-side {
+    display: none;
+  }
+
+  .dv-panel-stage > .dv-panel-shortcuts {
+    display: flex;
+    width: 100%;
+    flex: none;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .dv-panel-stage.has-section > .dv-panel-shortcuts {
+    display: none;
+  }
+
+  /* The screen of a shortcut: its controls take the place of the row, and the slider shows what they do. */
+  .dv-panel-stage.has-section > .dv-panel-side {
+    display: flex;
+    max-height: 46%;
+    flex: none;
+    overflow-y: auto;
+  }
+
+  .dv-panel-section {
+    display: none;
+  }
+
+  .dv-panel-section.is-open {
+    display: flex;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dv-tile,
   .dv-icon-button,

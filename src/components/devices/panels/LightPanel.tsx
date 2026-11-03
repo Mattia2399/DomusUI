@@ -1,18 +1,24 @@
 import React from 'react';
-import { Lightbulb, Sun } from 'lucide-react';
+import { clsx } from 'clsx';
+import { Lightbulb, Palette, Sparkles, Sun, SunDim, Thermometer, Zap } from 'lucide-react';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from '../model/light';
 import { hexToRgb, hueToRgb, lightRgb, rgbCss, rgbToHex } from '../model/tileColor';
 import { LightKindSegment, lightSwatches, SwatchRow } from '../cards/LightControls';
 import { toneTitle } from '../cards/lightText';
-import { PanelShell, type PanelLive } from './PanelShell';
+import type { LightExtraAction } from '../model/lightExtras';
+import { PanelShell, PanelShortcut, type PanelLive } from './PanelShell';
 
 /*
  * The controls of a light: a large vertical brightness slider, White / Colour
  * for the lights that do both, four whites, seven hues and a free colour.
- * The same content wherever the panel opens.
+ * The same content wherever the panel opens. On a phone or in a column the slider
+ * has the panel to itself: what the light also exposes waits behind a row of round
+ * shortcuts, and takes the place of the row when opened (devices.css).
  */
+
+type SectionKey = 'color' | 'white' | 'effects' | 'flash';
 
 function hueOfHex(hex: string) {
   const [r, g, b] = hexToRgb(hex).map((channel) => channel / 255);
@@ -35,7 +41,7 @@ export type LightPanelProps = {
     effect?: string;
     effects?: string[];
   };
-  onExtraAction?: (action: { type: 'white'; value: number } | { type: 'effect'; effect: string } | { type: 'flash'; mode: 'short' | 'long' }) => void;
+  onExtraAction?: (action: LightExtraAction) => void;
   /** Inside a sheet that has its own title and Close. */
   embedded?: boolean;
   live?: PanelLive;
@@ -68,6 +74,21 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
   }));
   const showTemps = (model.caps === 'ct' || model.caps === 'color') && !isColorMode;
 
+  const hasWhite = Boolean(extras?.supportsWhite && onExtraAction);
+  const hasEffects = Boolean(extras?.supportsEffects && extras.effects && extras.effects.length > 0 && onExtraAction);
+  const hasFlash = Boolean(extras?.supportsFlash && onExtraAction);
+  const shortcuts: Array<{ key: SectionKey; icon: React.ReactNode; label: string }> = [
+    ...(model.caps === 'color' ? [{ key: 'color' as const, icon: <Palette size={20} strokeWidth={2} />, label: dt('color') }] : []),
+    ...(model.caps === 'ct' ? [{ key: 'color' as const, icon: <Thermometer size={20} strokeWidth={2} />, label: dt('temperature') }] : []),
+    ...(hasWhite ? [{ key: 'white' as const, icon: <SunDim size={20} strokeWidth={2} />, label: t('controls.light.whiteChannel') }] : []),
+    ...(hasEffects ? [{ key: 'effects' as const, icon: <Sparkles size={20} strokeWidth={2} />, label: t('controls.light.effects') }] : []),
+    ...(hasFlash ? [{ key: 'flash' as const, icon: <Zap size={20} strokeWidth={2} />, label: t('controls.light.flash') }] : []),
+  ];
+  // The column of the Home changes light without closing: a screen belongs to its light.
+  const [opened, setOpened] = React.useState<{ entityId: string; key: SectionKey } | null>(null);
+  const section = opened?.entityId === model.entityId && shortcuts.some(({ key }) => key === opened.key) ? opened.key : null;
+  const sectionClass = (key: SectionKey) => clsx('dv-panel-section', section === key && 'is-open');
+
   return (
     <PanelShell
       icon={<Lightbulb size={23} strokeWidth={2} />}
@@ -83,10 +104,11 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
       power={{ on: model.on, highlighted: lit, available: model.available, name: model.name, onToggle: () => onAction({ type: model.on ? 'turn_off' : 'turn_on' }) }}
       embedded={embedded}
       live={live}
+      dock={{ back: section ? { label: dt('back'), onPress: () => setOpened(null) } : undefined }}
       onClose={onClose}
     >
 
-      <div className="dv-panel-body">
+      <div className={clsx('dv-panel-body dv-panel-stage', section && 'has-section')}>
         {model.caps !== 'onoff' ? (
           <div className="dv-vslider">
             <span
@@ -124,6 +146,8 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
         ) : null}
 
         <div className="dv-panel-side">
+          {model.caps === 'ct' || model.caps === 'color' ? (
+            <div className={clsx(sectionClass('color'), 'gap-3.5')}>
           {model.caps === 'color' ? (
             <LightKindSegment mode={model.mode} dt={dt} disabled={!model.available} onChange={(mode) => onAction({ type: 'mode', mode })} />
           ) : null}
@@ -151,9 +175,11 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
               </SwatchRow>
             </div>
           ) : null}
-          {model.caps === 'dim' ? <span className="dv-t2 text-sm font-medium leading-[1.45]">{dt('dimOnly')}</span> : null}
+            </div>
+          ) : null}
+          {model.caps === 'dim' ? <span className="dv-panel-section dv-t2 text-sm font-medium leading-[1.45]">{dt('dimOnly')}</span> : null}
           {extras?.supportsWhite && onExtraAction ? (
-            <div className="flex flex-col gap-2">
+            <div className={clsx(sectionClass('white'), 'gap-2')}>
               <span className="dv-t2 text-[13px] font-bold">{t('controls.light.whiteChannel')}</span>
               <span className="dv-hslider">
                 <span style={{ width: `${pct}%` }} />
@@ -170,7 +196,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
             </div>
           ) : null}
           {extras?.supportsEffects && extras.effects && extras.effects.length > 0 && onExtraAction ? (
-            <div className="flex flex-col gap-2">
+            <div className={clsx(sectionClass('effects'), 'gap-2')}>
               <span className="dv-t2 text-[13px] font-bold">{t('controls.light.effects')}</span>
               <div className="flex flex-wrap gap-2" role="group" aria-label={t('controls.light.effects')}>
                 {extras.effects.map((effect) => (
@@ -189,7 +215,7 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
             </div>
           ) : null}
           {extras?.supportsFlash && onExtraAction ? (
-            <div className="flex flex-col gap-2">
+            <div className={clsx(sectionClass('flash'), 'gap-2')}>
               <span className="dv-t2 text-[13px] font-bold">{t('controls.light.flash')}</span>
               <div className="flex gap-2" role="group" aria-label={t('controls.light.flash')}>
                 <button type="button" className="dv-option" disabled={!model.available} onClick={() => onExtraAction({ type: 'flash', mode: 'short' })}>{t('controls.light.short')}</button>
@@ -197,6 +223,19 @@ export function LightPanel({ model, roomName, extras, embedded, live, onAction, 
               </div>
             </div>
           ) : null}
+        </div>
+
+        <div className="dv-panel-shortcuts" role="group" aria-label={dt('panelAdjust')}>
+          {shortcuts.map(({ key, icon, label }) => (
+            <PanelShortcut
+              key={key}
+              icon={icon}
+              label={label}
+              expanded={section === key}
+              disabled={!model.available}
+              onPress={() => setOpened({ entityId: model.entityId, key })}
+            />
+          ))}
         </div>
       </div>
     </PanelShell>
