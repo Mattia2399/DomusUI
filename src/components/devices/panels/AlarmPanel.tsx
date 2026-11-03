@@ -218,7 +218,6 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, e
   return (
     <div style={tint ? ({ '--dv-pn-tint': tint } as React.CSSProperties) : undefined}>
     <PanelShell
-      className={clsx(tint && 'dv-pn-tinted')}
       icon={<HeadIcon size={23} strokeWidth={2} />}
       iconClassName={tint ? 'text-white' : 'dv-t2 bg-[color:var(--dv-icon-off)]'}
       iconStyle={tint ? { background: `rgb(${tint})` } : undefined}
@@ -226,7 +225,7 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, e
       subtitle={subtitle}
       liveSubtitle
       embedded={embedded}
-      live={live}
+      live={{ ...live, tint: tint ? { rgb: tint, soft: !triggered } : null }}
       onClose={onClose}
     >
       <div className="dv-pn-hero">

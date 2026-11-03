@@ -186,6 +186,8 @@ const it = {
   lvStaleAt: 'Ultimo valore alle {time}.',
   lvStaleBattery: 'La batteria è al {pct}%: probabilmente va cambiata.',
   lvStaleTip: 'Controlla che sia alimentato e raggiungibile.',
+  lvReadOnly: 'Solo lettura: non puoi comandarla da qui.',
+  snTrendHour: '{value} nell’ultima ora',
 };
 
 type PanelsCatalog = Record<keyof typeof it, string>;
@@ -371,6 +373,8 @@ const en: PanelsCatalog = {
   lvStaleAt: 'Last value at {time}.',
   lvStaleBattery: 'The battery is at {pct}%: it probably needs changing.',
   lvStaleTip: 'Check that it is powered and reachable.',
+  lvReadOnly: 'Read only: you cannot command it from here.',
+  snTrendHour: '{value} in the last hour',
 };
 
 const fr: PanelsCatalog = {
@@ -553,6 +557,8 @@ const fr: PanelsCatalog = {
   lvStaleAt: 'Dernière valeur à {time}.',
   lvStaleBattery: 'La batterie est à {pct} % : elle est probablement à changer.',
   lvStaleTip: 'Vérifiez qu’il est alimenté et joignable.',
+  lvReadOnly: 'Lecture seule : vous ne pouvez pas la commander d’ici.',
+  snTrendHour: '{value} sur la dernière heure',
 };
 
 const catalogs: Record<AppLocale, PanelsCatalog> = { it, en, fr };

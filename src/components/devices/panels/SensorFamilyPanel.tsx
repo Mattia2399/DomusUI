@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
-import { BatteryMedium, ChevronDown, ChevronUp, Gauge, Minus, Plus } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, BatteryMedium, ChevronDown, ChevronUp, Gauge, Minus, Plus } from 'lucide-react';
 import { useSensorFamilyTranslations, type SensorFamilyWordKey } from '../../../i18n/sensorFamilyTranslations';
 import { usePanelsTranslations, type PanelsTranslationKey } from '../../../i18n/panelsTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
-import type { MockEntityStateMap } from '../../../types/ha';
+import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { describeFamilySensor, toFamilySensorModel } from '../cards/SensorFamilyCard';
 import { buildSensorHouse, houseBatteries, houseConnections, houseDetectors, housePowers, sensorPeers } from '../cards/sensorHouse';
 import { findBatterySensor, seriesStats, type SeriesPoint } from '../model/sensor';
 import { formatPanelSpan } from '../model/panelRules';
 import { batteryBand, type SensorAlertReason, type SensorFamily } from '../model/sensorFamily';
-import { hourlyIncrease, hourlyMeans, hourlyYes, startOfDay, yesSpans } from '../model/sensorFigures';
+import { changeOver, hourlyIncrease, hourlyMeans, hourlyYes, startOfDay, yesSpans } from '../model/sensorFigures';
 import {
   chartKindOf,
   dailyBars,
@@ -44,6 +44,8 @@ export type SensorFamilyPanelProps = {
   name: string;
   history?: number[];
   haStates: MockEntityStateMap;
+  /** What the card knows, for a sensor the Home cannot read. */
+  fallbackEntity?: MockEntityState;
   embedded?: boolean;
   live?: PanelLive;
   /** Its data are old: the value goes grey. */
@@ -92,6 +94,9 @@ const ALERT_WORDS: Partial<Record<SensorAlertReason, AlertWords>> = {
   offline: { title: 'ssOffline', panelTip: 'snOfflineTip' },
 };
 
+// Where the word under the value says that all is well.
+const GOOD_WORD_FAMILIES = new Set<SensorFamily>(['temperature', 'humidity', 'air', 'battery']);
+
 const SHADING_COVERS = new Set(['blind', 'shutter', 'shade', 'curtain', 'awning']);
 
 const PERIOD_WORDS: Record<SensorPanelPeriod, { label: PanelsTranslationKey; title: PanelsTranslationKey }> = {
@@ -117,19 +122,19 @@ function containsEntityReference(value: unknown, entityId: string, depth = 0): b
   return Object.values(value as Record<string, unknown>).some((entry) => containsEntityReference(entry, entityId, depth + 1));
 }
 
-export function SensorFamilyPanel({ entityId, name, history, haStates, embedded = false, live, stale = false, onClose }: SensorFamilyPanelProps) {
+export function SensorFamilyPanel({ entityId, name, history, haStates, fallbackEntity, embedded = false, live, stale = false, onClose }: SensorFamilyPanelProps) {
   const dt = useSensorFamilyTranslations();
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
   const services = usePanelServices();
   const registry = useEntityRegistry();
   const now = Date.now();
-  const entity = haStates[entityId];
+  const entity = haStates[entityId] ?? fallbackEntity;
 
   const batteryId = findBatterySensor(entityId, haStates, (id) => registry?.registryEntities.find((entry) => entry.entityId === id)?.deviceId);
   const batteryValue = batteryId ? Number(haStates[batteryId]?.state) : Number.NaN;
   const battery = Number.isFinite(batteryValue) ? batteryValue : null;
-  const model = toFamilySensorModel(entityId, entity, { name, battery });
+  const model = toFamilySensorModel(entityId, entity, { name, battery, fallbackFamily: entityId.startsWith('binary_sensor.') ? 'device' : 'measure' });
   const [period, setPeriod] = useState<SensorPanelPeriod>(() =>
     model ? periodsOf(model.family, model.attributes, false)[0] ?? '24h' : '24h',
   );
@@ -170,7 +175,7 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   const tint = FAMILY_RGB[model.family];
   const Icon = face?.icon ?? Gauge;
   const chart = chartKindOf(model.family);
-  const isWord = model.value === null || chart === 'strip' || model.family === 'motion';
+  const isWord = !model.available || model.value === null || chart === 'strip' || model.family === 'motion';
   const spans = { min: pt('spanMin'), hour: pt('spanHour'), day: pt('spanDay') };
   const span = (ms: number) => formatPanelSpan(ms, spans);
   const unitText = reading.unit === '°' || reading.unit === '%' ? reading.unit : reading.unit ? ` ${reading.unit}` : '';
@@ -260,7 +265,15 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   const coordinates = linePoints.map((point) => `${(((point.t - t0) / timeSpan) * 100).toFixed(2)},${yOf(point.v).toFixed(2)}`);
 
   const hasChart = chart === 'line' ? linePoints.length > 1 : chart === 'bars' ? bars.some((value) => value > 0) : yesParts.length > 0 || wordParts.length > 0;
-  const chartTitle = chart === 'strip' && period === '24h' ? pt('snToday') : pt(PERIOD_WORDS[period].title);
+  const bandEdge = (value: number) => formatNumber(value, locale);
+  const chartTitle = chart === 'strip' && period === '24h'
+    ? pt('snToday')
+    : band && band[0] > 0
+      ? dt('idealRange', { lo: bandEdge(band[0]), hi: withUnit(band[1]) })
+      : pt(PERIOD_WORDS[period].title);
+  const hourChange = !isWord && model.value !== null ? changeOver(series.points, 1, now) : 0;
+  const trendMin = Math.max(0.1, Math.abs(model.value ?? 0) * 0.01);
+  const trend = Math.abs(hourChange) >= trendMin ? hourChange : 0;
   const axis = period === '24h'
     ? ['0:00', '6:00', '12:00', '18:00', pt('snNowWord')]
     : [pt(PERIOD_WORDS[period].label), pt('snNowWord')];
@@ -399,7 +412,7 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
 
   // The card titles a word as "Name · word": that word is the value of what has no number.
   const titleWord = face && face.title.startsWith(`${model.name} · `) ? face.title.slice(model.name.length + 3) : null;
-  const bigWord = isWord ? titleWord ?? face?.mini.split(' · ')[0] ?? model.state : null;
+  const bigWord = !model.available ? dt('unavailable') : isWord ? titleWord ?? face?.mini.split(' · ')[0] ?? model.state : null;
   const noteLine = !model.available ? null : isWord ? face?.expandedStatus ?? face?.status : face?.status;
   const note = noteLine && noteLine !== bigWord ? noteLine : null;
   const alertTitle = words ? dt(words.title).replace(/[.!]+$/, '') : '';
@@ -411,13 +424,12 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
   return (
     <div style={{ '--dv-pn-tint': alert?.level === 'critical' ? '255 69 58' : '255 159 10', '--dv-pn-chart': `rgb(${tint})`, '--sn-tint': `rgb(${tint})` } as React.CSSProperties}>
       <PanelShell
-        className={clsx(showAlert && 'dv-pn-tinted')}
         icon={<Icon size={23} strokeWidth={2} />}
         iconStyle={showAlert && alert?.level === 'critical' ? { background: 'rgb(255 69 58)', color: '#ffffff' } : { background: `rgb(${tint} / 0.18)`, color: `rgb(${tint})` }}
         name={model.name}
         subtitle={subtitle}
         embedded={embedded}
-        live={live}
+        live={{ ...live, tint: showAlert ? { rgb: alert?.level === 'critical' ? '255 69 58' : '255 159 10', soft: alert?.level !== 'critical' } : null }}
         onClose={onClose}
       >
         <div className={clsx('dv-pn-value', isWord && 'is-word', stale && 'is-stale')}>
@@ -425,7 +437,15 @@ export function SensorFamilyPanel({ entityId, name, history, haStates, embedded 
             <b style={showAlert ? { color: alertColor } : undefined}>{bigWord ?? reading.value}</b>
             {!isWord && reading.unit ? <i>{reading.unit}</i> : null}
           </span>
-          {note ? <span className="dv-pn-note" style={showAlert ? { color: alertColor } : undefined}>{note}</span> : null}
+          {note ? (
+            <span className="dv-pn-note" style={{ color: showAlert ? alertColor : GOOD_WORD_FAMILIES.has(model.family) ? '#30d158' : undefined }}>{note}</span>
+          ) : null}
+          {trend !== 0 ? (
+            <span className="dv-pn-trend inline-flex items-center gap-1">
+              {trend > 0 ? <ArrowUpRight size={14} strokeWidth={2.6} aria-hidden="true" /> : <ArrowDownRight size={14} strokeWidth={2.6} aria-hidden="true" />}
+              {pt('snTrendHour', { value: `${trend > 0 ? '+' : '−'}${withUnit(Math.abs(trend))}` })}
+            </span>
+          ) : null}
         </div>
 
         {showAlert && hasAlertBody ? (

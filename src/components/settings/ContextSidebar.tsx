@@ -18,7 +18,6 @@ import {
 import { MediaControls, type MediaPlayRequest } from './MediaControls';
 import { SensorControls } from './SensorControls';
 import { BinarySensorControls } from './BinarySensorControls';
-import { WeatherControls } from './WeatherControls';
 import type { VacuumRelatedEntityActionRequest } from './VacuumControls';
 import type { VacuumDeviceInfo, VacuumMappedArea, VacuumRelatedEntityInfo } from '../widgets/vacuumDeviceModel';
 import { LockControls } from './LockControls';
@@ -446,6 +445,8 @@ export function ContextSidebar({
         },
         vacuumAreas,
         calendarAgenda,
+        weather,
+        weatherConfig,
         calendarWasteTypes: activeDevice.type === 'calendar'
           ? parseWasteTypeStyles(resolveEntityStateById(haStates, activeDevice.calendarEntityId ?? '')?.rawAttributes?.[WASTE_TYPES_ATTRIBUTE])
           : undefined,
@@ -678,19 +679,6 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice?.type === 'weather' ? (
-        <WeatherControls
-          weather={weather}
-          unit={weatherConfig?.unit}
-          forecastType={weatherConfig?.forecastType}
-          forecastDays={weatherConfig?.forecastDays}
-          forecastDensity={weatherConfig?.forecastDensity}
-          conditionOverride={weatherConfig?.conditionOverride}
-          showPrecipitation={weatherConfig?.showPrecipitation}
-          showWind={weatherConfig?.showWind}
-        />
-      ) : null}
-
       {activeDevice?.type === 'lock' && !homePanel ? (
         <LockControls
           lock={{ ...lock, name: activeDevice.name }}
@@ -716,10 +704,10 @@ export function ContextSidebar({
         />
       ) : null}
 
-      {activeDevice ? (
+      {activeDevice && !(homePanel && microWidgets.length === 0) ? (
         <div className="px-[clamp(0.75rem,2.8vw,1.5rem)] pb-1">
-          <div className="context-content-surface mb-1 rounded-2xl p-[clamp(0.8rem,2.4vw,1.15rem)] shadow-lg">
-            <p className="text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]">{t('context.members.related')}</p>
+          <div className={homePanel ? 'dv-card mb-1' : 'context-content-surface mb-1 rounded-2xl p-[clamp(0.8rem,2.4vw,1.15rem)] shadow-lg'}>
+            <p className={homePanel ? 'dv-pn-label !m-0' : 'text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]'}>{t('context.members.related')}</p>
             <div className={`mt-3 ${CONTEXT_PANEL_LAYOUT.adaptiveGridTwo}`}>
               {microWidgets.map((microWidget) => {
                 const state = resolveEntityStateById(haStates, microWidget.entity);

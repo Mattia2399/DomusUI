@@ -43,6 +43,7 @@ export function WeekDayStrip({
   ariaLabel,
   dayAccessibleName,
   locale,
+  selectedClassName = 'bg-[color:var(--ui-accent)] text-white shadow-lg',
 }: {
   days: WeekDay[];
   badgesByDay: ReadonlyMap<string, WeekDayBadge[]>;
@@ -51,6 +52,8 @@ export function WeekDayStrip({
   ariaLabel: string;
   dayAccessibleName: (day: WeekDay) => string;
   locale: string;
+  /** The colour of the chosen day, when a screen has its own. */
+  selectedClassName?: string;
 }) {
   const weekdayShort = new Intl.DateTimeFormat(locale, { weekday: 'short' });
   const today = days[0]?.iso;
@@ -66,7 +69,7 @@ export function WeekDayStrip({
             aria-pressed={selected}
             aria-label={dayAccessibleName(day)}
             onClick={() => onSelectDay(day.iso)}
-            className={`@container flex min-h-[5.25rem] min-w-0 flex-col items-center gap-1 overflow-hidden rounded-2xl px-0.5 pb-2.5 pt-2 transition-colors ${selected ? 'bg-[color:var(--ui-accent)] text-white shadow-lg' : 'bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]'}`}
+            className={`@container flex min-h-[5.25rem] min-w-0 flex-col items-center gap-1 overflow-hidden rounded-2xl px-0.5 pb-2.5 pt-2 transition-colors ${selected ? selectedClassName : 'bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)]'}`}
           >
             <span className={`text-[10px] font-semibold uppercase tracking-wide ${selected ? 'text-white/80' : day.iso === today ? 'text-[color:var(--ui-accent)]' : 'text-[color:var(--ui-text-tertiary)]'}`}>{weekdayShort.format(day.date).replace('.', '')}</span>
             <span className="text-lg font-semibold leading-none">{day.date.getDate()}</span>

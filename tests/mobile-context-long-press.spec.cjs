@@ -151,6 +151,8 @@ async function longPress(page, locator) {
 async function expectContextPanel(page, title) {
   const panel = page.locator('.device-context-surface');
   await expect(panel).toBeVisible();
+  // The panel brings its own header: the title of the sheet steps aside once it has loaded.
+  await expect(panel.locator('.dv-panel')).toBeVisible({ timeout: 15_000 });
   await expect(panel.getByRole('heading', { name: title })).toBeVisible();
   await panel.getByRole('button', { name: /Chiudi.*dispositivo/i }).click();
   await expect(panel).toHaveCount(0);

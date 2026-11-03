@@ -29,6 +29,8 @@ export type MembersPanelProps = {
 
 const clock = (time: number, locale: string) => new Date(time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 
+const MEMBER_COLOURS = ['#30d158', '#0a84ff', '#ff9f0a', '#bf5ae2', '#ff453a'];
+
 type Pin = { id: string; initial: string; x: number; y: number };
 type Zone = { id: string; x: number; y: number; size: number };
 
@@ -112,7 +114,7 @@ export function MembersPanel({ name, members, haStates, mapEnabled = MEMBERS_MAP
 
       {members.length > 0 ? (
         <div className="dv-card dv-pn-rows">
-          {members.map((member) => {
+          {members.map((member, index) => {
             const battery = batteryOf(member);
             const isSelected = member.personEntityId === selected?.personEntityId;
             return (
@@ -123,7 +125,7 @@ export function MembersPanel({ name, members, haStates, mapEnabled = MEMBERS_MAP
                 aria-pressed={isSelected}
                 onClick={() => setSelectedId(member.personEntityId)}
               >
-                <span className="dv-pn-avatar" aria-hidden="true">
+                <span className="dv-pn-avatar" aria-hidden="true" style={member.avatarUrl ? undefined : { background: MEMBER_COLOURS[index % MEMBER_COLOURS.length], color: '#ffffff' }}>
                   {member.avatarUrl ? <img src={member.avatarUrl} alt="" /> : (member.name.trim().charAt(0) || '?').toUpperCase()}
                 </span>
                 <span className="dv-pn-rt">

@@ -97,6 +97,7 @@ const propsFor = (activeDevice: Partial<ActiveDevice> & Pick<ActiveDevice, 'type
   speaker: { status: 'idle' },
   lock: { name: 'Serratura', state: 'locked' },
   coverIsReadOnly: false,
+  weather: { available: false, source: 'offline' } as unknown as HomePanelProps['weather'],
   haStates: {},
   actions: actionsMock(),
   alarm: { name: 'Allarme', state: 'disarmed' },
@@ -236,12 +237,12 @@ describe('what the Home opens', () => {
     expect(homePanelOf(propsFor({ type: 'fan', fanEntityId: 'fan.a' }, { haStates: { 'fan.a': fan } }))).toBe('device');
   });
 
-  it('keeps the old content without a live entity, for a protected cover, and for the other cards', () => {
+  it('keeps the old content only for a card without a live entity', () => {
     expect(homePanelOf(propsFor({ type: 'fan', fanEntityId: 'fan.a' }))).toBeNull();
     expect(homePanelOf(propsFor({ type: 'switch' }))).toBeNull();
-    expect(homePanelOf(propsFor({ type: 'cover' }, { coverIsReadOnly: true }))).toBeNull();
-    expect(homePanelOf(propsFor({ type: 'sensor', sensorEntityId: 'sensor.a' }))).toBeNull();
-    for (const type of ['lock', 'camera', 'media', 'sensor', 'weather'] as const) {
+    expect(homePanelOf(propsFor({ type: 'sensor', sensorEntityId: 'sensor.a' }))).toBe('sensor');
+    expect(homePanelOf(propsFor({ type: 'weather' }))).toBe('weather');
+    for (const type of ['lock', 'camera', 'media', 'sensor'] as const) {
       expect(homePanelOf(propsFor({ type })), type).toBeNull();
     }
   });
@@ -256,7 +257,7 @@ describe('what the Home opens', () => {
     expect(homePanelOf(propsFor({ type: 'camera', name: 'Ingresso' }, { camera: { name: 'Ingresso', entityId: 'camera.ingresso' } }))).toBeNull();
   });
 
-  it('shows the header of the panel in the column, and only the power in the sheet of a phone', () => {
+  it('shows the same header in the column and in the sheet of a phone', () => {
     const onClose = vi.fn();
     const { rerender } = render(<HomePanel {...propsFor({ type: 'light', name: 'Faretti' }, { onClose })} />);
     expect(screen.getByText('Faretti')).toBeTruthy();
@@ -264,9 +265,24 @@ describe('what the Home opens', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
 
     rerender(<HomePanel {...propsFor({ type: 'light', name: 'Faretti' }, { embedded: true, onClose })} />);
-    expect(screen.queryByText('Faretti')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Chiudi' })).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Faretti' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /Chiudi.*dispositivo/i }));
+    expect(onClose).toHaveBeenCalledTimes(2);
     expect(screen.getByRole('button', { name: /Faretti/ }).getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('opens a protected cover read only: its state stays, its commands do not', () => {
+    const props = propsFor({ type: 'cover', name: 'Garage' }, { coverIsReadOnly: true });
+    const { container } = render(<HomePanel {...props} />);
+    expect(screen.getByRole('heading', { name: 'Garage' })).toBeTruthy();
+    expect(screen.getByText(/Solo lettura/)).toBeTruthy();
+    expect(container.querySelector('.dv-panel-off [aria-disabled="true"]')).toBeTruthy();
+    expect(container.querySelector('.dv-pn-dis')?.hasAttribute('inert')).toBe(true);
+    for (const button of screen.queryAllByRole('button')) {
+      if (button.getAttribute('aria-label') !== 'Chiudi') fireEvent.click(button);
+    }
+    expect(props.actions.openCover).not.toHaveBeenCalled();
+    expect(props.actions.closeCover).not.toHaveBeenCalled();
   });
 
   it('toggles from the power of the panel', () => {

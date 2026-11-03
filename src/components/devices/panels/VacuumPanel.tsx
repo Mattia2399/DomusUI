@@ -216,6 +216,7 @@ export function VacuumPanel({ vacuum, areas = [], commands, embedded = false, li
         <div className="dv-pn-line">
           <span className="dv-pn-label">{pt('vcSuction')}</span>
           <GlassSegmentSelect
+            className="dv-seg"
             ariaLabel={pt('vcSuction')}
             options={fanSpeeds.map((option) => ({ value: option, label: formatVacuumOption(option) }))}
             value={fanSpeeds.find((option) => option.toLowerCase() === fanSpeed.toLowerCase())}
@@ -233,6 +234,7 @@ export function VacuumPanel({ vacuum, areas = [], commands, embedded = false, li
         <div className="dv-pn-line">
           <span className="dv-pn-label">{pt('vcMode')}</span>
           <GlassSegmentSelect
+            className="dv-seg"
             ariaLabel={pt('vcMode')}
             options={modeControl.options.map((option) => ({ value: option, label: formatVacuumOption(option) }))}
             value={modeControl.options.find((option) => option === modeControl.state)}

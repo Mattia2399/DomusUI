@@ -65,6 +65,9 @@ function entityOf(widget: Widget, liveEntity: MockEntityState | undefined): Mock
       friendly_name: widget.title,
       ...(widget.kind === 'climate' && typeof widget.value === 'number' ? { temperature: widget.value } : null),
       ...(widget.kind === 'sensor' && widget.unit ? { unit_of_measurement: widget.unit } : null),
+      ...(widget.kind === 'light' && widget.dataSource === 'mock'
+        ? { supported_color_modes: ['brightness'], color_mode: 'brightness', brightness: Math.round((Number(widget.value ?? 100) / 100) * 255) }
+        : null),
     },
   } as MockEntityState;
 }

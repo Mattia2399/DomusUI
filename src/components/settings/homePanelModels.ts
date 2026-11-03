@@ -296,8 +296,8 @@ export function runMediaAction(action: MediaAction, actions: HomePanelActions) {
 }
 
 export function deviceModelOf(props: HomePanelProps): DeviceModel | null {
-  const { activeDevice, cover, coverIsReadOnly, haStates } = props;
-  if (activeDevice.type === 'cover') return coverIsReadOnly ? null : homeCoverToModel(activeDevice.name, cover);
+  const { activeDevice, cover, haStates } = props;
+  if (activeDevice.type === 'cover') return homeCoverToModel(activeDevice.name, cover);
   const entityId = homeDeviceEntityId(props);
   const entity = homeEntityOf(haStates, entityId);
   if (!entityId || !entity) return null;

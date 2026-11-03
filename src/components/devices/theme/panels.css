@@ -4,11 +4,9 @@
  * device theme: the same rules read in Dark and in Light.
  */
 
-.dv-pn-tinted {
-  border-radius: 26px;
-  padding: 16px;
-  background: rgb(var(--dv-pn-tint) / var(--dv-panel-tint-alpha));
-  transition: background 300ms ease;
+/* A shared panel brings its own header: the title of the Home's sheet steps aside. */
+.device-context-surface:has(.dv-panel) > [data-context-sheet-header] {
+  display: none;
 }
 
 .dv-pn-hero {
@@ -104,7 +102,7 @@
   pointer-events: none;
 }
 
-.dv-panel-off p,
+.dv-panel-off h2,
 .dv-panel-off > div:first-child span[aria-hidden='true'] {
   color: var(--dv-t3);
 }
@@ -865,7 +863,6 @@
     animation: none;
   }
 
-  .dv-pn-tinted,
   .dv-pn-hero > b,
   .dv-pn-mode,
   .dv-pn-bar > i,
@@ -873,4 +870,14 @@
   .dv-pn-vring circle + circle {
     transition: none;
   }
+}
+
+/* A camera setting with several choices takes a line of its own, below its name. */
+.dv-pn-row:has(> .dv-camera-panel-seg) {
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+}
+
+.dv-camera-panel-seg {
+  flex-basis: 100%;
 }

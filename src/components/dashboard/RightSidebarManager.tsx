@@ -1541,7 +1541,7 @@ export function RightSidebarManager({
                       <span className="liquid-glass-drag-handle mx-auto mt-4 mb-2" />
                     </div>
 
-                    <div className="flex items-start justify-between gap-3 px-4 pt-3 pb-3 md:px-5 md:pt-5 md:pb-4">
+                    <div data-context-sheet-header className="flex items-start justify-between gap-3 px-4 pt-3 pb-3 md:px-5 md:pt-5 md:pb-4">
                       <div className="min-w-0">
                         <h2 className="truncate text-xl font-semibold tracking-tight text-[color:var(--ui-text-primary)]">{contextDeviceTitle}</h2>
                         <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">{contextDeviceSubtitle}</p>

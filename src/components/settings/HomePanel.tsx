@@ -1,9 +1,14 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
+import { CloudSun } from 'lucide-react';
+import { usePanelsTranslations } from '../../i18n/panelsTranslations';
+import { PanelShell } from '../devices/panels/PanelShell';
 import { ClimatePanel } from '../devices/panels/ClimatePanel';
 import { DevicePanel } from '../devices/panels/DevicePanel';
 import { LightPanel } from '../devices/panels/LightPanel';
 import { CameraPanel } from '../devices/panels/CameraPanel';
 import { SecurityPanel } from '../devices/panels/SecurityPanel';
+import type { MockEntityState } from '../../types/ha';
 import { resolveDeviceKind } from '../devices/model/entityKind';
 import {
   deviceModelOf,
@@ -25,6 +30,9 @@ import { usePanelLiveState } from '../devices/panels/panelLiveState';
 import { findBatterySensor } from '../devices/model/sensor';
 import { resolveSensorFamily } from '../devices/model/sensorFamily';
 import { findEnergySource } from '../devices/model/plugEnergy';
+import { climateIsOn } from '../devices/model/climate';
+import { CLIMATE_TINT, DEVICE_TINT } from '../devices/model/panelTint';
+import { lightRgb } from '../devices/model/tileColor';
 import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../devices/panels/panelData';
 
 /* The shared panel a card of the Home opens, in place of its old content. */
@@ -36,6 +44,7 @@ const CalendarPanel = React.lazy(() => import('../devices/panels/CalendarPanel')
 const MembersPanel = React.lazy(() => import('../devices/panels/MembersPanel'));
 const SensorFamilyPanel = React.lazy(() => import('../devices/panels/SensorFamilyPanel'));
 const MediaPlayer = React.lazy(() => import('../devices/panels/MediaPlayer'));
+const WeatherControls = React.lazy(() => import('./WeatherControls').then((module) => ({ default: module.WeatherControls })));
 
 // The sheet keeps its height while a panel loads: the finger that opened it with
 // a long press is lifted over the sheet, not over the backdrop that would close it.
@@ -45,9 +54,18 @@ export function HomePanel(props: HomePanelProps) {
   const { activeDevice, lamp, climate, actions, embedded, onClose } = props;
   const panel = homePanelOf(props);
   const registry = useEntityRegistry();
+  const pt = usePanelsTranslations();
 
   const entityId = homeLiveEntityIdOf(props);
-  const entity = entityId ? props.haStates[entityId] : undefined;
+  const readEntity = entityId ? props.haStates[entityId] : undefined;
+  // A sensor the Home cannot read keeps the panel, with what its card knows.
+  const sensorStandIn = panel === 'sensor' && !readEntity
+    ? ({
+        state: activeDevice.sensorRawState ?? (typeof activeDevice.sensorValue === 'number' ? String(activeDevice.sensorValue) : 'unavailable'),
+        rawAttributes: { friendly_name: activeDevice.name, unit_of_measurement: activeDevice.sensorUnit, device_class: activeDevice.sensorDeviceClass },
+      } as MockEntityState)
+    : undefined;
+  const entity = readEntity ?? sensorStandIn;
   const sensorAttributes = panel === 'sensor' ? entity?.rawAttributes : undefined;
   const family = panel === 'sensor' && entityId
     ? resolveSensorFamily({ entityId, deviceClass: `${sensorAttributes?.device_class ?? ''}`, unit: `${sensorAttributes?.unit_of_measurement ?? ''}`, state: `${entity?.state ?? ''}` })
@@ -91,7 +109,7 @@ export function HomePanel(props: HomePanelProps) {
           effects: lamp.effectList ?? [],
         }}
         embedded={embedded}
-        live={live}
+        live={{ ...live, tint: model.on && model.available ? { rgb: lightRgb(model).join(' ') } : null }}
         onAction={(action) => runLightAction(action, model, actions)}
         onExtraAction={(action) => runHomeLightExtra(action, actions)}
         onClose={onClose}
@@ -107,7 +125,7 @@ export function HomePanel(props: HomePanelProps) {
         roomTemperature={model.current}
         roomHumidity={typeof climate.currentHumidity === 'number' ? climate.currentHumidity : null}
         embedded={embedded}
-        live={live}
+        live={{ ...live, tint: climateIsOn(model) ? { rgb: CLIMATE_TINT[model.mode], soft: true } : null }}
         onAction={(action) => runClimateAction(action, model, actions)}
         extras={{
           supportsTargetHumidity: climate.supportsTargetHumidity === true,
@@ -136,7 +154,11 @@ export function HomePanel(props: HomePanelProps) {
         protectedPlug={false}
         energy={plugEnergy.energy}
         embedded={embedded}
-        live={live}
+        live={
+          activeDevice.type === 'cover' && props.coverIsReadOnly
+            ? { off: true, notice: <div className="dv-banner dv-pn-banner is-grey" role="status"><span><b>{pt('lvReadOnly')}</b></span></div> }
+            : { ...live, tint: model.on && model.available ? { rgb: DEVICE_TINT[model.kind], soft: true } : null }
+        }
         onAction={(action) => runDeviceAction(action, kind, actions)}
         onClose={onClose}
       />
@@ -182,7 +204,8 @@ export function HomePanel(props: HomePanelProps) {
   if (panel === 'media') {
     const model = mediaModelOf(props);
     if (!model) return null;
-    return (
+    // The player fills the screen: out of the sheet, whose motion would hold it inside.
+    return createPortal(
       <React.Suspense fallback={LOADING_SHEET}>
         <MediaPlayer
           model={model}
@@ -193,7 +216,8 @@ export function HomePanel(props: HomePanelProps) {
           }}
           onClose={onClose}
         />
-      </React.Suspense>
+      </React.Suspense>,
+      document.body,
     );
   }
   if (panel === 'alarm') {
@@ -249,12 +273,29 @@ export function HomePanel(props: HomePanelProps) {
           name={activeDevice.name}
           history={activeDevice.sensorHistory}
           haStates={props.haStates}
+          fallbackEntity={sensorStandIn}
           embedded={embedded}
           live={live}
           stale={stale}
           onClose={onClose}
         />
       </React.Suspense>
+    );
+  }
+  if (panel === 'weather') {
+    return (
+      <PanelShell
+        icon={<CloudSun size={23} strokeWidth={2} />}
+        iconStyle={{ background: 'rgb(100 210 255 / 0.18)', color: '#64d2ff' }}
+        name={activeDevice.name}
+        subtitle={roomName ?? ''}
+        embedded={embedded}
+        onClose={onClose}
+      >
+        <React.Suspense fallback={LOADING_SHEET}>
+          <WeatherControls weather={props.weather} {...props.weatherConfig} />
+        </React.Suspense>
+      </PanelShell>
     );
   }
   if (panel === 'members') {

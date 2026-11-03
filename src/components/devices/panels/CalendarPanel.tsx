@@ -117,6 +117,7 @@ export function CalendarPanel({ name, supportedFeatures, agenda, wasteTypes = {}
               return `${dayLabel(iso)}: ${events.length > 0 ? events.map((event) => event.summary).join(', ') : t('calendar.panel.empty')}`;
             }}
             locale={locale}
+            selectedClassName="bg-[#ff453a] text-white shadow-lg"
           />
 
           {agenda.error ? (
@@ -136,7 +137,13 @@ export function CalendarPanel({ name, supportedFeatures, agenda, wasteTypes = {}
                 const fixed = isIrrigationCalendarEvent(event) || isWasteCalendarEvent(event);
                 const editable = !fixed && (canUpdate || canDelete);
                 const start = toDisplayDate(event.start, event.allDay);
-                const when = event.allDay ? t('calendar.event.allDay') : formatDate(start, { hour: '2-digit', minute: '2-digit' });
+                const end = toDisplayDate(event.end, event.allDay);
+                const clockOf = (date: Date) => formatDate(date, { hour: '2-digit', minute: '2-digit' });
+                const when = event.allDay
+                  ? t('calendar.event.allDay')
+                  : Number.isFinite(end.getTime()) && end.getTime() > start.getTime()
+                    ? `${clockOf(start)} – ${clockOf(end)}`
+                    : clockOf(start);
                 const body = (
                   <>
                     <span className="dv-pn-evbar" style={{ background: eventLook(event, wasteTypes).color }} aria-hidden="true" />

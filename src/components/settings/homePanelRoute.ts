@@ -1,9 +1,11 @@
+import type React from 'react';
 import type { MockEntityStateMap } from '../../types/ha';
 import { resolveDeviceKind, type DeviceKind } from '../devices/model/entityKind';
 import { resolvePanel } from '../devices/panels/resolvePanel';
 import type { AlarmPanelCommands, AlarmPanelModel } from '../devices/panels/AlarmPanel';
 import type { VacuumPanelCommands, VacuumPanelModel } from '../devices/panels/VacuumPanel';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
+import type { WeatherControls } from './WeatherControls';
 import type { WasteTypeStyleMap } from '../../services/calendarClient';
 import type { VacuumMappedArea } from '../widgets/vacuumDeviceModel';
 import type { LockPanelData } from './lockPanelTypes';
@@ -130,6 +132,8 @@ export type HomePanelActions = {
   runCameraRelatedEntityAction?: (request: CameraRelatedAction) => boolean | void | Promise<boolean | void>;
 };
 
+type WeatherPanelProps = React.ComponentProps<typeof WeatherControls>;
+
 export type HomePanelProps = {
   activeDevice: ActiveDevice;
   lamp: HomeLamp;
@@ -149,6 +153,8 @@ export type HomePanelProps = {
   vacuumCommands: VacuumPanelCommands;
   vacuumAreas?: VacuumMappedArea[];
   calendarAgenda: CalendarAgendaController;
+  weather: WeatherPanelProps['weather'];
+  weatherConfig?: Omit<WeatherPanelProps, 'weather'>;
   calendarWasteTypes?: WasteTypeStyleMap;
   onConfigureWaste?: () => void;
   /** Commands are hidden while the real editor is configuring the card. */
@@ -172,15 +178,16 @@ export function homeDeviceEntityId({ activeDevice }: Pick<HomePanelProps, 'activ
 
 /** Whether a card of the Home opens a shared panel today. */
 export function homePanelOf(props: HomePanelProps) {
-  const { activeDevice, coverIsReadOnly, haStates } = props;
+  const { activeDevice, haStates } = props;
+  if (activeDevice.type === 'weather') return 'weather' as const;
   const { panel } = resolvePanel(activeDevice.type as DeviceKind);
   if (panel === 'light' || panel === 'climate' || panel === 'alarm' || panel === 'vacuum' || panel === 'calendar' || panel === 'members') return panel;
   if (panel === 'security') return homeLiveEntityId(props, 'lock') ? panel : null;
   if (panel === 'camera') return props.camera.entityId && homeEntityOf(haStates, props.camera.entityId) ? panel : null;
   if (panel === 'media') return homeLiveEntityId(props, 'media_player') ? panel : null;
-  if (panel === 'sensor') return homeEntityOf(haStates, activeDevice.sensorEntityId) ? panel : null;
+  if (panel === 'sensor') return activeDevice.sensorEntityId ? panel : null;
   if (panel !== 'device') return null;
-  if (activeDevice.type === 'cover') return coverIsReadOnly ? null : panel;
+  if (activeDevice.type === 'cover') return panel;
   const entityId = homeDeviceEntityId(props);
   if (!entityId || !homeEntityOf(haStates, entityId)) return null;
   return resolvePanel(resolveDeviceKind(entityId)).panel === 'device' ? panel : null;

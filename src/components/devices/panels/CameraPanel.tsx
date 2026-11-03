@@ -229,6 +229,7 @@ export function CameraPanel({
                   </button>
                 ) : isSelect(entity) ? (
                   <GlassSegmentSelect
+                    className="dv-seg dv-camera-panel-seg"
                     ariaLabel={entity.name}
                     options={(entity.options ?? []).map((option) => ({ value: option, label: option }))}
                     value={(entity.options ?? []).includes(entity.state ?? '') ? entity.state : undefined}

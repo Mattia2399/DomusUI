@@ -65,6 +65,7 @@ import type { SectionItem } from '../../components/devices/model/sectionRules';
 import GlassConfirmDialog from '../../components/ui/GlassConfirmDialog';
 import { PanelHost } from '../../components/devices/panels/PanelHost';
 import { lightRgb } from '../../components/devices/model/tileColor';
+import { CLIMATE_TINT, DEVICE_TINT } from '../../components/devices/model/panelTint';
 import { pinRanks, togglePinned } from '../../components/devices/model/sectionRules';
 import type { HaArea } from '../../hooks/useHaLiveConnection';
 import type { MockEntityStateMap } from '../../types/ha';
@@ -204,15 +205,6 @@ const byRoomThenName = (a: SectionCandidate, b: SectionCandidate) =>
   (a.roomName === null) === (b.roomName === null) ? a.name.localeCompare(b.name) : a.roomName === null ? -1 : 1;
 
 // The tint of a device panel when the device is on: the colour of its kind, "r g b".
-const DEVICE_TINT: Record<DeviceModel['kind'], string> = {
-  outlet: '48 209 88',
-  switch: '48 209 88',
-  virtual: '48 209 88',
-  fan: '100 210 255',
-  cover: '255 159 10',
-  humidifier: '90 200 250',
-};
-
 const NO_IDS: string[] = [];
 const DEMO_ROOM_IDS = new Set(DEMO_ROOM_TABS.map((tab) => tab.id));
 
@@ -225,16 +217,6 @@ function sensorOptionsOf(states: MockEntityStateMap, kind: 'temperature' | 'humi
 }
 
 // The tint of a climate panel by mode, "r g b", as the cards' mode colours.
-const CLIMATE_TINT: Record<ClimateModel['mode'], string> = {
-  off: '142 142 147',
-  heat: '255 122 26',
-  cool: '10 132 255',
-  heat_cool: '48 209 88',
-  auto: '48 209 88',
-  dry: '50 173 230',
-  fan_only: '148 163 184',
-};
-
 const CLIMATE_TONE: Record<ClimateGlance['mode'], string> = {
   off: 'idle',
   heat: 'heat',

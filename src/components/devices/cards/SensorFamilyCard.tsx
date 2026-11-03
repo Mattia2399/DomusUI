@@ -111,13 +111,13 @@ export type FamilySensorModel = {
 export function toFamilySensorModel(
   entityId: string,
   entity: MockEntityState | undefined,
-  options: { name?: string; battery?: number | null } = {},
+  options: { name?: string; battery?: number | null; fallbackFamily?: SensorFamily } = {},
 ): FamilySensorModel | null {
   const attributes = (entity?.rawAttributes ?? {}) as Record<string, unknown>;
   const deviceClass = `${attributes.device_class ?? ''}`.trim().toLowerCase();
   const unit = `${attributes.unit_of_measurement ?? ''}`.trim();
   const state = `${entity?.state ?? ''}`.trim();
-  const family = resolveSensorFamily({ entityId, deviceClass, unit, state });
+  const family = resolveSensorFamily({ entityId, deviceClass, unit, state }) ?? options.fallbackFamily;
   if (!family) return null;
   const lower = state.toLowerCase();
   const number = Number(state.replace(',', '.'));
