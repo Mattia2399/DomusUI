@@ -1,0 +1,102 @@
+/*
+ * The tokens of the shared controls and of the panel: the only place for their
+ * measures, for the meaning of their colours and for their surfaces. Colours that
+ * the app already defines (--ui-*) are referred to, never repeated, so that every
+ * theme of the app reaches them. Loaded by whoever uses them, not by the first page.
+ * The rules of the panels: docs/design/pannelli/NOTA-regole-pannelli.md
+ */
+
+:root {
+  /* The panel. It changes layout above 520 px, a value a container query cannot read from here. */
+  --panel-sheet-height: min(90dvh, 720px);
+  --panel-sheet-radius: 30px;
+  --panel-zone-gap: 18px;
+  --panel-icon-size: 48px;
+  --panel-name-size: 20px;
+  --panel-name-weight: 700;
+  --panel-status-size: 13px;
+  --panel-close-size: 40px;
+  --panel-hero-width: 148px;
+  --panel-hero-height: 300px;
+  --panel-controls-height: 148px;
+  --panel-footer-height: 68px;
+  --panel-power-size: 64px;
+  --panel-dialog-slider-width: 128px;
+  --panel-dialog-slider-height: 300px;
+
+  /* The controls. */
+  --control-hit-min: 44px;
+  --control-bar-height: 46px;
+  --control-bar-height-compact: 40px;
+  --control-bar-radius: 16px;
+  --control-pill-height: 44px;
+  --control-pill-height-dialog: 38px;
+  --control-shortcut-size: 48px;
+  --control-shortcut-label-size: 12px;
+  --control-shortcut-label-weight: 600;
+  --control-button-height: 48px;
+  --control-row-height: 52px;
+  --control-switch-compact-width: 42px;
+  --control-switch-compact-height: 26px;
+  --control-swatch-size: 32px;
+  --control-tile-height: 60px;
+  --control-stepper-button: 44px;
+  --control-stepper-value-size: 28px;
+  --control-vertical-compact-width: 70px;
+  --control-vertical-compact-height: 180px;
+
+  /* What a colour means, whatever the device. */
+  --state-ok: var(--ui-success);
+  --state-warning: var(--ui-warning);
+  --state-error: var(--ui-danger);
+  --state-error-ink: var(--ui-danger-contrast);
+  --state-info: var(--ui-info);
+
+  /* The colour of the device: given by whoever opens the panel, on the panel itself. */
+  --device-accent: var(--ui-accent);
+  --device-accent-ink: var(--ui-accent-contrast);
+  --device-accent-rgb: var(--ui-accent-rgb);
+
+  /* The colour of what is on and neutral: the same in the segmented, the pills and the shortcuts. */
+  --control-on: var(--ui-segment-on);
+  --control-on-ink: var(--ui-segment-on-ink);
+  --control-ink: var(--ui-text-primary);
+  --control-ink-2: var(--ui-text-secondary);
+  --control-focus: var(--ui-focus-ring);
+
+  /* The surfaces. */
+  --surface-glass: var(--ui-surface-glass);
+  --surface-sheet: var(--ui-sheet-surface);
+  --surface-sheet-border: var(--ui-sheet-border);
+  /* The column of the Home on a desktop stays neutral: the colour stays on the icon and the slider. */
+  --surface-column: var(--ui-surface-glass);
+  /* The sheet of a phone and the dialog take the colour of the device. */
+  --surface-tinted-layer: linear-gradient(
+    rgb(var(--device-accent-rgb) / var(--surface-tint-alpha)),
+    rgb(var(--device-accent-rgb) / var(--surface-tint-alpha))
+  );
+}
+
+.dashboard-theme-dark {
+  --state-off: rgb(255 255 255 / 0.12);
+  --state-off-ink: rgb(235 235 245 / 0.46);
+  --control-track: rgb(255 255 255 / 0.12);
+  --control-fill-neutral: #f5f5f7;
+  --control-soft: rgb(255 255 255 / 0.11);
+  --control-soft-strong: rgb(255 255 255 / 0.17);
+  --control-knob: #ffffff;
+  --control-ring: #1c1c1e;
+  --surface-tint-alpha: 0.2;
+}
+
+.dashboard-theme-light {
+  --state-off: rgb(118 118 128 / 0.16);
+  --state-off-ink: rgb(60 60 67 / 0.42);
+  --control-track: rgb(118 118 128 / 0.18);
+  --control-fill-neutral: #0b0b0f;
+  --control-soft: rgb(60 40 20 / 0.08);
+  --control-soft-strong: rgb(60 40 20 / 0.13);
+  --control-knob: #ffffff;
+  --control-ring: #ffffff;
+  --surface-tint-alpha: 0.24;
+}
