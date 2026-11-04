@@ -124,57 +124,8 @@ describe('semantic theme CSS contract', () => {
     expect(contextSidebar).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
   });
 
-  it('keeps the first device-panel family on semantic structural colors', () => {
-    const panelSources = [
-      'src/components/settings/SensorControls.tsx',
-      'src/components/settings/LightControls.tsx',
-      'src/components/settings/SwitchControls.tsx',
-      'src/components/settings/ContextPanelHeader.tsx',
-      'src/components/settings/ContextSecondaryPage.tsx',
-    ].map(readSource);
-
-    for (const panelSource of panelSources) {
-      expect(panelSource).toContain('var(--ui-');
-      expect(panelSource).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
-      expect(panelSource).not.toMatch(/(?:text|bg)-(?:slate|gray)-/);
-    }
-
-    const lightCss = readSource('src/components/settings/LightControls.css');
-    expect(lightCss).toContain('var(--ui-text-primary)');
-    expect(lightCss).not.toContain('.ha-light-range');
-  });
-
-  it('keeps Climate and Lock structure semantic while preserving state visuals', () => {
-    const climate = readSource('src/components/settings/ClimateControls.tsx');
-    const climatePanel = climate
-      .split('export function ClimateControlsPanel')[1]
-      .split('export const ClimateControls')[0];
-    const lock = readSource('src/components/settings/LockControls.tsx');
-
-    expect(climatePanel).toContain('var(--ui-text-primary)');
-    expect(climatePanel).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
+  it('keeps the lock ring on semantic structural colors', () => {
     expect(readSource('src/components/widgets/LockRing.css')).toContain('var(--ui-surface-glass-strong)');
-    expect(lock).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
-  });
-
-  it('keeps media and environment panels semantic outside intrinsic previews', () => {
-    const media = readSource('src/components/settings/MediaControls.tsx');
-    const cover = readSource('src/components/settings/CoverControls.tsx');
-    const vacuum = readSource('src/components/settings/VacuumControls.tsx');
-    const vacuumControls = vacuum.split('export function VacuumControls')[1];
-    const camera = readSource('src/components/settings/CameraControls.tsx');
-    const cameraPreviewStart = camera.indexOf('<div className="mb-1 overflow-hidden');
-    const cameraPreviewEnd = camera.indexOf('{canUsePtz && isPtzVisible ? (');
-    const cameraStructure = `${camera.slice(0, cameraPreviewStart)}${camera.slice(cameraPreviewEnd)}`;
-
-    for (const panelSource of [media, cover, vacuumControls, cameraStructure]) {
-      expect(panelSource).toContain('var(--ui-');
-      expect(panelSource).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
-      expect(panelSource).not.toMatch(/(?:text|bg)-(?:slate|gray)-/);
-    }
-
-    expect(camera).toContain('bg-black/40');
-    expect(vacuum).toContain('bg-slate-950/30');
   });
 
   it('keeps the Home guides on the shared device tokens', () => {

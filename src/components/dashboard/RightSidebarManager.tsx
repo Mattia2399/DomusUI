@@ -22,7 +22,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import type { MediaPlayRequest } from '../settings/MediaControls';
+import type { MediaPlayRequest } from '../settings/deviceContextTypes';
 import { translateClimateStatus } from '../settings/climateControlLabels';
 import { SensorDisplayVariantSkeleton } from '../settings/SensorDisplayVariantSkeleton';
 import { LightDisplayVariantSkeleton } from '../settings/LightDisplayVariantSkeleton';
@@ -83,9 +83,9 @@ import type {
   CameraPtzDirection,
   CameraRelatedEntityActionRequest,
   CameraRelatedEntityInfo,
-} from '../settings/CameraControls';
+} from '../settings/deviceContextTypes';
 import type { ActiveDevice } from '../settings/types';
-import type { VacuumRelatedEntityActionRequest } from '../settings/VacuumControls';
+import type { VacuumRelatedEntityActionRequest } from '../settings/VacuumRelatedControl';
 import type { VacuumDeviceInfo, VacuumMappedArea, VacuumRelatedEntityInfo } from '../widgets/vacuumDeviceModel';
 import type { MockEntityState, MockEntityStateMap } from '../../types/ha';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
@@ -1176,7 +1176,6 @@ export function RightSidebarManager({
   const sidebarWidthClass = DASHBOARD_SIDEBAR_WIDTH_CLASS;
   const [isContextSheetDragging, setIsContextSheetDragging] = React.useState(false);
   const [contextSheetDragOffset, setContextSheetDragOffset] = React.useState(0);
-  const [isContextSecondaryPage, setIsContextSecondaryPage] = React.useState(false);
   const [isMicroWidgetCatalogOpen, setIsMicroWidgetCatalogOpen] = React.useState(false);
   const [microWidgetCatalogEntity, setMicroWidgetCatalogEntity] = React.useState('');
   const [microWidgetCatalogDomainFilter, setMicroWidgetCatalogDomainFilter] = React.useState('all');
@@ -1202,10 +1201,6 @@ export function RightSidebarManager({
   React.useEffect(() => {
     setWidgetConfigTab('settings');
   }, [selectedWidget?.id]);
-
-  React.useEffect(() => {
-    setIsContextSecondaryPage(false);
-  }, [activeDevice?.id]);
 
   React.useEffect(() => {
     setLayoutApplyScope('widget');
@@ -1462,10 +1457,7 @@ export function RightSidebarManager({
       <ContextSidebar
         activeDevice={activeDeviceForPanel}
         isEditMode={isEditMode}
-        theme={theme}
         onClose={onCloseContextSidebar}
-        showCloseButton={false}
-        onSecondaryPageChange={setIsContextSecondaryPage}
         externalScrollContainer
         haStates={haStates}
         microChartHistoryByEntity={microChartHistoryByEntity}
@@ -1518,16 +1510,14 @@ export function RightSidebarManager({
                         <h2 className="truncate text-xl font-semibold tracking-tight text-[color:var(--ui-text-primary)]">{contextDeviceTitle}</h2>
                         <p className="mt-1 text-sm text-[color:var(--ui-text-secondary)]">{contextDeviceSubtitle}</p>
                       </div>
-                      {!isContextSecondaryPage ? (
-                        <button
-                          type="button"
-                          onClick={onCloseContextSidebar}
-                          className="glass-icon-button h-8 w-8"
-                          aria-label={t('builder.closeDevice')}
-                        >
-                          <X size={16} />
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        onClick={onCloseContextSidebar}
+                        className="glass-icon-button h-8 w-8"
+                        aria-label={t('builder.closeDevice')}
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
           }
         >
@@ -1546,10 +1536,7 @@ export function RightSidebarManager({
           <ContextSidebar
             activeDevice={activeDeviceForPanel}
             isEditMode={isEditMode}
-            theme={theme}
             onClose={onCloseContextSidebar}
-            showCloseButton={!isContextSecondaryPage}
-            onSecondaryPageChange={setIsContextSecondaryPage}
             haStates={haStates}
             microChartHistoryByEntity={microChartHistoryByEntity}
             lamp={state.lamp}

@@ -3,7 +3,7 @@ import type { Widget } from '../../../types/dashboardModels';
 import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import { useDeviceCommandCoordinator } from '../../../hooks/useDeviceCommandCoordinator';
 import type { DeviceCommandRollbackReason } from '../../../hooks/useDeviceCommandCoordinator';
-import type { VacuumRelatedEntityActionRequest } from '../../settings/VacuumControls';
+import type { VacuumRelatedEntityActionRequest } from '../../settings/VacuumRelatedControl';
 import {
   VACUUM_COMMAND_TTL_MS,
   normalizeVacuumState,

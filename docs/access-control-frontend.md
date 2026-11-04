@@ -344,7 +344,7 @@ ruoli e grant: è arrivata in P2.4.1
 | `src/navigation/routeAccess.test.ts` | Contratto: ogni indirizzo del codice ha una regola; esenzioni esatte e motivate; pagine dell'app protette; navigazione e Impostazioni dalla stessa tabella; matrice per ruolo; guardia; admin locked |
 | `src/security/dashboardAccess.test.ts` | Capability legacy decise dal profilo; admin locked; profilo di un altro account; fail closed; demo |
 | `src/components/access/AccessScreens.test.tsx` | Titolo, sezione, azioni, nessun termine tecnico, lingue; avviso locked; card allarme nascosta senza `security.view` |
-| card e pannelli (`AlarmCard`, `CoverCard`, `LockControls`, `SecurityDashboard`) | stato senza comandi per member, comandi con il grant |
+| card e pannelli (`AlarmCard`, `CoverCard`, `SecurityPanel`, `SecurityDashboard`) | stato senza comandi per member, comandi con il grant |
 | navigazione (`LeftSidebar`, `BottomBarNav`, `MobileSidebarDrawer`) | restricted coerente su desktop e mobile; niente durante il caricamento |
 | `src/services/panelDistributionContract.test.ts`, `src/security/accessAuthority.test.ts` | Bridge: `get_self` con solo `type`; da P2.4.1 anche i comandi di Persone e accessi e `reset_policy`, a chiavi esatte; mai la diagnostica; nessuno storage; nessun polling; nessun controllo sul ruolo |
 | e2e esistenti | Ogni HA finto risponde a `get_self` come il backend (`tests/support/accessSelf.cjs`). Le suite che aprivano pagine senza HA ora si collegano a un HA finto (`tests/support/fakeHomeAssistant.cjs`) o verificano l'avviso «non collegato». Il test del member in Impostazioni segue la nuova matrice |

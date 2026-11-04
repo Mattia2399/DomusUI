@@ -4,7 +4,7 @@ import type {
   CameraPtzDirection,
   CameraRelatedEntityCategory,
   CameraRelatedEntityInfo,
-} from '../../settings/CameraControls';
+} from '../../settings/deviceContextTypes';
 import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../../services/haRegistryPresentation';
 import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import {

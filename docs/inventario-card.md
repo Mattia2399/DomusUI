@@ -116,22 +116,22 @@ Una card chiama `onWidgetClick`, cioè `handleWidgetClick` in `MainBoard.tsx`, c
 
 | Card | Contenuto aperto | Oltre ad aprire |
 |---|---|---|
-| Luce | `LightControls` | **accende o spegne la luce** (`toggleLightEntity`) |
-| Clima | `ClimateControls` | |
-| Interruttore e presa | `SwitchControls` | |
-| Ventilatore | `FanControls` | |
-| Umidificatore | `HumidifierControls` | |
-| Tapparella | `CoverControls` | |
-| Serratura | `LockControls` | |
-| Telecamera | `CameraControls` | |
-| Media | `MediaControls` | |
-| Sensore | `SensorControls` | carica lo storico |
-| Sensore sì/no | `BinarySensorControls` | |
-| Allarme | `AlarmControls` | |
-| Robot | `VacuumControls` | |
-| Calendario | `CalendarControls` | |
-| Membri | blocco scritto dentro `ContextSidebar.tsx` | |
-| Saluto con meteo, Meteo | `WeatherControls` (`onWeatherClick`) | |
+| Luce | voce `light` del registro | **accende o spegne la luce** (`toggleLightEntity`) |
+| Clima | voce `climate` | |
+| Interruttore e presa | voce `plug` | |
+| Ventilatore | voce `fan` | |
+| Umidificatore | voce `humidifier` | |
+| Tapparella | voce `cover` | |
+| Serratura | `SecurityPanel` dentro `PanelFrame` | |
+| Telecamera | voce `camera` | |
+| Media | `panels/MediaPlayer.tsx` | |
+| Sensore | voce `sensor` | carica lo storico |
+| Sensore sì/no | voce `sensor` | |
+| Allarme | `AlarmPanel` dentro `PanelFrame` | |
+| Robot | voce `vacuum` | |
+| Calendario | voce `calendar` | |
+| Membri | voce `members` | |
+| Saluto con meteo, Meteo | voce `weather` (`onWeatherClick`) | |
 | Scene | nessun dettaglio: la scena parte | |
 
 **Sul telefono (`xs`).** In `GridCanvas.tsx` un tocco breve commuta luce e interruttore e, per le altre card, non chiama `onWidgetClick`. Il dettaglio si apre con la pressione lunga (`handleWidgetLongPress`), che non commuta niente.
@@ -142,11 +142,11 @@ Una card chiama `onWidgetClick`, cioè `handleWidgetClick` in `MainBoard.tsx`, c
 
 | | Stanze | Home |
 |---|---|---|
-| Contenuto | `devices/panels/*` | `settings/*Controls` |
+| Contenuto | `devices/panels/*` | `devices/panels/*`, gli stessi; se l'entità non si legge, `settings/UnavailablePanel.tsx` |
 | Desktop | finestra al centro | colonna di destra |
 | Soglia del telefono | 760 px | 768 px (`md`) |
-| Scelta del pannello | JSX di `RoomsPage.tsx` | `if` in `ContextSidebar.tsx` |
-| Intestazione | ogni pannello ha la sua | `ContextPanelHeader` |
+| Scelta del pannello | `roomsParts.ts` e registro | `homePanelRoute.ts` e registro |
+| Intestazione | `panels/shell/PanelHeader` | la stessa |
 | Da dove vengono i dati | modelli (`toLightModel`…) da `states` | `activeDevice`, oggetti di stato e `actions` preparati da `MainBoard.tsx` |
 | Comandi | hook (`useLightCommands`…) e `onCallApi` | solo le voci di `actions` |
 | Storico del sensore | 6 ore, 24 ore, 7 giorni (`useSensorHistory`) | ultime 24 ore (`sensorHistoryByEntity`) |

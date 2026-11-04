@@ -170,7 +170,7 @@ import type {
   CameraRelatedEntityActionRequest,
   CameraRelatedEntityCategory,
   CameraRelatedEntityInfo,
-} from '../settings/CameraControls';
+} from '../settings/deviceContextTypes';
 import { useNotifications } from '../../context/NotificationProvider';
 import type {
   ProfileMovementMapPoint,

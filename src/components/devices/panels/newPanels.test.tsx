@@ -223,6 +223,32 @@ describe('the shared lock panel', () => {
     expect(command).toHaveBeenCalledTimes(1);
   });
 
+  it('shows a member the lock, never a command, unless the member holds the grant', () => {
+    vi.useFakeTimers();
+    access.canControl = false;
+    const command = vi.fn();
+    const panel = (
+      <SecurityPanel
+        model={{ entityId: 'lock.porta', name: 'Porta', kind: 'lock', available: true, active: false, lock: 'locked', canOpen: true, changedAt: null, battery: 80 }}
+        history={[]}
+        onLockCommand={command}
+        onClose={vi.fn()}
+      />
+    );
+    const view = render(panel);
+    const ring = screen.getByRole('button', { name: /sbloccare Porta/ }) as HTMLButtonElement;
+    expect(ring.disabled).toBe(true);
+    expect(screen.getByRole('heading', { name: 'Porta' })).toBeTruthy();
+    fireEvent.pointerDown(ring, { pointerId: 1, pointerType: 'touch' });
+    act(() => vi.advanceTimersByTime(3_000));
+    expect(command).not.toHaveBeenCalled();
+    view.unmount();
+
+    access.canControl = true;
+    render(panel);
+    expect((screen.getByRole('button', { name: /sbloccare Porta/ }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('keeps the lock state visible but disables commands when the panel is read-only', () => {
     const command = vi.fn();
     render(

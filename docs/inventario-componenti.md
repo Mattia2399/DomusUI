@@ -72,7 +72,7 @@ Per ogni doppione, in quale prompt verrà unificato. "Da assegnare" vuol dire ch
 | | | `AlarmCard`, `AlarmPanel` | Dopo la sicurezza |
 | | | `SetupMosaic`, `SettingsRoomsManager`, `EnergyPlantSettings`, … | Da assegnare |
 | Pannello intero | `panels/shell/` | `panels/PanelShell.tsx` e `PanelHeader` di oggi | Prompt 2: il vecchio si cancella |
-| | | `settings/*Controls.tsx` (13 file, circa 7.200 righe), usati quando la Home non trova un pannello nuovo | Prompt 2 per i pannelli che copre. `LockControls` resta finché non si fa la serratura |
+| | | `settings/*Controls.tsx` (13 file, circa 7.200 righe) | Tolti col prompt 2. Quando la Home non legge un'entità mostra `settings/UnavailablePanel.tsx` |
 
 ## 3. Token di oggi
 

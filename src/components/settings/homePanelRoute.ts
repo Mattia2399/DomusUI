@@ -15,7 +15,7 @@ import type { ActiveDevice } from './types';
 /*
  * Which cards of the Home open a shared panel. The column asks this at once,
  * while the panels and their models load only when one opens (HomePanel.tsx).
- * A card whose entity cannot be read here keeps its old content.
+ * A card whose entity cannot be read here says so (UnavailablePanel.tsx).
  */
 
 export type HomeLamp = {

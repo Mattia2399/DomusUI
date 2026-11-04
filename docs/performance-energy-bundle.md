@@ -45,7 +45,6 @@ Recharts 3.8.1, nessun cambio di versione. Importatori in tutto il sorgente:
 | `src/pages/consumi/AcquaDetail.tsx` | BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer | dettaglio Acqua (anteprima) | **statico in Consumi** | via `consumptionCharts.tsx`, lazy |
 | `src/pages/consumi/GasDetail.tsx` | LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer | dettaglio Gas (anteprima) | **statico in Consumi** | via `consumptionCharts.tsx`, lazy |
 | `src/components/settings/SettingsMiniSparkline.tsx` | AreaChart, Area, ResponsiveContainer | Impostazioni › Sistema | lazy (PERF.1) | invariato |
-| `src/components/settings/SensorControls.tsx`, `SwitchControls.tsx` | AreaChart, Area, ResponsiveContainer | controlli entità della Sidebar contesto | lazy | invariato |
 | `src/components/widgets/micro/MicroSuperChart.tsx` | Area/Bar/Line Chart | card micro grafico | lazy | invariato |
 
 Cause dell'ingresso eager in Consumi:

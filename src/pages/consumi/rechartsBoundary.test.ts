@@ -16,9 +16,6 @@ const RECHARTS_IMPORTERS = [
   'src/pages/consumi/consumptionCharts.tsx',
   // Settings › System processor trend, loaded on demand (PERF.1).
   'src/components/settings/SettingsMiniSparkline.tsx',
-  // Entity controls of the context sidebar.
-  'src/components/settings/SensorControls.tsx',
-  'src/components/settings/SwitchControls.tsx',
   // Micro chart card, loaded on demand.
   'src/components/widgets/micro/MicroSuperChart.tsx',
 ];

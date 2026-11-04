@@ -26,12 +26,17 @@ describe('lock command security contract', () => {
     expect(mainBoard).toContain("requestAuthenticatedLockAction(targetWidget, 'open'");
   });
 
-  it('does not pass the stored code directly from LockControls to sensitive actions', () => {
-    const controls = readSource('src/components/settings/LockControls.tsx');
+  it('does not pass the stored code directly from the panel to sensitive actions', () => {
+    const models = readSource('src/components/settings/homePanelModels.ts');
+    const runLock = models.slice(models.indexOf('export function runLockAction'), models.indexOf('export function mediaModelOf'));
 
-    expect(controls).toContain('onUnlock()');
-    expect(controls).toContain('onOpen()');
-    expect(controls).not.toContain('onUnlock(actionCode)');
-    expect(controls).not.toContain('onOpen(actionCode)');
+    expect(runLock).toContain('actions.unlockDoor()');
+    expect(runLock).toContain('actions.openDoor()');
+    expect(runLock).not.toMatch(/actions\.(?:unlockDoor|openDoor)\([^)]/);
+    expect(readSource('src/components/devices/panels/SecurityPanel.tsx')).not.toContain('lockCode');
+  });
+
+  it('asks for the access grant before the panel commands a lock', () => {
+    expect(readSource('src/components/devices/panels/SecurityPanel.tsx')).toContain("useCan('access.control')");
   });
 });

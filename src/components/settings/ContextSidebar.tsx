@@ -2,32 +2,22 @@ import React, { useMemo } from 'react';
 import { useCan } from '../../security/AccessControlProvider';
 import { isPhysicalAccessCover } from '../../security/entityControlAccess';
 import type { LockPanelData } from './lockPanelTypes';
-import { Lightbulb, X } from 'lucide-react';
+import { Lightbulb } from 'lucide-react';
 import { ActiveDevice } from './types';
-import { ClimateControls } from './ClimateControls';
-import { LightControls } from './LightControls';
-import {
-  CameraControls,
-  type CameraDeviceInfo,
-  type CameraHistoryEntry,
-  type CameraHistoryStatus,
-  type CameraPtzDirection,
-  type CameraRelatedEntityActionRequest,
-  type CameraRelatedEntityInfo,
-} from './CameraControls';
-import { MediaControls, type MediaPlayRequest } from './MediaControls';
-import { SensorControls } from './SensorControls';
-import { BinarySensorControls } from './BinarySensorControls';
-import type { VacuumRelatedEntityActionRequest } from './VacuumControls';
+import type {
+  CameraDeviceInfo,
+  CameraHistoryEntry,
+  CameraHistoryStatus,
+  CameraPtzDirection,
+  CameraRelatedEntityActionRequest,
+  CameraRelatedEntityInfo,
+  MediaPlayRequest,
+} from './deviceContextTypes';
+import type { VacuumRelatedEntityActionRequest } from './VacuumRelatedControl';
+import { UnavailablePanel } from './UnavailablePanel';
 import type { VacuumDeviceInfo, VacuumMappedArea, VacuumRelatedEntityInfo } from '../widgets/vacuumDeviceModel';
-import { LockControls } from './LockControls';
-import { CoverControls } from './CoverControls';
-import { SwitchControls } from './SwitchControls';
-import { FanControls } from './FanControls';
-import { HumidifierControls } from './HumidifierControls';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
-import { ContextPanelHeader } from './ContextPanelHeader';
 import { onceLoaded } from '../common/onceLoaded';
 import { homePanelOf, type HomePanelProps } from './homePanelRoute';
 import { useLiftGuard } from './useLiftGuard';
@@ -40,7 +30,6 @@ import { MicroSuperChart } from '../widgets/micro/MicroSuperChart';
 import { MicroStep } from '../widgets/micro/MicroStep';
 import { MicroSlider } from '../widgets/micro/MicroSlider';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
-import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { AlarmActionAuthOptions } from '../../utils/alarmSecurityPolicy';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -48,6 +37,9 @@ import { parseWasteTypeStyles, WASTE_TYPES_ATTRIBUTE } from '../../services/cale
 
 type MediaRepeatMode = 'off' | 'all' | 'one';
 type MediaOutputKind = 'speaker' | 'tv' | 'cast';
+
+/** The cards that open a panel of a device: the others have nothing to say when one cannot be read. */
+const HOME_DEVICE_TYPES = new Set<string>(['climate', 'light', 'switch', 'fan', 'humidifier', 'camera', 'media', 'sensor', 'lock', 'cover']);
 
 // The shared panels load only when a card opens one.
 export const preloadHomePanel = onceLoaded(() => import('./HomePanel'));
@@ -66,10 +58,7 @@ interface ContextSidebarProps {
   activeDevice: ActiveDevice | null;
   isEditMode?: boolean;
   commandsEnabled?: boolean;
-  theme?: DashboardAppearance;
   onClose?: () => void;
-  showCloseButton?: boolean;
-  onSecondaryPageChange?: (open: boolean) => void;
   externalScrollContainer?: boolean;
   haStates?: MockEntityStateMap;
   microChartHistoryByEntity?: Record<string, number[]>;
@@ -366,10 +355,7 @@ export function ContextSidebar({
   activeDevice,
   isEditMode = false,
   commandsEnabled = true,
-  theme = 'dark',
   onClose,
-  showCloseButton = true,
-  onSecondaryPageChange,
   externalScrollContainer = false,
   haStates = {},
   microChartHistoryByEntity = {},
@@ -469,18 +455,6 @@ export function ContextSidebar({
         activeDevice ? activeDeviceLayoutClass : 'overflow-hidden'
       }`}
     >
-      {activeDevice && onClose && showCloseButton && !homePanel ? (
-        <button
-          type="button"
-          onClick={onClose}
-          className="glass-icon-button absolute z-30 h-9 w-9 right-[calc(clamp(0.75rem,2.8vw,1.5rem)+0.5rem)] top-[calc(clamp(0.75rem,2.8vw,1.5rem)+0.4rem)]"
-          aria-label={t('builder.closeContext')}
-          title={t('builder.closeContext')}
-        >
-          <X size={16} />
-        </button>
-      ) : null}
-
       {!activeDevice ? (
         <div className="context-content-surface flex h-full min-h-0 items-center justify-center rounded-[2rem] p-8 text-center">
           <div>
@@ -501,213 +475,13 @@ export function ContextSidebar({
         </div>
       ) : null}
 
-      {activeDevice?.type === 'climate' && !homePanel ? (
-        <ClimateControls
-          climate={{ ...climate, name: activeDevice.name }}
-          onTogglePower={actions.toggleClimatePower}
-          onDecreaseTarget={actions.decreaseClimateTarget}
-          onIncreaseTarget={actions.increaseClimateTarget}
-          onAutoAdjust={actions.autoAdjustClimate}
-          onRefreshCurrent={actions.nudgeClimateCurrent}
-          onSetTargetTemp={actions.setClimateTargetTemp}
-          onSetTargetRange={actions.setClimateTargetRange}
-          onSetMode={actions.setClimateMode}
-          onSetFanMode={actions.setClimateFanMode}
-          onSetTargetHumidity={actions.setClimateTargetHumidity}
-          onSetPresetMode={actions.setClimatePresetMode}
-          onSetSwingMode={actions.setClimateSwingMode}
-          onSetSwingHorizontalMode={actions.setClimateSwingHorizontalMode}
-        />
+      {activeDevice && !homePanel && HOME_DEVICE_TYPES.has(activeDevice.type) ? (
+        <div className={`${CONTEXT_PANEL_LAYOUT.shell} dv-panel-frame`}>
+          <UnavailablePanel name={activeDevice.name} inSheet={externalScrollContainer} onClose={onClose ?? (() => undefined)} />
+        </div>
       ) : null}
 
-      {activeDevice?.type === 'light' && !homePanel ? (
-        <LightControls
-          lamp={{ ...lamp, name: activeDevice.name }}
-          onToggle={actions.toggleLamp}
-          onBrightnessChange={actions.setLampBrightness}
-          onColorTempChange={actions.setLampColorTemp}
-          onColorChange={actions.setLampHsColor}
-          onWhiteChange={actions.setLampWhite}
-          onEffectChange={actions.setLampEffect}
-          onFlash={actions.flashLamp}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'switch' && !homePanel ? (
-        <SwitchControls
-          name={activeDevice.name}
-          entityId={activeDevice.switchEntityId}
-          fallbackStatus={activeDevice.status}
-          entity={resolveEntityStateById(haStates, activeDevice.switchEntityId)}
-          consumptionEntityId={activeDevice.switchConsumptionEntityId}
-          consumptionEntity={resolveEntityStateById(haStates, activeDevice.switchConsumptionEntityId)}
-          consumptionHistory={
-            activeDevice.switchConsumptionEntityId
-              ? microChartHistoryByEntity[activeDevice.switchConsumptionEntityId.trim()] ??
-                microChartHistoryByEntity[activeDevice.switchConsumptionEntityId.trim().toLowerCase()]
-              : undefined
-          }
-          onToggle={actions.toggleSwitch}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'fan' && !homePanel ? (
-        <FanControls
-          name={activeDevice.name}
-          entity={resolveEntityStateById(haStates, activeDevice.fanEntityId)}
-          commandsEnabled={commandsEnabled && !isEditMode}
-          onPowerToggle={actions.toggleFan}
-          onPercentageChange={actions.setFanPercentage}
-          onPresetChange={actions.setFanPreset}
-          onOscillationChange={actions.setFanOscillation}
-          onDirectionChange={actions.setFanDirection}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'humidifier' && !homePanel ? (
-        <HumidifierControls
-          name={activeDevice.name}
-          entity={resolveEntityStateById(haStates, activeDevice.humidifierEntityId)}
-          commandsEnabled={commandsEnabled && !isEditMode}
-          onPowerToggle={actions.toggleHumidifier}
-          onTargetHumidityChange={actions.setHumidifierTargetHumidity}
-          onModeChange={actions.setHumidifierMode}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'camera' && !homePanel ? (
-        <CameraControls
-          name={activeDevice.name}
-          status={camera.status ?? activeDevice.status}
-          entityId={camera.entityId}
-          streamUrl={camera.streamUrl}
-          snapshotUrl={camera.snapshotUrl}
-          isOffline={camera.isOffline}
-          supportsPtz={camera.supportsPtz}
-          deviceInfo={camera.deviceInfo}
-          relatedEntities={camera.relatedEntities}
-          historyEntries={camera.historyEntries}
-          historyStatus={camera.historyStatus}
-          historyError={camera.historyError}
-          onRefreshHistory={camera.onRefreshHistory}
-          onPtzMove={actions.moveCameraPtz}
-          onPtzStop={actions.stopCameraPtz}
-          onRelatedEntityAction={actions.runCameraRelatedEntityAction}
-          rawAttributes={camera.rawAttributes}
-          onSecondaryPageChange={onSecondaryPageChange}
-          commandsEnabled={commandsEnabled && !isEditMode}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'media' && !homePanel ? (
-        <MediaControls
-          name={activeDevice.name}
-          status={activeDevice.status}
-          isPlaying={speaker.isPlaying}
-          progress={speaker.progress}
-          positionSeconds={speaker.positionSeconds}
-          trackTitle={speaker.trackTitle}
-          trackArtist={speaker.trackArtist}
-          durationSeconds={speaker.durationSeconds}
-          coverUrl={speaker.coverUrl}
-          volumeLevel={speaker.volumeLevel}
-          muted={speaker.muted}
-          supportsSeek={speaker.supportsSeek}
-          supportsVolume={speaker.supportsVolume}
-          supportsMute={speaker.supportsMute}
-          supportsVolumeStep={speaker.supportsVolumeStep}
-          supportsNextTrack={speaker.supportsNextTrack}
-          supportsPreviousTrack={speaker.supportsPreviousTrack}
-          supportsPower={speaker.supportsPower}
-          supportsShuffle={speaker.supportsShuffle}
-          supportsRepeat={speaker.supportsRepeat}
-          supportsSelectSource={speaker.supportsSelectSource}
-          supportsGrouping={speaker.supportsGrouping}
-          supportsStop={speaker.supportsStop}
-          supportsClearPlaylist={speaker.supportsClearPlaylist}
-          supportsSelectSoundMode={speaker.supportsSelectSoundMode}
-          supportsPlayMedia={speaker.supportsPlayMedia}
-          supportsBrowseMedia={speaker.supportsBrowseMedia}
-          supportsSearchMedia={speaker.supportsSearchMedia}
-          supportsAnnounce={speaker.supportsAnnounce}
-          supportsEnqueue={speaker.supportsEnqueue}
-          shuffleEnabled={speaker.shuffleEnabled}
-          repeatMode={speaker.repeatMode}
-          soundMode={speaker.soundMode}
-          soundModeList={speaker.soundModeList}
-          volumeStep={speaker.volumeStep}
-          outputDevices={speaker.outputDevices}
-          selectedOutputDeviceId={speaker.selectedOutputDeviceId}
-          multiroomDevices={speaker.multiroomDevices}
-          rawAttributes={speaker.rawAttributes}
-          onTogglePlayback={actions.toggleSpeakerPlayback}
-          onTogglePower={actions.toggleSpeakerPower}
-          onPreviousTrack={actions.previousSpeakerTrack}
-          onNextTrack={actions.nextSpeakerTrack}
-          onSeek={actions.seekSpeakerPosition}
-          onVolumeChange={actions.setSpeakerVolume}
-          onToggleMute={actions.toggleSpeakerMute}
-          onToggleShuffle={actions.toggleSpeakerShuffle}
-          onCycleRepeatMode={actions.cycleSpeakerRepeatMode}
-          onStop={actions.stopSpeakerPlayback}
-          onClearPlaylist={actions.clearSpeakerPlaylist}
-          onSelectSoundMode={actions.selectSpeakerSoundMode}
-          onPlayMedia={actions.playSpeakerMedia}
-          onSelectOutputDevice={actions.selectSpeakerOutputDevice}
-          onToggleMultiroomDevice={actions.toggleSpeakerGroupMember}
-          onSecondaryPageChange={onSecondaryPageChange}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'sensor' && !homePanel && activeDevice.sensorEntityId?.startsWith('binary_sensor.') ? (
-        <BinarySensorControls
-          name={activeDevice.name}
-          rawState={activeDevice.sensorRawState}
-          deviceClass={activeDevice.sensorDeviceClass}
-          battery={activeDevice.sensorBattery}
-        />
-      ) : activeDevice?.type === 'sensor' && !homePanel ? (
-        <SensorControls
-          name={activeDevice.name}
-          status={activeDevice.status}
-          value={activeDevice.sensorValue}
-          unit={activeDevice.sensorUnit}
-          displayPrecision={activeDevice.sensorDisplayPrecision}
-          entityId={activeDevice.sensorEntityId}
-          deviceClass={activeDevice.sensorDeviceClass}
-          history={activeDevice.sensorHistory}
-          battery={activeDevice.sensorBattery}
-          connection={activeDevice.sensorConnection}
-          connectionState={activeDevice.sensorConnectionState}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'lock' && !homePanel ? (
-        <LockControls
-          lock={{ ...lock, name: activeDevice.name }}
-          onLock={actions.lockDoor}
-          onUnlock={actions.unlockDoor}
-          onOpen={actions.openDoor}
-          onSecondaryPageChange={onSecondaryPageChange}
-        />
-      ) : null}
-
-      {activeDevice?.type === 'cover' && !homePanel ? (
-        <CoverControls
-          cover={{ ...cover, name: activeDevice.name }}
-          readOnly={coverIsReadOnly}
-          onOpen={actions.openCover}
-          onClose={actions.closeCover}
-          onStop={actions.stopCover}
-          onSetPosition={actions.setCoverPosition}
-          onOpenTilt={actions.openCoverTilt}
-          onCloseTilt={actions.closeCoverTilt}
-          onStopTilt={actions.stopCoverTilt}
-          onSetTiltPosition={actions.setCoverTiltPosition}
-        />
-      ) : null}
-
-      {activeDevice && !(homePanel && microWidgets.length === 0) ? (
+      {activeDevice && microWidgets.length > 0 ? (
         <div className="px-[clamp(0.75rem,2.8vw,1.5rem)] pb-1">
           <div className={homePanel ? 'dv-card mb-1' : 'context-content-surface mb-1 rounded-2xl p-[clamp(0.8rem,2.4vw,1.15rem)] shadow-lg'}>
             <p className={homePanel ? 'dv-pn-label !m-0' : 'text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]'}>{t('context.members.related')}</p>

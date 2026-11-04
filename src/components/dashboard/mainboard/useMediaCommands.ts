@@ -1,7 +1,7 @@
 import type { Widget, GridItem } from '../../../types/dashboardModels';
 import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import type { useDashboardState } from '../../../hooks/useDashboardState';
-import type { MediaPlayRequest } from '../../settings/MediaControls';
+import type { MediaPlayRequest } from '../../settings/deviceContextTypes';
 import { useI18n } from '../../../i18n/I18nProvider';
 import {
   MEDIA_COMMAND_TTL_MS,
