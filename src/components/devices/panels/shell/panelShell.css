@@ -128,9 +128,13 @@
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+  transition: background 300ms ease;
+}
+
+/* With no weight: a panel may give its icon a colour of its own. */
+:where(.panel-header-icon) {
   background: var(--state-off);
   color: var(--control-ink-2);
-  transition: background 300ms ease;
 }
 
 .panel-header-icon.is-lit {

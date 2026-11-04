@@ -27,7 +27,8 @@ import {
 } from '../model/panelRules';
 import { useEntityRegistry } from './panelData';
 import { usePanelServices } from './panelServicesContext';
-import { PanelShell, type PanelLive } from './PanelShell';
+import { PanelFrame } from './shell/PanelFrame';
+import type { PanelLive } from './shell/PanelShell';
 import '../theme/panelLive.css';
 import '../theme/panels.css';
 
@@ -71,7 +72,7 @@ export type AlarmPanelProps = {
   haStates: MockEntityStateMap;
   commands: AlarmPanelCommands;
   onAuthorizeDeviceAuth?: (label: string) => Promise<boolean>;
-  embedded?: boolean;
+  closeLabel?: string;
   live?: PanelLive;
   onClose: () => void;
 };
@@ -96,7 +97,7 @@ const clock = (time: number, locale: string) => new Date(time).toLocaleTimeStrin
 
 const namesOf = (items: HouseEntity[]) => items.map((item) => item.name).join(', ');
 
-export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, embedded = false, live, onClose }: AlarmPanelProps) {
+export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, closeLabel, live, onClose }: AlarmPanelProps) {
   const pt = usePanelsTranslations();
   const { locale, t } = useI18n();
   const canControl = useCan('security.control');
@@ -218,17 +219,7 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, e
 
   return (
     <div style={tint ? ({ '--dv-pn-tint': tint } as React.CSSProperties) : undefined}>
-    <PanelShell
-      icon={<HeadIcon size={23} strokeWidth={2} />}
-      iconClassName={tint ? 'text-white' : 'dv-t2 bg-[color:var(--dv-icon-off)]'}
-      iconStyle={tint ? { background: `rgb(${tint})` } : undefined}
-      name={alarm.name}
-      subtitle={subtitle}
-      liveSubtitle
-      embedded={embedded}
-      live={{ ...live, tint: tint ? { rgb: tint, soft: !triggered } : null }}
-      onClose={onClose}
-    >
+    <PanelFrame icon={<HeadIcon size={23} strokeWidth={2} />} tintRgb={tint} name={alarm.name} status={subtitle} live={live} closeLabel={closeLabel} onClose={onClose}>
       <div className="dv-pn-hero">
         <b style={triggered ? { color: 'var(--dv-red)' } : undefined} aria-live="polite">{head}</b>
         <span className="dv-t2">{caption}</span>
@@ -407,7 +398,7 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, e
           />
         </React.Suspense>
       ) : null}
-    </PanelShell>
+    </PanelFrame>
     </div>
   );
 }

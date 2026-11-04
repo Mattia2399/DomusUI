@@ -12,6 +12,10 @@ export type PanelStateValue =
   | { kind: 'stale'; since: string; lastAt: string; battery?: number | null }
   /** `startedAt` starts the wait over: a new command is under way. */
   | { kind: 'pending'; startedAt: number; limitMs?: number }
+  /** The device did not confirm a command. */
+  | { kind: 'noAnswer' }
+  /** Something to say about a device that can only be read. */
+  | { kind: 'message'; text: React.ReactNode }
   | { kind: 'none' };
 
 /* The three states every panel has in common: it does not answer, its data are old, a command waits. */
@@ -49,6 +53,27 @@ export function PanelStates({ state }: { state: PanelStateValue }) {
               ) : null}
             </span>
           ) : null}
+        </span>
+      </div>
+    );
+  }
+
+  if (state.kind === 'noAnswer') {
+    return (
+      <div className="panel-state is-off" role="alert">
+        <AlertCircle size={18} strokeWidth={2.2} aria-hidden="true" />
+        <span>
+          <b>{pt('lvNoAnswer')}</b>
+        </span>
+      </div>
+    );
+  }
+
+  if (state.kind === 'message') {
+    return (
+      <div className="panel-state is-off" role="status">
+        <span>
+          <b>{state.text}</b>
         </span>
       </div>
     );

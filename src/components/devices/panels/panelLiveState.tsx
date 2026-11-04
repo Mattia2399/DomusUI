@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, BatteryLow, Clock3 } from 'lucide-react';
 import { usePanelLiveTranslations } from '../../../i18n/panelLiveTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { loadHassAuthTokensFromStorage } from '../../../services/haLive';
@@ -7,14 +6,14 @@ import type { MockEntityState } from '../../../types/ha';
 import { entityChangedAt, formatPanelSpan } from '../model/panelRules';
 import { parseStateHistory } from '../model/security';
 import type { SensorFamily } from '../model/sensorFamily';
-import type { PanelLive } from './PanelShell';
+import { PanelStates } from './shell/PanelStates';
+import type { PanelLive } from './shell/PanelShell';
 import { usePanelServices } from './panelServicesContext';
-import '../theme/panelLive.css';
 
 /*
  * The three states every panel has in common: the device does not answer, its
  * data are old, a command waits for its confirmation. The Home asks here once
- * for whichever panel it opens, and PanelShell draws the answer.
+ * for whichever panel it opens, and PanelStates draws the answer.
  */
 
 /** The attribute with which the Home marks an entity whose command is under way. */
@@ -79,12 +78,14 @@ export function usePanelLiveState({ entityId, entity, away = false, unknownCount
   const before = useRef<string | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const [waiting, setWaiting] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
 
   useEffect(() => {
     if (pending) {
       before.current = stateNow;
       setTimedOut(false);
       setWaiting(true);
+      setStartedAt(Date.now());
       return undefined;
     }
     if (before.current !== null) {
@@ -158,56 +159,24 @@ export function usePanelLiveState({ entityId, entity, away = false, unknownCount
     if (off) {
       const changedAt = entityChangedAt(entity);
       return (
-        <div className="dv-banner dv-pn-banner is-grey" role="status">
-          <AlertCircle size={18} strokeWidth={2.2} aria-hidden="true" />
-          <span>
-            <b>{changedAt !== null ? pt('lvAwayFor', { time: span(now - changedAt) }) : pt('lvAway')}</b>
-            {lastKnown ? <span>{pt('lvLastKnown', { state: lastKnown.state, time: clock(lastKnown.at) })}</span> : null}
-            <span>{pt('lvAwayTip')}</span>
-            <span className="dv-pn-actions">
-              {services && entityId ? <button type="button" className="dv-pn-pill is-on" onClick={retry}>{pt('lvRetry')}</button> : null}
-              {haUrl && entityId ? (
-                <a className="dv-pn-pill" href={`${haUrl}/history?entity_id=${encodeURIComponent(entityId)}`} target="_blank" rel="noreferrer">{pt('lvOpenHa')}</a>
-              ) : null}
-            </span>
-          </span>
-        </div>
+        <PanelStates
+          state={{
+            kind: 'unavailable',
+            since: changedAt !== null ? span(now - changedAt) : undefined,
+            lastKnown: lastKnown ? { state: lastKnown.state, time: clock(lastKnown.at) } : undefined,
+            onRetry: services && entityId ? retry : undefined,
+            homeAssistantHref: haUrl && entityId ? `${haUrl}/history?entity_id=${encodeURIComponent(entityId)}` : undefined,
+          }}
+        />
       );
     }
-    if (waiting) {
-      return (
-        <div className="dv-pn-wait" role="status">
-          <span className="dv-pn-spin" aria-hidden="true" />
-          <span><b>{pt('lvSent')}</b><span className="dv-t2">{pt('lvWaiting')}</span></span>
-        </div>
-      );
-    }
-    if (timedOut) {
-      return (
-        <div className="dv-banner dv-pn-banner is-grey" role="alert">
-          <AlertCircle size={18} strokeWidth={2.2} aria-hidden="true" />
-          <span><b>{pt('lvNoAnswer')}</b></span>
-        </div>
-      );
-    }
-    if (stale && updatedAt !== null) {
-      const lowBattery = battery !== null && battery <= 20;
-      const Icon = lowBattery ? BatteryLow : Clock3;
-      return (
-        <div className="dv-banner dv-pn-banner" role="status">
-          <Icon size={18} strokeWidth={2.2} aria-hidden="true" />
-          <span>
-            <b>{pt('lvStale', { time: span(now - updatedAt) })}</b>
-            <span>{pt('lvStaleAt', { time: clock(updatedAt) })}</span>
-            <span>{lowBattery ? pt('lvStaleBattery', { pct: Math.round(battery) }) : pt('lvStaleTip')}</span>
-          </span>
-        </div>
-      );
-    }
+    if (waiting && startedAt !== null) return <PanelStates state={{ kind: 'pending', startedAt, limitMs: COMMAND_TIMEOUT_MS }} />;
+    if (timedOut) return <PanelStates state={{ kind: 'noAnswer' }} />;
+    if (stale && updatedAt !== null) return <PanelStates state={{ kind: 'stale', since: span(now - updatedAt), lastAt: clock(updatedAt), battery }} />;
     return null;
     // `now` and the translated helpers follow the renders that the entity causes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [battery, entity, entityId, haUrl, lastKnown, off, pt, services, stale, timedOut, updatedAt, waiting]);
+  }, [battery, entity, entityId, haUrl, lastKnown, off, pt, services, stale, startedAt, timedOut, updatedAt, waiting]);
 
   return { off, notice, stale };
 }

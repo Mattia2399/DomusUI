@@ -3,7 +3,8 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockEntityState } from '../../../types/ha';
-import { PanelShell } from './PanelShell';
+import { PanelHeader } from './shell/PanelHeader';
+import { PanelShell } from './shell/PanelShell';
 import { COMMAND_TIMEOUT_MS, isEntityAway, staleAfterMs, usePanelLiveState, type PanelLiveInput } from './panelLiveState';
 import { PanelServicesProvider } from './panelServicesContext';
 
@@ -16,7 +17,7 @@ const entity = (state: string, attributes: Record<string, unknown> = {}) => ({ s
 function Panel(input: PanelLiveInput) {
   const { off, notice, stale } = usePanelLiveState(input);
   return (
-    <PanelShell icon={null} name="Lampada" subtitle="" onClose={vi.fn()} live={{ off, notice }} className={stale ? 'is-stale-panel' : undefined}>
+    <PanelShell off={off} states={notice} className={stale ? 'is-stale-panel' : undefined} header={<PanelHeader icon={null} name="Lampada" status="" closeLabel="Chiudi" onClose={vi.fn()} />}>
       <button type="button">Controllo</button>
     </PanelShell>
   );
@@ -33,8 +34,8 @@ describe('the device does not answer', () => {
     const changed = new Date(Date.now() - 20 * 60_000).toISOString();
     render(<Panel entityId="light.a" entity={entity('unavailable', { __last_changed: changed })} />);
     expect(screen.getByText('Non risponde da 20 min.')).toBeTruthy();
-    expect(document.querySelector('.dv-panel-off')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Controllo' }).closest('[aria-disabled="true"]')).toBeTruthy();
+    expect(document.querySelector('.panel-shell.is-off')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Controllo' }).closest('[inert]')).toBeTruthy();
   });
 
   it('tells a device that is there from one that is not', () => {
@@ -44,7 +45,7 @@ describe('the device does not answer', () => {
     expect(isEntityAway(entity('unknown'), false)).toBe(false);
     expect(isEntityAway(entity('unavailable'), false)).toBe(true);
     render(<Panel entityId="light.a" entity={entity('on')} />);
-    expect(document.querySelector('.dv-panel-off')).toBeNull();
+    expect(document.querySelector('.panel-shell.is-off')).toBeNull();
     expect(screen.queryByRole('status')).toBeNull();
   });
 

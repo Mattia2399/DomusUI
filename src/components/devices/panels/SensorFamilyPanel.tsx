@@ -29,7 +29,8 @@ import {
 } from '../model/sensorPanel';
 import { useEntityRegistry, useSensorSeries } from './panelData';
 import { usePanelServices } from './panelServicesContext';
-import { PanelShell, type PanelLive } from './PanelShell';
+import { PanelFrame } from './shell/PanelFrame';
+import type { PanelLive } from './shell/PanelShell';
 import '../theme/panelLive.css';
 import '../theme/panels.css';
 
@@ -54,7 +55,7 @@ export type SensorFamilyPanelProps = {
   haStates: MockEntityStateMap;
   /** What the card knows, for a sensor the Home cannot read. */
   fallbackEntity?: MockEntityState;
-  embedded?: boolean;
+  closeLabel?: string;
   live?: PanelLive;
   /** Its data are old: the value goes grey. */
   stale?: boolean;
@@ -132,7 +133,7 @@ function containsEntityReference(value: unknown, entityId: string, depth = 0): b
 
 const GIVEN_HOURS: Partial<Record<SensorPanelPeriod, number>> = { '24h': 24, '7d': 168, '30d': 720 };
 
-export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenChanges, givenBattery, roomName, haStates, fallbackEntity, embedded = false, live, stale = false, onClose }: SensorFamilyPanelProps) {
+export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenChanges, givenBattery, roomName, haStates, fallbackEntity, closeLabel, live, stale = false, onClose }: SensorFamilyPanelProps) {
   const dt = useSensorFamilyTranslations();
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
@@ -436,13 +437,13 @@ export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenC
 
   return (
     <div style={{ '--dv-pn-tint': alert?.level === 'critical' ? '255 69 58' : '255 159 10', '--dv-pn-chart': `rgb(${tint})`, '--sn-tint': `rgb(${tint})` } as React.CSSProperties}>
-      <PanelShell
+      <PanelFrame
         icon={<Icon size={23} strokeWidth={2} />}
-        iconStyle={showAlert && alert?.level === 'critical' ? { background: 'rgb(255 69 58)', color: '#ffffff' } : { background: `rgb(${tint} / 0.18)`, color: `rgb(${tint})` }}
         name={model.name}
-        subtitle={subtitle}
-        embedded={embedded}
-        live={{ ...live, tint: showAlert ? { rgb: alert?.level === 'critical' ? '255 69 58' : '255 159 10', soft: alert?.level !== 'critical' } : null }}
+        status={subtitle}
+        tintRgb={showAlert ? (alert?.level === 'critical' ? '255 69 58' : '255 159 10') : tint}
+        live={live}
+        closeLabel={closeLabel}
         onClose={onClose}
       >
         <div className={clsx('dv-pn-value', isWord && 'is-word', stale && 'is-stale')}>
@@ -597,7 +598,7 @@ export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenC
             <BatteryMedium size={15} strokeWidth={2} aria-hidden="true" />{pt('snBattery', { pct: Math.round(battery) })}
           </div>
         ) : null}
-      </PanelShell>
+      </PanelFrame>
     </div>
   );
 }

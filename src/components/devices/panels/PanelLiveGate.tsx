@@ -2,7 +2,7 @@ import type React from 'react';
 import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import { findBatterySensor } from '../model/sensor';
 import { resolveSensorFamily } from '../model/sensorFamily';
-import type { PanelLive } from './PanelShell';
+import type { PanelLive } from './shell/PanelShell';
 import { usePanelLiveState } from './panelLiveState';
 
 /*

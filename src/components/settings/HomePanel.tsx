@@ -33,6 +33,7 @@ import {
 } from './homePanelModels';
 import { homeLiveEntityId, homePanelOf, type HomePanelProps } from './homePanelRoute';
 import { usePanelLiveState } from '../devices/panels/panelLiveState';
+import { PanelStates } from '../devices/panels/shell/PanelStates';
 import { findBatterySensor } from '../devices/model/sensor';
 import { resolveSensorFamily } from '../devices/model/sensorFamily';
 import { findEnergySource } from '../devices/model/plugEnergy';
@@ -170,7 +171,7 @@ export function HomePanel(props: HomePanelProps) {
     };
     const deviceLive =
       activeDevice.type === 'cover' && props.coverIsReadOnly
-        ? { off: true, notice: <div className="dv-banner dv-pn-banner is-grey" role="status"><span><b>{pt('lvReadOnly')}</b></span></div> }
+        ? { off: true, notice: <PanelStates state={{ kind: 'message', text: pt('lvReadOnly') }} /> }
         : live;
     return <Panel kind={panelKindOfDevice(model.kind)} input={input} live={deviceLive} closeLabel={closeLabel} onClose={onClose} />;
   }
@@ -189,7 +190,7 @@ export function HomePanel(props: HomePanelProps) {
         history={securityHistory.length > 0 ? securityHistory : timeline}
         details={{ rawAttributes: props.lock.rawAttributes, changedBy: props.lock.changedBy }}
         commandsEnabled={props.panelCommandsEnabled}
-        embedded={embedded}
+        closeLabel={closeLabel}
         live={live}
         onLockCommand={(command) => runLockAction(command, actions)}
         onClose={onClose}
@@ -235,7 +236,7 @@ export function HomePanel(props: HomePanelProps) {
           haStates={props.haStates}
           commands={props.alarmCommands}
           onAuthorizeDeviceAuth={props.onAuthorizeAlarmDeviceAuth}
-          embedded={embedded}
+          closeLabel={closeLabel}
           live={live}
           onClose={onClose}
         />
@@ -265,7 +266,7 @@ export function HomePanel(props: HomePanelProps) {
           history={activeDevice.sensorHistory}
           haStates={props.haStates}
           fallbackEntity={sensorStandIn}
-          embedded={embedded}
+          closeLabel={closeLabel}
           live={live}
           stale={stale}
           onClose={onClose}

@@ -7,7 +7,8 @@ import { onSpans, type LockCommand, type SecurityModel, type StateChange } from 
 import { SECURITY_ICONS, securityTone } from '../cards/SecurityCard';
 import { LockRing, lockRingInk, lockRingText, useLockRing } from '../cards/LockRing';
 import { clockOf, durationWord, LOCK_KEY, SECURITY_KIND_KEY, securityStatus } from '../cards/securityText';
-import { PanelShell, type PanelLive } from './PanelShell';
+import { PanelFrame } from './shell/PanelFrame';
+import type { PanelLive } from './shell/PanelShell';
 
 /*
  * The detail of a security device: what it says now and since when, the
@@ -21,7 +22,7 @@ export type SecurityPanelProps = {
   history: StateChange[];
   details?: { rawAttributes?: Record<string, unknown>; changedBy?: string };
   commandsEnabled?: boolean;
-  embedded?: boolean;
+  closeLabel?: string;
   live?: PanelLive;
   onLockCommand: (command: LockCommand) => boolean | void;
   onClose: () => void;
@@ -29,7 +30,7 @@ export type SecurityPanelProps = {
 
 const DAY_MS = 24 * 3_600_000;
 
-export function SecurityPanel({ model, roomName, history, details, commandsEnabled = true, embedded, live, onLockCommand, onClose }: SecurityPanelProps) {
+export function SecurityPanel({ model, roomName, history, details, commandsEnabled = true, closeLabel, live, onLockCommand, onClose }: SecurityPanelProps) {
   const dt = useDevicesTranslations();
   const { locale, t } = useI18n();
   const canControlAccess = useCan('access.control') && commandsEnabled;
@@ -92,15 +93,7 @@ export function SecurityPanel({ model, roomName, history, details, commandsEnabl
   ].filter((entry): entry is [string, string] => entry !== null) : [];
 
   return (
-    <PanelShell
-      icon={<Icon size={23} strokeWidth={2} />}
-      iconClassName={clsx('dv-security-badge', `is-${tone}`)}
-      name={model.name}
-      subtitle={subtitle}
-      embedded={embedded}
-      live={live}
-      onClose={onClose}
-    >
+    <PanelFrame icon={<Icon size={23} strokeWidth={2} />} iconClassName={clsx('dv-security-badge', `is-${tone}`)} name={model.name} status={subtitle} live={live} closeLabel={closeLabel} onClose={onClose}>
 
       {ringText ? (
         <div className="flex flex-col items-center gap-3.5 pb-0.5 pt-1.5">
@@ -168,7 +161,7 @@ export function SecurityPanel({ model, roomName, history, details, commandsEnabl
           </div>
         </div>
       ) : null}
-    </PanelShell>
+    </PanelFrame>
   );
 }
 

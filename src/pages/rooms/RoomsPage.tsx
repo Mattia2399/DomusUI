@@ -69,7 +69,7 @@ import type { LightModel } from '../../components/devices/model/light';
 import type { SectionItem } from '../../components/devices/model/sectionRules';
 import GlassConfirmDialog from '../../components/ui/GlassConfirmDialog';
 import { PanelServicesProvider, type PanelApiCall } from '../../components/devices/panels/panelServicesContext';
-import type { PanelLive } from '../../components/devices/panels/PanelShell';
+import type { PanelLive } from '../../components/devices/panels/shell/PanelShell';
 import { PanelHost } from '../../components/devices/panels/PanelHost';
 import { lightRgb } from '../../components/devices/model/tileColor';
 import { pinRanks, togglePinned } from '../../components/devices/model/sectionRules';

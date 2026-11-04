@@ -570,10 +570,6 @@
   font-weight: 700;
 }
 
-.dv-panel-tint-soft {
-  --dv-panel-tint-alpha: var(--dv-tone-tint-alpha);
-}
-
 /* Climate: the colours of each mode, the large card and its panel pieces. */
 
 .dv-cl-off {
@@ -1827,11 +1823,6 @@
   color: var(--dv-text);
 }
 
-.dv-panel-tinted {
-  background-image: linear-gradient(rgb(var(--dv-light-rgb) / var(--dv-panel-tint-alpha)), rgb(var(--dv-light-rgb) / var(--dv-panel-tint-alpha))) !important;
-  transition: background 400ms ease;
-}
-
 .dv-round {
   display: flex;
   height: 48px;
@@ -1875,186 +1866,6 @@
   position: relative;
 }
 
-.dv-panel.is-docked > .dv-panel-head > .flex-1 {
-  padding-right: 60px;
-}
-
-.dv-panel-dock {
-  display: contents;
-}
-
-.dv-panel-dock > .dv-round {
-  position: absolute;
-  top: 1px;
-  right: 52px;
-}
-
-.dv-panel-dock-side,
-.dv-panel-shortcuts {
-  display: none;
-}
-
-.dv-panel-hero {
-  display: none;
-}
-
-.dv-panel-section {
-  display: flex;
-  flex-direction: column;
-}
-
-.dv-panel-shortcut {
-  display: flex;
-  min-width: 0;
-  flex: 0 0 25%;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  padding: 0;
-  background: none;
-  color: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  text-align: center;
-  cursor: pointer;
-}
-
-.dv-panel-shortcut:disabled {
-  cursor: default;
-  opacity: 0.45;
-}
-
-.dv-panel-shortcut:focus-visible {
-  outline: 2px solid var(--dv-focus);
-  outline-offset: 3px;
-  border-radius: 14px;
-}
-
-@container (max-width: 520px) {
-  /* Everything on the middle axis: the icon above the name, and Close in its corner. */
-  .dv-panel.is-docked > .dv-panel-head {
-    position: relative;
-    flex-direction: column;
-    gap: 8px;
-    text-align: center;
-  }
-
-  .dv-panel.is-docked > .dv-panel-head > .flex-1 {
-    width: 100%;
-    flex: none;
-    align-items: center;
-    padding: 0;
-  }
-
-  .dv-panel.is-docked > .dv-panel-head > .flex-1 > * {
-    max-width: 100%;
-  }
-
-  .dv-panel.is-docked > .dv-panel-head > .dv-round-sm {
-    position: absolute;
-    top: 0;
-    right: 0;
-  }
-
-  .dv-panel.is-docked > .dv-pn-dis {
-    display: flex;
-    min-height: 0;
-    flex: 1;
-    flex-direction: column;
-  }
-
-  .dv-panel-dock {
-    display: grid;
-    min-height: 68px;
-    flex: none;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-  }
-
-  .dv-panel-dock > .dv-round {
-    position: static;
-    grid-column: 2;
-    height: 64px;
-    width: 64px;
-  }
-
-  .dv-panel-dock-side {
-    display: flex;
-    justify-content: center;
-  }
-
-  /* What stands in for the slider of a device without one. */
-  .dv-panel-hero {
-    display: block;
-    grid-row: 1;
-    align-self: center;
-    font-size: 40px;
-    font-weight: 700;
-    letter-spacing: -0.03em;
-    text-align: center;
-  }
-
-  .dv-panel-section {
-    display: none;
-  }
-
-  /* The auto margins, not a centred column: what does not fit still scrolls from its top. */
-  .dv-panel-section.is-open {
-    display: flex;
-    width: 100%;
-    margin-block: auto;
-    align-items: center;
-    text-align: center;
-  }
-
-  .dv-panel-section.is-open > .flex-col {
-    width: 100%;
-    align-items: center;
-  }
-
-  .dv-panel-section.is-open .dv-seg {
-    align-self: center;
-  }
-
-  .dv-panel-section.is-open [role='group'] {
-    justify-content: center;
-  }
-
-  /* The colours on one line, however many: the zone has room for one. */
-  .dv-panel-section.is-open .dv-swatches {
-    width: 100%;
-    flex-wrap: nowrap;
-    justify-content: center;
-    gap: 0;
-  }
-
-  .dv-panel-section.is-open .dv-swatch-hit {
-    min-width: 0;
-    flex: 0 1 44px;
-  }
-
-  .dv-panel-section.is-open[role='radiogroup'],
-  .dv-panel-section.is-open > [role='radiogroup'] {
-    width: 100%;
-  }
-
-  /* Buttons that say what they are need no title, and the room goes to them. */
-  .dv-panel-section.is-open:has(> [role='radiogroup']) > .dv-t2 {
-    display: none;
-  }
-
-  .dv-panel-section.is-open .dv-climate-mode {
-    min-height: 56px;
-  }
-
-  /* A climate device can have seven modes: two rows of four, where three rows would not fit. */
-  .dv-panel-section.is-open > [role='radiogroup']:has(> :nth-child(7)) {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .dv-tile,
 .dv-icon-button,
@@ -2063,8 +1874,7 @@
 .dv-step,
 .dv-climate-mode,
 .dv-swatch,
-.dv-check,
-.dv-panel-tinted {
+.dv-check {
     transition: none;
   }
 
