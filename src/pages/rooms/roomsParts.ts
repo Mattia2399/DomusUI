@@ -23,9 +23,6 @@ const loaders = {
 };
 
 export const Panel = React.lazy(() => loaders.panel().then((module) => ({ default: module.Panel })));
-// The panels shared with the Home bring the reading of every sensor family and the camera viewer:
-// they load when one opens, not while the page is idle.
-export const SensorFamilyPanel = React.lazy(() => import('../../components/devices/panels/SensorFamilyPanel').then((module) => ({ default: module.SensorFamilyPanel })));
 export const PanelLiveGate = React.lazy(() => loaders.live().then((module) => ({ default: module.PanelLiveGate })));
 export const SecurityPanel = React.lazy(() => loaders.security().then((module) => ({ default: module.SecurityPanel })));
 export const MediaPlayer = React.lazy(() => loaders.media().then((module) => ({ default: module.MediaPlayer })));

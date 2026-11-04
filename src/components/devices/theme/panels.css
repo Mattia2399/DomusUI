@@ -281,20 +281,6 @@
   gap: 12px;
 }
 
-.dv-pn-chart-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.dv-pn-chart-title {
-  color: var(--dv-t2);
-  font-size: 13px;
-  font-weight: 700;
-}
-
 .dv-pn-bars {
   display: flex;
   height: 150px;
@@ -388,14 +374,6 @@
   gap: 6px;
 }
 
-.dv-pn-more {
-  display: none;
-}
-
-.dv-pn-more-body {
-  display: contents;
-}
-
 .dv-pn-foot {
   display: flex;
   align-items: center;
@@ -407,24 +385,6 @@
 
 /* A phone keeps the chart first and folds what comes after it. */
 @media (max-width: 767px) {
-  .dv-pn-more {
-    display: flex;
-    height: 44px;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    border: 0;
-    border-radius: 16px;
-    background: var(--dv-icon-off);
-    color: inherit;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .dv-pn-more-body.is-closed {
-    display: none;
-  }
 
   .dv-pn-steps .dv-round {
     height: 44px;

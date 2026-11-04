@@ -10,6 +10,7 @@ import type { DevicePanelInput } from '../devices/panels/entries/device';
 import type { CalendarPanelInput } from '../devices/panels/entries/calendar';
 import type { CameraPanelInput } from '../devices/panels/entries/camera';
 import type { MembersPanelInput } from '../devices/panels/entries/members';
+import type { SensorPanelInput } from '../devices/panels/entries/sensor';
 import type { VacuumPanelInput } from '../devices/panels/entries/vacuum';
 import type { WeatherPanelInput } from '../devices/panels/entries/weather';
 import { entityChangedAt } from '../devices/model/panelRules';
@@ -45,7 +46,6 @@ import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../de
 
 // Heavier and rarer than a light: each loads when its own card opens.
 const AlarmPanel = React.lazy(() => import('../devices/panels/AlarmPanel'));
-const SensorFamilyPanel = React.lazy(() => import('../devices/panels/SensorFamilyPanel'));
 const MediaPlayer = React.lazy(loadMediaPlayer);
 
 // The sheet keeps its height while a panel loads: the finger that opened it with
@@ -258,21 +258,15 @@ export function HomePanel(props: HomePanelProps) {
     return <Panel kind="calendar" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'sensor' && activeDevice.sensorEntityId) {
-    return (
-      <React.Suspense fallback={LOADING_SHEET}>
-        <SensorFamilyPanel
-          entityId={activeDevice.sensorEntityId}
-          name={activeDevice.name}
-          history={activeDevice.sensorHistory}
-          haStates={props.haStates}
-          fallbackEntity={sensorStandIn}
-          closeLabel={closeLabel}
-          live={live}
-          stale={stale}
-          onClose={onClose}
-        />
-      </React.Suspense>
-    );
+    const input: SensorPanelInput = {
+      entityId: activeDevice.sensorEntityId,
+      name: activeDevice.name,
+      history: activeDevice.sensorHistory,
+      haStates: props.haStates,
+      fallbackEntity: sensorStandIn,
+      stale,
+    };
+    return <Panel kind="sensor" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'weather') {
     const weatherAttributes = props.weather.rawAttributes;

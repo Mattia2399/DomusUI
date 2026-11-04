@@ -137,7 +137,6 @@ import {
   SectionPage,
   PanelLiveGate,
   SecurityPanel,
-  SensorFamilyPanel,
 } from './roomsParts';
 import { useDeviceCommands } from './useDeviceCommands';
 import { useClimateCommands } from './useClimateCommands';
@@ -1712,19 +1711,23 @@ export function RoomsPage({
         isOpen={Boolean(panelSensor)}
         onClose={() => setPanel(null)}
         title={panelSensor?.name ?? ''}
+        wide
       >
         {panelSensor ? (
           <Deferred>
             {withLive(panelSensor.entityId, (live, stale) => (
-              <SensorFamilyPanel
-                entityId={panelSensor.entityId}
-                name={panelSensor.name}
-                roomName={activeRoom?.name}
-                givenSeries={demo && sensorDemoSeries ? (hours) => sensorDemoSeries(panelSensor.entityId, hours) : undefined}
-                givenBattery={panelSensor.battery}
-                haStates={states}
+              <Panel
+                kind="sensor"
+                input={{
+                    entityId: panelSensor.entityId,
+                    name: panelSensor.name,
+                    roomName: activeRoom?.name,
+                    givenSeries: demo && sensorDemoSeries ? (hours) => sensorDemoSeries(panelSensor.entityId, hours) : undefined,
+                    givenBattery: panelSensor.battery,
+                    haStates: states,
+                    stale: stale,
+                }}
                 live={live}
-                stale={stale}
                 onClose={() => setPanel(null)}
               />
             ))}
@@ -1782,14 +1785,17 @@ export function RoomsPage({
                 onClose={() => setPanel(null)}
               />
             ) : (
-              <SensorFamilyPanel
-                entityId={panelSecurity.entityId}
-                name={panelSecurity.name}
-                roomName={activeRoom?.name}
-                givenChanges={demo ? panelSecurityHistory : undefined}
-                haStates={states}
+              <Panel
+                kind="sensor"
+                input={{
+                    entityId: panelSecurity.entityId,
+                    name: panelSecurity.name,
+                    roomName: activeRoom?.name,
+                    givenChanges: demo ? panelSecurityHistory : undefined,
+                    haStates: states,
+                    stale: stale,
+                }}
                 live={live}
-                stale={stale}
                 onClose={() => setPanel(null)}
               />
             )))}

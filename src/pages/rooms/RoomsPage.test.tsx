@@ -5,13 +5,13 @@ import { RoomsPage } from './RoomsPage';
 
 // The parts the page opens on request, here at once: how they load is tested in roomsParts.test.tsx.
 vi.mock('./roomsParts', async () => {
-  const [panelView, lightEntries, deviceEntries, climateEntries, cameraEntries, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets, liveGate] = await Promise.all([
+  const [panelView, lightEntries, deviceEntries, climateEntries, cameraEntries, sensorEntries, security, media, mediaSheets, section, accessories, manage, roomSheets, liveGate] = await Promise.all([
     import('../../components/devices/panels/PanelView'),
     import('../../components/devices/panels/entries/light'),
     import('../../components/devices/panels/entries/device'),
     import('../../components/devices/panels/entries/climate'),
     import('../../components/devices/panels/entries/camera'),
-    import('../../components/devices/panels/SensorFamilyPanel'),
+    import('../../components/devices/panels/entries/sensor'),
     import('../../components/devices/panels/SecurityPanel'),
     import('../../components/devices/panels/MediaPlayer'),
     import('./MediaSheets'),
@@ -22,7 +22,7 @@ vi.mock('./roomsParts', async () => {
     import('../../components/devices/panels/PanelLiveGate'),
   ]);
   const entryViews: Record<string, React.ComponentType<{ input: never; live?: never; onClose: () => void }>> = Object.fromEntries(
-    Object.entries({ light: lightEntries.lightEntry, plug: deviceEntries.plugEntry, fan: deviceEntries.fanEntry, humidifier: deviceEntries.humidifierEntry, cover: deviceEntries.coverEntry, climate: climateEntries.climateEntry, camera: cameraEntries.cameraEntry }).map(([kind, entry]) => [
+    Object.entries({ light: lightEntries.lightEntry, plug: deviceEntries.plugEntry, fan: deviceEntries.fanEntry, humidifier: deviceEntries.humidifierEntry, cover: deviceEntries.coverEntry, climate: climateEntries.climateEntry, camera: cameraEntries.cameraEntry, sensor: sensorEntries.sensorEntry }).map(([kind, entry]) => [
       kind,
       function EntryView({ input, live, onClose }: { input: never; live?: never; onClose: () => void }) {
         return <panelView.PanelView spec={entry.useSpec(input)} live={live} onClose={onClose} />;
@@ -34,7 +34,6 @@ vi.mock('./roomsParts', async () => {
       const View = entryViews[kind];
       return <View {...props} />;
     },
-    SensorFamilyPanel: sensor.SensorFamilyPanel,
     SecurityPanel: security.SecurityPanel,
     MediaPlayer: media.MediaPlayer,
     MediaPickPanel: mediaSheets.MediaPickPanel,

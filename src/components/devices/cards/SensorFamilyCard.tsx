@@ -1308,6 +1308,7 @@ export function SensorFamilyCard({
 
   const frame = (children: React.ReactNode, row = false) => (
     <CardFrame
+      panelKind="sensor"
       format={format}
       available={model.available}
       editing={editing}

@@ -55,6 +55,8 @@ describe('the registry', () => {
     expect(await loadPanelEntry('vacuum')).toBe(vacuumEntry);
     expect(await loadPanelEntry('calendar')).toBe(calendarEntry);
     expect(await loadPanelEntry('members')).toBe(membersEntry);
+    expect((await loadPanelEntry('sensor')).useSpec).toBeTypeOf('function');
+    expect((await loadPanelEntry('weather')).useSpec).toBeTypeOf('function');
   });
 });
 

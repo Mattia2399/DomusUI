@@ -3,7 +3,7 @@ import type { MockEntityState } from '../types/ha';
 import { SensorFamilyCard, toFamilySensorModel } from '../components/devices/cards/SensorFamilyCard';
 import { HouseStatesProvider } from '../components/devices/cards/houseStatesContext';
 import { PanelServicesProvider, type PanelServices } from '../components/devices/panels/panelServicesContext';
-import { SensorFamilyPanel } from '../components/devices/panels/SensorFamilyPanel';
+import { Panel } from '../components/devices/panels/Panel';
 import { deviceCardHeightPx, type DeviceCardFormat } from '../components/devices/cards/DeviceCardShell';
 import type { SeriesPoint } from '../components/devices/model/sensor';
 import type { StateChange } from '../components/devices/model/security';
@@ -241,7 +241,7 @@ function SampleRow({ sample, now }: { sample: Sample; now: number }) {
       {panelOpen ? (
         <div className="dv-panel-frame w-full max-w-[384px]" data-testid="lab-sensor-panel">
           <PanelServicesProvider value={services}>
-            <SensorFamilyPanel entityId={sample.entityId} name={model.name} haStates={states} onClose={() => setPanelOpen(false)} />
+            <Panel kind="sensor" input={{ entityId: sample.entityId, name: model.name, haStates: states }} onClose={() => setPanelOpen(false)} />
           </PanelServicesProvider>
         </div>
       ) : null}

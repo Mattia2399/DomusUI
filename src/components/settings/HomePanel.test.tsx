@@ -22,7 +22,7 @@ import type { ActiveDevice } from './types';
 
 // Compiling a panel on its first import can take longer than a test is given.
 beforeAll(async () => {
-  await Promise.all((['light', 'plug', 'fan', 'humidifier', 'cover', 'climate', 'camera', 'vacuum', 'calendar', 'members', 'weather'] as const).map(loadPanelEntry));
+  await Promise.all((['light', 'plug', 'fan', 'humidifier', 'cover', 'climate', 'camera', 'vacuum', 'calendar', 'members', 'weather', 'sensor'] as const).map(loadPanelEntry));
 }, 120_000);
 
 afterEach(cleanup);

@@ -419,29 +419,6 @@
   justify-content: center;
 }
 
-/* The segmented controls of the devices: the shared one, as wide as its choices, light on a lit card. */
-
-.dv-seg {
-  position: relative;
-  z-index: 1;
-  width: fit-content;
-  max-width: 100%;
-  align-self: flex-start;
-}
-
-.dv-tile.is-lit .dv-seg {
-  background: rgb(0 0 0 / 0.08);
-}
-
-.dv-tile.is-lit .dv-seg .liquid-segmented-option-inactive {
-  color: var(--dv-lit-ink-2);
-}
-
-.dv-tile.is-lit .dv-seg .liquid-segmented-option-active {
-  background: #ffffff;
-  color: var(--dv-lit-ink);
-}
-
 /* Pieces of the device panels. */
 
 .dv-option {

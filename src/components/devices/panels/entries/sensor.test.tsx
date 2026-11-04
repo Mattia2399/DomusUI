@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MockEntityState } from '../../../types/ha';
-import { SENSOR_FAMILY_CLASSES, type SensorFamily } from '../model/sensorFamily';
+import type { MockEntityState } from '../../../../types/ha';
+import { SENSOR_FAMILY_CLASSES, type SensorFamily } from '../../model/sensorFamily';
 import {
   chartKindOf,
   dailyBars,
@@ -17,16 +17,21 @@ import {
   storeThreshold,
   thresholdCrossed,
   thresholdRuleOf,
-} from '../model/sensorPanel';
-import { PanelServicesProvider } from './panelServicesContext';
-import { SensorFamilyPanel } from './SensorFamilyPanel';
+} from '../../model/sensorPanel';
+import { PanelServicesProvider } from '../panelServicesContext';
+import { PanelView } from '../PanelView';
+import { sensorEntry, type SensorPanelInput } from './sensor';
+
+function SensorFamilyPanel(props: SensorPanelInput & { onClose?: () => void }) {
+  return <PanelView spec={sensorEntry.useSpec(props)} onClose={vi.fn()} />;
+}
 
 beforeEach(() => window.localStorage.clear());
 afterEach(cleanup);
 
 const entity = (state: string, rawAttributes: Record<string, unknown> = {}) => ({ state, rawAttributes }) as unknown as MockEntityState;
 
-const panel = (entityId: string, states: Record<string, MockEntityState>, props: Partial<React.ComponentProps<typeof SensorFamilyPanel>> = {}) =>
+const panel = (entityId: string, states: Record<string, MockEntityState>, props: Partial<SensorPanelInput> = {}) =>
   render(<SensorFamilyPanel entityId={entityId} name="Sensore" haStates={states} onClose={vi.fn()} {...props} />);
 
 const FAMILIES = Object.keys(SENSOR_FAMILY_CLASSES) as SensorFamily[];
@@ -268,14 +273,14 @@ describe('the panel of a family', () => {
       'sensor.lux': entity('320', { device_class: 'illuminance', unit_of_measurement: 'lx' }),
       'automation.luce': entity('on', { friendly_name: 'Accensione ingresso', target: { entity_id: 'sensor.lux' } }),
     });
-    expect(screen.getByText('Usata da')).toBeTruthy();
+    expect(screen.getAllByText('Usata da').length).toBeGreaterThan(0);
     expect(screen.getByText('Accensione ingresso')).toBeTruthy();
     cleanup();
     panel('sensor.prezzo', {
       'sensor.prezzo': entity('0.22', { device_class: 'monetary', unit_of_measurement: 'â‚¬/kWh' }),
       'automation.ricarica': entity('on', { friendly_name: 'Ricarica economica', watched: ['sensor.prezzo'] }),
     });
-    expect(screen.getByText('Dispositivi che seguono il prezzo')).toBeTruthy();
+    expect(screen.getAllByText('Dispositivi che seguono il prezzo').length).toBeGreaterThan(0);
     expect(screen.getByText('Ricarica economica')).toBeTruthy();
   });
 
@@ -305,7 +310,7 @@ describe('the panel of a family', () => {
         />
       </PanelServicesProvider>,
     );
-    expect(await screen.findByText('Promemoria')).toBeTruthy();
+    expect((await screen.findAllByText('Promemoria')).length).toBeGreaterThan(0);
     expect(screen.getByText('Calendario famiglia')).toBeTruthy();
     cleanup();
     render(
@@ -321,20 +326,20 @@ describe('the panel of a family', () => {
         />
       </PanelServicesProvider>,
     );
-    expect(await screen.findByText('Collegato a')).toBeTruthy();
+    expect((await screen.findAllByText('Collegato a')).length).toBeGreaterThan(0);
     expect(screen.getByText('Luce corridoio')).toBeTruthy();
   });
 
   it('shows every phase of a word, and the batteries of the house', () => {
     panel('sensor.w', { 'sensor.w': entity('wash', { device_class: 'enum', options: ['wash', 'rinse', 'spin'] }) });
-    expect(screen.getByText('Fasi')).toBeTruthy();
+    expect(screen.getAllByText('Fasi').length).toBeGreaterThan(0);
     expect(screen.getByText('Rinse')).toBeTruthy();
     cleanup();
     panel('sensor.b_battery', {
       'sensor.b_battery': entity('82', { device_class: 'battery', unit_of_measurement: '%' }),
       'sensor.c_battery': entity('9', { device_class: 'battery', unit_of_measurement: '%', friendly_name: 'Porta' }),
     });
-    expect(screen.getByText('Tutte le batterie della casa')).toBeTruthy();
+    expect(screen.getAllByText('Tutte le batterie della casa').length).toBeGreaterThan(0);
     expect(screen.getByText('Porta')).toBeTruthy();
   });
 
@@ -355,13 +360,18 @@ describe('the panel of a family', () => {
     expect(screen.getByText('Batteria 12%')).toBeTruthy();
   });
 
-  it('folds what follows the chart behind a button that the phone shows', () => {
-    panel('sensor.t', { 'sensor.t': entity('21', { device_class: 'temperature', unit_of_measurement: '°C' }) });
-    const more = screen.getByRole('button', { name: /Mostra di più/ });
-    expect(document.querySelector('.dv-pn-more-body')?.className).toMatch(/is-closed/);
-    fireEvent.click(more);
-    expect(screen.getByRole('button', { name: /Mostra meno/ })).toBeTruthy();
-    expect(document.querySelector('.dv-pn-more-body')?.className).not.toMatch(/is-closed/);
+  it('has Period and Values behind its shortcuts, and no main action', () => {
+    const series = Array.from({ length: 24 }, (_, index) => 20 + (index % 4));
+    render(
+      <PanelServicesProvider value={{ callApi: vi.fn().mockResolvedValue(null) as never, callService: vi.fn() }}>
+        <SensorFamilyPanel entityId="sensor.t" name="Sensore" history={series} haStates={{ 'sensor.t': entity('21', { device_class: 'temperature', unit_of_measurement: '°C', state_class: 'measurement' }) }} />
+      </PanelServicesProvider>,
+    );
+    const row = within(screen.getByRole('group', { name: 'Regolazioni' }));
+    expect(row.getByRole('button', { name: 'Periodo' })).toBeTruthy();
+    expect(row.getByRole('button', { name: 'Valori' })).toBeTruthy();
+    expect(document.querySelector('.panel-footer-action')).toBeNull();
+    expect(document.querySelector('.panel-hero.is-data .dv-pn-value')).toBeTruthy();
   });
 
   it('opens for a sensor of every family without breaking', () => {
@@ -387,7 +397,7 @@ describe('the panel of a family', () => {
     for (const family of FAMILIES) {
       const [id, state, attributes] = samples[family];
       const { container } = panel(id, { [id]: entity(state, attributes) });
-      expect(container.querySelector('.dv-panel'), family).toBeTruthy();
+      expect(container.querySelector('.panel-shell'), family).toBeTruthy();
       cleanup();
     }
   });

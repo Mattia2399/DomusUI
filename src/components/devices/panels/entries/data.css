@@ -205,6 +205,27 @@
   object-fit: contain;
 }
 
+/* A sensor: its value and its chart, and whatever it warns of above them. */
+.panel-sensor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-sensor > .dv-pn-chart {
+  margin-top: auto;
+}
+
+/* The card has its height: the chart takes what the value leaves. */
+.panel-sensor .dv-chart {
+  height: 110px;
+}
+
+.panel-sensor-rows {
+  width: 100%;
+  text-align: left;
+}
+
 /* The events of a day. */
 .panel-calendar-week {
   width: 100%;

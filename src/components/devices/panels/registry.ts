@@ -96,7 +96,7 @@ export type PanelEntry<Input> = {
 /** The player has a structure of its own: only its code goes by the rule of the panels. */
 export const loadMediaPlayer = onceLoaded(() => import('./MediaPlayer'));
 
-export type PanelKind = 'light' | 'plug' | 'fan' | 'humidifier' | 'cover' | 'climate' | 'camera' | 'vacuum' | 'calendar' | 'members' | 'weather';
+export type PanelKind = 'light' | 'plug' | 'fan' | 'humidifier' | 'cover' | 'climate' | 'camera' | 'vacuum' | 'calendar' | 'members' | 'weather' | 'sensor';
 
 /** The panel of a device that is not a light. */
 export const panelKindOfDevice = (kind: DeviceModel['kind']): PanelKind => (kind === 'fan' || kind === 'humidifier' || kind === 'cover' ? kind : 'plug');
@@ -114,10 +114,11 @@ const LOADERS: Record<PanelKind, () => Promise<PanelEntry<any>>> = {
   calendar: () => import('./entries/calendar').then((module) => module.calendarEntry),
   members: () => import('./entries/members').then((module) => module.membersEntry),
   weather: () => import('./entries/weather').then((module) => module.weatherEntry),
+  sensor: () => import('./entries/sensor').then((module) => module.sensorEntry),
 };
 
 /** The empty protagonist a panel opens with, while its entry is on its way. */
-const SKELETON: Record<PanelKind, 'slider' | 'card'> = { light: 'slider', plug: 'card', fan: 'slider', humidifier: 'slider', cover: 'slider', climate: 'slider', camera: 'card', vacuum: 'card', calendar: 'card', members: 'card', weather: 'card' };
+const SKELETON: Record<PanelKind, 'slider' | 'card'> = { light: 'slider', plug: 'card', fan: 'slider', humidifier: 'slider', cover: 'slider', climate: 'slider', camera: 'card', vacuum: 'card', calendar: 'card', members: 'card', weather: 'card', sensor: 'card' };
 
 export const panelSkeletonOf = (kind: PanelKind) => SKELETON[kind];
 

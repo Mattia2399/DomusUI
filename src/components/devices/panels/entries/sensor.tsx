@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
-import { ArrowDownRight, ArrowUpRight, BatteryMedium, ChevronDown, ChevronUp, Gauge, Minus, Plus } from 'lucide-react';
-import { useSensorFamilyTranslations, type SensorFamilyWordKey } from '../../../i18n/sensorFamilyTranslations';
-import { usePanelsTranslations, type PanelsTranslationKey } from '../../../i18n/panelsTranslations';
-import { useI18n } from '../../../i18n/I18nProvider';
-import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
-import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
-import { describeFamilySensor, toFamilySensorModel } from '../cards/SensorFamilyCard';
-import { buildSensorHouse, houseBatteries, houseConnections, houseDetectors, housePowers, sensorPeers } from '../cards/sensorHouse';
-import type { StateChange } from '../model/security';
-import { findBatterySensor, seriesStats, type SeriesPoint } from '../model/sensor';
-import { formatPanelSpan } from '../model/panelRules';
-import { batteryBand, type SensorAlertReason, type SensorFamily } from '../model/sensorFamily';
-import { changeOver, hourlyIncrease, hourlyMeans, hourlyYes, startOfDay, yesSpans } from '../model/sensorFigures';
+import { ArrowDownRight, ArrowUpRight, BatteryMedium, BellRing, Clock3, Gauge, ListChecks, Minus, Plus, SlidersHorizontal } from 'lucide-react';
+import { useSensorFamilyTranslations, type SensorFamilyWordKey } from '../../../../i18n/sensorFamilyTranslations';
+import { usePanelsTranslations, type PanelsTranslationKey } from '../../../../i18n/panelsTranslations';
+import { useI18n } from '../../../../i18n/I18nProvider';
+import type { MockEntityState, MockEntityStateMap } from '../../../../types/ha';
+import { GlassChips } from '../../../ui/GlassChips';
+import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
+import { describeFamilySensor, toFamilySensorModel } from '../../cards/SensorFamilyCard';
+import { buildSensorHouse, houseBatteries, houseConnections, houseDetectors, housePowers, sensorPeers } from '../../cards/sensorHouse';
+import type { StateChange } from '../../model/security';
+import { findBatterySensor, seriesStats, type SeriesPoint } from '../../model/sensor';
+import { formatPanelSpan } from '../../model/panelRules';
+import { batteryBand, type SensorAlertReason, type SensorFamily } from '../../model/sensorFamily';
+import { changeOver, hourlyIncrease, hourlyMeans, hourlyYes, startOfDay, yesSpans } from '../../model/sensorFigures';
 import {
   chartKindOf,
   dailyBars,
@@ -26,13 +27,13 @@ import {
   thresholdCrossed,
   thresholdRuleOf,
   type SensorPanelPeriod,
-} from '../model/sensorPanel';
-import { useEntityRegistry, useSensorSeries } from './panelData';
-import { usePanelServices } from './panelServicesContext';
-import { PanelFrame } from './shell/PanelFrame';
-import type { PanelLive } from './shell/PanelShell';
-import '../theme/panelLive.css';
-import '../theme/panels.css';
+} from '../../model/sensorPanel';
+import { useEntityRegistry, useSensorSeries } from '../panelData';
+import { usePanelServices } from '../panelServicesContext';
+import type { PanelEntry, PanelItem, PanelSpec } from '../registry';
+import { accentOf, chipSize, ICON, PanelRows } from './shared';
+import '../../theme/panels.css';
+import './data.css';
 
 /*
  * The panel of a sensor, one for each of the 17 families: the value and its
@@ -42,7 +43,7 @@ import '../theme/panels.css';
  * The threshold is saved on the device; notifications wait for a way to send them.
  */
 
-export type SensorFamilyPanelProps = {
+export type SensorPanelInput = {
   entityId: string;
   name: string;
   history?: number[];
@@ -55,11 +56,8 @@ export type SensorFamilyPanelProps = {
   haStates: MockEntityStateMap;
   /** What the card knows, for a sensor the Home cannot read. */
   fallbackEntity?: MockEntityState;
-  closeLabel?: string;
-  live?: PanelLive;
   /** Its data are old: the value goes grey. */
   stale?: boolean;
-  onClose: () => void;
 };
 
 const FAMILY_RGB: Record<SensorFamily, string> = {
@@ -133,7 +131,8 @@ function containsEntityReference(value: unknown, entityId: string, depth = 0): b
 
 const GIVEN_HOURS: Partial<Record<SensorPanelPeriod, number>> = { '24h': 24, '7d': 168, '30d': 720 };
 
-export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenChanges, givenBattery, roomName, haStates, fallbackEntity, closeLabel, live, stale = false, onClose }: SensorFamilyPanelProps) {
+function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, givenBattery, roomName, haStates, fallbackEntity, stale = false }: SensorPanelInput): PanelSpec {
+  const sp = usePanelSpecTranslations();
   const dt = useSensorFamilyTranslations();
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
@@ -149,7 +148,6 @@ export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenC
   const [period, setPeriod] = useState<SensorPanelPeriod>(() =>
     model ? periodsOf(model.family, model.attributes, false)[0] ?? '24h' : '24h',
   );
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const fallback = useMemo<SeriesPoint[]>(() => {
     if (givenSeries) return givenSeries(GIVEN_HOURS[period] ?? 24);
@@ -174,7 +172,9 @@ export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenC
     if (!periods.includes(period)) setPeriod(periods[0] ?? '24h');
   }, [period, periods]);
 
-  if (!model) return null;
+  if (!model) {
+    return { owner: entityId, name, status: '', icon: null, lit: false, accent: accentOf('142 142 147'), tint: false, heroKind: 'data', hero: null, shortcuts: [] };
+  }
   const changes = series.changes.length > 0 ? series.changes : givenChanges ?? [];
 
   const { alert, face, reading } = describeFamilySensor(model, {
@@ -435,33 +435,97 @@ export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenC
   const showTitle = alertTitle !== note && alertTitle !== bigWord;
   const hasAlertBody = showTitle || alertTip || alertSince || actions.length > 0;
 
-  return (
-    <div style={{ '--dv-pn-tint': alert?.level === 'critical' ? '255 69 58' : '255 159 10', '--dv-pn-chart': `rgb(${tint})`, '--sn-tint': `rgb(${tint})` } as React.CSSProperties}>
-      <PanelFrame
-        icon={<Icon size={23} strokeWidth={2} />}
-        name={model.name}
-        status={subtitle}
-        tintRgb={showAlert ? (alert?.level === 'critical' ? '255 69 58' : '255 159 10') : tint}
-        live={live}
-        closeLabel={closeLabel}
-        onClose={onClose}
-      >
-        <div className={clsx('dv-pn-value', isWord && 'is-word', stale && 'is-stale')}>
-          <span>
-            <b style={showAlert ? { color: alertColor } : undefined}>{bigWord ?? reading.value}</b>
-            {!isWord && reading.unit ? <i>{reading.unit}</i> : null}
-          </span>
-          {note ? (
-            <span className="dv-pn-note" style={{ color: showAlert ? alertColor : GOOD_WORD_FAMILIES.has(model.family) ? '#30d158' : undefined }}>{note}</span>
+  const items: PanelItem[] = [];
+  if (periods.length > 1) {
+    items.push({
+      key: 'period',
+      kind: 'opens',
+      icon: <Clock3 {...ICON} />,
+      label: pt('snPeriod'),
+      value: pt(PERIOD_WORDS[period].label),
+      content: (place) => (
+        <GlassChips<SensorPanelPeriod> size={chipSize(place)} ariaLabel={pt('snPeriod')} options={periods.map((key) => ({ value: key, label: pt(PERIOD_WORDS[key].label) }))} value={period} onChange={setPeriod} />
+      ),
+    });
+  }
+  if ((hasChart && figures.length > 0) || scale) {
+    items.push({
+      key: 'values',
+      kind: 'opens',
+      icon: <SlidersHorizontal {...ICON} />,
+      label: sp.t('sensorValues'),
+      content: () => (
+        <>
+          {scale ? (
+            <div className="dv-pn-line">
+              <span className="dv-pn-label">{pt('snWhere')}</span>
+              <div className="dv-pn-scale" aria-hidden="true">
+                {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%`, background: zone.color }} />)}
+                <i style={{ left: `${scale.mark * 100}%` }} />
+              </div>
+              <div className="dv-pn-zones" aria-hidden="true">
+                {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%` }}>{zone.label === 'snHigh' || zone.label === 'snLimit' ? pt(zone.label) : dt(zone.label)}</span>)}
+              </div>
+            </div>
           ) : null}
-          {trend !== 0 ? (
-            <span className="dv-pn-trend inline-flex items-center gap-1">
-              {trend > 0 ? <ArrowUpRight size={14} strokeWidth={2.6} aria-hidden="true" /> : <ArrowDownRight size={14} strokeWidth={2.6} aria-hidden="true" />}
-              {pt('snTrendHour', { value: `${trend > 0 ? '+' : '−'}${withUnit(Math.abs(trend))}` })}
-            </span>
-          ) : null}
+          {hasChart && figures.length > 0 ? <PanelRows rows={figures} /> : null}
+        </>
+      ),
+    });
+  }
+  if (block) {
+    items.push({
+      key: 'block',
+      kind: 'opens',
+      icon: <ListChecks {...ICON} />,
+      label: block.title,
+      content: () => (
+        <div className="dv-pn-rows panel-sensor-rows">
+                {block.rows.map((row) => (
+                  <div key={row.key} className="dv-pn-row">
+                    {row.color ? <i className="dv-pn-dot" style={{ background: row.color }} aria-hidden="true" /> : null}
+                    <span className="dv-pn-rt"><b>{row.label}</b>{row.note ? <span className="dv-t2">{row.note}</span> : null}</span>
+                    {row.value ? <span className="dv-pn-tm dv-t2">{row.value}</span> : null}
+                  </div>
+                ))}
+              </div>
+      ),
+    });
+  }
+  if (rule) {
+    items.push({
+      key: 'threshold',
+      kind: 'opens',
+      icon: <BellRing {...ICON} />,
+      label: sp.t('sensorThreshold'),
+      content: () => (
+        <div className="dv-pn-rows panel-sensor-rows" data-testid="sensor-threshold">
+          <div className="dv-pn-row">
+              <span className="dv-pn-rt">
+                <b>{pt(rule.direction === 'above' ? 'snThresholdAbove' : rule.direction === 'below' ? 'snThresholdBelow' : 'snThresholdLonger', { value: thresholdText })}</b>
+                <span className="dv-t2">{pt('snThresholdNote')}</span>
+              </span>
+              <span className="dv-pn-steps">
+                <button type="button" className="dv-round dv-round-sm" aria-label={pt('snThresholdDown')} onClick={() => step(-1)}><Minus size={15} strokeWidth={2.6} aria-hidden="true" /></button>
+                <button type="button" className="dv-round dv-round-sm" aria-label={pt('snThresholdUp')} onClick={() => step(1)}><Plus size={15} strokeWidth={2.6} aria-hidden="true" /></button>
+              </span>
+            </div>
         </div>
+      ),
+    });
+  }
 
+  return {
+    owner: entityId,
+    name: model.name,
+    status: subtitle,
+    icon: <Icon size={23} strokeWidth={2} />,
+    lit: true,
+    accent: accentOf(showAlert ? (alert?.level === 'critical' ? '255 69 58' : '255 159 10') : tint),
+    tint: true,
+    heroKind: 'data',
+    hero: (
+      <div className="dv-card panel-sensor" style={{ '--dv-pn-tint': alert?.level === 'critical' ? '255 69 58' : '255 159 10', '--dv-pn-chart': `rgb(${tint})`, '--sn-tint': `rgb(${tint})` } as React.CSSProperties}>
         {showAlert && hasAlertBody ? (
           <div className={clsx('dv-banner dv-pn-banner', alert?.level === 'critical' && 'is-red')} role="alert">
             <Icon size={18} strokeWidth={2.2} aria-hidden="true" />
@@ -479,25 +543,26 @@ export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenC
             </span>
           </div>
         ) : null}
-
+        <div className={clsx('dv-pn-value', isWord && 'is-word', stale && 'is-stale')}>
+          <span>
+            <b style={showAlert ? { color: alertColor } : undefined}>{bigWord ?? reading.value}</b>
+            {!isWord && reading.unit ? <i>{reading.unit}</i> : null}
+          </span>
+          {note ? (
+            <span className="dv-pn-note" style={{ color: showAlert ? alertColor : GOOD_WORD_FAMILIES.has(model.family) ? '#30d158' : undefined }}>{note}</span>
+          ) : null}
+          {trend !== 0 ? (
+            <span className="dv-pn-trend inline-flex items-center gap-1">
+              {trend > 0 ? <ArrowUpRight size={14} strokeWidth={2.6} aria-hidden="true" /> : <ArrowDownRight size={14} strokeWidth={2.6} aria-hidden="true" />}
+              {pt('snTrendHour', { value: `${trend > 0 ? '+' : '−'}${withUnit(Math.abs(trend))}` })}
+            </span>
+          ) : null}
+        </div>
         {crossed ? (
           <div className="dv-banner dv-pn-banner" role="status"><span><b>{pt('snCrossed', { value: thresholdText })}</b></span></div>
         ) : null}
-
-        {hasChart || series.loading || periods.length > 1 ? (
-          <div className="dv-card dv-pn-chart">
-            <div className="dv-pn-chart-top">
-              <span className="dv-pn-chart-title">{chartTitle}</span>
-              {periods.length > 1 ? (
-                <GlassSegmentSelect<SensorPanelPeriod>
-                  className="dv-seg"
-                  ariaLabel={pt('snPeriod')}
-                  options={periods.map((key) => ({ value: key, label: pt(PERIOD_WORDS[key].label) }))}
-                  value={period}
-                  onChange={setPeriod}
-                />
-              ) : null}
-            </div>
+        {hasChart || series.loading ? (
+          <div className="dv-pn-chart">
             {!hasChart ? (
               <p className="dv-t2 m-0 py-6 text-center text-sm">{series.loading ? pt('snLoading') : pt('snNoData')}</p>
             ) : chart === 'line' ? (
@@ -533,74 +598,17 @@ export function SensorFamilyPanel({ entityId, name, history, givenSeries, givenC
               </div>
             )}
             {hasChart ? <div className="dv-pn-axis" aria-hidden="true">{axis.map((label) => <span key={label}>{label}</span>)}</div> : null}
-            {hasChart && figures.length > 0 ? (
-              <div className="dv-stats">
-                {figures.map(([label, value]) => (
-                  <div key={label}><span className="dv-t2">{label}</span><strong>{value}</strong></div>
-                ))}
-              </div>
-            ) : null}
           </div>
         ) : null}
-
-        {scale || block ? (
-          <button type="button" className="dv-pn-more" aria-expanded={moreOpen} onClick={() => setMoreOpen((open) => !open)}>
-            {moreOpen ? pt('snLess') : pt('snMore')}
-            {moreOpen ? <ChevronUp size={16} aria-hidden="true" /> : <ChevronDown size={16} aria-hidden="true" />}
-          </button>
-        ) : null}
-        <div className={clsx('dv-pn-more-body', !moreOpen && 'is-closed')}>
-          {scale ? (
-            <div className="dv-pn-line">
-              <span className="dv-pn-label">{pt('snWhere')}</span>
-              <div className="dv-pn-scale" aria-hidden="true">
-                {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%`, background: zone.color }} />)}
-                <i style={{ left: `${scale.mark * 100}%` }} />
-              </div>
-              <div className="dv-pn-zones" aria-hidden="true">
-                {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%` }}>{zone.label === 'snHigh' || zone.label === 'snLimit' ? pt(zone.label) : dt(zone.label)}</span>)}
-              </div>
-            </div>
-          ) : null}
-          {block ? (
-            <>
-              <div className="dv-pn-label">{block.title}</div>
-              <div className="dv-card dv-pn-rows">
-                {block.rows.map((row) => (
-                  <div key={row.key} className="dv-pn-row">
-                    {row.color ? <i className="dv-pn-dot" style={{ background: row.color }} aria-hidden="true" /> : null}
-                    <span className="dv-pn-rt"><b>{row.label}</b>{row.note ? <span className="dv-t2">{row.note}</span> : null}</span>
-                    {row.value ? <span className="dv-pn-tm dv-t2">{row.value}</span> : null}
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
-        </div>
-
-        {rule ? (
-          <div className="dv-card dv-pn-rows" data-testid="sensor-threshold">
-            <div className="dv-pn-row">
-              <span className="dv-pn-rt">
-                <b>{pt(rule.direction === 'above' ? 'snThresholdAbove' : rule.direction === 'below' ? 'snThresholdBelow' : 'snThresholdLonger', { value: thresholdText })}</b>
-                <span className="dv-t2">{pt('snThresholdNote')}</span>
-              </span>
-              <span className="dv-pn-steps">
-                <button type="button" className="dv-round dv-round-sm" aria-label={pt('snThresholdDown')} onClick={() => step(-1)}><Minus size={15} strokeWidth={2.6} aria-hidden="true" /></button>
-                <button type="button" className="dv-round dv-round-sm" aria-label={pt('snThresholdUp')} onClick={() => step(1)}><Plus size={15} strokeWidth={2.6} aria-hidden="true" /></button>
-              </span>
-            </div>
-          </div>
-        ) : null}
-
         {battery !== null && model.family !== 'battery' ? (
           <div className={clsx('dv-pn-foot', battery <= 20 && 'text-[color:var(--dv-amber)]')}>
             <BatteryMedium size={15} strokeWidth={2} aria-hidden="true" />{pt('snBattery', { pct: Math.round(battery) })}
           </div>
         ) : null}
-      </PanelFrame>
-    </div>
-  );
+      </div>
+    ),
+    shortcuts: items,
+  };
 }
 
-export default SensorFamilyPanel;
+export const sensorEntry: PanelEntry<SensorPanelInput> = { useSpec: useSensorSpec };
