@@ -380,6 +380,11 @@ describe('the members panel', () => {
     expect(screen.queryByText(/Avvisami/)).toBeNull();
   });
 
+  it('says there is nobody, instead of an empty box', () => {
+    members({ name: 'Membri', members: [], haStates: {} });
+    expect(screen.getAllByText('Nessun membro')).toHaveLength(2);
+  });
+
   it('shows the map only when the option is on', () => {
     members({ name: 'Membri', mapEnabled: true, members: [member({ state: 'home', latitude: 41.9, longitude: 12.5 })], haStates: {} });
     expect(screen.getByRole('img', { name: 'Mappa dei membri' })).toBeTruthy();

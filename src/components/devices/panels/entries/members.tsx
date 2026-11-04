@@ -104,6 +104,7 @@ function useMembersSpec({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENAB
             ))}
           </div>
         ) : null}
+        {members.length === 0 ? <p className="dv-t2 m-0 text-sm font-medium">{pt('mbNobody')}</p> : null}
         {members.map((member, index) => {
           const isSelected = member.personEntityId === selected?.personEntityId;
           const home = memberIsHome(member.state);
