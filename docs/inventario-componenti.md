@@ -1,6 +1,6 @@
 # Inventario dei componenti di DomusUI
 
-Stato al 4 novembre 2026, branch `feat/fondamenta-condivise`, creato da `feat/pannelli-comuni` (711d1ad). I conteggi vengono da ricerche nel codice e sono indicativi: contano i file che importano il componente, test esclusi.
+Stato al 4 novembre 2026, branch `feat/fondamenta-condivise`, creato da `main` (711d1ad, lo stesso commit di `feat/pannelli-comuni`). I conteggi vengono da ricerche nel codice e sono indicativi: contano i file che importano il componente, test esclusi.
 
 Punto di partenza: `npm run check` verde, `vitest run` con **3104 test passati su 371 file**.
 
@@ -42,20 +42,37 @@ Punto di partenza: `npm run check` verde, `vitest run` con **3104 test passati s
 
 ## 2. Doppioni
 
-| Funzione | Versione condivisa | Scritte a mano altrove |
-|---|---|---|
-| Barra orizzontale | `GlassSlider` | `LevelBar` e `BrightnessBar` (`.dv-slider`, h 46/40); `.dv-hslider` (h 28) in `DevicePanel`, `ClimatePanel`, `LightPanel`; input propri in `MediaCard`, `CameraPanel` |
-| Slider verticale | Nessuna | `.dv-vslider` riscritto 4 volte: `LightPanel`, `DevicePanel` (`VerticalSlider`, più la tapparella), `ClimatePanel` |
-| Interruttore | `GlassToggle` | `.dv-size-switch` in `DeviceCard`. Stessa misura, stile diverso |
-| Segmentato | `GlassSegmentSelect` | `role="radiogroup"` a mano in 11 file: `ClimateCard`, `AlarmCard`, `ClimatePanel`, `MediaPlayer`, `SectionPage`, `RoomManageSheets`, `MediaSheets`, `EnergyModuleEditor`, `SetupHomeSteps`, … |
-| Pillole | Nessuna | `.dv-option` (h 40, 5 file) e `.dv-pill` (h 36, 8 file); `rooms-pill` in Stanze |
-| − e + | Nessuna | `.dv-step` (46), `.dv-size-round` (40), `MicroStep`, `dv-pn-steps`, più `settings/ClimateControls`, `HumidifierControls`, irrigazione. **Nessuno ripete tenendo premuto** |
-| Riga con interruttore | Nessuna | `dv-card flex items-center gap-3` ripetuta in `DevicePanel` e `ClimatePanel`; righe proprie nelle impostazioni |
-| Scorciatoia e bottone rotondo | `PanelShortcut` (solo pannelli) | `.dv-round`, `.dv-size-round`, `.dv-icon-button` |
-| Pallini colore | `SwatchRow` | Selezioni colore proprie in `settings/LightControls` |
-| Tessere | Nessuna | `.dv-climate-mode` e `.dv-pn-mode` (h 64); griglie in `settings/LightControls`, `CoverControls`, `VacuumControls` |
-| Conferma | `GlassConfirmDialog` | Stati propri in `AlarmCard`, `AlarmPanel`, `SetupMosaic`, `SettingsRoomsManager`, `EnergyPlantSettings`, … |
-| Pannello intero | `PanelShell` e pannelli nuovi | `settings/*Controls.tsx` (13 file, circa 7.200 righe): vecchio contenuto, usato ancora quando la Home non trova un pannello nuovo |
+Per ogni doppione, in quale prompt verrà unificato. "Da assegnare" vuol dire che i prompt 2, 3 e 4 non toccano quel punto: resterà doppione finché non si decide.
+
+| Funzione | Versione condivisa | Scritte a mano altrove | Dove si unifica |
+|---|---|---|---|
+| Barra orizzontale | `GlassSlider` | `LevelBar` e `BrightnessBar` (`.dv-slider`, h 46/40) | **Prompt 1**, identiche al pixel |
+| | | `.dv-hslider` (h 28) in `DevicePanel`, `ClimatePanel`, `LightPanel`; input propri in `CameraPanel` | Prompt 2 |
+| | | Input proprio in `MediaCard` | Prompt 2 (fase media: la card perde la barra del volume) |
+| | | `CardValueSlider`, `MicroSlider` | Prompt 3 (micro widget) |
+| Slider verticale | `GlassVerticalSlider` | `.dv-vslider` riscritto 4 volte: `LightPanel`, `DevicePanel` (`VerticalSlider`, più la tapparella), `ClimatePanel` | Prompt 2 |
+| Interruttore | `GlassSwitch` | `.dv-size-switch` in `DeviceCard`. Stessa misura, stile diverso | Da assegnare (card) |
+| Segmentato | `GlassSegmented` | `role="radiogroup"` a mano in `ClimatePanel`, `MediaPlayer` | Prompt 2 |
+| | | `ClimateCard`, `AlarmCard` | Da assegnare (card) |
+| | | `SectionPage`, `RoomManageSheets`, `MediaSheets`, `EnergyModuleEditor`, `SetupHomeSteps` | Da assegnare (pagine) |
+| Pillole | `GlassChips` | `.dv-option` (h 40, 5 file) | Prompt 2 |
+| | | `.dv-pill` (h 36, 8 file), `rooms-pill` in Stanze | Da assegnare (card e Stanze) |
+| − e + | `GlassStepper` | `.dv-step` e `dv-pn-steps` nei pannelli | Prompt 2 |
+| | | `MicroStep` | Prompt 3 |
+| | | `.dv-step` e `.dv-size-round` nelle card; irrigazione | Da assegnare |
+| Riga con interruttore | `GlassToggleRow` | `dv-card flex items-center gap-3` in `DevicePanel` e `ClimatePanel` | Prompt 2 |
+| | | Righe proprie nelle impostazioni | Da assegnare |
+| Scorciatoia e bottone rotondo | `GlassShortcut`, `GlassButton` | `PanelShortcut`, `.dv-round` | Prompt 2 |
+| | | `.dv-size-round`, `.dv-icon-button` nelle card | Da assegnare |
+| Pallini colore | `GlassSwatches` | `SwatchRow` nel pannello luce | Prompt 2 |
+| | | `SwatchRow` nella card estesa | Da assegnare (card) |
+| Tessere | `GlassTiles` | `.dv-climate-mode` nel pannello clima | Prompt 2 |
+| | | `.dv-pn-mode` in `AlarmPanel` | Dopo la sicurezza: l'allarme è fuori dal prompt 2 |
+| Conferma | `GlassConfirm` | `ProtectedOffDialog`, presa protetta | Prompt 2 |
+| | | `AlarmCard`, `AlarmPanel` | Dopo la sicurezza |
+| | | `SetupMosaic`, `SettingsRoomsManager`, `EnergyPlantSettings`, … | Da assegnare |
+| Pannello intero | `panels/shell/` | `panels/PanelShell.tsx` e `PanelHeader` di oggi | Prompt 2: il vecchio si cancella |
+| | | `settings/*Controls.tsx` (13 file, circa 7.200 righe), usati quando la Home non trova un pannello nuovo | Prompt 2 per i pannelli che copre. `LockControls` resta finché non si fa la serratura |
 
 ## 3. Token di oggi
 
@@ -98,6 +115,8 @@ Non li tocco tutti: come da prompt, sostituisco solo quelli dei componenti su cu
 | Tessere | 64 (56 nei fogli) | 60 (ADV-11) |
 | Foglio, zone, zona controlli, fondo, slider protagonista | Già come da nota | Uguale |
 
+**Decisione:** valgono le misure della nota. Sono nei token, ma si applicano solo ai componenti nuovi o spostati in questo passo: nulla cambia aspetto per l'utente prima del prompt 2.
+
 ## 4. Le primitive della Fase 2
 
 | Primitiva | Stato | Cosa farei | Rischio per l'aspetto di oggi |
@@ -117,20 +136,21 @@ Non li tocco tutti: come da prompt, sostituisco solo quelli dei componenti su cu
 | `GlassSwatches` | Esiste come `SwatchRow` | Spostarla in `ui/` senza il modello della luce | Nullo |
 | `GlassTiles` | Da creare | 4 per riga, 60 alte | Nullo |
 
-## 5. Punti da decidere prima della Fase 1
+## 5. Decisioni prese
 
-1. **Nomi `GlassSegmented` e `GlassSwitch`.** Quelli di oggi hanno 33 e 26 file che li usano. Propongo di creare i nomi nuovi e lasciare i vecchi come alias, così non cambia nessun file che li usa. Gli alias si tolgono dopo il prompt 2.
-2. **`PanelShell` nuovo accanto al vecchio.** Quello di oggi serve 12 file, e il prompt vieta di cambiare l'aspetto dei pannelli. Propongo di costruire il nuovo in `panels/shell/` senza collegarlo a nulla: il vecchio si cancella nel prompt 2. Per poco tempo ci saranno due scheletri.
-3. **Maniglia del disco colore.** La nota dice bianca, la galleria (ADV-01) "piena del colore scelto". Il prompt dice che vale la nota, quindi resta **bianca**. Le misure fisse della galleria (160, 200, 248) diventano esempi, perché il componente prende la larghezza che gli si dà.
-4. **Spostare i doppioni adesso o dopo.** Il prompt chiede sia di spostarli sia di non cambiare l'aspetto. Molti non possono fare entrambe le cose: passare da `.dv-hslider` a 28 alla barra da 46 cambia il pannello. Propongo di spostare ora solo ciò che resta identico al pixel (`LevelBar` e `BrightnessBar`) e il resto nel prompt 2, con l'elenco qui sopra.
-5. **Riferimenti di design.** `docs/design/` esiste solo nella cartella principale, fuori da Git. Propongo di aggiungerla con un commit su questo branch, perché servirà anche ai prompt 2, 3 e 4.
+1. **Nomi.** Si creano `GlassSegmented` e `GlassSwitch`. `GlassSegmentSelect` e `GlassToggle` restano come alias fino al prompt 2.
+2. **`PanelShell`.** Quello nuovo sta in `panels/shell/` e non è collegato a nulla. Il vecchio si cancella nel prompt 2.
+3. **Maniglia del disco colore.** Resta bianca, come dice la nota e come nell'app.
+4. **Doppioni.** In questo passo si spostano solo quelli identici al pixel, `LevelBar` e `BrightnessBar`. Gli altri seguono la tabella del punto 2.
+5. **Riferimenti.** `docs/design/` è in Git su questo branch.
 
-## 6. Cose da correggere nel prompt
+## 6. Correzioni al prompt, accettate
 
-- **La forma non si può dedurre solo dalla larghezza.** Foglio e colonna sono entrambi larghi fino a 520 px. Il prompt infatti passa anche la superficie: la forma la decide la prop `surface`, e la larghezza decide solo la disposizione in una o due colonne. Il test "sceglie la forma dalla larghezza" lo adatterei così.
-- **Vitest non misura le altezze.** L'ambiente di test non calcola layout né container query, quindi "la zona resta 148" e "il protagonista non cambia altezza" non si provano lì. Con Vitest controllo struttura e classi, le misure vere le controllo con Playwright, come fa già `tests/light-panel-reach.spec.cjs`.
-- **`npm run lint` è uguale a `npm run check`.** Sono entrambi `tsc --noEmit`: nel progetto non c'è un vero lint.
-- **Pagina di prova.** Esiste già un precedente, `/devices-lab`, solo in sviluppo: `/dev/componenti` può seguirlo e resta fuori dai pacchetti di produzione.
+- **Forma del pannello.** La decide la prop `surface` (`sheet`, `column`, `dialog`). La larghezza decide solo se una o due colonne.
+- **Misure.** Zona controlli a 148 px e protagonista fermo si controllano con Playwright, come `tests/light-panel-reach.spec.cjs`. In Vitest resta il resto.
+- **Lint.** `npm run lint` coincide con `npm run check` (`tsc --noEmit`). Per ora non si aggiunge un linter.
+
+**Da chiarire nel prompt 2.** La Fase 1 del prompt 2 chiede il disco colore con "bordo netto, maniglia piena del colore, nome del colore sotto". La nota, il punto 3 qui sopra e l'app dicono maniglia bianca e bordo sfumato. Prima del prompt 2 va corretto il testo, o va presa un'altra decisione.
 
 ## 7. Da sapere per il prompt 2: il peso
 
@@ -142,4 +162,4 @@ Le fondamenta non pesano finché nessuno le usa, ma nel prompt 2 i pannelli le c
 | Stanze | 320,4 KB | 330 |
 | JS più grande della Home | 1.092,7 KB | 1.100 |
 
-I limiti non si alzano, quindi il prompt 2 dovrà togliere il codice vecchio mentre aggiunge il nuovo, oppure caricare i pannelli solo all'apertura.
+**Decisione:** i limiti non si alzano. Nel prompt 2 si toglie il codice vecchio mentre si aggiunge il nuovo.
