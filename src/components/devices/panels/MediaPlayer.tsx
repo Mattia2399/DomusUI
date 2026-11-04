@@ -1,54 +1,92 @@
 import React from 'react';
-import { Check, ChevronDown, Power, Repeat, Repeat1, Shuffle, Speaker, Volume2, VolumeX } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, Layers, Monitor, Music, Power, Repeat, Repeat1, Shuffle, SlidersHorizontal, Speaker, Tv, Volume2, VolumeX, X } from 'lucide-react';
 import { clsx } from 'clsx';
-import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
+import { usePanelSpecTranslations } from '../../../i18n/panelSpecTranslations';
+import { extractPictureColor } from '../../../theme/ambient/roomPictureColor';
+import { GlassChips } from '../../ui/GlassChips';
+import { GlassShortcut } from '../../ui/GlassShortcut';
+import { GlassSlider } from '../../ui/GlassSlider';
+import { MediaProgress, MediaTransport, useMediaClock } from '../cards/MediaCard';
+import { ScrollingName } from '../cards/ScrollingName';
 import { REPEAT_NEXT, type MediaAction, type MediaModel } from '../model/media';
-import { MediaArt, MediaBackdrop, MediaKindIcon, MediaProgress, MediaSlider, MediaTransport, useMediaClock } from '../cards/MediaCard';
+import './mediaPlayer.css';
 
 /*
- * The full player of the board, over the whole page: the artwork large, the
- * position, controls, shuffle and repeat, the volume; beside them, what the
- * player offers of sources, players to play together with, and sound modes.
- * A tab shows only when the player has something for it.
+ * The player: over the whole screen on a phone, a window in Rooms on a large screen, the
+ * column in the Home. The only place of the volume. Docs: docs/design/pannelli/MediaPlayer.dc.html
+ *
+ * What is behind it comes from the cover: blurred, so that it works with any picture.
+ * Below the volume, a row that opens what the player offers of speakers, sources and sound.
  */
 
 export type MediaGroupCandidate = { entityId: string; name: string; roomName: string | null };
+
+export type MediaPlayerSurface = 'screen' | 'window' | 'column';
 
 export type MediaPlayerProps = {
   model: MediaModel;
   pictureUrl: string | null;
   /** Other players this one can play together with. */
   groupCandidates: MediaGroupCandidate[];
+  surface?: MediaPlayerSurface;
   onAction: (action: MediaAction) => void;
   onClose: () => void;
 };
 
-type Tab = 'source' | 'audio';
+type Zone = 'speakers' | 'source' | 'audio';
 
-export function MediaPlayer({ model, pictureUrl, groupCandidates, onAction, onClose }: MediaPlayerProps) {
+const ICON = { size: 20, strokeWidth: 2 } as const;
+
+/** The cover's colour for the column, which keeps a neutral ground. */
+function useCoverColour(url: string | null, wanted: boolean) {
+  const [colour, setColour] = React.useState<string | null>(null);
+  React.useEffect(() => {
+    if (!wanted || !url) {
+      setColour(null);
+      return undefined;
+    }
+    let stale = false;
+    void extractPictureColor(url).then((found) => {
+      if (!stale) setColour(found);
+    });
+    return () => {
+      stale = true;
+    };
+  }, [url, wanted]);
+  return colour;
+}
+
+export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'screen', onAction, onClose }: MediaPlayerProps) {
   const dt = useDevicesTranslations();
+  const sp = usePanelSpecTranslations();
   const now = useMediaClock(model.playing);
-  const dialogRef = React.useRef<HTMLDivElement | null>(null);
+  const root = React.useRef<HTMLDivElement | null>(null);
   const closeRef = React.useRef<HTMLButtonElement | null>(null);
+  const [zone, setZone] = React.useState<Zone | null>(null);
+  const [brokenUrl, setBrokenUrl] = React.useState<string | null>(null);
+  const picture = pictureUrl && pictureUrl !== brokenUrl ? pictureUrl : null;
+  const modal = surface !== 'column';
+  const colour = useCoverColour(picture, surface === 'column');
 
+  const off = !model.on;
+  const nothing = !off && !model.title && !model.app && !model.source;
+  const isTv = model.kind === 'tv';
+  const hasCover = Boolean(picture) && !off && !nothing;
   const hasSources = model.supports.source && model.sources.length > 0;
+  const hasAudio = model.supports.soundMode && model.soundModes.length > 0;
   const canGroup = model.supports.group && groupCandidates.length > 0;
-  const tabs: Array<{ key: Tab; label: string }> = [
-    ...(hasSources || canGroup ? [{ key: 'source' as const, label: model.kind === 'tv' ? dt('mediaTabSource') : dt('mediaTabOutputs') }] : []),
-    ...(model.supports.soundMode && model.soundModes.length > 0 ? [{ key: 'audio' as const, label: dt('mediaTabAudio') }] : []),
-  ];
-  const [tab, setTab] = React.useState<Tab>('source');
-  const current = tabs.find((entry) => entry.key === tab)?.key ?? tabs[0]?.key ?? null;
+  const others = model.groupMembers.filter((member) => member !== model.entityId).length;
+  const shown = zone === 'speakers' ? canGroup : zone === 'source' ? hasSources : zone === 'audio' ? hasAudio : false;
+  const openZone = shown && !off ? zone : null;
 
   React.useEffect(() => {
+    if (!modal) return undefined;
     const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     closeRef.current?.focus();
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return;
-      const above = Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some(
-        (dialog) => dialog !== dialogRef.current && !dialog.contains(dialogRef.current),
-      );
+      const above = Array.from(document.querySelectorAll('[role="dialog"][aria-modal="true"]')).some((dialog) => dialog !== root.current && !dialog.contains(root.current));
       if (!above) onClose();
     };
     window.addEventListener('keydown', onKey);
@@ -56,204 +94,214 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, onAction, onCl
       window.removeEventListener('keydown', onKey);
       before?.focus();
     };
-  }, [onClose]);
+  }, [modal, onClose]);
 
+  const onWhat = off ? dt('mediaOff') : isTv ? dt('mediaOnAir') : model.playing ? dt('mediaPlayingOn') : sp.t('mediaPausedOn');
+  const title = off ? dt('mediaOff') : model.title ?? model.app ?? model.source ?? dt('mediaNothing');
+  const subtitle = off ? model.name : nothing ? sp.t('mediaChoose') : model.title ? model.artist : model.title === null && model.source && model.app ? model.source : null;
+  const volume = model.muted ? 0 : model.volume ?? 0;
+  const KindIcon = others > 0 ? Layers : isTv ? Tv : Speaker;
   const RepeatIcon = model.repeat === 'one' ? Repeat1 : Repeat;
   const repeatLabel = model.repeat === 'off' ? dt('mediaRepeatOff') : model.repeat === 'all' ? dt('mediaRepeatAll') : dt('mediaRepeatOne');
-  const volume = model.muted ? 0 : model.volume ?? 0;
+  const NoCover = isTv && !off && !nothing ? Tv : Music;
+  const name = others > 0 ? `${model.name} + ${others}` : model.name;
+  const canPower = off ? model.supports.turnOn : model.supports.turnOff;
 
-  return (
-    <div ref={dialogRef} className="dv-mp" role="dialog" aria-modal="true" aria-labelledby="dv-mp-title" data-testid="media-player">
-      <MediaBackdrop model={model} pictureUrl={pictureUrl} className="dv-mp-bg" />
-      <span className="dv-mp-shade" aria-hidden="true" />
-      <div className="dv-mp-inner">
-        <div className="flex items-center justify-between gap-3">
-          <button ref={closeRef} type="button" className="dv-mp-iconbtn" aria-label={dt('mediaMinimize')} onClick={onClose}>
-            <ChevronDown size={22} strokeWidth={2.4} aria-hidden="true" />
+  const zoneBody = () => {
+    if (openZone === 'speakers') {
+      return (
+        <>
+          <p className="panel-media-zone-title">
+            <b>{sp.t('mediaSpeakers')}</b>
+            <span>{sp.t('mediaSpeakersNote')}</span>
+          </p>
+          <div className="panel-media-speakers">
+            <div className="panel-media-speaker is-on">
+              <span className="panel-media-tick" aria-hidden="true">
+                <Check size={14} strokeWidth={3} />
+              </span>
+              <span>
+                <b>{model.name}</b>
+                {model.volume !== null ? <span>{volume}%</span> : null}
+              </span>
+            </div>
+            {groupCandidates.map((candidate) => {
+              const joined = model.groupMembers.includes(candidate.entityId);
+              return (
+                <button
+                  key={candidate.entityId}
+                  type="button"
+                  role="checkbox"
+                  aria-checked={joined}
+                  className={clsx('panel-media-speaker', joined && 'is-on')}
+                  onClick={() => onAction({ type: 'group', member: candidate.entityId, joined: !joined })}
+                >
+                  <span className="panel-media-tick" aria-hidden="true">
+                    {joined ? <Check size={14} strokeWidth={3} /> : null}
+                  </span>
+                  <span>
+                    <b>{candidate.name}</b>
+                    {candidate.roomName ? <span>{candidate.roomName}</span> : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      );
+    }
+    if (openZone === 'source') {
+      return (
+        <>
+          <p className="panel-media-zone-title">
+            <b>{dt('mediaSourceLabel')}</b>
+            <span>{sp.t('mediaSourceNote', { name: model.name })}</span>
+          </p>
+          <GlassChips<string> size="dialog" ariaLabel={dt('mediaSourceLabel')} options={model.sources.map((source) => ({ value: source, label: source }))} value={model.source} onChange={(source) => onAction({ type: 'source', source })} />
+        </>
+      );
+    }
+    return (
+      <>
+        <p className="panel-media-zone-title">
+          <b>{dt('mediaTabAudio')}</b>
+          <span>{sp.t('mediaAudioNote', { name: model.name })}</span>
+        </p>
+        <GlassChips<string> size="dialog" ariaLabel={dt('mediaSoundMode')} options={model.soundModes.map((mode) => ({ value: mode, label: mode }))} value={model.soundMode} onChange={(mode) => onAction({ type: 'sound_mode', mode })} />
+      </>
+    );
+  };
+
+  const style = colour ? ({ '--device-accent': colour, '--device-accent-ink': '#ffffff' } as React.CSSProperties) : undefined;
+
+  const player = (
+    <div
+      ref={root}
+      className={clsx('panel-media', `is-${surface}`, openZone && 'has-zone', off ? 'is-state-off' : nothing ? 'is-state-nothing' : isTv && !hasCover ? 'is-state-tv' : null, colour && 'has-colour')}
+      style={style}
+      role={modal ? 'dialog' : 'group'}
+      aria-modal={modal ? true : undefined}
+      aria-labelledby="panel-media-title"
+      data-testid="media-player"
+    >
+      {hasCover && surface !== 'column' ? <img className="panel-media-backdrop" src={picture ?? undefined} alt="" aria-hidden="true" /> : null}
+      <div className="panel-media-body">
+        <div className="panel-media-head">
+          <button ref={closeRef} type="button" className="panel-media-round" aria-label={dt('mediaMinimize')} onClick={onClose}>
+            {surface === 'screen' ? <ChevronDown size={22} strokeWidth={2.4} aria-hidden="true" /> : <X size={18} strokeWidth={2.4} aria-hidden="true" />}
           </button>
-          <span className="flex min-w-0 flex-col items-center gap-px text-center">
-            <span className="text-xs font-bold uppercase tracking-[0.08em] opacity-60">
-              {model.kind === 'tv' ? dt('mediaOnAir') : dt('mediaPlayingOn')}
-            </span>
-            <span className="flex items-center gap-1.5 whitespace-nowrap text-[15px] font-semibold">
-              <MediaKindIcon model={model} />
-              {model.name}
-            </span>
-          </span>
-          {model.supports.turnOff ? (
+          <div className="panel-media-where">
+            <span>{onWhat}</span>
+            {canGroup && !off ? (
+              <button type="button" aria-expanded={openZone === 'speakers'} onClick={() => setZone('speakers')}>
+                <KindIcon size={14} strokeWidth={2.2} aria-hidden="true" />
+                <b>{name}</b>
+                <ChevronDown size={14} strokeWidth={2.6} aria-hidden="true" />
+              </button>
+            ) : (
+              <b>
+                <KindIcon size={14} strokeWidth={2.2} aria-hidden="true" />
+                {name}
+              </b>
+            )}
+          </div>
+          {canPower ? (
             <button
               type="button"
-              className="dv-mp-iconbtn"
-              aria-label={dt('mediaPowerOff', { name: model.name })}
-              onClick={() => {
-                onAction({ type: 'power', on: false });
-                onClose();
-              }}
+              className={clsx('panel-media-round', off && 'is-lit')}
+              aria-label={off ? dt('mediaPowerOn', { name: model.name }) : dt('mediaPowerOff', { name: model.name })}
+              onClick={() => onAction({ type: 'power', on: off })}
             >
               <Power size={18} strokeWidth={2.2} aria-hidden="true" />
             </button>
           ) : (
-            <span className="h-11 w-11" aria-hidden="true" />
+            <span className="panel-media-round is-empty" aria-hidden="true" />
           )}
         </div>
 
-        <div className={clsx('dv-mp-grid', !current && 'is-single')}>
-          <div className="dv-mp-left">
-            <MediaArt model={model} pictureUrl={pictureUrl} className={clsx('dv-mp-art', !model.playing && 'is-resting')} />
-            <div className="flex flex-col gap-1">
-              <h2 id="dv-mp-title" className="m-0 text-[26px] font-bold leading-[1.15] tracking-[-0.025em]">
-                {model.title ?? model.app ?? dt('mediaNothing')}
+        <div className="panel-media-main">
+          <div className="panel-media-cover">
+            {hasCover ? (
+              <img src={picture ?? undefined} alt="" onError={() => setBrokenUrl(pictureUrl)} />
+            ) : (
+              <span className="panel-media-nocover" aria-hidden="true">
+                <NoCover size={56} strokeWidth={1.5} />
+                {isTv && !off && !nothing && model.source ? <em>{model.source}</em> : null}
+              </span>
+            )}
+          </div>
+
+          <div className="panel-media-side">
+            <div className="panel-media-title">
+              <h2 id="panel-media-title">
+                <ScrollingName name={title} />
               </h2>
-              {model.title && model.artist ? <span className="text-[17px] font-medium opacity-75">{model.artist}</span> : null}
+              {subtitle ? <span>{subtitle}</span> : null}
             </div>
-            <MediaProgress model={model} now={now} onAction={onAction} />
-            <div className="flex items-center justify-between gap-2">
-              {model.supports.shuffle ? (
-                <button
-                  type="button"
-                  className={clsx('dv-mp-toggle', model.shuffle && 'is-on')}
-                  aria-pressed={model.shuffle}
-                  aria-label={dt('mediaShuffle')}
-                  onClick={() => onAction({ type: 'shuffle', shuffle: !model.shuffle })}
-                >
-                  <Shuffle size={20} strokeWidth={2.2} aria-hidden="true" />
+
+            {!off ? <MediaProgress model={model} now={now} onAction={onAction} /> : null}
+
+            <div className="panel-media-keys">
+              {model.supports.shuffle && !off && !nothing ? (
+                <button type="button" className={clsx('panel-media-key', model.shuffle && 'is-on')} aria-pressed={model.shuffle} aria-label={dt('mediaShuffle')} onClick={() => onAction({ type: 'shuffle', shuffle: !model.shuffle })}>
+                  <Shuffle {...ICON} aria-hidden="true" />
                 </button>
               ) : (
-                <span className="h-11 w-11" aria-hidden="true" />
+                <span className="panel-media-key is-empty" aria-hidden="true" />
               )}
               <MediaTransport model={model} onAction={onAction} large />
-              {model.supports.repeat ? (
-                <button
-                  type="button"
-                  className={clsx('dv-mp-toggle', model.repeat !== 'off' && 'is-on')}
-                  aria-label={repeatLabel}
-                  onClick={() => onAction({ type: 'repeat', repeat: REPEAT_NEXT[model.repeat] })}
-                >
-                  <RepeatIcon size={20} strokeWidth={2.2} aria-hidden="true" />
+              {model.supports.repeat && !off && !nothing ? (
+                <button type="button" className={clsx('panel-media-key', model.repeat !== 'off' && 'is-on')} aria-label={repeatLabel} onClick={() => onAction({ type: 'repeat', repeat: REPEAT_NEXT[model.repeat] })}>
+                  <RepeatIcon {...ICON} aria-hidden="true" />
                 </button>
               ) : (
-                <span className="h-11 w-11" aria-hidden="true" />
+                <span className="panel-media-key is-empty" aria-hidden="true" />
               )}
             </div>
+
             {model.volume !== null && model.supports.volume ? (
-              <div className="flex items-center gap-3">
+              <div className="panel-media-volume">
                 {model.supports.mute ? (
-                  <button
-                    type="button"
-                    className={clsx('dv-mp-toggle', model.muted && 'is-on')}
-                    aria-pressed={model.muted}
-                    aria-label={dt('mediaMute')}
-                    onClick={() => onAction({ type: 'mute', muted: !model.muted })}
-                  >
-                    {model.muted ? <VolumeX size={20} strokeWidth={2.2} aria-hidden="true" /> : <Volume2 size={20} strokeWidth={2.2} aria-hidden="true" />}
+                  <button type="button" className={clsx('panel-media-key', model.muted && 'is-on')} aria-pressed={model.muted} aria-label={model.muted ? sp.t('mediaUnmute') : sp.t('mediaMuteIt')} onClick={() => onAction({ type: 'mute', muted: !model.muted })}>
+                    {model.muted ? <VolumeX {...ICON} aria-hidden="true" /> : <Volume2 {...ICON} aria-hidden="true" />}
                   </button>
                 ) : (
-                  <Volume2 size={20} strokeWidth={2.2} aria-hidden="true" className="opacity-70" />
+                  <span className="panel-media-key is-plain" aria-hidden="true">
+                    <Volume2 {...ICON} />
+                  </span>
                 )}
-                <MediaSlider
-                  className={clsx('flex-1', model.muted && 'opacity-40')}
-                  value={volume}
-                  max={100}
-                  label={dt('mediaVolume')}
-                  valueText={`${volume}%`}
-                  onChange={(value) => onAction({ type: 'volume', level: value })}
-                />
-                <span className="w-9 text-right text-[13px] font-semibold tabular-nums opacity-75">{volume}</span>
+                <GlassSlider variant="bar" tone={colour ? 'device' : 'neutral'} label={dt('mediaVolume')} value={volume} valueText={`${volume}%`} disabled={off} onValueChange={(level) => onAction({ type: 'volume', level })} />
+                <b>{model.muted ? sp.t('mediaMuted') : `${volume}%`}</b>
+              </div>
+            ) : null}
+
+            {openZone ? (
+              <>
+                <div className="panel-media-zone">{zoneBody()}</div>
+                <button type="button" className="panel-media-back" onClick={() => setZone(null)}>
+                  <ChevronLeft size={16} strokeWidth={2.4} aria-hidden="true" />
+                  {dt('back')}
+                </button>
+              </>
+            ) : off ? (
+              <p className="panel-media-empty">
+                <b>{sp.t('mediaOffTitle')}</b>
+                <span>{canPower ? sp.t('mediaOffNote') : null}</span>
+              </p>
+            ) : canGroup || hasSources || hasAudio ? (
+              <div className="panel-media-row" role="group" aria-label={dt('mediaControls')}>
+                {canGroup ? <GlassShortcut kind="opens" tone="neutral" on={others > 0} icon={<Layers {...ICON} />} label={sp.t('mediaSpeakers')} onPress={() => setZone('speakers')} /> : null}
+                {hasSources ? <GlassShortcut kind="opens" tone="neutral" icon={<Monitor {...ICON} />} label={dt('mediaSourceLabel')} onPress={() => setZone('source')} /> : null}
+                {hasAudio ? <GlassShortcut kind="opens" tone="neutral" icon={<SlidersHorizontal {...ICON} />} label={dt('mediaTabAudio')} onPress={() => setZone('audio')} /> : null}
               </div>
             ) : null}
           </div>
-
-          {current ? (
-            <div className="dv-mp-right">
-              {tabs.length > 1 ? (
-                <GlassSegmentSelect<Tab>
-                  className="dv-mp-seg"
-                  ariaLabel={dt('mediaControls')}
-                  options={tabs.map((entry) => ({ value: entry.key, label: entry.label }))}
-                  value={current}
-                  onChange={setTab}
-                />
-              ) : (
-                <h3 className="dv-mp-label m-0">{tabs[0].label}</h3>
-              )}
-
-              {current === 'source' ? (
-                <div className="flex flex-col gap-3">
-                  {hasSources ? (
-                    <>
-                      <span className="dv-mp-label">{dt('mediaSourceLabel')}</span>
-                      <div className="dv-mp-group" role="radiogroup" aria-label={dt('mediaSourceLabel')}>
-                        {model.sources.map((source) => (
-                          <button
-                            key={source}
-                            type="button"
-                            role="radio"
-                            aria-checked={model.source === source}
-                            className="dv-mp-row"
-                            onClick={() => onAction({ type: 'source', source })}
-                          >
-                            <span className="flex-1 text-left text-[15px] font-semibold">{source}</span>
-                            {model.source === source ? <Check size={18} strokeWidth={2.6} aria-hidden="true" /> : null}
-                          </button>
-                        ))}
-                      </div>
-                    </>
-                  ) : null}
-                  {canGroup ? (
-                    <>
-                      <span className="dv-mp-label">{dt('mediaAlsoOn')}</span>
-                      <div className="dv-mp-group">
-                        {groupCandidates.map((candidate) => {
-                          const joined = model.groupMembers.includes(candidate.entityId);
-                          return (
-                            <button
-                              key={candidate.entityId}
-                              type="button"
-                              role="checkbox"
-                              aria-checked={joined}
-                              className="dv-mp-row"
-                              onClick={() => onAction({ type: 'group', member: candidate.entityId, joined: !joined })}
-                            >
-                              <Speaker size={18} strokeWidth={2.2} aria-hidden="true" className="opacity-80" />
-                              <span className="flex min-w-0 flex-1 flex-col gap-px text-left">
-                                <span className="text-[15px] font-semibold">{candidate.name}</span>
-                                {candidate.roomName ? <span className="text-xs font-medium opacity-65">{candidate.roomName}</span> : null}
-                              </span>
-                              <span className={clsx('dv-mp-check', joined && 'is-sel')} aria-hidden="true">
-                                <Check size={14} strokeWidth={3} />
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  ) : null}
-                </div>
-              ) : (
-                <div className="flex flex-col gap-3">
-                  <span className="dv-mp-label">{dt('mediaSoundMode')}</span>
-                  <div role="radiogroup" aria-label={dt('mediaSoundMode')} className="flex flex-wrap gap-2">
-                    {model.soundModes.map((mode) => (
-                      <button
-                        key={mode}
-                        type="button"
-                        role="radio"
-                        aria-checked={model.soundMode === mode}
-                        className={clsx('dv-mp-pill', model.soundMode === mode && 'is-on')}
-                        onClick={() => onAction({ type: 'sound_mode', mode })}
-                      >
-                        {mode}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
   );
+
+  return player;
 }
 
 export default MediaPlayer;

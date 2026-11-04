@@ -36,7 +36,7 @@ describe('MediaCard on the Home grid', () => {
     expect(onAction).toHaveBeenCalledWith({ type: 'play_pause' });
   });
 
-  it('shows the position and controls in Standard, the artwork and volume in Expanded', () => {
+  it('shows the position and controls in Standard, the artwork too in Expanded, and the volume in neither', () => {
     const shapes = { 'U×4': false, 'W×4': true } as const;
     for (const [format, full] of Object.entries(shapes)) {
       const { container, unmount } = render(
@@ -44,17 +44,10 @@ describe('MediaCard on the Home grid', () => {
       );
       expect(container.querySelector('[data-testid="media-card"]')?.getAttribute('data-format'), format).toBe(format);
       expect(screen.getByRole('button', { name: 'Successivo' }), format).toBeTruthy();
-      expect(Boolean(screen.queryByRole('slider', { name: 'Volume' })), format).toBe(full);
+      expect(screen.queryByRole('slider', { name: 'Volume' }), format).toBeNull();
       expect(Boolean(container.querySelector('.dv-media-art.is-large')), format).toBe(full);
       unmount();
     }
-  });
-
-  it('turns the volume into a media action, the new optional Home callback', () => {
-    const onAction = vi.fn();
-    render(<MediaCard model={playing} pictureUrl={null} format="W×4" onAction={onAction} onOpen={vi.fn()} />);
-    fireEvent.change(screen.getByRole('slider', { name: 'Volume' }), { target: { value: '55' } });
-    expect(onAction).toHaveBeenCalledWith({ type: 'volume', level: 55 });
   });
 
   it('switches a player that is off on from its icon, whatever the format', () => {

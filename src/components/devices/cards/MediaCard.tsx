@@ -1,21 +1,22 @@
 import React from 'react';
-import { Check, ChevronRight, Maximize2, Music, Pause, Play, Power, SkipBack, SkipForward, Speaker, Tv, Volume2 } from 'lucide-react';
+import { Check, ChevronRight, Maximize2, Music, Pause, Play, Power, SkipBack, SkipForward, Speaker, Tv } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { formatMediaTime, mediaPositionNow, type MediaAction, type MediaModel } from '../model/media';
 import { CardFrame, CardHead } from './CardFrame';
 import { DeviceCardShell, deviceCardSize, type DeviceCardFormat } from './DeviceCardShell';
+import { ScrollingName } from './ScrollingName';
 import '../theme/devices.css';
 
 /*
  * The media of a room, as on the board: a card of what plays, its artwork
- * blurred behind it, with position, controls and volume; a plain tile when
- * the player is off. The pieces are shared with the full player.
+ * blurred behind it, with position and controls; a plain tile when the player
+ * is off. The volume stays in the player. The pieces are shared with it.
  *
  * On the Home MediaCard takes the three sizes of the board
  * (docs/design-reference/CoreCards.dc.html): Mini U×2 the artwork and the
  * title, its icon plays or pauses; Standard U×4 the position and the controls;
- * Expanded W×4 the artwork on the left, the position, controls and volume.
+ * Expanded W×4 the artwork on the left, the position and the controls.
  */
 
 /** The time, every second while something plays, for the position. */
@@ -213,7 +214,7 @@ export function NowPlayingCard({ model, pictureUrl, onAction, onOpenPlayer }: No
         <button type="button" className="dv-np-open" aria-label={dt('mediaOpenPlayerTitle', { title })} onClick={onOpenPlayer}>
           <MediaArt model={model} pictureUrl={pictureUrl} className={clsx('dv-np-art', !model.playing && 'is-resting')} />
           <span className="flex min-w-0 flex-1 flex-col gap-[3px]">
-            <span className="dv-np-title">{title}</span>
+            <span className="dv-np-title"><ScrollingName name={title} /></span>
             {artist ? <span className="truncate text-[15px] font-medium opacity-80">{artist}</span> : null}
           </span>
         </button>
@@ -221,19 +222,6 @@ export function NowPlayingCard({ model, pictureUrl, onAction, onOpenPlayer }: No
         <div className="flex items-center justify-center gap-[22px]">
           <MediaTransport model={model} onAction={onAction} />
         </div>
-        {model.volume !== null && model.supports.volume ? (
-          <div className="flex items-center gap-2.5">
-            <Volume2 size={16} strokeWidth={2.2} aria-hidden="true" className="flex-none opacity-70" />
-            <MediaSlider
-              className="flex-1"
-              value={model.muted ? 0 : model.volume}
-              max={100}
-              label={dt('mediaVolume')}
-              valueText={`${model.muted ? 0 : model.volume}%`}
-              onChange={(value) => onAction({ type: 'volume', level: value })}
-            />
-          </div>
-        ) : null}
       </div>
     </div>
   );
@@ -303,8 +291,10 @@ export function MediaCard({ model, pictureUrl, format, editing = false, selected
     const status = !on ? offStatus : artist ?? (model.playing ? model.name : dt('mediaPaused'));
     return (
       <DeviceCardShell
+        panelKind="media"
         format="U×2"
         name={on && model.title ? model.title : model.name}
+        nameNode={<ScrollingName name={on && model.title ? model.title : model.name} still={editing} />}
         status={status}
         icon={on ? <MediaArt model={model} pictureUrl={pictureUrl} className="dv-media-art is-round" /> : <MediaKindIcon model={model} size={21} />}
         isOn={on && model.playing}
@@ -346,6 +336,7 @@ export function MediaCard({ model, pictureUrl, format, editing = false, selected
   const progress = <span className="dv-progress" aria-hidden="true"><i style={{ width: `${share.toFixed(1)}%` }} /></span>;
   const frame = (children: React.ReactNode, row = false) => (
     <CardFrame
+      panelKind="media"
       format={format}
       available={model.available}
       on={on && model.playing}
@@ -382,6 +373,7 @@ export function MediaCard({ model, pictureUrl, format, editing = false, selected
         <CardHead
           icon={<MediaArt model={model} pictureUrl={pictureUrl} className="dv-media-art" />}
           name={title}
+          nameNode={<ScrollingName name={title} still={editing} />}
           status={artist ?? model.name}
         />
         {progress}
@@ -396,6 +388,7 @@ export function MediaCard({ model, pictureUrl, format, editing = false, selected
       <span className="dv-size-col">
         <CardHead
           name={title}
+          nameNode={<ScrollingName name={title} still={editing} />}
           status={[artist, model.app].filter(Boolean).join(' · ') || model.name}
           oneLine
           aside={(
@@ -416,19 +409,6 @@ export function MediaCard({ model, pictureUrl, format, editing = false, selected
         </span>
         <span className="flex items-center gap-2">
           {transport}
-          {model.volume !== null && model.supports.volume ? (
-            <span className="dv-volume">
-              <Volume2 size={14} strokeWidth={2.2} aria-hidden="true" />
-              <MediaSlider
-                value={model.muted ? 0 : model.volume}
-                max={100}
-                label={dt('mediaVolume')}
-                valueText={`${model.muted ? 0 : model.volume}%`}
-                disabled={editing}
-                onChange={(value) => onAction({ type: 'volume', level: value })}
-              />
-            </span>
-          ) : null}
         </span>
       </span>
     </>,

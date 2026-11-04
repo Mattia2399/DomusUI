@@ -1797,9 +1797,10 @@ export function RoomsPage({
         ) : null}
       </PanelHost>
 
-      {mediaSheet === 'player' && shownPlayer?.on ? (
+      {mediaSheet === 'player' && shownPlayer ? (
         <Deferred>
           <MediaPlayer
+            surface={phone ? 'screen' : 'window'}
             model={shownPlayer}
             pictureUrl={pictureOfPlayer(shownPlayer)}
             groupCandidates={mediaGroupCandidates}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { loadPanelEntry, type PanelKind } from './registry';
+import { loadMediaPlayer, loadPanelEntry, type PanelKind } from './registry';
 
 /*
  * The entry of a panel loads apart, and nobody should wait for it on the tap. A card asks
@@ -7,20 +7,22 @@ import { loadPanelEntry, type PanelKind } from './registry';
  * latest when a finger or a mouse reaches it. The same rule in the Home and in Rooms.
  */
 
-const asked = new Set<PanelKind>();
-const waiting = new Set<PanelKind>();
-let observer: IntersectionObserver | null = null;
-const kindOf = new WeakMap<Element, PanelKind>();
+type PreloadKind = PanelKind | 'media';
 
-export function preloadPanel(kind: PanelKind) {
+const asked = new Set<PreloadKind>();
+const waiting = new Set<PreloadKind>();
+let observer: IntersectionObserver | null = null;
+const kindOf = new WeakMap<Element, PreloadKind>();
+
+export function preloadPanel(kind: PreloadKind) {
   if (asked.has(kind)) return;
   asked.add(kind);
   waiting.delete(kind);
   // What could not be fetched is asked again the next time.
-  void loadPanelEntry(kind).catch(() => asked.delete(kind));
+  void (kind === 'media' ? loadMediaPlayer() : loadPanelEntry(kind)).catch(() => asked.delete(kind));
 }
 
-function preloadWhenIdle(kind: PanelKind) {
+function preloadWhenIdle(kind: PreloadKind) {
   if (asked.has(kind) || waiting.has(kind)) return;
   waiting.add(kind);
   if (waiting.size > 1) return;
@@ -28,7 +30,7 @@ function preloadWhenIdle(kind: PanelKind) {
   idle(() => [...waiting].forEach(preloadPanel));
 }
 
-function watch(node: Element, kind: PanelKind) {
+function watch(node: Element, kind: PreloadKind) {
   if (typeof IntersectionObserver === 'undefined') return undefined;
   observer ??= new IntersectionObserver((entries) => {
     for (const entry of entries) {
@@ -44,7 +46,7 @@ function watch(node: Element, kind: PanelKind) {
 }
 
 /** What the root of a card spreads, so that the panel it opens is ready before the tap. */
-export function usePanelPreload(kind: PanelKind | null | undefined) {
+export function usePanelPreload(kind: PreloadKind | null | undefined) {
   const ref = React.useRef<HTMLDivElement>(null);
   React.useEffect(() => {
     if (!kind || asked.has(kind)) return undefined;

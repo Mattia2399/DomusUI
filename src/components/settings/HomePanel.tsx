@@ -5,7 +5,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import { usePanelsTranslations } from '../../i18n/panelsTranslations';
 import { PanelShell } from '../devices/panels/PanelShell';
 import { Panel } from '../devices/panels/Panel';
-import { panelKindOfDevice } from '../devices/panels/registry';
+import { loadMediaPlayer, panelKindOfDevice } from '../devices/panels/registry';
 import type { ClimatePanelInput } from '../devices/panels/entries/climate';
 import type { LightPanelInput } from '../devices/panels/entries/light';
 import type { DevicePanelInput } from '../devices/panels/entries/device';
@@ -45,7 +45,7 @@ import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../de
 // Heavier and rarer than a light: each loads when its own card opens.
 const AlarmPanel = React.lazy(() => import('../devices/panels/AlarmPanel'));
 const SensorFamilyPanel = React.lazy(() => import('../devices/panels/SensorFamilyPanel'));
-const MediaPlayer = React.lazy(() => import('../devices/panels/MediaPlayer'));
+const MediaPlayer = React.lazy(loadMediaPlayer);
 const WeatherControls = React.lazy(() => import('./WeatherControls').then((module) => ({ default: module.WeatherControls })));
 
 // The sheet keeps its height while a panel loads: the finger that opened it with
@@ -211,21 +211,22 @@ export function HomePanel(props: HomePanelProps) {
   if (panel === 'media') {
     const model = mediaModelOf(props);
     if (!model) return null;
-    // The player fills the screen: out of the sheet, whose motion would hold it inside.
-    return createPortal(
+    const player = (
       <React.Suspense fallback={LOADING_SHEET}>
         <MediaPlayer
           model={model}
           pictureUrl={props.speaker.coverUrl ?? model.picture}
           groupCandidates={(props.speaker.multiroomDevices ?? []).map((device) => ({ entityId: device.id, name: device.name, roomName: device.subtitle ?? null }))}
+          surface={embedded ? 'screen' : 'column'}
           onAction={(action) => {
             if (props.panelCommandsEnabled) runMediaAction(action, actions);
           }}
           onClose={onClose}
         />
-      </React.Suspense>,
-      document.body,
+      </React.Suspense>
     );
+    // On a phone it fills the screen: out of the sheet, whose motion would hold it inside.
+    return embedded ? createPortal(player, document.body) : player;
   }
   if (panel === 'alarm') {
     return (

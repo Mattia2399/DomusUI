@@ -64,6 +64,7 @@ export interface ActiveDevice {
   sensorConnectionState?: SensorConnectionState;
   switchEntityId?: string;
   fanEntityId?: string;
+  mediaEntityId?: string;
   humidifierEntityId?: string;
   switchConsumptionEntityId?: string;
   alarmState?: string;

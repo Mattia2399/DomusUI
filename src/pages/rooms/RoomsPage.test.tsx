@@ -301,8 +301,8 @@ describe('the Rooms page in the demo', () => {
     expect(within(card).getByRole('button', { name: 'Riproduci' })).toBeTruthy();
     fireEvent.click(within(card).getByRole('button', { name: 'Successivo' }));
     expect(within(card).getByText('Le Alpi viste dal cielo')).toBeTruthy();
-    fireEvent.change(within(card).getByRole('slider', { name: 'Volume' }), { target: { value: '60' } });
-    expect((within(card).getByRole('slider', { name: 'Volume' }) as HTMLInputElement).value).toBe('60');
+    // The volume is only in the player.
+    expect(within(card).queryByRole('slider', { name: 'Volume' })).toBeNull();
   });
 
   it('chooses the player of the room; the one playing pauses', () => {
@@ -323,9 +323,12 @@ describe('the Rooms page in the demo', () => {
     fireEvent.click(within(section).getByRole('button', { name: 'Apri il player completo' }));
     const player = screen.getByTestId('media-player');
     expect(within(player).getByRole('heading', { name: 'Il viaggio di ritorno' })).toBeTruthy();
+    expect(within(player).getByRole('slider', { name: 'Volume' })).toBeTruthy();
+    fireEvent.click(within(player).getByRole('button', { name: 'Sorgente' }));
     fireEvent.click(within(player).getByRole('radio', { name: 'HDMI 1 · Console' }));
     expect(within(player).getByRole('radio', { name: 'HDMI 1 · Console' }).getAttribute('aria-checked')).toBe('true');
-    fireEvent.click(within(player).getByRole('radio', { name: 'Audio' }));
+    fireEvent.click(within(player).getByRole('button', { name: 'Indietro' }));
+    fireEvent.click(within(player).getByRole('button', { name: 'Audio' }));
     fireEvent.click(within(player).getByRole('radio', { name: 'Film' }));
     expect(within(player).getByRole('radio', { name: 'Film' }).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(within(player).getByRole('button', { name: 'Riduci il player' }));

@@ -1,0 +1,538 @@
+/*
+ * The player. Over the screen and in the window it is dark on what the cover gives;
+ * in the column of the Home it keeps the neutral ground of the theme.
+ */
+
+.panel-media {
+  position: relative;
+  color: var(--control-ink);
+  container: panel-media / inline-size;
+}
+
+.panel-media.is-screen,
+.panel-media.is-window {
+  position: fixed;
+  inset: 0;
+  /* As the section pages: above the app navigation (170), below panels and sheets. */
+  z-index: 200;
+  isolation: isolate;
+  overflow: hidden auto;
+  background: #16161a;
+  animation: panel-media-in 340ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --control-ink: #ffffff;
+  --control-ink-2: rgb(255 255 255 / 0.68);
+  --control-soft: rgb(255 255 255 / 0.1);
+  --control-soft-strong: rgb(255 255 255 / 0.16);
+  --control-track: rgb(255 255 255 / 0.2);
+  --control-fill-neutral: #f5f5f2;
+  --control-on: #ffffff;
+  --control-on-ink: #111114;
+  --control-focus: #ffffff;
+  --control-on-ink-chip: #111114;
+}
+
+@keyframes panel-media-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+
+.panel-media.is-state-tv {
+  background: radial-gradient(circle at 30% 20%, #3a4c7a, transparent 60%), radial-gradient(circle at 80% 80%, #24304f, transparent 60%), #15171c;
+}
+
+.panel-media.is-state-nothing {
+  background: linear-gradient(180deg, #2f2f33, #141416);
+}
+
+.panel-media.is-state-off {
+  background: #1a1a1c;
+}
+
+/* The cover behind everything, blurred until only its colours are left. */
+.panel-media-backdrop {
+  position: fixed;
+  z-index: -2;
+  inset: -80px;
+  height: calc(100% + 160px);
+  width: calc(100% + 160px);
+  object-fit: cover;
+  filter: blur(70px) saturate(1.4);
+  opacity: 0.85;
+}
+
+.panel-media.is-screen::after,
+.panel-media.is-window::after {
+  content: '';
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.62));
+  pointer-events: none;
+}
+
+.panel-media-body {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  padding: calc(env(safe-area-inset-top) + 14px) 20px calc(env(safe-area-inset-bottom) + 18px);
+}
+
+.panel-media.is-column .panel-media-body {
+  padding: 16px 20px 20px;
+}
+
+.panel-media.is-window {
+  display: flex;
+}
+
+.panel-media.is-window .panel-media-body {
+  width: min(1040px, calc(100% - 64px));
+  min-height: 0;
+  margin: auto;
+  border: 1px solid rgb(255 255 255 / 0.14);
+  border-radius: 34px;
+  padding: 24px 28px 28px;
+  background: rgb(0 0 0 / 0.28);
+}
+
+/* What is above: Close, where it plays, the power. */
+.panel-media-head {
+  display: grid;
+  flex: none;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-media-round {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+  color: inherit;
+  cursor: pointer;
+}
+
+.panel-media-round.is-empty {
+  background: none;
+}
+
+.panel-media-round.is-lit {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.panel-media-where {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+}
+
+.panel-media-where > span {
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.panel-media-where > button,
+.panel-media-where > b {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.panel-media-where > button {
+  min-height: 24px;
+  cursor: pointer;
+}
+
+.panel-media-where b {
+  overflow: hidden;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-media-where svg {
+  flex: none;
+}
+
+/* The cover and all the rest. */
+.panel-media-main {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.panel-media-cover {
+  display: flex;
+  height: min(72cqw, 36vh);
+  flex: none;
+  align-self: center;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--control-soft);
+  box-shadow: 0 18px 44px -18px rgb(0 0 0 / 0.55);
+  transition: height 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.panel-media.has-zone .panel-media-cover {
+  height: 110px;
+}
+
+.panel-media-cover > img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.panel-media-nocover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--control-ink-2);
+}
+
+.panel-media-nocover > em {
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.panel-media-side {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-media-title {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel-media-title > h2 {
+  overflow: hidden;
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* A name that scrolls brings the size of a card: here it takes the size of the title. */
+.panel-media-title > h2 * {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.panel-media-title > span {
+  overflow: hidden;
+  color: var(--control-ink-2);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The bar of the position and the keys belong to the card too: here they follow the ground. */
+.panel-media .dv-np-track {
+  background: var(--control-track);
+}
+
+.panel-media .dv-np-fill {
+  background: var(--control-fill-neutral);
+}
+
+.panel-media.is-column .dv-np-fill {
+  background: var(--control-on);
+}
+
+.panel-media.has-colour .dv-np-fill {
+  background: var(--device-accent);
+}
+
+.panel-media .dv-np-btn {
+  color: inherit;
+}
+
+.panel-media .dv-np-btn:hover:not(:disabled) {
+  background: var(--control-soft);
+}
+
+.panel-media .dv-np-play {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.panel-media-keys {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-media-key {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--control-ink-2);
+  cursor: pointer;
+}
+
+.panel-media-key.is-on {
+  background: var(--control-soft-strong);
+  color: var(--control-ink);
+}
+
+.panel-media-key.is-plain {
+  cursor: default;
+}
+
+.panel-media-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-media-volume > .glass-bar {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-media-volume > b {
+  min-width: 42px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.panel-media-row {
+  display: flex;
+  margin-top: auto;
+  justify-content: space-around;
+  padding-top: 8px;
+}
+
+.panel-media-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: auto 0;
+  text-align: center;
+}
+
+.panel-media-empty > b {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.panel-media-empty > span {
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* What a shortcut opens. */
+.panel-media-zone {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 20px;
+  padding: 14px;
+  background: rgb(0 0 0 / 0.28);
+}
+
+.panel-media.is-column .panel-media-zone {
+  background: var(--control-soft);
+}
+
+.panel-media-zone-title {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0;
+}
+
+.panel-media-zone-title > b {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.panel-media-zone-title > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.panel-media-speakers {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-media-speaker {
+  display: flex;
+  min-height: 44px;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 4px 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.panel-media-speaker {
+  cursor: pointer;
+}
+
+.panel-media-speaker + .panel-media-speaker {
+  border-top: 1px solid var(--control-soft);
+}
+
+.panel-media-speaker > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.panel-media-speaker b {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.panel-media-speaker > span:last-child > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.panel-media-tick {
+  display: flex;
+  height: 24px;
+  width: 24px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--control-soft-strong);
+  border-radius: 50%;
+}
+
+.panel-media-speaker.is-on > .panel-media-tick {
+  border-color: var(--control-on);
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.panel-media-back {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  align-self: center;
+  gap: 4px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.panel-media :is(.panel-media-round, .panel-media-key, .panel-media-where > button, .panel-media-speaker, .panel-media-back):focus-visible {
+  border-radius: 14px;
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.panel-media :is(.panel-media-round, .panel-media-key):focus-visible {
+  border-radius: 50%;
+}
+
+/* Narrow, as the column of the Home: the five keys have to fit. */
+@container panel-media (max-width: 340px) {
+  .panel-media .dv-np-btn.is-large {
+    height: 44px;
+    width: 44px;
+  }
+
+  .panel-media .dv-np-play.is-large {
+    height: 64px;
+    width: 64px;
+  }
+
+  .panel-media-key {
+    height: 40px;
+    width: 40px;
+  }
+}
+
+/* Wide: the cover at the left, still, and all the rest at the right. */
+@container panel-media (min-width: 720px) {
+  .panel-media-main {
+    flex-direction: row;
+    align-items: center;
+    gap: 32px;
+  }
+
+  .panel-media-cover,
+  .panel-media.has-zone .panel-media-cover {
+    height: min(30cqw, 50vh);
+    align-self: center;
+  }
+
+  .panel-media-side {
+    padding-top: 8px;
+  }
+
+  .panel-media-row {
+    margin-top: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-media.is-screen,
+  .panel-media.is-window,
+  .panel-media-cover {
+    animation: none;
+    transition: none;
+  }
+}

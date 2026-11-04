@@ -76,7 +76,7 @@ export type DeviceCardShellProps = {
   /** The right-hand column of the widest format. */
   side?: React.ReactNode;
   /** The panel it opens: its code is on its way before the tap. */
-  panelKind?: PanelKind | null;
+  panelKind?: PanelKind | 'media' | null;
   className?: string;
 };
 

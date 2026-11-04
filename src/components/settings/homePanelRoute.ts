@@ -195,6 +195,9 @@ export function homePanelOf(props: HomePanelProps) {
 
 /** Finds the real HA entity behind cards whose widget id is not the entity id. */
 export function homeLiveEntityId(props: HomePanelProps, domain: 'lock' | 'media_player') {
+  // The card says which player it shows: the panel opens that one, and guesses only without it.
+  const given = domain === 'media_player' ? props.activeDevice.mediaEntityId : undefined;
+  if (given && homeEntityOf(props.haStates, given)) return given;
   const direct = props.activeDevice.id.startsWith(`${domain}.`) ? props.activeDevice.id : null;
   if (direct && homeEntityOf(props.haStates, direct)) return direct;
   const attributes = domain === 'lock' ? props.lock.rawAttributes : props.speaker.rawAttributes;

@@ -30,7 +30,7 @@ export type CardFrameProps = {
   onOpen?: () => void;
   onSelect?: () => void;
   /** The panel it opens: its code is on its way before the tap. */
-  panelKind?: PanelKind | null;
+  panelKind?: PanelKind | 'media' | null;
   className?: string;
   style?: React.CSSProperties;
   testId?: string;

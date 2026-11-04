@@ -1,6 +1,7 @@
 import React from 'react';
 import { LazyLoadErrorBoundary } from '../../components/common/LazyLoadBoundary';
 import { onceLoaded } from '../../components/common/onceLoaded';
+import { loadMediaPlayer } from '../../components/devices/panels/registry';
 
 /*
  * What the Rooms page opens only on request: the panels of the devices, the
@@ -13,7 +14,7 @@ const loaders = {
   panel: onceLoaded(() => import('../../components/devices/panels/Panel')),
   live: onceLoaded(() => import('../../components/devices/panels/PanelLiveGate')),
   security: onceLoaded(() => import('../../components/devices/panels/SecurityPanel')),
-  media: onceLoaded(() => import('../../components/devices/panels/MediaPlayer')),
+  media: loadMediaPlayer,
   mediaSheets: onceLoaded(() => import('./MediaSheets')),
   section: onceLoaded(() => import('./SectionPage')),
   accessories: onceLoaded(() => import('./AddAccessoriesSheet')),

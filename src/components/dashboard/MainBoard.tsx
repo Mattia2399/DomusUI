@@ -10303,6 +10303,7 @@ export function MainBoard() {
     setActiveDevice({
       id: widget.id,
       type: widget.kind,
+      mediaEntityId: widget.kind === 'media' ? widget.entityId : undefined,
       name: widget.title,
       microWidgets,
       status: liveEntity?.stateLabel ?? liveEntity?.state ?? widget.status,

@@ -1,4 +1,5 @@
 import type React from 'react';
+import { onceLoaded } from '../../common/onceLoaded';
 import type { DeviceModel } from '../model/device';
 import type { PanelFooterProps } from './shell/PanelFooter';
 import type { PanelAccent } from './shell/PanelShell';
@@ -91,6 +92,9 @@ export type PanelSpec = {
 export type PanelEntry<Input> = {
   useSpec: (input: Input) => PanelSpec;
 };
+
+/** The player has a structure of its own: only its code goes by the rule of the panels. */
+export const loadMediaPlayer = onceLoaded(() => import('./MediaPlayer'));
 
 export type PanelKind = 'light' | 'plug' | 'fan' | 'humidifier' | 'cover' | 'climate' | 'camera' | 'vacuum' | 'calendar' | 'members';
 
