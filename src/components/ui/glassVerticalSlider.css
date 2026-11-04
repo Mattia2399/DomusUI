@@ -1,0 +1,136 @@
+.glass-vslider {
+  position: relative;
+  flex: none;
+  overflow: hidden;
+  background: var(--control-track);
+  color: var(--control-ink);
+}
+
+/* The height of a protagonist comes from who holds it, and from the tokens when nobody says. */
+.glass-vslider.is-hero {
+  height: var(--panel-hero-height);
+  width: var(--panel-hero-width);
+  border-radius: 44px;
+}
+
+.glass-vslider.is-compact {
+  height: var(--control-vertical-compact-height);
+  width: var(--control-vertical-compact-width);
+  border-radius: 24px;
+}
+
+.glass-vslider-fill {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--device-accent);
+  transition: height 120ms ease, background 300ms ease;
+}
+
+.glass-vslider.is-neutral .glass-vslider-fill {
+  background: var(--control-fill-neutral);
+}
+
+.glass-vslider-top {
+  position: absolute;
+  top: 18px;
+  right: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  pointer-events: none;
+  text-align: center;
+}
+
+.glass-vslider-top > b {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-vslider.is-compact .glass-vslider-top > b {
+  font-size: 16px;
+  letter-spacing: -0.01em;
+}
+
+.glass-vslider-top > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.glass-vslider.is-covered:not(.is-neutral) .glass-vslider-top,
+.glass-vslider.is-covered:not(.is-neutral) .glass-vslider-top > span {
+  color: var(--device-accent-ink);
+}
+
+.glass-vslider.is-covered.is-neutral .glass-vslider-top,
+.glass-vslider.is-covered.is-neutral .glass-vslider-top > span {
+  color: var(--control-on-ink);
+}
+
+.glass-vslider-icon {
+  position: absolute;
+  right: 0;
+  bottom: 18px;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  color: var(--device-accent-ink);
+  pointer-events: none;
+}
+
+.glass-vslider.is-neutral .glass-vslider-icon {
+  color: var(--control-on-ink);
+}
+
+.glass-vslider-now {
+  position: absolute;
+  right: 14px;
+  left: 14px;
+  border-top: 2px dashed currentColor;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.glass-vslider-now > em {
+  position: absolute;
+  right: 0;
+  bottom: 2px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.glass-vslider input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ns-resize;
+  direction: rtl;
+  touch-action: none;
+  writing-mode: vertical-lr;
+}
+
+.glass-vslider input:disabled {
+  cursor: inherit;
+}
+
+.glass-vslider:has(input:focus-visible) {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-vslider-fill {
+    transition: none;
+  }
+}

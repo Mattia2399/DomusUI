@@ -1,0 +1,26 @@
+/* What the segmented adds to the look it has everywhere. */
+
+.glass-segmented-device .liquid-segmented-option-active {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+.glass-segmented-icon {
+  display: inline-flex;
+  flex: none;
+}
+
+.liquid-segmented-control:not(.glass-seg-stacked) [role='radio']:has(> .glass-segmented-icon) {
+  gap: 6px;
+}
+
+.glass-seg-stacked [role='radio'] {
+  height: 54px;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.glass-seg-icon [role='radio'] {
+  min-width: var(--control-hit-min);
+}

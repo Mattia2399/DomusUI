@@ -1,5 +1,6 @@
 import type React from 'react';
 import { clsx } from 'clsx';
+import { GlassSlider } from '../../ui/GlassSlider';
 import '../theme/devices.css';
 
 /** The horizontal slider of the cards: always 46 px tall; the value is in the status, not inside. */
@@ -15,6 +16,7 @@ export function LevelBar({
   onChange,
   className,
   style,
+  fillPercent,
 }: {
   value: number;
   min?: number;
@@ -28,23 +30,26 @@ export function LevelBar({
   onChange: (value: number) => void;
   className?: string;
   style?: React.CSSProperties;
+  /** How full it looks, when it is not where the value sits between min and max. */
+  fillPercent?: number;
 }) {
-  const share = lit ? (Math.max(min, Math.min(max, value)) - min) / (max - min || 1) : 0;
   return (
-    <span className={clsx('dv-slider', !lit && 'is-off', className)} style={style}>
-      <span className="dv-slider-fill" aria-hidden="true" style={{ width: lit ? `max(32px, ${(share * 100).toFixed(1)}%)` : 0 }} />
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label={label}
-        aria-valuetext={valueText}
-      />
-    </span>
+    <GlassSlider
+      variant="bar"
+      className={clsx('dv-slider', !lit && 'is-off', className)}
+      fillClassName="dv-slider-fill"
+      style={style}
+      value={value}
+      min={min}
+      max={max}
+      step={step}
+      off={!lit}
+      fillPercent={fillPercent}
+      disabled={disabled}
+      label={label}
+      valueText={valueText}
+      onValueChange={onChange}
+    />
   );
 }
 

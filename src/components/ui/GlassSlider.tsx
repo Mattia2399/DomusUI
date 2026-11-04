@@ -1,5 +1,8 @@
 import React from 'react';
 import clsx from 'clsx';
+import { controlBlocked, controlStateAria, controlStateClass, type GlassControlState, type GlassTone } from './glassControl';
+import { useSliderValue, type SliderCommit } from './glassSliderValue';
+import './glassSliderBar.css';
 
 export type GlassSliderTone = 'accent' | 'blue' | 'cyan' | 'green' | 'orange' | 'neutral';
 export type GlassSliderVariant = 'default' | 'compact' | 'overlay';
@@ -12,6 +15,99 @@ export type GlassSliderProps = Omit<React.InputHTMLAttributes<HTMLInputElement>,
   fillStyle?: React.CSSProperties;
   thumbClassName?: string;
 };
+
+/** The bar of the cards and the panels: the fill takes the whole height, with no margin and no thumb. */
+export type GlassBarSliderProps = GlassControlState & {
+  variant: 'bar';
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  onValueChange: (value: number) => void;
+  /** Whether it sends while it is dragged or once, when let go. */
+  commit?: SliderCommit;
+  label: string;
+  valueText?: string;
+  /** Fixed values with their names, which can be touched. */
+  marks?: ReadonlyArray<{ value: number; label: React.ReactNode }>;
+  /** The value written inside the fill, or next to it when the fill is short. */
+  valueInFill?: React.ReactNode;
+  size?: 'default' | 'compact';
+  tone?: GlassTone;
+  /** Shows the empty bar: the device is off. */
+  off?: boolean;
+  /** How full it looks, when it is not where the value sits between min and max. */
+  fillPercent?: number;
+  className?: string;
+  fillClassName?: string;
+  style?: React.CSSProperties;
+};
+
+/** Below this share the value does not fit inside the fill. */
+const VALUE_FITS_FROM_PERCENT = 22;
+
+const GlassBarSlider = React.forwardRef<HTMLInputElement, GlassBarSliderProps>(function GlassBarSlider(
+  { value, min = 0, max = 100, step = 1, onValueChange, commit = 'live', label, valueText, marks, valueInFill, size = 'default', tone = 'neutral', off = false, fillPercent, className, fillClassName, style, disabled, pending, error },
+  ref,
+) {
+  const state = { disabled, pending, error };
+  const { shown, change, release } = useSliderValue(value, commit, onValueChange);
+  const computed = ((Math.max(min, Math.min(max, shown)) - min) / (max - min || 1)) * 100;
+  const percent = commit === 'release' || fillPercent === undefined ? computed : fillPercent;
+  const bar = (
+    <span
+      className={clsx('glass-bar', size === 'compact' && 'is-compact', tone === 'device' && 'is-device', off && 'is-off', controlStateClass(state), className)}
+      style={style}
+    >
+      <span
+        className={clsx('glass-bar-fill', fillClassName)}
+        aria-hidden="true"
+        style={{ width: off ? 0 : `max(32px, ${Number(percent.toFixed(1))}%)` }}
+      >
+        {valueInFill !== undefined && percent >= VALUE_FITS_FROM_PERCENT ? <span className="glass-bar-value">{valueInFill}</span> : null}
+      </span>
+      {valueInFill !== undefined && percent < VALUE_FITS_FROM_PERCENT ? (
+        <span className="glass-bar-value is-outside" aria-hidden="true" style={{ left: `max(32px, ${Number(percent.toFixed(1))}%)` }}>
+          {valueInFill}
+        </span>
+      ) : null}
+      <input
+        ref={ref}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={shown}
+        disabled={controlBlocked(state)}
+        onChange={(event) => change(Number(event.target.value))}
+        aria-label={label}
+        aria-valuetext={valueText}
+        {...controlStateAria(state)}
+        {...release}
+      />
+    </span>
+  );
+  if (!marks || marks.length === 0) return bar;
+  return (
+    <span className="glass-bar-marked">
+      {bar}
+      <span className="glass-bar-marks" role="group" aria-label={label}>
+        {marks.map((mark) => (
+          <button
+            key={mark.value}
+            type="button"
+            className={clsx('glass-bar-mark', shown === mark.value && 'is-on')}
+            aria-pressed={shown === mark.value}
+            disabled={controlBlocked(state)}
+            onClick={() => onValueChange(mark.value)}
+          >
+            {mark.label}
+          </button>
+        ))}
+      </span>
+    </span>
+  );
+});
 
 const FILL_TONE_CLASS: Record<GlassSliderTone, string> = {
   accent: 'bg-[color:var(--ui-accent)]',
@@ -30,7 +126,7 @@ function resolveProgress(value: GlassSliderProps['value'], min: GlassSliderProps
   return Math.min(100, Math.max(0, ((numericValue - numericMin) / (numericMax - numericMin)) * 100));
 }
 
-export const GlassSlider = React.forwardRef<HTMLInputElement, GlassSliderProps>(function GlassSlider(
+const GlassRangeSlider = React.forwardRef<HTMLInputElement, GlassSliderProps>(function GlassRangeSlider(
   {
     variant = 'default',
     tone = 'accent',
@@ -100,6 +196,10 @@ export const GlassSlider = React.forwardRef<HTMLInputElement, GlassSliderProps>(
       />
     </div>
   );
+});
+
+export const GlassSlider = React.forwardRef<HTMLInputElement, GlassSliderProps | GlassBarSliderProps>(function GlassSlider(props, ref) {
+  return props.variant === 'bar' ? <GlassBarSlider ref={ref} {...props} /> : <GlassRangeSlider ref={ref} {...props} />;
 });
 
 export default GlassSlider;

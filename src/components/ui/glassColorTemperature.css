@@ -1,0 +1,77 @@
+.glass-temperature {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.glass-temperature-bar {
+  position: relative;
+  display: block;
+  height: var(--control-bar-height);
+  overflow: hidden;
+  border-radius: var(--control-bar-radius);
+}
+
+.glass-temperature-handle {
+  position: absolute;
+  top: 50%;
+  height: 38px;
+  width: 38px;
+  border: 3px solid var(--control-knob);
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.28);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+
+.glass-temperature-bar input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+
+.glass-temperature-bar input:disabled {
+  cursor: inherit;
+}
+
+.glass-temperature-bar:has(input:focus-visible) {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.glass-temperature-presets {
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: 6px;
+}
+
+.glass-temperature-presets > button {
+  min-height: var(--control-pill-height-dialog);
+  border: 0;
+  border-radius: calc(var(--control-pill-height-dialog) / 2);
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.glass-temperature-presets > button.is-on {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-temperature-presets > button:disabled {
+  cursor: inherit;
+}
+
+.glass-temperature-presets > button:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}

@@ -1,0 +1,69 @@
+.glass-tiles-box {
+  width: 100%;
+  container-type: inline-size;
+}
+
+.glass-tiles {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Where four would not leave room for their names. */
+@container (max-width: 240px) {
+  .glass-tiles {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.glass-tile {
+  display: flex;
+  height: var(--control-tile-height);
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 0;
+  border-radius: 16px;
+  padding: 0 4px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.glass-tile > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glass-tile.is-on {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-tiles.is-device .glass-tile.is-on {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+.glass-tile:disabled {
+  cursor: inherit;
+  opacity: 0.45;
+}
+
+.glass-tile:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-tile {
+    transition: none;
+  }
+}

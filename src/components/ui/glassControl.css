@@ -1,0 +1,29 @@
+/* The states every shared control has in common. */
+
+.glass-is-disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.glass-is-pending {
+  cursor: progress;
+  animation: glass-pending 1.4s ease-in-out infinite;
+}
+
+.glass-is-error {
+  outline: 2px solid var(--state-error);
+  outline-offset: 2px;
+}
+
+@keyframes glass-pending {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-is-pending {
+    animation: none;
+    opacity: 0.7;
+  }
+}

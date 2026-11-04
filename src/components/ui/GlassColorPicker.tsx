@@ -1,18 +1,18 @@
 import React from 'react';
 import clsx from 'clsx';
+import { controlBlocked, controlStateAria, controlStateClass, type GlassControlState } from './glassControl';
 import { clampColor, colorAtPoint, pointOfColor, type HueSaturation } from './glassColorPickerGeometry';
 import './glassColorPicker.css';
 
 export type { HueSaturation } from './glassColorPickerGeometry';
 
-export type GlassColorPickerProps = {
+export type GlassColorPickerProps = GlassControlState & {
   value: HueSaturation;
   /** While dragging, at most once every SEND_EVERY_MS, and always with the last colour. */
   onChange: (value: HueSaturation) => void;
   label: string;
   /** The colour in words, for a screen reader. */
   valueText?: (value: HueSaturation) => string;
-  disabled?: boolean;
   className?: string;
 };
 
@@ -26,7 +26,8 @@ const KEY_STEP = 5;
  * size: its width decides, and it stays round. Drag it, or use the arrows: left
  * and right turn the hue, up and down change the saturation.
  */
-export function GlassColorPicker({ value, onChange, label, valueText, disabled = false, className }: GlassColorPickerProps) {
+export function GlassColorPicker({ value, onChange, label, valueText, disabled: isDisabled = false, pending = false, error = false, className }: GlassColorPickerProps) {
+  const disabled = controlBlocked({ disabled: isDisabled, pending });
   const [dragging, setDragging] = React.useState(false);
   // What the finger chose, shown until the device has answered.
   const [held, setHeld] = React.useState<HueSaturation | null>(null);
@@ -99,7 +100,8 @@ export function GlassColorPicker({ value, onChange, label, valueText, disabled =
       aria-valuenow={Math.round(shown.hue)}
       aria-valuetext={valueText?.(shown)}
       aria-disabled={disabled || undefined}
-      className={clsx('glass-color-picker', dragging && 'is-dragging', disabled && 'is-disabled', className)}
+      {...controlStateAria({ pending, error })}
+      className={clsx('glass-color-picker', dragging && 'is-dragging', isDisabled && 'is-disabled', controlStateClass({ pending, error }), className)}
       onPointerDown={(event) => {
         if (disabled) return;
         event.currentTarget.setPointerCapture?.(event.pointerId);

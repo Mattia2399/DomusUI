@@ -1,0 +1,114 @@
+/*
+ * The bar of the cards and the panels. Inside :where, so that it weighs nothing: the
+ * look of the device cards (.dv-slider) stays theirs until they are redrawn.
+ */
+
+:where(.glass-bar) {
+  position: relative;
+  display: block;
+  height: var(--control-bar-height);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: var(--control-bar-radius);
+  background: var(--control-track);
+}
+
+:where(.glass-bar.is-compact) {
+  height: var(--control-bar-height-compact);
+}
+
+:where(.glass-bar-fill) {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  border-radius: var(--control-bar-radius);
+  background: var(--control-fill-neutral);
+  color: var(--control-on-ink);
+  transition: width 160ms ease;
+}
+
+:where(.glass-bar.is-device .glass-bar-fill) {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+:where(.glass-bar input) {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: ew-resize;
+}
+
+:where(.glass-bar input:disabled) {
+  cursor: inherit;
+}
+
+:where(.glass-bar:has(input:focus-visible)) {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.glass-bar-value {
+  padding: 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.glass-bar-value.is-outside {
+  position: absolute;
+  top: 50%;
+  color: var(--control-ink);
+  transform: translateY(-50%);
+}
+
+.glass-bar-marked {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.glass-bar-marks {
+  display: flex;
+  justify-content: space-between;
+}
+
+.glass-bar-mark {
+  min-height: var(--control-hit-min);
+  min-width: var(--control-hit-min);
+  border: 0;
+  padding: 0 4px;
+  background: none;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.glass-bar-mark.is-on {
+  color: var(--control-ink);
+  font-weight: 700;
+}
+
+.glass-bar-mark:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: -2px;
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.glass-bar-fill) {
+    transition: none;
+  }
+}

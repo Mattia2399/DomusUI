@@ -1,0 +1,52 @@
+.glass-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.glass-swatches.is-nowrap {
+  flex-wrap: nowrap;
+}
+
+.glass-swatch {
+  display: flex;
+  height: var(--control-hit-min);
+  min-width: 0;
+  flex: 0 1 var(--control-hit-min);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.glass-swatch > span {
+  display: flex;
+  height: var(--control-swatch-size);
+  width: var(--control-swatch-size);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgb(127 127 127 / 0.3);
+}
+
+.glass-swatch.is-on > span {
+  box-shadow: 0 0 0 2px var(--control-ring), 0 0 0 4px currentColor;
+}
+
+.glass-swatch-add > span {
+  background: var(--control-soft);
+  color: var(--control-ink);
+}
+
+.glass-swatch:disabled {
+  cursor: inherit;
+}
+
+.glass-swatch:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: -2px;
+  border-radius: 50%;
+}

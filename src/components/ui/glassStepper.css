@@ -1,0 +1,66 @@
+.glass-stepper {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  color: var(--control-ink);
+}
+
+.glass-stepper-button {
+  display: flex;
+  height: var(--control-stepper-button);
+  width: var(--control-stepper-button);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: var(--control-soft-strong);
+  color: inherit;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.glass-stepper-button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.glass-stepper-button:focus-visible,
+.glass-stepper-value:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.glass-stepper-value {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 12px;
+}
+
+.glass-stepper-value > b {
+  font-size: var(--control-stepper-value-size);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-stepper-value > span {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  color: var(--state-off-ink);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-stepper-value .is-reached {
+  color: var(--control-ink);
+}

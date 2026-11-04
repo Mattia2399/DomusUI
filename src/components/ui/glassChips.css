@@ -1,0 +1,54 @@
+.glass-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.glass-chip {
+  display: inline-flex;
+  height: var(--control-pill-height);
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: calc(var(--control-pill-height) / 2);
+  padding: 0 16px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 180ms ease, color 180ms ease;
+}
+
+.glass-chips.is-dialog .glass-chip {
+  height: var(--control-pill-height-dialog);
+  border-radius: calc(var(--control-pill-height-dialog) / 2);
+}
+
+.glass-chip.is-on {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-chips.is-device .glass-chip.is-on {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+.glass-chip:disabled {
+  cursor: inherit;
+}
+
+.glass-chip:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-chip {
+    transition: none;
+  }
+}

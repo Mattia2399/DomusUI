@@ -1,0 +1,107 @@
+/* The variants of the shared button that do not sit on the old glass look. */
+
+.glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  white-space: nowrap;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 100ms ease;
+}
+
+.glass-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.glass-btn:disabled {
+  cursor: inherit;
+}
+
+.glass-btn:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.glass-btn-filled,
+.glass-btn-soft,
+.glass-btn-destructive {
+  height: var(--control-button-height);
+  border-radius: var(--control-bar-radius);
+  padding: 0 18px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.glass-btn-filled {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-btn-filled.is-device {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+.glass-btn-soft {
+  background: var(--control-soft);
+  color: var(--control-ink);
+}
+
+.glass-btn-destructive {
+  background: var(--state-error);
+  color: var(--state-error-ink);
+}
+
+.glass-btn-text {
+  min-height: var(--control-hit-min);
+  padding: 0 4px;
+  background: none;
+  color: var(--state-info);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-btn-icon-40,
+.glass-btn-icon-48,
+.glass-btn-icon-56 {
+  border-radius: 50%;
+  padding: 0;
+}
+
+.glass-btn-icon-40 {
+  height: 40px;
+  width: 40px;
+}
+
+.glass-btn-icon-48 {
+  height: 48px;
+  width: 48px;
+}
+
+.glass-btn-icon-56 {
+  height: 56px;
+  width: 56px;
+}
+
+.glass-btn-soft.is-on {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-btn-soft.is-on.is-device {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-btn {
+    transition: none;
+  }
+
+  .glass-btn:active:not(:disabled) {
+    transform: none;
+  }
+}

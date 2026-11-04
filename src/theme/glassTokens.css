@@ -2,7 +2,7 @@
  * The tokens of the shared controls and of the panel: the only place for their
  * measures, for the meaning of their colours and for their surfaces. Colours that
  * the app already defines (--ui-*) are referred to, never repeated, so that every
- * theme of the app reaches them. Loaded by whoever uses them, not by the first page.
+ * theme of the app reaches them. Loaded once, with the first page (main.tsx).
  * The rules of the panels: docs/design/pannelli/NOTA-regole-pannelli.md
  */
 

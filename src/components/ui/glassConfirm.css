@@ -1,0 +1,30 @@
+.glass-confirm-start {
+  width: 100%;
+}
+
+.glass-confirm {
+  width: 100%;
+}
+
+.glass-confirm.is-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px;
+  background: var(--control-soft);
+}
+
+.glass-confirm-question {
+  margin: 0;
+  color: var(--control-ink);
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.glass-confirm-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}

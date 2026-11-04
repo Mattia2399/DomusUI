@@ -69,6 +69,11 @@ describe('the tokens of the shared controls and of the panel', () => {
     });
   });
 
+  it('is loaded once, with the first page, so that the small pages do not each carry it', () => {
+    const main = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8');
+    expect(main).toContain("import './theme/glassTokens.css';");
+  });
+
   it('leaves the column of the Home neutral and tints only with the colour of the device', () => {
     const root = block(':root');
     expect(valueOf(root, '--surface-column')).not.toContain('device-accent');

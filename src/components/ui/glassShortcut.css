@@ -1,0 +1,55 @@
+.glass-shortcut {
+  display: inline-flex;
+  min-width: var(--control-hit-min);
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--control-ink);
+  font-size: var(--control-shortcut-label-size);
+  font-weight: var(--control-shortcut-label-weight);
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.glass-shortcut-circle {
+  display: flex;
+  height: var(--control-shortcut-size);
+  width: var(--control-shortcut-size);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.glass-shortcut.is-on .glass-shortcut-circle {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-shortcut.is-device.is-on .glass-shortcut-circle {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+.glass-shortcut:disabled {
+  cursor: inherit;
+}
+
+.glass-shortcut:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 3px;
+  border-radius: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-shortcut-circle {
+    transition: none;
+  }
+}

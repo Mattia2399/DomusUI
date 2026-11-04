@@ -336,6 +336,12 @@
   transition: width 160ms ease;
 }
 
+/* A card out of reach says so by itself: its slider does not fade on top of that. */
+.dv-slider.glass-is-disabled {
+  cursor: inherit;
+  opacity: 1;
+}
+
 .dv-slider.is-off .dv-slider-fill {
   background: var(--dv-slider-fill-off);
   box-shadow: none;

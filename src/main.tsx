@@ -11,6 +11,9 @@ import { loadOnboardingTranslations } from './i18n/onboardingTranslations';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import './assets/index.css';
+import './theme/glassTokens.css';
+import './components/ui/glassControl.css';
+import './components/ui/glassButton.css';
 
 declare global {
   interface Window {

@@ -1,0 +1,58 @@
+.glass-toggle-row {
+  display: flex;
+  min-height: var(--control-row-height);
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 18px;
+  padding: 8px 14px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.glass-toggle-row:disabled {
+  cursor: inherit;
+}
+
+.glass-toggle-row:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.glass-toggle-row-icon {
+  display: flex;
+  height: 32px;
+  width: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+}
+
+.glass-toggle-row-icon.is-on {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+}
+
+.glass-toggle-row-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.glass-toggle-row-text > b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-toggle-row-text > span {
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}

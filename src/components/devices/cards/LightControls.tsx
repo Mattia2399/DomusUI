@@ -4,6 +4,7 @@ import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import type { DevicesTranslator } from '../../../i18n/devicesTranslations';
 import { LIGHT_HUE_PRESETS, LIGHT_TEMPERATURE_PRESETS, lightTone, type LightModel, type LightMode } from '../model/light';
 import { hueToRgb, kelvinToRgb, rgbCss } from '../model/tileColor';
+import { LevelBar } from './LevelBar';
 import { toneTitle } from './lightText';
 
 /*
@@ -28,24 +29,18 @@ export function BrightnessBar({
   const pct = model.brightnessPct ?? 100;
   const shown = model.on ? pct : 0;
   return (
-    <span className={clsx('dv-slider', !model.on && 'is-off', className)} style={style}>
-      <span
-        className="dv-slider-fill"
-        aria-hidden="true"
-        style={{ width: model.on ? `max(32px, ${shown}%)` : 0 }}
-      />
-      <input
-        type="range"
-        min={1}
-        max={100}
-        step={1}
-        value={pct}
-        disabled={!model.available}
-        onChange={(event) => onChange(Number(event.target.value))}
-        aria-label={label}
-        aria-valuetext={`${shown}%`}
-      />
-    </span>
+    <LevelBar
+      value={pct}
+      min={1}
+      lit={model.on}
+      fillPercent={shown}
+      disabled={!model.available}
+      onChange={onChange}
+      label={label}
+      valueText={`${shown}%`}
+      className={className}
+      style={style}
+    />
   );
 }
 
