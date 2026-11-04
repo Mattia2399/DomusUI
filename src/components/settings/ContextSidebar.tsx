@@ -52,6 +52,7 @@ type MediaOutputKind = 'speaker' | 'tv' | 'cast';
 // The shared panels load only when a card opens one.
 export const preloadHomePanel = onceLoaded(() => import('./HomePanel'));
 const HomePanel = React.lazy(preloadHomePanel);
+export const preloadHomePanelParts = () => preloadHomePanel().then((module) => module.preloadWeatherPanel());
 
 function resolveEntityStateById(haStates: MockEntityStateMap, entityId: string | undefined) {
   const normalizedEntityId = (entityId ?? '').trim();

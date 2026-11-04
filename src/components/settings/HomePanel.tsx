@@ -1,11 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { CloudSun } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { usePanelsTranslations } from '../../i18n/panelsTranslations';
-import { PanelShell } from '../devices/panels/PanelShell';
 import { Panel } from '../devices/panels/Panel';
-import { loadMediaPlayer, panelKindOfDevice } from '../devices/panels/registry';
+import { loadMediaPlayer, loadPanelEntry, panelKindOfDevice } from '../devices/panels/registry';
 import type { ClimatePanelInput } from '../devices/panels/entries/climate';
 import type { LightPanelInput } from '../devices/panels/entries/light';
 import type { DevicePanelInput } from '../devices/panels/entries/device';
@@ -13,6 +11,8 @@ import type { CalendarPanelInput } from '../devices/panels/entries/calendar';
 import type { CameraPanelInput } from '../devices/panels/entries/camera';
 import type { MembersPanelInput } from '../devices/panels/entries/members';
 import type { VacuumPanelInput } from '../devices/panels/entries/vacuum';
+import type { WeatherPanelInput } from '../devices/panels/entries/weather';
+import { entityChangedAt } from '../devices/model/panelRules';
 import { SecurityPanel } from '../devices/panels/SecurityPanel';
 import type { MockEntityState } from '../../types/ha';
 import { resolveDeviceKind } from '../devices/model/entityKind';
@@ -46,7 +46,6 @@ import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../de
 const AlarmPanel = React.lazy(() => import('../devices/panels/AlarmPanel'));
 const SensorFamilyPanel = React.lazy(() => import('../devices/panels/SensorFamilyPanel'));
 const MediaPlayer = React.lazy(loadMediaPlayer);
-const WeatherControls = React.lazy(() => import('./WeatherControls').then((module) => ({ default: module.WeatherControls })));
 
 // The sheet keeps its height while a panel loads: the finger that opened it with
 // a long press is lifted over the sheet, not over the backdrop that would close it.
@@ -275,20 +274,18 @@ export function HomePanel(props: HomePanelProps) {
     );
   }
   if (panel === 'weather') {
-    return (
-      <PanelShell
-        icon={<CloudSun size={23} strokeWidth={2} />}
-        iconStyle={{ background: 'rgb(100 210 255 / 0.18)', color: '#64d2ff' }}
-        name={activeDevice.name}
-        subtitle={roomName ?? ''}
-        embedded={embedded}
-        onClose={onClose}
-      >
-        <React.Suspense fallback={LOADING_SHEET}>
-          <WeatherControls weather={props.weather} {...props.weatherConfig} />
-        </React.Suspense>
-      </PanelShell>
-    );
+    const weatherAttributes = props.weather.rawAttributes;
+    const weatherIds = Object.keys(props.haStates).filter((id) => id.startsWith('weather.'));
+    // The entity of the card: the one the shown attributes come from, or the only one there is.
+    const weatherEntityId = weatherIds.find((id) => weatherAttributes && props.haStates[id]?.rawAttributes === weatherAttributes) ?? (weatherIds.length === 1 ? weatherIds[0] : null);
+    const input: WeatherPanelInput = {
+      weather: props.weather,
+      entityId: weatherEntityId,
+      isNight: props.haStates['sun.sun']?.state === 'below_horizon',
+      updatedAt: weatherEntityId ? entityChangedAt(props.haStates[weatherEntityId], '__last_updated') : null,
+      ...props.weatherConfig,
+    };
+    return <Panel kind="weather" input={input} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'members') {
     const input: MembersPanelInput = { name: activeDevice.name, members: activeDevice.membersPresence ?? activeDevice.membersMapPoints ?? [], haStates: props.haStates };
@@ -296,5 +293,8 @@ export function HomePanel(props: HomePanelProps) {
   }
   return null;
 }
+
+/** The weather has no device card to ask for it: the Home has it ready with the rest. */
+export const preloadWeatherPanel = () => loadPanelEntry('weather');
 
 export default HomePanel;

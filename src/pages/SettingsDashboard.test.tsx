@@ -62,7 +62,14 @@ const baseProps = {
 };
 
 // Compiling a lazy part on its first import can take longer than a test waits for it: it happens here, off the clock.
-beforeAll(() => import('../components/settings/SettingsMiniSparkline'), 120_000);
+beforeAll(async () => {
+  await Promise.all([
+    import('../components/settings/SettingsMiniSparkline'),
+    import('../components/settings/KioskSettings'),
+    import('../components/settings/ScreensaverSettings'),
+    import('../components/settings/DevicePowerSettings'),
+  ]);
+}, 120_000);
 
 describe('SettingsDashboard', () => {
   it('lists Power and charging in This device for administrators only', async () => {

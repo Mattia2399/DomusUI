@@ -5,7 +5,7 @@ import { resolvePanel } from '../devices/panels/resolvePanel';
 import type { AlarmPanelCommands, AlarmPanelModel } from '../devices/panels/AlarmPanel';
 import type { VacuumPanelCommands, VacuumPanelModel } from '../devices/panels/entries/vacuum';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
-import type { WeatherControls } from './WeatherControls';
+import type { WeatherPanelInput } from '../devices/panels/entries/weather';
 import type { WasteTypeStyleMap } from '../../services/calendarClient';
 import type { VacuumMappedArea } from '../widgets/vacuumDeviceModel';
 import type { LockPanelData } from './lockPanelTypes';
@@ -132,7 +132,6 @@ export type HomePanelActions = {
   runCameraRelatedEntityAction?: (request: CameraRelatedAction) => boolean | void | Promise<boolean | void>;
 };
 
-type WeatherPanelProps = React.ComponentProps<typeof WeatherControls>;
 
 export type HomePanelProps = {
   activeDevice: ActiveDevice;
@@ -153,8 +152,8 @@ export type HomePanelProps = {
   vacuumCommands: VacuumPanelCommands;
   vacuumAreas?: VacuumMappedArea[];
   calendarAgenda: CalendarAgendaController;
-  weather: WeatherPanelProps['weather'];
-  weatherConfig?: Omit<WeatherPanelProps, 'weather'>;
+  weather: WeatherPanelInput['weather'];
+  weatherConfig?: Pick<WeatherPanelInput, 'unit' | 'forecastDays' | 'forecastType' | 'conditionOverride' | 'showWind'>;
   calendarWasteTypes?: WasteTypeStyleMap;
   onConfigureWaste?: () => void;
   /** Commands are hidden while the real editor is configuring the card. */

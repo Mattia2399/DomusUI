@@ -148,7 +148,7 @@ import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import { onceLoaded } from '../common/onceLoaded';
 
 const loadContextSidebar = onceLoaded(() =>
-  import('../settings/ContextSidebar').then((module) => ({ default: module.ContextSidebar, preload: module.preloadHomePanel })),
+  import('../settings/ContextSidebar').then((module) => ({ default: module.ContextSidebar, preload: module.preloadHomePanelParts })),
 );
 const ContextSidebar = React.lazy(loadContextSidebar);
 

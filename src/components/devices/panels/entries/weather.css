@@ -1,0 +1,374 @@
+/*
+ * The weather. On a sheet or in a dialog what is behind follows the sky, and everything
+ * reads in white; in the column of the Home the ground stays neutral.
+ */
+
+.device-context-surface:has(.panel-weather[data-sky='day']),
+[role='dialog']:has(.panel-weather[data-sky='day']) {
+  background: linear-gradient(180deg, #3e7cc9 0%, #6fa3df 45%, #9dbfe8 100%) !important;
+}
+
+.device-context-surface:has(.panel-weather[data-sky='cloud']),
+[role='dialog']:has(.panel-weather[data-sky='cloud']) {
+  background: linear-gradient(180deg, #56708f 0%, #7a90aa 50%, #a0b0c2 100%) !important;
+}
+
+.device-context-surface:has(.panel-weather[data-sky='rain']),
+[role='dialog']:has(.panel-weather[data-sky='rain']) {
+  background: repeating-linear-gradient(105deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 26px), linear-gradient(180deg, #3f4b5c 0%, #5d6b7e 50%, #7d8a9a 100%) !important;
+}
+
+.device-context-surface:has(.panel-weather[data-sky='night']),
+[role='dialog']:has(.panel-weather[data-sky='night']) {
+  background: linear-gradient(180deg, #0b1530 0%, #1c2b55 55%, #2e3f6e 100%) !important;
+}
+
+.device-context-surface:has(.panel-weather[data-sky='storm']),
+[role='dialog']:has(.panel-weather[data-sky='storm']) {
+  background: repeating-linear-gradient(105deg, rgb(255 255 255 / 0.05) 0 1px, transparent 1px 26px), linear-gradient(180deg, #2b2f3a 0%, #4a4458 50%, #6b5c66 100%) !important;
+}
+
+.device-context-surface:has(.panel-weather[data-sky='snow']),
+[role='dialog']:has(.panel-weather[data-sky='snow']) {
+  background: linear-gradient(180deg, #7f93aa 0%, #a7b6c7 55%, #c8d3de 100%) !important;
+}
+
+.panel-shell:not([data-surface='column']):has(.panel-weather[data-sky]) {
+  --control-ink: #ffffff;
+  --control-ink-2: rgb(255 255 255 / 0.78);
+  --control-soft: rgb(255 255 255 / 0.17);
+  --control-soft-strong: rgb(255 255 255 / 0.26);
+  --state-off: rgb(255 255 255 / 0.22);
+  --device-accent: rgb(255 255 255 / 0.22);
+  --device-accent-ink: #ffffff;
+}
+
+.panel-shell:not([data-surface='column']):has(.panel-weather[data-sky]) .panel-header-icon {
+  background: rgb(255 255 255 / 0.22);
+  box-shadow: none;
+  color: #ffffff;
+}
+
+.panel-weather[data-sky='day'] :is(.panel-weather-hours em, .panel-weather-day-icon > em),
+.panel-weather[data-sky='cloud'] :is(.panel-weather-hours em, .panel-weather-day-icon > em),
+.panel-weather[data-sky='snow'] :is(.panel-weather-hours em, .panel-weather-day-icon > em) {
+  color: #eaf7ff;
+}
+
+.panel-weather {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 8px;
+}
+
+.panel-weather-rest {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The temperature large. */
+.panel-weather-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+}
+
+.panel-weather-place {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.panel-weather-temp {
+  font-size: 84px;
+  font-weight: 200;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-weather-cond {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.panel-weather-hero > span {
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.panel-weather-alert {
+  display: flex;
+  gap: 8px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, #ff9f0a 45%, rgb(40 30 10 / 0.5));
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.panel-shell[data-surface='column'] .panel-weather-alert {
+  background: color-mix(in srgb, var(--state-warning) 18%, transparent);
+  color: inherit;
+}
+
+.panel-weather-alert > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+/* A card, and what it says on top. */
+.panel-weather-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 20px;
+  padding: 12px 14px;
+  background: var(--control-soft);
+}
+
+.panel-weather-card > h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  border-bottom: 1px solid var(--control-soft);
+  padding-bottom: 8px;
+  color: var(--control-ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.panel-weather-card > h3.is-caps {
+  border-bottom: 0;
+  padding-bottom: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* The next hours. */
+.panel-weather-hours {
+  display: flex;
+  gap: 2px;
+  margin: 0 -6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.panel-weather-hours > div {
+  display: flex;
+  min-width: 48px;
+  flex: 1 0 48px;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: 14px;
+  padding: 6px 2px;
+}
+
+.panel-weather-hours > div.is-now {
+  background: var(--control-soft);
+}
+
+.panel-weather-hours span {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.panel-weather-hours em,
+.panel-weather-day-icon > em {
+  color: #64d2ff;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.panel-shell[data-surface='column'] :is(.panel-weather-hours em, .panel-weather-day-icon > em) {
+  color: #0a84ff;
+}
+
+.panel-weather-hours b {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The days, on one scale. */
+.panel-weather-days {
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-weather-days > div {
+  display: grid;
+  min-height: 42px;
+  align-items: center;
+  gap: 6px;
+  border-radius: 10px;
+  padding: 0 4px;
+  grid-template-columns: 42px 34px 30px minmax(0, 1fr) 30px;
+}
+
+.panel-weather-days > div + div {
+  border-top: 1px solid var(--control-soft);
+}
+
+.panel-weather-days > div.is-now {
+  background: var(--control-soft);
+}
+
+.panel-weather-days b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.panel-weather-days b::first-letter {
+  text-transform: uppercase;
+}
+
+.panel-weather-day-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.panel-weather-low,
+.panel-weather-high {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.panel-weather-low {
+  color: var(--control-ink-2);
+}
+
+.panel-weather-scale {
+  position: relative;
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--control-soft-strong);
+}
+
+.panel-weather-scale > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #64d2ff, #30d158, #ffd60a, #ff9f0a);
+}
+
+.panel-weather-scale > u,
+.panel-weather-uv > u {
+  position: absolute;
+  top: 50%;
+  height: 11px;
+  width: 11px;
+  border: 2px solid rgb(0 0 0 / 0.3);
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translate(-50%, -50%);
+}
+
+/* A tile for each detail. */
+.panel-weather-tiles {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.panel-weather-tiles .panel-weather-card {
+  gap: 4px;
+}
+
+.panel-weather-tiles .panel-weather-card > b {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-weather-tiles .panel-weather-card > span:last-child:not(.panel-weather-uv) {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.panel-weather-uv {
+  position: relative;
+  display: block;
+  height: 5px;
+  margin: 4px 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #30d158, #ffd60a, #ff9f0a, #ff453a, #bf5af2);
+}
+
+/* Nothing to show. */
+.panel-weather.is-empty {
+  min-height: 224px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.panel-weather.is-empty > h3 {
+  margin: 8px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.panel-weather.is-empty > p {
+  max-width: 300px;
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 14px;
+}
+
+.panel-weather-off {
+  display: flex;
+  height: 56px;
+  width: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--control-soft);
+  color: var(--control-ink-2);
+}
+
+/* Two columns: the temperature still at the left, all the rest at the right. */
+@container panel-shell (min-width: 521px) {
+  .panel-weather {
+    display: grid;
+    align-items: start;
+    gap: 20px;
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .panel-weather-hero {
+    position: sticky;
+    top: 0;
+    padding-top: 28px;
+  }
+
+  .panel-weather-tiles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

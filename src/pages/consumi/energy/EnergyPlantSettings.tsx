@@ -66,7 +66,13 @@ export function EnergyPlantSettings({
   });
   const [confirming, setConfirming] = React.useState(false);
   const [status, setStatus] = React.useState<Status>({});
-  React.useEffect(() => setDraft(plantDraftFromProfile(stored)), [stored]);
+  // Only when the stored plant changes: on the first render it would wipe a touch that came first.
+  const draftOf = React.useRef(stored);
+  React.useEffect(() => {
+    if (draftOf.current === stored) return;
+    draftOf.current = stored;
+    setDraft(plantDraftFromProfile(stored));
+  }, [stored]);
 
   const meters = result.energy_meters?.meters ?? {};
   const known = React.useMemo(() => plantReferences(stored), [stored]);

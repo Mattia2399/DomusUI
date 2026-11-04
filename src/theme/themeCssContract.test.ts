@@ -160,7 +160,6 @@ describe('semantic theme CSS contract', () => {
   it('keeps media and environment panels semantic outside intrinsic previews', () => {
     const media = readSource('src/components/settings/MediaControls.tsx');
     const cover = readSource('src/components/settings/CoverControls.tsx');
-    const weather = readSource('src/components/settings/WeatherControls.tsx');
     const vacuum = readSource('src/components/settings/VacuumControls.tsx');
     const vacuumControls = vacuum.split('export function VacuumControls')[1];
     const camera = readSource('src/components/settings/CameraControls.tsx');
@@ -168,7 +167,7 @@ describe('semantic theme CSS contract', () => {
     const cameraPreviewEnd = camera.indexOf('{canUsePtz && isPtzVisible ? (');
     const cameraStructure = `${camera.slice(0, cameraPreviewStart)}${camera.slice(cameraPreviewEnd)}`;
 
-    for (const panelSource of [media, cover, weather, vacuumControls, cameraStructure]) {
+    for (const panelSource of [media, cover, vacuumControls, cameraStructure]) {
       expect(panelSource).toContain('var(--ui-');
       expect(panelSource).not.toMatch(/(?:text|bg|border)-(?:white|black)(?:\/|\b)/);
       expect(panelSource).not.toMatch(/(?:text|bg)-(?:slate|gray)-/);

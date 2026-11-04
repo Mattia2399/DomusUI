@@ -144,7 +144,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
   const devicePanel = devicePanelId ? devices.modelOf(devicePanelId) : null;
   const [presentation, setPresentation] = React.useState<PanelPresentation>('dialog');
   const panelModel = panelId ? lights.modelOf(panelId) : null;
-  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | null>(null);
+  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | 'sunny' | 'pouring' | 'clear-night' | 'lightning-rainy' | null>(null);
 
   return (
     <section
@@ -153,7 +153,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       data-testid={`devices-lab-${theme}`}
     >
       <div className="flex items-center gap-2">
-        {(['members', 'camera'] as const).map((option) => (
+        {(['members', 'camera', 'sunny', 'pouring', 'clear-night', 'lightning-rainy'] as const).map((option) => (
           <button key={option} type="button" className="dv-glass rooms-pill h-9 rounded-full px-3.5 text-[13px] font-semibold" onClick={() => setDataPanel(option)}>
             {option}
           </button>
@@ -264,6 +264,18 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
                 { id: 'b', personEntityId: 'person.bruno', name: 'Bruno', state: 'home', trackerEntityIds: [], devices: { smartwatch: 1, tablet: 0, smartphone: 1, tracker: 0 } },
                 { id: 'c', personEntityId: 'person.carla', name: 'Carla', state: 'not_home', locationLabel: 'Scuola', trackerEntityIds: [], devices: { smartwatch: 0, tablet: 0, smartphone: 1, tracker: 0 } },
               ],
+            }}
+            onClose={() => setDataPanel(null)}
+          />
+        ) : dataPanel && dataPanel !== 'camera' ? (
+          <Panel
+            kind="weather"
+            input={{
+              isNight: dataPanel === 'clear-night',
+              weather: {
+                available: true, source: 'mock', location: 'Via Roma, Milano', condition: dataPanel, temperature: 14, feelsLike: 12, high: 16, low: 8, precipitation: 0, precipitationAmount: 0, pressure: 1016, dewPoint: 9, cloudCoverage: 40, windGustSpeed: 22, windBearing: 'NW', humidity: 72, windSpeed: 14, uvIndex: 3, visibility: 20, forecast: [],
+                rawAttributes: dataPanel === 'lightning-rainy' ? { alerts: [{ title: 'Allerta arancione per temporali.', description: 'Fino alle 21.' }] } : undefined,
+              },
             }}
             onClose={() => setDataPanel(null)}
           />
