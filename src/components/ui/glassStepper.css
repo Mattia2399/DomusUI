@@ -26,6 +26,10 @@
 
 .glass-stepper-button:disabled {
   cursor: default;
+}
+
+/* At its limit; when the whole control is blocked, it already fades. */
+.glass-stepper:not(.glass-is-disabled, .glass-is-pending) .glass-stepper-button:disabled {
   opacity: 0.35;
 }
 

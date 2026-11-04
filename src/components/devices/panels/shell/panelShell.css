@@ -1,0 +1,474 @@
+/*
+ * The skeleton of a panel. The surface says what it looks like; the width says one
+ * column or two. All the measures come from the tokens (src/theme/glassTokens.css).
+ */
+
+.panel-shell {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  color: var(--control-ink);
+  container: panel-shell / inline-size;
+  transition: background 400ms ease;
+}
+
+.panel-shell.is-tinted {
+  background-image: linear-gradient(rgb(var(--device-accent-rgb) / var(--surface-tint-alpha)), rgb(var(--device-accent-rgb) / var(--surface-tint-alpha)));
+}
+
+/* The sheet: from edge to edge, one height for every panel, rounded only on top. */
+.panel-shell[data-surface='sheet'] {
+  height: var(--panel-sheet-height);
+  width: 100%;
+  border-radius: var(--panel-sheet-radius) var(--panel-sheet-radius) 0 0;
+  padding: 0 20px calc(env(safe-area-inset-bottom) + 16px);
+  background-color: var(--surface-sheet);
+}
+
+/* The column of the Home: neutral, as tall as it needs. */
+.panel-shell[data-surface='column'] {
+  width: 100%;
+  border-radius: var(--panel-sheet-radius);
+  padding: 20px;
+  background-color: var(--surface-column);
+}
+
+/* The dialog of Rooms. */
+.panel-shell[data-surface='dialog'] {
+  width: min(780px, 100%);
+  border-radius: 34px;
+  padding: 22px 24px 24px;
+  background-color: var(--surface-sheet);
+}
+
+.panel-shell-handle {
+  width: 48px;
+  height: 5px;
+  flex: none;
+  align-self: center;
+  margin: 10px 0 9px;
+  border-radius: 3px;
+  background: var(--control-soft-strong);
+}
+
+.panel-shell-body {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--panel-zone-gap);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* In one column the parts follow each other in the body, with one gap. */
+.panel-shell-main {
+  display: contents;
+}
+
+.panel-groups {
+  display: none;
+}
+
+/* The header. */
+
+.panel-header {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.panel-header-icon {
+  display: flex;
+  height: var(--panel-icon-size);
+  width: var(--panel-icon-size);
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--state-off);
+  color: var(--control-ink-2);
+  transition: background 300ms ease;
+}
+
+.panel-header-icon.is-lit {
+  background: var(--device-accent);
+  color: var(--device-accent-ink);
+  box-shadow: 0 8px 22px -6px rgb(var(--device-accent-rgb) / 0.8);
+}
+
+.panel-header-text {
+  display: flex;
+  min-width: 0;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel-header-text > h2 {
+  overflow: hidden;
+  margin: 0;
+  font-size: var(--panel-name-size);
+  font-weight: var(--panel-name-weight);
+  letter-spacing: -0.02em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-header-text > span {
+  overflow: hidden;
+  color: var(--control-ink-2);
+  font-size: var(--panel-status-size);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-header-close {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  height: var(--panel-close-size);
+  width: var(--panel-close-size);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+  color: inherit;
+  cursor: pointer;
+}
+
+.panel-header-close:focus-visible,
+.panel-footer-action:focus-visible,
+.panel-state-actions > :focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+/* The space of the protagonist: what the fixed parts leave. */
+
+.panel-hero {
+  display: flex;
+  min-height: 150px;
+  flex: 1 1 0;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.panel-hero > .glass-vslider.is-hero {
+  height: auto;
+}
+
+.panel-shell[data-surface='column'] .panel-hero,
+.panel-shell[data-surface='dialog'] .panel-hero {
+  height: var(--panel-hero-height);
+  flex: none;
+}
+
+/* The zone of the controls: one height, whatever it holds. */
+
+.panel-control-zone {
+  display: flex;
+  height: var(--panel-controls-height);
+  flex: none;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.panel-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin-block: auto;
+  justify-content: center;
+  gap: 8px 0;
+}
+
+.panel-control-row > .glass-shortcut {
+  min-width: 0;
+  flex: 0 0 25%;
+}
+
+/* The auto margins, not a centred column: what does not fit still scrolls from its top. */
+.panel-control-screen {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  margin-block: auto;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+}
+
+/* The footer: Back at the left, the main action in the middle, always in the same place. */
+
+/* A fixed height: Back, a little taller with its name, must not take anything from the protagonist. */
+.panel-footer {
+  display: grid;
+  height: var(--panel-footer-height);
+  flex: none;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+}
+
+.panel-footer-back {
+  display: flex;
+  grid-column: 1;
+  justify-content: center;
+}
+
+.panel-footer-action {
+  display: flex;
+  height: var(--panel-power-size);
+  width: var(--panel-power-size);
+  grid-column: 2;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+  color: var(--control-ink);
+  cursor: pointer;
+  transition: transform 120ms ease, background 220ms ease;
+}
+
+.panel-footer-action.is-on,
+.panel-footer-action.is-play {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.panel-footer-action.is-stop {
+  background: var(--state-warning);
+  color: #ffffff;
+}
+
+.panel-footer-action:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.panel-footer-action:disabled {
+  cursor: inherit;
+}
+
+/* The three states every panel has in common. */
+
+.panel-state {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.panel-state > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.panel-state > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel-state b {
+  font-weight: 700;
+}
+
+.panel-state.is-off,
+.panel-state.is-waiting {
+  background: var(--state-off);
+  color: var(--control-ink);
+}
+
+.panel-state.is-warning {
+  background: color-mix(in srgb, var(--state-warning) 16%, transparent);
+  color: var(--state-warning);
+}
+
+.panel-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  gap: 8px;
+}
+
+.panel-state-actions > * {
+  display: inline-flex;
+  min-height: var(--control-pill-height-dialog);
+  align-items: center;
+  border: 0;
+  border-radius: calc(var(--control-pill-height-dialog) / 2);
+  padding: 0 14px;
+  background: var(--control-soft-strong);
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.panel-state-actions > button {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.panel-state-spin {
+  height: 18px;
+  width: 18px;
+  flex: none;
+  border: 2px solid var(--control-soft-strong);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: panel-state-spin 900ms linear infinite;
+}
+
+@keyframes panel-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Two columns: the protagonist still at the left, every control in view at the right. */
+
+@container panel-shell (min-width: 521px) {
+  .panel-header {
+    flex-direction: row;
+    gap: 12px;
+    text-align: left;
+  }
+
+  .panel-header-text {
+    flex: 1;
+    width: auto;
+    /* Room for Close and for the main action, which sits here in two columns. */
+    padding-right: 112px;
+  }
+
+  .panel-shell-main {
+    display: grid;
+    min-height: 0;
+    flex: 1;
+    gap: 24px;
+    grid-template-columns: 200px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .panel-hero {
+    height: var(--panel-dialog-slider-height);
+    flex: none;
+  }
+
+  .panel-hero > .glass-vslider.is-hero {
+    height: var(--panel-dialog-slider-height);
+    width: var(--panel-dialog-slider-width);
+  }
+
+  .panel-control-zone {
+    display: none;
+  }
+
+  .panel-groups {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .panel-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border-radius: 22px;
+    padding: 12px 14px 14px;
+    background: var(--control-soft);
+  }
+
+  .panel-group-head {
+    display: flex;
+    min-height: 32px;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-group-head > b {
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .panel-group-head > span:last-child:not(.panel-group-icon) {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+    color: var(--control-ink-2);
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .panel-group-icon {
+    display: flex;
+    height: 30px;
+    width: 30px;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--control-soft-strong);
+  }
+
+  /* The same main action, in the header: the footer gives up its place. */
+  .panel-footer {
+    display: contents;
+  }
+
+  .panel-footer-back {
+    display: none;
+  }
+
+  .panel-footer-action {
+    position: absolute;
+    top: 0;
+    right: 52px;
+    height: var(--control-shortcut-size);
+    width: var(--control-shortcut-size);
+  }
+}
+
+@container panel-shell (min-width: 680px) {
+  .panel-shell-main {
+    grid-template-columns: 300px minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-shell,
+  .panel-header-icon,
+  .panel-footer-action {
+    transition: none;
+  }
+
+  .panel-footer-action:active:not(:disabled) {
+    transform: none;
+  }
+
+  .panel-state-spin {
+    animation: none;
+  }
+}

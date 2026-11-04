@@ -6,8 +6,8 @@ import './glassShortcut.css';
 export type GlassShortcutProps = GlassControlState & {
   icon: React.ReactNode;
   label: string;
-  /** `opens` shows its controls in place of the row; `acts` does its job at once. */
-  kind: 'opens' | 'acts';
+  /** `opens` shows its controls in place of the row; `acts` does its job at once; `plain` just goes, as Back. */
+  kind: 'opens' | 'acts' | 'plain';
   /** Its controls are open, or what it switches is on. */
   on?: boolean;
   onPress: () => void;

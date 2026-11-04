@@ -44,7 +44,17 @@
   --control-stepper-value-size: 28px;
   --control-vertical-compact-width: 70px;
   --control-vertical-compact-height: 180px;
+}
 
+/*
+ * A variable that refers to another is resolved where it is declared: declared again
+ * on each theme, so that a part of the page in the other theme gets its own values.
+ * For the same reason the tint of a panel is written where the colour of the device
+ * is set (panelShell.css), not here.
+ */
+:root,
+.dashboard-theme-dark,
+.dashboard-theme-light {
   /* What a colour means, whatever the device. */
   --state-ok: var(--ui-success);
   --state-warning: var(--ui-warning);
@@ -70,11 +80,6 @@
   --surface-sheet-border: var(--ui-sheet-border);
   /* The column of the Home on a desktop stays neutral: the colour stays on the icon and the slider. */
   --surface-column: var(--ui-surface-glass);
-  /* The sheet of a phone and the dialog take the colour of the device. */
-  --surface-tinted-layer: linear-gradient(
-    rgb(var(--device-accent-rgb) / var(--surface-tint-alpha)),
-    rgb(var(--device-accent-rgb) / var(--surface-tint-alpha))
-  );
 }
 
 .dashboard-theme-dark {

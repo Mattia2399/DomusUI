@@ -8,7 +8,8 @@ const css = readFileSync(resolve(process.cwd(), 'src/theme/glassTokens.css'), 'u
 const app = readFileSync(resolve(process.cwd(), 'src/assets/index.css'), 'utf8');
 
 const block = (selector: string) => {
-  const start = css.indexOf(`${selector} {`);
+  // The last one: the block of a theme alone, not the list of selectors that ends with its name.
+  const start = css.lastIndexOf(`${selector} {`);
   return css.slice(start, css.indexOf('\n}', start));
 };
 const valueOf = (source: string, name: string) => new RegExp(`${name}:\\s*([^;]+);`).exec(source)?.[1].trim();
@@ -45,7 +46,7 @@ describe('the tokens of the shared controls and of the panel', () => {
   });
 
   it('gives meaning to colours through the app tokens, so that every theme reaches them', () => {
-    const root = block(':root');
+    const root = css;
     expect(valueOf(root, '--state-ok')).toBe('var(--ui-success)');
     expect(valueOf(root, '--state-warning')).toBe('var(--ui-warning)');
     expect(valueOf(root, '--state-error')).toBe('var(--ui-danger)');
@@ -55,8 +56,12 @@ describe('the tokens of the shared controls and of the panel', () => {
     );
   });
 
+  it('declares what refers to the app tokens again on each theme, where it gets resolved', () => {
+    expect(css).toMatch(/:root,\s*\.dashboard-theme-dark,\s*\.dashboard-theme-light \{[^}]*--state-ok: var\(--ui-success\)/);
+  });
+
   it('keeps the colour of the device apart, with a value for a panel that gives none', () => {
-    const root = block(':root');
+    const root = css;
     ['--device-accent', '--device-accent-ink', '--device-accent-rgb'].forEach((name) => expect(valueOf(root, name), name).toMatch(/^var\(--ui-accent/));
   });
 
@@ -74,9 +79,7 @@ describe('the tokens of the shared controls and of the panel', () => {
     expect(main).toContain("import './theme/glassTokens.css';");
   });
 
-  it('leaves the column of the Home neutral and tints only with the colour of the device', () => {
-    const root = block(':root');
-    expect(valueOf(root, '--surface-column')).not.toContain('device-accent');
-    expect(css).toMatch(/--surface-tinted-layer: linear-gradient\(\s*rgb\(var\(--device-accent-rgb\)/);
+  it('leaves the column of the Home neutral', () => {
+    expect(valueOf(css, '--surface-column')).not.toContain('device-accent');
   });
 });

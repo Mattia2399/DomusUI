@@ -119,6 +119,8 @@ Non li tocco tutti: come da prompt, sostituisco solo quelli dei componenti su cu
 
 ## 4. Le primitive della Fase 2
 
+Come erano prima del prompt 1. Lo stato finale è al punto 8.
+
 | Primitiva | Stato | Cosa farei | Rischio per l'aspetto di oggi |
 |---|---|---|---|
 | `GlassSegmented` | Esiste come `GlassSegmentSelect` | Estendere: icona e testo, solo icona, colore del dispositivo, `pending`, `error` | Nullo se il default resta uguale |
@@ -163,3 +165,40 @@ Le fondamenta non pesano finché nessuno le usa, ma nel prompt 2 i pannelli le c
 | JS più grande della Home | 1.092,7 KB | 1.100 |
 
 **Decisione:** i limiti non si alzano. Nel prompt 2 si toglie il codice vecchio mentre si aggiunge il nuovo.
+
+## 8. Stato dopo il prompt 1
+
+**Token:** `src/theme/glassTokens.css`, caricato una volta sola da `main.tsx`. I valori che richiamano i token dell'app sono dichiarati di nuovo su ogni tema, perché una variabile CSS che ne richiama un'altra viene calcolata dove è dichiarata. Per lo stesso motivo la tinta del pannello è scritta in `panelShell.css`, dove arriva il colore del dispositivo.
+
+**Primitive in `src/components/ui/`**
+
+| Primitiva | Com'è andata |
+|---|---|
+| `GlassSegmented`, `GlassSwitch` | Spostate dai vecchi file. `GlassSegmentSelect` e `GlassToggle` sono alias |
+| `GlassSlider` | Nuova variante `bar`; le varianti di oggi sono intatte |
+| `GlassButton` | Nuove varianti `filled`, `soft`, `destructive`, `text`; nuove misure `lg`, `icon-40/48/56` |
+| `GlassColorPicker` | Aggiunti `pending` ed `error`; maniglia bianca |
+| `GlassChips`, `GlassVerticalSlider`, `GlassStepper`, `GlassToggleRow`, `GlassShortcut`, `GlassConfirm`, `GlassColorTemperature`, `GlassSwatches`, `GlassTiles` | Nuove |
+
+**Scheletro in `src/components/devices/panels/shell/`:** `PanelShell`, `PanelHeader`, `PanelHero`, `PanelControlZone` con `usePanelScreen`, `PanelFooter`, `PanelGroups`, `PanelStates`. Non è collegato a nulla. Portale, fuoco e trascinamento del foglio restano a chi lo apre (oggi `PanelSheet`): `PanelShell` ne riceve la maniglia.
+
+**Doppioni eliminati:** `LevelBar` e `BrightnessBar` ora stanno su `GlassSlider`, e `BrightnessBar` usa `LevelBar`. Gli altri restano come dal punto 2.
+
+**Pagina di prova:** `/dev/componenti`, solo in sviluppo, fuori dai pacchetti di produzione.
+
+**Misure controllate con Playwright:** `tests/panel-shell-measures.spec.cjs`.
+
+**Peso dopo il prompt 1**
+
+| Gruppo | Oggi | Limite |
+|---|---|---|
+| Onboarding | 119,9 KB | 120 |
+| Stanze · pannelli | 45,2 KB compressi | 46 |
+| Stanze | 320,1 KB | 330 |
+| JS più grande della Home | 1.094,9 KB | 1.100 |
+
+Il gruppo Onboarding è il più stretto: carica `GlassButton`, quindi quel file e `glassControl.ts` devono restare piccoli.
+
+**Non fatto in questo passo**
+- Nella galleria `GlassSlider` ha anche i puntini dei passi (NUM-03), `GlassColorPicker` il nome del colore (ADV-01) e `GlassSwatches` il salvataggio dei colori: il "+" c'è, ma salvare tocca a chi lo usa.
+- `PanelControlZone` non limita le scorciatoie a 8: oltre le 2 file la zona scorre. "Altro" arriva con il prompt 3.

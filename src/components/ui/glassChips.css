@@ -42,6 +42,11 @@
   cursor: inherit;
 }
 
+/* One pill out of reach; when they all are, the group already fades. */
+.glass-chips:not(.glass-is-disabled, .glass-is-pending) .glass-chip:disabled {
+  opacity: 0.45;
+}
+
 .glass-chip:focus-visible {
   outline: 2px solid var(--control-focus);
   outline-offset: 2px;

@@ -17,7 +17,8 @@
 }
 
 .glass-btn:disabled {
-  cursor: inherit;
+  cursor: default;
+  opacity: 0.45;
 }
 
 .glass-btn:focus-visible {

@@ -54,6 +54,10 @@
 
 .glass-tile:disabled {
   cursor: inherit;
+}
+
+/* One tile out of reach; when they all are, the group already fades. */
+.glass-tiles:not(.glass-is-disabled, .glass-is-pending) .glass-tile:disabled {
   opacity: 0.45;
 }
 
