@@ -238,7 +238,7 @@ test('mobile long-press on a card of the three sizes opens its shared panel', as
   const body = page.locator('[data-grid-engine-root-item="robot"] .dv-tile-body');
   await expect(body).toBeVisible({ timeout: 30_000 });
   await longPress(page, body);
-  await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible({ timeout: 15_000 });
   await expectContextPanel(page, 'Root Robot');
 });
 
@@ -264,9 +264,10 @@ test('the finger that opened a panel neither closes it nor presses what lies und
   // Twice each: from the second time on the panel appears while the finger is still down.
   for (const [id, title] of [['alarm', 'Root Alarm'], ['alarm', 'Root Alarm'], ['calendar', 'Root Agenda'], ['calendar', 'Root Agenda'], ['alarm', 'Root Alarm']]) {
     await longPress(page, body(id));
-    await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible({ timeout: 15_000 });
+    const shown = page.locator(id === 'alarm' ? '.device-context-surface .dv-panel' : '.device-context-surface .panel-shell');
+    await expect(shown).toBeVisible({ timeout: 15_000 });
     await page.waitForTimeout(600);
-    await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible();
+    await expect(shown).toBeVisible();
     if (id === 'alarm') await expect(page.locator('.dv-pn-mode.is-on')).toHaveCount(1);
     await expectContextPanel(page, title);
     await page.waitForTimeout(500);

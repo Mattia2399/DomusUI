@@ -126,7 +126,6 @@ import { RoomSection } from './RoomSection';
 import type { SectionCandidate } from './SectionPage';
 import {
   AddAccessoriesSheet,
-  CameraPanel,
   Deferred,
   Panel,
   MediaPickPanel,
@@ -1857,25 +1856,30 @@ export function RoomsPage({
         isOpen={Boolean(panelCamera)}
         onClose={() => setCameraOpenId(null)}
         title={panelCamera?.name ?? ''}
+      
+        wide
       >
         {panelCamera ? (
           <Deferred>
             {withLive(panelCamera.entityId, (live) => (
-              <CameraPanel
-                camera={{
-                  entityId: panelCamera.entityId,
-                  name: panelCamera.name,
-                  status: panelCamera.statusLabel,
-                  streamUrl: panelCamera.streamUrl,
-                  snapshotUrl: panelCamera.snapshotUrl,
-                  isOffline: panelCamera.isOffline,
-                  supportsPtz: panelCamera.supportsPtz,
+              <Panel
+                kind="camera"
+                input={{
+                  camera: {
+                    entityId: panelCamera.entityId,
+                    name: panelCamera.name,
+                    status: panelCamera.statusLabel,
+                    streamUrl: panelCamera.streamUrl,
+                    snapshotUrl: panelCamera.snapshotUrl,
+                    isOffline: panelCamera.isOffline,
+                    supportsPtz: panelCamera.supportsPtz,
+                  },
+                  roomName: activeRoom?.name,
+                  commandsEnabled: haConnected && !demo,
+                  onPtzMove: onCameraPtzMove ? (direction: CameraPtzDirection) => onCameraPtzMove(panelCamera.entityId, direction) : undefined,
+                  onPtzStop: onCameraPtzStop ? () => onCameraPtzStop(panelCamera.entityId) : undefined,
                 }}
-                roomName={activeRoom?.name}
-                commandsEnabled={haConnected && !demo}
                 live={live}
-                onPtzMove={onCameraPtzMove ? (direction) => onCameraPtzMove(panelCamera.entityId, direction) : undefined}
-                onPtzStop={onCameraPtzStop ? () => onCameraPtzStop(panelCamera.entityId) : undefined}
                 onClose={() => setCameraOpenId(null)}
               />
             ))}

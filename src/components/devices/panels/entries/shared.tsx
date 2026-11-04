@@ -57,3 +57,17 @@ export function useTimerItem(timer: DeviceTimer | null | undefined, now: number 
     },
   ];
 }
+
+/** Rows of a name and a value: what a device reports, and nothing it does not. */
+export function PanelRows({ rows }: { rows: ReadonlyArray<readonly [string, string]> }) {
+  return (
+    <div className="panel-rows">
+      {rows.map(([label, value], index) => (
+        <div key={index} className="panel-row">
+          <span>{label}</span>
+          <b>{value}</b>
+        </div>
+      ))}
+    </div>
+  );
+}

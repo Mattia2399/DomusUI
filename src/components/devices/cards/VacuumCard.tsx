@@ -119,6 +119,7 @@ export function VacuumCard({ model, format, editing = false, selected = false, o
   );
   const frame = (children: React.ReactNode, layout: 'row' | 'column' | 'side') => (
     <CardFrame
+      panelKind="vacuum"
       format={format}
       available={model.available}
       on={cleaning}

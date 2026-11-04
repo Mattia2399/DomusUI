@@ -31,8 +31,8 @@ function ScreenBody({ item }: { item: Extract<PanelItem, { kind: 'opens' }> }) {
 
 const shortcutOf = (item: PanelItem): PanelShortcutItem =>
   item.kind === 'opens'
-    ? { key: item.key, icon: item.icon, label: item.label, kind: 'opens', content: <ScreenBody item={item} /> }
-    : { key: item.key, icon: item.icon, label: item.label, kind: 'acts', on: item.on, onPress: item.onPress };
+    ? { key: item.key, icon: item.icon, label: item.label, disabled: item.disabled, kind: 'opens', content: <ScreenBody item={item} /> }
+    : { key: item.key, icon: item.icon, label: item.label, disabled: item.disabled, kind: 'acts', on: item.on, onPress: item.onPress };
 
 const groupOf = (item: PanelItem): PanelGroup => {
   const title = item.title ?? item.label;
@@ -46,9 +46,9 @@ const groupOf = (item: PanelItem): PanelGroup => {
     title,
     note: item.note,
     trailing: item.kind === 'toggle' ? (
-      <GlassSwitch label={title} size="mini" checked={item.on} onChange={item.onPress} />
+      <GlassSwitch label={title} size="mini" checked={item.on} disabled={item.disabled} onChange={item.onPress} />
     ) : (
-      <GlassButton variant="soft" className="panel-group-action" on={item.on} onClick={item.onPress}>
+      <GlassButton variant="soft" className="panel-group-action" on={item.on} disabled={item.disabled} onClick={item.onPress}>
         {item.actionLabel}
       </GlassButton>
     ),
@@ -70,13 +70,22 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
   const heroInstead = open?.kind === 'opens' ? open.hero : undefined;
   const off = Boolean(live?.off);
   const action = spec.action && off ? { ...spec.action, disabled: true } : spec.action;
+  const header = <PanelHeader icon={spec.icon} lit={spec.lit} name={spec.name} status={spec.status} closeLabel={closeLabel ?? dt('close')} onClose={onClose} />;
+
+  if (spec.free) {
+    return (
+      <PanelShell accent={spec.accent} tint={spec.tint && !off} off={off} header={header} states={live?.notice}>
+        {spec.free}
+      </PanelShell>
+    );
+  }
 
   return (
     <PanelShell
       accent={spec.accent}
       tint={spec.tint && !off}
       off={off}
-      header={<PanelHeader icon={spec.icon} lit={spec.lit} name={spec.name} status={spec.status} closeLabel={closeLabel ?? dt('close')} onClose={onClose} />}
+      header={header}
       states={live?.notice}
       hero={
         <PanelHero className={clsx(`is-${spec.heroKind}`, heroInstead ? 'has-instead' : null)}>

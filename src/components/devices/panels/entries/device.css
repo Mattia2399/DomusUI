@@ -1,36 +1,5 @@
 /* What only the panels of a device with more than on and off draw. */
 
-/* Rows of a name and a value. */
-.panel-rows {
-  display: flex;
-  width: 100%;
-  flex-direction: column;
-}
-
-.panel-row {
-  display: flex;
-  min-height: 34px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 14px;
-}
-
-.panel-row + .panel-row {
-  border-top: 1px solid var(--control-soft);
-}
-
-.panel-row > span {
-  color: var(--control-ink-2);
-  font-weight: 500;
-}
-
-.panel-row > b {
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
 /* A cover: the sky behind, and the shutter that comes down over it. */
 .glass-vslider.dv-cover {
   background: linear-gradient(180deg, #3e8ef0, #9fd0ff);

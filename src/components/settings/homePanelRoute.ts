@@ -3,13 +3,13 @@ import type { MockEntityStateMap } from '../../types/ha';
 import { resolveDeviceKind, type DeviceKind } from '../devices/model/entityKind';
 import { resolvePanel } from '../devices/panels/resolvePanel';
 import type { AlarmPanelCommands, AlarmPanelModel } from '../devices/panels/AlarmPanel';
-import type { VacuumPanelCommands, VacuumPanelModel } from '../devices/panels/VacuumPanel';
+import type { VacuumPanelCommands, VacuumPanelModel } from '../devices/panels/entries/vacuum';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import type { WeatherControls } from './WeatherControls';
 import type { WasteTypeStyleMap } from '../../services/calendarClient';
 import type { VacuumMappedArea } from '../widgets/vacuumDeviceModel';
 import type { LockPanelData } from './lockPanelTypes';
-import type { CameraPanelModel, CameraRelatedAction } from '../devices/panels/CameraPanel';
+import type { CameraPanelModel, CameraRelatedAction } from '../devices/panels/entries/camera';
 import type { ActiveDevice } from './types';
 
 /*

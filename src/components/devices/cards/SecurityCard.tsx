@@ -78,6 +78,7 @@ export function SecurityCard({ model, pictureUrl, cameraLabel, editing = false, 
   const live = <span className="dv-live"><i />LIVE</span>;
   const frame = (children: React.ReactNode, className?: string) => (
     <CardFrame
+      panelKind={model.kind === 'camera' ? 'camera' : null}
       format={format ?? 'U×2'}
       available={model.available}
       editing={editing}

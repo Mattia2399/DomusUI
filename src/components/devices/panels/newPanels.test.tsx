@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { MockEntityState, MockEntityStateMap } from '../../../types/ha';
 import { ALARM_FEATURE_ARM_AWAY, ALARM_FEATURE_ARM_HOME, ALARM_FEATURE_ARM_VACATION, ALARM_FEATURE_TRIGGER } from '../../../utils/alarmUtils';
@@ -10,14 +10,15 @@ import type { MembersPresenceEntry } from '../../settings/types';
 import { toDeviceModel } from '../model/device';
 import { alarmExitDelay, alarmHouseOf, alarmModesOf, alarmTriggerZone, memberBattery, secondsLeft, vacuumModeControl } from '../model/panelRules';
 import { AlarmPanel, type AlarmPanelCommands } from './AlarmPanel';
-import { CalendarPanel } from './CalendarPanel';
-import { CameraPanel } from './CameraPanel';
+import { calendarEntry, type CalendarPanelInput } from './entries/calendar';
+import { cameraEntry, type CameraPanelInput } from './entries/camera';
 import { coverEntry, fanEntry } from './entries/device';
 import { PanelView } from './PanelView';
-import { MembersPanel } from './MembersPanel';
+import { membersEntry, type MembersPanelInput } from './entries/members';
 import { PanelServicesProvider } from './panelServicesContext';
 import { SecurityPanel } from './SecurityPanel';
-import { VacuumPanel, type VacuumPanelCommands } from './VacuumPanel';
+import { vacuumEntry, type VacuumPanelCommands, type VacuumPanelInput } from './entries/vacuum';
+import type { PanelEntry } from './registry';
 
 const access = vi.hoisted(() => ({ canControl: true }));
 vi.mock('../../../security/AccessControlProvider', () => ({ useCan: () => access.canControl }));
@@ -27,6 +28,18 @@ afterEach(() => {
   access.canControl = true;
   vi.useRealTimers();
 });
+
+function drawn<I>(entry: PanelEntry<I>, input: I) {
+  function View() {
+    return <PanelView spec={entry.useSpec(input)} onClose={vi.fn()} />;
+  }
+  return render(<View />);
+}
+const camera = (input: CameraPanelInput) => drawn(cameraEntry, input);
+const calendar = (input: CalendarPanelInput) => drawn(calendarEntry, input);
+const members = (input: MembersPanelInput) => drawn(membersEntry, input);
+/** The row of shortcuts: the same controls are also in the groups of the dialog. */
+const shortcuts = () => within(screen.getByRole('group', { name: 'Regolazioni' }));
 
 const entity = (state: string, rawAttributes: Record<string, unknown> = {}) => ({ state, rawAttributes }) as unknown as MockEntityState;
 
@@ -155,21 +168,18 @@ describe('the alarm panel', () => {
 describe('the camera panel', () => {
   it('shows only the live capabilities and related controls that HA exposes', () => {
     const action = vi.fn();
-    render(
-      <CameraPanel
-        camera={{
-          name: 'Ingresso',
-          entityId: 'camera.ingresso',
-          snapshotUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=',
-          relatedEntities: [
-            { entityId: 'switch.sirena', name: 'Sirena', domain: 'switch', category: 'control', state: 'off', stateLabel: 'Spenta' },
-            { entityId: 'binary_sensor.movimento', name: 'Movimento', domain: 'binary_sensor', category: 'detection', state: 'off' },
-          ],
-        }}
-        onRelatedAction={action}
-        onClose={vi.fn()}
-      />,
-    );
+    camera({
+      camera: {
+        name: 'Ingresso',
+        entityId: 'camera.ingresso',
+        snapshotUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=',
+        relatedEntities: [
+          { entityId: 'switch.sirena', name: 'Sirena', domain: 'switch', category: 'control', state: 'off', stateLabel: 'Spenta' },
+          { entityId: 'binary_sensor.movimento', name: 'Movimento', domain: 'binary_sensor', category: 'detection', state: 'off' },
+        ],
+      },
+      onRelatedAction: action,
+    });
     expect(screen.getByText('LIVE')).toBeTruthy();
     expect(screen.getByRole('switch', { name: 'Sirena' })).toBeTruthy();
     expect(screen.queryByText('Movimento')).toBeNull();
@@ -179,17 +189,14 @@ describe('the camera panel', () => {
 
   it('does not invent a live view or controls when they are absent or disabled', () => {
     const action = vi.fn();
-    render(
-      <CameraPanel
-        camera={{
-          name: 'Ingresso',
-          relatedEntities: [{ entityId: 'switch.sirena', name: 'Sirena', domain: 'switch', category: 'control', state: 'off' }],
-        }}
-        commandsEnabled={false}
-        onRelatedAction={action}
-        onClose={vi.fn()}
-      />,
-    );
+    camera({
+      camera: {
+        name: 'Ingresso',
+        relatedEntities: [{ entityId: 'switch.sirena', name: 'Sirena', domain: 'switch', category: 'control', state: 'off' }],
+      },
+      commandsEnabled: false,
+      onRelatedAction: action,
+    });
     expect(screen.getByText('Live stream non disponibile')).toBeTruthy();
     expect(screen.queryByText('LIVE')).toBeNull();
     expect(screen.queryByRole('switch', { name: 'Sirena' })).toBeNull();
@@ -237,8 +244,8 @@ const vacuumCommands = (): VacuumPanelCommands => ({
   start: vi.fn(), pause: vi.fn(), stop: vi.fn(), returnToBase: vi.fn(), locate: vi.fn(), cleanSpot: vi.fn(), cleanArea: vi.fn(), setFanSpeed: vi.fn(),
 });
 
-function renderVacuum(vacuum: Partial<React.ComponentProps<typeof VacuumPanel>['vacuum']>, commands = vacuumCommands()) {
-  render(<VacuumPanel vacuum={{ name: 'Robot', state: 'docked', ...vacuum }} commands={commands} onClose={vi.fn()} />);
+function renderVacuum(vacuum: Partial<VacuumPanelInput['vacuum']>, commands = vacuumCommands()) {
+  drawn(vacuumEntry, { vacuum: { name: 'Robot', state: 'docked', ...vacuum }, commands });
   return commands;
 }
 
@@ -258,11 +265,11 @@ describe('the robot panel', () => {
     const commands = renderVacuum({ batteryLevel: 80, supportsStart: true, supportsReturnToBase: true, supportsLocate: true, supportsFanSpeed: true, fanSpeedList: ['quiet', 'max'], fanSpeed: 'quiet' });
     expect(screen.getByText('80%')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Avvia' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Trova' }));
+    fireEvent.click(shortcuts().getByRole('button', { name: 'Trova' }));
     expect(commands.start).toHaveBeenCalledTimes(1);
     expect(commands.locate).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('Aspirazione')).toBeTruthy();
-    expect((screen.getByRole('button', { name: 'Alla base' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(shortcuts().getByText('Aspirazione')).toBeTruthy();
+    expect((shortcuts().getByRole('button', { name: 'Alla base' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('pauses while it cleans, and stops when it cannot pause', () => {
@@ -286,7 +293,7 @@ describe('the robot panel', () => {
     const select = { domain: 'select', entityId: 'select.robot_mop_mode', name: 'Lavaggio', state: 'vacuum', options: ['vacuum', 'mop', 'both'] };
     expect(vacuumModeControl([select])).toBe(select);
     expect(vacuumModeControl([{ ...select, entityId: 'select.robot_language', name: 'Lingua' }])).toBeNull();
-    render(<VacuumPanel vacuum={{ name: 'Robot', state: 'docked', supportsCleanArea: true }} areas={[{ id: 'a', name: 'Cucina' }] as never} commands={vacuumCommands()} onClose={vi.fn()} />);
+    drawn(vacuumEntry, { vacuum: { name: 'Robot', state: 'docked', supportsCleanArea: true }, areas: [{ id: 'a', name: 'Cucina' }] as never, commands: vacuumCommands() });
     expect(screen.getByRole('button', { name: 'Cucina' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Cucina' }));
     expect(screen.getByRole('button', { name: 'Pulisci 1 stanza' })).toBeTruthy();
@@ -314,10 +321,10 @@ const agenda = (events: CalendarAgendaController['events'] = []): CalendarAgenda
 
 describe('the calendar panel', () => {
   it('offers a new event only when the entity can take one', () => {
-    render(<CalendarPanel name="Famiglia" supportedFeatures={0} agenda={agenda()} onClose={vi.fn()} />);
+    calendar({ name: 'Famiglia', supportedFeatures: 0, agenda: agenda() });
     expect(screen.queryByRole('button', { name: 'Nuovo evento' })).toBeNull();
     cleanup();
-    render(<CalendarPanel name="Famiglia" supportedFeatures={CALENDAR_FEATURE_CREATE_EVENT} agenda={agenda()} onClose={vi.fn()} />);
+    calendar({ name: 'Famiglia', supportedFeatures: CALENDAR_FEATURE_CREATE_EVENT, agenda: agenda() });
     fireEvent.click(screen.getByRole('button', { name: 'Nuovo evento' }));
     expect(screen.getByText('Oggi · nessun evento')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Nuovo evento' })).toBeNull();
@@ -327,7 +334,7 @@ describe('the calendar panel', () => {
     const now = new Date();
     now.setHours(23, 0, 0, 0);
     const later = new Date(now.getTime() + 30 * 60_000);
-    render(<CalendarPanel name="Famiglia" supportedFeatures={0} agenda={agenda([{ uid: 'a', summary: 'Dentista', location: 'Studio', start: now.toISOString(), end: later.toISOString(), allDay: false }] as never)} onClose={vi.fn()} />);
+    calendar({ name: 'Famiglia', supportedFeatures: 0, agenda: agenda([{ uid: 'a', summary: 'Dentista', location: 'Studio', start: now.toISOString(), end: later.toISOString(), allDay: false }] as never) });
     expect(screen.getByText('Oggi · 1 evento')).toBeTruthy();
     expect(screen.getByText('Dentista')).toBeTruthy();
     expect(screen.queryByText(/^Rifiuti/)).toBeNull();
@@ -340,7 +347,7 @@ const member = (over: Partial<MembersPresenceEntry>): MembersPresenceEntry => ({
 
 describe('the members panel', () => {
   it('counts who is in and out, and has no alert nor map while they are off', () => {
-    render(<MembersPanel name="Membri" members={[member({ state: 'home' }), member({ personEntityId: 'person.b', name: 'Bruno', state: 'not_home', latitude: 1, longitude: 1 })]} haStates={{}} onClose={vi.fn()} />);
+    members({ name: 'Membri', members: [member({ state: 'home' }), member({ personEntityId: 'person.b', name: 'Bruno', state: 'not_home', latitude: 1, longitude: 1 })], haStates: {} });
     expect(screen.getByText('1 a casa · 1 fuori')).toBeTruthy();
     expect(screen.queryByRole('img', { name: 'Mappa dei membri' })).toBeNull();
     expect(screen.queryByRole('switch')).toBeNull();
@@ -348,7 +355,7 @@ describe('the members panel', () => {
   });
 
   it('shows the map only when the option is on', () => {
-    render(<MembersPanel name="Membri" mapEnabled members={[member({ state: 'home', latitude: 41.9, longitude: 12.5 })]} haStates={{}} onClose={vi.fn()} />);
+    members({ name: 'Membri', mapEnabled: true, members: [member({ state: 'home', latitude: 41.9, longitude: 12.5 })], haStates: {} });
     expect(screen.getByRole('img', { name: 'Mappa dei membri' })).toBeTruthy();
   });
 

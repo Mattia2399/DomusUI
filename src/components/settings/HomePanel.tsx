@@ -9,7 +9,10 @@ import { panelKindOfDevice } from '../devices/panels/registry';
 import type { ClimatePanelInput } from '../devices/panels/entries/climate';
 import type { LightPanelInput } from '../devices/panels/entries/light';
 import type { DevicePanelInput } from '../devices/panels/entries/device';
-import { CameraPanel } from '../devices/panels/CameraPanel';
+import type { CalendarPanelInput } from '../devices/panels/entries/calendar';
+import type { CameraPanelInput } from '../devices/panels/entries/camera';
+import type { MembersPanelInput } from '../devices/panels/entries/members';
+import type { VacuumPanelInput } from '../devices/panels/entries/vacuum';
 import { SecurityPanel } from '../devices/panels/SecurityPanel';
 import type { MockEntityState } from '../../types/ha';
 import { resolveDeviceKind } from '../devices/model/entityKind';
@@ -41,9 +44,6 @@ import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../de
 
 // Heavier and rarer than a light: each loads when its own card opens.
 const AlarmPanel = React.lazy(() => import('../devices/panels/AlarmPanel'));
-const VacuumPanel = React.lazy(() => import('../devices/panels/VacuumPanel'));
-const CalendarPanel = React.lazy(() => import('../devices/panels/CalendarPanel'));
-const MembersPanel = React.lazy(() => import('../devices/panels/MembersPanel'));
 const SensorFamilyPanel = React.lazy(() => import('../devices/panels/SensorFamilyPanel'));
 const MediaPlayer = React.lazy(() => import('../devices/panels/MediaPlayer'));
 const WeatherControls = React.lazy(() => import('./WeatherControls').then((module) => ({ default: module.WeatherControls })));
@@ -198,19 +198,15 @@ export function HomePanel(props: HomePanelProps) {
     );
   }
   if (panel === 'camera') {
-    return (
-      <CameraPanel
-        camera={{ ...props.camera, name: activeDevice.name }}
-        roomName={roomName}
-        commandsEnabled={props.panelCommandsEnabled}
-        embedded={embedded}
-        live={live}
-        onPtzMove={actions.moveCameraPtz}
-        onPtzStop={actions.stopCameraPtz}
-        onRelatedAction={actions.runCameraRelatedEntityAction}
-        onClose={onClose}
-      />
-    );
+    const input: CameraPanelInput = {
+      camera: { ...props.camera, name: activeDevice.name },
+      roomName,
+      commandsEnabled: props.panelCommandsEnabled,
+      onPtzMove: actions.moveCameraPtz,
+      onPtzStop: actions.stopCameraPtz,
+      onRelatedAction: actions.runCameraRelatedEntityAction,
+    };
+    return <Panel kind="camera" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'media') {
     const model = mediaModelOf(props);
@@ -247,34 +243,18 @@ export function HomePanel(props: HomePanelProps) {
     );
   }
   if (panel === 'vacuum') {
-    return (
-      <React.Suspense fallback={LOADING_SHEET}>
-        <VacuumPanel
-          vacuum={{ ...props.vacuum, name: activeDevice.name }}
-          areas={props.vacuumAreas}
-          commands={props.vacuumCommands}
-          embedded={embedded}
-          live={live}
-          onClose={onClose}
-        />
-      </React.Suspense>
-    );
+    const input: VacuumPanelInput = { vacuum: { ...props.vacuum, name: activeDevice.name }, areas: props.vacuumAreas, commands: props.vacuumCommands };
+    return <Panel kind="vacuum" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'calendar') {
-    return (
-      <React.Suspense fallback={LOADING_SHEET}>
-        <CalendarPanel
-          name={activeDevice.name}
-          supportedFeatures={activeDevice.calendarSupportedFeatures ?? 0}
-          agenda={props.calendarAgenda}
-          wasteTypes={props.calendarWasteTypes}
-          onConfigureWaste={props.onConfigureWaste}
-          embedded={embedded}
-          live={live}
-          onClose={onClose}
-        />
-      </React.Suspense>
-    );
+    const input: CalendarPanelInput = {
+      name: activeDevice.name,
+      supportedFeatures: activeDevice.calendarSupportedFeatures ?? 0,
+      agenda: props.calendarAgenda,
+      wasteTypes: props.calendarWasteTypes,
+      onConfigureWaste: props.onConfigureWaste,
+    };
+    return <Panel kind="calendar" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'sensor' && activeDevice.sensorEntityId) {
     return (
@@ -310,17 +290,8 @@ export function HomePanel(props: HomePanelProps) {
     );
   }
   if (panel === 'members') {
-    return (
-      <React.Suspense fallback={LOADING_SHEET}>
-        <MembersPanel
-          name={activeDevice.name}
-          members={activeDevice.membersPresence ?? activeDevice.membersMapPoints ?? []}
-          haStates={props.haStates}
-          embedded={embedded}
-          onClose={onClose}
-        />
-      </React.Suspense>
-    );
+    const input: MembersPanelInput = { name: activeDevice.name, members: activeDevice.membersPresence ?? activeDevice.membersMapPoints ?? [], haStates: props.haStates };
+    return <Panel kind="members" input={input} closeLabel={closeLabel} onClose={onClose} />;
   }
   return null;
 }

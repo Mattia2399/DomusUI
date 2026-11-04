@@ -144,6 +144,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
   const devicePanel = devicePanelId ? devices.modelOf(devicePanelId) : null;
   const [presentation, setPresentation] = React.useState<PanelPresentation>('dialog');
   const panelModel = panelId ? lights.modelOf(panelId) : null;
+  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | null>(null);
 
   return (
     <section
@@ -152,6 +153,11 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       data-testid={`devices-lab-${theme}`}
     >
       <div className="flex items-center gap-2">
+        {(['members', 'camera'] as const).map((option) => (
+          <button key={option} type="button" className="dv-glass rooms-pill h-9 rounded-full px-3.5 text-[13px] font-semibold" onClick={() => setDataPanel(option)}>
+            {option}
+          </button>
+        ))}
         {(['dialog', 'sheet', 'side'] as PanelPresentation[]).map((option) => (
           <button
             key={option}
@@ -246,6 +252,41 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
           ))}
         </div>
       </div>
+      <PanelHost presentation={presentation} isOpen={dataPanel !== null} onClose={() => setDataPanel(null)} title={dataPanel ?? ''} wide>
+        {dataPanel === 'members' ? (
+          <Panel
+            kind="members"
+            input={{
+              name: 'Membri della casa',
+              haStates: {},
+              members: [
+                { id: 'a', personEntityId: 'person.anna', name: 'Anna', state: 'home', trackerEntityIds: [], devices: { smartwatch: 0, tablet: 0, smartphone: 1, tracker: 0 } },
+                { id: 'b', personEntityId: 'person.bruno', name: 'Bruno', state: 'home', trackerEntityIds: [], devices: { smartwatch: 1, tablet: 0, smartphone: 1, tracker: 0 } },
+                { id: 'c', personEntityId: 'person.carla', name: 'Carla', state: 'not_home', locationLabel: 'Scuola', trackerEntityIds: [], devices: { smartwatch: 0, tablet: 0, smartphone: 1, tracker: 0 } },
+              ],
+            }}
+            onClose={() => setDataPanel(null)}
+          />
+        ) : dataPanel === 'camera' ? (
+          <Panel
+            kind="camera"
+            input={{
+              camera: {
+                entityId: 'camera.lab',
+                name: 'Ingresso',
+                status: 'In diretta',
+                relatedEntities: [
+                  { entityId: 'switch.record', name: 'Registra', domain: 'switch', category: 'control', state: 'on' },
+                  { entityId: 'button.photo', name: 'Foto', domain: 'button', category: 'action' },
+                ],
+                historyEntries: [{ entityId: 'binary_sensor.motion', state: 'Movimento', timestampMs: 1_700_000_000_000 }],
+              },
+              onRelatedAction: () => undefined,
+            }}
+            onClose={() => setDataPanel(null)}
+          />
+        ) : null}
+      </PanelHost>
       <PanelHost presentation={presentation} isOpen={Boolean(climatePanel)} onClose={() => setClimatePanelId(null)} title={climatePanel?.name ?? ''} wide>
         {climatePanel ? (
           <Panel kind="climate" input={{ model: climatePanel, roomName: dt('sectionClimate'), roomHumidity: 48, onAction: (action: ClimateAction) => climates.act(climatePanel.entityId, action) }} onClose={() => setClimatePanelId(null)} />

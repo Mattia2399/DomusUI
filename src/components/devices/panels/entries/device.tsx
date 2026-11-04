@@ -17,7 +17,7 @@ import type { DeviceTimer } from '../../model/deviceTimer';
 import type { PlugEnergy } from '../../model/plugEnergy';
 import type { PanelEntry, PanelItem, PanelPlace, PanelSpec } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
-import { accentOf, chipSize, ICON, useTimerItem } from './shared';
+import { accentOf, chipSize, ICON, PanelRows, useTimerItem } from './shared';
 import './device.css';
 
 /* The devices with more than on and off: a plug, a fan, a humidifier and a cover. */
@@ -286,19 +286,6 @@ function useFanSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: 
 }
 
 export const fanEntry: PanelEntry<DevicePanelInput> = { useSpec: useFanSpec };
-
-function PanelRows({ rows }: { rows: ReadonlyArray<readonly [string, string]> }) {
-  return (
-    <div className="panel-rows">
-      {rows.map(([label, value]) => (
-        <div key={label} className="panel-row">
-          <span>{label}</span>
-          <b>{value}</b>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function useHumidifierSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: DevicePanelInput): PanelSpec {
   const dt = useDevicesTranslations();

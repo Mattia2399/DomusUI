@@ -1,7 +1,7 @@
 import React from 'react';
 import { GlassShortcut } from '../../../ui/GlassShortcut';
 
-export type PanelShortcutItem = { key: string; icon: React.ReactNode; label: string } & (
+export type PanelShortcutItem = { key: string; icon: React.ReactNode; label: string; disabled?: boolean } & (
   | { kind: 'opens'; content: React.ReactNode }
   | { kind: 'acts'; on?: boolean; onPress: () => void }
 );
@@ -49,7 +49,7 @@ export function PanelControlZone({ ariaLabel, shortcuts = [], open = null, onOpe
               icon={item.icon}
               label={item.label}
               on={item.kind === 'acts' ? item.on : false}
-              disabled={disabled}
+              disabled={disabled || item.disabled}
               onPress={item.kind === 'acts' ? item.onPress : () => onOpen?.(item.key)}
             />
           ))}

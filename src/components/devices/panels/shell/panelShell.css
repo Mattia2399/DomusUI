@@ -261,6 +261,14 @@
   flex: 0 0 25%;
 }
 
+/* One line under each: a long name must not take the row below. */
+.panel-control-row .glass-shortcut-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The auto margins, not a centred column: what does not fit still scrolls from its top. */
 .panel-control-screen {
   display: flex;
@@ -338,7 +346,9 @@
 }
 
 .panel-footer-action.is-on,
-.panel-footer-action.is-play {
+.panel-footer-action.is-play,
+.panel-footer-action.is-pause,
+.panel-footer-action.is-add {
   background: var(--control-on);
   color: var(--control-on-ink);
 }

@@ -64,6 +64,7 @@ export function MembersCard({ title, members, format, editing = false, selected 
     member.home === true ? dt('membersHome') : member.home === false ? member.place ?? dt('membersAway') : member.isCurrent ? dt('membersYou') : member.roleLabel ?? '';
   const frame = (children: React.ReactNode, layout: 'row' | 'column' | 'plan') => (
     <CardFrame
+      panelKind="members"
       format={format}
       available
       editing={editing}

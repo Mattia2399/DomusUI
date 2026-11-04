@@ -65,6 +65,7 @@ export function CalendarCard({ name, events, available, format, now = Date.now()
   );
   const frame = (children: React.ReactNode, row = false) => (
     <CardFrame
+      panelKind="calendar"
       format={format}
       available={available}
       editing={editing}

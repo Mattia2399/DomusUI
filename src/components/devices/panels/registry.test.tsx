@@ -8,7 +8,11 @@ import { toClimateModel } from '../model/climate';
 import type { LightModel } from '../model/light';
 import type { PlugEnergy } from '../model/plugEnergy';
 import { lightEntry, type LightPanelInput } from './entries/light';
+import { calendarEntry } from './entries/calendar';
+import { cameraEntry } from './entries/camera';
 import { climateEntry, type ClimatePanelInput } from './entries/climate';
+import { membersEntry } from './entries/members';
+import { vacuumEntry, type VacuumPanelCommands } from './entries/vacuum';
 import { coverEntry, fanEntry, humidifierEntry, plugEntry, type DevicePanelInput } from './entries/device';
 import { PanelView } from './PanelView';
 import { loadPanelEntry } from './registry';
@@ -47,6 +51,10 @@ describe('the registry', () => {
     expect(await loadPanelEntry('humidifier')).toBe(humidifierEntry);
     expect(await loadPanelEntry('cover')).toBe(coverEntry);
     expect(await loadPanelEntry('climate')).toBe(climateEntry);
+    expect(await loadPanelEntry('camera')).toBe(cameraEntry);
+    expect(await loadPanelEntry('vacuum')).toBe(vacuumEntry);
+    expect(await loadPanelEntry('calendar')).toBe(calendarEntry);
+    expect(await loadPanelEntry('members')).toBe(membersEntry);
   });
 });
 
@@ -335,5 +343,47 @@ describe('a climate device', () => {
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Alza massima' }));
     fireEvent.pointerUp(screen.getByRole('button', { name: 'Alza massima' }));
     expect(onAction).toHaveBeenCalledWith({ type: 'range', low: 20, high: 24.5 });
+  });
+});
+
+describe('the panels with a card of data', () => {
+  const commands: VacuumPanelCommands = { start: vi.fn(), pause: vi.fn(), stop: vi.fn(), returnToBase: vi.fn(), locate: vi.fn(), cleanSpot: vi.fn(), cleanArea: vi.fn(), setFanSpeed: vi.fn() };
+  const agenda = { entityId: 'calendar.a', status: 'ready', events: [], error: null } as never;
+
+  it('a camera has no main action, and only the controls it exposes', () => {
+    const spec = specOf(cameraEntry.useSpec, { camera: { name: 'Ingresso' } });
+    expect(spec.heroKind).toBe('data');
+    expect(spec.action).toBeUndefined();
+    expect(labels(spec)).toEqual([]);
+  });
+
+  it('a robot starts, pauses or stops as it can, and has a map only when it is given one', () => {
+    const robot = (over: object) => specOf(vacuumEntry.useSpec, { vacuum: { name: 'Robot', state: 'docked', ...over }, commands });
+    expect(robot({ supportsStart: true }).action?.kind).toBe('play');
+    expect(robot({ state: 'cleaning', supportsPause: true }).action?.kind).toBe('pause');
+    expect(robot({ state: 'cleaning', supportsStop: true }).action?.kind).toBe('stop');
+    expect(robot({}).action).toBeUndefined();
+    expect(labels(robot({}))).toEqual([]);
+    expect(labels(robot({ mapUrl: 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' }))).toEqual(['Mappa']);
+  });
+
+  it('a robot in error takes the red, and says so', () => {
+    const spec = specOf(vacuumEntry.useSpec, { vacuum: { name: 'Robot', state: 'error' }, commands });
+    expect(spec.accent.rgb).toBe('255 69 58');
+    expect(spec.tint).toBe(true);
+  });
+
+  it('a calendar has + only if it can take an event, in place of the power', () => {
+    expect(specOf(calendarEntry.useSpec, { name: 'Famiglia', supportedFeatures: 0, agenda }).action).toBeUndefined();
+    expect(specOf(calendarEntry.useSpec, { name: 'Famiglia', supportedFeatures: 1, agenda }).action?.kind).toBe('add');
+  });
+
+  it('the members have no main action, and no battery without a sensor', () => {
+    const anna = { id: 'a', personEntityId: 'person.a', name: 'Anna', state: 'home', trackerEntityIds: [], devices: { smartwatch: 0, tablet: 0, smartphone: 0, tracker: 0 } };
+    const spec = specOf(membersEntry.useSpec, { name: 'Membri', members: [anna] as never, haStates: {} });
+    expect(spec.action).toBeUndefined();
+    expect(spec.always).toBeUndefined();
+    drawn(membersEntry.useSpec, { name: 'Membri', members: [anna] as never, haStates: {} });
+    expect(screen.queryByText('Telefono')).toBeNull();
   });
 });

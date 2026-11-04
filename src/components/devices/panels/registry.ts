@@ -28,6 +28,8 @@ type ItemCommon = {
   value?: React.ReactNode;
   /** One line under the controls. */
   note?: React.ReactNode;
+  /** It cannot do this now: a robot already at its base. */
+  disabled?: boolean;
   /** The icon of its group takes the colour of the device: it is in use. */
   lit?: boolean;
 };
@@ -80,6 +82,8 @@ export type PanelSpec = {
   groups?: readonly PanelItem[];
   /** Asks in place of the row, before something that cannot wait for a second thought. */
   confirm?: React.ReactNode;
+  /** What needs the whole body of the panel for a while, as the form of a new event. */
+  free?: React.ReactNode;
   /** Power, Stop, Play, or nothing at all. */
   action?: PanelFooterProps['action'];
 };
@@ -88,7 +92,7 @@ export type PanelEntry<Input> = {
   useSpec: (input: Input) => PanelSpec;
 };
 
-export type PanelKind = 'light' | 'plug' | 'fan' | 'humidifier' | 'cover' | 'climate';
+export type PanelKind = 'light' | 'plug' | 'fan' | 'humidifier' | 'cover' | 'climate' | 'camera' | 'vacuum' | 'calendar' | 'members';
 
 /** The panel of a device that is not a light. */
 export const panelKindOfDevice = (kind: DeviceModel['kind']): PanelKind => (kind === 'fan' || kind === 'humidifier' || kind === 'cover' ? kind : 'plug');
@@ -101,10 +105,14 @@ const LOADERS: Record<PanelKind, () => Promise<PanelEntry<any>>> = {
   humidifier: () => import('./entries/device').then((module) => module.humidifierEntry),
   cover: () => import('./entries/device').then((module) => module.coverEntry),
   climate: () => import('./entries/climate').then((module) => module.climateEntry),
+  camera: () => import('./entries/camera').then((module) => module.cameraEntry),
+  vacuum: () => import('./entries/vacuum').then((module) => module.vacuumEntry),
+  calendar: () => import('./entries/calendar').then((module) => module.calendarEntry),
+  members: () => import('./entries/members').then((module) => module.membersEntry),
 };
 
 /** The empty protagonist a panel opens with, while its entry is on its way. */
-const SKELETON: Record<PanelKind, 'slider' | 'card'> = { light: 'slider', plug: 'card', fan: 'slider', humidifier: 'slider', cover: 'slider', climate: 'slider' };
+const SKELETON: Record<PanelKind, 'slider' | 'card'> = { light: 'slider', plug: 'card', fan: 'slider', humidifier: 'slider', cover: 'slider', climate: 'slider', camera: 'card', vacuum: 'card', calendar: 'card', members: 'card' };
 
 export const panelSkeletonOf = (kind: PanelKind) => SKELETON[kind];
 

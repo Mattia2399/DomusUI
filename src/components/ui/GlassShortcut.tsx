@@ -31,7 +31,7 @@ export function GlassShortcut({ icon, label, kind, on = false, onPress, tone = '
       <span className="glass-shortcut-circle" aria-hidden="true">
         {icon}
       </span>
-      {label}
+      <span className="glass-shortcut-label">{label}</span>
     </button>
   );
 }

@@ -1,0 +1,411 @@
+/* The cards of data that stand in the middle of a panel: a camera, a robot, a calendar, the people. */
+
+/* The live picture of a camera. */
+.panel-hero.is-data > .panel-hero-main > .panel-camera {
+  position: relative;
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #1c1c20;
+  color: #ffffff;
+}
+
+.panel-camera > img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.panel-camera-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  opacity: 0.8;
+}
+
+.panel-camera-live {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  height: 24px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 12px;
+  padding: 0 10px;
+  background: rgb(0 0 0 / 0.6);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.panel-camera-live > i {
+  height: 7px;
+  width: 7px;
+  border-radius: 50%;
+  background: #ff453a;
+  animation: panel-camera-live 1.6s ease-in-out infinite;
+}
+
+@keyframes panel-camera-live {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.panel-camera-tools {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 6px;
+}
+
+.panel-camera-tools > button {
+  display: flex;
+  height: 36px;
+  width: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.5);
+  color: inherit;
+  cursor: pointer;
+}
+
+.panel-camera-tools > button:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.panel-camera-ptz {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A robot: its battery, what it is doing, how far it has gone. */
+.panel-vacuum {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.panel-vacuum-ring {
+  position: relative;
+  display: flex;
+  height: 116px;
+  width: 116px;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.panel-vacuum-ring > svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.panel-vacuum-ring circle {
+  fill: none;
+  stroke: var(--control-soft-strong);
+  stroke-width: 9;
+}
+
+.panel-vacuum-ring circle + circle {
+  stroke: #30d158;
+  stroke-linecap: round;
+}
+
+.panel-vacuum-ring.is-low circle + circle,
+.panel-vacuum.is-error .panel-vacuum-ring circle + circle {
+  stroke: #ff453a;
+}
+
+.panel-vacuum-ring > b {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-vacuum-ring > span {
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.panel-vacuum-state {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.panel-vacuum.is-error .panel-vacuum-state,
+.panel-vacuum-stuck {
+  color: #ff453a;
+}
+
+.panel-vacuum-stuck {
+  font-size: 13px;
+}
+
+.panel-vacuum-note {
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.panel-vacuum-bar {
+  position: relative;
+  display: block;
+  height: 6px;
+  width: 70%;
+  flex: none;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--control-soft-strong);
+}
+
+.panel-vacuum-bar > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 3px;
+  background: #64d2ff;
+}
+
+.panel-vacuum-more {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.panel-vacuum-map {
+  display: block;
+  max-height: 100%;
+  width: 100%;
+  border-radius: 22px;
+  object-fit: contain;
+}
+
+/* The events of a day. */
+.panel-calendar-week {
+  width: 100%;
+}
+
+.panel-calendar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-calendar-day {
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.panel-calendar-day::first-letter {
+  text-transform: uppercase;
+}
+
+.panel-calendar-error {
+  margin: 0;
+  color: #ff453a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.panel-calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-calendar-waste.glass-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.panel-event {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.panel-event {
+  cursor: pointer;
+}
+
+.panel-event > i {
+  width: 3px;
+  flex: none;
+  border-radius: 2px;
+}
+
+.panel-event > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.panel-event b {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.panel-event > span > span {
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* The people of the house. */
+.panel-members {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.panel-members-map {
+  position: relative;
+  height: 120px;
+  flex: none;
+  margin-bottom: 8px;
+  border-radius: 16px;
+  background: var(--control-soft);
+}
+
+.panel-members-map > span {
+  position: absolute;
+  display: flex;
+  height: 28px;
+  width: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #30d158;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  transform: translate(-50%, -50%);
+}
+
+.panel-person {
+  display: flex;
+  min-height: 60px;
+  width: 100%;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  padding: 6px 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.panel-person + .panel-person {
+  border-top: 1px solid var(--control-soft);
+}
+
+.panel-person:focus-visible {
+  border-radius: 12px;
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.panel-person-avatar {
+  display: flex;
+  height: 40px;
+  width: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.panel-person.is-selected > .panel-person-avatar {
+  box-shadow: 0 0 0 2px var(--surface-sheet), 0 0 0 4px var(--control-ink);
+}
+
+.panel-person-avatar > img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.panel-person-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.panel-person-text > b {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.panel-person-text > span {
+  overflow: hidden;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-person-text > span.is-away {
+  color: var(--state-warning);
+}
+
+.panel-person-place {
+  flex: none;
+  border-radius: 12px;
+  padding: 4px 10px;
+  background: var(--control-soft-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-camera-live > i {
+    animation: none;
+  }
+}

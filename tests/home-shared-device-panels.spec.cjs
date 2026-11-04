@@ -95,11 +95,11 @@ for (const { width, height, label } of [
       await closeContext(page);
 
       await openCard(page, 'qa-camera', label === 'phone');
-      const cameraPanel = page.locator('.dv-panel').first();
+      const cameraPanel = page.locator('.panel-shell').first();
       await expect(cameraPanel).toBeVisible();
       if (label === 'phone') await expect(page.getByRole('heading', { name: 'Camera QA' })).toBeVisible();
       else await expect(cameraPanel).toContainText('Camera QA');
-      await expect(cameraPanel.locator('.dv-camera-panel-preview')).toBeVisible();
+      await expect(cameraPanel.locator('.panel-camera')).toBeVisible();
       const cameraBounds = await cameraPanel.boundingBox();
       expect(cameraBounds.x).toBeGreaterThanOrEqual(0);
       expect(cameraBounds.x + cameraBounds.width).toBeLessThanOrEqual(width + 1);
