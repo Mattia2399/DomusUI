@@ -4,10 +4,12 @@ import type React from 'react';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../../i18n/I18nProvider';
 import type { DeviceModel } from '../model/device';
 import { toDeviceModel } from '../model/device';
+import { toClimateModel } from '../model/climate';
 import type { LightModel } from '../model/light';
 import type { PlugEnergy } from '../model/plugEnergy';
 import { lightEntry, type LightPanelInput } from './entries/light';
-import { plugEntry, type DevicePanelInput } from './entries/device';
+import { climateEntry, type ClimatePanelInput } from './entries/climate';
+import { coverEntry, fanEntry, humidifierEntry, plugEntry, type DevicePanelInput } from './entries/device';
 import { PanelView } from './PanelView';
 import { loadPanelEntry } from './registry';
 
@@ -41,6 +43,10 @@ describe('the registry', () => {
   it('loads each entry on request', async () => {
     expect(await loadPanelEntry('light')).toBe(lightEntry);
     expect(await loadPanelEntry('plug')).toBe(plugEntry);
+    expect(await loadPanelEntry('fan')).toBe(fanEntry);
+    expect(await loadPanelEntry('humidifier')).toBe(humidifierEntry);
+    expect(await loadPanelEntry('cover')).toBe(coverEntry);
+    expect(await loadPanelEntry('climate')).toBe(climateEntry);
   });
 });
 
@@ -203,5 +209,131 @@ describe('a plug', () => {
 
     drawn(plugEntry.useSpec, input());
     expect(screen.queryByRole('region', { name: 'Spegnimento automatico' })).toBeNull();
+  });
+});
+
+const device = (entityId: string, state: string, attributes: Record<string, unknown>) =>
+  toDeviceModel(entityId, { state, rawAttributes: { friendly_name: 'Dispositivo', ...attributes } } as never) as DeviceModel;
+
+describe('a fan', () => {
+  const full = () => device('fan.a', 'on', { supported_features: 7, percentage: 50, percentage_step: 25, preset_modes: ['Auto'], preset_mode: 'Auto', oscillating: true, direction: 'forward' });
+
+  it('has its speed in the middle, and the power at the bottom', () => {
+    const spec = specOf(fanEntry.useSpec, { model: full(), onAction: vi.fn() });
+    expect(spec.heroKind).toBe('slider');
+    expect(spec.action?.kind).toBe('power');
+  });
+
+  it('offers a shortcut only for what it exposes', () => {
+    expect(labels(specOf(fanEntry.useSpec, { model: full(), onAction: vi.fn(), onSetTimer: vi.fn() }))).toEqual(['Modalità', 'Oscillazione', 'Direzione', 'Timer']);
+    const bare = specOf(fanEntry.useSpec, { model: device('fan.a', 'on', { supported_features: 0 }), onAction: vi.fn() });
+    expect(labels(bare)).toEqual([]);
+    expect(bare.heroKind).toBe('value');
+  });
+
+  it('switches its oscillation at once', () => {
+    const onAction = vi.fn();
+    drawn(fanEntry.useSpec, { model: full(), onAction });
+    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Oscillazione' }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'fan_oscillate', oscillating: false });
+  });
+});
+
+describe('a humidifier', () => {
+  it('has its target in the middle, with the humidity now marked on it', () => {
+    const { container } = drawn(humidifierEntry.useSpec, { model: device('humidifier.a', 'on', { humidity: 50, current_humidity: 45, available_modes: ['Eco'] }), onAction: vi.fn() });
+    expect(container.querySelector('.glass-vslider-now')?.textContent).toBe('ora 45%');
+  });
+
+  it('offers a shortcut only for what it exposes', () => {
+    const input = (attributes: Record<string, unknown>): DevicePanelInput => ({ model: device('humidifier.a', 'on', attributes), onAction: vi.fn() });
+    expect(labels(specOf(humidifierEntry.useSpec, input({ humidity: 50, current_humidity: 45, available_modes: ['Eco'] })))).toEqual(['Umidità', 'Modalità']);
+    expect(labels(specOf(humidifierEntry.useSpec, input({ humidity: 50 })))).toEqual([]);
+  });
+});
+
+describe('a cover', () => {
+  const full = (state = 'open') => device('cover.a', state, { supported_features: 143, current_position: 76, current_tilt_position: 45 });
+
+  it('has no shortcuts: the position and the slats are always in view', () => {
+    const spec = specOf(coverEntry.useSpec, { model: full(), onAction: vi.fn() });
+    expect(spec.heroKind).toBe('cover');
+    expect(spec.shortcuts).toEqual([]);
+    expect(spec.always).toBeTruthy();
+    expect(spec.groups?.map((item) => item.label)).toEqual(['Posizione', 'Inclinazione lamelle']);
+  });
+
+  it('leaves the slats out when it has none', () => {
+    const spec = specOf(coverEntry.useSpec, { model: device('cover.a', 'open', { supported_features: 15, current_position: 76 }), onAction: vi.fn() });
+    expect(spec.groups?.map((item) => item.label)).toEqual(['Posizione']);
+  });
+
+  it('closes from its power, and Stop takes its place while it moves', () => {
+    const onAction = vi.fn();
+    expect(specOf(coverEntry.useSpec, { model: full(), onAction }).action?.kind).toBe('power');
+    const moving = specOf(coverEntry.useSpec, { model: full('closing'), onAction }).action;
+    expect(moving?.kind).toBe('stop');
+    moving?.onPress();
+    expect(onAction).toHaveBeenCalledWith({ type: 'cover_stop' });
+  });
+
+  it('has no main action when it cannot do what is left', () => {
+    const spec = specOf(coverEntry.useSpec, { model: device('cover.a', 'open', { supported_features: 1 }), onAction: vi.fn() });
+    expect(spec.action).toBeUndefined();
+  });
+});
+
+describe('a climate device', () => {
+  const climate = (state: string, attributes: Record<string, unknown> = {}) =>
+    toClimateModel('climate.a', { state, rawAttributes: { friendly_name: 'Clima', hvac_modes: ['off', 'heat', 'cool', 'heat_cool', 'dry'], target_temp_step: 0.5, ...attributes } } as never);
+  const heating = (attributes: Record<string, unknown> = {}) => climate('heat', { temperature: 22, current_temperature: 20.4, ...attributes });
+  const input = (over: Partial<ClimatePanelInput> = {}): ClimatePanelInput => ({ model: heating(), onAction: vi.fn(), ...over });
+
+  it('has its target in the middle, with the room marked on it', () => {
+    const { container } = drawn(climateEntry.useSpec, input());
+    expect(specOf(climateEntry.useSpec, input()).heroKind).toBe('slider');
+    expect(container.querySelector('.glass-vslider-now')?.textContent).toBe('ora 20,4°');
+  });
+
+  it('offers a shortcut only for what it exposes, in the order of the note', () => {
+    expect(labels(specOf(climateEntry.useSpec, input()))).toEqual(['Modalità', 'Allinea']);
+    const full = input({
+      model: heating({ fan_modes: ['auto', '1'], preset_modes: ['eco'], swing_modes: ['off', 'vertical'] }),
+      extras: { supportsTargetHumidity: true, targetHumidity: 50, supportsHorizontalSwing: true, horizontalSwingModes: ['center'] },
+      onExtraAction: vi.fn(),
+    });
+    expect(labels(specOf(climateEntry.useSpec, full))).toEqual(['Modalità', 'Ventola', 'Profilo', 'Alette', 'Umidità', 'Orizzontali', 'Allinea']);
+  });
+
+  it('offers only its modes while it is off', () => {
+    const spec = specOf(climateEntry.useSpec, input({ model: climate('off', { temperature: 22, current_temperature: 20, fan_modes: ['auto'] }) }));
+    expect(labels(spec)).toEqual(['Modalità']);
+    expect(spec.heroKind).toBe('value');
+  });
+
+  it('aligns the target to the temperature now, on the step it can take', () => {
+    const onAction = vi.fn();
+    drawn(climateEntry.useSpec, input({ onAction }));
+    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Allinea' }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'target', target: 20.5 });
+    expect(screen.getByRole('button', { name: 'Allinea a 20,5°' })).toBeTruthy();
+  });
+
+  it('has nothing to align without one target, or without a temperature now', () => {
+    const noTarget = specOf(climateEntry.useSpec, input({ model: climate('dry', { current_temperature: 20.4 }) }));
+    expect(labels(noTarget)).not.toContain('Allinea');
+    expect(noTarget.heroKind).toBe('value');
+    const range = specOf(climateEntry.useSpec, input({ model: climate('heat_cool', { target_temp_low: 20, target_temp_high: 24, current_temperature: 20.4 }) }));
+    expect(labels(range)).not.toContain('Allinea');
+    expect(range.heroKind).toBe('data');
+    expect(labels(specOf(climateEntry.useSpec, input({ model: climate('heat', { temperature: 22 }) })))).not.toContain('Allinea');
+  });
+
+  it('keeps both ends of a range within reach, one step apart', () => {
+    const onAction = vi.fn();
+    drawn(climateEntry.useSpec, input({ onAction, model: climate('heat_cool', { target_temp_low: 20, target_temp_high: 24, current_temperature: 20.4 }) }));
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Alza massima' }));
+    fireEvent.pointerUp(screen.getByRole('button', { name: 'Alza massima' }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'range', low: 20, high: 24.5 });
   });
 });

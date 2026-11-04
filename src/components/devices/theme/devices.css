@@ -570,73 +570,6 @@
   font-weight: 700;
 }
 
-/* A cover as a window: sky behind, the shutter coming down as it closes. */
-.dv-vslider.dv-cover {
-  background: linear-gradient(180deg, #3e8ef0, #9fd0ff);
-}
-
-.dv-cover-shut {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  background: repeating-linear-gradient(180deg, #e6e6eb 0 12px, #c9c9d1 12px 14px);
-  box-shadow: 0 2px 0 #a9a9b3, 0 8px 14px -6px rgb(0 0 0 / 0.45);
-  transition: height 200ms linear;
-}
-
-.dv-cover-tag {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  display: flex;
-  height: 30px;
-  align-items: center;
-  border-radius: 15px;
-  padding: 0 12px;
-  background: rgb(0 0 0 / 0.42);
-  color: #ffffff;
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  pointer-events: none;
-  transform: translateX(-50%);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-}
-
-.dv-hslider {
-  position: relative;
-  display: block;
-  height: 28px;
-  overflow: hidden;
-  border-radius: 14px;
-  background: var(--dv-track);
-}
-
-.dv-hslider span {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  background: var(--dv-tone, #ff9f0a);
-}
-
-.dv-hslider input {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: pointer;
-}
-
-.dv-hslider:has(input:focus-visible) {
-  outline: 2px solid var(--dv-focus);
-  outline-offset: 3px;
-}
-
 .dv-panel-tint-soft {
   --dv-panel-tint-alpha: var(--dv-tone-tint-alpha);
 }
@@ -803,48 +736,9 @@
   outline-offset: 2px;
 }
 
-.dv-step-strong {
-  height: 44px;
-  width: 44px;
-  background: var(--dv-pill-on);
-  color: var(--dv-pill-on-ink);
-}
-
 .dv-step[aria-disabled='true'] {
   cursor: default;
   opacity: 0.4;
-}
-
-.dv-climate-now {
-  position: absolute;
-  right: 12px;
-  left: 12px;
-  height: 0;
-  border-top: 2px dashed currentColor;
-  opacity: 0.6;
-  pointer-events: none;
-  transition: bottom 200ms ease;
-}
-
-.dv-climate-now span {
-  position: absolute;
-  right: 0;
-  bottom: 3px;
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.dv-climate-side {
-  width: 228px;
-  flex: none;
-  box-sizing: border-box;
-}
-
-@container (max-width: 520px) {
-  .dv-climate-side {
-    width: 100%;
-  }
 }
 
 .dv-climate-mode {
@@ -2153,56 +2047,6 @@
   transition: background 400ms ease;
 }
 
-.dv-panel-body {
-  display: flex;
-  align-items: stretch;
-  gap: 22px;
-}
-
-.dv-panel-side {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.dv-vslider {
-  position: relative;
-  height: 300px;
-  width: 128px;
-  flex: none;
-  overflow: hidden;
-  border-radius: 36px;
-  background: var(--dv-track);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.25);
-}
-
-.dv-vslider-fill {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  transition: height 120ms ease, background 300ms ease;
-}
-
-.dv-vslider input {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  width: 100%;
-  margin: 0;
-  opacity: 0;
-  cursor: ns-resize;
-  writing-mode: vertical-lr;
-  direction: rtl;
-}
-
-.dv-vslider:has(input:focus-visible) {
-  outline: 2px solid var(--dv-focus);
-  outline-offset: 3px;
-}
-
 .dv-round {
   display: flex;
   height: 48px;
@@ -2231,22 +2075,6 @@
 .dv-glass.dv-round {
   border: 1px solid var(--dv-glass-border);
   background: var(--dv-glass);
-}
-
-@container (max-width: 520px) {
-  .dv-panel-body {
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .dv-vslider {
-    height: 260px;
-    width: 140px;
-  }
-
-  .dv-panel-side {
-    width: 100%;
-  }
 }
 
 .dv-panel-frame {
@@ -2288,29 +2116,6 @@
 .dv-panel-section {
   display: flex;
   flex-direction: column;
-}
-
-@container (min-width: 521px) {
-  /* What used to follow the body of a panel: the timer below everything, a plug as a column. */
-  .dv-panel-stage.is-wrap {
-    flex-wrap: wrap;
-    row-gap: 18px;
-  }
-
-  .dv-panel-stage.is-stack {
-    flex-direction: column;
-    gap: 18px;
-  }
-
-  .dv-panel-stage > .dv-panel-full {
-    flex: 0 0 100%;
-  }
-
-  .dv-panel-stage > .dv-panel-side {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
 }
 
 .dv-panel-shortcut {
@@ -2395,34 +2200,6 @@
     justify-content: center;
   }
 
-  /* The zone below the slider has one height, whatever it holds: the slider never changes. */
-  .dv-panel-stage {
-    display: grid;
-    min-height: 0;
-    width: 100%;
-    flex: 1;
-    gap: 18px;
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 300px 148px;
-    justify-items: center;
-  }
-
-  /* One column: what shares the zone below the slider shares its cell, never a column of its own. */
-  .dv-panel-stage > * {
-    grid-column: 1;
-  }
-
-  .dv-panel-stage > .dv-vslider {
-    grid-row: 1;
-    height: 100%;
-    width: 148px;
-  }
-
-  .dv-panel-stage > .dv-panel-side {
-    display: none;
-    grid-row: 2;
-  }
-
   /* What stands in for the slider of a device without one. */
   .dv-panel-hero {
     display: block;
@@ -2432,46 +2209,6 @@
     font-weight: 700;
     letter-spacing: -0.03em;
     text-align: center;
-  }
-
-  .dv-panel-stage > .dv-panel-hero-card {
-    min-height: 0;
-    width: 100%;
-    grid-row: 1;
-    align-self: stretch;
-    overflow-y: auto;
-  }
-
-  /* A screen that is a direct part of the stage, as the timer. */
-  .dv-panel-stage > .dv-panel-section {
-    grid-row: 2;
-    max-height: 100%;
-    overflow-y: auto;
-  }
-
-  .dv-panel-stage > .dv-panel-shortcuts {
-    display: flex;
-    max-height: 100%;
-    width: 100%;
-    grid-row: 2;
-    align-self: center;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 8px 0;
-    overflow-y: auto;
-  }
-
-  .dv-panel-stage.has-section > .dv-panel-shortcuts {
-    display: none;
-  }
-
-  .dv-panel-stage.has-section > .dv-panel-side {
-    display: flex;
-    min-height: 0;
-    width: 100%;
-    align-self: stretch;
-    overflow-y: auto;
   }
 
   .dv-panel-section {
@@ -2513,11 +2250,6 @@
     flex: 0 1 44px;
   }
 
-
-  .dv-panel-section.is-open .dv-hslider {
-    width: 100%;
-  }
-
   .dv-panel-section.is-open[role='radiogroup'],
   .dv-panel-section.is-open > [role='radiogroup'] {
     width: 100%;
@@ -2540,17 +2272,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .dv-tile,
-  .dv-icon-button,
-  .dv-slider-fill,
-  .dv-vslider-fill,
-  .dv-cover-shut,
-  .dv-climate,
-  .dv-climate-now,
-  .dv-step,
-  .dv-climate-mode,
-  .dv-swatch,
-  .dv-check,
-  .dv-panel-tinted {
+.dv-icon-button,
+.dv-slider-fill,
+.dv-climate,
+.dv-step,
+.dv-climate-mode,
+.dv-swatch,
+.dv-check,
+.dv-panel-tinted {
     transition: none;
   }
 

@@ -1,4 +1,5 @@
 import type React from 'react';
+import type { DeviceModel } from '../model/device';
 import type { PanelFooterProps } from './shell/PanelFooter';
 import type { PanelAccent } from './shell/PanelShell';
 
@@ -87,16 +88,23 @@ export type PanelEntry<Input> = {
   useSpec: (input: Input) => PanelSpec;
 };
 
-export type PanelKind = 'light' | 'plug';
+export type PanelKind = 'light' | 'plug' | 'fan' | 'humidifier' | 'cover' | 'climate';
+
+/** The panel of a device that is not a light. */
+export const panelKindOfDevice = (kind: DeviceModel['kind']): PanelKind => (kind === 'fan' || kind === 'humidifier' || kind === 'cover' ? kind : 'plug');
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const LOADERS: Record<PanelKind, () => Promise<PanelEntry<any>>> = {
   light: () => import('./entries/light').then((module) => module.lightEntry),
   plug: () => import('./entries/device').then((module) => module.plugEntry),
+  fan: () => import('./entries/device').then((module) => module.fanEntry),
+  humidifier: () => import('./entries/device').then((module) => module.humidifierEntry),
+  cover: () => import('./entries/device').then((module) => module.coverEntry),
+  climate: () => import('./entries/climate').then((module) => module.climateEntry),
 };
 
 /** The empty protagonist a panel opens with, while its entry is on its way. */
-const SKELETON: Record<PanelKind, 'slider' | 'card'> = { light: 'slider', plug: 'card' };
+const SKELETON: Record<PanelKind, 'slider' | 'card'> = { light: 'slider', plug: 'card', fan: 'slider', humidifier: 'slider', cover: 'slider', climate: 'slider' };
 
 export const panelSkeletonOf = (kind: PanelKind) => SKELETON[kind];
 

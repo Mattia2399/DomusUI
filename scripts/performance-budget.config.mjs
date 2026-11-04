@@ -60,8 +60,6 @@ export const surfaces = [
     id: 'rooms-parts', label: 'Stanze · pannelli e gestione', requires: 'rooms', kind: 'feature',
     sources: [
       'src/components/devices/panels/Panel.tsx',
-      'src/components/devices/panels/DevicePanel.tsx',
-      'src/components/devices/panels/ClimatePanel.tsx',
       'src/components/devices/panels/PanelLiveGate.tsx',
       'src/components/devices/panels/SecurityPanel.tsx',
       'src/components/devices/panels/MediaPlayer.tsx',

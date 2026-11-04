@@ -84,10 +84,6 @@
   .dv-panel.is-docked {
     min-height: calc(100cqh - 22px);
   }
-
-  .dv-panel-sheet .dv-panel-stage {
-    grid-template-rows: minmax(150px, 1fr) 148px;
-  }
 }
 
 /* A panel brings its own header: the title of the Home's sheet steps aside. */

@@ -2,10 +2,10 @@ import React from 'react';
 import { clsx } from 'clsx';
 import { LightCard } from '../components/devices/cards/LightCard';
 import { DeviceCard } from '../components/devices/cards/DeviceCard';
-import { DevicePanel } from '../components/devices/panels/DevicePanel';
+import { panelKindOfDevice } from '../components/devices/panels/registry';
 import type { DeviceAction } from '../components/devices/model/device';
 import { ClimateCard } from '../components/devices/cards/ClimateCard';
-import { ClimatePanel } from '../components/devices/panels/ClimatePanel';
+import type { ClimateAction } from '../components/devices/model/climate';
 import { findPowerSensor } from '../components/devices/model/device';
 import { deviceCardHeightPx, type DeviceCardFormat } from '../components/devices/cards/DeviceCardShell';
 import { SecurityCard } from '../components/devices/cards/SecurityCard';
@@ -246,34 +246,14 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
           ))}
         </div>
       </div>
-      <PanelHost presentation={presentation} isOpen={Boolean(climatePanel)} onClose={() => setClimatePanelId(null)} title={climatePanel?.name ?? ''}>
+      <PanelHost presentation={presentation} isOpen={Boolean(climatePanel)} onClose={() => setClimatePanelId(null)} title={climatePanel?.name ?? ''} wide>
         {climatePanel ? (
-          <ClimatePanel
-            model={climatePanel}
-            roomName={dt('sectionClimate')}
-            roomHumidity={48}
-            onAction={(action) => climates.act(climatePanel.entityId, action)}
-            onClose={() => setClimatePanelId(null)}
-          />
+          <Panel kind="climate" input={{ model: climatePanel, roomName: dt('sectionClimate'), roomHumidity: 48, onAction: (action: ClimateAction) => climates.act(climatePanel.entityId, action) }} onClose={() => setClimatePanelId(null)} />
         ) : null}
       </PanelHost>
-      <PanelHost
-        presentation={presentation}
-        isOpen={Boolean(devicePanel)}
-        onClose={() => setDevicePanelId(null)}
-        title={devicePanel?.name ?? ''}
-        tintRgb={devicePanel && devicePanel.on ? '100 210 255' : null}
-        softTint
-      >
-        {devicePanel?.kind === 'outlet' || devicePanel?.kind === 'switch' ? (
-          <Panel kind="plug" input={{ model: devicePanel, roomName: dt('sectionDevices'), onAction: (action: DeviceAction) => devices.act(devicePanel.entityId, action) }} onClose={() => setDevicePanelId(null)} />
-        ) : devicePanel ? (
-          <DevicePanel
-            model={devicePanel}
-            roomName={dt('sectionDevices')}
-            onAction={(action) => devices.act(devicePanel.entityId, action)}
-            onClose={() => setDevicePanelId(null)}
-          />
+      <PanelHost presentation={presentation} isOpen={Boolean(devicePanel)} onClose={() => setDevicePanelId(null)} title={devicePanel?.name ?? ''} wide>
+        {devicePanel ? (
+          <Panel kind={panelKindOfDevice(devicePanel.kind)} input={{ model: devicePanel, roomName: dt('sectionDevices'), onAction: (action: DeviceAction) => devices.act(devicePanel.entityId, action) }} onClose={() => setDevicePanelId(null)} />
         ) : null}
       </PanelHost>
       <PanelHost

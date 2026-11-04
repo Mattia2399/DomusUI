@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useDevicesTranslations, type DevicesTranslationKey } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { climateCanStep, climateIsOn, climateSwingToggle, type ClimateAction, type ClimateMode, type ClimateModel } from '../model/climate';
+import { usePanelPreload } from '../panels/panelPreload';
 import { DeviceCardShell, deviceCardSize, type DeviceCardFormat } from './DeviceCardShell';
 import { climateActivityWord, climateBig, climateCompactStatus, climateFoot, climateStatus, degrees } from './climateText';
 import '../theme/cardSizes.css';
@@ -77,6 +78,7 @@ export function ClimateCard({
 }: ClimateCardProps) {
   const dt = useDevicesTranslations();
   const { locale } = useI18n();
+  const preload = usePanelPreload('climate');
   const on = climateIsOn(model);
   const Icon = CLIMATE_ICONS[on ? model.mode : 'off'];
   const powerLabel = dt(on ? 'turnOff' : 'turnOn', { name: model.name });
@@ -87,6 +89,7 @@ export function ClimateCard({
     const compact = climateCompactStatus(model, dt, locale);
     return (
       <DeviceCardShell
+        panelKind="climate"
         format="U×2"
         name={model.name}
         status={compact}
@@ -117,6 +120,7 @@ export function ClimateCard({
   if (!format) {
     return (
       <div
+        {...preload}
         className={clsx('dv-tile dv-climate', `dv-cl-${CLIMATE_TONE[model.mode]}`, on && 'is-lit-climate', !model.available && 'is-unavailable')}
         data-testid="climate-card"
       >
@@ -210,6 +214,7 @@ export function ClimateCard({
 
   return (
     <div
+      {...preload}
       className={clsx(
         'dv-tile dv-climate dv-climate-format',
         `dv-cl-${CLIMATE_TONE[model.mode]}`,

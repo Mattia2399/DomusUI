@@ -158,6 +158,9 @@ function clampTo(model: ClimateModel, value: number) {
   return Math.round(Math.max(model.min, Math.min(model.max, stepped)) * 10) / 10;
 }
 
+/** The target it can take that is closest to a temperature. */
+export const climateNearestTarget = clampTo;
+
 /** A step turned into the target or range it gives. */
 export function resolveClimateStep(model: ClimateModel, action: ClimateAction): ClimateAction {
   if (action.type !== 'step') return action;

@@ -22,7 +22,9 @@ import { lightExtraCall, lightExtrasOf, type LightExtraAction } from '../../comp
 import { LightCard } from '../../components/devices/cards/LightCard';
 import { DeviceCard } from '../../components/devices/cards/DeviceCard';
 import { ClimateCard } from '../../components/devices/cards/ClimateCard';
-import { climateIsOn, type ClimateModel } from '../../components/devices/model/climate';
+import { climateIsOn, type ClimateAction, type ClimateModel } from '../../components/devices/model/climate';
+import { climateExtraCall, climateExtrasOf, type ClimateExtraAction } from '../../components/devices/model/climateExtras';
+import { panelKindOfDevice } from '../../components/devices/panels/registry';
 import { SensorCard } from '../../components/devices/cards/SensorCard';
 import { SceneCard } from '../../components/devices/cards/SceneCard';
 import {
@@ -70,7 +72,6 @@ import { PanelServicesProvider, type PanelApiCall } from '../../components/devic
 import type { PanelLive } from '../../components/devices/panels/PanelShell';
 import { PanelHost } from '../../components/devices/panels/PanelHost';
 import { lightRgb } from '../../components/devices/model/tileColor';
-import { CLIMATE_TINT, DEVICE_TINT } from '../../components/devices/model/panelTint';
 import { pinRanks, togglePinned } from '../../components/devices/model/sectionRules';
 import type { HaArea } from '../../hooks/useHaLiveConnection';
 import type { MockEntityStateMap } from '../../types/ha';
@@ -126,9 +127,7 @@ import type { SectionCandidate } from './SectionPage';
 import {
   AddAccessoriesSheet,
   CameraPanel,
-  ClimatePanel,
   Deferred,
-  DevicePanel,
   Panel,
   MediaPickPanel,
   MediaPlayer,
@@ -1669,16 +1668,13 @@ export function RoomsPage({
         isOpen={Boolean(panelDevice)}
         onClose={() => setPanel(null)}
         title={panelDevice?.name ?? ''}
-        tintRgb={panelDevice && panelDevice.on && panelDevice.available && !(panelDevice.kind === 'outlet' || panelDevice.kind === 'switch' || panelDevice.kind === 'virtual') ? DEVICE_TINT[panelDevice.kind] : null}
-        softTint
         wide
       >
         {panelDevice ? (
           <Deferred>
             {withLive(panelDevice.entityId, (live) => (
-            panelDevice.kind === 'outlet' || panelDevice.kind === 'switch' || panelDevice.kind === 'virtual' ? (
               <Panel
-                kind="plug"
+                kind={panelKindOfDevice(panelDevice.kind)}
                 input={{
                   model: panelDevice,
                   roomName: activeRoom?.name,
@@ -1701,26 +1697,13 @@ export function RoomsPage({
                           onNavigate('/consumi/energia');
                         }
                       : undefined,
-                  // The panel asks by itself before turning off a protected plug.
-                  onAction: (action: DeviceAction) => devices.act(panelDevice.entityId, action),
+                  // The panel of a plug asks by itself before turning off a protected one.
+                  onAction: (action: DeviceAction) => (panelKindOfDevice(panelDevice.kind) === 'plug' ? devices.act(panelDevice.entityId, action) : actOnDevice(panelDevice.entityId, action)),
                 }}
                 live={live}
                 onClose={() => setPanel(null)}
               />
-            ) : (
-            <DevicePanel
-              model={panelDevice}
-              roomName={activeRoom?.name}
-              live={live}
-              timer={deviceTimers.timers[panelDevice.entityId]}
-              timerNow={deviceTimers.now}
-              onSetTimer={
-                deviceTimers.available && canHaveTimer(panelDevice) ? (minutes) => setDeviceTimer(panelDevice.entityId, minutes) : undefined
-              }
-              onAction={(action) => actOnDevice(panelDevice.entityId, action)}
-              onClose={() => setPanel(null)}
-            />
-            )))}
+            ))}
           </Deferred>
         ) : null}
       </PanelHost>
@@ -1755,19 +1738,26 @@ export function RoomsPage({
         isOpen={Boolean(panelClimate)}
         onClose={() => setPanel(null)}
         title={panelClimate?.name ?? ''}
-        tintRgb={panelClimate && climateIsOn(panelClimate) ? CLIMATE_TINT[panelClimate.mode] : null}
-        softTint
+        wide
       >
         {panelClimate ? (
           <Deferred>
             {withLive(panelClimate.entityId, (live) => (
-              <ClimatePanel
-                model={panelClimate}
-                roomName={activeRoom?.name}
-                roomTemperature={readings.temperature ?? null}
-                roomHumidity={readings.humidity ?? null}
+              <Panel
+                kind="climate"
+                input={{
+                  model: panelClimate,
+                  roomName: activeRoom?.name,
+                  roomTemperature: readings.temperature ?? null,
+                  roomHumidity: readings.humidity ?? null,
+                  extras: climateExtrasOf(states[panelClimate.entityId]),
+                  onAction: (action: ClimateAction) => climates.act(panelClimate.entityId, action),
+                  onExtraAction: (action: ClimateExtraAction) => {
+                    const { domain, service, data } = climateExtraCall(panelClimate.entityId, action);
+                    void onCallService?.(domain, service, data);
+                  },
+                }}
                 live={live}
-                onAction={(action) => climates.act(panelClimate.entityId, action)}
                 onClose={() => setPanel(null)}
               />
             ))}

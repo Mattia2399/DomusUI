@@ -1,0 +1,87 @@
+/* What only the panels of a device with more than on and off draw. */
+
+/* Rows of a name and a value. */
+.panel-rows {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+}
+
+.panel-row {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.panel-row + .panel-row {
+  border-top: 1px solid var(--control-soft);
+}
+
+.panel-row > span {
+  color: var(--control-ink-2);
+  font-weight: 500;
+}
+
+.panel-row > b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* A cover: the sky behind, and the shutter that comes down over it. */
+.glass-vslider.dv-cover {
+  background: linear-gradient(180deg, #3e8ef0, #9fd0ff);
+}
+
+.dv-cover-shut {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  background: repeating-linear-gradient(180deg, #e6e6eb 0 12px, #c9c9d1 12px 14px);
+  box-shadow: 0 2px 0 #a9a9b3, 0 8px 14px -6px rgb(0 0 0 / 0.45);
+  transition: height 200ms linear;
+}
+
+.dv-cover-tag {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  height: 30px;
+  align-items: center;
+  border-radius: 15px;
+  padding: 0 12px;
+  background: rgb(0 0 0 / 0.42);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  transform: translateX(-50%);
+}
+
+/* The position and the slats in the zone of 148 px. */
+.panel-cover-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.panel-cover-title.is-soft {
+  color: var(--control-ink-2);
+  font-weight: 600;
+}
+
+.panel-control-screen .panel-cover-bar {
+  height: 34px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dv-cover-shut {
+    transition: none;
+  }
+}

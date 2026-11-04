@@ -4,9 +4,9 @@ import { CloudSun } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { usePanelsTranslations } from '../../i18n/panelsTranslations';
 import { PanelShell } from '../devices/panels/PanelShell';
-import { ClimatePanel } from '../devices/panels/ClimatePanel';
-import { DevicePanel } from '../devices/panels/DevicePanel';
 import { Panel } from '../devices/panels/Panel';
+import { panelKindOfDevice } from '../devices/panels/registry';
+import type { ClimatePanelInput } from '../devices/panels/entries/climate';
 import type { LightPanelInput } from '../devices/panels/entries/light';
 import type { DevicePanelInput } from '../devices/panels/entries/device';
 import { CameraPanel } from '../devices/panels/CameraPanel';
@@ -35,8 +35,6 @@ import { resolveSensorFamily } from '../devices/model/sensorFamily';
 import { findEnergySource } from '../devices/model/plugEnergy';
 import { useDeviceExtras } from '../devices/cards/deviceExtrasContext';
 import { canHaveTimer } from '../devices/model/deviceTimer';
-import { climateIsOn } from '../devices/model/climate';
-import { CLIMATE_TINT, DEVICE_TINT } from '../devices/model/panelTint';
 import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../devices/panels/panelData';
 
 /* The shared panel a card of the Home opens, in place of its old content. */
@@ -121,30 +119,25 @@ export function HomePanel(props: HomePanelProps) {
   }
   if (panel === 'climate') {
     const model = homeClimateToModel(activeDevice.id, activeDevice.name, climate);
-    return (
-      <ClimatePanel
-        model={model}
-        roomName={roomName}
-        roomTemperature={model.current}
-        roomHumidity={typeof climate.currentHumidity === 'number' ? climate.currentHumidity : null}
-        embedded={embedded}
-        live={{ ...live, tint: climateIsOn(model) ? { rgb: CLIMATE_TINT[model.mode], soft: true } : null }}
-        onAction={(action) => runClimateAction(action, model, actions)}
-        extras={{
-          supportsTargetHumidity: climate.supportsTargetHumidity === true,
-          targetHumidity: climate.targetHumidity,
-          minHumidity: climate.minHumidity,
-          maxHumidity: climate.maxHumidity,
-          targetHumidityStep: climate.targetHumidityStep,
-          supportsHorizontalSwing: climate.supportsSwingHorizontalMode === true,
-          horizontalSwing: climate.swingHorizontalMode,
-          horizontalSwingModes: climate.swingHorizontalModes ?? [],
-          supportsAutoAdjust: true,
-        }}
-        onExtraAction={(action) => runHomeClimateExtra(action, actions)}
-        onClose={onClose}
-      />
-    );
+    const input: ClimatePanelInput = {
+      model,
+      roomName,
+      roomTemperature: model.current,
+      roomHumidity: typeof climate.currentHumidity === 'number' ? climate.currentHumidity : null,
+      onAction: (action) => runClimateAction(action, model, actions),
+      extras: {
+        supportsTargetHumidity: climate.supportsTargetHumidity === true,
+        targetHumidity: climate.targetHumidity,
+        minHumidity: climate.minHumidity,
+        maxHumidity: climate.maxHumidity,
+        targetHumidityStep: climate.targetHumidityStep,
+        supportsHorizontalSwing: climate.supportsSwingHorizontalMode === true,
+        horizontalSwing: climate.swingHorizontalMode,
+        horizontalSwingModes: climate.swingHorizontalModes ?? [],
+      },
+      onExtraAction: (action) => runHomeClimateExtra(action, actions),
+    };
+    return <Panel kind="climate" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'device') {
     const model = deviceModelOf(props, deviceExtras?.wattsOf);
@@ -165,26 +158,22 @@ export function HomePanel(props: HomePanelProps) {
       };
       return <Panel kind="plug" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
     }
-    return (
-      <DevicePanel
-        model={model}
-        roomName={roomName}
-        timer={deviceExtras?.timers[model.entityId]}
-        timerNow={deviceExtras?.timerNow}
-        onSetTimer={deviceExtras?.timersAvailable && canHaveTimer(model) ? (minutes) => deviceExtras.setTimer(model.entityId, minutes) : undefined}
-        embedded={embedded}
-        live={
-          activeDevice.type === 'cover' && props.coverIsReadOnly
-            ? { off: true, notice: <div className="dv-banner dv-pn-banner is-grey" role="status"><span><b>{pt('lvReadOnly')}</b></span></div> }
-            : { ...live, tint: model.on && model.available ? { rgb: DEVICE_TINT[model.kind], soft: true } : null }
-        }
-        onAction={(action) => {
-          if (action.type === 'turn_off' && deviceExtras) deviceExtras.guardTurnOff(model.entityId, model.name, () => runDeviceAction(action, kind, actions));
-          else runDeviceAction(action, kind, actions);
-        }}
-        onClose={onClose}
-      />
-    );
+    const input: DevicePanelInput = {
+      model,
+      roomName,
+      timer: deviceExtras?.timers[model.entityId],
+      timerNow: deviceExtras?.timerNow,
+      onSetTimer: deviceExtras?.timersAvailable && canHaveTimer(model) ? (minutes) => deviceExtras.setTimer(model.entityId, minutes) : undefined,
+      onAction: (action) => {
+        if (action.type === 'turn_off' && deviceExtras) deviceExtras.guardTurnOff(model.entityId, model.name, () => runDeviceAction(action, kind, actions));
+        else runDeviceAction(action, kind, actions);
+      },
+    };
+    const deviceLive =
+      activeDevice.type === 'cover' && props.coverIsReadOnly
+        ? { off: true, notice: <div className="dv-banner dv-pn-banner is-grey" role="status"><span><b>{pt('lvReadOnly')}</b></span></div> }
+        : live;
+    return <Panel kind={panelKindOfDevice(model.kind)} input={input} live={deviceLive} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'security') {
     const model = securityModelOf(props);

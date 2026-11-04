@@ -61,3 +61,14 @@
     font-size: 40px;
   }
 }
+
+/* A choice of two, in the zone of 148 px or in a group. */
+.panel-seg {
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.panel-control-screen .liquid-segmented-control [role='radio'] {
+  height: 30px;
+}

@@ -5,12 +5,6 @@
   align-self: center;
 }
 
-.panel-seg {
-  align-self: center;
-  width: fit-content;
-  max-width: 100%;
-}
-
 /* The whites and the kinds of light in the zone of 148 px. */
 .panel-control-screen .glass-temperature {
   gap: 6px;
@@ -27,10 +21,6 @@
 
 .panel-control-screen .glass-temperature-presets > button {
   min-height: 28px;
-}
-
-.panel-control-screen .liquid-segmented-control [role='radio'] {
-  height: 30px;
 }
 
 .panel-white-fill {

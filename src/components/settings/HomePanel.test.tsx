@@ -22,7 +22,7 @@ import type { ActiveDevice } from './types';
 
 // Compiling a panel on its first import can take longer than a test is given.
 beforeAll(async () => {
-  await Promise.all([loadPanelEntry('light'), loadPanelEntry('plug')]);
+  await Promise.all((['light', 'plug', 'fan', 'humidifier', 'cover', 'climate'] as const).map(loadPanelEntry));
 }, 120_000);
 
 afterEach(cleanup);
@@ -282,10 +282,10 @@ describe('what the Home opens', () => {
     const { container } = render(<HomePanel {...props} />);
     expect(screen.getByRole('heading', { name: 'Garage' })).toBeTruthy();
     expect(screen.getByText(/Solo lettura/)).toBeTruthy();
-    expect(container.querySelector('.dv-panel-off [aria-disabled="true"]')).toBeTruthy();
-    expect(container.querySelector('.dv-pn-dis')?.hasAttribute('inert')).toBe(true);
-    for (const button of screen.queryAllByRole('button')) {
-      if (button.getAttribute('aria-label') !== 'Chiudi') fireEvent.click(button);
+    expect(container.querySelector('.panel-shell.is-off .panel-shell-main[inert]')).toBeTruthy();
+    // A browser does not let a click reach what is inert; jsdom does, so they are left out.
+    for (const button of [...screen.queryAllByRole('button'), ...screen.queryAllByRole('radio')]) {
+      if (button.getAttribute('aria-label') !== 'Chiudi' && !button.closest('[inert]')) fireEvent.click(button);
     }
     expect(props.actions.openCover).not.toHaveBeenCalled();
     expect(props.actions.closeCover).not.toHaveBeenCalled();

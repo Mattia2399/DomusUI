@@ -324,7 +324,7 @@ test('on a card of the three sizes a touch opens the panel, the icon only comman
   const other = page.locator('[data-grid-engine-root-item="climate.filler_1"]');
   const otherBox = await other.boundingBox();
   await tap(otherBox.x + 14, otherBox.y + otherBox.height / 2);
-  await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible({ timeout: 15_000 });
   await page.waitForTimeout(600);
-  await expect(page.locator('.device-context-surface .dv-panel')).toBeVisible();
+  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible();
 });

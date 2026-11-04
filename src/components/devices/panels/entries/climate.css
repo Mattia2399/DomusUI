@@ -1,0 +1,29 @@
+/* What only the panel of a climate device draws. */
+
+/* Seven modes and their title in the zone of 148 px. */
+.panel-control-screen .glass-tile {
+  height: 52px;
+}
+
+.panel-climate-range {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.panel-climate-range > b {
+  font-size: 46px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-climate-range > span {
+  margin-bottom: 8px;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}

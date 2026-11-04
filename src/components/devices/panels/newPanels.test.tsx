@@ -12,7 +12,8 @@ import { alarmExitDelay, alarmHouseOf, alarmModesOf, alarmTriggerZone, memberBat
 import { AlarmPanel, type AlarmPanelCommands } from './AlarmPanel';
 import { CalendarPanel } from './CalendarPanel';
 import { CameraPanel } from './CameraPanel';
-import { DevicePanel } from './DevicePanel';
+import { coverEntry, fanEntry } from './entries/device';
+import { PanelView } from './PanelView';
 import { MembersPanel } from './MembersPanel';
 import { PanelServicesProvider } from './panelServicesContext';
 import { SecurityPanel } from './SecurityPanel';
@@ -370,7 +371,11 @@ describe('the fan and the cover declare their controls', () => {
   const panel = (entityId: string, state: MockEntityState) => {
     const model = toDeviceModel(entityId, state);
     if (!model) throw new Error('no model');
-    render(<DevicePanel model={model} onAction={vi.fn()} onClose={vi.fn()} />);
+    const entry = model.kind === 'cover' ? coverEntry : fanEntry;
+    function View() {
+      return <PanelView spec={entry.useSpec({ model: model as NonNullable<typeof model>, onAction: vi.fn() })} onClose={vi.fn()} />;
+    }
+    render(<View />);
   };
 
   it('shows the speed, the presets and the oscillation of a fan only when declared', () => {
@@ -383,7 +388,7 @@ describe('the fan and the cover declare their controls', () => {
 
   it('offers to open or close a cover only as far as it can', () => {
     panel('cover.a', entity('open', { friendly_name: 'Tenda', supported_features: 1 }));
-    expect(screen.getByRole('button', { name: 'Aperta' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Chiusa' })).toBeNull();
+    expect(screen.getAllByRole('radio', { name: 'Aperta' }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole('radio', { name: 'Chiusa' })).toBeNull();
   });
 });

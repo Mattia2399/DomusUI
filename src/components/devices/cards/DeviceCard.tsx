@@ -4,6 +4,7 @@ import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { deviceHasPanel, fanLevel, iconActionOf, isStandby, type DeviceAction, type DeviceModel } from '../model/device';
 import { CardFrame, CardHead, CardIcon } from './CardFrame';
+import { panelKindOfDevice } from '../panels/registry';
 import { DeviceCardShell, deviceCardSize, type DeviceCardFormat } from './DeviceCardShell';
 import { LevelBar } from './LevelBar';
 import { deviceIconLabel, formatDeviceStatus } from './deviceText';
@@ -96,7 +97,7 @@ export function DeviceCard({
   const live = !editing && model.available;
   const lit = model.on && model.available;
   const iconAction = () => onAction(iconActionOf(model));
-  const panelKind = hasPanel && (model.kind === 'outlet' || model.kind === 'switch') ? 'plug' : null;
+  const panelKind = hasPanel ? panelKindOfDevice(model.kind) : null;
 
   if (size === 'mini') {
     return (

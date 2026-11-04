@@ -11,8 +11,6 @@ import { onceLoaded } from '../../components/common/onceLoaded';
 
 const loaders = {
   panel: onceLoaded(() => import('../../components/devices/panels/Panel')),
-  device: onceLoaded(() => import('../../components/devices/panels/DevicePanel')),
-  climate: onceLoaded(() => import('../../components/devices/panels/ClimatePanel')),
   live: onceLoaded(() => import('../../components/devices/panels/PanelLiveGate')),
   security: onceLoaded(() => import('../../components/devices/panels/SecurityPanel')),
   media: onceLoaded(() => import('../../components/devices/panels/MediaPlayer')),
@@ -24,8 +22,6 @@ const loaders = {
 };
 
 export const Panel = React.lazy(() => loaders.panel().then((module) => ({ default: module.Panel })));
-export const DevicePanel = React.lazy(() => loaders.device().then((module) => ({ default: module.DevicePanel })));
-export const ClimatePanel = React.lazy(() => loaders.climate().then((module) => ({ default: module.ClimatePanel })));
 // The panels shared with the Home bring the reading of every sensor family and the camera viewer:
 // they load when one opens, not while the page is idle.
 export const SensorFamilyPanel = React.lazy(() => import('../../components/devices/panels/SensorFamilyPanel').then((module) => ({ default: module.SensorFamilyPanel })));
