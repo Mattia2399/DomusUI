@@ -86,7 +86,7 @@ for (const { width, height, label } of [
       await expect(page.locator('.dashboard-shell')).toHaveClass(new RegExp(`dashboard-theme-${theme}`));
 
       await openCard(page, 'qa-lock', label === 'phone');
-      const lockPanel = page.locator('.dv-panel').first();
+      const lockPanel = page.locator('.panel-shell').first();
       await expect(lockPanel).toBeVisible();
       if (label === 'phone') await expect(page.getByRole('heading', { name: 'Serratura QA' })).toBeVisible();
       else await expect(lockPanel).toContainText('Serratura QA');
