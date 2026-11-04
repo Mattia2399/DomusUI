@@ -370,7 +370,7 @@ describe('the fan and the cover declare their controls', () => {
   const panel = (entityId: string, state: MockEntityState) => {
     const model = toDeviceModel(entityId, state);
     if (!model) throw new Error('no model');
-    render(<DevicePanel model={model} protectedPlug={false} onAction={vi.fn()} onClose={vi.fn()} />);
+    render(<DevicePanel model={model} onAction={vi.fn()} onClose={vi.fn()} />);
   };
 
   it('shows the speed, the presets and the oscillation of a fan only when declared', () => {

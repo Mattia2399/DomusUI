@@ -25,6 +25,11 @@ export type GlassVerticalSliderProps = GlassControlState & {
   tone?: GlassTone;
   /** Shows the empty slider: the device is off. */
   off?: boolean;
+  /** How full it looks, when it is not where the value sits between min and max. */
+  fillPercent?: number;
+  fillStyle?: React.CSSProperties;
+  /** Drawn over the fill: the shutter of a cover. */
+  overlay?: React.ReactNode;
   className?: string;
 };
 
@@ -47,6 +52,9 @@ export function GlassVerticalSlider({
   current,
   tone = 'device',
   off = false,
+  fillPercent,
+  fillStyle,
+  overlay,
   className,
   disabled,
   pending,
@@ -55,7 +63,7 @@ export function GlassVerticalSlider({
   const state = { disabled, pending, error };
   const { shown, change, release } = useSliderValue(value, commit, onValueChange);
   const share = (entry: number) => ((Math.max(min, Math.min(max, entry)) - min) / (max - min || 1)) * 100;
-  const percent = off ? 0 : share(shown);
+  const percent = off ? 0 : fillPercent ?? share(shown);
 
   return (
     <div
@@ -68,7 +76,8 @@ export function GlassVerticalSlider({
         className,
       )}
     >
-      <span className="glass-vslider-fill" aria-hidden="true" style={{ height: `${Number(percent.toFixed(1))}%` }} />
+      <span className="glass-vslider-fill" aria-hidden="true" style={{ ...fillStyle, height: `${Number(percent.toFixed(1))}%` }} />
+      {overlay}
       {current ? (
         <span className="glass-vslider-now" aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }}>
           {current.label ? <em>{current.label}</em> : null}

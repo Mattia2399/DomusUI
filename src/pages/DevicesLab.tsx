@@ -3,6 +3,7 @@ import { clsx } from 'clsx';
 import { LightCard } from '../components/devices/cards/LightCard';
 import { DeviceCard } from '../components/devices/cards/DeviceCard';
 import { DevicePanel } from '../components/devices/panels/DevicePanel';
+import type { DeviceAction } from '../components/devices/model/device';
 import { ClimateCard } from '../components/devices/cards/ClimateCard';
 import { ClimatePanel } from '../components/devices/panels/ClimatePanel';
 import { findPowerSensor } from '../components/devices/model/device';
@@ -18,7 +19,7 @@ import GridV2ScenesCard from '../components/widgets/GridV2ScenesCard';
 import type { SceneKey } from '../types/dashboardModels';
 import { toSecurityModel } from '../components/devices/model/security';
 import { toMediaModel } from '../components/devices/model/media';
-import { LightPanel } from '../components/devices/panels/LightPanel';
+import { Panel } from '../components/devices/panels/Panel';
 import { PanelHost, type PanelPresentation } from '../components/devices/panels/PanelHost';
 import { lightRgb } from '../components/devices/model/tileColor';
 import { useDevicesTranslations } from '../i18n/devicesTranslations';
@@ -264,11 +265,12 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
         tintRgb={devicePanel && devicePanel.on ? '100 210 255' : null}
         softTint
       >
-        {devicePanel ? (
+        {devicePanel?.kind === 'outlet' || devicePanel?.kind === 'switch' ? (
+          <Panel kind="plug" input={{ model: devicePanel, roomName: dt('sectionDevices'), onAction: (action: DeviceAction) => devices.act(devicePanel.entityId, action) }} onClose={() => setDevicePanelId(null)} />
+        ) : devicePanel ? (
           <DevicePanel
             model={devicePanel}
             roomName={dt('sectionDevices')}
-            protectedPlug={false}
             onAction={(action) => devices.act(devicePanel.entityId, action)}
             onClose={() => setDevicePanelId(null)}
           />
@@ -279,10 +281,10 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
         isOpen={Boolean(panelModel)}
         onClose={() => setPanelId(null)}
         title={panelModel?.name ?? ''}
-        tintRgb={panelModel && panelModel.on && panelModel.available ? lightRgb(panelModel).join(' ') : null}
+        wide
       >
         {panelModel ? (
-          <LightPanel model={panelModel} roomName={dt('lights')} onAction={(action) => lights.act(panelModel.entityId, action)} onClose={() => setPanelId(null)} />
+          <Panel kind="light" input={{ model: panelModel, roomName: dt('lights'), onAction: (action: Parameters<typeof lights.act>[1]) => lights.act(panelModel.entityId, action) }} onClose={() => setPanelId(null)} />
         ) : null}
       </PanelHost>
     </section>

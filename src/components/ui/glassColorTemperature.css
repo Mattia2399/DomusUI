@@ -55,8 +55,8 @@
   min-height: var(--control-pill-height-dialog);
   border: 0;
   border-radius: calc(var(--control-pill-height-dialog) / 2);
-  background: var(--control-soft);
-  color: var(--control-ink);
+  background: none;
+  color: var(--control-ink-2);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;

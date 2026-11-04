@@ -1,6 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import { PanelSheet } from './PanelSheet';
+import { PanelSheet } from './shell/PanelSheet';
+import { PanelSurfaceContext } from './shell/panelSurface';
 import GlassModal from '../../ui/GlassModal';
 import '../theme/devices.css';
 
@@ -24,6 +25,8 @@ export type PanelHostProps = {
   softTint?: boolean;
   /** On a phone: a short sheet, as tall as what it holds, that is not a device panel. */
   fitContent?: boolean;
+  /** A panel of two columns in the dialog, instead of a form. */
+  wide?: boolean;
   children: React.ReactNode;
 };
 
@@ -80,13 +83,15 @@ function SidePanel({ isOpen, onClose, title, tintRgb, softTint = false, children
   );
 }
 
-export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softTint = false, fitContent = false, children }: PanelHostProps) {
+export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softTint = false, fitContent = false, wide = false, children }: PanelHostProps) {
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   useDialogTint(contentRef, presentation === 'side' ? null : tintRgb, softTint, isOpen);
   const content = (
-    <div ref={contentRef} className="dv-panel-frame">
-      {children}
-    </div>
+    <PanelSurfaceContext.Provider value={presentation === 'side' ? 'column' : presentation}>
+      <div ref={contentRef} className="dv-panel-frame">
+        {children}
+      </div>
+    </PanelSurfaceContext.Provider>
   );
 
   if (presentation === 'side') {
@@ -108,7 +113,7 @@ export function PanelHost({ presentation, isOpen, onClose, title, tintRgb, softT
       isOpen={isOpen}
       onClose={onClose}
       title={title}
-      size="lg"
+      size={wide ? 'xl' : 'lg'}
       showCloseButton={false}
       headerClassName="sr-only"
       bodyClassName="!mt-0"

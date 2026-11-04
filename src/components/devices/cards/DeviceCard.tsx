@@ -96,10 +96,12 @@ export function DeviceCard({
   const live = !editing && model.available;
   const lit = model.on && model.available;
   const iconAction = () => onAction(iconActionOf(model));
+  const panelKind = hasPanel && (model.kind === 'outlet' || model.kind === 'switch') ? 'plug' : null;
 
   if (size === 'mini') {
     return (
       <DeviceCardShell
+        panelKind={panelKind}
         format="U×2"
         name={model.name}
         status={status}
@@ -309,6 +311,7 @@ export function DeviceCard({
 
   return (
     <CardFrame
+      panelKind={panelKind}
       format={format}
       available={model.available}
       on={lit}

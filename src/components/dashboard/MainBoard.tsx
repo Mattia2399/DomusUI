@@ -10,6 +10,7 @@ import GlassModal from '../ui/GlassModal';
 import { LeftSidebar } from './LeftSidebar';
 import { BottomBarNav } from './BottomBarNav';
 import { XsNotificationBell } from './XsNotificationBell';
+import { onceLoaded } from '../common/onceLoaded';
 import { LazyMobileSidebarDrawer, preloadMobileSidebarDrawer } from './LazyMobileSidebarDrawer';
 import {
   describeLegacyStackChange,
@@ -478,8 +479,10 @@ const loadAppGallery = () => import('../../pages/AppGallery');
 const loadRoomsDashboard = () => import('../../pages/rooms/RoomsPage');
 const loadSecurityDashboard = () => import('../../pages/SecurityDashboard');
 const loadSettingsDashboard = () => import('../../pages/SettingsDashboard');
-const loadRightSidebarManager = () =>
-  import('./RightSidebarManager').then((module) => ({ default: module.RightSidebarManager }));
+const rightSidebarManagerOnce = onceLoaded(() =>
+  import('./RightSidebarManager').then((module) => ({ default: module.RightSidebarManager, preload: module.preloadDeviceContext })),
+);
+const loadRightSidebarManager = () => rightSidebarManagerOnce();
 const loadContextSidebar = () => import('../settings/ContextSidebar');
 const loadModernProfilePage = () =>
   import('../settings/ModernProfilePage').then((module) => ({ default: module.ModernProfilePage }));
@@ -536,7 +539,7 @@ function prefetchDashboardBuilder() {
 }
 
 function preloadDashboardDeviceContext() {
-  void Promise.all([loadRightSidebarManager(), loadContextSidebar()]);
+  void Promise.all([loadRightSidebarManager(), loadContextSidebar()]).then(([sidebar]) => sidebar.preload()).catch(() => undefined);
 }
 
 function SecondaryWorkspaceLoading({
@@ -1655,6 +1658,15 @@ export function MainBoard() {
   const { locale, setHomeAssistantLocale, t, formatDate } = useI18n();
   const navigate = useNavigate();
   const routerLocation = useLocation();
+  // The panels of the Home open from a sidebar: it is ready before the first tap.
+  const opensPanelsHere = routerLocation.pathname === '/' || routerLocation.pathname === '/home';
+  useEffect(() => {
+    if (!opensPanelsHere) return undefined;
+    const idle = window.requestIdleCallback ?? ((callback: () => void) => window.setTimeout(callback, 600));
+    const cancel = window.cancelIdleCallback ?? window.clearTimeout;
+    const handle = idle(preloadDashboardDeviceContext);
+    return () => cancel(handle);
+  }, [opensPanelsHere]);
   const canUseBrowserRouteNavigation = useMemo(shouldUseBrowserRouteNavigation, []);
   const {
     appearance,

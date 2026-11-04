@@ -1,0 +1,63 @@
+/* What the entries of the registry draw as a protagonist, when it is not a control. */
+
+/* A card of data, as the consumption of a plug. */
+.panel-hero.is-data > .panel-hero-main > * {
+  width: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.panel-hero-chart {
+  margin-top: auto;
+}
+
+.panel-hero-value {
+  display: flex;
+  align-self: center;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.panel-hero-value-icon {
+  display: none;
+}
+
+.panel-hero-value > b {
+  font-size: 54px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel-hero-value > span {
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+@container panel-shell (min-width: 521px) {
+  /* What it is doing, on a card as tall as the protagonist. */
+  .panel-hero.is-value > .panel-hero-main {
+    border-radius: 22px;
+    background: var(--control-soft);
+  }
+
+  .panel-hero-value-icon {
+    display: flex;
+    height: 64px;
+    width: 64px;
+    margin-bottom: 8px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--control-soft-strong);
+    color: var(--device-accent);
+  }
+
+  .panel-hero-value > b {
+    font-size: 40px;
+  }
+}

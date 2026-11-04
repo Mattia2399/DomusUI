@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render as renderTestingLibrary, screen, waitFor, within } from '@testing-library/react';
 import type { ReactElement } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../i18n/I18nProvider';
 import {
   createDashboardSecurityValue,
@@ -60,6 +60,9 @@ const baseProps = {
   background: 'neutral' as const,
   onBackgroundChange: vi.fn(),
 };
+
+// Compiling a lazy part on its first import can take longer than a test waits for it: it happens here, off the clock.
+beforeAll(() => import('../components/settings/SettingsMiniSparkline'), 120_000);
 
 describe('SettingsDashboard', () => {
   it('lists Power and charging in This device for administrators only', async () => {
@@ -136,7 +139,7 @@ describe('SettingsDashboard', () => {
       </AccessTestProviders>,
     );
 
-    // The chart library is a lazy chunk of its own: give it time to load under a busy test run.
+    // The chart library is a lazy chunk of its own.
     await waitFor(() => expect(container.ownerDocument.querySelector('.recharts-responsive-container')).not.toBeNull(), {
       timeout: 15_000,
     });

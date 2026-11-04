@@ -55,10 +55,11 @@ export const surfaces = [
     budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 100 * KB } },
   },
   // What /rooms opens on request (device panels, section pages, sheets, management), fetched when idle. Baseline 106,000 / 38,600.
+  // The entries of the panel registry are not here: each loads apart, as soon as a card of its kind shows (panels/panelPreload.ts).
   {
     id: 'rooms-parts', label: 'Stanze · pannelli e gestione', requires: 'rooms', kind: 'feature',
     sources: [
-      'src/components/devices/panels/LightPanel.tsx',
+      'src/components/devices/panels/Panel.tsx',
       'src/components/devices/panels/DevicePanel.tsx',
       'src/components/devices/panels/ClimatePanel.tsx',
       'src/components/devices/panels/PanelLiveGate.tsx',

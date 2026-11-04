@@ -1,5 +1,7 @@
 import React from 'react';
 import { clsx } from 'clsx';
+import { usePanelPreload } from '../panels/panelPreload';
+import type { PanelKind } from '../panels/registry';
 import { Check, ChevronRight } from 'lucide-react';
 import '../theme/devices.css';
 
@@ -73,6 +75,8 @@ export type DeviceCardShellProps = {
   controls?: React.ReactNode;
   /** The right-hand column of the widest format. */
   side?: React.ReactNode;
+  /** The panel it opens: its code is on its way before the tap. */
+  panelKind?: PanelKind | null;
   className?: string;
 };
 
@@ -99,8 +103,10 @@ export function DeviceCardShell({
   onSelect,
   controls,
   side,
+  panelKind,
   className,
 }: DeviceCardShellProps) {
+  const preload = usePanelPreload(panelKind);
   const layout = deviceCardLayout(format);
   const opensPanel = hasPanel && available && Boolean(onOpenPanel);
   const select = () => onSelect?.();
@@ -135,6 +141,7 @@ export function DeviceCardShell({
 
   return (
     <div
+      {...preload}
       className={clsx(
         'dv-tile',
         lit && 'is-lit',

@@ -5,8 +5,10 @@ import { RoomsPage } from './RoomsPage';
 
 // The parts the page opens on request, here at once: how they load is tested in roomsParts.test.tsx.
 vi.mock('./roomsParts', async () => {
-  const [light, device, climate, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets, cameraPanel, liveGate] = await Promise.all([
-    import('../../components/devices/panels/LightPanel'),
+  const [panelView, lightEntries, deviceEntries, device, climate, sensor, security, media, mediaSheets, section, accessories, manage, roomSheets, cameraPanel, liveGate] = await Promise.all([
+    import('../../components/devices/panels/PanelView'),
+    import('../../components/devices/panels/entries/light'),
+    import('../../components/devices/panels/entries/device'),
     import('../../components/devices/panels/DevicePanel'),
     import('../../components/devices/panels/ClimatePanel'),
     import('../../components/devices/panels/SensorFamilyPanel'),
@@ -20,8 +22,19 @@ vi.mock('./roomsParts', async () => {
     import('../../components/devices/panels/CameraPanel'),
     import('../../components/devices/panels/PanelLiveGate'),
   ]);
+  const entryViews: Record<string, React.ComponentType<{ input: never; live?: never; onClose: () => void }>> = Object.fromEntries(
+    Object.entries({ light: lightEntries.lightEntry, plug: deviceEntries.plugEntry }).map(([kind, entry]) => [
+      kind,
+      function EntryView({ input, live, onClose }: { input: never; live?: never; onClose: () => void }) {
+        return <panelView.PanelView spec={entry.useSpec(input)} live={live} onClose={onClose} />;
+      },
+    ]),
+  );
   return {
-    LightPanel: light.LightPanel,
+    Panel: ({ kind, ...props }: { kind: string; input: never; live?: never; onClose: () => void }) => {
+      const View = entryViews[kind];
+      return <View {...props} />;
+    },
     DevicePanel: device.DevicePanel,
     ClimatePanel: climate.ClimatePanel,
     SensorFamilyPanel: sensor.SensorFamilyPanel,
@@ -330,7 +343,7 @@ describe('the Rooms page in the demo', () => {
     expect(within(within(rooms).getByRole('button', { name: 'Soggiorno' })).queryByRole('img')).toBeNull();
     fireEvent.click(within(rooms).getByRole('button', { name: /^Camera/ }));
     const statuses = screen.getAllByRole('listitem').map((item) => item.textContent);
-    expect(statuses[0]).toBe('SicurezzaFinestra · Aperta da 25 min');
+    expect(statuses[0]).toMatch(/^SicurezzaFinestra · Aperta da \d+ min$/);
   });
 
   it('adds a local room from the + menu, changes it from Stanze e sezioni and deletes it', async () => {

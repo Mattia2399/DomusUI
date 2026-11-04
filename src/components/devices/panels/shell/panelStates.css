@@ -1,0 +1,90 @@
+/* The three states every panel has in common. */
+
+.panel-state {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.panel-state > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.panel-state > span:last-child {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel-state b {
+  font-weight: 700;
+}
+
+.panel-state.is-off,
+.panel-state.is-waiting {
+  background: var(--state-off);
+  color: var(--control-ink);
+}
+
+.panel-state.is-warning {
+  background: color-mix(in srgb, var(--state-warning) 16%, transparent);
+  color: var(--state-warning);
+}
+
+.panel-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  gap: 8px;
+}
+
+.panel-state-actions > * {
+  display: inline-flex;
+  min-height: var(--control-pill-height-dialog);
+  align-items: center;
+  border: 0;
+  border-radius: calc(var(--control-pill-height-dialog) / 2);
+  padding: 0 14px;
+  background: var(--control-soft-strong);
+  color: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.panel-state-actions > button {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.panel-state-spin {
+  height: 18px;
+  width: 18px;
+  flex: none;
+  border: 2px solid var(--control-soft-strong);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: panel-state-spin 900ms linear infinite;
+}
+
+@keyframes panel-state-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-state-spin {
+    animation: none;
+  }
+}

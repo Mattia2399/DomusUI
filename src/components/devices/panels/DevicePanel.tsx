@@ -1,20 +1,19 @@
 import React from 'react';
-import { ArrowLeftRight, Droplets, Layers, MoveHorizontal, ShieldCheck, SlidersHorizontal, Square, Timer } from 'lucide-react';
+import { ArrowLeftRight, Droplets, MoveHorizontal, SlidersHorizontal, Square, Timer } from 'lucide-react';
 import { clsx } from 'clsx';
 import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import GlassToggle from '../../ui/GlassToggle';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { useDevicesTranslations, type DevicesTranslator } from '../../../i18n/devicesTranslations';
-import { fanLevel, isStandby, type DeviceAction, type DeviceModel } from '../model/device';
-import type { PlugEnergy } from '../model/plugEnergy';
+import { fanLevel, type DeviceAction, type DeviceModel } from '../model/device';
 import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../model/deviceTimer';
 import { DeviceIcon } from '../cards/DeviceCard';
 import { formatDeviceStatus } from '../cards/deviceText';
 import { PanelHero, PanelShell, usePanelSections, type PanelLive, type PanelSectionItem } from './PanelShell';
 
 /*
- * The controls of a device that has more than on and off: the power of a
- * plug, a fan's speed and modes, a cover's opening, a humidifier's target.
+ * The controls of a device that has more than on and off: a fan's speed and
+ * modes, a cover's opening, a humidifier's target. A plug has its entry in the registry.
  * The same content wherever the panel opens. On a phone or in a column the slider,
  * or what stands in for it, has the panel to itself and the rest waits behind a row
  * of round shortcuts, as in the light panel (devices.css).
@@ -25,12 +24,6 @@ type SectionClass = (key: string) => string;
 export type DevicePanelProps = {
   model: DeviceModel;
   roomName?: string;
-  protectedPlug: boolean;
-  onToggleProtected?: (value: boolean) => void;
-  /** What a plug used today and this month, when its meter keeps statistics. */
-  energy?: PlugEnergy | null;
-  /** Without a tariff, the cost opens the Energy page to set one. */
-  onSetTariff?: () => void;
   /** The switch-off timer, when the integration runs them for this device. */
   timer?: DeviceTimer | null;
   timerNow?: number;
@@ -111,112 +104,6 @@ function VerticalSlider({
       ) : null}
       {input}
     </div>
-  );
-}
-
-function PlugEnergyView({ energy, dt, onSetTariff }: { energy: PlugEnergy; dt: DevicesTranslator; onSetTariff?: () => void }) {
-  const { locale } = useI18n();
-  const peak = Math.max(0, ...energy.hours.map((value) => value ?? 0));
-  const kwh = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  const euro = new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR' });
-  return (
-    <>
-      <div className="flex flex-col gap-1.5" aria-hidden="true">
-        <div className="dv-bars">
-          {energy.hours.map((value, hour) => (
-            <span
-              key={hour}
-              className={clsx(hour === energy.hourNow && 'is-now', hour > energy.hourNow && 'is-later')}
-              style={{ height: `${hour > energy.hourNow ? 4 : Math.max(8, peak > 0 ? Math.round(((value ?? 0) / peak) * 100) : 0)}%` }}
-            />
-          ))}
-        </div>
-        <div className="dv-bars-axis">
-          {['00', '06', '12', '18', '24'].map((label) => (
-            <span key={label}>{label}</span>
-          ))}
-        </div>
-      </div>
-      <div className="dv-stats">
-        <div>
-          <span>{dt('energyToday')}</span>
-          <strong>{kwh.format(energy.today)} kWh</strong>
-        </div>
-        {energy.month !== null ? (
-          <div>
-            <span>{dt('energyMonth')}</span>
-            <strong>{kwh.format(energy.month)} kWh</strong>
-          </div>
-        ) : null}
-        {energy.cost !== null ? (
-          <div>
-            <span>{dt('energyCost')}</span>
-            <strong>≈ {euro.format(energy.cost)}</strong>
-          </div>
-        ) : onSetTariff ? (
-          <div>
-            <span>{dt('energyCost')}</span>
-            <button type="button" onClick={onSetTariff}>
-              {dt('setTariff')}
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </>
-  );
-}
-
-function PlugBody({
-  model,
-  dt,
-  protectedPlug,
-  onToggleProtected,
-  energy,
-  onSetTariff,
-  hero,
-}: {
-  model: DeviceModel;
-  dt: DevicesTranslator;
-  protectedPlug: boolean;
-  onToggleProtected?: (value: boolean) => void;
-  energy?: PlugEnergy | null;
-  onSetTariff?: () => void;
-  hero: React.ReactNode;
-}) {
-  const standby = isStandby(model);
-  return (
-    <>
-      {model.watts !== null || energy ? (
-        <div className="dv-card dv-panel-hero-card flex flex-col gap-3.5">
-          {model.watts !== null ? (
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="flex flex-col gap-0.5">
-                <span className="flex items-baseline gap-1.5">
-                  <span className="text-[46px] font-bold leading-none tracking-[-0.035em] tabular-nums">{model.on ? model.watts : 0}</span>
-                  <span className="dv-t2 text-lg font-semibold">W</span>
-                </span>
-                <span className="dv-t2 text-[13px] font-semibold">
-                  {!model.on ? dt('plugOffNoUse') : standby ? dt('standbyNote') : dt('wattsNow')}
-                </span>
-              </div>
-              {standby ? <span className="dv-tag">{dt('standbyTag')}</span> : null}
-            </div>
-          ) : null}
-          {energy ? <PlugEnergyView energy={energy} dt={dt} onSetTariff={onSetTariff} /> : null}
-        </div>
-      ) : hero}
-      {onToggleProtected ? (
-        <div className="dv-panel-section">
-          <div className="dv-card flex items-center gap-3 !py-3">
-            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-[15px] font-semibold">{dt('protectedLabel')}</span>
-              <span className="dv-t2 text-[13px] font-medium">{dt('protectedNote')}</span>
-            </span>
-            <GlassToggle checked={protectedPlug} onChange={onToggleProtected} label={dt('protectedLabel')} />
-          </div>
-        </div>
-      ) : null}
-    </>
   );
 }
 
@@ -453,10 +340,6 @@ function TimerOptions({ className, timer, now, dt, onSetTimer }: { className?: s
 export function DevicePanel({
   model,
   roomName,
-  protectedPlug,
-  onToggleProtected,
-  energy,
-  onSetTariff,
   timer = null,
   timerNow = Date.now(),
   onSetTimer,
@@ -469,7 +352,6 @@ export function DevicePanel({
   const status = formatDeviceStatus(model, dt);
   const subtitle = roomName ? `${roomName} · ${status}` : status;
   const lit = model.on && model.available;
-  const isPlug = model.kind === 'outlet' || model.kind === 'switch';
   const hasTimer = Boolean(onSetTimer && model.available);
   const iconStyle = lit
     ? { background: 'var(--dv-tone)', color: 'var(--dv-tone-ink)', boxShadow: '0 8px 22px -6px var(--dv-tone-glow)' }
@@ -479,9 +361,6 @@ export function DevicePanel({
   const fan = model.fan;
   const icon = { size: 20, strokeWidth: 2 };
   const shortcuts: PanelSectionItem[] = [
-    ...(isPlug && onToggleProtected
-      ? [{ key: 'protect', icon: <ShieldCheck {...icon} />, label: dt('protectedLabel'), pressed: protectedPlug, run: () => onToggleProtected(!protectedPlug) }]
-      : []),
     ...(model.kind === 'humidifier' ? [{ key: 'now', icon: <Droplets {...icon} />, label: dt('humidityNow') }] : []),
     ...((fan?.presets.length ?? 0) > 0 || (model.humidifier?.modes.length ?? 0) > 0 ? [{ key: 'modes', icon: <SlidersHorizontal {...icon} />, label: dt('modes') }] : []),
     ...(fan && fan.oscillating !== null
@@ -518,10 +397,7 @@ export function DevicePanel({
       }}
       onClose={onClose}
     >
-      <div className={clsx('dv-panel-body dv-panel-stage', isPlug ? 'is-stack' : 'is-wrap', (section || model.kind === 'cover') && 'has-section')}>
-        {isPlug ? (
-          <PlugBody model={model} dt={dt} protectedPlug={protectedPlug} onToggleProtected={onToggleProtected} energy={energy} onSetTariff={onSetTariff} hero={hero} />
-        ) : null}
+      <div className={clsx('dv-panel-body dv-panel-stage', 'is-wrap', (section || model.kind === 'cover') && 'has-section')}>
         {model.kind === 'virtual' ? hero : null}
         {model.kind === 'fan' ? <FanBody model={model} dt={dt} sectionClass={sectionClass} hero={hero} onAction={onAction} /> : null}
         {model.kind === 'cover' ? <CoverBody model={model} dt={dt} hero={hero} onAction={onAction} /> : null}

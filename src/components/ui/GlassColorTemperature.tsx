@@ -15,6 +15,8 @@ export type GlassColorTemperatureProps = GlassControlState & {
   valueText?: string;
   /** The quick choices below the bar: Calda, Neutra, Fredda. */
   presets?: ReadonlyArray<{ kelvin: number; label: string }>;
+  /** Which of them is on, when each stands for a range of whites. Otherwise the one at the value. */
+  presetOn?: number;
   className?: string;
 };
 
@@ -38,7 +40,7 @@ function colourAt(share: number) {
 }
 
 /* The whites of a light, from warm to cold, with a handle in the white chosen. */
-export function GlassColorTemperature({ value, min = 2000, max = 6500, step = 100, onValueChange, commit = 'live', label, valueText, presets = [], className, disabled, pending, error }: GlassColorTemperatureProps) {
+export function GlassColorTemperature({ value, min = 2000, max = 6500, step = 100, onValueChange, commit = 'live', label, valueText, presets = [], presetOn, className, disabled, pending, error }: GlassColorTemperatureProps) {
   const state = { disabled, pending, error };
   const blocked = controlBlocked(state);
   const { shown, change, release } = useSliderValue(value, commit, onValueChange);
@@ -69,7 +71,7 @@ export function GlassColorTemperature({ value, min = 2000, max = 6500, step = 10
       {presets.length > 0 ? (
         <span className="glass-temperature-presets" role="group" aria-label={label}>
           {presets.map((preset) => {
-            const on = Math.abs(shown - preset.kelvin) < step;
+            const on = presetOn === undefined ? Math.abs(shown - preset.kelvin) < step : preset.kelvin === presetOn;
             return (
               <button key={preset.kelvin} type="button" className={clsx(on && 'is-on')} aria-pressed={on} disabled={blocked} onClick={() => onValueChange(preset.kelvin)}>
                 {preset.label}

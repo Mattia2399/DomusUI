@@ -1,4 +1,9 @@
+import { vi } from 'vitest';
 import { preloadAllTranslationCatalogs } from '../i18n/I18nProvider';
+
+// A card asks for the code of its panel while the browser is free: in a test that import
+// would outlive the test. panelPreload.test.ts checks the real one.
+vi.mock('../components/devices/panels/panelPreload', () => ({ usePanelPreload: () => ({}), preloadPanel: () => undefined }));
 
 await preloadAllTranslationCatalogs();
 

@@ -62,6 +62,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
   if (size === 'mini' || format === 'U×3') {
     return (
       <DeviceCardShell
+        panelKind={hasPanel ? 'light' : null}
         format={format === 'U×3' ? 'U×3' : 'U×2'}
         name={model.name}
         nameNode={nameNode}
@@ -106,6 +107,7 @@ export function LightCard({ model, format, editing = false, selected = false, hi
   );
   const frame = (children: React.ReactNode) => (
     <CardFrame
+      panelKind={hasPanel ? 'light' : null}
       format={format}
       available={model.available}
       lit={litColour}

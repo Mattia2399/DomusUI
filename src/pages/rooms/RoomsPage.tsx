@@ -17,7 +17,8 @@ import type { CameraPtzDirection } from '../../components/camera/CameraPtzJoysti
 import type { GlassDropdownOption } from '../../components/ui/GlassDropdown';
 import { useRoomPinnedEntities, useRoomsStoredState } from '../../components/rooms/useRoomsStoredState';
 import { useProtectedEntities } from '../../components/rooms/useProtectedEntities';
-import { lightExtraCall, lightExtrasOf } from '../../components/devices/model/lightExtras';
+import type { LightAction } from '../../components/devices/model/light';
+import { lightExtraCall, lightExtrasOf, type LightExtraAction } from '../../components/devices/model/lightExtras';
 import { LightCard } from '../../components/devices/cards/LightCard';
 import { DeviceCard } from '../../components/devices/cards/DeviceCard';
 import { ClimateCard } from '../../components/devices/cards/ClimateCard';
@@ -128,7 +129,7 @@ import {
   ClimatePanel,
   Deferred,
   DevicePanel,
-  LightPanel,
+  Panel,
   MediaPickPanel,
   MediaPlayer,
   MediaStartPanel,
@@ -1638,21 +1639,24 @@ export function RoomsPage({
         isOpen={Boolean(panelLight)}
         onClose={() => setPanel(null)}
         title={panelLight?.name ?? ''}
-        tintRgb={panelLight && panelLight.on && panelLight.available ? lightRgb(panelLight).join(' ') : null}
+        wide
       >
         {panelLight ? (
           <Deferred>
             {withLive(panelLight.entityId, (live) => (
-              <LightPanel
-                model={panelLight}
-                roomName={activeRoom?.name}
-                extras={lightExtrasOf(states[panelLight.entityId])}
-                live={live}
-                onAction={(action) => lights.act(panelLight.entityId, action)}
-                onExtraAction={(action) => {
-                  const { domain, service, data } = lightExtraCall(panelLight.entityId, action);
-                  void onCallService?.(domain, service, data);
+              <Panel
+                kind="light"
+                input={{
+                  model: panelLight,
+                  roomName: activeRoom?.name,
+                  extras: lightExtrasOf(states[panelLight.entityId]),
+                  onAction: (action: LightAction) => lights.act(panelLight.entityId, action),
+                  onExtraAction: (action: LightExtraAction) => {
+                    const { domain, service, data } = lightExtraCall(panelLight.entityId, action);
+                    void onCallService?.(domain, service, data);
+                  },
                 }}
+                live={live}
                 onClose={() => setPanel(null)}
               />
             ))}
@@ -1665,43 +1669,58 @@ export function RoomsPage({
         isOpen={Boolean(panelDevice)}
         onClose={() => setPanel(null)}
         title={panelDevice?.name ?? ''}
-        tintRgb={panelDevice && panelDevice.on && panelDevice.available ? DEVICE_TINT[panelDevice.kind] : null}
+        tintRgb={panelDevice && panelDevice.on && panelDevice.available && !(panelDevice.kind === 'outlet' || panelDevice.kind === 'switch' || panelDevice.kind === 'virtual') ? DEVICE_TINT[panelDevice.kind] : null}
         softTint
+        wide
       >
         {panelDevice ? (
           <Deferred>
             {withLive(panelDevice.entityId, (live) => (
+            panelDevice.kind === 'outlet' || panelDevice.kind === 'switch' || panelDevice.kind === 'virtual' ? (
+              <Panel
+                kind="plug"
+                input={{
+                  model: panelDevice,
+                  roomName: activeRoom?.name,
+                  protectedPlug: protectedSet.has(panelDevice.entityId),
+                  onToggleProtected:
+                    canOrganize && panelDevice.kind !== 'virtual'
+                      ? (value: boolean) =>
+                          setProtectedIds((current) =>
+                            value ? Array.from(new Set([...current, panelDevice.entityId])) : current.filter((id) => id !== panelDevice.entityId),
+                          )
+                      : undefined,
+                  energy: panelEnergy.energy,
+                  timer: deviceTimers.timers[panelDevice.entityId],
+                  timerNow: deviceTimers.now,
+                  onSetTimer: deviceTimers.available && canHaveTimer(panelDevice) ? (minutes: number) => setDeviceTimer(panelDevice.entityId, minutes) : undefined,
+                  onSetTariff:
+                    panelEnergy.tariff === 'missing' && canManageRooms && onNavigate
+                      ? () => {
+                          setPanel(null);
+                          onNavigate('/consumi/energia');
+                        }
+                      : undefined,
+                  // The panel asks by itself before turning off a protected plug.
+                  onAction: (action: DeviceAction) => devices.act(panelDevice.entityId, action),
+                }}
+                live={live}
+                onClose={() => setPanel(null)}
+              />
+            ) : (
             <DevicePanel
               model={panelDevice}
               roomName={activeRoom?.name}
               live={live}
-              protectedPlug={protectedSet.has(panelDevice.entityId)}
-              onToggleProtected={
-                canOrganize && (panelDevice.kind === 'outlet' || panelDevice.kind === 'switch')
-                  ? (value) =>
-                      setProtectedIds((current) =>
-                        value ? Array.from(new Set([...current, panelDevice.entityId])) : current.filter((id) => id !== panelDevice.entityId),
-                      )
-                  : undefined
-              }
-              energy={panelEnergy.energy}
               timer={deviceTimers.timers[panelDevice.entityId]}
               timerNow={deviceTimers.now}
               onSetTimer={
                 deviceTimers.available && canHaveTimer(panelDevice) ? (minutes) => setDeviceTimer(panelDevice.entityId, minutes) : undefined
               }
-              onSetTariff={
-                panelEnergy.tariff === 'missing' && canManageRooms && onNavigate
-                  ? () => {
-                      setPanel(null);
-                      onNavigate('/consumi/energia');
-                    }
-                  : undefined
-              }
               onAction={(action) => actOnDevice(panelDevice.entityId, action)}
               onClose={() => setPanel(null)}
             />
-            ))}
+            )))}
           </Deferred>
         ) : null}
       </PanelHost>

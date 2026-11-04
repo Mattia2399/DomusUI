@@ -12,6 +12,8 @@ export type GlassConfirmProps = GlassControlState & {
   cancelLabel: React.ReactNode;
   /** The question above the two choices, in a box. Without it the two choices take the place of the button. */
   question?: React.ReactNode;
+  /** Always asking: something else opened the question, as the power of a protected plug. */
+  asking?: boolean;
   icon?: React.ReactNode;
   onConfirm: () => void;
   onCancel?: () => void;
@@ -19,8 +21,9 @@ export type GlassConfirmProps = GlassControlState & {
 };
 
 /* The first touch asks in the same place, with Cancel and the action in red. A second touch does it. */
-export function GlassConfirm({ label, confirmLabel, cancelLabel, question, icon, onConfirm, onCancel, className, disabled, pending, error }: GlassConfirmProps) {
-  const [asking, setAsking] = React.useState(false);
+export function GlassConfirm({ label, confirmLabel, cancelLabel, question, asking: alwaysAsking, icon, onConfirm, onCancel, className, disabled, pending, error }: GlassConfirmProps) {
+  const [askingNow, setAsking] = React.useState(false);
+  const asking = alwaysAsking ?? askingNow;
   const cancelButton = React.useRef<HTMLButtonElement>(null);
   const startButton = React.useRef<HTMLButtonElement>(null);
   const backToStart = React.useRef(false);

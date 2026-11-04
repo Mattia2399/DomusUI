@@ -2290,17 +2290,6 @@
   flex-direction: column;
 }
 
-/* The colour disc: below the choices where there is room, in the place of the slider where there is not. */
-.dv-panel-wheel {
-  display: flex;
-  justify-content: center;
-  container-type: size;
-}
-
-.dv-panel-wheel .glass-color-picker {
-  width: min(100cqw, 100cqh);
-}
-
 @container (min-width: 521px) {
   /* What used to follow the body of a panel: the timer below everything, a plug as a column. */
   .dv-panel-stage.is-wrap {
@@ -2317,28 +2306,11 @@
     flex: 0 0 100%;
   }
 
-  .dv-panel-stage:has(> .dv-panel-wheel) {
-    display: grid;
-    align-items: start;
-    gap: 14px 22px;
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .dv-panel-stage:has(> .dv-panel-wheel) > .dv-vslider {
-    grid-row: 1 / span 2;
-  }
-
   .dv-panel-stage > .dv-panel-side {
     grid-column: 2;
     grid-row: 1;
   }
 
-  .dv-panel-stage > .dv-panel-wheel {
-    height: 190px;
-    width: 100%;
-    grid-column: 2;
-    grid-row: 2;
-  }
 }
 
 .dv-panel-shortcut {
@@ -2444,23 +2416,6 @@
     grid-row: 1;
     height: 100%;
     width: 148px;
-  }
-
-  .dv-panel-stage > .dv-panel-wheel {
-    display: none;
-    height: auto;
-    min-height: 0;
-    width: 100%;
-    grid-row: 1;
-    align-self: stretch;
-  }
-
-  .dv-panel-stage.shows-wheel > .dv-panel-wheel {
-    display: flex;
-  }
-
-  .dv-panel-stage.shows-wheel > .dv-vslider {
-    display: none;
   }
 
   .dv-panel-stage > .dv-panel-side {

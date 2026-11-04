@@ -2,6 +2,7 @@ import React from 'react';
 import { clsx } from 'clsx';
 import { AlertCircle, BatteryLow, Clock3 } from 'lucide-react';
 import { usePanelLiveTranslations } from '../../../../i18n/panelLiveTranslations';
+import './panelStates.css';
 
 /* A device has this long to confirm a command, then the panel says it has not answered. */
 export const PANEL_COMMAND_LIMIT_MS = 10_000;

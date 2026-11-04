@@ -22,7 +22,7 @@
 
 .dv-panel-sheet {
   display: flex;
-  height: min(90dvh, 720px);
+  height: var(--panel-sheet-height);
   width: 100%;
   flex-direction: column;
   overflow: hidden;
@@ -75,7 +75,7 @@
   padding: 6px 16px 16px;
 }
 
-/* A panel with a dock fills the sheet, so that its dock is always at the bottom. */
+/* A panel fills the sheet, so that its footer is always at the bottom. */
 .dv-panel-sheet:not(.is-fit) .dv-panel-sheet-body {
   container: dv-panel-sheet / size;
 }
@@ -88,4 +88,14 @@
   .dv-panel-sheet .dv-panel-stage {
     grid-template-rows: minmax(150px, 1fr) 148px;
   }
+}
+
+/* A panel brings its own header: the title of the Home's sheet steps aside. */
+.device-context-surface:has(.panel-shell) > [data-context-sheet-header] {
+  display: none;
+}
+
+/* The skeleton of a panel brings its own margins. */
+.dv-panel-sheet .dv-panel-frame:has(> .panel-shell) {
+  padding: 0;
 }

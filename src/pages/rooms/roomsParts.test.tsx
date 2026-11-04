@@ -1,8 +1,14 @@
 import React from 'react';
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Deferred, LightPanel, preloadRoomsParts } from './roomsParts';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { Deferred, Panel, preloadRoomsParts } from './roomsParts';
 import { toLightModel } from '../../components/devices/model/light';
+import { loadPanelEntry } from '../../components/devices/panels/registry';
+
+// Compiling a panel on its first import can take longer than a test is given.
+beforeAll(async () => {
+  await Promise.all([loadPanelEntry('light'), import('../../components/devices/panels/Panel')]);
+}, 120_000);
 
 afterEach(cleanup);
 
@@ -15,10 +21,10 @@ describe('the parts of the Rooms page loaded on request', () => {
     const model = toLightModel('light.salotto', { state: 'on', rawAttributes: { friendly_name: 'Salotto', brightness: 128 } })!;
     render(
       <Deferred>
-        <LightPanel model={model} onAction={vi.fn()} onClose={vi.fn()} />
+        <Panel kind="light" input={{ model, onAction: vi.fn() }} onClose={vi.fn()} />
       </Deferred>,
     );
-    expect(await screen.findByText('Salotto')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Salotto' })).toBeTruthy();
   });
 
   it('shows nothing, and keeps the page, when a part cannot load', () => {

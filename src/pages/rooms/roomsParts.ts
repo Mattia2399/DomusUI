@@ -1,5 +1,6 @@
 import React from 'react';
 import { LazyLoadErrorBoundary } from '../../components/common/LazyLoadBoundary';
+import { onceLoaded } from '../../components/common/onceLoaded';
 
 /*
  * What the Rooms page opens only on request: the panels of the devices, the
@@ -9,20 +10,20 @@ import { LazyLoadErrorBoundary } from '../../components/common/LazyLoadBoundary'
  */
 
 const loaders = {
-  light: () => import('../../components/devices/panels/LightPanel'),
-  device: () => import('../../components/devices/panels/DevicePanel'),
-  climate: () => import('../../components/devices/panels/ClimatePanel'),
-  live: () => import('../../components/devices/panels/PanelLiveGate'),
-  security: () => import('../../components/devices/panels/SecurityPanel'),
-  media: () => import('../../components/devices/panels/MediaPlayer'),
-  mediaSheets: () => import('./MediaSheets'),
-  section: () => import('./SectionPage'),
-  accessories: () => import('./AddAccessoriesSheet'),
-  manage: () => import('./RoomsManagePage'),
-  roomSheets: () => import('./RoomManageSheets'),
+  panel: onceLoaded(() => import('../../components/devices/panels/Panel')),
+  device: onceLoaded(() => import('../../components/devices/panels/DevicePanel')),
+  climate: onceLoaded(() => import('../../components/devices/panels/ClimatePanel')),
+  live: onceLoaded(() => import('../../components/devices/panels/PanelLiveGate')),
+  security: onceLoaded(() => import('../../components/devices/panels/SecurityPanel')),
+  media: onceLoaded(() => import('../../components/devices/panels/MediaPlayer')),
+  mediaSheets: onceLoaded(() => import('./MediaSheets')),
+  section: onceLoaded(() => import('./SectionPage')),
+  accessories: onceLoaded(() => import('./AddAccessoriesSheet')),
+  manage: onceLoaded(() => import('./RoomsManagePage')),
+  roomSheets: onceLoaded(() => import('./RoomManageSheets')),
 };
 
-export const LightPanel = React.lazy(() => loaders.light().then((module) => ({ default: module.LightPanel })));
+export const Panel = React.lazy(() => loaders.panel().then((module) => ({ default: module.Panel })));
 export const DevicePanel = React.lazy(() => loaders.device().then((module) => ({ default: module.DevicePanel })));
 export const ClimatePanel = React.lazy(() => loaders.climate().then((module) => ({ default: module.ClimatePanel })));
 // The panels shared with the Home bring the reading of every sensor family and the camera viewer:
@@ -41,7 +42,7 @@ export const RoomEditPanel = React.lazy(() => loaders.roomSheets().then((module)
 
 /** Fetch every part once the page is idle; a part that fails here is asked again when it opens. */
 export function preloadRoomsParts() {
-  Object.values(loaders).forEach((load) => void load().catch(() => undefined));
+  Object.values(loaders).forEach((load) => void Promise.resolve(load()).catch(() => undefined));
 }
 
 /** A part that may still be loading: nothing shows until it has arrived, nor if it cannot load. */

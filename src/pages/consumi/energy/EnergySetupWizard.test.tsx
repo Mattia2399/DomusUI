@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   EnergyCallApi,
   EnergyDiscovery,
@@ -158,6 +158,9 @@ const start = async () => {
   await screen.findByRole('button', { name: 'Iniziamo' });
   next('Iniziamo');
 };
+
+// Compiling a lazy part on its first import can take longer than a test waits for it: it happens here, off the clock.
+beforeAll(() => import('./EnergySettings'), 120_000);
 
 describe('First setup', () => {
   it('walks through welcome, plant, detection and each component, applying only what is chosen (older integration)', async () => {

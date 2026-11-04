@@ -139,16 +139,22 @@ import { useDashboardSecurity } from '../../security/dashboardAccess';
 import { useSensitiveActionGate } from '../../security/SensitiveActionGate';
 import { resolveCardDataSource } from '../../security/mockSourcePolicy';
 import { DASHBOARD_SIDEBAR_WIDTH_CLASS } from './DashboardSidebarPlaceholder';
-import { PanelSheet } from '../devices/panels/PanelSheet';
+import { PanelSheet } from '../devices/panels/shell/PanelSheet';
 import LazyLoadBoundary from '../common/LazyLoadBoundary';
 import DeferredGlassLoader from '../ui/DeferredGlassLoader';
 import { useI18n } from '../../i18n/I18nProvider';
 import { translateBuilderDetail } from '../../i18n/builderDetailCopy';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
+import { onceLoaded } from '../common/onceLoaded';
 
-const loadContextSidebar = () =>
-  import('../settings/ContextSidebar').then((module) => ({ default: module.ContextSidebar }));
+const loadContextSidebar = onceLoaded(() =>
+  import('../settings/ContextSidebar').then((module) => ({ default: module.ContextSidebar, preload: module.preloadHomePanel })),
+);
 const ContextSidebar = React.lazy(loadContextSidebar);
+
+/** What a panel of the Home opens in, ready before the first tap. */
+export const preloadDeviceContext = () => Promise.resolve(loadContextSidebar()).then((sidebar) => sidebar.preload());
+
 const GridV2ScenesCard = React.lazy(() => import('../widgets/GridV2ScenesCard'));
 const loadMicroSuperChart = () =>
   import('../widgets/micro/MicroSuperChart').then((module) => ({

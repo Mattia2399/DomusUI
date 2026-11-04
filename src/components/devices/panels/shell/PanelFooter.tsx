@@ -1,11 +1,11 @@
 import { clsx } from 'clsx';
-import { ChevronLeft, Play, Power, Square } from 'lucide-react';
+import { ChevronLeft, Pause, Play, Plus, Power, Square } from 'lucide-react';
 import { GlassShortcut } from '../../../ui/GlassShortcut';
 import { controlBlocked, controlStateAria, controlStateClass, type GlassControlState } from '../../../ui/glassControl';
 
 export type PanelMainAction = GlassControlState & {
-  /** Power to switch on and off, Stop while a cover moves, Play for what plays. */
-  kind: 'power' | 'stop' | 'play';
+  /** Power to switch on and off, Stop while a cover moves, Play and Pause for a robot, + for a new event. */
+  kind: 'power' | 'stop' | 'play' | 'pause' | 'add';
   on?: boolean;
   label: string;
   onPress: () => void;
@@ -17,7 +17,7 @@ export type PanelFooterProps = {
   back?: { label: string; onPress: () => void };
 };
 
-const ICONS = { power: Power, stop: Square, play: Play };
+const ICONS = { power: Power, stop: Square, play: Play, pause: Pause, add: Plus };
 
 /*
  * The main action in the middle, within reach of a thumb, and Back at its left on the

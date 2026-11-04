@@ -1,6 +1,5 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import GlassSegmentSelect from '../../ui/GlassSegmentSelect';
 import type { DevicesTranslator } from '../../../i18n/devicesTranslations';
 import { LIGHT_HUE_PRESETS, LIGHT_TEMPERATURE_PRESETS, lightTone, type LightModel, type LightMode } from '../model/light';
 import { hueToRgb, kelvinToRgb, rgbCss } from '../model/tileColor';
@@ -130,31 +129,5 @@ export function SwatchRow({
       )}
       {children}
     </div>
-  );
-}
-
-export function LightKindSegment({
-  mode,
-  dt,
-  onChange,
-  disabled = false,
-}: {
-  mode: LightMode;
-  dt: DevicesTranslator;
-  onChange: (mode: LightMode) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <GlassSegmentSelect<LightMode>
-      className="dv-seg"
-      ariaLabel={dt('lightKind')}
-      options={[
-        { value: 'temp', label: dt('white') },
-        { value: 'color', label: dt('color') },
-      ]}
-      value={mode}
-      disabled={disabled}
-      onChange={onChange}
-    />
   );
 }

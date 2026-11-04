@@ -2,7 +2,8 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { clsx } from 'clsx';
-import '../theme/panelSheet.css';
+import { PanelSurfaceContext } from './panelSurface';
+import './panelSheet.css';
 
 /*
  * How a panel opens on a phone, the same in every page: it slides up from the
@@ -126,7 +127,9 @@ export function PanelSheet({ isOpen, onClose, title, closeLabel, fitContent = fa
                   <span className="liquid-glass-drag-handle" />
                 </div>
                 {head}
-                <div className="dv-panel-sheet-body">{children}</div>
+                <PanelSurfaceContext.Provider value="sheet">
+                  <div className="dv-panel-sheet-body">{children}</div>
+                </PanelSurfaceContext.Provider>
               </div>
             </motion.section>
           </div>

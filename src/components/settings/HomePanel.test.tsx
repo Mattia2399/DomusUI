@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { loadPanelEntry } from '../devices/panels/registry';
 import type { MockEntityState } from '../../types/ha';
 import { HomePanel } from './HomePanel';
 import {
@@ -18,6 +19,11 @@ import {
 } from './homePanelModels';
 import { homePanelOf, type HomeClimate, type HomePanelActions, type HomePanelProps } from './homePanelRoute';
 import type { ActiveDevice } from './types';
+
+// Compiling a panel on its first import can take longer than a test is given.
+beforeAll(async () => {
+  await Promise.all([loadPanelEntry('light'), loadPanelEntry('plug')]);
+}, 120_000);
 
 afterEach(cleanup);
 
@@ -257,10 +263,10 @@ describe('what the Home opens', () => {
     expect(homePanelOf(propsFor({ type: 'camera', name: 'Ingresso' }, { camera: { name: 'Ingresso', entityId: 'camera.ingresso' } }))).toBeNull();
   });
 
-  it('shows the same header in the column and in the sheet of a phone', () => {
+  it('shows the same header in the column and in the sheet of a phone', async () => {
     const onClose = vi.fn();
     const { rerender } = render(<HomePanel {...propsFor({ type: 'light', name: 'Faretti' }, { onClose })} />);
-    expect(screen.getByText('Faretti')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Faretti' })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Chiudi' }));
     expect(onClose).toHaveBeenCalledTimes(1);
 
@@ -285,10 +291,10 @@ describe('what the Home opens', () => {
     expect(props.actions.closeCover).not.toHaveBeenCalled();
   });
 
-  it('toggles from the power of the panel', () => {
+  it('toggles from the power of the panel', async () => {
     const props = propsFor({ type: 'light', name: 'Faretti' });
     render(<HomePanel {...props} />);
-    fireEvent.click(screen.getByRole('button', { name: /Faretti/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Faretti/ }));
     expect(props.actions.toggleLamp).toHaveBeenCalledTimes(1);
   });
 });

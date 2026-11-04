@@ -1,6 +1,8 @@
 import type React from 'react';
 import { clsx } from 'clsx';
 import { Check } from 'lucide-react';
+import { usePanelPreload } from '../panels/panelPreload';
+import type { PanelKind } from '../panels/registry';
 import type { DeviceCardFormat } from './DeviceCardShell';
 import '../theme/devices.css';
 import '../theme/cardSizes.css';
@@ -27,6 +29,8 @@ export type CardFrameProps = {
   selectLabel: string;
   onOpen?: () => void;
   onSelect?: () => void;
+  /** The panel it opens: its code is on its way before the tap. */
+  panelKind?: PanelKind | null;
   className?: string;
   style?: React.CSSProperties;
   testId?: string;
@@ -46,14 +50,17 @@ export function CardFrame({
   selectLabel,
   onOpen,
   onSelect,
+  panelKind,
   className,
   style,
   testId,
   children,
 }: CardFrameProps) {
+  const preload = usePanelPreload(panelKind);
   const litStyle = lit ? ({ background: lit.background, '--dv-light-rgb': lit.lightRgb } as React.CSSProperties) : undefined;
   return (
     <div
+      {...preload}
       className={clsx(
         'dv-tile',
         lit && 'is-lit',

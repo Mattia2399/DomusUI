@@ -1,0 +1,56 @@
+/* What only the panel of a light draws. */
+
+.panel-hero-instead .glass-color-picker {
+  width: min(100cqw, 100cqh);
+  align-self: center;
+}
+
+.panel-seg {
+  align-self: center;
+  width: fit-content;
+  max-width: 100%;
+}
+
+/* The whites and the kinds of light in the zone of 148 px. */
+.panel-control-screen .glass-temperature {
+  gap: 6px;
+}
+
+.panel-control-screen .glass-temperature-bar {
+  height: var(--control-bar-height-compact);
+}
+
+.panel-control-screen .glass-temperature-handle {
+  height: 32px;
+  width: 32px;
+}
+
+.panel-control-screen .glass-temperature-presets > button {
+  min-height: 28px;
+}
+
+.panel-control-screen .liquid-segmented-control [role='radio'] {
+  height: 30px;
+}
+
+.panel-white-fill {
+  background: #ffffff;
+}
+
+/* The disc in its group of the dialog. */
+.panel-disc-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.panel-disc-small {
+  width: 156px;
+  flex: none;
+}
+
+.panel-disc-group > .glass-swatches {
+  min-width: 0;
+  flex: 1;
+  justify-content: flex-start;
+}

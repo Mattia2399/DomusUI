@@ -28,6 +28,7 @@ import { HumidifierControls } from './HumidifierControls';
 import type { CalendarAgendaController } from '../../hooks/useCalendarAgenda';
 import { CONTEXT_PANEL_LAYOUT } from './layoutClasses';
 import { ContextPanelHeader } from './ContextPanelHeader';
+import { onceLoaded } from '../common/onceLoaded';
 import { homePanelOf, type HomePanelProps } from './homePanelRoute';
 import { useLiftGuard } from './useLiftGuard';
 import { StatusGlow } from '../widgets/micro/StatusGlow';
@@ -49,7 +50,8 @@ type MediaRepeatMode = 'off' | 'all' | 'one';
 type MediaOutputKind = 'speaker' | 'tv' | 'cast';
 
 // The shared panels load only when a card opens one.
-const HomePanel = React.lazy(() => import('./HomePanel'));
+export const preloadHomePanel = onceLoaded(() => import('./HomePanel'));
+const HomePanel = React.lazy(preloadHomePanel);
 
 function resolveEntityStateById(haStates: MockEntityStateMap, entityId: string | undefined) {
   const normalizedEntityId = (entityId ?? '').trim();

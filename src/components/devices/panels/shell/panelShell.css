@@ -10,6 +10,9 @@
   color: var(--control-ink);
   container: panel-shell / inline-size;
   transition: background 400ms ease;
+  /* What the charts of a device are drawn with. */
+  --dv-tone: var(--device-accent);
+  --dv-tone-rgb: var(--device-accent-rgb);
 }
 
 .panel-shell.is-tinted {
@@ -39,6 +42,40 @@
   border-radius: 34px;
   padding: 22px 24px 24px;
   background-color: var(--surface-sheet);
+}
+
+/* Inside a host, which paints the surface and scrolls. */
+.panel-shell.is-hosted {
+  width: 100%;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+}
+
+.panel-shell.is-hosted[data-surface='sheet'] {
+  height: auto;
+  min-height: 100cqh;
+  padding: 0 20px 16px;
+}
+
+.panel-shell.is-hosted > .panel-shell-body {
+  overflow: visible;
+}
+
+.panel-host-tinted {
+  background-image: linear-gradient(rgb(var(--device-accent-rgb) / var(--surface-tint-alpha)), rgb(var(--device-accent-rgb) / var(--surface-tint-alpha))) !important;
+  transition: background 400ms ease;
+}
+
+.panel-shell.is-off .panel-shell-main,
+.panel-shell.is-off .panel-shell-free {
+  opacity: 0.45;
+}
+
+.panel-shell-free {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .panel-shell-handle {
@@ -162,8 +199,37 @@
   justify-content: center;
 }
 
-.panel-hero > .glass-vslider.is-hero {
+.panel-hero-main,
+.panel-hero-instead {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.panel-hero.has-instead > .panel-hero-main {
+  display: none;
+}
+
+.panel-hero-instead {
+  container-type: size;
+}
+
+.panel-hero-main > .glass-vslider.is-hero {
   height: auto;
+}
+
+.panel-hero-empty {
+  width: 100%;
+  border-radius: 22px;
+  background: var(--control-soft);
+}
+
+.panel-hero-empty.is-slider {
+  width: var(--panel-hero-width);
+  border-radius: 44px;
 }
 
 .panel-shell[data-surface='column'] .panel-hero,
@@ -202,8 +268,41 @@
   flex-direction: column;
   margin-block: auto;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   text-align: center;
+  /* What fits the zone of 148 px: one line of each. */
+  --control-pill-height: 40px;
+}
+
+.panel-screen-title,
+.panel-screen-note {
+  margin: 0;
+  font-size: 13px;
+}
+
+.panel-screen-title > b {
+  font-weight: 700;
+}
+
+.panel-screen-title > span,
+.panel-screen-note {
+  color: var(--control-ink-2);
+  font-weight: 500;
+}
+
+.panel-group-note {
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.panel-group-action.glass-btn {
+  height: var(--control-pill-height-dialog);
+  border-radius: calc(var(--control-pill-height-dialog) / 2);
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 /* The footer: Back at the left, the main action in the middle, always in the same place. */
@@ -257,91 +356,6 @@
   cursor: inherit;
 }
 
-/* The three states every panel has in common. */
-
-.panel-state {
-  display: flex;
-  flex: none;
-  align-items: flex-start;
-  gap: 10px;
-  border-radius: 18px;
-  padding: 12px 14px;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-  text-align: left;
-}
-
-.panel-state > svg {
-  flex: none;
-  margin-top: 1px;
-}
-
-.panel-state > span:last-child {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.panel-state b {
-  font-weight: 700;
-}
-
-.panel-state.is-off,
-.panel-state.is-waiting {
-  background: var(--state-off);
-  color: var(--control-ink);
-}
-
-.panel-state.is-warning {
-  background: color-mix(in srgb, var(--state-warning) 16%, transparent);
-  color: var(--state-warning);
-}
-
-.panel-state-actions {
-  display: flex;
-  flex-wrap: wrap;
-  margin-top: 6px;
-  gap: 8px;
-}
-
-.panel-state-actions > * {
-  display: inline-flex;
-  min-height: var(--control-pill-height-dialog);
-  align-items: center;
-  border: 0;
-  border-radius: calc(var(--control-pill-height-dialog) / 2);
-  padding: 0 14px;
-  background: var(--control-soft-strong);
-  color: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.panel-state-actions > button {
-  background: var(--control-on);
-  color: var(--control-on-ink);
-}
-
-.panel-state-spin {
-  height: 18px;
-  width: 18px;
-  flex: none;
-  border: 2px solid var(--control-soft-strong);
-  border-top-color: currentColor;
-  border-radius: 50%;
-  animation: panel-state-spin 900ms linear infinite;
-}
-
-@keyframes panel-state-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* Two columns: the protagonist still at the left, every control in view at the right. */
 
 @container panel-shell (min-width: 521px) {
@@ -372,9 +386,19 @@
     flex: none;
   }
 
-  .panel-hero > .glass-vslider.is-hero {
+  .panel-hero .glass-vslider.is-hero,
+  .panel-hero-empty.is-slider {
     height: var(--panel-dialog-slider-height);
     width: var(--panel-dialog-slider-width);
+  }
+
+  /* Two columns have no screens: the protagonist never gives up its place. */
+  .panel-hero.has-instead > .panel-hero-main {
+    display: flex;
+  }
+
+  .panel-hero-instead {
+    display: none;
   }
 
   .panel-control-zone {
@@ -409,15 +433,19 @@
     font-weight: 700;
   }
 
-  .panel-group-head > span:last-child:not(.panel-group-icon) {
+  .panel-group-trailing {
+    display: flex;
+    margin-left: auto;
+    flex: none;
+  }
+
+  .panel-group-value {
     min-width: 0;
-    flex: 1;
     overflow: hidden;
     color: var(--control-ink-2);
     font-size: 13px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-    text-align: right;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -431,6 +459,11 @@
     justify-content: center;
     border-radius: 50%;
     background: var(--control-soft-strong);
+  }
+
+  .panel-group-icon.is-lit {
+    background: var(--device-accent);
+    color: var(--device-accent-ink);
   }
 
   /* The same main action, in the header: the footer gives up its place. */
@@ -466,9 +499,5 @@
 
   .panel-footer-action:active:not(:disabled) {
     transform: none;
-  }
-
-  .panel-state-spin {
-    animation: none;
   }
 }
