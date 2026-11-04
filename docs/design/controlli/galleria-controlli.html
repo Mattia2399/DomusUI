@@ -1,0 +1,1083 @@
+<title>DomusUI Related Controls Gallery</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* DomusUI · Related Controls. Layout: barra degli strumenti in alto, indice delle famiglie a sinistra, catalogo a schede a destra, anteprime nei pannelli in fondo. */
+:root{
+  --bg:#EEF0F4; --surface:#FFFFFF; --sheet:#F4F1EC; --ink:#111113; --t2:rgba(60,60,67,.68); --t3:rgba(60,60,67,.45);
+  --glass:rgba(60,45,30,.075); --glass2:rgba(60,45,30,.13); --track:rgba(60,45,30,.11); --sep:rgba(60,60,67,.12);
+  --on:#0B0B0F; --on-t:#FFFFFF; --ring:#FFFFFF; --knob:#FFFFFF;
+  --ok:#30B350; --warn:#E58A00; --bad:#E5453A; --info:#0A84FF;
+  --acc:#FF9F0A; --acc-ink:#2A1A00;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI Variable","Segoe UI",system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#060608; --surface:#141416; --sheet:#1D1D20; --ink:#F5F5F7; --t2:rgba(235,235,245,.66); --t3:rgba(235,235,245,.42);
+  --glass:rgba(255,255,255,.09); --glass2:rgba(255,255,255,.15); --track:rgba(255,255,255,.12); --sep:rgba(255,255,255,.1);
+  --on:#F5F5F7; --on-t:#0B0B0F; --ring:#1D1D20; --knob:#FFFFFF; --ok:#34C759; --warn:#FF9F0A; --bad:#FF453A; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#060608; --surface:#141416; --sheet:#1D1D20; --ink:#F5F5F7; --t2:rgba(235,235,245,.66); --t3:rgba(235,235,245,.42);
+  --glass:rgba(255,255,255,.09); --glass2:rgba(255,255,255,.15); --track:rgba(255,255,255,.12); --sep:rgba(255,255,255,.1);
+  --on:#F5F5F7; --on-t:#0B0B0F; --ring:#1D1D20; --knob:#FFFFFF; --ok:#34C759; --warn:#FF9F0A; --bad:#FF453A; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased;font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--info);outline-offset:2px}
+.app{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:env(safe-area-inset-top,0px);height:100vh;overflow:auto;padding:22px 14px 30px max(16px,env(safe-area-inset-left,0px));border-right:1px solid var(--sep);background:var(--surface)}
+.brand{display:flex;flex-direction:column;gap:2px;padding:0 8px 18px}
+.brand b{font-size:17px;letter-spacing:-.01em;text-wrap:balance}
+.brand span{font-size:12px;color:var(--t2);font-weight:500}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:12px;color:var(--ink);text-decoration:none;font-weight:600;font-size:13.5px}
+.nav a span{font-size:11.5px;color:var(--t3);font-variant-numeric:tabular-nums;font-weight:700}
+.nav a:hover{background:var(--glass)}
+.nav a.is-on{background:var(--on);color:var(--on-t)}.nav a.is-on span{color:var(--on-t);opacity:.7}
+.nav .lt{font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--t3);padding:16px 10px 6px}
+.main{min-width:0;padding-block:0 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 4px;margin:0 -4px;background:color-mix(in srgb,var(--bg) 88%,transparent);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);border-bottom:1px solid var(--sep)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--bg)}
+.bg{display:flex;align-items:center;gap:6px}
+.bg>label{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)}
+.sg{display:flex;padding:3px;border-radius:12px;background:var(--glass);gap:2px}
+.sg button{height:30px;border:0;border-radius:9px;padding:0 10px;background:transparent;color:var(--t2);font-size:12.5px;font-weight:650;white-space:nowrap}
+.sg button.is-on{background:var(--on);color:var(--on-t)}
+.accs{display:flex;gap:6px}
+.accs button{width:24px;height:24px;border-radius:50%;border:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.accs button.is-on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--on)}
+.intro{max-width:760px;padding:26px 0 8px}
+.intro h1{font-size:30px;letter-spacing:-.025em;margin:0 0 8px;text-wrap:balance}
+.intro p{margin:0;color:var(--t2);font-size:15px;line-height:1.5}
+.fam{padding-top:34px;scroll-margin-top:80px}
+.fam>header{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:6px}
+.fam>header h2{font-size:22px;letter-spacing:-.02em;margin:0}
+.fam>header .lt{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3)}
+.fam>p{margin:0 0 16px;max-width:720px;color:var(--t2);line-height:1.5}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,400px),1fr));gap:16px;align-items:start}
+.card{background:var(--surface);border-radius:24px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0;box-shadow:0 1px 0 var(--sep)}
+.card.is-key{box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 55%,transparent)}
+.ch{display:flex;align-items:flex-start;gap:10px}
+.cid{flex:none;height:22px;padding:0 8px;border-radius:7px;background:var(--glass);font:700 11px/22px var(--mono);color:var(--t2)}
+.ct{flex:1;min-width:0}.ct b{display:block;font-size:15.5px;letter-spacing:-.01em}.ct span{display:block;font-size:12.5px;color:var(--t2);margin-top:2px;line-height:1.4}
+.key{flex:none;height:22px;padding:0 8px;border-radius:7px;background:color-mix(in srgb,var(--acc) 22%,transparent);font-size:11px;font-weight:800;line-height:22px;color:var(--ink)}
+.stage{border-radius:22px;padding:18px 0;display:flex;justify-content:center;background:var(--sheet);background:color-mix(in srgb,var(--acc) 10%,var(--sheet));overflow:visible;position:relative}
+.stage .fr{width:var(--cw,350px);max-width:100%;padding:0 16px}
+.stage.ctx-free .fr{width:100%}
+.ovr{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ovr label{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--t3);margin-right:2px}
+.ovr .sg button{height:26px;font-size:11.5px;padding:0 8px}
+.sim{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--t2);font-weight:600}
+.sim input{flex:1;accent-color:var(--acc)}
+dl.meta{display:grid;grid-template-columns:92px minmax(0,1fr);gap:6px 12px;margin:0;font-size:12.5px}
+dl.meta dt{color:var(--t3);font-weight:700}
+dl.meta dd{margin:0;color:var(--ink);line-height:1.45;min-width:0}
+.ents{display:flex;flex-wrap:wrap;gap:4px}
+.ents code{font:600 11px var(--mono);padding:2px 6px;border-radius:6px;background:var(--glass);color:var(--t2)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:6px;background:var(--glass);margin:0 4px 3px 0;color:var(--t2)}
+details.more summary{cursor:pointer;font-size:12px;font-weight:700;color:var(--t2);list-style:none}
+details.more summary::before{content:"+ ";}
+details.more[open] summary::before{content:"− ";}
+
+/* ---------- controlli ---------- */
+.rc{position:relative;font-size:var(--fs,15px);display:flex;flex-direction:column;gap:.6em;--a:var(--acc);--ai:var(--acc-ink)}
+.rc.sz-s{--fs:13px}.rc.sz-m{--fs:15px}.rc.sz-l{--fs:17px}
+.rc.st-inactive{--a:var(--glass2);--ai:var(--ink)}
+.rc.st-disabled{opacity:.38;pointer-events:none}
+.rc.st-unavail{pointer-events:none}
+.rc.st-unavail .rc-body{filter:grayscale(1);opacity:.45}
+.rc-badge{position:absolute;right:0;top:-.2em;z-index:3;height:1.6em;padding:0 .6em;border-radius:.8em;font-size:11px;font-weight:800;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.rc-badge.b-pending{background:var(--glass2);color:var(--ink)}
+.rc-badge.b-success{background:var(--ok);color:#FFFFFF}
+.rc-badge.b-error{background:var(--bad);color:#FFFFFF}
+.rc-badge.b-unavail{background:var(--glass2);color:var(--t2)}
+.rc.st-error .rc-body{box-shadow:0 0 0 2px var(--bad);border-radius:1em}
+.rc.st-success .rc-body{box-shadow:0 0 0 2px var(--ok);border-radius:1em;transition:box-shadow .3s}
+.rc.st-pending .rc-body{opacity:.75}
+.spin{width:12px;height:12px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:rot .8s linear infinite;flex:none}
+@keyframes rot{to{transform:rotate(360deg)}}
+.rc-err{font-size:12px;font-weight:600;color:var(--bad)}
+.rc-body{display:flex;flex-direction:column;gap:.6em}
+.rc-h{display:flex;align-items:center;gap:.45em;min-height:1.4em;padding-right:5.5em}
+.rc-h .ic{display:flex;color:var(--t2)}
+.rc-h b{font-size:.93em;font-weight:700}
+.rc-v{margin-left:auto;font-size:.87em;font-weight:650;color:var(--t2);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rc-src{font:600 10.5px var(--mono);color:var(--t3);margin-top:-.3em}
+.svg{display:block}
+/* pillole e segmentati */
+.pill{height:2.93em;border:0;border-radius:1.47em;padding:0 1.1em;background:var(--glass);color:var(--ink);font-size:1em;font-weight:620;display:inline-flex;align-items:center;justify-content:center;gap:.4em;white-space:nowrap;touch-action:manipulation}
+.pill.is-on{background:var(--on);color:var(--on-t)}
+.pill.p-acc{background:var(--a);color:var(--ai)}
+.pill.p-bad{background:var(--bad);color:#FFFFFF}
+.pill.p-sm{height:2.3em;padding:0 .9em;font-size:.9em}
+.pills{display:flex;flex-wrap:wrap;gap:.45em}
+.seg{display:flex;padding:.2em;border-radius:1.07em;background:var(--glass);gap:.13em}
+.seg button{flex:1;height:2.53em;border:0;border-radius:.87em;padding:0 .8em;background:transparent;color:var(--t2);font-size:.93em;font-weight:650;display:flex;align-items:center;justify-content:center;gap:.35em;white-space:nowrap;min-width:0}
+.seg button.is-on{background:var(--on);color:var(--on-t)}
+.seg.seg-ic button{height:3.2em;flex-direction:column;gap:.15em;font-size:.82em}
+.seg.seg-acc button.is-on{background:var(--a);color:var(--ai)}
+/* elenco raggruppato */
+.list{border-radius:1.2em;background:var(--glass);padding:0 .9em}
+.li{display:flex;align-items:center;gap:.7em;min-height:3em;border:0;background:transparent;width:100%;padding:.4em 0;text-align:left;color:var(--ink)}
+.li+.li{border-top:1px solid var(--sep)}
+.li .lt2{flex:1;min-width:0;display:flex;flex-direction:column}
+.li .lt2 b{font-size:.95em;font-weight:620}.li .lt2 span{font-size:.8em;color:var(--t2)}
+.radio{width:1.35em;height:1.35em;border-radius:50%;box-shadow:inset 0 0 0 2px var(--glass2);flex:none;display:flex;align-items:center;justify-content:center}
+.radio.is-on{box-shadow:inset 0 0 0 .42em var(--a)}
+.chk{width:1.4em;height:1.4em;border-radius:.42em;box-shadow:inset 0 0 0 2px var(--glass2);flex:none;display:flex;align-items:center;justify-content:center;color:transparent}
+.chk.is-on{background:var(--a);box-shadow:none;color:var(--ai)}
+.tick{color:var(--a);display:flex;margin-left:auto}
+/* menu a discesa */
+.dd{position:relative}
+.dd-btn{width:100%;height:3em;border:0;border-radius:1em;background:var(--glass);display:flex;align-items:center;gap:.6em;padding:0 .9em;text-align:left;color:var(--ink)}
+.dd-btn .ddv{flex:1;font-weight:650;font-size:.95em}
+.dd-btn .ddl{color:var(--t2);font-size:.85em;font-weight:600}
+.dd-menu{position:absolute;left:0;right:0;top:calc(100% + .35em);z-index:15;border-radius:1.1em;background:var(--surface);box-shadow:0 18px 40px -12px rgba(0,0,0,.35),0 0 0 1px var(--sep);padding:.3em;max-height:15em;overflow:auto}
+.dd-menu button{width:100%;min-height:2.6em;border:0;border-radius:.75em;background:transparent;display:flex;align-items:center;gap:.6em;padding:0 .7em;text-align:left;color:var(--ink);font-weight:600;font-size:.95em}
+.dd-menu button:hover{background:var(--glass)}
+.dd-menu button.is-on{color:var(--ink)}
+.cmp{display:inline-flex;align-items:center;gap:.2em;height:2.4em;border-radius:1.2em;background:var(--glass);padding:0 .25em;align-self:flex-start}
+.cmp button{width:2em;height:2em;border:0;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.cmp b{min-width:4.5em;text-align:center;font-size:.93em}
+/* barre */
+.hb{position:relative;height:3.07em;border-radius:1.07em;background:var(--track);touch-action:none;cursor:ew-resize;overflow:hidden}
+.hb>i{position:absolute;left:0;top:0;bottom:0;border-radius:1.07em;background:var(--a);min-width:2.13em;transition:width 80ms linear}
+.hb.hb-knob>i{background:var(--a)}
+.hb .hbv{position:absolute;left:.9em;top:0;bottom:0;display:flex;align-items:center;font-weight:750;font-size:.95em;color:var(--ai);pointer-events:none;font-variant-numeric:tabular-nums}
+.hb .hbv.out{color:var(--ink)}
+.hb .hbi{position:absolute;right:.9em;top:0;bottom:0;display:flex;align-items:center;color:var(--t2);pointer-events:none}
+.ticks{display:flex;justify-content:space-between;padding:0 .2em;font-size:.75em;font-weight:700;color:var(--t3);font-variant-numeric:tabular-nums}
+.ticks.is-btn button{border:0;background:transparent;padding:.25em .45em;border-radius:.7em;font-size:1em;font-weight:700;color:var(--t3)}
+.ticks.is-btn button.is-on{background:var(--on);color:var(--on-t)}
+.stepdots{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;padding:0 1.05em;pointer-events:none}
+.stepdots i{width:.3em;height:.3em;border-radius:50%;background:rgba(0,0,0,.25)}
+.vs{position:relative;width:4.6em;height:12em;border-radius:1.6em;background:var(--track);overflow:hidden;touch-action:none;cursor:ns-resize;align-self:center}
+.vs.vs-big{width:9.87em;height:20em;border-radius:2.9em}
+.vs>i{position:absolute;left:0;right:0;bottom:0;background:var(--a);transition:height 80ms linear}
+.vs .vsv{position:absolute;top:.8em;left:0;right:0;text-align:center;font-weight:800;font-size:1.05em;pointer-events:none;font-variant-numeric:tabular-nums}
+.vs.vs-big .vsv{top:1.2em;font-size:2.1em}
+.vs .vss{position:absolute;top:3.4em;left:0;right:0;text-align:center;font-size:.9em;font-weight:600;color:var(--t2);pointer-events:none}
+.vs .vsi{position:absolute;bottom:.9em;left:0;right:0;display:flex;justify-content:center;color:var(--ai);pointer-events:none}
+.vs .vsm{position:absolute;left:.9em;right:.9em;border-top:2px dashed rgba(0,0,0,.4);pointer-events:none}
+:root[data-theme="dark"] .vs .vsm{border-top-color:rgba(255,255,255,.55)}
+.vs .vsm em{position:absolute;right:0;bottom:2px;font-style:normal;font-size:.75em;font-weight:800}
+.lvl{display:flex;gap:.3em;height:3.07em;touch-action:none}
+.lvl button{flex:1;border:0;border-radius:.6em;background:var(--track);display:flex;align-items:flex-end;justify-content:center;padding-bottom:.35em;font-size:.75em;font-weight:800;color:var(--t2)}
+.lvl button:first-child{border-radius:1.07em .6em .6em 1.07em}.lvl button:last-child{border-radius:.6em 1.07em 1.07em .6em}
+.lvl button.is-on{background:var(--a);color:var(--ai)}
+.vlvl{display:flex;flex-direction:column-reverse;gap:.25em;width:4.6em;height:12em;align-self:center}
+.vlvl button{flex:1;border:0;border-radius:.6em;background:var(--track);font-size:.75em;font-weight:800;color:var(--t2)}
+.vlvl button:first-child{border-radius:.6em .6em 1.4em 1.4em}.vlvl button:last-child{border-radius:1.4em 1.4em .6em .6em}
+.vlvl button.is-on{background:var(--a);color:var(--ai)}
+.rng{position:relative;height:3.07em;border-radius:1.07em;background:var(--track);touch-action:none}
+.rng>i{position:absolute;top:0;bottom:0;background:var(--a);opacity:.9}
+.rng>b{position:absolute;top:50%;width:2em;height:2em;margin:-1em 0 0 -1em;border-radius:50%;background:var(--knob);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 3px 10px rgba(0,0,0,.25);cursor:ew-resize;touch-action:none}
+.knob{position:absolute;top:50%;width:2em;height:2em;margin:-1em 0 0 -1em;border-radius:50%;background:var(--knob);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 3px 10px rgba(0,0,0,.25);pointer-events:none}
+.stp{display:flex;align-items:center;gap:.6em}
+.stp .rb{width:2.93em;height:2.93em;border:0;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center;color:var(--ink);flex:none}
+.stp .rb:disabled{opacity:.35}
+.stp .sv{flex:1;text-align:center;font-size:1.9em;font-weight:750;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.stp .sv small{font-size:.5em;font-weight:650;color:var(--t2);margin-left:.15em}
+.fld{display:flex;align-items:center;gap:.5em;height:3em;border-radius:1em;background:var(--glass);padding:0 .9em;box-shadow:inset 0 0 0 1.5px transparent}
+.fld:focus-within{box-shadow:inset 0 0 0 1.5px var(--info)}
+.fld.is-bad{box-shadow:inset 0 0 0 1.5px var(--bad)}
+.fld input,.fld textarea{flex:1;min-width:0;border:0;background:transparent;outline:none;font-size:1em;font-weight:600;color:var(--ink)}
+.fld .u{color:var(--t2);font-weight:650;font-size:.9em}
+.fld .fb{border:0;background:transparent;display:flex;color:var(--t2);padding:0}
+.fld.ta{height:auto;align-items:flex-start;padding:.7em .9em}
+.fld textarea{resize:none;line-height:1.4;min-height:4.6em}
+.hint{font-size:.8em;color:var(--t2);font-weight:500}
+.hint.bad{color:var(--bad)}
+/* circolari */
+.circ{position:relative;width:11em;height:11em;align-self:center;touch-action:none}
+.circ svg{width:100%;height:100%}
+.circ .cv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+.circ .cv b{font-size:2.1em;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.circ .cv span{font-size:.85em;font-weight:600;color:var(--t2)}
+/* interruttori */
+.sw{position:relative;width:3.4em;height:2.07em;flex:none;border:0;padding:0;border-radius:1.04em;background:rgba(120,120,128,.32);transition:background .2s}
+.sw>i{position:absolute;top:.13em;left:.13em;width:1.8em;height:1.8em;border-radius:50%;background:#FFFFFF;box-shadow:0 3px 8px rgba(0,0,0,.25);transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.sw.is-on{background:var(--ok)}.sw.is-on>i{transform:translateX(1.33em)}
+.sw.sw-s{width:2.6em;height:1.6em}.sw.sw-s>i{width:1.34em;height:1.34em}.sw.sw-s.is-on>i{transform:translateX(1em)}
+.row{display:flex;align-items:center;gap:.7em;min-height:3.2em;border-radius:1.2em;background:var(--glass);padding:.45em .9em}
+.row .rt{flex:1;min-width:0;display:flex;flex-direction:column}.row .rt b{font-size:.95em}.row .rt span{font-size:.8em;color:var(--t2)}
+.row .ri{width:2em;height:2em;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass2);flex:none}
+.row .ri.is-on{background:var(--a);color:var(--ai)}
+.sc{display:inline-flex;flex-direction:column;align-items:center;gap:.45em;border:0;background:transparent;padding:0;align-self:flex-start;color:var(--ink)}
+.sc .scc{width:3.2em;height:3.2em;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center;transition:background .2s}
+.sc.is-on .scc{background:var(--a);color:var(--ai);box-shadow:0 8px 18px -8px var(--a)}
+.sc .scl{font-size:.8em;font-weight:650}
+.scs{display:flex;flex-wrap:wrap;gap:.8em 1.1em;justify-content:center}
+.tcard{display:flex;align-items:center;gap:.7em;height:5.47em;border:0;border-radius:1.6em;padding:0 .95em;background:var(--glass);text-align:left;color:var(--ink);width:100%}
+.tcard .ti{width:2.6em;height:2.6em;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass2);flex:none}
+.tcard .tt{flex:1;min-width:0;display:flex;flex-direction:column}.tcard .tt b{font-size:1em}.tcard .tt span{font-size:.85em;color:var(--t2)}
+.tcard.is-on{background:#FFFFFF;color:#111113;box-shadow:0 14px 30px -16px rgba(0,0,0,.4)}
+.tcard.is-on .tt span{color:rgba(60,60,67,.7)}
+.tcard.is-on .ti{background:var(--a);color:var(--ai)}
+.led{width:.75em;height:.75em;border-radius:50%;background:var(--glass2);flex:none;transition:background .2s,box-shadow .2s}
+.led.is-on{background:var(--ok);box-shadow:0 0 0 .25em color-mix(in srgb,var(--ok) 25%,transparent),0 0 .8em var(--ok)}
+.led.l-warn{background:var(--warn);box-shadow:0 0 .8em var(--warn)}.led.l-bad{background:var(--bad);box-shadow:0 0 .8em var(--bad)}
+.led.blink{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:.2}}
+/* azioni */
+.btn{height:3.2em;border:0;border-radius:1.07em;padding:0 1.2em;background:var(--on);color:var(--on-t);font-size:1em;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:.5em;white-space:nowrap;touch-action:manipulation;transition:transform .1s}
+.btn:active{transform:scale(.97)}
+.btn.b-acc{background:var(--a);color:var(--ai)}
+.btn.b-soft{background:var(--glass);color:var(--ink)}
+.btn.b-bad{background:var(--bad);color:#FFFFFF}
+.btn.b-ok{background:var(--ok);color:#FFFFFF}
+.btn.wide{width:100%}
+.ibtn{width:3.2em;height:3.2em;border:0;border-radius:50%;background:var(--glass);display:inline-flex;align-items:center;justify-content:center;color:var(--ink);flex:none}
+.ibtn.is-on{background:var(--a);color:var(--ai)}
+.tbtn{border:0;background:transparent;color:var(--info);font-size:1em;font-weight:650;padding:.4em .2em;align-self:flex-start;display:inline-flex;align-items:center;gap:.3em}
+.bgrp{display:flex;border-radius:1.07em;background:var(--glass);padding:.2em;gap:.2em}
+.bgrp button{flex:1;height:2.8em;border:0;border-radius:.87em;background:transparent;display:flex;align-items:center;justify-content:center;gap:.35em;font-weight:650;color:var(--ink);font-size:.93em}
+.bgrp button.is-on{background:var(--on);color:var(--on-t)}
+.hold{position:relative;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.hold>i{position:absolute;left:0;top:0;bottom:0;background:rgba(255,255,255,.28);width:0}
+.hold.is-holding>i{width:100%;transition:width 1.2s linear}
+.cpill{display:inline-flex;align-items:center;gap:.5em;height:2.6em;border:0;border-radius:1.3em;padding:0 .9em 0 .35em;background:var(--glass);align-self:flex-start;color:var(--ink)}
+.cpill .cpi{width:1.9em;height:1.9em;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--glass2)}
+.cpill.is-on .cpi{background:var(--a);color:var(--ai)}
+.cpill b{font-size:.9em}.cpill span{font-size:.8em;color:var(--t2);font-weight:600}
+/* testi e date */
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:.45em}
+.kp button{height:3em;border:0;border-radius:1em;background:var(--glass);font-size:1.15em;font-weight:600;color:var(--ink)}
+.kp button.fn{background:transparent;font-size:.9em;color:var(--t2)}
+.kd{display:flex;justify-content:center;align-items:baseline;gap:.2em;font-size:1.8em;font-weight:750;letter-spacing:.02em;min-height:1.4em;font-variant-numeric:tabular-nums}
+.kd small{font-size:.45em;color:var(--t2);font-weight:650}
+.cal{display:flex;flex-direction:column;gap:.4em}
+.calh{display:flex;align-items:center;justify-content:space-between}
+.calh b{font-size:.95em}
+.calg{display:grid;grid-template-columns:repeat(7,1fr);gap:.15em;text-align:center}
+.calg span{font-size:.7em;font-weight:800;color:var(--t3);padding:.2em 0}
+.calg button{height:2.3em;border:0;border-radius:50%;background:transparent;font-size:.87em;font-weight:600;color:var(--ink);aspect-ratio:1;justify-self:center;width:2.3em;padding:0}
+.calg button.is-today{color:var(--bad);font-weight:800}
+.calg button.is-on{background:var(--on);color:var(--on-t)}
+.calg button.mut{color:var(--t3)}
+.tp{display:flex;align-items:center;justify-content:center;gap:.6em}
+.tcol{display:flex;flex-direction:column;align-items:center;gap:.1em}
+.tcol button{width:2.6em;height:2em;border:0;border-radius:.7em;background:transparent;color:var(--t2);display:flex;align-items:center;justify-content:center}
+.tcol b{font-size:2em;font-weight:750;min-width:1.4em;text-align:center;font-variant-numeric:tabular-nums;padding:.1em .2em;border-radius:.4em;background:var(--glass)}
+.tp .colon{font-size:2em;font-weight:750}
+.chiprow{display:flex;gap:.5em}
+.chipb{flex:1;height:3em;border:0;border-radius:1em;background:var(--glass);display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:0 .9em;color:var(--ink);text-align:left}
+.chipb span{font-size:.75em;color:var(--t2);font-weight:700}.chipb b{font-size:.95em}
+.chipb.is-on{box-shadow:inset 0 0 0 2px var(--info)}
+.tr{position:relative;height:3.07em;border-radius:1.07em;background:var(--track);touch-action:none}
+.tr>i{position:absolute;top:0;bottom:0;background:var(--a);opacity:.9;border-radius:.4em}
+.tr>b{position:absolute;top:50%;width:2em;height:2em;margin:-1em 0 0 -1em;border-radius:50%;background:var(--knob);box-shadow:0 0 0 1px rgba(0,0,0,.12),0 3px 10px rgba(0,0,0,.25);touch-action:none;cursor:ew-resize}
+/* indicatori */
+.vd{display:flex;flex-direction:column;gap:.1em}
+.vd .vdv{display:flex;align-items:baseline;gap:.25em}
+.vd .vdv b{font-size:2.6em;font-weight:800;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.vd .vdv span{font-size:1.1em;font-weight:650;color:var(--t2)}
+.vd .vdn{font-size:.85em;font-weight:700}
+.vpill{display:inline-flex;align-items:center;gap:.4em;height:2.2em;border-radius:1.1em;padding:0 .8em;background:var(--glass);font-weight:700;font-size:.9em;align-self:flex-start;font-variant-numeric:tabular-nums}
+.vpill i{display:flex;color:var(--a)}
+.badge{display:inline-flex;align-items:center;gap:.4em;height:1.9em;border-radius:.95em;padding:0 .7em;font-size:.82em;font-weight:800;align-self:flex-start}
+.badge.k-ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.badge.k-warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
+.badge.k-bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}
+.badge.k-info{background:color-mix(in srgb,var(--info) 16%,transparent);color:var(--info)}
+.badge.k-off{background:var(--glass);color:var(--t2)}
+.glow{border-radius:1.4em;padding:1em;background:var(--glass);display:flex;align-items:center;gap:.8em;transition:box-shadow .3s}
+.glow.k-ok{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--ok) 70%,transparent),0 10px 30px -10px var(--ok)}
+.glow.k-warn{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--warn) 70%,transparent),0 10px 30px -10px var(--warn)}
+.glow.k-bad{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bad) 70%,transparent),0 10px 30px -6px var(--bad)}
+.glow .gt{flex:1;display:flex;flex-direction:column}.glow .gt b{font-size:1em}.glow .gt span{font-size:.82em;color:var(--t2)}
+.lin{height:.6em;border-radius:.3em;background:var(--track);overflow:hidden}
+.lin>i{display:block;height:100%;border-radius:.3em;background:var(--a);transition:width .3s}
+.vprog{width:2.6em;height:10em;border-radius:1.3em;background:var(--track);position:relative;overflow:hidden;align-self:center}
+.vprog>i{position:absolute;left:0;right:0;bottom:0;background:var(--a);transition:height .3s}
+.bat{display:flex;align-items:center;gap:.7em}
+.batb{position:relative;width:3.6em;height:1.8em;border-radius:.5em;box-shadow:inset 0 0 0 2px var(--glass2);padding:.25em}
+.batb::after{content:"";position:absolute;right:-.35em;top:.55em;width:.25em;height:.7em;border-radius:0 .2em .2em 0;background:var(--glass2)}
+.batb>i{display:block;height:100%;border-radius:.3em}
+.bat b{font-size:1.2em;font-variant-numeric:tabular-nums}.bat span{font-size:.82em;color:var(--t2);font-weight:600}
+.scale{position:relative;height:.65em;border-radius:.33em}
+.scale>b{position:absolute;top:50%;width:1.15em;height:1.15em;margin:-.58em 0 0 -.58em;border-radius:50%;background:var(--knob);box-shadow:0 0 0 2px var(--ring),0 2px 6px rgba(0,0,0,.3)}
+.tank{position:relative;width:5em;height:7.5em;border-radius:1em 1em 1.4em 1.4em;box-shadow:inset 0 0 0 2px var(--glass2);overflow:hidden;align-self:center}
+.tank>i{position:absolute;left:3px;right:3px;bottom:3px;border-radius:.6em .6em 1.2em 1.2em;background:var(--a)}
+.tank>b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.1em;font-weight:800}
+.sig{display:flex;align-items:flex-end;gap:.2em;height:1.4em}
+.sig i{width:.38em;border-radius:.1em;background:var(--glass2)}
+.sig i.is-on{background:var(--ok)}
+.trend{display:inline-flex;align-items:center;gap:.35em;font-weight:750;font-size:.95em;align-self:flex-start}
+.trend.up{color:var(--bad)}.trend.down{color:var(--info)}.trend.flat{color:var(--t2)}
+.ist{display:flex;align-items:center;gap:.7em}
+.ist .isi{width:2.8em;height:2.8em;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ist b{font-size:1em}.ist span{font-size:.82em;color:var(--t2);display:block}
+/* grafici */
+.chart{width:100%;display:block;overflow:visible}
+.chart .gl{stroke:var(--sep);stroke-width:1;vector-effect:non-scaling-stroke}
+.chart .ln{fill:none;stroke-width:2.2;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.chart .ar{opacity:.18}
+.chart text{fill:var(--t3);font-size:9px;font-weight:700;font-family:var(--font)}
+.legend{display:flex;gap:.9em;font-size:.78em;font-weight:700;color:var(--t2)}
+.legend i{display:inline-block;width:.7em;height:.7em;border-radius:50%;margin-right:.35em;vertical-align:-.05em}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.4em}
+.stats div{border-radius:.9em;background:var(--glass);padding:.55em .7em;display:flex;flex-direction:column}
+.stats span{font-size:.72em;font-weight:700;color:var(--t2)}.stats b{font-size:1em;font-variant-numeric:tabular-nums}
+/* avanzati */
+.disc{position:relative;width:11.5em;height:11.5em;border-radius:50%;align-self:center;touch-action:none;cursor:crosshair;background:radial-gradient(circle closest-side,#FFF 0%,rgba(255,255,255,.85) 18%,rgba(255,255,255,0) 100%),conic-gradient(from 0deg,#FF3B30,#FF9500,#FFE620,#7CF000,#28E07A,#2BE0E0,#2F7BFF,#6A3BFF,#C03BFF,#FF3BC4,#FF3B30)}
+.disc>b{position:absolute;width:1.9em;height:1.9em;margin:-.95em 0 0 -.95em;border-radius:50%;border:3px solid #FFF;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 5px 14px rgba(0,0,0,.3);pointer-events:none}
+.kb{position:relative;height:3.07em;border-radius:1.07em;background:linear-gradient(90deg,#FF8A1F,#FFB05C 22%,#FFD9A8 45%,#FFF3E6 62%,#E9F0FF 80%,#BFD5FF);touch-action:none;cursor:ew-resize}
+.sws{display:flex;flex-wrap:wrap;gap:.25em}
+.swb{width:2.93em;height:2.93em;border:0;border-radius:50%;background:transparent;padding:0;display:flex;align-items:center;justify-content:center}
+.swb i{width:2.13em;height:2.13em;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.swb.is-on i{box-shadow:0 0 0 3px var(--ring),0 0 0 5px var(--on)}
+.joy{position:relative;width:11em;height:11em;border-radius:50%;background:var(--glass);align-self:center;touch-action:none;box-shadow:inset 0 0 0 1px var(--sep)}
+.joy::before,.joy::after{content:"";position:absolute;background:var(--sep)}
+.joy::before{left:50%;top:12%;bottom:12%;width:1px}.joy::after{top:50%;left:12%;right:12%;height:1px}
+.joy>b{position:absolute;width:3.4em;height:3.4em;margin:-1.7em 0 0 -1.7em;border-radius:50%;background:var(--a);box-shadow:0 8px 20px -6px rgba(0,0,0,.45);pointer-events:none;transition:left .15s,top .15s}
+.joy.is-drag>b{transition:none}
+.dpad{display:grid;grid-template-columns:repeat(3,3.4em);grid-template-rows:repeat(3,3.4em);gap:.3em;align-self:center}
+.dpad button{border:0;border-radius:1em;background:var(--glass);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.dpad button.ok{border-radius:50%;background:var(--on);color:var(--on-t);font-weight:800}
+.dpad button.is-on{background:var(--a);color:var(--ai)}
+.dpad .e{visibility:hidden}
+.curve{width:100%;touch-action:none;display:block}
+.curve .pt{fill:var(--knob);stroke:var(--a);stroke-width:3;cursor:ns-resize}
+.ring{fill:none;stroke-linecap:round}
+.fspd{display:flex;align-items:center;gap:.8em}
+.fspd .fi{width:3.2em;height:3.2em;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--a);color:var(--ai);flex:none}
+.fspd .fi.spin2 svg{animation:rot var(--d,1.2s) linear infinite}
+.fdots{flex:1;display:flex;gap:.35em}
+.fdots button{flex:1;height:2.6em;border:0;border-radius:.8em;background:var(--glass);font-weight:800;color:var(--t2)}
+.fdots button.is-on{background:var(--a);color:var(--ai)}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.45em}
+.tile{height:4em;border:0;border-radius:1.07em;background:var(--glass);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25em;font-size:.8em;font-weight:650;color:var(--ink);padding:0 .2em}
+.tile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile.is-on{background:var(--a);color:var(--ai);box-shadow:0 10px 22px -12px var(--a)}
+
+/* ---------- anteprime pannelli ---------- */
+.pvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,390px),1fr));gap:20px;align-items:start}
+.pv{display:flex;flex-direction:column;gap:10px;min-width:0}
+.pv>b{font-size:15px}.pv>span{font-size:12.5px;color:var(--t2);margin-top:-6px;line-height:1.45}
+.phone{width:100%;max-width:390px;height:760px;border-radius:44px;overflow:hidden;position:relative;background:#8E8E93;box-shadow:0 0 0 1px var(--sep)}
+:root[data-theme="dark"] .phone{background:#0B0B0C}
+.sheet{position:absolute;left:0;right:0;bottom:0;height:700px;border-radius:30px 30px 0 0;padding:0 20px 24px;display:flex;flex-direction:column;gap:16px}
+.sheet .grab{position:absolute;top:10px;left:50%;width:48px;height:5px;margin-left:-24px;border-radius:3px;background:var(--glass2)}
+.ph{display:flex;flex-direction:column;align-items:center;padding-top:26px;position:relative;text-align:center}
+.ph .phi{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;margin-bottom:10px}
+.ph b{font-size:20px}.ph span{font-size:13px;color:var(--t2);font-weight:600;margin-top:2px}
+.ph .x{position:absolute;right:-4px;top:20px;width:40px;height:40px;border:0;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+.phero{flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+.pzone{height:168px;flex:none;display:flex;flex-direction:column;justify-content:center;gap:10px;overflow:auto}
+.pzone .ztt{font-size:13px;font-weight:600;color:var(--t2);text-align:center}
+.pzone .ztt b{color:var(--ink)}
+.pfoot{height:64px;flex:none;position:relative;display:flex;align-items:center;justify-content:center}
+.pfoot .pow{width:60px;height:60px;border:0;border-radius:50%;background:var(--on);color:var(--on-t);display:flex;align-items:center;justify-content:center}
+.pfoot .back{position:absolute;left:20px;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--ink)}
+.pfoot .back span{width:44px;height:44px;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center}
+.wide{border-radius:30px;padding:20px;display:flex;flex-direction:column;gap:16px;box-shadow:0 0 0 1px var(--sep)}
+.wide .wh{display:flex;align-items:center;gap:12px}
+.wide .wh .phi{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.wide .wh div{flex:1;min-width:0}.wide .wh b{display:block;font-size:18px}.wide .wh span{font-size:12.5px;color:var(--t2);font-weight:600}
+.wbody{display:grid;grid-template-columns:200px minmax(0,1fr);gap:18px;align-items:start}
+.wgrp{display:flex;flex-direction:column;gap:10px}
+.wg{border-radius:20px;background:var(--glass);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.wg>.wgt{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
+.wg>.wgt span{font-size:12px;color:var(--t2);font-weight:600;margin-left:auto}
+.wg .rc-badge{top:-.2em}
+.note2{font-size:12.5px;color:var(--t2);line-height:1.5;max-width:760px}
+
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{position:static;height:auto;border-right:0;border-bottom:1px solid var(--sep);padding-block:14px}
+  .nav{flex-direction:row;flex-wrap:nowrap;overflow-x:auto;gap:4px}
+  .nav .lt{display:none}
+  .nav a{white-space:nowrap}
+  .wbody{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+.phone .phero .rc{--fs:13px!important}
+.phone .pzone .rc{--fs:14px!important}
+.phone .phero .rc-src{display:none}
+.wbody .rc.sz-m,.wbody .rc.sz-s,.wbody .rc.sz-l{--fs:14px}
+.wbody>[data-iid] .rc{--fs:12px!important}
+.sg{flex-wrap:wrap;max-width:100%}
+.bg{flex-wrap:wrap;min-width:0;max-width:100%}
+.vs.vs-big .vss{top:4.4em}
+.phone .scs{max-width:300px;margin:0 auto;gap:10px 14px}
+.phone .scs .sc{width:62px}
+.wg .rc-h .ic{display:none}
+.wg .rc-h b{font-weight:650;color:var(--t2)}
+@media (max-width:900px){.bar{position:static;background:var(--bg)}}
+.vs.vs-big .vss{top:6.2em}
+
+</style>
+<div class="app">
+<aside class="side"><div class="brand"><b>DomusUI · Related Controls</b><span>Libreria dei controlli secondari</span></div><nav class="nav" id="nav" aria-label="Famiglie"></nav></aside>
+<main class="main">
+<div class="bar" id="bar"></div>
+<div class="intro"><h1>Related Controls Gallery</h1><p>I controlli che si aggiungono ai pannelli contestuali per comandare o mostrare entità collegate: select, number, interruttori, pulsanti, testi, date, indicatori, grafici e controlli avanzati. Ogni controllo è un componente unico con le sue varianti: cambia larghezza, misura, stato, icone ed etichette dalla barra in alto, oppure solo per una scheda. Tutto è interattivo con dati di prova; Home Assistant non viene contattato.</p></div>
+<div id="cat"></div>
+</main>
+</div>
+<script>const ICONS = {"bulb": "<path d=\"M9 18h6\"></path><path d=\"M10 21h4\"></path><path d=\"M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1.1 2V17h5v-1.2c.1-.8.5-1.5 1.1-2A6 6 0 0 0 12 3z\"></path>", "plug": "<path d=\"M9 3v5M15 3v5\"></path><path d=\"M6 8h12v3a6 6 0 0 1-12 0z\"></path><path d=\"M12 17v4\"></path>", "fan": "<circle cx=\"12\" cy=\"12\" r=\"1.6\"></circle><path d=\"M12 10.4C11 7 11.4 3.6 14 3.4c2.4-.2 2.6 3.4-.6 6.4\"></path><path d=\"M13.4 12.8c3.4.9 5.8 3.2 4.6 5.5-1.1 2.1-4.1.2-4.9-4\"></path><path d=\"M10.6 12.8c-2.5 2.4-5.8 3.3-7.1 1.1-1.2-2.1 2-3.7 6.1-2.6\"></path>", "humid": "<path d=\"M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z\"></path><path d=\"M9 14.5a3 3 0 0 0 3 3\"></path>", "thermo": "<path d=\"M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z\"></path>", "flame": "<path d=\"M12 3c.6 3.2 4.8 5.6 4.8 10.2A4.8 4.8 0 0 1 12 18a4.8 4.8 0 0 1-4.8-4.8c0-2 1-3.4 2.1-4.6.2 1.6 1 2.6 2.1 2.9C11.6 9 11.2 6 12 3z\"></path><path d=\"M6 21h12\"></path>", "snow": "<path d=\"M12 3v18M4.2 7.5l15.6 9M4.2 16.5l15.6-9\"></path><path d=\"M9.5 4.5L12 6.5l2.5-2M9.5 19.5l2.5-2 2.5 2\"></path>", "halfc": "<circle cx=\"12\" cy=\"12\" r=\"8.5\"></circle><path d=\"M12 3.5v17\" ></path><path d=\"M12 3.5a8.5 8.5 0 0 1 0 17z\" fill=\"currentColor\" stroke=\"none\"></path>", "drop": "<path d=\"M12 3s6 6.4 6 11a6 6 0 0 1-12 0c0-4.6 6-11 6-11z\"></path>", "blind": "<path d=\"M4 4h16\"></path><path d=\"M5 4v9h14V4\"></path><path d=\"M5 7.5h14M5 10.5h14\"></path><path d=\"M12 13v5\"></path><circle cx=\"12\" cy=\"19.5\" r=\"1.4\"></circle>", "camera": "<path d=\"M3 8a2 2 0 0 1 2-2h2l2-2h6l2 2h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path><circle cx=\"12\" cy=\"13\" r=\"3.5\"></circle>", "bot": "<rect x=\"4\" y=\"8\" width=\"16\" height=\"12\" rx=\"3\"></rect><path d=\"M12 4v4\"></path><path d=\"M9 14h.01\"></path><path d=\"M15 14h.01\"></path>", "cal": "<rect x=\"3\" y=\"4.5\" width=\"18\" height=\"16\" rx=\"3\"></rect><path d=\"M3 9.5h18M8 2.5v4M16 2.5v4\"></path>", "users": "<circle cx=\"9\" cy=\"8\" r=\"3.2\"></circle><path d=\"M3 19a6 6 0 0 1 12 0\"></path><circle cx=\"17\" cy=\"9\" r=\"2.6\"></circle><path d=\"M16.5 14a5 5 0 0 1 4.5 5\"></path>", "partly": "<path d=\"M8 3.5v1.2M3.5 8H4.7M4.8 4.8l.9.9M11.2 4.8l-.9.9\"></path><path d=\"M5.2 10.8A3.2 3.2 0 1 1 10.8 7.2\"></path><path d=\"M9 20h8.5a3.5 3.5 0 0 0 .3-7A5 5 0 0 0 8.4 14 3 3 0 0 0 9 20z\"></path>", "power2": "<path d=\"M12 3v8\"></path><path d=\"M6.3 6.8a8 8 0 1 0 11.4 0\"></path>", "window": "<rect x=\"4\" y=\"3\" width=\"16\" height=\"18\" rx=\"2\"></rect><path d=\"M12 3v18M4 12h16\"></path>", "motion": "<circle cx=\"13\" cy=\"4.5\" r=\"1.5\"></circle><path d=\"M9 21l2.5-6 2.5 2.5V21\"></path><path d=\"M7 11l3-3h4l2 4 3 1\"></path>", "smoke": "<path d=\"M12 3c1 3.5 5 5.5 5 10a5 5 0 0 1-10 0c0-2.2 1.2-3.6 2.5-4.6.2 1.6 1 2.6 2 3.1C11 9 11 6 12 3z\"></path>", "battery": "<rect x=\"2\" y=\"7\" width=\"17\" height=\"10\" rx=\"2.5\"></rect><path d=\"M22 11v2\"></path><path d=\"M5.5 10.5v3\"></path>", "bolt": "<path d=\"M13 3L5 13.5h6L10 21l8-10.5h-6z\"></path>", "sun": "<circle cx=\"12\" cy=\"12\" r=\"4\"></circle><path d=\"M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4\"></path>", "moon": "<path d=\"M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z\"></path>", "cloud": "<path d=\"M7 18h10a4 4 0 0 0 .4-8A6 6 0 0 0 6 9.5 4.3 4.3 0 0 0 7 18z\"></path>", "rain": "<path d=\"M7 15h10a4 4 0 0 0 .4-8A6 6 0 0 0 6 6.5 4.3 4.3 0 0 0 7 15z\"></path><path d=\"M9 18l-1 3M13 18l-1 3M17 18l-1 3\"></path>", "leaf": "<path d=\"M5 19c0-8 6-13 15-14-1 9-6 15-14 15\"></path><path d=\"M5 19l7-7\"></path>", "sparkle": "<path d=\"M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z\"></path><path d=\"M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z\"></path>", "timer": "<circle cx=\"12\" cy=\"13\" r=\"8\"></circle><path d=\"M12 9v4l2 2\"></path><path d=\"M10 2h4\"></path>", "clock": "<circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M12 7v5l3 2\"></path>", "check": "<path d=\"M5 12.5l4.5 4.5L19 7.5\"></path>", "x": "<path d=\"M6 6l12 12M18 6L6 18\"></path>", "plus": "<path d=\"M12 5v14M5 12h14\"></path>", "minus": "<path d=\"M5 12h14\"></path>", "chevDown": "<path d=\"M6 9l6 6 6-6\"></path>", "chevUp": "<path d=\"M6 15l6-6 6 6\"></path>", "chevL": "<path d=\"M15 6l-6 6 6 6\"></path>", "chevR": "<path d=\"M9 6l6 6-6 6\"></path>", "arrUp": "<path d=\"M12 19V5\"></path><path d=\"M6 11l6-6 6 6\"></path>", "arrDown": "<path d=\"M12 5v14\"></path><path d=\"M6 13l6 6 6-6\"></path>", "stop": "<rect x=\"7\" y=\"7\" width=\"10\" height=\"10\" rx=\"2\"></rect>", "play": "<path d=\"M8 5.5v13l10.5-6.5z\"></path>", "pause": "<path d=\"M8 5v14\"></path><path d=\"M16 5v14\"></path>", "home": "<path d=\"M3 11l9-7 9 7\"></path><path d=\"M5 10v10h14V10\"></path><path d=\"M10 20v-6h4v6\"></path>", "bell": "<path d=\"M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z\"></path><path d=\"M10 20.5a2 2 0 0 0 4 0\"></path>", "lock": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2.5\"></rect><path d=\"M8 10.5V7.5a4 4 0 0 1 8 0v3\"></path>", "unlock": "<rect x=\"5\" y=\"10.5\" width=\"14\" height=\"10\" rx=\"2.5\"></rect><path d=\"M8 10.5V7.5a4 4 0 0 1 7.7-1.5\"></path>", "shield": "<path d=\"M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z\"></path>", "shieldCheck2": "<path d=\"M12 3l7 3v5.5c0 4.2-3 7.9-7 9.5-4-1.6-7-5.3-7-9.5V6z\"></path><path d=\"M9 12l2 2 4-4\"></path>", "eye": "<path d=\"M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z\"></path><circle cx=\"12\" cy=\"12\" r=\"3\"></circle>", "eyeOff": "<path d=\"M3 3l18 18\"></path><path d=\"M10.6 5.6A9.7 9.7 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a17 17 0 0 1-3.2 3.9M6.3 6.9A16.4 16.4 0 0 0 2.5 12S6 18.5 12 18.5a9.4 9.4 0 0 0 4.3-1\"></path>", "palette": "<path d=\"M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z\"></path><circle cx=\"7.5\" cy=\"11.5\" r=\"1\"></circle><circle cx=\"10\" cy=\"7.5\" r=\"1\"></circle><circle cx=\"14.5\" cy=\"7.5\" r=\"1\"></circle><circle cx=\"17\" cy=\"11\" r=\"1\"></circle>", "sliders": "<path d=\"M4 7h9M17 7h3M4 17h3M11 17h9\"></path><circle cx=\"15\" cy=\"7\" r=\"2\"></circle><circle cx=\"9\" cy=\"17\" r=\"2\"></circle>", "swingV": "<path d=\"M12 4v16\"></path><path d=\"M8.5 7.5 12 4l3.5 3.5\"></path><path d=\"M8.5 16.5 12 20l3.5-3.5\"></path>", "swingH": "<path d=\"M4 12h16\"></path><path d=\"M7.5 8.5 4 12l3.5 3.5\"></path><path d=\"M16.5 8.5 20 12l-3.5 3.5\"></path>", "rotate": "<path d=\"M20 12a8 8 0 1 1-2.3-5.6\"></path><path d=\"M20 4v4.5h-4.5\"></path>", "wrench": "<path d=\"M14.5 6.5a4 4 0 0 0-5.3 5.3L4 17l3 3 5.2-5.2a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.6-.6-.6-2.6z\"></path>", "snap": "<path d=\"M4 8h3l2-3h6l2 3h3v11H4z\"></path><circle cx=\"12\" cy=\"13\" r=\"3.5\"></circle>", "record": "<circle cx=\"12\" cy=\"12\" r=\"8\"></circle><circle cx=\"12\" cy=\"12\" r=\"3.5\" fill=\"currentColor\"></circle>", "listCheck": "<path d=\"m3 17 2 2 4-4\"></path><path d=\"m3 7 2 2 4-4\"></path><path d=\"M13 6h8\"></path><path d=\"M13 12h8\"></path><path d=\"M13 18h8\"></path>", "search": "<circle cx=\"11\" cy=\"11\" r=\"7\"></circle><path d=\"M20 20l-3.5-3.5\"></path>", "gear": "<circle cx=\"12\" cy=\"12\" r=\"3\"></circle><path d=\"M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z\"></path>", "star": "<path d=\"M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z\"></path>", "heart": "<path d=\"M12 20s-7.5-4.6-9.2-9.3A4.8 4.8 0 0 1 12 6.6a4.8 4.8 0 0 1 9.2 4.1C19.5 15.4 12 20 12 20z\"></path>", "music": "<path d=\"M9 18V5l11-2v13\"></path><circle cx=\"6\" cy=\"18\" r=\"3\"></circle><circle cx=\"17\" cy=\"16\" r=\"3\"></circle>", "tv": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"12\" rx=\"2\"></rect><path d=\"M8 21h8\"></path>", "wind": "<path d=\"M3 8h11a3 3 0 1 0-3-3\"></path><path d=\"M3 12h16a3 3 0 1 1-3 3\"></path><path d=\"M3 16h7\"></path>", "alert": "<circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M12 7.5v5\"></path><path d=\"M12 16.2v.01\"></path>", "spinner": "<path d=\"M12 3a9 9 0 1 1-9 9\"></path>", "stopSq": "<rect x=\"7\" y=\"7\" width=\"10\" height=\"10\" rx=\"2\"></rect>", "sunSmall": "<circle cx=\"12\" cy=\"12\" r=\"3.2\"></circle><path d=\"M12 4.5v1.2M12 18.3v1.2M4.5 12h1.2M18.3 12h1.2M6.7 6.7l.8.8M16.5 16.5l.8.8M6.7 17.3l.8-.8M16.5 7.5l.8-.8\"></path>", "target": "<circle cx=\"12\" cy=\"12\" r=\"9\"></circle><circle cx=\"12\" cy=\"12\" r=\"4\"></circle>", "globe": "<circle cx=\"12\" cy=\"12\" r=\"9\"></circle><path d=\"M3 12h18\"></path><path d=\"M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18\"></path>", "layers": "<path d=\"M12 3l9 5-9 5-9-5z\"></path><path d=\"M3 13l9 5 9-5\"></path>", "wand": "<path d=\"M4 20L15 9\"></path><path d=\"M14 4v3M12.5 5.5h3M19 9v2M18 10h2M18 3l.6 1.4L20 5l-1.4.6L18 7l-.6-1.4L16 5l1.4-.6z\"></path>", "door": "<path d=\"M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17\"></path><path d=\"M3 21h18\"></path><path d=\"M15 12v.01\"></path>", "valve": "<path d=\"M12 4v5\"></path><path d=\"M8 4h8\"></path><path d=\"M3 13h5l2-4h4l2 4h5v6H3z\"></path>", "boiler": "<rect x=\"6\" y=\"2\" width=\"12\" height=\"20\" rx=\"4\"></rect><path d=\"M12 9c1.5 1.5 2 2.5 2 3.5a2 2 0 1 1-4 0c0-1 .5-2 2-3.5z\"></path>", "hash": "<path d=\"M4 9h16\"></path><path d=\"M4 15h16\"></path><path d=\"M10 3 8 21\"></path><path d=\"m16 3-2 18\"></path>", "type": "<path d=\"M4 7V5h16v2\"></path><path d=\"M12 5v14\"></path><path d=\"M9 19h6\"></path>", "scroll": "<path d=\"M8 21h10a2 2 0 0 0 2-2v-2H10v2a2 2 0 1 1-4 0V5a2 2 0 0 0-2-2\"></path><path d=\"M20 17V5a2 2 0 0 0-2-2H4\"></path><path d=\"M10 8h6\"></path><path d=\"M10 12h6\"></path>", "pin": "<path d=\"M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z\"></path><circle cx=\"12\" cy=\"10\" r=\"2.3\"></circle>", "key": "<circle cx=\"8\" cy=\"15\" r=\"4\"></circle><path d=\"M11 12l8-8M16 7l2 2M14 9l2 2\"></path>", "phone": "<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"2.5\"></rect><path d=\"M11 18h2\"></path>", "film": "<rect x=\"3\" y=\"5\" width=\"18\" height=\"14\" rx=\"3\"></rect><path d=\"M10 9.5v5l4.5-2.5z\"></path>", "sofa": "<path d=\"M4 11V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3\"></path><path d=\"M2 13a2 2 0 0 1 4 0v2h12v-2a2 2 0 0 1 4 0v4a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1z\"></path><path d=\"M5 18v2M19 18v2\"></path>", "bed": "<path d=\"M3 18V6\"></path><path d=\"M3 14h18v4\"></path><path d=\"M21 14v-2a3 3 0 0 0-3-3h-7v5\"></path><circle cx=\"7\" cy=\"11\" r=\"2\"></circle>", "download": "<path d=\"M12 3v12\"></path><path d=\"m7 10 5 5 5-5\"></path><path d=\"M5 21h14\"></path>", "remote": "<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"3\"></rect><circle cx=\"12\" cy=\"8\" r=\"2\"></circle><path d=\"M12 14v.01\"></path><path d=\"M12 17.5v.01\"></path>", "chart": "<path d=\"M4 20V10\"></path><path d=\"M10 20V4\"></path><path d=\"M16 20v-7\"></path><path d=\"M21 20H3\"></path>"};</script>
+<script>
+/* ---------- motore ---------- */
+const ic = (k, s = 18, w = 2) => `<svg class="svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] || ''}</svg>`;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const fmt = (v, d = 0) => (Math.round(v * 10 ** d) / 10 ** d).toFixed(d).replace('.', ',');
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const REG = [];            // definizioni dei controlli
+const INST = {};           // istanze: catalogo e anteprime
+const G = { state: 'normal', size: 'm', icons: true, labels: true, ctx: 'panel', theme: 'auto', acc: '#FF9F0A', accInk: '#2A1A00' };
+const CTX_W = { panel: 350, column: 384, dialog: 460, free: 0 };
+const STATES = [['normal', 'Normale'], ['inactive', 'Inattivo'], ['disabled', 'Disabilitato'], ['unavail', 'Non disponibile'], ['pending', 'In attesa'], ['success', 'Riuscito'], ['error', 'Errore']];
+function def(d) { d.cfg = d.cfg || {}; REG.push(d); }
+function inst(iid, defId, cfg) {
+  const d = REG.find((x) => x.id === defId);
+  INST[iid] = { iid, def: d, cfg: Object.assign({}, d.cfg, cfg || {}), st: d.init ? d.init(Object.assign({}, d.cfg, cfg || {})) : {}, over: null };
+  return INST[iid];
+}
+const snap = (v, mn, mx, st) => clamp(Math.round((v - mn) / st) * st + mn, mn, mx);
+// intestazione comune: icona, etichetta e valore
+function head(c, x, val) {
+  if (!x.labels && !(x.icons && c.icon)) return val ? `<div class="rc-h"><span class="rc-v" style="margin-left:0">${val}</span></div>` : '';
+  return `<div class="rc-h">${x.icons && c.icon ? `<span class="ic">${ic(c.icon, 16)}</span>` : ''}${x.labels ? `<b>${esc(c.label || '')}</b>` : ''}${val !== undefined && val !== '' ? `<span class="rc-v">${val}</span>` : ''}</div>`;
+}
+const src = (c) => (c.source ? `<div class="rc-src">da ${esc(c.source)}</div>` : '');
+function render(iid) {
+  const I = INST[iid]; if (!I) return;
+  const el = document.querySelector(`[data-iid="${iid}"]`); if (!el) return;
+  const state = I.over || G.state;
+  const x = { state, icons: G.icons, labels: G.labels, inactive: state === 'inactive', unavail: state === 'unavail' };
+  let html = I.def.render(I.st, I.cfg, x, I);
+  const badge = { pending: `<span class="rc-badge b-pending"><i class="spin"></i>In attesa</span>`, success: `<span class="rc-badge b-success">${ic('check', 12, 3)} Riuscito</span>`, error: `<span class="rc-badge b-error">${ic('alert', 12, 2.6)} Non riuscito</span>`, unavail: `<span class="rc-badge b-unavail">Non disponibile</span>` }[state] || '';
+  const err = state === 'error' ? `<div class="rc-err">${esc(I.cfg.errText || 'Il dispositivo non ha risposto. Tocca per riprovare.')}</div>` : '';
+  el.innerHTML = `<div class="rc sz-${I.size || G.size} st-${state}">${badge}<div class="rc-body">${html}</div>${err}${src(I.cfg)}</div>`;
+}
+function renderAll() { Object.keys(INST).forEach(render); }
+// eventi delegati
+const hostOf = (t) => t.closest('[data-iid]');
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('[data-a]');
+  const host = hostOf(e.target);
+  // chiude i menu aperti fuori dal loro controllo
+  Object.values(INST).forEach((I) => { if (I.st.open && (!host || host.dataset.iid !== I.iid)) { I.st.open = false; render(I.iid); } });
+  if (!a || !host) return;
+  const I = INST[host.dataset.iid]; const fn = I.def.on && I.def.on[a.dataset.a];
+  if (!fn) return;
+  const r = fn(I.st, a.dataset.v, I, e);
+  if (r !== false) render(I.iid);
+});
+let DRAG = null;
+document.addEventListener('pointerdown', (e) => {
+  const h = e.target.closest('[data-hold]'); const host = hostOf(e.target);
+  if (h && host) {
+    const I = INST[host.dataset.iid]; e.preventDefault();
+    h.classList.add('is-holding'); I.st.holding = true;
+    I._hold = setTimeout(() => { I.st.holding = false; I.def.on[h.dataset.hold](I.st, 'done', I); render(I.iid); }, 1200);
+    const up = () => { clearTimeout(I._hold); if (I.st.holding) { I.st.holding = false; I.def.on[h.dataset.hold](I.st, 'cancel', I); render(I.iid); } window.removeEventListener('pointerup', up); window.removeEventListener('pointercancel', up); };
+    window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up);
+    return;
+  }
+  const d = e.target.closest('[data-drag]');
+  if (!d || !host) return;
+  e.preventDefault();
+  DRAG = { iid: host.dataset.iid, name: d.dataset.drag, sel: d.dataset.sel || `[data-drag="${d.dataset.drag}"]`, part: (e.target.closest('[data-part]') || {}).dataset ? (e.target.closest('[data-part]') || { dataset: {} }).dataset.part : null };
+  try { host.setPointerCapture(e.pointerId); } catch (x) {}
+  dragMove(e, true);
+});
+function dragMove(e, first) {
+  if (!DRAG) return;
+  const host = document.querySelector(`[data-iid="${DRAG.iid}"]`); const el = host && host.querySelector(DRAG.sel); if (!el) return;
+  const r = el.getBoundingClientRect(); const I = INST[DRAG.iid];
+  const p = { fx: clamp((e.clientX - r.left) / r.width, 0, 1), fy: clamp((r.bottom - e.clientY) / r.height, 0, 1), dx: e.clientX - (r.left + r.width / 2), dy: e.clientY - (r.top + r.height / 2), w: r.width, h: r.height, first, part: DRAG.part };
+  I.st.dragging = true;
+  I.def.on[DRAG.name](I.st, p, I);
+  render(DRAG.iid);
+}
+document.addEventListener('pointermove', (e) => { if (DRAG) dragMove(e, false); });
+const endDrag = () => { if (!DRAG) return; const I = INST[DRAG.iid]; I.st.dragging = false; if (I.def.on.dragEnd) I.def.on.dragEnd(I.st, null, I); render(DRAG.iid); DRAG = null; };
+document.addEventListener('pointerup', endDrag); document.addEventListener('pointercancel', endDrag);
+document.addEventListener('keydown', (e) => {
+  const k = e.target.closest('[data-key]'); if (!k) return; const host = hostOf(k); if (!host) return;
+  const I = INST[host.dataset.iid]; const fn = I.def.on[k.dataset.key]; if (!fn) return;
+  const step = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
+  if (step === undefined) return; e.preventDefault();
+  fn(I.st, { key: step }, I); render(I.iid);
+  const again = document.querySelector(`[data-iid="${I.iid}"] [data-key="${k.dataset.key}"]`); if (again) again.focus();
+});
+document.addEventListener('input', (e) => {
+  const t = e.target.closest('[data-in]'); if (!t) return; const host = hostOf(t); if (!host) return;
+  const I = INST[host.dataset.iid]; const fn = I.def.on[t.dataset.in]; if (!fn) return;
+  const r = fn(I.st, t.value, I, t);
+  if (r === true) { const pos = t.selectionStart; render(I.iid); const n = document.querySelector(`[data-iid="${I.iid}"] [data-in="${t.dataset.in}"]`); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (x) {} } }
+});
+// barra orizzontale riutilizzata da molti controlli
+function hbar(name, f, opt = {}) {
+  return `<div class="hb ${opt.cls || ''}" data-drag="${name}" data-key="${name}k" tabindex="0" role="slider" aria-label="${esc(opt.aria || '')}" aria-valuenow="${opt.now ?? ''}"><i style="width:${(f * 100).toFixed(1)}%;${opt.fill ? 'background:' + opt.fill : ''}"></i>${opt.inner ? `<span class="hbv ${f < 0.28 ? 'out' : ''}" style="${f < 0.28 ? 'left:calc(' + (f * 100) + '% + 2.8em)' : ''}">${opt.inner}</span>` : ''}${opt.dots ? `<span class="stepdots">${'<i></i>'.repeat(opt.dots)}</span>` : ''}${opt.icon ? `<span class="hbi">${ic(opt.icon, 16)}</span>` : ''}</div>`;
+}
+// conversioni colore
+const hsv = (h, s) => { const f = (n) => { const k = (n + h / 60) % 6; return 1 - s * Math.max(0, Math.min(k, 4 - k, 1)); }; return [f(5), f(3), f(1)].map((x) => Math.round(x * 255)); };
+const rgb = (a) => `rgb(${a.join(',')})`;
+const KST = [[2200, [255, 138, 31]], [2700, [255, 176, 92]], [4000, [255, 217, 168]], [5000, [255, 243, 230]], [6500, [191, 213, 255]]];
+const kRgb = (k) => { for (let i = 0; i < KST.length - 1; i++) { const a = KST[i], b = KST[i + 1]; if (k <= b[0]) { const t = clamp((k - a[0]) / (b[0] - a[0]), 0, 1); return a[1].map((v, j) => Math.round(v + (b[1][j] - v) * t)); } } return KST[KST.length - 1][1]; };
+// serie di prova per i grafici
+const SER = { temp: [19.6, 19.4, 19.3, 19.5, 20.1, 20.6, 21.0, 21.3, 21.2, 21.5, 21.8, 21.4], hum: [52, 51, 49, 48, 47, 49, 55, 61, 58, 52, 50, 48], pow: [3, 2, 2, 2, 3, 6, 8, 5, 4, 4, 9, 7, 4, 5, 7, 10, 9, 7, 5, 4], yest: [2, 2, 2, 3, 3, 5, 7, 6, 5, 4, 8, 8, 5, 5, 6, 8, 8, 6, 5, 3] };
+function pathOf(s, w, h, lo, hi, pad = 4) {
+  const mn = lo ?? Math.min(...s), mx = hi ?? Math.max(...s);
+  return s.map((v, i) => [(i / (s.length - 1)) * w, h - pad - ((v - mn) / (mx - mn || 1)) * (h - pad * 2)]);
+}
+
+/* ---------- A · Selezione ---------- */
+const OPT_MODE = [['comfort', 'Comfort', 'leaf'], ['eco', 'Eco', 'moon'], ['boost', 'Boost', 'flame'], ['away', 'Fuori casa', 'home']];
+const selCfg = { label: 'Modalità', icon: 'sliders', options: OPT_MODE };
+const optOf = (c, v) => c.options.find((o) => o[0] === v) || c.options[0];
+const ALL_ST = 'Normale, inattivo, disabilitato, non disponibile, in attesa, riuscito, errore';
+def({ id: 'SEL-01', fam: 'sel', name: 'Dropdown Select', key: true, desc: 'Menu a discesa per elenchi lunghi o etichette lunghe. Mostra il valore scelto e si apre sopra il pannello.',
+  ents: ['select', 'input_select', 'climate.preset_mode', 'media_player.source', 'fan.preset_mode'], sizes: 'S · M · L, larghezza piena', inter: 'Tocco o clic per aprire, tocco su un’opzione, Esc o tocco fuori per chiudere',
+  variants: 'Con o senza icona nell’opzione · etichetta sopra o dentro il campo · valore e descrizione', usage: 'Sorgente del media player, preset del clima con più di 5 voci.',
+  cfg: Object.assign({}, selCfg, { options: OPT_MODE.concat([['night', 'Notte', 'moon'], ['holiday', 'Vacanza', 'sun']]) }), init: () => ({ v: 'comfort', open: false }),
+  render: (s, c, x) => { const o = optOf(c, s.v); return `${head(c, x, '')}<div class="dd"><button class="dd-btn" data-a="tog" aria-haspopup="listbox" aria-expanded="${s.open}">${x.icons ? ic(o[2], 18) : ''}<span class="ddv">${o[1]}</span><span class="ddl">${c.options.length} opzioni</span>${ic(s.open ? 'chevUp' : 'chevDown', 16)}</button>${s.open ? `<div class="dd-menu" role="listbox">${c.options.map((p) => `<button data-a="pick" data-v="${p[0]}" role="option" aria-selected="${p[0] === s.v}">${x.icons ? ic(p[2], 16) : ''}<span style="flex:1">${p[1]}</span>${p[0] === s.v ? `<span class="tick">${ic('check', 16, 2.6)}</span>` : ''}</button>`).join('')}</div>` : ''}</div>`; },
+  on: { tog: (s) => { s.open = !s.open; }, pick: (s, v) => { s.v = v; s.open = false; } } });
+def({ id: 'SEL-02', fam: 'sel', name: 'Segmented Select', key: true, desc: 'Da 2 a 4 opzioni brevi sempre visibili. La scelta più veloce quando le voci sono poche.',
+  ents: ['select', 'input_select', 'climate.hvac_mode', 'fan.direction', 'number (2–4 valori)'], sizes: 'S · M · L, larghezza piena o adattata', inter: 'Tocco o clic; frecce sinistra e destra da tastiera',
+  variants: 'Neutro (nero) o con il colore del dispositivo · con o senza titolo', usage: 'Modalità della termostufa (Auto, Manuale, Crono), direzione della ventola.',
+  cfg: Object.assign({}, selCfg, { options: OPT_MODE.slice(0, 3) }), init: () => ({ v: 'comfort' }),
+  render: (s, c, x) => `${head(c, x, optOf(c, s.v)[1])}<div class="seg ${c.accent ? 'seg-acc' : ''}" role="radiogroup">${c.options.map((o) => `<button data-a="pick" data-v="${o[0]}" role="radio" aria-checked="${o[0] === s.v}" class="${o[0] === s.v ? 'is-on' : ''}">${o[1]}</button>`).join('')}</div>`,
+  on: { pick: (s, v) => { s.v = v; } } });
+def({ id: 'SEL-03', fam: 'sel', name: 'Icon Segmented Select', desc: 'Segmentato con icona sopra il nome; senza etichette diventa una fila di sole icone con il nome nel suggerimento.',
+  ents: ['select', 'input_select', 'climate.hvac_mode', 'climate.swing_mode'], sizes: 'S · M · L', inter: 'Tocco o clic; frecce da tastiera',
+  variants: 'Icona e nome · solo icona', usage: 'Modalità del clima: Caldo, Freddo, Auto, Spento.',
+  cfg: { label: 'Funzionamento', icon: 'sliders', options: [['heat', 'Caldo', 'flame'], ['cool', 'Freddo', 'snow'], ['auto', 'Auto', 'halfc'], ['off', 'Spento', 'power2']] }, init: () => ({ v: 'heat' }),
+  render: (s, c, x) => `${head(c, x, optOf(c, s.v)[1])}<div class="seg seg-ic seg-acc">${c.options.map((o) => `<button data-a="pick" data-v="${o[0]}" class="${o[0] === s.v ? 'is-on' : ''}" title="${o[1]}" aria-label="${o[1]}">${ic(o[2], 20)}${x.labels ? `<span>${o[1]}</span>` : ''}</button>`).join('')}</div>`,
+  on: { pick: (s, v) => { s.v = v; } } });
+def({ id: 'SEL-04', fam: 'sel', name: 'Radio Selector', desc: 'Scelta esclusiva in una lista raggruppata, con una riga di spiegazione per opzione.',
+  ents: ['select', 'input_select', 'water_heater.operation_mode'], sizes: 'S · M · L, larghezza piena', inter: 'Tocco sulla riga intera',
+  variants: 'Con descrizione · senza descrizione', usage: 'Modalità dello scaldabagno, dove serve spiegare ogni voce.',
+  cfg: { label: 'Acqua calda', icon: 'drop', options: [['eco', 'Eco', 'Scalda nelle ore che costano meno'], ['perf', 'Prestazioni', 'Sempre pronta, consuma di più'], ['vac', 'Vacanza', 'Solo antigelo e antilegionella']] }, init: () => ({ v: 'eco' }),
+  render: (s, c, x) => `${head(c, x, '')}<div class="list" role="radiogroup">${c.options.map((o) => `<button class="li" data-a="pick" data-v="${o[0]}" role="radio" aria-checked="${o[0] === s.v}"><span class="radio ${o[0] === s.v ? 'is-on' : ''}"></span><span class="lt2"><b>${o[1]}</b>${x.labels ? `<span>${o[2]}</span>` : ''}</span></button>`).join('')}</div>`,
+  on: { pick: (s, v) => { s.v = v; } } });
+def({ id: 'SEL-05', fam: 'sel', name: 'List Selector', desc: 'Elenco con spunta per molte opzioni o nomi lunghi; scorre dentro il pannello dopo 4 righe.',
+  ents: ['select', 'input_select', 'media_player.source', 'media_player.sound_mode'], sizes: 'Larghezza piena, 4 righe visibili', inter: 'Tocco sulla riga, scorrimento',
+  variants: 'Con icona · con sottotitolo · solo testo', usage: 'Sorgenti della TV (HDMI, app, antenna).',
+  cfg: { label: 'Sorgente', icon: 'tv', options: [['tv', 'Antenna TV', 'tv'], ['hdmi1', 'HDMI 1 · Console', 'tv'], ['hdmi2', 'HDMI 2 · Decoder', 'tv'], ['app', 'App TV', 'film'], ['music', 'Musica', 'music']] }, init: () => ({ v: 'hdmi1' }),
+  render: (s, c, x) => `${head(c, x, optOf(c, s.v)[1])}<div class="list" style="max-height:12.4em;overflow:auto">${c.options.map((o) => `<button class="li" data-a="pick" data-v="${o[0]}">${x.icons ? ic(o[2], 18) : ''}<span class="lt2"><b>${o[1]}</b></span>${o[0] === s.v ? `<span class="tick">${ic('check', 18, 2.6)}</span>` : ''}</button>`).join('')}</div>`,
+  on: { pick: (s, v) => { s.v = v; } } });
+def({ id: 'SEL-06', fam: 'sel', name: 'Multi Select', desc: 'Più opzioni insieme. Solo dove la funzione lo supporta davvero; mostra quante sono scelte.',
+  ents: ['vacuum (stanze, se l’integrazione lo offre)', 'climate (zone)', 'todo (filtri)', 'input_select ×N'], sizes: 'S · M · L', inter: 'Tocco per aggiungere o togliere',
+  variants: 'Pillole · elenco con caselle (vedi BOO-04)', usage: 'Stanze da pulire col robot, zone di un impianto multizona.',
+  cfg: { label: 'Stanze', icon: 'home', options: [['liv', 'Soggiorno'], ['kit', 'Cucina'], ['bed', 'Camera'], ['bath', 'Bagno'], ['std', 'Studio']] }, init: () => ({ v: ['liv', 'kit'] }),
+  render: (s, c, x) => `${head(c, x, s.v.length ? s.v.length + ' scelte' : 'nessuna')}<div class="pills">${c.options.map((o) => `<button class="pill ${s.v.includes(o[0]) ? 'is-on' : ''}" data-a="tog" data-v="${o[0]}" aria-pressed="${s.v.includes(o[0])}">${s.v.includes(o[0]) && x.icons ? ic('check', 14, 2.8) : ''}${o[1]}</button>`).join('')}</div>`,
+  on: { tog: (s, v) => { s.v = s.v.includes(v) ? s.v.filter((y) => y !== v) : s.v.concat([v]); } } });
+def({ id: 'SEL-07', fam: 'sel', name: 'Compact Select', desc: 'Selettore minimo: frecce per scorrere le opzioni in poco spazio. Per una riga dentro un gruppo.',
+  ents: ['select', 'input_select', 'number (pochi valori)'], sizes: 'Una riga, larghezza del contenuto', inter: 'Tocco sulle frecce; frecce da tastiera',
+  variants: 'Da solo · dentro una riga con etichetta', usage: 'Anticipo della chiusura al tramonto: −15, 0, +15, +30 min.',
+  cfg: { label: 'Al tramonto', icon: 'moon', options: [['m15', '−15 min'], ['0', 'Puntuale'], ['p15', '+15 min'], ['p30', '+30 min']] }, init: () => ({ i: 1 }),
+  render: (s, c, x) => `<div class="row">${x.icons ? `<span class="ri">${ic(c.icon, 16)}</span>` : ''}<span class="rt"><b>${x.labels ? c.label : ''}</b></span><span class="cmp" data-key="k" tabindex="0"><button data-a="prev" aria-label="Precedente">${ic('chevL', 16, 2.6)}</button><b>${c.options[s.i][1]}</b><button data-a="next" aria-label="Successivo">${ic('chevR', 16, 2.6)}</button></span></div>`,
+  on: { prev: (s, v, I) => { s.i = (s.i + I.cfg.options.length - 1) % I.cfg.options.length; }, next: (s, v, I) => { s.i = (s.i + 1) % I.cfg.options.length; }, k: (s, p, I) => { s.i = (s.i + I.cfg.options.length + p.key) % I.cfg.options.length; } } });
+
+/* ---------- B · Valori numerici ---------- */
+const numV = (c, f) => snap(c.min + f * (c.max - c.min), c.min, c.max, c.step);
+const numF = (c, v) => (v - c.min) / (c.max - c.min);
+const nk = (s, p, I) => { s.v = clamp(+(s.v + p.key * I.cfg.step).toFixed(3), I.cfg.min, I.cfg.max); };
+const nd = (s, p, I) => { s.v = numV(I.cfg, p.fx); };
+const unit = (c, v) => fmt(v, c.dec || 0) + (c.unit || '');
+const numBase = { label: 'Setpoint acqua', icon: 'drop', min: 40, max: 80, step: 1, unit: '°', dec: 0 };
+def({ id: 'NUM-01', fam: 'num', name: 'Horizontal Slider', key: true, desc: 'La barra della card: riempimento pieno, alta 46, raggio 16. Il valore sta nell’intestazione.',
+  ents: ['number', 'input_number', 'light.brightness', 'cover.tilt_position', 'media_player.volume'], sizes: 'Alta 40 o 46, larghezza piena', inter: 'Trascina o tocca un punto; frecce ±1 passo',
+  variants: 'Con icona a destra · con colore del dispositivo · neutra', usage: 'Inclinazione lamelle, volume, potenza percentuale.',
+  cfg: Object.assign({}, numBase), init: (c) => ({ v: 62 }),
+  render: (s, c, x) => `${head(c, x, unit(c, s.v))}${hbar('d', numF(c, s.v), { aria: c.label, now: s.v, icon: x.icons ? c.icon : '' })}`, on: { d: nd, dk: nk } });
+def({ id: 'NUM-02', fam: 'num', name: 'Vertical Slider', key: true, desc: 'Lo slider protagonista del pannello. Piccolo per i gruppi, grande (148 × 300) al centro del pannello.',
+  ents: ['number', 'input_number', 'climate.temperature', 'light.brightness', 'fan.percentage'], sizes: 'Compatto 70 × 180 · protagonista 148 × 300', inter: 'Trascina in verticale; frecce su e giù',
+  variants: 'Con valore, sottotitolo e linea del valore attuale tratteggiata', usage: 'Temperatura obiettivo della termostufa con “ora 20,5°”.',
+  cfg: { label: 'Ambiente', icon: 'thermo', min: 16, max: 26, step: 0.5, unit: '°', dec: 1, cur: 20.5, sub: 'obiettivo' }, init: () => ({ v: 21 }),
+  render: (s, c, x) => `${c.big ? '' : head(c, x, '')}<div class="vs ${c.big ? 'vs-big' : ''}" data-drag="d" data-key="dk" tabindex="0" role="slider" aria-label="${c.label}" aria-valuenow="${s.v}"><i style="height:${numF(c, s.v) * 100}%;${c.fill ? 'background:' + c.fill : ''}"></i><span class="vsv">${unit(c, s.v)}</span>${c.big && c.sub ? `<span class="vss">${c.sub}</span>` : ''}${c.cur !== undefined ? `<span class="vsm" style="bottom:${numF(c, c.cur) * 100}%"><em>${c.big ? 'ora ' : ''}${fmt(c.cur, c.dec)}${c.unit}</em></span>` : ''}${x.icons ? `<span class="vsi">${ic(c.icon, 20)}</span>` : ''}</div>`,
+  on: { d: (s, p, I) => { s.v = numV(I.cfg, p.fy); }, dk: nk } });
+def({ id: 'NUM-03', fam: 'num', name: 'Step Slider', key: true, desc: 'Barra che scatta su valori fissi, con i passi segnati. Per numeri con passo grande.',
+  ents: ['number (step ≥ 5)', 'input_number (mode: slider)', 'fan.percentage_step'], sizes: 'Alta 46, larghezza piena', inter: 'Trascina: scatta al passo più vicino; tocco sulle etichette',
+  variants: 'Con etichette dei passi toccabili · con puntini', usage: 'Velocità della ventola a 4 passi, potenza in watt a scaglioni.',
+  cfg: { label: 'Velocità', icon: 'fan', min: 0, max: 100, step: 25, unit: '%' }, init: () => ({ v: 50 }),
+  render: (s, c, x) => { const n = (c.max - c.min) / c.step; return `${head(c, x, unit(c, s.v))}${hbar('d', numF(c, s.v), { aria: c.label, now: s.v, dots: n + 1 })}<div class="ticks is-btn">${Array.from({ length: n + 1 }, (_, i) => c.min + i * c.step).map((v) => `<button data-a="set" data-v="${v}" class="${v === s.v ? 'is-on' : ''}">${v === 0 ? 'Off' : fmt(v) + (c.unit || '')}</button>`).join('')}</div>`; },
+  on: { d: nd, dk: nk, set: (s, v) => { s.v = +v; } } });
+def({ id: 'NUM-04', fam: 'num', name: 'Numeric Stepper', key: true, desc: 'Valore grande con − e +. Il controllo più preciso; si ferma ai limiti e lo mostra.',
+  ents: ['number', 'input_number (mode: box)', 'climate.temperature', 'water_heater.temperature'], sizes: 'Pulsanti 44 · valore 28 pt', inter: 'Tocco; tenere premuto ripete; frecce da tastiera',
+  variants: 'Valore al centro · etichetta e unità · limiti min e max visibili', usage: 'Setpoint acqua della caldaia a pellet.',
+  cfg: Object.assign({}, numBase, { step: 0.5, dec: 1, min: 50, max: 75 }), init: () => ({ v: 65 }),
+  render: (s, c, x) => `${head(c, x, `${fmt(c.min, c.dec)}–${fmt(c.max, c.dec)}${c.unit}`)}<div class="stp" data-key="dk" tabindex="0"><button class="rb" data-a="dec" ${s.v <= c.min ? 'disabled' : ''} aria-label="Diminuisci">${ic('minus', 18, 2.6)}</button><span class="sv">${fmt(s.v, c.dec)}<small>${c.unit}</small></span><button class="rb" data-a="inc" ${s.v >= c.max ? 'disabled' : ''} aria-label="Aumenta">${ic('plus', 18, 2.6)}</button></div>`,
+  on: { dec: (s, v, I) => { s.v = clamp(s.v - I.cfg.step, I.cfg.min, I.cfg.max); }, inc: (s, v, I) => { s.v = clamp(s.v + I.cfg.step, I.cfg.min, I.cfg.max); }, dk: nk } });
+def({ id: 'NUM-05', fam: 'num', name: 'Numeric Input', desc: 'Campo per scrivere il numero. Controlla minimo, massimo e passo e spiega l’errore sotto.',
+  ents: ['number (mode: box)', 'input_number (mode: box)'], sizes: 'Alto 46, larghezza piena', inter: 'Tastiera numerica; Invio conferma',
+  variants: 'Con unità · con suggerimento dei limiti', usage: 'Potenza contrattuale in kW, offset di calibrazione.',
+  cfg: { label: 'Potenza contatore', icon: 'bolt', min: 1.5, max: 10, step: 0.5, unit: 'kW' }, init: () => ({ raw: '3,3', bad: false }),
+  render: (s, c, x) => `${head(c, x, '')}<label class="fld ${s.bad ? 'is-bad' : ''}"><input type="text" inputmode="decimal" value="${esc(s.raw)}" data-in="w" aria-label="${c.label}"><span class="u">${c.unit}</span></label><span class="hint ${s.bad ? 'bad' : ''}">${s.bad ? `Scrivi un valore tra ${fmt(c.min, 1)} e ${fmt(c.max, 1)} ${c.unit}, a passi di ${fmt(c.step, 1)}.` : `Da ${fmt(c.min, 1)} a ${fmt(c.max, 1)} ${c.unit}`}</span>`,
+  on: { w: (s, v, I) => { s.raw = v; const n = parseFloat(v.replace(',', '.')); const c = I.cfg; const nb = !(n >= c.min && n <= c.max && Math.abs((n - c.min) / c.step - Math.round((n - c.min) / c.step)) < 1e-6); if (nb !== s.bad) { s.bad = nb; return true; } return false; } } });
+def({ id: 'NUM-06', fam: 'num', name: 'Slider con valore integrato', desc: 'Barra con il numero scritto dentro il riempimento. Risparmia la riga dell’intestazione.',
+  ents: ['number', 'input_number', 'light.brightness', 'media_player.volume'], sizes: 'Alta 46, larghezza piena', inter: 'Trascina o tocca; frecce',
+  variants: 'Numero dentro il riempimento · numero fuori quando il riempimento è corto', usage: 'Volume di una cassa nel pannello del media.',
+  cfg: { label: 'Volume', icon: 'music', min: 0, max: 100, step: 1, unit: '%' }, init: () => ({ v: 42 }),
+  render: (s, c, x) => `${x.labels ? head(c, x, '') : ''}${hbar('d', numF(c, s.v), { aria: c.label, now: s.v, inner: unit(c, s.v), icon: x.icons ? c.icon : '' })}`, on: { d: nd, dk: nk } });
+def({ id: 'NUM-07', fam: 'num', name: 'Level Slider', key: true, desc: 'Livelli a blocchi: scegli un livello toccando o scorrendo. Per valori interi da 3 a 7.',
+  ents: ['number (min–max ≤ 7)', 'input_number', 'select (livelli ordinati)'], sizes: 'Alto 46, da 3 a 7 blocchi', inter: 'Tocco su un blocco; trascina sopra i blocchi',
+  variants: 'Con numero nel blocco · solo blocchi', usage: 'Potenza della termostufa da P1 a P5.',
+  cfg: { label: 'Potenza', icon: 'flame', min: 1, max: 5, step: 1, unit: '', prefix: 'P' }, init: () => ({ v: 3 }),
+  render: (s, c, x) => `${head(c, x, (c.prefix || '') + s.v)}<div class="lvl" data-drag="d" role="slider" aria-valuenow="${s.v}">${Array.from({ length: c.max - c.min + 1 }, (_, i) => c.min + i).map((v) => `<button data-a="set" data-v="${v}" class="${v <= s.v ? 'is-on' : ''}">${(c.prefix || '') + v}</button>`).join('')}</div>`,
+  on: { set: (s, v) => { s.v = +v; }, d: (s, p, I) => { s.v = clamp(Math.ceil(p.fx * (I.cfg.max - I.cfg.min + 1)) + I.cfg.min - 1, I.cfg.min, I.cfg.max); } } });
+def({ id: 'NUM-08', fam: 'num', name: 'Vertical Level Slider', desc: 'Gli stessi livelli in colonna, per i gruppi stretti o accanto a un altro controllo.',
+  ents: ['number (min–max ≤ 7)', 'input_number', 'select (livelli ordinati)'], sizes: '70 × 180, da 3 a 7 blocchi', inter: 'Tocco su un blocco; trascina',
+  variants: 'Con numero · solo blocchi', usage: 'Livello di aspirazione del robot accanto all’anello della batteria.',
+  cfg: { label: 'Aspirazione', icon: 'fan', min: 1, max: 4, step: 1, prefix: '' }, init: () => ({ v: 2 }),
+  render: (s, c, x) => `${head(c, x, s.v + ' di ' + c.max)}<div class="vlvl" data-drag="d">${Array.from({ length: c.max - c.min + 1 }, (_, i) => c.min + i).map((v) => `<button data-a="set" data-v="${v}" class="${v <= s.v ? 'is-on' : ''}">${v}</button>`).join('')}</div>`,
+  on: { set: (s, v) => { s.v = +v; }, d: (s, p, I) => { s.v = clamp(Math.ceil(p.fy * (I.cfg.max - I.cfg.min + 1)) + I.cfg.min - 1, I.cfg.min, I.cfg.max); } } });
+def({ id: 'NUM-09', fam: 'num', name: 'Range Slider', key: true, desc: 'Due maniglie per minimo e massimo. Solo per funzioni con due valori reali.',
+  ents: ['climate.target_temp_low/high', 'humidifier (min/max, se esposti)', 'coppia di number'], sizes: 'Alto 46, larghezza piena', inter: 'Trascina la maniglia più vicina; le maniglie non si incrociano',
+  variants: 'Con valori nell’intestazione · con distanza minima', usage: 'Intervallo del clima in modalità Automatico, 20–24°.',
+  cfg: { label: 'Intervallo', icon: 'halfc', min: 16, max: 30, step: 0.5, unit: '°', dec: 1, gap: 1 }, init: () => ({ lo: 20, hi: 24, act: null }),
+  render: (s, c, x) => { const a = numF(c, s.lo) * 100, b = numF(c, s.hi) * 100; return `${head(c, x, `${fmt(s.lo, c.dec)}–${fmt(s.hi, c.dec)}${c.unit}`)}<div class="rng" data-drag="d"><i style="left:${a}%;width:${b - a}%"></i><b style="left:${a}%" aria-label="Minimo"></b><b style="left:${b}%" aria-label="Massimo"></b></div><div class="ticks"><span>${c.min}${c.unit}</span><span>${c.max}${c.unit}</span></div>`; },
+  on: { d: (s, p, I) => { const c = I.cfg; const v = numV(c, p.fx); if (p.first || !s.act) s.act = Math.abs(v - s.lo) <= Math.abs(v - s.hi) ? 'lo' : 'hi'; if (s.act === 'lo') s.lo = Math.min(v, s.hi - c.gap); else s.hi = Math.max(v, s.lo + c.gap); }, dragEnd: (s) => { s.act = null; } } });
+def({ id: 'NUM-10', fam: 'num', name: 'Circular Slider', desc: 'Arco di 270° con la maniglia; il valore sta al centro. Per un numero protagonista quando lo slider verticale non c’è.',
+  ents: ['number', 'input_number', 'climate.temperature', 'water_heater.temperature'], sizes: '160 · 200 · 240 px', inter: 'Trascina lungo l’arco; frecce',
+  variants: 'Con o senza sottotitolo · arco colorato o a gradiente', usage: 'Temperatura del boiler ACS quando il pannello è di un altro dispositivo.',
+  cfg: { label: 'Boiler ACS', icon: 'boiler', min: 35, max: 65, step: 1, unit: '°', sub: 'obiettivo' }, init: () => ({ v: 50 }),
+  render: (s, c, x) => { const f = numF(c, s.v), R = 42, L = 2 * Math.PI * R * 0.75; const ang = (135 + f * 270) * Math.PI / 180; const kx = 50 + R * Math.cos(ang), ky = 50 + R * Math.sin(ang); return `${head(c, x, '')}<div class="circ" data-drag="d" data-key="dk" tabindex="0" role="slider" aria-valuenow="${s.v}"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" class="ring" stroke="var(--track)" stroke-width="9" stroke-dasharray="${L} 999" transform="rotate(135 50 50)"></circle><circle cx="50" cy="50" r="${R}" class="ring" stroke="var(--a)" stroke-width="9" stroke-dasharray="${L * f} 999" transform="rotate(135 50 50)"></circle><circle cx="${kx}" cy="${ky}" r="6.5" fill="#FFFFFF" stroke="rgba(0,0,0,.15)" stroke-width="1"></circle></svg><span class="cv"><b>${unit(c, s.v)}</b><span>${c.sub || ''}</span></span></div>`; },
+  on: { d: (s, p, I) => { let a = Math.atan2(p.dy, p.dx) * 180 / Math.PI; a = (a - 135 + 720) % 360; if (a > 270) a = a > 315 ? 0 : 270; s.v = numV(I.cfg, a / 270); }, dk: nk } });
+
+/* ---------- C · Interruttori ---------- */
+const bc = { label: 'Priorità ACS', icon: 'drop', sub: 'Scalda prima il boiler, poi l’ambiente' };
+def({ id: 'BOO-01', fam: 'boo', name: 'Standard Toggle', key: true, desc: 'Riga con titolo, spiegazione e interruttore. Il formato di default per un sì/no.',
+  ents: ['input_boolean', 'switch', 'light (on/off)', 'automation (attiva)'], sizes: 'Riga alta 52, larghezza piena', inter: 'Tocco su tutta la riga; Spazio da tastiera',
+  variants: 'Con icona · con spiegazione · solo titolo', usage: 'Priorità ACS sulla termostufa, modalità automatica della tapparella.',
+  cfg: bc, init: () => ({ on: true }),
+  render: (s, c, x) => `<button class="row" data-a="t" role="switch" aria-checked="${s.on}" style="border:0;width:100%;text-align:left;color:inherit">${x.icons ? `<span class="ri ${s.on && !x.inactive ? 'is-on' : ''}">${ic(c.icon, 16)}</span>` : ''}<span class="rt"><b>${c.label}</b>${x.labels && c.sub ? `<span>${c.sub}</span>` : ''}</span><span class="sw ${s.on ? 'is-on' : ''}"><i></i></span></button>`,
+  on: { t: (s) => { s.on = !s.on; } } });
+def({ id: 'BOO-02', fam: 'boo', name: 'Compact Toggle', desc: 'Interruttore piccolo da mettere a fianco di un titolo di gruppo o in una riga densa.',
+  ents: ['input_boolean', 'switch'], sizes: '42 × 26', inter: 'Tocco; Spazio', variants: 'Solo interruttore · con etichetta a sinistra', usage: 'Nell’intestazione di un gruppo: “Programma” acceso o spento.',
+  cfg: { label: 'Programma', icon: 'clock' }, init: () => ({ on: false }),
+  render: (s, c, x) => `<div class="rc-h" style="padding-right:0">${x.icons ? `<span class="ic">${ic(c.icon, 16)}</span>` : ''}${x.labels ? `<b>${c.label}</b>` : ''}<button class="sw sw-s ${s.on ? 'is-on' : ''}" data-a="t" role="switch" aria-checked="${s.on}" aria-label="${c.label}" style="margin-left:auto"><i></i></button></div>`,
+  on: { t: (s) => { s.on = !s.on; } } });
+def({ id: 'BOO-03', fam: 'boo', name: 'Icon Toggle', key: true, desc: 'La scorciatoia rotonda del pannello che agisce subito e si illumina quando è attiva.',
+  ents: ['input_boolean', 'switch', 'fan.oscillating', 'climate.swing_mode (on/off)'], sizes: 'Cerchio 48 con nome 12 sotto', inter: 'Tocco', variants: 'Con nome · solo icona (con suggerimento)', usage: 'Oscillazione della ventola, alette del clima, Protetta della presa.',
+  cfg: { label: 'Alette', icon: 'swingV' }, init: () => ({ on: true }),
+  render: (s, c, x) => `<div class="scs"><button class="sc ${s.on && !x.inactive ? 'is-on' : ''}" data-a="t" aria-pressed="${s.on}" title="${c.label}"><span class="scc">${ic(c.icon, 22)}</span>${x.labels ? `<span class="scl">${c.label}</span>` : ''}</button><button class="sc" data-a="x" aria-pressed="false" title="Esempio spento"><span class="scc">${ic('swingH', 22)}</span>${x.labels ? `<span class="scl">Orizzontali</span>` : ''}</button></div>`,
+  on: { t: (s) => { s.on = !s.on; }, x: () => false } });
+def({ id: 'BOO-04', fam: 'boo', name: 'Checkbox', desc: 'Casella per elenchi di scelte indipendenti, una per riga.',
+  ents: ['input_boolean ×N', 'todo (voci)', 'select multiplo'], sizes: 'Casella 21 · riga 44', inter: 'Tocco sulla riga', variants: 'In elenco · da sola', usage: 'Giorni del programma, voci della lista della spesa.',
+  cfg: { label: 'Giorni del programma', icon: 'cal', options: [['lun', 'Lunedì'], ['mar', 'Martedì'], ['mer', 'Mercoledì'], ['sab', 'Sabato']] }, init: () => ({ v: ['lun', 'mer'] }),
+  render: (s, c, x) => `${head(c, x, s.v.length + ' di ' + c.options.length)}<div class="list">${c.options.map((o) => `<button class="li" data-a="t" data-v="${o[0]}" role="checkbox" aria-checked="${s.v.includes(o[0])}"><span class="chk ${s.v.includes(o[0]) ? 'is-on' : ''}">${ic('check', 14, 3)}</span><span class="lt2"><b>${o[1]}</b></span></button>`).join('')}</div>`,
+  on: { t: (s, v) => { s.v = s.v.includes(v) ? s.v.filter((y) => y !== v) : s.v.concat([v]); } } });
+def({ id: 'BOO-05', fam: 'boo', name: 'On/Off Segmented', desc: 'Due segmenti con nomi espliciti al posto di un interruttore, quando le due parole dicono di più.',
+  ents: ['input_boolean', 'switch', 'binary (2 stati con nome)'], sizes: 'Alto 38, larghezza piena o adattata', inter: 'Tocco; frecce', variants: 'Acceso/Spento · nomi personalizzati (Estate/Inverno)', usage: 'Stagione dell’impianto: Inverno o Estate.',
+  cfg: { label: 'Stagione', icon: 'sun', on: 'Inverno', off: 'Estate' }, init: () => ({ on: true }),
+  render: (s, c, x) => `${head(c, x, '')}<div class="seg seg-acc"><button data-a="set" data-v="1" class="${s.on ? 'is-on' : ''}">${x.icons ? ic('snow', 16) : ''}${c.on}</button><button data-a="set" data-v="0" class="${!s.on ? 'is-on' : ''}">${x.icons ? ic('sun', 16) : ''}${c.off}</button></div>`,
+  on: { set: (s, v) => { s.on = v === '1'; } } });
+def({ id: 'BOO-06', fam: 'boo', name: 'Toggle Card', desc: 'Una mini card dentro il pannello: icona, nome e stato. Accesa diventa chiara come le card della Home.',
+  ents: ['input_boolean', 'switch', 'light (on/off)'], sizes: 'Alta 82, mezza o piena larghezza', inter: 'Tocco su tutta la card', variants: 'Mezza larghezza in coppia · piena larghezza', usage: 'Blocco dei comandi della tapparella; luce notturna.',
+  cfg: { label: 'Blocca comandi', icon: 'lock', onT: 'Card e pannello bloccati', offT: 'Comandi liberi' }, init: () => ({ on: false }),
+  render: (s, c, x) => `<button class="tcard ${s.on && !x.inactive ? 'is-on' : ''}" data-a="t" role="switch" aria-checked="${s.on}"><span class="ti">${ic(s.on ? 'lock' : 'unlock', 20)}</span><span class="tt"><b>${c.label}</b>${x.labels ? `<span>${s.on ? c.onT : c.offT}</span>` : ''}</span></button>`,
+  on: { t: (s) => { s.on = !s.on; } } });
+def({ id: 'BOO-07', fam: 'boo', name: 'Toggle con LED', desc: 'Riga con un piccolo LED che si accende con lo stato. Per sì/no che conviene vedere da lontano.',
+  ents: ['input_boolean', 'switch', 'binary_sensor (sola lettura)'], sizes: 'Riga alta 52', inter: 'Tocco (solo per le entità comandabili)', variants: 'LED verde, arancio o rosso · lampeggiante', usage: 'Pompa di circolo in funzione sulla termostufa.',
+  cfg: { label: 'Pompa di circolo', icon: 'drop', sub: 'Circolatore della caldaia' }, init: () => ({ on: true }),
+  render: (s, c, x) => `<button class="row" data-a="t" role="switch" aria-checked="${s.on}" style="border:0;width:100%;text-align:left;color:inherit"><span class="led ${s.on && !x.inactive ? 'is-on' : ''}"></span><span class="rt"><b>${c.label}</b>${x.labels ? `<span>${s.on ? 'In funzione' : 'Ferma'} · ${c.sub}</span>` : ''}</span><span class="sw sw-s ${s.on ? 'is-on' : ''}"><i></i></span></button>`,
+  on: { t: (s) => { s.on = !s.on; } } });
+
+/* ---------- D · Azioni ---------- */
+const later = (I, ms, fn) => { clearTimeout(I._t); I._t = setTimeout(() => { fn(); render(I.iid); }, ms); };
+def({ id: 'ACT-01', fam: 'act', name: 'Push Button', desc: 'Pulsante pieno per l’azione principale di un gruppo. Una sola per gruppo.',
+  ents: ['button', 'input_button', 'script', 'scene'], sizes: 'Alto 48, adattato o a larghezza piena', inter: 'Tocco o clic', variants: 'Neutro · colore del dispositivo · pericoloso (rosso)', usage: '“Avvia pulizia”, “Accendi scena Film”.',
+  cfg: { label: 'Avvia carico pellet', icon: 'play' }, init: () => ({ n: 0 }),
+  render: (s, c, x) => `<button class="btn b-acc wide" data-a="p">${x.icons ? ic(c.icon, 18) : ''}${c.label}</button>${s.n ? `<span class="hint">Premuto ${s.n} volte</span>` : ''}`, on: { p: (s) => { s.n++; } } });
+def({ id: 'ACT-02', fam: 'act', name: 'Icon Button', desc: 'Pulsante rotondo con sola icona; il nome sta nel suggerimento e nell’etichetta per lo screen reader.',
+  ents: ['button', 'input_button', 'script'], sizes: '40 · 48 · 56', inter: 'Tocco o clic', variants: 'Neutro · attivo con il colore del dispositivo', usage: '“Trova il robot”, “Istantanea”.',
+  cfg: { label: 'Trova', icon: 'bell' }, init: () => ({ on: false }),
+  render: (s, c, x, I) => `<div style="display:flex;gap:.6em;align-items:center"><button class="ibtn ${s.on ? 'is-on' : ''}" data-a="p" aria-label="${c.label}" title="${c.label}">${ic(c.icon, 20)}</button><button class="ibtn" data-a="n" aria-label="Istantanea" title="Istantanea">${ic('snap', 20)}</button><button class="ibtn" data-a="n" aria-label="Riavvia" title="Riavvia">${ic('rotate', 20)}</button>${x.labels ? `<span class="hint">${s.on ? 'Suona…' : 'Tocca la campanella'}</span>` : ''}</div>`,
+  on: { p: (s, v, I) => { s.on = true; later(I, 1500, () => { s.on = false; }); }, n: () => false } });
+def({ id: 'ACT-03', fam: 'act', name: 'Text Button', desc: 'Azione secondaria in forma di link, per cose rare che non devono pesare.',
+  ents: ['button', 'script', 'azioni del pannello (Apri in Home Assistant)'], sizes: 'Testo 15', inter: 'Tocco o clic', variants: 'Con freccia · senza', usage: '“Ripristina i valori di fabbrica”, “Apri in Home Assistant”.',
+  cfg: { label: 'Ripristina i valori consigliati' }, init: () => ({ done: false }),
+  render: (s, c, x) => `<button class="tbtn" data-a="p">${c.label}${x.icons ? ic('chevR', 14, 2.6) : ''}</button>${s.done ? `<span class="hint">Valori ripristinati</span>` : ''}`, on: { p: (s) => { s.done = true; } } });
+def({ id: 'ACT-04', fam: 'act', name: 'Button Group', key: true, desc: 'Da 2 a 4 azioni legate in una barra. Per comandi che si usano in sequenza.',
+  ents: ['cover (apri/ferma/chiudi)', 'media_player (prec/play/succ)', 'scene ×3', 'button ×N'], sizes: 'Alto 46, larghezza piena', inter: 'Tocco; l’ultimo usato resta evidenziato', variants: 'Solo icone · icona e nome · nomi', usage: 'Su, Stop, Giù della tapparella; tre scene della luce.',
+  cfg: { label: 'Comandi', icon: 'blind', items: [['up', 'Su', 'arrUp'], ['stop', 'Stop', 'stopSq'], ['down', 'Giù', 'arrDown']] }, init: () => ({ v: null }),
+  render: (s, c, x) => `${head(c, x, s.v ? c.items.find((i) => i[0] === s.v)[1] : '')}<div class="bgrp">${c.items.map((i) => `<button data-a="p" data-v="${i[0]}" class="${s.v === i[0] ? 'is-on' : ''}" aria-label="${i[1]}">${x.icons ? ic(i[2], 18) : ''}${x.labels || !x.icons ? i[1] : ''}</button>`).join('')}</div>`, on: { p: (s, v) => { s.v = v; } } });
+def({ id: 'ACT-05', fam: 'act', name: 'Hold-to-Confirm Button', key: true, desc: 'Si riempie mentre lo tieni premuto; parte solo a riempimento completo (1,2 s). Per azioni che non si annullano.',
+  ents: ['button', 'script', 'lock (apri)', 'cover (garage)'], sizes: 'Alto 48, larghezza piena', inter: 'Tieni premuto; rilasciando prima si annulla', variants: 'Colore del dispositivo · rosso per azioni pericolose', usage: '“Tieni premuto per aprire il cancello”.',
+  cfg: { label: 'Tieni premuto per aprire il cancello', icon: 'door' }, init: () => ({ holding: false, done: false, miss: false }),
+  render: (s, c, x) => `<button class="btn b-acc wide hold ${s.holding ? 'is-holding' : ''}" data-hold="h"><i></i>${x.icons ? ic(c.icon, 18) : ''}<span style="position:relative">${s.done ? 'Cancello aperto' : s.holding ? 'Continua a tenere…' : c.label}</span></button><span class="hint">${s.miss ? 'Tieni premuto ancora un po’' : 'Rilascia prima per annullare'}</span>`,
+  on: { h: (s, v, I) => { if (v === 'done') { s.done = true; s.miss = false; later(I, 2200, () => { s.done = false; }); } else { s.miss = true; } } } });
+def({ id: 'ACT-06', fam: 'act', name: 'Action Button con conferma', key: true, desc: 'Il primo tocco chiede conferma nello stesso posto, con Annulla e l’azione in rosso.',
+  ents: ['button', 'script', 'switch (protetta)', 'scene'], sizes: 'Alto 48', inter: 'Tocco, poi conferma o annulla', variants: 'Conferma in linea · conferma in un riquadro del gruppo', usage: '“Spegni la presa protetta”, “Svuota il serbatoio”.',
+  cfg: { label: 'Spegni la stufa', icon: 'power2', ask: 'La stufa farà il ciclo di spegnimento (circa 15 minuti).' }, init: () => ({ ask: false, done: false }),
+  render: (s, c, x) => s.ask ? `<div class="glow k-bad"><span class="gt"><b>Spegnere la stufa?</b><span>${c.ask}</span></span></div><div style="display:flex;gap:.5em"><button class="btn b-soft" style="flex:1" data-a="no">Annulla</button><button class="btn b-bad" style="flex:1" data-a="yes">Spegni</button></div>` : `<button class="btn b-soft wide" data-a="ask">${x.icons ? ic(c.icon, 18) : ''}${s.done ? 'Spegnimento in corso' : c.label}</button>`,
+  on: { ask: (s) => { s.ask = true; }, no: (s) => { s.ask = false; }, yes: (s) => { s.ask = false; s.done = true; } } });
+def({ id: 'ACT-07', fam: 'act', name: 'Pulsante con esecuzione', desc: 'Mostra che lo script sta girando e per quanto; non si può premere di nuovo finché non finisce.',
+  ents: ['script', 'automation.trigger', 'button (con stato)'], sizes: 'Alto 48', inter: 'Tocco; resta occupato fino alla fine', variants: 'Cerchio che gira · barra di avanzamento', usage: '“Pulizia braciere” della stufa, script lunghi.',
+  cfg: { label: 'Pulizia braciere', icon: 'wrench' }, init: () => ({ run: false, p: 0 }),
+  render: (s, c, x) => `<button class="btn b-acc wide" data-a="go" ${s.run ? 'aria-busy="true"' : ''}>${s.run ? '<i class="spin"></i> In esecuzione…' : `${x.icons ? ic(c.icon, 18) : ''}${c.label}`}</button>${s.run ? `<div class="lin"><i style="width:${s.p}%"></i></div>` : ''}`,
+  on: { go: (s, v, I) => { if (s.run) return false; s.run = true; s.p = 0; clearInterval(I._iv); I._iv = setInterval(() => { s.p += 10; if (s.p >= 100) { clearInterval(I._iv); s.run = false; } render(I.iid); }, 250); } } });
+def({ id: 'ACT-08', fam: 'act', name: 'Pulsante con esito', desc: 'Dopo il tocco diventa verde con la spunta o rosso con il motivo. Torna normale dopo 2 secondi.',
+  ents: ['button', 'script', 'scene'], sizes: 'Alto 48', inter: 'Tocco; esito visibile 2 s', variants: 'Esito riuscito · esito non riuscito con motivo', usage: 'Attivazione di una scena: “Scena attivata” o “La luce del portico non risponde”.',
+  cfg: { label: 'Attiva scena Cena', icon: 'sparkle' }, init: () => ({ r: null, n: 0 }),
+  render: (s, c, x) => `<button class="btn wide ${s.r === 'ok' ? 'b-ok' : s.r === 'ko' ? 'b-bad' : 'b-acc'}" data-a="go">${s.r === 'ok' ? ic('check', 18, 3) + ' Scena attivata' : s.r === 'ko' ? ic('alert', 18) + ' Non riuscita' : (x.icons ? ic(c.icon, 18) : '') + c.label}</button><span class="hint ${s.r === 'ko' ? 'bad' : ''}">${s.r === 'ko' ? 'La luce del portico non risponde. Le altre sono a posto.' : 'Ogni secondo tocco simula un errore'}</span>`,
+  on: { go: (s, v, I) => { s.n++; s.r = s.n % 2 ? 'ok' : 'ko'; later(I, 2200, () => { s.r = null; }); } } });
+def({ id: 'ACT-09', fam: 'act', name: 'Pulsante compatto con stato', desc: 'Pillola con icona, nome e stato breve. Per scene e script da tenere a portata in poco spazio.',
+  ents: ['scene', 'script (con stato)', 'button'], sizes: 'Alto 40, larghezza del contenuto', inter: 'Tocco', variants: 'Attiva con il colore del dispositivo · in esecuzione', usage: 'Scene della luce: Lettura, Relax, Film.',
+  cfg: { label: 'Scene', items: [['read', 'Lettura', 'bulb'], ['relax', 'Relax', 'leaf'], ['film', 'Film', 'film']] }, init: () => ({ v: 'relax' }),
+  render: (s, c, x) => `<div class="pills">${c.items.map((i) => `<button class="cpill ${s.v === i[0] ? 'is-on' : ''}" data-a="p" data-v="${i[0]}"><span class="cpi">${ic(i[2], 15)}</span><b>${i[1]}</b>${x.labels ? `<span>${s.v === i[0] ? 'attiva' : ''}</span>` : ''}</button>`).join('')}</div>`, on: { p: (s, v) => { s.v = v; } } });
+
+/* ---------- E · Testo e date ---------- */
+const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+const pad2 = (n) => String(n).padStart(2, '0');
+def({ id: 'TXT-01', fam: 'txt', name: 'Single-line Text Input', desc: 'Campo di una riga con conteggio dei caratteri e tasto per svuotarlo. Rispetta min, max e pattern dell’entità.',
+  ents: ['text', 'input_text'], sizes: 'Alto 46, larghezza piena', inter: 'Tastiera; Invio salva; × svuota', variants: 'Con etichetta · con segnaposto · con conteggio', usage: 'Messaggio da mostrare sul display del termostato.',
+  cfg: { label: 'Messaggio sul display', icon: 'type', max: 24 }, init: () => ({ v: 'Ciao Mattia' }),
+  render: (s, c, x) => `${head(c, x, `<span data-cnt>${s.v.length}</span>/${c.max}`)}<label class="fld"><input type="text" maxlength="${c.max}" value="${esc(s.v)}" data-in="w" placeholder="Scrivi un messaggio" aria-label="${c.label}">${s.v ? `<button class="fb" data-a="clr" aria-label="Svuota">${ic('x', 16, 2.6)}</button>` : ''}</label>`,
+  on: { w: (s, v, I, el) => { const had = !!s.v; s.v = v; const n = el.closest('.rc').querySelector('[data-cnt]'); if (n) n.textContent = v.length; return had !== !!v; }, clr: (s) => { s.v = ''; } } });
+def({ id: 'TXT-02', fam: 'txt', name: 'Multiline Text Input', desc: 'Testo su più righe, che cresce fino a 5 righe e poi scorre. Conta i caratteri rispetto al limite (255).',
+  ents: ['text (max 255)', 'input_text (max 255)'], sizes: 'Da 3 a 5 righe', inter: 'Tastiera; il salvataggio avviene quando esci dal campo', variants: 'Con conteggio · con nota', usage: 'Nota per chi entra in casa, promemoria sulla lavatrice.',
+  cfg: { label: 'Nota per l’ospite', icon: 'scroll', max: 255 }, init: () => ({ v: 'Il codice del cancello è sul frigo. Le chiavi della cantina sono nel cassetto rosso.' }),
+  render: (s, c, x) => `${head(c, x, `<span data-cnt>${s.v.length}</span>/${c.max}`)}<label class="fld ta"><textarea rows="3" maxlength="${c.max}" data-in="w" aria-label="${c.label}">${esc(s.v)}</textarea></label>`,
+  on: { w: (s, v, I, el) => { s.v = v; const n = el.closest('.rc').querySelector('[data-cnt]'); if (n) n.textContent = v.length; return false; } } });
+def({ id: 'TXT-03', fam: 'txt', name: 'Numeric Keyboard Input', desc: 'Tastierino grande per inserire un numero o un codice senza la tastiera del telefono.',
+  ents: ['number (mode: box)', 'input_number', 'text (mode: password, solo cifre)', 'alarm/lock code'], sizes: 'Tasti 46 × 3 colonne', inter: 'Tocco sui tasti; ⌫ cancella; OK conferma', variants: 'Valore con unità · codice coperto', usage: 'Temperatura di sicurezza dei fumi, codice di un lucchetto.',
+  cfg: { label: 'Soglia fumi', icon: 'flame', unit: '°C', max: 3 }, init: () => ({ v: '180', ok: false }),
+  render: (s, c, x) => `${head(c, x, s.ok ? 'Salvato' : '')}<div class="kd">${s.v || '—'}<small>${c.unit}</small></div><div class="kp">${['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'ok'].map((k) => `<button data-a="k" data-v="${k}" class="${k === 'del' || k === 'ok' ? 'fn' : ''}" aria-label="${k === 'del' ? 'Cancella' : k === 'ok' ? 'Conferma' : k}">${k === 'del' ? '⌫' : k === 'ok' ? 'OK' : k}</button>`).join('')}</div>`,
+  on: { k: (s, k, I) => { s.ok = false; if (k === 'del') s.v = s.v.slice(0, -1); else if (k === 'ok') s.ok = true; else if (s.v.length < I.cfg.max) s.v += k; } } });
+def({ id: 'TXT-04', fam: 'txt', name: 'Date Picker', desc: 'Mese a griglia con oggi in rosso; frecce per i mesi. Le date fuori dai limiti sono spente.',
+  ents: ['date', 'input_datetime (has_date)'], sizes: 'Larghezza piena, 6 righe', inter: 'Tocco su un giorno; frecce per il mese', variants: 'Con o senza intestazione · settimana da lunedì', usage: 'Data di rientro dalle vacanze per l’allarme e il riscaldamento.',
+  cfg: { label: 'Rientro', icon: 'cal' }, init: () => ({ y: 2026, m: 10, d: 14 }),
+  render: (s, c, x) => { const first = (new Date(s.y, s.m, 1).getDay() + 6) % 7, days = new Date(s.y, s.m + 1, 0).getDate(); let cells = ''; for (let i = 0; i < first; i++) cells += '<i></i>'; for (let d = 1; d <= days; d++) cells += `<button data-a="d" data-v="${d}" class="${d === s.d ? 'is-on' : ''} ${s.y === 2026 && s.m === 10 && d === 3 ? 'is-today' : ''}">${d}</button>`; return `${head(c, x, `${s.d} ${MESI[s.m]}`)}<div class="cal"><div class="calh"><button class="ibtn" style="width:2.4em;height:2.4em" data-a="pm" aria-label="Mese precedente">${ic('chevL', 16, 2.6)}</button><b>${MESI[s.m].replace(/^./, (a) => a.toUpperCase())} ${s.y}</b><button class="ibtn" style="width:2.4em;height:2.4em" data-a="nm" aria-label="Mese successivo">${ic('chevR', 16, 2.6)}</button></div><div class="calg">${['L', 'M', 'M', 'G', 'V', 'S', 'D'].map((d) => `<span>${d}</span>`).join('')}${cells}</div></div>`; },
+  on: { d: (s, v) => { s.d = +v; }, pm: (s) => { s.m--; if (s.m < 0) { s.m = 11; s.y--; } s.d = 1; }, nm: (s) => { s.m++; if (s.m > 11) { s.m = 0; s.y++; } s.d = 1; } } });
+def({ id: 'TXT-05', fam: 'txt', name: 'Time Picker', desc: 'Ore e minuti con frecce su e giù. I minuti avanzano del passo scelto (1, 5 o 15).',
+  ents: ['time', 'input_datetime (has_time)'], sizes: 'Cifre 30 pt', inter: 'Tocco sulle frecce; frecce da tastiera sulle cifre', variants: 'Passo 1 · 5 · 15 minuti', usage: 'Ora di accensione del riscaldamento.',
+  cfg: { label: 'Accendi alle', icon: 'clock', stepM: 5 }, init: () => ({ h: 6, m: 30 }),
+  render: (s, c, x) => `${head(c, x, '')}<div class="tp"><div class="tcol"><button data-a="hu" aria-label="Ora più">${ic('chevUp', 16, 2.6)}</button><b data-key="hk" tabindex="0">${pad2(s.h)}</b><button data-a="hd" aria-label="Ora meno">${ic('chevDown', 16, 2.6)}</button></div><span class="colon">:</span><div class="tcol"><button data-a="mu" aria-label="Minuti più">${ic('chevUp', 16, 2.6)}</button><b data-key="mk" tabindex="0">${pad2(s.m)}</b><button data-a="md" aria-label="Minuti meno">${ic('chevDown', 16, 2.6)}</button></div></div>`,
+  on: { hu: (s) => { s.h = (s.h + 1) % 24; }, hd: (s) => { s.h = (s.h + 23) % 24; }, mu: (s, v, I) => { s.m = (s.m + I.cfg.stepM) % 60; }, md: (s, v, I) => { s.m = (s.m + 60 - I.cfg.stepM) % 60; }, hk: (s, p) => { s.h = (s.h + 24 + p.key) % 24; }, mk: (s, p, I) => { s.m = (s.m + 60 + p.key * I.cfg.stepM) % 60; } } });
+def({ id: 'TXT-06', fam: 'txt', name: 'DateTime Picker', desc: 'Due pillole, data e ora; toccandone una si apre il suo selettore sotto. Un solo selettore aperto alla volta.',
+  ents: ['datetime', 'input_datetime (data e ora)'], sizes: 'Pillole alte 46', inter: 'Tocco sulla pillola per aprire; tocco di nuovo per chiudere', variants: 'Data e ora · solo una delle due', usage: 'Fine della modalità vacanza: 14 novembre, 18:00.',
+  cfg: { label: 'Fine vacanza', icon: 'cal' }, init: () => ({ open: null, d: 14, h: 18, m: 0 }),
+  render: (s, c, x) => `${head(c, x, '')}<div class="chiprow"><button class="chipb ${s.open === 'd' ? 'is-on' : ''}" data-a="o" data-v="d"><span>Data</span><b>${s.d} novembre</b></button><button class="chipb ${s.open === 't' ? 'is-on' : ''}" data-a="o" data-v="t"><span>Ora</span><b>${pad2(s.h)}:${pad2(s.m)}</b></button></div>${s.open === 'd' ? `<div class="pills">${[13, 14, 15, 16, 17].map((d) => `<button class="pill p-sm ${d === s.d ? 'is-on' : ''}" data-a="d" data-v="${d}">${d} nov</button>`).join('')}</div>` : s.open === 't' ? `<div class="pills">${[[8, 0], [12, 0], [18, 0], [21, 30]].map((t) => `<button class="pill p-sm ${t[0] === s.h && t[1] === s.m ? 'is-on' : ''}" data-a="t" data-v="${t[0]}:${t[1]}">${pad2(t[0])}:${pad2(t[1])}</button>`).join('')}</div>` : ''}`,
+  on: { o: (s, v) => { s.open = s.open === v ? null : v; }, d: (s, v) => { s.d = +v; }, t: (s, v) => { const p = v.split(':'); s.h = +p[0]; s.m = +p[1]; } } });
+def({ id: 'TXT-07', fam: 'txt', name: 'Time Range Selector', desc: 'Barra delle 24 ore con inizio e fine trascinabili, a passi di 15 minuti. Passa la mezzanotte se serve.',
+  ents: ['input_datetime ×2', 'schedule (una fascia)', 'time ×2'], sizes: 'Alta 46 con ore sotto', inter: 'Trascina le maniglie', variants: 'Fascia nello stesso giorno · fascia notturna', usage: 'Luce notturna automatica dalle 23:00 alle 6:30.',
+  cfg: { label: 'Fascia', icon: 'moon' }, init: () => ({ a: 23 * 60, b: 6 * 60 + 30, act: null }),
+  render: (s, c, x) => { const fa = s.a / 1440 * 100, fb = s.b / 1440 * 100; const t = (m) => pad2(Math.floor(m / 60)) + ':' + pad2(m % 60); const seg = s.a <= s.b ? `<i style="left:${fa}%;width:${fb - fa}%"></i>` : `<i style="left:${fa}%;width:${100 - fa}%"></i><i style="left:0;width:${fb}%"></i>`; return `${head(c, x, `${t(s.a)} – ${t(s.b)}`)}<div class="tr" data-drag="d">${seg}<b style="left:${fa}%" aria-label="Inizio"></b><b style="left:${fb}%" aria-label="Fine"></b></div><div class="ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>`; },
+  on: { d: (s, p) => { const v = Math.round(p.fx * 1440 / 15) * 15 % 1440; if (p.first || !s.act) s.act = Math.abs(v - s.a) <= Math.abs(v - s.b) ? 'a' : 'b'; s[s.act] = v; }, dragEnd: (s) => { s.act = null; } } });
+def({ id: 'TXT-08', fam: 'txt', name: 'Password Input', desc: 'Campo coperto con l’occhio per mostrarlo. Il valore non compare mai nello stato della card.',
+  ents: ['text (mode: password)', 'input_text (mode: password)'], sizes: 'Alto 46', inter: 'Tastiera; occhio per mostrare o nascondere', variants: 'Coperto · in chiaro', usage: 'Codice Wi-Fi ospiti mostrato dal pannello del router.',
+  cfg: { label: 'Wi-Fi ospiti', icon: 'key' }, init: () => ({ v: 'Domus-2026!', show: false }),
+  render: (s, c, x) => `${head(c, x, '')}<label class="fld"><input type="${s.show ? 'text' : 'password'}" value="${esc(s.v)}" data-in="w" aria-label="${c.label}" autocomplete="off"><button class="fb" data-a="eye" aria-label="${s.show ? 'Nascondi' : 'Mostra'}">${ic(s.show ? 'eyeOff' : 'eye', 18)}</button></label>`,
+  on: { w: (s, v) => { s.v = v; return false; }, eye: (s) => { s.show = !s.show; } } });
+
+/* ---------- F · Indicatori ---------- */
+const sim = { sim: true };
+const kOf = (v, w, b, inv) => (inv ? (v < b ? 'bad' : v < w ? 'warn' : 'ok') : (v > b ? 'bad' : v > w ? 'warn' : 'ok'));
+const KC = { ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--bad)' };
+const roOn = { sim: (s, v) => { s.v = +v; } };
+def({ id: 'IND-01', fam: 'ind', name: 'Value Display', desc: 'Valore grande con unità e una riga di stato colorata. Il modo più semplice per mostrare un sensore.',
+  ents: ['sensor', 'attributi numerici'], sizes: '28 · 40 · 52 pt', inter: 'Sola lettura; tocco apre il dettaglio', variants: 'Con stato · con tendenza (vedi IND-16)', usage: 'Temperatura fumi della termostufa.',
+  cfg: Object.assign({ label: 'Fumi', icon: 'flame', unit: '°C', min: 60, max: 260 }, sim), init: () => ({ v: 148 }),
+  render: (s, c, x) => { const k = kOf(s.v, 200, 240); return `${head(c, x, '')}<div class="vd"><span class="vdv"><b>${s.v}</b><span>${c.unit}</span></span><span class="vdn" style="color:${KC[k]}">${k === 'ok' ? 'Normale' : k === 'warn' ? 'Alta' : 'Troppo alta'}</span></div>`; }, on: roOn });
+def({ id: 'IND-02', fam: 'ind', name: 'Value Pill', desc: 'Valore compatto in una pillola, da mettere in fila. Tre o quattro per riga nella zona controlli.',
+  ents: ['sensor', 'binary_sensor', 'attributi'], sizes: 'Alta 32', inter: 'Sola lettura', variants: 'Con icona colorata · solo testo', usage: 'Acqua 62°, Fumi 148°, Pellet 40% sotto lo slider della stufa.',
+  cfg: Object.assign({ label: 'In breve', icon: 'drop', unit: '°', min: 30, max: 90 }, sim), init: () => ({ v: 62 }),
+  render: (s, c, x) => `${head(c, x, '')}<div class="pills"><span class="vpill">${x.icons ? `<i>${ic('drop', 14)}</i>` : ''}Acqua ${s.v}°</span><span class="vpill">${x.icons ? `<i>${ic('flame', 14)}</i>` : ''}Fumi 148°</span><span class="vpill">${x.icons ? `<i>${ic('layers', 14)}</i>` : ''}Pellet 40%</span></div>`, on: roOn });
+def({ id: 'IND-03', fam: 'ind', name: 'Status Badge', desc: 'Etichetta di stato con colore semantico: a posto, attenzione, errore, informazione, spento.',
+  ents: ['binary_sensor', 'sensor (enum)', 'update', 'stati di qualsiasi entità'], sizes: 'Alto 28', inter: 'Sola lettura', variants: '5 toni semantici · con o senza icona', usage: '“In funzione”, “Pulizia necessaria”, “Blocco fiamma”.',
+  cfg: { label: 'Stato stufa', icon: 'flame' }, init: () => ({}),
+  render: (s, c, x) => `${head(c, x, '')}<div class="pills"><span class="badge k-ok">${x.icons ? ic('check', 13, 3) : ''}In funzione</span><span class="badge k-warn">${x.icons ? ic('wrench', 13) : ''}Pulizia necessaria</span><span class="badge k-bad">${x.icons ? ic('alert', 13) : ''}Blocco fiamma</span><span class="badge k-info">${x.icons ? ic('clock', 13) : ''}Crono attivo</span><span class="badge k-off">Spenta</span></div>`, on: {} });
+def({ id: 'IND-04', fam: 'ind', name: 'LED Indicator', desc: 'Punto luminoso che si vede da lontano. Fisso o lampeggiante per lo stato in corso.',
+  ents: ['binary_sensor', 'switch (sola lettura)', 'sensor (soglia)'], sizes: '10 · 12 · 16', inter: 'Sola lettura', variants: 'Verde, arancio, rosso · fisso o lampeggiante', usage: 'Resistenza accesa, accensione in corso, allarme.',
+  cfg: { label: 'Indicatori', icon: 'bolt' }, init: () => ({}),
+  render: (s, c, x) => `${head(c, x, '')}<div class="list"><div class="li"><span class="led is-on"></span><span class="lt2"><b>Fiamma presente</b></span></div><div class="li"><span class="led l-warn blink"></span><span class="lt2"><b>Accensione in corso</b></span></div><div class="li"><span class="led l-bad"></span><span class="lt2"><b>Allarme depressione</b></span></div><div class="li"><span class="led"></span><span class="lt2"><b>Resistenza</b><span>spenta</span></span></div></div>`, on: {} });
+def({ id: 'IND-05', fam: 'ind', name: 'Status Glow', desc: 'Riquadro con bagliore del colore dello stato. Per l’unico messaggio che deve saltare all’occhio.',
+  ents: ['binary_sensor (problem, safety)', 'sensor (enum)', 'alert'], sizes: 'Larghezza piena', inter: 'Sola lettura; tocco apre il dettaglio', variants: 'A posto · attenzione · errore', usage: '“Serbatoio pellet quasi vuoto”.',
+  cfg: Object.assign({ label: 'Pellet', icon: 'layers', min: 0, max: 100, unit: '%' }, sim), init: () => ({ v: 18 }),
+  render: (s, c, x) => { const k = kOf(s.v, 30, 12, true); return `<div class="glow k-${k}">${x.icons ? `<span class="ri" style="width:2.4em;height:2.4em;border-radius:50%;display:flex;align-items:center;justify-content:center;background:${KC[k]};color:#fff">${ic(k === 'ok' ? 'check' : 'alert', 16)}</span>` : ''}<span class="gt"><b>${k === 'ok' ? 'Pellet a sufficienza' : k === 'warn' ? 'Serbatoio pellet quasi vuoto' : 'Pellet in esaurimento'}</b><span>${s.v}% · circa ${Math.max(1, Math.round(s.v / 6))} giorni</span></span></div>`; }, on: roOn });
+const ringSvg = (f, col, w = 9, track = 'var(--track)', arc = 1, rot = -90) => { const R = 42, L = 2 * Math.PI * R * arc; return `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" class="ring" stroke="${track}" stroke-width="${w}" stroke-dasharray="${L} 999" transform="rotate(${rot} 50 50)"></circle><circle cx="50" cy="50" r="${R}" class="ring" stroke="${col}" stroke-width="${w}" stroke-dasharray="${L * f} 999" transform="rotate(${rot} 50 50)"></circle></svg>`; };
+def({ id: 'IND-06', fam: 'ind', name: 'Circular Gauge', desc: 'Anello completo con il valore al centro. Per percentuali di qualcosa che si consuma o si riempie.',
+  ents: ['sensor (%)', 'vacuum.battery', 'sensor (livello)'], sizes: '120 · 160 · 200', inter: 'Sola lettura', variants: 'Colore fisso · colore per soglie', usage: 'Batteria del robot, avanzamento della lavatrice.',
+  cfg: Object.assign({ label: 'Avanzamento', icon: 'timer', min: 0, max: 100, unit: '%' }, sim), init: () => ({ v: 64 }),
+  render: (s, c, x) => `${head(c, x, '')}<div class="circ" style="width:9em;height:9em">${ringSvg(s.v / 100, 'var(--a)')}<span class="cv"><b>${s.v}%</b><span>25 min</span></span></div>`, on: roOn });
+def({ id: 'IND-07', fam: 'ind', name: 'Radial Gauge', desc: 'Arco di 240° con zone colorate e indicatore. Per valori con una fascia buona e una pericolosa.',
+  ents: ['sensor (temperatura, pressione, potenza)'], sizes: '140 · 180 · 220', inter: 'Sola lettura', variants: 'Con zone · senza zone', usage: 'Temperatura fumi con zona rossa sopra 240 °C.',
+  cfg: Object.assign({ label: 'Fumi', icon: 'flame', min: 60, max: 280, unit: '°C' }, sim), init: () => ({ v: 148 }),
+  render: (s, c, x) => { const f = clamp((s.v - c.min) / (c.max - c.min), 0, 1); const R = 42, L = 2 * Math.PI * R * (240 / 360); const z = (a, b, col) => `<circle cx="50" cy="50" r="${R}" class="ring" stroke="${col}" stroke-width="7" stroke-linecap="butt" stroke-dasharray="0 ${L * a} ${L * (b - a)} 999" transform="rotate(150 50 50)"></circle>`; const ang = (150 + f * 240) * Math.PI / 180; return `${head(c, x, '')}<div class="circ" style="width:10em;height:10em"><svg viewBox="0 0 100 100">${z(0, 0.64, 'var(--ok)')}${z(0.64, 0.82, 'var(--warn)')}${z(0.82, 1, 'var(--bad)')}<line x1="50" y1="50" x2="${50 + 34 * Math.cos(ang)}" y2="${50 + 34 * Math.sin(ang)}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"></line><circle cx="50" cy="50" r="4" fill="var(--ink)"></circle></svg><span class="cv" style="top:45%"><b style="font-size:1.6em">${s.v}°</b><span>fumi</span></span></div>`; }, on: roOn });
+def({ id: 'IND-08', fam: 'ind', name: 'Mini Ring', desc: 'Anello piccolo da mettere in una riga accanto al testo.',
+  ents: ['sensor (%)', 'attributi in percentuale'], sizes: '24 · 32 · 40', inter: 'Sola lettura', variants: 'Con numero dentro · solo anello', usage: 'Filtri e ricambi del robot in un elenco.',
+  cfg: { label: 'Ricambi', icon: 'wrench' }, init: () => ({}),
+  render: (s, c, x) => `${head(c, x, '')}<div class="list">${[['Spazzola', 82, 'var(--ok)'], ['Filtro', 40, 'var(--warn)'], ['Panno', 8, 'var(--bad)']].map((r) => `<div class="li"><span style="width:2.2em;height:2.2em;flex:none">${ringSvg(r[1] / 100, r[2], 14)}</span><span class="lt2"><b>${r[0]}</b></span><b style="font-variant-numeric:tabular-nums">${r[1]}%</b></div>`).join('')}</div>`, on: {} });
+def({ id: 'IND-09', fam: 'ind', name: 'Linear Progress Bar', desc: 'Barra sottile con valore e testo di stato. Si colora per soglie se serve.',
+  ents: ['sensor (%)', 'update (avanzamento)', 'timer (tempo trascorso)'], sizes: 'Alta 6 · 10', inter: 'Sola lettura', variants: 'Colore del dispositivo · per soglie', usage: 'Aggiornamento del firmware, serbatoio dell’umidificatore.',
+  cfg: Object.assign({ label: 'Aggiornamento', icon: 'download', min: 0, max: 100, unit: '%' }, sim), init: () => ({ v: 46 }),
+  render: (s, c, x) => `${head(c, x, s.v + '%')}<div class="lin"><i style="width:${s.v}%"></i></div><span class="hint">${s.v < 100 ? 'Circa ' + Math.round((100 - s.v) / 10) + ' minuti' : 'Completato'}</span>`, on: roOn });
+def({ id: 'IND-10', fam: 'ind', name: 'Vertical Progress Bar', desc: 'La stessa barra in verticale, per livelli che salgono e scendono.',
+  ents: ['sensor (livello %)', 'sensor (volume)'], sizes: '40 × 160', inter: 'Sola lettura', variants: 'Con numero sotto · con soglia', usage: 'Livello dell’acqua nel puffer.',
+  cfg: Object.assign({ label: 'Puffer', icon: 'drop', min: 0, max: 100, unit: '%' }, sim), init: () => ({ v: 70 }),
+  render: (s, c, x) => `${head(c, x, s.v + '%')}<div class="vprog"><i style="height:${s.v}%"></i></div>`, on: roOn });
+def({ id: 'IND-11', fam: 'ind', name: 'Battery Indicator', desc: 'Pila che si svuota e cambia colore sotto il 20% e il 10%. Con la durata stimata se c’è.',
+  ents: ['sensor (device_class: battery)', 'attributo battery_level'], sizes: '36 × 18 · 48 × 24', inter: 'Sola lettura', variants: 'Con percentuale · con durata · in carica', usage: 'Sensore della finestra collegato alla tapparella.',
+  cfg: Object.assign({ label: 'Sensore finestra', icon: 'window', min: 0, max: 100, unit: '%' }, sim), init: () => ({ v: 18 }),
+  render: (s, c, x) => { const k = kOf(s.v, 20, 10, true); return `${head(c, x, '')}<div class="bat"><span class="batb"><i style="width:${s.v}%;background:${KC[k]}"></i></span><span><b>${s.v}%</b><span style="display:block">${s.v < 20 ? 'Da cambiare presto · CR2032' : 'Circa ' + Math.round(s.v / 10) + ' mesi'}</span></span></div>`; }, on: roOn });
+def({ id: 'IND-12', fam: 'ind', name: 'Temperature Indicator', desc: 'Valore di temperatura con la scala Fresca · Comfort · Calda e il punto attuale.',
+  ents: ['sensor (device_class: temperature)', 'climate.current_temperature', 'water_heater.current_temperature'], sizes: 'Larghezza piena', inter: 'Sola lettura', variants: 'Scala ambiente · scala acqua', usage: 'Acqua di caldaia, boiler ACS di un altro dispositivo.',
+  cfg: Object.assign({ label: 'Acqua caldaia', icon: 'thermo', min: 30, max: 90, unit: '°C' }, sim), init: () => ({ v: 62 }),
+  render: (s, c, x) => { const f = (s.v - c.min) / (c.max - c.min); return `${head(c, x, '')}<div class="vd"><span class="vdv"><b style="font-size:2em">${s.v}</b><span>${c.unit}</span></span></div><div class="scale" style="background:linear-gradient(90deg,#64D2FF,#30D158 40%,#FF9F0A 70%,#FF453A)"><b style="left:${f * 100}%"></b></div><div class="ticks"><span>${c.min}°</span><span>Ideale 55–70°</span><span>${c.max}°</span></div>`; }, on: roOn });
+def({ id: 'IND-13', fam: 'ind', name: 'Humidity Indicator', desc: 'Goccia con valore e zona ideale 40–60% evidenziata.',
+  ents: ['sensor (device_class: humidity)', 'climate.current_humidity', 'humidifier.current_humidity'], sizes: 'Larghezza piena', inter: 'Sola lettura', variants: 'Con zona ideale · solo valore', usage: 'Umidità della stanza nel pannello del clima.',
+  cfg: Object.assign({ label: 'Umidità', icon: 'drop', min: 0, max: 100, unit: '%' }, sim), init: () => ({ v: 48 }),
+  render: (s, c, x) => `${head(c, x, s.v < 40 ? 'Secca' : s.v > 60 ? 'Umida' : 'Ideale')}<div style="display:flex;align-items:center;gap:.8em"><span style="color:#5AC8FA;display:flex">${ic('drop', 34, 1.8)}</span><span class="vd"><span class="vdv"><b style="font-size:2em">${s.v}</b><span>%</span></span></span></div><div class="scale" style="background:linear-gradient(90deg,var(--track) 40%,color-mix(in srgb,var(--ok) 55%,transparent) 40% 60%,var(--track) 60%)"><b style="left:${s.v}%"></b></div>`, on: roOn });
+def({ id: 'IND-14', fam: 'ind', name: 'Level Indicator', desc: 'Serbatoio che si riempie, con il valore dentro. Per pellet, acqua, sale, carburante.',
+  ents: ['sensor (livello %)', 'sensor (volume)', 'attributi di livello'], sizes: '60 × 90 · 80 × 120', inter: 'Sola lettura', variants: 'Con soglia di riordino · senza', usage: 'Livello del pellet nella tramoggia.',
+  cfg: Object.assign({ label: 'Pellet', icon: 'layers', min: 0, max: 100, unit: '%' }, sim), init: () => ({ v: 40 }),
+  render: (s, c, x) => `${head(c, x, s.v < 20 ? 'Da ricaricare' : 'Circa ' + Math.round(s.v / 6) + ' giorni')}<div class="tank"><i style="height:calc(${s.v}% - 6px);background:${s.v < 20 ? 'var(--warn)' : 'var(--a)'}"></i><b>${s.v}%</b></div>`, on: roOn });
+def({ id: 'IND-15', fam: 'ind', name: 'Connection Status', desc: 'Tacche del segnale con online o offline e l’ultima volta che è stato visto.',
+  ents: ['binary_sensor (connectivity)', 'sensor (signal_strength)', 'device_tracker'], sizes: 'Riga alta 44', inter: 'Sola lettura', variants: 'Wi-Fi · Zigbee · offline', usage: 'Modulo Wi-Fi della stufa.',
+  cfg: Object.assign({ label: 'Modulo Wi-Fi', icon: 'globe', min: -95, max: -40, unit: 'dBm' }, sim), init: () => ({ v: -62 }),
+  render: (s, c, x) => { const n = s.v > -55 ? 4 : s.v > -67 ? 3 : s.v > -80 ? 2 : s.v > -90 ? 1 : 0; return `<div class="row">${x.icons ? `<span class="ri">${ic(c.icon, 16)}</span>` : ''}<span class="rt"><b>${c.label}</b><span>${n ? 'Online · ' + s.v + ' dBm' : 'Offline da 12 min'}</span></span><span class="sig">${[1, 2, 3, 4].map((i) => `<i class="${i <= n ? 'is-on' : ''}" style="height:${i * 25}%"></i>`).join('')}</span></div>`; }, on: roOn });
+def({ id: 'IND-16', fam: 'ind', name: 'Trend Indicator', desc: 'Freccia e variazione nel periodo, colorata per significato (sale il caldo, scende il freddo).',
+  ents: ['sensor (con storico)', 'statistiche del Recorder'], sizes: 'Testo 15', inter: 'Sola lettura', variants: 'In salita · in discesa · stabile', usage: '“+0,6° in un’ora” sotto la temperatura.',
+  cfg: Object.assign({ label: 'Ultima ora', icon: 'thermo', min: -3, max: 3, unit: '°' }, sim), init: () => ({ v: 0.6 }),
+  render: (s, c, x) => { const k = s.v > 0.1 ? 'up' : s.v < -0.1 ? 'down' : 'flat'; return `${head(c, x, '')}<span class="trend ${k}">${ic(k === 'up' ? 'arrUp' : k === 'down' ? 'arrDown' : 'chevR', 16, 2.6)}${s.v > 0 ? '+' : ''}${fmt(s.v, 1)}° in un’ora</span>`; }, on: roOn });
+def({ id: 'IND-17', fam: 'ind', name: 'Icon Status Display', desc: 'Icona grande colorata dallo stato, con nome e spiegazione. Per sensori sì/no.',
+  ents: ['binary_sensor (door, window, motion, smoke…)', 'lock', 'cover (stato)'], sizes: 'Icona 36 · 44', inter: 'Sola lettura', variants: 'Calmo · attivo · allarme', usage: 'Finestra collegata alla tapparella: aperta o chiusa.',
+  cfg: { label: 'Finestra sala', icon: 'window' }, init: () => ({ v: 0 }),
+  render: (s, c, x) => { const S = [['Chiusa', 'da 2 ore', 'var(--glass2)', 'var(--ink)'], ['Aperta', 'da 5 minuti · la tapparella non scende', 'var(--warn)', '#FFFFFF']][s.v]; return `<div class="ist"><span class="isi" style="background:${S[2]};color:${S[3]}">${ic(c.icon, 20)}</span><span><b>${c.label} · ${S[0]}</b><span>${S[1]}</span></span></div><button class="tbtn" data-a="t">Simula ${s.v ? 'chiusura' : 'apertura'}</button>`; }, on: { t: (s) => { s.v = s.v ? 0 : 1; } } });
+
+/* ---------- G · Grafici ---------- */
+const svgLine = (s, col, w = 300, h = 80, area = true, lo, hi) => { const p = pathOf(s, w, h, lo, hi); const d = p.map((q) => q.map((n) => n.toFixed(1)).join(',')).join(' '); return `${area ? `<polygon class="ar" fill="${col}" points="0,${h} ${d} ${w},${h}"></polygon>` : ''}<polyline class="ln" stroke="${col}" points="${d}"></polyline><circle cx="${p[p.length - 1][0]}" cy="${p[p.length - 1][1]}" r="3.5" fill="${col}" stroke="var(--surface)" stroke-width="2"></circle>`; };
+def({ id: 'CH-01', fam: 'ch', name: 'Sparkline', desc: 'Linea minima senza assi, con il punto finale. Sta accanto a un valore in una riga.',
+  ents: ['sensor (con storico)'], sizes: '80 × 24 · 120 × 32', inter: 'Sola lettura', variants: 'Con area · solo linea', usage: 'Andamento di oggi accanto alla temperatura dell’acqua.',
+  cfg: { label: 'Acqua oggi', icon: 'drop' }, init: () => ({}),
+  render: (s, c, x) => `<div class="row">${x.icons ? `<span class="ri">${ic(c.icon, 16)}</span>` : ''}<span class="rt"><b>${c.label}</b><span>62 °C</span></span><svg class="chart" viewBox="0 0 120 32" preserveAspectRatio="none" style="width:7.5em;height:2em">${svgLine(SER.temp, 'var(--a)', 120, 32)}</svg></div>`, on: {} });
+def({ id: 'CH-02', fam: 'ch', name: 'Mini Line Chart', desc: 'Linea con griglia leggera ed etichette dei limiti. Lo standard per un valore nel tempo.',
+  ents: ['sensor (con storico)'], sizes: 'Alto 80 · 120', inter: 'Sola lettura; tocco mostra il valore', variants: 'Con fascia ideale · senza', usage: 'Temperatura della stanza nelle ultime 24 ore.',
+  cfg: { label: 'Ultime 24 ore', icon: 'thermo' }, init: () => ({}),
+  render: (s, c, x) => `${head(c, x, '21,4°')}<svg class="chart" viewBox="0 0 300 90" preserveAspectRatio="none" style="height:6em"><line class="gl" x1="0" y1="10" x2="300" y2="10"></line><line class="gl" x1="0" y1="80" x2="300" y2="80"></line>${svgLine(SER.temp, 'var(--a)', 300, 90, false)}</svg><div class="ticks"><span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>ora</span></div>`, on: {} });
+def({ id: 'CH-03', fam: 'ch', name: 'Area Chart', desc: 'Linea con area sfumata e fascia ideale verde.',
+  ents: ['sensor (con storico)'], sizes: 'Alto 100 · 140', inter: 'Sola lettura', variants: 'Con fascia · con soglia tratteggiata', usage: 'Umidità del bagno con la fascia 40–60%.',
+  cfg: { label: 'Umidità oggi', icon: 'drop' }, init: () => ({}),
+  render: (s, c, x) => `${head(c, x, '48%')}<svg class="chart" viewBox="0 0 300 100" preserveAspectRatio="none" style="height:7em"><rect x="0" y="40" width="300" height="34" fill="var(--ok)" opacity=".12"></rect>${svgLine(SER.hum, '#5AC8FA', 300, 100, true, 30, 70)}</svg>`, on: {} });
+def({ id: 'CH-04', fam: 'ch', name: 'Bar Chart', desc: 'Barre ora per ora; l’ora attuale è piena, le ore future sono vuote.',
+  ents: ['sensor (energy, power)', 'statistiche orarie'], sizes: 'Alto 80 · 120', inter: 'Sola lettura; tocco su una barra mostra il valore', variants: 'Ore · giorni · mesi', usage: 'Consumo della presa ora per ora.',
+  cfg: { label: 'Consumo per ora', icon: 'bolt' }, init: () => ({ sel: null }),
+  render: (s, c, x) => { const mx = Math.max(...SER.pow); return `${head(c, x, s.sel !== null ? SER.pow[s.sel] / 10 + ' kWh alle ' + s.sel + ':00' : 'oggi 6,4 kWh')}<div style="display:flex;align-items:flex-end;gap:3px;height:6em">${SER.pow.map((v, i) => `<button data-a="b" data-v="${i}" aria-label="${i}:00" style="flex:1;border:0;padding:0;height:${v / mx * 100}%;border-radius:3px;background:var(--a);opacity:${s.sel === null || s.sel === i ? (i === SER.pow.length - 1 ? 1 : 0.6) : 0.25}"></button>`).join('')}${'<i style="flex:1;height:4px;border-radius:2px;background:var(--track)"></i>'.repeat(4)}</div><div class="ticks"><span>0</span><span>6</span><span>12</span><span>18</span><span>24</span></div>`; },
+  on: { b: (s, v) => { s.sel = s.sel === +v ? null : +v; } } });
+def({ id: 'CH-05', fam: 'ch', name: 'Mini Historical Chart', desc: 'Grafico con il periodo da scegliere: 24 ore dallo storico, 7 e 30 giorni dalle statistiche.',
+  ents: ['sensor (state_class)', 'statistiche del Recorder'], sizes: 'Alto 120 con selettore', inter: 'Selettore del periodo; il grafico cambia', variants: 'Linea · barre', usage: 'Fumi della stufa negli ultimi 7 giorni.',
+  cfg: { label: 'Storico fumi', icon: 'flame' }, init: () => ({ p: '24h' }),
+  render: (s, c, x) => { const data = { '24h': SER.temp, '7g': [20, 21, 19.5, 22, 21, 20.5, 21.4], '30g': SER.hum.map((v) => v / 2.4) }[s.p]; return `${head(c, x, { '24h': 'ultime 24 ore', '7g': 'ultimi 7 giorni', '30g': 'ultimi 30 giorni' }[s.p])}<div class="seg">${[['24h', '24 ore'], ['7g', '7 giorni'], ['30g', '30 giorni']].map((o) => `<button data-a="p" data-v="${o[0]}" class="${s.p === o[0] ? 'is-on' : ''}">${o[1]}</button>`).join('')}</div><svg class="chart" viewBox="0 0 300 80" preserveAspectRatio="none" style="height:5.5em">${svgLine(data, 'var(--a)', 300, 80)}</svg>`; },
+  on: { p: (s, v) => { s.p = v; } } });
+def({ id: 'CH-06', fam: 'ch', name: 'Multi-series Chart', desc: 'Due o tre linee con legenda, per confrontare valori legati (mandata e ritorno, interno ed esterno).',
+  ents: ['sensor ×2–3 con storico'], sizes: 'Alto 110', inter: 'Tocco sulla legenda nasconde una serie', variants: '2 serie · 3 serie', usage: 'Acqua di mandata, ritorno e boiler ACS.',
+  cfg: { label: 'Acqua', icon: 'drop' }, init: () => ({ off: [] }),
+  render: (s, c, x) => { const S = [['Mandata', '#FF453A', [55, 58, 62, 65, 66, 64, 63, 62]], ['Ritorno', '#0A84FF', [45, 47, 50, 52, 54, 53, 52, 51]], ['Boiler ACS', '#30D158', [42, 42, 44, 47, 49, 50, 49, 48]]]; return `${head(c, x, '')}<svg class="chart" viewBox="0 0 300 90" preserveAspectRatio="none" style="height:6.4em">${S.filter((q) => !s.off.includes(q[0])).map((q) => svgLine(q[2], q[1], 300, 90, false, 38, 70)).join('')}</svg><div class="legend">${S.map((q) => `<button data-a="t" data-v="${q[0]}" style="border:0;background:transparent;padding:0;font:inherit;color:inherit;opacity:${s.off.includes(q[0]) ? 0.4 : 1}"><i style="background:${q[1]}"></i>${q[0]}</button>`).join('')}</div>`; },
+  on: { t: (s, v) => { s.off = s.off.includes(v) ? s.off.filter((y) => y !== v) : s.off.concat([v]); } } });
+def({ id: 'CH-07', fam: 'ch', name: 'Trend Comparison', desc: 'Oggi contro ieri (o questa settimana contro la scorsa), con la differenza in percentuale.',
+  ents: ['sensor (energy, gas, water)', 'statistiche giornaliere'], sizes: 'Alto 90', inter: 'Sola lettura', variants: 'Giorno · settimana · mese', usage: 'Pellet consumato oggi rispetto a ieri.',
+  cfg: { label: 'Pellet consumato', icon: 'layers' }, init: () => ({}),
+  render: (s, c, x) => { const mx = Math.max(...SER.pow, ...SER.yest); return `${head(c, x, '<span style="color:var(--ok)">−12% rispetto a ieri</span>')}<div style="display:flex;align-items:flex-end;gap:2px;height:5em">${SER.pow.map((v, i) => `<span style="flex:1;display:flex;gap:1px;align-items:flex-end;height:100%"><i style="flex:1;height:${SER.yest[i] / mx * 100}%;background:var(--glass2);border-radius:2px"></i><i style="flex:1;height:${v / mx * 100}%;background:var(--a);border-radius:2px"></i></span>`).join('')}</div><div class="legend"><span><i style="background:var(--a)"></i>Oggi 6,2 kg</span><span><i style="background:var(--glass2)"></i>Ieri 7,0 kg</span></div>`; }, on: {} });
+def({ id: 'CH-08', fam: 'ch', name: 'Compact Statistics', desc: 'Tre numeri in riquadri: minimo, massimo e media, oppure oggi, mese e costo.',
+  ents: ['sensor (state_class)', 'statistiche del Recorder'], sizes: '3 colonne, alte 52', inter: 'Sola lettura', variants: 'Min · max · media · somme', usage: 'Sotto ogni grafico dei sensori.',
+  cfg: { label: 'Oggi', icon: 'chart' }, init: () => ({}),
+  render: (s, c, x) => `${head(c, x, '')}<div class="stats"><div><span>Minimo</span><b>19,3°</b></div><div><span>Massimo</span><b>21,8°</b></div><div><span>Media</span><b>20,6°</b></div></div>`, on: {} });
+
+/* ---------- H · Avanzati ---------- */
+def({ id: 'ADV-01', fam: 'adv', name: 'RGB Color Picker', key: true, desc: 'Il disco colore del pannello luce: rosso in alto, bianco al centro, maniglia piena del colore scelto.',
+  ents: ['light (color_mode: hs, rgb, xy)'], sizes: '160 · 200 · 248', inter: 'Trascina; frecce per tonalità e saturazione; il colore si applica subito', variants: 'Con nome del colore · solo disco', usage: 'Colore della striscia LED.',
+  cfg: { label: 'Colore', icon: 'palette' }, init: () => ({ h: 228, s: 0.72 }),
+  render: (s, c, x) => { const R = 50; return `${head(c, x, `<span style="display:inline-flex;align-items:center;gap:.4em"><i style="width:.9em;height:.9em;border-radius:50%;background:${rgb(hsv(s.h, s.s))}"></i>${Math.round(s.s * 100)}%</span>`)}<div class="disc" data-drag="d" data-key="dk" tabindex="0" role="slider" aria-label="Colore"><b style="left:${R + R * s.s * Math.sin(s.h * Math.PI / 180)}%;top:${R - R * s.s * Math.cos(s.h * Math.PI / 180)}%;background:${rgb(hsv(s.h, s.s))}"></b></div>`; },
+  on: { d: (s, p) => { let h = Math.atan2(p.dx, -p.dy) * 180 / Math.PI; if (h < 0) h += 360; s.h = Math.round(h); s.s = clamp(Math.hypot(p.dx, p.dy) / (p.w / 2), 0, 1); }, dk: (s, p) => { s.h = (s.h + p.key * 6 + 360) % 360; } } });
+def({ id: 'ADV-02', fam: 'adv', name: 'Color Temperature Picker', key: true, desc: 'Barra dei bianchi da caldo a freddo con maniglia del colore scelto e tre scelte rapide.',
+  ents: ['light (color_mode: color_temp)', 'min/max_color_temp_kelvin'], sizes: 'Alta 46, larghezza piena', inter: 'Trascina; frecce ±100 K; tocco sulle scelte rapide', variants: 'Con scelte rapide · solo barra', usage: 'Bianco della lampada da lettura.',
+  cfg: { label: 'Temperatura', icon: 'thermo', min: 2200, max: 6500 }, init: () => ({ k: 4200 }),
+  render: (s, c, x) => { const f = (s.k - c.min) / (c.max - c.min); const name = s.k < 3300 ? 'Calda' : s.k < 4800 ? 'Neutra' : 'Fredda'; return `${head(c, x, `${name} · ${s.k} K`)}<div class="kb" data-drag="d" data-key="dk" tabindex="0" role="slider" aria-valuenow="${s.k}"><span class="knob" style="left:${f * 100}%;background:${rgb(kRgb(s.k))}"></span></div><div class="ticks is-btn">${[[2700, 'Calda'], [4000, 'Neutra'], [5500, 'Fredda']].map((o) => `<button data-a="k" data-v="${o[0]}" class="${Math.abs(s.k - o[0]) < 250 ? 'is-on' : ''}">${o[1]}</button>`).join('')}</div>`; },
+  on: { d: (s, p, I) => { s.k = Math.round((I.cfg.min + p.fx * (I.cfg.max - I.cfg.min)) / 50) * 50; }, dk: (s, p, I) => { s.k = clamp(s.k + p.key * 100, I.cfg.min, I.cfg.max); }, k: (s, v) => { s.k = +v; } } });
+def({ id: 'ADV-03', fam: 'adv', name: 'Color Preset Selector', desc: 'Pallini dei colori preferiti con anello sul colore scelto. Con “+” per salvare il colore attuale.',
+  ents: ['light (colori)', 'input_select (preset)', 'scene'], sizes: 'Pallini 32 su area 44', inter: 'Tocco', variants: '7 colori · colori salvati con “+”', usage: 'Colori rapidi della luce, preset salvati dall’utente.',
+  cfg: { label: 'Colori', icon: 'palette' }, init: () => ({ v: 4, list: [[0, 0.85], [30, 0.85], [54, 0.8], [125, 0.75], [196, 0.75], [268, 0.75], [318, 0.75]] }),
+  render: (s, c, x) => `${head(c, x, '')}<div class="sws">${s.list.map((q, i) => `<button class="swb ${i === s.v ? 'is-on' : ''}" data-a="p" data-v="${i}" aria-label="Colore ${i + 1}"><i style="background:${rgb(hsv(q[0], q[1]))}"></i></button>`).join('')}<button class="swb" data-a="add" aria-label="Salva il colore attuale"><i style="background:var(--glass);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1.5px var(--glass2)">${ic('plus', 14, 2.6)}</i></button></div>`,
+  on: { p: (s, v) => { s.v = +v; }, add: (s) => { if (s.list.length < 9) { s.list.push([Math.round(Math.random() * 360), 0.7]); s.v = s.list.length - 1; } } } });
+def({ id: 'ADV-04', fam: 'adv', name: 'Joystick X/Y', desc: 'Pomello trascinabile su due assi che torna al centro al rilascio. Solo per servizi che accettano movimento continuo.',
+  ents: ['camera (PTZ via servizio dell’integrazione)', 'remote (servizi di movimento)'], sizes: '160 · 200', inter: 'Trascina; al rilascio torna al centro', variants: 'Ritorno al centro · resta in posizione', usage: 'Brandeggio di una telecamera motorizzata.',
+  cfg: { label: 'Brandeggio', icon: 'camera' }, init: () => ({ x: 0, y: 0 }),
+  render: (s, c, x) => `${head(c, x, s.x || s.y ? `${s.x > 0 ? 'destra' : s.x < 0 ? 'sinistra' : ''} ${s.y > 0 ? 'su' : s.y < 0 ? 'giù' : ''}` : 'fermo')}<div class="joy ${s.dragging ? 'is-drag' : ''}" data-drag="d"><b style="left:${50 + s.x * 34}%;top:${50 - s.y * 34}%"></b></div>`,
+  on: { d: (s, p) => { const r = Math.min(1, Math.hypot(p.dx, p.dy) / (p.w * 0.34)); const a = Math.atan2(p.dy, p.dx); s.x = Math.round(Math.cos(a) * r * 100) / 100; s.y = Math.round(-Math.sin(a) * r * 100) / 100; }, dragEnd: (s) => { s.x = 0; s.y = 0; } } });
+def({ id: 'ADV-05', fam: 'adv', name: 'Directional Pad', desc: 'Quattro frecce e OK, come un telecomando. Il tasto premuto si illumina un istante.',
+  ents: ['remote', 'media_player (navigazione)', 'button ×5'], sizes: 'Tasti 52', inter: 'Tocco; frecce e Invio da tastiera', variants: 'Con OK · senza OK', usage: 'Telecomando della TV, menu del condizionatore.',
+  cfg: { label: 'Telecomando', icon: 'remote' }, init: () => ({ last: null }),
+  render: (s, c, x) => { const b = (k, i, cls = '') => `<button data-a="p" data-v="${k}" class="${cls} ${s.last === k ? 'is-on' : ''}" aria-label="${k}">${i}</button>`; return `${head(c, x, s.last ? 'Inviato: ' + s.last : '')}<div class="dpad"><i class="e"></i>${b('su', ic('chevUp', 20, 2.6))}<i class="e"></i>${b('sinistra', ic('chevL', 20, 2.6))}${b('OK', 'OK', 'ok')}${b('destra', ic('chevR', 20, 2.6))}<i class="e"></i>${b('giù', ic('chevDown', 20, 2.6))}<i class="e"></i></div>`; },
+  on: { p: (s, v, I) => { s.last = v; later(I, 600, () => { s.last = null; }); } } });
+def({ id: 'ADV-06', fam: 'adv', name: 'Curve Editor', desc: 'Punti trascinabili in verticale su una griglia. Per curve con pochi punti fissi in orizzontale.',
+  ents: ['number ×N (punti della curva)', 'input_number ×N'], sizes: 'Alto 160, larghezza piena', inter: 'Trascina un punto su o giù', variants: '4 · 5 · 6 punti', usage: 'Curva climatica: temperatura esterna → temperatura di mandata.',
+  cfg: { label: 'Curva climatica', icon: 'chart', xs: ['−10°', '0°', '10°', '20°'], min: 25, max: 75 }, init: () => ({ ys: [68, 58, 45, 32], act: null }),
+  render: (s, c, x) => { const W = 300, H = 140, P = 14; const pts = s.ys.map((v, i) => [P + i * (W - 2 * P) / (s.ys.length - 1), H - P - (v - c.min) / (c.max - c.min) * (H - 2 * P)]); return `${head(c, x, 'mandata ' + s.ys.map((v) => v + '°').join(' · '))}<svg class="curve" viewBox="0 0 ${W} ${H}" data-drag="d" style="height:9.5em"><line class="gl" x1="0" y1="${H - P}" x2="${W}" y2="${H - P}" stroke="var(--sep)"></line><line x1="0" y1="${P}" x2="${W}" y2="${P}" stroke="var(--sep)"></line><polyline points="${pts.map((p) => p.join(',')).join(' ')}" fill="none" stroke="var(--a)" stroke-width="3" stroke-linejoin="round"></polyline>${pts.map((p, i) => `<circle class="pt" cx="${p[0]}" cy="${p[1]}" r="8"></circle><text x="${p[0]}" y="${H - 1}" text-anchor="middle" fill="var(--t3)" font-size="10" font-weight="700">${c.xs[i]}</text>`).join('')}</svg>`; },
+  on: { d: (s, p, I) => { const c = I.cfg; const n = s.ys.length; if (p.first || s.act === null) s.act = clamp(Math.round(((p.fx * 300 - 14) / (272)) * (n - 1)), 0, n - 1); const fy = clamp((p.fy * 140 - 14) / 112, 0, 1); s.ys[s.act] = Math.round(c.min + fy * (c.max - c.min)); }, dragEnd: (s) => { s.act = null; } } });
+def({ id: 'ADV-07', fam: 'adv', name: 'Timer Control', key: true, desc: 'Scelte rapide del tempo e conto alla rovescia che parte subito. Il tempo che manca va anche sulla card.',
+  ents: ['timer', 'switch + automazione', 'fan / light (spegni tra…)'], sizes: 'Pillole 44', inter: 'Tocco su un tempo; Off annulla', variants: 'Spegni tra · accendi tra', usage: 'Spegnimento automatico di presa, ventola, luce.',
+  cfg: { label: 'Spegnimento automatico', icon: 'timer' }, init: () => ({ left: 0 }),
+  render: (s, c, x) => `${head(c, x, s.left ? `spegne tra ${Math.floor(s.left / 60)}:${pad2(s.left % 60)}` : 'nessun timer')}<div class="pills">${[[0, 'Off'], [15, '15 min'], [30, '30 min'], [60, '1 h'], [120, '2 h']].map((o) => `<button class="pill ${(o[0] === 0 && !s.left) || (s.pick === o[0] && s.left) ? 'is-on' : ''}" data-a="p" data-v="${o[0]}">${o[1]}</button>`).join('')}</div>`,
+  on: { p: (s, v, I) => { clearInterval(I._iv); s.pick = +v; s.left = +v * 60; if (s.left) I._iv = setInterval(() => { s.left = Math.max(0, s.left - 1); if (!s.left) clearInterval(I._iv); render(I.iid); }, 1000); } } });
+def({ id: 'ADV-08', fam: 'adv', name: 'Countdown Display', desc: 'Anello che si svuota con minuti e secondi al centro. Pausa e riprendi se il timer lo permette.',
+  ents: ['timer (remaining, finishes_at)', 'sensor (timestamp di fine)'], sizes: '120 · 160 · 200', inter: 'Tocco al centro per pausa e ripresa (solo timer)', variants: 'Con pausa · sola lettura', usage: 'Lavaggio in corso, timer della pasta.',
+  cfg: { label: 'Timer cucina', icon: 'timer', total: 300 }, init: () => ({ left: 247, run: true }),
+  render: (s, c, x, I) => { if (!I._iv && s.run) I._iv = setInterval(() => { if (s.run && s.left > 0) { s.left--; render(I.iid); } }, 1000); return `${head(c, x, s.run ? 'in corso' : 'in pausa')}<button class="circ" data-a="t" style="width:9em;height:9em;border:0;background:transparent;padding:0;color:inherit" aria-label="${s.run ? 'Pausa' : 'Riprendi'}">${ringSvg(s.left / c.total, 'var(--a)')}<span class="cv"><b>${Math.floor(s.left / 60)}:${pad2(s.left % 60)}</b><span>${s.run ? 'tocca per pausa' : 'tocca per riprendere'}</span></span></button>`; },
+  on: { t: (s) => { s.run = !s.run; } } });
+def({ id: 'ADV-09', fam: 'adv', name: 'Multi-Level Selector', key: true, desc: 'Livelli con nome e icona, dal più basso al più alto. Ogni livello è un valore di un select o di un number.',
+  ents: ['select (livelli ordinati)', 'number (pochi interi)', 'climate.preset (ordinati)'], sizes: 'Tessere alte 60', inter: 'Tocco', variants: 'Con nome · solo numero (vedi NUM-07)', usage: 'Potenza della stufa P1–P5 con nome: Minima, Bassa, Media, Alta, Massima.',
+  cfg: { label: 'Potenza fiamma', icon: 'flame', levels: ['Minima', 'Bassa', 'Media', 'Alta', 'Massima'] }, init: () => ({ v: 2 }),
+  render: (s, c, x) => `${head(c, x, 'P' + (s.v + 1) + ' · ' + c.levels[s.v])}<div class="lvl" style="height:3.6em">${c.levels.map((l, i) => `<button data-a="p" data-v="${i}" class="${i <= s.v ? 'is-on' : ''}" style="flex-direction:column;justify-content:flex-end;gap:.1em;padding-bottom:.4em"><span style="font-size:1.25em">P${i + 1}</span>${x.labels ? `<span style="font-weight:650">${l}</span>` : ''}</button>`).join('')}</div>`,
+  on: { p: (s, v) => { s.v = +v; } } });
+def({ id: 'ADV-10', fam: 'adv', name: 'Fan Speed Selector', desc: 'Icona della ventola che gira più veloce con la velocità, e i passi da toccare.',
+  ents: ['fan (percentage_step)', 'climate.fan_mode', 'number (velocità)'], sizes: 'Alto 46', inter: 'Tocco su un passo', variants: 'Con Auto · solo numeri', usage: 'Ventola del clima o del ventilconvettore.',
+  cfg: { label: 'Ventola', icon: 'fan', steps: ['Auto', '1', '2', '3', '4'] }, init: () => ({ v: 2 }),
+  render: (s, c, x) => `${head(c, x, c.steps[s.v])}<div class="fspd"><span class="fi ${s.v ? 'spin2' : ''}" style="--d:${s.v ? (1.6 / s.v).toFixed(2) + 's' : '0s'}">${ic('fan', 22)}</span><span class="fdots">${c.steps.map((t, i) => `<button data-a="p" data-v="${i}" class="${i === s.v ? 'is-on' : ''}">${t}</button>`).join('')}</span></div>`,
+  on: { p: (s, v) => { s.v = +v; } } });
+def({ id: 'ADV-11', fam: 'adv', name: 'Preset Mode Selector', key: true, desc: 'Tessere con icona e nome per i profili del dispositivo, 4 per riga.',
+  ents: ['climate.preset_mode', 'fan.preset_mode', 'humidifier.mode', 'select'], sizes: 'Tessere alte 60, 4 per riga', inter: 'Tocco', variants: 'Con colore del dispositivo · neutro', usage: 'Profili del clima: Comfort, Eco, Notte, Boost, Fuori casa.',
+  cfg: { label: 'Profilo', icon: 'leaf', options: [['comfort', 'Comfort', 'leaf'], ['eco', 'Eco', 'leaf'], ['night', 'Notte', 'moon'], ['boost', 'Boost', 'flame'], ['away', 'Fuori', 'home'], ['sun', 'Sole', 'sun']] }, init: () => ({ v: 'comfort' }),
+  render: (s, c, x) => `${head(c, x, optOf(c, s.v)[1])}<div class="tiles">${c.options.map((o) => `<button class="tile ${o[0] === s.v ? 'is-on' : ''}" data-a="p" data-v="${o[0]}">${ic(o[2], 20)}<span>${o[1]}</span></button>`).join('')}</div>`,
+  on: { p: (s, v) => { s.v = v; } } });
+
+/* ---------- galleria ---------- */
+const FAMS = [
+  ['sel', 'A', 'Selezione', 'Per scegliere una voce fra le opzioni di un select, di un input_select o di una funzione nativa (preset, sorgente, modalità). La scelta del componente dipende da quante opzioni ci sono e da quanto sono lunghe: Segmented fino a 4 brevi, Dropdown o List oltre.'],
+  ['num', 'B', 'Valori numerici', 'Per number, input_number e i parametri numerici dei dispositivi. La barra orizzontale è il default nei gruppi; il verticale è il protagonista del pannello; lo Stepper serve quando conta la precisione.'],
+  ['boo', 'C', 'Interruttori', 'Per input_boolean, switch e funzioni sì/no. La riga con interruttore è il default; l’Icon Toggle è la scorciatoia rotonda del pannello che agisce subito.'],
+  ['act', 'D', 'Azioni', 'Per button, input_button, script e scene. Un’azione per gruppo è piena; le altre sono secondarie. Le azioni che non si annullano chiedono conferma o la pressione prolungata.'],
+  ['txt', 'E', 'Testo e date', 'Per text, input_text, date, time, datetime e input_datetime. I campi rispettano minimo, massimo, pattern e modalità password dell’entità.'],
+  ['ind', 'F', 'Indicatori', 'Sola lettura, per sensor, binary_sensor e attributi. Il colore segue il significato (a posto, attenzione, errore), non il colore del dispositivo. Usa “Valore simulato” per vederli cambiare.'],
+  ['ch', 'G', 'Grafici', 'Sola lettura, per valori con storico. Restano leggibili anche piccoli: niente assi pesanti, il punto finale evidenziato, la fascia ideale quando esiste.'],
+  ['adv', 'H', 'Avanzati', 'Controlli specializzati. Compaiono solo se l’entità o il servizio li supporta davvero (per esempio il joystick solo con un servizio di brandeggio).']
+];
+const ACCS = [['#FF9F0A', '#2A1A00', 'Arancio'], ['#0A84FF', '#FFFFFF', 'Blu'], ['#30D158', '#05310F', 'Verde'], ['#BF5AF2', '#FFFFFF', 'Viola'], ['#FF453A', '#FFFFFF', 'Rosso']];
+const seg = (name, opts, cur, cls = '') => `<div class="sg ${cls}" role="radiogroup" aria-label="${name}">${opts.map((o) => `<button type="button" data-g="${name}" data-v="${o[0]}" class="${String(cur) === String(o[0]) ? 'is-on' : ''}" aria-pressed="${String(cur) === String(o[0])}">${o[1]}</button>`).join('')}</div>`;
+function bar() {
+  return `<div class="bg"><label>Tema</label>${seg('theme', [['auto', 'Auto'], ['light', 'Chiaro'], ['dark', 'Scuro']], G.theme)}</div>
+  <div class="bg"><label>Larghezza</label>${seg('ctx', [['panel', 'Telefono 350'], ['column', 'Colonna 384'], ['dialog', 'Dialogo 460'], ['free', 'Libera']], G.ctx)}</div>
+  <div class="bg"><label>Misura</label>${seg('size', [['s', 'S'], ['m', 'M'], ['l', 'L']], G.size)}</div>
+  <div class="bg"><label>Stato</label>${seg('state', STATES, G.state)}</div>
+  <div class="bg"><label>Icone</label>${seg('icons', [['1', 'Sì'], ['0', 'No']], G.icons ? '1' : '0')}</div>
+  <div class="bg"><label>Etichette</label>${seg('labels', [['1', 'Sì'], ['0', 'No']], G.labels ? '1' : '0')}</div>
+  <div class="bg"><label>Colore</label><div class="accs">${ACCS.map((a) => `<button type="button" data-g="acc" data-v="${a[0]}" class="${G.acc === a[0] ? 'is-on' : ''}" style="background:${a[0]}" aria-label="${a[2]}"></button>`).join('')}</div></div>`;
+}
+function card(d) {
+  const I = INST[d.id];
+  return `<article class="card ${d.key ? 'is-key' : ''}" id="c-${d.id}">
+  <div class="ch"><span class="cid">${d.id}</span><span class="ct"><b>${d.name}</b><span>${d.desc}</span></span>${d.key ? '<span class="key">Priorità</span>' : ''}</div>
+  <div class="stage ${G.ctx === 'free' ? 'ctx-free' : ''}"><div class="fr" data-iid="${d.id}"></div></div>
+  <div class="ovr"><label>Stato qui</label>${seg('ov:' + d.id, [['', 'Come sopra']].concat(STATES.slice(1)), I.over || '')}</div>
+  <div class="ovr"><label>Misura qui</label>${seg('sz:' + d.id, [['', 'Come sopra'], ['s', 'S'], ['m', 'M'], ['l', 'L']], I.size || '')}</div>
+  ${d.cfg.sim ? `<label class="sim">Valore simulato <input type="range" id="sim-${d.id}" data-sim="${d.id}" min="${d.cfg.min}" max="${d.cfg.max}" step="${(d.cfg.max - d.cfg.min) / 100}" value="${I.st.v}"></label>` : ''}
+  <dl class="meta"><dt>Entità</dt><dd class="ents">${d.ents.map((e) => `<code>${e}</code>`).join('')}</dd><dt>Varianti</dt><dd>${d.variants}</dd><dt>Dimensioni</dt><dd>${d.sizes}</dd>
+  <dt>Stati</dt><dd>${ALL_ST}</dd><dt>Interazioni</dt><dd>${d.inter} · tocco e mouse</dd><dt>Esempio</dt><dd>${d.usage}</dd></dl>
+</article>`;
+}
+/* ---------- anteprime nei pannelli ---------- */
+const PV = [
+  { key: 'clima', title: 'Climate · Termostufa a pellet', note: 'I comandi nativi della stufa (potenza, setpoint acqua) stanno accanto a entità di altri dispositivi: la modalità viene da un input_select, il boiler ACS da un sensore di un altro dispositivo. L’origine è scritta sotto il controllo.',
+    name: 'Termostufa', state: 'Lavora · P3 · ora 20,5°', icon: 'flame', acc: '#FF7A1A', ink: '#FFFFFF', tint: 'rgba(255,122,26,.16)',
+    hero: ['NUM-02', { big: true, label: 'Ambiente', icon: 'flame', min: 16, max: 26, step: 0.5, unit: '°', dec: 1, cur: 20.5, sub: 'obiettivo', fill: 'linear-gradient(#FF9A4D,#B4480F)' }, { v: 21.5 }],
+    groups: [
+      ['Modalità', 'sliders', [['SEL-02', { label: 'Modo di lavoro', icon: 'sliders', options: [['auto', 'Auto', 'halfc'], ['man', 'Manuale', 'sliders'], ['crono', 'Crono', 'clock']], source: 'input_select.modo_termostufa', accent: true }, { v: 'crono' }]]],
+      ['Potenza', 'flame', [['ADV-09', { label: 'Potenza fiamma', icon: 'flame', levels: ['Min', 'Bassa', 'Media', 'Alta', 'Max'], source: 'number.termostufa_potenza' }, { v: 2 }]]],
+      ['Acqua', 'drop', [['NUM-04', { label: 'Setpoint acqua · ora 62°', icon: 'drop', min: 50, max: 75, step: 1, unit: '°', dec: 0, source: 'number.termostufa_setpoint_acqua' }, { v: 65 }]]],
+      ['Fumi', 'wind', [['IND-01', { label: 'Temperatura fumi', icon: 'flame', unit: '°C', min: 60, max: 260, sim: false, source: 'sensor.termostufa_fumi' }, { v: 148 }]]],
+      ['ACS', 'boiler', [['IND-12', { label: 'Boiler ACS', icon: 'boiler', min: 30, max: 70, unit: '°C', sim: false, source: 'sensor.boiler_acs_temperatura · Boiler ACS' }, { v: 48 }], ['BOO-01', { label: 'Priorità ACS', icon: 'drop', sub: 'Scalda prima il boiler', source: 'input_boolean.priorita_acs' }, { on: true }]]],
+      ['Pellet', 'layers', [['IND-05', { label: 'Pellet', icon: 'layers', min: 0, max: 100, sim: false, source: 'sensor.termostufa_pellet' }, { v: 18 }]]]
+    ] },
+  { key: 'luce', title: 'Light · Illuminazione', note: 'Luminosità al centro, colore e bianchi nativi della luce. Scene, luce notturna e sensore di luce sono entità collegate (scene, input_boolean, input_datetime, sensor).',
+    name: 'Striscia LED', state: 'Accesa · 60% · calda', icon: 'bulb', acc: '#F5C77E', ink: '#2A1A00', tint: 'rgba(245,199,126,.22)',
+    hero: ['NUM-02', { big: true, label: 'Luminosità', icon: 'sun', min: 1, max: 100, step: 1, unit: '%', dec: 0, sub: 'luminosità', fill: '#F5C77E' }, { v: 60 }],
+    groups: [
+      ['Bianchi', 'thermo', [['ADV-02', { label: 'Temperatura', icon: 'thermo', min: 2200, max: 6500 }, { k: 2900 }]]],
+      ['Colore', 'palette', [['ADV-03', { label: 'Colori', icon: 'palette' }, null]]],
+      ['Effetti', 'sparkle', [['SEL-01', { label: 'Effetto', icon: 'sparkle', options: [['none', 'Nessuno', 'x'], ['loop', 'Ciclo colori', 'rotate'], ['candle', 'Candela', 'flame'], ['breathe', 'Respiro', 'leaf']] }, { v: 'none', open: false }]]],
+      ['Scene', 'sparkle', [['ACT-09', { label: 'Scene', items: [['read', 'Lettura', 'bulb'], ['relax', 'Relax', 'leaf'], ['film', 'Film', 'film']], source: 'scene.soggiorno_*' }, { v: 'relax' }]]],
+      ['Notte', 'moon', [['BOO-01', { label: 'Luce notturna', icon: 'moon', sub: 'Al 10% quando passi', source: 'input_boolean.luce_notturna' }, { on: true }], ['TXT-07', { label: 'Fascia', icon: 'clock', source: 'input_datetime.notte_inizio/fine' }, null]]],
+      ['Sensore', 'sun', [['IND-01', { label: 'Luce in stanza', icon: 'sun', unit: 'lx', min: 0, max: 800, sim: false, source: 'sensor.soggiorno_illuminamento' }, { v: 120 }]]]
+    ] },
+  { key: 'cover', title: 'Cover · Tapparella', note: 'Posizione al centro, lamelle e comandi nativi. Automatico col sole, anticipo al tramonto e blocco dei comandi sono input_boolean e input_select; finestra e vento sono sensori che possono impedire la discesa.',
+    name: 'Tapparella sala', state: 'Aperta 76%', icon: 'blind', acc: '#FF9F0A', ink: '#2A1A00', tint: 'rgba(255,159,10,.16)',
+    hero: ['NUM-02', { big: true, label: 'Posizione', icon: 'blind', min: 0, max: 100, step: 1, unit: '%', dec: 0, sub: 'aperta', fill: 'linear-gradient(#4A9BF0,#A8D4FF)' }, { v: 76 }],
+    groups: [
+      ['Comandi', 'blind', [['ACT-04', { label: 'Comandi', icon: 'blind', items: [['up', 'Su', 'arrUp'], ['stop', 'Stop', 'stopSq'], ['down', 'Giù', 'arrDown']] }, null]]],
+      ['Lamelle', 'swingH', [['NUM-06', { label: 'Lamelle', icon: 'swingH', min: 0, max: 100, step: 1, unit: '%' }, { v: 45 }]]],
+      ['Automatico', 'sun', [['BOO-01', { label: 'Automatica col sole', icon: 'sun', sub: 'Scende al tramonto, sale all’alba', source: 'input_boolean.tapparella_auto' }, { on: true }], ['SEL-07', { label: 'Al tramonto', icon: 'moon', source: 'input_select.anticipo_tramonto' }, null]]],
+      ['Blocco', 'lock', [['BOO-06', { label: 'Blocca comandi', icon: 'lock', onT: 'Card e pannello bloccati', offT: 'Comandi liberi', source: 'input_boolean.blocco_tapparella' }, null]]],
+      ['Sensori', 'window', [['IND-17', { label: 'Finestra sala', icon: 'window', source: 'binary_sensor.finestra_sala' }, null], ['IND-15', { label: 'Vento', icon: 'wind', min: -95, max: -40, sim: false, source: 'sensor.vento' }, null]]]
+    ] }
+];
+const pvState = {};
+function mkPv() {
+  PV.forEach((p) => {
+    pvState[p.key] = null;
+    const hp = inst('pv-' + p.key + '-hero', p.hero[0], p.hero[1]); if (p.hero[2]) Object.assign(hp.st, p.hero[2]);
+    const hw = inst('pvw-' + p.key + '-hero', p.hero[0], p.hero[1]); hw.st = hp.st; hp.twin = hw.iid; hw.twin = hp.iid;
+    p.groups.forEach((g, gi) => g[2].forEach((it, ii) => {
+      const a = inst(`pv-${p.key}-${gi}-${ii}`, it[0], it[1]); if (it[2]) Object.assign(a.st, it[2]);
+      const b = inst(`pvw-${p.key}-${gi}-${ii}`, it[0], it[1]); b.st = a.st; a.twin = b.iid; b.twin = a.iid;
+    }));
+  });
+}
+function pvPhone(p) {
+  const scr = pvState[p.key];
+  const zone = scr === null
+    ? `<div class="scs" style="font-size:15px">${p.groups.map((g, i) => `<button class="sc" data-pv="${p.key}" data-gi="${i}"><span class="scc">${ic(g[1], 22)}</span><span class="scl">${g[0]}</span></button>`).join('')}</div>`
+    : p.groups[scr][2].map((it, ii) => `<div data-iid="pv-${p.key}-${scr}-${ii}"></div>`).join('');
+  return `<div class="phone" style="--acc:${p.acc};--acc-ink:${p.ink}"><div class="sheet" style="background:color-mix(in srgb, ${p.acc} 15%, var(--sheet))"><span class="grab"></span>
+  <div class="ph"><span class="phi" style="background:${p.acc};color:${p.ink}">${ic(p.icon, 22)}</span><b>${p.name}</b><span>${p.state}</span><button class="x" aria-label="Chiudi">${ic('x', 16, 2.6)}</button></div>
+  <div class="phero"><div data-iid="pv-${p.key}-hero" style="width:100%"></div></div>
+  <div class="pzone">${zone}</div>
+  <div class="pfoot">${scr !== null ? `<button class="back" data-pvback="${p.key}"><span>${ic('chevL', 16, 2.6)}</span>Indietro</button>` : ''}<button class="pow" aria-label="Accendi o spegni">${ic('power2', 24, 2.4)}</button></div></div></div>`;
+}
+function pvWide(p) {
+  return `<div class="wide" style="--acc:${p.acc};--acc-ink:${p.ink};background:color-mix(in srgb, ${p.acc} 14%, var(--sheet))">
+  <div class="wh"><span class="phi" style="background:${p.acc};color:${p.ink}">${ic(p.icon, 20)}</span><div><b>${p.name}</b><span>${p.state}</span></div><button class="ibtn" style="background:var(--on);color:var(--on-t)" aria-label="Accendi o spegni">${ic('power2', 20, 2.4)}</button><button class="ibtn" aria-label="Chiudi">${ic('x', 16, 2.6)}</button></div>
+  <div class="wbody"><div data-iid="pvw-${p.key}-hero"></div><div class="wgrp">${p.groups.map((g, gi) => `<section class="wg"><div class="wgt">${ic(g[1], 16)}${g[0]}</div>${g[2].map((it, ii) => `<div data-iid="pvw-${p.key}-${gi}-${ii}"></div>`).join('')}</section>`).join('')}</div></div></div>`;
+}
+function drawPv(key) {
+  const p = PV.find((q) => q.key === key); const host = document.getElementById('pv-' + key); if (!host) return;
+  host.querySelector('.pv-ph').innerHTML = pvPhone(p);
+  ['pv-' + key + '-hero'].concat(pvState[key] === null ? [] : p.groups[pvState[key]][2].map((_, ii) => `pv-${key}-${pvState[key]}-${ii}`)).forEach(render);
+}
+/* ---------- pagina ---------- */
+function applyTheme() {
+  const r = document.documentElement;
+  if (G.theme === 'auto') r.removeAttribute('data-theme'); else r.setAttribute('data-theme', G.theme);
+  const a = ACCS.find((x) => x[0] === G.acc); r.style.setProperty('--acc', a[0]); r.style.setProperty('--acc-ink', a[1]);
+  document.querySelectorAll('.stage .fr').forEach((f) => { f.parentElement.classList.toggle('ctx-free', G.ctx === 'free'); f.style.setProperty('--cw', CTX_W[G.ctx] + 'px'); });
+}
+function build() {
+  REG.forEach((d) => inst(d.id, d.id));
+  mkPv();
+  const count = (f) => REG.filter((d) => d.fam === f).length;
+  document.getElementById('nav').innerHTML = `<span class="lt">Famiglie</span>${FAMS.map((f) => `<a href="#${f[0]}" data-nav="${f[0]}">${f[1]} · ${f[2]}<span>${count(f[0])}</span></a>`).join('')}<span class="lt">Uso</span><a href="#anteprime" data-nav="anteprime">Nei pannelli<span>3</span></a>`;
+  document.getElementById('bar').innerHTML = bar();
+  document.getElementById('cat').innerHTML = FAMS.map((f) => `<section class="fam" id="${f[0]}"><header><span class="lt">Famiglia ${f[1]}</span><h2>${f[2]}</h2></header><p>${f[3]}</p><div class="grid">${REG.filter((d) => d.fam === f[0]).map(card).join('')}</div></section>`).join('') +
+    `<section class="fam" id="anteprime"><header><span class="lt">Uso</span><h2>Nei pannelli contestuali</h2></header><p>Gli stessi componenti dentro tre pannelli veri, su telefono (zona controlli fissa, si apre una scorciatoia alla volta) e nel dialogo a due colonne del tablet (tutti i gruppi visibili). Tocca le scorciatoie del telefono: il controllo è lo stesso del dialogo e i due restano allineati.</p>
+    ${PV.map((p) => `<div class="pv" id="pv-${p.key}" style="margin-bottom:28px"><b>${p.title}</b><span>${p.note}</span><div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start"><div class="pv-ph" style="flex:0 1 390px;min-width:0;width:100%;max-width:390px"></div><div style="flex:1 1 520px;min-width:0">${pvWide(p)}</div></div></div>`).join('')}
+    <p class="note2">Il configuratore con cui l’utente sceglie, collega e ordina i controlli nel pannello è escluso da questa fase, come richiesto.</p></section>`;
+  applyTheme();
+  PV.forEach((p) => drawPv(p.key));
+  renderAll();
+}
+const baseRender = render;
+render = function (iid) { baseRender(iid); const I = INST[iid]; if (I && I.twin && !I._tw) { I._tw = true; baseRender(I.twin); I._tw = false; } };
+document.addEventListener('click', (e) => {
+  const g = e.target.closest('[data-g]');
+  if (g) {
+    const n = g.dataset.g, v = g.dataset.v;
+    if (n === 'theme') G.theme = v; else if (n === 'ctx') G.ctx = v; else if (n === 'size') G.size = v; else if (n === 'state') G.state = v; else if (n === 'icons') G.icons = v === '1'; else if (n === 'labels') G.labels = v === '1'; else if (n === 'acc') G.acc = v;
+    else if (n.startsWith('ov:')) INST[n.slice(3)].over = v || null; else if (n.startsWith('sz:')) INST[n.slice(3)].size = v || null;
+    g.parentElement.querySelectorAll('button').forEach((b) => { b.classList.toggle('is-on', b === g); b.setAttribute('aria-pressed', b === g); });
+    applyTheme();
+    if (n.includes(':')) render(n.slice(3)); else renderAll();
+    return;
+  }
+  const s = e.target.closest('[data-pv]'); if (s) { pvState[s.dataset.pv] = +s.dataset.gi; drawPv(s.dataset.pv); return; }
+  const b = e.target.closest('[data-pvback]'); if (b) { pvState[b.dataset.pvback] = null; drawPv(b.dataset.pvback); }
+});
+document.addEventListener('input', (e) => { const t = e.target.closest('[data-sim]'); if (!t) return; INST[t.dataset.sim].st.v = Math.round(+t.value * 10) / 10; render(t.dataset.sim); });
+const obs = 'IntersectionObserver' in window ? new IntersectionObserver((en) => { en.forEach((x) => { if (x.isIntersecting) document.querySelectorAll('[data-nav]').forEach((a) => a.classList.toggle('is-on', a.dataset.nav === x.target.id)); }); }, { rootMargin: '-30% 0px -60% 0px' }) : null;
+build();
+if (obs) document.querySelectorAll('.fam').forEach((f) => obs.observe(f));
+
+</script>
