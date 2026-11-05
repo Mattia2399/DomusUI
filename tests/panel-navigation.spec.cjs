@@ -209,6 +209,19 @@ async function measureOpen(page, view, where, label, found) {
   await page.waitForTimeout(450);
   const read = await readPanel(page);
   const problems = structureProblems(read, view);
+  // The column scrolls when it does not fit, under a header that stays.
+  if (view.surface === 'column' && read.scroller && read.scroller.scroll > read.scroller.client) {
+    await page.locator('.panel-shell-main').evaluate((node) => {
+      node.scrollTop = node.scrollHeight;
+    });
+    await page.waitForTimeout(80);
+    const scrolled = await readPanel(page);
+    if (!same(scrolled.header, read.header)) problems.push('l\'intestazione scorre con la colonna');
+    if (read.more && scrolled.more && Math.abs(scrolled.surface.bottom - scrolled.more.bottom) > 60) problems.push('la riga Altro non arriva in fondo alla colonna');
+    await page.locator('.panel-shell-main').evaluate((node) => {
+      node.scrollTop = 0;
+    });
+  }
   if (view.surface === 'sheet' && CONVERTED.some((name) => read.name.includes(name))) await walkRow(page, read.name, problems);
   found.push({ where, label: label ?? read.name, problems });
 }

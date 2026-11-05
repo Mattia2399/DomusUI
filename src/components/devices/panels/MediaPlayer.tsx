@@ -187,9 +187,18 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
       {hasCover && surface !== 'column' ? <img className="panel-media-backdrop" src={picture ?? undefined} alt="" aria-hidden="true" /> : null}
       <div className="panel-media-body">
         <div className="panel-media-head">
-          <button ref={closeRef} type="button" className="panel-media-round" aria-label={dt('mediaMinimize')} onClick={onClose}>
-            {surface === 'screen' ? <ChevronDown size={22} strokeWidth={2.4} aria-hidden="true" /> : <X size={18} strokeWidth={2.4} aria-hidden="true" />}
-          </button>
+          {canPower ? (
+            <button
+              type="button"
+              className={clsx('panel-media-round', off && 'is-lit')}
+              aria-label={off ? dt('mediaPowerOn', { name: model.name }) : dt('mediaPowerOff', { name: model.name })}
+              onClick={() => onAction({ type: 'power', on: off })}
+            >
+              <Power size={18} strokeWidth={2.2} aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="panel-media-round is-empty" aria-hidden="true" />
+          )}
           <div className="panel-media-where">
             <span>{onWhat}</span>
             {canGroup && !off ? (
@@ -205,18 +214,9 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
               </b>
             )}
           </div>
-          {canPower ? (
-            <button
-              type="button"
-              className={clsx('panel-media-round', off && 'is-lit')}
-              aria-label={off ? dt('mediaPowerOn', { name: model.name }) : dt('mediaPowerOff', { name: model.name })}
-              onClick={() => onAction({ type: 'power', on: off })}
-            >
-              <Power size={18} strokeWidth={2.2} aria-hidden="true" />
-            </button>
-          ) : (
-            <span className="panel-media-round is-empty" aria-hidden="true" />
-          )}
+          <button ref={closeRef} type="button" className="panel-media-round" aria-label={dt('mediaMinimize')} onClick={onClose}>
+            {surface === 'screen' ? <ChevronDown size={22} strokeWidth={2.4} aria-hidden="true" /> : <X size={18} strokeWidth={2.4} aria-hidden="true" />}
+          </button>
         </div>
 
         <div className="panel-media-main">

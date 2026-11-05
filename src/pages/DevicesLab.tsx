@@ -192,7 +192,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
   const devicePanel = devicePanelId ? devices.modelOf(devicePanelId) : null;
   const [presentation, setPresentation] = React.useState<PanelPresentation>('dialog');
   const panelModel = panelId ? lights.modelOf(panelId) : null;
-  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | 'sunny' | 'pouring' | 'clear-night' | 'lightning-rainy' | 'vacuum' | 'calendar' | 'sensor-hot' | 'sensor-humid' | 'stove' | 'climate-full' | 'light-full' | null>(null);
+  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | 'sunny' | 'pouring' | 'clear-night' | 'lightning-rainy' | 'vacuum' | 'calendar' | 'sensor-hot' | 'sensor-humid' | 'stove' | 'stove-more' | 'climate-full' | 'light-full' | null>(null);
 
   return (
     <section
@@ -201,7 +201,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       data-testid={`devices-lab-${theme}`}
     >
       <div className="flex items-center gap-2">
-        {(['members', 'camera', 'sunny', 'pouring', 'clear-night', 'lightning-rainy', 'vacuum', 'calendar', 'sensor-hot', 'sensor-humid', 'stove', 'climate-full', 'light-full'] as const).map((option) => (
+        {(['members', 'camera', 'sunny', 'pouring', 'clear-night', 'lightning-rainy', 'vacuum', 'calendar', 'sensor-hot', 'sensor-humid', 'stove', 'stove-more', 'climate-full', 'light-full'] as const).map((option) => (
           <button key={option} type="button" className="dv-glass rooms-pill h-9 rounded-full px-3.5 text-[13px] font-semibold" onClick={() => setDataPanel(option)}>
             {option}
           </button>
@@ -320,18 +320,18 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
             }}
             onClose={() => setDataPanel(null)}
           />
-        ) : dataPanel === 'stove' || dataPanel === 'climate-full' ? (
+        ) : dataPanel === 'stove' || dataPanel === 'stove-more' || dataPanel === 'climate-full' ? (
           <Panel
             kind="climate"
             input={{
               model: toClimateModel('climate.lab', {
                 state: 'heat',
-                rawAttributes: dataPanel === 'stove'
-                  ? { friendly_name: 'Termostufa Integrata', hvac_modes: ['off', 'heat'], temperature: 69, current_temperature: 27, min_temp: 20, max_temp: 80, fan_modes: ['auto', '1', '2', '3', '4', '5'], fan_mode: 'auto' }
+                rawAttributes: dataPanel !== 'climate-full'
+                  ? { friendly_name: 'Termostufa Integrata', hvac_modes: ['off', 'heat'], temperature: 69, current_temperature: 27, min_temp: 20, max_temp: 80, fan_modes: ['auto', '1', '2', '3', '4', '5'], fan_mode: 'auto', ...(dataPanel === 'stove-more' ? { preset_modes: ['comfort', 'eco'], preset_mode: 'comfort', swing_modes: ['off', 'vertical'], swing_mode: 'off' } : {}) }
                   : { friendly_name: 'Clima soggiorno', hvac_modes: ['heat', 'cool', 'heat_cool', 'dry', 'fan_only', 'off'], temperature: 21.5, current_temperature: 20.4, target_temp_step: 0.5, fan_modes: ['auto', 'low', 'medium', 'high'], fan_mode: 'medium', preset_modes: ['comfort', 'eco', 'sleep', 'away', 'boost'], preset_mode: 'comfort', swing_modes: ['off', 'vertical', 'top', 'middle', 'bottom'], swing_mode: 'vertical' },
               } as never),
               roomHumidity: 52,
-              extras: dataPanel === 'stove' ? undefined : { supportsTargetHumidity: true, targetHumidity: 45, supportsHorizontalSwing: true, horizontalSwingModes: ['off', 'swing', 'left', 'center', 'right'], horizontalSwing: 'center' },
+              extras: dataPanel !== 'climate-full' ? undefined : { supportsTargetHumidity: true, targetHumidity: 45, supportsHorizontalSwing: true, horizontalSwingModes: ['off', 'swing', 'left', 'center', 'right'], horizontalSwing: 'center' },
               onAction: () => undefined,
               onExtraAction: () => undefined,
             }}

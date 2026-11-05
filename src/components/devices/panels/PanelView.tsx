@@ -127,7 +127,6 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
       icon: <LayoutGrid size={20} strokeWidth={2} />,
       label: word('more'),
       kind: 'more',
-      lit: more.some(({ control }) => litOf(control)),
       // You are somewhere inside it.
       selected: nav.open === MORE_KEY || more.some(({ control }) => control.id === nav.open),
       disabled: off,
