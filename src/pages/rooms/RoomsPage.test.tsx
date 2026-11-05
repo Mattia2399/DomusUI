@@ -66,7 +66,7 @@ describe('the Rooms page in the demo', () => {
 
   it('heads the room like the design: summary, rooms as pills, statuses and what it lacks', () => {
     renderDemo();
-    expect(screen.getByText('21,5° · umidità 48% · 10 accessori accesi')).toBeTruthy();
+    expect(screen.getByText('21,5° · umidità 48% · 11 accessori accesi')).toBeTruthy();
     const rooms = screen.getByRole('navigation', { name: 'Stanze' });
     expect(within(rooms).getByRole('button', { name: 'Soggiorno' }).getAttribute('aria-current')).toBe('page');
     expect(screen.getByRole('button', { name: 'Tutta la casa' })).toBeTruthy();

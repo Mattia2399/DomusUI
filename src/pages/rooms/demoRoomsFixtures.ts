@@ -1,4 +1,5 @@
 import type { PlugEnergy } from '../../components/devices/model/plugEnergy';
+import { DEMO_STOVE_ENTITY_ID, DEMO_STOVE_STATE } from '../../demo/demoRelatedFixtures';
 import type { MockEntityStateMap } from '../../types/ha';
 
 /*
@@ -128,6 +129,7 @@ export const DEMO_PROTECTED_ENTITIES = ['switch.demo_fridge'];
 const AC_MODES = ['off', 'heat', 'cool', 'heat_cool', 'dry', 'fan_only'];
 
 export const DEMO_CLIMATE_STATES: MockEntityStateMap = {
+  [DEMO_STOVE_ENTITY_ID]: DEMO_STOVE_STATE,
   'climate.demo_living_ac': device('Climatizzatore', 'heat', {
     hvac_modes: AC_MODES,
     hvac_action: 'heating',
@@ -182,6 +184,7 @@ export const DEMO_CLIMATE_STATES: MockEntityStateMap = {
 };
 
 export const DEMO_CLIMATE_ROOMS: Record<string, string> = {
+  [DEMO_STOVE_ENTITY_ID]: 'demo-living-room',
   'climate.demo_living_ac': 'demo-living-room',
   'climate.demo_living_radiator': 'demo-living-room',
   'climate.demo_bedroom_ac': 'demo-bedroom',

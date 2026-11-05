@@ -93,6 +93,7 @@ import {
 import { useLightSwitchCommands } from './mainboard/useLightSwitchCommands';
 import { useFanCommands, enrichFanPending } from './mainboard/useFanCommands';
 import { createFanStateMocks } from '../widgets/fanMock';
+import { DEMO_RELATED_STATES, DEMO_STOVE_ENTITY_ID, DEMO_STOVE_STATE } from '../../demo/demoRelatedFixtures';
 import { getSceneIconNode, SCENES_CATALOG } from '../widgets/ScenesCard';
 import { PUSH_PAGE_ATTRIBUTE, routeDepth, usePagePushTransition } from '../ui/usePagePushTransition';
 import { resolveFanModel, type FanPending } from '../widgets/fanModel';
@@ -2057,6 +2058,8 @@ export function MainBoard() {
         ...fanStateMocks,
         ...humidifierStateMocks,
         ...calendarStateMocks,
+        ...DEMO_RELATED_STATES,
+        [DEMO_STOVE_ENTITY_ID]: DEMO_STOVE_STATE,
         [CLIMATE_LIVING_ROOM_MOCK_ENTITY_ID]: livingRoomClimateMock,
         [HOME_ALARM_MOCK_ENTITY_ID]: homeAlarmMock,
       };

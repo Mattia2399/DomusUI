@@ -1,3 +1,4 @@
+import type { RelatedControl } from './relatedControl';
 export type WidgetKind =
   | 'light'
   | 'switch'
@@ -113,6 +114,8 @@ export type Widget = {
   /** Explicit authority for this card. Mock sources must never reach Home Assistant APIs. */
   dataSource?: 'ha' | 'mock';
   widgets?: MicroWidget[];
+  /** Controls of other entities, in the same list as those of the device. */
+  relatedControls?: RelatedControl[];
   isFavorite?: boolean;
   placementPolicy?: 'manual' | 'favorites-auto';
   alarmRequireAuthToDisarm?: boolean;

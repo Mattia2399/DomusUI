@@ -5,6 +5,7 @@ import {
   type WidgetKind,
 } from '../types/dashboardModels';
 import { createStarterDashboardTemplate } from '../templates/starterDashboardTemplate';
+import { DEMO_RELATED_WIDGETS, withDemoRelatedLayouts } from './demoRelatedFixtures';
 import type { DashboardResponsiveLayouts } from '../types/widgetTypeLayout';
 
 /**
@@ -98,7 +99,7 @@ export const EMPTY_ENTITY_OPTIONS: Record<WidgetKind, string[]> = {
 
 const DEMO_STARTER_TEMPLATE = createStarterDashboardTemplate('demo');
 
-export const DEMO_INITIAL_WIDGETS: Widget[] = DEMO_STARTER_TEMPLATE.widgets;
+export const DEMO_INITIAL_WIDGETS: Widget[] = [...DEMO_STARTER_TEMPLATE.widgets, ...DEMO_RELATED_WIDGETS];
 
 export const DEMO_INITIAL_SECTIONS: DashboardSection[] = DEMO_STARTER_TEMPLATE.sections;
 
@@ -116,7 +117,7 @@ export function getInitialDashboardFixtures(runtimeMode: DashboardRuntimeMode): 
     return {
       sections: DEMO_INITIAL_SECTIONS.map((section) => ({ ...section, layout: { ...section.layout } })),
       widgets: DEMO_INITIAL_WIDGETS.map((widget) => ({ ...widget, layout: { ...widget.layout } })),
-      responsiveLayouts: template.responsiveLayouts,
+      responsiveLayouts: withDemoRelatedLayouts(template.responsiveLayouts),
     };
   }
   return { sections: [], widgets: [], responsiveLayouts: {} };
