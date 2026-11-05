@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { controlBlocked, controlStateAria, controlStateClass, type GlassControlState } from './glassControl';
+import { controlBlocked, controlStateAria, controlStateClass, type GlassControlSize, type GlassControlState } from './glassControl';
 import './glassActions.css';
 
 export type GlassMomentaryButtonProps = GlassControlState & {
@@ -9,8 +9,8 @@ export type GlassMomentaryButtonProps = GlassControlState & {
   icon?: React.ReactNode;
   /** True when it is pressed, false when it is let go. */
   onPress: (pressed: boolean) => void;
-  /** An action has no large version. */
-  size?: 'compact' | 'group';
+  /** Large, it fills the panel: a gesture is not a quick touch of a shortcut. */
+  size?: GlassControlSize;
   className?: string;
 };
 

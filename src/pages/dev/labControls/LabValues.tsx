@@ -10,6 +10,7 @@ import { GlassRingSlider } from '../../../components/ui/GlassRingSlider';
 import { GlassSelectMenu } from '../../../components/ui/GlassSelectMenu';
 import { GlassStepper } from '../../../components/ui/GlassStepper';
 import { GlassToggleCard } from '../../../components/ui/GlassToggleCard';
+import '../../../components/devices/panels/related/related.css';
 import { LAB_STATES, LabCard, LabHero, LabNamed } from './labShared';
 
 const CHOICES = [

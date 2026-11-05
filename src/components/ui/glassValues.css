@@ -567,30 +567,6 @@ button.glass-led-row {
   }
 }
 
-/* The stepper as the protagonist: the value large, − and + wide below it. */
-.glass-stepper.is-hero {
-  min-height: 0;
-  flex: 1;
-  flex-wrap: wrap;
-  align-content: center;
-  justify-content: center;
-  gap: 24px;
-}
-
-.glass-stepper.is-hero .glass-stepper-value {
-  order: -1;
-  flex: 1 0 100%;
-}
-
-.glass-stepper.is-hero .glass-stepper-value > b {
-  font-size: 64px;
-}
-
-.glass-stepper.is-hero .glass-stepper-button {
-  height: 72px;
-  width: 72px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .glass-levels > button,
   .glass-toggle-card {

@@ -1,4 +1,4 @@
-/* Actions that load only when a panel uses them. An action has no large version. */
+/* Actions that load only when a panel uses them. Only those to hold have a large version. */
 
 .glass-button-group {
   display: flex;
@@ -89,6 +89,21 @@
   color: var(--control-ink-2);
   font-size: 12px;
   font-weight: 500;
+}
+
+/* A gesture as the protagonist: all the space is the button. */
+.glass-hold.is-hero,
+.glass-momentary.is-hero {
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  border-radius: 28px;
+  font-size: 24px;
+}
+
+.glass-hold.is-hero > span > span,
+.glass-momentary.is-hero > span > span {
+  font-size: 15px;
 }
 
 /* Hold to confirm */

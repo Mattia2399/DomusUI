@@ -15,18 +15,18 @@ export type RelatedPlainLook =
   // Choosing
   | 'segmented' | 'menu' | 'list' | 'radio' | 'arrows' | 'tiles'
   // Numbers
-  | 'stepper' | 'number-input' | 'levels' | 'ring-slider'
+  | 'stepper' | 'number-input' | 'levels' | 'ring-slider' | 'keypad'
   // Yes or no
   | 'toggle-row' | 'icon-toggle' | 'toggle-card' | 'led-row'
   // Actions
-  | 'push' | 'momentary' | 'running' | 'result' | 'pill'
+  | 'push' | 'momentary' | 'hold' | 'running' | 'result' | 'pill'
   // Readings
   | 'value' | 'value-pill' | 'badge' | 'led' | 'glow' | 'gauge' | 'radial' | 'mini-ring' | 'progress'
   | 'progress-vertical' | 'battery' | 'temperature' | 'humidity' | 'level' | 'connection' | 'trend' | 'icon-status'
   // Charts
-  | 'sparkline' | 'chart-line' | 'chart-area' | 'chart-bar' | 'chart-history' | 'chart-compare' | 'chart-stats'
+  | 'sparkline' | 'chart-line' | 'chart-area' | 'chart-bar' | 'chart-stats'
   // Text and dates
-  | 'text' | 'textarea' | 'keypad' | 'date' | 'time' | 'datetime' | 'password'
+  | 'text' | 'textarea' | 'date' | 'time' | 'datetime' | 'password'
   // Time left
   | 'countdown';
 export type RelatedLook = RelatedSliderLook | RelatedPlainLook | 'page';

@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { controlBlocked, controlStateAria, controlStateClass, type GlassControlState } from './glassControl';
+import { controlBlocked, controlStateAria, controlStateClass, type GlassControlSize, type GlassControlState } from './glassControl';
 import './glassActions.css';
 
 export const GLASS_HOLD_MS = 1200;
@@ -13,8 +13,8 @@ export type GlassHoldButtonProps = GlassControlState & {
   onConfirm: () => void;
   /** Red for what cannot be undone and is dangerous. */
   danger?: boolean;
-  /** An action has no large version. */
-  size?: 'compact' | 'group';
+  /** Large, it fills the panel: a gesture is not a quick touch of a shortcut. */
+  size?: GlassControlSize;
   className?: string;
 };
 
