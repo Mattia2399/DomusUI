@@ -133,9 +133,10 @@
   border-top-color: var(--control-ink-2);
 }
 
-.glass-vslider-now > em {
+/* Just above its line, but never over the words on top: there it waits under them. */
+.glass-vslider-now-pill {
   position: absolute;
-  bottom: 4px;
+  top: max(86px, calc(100% - var(--vslider-now) - 24px));
   left: 12px;
   border-radius: 9px;
   padding: 2px 7px;

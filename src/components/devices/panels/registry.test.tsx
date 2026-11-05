@@ -256,7 +256,7 @@ describe('a fan', () => {
 describe('a humidifier', () => {
   it('has its target in the middle, with the humidity now marked on it', () => {
     const { container } = drawn(humidifierEntry.useSpec, { model: device('humidifier.a', 'on', { humidity: 50, current_humidity: 45, available_modes: ['Eco'] }), onAction: vi.fn() });
-    expect(container.querySelector('.glass-vslider-now')?.textContent).toBe('ora 45%');
+    expect(container.querySelector('.glass-vslider-now-pill')?.textContent).toBe('ora 45%');
   });
 
   it('offers a shortcut only for what it exposes', () => {
@@ -314,7 +314,7 @@ describe('a climate device', () => {
   it('has its target in the middle, with the room marked on it', () => {
     const { container } = drawn(climateEntry.useSpec, input());
     expect(specOf(climateEntry.useSpec, input()).heroKind).toBe('slider');
-    expect(container.querySelector('.glass-vslider-now')?.textContent).toBe('ora 20,4°');
+    expect(container.querySelector('.glass-vslider-now-pill')?.textContent).toBe('ora 20,4°');
   });
 
   it('offers a control only for what it exposes, in the order of the registry', () => {

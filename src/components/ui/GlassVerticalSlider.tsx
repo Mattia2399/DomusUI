@@ -92,9 +92,14 @@ export function GlassVerticalSlider({
       {overlay}
       {ticks?.map((tick) => <span key={tick} className="glass-vslider-tick" aria-hidden="true" style={{ bottom: `${tick}%` }} />)}
       {current ? (
-        <span className={clsx('glass-vslider-now', share(current.value) > percent && 'is-above')} aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }}>
-          {current.label ? <em>{current.label}</em> : null}
-        </span>
+        <>
+          <span className={clsx('glass-vslider-now', share(current.value) > percent && 'is-above')} aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }} />
+          {current.label ? (
+            <em className="glass-vslider-now-pill" aria-hidden="true" style={{ '--vslider-now': `${Number(share(current.value).toFixed(1))}%` } as React.CSSProperties}>
+              {current.label}
+            </em>
+          ) : null}
+        </>
       ) : null}
       {display !== undefined || subtitle !== undefined ? (
         <span className="glass-vslider-top" aria-hidden="true">
