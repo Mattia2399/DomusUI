@@ -1,0 +1,251 @@
+/* Actions that load only when a panel uses them. An action has no large version. */
+
+.glass-button-group {
+  display: flex;
+  width: 100%;
+  height: var(--control-bar-height);
+  gap: 2px;
+  overflow: hidden;
+  border-radius: var(--control-bar-radius);
+}
+
+.glass-button-group.is-compact {
+  height: var(--control-bar-height-compact);
+}
+
+.glass-button-group > button {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.glass-button-group > button.is-on {
+  background: var(--control-soft-strong);
+}
+
+.glass-button-group > button:disabled {
+  cursor: default;
+}
+
+.glass-hold,
+.glass-momentary,
+.glass-run,
+.glass-result {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: var(--control-button-height);
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--control-bar-radius);
+  padding: 6px 14px;
+  background: var(--control-soft-strong);
+  color: var(--control-ink);
+  font-size: 15px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.glass-hold.is-compact,
+.glass-momentary.is-compact,
+.glass-run.is-compact,
+.glass-result.is-compact {
+  min-height: var(--control-bar-height-compact);
+  font-size: 14px;
+}
+
+.glass-hold b,
+.glass-momentary b,
+.glass-run b,
+.glass-result b,
+.glass-status-pill b {
+  font-weight: 600;
+}
+
+.glass-hold > span,
+.glass-momentary > span {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.glass-hold > span > span,
+.glass-momentary > span > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Hold to confirm */
+.glass-hold {
+  touch-action: none;
+}
+
+.glass-hold > i {
+  position: absolute;
+  inset: 0;
+  background: var(--device-accent, var(--control-on));
+  opacity: 0.55;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.glass-hold.is-danger > i {
+  background: var(--state-error);
+}
+
+.glass-hold.is-holding > i {
+  animation: glass-hold-fill linear forwards;
+}
+
+@keyframes glass-hold-fill {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* Press and hold */
+.glass-momentary {
+  touch-action: none;
+}
+
+.glass-momentary.is-on {
+  background: var(--device-accent, var(--control-on));
+  color: var(--device-accent-ink, var(--control-on-ink));
+}
+
+.glass-momentary.is-on > span > span {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.glass-momentary > i {
+  display: flex;
+}
+
+/* Running */
+.glass-run-bar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--device-accent, var(--control-on));
+  opacity: 0.5;
+  transition: width 300ms linear;
+}
+
+.glass-run-wheel {
+  height: 16px;
+  width: 16px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: glass-run-turn 800ms linear infinite;
+}
+
+.glass-run b {
+  position: relative;
+}
+
+.glass-run:disabled,
+.glass-result:disabled,
+.glass-hold:disabled,
+.glass-momentary:disabled,
+.glass-status-pill:disabled {
+  cursor: default;
+}
+
+@keyframes glass-run-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* With its outcome: the meaning decides the colour, not the device. */
+.glass-result.is-done {
+  background: #30b350;
+  color: #ffffff;
+}
+
+.glass-result.is-failed {
+  background: var(--state-error);
+  color: #ffffff;
+}
+
+/* Pill */
+.glass-status-pill {
+  display: inline-flex;
+  height: 40px;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 20px;
+  padding: 0 14px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.glass-status-pill.is-on {
+  background: var(--device-accent, var(--control-on));
+  color: var(--device-accent-ink, var(--control-on-ink));
+}
+
+.glass-status-pill > i {
+  display: flex;
+}
+
+.glass-status-pill > b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.glass-status-pill > span {
+  font-size: 12px;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.glass-button-group > button:focus-visible,
+.glass-hold:focus-visible,
+.glass-momentary:focus-visible,
+.glass-run:focus-visible,
+.glass-result:focus-visible,
+.glass-status-pill:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-hold.is-holding > i {
+    animation: none;
+    transform: scaleX(1);
+  }
+
+  .glass-run-bar {
+    transition: none;
+  }
+
+  .glass-run-wheel {
+    animation-duration: 2.4s;
+  }
+}

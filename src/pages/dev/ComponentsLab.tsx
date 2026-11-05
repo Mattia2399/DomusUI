@@ -31,6 +31,7 @@ import {
   type PanelSurface,
 } from '../../components/devices/panels/shell';
 import { LabValues } from './labControls/LabValues';
+import { LabActions } from './labControls/LabActions';
 import './componentsLab.css';
 
 /*
@@ -371,6 +372,10 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       <h2>Valori: selezione, numeri, interruttori</h2>
       <div className="lab-grid">
         <LabValues />
+      </div>
+      <h2>Azioni</h2>
+      <div className="lab-grid">
+        <LabActions />
       </div>
       <h2>Il pannello</h2>
       <Shapes />
