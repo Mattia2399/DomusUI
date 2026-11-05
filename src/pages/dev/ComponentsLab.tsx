@@ -34,6 +34,8 @@ import { LabValues } from './labControls/LabValues';
 import { LabActions } from './labControls/LabActions';
 import { LabIndicators } from './labControls/LabIndicators';
 import { LabCharts } from './labControls/LabCharts';
+import { LabText } from './labControls/LabText';
+import { LabAdvanced } from './labControls/LabAdvanced';
 import './componentsLab.css';
 
 /*
@@ -386,6 +388,14 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       <h2>Grafici</h2>
       <div className="lab-grid">
         <LabCharts />
+      </div>
+      <h2>Testo e date</h2>
+      <div className="lab-grid">
+        <LabText />
+      </div>
+      <h2>Avanzati</h2>
+      <div className="lab-grid">
+        <LabAdvanced />
       </div>
       <h2>Il pannello</h2>
       <Shapes />

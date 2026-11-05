@@ -1,0 +1,525 @@
+/* Text and dates that load only when a panel uses them. */
+
+.glass-text,
+.glass-textarea,
+.glass-keypad,
+.glass-date,
+.glass-time,
+.glass-datetime,
+.glass-time-range {
+  width: 100%;
+  color: var(--control-ink);
+}
+
+.glass-text,
+.glass-textarea {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.glass-text-field {
+  display: flex;
+  height: var(--control-bar-height);
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--control-bar-radius);
+  padding: 0 8px 0 14px;
+  background: var(--control-soft);
+}
+
+.glass-text.is-compact .glass-text-field {
+  height: var(--control-bar-height-compact);
+}
+
+.glass-text input,
+.glass-textarea textarea {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.glass-text-field > button {
+  display: flex;
+  height: 30px;
+  width: 30px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+  color: inherit;
+  cursor: pointer;
+}
+
+.glass-text > p,
+.glass-textarea > p {
+  display: flex;
+  min-height: 16px;
+  margin: 0;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.glass-textarea > p {
+  justify-content: flex-end;
+}
+
+.glass-text.has-problem .glass-text-field {
+  box-shadow: inset 0 0 0 2px var(--state-error);
+}
+
+.glass-text.has-problem > p > span:first-child {
+  color: var(--state-error);
+}
+
+.glass-text.is-hero,
+.glass-textarea.is-hero {
+  min-height: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.glass-text.is-hero .glass-text-field {
+  height: 88px;
+  border-radius: 24px;
+  padding: 0 14px 0 20px;
+}
+
+.glass-text.is-hero input {
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.glass-textarea textarea {
+  display: block;
+  width: 100%;
+  max-height: 124px;
+  flex: none;
+  border-radius: var(--control-bar-radius);
+  padding: 10px 14px;
+  background: var(--control-soft);
+  resize: none;
+  field-sizing: content;
+}
+
+.glass-textarea.is-hero textarea {
+  max-height: none;
+  min-height: 0;
+  flex: 1;
+  border-radius: 24px;
+  font-size: 18px;
+  field-sizing: fixed;
+}
+
+/* Keypad */
+.glass-keypad {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.glass-keypad > output {
+  display: flex;
+  min-height: 36px;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+}
+
+.glass-keypad > output > b {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-keypad > output > span {
+  color: var(--control-ink-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.glass-keypad > div {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: 46px;
+}
+
+.glass-keypad.is-compact > div {
+  grid-auto-rows: 38px;
+}
+
+.glass-keypad > div > button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 14px;
+  background: var(--control-soft);
+  color: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.glass-keypad > div > button.is-confirm {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+  font-size: 15px;
+}
+
+.glass-keypad > div > button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
+.glass-keypad.is-hero {
+  min-height: 0;
+  flex: 1;
+}
+
+.glass-keypad.is-hero > output > b {
+  font-size: 44px;
+}
+
+.glass-keypad.is-hero > div {
+  min-height: 0;
+  flex: 1;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.glass-keypad.is-hero > div > button {
+  border-radius: 18px;
+  font-size: 24px;
+}
+
+/* Month */
+.glass-date {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.glass-date > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.glass-date > header > b {
+  font-size: 15px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.glass-date > header > button {
+  display: flex;
+  height: 36px;
+  width: 36px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-soft);
+  color: inherit;
+  cursor: pointer;
+}
+
+.glass-date > div {
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: 36px;
+  text-align: center;
+}
+
+.glass-date.is-compact > div {
+  grid-auto-rows: 30px;
+}
+
+.glass-date > div > span {
+  align-self: center;
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.glass-date > div > button {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+.glass-date > div > button:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.glass-date > div > button.is-today {
+  color: var(--state-error);
+  font-weight: 700;
+}
+
+.glass-date > div > button.is-on {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+  font-weight: 700;
+}
+
+.glass-date.is-hero {
+  min-height: 0;
+  flex: 1;
+}
+
+.glass-date.is-hero > div {
+  min-height: 0;
+  flex: 1;
+  grid-auto-rows: minmax(0, 1fr);
+}
+
+.glass-date.is-hero > div > button {
+  font-size: 17px;
+}
+
+/* Time */
+.glass-time {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.glass-time > span {
+  font-size: 30px;
+  font-weight: 700;
+}
+
+.glass-time-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.glass-time-column > b {
+  border-radius: 8px;
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-time-column > button {
+  display: flex;
+  height: 36px;
+  width: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 12px;
+  background: var(--control-soft);
+  color: inherit;
+  cursor: pointer;
+}
+
+.glass-time.is-compact .glass-time-column {
+  gap: 0;
+}
+
+.glass-time.is-compact .glass-time-column > b,
+.glass-time.is-compact > span {
+  font-size: 22px;
+}
+
+.glass-time.is-compact .glass-time-column > button {
+  height: 28px;
+}
+
+.glass-time.is-hero {
+  min-height: 0;
+  flex: 1;
+  gap: 16px;
+}
+
+.glass-time.is-hero > span,
+.glass-time.is-hero .glass-time-column > b {
+  font-size: 72px;
+}
+
+.glass-time.is-hero .glass-time-column {
+  gap: 12px;
+}
+
+.glass-time.is-hero .glass-time-column > button {
+  height: 64px;
+  width: 96px;
+  border-radius: 20px;
+}
+
+/* Date and time */
+.glass-datetime {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.glass-datetime-pills {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.glass-datetime-pills > button {
+  display: flex;
+  min-height: var(--control-bar-height);
+  flex-direction: column;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--control-bar-radius);
+  padding: 4px 12px;
+  background: var(--control-soft);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.glass-datetime-pills > button.is-open {
+  background: var(--control-soft-strong);
+}
+
+.glass-datetime-pills span {
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.glass-datetime-pills b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-datetime.is-hero {
+  min-height: 0;
+  flex: 1;
+}
+
+/* Band of the day */
+.glass-time-range {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.glass-time-range > output {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-time-range-track {
+  position: relative;
+  height: var(--control-bar-height);
+  overflow: hidden;
+  border-radius: var(--control-bar-radius);
+  background: var(--control-track);
+}
+
+.glass-time-range.is-compact .glass-time-range-track {
+  height: var(--control-bar-height-compact);
+}
+
+.glass-time-range-track > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--device-accent, var(--control-on));
+}
+
+.glass-time-range input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.glass-time-range input::-webkit-slider-thumb {
+  height: 34px;
+  width: 14px;
+  border-radius: 7px;
+  background: var(--control-knob);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  cursor: ew-resize;
+  pointer-events: auto;
+  -webkit-appearance: none;
+}
+
+.glass-time-range input::-moz-range-thumb {
+  height: 34px;
+  width: 14px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--control-knob);
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.glass-time-range > p {
+  display: flex;
+  margin: 0;
+  justify-content: space-between;
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.glass-time-range.is-hero {
+  min-height: 0;
+  flex: 1;
+  justify-content: center;
+  gap: 14px;
+}
+
+.glass-time-range.is-hero > output {
+  text-align: center;
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.glass-time-range.is-hero .glass-time-range-track {
+  height: 88px;
+  border-radius: 28px;
+}
+
+.glass-text input:focus-visible,
+.glass-text-field > button:focus-visible,
+.glass-textarea textarea:focus-visible,
+.glass-keypad button:focus-visible,
+.glass-date button:focus-visible,
+.glass-time button:focus-visible,
+.glass-time-column > b:focus-visible,
+.glass-datetime-pills > button:focus-visible,
+.glass-time-range input:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
