@@ -1,0 +1,603 @@
+/* Choices, numbers and switches that load only when a panel uses them. */
+
+/* Arrows */
+.glass-arrows {
+  display: flex;
+  width: 100%;
+  min-height: var(--control-bar-height);
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--control-bar-radius);
+  padding: 4px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+}
+
+.glass-arrows.is-compact {
+  width: auto;
+  min-height: 36px;
+  padding: 2px;
+}
+
+.glass-arrows > button {
+  display: flex;
+  height: 38px;
+  width: 38px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+  color: inherit;
+  cursor: pointer;
+}
+
+.glass-arrows.is-compact > button {
+  height: 32px;
+  width: 32px;
+}
+
+.glass-arrows > button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.glass-arrows > output {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-arrows.is-hero {
+  min-height: 0;
+  flex: 1;
+  border-radius: 24px;
+  padding: 16px;
+}
+
+.glass-arrows.is-hero > button {
+  height: 64px;
+  width: 64px;
+}
+
+.glass-arrows.is-hero > output {
+  white-space: normal;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.glass-arrows:focus-visible,
+.glass-number input:focus-visible,
+.glass-levels > button:focus-visible,
+.glass-ring-slider > div:focus-visible,
+.glass-range input:focus-visible,
+.glass-checkbox:focus-visible,
+.glass-toggle-card:focus-visible,
+.glass-led-row:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+/* Number field */
+.glass-number {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--control-ink);
+}
+
+.glass-number-field {
+  display: flex;
+  height: var(--control-bar-height);
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--control-bar-radius);
+  padding: 0 14px;
+  background: var(--control-soft);
+}
+
+.glass-number.is-compact .glass-number-field {
+  height: var(--control-bar-height-compact);
+}
+
+.glass-number input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-number-field > span,
+.glass-number > p {
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.glass-number.has-problem .glass-number-field {
+  box-shadow: inset 0 0 0 2px var(--state-error);
+}
+
+.glass-number.has-problem > p {
+  color: var(--state-error);
+}
+
+.glass-number.is-hero {
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.glass-number.is-hero .glass-number-field {
+  height: 96px;
+  width: 100%;
+  border-radius: 24px;
+}
+
+.glass-number.is-hero input {
+  text-align: center;
+  font-size: 44px;
+  font-weight: 700;
+}
+
+.glass-number.is-hero .glass-number-field > span {
+  font-size: 20px;
+}
+
+/* Levels */
+.glass-levels {
+  display: flex;
+  width: 100%;
+  height: var(--control-bar-height);
+  gap: 4px;
+  touch-action: none;
+}
+
+.glass-levels.is-compact {
+  height: var(--control-bar-height-compact);
+}
+
+.glass-levels > button {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.glass-levels > button:first-child {
+  border-radius: var(--control-bar-radius) 10px 10px var(--control-bar-radius);
+}
+
+.glass-levels > button:last-child {
+  border-radius: 10px var(--control-bar-radius) var(--control-bar-radius) 10px;
+}
+
+.glass-levels > button.is-reached {
+  background: color-mix(in srgb, var(--device-accent, var(--control-on)) 45%, transparent);
+}
+
+.glass-levels > button.is-on {
+  background: var(--device-accent, var(--control-on));
+  color: var(--device-accent-ink, var(--control-on-ink));
+}
+
+.glass-levels > button:disabled {
+  cursor: default;
+}
+
+/* The protagonist: in a column, the lowest at the bottom, as wide as a slider. */
+.glass-levels.is-hero {
+  height: auto;
+  min-height: 0;
+  max-height: var(--panel-hero-height, 300px);
+  width: var(--panel-hero-width, 148px);
+  flex: 1 1 auto;
+  flex-direction: column-reverse;
+}
+
+.glass-levels.is-hero > button {
+  font-size: 18px;
+}
+
+.glass-levels.is-hero > button:first-child {
+  border-radius: 10px 10px 32px 32px;
+}
+
+.glass-levels.is-hero > button:last-child {
+  border-radius: 32px 32px 10px 10px;
+}
+
+/* Range */
+.glass-range {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--control-ink);
+}
+
+.glass-range > output {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-range-track {
+  position: relative;
+  height: var(--control-bar-height);
+  overflow: hidden;
+  border-radius: var(--control-bar-radius);
+  background: var(--control-track);
+}
+
+.glass-range.is-compact .glass-range-track {
+  height: var(--control-bar-height-compact);
+}
+
+.glass-range-track > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--device-accent, var(--control-on));
+}
+
+.glass-range input {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.glass-range input::-webkit-slider-thumb {
+  height: 34px;
+  width: 14px;
+  border-radius: 7px;
+  background: var(--control-knob);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  cursor: ew-resize;
+  pointer-events: auto;
+  -webkit-appearance: none;
+}
+
+.glass-range input::-moz-range-thumb {
+  height: 34px;
+  width: 14px;
+  border: 0;
+  border-radius: 7px;
+  background: var(--control-knob);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  cursor: ew-resize;
+  pointer-events: auto;
+}
+
+.glass-range > p {
+  display: flex;
+  margin: 0;
+  justify-content: space-between;
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.glass-range.is-hero {
+  min-height: 0;
+  flex: 1;
+  justify-content: center;
+  gap: 16px;
+}
+
+.glass-range.is-hero > output {
+  text-align: center;
+  font-size: 40px;
+  font-weight: 700;
+}
+
+.glass-range.is-hero .glass-range-track {
+  height: 88px;
+  border-radius: 28px;
+}
+
+.glass-range.is-hero input::-webkit-slider-thumb {
+  height: 72px;
+  width: 18px;
+}
+
+.glass-range.is-hero input::-moz-range-thumb {
+  height: 72px;
+  width: 18px;
+}
+
+/* Ring */
+.glass-ring-slider {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  color: var(--control-ink);
+  container-type: inline-size;
+}
+
+.glass-ring-slider > div {
+  position: relative;
+  height: min(200px, 100cqw);
+  width: min(200px, 100cqw);
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+}
+
+.glass-ring-slider.is-compact > div {
+  height: min(160px, 100cqw);
+  width: min(160px, 100cqw);
+}
+
+.glass-ring-slider.is-hero {
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  container-type: size;
+}
+
+.glass-ring-slider.is-hero > div {
+  height: min(100cqw, 100cqh, 320px);
+  width: min(100cqw, 100cqh, 320px);
+}
+
+.glass-ring-slider svg {
+  height: 100%;
+  width: 100%;
+}
+
+.glass-ring-slider path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 18;
+}
+
+.glass-ring-slider-track {
+  stroke: var(--control-track);
+}
+
+.glass-ring-slider-fill {
+  stroke: var(--device-accent, var(--control-on));
+}
+
+.glass-ring-slider-handle {
+  fill: var(--control-knob);
+  filter: drop-shadow(0 1px 3px rgb(0 0 0 / 0.35));
+}
+
+.glass-ring-slider-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.glass-ring-slider-text > b {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-ring-slider-text > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Checkbox, card and row with a light */
+.glass-checkbox,
+.glass-led-row {
+  display: flex;
+  width: 100%;
+  min-height: var(--control-row-height);
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 16px;
+  padding: 8px 14px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  text-align: left;
+}
+
+.glass-checkbox.is-compact,
+.glass-led-row.is-compact {
+  min-height: var(--control-hit-min);
+  padding: 4px 12px;
+}
+
+button.glass-checkbox,
+button.glass-led-row {
+  cursor: pointer;
+}
+
+.glass-checkbox > i {
+  display: flex;
+  height: 21px;
+  width: 21px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--control-track);
+}
+
+.glass-checkbox.is-on > i {
+  background: var(--device-accent, var(--control-on));
+  color: var(--device-accent-ink, var(--control-on-ink));
+}
+
+.glass-checkbox > span,
+.glass-led-row > span,
+.glass-toggle-card > span {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.glass-checkbox b,
+.glass-led-row b,
+.glass-toggle-card b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-checkbox > span > span,
+.glass-led-row > span > span,
+.glass-toggle-card > span > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.glass-toggle-card {
+  display: flex;
+  width: 100%;
+  min-height: 82px;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-radius: 20px;
+  padding: 12px 14px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.glass-toggle-card.is-compact {
+  min-height: 56px;
+  border-radius: 16px;
+  padding: 8px 12px;
+}
+
+.glass-toggle-card.is-on {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-toggle-card.is-on > span > span {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.glass-toggle-card > i {
+  display: flex;
+  height: 40px;
+  width: 40px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+}
+
+.glass-toggle-card.is-on > i {
+  background: var(--device-accent, var(--control-soft-strong));
+  color: var(--device-accent-ink, inherit);
+}
+
+.glass-led-row-light {
+  height: 12px;
+  width: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--control-track);
+}
+
+.glass-led-row-light.is-ok {
+  background: #34c759;
+  box-shadow: 0 0 8px #34c759;
+}
+
+.glass-led-row-light.is-warn {
+  background: #ff9f0a;
+  box-shadow: 0 0 8px #ff9f0a;
+}
+
+.glass-led-row-light.is-bad {
+  background: #ff453a;
+  box-shadow: 0 0 8px #ff453a;
+}
+
+.glass-led-row-light.is-blinking {
+  animation: glass-led-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes glass-led-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+/* The stepper as the protagonist: the value large, − and + wide below it. */
+.glass-stepper.is-hero {
+  min-height: 0;
+  flex: 1;
+  flex-wrap: wrap;
+  align-content: center;
+  justify-content: center;
+  gap: 24px;
+}
+
+.glass-stepper.is-hero .glass-stepper-value {
+  order: -1;
+  flex: 1 0 100%;
+}
+
+.glass-stepper.is-hero .glass-stepper-value > b {
+  font-size: 64px;
+}
+
+.glass-stepper.is-hero .glass-stepper-button {
+  height: 72px;
+  width: 72px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-levels > button,
+  .glass-toggle-card {
+    transition: none;
+  }
+
+  .glass-led-row-light.is-blinking {
+    animation: none;
+  }
+}

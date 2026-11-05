@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { Minus, Plus } from 'lucide-react';
-import { controlBlocked, controlStateAria, controlStateClass, type GlassControlState } from './glassControl';
+import { controlBlocked, controlStateAria, controlStateClass, type GlassControlSize, type GlassControlState } from './glassControl';
 import './glassStepper.css';
 
 export type GlassStepperProps = GlassControlState & {
@@ -17,6 +17,8 @@ export type GlassStepperProps = GlassControlState & {
   format?: (value: number) => string;
   /** Writes the two limits under the value. */
   showLimits?: boolean;
+  /** The protagonist comes with the styles of its piece, the others are the same. */
+  size?: GlassControlSize;
   className?: string;
 };
 
@@ -24,7 +26,7 @@ const REPEAT_AFTER_MS = 420;
 const REPEAT_EVERY_MS = 110;
 
 /* The most precise control: − and +, and holding one down repeats it up to the limit. */
-export function GlassStepper({ value, min, max, step = 1, onValueChange, label, decreaseLabel, increaseLabel, format = String, showLimits = false, className, disabled, pending, error }: GlassStepperProps) {
+export function GlassStepper({ value, min, max, step = 1, onValueChange, label, decreaseLabel, increaseLabel, format = String, showLimits = false, size, className, disabled, pending, error }: GlassStepperProps) {
   const state = { disabled, pending, error };
   const blocked = controlBlocked(state);
   const latest = React.useRef({ value, onValueChange });
@@ -74,7 +76,7 @@ export function GlassStepper({ value, min, max, step = 1, onValueChange, label, 
   const atMax = value + step > max;
 
   return (
-    <div className={clsx('glass-stepper', controlStateClass(state), className)}>
+    <div className={clsx('glass-stepper', size === 'hero' && 'is-hero', controlStateClass(state), className)}>
       <button type="button" className="glass-stepper-button" aria-label={decreaseLabel} disabled={blocked || atMin} {...hold(-1)}>
         <Minus size={20} strokeWidth={2.4} aria-hidden="true" />
       </button>

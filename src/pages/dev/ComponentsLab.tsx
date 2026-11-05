@@ -30,6 +30,7 @@ import {
   type PanelStateValue,
   type PanelSurface,
 } from '../../components/devices/panels/shell';
+import { LabValues } from './labControls/LabValues';
 import './componentsLab.css';
 
 /*
@@ -367,6 +368,10 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
     <section className={clsx('lab-board', theme === 'dark' ? 'dashboard-theme-dark' : 'dashboard-theme-light')} data-testid={`lab-board-${theme}`} aria-label={theme}>
       <h2>Controlli, tema {theme === 'dark' ? 'scuro' : 'chiaro'}</h2>
       <Controls />
+      <h2>Valori: selezione, numeri, interruttori</h2>
+      <div className="lab-grid">
+        <LabValues />
+      </div>
       <h2>Il pannello</h2>
       <Shapes />
     </section>

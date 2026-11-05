@@ -14,6 +14,9 @@ export type GlassControlState = {
   error?: boolean;
 };
 
+/** Small for cards and rows of Altro, in a group of the column and the dialog, or as the protagonist of the panel. */
+export type GlassControlSize = 'compact' | 'group' | 'hero';
+
 /** Neutral, or in the colour of the device (--device-accent, set by whoever opens the panel). */
 export type GlassTone = 'neutral' | 'device';
 

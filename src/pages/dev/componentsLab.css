@@ -113,3 +113,23 @@
 .lab-shape.is-states {
   width: 360px;
 }
+
+.lab-board {
+  --device-accent: #ff9f0a;
+  --device-accent-ink: #2a1a00;
+}
+
+.lab-hero-frame {
+  display: flex;
+  height: 380px;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 18px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--device-accent) 18%, var(--lab-card));
+}
+
+.lab-hero-frame > * {
+  min-height: 0;
+}
