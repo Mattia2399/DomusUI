@@ -191,6 +191,7 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
               more.length > 0
                 ? {
                     icon: <LayoutGrid size={16} strokeWidth={2} />,
+                    lit: Boolean(spec.action?.on),
                     title: word('more'),
                     count: word('moreCount', { n: more.length }),
                     summary: more

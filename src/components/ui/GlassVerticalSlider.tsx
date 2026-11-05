@@ -92,7 +92,7 @@ export function GlassVerticalSlider({
       {overlay}
       {ticks?.map((tick) => <span key={tick} className="glass-vslider-tick" aria-hidden="true" style={{ bottom: `${tick}%` }} />)}
       {current ? (
-        <span className="glass-vslider-now" aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }}>
+        <span className={clsx('glass-vslider-now', share(current.value) > percent && 'is-above')} aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }}>
           {current.label ? <em>{current.label}</em> : null}
         </span>
       ) : null}

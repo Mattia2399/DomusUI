@@ -53,8 +53,6 @@ function fanLevelsOf(modes: readonly string[]) {
   return { auto, steps: [...steps].sort((first, second) => rank(first) - rank(second)) };
 }
 
-const FILL = { background: 'linear-gradient(0deg, color-mix(in srgb, var(--device-accent) 72%, #000), var(--device-accent))' };
-
 function useClimateSpec({ model, roomName, roomTemperature, roomHumidity, extras, onAction, onExtraAction }: ClimatePanelInput): PanelSpec {
   const dt = useDevicesTranslations();
   const sp = usePanelSpecTranslations();
@@ -73,7 +71,8 @@ function useClimateSpec({ model, roomName, roomTemperature, roomHumidity, extras
     <GlassChoiceRows<string> size={size} ariaLabel={label} options={options.map((option) => ({ value: option, label: nameOf(option) }))} value={value} onChange={onPick} />
   );
 
-  const modeOptions = model.modes.map((mode) => {
+  // Off is always the last choice, wherever the entity lists it.
+  const modeOptions = [...model.modes].sort((first, second) => Number(first === 'off') - Number(second === 'off')).map((mode) => {
     const ModeIcon = CLIMATE_ICONS[mode];
     const keeps = (mode === 'heat' || mode === 'cool' || mode === 'auto') && model.target !== null ? sp.t('modeKeeps', { value: degrees(model.target, locale) }) : undefined;
     return { value: mode, label: dt(CLIMATE_MODE_KEY[mode]), note: keeps, icon: <ModeIcon size={24} strokeWidth={2} /> };
@@ -298,8 +297,6 @@ function useClimateSpec({ model, roomName, roomTemperature, roomHumidity, extras
         subtitle={dt(model.mode === 'cool' ? 'captionCool' : model.mode === 'auto' ? 'captionAuto' : 'captionHeat').toLocaleLowerCase(locale)}
         valueText={degrees(model.target as number, locale)}
         current={now !== null ? { value: now, label: dt('nowAt', { t: degrees(now, locale) }) } : undefined}
-        fillStyle={FILL}
-        icon={<Icon size={24} strokeWidth={2} />}
         onValueChange={(target) => onAction({ type: 'target', target })}
       />
     ) : range ? (

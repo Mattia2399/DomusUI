@@ -19,6 +19,7 @@ export type PanelGroup = {
 /** The last row: what is in Altro, with its main values already in view. */
 export type PanelMoreRow = {
   icon: React.ReactNode;
+  lit?: boolean;
   title: string;
   count: string;
   summary: string;
@@ -49,7 +50,7 @@ export function PanelGroups({ groups, before, more }: { groups: readonly PanelGr
       {more ? (
         <button type="button" className="panel-group panel-group-more" onClick={more.onPress}>
           <span className="panel-group-head">
-            <span className="panel-group-icon" aria-hidden="true">
+            <span className={clsx('panel-group-icon', more.lit && 'is-lit')} aria-hidden="true">
               {more.icon}
             </span>
             <b>{more.title}</b>

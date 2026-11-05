@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lightbulb, Palette, Sparkles, Sun, SunDim, Zap } from 'lucide-react';
+import { Lightbulb, Palette, Sparkles, SunDim, Zap } from 'lucide-react';
 import { useDevicesTranslations } from '../../../../i18n/devicesTranslations';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import { GlassChips } from '../../../ui/GlassChips';
@@ -276,7 +276,6 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
         disabled={!model.available}
         display={lit ? `${pct}%` : dt('off')}
         valueText={lit ? `${pct}%` : dt('off')}
-        icon={<Sun size={24} strokeWidth={2} />}
         onValueChange={(value) => onAction({ type: 'brightness', pct: value })}
       />
     ) : (

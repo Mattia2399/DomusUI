@@ -122,17 +122,25 @@
 
 .glass-vslider-now {
   position: absolute;
-  right: 14px;
-  left: 14px;
-  border-top: 2px dashed currentColor;
-  opacity: 0.7;
+  right: 0;
+  left: 0;
+  border-top: 2px dashed rgb(255 255 255 / 0.95);
   pointer-events: none;
+}
+
+/* Over the fill it reads in white; above it, on the empty track, in the ink. */
+.glass-vslider-now.is-above {
+  border-top-color: var(--control-ink-2);
 }
 
 .glass-vslider-now > em {
   position: absolute;
-  right: 0;
-  bottom: 2px;
+  bottom: 4px;
+  left: 12px;
+  border-radius: 9px;
+  padding: 2px 7px;
+  background: rgb(0 0 0 / 0.28);
+  color: #ffffff;
   font-size: 11px;
   font-style: normal;
   font-weight: 700;

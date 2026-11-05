@@ -61,15 +61,21 @@
   display: flex;
   min-height: 0;
   flex: 1;
+  align-items: center;
   container-type: normal;
 }
 
 .glass-tiles.is-hero {
+  height: 100%;
   min-height: 0;
   flex: 1;
   gap: 10px;
   grid-auto-rows: minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
+}
+
+.glass-tiles.is-hero:not(.is-two-wide) {
+  max-height: 330px;
 }
 
 .glass-tiles.is-hero.is-two-wide {

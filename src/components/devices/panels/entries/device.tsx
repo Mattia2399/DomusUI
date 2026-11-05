@@ -1,6 +1,6 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import { Droplets, MoveHorizontal, Power, RotateCcw, RotateCw, ShieldCheck, SlidersHorizontal, Square } from 'lucide-react';
+import { MoveHorizontal, Power, RotateCcw, RotateCw, ShieldCheck, SlidersHorizontal, Square } from 'lucide-react';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import { useDevicesTranslations, type DevicesTranslator } from '../../../../i18n/devicesTranslations';
 import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
@@ -273,7 +273,6 @@ function useFanSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: 
         display={model.on ? `${pct}%` : dt('switchOff')}
         subtitle={model.on && steps ? dt('speedText', { level, steps }).toLocaleLowerCase(locale) : undefined}
         valueText={said}
-        icon={<DeviceIcon model={model} size={24} />}
         onValueChange={(next) => onAction({ type: 'fan_pct', pct: steps ? Math.round((next / steps) * 100) : next })}
       />
     ) : (
@@ -317,7 +316,6 @@ function useHumidifierSpec({ model, roomName, timer, timerNow, onSetTimer, onAct
         subtitle={dt('targetWord')}
         valueText={`${target}%`}
         current={current !== null ? { value: current, label: dt('nowAt', { t: `${current}%` }) } : undefined}
-        icon={<Droplets size={24} strokeWidth={2} />}
         onValueChange={(next) => onAction({ type: 'humidity', target: next })}
       />
     ),

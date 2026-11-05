@@ -149,7 +149,7 @@ Come erano prima del prompt 1. Lo stato finale è al punto 8.
 ## 6. Correzioni al prompt, accettate
 
 - **Forma del pannello.** La decide la prop `surface` (`sheet`, `column`, `dialog`). La larghezza decide solo se una o due colonne.
-- **Misure.** Zona controlli a 148 px e protagonista fermo si controllano con Playwright, come `tests/light-panel-reach.spec.cjs`. In Vitest resta il resto.
+- **Misure.** Intestazione e fila ferme, protagonista che prende lo spazio e versione grande che lo riempie si controllano con Playwright: `tests/panel-navigation.spec.cjs`. In Vitest resta il resto.
 - **Lint.** `npm run lint` coincide con `npm run check` (`tsc --noEmit`). Per ora non si aggiunge un linter.
 
 **Da chiarire nel prompt 2.** La Fase 1 del prompt 2 chiede il disco colore con "bordo netto, maniglia piena del colore, nome del colore sotto". La nota, il punto 3 qui sopra e l'app dicono maniglia bianca e bordo sfumato. Prima del prompt 2 va corretto il testo, o va presa un'altra decisione.
@@ -180,7 +180,7 @@ Le fondamenta non pesano finché nessuno le usa, ma nel prompt 2 i pannelli le c
 | `GlassColorPicker` | Aggiunti `pending` ed `error`; maniglia bianca |
 | `GlassChips`, `GlassVerticalSlider`, `GlassStepper`, `GlassToggleRow`, `GlassShortcut`, `GlassConfirm`, `GlassColorTemperature`, `GlassSwatches`, `GlassTiles` | Nuove |
 
-**Scheletro in `src/components/devices/panels/shell/`:** `PanelShell`, `PanelHeader`, `PanelHero`, `PanelControlZone` con `usePanelScreen`, `PanelFooter`, `PanelGroups`, `PanelStates`. Non è collegato a nulla. Portale, fuoco e trascinamento del foglio restano a chi lo apre (oggi `PanelSheet`): `PanelShell` ne riceve la maniglia.
+**Scheletro in `src/components/devices/panels/shell/` (versione del prompt 2b):** `PanelShell`, `PanelHeader` su una riga con l'azione a sinistra, `PanelHero` con la pillola di ritorno, `PanelNavBar` con `usePanelNav`, `PanelPage`, `PanelGroups` con la riga Altro, `PanelStates`. Posto, aspetto e ordine dei controlli stanno in `PANEL_CONTROLS` e si leggono solo da `arrangeControls` (`panels/registry.ts`). `PanelControlZone` e `PanelFooter` non esistono più. Non è collegato a nulla. Portale, fuoco e trascinamento del foglio restano a chi lo apre (oggi `PanelSheet`): `PanelShell` ne riceve la maniglia.
 
 **Doppioni eliminati:** `LevelBar` e `BrightnessBar` ora stanno su `GlassSlider`, e `BrightnessBar` usa `LevelBar`. Gli altri restano come dal punto 2.
 
@@ -201,4 +201,20 @@ Il gruppo Onboarding è il più stretto: carica `GlassButton`, quindi quel file 
 
 **Non fatto in questo passo**
 - Nella galleria `GlassSlider` ha anche i puntini dei passi (NUM-03), `GlassColorPicker` il nome del colore (ADV-01) e `GlassSwatches` il salvataggio dei colori: il "+" c'è, ma salvare tocca a chi lo usa.
-- `PanelControlZone` non limita le scorciatoie a 8: oltre le 2 file la zona scorre. "Altro" arriva con il prompt 3.
+- La fila ha al massimo 8 scorciatoie, oppure 7 e Altro. Altro con un controllo solo non esiste: quel controllo sale nella fila.
+
+**Versioni grandi (prompt 2b).** Ogni aspetto che può stare al centro riempie lo spazio del protagonista:
+
+| Aspetto | Versione grande | Componente |
+|---|---|---|
+| Tessere | Tessere alte che si dividono l'altezza, con spiegazione e spunta | `GlassTiles size="hero"` |
+| Elenco | Righe alte 72 che scorrono da sole; anche a scelta multipla, con un pulsante sotto | `GlassChoiceRows size="hero"` |
+| Righe | Righe da leggere, con sezioni, che scorrono da sole | `GlassValueRows size="hero"` |
+| Livelli | Slider verticale a scatti, con Automatica sotto | `GlassVerticalSlider ticks` |
+| Slider | Slider verticale 148 x 300 con la linea "ora" | `GlassVerticalSlider current` |
+| Bianchi | Slider verticale sfumato, con Calda, Neutra, Fredda | `GlassVerticalSlider gradient` |
+| Colore | Disco grande e 6 colori rapidi | `GlassColorPicker size="hero"` |
+| Timer | Anello grande e 5 pillole | `GlassRing` |
+| Grafico | Il grafico prende tutto, con il periodo sopra | scheda del sensore |
+| Immagine | La mappa riempie il protagonista senza deformarsi | `.panel-vacuum-map` |
+| Comando direzionale | Croce grande, con Casa al centro se l'entità la espone | `CameraPtzJoystick size="hero"` |
