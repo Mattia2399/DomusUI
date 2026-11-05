@@ -30,6 +30,22 @@
   }
 }
 
+/* Pills under a large control, in the middle. */
+.panel-hero-main > .glass-chips,
+.panel-hero-below > .glass-chips {
+  flex: none;
+  justify-content: center;
+}
+
+/* Two lists with their titles, that scroll as one. */
+.panel-two-lists {
+  width: 100%;
+  min-height: 0;
+  flex: 0 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* Rows in the space a protagonist has. */
 .panel-fit-list {
   display: flex;
@@ -95,11 +111,13 @@
   }
 }
 
-/* A choice of two, in the zone of 148 px or in a group. */
+/* A choice of a few, as wide as its group. */
 .panel-seg {
-  align-self: center;
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;
+}
+
+.panel-seg > * {
+  flex: 1;
 }
 
 .panel-control-screen .liquid-segmented-control [role='radio'] {

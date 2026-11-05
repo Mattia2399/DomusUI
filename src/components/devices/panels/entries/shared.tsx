@@ -1,10 +1,12 @@
 import { Timer } from 'lucide-react';
+import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import { useDevicesTranslations } from '../../../../i18n/devicesTranslations';
 import { GlassChips } from '../../../ui/GlassChips';
+import { GlassRing } from '../../../ui/GlassRing';
 import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../../model/deviceTimer';
 import { relativeLuminance, type Rgb } from '../../model/tileColor';
-import type { PanelItem, PanelDrawnIn } from '../registry';
+import type { PanelControl, PanelDrawnIn } from '../registry';
 import type { PanelAccent } from '../shell/PanelShell';
 import './shared.css';
 
@@ -24,36 +26,46 @@ export function accentOf(rgb: Rgb | string): PanelAccent {
 
 export const chipSize = (place: PanelDrawnIn) => (place === 'group' ? ('dialog' as const) : ('default' as const));
 
-/** The switch-off timer of a device: five pills, and what is left, which the card says too. */
-export function useTimerItem(timer: DeviceTimer | null | undefined, now: number | undefined, onSetTimer: ((minutes: number) => void) | undefined): PanelItem[] {
+/** The switch-off timer of a device: a large ring with five pills, and what is left, which the card says too. */
+export function useTimerControl(timer: DeviceTimer | null | undefined, now: number | undefined, onSetTimer: ((minutes: number) => void) | undefined): PanelControl[] {
   const dt = useDevicesTranslations();
+  const sp = usePanelSpecTranslations();
   const { locale } = useI18n();
   if (!onSetTimer) return [];
   const at = now ?? Date.now();
   const active = timer && timer.endsAt > at ? timer : null;
-  const value = active
-    ? dt('timerEnds', {
-        time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(active.endsAt),
-        left: formatTimerDuration(minutesLeft(active, at), dt),
-      })
-    : dt('timerNone');
+  const left = active ? minutesLeft(active, at) : 0;
+  const time = active ? new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(active.endsAt) : '';
+  const value = active ? dt('timerEnds', { time, left: formatTimerDuration(left, dt) }) : dt('timerNone');
+  const pills = (size: 'default' | 'dialog') => (
+    <GlassChips<number>
+      size={size}
+      ariaLabel={dt('timerTitle')}
+      options={TIMER_PRESETS.map((minutes) => ({ value: minutes, label: minutes === 0 ? dt('timerOff') : formatTimerDuration(minutes, dt) }))}
+      value={active ? active.minutes : 0}
+      onChange={onSetTimer}
+    />
+  );
   return [
     {
-      key: 'timer',
-      kind: 'opens',
+      id: 'timer',
       icon: <Timer {...ICON} />,
       label: dt('timerShort'),
       title: dt('timerTitle'),
       value,
-      content: (place) => (
-        <GlassChips<number>
-          size={chipSize(place)}
-          ariaLabel={dt('timerTitle')}
-          options={TIMER_PRESETS.map((minutes) => ({ value: minutes, label: minutes === 0 ? dt('timerOff') : formatTimerDuration(minutes, dt) }))}
-          value={active ? active.minutes : 0}
-          onChange={onSetTimer}
-        />
+      lit: Boolean(active),
+      looks: ['timer'],
+      big: () => (
+        <>
+          <GlassRing
+            percent={active ? (left / active.minutes) * 100 : 0}
+            value={active ? formatTimerDuration(left, dt) : dt('timerNone')}
+            note={active ? sp.t('timerOffAt', { time }) : sp.t('timerPick')}
+          />
+          {pills('default')}
+        </>
       ),
+      group: pills('dialog'),
     },
   ];
 }

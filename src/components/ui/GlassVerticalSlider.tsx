@@ -85,7 +85,7 @@ export function GlassVerticalSlider({
       style={gradient ? { background: gradient } : undefined}
     >
       {gradient ? (
-        <span className="glass-vslider-handle" aria-hidden="true" style={{ bottom: `${Number(percent.toFixed(1))}%` }} />
+        <span className="glass-vslider-handle" aria-hidden="true" style={{ bottom: `clamp(10px, ${Number(percent.toFixed(1))}%, calc(100% - 10px))` }} />
       ) : (
         <span className="glass-vslider-fill" aria-hidden="true" style={{ ...fillStyle, height: `${Number(percent.toFixed(1))}%` }} />
       )}

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Lightbulb, Palette, Sparkles, Sun, SunDim, Thermometer, Zap } from 'lucide-react';
+import { Lightbulb, Palette, Sparkles, Sun, SunDim, Zap } from 'lucide-react';
 import { useDevicesTranslations } from '../../../../i18n/devicesTranslations';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import { GlassChips } from '../../../ui/GlassChips';
+import { GlassChoiceRows } from '../../../ui/GlassListRow';
 import { GlassColorPicker } from '../../../ui/GlassColorPicker';
 import { GlassColorTemperature } from '../../../ui/GlassColorTemperature';
 import { GlassSegmented } from '../../../ui/GlassSegmented';
@@ -13,15 +14,15 @@ import { toneTitle } from '../../cards/lightText';
 import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from '../../model/light';
 import type { LightExtraAction } from '../../model/lightExtras';
 import { hueToRgb, lightRgb, rgbCss } from '../../model/tileColor';
-import type { PanelEntry, PanelItem, PanelDrawnIn } from '../registry';
+import type { PanelControl, PanelEntry } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
-import { accentOf, chipSize, ICON } from './shared';
+import { accentOf, ICON } from './shared';
 import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
 import './light.css';
 
 /*
- * A light: its brightness in the middle, and behind the shortcuts what it exposes
- * of its colours, whites, white channel, effects and flash.
+ * A light: its brightness in the middle, and what it exposes of its whites, colours,
+ * effects, white channel and flash as controls.
  */
 
 export type LightPanelInput = {
@@ -40,6 +41,8 @@ export type LightPanelInput = {
 
 const TONE_PRESETS = [2700, 4000, 5500];
 const FLASH_MS = 1700;
+const WHITES_GRADIENT = 'linear-gradient(to top, rgb(255 168 64), rgb(230 197 160), rgb(205 226 255))';
+const WHITE_FILL = { background: '#ffffff' };
 
 function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: LightPanelInput) {
   const dt = useDevicesTranslations();
@@ -110,60 +113,101 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
   );
   const toneValue = `${toneTitle(lightTone(model.kelvin), dt)} · ${model.kelvin} K`;
 
-  const shortcuts: PanelItem[] = [];
-  if (model.caps === 'color' || model.caps === 'ct') {
-    const zone = () => (
-      <>
-        {kind}
-        {isColorMode ? swatches(true) : temperature}
-      </>
-    );
-    shortcuts.push({
-      key: 'color',
-      kind: 'opens',
-      icon: model.caps === 'color' ? <Palette {...ICON} /> : <Thermometer {...ICON} />,
-      label: model.caps === 'color' ? dt('color') : dt('temperature'),
+  const hasColors = model.caps === 'color';
+  const hasWhites = model.caps === 'ct' || (hasColors && model.hasWhites !== false);
+  const controls: PanelControl[] = [];
+  if (hasWhites) {
+    controls.push({
+      id: 'whites',
+      icon: <SunDim {...ICON} />,
+      label: sp.t('whites'),
       value: isColorMode ? undefined : toneValue,
-      note: isColorMode ? sp.t('discNote') : undefined,
-      lit,
-      content: zone,
-      hero: isColorMode ? disc : undefined,
-      groupTrailing: kind,
-      group: isColorMode ? (
-        <div className="panel-disc-group">
-          <div className="panel-disc-small">{disc}</div>
-          {swatches(false)}
-        </div>
-      ) : (
-        temperature
+      looks: ['whites'],
+      big: () => (
+        <>
+          <GlassVerticalSlider
+            label={dt('temperature')}
+            value={model.kelvin}
+            min={model.minKelvin}
+            max={model.maxKelvin}
+            step={100}
+            commit="release"
+            gradient={WHITES_GRADIENT}
+            display={`${model.kelvin} K`}
+            subtitle={toneTitle(lightTone(model.kelvin), dt)}
+            valueText={toneValue}
+            disabled={!model.available}
+            onValueChange={(kelvin) => onAction({ type: 'kelvin', kelvin })}
+          />
+          <GlassChips<number>
+            ariaLabel={dt('temperature')}
+            options={tonePresets.map((kelvin) => ({ value: kelvin, label: toneTitle(lightTone(kelvin), dt) }))}
+            value={tonePresets.find((kelvin) => lightTone(kelvin) === lightTone(model.kelvin)) ?? null}
+            onChange={(kelvin) => onAction({ type: 'kelvin', kelvin })}
+          />
+        </>
       ),
+      // With colours too, whites and colours share one group.
+      group: hasColors ? null : temperature,
     });
   }
-  if (extras?.supportsWhite && onExtraAction) {
-    shortcuts.push({
-      key: 'white',
-      kind: 'opens',
-      icon: <SunDim {...ICON} />,
-      label: sp.t('ledWhite'),
-      value: `${pct}%`,
-      note: sp.t('ledWhiteNote'),
-      lit,
-      content: () => (
-        <GlassSlider variant="bar" commit="release" fillClassName="panel-white-fill" label={sp.t('ledWhite')} value={pct} valueText={`${pct}%`} onValueChange={(value) => onExtraAction({ type: 'white', value })} />
+  if (hasColors) {
+    controls.push({
+      id: 'color',
+      icon: <Palette {...ICON} />,
+      label: dt('color'),
+      value: isColorMode ? undefined : toneValue,
+      note: isColorMode ? sp.t('discNote') : undefined,
+      looks: ['color'],
+      big: () => (
+        <>
+          <div className="glass-disc-stage">
+            <GlassColorPicker
+              size="hero"
+              label={dt('customColor')}
+              value={{ hue: model.hue, saturation: model.saturation }}
+              valueText={(color) => dt('colorValue', { hue: color.hue, saturation: color.saturation })}
+              onChange={(color) => onAction({ type: 'hue', hue: color.hue, saturation: Math.max(1, color.saturation) })}
+            />
+          </div>
+          {swatches(true)}
+        </>
+      ),
+      group: (
+        <>
+          {hasWhites ? kind : null}
+          {isColorMode ? (
+            <div className="panel-disc-group">
+              <div className="panel-disc-small">{disc}</div>
+              {swatches(false)}
+            </div>
+          ) : (
+            temperature
+          )}
+        </>
       ),
     });
   }
   if (effects.length > 0 && onExtraAction) {
-    shortcuts.push({
-      key: 'effects',
-      kind: 'opens',
+    controls.push({
+      id: 'effects',
       icon: <Sparkles {...ICON} />,
       label: t('controls.light.effects'),
       value: activeEffect ? effectName(activeEffect) : t('controls.light.noEffect'),
       lit: Boolean(activeEffect),
-      content: (place: PanelDrawnIn) => (
+      looks: ['list'],
+      big: () => (
+        <GlassChoiceRows<string>
+          size="hero"
+          ariaLabel={t('controls.light.effects')}
+          options={effects.map((effect) => ({ value: effect, label: effectName(effect) }))}
+          value={extras?.effect}
+          onChange={(effect) => onExtraAction({ type: 'effect', effect })}
+        />
+      ),
+      group: (
         <GlassChips<string>
-          size={chipSize(place)}
+          size="dialog"
           ariaLabel={t('controls.light.effects')}
           options={effects.map((effect) => ({ value: effect, label: effectName(effect) }))}
           value={extras?.effect}
@@ -172,10 +216,34 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
       ),
     });
   }
+  if (extras?.supportsWhite && onExtraAction) {
+    controls.push({
+      id: 'white',
+      icon: <Lightbulb {...ICON} />,
+      label: sp.t('ledWhite'),
+      value: `${pct}%`,
+      note: sp.t('ledWhiteNote'),
+      looks: ['slider'],
+      big: () => (
+        <GlassVerticalSlider
+          label={sp.t('ledWhite')}
+          value={pct}
+          commit="release"
+          fillStyle={WHITE_FILL}
+          display={`${pct}%`}
+          subtitle={sp.t('ledWhite')}
+          valueText={`${pct}%`}
+          onValueChange={(value) => onExtraAction({ type: 'white', value })}
+        />
+      ),
+      group: (
+        <GlassSlider variant="bar" commit="release" fillClassName="panel-white-fill" label={sp.t('ledWhite')} value={pct} valueText={`${pct}%`} onValueChange={(value) => onExtraAction({ type: 'white', value })} />
+      ),
+    });
+  }
   if (extras?.supportsFlash && onExtraAction) {
-    shortcuts.push({
-      key: 'flash',
-      kind: 'action',
+    controls.push({
+      id: 'flash',
       icon: <Zap {...ICON} />,
       label: t('controls.light.flash'),
       actionLabel: flashing ? sp.t('flashing') : sp.t('flashNow'),
@@ -193,8 +261,8 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
     owner: model.entityId,
     name: model.name,
     status: roomName ? `${roomName} · ${state}` : state,
-    icon: <Lightbulb size={23} strokeWidth={2} />,
-    lit,
+    layout: 'light' as const,
+    heroName: dimmable ? sp.t('heroBrightness', { pct }) : state,
     accent: accentOf(rgb),
     tint: lit,
     heroKind: dimmable ? ('slider' as const) : ('value' as const),
@@ -214,8 +282,8 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
     ) : (
       <PanelHeroValue value={state} />
     ),
-    shortcuts,
-    always: model.caps === 'dim' && shortcuts.length === 0 ? <p className="panel-screen-note">{dt('dimOnly')}</p> : undefined,
+    controls,
+    below: model.caps === 'dim' && controls.length === 0 ? <p className="panel-screen-note">{dt('dimOnly')}</p> : undefined,
     action: {
       kind: 'power' as const,
       on: lit,

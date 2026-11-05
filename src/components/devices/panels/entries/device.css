@@ -33,7 +33,37 @@
   transform: translateX(-50%);
 }
 
-/* The position and the slats in the zone of 148 px. */
+/* Under the slider: Stop in place of the positions while it moves, and the slats always. */
+.panel-cover-stop.glass-btn {
+  height: 52px;
+  border-radius: 26px;
+  padding: 0 28px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.panel-cover-tilt {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-cover-tilt > p {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0 4px;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.panel-cover-tilt b {
+  color: var(--control-ink);
+}
+
+/* What the old screens used. */
 .panel-cover-title {
   margin: 0;
   font-size: 13px;

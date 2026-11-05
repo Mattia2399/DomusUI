@@ -67,16 +67,17 @@ function current(item: PanelItem): PanelControl {
   };
 }
 
-const groupOf = (control: PanelControl): PanelGroup => {
+/** While the device is on, the icons of its groups have its colour. */
+const groupOf = (control: PanelControl, deviceOn: boolean): PanelGroup => {
   const title = control.title ?? control.label;
   const common = { key: control.id, icon: control.icon, title, value: control.value, note: control.note };
   if (!isActionControl(control)) {
-    return { ...common, lit: control.lit, trailing: control.groupTrailing, children: control.group };
+    return { ...common, lit: deviceOn || control.lit, trailing: control.groupTrailing, children: control.group };
   }
   if (control.actionLabel) {
     return {
       ...common,
-      lit: control.lit ?? control.on,
+      lit: deviceOn || (control.lit ?? control.on),
       children: (
         <GlassButton variant="soft" className="panel-group-action" on={control.on} disabled={control.disabled} onClick={control.onPress}>
           {control.actionLabel}
@@ -86,7 +87,7 @@ const groupOf = (control: PanelControl): PanelGroup => {
   }
   return {
     ...common,
-    lit: control.lit ?? control.on,
+    lit: deviceOn || (control.lit ?? control.on),
     trailing: <GlassSwitch label={title} size="mini" checked={Boolean(control.on)} disabled={control.disabled} onChange={control.onPress} />,
   };
 };
@@ -216,7 +217,7 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
         page && !page.phoneOnly ? undefined : (
           <PanelGroups
             before={spec.confirm}
-            groups={(spec.groups ? spec.groups.map(current) : main.map((entry) => entry.control)).map(groupOf)}
+            groups={(spec.groups ? spec.groups.map(current) : main.map((entry) => entry.control)).filter((control) => isActionControl(control) || control.group !== null).map((control) => groupOf(control, Boolean(spec.action?.on)))}
             more={
               !spec.groups && more.length > 0
                 ? {

@@ -19,7 +19,7 @@ const VIEWS = [
 const GAP = 18;
 
 // The panels already on the new controls: their screens are walked one by one.
-const CONVERTED = [];
+const CONVERTED = ['Lampada', 'Faretti', 'Striscia', 'Presa', 'Clima', 'Climatizzatore', 'Termosifone', 'Ventol', 'Umidificatore', 'Deumidificatore', 'Tapparella', 'Termostufa'];
 
 const widget = (id, kind, title, extra, x, y) => ({ id, kind, title, entityId: id, dataSource: 'mock', status: 'on', isOn: true, layout: { i: id, x, y, w: 2, h: 4 }, ...extra });
 
@@ -45,7 +45,7 @@ const HOME = {
   ],
 };
 
-const LAB = ['members', 'camera', 'vacuum', 'calendar', 'sensor-hot', 'sensor-humid', 'fan.demo_fan', 'humidifier.demo_dehumidifier'];
+const LAB = ['members', 'camera', 'vacuum', 'calendar', 'sensor-hot', 'sensor-humid', 'fan.demo_fan', 'humidifier.demo_dehumidifier', 'stove', 'climate-full', 'light-full'];
 
 async function installDemo(page, layout) {
   await page.addInitScript((value) => {
@@ -99,6 +99,7 @@ const readPanel = (page) => page.evaluate(() => {
     notice: box(shell.querySelector('.panel-header + :not(.panel-shell-main):not(.panel-shell-free)')),
     hero: box(hero),
     main: box(main),
+    isList: Boolean(main?.querySelector('.is-big-list')),
     contentTop: first?.getBoundingClientRect().top ?? null,
     contentBottom: last?.getBoundingClientRect().bottom ?? null,
     nav: box(shell.querySelector('.panel-nav')),
@@ -190,7 +191,7 @@ async function walkRow(page, label, wrong) {
     if (!same(read.nav, before.nav)) wrong.push(`${label} · ${name}: la fila si è spostata`);
     for (const problem of read.cut) wrong.push(`${label} · ${name}: ${problem}`);
     // The large version fills the space: no empty room above and below beyond the margins.
-    if (read.contentTop !== null && read.main) {
+    if (read.contentTop !== null && read.main && !read.isList) {
       const empty = (read.contentTop - read.main.top) + (read.main.bottom - read.contentBottom);
       if (empty > read.main.height * 0.45) wrong.push(`${label} · ${name}: la versione grande lascia ${Math.round(empty)} px vuoti su ${Math.round(read.main.height)}`);
     }

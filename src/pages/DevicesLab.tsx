@@ -19,6 +19,7 @@ import GridV2ScenesCard from '../components/widgets/GridV2ScenesCard';
 import type { SceneKey } from '../types/dashboardModels';
 import { toSecurityModel } from '../components/devices/model/security';
 import { toMediaModel } from '../components/devices/model/media';
+import { toClimateModel } from '../components/devices/model/climate';
 import { Panel } from '../components/devices/panels/Panel';
 import { PanelHost, type PanelPresentation } from '../components/devices/panels/PanelHost';
 import { lightRgb } from '../components/devices/model/tileColor';
@@ -191,7 +192,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
   const devicePanel = devicePanelId ? devices.modelOf(devicePanelId) : null;
   const [presentation, setPresentation] = React.useState<PanelPresentation>('dialog');
   const panelModel = panelId ? lights.modelOf(panelId) : null;
-  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | 'sunny' | 'pouring' | 'clear-night' | 'lightning-rainy' | 'vacuum' | 'calendar' | 'sensor-hot' | 'sensor-humid' | null>(null);
+  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | 'sunny' | 'pouring' | 'clear-night' | 'lightning-rainy' | 'vacuum' | 'calendar' | 'sensor-hot' | 'sensor-humid' | 'stove' | 'climate-full' | 'light-full' | null>(null);
 
   return (
     <section
@@ -200,7 +201,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       data-testid={`devices-lab-${theme}`}
     >
       <div className="flex items-center gap-2">
-        {(['members', 'camera', 'sunny', 'pouring', 'clear-night', 'lightning-rainy', 'vacuum', 'calendar', 'sensor-hot', 'sensor-humid'] as const).map((option) => (
+        {(['members', 'camera', 'sunny', 'pouring', 'clear-night', 'lightning-rainy', 'vacuum', 'calendar', 'sensor-hot', 'sensor-humid', 'stove', 'climate-full', 'light-full'] as const).map((option) => (
           <button key={option} type="button" className="dv-glass rooms-pill h-9 rounded-full px-3.5 text-[13px] font-semibold" onClick={() => setDataPanel(option)}>
             {option}
           </button>
@@ -316,6 +317,34 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
                 { id: 'b', personEntityId: 'person.bruno', name: 'Bruno', state: 'home', trackerEntityIds: [], devices: { smartwatch: 1, tablet: 0, smartphone: 1, tracker: 0 } },
                 { id: 'c', personEntityId: 'person.carla', name: 'Carla', state: 'not_home', locationLabel: 'Scuola', trackerEntityIds: [], devices: { smartwatch: 0, tablet: 0, smartphone: 1, tracker: 0 } },
               ],
+            }}
+            onClose={() => setDataPanel(null)}
+          />
+        ) : dataPanel === 'stove' || dataPanel === 'climate-full' ? (
+          <Panel
+            kind="climate"
+            input={{
+              model: toClimateModel('climate.lab', {
+                state: 'heat',
+                rawAttributes: dataPanel === 'stove'
+                  ? { friendly_name: 'Termostufa Integrata', hvac_modes: ['off', 'heat'], temperature: 69, current_temperature: 27, min_temp: 20, max_temp: 80, fan_modes: ['auto', '1', '2', '3', '4', '5'], fan_mode: 'auto' }
+                  : { friendly_name: 'Clima soggiorno', hvac_modes: ['heat', 'cool', 'heat_cool', 'dry', 'fan_only', 'off'], temperature: 21.5, current_temperature: 20.4, target_temp_step: 0.5, fan_modes: ['auto', 'low', 'medium', 'high'], fan_mode: 'medium', preset_modes: ['comfort', 'eco', 'sleep', 'away', 'boost'], preset_mode: 'comfort', swing_modes: ['off', 'vertical', 'top', 'middle', 'bottom'], swing_mode: 'vertical' },
+              } as never),
+              roomHumidity: 52,
+              extras: dataPanel === 'stove' ? undefined : { supportsTargetHumidity: true, targetHumidity: 45, supportsHorizontalSwing: true, horizontalSwingModes: ['off', 'swing', 'left', 'center', 'right'], horizontalSwing: 'center' },
+              onAction: () => undefined,
+              onExtraAction: () => undefined,
+            }}
+            onClose={() => setDataPanel(null)}
+          />
+        ) : dataPanel === 'light-full' ? (
+          <Panel
+            kind="light"
+            input={{
+              model: lights.modelOf(SAMPLES[0]),
+              extras: { supportsWhite: true, supportsEffects: true, supportsFlash: true, effect: 'none', effects: ['none', 'colorloop', 'breathe', 'candle', 'fire', 'waves', 'party', 'sunset', 'aurora', 'slowblink'] },
+              onAction: () => undefined,
+              onExtraAction: () => undefined,
             }}
             onClose={() => setDataPanel(null)}
           />

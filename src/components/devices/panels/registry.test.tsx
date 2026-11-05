@@ -15,7 +15,7 @@ import { membersEntry } from './entries/members';
 import { vacuumEntry, type VacuumPanelCommands } from './entries/vacuum';
 import { coverEntry, fanEntry, humidifierEntry, plugEntry, type DevicePanelInput } from './entries/device';
 import { PanelView } from './PanelView';
-import { loadPanelEntry } from './registry';
+import { arrangeControls, loadPanelEntry } from './registry';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => <I18nProvider>{children}</I18nProvider>;
 
@@ -34,7 +34,11 @@ const lightModel = (over: Partial<LightModel> = {}) =>
 const lightInput = (over: Partial<LightPanelInput> = {}): LightPanelInput => ({ model: lightModel(), onAction: vi.fn(), ...over });
 
 const specOf = <I,>(useSpec: (input: I) => ReturnType<typeof lightEntry.useSpec>, input: I) => renderHook(() => useSpec(input), { wrapper }).result.current;
-const labels = (spec: ReturnType<typeof lightEntry.useSpec>) => spec.shortcuts.map((item) => item.label);
+const labels = (spec: ReturnType<typeof lightEntry.useSpec>) => {
+  if (!spec.controls) return (spec.shortcuts ?? []).map((item) => item.label);
+  const { main, more } = arrangeControls(spec.layout, spec.controls ?? []);
+  return [...main, ...more].map((entry) => entry.control.label);
+};
 
 function drawn(useSpec: (input: never) => ReturnType<typeof lightEntry.useSpec>, input: unknown) {
   function View() {
@@ -61,7 +65,7 @@ describe('the registry', () => {
 });
 
 describe('a light', () => {
-  it('has its brightness in the middle and the power at the bottom', () => {
+  it('has its brightness in the middle and the power at the left of the header', () => {
     const spec = specOf(lightEntry.useSpec, lightInput());
     expect(spec.heroKind).toBe('slider');
     expect(spec.action?.kind).toBe('power');
@@ -69,11 +73,12 @@ describe('a light', () => {
 
   it('offers a shortcut only for what it exposes', () => {
     expect(labels(specOf(lightEntry.useSpec, lightInput({ model: lightModel({ caps: 'dim' }) })))).toEqual([]);
-    expect(labels(specOf(lightEntry.useSpec, lightInput({ model: lightModel({ caps: 'ct', mode: 'temp' }) })))).toEqual(['Temperatura']);
-    expect(labels(specOf(lightEntry.useSpec, lightInput()))).toEqual(['Colore']);
+    expect(labels(specOf(lightEntry.useSpec, lightInput({ model: lightModel({ caps: 'ct', mode: 'temp' }) })))).toEqual(['Bianchi']);
+    expect(labels(specOf(lightEntry.useSpec, lightInput()))).toEqual(['Bianchi', 'Colore']);
+    expect(labels(specOf(lightEntry.useSpec, lightInput({ model: lightModel({ hasWhites: false }) })))).toEqual(['Colore']);
     expect(
       labels(specOf(lightEntry.useSpec, lightInput({ extras: { supportsWhite: true, supportsEffects: true, supportsFlash: true, effects: ['colorloop'] }, onExtraAction: vi.fn() }))),
-    ).toEqual(['Colore', 'LED bianco', 'Effetti', 'Lampeggio']);
+    ).toEqual(['Bianchi', 'Colore', 'Effetti', 'LED bianco', 'Lampeggio']);
   });
 
   it('takes no effects without a list of them', () => {
@@ -134,7 +139,7 @@ describe('a plug', () => {
 
   it('offers protection and timer only where they exist', () => {
     expect(labels(specOf(plugEntry.useSpec, input()))).toEqual([]);
-    expect(labels(specOf(plugEntry.useSpec, input({ onToggleProtected: vi.fn(), onSetTimer: vi.fn() })))).toEqual(['Protetta', 'Timer']);
+    expect(labels(specOf(plugEntry.useSpec, input({ onToggleProtected: vi.fn(), onSetTimer: vi.fn() })))).toEqual(['Timer', 'Protetta']);
   });
 
   it('switches its protection at once', () => {
@@ -228,7 +233,7 @@ const device = (entityId: string, state: string, attributes: Record<string, unkn
 describe('a fan', () => {
   const full = () => device('fan.a', 'on', { supported_features: 7, percentage: 50, percentage_step: 25, preset_modes: ['Auto'], preset_mode: 'Auto', oscillating: true, direction: 'forward' });
 
-  it('has its speed in the middle, and the power at the bottom', () => {
+  it('has its speed in the middle, and the power at the left of the header', () => {
     const spec = specOf(fanEntry.useSpec, { model: full(), onAction: vi.fn() });
     expect(spec.heroKind).toBe('slider');
     expect(spec.action?.kind).toBe('power');
@@ -257,7 +262,7 @@ describe('a humidifier', () => {
 
   it('offers a shortcut only for what it exposes', () => {
     const input = (attributes: Record<string, unknown>): DevicePanelInput => ({ model: device('humidifier.a', 'on', attributes), onAction: vi.fn() });
-    expect(labels(specOf(humidifierEntry.useSpec, input({ humidity: 50, current_humidity: 45, available_modes: ['Eco'] })))).toEqual(['Umidità', 'Modalità']);
+    expect(labels(specOf(humidifierEntry.useSpec, input({ humidity: 50, current_humidity: 45, available_modes: ['Eco'] })))).toEqual(['Modalità']);
     expect(labels(specOf(humidifierEntry.useSpec, input({ humidity: 50 })))).toEqual([]);
   });
 });
@@ -265,31 +270,39 @@ describe('a humidifier', () => {
 describe('a cover', () => {
   const full = (state = 'open') => device('cover.a', state, { supported_features: 143, current_position: 76, current_tilt_position: 45 });
 
-  it('has no shortcuts: the position and the slats are always in view', () => {
+  it('has no row: the positions and the slats are always in view, and groups elsewhere', () => {
     const spec = specOf(coverEntry.useSpec, { model: full(), onAction: vi.fn() });
     expect(spec.heroKind).toBe('cover');
-    expect(spec.shortcuts).toEqual([]);
-    expect(spec.always).toBeTruthy();
-    expect(spec.groups?.map((item) => item.label)).toEqual(['Posizione', 'Inclinazione lamelle']);
+    expect(spec.noRow).toBe(true);
+    expect(spec.below).toBeTruthy();
+    expect(labels(spec)).toEqual(['Posizione', 'Inclinazione lamelle']);
   });
 
   it('leaves the slats out when it has none', () => {
     const spec = specOf(coverEntry.useSpec, { model: device('cover.a', 'open', { supported_features: 15, current_position: 76 }), onAction: vi.fn() });
-    expect(spec.groups?.map((item) => item.label)).toEqual(['Posizione']);
+    expect(labels(spec)).toEqual(['Posizione']);
   });
 
-  it('closes from its power, and Stop takes its place while it moves', () => {
+  it('has nothing at the left of the header at rest, and Stop only while it moves', () => {
     const onAction = vi.fn();
-    expect(specOf(coverEntry.useSpec, { model: full(), onAction }).action?.kind).toBe('power');
+    expect(specOf(coverEntry.useSpec, { model: full(), onAction }).action).toBeUndefined();
     const moving = specOf(coverEntry.useSpec, { model: full('closing'), onAction }).action;
     expect(moving?.kind).toBe('stop');
     moving?.onPress();
     expect(onAction).toHaveBeenCalledWith({ type: 'cover_stop' });
   });
 
-  it('has no main action when it cannot do what is left', () => {
-    const spec = specOf(coverEntry.useSpec, { model: device('cover.a', 'open', { supported_features: 1 }), onAction: vi.fn() });
-    expect(spec.action).toBeUndefined();
+  it('has a large Stop in place of the positions while it moves', () => {
+    const onAction = vi.fn();
+    const { unmount } = drawn(coverEntry.useSpec, { model: full(), onAction });
+    const pills = () => within(document.querySelector<HTMLElement>('.panel-hero-below')!);
+    expect(pills().getByRole('radio', { name: 'Aperta' })).toBeTruthy();
+    expect(pills().queryByRole('button', { name: 'Ferma' })).toBeNull();
+    unmount();
+    drawn(coverEntry.useSpec, { model: full('closing'), onAction });
+    expect(pills().queryByRole('radio', { name: 'Aperta' })).toBeNull();
+    fireEvent.click(pills().getByRole('button', { name: 'Ferma' }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'cover_stop' });
   });
 });
 
@@ -305,20 +318,48 @@ describe('a climate device', () => {
     expect(container.querySelector('.glass-vslider-now')?.textContent).toBe('ora 20,4°');
   });
 
-  it('offers a shortcut only for what it exposes, in the order of the note', () => {
+  it('offers a control only for what it exposes, in the order of the registry', () => {
     expect(labels(specOf(climateEntry.useSpec, input()))).toEqual(['Modalità', 'Allinea']);
     const full = input({
       model: heating({ fan_modes: ['auto', '1'], preset_modes: ['eco'], swing_modes: ['off', 'vertical'] }),
       extras: { supportsTargetHumidity: true, targetHumidity: 50, supportsHorizontalSwing: true, horizontalSwingModes: ['center'] },
       onExtraAction: vi.fn(),
     });
-    expect(labels(specOf(climateEntry.useSpec, full))).toEqual(['Modalità', 'Ventola', 'Profilo', 'Alette', 'Umidità', 'Orizzontali', 'Allinea']);
+    expect(labels(specOf(climateEntry.useSpec, full))).toEqual(['Modalità', 'Ventola', 'Profilo', 'Allinea', 'Alette', 'Umidità']);
   });
 
-  it('offers only its modes while it is off', () => {
+  it('keeps its row while it is off, and only Align goes without a target', () => {
     const spec = specOf(climateEntry.useSpec, input({ model: climate('off', { temperature: 22, current_temperature: 20, fan_modes: ['auto'] }) }));
-    expect(labels(spec)).toEqual(['Modalità']);
+    expect(labels(spec)).toEqual(['Modalità', 'Ventola', 'Allinea']);
     expect(spec.heroKind).toBe('value');
+    const noTarget = specOf(climateEntry.useSpec, input({ model: climate('off', { current_temperature: 20, fan_modes: ['auto'] }) }));
+    expect(labels(noTarget)).toEqual(['Modalità', 'Ventola']);
+  });
+
+  it('with two modes is a stove: Mode, Fan and Align in the row, the rest in Altro', () => {
+    const stove = toClimateModel('climate.s', { state: 'heat', rawAttributes: { friendly_name: 'Termostufa', hvac_modes: ['off', 'heat'], temperature: 69, current_temperature: 27, fan_modes: ['auto', '1', '2', '3'], preset_modes: ['eco'], swing_modes: ['off', 'on'] } } as never);
+    const spec = specOf(climateEntry.useSpec, input({ model: stove }));
+    expect(spec.layout).toBe('stove');
+    const { main, more } = arrangeControls(spec.layout, spec.controls ?? []);
+    expect(main.map((entry) => entry.control.label)).toEqual(['Modalità', 'Ventola', 'Allinea']);
+    expect(main[1].look).toBe('levels');
+    expect(more.map((entry) => entry.control.label)).toEqual(['Profilo', 'Alette']);
+  });
+
+  it('shows the levels of its fan as a slider, with Automatic under it', () => {
+    const onAction = vi.fn();
+    drawn(climateEntry.useSpec, input({ onAction, model: heating({ fan_modes: ['auto', 'low', 'medium', 'high'], fan_mode: 'low' }) }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Ventola' }));
+    expect(screen.getByRole('slider', { name: 'Ventola' })).toBeTruthy();
+    expect(document.querySelectorAll('.glass-vslider-tick')).toHaveLength(2);
+    fireEvent.click(within(document.querySelector<HTMLElement>('.panel-hero')!).getByRole('radio', { name: 'Automatica' }));
+    expect(onAction).toHaveBeenCalledWith({ type: 'fan', fanMode: 'auto' });
+  });
+
+  it('shows a fan with names of its own as a list', () => {
+    drawn(climateEntry.useSpec, input({ model: heating({ fan_modes: ['Brezza', 'Tempesta'], fan_mode: 'Brezza' }) }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Ventola' }));
+    expect(document.querySelector('.panel-hero .is-big-list')).toBeTruthy();
   });
 
   it('aligns the target to the temperature now, on the step it can take', () => {
@@ -326,7 +367,7 @@ describe('a climate device', () => {
     drawn(climateEntry.useSpec, input({ onAction }));
     fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Allinea' }));
     expect(onAction).toHaveBeenCalledWith({ type: 'target', target: 20.5 });
-    expect(screen.getByRole('button', { name: 'Allinea a 20,5°' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Porta l’obiettivo a 20,5°' })).toBeTruthy();
   });
 
   it('has nothing to align without one target, or without a temperature now', () => {

@@ -1,12 +1,14 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import { ArrowLeftRight, Droplets, MoveHorizontal, Power, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { Droplets, MoveHorizontal, Power, RotateCcw, RotateCw, ShieldCheck, SlidersHorizontal, Square } from 'lucide-react';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import { useDevicesTranslations, type DevicesTranslator } from '../../../../i18n/devicesTranslations';
 import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
+import { GlassButton } from '../../../ui/GlassButton';
 import { GlassChips } from '../../../ui/GlassChips';
+import { GlassChoiceRows } from '../../../ui/GlassListRow';
+import { GlassTiles } from '../../../ui/GlassTiles';
 import { GlassConfirm } from '../../../ui/GlassConfirm';
-import { GlassSegmented } from '../../../ui/GlassSegmented';
 import { GlassSlider } from '../../../ui/GlassSlider';
 import { GlassVerticalSlider } from '../../../ui/GlassVerticalSlider';
 import { DeviceIcon } from '../../cards/DeviceCard';
@@ -15,12 +17,15 @@ import { fanLevel, isStandby, type DeviceAction, type DeviceModel } from '../../
 import { DEVICE_TINT } from '../../model/panelTint';
 import type { DeviceTimer } from '../../model/deviceTimer';
 import type { PlugEnergy } from '../../model/plugEnergy';
-import type { PanelEntry, PanelItem, PanelDrawnIn, PanelSpec } from '../registry';
+import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
-import { accentOf, chipSize, ICON, PanelRows, useTimerItem } from './shared';
+import { accentOf, ICON, useTimerControl } from './shared';
 import './device.css';
 
 /* The devices with more than on and off: a plug, a fan, a humidifier and a cover. */
+
+/** Beyond this the tiles leave no room for their names: a list. */
+const MOST_TILES = 6;
 
 export type DevicePanelInput = {
   model: DeviceModel;
@@ -98,8 +103,6 @@ function deviceBase(model: DeviceModel, roomName: string | undefined, dt: Device
     owner: model.entityId,
     name: model.name,
     status: roomName ? `${roomName} · ${status}` : status,
-    icon: <DeviceIcon model={model} size={23} />,
-    lit,
     accent: accentOf(DEVICE_TINT[model.kind]),
     tint: lit,
   };
@@ -108,15 +111,15 @@ function deviceBase(model: DeviceModel, roomName: string | undefined, dt: Device
 function usePlugSpec({ model, roomName, protectedPlug = false, onToggleProtected, energy, onSetTariff, timer, timerNow, onSetTimer, onAction }: DevicePanelInput): PanelSpec {
   const dt = useDevicesTranslations();
   const sp = usePanelSpecTranslations();
-  const timerItems = useTimerItem(timer, timerNow, onSetTimer);
+  const timerControls = useTimerControl(timer, timerNow, onSetTimer);
   const [asking, setAsking] = React.useState(false);
   const standby = isStandby(model);
   const hasMeter = model.watts !== null;
-  const shortcuts: PanelItem[] = [
+  const controls: PanelControl[] = [
+    ...timerControls,
     ...(onToggleProtected
       ? [{
-          key: 'protect',
-          kind: 'toggle' as const,
+          id: 'protect',
           icon: <ShieldCheck {...ICON} />,
           label: dt('protectedLabel'),
           note: sp.t('protectedNote'),
@@ -124,10 +127,11 @@ function usePlugSpec({ model, roomName, protectedPlug = false, onToggleProtected
           onPress: () => onToggleProtected(!protectedPlug),
         }]
       : []),
-    ...timerItems,
   ];
   return {
     ...deviceBase(model, roomName, dt),
+    layout: 'plug',
+    heroName: formatDeviceStatus(model, dt),
     heroKind: hasMeter || energy ? 'data' : 'value',
     hero: hasMeter || energy ? (
       <div className="dv-card flex flex-col gap-3.5">
@@ -148,7 +152,7 @@ function usePlugSpec({ model, roomName, protectedPlug = false, onToggleProtected
     ) : (
       <PanelHeroValue icon={<Power size={28} strokeWidth={2} />} value={formatDeviceStatus(model, dt)} />
     ),
-    shortcuts,
+    controls,
     confirm: asking ? (
       <GlassConfirm
         asking
@@ -194,35 +198,38 @@ function powerOf(model: DeviceModel, dt: DevicesTranslator, onAction: (action: D
   };
 }
 
+/** The modes of a device: tall tiles, or a list when they are too many. */
+function modesControl(label: string, options: readonly string[], value: string | null | undefined, onPick: (option: string) => void): PanelControl {
+  const choices = options.map((option) => ({ value: option, label: option, icon: <SlidersHorizontal size={24} strokeWidth={2} /> }));
+  return {
+    id: 'modes',
+    icon: <SlidersHorizontal {...ICON} />,
+    label,
+    value: value ?? undefined,
+    looks: options.length > MOST_TILES ? ['list'] : ['tiles', 'list'],
+    big: (look) =>
+      look === 'list' ? (
+        <GlassChoiceRows<string> size="hero" ariaLabel={label} options={options.map((option) => ({ value: option, label: option }))} value={value} onChange={onPick} />
+      ) : (
+        <GlassTiles<string> size="hero" ariaLabel={label} options={choices} value={value} onChange={onPick} />
+      ),
+    group: <GlassChips<string> size="dialog" ariaLabel={label} options={options.map((option) => ({ value: option, label: option }))} value={value} onChange={onPick} />,
+  };
+}
+
 function useFanSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: DevicePanelInput): PanelSpec {
   const dt = useDevicesTranslations();
   const sp = usePanelSpecTranslations();
   const { locale } = useI18n();
-  const timerItems = useTimerItem(timer, timerNow, onSetTimer);
+  const timerControls = useTimerControl(timer, timerNow, onSetTimer);
   const fan = model.fan;
-  const shortcuts: PanelItem[] = [];
+  const controls: PanelControl[] = [...timerControls];
   if (fan && fan.presets.length > 0) {
-    shortcuts.push({
-      key: 'modes',
-      kind: 'opens',
-      icon: <SlidersHorizontal {...ICON} />,
-      label: dt('modes'),
-      value: fan.preset ?? undefined,
-      content: (place) => (
-        <GlassChips<string>
-          size={chipSize(place)}
-          ariaLabel={dt('modes')}
-          options={fan.presets.map((preset) => ({ value: preset, label: preset }))}
-          value={fan.preset}
-          onChange={(preset) => onAction({ type: 'fan_preset', preset: fan.preset === preset ? null : preset })}
-        />
-      ),
-    });
+    controls.push(modesControl(dt('modes'), fan.presets, fan.preset, (preset) => onAction({ type: 'fan_preset', preset: fan.preset === preset ? null : preset })));
   }
   if (fan && fan.oscillating !== null) {
-    shortcuts.push({
-      key: 'oscillate',
-      kind: 'toggle',
+    controls.push({
+      id: 'oscillate',
       icon: <MoveHorizontal {...ICON} />,
       label: dt('oscillation'),
       note: sp.t('oscillationNote'),
@@ -232,28 +239,18 @@ function useFanSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: 
   }
   if (fan && fan.direction !== null) {
     const direction = fan.direction;
-    shortcuts.push({
-      key: 'direction',
-      kind: 'opens',
-      icon: <ArrowLeftRight {...ICON} />,
+    const DirectionIcon = direction === 'reverse' ? RotateCcw : RotateCw;
+    controls.push({
+      id: 'direction',
+      // The icon says which way it turns now.
+      icon: <DirectionIcon {...ICON} />,
       label: dt('direction'),
       value: sp.t(direction === 'reverse' ? 'dirReverse' : 'dirNormal').toLocaleLowerCase(locale),
       note: sp.t('dirNote'),
-      content: () => (
-        <GlassSegmented<'forward' | 'reverse'>
-          className="panel-seg"
-          ariaLabel={dt('direction')}
-          options={[
-            { value: 'forward', label: sp.t('dirNormal') },
-            { value: 'reverse', label: sp.t('dirReverse') },
-          ]}
-          value={direction}
-          onChange={(next) => onAction({ type: 'fan_direction', direction: next })}
-        />
-      ),
+      actionLabel: sp.t('dirChange'),
+      onPress: () => onAction({ type: 'fan_direction', direction: direction === 'reverse' ? 'forward' : 'reverse' }),
     });
   }
-  shortcuts.push(...timerItems);
 
   const steps = fan?.steps ?? 0;
   const level = fan ? fanLevel(fan) : 0;
@@ -261,6 +258,8 @@ function useFanSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: 
   const said = model.on ? (steps ? dt('speedText', { level, steps }) : `${pct}%`) : dt('switchOff');
   return {
     ...deviceBase(model, roomName, dt),
+    layout: 'fan',
+    heroName: fan?.canSetSpeed ? (steps && model.on ? said : sp.t('heroSpeed', { value: said })) : formatDeviceStatus(model, dt),
     heroKind: fan?.canSetSpeed ? 'slider' : 'value',
     hero: fan?.canSetSpeed ? (
       <GlassVerticalSlider
@@ -280,7 +279,7 @@ function useFanSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: 
     ) : (
       <PanelHeroValue icon={<DeviceIcon model={model} size={28} />} value={formatDeviceStatus(model, dt)} />
     ),
-    shortcuts,
+    controls,
     action: powerOf(model, dt, onAction),
   };
 }
@@ -290,52 +289,20 @@ export const fanEntry: PanelEntry<DevicePanelInput> = { useSpec: useFanSpec };
 function useHumidifierSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: DevicePanelInput): PanelSpec {
   const dt = useDevicesTranslations();
   const sp = usePanelSpecTranslations();
-  const timerItems = useTimerItem(timer, timerNow, onSetTimer);
+  const timerControls = useTimerControl(timer, timerNow, onSetTimer);
   const humidifier = model.humidifier;
   const min = humidifier?.min ?? 30;
   const max = humidifier?.max ?? 70;
   const current = humidifier?.current ?? null;
   const target = humidifier?.target ?? Math.round((min + max) / 2);
-  const shortcuts: PanelItem[] = [];
-  if (current !== null) {
-    shortcuts.push({
-      key: 'now',
-      kind: 'opens',
-      icon: <Droplets {...ICON} />,
-      label: dt('panelHumidity'),
-      title: dt('humidityNow'),
-      value: `${current}%`,
-      content: () => (
-        <PanelRows
-          rows={[
-            [sp.t('inRoom'), `${current}%`],
-            [sp.t('target'), `${target}%`],
-          ]}
-        />
-      ),
-    });
-  }
+  const controls: PanelControl[] = [...timerControls];
   if (humidifier && humidifier.modes.length > 0) {
-    shortcuts.push({
-      key: 'modes',
-      kind: 'opens',
-      icon: <SlidersHorizontal {...ICON} />,
-      label: dt('modes'),
-      value: humidifier.mode ?? undefined,
-      content: (place) => (
-        <GlassChips<string>
-          size={chipSize(place)}
-          ariaLabel={dt('modes')}
-          options={humidifier.modes.map((mode) => ({ value: mode, label: mode }))}
-          value={humidifier.mode}
-          onChange={(mode) => onAction({ type: 'humidifier_mode', mode })}
-        />
-      ),
-    });
+    controls.push(modesControl(dt('modes'), humidifier.modes, humidifier.mode, (mode) => onAction({ type: 'humidifier_mode', mode })));
   }
-  shortcuts.push(...timerItems);
   return {
     ...deviceBase(model, roomName, dt),
+    layout: 'humidifier',
+    heroName: sp.t('heroTarget', { value: `${target}%` }),
     heroKind: 'slider',
     hero: (
       <GlassVerticalSlider
@@ -354,7 +321,7 @@ function useHumidifierSpec({ model, roomName, timer, timerNow, onSetTimer, onAct
         onValueChange={(next) => onAction({ type: 'humidity', target: next })}
       />
     ),
-    shortcuts,
+    controls,
     action: powerOf(model, dt, onAction),
   };
 }
@@ -376,9 +343,9 @@ function useCoverSpec({ model, roomName, onAction }: DevicePanelInput): PanelSpe
   ).filter(([value]) => cover?.canPosition || (value === 100 && cover?.canOpen) || (value === 0 && cover?.canClose));
   const isAt = (value: number) => (position === null ? (value === 100) === model.on : position === value);
   const onValue = cover?.moving ? null : presets.find(([value]) => isAt(value))?.[0];
-  const pick = (place: PanelDrawnIn) => (
+  const pick = (size: 'default' | 'dialog') => (
     <GlassChips<string>
-      size={chipSize(place)}
+      size={size}
       ariaLabel={dt('position')}
       options={presets.map(([value, label]) => ({ value: String(value), label }))}
       value={onValue === null || onValue === undefined ? null : String(onValue)}
@@ -390,32 +357,30 @@ function useCoverSpec({ model, roomName, onAction }: DevicePanelInput): PanelSpe
     />
   );
   const tilt = cover?.tilt ?? null;
-  const tiltBar = (className?: string) =>
-    tilt === null ? null : (
-      <GlassSlider
-        variant="bar"
-        tone="device"
-        size="compact"
-        commit="release"
-        className={className}
-        step={5}
-        label={dt('tilt')}
-        value={tilt}
-        valueText={`${tilt}%`}
-        disabled={!model.available}
-        onValueChange={(value) => onAction({ type: 'cover_tilt', tilt: value })}
-      />
-    );
-  const groups: PanelItem[] = [
-    { key: 'position', kind: 'opens', icon: <SlidersHorizontal {...ICON} />, label: dt('position'), value: position !== null ? `${position}%` : undefined, content: pick },
-    ...(tilt !== null
-      ? [{ key: 'tilt', kind: 'opens' as const, icon: <MoveHorizontal {...ICON} />, label: dt('tilt'), value: `${tilt}%`, content: () => tiltBar() }]
-      : []),
-  ];
+  const tiltBar = tilt === null ? null : (
+    <GlassSlider
+      variant="bar"
+      tone="device"
+      commit="release"
+      step={5}
+      label={dt('tilt')}
+      value={tilt}
+      valueText={`${tilt}%`}
+      disabled={!model.available}
+      onValueChange={(value) => onAction({ type: 'cover_tilt', tilt: value })}
+    />
+  );
   const moving = Boolean(cover?.moving && cover.canStop);
-  const canAct = model.on ? cover?.canClose : cover?.canOpen;
+  const stop = () => onAction({ type: 'cover_stop' });
+  const big = (node: React.ReactNode) => ({ looks: ['slider' as const], big: () => node, group: node });
+  const controls: PanelControl[] = [
+    { id: 'position', icon: <SlidersHorizontal {...ICON} />, label: dt('position'), value: position !== null ? `${position}%` : undefined, ...big(pick('dialog')) },
+    ...(tiltBar ? [{ id: 'tilt', icon: <MoveHorizontal {...ICON} />, label: dt('tilt'), value: `${tilt}%`, ...big(tiltBar) }] : []),
+  ];
   return {
     ...deviceBase(model, roomName, dt),
+    layout: 'cover',
+    noRow: true,
     heroKind: canPosition ? 'cover' : 'value',
     hero: canPosition ? (
       <GlassVerticalSlider
@@ -439,31 +404,29 @@ function useCoverSpec({ model, roomName, onAction }: DevicePanelInput): PanelSpe
     ) : (
       <PanelHeroValue icon={<DeviceIcon model={model} size={28} />} value={formatDeviceStatus(model, dt)} />
     ),
-    shortcuts: [],
-    always: (
+    controls,
+    below: (
       <>
-        <p className="panel-cover-title">{dt('position')}</p>
-        {pick('zone')}
-        {tilt !== null ? (
-          <>
-            <p className="panel-cover-title is-soft">{dt('tiltNow', { pct: tilt })}</p>
-            {tiltBar('panel-cover-bar')}
-          </>
+        {moving ? (
+          <GlassButton variant="filled" className="panel-cover-stop" onClick={stop}>
+            <Square size={16} strokeWidth={2.6} aria-hidden="true" />
+            {sp.t('coverStop')}
+          </GlassButton>
+        ) : (
+          pick('default')
+        )}
+        {tiltBar ? (
+          <div className="panel-cover-tilt">
+            <p>
+              <b>{sp.t('tiltTitle')}</b>
+              <span>{tilt}%</span>
+            </p>
+            {tiltBar}
+          </div>
         ) : null}
       </>
     ),
-    groups,
-    action: moving
-      ? { kind: 'stop', label: dt('stopCover', { name: model.name }), onPress: () => onAction({ type: 'cover_stop' }) }
-      : canAct
-        ? {
-            kind: 'power',
-            on: model.on,
-            disabled: !model.available,
-            label: sp.t(model.on ? 'closeNow' : 'openNow', { name: model.name }),
-            onPress: () => onAction({ type: model.on ? 'cover_close' : 'cover_open' }),
-          }
-        : undefined,
+    action: moving ? { kind: 'stop', label: dt('stopCover', { name: model.name }), onPress: stop } : undefined,
   };
 }
 

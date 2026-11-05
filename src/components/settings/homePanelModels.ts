@@ -36,6 +36,7 @@ export function lampToLightModel(entityId: string, name: string, lamp: HomeLamp)
     available: !isAway(lamp.status),
     on: lamp.isOn,
     caps,
+    hasWhites: lamp.supportsColorTemp !== false,
     // A light in a colour has no temperature to report.
     mode: caps === 'color' && !lamp.colorTemp ? 'color' : 'temp',
     brightnessPct: caps === 'onoff' ? null : Math.max(1, Math.min(100, Math.round(lamp.brightness))),

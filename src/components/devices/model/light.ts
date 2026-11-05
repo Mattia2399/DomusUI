@@ -24,6 +24,8 @@ export type LightModel = {
   available: boolean;
   on: boolean;
   caps: LightCaps;
+  /** A light with colours may have no whites of its own. Unknown counts as yes. */
+  hasWhites?: boolean;
   mode: LightMode;
   /** 1–100, or null when the light does not report it. */
   brightnessPct: number | null;
@@ -137,6 +139,7 @@ export function toLightModel(entityId: string, entity: MockEntityState | undefin
     available: Boolean(entity) && state !== 'unavailable' && state !== 'unknown' && state !== '',
     on: state === 'on',
     caps,
+    hasWhites: readModes(entity).length > 0 ? readModes(entity).includes('color_temp') : undefined,
     mode: caps === 'color' && COLOR_MODES.includes(colorMode) ? 'color' : 'temp',
     brightnessPct: caps === 'onoff' ? null : lightBrightnessPct(entity),
     kelvin: readKelvin(entity) ?? DEFAULT_KELVIN,
