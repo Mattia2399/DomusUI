@@ -63,9 +63,34 @@ test('Settings, Home: Climate opens its lazy shell and Back returns to Settings'
   await page.getByRole('region', { name: 'Casa', exact: true }).getByRole('button', { name: /^Clima/ }).click();
   await expect(page).toHaveURL(/\/settings\/climate$/);
   await expect(page.getByRole('heading', { name: 'Clima', exact: true })).toBeVisible();
-  await expect(page.getByText('Configurazione climatica non ancora disponibile.')).toBeVisible();
+  await expect(page.getByText('Clima non ancora configurato')).toBeVisible();
+  await page.getByRole('button', { name: 'Esplora l’anteprima' }).click();
+  await expect(page.getByText('Anteprima dimostrativa · dati fittizi')).toBeVisible();
+  await page.getByRole('button', { name: 'Apri Camera', exact: true }).click();
+  await expect(page.getByText('Questa è la temperatura che Domus userà per decidere per la zona.')).toBeVisible();
+  await page.getByRole('combobox', { name: 'Riscaldamento', exact: true }).selectOption('living-trv');
+  await expect(page.getByRole('combobox', { name: 'Riscaldamento', exact: true })).toHaveValue('living-trv');
+  await page.getByRole('button', { name: 'Fino a…' }).click();
+  await page.getByRole('textbox', { name: 'Fino a…' }).fill('21:30');
+  await expect(page.getByText('Override fino alle 21:30')).toBeVisible();
+  await page.getByRole('button', { name: 'Chiudi' }).click();
   await page.getByRole('button', { name: 'Indietro' }).click();
   await expect(page).toHaveURL(/\/settings$/);
+});
+
+test('Climate preview stays usable on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/settings/climate');
+  await expect(page.getByText('Clima non ancora configurato')).toBeVisible();
+  await page.getByRole('button', { name: 'Esplora l’anteprima' }).click();
+  await expect(page.getByText('Anteprima dimostrativa · dati fittizi')).toBeVisible();
+  await page.getByRole('navigation', { name: 'DOMUS CLIMATE' }).getByRole('button', { name: 'Zone' }).click();
+  await expect(page.locator('button.dv-climate')).toHaveCount(5);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  await page.getByRole('navigation', { name: 'DOMUS CLIMATE' }).getByRole('button', { name: 'Programmi' }).click();
+  await expect(page.getByText('Programma settimanale')).toBeVisible();
+  await page.getByRole('navigation', { name: 'DOMUS CLIMATE' }).getByRole('button', { name: 'Impianto' }).click();
+  await expect(page.getByText('Circuito radiatori').first()).toBeVisible();
 });
 
 test('Settings, System: the connection opens and Back returns to Settings', async ({ page }) => {

@@ -179,7 +179,9 @@ test('the production Climate Settings route loads its lazy shell', async ({ page
   await page.goto('/');
   await navigate(page, '/settings/climate');
   await expect(page.getByRole('heading', { name: 'Clima', exact: true })).toBeVisible();
-  await expect(page.getByText('Configurazione climatica non ancora disponibile.')).toBeVisible();
+  await expect(page.getByText('Clima non ancora configurato')).toBeVisible();
+  await page.getByRole('button', { name: 'Esplora l’anteprima' }).click();
+  await expect(page.getByText('Anteprima dimostrativa · dati fittizi')).toBeVisible();
   await expectHealthy(page, problems, '/settings/climate');
 });
 

@@ -1259,6 +1259,7 @@ export default function SettingsDashboard({
       <SettingsDetailShell
         title={t('settings.climate.title')}
         subtitle={t('settings.climate.subtitle')}
+        wide
         onBack={() => navigateTo('/settings')}
       >
         <LazyLoadBoundary mode="section" fallback={null}>

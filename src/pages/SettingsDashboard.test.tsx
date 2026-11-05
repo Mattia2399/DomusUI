@@ -70,7 +70,11 @@ describe('SettingsDashboard', () => {
       </AccessTestProviders>,
     );
     expect(screen.getByRole('heading', { name: 'Clima' })).toBeTruthy();
-    await waitFor(() => expect(screen.getByText('Configurazione climatica non ancora disponibile.')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Clima non ancora configurato')).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Esplora l’anteprima/ }));
+    expect(screen.getByText('Anteprima dimostrativa · dati fittizi')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Apri Camera' }));
+    expect(screen.getByText('Questa è la temperatura che Domus userà per decidere per la zona.')).toBeTruthy();
     expect(onCallService).not.toHaveBeenCalled();
   });
 
