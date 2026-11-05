@@ -58,6 +58,16 @@ test('Settings, Home: waste collection opens and Back returns to Settings', asyn
   await expect(page.getByRole('region', { name: 'Casa', exact: true })).toBeVisible();
 });
 
+test('Settings, Home: Climate opens its lazy shell and Back returns to Settings', async ({ page }) => {
+  await page.goto('/settings');
+  await page.getByRole('region', { name: 'Casa', exact: true }).getByRole('button', { name: /^Clima/ }).click();
+  await expect(page).toHaveURL(/\/settings\/climate$/);
+  await expect(page.getByRole('heading', { name: 'Clima', exact: true })).toBeVisible();
+  await expect(page.getByText('Configurazione climatica non ancora disponibile.')).toBeVisible();
+  await page.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+});
+
 test('Settings, System: the connection opens and Back returns to Settings', async ({ page }) => {
   await page.goto('/settings');
 

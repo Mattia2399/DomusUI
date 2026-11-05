@@ -62,6 +62,18 @@ const baseProps = {
 };
 
 describe('SettingsDashboard', () => {
+  it('opens the lazy Climate shell as a house setting without controlling entities', async () => {
+    const onCallService = vi.fn(async () => true);
+    render(
+      <AccessTestProviders security={security}>
+        <SettingsDashboard {...baseProps} onCallService={onCallService} navigationRoute="/settings/climate" />
+      </AccessTestProviders>,
+    );
+    expect(screen.getByRole('heading', { name: 'Clima' })).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('Configurazione climatica non ancora disponibile.')).toBeTruthy());
+    expect(onCallService).not.toHaveBeenCalled();
+  });
+
   it('lists Power and charging in This device for administrators only', async () => {
     const onNavigate = vi.fn();
     const member = createDashboardSecurityValue({
@@ -234,6 +246,7 @@ describe('SettingsDashboard', () => {
     const home = within(screen.getByRole('region', { name: 'Casa' }));
     expect(home.getAllByRole('button').map((card) => card.textContent)).toEqual([
       expect.stringContaining('Dashboard'),
+      expect.stringContaining('Clima'),
       expect.stringContaining('Piani e stanze'),
       expect.stringContaining('Persone e accessi'),
       expect.stringContaining('Sicurezza'),
@@ -258,6 +271,8 @@ describe('SettingsDashboard', () => {
       expect.stringContaining('Avanzate e supporto'),
     ]);
 
+    fireEvent.click(home.getByRole('button', { name: /^Clima/ }));
+    expect(onNavigate).toHaveBeenCalledWith('/settings/climate');
     fireEvent.click(home.getByRole('button', { name: /^Piani e stanze/ }));
     expect(onNavigate).toHaveBeenCalledWith('/settings/floors');
     fireEvent.click(home.getByRole('button', { name: /^Sicurezza/ }));

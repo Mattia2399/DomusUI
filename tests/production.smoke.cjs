@@ -173,6 +173,16 @@ test('the production build starts and renders Home, Consumi and Energia', async 
   await expectSingleHouseImage(page, images);
 });
 
+test('the production Climate Settings route loads its lazy shell', async ({ page, baseURL }) => {
+  const problems = watchProblems(page);
+  await simulateHomeAssistant(page, new URL(baseURL).origin);
+  await page.goto('/');
+  await navigate(page, '/settings/climate');
+  await expect(page.getByRole('heading', { name: 'Clima', exact: true })).toBeVisible();
+  await expect(page.getByText('Configurazione climatica non ancora disponibile.')).toBeVisible();
+  await expectHealthy(page, problems, '/settings/climate');
+});
+
 test('inside Home Assistant the page stays on index.html and Energia loads one image', async ({ page, baseURL }) => {
   const problems = watchProblems(page);
   const images = watchHouseImages(page);

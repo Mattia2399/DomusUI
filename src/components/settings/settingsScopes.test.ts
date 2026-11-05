@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { canOpenRoute, resolveRouteAccess } from '../../navigation/routeAccess';
 import { accessFor } from '../../test/accessFixtures';
-import { italianTranslations } from '../../i18n/translations';
+import { englishTranslations, frenchTranslations, italianTranslations } from '../../i18n/translations';
 import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_KIOSK_ROUTE,
@@ -48,6 +48,10 @@ describe('settings scopes', () => {
     expect(entry('access')).toMatchObject({ scope: 'house', section: 'house' });
     expect(resolveRouteAccess(entry('access').route)).toEqual({ kind: 'capability', capability: 'people.view' });
     expect(entry('security')).toMatchObject({ scope: 'house', owner: 'core', storage: 'ha_shared_house' });
+    expect(entry('climate')).toMatchObject({ scope: 'house', owner: 'core', section: 'house', route: '/settings/climate', storage: 'not_persisted' });
+    expect(resolveRouteAccess(entry('climate').route)).toEqual({ kind: 'capability', capability: 'house.manage' });
+    expect(canOpenRoute(entry('climate').route, accessFor('admin').can)).toBe(true);
+    expect(canOpenRoute(entry('climate').route, accessFor('member').can)).toBe(false);
   });
 
   it('keeps app-owned house configuration inside its app, not on the Settings page', () => {
@@ -162,7 +166,7 @@ describe('settings scopes', () => {
   it('lists for each role exactly the entries its capabilities open', () => {
     const visible = (role: Parameters<typeof accessFor>[0], section: 'house' | 'system' | 'device') =>
       selectVisibleSettingsEntries(section, (route) => canOpenRoute(route, accessFor(role).can)).map(({ id }) => id);
-    expect(visible('admin', 'house')).toEqual(['dashboard', 'floors', 'access', 'security', 'waste']);
+    expect(visible('admin', 'house')).toEqual(['dashboard', 'climate', 'floors', 'access', 'security', 'waste']);
     expect(visible('admin', 'system')).toEqual(['connection', 'devices', 'entities', 'system', 'data']);
     expect(visible('admin', 'device')).toEqual(['appearance', 'language', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
     // A member: the people of the house, the system status and this device's preferences.
@@ -178,6 +182,14 @@ describe('settings scopes', () => {
   it('never lists an entry without a route rule of its own', () => {
     for (const settingsEntry of SETTINGS_ENTRIES) {
       expect(resolveRouteAccess(settingsEntry.route).kind, settingsEntry.id).toBe('capability');
+    }
+  });
+
+  it('provides the climate entry and shell copy in IT, EN and FR', () => {
+    for (const catalog of [italianTranslations, englishTranslations, frenchTranslations]) {
+      expect(catalog['settings.climate.title']).toBeTruthy();
+      expect(catalog['settings.climate.subtitle']).toBeTruthy();
+      expect(catalog['settings.climate.notConfigured']).toBeTruthy();
     }
   });
 });
@@ -201,6 +213,14 @@ describe('settings overview weight', () => {
     const registry = source('src/components/settings/settingsScopes.ts');
     expect(registry).not.toMatch(/from 'lucide-react'|from 'react'/);
     expect(registry).not.toMatch(/^import (?!type )[^\n]*from '\.\.\/\.\.\/i18n/m);
+  });
+
+  it('loads the climate shell on request without a service-call path', () => {
+    const settingsPage = source('src/pages/SettingsDashboard.tsx');
+    const shell = source('src/pages/climate/ClimateSettingsShell.tsx');
+    expect(settingsPage).toContain("React.lazy(() => import('./climate/ClimateSettingsShell'))");
+    expect(settingsPage).not.toContain("from './climate/ClimateSettingsShell'");
+    expect(shell).not.toMatch(/onCallService|onCallApi|callService|callApi|set_temperature|set_hvac_mode/);
   });
 });
 

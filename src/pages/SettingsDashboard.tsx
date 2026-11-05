@@ -32,6 +32,7 @@ import {
   RotateCcw,
   Server,
   ShieldCheck,
+  Thermometer,
   UserRoundCog,
   Wifi,
   Wrench,
@@ -123,6 +124,7 @@ const DeviceLanguageSettings = React.lazy(() =>
   })),
 );
 const DevicePowerSettings = React.lazy(() => import('../components/settings/DevicePowerSettings'));
+const ClimateSettingsShell = React.lazy(() => import('./climate/ClimateSettingsShell'));
 const ScreensaverSettings = React.lazy(() => import('../components/settings/ScreensaverSettings'));
 const KioskSettings = React.lazy(() => import('../components/settings/KioskSettings'));
 // The chart library loads only with the CPU trend of Settings › System, never with Settings itself.
@@ -925,6 +927,7 @@ export default function SettingsDashboard({
       value?: string;
     }> = {
       dashboard: { icon: LayoutDashboard, color: 'bg-indigo-500' },
+      climate: { icon: Thermometer, color: 'bg-orange-500' },
       floors: { icon: Layers3, color: 'bg-sky-500' },
       access: { icon: UserRoundCog, color: 'bg-violet-500', value: householdPeopleCount > 0 ? String(householdPeopleCount) : undefined },
       security: { icon: LockKeyhole, color: 'bg-emerald-600' },
@@ -1247,6 +1250,20 @@ export default function SettingsDashboard({
           onOpenSecurityCenter={() => navigateTo('/security')}
           onOpenProfileSecurity={() => navigateTo(`${PROFILE_ROUTE}/security`)}
         />
+      </SettingsDetailShell>
+    );
+  }
+
+  if (settingsPath === '/settings/climate') {
+    return (
+      <SettingsDetailShell
+        title={t('settings.climate.title')}
+        subtitle={t('settings.climate.subtitle')}
+        onBack={() => navigateTo('/settings')}
+      >
+        <LazyLoadBoundary mode="section" fallback={null}>
+          <ClimateSettingsShell />
+        </LazyLoadBoundary>
       </SettingsDetailShell>
     );
   }
