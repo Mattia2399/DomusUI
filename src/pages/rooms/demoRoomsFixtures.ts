@@ -129,7 +129,6 @@ export const DEMO_PROTECTED_ENTITIES = ['switch.demo_fridge'];
 const AC_MODES = ['off', 'heat', 'cool', 'heat_cool', 'dry', 'fan_only'];
 
 export const DEMO_CLIMATE_STATES: MockEntityStateMap = {
-  [DEMO_STOVE_ENTITY_ID]: DEMO_STOVE_STATE,
   'climate.demo_living_ac': device('Climatizzatore', 'heat', {
     hvac_modes: AC_MODES,
     hvac_action: 'heating',
@@ -181,6 +180,7 @@ export const DEMO_CLIMATE_STATES: MockEntityStateMap = {
     max_temp: 28,
     target_temp_step: 0.5,
   }),
+  [DEMO_STOVE_ENTITY_ID]: DEMO_STOVE_STATE,
 };
 
 export const DEMO_CLIMATE_ROOMS: Record<string, string> = {
