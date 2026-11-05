@@ -218,3 +218,69 @@ Il gruppo Onboarding è il più stretto: carica `GlassButton`, quindi quel file 
 | Grafico | Il grafico prende tutto, con il periodo sopra | scheda del sensore |
 | Immagine | La mappa riempie il protagonista senza deformarsi | `.panel-vacuum-map` |
 | Comando direzionale | Croce grande, con Casa al centro se l'entità la espone | `CameraPtzJoystick size="hero"` |
+
+## 9. Prompt 3, Fase 0: micro widget e pezzi a parte
+
+Stato al 5 novembre 2026, branch `feat/controlli-collegati`, creato da `feat/pannelli-navigazione` (767b044). I pesi dei pezzi nuovi sono stime, calcolate su componenti simili già esistenti (`GlassTiles` 4,6 KB e 1,6 gzip, `GlassStepper` 4,4 e 1,5, `GlassRing` 1,5 e 0,7).
+
+### Dove sono disegnati oggi
+
+I micro widget non stanno sulle card. Si disegnano in due posti:
+
+- il blocco sotto il pannello della Home, in `src/components/settings/ContextSidebar.tsx:484`, per qualsiasi tipo di dispositivo;
+- l'anteprima dell'editor, in `src/components/dashboard/RightSidebarManager.tsx:1085`.
+
+Nelle Stanze non compaiono. I componenti sono in `src/components/widgets/micro/`.
+
+### Micro widget e aspetti della galleria
+
+| Micro widget | File | Aspetto della galleria | Azione o versione grande |
+|---|---|---|---|
+| `value_pill` | `ValuePill.tsx` | IND-02 Value Pill | Grande: IND-01 Value Display |
+| `status_glow` | `StatusGlow.tsx` | IND-05 Status Glow | Grande: lo stesso a tutto spazio |
+| `micro_toggle` | `MicroToggle.tsx` | BOO-01 Standard Toggle | Azione |
+| `mini_ring` | `MiniRing.tsx` | IND-08 Mini Ring | Grande: IND-06 Circular Gauge |
+| `micro_button` con `switch` (predefinito) | `MicroButton.tsx` | BOO-03 Icon Toggle | Azione |
+| `micro_button` con `push` | `MicroButton.tsx` | ACT-01 Push Button | Azione |
+| `micro_button` con `push` e pressione mantenuta | `MicroButton.tsx` | Nessuno | Azione, da aggiungere |
+| `micro_button` con `page` | `MicroButton.tsx` | Nessuno (il più vicino è ACT-03 Text Button) | Azione, da aggiungere |
+| `micro_slider` | `MicroSlider.tsx` | NUM-01 Horizontal Slider | Grande: NUM-02 Vertical Slider |
+| `micro_step` | `MicroStep.tsx` | NUM-04 Numeric Stepper | Grande: valore grande con − e + |
+| `micro_superchart` | `MicroSuperChart.tsx` (recharts) | CH-02, CH-03 o CH-04, secondo il tipo | Grande: il grafico a tutto spazio |
+
+### Opzioni di oggi
+
+| Opzione | Valori | Corrisponde a |
+|---|---|---|
+| `label` | testo | `name` |
+| `buttonMode` | `switch` (predefinito), `push`, `page` | L'aspetto: BOO-03, ACT-01, pulsante pagina |
+| `buttonHoldWhilePressed` | sì o no, solo con `push` | Nessun aspetto: accende alla pressione e spegne al rilascio. ACT-05 è un'altra cosa: conferma dopo 1,2 s |
+| `buttonPagePath` | percorso, predefinito `/home`, solo con `page` | Una prop nuova: il `RelatedControl` non ha un campo per le opzioni |
+| `sliderSendOnRelease` | predefinito sì | `commit="release"`; con no `commit="live"` e l'attesa di 2,2 s di oggi |
+| `superChartType` | `line` (predefinito), `area`, `bar` | L'aspetto: CH-02, CH-03, CH-04 |
+
+### Galleria e libreria
+
+| Famiglia | Schede | Esistono già | Da fare |
+|---|---|---|---|
+| A · Selezione | 7 | SEL-01 `GlassDropdown`, SEL-02 e 03 `GlassSegmented`, SEL-04, 05 e 06 `GlassChoiceRows` | SEL-07 Frecce |
+| B · Numeri | 10 | NUM-01, 03, 06 `GlassSlider`, NUM-02 e 08 `GlassVerticalSlider`, NUM-04 `GlassStepper` | NUM-05 Campo, NUM-07 Livelli, NUM-09 Intervallo, NUM-10 Anello |
+| C · Interruttori | 7 | BOO-01 `GlassToggleRow`, BOO-02 `GlassSwitch`, BOO-03 `GlassShortcut`, BOO-05 `GlassSegmented` | BOO-04 Casella, BOO-06 Riquadro, BOO-07 Riga con spia |
+| D · Azioni | 9 | ACT-01, 02, 03 `GlassButton`, ACT-06 `GlassConfirm` | ACT-04 Gruppo, ACT-05 Tieni premuto, ACT-07 Avanzamento, ACT-08 Esito, ACT-09 Pillola |
+| E · Testo e date | 8 | Nessuna | Tutte |
+| F · Indicatori | 17 | IND-06 su `GlassRing` | Le altre 16 |
+| G · Grafici | 8 | Nessuna come componente | Tutti, in SVG |
+| H · Avanzati | 11 | ADV-01 `GlassColorPicker`, ADV-02 `GlassColorTemperature`, ADV-03 `GlassSwatches`, ADV-05 `CameraPtzJoystick`, ADV-07 timer dei pannelli, ADV-09 e 11 `GlassTiles` | ADV-04 Joystick, ADV-06 Curva, ADV-08 Conto alla rovescia, ADV-10 Velocità ventola |
+
+### Piano dei pezzi a parte
+
+| Pezzo | Cosa contiene | Stima | Quando si scarica |
+|---|---|---|---|
+| Pacchetto principale | I segnaposto dei collegati, letti dalla configurazione | +0,5 KB, +0,2 gzip | Sempre |
+| `controlli-collegati` | Registro, `RelatedControlView`, conversione dei micro widget, elenco dei caricatori | 6 KB, 2 gzip | Card con collegati o micro widget |
+| `controlli-valori` | A, B e C nuovi: 8 componenti | 20 KB, 7 gzip | Un collegato usa uno di questi aspetti |
+| `controlli-azioni` | D nuovi: 5 componenti | 12 KB, 4 gzip | Idem |
+| `controlli-indicatori` | F: 16 componenti | 25 KB, 7 gzip | Idem |
+| `controlli-grafici` | G: 8 grafici SVG, senza recharts | 15 KB, 5 gzip | Idem |
+| `controlli-testo` | E: 8 componenti | 20 KB, 6 gzip | Idem |
+| `controlli-avanzati` | H nuovi: 4 componenti | 12 KB, 4 gzip | Idem |
