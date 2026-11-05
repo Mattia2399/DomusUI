@@ -1,0 +1,337 @@
+/* Specialised controls that load only when a panel uses them. */
+
+/* Joystick */
+.glass-joystick {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--control-ink);
+  container-type: inline-size;
+}
+
+.glass-joystick > div {
+  position: relative;
+  height: min(200px, 100cqw);
+  width: min(200px, 100cqw);
+  border-radius: 50%;
+  background: var(--control-soft);
+  cursor: grab;
+  touch-action: none;
+}
+
+.glass-joystick.is-compact > div {
+  height: min(160px, 100cqw);
+  width: min(160px, 100cqw);
+}
+
+.glass-joystick.is-hero {
+  min-height: 0;
+  flex: 1;
+  justify-content: center;
+  container-type: size;
+}
+
+.glass-joystick.is-hero > div {
+  height: min(100cqw, 90cqh, 320px);
+  width: min(100cqw, 90cqh, 320px);
+}
+
+.glass-joystick > div > i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: 36%;
+  width: 36%;
+  border-radius: 50%;
+  background: var(--control-knob);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
+  transform: translate(-50%, -50%);
+  transition: left 180ms ease, top 180ms ease;
+}
+
+.glass-joystick.is-moving > div > i {
+  transition: none;
+}
+
+.glass-joystick > p {
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Curve */
+.glass-curve {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--control-ink);
+}
+
+.glass-curve-plot {
+  position: relative;
+  height: 160px;
+  margin-top: 18px;
+  border-radius: 14px;
+  background: var(--control-soft);
+}
+
+.glass-curve.is-compact .glass-curve-plot {
+  height: 100px;
+}
+
+.glass-curve-plot svg {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.glass-curve-plot line {
+  stroke: var(--control-track);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.glass-curve-plot polyline {
+  fill: none;
+  stroke: var(--device-accent, var(--control-ink));
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.glass-curve-plot > button {
+  position: absolute;
+  height: 28px;
+  width: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--control-knob);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+  color: var(--control-ink);
+  transform: translate(-50%, -50%);
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.glass-curve-plot > button > em {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  color: var(--control-ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.glass-curve > p {
+  display: flex;
+  margin: 0;
+  justify-content: space-between;
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.glass-curve.is-hero {
+  min-height: 0;
+  flex: 1;
+}
+
+.glass-curve.is-hero .glass-curve-plot {
+  height: auto;
+  min-height: 0;
+  flex: 1;
+}
+
+/* Countdown */
+.glass-countdown {
+  display: flex;
+  width: 100%;
+  justify-content: center;
+  color: var(--control-ink);
+  container-type: inline-size;
+}
+
+.glass-countdown > * {
+  position: relative;
+  display: block;
+  height: min(160px, 100cqw);
+  width: min(160px, 100cqw);
+  flex: none;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.glass-countdown > button {
+  cursor: pointer;
+}
+
+.glass-countdown.is-compact > * {
+  height: min(120px, 100cqw);
+  width: min(120px, 100cqw);
+}
+
+.glass-countdown.is-hero {
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  container-type: size;
+}
+
+.glass-countdown.is-hero > * {
+  height: min(100cqw, 100cqh, 280px);
+  width: min(100cqw, 100cqh, 280px);
+}
+
+.glass-countdown svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.glass-countdown circle {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 9;
+}
+
+.glass-countdown-track {
+  stroke: var(--control-track);
+}
+
+.glass-countdown-fill {
+  stroke: var(--device-accent, var(--control-on));
+}
+
+.glass-countdown > * > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.glass-countdown b {
+  font-size: 30px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-countdown.is-hero b {
+  font-size: 48px;
+}
+
+.glass-countdown > * > span > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Fan speed */
+.glass-fan-speed {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  color: var(--control-ink);
+}
+
+.glass-fan-speed > i {
+  display: flex;
+  flex: none;
+}
+
+.glass-fan-speed > i.is-turning {
+  animation: glass-fan-turn linear infinite;
+}
+
+@keyframes glass-fan-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.glass-fan-speed > div {
+  display: flex;
+  height: var(--control-bar-height);
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+  border-radius: var(--control-bar-radius);
+  padding: 3px;
+  background: var(--control-soft);
+}
+
+.glass-fan-speed.is-compact > div {
+  height: var(--control-bar-height-compact);
+}
+
+.glass-fan-speed > div > button {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.glass-fan-speed > div > button.is-on {
+  background: var(--device-accent, var(--control-on));
+  color: var(--device-accent-ink, var(--control-on-ink));
+}
+
+.glass-fan-speed > div > button:disabled {
+  cursor: default;
+}
+
+.glass-fan-speed.is-hero {
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+  gap: 28px;
+}
+
+.glass-fan-speed.is-hero > div {
+  height: 72px;
+  width: 100%;
+  flex: none;
+  border-radius: 24px;
+  padding: 5px;
+}
+
+.glass-fan-speed.is-hero > div > button {
+  border-radius: 20px;
+  font-size: 17px;
+}
+
+.glass-joystick > div:focus-visible,
+.glass-curve-plot > button:focus-visible,
+.glass-countdown > button:focus-visible,
+.glass-fan-speed > div > button:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-fan-speed > i.is-turning {
+    animation: none;
+  }
+
+  .glass-joystick > div > i {
+    transition: none;
+  }
+}
