@@ -109,7 +109,6 @@ const readPanel = (page) => page.evaluate(() => {
     more: box(shell.querySelector('.panel-group-more')),
     slider: box(hero?.querySelector('.panel-hero-main > .glass-vslider')),
     nowPill: box(hero?.querySelector('.glass-vslider-now-pill')),
-    sliderWords: box(hero?.querySelector('.glass-vslider-top')),
     labels: [...shell.querySelectorAll('.panel-nav .glass-shortcut-label')].map((node) => node.textContent),
     scroller: (() => {
       const node = shell.querySelector('.panel-shell-main');
@@ -133,7 +132,10 @@ function structureProblems(read, view) {
   }
   if (!read.hero) return out;
   out.push(...read.cut);
-  if (read.nowPill && read.sliderWords && read.nowPill.top < read.sliderWords.bottom && read.nowPill.bottom > read.sliderWords.top) out.push('la pillola "ora" copre le parole dello slider');
+  if (read.nowPill && read.slider) {
+    if (read.nowPill.left < read.slider.right) out.push('la pillola "ora" non sta fuori dallo slider');
+    if (read.nowPill.right > read.hero.right + 1) out.push(`la pillola "ora" esce dal protagonista di ${(read.nowPill.right - read.hero.right).toFixed(1)} px`);
+  }
   if (read.more && !read.groupsLast.includes('panel-group-more')) out.push('la riga Altro non è l\'ultima');
   if (view.surface === 'column') {
     if (read.nav) out.push('nella colonna c\'è la fila');

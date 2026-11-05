@@ -1,7 +1,6 @@
 .glass-vslider {
   position: relative;
   flex: none;
-  overflow: hidden;
   background: var(--control-track);
   color: var(--control-ink);
 }
@@ -17,6 +16,15 @@
   height: var(--control-vertical-compact-height);
   width: var(--control-vertical-compact-width);
   border-radius: 24px;
+}
+
+/* What must stay inside the rounded shape. The pill of the value now stays out of it. */
+.glass-vslider-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .glass-vslider-fill {
@@ -133,18 +141,19 @@
   border-top-color: var(--control-ink-2);
 }
 
-/* Just above its line, but never over the words on top: there it waits under them. */
+/* Outside the slider, at the height of its line. */
 .glass-vslider-now-pill {
   position: absolute;
-  top: max(86px, calc(100% - var(--vslider-now) - 24px));
-  left: 12px;
-  border-radius: 9px;
-  padding: 2px 7px;
-  background: rgb(0 0 0 / 0.62);
-  color: #ffffff;
-  font-size: 11px;
+  left: calc(100% + 8px);
+  transform: translateY(50%);
+  border-radius: 10px;
+  padding: 3px 8px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 12px;
   font-style: normal;
   font-weight: 700;
+  pointer-events: none;
   white-space: nowrap;
 }
 

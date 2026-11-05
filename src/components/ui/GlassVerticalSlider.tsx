@@ -84,22 +84,20 @@ export function GlassVerticalSlider({
       )}
       style={gradient ? { background: gradient } : undefined}
     >
-      {gradient ? (
-        <span className="glass-vslider-handle" aria-hidden="true" style={{ bottom: `clamp(10px, ${Number(percent.toFixed(1))}%, calc(100% - 10px))` }} />
-      ) : (
-        <span className="glass-vslider-fill" aria-hidden="true" style={{ ...fillStyle, height: `${Number(percent.toFixed(1))}%` }} />
-      )}
-      {overlay}
-      {ticks?.map((tick) => <span key={tick} className="glass-vslider-tick" aria-hidden="true" style={{ bottom: `${tick}%` }} />)}
-      {current ? (
-        <>
-          <span className={clsx('glass-vslider-now', share(current.value) > percent && 'is-above')} aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }} />
-          {current.label ? (
-            <em className="glass-vslider-now-pill" aria-hidden="true" style={{ '--vslider-now': `${Number(share(current.value).toFixed(1))}%` } as React.CSSProperties}>
-              {current.label}
-            </em>
-          ) : null}
-        </>
+      <span className="glass-vslider-clip">
+        {gradient ? (
+          <span className="glass-vslider-handle" aria-hidden="true" style={{ bottom: `clamp(10px, ${Number(percent.toFixed(1))}%, calc(100% - 10px))` }} />
+        ) : (
+          <span className="glass-vslider-fill" aria-hidden="true" style={{ ...fillStyle, height: `${Number(percent.toFixed(1))}%` }} />
+        )}
+        {overlay}
+        {ticks?.map((tick) => <span key={tick} className="glass-vslider-tick" aria-hidden="true" style={{ bottom: `${tick}%` }} />)}
+        {current ? <span className={clsx('glass-vslider-now', share(current.value) > percent && 'is-above')} aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }} /> : null}
+      </span>
+      {current?.label ? (
+        <em className="glass-vslider-now-pill" aria-hidden="true" style={{ bottom: `clamp(12px, ${Number(share(current.value).toFixed(1))}%, calc(100% - 12px))` }}>
+          {current.label}
+        </em>
       ) : null}
       {display !== undefined || subtitle !== undefined ? (
         <span className="glass-vslider-top" aria-hidden="true">
