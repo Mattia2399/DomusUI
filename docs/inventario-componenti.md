@@ -284,3 +284,94 @@ Nelle Stanze non compaiono. I componenti sono in `src/components/widgets/micro/`
 | `controlli-grafici` | G: 8 grafici SVG, senza recharts | 15 KB, 5 gzip | Idem |
 | `controlli-testo` | E: 8 componenti | 20 KB, 6 gzip | Idem |
 | `controlli-avanzati` | H nuovi: 4 componenti | 12 KB, 4 gzip | Idem |
+
+## 10. Stato dopo il prompt 3: controlli collegati
+
+Stato al 5 novembre 2026, branch `feat/controlli-collegati`.
+
+### Forme
+
+Ogni controllo nuovo ha la prop `size`: `compact` (card e righe), `group` (colonna e dialogo), `hero` (al centro del pannello). Le azioni agiscono subito e non hanno `hero`. Fanno eccezione "Premi e tieni" e "Tieni premuto per confermare": un gesto non può stare in un tocco veloce di una scorciatoia, quindi si aprono in grande.
+
+I componenti sono in `src/components/ui/`, si vedono in `/dev/componenti` con stati e forme, e non conoscono Home Assistant.
+
+### Versioni grandi aggiunte alla tabella del prompt 2b
+
+| Aspetto (`look`) | Versione grande | Componente |
+|---|---|---|
+| `menu` | L'elenco con le spunte | `GlassSelectMenu size="hero"` |
+| `arrows` | Valore grande con due frecce grandi | `GlassArrows size="hero"` |
+| `stepper` | Valore grande, − e + sotto | `GlassStepper size="hero"` |
+| `number-input` | Campo grande con la spiegazione sotto | `GlassNumberInput size="hero"` |
+| `levels` | Blocchi in colonna, il più basso in fondo | `GlassLevels size="hero"` |
+| `ring-slider` | Arco che prende lo spazio | `GlassRingSlider size="hero"` |
+| `keypad` | Tasti che si dividono lo spazio | `GlassKeypad size="hero"` |
+| `momentary`, `hold` | Tutto lo spazio è il pulsante | `GlassMomentaryButton`, `GlassHoldButton` |
+| Letture (`value`, `gauge`, `level`, `temperature` e le altre) | Il valore o la figura al centro, grandi | Famiglia `controlsIndicators` |
+| Grafici (`chart-line`, `chart-area`, `chart-bar`, `sparkline`, `chart-stats`) | Il grafico prende tutto | Famiglia `controlsCharts` |
+| Testo e date (`text`, `textarea`, `password`, `date`, `time`, `datetime`) | Campo o selettore grandi | Famiglia `controlsText` |
+| `countdown` | Anello grande | `GlassCountdown size="hero"` |
+
+Solo in `/dev/componenti`, perché lavorano su più entità, su uno storico o su funzioni che oggi nessun collegato espone: `GlassMultiChart`, `GlassCurveEditor`, `GlassTimeRange`, `GlassButtonGroup`, `GlassHistoryChart`, `GlassCompareChart`, `GlassCheckbox`, `GlassRange`, `GlassJoystick`, `GlassFanSpeed`.
+
+### Registro
+
+`src/components/devices/panels/related/relatedControlRegistry.ts`: per ogni entità gli aspetti compatibili e il consigliato (`relatedChoiceOf`), per ogni aspetto il pezzo che lo disegna e se è un'azione (`RELATED_LOOKS`).
+
+| Entità | Consigliato | Poi |
+|---|---|---|
+| `select`, `input_select` | Fino a 4 opzioni `segmented`, oltre `menu` | `list`, `radio`, `arrows`, `tiles` |
+| `number`, `input_number` | Fino a 7 valori interi `levels`, fino a 24 passi `stepper`, altrimenti `bar` | `bar-value`, `number-input`, `ring-slider`, `keypad` |
+| `switch`, `input_boolean` | `toggle-row` | `icon-toggle`, `toggle-card`, `led-row`, `momentary` |
+| `sensor` | Temperatura `temperature`, umidità `humidity`, % senza classe `level`, segnale `connection`, batteria `battery`, altrimenti `value` | Letture e grafici |
+| `binary_sensor` | `icon-status` | `led`, `badge`, `glow` |
+| `button`, `input_button` | `push` | `hold`, `result` |
+| `script` | `running` | `push`, `hold`, `result` |
+| `scene` | `pill` | `push`, `result` |
+| `input_datetime`, `date`, `time`, `datetime` | `time`, `date` o `datetime` secondo cosa ha | – |
+| `timer` | `countdown` | – |
+| `text`, `input_text` | `text`, oppure `password` se l'entità lo dice | `textarea` |
+| Il resto | `value` | `value-pill`, `badge` |
+
+### Conversione dei micro widget
+
+Avviene alla lettura, in `relatedMigration.ts`. La configurazione salvata non viene riscritta. Vanno tutti in `place: 'more'`.
+
+| Micro widget | Opzione | Diventa |
+|---|---|---|
+| `value_pill` | | `value-pill` |
+| `status_glow` | | `glow` |
+| `micro_toggle` | | `toggle-row` |
+| `mini_ring` | | `mini-ring` |
+| `micro_button` | `buttonMode: 'switch'` o niente | `icon-toggle` |
+| `micro_button` | `buttonMode: 'push'` | `push` |
+| `micro_button` | `buttonMode: 'push'`, `buttonHoldWhilePressed: true` | `momentary` |
+| `micro_button` | `buttonMode: 'page'`, `buttonPagePath` | `page` con `options.path`; senza percorso `/home` |
+| `micro_slider` | `sliderSendOnRelease` sì o niente | `bar` con `options.commit: 'release'` |
+| `micro_slider` | `sliderSendOnRelease: false` | `bar` con `options.commit: 'live'`, che aspetta 2,2 s come oggi |
+| `micro_step` | | `stepper`, che aspetta 2,2 s come oggi |
+| `micro_superchart` | `superChartType` line, area o bar | `chart-line`, `chart-area`, `chart-bar` |
+| Tipo sconosciuto | | `toggle-row`, come il disegno di oggi |
+
+Il blocco sotto il pannello resta solo per Allarme, Serratura, Meteo e Media, che non hanno Altro. L'anteprima dell'editor non cambia.
+
+### Dove sono salvati
+
+Oggi i collegati stanno nella card (`Widget.relatedControls`). Le Stanze leggono dalla prima card della Home con la stessa entità; senza card, niente collegati. **Da decidere nel prompt 4: se salvarli per entità.**
+
+Il pulsante pagina segue solo percorsi interni all'app (`isInternalPath`): un percorso esterno o non valido resta salvato ma viene ignorato.
+
+### Pezzi a parte
+
+Il registro associa ogni aspetto a un caricatore (`RELATED_FAMILY_LOADERS`). Una card senza collegati non scarica nulla. Una card con collegati scarica il nucleo dietro lo scheletro con cui il pannello si apre già, poi la famiglia degli aspetti che usa, con un segnaposto della stessa misura. Se una famiglia non arriva compare lo stato comune con "Riprova".
+
+| Pezzo | JS KB (gzip) | CSS KB (gzip) |
+|---|---|---|
+| `RelatedPanelView` (nucleo) | 16,9 (6,8) | 0,8 (0,4) |
+| `BaseLooks` | 3,9 (1,7) | 0,8 (0,4) |
+| `ValuesLooks` | 9,2 (3,6) | 8,7 (1,9) |
+| `ActionsLooks` | 5,1 (1,8) | 3,8 (1,1) |
+| `IndicatorsLooks` | 10,3 (3,1) | 13,5 (2,7) |
+| `ChartsLooks` | 4,9 (2,0) | 5,6 (1,4) |
+| `TextLooks` | 10,1 (3,6) | 7,4 (1,6) |
+| `AdvancedLooks` | 1,8 (0,9) | 4,7 (1,3) |
