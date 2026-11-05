@@ -1,0 +1,437 @@
+/* Charts that load only when a panel uses them: our own SVG, readable even when small. */
+
+.glass-plot {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.glass-plot svg {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+}
+
+.glass-plot.is-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.glass-plot-line {
+  fill: none;
+  stroke: var(--device-accent, var(--control-ink));
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.glass-plot-area {
+  fill: var(--device-accent, var(--control-ink));
+  opacity: 0.22;
+}
+
+.glass-plot-band {
+  fill: var(--glass-ok, #30b350);
+  opacity: 0.18;
+}
+
+.glass-plot-grid {
+  stroke: var(--control-track);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.glass-plot-threshold {
+  stroke: var(--control-ink-2);
+  stroke-dasharray: 4 4;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.glass-plot-end {
+  position: absolute;
+  height: 8px;
+  width: 8px;
+  border: 2px solid var(--control-knob);
+  border-radius: 50%;
+  background: var(--device-accent, var(--control-ink));
+  transform: translate(-50%, -50%);
+}
+
+/* The series keep their colours whatever the device. */
+.is-series-0 { stroke: var(--device-accent, #0a84ff); background: var(--device-accent, #0a84ff); }
+.is-series-1 { stroke: #0a84ff; background: #0a84ff; }
+.is-series-2 { stroke: #34c759; background: #34c759; }
+
+/* Sparkline */
+.glass-sparkline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--control-ink);
+  font-size: 14px;
+}
+
+.glass-sparkline > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glass-sparkline .glass-plot {
+  height: 32px;
+  width: 120px;
+  flex: none;
+}
+
+.glass-sparkline.is-compact .glass-plot {
+  height: 24px;
+  width: 80px;
+}
+
+.glass-sparkline > b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-sparkline.is-hero {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.glass-sparkline.is-hero > span {
+  flex: none;
+  text-align: center;
+  font-size: 17px;
+}
+
+.glass-sparkline.is-hero .glass-plot {
+  height: auto;
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+.glass-sparkline.is-hero > b {
+  text-align: center;
+  font-size: 48px;
+}
+
+/* Chart with its title */
+.glass-chart {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--control-ink);
+}
+
+.glass-chart > p:first-child {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.glass-chart > p:first-child > b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-chart .glass-plot,
+.glass-bars {
+  height: 120px;
+  flex: none;
+}
+
+.glass-chart.is-compact .glass-plot,
+.glass-chart.is-compact .glass-bars {
+  height: 64px;
+}
+
+.glass-chart-axis {
+  display: flex;
+  margin: 0;
+  justify-content: space-between;
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-chart.is-hero {
+  min-height: 0;
+  flex: 1;
+  gap: 10px;
+}
+
+.glass-chart.is-hero > p:first-child {
+  font-size: 17px;
+}
+
+.glass-chart.is-hero > p:first-child > b {
+  font-size: 28px;
+}
+
+.glass-chart.is-hero .glass-plot,
+.glass-chart.is-hero .glass-bars {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* Bars */
+.glass-bars {
+  display: flex;
+  width: 100%;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.glass-bars > i {
+  min-width: 0;
+  flex: 1;
+  border-radius: 3px 3px 1px 1px;
+  background: var(--device-accent, var(--control-ink));
+  opacity: 0.55;
+}
+
+.glass-bars > i.is-current {
+  opacity: 1;
+}
+
+.glass-bars > i.is-future {
+  height: 3px;
+  background: var(--control-track);
+  opacity: 1;
+}
+
+/* With its period */
+.glass-history {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.glass-history.is-hero {
+  min-height: 0;
+  flex: 1;
+}
+
+/* Several lines */
+.glass-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+
+.glass-chart-legend > button {
+  display: flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 4px;
+  background: transparent;
+  color: var(--control-ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.glass-chart-legend > button[aria-pressed='false'] {
+  opacity: 0.45;
+}
+
+.glass-chart-legend > button > i {
+  height: 8px;
+  width: 8px;
+  border-radius: 50%;
+}
+
+.glass-chart-legend > button:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 1px;
+}
+
+/* Compared */
+.glass-compare {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--control-ink);
+}
+
+.glass-compare > b {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.glass-compare > b.is-better {
+  color: var(--glass-ok, #30b350);
+}
+
+.glass-compare > b.is-worse {
+  color: var(--glass-warn, #e58a00);
+}
+
+.glass-compare > div {
+  display: grid;
+  align-items: center;
+  gap: 8px;
+  grid-template-columns: 56px 1fr auto;
+  font-size: 13px;
+}
+
+.glass-compare > div > span {
+  color: var(--control-ink-2);
+  font-weight: 500;
+}
+
+.glass-compare > div > i {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--control-track);
+}
+
+.glass-compare > div > i > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--control-ink-2);
+}
+
+.glass-compare > div.is-now > i > i {
+  background: var(--device-accent, var(--control-ink));
+}
+
+.glass-compare > div > em {
+  font-style: normal;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-compare.is-compact > div > i {
+  height: 8px;
+}
+
+.glass-compare.is-hero {
+  min-height: 0;
+  flex: 1;
+  justify-content: center;
+  gap: 18px;
+}
+
+.glass-compare.is-hero > b {
+  text-align: center;
+  font-size: 28px;
+}
+
+.glass-compare.is-hero > div {
+  grid-template-columns: 64px 1fr auto;
+  font-size: 15px;
+}
+
+.glass-compare.is-hero > div > i {
+  height: 36px;
+  border-radius: 14px;
+}
+
+/* Three numbers */
+.glass-stats {
+  width: 100%;
+  color: var(--control-ink);
+}
+
+.glass-stats > p {
+  margin: 0 0 6px;
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.glass-stats > dl {
+  display: grid;
+  margin: 0;
+  gap: 6px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.glass-stats > dl > div {
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: var(--control-soft);
+}
+
+.glass-stats dt {
+  color: var(--control-ink-2);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.glass-stats dd {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-stats.is-compact > dl > div {
+  padding: 4px 8px;
+}
+
+.glass-stats.is-compact dd {
+  font-size: 14px;
+}
+
+.glass-stats.is-hero {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.glass-stats.is-hero > dl {
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: 1fr;
+}
+
+.glass-stats.is-hero > dl > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 20px;
+  padding: 8px 18px;
+}
+
+.glass-stats.is-hero dt {
+  font-size: 14px;
+}
+
+.glass-stats.is-hero dd {
+  font-size: 32px;
+}
