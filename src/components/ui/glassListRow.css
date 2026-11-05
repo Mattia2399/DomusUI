@@ -92,3 +92,71 @@ button.glass-list-row:focus-visible {
   flex-direction: column;
   gap: 6px;
 }
+
+.glass-list-heading {
+  margin: 0;
+  padding: 10px 6px 2px;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* The large version: one card of rows 72 px tall, the only thing allowed to scroll in a protagonist. */
+.glass-choice-rows.is-hero {
+  width: 100%;
+  min-height: 0;
+  flex: 0 1 auto;
+  gap: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 24px;
+  background: var(--control-soft);
+}
+
+.glass-choice-rows.is-hero .glass-list-row {
+  min-height: 72px;
+  border-radius: 0;
+  background: none;
+  box-shadow: inset 0 -1px 0 var(--control-soft-strong);
+}
+
+.glass-choice-rows.is-hero .glass-list-row:last-child {
+  box-shadow: none;
+}
+
+.glass-choice-rows.is-hero .glass-list-row-text > b {
+  font-size: 17px;
+}
+
+/* Rows to read stay apart, each on its own: there is nothing to choose among them. */
+.glass-choice-rows.is-values {
+  gap: 6px;
+  align-self: stretch;
+  flex: 1 1 0;
+  border-radius: 0;
+  background: none;
+}
+
+.glass-choice-rows.is-values .glass-list-row {
+  min-height: 56px;
+  border-radius: 18px;
+  background: var(--control-soft);
+  box-shadow: none;
+}
+
+.glass-choice-box {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.glass-choice-box.is-hero {
+  flex: 1;
+  justify-content: center;
+}
+
+.glass-choice-footer {
+  flex: none;
+}

@@ -35,7 +35,7 @@
   transition: background 200ms ease, color 200ms ease;
 }
 
-.glass-tile > span:last-child {
+.glass-tile-name {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -54,6 +54,73 @@
 
 .glass-tile:disabled {
   cursor: inherit;
+}
+
+/* The large version: tall tiles that share the height, the name beside the icon. */
+.glass-tiles-box.is-hero {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  container-type: normal;
+}
+
+.glass-tiles.is-hero {
+  min-height: 0;
+  flex: 1;
+  gap: 10px;
+  grid-auto-rows: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.glass-tiles.is-hero.is-two-wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.glass-tiles.is-hero .glass-tile {
+  display: grid;
+  height: auto;
+  min-height: 0;
+  align-content: center;
+  justify-content: stretch;
+  column-gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  border-radius: 26px;
+  padding: 8px 20px;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.glass-tiles.is-hero.is-two-wide .glass-tile {
+  column-gap: 10px;
+  border-radius: 22px;
+  padding: 8px 14px;
+  font-size: 15px;
+}
+
+.glass-tiles.is-hero .glass-tile-icon {
+  display: flex;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.glass-tiles.is-hero .glass-tile-name {
+  grid-column: 2;
+}
+
+.glass-tile-note {
+  overflow: hidden;
+  grid-column: 2;
+  font-size: 13px;
+  font-weight: 600;
+  opacity: 0.75;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glass-tile-check {
+  grid-column: 3;
+  grid-row: 1 / span 2;
 }
 
 /* One tile out of reach; when they all are, the group already fades. */

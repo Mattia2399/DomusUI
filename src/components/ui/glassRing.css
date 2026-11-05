@@ -1,0 +1,48 @@
+.glass-ring-stage {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+}
+
+.glass-ring {
+  position: relative;
+  height: min(100cqw, 100cqh, 236px);
+  width: min(100cqw, 100cqh, 236px);
+}
+
+.glass-ring > i {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 17px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 17px));
+}
+
+.glass-ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.glass-ring-text > b {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-ring-text > span {
+  margin-top: 2px;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 600;
+}

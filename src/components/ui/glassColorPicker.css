@@ -3,6 +3,21 @@
  * whatever is behind it. Its width decides its size.
  */
 
+/* The large one takes its size from a stage that holds it: see .glass-disc-stage. */
+.glass-disc-stage {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  container-type: size;
+}
+
+.glass-color-picker.is-hero {
+  width: min(100cqw, 100cqh, 250px);
+}
+
 .glass-color-picker {
   position: relative;
   width: 100%;

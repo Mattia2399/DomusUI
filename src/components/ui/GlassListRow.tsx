@@ -59,13 +59,17 @@ export type GlassChoiceRowsProps<T extends string> = {
   /** More than one at a time: the rooms of a robot. */
   multiple?: boolean;
   disabled?: boolean;
+  /** `hero`: rows 72 px tall on one card, which scrolls by itself when they are many. */
+  size?: 'default' | 'hero';
+  /** Under the rows and always in view: what the choice is for. */
+  footer?: React.ReactNode;
 };
 
 /** A choice among the rows of a list. */
-export function GlassChoiceRows<T extends string>({ ariaLabel, options, value, onChange, multiple = false, disabled }: GlassChoiceRowsProps<T>) {
+export function GlassChoiceRows<T extends string>({ ariaLabel, options, value, onChange, multiple = false, disabled, size = 'default', footer }: GlassChoiceRowsProps<T>) {
   const isOn = (option: T) => (typeof value === 'string' ? value === option : Array.isArray(value) && value.includes(option));
-  return (
-    <div className="glass-choice-rows" role={multiple ? 'group' : 'radiogroup'} aria-label={ariaLabel}>
+  const rows = (
+    <div className={clsx('glass-choice-rows', size === 'hero' && 'is-hero is-big-list')} role={multiple ? 'group' : 'radiogroup'} aria-label={ariaLabel}>
       {options.map((option) => (
         <GlassListRow
           key={option.value}
@@ -78,6 +82,32 @@ export function GlassChoiceRows<T extends string>({ ariaLabel, options, value, o
           onPress={() => onChange(option.value)}
         />
       ))}
+    </div>
+  );
+  if (!footer) return rows;
+  return (
+    <div className={clsx('glass-choice-box', size === 'hero' && 'is-hero')}>
+      {rows}
+      <div className="glass-choice-footer">{footer}</div>
+    </div>
+  );
+}
+
+export type GlassValueRow = { key: string; title: React.ReactNode; note?: React.ReactNode; value?: React.ReactNode } | { key: string; heading: React.ReactNode };
+
+/** Rows to read: what a device reports, with their sections. */
+export function GlassValueRows({ rows, size = 'default' }: { rows: readonly GlassValueRow[]; size?: 'default' | 'hero' }) {
+  return (
+    <div className={clsx('glass-choice-rows', size === 'hero' && 'is-hero is-big-list is-values')}>
+      {rows.map((row) =>
+        'heading' in row ? (
+          <p key={row.key} className="glass-list-heading">
+            {row.heading}
+          </p>
+        ) : (
+          <GlassListRow key={row.key} title={row.title} note={row.note} value={row.value} />
+        ),
+      )}
     </div>
   );
 }

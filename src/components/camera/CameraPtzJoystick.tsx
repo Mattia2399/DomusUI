@@ -8,6 +8,7 @@ import {
   ArrowUp,
   ArrowUpLeft,
   ArrowUpRight,
+  Home,
   Square,
 } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
@@ -27,6 +28,11 @@ type CameraPtzJoystickProps = {
   onDirectionStart: (direction: CameraPtzDirection) => void;
   onDirectionStop: () => void;
   compact?: boolean;
+  /** The large cross that fills a protagonist. */
+  size?: 'default' | 'hero';
+  /** Back to its home position, in the middle: only if the entity exposes one. */
+  onHome?: () => void;
+  homeLabel?: string;
 };
 
 export function CameraPtzJoystick({
@@ -34,6 +40,9 @@ export function CameraPtzJoystick({
   onDirectionStart,
   onDirectionStop,
   compact = false,
+  size = 'default',
+  onHome,
+  homeLabel,
 }: CameraPtzJoystickProps) {
   const { t } = useI18n();
   const bindDirection = (direction: CameraPtzDirection) => ({
@@ -51,7 +60,9 @@ export function CameraPtzJoystick({
     onContextMenu: (event: React.MouseEvent<HTMLButtonElement>) => event.preventDefault(),
   });
 
-  const sizeClass = compact ? 'h-10 w-10 rounded-xl' : 'h-11 w-11 rounded-2xl';
+  const hero = size === 'hero';
+  const iconSize = hero ? 26 : 16;
+  const sizeClass = hero ? 'h-[84px] w-[84px] rounded-3xl' : compact ? 'h-10 w-10 rounded-xl' : 'h-11 w-11 rounded-2xl';
   const buttonClass = (direction: CameraPtzDirection) =>
     `flex ${sizeClass} items-center justify-center border backdrop-blur-xl transition-all active:scale-95 ${
       activeDirection === direction
@@ -61,16 +72,16 @@ export function CameraPtzJoystick({
 
   return (
     <div className="flex w-full justify-center">
-      <div className={`dashboard-content-surface-soft grid grid-cols-3 ${compact ? 'gap-1.5 rounded-[1.35rem] p-1.5' : 'gap-2 rounded-[1.6rem] p-2'}`}>
-        <button type="button" className={buttonClass('up_left')} aria-label={t('camera.ptz.upLeft')} {...bindDirection('up_left')}><ArrowUpLeft size={15} /></button>
-        <button type="button" className={buttonClass('up')} aria-label={t('camera.ptz.up')} {...bindDirection('up')}><ArrowUp size={16} /></button>
-        <button type="button" className={buttonClass('up_right')} aria-label={t('camera.ptz.upRight')} {...bindDirection('up_right')}><ArrowUpRight size={15} /></button>
-        <button type="button" className={buttonClass('left')} aria-label={t('camera.ptz.left')} {...bindDirection('left')}><ArrowLeft size={16} /></button>
-        <button type="button" className={`glass-button flex ${sizeClass} items-center justify-center text-[color:var(--ui-text-secondary)] transition active:scale-95`} aria-label={t('camera.ptz.stop')} onClick={onDirectionStop}><Square size={14} /></button>
-        <button type="button" className={buttonClass('right')} aria-label={t('camera.ptz.right')} {...bindDirection('right')}><ArrowRight size={16} /></button>
-        <button type="button" className={buttonClass('down_left')} aria-label={t('camera.ptz.downLeft')} {...bindDirection('down_left')}><ArrowDownLeft size={15} /></button>
-        <button type="button" className={buttonClass('down')} aria-label={t('camera.ptz.down')} {...bindDirection('down')}><ArrowDown size={16} /></button>
-        <button type="button" className={buttonClass('down_right')} aria-label={t('camera.ptz.downRight')} {...bindDirection('down_right')}><ArrowDownRight size={15} /></button>
+      <div className={`dashboard-content-surface-soft grid grid-cols-3 ${hero ? 'gap-3 rounded-[2rem] p-3' : compact ? 'gap-1.5 rounded-[1.35rem] p-1.5' : 'gap-2 rounded-[1.6rem] p-2'}`}>
+        <button type="button" className={buttonClass('up_left')} aria-label={t('camera.ptz.upLeft')} {...bindDirection('up_left')}><ArrowUpLeft size={iconSize} /></button>
+        <button type="button" className={buttonClass('up')} aria-label={t('camera.ptz.up')} {...bindDirection('up')}><ArrowUp size={iconSize} /></button>
+        <button type="button" className={buttonClass('up_right')} aria-label={t('camera.ptz.upRight')} {...bindDirection('up_right')}><ArrowUpRight size={iconSize} /></button>
+        <button type="button" className={buttonClass('left')} aria-label={t('camera.ptz.left')} {...bindDirection('left')}><ArrowLeft size={iconSize} /></button>
+        <button type="button" className={`glass-button flex ${sizeClass} items-center justify-center text-[color:var(--ui-text-secondary)] transition active:scale-95`} aria-label={onHome ? homeLabel : t('camera.ptz.stop')} onClick={onHome ?? onDirectionStop}>{onHome ? <Home size={iconSize} /> : <Square size={iconSize} />}</button>
+        <button type="button" className={buttonClass('right')} aria-label={t('camera.ptz.right')} {...bindDirection('right')}><ArrowRight size={iconSize} /></button>
+        <button type="button" className={buttonClass('down_left')} aria-label={t('camera.ptz.downLeft')} {...bindDirection('down_left')}><ArrowDownLeft size={iconSize} /></button>
+        <button type="button" className={buttonClass('down')} aria-label={t('camera.ptz.down')} {...bindDirection('down')}><ArrowDown size={iconSize} /></button>
+        <button type="button" className={buttonClass('down_right')} aria-label={t('camera.ptz.downRight')} {...bindDirection('down_right')}><ArrowDownRight size={iconSize} /></button>
       </div>
     </div>
   );

@@ -88,6 +88,38 @@
   color: var(--control-on-ink);
 }
 
+.glass-vslider-handle {
+  position: absolute;
+  right: 18px;
+  left: 18px;
+  height: 6px;
+  margin-bottom: -3px;
+  border-radius: 3px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.14), 0 4px 12px rgb(0 0 0 / 0.25);
+  transition: bottom 120ms ease;
+}
+
+.glass-vslider.has-gradient .glass-vslider-top {
+  color: #3a2a10;
+}
+
+.glass-vslider.has-gradient .glass-vslider-top > span {
+  color: inherit;
+  opacity: 0.75;
+}
+
+.glass-vslider-tick {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  margin-bottom: -1px;
+  background: var(--surface-sheet);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .glass-vslider-now {
   position: absolute;
   right: 14px;
@@ -130,7 +162,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .glass-vslider-fill {
+  .glass-vslider-fill,
+  .glass-vslider-handle {
     transition: none;
   }
 }

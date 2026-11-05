@@ -13,6 +13,8 @@ import { GlassSlider } from './GlassSlider';
 import { GlassStepper } from './GlassStepper';
 import { GlassSwatches } from './GlassSwatches';
 import { GlassSwitch } from './GlassSwitch';
+import { GlassChoiceRows, GlassValueRows } from './GlassListRow';
+import { GlassRing } from './GlassRing';
 import { GlassTiles } from './GlassTiles';
 import { GlassToggle } from './GlassToggle';
 import { GlassToggleRow } from './GlassToggleRow';
@@ -571,5 +573,59 @@ describe('GlassTiles', () => {
     expect((screen.getByRole('radio', { name: 'Comfort' }) as HTMLButtonElement).disabled).toBe(true);
     rerender(<GlassTiles ariaLabel="P" options={options} value="eco" onChange={vi.fn()} pending />);
     expect((screen.getByRole('radio', { name: 'Comfort' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('the large versions', () => {
+  it('tiles share the height, with their explanation and a tick on the one chosen', () => {
+    const { container, rerender } = render(<GlassTiles ariaLabel="M" size="hero" options={[{ value: 'a', label: 'Riscalda', note: 'Mantiene 69°', icon }, { value: 'b', label: 'Spenta', icon }]} value="a" onChange={vi.fn()} />);
+    expect(container.querySelector('.glass-tiles.is-hero')).toBeTruthy();
+    expect(screen.getByText('Mantiene 69°')).toBeTruthy();
+    expect(container.querySelectorAll('.glass-tile-check')).toHaveLength(1);
+    rerender(<GlassTiles ariaLabel="M" size="hero" options={['a', 'b', 'c', 'd'].map((value) => ({ value, label: value, icon }))} value="a" onChange={vi.fn()} />);
+    expect(container.querySelector('.glass-tiles.is-two-wide')).toBeTruthy();
+  });
+
+  it('the small tiles stay as they were, with no tick', () => {
+    const { container } = render(<GlassTiles ariaLabel="M" options={[{ value: 'a', label: 'A', note: 'nota', icon }]} value="a" onChange={vi.fn()} />);
+    expect(container.querySelector('.glass-tile-check')).toBeNull();
+    expect(screen.queryByText('nota')).toBeNull();
+  });
+
+  it('a list chooses, one or several, with what it is for always in view', () => {
+    const onChange = vi.fn();
+    const { container, rerender } = render(<GlassChoiceRows ariaLabel="E" size="hero" options={[{ value: 'a', label: 'Candela' }, { value: 'b', label: 'Fuoco' }]} value="a" onChange={onChange} />);
+    expect(container.querySelector('.is-big-list')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Candela' }).getAttribute('aria-checked')).toBe('true');
+    fireEvent.click(screen.getByRole('radio', { name: 'Fuoco' }));
+    expect(onChange).toHaveBeenCalledWith('b');
+    rerender(<GlassChoiceRows ariaLabel="S" size="hero" multiple options={[{ value: 'a', label: 'Cucina' }, { value: 'b', label: 'Sala' }]} value={['a', 'b']} onChange={onChange} footer={<button type="button">Pulisci 2 stanze</button>} />);
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Pulisci 2 stanze' })).toBeTruthy();
+  });
+
+  it('rows to read have their sections and nothing to press', () => {
+    render(<GlassValueRows size="hero" rows={[{ key: 'h', heading: 'Oggi' }, { key: 'a', title: '22:00', note: '+0,2°', value: '21,4°' }]} />);
+    expect(screen.getByText('Oggi')).toBeTruthy();
+    expect(screen.getByText('21,4°')).toBeTruthy();
+    expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('the levels of a slider are lines on it', () => {
+    const { container } = render(<GlassVerticalSlider label="V" value={2} min={1} max={3} ticks={[33, 66]} onValueChange={vi.fn()} />);
+    expect(container.querySelectorAll('.glass-vslider-tick')).toHaveLength(2);
+  });
+
+  it('the whites are a gradient with a handle, in place of the fill', () => {
+    const { container } = render(<GlassVerticalSlider label="B" value={3200} min={2200} max={6500} gradient="linear-gradient(red, blue)" onValueChange={vi.fn()} />);
+    expect(container.querySelector('.glass-vslider-fill')).toBeNull();
+    expect(container.querySelector('.glass-vslider-handle')).toBeTruthy();
+  });
+
+  it('a ring says what is left, and fills as much as it is told', () => {
+    const { container } = render(<GlassRing percent={72} value="43 min" note="Si spegne alle 23:40" />);
+    expect(screen.getByText('43 min')).toBeTruthy();
+    expect(screen.getByText('Si spegne alle 23:40')).toBeTruthy();
+    expect(container.querySelector<HTMLElement>('.glass-ring > i')?.style.background).toContain('72%');
   });
 });

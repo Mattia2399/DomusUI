@@ -13,6 +13,8 @@ export type GlassColorPickerProps = GlassControlState & {
   label: string;
   /** The colour in words, for a screen reader. */
   valueText?: (value: HueSaturation) => string;
+  /** `hero` is as large as the space it is given allows, and stays round. */
+  size?: 'default' | 'hero';
   className?: string;
 };
 
@@ -26,7 +28,7 @@ const KEY_STEP = 5;
  * size: its width decides, and it stays round. Drag it, or use the arrows: left
  * and right turn the hue, up and down change the saturation.
  */
-export function GlassColorPicker({ value, onChange, label, valueText, disabled: isDisabled = false, pending = false, error = false, className }: GlassColorPickerProps) {
+export function GlassColorPicker({ value, onChange, label, valueText, size = 'default', disabled: isDisabled = false, pending = false, error = false, className }: GlassColorPickerProps) {
   const disabled = controlBlocked({ disabled: isDisabled, pending });
   const [dragging, setDragging] = React.useState(false);
   // What the finger chose, shown until the device has answered.
@@ -101,7 +103,7 @@ export function GlassColorPicker({ value, onChange, label, valueText, disabled: 
       aria-valuetext={valueText?.(shown)}
       aria-disabled={disabled || undefined}
       {...controlStateAria({ pending, error })}
-      className={clsx('glass-color-picker', dragging && 'is-dragging', isDisabled && 'is-disabled', controlStateClass({ pending, error }), className)}
+      className={clsx('glass-color-picker', size === 'hero' && 'is-hero', dragging && 'is-dragging', isDisabled && 'is-disabled', controlStateClass({ pending, error }), className)}
       onPointerDown={(event) => {
         if (disabled) return;
         event.currentTarget.setPointerCapture?.(event.pointerId);

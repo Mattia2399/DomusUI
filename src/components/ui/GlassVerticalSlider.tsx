@@ -30,6 +30,10 @@ export type GlassVerticalSliderProps = GlassControlState & {
   fillStyle?: React.CSSProperties;
   /** Drawn over the fill: the shutter of a cover. */
   overlay?: React.ReactNode;
+  /** A line at each of these positions, in percent: the steps of levels. */
+  ticks?: readonly number[];
+  /** The track is this gradient, with a white handle in place of the fill: the whites of a light. */
+  gradient?: string;
   className?: string;
 };
 
@@ -55,6 +59,8 @@ export function GlassVerticalSlider({
   fillPercent,
   fillStyle,
   overlay,
+  ticks,
+  gradient,
   className,
   disabled,
   pending,
@@ -71,13 +77,20 @@ export function GlassVerticalSlider({
         'glass-vslider',
         `is-${size}`,
         tone === 'neutral' && 'is-neutral',
-        percent > COVERED_FROM_PERCENT && 'is-covered',
+        percent > COVERED_FROM_PERCENT && !gradient && 'is-covered',
+        gradient && 'has-gradient',
         controlStateClass(state),
         className,
       )}
+      style={gradient ? { background: gradient } : undefined}
     >
-      <span className="glass-vslider-fill" aria-hidden="true" style={{ ...fillStyle, height: `${Number(percent.toFixed(1))}%` }} />
+      {gradient ? (
+        <span className="glass-vslider-handle" aria-hidden="true" style={{ bottom: `${Number(percent.toFixed(1))}%` }} />
+      ) : (
+        <span className="glass-vslider-fill" aria-hidden="true" style={{ ...fillStyle, height: `${Number(percent.toFixed(1))}%` }} />
+      )}
       {overlay}
+      {ticks?.map((tick) => <span key={tick} className="glass-vslider-tick" aria-hidden="true" style={{ bottom: `${tick}%` }} />)}
       {current ? (
         <span className="glass-vslider-now" aria-hidden="true" style={{ bottom: `${Number(share(current.value).toFixed(1))}%` }}>
           {current.label ? <em>{current.label}</em> : null}
