@@ -32,6 +32,7 @@ import {
 } from '../../components/devices/panels/shell';
 import { LabValues } from './labControls/LabValues';
 import { LabActions } from './labControls/LabActions';
+import { LabIndicators } from './labControls/LabIndicators';
 import './componentsLab.css';
 
 /*
@@ -376,6 +377,10 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       <h2>Azioni</h2>
       <div className="lab-grid">
         <LabActions />
+      </div>
+      <h2>Indicatori</h2>
+      <div className="lab-grid">
+        <LabIndicators />
       </div>
       <h2>Il pannello</h2>
       <Shapes />

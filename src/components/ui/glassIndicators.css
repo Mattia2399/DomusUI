@@ -1,0 +1,927 @@
+/* Readings that load only when a panel uses them. The colour follows the meaning, not the device. */
+
+:root {
+  --glass-ok: #30b350;
+  --glass-warn: #e58a00;
+  --glass-bad: #e5453a;
+  --glass-info: #0a84ff;
+}
+
+.dashboard-theme-dark {
+  --glass-ok: #34c759;
+  --glass-warn: #ff9f0a;
+  --glass-bad: #ff453a;
+}
+
+.glass-mean-ok { color: var(--glass-ok); }
+.glass-mean-warn { color: var(--glass-warn); }
+.glass-mean-bad { color: var(--glass-bad); }
+.glass-mean-info { color: var(--glass-info); }
+.glass-mean-off { color: var(--control-ink-2); }
+
+.glass-fill-ok { background: var(--glass-ok); }
+.glass-fill-warn { background: var(--glass-warn); }
+.glass-fill-bad { background: var(--glass-bad); }
+.glass-fill-info { background: var(--glass-info); }
+.glass-fill-off { background: var(--control-ink-2); }
+
+.glass-stroke-ok { stroke: var(--glass-ok); }
+.glass-stroke-warn { stroke: var(--glass-warn); }
+.glass-stroke-bad { stroke: var(--glass-bad); }
+.glass-stroke-info { stroke: var(--glass-info); }
+.glass-stroke-off { stroke: var(--control-ink-2); }
+
+.glass-tint-ok { --glass-tint: var(--glass-ok); }
+.glass-tint-warn { --glass-tint: var(--glass-warn); }
+.glass-tint-bad { --glass-tint: var(--glass-bad); }
+.glass-tint-info { --glass-tint: var(--glass-info); }
+.glass-tint-off { --glass-tint: var(--control-ink-2); }
+
+.glass-light-ok { --glass-light: var(--glass-ok); }
+.glass-light-warn { --glass-light: var(--glass-warn); }
+.glass-light-bad { --glass-light: var(--glass-bad); }
+.glass-light-info { --glass-light: var(--glass-info); }
+.glass-light-off { --glass-light: var(--control-track); }
+
+/* What every large version does: it takes the space and centres what it says. */
+.glass-value-display.is-hero,
+.glass-value-pill.is-hero,
+.glass-status-badge.is-hero,
+.glass-led.is-hero,
+.glass-status-glow.is-hero,
+.glass-gauge.is-hero,
+.glass-mini-ring.is-hero,
+.glass-progress.is-hero,
+.glass-battery.is-hero,
+.glass-temperature.is-hero,
+.glass-humidity.is-hero,
+.glass-level.is-hero,
+.glass-connection.is-hero,
+.glass-trend.is-hero,
+.glass-icon-status.is-hero {
+  display: flex;
+  width: 100%;
+  min-height: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Value */
+.glass-value-display {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: var(--control-ink);
+}
+
+.glass-value-display.is-hero {
+  flex-direction: column;
+  gap: 8px;
+}
+
+.glass-value-display > p,
+.glass-temperature > p:first-child,
+.glass-humidity > p {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-value-display b,
+.glass-temperature > p:first-child > b,
+.glass-humidity > p > b {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.glass-value-display.is-compact b,
+.glass-temperature.is-compact > p:first-child > b,
+.glass-humidity.is-compact > p > b {
+  font-size: 28px;
+}
+
+.glass-value-display.is-hero b,
+.glass-temperature.is-hero > p:first-child > b,
+.glass-humidity.is-hero > p > b {
+  font-size: 72px;
+}
+
+.glass-value-display > p > span,
+.glass-temperature > p:first-child > span,
+.glass-humidity > p > span {
+  color: var(--control-ink-2);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.glass-value-display.is-hero > p > span,
+.glass-temperature.is-hero > p:first-child > span,
+.glass-humidity.is-hero > p > span {
+  font-size: 24px;
+}
+
+.glass-value-display > em,
+.glass-humidity > em {
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.glass-value-display.is-hero > em,
+.glass-humidity.is-hero > em {
+  font-size: 17px;
+}
+
+/* Pill */
+.glass-value-pill {
+  display: inline-flex;
+  height: 32px;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  border-radius: 16px;
+  padding: 0 12px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.glass-value-pill > span {
+  overflow: hidden;
+  color: var(--control-ink-2);
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+.glass-value-pill > b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-value-pill > i {
+  display: flex;
+}
+
+.glass-value-pill.is-hero {
+  height: auto;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 24px;
+  white-space: normal;
+}
+
+.glass-value-pill.is-hero > span {
+  font-size: 17px;
+}
+
+.glass-value-pill.is-hero > b {
+  font-size: 64px;
+  letter-spacing: -0.03em;
+}
+
+/* Badge */
+.glass-status-badge {
+  display: inline-flex;
+  height: 28px;
+  align-items: center;
+  gap: 5px;
+  border-radius: 14px;
+  padding: 0 10px;
+  background: color-mix(in srgb, var(--glass-tint) 18%, transparent);
+  color: var(--glass-tint);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.glass-status-badge > i {
+  display: flex;
+}
+
+.glass-status-badge.is-hero {
+  height: auto;
+  border-radius: 24px;
+  font-size: 28px;
+  font-weight: 700;
+  white-space: normal;
+  text-align: center;
+}
+
+/* Led */
+.glass-led,
+.glass-connection,
+.glass-mini-ring {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+  color: var(--control-ink);
+}
+
+.glass-led.is-compact,
+.glass-connection.is-compact,
+.glass-mini-ring.is-compact {
+  min-height: 32px;
+  gap: 8px;
+}
+
+.glass-led > i {
+  height: 12px;
+  width: 12px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--glass-light);
+  box-shadow: 0 0 8px var(--glass-light);
+}
+
+.glass-led.is-compact > i {
+  height: 10px;
+  width: 10px;
+}
+
+.glass-led.is-hero {
+  flex-direction: column;
+  gap: 20px;
+  text-align: center;
+}
+
+.glass-led.is-hero > i {
+  height: 64px;
+  width: 64px;
+  box-shadow: 0 0 40px var(--glass-light);
+}
+
+.glass-led > i.is-blinking {
+  animation: glass-indicator-blink 1.2s ease-in-out infinite;
+}
+
+@keyframes glass-indicator-blink {
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.glass-led > span,
+.glass-connection > span,
+.glass-icon-status > span,
+.glass-battery > span,
+.glass-level > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.glass-led b,
+.glass-connection b,
+.glass-icon-status b,
+.glass-status-glow > b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-led.is-hero b,
+.glass-connection.is-hero b,
+.glass-icon-status.is-hero b,
+.glass-status-glow.is-hero > b {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.glass-led > span > span,
+.glass-connection > span > span,
+.glass-icon-status > span > span,
+.glass-status-glow > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.glass-led.is-hero > span > span,
+.glass-connection.is-hero > span > span,
+.glass-icon-status.is-hero > span > span,
+.glass-status-glow.is-hero > span {
+  font-size: 15px;
+}
+
+/* Glow */
+.glass-status-glow {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 18px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--glass-tint) 16%, transparent);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--glass-tint) 45%, transparent);
+  color: var(--control-ink);
+}
+
+.glass-status-glow.is-compact {
+  padding: 8px 12px;
+  border-radius: 14px;
+}
+
+.glass-status-glow.is-hero {
+  flex-direction: column;
+  border-radius: 28px;
+  padding: 20px;
+  text-align: center;
+}
+
+/* Rings and arcs */
+.glass-gauge {
+  display: flex;
+  justify-content: center;
+  color: var(--control-ink);
+  container-type: inline-size;
+}
+
+.glass-gauge > div {
+  position: relative;
+  height: min(160px, 100cqw);
+  width: min(160px, 100cqw);
+}
+
+.glass-gauge.is-compact > div {
+  height: min(120px, 100cqw);
+  width: min(120px, 100cqw);
+}
+
+.glass-gauge.is-hero {
+  container-type: size;
+}
+
+.glass-gauge.is-hero > div {
+  height: min(100cqw, 100cqh, 280px);
+  width: min(100cqw, 100cqh, 280px);
+}
+
+.glass-gauge svg,
+.glass-mini-ring svg {
+  display: block;
+  height: 100%;
+  width: 100%;
+}
+
+.glass-gauge circle:not(.glass-gauge-needle),
+.glass-gauge path,
+.glass-mini-ring circle {
+  fill: none;
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+
+.glass-gauge-track {
+  stroke: var(--control-track);
+}
+
+.glass-gauge-needle {
+  fill: var(--control-knob);
+  stroke: var(--control-ink);
+  stroke-width: 1;
+}
+
+.glass-gauge path.is-zone {
+  stroke-linecap: butt;
+}
+
+.glass-gauge > div > span {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.glass-gauge > div > span > b {
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-gauge.is-hero > div > span > b {
+  font-size: 48px;
+}
+
+.glass-gauge > div > span > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.glass-gauge.is-hero > div > span > span {
+  font-size: 15px;
+}
+
+/* Small ring */
+.glass-mini-ring svg {
+  height: 32px;
+  width: 32px;
+  flex: none;
+}
+
+.glass-mini-ring.is-compact svg {
+  height: 24px;
+  width: 24px;
+}
+
+.glass-mini-ring > span {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glass-mini-ring > b {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-mini-ring.is-hero {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.glass-mini-ring.is-hero svg {
+  height: min(50%, 200px);
+  width: auto;
+  aspect-ratio: 1;
+}
+
+.glass-mini-ring.is-hero > span {
+  flex: none;
+  font-size: 17px;
+}
+
+.glass-mini-ring.is-hero > b {
+  font-size: 40px;
+}
+
+/* Bars */
+.glass-progress {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--control-ink);
+}
+
+.glass-progress > p {
+  display: flex;
+  margin: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.glass-progress > p > b {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-progress > div {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--control-track);
+}
+
+.glass-progress.is-compact > div {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.glass-progress > div > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 240ms ease, height 240ms ease;
+}
+
+.glass-progress > em {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.glass-progress.is-vertical {
+  width: auto;
+  align-items: center;
+}
+
+.glass-progress.is-vertical > div {
+  display: flex;
+  height: 160px;
+  width: 40px;
+  align-items: flex-end;
+  border-radius: 14px;
+}
+
+.glass-progress.is-vertical.is-compact > div {
+  height: 90px;
+  width: 28px;
+  border-radius: 10px;
+}
+
+.glass-progress.is-vertical > div > i {
+  width: 100%;
+  height: auto;
+}
+
+.glass-progress.is-hero {
+  flex-direction: column;
+  gap: 16px;
+}
+
+.glass-progress.is-hero > p {
+  width: 100%;
+  font-size: 17px;
+}
+
+.glass-progress.is-hero > p > b {
+  font-size: 40px;
+}
+
+.glass-progress.is-hero > div {
+  width: 100%;
+  height: 32px;
+  border-radius: 16px;
+}
+
+.glass-progress.is-hero.is-vertical > div {
+  height: auto;
+  max-height: var(--panel-hero-height, 300px);
+  width: var(--panel-hero-width, 148px);
+  flex: 1 1 auto;
+  min-height: 0;
+  border-radius: 44px;
+}
+
+/* Battery */
+.glass-battery {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--control-ink);
+}
+
+.glass-battery > i {
+  position: relative;
+  display: flex;
+  height: 24px;
+  width: 48px;
+  flex: none;
+  overflow: hidden;
+  border: 2px solid var(--control-ink-2);
+  border-radius: 7px;
+  padding: 2px;
+}
+
+.glass-battery.is-compact > i {
+  height: 18px;
+  width: 36px;
+  border-radius: 5px;
+}
+
+.glass-battery > i::after {
+  content: '';
+}
+
+.glass-battery > i > i {
+  display: block;
+  border-radius: 3px;
+}
+
+.glass-battery b {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-battery > span > span {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.glass-battery em,
+.glass-level em {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.glass-battery.is-hero {
+  flex-direction: column;
+  gap: 18px;
+  text-align: center;
+}
+
+.glass-battery.is-hero > i {
+  height: 88px;
+  width: 176px;
+  border-width: 4px;
+  border-radius: 20px;
+  padding: 6px;
+}
+
+.glass-battery.is-hero > i > i {
+  border-radius: 12px;
+}
+
+.glass-battery.is-hero b {
+  font-size: 48px;
+}
+
+/* Scale of temperature and humidity */
+.glass-temperature,
+.glass-humidity {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--control-ink);
+}
+
+.glass-temperature.is-hero,
+.glass-humidity.is-hero {
+  align-items: stretch;
+  gap: 16px;
+}
+
+.glass-temperature.is-hero > p:first-child,
+.glass-humidity.is-hero > p {
+  justify-content: center;
+}
+
+.glass-humidity > p {
+  align-items: center;
+}
+
+.glass-humidity.is-hero > em {
+  text-align: center;
+}
+
+.glass-temperature-scale {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #4aa3ff, #f5c84a 50%, #f0554a);
+  opacity: 0.9;
+}
+
+.glass-humidity .glass-temperature-scale {
+  background: var(--control-track);
+}
+
+.glass-temperature.is-hero .glass-temperature-scale,
+.glass-humidity.is-hero .glass-temperature-scale {
+  height: 24px;
+  border-radius: 12px;
+}
+
+.glass-temperature-ideal {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border-radius: 7px;
+  outline: 2px solid var(--glass-ok);
+}
+
+.glass-humidity .glass-temperature-ideal {
+  background: color-mix(in srgb, var(--glass-ok) 40%, transparent);
+  outline: 0;
+}
+
+.glass-temperature-now {
+  position: absolute;
+  top: 50%;
+  height: 18px;
+  width: 18px;
+  border: 3px solid var(--control-ink);
+  border-radius: 50%;
+  background: var(--control-knob);
+  transform: translate(-50%, -50%);
+}
+
+.glass-temperature.is-hero .glass-temperature-now,
+.glass-humidity.is-hero .glass-temperature-now {
+  height: 34px;
+  width: 34px;
+}
+
+.glass-temperature-limits {
+  display: flex;
+  margin: 0;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.glass-temperature-limits > em {
+  color: var(--glass-ok);
+  font-style: normal;
+}
+
+/* Tank */
+.glass-level {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--control-ink);
+}
+
+.glass-level-tank {
+  position: relative;
+  display: flex;
+  height: 90px;
+  width: 60px;
+  flex: none;
+  align-items: flex-end;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--control-track);
+}
+
+.glass-level.is-compact .glass-level-tank {
+  height: 44px;
+  width: 36px;
+  border-radius: 10px;
+}
+
+.glass-level-tank > i {
+  display: block;
+  width: 100%;
+  transition: height 240ms ease;
+}
+
+.glass-level-tank > b {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 6px rgb(255 255 255 / 0.35);
+}
+
+.glass-level.is-compact .glass-level-tank > b {
+  font-size: 11px;
+}
+
+.glass-level > span > b {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-level.is-hero {
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+
+.glass-level.is-hero .glass-level-tank {
+  height: auto;
+  max-height: var(--panel-hero-height, 300px);
+  width: var(--panel-hero-width, 148px);
+  min-height: 0;
+  flex: 1 1 auto;
+  border-radius: 44px;
+}
+
+.glass-level.is-hero .glass-level-tank > b {
+  font-size: 40px;
+}
+
+.glass-level.is-hero > span {
+  flex: none;
+}
+
+/* Connection */
+.glass-connection > i {
+  display: flex;
+  height: 22px;
+  width: 26px;
+  flex: none;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.glass-connection > i > i {
+  min-width: 0;
+  flex: 1;
+  border-radius: 2px;
+  background: var(--control-track);
+}
+
+.glass-connection > i > i.glass-fill-ok { background: var(--glass-ok); }
+.glass-connection > i > i.glass-fill-warn { background: var(--glass-warn); }
+
+.glass-connection.is-hero {
+  flex-direction: column;
+  gap: 20px;
+  text-align: center;
+}
+
+.glass-connection.is-hero > i {
+  height: 96px;
+  width: 112px;
+  gap: 8px;
+}
+
+.glass-connection.is-hero > i > i {
+  border-radius: 6px;
+}
+
+/* Trend */
+.glass-trend {
+  display: flex;
+  margin: 0;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-trend.is-compact {
+  font-size: 13px;
+}
+
+.glass-trend.is-hero {
+  flex-direction: column;
+  gap: 12px;
+  font-size: 28px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Icon */
+.glass-icon-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--control-ink);
+}
+
+.glass-icon-status > i {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--glass-tint) 20%, transparent);
+  color: var(--glass-tint);
+}
+
+.glass-icon-status.is-compact > i {
+  height: 36px;
+  width: 36px;
+}
+
+.glass-icon-status.is-hero {
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+}
+
+.glass-icon-status.is-hero > i {
+  height: 120px;
+  width: 120px;
+}
+
+.glass-icon-status.is-hero > i > svg {
+  height: 56px;
+  width: 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-led > i.is-blinking {
+    animation: none;
+  }
+
+  .glass-progress > div > i,
+  .glass-level-tank > i {
+    transition: none;
+  }
+}
