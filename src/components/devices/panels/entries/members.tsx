@@ -1,13 +1,15 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import { UserRound, Users } from 'lucide-react';
+import { UserRound } from 'lucide-react';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import { usePanelsTranslations } from '../../../../i18n/panelsTranslations';
 import type { MockEntityStateMap } from '../../../../types/ha';
 import type { MembersPresenceEntry } from '../../../settings/types';
 import { entityChangedAt, formatPanelSpan, MEMBERS_MAP_ENABLED, memberBattery, memberIsHome } from '../../model/panelRules';
 import { useEntityRegistry } from '../panelData';
-import type { PanelEntry, PanelItem, PanelSpec } from '../registry';
+import { GlassValueRows } from '../../../ui/GlassListRow';
+import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
+import { PanelFitList } from './fitList';
 import { accentOf, ICON, PanelRows } from './shared';
 import './data.css';
 
@@ -48,6 +50,8 @@ function useMembersSpec({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENAB
   const { locale } = useI18n();
   const registry = useEntityRegistry();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [personOpen, setPersonOpen] = React.useState(false);
+  const [allOpen, setAllOpen] = React.useState(false);
   const now = Date.now();
   const spanWords = { min: pt('spanMin'), hour: pt('spanHour'), day: pt('spanDay') };
   const span = (ms: number) => formatPanelSpan(ms, spanWords);
@@ -79,17 +83,42 @@ function useMembersSpec({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENAB
     if (deviceCount > 0) details.push([pt('mbDevices'), String(deviceCount)]);
   }
   const pins = mapEnabled ? mapPins(members) : [];
-  const groups: PanelItem[] =
+  const rows = members.map((member, index) => {
+          const isSelected = member.personEntityId === selected?.personEntityId;
+          const home = memberIsHome(member.state);
+          return (
+            <button key={member.personEntityId} type="button" className={clsx('panel-person', isSelected && 'is-selected')} aria-pressed={isSelected} onClick={() => {
+              setSelectedId(member.personEntityId);
+              setPersonOpen(true);
+            }}>
+              <span className="panel-person-avatar" aria-hidden="true" style={member.avatarUrl ? undefined : { background: MEMBER_COLOURS[index % MEMBER_COLOURS.length] }}>
+                {member.avatarUrl ? <img src={member.avatarUrl} alt="" /> : (member.name.trim().charAt(0) || '?').toUpperCase()}
+              </span>
+              <span className="panel-person-text">
+                <b>{member.name}</b>
+                <span className={clsx(!home && 'is-away')}>{presenceText(member)}</span>
+              </span>
+              <span className="panel-person-place">{place(member)}</span>
+            </button>
+          );
+  });
+  const detailRows = (size: 'default' | 'hero') => <GlassValueRows size={size} rows={details.map(([title, value]) => ({ key: title, title, value }))} />;
+  const controls: PanelControl[] =
     selected && details.length > 0
-      ? [{ key: 'details', kind: 'opens', icon: <UserRound {...ICON} />, label: selected.name, value: place(selected), content: () => <PanelRows rows={details} /> }]
+      ? [{ id: 'details', icon: <UserRound {...ICON} />, label: selected.name, value: place(selected), looks: ['rows'], big: () => detailRows('hero'), group: <PanelRows rows={details} /> }]
       : [];
+  const page = allOpen
+    ? { title: name, onBack: () => setAllOpen(false), content: <div className="panel-members-all">{rows}</div> }
+    : personOpen && selected && details.length > 0
+      ? { title: selected.name, sub: place(selected), onBack: () => setPersonOpen(false), phoneOnly: true, content: detailRows('default') }
+      : undefined;
 
   return {
     owner: name,
     name,
     status: members.length === 0 ? pt('mbNobody') : pt('mbSub', { home: homeCount, away: members.length - homeCount }),
-    icon: <Users size={23} strokeWidth={2} />,
-    lit: homeCount > 0,
+    layout: 'members',
+    noRow: true,
     accent: accentOf('48 209 88'),
     tint: homeCount > 0,
     heroKind: 'data',
@@ -104,37 +133,11 @@ function useMembersSpec({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENAB
             ))}
           </div>
         ) : null}
-        {members.length === 0 ? <p className="dv-t2 m-0 text-sm font-medium">{pt('mbNobody')}</p> : null}
-        {members.map((member, index) => {
-          const isSelected = member.personEntityId === selected?.personEntityId;
-          const home = memberIsHome(member.state);
-          return (
-            <button key={member.personEntityId} type="button" className={clsx('panel-person', isSelected && 'is-selected')} aria-pressed={isSelected} onClick={() => setSelectedId(member.personEntityId)}>
-              <span className="panel-person-avatar" aria-hidden="true" style={member.avatarUrl ? undefined : { background: MEMBER_COLOURS[index % MEMBER_COLOURS.length] }}>
-                {member.avatarUrl ? <img src={member.avatarUrl} alt="" /> : (member.name.trim().charAt(0) || '?').toUpperCase()}
-              </span>
-              <span className="panel-person-text">
-                <b>{member.name}</b>
-                <span className={clsx(!home && 'is-away')}>{presenceText(member)}</span>
-              </span>
-              <span className="panel-person-place">{place(member)}</span>
-            </button>
-          );
-        })}
+        {members.length === 0 ? <p className="dv-t2 m-0 text-sm font-medium">{pt('mbNobody')}</p> : <PanelFitList className="panel-members-list" rows={rows} moreLabel={(count) => pt('listMore', { count })} onMore={() => setAllOpen(true)} />}
       </div>
     ),
-    shortcuts: [],
-    always:
-      selected && details.length > 0 ? (
-        <>
-          <p className="panel-screen-title">
-            <b>{selected.name}</b>
-            <span> · {place(selected)}</span>
-          </p>
-          <PanelRows rows={details} />
-        </>
-      ) : undefined,
-    groups,
+    controls,
+    page,
   };
 }
 

@@ -230,25 +230,42 @@
   }
 }
 
+/* The map fills what there is and keeps its proportions. */
 .panel-vacuum-map {
   display: block;
-  max-height: 100%;
+  height: 100%;
   width: 100%;
   border-radius: 22px;
   object-fit: contain;
 }
 
-/* A sensor: its value and its chart, and whatever it warns of above them. */
+.panel-group .panel-vacuum-map {
+  height: auto;
+}
+
+/* A sensor: its value in the middle, its chart on a card that takes what is left, its figures under it. */
 .panel-sensor {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-/* The chart takes what the value leaves. */
+.panel-sensor > .dv-pn-value {
+  flex: none;
+  align-items: center;
+  text-align: center;
+}
+
+.panel-sensor > .dv-pn-value > span:first-child {
+  justify-content: center;
+}
+
 .panel-sensor > .dv-pn-chart {
   min-height: 0;
   flex: 1 1 0;
+  border-radius: 22px;
+  padding: 14px 14px 10px;
+  background: var(--control-soft);
 }
 
 .panel-sensor .dv-chart,
@@ -259,10 +276,52 @@
   flex: 1 1 0;
 }
 
+.panel-sensor > .glass-chips {
+  flex: none;
+  justify-content: center;
+}
+
+.panel-sensor-stats {
+  display: grid;
+  flex: none;
+  gap: 8px;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+}
+
+.panel-sensor-stats > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 16px;
+  padding: 10px 4px;
+  background: var(--control-soft);
+}
+
+.panel-sensor-stats > span > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.panel-sensor-stats > span > b {
+  margin-top: 2px;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 /* First the chart gets shorter, then the rows that matter less let go. */
-@container panel-card (max-height: 280px) {
+@container panel-card (max-height: 320px) {
   .panel-sensor > .dv-pn-foot,
   .panel-sensor .dv-pn-trend {
+    display: none;
+  }
+}
+
+@container panel-card (max-height: 270px) {
+  .panel-sensor > .panel-sensor-stats {
     display: none;
   }
 }
@@ -315,6 +374,8 @@
 }
 
 .panel-calendar-events {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -367,6 +428,12 @@ button.panel-event {
 
 /* The people of the house. */
 .panel-members {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.panel-members-all {
   display: flex;
   flex-direction: column;
   gap: 2px;

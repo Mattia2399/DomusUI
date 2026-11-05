@@ -173,7 +173,7 @@ describe('the Rooms page in the demo', () => {
     fireEvent.click(within(page).getByRole('button', { name: /^Umidità 48%, Ideale/ }));
     const dialog = screen.getByRole('dialog', { name: 'Umidità' });
     expect(within(dialog).getByRole('img', { name: 'Fascia ideale 40–60%' })).toBeTruthy();
-    expect(within(dialog).getByText('Minimo')).toBeTruthy();
+    expect(within(dialog).getAllByText('Minimo').length).toBeGreaterThan(0);
     expect(within(dialog).getByText('Batteria 82%')).toBeTruthy();
     fireEvent.click(within(dialog).getByRole('radio', { name: '7 giorni' }));
     expect(within(dialog).getByRole('radio', { name: '7 giorni' }).getAttribute('aria-checked')).toBe('true');

@@ -35,7 +35,6 @@ const lightInput = (over: Partial<LightPanelInput> = {}): LightPanelInput => ({ 
 
 const specOf = <I,>(useSpec: (input: I) => ReturnType<typeof lightEntry.useSpec>, input: I) => renderHook(() => useSpec(input), { wrapper }).result.current;
 const labels = (spec: ReturnType<typeof lightEntry.useSpec>) => {
-  if (!spec.controls) return (spec.shortcuts ?? []).map((item) => item.label);
   const { main, more } = arrangeControls(spec.layout, spec.controls ?? []);
   return [...main, ...more].map((entry) => entry.control.label);
 };
@@ -425,7 +424,7 @@ describe('the panels with a card of data', () => {
     const anna = { id: 'a', personEntityId: 'person.a', name: 'Anna', state: 'home', trackerEntityIds: [], devices: { smartwatch: 0, tablet: 0, smartphone: 0, tracker: 0 } };
     const spec = specOf(membersEntry.useSpec, { name: 'Membri', members: [anna] as never, haStates: {} });
     expect(spec.action).toBeUndefined();
-    expect(spec.always).toBeUndefined();
+    expect(spec.below).toBeUndefined();
     drawn(membersEntry.useSpec, { name: 'Membri', members: [anna] as never, haStates: {} });
     expect(screen.queryByText('Telefono')).toBeNull();
   });

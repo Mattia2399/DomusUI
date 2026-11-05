@@ -6,7 +6,7 @@ import { usePanelNavWords } from '../../../i18n/panelNavTranslations';
 import { GlassButton } from '../../ui/GlassButton';
 import { GlassListRow } from '../../ui/GlassListRow';
 import { GlassSwitch } from '../../ui/GlassSwitch';
-import { arrangeControls, isActionControl, type PanelControl, type PanelHeroKind, type PanelItem, type PanelLook, type PanelSpec } from './registry';
+import { arrangeControls, isActionControl, type PanelControl, type PanelHeroKind, type PanelLook, type PanelSpec } from './registry';
 import { PanelGroups, type PanelGroup } from './shell/PanelGroups';
 import { PanelHeader } from './shell/PanelHeader';
 import { PanelHero } from './shell/PanelHero';
@@ -36,36 +36,6 @@ const HERO_OF_LOOK: Record<PanelLook, PanelHeroKind> = {
   chart: 'data',
   image: 'data',
 };
-
-/** A shortcut in the old form, until its entry is converted. */
-function current(item: PanelItem): PanelControl {
-  const common = { id: item.key, icon: item.icon, label: item.label, ariaLabel: item.ariaLabel, title: item.title, value: item.value, note: item.note, disabled: item.disabled, lit: item.lit, place: 'main' as const };
-  if (item.kind === 'toggle') return { ...common, on: item.on, onPress: item.onPress };
-  if (item.kind === 'action') return { ...common, on: item.on, actionLabel: item.actionLabel, onPress: item.onPress };
-  return {
-    ...common,
-    note: undefined,
-    looks: ['tiles'],
-    group: (
-      <>
-        {item.group ?? item.content('group')}
-        {item.note ? <p className="panel-group-note">{item.note}</p> : null}
-      </>
-    ),
-    groupTrailing: item.groupTrailing,
-    big: () =>
-      item.hero ?? (
-        <div className="panel-control-screen">
-          <p className="panel-screen-title">
-            <b>{item.title ?? item.label}</b>
-            {item.value ? <span> · {item.value}</span> : null}
-          </p>
-          {item.content('zone')}
-          {item.note ? <p className="panel-screen-note">{item.note}</p> : null}
-        </div>
-      ),
-  };
-}
 
 /** While the device is on, the icons of its groups have its colour. */
 const groupOf = (control: PanelControl, deviceOn: boolean): PanelGroup => {
@@ -105,7 +75,7 @@ export type PanelViewProps = {
 export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
   const dt = useDevicesTranslations();
   const word = usePanelNavWords();
-  const { main, more } = arrangeControls(spec.layout, spec.controls ?? (spec.shortcuts ?? []).map(current));
+  const { main, more } = arrangeControls(spec.layout, spec.controls ?? []);
   const all = [...main, ...more];
   const nav = usePanelNav(spec.owner, [...all.map((entry) => entry.control.id), ...(more.length > 0 ? [MORE_KEY] : [])]);
   const off = Boolean(live?.off);
@@ -207,7 +177,7 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
         <PanelHero
           className={clsx(`is-${heroKind}`)}
           back={big && !spec.confirm ? { label: spec.heroName ?? dt('back'), onPress: nav.home } : undefined}
-          below={big || spec.confirm ? undefined : spec.below ?? spec.always}
+          below={big || spec.confirm ? undefined : spec.below}
         >
           {spec.confirm ?? big?.control.big(big.look) ?? spec.hero}
         </PanelHero>
@@ -217,9 +187,9 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
         page && !page.phoneOnly ? undefined : (
           <PanelGroups
             before={spec.confirm}
-            groups={(spec.groups ? spec.groups.map(current) : main.map((entry) => entry.control)).filter((control) => isActionControl(control) || control.group !== null).map((control) => groupOf(control, Boolean(spec.action?.on)))}
+            groups={main.map((entry) => entry.control).filter((control) => isActionControl(control) || control.group !== null).map((control) => groupOf(control, Boolean(spec.action?.on)))}
             more={
-              !spec.groups && more.length > 0
+              more.length > 0
                 ? {
                     icon: <LayoutGrid size={16} strokeWidth={2} />,
                     title: word('more'),

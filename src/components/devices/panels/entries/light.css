@@ -1,28 +1,5 @@
 /* What only the panel of a light draws. */
 
-.panel-hero-main .glass-color-picker {
-  width: min(100cqw, 100cqh);
-  align-self: center;
-}
-
-/* The whites and the kinds of light in the zone of 148 px. */
-.panel-control-screen .glass-temperature {
-  gap: 6px;
-}
-
-.panel-control-screen .glass-temperature-bar {
-  height: var(--control-bar-height-compact);
-}
-
-.panel-control-screen .glass-temperature-handle {
-  height: 32px;
-  width: 32px;
-}
-
-.panel-control-screen .glass-temperature-presets > button {
-  min-height: 28px;
-}
-
 .panel-white-fill {
   background: #ffffff;
 }

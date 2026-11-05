@@ -6,7 +6,7 @@ import { GlassChips } from '../../../ui/GlassChips';
 import { GlassRing } from '../../../ui/GlassRing';
 import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../../model/deviceTimer';
 import { relativeLuminance, type Rgb } from '../../model/tileColor';
-import type { PanelControl, PanelDrawnIn } from '../registry';
+import type { PanelControl } from '../registry';
 import type { PanelAccent } from '../shell/PanelShell';
 import './shared.css';
 
@@ -23,8 +23,6 @@ export function accentOf(rgb: Rgb | string): PanelAccent {
     rgb: channels.join(' '),
   };
 }
-
-export const chipSize = (place: PanelDrawnIn) => (place === 'group' ? ('dialog' as const) : ('default' as const));
 
 /** The switch-off timer of a device: a large ring with five pills, and what is left, which the card says too. */
 export function useTimerControl(timer: DeviceTimer | null | undefined, now: number | undefined, onSetTimer: ((minutes: number) => void) | undefined): PanelControl[] {

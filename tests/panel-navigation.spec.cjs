@@ -19,7 +19,7 @@ const VIEWS = [
 const GAP = 18;
 
 // The panels already on the new controls: their screens are walked one by one.
-const CONVERTED = ['Lampada', 'Faretti', 'Striscia', 'Presa', 'Clima', 'Climatizzatore', 'Termosifone', 'Ventol', 'Umidificatore', 'Deumidificatore', 'Tapparella', 'Termostufa'];
+const CONVERTED = ['Lampada', 'Faretti', 'Striscia', 'Presa', 'Clima', 'Climatizzatore', 'Termosifone', 'Ventol', 'Umidificatore', 'Deumidificatore', 'Tapparella', 'Termostufa', 'Ingresso', 'Robot', 'Calendario', 'Membri', 'Sensore', 'Temperatura', 'Umidità', 'Finestra', 'Movimento'];
 
 const widget = (id, kind, title, extra, x, y) => ({ id, kind, title, entityId: id, dataSource: 'mock', status: 'on', isOn: true, layout: { i: id, x, y, w: 2, h: 4 }, ...extra });
 

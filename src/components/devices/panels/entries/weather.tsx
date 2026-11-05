@@ -183,27 +183,22 @@ function useWeatherSpec({ weather, entityId, isNight = false, updatedAt, unit = 
   const { hourly, daily } = isMock ? demoForecasts(weather) : asked;
 
   const condition = conditionOverride ?? weather.condition;
-  const Icon = iconOf(condition, isNight);
   const sky = weatherSkyOf(condition, isNight);
   const degrees = (value: number) => `${Math.round(unit === 'F' ? value * 1.8 + 32 : value)}°`;
   const base = {
     owner: 'weather',
     name: sp.t('weatherTitle'),
-    icon: <Icon size={23} strokeWidth={2} />,
-    lit: true,
     accent: accentOf('10 132 255'),
     tint: false,
     heroKind: 'data' as const,
     hero: null,
-    shortcuts: [],
+    controls: [],
   };
 
   if (!weather.available) {
     const offline = weather.source === 'offline';
     return {
       ...base,
-      lit: false,
-      icon: <CloudOff size={23} strokeWidth={2} />,
       status: weather.location,
       free: (
         <div className="panel-weather is-empty">

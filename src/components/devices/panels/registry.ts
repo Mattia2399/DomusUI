@@ -15,58 +15,6 @@ import type { PanelAccent } from './shell/PanelShell';
 /** What stands in the middle of the panel. */
 export type PanelHeroKind = 'slider' | 'disc' | 'value' | 'data' | 'cover' | 'fill' | 'control';
 
-/** Where a control is being drawn: the protagonist or a page on a phone, or a group of the dialog. */
-export type PanelDrawnIn = 'zone' | 'group';
-
-type ItemCommon = {
-  key: string;
-  icon: React.ReactNode;
-  /** The name under the shortcut, of one word. */
-  label: string;
-  /** What assistive technology says, when the name alone is too short. */
-  ariaLabel?: string;
-  /** The longer name, over its controls and in its group. */
-  title?: string;
-  /** What it is set to now, beside the title. */
-  value?: React.ReactNode;
-  /** One line under the controls. */
-  note?: React.ReactNode;
-  /** It cannot do this now: a robot already at its base. */
-  disabled?: boolean;
-  /** The icon of its group takes the colour of the device: it is in use. */
-  lit?: boolean;
-};
-
-/** A shortcut in the old form, until its entry is converted. */
-export type PanelOpensItem = ItemCommon & {
-  kind: 'opens';
-  content: (place: PanelDrawnIn) => React.ReactNode;
-  /** Takes the place of the protagonist while it is open, in one column: the colour disc. */
-  hero?: React.ReactNode;
-  /** The group of the dialog says it differently from the zone. */
-  group?: React.ReactNode;
-  /** At the end of the title of its group: what the zone keeps among the controls. */
-  groupTrailing?: React.ReactNode;
-};
-
-/** Switches something at once, and lights up while it is on. */
-export type PanelToggleItem = ItemCommon & {
-  kind: 'toggle';
-  on: boolean;
-  onPress: () => void;
-};
-
-/** Does something at once. In the dialog it is a button, with its own words. */
-export type PanelActionItem = ItemCommon & {
-  kind: 'action';
-  on?: boolean;
-  actionLabel: string;
-  onPress: () => void;
-};
-
-/** The old forms, until each entry is converted. */
-export type PanelItem = PanelOpensItem | PanelToggleItem | PanelActionItem;
-
 /** A page an entry opens by itself: the details of a person, the form of an event, all the rows. */
 export type PanelSpecPage = {
   title: string;
@@ -135,8 +83,6 @@ export type PanelSpec = {
   owner: string;
   name: string;
   status: React.ReactNode;
-  icon?: React.ReactNode;
-  lit?: boolean;
   accent: PanelAccent;
   /** A sheet or a dialog takes the colour of the device. */
   tint: boolean;
@@ -150,16 +96,10 @@ export type PanelSpec = {
   controls?: readonly PanelControl[];
   /** A device with no row on a phone, as a cover: its controls are only groups elsewhere. */
   noRow?: boolean;
-  /** In the old form, until its entry is converted. */
-  shortcuts?: readonly PanelItem[];
   /** Under the protagonist and always in view: the positions of a cover. */
   below?: React.ReactNode;
-  /** In the old form: the controls always in view, until its entry is converted. */
-  always?: React.ReactNode;
   /** A page opened by the entry, not by a shortcut. */
   page?: PanelSpecPage;
-  /** In the old form: the groups of the dialog, until its entry is converted. */
-  groups?: readonly PanelItem[];
   /** Asks in place of the protagonist, before something that cannot wait for a second thought. */
   confirm?: React.ReactNode;
   /** What needs the whole body of the panel for a while, as the form of a new event. */

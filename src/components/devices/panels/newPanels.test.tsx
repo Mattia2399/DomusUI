@@ -270,8 +270,8 @@ const vacuumCommands = (): VacuumPanelCommands => ({
   start: vi.fn(), pause: vi.fn(), stop: vi.fn(), returnToBase: vi.fn(), locate: vi.fn(), cleanSpot: vi.fn(), cleanArea: vi.fn(), setFanSpeed: vi.fn(),
 });
 
-function renderVacuum(vacuum: Partial<VacuumPanelInput['vacuum']>, commands = vacuumCommands()) {
-  drawn(vacuumEntry, { vacuum: { name: 'Robot', state: 'docked', ...vacuum }, commands });
+function renderVacuum(vacuum: Partial<VacuumPanelInput['vacuum']>, commands = vacuumCommands(), areas?: VacuumPanelInput['areas']) {
+  drawn(vacuumEntry, { vacuum: { name: 'Robot', state: 'docked', ...vacuum }, areas, commands });
   return commands;
 }
 
@@ -287,6 +287,29 @@ describe('the robot panel', () => {
     expect(screen.queryByText('batteria')).toBeNull();
   });
 
+  it('has Zone with a full name for assistive technology, and cleans the rooms chosen with one button', () => {
+    const commands = renderVacuum({ supportsCleanSpot: true, supportsCleanArea: true }, undefined, [{ id: 'a', name: 'Cucina' }, { id: 'b', name: 'Sala' }]);
+    fireEvent.click(shortcuts().getByRole('button', { name: 'Pulisci qui intorno' }));
+    expect(commands.cleanSpot).toHaveBeenCalledTimes(1);
+    expect(shortcuts().getByText('Zona')).toBeTruthy();
+    fireEvent.click(shortcuts().getByRole('button', { name: 'Stanze' }));
+    const hero = within(document.querySelector<HTMLElement>('.panel-hero')!);
+    const clean = () => hero.getByRole('button', { name: /^Pulisci/ }) as HTMLButtonElement;
+    expect(clean().disabled).toBe(true);
+    fireEvent.click(hero.getByRole('checkbox', { name: 'Cucina' }));
+    fireEvent.click(hero.getByRole('checkbox', { name: 'Sala' }));
+    expect(clean().textContent).toBe('Pulisci 2 stanze');
+    fireEvent.click(clean());
+    expect(commands.cleanArea).toHaveBeenCalledWith(['a', 'b']);
+  });
+
+  it('has its parts and its information on one page, Info, with two sections', () => {
+    renderVacuum({ deviceInfo: { manufacturer: 'Acme' }, relatedEntities: [{ entityId: 'sensor.filtro', domain: 'sensor', name: 'Filtro', state: '40', unit: '%' }] as never });
+    expect(shortcuts().getByRole('button', { name: 'Info' })).toBeTruthy();
+    expect(screen.getByText('Ricambi')).toBeTruthy();
+    expect(screen.getByText('Acme')).toBeTruthy();
+  });
+
   it('shows what it declares, and runs it', () => {
     const commands = renderVacuum({ batteryLevel: 80, supportsStart: true, supportsReturnToBase: true, supportsLocate: true, supportsFanSpeed: true, fanSpeedList: ['quiet', 'max'], fanSpeed: 'quiet' });
     expect(screen.getByText('80%')).toBeTruthy();
@@ -295,7 +318,7 @@ describe('the robot panel', () => {
     expect(commands.start).toHaveBeenCalledTimes(1);
     expect(commands.locate).toHaveBeenCalledTimes(1);
     expect(shortcuts().getByText('Aspirazione')).toBeTruthy();
-    expect((shortcuts().getByRole('button', { name: 'Alla base' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((shortcuts().getByRole('button', { name: 'Base' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('pauses while it cleans, and stops when it cannot pause', () => {
@@ -327,7 +350,7 @@ describe('the robot panel', () => {
 
   it('shows only the parts it has sensors for', () => {
     renderVacuum({ relatedEntities: [{ entityId: 'sensor.filtro', domain: 'sensor', name: 'Filtro', state: '40', unit: '%' }] as never });
-    expect(screen.getByText('Manutenzione')).toBeTruthy();
+    expect(screen.getByText('Ricambi')).toBeTruthy();
     expect(screen.getByText('Filtro')).toBeTruthy();
     expect(screen.queryByText('Altri controlli')).toBeNull();
   });
@@ -383,6 +406,17 @@ describe('the members panel', () => {
   it('says there is nobody, instead of an empty box', () => {
     members({ name: 'Membri', members: [], haStates: {} });
     expect(screen.getAllByText('Nessun membro')).toHaveLength(2);
+  });
+
+  it('opens the details of a person on a page, on a phone', () => {
+    const states = { 'person.a': { state: 'home', rawAttributes: {}, __last_changed: new Date().toISOString() } } as never;
+    members({ name: 'Membri', members: [member({ state: 'home', devices: { smartwatch: 0, tablet: 0, smartphone: 1, tracker: 0 } })], haStates: states });
+    const { container } = { container: document.body };
+    fireEvent.click(screen.getByRole('button', { name: /Anna/ }));
+    expect(container.querySelector('.panel-shell.has-phone-page')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 3, name: 'Anna' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
+    expect(container.querySelector('.panel-shell.has-page')).toBeNull();
   });
 
   it('shows the map only when the option is on', () => {

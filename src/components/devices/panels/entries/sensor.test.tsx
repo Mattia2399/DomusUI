@@ -36,6 +36,14 @@ const panel = (entityId: string, states: Record<string, MockEntityState>, props:
 
 const FAMILIES = Object.keys(SENSOR_FAMILY_CLASSES) as SensorFamily[];
 
+/** A block stands in Altro with the values, or alone among the groups. */
+const openBlock = (title: RegExp) => {
+  const more = screen.queryByRole('button', { name: 'Altro' });
+  if (!more) return;
+  fireEvent.click(more);
+  fireEvent.click(screen.getByRole('button', { name: title }));
+};
+
 describe('the chart of each family', () => {
   it('draws a line, bars or a strip as the board says', () => {
     expect(FAMILIES).toHaveLength(17);
@@ -130,25 +138,6 @@ describe('the threshold', () => {
     expect(thresholdCrossed(thresholdRuleOf('battery', 'battery', '%')!, 20, 10, '%')).toBe(true);
   });
 
-  it('is saved, and the panel moves it with − and + and offers no notification switch', () => {
-    storeThreshold('sensor.other', 1);
-    panel('sensor.t', { 'sensor.t': entity('21', { device_class: 'temperature', unit_of_measurement: '°C' }) });
-    expect(screen.getByText(/Soglia · sopra 26,0°/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Alza la soglia' }));
-    expect(screen.getByText(/Soglia · sopra 26,5°/)).toBeTruthy();
-    expect(readStoredThresholds()).toEqual({ 'sensor.other': 1, 'sensor.t': 26.5 });
-    fireEvent.click(screen.getByRole('button', { name: 'Abbassa la soglia' }));
-    expect(readStoredThresholds()['sensor.t']).toBe(26);
-    expect(screen.queryByRole('switch')).toBeNull();
-    expect(screen.queryByText(/Avvisami/)).toBeNull();
-  });
-
-  it('warns when the value is past a threshold moved by the household', () => {
-    storeThreshold('sensor.t', 20);
-    panel('sensor.t', { 'sensor.t': entity('21', { device_class: 'temperature', unit_of_measurement: '°C' }) });
-    expect(screen.getByText(/Oltre la tua soglia di 20,0°/)).toBeTruthy();
-  });
-
   it('survives a browser that refuses to store', () => {
     const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('blocked');
@@ -170,16 +159,25 @@ describe('the panel of a family', () => {
   it('draws the history it was given', () => {
     panel('sensor.t', { 'sensor.t': entity('21', { device_class: 'temperature', unit_of_measurement: '°C' }) }, { history: [20, 21, 22, 21] });
     expect(screen.getByTestId('sensor-panel-line')).toBeTruthy();
-    expect(screen.getByText('Minimo')).toBeTruthy();
-    expect(screen.getByText('Massimo')).toBeTruthy();
-    expect(screen.getByText('Media')).toBeTruthy();
+    expect(screen.getAllByText('Minimo').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Massimo').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Media').length).toBeGreaterThan(0);
+  });
+
+  it('says the alert in one sentence: a bold title with how long, and the advice once', () => {
+    const since = new Date(Date.now() - 2 * 3_600_000).toISOString();
+    panel('sensor.t', { 'sensor.t': entity('29', { device_class: 'temperature', unit_of_measurement: '°C', __last_changed: since }) });
+    const text = screen.getByRole('alert').textContent ?? '';
+    expect(text).toMatch(/^Sopra l’ideale.*\. Chiudi le tapparelle$/);
+    expect(text.match(/hiudi le tapparelle/g)).toHaveLength(1);
+    expect(screen.getByRole('alert').querySelector('b')?.textContent).toMatch(/^Sopra l’ideale/);
   });
 
   it('colours the alert and offers only the actions whose device exists', async () => {
     const states = { 'sensor.t': entity('29', { device_class: 'temperature', unit_of_measurement: '°C' }) };
     panel('sensor.t', states);
     expect(screen.getAllByText('Fa caldo').length).toBeGreaterThan(0);
-    expect(screen.getByRole('alert').textContent).toMatch(/chiudi le tapparelle/);
+    expect(screen.getByRole('alert').textContent).toMatch(/Chiudi le tapparelle/);
     expect(screen.queryByRole('button', { name: 'Accendi il clima' })).toBeNull();
     cleanup();
 
@@ -273,14 +271,14 @@ describe('the panel of a family', () => {
       'sensor.lux': entity('320', { device_class: 'illuminance', unit_of_measurement: 'lx' }),
       'automation.luce': entity('on', { friendly_name: 'Accensione ingresso', target: { entity_id: 'sensor.lux' } }),
     });
-    expect(screen.getAllByText('Usata da').length).toBeGreaterThan(0);
+    openBlock(/Usata da/);
     expect(screen.getByText('Accensione ingresso')).toBeTruthy();
     cleanup();
     panel('sensor.prezzo', {
       'sensor.prezzo': entity('0.22', { device_class: 'monetary', unit_of_measurement: 'â‚¬/kWh' }),
       'automation.ricarica': entity('on', { friendly_name: 'Ricarica economica', watched: ['sensor.prezzo'] }),
     });
-    expect(screen.getAllByText('Dispositivi che seguono il prezzo').length).toBeGreaterThan(0);
+    openBlock(/Dispositivi che seguono il prezzo/);
     expect(screen.getByText('Ricarica economica')).toBeTruthy();
   });
 
@@ -326,20 +324,21 @@ describe('the panel of a family', () => {
         />
       </PanelServicesProvider>,
     );
-    expect((await screen.findAllByText('Collegato a')).length).toBeGreaterThan(0);
+    expect(await screen.findByText(/Collegato a/)).toBeTruthy();
+    openBlock(/Collegato a/);
     expect(screen.getByText('Luce corridoio')).toBeTruthy();
   });
 
   it('shows every phase of a word, and the batteries of the house', () => {
     panel('sensor.w', { 'sensor.w': entity('wash', { device_class: 'enum', options: ['wash', 'rinse', 'spin'] }) });
-    expect(screen.getAllByText('Fasi').length).toBeGreaterThan(0);
+    openBlock(/Fasi/);
     expect(screen.getByText('Rinse')).toBeTruthy();
     cleanup();
     panel('sensor.b_battery', {
       'sensor.b_battery': entity('82', { device_class: 'battery', unit_of_measurement: '%' }),
       'sensor.c_battery': entity('9', { device_class: 'battery', unit_of_measurement: '%', friendly_name: 'Porta' }),
     });
-    expect(screen.getAllByText('Tutte le batterie della casa').length).toBeGreaterThan(0);
+    openBlock(/Tutte le batterie della casa/);
     expect(screen.getByText('Porta')).toBeTruthy();
   });
 

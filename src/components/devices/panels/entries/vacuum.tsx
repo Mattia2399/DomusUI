@@ -1,18 +1,20 @@
 import React from 'react';
 import { clsx } from 'clsx';
-import { Bell, Bot, Fan, Home, Info, ListChecks, Map as MapIcon, SlidersHorizontal, Sparkles, Square, Wrench } from 'lucide-react';
+import { Bell, Fan, Home, Info, ListChecks, Map as MapIcon, SlidersHorizontal, Sparkles, Square, Wrench } from 'lucide-react';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
 import { usePanelsTranslations } from '../../../../i18n/panelsTranslations';
 import { formatRelatedValue, type VacuumRelatedEntityActionRequest } from '../../../settings/VacuumRelatedControl';
 import { GlassButton } from '../../../ui/GlassButton';
+import { GlassChoiceRows, GlassValueRows } from '../../../ui/GlassListRow';
+import { GlassTiles } from '../../../ui/GlassTiles';
 import { GlassChips } from '../../../ui/GlassChips';
 import { formatVacuumOption, normalizeVacuumState } from '../../../widgets/vacuumCardModel';
 import type { VacuumMappedArea, VacuumRelatedEntityInfo } from '../../../widgets/vacuumDeviceModel';
 import { vacuumErrorText, vacuumModeControl, vacuumProgress } from '../../model/panelRules';
-import type { PanelEntry, PanelItem, PanelSpec } from '../registry';
-import { relatedItem } from './related';
-import { accentOf, chipSize, ICON, PanelRows } from './shared';
+import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
+import { relatedControl } from './related';
+import { accentOf, ICON } from './shared';
 import './data.css';
 
 /*
@@ -82,6 +84,9 @@ const STATE_KEYS = {
 const RING_LENGTH = 2 * Math.PI * 46;
 const FINDING_MS = 1800;
 
+/** Beyond this the tiles leave no room for their names: a list. */
+const MOST_TILES = 6;
+
 function useVacuumSpec({ vacuum, areas = [], commands }: VacuumPanelInput): PanelSpec {
   const pt = usePanelsTranslations();
   const sp = usePanelSpecTranslations();
@@ -133,17 +138,72 @@ function useVacuumSpec({ vacuum, areas = [], commands }: VacuumPanelInput): Pane
   const mainIsStart = !cleaning && !away && state !== 'returning' && vacuum.supportsStart;
   const showStop = vacuum.supportsStop && !mainIsStop && working;
 
-  const shortcuts: PanelItem[] = [];
-  if (showStop) {
-    shortcuts.push({ key: 'stop', kind: 'action', icon: <Square {...ICON} />, label: pt('vcStop'), actionLabel: pt('vcStop'), onPress: commands.stop });
-  }
+  const panelControls: PanelControl[] = [];
   if (vacuum.supportsReturnToBase) {
-    shortcuts.push({ key: 'base', kind: 'action', icon: <Home {...ICON} />, label: pt('vcBase'), actionLabel: pt('vcBase'), disabled: state === 'docked' || away, onPress: commands.returnToBase });
+    panelControls.push({ id: 'base', icon: <Home {...ICON} />, label: pt('vcBaseShort'), title: pt('vcBase'), actionLabel: pt('vcBase'), disabled: state === 'docked' || away, onPress: commands.returnToBase });
+  }
+  const choice = (id: string, icon: React.ReactNode, label: string, options: readonly string[], current: string | undefined, onPick: (option: string) => void): PanelControl => {
+    const named = options.map((option) => ({ value: option, label: formatVacuumOption(option) }));
+    return {
+      id,
+      icon,
+      label,
+      value: current ? formatVacuumOption(current) : undefined,
+      looks: options.length > MOST_TILES ? ['list'] : ['tiles', 'list'],
+      big: (look) =>
+        look === 'list' ? (
+          <GlassChoiceRows<string> size="hero" ariaLabel={label} options={named} value={current} onChange={onPick} />
+        ) : (
+          <GlassTiles<string> size="hero" ariaLabel={label} options={named.map((option) => ({ ...option, icon }))} value={current} onChange={onPick} />
+        ),
+      group: <GlassChips<string> size="dialog" ariaLabel={label} options={named} value={current} onChange={onPick} />,
+    };
+  };
+  if (vacuum.supportsFanSpeed && fanSpeeds.length > 0) {
+    const current = fanSpeeds.find((option) => option.toLowerCase() === fanSpeed.toLowerCase());
+    panelControls.push(choice('suction', <Fan {...ICON} />, pt('vcSuction'), fanSpeeds, current, (option) => {
+      setFanSpeed(option);
+      commands.setFanSpeed(option);
+    }));
+  }
+  if (vacuum.supportsCleanArea && areas.length > 0) {
+    const cleanLabel = selectedAreas.length === 1 ? pt('vcCleanRoom') : pt('vcCleanRooms', { n: selectedAreas.length });
+    const clean = (
+      <GlassButton variant="filled" className="panel-group-action" disabled={selectedAreas.length === 0} onClick={() => commands.cleanArea(selectedAreas)}>
+        {cleanLabel}
+      </GlassButton>
+    );
+    const toggleArea = (id: string) => setSelectedAreas((current) => (current.includes(id) ? current.filter((entry) => entry !== id) : [...current, id]));
+    panelControls.push({
+      id: 'rooms',
+      icon: <ListChecks {...ICON} />,
+      label: pt('vcRooms'),
+      looks: ['list'],
+      big: () => <GlassChoiceRows<string> size="hero" multiple ariaLabel={pt('vcRooms')} options={areas.map((area) => ({ value: area.id, label: area.name }))} value={selectedAreas} onChange={toggleArea} footer={clean} />,
+      group: (
+        <>
+          <GlassChips<string> multiple size="dialog" ariaLabel={pt('vcRooms')} options={areas.map((area) => ({ value: area.id, label: area.name }))} value={selectedAreas} onChange={setSelectedAreas} />
+          {clean}
+        </>
+      ),
+    });
+  }
+  if (vacuum.supportsCleanSpot) {
+    panelControls.push({ id: 'spot', icon: <Sparkles {...ICON} />, label: pt('vcSpotShort'), ariaLabel: pt('vcSpotAria'), title: pt('vcSpot'), actionLabel: pt('vcSpot'), onPress: commands.cleanSpot });
+  }
+  if (vacuum.mapUrl) {
+    const map = <img className="panel-vacuum-map" src={vacuum.mapUrl} alt={pt('vcMapAlt', { name: vacuum.name })} />;
+    panelControls.push({ id: 'map', icon: <MapIcon {...ICON} />, label: sp.t('map'), looks: ['image'], big: () => map, group: map });
+  }
+  if (modeControl?.options?.length) {
+    panelControls.push(choice('mode', <SlidersHorizontal {...ICON} />, pt('vcMode'), modeControl.options, modeControl.options.find((option) => option === modeControl.state), (option) => void commands.related?.({ entityId: modeControl.entityId, action: 'select', value: option })));
+  }
+  if (showStop) {
+    panelControls.push({ id: 'stop', icon: <Square {...ICON} />, label: pt('vcStop'), actionLabel: pt('vcStop'), onPress: commands.stop });
   }
   if (vacuum.supportsLocate) {
-    shortcuts.push({
-      key: 'find',
-      kind: 'action',
+    panelControls.push({
+      id: 'find',
       icon: <Bell {...ICON} />,
       label: pt('vcFind'),
       actionLabel: finding ? pt('vcFinding') : pt('vcFind'),
@@ -155,84 +215,27 @@ function useVacuumSpec({ vacuum, areas = [], commands }: VacuumPanelInput): Pane
       },
     });
   }
-  if (vacuum.supportsFanSpeed && fanSpeeds.length > 0) {
-    const current = fanSpeeds.find((option) => option.toLowerCase() === fanSpeed.toLowerCase());
-    shortcuts.push({
-      key: 'suction',
-      kind: 'opens',
-      icon: <Fan {...ICON} />,
-      label: pt('vcSuction'),
-      value: current ? formatVacuumOption(current) : undefined,
-      content: (place) => (
-        <GlassChips<string>
-          size={chipSize(place)}
-          ariaLabel={pt('vcSuction')}
-          options={fanSpeeds.map((option) => ({ value: option, label: formatVacuumOption(option) }))}
-          value={current}
-          onChange={(option) => {
-            setFanSpeed(option);
-            commands.setFanSpeed(option);
-          }}
-        />
-      ),
-    });
-  }
-  if (modeControl?.options?.length) {
-    const options = modeControl.options;
-    shortcuts.push({
-      key: 'mode',
-      kind: 'opens',
-      icon: <SlidersHorizontal {...ICON} />,
-      label: pt('vcMode'),
-      value: modeControl.state ? formatVacuumOption(modeControl.state) : undefined,
-      content: (place) => (
-        <GlassChips<string>
-          size={chipSize(place)}
-          ariaLabel={pt('vcMode')}
-          options={options.map((option) => ({ value: option, label: formatVacuumOption(option) }))}
-          value={options.find((option) => option === modeControl.state)}
-          onChange={(option) => void commands.related?.({ entityId: modeControl.entityId, action: 'select', value: option })}
-        />
-      ),
-    });
-  }
-  if (vacuum.mapUrl) {
-    const map = <img className="panel-vacuum-map" src={vacuum.mapUrl} alt={pt('vcMapAlt', { name: vacuum.name })} />;
-    shortcuts.push({ key: 'map', kind: 'opens', icon: <MapIcon {...ICON} />, label: sp.t('map'), content: () => null, hero: map, group: map });
-  }
-  if (vacuum.supportsCleanArea && areas.length > 0) {
-    shortcuts.push({
-      key: 'rooms',
-      kind: 'opens',
-      icon: <ListChecks {...ICON} />,
-      label: pt('vcRooms'),
-      content: (place) => (
-        <>
-          <GlassChips<string> multiple size={chipSize(place)} ariaLabel={pt('vcRooms')} options={areas.map((area) => ({ value: area.id, label: area.name }))} value={selectedAreas} onChange={setSelectedAreas} />
-          {selectedAreas.length > 0 ? (
-            <GlassButton variant="soft" className="panel-group-action" onClick={() => commands.cleanArea(selectedAreas)}>
-              {selectedAreas.length === 1 ? pt('vcCleanRoom') : pt('vcCleanRooms', { n: selectedAreas.length })}
-            </GlassButton>
-          ) : null}
-        </>
-      ),
-    });
-  }
-  if (vacuum.supportsCleanSpot) {
-    shortcuts.push({ key: 'spot', kind: 'action', icon: <Sparkles {...ICON} />, label: pt('vcSpot'), actionLabel: pt('vcSpot'), onPress: commands.cleanSpot });
-  }
-  if (readings.length > 0) {
-    shortcuts.push({
-      key: 'parts',
-      kind: 'opens',
-      icon: <Wrench {...ICON} />,
-      label: sp.t('parts'),
-      title: pt('vcMaintenance'),
-      content: () => <PanelRows rows={readings.map((entity) => [entity.name, formatRelatedValue(entity, t('vacuum.na'))])} />,
-    });
+  const parts = readings.map((entity) => [entity.name, formatRelatedValue(entity, t('vacuum.na'))] as const);
+  const info = [
+    [t('camera.info.manufacturer'), vacuum.deviceInfo?.manufacturer],
+    [t('camera.info.model'), vacuum.deviceInfo?.model],
+    [t('camera.info.firmware'), vacuum.deviceInfo?.swVersion],
+    [t('camera.info.hardware'), vacuum.deviceInfo?.hwVersion],
+  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
+  if (parts.length > 0 || info.length > 0) {
+    const sections = (size: 'default' | 'hero') => (
+      <GlassValueRows
+        size={size}
+        rows={[
+          ...(parts.length > 0 ? [{ key: 'parts', heading: sp.t('parts') }, ...parts.map(([title, value]) => ({ key: `p-${title}`, title, value }))] : []),
+          ...(info.length > 0 ? [{ key: 'info', heading: t('camera.settings.info') }, ...info.map(([title, value]) => ({ key: `i-${title}`, title, value }))] : []),
+        ]}
+      />
+    );
+    panelControls.push({ id: 'info', icon: <Info {...ICON} />, label: pt('vcInfoTitle'), looks: ['rows'], big: () => sections('hero'), group: sections('default') });
   }
   for (const entity of controls) {
-    const item = relatedItem(entity, {
+    const control = relatedControl(entity, {
       runLabel: t('camera.action.run'),
       optionName: formatVacuumOption,
       commands: {
@@ -242,24 +245,15 @@ function useVacuumSpec({ vacuum, areas = [], commands }: VacuumPanelInput): Pane
         number: (value) => void commands.related?.({ entityId: entity.entityId, action: 'number', value }),
       },
     });
-    if (item) shortcuts.push(item);
-  }
-  const info = [
-    [t('camera.info.manufacturer'), vacuum.deviceInfo?.manufacturer],
-    [t('camera.info.model'), vacuum.deviceInfo?.model],
-    [t('camera.info.firmware'), vacuum.deviceInfo?.swVersion],
-    [t('camera.info.hardware'), vacuum.deviceInfo?.hwVersion],
-  ].filter((entry): entry is [string, string] => Boolean(entry[1]));
-  if (info.length > 0) {
-    shortcuts.push({ key: 'info', kind: 'opens', icon: <Info {...ICON} />, label: t('camera.settings.info'), content: () => <PanelRows rows={info} /> });
+    if (control) panelControls.push(control);
   }
 
   return {
     owner: vacuum.name,
     name: vacuum.name,
     status: [stateName, battery !== null ? `${battery}%` : null].filter(Boolean).join(' · '),
-    icon: <Bot size={23} strokeWidth={2} />,
-    lit: cleaning || error,
+    layout: 'vacuum',
+    heroName: [stateName, battery !== null ? `${battery}%` : null].filter(Boolean).join(' · '),
     accent: accentOf(error ? '255 69 58' : '100 210 255'),
     tint: cleaning || error,
     heroKind: 'data',
@@ -290,7 +284,7 @@ function useVacuumSpec({ vacuum, areas = [], commands }: VacuumPanelInput): Pane
         <span className="panel-vacuum-more">{working ? progressText : pt('vcNoCleaning')}</span>
       </div>
     ),
-    shortcuts,
+    controls: panelControls,
     action: mainIsPause
       ? { kind: 'pause', label: pt('vcPause'), onPress: commands.pause }
       : mainIsStop

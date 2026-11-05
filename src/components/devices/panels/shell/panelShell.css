@@ -549,16 +549,6 @@
   font-weight: 600;
 }
 
-/* What a control still in the old form shows in the protagonist, until its entry is converted. */
-.panel-control-screen {
-  display: flex;
-  width: 100%;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  text-align: center;
-}
-
 .panel-screen-title,
 .panel-screen-note {
   margin: 0;

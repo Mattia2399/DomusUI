@@ -16,7 +16,8 @@ import {
 import { CalendarEventForm, eventLook, initialForm, toDisplayDate, type EventFormState } from '../../../settings/CalendarEventForm';
 import { GlassButton } from '../../../ui/GlassButton';
 import { localIsoDay, nextSevenDays, WeekDayStrip, type WeekDayBadge } from '../../../ui/WeekDayStrip';
-import type { PanelEntry, PanelItem, PanelSpec } from '../registry';
+import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
+import { PanelFitList } from './fitList';
 import { accentOf, ICON, PanelRows } from './shared';
 import './data.css';
 
@@ -39,6 +40,7 @@ function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onC
   const { locale, t, formatDate } = useI18n();
   const [form, setForm] = React.useState<EventFormState | null>(null);
   const [selectedDay, setSelectedDay] = React.useState<string | null>(null);
+  const [allOpen, setAllOpen] = React.useState(false);
   const canCreate = (supportedFeatures & CALENDAR_FEATURE_CREATE_EVENT) !== 0;
   const canUpdate = (supportedFeatures & CALENDAR_FEATURE_UPDATE_EVENT) !== 0;
   const canDelete = (supportedFeatures & CALENDAR_FEATURE_DELETE_EVENT) !== 0;
@@ -125,21 +127,44 @@ function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onC
     );
   };
 
-  const groups: PanelItem[] = [{ key: 'week', kind: 'opens', icon: <CalendarDays {...ICON} />, label: sp.t('week'), content: () => week }];
+  const big = (node: React.ReactNode) => ({ looks: ['rows' as const], big: () => node, group: node });
+  const controls: PanelControl[] = [{ id: 'week', icon: <CalendarDays {...ICON} />, label: sp.t('week'), ...big(week) }];
   if (nextWaste?.event) {
-    groups.push({ key: 'waste', kind: 'opens', icon: <Trash2 {...ICON} />, label: pt('calWaste', { when: wasteWhen }), content: () => <PanelRows rows={[[wasteWhat, wasteWhen]]} /> });
+    controls.push({ id: 'waste', icon: <Trash2 {...ICON} />, label: pt('calWaste', { when: wasteWhen }), ...big(<PanelRows rows={[[wasteWhat, wasteWhen]]} />) });
   }
+  const dayRows =
+    agenda.status === 'loading'
+      ? [<p key="loading" className="panel-screen-note">{t('calendar.panel.loading')}</p>]
+      : activeEvents.length === 0
+        ? [
+            <div key="empty" className="panel-event">
+          <span>
+            <b>{t('calendar.panel.dayEmpty')}</b>
+            <span>{pt('calFree')}</span>
+          </span>
+        </div>,
+          ]
+        : activeEvents.map(eventRow);
+  const page = form
+    ? {
+        title: form.uid ? t('calendar.form.edit') : t('calendar.form.new'),
+        onBack: () => setForm(null),
+        content: <CalendarEventForm form={form} agenda={agenda} canUpdate={canUpdate} canDelete={canDelete} onChange={setForm} onDone={() => setForm(null)} />,
+      }
+    : allOpen
+      ? { title: dayLabel(activeDay), onBack: () => setAllOpen(false), content: <div className="panel-calendar-events">{dayRows}</div> }
+      : undefined;
 
   return {
     owner: name,
     name,
     status,
-    icon: <CalendarDays size={23} strokeWidth={2} />,
-    lit: true,
+    layout: 'calendar',
+    noRow: true,
+    heroName: dayLabel(activeDay),
     accent: accentOf('255 69 58'),
     tint: true,
     heroKind: 'data',
-    free: form ? <CalendarEventForm form={form} agenda={agenda} canUpdate={canUpdate} canDelete={canDelete} onChange={setForm} onDone={() => setForm(null)} /> : undefined,
     hero: (
       <div className="dv-card panel-calendar">
         {agenda.error ? (
@@ -148,20 +173,7 @@ function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onC
           </p>
         ) : null}
         <p className="panel-calendar-day">{dayLabel(activeDay)}</p>
-        <div className="panel-calendar-events" aria-live="polite">
-          {agenda.status === 'loading' ? (
-            <p className="panel-screen-note">{t('calendar.panel.loading')}</p>
-          ) : activeEvents.length === 0 ? (
-            <div className="panel-event">
-              <span>
-                <b>{t('calendar.panel.dayEmpty')}</b>
-                <span>{pt('calFree')}</span>
-              </span>
-            </div>
-          ) : (
-            activeEvents.map(eventRow)
-          )}
-        </div>
+        <PanelFitList className="panel-calendar-events" aria-live="polite" rows={dayRows} moreLabel={(count) => pt('listMore', { count })} onMore={() => setAllOpen(true)} />
         {showConfigureWaste ? (
           <GlassButton variant="soft" className="panel-group-action panel-calendar-waste" onClick={onConfigureWaste}>
             {t('calendar.event.configureWaste')}
@@ -169,12 +181,10 @@ function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onC
         ) : null}
       </div>
     ),
-    shortcuts: [],
-    always: (
+    controls,
+    page,
+    below: (
       <>
-        <p className="panel-screen-title">
-          <b>{sp.t('week')}</b>
-        </p>
         {week}
         {nextWaste?.event ? (
           <p className="panel-screen-note">
@@ -183,7 +193,6 @@ function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onC
         ) : null}
       </>
     ),
-    groups,
     action: canCreate && !form ? { kind: 'add', label: pt('calNew'), onPress: () => setForm(initialForm()) } : undefined,
   };
 }

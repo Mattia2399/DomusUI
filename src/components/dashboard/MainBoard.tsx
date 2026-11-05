@@ -12492,7 +12492,8 @@ export function MainBoard() {
                 closeCover(widget);
               }}
               onOpenMembersPanel={() => {
-                navigateWithinDashboard('/settings/access');
+                const membersWidget = widgets.find((widget) => widget.kind === 'members');
+                if (membersWidget) handleWidgetLongPress(membersWidget);
               }}
               onWeatherClick={openWeatherControls}
               onSceneTrigger={triggerSceneAction}

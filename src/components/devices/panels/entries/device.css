@@ -75,10 +75,6 @@
   font-weight: 600;
 }
 
-.panel-control-screen .panel-cover-bar {
-  height: 34px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .dv-cover-shut {
     transition: none;

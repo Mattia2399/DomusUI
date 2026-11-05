@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { clsx } from 'clsx';
-import { ArrowDownRight, ArrowUpRight, BatteryMedium, BellRing, Clock3, Gauge, ListChecks, Minus, Plus, SlidersHorizontal } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, BatteryMedium, ChartColumn, Gauge, Layers, ListChecks } from 'lucide-react';
 import { useSensorFamilyTranslations, type SensorFamilyWordKey } from '../../../../i18n/sensorFamilyTranslations';
 import { usePanelsTranslations, type PanelsTranslationKey } from '../../../../i18n/panelsTranslations';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import type { MockEntityState, MockEntityStateMap } from '../../../../types/ha';
 import { GlassChips } from '../../../ui/GlassChips';
+import { GlassValueRows, type GlassValueRow } from '../../../ui/GlassListRow';
 import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
 import { describeFamilySensor, toFamilySensorModel } from '../../cards/SensorFamilyCard';
 import { buildSensorHouse, houseBatteries, houseConnections, houseDetectors, housePowers, sensorPeers } from '../../cards/sensorHouse';
@@ -19,28 +20,22 @@ import {
   dailyBars,
   idealBandOf,
   periodsOf,
-  readStoredThresholds,
   scaleOf,
   statisticsToPoints,
-  stepThreshold,
-  storeThreshold,
-  thresholdCrossed,
-  thresholdRuleOf,
   type SensorPanelPeriod,
 } from '../../model/sensorPanel';
 import { useEntityRegistry, useSensorSeries } from '../panelData';
 import { usePanelServices } from '../panelServicesContext';
-import type { PanelEntry, PanelItem, PanelSpec } from '../registry';
-import { accentOf, chipSize, ICON, PanelRows } from './shared';
+import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
+import { accentOf, ICON, PanelRows } from './shared';
 import '../../theme/panels.css';
 import './data.css';
 
 /*
  * The panel of a sensor, one for each of the 17 families: the value and its
- * word, the alert when something is wrong, the chart with its period, where the
- * value sits, a block that changes with the family, and the threshold. Nothing
- * is made up: a block without data, or an action without its device, is not there.
- * The threshold is saved on the device; notifications wait for a way to send them.
+ * word, the alert when something is wrong and the chart; its period, its values and a
+ * block that changes with the family as controls. Nothing is made up: a block without
+ * data, or an action without its device, is not there.
  */
 
 export type SensorPanelInput = {
@@ -160,11 +155,6 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   const series = useSensorSeries(entityId, period, fallback, { historyPeriods });
   const house = useMemo(() => buildSensorHouse(haStates), [haStates]);
 
-  const rule = model ? thresholdRuleOf(model.family, model.deviceClass, model.unit) : null;
-  const [threshold, setThreshold] = useState<number | null>(null);
-  useEffect(() => {
-    setThreshold(readStoredThresholds()[entityId] ?? null);
-  }, [entityId]);
 
   // Without Home Assistant there is nobody to ask for a longer period.
   const periods = model && (services || givenSeries) ? periodsOf(model.family, model.attributes, series.statisticsMissing) : (['24h'] as SensorPanelPeriod[]);
@@ -173,7 +163,7 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   }, [period, periods]);
 
   if (!model) {
-    return { owner: entityId, name, status: '', icon: null, lit: false, accent: accentOf('142 142 147'), tint: false, heroKind: 'data', hero: null, shortcuts: [] };
+    return { owner: entityId, name, status: '', accent: accentOf('142 142 147'), tint: false, heroKind: 'data', hero: null, controls: [] };
   }
   const changes = series.changes.length > 0 ? series.changes : givenChanges ?? [];
 
@@ -308,7 +298,7 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   /* ---- Where it sits, and the block of the family ---- */
   const scale = scaleOf(model.family, model.deviceClass, model.unit, model.value, 3.3);
 
-  const rowsOf = (): { title: string; rows: BlockRow[] } | null => {
+  const rowsOf = (): { title: string; word: string; rows: BlockRow[] } | null => {
     const currentRegistry = registry?.registryEntities.find((entry) => entry.entityId === entityId);
     const sameDevice = currentRegistry?.deviceId
       ? registry?.registryEntities.filter((entry) => entry.entityId !== entityId && entry.deviceId === currentRegistry.deviceId) ?? []
@@ -336,20 +326,20 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
       case 'temperature':
       case 'humidity': {
         const rows = roomRows();
-        return rows.length > 0 ? { title: pt('snSameRoom'), rows } : null;
+        return rows.length > 0 ? { title: pt('snSameRoom'), word: pt('snSameRoomWord'), rows } : null;
       }
       case 'air':
       case 'weather': {
         const peers = sensorPeers(house, entityId, [model.family]).filter((row) => row.available);
         const rows = peers.map((row) => ({ key: row.entityId, label: row.name, value: row.value !== null ? `${formatNumber(row.value, locale)} ${row.unit}` : row.state }));
-        return rows.length > 0 ? { title: model.family === 'air' ? pt('snSameDevice') : pt('snWeatherStation'), rows } : null;
+        return rows.length > 0 ? { title: model.family === 'air' ? pt('snSameDevice') : pt('snWeatherStation'), word: model.family === 'air' ? pt('snSameDeviceWord') : pt('snWeatherStationWord'), rows } : null;
       }
       case 'energy': {
         const rows = housePowers(house, entityId).slice(0, 5).map(({ row, kw }) => ({ key: row.entityId, label: row.name, value: kw < 1 ? `${Math.round(kw * 1000)} W` : `${formatNumber(kw, locale, 1)} kW` }));
-        return rows.length > 0 ? { title: pt('snWhoUses'), rows } : null;
+        return rows.length > 0 ? { title: pt('snWhoUses'), word: pt('snWhoUsesWord'), rows } : null;
       }
       case 'light':
-        return automationRows.length > 0 ? { title: pt('snUsedBy'), rows: automationRows } : null;
+        return automationRows.length > 0 ? { title: pt('snUsedBy'), word: pt('snUsedByWord'), rows: automationRows } : null;
       case 'battery': {
         const rows = houseBatteries(house)
           .filter((row) => row.entityId !== entityId)
@@ -359,14 +349,14 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
             const band2 = batteryBand(row.value ?? 0);
             return { key: row.entityId, label: row.name, value: `${Math.round(row.value ?? 0)}%`, color: band2 === 0 ? '#ff453a' : band2 === 1 ? '#ff9f0a' : '#30d158' };
           });
-        return rows.length > 0 ? { title: pt('snAllBatteries'), rows } : null;
+        return rows.length > 0 ? { title: pt('snAllBatteries'), word: pt('snAllBatteriesWord'), rows } : null;
       }
       case 'signal': {
         const rows = house.rows
           .filter((row) => row.entityId !== entityId && row.family === 'signal' && row.available && row.deviceClass === model.deviceClass)
           .slice(0, 6)
           .map((row) => ({ key: row.entityId, label: row.name, value: row.value !== null ? `${formatNumber(row.value, locale)} ${row.unit}` : row.state }));
-        return rows.length > 0 ? { title: pt('snSignals'), rows } : null;
+        return rows.length > 0 ? { title: pt('snSignals'), word: pt('snSignalsWord'), rows } : null;
       }
       case 'state': {
         const options = Array.isArray(model.attributes.options) ? (model.attributes.options as unknown[]).filter((option): option is string => typeof option === 'string') : [];
@@ -376,36 +366,36 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
           value: option === model.state ? pt('snNowWord') : '',
           color: option === model.state ? `rgb(${tint})` : undefined,
         }));
-        return rows.length > 0 ? { title: pt('snPhases'), rows } : null;
+        return rows.length > 0 ? { title: pt('snPhases'), word: pt('snPhasesWord'), rows } : null;
       }
       case 'time': {
         const reminders = relatedRows.filter((row) => row.key.startsWith('calendar.') || row.key.startsWith('todo.') || row.key.startsWith('automation.'));
         const rows = reminders.length > 0 ? reminders : automationRows;
-        return rows.length > 0 ? { title: pt('snReminders'), rows } : null;
+        return rows.length > 0 ? { title: pt('snReminders'), word: pt('snRemindersWord'), rows } : null;
       }
       case 'price':
-        return automationRows.length > 0 ? { title: pt('snPriceFollowers'), rows: automationRows } : null;
+        return automationRows.length > 0 ? { title: pt('snPriceFollowers'), word: pt('snPriceFollowersWord'), rows: automationRows } : null;
       case 'motion':
-        return relatedRows.length > 0 ? { title: pt('snLinkedTo'), rows: relatedRows } : null;
+        return relatedRows.length > 0 ? { title: pt('snLinkedTo'), word: pt('snLinkedToWord'), rows: relatedRows } : null;
       case 'opening': {
         const rows = [...yesParts].reverse().slice(0, 5).map((part) => ({
           key: String(part.start),
           label: clock(part.start, locale),
           value: part.end >= now - 60_000 ? pt('snNowWord') : span(part.end - part.start),
         }));
-        return rows.length > 0 ? { title: pt('snOpenedToday'), rows } : null;
+        return rows.length > 0 ? { title: pt('snOpenedToday'), word: pt('snOpenedTodayWord'), rows } : null;
       }
       case 'safety': {
         const rows = houseDetectors(house)
           .filter((row) => row.entityId !== entityId)
           .map((row) => ({ key: row.entityId, label: row.name, value: row.state === 'on' ? dt('ssSafetyOn') : dt('ssSafetyOff'), color: row.state === 'on' ? '#ff453a' : '#30d158' }));
-        return rows.length > 0 ? { title: pt('snDetectors'), rows } : null;
+        return rows.length > 0 ? { title: pt('snDetectors'), word: pt('snDetectorsWord'), rows } : null;
       }
       case 'device': {
         const rows = houseConnections(house)
           .filter((row) => row.entityId !== entityId)
           .map((row) => ({ key: row.entityId, label: row.name, value: row.state === 'on' ? dt('ssOnline') : dt('ssOffline'), color: row.state === 'on' ? '#30d158' : '#ff453a' }));
-        return rows.length > 0 ? { title: pt('snOtherDevices'), rows } : null;
+        return rows.length > 0 ? { title: pt('snOtherDevices'), word: pt('snOtherDevicesWord'), rows } : null;
       }
       default:
         return null;
@@ -413,157 +403,28 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   };
   const block = rowsOf();
 
-  /* ---- The threshold ---- */
-  const currentThreshold = rule ? threshold ?? rule.start : 0;
-  const thresholdText = rule ? `${new Intl.NumberFormat(locale, { minimumFractionDigits: rule.decimals, maximumFractionDigits: rule.decimals }).format(currentThreshold)}${rule.unit ?? ''}` : '';
-  const crossed = rule !== null && threshold !== null && !showAlert && thresholdCrossed(rule, threshold, model.value, model.unit);
-  const step = (direction: 1 | -1) => {
-    if (!rule) return;
-    const next = stepThreshold(rule, currentThreshold, direction);
-    setThreshold(next);
-    storeThreshold(entityId, next);
-  };
-
   // The card titles a word as "Name · word": that word is the value of what has no number.
   const titleWord = face && face.title.startsWith(`${model.name} · `) ? face.title.slice(model.name.length + 3) : null;
   const bigWord = !model.available ? dt('unavailable') : isWord ? titleWord ?? face?.mini.split(' · ')[0] ?? model.state : null;
   const noteLine = !model.available ? null : isWord ? face?.expandedStatus ?? face?.status : face?.status;
   const note = noteLine && noteLine !== bigWord ? noteLine : null;
-  const alertTitle = words ? dt(words.title).replace(/[.!]+$/, '') : '';
-  const alertTip = words?.tip ? dt(words.tip) : words?.panelTip ? pt(words.panelTip) : null;
+  // A tip may say the state and the advice as one: "Above ideal · close the shutters".
+  const tipParts = (words?.tip ? dt(words.tip) : words?.panelTip ? pt(words.panelTip) : '').split(' · ');
+  const alertTip = tipParts.length > 1 ? tipParts.slice(1).join(' · ') : tipParts[0];
   const alertSince = alert?.since ? dt('ssSince', { time: span(now - alert.since) }) : null;
-  const showTitle = alertTitle !== note && alertTitle !== bigWord;
-  const hasAlertBody = showTitle || alertTip || alertSince || actions.length > 0;
+  const alertHead = tipParts.length > 1 ? tipParts[0] : words ? dt(words.title).replace(/[.!]+$/, '') : '';
+  const alertTitle = [alertHead, alertSince].filter(Boolean).join(' ');
+  // The advice once: as a button when there is one that does it, or else in words.
+  const advice = alertTip && !actions.some((action) => action.label.toLocaleLowerCase(locale) === alertTip.toLocaleLowerCase(locale))
+    ? alertTip.replace(/^./, (first) => first.toLocaleUpperCase(locale))
+    : null;
+  const hasAlertBody = Boolean(alertTitle || advice || actions.length > 0);
+  const shownNote = showAlert && note === alertHead ? null : note;
 
-  const items: PanelItem[] = [];
-  if (periods.length > 1) {
-    items.push({
-      key: 'period',
-      kind: 'opens',
-      icon: <Clock3 {...ICON} />,
-      label: pt('snPeriod'),
-      value: pt(PERIOD_WORDS[period].label),
-      content: (place) => (
-        <GlassChips<SensorPanelPeriod> size={chipSize(place)} ariaLabel={pt('snPeriod')} options={periods.map((key) => ({ value: key, label: pt(PERIOD_WORDS[key].label) }))} value={period} onChange={setPeriod} />
-      ),
-    });
-  }
-  if ((hasChart && figures.length > 0) || scale) {
-    items.push({
-      key: 'values',
-      kind: 'opens',
-      icon: <SlidersHorizontal {...ICON} />,
-      label: sp.t('sensorValues'),
-      content: () => (
-        <>
-          {scale ? (
-            <div className="dv-pn-line">
-              <span className="dv-pn-label">{pt('snWhere')}</span>
-              <div className="dv-pn-scale" aria-hidden="true">
-                {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%`, background: zone.color }} />)}
-                <i style={{ left: `${scale.mark * 100}%` }} />
-              </div>
-              <div className="dv-pn-zones" aria-hidden="true">
-                {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%` }}>{zone.label === 'snHigh' || zone.label === 'snLimit' ? pt(zone.label) : dt(zone.label)}</span>)}
-              </div>
-            </div>
-          ) : null}
-          {hasChart && figures.length > 0 ? <PanelRows rows={figures} /> : null}
-        </>
-      ),
-    });
-  }
-  if (block) {
-    items.push({
-      key: 'block',
-      kind: 'opens',
-      icon: <ListChecks {...ICON} />,
-      label: block.title,
-      content: () => (
-        <div className="dv-pn-rows panel-sensor-rows">
-                {block.rows.map((row) => (
-                  <div key={row.key} className="dv-pn-row">
-                    {row.color ? <i className="dv-pn-dot" style={{ background: row.color }} aria-hidden="true" /> : null}
-                    <span className="dv-pn-rt"><b>{row.label}</b>{row.note ? <span className="dv-t2">{row.note}</span> : null}</span>
-                    {row.value ? <span className="dv-pn-tm dv-t2">{row.value}</span> : null}
-                  </div>
-                ))}
-              </div>
-      ),
-    });
-  }
-  if (rule) {
-    items.push({
-      key: 'threshold',
-      kind: 'opens',
-      icon: <BellRing {...ICON} />,
-      label: sp.t('sensorThreshold'),
-      content: () => (
-        <div className="dv-pn-rows panel-sensor-rows" data-testid="sensor-threshold">
-          <div className="dv-pn-row">
-              <span className="dv-pn-rt">
-                <b>{pt(rule.direction === 'above' ? 'snThresholdAbove' : rule.direction === 'below' ? 'snThresholdBelow' : 'snThresholdLonger', { value: thresholdText })}</b>
-                <span className="dv-t2">{pt('snThresholdNote')}</span>
-              </span>
-              <span className="dv-pn-steps">
-                <button type="button" className="dv-round dv-round-sm" aria-label={pt('snThresholdDown')} onClick={() => step(-1)}><Minus size={15} strokeWidth={2.6} aria-hidden="true" /></button>
-                <button type="button" className="dv-round dv-round-sm" aria-label={pt('snThresholdUp')} onClick={() => step(1)}><Plus size={15} strokeWidth={2.6} aria-hidden="true" /></button>
-              </span>
-            </div>
-        </div>
-      ),
-    });
-  }
-
-  return {
-    owner: entityId,
-    name: model.name,
-    status: subtitle,
-    icon: <Icon size={23} strokeWidth={2} />,
-    lit: true,
-    accent: accentOf(showAlert ? (alert?.level === 'critical' ? '255 69 58' : '255 159 10') : tint),
-    tint: true,
-    heroKind: 'data',
-    hero: (
-      <div className="dv-card panel-sensor" style={{ '--dv-pn-tint': alert?.level === 'critical' ? '255 69 58' : '255 159 10', '--dv-pn-chart': `rgb(${tint})`, '--sn-tint': `rgb(${tint})` } as React.CSSProperties}>
-        {showAlert && hasAlertBody ? (
-          <div className={clsx('dv-banner dv-pn-banner', alert?.level === 'critical' && 'is-red')} role="alert">
-            <Icon size={18} strokeWidth={2.2} aria-hidden="true" />
-            <span>
-              {showTitle ? <b>{alertTitle}.</b> : null}
-              {alertSince ? <span>{alertSince.replace(/^./, (first) => first.toLocaleUpperCase(locale))}</span> : null}
-              {alertTip ? <span>{alertTip}</span> : null}
-              {actions.length > 0 ? (
-                <span className="dv-pn-actions">
-                  {actions.map((action, index) => (
-                    <button key={action.key} type="button" className={clsx('dv-pn-pill', index === 0 && 'is-on')} onClick={action.onPress}>{action.label}</button>
-                  ))}
-                </span>
-              ) : null}
-            </span>
-          </div>
-        ) : null}
-        <div className={clsx('dv-pn-value', isWord && 'is-word', stale && 'is-stale')}>
-          <span>
-            <b style={showAlert ? { color: alertColor } : undefined}>{bigWord ?? reading.value}</b>
-            {!isWord && reading.unit ? <i>{reading.unit}</i> : null}
-          </span>
-          {note ? (
-            <span className="dv-pn-note" style={{ color: showAlert ? alertColor : GOOD_WORD_FAMILIES.has(model.family) ? '#30d158' : undefined }}>{note}</span>
-          ) : null}
-          {trend !== 0 ? (
-            <span className="dv-pn-trend inline-flex items-center gap-1">
-              {trend > 0 ? <ArrowUpRight size={14} strokeWidth={2.6} aria-hidden="true" /> : <ArrowDownRight size={14} strokeWidth={2.6} aria-hidden="true" />}
-              {pt('snTrendHour', { value: `${trend > 0 ? '+' : '−'}${withUnit(Math.abs(trend))}` })}
-            </span>
-          ) : null}
-        </div>
-        {crossed ? (
-          <div className="dv-banner dv-pn-banner" role="status"><span><b>{pt('snCrossed', { value: thresholdText })}</b></span></div>
-        ) : null}
-        {hasChart || series.loading ? (
-          <div className="dv-pn-chart">
-            {!hasChart ? (
+  const colours = { '--dv-pn-tint': alert?.level === 'critical' ? '255 69 58' : '255 159 10', '--dv-pn-chart': `rgb(${tint})`, '--sn-tint': `rgb(${tint})` } as React.CSSProperties;
+  const chartNode = hasChart || series.loading ? (
+    <div className="dv-pn-chart">
+      {!hasChart ? (
               <p className="dv-t2 m-0 py-6 text-center text-sm">{series.loading ? pt('snLoading') : pt('snNoData')}</p>
             ) : chart === 'line' ? (
               <div className="dv-chart" role="img" aria-label={chartTitle} data-testid="sensor-panel-line">
@@ -598,8 +459,168 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
               </div>
             )}
             {hasChart ? <div className="dv-pn-axis" aria-hidden="true">{axis.map((label) => <span key={label}>{label}</span>)}</div> : null}
+    </div>
+  ) : null;
+  const figureTiles = figures.length > 0 ? (
+    <div className="panel-sensor-stats">
+      {figures.map(([label, value]) => (
+        <span key={label}>
+          <span>{label}</span>
+          <b>{value}</b>
+        </span>
+      ))}
+    </div>
+  ) : null;
+  const periodChips = (size: 'default' | 'dialog') => (
+    <GlassChips<SensorPanelPeriod> size={size} ariaLabel={pt('snPeriod')} options={periods.map((key) => ({ value: key, label: pt(PERIOD_WORDS[key].label) }))} value={period} onChange={setPeriod} />
+  );
+  const scaleNode = scale ? (
+    <div className="dv-pn-line">
+      <span className="dv-pn-label">{pt('snWhere')}</span>
+      <div className="dv-pn-scale" aria-hidden="true">
+        {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%`, background: zone.color }} />)}
+        <i style={{ left: `${scale.mark * 100}%` }} />
+      </div>
+      <div className="dv-pn-zones" aria-hidden="true">
+        {scale.zones.map((zone) => <span key={zone.label} style={{ width: `${zone.width}%` }}>{zone.label === 'snHigh' || zone.label === 'snLimit' ? pt(zone.label) : dt(zone.label as never)}</span>)}
+      </div>
+    </div>
+  ) : null;
+
+  // The values hour by hour, and yesterday when the data reach it.
+  const hourRows: GlassValueRow[] = [];
+  if (chart === 'line') {
+    const byHour = new Map<number, number[]>();
+    for (const point of series.points) {
+      if (point.t < dayStart) continue;
+      const hour = Math.floor(point.t / 3_600_000);
+      byHour.set(hour, [...(byHour.get(hour) ?? []), point.v]);
+    }
+    const hours = [...byHour.entries()].map(([hour, values]) => ({ hour, value: values.reduce((sum, value) => sum + value, 0) / values.length })).sort((first, second) => second.hour - first.hour);
+    const hoursRows = hours.map(({ hour, value }, index) => {
+      const before = hours[index + 1]?.value;
+      const change = before === undefined ? null : value - before;
+      return {
+        key: `h-${hour}`,
+        title: clock(hour * 3_600_000, locale),
+        note: change === null ? undefined : sp.t('valuesBefore', { value: `${change >= 0 ? '+' : '−'}${withUnit(Math.abs(change))}` }),
+        value: withUnit(value),
+      };
+    });
+    if (hoursRows.length > 0) hourRows.push({ key: 'today', heading: sp.t('valuesToday') }, ...hoursRows);
+    const yesterday = series.points.filter((point) => point.t < dayStart && point.t >= dayStart - 86_400_000);
+    if (yesterday.length > 1) {
+      const low = yesterday.reduce((best, point) => (point.v < best.v ? point : best));
+      const high = yesterday.reduce((best, point) => (point.v > best.v ? point : best));
+      const mean = yesterday.reduce((sum, point) => sum + point.v, 0) / yesterday.length;
+      hourRows.push(
+        { key: 'yesterday', heading: sp.t('valuesYesterday') },
+        { key: 'y-max', title: `${sp.t('valuesMax')} · ${clock(high.t, locale)}`, value: withUnit(high.v) },
+        { key: 'y-min', title: `${sp.t('valuesMin')} · ${clock(low.t, locale)}`, value: withUnit(low.v) },
+        { key: 'y-avg', title: sp.t('valuesAvg'), value: withUnit(mean) },
+      );
+    }
+  }
+  const valueRows: GlassValueRow[] = hourRows.length > 0 ? hourRows : figures.map(([title, value]) => ({ key: title, title, value }));
+
+  const controls: PanelControl[] = [];
+  if (periods.length > 1) {
+    controls.push({
+      id: 'period',
+      icon: <ChartColumn {...ICON} />,
+      label: pt('snPeriod'),
+      value: pt(PERIOD_WORDS[period].label),
+      looks: ['chart'],
+      big: () => (
+        <div className="panel-sensor is-big" style={colours}>
+          {periodChips('default')}
+          {chartNode}
+          {figureTiles}
+        </div>
+      ),
+      group: periodChips('dialog'),
+    });
+  }
+  if (valueRows.length > 0 || scale) {
+    controls.push({
+      id: 'values',
+      icon: <ListChecks {...ICON} />,
+      label: sp.t('sensorValues'),
+      value: hourRows.length > 0 ? sp.t('valuesHourly') : undefined,
+      looks: ['rows'],
+      big: () => (
+        <div className="panel-two-lists is-big-list">
+          {scaleNode}
+          <GlassValueRows rows={valueRows} />
+        </div>
+      ),
+      group: (
+        <>
+          {scaleNode}
+          {hasChart && figures.length > 0 ? <PanelRows rows={figures} /> : null}
+        </>
+      ),
+    });
+  }
+  if (block) {
+    const blockRows = block.rows.map((row) => ({ key: row.key, title: row.label, note: row.note, value: row.value }));
+    controls.push({
+      id: 'block',
+      icon: <Layers {...ICON} />,
+      label: block.word,
+      title: block.title,
+      looks: ['rows'],
+      big: () => <GlassValueRows size="hero" rows={blockRows} />,
+      group: <GlassValueRows rows={blockRows} />,
+    });
+  }
+
+  return {
+    owner: entityId,
+    name: model.name,
+    status: subtitle,
+    layout: 'sensor',
+    heroName: [bigWord ?? `${reading.value}${!isWord && reading.unit ? reading.unit : ''}`, shownNote].filter(Boolean).join(' · '),
+    accent: accentOf(showAlert ? (alert?.level === 'critical' ? '255 69 58' : '255 159 10') : tint),
+    tint: true,
+    heroKind: 'data',
+    hero: (
+      <div className="panel-sensor" style={colours}>
+        {showAlert && hasAlertBody ? (
+          <div className={clsx('dv-banner dv-pn-banner', alert?.level === 'critical' && 'is-red')} role="alert">
+            <Icon size={18} strokeWidth={2.2} aria-hidden="true" />
+            <span>
+              <span className="dv-pn-banner-text">
+                {alertTitle ? <b>{alertTitle}.</b> : null}
+                {advice ? ` ${advice}` : null}
+              </span>
+              {actions.length > 0 ? (
+                <span className="dv-pn-actions">
+                  {actions.map((action, index) => (
+                    <button key={action.key} type="button" className={clsx('dv-pn-pill', index === 0 && 'is-on')} onClick={action.onPress}>{action.label}</button>
+                  ))}
+                </span>
+              ) : null}
+            </span>
           </div>
         ) : null}
+        <div className={clsx('dv-pn-value', isWord && 'is-word', stale && 'is-stale')}>
+          <span>
+            <b style={showAlert ? { color: alertColor } : undefined}>{bigWord ?? reading.value}</b>
+            {!isWord && reading.unit ? <i>{reading.unit}</i> : null}
+          </span>
+          {shownNote ? (
+            <span className="dv-pn-note" style={{ color: showAlert ? alertColor : GOOD_WORD_FAMILIES.has(model.family) ? '#30d158' : undefined }}>{shownNote}</span>
+          ) : null}
+          {trend !== 0 ? (
+            <span className="dv-pn-trend inline-flex items-center gap-1">
+              {trend > 0 ? <ArrowUpRight size={14} strokeWidth={2.6} aria-hidden="true" /> : <ArrowDownRight size={14} strokeWidth={2.6} aria-hidden="true" />}
+              {pt('snTrendHour', { value: `${trend > 0 ? '+' : '−'}${withUnit(Math.abs(trend))}` })}
+            </span>
+          ) : null}
+        </div>
+        {chartNode}
+        {figureTiles}
         {battery !== null && model.family !== 'battery' ? (
           <div className={clsx('dv-pn-foot', battery <= 20 && 'text-[color:var(--dv-amber)]')}>
             <BatteryMedium size={15} strokeWidth={2} aria-hidden="true" />{pt('snBattery', { pct: Math.round(battery) })}
@@ -607,7 +628,7 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
         ) : null}
       </div>
     ),
-    shortcuts: items,
+    controls,
   };
 }
 

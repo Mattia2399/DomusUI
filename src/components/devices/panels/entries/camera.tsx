@@ -1,10 +1,11 @@
 import React from 'react';
-import { Activity, Expand, Info, Move, RefreshCw, Video, Webcam } from 'lucide-react';
+import { Activity, Expand, Info, Move, RefreshCw, Video } from 'lucide-react';
 import { useI18n } from '../../../../i18n/I18nProvider';
 import CameraPtzJoystick, { type CameraPtzDirection } from '../../../camera/CameraPtzJoystick';
 import { GlassButton } from '../../../ui/GlassButton';
-import type { PanelEntry, PanelItem, PanelSpec } from '../registry';
-import { relatedItem } from './related';
+import { GlassValueRows } from '../../../ui/GlassListRow';
+import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
+import { relatedControl } from './related';
 import { accentOf, ICON, PanelRows } from './shared';
 import './data.css';
 
@@ -116,26 +117,11 @@ function useCameraSpec({ camera, roomName, commandsEnabled = true, onPtzMove, on
     }
   };
 
-  const shortcuts: PanelItem[] = [];
-  if (commandsEnabled && onRelatedAction) {
-    for (const entity of related) {
-      if (entity.category !== 'control' && entity.category !== 'action') continue;
-      const item = relatedItem(entity, {
-        runLabel: t('camera.action.run'),
-        busy: busyId === entity.entityId,
-        commands: {
-          toggle: () => void run({ entity, action: 'toggle' }),
-          press: () => void run({ entity, action: 'press' }),
-          select: (value) => void run({ entity, action: 'select', value }),
-          number: (value) => void run({ entity, action: 'set_value', value }),
-        },
-      });
-      if (item) shortcuts.push(item);
-    }
-  }
+  const controls: PanelControl[] = [];
   if (canPtz) {
-    const joystick = (
+    const joystick = (size: 'default' | 'hero') => (
       <CameraPtzJoystick
+        size={size}
         activeDirection={ptzDirection}
         onDirectionStart={(direction) => {
           setPtzDirection(direction);
@@ -147,37 +133,57 @@ function useCameraSpec({ camera, roomName, commandsEnabled = true, onPtzMove, on
         }}
       />
     );
-    shortcuts.push({ key: 'ptz', kind: 'opens', icon: <Move {...ICON} />, label: t('camera.preview.showPtzShort'), content: () => null, hero: <div className="panel-camera-ptz">{joystick}</div>, group: joystick });
+    controls.push({ id: 'ptz', icon: <Move {...ICON} />, label: t('camera.preview.showPtzShort'), looks: ['pad'], big: () => joystick('hero'), group: joystick('default') });
   }
   const events = (camera.historyEntries ?? []).slice(0, 6);
   if (events.length > 0 || camera.historyStatus === 'loading' || camera.historyStatus === 'error' || camera.historyStatus === 'offline') {
-    shortcuts.push({
-      key: 'events',
-      kind: 'opens',
+    const eventRows = events.map((event) => [
+      relatedById.get(event.entityId.toLowerCase())?.name ?? event.state,
+      new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(event.timestampMs),
+    ] as const);
+    const noEvents = camera.historyStatus === 'loading' ? (
+      <p className="panel-screen-note">{t('camera.events.loading')}</p>
+    ) : (
+      <>
+        <p className="panel-screen-note">{camera.historyError || t('camera.events.historyUnavailable')}</p>
+        {camera.onRefreshHistory ? (
+          <GlassButton variant="soft" className="panel-group-action" onClick={camera.onRefreshHistory}>
+            {t('camera.events.retry')}
+          </GlassButton>
+        ) : null}
+      </>
+    );
+    controls.push({
+      id: 'events',
       icon: <Activity {...ICON} />,
       label: t('camera.events.title'),
       value: events.length > 0 ? events.length : undefined,
-      content: () =>
-        events.length > 0 ? (
-          <PanelRows
-            rows={events.map((event) => [
-              relatedById.get(event.entityId.toLowerCase())?.name ?? event.state,
-              new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(event.timestampMs),
-            ])}
-          />
-        ) : camera.historyStatus === 'loading' ? (
-          <p className="panel-screen-note">{t('camera.events.loading')}</p>
-        ) : (
-          <>
-            <p className="panel-screen-note">{camera.historyError || t('camera.events.historyUnavailable')}</p>
-            {camera.onRefreshHistory ? (
-              <GlassButton variant="soft" className="panel-group-action" onClick={camera.onRefreshHistory}>
-                {t('camera.events.retry')}
-              </GlassButton>
-            ) : null}
-          </>
-        ),
+      looks: ['rows'],
+      big: () => (events.length > 0 ? <GlassValueRows size="hero" rows={eventRows.map(([title, value], index) => ({ key: String(index), title, value }))} /> : noEvents),
+      group: events.length > 0 ? <PanelRows rows={eventRows} /> : noEvents,
     });
+  }
+  if (commandsEnabled && onRelatedAction) {
+    let shown = 0;
+    for (const entity of related) {
+      if (entity.category !== 'control' && entity.category !== 'action') continue;
+      const control = relatedControl(entity, {
+        runLabel: t('camera.action.run'),
+        busy: busyId === entity.entityId,
+        // The first two stand in the row; the others wait in Altro.
+        place: shown < 2 ? 'main' : 'more',
+        commands: {
+          toggle: () => void run({ entity, action: 'toggle' }),
+          press: () => void run({ entity, action: 'press' }),
+          select: (value) => void run({ entity, action: 'select', value }),
+          number: (value) => void run({ entity, action: 'set_value', value }),
+        },
+      });
+      if (control) {
+        controls.push(control);
+        shown += 1;
+      }
+    }
   }
   const info = [
     [t('camera.info.manufacturer'), camera.deviceInfo?.manufacturer],
@@ -186,7 +192,14 @@ function useCameraSpec({ camera, roomName, commandsEnabled = true, onPtzMove, on
     [t('camera.info.hardware'), camera.deviceInfo?.hwVersion],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
   if (info.length > 0) {
-    shortcuts.push({ key: 'info', kind: 'opens', icon: <Info {...ICON} />, label: t('camera.settings.info'), content: () => <PanelRows rows={info} /> });
+    controls.push({
+      id: 'info',
+      icon: <Info {...ICON} />,
+      label: t('camera.settings.info'),
+      looks: ['rows'],
+      big: () => <GlassValueRows size="hero" rows={info.map(([title, value]) => ({ key: title, title, value }))} />,
+      group: <PanelRows rows={info} />,
+    });
   }
 
   const entityId = camera.entityId ?? 'camera.preview';
@@ -194,8 +207,8 @@ function useCameraSpec({ camera, roomName, commandsEnabled = true, onPtzMove, on
     owner: entityId,
     name: camera.name,
     status,
-    icon: <Webcam size={23} strokeWidth={2} />,
-    lit: !camera.isOffline,
+    layout: 'camera',
+    heroName: status,
     accent: accentOf('255 69 58'),
     tint: !camera.isOffline,
     heroKind: 'data',
@@ -248,7 +261,7 @@ function useCameraSpec({ camera, roomName, commandsEnabled = true, onPtzMove, on
         ) : null}
       </div>
     ),
-    shortcuts,
+    controls,
   };
 }
 

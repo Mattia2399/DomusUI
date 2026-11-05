@@ -23,6 +23,11 @@
   font-weight: 700;
 }
 
+/* A bold title and the advice, in one sentence. */
+.dv-pn-banner-text {
+  font-weight: 500;
+}
+
 .dv-pn-banner.is-red {
   background: rgb(255 69 58 / 0.2);
   color: var(--dv-red);
