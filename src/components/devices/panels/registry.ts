@@ -62,6 +62,8 @@ export type PanelActionControl = ControlCommon & {
   on?: boolean;
   /** The words of its button in a group. Without them it is a switch. */
   actionLabel?: string;
+  /** Its own form in a group, when a button or a switch would not say it. */
+  group?: React.ReactNode;
 };
 
 /** It takes the place of the protagonist, at full size. */

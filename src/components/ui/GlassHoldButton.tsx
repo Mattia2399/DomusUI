@@ -7,6 +7,8 @@ export const GLASS_HOLD_MS = 1200;
 
 export type GlassHoldButtonProps = GlassControlState & {
   label: React.ReactNode;
+  /** What it is called, when its words say only what to do. */
+  ariaLabel?: string;
   /** Under the name: "Rilascia prima per annullare". */
   note?: React.ReactNode;
   /** It happens only when the bar is full. */
@@ -19,7 +21,7 @@ export type GlassHoldButtonProps = GlassControlState & {
 };
 
 /* "Tieni premuto per confermare": it fills while held and acts only when full. Letting go earlier cancels. */
-export function GlassHoldButton({ label, note, onConfirm, danger = false, size = 'group', className, disabled, pending, error }: GlassHoldButtonProps) {
+export function GlassHoldButton({ label, ariaLabel, note, onConfirm, danger = false, size = 'group', className, disabled, pending, error }: GlassHoldButtonProps) {
   const state = { disabled, pending, error };
   const blocked = controlBlocked(state);
   const [holding, setHolding] = React.useState(false);
@@ -44,6 +46,7 @@ export function GlassHoldButton({ label, note, onConfirm, danger = false, size =
   return (
     <button
       type="button"
+      aria-label={ariaLabel}
       disabled={blocked}
       {...controlStateAria(state)}
       className={clsx('glass-hold', `is-${size}`, danger && 'is-danger', holding && 'is-holding', controlStateClass(state), className)}

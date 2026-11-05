@@ -212,6 +212,8 @@ const closeThePanel = async (page) => {
 
 async function measureOpen(page, view, where, label, found) {
   await page.waitForTimeout(450);
+  // The dialog grows into place as it opens: on a busy machine that can still be under way.
+  await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== 'running' || animation.effect?.getComputedTiming().iterations === Infinity), undefined, { timeout: 5_000 });
   const read = await readPanel(page);
   const problems = structureProblems(read, view);
   // The column scrolls when it does not fit, under a header that stays.

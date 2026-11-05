@@ -1,7 +1,9 @@
 import React from 'react';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { LazyLoadErrorBoundary } from '../../common/LazyLoadBoundary';
-import { PanelView } from './PanelView';
+import { PanelView, type PanelViewProps } from './PanelView';
+import { RelatedContext, type RelatedContextValue, type RelatedSource } from './related/relatedContext';
+import { PanelStates } from './shell/PanelStates';
 import { loadedPanelEntry, loadPanelEntry, panelSkeletonOf, type PanelEntry, type PanelKind } from './registry';
 import { PanelGroups } from './shell/PanelGroups';
 import { PanelHeader } from './shell/PanelHeader';
@@ -22,9 +24,36 @@ type EntryProps = Omit<PanelProps, 'kind'>;
 
 const views = new Map<PanelKind, React.ComponentType<EntryProps>>();
 
+type RelatedPanelProps = PanelViewProps & { source: RelatedSource; context: RelatedContextValue; onRetry: () => void };
+
+/* What the related controls are made of arrives only for a card that has them. If it cannot arrive, the device still answers. */
+const lazyRelatedPanel = () =>
+  React.lazy<React.ComponentType<RelatedPanelProps>>(() =>
+    import('./related/RelatedPanelView').catch(() => ({
+      default: ({ source: _source, context: _context, onRetry, live, ...panel }: RelatedPanelProps) => <PanelView {...panel} live={{ ...live, notice: <PanelStates state={{ kind: 'unavailable', onRetry }} /> }} />,
+    })),
+  );
+let RelatedPanel = lazyRelatedPanel();
+
 const drawnBy = (entry: PanelEntry<unknown>) =>
   function PanelOfKind({ input, live, closeLabel, onClose }: EntryProps) {
-    return <PanelView spec={entry.useSpec(input)} live={live} closeLabel={closeLabel} onClose={onClose} />;
+    const spec = entry.useSpec(input);
+    const context = React.useContext(RelatedContext);
+    const [, redraw] = React.useReducer((count: number) => count + 1, 0);
+    const source = context?.sourceOf(spec.owner);
+    const panel = { spec, live, closeLabel, onClose };
+    if (!context || !source || !(source.relatedControls?.length || source.widgets?.length)) return <PanelView {...panel} />;
+    return (
+      <RelatedPanel
+        {...panel}
+        source={source}
+        context={context}
+        onRetry={() => {
+          RelatedPanel = lazyRelatedPanel();
+          redraw();
+        }}
+      />
+    );
   };
 
 function viewOf(kind: PanelKind) {

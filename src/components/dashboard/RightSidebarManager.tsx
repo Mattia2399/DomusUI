@@ -707,6 +707,8 @@ type RightSidebarManagerProps = {
   compactEditSheetHeld?: boolean;
   theme?: DashboardAppearance;
   activeDevice: ActiveDevice | null;
+  homeWidgets?: readonly Widget[];
+  onCallService?: (domain: string, service: string, data: Record<string, unknown>) => unknown;
   onCloseContextSidebar: () => void;
   state: DashboardStateShape;
   camera: {
@@ -1142,6 +1144,8 @@ export function RightSidebarManager({
   onSetMicroSliderValue,
   onNavigateMicroWidgetPage,
   microChartHistoryByEntity = {},
+  homeWidgets,
+  onCallService,
   onUpdateUserName,
   selectedWidget,
   selectedWidgetDisplayMetrics = null,
@@ -1461,6 +1465,8 @@ export function RightSidebarManager({
         externalScrollContainer
         haStates={haStates}
         microChartHistoryByEntity={microChartHistoryByEntity}
+        homeWidgets={homeWidgets}
+        onCallService={onCallService}
         lamp={state.lamp}
         climate={state.climate}
         camera={camera}
@@ -1539,6 +1545,8 @@ export function RightSidebarManager({
             onClose={onCloseContextSidebar}
             haStates={haStates}
             microChartHistoryByEntity={microChartHistoryByEntity}
+        homeWidgets={homeWidgets}
+        onCallService={onCallService}
             lamp={state.lamp}
             climate={state.climate}
             camera={camera}

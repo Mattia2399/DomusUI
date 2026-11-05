@@ -353,10 +353,13 @@
 
 /* One line under each: a long name must not take the row below. */
 .panel-nav .glass-shortcut-label {
+  display: -webkit-box;
   max-width: 100%;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.2;
+  text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* A page: the title with Back, and a list at full height that alone scrolls. */
@@ -445,6 +448,16 @@
   min-height: 0;
   flex: 1;
   flex-direction: column;
+}
+
+.panel-shell[data-surface] .panel-page-fill .panel-hero,
+.panel-page-fill .panel-hero-main {
+  position: static;
+  display: flex;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  flex: 1;
 }
 
 /* The groups: an icon, a title, what it is set to, and the control. */
@@ -616,6 +629,10 @@
     gap: 24px;
     grid-template-columns: 200px minmax(0, 1fr);
     align-items: start;
+  }
+
+  .panel-page-fill {
+    min-height: var(--panel-dialog-slider-height);
   }
 
   /* The protagonist stays where it is, whatever opens at its right. */

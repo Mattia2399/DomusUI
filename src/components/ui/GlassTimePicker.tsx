@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { controlBlocked, controlStateClass, type GlassControlSize, type GlassControlState } from './glassControl';
 import './glassText.css';
 
@@ -45,7 +45,7 @@ export function GlassTimePicker({ label, value, onChange, stepMinutes = 5, hours
   const column = (name: string, shown: number, amount: number) => (
     <div className="glass-time-column">
       <button type="button" aria-label={`${moreLabel}: ${name}`} disabled={blocked} onClick={() => go(amount)}>
-        <ChevronUp size={size === 'hero' ? 28 : 18} strokeWidth={2.4} aria-hidden="true" />
+        <ChevronDown size={size === 'hero' ? 28 : 18} strokeWidth={2.4} aria-hidden="true" style={{ transform: 'rotate(180deg)' }} />
       </button>
       <b
         role="spinbutton"

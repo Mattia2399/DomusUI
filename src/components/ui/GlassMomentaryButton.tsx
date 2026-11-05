@@ -5,6 +5,8 @@ import './glassActions.css';
 
 export type GlassMomentaryButtonProps = GlassControlState & {
   label: React.ReactNode;
+  /** What it is called, when its words say only what to do. */
+  ariaLabel?: string;
   note?: React.ReactNode;
   icon?: React.ReactNode;
   /** True when it is pressed, false when it is let go. */
@@ -18,7 +20,7 @@ export type GlassMomentaryButtonProps = GlassControlState & {
  * "Premi e tieni": on while it is held, off when it is let go. Whatever takes the
  * finger away counts as letting go, so nothing stays on by mistake.
  */
-export function GlassMomentaryButton({ label, note, icon, onPress, size = 'group', className, disabled, pending, error }: GlassMomentaryButtonProps) {
+export function GlassMomentaryButton({ label, ariaLabel, note, icon, onPress, size = 'group', className, disabled, pending, error }: GlassMomentaryButtonProps) {
   const state = { disabled, pending, error };
   const [pressed, setPressed] = React.useState(false);
   const held = React.useRef(false);
@@ -51,6 +53,7 @@ export function GlassMomentaryButton({ label, note, icon, onPress, size = 'group
   return (
     <button
       type="button"
+      aria-label={ariaLabel}
       // Not `disabled` while held: a disabled button would swallow the release.
       disabled={controlBlocked(state) && !pressed}
       aria-pressed={pressed}

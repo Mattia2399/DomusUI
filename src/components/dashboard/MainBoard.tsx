@@ -12044,6 +12044,8 @@ export function MainBoard() {
               haAreas={haAreas}
               haStates={haStatesForUi}
               onCallService={callHaService}
+              homeWidgets={widgets}
+              relatedHistory={sensorHistoryByEntity}
               onCallApi={callHaApi}
               onSubscribeApi={subscribeHaApi}
               cameraPtzEntityIds={cameraPtzEntityIds}
@@ -12656,6 +12658,8 @@ export function MainBoard() {
               onSetMicroSliderValue={setMicroSliderEntityValue}
               onNavigateMicroWidgetPage={handleMicroWidgetPageNavigation}
               microChartHistoryByEntity={sensorHistoryByEntity}
+              homeWidgets={widgets}
+              onCallService={callHaService}
               onUpdateUserName={actions.setUserName}
               selectedWidget={selectedWidget}
               selectedWidgetDisplayMetrics={selectedWidgetDisplayMetrics}

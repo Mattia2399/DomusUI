@@ -1,6 +1,7 @@
 import React from 'react';
 import { Circle } from 'lucide-react';
 import { GlassButton } from '../../../../ui/GlassButton';
+import { GlassChips } from '../../../../ui/GlassChips';
 import { GlassChoiceRows, GlassListRow } from '../../../../ui/GlassListRow';
 import { GlassSegmented } from '../../../../ui/GlassSegmented';
 import { GlassSlider } from '../../../../ui/GlassSlider';
@@ -22,6 +23,7 @@ export default function BaseLooks({ look, model, form, acts, commit, locale, wor
   switch (look) {
     case 'segmented':
       if (form === 'hero') return <GlassChoiceRows ariaLabel={model.name} options={options} value={model.state} onChange={acts.setOption} size="hero" />;
+      if (form === 'compact') return <GlassChips ariaLabel={model.name} options={options} value={model.state} onChange={(next) => acts.setOption(String(next))} />;
       return <GlassSegmented<string> ariaLabel={model.name} options={options} value={model.state} onChange={acts.setOption} tone="device" />;
     case 'list':
     case 'radio':

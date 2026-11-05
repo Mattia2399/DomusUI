@@ -1,3 +1,5 @@
+import { RelatedContext, type RelatedContextValue } from '../devices/panels/related/relatedContext';
+import type { Widget } from '../../types/dashboardModels';
 import React, { useMemo } from 'react';
 import { useCan } from '../../security/AccessControlProvider';
 import { isPhysicalAccessCover } from '../../security/entityControlAccess';
@@ -62,6 +64,9 @@ interface ContextSidebarProps {
   externalScrollContainer?: boolean;
   haStates?: MockEntityStateMap;
   microChartHistoryByEntity?: Record<string, number[]>;
+  /** The cards of the Home, for what the open one holds besides its device. */
+  homeWidgets?: readonly Widget[];
+  onCallService?: (domain: string, service: string, data: Record<string, unknown>) => unknown;
   lamp: {
     name: string;
     isOn: boolean;
@@ -359,6 +364,8 @@ export function ContextSidebar({
   externalScrollContainer = false,
   haStates = {},
   microChartHistoryByEntity = {},
+  homeWidgets,
+  onCallService,
   lamp,
   climate,
   camera,
@@ -447,6 +454,20 @@ export function ContextSidebar({
     : null;
   // The cards with a shared panel open it in place of their old content.
   const homePanel = homePanelProps ? homePanelOf(homePanelProps) : null;
+  const openCard = homeWidgets?.find((widget) => widget.id === activeDevice?.id);
+  const relatedContext = React.useMemo<RelatedContextValue | null>(
+    () =>
+      openCard
+        ? {
+            sourceOf: () => ({ relatedControls: openCard.relatedControls }),
+            states: haStates,
+            history: microChartHistoryByEntity,
+            demo: openCard.dataSource === 'mock',
+            commands: { call: onCallService, toggle: onToggleMicroWidget, setValue: onSetMicroSliderValue, navigate: onNavigateMicroWidgetPage },
+          }
+        : null,
+    [openCard, haStates, microChartHistoryByEntity, onCallService, onToggleMicroWidget, onSetMicroSliderValue, onNavigateMicroWidgetPage],
+  );
   return (
     <aside
       className={`context-sidebar w-full shrink-0 relative ${
@@ -470,7 +491,9 @@ export function ContextSidebar({
       {homePanel && homePanelProps ? (
         <div className={`${CONTEXT_PANEL_LAYOUT.shell} dv-panel-frame`}>
           <React.Suspense fallback={<div className="min-h-[60vh] md:min-h-0" aria-hidden="true" />}>
-            <HomePanel {...homePanelProps} />
+            <RelatedContext.Provider value={relatedContext}>
+              <HomePanel {...homePanelProps} />
+            </RelatedContext.Provider>
           </React.Suspense>
         </div>
       ) : null}

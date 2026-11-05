@@ -7,15 +7,15 @@ export default function ActionsLooks({ look, model, form, acts, words }: Related
   const small = form === 'compact' ? 'compact' : 'group';
   switch (look) {
     case 'momentary':
-      return <GlassMomentaryButton label={form === 'hero' ? model.name : words('kindHold')} note={words('holdNote')} onPress={acts.hold} size={form} />;
+      return <GlassMomentaryButton ariaLabel={`${model.name}: ${words('kindHold')}`} label={words('kindHold')} note={words('holdNote')} onPress={acts.hold} size={form} />;
     case 'hold':
-      return <GlassHoldButton label={form === 'hero' ? model.name : words('kindAction')} note={words('confirmNote')} onConfirm={acts.press} size={form} />;
+      return <GlassHoldButton ariaLabel={model.name} label={words('start')} note={words('confirmNote')} onConfirm={acts.press} size={form} />;
     case 'running':
-      return <GlassRunButton label={model.name} runningLabel={words('running')} running={model.on} onPress={acts.press} size={small} />;
+      return <GlassRunButton label={form === 'group' ? words('start') : model.name} runningLabel={words('running')} running={model.on} onPress={acts.press} size={small} />;
     case 'result':
       return (
         <GlassResultButton
-          label={model.name}
+          label={form === 'group' ? words('start') : model.name}
           successLabel={words('done')}
           size={small}
           onPress={() => {
@@ -25,7 +25,7 @@ export default function ActionsLooks({ look, model, form, acts, words }: Related
         />
       );
     case 'pill':
-      return <GlassStatusPill label={model.name} active={model.on} onPress={acts.press} />;
+      return <GlassStatusPill label={form === 'group' ? words('activate') : model.name} active={model.on} onPress={acts.press} />;
     default:
       return null;
   }

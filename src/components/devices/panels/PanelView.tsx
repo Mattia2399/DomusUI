@@ -6,7 +6,7 @@ import { usePanelNavWords } from '../../../i18n/panelNavTranslations';
 import { GlassButton } from '../../ui/GlassButton';
 import { GlassListRow } from '../../ui/GlassListRow';
 import { GlassSwitch } from '../../ui/GlassSwitch';
-import { arrangeControls, isActionControl, type PanelControl, type PanelHeroKind, type PanelLook, type PanelSpec } from './registry';
+import { arrangeControls, isActionControl, type PanelControl, type PanelControlChoice, type PanelHeroKind, type PanelLook, type PanelSpec } from './registry';
 import { PanelGroups, type PanelGroup } from './shell/PanelGroups';
 import { PanelHeader } from './shell/PanelHeader';
 import { PanelHero } from './shell/PanelHero';
@@ -44,6 +44,9 @@ const groupOf = (control: PanelControl, deviceOn: boolean): PanelGroup => {
   if (!isActionControl(control)) {
     return { ...common, lit: deviceOn || control.lit, trailing: control.groupTrailing, children: control.group };
   }
+  if (control.group !== undefined) {
+    return { ...common, lit: deviceOn || (control.lit ?? control.on), children: control.group };
+  }
   if (control.actionLabel) {
     return {
       ...common,
@@ -70,12 +73,16 @@ export type PanelViewProps = {
   /** How a page calls its own Close, when it is not the plain word. */
   closeLabel?: string;
   onClose: () => void;
+  /** The controls of other entities, in one list with those of the device. */
+  related?: { controls: readonly PanelControl[]; choices: Readonly<Record<string, PanelControlChoice>> };
 };
 
-export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
+export function PanelView({ spec, live, closeLabel, onClose, related }: PanelViewProps) {
   const dt = useDevicesTranslations();
   const word = usePanelNavWords();
-  const { main, more } = arrangeControls(spec.layout, spec.controls ?? []);
+  const { main, more } = arrangeControls(spec.layout, [...(spec.controls ?? []), ...(related?.controls ?? [])], related?.choices);
+  // A device with no row has one only for its related controls.
+  const hasRow = !spec.noRow || Boolean(related?.controls.length);
   const all = [...main, ...more];
   const nav = usePanelNav(spec.owner, [...all.map((entry) => entry.control.id), ...(more.length > 0 ? [MORE_KEY] : [])]);
   const off = Boolean(live?.off);
@@ -93,24 +100,11 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
   const open = all.find((entry) => entry.control.id === nav.open);
   const openInMore = nav.from === MORE_KEY;
   const isOpenBig = open && !isActionControl(open.control) ? open : null;
-  const lookWord: Record<PanelLook, string> = {
-    action: word('lookAction'),
-    tiles: word('lookTiles'),
-    list: word('lookList'),
-    levels: word('lookLevels'),
-    slider: word('lookSlider'),
-    whites: word('lookWhites'),
-    color: word('lookColor'),
-    timer: word('lookTimer'),
-    chart: word('lookChart'),
-    rows: word('lookRows'),
-    image: word('lookImage'),
-    pad: word('lookPad'),
-  };
-
-  const barItems: PanelNavItem[] = spec.noRow
+  const barItems: PanelNavItem[] = !hasRow
     ? []
-    : main.map(({ control }) => ({
+    : main
+      .filter(({ control }) => !spec.noRow || related?.controls.includes(control))
+      .map(({ control }) => ({
         key: control.id,
         icon: control.icon,
         label: control.label,
@@ -121,7 +115,7 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
         disabled: off || control.disabled,
         onPress: () => (isActionControl(control) ? control.onPress() : nav.toggle(control.id)),
       }));
-  if (!spec.noRow && more.length > 0) {
+  if (hasRow && more.length > 0) {
     barItems.push({
       key: MORE_KEY,
       icon: <LayoutGrid size={20} strokeWidth={2} />,
@@ -139,7 +133,7 @@ export function PanelView({ spec, live, closeLabel, onClose }: PanelViewProps) {
       key={control.id}
       icon={control.icon}
       title={control.title ?? control.label}
-      note={control.kindName ?? lookWord[look]}
+      note={control.kindName ?? word(`look${look[0].toUpperCase()}${look.slice(1)}` as `look${Capitalize<PanelLook>}`)}
       value={control.value}
       lit={litOf(control)}
       opens={!isActionControl(control)}
