@@ -15,7 +15,7 @@ import { fanLevel, isStandby, type DeviceAction, type DeviceModel } from '../../
 import { DEVICE_TINT } from '../../model/panelTint';
 import type { DeviceTimer } from '../../model/deviceTimer';
 import type { PlugEnergy } from '../../model/plugEnergy';
-import type { PanelEntry, PanelItem, PanelPlace, PanelSpec } from '../registry';
+import type { PanelEntry, PanelItem, PanelDrawnIn, PanelSpec } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
 import { accentOf, chipSize, ICON, PanelRows, useTimerItem } from './shared';
 import './device.css';
@@ -376,7 +376,7 @@ function useCoverSpec({ model, roomName, onAction }: DevicePanelInput): PanelSpe
   ).filter(([value]) => cover?.canPosition || (value === 100 && cover?.canOpen) || (value === 0 && cover?.canClose));
   const isAt = (value: number) => (position === null ? (value === 100) === model.on : position === value);
   const onValue = cover?.moving ? null : presets.find(([value]) => isAt(value))?.[0];
-  const pick = (place: PanelPlace) => (
+  const pick = (place: PanelDrawnIn) => (
     <GlassChips<string>
       size={chipSize(place)}
       ariaLabel={dt('position')}

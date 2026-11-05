@@ -356,28 +356,40 @@ describe('GlassToggleRow', () => {
 });
 
 describe('GlassShortcut', () => {
-  it('says whether its controls are open, when it opens them', () => {
+  it('says whether you are there, when it becomes the protagonist', () => {
     const onPress = vi.fn();
-    render(<GlassShortcut kind="opens" label="Timer" icon={icon} on onPress={onPress} />);
+    render(<GlassShortcut kind="control" label="Timer" icon={icon} selected onPress={onPress} />);
     const button = screen.getByRole('button', { name: 'Timer' });
-    expect(button.getAttribute('aria-expanded')).toBe('true');
-    expect(button.getAttribute('aria-pressed')).toBeNull();
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.className).toContain('is-selected');
     fireEvent.click(button);
     expect(onPress).toHaveBeenCalled();
   });
 
+  it('says it opens something, and marks it, when it opens a page', () => {
+    const { container } = render(<GlassShortcut kind="more" label="Effetti" icon={icon} onPress={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Effetti' }).getAttribute('aria-haspopup')).toBe('true');
+    expect(container.querySelector('.glass-shortcut-opens')).toBeTruthy();
+  });
+
   it('says whether it is on, when it acts at once, in the colour of the device', () => {
-    render(<GlassShortcut kind="acts" label="Protetta" icon={icon} on onPress={vi.fn()} />);
+    render(<GlassShortcut kind="action" label="Protetta" icon={icon} on onPress={vi.fn()} />);
     const button = screen.getByRole('button', { name: 'Protetta' });
     expect(button.getAttribute('aria-pressed')).toBe('true');
-    expect(button.getAttribute('aria-expanded')).toBeNull();
     expect(button.className).toContain('is-device');
+    expect(button.className).toContain('is-on');
+  });
+
+  it('can say more than its name to assistive technology', () => {
+    render(<GlassShortcut kind="action" label="Zona" ariaLabel="Pulisci qui intorno" icon={icon} onPress={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Pulisci qui intorno' })).toBeTruthy();
+    expect(screen.getByText('Zona')).toBeTruthy();
   });
 
   it('cannot be pressed when disabled or while a command waits', () => {
-    const { rerender } = render(<GlassShortcut kind="acts" label="A" icon={icon} onPress={vi.fn()} disabled />);
+    const { rerender } = render(<GlassShortcut kind="action" label="A" icon={icon} onPress={vi.fn()} disabled />);
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
-    rerender(<GlassShortcut kind="acts" label="A" icon={icon} onPress={vi.fn()} pending />);
+    rerender(<GlassShortcut kind="action" label="A" icon={icon} onPress={vi.fn()} pending />);
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
   });
 });

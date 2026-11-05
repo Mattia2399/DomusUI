@@ -1,3 +1,4 @@
+import { GlassListRow } from '../../components/ui/GlassListRow';
 import React from 'react';
 import { clsx } from 'clsx';
 import { Droplets, Fan, Flame, Leaf, Lightbulb, MoveHorizontal, Palette, ShieldCheck, Snowflake, Sparkles, Timer } from 'lucide-react';
@@ -16,17 +17,16 @@ import { GlassTiles } from '../../components/ui/GlassTiles';
 import { GlassToggleRow } from '../../components/ui/GlassToggleRow';
 import { GlassVerticalSlider } from '../../components/ui/GlassVerticalSlider';
 import {
-  PanelControlZone,
-  PanelFooter,
   PanelGroups,
   PanelHeader,
+  PanelNavBar,
+  PanelPage,
+  type PanelNavItem,
   PanelHero,
   PanelShell,
   PanelStates,
-  usePanelScreen,
   type PanelAccent,
   type PanelGroup,
-  type PanelShortcutItem,
   type PanelStateValue,
   type PanelSurface,
 } from '../../components/devices/panels/shell';
@@ -183,12 +183,12 @@ function Controls() {
 
       <Card id="BOO-03" title="GlassShortcut">
         <div className="lab-row">
-          <Named name="apre"><GlassShortcut kind="opens" icon={<Palette {...ICON} />} label="Colore" onPress={NOOP} /></Named>
-          <Named name="agisce, spenta"><GlassShortcut kind="acts" icon={<ShieldCheck {...ICON} />} label="Protetta" onPress={NOOP} /></Named>
-          <Named name="agisce, accesa"><GlassShortcut kind="acts" on icon={<ShieldCheck {...ICON} />} label="Protetta" onPress={NOOP} /></Named>
-          <Named name="disabled"><GlassShortcut kind="acts" disabled icon={<Timer {...ICON} />} label="Timer" onPress={NOOP} /></Named>
-          <Named name="pending"><GlassShortcut kind="acts" pending icon={<Timer {...ICON} />} label="Timer" onPress={NOOP} /></Named>
-          <Named name="error"><GlassShortcut kind="acts" error icon={<Timer {...ICON} />} label="Timer" onPress={NOOP} /></Named>
+          <Named name="apre"><GlassShortcut kind="control" icon={<Palette {...ICON} />} label="Colore" onPress={NOOP} /></Named>
+          <Named name="agisce, spenta"><GlassShortcut kind="action" icon={<ShieldCheck {...ICON} />} label="Protetta" onPress={NOOP} /></Named>
+          <Named name="agisce, accesa"><GlassShortcut kind="action" on icon={<ShieldCheck {...ICON} />} label="Protetta" onPress={NOOP} /></Named>
+          <Named name="disabled"><GlassShortcut kind="action" disabled icon={<Timer {...ICON} />} label="Timer" onPress={NOOP} /></Named>
+          <Named name="pending"><GlassShortcut kind="action" pending icon={<Timer {...ICON} />} label="Timer" onPress={NOOP} /></Named>
+          <Named name="error"><GlassShortcut kind="action" error icon={<Timer {...ICON} />} label="Timer" onPress={NOOP} /></Named>
         </div>
       </Card>
 
@@ -286,13 +286,14 @@ function SamplePanel({ surface, owner, state }: { surface: PanelSurface; owner: 
   const timerChips = (
     <GlassChips<string> ariaLabel="Timer" options={[{ value: 'off', label: 'Off' }, { value: '15', label: '15 min' }, { value: '30', label: '30 min' }]} value={timer} onChange={setTimer} />
   );
-  const shortcuts: PanelShortcutItem[] = [
-    { key: 'color', kind: 'opens', icon: <Palette {...ICON} />, label: 'Colore', content: <GlassSwatches ariaLabel="Colore" nowrap swatches={['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#32ade6', '#5e5ce6', '#ff2d92'].map((value) => ({ value, color: value, label: value }))} value="#ff9500" onChange={NOOP} /> },
-    { key: 'timer', kind: 'opens', icon: <Timer {...ICON} />, label: 'Timer', content: timerChips },
-    { key: 'swing', kind: 'opens', icon: <MoveHorizontal {...ICON} />, label: 'Effetti', content: <p>Un altro schermo, alto quanto vuole: la zona resta di 148 px e lo slider non si muove.</p> },
-    { key: 'protect', kind: 'acts', icon: <ShieldCheck {...ICON} />, label: 'Protetta', on: isProtected, onPress: () => setProtected((value) => !value) },
+  const [screen, setScreen] = React.useState<string | null>(null);
+  const toggle = (key: string) => setScreen((open) => (open === key ? null : key));
+  const items: PanelNavItem[] = [
+    { key: 'color', kind: 'control', icon: <Palette {...ICON} />, label: 'Colore', selected: screen === 'color', onPress: () => toggle('color') },
+    { key: 'timer', kind: 'control', icon: <Timer {...ICON} />, label: 'Timer', lit: timer !== 'off', selected: screen === 'timer', onPress: () => toggle('timer') },
+    { key: 'swing', kind: 'more', icon: <MoveHorizontal {...ICON} />, label: 'Effetti', selected: screen === 'swing', onPress: () => toggle('swing') },
+    { key: 'protect', kind: 'action', icon: <ShieldCheck {...ICON} />, label: 'Protetta', lit: isProtected, onPress: () => setProtected((value) => !value) },
   ];
-  const screen = usePanelScreen(owner, shortcuts);
   const groups: PanelGroup[] = [
     { key: 'timer', icon: <Timer {...ICON} />, title: 'Timer', value: timer === 'off' ? 'Nessuno' : `${timer} min`, children: timerChips },
     { key: 'protect', icon: <ShieldCheck {...ICON} />, title: 'Protetta', value: isProtected ? 'Sì' : 'No' },
@@ -302,16 +303,24 @@ function SamplePanel({ surface, owner, state }: { surface: PanelSurface; owner: 
       surface={surface}
       accent={ACCENT}
       tint={isOn}
-      header={<PanelHeader icon={<Lightbulb {...ICON} size={23} />} lit={isOn} name="Lampada" status={isOn ? `Accesa · ${level}%` : 'Spenta'} closeLabel="Chiudi" onClose={NOOP} />}
+      header={<PanelHeader action={{ kind: 'power', on: isOn, label: isOn ? 'Spegni' : 'Accendi', onPress: () => setOn((value) => !value) }} name="Lampada" status={isOn ? `Accesa · ${level}%` : 'Spenta'} closeLabel="Chiudi" onClose={() => undefined} />}
       states={<PanelStates state={state} />}
       hero={
-        <PanelHero>
-          <GlassVerticalSlider label="Luminosità" value={level} off={!isOn} display={isOn ? `${level}%` : 'Spenta'} onValueChange={setLevel} />
+        <PanelHero className="is-slider" back={screen === 'color' || screen === 'timer' ? { label: `Luminosità ${level}%`, onPress: () => setScreen(null) } : undefined}>
+          {screen === 'timer' ? timerChips : screen === 'color' ? (
+            <GlassSwatches ariaLabel="Colore" nowrap swatches={['#ff3b30', '#ff9500', '#34c759'].map((color) => ({ value: color, color, label: color }))} value={null} onChange={() => undefined} />
+          ) : (
+            <GlassVerticalSlider label="Luminosità" value={level} off={!isOn} display={isOn ? `${level}%` : 'Spenta'} onValueChange={setLevel} />
+          )}
         </PanelHero>
       }
-      controls={<PanelControlZone ariaLabel="Regolazioni" shortcuts={shortcuts} open={screen.open} onOpen={screen.onOpen} />}
+      nav={<PanelNavBar ariaLabel="Regolazioni" items={items} />}
       groups={<PanelGroups groups={groups} />}
-      footer={<PanelFooter action={{ kind: 'power', on: isOn, label: isOn ? 'Spegni' : 'Accendi', onPress: () => setOn((value) => !value) }} back={screen.open ? { label: 'Indietro', onPress: screen.close } : undefined} />}
+      page={screen === 'swing' ? (
+        <PanelPage title="Effetti" sub="Nessuno" backLabel="Indietro" onBack={() => setScreen(null)}>
+          {['Nessuno', 'Arcobaleno', 'Respiro', 'Candela', 'Fuoco', 'Onde', 'Festa', 'Tramonto', 'Aurora', 'Lampeggio lento'].map((name) => <GlassListRow key={name} title={name} selected={name === 'Nessuno'} onPress={() => undefined} />)}
+        </PanelPage>
+      ) : undefined}
     />
   );
 }

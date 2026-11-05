@@ -132,6 +132,53 @@ function SizeRow({ title, render }: { title: string; render: (format: DeviceCard
   );
 }
 
+const LAB_VACUUM_COMMANDS = { start: () => undefined, pause: () => undefined, stop: () => undefined, returnToBase: () => undefined, locate: () => undefined, cleanSpot: () => undefined, cleanArea: () => undefined, setFanSpeed: () => undefined };
+
+/** A day with what the board of the calendar shows. */
+function labAgenda() {
+  const at = (hour: number, minute = 0) => {
+    const date = new Date();
+    date.setHours(hour, minute, 0, 0);
+    return date.toISOString();
+  };
+  const event = (uid: string, summary: string, start: string, end: string, location?: string) => ({ uid, summary, start, end, location, allDay: false, calendarEntityId: 'calendar.lab' });
+  return {
+    entityId: 'calendar.lab',
+    status: 'ready',
+    events: [
+      event('a', 'Colazione a scuola', at(7, 45), at(8, 30), 'Luca'),
+      event('b', 'Dentista', at(15, 30), at(16, 15), 'Studio Rossi'),
+      event('c', 'Calcetto', at(20, 30), at(21, 30), 'Centro sportivo'),
+    ],
+    error: null,
+    busy: false,
+    createEvent: async () => true,
+    updateEvent: async () => true,
+    deleteEvent: async () => true,
+    refresh: () => undefined,
+    setRange: () => undefined,
+  } as never;
+}
+
+/** A sensor above its ideal, for two hours. */
+function labSensor(kind: 'sensor-hot' | 'sensor-humid') {
+  const hot = kind === 'sensor-hot';
+  const entityId = hot ? 'sensor.lab_temperatura' : 'sensor.lab_umidita';
+  const value = hot ? 29.4 : 78;
+  const changedAt = new Date(Date.now() - 2 * 3_600_000).toISOString();
+  const entity = {
+    state: String(value),
+    rawAttributes: { friendly_name: hot ? 'Temperatura sala' : 'Umidità bagno', device_class: hot ? 'temperature' : 'humidity', unit_of_measurement: hot ? '°C' : '%', state_class: 'measurement', __last_changed: changedAt },
+  };
+  return {
+    entityId,
+    name: hot ? 'Temperatura sala' : 'Umidità bagno',
+    roomName: hot ? 'Soggiorno' : 'Bagno',
+    haStates: { [entityId]: entity } as never,
+    givenSeries: (hours: number) => Array.from({ length: 24 }, (_, index) => ({ t: Date.now() - ((23 - index) * hours * 3_600_000) / 24, v: value - 3 + (index / 23) * 3 })),
+  };
+}
+
 function Board({ theme }: { theme: 'dark' | 'light' }) {
   const dt = useDevicesTranslations();
   const lights = useLightCommands({ demo: true, states: DEMO_LIGHT_STATES });
@@ -144,7 +191,7 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
   const devicePanel = devicePanelId ? devices.modelOf(devicePanelId) : null;
   const [presentation, setPresentation] = React.useState<PanelPresentation>('dialog');
   const panelModel = panelId ? lights.modelOf(panelId) : null;
-  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | 'sunny' | 'pouring' | 'clear-night' | 'lightning-rainy' | null>(null);
+  const [dataPanel, setDataPanel] = React.useState<'members' | 'camera' | 'sunny' | 'pouring' | 'clear-night' | 'lightning-rainy' | 'vacuum' | 'calendar' | 'sensor-hot' | 'sensor-humid' | null>(null);
 
   return (
     <section
@@ -153,8 +200,13 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       data-testid={`devices-lab-${theme}`}
     >
       <div className="flex items-center gap-2">
-        {(['members', 'camera', 'sunny', 'pouring', 'clear-night', 'lightning-rainy'] as const).map((option) => (
+        {(['members', 'camera', 'sunny', 'pouring', 'clear-night', 'lightning-rainy', 'vacuum', 'calendar', 'sensor-hot', 'sensor-humid'] as const).map((option) => (
           <button key={option} type="button" className="dv-glass rooms-pill h-9 rounded-full px-3.5 text-[13px] font-semibold" onClick={() => setDataPanel(option)}>
+            {option}
+          </button>
+        ))}
+        {['fan.demo_fan', 'humidifier.demo_dehumidifier'].map((option) => (
+          <button key={option} type="button" className="dv-glass rooms-pill h-9 rounded-full px-3.5 text-[13px] font-semibold" onClick={() => setDevicePanelId(option)}>
             {option}
           </button>
         ))}
@@ -267,6 +319,19 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
             }}
             onClose={() => setDataPanel(null)}
           />
+        ) : dataPanel === 'vacuum' ? (
+          <Panel
+            kind="vacuum"
+            input={{
+              vacuum: { name: 'Robot', state: 'docked', batteryLevel: 100, supportsStart: true, supportsReturnToBase: true, supportsLocate: true, supportsFanSpeed: true, fanSpeedList: ['Silenzioso', 'Normale', 'Forte', 'Max'], fanSpeed: 'Normale' },
+              commands: LAB_VACUUM_COMMANDS,
+            }}
+            onClose={() => setDataPanel(null)}
+          />
+        ) : dataPanel === 'calendar' ? (
+          <Panel kind="calendar" input={{ name: 'Calendario famiglia', supportedFeatures: 1, agenda: labAgenda() }} onClose={() => setDataPanel(null)} />
+        ) : dataPanel === 'sensor-hot' || dataPanel === 'sensor-humid' ? (
+          <Panel kind="sensor" input={labSensor(dataPanel)} onClose={() => setDataPanel(null)} />
         ) : dataPanel && dataPanel !== 'camera' ? (
           <Panel
             kind="weather"

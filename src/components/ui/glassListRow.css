@@ -1,0 +1,94 @@
+.glass-list-row {
+  display: flex;
+  width: 100%;
+  min-height: 56px;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 18px;
+  padding: 8px 16px;
+  background: var(--control-soft);
+  color: var(--control-ink);
+  font: inherit;
+  text-align: left;
+}
+
+button.glass-list-row {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button.glass-list-row:disabled {
+  cursor: inherit;
+  opacity: 0.45;
+}
+
+button.glass-list-row:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.glass-list-row-icon {
+  display: flex;
+  height: 32px;
+  width: 32px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+}
+
+.glass-list-row-icon.is-lit {
+  background: var(--device-accent, var(--control-on));
+  color: var(--device-accent-ink, var(--control-on-ink));
+}
+
+.glass-list-row-text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.glass-list-row-text > b {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.glass-list-row.is-selected .glass-list-row-text > b {
+  font-weight: 700;
+}
+
+.glass-list-row-text > span {
+  color: var(--control-ink-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.glass-list-row > em {
+  flex: none;
+  font-size: 16px;
+  font-style: normal;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.glass-list-row-check {
+  flex: none;
+  color: var(--device-accent, var(--control-ink));
+}
+
+.glass-list-row-opens {
+  flex: none;
+  color: var(--control-ink-2);
+}
+
+.glass-choice-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

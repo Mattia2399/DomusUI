@@ -11,16 +11,12 @@
   --panel-sheet-height: min(90dvh, 720px);
   --panel-sheet-radius: 30px;
   --panel-zone-gap: 18px;
-  --panel-icon-size: 48px;
   --panel-name-size: 20px;
   --panel-name-weight: 700;
   --panel-status-size: 13px;
-  --panel-close-size: 40px;
+  --panel-head-control-size: 44px;
   --panel-hero-width: 148px;
   --panel-hero-height: 300px;
-  --panel-controls-height: 148px;
-  --panel-footer-height: 68px;
-  --panel-power-size: 64px;
   --panel-dialog-slider-width: 128px;
   --panel-dialog-slider-height: 300px;
 

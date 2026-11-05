@@ -7,15 +7,14 @@ import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../../../i18n/I18nProvide
 import { COMMAND_TIMEOUT_MS } from '../panelLiveState';
 import {
   PANEL_COMMAND_LIMIT_MS,
-  PanelControlZone,
-  PanelFooter,
   PanelGroups,
   PanelHeader,
   PanelHero,
+  PanelNavBar,
+  PanelPage,
   PanelShell,
   PanelStates,
-  usePanelScreen,
-  type PanelShortcutItem,
+  usePanelNav,
   type PanelStateValue,
 } from './index';
 
@@ -27,9 +26,8 @@ const shell = (surface: 'sheet' | 'column' | 'dialog', tint?: boolean) => (
     surface={surface}
     accent={accent}
     tint={tint}
-    header={<PanelHeader icon={<svg />} name="Lampada" status="Accesa" closeLabel="Chiudi" onClose={vi.fn()} />}
+    header={<PanelHeader action={{ kind: 'power', label: 'Spegni', onPress: vi.fn() }} name="Lampada" status="Accesa" closeLabel="Chiudi" onClose={vi.fn()} />}
     hero={<PanelHero>hero</PanelHero>}
-    footer={<PanelFooter action={{ kind: 'power', label: 'Spegni', onPress: vi.fn() }} />}
   />
 );
 
@@ -85,9 +83,8 @@ describe('PanelShell', () => {
   it('builds its layout on the tokens and changes columns only by width', () => {
     expect(css).toContain('container: panel-shell / inline-size');
     expect(css).toContain('@container panel-shell (min-width: 521px)');
-    expect(css).toContain('height: var(--panel-controls-height)');
     expect(css).toContain('height: var(--panel-sheet-height)');
-    expect(css).toContain('  height: var(--panel-footer-height)');
+    expect(css).toContain('height: var(--panel-head-control-size)');
     // The tint is written where the colour is set: a variable would keep the colour of the page.
     expect(css).toContain('background-image: linear-gradient(rgb(var(--device-accent-rgb)');
   });
@@ -96,111 +93,117 @@ describe('PanelShell', () => {
 describe('PanelHeader', () => {
   it('says the name and the state, and closes', () => {
     const onClose = vi.fn();
-    render(<PanelHeader icon={<svg />} name="Lampada" status="Accesa · 40%" closeLabel="Chiudi" onClose={onClose} />);
+    render(<PanelHeader name="Lampada" status="Accesa · 40%" closeLabel="Chiudi" onClose={onClose} />);
     expect(screen.getByRole('heading', { level: 2, name: 'Lampada' })).toBeTruthy();
     expect(screen.getByText('Accesa · 40%').getAttribute('aria-live')).toBe('polite');
     fireEvent.click(screen.getByRole('button', { name: 'Chiudi' }));
     expect(onClose).toHaveBeenCalled();
   });
-});
 
-describe('PanelControlZone', () => {
-  const opensAndActs = (onPress = vi.fn()): PanelShortcutItem[] => [
-    { key: 'color', kind: 'opens', icon: <svg />, label: 'Colore', content: <p>I colori</p> },
-    { key: 'protect', kind: 'acts', icon: <svg />, label: 'Protetta', on: true, onPress },
-  ];
-
-  function Host({ shortcuts, owner = 'light.a' }: { shortcuts: PanelShortcutItem[]; owner?: string }) {
-    const { open, onOpen, close } = usePanelScreen(owner, shortcuts);
-    return (
-      <>
-        <PanelControlZone ariaLabel="Regolazioni" shortcuts={shortcuts} open={open} onOpen={onOpen} />
-        {open ? <button onClick={close}>Indietro</button> : null}
-      </>
-    );
-  }
-
-  it('shows the shortcuts, or the controls of the one open in their place', () => {
-    render(<Host shortcuts={opensAndActs()} />);
-    expect(screen.getByRole('group', { name: 'Regolazioni' })).toBeTruthy();
-    expect(screen.queryByText('I colori')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Colore' }));
-    expect(screen.getByText('I colori')).toBeTruthy();
-    expect(screen.queryByRole('group', { name: 'Regolazioni' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
-    expect(screen.getByRole('group', { name: 'Regolazioni' })).toBeTruthy();
-  });
-
-  it('runs at once what acts at once, and shows it on', () => {
+  it('has the power at its left, which can say Stop, Play or +, or nothing', () => {
     const onPress = vi.fn();
-    render(<Host shortcuts={opensAndActs(onPress)} />);
-    const button = screen.getByRole('button', { name: 'Protetta' });
-    expect(button.getAttribute('aria-pressed')).toBe('true');
-    fireEvent.click(button);
-    expect(onPress).toHaveBeenCalled();
-    expect(screen.getByRole('group', { name: 'Regolazioni' })).toBeTruthy();
-  });
-
-  it('forgets the open screen when the panel moves to another device, or the shortcut goes', () => {
-    const items = opensAndActs();
-    const { result, rerender } = renderHook(({ owner, shortcuts }) => usePanelScreen(owner, shortcuts), { initialProps: { owner: 'a', shortcuts: items } });
-    act(() => result.current.onOpen('color'));
-    expect(result.current.open).toBe('color');
-    rerender({ owner: 'b', shortcuts: items });
-    expect(result.current.open).toBeNull();
-    rerender({ owner: 'a', shortcuts: items });
-    expect(result.current.open).toBe('color');
-    rerender({ owner: 'a', shortcuts: items.slice(1) });
-    expect(result.current.open).toBeNull();
-  });
-
-  it('holds controls always in view, with no shortcuts', () => {
-    render(<PanelControlZone ariaLabel="R"><p>Aperta, Metà, Chiusa</p></PanelControlZone>);
-    expect(screen.getByText('Aperta, Metà, Chiusa')).toBeTruthy();
-    expect(screen.queryByRole('group')).toBeNull();
-  });
-
-  it('blocks its shortcuts when the device does not answer', () => {
-    render(<PanelControlZone ariaLabel="R" shortcuts={opensAndActs()} disabled />);
-    expect((screen.getByRole('button', { name: 'Colore' }) as HTMLButtonElement).disabled).toBe(true);
-  });
-});
-
-describe('PanelFooter', () => {
-  it('has the power, which can say Stop or Play, or nothing', () => {
-    const onPress = vi.fn();
-    const { container, rerender } = render(<PanelFooter action={{ kind: 'power', on: true, label: 'Spegni', onPress }} />);
+    const props = { name: 'Lampada', status: '', closeLabel: 'Chiudi', onClose: vi.fn() };
+    const { rerender } = render(<PanelHeader {...props} action={{ kind: 'power', on: true, label: 'Spegni', onPress }} />);
     const power = screen.getByRole('button', { name: 'Spegni' });
     expect(power.getAttribute('aria-pressed')).toBe('true');
+    expect(power.className).toContain('is-on');
     fireEvent.click(power);
     expect(onPress).toHaveBeenCalled();
-    rerender(<PanelFooter action={{ kind: 'stop', label: 'Ferma', onPress }} />);
+    rerender(<PanelHeader {...props} action={{ kind: 'stop', label: 'Ferma', onPress }} />);
     expect(screen.getByRole('button', { name: 'Ferma' }).className).toContain('is-stop');
     expect(screen.getByRole('button', { name: 'Ferma' }).getAttribute('aria-pressed')).toBeNull();
-    rerender(<PanelFooter action={{ kind: 'play', label: 'Avvia', onPress }} />);
-    expect(screen.getByRole('button', { name: 'Avvia' }).className).toContain('is-play');
-    rerender(<PanelFooter />);
-    expect(screen.queryByRole('button')).toBeNull();
-    expect(container.querySelector('.panel-footer')).toBeTruthy();
-  });
-
-  it('has Back only on the screen of a shortcut', () => {
-    const onPress = vi.fn();
-    const { rerender } = render(<PanelFooter action={{ kind: 'power', label: 'Spegni', onPress: vi.fn() }} />);
-    expect(screen.queryByRole('button', { name: 'Indietro' })).toBeNull();
-    rerender(<PanelFooter action={{ kind: 'power', label: 'Spegni', onPress: vi.fn() }} back={{ label: 'Indietro', onPress }} />);
-    const back = screen.getByRole('button', { name: 'Indietro' });
-    expect(back.getAttribute('aria-pressed')).toBeNull();
-    expect(back.getAttribute('aria-expanded')).toBeNull();
-    fireEvent.click(back);
-    expect(onPress).toHaveBeenCalled();
+    rerender(<PanelHeader {...props} action={{ kind: 'add', label: 'Nuovo', onPress }} />);
+    expect(screen.getByRole('button', { name: 'Nuovo' }).className).toContain('is-add');
+    rerender(<PanelHeader {...props} />);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
   });
 
   it('blocks the action when it cannot run', () => {
-    render(<PanelFooter action={{ kind: 'power', label: 'Spegni', onPress: vi.fn(), pending: true }} />);
-    const button = screen.getByRole('button') as HTMLButtonElement;
+    render(<PanelHeader name="L" status="" closeLabel="Chiudi" onClose={vi.fn()} action={{ kind: 'power', label: 'Spegni', onPress: vi.fn(), pending: true }} />);
+    const button = screen.getByRole('button', { name: 'Spegni' }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(button.getAttribute('aria-busy')).toBe('true');
+  });
+});
+
+describe('PanelHero', () => {
+  it('has the pill that goes back only when it is given, and what stands under it', () => {
+    const onPress = vi.fn();
+    const { rerender } = render(<PanelHero>il protagonista</PanelHero>);
+    expect(screen.queryByRole('button')).toBeNull();
+    rerender(<PanelHero back={{ label: 'Luminosità 72%', onPress }} below={<p>Aperta</p>}>il colore</PanelHero>);
+    fireEvent.click(screen.getByRole('button', { name: 'Luminosità 72%' }));
+    expect(onPress).toHaveBeenCalled();
+    expect(screen.getByText('Aperta')).toBeTruthy();
+  });
+});
+
+describe('PanelNavBar', () => {
+  it('is not there without shortcuts, and has few of them spaced out', () => {
+    const { container, rerender } = render(<PanelNavBar ariaLabel="Controlli" items={[]} />);
+    expect(container.querySelector('nav')).toBeNull();
+    const item = { key: 'a', kind: 'action' as const, icon: <svg />, label: 'A', onPress: vi.fn() };
+    rerender(<PanelNavBar ariaLabel="Controlli" items={[item, { ...item, key: 'b', label: 'B' }]} />);
+    expect(screen.getByRole('navigation', { name: 'Controlli' }).className).toContain('is-few');
+    rerender(<PanelNavBar ariaLabel="Controlli" items={['a', 'b', 'c'].map((key) => ({ ...item, key, label: key }))} />);
+    expect(screen.getByRole('navigation', { name: 'Controlli' }).className).not.toContain('is-few');
+  });
+
+  it('tells where you are from what is on', () => {
+    const item = { key: 'a', kind: 'control' as const, icon: <svg />, label: 'Timer', onPress: vi.fn() };
+    render(<PanelNavBar ariaLabel="C" items={[{ ...item, selected: true }, { ...item, key: 'b', label: 'Effetti', lit: true }]} />);
+    expect(screen.getByRole('button', { name: 'Timer' }).className).toContain('is-selected');
+    expect(screen.getByRole('button', { name: 'Effetti' }).className).toContain('is-on');
+    expect(screen.getByRole('button', { name: 'Effetti' }).className).not.toContain('is-selected');
+  });
+});
+
+describe('usePanelNav', () => {
+  it('goes back when the same is touched again', () => {
+    const { result } = renderHook(() => usePanelNav('a', ['color', 'timer']));
+    act(() => result.current.toggle('color'));
+    expect(result.current.open).toBe('color');
+    act(() => result.current.toggle('timer'));
+    expect(result.current.open).toBe('timer');
+    act(() => result.current.toggle('timer'));
+    expect(result.current.open).toBeNull();
+  });
+
+  it('goes back one step, to the list it was opened from', () => {
+    const { result } = renderHook(() => usePanelNav('a', ['more', 'info']));
+    act(() => result.current.toggle('more'));
+    act(() => result.current.toggle('info', 'more'));
+    act(() => result.current.back());
+    expect(result.current.open).toBe('more');
+    act(() => result.current.back());
+    expect(result.current.open).toBeNull();
+  });
+
+  it('forgets what is open when the panel moves to another device, or the shortcut goes', () => {
+    const { result, rerender } = renderHook(({ owner, keys }) => usePanelNav(owner, keys), { initialProps: { owner: 'a', keys: ['color', 'timer'] } });
+    act(() => result.current.toggle('color'));
+    rerender({ owner: 'b', keys: ['color', 'timer'] });
+    expect(result.current.open).toBeNull();
+    rerender({ owner: 'a', keys: ['color', 'timer'] });
+    expect(result.current.open).toBe('color');
+    rerender({ owner: 'a', keys: ['timer'] });
+    expect(result.current.open).toBeNull();
+  });
+});
+
+describe('PanelPage', () => {
+  it('has its title, what it is set to, and goes back', () => {
+    const onBack = vi.fn();
+    render(
+      <PanelPage title="Effetti" sub="Nessuno" backLabel="Indietro" onBack={onBack}>
+        <p>Arcobaleno</p>
+      </PanelPage>,
+    );
+    expect(screen.getByRole('heading', { level: 3, name: 'Effetti' })).toBeTruthy();
+    expect(screen.getByText('Nessuno')).toBeTruthy();
+    expect(screen.getByText('Arcobaleno')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
+    expect(onBack).toHaveBeenCalled();
   });
 });
 

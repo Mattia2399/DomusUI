@@ -1,6 +1,6 @@
 /* What only the panel of a light draws. */
 
-.panel-hero-instead .glass-color-picker {
+.panel-hero-main .glass-color-picker {
   width: min(100cqw, 100cqh);
   align-self: center;
 }

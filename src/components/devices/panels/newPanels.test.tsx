@@ -39,7 +39,7 @@ const camera = (input: CameraPanelInput) => drawn(cameraEntry, input);
 const calendar = (input: CalendarPanelInput) => drawn(calendarEntry, input);
 const members = (input: MembersPanelInput) => drawn(membersEntry, input);
 /** The row of shortcuts: the same controls are also in the groups of the dialog. */
-const shortcuts = () => within(screen.getByRole('group', { name: 'Regolazioni' }));
+const shortcuts = () => within(screen.getByRole('navigation', { name: 'Regolazioni' }));
 
 const entity = (state: string, rawAttributes: Record<string, unknown> = {}) => ({ state, rawAttributes }) as unknown as MockEntityState;
 

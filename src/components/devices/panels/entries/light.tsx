@@ -13,7 +13,7 @@ import { toneTitle } from '../../cards/lightText';
 import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from '../../model/light';
 import type { LightExtraAction } from '../../model/lightExtras';
 import { hueToRgb, lightRgb, rgbCss } from '../../model/tileColor';
-import type { PanelEntry, PanelItem, PanelPlace } from '../registry';
+import type { PanelEntry, PanelItem, PanelDrawnIn } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
 import { accentOf, chipSize, ICON } from './shared';
 import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
@@ -161,7 +161,7 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
       label: t('controls.light.effects'),
       value: activeEffect ? effectName(activeEffect) : t('controls.light.noEffect'),
       lit: Boolean(activeEffect),
-      content: (place: PanelPlace) => (
+      content: (place: PanelDrawnIn) => (
         <GlassChips<string>
           size={chipSize(place)}
           ariaLabel={t('controls.light.effects')}

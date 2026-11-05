@@ -2,7 +2,7 @@ import React from 'react';
 import { Check, ChevronDown, ChevronLeft, Layers, Monitor, Music, Power, Repeat, Repeat1, Shuffle, SlidersHorizontal, Speaker, Tv, Volume2, VolumeX, X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
-import { usePanelSpecTranslations } from '../../../i18n/panelSpecTranslations';
+import { useMediaPlayerWords } from '../../../i18n/mediaPlayerTranslations';
 import { extractPictureColor } from '../../../theme/ambient/roomPictureColor';
 import { GlassChips } from '../../ui/GlassChips';
 import { GlassShortcut } from '../../ui/GlassShortcut';
@@ -59,7 +59,7 @@ function useCoverColour(url: string | null, wanted: boolean) {
 
 export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'screen', onAction, onClose }: MediaPlayerProps) {
   const dt = useDevicesTranslations();
-  const sp = usePanelSpecTranslations();
+  const words = useMediaPlayerWords();
   const now = useMediaClock(model.playing);
   const root = React.useRef<HTMLDivElement | null>(null);
   const closeRef = React.useRef<HTMLButtonElement | null>(null);
@@ -96,9 +96,9 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
     };
   }, [modal, onClose]);
 
-  const onWhat = off ? dt('mediaOff') : isTv ? dt('mediaOnAir') : model.playing ? dt('mediaPlayingOn') : sp.t('mediaPausedOn');
+  const onWhat = off ? dt('mediaOff') : isTv ? dt('mediaOnAir') : model.playing ? dt('mediaPlayingOn') : words('mediaPausedOn');
   const title = off ? dt('mediaOff') : model.title ?? model.app ?? model.source ?? dt('mediaNothing');
-  const subtitle = off ? model.name : nothing ? sp.t('mediaChoose') : model.title ? model.artist : model.title === null && model.source && model.app ? model.source : null;
+  const subtitle = off ? model.name : nothing ? words('mediaChoose') : model.title ? model.artist : model.title === null && model.source && model.app ? model.source : null;
   const volume = model.muted ? 0 : model.volume ?? 0;
   const KindIcon = others > 0 ? Layers : isTv ? Tv : Speaker;
   const RepeatIcon = model.repeat === 'one' ? Repeat1 : Repeat;
@@ -112,8 +112,8 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
       return (
         <>
           <p className="panel-media-zone-title">
-            <b>{sp.t('mediaSpeakers')}</b>
-            <span>{sp.t('mediaSpeakersNote')}</span>
+            <b>{words('mediaSpeakers')}</b>
+            <span>{words('mediaSpeakersNote')}</span>
           </p>
           <div className="panel-media-speakers">
             <div className="panel-media-speaker is-on">
@@ -155,7 +155,7 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
         <>
           <p className="panel-media-zone-title">
             <b>{dt('mediaSourceLabel')}</b>
-            <span>{sp.t('mediaSourceNote', { name: model.name })}</span>
+            <span>{words('mediaSourceNote', { name: model.name })}</span>
           </p>
           <GlassChips<string> size="dialog" ariaLabel={dt('mediaSourceLabel')} options={model.sources.map((source) => ({ value: source, label: source }))} value={model.source} onChange={(source) => onAction({ type: 'source', source })} />
         </>
@@ -165,7 +165,7 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
       <>
         <p className="panel-media-zone-title">
           <b>{dt('mediaTabAudio')}</b>
-          <span>{sp.t('mediaAudioNote', { name: model.name })}</span>
+          <span>{words('mediaAudioNote', { name: model.name })}</span>
         </p>
         <GlassChips<string> size="dialog" ariaLabel={dt('mediaSoundMode')} options={model.soundModes.map((mode) => ({ value: mode, label: mode }))} value={model.soundMode} onChange={(mode) => onAction({ type: 'sound_mode', mode })} />
       </>
@@ -262,7 +262,7 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
             {model.volume !== null && model.supports.volume ? (
               <div className="panel-media-volume">
                 {model.supports.mute ? (
-                  <button type="button" className={clsx('panel-media-key', model.muted && 'is-on')} aria-pressed={model.muted} aria-label={model.muted ? sp.t('mediaUnmute') : sp.t('mediaMuteIt')} onClick={() => onAction({ type: 'mute', muted: !model.muted })}>
+                  <button type="button" className={clsx('panel-media-key', model.muted && 'is-on')} aria-pressed={model.muted} aria-label={model.muted ? words('mediaUnmute') : words('mediaMuteIt')} onClick={() => onAction({ type: 'mute', muted: !model.muted })}>
                     {model.muted ? <VolumeX {...ICON} aria-hidden="true" /> : <Volume2 {...ICON} aria-hidden="true" />}
                   </button>
                 ) : (
@@ -271,7 +271,7 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
                   </span>
                 )}
                 <GlassSlider variant="bar" tone={colour ? 'device' : 'neutral'} label={dt('mediaVolume')} value={volume} valueText={`${volume}%`} disabled={off} onValueChange={(level) => onAction({ type: 'volume', level })} />
-                <b>{model.muted ? sp.t('mediaMuted') : `${volume}%`}</b>
+                <b>{model.muted ? words('mediaMuted') : `${volume}%`}</b>
               </div>
             ) : null}
 
@@ -285,14 +285,14 @@ export function MediaPlayer({ model, pictureUrl, groupCandidates, surface = 'scr
               </>
             ) : off ? (
               <p className="panel-media-empty">
-                <b>{sp.t('mediaOffTitle')}</b>
-                <span>{canPower ? sp.t('mediaOffNote') : null}</span>
+                <b>{words('mediaOffTitle')}</b>
+                <span>{canPower ? words('mediaOffNote') : null}</span>
               </p>
             ) : canGroup || hasSources || hasAudio ? (
               <div className="panel-media-row" role="group" aria-label={dt('mediaControls')}>
-                {canGroup ? <GlassShortcut kind="opens" tone="neutral" on={others > 0} icon={<Layers {...ICON} />} label={sp.t('mediaSpeakers')} onPress={() => setZone('speakers')} /> : null}
-                {hasSources ? <GlassShortcut kind="opens" tone="neutral" icon={<Monitor {...ICON} />} label={dt('mediaSourceLabel')} onPress={() => setZone('source')} /> : null}
-                {hasAudio ? <GlassShortcut kind="opens" tone="neutral" icon={<SlidersHorizontal {...ICON} />} label={dt('mediaTabAudio')} onPress={() => setZone('audio')} /> : null}
+                {canGroup ? <GlassShortcut kind="control" tone="neutral" on={others > 0} icon={<Layers {...ICON} />} label={words('mediaSpeakers')} onPress={() => setZone('speakers')} /> : null}
+                {hasSources ? <GlassShortcut kind="control" tone="neutral" icon={<Monitor {...ICON} />} label={dt('mediaSourceLabel')} onPress={() => setZone('source')} /> : null}
+                {hasAudio ? <GlassShortcut kind="control" tone="neutral" icon={<SlidersHorizontal {...ICON} />} label={dt('mediaTabAudio')} onPress={() => setZone('audio')} /> : null}
               </div>
             ) : null}
           </div>

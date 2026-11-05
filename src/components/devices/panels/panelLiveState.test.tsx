@@ -17,7 +17,7 @@ const entity = (state: string, attributes: Record<string, unknown> = {}) => ({ s
 function Panel(input: PanelLiveInput) {
   const { off, notice, stale } = usePanelLiveState(input);
   return (
-    <PanelShell off={off} states={notice} className={stale ? 'is-stale-panel' : undefined} header={<PanelHeader icon={null} name="Lampada" status="" closeLabel="Chiudi" onClose={vi.fn()} />}>
+    <PanelShell off={off} states={notice} className={stale ? 'is-stale-panel' : undefined} header={<PanelHeader name="Lampada" status="" closeLabel="Chiudi" onClose={vi.fn()} />}>
       <button type="button">Controllo</button>
     </PanelShell>
   );

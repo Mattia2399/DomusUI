@@ -1,10 +1,9 @@
-import { LockOpen } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { useI18n } from '../../../i18n/I18nProvider';
 import { useCan } from '../../../security/AccessControlProvider';
 import { onSpans, type LockCommand, type SecurityModel, type StateChange } from '../model/security';
-import { SECURITY_ICONS, securityTone } from '../cards/SecurityCard';
+import { securityTone } from '../cards/SecurityCard';
 import { LockRing, lockRingInk, lockRingText, useLockRing } from '../cards/LockRing';
 import { clockOf, durationWord, LOCK_KEY, SECURITY_KIND_KEY, securityStatus } from '../cards/securityText';
 import { PanelFrame } from './shell/PanelFrame';
@@ -38,7 +37,6 @@ export function SecurityPanel({ model, roomName, history, details, commandsEnabl
   const isLock = model.kind === 'lock';
   const ring = useLockRing(model, onLockCommand, !isLock || !canControlAccess);
   const ringText = isLock ? lockRingText(model, ring, dt) : null;
-  const Icon = isLock && (model.lock === 'unlocked' || model.lock === 'open') ? LockOpen : SECURITY_ICONS[model.kind];
   const tone = securityTone(model);
   const kind = dt(SECURITY_KIND_KEY[model.kind]);
   const subtitle = roomName ? `${roomName} · ${kind}` : kind;
@@ -93,7 +91,7 @@ export function SecurityPanel({ model, roomName, history, details, commandsEnabl
   ].filter((entry): entry is [string, string] => entry !== null) : [];
 
   return (
-    <PanelFrame icon={<Icon size={23} strokeWidth={2} />} iconClassName={clsx('dv-security-badge', `is-${tone}`)} name={model.name} status={subtitle} live={live} closeLabel={closeLabel} onClose={onClose}>
+    <PanelFrame name={model.name} status={subtitle} live={live} closeLabel={closeLabel} onClose={onClose}>
 
       {ringText ? (
         <div className="flex flex-col items-center gap-3.5 pb-0.5 pt-1.5">

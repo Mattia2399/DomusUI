@@ -7,7 +7,7 @@
   border: 0;
   padding: 0;
   background: none;
-  color: var(--control-ink);
+  color: var(--control-ink-2);
   font-size: var(--control-shortcut-label-size);
   font-weight: var(--control-shortcut-label-weight);
   line-height: 1.2;
@@ -17,6 +17,7 @@
 }
 
 .glass-shortcut-circle {
+  position: relative;
   display: flex;
   height: var(--control-shortcut-size);
   width: var(--control-shortcut-size);
@@ -25,7 +26,23 @@
   justify-content: center;
   border-radius: 50%;
   background: var(--control-soft-strong);
+  color: var(--control-ink);
   transition: background 200ms ease, color 200ms ease;
+}
+
+/* It opens a page. */
+.glass-shortcut-opens {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: flex;
+  height: 16px;
+  width: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--control-soft-strong);
+  color: var(--control-ink-2);
 }
 
 .glass-shortcut.is-on .glass-shortcut-circle {
@@ -36,6 +53,30 @@
 .glass-shortcut.is-device.is-on .glass-shortcut-circle {
   background: var(--device-accent);
   color: var(--device-accent-ink);
+}
+
+/* You are here: full, in the colour of the ink, with a dot under the name. */
+.glass-shortcut.is-selected {
+  color: var(--control-ink);
+  font-weight: 700;
+}
+
+.glass-shortcut.is-selected .glass-shortcut-circle,
+.glass-shortcut.is-device.is-selected .glass-shortcut-circle {
+  background: var(--control-on);
+  color: var(--control-on-ink);
+}
+
+.glass-shortcut.is-selected .glass-shortcut-circle::after {
+  content: '';
+  position: absolute;
+  bottom: -31px;
+  left: 50%;
+  height: 4px;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--control-ink);
 }
 
 .glass-shortcut:disabled {

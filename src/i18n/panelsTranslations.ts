@@ -99,6 +99,7 @@ const it = {
 
   mbSub: '{home} a casa · {away} fuori',
   mbNobody: 'Nessun membro',
+  listMore: 'Altri {count}',
   mbHomeSince: 'A casa da {time}',
   mbHome: 'A casa',
   mbAway: 'Fuori casa',
@@ -270,6 +271,7 @@ const en: PanelsCatalog = {
 
   mbSub: '{home} home · {away} out',
   mbNobody: 'No members',
+  listMore: '{count} more',
   mbHomeSince: 'Home for {time}',
   mbHome: 'Home',
   mbAway: 'Away',
@@ -438,6 +440,7 @@ const fr: PanelsCatalog = {
 
   mbSub: '{home} à la maison · {away} dehors',
   mbNobody: 'Aucun membre',
+  listMore: '{count} autres',
   mbHomeSince: 'À la maison depuis {time}',
   mbHome: 'À la maison',
   mbAway: 'Absent',

@@ -4,10 +4,43 @@
 .panel-hero.is-data > .panel-hero-main > * {
   width: 100%;
   min-height: 0;
-  overflow-y: auto;
+  flex: 1;
+  container: panel-card / size;
 }
 
+/* The chart takes what the rest leaves. */
 .panel-hero-chart {
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.panel-hero-chart > .dv-bars {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+.panel-hero-chart > .dv-bars > span {
+  min-height: 3px;
+}
+
+@container panel-card (max-height: 200px) {
+  .panel-hero-chart > .dv-bars-axis {
+    display: none;
+  }
+}
+
+/* Rows in the space a protagonist has. */
+.panel-fit-list {
+  display: flex;
+  min-height: 0;
+  flex: 1 1 0;
+  flex-direction: column;
+}
+
+.panel-fit-more.glass-btn {
+  flex: none;
+  align-self: center;
   margin-top: auto;
 }
 

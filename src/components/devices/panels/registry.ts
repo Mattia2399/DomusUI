@@ -1,7 +1,7 @@
 import type React from 'react';
 import { onceLoaded } from '../../common/onceLoaded';
 import type { DeviceModel } from '../model/device';
-import type { PanelFooterProps } from './shell/PanelFooter';
+import type { PanelMainAction } from './shell/PanelHeader';
 import type { PanelAccent } from './shell/PanelShell';
 
 /*
@@ -13,16 +13,18 @@ import type { PanelAccent } from './shell/PanelShell';
  */
 
 /** What stands in the middle of the panel. */
-export type PanelHeroKind = 'slider' | 'disc' | 'value' | 'data' | 'cover';
+export type PanelHeroKind = 'slider' | 'disc' | 'value' | 'data' | 'cover' | 'fill' | 'control';
 
-/** Where a control is being drawn: the zone of 148 px on a phone, or a group of the dialog. */
-export type PanelPlace = 'zone' | 'group';
+/** Where a control is being drawn: the protagonist or a page on a phone, or a group of the dialog. */
+export type PanelDrawnIn = 'zone' | 'group';
 
 type ItemCommon = {
   key: string;
   icon: React.ReactNode;
   /** The name under the shortcut, of one word. */
   label: string;
+  /** What assistive technology says, when the name alone is too short. */
+  ariaLabel?: string;
   /** The longer name, over its controls and in its group. */
   title?: string;
   /** What it is set to now, beside the title. */
@@ -35,10 +37,10 @@ type ItemCommon = {
   lit?: boolean;
 };
 
-/** Opens its controls in place of the row. */
+/** A shortcut in the old form, until its entry is converted. */
 export type PanelOpensItem = ItemCommon & {
   kind: 'opens';
-  content: (place: PanelPlace) => React.ReactNode;
+  content: (place: PanelDrawnIn) => React.ReactNode;
   /** Takes the place of the protagonist while it is open, in one column: the colour disc. */
   hero?: React.ReactNode;
   /** The group of the dialog says it differently from the zone. */
@@ -62,32 +64,240 @@ export type PanelActionItem = ItemCommon & {
   onPress: () => void;
 };
 
+/** The old forms, until each entry is converted. */
 export type PanelItem = PanelOpensItem | PanelToggleItem | PanelActionItem;
+
+/** A page an entry opens by itself: the details of a person, the form of an event, all the rows. */
+export type PanelSpecPage = {
+  title: string;
+  sub?: React.ReactNode;
+  content: React.ReactNode;
+  onBack: () => void;
+  /** Only where the groups cannot say it: on a phone. */
+  phoneOnly?: boolean;
+};
+
+/*
+ * A control of a device: what it is, and how it draws itself in each look it can take.
+ * Where it stands, which look it takes and in what order do not come from here: they
+ * come from arrangeControls, the one place that will read what the user chooses.
+ */
+export type PanelLook = 'action' | 'tiles' | 'list' | 'levels' | 'slider' | 'whites' | 'color' | 'timer' | 'chart' | 'rows' | 'image' | 'pad';
+export type PanelPlace = 'main' | 'more' | 'hidden';
+
+type ControlCommon = {
+  id: string;
+  icon: React.ReactNode;
+  /** The name under the shortcut. */
+  label: string;
+  /** What assistive technology says, when the name alone is too short. */
+  ariaLabel?: string;
+  /** The longer name, over its group. */
+  title?: string;
+  /** What it is set to now. */
+  value?: React.ReactNode;
+  /** One line of explanation in its group. */
+  note?: React.ReactNode;
+  /** It cannot do this now: a robot already at its base. */
+  disabled?: boolean;
+  /** It is in use: a timer running. */
+  lit?: boolean;
+  /** Where it would stand with no one choosing: for a control the registry cannot name, as those of an integration. */
+  place?: PanelPlace;
+  /** The small word under its name in Altro, when the look does not say it. */
+  kindName?: string;
+};
+
+/** It acts at once, and has no large version. */
+export type PanelActionControl = ControlCommon & {
+  onPress: () => void;
+  on?: boolean;
+  /** The words of its button in a group. Without them it is a switch. */
+  actionLabel?: string;
+};
+
+/** It takes the place of the protagonist, at full size. */
+export type PanelBigControl = ControlCommon & {
+  /** The looks it can take, the first one when no other is asked. */
+  looks: readonly Exclude<PanelLook, 'action'>[];
+  big: (look: PanelLook) => React.ReactNode;
+  /** Its version in a group: a segmented control, chips, a bar. */
+  group: React.ReactNode;
+  groupTrailing?: React.ReactNode;
+};
+
+export type PanelControl = PanelActionControl | PanelBigControl;
+
+export const isActionControl = (control: PanelControl): control is PanelActionControl => 'onPress' in control;
 
 export type PanelSpec = {
   /** What a screen left open belongs to: the column of the Home changes device without closing. */
   owner: string;
   name: string;
   status: React.ReactNode;
-  icon: React.ReactNode;
-  lit: boolean;
+  icon?: React.ReactNode;
+  lit?: boolean;
   accent: PanelAccent;
   /** A sheet or a dialog takes the colour of the device. */
   tint: boolean;
   heroKind: PanelHeroKind;
   hero: React.ReactNode;
-  shortcuts: readonly PanelItem[];
-  /** The controls always in view, in place of the shortcuts: the position of a cover. */
+  /** The protagonist with its value, on the pill that goes back to it: "Luminosità 72%". */
+  heroName?: string;
+  /** The name of its row of defaults in PANEL_CONTROLS. */
+  layout?: PanelLayoutName;
+  /** Its controls, in any order: arrangeControls says which goes where. */
+  controls?: readonly PanelControl[];
+  /** A device with no row on a phone, as a cover: its controls are only groups elsewhere. */
+  noRow?: boolean;
+  /** In the old form, until its entry is converted. */
+  shortcuts?: readonly PanelItem[];
+  /** Under the protagonist and always in view: the positions of a cover. */
+  below?: React.ReactNode;
+  /** In the old form: the controls always in view, until its entry is converted. */
   always?: React.ReactNode;
-  /** The groups of the dialog, when they are not the shortcuts. */
+  /** A page opened by the entry, not by a shortcut. */
+  page?: PanelSpecPage;
+  /** In the old form: the groups of the dialog, until its entry is converted. */
   groups?: readonly PanelItem[];
-  /** Asks in place of the row, before something that cannot wait for a second thought. */
+  /** Asks in place of the protagonist, before something that cannot wait for a second thought. */
   confirm?: React.ReactNode;
   /** What needs the whole body of the panel for a while, as the form of a new event. */
   free?: React.ReactNode;
-  /** Power, Stop, Play, or nothing at all. */
-  action?: PanelFooterProps['action'];
+  /** At the left of the header: power, Stop, Play, +, or nothing at all. */
+  action?: PanelMainAction;
 };
+
+/*
+ * What each device has, with no one choosing: the place and the look of each control,
+ * and their order. A control of a device that is not here goes to Altro.
+ */
+type LayoutRow = { id: string; place: PanelPlace; look?: PanelLook };
+
+export const PANEL_CONTROLS = {
+  light: [
+    { id: 'whites', place: 'main', look: 'whites' },
+    { id: 'color', place: 'main', look: 'color' },
+    { id: 'effects', place: 'main', look: 'list' },
+    { id: 'timer', place: 'main', look: 'timer' },
+    { id: 'white', place: 'more', look: 'slider' },
+    { id: 'flash', place: 'more', look: 'action' },
+  ],
+  plug: [
+    { id: 'timer', place: 'main', look: 'timer' },
+    { id: 'protect', place: 'main', look: 'action' },
+  ],
+  climate: [
+    { id: 'modes', place: 'main', look: 'tiles' },
+    { id: 'fan', place: 'main', look: 'levels' },
+    { id: 'preset', place: 'main', look: 'list' },
+    { id: 'align', place: 'main', look: 'action' },
+    { id: 'swing', place: 'more', look: 'list' },
+    { id: 'humidity', place: 'more', look: 'slider' },
+  ],
+  stove: [
+    { id: 'modes', place: 'main', look: 'tiles' },
+    { id: 'fan', place: 'main', look: 'levels' },
+    { id: 'align', place: 'main', look: 'action' },
+    { id: 'preset', place: 'more', look: 'list' },
+    { id: 'swing', place: 'more', look: 'list' },
+    { id: 'humidity', place: 'more', look: 'slider' },
+  ],
+  fan: [
+    { id: 'modes', place: 'main', look: 'tiles' },
+    { id: 'oscillate', place: 'main', look: 'action' },
+    { id: 'direction', place: 'main', look: 'action' },
+    { id: 'timer', place: 'main', look: 'timer' },
+  ],
+  humidifier: [
+    { id: 'modes', place: 'main', look: 'tiles' },
+    { id: 'timer', place: 'main', look: 'timer' },
+  ],
+  cover: [
+    { id: 'position', place: 'main' },
+    { id: 'tilt', place: 'main' },
+  ],
+  camera: [
+    { id: 'events', place: 'main', look: 'rows' },
+    { id: 'ptz', place: 'main', look: 'pad' },
+    { id: 'info', place: 'more', look: 'rows' },
+  ],
+  vacuum: [
+    { id: 'base', place: 'main', look: 'action' },
+    { id: 'suction', place: 'main', look: 'tiles' },
+    { id: 'rooms', place: 'main', look: 'list' },
+    { id: 'spot', place: 'main', look: 'action' },
+    { id: 'map', place: 'main', look: 'image' },
+    { id: 'mode', place: 'main', look: 'tiles' },
+    { id: 'stop', place: 'more', look: 'action' },
+    { id: 'find', place: 'more', look: 'action' },
+    { id: 'info', place: 'more', look: 'rows' },
+  ],
+  calendar: [
+    { id: 'week', place: 'main' },
+    { id: 'waste', place: 'main' },
+  ],
+  members: [{ id: 'details', place: 'main' }],
+  sensor: [
+    { id: 'period', place: 'main', look: 'chart' },
+    { id: 'values', place: 'more', look: 'rows' },
+    { id: 'block', place: 'more', look: 'rows' },
+  ],
+} as const satisfies Record<string, readonly LayoutRow[]>;
+
+export type PanelLayoutName = keyof typeof PANEL_CONTROLS;
+
+/** What the user has chosen for a control: nothing yet, until the edit mode writes it. */
+export type PanelControlChoice = { place?: PanelPlace; look?: PanelLook; order?: number };
+
+export type ArrangedControl = { control: PanelControl; look: PanelLook };
+
+/** Two rows of four. */
+export const MOST_IN_THE_ROW = 8;
+
+/*
+ * The one place that says what stands where. In the row at most eight, or seven and
+ * Altro. Altro exists when at least two controls are in it, or the row is full: one
+ * alone with room left goes up to the row.
+ */
+export function arrangeControls(
+  name: PanelLayoutName | undefined,
+  controls: readonly PanelControl[],
+  choices: Readonly<Record<string, PanelControlChoice>> = {},
+): { main: ArrangedControl[]; more: ArrangedControl[] } {
+  const rows: readonly LayoutRow[] = name ? PANEL_CONTROLS[name] : [];
+  const orderOf = (control: PanelControl, index: number) => {
+    const chosen = choices[control.id]?.order;
+    if (chosen !== undefined) return chosen;
+    const row = rows.findIndex((entry) => entry.id === control.id);
+    return row >= 0 ? row : rows.length + index;
+  };
+  const placed = controls
+    .map((control, index) => ({ control, order: orderOf(control, index) }))
+    .sort((first, second) => first.order - second.order)
+    .map(({ control }) => {
+      const row = rows.find((entry) => entry.id === control.id);
+      const wanted = choices[control.id]?.look ?? row?.look;
+      const look: PanelLook = isActionControl(control)
+        ? 'action'
+        : wanted && wanted !== 'action' && control.looks.includes(wanted)
+          ? wanted
+          : control.looks[0];
+      return { control, look, place: choices[control.id]?.place ?? row?.place ?? control.place ?? ('more' as PanelPlace) };
+    });
+  let main = placed.filter((entry) => entry.place === 'main');
+  let more = placed.filter((entry) => entry.place === 'more');
+  if (more.length === 1 && main.length < MOST_IN_THE_ROW) {
+    main = [...main, ...more];
+    more = [];
+  }
+  if (main.length > MOST_IN_THE_ROW || more.length > 0) {
+    more = [...main.slice(MOST_IN_THE_ROW - 1), ...more];
+    main = main.slice(0, MOST_IN_THE_ROW - 1);
+  }
+  const plain = ({ control, look }: ArrangedControl) => ({ control, look });
+  return { main: main.map(plain), more: more.map(plain) };
+}
 
 export type PanelEntry<Input> = {
   useSpec: (input: Input) => PanelSpec;

@@ -4,7 +4,7 @@ import { useDevicesTranslations } from '../../../../i18n/devicesTranslations';
 import { GlassChips } from '../../../ui/GlassChips';
 import { formatTimerDuration, minutesLeft, TIMER_PRESETS, type DeviceTimer } from '../../model/deviceTimer';
 import { relativeLuminance, type Rgb } from '../../model/tileColor';
-import type { PanelItem, PanelPlace } from '../registry';
+import type { PanelItem, PanelDrawnIn } from '../registry';
 import type { PanelAccent } from '../shell/PanelShell';
 import './shared.css';
 
@@ -22,7 +22,7 @@ export function accentOf(rgb: Rgb | string): PanelAccent {
   };
 }
 
-export const chipSize = (place: PanelPlace) => (place === 'group' ? ('dialog' as const) : ('default' as const));
+export const chipSize = (place: PanelDrawnIn) => (place === 'group' ? ('dialog' as const) : ('default' as const));
 
 /** The switch-off timer of a device: five pills, and what is left, which the card says too. */
 export function useTimerItem(timer: DeviceTimer | null | undefined, now: number | undefined, onSetTimer: ((minutes: number) => void) | undefined): PanelItem[] {

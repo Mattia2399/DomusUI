@@ -12,7 +12,7 @@ import { CLIMATE_MODE_KEY, climateStatus, degrees, fanPillLabel, presetLabel } f
 import { climateIsOn, climateNearestTarget, climateSwingToggle, type ClimateAction, type ClimateModel } from '../../model/climate';
 import type { ClimateExtraAction, ClimateExtras } from '../../model/climateExtras';
 import { CLIMATE_TINT } from '../../model/panelTint';
-import type { PanelEntry, PanelItem, PanelPlace, PanelSpec } from '../registry';
+import type { PanelEntry, PanelItem, PanelDrawnIn, PanelSpec } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
 import { accentOf, chipSize, ICON } from './shared';
 import './climate.css';
@@ -45,7 +45,7 @@ function useClimateSpec({ model, roomName, roomTemperature, roomHumidity, extras
   const single = on && (model.mode === 'heat' || model.mode === 'cool' || model.mode === 'auto') && model.target !== null;
   const range = on && model.mode === 'heat_cool' && model.low !== null && model.high !== null;
   const swing = climateSwingToggle(model);
-  const chips = (label: string, options: readonly string[], value: string | null | undefined, onPick: (option: string) => void, nameOf: (option: string) => string = (option) => option) => (place: PanelPlace) => (
+  const chips = (label: string, options: readonly string[], value: string | null | undefined, onPick: (option: string) => void, nameOf: (option: string) => string = (option) => option) => (place: PanelDrawnIn) => (
     <GlassChips<string> size={chipSize(place)} ariaLabel={label} options={options.map((option) => ({ value: option, label: nameOf(option) }))} value={value} onChange={onPick} />
   );
 

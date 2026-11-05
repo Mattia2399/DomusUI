@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Pannello a gruppi</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.pg-root{--ink:#111113;--t2:rgba(60,60,67,.66);--t3:rgba(60,60,67,.42);--glass:rgba(60,40,20,.07);--glass2:rgba(60,40,20,.13);--on:#0B0B0F;--on-t:#FFFFFF;--track:rgba(60,40,20,.10);position:absolute;inset:0;overflow:hidden;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI Variable',system-ui,sans-serif;-webkit-font-smoothing:antialiased;background:#F2F2F6}
+.pg-root.is-dark{--ink:#F5F5F7;--t2:rgba(235,235,245,.66);--t3:rgba(235,235,245,.42);--glass:rgba(255,255,255,.08);--glass2:rgba(255,255,255,.16);--on:#F5F5F7;--on-t:#0B0B0F;--track:rgba(255,255,255,.12);background:#000}
+.pg-root span:not([class]){display:contents}
+.pg-root button{font:inherit;color:inherit;border:0;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pg-root button:focus-visible,.pg-vs:focus-visible{outline:3px solid #0A84FF;outline-offset:2px}
+.pg-app{position:absolute;inset:0;background:#8E8E93}
+.pg-root.is-dark .pg-app{background:#0B0B0C}
+.pg-app i{position:absolute;border-radius:28px;background:rgba(255,255,255,.18);filter:blur(6px)}
+.pg-app .a1{left:16px;top:20px;width:56px;height:56px;border-radius:50%}.pg-app .a2{right:16px;top:20px;width:56px;height:56px;border-radius:50%}.pg-app .a3{left:8px;right:8px;top:66px;height:60px}
+.pg-sheet{position:absolute;left:0;right:0;bottom:0;height:min(90%,720px);box-sizing:border-box;border-radius:30px 30px 0 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -20px 60px -30px rgba(0,0,0,.45)}
+.pg-grab{position:absolute;top:10px;left:50%;width:48px;height:5px;margin-left:-24px;border-radius:3px;background:var(--glass2);z-index:2}
+.pg-root.is-col .pg-sheet{inset:12px;height:auto;border-radius:30px;box-shadow:0 0 0 1px rgba(0,0,0,.05),0 30px 60px -40px rgba(0,0,0,.4)}
+.pg-root.is-col.is-dark .pg-sheet{box-shadow:0 0 0 1px rgba(255,255,255,.08)}
+.pg-head{flex:none;display:grid;grid-template-columns:44px 1fr 44px;align-items:center;gap:8px;padding:24px 20px 12px;text-align:center}
+.pg-pow,.pg-x{width:44px;height:44px;border-radius:50%;background:var(--glass);display:flex;align-items:center;justify-content:center;grid-row:1}
+.pg-pow{grid-column:1}.pg-x{grid-column:3}
+.pg-ht{grid-column:2;grid-row:1;display:flex;flex-direction:column;align-items:center;min-width:0}
+.pg-name{font-size:20px;font-weight:700;letter-spacing:-.01em;line-height:1.2;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-state{font-size:13px;font-weight:600;color:var(--t2);margin-top:2px;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pg-body{flex:1;min-height:0;overflow:hidden;position:relative}
+.pg-body.is-scroll::after{content:'';position:absolute;right:4px;top:30px;width:3px;height:90px;border-radius:2px;background:var(--glass2)}
+.pg-in{min-height:100%;box-sizing:border-box;padding:6px 16px 22px;display:flex;flex-direction:column;gap:12px}
+.pg-hero{flex:1 0 220px;max-height:330px;display:flex;justify-content:center;padding:4px 0 8px}
+.pg-vs{position:relative;width:148px;height:100%;border-radius:44px;overflow:hidden;cursor:ns-resize;touch-action:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)}
+.pg-fill{position:absolute;left:0;right:0;bottom:0;transition:height 160ms ease}
+.pg-mk{position:absolute;left:0;right:0;height:0;border-top:2px dashed rgba(255,255,255,.95)}
+.pg-mk em{position:absolute;left:12px;top:-24px;font-style:normal;font-size:11px;font-weight:700;padding:2px 7px;border-radius:9px;background:rgba(0,0,0,.28);color:#FFF}
+.pg-vv{position:absolute;left:0;right:0;top:22px;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+.pg-vv b{font-size:30px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.05}
+.pg-vsub{font-size:12px;font-weight:600;opacity:.75;margin-top:2px}
+.pg-g{flex:none;padding:14px;border-radius:22px;background:var(--glass);display:flex;flex-direction:column;gap:12px}
+.pg-gh{display:flex;align-items:center;gap:10px}
+.pg-gic{width:28px;height:28px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.pg-gt{font-size:15px;font-weight:700}
+.pg-gv{margin-left:auto;font-size:13px;font-weight:600;color:var(--t2);font-variant-numeric:tabular-nums}
+.pg-seg{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--track)}
+.pg-seg>span{display:contents}
+.pg-so{flex:1;min-width:0;height:40px;border-radius:12px;font-size:14px;font-weight:600;white-space:nowrap;transition:background 200ms ease}
+.pg-chips{display:flex;flex-wrap:wrap;gap:8px}
+.pg-chips>span{display:contents}
+.pg-chip{height:38px;padding:0 14px;border-radius:19px;font-size:14px;font-weight:600}
+.pg-ct{display:flex;flex-direction:column;gap:8px}
+.pg-ctbar{position:relative;height:46px;border-radius:16px;background:linear-gradient(90deg,#FFA640,#FFD9A8 45%,#F4F6FF 70%,#CDE2FF)}
+.pg-cth{position:absolute;top:6px;bottom:6px;width:8px;margin-left:-4px;border-radius:4px;background:#FFF;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 4px 10px rgba(0,0,0,.2)}
+.pg-ctp{display:flex;justify-content:space-between}
+.pg-ctp>span{display:contents}
+.pg-ctb{height:32px;padding:0 10px;border-radius:16px;background:transparent;font-size:13px;font-weight:600;color:var(--t2)}
+.pg-ctb.is-sel{background:var(--on);color:var(--on-t)}
+.pg-col{display:flex;flex-direction:column;align-items:center;gap:10px}
+.pg-disc{position:relative;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle closest-side,#FFFFFF 0%,rgba(255,255,255,.85) 18%,rgba(255,255,255,0) 100%),conic-gradient(from 90deg,#FF3B30,#FF9500,#FFE620,#7CF000,#28E07A,#2BE0E0,#2F7BFF,#6A3BFF,#C03BFF,#FF3BC4,#FF3B30)}
+.pg-dh{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;border:3px solid #FFF;box-sizing:border-box;box-shadow:0 0 0 1px rgba(0,0,0,.12),0 6px 16px rgba(0,0,0,.28)}
+.pg-sws{display:flex;gap:2px}
+.pg-sws>span{display:contents}
+.pg-sw{width:44px;height:44px;border-radius:50%;background:transparent;display:flex;align-items:center;justify-content:center}
+.pg-sw i{width:30px;height:30px;border-radius:50%}
+.pg-sw.is-sel i{box-shadow:0 0 0 2px #FFF,0 0 0 4px var(--ink)}
+.pg-hbar{position:relative;height:46px;border-radius:16px;background:var(--track);overflow:hidden}
+.pg-hbf{position:absolute;left:0;top:0;bottom:0}
+.pg-btn{height:46px;border-radius:16px;font-size:15px;font-weight:700}
+.pg-note{font-size:12px;font-weight:600;color:var(--t2);margin-top:-4px;padding:0 4px}
+.pg-g.is-more{cursor:pointer;gap:6px}
+.pg-chev{display:flex;font-style:normal;color:var(--t2);margin-left:-4px}
+.pg-more{font-size:13px;font-weight:600;color:var(--t2);padding-left:38px}
+
+</style>
+</helmet>
+<div class="pg-root {{rootCls}}" lang="it">
+<sc-if value="{{isSheet}}" hint-placeholder-val="{{true}}"><div class="pg-app" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div></sc-if>
+<section class="pg-sheet" style="background: {{sheetBg}}" role="dialog" aria-label="{{name}}">
+<sc-if value="{{isSheet}}" hint-placeholder-val="{{true}}"><span class="pg-grab" aria-hidden="true"></span></sc-if>
+<header class="pg-head">
+<sc-if value="{{hasPow}}" hint-placeholder-val="{{true}}"><button type="button" class="pg-pow" style="background: {{powBg}}; color: {{powC}}" aria-label="Accendi o spegni" aria-pressed="{{powPressed}}" onClick="{{powTap}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v8"></path><path d="M6.3 6.8a8 8 0 1 0 11.4 0"></path></svg></button></sc-if>
+<span class="pg-ht"><b class="pg-name">{{name}}</b><span class="pg-state">{{state}}</span></span>
+<button type="button" class="pg-x" aria-label="Chiudi"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+</header>
+<div class="pg-body {{bodyCls}}">
+<div class="pg-in" style="margin-top: {{sy}}">
+
+<div class="pg-hero">
+<div class="pg-vs" style="background: {{hero.track}}" role="slider" aria-label="{{hero.aria}}" aria-valuenow="{{hero.now}}" tabindex="0" onPointerDown="{{hero.down}}" onPointerMove="{{hero.move}}" onPointerUp="{{hero.up}}" onPointerCancel="{{hero.up}}" onKeyDown="{{hero.key}}">
+<span class="pg-fill" style="height: {{hero.fillH}}; background: {{hero.fill}}"></span>
+<sc-if value="{{hero.hasMk}}" hint-placeholder-val="{{false}}"><span class="pg-mk" style="bottom: {{hero.mkAt}}"><em>{{hero.mkL}}</em></span></sc-if>
+<span class="pg-vv" style="color: {{hero.vC}}"><b>{{hero.val}}</b><span class="pg-vsub">{{hero.sub}}</span></span>
+</div>
+</div>
+
+<sc-for list="{{groups}}" as="gr" hint-placeholder-count="3">
+<section class="pg-g {{gr.gCls}}">
+<header class="pg-gh"><span class="pg-gic" style="background: {{gr.icBg}}; color: {{gr.icC}}"><sc-if value="{{gr.ic.flame}}" hint-placeholder-val="{{true}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3c.6 3.2 4.8 5.6 4.8 10.2A4.8 4.8 0 0 1 12 18a4.8 4.8 0 0 1-4.8-4.8c0-2 1-3.4 2.1-4.6.2 1.6 1 2.6 2.1 2.9C11.6 9 11.2 6 12 3z"></path><path d="M6 21h12"></path></svg></sc-if>
+<sc-if value="{{gr.ic.fan}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="1.6"></circle><path d="M12 10.4C11 7 11.4 3.6 14 3.4c2.4-.2 2.6 3.4-.6 6.4"></path><path d="M13.4 12.8c3.4.9 5.8 3.2 4.6 5.5-1.1 2.1-4.1.2-4.9-4"></path><path d="M10.6 12.8c-2.5 2.4-5.8 3.3-7.1 1.1-1.2-2.1 2-3.7 6.1-2.6"></path></svg></sc-if>
+<sc-if value="{{gr.ic.target}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4"></circle></svg></sc-if>
+<sc-if value="{{gr.ic.sunSmall}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"></circle><path d="M12 4.5v1.2M12 18.3v1.2M4.5 12h1.2M18.3 12h1.2M6.7 6.7l.8.8M16.5 16.5l.8.8M6.7 17.3l.8-.8M16.5 7.5l.8-.8"></path></svg></sc-if>
+<sc-if value="{{gr.ic.palette}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z"></path><circle cx="7.5" cy="11.5" r="1"></circle><circle cx="10" cy="7.5" r="1"></circle><circle cx="14.5" cy="7.5" r="1"></circle><circle cx="17" cy="11" r="1"></circle></svg></sc-if>
+<sc-if value="{{gr.ic.sparkle}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"></path><path d="M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z"></path></svg></sc-if>
+<sc-if value="{{gr.ic.bulbTip}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"></path><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.4 1.1 2.2h5c0-.8.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"></path></svg></sc-if>
+<sc-if value="{{gr.ic.timer}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2 2"></path><path d="M10 2h4"></path></svg></sc-if>
+<sc-if value="{{gr.ic.bolt}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 3L5 13.5h6L10 21l8-10.5h-6z"></path></svg></sc-if>
+<sc-if value="{{gr.ic.grid}}" hint-placeholder-val="{{false}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="2"></rect><rect x="13" y="4" width="7" height="7" rx="2"></rect><rect x="4" y="13" width="7" height="7" rx="2"></rect><rect x="13" y="13" width="7" height="7" rx="2"></rect></svg></sc-if></span><b class="pg-gt">{{gr.title}}</b><span class="pg-gv">{{gr.value}}</span><sc-if value="{{gr.isMore}}" hint-placeholder-val="{{false}}"><i class="pg-chev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></i></sc-if></header>
+<sc-if value="{{gr.isSeg}}" hint-placeholder-val="{{false}}"><div class="pg-seg" role="radiogroup" aria-label="{{gr.title}}"><sc-for list="{{gr.opts}}" as="o" hint-placeholder-count="2"><button type="button" role="radio" aria-checked="{{o.on}}" class="pg-so {{o.cls}}" style="background: {{o.bg}}; color: {{o.c}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></sc-if>
+<sc-if value="{{gr.isChips}}" hint-placeholder-val="{{false}}"><div class="pg-chips" role="radiogroup" aria-label="{{gr.title}}"><sc-for list="{{gr.opts}}" as="o" hint-placeholder-count="6"><button type="button" role="radio" aria-checked="{{o.on}}" class="pg-chip {{o.cls}}" style="background: {{o.bg}}; color: {{o.c}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></sc-if>
+<sc-if value="{{gr.isCt}}" hint-placeholder-val="{{false}}"><div class="pg-ct"><div class="pg-ctbar" role="slider" aria-label="Temperatura del bianco" aria-valuenow="{{gr.ctN}}" tabindex="0"><span class="pg-cth" style="left: {{gr.ctAt}}"></span></div><div class="pg-ctp"><sc-for list="{{gr.ctP}}" as="o" hint-placeholder-count="3"><button type="button" class="pg-ctb {{o.cls}}" onClick="{{o.pick}}">{{o.label}}</button></sc-for></div></div></sc-if>
+<sc-if value="{{gr.isColor}}" hint-placeholder-val="{{false}}"><div class="pg-col"><div class="pg-disc"><span class="pg-dh" style="left: {{gr.hx}}; top: {{gr.hy}}; background: {{gr.hc}}"></span></div><div class="pg-sws"><sc-for list="{{gr.sws}}" as="w" hint-placeholder-count="6"><button type="button" class="pg-sw {{w.cls}}" aria-label="{{w.label}}" onClick="{{w.pick}}"><i style="background: {{w.c}}"></i></button></sc-for></div></div></sc-if>
+<sc-if value="{{gr.isBar}}" hint-placeholder-val="{{false}}"><div class="pg-hbar" role="slider" aria-label="{{gr.title}}" aria-valuenow="{{gr.barN}}" tabindex="0"><span class="pg-hbf" style="width: {{gr.barW}}; background: {{gr.barC}}"></span></div></sc-if>
+<sc-if value="{{gr.isBtn}}" hint-placeholder-val="{{false}}"><button type="button" class="pg-btn {{gr.btnCls}}" style="background: {{gr.btnBg}}; color: {{gr.btnC}}" onClick="{{gr.tap}}">{{gr.btn}}</button><sc-if value="{{gr.hasNote}}" hint-placeholder-val="{{false}}"><span class="pg-note">{{gr.note}}</span></sc-if></sc-if>
+<sc-if value="{{gr.isMore}}" hint-placeholder-val="{{false}}"><span class="pg-more">{{gr.more}}</span></sc-if>
+</section>
+</sc-for>
+
+</div>
+</div>
+</section>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"kind":{"editor":"enum","options":["stove","light"],"default":"stove"},"cm":{"editor":"enum","options":["ct","color"],"default":"ct"},"surface":{"editor":"enum","options":["sheet","column"],"default":"sheet"},"scroll":{"editor":"number","default":0},"scrollHint":{"editor":"boolean","default":false},"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  componentWillUnmount() { clearTimeout(this._aT); clearTimeout(this._fT); }
+  renderVals() {
+    const P = this.props, S = this.state || {};
+    const set = (p) => this.setState(p);
+    const g = (k, d) => (S[k] !== undefined ? S[k] : d);
+    const dark = P.dark ?? false, kind = P.kind || 'stove', col = P.surface === 'column';
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const mix = (a, b, t) => a.map((x, i) => Math.round(x * (1 - t) + b[i] * t));
+    const css = (c) => 'rgb(' + c.join(', ') + ')';
+    const lum = (c) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255;
+    const hsv = (h, s) => { const f = (n) => { const k = (n + h / 60) % 6; return 1 - s * Math.max(0, Math.min(k, 4 - k, 1)); }; return [f(5), f(3), f(1)].map((x) => Math.round(x * 255)); };
+    const ICS = ['grid', 'flame', 'fan', 'target', 'sunSmall', 'palette', 'sparkle', 'bulbTip', 'timer', 'bolt'];
+    const icm = (k) => { const o = {}; ICS.forEach((x) => { o[x] = x === k; }); return o; };
+    const base = dark ? [36, 36, 38] : [244, 240, 235];
+    const neutral = dark ? 'rgb(28, 28, 30)' : 'rgb(255, 255, 255)';
+    const vsl = (key, min, max, step, val, onv) => {
+      const calc = (e, el) => { const r = el.getBoundingClientRect(); const t = clamp(1 - (e.clientY - r.top) / r.height, 0, 1); onv(clamp(Math.round((min + t * (max - min)) / step) * step, min, max)); };
+      return { down: (e) => { if (!e) return; const el = e.currentTarget; try { el.setPointerCapture(e.pointerId); } catch (x) {} this._el = el; calc(e, el); },
+        move: (e) => { if (this._el && e) calc(e, this._el); }, up: () => { this._el = null; },
+        key: (e) => { if (!e) return; const d = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0; if (d) { e.preventDefault(); onv(clamp(val + d * step, min, max)); } },
+        fillH: ((val - min) / (max - min) * 100).toFixed(1) + '%', now: String(val) };
+    };
+    let sp;
+    if (kind === 'stove') {
+      const mode = g('mode', 'heat'), tgt = g('tgt', 69), cur = 27, fan = g('fan', 'auto'), aln = g('aln', false);
+      const on = mode !== 'off', acc = [255, 140, 26], accC = css(acc);
+      const segOpt = (list, curv, pick, colr) => list.map((o) => { const sel = o[0] === curv; return { label: o[1], on: sel ? 'true' : 'false', cls: sel ? 'is-sel' : '', bg: sel ? (colr || 'var(--on)') : 'transparent', c: sel ? (colr ? '#FFF' : 'var(--on-t)') : 'var(--ink)', pick: () => pick(o[0]) }; });
+      const h = vsl('tgt', 20, 80, 1, tgt, (v) => set({ tgt: v }));
+      Object.assign(h, { aria: 'Temperatura obiettivo', track: 'var(--track)', fill: on ? accC : 'var(--glass2)', val: tgt + '°', sub: on ? 'Riscalda a' : 'Obiettivo', vC: 'var(--ink)', hasMk: true, mkAt: ((cur - 20) / 60 * 100).toFixed(1) + '%', mkL: 'ora ' + cur + '°' });
+      sp = { name: 'Termostufa Integrata', state: aln ? 'Obiettivo portato a ' + cur + '°' : (on ? 'Riscalda · ora ' + cur + '°' : 'Spenta · ora ' + cur + '°'), on: on, acc: acc, hero: h, powTap: () => set({ mode: on ? 'off' : 'heat' }),
+        groups: [
+          { ic: 'flame', title: 'Modalità', value: on ? 'Riscalda' : 'Spenta', isSeg: true, opts: segOpt([['off', 'Spenta'], ['heat', 'Riscalda']], mode, (v) => set({ mode: v }), accC) },
+          { ic: 'fan', title: 'Ventola', value: fan === 'auto' ? 'Automatica' : 'Livello ' + fan, isSeg: true, opts: segOpt([['auto', 'Auto'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], fan, (v) => set({ fan: v })) },
+          { ic: 'target', title: 'Allinea', value: cur + '° ora', isBtn: true, btn: aln ? 'Fatto · obiettivo ' + cur + '°' : 'Porta l’obiettivo a ' + cur + '°', btnBg: aln ? accC : 'var(--glass2)', btnC: aln ? '#FFF' : 'var(--ink)', hasNote: true, note: 'L’obiettivo diventa la temperatura che c’è adesso.',
+            tap: () => { set({ tgt: cur, aln: true }); clearTimeout(this._aT); this._aT = setTimeout(() => this.setState({ aln: false }), 2200); } },
+          { ic: 'grid', title: 'Altro', value: '4 controlli', isMore: true, gCls: 'is-more', more: 'Boiler ACS 56,4° · Potenza fiamma 3 di 5 · Programma orario · Pellet 40%' }
+        ] };
+    } else {
+      const bri = g('bri', 72), cm = g('cm', P.cm || 'ct'), ct = g('ct', 3200), hue = g('hue', 28), eff = g('eff', 'none'), led = g('led', 40), tmr = g('tmr', 'off'), fl = g('fl', false);
+      const warm = [255, 168, 64], cold = [205, 226, 255];
+      const acc = cm === 'color' ? hsv(hue, 0.85) : mix(warm, cold, clamp((ct - 2200) / 4300, 0, 1)), accC = css(acc), ink = lum(acc) > 0.6 ? '#1A1206' : '#FFF';
+      const h = vsl('bri', 1, 100, 1, bri, (v) => set({ bri: v }));
+      Object.assign(h, { aria: 'Luminosità', track: 'var(--track)', fill: accC, val: bri + '%', sub: 'Luminosità', vC: 'var(--ink)', hasMk: false });
+      const seg = (list, curv, pick) => list.map((o) => { const sel = o[0] === curv; return { label: o[1], on: sel ? 'true' : 'false', cls: sel ? 'is-sel' : '', bg: sel ? 'var(--on)' : 'transparent', c: sel ? 'var(--on-t)' : 'var(--ink)', pick: () => pick(o[0]) }; });
+      const chips = (list, curv, pick) => list.map((o) => { const sel = o[0] === curv; return { label: o[1], on: sel ? 'true' : 'false', cls: sel ? 'is-sel' : '', bg: sel ? accC : 'var(--glass2)', c: sel ? ink : 'var(--ink)', pick: () => pick(o[0]) }; });
+      const ang = hue * Math.PI / 180;
+      const HS = [[0, 'Rosso'], [28, 'Arancio'], [52, 'Giallo'], [130, 'Verde'], [212, 'Blu'], [285, 'Viola']];
+      const ctName = ct < 3300 ? 'Calda' : ct < 4800 ? 'Neutra' : 'Fredda';
+      const colorGroup = { ic: 'palette', title: 'Colore', value: cm === 'ct' ? ctName + ' · ' + ct + ' K' : 'Arancio', isSeg: true, opts: seg([['ct', 'Bianchi'], ['color', 'Colori']], cm, (v) => set({ cm: v })) };
+      const colorBody = cm === 'ct'
+        ? { ic: 'sunSmall', title: '', value: '', isCt: true, ctN: String(ct), ctAt: ((ct - 2200) / 4300 * 100).toFixed(1) + '%', ctP: [[2700, 'Calda'], [4000, 'Neutra'], [6000, 'Fredda']].map((o) => ({ label: o[1], cls: Math.abs(o[0] - ct) < 400 ? 'is-sel' : '', pick: () => set({ ct: o[0] }) })) }
+        : { ic: 'palette', title: '', value: '', isColor: true, hx: (50 + Math.cos(ang) * 40).toFixed(1) + '%', hy: (50 + Math.sin(ang) * 40).toFixed(1) + '%', hc: accC, sws: HS.map((x) => ({ label: x[1], c: css(hsv(x[0], 0.85)), cls: Math.abs(x[0] - hue) < 3 ? 'is-sel' : '', pick: () => set({ hue: x[0] }) })) };
+      // merge colour selector + body into one group
+      Object.assign(colorGroup, colorBody, { ic: 'palette', title: 'Colore', value: colorGroup.value, isSeg: true });
+      sp = { name: 'Lampada divano', state: (cm === 'ct' ? ctName : 'Colore') + ' · ' + bri + '%', on: true, acc: acc, ink: ink, hero: h, powTap: () => {},
+        groups: [colorGroup,
+          { ic: 'sparkle', title: 'Effetti', value: eff === 'none' ? 'Nessuno' : '', isChips: true, opts: chips([['none', 'Nessuno'], ['rainbow', 'Arcobaleno'], ['breathe', 'Respiro'], ['candle', 'Candela'], ['fire', 'Fuoco'], ['party', 'Festa']], eff, (v) => set({ eff: v })) },
+          { ic: 'bulbTip', title: 'LED bianco', value: led + '%', isBar: true, barN: String(led), barW: led + '%', barC: dark ? 'rgb(236, 236, 232)' : 'rgb(255, 255, 255)' },
+          { ic: 'timer', title: 'Timer', value: tmr === 'off' ? 'Nessuno' : 'Si spegne fra ' + tmr, isSeg: true, opts: seg([['off', 'No'], ['15 min', '15 min'], ['30 min', '30 min'], ['1 h', '1 h'], ['2 h', '2 h']], tmr, (v) => set({ tmr: v })) },
+          { ic: 'bolt', title: 'Lampeggio', value: '', isBtn: true, btn: fl ? 'Lampeggia…' : 'Fai lampeggiare', btnBg: fl ? accC : 'var(--glass2)', btnC: fl ? ink : 'var(--ink)', hasNote: false, note: '', tap: () => { set({ fl: true }); clearTimeout(this._fT); this._fT = setTimeout(() => this.setState({ fl: false }), 2200); } }
+        ] };
+    }
+    const accC = css(sp.acc), ink = sp.ink || '#FFF';
+    const D = { isMore: false, gCls: '', more: '', isSeg: false, isChips: false, isCt: false, isColor: false, isBar: false, isBtn: false, hasNote: false, opts: [], ctP: [], sws: [], btnCls: '' };
+    const sy = Number(P.scroll || 0);
+    return {
+      rootCls: (dark ? 'is-dark' : '') + (col ? ' is-col' : ''), isSheet: !col,
+      sheetBg: col ? neutral : sp.on ? css(mix(base, sp.acc, dark ? 0.2 : 0.16)) : css(base),
+      name: sp.name, state: sp.state, hasPow: true, powTap: sp.powTap, powPressed: sp.on ? 'true' : 'false',
+      powBg: sp.on ? accC : 'var(--glass)', powC: sp.on ? ink : 'var(--ink)',
+      hero: sp.hero, sy: (-sy) + 'px', bodyCls: P.scrollHint ? 'is-scroll' : '',
+      groups: sp.groups.map((gr) => Object.assign({}, D, gr, { ic: icm(gr.ic), icBg: sp.on ? accC : 'var(--glass2)', icC: sp.on ? ink : 'var(--ink)' }))
+    };
+  }
+}
+
+</script>
+</body>
+</html>

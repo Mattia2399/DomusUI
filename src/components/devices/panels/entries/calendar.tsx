@@ -184,7 +184,7 @@ function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onC
       </>
     ),
     groups,
-    action: canCreate ? { kind: 'add', label: pt('calNew'), onPress: () => setForm(initialForm()) } : undefined,
+    action: canCreate && !form ? { kind: 'add', label: pt('calNew'), onPress: () => setForm(initialForm()) } : undefined,
   };
 }
 

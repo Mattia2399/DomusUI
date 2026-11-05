@@ -1,5 +1,6 @@
 import React from 'react';
 import { clsx } from 'clsx';
+import { ChevronRight } from 'lucide-react';
 
 export type PanelGroup = {
   key: string;
@@ -15,8 +16,17 @@ export type PanelGroup = {
   children?: React.ReactNode;
 };
 
-/* In two columns, at the right of the protagonist: every control in view, in groups, with no shortcuts. */
-export function PanelGroups({ groups, before }: { groups: readonly PanelGroup[]; before?: React.ReactNode }) {
+/** The last row: what is in Altro, with its main values already in view. */
+export type PanelMoreRow = {
+  icon: React.ReactNode;
+  title: string;
+  count: string;
+  summary: string;
+  onPress: () => void;
+};
+
+/* In the column and at the right of a dialog: every main control in view, in the order of the row of a phone. */
+export function PanelGroups({ groups, before, more }: { groups: readonly PanelGroup[]; before?: React.ReactNode; more?: PanelMoreRow }) {
   return (
     <div className="panel-groups">
       {before}
@@ -36,6 +46,19 @@ export function PanelGroups({ groups, before }: { groups: readonly PanelGroup[];
           {group.note ? <p className="panel-group-note">{group.note}</p> : null}
         </section>
       ))}
+      {more ? (
+        <button type="button" className="panel-group panel-group-more" onClick={more.onPress}>
+          <span className="panel-group-head">
+            <span className="panel-group-icon" aria-hidden="true">
+              {more.icon}
+            </span>
+            <b>{more.title}</b>
+            <span className="panel-group-value">{more.count}</span>
+            <ChevronRight className="panel-group-trailing" size={18} strokeWidth={2.2} aria-hidden="true" />
+          </span>
+          {more.summary ? <span className="panel-group-summary">{more.summary}</span> : null}
+        </button>
+      ) : null}
     </div>
   );
 }

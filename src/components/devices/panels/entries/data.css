@@ -4,7 +4,6 @@
 .panel-hero.is-data > .panel-hero-main > .panel-camera {
   position: relative;
   display: flex;
-  height: 100%;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -13,10 +12,11 @@
   color: #ffffff;
 }
 
+/* All of the picture: the card is taller than a camera sees. */
 .panel-camera > img {
   height: 100%;
   width: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .panel-camera-empty {
@@ -197,6 +197,39 @@
   opacity: 0.8;
 }
 
+@container panel-card (max-height: 300px) {
+  .panel-vacuum-more {
+    display: none;
+  }
+}
+
+@container panel-card (max-height: 260px) {
+  .panel-vacuum-ring {
+    height: 84px;
+    width: 84px;
+    margin-bottom: 2px;
+  }
+
+  .panel-vacuum-ring > b {
+    font-size: 19px;
+  }
+
+  .panel-vacuum-ring > span,
+  .panel-vacuum-bar {
+    display: none;
+  }
+
+  .panel-vacuum-state {
+    font-size: 20px;
+  }
+}
+
+@container panel-card (max-height: 190px) {
+  .panel-vacuum-note {
+    display: none;
+  }
+}
+
 .panel-vacuum-map {
   display: block;
   max-height: 100%;
@@ -212,13 +245,39 @@
   gap: 12px;
 }
 
+/* The chart takes what the value leaves. */
 .panel-sensor > .dv-pn-chart {
-  margin-top: auto;
+  min-height: 0;
+  flex: 1 1 0;
 }
 
-/* The card has its height: the chart takes what the value leaves. */
-.panel-sensor .dv-chart {
-  height: 110px;
+.panel-sensor .dv-chart,
+.panel-sensor .dv-pn-bars,
+.panel-sensor .dv-pn-strip {
+  height: auto;
+  min-height: 0;
+  flex: 1 1 0;
+}
+
+/* First the chart gets shorter, then the rows that matter less let go. */
+@container panel-card (max-height: 280px) {
+  .panel-sensor > .dv-pn-foot,
+  .panel-sensor .dv-pn-trend {
+    display: none;
+  }
+}
+
+@container panel-card (max-height: 200px) {
+  .panel-sensor .dv-pn-axis {
+    display: none;
+  }
+}
+
+@container panel-card (max-height: 150px) {
+  .panel-sensor > .dv-pn-chart,
+  .panel-sensor .dv-pn-note {
+    display: none;
+  }
 }
 
 .panel-sensor-rows {
@@ -256,8 +315,6 @@
 }
 
 .panel-calendar-events {
-  display: flex;
-  flex-direction: column;
   gap: 10px;
 }
 
@@ -312,8 +369,11 @@ button.panel-event {
 .panel-members {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   gap: 2px;
+}
+
+.panel-members-list {
+  justify-content: center;
 }
 
 .panel-members-map {

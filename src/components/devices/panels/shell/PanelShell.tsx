@@ -36,11 +36,14 @@ export type PanelShellProps = {
   /** PanelStates, between the header and the rest. */
   states?: React.ReactNode;
   hero?: React.ReactNode;
-  /** Shown in one column. */
-  controls?: React.ReactNode;
-  /** Shown in two columns, at the right of the hero. */
+  /** The row at the bottom, on a phone. */
+  nav?: React.ReactNode;
+  /** In the column under the hero, in a dialog at its right. */
   groups?: React.ReactNode;
-  footer?: React.ReactNode;
+  /** On a phone and in the column in place of everything else; in a dialog at the right of the hero. */
+  page?: React.ReactNode;
+  /** Only on a phone: elsewhere the groups already say it. */
+  pagePhoneOnly?: boolean;
   /** A panel with a structure of its own, under the same header and footer. */
   children?: React.ReactNode;
   className?: string;
@@ -60,7 +63,7 @@ function useHostTint(ref: React.RefObject<HTMLDivElement | null>, rgb: string | 
   }, [ref, rgb]);
 }
 
-export function PanelShell({ surface, accent, tint = true, off = false, handle, header, states, hero, controls, groups, footer, children, className }: PanelShellProps) {
+export function PanelShell({ surface, accent, tint = true, off = false, handle, header, states, hero, nav, groups, page, pagePhoneOnly = false, children, className }: PanelShellProps) {
   const held = React.useContext(PanelSurfaceContext);
   const hosted = surface === undefined;
   const shape = surface ?? held ?? 'column';
@@ -73,7 +76,7 @@ export function PanelShell({ surface, accent, tint = true, off = false, handle, 
   return (
     <div
       ref={root}
-      className={clsx('panel-shell', hosted && 'is-hosted', tinted && !hosted && 'is-tinted', off && 'is-off', className)}
+      className={clsx('panel-shell', hosted && 'is-hosted', tinted && !hosted && 'is-tinted', off && 'is-off', Boolean(page) && 'has-page', pagePhoneOnly && 'has-phone-page', className)}
       data-surface={shape}
       style={style}
     >
@@ -86,13 +89,17 @@ export function PanelShell({ surface, accent, tint = true, off = false, handle, 
             {children}
           </div>
         ) : (
-          <div className="panel-shell-main" inert={off || undefined}>
-            {hero}
-            {controls}
-            {groups}
-          </div>
+          <>
+            <div className="panel-shell-main" inert={off || undefined}>
+              {hero}
+              {nav}
+              <div className="panel-side">
+                {groups}
+                {page}
+              </div>
+            </div>
+          </>
         )}
-        {footer}
       </div>
     </div>
   );

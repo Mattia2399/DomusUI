@@ -1,4 +1,3 @@
-import { CircleOff } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 import { PanelFrame } from '../devices/panels/shell/PanelFrame';
 import { PanelStates } from '../devices/panels/shell/PanelStates';
@@ -8,7 +7,6 @@ export function UnavailablePanel({ name, inSheet, onClose }: { name: string; inS
   const { t } = useI18n();
   return (
     <PanelFrame
-      icon={<CircleOff size={23} strokeWidth={2} />}
       name={name}
       status={null}
       live={{ off: true, notice: <PanelStates state={{ kind: 'unavailable' }} /> }}

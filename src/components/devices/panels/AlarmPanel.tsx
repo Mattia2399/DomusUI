@@ -201,7 +201,6 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, c
               ? pt('amCapDisarmed')
               : pt('amCapReadOnly');
 
-  const HeadIcon = triggered ? ShieldAlert : armMode ? MODE_LOOK[armMode].Icon : ShieldOff;
   const timeline = (alarm.activityTimeline ?? []).slice(0, Math.max(1, alarm.activityLogLimit ?? 6));
 
   const cameraItems = cameras.map((id) => {
@@ -219,7 +218,7 @@ export function AlarmPanel({ alarm, haStates, commands, onAuthorizeDeviceAuth, c
 
   return (
     <div style={tint ? ({ '--dv-pn-tint': tint } as React.CSSProperties) : undefined}>
-    <PanelFrame icon={<HeadIcon size={23} strokeWidth={2} />} tintRgb={tint} name={alarm.name} status={subtitle} live={live} closeLabel={closeLabel} onClose={onClose}>
+    <PanelFrame tintRgb={tint} name={alarm.name} status={subtitle} live={live} closeLabel={closeLabel} onClose={onClose}>
       <div className="dv-pn-hero">
         <b style={triggered ? { color: 'var(--dv-red)' } : undefined} aria-live="polite">{head}</b>
         <span className="dv-t2">{caption}</span>

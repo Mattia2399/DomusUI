@@ -3,8 +3,6 @@ import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { LazyLoadErrorBoundary } from '../../common/LazyLoadBoundary';
 import { PanelView } from './PanelView';
 import { loadedPanelEntry, loadPanelEntry, panelSkeletonOf, type PanelEntry, type PanelKind } from './registry';
-import { PanelControlZone } from './shell/PanelControlZone';
-import { PanelFooter } from './shell/PanelFooter';
 import { PanelGroups } from './shell/PanelGroups';
 import { PanelHeader } from './shell/PanelHeader';
 import { PanelHero } from './shell/PanelHero';
@@ -60,17 +58,13 @@ function PanelSkeleton({ kind, input, status, closeLabel, onClose }: PanelProps 
   const name = (input as { model?: { name?: string } }).model?.name ?? '';
   return (
     <PanelShell
-      header={<PanelHeader icon={null} name={name} status={status ?? ' '} closeLabel={closeLabel ?? dt('close')} onClose={onClose} />}
+      header={<PanelHeader name={name} status={status ?? ' '} closeLabel={closeLabel ?? dt('close')} onClose={onClose} />}
       hero={
-        <PanelHero>
-          <div className="panel-hero-main" aria-busy="true">
-            <span className={`panel-hero-empty is-${panelSkeletonOf(kind)}`} />
-          </div>
+        <PanelHero className={`is-${panelSkeletonOf(kind)}`}>
+          <span className={`panel-hero-empty is-${panelSkeletonOf(kind)}`} aria-busy="true" />
         </PanelHero>
       }
-      controls={<PanelControlZone ariaLabel={dt('panelAdjust')} />}
       groups={<PanelGroups groups={[]} />}
-      footer={<PanelFooter />}
     />
   );
 }

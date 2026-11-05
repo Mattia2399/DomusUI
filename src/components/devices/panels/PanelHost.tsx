@@ -44,7 +44,7 @@ function SidePanel({ isOpen, onClose, title, children }: Omit<PanelHostProps, 'p
         aria-modal="false"
         aria-labelledby={titleId}
         className={clsx(
-          'dv-glass pointer-events-auto max-h-full w-96 max-w-full self-start overflow-y-auto rounded-[30px] p-[18px]',
+          'dv-glass dv-panel-side pointer-events-auto h-full w-96 max-w-full overflow-y-auto rounded-[30px] p-[18px]',
         )}
       >
         <h2 id={titleId} className="sr-only">

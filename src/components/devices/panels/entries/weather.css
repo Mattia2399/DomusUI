@@ -43,12 +43,6 @@
   --device-accent-ink: #ffffff;
 }
 
-.panel-shell:not([data-surface='column']):has(.panel-weather[data-sky]) .panel-header-icon {
-  background: rgb(255 255 255 / 0.22);
-  box-shadow: none;
-  color: #ffffff;
-}
-
 .panel-weather[data-sky='day'] :is(.panel-weather-hours em, .panel-weather-day-icon > em),
 .panel-weather[data-sky='cloud'] :is(.panel-weather-hours em, .panel-weather-day-icon > em),
 .panel-weather[data-sky='snow'] :is(.panel-weather-hours em, .panel-weather-day-icon > em) {

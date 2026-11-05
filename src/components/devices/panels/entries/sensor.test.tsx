@@ -367,10 +367,10 @@ describe('the panel of a family', () => {
         <SensorFamilyPanel entityId="sensor.t" name="Sensore" history={series} haStates={{ 'sensor.t': entity('21', { device_class: 'temperature', unit_of_measurement: '°C', state_class: 'measurement' }) }} />
       </PanelServicesProvider>,
     );
-    const row = within(screen.getByRole('group', { name: 'Regolazioni' }));
+    const row = within(screen.getByRole('navigation', { name: 'Regolazioni' }));
     expect(row.getByRole('button', { name: 'Periodo' })).toBeTruthy();
     expect(row.getByRole('button', { name: 'Valori' })).toBeTruthy();
-    expect(document.querySelector('.panel-footer-action')).toBeNull();
+    expect(document.querySelector('.panel-header-action')).toBeNull();
     expect(document.querySelector('.panel-hero.is-data .dv-pn-value')).toBeTruthy();
   });
 

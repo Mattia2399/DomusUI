@@ -85,14 +85,14 @@ describe('a light', () => {
     expect(specOf(lightEntry.useSpec, lightInput({ model: lightModel({ caps: 'onoff', brightnessPct: null }) })).heroKind).toBe('value');
   });
 
-  it('opens a shortcut, and Back closes it', () => {
-    drawn(lightEntry.useSpec, lightInput({ extras: { supportsEffects: true, effects: ['colorloop'] }, onExtraAction: vi.fn() }));
-    expect(screen.queryByRole('button', { name: 'Indietro' })).toBeNull();
-    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Effetti' }));
-    expect(screen.getByRole('button', { name: 'Indietro' })).toBeTruthy();
-    expect(screen.queryByRole('group', { name: 'Regolazioni' })).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Indietro' }));
-    expect(screen.getByRole('group', { name: 'Regolazioni' })).toBeTruthy();
+  it('opens a shortcut, keeps the row, and touching it again goes back', () => {
+    const { container } = drawn(lightEntry.useSpec, lightInput({ extras: { supportsEffects: true, effects: ['colorloop'] }, onExtraAction: vi.fn() }));
+    const row = () => within(screen.getByRole('navigation', { name: 'Regolazioni' }));
+    expect(container.querySelector('.panel-hero-back')).toBeNull();
+    fireEvent.click(row().getByRole('button', { name: 'Effetti' }));
+    expect(row().getByRole('button', { name: 'Effetti' })).toBeTruthy();
+    fireEvent.click(row().getByRole('button', { name: 'Effetti' }));
+    expect(container.querySelector('.panel-hero-back')).toBeNull();
   });
 
   it('calls its effects by their translated name, and flashes at once', () => {
@@ -101,7 +101,7 @@ describe('a light', () => {
     const dialog = screen.getByRole('region', { name: 'Effetti' });
     expect(within(dialog).getByRole('radio', { name: 'Ciclo colori' })).toBeTruthy();
     expect(within(dialog).getByRole('radio', { name: 'Mio effetto' })).toBeTruthy();
-    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Lampeggio' }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Lampeggio' }));
     expect(onExtraAction).toHaveBeenCalledWith({ type: 'flash', mode: 'short' });
   });
 
@@ -114,9 +114,9 @@ describe('a light', () => {
 
   it('keeps the colour disc on a white handle, in the place of the slider while the colours are open', () => {
     const { container } = drawn(lightEntry.useSpec, lightInput());
-    expect(container.querySelector('.panel-hero-instead')).toBeNull();
-    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Colore' }));
-    const disc = container.querySelector('.panel-hero-instead .glass-color-picker');
+    expect(container.querySelector('.panel-hero-main .glass-color-picker')).toBeNull();
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Colore' }));
+    const disc = container.querySelector('.panel-hero-main .glass-color-picker');
     expect(disc).toBeTruthy();
     expect(disc?.querySelector<HTMLElement>('.glass-color-picker-handle')?.style.background).toBe('');
   });
@@ -140,7 +140,7 @@ describe('a plug', () => {
   it('switches its protection at once', () => {
     const onToggleProtected = vi.fn();
     drawn(plugEntry.useSpec, input({ onToggleProtected }));
-    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Protetta' }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Protetta' }));
     expect(onToggleProtected).toHaveBeenCalledWith(true);
   });
 
@@ -244,7 +244,7 @@ describe('a fan', () => {
   it('switches its oscillation at once', () => {
     const onAction = vi.fn();
     drawn(fanEntry.useSpec, { model: full(), onAction });
-    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Oscillazione' }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Oscillazione' }));
     expect(onAction).toHaveBeenCalledWith({ type: 'fan_oscillate', oscillating: false });
   });
 });
@@ -324,7 +324,7 @@ describe('a climate device', () => {
   it('aligns the target to the temperature now, on the step it can take', () => {
     const onAction = vi.fn();
     drawn(climateEntry.useSpec, input({ onAction }));
-    fireEvent.click(within(screen.getByRole('group', { name: 'Regolazioni' })).getByRole('button', { name: 'Allinea' }));
+    fireEvent.click(within(screen.getByRole('navigation', { name: 'Regolazioni' })).getByRole('button', { name: 'Allinea' }));
     expect(onAction).toHaveBeenCalledWith({ type: 'target', target: 20.5 });
     expect(screen.getByRole('button', { name: 'Allinea a 20,5°' })).toBeTruthy();
   });
