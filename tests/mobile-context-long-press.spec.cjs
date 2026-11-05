@@ -150,11 +150,14 @@ async function longPress(page, locator) {
 
 async function expectContextPanel(page, title) {
   const panel = page.locator('.device-context-surface');
-  await expect(panel).toBeVisible();
+  // The first panel of a run is compiled on request by the development server.
+  await expect(panel).toBeVisible({ timeout: 30_000 });
   // Right after a load the demo may not have the entity yet: for a moment the old content has a title of its own.
   await expect(panel.getByRole('heading', { name: title }).first()).toBeVisible();
   // A shared panel brings its own Close once loaded, and the one of the sheet steps aside: ask again.
+  // On a busy machine a click that landed can outlast its time: the next try finds the panel already closed.
   await expect(async () => {
+    if ((await panel.count()) === 0) return;
     await panel.getByRole('button', { name: /Chiudi.*dispositivo/i }).click({ timeout: 1500 });
   }).toPass({ timeout: 20_000 });
   await expect(panel).toHaveCount(0);
@@ -238,7 +241,7 @@ test('mobile long-press on a card of the three sizes opens its shared panel', as
   const body = page.locator('[data-grid-engine-root-item="robot"] .dv-tile-body');
   await expect(body).toBeVisible({ timeout: 30_000 });
   await longPress(page, body);
-  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible({ timeout: 30_000 });
   await expectContextPanel(page, 'Root Robot');
 });
 
@@ -325,7 +328,7 @@ test('on a card of the three sizes a touch opens the panel, the icon only comman
   const other = page.locator('[data-grid-engine-root-item="climate.filler_1"]');
   const otherBox = await other.boundingBox();
   await tap(otherBox.x + 14, otherBox.y + otherBox.height / 2);
-  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible({ timeout: 30_000 });
   await page.waitForTimeout(600);
-  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible();
+  await expect(page.locator('.device-context-surface .panel-shell')).toBeVisible({ timeout: 30_000 });
 });

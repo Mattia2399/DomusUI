@@ -21,6 +21,7 @@ import type { RelatedControl, RelatedLook } from '../../../../types/relatedContr
 import type { MockEntityState } from '../../../../types/ha';
 import type { PanelControl, PanelControlChoice } from '../registry';
 import type { RelatedContextValue, RelatedSource } from './relatedContext';
+import { relatedControlsOf } from './relatedMigration';
 import { RelatedControlView } from './RelatedControlView';
 import { RELATED_LOOKS } from './relatedControlRegistry';
 import type { RelatedActs } from './relatedLookTypes';
@@ -259,7 +260,7 @@ function panelControlOf(control: RelatedControl, context: RelatedContextValue, l
 
 export function relatedPanelControls(source: RelatedSource, context: RelatedContextValue, locale: string, refresh: () => void) {
   const words = relatedWordsOf(locale);
-  const listed = source.relatedControls ?? [];
+  const listed = relatedControlsOf(source);
   const choices: Record<string, PanelControlChoice> = {};
   const controls = listed
     .filter((control) => control.place !== 'hidden')

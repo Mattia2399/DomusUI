@@ -356,6 +356,8 @@ interface ContextSidebarProps {
   };
 }
 
+const NO_ALTRO_PANELS: ReadonlySet<string> = new Set(['alarm', 'lock', 'weather', 'media']);
+
 export function ContextSidebar({
   activeDevice,
   isEditMode = false,
@@ -455,18 +457,20 @@ export function ContextSidebar({
   // The cards with a shared panel open it in place of their old content.
   const homePanel = homePanelProps ? homePanelOf(homePanelProps) : null;
   const openCard = homeWidgets?.find((widget) => widget.id === activeDevice?.id);
+  // These panels have no Altro: what a card holds besides its device stays in the block under them.
+  const hasNoAltro = !homePanel || NO_ALTRO_PANELS.has(activeDevice?.type ?? '');
   const relatedContext = React.useMemo<RelatedContextValue | null>(
     () =>
-      openCard
+      openCard && !hasNoAltro
         ? {
-            sourceOf: () => ({ relatedControls: openCard.relatedControls }),
+            sourceOf: () => openCard,
             states: haStates,
             history: microChartHistoryByEntity,
             demo: openCard.dataSource === 'mock',
             commands: { call: onCallService, toggle: onToggleMicroWidget, setValue: onSetMicroSliderValue, navigate: onNavigateMicroWidgetPage },
           }
         : null,
-    [openCard, haStates, microChartHistoryByEntity, onCallService, onToggleMicroWidget, onSetMicroSliderValue, onNavigateMicroWidgetPage],
+    [openCard, hasNoAltro, haStates, microChartHistoryByEntity, onCallService, onToggleMicroWidget, onSetMicroSliderValue, onNavigateMicroWidgetPage],
   );
   return (
     <aside
@@ -504,7 +508,7 @@ export function ContextSidebar({
         </div>
       ) : null}
 
-      {activeDevice && microWidgets.length > 0 ? (
+      {activeDevice && microWidgets.length > 0 && (hasNoAltro || !openCard) ? (
         <div className="px-[clamp(0.75rem,2.8vw,1.5rem)] pb-1">
           <div className={homePanel ? 'dv-card mb-1' : 'context-content-surface mb-1 rounded-2xl p-[clamp(0.8rem,2.4vw,1.15rem)] shadow-lg'}>
             <p className={homePanel ? 'dv-pn-label !m-0' : 'text-[11px] uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]'}>{t('context.members.related')}</p>
