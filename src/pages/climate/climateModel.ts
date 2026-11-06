@@ -125,5 +125,9 @@ export type ClimateCircuitConfig = { id: string; name: string; kind: 'radiators'
 export type ClimateGeneratorConfig = { id: string; name: string; kind: 'boiler' | 'thermostove' | 'heat_pump' | 'other'; circuitIds: string[]; services: ClimateService[]; capabilities?: { supportsSpaceHeating: boolean; supportsCooling: boolean; supportsDhw: boolean }; entity: ClimateBindingConfig; setpointKind: 'none' | 'generator_water_temperature' };
 export type ClimateAuxiliaryConfig = { id: string; name: string; kind: 'dehumidifier' | 'ventilation'; zoneIds: string[]; circuitIds: string[]; entity: ClimateBindingConfig };
 export type ClimateEquipmentGroupConfig = { id: string; name: string; memberEndpointIds: string[]; generatorIds: string[]; sharedOperatingMode: boolean };
+export type ClimateProfileConfig = { id: string; name: string; zoneTargets: Record<string, number> };
+export type ClimateWeekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+export type ClimateScheduleEventConfig = { time: string; profileId: string };
+export type ClimateScheduleDayConfig = { day: ClimateWeekday; events: ClimateScheduleEventConfig[] };
 /** Active physical state, demand and sensor health are not stored here. */
-export type ClimateHouseConfig = { version: 1; operatingMode?: ClimateOperatingMode; controlMode?: ClimateControlMode; zones: ClimateZoneConfig[]; endpoints: ClimateEndpointConfig[]; circuits: ClimateCircuitConfig[]; generators: ClimateGeneratorConfig[]; auxiliaries?: ClimateAuxiliaryConfig[]; equipmentGroups?: ClimateEquipmentGroupConfig[]; profiles: []; schedules: []; strategy: null };
+export type ClimateHouseConfig = { version: 1; operatingMode?: ClimateOperatingMode; controlMode?: ClimateControlMode; zones: ClimateZoneConfig[]; endpoints: ClimateEndpointConfig[]; circuits: ClimateCircuitConfig[]; generators: ClimateGeneratorConfig[]; auxiliaries?: ClimateAuxiliaryConfig[]; equipmentGroups?: ClimateEquipmentGroupConfig[]; profiles: ClimateProfileConfig[]; schedules: ClimateScheduleDayConfig[]; strategy: null };

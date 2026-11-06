@@ -24,6 +24,9 @@ export function newGenerator(kind: 'boiler' | 'thermostove'): ClimateGeneratorCo
 export function syncClimateLinks(config: ClimateHouseConfig): ClimateHouseConfig {
   const zoneIds = new Set(config.zones.map((item) => item.id));
   const circuitIds = new Set(config.circuits.map((item) => item.id));
+  for (const profile of config.profiles) {
+    profile.zoneTargets = Object.fromEntries(Object.entries(profile.zoneTargets).filter(([id]) => zoneIds.has(id)));
+  }
   config.endpoints = config.endpoints.filter((item) => zoneIds.has(item.zoneId));
   for (const endpoint of config.endpoints) {
     if (!circuitIds.has(endpoint.circuitId ?? '')) endpoint.circuitId = null;

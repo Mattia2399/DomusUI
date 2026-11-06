@@ -121,3 +121,35 @@ async def test_extended_radiant_configuration_round_trip_and_idempotence(hass: H
     loaded = ClimateManager(hass, store=store, runtime=lambda: None)
     await loaded.async_setup()
     assert loaded.get_config() == saved
+
+
+async def test_profiles_and_schedule_round_trip_revision_and_no_service_calls(hass: HomeAssistant):
+    candidate = prepare(hass)
+    candidate["profiles"] = [
+        {"id": "comfort", "name": "Comfort", "zoneTargets": {"zone_living": 21}},
+        {"id": "eco", "name": "Eco", "zoneTargets": {}},
+    ]
+    candidate["schedules"] = [{"day": "monday", "events": [
+        {"time": "08:30", "profileId": "eco"},
+        {"time": "06:30", "profileId": "comfort"},
+    ]}]
+    store = MemoryStore()
+    manager = ClimateManager(hass, store=store, runtime=lambda: None)
+    await manager.async_setup()
+    with pytest.MonkeyPatch.context() as patcher:
+        calls = []
+        patcher.setattr(hass.services, "async_call", lambda *args, **kwargs: calls.append((args, kwargs)))
+        saved = await manager.async_save_config(candidate, 0, ADMIN)
+        assert saved["revision"] == 1 and store.writes == 1
+        expected = deepcopy(candidate)
+        expected["schedules"][0]["events"].reverse()
+        expected["profiles"][0]["zoneTargets"]["zone_living"] = 21.0
+        assert saved["config"] == expected
+        assert await manager.async_save_config(candidate, 1, ADMIN) == saved
+        assert store.writes == 1
+        with pytest.raises(Conflict):
+            await manager.async_save_config(candidate, 0, ADMIN)
+        loaded = ClimateManager(hass, store=store, runtime=lambda: None)
+        await loaded.async_setup()
+        assert loaded.get_config() == saved
+        assert calls == []

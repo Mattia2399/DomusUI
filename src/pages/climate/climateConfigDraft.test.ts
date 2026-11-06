@@ -14,6 +14,7 @@ describe('Climate editor link maintenance', () => {
     valve.circuitId = circuit.id;
     generator.circuitIds = [circuit.id];
     config.zones.push(zone);
+    config.profiles.push({ id: 'comfort', name: 'Comfort', zoneTargets: { [zone.id]: 21 } });
     config.endpoints.push(valve);
     config.circuits.push(circuit);
     config.generators.push(generator);
@@ -30,6 +31,7 @@ describe('Climate editor link maintenance', () => {
     config.zones.splice(0, 1);
     syncClimateLinks(config);
     expect(config.endpoints).toEqual([]);
+    expect(config.profiles[0].zoneTargets).toEqual({});
   });
   it('preserves fan coil links and prunes only deleted shared resources', () => {
     const config = emptyClimateConfig();

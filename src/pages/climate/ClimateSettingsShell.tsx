@@ -19,6 +19,7 @@ import { PANEL } from './ClimatePrimitives';
 import { ClimateConfigEditor } from './ClimateConfigEditor';
 import { useClimateConfigCopy } from './climateConfigCopy';
 import { ClimateRuntimePanel } from './ClimateRuntimePanel';
+import { ClimateProgramsEditor } from './ClimateProgramsEditor';
 
 type Section = 'overview' | 'zones' | 'programs' | 'plant';
 
@@ -33,6 +34,7 @@ export default function ClimateSettingsShell({ callApi, connected, areas, states
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [programsDirty, setProgramsDirty] = useState(false);
   const [reloadCount, setReloadCount] = useState(0);
   const [preview, setPreview] = useState(false);
   const [section, setSection] = useState<Section>('overview');
@@ -41,6 +43,7 @@ export default function ClimateSettingsShell({ callApi, connected, areas, states
   const [heatingSource, setHeatingSource] = useState<'radiators' | 'air_conditioners'>('radiators');
   const [generator, setGenerator] = useState<'boiler' | 'thermostove'>('boiler');
   const [selectedZone, setSelectedZone] = useState<DemoZoneView | null>(null);
+  const leavePrograms = () => !programsDirty || window.confirm(t('leaveWarning'));
   const leavePreview = () => { setSelectedZone(null); setPreview(false); setSection('overview'); setMode('auto'); setSeason('heating'); setHeatingSource('radiators'); setGenerator('boiler'); };
   const navigation: readonly { id: Section; icon: typeof House; label: string }[] = [
     { id: 'overview', icon: House, label: c('overview') }, { id: 'zones', icon: List, label: c('zones') },
@@ -64,11 +67,14 @@ export default function ClimateSettingsShell({ callApi, connected, areas, states
   if (configResponse.state === 'ready' && configResponse.config) {
     const config = configResponse.config;
     return <div className="mx-auto w-full max-w-6xl space-y-6 pb-8" data-climate-config="ready">
-      <section className={`${PANEL} flex flex-wrap items-center justify-between gap-4 p-5 sm:p-7`}><div><p className={`text-xs font-semibold uppercase tracking-[0.16em] ${MUTED}`}>{c('eyebrow')}</p><h2 className="mt-2 text-2xl font-semibold text-[color:var(--ui-text-primary)]">{t('configured')}</h2><p className={`mt-2 text-sm ${MUTED}`}>{t('configuredDetail')}</p></div>{canManage && <GlassButton variant="primary" onClick={() => setEditing(true)}>{t('edit')}</GlassButton>}</section>
-      {!canManage && <p className={`px-1 text-sm ${MUTED}`}>{t('readonly')}</p>}
-      {callApi && <ClimateRuntimePanel config={config} callApi={callApi} states={states} canControl={canControl} />}
-      <ClimateSectionHeading title={t('zones')} detail={`${config.zones.length} ${t('zones').toLowerCase()} · ${config.endpoints.length} ${t('endpoints').toLowerCase()} · ${config.circuits.length} ${t('circuits').toLowerCase()} · ${config.generators.length} ${t('generators').toLowerCase()}`} />
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{config.zones.map((zone) => <ConfiguredClimateZoneCard key={zone.id} zone={zone} sourceName={String(states[zone.reference.primaryEntityId]?.rawAttributes?.friendly_name ?? registry.find((entry) => entry.entityId === zone.reference.primaryEntityId)?.name ?? zone.reference.primaryEntityId)} areaName={areas.find((area) => area.area_id === zone.areaId)?.name} />)}</div>
+      <section className={`${PANEL} flex flex-wrap items-center justify-between gap-4 p-5 sm:p-7`}><div><p className={`text-xs font-semibold uppercase tracking-[0.16em] ${MUTED}`}>{c('eyebrow')}</p><h2 className="mt-2 text-2xl font-semibold text-[color:var(--ui-text-primary)]">{t('configured')}</h2><p className={`mt-2 text-sm ${MUTED}`}>{t('configuredDetail')}</p></div>{canManage && <GlassButton variant="primary" onClick={() => { if (leavePrograms()) setEditing(true); }}>{t('edit')}</GlassButton>}</section>
+      <nav aria-label={c('eyebrow')} className="flex gap-2 overflow-x-auto pb-1"><button type="button" onClick={() => { if (leavePrograms()) setSection('overview'); }} aria-current={section !== 'programs' ? 'page' : undefined} className={`liquid-glass-control min-h-11 rounded-full px-4 text-sm font-semibold ${section !== 'programs' ? 'ring-2 ring-[color:var(--ui-accent)]' : ''}`}>{c('overview')}</button><button type="button" onClick={() => setSection('programs')} aria-current={section === 'programs' ? 'page' : undefined} className={`liquid-glass-control min-h-11 rounded-full px-4 text-sm font-semibold ${section === 'programs' ? 'ring-2 ring-[color:var(--ui-accent)]' : ''}`}>{c('programs')}</button></nav>
+      {section === 'programs' && callApi ? <ClimateProgramsEditor key={configResponse.revision} config={config} revision={configResponse.revision} callApi={callApi} canManage={canManage} onSaved={(response) => setConfigResponse(response)} onReload={() => setReloadCount((value) => value + 1)} onDirtyChange={setProgramsDirty} /> : <>
+        {!canManage && <p className={`px-1 text-sm ${MUTED}`}>{t('readonly')}</p>}
+        {callApi && <ClimateRuntimePanel config={config} callApi={callApi} states={states} canControl={canControl} />}
+        <ClimateSectionHeading title={t('zones')} detail={`${config.zones.length} ${t('zones').toLowerCase()} · ${config.endpoints.length} ${t('endpoints').toLowerCase()} · ${config.circuits.length} ${t('circuits').toLowerCase()} · ${config.generators.length} ${t('generators').toLowerCase()}`} />
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{config.zones.map((zone) => <ConfiguredClimateZoneCard key={zone.id} zone={zone} sourceName={String(states[zone.reference.primaryEntityId]?.rawAttributes?.friendly_name ?? registry.find((entry) => entry.entityId === zone.reference.primaryEntityId)?.name ?? zone.reference.primaryEntityId)} areaName={areas.find((area) => area.area_id === zone.areaId)?.name} />)}</div>
+      </>}
     </div>;
   }
 

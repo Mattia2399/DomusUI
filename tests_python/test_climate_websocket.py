@@ -64,7 +64,10 @@ async def test_member_can_read_but_direct_save_is_denied_without_a_write(hass: H
     client = await hass_ws_client(hass, hass.auth.async_create_access_token(refresh))
     read = await ask(client, {"type": "domusos/climate/get_config"})
     assert read["success"] and read["result"]["config"] == empty_config()
-    denied = await ask(client, {"type": "domusos/climate/save_config", "config": empty_config(), "expected_revision": 1})
+    program = empty_config()
+    program["profiles"] = [{"id": "comfort", "name": "Comfort", "zoneTargets": {}}]
+    program["schedules"] = [{"day": "monday", "events": [{"time": "06:30", "profileId": "comfort"}]}]
+    denied = await ask(client, {"type": "domusos/climate/save_config", "config": program, "expected_revision": 1})
     assert denied["error"]["code"] == "access_denied"
     assert store.writes == 1 and manager.revision == 1
 

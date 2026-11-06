@@ -159,6 +159,35 @@ test('Climate intent controls update the live runtime preview without a device s
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 
+test('Climate profiles and weekly events persist after save and reload without changing runtime intent', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Soggiorno');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  await page.getByRole('navigation', { name: 'DOMUS CLIMATE' }).getByRole('button', { name: 'Programmi' }).click();
+  const programs = page.locator('[data-climate-programs="true"]');
+  await expect(programs.getByText('Crea il tuo primo profilo')).toBeVisible();
+  await programs.getByRole('textbox', { name: 'Nome nuovo profilo' }).fill('Comfort');
+  await programs.getByRole('button', { name: 'Crea profilo' }).click();
+  await programs.getByRole('textbox', { name: 'Nome profilo', exact: true }).fill('Comfort casa');
+  await programs.getByRole('spinbutton', { name: 'Soggiorno' }).fill('21');
+  await programs.getByRole('button', { name: 'Aggiungi fascia' }).click();
+  await expect(programs.getByText('06:30', { exact: true })).toBeVisible();
+  await programs.getByRole('button', { name: 'Salva programmazione' }).click();
+  await page.reload();
+  await page.getByRole('navigation', { name: 'DOMUS CLIMATE' }).getByRole('button', { name: 'Programmi' }).click();
+  await expect(programs.getByRole('textbox', { name: 'Nome profilo', exact: true })).toHaveValue('Comfort casa');
+  await expect(programs.getByRole('spinbutton', { name: 'Soggiorno' })).toHaveValue('21');
+  await expect(programs.getByText('06:30', { exact: true })).toBeVisible();
+  for (const width of [390, 768, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  }
+  expect(page.climateHome.messages.filter((message) => /set_(?:house|zone)_intent|call_service/.test(message.type))).toHaveLength(0);
+});
+
 test('Settings, System: the connection opens and Back returns to Settings', async ({ page }) => {
   await page.goto('/settings');
 

@@ -1,6 +1,6 @@
 # Domus Climate — CLM.1 foundation
 
-> Historical CLM.1 design. CLM.2 persists HOUSE configuration; CLM.3A adds a separate [intent runtime](domus-climate-intent-runtime.md). See [zone mapping](domus-climate-zone-mapping.md) for the installation contract.
+> Historical CLM.1 design. CLM.2 persists HOUSE configuration; CLM.3A adds a separate [intent runtime](domus-climate-intent-runtime.md); CLM.4A adds [profiles and weekly schedules](domus-climate-profiles-schedules.md). See [zone mapping](domus-climate-zone-mapping.md) for the installation contract.
 
 Domus Climate is HOUSE configuration for shared climate intent. The Settings entry is **Impostazioni → Casa → Clima**, at `/settings/climate`. This phase provides a typed contract and a small page shell. It reads and writes no climate configuration, runs no scheduler, creates no Home Assistant automation, and sends no service call. There is no backend module in CLM.1 because the shell does not need an API or storage. The existing Home Assistant shared house document is a candidate for later persistence; CLM.2 must decide the schema, migration and ownership before saving anything. The Settings registry therefore marks the current storage as `not_persisted`.
 

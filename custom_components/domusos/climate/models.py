@@ -19,6 +19,8 @@ _DOMAIN = frozenset({"select", "number", "input_number", "switch", "input_boolea
 _ROLES = frozenset({"room_heater", "room_cooler", "radiator_trv", "zone_actuator", "fan", "dehumidifier"})
 _SERVICES = frozenset({"space_heating", "space_cooling", "domestic_hot_water"})
 _CAPABILITIES = frozenset({"supportsHeating", "supportsCooling", "supportsFan", "supportsDehumidification"})
+WEEKDAYS = ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+_LOCAL_TIME = re.compile(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
 MAX_CONFIG_BYTES = 200_000
 
 
@@ -36,6 +38,14 @@ class InvalidConfig(ClimateError):
 
 class InvalidFormat(ClimateError):
     code = "invalid_format"
+
+
+class ProfileInUse(InvalidConfig):
+    code = "profile_in_use"
+
+
+class DuplicateScheduleTime(InvalidConfig):
+    code = "duplicate_schedule_time"
 
 
 class EntityMissing(InvalidConfig):
@@ -165,6 +175,53 @@ def _unique_items(items: list[dict[str, Any]], field: str) -> None:
         raise InvalidConfig(field, "duplicate id")
 
 
+def _parse_programs(data: Mapping[str, Any], zone_ids: set[str]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Normalize one house week; local wall times have no active-time semantics here."""
+    profiles: list[dict[str, Any]] = []
+    for index, raw in enumerate(_list(data["profiles"], "profiles", 32)):
+        field = f"profiles[{index}]"
+        item = _object(raw, {"id", "name", "zoneTargets"}, field)
+        targets = item["zoneTargets"]
+        if type(targets) is not dict or len(targets) > 64:
+            raise InvalidConfig(field + ".zoneTargets")
+        parsed_targets: dict[str, float] = {}
+        for zone_id, target in targets.items():
+            if _id(zone_id, field + ".zoneTargets") not in zone_ids:
+                raise InvalidConfig(field + ".zoneTargets", "unknown zone")
+            if type(target) not in (int, float) or not 5 <= target <= 40 or not math.isfinite(target):
+                raise InvalidConfig(field + ".zoneTargets", "room target must be 5–40 °C")
+            parsed_targets[zone_id] = float(target)
+        profiles.append({"id": _id(item["id"], field + ".id"), "name": _text(item["name"], field + ".name"),
+                         "zoneTargets": dict(sorted(parsed_targets.items()))})
+    _unique_items(profiles, "profiles")
+    profile_ids = {item["id"] for item in profiles}
+    days: dict[str, dict[str, Any]] = {}
+    for index, raw in enumerate(_list(data["schedules"], "schedules", 7)):
+        field = f"schedules[{index}]"
+        item = _object(raw, {"day", "events"}, field)
+        day = item["day"]
+        if day not in WEEKDAYS or day in days:
+            raise InvalidConfig(field + ".day", "unknown or duplicate day")
+        events: list[dict[str, str]] = []
+        times: set[str] = set()
+        for event_index, raw_event in enumerate(_list(item["events"], field + ".events", 64)):
+            event_field = f"{field}.events[{event_index}]"
+            event = _object(raw_event, {"time", "profileId"}, event_field)
+            time = event["time"]
+            if type(time) is not str or _LOCAL_TIME.fullmatch(time) is None:
+                raise InvalidConfig(event_field + ".time", "expected HH:MM local wall time")
+            if time in times:
+                raise DuplicateScheduleTime(event_field + ".time", "duplicate time on one day")
+            times.add(time)
+            profile_id = _id(event["profileId"], event_field + ".profileId")
+            if profile_id not in profile_ids:
+                raise ProfileInUse(event_field + ".profileId", "profile is missing or still in use")
+            events.append({"time": time, "profileId": profile_id})
+        if events:
+            days[day] = {"day": day, "events": sorted(events, key=lambda entry: entry["time"])}
+    return profiles, [days[day] for day in WEEKDAYS if day in days]
+
+
 def parse_config(value: Any) -> dict[str, Any]:
     """Validate the whole client payload, including references, before any write."""
     try:
@@ -175,8 +232,8 @@ def parse_config(value: Any) -> dict[str, Any]:
     data = _extended(value, {"version", "zones", "endpoints", "circuits", "generators", "profiles", "schedules", "strategy"}, {"operatingMode", "controlMode", "auxiliaries", "equipmentGroups"}, "config")
     if type(data["version"]) is not int or data["version"] != VERSION:
         raise InvalidConfig("version")
-    if data["profiles"] != [] or data["schedules"] != [] or data["strategy"] is not None:
-        raise InvalidConfig("config", "programs and strategy are reserved for later phases")
+    if data["strategy"] is not None:
+        raise InvalidConfig("strategy", "source strategy is reserved for later phases")
     if "operatingMode" in data and data["operatingMode"] not in ("heating", "cooling", "off"):
         raise InvalidConfig("operatingMode")
     if "controlMode" in data and data["controlMode"] not in ("manual", "auto"):
@@ -304,6 +361,7 @@ def parse_config(value: Any) -> dict[str, Any]:
     _unique_items(groups, "equipmentGroups")
 
     zone_by_id = {item["id"]: item for item in zones}
+    profiles, schedules = _parse_programs(data, set(zone_by_id))
     endpoint_by_id = {item["id"]: item for item in endpoints}
     circuit_by_id = {item["id"]: item for item in circuits}
     generator_by_id = {item["id"]: item for item in generators}
@@ -355,7 +413,7 @@ def parse_config(value: Any) -> dict[str, Any]:
     bound_entities = [entity_id for binding in bindings for entity_id in ([binding["primaryEntityId"]] if binding["primaryEntityId"] else []) + [control["entityId"] for control in binding["relatedControls"]]]
     if len(bound_entities) != len(set(bound_entities)):
         raise InvalidConfig("config", "an entity has conflicting device roles")
-    result = {"version": VERSION, "zones": zones, "endpoints": endpoints, "circuits": circuits, "generators": generators, "profiles": [], "schedules": [], "strategy": None}
+    result = {"version": VERSION, "zones": zones, "endpoints": endpoints, "circuits": circuits, "generators": generators, "profiles": profiles, "schedules": schedules, "strategy": None}
     for key in ("operatingMode", "controlMode"):
         if key in data:
             result[key] = data[key]
