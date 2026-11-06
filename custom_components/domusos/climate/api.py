@@ -68,7 +68,7 @@ async def websocket_get_state(hass: HomeAssistant, connection: websocket_api.Act
     try:
         if set(msg) != {"id", "type"}:
             raise InvalidFormat("Unexpected WebSocket fields")
-        connection.send_result(msg["id"], _state_manager(hass).get_state())
+        connection.send_result(msg["id"], await _state_manager(hass).async_get_state())
     except ClimateError as err:
         _error(connection, msg["id"], err)
 
@@ -108,7 +108,46 @@ async def websocket_set_zone_intent(hass: HomeAssistant, connection: websocket_a
         _error(connection, msg["id"], err)
 
 
-WEBSOCKET_COMMANDS = (websocket_get_config, websocket_save_config, websocket_get_state, websocket_set_house_intent, websocket_set_zone_intent)
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{WS_PREFIX}/set_zone_override",
+    vol.Required("zone_id"): str,
+    vol.Required("target_temperature"): vol.Any(int, float),
+    vol.Required("expiry_mode"): str,
+    vol.Optional("duration_minutes"): int,
+    vol.Optional("until_time"): str,
+    vol.Required("expected_revision"): vol.All(int, vol.Range(min=0)),
+})
+@websocket_api.async_response
+async def websocket_set_zone_override(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    try:
+        if not {"id", "type", "zone_id", "target_temperature", "expiry_mode", "expected_revision"} <= set(msg) or not set(msg) <= {"id", "type", "zone_id", "target_temperature", "expiry_mode", "duration_minutes", "until_time", "expected_revision"}:
+            raise InvalidFormat("Unexpected WebSocket fields")
+        result = await _state_manager(hass).async_set_zone_override(
+            msg["zone_id"], msg["target_temperature"], msg["expiry_mode"], msg["expected_revision"], connection.user,
+            duration_minutes=msg.get("duration_minutes"), until_time=msg.get("until_time"))
+        connection.send_result(msg["id"], result)
+    except ClimateError as err:
+        _error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{WS_PREFIX}/clear_zone_override",
+    vol.Required("zone_id"): str,
+    vol.Required("expected_revision"): vol.All(int, vol.Range(min=0)),
+})
+@websocket_api.async_response
+async def websocket_clear_zone_override(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    try:
+        if set(msg) != {"id", "type", "zone_id", "expected_revision"}:
+            raise InvalidFormat("Unexpected WebSocket fields")
+        result = await _state_manager(hass).async_clear_zone_override(msg["zone_id"], msg["expected_revision"], connection.user)
+        connection.send_result(msg["id"], result)
+    except ClimateError as err:
+        _error(connection, msg["id"], err)
+
+
+WEBSOCKET_COMMANDS = (websocket_get_config, websocket_save_config, websocket_get_state, websocket_set_house_intent, websocket_set_zone_intent,
+                      websocket_set_zone_override, websocket_clear_zone_override)
 
 
 async def async_register_climate_api(hass: HomeAssistant) -> None:

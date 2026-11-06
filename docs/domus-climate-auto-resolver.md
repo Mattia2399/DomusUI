@@ -30,4 +30,4 @@ Pure fixed-instant tests cover scenarios A–Q including DST and a fake-clock ti
 - **C55:** Active profile, next event, and scheduled effective targets are derived only.
 - **C56:** Backend resolver is authoritative; frontend does not duplicate it.
 - **C57:** CLM.4B sends no device commands.
-- **C58:** The runtime uses one next-boundary timer, without periodic polling.
+- **C58:** The runtime uses one next-boundary timer, without periodic polling. CLM.5 extends that timer to override expiries; see [temporary zone overrides](domus-climate-overrides.md).

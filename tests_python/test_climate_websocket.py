@@ -163,3 +163,36 @@ async def test_intent_direct_ws_fails_closed_without_policy_and_inactive_princip
         assert not authorize_user_action(None, None, "domusos/climate/set_house_intent").allowed
     finally:
         await manager.async_shutdown()
+
+
+async def test_override_ws_requires_climate_control_and_enforces_revision_without_side_effects(hass: HomeAssistant, hass_ws_client, hass_admin_user):
+    store, manager = await setup_intent(hass, hass_admin_user)
+    try:
+        member = await hass.auth.async_create_user("Override member", group_ids=["system-users"])
+        refresh = await hass.auth.async_create_refresh_token(member, "https://example.com/app")
+        client = await hass_ws_client(hass, hass.auth.async_create_access_token(refresh))
+        house = await ask(client, {"type": "domusos/climate/set_house_intent", "operating_mode": "heating", "control_mode": "auto", "expected_revision": 0})
+        assert house["success"]
+        created = await ask(client, {"type": "domusos/climate/set_zone_override", "zone_id": "living", "target_temperature": 22,
+                                     "expiry_mode": "duration", "duration_minutes": 60, "expected_revision": 1})
+        assert created["success"] and created["result"]["preview"]["zones"][0]["derived"]["targetSource"] == "override"
+        conflict = await ask(client, {"type": "domusos/climate/clear_zone_override", "zone_id": "living", "expected_revision": 1})
+        assert conflict["error"]["code"] == "conflict"
+        invalid = await ask(client, {"type": "domusos/climate/set_zone_override", "zone_id": "living", "target_temperature": 50,
+                                     "expiry_mode": "duration", "duration_minutes": 60, "expected_revision": 2})
+        assert invalid["error"]["code"] == "invalid_config"
+        access = hass.data[DOMAIN][DATA_ACCESS_MANAGER]
+        visible = await ask(client, {"type": "domusos/climate/get_state"})
+        assert visible["success"] and visible["result"]["preview"]["zones"][0]["override"] is not None
+        await access.async_assign(hass_admin_user, member.id, "restricted", [], access.revision)
+        before = (manager.revision, store.writes, deepcopy(store.data))
+        for message in (
+            {"type": "domusos/climate/set_zone_override", "zone_id": "living", "target_temperature": 23,
+             "expiry_mode": "duration", "duration_minutes": 60, "expected_revision": 2},
+            {"type": "domusos/climate/clear_zone_override", "zone_id": "living", "expected_revision": 2},
+        ):
+            denied = await ask(client, message)
+            assert denied["error"]["code"] == "access_denied"
+        assert (manager.revision, store.writes, store.data) == before
+    finally:
+        await manager.async_shutdown()

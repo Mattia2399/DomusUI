@@ -32,7 +32,9 @@ test.beforeEach(async ({ page }) => {
   let climateRevision = 0;
   let climateStateRevision = 0;
   let climateIntent = { house: { operatingMode: 'off', controlMode: 'manual' }, zones: {} };
+  let climateOverrides = {};
   const houseClock = { instant: '2026-01-05T17:00:00Z', timezone: 'Europe/Rome' };
+  page.climateClock = houseClock;
   page.climateHome = await connectHomeAssistant(page, {
     states: { 'sensor.living_temp': { state: '21', attributes: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Temperatura soggiorno' } } },
     handle: (message, { reply, fail }) => {
@@ -45,14 +47,22 @@ test.beforeEach(async ({ page }) => {
         else { climateConfig = message.config; climateRevision += 1; reply({ state: 'ready', revision: climateRevision, config: climateConfig }); }
         return true;
       }
-      if (message.type === 'domusos/climate/get_state' || message.type === 'domusos/climate/set_house_intent' || message.type === 'domusos/climate/set_zone_intent') {
+      if (['domusos/climate/get_state', 'domusos/climate/set_house_intent', 'domusos/climate/set_zone_intent', 'domusos/climate/set_zone_override', 'domusos/climate/clear_zone_override'].includes(message.type)) {
         if (message.type !== 'domusos/climate/get_state') {
           if (message.expected_revision !== climateStateRevision) { fail('conflict', 'Revision changed'); return true; }
-          if (message.type === 'domusos/climate/set_house_intent') climateIntent.house = { operatingMode: message.operating_mode, controlMode: message.control_mode };
-          else climateIntent.zones[message.zone_id] = { mode: message.mode, targetTemperature: message.target_temperature };
+          if (message.type === 'domusos/climate/set_house_intent') {
+            climateIntent.house = { operatingMode: message.operating_mode, controlMode: message.control_mode };
+            if (message.control_mode === 'manual') climateOverrides = {};
+          } else if (message.type === 'domusos/climate/set_zone_intent') climateIntent.zones[message.zone_id] = { mode: message.mode, targetTemperature: message.target_temperature };
+          else if (message.type === 'domusos/climate/set_zone_override') {
+            const expiresAt = message.expiry_mode === 'next_schedule_event' ? '2026-01-05T22:30:00+00:00' : new Date(Date.parse(houseClock.instant) + (message.duration_minutes ?? 60) * 60_000).toISOString();
+            climateOverrides[message.zone_id] = { id: 'a'.repeat(32), zoneId: message.zone_id, targetTemperature: message.target_temperature,
+              createdAt: houseClock.instant, expiresAt, expiryMode: message.expiry_mode, expiresAtLocalTime: message.expiry_mode === 'next_schedule_event' ? '23:30' : '19:00', expiresAtLocalDate: '05/01' };
+          } else delete climateOverrides[message.zone_id];
           climateStateRevision += 1;
         }
         const houseNow = new Date(houseClock.instant);
+        for (const [zoneId, item] of Object.entries(climateOverrides)) if (Date.parse(item.expiresAt) <= houseNow.getTime()) { delete climateOverrides[zoneId]; climateStateRevision += 1; }
         const localDay = new Intl.DateTimeFormat('en-US', { timeZone: houseClock.timezone, weekday: 'long' }).format(houseNow).toLowerCase();
         const localTime = new Intl.DateTimeFormat('en-GB', { timeZone: houseClock.timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(houseNow);
         const events = [...(climateConfig?.schedules.find((day) => day.day === localDay)?.events ?? [])].sort((a, b) => a.time.localeCompare(b.time));
@@ -68,9 +78,11 @@ test.beforeEach(async ({ page }) => {
         } : { status: 'no_schedule', activeProfileId: null, activeProfileName: null, activeEvent: null, nextEvent: null, zoneTargets: {} } : null;
         const zones = (climateConfig?.zones ?? []).map((zone) => {
           const intent = climateIntent.zones[zone.id] ?? { mode: 'follow_house', targetTemperature: null };
-          const effectiveTarget = climateIntent.house.controlMode === 'manual' ? intent.targetTemperature : autoResolution?.zoneTargets[zone.id]?.value ?? null;
+          const override = climateIntent.house.controlMode === 'auto' ? climateOverrides[zone.id] ?? null : null;
+          const scheduledTarget = autoResolution?.zoneTargets[zone.id]?.value ?? null;
+          const effectiveTarget = climateIntent.house.controlMode === 'manual' ? intent.targetTemperature : override?.targetTemperature ?? scheduledTarget;
           const thermalStatus = climateIntent.house.operatingMode === 'off' || intent.mode === 'off' ? 'off' : effectiveTarget === null ? 'unknown' : climateIntent.house.operatingMode === 'heating' && 21 < effectiveTarget - 0.2 ? 'needs_heating' : climateIntent.house.operatingMode === 'cooling' && 21 > effectiveTarget + 0.2 ? 'needs_cooling' : 'satisfied';
-          return { zoneId: zone.id, intent, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, targetSource: effectiveTarget === null ? null : climateIntent.house.controlMode === 'auto' ? 'schedule' : 'manual', targetReason: effectiveTarget === null ? autoResolution?.status === 'resolved' ? 'no_target' : 'no_schedule' : null, autoPendingConfiguration: climateIntent.house.controlMode === 'auto' && effectiveTarget === null, thermalStatus, terminals: [], compatiblePaths: [] } };
+          return { zoneId: zone.id, intent, override, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, scheduledTarget, targetSource: effectiveTarget === null ? null : climateIntent.house.controlMode === 'manual' ? 'manual' : override ? 'override' : 'schedule', targetReason: effectiveTarget === null ? autoResolution?.status === 'resolved' ? 'no_target' : 'no_schedule' : null, autoPendingConfiguration: climateIntent.house.controlMode === 'auto' && effectiveTarget === null, thermalStatus, terminals: [], compatiblePaths: [] } };
         });
         reply({ state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, autoResolution, zones, deadbandCelsius: 0.2 } : null });
         return true;
@@ -203,7 +215,7 @@ test('Climate profiles and weekly events persist after save and reload without c
   expect(page.climateHome.messages.filter((message) => /set_(?:house|zone)_intent|call_service/.test(message.type))).toHaveLength(0);
 });
 
-test('Climate AUTO displays backend-resolved profile, scheduled target and next event without device commands', async ({ page }) => {
+test('Climate AUTO resolves the schedule, temporary override and expiry without device commands', async ({ page }) => {
   await page.goto('/settings/climate');
   await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
   await page.getByRole('button', { name: 'Aggiungi zona' }).click();
@@ -218,6 +230,7 @@ test('Climate AUTO displays backend-resolved profile, scheduled target and next 
   await programs.getByRole('spinbutton', { name: 'Soggiorno' }).fill('23');
   await programs.getByRole('textbox', { name: 'Nome nuovo profilo' }).fill('Notte');
   await programs.getByRole('button', { name: 'Crea profilo' }).click();
+  await programs.getByRole('spinbutton', { name: 'Soggiorno' }).fill('18');
   await programs.getByLabel('Ora', { exact: true }).fill('17:00');
   await programs.getByRole('combobox', { name: 'Profilo' }).selectOption({ label: 'Comfort' });
   await programs.getByRole('button', { name: 'Aggiungi fascia' }).click();
@@ -231,10 +244,28 @@ test('Climate AUTO displays backend-resolved profile, scheduled target and next 
   await runtime.getByRole('combobox', { name: 'Controllo' }).selectOption('auto');
   await expect(runtime.getByText('Profilo attivo: Comfort')).toBeVisible();
   await expect(runtime.getByText('Prossimo cambio: 23:30 · Notte')).toBeVisible();
-  await expect(runtime.getByText('23.0°')).toBeVisible();
+  await expect(runtime.getByText('23.0°', { exact: true })).toBeVisible();
   await expect(runtime.getByText('Da programma')).toBeVisible();
   await page.reload();
   await expect(page.locator('[data-climate-runtime="true"]').getByText('Profilo attivo: Comfort')).toBeVisible();
+  const liveRuntime = page.locator('[data-climate-runtime="true"]');
+  await liveRuntime.getByRole('spinbutton', { name: 'Target ambiente' }).fill('22');
+  await expect(liveRuntime.getByRole('combobox', { name: 'Scadenza' })).toHaveValue('next_schedule_event');
+  await liveRuntime.getByRole('button', { name: 'Applica temporaneamente' }).click();
+  await expect(liveRuntime.getByText('Temporaneo · 22.0°')).toBeVisible();
+  await expect(liveRuntime.getByText('Programma: Comfort · 23.0°')).toBeVisible();
+  await expect(liveRuntime.getByText('Fino al prossimo cambio · 23:30 · 05/01')).toBeVisible();
+  for (const width of [390, 820, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+  }
+  page.climateClock.instant = '2026-01-05T22:30:00Z';
+  await liveRuntime.getByRole('button', { name: 'Ricarica' }).click();
+  await expect(liveRuntime.getByText('Profilo attivo: Notte')).toBeVisible();
+  await expect(liveRuntime.getByText('18.0°', { exact: true })).toBeVisible();
+  await expect(liveRuntime.getByText('Da programma')).toBeVisible();
+  await expect(liveRuntime.getByText('Temporaneo · 22.0°')).toHaveCount(0);
+  expect(page.climateHome.messages.filter((message) => message.type === 'domusos/climate/set_zone_override')).toHaveLength(1);
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 

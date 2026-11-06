@@ -9,6 +9,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
@@ -33,9 +34,11 @@ from .models import (
     ClimatePermissionError,
     Conflict,
     InvalidConfig,
+    OverrideUnavailable,
     StoreUnavailable,
     UnsupportedSchema,
 )
+from .overrides import active_overrides, expiry_instant, utc_instant
 
 _LOGGER = logging.getLogger(__name__)
 DATA_CLIMATE_STATE_MANAGER = "climate_state_manager"
@@ -54,8 +57,9 @@ class ClimateStateManager:
         self._unsub_states: Any = None
         self._unsub_config: Any = None
         self._clock = clock or (lambda: datetime.now(UTC))
-        self._boundary = BoundaryTimer(self._clock, schedule or hass.loop.call_later, self._recompute)
+        self._boundary = BoundaryTimer(self._clock, schedule or hass.loop.call_later, self._on_boundary)
         self._snapshot: dict[str, Any] | None = None
+        self._cleanup_queued = False
 
     async def async_setup(self) -> None:
         try:
@@ -79,6 +83,7 @@ class ClimateStateManager:
                     self.state = ClimateStoreState.CORRUPT
                 else:
                     self.state = ClimateStoreState.READY
+        await self.async_cleanup_overrides()
         self._unsub_config = self.hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, self._on_core_config_update)
         self.refresh_config()
 
@@ -113,6 +118,7 @@ class ClimateStateManager:
         if entity_ids:
             self._unsub_states = async_track_state_change_event(self.hass, sorted(entity_ids), self._on_state_change)
         self._recompute()
+        self._queue_cleanup()
 
     @callback
     def _on_state_change(self, _event: Any) -> None:
@@ -122,12 +128,67 @@ class ClimateStateManager:
     def _on_core_config_update(self, _event: Any) -> None:
         self._recompute()
 
+    @callback
+    def _on_boundary(self) -> None:
+        self._recompute()
+        self._queue_cleanup()
+
     def _current_intent(self) -> dict[str, Any]:
         config = self.config_manager.config
         assert config is not None
         base = deepcopy(self.intent) if self.intent is not None else default_intent(config)
         base["zones"] = {zone["id"]: base["zones"].get(zone["id"], {"mode": "follow_house", "targetTemperature": None}) for zone in config["zones"]}
         return base
+
+    def _house_zone(self) -> ZoneInfo | str | None:
+        zone_name = getattr(self.hass.config, "time_zone", None)
+        loaded_zone = dt_util.get_default_time_zone()
+        if isinstance(loaded_zone, ZoneInfo) and loaded_zone.key == zone_name:
+            return loaded_zone
+        return "UTC" if zone_name == "UTC" else None
+
+    def _needs_cleanup(self) -> bool:
+        if self.intent is None or self.config_manager.config is None:
+            return False
+        if self.intent["house"]["controlMode"] != "auto" and self.intent.get("overrides"):
+            return True
+        zone_ids = {item["id"] for item in self.config_manager.config["zones"]}
+        return len(active_overrides(self.intent.get("overrides", {}), self._clock(), zone_ids)) != len(self.intent.get("overrides", {}))
+
+    def _queue_cleanup(self) -> None:
+        if self._cleanup_queued or not self._needs_cleanup():
+            return
+        self._cleanup_queued = True
+
+        async def run() -> None:
+            try:
+                await self.async_cleanup_overrides()
+            finally:
+                self._cleanup_queued = False
+
+        self.hass.async_create_task(run())
+
+    async def async_cleanup_overrides(self) -> None:
+        async with self._lock:
+            if not self._needs_cleanup():
+                return
+            candidate = self._current_intent()
+            zone_ids = {item["id"] for item in self.config_manager.config["zones"]}
+            previous = candidate.get("overrides", {})
+            remaining = active_overrides(previous, self._clock(), zone_ids) if candidate["house"]["controlMode"] == "auto" else {}
+            if remaining:
+                candidate["overrides"] = remaining
+            else:
+                candidate.pop("overrides", None)
+            await self._save(candidate, self.revision)
+            for zone_id in previous.keys() - remaining.keys():
+                if zone_id not in zone_ids:
+                    event = "override_orphaned"
+                elif utc_instant(previous[zone_id]["expiresAt"], "expiresAt") <= self._clock().astimezone(UTC):
+                    event = "override_expired"
+                else:
+                    event = "override_cleared"
+                _LOGGER.info("Climate %s zone=%s", event, zone_id)
 
     def _recompute(self) -> None:
         config = self.config_manager.config
@@ -147,34 +208,47 @@ class ClimateStateManager:
         current_intent = self._current_intent()
         now = self._clock()
         zone_name = getattr(self.hass.config, "time_zone", None)
-        loaded_zone = dt_util.get_default_time_zone()
-        house_zone = None
-        if isinstance(loaded_zone, ZoneInfo) and loaded_zone.key == zone_name:
-            house_zone = loaded_zone
-        elif zone_name == "UTC":
-            house_zone = "UTC"
+        house_zone = self._house_zone()
         resolution = resolve_auto(config, now, house_zone) if current_intent["house"]["controlMode"] == "auto" else None
-        self._snapshot = preview(config, current_intent, states, auto_resolution=resolution)
-        self._boundary.update(resolution, zone_name)
+        zone_ids = {item["id"] for item in config["zones"]}
+        stored_overrides = current_intent.get("overrides", {}) if current_intent["house"]["controlMode"] == "auto" else {}
+        overrides = {zone_id: dict(item) for zone_id, item in active_overrides(stored_overrides, now, zone_ids).items()}
+        if house_zone is not None:
+            tz = UTC if house_zone == "UTC" else house_zone
+            for item in overrides.values():
+                local_expiry = utc_instant(item["expiresAt"], "expiresAt").astimezone(tz)
+                item["expiresAtLocalTime"] = local_expiry.strftime("%H:%M")
+                item["expiresAtLocalDate"] = local_expiry.strftime("%d/%m")
+        self._snapshot = preview(config, current_intent, states, auto_resolution=resolution, active_overrides=overrides)
+        expiries = [utc_instant(item["expiresAt"], "expiresAt") for item in overrides.values()]
+        self._boundary.update(resolution, zone_name, expiries)
 
     def get_state(self) -> dict[str, Any]:
         # Also recompute on read: a new config or a just-arrived HA state is immediately visible.
         self._recompute()
+        self._queue_cleanup()
         return {"state": self.state.value, "revision": self.revision, "configState": self.config_manager.state.value,
                 "configRevision": self.config_manager.revision, "preview": deepcopy(self._snapshot)}
+
+    async def async_get_state(self) -> dict[str, Any]:
+        await self.async_cleanup_overrides()
+        return self.get_state()
 
     def _require_account(self, user: Any) -> None:
         # Access Control enforcement is the sole authorization path at the WS boundary.
         if user is None or getattr(user, "is_active", False) is not True:
             raise ClimatePermissionError("An active Home Assistant account is required")
 
-    async def _save(self, candidate: dict[str, Any], expected_revision: int) -> dict[str, Any]:
+    def _validate_write(self, expected_revision: int) -> None:
         if self.config_manager.state is not ClimateStoreState.READY:
             raise StoreUnavailable("Climate installation is not configured")
         if self.state not in (ClimateStoreState.ABSENT, ClimateStoreState.READY):
             raise StoreUnavailable(f"Climate intent store is {self.state.value}")
         if type(expected_revision) is not int or expected_revision != self.revision:
             raise Conflict("Climate intent changed; reload before saving")
+
+    async def _save(self, candidate: dict[str, Any], expected_revision: int) -> dict[str, Any]:
+        self._validate_write(expected_revision)
         candidate = parse_intent(candidate)
         if self.state is ClimateStoreState.READY and candidate == self.intent:
             return self.get_state()
@@ -196,7 +270,13 @@ class ClimateStateManager:
             if candidate is None:
                 raise StoreUnavailable("Climate installation is not configured")
             candidate["house"] = {"operatingMode": operating_mode, "controlMode": control_mode}
-            return await self._save(candidate, expected_revision)
+            cleared = list(candidate.get("overrides", {})) if control_mode == "manual" else []
+            if control_mode == "manual":
+                candidate.pop("overrides", None)
+            result = await self._save(candidate, expected_revision)
+            for zone_id in cleared:
+                _LOGGER.info("Climate override_cleared zone=%s reason=manual", zone_id)
+            return result
 
     async def async_set_zone_intent(self, zone_id: Any, mode: Any, target_temperature: Any, expected_revision: int, user: Any) -> dict[str, Any]:
         self._require_account(user)
@@ -208,3 +288,42 @@ class ClimateStateManager:
                 raise InvalidConfig("zoneId", "unknown zone")
             candidate["zones"][zone_id] = {"mode": mode, "targetTemperature": target_temperature}
             return await self._save(candidate, expected_revision)
+
+    async def async_set_zone_override(self, zone_id: Any, target_temperature: Any, expiry_mode: Any,
+                                      expected_revision: int, user: Any, *, duration_minutes: Any = None,
+                                      until_time: Any = None) -> dict[str, Any]:
+        self._require_account(user)
+        async with self._lock:
+            self._validate_write(expected_revision)
+            candidate = self._current_intent()
+            if candidate["house"]["controlMode"] != "auto":
+                raise OverrideUnavailable("Temporary overrides require AUTO control")
+            if type(zone_id) is not str or zone_id not in candidate["zones"]:
+                raise InvalidConfig("zoneId", "unknown zone")
+            now = self._clock()
+            house_zone = self._house_zone()
+            resolution = resolve_auto(self.config_manager.config, now, house_zone)
+            expires = expiry_instant(expiry_mode, now, house_zone, resolution,
+                                     duration_minutes=duration_minutes, until_time=until_time)
+            override = {"id": uuid4().hex, "zoneId": zone_id, "targetTemperature": target_temperature,
+                        "createdAt": now.astimezone(UTC).isoformat(), "expiresAt": expires.isoformat(), "expiryMode": expiry_mode}
+            candidate.setdefault("overrides", {})[zone_id] = override
+            result = await self._save(candidate, expected_revision)
+            _LOGGER.info("Climate override_created zone=%s mode=%s", zone_id, expiry_mode)
+            return result
+
+    async def async_clear_zone_override(self, zone_id: Any, expected_revision: int, user: Any) -> dict[str, Any]:
+        self._require_account(user)
+        async with self._lock:
+            self._validate_write(expected_revision)
+            candidate = self._current_intent()
+            if type(zone_id) is not str or zone_id not in candidate["zones"]:
+                raise InvalidConfig("zoneId", "unknown zone")
+            if zone_id not in candidate.get("overrides", {}):
+                return self.get_state()
+            candidate["overrides"].pop(zone_id)
+            if not candidate["overrides"]:
+                candidate.pop("overrides")
+            result = await self._save(candidate, expected_revision)
+            _LOGGER.info("Climate override_cleared zone=%s", zone_id)
+            return result

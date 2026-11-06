@@ -16,6 +16,8 @@ from custom_components.domusos.climate.intent import STATE_SCHEMA, state_documen
 from custom_components.domusos.climate.manager import ClimateManager
 from custom_components.domusos.climate.models import (
     Conflict,
+    InvalidConfig,
+    OverrideUnavailable,
     StoreUnavailable,
     storage_document,
 )
@@ -83,7 +85,10 @@ async def test_absent_write_same_write_conflict_reload_and_live_sensor_change(ha
 
 
 async def test_corrupt_and_unsupported_state_are_not_overwritten(hass: HomeAssistant):
-    for data, expected in (({"bad": True}, "corrupt"), (state_document(1, {"house": {"operatingMode": "off", "controlMode": "manual"}, "zones": {}}) | {"version": 9}, "unsupported")):
+    base = state_document(1, {"house": {"operatingMode": "off", "controlMode": "manual"}, "zones": {}})
+    bad_override = deepcopy(base)
+    bad_override["intent"]["overrides"] = {"living": {"id": "invalid"}}
+    for data, expected in (({"bad": True}, "corrupt"), (base | {"version": 9}, "unsupported"), (bad_override, "corrupt")):
         manager, store = await setup_state(hass, data)
         try:
             assert manager.get_state()["state"] == expected
@@ -166,5 +171,105 @@ async def test_auto_schedule_boundary_config_timezone_and_manual_preservation_wi
             manual = await manager.async_set_house_intent("heating", "manual", 3, USER)
             assert manual["preview"]["zones"][0]["derived"]["effectiveTarget"] == 22
             assert manager._boundary.handle is None
+    finally:
+        await manager.async_shutdown()
+
+
+async def test_temporary_override_write_replace_clear_conflict_restart_and_expiry_without_services(hass: HomeAssistant):
+    now = [datetime.fromisoformat("2026-01-05T17:00:00+00:00")]
+    handles = []
+
+    class Handle:
+        def __init__(self, delay, callback):
+            self.delay = delay
+            self.callback = callback
+            self.cancelled = False
+
+        def cancel(self):
+            self.cancelled = True
+
+    def schedule(delay, callback):
+        handle = Handle(delay, callback)
+        handles.append(handle)
+        return handle
+
+    manager, store = await setup_state(hass, clock=lambda: now[0], schedule=schedule)
+    try:
+        with patch.object(type(hass.services), "async_call", side_effect=AssertionError("device command")):
+            with pytest.raises(OverrideUnavailable):
+                await manager.async_set_zone_override("living", 22, "duration", 0, USER, duration_minutes=60)
+            assert store.writes == 0
+            await manager.async_set_house_intent("heating", "auto", 0, USER)
+            first = await manager.async_set_zone_override("living", 22, "duration", 1, USER, duration_minutes=60)
+            first_id = first["preview"]["zones"][0]["override"]["id"]
+            assert first["preview"]["zones"][0]["derived"]["targetSource"] == "override"
+            assert first["preview"]["zones"][0]["derived"]["effectiveTarget"] == 22
+            assert store.data["intent"]["overrides"]["living"]["expiresAt"] == "2026-01-05T18:00:00+00:00"
+            assert len([handle for handle in handles if not handle.cancelled]) == 1
+            with pytest.raises(Conflict):
+                await manager.async_clear_zone_override("living", 1, USER)
+            with pytest.raises(InvalidConfig):
+                await manager.async_set_zone_override("missing", 21, "duration", 2, USER, duration_minutes=60)
+            with pytest.raises(InvalidConfig):
+                await manager.async_set_zone_override("living", 50, "duration", 2, USER, duration_minutes=60)
+            with pytest.raises(InvalidConfig):
+                await manager.async_set_zone_override("living", 21, "duration", 2, USER, duration_minutes=0)
+            assert store.writes == 2
+            replaced = await manager.async_set_zone_override("living", 22, "duration", 2, USER, duration_minutes=60)
+            assert replaced["revision"] == 3 and replaced["preview"]["zones"][0]["override"]["id"] != first_id
+            restored = ClimateStateManager(hass, manager.config_manager, store=store, clock=lambda: now[0], schedule=schedule)
+            await restored.async_setup()
+            try:
+                assert restored.get_state()["preview"]["zones"][0]["derived"]["targetSource"] == "override"
+            finally:
+                await restored.async_shutdown()
+            cleared = await manager.async_clear_zone_override("living", 3, USER)
+            assert cleared["revision"] == 4 and cleared["preview"]["zones"][0]["override"] is None
+            assert (await manager.async_clear_zone_override("living", 4, USER))["revision"] == 4
+            await manager.async_set_zone_override("living", 23, "duration", 4, USER, duration_minutes=60)
+            manual = await manager.async_set_house_intent("heating", "manual", 5, USER)
+            assert manual["preview"]["zones"][0]["override"] is None
+            assert "overrides" not in store.data["intent"]
+            await manager.async_set_house_intent("heating", "auto", 6, USER)
+            await manager.async_set_zone_override("living", 24, "duration", 7, USER, duration_minutes=60)
+            now[0] = datetime.fromisoformat("2026-01-05T18:00:00+00:00")
+            expired = await manager.async_get_state()
+            assert expired["preview"]["zones"][0]["derived"]["targetSource"] is None
+            assert "overrides" not in store.data["intent"]
+            assert expired["revision"] == 9
+    finally:
+        await manager.async_shutdown()
+
+
+async def test_expired_override_is_cleaned_on_restart(hass: HomeAssistant):
+    now = [datetime.fromisoformat("2026-01-05T17:00:00+00:00")]
+    manager, store = await setup_state(hass, clock=lambda: now[0])
+    try:
+        await manager.async_set_house_intent("heating", "auto", 0, USER)
+        await manager.async_set_zone_override("living", 22, "duration", 1, USER, duration_minutes=60)
+    finally:
+        await manager.async_shutdown()
+    now[0] = datetime.fromisoformat("2026-01-05T19:00:00+00:00")
+    restored = ClimateStateManager(hass, manager.config_manager, store=store, clock=lambda: now[0])
+    await restored.async_setup()
+    try:
+        assert restored.get_state()["preview"]["zones"][0]["override"] is None
+        assert "overrides" not in store.data["intent"]
+        assert restored.revision == 3
+    finally:
+        await restored.async_shutdown()
+
+
+async def test_orphan_override_is_cleaned_after_zone_config_removal(hass: HomeAssistant):
+    now = datetime.fromisoformat("2026-01-05T17:00:00+00:00")
+    manager, store = await setup_state(hass, clock=lambda: now)
+    try:
+        await manager.async_set_house_intent("heating", "auto", 0, USER)
+        await manager.async_set_zone_override("living", 22, "duration", 1, USER, duration_minutes=60)
+        manager.config_manager.config["zones"] = []
+        manager.refresh_config()
+        await hass.async_block_till_done()
+        assert "overrides" not in store.data["intent"]
+        assert manager.get_state()["preview"]["zones"] == []
     finally:
         await manager.async_shutdown()

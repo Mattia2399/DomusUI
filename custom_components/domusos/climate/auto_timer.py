@@ -1,4 +1,4 @@
-"""One cancelable timer for the next automatic climate schedule boundary."""
+"""One cancelable timer for the next climate schedule or override boundary."""
 
 from __future__ import annotations
 
@@ -23,9 +23,12 @@ class BoundaryTimer:
         self.scheduled_at = None
         self.scheduled_timezone = None
 
-    def update(self, resolution: dict[str, Any] | None, zone_name: str | None) -> None:
+    def update(self, resolution: dict[str, Any] | None, zone_name: str | None, override_expiries: list[datetime] | None = None) -> None:
         next_event = resolution.get("nextEvent") if resolution else None
-        when = datetime.fromisoformat(next_event["occursAt"]) if next_event else None
+        candidates = list(override_expiries or [])
+        if next_event:
+            candidates.append(datetime.fromisoformat(next_event["occursAt"]))
+        when = min(candidates) if candidates else None
         if when is None:
             self.cancel()
             return

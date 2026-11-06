@@ -77,7 +77,7 @@ def test_only_plain_domus_services_can_opt_in() -> None:
 
 def test_no_websocket_command_opts_in() -> None:
     websocket = actions.contracts_for(Surface.WEBSOCKET)
-    assert len(websocket) == 47
+    assert len(websocket) == 49
     assert not any(contract.allow_unattributed_ha_context for contract in websocket)
 
 
@@ -95,7 +95,7 @@ def test_no_management_recovery_bootstrap_or_diagnostics_opts_in() -> None:
 
 
 def test_the_registry_keeps_its_surfaces() -> None:
-    assert len(actions.ACTION_CONTRACTS) == 52
+    assert len(actions.ACTION_CONTRACTS) == 54
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 

@@ -40,6 +40,18 @@ class InvalidFormat(ClimateError):
     code = "invalid_format"
 
 
+class OverrideUnavailable(ClimateError):
+    code = "override_not_available_in_manual"
+
+
+class NextScheduleEventUnavailable(ClimateError):
+    code = "next_schedule_event_unavailable"
+
+
+class HouseTimezoneUnavailable(ClimateError):
+    code = "timezone_unavailable"
+
+
 class ProfileInUse(InvalidConfig):
     code = "profile_in_use"
 

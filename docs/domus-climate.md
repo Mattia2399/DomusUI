@@ -51,7 +51,7 @@ The intended flow is **Domus climate intent → future engine → zone / circuit
 | CLM.7 | Automatic source strategy |
 | CLM.8 | Energy-aware optimization with Domus Energy (price, solar production and cost) |
 
-The future UX can replace the lazy shell with a climate overview, zone card and detail, device mapping, schedule and profile editors, source selector, manual/auto switch, season selector and temporary override. None of these interfaces or behaviors is implemented here.
+The active Climate work includes a lazy Climate shell, overview and zone cards, device mapping, schedule and profile editors, manual/auto controls and temporary zone targets. Physical source control and optimization remain future work.
 
 ## General climate architecture (CLM.2A)
 
@@ -90,8 +90,10 @@ The persistent HOUSE document is described in [CLM.2 zone mapping](domus-climate
 
 **C27:** HOUSE stores installation topology and optional operating/control intent; readings, active physical mode, sensor health, demand, dew point, active generator and overrides remain runtime/derived state outside this store. `controlMode` (`manual`/`auto`), `operatingMode` (`heating`/`cooling`/`off`) and reserved source `strategy` are distinct. Generator `preferred`/`fallback`/`required` links express topology metadata only.
 
-External window, occupancy, weather, PV and price signals belong to a future generic signal/constraint extension point, not special core fields. CLM.3/CLM.5 must decide whether physical changes at a TRV, AC remote or thermostat become temporary overrides or cause configured targets to be restored. No choice is made here.
+External window, occupancy, weather, PV and price signals belong to a future generic signal/constraint extension point, not special core fields. CLM.5 accepts temporary overrides requested through Domus. Physical changes at a TRV, AC remote or thermostat remain observed mismatches of unknown cause; attribution and any resulting action belong to a later phase.
 
 ## CLM.3A intent runtime
 
 The active runtime contract is [CLM.3A intent runtime](domus-climate-intent-runtime.md). It separates installation configuration, persistent house and zone intent, observed HA readings, and derived decision preview. It does not execute HA services. C28–C37 supersede the earlier suggestion in C27 that operating and control mode belong in the installation document: existing optional fields only seed an absent intent store for compatibility.
+
+CLM.4B resolves weekly schedule targets as described in [automatic target resolver](domus-climate-auto-resolver.md). CLM.5 adds [temporary zone overrides](domus-climate-overrides.md) to AUTO with one absolute UTC expiry per zone and one shared next-boundary timer. Neither phase issues HA service commands.

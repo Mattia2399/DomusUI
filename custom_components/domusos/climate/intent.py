@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from .models import InvalidConfig
+from .overrides import parse_overrides
 
 STATE_SCHEMA = "domusos-climate-state"
 STATE_VERSION = 1
@@ -31,7 +32,7 @@ def _target(value: Any, field: str) -> float | None:
 
 
 def parse_intent(value: Any) -> dict[str, Any]:
-    if type(value) is not dict or set(value) != {"house", "zones"}:
+    if type(value) is not dict or not {"house", "zones"} <= set(value) or not set(value) <= {"house", "zones", "overrides"}:
         raise InvalidConfig("intent", "unexpected or missing fields")
     house = value["house"]
     if type(house) is not dict or set(house) != {"operatingMode", "controlMode"}:
@@ -48,7 +49,10 @@ def parse_intent(value: Any) -> dict[str, Any]:
         if zone["mode"] not in ("follow_house", "off"):
             raise InvalidConfig(f"intent.zones.{zone_id}.mode")
         parsed_zones[zone_id] = {"mode": zone["mode"], "targetTemperature": _target(zone["targetTemperature"], f"intent.zones.{zone_id}.targetTemperature")}
-    return {"house": dict(house), "zones": parsed_zones}
+    result = {"house": dict(house), "zones": parsed_zones}
+    if "overrides" in value:
+        result["overrides"] = parse_overrides(value["overrides"])
+    return result
 
 
 def parse_state_document(value: Any) -> tuple[int, dict[str, Any]]:
@@ -115,7 +119,7 @@ def _supports(item: Mapping[str, Any], mode: str, kind: str) -> bool:
     return ("space_heating" if mode == "heating" else "space_cooling") in item["services"]
 
 
-def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mapping[str, Any], *, stale_ids: frozenset[str] = frozenset(), auto_targets: Mapping[str, float] | None = None, auto_resolution: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mapping[str, Any], *, stale_ids: frozenset[str] = frozenset(), auto_targets: Mapping[str, float] | None = None, auto_resolution: Mapping[str, Any] | None = None, active_overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Compute desired/observed/derived state without choosing or commanding a source."""
     parsed = parse_intent(intent)
     house = parsed["house"]
@@ -131,13 +135,21 @@ def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mappin
         zone_intent = parsed["zones"].get(zone_id, {"mode": "follow_house", "targetTemperature": None})
         temperature = _reading(zone["reference"], states, "current_temperature", stale_ids)
         humidity = _reading(zone.get("humidityReference"), states, "current_humidity", stale_ids)
+        active_override = active_overrides.get(zone_id) if house["controlMode"] == "auto" and active_overrides else None
+        scheduled_target = None
+        if auto_resolution is not None and auto_resolution.get("status") == "resolved":
+            zone_auto = auto_resolution.get("zoneTargets", {}).get(zone_id, {})
+            scheduled_target = zone_auto.get("value") if zone_auto.get("status") == "resolved" else None
         if house["controlMode"] == "manual":
             effective_target = zone_intent["targetTemperature"]
             target_source = "manual" if effective_target is not None else None
             target_reason = None if effective_target is not None else "no_manual_target"
+        elif active_override is not None:
+            effective_target = active_override["targetTemperature"]
+            target_source = "override"
+            target_reason = None
         elif auto_resolution is not None:
-            zone_auto = auto_resolution.get("zoneTargets", {}).get(zone_id, {}) if auto_resolution.get("status") == "resolved" else {}
-            effective_target = zone_auto.get("value") if zone_auto.get("status") == "resolved" else None
+            effective_target = scheduled_target
             target_source = "schedule" if effective_target is not None else None
             if effective_target is not None:
                 target_reason = None
@@ -200,12 +212,15 @@ def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mappin
                           "condensationProtectionRequired": bool(constraint and constraint["condensationProtection"] == "required"),
                           "auxiliaryCandidates": [aid for aid in constraint["auxiliaryIds"] if aid in auxiliaries] if constraint else [],
                           "sharedOperatingMode": any(group["sharedOperatingMode"] for group in groups if terminal_id in group["memberEndpointIds"])})
-        result.append({"zoneId": zone_id, "intent": zone_intent, "observed": {"temperature": temperature["value"], "humidity": humidity["value"],
+        result.append({"zoneId": zone_id, "intent": zone_intent, "override": active_override, "observed": {"temperature": temperature["value"], "humidity": humidity["value"],
                        "temperatureSource": temperature["source"], "humiditySource": humidity["source"], "temperatureAvailability": temperature["availability"], "humidityAvailability": humidity["availability"]},
                        "derived": {"effectiveTarget": effective_target, "targetSource": target_source, "targetReason": target_reason,
+                                   "scheduledTarget": scheduled_target,
                                    "effectiveTargetDetail": {"value": effective_target, "source": target_source,
                                                              "profileId": auto_resolution.get("activeProfileId") if target_source == "schedule" and auto_resolution else None,
-                                                             "event": auto_resolution.get("activeEvent") if target_source == "schedule" and auto_resolution else None},
+                                                             "event": auto_resolution.get("activeEvent") if target_source == "schedule" and auto_resolution else None,
+                                                             "expiresAt": active_override["expiresAt"] if active_override else None,
+                                                             "expiryMode": active_override["expiryMode"] if active_override else None},
                                    "autoPendingConfiguration": house["controlMode"] == "auto" and effective_target is None,
                                    "thermalStatus": status, "thermalReason": thermal_reason, "terminals": terminal_rows, "compatiblePaths": paths}})
     return {"house": house, "autoResolution": auto_resolution if house["controlMode"] == "auto" else None,

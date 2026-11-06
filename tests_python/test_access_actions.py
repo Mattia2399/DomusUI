@@ -36,6 +36,8 @@ EXPECTED = {
     "domusos/climate/get_state": "climate.view",
     "domusos/climate/set_house_intent": "climate.control",
     "domusos/climate/set_zone_intent": "climate.control",
+    "domusos/climate/set_zone_override": "climate.control",
+    "domusos/climate/clear_zone_override": "climate.control",
     # Device timers
     "domusos/device_timers/get_state": "devices.timers",
     "domusos/device_timers/subscribe": "devices.timers",
@@ -171,7 +173,7 @@ def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
     # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1),
     # the four of device timers.
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 52
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 54
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:
@@ -190,7 +192,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 47
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 49
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 
@@ -251,7 +253,7 @@ def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> N
         assert len(contract.shadow_exemption) > 40, contract.id
     observed = actions.shadow_contracts()
     assert {contract.id for contract in observed} == set(EXPECTED) - SHADOW_EXEMPT
-    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 40
+    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 42
     assert len([contract for contract in observed if contract.surface is Surface.SERVICE]) == 5
 
 

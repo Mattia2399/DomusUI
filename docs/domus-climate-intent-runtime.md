@@ -16,7 +16,7 @@ House and zone intent **survive restart** in the separate state store. The first
 
 The preview reports path candidates according to declared capabilities and optional generator preference metadata; it neither chooses a source nor infers that radiant cooling is safe. Humidity and condensation requirements and dehumidifier candidates are visible constraints. A changed physical device setpoint is shown as a mismatch with `unknown` cause; CLM.3A does not restore it or classify it as a user override. Room targets have no connection to circuit supply or generator water setpoints.
 
-WebSocket commands are `domusos/climate/get_state` (`climate.view`), `set_house_intent` and `set_zone_intent` (`climate.control`). Config writes remain `climate.manage` and HA admin only. Access Control checks every direct WebSocket command and fails closed. Active resident, member and wall panel roles can control intent; restricted and locked roles cannot. Revision conflicts require reload. The frontend observes configured HA entities only; no timer polls all HA states.
+The CLM.3A WebSocket commands are `domusos/climate/get_state` (`climate.view`), `set_house_intent` and `set_zone_intent` (`climate.control`). CLM.5 adds `set_zone_override` and `clear_zone_override`, also guarded by `climate.control`; see [temporary zone overrides](domus-climate-overrides.md). Config writes remain `climate.manage` and HA admin only. Access Control checks every direct WebSocket command and fails closed. Active resident, member and wall panel roles can control intent; restricted and locked roles cannot. Revision conflicts require reload. The frontend observes configured HA entities only; no timer polls all HA states.
 
 ## Decisions
 
