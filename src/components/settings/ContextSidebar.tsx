@@ -409,6 +409,7 @@ export function ContextSidebar({
   const homePanelProps: HomePanelProps | null = activeDevice
     ? {
         activeDevice,
+        cardEntityId: homeWidgets?.find((widget) => widget.id === activeDevice.id)?.entityId,
         lamp,
         climate,
         cover,

@@ -135,6 +135,8 @@ export type HomePanelActions = {
 
 export type HomePanelProps = {
   activeDevice: ActiveDevice;
+  /** The entity of the card that opened the panel: what the Rooms find a card by. */
+  cardEntityId?: string;
   lamp: HomeLamp;
   climate: HomeClimate;
   cover: HomeCover;

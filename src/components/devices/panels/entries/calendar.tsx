@@ -28,13 +28,15 @@ import './data.css';
 
 export type CalendarPanelInput = {
   name: string;
+  /** The entity of the card: what the panel belongs to, as for every other device. Without it, its name. */
+  entityId?: string;
   supportedFeatures: number;
   agenda: CalendarAgendaController;
   wasteTypes?: WasteTypeStyleMap;
   onConfigureWaste?: () => void;
 };
 
-function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onConfigureWaste }: CalendarPanelInput): PanelSpec {
+function useCalendarSpec({ name, entityId, supportedFeatures, agenda, wasteTypes = {}, onConfigureWaste }: CalendarPanelInput): PanelSpec {
   const pt = usePanelsTranslations();
   const sp = usePanelSpecTranslations();
   const { locale, t, formatDate } = useI18n();
@@ -156,7 +158,7 @@ function useCalendarSpec({ name, supportedFeatures, agenda, wasteTypes = {}, onC
       : undefined;
 
   return {
-    owner: name,
+    owner: entityId ?? name,
     name,
     status,
     layout: 'calendar',

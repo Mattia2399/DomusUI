@@ -464,3 +464,24 @@ describe('the fan and the cover declare their controls', () => {
     expect(screen.queryByRole('radio', { name: 'Chiusa' })).toBeNull();
   });
 });
+
+describe('robot, calendar and members belong to their entity', () => {
+  function ownerOf<I>(entry: PanelEntry<I>, input: I) {
+    let owner = '';
+    function Read() {
+      owner = entry.useSpec(input).owner;
+      return null;
+    }
+    render(<Read />);
+    return owner;
+  }
+
+  it('the entity of the card when there is one, its name otherwise', () => {
+    const commands = vacuumCommands();
+    expect(ownerOf(vacuumEntry, { vacuum: { name: 'Robot', state: 'docked' }, entityId: 'vacuum.robot', commands })).toBe('vacuum.robot');
+    expect(ownerOf(vacuumEntry, { vacuum: { name: 'Robot', state: 'docked' }, commands })).toBe('Robot');
+    expect(ownerOf(calendarEntry, { name: 'Famiglia', entityId: 'calendar.famiglia', supportedFeatures: 0, agenda: agenda() })).toBe('calendar.famiglia');
+    expect(ownerOf(membersEntry, { name: 'Casa', entityId: 'zone.home', members: [], haStates: {} })).toBe('zone.home');
+    expect(ownerOf(membersEntry, { name: 'Casa', members: [], haStates: {} })).toBe('Casa');
+  });
+});

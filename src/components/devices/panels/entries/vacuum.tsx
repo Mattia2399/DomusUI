@@ -66,6 +66,8 @@ export type VacuumPanelCommands = {
 
 export type VacuumPanelInput = {
   vacuum: VacuumPanelModel;
+  /** The entity of the card: what the panel belongs to, as for every other device. Without it, its name. */
+  entityId?: string;
   areas?: VacuumMappedArea[];
   commands: VacuumPanelCommands;
 };
@@ -87,7 +89,7 @@ const FINDING_MS = 1800;
 /** Beyond this the tiles leave no room for their names: a list. */
 const MOST_TILES = 6;
 
-function useVacuumSpec({ vacuum, areas = [], commands }: VacuumPanelInput): PanelSpec {
+function useVacuumSpec({ vacuum, entityId, areas = [], commands }: VacuumPanelInput): PanelSpec {
   const pt = usePanelsTranslations();
   const sp = usePanelSpecTranslations();
   const { t } = useI18n();
@@ -249,7 +251,7 @@ function useVacuumSpec({ vacuum, areas = [], commands }: VacuumPanelInput): Pane
   }
 
   return {
-    owner: vacuum.name,
+    owner: entityId ?? vacuum.name,
     name: vacuum.name,
     status: [stateName, battery !== null ? `${battery}%` : null].filter(Boolean).join(' · '),
     layout: 'vacuum',

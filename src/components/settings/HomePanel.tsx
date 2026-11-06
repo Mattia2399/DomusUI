@@ -64,6 +64,8 @@ export function HomePanel(props: HomePanelProps) {
   const closeLabel = embedded ? t('builder.closeDevice') : undefined;
 
   const entityId = homeLiveEntityIdOf(props);
+  // Robot, calendar and members belong to the entity of their card, as every other panel does.
+  const owner = props.cardEntityId ?? entityId ?? undefined;
   const readEntity = entityId ? props.haStates[entityId] : undefined;
   // A sensor the Home cannot read keeps the panel, with what its card knows.
   const sensorStandIn = panel === 'sensor' && !readEntity
@@ -246,12 +248,13 @@ export function HomePanel(props: HomePanelProps) {
     );
   }
   if (panel === 'vacuum') {
-    const input: VacuumPanelInput = { vacuum: { ...props.vacuum, name: activeDevice.name }, areas: props.vacuumAreas, commands: props.vacuumCommands };
+    const input: VacuumPanelInput = { vacuum: { ...props.vacuum, name: activeDevice.name }, entityId: owner, areas: props.vacuumAreas, commands: props.vacuumCommands };
     return <Panel kind="vacuum" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'calendar') {
     const input: CalendarPanelInput = {
       name: activeDevice.name,
+      entityId: owner,
       supportedFeatures: activeDevice.calendarSupportedFeatures ?? 0,
       agenda: props.calendarAgenda,
       wasteTypes: props.calendarWasteTypes,
@@ -285,7 +288,7 @@ export function HomePanel(props: HomePanelProps) {
     return <Panel kind="weather" input={input} closeLabel={closeLabel} onClose={onClose} />;
   }
   if (panel === 'members') {
-    const input: MembersPanelInput = { name: activeDevice.name, members: activeDevice.membersPresence ?? activeDevice.membersMapPoints ?? [], haStates: props.haStates };
+    const input: MembersPanelInput = { name: activeDevice.name, entityId: owner, members: activeDevice.membersPresence ?? activeDevice.membersMapPoints ?? [], haStates: props.haStates };
     return <Panel kind="members" input={input} closeLabel={closeLabel} onClose={onClose} />;
   }
   return null;

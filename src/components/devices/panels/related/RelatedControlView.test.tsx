@@ -1,6 +1,6 @@
 import type React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { relatedWordsOf } from '../../../../i18n/relatedTranslations';
 import type { RelatedControl } from '../../../../types/relatedControl';
 import { RelatedControlView } from './RelatedControlView';
@@ -69,6 +69,9 @@ describe('what stands in its place', () => {
 });
 
 describe('it draws the look with the values of the entity', () => {
+  // The looks arrive apart: here they are fetched first, so that a busy machine does not outlast findBy.
+  beforeAll(() => Promise.all(Object.values(RELATED_FAMILY_LOADERS).map((load) => load())));
+
   it('levels, and touching one sends it', async () => {
     const actions = view({ look: 'levels', entityId: 'number.a' }, POWER);
     fireEvent.click(await screen.findByRole('radio', { name: '5' }));

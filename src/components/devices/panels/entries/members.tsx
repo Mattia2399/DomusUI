@@ -21,6 +21,8 @@ import './data.css';
 
 export type MembersPanelInput = {
   name: string;
+  /** The entity of the card: what the panel belongs to, as for every other device. Without it, its name. */
+  entityId?: string;
   members: MembersPresenceEntry[];
   haStates: MockEntityStateMap;
   mapEnabled?: boolean;
@@ -45,7 +47,7 @@ function mapPins(members: MembersPresenceEntry[]) {
   }));
 }
 
-function useMembersSpec({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENABLED }: MembersPanelInput): PanelSpec {
+function useMembersSpec({ name, entityId, members, haStates, mapEnabled = MEMBERS_MAP_ENABLED }: MembersPanelInput): PanelSpec {
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
   const registry = useEntityRegistry();
@@ -114,7 +116,7 @@ function useMembersSpec({ name, members, haStates, mapEnabled = MEMBERS_MAP_ENAB
       : undefined;
 
   return {
-    owner: name,
+    owner: entityId ?? name,
     name,
     status: members.length === 0 ? pt('mbNobody') : pt('mbSub', { home: homeCount, away: members.length - homeCount }),
     layout: 'members',
