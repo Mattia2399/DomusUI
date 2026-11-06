@@ -31,7 +31,7 @@
   flex-direction: column;
 }
 
-.panel-editor-head b {
+.panel-editor-head h3 {
   font-size: 22px;
   font-weight: 700;
 }

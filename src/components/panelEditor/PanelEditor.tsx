@@ -39,7 +39,7 @@ export default function PanelEditor(props: PanelEditorProps) {
       <header className="panel-editor-head">
         <span>
           <span>{words('edit')}</span>
-          <b>{props.widget.title}</b>
+          <h3>{props.widget.title}</h3>
         </span>
         <GlassButton variant="filled" onClick={props.onDone}>
           {words('done')}
