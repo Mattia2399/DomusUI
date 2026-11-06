@@ -84,7 +84,9 @@ test.beforeEach(async ({ page }) => {
           const thermalStatus = climateIntent.house.operatingMode === 'off' || intent.mode === 'off' ? 'off' : effectiveTarget === null ? 'unknown' : climateIntent.house.operatingMode === 'heating' && 21 < effectiveTarget - 0.2 ? 'needs_heating' : climateIntent.house.operatingMode === 'cooling' && 21 > effectiveTarget + 0.2 ? 'needs_cooling' : 'satisfied';
           return { zoneId: zone.id, intent, override, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, scheduledTarget, targetSource: effectiveTarget === null ? null : climateIntent.house.controlMode === 'manual' ? 'manual' : override ? 'override' : 'schedule', targetReason: effectiveTarget === null ? autoResolution?.status === 'resolved' ? 'no_target' : 'no_schedule' : null, autoPendingConfiguration: climateIntent.house.controlMode === 'auto' && effectiveTarget === null, thermalStatus, terminals: [], compatiblePaths: [] } };
         });
-        reply({ state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, autoResolution, zones, deadbandCelsius: 0.2 } : null });
+        const snapshot = { state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, autoResolution, zones, deadbandCelsius: 0.2 } : null };
+        page.climateLastState = snapshot;
+        reply(snapshot);
         return true;
       }
       return false;
@@ -241,11 +243,20 @@ test('Climate AUTO resolves the schedule, temporary override and expiry without 
   await navigation.getByRole('button', { name: 'Panoramica' }).click();
   const runtime = page.locator('[data-climate-runtime="true"]');
   await runtime.getByRole('combobox', { name: 'Modalità casa' }).selectOption('heating');
+  await runtime.getByRole('spinbutton', { name: 'Target ambiente' }).fill('20');
+  await runtime.getByRole('button', { name: 'Applica', exact: true }).click();
+  await expect(runtime.getByText('20.0°', { exact: true })).toBeVisible();
+  const assertDecision = (revision, source, target, thermalStatus) => {
+    expect(page.climateLastState.revision).toBe(revision);
+    expect(page.climateLastState.preview.zones[0].derived).toMatchObject({ effectiveTarget: target, targetSource: source, thermalStatus });
+  };
+  assertDecision(2, 'manual', 20, 'satisfied');
   await runtime.getByRole('combobox', { name: 'Controllo' }).selectOption('auto');
   await expect(runtime.getByText('Profilo attivo: Comfort')).toBeVisible();
   await expect(runtime.getByText('Prossimo cambio: 23:30 · Notte')).toBeVisible();
   await expect(runtime.getByText('23.0°', { exact: true })).toBeVisible();
   await expect(runtime.getByText('Da programma')).toBeVisible();
+  assertDecision(3, 'schedule', 23, 'needs_heating');
   await page.reload();
   await expect(page.locator('[data-climate-runtime="true"]').getByText('Profilo attivo: Comfort')).toBeVisible();
   const liveRuntime = page.locator('[data-climate-runtime="true"]');
@@ -255,6 +266,13 @@ test('Climate AUTO resolves the schedule, temporary override and expiry without 
   await expect(liveRuntime.getByText('Temporaneo · 22.0°')).toBeVisible();
   await expect(liveRuntime.getByText('Programma: Comfort · 23.0°')).toBeVisible();
   await expect(liveRuntime.getByText('Fino al prossimo cambio · 23:30 · 05/01')).toBeVisible();
+  assertDecision(4, 'override', 22, 'needs_heating');
+  await liveRuntime.getByRole('combobox', { name: 'Modalità casa' }).selectOption('off');
+  await expect(liveRuntime.locator('article.dv-climate .dv-climate-top').getByText('Spento', { exact: true })).toBeVisible();
+  assertDecision(5, 'override', 22, 'off');
+  await liveRuntime.getByRole('combobox', { name: 'Modalità casa' }).selectOption('heating');
+  await expect(liveRuntime.locator('article.dv-climate').getByText('Richiede riscaldamento')).toBeVisible();
+  assertDecision(6, 'override', 22, 'needs_heating');
   for (const width of [390, 820, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
@@ -265,6 +283,18 @@ test('Climate AUTO resolves the schedule, temporary override and expiry without 
   await expect(liveRuntime.getByText('18.0°', { exact: true })).toBeVisible();
   await expect(liveRuntime.getByText('Da programma')).toBeVisible();
   await expect(liveRuntime.getByText('Temporaneo · 22.0°')).toHaveCount(0);
+  assertDecision(7, 'schedule', 18, 'satisfied');
+  await navigation.getByRole('button', { name: 'Programmi' }).click();
+  const revisedPrograms = page.locator('[data-climate-programs="true"]');
+  await revisedPrograms.getByRole('button', { name: 'Notte' }).click();
+  await revisedPrograms.getByRole('spinbutton', { name: 'Soggiorno' }).fill('20');
+  await revisedPrograms.getByRole('button', { name: 'Salva programmazione' }).click();
+  await navigation.getByRole('button', { name: 'Panoramica' }).click();
+  await expect(page.locator('[data-climate-runtime="true"]').getByText('20.0°', { exact: true })).toBeVisible();
+  assertDecision(7, 'schedule', 20, 'satisfied');
+  await page.locator('[data-climate-runtime="true"]').getByRole('combobox', { name: 'Controllo' }).selectOption('manual');
+  await expect(page.locator('[data-climate-runtime="true"]').getByRole('combobox', { name: 'Controllo' })).toHaveValue('manual');
+  assertDecision(8, 'manual', 20, 'satisfied');
   expect(page.climateHome.messages.filter((message) => message.type === 'domusos/climate/set_zone_override')).toHaveLength(1);
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });

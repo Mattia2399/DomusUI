@@ -171,8 +171,8 @@ def test_state_store_round_trip_and_closed_payload():
 
 def test_runtime_module_has_no_physical_execution_contract():
     climate_dir = Path(__file__).resolve().parents[1] / "custom_components" / "domusos" / "climate"
-    for name in ("intent.py", "auto_resolver.py", "auto_timer.py", "overrides.py", "state_manager.py", "api.py"):
-        source = (climate_dir / name).read_text(encoding="utf-8")
+    for module in climate_dir.glob("*.py"):
+        source = module.read_text(encoding="utf-8")
         assert "async_call(" not in source
         assert "call_service(" not in source
         assert "set_temperature" not in source

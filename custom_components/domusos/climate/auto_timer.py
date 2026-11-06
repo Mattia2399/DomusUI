@@ -15,8 +15,10 @@ class BoundaryTimer:
         self.handle: Any = None
         self.scheduled_at: datetime | None = None
         self.scheduled_timezone: str | None = None
+        self._generation = 0
 
     def cancel(self) -> None:
+        self._generation += 1
         if self.handle is not None:
             self.handle.cancel()
             self.handle = None
@@ -38,9 +40,12 @@ class BoundaryTimer:
         self.scheduled_at = when
         self.scheduled_timezone = zone_name
         delay = max(0.001, (when - self.clock().astimezone(UTC)).total_seconds())
-        self.handle = self.schedule(delay, self._fire)
+        generation = self._generation
+        self.handle = self.schedule(delay, lambda: self._fire(generation))
 
-    def _fire(self) -> None:
+    def _fire(self, generation: int) -> None:
+        if generation != self._generation:
+            return
         self.handle = None
         self.scheduled_at = None
         self.scheduled_timezone = None

@@ -119,3 +119,26 @@ def test_schedule_boundary_can_precede_a_later_override_expiry():
     timer.update(event("2026-01-05T07:00:00+00:00"), "Europe/Rome", [expiry])
     assert len(handles) == 2 and handles[1].delay == 2700
     timer.cancel()
+
+
+def test_cancelled_callback_cannot_discard_replacement_or_run_after_shutdown():
+    current = [datetime.fromisoformat("2026-01-05T05:00:00+00:00")]
+    handles = []
+    calls = []
+
+    def schedule(delay, callback):
+        handle = Handle(delay, callback)
+        handles.append(handle)
+        return handle
+
+    timer = BoundaryTimer(lambda: current[0], schedule, lambda: calls.append("recomputed"))
+    timer.update(event("2026-01-05T05:30:00+00:00"), "Europe/Rome")
+    timer.update(event("2026-01-05T06:30:00+00:00"), "Europe/Rome")
+    replacement = timer.handle
+    # A callback already queued by the event loop can run despite cancellation.
+    handles[0].callback()
+    assert timer.handle is replacement and not replacement.cancelled
+    assert calls == [] and len(handles) == 2
+    timer.cancel()
+    replacement.callback()
+    assert timer.handle is None and calls == []

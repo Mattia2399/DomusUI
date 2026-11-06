@@ -60,6 +60,7 @@ class ClimateStateManager:
         self._boundary = BoundaryTimer(self._clock, schedule or hass.loop.call_later, self._on_boundary)
         self._snapshot: dict[str, Any] | None = None
         self._cleanup_queued = False
+        self._running = False
 
     async def async_setup(self) -> None:
         try:
@@ -84,10 +85,12 @@ class ClimateStateManager:
                 else:
                     self.state = ClimateStoreState.READY
         await self.async_cleanup_overrides()
+        self._running = True
         self._unsub_config = self.hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, self._on_core_config_update)
         self.refresh_config()
 
     async def async_shutdown(self) -> None:
+        self._running = False
         self._boundary.cancel()
         if self._unsub_config is not None:
             self._unsub_config()
@@ -99,6 +102,8 @@ class ClimateStateManager:
 
     @callback
     def refresh_config(self) -> None:
+        if not self._running:
+            return
         if self._unsub_states is not None:
             self._unsub_states()
             self._unsub_states = None
@@ -150,13 +155,15 @@ class ClimateStateManager:
     def _needs_cleanup(self) -> bool:
         if self.intent is None or self.config_manager.config is None:
             return False
+        zone_ids = {item["id"] for item in self.config_manager.config["zones"]}
+        if set(self.intent["zones"]) != zone_ids:
+            return True
         if self.intent["house"]["controlMode"] != "auto" and self.intent.get("overrides"):
             return True
-        zone_ids = {item["id"] for item in self.config_manager.config["zones"]}
         return len(active_overrides(self.intent.get("overrides", {}), self._clock(), zone_ids)) != len(self.intent.get("overrides", {}))
 
     def _queue_cleanup(self) -> None:
-        if self._cleanup_queued or not self._needs_cleanup():
+        if not self._running or self._cleanup_queued or not self._needs_cleanup():
             return
         self._cleanup_queued = True
 
@@ -192,7 +199,7 @@ class ClimateStateManager:
 
     def _recompute(self) -> None:
         config = self.config_manager.config
-        if config is None:
+        if not self._running or config is None or self.config_manager.state is not ClimateStoreState.READY or self.state not in (ClimateStoreState.ABSENT, ClimateStoreState.READY):
             self._boundary.cancel()
             self._snapshot = None
             return

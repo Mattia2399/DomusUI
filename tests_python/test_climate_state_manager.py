@@ -19,6 +19,7 @@ from custom_components.domusos.climate.models import (
     InvalidConfig,
     OverrideUnavailable,
     StoreUnavailable,
+    empty_config,
     storage_document,
 )
 from custom_components.domusos.climate.state_manager import ClimateStateManager
@@ -97,6 +98,56 @@ async def test_corrupt_and_unsupported_state_are_not_overwritten(hass: HomeAssis
             assert store.writes == 0 and store.data == data
         finally:
             await manager.async_shutdown()
+
+
+async def test_corrupt_state_never_resolves_auto_schedule_or_starts_boundary(hass: HomeAssistant):
+    config = scenario_a()
+    config["controlMode"] = "auto"
+    config["operatingMode"] = "heating"
+    config["profiles"] = [{"id": "comfort", "name": "Comfort", "zoneTargets": {"living": 21}}]
+    config["schedules"] = [{"day": "monday", "events": [{"time": "06:00", "profileId": "comfort"}]}]
+    manager, store = await setup_state(hass, {"bad": True}, config=config)
+    try:
+        response = manager.get_state()
+        assert response["state"] == "corrupt"
+        assert response["preview"] is None
+        assert manager._boundary.handle is None
+        assert store.writes == 0
+    finally:
+        await manager.async_shutdown()
+
+
+async def test_late_callback_after_unload_cannot_restore_timer_or_listener(hass: HomeAssistant):
+    await hass.config.async_set_time_zone("Europe/Rome")
+    config = scenario_a()
+    config["controlMode"] = "auto"
+    config["profiles"] = [{"id": "comfort", "name": "Comfort", "zoneTargets": {"living": 21}}]
+    config["schedules"] = [{"day": "monday", "events": [{"time": "06:00", "profileId": "comfort"}]}]
+    handles = []
+
+    class Handle:
+        cancelled = False
+
+        def cancel(self):
+            self.cancelled = True
+
+    def schedule(_delay, _callback):
+        handle = Handle()
+        handles.append(handle)
+        return handle
+
+    manager, _ = await setup_state(
+        hass, config=config, clock=lambda: datetime.fromisoformat("2026-01-05T17:00:00+00:00"), schedule=schedule,
+    )
+    assert manager._boundary.handle is not None
+    await manager.async_shutdown()
+    manager._on_state_change(None)
+    manager._on_core_config_update(None)
+    manager._on_boundary()
+    manager.refresh_config()
+    assert manager._boundary.handle is None
+    assert all(handle.cancelled for handle in handles)
+    assert manager._unsub_states is None and manager._unsub_config is None
 
 
 async def test_state_store_document_has_separate_schema(hass: HomeAssistant):
@@ -270,6 +321,23 @@ async def test_orphan_override_is_cleaned_after_zone_config_removal(hass: HomeAs
         manager.refresh_config()
         await hass.async_block_till_done()
         assert "overrides" not in store.data["intent"]
+        assert manager.get_state()["preview"]["zones"] == []
+    finally:
+        await manager.async_shutdown()
+
+
+async def test_orphan_zone_intent_is_removed_without_override(hass: HomeAssistant):
+    manager, store = await setup_state(hass)
+    try:
+        await manager.async_set_zone_intent("living", "follow_house", 21, 0, USER)
+        assert "living" in store.data["intent"]["zones"]
+        manager.config_manager.on_change = manager.refresh_config
+        admin = SimpleNamespace(id="admin", is_active=True, is_admin=True)
+        await manager.config_manager.async_save_config(empty_config(), 1, admin)
+        await hass.async_block_till_done()
+        assert store.data["intent"]["zones"] == {}
+        assert manager.revision == 2
+        assert manager.config_manager.revision == 2
         assert manager.get_state()["preview"]["zones"] == []
     finally:
         await manager.async_shutdown()
