@@ -26,6 +26,8 @@ export type DeviceControlInfo = {
   id: string;
   name: string;
   icon?: React.ReactNode;
+  /** The control as its group draws it, with its commands going nowhere. */
+  preview?: React.ReactNode;
   /** Empty for a control that acts at once. */
   looks: readonly string[];
   action: boolean;
@@ -38,6 +40,7 @@ export type ControlRow = {
   source: 'device' | 'related';
   name: string;
   icon?: React.ReactNode;
+  preview?: React.ReactNode;
   looks: readonly string[];
   look: string;
   place: PanelPlace;
@@ -78,7 +81,7 @@ export function controlRows(
     const position = rows.findIndex((entry) => entry.id === control.id);
     return {
       order: chosen?.order ?? (position >= 0 ? position : rows.length + index),
-      row: { id: control.id, source: 'device' as const, name: control.name, icon: control.icon, looks: control.looks, look, place: chosen?.place ?? row?.place ?? control.place ?? 'more' },
+      row: { id: control.id, source: 'device' as const, name: control.name, icon: control.icon, preview: control.preview, looks: control.looks, look, place: chosen?.place ?? row?.place ?? control.place ?? 'more' },
     };
   });
   const ofRelated = relatedControlsOf(widget).map((control) => ({

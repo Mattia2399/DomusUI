@@ -48,7 +48,7 @@ export function ControlsTab({ widget, haStates, entityRegistry, areas, entityOpt
         widget={widget}
         haStates={haStates}
         entities={entities}
-        icons={kit.EDITOR_ICONS}
+        kit={kit}
         lookName={(look) => (open.source === 'device' ? deviceLookName(look) : lookNameOf(look))}
         onChange={save}
         onBack={() => onSelect(null)}

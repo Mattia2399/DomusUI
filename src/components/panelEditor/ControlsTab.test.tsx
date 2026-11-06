@@ -12,7 +12,7 @@ import type { PanelKit } from './panelKit';
 
 afterEach(cleanup);
 
-const KIT = { ...registry, EDITOR_ICONS } as unknown as PanelKit;
+const KIT = { ...registry, EDITOR_ICONS, RelatedPreview: () => <p>anteprima del collegato</p> } as unknown as PanelKit;
 
 const STATES: MockEntityStateMap = {
   'climate.stove': { state: 'heat', rawAttributes: { friendly_name: 'Termostufa' } },
@@ -86,7 +86,6 @@ describe('Controlli', () => {
   it('a place chosen hides a control of the device, and the micro widgets become related controls', () => {
     const { saved } = setup();
     fireEvent.click(screen.getByRole('button', { name: /^Modalità/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Posto/ }));
     fireEvent.click(screen.getByRole('radio', { name: 'Nascosto' }));
     expect(saved().panelControls?.modes).toMatchObject({ place: 'hidden' });
     expect(saved().widgets).toBeUndefined();
@@ -97,7 +96,6 @@ describe('Controlli', () => {
   it('a look of the device, by its name', () => {
     const { saved } = setup();
     fireEvent.click(screen.getByRole('button', { name: /^Modalità/ }));
-    fireEvent.click(screen.getByRole('button', { name: /Aspetto/ }));
     fireEvent.click(screen.getByRole('radio', { name: /Elenco/ }));
     expect(saved().panelControls?.modes).toMatchObject({ look: 'list' });
   });
@@ -130,6 +128,19 @@ describe('Controlli', () => {
     expect(saved().panelControls).toBeDefined();
     fireEvent.click(screen.getAllByRole('button', { name: 'Ripristina i controlli consigliati' }).at(-1)!);
     expect(saved().panelControls).toBeUndefined();
+  });
+
+  it('the detail shows what is short to choose at once, and goes back as a page of the panel', () => {
+    setup({ ...STOVE, widgets: undefined, relatedControls: [{ id: 'boiler', entityId: 'sensor.boiler', look: 'temperature', place: 'more', order: 0 }] });
+    fireEvent.click(screen.getByRole('button', { name: /^Boiler ACS/ }));
+    expect(screen.getByRole('heading', { name: 'Boiler ACS' })).toBeTruthy();
+    expect(screen.getByRole('radiogroup', { name: 'Posto' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /Valore con scala, Consigliato/ })).toBeTruthy();
+    expect(screen.getByRole('textbox', { name: 'Nome' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sposta su' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Posizione/ })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Controlli' }));
+    expect(screen.getByRole('list', { name: 'In primo piano' })).toBeTruthy();
   });
 
   it('the panels with fixed controls say so', () => {

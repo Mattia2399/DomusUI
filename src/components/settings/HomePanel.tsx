@@ -304,7 +304,10 @@ export const preloadWeatherPanel = () => loadPanelEntry('weather');
  * the piece the Home already loads for its panels: reaching them on its own would split the
  * pieces the Rooms share with the panels.
  */
-export const panelEditorKit = { Panel, PanelSurfaceContext, arrangeControls, loadPanelEntry, PANEL_CONTROLS, MOST_IN_THE_ROW, EDITOR_ICONS };
+/** A related control in its group, for the edit mode: it arrives with the piece of the related controls. */
+const RelatedPreview = React.lazy(() => import('../devices/panels/related/RelatedPanelView').then((module) => ({ default: module.RelatedControlPreview })));
+
+export const panelEditorKit = { Panel, PanelSurfaceContext, arrangeControls, loadPanelEntry, PANEL_CONTROLS, MOST_IN_THE_ROW, EDITOR_ICONS, RelatedPreview };
 
 /** The icon chosen for a related control in the edit mode. */
 const chosenIconOf = (key: string) => {

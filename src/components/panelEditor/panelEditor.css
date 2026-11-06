@@ -184,6 +184,64 @@
   cursor: pointer;
 }
 
+/* The detail of a control, as a page of the panel. */
+.panel-editor-back.glass-btn {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 2px;
+  border-radius: 999px;
+  padding: 0 14px 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.panel-editor-detail-title {
+  margin-top: 12px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.panel-editor-control-preview {
+  border-radius: 18px;
+  padding: 14px;
+  background: var(--control-soft);
+  pointer-events: none;
+}
+
+.panel-editor-wait.is-small {
+  min-height: 56px;
+}
+
+.panel-editor-name-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.panel-editor-name-row > :last-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.panel-editor-icon-button.glass-btn {
+  display: inline-flex;
+  height: 48px;
+  width: 48px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.panel-editor-remove.glass-confirm-start {
+  color: var(--control-danger, #ff3b30);
+}
+
 .panel-editor-danger {
   margin-top: 12px;
   border-top: 1px solid var(--control-track);

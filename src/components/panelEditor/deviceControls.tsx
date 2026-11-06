@@ -1,4 +1,6 @@
 import React from 'react';
+import { GlassButton } from '../ui/GlassButton';
+import { GlassSwitch } from '../ui/GlassSwitch';
 import type { PanelEntry, PanelKind, PanelLayoutName, PanelSpec } from '../devices/panels/registry';
 import type { PanelKit } from './panelKit';
 import type { MockEntityStateMap } from '../../types/ha';
@@ -41,6 +43,14 @@ export function listedControlsOf(kit: Pick<PanelKit, 'PANEL_CONTROLS'>, kind: Wi
   };
 }
 
+/** The control in its group, as PanelView draws it: its own form, a button, or a switch. */
+function previewOf(control: PanelSpec['controls'] extends readonly (infer C)[] | undefined ? C : never): React.ReactNode {
+  if (!('onPress' in control)) return control.group;
+  if (control.group !== undefined) return control.group;
+  if (control.actionLabel) return <GlassButton variant="soft">{control.actionLabel}</GlassButton>;
+  return <GlassSwitch label={`${control.title ?? control.label}`} size="mini" checked={Boolean(control.on)} onChange={() => undefined} />;
+}
+
 export const controlsOfSpec = (spec: PanelSpec): DeviceControls => ({
   layout: spec.layout,
   ready: true,
@@ -48,6 +58,7 @@ export const controlsOfSpec = (spec: PanelSpec): DeviceControls => ({
     id: control.id,
     name: `${control.title ?? control.label}`,
     icon: control.icon,
+    preview: previewOf(control),
     looks: 'onPress' in control ? [] : control.looks,
     action: 'onPress' in control,
     place: control.place,

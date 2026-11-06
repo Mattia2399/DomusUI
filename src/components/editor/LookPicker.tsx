@@ -1,6 +1,7 @@
 import React from 'react';
 import { lookNameOf, useEditorWords } from '../../i18n/editorTranslations';
 import { GlassChoiceRows } from '../ui/GlassListRow';
+import { GlassSegmented } from '../ui/GlassSegmented';
 import './editor.css';
 
 /** The looks that need several entities: the picker never offers them. */
@@ -13,6 +14,8 @@ export type LookPickerProps<T extends string> = {
   value: T;
   onChange: (look: T) => void;
   label: string;
+  /** In a row that scrolls, all in view at once; a list by default. */
+  layout?: 'list' | 'row';
   /** The name of a look, when it is not one of the related controls: those of a device. */
   nameOf?: (look: T) => string;
   /** The real control in a look, in its compact form and in its large one. */
@@ -20,7 +23,7 @@ export type LookPickerProps<T extends string> = {
 };
 
 /* The looks that fit, the recommended one marked, and the real control in the chosen one. */
-export function LookPicker<T extends string>({ looks, recommended, value, onChange, label, preview, nameOf = lookNameOf }: LookPickerProps<T>) {
+export function LookPicker<T extends string>({ looks, recommended, value, onChange, label, preview, nameOf = lookNameOf, layout = 'list' }: LookPickerProps<T>) {
   const words = useEditorWords();
   const offered = looks.filter((look) => !MULTI_ENTITY_LOOKS.has(look));
   return (
@@ -37,12 +40,29 @@ export function LookPicker<T extends string>({ looks, recommended, value, onChan
           </figure>
         </div>
       ) : null}
-      <GlassChoiceRows<T>
-        ariaLabel={label}
-        options={offered.map((look) => ({ value: look, label: nameOf(look), note: look === recommended ? words('recommended') : undefined }))}
-        value={value}
-        onChange={onChange}
-      />
+      {layout === 'row' ? (
+        <GlassSegmented<T>
+          ariaLabel={label}
+          scrollable
+          minOptionWidth="max-content"
+          options={offered.map((look) => ({ value: look, label: nameOf(look), ariaLabel: look === recommended ? `${nameOf(look)}, ${words('recommended')}` : nameOf(look) }))}
+          value={value}
+          onChange={onChange}
+          renderOption={(option) => (
+            <span className="editor-look-option">
+              {option.label}
+              {option.value === recommended ? <small>{words('recommended')}</small> : null}
+            </span>
+          )}
+        />
+      ) : (
+        <GlassChoiceRows<T>
+          ariaLabel={label}
+          options={offered.map((look) => ({ value: look, label: nameOf(look), note: look === recommended ? words('recommended') : undefined }))}
+          value={value}
+          onChange={onChange}
+        />
+      )}
     </div>
   );
 }
