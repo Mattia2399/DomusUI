@@ -1,5 +1,7 @@
 # Domus Climate — CLM.3A intent runtime
 
+> Historical CLM.3A contract. [CLM.4B](domus-climate-auto-resolver.md) now supplies schedule-derived targets to AUTO while keeping this intent store and its manual targets unchanged.
+
 CLM.3A adds live, read-only climate decisions. The flow is **installation config → intent → observed HA state → derived preview**. Physical execution is absent.
 
 | Layer | Source and lifetime | Contract |
@@ -10,7 +12,7 @@ CLM.3A adds live, read-only climate decisions. The flow is **installation config
 | Derived | Recomputed on configured entity events and reads, never persisted | Effective target, thermal status and compatible terminal/circuit/generator paths. A 0.2 °C deadband yields `satisfied`. Unknown readings or missing targets yield `unknown`, never demand. |
 | Execution | Absent in CLM.3A | No HA service calls, generator start, source optimizer, schedule or dew point engine. |
 
-House and zone intent **survive restart** in the separate state store. The first state is safely off unless legacy config explicitly seeded an operating mode; the first successful edit persists the entire intent document. A config change updates the mapped zone set without copying observed or derived values into either store. Auto mode keeps manual targets but has no effective target until a future scheduler provides one; it reports `autoPendingConfiguration`. The pure preview accepts an explicit auto-target fixture for future integration, while production passes none.
+House and zone intent **survive restart** in the separate state store. The first state is safely off unless legacy config explicitly seeded an operating mode; the first successful edit persists the entire intent document. A config change updates the mapped zone set without copying observed or derived values into either store. In CLM.3A, auto mode kept manual targets but had no effective target; the pure preview accepted an explicit auto-target fixture. CLM.4B now passes the backend's schedule resolution in production and still preserves the manual targets.
 
 The preview reports path candidates according to declared capabilities and optional generator preference metadata; it neither chooses a source nor infers that radiant cooling is safe. Humidity and condensation requirements and dehumidifier candidates are visible constraints. A changed physical device setpoint is shown as a mismatch with `unknown` cause; CLM.3A does not restore it or classify it as a user override. Room targets have no connection to circuit supply or generator water setpoints.
 

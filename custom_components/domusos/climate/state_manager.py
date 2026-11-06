@@ -5,13 +5,20 @@ from __future__ import annotations
 import asyncio
 import glob
 import logging
+from collections.abc import Callable
 from copy import deepcopy
+from datetime import UTC, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
+from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
+from homeassistant.util import dt as dt_util
 
+from .auto_resolver import resolve_auto
+from .auto_timer import BoundaryTimer
 from .intent import (
     STATE_STORAGE_KEY,
     STATE_VERSION,
@@ -35,7 +42,8 @@ DATA_CLIMATE_STATE_MANAGER = "climate_state_manager"
 
 
 class ClimateStateManager:
-    def __init__(self, hass: HomeAssistant, config_manager: ClimateManager, *, store: Any = None) -> None:
+    def __init__(self, hass: HomeAssistant, config_manager: ClimateManager, *, store: Any = None,
+                 clock: Callable[[], datetime] | None = None, schedule: Callable[[float, Callable[[], None]], Any] | None = None) -> None:
         self.hass = hass
         self.config_manager = config_manager
         self.store: Store[dict[str, Any]] = store if store is not None else Store(hass, STATE_VERSION, STATE_STORAGE_KEY)
@@ -44,6 +52,9 @@ class ClimateStateManager:
         self.intent: dict[str, Any] | None = None
         self._lock = asyncio.Lock()
         self._unsub_states: Any = None
+        self._unsub_config: Any = None
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._boundary = BoundaryTimer(self._clock, schedule or hass.loop.call_later, self._recompute)
         self._snapshot: dict[str, Any] | None = None
 
     async def async_setup(self) -> None:
@@ -68,9 +79,14 @@ class ClimateStateManager:
                     self.state = ClimateStoreState.CORRUPT
                 else:
                     self.state = ClimateStoreState.READY
+        self._unsub_config = self.hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, self._on_core_config_update)
         self.refresh_config()
 
     async def async_shutdown(self) -> None:
+        self._boundary.cancel()
+        if self._unsub_config is not None:
+            self._unsub_config()
+            self._unsub_config = None
         if self._unsub_states is not None:
             self._unsub_states()
             self._unsub_states = None
@@ -83,6 +99,7 @@ class ClimateStateManager:
             self._unsub_states = None
         config = self.config_manager.config if self.config_manager.state is ClimateStoreState.READY else None
         if config is None:
+            self._boundary.cancel()
             self._snapshot = None
             return
         entity_ids = {
@@ -101,6 +118,10 @@ class ClimateStateManager:
     def _on_state_change(self, _event: Any) -> None:
         self._recompute()
 
+    @callback
+    def _on_core_config_update(self, _event: Any) -> None:
+        self._recompute()
+
     def _current_intent(self) -> dict[str, Any]:
         config = self.config_manager.config
         assert config is not None
@@ -111,6 +132,7 @@ class ClimateStateManager:
     def _recompute(self) -> None:
         config = self.config_manager.config
         if config is None:
+            self._boundary.cancel()
             self._snapshot = None
             return
         ids = {
@@ -122,7 +144,18 @@ class ClimateStateManager:
         }
         ids.update(item["entity"]["primaryEntityId"] for item in config["endpoints"])
         states = {entity_id: self.hass.states.get(entity_id) for entity_id in ids}
-        self._snapshot = preview(config, self._current_intent(), states)
+        current_intent = self._current_intent()
+        now = self._clock()
+        zone_name = getattr(self.hass.config, "time_zone", None)
+        loaded_zone = dt_util.get_default_time_zone()
+        house_zone = None
+        if isinstance(loaded_zone, ZoneInfo) and loaded_zone.key == zone_name:
+            house_zone = loaded_zone
+        elif zone_name == "UTC":
+            house_zone = "UTC"
+        resolution = resolve_auto(config, now, house_zone) if current_intent["house"]["controlMode"] == "auto" else None
+        self._snapshot = preview(config, current_intent, states, auto_resolution=resolution)
+        self._boundary.update(resolution, zone_name)
 
     def get_state(self) -> dict[str, Any]:
         # Also recompute on read: a new config or a just-arrived HA state is immediately visible.

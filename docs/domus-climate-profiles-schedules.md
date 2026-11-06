@@ -10,7 +10,7 @@ CLM.4A stores user profiles and one weekly house schedule in the existing `domus
 
 The existing `domusos/climate/get_config` and `save_config` APIs provide reads and atomic full-document writes. `save_config` requires `climate.manage` and an active HA administrator. `climate.control` applies only to CLM.3A intent commands and cannot save programs. The config revision uses `expected_revision`; a stale write is rejected, and an identical write leaves the revision and store unchanged. The frontend holds an explicit draft with Save and Cancel, warns on page unload when dirty, and displays conflict and access errors. No new store or dependency is introduced. Version 1 remains appropriate because the earlier Climate phases are unreleased and already reserved these fields.
 
-The editor starts with empty profiles and schedule. It invents no automation. V1 has one weekly schedule, no holiday/calendar exceptions, no separate seasonal schedules, and no second enabled switch. Whether `auto` uses a schedule is a CLM.4B decision. CLM.4B must resolve events in the Home Assistant/house local time zone, including DST gaps and overlaps and the Sunday-to-Monday boundary; CLM.4A stores times without making those choices.
+The editor starts with empty profiles and schedule. It invents no automation. V1 has one weekly schedule, no holiday/calendar exceptions, no separate seasonal schedules, and no second enabled switch. [CLM.4B](domus-climate-auto-resolver.md) resolves events in the Home Assistant/house local time zone, including DST gaps and overlaps and the Sunday-to-Monday boundary; CLM.4A stores times without making those choices.
 
 ## Decisions C38–C47
 

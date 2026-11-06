@@ -32,6 +32,7 @@ test.beforeEach(async ({ page }) => {
   let climateRevision = 0;
   let climateStateRevision = 0;
   let climateIntent = { house: { operatingMode: 'off', controlMode: 'manual' }, zones: {} };
+  const houseClock = { instant: '2026-01-05T17:00:00Z', timezone: 'Europe/Rome' };
   page.climateHome = await connectHomeAssistant(page, {
     states: { 'sensor.living_temp': { state: '21', attributes: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Temperatura soggiorno' } } },
     handle: (message, { reply, fail }) => {
@@ -51,13 +52,27 @@ test.beforeEach(async ({ page }) => {
           else climateIntent.zones[message.zone_id] = { mode: message.mode, targetTemperature: message.target_temperature };
           climateStateRevision += 1;
         }
+        const houseNow = new Date(houseClock.instant);
+        const localDay = new Intl.DateTimeFormat('en-US', { timeZone: houseClock.timezone, weekday: 'long' }).format(houseNow).toLowerCase();
+        const localTime = new Intl.DateTimeFormat('en-GB', { timeZone: houseClock.timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(houseNow);
+        const events = [...(climateConfig?.schedules.find((day) => day.day === localDay)?.events ?? [])].sort((a, b) => a.time.localeCompare(b.time));
+        const activeEvent = events.filter((event) => event.time <= localTime).at(-1) ?? null;
+        const nextEvent = events.find((event) => event.time > localTime) ?? null;
+        const activeProfile = climateConfig?.profiles.find((profile) => profile.id === activeEvent?.profileId);
+        const followingProfile = climateConfig?.profiles.find((profile) => profile.id === nextEvent?.profileId);
+        const autoResolution = climateIntent.house.controlMode === 'auto' ? activeProfile ? {
+          status: 'resolved', activeProfileId: activeProfile.id, activeProfileName: activeProfile.name,
+          activeEvent: { ...activeEvent, day: localDay },
+          nextEvent: nextEvent ? { ...nextEvent, day: localDay, profileName: followingProfile?.name ?? null, occursAt: '2026-01-05T22:30:00+00:00' } : null,
+          zoneTargets: Object.fromEntries((climateConfig?.zones ?? []).map((zone) => [zone.id, activeProfile.zoneTargets[zone.id] == null ? { status: 'no_target', value: null } : { status: 'resolved', value: activeProfile.zoneTargets[zone.id] }])),
+        } : { status: 'no_schedule', activeProfileId: null, activeProfileName: null, activeEvent: null, nextEvent: null, zoneTargets: {} } : null;
         const zones = (climateConfig?.zones ?? []).map((zone) => {
           const intent = climateIntent.zones[zone.id] ?? { mode: 'follow_house', targetTemperature: null };
-          const effectiveTarget = climateIntent.house.controlMode === 'manual' ? intent.targetTemperature : null;
+          const effectiveTarget = climateIntent.house.controlMode === 'manual' ? intent.targetTemperature : autoResolution?.zoneTargets[zone.id]?.value ?? null;
           const thermalStatus = climateIntent.house.operatingMode === 'off' || intent.mode === 'off' ? 'off' : effectiveTarget === null ? 'unknown' : climateIntent.house.operatingMode === 'heating' && 21 < effectiveTarget - 0.2 ? 'needs_heating' : climateIntent.house.operatingMode === 'cooling' && 21 > effectiveTarget + 0.2 ? 'needs_cooling' : 'satisfied';
-          return { zoneId: zone.id, intent, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, targetSource: effectiveTarget === null ? null : 'manual', autoPendingConfiguration: climateIntent.house.controlMode === 'auto', thermalStatus, terminals: [], compatiblePaths: [] } };
+          return { zoneId: zone.id, intent, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, targetSource: effectiveTarget === null ? null : climateIntent.house.controlMode === 'auto' ? 'schedule' : 'manual', targetReason: effectiveTarget === null ? autoResolution?.status === 'resolved' ? 'no_target' : 'no_schedule' : null, autoPendingConfiguration: climateIntent.house.controlMode === 'auto' && effectiveTarget === null, thermalStatus, terminals: [], compatiblePaths: [] } };
         });
-        reply({ state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, zones, deadbandCelsius: 0.2 } : null });
+        reply({ state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, autoResolution, zones, deadbandCelsius: 0.2 } : null });
         return true;
       }
       return false;
@@ -186,6 +201,41 @@ test('Climate profiles and weekly events persist after save and reload without c
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
   }
   expect(page.climateHome.messages.filter((message) => /set_(?:house|zone)_intent|call_service/.test(message.type))).toHaveLength(0);
+});
+
+test('Climate AUTO displays backend-resolved profile, scheduled target and next event without device commands', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Soggiorno');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  const navigation = page.getByRole('navigation', { name: 'DOMUS CLIMATE' });
+  await navigation.getByRole('button', { name: 'Programmi' }).click();
+  const programs = page.locator('[data-climate-programs="true"]');
+  await programs.getByRole('textbox', { name: 'Nome nuovo profilo' }).fill('Comfort');
+  await programs.getByRole('button', { name: 'Crea profilo' }).click();
+  await programs.getByRole('spinbutton', { name: 'Soggiorno' }).fill('23');
+  await programs.getByRole('textbox', { name: 'Nome nuovo profilo' }).fill('Notte');
+  await programs.getByRole('button', { name: 'Crea profilo' }).click();
+  await programs.getByLabel('Ora', { exact: true }).fill('17:00');
+  await programs.getByRole('combobox', { name: 'Profilo' }).selectOption({ label: 'Comfort' });
+  await programs.getByRole('button', { name: 'Aggiungi fascia' }).click();
+  await programs.getByLabel('Ora', { exact: true }).fill('23:30');
+  await programs.getByRole('combobox', { name: 'Profilo' }).selectOption({ label: 'Notte' });
+  await programs.getByRole('button', { name: 'Aggiungi fascia' }).click();
+  await programs.getByRole('button', { name: 'Salva programmazione' }).click();
+  await navigation.getByRole('button', { name: 'Panoramica' }).click();
+  const runtime = page.locator('[data-climate-runtime="true"]');
+  await runtime.getByRole('combobox', { name: 'Modalità casa' }).selectOption('heating');
+  await runtime.getByRole('combobox', { name: 'Controllo' }).selectOption('auto');
+  await expect(runtime.getByText('Profilo attivo: Comfort')).toBeVisible();
+  await expect(runtime.getByText('Prossimo cambio: 23:30 · Notte')).toBeVisible();
+  await expect(runtime.getByText('23.0°')).toBeVisible();
+  await expect(runtime.getByText('Da programma')).toBeVisible();
+  await page.reload();
+  await expect(page.locator('[data-climate-runtime="true"]').getByText('Profilo attivo: Comfort')).toBeVisible();
+  expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 
 test('Settings, System: the connection opens and Back returns to Settings', async ({ page }) => {

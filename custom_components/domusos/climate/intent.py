@@ -115,7 +115,7 @@ def _supports(item: Mapping[str, Any], mode: str, kind: str) -> bool:
     return ("space_heating" if mode == "heating" else "space_cooling") in item["services"]
 
 
-def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mapping[str, Any], *, stale_ids: frozenset[str] = frozenset(), auto_targets: Mapping[str, float] | None = None) -> dict[str, Any]:
+def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mapping[str, Any], *, stale_ids: frozenset[str] = frozenset(), auto_targets: Mapping[str, float] | None = None, auto_resolution: Mapping[str, Any] | None = None) -> dict[str, Any]:
     """Compute desired/observed/derived state without choosing or commanding a source."""
     parsed = parse_intent(intent)
     house = parsed["house"]
@@ -134,19 +134,39 @@ def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mappin
         if house["controlMode"] == "manual":
             effective_target = zone_intent["targetTemperature"]
             target_source = "manual" if effective_target is not None else None
+            target_reason = None if effective_target is not None else "no_manual_target"
+        elif auto_resolution is not None:
+            zone_auto = auto_resolution.get("zoneTargets", {}).get(zone_id, {}) if auto_resolution.get("status") == "resolved" else {}
+            effective_target = zone_auto.get("value") if zone_auto.get("status") == "resolved" else None
+            target_source = "schedule" if effective_target is not None else None
+            if effective_target is not None:
+                target_reason = None
+            elif auto_resolution.get("status") == "resolved":
+                target_reason = "no_target"
+            else:
+                target_reason = auto_resolution.get("status")
         else:
             effective_target = _target(auto_targets[zone_id], "auto_targets") if auto_targets is not None and zone_id in auto_targets else None
             target_source = "auto_fixture" if effective_target is not None else None
+            target_reason = None if effective_target is not None else "no_schedule"
         if mode == "off" or zone_intent["mode"] == "off":
             status = "off"
-        elif temperature["value"] is None or effective_target is None:
+            thermal_reason = None
+        elif effective_target is None:
             status = "unknown"
+            thermal_reason = target_reason
+        elif temperature["value"] is None:
+            status = "unknown"
+            thermal_reason = "sensor_unavailable"
         elif mode == "heating" and temperature["value"] < effective_target - DEADBAND_CELSIUS:
             status = "needs_heating"
+            thermal_reason = None
         elif mode == "cooling" and temperature["value"] > effective_target + DEADBAND_CELSIUS:
             status = "needs_cooling"
+            thermal_reason = None
         else:
             status = "satisfied"
+            thermal_reason = None
         terminal_rows: list[dict[str, Any]] = []
         paths: list[dict[str, Any]] = []
         for terminal_id in zone["endpointIds"]:
@@ -182,6 +202,11 @@ def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mappin
                           "sharedOperatingMode": any(group["sharedOperatingMode"] for group in groups if terminal_id in group["memberEndpointIds"])})
         result.append({"zoneId": zone_id, "intent": zone_intent, "observed": {"temperature": temperature["value"], "humidity": humidity["value"],
                        "temperatureSource": temperature["source"], "humiditySource": humidity["source"], "temperatureAvailability": temperature["availability"], "humidityAvailability": humidity["availability"]},
-                       "derived": {"effectiveTarget": effective_target, "targetSource": target_source, "autoPendingConfiguration": house["controlMode"] == "auto" and effective_target is None,
-                                   "thermalStatus": status, "terminals": terminal_rows, "compatiblePaths": paths}})
-    return {"house": house, "zones": result, "deadbandCelsius": DEADBAND_CELSIUS}
+                       "derived": {"effectiveTarget": effective_target, "targetSource": target_source, "targetReason": target_reason,
+                                   "effectiveTargetDetail": {"value": effective_target, "source": target_source,
+                                                             "profileId": auto_resolution.get("activeProfileId") if target_source == "schedule" and auto_resolution else None,
+                                                             "event": auto_resolution.get("activeEvent") if target_source == "schedule" and auto_resolution else None},
+                                   "autoPendingConfiguration": house["controlMode"] == "auto" and effective_target is None,
+                                   "thermalStatus": status, "thermalReason": thermal_reason, "terminals": terminal_rows, "compatiblePaths": paths}})
+    return {"house": house, "autoResolution": auto_resolution if house["controlMode"] == "auto" else None,
+            "zones": result, "deadbandCelsius": DEADBAND_CELSIUS}

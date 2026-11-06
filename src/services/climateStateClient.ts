@@ -3,15 +3,17 @@ import type { ClimateCallApi } from './climateConfigClient';
 
 export type ClimateThermalStatus = 'off' | 'satisfied' | 'needs_heating' | 'needs_cooling' | 'unknown';
 export type ClimateSensorAvailability = 'available' | 'unavailable' | 'invalid' | 'stale';
+export type ClimateAutoEvent = { day: string; time: string; profileId: string; profileName?: string | null; occursAt?: string };
+export type ClimateAutoResolution = { status: 'resolved' | 'no_schedule' | 'timezone_unavailable' | 'invalid_schedule' | 'profile_missing' | 'invalid_instant'; activeProfileId: string | null; activeProfileName: string | null; activeEvent: ClimateAutoEvent | null; nextEvent: ClimateAutoEvent | null; zoneTargets: Record<string, { status: 'resolved' | 'no_target'; value: number | null }> };
 export type ClimateZoneState = {
   zoneId: string;
   intent: { mode: ClimateZoneMode; targetTemperature: number | null };
   observed: { temperature: number | null; humidity: number | null; temperatureSource: string | null; humiditySource: string | null; temperatureAvailability: ClimateSensorAvailability; humidityAvailability: ClimateSensorAvailability };
-  derived: { effectiveTarget: number | null; targetSource: 'manual' | 'auto_fixture' | null; autoPendingConfiguration: boolean; thermalStatus: ClimateThermalStatus;
+  derived: { effectiveTarget: number | null; targetSource: 'manual' | 'schedule' | 'auto_fixture' | null; targetReason?: string | null; thermalReason?: string | null; effectiveTargetDetail?: { value: number | null; source: 'manual' | 'schedule' | 'auto_fixture' | null; profileId: string | null; event: ClimateAutoEvent | null }; autoPendingConfiguration: boolean; thermalStatus: ClimateThermalStatus;
     terminals: { id: string; entityId: string; available: boolean; compatible: boolean; observedTarget: number | null; targetMismatch: boolean; mismatchCause: 'unknown'; equipmentGroupIds: string[] }[];
     compatiblePaths: { terminalId: string; circuitId: string | null; generatorCandidates: { id: string; role: 'preferred' | 'fallback' | 'required' | 'available' }[]; humidityConstraintPresent: boolean; condensationProtectionRequired: boolean; auxiliaryCandidates: string[]; sharedOperatingMode: boolean }[] };
 };
-export type ClimateStateResponse = { state: 'absent' | 'ready' | 'corrupt' | 'unsupported' | 'migration_failed'; revision: number; configState: string; configRevision: number; preview: { house: { operatingMode: ClimateOperatingMode; controlMode: ClimateControlMode }; zones: ClimateZoneState[]; deadbandCelsius: number } | null };
+export type ClimateStateResponse = { state: 'absent' | 'ready' | 'corrupt' | 'unsupported' | 'migration_failed'; revision: number; configState: string; configRevision: number; preview: { house: { operatingMode: ClimateOperatingMode; controlMode: ClimateControlMode }; autoResolution?: ClimateAutoResolution | null; zones: ClimateZoneState[]; deadbandCelsius: number } | null };
 
 export const CLIMATE_STATE_TYPES = { get: 'domusos/climate/get_state', house: 'domusos/climate/set_house_intent', zone: 'domusos/climate/set_zone_intent' } as const;
 
