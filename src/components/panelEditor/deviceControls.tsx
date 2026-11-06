@@ -41,22 +41,22 @@ export function listedControlsOf(kit: Pick<PanelKit, 'PANEL_CONTROLS'>, kind: Wi
   };
 }
 
-export const controlsOfSpec = (kit: Pick<PanelKit, 'isActionControl'>, spec: PanelSpec): DeviceControls => ({
+export const controlsOfSpec = (spec: PanelSpec): DeviceControls => ({
   layout: spec.layout,
   ready: true,
   controls: (spec.controls ?? []).map((control) => ({
     id: control.id,
     name: `${control.title ?? control.label}`,
     icon: control.icon,
-    looks: kit.isActionControl(control) ? [] : control.looks,
-    action: kit.isActionControl(control),
+    looks: 'onPress' in control ? [] : control.looks,
+    action: 'onPress' in control,
     place: control.place,
   })),
 });
 
 /* Reads the spec of the entry and says when its controls change. */
 function SpecReader({ kit, entry, input, onRead }: { kit: PanelKit; entry: PanelEntry<unknown>; input: unknown; onRead: (controls: DeviceControls) => void }) {
-  const read = controlsOfSpec(kit, entry.useSpec(input));
+  const read = controlsOfSpec(entry.useSpec(input));
   const signature = `${read.layout}|${read.controls.map((control) => `${control.id}:${control.name}:${control.looks.join(',')}`).join(';')}`;
   const latest = React.useRef(read);
   latest.current = read;
@@ -73,12 +73,10 @@ export function useDeviceControls(kit: PanelKit | null, widget: Widget, states: 
     setRead({ controls: [], ready: false });
     if (!kind || !kit) return undefined;
     let live = true;
-    const arrived = kit.loadedPanelEntry(kind);
-    if (arrived) setEntry({ kind, entry: arrived });
-    else
-      void kit.loadPanelEntry(kind)
-        .then((loaded) => live && setEntry({ kind, entry: loaded }))
-        .catch(() => live && setRead({ controls: [], ready: true }));
+    void kit
+      .loadPanelEntry(kind)
+      .then((loaded) => live && setEntry({ kind, entry: loaded }))
+      .catch(() => live && setRead({ controls: [], ready: true }));
     return () => {
       live = false;
     };

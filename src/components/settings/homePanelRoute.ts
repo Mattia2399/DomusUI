@@ -135,8 +135,10 @@ export type HomePanelActions = {
 
 export type HomePanelProps = {
   activeDevice: ActiveDevice;
-  /** The entity of the card that opened the panel: what the Rooms find a card by. */
+  /** The entity of the card that opened the panel. */
   cardEntityId?: string;
+  /** What the card holds besides its device: related controls, micro widgets, choices on its controls. */
+  related?: import('../devices/panels/related/relatedContext').PanelRelated;
   lamp: HomeLamp;
   climate: HomeClimate;
   cover: HomeCover;

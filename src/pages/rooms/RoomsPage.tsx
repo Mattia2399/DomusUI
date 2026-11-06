@@ -1,6 +1,3 @@
-import { RelatedContext, type RelatedContextValue } from '../../components/devices/panels/related/relatedContext';
-import { homeSourceOf } from '../../components/devices/panels/related/relatedHomeSource';
-import { DEMO_RELATED_STATES } from '../../demo/demoRelatedFixtures';
 import React from 'react';
 import { ChevronDown, ChevronRight, House, Plug, Plus } from 'lucide-react';
 import {
@@ -155,7 +152,10 @@ import './rooms.css';
 
 export type RoomsPageProps = {
   runtimeMode?: DashboardRuntimeMode;
-  /** The cards of the Home: the first with an entity says what its panel holds besides the device. */
+  /**
+   * Not read: related controls, micro widgets and the choices of the controls belong to the Home.
+   * The Rooms show the controls of each device as the registry recommends. MainBoard still passes them.
+   */
   homeWidgets?: readonly Widget[];
   relatedHistory?: Readonly<Record<string, readonly number[]>>;
   isLoading?: boolean;
@@ -305,8 +305,6 @@ function withoutIds(byRoom: Record<string, string[]>, roomId: string, ids: strin
 
 export function RoomsPage({
   runtimeMode = 'real',
-  homeWidgets,
-  relatedHistory,
   isLoading = false,
   haConnected,
   canManageRooms = false,
@@ -411,16 +409,6 @@ export function RoomsPage({
   }, [activeRoom?.id]);
 
   const states = demo ? DEMO_STATES : haStates;
-  const relatedContext = React.useMemo<RelatedContextValue>(
-    () => ({
-      sourceOf: (owner) => homeSourceOf(homeWidgets, owner),
-      states: demo ? { ...DEMO_RELATED_STATES, ...states } : states,
-      history: relatedHistory,
-      demo,
-      commands: { call: onCallService, navigate: onNavigate },
-    }),
-    [demo, homeWidgets, onCallService, onNavigate, relatedHistory, states],
-  );
   const lights = useLightCommands({ demo, states, onCallService });
   const roomOf = React.useCallback(
     (entityId: string): string | null => (demo ? demoRoomByEntity[entityId] : registry.entityAreaByEntityId[entityId]) ?? null,
@@ -1319,7 +1307,6 @@ export function RoomsPage({
   }
 
   return (
-    <RelatedContext.Provider value={relatedContext}>
     <div className="rooms-dashboard dashboard-page-scroll" data-testid="rooms">
       <div className="dashboard-page-content dashboard-page-content-wide min-w-0 max-w-full">
         <main className="rooms-main">
@@ -1944,7 +1931,6 @@ export function RoomsPage({
 
       {roomSheetLayer}
     </div>
-    </RelatedContext.Provider>
   );
 }
 

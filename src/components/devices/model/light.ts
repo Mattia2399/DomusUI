@@ -238,3 +238,29 @@ export function applyLightAction(model: LightModel, action: LightAction): LightM
       return model;
   }
 }
+
+const FEATURE_FLASH = 8;
+const FEATURE_WHITE = 128;
+
+/** What a light exposes beyond brightness and colour, read from its entity: the white channel, the effects, the flash. */
+export function lightExtrasOf(entity: MockEntityState | undefined) {
+  const attributes = entity?.rawAttributes ?? {};
+  const features = Number(attributes.supported_features ?? entity?.supportedFeatures ?? 0) || 0;
+  const modes = Array.isArray(attributes.supported_color_modes) ? attributes.supported_color_modes : [];
+  const list = Array.isArray(attributes.effect_list) ? attributes.effect_list : [];
+  const effects = Array.from(
+    new Map(
+      list
+        .filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '')
+        .map((entry) => [entry.trim().toLowerCase(), entry.trim()] as const)
+        .reverse(),
+    ).values(),
+  ).reverse();
+  return {
+    supportsWhite: modes.includes('white') || (features & FEATURE_WHITE) !== 0,
+    supportsEffects: effects.length > 0,
+    supportsFlash: (features & FEATURE_FLASH) !== 0,
+    effect: typeof attributes.effect === 'string' ? attributes.effect : undefined,
+    effects,
+  };
+}

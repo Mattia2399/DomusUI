@@ -2,7 +2,7 @@ import React from 'react';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { LazyLoadErrorBoundary } from '../../common/LazyLoadBoundary';
 import { PanelView, type PanelViewProps } from './PanelView';
-import { RelatedContext, type RelatedContextValue, type RelatedSource } from './related/relatedContext';
+import type { PanelRelated, RelatedContextValue, RelatedSource } from './related/relatedContext';
 import { PanelStates } from './shell/PanelStates';
 import { loadedPanelEntry, loadPanelEntry, panelSkeletonOf, type PanelEntry, type PanelKind } from './registry';
 import { PanelGroups } from './shell/PanelGroups';
@@ -18,6 +18,8 @@ type PanelProps = {
   live?: PanelLive;
   closeLabel?: string;
   onClose: () => void;
+  /** Only from the Home: what its card holds besides the device. */
+  related?: PanelRelated;
 };
 
 type EntryProps = Omit<PanelProps, 'kind'>;
@@ -36,18 +38,16 @@ const lazyRelatedPanel = () =>
 let RelatedPanel = lazyRelatedPanel();
 
 const drawnBy = (entry: PanelEntry<unknown>) =>
-  function PanelOfKind({ input, live, closeLabel, onClose }: EntryProps) {
+  function PanelOfKind({ input, live, closeLabel, onClose, related }: EntryProps) {
     const spec = entry.useSpec(input);
-    const context = React.useContext(RelatedContext);
     const [, redraw] = React.useReducer((count: number) => count + 1, 0);
-    const source = context?.sourceOf(spec.owner);
     const panel = { spec, live, closeLabel, onClose };
-    if (!context || !source) return <PanelView {...panel} />;
+    if (!related) return <PanelView {...panel} />;
     return (
       <RelatedPanel
         {...panel}
-        source={source}
-        context={context}
+        source={related.source}
+        context={related.context}
         onRetry={() => {
           RelatedPanel = lazyRelatedPanel();
           redraw();
@@ -99,13 +99,13 @@ function PanelSkeleton({ kind, input, status, closeLabel, onClose }: PanelProps 
 }
 
 export function Panel(props: PanelProps) {
-  const { kind, input, live, closeLabel, onClose } = props;
+  const { kind, input, live, closeLabel, onClose, related } = props;
   const dt = useDevicesTranslations();
   const View = viewOf(kind);
   return (
     <LazyLoadErrorBoundary failure={<PanelSkeleton {...props} status={dt('unavailable')} />}>
       <React.Suspense fallback={<PanelSkeleton {...props} />}>
-        <View input={input} live={live} closeLabel={closeLabel} onClose={onClose} />
+        <View input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />
       </React.Suspense>
     </LazyLoadErrorBoundary>
   );

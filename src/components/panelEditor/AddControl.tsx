@@ -3,6 +3,7 @@ import { usePanelEditorWords } from '../../i18n/panelEditorTranslations';
 import { lookNameOf } from '../../i18n/editorTranslations';
 import { EntityPicker, type PickerEntity } from '../editor/EntityPicker';
 import { IconPicker } from '../editor/IconPicker';
+import type { EditorIcons } from '../editor/editorIcons';
 import { LookPicker } from '../editor/LookPicker';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassSegmented } from '../ui/GlassSegmented';
@@ -17,12 +18,13 @@ export type AddControlProps = {
   rows: readonly ControlRow[];
   haStates: MockEntityStateMap;
   entities: readonly PickerEntity[];
+  icons: EditorIcons;
   onAdd: (rows: ControlRow[]) => void;
   onCancel: () => void;
 };
 
 /* Two steps: the entity by its name, then its look, name, icon and place. */
-export function AddControl({ widget, rows, haStates, entities, onAdd, onCancel }: AddControlProps) {
+export function AddControl({ widget, rows, haStates, entities, icons, onAdd, onCancel }: AddControlProps) {
   const words = usePanelEditorWords();
   const [entityId, setEntityId] = React.useState<string | null>(null);
   const [look, setLook] = React.useState('');
@@ -71,7 +73,7 @@ export function AddControl({ widget, rows, haStates, entities, onAdd, onCancel }
       </section>
       <section>
         <h4 className="panel-editor-heading">{words('icon')}</h4>
-        <IconPicker label={words('icon')} value={icon} onChange={setIcon} />
+        <IconPicker icons={icons} label={words('icon')} value={icon} onChange={setIcon} />
       </section>
       <section>
         <h4 className="panel-editor-heading">{words('place')}</h4>

@@ -1,7 +1,7 @@
 import React from 'react';
 import clsx from 'clsx';
 import { useEditorWords } from '../../i18n/editorTranslations';
-import { EDITOR_ICONS } from './editorIcons';
+import type { EditorIcons } from './editorIcons';
 import './editor.css';
 
 export type IconPickerProps = {
@@ -9,17 +9,19 @@ export type IconPickerProps = {
   value?: string;
   onChange: (icon: string | undefined) => void;
   label: string;
+  /** The icons to offer, from EDITOR_ICONS: whoever draws the picker has them. */
+  icons: EditorIcons;
 };
 
 /* The icons to choose from, and Automatica to go back to that of the device. */
-export function IconPicker({ value, onChange, label }: IconPickerProps) {
+export function IconPicker({ value, onChange, label, icons }: IconPickerProps) {
   const words = useEditorWords();
   return (
     <div role="radiogroup" aria-label={label} className="editor-icons">
       <button type="button" role="radio" aria-checked={!value} className={clsx(!value && 'is-on')} onClick={() => onChange(undefined)}>
         {words('iconAuto')}
       </button>
-      {Object.entries(EDITOR_ICONS).map(([key, { icon: Icon, name }]) => (
+      {Object.entries(icons).map(([key, { icon: Icon, name }]) => (
         <button key={key} type="button" role="radio" aria-checked={value === key} aria-label={name} title={name} className={clsx(value === key && 'is-on')} onClick={() => onChange(key)}>
           <Icon size={22} strokeWidth={2} aria-hidden="true" />
         </button>

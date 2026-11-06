@@ -244,3 +244,36 @@ export function climateConfirmed(live: ClimateModel, wanted: ClimateModel) {
     live.preset === wanted.preset
   );
 }
+
+const FEATURE_TARGET_HUMIDITY = 4;
+const FEATURE_SWING_HORIZONTAL = 512;
+
+/** What a climate device exposes beyond modes and temperature: the humidity it aims at and the horizontal louvers. */
+export type ClimateExtras = {
+  supportsTargetHumidity?: boolean;
+  targetHumidity?: number;
+  minHumidity?: number;
+  maxHumidity?: number;
+  targetHumidityStep?: number;
+  supportsHorizontalSwing?: boolean;
+  horizontalSwing?: string;
+  horizontalSwingModes?: string[];
+};
+
+const extraNumber = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined);
+
+export function climateExtrasOf(entity: MockEntityState | undefined): ClimateExtras {
+  const attributes = entity?.rawAttributes ?? {};
+  const features = Number(attributes.supported_features ?? entity?.supportedFeatures ?? 0) || 0;
+  const modes = attributes.swing_horizontal_modes;
+  return {
+    supportsTargetHumidity: (features & FEATURE_TARGET_HUMIDITY) !== 0,
+    targetHumidity: extraNumber(attributes.humidity),
+    minHumidity: extraNumber(attributes.min_humidity),
+    maxHumidity: extraNumber(attributes.max_humidity),
+    targetHumidityStep: extraNumber(attributes.target_humidity_step),
+    supportsHorizontalSwing: (features & FEATURE_SWING_HORIZONTAL) !== 0,
+    horizontalSwing: typeof attributes.swing_horizontal_mode === 'string' ? attributes.swing_horizontal_mode : undefined,
+    horizontalSwingModes: Array.isArray(modes) ? modes.filter((mode): mode is string => typeof mode === 'string' && mode.trim() !== '') : [],
+  };
+}

@@ -216,27 +216,10 @@ function valueOf(look: RelatedLook, model: RelatedModel, locale: string, words: 
   return model.state;
 }
 
-/*
- * An icon chosen in the edit mode arrives with the icons of the editor, only for a card that has one:
- * the pages that open panels do not carry them.
- */
-const ChosenIcon = React.lazy(() =>
-  import('../../../editor/editorIcons').then(({ EDITOR_ICONS }) => ({
-    default: ({ name }: { name: string }) => {
-      const Icon = EDITOR_ICONS[name]?.icon ?? Activity;
-      return <Icon {...ICON} />;
-    },
-  })),
-);
-
-const iconOf = (control: RelatedControl, model: RelatedModel) => {
-  if (control.icon && !ICONS[control.icon]) {
-    return (
-      <React.Suspense fallback={<Activity {...ICON} />}>
-        <ChosenIcon name={control.icon} />
-      </React.Suspense>
-    );
-  }
+const iconOf = (control: RelatedControl, model: RelatedModel, context: RelatedContextValue) => {
+  // An icon chosen in the edit mode comes from the Home, which has them.
+  const chosen = control.icon && !ICONS[control.icon] ? context.iconOf?.(control.icon) : undefined;
+  if (chosen) return chosen;
   const Icon = (control.icon && ICONS[control.icon]) || (control.look === 'level' && ICONS.level) || (control.look === 'page' && ICONS.page) || (model.deviceClass && ICONS[model.deviceClass]) || ICONS[model.domain] || Activity;
   return <Icon {...ICON} />;
 };
@@ -258,7 +241,7 @@ function panelControlOf(control: RelatedControl, context: RelatedContextValue, l
   const view = (form: 'group' | 'hero') => <RelatedControlView control={control} model={model} form={form} acts={acts} history={history} locale={locale} words={words} />;
   const common = {
     id: `${RELATED_ID_PREFIX}${control.id}`,
-    icon: iconOf(control, model),
+    icon: iconOf(control, model, context),
     label: model.name,
     value: valueOf(control.look, model, locale, words),
     kindName: words(kind),

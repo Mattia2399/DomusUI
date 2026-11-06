@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { useI18n } from '../../i18n/I18nProvider';
 import { usePanelsTranslations } from '../../i18n/panelsTranslations';
 import { Panel } from '../devices/panels/Panel';
-import { arrangeControls, isActionControl, loadedPanelEntry, loadMediaPlayer, loadPanelEntry, MOST_IN_THE_ROW, PANEL_CONTROLS, panelKindOfDevice } from '../devices/panels/registry';
-import { RelatedContext } from '../devices/panels/related/relatedContext';
+import { arrangeControls, loadMediaPlayer, loadPanelEntry, MOST_IN_THE_ROW, PANEL_CONTROLS, panelKindOfDevice } from '../devices/panels/registry';
+import { EDITOR_ICONS } from '../editor/editorIcons';
 import { PanelSurfaceContext } from '../devices/panels/shell/panelSurface';
 import type { ClimatePanelInput } from '../devices/panels/entries/climate';
 import type { LightPanelInput } from '../devices/panels/entries/light';
@@ -56,6 +56,8 @@ const LOADING_SHEET = <div className="min-h-[60vh] md:min-h-0" aria-hidden="true
 
 export function HomePanel(props: HomePanelProps) {
   const { activeDevice, lamp, climate, actions, embedded, onClose } = props;
+  // The icons chosen in the edit mode are drawn here, where the Home has them.
+  const related = React.useMemo(() => (props.related ? { ...props.related, context: { ...props.related.context, iconOf: chosenIconOf } } : undefined), [props.related]);
   const panel = homePanelOf(props);
   const registry = useEntityRegistry();
   const deviceExtras = useDeviceExtras();
@@ -119,7 +121,7 @@ export function HomePanel(props: HomePanelProps) {
       onAction: (action) => runLightAction(action, model, actions),
       onExtraAction: (action) => runHomeLightExtra(action, actions),
     };
-    return <Panel kind="light" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="light" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'climate') {
     const model = homeClimateToModel(activeDevice.id, activeDevice.name, climate);
@@ -141,7 +143,7 @@ export function HomePanel(props: HomePanelProps) {
       },
       onExtraAction: (action) => runHomeClimateExtra(action, actions),
     };
-    return <Panel kind="climate" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="climate" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'device') {
     const model = deviceModelOf(props, deviceExtras?.wattsOf);
@@ -160,7 +162,7 @@ export function HomePanel(props: HomePanelProps) {
         // The panel asks by itself before turning off a protected plug.
         onAction: (action) => runDeviceAction(action, kind, actions),
       };
-      return <Panel kind="plug" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
+      return <Panel kind="plug" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
     }
     const input: DevicePanelInput = {
       model,
@@ -177,7 +179,7 @@ export function HomePanel(props: HomePanelProps) {
       activeDevice.type === 'cover' && props.coverIsReadOnly
         ? { off: true, notice: <PanelStates state={{ kind: 'message', text: pt('lvReadOnly') }} /> }
         : live;
-    return <Panel kind={panelKindOfDevice(model.kind)} input={input} live={deviceLive} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind={panelKindOfDevice(model.kind)} input={input} live={deviceLive} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'security') {
     const model = securityModelOf(props);
@@ -210,7 +212,7 @@ export function HomePanel(props: HomePanelProps) {
       onPtzStop: actions.stopCameraPtz,
       onRelatedAction: actions.runCameraRelatedEntityAction,
     };
-    return <Panel kind="camera" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="camera" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'media') {
     const model = mediaModelOf(props);
@@ -249,7 +251,7 @@ export function HomePanel(props: HomePanelProps) {
   }
   if (panel === 'vacuum') {
     const input: VacuumPanelInput = { vacuum: { ...props.vacuum, name: activeDevice.name }, entityId: owner, areas: props.vacuumAreas, commands: props.vacuumCommands };
-    return <Panel kind="vacuum" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="vacuum" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'calendar') {
     const input: CalendarPanelInput = {
@@ -260,7 +262,7 @@ export function HomePanel(props: HomePanelProps) {
       wasteTypes: props.calendarWasteTypes,
       onConfigureWaste: props.onConfigureWaste,
     };
-    return <Panel kind="calendar" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="calendar" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'sensor' && activeDevice.sensorEntityId) {
     const input: SensorPanelInput = {
@@ -271,7 +273,7 @@ export function HomePanel(props: HomePanelProps) {
       fallbackEntity: sensorStandIn,
       stale,
     };
-    return <Panel kind="sensor" input={input} live={live} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="sensor" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'weather') {
     const weatherAttributes = props.weather.rawAttributes;
@@ -285,11 +287,11 @@ export function HomePanel(props: HomePanelProps) {
       updatedAt: weatherEntityId ? entityChangedAt(props.haStates[weatherEntityId], '__last_updated') : null,
       ...props.weatherConfig,
     };
-    return <Panel kind="weather" input={input} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="weather" input={input} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   if (panel === 'members') {
     const input: MembersPanelInput = { name: activeDevice.name, entityId: owner, members: activeDevice.membersPresence ?? activeDevice.membersMapPoints ?? [], haStates: props.haStates };
-    return <Panel kind="members" input={input} closeLabel={closeLabel} onClose={onClose} />;
+    return <Panel kind="members" input={input} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }
   return null;
 }
@@ -302,6 +304,12 @@ export const preloadWeatherPanel = () => loadPanelEntry('weather');
  * the piece the Home already loads for its panels: reaching them on its own would split the
  * pieces the Rooms share with the panels.
  */
-export const panelEditorKit = { Panel, RelatedContext, PanelSurfaceContext, arrangeControls, isActionControl, loadPanelEntry, loadedPanelEntry, PANEL_CONTROLS, MOST_IN_THE_ROW };
+export const panelEditorKit = { Panel, PanelSurfaceContext, arrangeControls, loadPanelEntry, PANEL_CONTROLS, MOST_IN_THE_ROW, EDITOR_ICONS };
+
+/** The icon chosen for a related control in the edit mode. */
+const chosenIconOf = (key: string) => {
+  const Icon = EDITOR_ICONS[key]?.icon;
+  return Icon ? <Icon size={20} strokeWidth={2} /> : undefined;
+};
 
 export default HomePanel;

@@ -33,7 +33,6 @@ import {
   Sun,
   Thermometer,
   Tv,
-  WashingMachine,
   Waves,
   Wifi,
   Wind,
@@ -42,7 +41,9 @@ import {
 } from 'lucide-react';
 
 /** The icons a user can choose, with their Italian names to search them. Saved by key, never by component. */
-export const EDITOR_ICONS: Record<string, { icon: LucideIcon; name: string }> = {
+export type EditorIcons = Readonly<Record<string, { icon: LucideIcon; name: string }>>;
+
+export const EDITOR_ICONS: EditorIcons = {
   activity: { icon: Activity, name: 'Attività' },
   'air-vent': { icon: AirVent, name: 'Bocchetta' },
   armchair: { icon: Armchair, name: 'Poltrona' },
@@ -77,7 +78,7 @@ export const EDITOR_ICONS: Record<string, { icon: LucideIcon; name: string }> = 
   sun: { icon: Sun, name: 'Sole' },
   thermometer: { icon: Thermometer, name: 'Termometro' },
   tv: { icon: Tv, name: 'TV' },
-  washing: { icon: WashingMachine, name: 'Lavatrice' },
+  // No washing machine: the Rooms draw theirs, and sharing it would split it from their page.
   waves: { icon: Waves, name: 'Onde' },
   wifi: { icon: Wifi, name: 'Rete' },
   wind: { icon: Wind, name: 'Vento' },

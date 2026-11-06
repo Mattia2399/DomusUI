@@ -1,12 +1,12 @@
 const { expect, test } = require('@playwright/test');
 
-// The demo stove with its related controls, on a phone, in the column of the Home and in the dialog of the Rooms.
+// The demo stove with its related controls, on a phone and in the column of the Home. They belong to the Home only.
 
 const VIEWS = [
   { name: 'telefono', width: 390, height: 844, touch: true, path: '/home' },
   { name: 'colonna', width: 1440, height: 900, touch: false, path: '/home' },
-  { name: 'dialogo', width: 1376, height: 1032, touch: false, path: '/rooms' },
 ];
+const ROOMS = { name: 'dialogo', width: 1376, height: 1032, touch: false, path: '/rooms' };
 
 const RELATED = [
   { id: 'boiler', entityId: 'sensor.demo_boiler_acs', look: 'temperature', place: 'more', order: 0 },
@@ -94,7 +94,7 @@ for (const view of VIEWS) {
         await expect(shown).toBeVisible();
         const fill = await page.locator('.panel-page-fill').boundingBox();
         const look = await page.locator('.panel-page-fill .related-look').boundingBox();
-        expect(fill.height, name).toBeGreaterThan(view.name === 'dialogo' ? 120 : 280);
+        expect(fill.height, name).toBeGreaterThan(280);
         expect(look.height, `${name} non riempie`).toBeGreaterThan(fill.height - 40);
         expect(look.width, `${name} non riempie`).toBeGreaterThan(fill.width - 40);
         await backOf(page).click();
@@ -116,7 +116,6 @@ for (const view of VIEWS) {
 
     test('a control of the device opened from Altro shows too', async ({ page }) => {
       await openDemo(page, view);
-      if (view.name === 'dialogo') return; // Its demo has no Altro for this device.
       await openPanel(page, 'Clima');
       await moreOf(page, view).click();
       await rowOf(page, 'Alette').click();
@@ -131,7 +130,7 @@ for (const view of VIEWS) {
         if (/related\/(looks|relatedPanelControls|RelatedControlView)|ui\/families/.test(request.url())) asked.push(request.url());
       });
       await openDemo(page, view);
-      await openPanel(page, view.name === 'dialogo' ? 'Faretti' : 'Lampada');
+      await openPanel(page, 'Lampada');
       await page.waitForTimeout(1200);
       expect(asked).toEqual([]);
     });
@@ -181,25 +180,16 @@ for (const view of VIEWS) {
   });
 }
 
-test.describe('the Rooms read from the Home', () => {
+test.describe('the Rooms show the device as the registry recommends', () => {
   test.use({ locale: 'it-IT', ignoreHTTPSErrors: true });
-  const dialog = VIEWS[2];
 
-  test('with no card in the Home, no related controls', async ({ page }) => {
-    const layout = layoutWith();
-    layout.widgets = layout.widgets.filter((widget) => widget.entityId !== 'climate.demo_stove');
-    await openDemo(page, dialog, layout);
+  test('the related controls and the choices of the card of the Home stay in the Home', async ({ page }) => {
+    const layout = layoutWith(RELATED.map((control) => ({ ...control, place: 'main' })));
+    layout.widgets[0].panelControls = { modes: { place: 'hidden', order: 0 } };
+    await openDemo(page, ROOMS, layout);
     await openPanel(page, 'Termostufa');
-    await expect(page.locator('.panel-group-more')).toHaveCount(0);
+    await expect(page.locator('.panel-groups').getByText('Modalità', { exact: true })).toBeVisible();
     await expect(page.getByText('Boiler ACS')).toHaveCount(0);
-  });
-
-  test('with two cards, the first one in the order of the Home', async ({ page }) => {
-    const second = card('climate.demo_stove', 'climate', 'Seconda', { relatedControls: [{ ...RELATED[0], name: 'Dalla seconda', place: 'main' }] }, 2, 4);
-    const layout = layoutWith([{ ...RELATED[1], name: 'Dalla prima', place: 'main' }], [{ ...second, id: 'second-stove' }]);
-    await openDemo(page, dialog, layout);
-    await openPanel(page, 'Termostufa');
-    await expect(page.locator('.panel-groups').getByText('Dalla prima')).toBeVisible();
-    await expect(page.getByText('Dalla seconda')).toHaveCount(0);
+    await expect(page.getByText('Pellet nel serbatoio')).toHaveCount(0);
   });
 });

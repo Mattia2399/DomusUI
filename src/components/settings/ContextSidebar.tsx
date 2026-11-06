@@ -1,4 +1,4 @@
-import { RelatedContext, type RelatedContextValue } from '../devices/panels/related/relatedContext';
+import type { PanelRelated } from '../devices/panels/related/relatedContext';
 import type { Widget } from '../../types/dashboardModels';
 import React, { useMemo } from 'react';
 import { useCan } from '../../security/AccessControlProvider';
@@ -460,18 +460,20 @@ export function ContextSidebar({
   const openCard = homeWidgets?.find((widget) => widget.id === activeDevice?.id);
   // These panels have no Altro: what a card holds besides its device stays in the block under them.
   const hasNoAltro = !homePanel || NO_ALTRO_PANELS.has(activeDevice?.type ?? '');
-  const relatedContext = React.useMemo<RelatedContextValue | null>(
+  // Only a card with something for its panel: related controls, micro widgets, or choices on its controls.
+  const related = React.useMemo<PanelRelated | undefined>(
     () =>
-      openCard && !hasNoAltro
+      openCard && !hasNoAltro && (openCard.relatedControls?.length || openCard.widgets?.length || openCard.panelControls)
         ? {
-            // As holdsPanelChoices of the Rooms: written here, so that the two pages share no piece for one line.
-            sourceOf: () => (openCard.relatedControls?.length || openCard.widgets?.length || openCard.panelControls ? openCard : undefined),
+            source: openCard,
+            context: {
             states: haStates,
             history: microChartHistoryByEntity,
             demo: openCard.dataSource === 'mock',
             commands: { call: onCallService, toggle: onToggleMicroWidget, setValue: onSetMicroSliderValue, navigate: onNavigateMicroWidgetPage },
+            },
           }
-        : null,
+        : undefined,
     [openCard, hasNoAltro, haStates, microChartHistoryByEntity, onCallService, onToggleMicroWidget, onSetMicroSliderValue, onNavigateMicroWidgetPage],
   );
   return (
@@ -497,9 +499,7 @@ export function ContextSidebar({
       {homePanel && homePanelProps ? (
         <div className={`${CONTEXT_PANEL_LAYOUT.shell} dv-panel-frame`}>
           <React.Suspense fallback={<div className="min-h-[60vh] md:min-h-0" aria-hidden="true" />}>
-            <RelatedContext.Provider value={relatedContext}>
-              <HomePanel {...homePanelProps} />
-            </RelatedContext.Provider>
+            <HomePanel {...homePanelProps} related={related} />
           </React.Suspense>
         </div>
       ) : null}

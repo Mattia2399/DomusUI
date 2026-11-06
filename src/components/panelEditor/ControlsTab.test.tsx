@@ -7,11 +7,12 @@ import { ControlsTab } from './ControlsTab';
 import { controlRows, entityNameOf, relatedLooksOf, type DeviceControlInfo } from './controlsModel';
 import { controlAt } from './PanelPreview';
 import * as registry from '../devices/panels/registry';
+import { EDITOR_ICONS } from '../editor/editorIcons';
 import type { PanelKit } from './panelKit';
 
 afterEach(cleanup);
 
-const KIT = { ...registry } as unknown as PanelKit;
+const KIT = { ...registry, EDITOR_ICONS } as unknown as PanelKit;
 
 const STATES: MockEntityStateMap = {
   'climate.stove': { state: 'heat', rawAttributes: { friendly_name: 'Termostufa' } },

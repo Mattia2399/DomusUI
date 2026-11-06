@@ -357,7 +357,7 @@ Il blocco sotto il pannello resta solo per Allarme, Serratura, Meteo e Media, ch
 
 ### Dove sono salvati
 
-Oggi i collegati stanno nella card (`Widget.relatedControls`). Le Stanze leggono dalla prima card della Home con la stessa entità; senza card, niente collegati. **Da decidere nel prompt 4: se salvarli per entità.**
+**Stanze = di base, Home = personalizzato.** Collegati, micro widget e scelte dei controlli (`Widget.relatedControls`, `Widget.widgets`, `Widget.panelControls`) stanno nella card e valgono solo nella Home: il contesto dei collegati lo dà solo `ContextSidebar`. Le Stanze mostrano i controlli di ogni dispositivo con posto, aspetto e ordine consigliati dal registro (`PANEL_CONTROLS`) e non leggono le card della Home. Le icone scelte nell'editor per un collegato le disegna la Home (`iconOf` del contesto).
 
 Il pulsante pagina segue solo percorsi interni all'app (`isInternalPath`): un percorso esterno o non valido resta salvato ma viene ignorato.
 

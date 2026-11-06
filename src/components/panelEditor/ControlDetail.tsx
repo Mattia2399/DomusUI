@@ -1,12 +1,12 @@
+import { isInternalPath } from '../devices/panels/related/relatedModel';
 import React from 'react';
 import { usePanelEditorWords } from '../../i18n/panelEditorTranslations';
-import { isInternalPath } from '../devices/panels/related/relatedModel';
 import { EntityPicker, type PickerEntity } from '../editor/EntityPicker';
 import { FoldRow, useOneOpen } from '../editor/FoldRow';
 import { IconPicker } from '../editor/IconPicker';
 import { LookPicker } from '../editor/LookPicker';
 import { moveItem } from '../editor/ReorderList';
-import { EDITOR_ICONS } from '../editor/editorIcons';
+import type { EditorIcons } from '../editor/editorIcons';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassConfirm } from '../ui/GlassConfirm';
 import { GlassSegmented } from '../ui/GlassSegmented';
@@ -26,12 +26,13 @@ export type ControlDetailProps = {
   haStates: MockEntityStateMap;
   entities: readonly PickerEntity[];
   lookName: (look: string) => string;
+  icons: EditorIcons;
   onChange: (rows: ControlRow[]) => void;
   onBack: () => void;
 };
 
 /* One control: its rows open one at a time. Those of the device keep their name and icon. */
-export function ControlDetail({ row, rows, widget, haStates, entities, lookName, onChange, onBack }: ControlDetailProps) {
+export function ControlDetail({ row, rows, widget, haStates, entities, lookName, icons, onChange, onBack }: ControlDetailProps) {
   const words = usePanelEditorWords();
   const fold = useOneOpen<Fold>();
   const related = row.related;
@@ -76,8 +77,9 @@ export function ControlDetail({ row, rows, widget, haStates, entities, lookName,
       ) : null}
 
       {related ? (
-        <FoldRow label={words('icon')} value={related.icon ? EDITOR_ICONS[related.icon]?.name ?? related.icon : words('iconAuto')} open={fold.isOpen('icon')} onToggle={() => fold.toggle('icon')}>
+        <FoldRow label={words('icon')} value={related.icon ? icons[related.icon]?.name ?? related.icon : words('iconAuto')} open={fold.isOpen('icon')} onToggle={() => fold.toggle('icon')}>
           <IconPicker
+            icons={icons}
             label={words('icon')}
             value={related.icon}
             onChange={(icon) => {

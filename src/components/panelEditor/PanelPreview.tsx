@@ -30,10 +30,9 @@ export function controlAt(target: EventTarget | null, rows: readonly ControlRow[
  * a touch only chooses the control to edit.
  */
 export function PanelPreview({ kit, panel, widget, states, rows, selected, onSelect }: PanelPreviewProps) {
-  const { Panel, RelatedContext, PanelSurfaceContext } = kit;
+  const { Panel, PanelSurfaceContext } = kit;
   const context = React.useMemo<RelatedContextValue>(
     () => ({
-      sourceOf: () => (widget.relatedControls?.length || widget.widgets?.length || widget.panelControls ? widget : undefined),
       states,
       demo: true,
       commands: {},
@@ -62,9 +61,12 @@ export function PanelPreview({ kit, panel, widget, states, rows, selected, onSel
       {chosen?.name ? <style>{`.panel-editor-preview [aria-label="${chosen.name.replace(/["\\]/g, '\\$&')}"]{outline:2px solid var(--control-accent, #0a84ff);outline-offset:2px;border-radius:14px}`}</style> : null}
       <React.Suspense fallback={<div className="panel-editor-preview-wait" aria-busy="true" />}>
         <PanelSurfaceContext.Provider value="column">
-          <RelatedContext.Provider value={context}>
-            <Panel kind={panel.kind} input={panel.input} onClose={() => undefined} />
-          </RelatedContext.Provider>
+          <Panel
+            kind={panel.kind}
+            input={panel.input}
+            onClose={() => undefined}
+            related={widget.relatedControls?.length || widget.widgets?.length || widget.panelControls ? { source: widget, context } : undefined}
+          />
         </PanelSurfaceContext.Provider>
       </React.Suspense>
     </div>

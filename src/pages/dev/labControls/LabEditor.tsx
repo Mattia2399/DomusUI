@@ -2,6 +2,7 @@ import React from 'react';
 import { EntityPicker, type PickerEntity } from '../../../components/editor/EntityPicker';
 import { FoldRow, useOneOpen } from '../../../components/editor/FoldRow';
 import { IconPicker } from '../../../components/editor/IconPicker';
+import { EDITOR_ICONS } from '../../../components/editor/editorIcons';
 import { LookPicker } from '../../../components/editor/LookPicker';
 import { ReorderList } from '../../../components/editor/ReorderList';
 import { SizePicker } from '../../../components/editor/SizePicker';
@@ -49,7 +50,7 @@ export function LabEditor() {
           <span>Il campo del nome</span>
         </FoldRow>
         <FoldRow label="Icona" value="Fiamma" open={fold.isOpen('icon')} onToggle={() => fold.toggle('icon')}>
-          <IconPicker label="Icona" value={icon} onChange={setIcon} />
+          <IconPicker label="Icona" value={icon} onChange={setIcon} icons={EDITOR_ICONS} />
         </FoldRow>
         <FoldRow label="Posto" value="In Altro" open={fold.isOpen('place')} onToggle={() => fold.toggle('place')}>
           <span>In primo piano, In Altro, Nascosto</span>

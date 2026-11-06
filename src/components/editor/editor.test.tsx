@@ -6,6 +6,7 @@ import { relatedModelOf } from '../devices/panels/related/relatedModel';
 import { EntityPicker, entityRoleOf, groupEntities, type PickerEntity } from './EntityPicker';
 import { FoldRow, useOneOpen } from './FoldRow';
 import { IconPicker } from './IconPicker';
+import { EDITOR_ICONS } from './editorIcons';
 import { LookPicker } from './LookPicker';
 import { moveItem, placeAmong, ReorderList } from './ReorderList';
 import { SizePicker } from './SizePicker';
@@ -103,7 +104,7 @@ describe('FoldRow', () => {
 describe('IconPicker and SizePicker', () => {
   it('chooses an icon by key, and Automatica goes back to the one of the device', () => {
     const onChange = vi.fn();
-    render(<IconPicker label="Icona" value="flame" onChange={onChange} />);
+    render(<IconPicker label="Icona" value="flame" onChange={onChange} icons={EDITOR_ICONS} />);
     expect(screen.getByRole('radio', { name: 'Fiamma' }).getAttribute('aria-checked')).toBe('true');
     fireEvent.click(screen.getByRole('radio', { name: 'Stufa' }));
     expect(onChange).toHaveBeenCalledWith('heater');

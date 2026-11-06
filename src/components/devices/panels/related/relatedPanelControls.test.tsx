@@ -4,7 +4,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RelatedControl } from '../../../../types/relatedControl';
 import { arrangeControls, isActionControl, MOST_IN_THE_ROW, type PanelControl } from '../registry';
 import type { RelatedContextValue } from './relatedContext';
-import { homeSourceOf } from './relatedHomeSource';
 import { forgetRelatedState, RELATED_SEND_DELAY_MS, relatedPanelControls } from './relatedPanelControls';
 import type { Widget } from '../../../../types/dashboardModels';
 
@@ -23,7 +22,7 @@ const STOVE: RelatedControl[] = [
   { id: 'pellet', entityId: 'sensor.pellet', look: 'level', place: 'more', order: 3 },
 ];
 
-const contextOf = (extra: Partial<RelatedContextValue> = {}): RelatedContextValue => ({ sourceOf: () => undefined, states: STATES, demo: false, commands: {}, ...extra });
+const contextOf = (extra: Partial<RelatedContextValue> = {}): RelatedContextValue => ({ states: STATES, demo: false, commands: {}, ...extra });
 const device = (id: string): PanelControl => ({ id, icon: null, label: id, onPress: () => undefined });
 const build = (relatedControls: RelatedControl[], context = contextOf()) => relatedPanelControls({ relatedControls }, context, 'it-IT', () => undefined);
 const named = (controls: readonly PanelControl[], id: string) => controls.find((control) => control.id === `rel:${id}`)!;
@@ -186,20 +185,6 @@ describe('in the demo', () => {
   });
 });
 
-describe('where the Rooms read from', () => {
-  const card = (id: string, entityId: string, order: number) => ({ id, entityId, relatedControls: [{ ...STOVE[0], order }] }) as unknown as Widget;
-
-  it('the first card of the Home with that entity', () => {
-    const widgets = [card('a', 'climate.other', 0), card('b', 'climate.stove', 1), card('c', 'climate.stove', 2)];
-    expect(homeSourceOf(widgets, 'climate.stove')).toBe(widgets[1]);
-  });
-
-  it('no card, no related controls', () => {
-    expect(homeSourceOf([card('a', 'climate.other', 0)], 'climate.stove')).toBeUndefined();
-    expect(homeSourceOf(undefined, 'climate.stove')).toBeUndefined();
-  });
-});
-
 describe('a look nobody asked for stays away', () => {
   it('a panel without related controls has none', () => {
     expect(build([]).controls).toEqual([]);
@@ -240,13 +225,6 @@ describe('the choices of the edit mode', () => {
     const { controls, choices } = build(STOVE);
     const { main } = arrangeControls('stove', [...stove, ...controls], choices);
     expect(ids(main)).toEqual(['modes', 'fan', 'align']);
-  });
-
-  it('a card with only choices opens its panel with them; one with nothing, the panel of the device', () => {
-    const card = (extra: Partial<Widget>): Widget => ({ id: 'c', kind: 'climate', title: 'Stufa', entityId: 'climate.stove', dataSource: 'ha', status: 'heat', isOn: true, layout: { i: 'c', x: 0, y: 0, w: 2, h: 4 }, ...extra });
-    expect(homeSourceOf([card({ panelControls: { modes: { place: 'hidden' } } })], 'climate.stove')).toBeDefined();
-    expect(homeSourceOf([card({})], 'climate.stove')).toBeUndefined();
-    expect(homeSourceOf([card({ relatedControls: [] })], 'climate.stove')).toBeUndefined();
   });
 });
 

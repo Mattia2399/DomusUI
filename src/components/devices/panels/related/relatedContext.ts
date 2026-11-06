@@ -1,10 +1,11 @@
-import React from 'react';
+import type React from 'react';
 import type { MicroWidget, Widget } from '../../../../types/dashboardModels';
 import type { MockEntityStateMap } from '../../../../types/ha';
 
 /*
- * What a page tells the panels about related controls. The Home says what its open card
- * holds; the Rooms say what the first card of the Home with that entity holds.
+ * What the Home hands a panel about related controls, with the card that holds them. Only the
+ * Home does: the Rooms show each device with the controls the registry recommends. Types only,
+ * so that a page that opens panels loads nothing of this.
  */
 
 export type RelatedSource = Pick<Widget, 'relatedControls' | 'panelControls'> & { widgets?: readonly MicroWidget[] };
@@ -18,13 +19,14 @@ export type RelatedCommands = {
 };
 
 export type RelatedContextValue = {
-  /** By the owner of the panel, which for the devices of a room is its entity: only a card with something for its panel. */
-  sourceOf: (owner: string) => RelatedSource | undefined;
   states: MockEntityStateMap;
   history?: Readonly<Record<string, readonly number[]>>;
   /** Nothing leaves the page: the commands change only what it shows. */
   demo: boolean;
+  /** An icon chosen in the edit mode, by its key: the page that has them draws it. */
+  iconOf?: (key: string) => React.ReactNode;
   commands: RelatedCommands;
 };
 
-export const RelatedContext = React.createContext<RelatedContextValue | null>(null);
+/** A card with something for its panel, and what the Home knows to draw it. */
+export type PanelRelated = { source: RelatedSource; context: RelatedContextValue };
