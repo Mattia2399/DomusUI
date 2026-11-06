@@ -36,6 +36,7 @@ import { LabIndicators } from './labControls/LabIndicators';
 import { LabCharts } from './labControls/LabCharts';
 import { LabText } from './labControls/LabText';
 import { LabAdvanced } from './labControls/LabAdvanced';
+import { LabEditor } from './labControls/LabEditor';
 import './componentsLab.css';
 
 /*
@@ -396,6 +397,10 @@ function Board({ theme }: { theme: 'dark' | 'light' }) {
       <h2>Avanzati</h2>
       <div className="lab-grid">
         <LabAdvanced />
+      </div>
+      <h2>Modifica del pannello</h2>
+      <div className="lab-grid">
+        <LabEditor />
       </div>
       <h2>Il pannello</h2>
       <Shapes />

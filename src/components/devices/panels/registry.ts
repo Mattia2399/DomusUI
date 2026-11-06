@@ -205,7 +205,8 @@ export const MOST_IN_THE_ROW = 8;
 export function arrangeControls(
   name: PanelLayoutName | undefined,
   controls: readonly PanelControl[],
-  choices: Readonly<Record<string, PanelControlChoice>> = {},
+  // A saved look the control cannot take is ignored below, as any other.
+  choices: Readonly<Record<string, PanelControlChoice | { place?: PanelPlace; look?: string; order?: number }>> = {},
 ): { main: ArrangedControl[]; more: ArrangedControl[] } {
   const rows: readonly LayoutRow[] = name ? PANEL_CONTROLS[name] : [];
   const orderOf = (control: PanelControl, index: number) => {
@@ -219,7 +220,7 @@ export function arrangeControls(
     .sort((first, second) => first.order - second.order)
     .map(({ control }) => {
       const row = rows.find((entry) => entry.id === control.id);
-      const wanted = choices[control.id]?.look ?? row?.look;
+      const wanted = (choices[control.id]?.look ?? row?.look) as PanelLook | undefined;
       const look: PanelLook = isActionControl(control)
         ? 'action'
         : wanted && wanted !== 'action' && control.looks.includes(wanted)

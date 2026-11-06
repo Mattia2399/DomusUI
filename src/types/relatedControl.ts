@@ -31,6 +31,9 @@ export type RelatedPlainLook =
   | 'countdown';
 export type RelatedLook = RelatedSliderLook | RelatedPlainLook | 'page';
 
+/** What the user chose for a control of the device itself: where it stands, how it looks, in what order. */
+export type SavedControlChoice = { place?: RelatedPlace; look?: string; order?: number };
+
 type RelatedBase = {
   id: string;
   entityId: string;

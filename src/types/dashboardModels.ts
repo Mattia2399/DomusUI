@@ -1,4 +1,4 @@
-import type { RelatedControl } from './relatedControl';
+import type { RelatedControl, SavedControlChoice } from './relatedControl';
 export type WidgetKind =
   | 'light'
   | 'switch'
@@ -116,6 +116,8 @@ export type Widget = {
   widgets?: MicroWidget[];
   /** Controls of other entities, in the same list as those of the device. */
   relatedControls?: RelatedControl[];
+  /** The choices on the controls of the device, by their id: the panel arranges them with these. */
+  panelControls?: Readonly<Record<string, SavedControlChoice>>;
   isFavorite?: boolean;
   placementPolicy?: 'manual' | 'favorites-auto';
   alarmRequireAuthToDisarm?: boolean;
