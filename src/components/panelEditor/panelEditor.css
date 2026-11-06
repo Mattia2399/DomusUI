@@ -127,6 +127,13 @@
 }
 
 
+.panel-editor-extra {
+  display: flex;
+  max-height: 360px;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .panel-editor-danger {
   margin-top: 12px;
   border-top: 1px solid var(--control-track);

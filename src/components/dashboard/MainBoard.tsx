@@ -242,6 +242,7 @@ import { useHaIdentityRevalidation } from '../../hooks/useHaIdentityRevalidation
 import { useDashboardLayoutPersistence } from '../../hooks/useDashboardLayoutPersistence';
 import { useHaDashboardLayoutPersistence } from '../../hooks/useHaDashboardLayoutPersistence';
 import { useDashboardEditorHistory } from '../../hooks/useDashboardEditorHistory';
+import { relatedHistoryEntityIds } from '../devices/panels/related/relatedHistory';
 import { createDashboardStructuralFingerprint } from '../../services/dashboardPersistenceProjection';
 import {
   GRID_ENGINE_2_LAYOUT_ENGINE,
@@ -9981,6 +9982,7 @@ export function MainBoard() {
             .filter((widget) => widget.kind === 'switch')
             .map((widget) => widget.switchConsumptionEntityId?.trim() ?? '')
             .filter((entityId) => entityId.length > 0),
+          ...widgets.flatMap(relatedHistoryEntityIds),
           ...serverPerformanceHistoryEntityIds,
         ],
       ),
@@ -12678,6 +12680,8 @@ export function MainBoard() {
               widgetLayoutOverrides={widgetLayoutOverrides}
               entityOptions={entityOptions}
               haEntityIds={haEntityIds}
+              entityRegistry={haEntityRegistry}
+              haAreas={haAreas}
               haConnected={isHaConnected}
               haStates={panelHaStates}
               onUpdateWidget={updateWidget}

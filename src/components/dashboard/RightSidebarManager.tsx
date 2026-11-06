@@ -89,7 +89,8 @@ import type { VacuumRelatedEntityActionRequest } from '../settings/VacuumRelated
 import type { VacuumDeviceInfo, VacuumMappedArea, VacuumRelatedEntityInfo } from '../widgets/vacuumDeviceModel';
 import type { MockEntityState, MockEntityStateMap } from '../../types/ha';
 import type { DashboardStateShape } from '../../hooks/useDashboardState';
-import { filterEntityIdsForWidgetKind } from '../../services/haRegistryPresentation';
+import { filterEntityIdsForWidgetKind, type HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
+import type { HaArea } from '../../hooks/useHaLiveConnection';
 import type {
   DashboardSection,
   SceneActionConfig,
@@ -818,6 +819,9 @@ type RightSidebarManagerProps = {
   widgetLayoutOverrides?: WidgetLayoutOverrides;
   entityOptions: Record<WidgetKind, string[]>;
   haEntityIds?: string[];
+  /** For the edit mode: the entities of the same device and of the same room come first. */
+  entityRegistry?: readonly HaEntityRegistryEntry[];
+  haAreas?: readonly HaArea[];
   haConnected?: boolean;
   haStates?: MockEntityStateMap;
   onUpdateWidget: (id: string, updater: (widget: Widget) => Widget) => void;
@@ -1165,6 +1169,8 @@ export function RightSidebarManager({
   widgetLayoutOverrides = {},
   entityOptions,
   haEntityIds = [],
+  entityRegistry,
+  haAreas,
   haConnected = false,
   haStates = {},
   onUpdateWidget,
@@ -3827,6 +3833,10 @@ export function RightSidebarManager({
               setForType: (breakpoint, override) => onUpdateWidgetTypeLayoutOverride(selectedWidget.kind, breakpoint as DashboardGridBreakpoint, override),
             }}
             haStates={haStates}
+            haEntityIds={haEntityIds}
+            entityOptions={entityOptions}
+            entityRegistry={entityRegistry}
+            areas={haAreas}
             onUpdateWidget={onUpdateWidget}
             onRemove={onRemoveSelectedWidget}
           />

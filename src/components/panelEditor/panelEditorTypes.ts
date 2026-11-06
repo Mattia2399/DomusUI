@@ -33,6 +33,9 @@ export type PanelEditorProps = {
     setForType: (breakpoint: string, override: Override | null) => void;
   };
   haStates: MockEntityStateMap;
+  /** The entities of Home Assistant, and those of the demo by kind. */
+  haEntityIds?: readonly string[];
+  entityOptions?: Readonly<Record<string, readonly string[]>>;
   entityRegistry?: readonly HaEntityRegistryEntry[];
   areas?: readonly HaArea[];
   onUpdateWidget: (id: string, update: (widget: Widget) => Widget) => void;

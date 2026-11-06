@@ -5,6 +5,7 @@ import { PanelHost } from '../devices/panels/PanelHost';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassSegmented } from '../ui/GlassSegmented';
 import { AppearanceTab } from './AppearanceTab';
+import { DeviceTab } from './DeviceTab';
 import type { PanelEditorProps } from './panelEditorTypes';
 import './panelEditor.css';
 
@@ -39,6 +40,8 @@ export default function PanelEditor(props: PanelEditorProps) {
   const content = (showPreview: boolean) =>
     tab === 'appearance' ? (
       <AppearanceTab {...props} showPreview={showPreview} />
+    ) : tab === 'device' ? (
+      <DeviceTab {...props} />
     ) : (
       <p className="panel-editor-note">{words('comingNext')}</p>
     );
