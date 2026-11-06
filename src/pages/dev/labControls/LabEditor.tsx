@@ -4,7 +4,7 @@ import { FoldRow, useOneOpen } from '../../../components/editor/FoldRow';
 import { IconPicker } from '../../../components/editor/IconPicker';
 import { LookPicker } from '../../../components/editor/LookPicker';
 import { ReorderList } from '../../../components/editor/ReorderList';
-import { SizePicker, type CardSize } from '../../../components/editor/SizePicker';
+import { SizePicker } from '../../../components/editor/SizePicker';
 import { GlassLevels } from '../../../components/ui/GlassLevels';
 import { GlassStepper } from '../../../components/ui/GlassStepper';
 import { LabCard, LabNamed } from './labShared';
@@ -23,7 +23,12 @@ export function LabEditor() {
   const [picked, setPicked] = React.useState<string>();
   const fold = useOneOpen<'name' | 'icon' | 'place'>();
   const [icon, setIcon] = React.useState<string | undefined>('flame');
-  const [size, setSize] = React.useState<CardSize | null>(null);
+  const [size, setSize] = React.useState<string | null>(null);
+  const sizes = [
+    { id: 'mini', label: 'Mini', w: 2, h: 2 },
+    { id: 'standard', label: 'Standard', w: 2, h: 4 },
+    { id: 'expanded', label: 'Espansa', w: 4, h: 4 },
+  ];
   const [items, setItems] = React.useState([
     { id: 'modes', name: 'Modalità', note: 'Pulsanti affiancati · della stufa' },
     { id: 'power', name: 'Potenza', note: 'Livelli · della stufa' },
@@ -51,8 +56,8 @@ export function LabEditor() {
         </FoldRow>
       </LabCard>
       <LabCard id="ED-size" title="SizePicker">
-        <LabNamed name="misura vecchia"><SizePicker label="Misura" value={size} current={{ w: 3, h: 4 }} onChange={setSize} /></LabNamed>
-        <LabNamed name="nuova"><SizePicker label="Misura" value={size ?? 'standard'} onChange={setSize} /></LabNamed>
+        <LabNamed name="misura vecchia"><SizePicker label="Misura" options={sizes} value={size} current={{ w: 3, h: 4 }} onChange={(option) => setSize(option.id)} /></LabNamed>
+        <LabNamed name="nuova"><SizePicker label="Misura" options={sizes} value={size ?? 'standard'} onChange={(option) => setSize(option.id)} /></LabNamed>
       </LabCard>
       <LabCard id="ED-order" title="ReorderList">
         <ReorderList label="Ordine" items={items} onReorder={(ids) => setItems(ids.map((id) => items.find((item) => item.id === id)!))} renderItem={(item) => <span style={{ display: 'flex', flexDirection: 'column', padding: '8px 0' }}><b>{item.name}</b><small>{item.note}</small></span>} />

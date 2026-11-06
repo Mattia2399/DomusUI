@@ -111,15 +111,27 @@ describe('IconPicker and SizePicker', () => {
     expect(onChange).toHaveBeenLastCalledWith(undefined);
   });
 
+  const SIZES = [
+    { id: 'mini', label: 'Mini', w: 2, h: 2 },
+    { id: 'standard', label: 'Standard', w: 2, h: 4 },
+    { id: 'expanded', label: 'Espansa', w: 4, h: 4 },
+    { id: 'wide', label: 'Larga', w: 6, h: 4, available: false },
+  ];
+
   it('shows an older size as it is until another is chosen', () => {
     const onChange = vi.fn();
-    const { rerender } = render(<SizePicker label="Misura" value={null} current={{ w: 3, h: 4 }} onChange={onChange} />);
+    const { rerender } = render(<SizePicker label="Misura" options={SIZES} value={null} current={{ w: 3, h: 4 }} onChange={onChange} />);
     expect(screen.getByRole('radio', { name: /Attuale · 3×4/ }).getAttribute('aria-checked')).toBe('true');
-    fireEvent.click(screen.getByRole('radio', { name: /Espansa/ }));
-    expect(onChange).toHaveBeenCalledWith('expanded');
-    rerender(<SizePicker label="Misura" value="mini" onChange={onChange} />);
+    fireEvent.click(screen.getByRole('radio', { name: 'Espansa, 4×4' }));
+    expect(onChange).toHaveBeenCalledWith(SIZES[2]);
+    rerender(<SizePicker label="Misura" options={SIZES} value="mini" onChange={onChange} />);
     expect(screen.queryByText(/Attuale/)).toBeNull();
-    expect(screen.getByRole('radio', { name: /Mini/ }).getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByRole('radio', { name: 'Mini, 2×2' }).getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('a size this card cannot take is shown but not chosen', () => {
+    render(<SizePicker label="Misura" options={SIZES} value="mini" onChange={() => undefined} />);
+    expect((screen.getByRole('radio', { name: 'Larga, 6×4' }) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

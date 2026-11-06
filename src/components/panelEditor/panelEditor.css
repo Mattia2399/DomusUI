@@ -1,0 +1,141 @@
+/* The edit mode of a card. */
+
+.panel-editor {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--control-ink);
+}
+
+.panel-editor.is-sheet {
+  margin-top: 12px;
+}
+
+.panel-editor.is-side {
+  margin-top: 20px;
+  justify-content: center;
+  border-radius: 18px;
+  padding: 24px;
+  background: var(--control-soft);
+  text-align: center;
+}
+
+.panel-editor.is-dialog {
+  padding: 18px 20px 20px;
+  max-height: min(820px, 90dvh);
+}
+
+.panel-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-editor-head > span {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.panel-editor-head b {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.panel-editor-head > span > span {
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.panel-editor-columns {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  gap: 20px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
+}
+
+.panel-editor-left,
+.panel-editor-right {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.panel-editor-scroll {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.panel-editor-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+
+.panel-editor-tab > section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.panel-editor-heading {
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.panel-editor-note {
+  margin: 0;
+  color: var(--control-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.panel-editor-card-preview {
+  display: flex;
+  min-height: 140px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 20px;
+  padding: 12px;
+  background: var(--control-soft);
+}
+
+.panel-editor-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--state-warning, #e58a00) 14%, transparent);
+}
+
+.panel-editor-notice > b {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+
+.panel-editor-danger {
+  margin-top: 12px;
+  border-top: 1px solid var(--control-track);
+  padding-top: 16px;
+}
+
+/* A phone, or a dialog too narrow for two columns: one under the other. */
+@container (max-width: 640px) {
+  .panel-editor-columns {
+    grid-template-columns: 1fr;
+  }
+}
