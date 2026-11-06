@@ -17,7 +17,7 @@ const missing: readonly { key: ClimateCopyKey; icon: typeof House }[] = [
   { key: 'missingSchedule', icon: CalendarDays },
 ];
 
-export function ClimateSetup({ onPreview }: { onPreview: () => void }) {
+export function ClimateSetup({ onPreview, onConfigure, canManage = false }: { onPreview: () => void; onConfigure?: () => void; canManage?: boolean }) {
   const { c } = useClimateCopy();
   const [activeStep, setActiveStep] = useState(0);
   const selected = steps[activeStep];
@@ -29,7 +29,7 @@ export function ClimateSetup({ onPreview }: { onPreview: () => void }) {
           <p className={`mt-7 text-[11px] font-bold uppercase tracking-[0.2em] ${MUTED}`}>{c('eyebrow')}</p>
           <h2 className="mt-2 max-w-xl text-3xl font-semibold leading-tight tracking-[-0.055em] text-[color:var(--ui-text-primary)] sm:text-4xl">{c('intro')}</h2>
           <p className={`mt-4 max-w-xl text-sm leading-6 ${MUTED}`}>{c('introDetail')}</p>
-          <GlassButton variant="primary" onClick={onPreview} className="mt-6 inline-flex items-center gap-2">{c('previewOpen')}<ArrowRight size={17} /></GlassButton>
+          <div className="mt-6 flex flex-wrap gap-3">{canManage && onConfigure && <GlassButton variant="primary" onClick={onConfigure} className="inline-flex items-center gap-2">Configura Domus Climate<ArrowRight size={17} /></GlassButton>}<GlassButton variant={canManage ? 'ghost' : 'primary'} onClick={onPreview} className="inline-flex items-center gap-2">{c('previewOpen')}<ArrowRight size={17} /></GlassButton></div>
         </div>
         <div className="grid grid-cols-2 gap-2" aria-hidden="true">
           <div className="col-span-2 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] p-4"><House className="text-orange-500" /><span className={`mt-3 block text-xs ${MUTED}`}>{c('setupZones')}</span><span className="mt-1 block text-lg font-semibold text-[color:var(--ui-text-primary)]">{c('planned')}</span></div>

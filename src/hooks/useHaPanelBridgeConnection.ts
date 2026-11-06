@@ -180,6 +180,8 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'frontend/get_system_data',
   'frontend/set_system_data',
   'domusos/irrigation/get_config',
+  'domusos/climate/get_config',
+  'domusos/climate/save_config',
   'domusos/irrigation/save_config',
   'domusos/irrigation/get_state',
   'domusos/irrigation/subscribe',
@@ -486,6 +488,21 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   }
   if (message.type.startsWith('domusos/device_timers/')) {
     return isValidDeviceTimerMessage(message);
+  }
+  if (message.type === 'domusos/climate/get_config') {
+    return hasExactKeys(message, ['type']);
+  }
+  if (message.type === 'domusos/climate/save_config') {
+    if (!hasExactKeys(message, ['type', 'config', 'expected_revision']) ||
+        !isRecord(message.config) ||
+        !Number.isInteger(message.expected_revision) || Number(message.expected_revision) < 0) {
+      return false;
+    }
+    try {
+      return JSON.stringify(message.config).length <= 200_000;
+    } catch {
+      return false;
+    }
   }
   if (message.type === 'recorder/statistics_during_period') {
     return isValidStatisticsMessage(message);

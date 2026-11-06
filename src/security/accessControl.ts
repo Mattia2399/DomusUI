@@ -29,6 +29,8 @@ export const ACCESS_CAPABILITY_IDS = [
   'automations.manage',
   'energy.view',
   'energy.manage',
+  'climate.view',
+  'climate.manage',
   'irrigation.view',
   'irrigation.control',
   'irrigation.manage',

@@ -1,5 +1,7 @@
 # Domus Climate UX preview
 
+> Historical UX preview. CLM.2 keeps this demo separate from saved configuration; see [zone mapping](domus-climate-zone-mapping.md).
+
 This branch builds a presentation layer on `feature/domus-climate-foundation` (`367e8981c9c813ebcbee6e71ec5faaf337fda51d`). `/settings/climate` remains a HOUSE Settings page guarded by `house.manage` in the frontend. No backend, storage, Access Control policy, Home Assistant entity command or scheduler is added.
 
 ## What opens

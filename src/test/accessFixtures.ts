@@ -18,18 +18,18 @@ export const ROLE_CAPABILITIES: Readonly<Record<AccessRole, readonly AccessCapab
   admin: ACCESS_CAPABILITY_IDS,
   resident: [
     'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'access.control', 'security.view', 'security.control',
-    'automations.view', 'automations.run', 'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view',
+    'automations.view', 'automations.run', 'energy.view', 'climate.view', 'irrigation.view', 'irrigation.control', 'waste.view',
     'people.view', 'system.view', 'device.manage', 'profile.manage',
   ],
   member: [
     'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'security.view', 'automations.view', 'automations.run',
-    'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view', 'people.view', 'system.view',
+    'energy.view', 'climate.view', 'irrigation.view', 'irrigation.control', 'waste.view', 'people.view', 'system.view',
     'device.manage', 'profile.manage',
   ],
   restricted: ['dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'irrigation.view', 'waste.view', 'profile.manage'],
   wall_panel: [
     'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'security.view', 'automations.run', 'energy.view',
-    'irrigation.view', 'waste.view',
+    'climate.view', 'irrigation.view', 'waste.view',
   ],
   locked: ['dashboard.view', 'rooms.view', 'profile.manage'],
 };
@@ -37,7 +37,7 @@ export const ROLE_CAPABILITIES: Readonly<Record<AccessRole, readonly AccessCapab
 /** What Home Assistant keeps to its administrators, whatever the Domus role. */
 export const HA_ADMIN_ONLY: readonly AccessCapability[] = [
   'dashboard.edit', 'dashboard.reset', 'security.manage', 'automations.manage', 'energy.manage',
-  'irrigation.manage', 'waste.manage', 'house.manage', 'people.manage', 'access.manage', 'system.manage',
+  'climate.manage', 'irrigation.manage', 'waste.manage', 'house.manage', 'people.manage', 'access.manage', 'system.manage',
   'backup.restore', 'ha.restart', 'device_power.manage', 'notifications.recipients',
 ];
 

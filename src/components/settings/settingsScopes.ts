@@ -115,7 +115,7 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     owner: 'core',
     section: 'house',
     route: '/settings/climate',
-    storage: 'not_persisted',
+    storage: 'integration_store',
     titleKey: 'settings.climate.title',
     descriptionKey: 'settings.climate.subtitle',
   },

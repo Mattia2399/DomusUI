@@ -1,5 +1,7 @@
 # Domus Climate — CLM.1 foundation
 
+> Historical CLM.1 design. CLM.2 now persists HOUSE configuration; see [zone mapping](domus-climate-zone-mapping.md) for the active contract and access rules.
+
 Domus Climate is HOUSE configuration for shared climate intent. The Settings entry is **Impostazioni → Casa → Clima**, at `/settings/climate`. This phase provides a typed contract and a small page shell. It reads and writes no climate configuration, runs no scheduler, creates no Home Assistant automation, and sends no service call. There is no backend module in CLM.1 because the shell does not need an API or storage. The existing Home Assistant shared house document is a candidate for later persistence; CLM.2 must decide the schema, migration and ownership before saving anything. The Settings registry therefore marks the current storage as `not_persisted`.
 
 The route uses the existing `house.manage` capability, the same house configuration authority as floors and rooms. The Settings list and route guard read the same route rule. This is a frontend visibility rule, not backend security. No new capability or enforcement is added. When the feature gains read and write APIs, assess `climate.view` and `climate.manage` separately and enforce backend authorization for every operation.
@@ -50,3 +52,42 @@ The intended flow is **Domus climate intent → future engine → zone / circuit
 | CLM.8 | Energy-aware optimization with Domus Energy (price, solar production and cost) |
 
 The future UX can replace the lazy shell with a climate overview, zone card and detail, device mapping, schedule and profile editors, source selector, manual/auto switch, season selector and temporary override. None of these interfaces or behaviors is implemented here.
+
+## General climate architecture (CLM.2A)
+
+The persistent HOUSE document is described in [CLM.2 zone mapping](domus-climate-zone-mapping.md). Its logical path is **house operating intent → zone → terminal/actuator → optional hydronic circuit → generator**, with auxiliaries and shared equipment alongside it. An AC can serve a zone directly. A manifold valve can connect a zone to a radiant circuit. The endpoint key remains in the wire format for CLM.2 compatibility; it now represents a logical terminal, which can bind a primary HA entity plus related controls.
+
+| Concept | Configuration meaning |
+| --- | --- |
+| Zone | Area reference, ordered temperature source, optional ordered humidity source, terminal IDs and `follow_house`/`off` intent. |
+| Terminal | AC, TRV, manifold actuator, fan coil or ducted unit; explicit heating, cooling, fan and dehumidification capabilities; primary `climate`, `switch`, `valve` or `input_boolean` binding plus secondary controls. |
+| Circuit | Descriptive kind (radiators, radiant floor/ceiling, fan coil or generic hydronic) and explicit heating/cooling capabilities; generator links, optional controller, component bindings and circuit supply setpoint binding. |
+| Generator | Boiler, thermostove or heat pump; separate space heating, cooling and DHW capabilities. Generator water setpoint is distinct from circuit supply and room target. |
+| Auxiliary | Dehumidifier or ventilation device scoped to one or more zones and/or circuits. A shared dehumidifier is one resource with several zone references. |
+| Equipment group | Several terminals, optional generator references and a `sharedOperatingMode` constraint, for example a multisplit outdoor unit. |
+
+**C16:** V1 house operating mode is a single `heating`, `cooling` or `off` intent. It is independent of the physical HVAC mode reported by any HA entity. `supportsSimultaneousModes` is implicitly false in V1; a later capability could change this.
+
+**C17:** A zone may `follow_house` or be `off`. It cannot request the opposite thermal mode. This is a configuration contract; no runtime enforcement or service calls exist yet.
+
+**C18:** A logical terminal need not be one `climate.*` entity. A manifold head may use `switch.*` or `valve.*`; a fan coil can aggregate `climate.*` and fan/valve controls.
+
+**C19:** Circuit heating and cooling capabilities are explicit. Circuit kind is descriptive and does not force capabilities from a name. A radiator circuit could technically declare cooling if the installation really supports it; validation checks the declared links, not a preset assumption.
+
+**C20:** Room target, circuit supply setpoint and generator water setpoint have separate semantic kinds and bindings. No setpoint value or regulation is stored by CLM.2A.
+
+**C21:** Humidity reference is optional per zone, with primary and ordered fallbacks, parallel to temperature. Sensor `available`, `unavailable` and `stale` health is future runtime state, not HOUSE config.
+
+**C22:** A cooling circuit may declare humidity control and condensation protection requirements and reference scoped auxiliaries. These are design constraints, not an active safety system. Future cooling must evaluate humidity and derived dew point, apply dehumidification or safety rules, then allow or inhibit radiant cooling.
+
+**C23:** Dehumidification and ventilation are auxiliaries rather than generators.
+
+**C24:** Auxiliaries may serve a single zone or be shared by multiple zones/circuits. A `required` auxiliary relationship is represented by a circuit cooling constraint; no priority engine exists.
+
+**C25:** Generators declare space heating, cooling and DHW independently. DHW demand and priority are future concepts separate from space climate demand. A generator serving DHW must never be assumed safe to turn off merely because zones have no space demand.
+
+**C26:** Shared equipment groups may constrain several terminal modes. A multisplit's `sharedOperatingMode` is only configuration metadata today.
+
+**C27:** HOUSE stores installation topology and optional operating/control intent; readings, active physical mode, sensor health, demand, dew point, active generator and overrides remain runtime/derived state outside this store. `controlMode` (`manual`/`auto`), `operatingMode` (`heating`/`cooling`/`off`) and reserved source `strategy` are distinct. Generator `preferred`/`fallback`/`required` links express topology metadata only.
+
+External window, occupancy, weather, PV and price signals belong to a future generic signal/constraint extension point, not special core fields. CLM.3/CLM.5 must decide whether physical changes at a TRV, AC remote or thermostat become temporary overrides or cause configured targets to be restored. No choice is made here.

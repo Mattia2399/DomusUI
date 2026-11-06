@@ -28,7 +28,23 @@ function installCompletedRealWorkspace(page) {
 test.beforeEach(async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 960 });
   await installCompletedRealWorkspace(page);
-  await connectHomeAssistant(page);
+  let climateConfig = null;
+  let climateRevision = 0;
+  await connectHomeAssistant(page, {
+    states: { 'sensor.living_temp': { state: '21', attributes: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Temperatura soggiorno' } } },
+    handle: (message, { reply, fail }) => {
+      if (message.type === 'domusos/climate/get_config') {
+        reply({ state: climateConfig ? 'ready' : 'absent', revision: climateRevision, config: climateConfig });
+        return true;
+      }
+      if (message.type === 'domusos/climate/save_config') {
+        if (message.expected_revision !== climateRevision) fail('conflict', 'Revision changed');
+        else { climateConfig = message.config; climateRevision += 1; reply({ state: 'ready', revision: climateRevision, config: climateConfig }); }
+        return true;
+      }
+      return false;
+    },
+  });
 });
 
 test('Settings groups the house, its system and this device, each with its scope', async ({ page }) => {
@@ -63,7 +79,7 @@ test('Settings, Home: Climate opens its lazy shell and Back returns to Settings'
   await page.getByRole('region', { name: 'Casa', exact: true }).getByRole('button', { name: /^Clima/ }).click();
   await expect(page).toHaveURL(/\/settings\/climate$/);
   await expect(page.getByRole('heading', { name: 'Clima', exact: true })).toBeVisible();
-  await expect(page.getByText('Clima non ancora configurato')).toBeVisible();
+  await expect(page.getByText('Clima non ancora configurato')).toBeVisible({ timeout: 45_000 });
   await page.getByRole('button', { name: 'Esplora l’anteprima' }).click();
   await expect(page.getByText('Anteprima dimostrativa · dati fittizi')).toBeVisible();
   await page.getByRole('button', { name: 'Apri Camera', exact: true }).click();
@@ -81,7 +97,7 @@ test('Settings, Home: Climate opens its lazy shell and Back returns to Settings'
 test('Climate preview stays usable on a phone', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/settings/climate');
-  await expect(page.getByText('Clima non ancora configurato')).toBeVisible();
+  await expect(page.getByText('Clima non ancora configurato')).toBeVisible({ timeout: 45_000 });
   await page.getByRole('button', { name: 'Esplora l’anteprima' }).click();
   await expect(page.getByText('Anteprima dimostrativa · dati fittizi')).toBeVisible();
   await page.getByRole('navigation', { name: 'DOMUS CLIMATE' }).getByRole('button', { name: 'Zone' }).click();
@@ -91,6 +107,22 @@ test('Climate preview stays usable on a phone', async ({ page }) => {
   await expect(page.getByText('Programma settimanale')).toBeVisible();
   await page.getByRole('navigation', { name: 'DOMUS CLIMATE' }).getByRole('button', { name: 'Impianto' }).click();
   await expect(page.getByText('Circuito radiatori').first()).toBeVisible();
+});
+
+test('Climate setup saves a real HOUSE zone and loads it again', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await expect(page.getByText('Clima non ancora configurato')).toBeVisible({ timeout: 45_000 });
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Soggiorno');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  await expect(page.getByRole('heading', { name: 'Impianto climatico configurato' })).toBeVisible();
+  await expect(page.getByText('Soggiorno', { exact: true })).toBeVisible();
+  await expect(page.getByText('Soggiorno', { exact: true }).locator('xpath=ancestor::article')).toHaveClass(/dv-climate/);
+  await expect(page.locator('[data-climate-preview="demo"]')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByText('Soggiorno', { exact: true })).toBeVisible();
 });
 
 test('Settings, System: the connection opens and Back returns to Settings', async ({ page }) => {
@@ -211,6 +243,8 @@ const HA = 'http://homeassistant.local:8123';
 // A Home Assistant that only knows its Owner: enough for the house entries an
 // administrator sees.
 async function simulateOwnerHomeAssistant(page) {
+  let climateConfig = null;
+  let climateRevision = 0;
   await page.routeWebSocket(`${HA.replace('http', 'ws')}/api/websocket`, (ws) => {
     ws.send(JSON.stringify({ type: 'auth_required', ha_version: '2026.2.3' }));
     ws.onMessage((raw) => {
@@ -220,13 +254,26 @@ async function simulateOwnerHomeAssistant(page) {
           ws.send(JSON.stringify({ type: 'auth_ok', ha_version: '2026.2.3' }));
         } else if (message.type === 'subscribe_entities') {
           reply(null);
-          ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: {} } }));
+          const now = Date.now() / 1000;
+          ws.send(JSON.stringify({ id: message.id, type: 'event', event: { a: { 'sensor.living_temp': { s: '21', a: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Temperatura soggiorno' }, c: 'ctx', lc: now, lu: now } } } }));
         } else if (message.type === 'domusos/access/get_self') {
           reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
+        } else if (message.type === 'domusos/climate/get_config') {
+          reply({ state: climateConfig ? 'ready' : 'absent', revision: climateRevision, config: climateConfig });
+        } else if (message.type === 'domusos/climate/save_config') {
+          if (message.expected_revision !== climateRevision) {
+            ws.send(JSON.stringify({ id: message.id, type: 'result', success: false, error: { code: 'conflict', message: 'Revision changed' } }));
+          } else {
+            climateConfig = message.config;
+            climateRevision += 1;
+            reply({ state: 'ready', revision: climateRevision, config: climateConfig });
+          }
         } else if (message.type === 'auth/current_user') {
           reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });
         } else if (message.type === 'config/entity_registry/list_for_display') {
           reply({ entity_categories: {}, entities: [] });
+        } else if (message.type === 'config/area_registry/list') {
+          reply([{ area_id: 'living', name: 'Soggiorno' }]);
         } else if (String(message.type).endsWith('_registry/list')) {
           reply([]);
         } else {

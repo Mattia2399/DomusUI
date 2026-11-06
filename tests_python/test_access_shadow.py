@@ -321,9 +321,9 @@ def test_a_policy_that_is_not_running_never_resets_the_window() -> None:
 def test_the_snapshot_reports_the_current_policy_apart_from_the_window() -> None:
     result = stats().snapshot(policy_state="corrupt", policy_revision=7)
     assert result["policy"] == {"state": "corrupt", "revision": 7}
-    # Device power is enforced since P2.5D.1, everything else only observed.
+    # Device power and CLM.2 Climate configuration are enforced.
     assert result["mode"] == "partial" and result["enforced"] is True
-    assert result["enforced_actions"] == ["domusos/device_power/bind_policy", "domusos/device_power/delete_policy", "domusos/device_power/get_state", "domusos/device_power/save_policy"]
+    assert result["enforced_actions"] == ["domusos/climate/get_config", "domusos/climate/save_config", "domusos/device_power/bind_policy", "domusos/device_power/delete_policy", "domusos/device_power/get_state", "domusos/device_power/save_policy"]
 
 
 # --- Bounds ---------------------------------------------------------------------------
@@ -378,7 +378,7 @@ def test_every_observed_action_has_a_row_and_no_exempt_one_does() -> None:
     result = snap(stats())
     observed = sorted(contract.id for contract in actions.shadow_contracts())
     assert [entry["action"] for entry in result["by_action"]] == observed
-    assert len(observed) == 40
+    assert len(observed) == 42
     for exempt in ("domusos/access/get_self", "domusos/access/reset_policy", "domusos/access/get_shadow_diagnostics"):
         assert exempt not in observed
 

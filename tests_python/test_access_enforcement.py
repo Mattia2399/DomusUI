@@ -31,6 +31,8 @@ DEVICE_POWER = (
     "domusos/device_power/bind_policy",
     "domusos/device_power/delete_policy",
 )
+CLIMATE = ("domusos/climate/get_config", "domusos/climate/save_config")
+ENFORCED = (*DEVICE_POWER, *CLIMATE)
 ADMIN = models.Principal(user_id="a" * 32, is_admin=True)
 MEMBER = models.Principal(user_id="b" * 32, is_admin=False)
 
@@ -60,9 +62,9 @@ def test_enforcement_defaults_to_off() -> None:
     assert all(type(contract.enforced) is bool for contract in actions.ACTION_CONTRACT_LIST)
 
 
-def test_exactly_the_four_device_power_commands_are_enforced() -> None:
-    assert [contract.id for contract in actions.enforced_contracts()] == list(DEVICE_POWER)
-    assert [contract.id for contract in actions.ACTION_CONTRACT_LIST if contract.enforced] == list(DEVICE_POWER)
+def test_exactly_device_power_and_climate_commands_are_enforced() -> None:
+    assert [contract.id for contract in actions.enforced_contracts()] == list(ENFORCED)
+    assert [contract.id for contract in actions.ACTION_CONTRACT_LIST if contract.enforced] == list(ENFORCED)
 
 
 def test_an_enforced_action_is_an_observed_websocket_capability() -> None:
@@ -71,13 +73,13 @@ def test_an_enforced_action_is_an_observed_websocket_capability() -> None:
         assert contract.auth_mode is AuthMode.CAPABILITY, contract.id
         # Exempt means unwrapped: nothing would refuse it.
         assert contract.shadow_exemption is None, contract.id
-        assert contract.capability == "device_power.manage", contract.id
+        assert contract.capability in {"device_power.manage", "climate.view", "climate.manage"}, contract.id
         assert contract.allow_unattributed_ha_context is False, contract.id
 
 
 def test_every_other_domain_is_still_observed_only() -> None:
     for contract in actions.ACTION_CONTRACT_LIST:
-        if contract.id not in DEVICE_POWER:
+        if contract.id not in ENFORCED:
             assert contract.enforced is False, contract.id
     for prefix in ("domusos/energy/", "domusos/irrigation/", "domusos.", "domusos/profile/", "domusos/waste_collection/", "domusos/access/"):
         assert not [c.id for c in actions.enforced_contracts() if c.id.startswith(prefix)], prefix
@@ -101,6 +103,16 @@ def test_enforcement_is_never_read_from_anywhere_but_the_registry() -> None:
 
 
 # --- Who may, who may not -------------------------------------------------------------
+
+
+def test_climate_view_and_manage_have_different_principals() -> None:
+    for action in CLIMATE:
+        assert eligible(authorization.authorize_action(ADMIN, profile(ADMIN), action))
+        assert authorization.authorize_action(None, profile(ADMIN), action).reason is Reason.NO_PRINCIPAL
+        assert authorization.authorize_action(ADMIN, None, action).reason is Reason.POLICY_UNAVAILABLE
+    assert eligible(authorization.authorize_action(MEMBER, profile(MEMBER), CLIMATE[0]))
+    denied = authorization.authorize_action(MEMBER, profile(MEMBER), CLIMATE[1])
+    assert not eligible(denied) and denied.reason is Reason.REQUIRES_HA_ADMIN
 
 
 @pytest.mark.parametrize("action", DEVICE_POWER)
@@ -197,12 +209,12 @@ def test_the_diagnostics_say_which_actions_are_enforced_and_count_the_refusals()
     counters.record(generation, shadow.observe(contract, shadow.Origin.WEBSOCKET, member, shadow.CurrentOutcome.DENY))
     snapshot = counters.snapshot(policy_state="ready", policy_revision=4)
     assert (snapshot["mode"], snapshot["enforced"], snapshot["rules_version"]) == ("partial", True, 3)
-    assert snapshot["enforced_actions"] == sorted(DEVICE_POWER)
+    assert snapshot["enforced_actions"] == sorted(ENFORCED)
     assert (snapshot["totals"]["aligned_allow"], snapshot["totals"]["enforced_deny"]) == (1, 1)
     assert snapshot["totals"]["would_block"] == 0 and snapshot["recent_mismatches"] == []
     row = next(row for row in snapshot["by_action"] if row["action"] == contract.id)
     assert row["enforced"] is True and row["comparisons"]["enforced_deny"] == 1
     assert row["reasons"] == {"allowed": 1, "requires_ha_admin": 1}
     assert row["roles"] == {"admin": 1, "member": 1}
-    others = [row for row in snapshot["by_action"] if row["action"] not in DEVICE_POWER]
+    others = [row for row in snapshot["by_action"] if row["action"] not in ENFORCED]
     assert others and not any(row["enforced"] for row in others)

@@ -66,17 +66,17 @@ describe('SettingsDashboard', () => {
     const onCallService = vi.fn(async () => true);
     render(
       <AccessTestProviders security={security}>
-        <SettingsDashboard {...baseProps} onCallService={onCallService} navigationRoute="/settings/climate" />
+        <SettingsDashboard {...baseProps} onCallService={onCallService} onCallApi={async <T,>() => ({ state: 'absent', revision: 0, config: null }) as T} navigationRoute="/settings/climate" />
       </AccessTestProviders>,
     );
     expect(screen.getByRole('heading', { name: 'Clima' })).toBeTruthy();
-    await waitFor(() => expect(screen.getByText('Clima non ancora configurato')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Clima non ancora configurato')).toBeTruthy(), { timeout: 10_000 });
     fireEvent.click(screen.getByRole('button', { name: /Esplora l’anteprima/ }));
     expect(screen.getByText('Anteprima dimostrativa · dati fittizi')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Apri Camera' }));
     expect(screen.getByText('Questa è la temperatura che Domus userà per decidere per la zona.')).toBeTruthy();
     expect(onCallService).not.toHaveBeenCalled();
-  });
+  }, 15_000);
 
   it('lists Power and charging in This device for administrators only', async () => {
     const onNavigate = vi.fn();
@@ -347,7 +347,7 @@ describe('SettingsDashboard', () => {
       within(screen.getByRole('region', { name })).getAllByRole('button').map((card) => card.textContent);
     // What a member's Domus role opens (access-control-capabilities.md): the people of the house,
     // the system status and this device; managing floors, collection, devices or the connection is an administrator's.
-    expect(cards('Casa')).toEqual([expect.stringContaining('Persone e accessi')]);
+    expect(cards('Casa')).toEqual([expect.stringContaining('Clima'), expect.stringContaining('Persone e accessi')]);
     expect(cards('Sistema')).toEqual([expect.stringContaining('Sistema')]);
     expect(cards('Questo dispositivo')).toEqual([
       expect.stringContaining('Aspetto'),

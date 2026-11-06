@@ -1263,7 +1263,7 @@ export default function SettingsDashboard({
         onBack={() => navigateTo('/settings')}
       >
         <LazyLoadBoundary mode="section" fallback={null}>
-          <ClimateSettingsShell />
+          <ClimateSettingsShell callApi={onCallApi} connected={isConnected} areas={haAreas} states={haStates} registry={haEntityRegistry} canManage={access.can('climate.manage')} />
         </LazyLoadBoundary>
       </SettingsDetailShell>
     );

@@ -67,6 +67,9 @@ async function simulateHomeAssistant(page, origin) {
           case 'domusos/access/get_self':
             reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
             break;
+          case 'domusos/climate/get_config':
+            reply({ state: 'absent', revision: 0, config: null });
+            break;
           case 'auth/current_user':
             reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });
             break;

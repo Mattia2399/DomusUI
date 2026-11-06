@@ -3,7 +3,7 @@ import type { HaArea } from '../../hooks/useHaLiveConnection';
 /** HOUSE configuration contract. CLM.1 has no runtime engine or persistence. */
 export type ClimateControlMode = 'manual' | 'auto';
 export type ClimateSeason = 'heating' | 'cooling' | 'off';
-export type ClimateService = 'space_heating' | 'domestic_hot_water';
+export type ClimateService = 'space_heating' | 'space_cooling' | 'domestic_hot_water';
 
 /** A room target can only be placed on a zone or a room-temperature endpoint. */
 export type RoomTemperatureTarget = Readonly<{ kind: 'room_temperature'; celsius: number }>;
@@ -110,3 +110,20 @@ export type ClimateSystem = Readonly<{
   strategy?: ClimateStrategy;
   overrides?: readonly ClimateOverride[];
 }>;
+
+/** CLM.2 wire/store document. It contains installation configuration only. */
+export type ClimateReference = { primaryEntityId: string; fallbacks: string[] };
+export type ClimateRelatedControlConfig = { entityId: string; type: 'select' | 'number' | 'input_number' | 'switch' | 'input_boolean' | 'sensor' | 'binary_sensor' | 'valve'; role: string };
+export type ClimateBindingConfig = { primaryEntityId: string | null; relatedControls: ClimateRelatedControlConfig[] };
+export type ClimateOperatingMode = 'heating' | 'cooling' | 'off';
+export type ClimateZoneMode = 'follow_house' | 'off';
+export type ClimateZoneConfig = { id: string; name: string; areaId: string | null; reference: ClimateReference; humidityReference?: ClimateReference; mode?: ClimateZoneMode; endpointIds: string[] };
+export type ClimateEndpointRole = 'room_heater' | 'room_cooler' | 'radiator_trv' | 'zone_actuator' | 'fan' | 'dehumidifier';
+export type ClimateTerminalCapabilities = { supportsHeating: boolean; supportsCooling: boolean; supportsFan: boolean; supportsDehumidification: boolean };
+export type ClimateEndpointConfig = { id: string; name: string; kind: 'air_conditioner' | 'thermostatic_radiator_valve' | 'manifold_actuator' | 'fan_coil' | 'ducted_unit' | 'other'; zoneId: string; circuitId: string | null; roles: ClimateEndpointRole[]; capabilities?: ClimateTerminalCapabilities; entity: ClimateBindingConfig; setpointKind: 'room_temperature' | 'none' };
+export type ClimateCircuitConfig = { id: string; name: string; kind: 'radiators' | 'radiant_floor' | 'radiant_ceiling' | 'fan_coil' | 'hydronic_generic'; zoneIds: string[]; endpointIds: string[]; controller: ClimateBindingConfig | null; generatorIds: string[]; capabilities?: { supportsHeating: boolean; supportsCooling: boolean }; supplySetpoint?: { setpointKind: 'circuit_supply_temperature'; entity: ClimateBindingConfig }; components?: ClimateBindingConfig; coolingConstraint?: { requiresHumidityControl: boolean; condensationProtection: 'unspecified' | 'required'; auxiliaryIds: string[] }; generatorPreferences?: { generatorId: string; role: 'preferred' | 'fallback' | 'required' }[] };
+export type ClimateGeneratorConfig = { id: string; name: string; kind: 'boiler' | 'thermostove' | 'heat_pump' | 'other'; circuitIds: string[]; services: ClimateService[]; capabilities?: { supportsSpaceHeating: boolean; supportsCooling: boolean; supportsDhw: boolean }; entity: ClimateBindingConfig; setpointKind: 'none' | 'generator_water_temperature' };
+export type ClimateAuxiliaryConfig = { id: string; name: string; kind: 'dehumidifier' | 'ventilation'; zoneIds: string[]; circuitIds: string[]; entity: ClimateBindingConfig };
+export type ClimateEquipmentGroupConfig = { id: string; name: string; memberEndpointIds: string[]; generatorIds: string[]; sharedOperatingMode: boolean };
+/** Active physical state, demand and sensor health are not stored here. */
+export type ClimateHouseConfig = { version: 1; operatingMode?: ClimateOperatingMode; controlMode?: ClimateControlMode; zones: ClimateZoneConfig[]; endpoints: ClimateEndpointConfig[]; circuits: ClimateCircuitConfig[]; generators: ClimateGeneratorConfig[]; auxiliaries?: ClimateAuxiliaryConfig[]; equipmentGroups?: ClimateEquipmentGroupConfig[]; profiles: []; schedules: []; strategy: null };

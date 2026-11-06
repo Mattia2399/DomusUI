@@ -48,10 +48,10 @@ describe('settings scopes', () => {
     expect(entry('access')).toMatchObject({ scope: 'house', section: 'house' });
     expect(resolveRouteAccess(entry('access').route)).toEqual({ kind: 'capability', capability: 'people.view' });
     expect(entry('security')).toMatchObject({ scope: 'house', owner: 'core', storage: 'ha_shared_house' });
-    expect(entry('climate')).toMatchObject({ scope: 'house', owner: 'core', section: 'house', route: '/settings/climate', storage: 'not_persisted' });
-    expect(resolveRouteAccess(entry('climate').route)).toEqual({ kind: 'capability', capability: 'house.manage' });
+    expect(entry('climate')).toMatchObject({ scope: 'house', owner: 'core', section: 'house', route: '/settings/climate', storage: 'integration_store' });
+    expect(resolveRouteAccess(entry('climate').route)).toEqual({ kind: 'capability', capability: 'climate.view' });
     expect(canOpenRoute(entry('climate').route, accessFor('admin').can)).toBe(true);
-    expect(canOpenRoute(entry('climate').route, accessFor('member').can)).toBe(false);
+    expect(canOpenRoute(entry('climate').route, accessFor('member').can)).toBe(true);
   });
 
   it('keeps app-owned house configuration inside its app, not on the Settings page', () => {
@@ -170,13 +170,14 @@ describe('settings scopes', () => {
     expect(visible('admin', 'system')).toEqual(['connection', 'devices', 'entities', 'system', 'data']);
     expect(visible('admin', 'device')).toEqual(['appearance', 'language', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
     // A member: the people of the house, the system status and this device's preferences.
-    expect(visible('member', 'house')).toEqual(['access']);
+    expect(visible('member', 'house')).toEqual(['climate', 'access']);
     expect(visible('member', 'system')).toEqual(['system']);
     expect(visible('member', 'device')).toEqual(['appearance', 'language', 'screensaver', 'kiosk']);
     // Restricted and wall panel accounts have no Settings entry of their own.
-    for (const role of ['restricted', 'wall_panel', 'locked'] as const) {
+    for (const role of ['restricted', 'locked'] as const) {
       expect([...visible(role, 'house'), ...visible(role, 'system'), ...visible(role, 'device')], role).toEqual([]);
     }
+    expect(visible('wall_panel', 'house')).toEqual(['climate']);
   });
 
   it('never lists an entry without a route rule of its own', () => {
@@ -220,7 +221,7 @@ describe('settings overview weight', () => {
     const shell = source('src/pages/climate/ClimateSettingsShell.tsx');
     expect(settingsPage).toContain("React.lazy(() => import('./climate/ClimateSettingsShell'))");
     expect(settingsPage).not.toContain("from './climate/ClimateSettingsShell'");
-    expect(shell).not.toMatch(/onCallService|onCallApi|callService|callApi|set_temperature|set_hvac_mode/);
+    expect(shell).not.toMatch(/onCallService|callService|set_temperature|set_hvac_mode/);
   });
 });
 

@@ -1,5 +1,7 @@
 # Domus Access Control — capability, route e azioni (P2.0)
 
+> CLM.2 aggiunge `climate.view` e `climate.manage` (37 capability totali) con enforcement backend. Contratto e decisioni: [Domus Climate CLM.2](domus-climate-zone-mapping.md).
+
 Registro capability e matrici, costruiti dalle funzioni reali del repository
 (base `f5eb98d`). Registro e ruoli sono implementati da P2.1
 ([fondamento](access-control-foundation.md)); l'enforcement non ancora.
@@ -37,6 +39,8 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `automations.manage` | Creare e modificare automazioni | high | sì (REST config) | ha_native | — |
 | `energy.view` | Stato e storia dell'energia | low | — | **domus** | — |
 | `energy.manage` | Profilo dell'impianto, discovery | medium | sì | **domus** | — |
+| `climate.view` | Vedere la configurazione climatica HOUSE | low | — | **domus** | — |
+| `climate.manage` | Configurare zone, circuiti e generatori | medium | sì | **domus** | — |
 | `irrigation.view` | Zone, calendario, attività, consumi | low | — | **domus** (+ lettura HA) | — |
 | `irrigation.control` | Avviare, fermare, mettere in pausa | medium | — | **domus** (+ `check_entity`) | — |
 | `irrigation.manage` | Configurazione | medium | sì | **domus** | — |
@@ -58,7 +62,7 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `notifications.recipients` | Scegliere i destinatari | medium | sì | **domus** | — |
 | `developer.use` | Modalità sviluppatore | low | — | local | — |
 
-35 capability (`waste.view` aggiunta in P2.2, `devices.timers` con i timer di
+37 capability (`waste.view` aggiunta in P2.2, `devices.timers` con i timer di
 spegnimento). Regole verificate dai test:
 
 - solo `access.control` e `security.control` sono concedibili, e da P2.4.1 un
