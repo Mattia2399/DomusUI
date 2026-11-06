@@ -99,3 +99,5 @@ The active runtime contract is [CLM.3A intent runtime](domus-climate-intent-runt
 CLM.4B resolves weekly schedule targets as described in [automatic target resolver](domus-climate-auto-resolver.md). CLM.5 adds [temporary zone overrides](domus-climate-overrides.md) to AUTO with one absolute UTC expiry per zone and one shared next-boundary timer. Neither phase issues HA service commands.
 
 CLM.5A records the [pre-execution runtime audit](domus-climate-runtime-audit.md). Its local fixes prevent a corrupt intent store from yielding an AUTO preview, ignore stale timer and listener callbacks after unload, and remove orphan zone intents after configuration changes. The HA-specific paths still await the Linux harness; physical execution remains gated by sensor validity, delivery selection and command ownership.
+
+CLM.3B adds the [supervisory execution plan](domus-climate-execution-plan.md): a read-only, revision-bound preview for one unambiguous direct `climate.*` endpoint. It describes desired/observed state and symbolic actions without invoking Home Assistant services. Direct actuators, circuits, generators and radiant cooling remain blocked.

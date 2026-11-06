@@ -40,6 +40,24 @@ function show(response: ClimateStateResponse) {
 afterEach(cleanup);
 
 describe('Climate automatic runtime presentation', () => {
+  it('shows supervisory plans as read-only technical preview with blocked reasons in details', async () => {
+    const response = state({ control: 'manual', operating: 'cooling', target: 24 });
+    response.executionPreview = { configRevision: 1, stateRevision: 1, evaluatedAt: '2026-01-05T12:00:00+00:00', plans: [{
+      planId: 'plan-1', zoneId: 'living', status: 'eligible', endpointId: 'ac', entityId: 'climate.ac', controlKind: 'supervisory',
+      desired: { hvacMode: 'cool', requestedTargetCelsius: 24, requestedTarget: 24, targetTemperature: 24, temperatureUnit: '°C', normalization: null, targetStep: 0.5 },
+      observed: { hvacMode: 'cool', targetTemperature: 26, currentTemperature: 27, available: true, temperatureUnit: '°C' },
+      diff: { hvacModeChanged: false, targetChanged: true }, actions: [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }],
+      sensor: { status: 'valid', valueCelsius: 27, source: 'sensor.living', unit: '°C', freshness: 'unknown', lastUpdated: null },
+      reasons: [], planSafe: true, physicalExecutionAllowed: false, physicalBlockers: ['execution_adapter_not_implemented'],
+      configRevision: 1, stateRevision: 1, inputFingerprint: 'sensor-and-endpoint', evaluatedAt: '2026-01-05T12:00:00+00:00', validUntil: null,
+    }] };
+    show(response);
+    const panel = await waitFor(() => screen.getByText('Anteprima controllo supervisore').closest('section')!);
+    expect(within(panel).getByText(/Piano simbolico disponibile/)).toBeTruthy();
+    expect(within(panel).getByText(/set_temperature 24/)).toBeTruthy();
+    expect(within(panel).getByText(/Nessun comando viene inviato/)).toBeTruthy();
+  });
+
   it('shows active profile, next change and schedule target', async () => {
     show(state());
     await waitFor(() => expect(screen.getByText(/Profilo attivo:/).textContent).toContain('Comfort'));

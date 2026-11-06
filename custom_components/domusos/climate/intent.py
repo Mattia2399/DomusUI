@@ -101,6 +101,13 @@ def _reading(reference: Mapping[str, Any] | None, states: Mapping[str, Any], att
         if value is None or (attribute == "current_humidity" and not 0 <= value <= 100):
             statuses.append("invalid")
             continue
+        if attribute == "current_temperature":
+            unit = getattr(state, "attributes", {}).get("temperature_unit" if entity_id.startswith("climate.") else "unit_of_measurement")
+            if unit == "°F":
+                value = (value - 32) * 5 / 9
+            elif unit not in (None, "°C"):
+                statuses.append("invalid")
+                continue
         return {"value": value, "source": entity_id, "availability": "available"}
     return {"value": None, "source": None, "availability": "stale" if "stale" in statuses else "invalid" if "invalid" in statuses else "unavailable"}
 

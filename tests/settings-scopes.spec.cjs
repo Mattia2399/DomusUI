@@ -84,7 +84,26 @@ test.beforeEach(async ({ page }) => {
           const thermalStatus = climateIntent.house.operatingMode === 'off' || intent.mode === 'off' ? 'off' : effectiveTarget === null ? 'unknown' : climateIntent.house.operatingMode === 'heating' && 21 < effectiveTarget - 0.2 ? 'needs_heating' : climateIntent.house.operatingMode === 'cooling' && 21 > effectiveTarget + 0.2 ? 'needs_cooling' : 'satisfied';
           return { zoneId: zone.id, intent, override, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, scheduledTarget, targetSource: effectiveTarget === null ? null : climateIntent.house.controlMode === 'manual' ? 'manual' : override ? 'override' : 'schedule', targetReason: effectiveTarget === null ? autoResolution?.status === 'resolved' ? 'no_target' : 'no_schedule' : null, autoPendingConfiguration: climateIntent.house.controlMode === 'auto' && effectiveTarget === null, thermalStatus, terminals: [], compatiblePaths: [] } };
         });
-        const snapshot = { state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, autoResolution, zones, deadbandCelsius: 0.2 } : null };
+        const scenario = page.climateExecutionScenario;
+        const executionPlan = scenario && zones[0] ? {
+          planId: `preview-${scenario}`, zoneId: zones[0].zoneId,
+          status: scenario === 'eligible' || scenario === 'noop' ? scenario : 'blocked',
+          endpointId: scenario === 'eligible' || scenario === 'noop' ? 'ac' : null,
+          entityId: scenario === 'eligible' || scenario === 'noop' ? 'climate.ac' : null,
+          controlKind: scenario === 'eligible' || scenario === 'noop' ? 'supervisory' : null,
+          desired: scenario === 'eligible' || scenario === 'noop' ? { hvacMode: 'cool', requestedTargetCelsius: 24, requestedTarget: 24, targetTemperature: 24, temperatureUnit: '°C', normalization: null, targetStep: 0.5 } : null,
+          observed: scenario === 'eligible' || scenario === 'noop' ? { hvacMode: 'cool', targetTemperature: scenario === 'noop' ? 24 : 26, currentTemperature: 27, available: true, temperatureUnit: '°C' } : null,
+          diff: scenario === 'eligible' || scenario === 'noop' ? { hvacModeChanged: false, targetChanged: scenario === 'eligible' } : null,
+          actions: scenario === 'eligible' ? [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }] : [],
+          sensor: { status: scenario === 'invalid_sensor' ? 'sensor_invalid' : 'valid', valueCelsius: scenario === 'invalid_sensor' ? null : 27, source: 'sensor.living_temp', unit: '°C', freshness: 'unknown', lastUpdated: null },
+          reasons: scenario === 'ambiguous' ? ['delivery_strategy_required'] : scenario === 'invalid_sensor' ? ['sensor_invalid'] : [],
+          planSafe: scenario === 'eligible' || scenario === 'noop', physicalExecutionAllowed: false,
+          physicalBlockers: ['execution_adapter_not_implemented', 'linux_validation_required'],
+          configRevision: climateRevision, stateRevision: climateStateRevision, inputFingerprint: `fixture-${scenario}`,
+          evaluatedAt: houseNow.toISOString(), validUntil: null,
+        } : null;
+        const snapshot = { state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, autoResolution, zones, deadbandCelsius: 0.2 } : null,
+          executionPreview: executionPlan ? { plans: [executionPlan], configRevision: climateRevision, stateRevision: climateStateRevision, evaluatedAt: houseNow.toISOString() } : null };
         page.climateLastState = snapshot;
         reply(snapshot);
         return true;
@@ -185,6 +204,31 @@ test('Climate intent controls update the live runtime preview without a device s
   await runtime.getByRole('spinbutton', { name: 'Target ambiente' }).fill('22');
   await runtime.getByRole('button', { name: 'Applica' }).click();
   await expect(runtime.getByText('Richiede riscaldamento')).toBeVisible();
+  expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
+});
+
+test('Climate supervisory preview shows eligible, noop and blocked cases without device commands', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Camera');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  const runtime = page.locator('[data-climate-runtime="true"]');
+  const inspector = runtime.locator('[data-climate-execution-preview="true"]');
+  for (const [scenario, expected] of [
+    ['eligible', 'Piano simbolico disponibile'],
+    ['noop', 'Stato già allineato'],
+    ['ambiguous', 'Più sistemi compatibili per questa zona.'],
+    ['invalid_sensor', 'Temperatura ambiente non disponibile.'],
+  ]) {
+    page.climateExecutionScenario = scenario;
+    await runtime.getByRole('button', { name: 'Ricarica' }).click();
+    await expect(inspector.getByText(expected)).toBeVisible();
+    expect(page.climateLastState.executionPreview.plans[0].status).toBe(scenario === 'ambiguous' || scenario === 'invalid_sensor' ? 'blocked' : scenario);
+    expect(page.climateLastState.executionPreview.plans[0].actions).toHaveLength(scenario === 'eligible' ? 1 : 0);
+    expect(page.climateLastState.executionPreview.plans[0].physicalExecutionAllowed).toBe(false);
+  }
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 

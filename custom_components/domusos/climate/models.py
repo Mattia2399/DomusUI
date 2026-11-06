@@ -270,7 +270,7 @@ def parse_config(value: Any) -> dict[str, Any]:
     endpoints: list[dict[str, Any]] = []
     for index, raw in enumerate(_list(data["endpoints"], "endpoints", 128)):
         field = f"endpoints[{index}]"
-        item = _extended(raw, {"id", "name", "kind", "zoneId", "circuitId", "roles", "entity", "setpointKind"}, {"capabilities"}, field)
+        item = _extended(raw, {"id", "name", "kind", "zoneId", "circuitId", "roles", "entity", "setpointKind"}, {"capabilities", "controlTopology"}, field)
         kind = item["kind"]
         roles = _list(item["roles"], field + ".roles", 6)
         if kind not in ("air_conditioner", "thermostatic_radiator_valve", "manifold_actuator", "fan_coil", "ducted_unit", "other") or not roles or any(role not in _ROLES for role in roles) or len(roles) != len(set(roles)):
@@ -283,6 +283,13 @@ def parse_config(value: Any) -> dict[str, Any]:
             raise InvalidConfig(field + ".setpointKind")
         circuit_id = item["circuitId"]
         parsed = {"id": _id(item["id"], field + ".id"), "name": _text(item["name"], field + ".name"), "kind": kind, "zoneId": _id(item["zoneId"], field + ".zoneId"), "circuitId": None if circuit_id is None else _id(circuit_id, field + ".circuitId"), "roles": list(roles), "entity": _entity_binding(item["entity"], field + ".entity"), "setpointKind": item["setpointKind"]}
+        if "controlTopology" in item:
+            if (item["controlTopology"] != "direct_supervisory" or kind not in ("air_conditioner", "other")
+                    or item["setpointKind"] != "room_temperature" or circuit_id is not None
+                    or not parsed["entity"]["primaryEntityId"].startswith("climate.")
+                    or parsed["entity"]["relatedControls"]):
+                raise InvalidConfig(field + ".controlTopology", "direct supervisory control requires one standalone climate entity")
+            parsed["controlTopology"] = "direct_supervisory"
         if "capabilities" in item:
             parsed["capabilities"] = _capabilities(item["capabilities"], field + ".capabilities", set(_CAPABILITIES))
             if ("room_heater" in roles or "radiator_trv" in roles) and not parsed["capabilities"]["supportsHeating"]:

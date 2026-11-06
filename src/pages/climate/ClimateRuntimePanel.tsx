@@ -3,7 +3,7 @@ import { Flame, Snowflake, Thermometer, TriangleAlert } from 'lucide-react';
 import { useI18n } from '../../i18n/I18nProvider';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { ClimateHouseConfig, ClimateOperatingMode, ClimateControlMode, ClimateZoneMode } from './climateModel';
-import { clearZoneOverride, climateObservedKey, getClimateState, setHouseIntent, setZoneIntent, setZoneOverride, type ClimateAutoResolution, type ClimateOverrideExpiryMode, type ClimateStateResponse, type ClimateZoneState } from '../../services/climateStateClient';
+import { clearZoneOverride, climateObservedKey, getClimateState, setHouseIntent, setZoneIntent, setZoneOverride, type ClimateAutoResolution, type ClimateExecutionPreview, type ClimateOverrideExpiryMode, type ClimateStateResponse, type ClimateZoneState } from '../../services/climateStateClient';
 import type { ClimateCallApi } from '../../services/climateConfigClient';
 import { MUTED, PANEL } from './ClimatePrimitives';
 import '../../components/devices/theme/devices.css';
@@ -15,6 +15,43 @@ const words = {
 } as const;
 
 type OverrideChoice = 'next_schedule_event' | 'duration_30' | 'duration_60' | 'duration_120' | 'until_time';
+
+function ExecutionPreview({ value, config }: { value: ClimateExecutionPreview; config: ClimateHouseConfig }) {
+  const { locale } = useI18n();
+  const it = locale === 'it';
+  const reasonLabels: Record<string, string> = it ? {
+    delivery_strategy_required: 'Più sistemi compatibili per questa zona.',
+    no_compatible_terminal: 'Nessun sistema compatibile per questa zona.',
+    no_target: 'Manca un target ambiente.',
+    sensor_invalid: 'Temperatura ambiente non disponibile.',
+    sensor_unit_unknown: 'Unità del sensore non riconosciuta.',
+    endpoint_unavailable: 'Dispositivo non disponibile.',
+    house_off: 'Clima della casa spento.',
+    zone_off: 'Zona spenta.',
+  } : {
+    delivery_strategy_required: 'Multiple compatible systems for this zone.',
+    no_compatible_terminal: 'No compatible system for this zone.',
+    no_target: 'Room target is missing.',
+    sensor_invalid: 'Room temperature unavailable.',
+    sensor_unit_unknown: 'Sensor unit is unknown.',
+    endpoint_unavailable: 'Device unavailable.',
+    house_off: 'House climate is off.',
+    zone_off: 'Zone is off.',
+  };
+  return <section className={`${PANEL} p-4 sm:p-5`} data-climate-execution-preview="true">
+    <h3 className="text-base font-semibold">{it ? 'Anteprima controllo supervisore' : 'Supervisory control preview'}</h3>
+    <p className={`mt-1 text-xs ${MUTED}`}>{it ? 'Piano tecnico. Nessun comando viene inviato ai dispositivi.' : 'Technical plan. No device commands are sent.'}</p>
+    <div className="mt-4 grid gap-3 sm:grid-cols-2">{value.plans.map((plan) => <article key={plan.zoneId} className="rounded-2xl border border-[color:var(--ui-border)] p-3 text-sm">
+      <strong>{config.zones.find((zone) => zone.id === plan.zoneId)?.name ?? plan.zoneId}</strong>
+      <p className={`mt-1 text-xs ${MUTED}`}>{plan.status === 'blocked' || plan.status === 'unresolved' ? (it ? 'Controllo automatico non disponibile' : 'Automatic control unavailable') : plan.status === 'noop' ? (it ? 'Stato già allineato' : 'Already aligned') : (it ? 'Piano simbolico disponibile' : 'Symbolic plan available')}</p>
+      {plan.reasons[0] && reasonLabels[plan.reasons[0]] && <p className="mt-1 text-xs">{reasonLabels[plan.reasons[0]]}</p>}
+      {plan.desired && <p className="mt-2">{it ? 'Desiderato' : 'Desired'}: {plan.desired.hvacMode} · {plan.desired.targetTemperature} {plan.desired.temperatureUnit}</p>}
+      {plan.observed && <p>{it ? 'Osservato' : 'Observed'}: {plan.observed.hvacMode} · {plan.observed.targetTemperature ?? '—'} {plan.observed.temperatureUnit}</p>}
+      {plan.actions.length > 0 && <p className="mt-2 text-xs">{it ? 'Azioni previste' : 'Planned actions'}: {plan.actions.map((action) => `${action.kind} ${action.value}`).join(' → ')}</p>}
+      <details className="mt-2 text-xs"><summary>{it ? 'Dettagli tecnici' : 'Technical details'}</summary><p>endpoint: {plan.endpointId ?? '—'} · status: {plan.status}</p><p>reason: {plan.reasons.join(', ') || '—'}</p><p>physical: {plan.physicalExecutionAllowed ? 'allowed' : 'blocked'}</p></details>
+    </article>)}</div>
+  </section>;
+}
 
 function OverrideControls({ state, resolution, canControl, busy, onCreate, onClear }: {
   state: ClimateZoneState; resolution: ClimateAutoResolution | null | undefined; canControl: boolean; busy: boolean;
@@ -96,5 +133,6 @@ export function ClimateRuntimePanel({ config, callApi, states, canControl }: { c
       {preview.house.controlMode === 'auto' && preview.autoResolution?.status === 'resolved' && <div className={`${PANEL} flex flex-wrap items-center gap-x-6 gap-y-2 p-4 text-sm`}><span>{t.active}: <strong>{preview.autoResolution.activeProfileName}</strong></span>{preview.autoResolution.nextEvent && <span>{t.next}: <strong>{preview.autoResolution.nextEvent.time} · {preview.autoResolution.nextEvent.profileName ?? preview.autoResolution.nextEvent.profileId}</strong></span>}</div>}
       {preview.house.controlMode === 'auto' && preview.autoResolution?.status !== 'resolved' && <p className={`${PANEL} p-4 text-sm`}>{preview.autoResolution?.status === 'timezone_unavailable' ? t.timezoneMissing : preview.autoResolution?.status === 'no_schedule' || !preview.autoResolution ? t.pending : t.scheduleInvalid}</p>}
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{preview.zones.map((zoneState) => { const zone = config.zones.find((item) => item.id === zoneState.zoneId); return zone ? <ZoneCard key={zone.id} zone={zone} config={config} state={zoneState} controlMode={preview.house.controlMode} activeProfileName={preview.autoResolution?.activeProfileName ?? null} autoResolution={preview.autoResolution} canControl={canControl && ['absent', 'ready'].includes(response?.state ?? '')} busy={busy} onWrite={(mode, target) => write((revision) => setZoneIntent(callApi, zone.id, mode, target, revision))} onCreateOverride={(target, mode, options) => write((revision) => setZoneOverride(callApi, zone.id, target, mode, revision, options))} onClearOverride={() => write((revision) => clearZoneOverride(callApi, zone.id, revision))} /> : null; })}</div></> : !error && <p className={`${PANEL} p-4 text-sm`}>{t.unavailable}</p>}
+    {response?.executionPreview && <ExecutionPreview value={response.executionPreview} config={config} />}
   </section>;
 }

@@ -175,9 +175,4 @@ def test_runtime_module_has_no_physical_execution_contract():
         source = module.read_text(encoding="utf-8")
         assert "async_call(" not in source
         assert "call_service(" not in source
-        assert "set_temperature" not in source
-        assert "set_hvac_mode" not in source
-        assert "turn_on" not in source
-        assert "turn_off" not in source
-        assert "valve.open" not in source
-        assert "valve.close" not in source
+        assert "hass.services" not in source

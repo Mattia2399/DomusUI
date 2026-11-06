@@ -20,6 +20,7 @@ from homeassistant.util import dt as dt_util
 
 from .auto_resolver import resolve_auto
 from .auto_timer import BoundaryTimer
+from .execution_plan import build_execution_preview
 from .intent import (
     STATE_STORAGE_KEY,
     STATE_VERSION,
@@ -59,6 +60,7 @@ class ClimateStateManager:
         self._clock = clock or (lambda: datetime.now(UTC))
         self._boundary = BoundaryTimer(self._clock, schedule or hass.loop.call_later, self._on_boundary)
         self._snapshot: dict[str, Any] | None = None
+        self._execution_snapshot: dict[str, Any] | None = None
         self._cleanup_queued = False
         self._running = False
 
@@ -99,6 +101,7 @@ class ClimateStateManager:
             self._unsub_states()
             self._unsub_states = None
         self._snapshot = None
+        self._execution_snapshot = None
 
     @callback
     def refresh_config(self) -> None:
@@ -111,6 +114,7 @@ class ClimateStateManager:
         if config is None:
             self._boundary.cancel()
             self._snapshot = None
+            self._execution_snapshot = None
             return
         entity_ids = {
             entity_id
@@ -202,6 +206,7 @@ class ClimateStateManager:
         if not self._running or config is None or self.config_manager.state is not ClimateStoreState.READY or self.state not in (ClimateStoreState.ABSENT, ClimateStoreState.READY):
             self._boundary.cancel()
             self._snapshot = None
+            self._execution_snapshot = None
             return
         ids = {
             entity_id
@@ -227,6 +232,9 @@ class ClimateStateManager:
                 item["expiresAtLocalTime"] = local_expiry.strftime("%H:%M")
                 item["expiresAtLocalDate"] = local_expiry.strftime("%d/%m")
         self._snapshot = preview(config, current_intent, states, auto_resolution=resolution, active_overrides=overrides)
+        self._execution_snapshot = build_execution_preview(
+            config, self._snapshot, states, config_revision=self.config_manager.revision,
+            state_revision=self.revision, evaluated_at=now)
         expiries = [utc_instant(item["expiresAt"], "expiresAt") for item in overrides.values()]
         self._boundary.update(resolution, zone_name, expiries)
 
@@ -235,7 +243,8 @@ class ClimateStateManager:
         self._recompute()
         self._queue_cleanup()
         return {"state": self.state.value, "revision": self.revision, "configState": self.config_manager.state.value,
-                "configRevision": self.config_manager.revision, "preview": deepcopy(self._snapshot)}
+                "configRevision": self.config_manager.revision, "preview": deepcopy(self._snapshot),
+                "executionPreview": deepcopy(self._execution_snapshot)}
 
     async def async_get_state(self) -> dict[str, Any]:
         await self.async_cleanup_overrides()

@@ -16,7 +16,20 @@ export type ClimateZoneState = {
     terminals: { id: string; entityId: string; available: boolean; compatible: boolean; observedTarget: number | null; targetMismatch: boolean; mismatchCause: 'unknown'; equipmentGroupIds: string[] }[];
     compatiblePaths: { terminalId: string; circuitId: string | null; generatorCandidates: { id: string; role: 'preferred' | 'fallback' | 'required' | 'available' }[]; humidityConstraintPresent: boolean; condensationProtectionRequired: boolean; auxiliaryCandidates: string[]; sharedOperatingMode: boolean }[] };
 };
-export type ClimateStateResponse = { state: 'absent' | 'ready' | 'corrupt' | 'unsupported' | 'migration_failed'; revision: number; configState: string; configRevision: number; preview: { house: { operatingMode: ClimateOperatingMode; controlMode: ClimateControlMode }; autoResolution?: ClimateAutoResolution | null; zones: ClimateZoneState[]; deadbandCelsius: number } | null };
+export type ClimateExecutionAction = { kind: 'set_hvac_mode' | 'set_temperature'; entityId: string; value: string | number; temperatureUnit?: '°C' | '°F'; expected: { hvacMode?: 'heat' | 'cool'; targetTemperature?: number } };
+export type ClimateExecutionPlan = {
+  planId: string; zoneId: string; status: 'eligible' | 'noop' | 'blocked' | 'unresolved';
+  endpointId: string | null; entityId: string | null; controlKind: 'supervisory' | null;
+  desired: { hvacMode: 'heat' | 'cool'; requestedTargetCelsius: number; requestedTarget: number; targetTemperature: number; temperatureUnit: '°C' | '°F'; normalization: 'endpoint_step' | null; targetStep: number | null } | null;
+  observed: { hvacMode: string; targetTemperature: number | null; currentTemperature: number | null; available: boolean; temperatureUnit: '°C' | '°F' } | null;
+  diff: { hvacModeChanged: boolean; targetChanged: boolean } | null;
+  actions: ClimateExecutionAction[];
+  sensor: { status: 'valid' | 'sensor_invalid' | 'sensor_unit_unknown' | 'sensor_outside_plausible_range' | 'stale'; valueCelsius: number | null; source: string | null; unit: string | null; freshness: 'stale' | 'unknown'; lastUpdated: string | null } | null;
+  reasons: string[]; planSafe: boolean; physicalExecutionAllowed: false; physicalBlockers: string[];
+  configRevision: number; stateRevision: number; inputFingerprint: string; evaluatedAt: string; validUntil: string | null;
+};
+export type ClimateExecutionPreview = { plans: ClimateExecutionPlan[]; configRevision: number; stateRevision: number; evaluatedAt: string };
+export type ClimateStateResponse = { state: 'absent' | 'ready' | 'corrupt' | 'unsupported' | 'migration_failed'; revision: number; configState: string; configRevision: number; preview: { house: { operatingMode: ClimateOperatingMode; controlMode: ClimateControlMode }; autoResolution?: ClimateAutoResolution | null; zones: ClimateZoneState[]; deadbandCelsius: number } | null; executionPreview?: ClimateExecutionPreview | null };
 
 export const CLIMATE_STATE_TYPES = { get: 'domusos/climate/get_state', house: 'domusos/climate/set_house_intent', zone: 'domusos/climate/set_zone_intent', override: 'domusos/climate/set_zone_override', clearOverride: 'domusos/climate/clear_zone_override' } as const;
 
@@ -32,6 +45,10 @@ function stateResponse(value: unknown): ClimateStateResponse {
           typeof zone.zoneId === 'string' && record(zone.intent) && record(zone.observed) && record(zone.derived) &&
           Array.isArray(zone.derived.terminals) && Array.isArray(zone.derived.compatiblePaths))) throw new Error('Stato Clima non valido.');
   }
+  if (value.executionPreview != null && (!record(value.executionPreview) || !Array.isArray(value.executionPreview.plans) ||
+      !value.executionPreview.plans.every((plan: unknown) => record(plan) && typeof plan.zoneId === 'string' &&
+        ['eligible', 'noop', 'blocked', 'unresolved'].includes(String(plan.status)) && Array.isArray(plan.actions) &&
+        Array.isArray(plan.reasons) && plan.physicalExecutionAllowed === false))) throw new Error('Anteprima controllo non valida.');
   return value as ClimateStateResponse;
 }
 
