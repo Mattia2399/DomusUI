@@ -4,7 +4,6 @@ import { normalizeLockCardState, resolveLockLastChange, translateLockCardState }
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BarChart3,
-  ChevronDown,
   DoorOpen,
   Eye,
   EyeOff,
@@ -18,33 +17,18 @@ import {
   Settings,
   ShieldCheck,
   Thermometer,
-  Plus,
-  Trash2,
   X,
 } from 'lucide-react';
 import type { MediaPlayRequest } from '../settings/deviceContextTypes';
 import { translateClimateStatus } from '../settings/climateControlLabels';
-import { SensorDisplayVariantSkeleton } from '../settings/SensorDisplayVariantSkeleton';
-import { LightDisplayVariantSkeleton } from '../settings/LightDisplayVariantSkeleton';
-import { SwitchDisplayVariantSkeleton } from '../settings/SwitchDisplayVariantSkeleton';
-import { ClimateDisplayVariantSkeleton } from '../settings/ClimateDisplayVariantSkeleton';
-import { AlarmDisplayVariantSkeleton } from '../settings/AlarmDisplayVariantSkeleton';
-import { LockDisplayVariantSkeleton } from '../settings/LockDisplayVariantSkeleton';
-import { CoverDisplayVariantSkeleton } from '../settings/CoverDisplayVariantSkeleton';
-import { MediaDisplayVariantSkeleton } from '../settings/MediaDisplayVariantSkeleton';
-import { CameraDisplayVariantSkeleton } from '../settings/CameraDisplayVariantSkeleton';
-import { VacuumDisplayVariantSkeleton } from '../settings/VacuumDisplayVariantSkeleton';
-import { CalendarDisplayVariantSkeleton } from '../settings/CalendarDisplayVariantSkeleton';
 import GlassCombobox from '../ui/GlassCombobox';
 import GlassDropdown, { type GlassDropdownOption } from '../ui/GlassDropdown';
 import GlassToggle from '../ui/GlassToggle';
 import GlassSegmentSelect from '../ui/GlassSegmentSelect';
-import GlassModal from '../ui/GlassModal';
 import { WidgetCardRenderer } from '../widgets/CardRenderer';
 import {
   resolveWidgetDisplayVariant,
   type WidgetDisplayMetrics,
-  type WidgetDisplayVariant,
 } from '../widgets/widgetDisplayVariant';
 import {
   ALARM_CARD_CAPABILITY,
@@ -68,14 +52,6 @@ import {
   VACUUM_CARD_CAPABILITY,
 } from '../widgets/cardCapabilityRegistry';
 import { resolveGridLightRuntimeMetrics, type GridMetricsVersion } from './gridEngine2/gridMetrics';
-import { isMeteredPower, SENSOR_ALERT_THRESHOLDS } from '../devices/model/sensorFamily';
-import { MiniRing } from '../widgets/micro/MiniRing';
-import { MicroButton } from '../widgets/micro/MicroButton';
-import { MicroStep } from '../widgets/micro/MicroStep';
-import { MicroSlider } from '../widgets/micro/MicroSlider';
-import { MicroToggle } from '../widgets/micro/MicroToggle';
-import { StatusGlow } from '../widgets/micro/StatusGlow';
-import { ValuePill } from '../widgets/micro/ValuePill';
 import type {
   CameraDeviceInfo,
   CameraHistoryEntry,
@@ -100,7 +76,6 @@ import type {
   WeatherSecondaryInfo,
   Widget,
   WidgetKind,
-  MicroWidget,
 } from '../../types/dashboardModels';
 import { FAVORITES_GRID_TITLE, ROOT_CANVAS_COLS } from '../../types/dashboardModels';
 import {
@@ -129,16 +104,7 @@ import type {
   WidgetTypeBreakpointLayoutOverride,
   WidgetTypeLayoutOverrides,
 } from '../../types/widgetTypeLayout';
-import { MAX_SENSOR_DISPLAY_PRECISION } from '../../utils/sensorValue';
 import type { AlarmActionAuthOptions } from '../../utils/alarmSecurityPolicy';
-import {
-  setWidgetSecrets,
-  setWidgetSecretsRemembered,
-  useWidgetSecrets,
-} from '../../services/widgetSecrets';
-import { useDashboardSecurity } from '../../security/dashboardAccess';
-import { useSensitiveActionGate } from '../../security/SensitiveActionGate';
-import { resolveCardDataSource } from '../../security/mockSourcePolicy';
 import { DASHBOARD_SIDEBAR_WIDTH_CLASS } from './DashboardSidebarPlaceholder';
 import { PanelSheet } from '../devices/panels/shell/PanelSheet';
 import LazyLoadBoundary from '../common/LazyLoadBoundary';
@@ -158,18 +124,12 @@ const PanelEditor = React.lazy(() => import('../panelEditor/PanelEditor'));
 export const preloadDeviceContext = () => Promise.resolve(loadContextSidebar()).then((sidebar) => sidebar.preload());
 
 const GridV2ScenesCard = React.lazy(() => import('../widgets/GridV2ScenesCard'));
-const loadMicroSuperChart = () =>
-  import('../widgets/micro/MicroSuperChart').then((module) => ({
-    default: module.MicroSuperChart,
-  }));
-const MicroSuperChart = React.lazy(loadMicroSuperChart);
 
 const BUILDER_INPUT_CLASS = 'ui-input w-full rounded-xl px-3 py-2.5 text-sm';
 const BUILDER_TEXTAREA_CLASS = `${BUILDER_INPUT_CLASS} resize-none`;
 const BUILDER_LABEL_CLASS = 'mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[color:var(--ui-text-secondary)]';
 const BUILDER_HELPER_CLASS = 'mt-2 text-[11px] leading-snug text-[color:var(--ui-text-tertiary)]';
 const BUILDER_CONTENT_CARD_CLASS = 'dashboard-content-surface rounded-2xl p-3';
-const BUILDER_CONTENT_CARD_SOFT_CLASS = 'dashboard-content-surface-soft rounded-2xl p-3';
 
 type ContextSidebarActions = {
   toggleLamp: () => void;
@@ -286,20 +246,7 @@ const SCENE_ACTION_TYPE_OPTIONS: GlassDropdownOption[] = [
   { id: 'script', name: 'Script' },
   { id: 'service', name: 'Servizio' },
 ];
-const SENSOR_DISPLAY_PRECISION_OPTIONS: GlassDropdownOption[] = [
-  { id: 'auto', name: 'Automatico (Home Assistant)' },
-  ...Array.from({ length: MAX_SENSOR_DISPLAY_PRECISION + 1 }, (_, precision) => ({
-    id: String(precision),
-    name: precision === 1 ? '1 decimale' : `${precision} decimali`,
-  })),
-];
 
-const DEFAULT_ACTIVITY_LOG_HOURS = 24;
-const DEFAULT_ACTIVITY_LOG_ENTRIES = 6;
-const MIN_ACTIVITY_LOG_HOURS = 1;
-const MAX_ACTIVITY_LOG_HOURS = 168;
-const MIN_ACTIVITY_LOG_ENTRIES = 1;
-const MAX_ACTIVITY_LOG_ENTRIES = 30;
 const SCENE_ACTION_SERVICE_SUGGESTIONS = [
   'script.turn_on',
   'scene.turn_on',
@@ -317,20 +264,7 @@ const GRID_ENGINE_ROOT_HORIZONTAL_PADDING: Record<DashboardGridBreakpoint, numbe
   sm: 0,
   xs: 2,
 };
-const WIDGET_LAYOUT_HEIGHT_SCALE_OPTIONS = [
-  { label: '0.5x', h: 1 },
-  { label: '1x', h: 2 },
-  { label: '1,5x', h: 3 },
-  { label: '2x', h: 4 },
-  { label: '2,5x', h: 5 },
-] as const;
-function clampActivityLogHours(value: number) {
-  return Math.max(MIN_ACTIVITY_LOG_HOURS, Math.min(MAX_ACTIVITY_LOG_HOURS, Math.round(value)));
-}
 
-function clampActivityLogEntries(value: number) {
-  return Math.max(MIN_ACTIVITY_LOG_ENTRIES, Math.min(MAX_ACTIVITY_LOG_ENTRIES, Math.round(value)));
-}
 
 function findDropdownOption(options: GlassDropdownOption[], id: string | number) {
   return options.find((option) => option.id === String(id)) ?? options[0] ?? null;
@@ -842,108 +776,7 @@ type RightSidebarManagerProps = {
   onRemoveSidebarPath: (id: string) => void;
 };
 
-const MICRO_WIDGET_CATALOG: Array<{
-  type: MicroWidget['type'];
-  label: string;
-  description: string;
-}> = [
-  {
-    type: 'value_pill',
-    label: 'Value Pill',
-    description: 'Valore principale con label secondaria.',
-  },
-  {
-    type: 'status_glow',
-    label: 'Status Glow',
-    description: 'Indicatore stato con glow dinamico.',
-  },
-  {
-    type: 'mini_ring',
-    label: 'Mini Ring',
-    description: 'Ring compatto con progress circolare.',
-  },
-  {
-    type: 'micro_toggle',
-    label: 'Micro Toggle',
-    description: 'Interruttore mini con stato on/off.',
-  },
-  {
-    type: 'micro_button',
-    label: 'Button',
-    description: 'Pulsante con azione push, switch o pagina.',
-  },
-  {
-    type: 'micro_slider',
-    label: 'Slider',
-    description: 'Controllo numerico per entita input_number/number.',
-  },
-  {
-    type: 'micro_step',
-    label: 'Step',
-    description: 'Controllo orizzontale con incremento/decremento su + e -.',
-  },
-  {
-    type: 'micro_superchart',
-    label: 'Superchart',
-    description: 'Grafico mini live con scelta tipo line/area/bar.',
-  },
-];
 
-const MICRO_TOGGLE_COMPATIBLE_DOMAINS = new Set([
-  'light',
-  'switch',
-  'input_boolean',
-  'fan',
-  'media_player',
-  'script',
-  'automation',
-  'scene',
-  'cover',
-  'lock',
-  'vacuum',
-]);
-const MINI_RING_COMPATIBLE_DOMAINS = new Set([
-  'light',
-  'cover',
-  'fan',
-  'vacuum',
-  'media_player',
-  'sensor',
-  'number',
-  'input_number',
-  'climate',
-]);
-const STATUS_GLOW_COMPATIBLE_DOMAINS = new Set([
-  'binary_sensor',
-  'sensor',
-  'switch',
-  'light',
-  'lock',
-  'alarm_control_panel',
-  'media_player',
-  'person',
-  'device_tracker',
-  'vacuum',
-  'cover',
-  'fan',
-  'climate',
-  'script',
-  'automation',
-  'scene',
-]);
-const MICRO_SLIDER_COMPATIBLE_DOMAINS = new Set(['input_number', 'number']);
-const MICRO_STEP_COMPATIBLE_DOMAINS = new Set(['input_number', 'number']);
-const MICRO_SUPERCHART_COMPATIBLE_DOMAINS = new Set(['sensor', 'number', 'input_number']);
-const MICRO_WIDGET_CATALOG_ENTITY_LIMIT = 80;
-const MICRO_WIDGET_CATALOG_DOMAIN_LIMIT = 10;
-
-function extractEntityDomain(entityId: string | undefined) {
-  const trimmed = (entityId ?? '').trim().toLowerCase();
-  if (!trimmed.includes('.')) {
-    return '';
-  }
-  return trimmed.split('.')[0] ?? '';
-}
 
 function resolveEntityStateById(haStates: MockEntityStateMap, entityId: string | undefined) {
   const normalizedEntityId = (entityId ?? '').trim();
@@ -961,171 +794,10 @@ function resolveEntityHistoryById(historyMap: Record<string, number[]>, entityId
   return historyMap[normalizedEntityId] ?? historyMap[normalizedEntityId.toLowerCase()];
 }
 
-function scoreEntitySearchMatch(entityId: string, query: string) {
-  const normalizedEntityId = entityId.trim().toLowerCase();
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) {
-    return 0;
-  }
-  if (normalizedEntityId === normalizedQuery) {
-    return 1000;
-  }
-  if (normalizedEntityId.startsWith(normalizedQuery)) {
-    return 900 - normalizedEntityId.length * 0.01;
-  }
-  const [domain = '', objectId = ''] = normalizedEntityId.split('.', 2);
-  if (objectId === normalizedQuery) {
-    return 850;
-  }
-  if (objectId.startsWith(normalizedQuery)) {
-    return 800 - objectId.length * 0.01;
-  }
-  const dottedQueryIndex = normalizedEntityId.indexOf(`.${normalizedQuery}`);
-  if (dottedQueryIndex >= 0) {
-    return 650 - dottedQueryIndex * 0.01;
-  }
-  const includesIndex = normalizedEntityId.indexOf(normalizedQuery);
-  if (includesIndex >= 0) {
-    return 500 - includesIndex * 0.01;
-  }
-  if (domain.startsWith(normalizedQuery)) {
-    return 250 - domain.length * 0.01;
-  }
-  return Number.NEGATIVE_INFINITY;
-}
 
-function formatEntityDomainLabel(domain: string) {
-  return domain.replaceAll('_', ' ');
-}
 
-function isMicroWidgetTypeCompatible(type: MicroWidget['type'], entityId: string | undefined) {
-  const domain = extractEntityDomain(entityId);
-  if (!domain) {
-    return true;
-  }
-  if (type === 'value_pill' || type === 'micro_button') {
-    return true;
-  }
-  if (type === 'micro_slider') {
-    return MICRO_SLIDER_COMPATIBLE_DOMAINS.has(domain);
-  }
-  if (type === 'micro_step') {
-    return MICRO_STEP_COMPATIBLE_DOMAINS.has(domain);
-  }
-  if (type === 'micro_superchart') {
-    return MICRO_SUPERCHART_COMPATIBLE_DOMAINS.has(domain);
-  }
-  if (type === 'status_glow') {
-    return STATUS_GLOW_COMPATIBLE_DOMAINS.has(domain);
-  }
-  if (type === 'mini_ring') {
-    return MINI_RING_COMPATIBLE_DOMAINS.has(domain);
-  }
-  return MICRO_TOGGLE_COMPATIBLE_DOMAINS.has(domain);
-}
 
-function buildFallbackMicroWidgetState(type: MicroWidget['type'], label: string): MockEntityState {
-  if (type === 'value_pill') {
-    return {
-      state: 'on',
-      stateLabel: 'Attivo',
-      numericValue: 24,
-      unit: 'C',
-      rawAttributes: { friendly_name: label },
-    };
-  }
-  if (type === 'status_glow') {
-    return {
-      state: 'on',
-      stateLabel: 'Connesso',
-      rawAttributes: { friendly_name: label },
-    };
-  }
-  if (type === 'mini_ring') {
-    return {
-      state: 'on',
-      numericValue: 72,
-      unit: '%',
-      rawAttributes: { friendly_name: label },
-    };
-  }
-  if (type === 'micro_button') {
-    return {
-      state: 'off',
-      stateLabel: 'Switch',
-      toggleOn: false,
-      rawAttributes: { friendly_name: label },
-    };
-  }
-  if (type === 'micro_slider') {
-    return {
-      state: '42',
-      numericValue: 42,
-      unit: '%',
-      rawAttributes: { friendly_name: label, min: 0, max: 100, step: 1, unit_of_measurement: '%' },
-    };
-  }
-  if (type === 'micro_step') {
-    return {
-      state: '42',
-      numericValue: 42,
-      unit: '%',
-      rawAttributes: { friendly_name: label, min: 0, max: 100, step: 1, unit_of_measurement: '%' },
-    };
-  }
-  if (type === 'micro_superchart') {
-    return {
-      state: '31',
-      numericValue: 31,
-      unit: '',
-      rawAttributes: { friendly_name: label, unit_of_measurement: '' },
-    };
-  }
-  return {
-    state: 'on',
-    stateLabel: 'Acceso',
-    toggleOn: true,
-    rawAttributes: { friendly_name: label },
-  };
-}
 
-function renderMicroWidgetPreview(widget: MicroWidget, state: MockEntityState | undefined, history?: number[]) {
-  if (widget.type === 'value_pill') {
-    return <ValuePill widget={widget} state={state} />;
-  }
-  if (widget.type === 'status_glow') {
-    return <StatusGlow widget={widget} state={state} />;
-  }
-  if (widget.type === 'mini_ring') {
-    return <MiniRing widget={widget} state={state} />;
-  }
-  if (widget.type === 'micro_button') {
-    return <MicroButton widget={widget} state={state} />;
-  }
-  if (widget.type === 'micro_slider') {
-    return <MicroSlider widget={widget} state={state} sendOnRelease={widget.sliderSendOnRelease ?? true} />;
-  }
-  if (widget.type === 'micro_step') {
-    return <MicroStep widget={widget} state={state} />;
-  }
-  if (widget.type === 'micro_superchart') {
-    return (
-      <LazyLoadBoundary
-        fallback={
-          <div
-            className="min-h-[4.25rem] rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)]"
-            aria-busy="true"
-          />
-        }
-        mode="section"
-        resetKey={`${widget.entity}:${widget.superChartType ?? 'line'}`}
-      >
-        <MicroSuperChart widget={widget} state={state} history={history} />
-      </LazyLoadBoundary>
-    );
-  }
-  return <MicroToggle widget={widget} state={state} />;
-}
 
 export function RightSidebarManager({
   isEditMode,
@@ -1187,19 +859,10 @@ export function RightSidebarManager({
   const sidebarWidthClass = DASHBOARD_SIDEBAR_WIDTH_CLASS;
   const [isContextSheetDragging, setIsContextSheetDragging] = React.useState(false);
   const [contextSheetDragOffset, setContextSheetDragOffset] = React.useState(0);
-  const [isMicroWidgetCatalogOpen, setIsMicroWidgetCatalogOpen] = React.useState(false);
-  const [microWidgetCatalogEntity, setMicroWidgetCatalogEntity] = React.useState('');
-  const [microWidgetCatalogDomainFilter, setMicroWidgetCatalogDomainFilter] = React.useState('all');
-  const [selectedMicroWidgetId, setSelectedMicroWidgetId] = React.useState<string | null>(null);
-  const [widgetConfigTab, setWidgetConfigTab] = React.useState<'layout' | 'settings' | 'related'>('settings');
   const [layoutApplyScope, setLayoutApplyScope] = React.useState<'widget' | 'type'>('widget');
   const [sectionConfigTab, setSectionConfigTab] = React.useState<'layout' | 'settings'>('settings');
   const [greetingConfigTab, setGreetingConfigTab] = React.useState<'title' | 'weather'>('title');
   const [selectedSceneConfigId, setSelectedSceneConfigId] = React.useState<SceneKey | null>(null);
-  const selectedWidgetSecrets = useWidgetSecrets(selectedWidget?.id);
-  const dashboardSecurity = useDashboardSecurity();
-  const sensitiveGate = useSensitiveActionGate();
-  const selectedWidgetMicroWidgets = selectedWidget?.widgets;
   const hasEditSelection = Boolean(selectedWidget || selectedSection || selectedSidebarPath);
   const contextSheetStartYRef = React.useRef<number | null>(null);
   const contextSheetPointerIdRef = React.useRef<number | null>(null);
@@ -1209,9 +872,6 @@ export function RightSidebarManager({
   const shouldShowCompactEditSheet = isEditMode && isCompactViewport && hasEditSelection && !compactEditSheetHeld;
   const shouldShowAnyCompactSheet = shouldShowCompactContextSheet || shouldShowCompactEditSheet;
 
-  React.useEffect(() => {
-    setWidgetConfigTab('settings');
-  }, [selectedWidget?.id]);
 
   React.useEffect(() => {
     setLayoutApplyScope('widget');
@@ -1274,36 +934,9 @@ export function RightSidebarManager({
       resetContextSheetDrag();
     }
   }, [resetContextSheetDrag, shouldShowAnyCompactSheet]);
-  React.useEffect(() => {
-    setIsMicroWidgetCatalogOpen(false);
-  }, [isEditMode, selectedWidget?.id]);
-  React.useEffect(() => {
-    setMicroWidgetCatalogEntity('');
-    setMicroWidgetCatalogDomainFilter('all');
-  }, [selectedWidget?.id]);
-  React.useEffect(() => {
-    setSelectedMicroWidgetId(null);
-  }, [selectedWidget?.id]);
-  React.useEffect(() => {
-    if (!selectedWidgetMicroWidgets || selectedWidgetMicroWidgets.length === 0) {
-      setSelectedMicroWidgetId((current) => (current === null ? current : null));
-      return;
-    }
-    setSelectedMicroWidgetId((current) => {
-      if (!current) {
-        return current;
-      }
-      return selectedWidgetMicroWidgets.some((entry) => entry.id === current) ? current : null;
-    });
-  }, [selectedWidgetMicroWidgets]);
 
   const isGridV2Metrics = gridMetricsVersion === 'v2';
   const selectedLightMetrics = resolveGridLightRuntimeMetrics(gridMetricsVersion);
-  const selectedWidgetIsMeteredPower = React.useMemo(() => {
-    if (selectedWidget?.kind !== 'sensor') return false;
-    const attributes = resolveEntityStateById(haStates, selectedWidget.entityId)?.rawAttributes;
-    return isMeteredPower(attributes?.device_class, attributes?.unit_of_measurement ?? selectedWidget.unit);
-  }, [haStates, selectedWidget]);
   const selectedWidgetEntityCapability = React.useMemo(() => {
     if (!selectedWidget) return 'default' as const;
     const entity = resolveEntityStateById(haStates, selectedWidget.entityId);
@@ -1375,22 +1008,6 @@ export function RightSidebarManager({
     ],
   );
 
-  const resetWidgetTypeLayoutSelection = React.useCallback(() => {
-    if (!selectedWidget) {
-      return;
-    }
-    if (layoutApplyScope === 'widget') {
-      onUpdateWidgetLayoutOverride(selectedWidget.id, activeGridBreakpoint, null);
-      return;
-    }
-    onUpdateWidgetTypeLayoutOverride(selectedWidget.kind, activeGridBreakpoint, null);
-  }, [
-    activeGridBreakpoint,
-    layoutApplyScope,
-    onUpdateWidgetLayoutOverride,
-    onUpdateWidgetTypeLayoutOverride,
-    selectedWidget,
-  ]);
 
   const contextDeviceTitle = activeDevice?.name?.trim() || t('builder.device');
   const contextSwitchEntity =
@@ -1424,24 +1041,6 @@ export function RightSidebarManager({
       : typeof activeDevice?.status === 'string' && activeDevice.status.trim().length > 0
         ? activeDevice.status.trim()
         : t('builder.deviceControls');
-  const renderAppleSwitch = ({
-    checked,
-    onChange,
-    disabled = false,
-    label,
-  }: {
-    checked: boolean;
-    onChange: (nextChecked: boolean) => void;
-    disabled?: boolean;
-    label: string;
-  }) => (
-    <GlassToggle
-      checked={checked}
-      onChange={onChange}
-      disabled={disabled}
-      label={label}
-    />
-  );
   const activeDeviceForPanel = activeDevice?.type === 'sensor' && activeDevice.sensorEntityId?.startsWith('binary_sensor.')
     ? {
         ...activeDevice,
@@ -1605,14 +1204,6 @@ export function RightSidebarManager({
   const weatherSecondaryInfoOptions = resolveWeatherSecondaryInfoOptions(state.weather);
   const localizedWeatherForecastTypeOptions = WEATHER_FORECAST_TYPE_OPTIONS.map((option) => ({ ...option, name: bt(option.name) }));
   const localizedSceneActionTypeOptions = SCENE_ACTION_TYPE_OPTIONS.map((option) => ({ ...option, name: bt(option.name) }));
-  const localizedSensorPrecisionOptions = SENSOR_DISPLAY_PRECISION_OPTIONS.map((option) => ({
-    ...option,
-    name: option.id === 'auto'
-      ? bt(option.name)
-      : option.id === '1'
-        ? bt('1 decimale')
-        : `${option.id} ${bt('decimali')}`,
-  }));
   const weatherSecondaryDropdownOptions = weatherSecondaryInfoOptions.map((option) => ({
     id: option.value,
     name: bt(option.label),
@@ -1763,40 +1354,6 @@ export function RightSidebarManager({
   const canSelectedLightAutoExpand = selectedWidget?.kind === 'light' &&
     selectedLightOffHeight <= selectedLightMetrics.hOff &&
     canSelectedLightGrow;
-  const selectedLightOnHeight = selectedWidget?.kind === 'light'
-    ? clampGridSpan(
-        layoutApplyScope === 'type'
-          ? selectedWidgetTypeOverride?.hOn ?? selectedWidgetTypeOverride?.h ?? selectedWidgetTypeLayoutSpan?.hOn ?? 2
-          : selectedWidgetLayoutOverride?.hOn ?? selectedWidgetLayoutOverride?.h ??
-            selectedWidgetTypeOverride?.hOn ?? selectedWidgetTypeOverride?.h ?? selectedWidgetTypeLayoutSpan?.hOn ?? 2,
-        GRID_LAYOUT_PREVIEW_MAX_ROWS,
-      )
-    : layoutPickerHeight;
-  const selectedLightAutoExpandDescription = selectedLightAutoExpand
-    ? `Spenta ${layoutPickerWidth}×${selectedLightOffHeight} → Accesa ${layoutPickerWidth}×${selectedLightOnHeight}`
-    : canSelectedLightAutoExpand
-      ? `Dimensione fissa ${layoutPickerWidth}×${layoutPickerHeight}`
-      : `Disponibile solo per il formato Mini ${layoutPickerWidth}×${selectedLightMetrics.hOff}`;
-  const handleLayoutApplyScopeChange = (nextScope: 'widget' | 'type') => {
-    if (!selectedWidget || nextScope === layoutApplyScope) {
-      return;
-    }
-    if (nextScope === 'type') {
-      const nextOverride =
-        selectedWidget.kind === 'light'
-          ? createLightLayoutOverride(layoutPickerWidth, selectedLightOffHeight, {
-              allowAutoExpand: selectedLightAutoExpand,
-              metricsVersion: gridMetricsVersion,
-            })
-          : {
-              w: layoutPickerWidth,
-              h: layoutPickerHeight,
-            };
-      onUpdateWidgetTypeLayoutOverride(selectedWidget.kind, activeGridBreakpoint, nextOverride);
-      onUpdateWidgetLayoutOverride(selectedWidget.id, activeGridBreakpoint, null);
-    }
-    setLayoutApplyScope(nextScope);
-  };
   const applyLightVariantSelection = (requestedW: number, requestedOffH: number) => {
     if (selectedWidget?.kind !== 'light') return;
     const { w: nextW, h: collapsedH } = snapGridV2Selection(requestedW, requestedOffH);
@@ -2104,18 +1661,6 @@ export function RightSidebarManager({
           };
         })
       : [];
-  const selectedCoverHasTilt =
-    selectedWidget?.kind === 'cover' &&
-    (cover.supportsSetTiltPosition === true ||
-      cover.supportsOpenTilt === true ||
-      cover.supportsCloseTilt === true ||
-      cover.supportsStopTilt === true ||
-      typeof cover.tiltPosition === 'number' ||
-      cover.rawAttributes?.current_tilt_position !== undefined ||
-      cover.rawAttributes?.tilt_position !== undefined ||
-      cover.rawAttributes?.current_cover_tilt_position !== undefined);
-  const selectedCoverSupportsPosition =
-    selectedWidget?.kind !== 'cover' || cover.supportsSetPosition !== false;
   const mediaDisplayVariantOptions =
     selectedWidget?.kind === 'media'
       ? MEDIA_CARD_CAPABILITY.variants.map((option) => {
@@ -2277,19 +1822,7 @@ export function RightSidebarManager({
       }];
     });
   })();
-  const shouldShowCardSizingEngineControl =
-    showCardSizingEngineControl &&
-    Boolean(onCardSizingEngineChange) &&
-    (selectedWidget?.kind === 'light' || selectedWidget?.kind === 'cover' ||
-      selectedWidget?.kind === 'fan' || selectedWidget?.kind === 'humidifier');
-  const selectedWidgetSkeletonKind = selectedWidget
-    ? getCardCapability(selectedWidget.kind).skeleton
-    : null;
   const isCompactLayoutEditor = activeGridBreakpoint === 'sm' || activeGridBreakpoint === 'xs';
-  const layoutGridCompactCellPx = 38;
-  const layoutGridCompactMaxWidth = isCompactLayoutEditor
-    ? layoutEditorCols * layoutGridCompactCellPx + Math.max(0, layoutEditorCols - 1) * 6 + 16
-    : null;
   const selectedWidgetLiveEntity = selectedWidget
     ? resolveEntityStateById(haStates, selectedWidget.entityId)
     : undefined;
@@ -2360,205 +1893,7 @@ export function RightSidebarManager({
         },
       }
     : null;
-  const layoutIsUsingAuto =
-    layoutApplyScope === 'type'
-      ? !selectedWidgetTypeOverride
-      : !selectedWidgetLayoutOverride;
-  const canResetLayout = !layoutIsUsingAuto;
-  const activeDisplayVariant =
-    selectedWidgetCanvasMetrics?.variant ?? selectedWidgetDisplayVariant;
-  const activeCardLayoutVariant =
-    selectedWidget && activeDisplayVariant
-      ? resolveCardLayoutVariant(
-          getCardCapability(selectedWidget.kind),
-          activeDisplayVariant,
-        )
-      : null;
-  const activeCardLayoutLabel =
-    selectedWidget && activeCardLayoutVariant
-      ? getCardCapability(selectedWidget.kind).variants.find(
-          (option) => option.id === activeCardLayoutVariant,
-        )?.label
-      : null;
-  const activeLayoutLabel =
-    selectedWidgetSupportsDisplayMetrics
-      ? activeCardLayoutLabel ?? `${layoutPickerWidth}×${layoutPickerHeight}`
-      : `${layoutPickerWidth}×${layoutPickerHeight}`;
 
-  const liveEntitySuggestions = haConnected && selectedWidget
-    ? filterEntityIdsForWidgetKind(selectedWidget.kind, haEntityIds)
-    : [];
-  const staticSuggestions = selectedWidget ? entityOptions[selectedWidget.kind] ?? [] : [];
-  const entitySuggestions = Array.from(new Set([...liveEntitySuggestions, ...staticSuggestions]));
-  const switchConsumptionSuggestions =
-    selectedWidget?.kind === 'switch'
-      ? (() => {
-          const liveSensorEntityIds = haConnected
-            ? haEntityIds.filter((entityId) => entityId.startsWith('sensor.'))
-            : [];
-          const likelyConsumptionEntityIds = liveSensorEntityIds.filter((entityId) => {
-            const entity = resolveEntityStateById(haStates, entityId);
-            const deviceClass = String(entity?.rawAttributes?.device_class ?? '').trim().toLowerCase();
-            const unit = (entity?.unit ?? String(entity?.rawAttributes?.unit_of_measurement ?? ''))
-              .trim()
-              .toLowerCase();
-            const searchableId = entityId.toLowerCase();
-            return (
-              ['power', 'energy', 'monetary'].includes(deviceClass) ||
-              ['w', 'kw', 'mw', 'wh', 'kwh', 'mwh'].includes(unit) ||
-              ['power', 'energy', 'consumption', 'consumo', 'energia', 'potenza', 'watt'].some((token) =>
-                searchableId.includes(token),
-              )
-            );
-          });
-          return Array.from(
-            new Set([
-              selectedWidget.switchConsumptionEntityId?.trim() ?? '',
-              ...likelyConsumptionEntityIds,
-              ...liveSensorEntityIds,
-              ...(entityOptions.sensor ?? []),
-            ].filter(Boolean)),
-          );
-        })()
-      : [];
-  const microWidgets = selectedWidget?.widgets ?? [];
-  const selectedMicroWidget = selectedMicroWidgetId
-    ? microWidgets.find((entry) => entry.id === selectedMicroWidgetId) ?? null
-    : null;
-  const selectedMicroWidgetIndex = selectedMicroWidget
-    ? microWidgets.findIndex((entry) => entry.id === selectedMicroWidget.id)
-    : -1;
-  const selectedMicroButtonMode =
-    selectedMicroWidget?.type === 'micro_button'
-      ? selectedMicroWidget.buttonMode ?? 'switch'
-      : null;
-  const selectedMicroSliderSendOnRelease =
-    selectedMicroWidget?.type === 'micro_slider'
-      ? selectedMicroWidget.sliderSendOnRelease ?? true
-      : true;
-  const selectedMicroSuperChartType =
-    selectedMicroWidget?.type === 'micro_superchart'
-      ? selectedMicroWidget.superChartType ?? 'line'
-      : 'line';
-  const microWidgetEntitySuggestions = haConnected ? haEntityIds : [];
-  const configuredMicroWidgetEntities = microWidgets
-    .map((microWidget) => microWidget.entity.trim())
-    .filter((entityId) => entityId.length > 0);
-  const microWidgetEntityOptions = Array.from(
-    new Set([
-      ...configuredMicroWidgetEntities,
-      ...microWidgetEntitySuggestions,
-      selectedWidget?.entityId?.trim() ?? '',
-    ].filter((entityId) => entityId.length > 0)),
-  );
-  const microWidgetPageOptions = Array.from(
-    new Set(
-      [
-        ...sidebarPaths
-          .map((entry) => entry.path.trim())
-          .filter((path) => path.length > 0),
-        '/home',
-        '/automations',
-        '/security',
-        '/consumi',
-        '/appgallery',
-      ].filter((path) => path.length > 0),
-    ),
-  );
-  const defaultMicroWidgetPagePath = microWidgetPageOptions[0] ?? '/home';
-  const microWidgetPathLabelByPath = new Map(
-    sidebarPaths
-      .map((entry) => [entry.path.trim(), entry.label.trim()] as const)
-      .filter(([path]) => path.length > 0),
-  );
-  const catalogEntityId = microWidgetCatalogEntity.trim();
-  const normalizedCatalogEntityQuery = catalogEntityId.toLowerCase();
-  const catalogDomainFilter = microWidgetCatalogDomainFilter === 'all' ? '' : microWidgetCatalogDomainFilter;
-  const catalogEntityDomainOptions = (() => {
-    const counts = new Map<string, number>();
-    microWidgetEntityOptions.forEach((entityId) => {
-      const domain = extractEntityDomain(entityId);
-      if (!domain) {
-        return;
-      }
-      counts.set(domain, (counts.get(domain) ?? 0) + 1);
-    });
-    return Array.from(counts.entries())
-      .sort((first, second) => {
-        if (second[1] !== first[1]) {
-          return second[1] - first[1];
-        }
-        return first[0].localeCompare(second[0]);
-      })
-      .slice(0, MICRO_WIDGET_CATALOG_DOMAIN_LIMIT);
-  })();
-  const filteredCatalogEntityOptions = (() => {
-    const scopedOptions = microWidgetEntityOptions.filter((entityId) => {
-      if (!catalogDomainFilter) {
-        return true;
-      }
-      return entityId.toLowerCase().startsWith(`${catalogDomainFilter}.`);
-    });
-    const sortedOptions = scopedOptions
-      .map((entityId) => ({
-        entityId,
-        score: scoreEntitySearchMatch(entityId, normalizedCatalogEntityQuery),
-      }))
-      .filter((entry) => (normalizedCatalogEntityQuery ? Number.isFinite(entry.score) : true))
-      .sort((first, second) => {
-        if (second.score !== first.score) {
-          return second.score - first.score;
-        }
-        return first.entityId.localeCompare(second.entityId);
-      })
-      .slice(0, MICRO_WIDGET_CATALOG_ENTITY_LIMIT);
-    return sortedOptions.map((entry) => entry.entityId);
-  })();
-  const hasCatalogEntitySelection = catalogEntityId.length > 0;
-  const compatibleMicroWidgetCatalog = MICRO_WIDGET_CATALOG.filter((catalogItem) =>
-    isMicroWidgetTypeCompatible(catalogItem.type, catalogEntityId),
-  );
-  const appendMicroWidget = (type: MicroWidget['type'], entityId = catalogEntityId) => {
-    if (!selectedWidget) {
-      return;
-    }
-    const normalizedEntityId = entityId.trim();
-    if (!normalizedEntityId) {
-      return;
-    }
-    const nextMicroWidgetId = `micro-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`;
-    onUpdateWidget(selectedWidget.id, (widget) => {
-      const nextIndex = (widget.widgets ?? []).length + 1;
-      const nextMicroWidget: MicroWidget = {
-        id: nextMicroWidgetId,
-        type,
-        entity: normalizedEntityId,
-        label: `Widget ${nextIndex}`,
-        buttonMode: type === 'micro_button' ? 'switch' : undefined,
-        buttonHoldWhilePressed: type === 'micro_button' ? false : undefined,
-        buttonPagePath: type === 'micro_button' ? defaultMicroWidgetPagePath : undefined,
-        sliderSendOnRelease: type === 'micro_slider' ? true : undefined,
-        superChartType: type === 'micro_superchart' ? 'line' : undefined,
-      };
-      return {
-        ...widget,
-        widgets: [...(widget.widgets ?? []), nextMicroWidget],
-      };
-    });
-    setSelectedMicroWidgetId(nextMicroWidgetId);
-  };
-  const sensorMetaSuggestions = haConnected
-    ? haEntityIds.filter(
-        (entityId) =>
-          entityId.startsWith('sensor.') ||
-          entityId.startsWith('binary_sensor.') ||
-          entityId.startsWith('device_tracker.') ||
-          entityId.startsWith('switch.'),
-      )
-    : [];
-  const sensorBatterySuggestions = haConnected
-    ? haEntityIds.filter((entityId) => entityId.startsWith('sensor.') || entityId.startsWith('number.'))
-    : [];
   const resolveSceneAction = (sceneId: SceneKey): SceneActionConfig => {
     const configured = sceneActions[sceneId];
     if (configured) {
@@ -3842,170 +3177,6 @@ export function RightSidebarManager({
           />
         </React.Suspense>
       )}
-
-      {isEditMode && selectedWidget ? (
-        <GlassModal
-          isOpen={isMicroWidgetCatalogOpen}
-          onClose={() => setIsMicroWidgetCatalogOpen(false)}
-          eyebrow="Catalogo micro-widget"
-          title={t('builder.micro.addRelated')}
-          variant="responsive"
-          size="xl"
-          zIndex={220}
-          closeLabel={t('builder.micro.closeCatalog')}
-          bodyClassName="pr-1"
-        >
-                <div>
-                  <label className="block">
-                    <p className={BUILDER_LABEL_CLASS}>{bt('Entita da associare')}</p>
-                    <input
-                      value={microWidgetCatalogEntity}
-                      onChange={(event) => setMicroWidgetCatalogEntity(event.target.value)}
-                      placeholder="Es. switch.bedside_lamp"
-                      className={BUILDER_INPUT_CLASS}
-                    />
-                    <p className={BUILDER_HELPER_CLASS}>
-                      Scrivi per filtrare le entita o seleziona dalla lista ordinata qui sotto.
-                    </p>
-                  </label>
-
-                  <div className="dashboard-content-surface mt-3 rounded-2xl p-2.5">
-                    <div className="flex flex-wrap gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setMicroWidgetCatalogDomainFilter('all')}
-                        className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] transition-colors ${
-                          microWidgetCatalogDomainFilter === 'all'
-                            ? 'liquid-glass-selection border-[color:var(--ui-border-strong)]'
-                            : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-primary)]'
-                        }`}
-                      >
-                        Tutti ({microWidgetEntityOptions.length})
-                      </button>
-                      {catalogEntityDomainOptions.map(([domain, count]) => (
-                        <button
-                          key={domain}
-                          type="button"
-                          onClick={() => setMicroWidgetCatalogDomainFilter(domain)}
-                          className={`rounded-full border px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] transition-colors ${
-                            microWidgetCatalogDomainFilter === domain
-                              ? 'liquid-glass-selection border-[color:var(--ui-border-strong)]'
-                              : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:border-[color:var(--ui-border-strong)] hover:text-[color:var(--ui-text-primary)]'
-                          }`}
-                        >
-                          {formatEntityDomainLabel(domain)} ({count})
-                        </button>
-                      ))}
-                    </div>
-
-                    <div className="mt-2 max-h-48 overflow-y-auto glass-scrollbar space-y-1 pr-1">
-                      {filteredCatalogEntityOptions.length > 0 ? (
-                        filteredCatalogEntityOptions.map((entityId) => {
-                          const domain = extractEntityDomain(entityId);
-                          const objectId = entityId.includes('.') ? entityId.split('.').slice(1).join('.') : entityId;
-                          const isSelected = catalogEntityId.toLowerCase() === entityId.toLowerCase();
-                          return (
-                            <button
-                              key={entityId}
-                              type="button"
-                              onClick={() => setMicroWidgetCatalogEntity(entityId)}
-                              className={`flex w-full items-center justify-between gap-3 rounded-lg border px-2.5 py-2 text-left transition-colors ${
-                                isSelected
-                                  ? 'liquid-glass-selection border-[color:var(--ui-border-strong)]'
-                                  : 'border-transparent bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-primary)] hover:border-[color:var(--ui-border)] hover:bg-[color:var(--ui-fill-secondary)]'
-                              }`}
-                            >
-                              <span className="min-w-0 truncate text-sm font-medium">{objectId}</span>
-                              <span className="shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
-                                {domain || 'custom'}
-                              </span>
-                            </button>
-                          );
-                        })
-                      ) : (
-                        <div className="dashboard-content-surface-soft rounded-lg px-2.5 py-2 text-xs text-[color:var(--ui-text-secondary)]">
-                          {t('builder.micro.noEntities')}
-                        </div>
-                      )}
-                    </div>
-
-                    <p className={BUILDER_HELPER_CLASS}>
-                      Entita corrente: <span className="text-[color:var(--ui-text-primary)]">{catalogEntityId || 'nessuna'}</span>
-                    </p>
-                  </div>
-
-                  {!hasCatalogEntitySelection ? (
-                    <div className="mt-3 rounded-xl border border-amber-300/30 bg-amber-500/12 px-3 py-2 text-xs text-amber-100/90">
-                      {t('builder.micro.selectEntityHint')}
-                    </div>
-                  ) : null}
-
-                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {compatibleMicroWidgetCatalog.length > 0 ? (
-                      compatibleMicroWidgetCatalog.map((catalogItem) => {
-                        const previewWidget: MicroWidget = {
-                          id: `preview-${catalogItem.type}`,
-                          type: catalogItem.type,
-                          entity: catalogEntityId,
-                          label: catalogItem.label,
-                        };
-                        const livePreviewState = resolveEntityStateById(haStates, catalogEntityId);
-                        const livePreviewHistory = resolveEntityHistoryById(microChartHistoryByEntity, catalogEntityId);
-                        const previewState =
-                          livePreviewState ??
-                          buildFallbackMicroWidgetState(catalogItem.type, catalogItem.label);
-                        return (
-                          <div
-                            key={catalogItem.type}
-                            role="button"
-                            tabIndex={hasCatalogEntitySelection ? 0 : -1}
-                            onClick={() => {
-                              if (!hasCatalogEntitySelection) {
-                                return;
-                              }
-                              appendMicroWidget(catalogItem.type, catalogEntityId);
-                              setIsMicroWidgetCatalogOpen(false);
-                            }}
-                            onKeyDown={(event) => {
-                              if (!hasCatalogEntitySelection) {
-                                return;
-                              }
-                              if (event.key === 'Enter' || event.key === ' ') {
-                                event.preventDefault();
-                                appendMicroWidget(catalogItem.type, catalogEntityId);
-                                setIsMicroWidgetCatalogOpen(false);
-                              }
-                            }}
-                            className={`rounded-2xl border p-2.5 transition-colors ${
-                              hasCatalogEntitySelection
-                                ? 'cursor-pointer border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] hover:border-[color:var(--ui-border-strong)] hover:bg-[color:var(--ui-fill-secondary)]'
-                                : 'cursor-not-allowed border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] opacity-60'
-                            }`}
-                          >
-                            <div className="pointer-events-none">
-                              {renderMicroWidgetPreview(previewWidget, previewState, livePreviewHistory)}
-                            </div>
-                            <div className="mt-2 flex items-center justify-between gap-3 px-1">
-                              <div className="min-w-0">
-                                <p className="truncate text-xs font-semibold text-[color:var(--ui-text-primary)]">{catalogItem.label}</p>
-                                <p className="truncate text-[11px] text-[color:var(--ui-text-tertiary)]">{bt(catalogItem.description)}</p>
-                              </div>
-                              <span className="inline-flex shrink-0 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] text-[color:var(--ui-text-secondary)]">
-                                {hasCatalogEntitySelection ? t('builder.micro.add') : t('builder.micro.selectEntity')}
-                              </span>
-                            </div>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <div className="dashboard-content-surface-soft rounded-2xl px-3 py-3 text-sm text-[color:var(--ui-text-secondary)] md:col-span-2">
-                        {t('builder.micro.noCompatible')}
-                      </div>
-                    )}
-                  </div>
-                </div>
-        </GlassModal>
-      ) : null}
       </aside>
     </>
   );

@@ -22,9 +22,6 @@ describe('RightSidebarManager lazy device context', () => {
     );
     expect(rightSidebarSource).toContain('<LazyLoadBoundary');
     expect(rightSidebarSource).toContain('resetKey={activeDeviceForPanel?.id}');
-    expect(rightSidebarSource).toContain(
-      "import('../widgets/micro/MicroSuperChart').then",
-    );
     expect(rightSidebarSource).not.toContain(
       "import { MicroSuperChart } from '../widgets/micro/MicroSuperChart'",
     );

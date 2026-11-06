@@ -11,7 +11,6 @@ describe('widget configuration contract', () => {
       'utf8',
     );
 
-    expect(source).toContain('resolveCardDataSource');
     expect(source).not.toContain('Sorgente dati card');
     expect(source).not.toContain('Mock locale');
     expect(source).not.toContain("GlassSegmentSelect<'ha' | 'mock'>");
