@@ -1,36 +1,30 @@
 import React from 'react';
-import { createPortal } from 'react-dom';
 import { usePanelEditorWords } from '../../i18n/panelEditorTranslations';
-import { PanelHost } from '../devices/panels/PanelHost';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassSegmented } from '../ui/GlassSegmented';
 import { AppearanceTab } from './AppearanceTab';
 import { ControlsTab } from './ControlsTab';
 import { controlRows, entityNameOf, FIXED_PANEL_KINDS, relatedLooksOf } from './controlsModel';
 import { useDeviceControls } from './deviceControls';
-import { PanelPreview } from './PanelPreview';
-import { usePanelKit } from './panelKit';
 import { DeviceTab } from './DeviceTab';
+import { usePanelKit } from './panelKit';
 import type { PanelEditorProps } from './panelEditorTypes';
 import './panelEditor.css';
 
 export type PanelEditorTab = 'appearance' | 'device' | 'controls';
 
 /*
- * The edit mode of a card: Aspetto, Dispositivo, Controlli. On a phone it stands in the
- * sheet of the sidebar; on a tablet or a desktop it opens its own dialog of two columns,
- * and the sidebar only says that the card is being edited. It arrives only in edit mode.
+ * The edit mode of a card: Aspetto, Dispositivo, Controlli. One column, in the place where the
+ * panels open: the right column on a tablet or a desktop, the sheet on a phone. Its head has
+ * the name of the card and Fine. It arrives only in edit mode.
  */
 export default function PanelEditor(props: PanelEditorProps) {
   const words = usePanelEditorWords();
   const [tab, setTab] = React.useState<PanelEditorTab>('appearance');
-  // Fine closes the dialog; the card stays selected and the sidebar can open it again.
-  const [closed, setClosed] = React.useState(false);
-  // The control open in Controlli: chosen in the list, or by a touch on the preview of the panel.
+  // The control open in Controlli, chosen in the list.
   const [control, setControl] = React.useState<string | null>(null);
   React.useEffect(() => {
     setTab('appearance');
-    setClosed(false);
     setControl(null);
   }, [props.widget.id]);
   const fixed = FIXED_PANEL_KINDS.has(props.widget.kind);
@@ -39,86 +33,40 @@ export default function PanelEditor(props: PanelEditorProps) {
   const kit = usePanelKit(tab === 'controls' && !fixed);
   const device = useDeviceControls(kit, props.widget, props.haStates, nameOf);
   const rows = kit ? controlRows(kit, props.widget, device.controls.layout, device.controls.controls, relatedLooksOf(props.haStates), entityNameOf(props.haStates)) : [];
-  const preview = tab === 'controls' && !fixed && kit && device.panel ? { kit, panel: device.panel } : null;
-  const tabs = (
-    <GlassSegmented<PanelEditorTab>
-      ariaLabel={words('tabs')}
-      options={[
-        { value: 'appearance', label: words('tabAppearance') },
-        { value: 'device', label: words('tabDevice') },
-        { value: 'controls', label: words('tabControls') },
-      ]}
-      value={tab}
-      onChange={setTab}
-    />
-  );
-  const content = (showPreview: boolean) =>
-    tab === 'appearance' ? (
-      <AppearanceTab {...props} showPreview={showPreview} />
-    ) : tab === 'device' ? (
-      <DeviceTab {...props} />
-    ) : (
-      <ControlsTab {...props} kit={kit} rows={rows} ready={device.controls.ready} fixed={fixed} selected={control} onSelect={setControl} />
-    );
-  const reader = tab === 'controls' && !fixed ? device.reader : null;
-
-  if (props.compact) {
-    return (
-      <div className="panel-editor is-sheet" data-testid="panel-editor">
-        {tabs}
-        <div className="panel-editor-scroll">{content(true)}</div>
-        {reader}
-      </div>
-    );
-  }
 
   return (
-    <>
-      <div className="panel-editor is-side dashboard-content-surface-soft" data-testid="panel-editor-side">
-        <p className="panel-editor-note">{closed ? props.widget.title : words('editing', { name: props.widget.title })}</p>
-        {closed ? (
-          <GlassButton variant="soft" onClick={() => setClosed(false)}>
-            {words('reopen')}
-          </GlassButton>
-        ) : null}
-      </div>
-      {createPortal(
-        <PanelHost presentation="dialog" wide isOpen={!closed} onClose={() => setClosed(true)} title={words('editTitle', { name: props.widget.title })}>
-          <div className="panel-editor is-dialog" data-testid="panel-editor">
-            <header className="panel-editor-head">
-              <span>
-                <b>{words('edit')}</b>
-                <span>{props.widget.title}</span>
-              </span>
-              <GlassButton variant="filled" onClick={() => setClosed(true)}>
-                {words('done')}
-              </GlassButton>
-            </header>
-            <div className="panel-editor-columns">
-              <div className="panel-editor-left">
-                {preview ? (
-                  <>
-                    <p className="panel-editor-heading">{words('panelPreview')}</p>
-                    <p className="panel-editor-note">{words('previewHint')}</p>
-                    <PanelPreview kit={preview.kit} panel={preview.panel} widget={props.widget} states={props.haStates} rows={rows} selected={control} onSelect={setControl} />
-                  </>
-                ) : (
-                  <>
-                    <p className="panel-editor-heading">{words('cardPreview')}</p>
-                    <div className="panel-editor-card-preview">{props.cardPreview}</div>
-                  </>
-                )}
-              </div>
-              <div className="panel-editor-right">
-                {tabs}
-                <div className="panel-editor-scroll">{content(false)}</div>
-                {reader}
-              </div>
-            </div>
-          </div>
-        </PanelHost>,
-        document.body,
+    <div className={`panel-editor ${props.compact ? 'is-sheet' : 'is-column'}`} data-testid="panel-editor">
+      {props.compact ? null : (
+      <header className="panel-editor-head">
+        <span>
+          <span>{words('edit')}</span>
+          <b>{props.widget.title}</b>
+        </span>
+        <GlassButton variant="filled" onClick={props.onDone}>
+          {words('done')}
+        </GlassButton>
+      </header>
       )}
-    </>
+      <GlassSegmented<PanelEditorTab>
+        ariaLabel={words('tabs')}
+        options={[
+          { value: 'appearance', label: words('tabAppearance') },
+          { value: 'device', label: words('tabDevice') },
+          { value: 'controls', label: words('tabControls') },
+        ]}
+        value={tab}
+        onChange={setTab}
+      />
+      <div className="panel-editor-scroll">
+        {tab === 'appearance' ? (
+          <AppearanceTab {...props} showPreview />
+        ) : tab === 'device' ? (
+          <DeviceTab {...props} />
+        ) : (
+          <ControlsTab {...props} kit={kit} rows={rows} ready={device.controls.ready} fixed={fixed} selected={control} onSelect={setControl} />
+        )}
+      </div>
+      {tab === 'controls' && !fixed ? device.reader : null}
+    </div>
   );
 }

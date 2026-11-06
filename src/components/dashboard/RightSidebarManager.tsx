@@ -2087,6 +2087,7 @@ export function RightSidebarManager({
           <span className="liquid-glass-drag-handle" />
         </div>
       ) : null}
+      {selectedWidget && !isCompactEditOverlayMode ? null : (
       <div className="flex items-start justify-between gap-3">
         {isCompactEditOverlayMode ? (
           <div className="min-w-0">
@@ -2113,6 +2114,7 @@ export function RightSidebarManager({
           </button>
         ) : null}
       </div>
+      )}
       {!selectedWidget && !selectedSection && !selectedSidebarPath ? (
         <div className="dashboard-content-surface-soft mt-5 flex flex-1 items-center justify-center rounded-2xl border-dashed p-6 text-center">
           <p className="text-sm text-[color:var(--ui-text-secondary)]">{t('builder.empty')}</p>
@@ -3109,6 +3111,7 @@ export function RightSidebarManager({
           fallback={<div className={`${isCompactViewport ? 'mt-3' : 'mt-5'} min-h-0 flex-1 animate-pulse rounded-2xl bg-[color:var(--ui-fill-tertiary)]`} aria-busy="true" />}
         >
           <PanelEditor
+            onDone={onCloseContextSidebar}
             widget={selectedWidget}
             compact={isCompactViewport}
             breakpoint={activeGridBreakpoint}

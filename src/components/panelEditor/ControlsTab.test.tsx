@@ -5,7 +5,6 @@ import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityStateMap } from '../../types/ha';
 import { ControlsTab } from './ControlsTab';
 import { controlRows, entityNameOf, relatedLooksOf, type DeviceControlInfo } from './controlsModel';
-import { controlAt } from './PanelPreview';
 import * as registry from '../devices/panels/registry';
 import { EDITOR_ICONS } from '../editor/editorIcons';
 import type { PanelKit } from './panelKit';
@@ -146,15 +145,5 @@ describe('Controlli', () => {
   it('the panels with fixed controls say so', () => {
     setup({ ...STOVE, kind: 'lock' }, { fixed: true });
     expect(screen.getByText(/controlli fissi/)).toBeTruthy();
-  });
-});
-
-describe('the preview of the panel', () => {
-  it('a touch on a group, a shortcut or a row of Altro finds its control by name', () => {
-    const rows = controlRows(KIT, STOVE, 'stove', DEVICE, relatedLooksOf(STATES));
-    document.body.innerHTML = '<section class="panel-group" aria-label="Ventola"><b>Ventola</b><span id="inside">2</span></section><nav class="panel-nav"><button aria-label="Modalità"><span id="short">x</span></button></nav>';
-    expect(controlAt(document.getElementById('inside'), rows)?.id).toBe('fan');
-    expect(controlAt(document.getElementById('short'), rows)?.id).toBe('modes');
-    expect(controlAt(document.body, rows)).toBeUndefined();
   });
 });

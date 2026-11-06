@@ -40,4 +40,6 @@ export type PanelEditorProps = {
   areas?: readonly HaArea[];
   onUpdateWidget: (id: string, update: (widget: Widget) => Widget) => void;
   onRemove: () => void;
+  /** Fine: the card is left, as when the settings are closed. */
+  onDone: () => void;
 };

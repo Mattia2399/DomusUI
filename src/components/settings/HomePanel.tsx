@@ -5,7 +5,6 @@ import { usePanelsTranslations } from '../../i18n/panelsTranslations';
 import { Panel } from '../devices/panels/Panel';
 import { arrangeControls, loadMediaPlayer, loadPanelEntry, MOST_IN_THE_ROW, PANEL_CONTROLS, panelKindOfDevice } from '../devices/panels/registry';
 import { EDITOR_ICONS } from '../editor/editorIcons';
-import { PanelSurfaceContext } from '../devices/panels/shell/panelSurface';
 import type { ClimatePanelInput } from '../devices/panels/entries/climate';
 import type { LightPanelInput } from '../devices/panels/entries/light';
 import type { DevicePanelInput } from '../devices/panels/entries/device';
@@ -307,7 +306,7 @@ export const preloadWeatherPanel = () => loadPanelEntry('weather');
 /** A related control in its group, for the edit mode: it arrives with the piece of the related controls. */
 const RelatedPreview = React.lazy(() => import('../devices/panels/related/RelatedPanelView').then((module) => ({ default: module.RelatedControlPreview })));
 
-export const panelEditorKit = { Panel, PanelSurfaceContext, arrangeControls, loadPanelEntry, PANEL_CONTROLS, MOST_IN_THE_ROW, EDITOR_ICONS, RelatedPreview };
+export const panelEditorKit = { arrangeControls, loadPanelEntry, PANEL_CONTROLS, MOST_IN_THE_ROW, EDITOR_ICONS, RelatedPreview };
 
 /** The icon chosen for a related control in the edit mode. */
 const chosenIconOf = (key: string) => {

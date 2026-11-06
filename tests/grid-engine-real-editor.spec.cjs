@@ -1173,8 +1173,11 @@ test('standard editor integrates authentic cards, GE2 gestures, history, breakpo
   await page.getByTestId('grid-engine-2-editor-mode-manual').click();
 
   const xlSensor = await cellGeometry(page, 'root.sensor');
+  // The editor of a card closes with Fine; other settings with the X.
+  const done = page.getByTestId('panel-editor').getByRole('button', { name: 'Fine', exact: true });
   const closeContext = page.getByRole('button', { name: 'Chiudi pannello contestuale' });
-  if (await closeContext.isVisible()) await closeContext.click();
+  if (await done.isVisible()) await done.click();
+  else if (await closeContext.isVisible()) await closeContext.click();
   await page.getByRole('radio', { name: 'Anteprima automatica' }).click();
   for (const width of [1900, 1850, 1800, 1750, 1700, 1650, 1600, 1550, 1500]) {
     await page.setViewportSize({ width, height: 1000 });

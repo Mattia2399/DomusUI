@@ -10,21 +10,12 @@
 }
 
 .panel-editor.is-sheet {
-  margin-top: 12px;
+  margin-top: 4px;
 }
 
-.panel-editor.is-side {
-  margin-top: 20px;
-  justify-content: center;
-  border-radius: 18px;
-  padding: 24px;
-  background: var(--control-soft);
-  text-align: center;
-}
-
-.panel-editor.is-dialog {
-  padding: 18px 20px 20px;
-  max-height: min(820px, 90dvh);
+/* The right column, where the panels open: the same single column as the sheet. */
+.panel-editor.is-column {
+  margin-top: 8px;
 }
 
 .panel-editor-head {
@@ -49,22 +40,6 @@
   color: var(--control-ink-2);
   font-size: 13px;
   font-weight: 500;
-}
-
-.panel-editor-columns {
-  display: grid;
-  min-height: 0;
-  flex: 1;
-  gap: 20px;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr);
-}
-
-.panel-editor-left,
-.panel-editor-right {
-  display: flex;
-  min-height: 0;
-  flex-direction: column;
-  gap: 10px;
 }
 
 .panel-editor-scroll {
@@ -163,25 +138,11 @@
   gap: 8px;
 }
 
-.panel-editor-wait,
-.panel-editor-preview-wait {
+.panel-editor-wait {
   min-height: 220px;
   border-radius: 18px;
   background: var(--ui-fill-tertiary);
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-.panel-editor-preview {
-  position: relative;
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  overflow: auto;
-  border-radius: var(--panel-sheet-radius, 28px);
-  padding: 20px 18px;
-  background-color: var(--surface-column);
-  cursor: pointer;
 }
 
 /* The detail of a control, as a page of the panel. */
@@ -246,11 +207,4 @@
   margin-top: 12px;
   border-top: 1px solid var(--control-track);
   padding-top: 16px;
-}
-
-/* A phone, or a dialog too narrow for two columns: one under the other. */
-@container (max-width: 640px) {
-  .panel-editor-columns {
-    grid-template-columns: 1fr;
-  }
 }

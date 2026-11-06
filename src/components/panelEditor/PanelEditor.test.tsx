@@ -18,6 +18,7 @@ function setup(extra: Partial<PanelEditorProps> = {}) {
     setForType: vi.fn(),
     update: vi.fn(),
     remove: vi.fn(),
+    done: vi.fn(),
   };
   let widget = LAMP;
   const props: PanelEditorProps = {
@@ -43,6 +44,7 @@ function setup(extra: Partial<PanelEditorProps> = {}) {
       calls.update(id, widget);
     },
     onRemove: calls.remove,
+    onDone: calls.done,
     ...extra,
   };
   render(<PanelEditor {...props} />);
@@ -156,18 +158,21 @@ describe('the size rule of a kind', () => {
 });
 
 describe('where it opens', () => {
-  it('on a tablet or a desktop: a dialog of its own, and the sidebar says it is being edited', () => {
+  it('on a tablet or a desktop: the same single column, in the place of the panels, with no dialog', () => {
     setup({ compact: false });
-    expect(screen.getByTestId('panel-editor-side').textContent).toContain('Lampada è in modifica');
-    expect(screen.getByRole('dialog')).toBeTruthy();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByTestId('panel-editor').className).toContain('is-column');
+    expect(screen.getByRole('radiogroup', { name: 'Modifica della card' })).toBeTruthy();
   });
 
-  it('Fine closes the dialog and the sidebar opens it again', async () => {
-    setup({ compact: false });
-    fireEvent.click(screen.getByRole('button', { name: 'Fine' }));
-    await vi.waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Apri la modifica' }));
-    expect(screen.getByRole('dialog')).toBeTruthy();
+  it('the head has the name of the card and Fine, which leaves it', () => {
+    for (const compact of [false]) {
+      const calls = setup({ compact });
+      expect(screen.getByRole('banner').textContent).toContain('Lampada');
+      fireEvent.click(screen.getByRole('button', { name: 'Fine' }));
+      expect(calls.done).toHaveBeenCalledTimes(1);
+      cleanup();
+    }
   });
 });
 
