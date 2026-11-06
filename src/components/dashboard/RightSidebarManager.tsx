@@ -2087,7 +2087,7 @@ export function RightSidebarManager({
           <span className="liquid-glass-drag-handle" />
         </div>
       ) : null}
-      {selectedWidget && !isCompactEditOverlayMode ? null : (
+      {selectedWidget ? null : (
       <div className="flex items-start justify-between gap-3">
         {isCompactEditOverlayMode ? (
           <div className="min-w-0">

@@ -165,7 +165,8 @@ test('a touch selects without opening the settings, which open from the button o
   await expect(sheet(page).getByRole('heading', { name: 'Secondo' })).toBeVisible();
 
   // Closing the settings leaves the card in hand; the empty canvas lets it go.
-  await sheet(page).getByRole('button', { name: 'Chiudi pannello contestuale' }).click();
+  // The settings of a card close with Fine, at the right of its head.
+  await sheet(page).getByRole('button', { name: 'Fine', exact: true }).click();
   await expectSheetClosed(page);
   await expect(item(page, 'sensor.due')).toHaveAttribute('data-editor-state', 'selected');
 

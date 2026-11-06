@@ -166,7 +166,7 @@ describe('where it opens', () => {
   });
 
   it('the head has the name of the card and Fine, which leaves it', () => {
-    for (const compact of [false]) {
+    for (const compact of [false, true]) {
       const calls = setup({ compact });
       expect(screen.getByRole('banner').textContent).toContain('Lampada');
       fireEvent.click(screen.getByRole('button', { name: 'Fine' }));

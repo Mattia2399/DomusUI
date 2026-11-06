@@ -36,7 +36,6 @@ export default function PanelEditor(props: PanelEditorProps) {
 
   return (
     <div className={`panel-editor ${props.compact ? 'is-sheet' : 'is-column'}`} data-testid="panel-editor">
-      {props.compact ? null : (
       <header className="panel-editor-head">
         <span>
           <span>{words('edit')}</span>
@@ -46,7 +45,6 @@ export default function PanelEditor(props: PanelEditorProps) {
           {words('done')}
         </GlassButton>
       </header>
-      )}
       <GlassSegmented<PanelEditorTab>
         ariaLabel={words('tabs')}
         options={[
