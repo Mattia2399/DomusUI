@@ -48,7 +48,7 @@ describe('Climate automatic runtime presentation', () => {
       observed: { hvacMode: 'cool', targetTemperature: 26, currentTemperature: 27, available: true, temperatureUnit: '°C' },
       diff: { hvacModeChanged: false, targetChanged: true }, actions: [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }],
       sensor: { status: 'valid', valueCelsius: 27, source: 'sensor.living', unit: '°C', freshness: 'unknown', lastUpdated: null },
-      reasons: [], planSafe: true, physicalExecutionAllowed: false, physicalBlockers: ['execution_adapter_not_implemented'],
+      reasons: [], planSafe: true, physicalExecutionAllowed: false, physicalBlockers: ['endpoint_not_owned', 'sensor_freshness_unknown', 'linux_ha_validation_required'],
       configRevision: 1, stateRevision: 1, inputFingerprint: 'sensor-and-endpoint', evaluatedAt: '2026-01-05T12:00:00+00:00', validUntil: null,
     }] };
     show(response);
@@ -56,6 +56,9 @@ describe('Climate automatic runtime presentation', () => {
     expect(within(panel).getByText(/Piano simbolico disponibile/)).toBeTruthy();
     expect(within(panel).getByText(/set_temperature 24/)).toBeTruthy();
     expect(within(panel).getByText(/Nessun comando viene inviato/)).toBeTruthy();
+    expect(within(panel).getByText(/Dispositivo configurato per il solo monitoraggio/)).toBeTruthy();
+    expect(within(panel).getByText(/Freschezza del sensore non verificata/)).toBeTruthy();
+    expect(within(panel).getByText(/Validazione Home Assistant su Linux richiesta/)).toBeTruthy();
   });
 
   it('shows active profile, next change and schedule target', async () => {

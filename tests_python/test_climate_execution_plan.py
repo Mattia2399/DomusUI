@@ -50,7 +50,7 @@ def test_single_split_cooling_is_symbolic_and_revision_bound():
     assert [action["kind"] for action in result["actions"]] == ["set_temperature"]
     assert result["sensor"]["valueCelsius"] == 27
     assert result["planSafe"] and not result["physicalExecutionAllowed"]
-    assert "linux_validation_required" in result["physicalBlockers"]
+    assert "linux_ha_validation_required" in result["physicalBlockers"]
     assert plan(config, desired, states) == result
     assert execution.plan_is_current(result, config_revision=4, state_revision=7, now=NOW, current_plan=result)
     assert not execution.plan_is_current(result, config_revision=5, state_revision=7, now=NOW, current_plan=result)

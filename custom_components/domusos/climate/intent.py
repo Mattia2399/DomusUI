@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import math
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 from .models import InvalidConfig
 from .overrides import parse_overrides
+from .sensor_freshness import assess_freshness
 
 STATE_SCHEMA = "domusos-climate-state"
 STATE_VERSION = 1
@@ -84,7 +86,7 @@ def _numeric(value: Any) -> float | None:
     return result if math.isfinite(result) else None
 
 
-def _reading(reference: Mapping[str, Any] | None, states: Mapping[str, Any], attribute: str, stale_ids: frozenset[str]) -> dict[str, Any]:
+def _reading(reference: Mapping[str, Any] | None, states: Mapping[str, Any], attribute: str, stale_ids: frozenset[str], now: datetime | None = None) -> dict[str, Any]:
     if reference is None:
         return {"value": None, "source": None, "availability": "unavailable"}
     statuses: list[str] = []
@@ -94,6 +96,9 @@ def _reading(reference: Mapping[str, Any] | None, states: Mapping[str, Any], att
             statuses.append("unavailable")
             continue
         if entity_id in stale_ids:
+            statuses.append("stale")
+            continue
+        if attribute == "current_temperature" and assess_freshness(state, reference, now) == "stale":
             statuses.append("stale")
             continue
         raw = getattr(state, "attributes", {}).get(attribute) if entity_id.startswith("climate.") else getattr(state, "state", None)
@@ -126,7 +131,7 @@ def _supports(item: Mapping[str, Any], mode: str, kind: str) -> bool:
     return ("space_heating" if mode == "heating" else "space_cooling") in item["services"]
 
 
-def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mapping[str, Any], *, stale_ids: frozenset[str] = frozenset(), auto_targets: Mapping[str, float] | None = None, auto_resolution: Mapping[str, Any] | None = None, active_overrides: Mapping[str, Any] | None = None) -> dict[str, Any]:
+def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mapping[str, Any], *, stale_ids: frozenset[str] = frozenset(), auto_targets: Mapping[str, float] | None = None, auto_resolution: Mapping[str, Any] | None = None, active_overrides: Mapping[str, Any] | None = None, now: datetime | None = None) -> dict[str, Any]:
     """Compute desired/observed/derived state without choosing or commanding a source."""
     parsed = parse_intent(intent)
     house = parsed["house"]
@@ -140,7 +145,7 @@ def preview(config: Mapping[str, Any], intent: Mapping[str, Any], states: Mappin
     for zone in config["zones"]:
         zone_id = zone["id"]
         zone_intent = parsed["zones"].get(zone_id, {"mode": "follow_house", "targetTemperature": None})
-        temperature = _reading(zone["reference"], states, "current_temperature", stale_ids)
+        temperature = _reading(zone["reference"], states, "current_temperature", stale_ids, now)
         humidity = _reading(zone.get("humidityReference"), states, "current_humidity", stale_ids)
         active_override = active_overrides.get(zone_id) if house["controlMode"] == "auto" and active_overrides else None
         scheduled_target = None

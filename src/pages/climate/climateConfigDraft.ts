@@ -9,7 +9,7 @@ export function newZone(): ClimateZoneConfig {
 }
 
 export function newEndpoint(zoneId: string): ClimateEndpointConfig {
-  return { id: climateId('endpoint'), name: '', kind: 'air_conditioner', zoneId, circuitId: null, roles: ['room_heater', 'room_cooler'], entity: { primaryEntityId: null, relatedControls: [] }, setpointKind: 'room_temperature' };
+  return { id: climateId('endpoint'), name: '', kind: 'air_conditioner', zoneId, circuitId: null, roles: ['room_heater', 'room_cooler'], executionOwnership: 'observe_only', entity: { primaryEntityId: null, relatedControls: [] }, setpointKind: 'room_temperature' };
 }
 
 export function newCircuit(): ClimateCircuitConfig {

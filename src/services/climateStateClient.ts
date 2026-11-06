@@ -24,8 +24,8 @@ export type ClimateExecutionPlan = {
   observed: { hvacMode: string; targetTemperature: number | null; currentTemperature: number | null; available: boolean; temperatureUnit: '°C' | '°F' } | null;
   diff: { hvacModeChanged: boolean; targetChanged: boolean } | null;
   actions: ClimateExecutionAction[];
-  sensor: { status: 'valid' | 'sensor_invalid' | 'sensor_unit_unknown' | 'sensor_outside_plausible_range' | 'stale'; valueCelsius: number | null; source: string | null; unit: string | null; freshness: 'stale' | 'unknown'; lastUpdated: string | null } | null;
-  reasons: string[]; planSafe: boolean; physicalExecutionAllowed: false; physicalBlockers: string[];
+  sensor: { status: 'valid' | 'sensor_invalid' | 'sensor_unit_unknown' | 'sensor_outside_plausible_range' | 'stale'; valueCelsius: number | null; source: string | null; unit: string | null; freshness: 'verified' | 'stale' | 'unknown'; lastUpdated: string | null } | null;
+  reasons: string[]; planSafe: boolean; physicalExecutionAllowed: boolean; physicalBlockers: string[];
   configRevision: number; stateRevision: number; inputFingerprint: string; evaluatedAt: string; validUntil: string | null;
 };
 export type ClimateExecutionPreview = { plans: ClimateExecutionPlan[]; configRevision: number; stateRevision: number; evaluatedAt: string };
@@ -48,7 +48,8 @@ function stateResponse(value: unknown): ClimateStateResponse {
   if (value.executionPreview != null && (!record(value.executionPreview) || !Array.isArray(value.executionPreview.plans) ||
       !value.executionPreview.plans.every((plan: unknown) => record(plan) && typeof plan.zoneId === 'string' &&
         ['eligible', 'noop', 'blocked', 'unresolved'].includes(String(plan.status)) && Array.isArray(plan.actions) &&
-        Array.isArray(plan.reasons) && plan.physicalExecutionAllowed === false))) throw new Error('Anteprima controllo non valida.');
+        Array.isArray(plan.reasons) && typeof plan.physicalExecutionAllowed === 'boolean' &&
+        Array.isArray(plan.physicalBlockers)))) throw new Error('Anteprima controllo non valida.');
   return value as ClimateStateResponse;
 }
 

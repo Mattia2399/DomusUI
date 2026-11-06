@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from .sensor_freshness import assess_freshness
+
 ROOM_MIN_C = 0.0
 ROOM_MAX_C = 50.0
 TARGET_FEATURE = 1  # HA ClimateEntityFeature.TARGET_TEMPERATURE
@@ -40,7 +42,8 @@ def _from_celsius(value: float, unit: str) -> float:
     return value if unit == "°C" else value * 9 / 5 + 32
 
 
-def sensor_validity(source: str | None, states: Mapping[str, Any], availability: str) -> dict[str, Any]:
+def sensor_validity(source: str | None, states: Mapping[str, Any], availability: str,
+                    reference: Mapping[str, Any] | None = None, now: datetime | None = None) -> dict[str, Any]:
     """Validate the selected room reference; HA last_updated alone proves no sample freshness."""
     state = states.get(source) if source else None
     if availability == "stale":
@@ -62,15 +65,16 @@ def sensor_validity(source: str | None, states: Mapping[str, Any], availability:
         status = "sensor_outside_plausible_range"
     else:
         status = "valid"
+    freshness = assess_freshness(state, reference or {}, now)
     return {"status": status, "valueCelsius": value if status == "valid" else None, "source": source,
-            "unit": unit, "freshness": "unknown", "lastUpdated": last_updated}
+            "unit": unit, "freshness": freshness, "lastUpdated": last_updated}
 
 
 def _blocked(zone_id: str, reason: str, *, sensor: dict[str, Any] | None = None) -> dict[str, Any]:
     return {"zoneId": zone_id, "status": "unresolved" if reason in ("config_invalid", "state_invalid", "no_target", "endpoint_target_unknown") else "blocked",
             "endpointId": None, "entityId": None, "controlKind": None, "desired": None, "observed": None,
             "diff": None, "actions": [], "sensor": sensor, "reasons": [reason], "planSafe": False,
-            "physicalExecutionAllowed": False, "physicalBlockers": ["execution_adapter_not_implemented", "linux_validation_required"]}
+            "physicalExecutionAllowed": False, "physicalBlockers": []}
 
 
 def _target_for_endpoint(requested_c: float, attrs: Mapping[str, Any]) -> tuple[dict[str, Any] | None, str | None]:
@@ -100,7 +104,7 @@ def _target_for_endpoint(requested_c: float, attrs: Mapping[str, Any]) -> tuple[
 
 def evaluate_execution_eligibility(config: Mapping[str, Any], zone: Mapping[str, Any],
                                    zone_preview: Mapping[str, Any], house_mode: str,
-                                   states: Mapping[str, Any]) -> dict[str, Any]:
+                                   states: Mapping[str, Any], evaluated_at: datetime | None = None) -> dict[str, Any]:
     """Resolve exactly one supported supervisory path; never select by list order."""
     zone_id = zone["id"]
     if house_mode == "off":
@@ -112,7 +116,7 @@ def evaluate_execution_eligibility(config: Mapping[str, Any], zone: Mapping[str,
         return _blocked(zone_id, "no_target")
     source = zone_preview["observed"]["temperatureSource"] or zone["reference"]["primaryEntityId"]
     sensor = sensor_validity(source, states,
-                             zone_preview["observed"]["temperatureAvailability"])
+                             zone_preview["observed"]["temperatureAvailability"], zone["reference"], evaluated_at)
     if sensor["status"] != "valid":
         return _blocked(zone_id, sensor["status"], sensor=sensor)
     endpoints = {item["id"]: item for item in config["endpoints"]}
@@ -176,8 +180,7 @@ def evaluate_execution_eligibility(config: Mapping[str, Any], zone: Mapping[str,
                          "currentTemperature": _number(attrs.get("current_temperature")),
                          "available": True, "temperatureUnit": target["temperatureUnit"]},
             "diff": None, "actions": [], "sensor": sensor, "reasons": [], "planSafe": True,
-            "physicalExecutionAllowed": False,
-            "physicalBlockers": ["execution_adapter_not_implemented", "linux_validation_required", "ownership_unconfirmed", "sensor_freshness_policy_required"]}
+            "physicalExecutionAllowed": False, "physicalBlockers": []}
 
 
 def _valid_until(zone_preview: Mapping[str, Any], auto_resolution: Mapping[str, Any] | None) -> str | None:
@@ -217,7 +220,7 @@ def _input_fingerprint(config: Mapping[str, Any], zone: Mapping[str, Any],
 
 def build_execution_preview(config: Mapping[str, Any], preview: Mapping[str, Any],
                             states: Mapping[str, Any], *, config_revision: int, state_revision: int,
-                            evaluated_at: datetime) -> dict[str, Any]:
+                            evaluated_at: datetime, linux_ha_validated: bool = False) -> dict[str, Any]:
     """Derive a deterministic revision-bound snapshot from the existing Climate preview."""
     if evaluated_at.tzinfo is None:
         raise ValueError("evaluated_at must be timezone aware")
@@ -226,7 +229,7 @@ def build_execution_preview(config: Mapping[str, Any], preview: Mapping[str, Any
     plans: list[dict[str, Any]] = []
     for zone_preview in preview["zones"]:
         zone = zones[zone_preview["zoneId"]]
-        plan = evaluate_execution_eligibility(config, zone, zone_preview, preview["house"]["operatingMode"], states)
+        plan = evaluate_execution_eligibility(config, zone, zone_preview, preview["house"]["operatingMode"], states, evaluated_at)
         if plan["status"] == "eligible":
             desired, observed = plan["desired"], plan["observed"]
             mode_changed = desired["hvacMode"] != observed["hvacMode"]
@@ -245,6 +248,12 @@ def build_execution_preview(config: Mapping[str, Any], preview: Mapping[str, Any
         plan["evaluatedAt"] = instant
         plan["validUntil"] = _valid_until(zone_preview, preview.get("autoResolution"))
         plan["planId"] = hashlib.sha256(json.dumps(plan, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:24]
+        readiness = evaluate_physical_execution_readiness(
+            plan, config, zone, config_trusted=True, state_trusted=True,
+            current_plan=plan, config_revision=config_revision, state_revision=state_revision,
+            now=evaluated_at, linux_ha_validated=linux_ha_validated)
+        plan["physicalExecutionAllowed"] = readiness["allowed"]
+        plan["physicalBlockers"] = readiness["blockers"]
         plans.append(plan)
     return {"plans": plans, "configRevision": config_revision, "stateRevision": state_revision, "evaluatedAt": instant}
 
@@ -256,7 +265,14 @@ def plan_is_current(plan: Mapping[str, Any], *, config_revision: int, state_revi
     if plan.get("configRevision") != config_revision or plan.get("stateRevision") != state_revision:
         return False
     if (current_plan.get("configRevision") != config_revision or current_plan.get("stateRevision") != state_revision
-            or plan.get("inputFingerprint") != current_plan.get("inputFingerprint")):
+            or plan.get("inputFingerprint") != current_plan.get("inputFingerprint")
+            or plan.get("planId") != current_plan.get("planId")):
+        return False
+    try:
+        evaluated = datetime.fromisoformat(plan["evaluatedAt"])
+        if evaluated.tzinfo is None or now.astimezone(UTC) < evaluated.astimezone(UTC):
+            return False
+    except (KeyError, TypeError, ValueError):
         return False
     until = plan.get("validUntil")
     if until is None:
@@ -265,3 +281,43 @@ def plan_is_current(plan: Mapping[str, Any], *, config_revision: int, state_revi
         return now.astimezone(UTC) < datetime.fromisoformat(until)
     except (ValueError, TypeError):
         return False
+
+
+def evaluate_physical_execution_readiness(
+    plan: Mapping[str, Any], config: Mapping[str, Any], zone: Mapping[str, Any], *,
+    config_trusted: bool, state_trusted: bool, current_plan: Mapping[str, Any] | None,
+    config_revision: int, state_revision: int, now: datetime, linux_ha_validated: bool,
+) -> dict[str, Any]:
+    """Collect deterministic V1 blockers. This only describes readiness; it never executes."""
+    blockers: list[str] = []
+    if not config_trusted:
+        blockers.append("config_untrusted")
+    if not state_trusted:
+        blockers.append("state_untrusted")
+    if not plan_is_current(plan, config_revision=config_revision, state_revision=state_revision,
+                           current_plan=current_plan, now=now):
+        blockers.append("plan_stale")
+    blockers.extend(plan.get("reasons", []))
+    if plan.get("status") == "noop":
+        blockers.append("no_command_required")
+    elif plan.get("status") != "eligible" and not plan.get("reasons"):
+        blockers.append("plan_not_eligible")
+    if plan.get("status") == "eligible":
+        endpoint = next((item for item in config["endpoints"] if item["id"] == plan.get("endpointId")), None)
+        if endpoint is None or endpoint.get("executionOwnership", "observe_only") != "domus_supervised":
+            blockers.append("endpoint_not_owned")
+        # Eligibility already verifies one direct, available climate entity, exact mode,
+        # target capability/range, and excludes shared/hydronic/composite paths.
+        if plan.get("controlKind") != "supervisory" or not str(plan.get("entityId", "")).startswith("climate."):
+            blockers.append("unsupported_execution_topology")
+        if zone.get("id") != plan.get("zoneId"):
+            blockers.append("zone_mismatch")
+    sensor = plan.get("sensor") or {}
+    if sensor.get("freshness") == "stale":
+        blockers.append("sensor_stale")
+    elif sensor.get("freshness") != "verified":
+        blockers.append("sensor_freshness_unknown")
+    if not linux_ha_validated:
+        blockers.append("linux_ha_validation_required")
+    unique = list(dict.fromkeys(blockers))
+    return {"allowed": not unique, "blockers": unique}

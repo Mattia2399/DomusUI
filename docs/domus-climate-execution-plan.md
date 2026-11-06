@@ -79,3 +79,6 @@ An eventual adapter would require explicit per-endpoint ownership (`domus_superv
 ## Invariants E1–E18
 
 E1/E18 zero HA service calls; E2 no plan with invalid config/state; E3 no plan without target; E4 invalid reference cannot produce eligible plan; E5 heating never plans cool; E6 cooling never plans heat; E7 exactly one supervisory endpoint; E8 ambiguous delivery never selected; E9 direct actuator never supervisory; E10 unavailable endpoint never eligible; E11 out-of-range target never clamped; E12 desired equals observed yields no actions; E13 plans carry config/state revisions; E14 stale revision/boundary invalidates plan; E15 plans are never persisted; E16 radiant cooling blocked; E17 no hydronic generator actions. The pure test suite covers these rules and source/schedule/override transitions. Real HA round-trip, Access Control and service-call observation remain blocked by the Linux HA harness.
+# CLM.3C update
+
+The CLM.3B sections below record the original planning baseline. CLM.3C adds explicit endpoint ownership, optional reference freshness policy, a pure readiness evaluator and a future command-correlation contract. The current blocker is `linux_ha_validation_required`; the live runtime still sends no service calls. See [the CLM.3C safety contract](domus-climate-execution-safety.md) for current decisions C88–C101.

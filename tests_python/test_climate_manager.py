@@ -153,3 +153,31 @@ async def test_profiles_and_schedule_round_trip_revision_and_no_service_calls(ha
         await loaded.async_setup()
         assert loaded.get_config() == saved
         assert calls == []
+
+
+async def test_execution_ownership_and_freshness_use_admin_config_store(hass: HomeAssistant):
+    from test_climate_architecture import catalog, terminal
+
+    from custom_components.domusos.climate.models import ClimatePermissionError
+
+    candidate = prepare(hass)
+    candidate["zones"][0]["reference"].update(freshnessPolicy="max_age", maxAgeSeconds=300)
+    endpoint = terminal("ac", "zone_living")
+    endpoint["executionOwnership"] = "domus_supervised"
+    candidate["zones"][0]["endpointIds"] = ["ac"]
+    candidate["endpoints"] = [endpoint]
+    for entity_id, state in catalog(candidate).items():
+        hass.states.async_set(entity_id, state.state, state.attributes)
+    store = MemoryStore()
+    manager = ClimateManager(hass, store=store, runtime=lambda: None)
+    await manager.async_setup()
+    with pytest.raises(ClimatePermissionError):
+        await manager.async_save_config(candidate, 0, MEMBER)
+    assert store.writes == 0
+    saved = await manager.async_save_config(candidate, 0, ADMIN)
+    assert saved["revision"] == 1 and saved["config"]["endpoints"][0]["executionOwnership"] == "domus_supervised"
+    with pytest.raises(Conflict):
+        await manager.async_save_config(candidate, 0, ADMIN)
+    loaded = ClimateManager(hass, store=store, runtime=lambda: None)
+    await loaded.async_setup()
+    assert loaded.get_config() == saved

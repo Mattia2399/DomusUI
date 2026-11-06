@@ -231,7 +231,7 @@ class ClimateStateManager:
                 local_expiry = utc_instant(item["expiresAt"], "expiresAt").astimezone(tz)
                 item["expiresAtLocalTime"] = local_expiry.strftime("%H:%M")
                 item["expiresAtLocalDate"] = local_expiry.strftime("%d/%m")
-        self._snapshot = preview(config, current_intent, states, auto_resolution=resolution, active_overrides=overrides)
+        self._snapshot = preview(config, current_intent, states, auto_resolution=resolution, active_overrides=overrides, now=now)
         self._execution_snapshot = build_execution_preview(
             config, self._snapshot, states, config_revision=self.config_manager.revision,
             state_revision=self.revision, evaluated_at=now)

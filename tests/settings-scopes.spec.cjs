@@ -36,7 +36,8 @@ test.beforeEach(async ({ page }) => {
   const houseClock = { instant: '2026-01-05T17:00:00Z', timezone: 'Europe/Rome' };
   page.climateClock = houseClock;
   page.climateHome = await connectHomeAssistant(page, {
-    states: { 'sensor.living_temp': { state: '21', attributes: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Temperatura soggiorno' } } },
+    states: { 'sensor.living_temp': { state: '21', attributes: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Temperatura soggiorno' } },
+      'climate.ac': { state: 'cool', attributes: { friendly_name: 'Split', hvac_modes: ['heat', 'cool', 'off'], supported_features: 1, temperature_unit: '°C', temperature: 26, current_temperature: 27, min_temp: 16, max_temp: 30, target_temp_step: 0.5 } } },
     handle: (message, { reply, fail }) => {
       if (message.type === 'domusos/climate/get_config') {
         reply({ state: climateConfig ? 'ready' : 'absent', revision: climateRevision, config: climateConfig });
@@ -85,20 +86,21 @@ test.beforeEach(async ({ page }) => {
           return { zoneId: zone.id, intent, override, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, scheduledTarget, targetSource: effectiveTarget === null ? null : climateIntent.house.controlMode === 'manual' ? 'manual' : override ? 'override' : 'schedule', targetReason: effectiveTarget === null ? autoResolution?.status === 'resolved' ? 'no_target' : 'no_schedule' : null, autoPendingConfiguration: climateIntent.house.controlMode === 'auto' && effectiveTarget === null, thermalStatus, terminals: [], compatiblePaths: [] } };
         });
         const scenario = page.climateExecutionScenario;
+        const eligibleScenarios = ['eligible', 'golden', 'observe_only', 'stale_sensor'];
         const executionPlan = scenario && zones[0] ? {
           planId: `preview-${scenario}`, zoneId: zones[0].zoneId,
-          status: scenario === 'eligible' || scenario === 'noop' ? scenario : 'blocked',
-          endpointId: scenario === 'eligible' || scenario === 'noop' ? 'ac' : null,
-          entityId: scenario === 'eligible' || scenario === 'noop' ? 'climate.ac' : null,
-          controlKind: scenario === 'eligible' || scenario === 'noop' ? 'supervisory' : null,
-          desired: scenario === 'eligible' || scenario === 'noop' ? { hvacMode: 'cool', requestedTargetCelsius: 24, requestedTarget: 24, targetTemperature: 24, temperatureUnit: '°C', normalization: null, targetStep: 0.5 } : null,
-          observed: scenario === 'eligible' || scenario === 'noop' ? { hvacMode: 'cool', targetTemperature: scenario === 'noop' ? 24 : 26, currentTemperature: 27, available: true, temperatureUnit: '°C' } : null,
-          diff: scenario === 'eligible' || scenario === 'noop' ? { hvacModeChanged: false, targetChanged: scenario === 'eligible' } : null,
-          actions: scenario === 'eligible' ? [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }] : [],
-          sensor: { status: scenario === 'invalid_sensor' ? 'sensor_invalid' : 'valid', valueCelsius: scenario === 'invalid_sensor' ? null : 27, source: 'sensor.living_temp', unit: '°C', freshness: 'unknown', lastUpdated: null },
+          status: eligibleScenarios.includes(scenario) || scenario === 'noop' ? scenario === 'noop' ? 'noop' : 'eligible' : 'blocked',
+          endpointId: eligibleScenarios.includes(scenario) || scenario === 'noop' ? 'ac' : null,
+          entityId: eligibleScenarios.includes(scenario) || scenario === 'noop' ? 'climate.ac' : null,
+          controlKind: eligibleScenarios.includes(scenario) || scenario === 'noop' ? 'supervisory' : null,
+          desired: eligibleScenarios.includes(scenario) || scenario === 'noop' ? { hvacMode: 'cool', requestedTargetCelsius: 24, requestedTarget: 24, targetTemperature: 24, temperatureUnit: '°C', normalization: null, targetStep: 0.5 } : null,
+          observed: eligibleScenarios.includes(scenario) || scenario === 'noop' ? { hvacMode: 'cool', targetTemperature: scenario === 'noop' ? 24 : 26, currentTemperature: 27, available: true, temperatureUnit: '°C' } : null,
+          diff: eligibleScenarios.includes(scenario) || scenario === 'noop' ? { hvacModeChanged: false, targetChanged: scenario !== 'noop' } : null,
+          actions: eligibleScenarios.includes(scenario) ? [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }] : [],
+          sensor: { status: scenario === 'invalid_sensor' ? 'sensor_invalid' : 'valid', valueCelsius: scenario === 'invalid_sensor' ? null : 27, source: 'sensor.living_temp', unit: '°C', freshness: scenario === 'stale_sensor' ? 'stale' : scenario === 'golden' || scenario === 'observe_only' ? 'verified' : 'unknown', lastUpdated: houseNow.toISOString() },
           reasons: scenario === 'ambiguous' ? ['delivery_strategy_required'] : scenario === 'invalid_sensor' ? ['sensor_invalid'] : [],
-          planSafe: scenario === 'eligible' || scenario === 'noop', physicalExecutionAllowed: false,
-          physicalBlockers: ['execution_adapter_not_implemented', 'linux_validation_required'],
+          planSafe: eligibleScenarios.includes(scenario) || scenario === 'noop', physicalExecutionAllowed: false,
+          physicalBlockers: scenario === 'golden' ? ['linux_ha_validation_required'] : scenario === 'observe_only' ? ['endpoint_not_owned', 'linux_ha_validation_required'] : scenario === 'stale_sensor' ? ['sensor_stale', 'linux_ha_validation_required'] : ['sensor_freshness_unknown', 'linux_ha_validation_required'],
           configRevision: climateRevision, stateRevision: climateStateRevision, inputFingerprint: `fixture-${scenario}`,
           evaluatedAt: houseNow.toISOString(), validUntil: null,
         } : null;
@@ -228,6 +230,38 @@ test('Climate supervisory preview shows eligible, noop and blocked cases without
     expect(page.climateLastState.executionPreview.plans[0].status).toBe(scenario === 'ambiguous' || scenario === 'invalid_sensor' ? 'blocked' : scenario);
     expect(page.climateLastState.executionPreview.plans[0].actions).toHaveLength(scenario === 'eligible' ? 1 : 0);
     expect(page.climateLastState.executionPreview.plans[0].physicalExecutionAllowed).toBe(false);
+  }
+  expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
+});
+
+test('Climate safety preview distinguishes Linux, ownership and stale sensor gates without service calls', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Camera');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('combobox', { name: 'Freschezza del sensore' }).selectOption('max_age');
+  await page.getByRole('button', { name: '2. Dispositivi e ruoli' }).click();
+  await page.getByRole('button', { name: 'Aggiungi dispositivo' }).click();
+  await page.getByRole('textbox', { name: 'Nome dispositivo' }).fill('Split');
+  await page.getByRole('combobox', { name: 'Entità HA' }).selectOption('climate.ac');
+  await page.getByRole('combobox', { name: 'Controllo da Domus' }).selectOption('domus_supervised');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  const savedConfig = page.climateHome.messages.find((message) => message.type === 'domusos/climate/save_config');
+  expect(savedConfig.config.endpoints[0].executionOwnership).toBe('domus_supervised');
+  expect(savedConfig.config.zones[0].reference).toMatchObject({ freshnessPolicy: 'max_age', maxAgeSeconds: 300 });
+  const runtime = page.locator('[data-climate-runtime="true"]');
+  const inspector = runtime.locator('[data-climate-execution-preview="true"]');
+  for (const [scenario, label] of [
+    ['golden', 'Piano supervisore pronto. Validazione Home Assistant richiesta.'],
+    ['observe_only', 'Dispositivo configurato per il solo monitoraggio.'],
+    ['stale_sensor', 'Campione del sensore oltre l’età massima configurata.'],
+  ]) {
+    page.climateExecutionScenario = scenario;
+    await runtime.getByRole('button', { name: 'Ricarica' }).click();
+    await expect(inspector.getByText(label)).toBeVisible();
+    expect(page.climateLastState.executionPreview.plans[0].physicalExecutionAllowed).toBe(false);
+    expect(page.climateLastState.executionPreview.plans[0].actions).toHaveLength(1);
   }
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });

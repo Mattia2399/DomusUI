@@ -38,6 +38,39 @@ function ExecutionPreview({ value, config }: { value: ClimateExecutionPreview; c
     house_off: 'House climate is off.',
     zone_off: 'Zone is off.',
   };
+  const physicalLabels: Record<string, string> = it ? {
+    linux_ha_validation_required: 'Validazione Home Assistant su Linux richiesta.',
+    endpoint_not_owned: 'Dispositivo configurato per il solo monitoraggio.',
+    sensor_freshness_unknown: 'Freschezza del sensore non verificata.',
+    sensor_stale: 'Campione del sensore oltre l’età massima configurata.',
+    hydronic_dependency_unmanaged: 'Dipendenza idronica non gestita.',
+    unsupported_direct_actuator: 'Controllo diretto dell’attuatore non supportato.',
+    composite_execution_not_supported: 'Dispositivo composito non supportato.',
+    condensation_safety_not_implemented: 'Sicurezza anticondensa non disponibile.',
+    shared_equipment_coordination_required: 'Coordinamento del sistema condiviso non disponibile.',
+    delivery_strategy_required: 'Strategia di distribuzione necessaria.',
+    no_command_required: 'Il dispositivo è già allineato.',
+    plan_stale: 'Il piano non è più attuale.',
+    unsupported_hvac_mode: 'La modalità richiesta non è supportata dal dispositivo.',
+    target_outside_endpoint_range: 'Il target è fuori dal range del dispositivo.',
+    sensor_outside_plausible_range: 'Temperatura ambiente fuori dal range plausibile.',
+  } : {
+    linux_ha_validation_required: 'Linux Home Assistant validation required.',
+    endpoint_not_owned: 'Device is configured for monitoring only.',
+    sensor_freshness_unknown: 'Sensor freshness is unverified.',
+    sensor_stale: 'Sensor sample exceeds the configured maximum age.',
+    hydronic_dependency_unmanaged: 'Hydronic dependency is unmanaged.',
+    unsupported_direct_actuator: 'Direct actuator control is unsupported.',
+    composite_execution_not_supported: 'Composite device control is unsupported.',
+    condensation_safety_not_implemented: 'Condensation protection is unavailable.',
+    shared_equipment_coordination_required: 'Shared equipment coordination is unavailable.',
+    delivery_strategy_required: 'A delivery strategy is required.',
+    no_command_required: 'The device is already aligned.',
+    plan_stale: 'The plan is no longer current.',
+    unsupported_hvac_mode: 'The requested mode is unsupported by the device.',
+    target_outside_endpoint_range: 'The target is outside the device range.',
+    sensor_outside_plausible_range: 'Room temperature is outside the plausible range.',
+  };
   return <section className={`${PANEL} p-4 sm:p-5`} data-climate-execution-preview="true">
     <h3 className="text-base font-semibold">{it ? 'Anteprima controllo supervisore' : 'Supervisory control preview'}</h3>
     <p className={`mt-1 text-xs ${MUTED}`}>{it ? 'Piano tecnico. Nessun comando viene inviato ai dispositivi.' : 'Technical plan. No device commands are sent.'}</p>
@@ -48,6 +81,7 @@ function ExecutionPreview({ value, config }: { value: ClimateExecutionPreview; c
       {plan.desired && <p className="mt-2">{it ? 'Desiderato' : 'Desired'}: {plan.desired.hvacMode} · {plan.desired.targetTemperature} {plan.desired.temperatureUnit}</p>}
       {plan.observed && <p>{it ? 'Osservato' : 'Observed'}: {plan.observed.hvacMode} · {plan.observed.targetTemperature ?? '—'} {plan.observed.temperatureUnit}</p>}
       {plan.actions.length > 0 && <p className="mt-2 text-xs">{it ? 'Azioni previste' : 'Planned actions'}: {plan.actions.map((action) => `${action.kind} ${action.value}`).join(' → ')}</p>}
+      <div className="mt-3 border-t border-current/10 pt-2 text-xs"><p className="font-semibold">{it ? 'Piano' : 'Plan'}: {plan.status === 'eligible' || plan.status === 'noop' ? (it ? 'valido' : 'valid') : (it ? 'non disponibile' : 'unavailable')}</p><p className="mt-1 font-semibold">{it ? 'Esecuzione fisica' : 'Physical execution'}: {plan.physicalExecutionAllowed ? (it ? 'pronta' : 'ready') : (it ? 'non disponibile' : 'unavailable')}</p>{plan.status === 'eligible' && plan.physicalBlockers.length === 1 && plan.physicalBlockers[0] === 'linux_ha_validation_required' && <p className="mt-1">{it ? 'Piano supervisore pronto. Validazione Home Assistant richiesta.' : 'Supervisory plan ready. Home Assistant validation required.'}</p>}{plan.physicalBlockers.length > 0 && <ul className="mt-1 list-disc space-y-1 pl-4">{plan.physicalBlockers.map((blocker) => <li key={blocker}>{physicalLabels[blocker] ?? reasonLabels[blocker] ?? blocker}</li>)}</ul>}</div>
       <details className="mt-2 text-xs"><summary>{it ? 'Dettagli tecnici' : 'Technical details'}</summary><p>endpoint: {plan.endpointId ?? '—'} · status: {plan.status}</p><p>reason: {plan.reasons.join(', ') || '—'}</p><p>physical: {plan.physicalExecutionAllowed ? 'allowed' : 'blocked'}</p></details>
     </article>)}</div>
   </section>;

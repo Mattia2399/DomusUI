@@ -120,12 +120,26 @@ def _capabilities(value: Any, field: str, names: set[str]) -> dict[str, bool]:
 
 
 def _reference(value: Any, field: str) -> dict[str, Any]:
-    item = _object(value, {"primaryEntityId", "fallbacks"}, field)
+    item = _extended(value, {"primaryEntityId", "fallbacks"}, {"freshnessPolicy", "maxAgeSeconds"}, field)
     primary = _entity(item["primaryEntityId"], field + ".primaryEntityId")
     fallbacks = [_entity(entity_id, field + ".fallbacks") for entity_id in _list(item["fallbacks"], field + ".fallbacks", 8)]
     if len(set(fallbacks)) != len(fallbacks) or primary in fallbacks:
         raise InvalidConfig(field, "duplicate sensor source")
-    return {"primaryEntityId": primary, "fallbacks": fallbacks}
+    policy = item.get("freshnessPolicy", "none")
+    if policy not in ("none", "max_age"):
+        raise InvalidConfig(field + ".freshnessPolicy")
+    if policy == "max_age":
+        age = item.get("maxAgeSeconds")
+        if type(age) is not int or not 30 <= age <= 86400:
+            raise InvalidConfig(field + ".maxAgeSeconds", "expected 30–86400 seconds")
+    elif "maxAgeSeconds" in item:
+        raise InvalidConfig(field + ".maxAgeSeconds", "requires max_age policy")
+    result = {"primaryEntityId": primary, "fallbacks": fallbacks}
+    if "freshnessPolicy" in item:
+        result["freshnessPolicy"] = policy
+    if policy == "max_age":
+        result["maxAgeSeconds"] = item["maxAgeSeconds"]
+    return result
 
 
 def _text(value: Any, field: str, limit: int = 100) -> str:
@@ -270,7 +284,7 @@ def parse_config(value: Any) -> dict[str, Any]:
     endpoints: list[dict[str, Any]] = []
     for index, raw in enumerate(_list(data["endpoints"], "endpoints", 128)):
         field = f"endpoints[{index}]"
-        item = _extended(raw, {"id", "name", "kind", "zoneId", "circuitId", "roles", "entity", "setpointKind"}, {"capabilities", "controlTopology"}, field)
+        item = _extended(raw, {"id", "name", "kind", "zoneId", "circuitId", "roles", "entity", "setpointKind"}, {"capabilities", "controlTopology", "executionOwnership"}, field)
         kind = item["kind"]
         roles = _list(item["roles"], field + ".roles", 6)
         if kind not in ("air_conditioner", "thermostatic_radiator_valve", "manifold_actuator", "fan_coil", "ducted_unit", "other") or not roles or any(role not in _ROLES for role in roles) or len(roles) != len(set(roles)):
@@ -283,6 +297,10 @@ def parse_config(value: Any) -> dict[str, Any]:
             raise InvalidConfig(field + ".setpointKind")
         circuit_id = item["circuitId"]
         parsed = {"id": _id(item["id"], field + ".id"), "name": _text(item["name"], field + ".name"), "kind": kind, "zoneId": _id(item["zoneId"], field + ".zoneId"), "circuitId": None if circuit_id is None else _id(circuit_id, field + ".circuitId"), "roles": list(roles), "entity": _entity_binding(item["entity"], field + ".entity"), "setpointKind": item["setpointKind"]}
+        if "executionOwnership" in item:
+            if item["executionOwnership"] not in ("observe_only", "domus_supervised"):
+                raise InvalidConfig(field + ".executionOwnership")
+            parsed["executionOwnership"] = item["executionOwnership"]
         if "controlTopology" in item:
             if (item["controlTopology"] != "direct_supervisory" or kind not in ("air_conditioner", "other")
                     or item["setpointKind"] != "room_temperature" or circuit_id is not None
