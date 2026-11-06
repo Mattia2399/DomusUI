@@ -6,13 +6,12 @@ only counted: in memory, bounded, without anyone's identity.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
 import json
 import random
 import time
+from datetime import UTC, datetime, timedelta
 
 import pytest
-
 from access_pure import load
 
 models = load("models")
@@ -323,7 +322,7 @@ def test_the_snapshot_reports_the_current_policy_apart_from_the_window() -> None
     assert result["policy"] == {"state": "corrupt", "revision": 7}
     # Device power and CLM.2 Climate configuration are enforced.
     assert result["mode"] == "partial" and result["enforced"] is True
-    assert result["enforced_actions"] == ["domusos/climate/get_config", "domusos/climate/save_config", "domusos/device_power/bind_policy", "domusos/device_power/delete_policy", "domusos/device_power/get_state", "domusos/device_power/save_policy"]
+    assert result["enforced_actions"] == ["domusos/climate/get_config", "domusos/climate/get_state", "domusos/climate/save_config", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent", "domusos/device_power/bind_policy", "domusos/device_power/delete_policy", "domusos/device_power/get_state", "domusos/device_power/save_policy"]
 
 
 # --- Bounds ---------------------------------------------------------------------------
@@ -378,7 +377,7 @@ def test_every_observed_action_has_a_row_and_no_exempt_one_does() -> None:
     result = snap(stats())
     observed = sorted(contract.id for contract in actions.shadow_contracts())
     assert [entry["action"] for entry in result["by_action"]] == observed
-    assert len(observed) == 42
+    assert len(observed) == 45
     for exempt in ("domusos/access/get_self", "domusos/access/reset_policy", "domusos/access/get_shadow_diagnostics"):
         assert exempt not in observed
 

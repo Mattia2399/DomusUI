@@ -210,6 +210,8 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | --- | --- | --- | --- | --- | --- |
 | Accendere/spegnere luce, presa | `call_service` dal browser | `light.*`, `switch.*` | no | `devices.control` | medium |
 | Setpoint e modi clima | `call_service` | `climate.*` | no | `devices.control` | medium |
+| Domus Climate: lettura intent e preview | WebSocket | — | `domusos/climate/get_state` | `climate.view` | low |
+| Domus Climate: modifica intent casa/zona | WebSocket | nessuno | `domusos/climate/set_house_intent`, `set_zone_intent` | `climate.control` | medium |
 | Tapparelle | `call_service` | `cover.*` | no | `devices.control` (garage/cancello: `access.control`) | medium/high |
 | Media, aspirapolvere, ventole | `call_service` | `media_player.*`, `vacuum.*`, `fan.*` | no | `devices.control` | low |
 | Sblocca/apri serratura | `call_service` + gate locale + codice | `lock.unlock`, `lock.open` | no | `access.control` | high |

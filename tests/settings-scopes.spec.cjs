@@ -30,7 +30,9 @@ test.beforeEach(async ({ page }) => {
   await installCompletedRealWorkspace(page);
   let climateConfig = null;
   let climateRevision = 0;
-  await connectHomeAssistant(page, {
+  let climateStateRevision = 0;
+  let climateIntent = { house: { operatingMode: 'off', controlMode: 'manual' }, zones: {} };
+  page.climateHome = await connectHomeAssistant(page, {
     states: { 'sensor.living_temp': { state: '21', attributes: { device_class: 'temperature', unit_of_measurement: '°C', friendly_name: 'Temperatura soggiorno' } } },
     handle: (message, { reply, fail }) => {
       if (message.type === 'domusos/climate/get_config') {
@@ -40,6 +42,22 @@ test.beforeEach(async ({ page }) => {
       if (message.type === 'domusos/climate/save_config') {
         if (message.expected_revision !== climateRevision) fail('conflict', 'Revision changed');
         else { climateConfig = message.config; climateRevision += 1; reply({ state: 'ready', revision: climateRevision, config: climateConfig }); }
+        return true;
+      }
+      if (message.type === 'domusos/climate/get_state' || message.type === 'domusos/climate/set_house_intent' || message.type === 'domusos/climate/set_zone_intent') {
+        if (message.type !== 'domusos/climate/get_state') {
+          if (message.expected_revision !== climateStateRevision) { fail('conflict', 'Revision changed'); return true; }
+          if (message.type === 'domusos/climate/set_house_intent') climateIntent.house = { operatingMode: message.operating_mode, controlMode: message.control_mode };
+          else climateIntent.zones[message.zone_id] = { mode: message.mode, targetTemperature: message.target_temperature };
+          climateStateRevision += 1;
+        }
+        const zones = (climateConfig?.zones ?? []).map((zone) => {
+          const intent = climateIntent.zones[zone.id] ?? { mode: 'follow_house', targetTemperature: null };
+          const effectiveTarget = climateIntent.house.controlMode === 'manual' ? intent.targetTemperature : null;
+          const thermalStatus = climateIntent.house.operatingMode === 'off' || intent.mode === 'off' ? 'off' : effectiveTarget === null ? 'unknown' : climateIntent.house.operatingMode === 'heating' && 21 < effectiveTarget - 0.2 ? 'needs_heating' : climateIntent.house.operatingMode === 'cooling' && 21 > effectiveTarget + 0.2 ? 'needs_cooling' : 'satisfied';
+          return { zoneId: zone.id, intent, observed: { temperature: 21, humidity: null, temperatureSource: 'sensor.living_temp', humiditySource: null, temperatureAvailability: 'available', humidityAvailability: 'unavailable' }, derived: { effectiveTarget, targetSource: effectiveTarget === null ? null : 'manual', autoPendingConfiguration: climateIntent.house.controlMode === 'auto', thermalStatus, terminals: [], compatiblePaths: [] } };
+        });
+        reply({ state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, zones, deadbandCelsius: 0.2 } : null });
         return true;
       }
       return false;
@@ -118,11 +136,27 @@ test('Climate setup saves a real HOUSE zone and loads it again', async ({ page }
   await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
   await page.getByRole('button', { name: 'Salva configurazione' }).click();
   await expect(page.getByRole('heading', { name: 'Impianto climatico configurato' })).toBeVisible();
-  await expect(page.getByText('Soggiorno', { exact: true })).toBeVisible();
-  await expect(page.getByText('Soggiorno', { exact: true }).locator('xpath=ancestor::article')).toHaveClass(/dv-climate/);
+  await expect(page.getByText('Soggiorno', { exact: true }).last()).toBeVisible();
+  await expect(page.getByText('Soggiorno', { exact: true }).last().locator('xpath=ancestor::article')).toHaveClass(/dv-climate/);
   await expect(page.locator('[data-climate-preview="demo"]')).toHaveCount(0);
   await page.reload();
-  await expect(page.getByText('Soggiorno', { exact: true })).toBeVisible();
+  await expect(page.getByText('Soggiorno', { exact: true }).last()).toBeVisible();
+});
+
+test('Climate intent controls update the live runtime preview without a device service call', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Soggiorno');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  const runtime = page.locator('[data-climate-runtime="true"]');
+  await expect(runtime.getByRole('heading', { name: 'Intent e stato Climate' })).toBeVisible();
+  await runtime.getByRole('combobox', { name: 'Modalità casa' }).selectOption('heating');
+  await runtime.getByRole('spinbutton', { name: 'Target ambiente' }).fill('22');
+  await runtime.getByRole('button', { name: 'Applica' }).click();
+  await expect(runtime.getByText('Richiede riscaldamento')).toBeVisible();
+  expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 
 test('Settings, System: the connection opens and Back returns to Settings', async ({ page }) => {

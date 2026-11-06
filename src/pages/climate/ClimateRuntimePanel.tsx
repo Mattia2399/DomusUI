@@ -1,0 +1,63 @@
+import { useEffect, useState } from 'react';
+import { Flame, Snowflake, Thermometer, TriangleAlert } from 'lucide-react';
+import { useI18n } from '../../i18n/I18nProvider';
+import type { MockEntityStateMap } from '../../types/ha';
+import type { ClimateHouseConfig, ClimateOperatingMode, ClimateControlMode, ClimateZoneMode } from './climateModel';
+import { climateObservedKey, getClimateState, setHouseIntent, setZoneIntent, type ClimateStateResponse, type ClimateZoneState } from '../../services/climateStateClient';
+import type { ClimateCallApi } from '../../services/climateConfigClient';
+import { MUTED, PANEL } from './ClimatePrimitives';
+import '../../components/devices/theme/devices.css';
+
+const words = {
+  it: { title: 'Intent e stato Climate', detail: 'Stato osservato e decisione prevista. Nessun comando viene inviato ai dispositivi.', mode: 'Modalità casa', zoneMode: 'Modalità zona', control: 'Controllo', manual: 'Manuale', auto: 'Automatico', heating: 'Riscaldamento', cooling: 'Raffrescamento', off: 'Spento', follow: 'Segue la casa', target: 'Target ambiente', current: 'Temperatura attuale', save: 'Applica', reload: 'Ricarica', unavailable: 'Stato Climate non disponibile.', pending: 'Target automatico in attesa di programmi.', unknown: 'Sensore o target non disponibile', satisfied: 'Temperatura soddisfatta', needs_heating: 'Richiede riscaldamento', needs_cooling: 'Richiede raffrescamento', candidates: 'Percorsi compatibili', noCandidates: 'Nessun terminale compatibile disponibile', constraint: 'Vincolo umidità presente; sicurezza raffrescamento non valutata', mismatch: 'Target dispositivo diverso; causa sconosciuta', conflict: 'La configurazione è cambiata. Ricarica prima di riprovare.' },
+  en: { title: 'Climate intent and state', detail: 'Observed state and decision preview. No device commands are sent.', mode: 'House mode', zoneMode: 'Zone mode', control: 'Control', manual: 'Manual', auto: 'Automatic', heating: 'Heating', cooling: 'Cooling', off: 'Off', follow: 'Follow house', target: 'Room target', current: 'Current temperature', save: 'Apply', reload: 'Reload', unavailable: 'Climate state unavailable.', pending: 'Automatic target awaits schedules.', unknown: 'Sensor or target unavailable', satisfied: 'Temperature satisfied', needs_heating: 'Needs heating', needs_cooling: 'Needs cooling', candidates: 'Compatible paths', noCandidates: 'No compatible terminal available', constraint: 'Humidity constraint present; cooling safety not evaluated', mismatch: 'Device target differs; cause unknown', conflict: 'State changed. Reload before retrying.' },
+  fr: { title: 'Intention et état Climat', detail: 'État observé et aperçu de décision. Aucune commande envoyée aux appareils.', mode: 'Mode maison', zoneMode: 'Mode de zone', control: 'Contrôle', manual: 'Manuel', auto: 'Automatique', heating: 'Chauffage', cooling: 'Rafraîchissement', off: 'Arrêt', follow: 'Suit la maison', target: 'Consigne pièce', current: 'Température actuelle', save: 'Appliquer', reload: 'Recharger', unavailable: 'État Climat indisponible.', pending: 'Consigne automatique en attente de programmes.', unknown: 'Capteur ou consigne indisponible', satisfied: 'Température atteinte', needs_heating: 'Chauffage requis', needs_cooling: 'Rafraîchissement requis', candidates: 'Parcours compatibles', noCandidates: 'Aucun terminal compatible disponible', constraint: 'Contrainte humidité présente ; sécurité non évaluée', mismatch: 'Consigne appareil différente ; cause inconnue', conflict: 'État modifié. Rechargez avant de réessayer.' },
+} as const;
+
+function ZoneCard({ zone, config, state, controlMode, canControl, busy, onWrite }: { zone: ClimateHouseConfig['zones'][number]; config: ClimateHouseConfig; state: ClimateZoneState; controlMode: ClimateControlMode; canControl: boolean; busy: boolean; onWrite: (mode: ClimateZoneMode, target: number | null) => void }) {
+  const { locale } = useI18n();
+  const t = words[locale];
+  const [draftTarget, setDraftTarget] = useState(state.intent.targetTemperature?.toString() ?? '');
+  useEffect(() => setDraftTarget(state.intent.targetTemperature?.toString() ?? ''), [state.intent.targetTemperature]);
+  const status = state.derived.thermalStatus;
+  const active = status === 'needs_heating' || status === 'needs_cooling';
+  const tone = status === 'needs_cooling' ? 'cool' : status === 'needs_heating' ? 'heat' : 'auto';
+  const Icon = status === 'unknown' ? TriangleAlert : status === 'needs_cooling' ? Snowflake : status === 'needs_heating' ? Flame : Thermometer;
+  const label = status === 'off' ? t.off : status === 'unknown' ? t.unknown : status === 'satisfied' ? t.satisfied : t[status];
+  return <article className={`dv-tile dv-climate dv-cl-${tone} ${active ? 'is-lit-climate' : status === 'unknown' ? 'is-unavailable' : 'is-on'} !h-full min-h-[208px] w-full p-4 text-left`}>
+    <div className="dv-climate-top flex w-full items-center gap-3"><span className="dv-icon-button" aria-hidden="true"><Icon size={21} /></span><div><strong className="block text-[15px] font-semibold">{zone.name}</strong><span className="text-[13px]">{label}</span></div></div>
+    <div className="dv-climate-mid mt-4 flex w-full justify-between gap-3"><div><span className="block text-xs">{t.current}</span><strong className="text-4xl tabular-nums">{state.observed.temperature === null ? '—' : `${state.observed.temperature.toFixed(1)}°`}</strong></div><div className="dv-climate-room"><b>{state.derived.effectiveTarget === null ? '—' : `${state.derived.effectiveTarget.toFixed(1)}°`}</b><span>{t.target}</span></div></div>
+    {state.derived.autoPendingConfiguration && <p className="mt-3 text-xs">{t.pending}</p>}
+    <div className="dv-climate-foot mt-3 w-full border-t border-current/10 pt-2 text-xs"><span>{t.candidates}: {state.derived.compatiblePaths.length ? state.derived.compatiblePaths.map((path) => config.endpoints.find((item) => item.id === path.terminalId)?.name ?? path.terminalId).join(', ') : t.noCandidates}</span></div>
+    {state.derived.compatiblePaths.some((path) => path.humidityConstraintPresent) && <p className="mt-2 text-xs">{t.constraint}</p>}
+    {state.derived.terminals.some((terminal) => terminal.targetMismatch) && <p className="mt-2 text-xs">{t.mismatch}</p>}
+    {canControl && <div className="mt-4 flex flex-wrap items-end gap-2 border-t border-current/10 pt-3"><label className="text-xs">{t.zoneMode}<select value={state.intent.mode} disabled={busy} onChange={(event) => onWrite(event.target.value as ClimateZoneMode, state.intent.targetTemperature)} className="liquid-glass-control mt-1 block min-h-10 rounded-xl px-2 text-sm"><option value="follow_house">{t.follow}</option><option value="off">{t.off}</option></select></label><label className="text-xs">{t.target}<input type="number" min="5" max="40" step="0.5" value={draftTarget} disabled={busy || controlMode === 'auto'} onChange={(event) => setDraftTarget(event.target.value)} className="liquid-glass-control mt-1 block min-h-10 w-24 rounded-xl px-2 text-sm" /></label><button type="button" disabled={busy || controlMode === 'auto' || (draftTarget !== '' && (!Number.isFinite(Number(draftTarget)) || Number(draftTarget) < 5 || Number(draftTarget) > 40))} onClick={() => onWrite(state.intent.mode, draftTarget === '' ? null : Number(draftTarget))} className="liquid-glass-control min-h-10 rounded-xl px-3 text-xs font-semibold">{t.save}</button></div>}
+  </article>;
+}
+
+export function ClimateRuntimePanel({ config, callApi, states, canControl }: { config: ClimateHouseConfig; callApi: ClimateCallApi; states: MockEntityStateMap; canControl: boolean }) {
+  const { locale } = useI18n();
+  const t = words[locale];
+  const [response, setResponse] = useState<ClimateStateResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [reload, setReload] = useState(0);
+  const observedKey = climateObservedKey(config, states);
+  useEffect(() => {
+    let active = true;
+    getClimateState(callApi).then((value) => { if (active) { setResponse(value); setError(null); } }).catch(() => { if (active) setError(t.unavailable); });
+    return () => { active = false; };
+  }, [callApi, observedKey, reload, t.unavailable]);
+  const write = async (request: (revision: number) => Promise<ClimateStateResponse>) => {
+    if (!response || busy || !canControl || !['absent', 'ready'].includes(response.state)) return;
+    setBusy(true);
+    try { setResponse(await request(response.revision)); setError(null); }
+    catch { setError(t.conflict); }
+    finally { setBusy(false); }
+  };
+  const preview = response?.preview;
+  return <section className="space-y-4" data-climate-runtime="true"><div className={`${PANEL} flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5`}><div><h3 className="text-lg font-semibold">{t.title}</h3><p className={`mt-1 text-xs ${MUTED}`}>{t.detail}</p></div><button type="button" onClick={() => setReload((count) => count + 1)} className="liquid-glass-control min-h-10 rounded-full px-4 text-xs">{t.reload}</button></div>
+    {error && <p role="alert" className="rounded-xl bg-amber-500/10 p-3 text-sm">{error}</p>}
+    {preview ? <><div className={`${PANEL} flex flex-wrap gap-4 p-4`}><label className="text-xs font-semibold">{t.mode}<select value={preview.house.operatingMode} disabled={!canControl || busy || !['absent', 'ready'].includes(response?.state ?? '')} onChange={(event) => write((revision) => setHouseIntent(callApi, event.target.value as ClimateOperatingMode, preview.house.controlMode, revision))} className="liquid-glass-control mt-1 block min-h-11 rounded-xl px-3 text-sm"><option value="off">{t.off}</option><option value="heating">{t.heating}</option><option value="cooling">{t.cooling}</option></select></label><label className="text-xs font-semibold">{t.control}<select value={preview.house.controlMode} disabled={!canControl || busy || !['absent', 'ready'].includes(response?.state ?? '')} onChange={(event) => write((revision) => setHouseIntent(callApi, preview.house.operatingMode, event.target.value as ClimateControlMode, revision))} className="liquid-glass-control mt-1 block min-h-11 rounded-xl px-3 text-sm"><option value="manual">{t.manual}</option><option value="auto">{t.auto}</option></select></label></div><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{preview.zones.map((zoneState) => { const zone = config.zones.find((item) => item.id === zoneState.zoneId); return zone ? <ZoneCard key={zone.id} zone={zone} config={config} state={zoneState} controlMode={preview.house.controlMode} canControl={canControl && ['absent', 'ready'].includes(response?.state ?? '')} busy={busy} onWrite={(mode, target) => write((revision) => setZoneIntent(callApi, zone.id, mode, target, revision))} /> : null; })}</div></> : !error && <p className={`${PANEL} p-4 text-sm`}>{t.unavailable}</p>}
+  </section>;
+}

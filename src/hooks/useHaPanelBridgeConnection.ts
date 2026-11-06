@@ -181,7 +181,10 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'frontend/set_system_data',
   'domusos/irrigation/get_config',
   'domusos/climate/get_config',
+  'domusos/climate/get_state',
   'domusos/climate/save_config',
+  'domusos/climate/set_house_intent',
+  'domusos/climate/set_zone_intent',
   'domusos/irrigation/save_config',
   'domusos/irrigation/get_state',
   'domusos/irrigation/subscribe',
@@ -489,8 +492,15 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
   if (message.type.startsWith('domusos/device_timers/')) {
     return isValidDeviceTimerMessage(message);
   }
-  if (message.type === 'domusos/climate/get_config') {
+  if (message.type === 'domusos/climate/get_config' || message.type === 'domusos/climate/get_state') {
     return hasExactKeys(message, ['type']);
+  }
+  // The bridge enforces closed payload shapes; the Climate backend validates modes, bounds and account rights.
+  if (message.type === 'domusos/climate/set_house_intent') {
+    return hasExactKeys(message, ['type', 'operating_mode', 'control_mode', 'expected_revision']);
+  }
+  if (message.type === 'domusos/climate/set_zone_intent') {
+    return hasExactKeys(message, ['type', 'zone_id', 'mode', 'target_temperature', 'expected_revision']);
   }
   if (message.type === 'domusos/climate/save_config') {
     if (!hasExactKeys(message, ['type', 'config', 'expected_revision']) ||

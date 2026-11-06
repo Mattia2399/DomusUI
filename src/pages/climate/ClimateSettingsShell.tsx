@@ -18,13 +18,14 @@ import { ClimateSectionHeading, MUTED } from './ClimatePrimitives';
 import { PANEL } from './ClimatePrimitives';
 import { ClimateConfigEditor } from './ClimateConfigEditor';
 import { useClimateConfigCopy } from './climateConfigCopy';
+import { ClimateRuntimePanel } from './ClimateRuntimePanel';
 
 type Section = 'overview' | 'zones' | 'programs' | 'plant';
 
 /** CLM UX: all controls below are local to a clearly labeled demo preview. */
-export default function ClimateSettingsShell({ callApi, connected, areas, states, registry, canManage }: {
+export default function ClimateSettingsShell({ callApi, connected, areas, states, registry, canManage, canControl }: {
   callApi?: ClimateCallApi; connected: boolean; areas: readonly HaArea[]; states: MockEntityStateMap;
-  registry: readonly HaEntityRegistryEntry[]; canManage: boolean;
+  registry: readonly HaEntityRegistryEntry[]; canManage: boolean; canControl: boolean;
 }) {
   const { c } = useClimateCopy();
   const { t } = useClimateConfigCopy();
@@ -65,6 +66,7 @@ export default function ClimateSettingsShell({ callApi, connected, areas, states
     return <div className="mx-auto w-full max-w-6xl space-y-6 pb-8" data-climate-config="ready">
       <section className={`${PANEL} flex flex-wrap items-center justify-between gap-4 p-5 sm:p-7`}><div><p className={`text-xs font-semibold uppercase tracking-[0.16em] ${MUTED}`}>{c('eyebrow')}</p><h2 className="mt-2 text-2xl font-semibold text-[color:var(--ui-text-primary)]">{t('configured')}</h2><p className={`mt-2 text-sm ${MUTED}`}>{t('configuredDetail')}</p></div>{canManage && <GlassButton variant="primary" onClick={() => setEditing(true)}>{t('edit')}</GlassButton>}</section>
       {!canManage && <p className={`px-1 text-sm ${MUTED}`}>{t('readonly')}</p>}
+      {callApi && <ClimateRuntimePanel config={config} callApi={callApi} states={states} canControl={canControl} />}
       <ClimateSectionHeading title={t('zones')} detail={`${config.zones.length} ${t('zones').toLowerCase()} · ${config.endpoints.length} ${t('endpoints').toLowerCase()} · ${config.circuits.length} ${t('circuits').toLowerCase()} · ${config.generators.length} ${t('generators').toLowerCase()}`} />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{config.zones.map((zone) => <ConfiguredClimateZoneCard key={zone.id} zone={zone} sourceName={String(states[zone.reference.primaryEntityId]?.rawAttributes?.friendly_name ?? registry.find((entry) => entry.entityId === zone.reference.primaryEntityId)?.name ?? zone.reference.primaryEntityId)} areaName={areas.find((area) => area.area_id === zone.areaId)?.name} />)}</div>
     </div>;

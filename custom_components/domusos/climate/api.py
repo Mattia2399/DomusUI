@@ -1,4 +1,4 @@
-"""Two closed WebSocket commands for Domus Climate HOUSE configuration."""
+"""Closed WebSocket APIs for Climate configuration and read-only intent preview."""
 
 from __future__ import annotations
 
@@ -12,6 +12,7 @@ from ..access.instrumentation import register_websocket_commands
 from ..const import DOMAIN
 from .manager import DATA_CLIMATE_MANAGER, ClimateManager
 from .models import ClimateError, InvalidFormat, StoreUnavailable
+from .state_manager import DATA_CLIMATE_STATE_MANAGER, ClimateStateManager
 
 WS_PREFIX = f"{DOMAIN}/climate"
 
@@ -20,6 +21,13 @@ def _manager(hass: HomeAssistant) -> ClimateManager:
     manager = hass.data.get(DOMAIN, {}).get(DATA_CLIMATE_MANAGER)
     if not isinstance(manager, ClimateManager):
         raise StoreUnavailable("Climate configuration is not running")
+    return manager
+
+
+def _state_manager(hass: HomeAssistant) -> ClimateStateManager:
+    manager = hass.data.get(DOMAIN, {}).get(DATA_CLIMATE_STATE_MANAGER)
+    if not isinstance(manager, ClimateStateManager):
+        raise StoreUnavailable("Climate intent is not running")
     return manager
 
 
@@ -54,7 +62,53 @@ async def websocket_save_config(hass: HomeAssistant, connection: websocket_api.A
         _error(connection, msg["id"], err)
 
 
-WEBSOCKET_COMMANDS = (websocket_get_config, websocket_save_config)
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/get_state"})
+@websocket_api.async_response
+async def websocket_get_state(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    try:
+        if set(msg) != {"id", "type"}:
+            raise InvalidFormat("Unexpected WebSocket fields")
+        connection.send_result(msg["id"], _state_manager(hass).get_state())
+    except ClimateError as err:
+        _error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{WS_PREFIX}/set_house_intent",
+    vol.Required("operating_mode"): str,
+    vol.Required("control_mode"): str,
+    vol.Required("expected_revision"): vol.All(int, vol.Range(min=0)),
+})
+@websocket_api.async_response
+async def websocket_set_house_intent(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    try:
+        if set(msg) != {"id", "type", "operating_mode", "control_mode", "expected_revision"}:
+            raise InvalidFormat("Unexpected WebSocket fields")
+        result = await _state_manager(hass).async_set_house_intent(msg["operating_mode"], msg["control_mode"], msg["expected_revision"], connection.user)
+        connection.send_result(msg["id"], result)
+    except ClimateError as err:
+        _error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{WS_PREFIX}/set_zone_intent",
+    vol.Required("zone_id"): str,
+    vol.Required("mode"): str,
+    vol.Required("target_temperature"): vol.Any(None, int, float),
+    vol.Required("expected_revision"): vol.All(int, vol.Range(min=0)),
+})
+@websocket_api.async_response
+async def websocket_set_zone_intent(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    try:
+        if set(msg) != {"id", "type", "zone_id", "mode", "target_temperature", "expected_revision"}:
+            raise InvalidFormat("Unexpected WebSocket fields")
+        result = await _state_manager(hass).async_set_zone_intent(msg["zone_id"], msg["mode"], msg["target_temperature"], msg["expected_revision"], connection.user)
+        connection.send_result(msg["id"], result)
+    except ClimateError as err:
+        _error(connection, msg["id"], err)
+
+
+WEBSOCKET_COMMANDS = (websocket_get_config, websocket_save_config, websocket_get_state, websocket_set_house_intent, websocket_set_zone_intent)
 
 
 async def async_register_climate_api(hass: HomeAssistant) -> None:

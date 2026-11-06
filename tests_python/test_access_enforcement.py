@@ -10,7 +10,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
-
 from access_pure import INTEGRATION_DIR, load
 
 models = load("models")
@@ -31,7 +30,7 @@ DEVICE_POWER = (
     "domusos/device_power/bind_policy",
     "domusos/device_power/delete_policy",
 )
-CLIMATE = ("domusos/climate/get_config", "domusos/climate/save_config")
+CLIMATE = ("domusos/climate/get_config", "domusos/climate/save_config", "domusos/climate/get_state", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent")
 ENFORCED = (*DEVICE_POWER, *CLIMATE)
 ADMIN = models.Principal(user_id="a" * 32, is_admin=True)
 MEMBER = models.Principal(user_id="b" * 32, is_admin=False)
@@ -73,7 +72,7 @@ def test_an_enforced_action_is_an_observed_websocket_capability() -> None:
         assert contract.auth_mode is AuthMode.CAPABILITY, contract.id
         # Exempt means unwrapped: nothing would refuse it.
         assert contract.shadow_exemption is None, contract.id
-        assert contract.capability in {"device_power.manage", "climate.view", "climate.manage"}, contract.id
+        assert contract.capability in {"device_power.manage", "climate.view", "climate.control", "climate.manage"}, contract.id
         assert contract.allow_unattributed_ha_context is False, contract.id
 
 
@@ -113,6 +112,20 @@ def test_climate_view_and_manage_have_different_principals() -> None:
     assert eligible(authorization.authorize_action(MEMBER, profile(MEMBER), CLIMATE[0]))
     denied = authorization.authorize_action(MEMBER, profile(MEMBER), CLIMATE[1])
     assert not eligible(denied) and denied.reason is Reason.REQUIRES_HA_ADMIN
+
+
+@pytest.mark.parametrize("action", ("domusos/climate/set_house_intent", "domusos/climate/set_zone_intent"))
+def test_climate_control_is_separate_and_fails_closed(action) -> None:
+    assert eligible(authorization.authorize_action(ADMIN, profile(ADMIN), action))
+    assert eligible(authorization.authorize_action(MEMBER, profile(MEMBER), action))
+    for role in ("resident", "wall_panel"):
+        assert eligible(authorization.authorize_action(MEMBER, profile(MEMBER, role=role, state=StoreState.READY), action))
+    for role in ("restricted",):
+        assert not eligible(authorization.authorize_action(MEMBER, profile(MEMBER, role=role, state=StoreState.READY), action))
+    for state in (StoreState.CORRUPT, StoreState.UNSUPPORTED, StoreState.MIGRATION_FAILED):
+        assert not eligible(authorization.authorize_action(MEMBER, profile(MEMBER, state=state), action))
+    assert authorization.authorize_action(None, profile(MEMBER), action).reason is Reason.NO_PRINCIPAL
+    assert authorization.authorize_action(MEMBER, None, action).reason is Reason.POLICY_UNAVAILABLE
 
 
 @pytest.mark.parametrize("action", DEVICE_POWER)

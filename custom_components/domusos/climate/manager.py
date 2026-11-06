@@ -51,6 +51,7 @@ class ClimateManager:
         self.state = ClimateStoreState.ABSENT
         self.revision = 0
         self.config: dict[str, Any] | None = None
+        self.on_change: Callable[[], None] | None = None
         self._lock = asyncio.Lock()
 
     async def async_setup(self) -> None:
@@ -113,6 +114,11 @@ class ClimateManager:
             self.config = candidate
             self.revision = next_revision
             self.state = ClimateStoreState.READY
+            if self.on_change is not None:
+                try:
+                    self.on_change()
+                except Exception:
+                    _LOGGER.exception("Climate state listener could not refresh after configuration save")
             self._audit_change(before, next_revision, user.id)
             return self.get_config()
 

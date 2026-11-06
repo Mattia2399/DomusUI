@@ -15,6 +15,10 @@ from custom_components.domusos.climate.manager import (
     ClimateManager,
 )
 from custom_components.domusos.climate.models import empty_config
+from custom_components.domusos.climate.state_manager import (
+    DATA_CLIMATE_STATE_MANAGER,
+    ClimateStateManager,
+)
 from custom_components.domusos.const import DOMAIN
 
 
@@ -99,3 +103,60 @@ async def test_inactive_account_cannot_save(hass: HomeAssistant):
     await hass.auth.async_deactivate_user(user)
     decision = authorize_user_action(hass.data[DOMAIN][DATA_ACCESS_MANAGER], user, "domusos/climate/save_config")
     assert not decision.allowed and store.writes == 0
+
+
+async def setup_intent(hass, admin_user):
+    _, config_manager = await setup_climate(hass)
+    hass.states.async_set("sensor.living_temp", "19.2", {"device_class": "temperature"})
+    config = empty_config()
+    config["zones"] = [{"id": "living", "name": "Living", "areaId": None, "reference": {"primaryEntityId": "sensor.living_temp", "fallbacks": []}, "endpointIds": []}]
+    await config_manager.async_save_config(config, 0, admin_user)
+    state_store = MemoryStore()
+    state_manager = ClimateStateManager(hass, config_manager, store=state_store)
+    await state_manager.async_setup()
+    hass.data[DOMAIN][DATA_CLIMATE_STATE_MANAGER] = state_manager
+    return state_store, state_manager
+
+
+async def test_member_can_control_intent_but_not_manage_and_restricted_direct_ws_is_denied(hass: HomeAssistant, hass_ws_client, hass_admin_user):
+    store, manager = await setup_intent(hass, hass_admin_user)
+    try:
+        member = await hass.auth.async_create_user("Member", group_ids=["system-users"])
+        refresh = await hass.auth.async_create_refresh_token(member, "https://example.com/app")
+        client = await hass_ws_client(hass, hass.auth.async_create_access_token(refresh))
+        initial = await ask(client, {"type": "domusos/climate/get_state"})
+        assert initial["success"] and initial["result"]["revision"] == 0
+        house = await ask(client, {"type": "domusos/climate/set_house_intent", "operating_mode": "heating", "control_mode": "manual", "expected_revision": 0})
+        assert house["success"] and house["result"]["revision"] == 1
+        zone = await ask(client, {"type": "domusos/climate/set_zone_intent", "zone_id": "living", "mode": "follow_house", "target_temperature": 21, "expected_revision": 1})
+        assert zone["success"] and zone["result"]["preview"]["zones"][0]["derived"]["thermalStatus"] == "needs_heating"
+        denied_manage = await ask(client, {"type": "domusos/climate/save_config", "config": empty_config(), "expected_revision": 1})
+        assert denied_manage["error"]["code"] == "access_denied"
+        access = hass.data[DOMAIN][DATA_ACCESS_MANAGER]
+        await access.async_assign(hass_admin_user, member.id, "restricted", [], access.revision)
+        before = (manager.revision, store.writes, deepcopy(store.data))
+        for message in (
+            {"type": "domusos/climate/set_house_intent", "operating_mode": "off", "control_mode": "manual", "expected_revision": 2},
+            {"type": "domusos/climate/set_zone_intent", "zone_id": "living", "mode": "off", "target_temperature": 21, "expected_revision": 2},
+        ):
+            denied = await ask(client, message)
+            assert denied["error"]["code"] == "access_denied"
+        assert (manager.revision, store.writes, store.data) == before
+    finally:
+        await manager.async_shutdown()
+
+
+async def test_intent_direct_ws_fails_closed_without_policy_and_inactive_principal(hass: HomeAssistant, hass_ws_client, hass_admin_user):
+    store, manager = await setup_intent(hass, hass_admin_user)
+    try:
+        admin = await hass_ws_client(hass)
+        hass.data[DOMAIN].pop(DATA_ACCESS_MANAGER)
+        result = await ask(admin, {"type": "domusos/climate/set_house_intent", "operating_mode": "heating", "control_mode": "manual", "expected_revision": 0})
+        assert result["error"]["code"] == "access_denied"
+        assert store.writes == 0 and manager.revision == 0
+        inactive = await hass.auth.async_create_user("Inactive", group_ids=["system-users"])
+        await hass.auth.async_deactivate_user(inactive)
+        assert not authorize_user_action(None, inactive, "domusos/climate/set_zone_intent").allowed
+        assert not authorize_user_action(None, None, "domusos/climate/set_house_intent").allowed
+    finally:
+        await manager.async_shutdown()

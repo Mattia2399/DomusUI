@@ -1,6 +1,6 @@
 # Domus Climate — CLM.1 foundation
 
-> Historical CLM.1 design. CLM.2 now persists HOUSE configuration; see [zone mapping](domus-climate-zone-mapping.md) for the active contract and access rules.
+> Historical CLM.1 design. CLM.2 persists HOUSE configuration; CLM.3A adds a separate [intent runtime](domus-climate-intent-runtime.md). See [zone mapping](domus-climate-zone-mapping.md) for the installation contract.
 
 Domus Climate is HOUSE configuration for shared climate intent. The Settings entry is **Impostazioni → Casa → Clima**, at `/settings/climate`. This phase provides a typed contract and a small page shell. It reads and writes no climate configuration, runs no scheduler, creates no Home Assistant automation, and sends no service call. There is no backend module in CLM.1 because the shell does not need an API or storage. The existing Home Assistant shared house document is a candidate for later persistence; CLM.2 must decide the schema, migration and ownership before saving anything. The Settings registry therefore marks the current storage as `not_persisted`.
 
@@ -91,3 +91,7 @@ The persistent HOUSE document is described in [CLM.2 zone mapping](domus-climate
 **C27:** HOUSE stores installation topology and optional operating/control intent; readings, active physical mode, sensor health, demand, dew point, active generator and overrides remain runtime/derived state outside this store. `controlMode` (`manual`/`auto`), `operatingMode` (`heating`/`cooling`/`off`) and reserved source `strategy` are distinct. Generator `preferred`/`fallback`/`required` links express topology metadata only.
 
 External window, occupancy, weather, PV and price signals belong to a future generic signal/constraint extension point, not special core fields. CLM.3/CLM.5 must decide whether physical changes at a TRV, AC remote or thermostat become temporary overrides or cause configured targets to be restored. No choice is made here.
+
+## CLM.3A intent runtime
+
+The active runtime contract is [CLM.3A intent runtime](domus-climate-intent-runtime.md). It separates installation configuration, persistent house and zone intent, observed HA readings, and derived decision preview. It does not execute HA services. C28–C37 supersede the earlier suggestion in C27 that operating and control mode belong in the installation document: existing optional fields only seed an absent intent store for compatibility.

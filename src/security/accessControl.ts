@@ -30,6 +30,7 @@ export const ACCESS_CAPABILITY_IDS = [
   'energy.view',
   'energy.manage',
   'climate.view',
+  'climate.control',
   'climate.manage',
   'irrigation.view',
   'irrigation.control',

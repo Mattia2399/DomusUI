@@ -6,14 +6,16 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-
 from homeassistant.components import websocket_api
 from homeassistant.core import Context, HomeAssistant
 
 from custom_components.domusos import async_setup
 from custom_components.domusos.access import instrumentation
 from custom_components.domusos.access.actions import ACTION_CONTRACTS, shadow_contracts
-from custom_components.domusos.access.manager import DATA_ACCESS_MANAGER, AccessPolicyManager
+from custom_components.domusos.access.manager import (
+    DATA_ACCESS_MANAGER,
+    AccessPolicyManager,
+)
 from custom_components.domusos.access.models import SCHEMA, SCHEMA_VERSION, STORAGE_KEY
 from custom_components.domusos.access.shadow import ShadowStats
 from custom_components.domusos.const import DOMAIN
@@ -93,7 +95,7 @@ async def test_every_observed_entry_point_is_instrumented_where_home_assistant_r
     await domus(hass)
     commands = {command: handler for command, (handler, _) in hass.data["websocket_api"].items() if command.startswith("domusos/")}
     services = hass.services.async_services().get(DOMAIN, {})
-    assert (len(commands), len(services)) == (44, 5)
+    assert (len(commands), len(services)) == (47, 5)
     observed = {contract.id for contract in shadow_contracts()}
     assert len(observed) == 40
     for action in ACTION_CONTRACTS:

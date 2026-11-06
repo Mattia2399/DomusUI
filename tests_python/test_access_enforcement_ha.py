@@ -12,16 +12,27 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
-
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager, instrumentation
+from custom_components.domusos.access import (
+    DATA_ACCESS_MANAGER,
+    AccessPolicyManager,
+    instrumentation,
+)
 from custom_components.domusos.access.api import async_register_access_api
-from custom_components.domusos.access.models import SCHEMA, SCHEMA_VERSION, STORAGE_KEY, MigrationFailedError
+from custom_components.domusos.access.models import (
+    SCHEMA,
+    SCHEMA_VERSION,
+    STORAGE_KEY,
+    MigrationFailedError,
+)
 from custom_components.domusos.const import DOMAIN
 from custom_components.domusos.core.audit import DomusAuditService
-from custom_components.domusos.device_power import DATA_DEVICE_POWER_MANAGER, DevicePowerManager
+from custom_components.domusos.device_power import (
+    DATA_DEVICE_POWER_MANAGER,
+    DevicePowerManager,
+)
 from custom_components.domusos.device_power.api import async_register_device_power_api
 
 NOW = "2026-10-23T10:00:00+00:00"
@@ -272,7 +283,7 @@ async def test_an_applied_refusal_is_a_security_record_and_an_enforced_deny(hass
 
     diagnostics = (await ask(admin, {"type": "domusos/access/get_shadow_diagnostics"}))["result"]
     assert (diagnostics["mode"], diagnostics["enforced"], diagnostics["rules_version"]) == ("partial", True, 3)
-    assert diagnostics["enforced_actions"] == sorted((*DEVICE_POWER, "domusos/climate/get_config", "domusos/climate/save_config"))
+    assert diagnostics["enforced_actions"] == sorted((*DEVICE_POWER, "domusos/climate/get_config", "domusos/climate/save_config", "domusos/climate/get_state", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent"))
     row = next(row for row in diagnostics["by_action"] if row["action"] == "domusos/device_power/get_state")
     assert row["enforced"] is True
     assert (row["comparisons"]["enforced_deny"], row["comparisons"]["aligned_allow"]) == (1, 1)

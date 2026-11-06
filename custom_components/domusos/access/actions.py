@@ -184,6 +184,9 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
     # --- Climate configuration: backend enforced from the first write -------------
     _ws("climate/get_config", "climate.view", enforced=True),
     _ws("climate/save_config", "climate.manage", _A, enforced=True),
+    _ws("climate/get_state", "climate.view", enforced=True),
+    _ws("climate/set_house_intent", "climate.control", enforced=True),
+    _ws("climate/set_zone_intent", "climate.control", enforced=True),
     # --- Irrigation ------------------------------------------------------------------------
     _ws("irrigation/get_config", "irrigation.view", _R),
     _ws("irrigation/get_state", "irrigation.view", _R),

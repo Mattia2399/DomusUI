@@ -238,4 +238,15 @@ describe('Home Assistant panel bridge schema', () => {
     expect(parsePanelLocale({ language: '' })).toBeNull();
     expect(parsePanelLocale(null)).toBeNull();
   });
+
+  it('allows only the closed Climate intent command shapes through the panel bridge', () => {
+    expect(validatePanelApiMessage({ type: 'domusos/climate/get_state' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/climate/get_state', extra: true })).toBe(false);
+    const house = { type: 'domusos/climate/set_house_intent', operating_mode: 'heating', control_mode: 'manual', expected_revision: 0 };
+    expect(validatePanelApiMessage(house)).toBe(true);
+    expect(validatePanelApiMessage({ ...house, secret: 'x' })).toBe(false);
+    const zone = { type: 'domusos/climate/set_zone_intent', zone_id: 'living', mode: 'follow_house', target_temperature: 21, expected_revision: 1 };
+    expect(validatePanelApiMessage(zone)).toBe(true);
+    expect(validatePanelApiMessage({ ...zone, target_temperature: 21, extra: true })).toBe(false);
+  });
 });

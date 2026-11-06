@@ -21,7 +21,12 @@ from homeassistant.helpers.typing import ConfigType
 from .access import DATA_ACCESS_MANAGER, AccessPolicyManager
 from .access.api import async_register_access_api
 from .calendar_store import DomusCalendarStore
-from .climate import DATA_CLIMATE_MANAGER, ClimateManager
+from .climate import (
+    DATA_CLIMATE_MANAGER,
+    DATA_CLIMATE_STATE_MANAGER,
+    ClimateManager,
+    ClimateStateManager,
+)
 from .climate.api import async_register_climate_api
 from .const import (
     DOMAIN,
@@ -42,7 +47,11 @@ from .energy import EnergyProfileManager
 from .energy.api import async_register_energy_api
 from .irrigation import IrrigationManager
 from .irrigation.api import async_register_irrigation_api
-from .notifications import DATA_NOTIFICATION_ROUTER, NotificationLedger, NotificationRouter
+from .notifications import (
+    DATA_NOTIFICATION_ROUTER,
+    NotificationLedger,
+    NotificationRouter,
+)
 from .profile import ProfileManager
 from .profile.api import DATA_PROFILE_MANAGER, async_register_profile_api
 from .waste_collection import WasteCollectionManager
@@ -78,6 +87,7 @@ class DomusEntryData:
     # (device power, P2.5D.1) are then refused, fail closed.
     access_manager: AccessPolicyManager | None = None
     climate_manager: ClimateManager | None = None
+    climate_state_manager: ClimateStateManager | None = None
 
 
 DomusConfigEntry = ConfigEntry[DomusEntryData]
@@ -419,7 +429,7 @@ async def _async_teardown_notifications(hass: HomeAssistant, entry_data: DomusEn
 
 
 async def _async_setup_climate(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
-    """Load only climate configuration; CLM.2 starts no controller or scheduler."""
+    """Load installation and intent; CLM.3A only observes configured entities."""
     manager = ClimateManager(hass, runtime=lambda: entry_data.runtime)
     try:
         await manager.async_setup()
@@ -428,16 +438,34 @@ async def _async_setup_climate(hass: HomeAssistant, entry_data: DomusEntryData) 
         return
     entry_data.climate_manager = manager
     hass.data.setdefault(DOMAIN, {})[DATA_CLIMATE_MANAGER] = manager
+    state_manager = ClimateStateManager(hass, manager)
+    try:
+        await state_manager.async_setup()
+    except Exception:
+        _LOGGER.exception("Domus Climate intent could not start")
+        await state_manager.async_shutdown()
+        return
+    manager.on_change = state_manager.refresh_config
+    entry_data.climate_state_manager = state_manager
+    hass.data[DOMAIN][DATA_CLIMATE_STATE_MANAGER] = state_manager
 
 
 async def _async_teardown_climate(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
     manager = entry_data.climate_manager
+    state_manager = entry_data.climate_state_manager
     try:
+        if state_manager is not None:
+            await state_manager.async_shutdown()
         if manager is not None:
             await manager.async_shutdown()
     finally:
-        entry_data.climate_manager = None
+        if manager is not None:
+            manager.on_change = None
+        entry_data.climate_state_manager = None
         domain_data = hass.data.get(DOMAIN, {})
+        if state_manager is not None and domain_data.get(DATA_CLIMATE_STATE_MANAGER) is state_manager:
+            domain_data.pop(DATA_CLIMATE_STATE_MANAGER, None)
+        entry_data.climate_manager = None
         if manager is not None and domain_data.get(DATA_CLIMATE_MANAGER) is manager:
             domain_data.pop(DATA_CLIMATE_MANAGER, None)
 
