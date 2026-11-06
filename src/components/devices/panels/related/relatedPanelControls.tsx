@@ -216,7 +216,27 @@ function valueOf(look: RelatedLook, model: RelatedModel, locale: string, words: 
   return model.state;
 }
 
+/*
+ * An icon chosen in the edit mode arrives with the icons of the editor, only for a card that has one:
+ * the pages that open panels do not carry them.
+ */
+const ChosenIcon = React.lazy(() =>
+  import('../../../editor/editorIcons').then(({ EDITOR_ICONS }) => ({
+    default: ({ name }: { name: string }) => {
+      const Icon = EDITOR_ICONS[name]?.icon ?? Activity;
+      return <Icon {...ICON} />;
+    },
+  })),
+);
+
 const iconOf = (control: RelatedControl, model: RelatedModel) => {
+  if (control.icon && !ICONS[control.icon]) {
+    return (
+      <React.Suspense fallback={<Activity {...ICON} />}>
+        <ChosenIcon name={control.icon} />
+      </React.Suspense>
+    );
+  }
   const Icon = (control.icon && ICONS[control.icon]) || (control.look === 'level' && ICONS.level) || (control.look === 'page' && ICONS.page) || (model.deviceClass && ICONS[model.deviceClass]) || ICONS[model.domain] || Activity;
   return <Icon {...ICON} />;
 };
@@ -261,11 +281,13 @@ function panelControlOf(control: RelatedControl, context: RelatedContextValue, l
 export function relatedPanelControls(source: RelatedSource, context: RelatedContextValue, locale: string, refresh: () => void) {
   const words = relatedWordsOf(locale);
   const listed = relatedControlsOf(source);
-  const choices: Record<string, PanelControlChoice> = {};
+  // What the user chose for the controls of the device; once they have chosen, one order holds both.
+  const choices: Record<string, PanelControlChoice> = { ...(source.panelControls as Readonly<Record<string, PanelControlChoice>> | undefined) };
+  const after = source.panelControls ? 0 : RELATED_ORDER_AFTER_DEVICE;
   const controls = listed
     .filter((control) => control.place !== 'hidden')
     .map((control) => {
-      choices[`${RELATED_ID_PREFIX}${control.id}`] = { place: control.place, order: RELATED_ORDER_AFTER_DEVICE + control.order };
+      choices[`${RELATED_ID_PREFIX}${control.id}`] = { place: control.place, order: after + control.order };
       return panelControlOf(control, context, locale, words, refresh);
     });
   return { controls, choices };

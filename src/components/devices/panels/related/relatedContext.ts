@@ -7,7 +7,7 @@ import type { MockEntityStateMap } from '../../../../types/ha';
  * holds; the Rooms say what the first card of the Home with that entity holds.
  */
 
-export type RelatedSource = Pick<Widget, 'relatedControls'> & { widgets?: readonly MicroWidget[] };
+export type RelatedSource = Pick<Widget, 'relatedControls' | 'panelControls'> & { widgets?: readonly MicroWidget[] };
 
 /** The commands of today, those that already go through the rules of access. */
 export type RelatedCommands = {
@@ -18,7 +18,7 @@ export type RelatedCommands = {
 };
 
 export type RelatedContextValue = {
-  /** By the owner of the panel, which for the devices of a room is its entity. */
+  /** By the owner of the panel, which for the devices of a room is its entity: only a card with something for its panel. */
   sourceOf: (owner: string) => RelatedSource | undefined;
   states: MockEntityStateMap;
   history?: Readonly<Record<string, readonly number[]>>;

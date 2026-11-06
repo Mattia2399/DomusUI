@@ -13,7 +13,8 @@ import { GlassSlider } from '../../../ui/GlassSlider';
 import { GlassVerticalSlider } from '../../../ui/GlassVerticalSlider';
 import { DeviceIcon } from '../../cards/DeviceCard';
 import { formatDeviceStatus } from '../../cards/deviceText';
-import { fanLevel, isStandby, type DeviceAction, type DeviceModel } from '../../model/device';
+import { fanLevel, isStandby, toDeviceModel, type DeviceAction, type DeviceModel } from '../../model/device';
+import type { MockEntityStateMap } from '../../../../types/ha';
 import { DEVICE_TINT } from '../../model/panelTint';
 import type { DeviceTimer } from '../../model/deviceTimer';
 import type { PlugEnergy } from '../../model/plugEnergy';
@@ -186,7 +187,13 @@ function usePlugSpec({ model, roomName, protectedPlug = false, onToggleProtected
   };
 }
 
-export const plugEntry: PanelEntry<DevicePanelInput> = { useSpec: usePlugSpec };
+/** The input of the panels of a device from the states alone, with no command. */
+function previewOfDevice(entityId: string, states: MockEntityStateMap): DevicePanelInput | null {
+  const model = toDeviceModel(entityId, states[entityId]);
+  return model ? { model, onAction: () => undefined } : null;
+}
+
+export const plugEntry: PanelEntry<DevicePanelInput> = { useSpec: usePlugSpec, previewOf: previewOfDevice };
 
 function powerOf(model: DeviceModel, dt: DevicesTranslator, onAction: (action: DeviceAction) => void): PanelSpec['action'] {
   return {
@@ -283,7 +290,7 @@ function useFanSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: 
   };
 }
 
-export const fanEntry: PanelEntry<DevicePanelInput> = { useSpec: useFanSpec };
+export const fanEntry: PanelEntry<DevicePanelInput> = { useSpec: useFanSpec, previewOf: previewOfDevice };
 
 function useHumidifierSpec({ model, roomName, timer, timerNow, onSetTimer, onAction }: DevicePanelInput): PanelSpec {
   const dt = useDevicesTranslations();
@@ -324,7 +331,7 @@ function useHumidifierSpec({ model, roomName, timer, timerNow, onSetTimer, onAct
   };
 }
 
-export const humidifierEntry: PanelEntry<DevicePanelInput> = { useSpec: useHumidifierSpec };
+export const humidifierEntry: PanelEntry<DevicePanelInput> = { useSpec: useHumidifierSpec, previewOf: previewOfDevice };
 
 function useCoverSpec({ model, roomName, onAction }: DevicePanelInput): PanelSpec {
   const dt = useDevicesTranslations();
@@ -428,4 +435,4 @@ function useCoverSpec({ model, roomName, onAction }: DevicePanelInput): PanelSpe
   };
 }
 
-export const coverEntry: PanelEntry<DevicePanelInput> = { useSpec: useCoverSpec };
+export const coverEntry: PanelEntry<DevicePanelInput> = { useSpec: useCoverSpec, previewOf: previewOfDevice };

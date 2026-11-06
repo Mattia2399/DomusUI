@@ -3,7 +3,9 @@ import { createPortal } from 'react-dom';
 import { useI18n } from '../../i18n/I18nProvider';
 import { usePanelsTranslations } from '../../i18n/panelsTranslations';
 import { Panel } from '../devices/panels/Panel';
-import { loadMediaPlayer, loadPanelEntry, panelKindOfDevice } from '../devices/panels/registry';
+import { arrangeControls, isActionControl, loadedPanelEntry, loadMediaPlayer, loadPanelEntry, MOST_IN_THE_ROW, PANEL_CONTROLS, panelKindOfDevice } from '../devices/panels/registry';
+import { RelatedContext } from '../devices/panels/related/relatedContext';
+import { PanelSurfaceContext } from '../devices/panels/shell/panelSurface';
 import type { ClimatePanelInput } from '../devices/panels/entries/climate';
 import type { LightPanelInput } from '../devices/panels/entries/light';
 import type { DevicePanelInput } from '../devices/panels/entries/device';
@@ -291,5 +293,12 @@ export function HomePanel(props: HomePanelProps) {
 
 /** The weather has no device card to ask for it: the Home has it ready with the rest. */
 export const preloadWeatherPanel = () => loadPanelEntry('weather');
+
+/*
+ * What the edit mode of a card draws and arranges its panel with. It takes them from here,
+ * the piece the Home already loads for its panels: reaching them on its own would split the
+ * pieces the Rooms share with the panels.
+ */
+export const panelEditorKit = { Panel, RelatedContext, PanelSurfaceContext, arrangeControls, isActionControl, loadPanelEntry, loadedPanelEntry, PANEL_CONTROLS, MOST_IN_THE_ROW };
 
 export default HomePanel;

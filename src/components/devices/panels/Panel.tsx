@@ -26,7 +26,7 @@ const views = new Map<PanelKind, React.ComponentType<EntryProps>>();
 
 type RelatedPanelProps = PanelViewProps & { source: RelatedSource; context: RelatedContextValue; onRetry: () => void };
 
-/* What the related controls are made of arrives only for a card that has them. If it cannot arrive, the device still answers. */
+/* What the related controls and the choices are made of arrives only for a card that has them. If it cannot arrive, the device still answers. */
 const lazyRelatedPanel = () =>
   React.lazy<React.ComponentType<RelatedPanelProps>>(() =>
     import('./related/RelatedPanelView').catch(() => ({
@@ -42,7 +42,7 @@ const drawnBy = (entry: PanelEntry<unknown>) =>
     const [, redraw] = React.useReducer((count: number) => count + 1, 0);
     const source = context?.sourceOf(spec.owner);
     const panel = { spec, live, closeLabel, onClose };
-    if (!context || !source || !(source.relatedControls?.length || source.widgets?.length)) return <PanelView {...panel} />;
+    if (!context || !source) return <PanelView {...panel} />;
     return (
       <RelatedPanel
         {...panel}

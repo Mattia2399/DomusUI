@@ -134,6 +134,56 @@
   gap: 8px;
 }
 
+.panel-editor-count {
+  color: var(--control-ink-2);
+  font-weight: 500;
+}
+
+.panel-editor-note.is-problem {
+  color: var(--control-danger, #ff3b30);
+}
+
+.panel-editor-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-editor-detail-head b {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 17px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.panel-editor-wait,
+.panel-editor-preview-wait {
+  min-height: 220px;
+  border-radius: 18px;
+  background: var(--ui-fill-tertiary);
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.panel-editor-preview {
+  position: relative;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: auto;
+  border-radius: var(--panel-sheet-radius, 28px);
+  padding: 20px 18px;
+  background-color: var(--surface-column);
+  cursor: pointer;
+}
+
 .panel-editor-danger {
   margin-top: 12px;
   border-top: 1px solid var(--control-track);

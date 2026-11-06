@@ -11,8 +11,8 @@ import { GlassSlider } from '../../../ui/GlassSlider';
 import { GlassSwatches } from '../../../ui/GlassSwatches';
 import { GlassVerticalSlider } from '../../../ui/GlassVerticalSlider';
 import { toneTitle } from '../../cards/lightText';
-import { LIGHT_HUE_PRESETS, lightTone, type LightAction, type LightModel } from '../../model/light';
-import type { LightExtraAction } from '../../model/lightExtras';
+import { LIGHT_HUE_PRESETS, lightTone, toLightModel, type LightAction, type LightModel } from '../../model/light';
+import { lightExtrasOf, type LightExtraAction } from '../../model/lightExtras';
 import { hueToRgb, lightRgb, rgbCss } from '../../model/tileColor';
 import type { PanelControl, PanelEntry } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
@@ -293,4 +293,9 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
   };
 }
 
-export const lightEntry: PanelEntry<LightPanelInput> = { useSpec: useLightSpec };
+const nothing = () => undefined;
+
+export const lightEntry: PanelEntry<LightPanelInput> = {
+  useSpec: useLightSpec,
+  previewOf: (entityId, states) => ({ model: toLightModel(entityId, states[entityId]), extras: lightExtrasOf(states[entityId]), onAction: nothing, onExtraAction: nothing }),
+};

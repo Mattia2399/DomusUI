@@ -13,12 +13,14 @@ export type LookPickerProps<T extends string> = {
   value: T;
   onChange: (look: T) => void;
   label: string;
+  /** The name of a look, when it is not one of the related controls: those of a device. */
+  nameOf?: (look: T) => string;
   /** The real control in a look, in its compact form and in its large one. */
   preview?: (look: T, form: 'compact' | 'hero') => React.ReactNode;
 };
 
 /* The looks that fit, the recommended one marked, and the real control in the chosen one. */
-export function LookPicker<T extends string>({ looks, recommended, value, onChange, label, preview }: LookPickerProps<T>) {
+export function LookPicker<T extends string>({ looks, recommended, value, onChange, label, preview, nameOf = lookNameOf }: LookPickerProps<T>) {
   const words = useEditorWords();
   const offered = looks.filter((look) => !MULTI_ENTITY_LOOKS.has(look));
   return (
@@ -37,7 +39,7 @@ export function LookPicker<T extends string>({ looks, recommended, value, onChan
       ) : null}
       <GlassChoiceRows<T>
         ariaLabel={label}
-        options={offered.map((look) => ({ value: look, label: lookNameOf(look), note: look === recommended ? words('recommended') : undefined }))}
+        options={offered.map((look) => ({ value: look, label: nameOf(look), note: look === recommended ? words('recommended') : undefined }))}
         value={value}
         onChange={onChange}
       />

@@ -244,6 +244,11 @@ export function arrangeControls(
 
 export type PanelEntry<Input> = {
   useSpec: (input: Input) => PanelSpec;
+  /**
+   * Its input from the states alone, with no command: what the edit mode draws and reads.
+   * It is here, with the code that already knows the device, so that the edit mode carries none of it.
+   */
+  previewOf?: (entityId: string, states: import('../../../types/ha').MockEntityStateMap) => Input | null;
 };
 
 /** The player has a structure of its own: only its code goes by the rule of the panels. */

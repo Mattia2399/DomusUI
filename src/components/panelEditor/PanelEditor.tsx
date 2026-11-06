@@ -5,6 +5,11 @@ import { PanelHost } from '../devices/panels/PanelHost';
 import { GlassButton } from '../ui/GlassButton';
 import { GlassSegmented } from '../ui/GlassSegmented';
 import { AppearanceTab } from './AppearanceTab';
+import { ControlsTab } from './ControlsTab';
+import { controlRows, entityNameOf, FIXED_PANEL_KINDS, relatedLooksOf } from './controlsModel';
+import { useDeviceControls } from './deviceControls';
+import { PanelPreview } from './PanelPreview';
+import { usePanelKit } from './panelKit';
 import { DeviceTab } from './DeviceTab';
 import type { PanelEditorProps } from './panelEditorTypes';
 import './panelEditor.css';
@@ -21,10 +26,20 @@ export default function PanelEditor(props: PanelEditorProps) {
   const [tab, setTab] = React.useState<PanelEditorTab>('appearance');
   // Fine closes the dialog; the card stays selected and the sidebar can open it again.
   const [closed, setClosed] = React.useState(false);
+  // The control open in Controlli: chosen in the list, or by a touch on the preview of the panel.
+  const [control, setControl] = React.useState<string | null>(null);
   React.useEffect(() => {
     setTab('appearance');
     setClosed(false);
+    setControl(null);
   }, [props.widget.id]);
+  const fixed = FIXED_PANEL_KINDS.has(props.widget.kind);
+  const nameOf = React.useCallback((id: string) => words(`ctl_${id}` as 'ctl_info'), [words]);
+  // The code of the panels arrives with Controlli, from the piece the Home already loads.
+  const kit = usePanelKit(tab === 'controls' && !fixed);
+  const device = useDeviceControls(kit, props.widget, props.haStates, nameOf);
+  const rows = kit ? controlRows(kit, props.widget, device.controls.layout, device.controls.controls, relatedLooksOf(props.haStates), entityNameOf(props.haStates)) : [];
+  const preview = tab === 'controls' && !fixed && kit && device.panel ? { kit, panel: device.panel } : null;
   const tabs = (
     <GlassSegmented<PanelEditorTab>
       ariaLabel={words('tabs')}
@@ -43,14 +58,16 @@ export default function PanelEditor(props: PanelEditorProps) {
     ) : tab === 'device' ? (
       <DeviceTab {...props} />
     ) : (
-      <p className="panel-editor-note">{words('comingNext')}</p>
+      <ControlsTab {...props} kit={kit} rows={rows} ready={device.controls.ready} fixed={fixed} selected={control} onSelect={setControl} />
     );
+  const reader = tab === 'controls' && !fixed ? device.reader : null;
 
   if (props.compact) {
     return (
       <div className="panel-editor is-sheet" data-testid="panel-editor">
         {tabs}
         <div className="panel-editor-scroll">{content(true)}</div>
+        {reader}
       </div>
     );
   }
@@ -79,12 +96,23 @@ export default function PanelEditor(props: PanelEditorProps) {
             </header>
             <div className="panel-editor-columns">
               <div className="panel-editor-left">
-                <p className="panel-editor-heading">{words('cardPreview')}</p>
-                <div className="panel-editor-card-preview">{props.cardPreview}</div>
+                {preview ? (
+                  <>
+                    <p className="panel-editor-heading">{words('panelPreview')}</p>
+                    <p className="panel-editor-note">{words('previewHint')}</p>
+                    <PanelPreview kit={preview.kit} panel={preview.panel} widget={props.widget} states={props.haStates} rows={rows} selected={control} onSelect={setControl} />
+                  </>
+                ) : (
+                  <>
+                    <p className="panel-editor-heading">{words('cardPreview')}</p>
+                    <div className="panel-editor-card-preview">{props.cardPreview}</div>
+                  </>
+                )}
               </div>
               <div className="panel-editor-right">
                 {tabs}
                 <div className="panel-editor-scroll">{content(false)}</div>
+                {reader}
               </div>
             </div>
           </div>

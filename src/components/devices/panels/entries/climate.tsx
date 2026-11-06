@@ -11,8 +11,8 @@ import { GlassTiles } from '../../../ui/GlassTiles';
 import { GlassVerticalSlider } from '../../../ui/GlassVerticalSlider';
 import { CLIMATE_ICONS } from '../../cards/ClimateCard';
 import { CLIMATE_MODE_KEY, climateStatus, degrees, fanPillLabel, presetLabel } from '../../cards/climateText';
-import { climateIsOn, climateNearestTarget, climateSwingToggle, type ClimateAction, type ClimateModel } from '../../model/climate';
-import type { ClimateExtraAction, ClimateExtras } from '../../model/climateExtras';
+import { climateIsOn, climateNearestTarget, climateSwingToggle, toClimateModel, type ClimateAction, type ClimateModel } from '../../model/climate';
+import { climateExtrasOf, type ClimateExtraAction, type ClimateExtras } from '../../model/climateExtras';
 import { CLIMATE_TINT } from '../../model/panelTint';
 import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
@@ -332,4 +332,16 @@ function useClimateSpec({ model, roomName, roomTemperature, roomHumidity, extras
   };
 }
 
-export const climateEntry: PanelEntry<ClimatePanelInput> = { useSpec: useClimateSpec };
+const nothing = () => undefined;
+
+export const climateEntry: PanelEntry<ClimatePanelInput> = {
+  useSpec: useClimateSpec,
+  previewOf: (entityId, states) => ({
+    model: toClimateModel(entityId, states[entityId]),
+    roomTemperature: null,
+    roomHumidity: null,
+    extras: climateExtrasOf(states[entityId]),
+    onAction: nothing,
+    onExtraAction: nothing,
+  }),
+};

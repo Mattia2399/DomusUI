@@ -69,7 +69,9 @@ export const surfaces = [
       'src/pages/rooms/RoomsManagePage.tsx',
       'src/pages/rooms/RoomManageSheets.tsx',
     ],
-    budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 46 * KB } },
+    // gzip limit 46 -> 47 KB (2026-11-06): the cost of the choice of the controls by the user. The panel reads
+    // the place, look and order chosen in the edit mode, and passes to the Home the pieces the editor draws with.
+    budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 47 * KB } },
   },
   // /security. Baseline 123,400 / 41,400.
   {

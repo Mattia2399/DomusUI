@@ -463,7 +463,8 @@ export function ContextSidebar({
     () =>
       openCard && !hasNoAltro
         ? {
-            sourceOf: () => openCard,
+            // As holdsPanelChoices of the Rooms: written here, so that the two pages share no piece for one line.
+            sourceOf: () => (openCard.relatedControls?.length || openCard.widgets?.length || openCard.panelControls ? openCard : undefined),
             states: haStates,
             history: microChartHistoryByEntity,
             demo: openCard.dataSource === 'mock',

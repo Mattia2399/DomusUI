@@ -206,4 +206,48 @@ describe('a look nobody asked for stays away', () => {
   });
 });
 
+describe('the choices of the edit mode', () => {
+  const ids = (list: { control: PanelControl }[]) => list.map(({ control }) => control.id);
+  const stove = [device('modes'), device('fan'), device('align')];
+
+  it('the choices on the device reach the panel, and once there one order holds both', () => {
+    const { choices } = relatedPanelControls(
+      { relatedControls: [{ ...STOVE[0], order: 0 }], panelControls: { modes: { place: 'hidden', order: 1 }, fan: { place: 'more', order: 2 } } },
+      contextOf(),
+      'it-IT',
+      () => undefined,
+    );
+    expect(choices.modes).toEqual({ place: 'hidden', order: 1 });
+    expect(choices['rel:boiler']).toEqual({ place: 'more', order: 0 });
+  });
+
+  it('they change the row, the groups and Altro', () => {
+    const { controls, choices } = relatedPanelControls(
+      {
+        relatedControls: [{ ...STOVE[0], place: 'main', order: 0 }, { ...STOVE[1], place: 'more', order: 4 }],
+        panelControls: { modes: { place: 'hidden', order: 1 }, fan: { place: 'more', order: 2 }, align: { place: 'main', order: 3 } },
+      },
+      contextOf(),
+      'it-IT',
+      () => undefined,
+    );
+    const { main, more } = arrangeControls('stove', [...stove, ...controls], choices);
+    expect(ids(main)).toEqual(['rel:boiler', 'align']);
+    expect(ids(more)).toEqual(['fan', 'rel:power']);
+  });
+
+  it('without choices, the panel of today', () => {
+    const { controls, choices } = build(STOVE);
+    const { main } = arrangeControls('stove', [...stove, ...controls], choices);
+    expect(ids(main)).toEqual(['modes', 'fan', 'align']);
+  });
+
+  it('a card with only choices opens its panel with them; one with nothing, the panel of the device', () => {
+    const card = (extra: Partial<Widget>): Widget => ({ id: 'c', kind: 'climate', title: 'Stufa', entityId: 'climate.stove', dataSource: 'ha', status: 'heat', isOn: true, layout: { i: 'c', x: 0, y: 0, w: 2, h: 4 }, ...extra });
+    expect(homeSourceOf([card({ panelControls: { modes: { place: 'hidden' } } })], 'climate.stove')).toBeDefined();
+    expect(homeSourceOf([card({})], 'climate.stove')).toBeUndefined();
+    expect(homeSourceOf([card({ relatedControls: [] })], 'climate.stove')).toBeUndefined();
+  });
+});
+
 void React;
