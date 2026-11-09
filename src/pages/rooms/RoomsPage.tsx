@@ -152,12 +152,6 @@ import './rooms.css';
 
 export type RoomsPageProps = {
   runtimeMode?: DashboardRuntimeMode;
-  /**
-   * Not read: related controls, micro widgets and the choices of the controls belong to the Home.
-   * The Rooms show the controls of each device as the registry recommends. MainBoard still passes them.
-   */
-  homeWidgets?: readonly Widget[];
-  relatedHistory?: Readonly<Record<string, readonly number[]>>;
   isLoading?: boolean;
   haConnected: boolean;
   canManageRooms?: boolean;

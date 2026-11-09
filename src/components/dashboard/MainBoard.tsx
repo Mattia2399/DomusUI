@@ -12046,8 +12046,6 @@ export function MainBoard() {
               haAreas={haAreas}
               haStates={haStatesForUi}
               onCallService={callHaService}
-              homeWidgets={widgets}
-              relatedHistory={sensorHistoryByEntity}
               onCallApi={callHaApi}
               onSubscribeApi={subscribeHaApi}
               cameraPtzEntityIds={cameraPtzEntityIds}
