@@ -45,7 +45,12 @@ USER = SimpleNamespace(id="member-1", is_active=True, is_admin=False)
 
 async def setup_state(hass, state_data=None, *, config=None, clock=None, schedule=None):
     config = config or scenario_a()
-    for entity_id, state in catalog(config).items():
+    states = catalog(config)
+    for generator in config["generators"]:
+        if generator["setpointKind"] == "generator_water_temperature":
+            entity_id = generator["entity"]["primaryEntityId"]
+            states[entity_id].attributes.update(min_temp=30, max_temp=80, target_temp_step=1)
+    for entity_id, state in states.items():
         hass.states.async_set(entity_id, state.state, state.attributes)
     hass.states.async_set("sensor.living_temp", "19.2", {"device_class": "temperature"})
     config_manager = ClimateManager(hass, store=MemoryStore(storage_document(1, config)), runtime=lambda: None)

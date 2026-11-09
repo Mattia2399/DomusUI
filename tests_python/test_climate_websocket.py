@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from unittest.mock import patch
 
+import pytest
 from homeassistant.core import HomeAssistant
 
 from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager
@@ -14,7 +15,10 @@ from custom_components.domusos.climate.manager import (
     DATA_CLIMATE_MANAGER,
     ClimateManager,
 )
-from custom_components.domusos.climate.models import empty_config
+from custom_components.domusos.climate.models import (
+    ClimatePermissionError,
+    empty_config,
+)
 from custom_components.domusos.climate.state_manager import (
     DATA_CLIMATE_STATE_MANAGER,
     ClimateStateManager,
@@ -100,12 +104,16 @@ async def test_authorization_error_refuses_without_side_effects(hass: HomeAssist
     assert store.writes == 0
 
 
-async def test_inactive_account_cannot_save(hass: HomeAssistant):
-    store, _ = await setup_climate(hass)
+async def test_inactive_account_cannot_save(hass: HomeAssistant, hass_admin_user):
+    store, manager = await setup_climate(hass)
     user = await hass.auth.async_create_user("Inactive", group_ids=["system-admin"])
+    assert not user.is_owner
     await hass.auth.async_deactivate_user(user)
     decision = authorize_user_action(hass.data[DOMAIN][DATA_ACCESS_MANAGER], user, "domusos/climate/save_config")
-    assert not decision.allowed and store.writes == 0
+    assert not decision.allowed
+    with pytest.raises(ClimatePermissionError):
+        await manager.async_save_config(empty_config(), 0, user)
+    assert store.writes == 0 and manager.revision == 0
 
 
 async def setup_intent(hass, admin_user):

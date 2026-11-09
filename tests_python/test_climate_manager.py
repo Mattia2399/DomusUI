@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -136,9 +137,7 @@ async def test_profiles_and_schedule_round_trip_revision_and_no_service_calls(ha
     store = MemoryStore()
     manager = ClimateManager(hass, store=store, runtime=lambda: None)
     await manager.async_setup()
-    with pytest.MonkeyPatch.context() as patcher:
-        calls = []
-        patcher.setattr(hass.services, "async_call", lambda *args, **kwargs: calls.append((args, kwargs)))
+    with patch.object(type(hass.services), "async_call", side_effect=AssertionError("device command")) as service_call:
         saved = await manager.async_save_config(candidate, 0, ADMIN)
         assert saved["revision"] == 1 and store.writes == 1
         expected = deepcopy(candidate)
@@ -152,7 +151,7 @@ async def test_profiles_and_schedule_round_trip_revision_and_no_service_calls(ha
         loaded = ClimateManager(hass, store=store, runtime=lambda: None)
         await loaded.async_setup()
         assert loaded.get_config() == saved
-        assert calls == []
+        service_call.assert_not_called()
 
 
 async def test_execution_ownership_and_freshness_use_admin_config_store(hass: HomeAssistant):

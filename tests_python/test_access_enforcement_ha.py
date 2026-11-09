@@ -283,7 +283,16 @@ async def test_an_applied_refusal_is_a_security_record_and_an_enforced_deny(hass
 
     diagnostics = (await ask(admin, {"type": "domusos/access/get_shadow_diagnostics"}))["result"]
     assert (diagnostics["mode"], diagnostics["enforced"], diagnostics["rules_version"]) == ("partial", True, 3)
-    assert diagnostics["enforced_actions"] == sorted((*DEVICE_POWER, "domusos/climate/get_config", "domusos/climate/save_config", "domusos/climate/get_state", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent"))
+    assert diagnostics["enforced_actions"] == sorted((
+        *DEVICE_POWER,
+        "domusos/climate/get_config",
+        "domusos/climate/save_config",
+        "domusos/climate/get_state",
+        "domusos/climate/set_house_intent",
+        "domusos/climate/set_zone_intent",
+        "domusos/climate/set_zone_override",
+        "domusos/climate/clear_zone_override",
+    ))
     row = next(row for row in diagnostics["by_action"] if row["action"] == "domusos/device_power/get_state")
     assert row["enforced"] is True
     assert (row["comparisons"]["enforced_deny"], row["comparisons"]["aligned_allow"]) == (1, 1)
