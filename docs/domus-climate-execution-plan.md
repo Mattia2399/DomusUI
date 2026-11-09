@@ -1,6 +1,6 @@
 # Domus Climate CLM.3B — supervisory execution plan
 
-CLM.3B inserts a **pure, derived execution plan** after Climate intent, AUTO/manual/override resolution, observed state and compatible paths. `get_state` returns `executionPreview` under the existing `climate.view` authorization. There is no execute API, adapter, HA service call, command timer or persistent plan. `physicalExecutionAllowed` is always `false`; `eligible` means only that a symbolic plan can be formed. The Linux HA harness remains `ENVIRONMENT_BLOCKED`.
+CLM.3B inserts a **pure, derived execution plan** after Climate intent, AUTO/manual/override resolution, observed state and compatible paths. `get_state` returns `executionPreview` under the existing `climate.view` authorization. There is no execute API, adapter, HA service call, command timer or persistent plan. CLM.LNX2 allows `physicalExecutionAllowed=true` when a direct supervisory symbolic plan meets every safety gate, including the now validated Linux HA pre-execution gate. This is readiness for a future adapter, not physical execution.
 
 ## Decisions C71–C87
 
@@ -40,7 +40,7 @@ HA sensor state exposes `unit_of_measurement`; HA climate state exposes `tempera
 
 The attribute/unit behavior follows the official [Home Assistant climate entity contract](https://contributors.home-assistant.io/core/entities/climate/) and [sensor entity contract](https://contributors.home-assistant.io/core/entities/sensor/). Climate state values are converted to the installation unit before HA writes the state; the plan reads the resulting `temperature_unit` rather than assuming °C.
 
-HA `last_updated` is included when available, but even a recent HA state timestamp does not prove that a device sampled recently. CLM.3B deliberately defines no arbitrary timeout. Freshness is `unknown` unless the caller explicitly marks a reference stale; unknown freshness keeps `physicalExecutionAllowed=false`. Before an adapter, a per-reference sampling/freshness policy and HA validation are required. `validUntil` is the earliest known schedule boundary or override expiry. `plan_is_current` requires a freshly recomputed plan and compares revisions, configured-entity input fingerprints and time boundary. Thus a sensor or endpoint change invalidates the old plan even if stored revisions stay the same. A future adapter must additionally recheck ownership and all HA inputs at the instant of execution. The existing single Climate boundary timer and configured-entity listeners are reused; no listener or command timer is added per plan.
+HA `last_updated` is included when available, but even a recent HA state timestamp does not prove that a device sampled recently. CLM.3B deliberately defines no arbitrary timeout. CLM.3C added a per-reference freshness policy; unknown freshness keeps `physicalExecutionAllowed=false`. Linux HA pre-execution validation passed in CLM.LNX1 and is a build capability in CLM.LNX2. `validUntil` is the earliest known schedule boundary or override expiry. `plan_is_current` requires a freshly recomputed plan and compares revisions, configured-entity input fingerprints and time boundary. Thus a sensor or endpoint change invalidates the old plan even if stored revisions stay the same. A future adapter must additionally recheck ownership and all HA inputs at the instant of execution. The existing single Climate boundary timer and configured-entity listeners are reused; no listener or command timer is added per plan.
 
 ## Future reconciliation contract
 
@@ -61,7 +61,7 @@ An eventual adapter would require explicit per-endpoint ownership (`domus_superv
 
 ## Failure matrix
 
-| Condition | Plan possible? | Future physical execution from this plan? | Reason |
+| Condition | Plan possible? | Readiness for a future adapter? | Reason |
 | --- | --- | --- | --- |
 | Config absent/corrupt or state corrupt | No preview | No | Existing runtime health gate |
 | House/Zone OFF | No action | No | `house_off` / `zone_off`; no inferred physical OFF |
@@ -70,15 +70,15 @@ An eventual adapter would require explicit per-endpoint ownership (`domus_superv
 | Freshness unknown | Symbolic plan possible | No | `sensor_freshness_policy_required` |
 | Endpoint unavailable or mode/feature/range changed | No | No | Specific endpoint reason |
 | Zero compatible terminals | No | No | `no_compatible_terminal` |
-| One direct supervisory terminal | Yes, including `noop` | No | Adapter, ownership and Linux validation absent |
+| One direct supervisory terminal | Yes, including `noop` | Ready only with ownership, verified freshness and all safety checks | No adapter exists yet |
 | Two compatible terminals | No | No | `delivery_strategy_required` |
 | Hydronic dependency or shared equipment | No | No | Dependency/coordination reason |
 | Radiant cooling | No | No | `condensation_safety_not_implemented` |
-| Linux HA validation missing | Symbolic plan possible | No | `linux_validation_required` |
+| Linux HA validation missing in an injected build capability | Symbolic plan possible | No | `linux_ha_validation_required` |
 
 ## Invariants E1–E18
 
-E1/E18 zero HA service calls; E2 no plan with invalid config/state; E3 no plan without target; E4 invalid reference cannot produce eligible plan; E5 heating never plans cool; E6 cooling never plans heat; E7 exactly one supervisory endpoint; E8 ambiguous delivery never selected; E9 direct actuator never supervisory; E10 unavailable endpoint never eligible; E11 out-of-range target never clamped; E12 desired equals observed yields no actions; E13 plans carry config/state revisions; E14 stale revision/boundary invalidates plan; E15 plans are never persisted; E16 radiant cooling blocked; E17 no hydronic generator actions. The pure test suite covers these rules and source/schedule/override transitions. Real HA round-trip, Access Control and service-call observation remain blocked by the Linux HA harness.
+E1/E18 zero HA service calls; E2 no plan with invalid config/state; E3 no plan without target; E4 invalid reference cannot produce eligible plan; E5 heating never plans cool; E6 cooling never plans heat; E7 exactly one supervisory endpoint; E8 ambiguous delivery never selected; E9 direct actuator never supervisory; E10 unavailable endpoint never eligible; E11 out-of-range target never clamped; E12 desired equals observed yields no actions; E13 plans carry config/state revisions; E14 stale revision/boundary invalidates plan; E15 plans are never persisted; E16 radiant cooling blocked; E17 no hydronic generator actions. The pure test suite covers these rules and source/schedule/override transitions. Linux HA round-trip, Access Control and service-call observation passed in CLM.LNX1; see [validation evidence](domus-climate-linux-validation.md).
 # CLM.3C update
 
-The CLM.3B sections below record the original planning baseline. CLM.3C adds explicit endpoint ownership, optional reference freshness policy, a pure readiness evaluator and a future command-correlation contract. The current blocker is `linux_ha_validation_required`; the live runtime still sends no service calls. See [the CLM.3C safety contract](domus-climate-execution-safety.md) for current decisions C88–C101.
+The CLM.3B sections above record the original planning baseline. CLM.3C adds explicit endpoint ownership, optional reference freshness policy, a pure readiness evaluator and a future command-correlation contract. CLM.LNX2 supplies the validated Linux HA capability, so eligible direct supervisory plans can report readiness. The live runtime still sends no service calls. See [the CLM.3C safety contract](domus-climate-execution-safety.md) for decisions C88–C101 and [Linux validation evidence](domus-climate-linux-validation.md) for C102–C109.

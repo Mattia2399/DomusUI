@@ -99,8 +99,8 @@ test.beforeEach(async ({ page }) => {
           actions: eligibleScenarios.includes(scenario) ? [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }] : [],
           sensor: { status: scenario === 'invalid_sensor' ? 'sensor_invalid' : 'valid', valueCelsius: scenario === 'invalid_sensor' ? null : 27, source: 'sensor.living_temp', unit: '°C', freshness: scenario === 'stale_sensor' ? 'stale' : scenario === 'golden' || scenario === 'observe_only' ? 'verified' : 'unknown', lastUpdated: houseNow.toISOString() },
           reasons: scenario === 'ambiguous' ? ['delivery_strategy_required'] : scenario === 'invalid_sensor' ? ['sensor_invalid'] : [],
-          planSafe: eligibleScenarios.includes(scenario) || scenario === 'noop', physicalExecutionAllowed: false,
-          physicalBlockers: scenario === 'golden' ? ['linux_ha_validation_required'] : scenario === 'observe_only' ? ['endpoint_not_owned', 'linux_ha_validation_required'] : scenario === 'stale_sensor' ? ['sensor_stale', 'linux_ha_validation_required'] : ['sensor_freshness_unknown', 'linux_ha_validation_required'],
+          planSafe: eligibleScenarios.includes(scenario) || scenario === 'noop', physicalExecutionAllowed: scenario === 'golden',
+          physicalBlockers: scenario === 'golden' ? [] : scenario === 'observe_only' ? ['endpoint_not_owned'] : scenario === 'stale_sensor' ? ['sensor_stale'] : scenario === 'noop' ? ['no_command_required'] : ['sensor_freshness_unknown'],
           configRevision: climateRevision, stateRevision: climateStateRevision, inputFingerprint: `fixture-${scenario}`,
           evaluatedAt: houseNow.toISOString(), validUntil: null,
         } : null;
@@ -234,7 +234,7 @@ test('Climate supervisory preview shows eligible, noop and blocked cases without
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 
-test('Climate safety preview distinguishes Linux, ownership and stale sensor gates without service calls', async ({ page }) => {
+test('Climate safety preview shows validated readiness and remaining gates without service calls', async ({ page }) => {
   await page.goto('/settings/climate');
   await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
   await page.getByRole('button', { name: 'Aggiungi zona' }).click();
@@ -253,14 +253,15 @@ test('Climate safety preview distinguishes Linux, ownership and stale sensor gat
   const runtime = page.locator('[data-climate-runtime="true"]');
   const inspector = runtime.locator('[data-climate-execution-preview="true"]');
   for (const [scenario, label] of [
-    ['golden', 'Piano supervisore pronto. Validazione Home Assistant richiesta.'],
+    ['golden', 'Pronto per adapter supervisore. Nessun comando inviato.'],
     ['observe_only', 'Dispositivo configurato per il solo monitoraggio.'],
     ['stale_sensor', 'Campione del sensore oltre l’età massima configurata.'],
   ]) {
     page.climateExecutionScenario = scenario;
     await runtime.getByRole('button', { name: 'Ricarica' }).click();
     await expect(inspector.getByText(label)).toBeVisible();
-    expect(page.climateLastState.executionPreview.plans[0].physicalExecutionAllowed).toBe(false);
+    expect(page.climateLastState.executionPreview.plans[0].physicalExecutionAllowed).toBe(scenario === 'golden');
+    expect(page.climateLastState.executionPreview.plans[0].physicalBlockers).not.toContain('linux_ha_validation_required');
     expect(page.climateLastState.executionPreview.plans[0].actions).toHaveLength(1);
   }
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);

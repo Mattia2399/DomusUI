@@ -13,6 +13,10 @@ from datetime import UTC, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
+from .execution_validation import (
+    CURRENT_EXECUTION_VALIDATION,
+    ExecutionValidationCapabilities,
+)
 from .sensor_freshness import assess_freshness
 
 ROOM_MIN_C = 0.0
@@ -220,7 +224,8 @@ def _input_fingerprint(config: Mapping[str, Any], zone: Mapping[str, Any],
 
 def build_execution_preview(config: Mapping[str, Any], preview: Mapping[str, Any],
                             states: Mapping[str, Any], *, config_revision: int, state_revision: int,
-                            evaluated_at: datetime, linux_ha_validated: bool = False) -> dict[str, Any]:
+                            evaluated_at: datetime,
+                            validation: ExecutionValidationCapabilities = CURRENT_EXECUTION_VALIDATION) -> dict[str, Any]:
     """Derive a deterministic revision-bound snapshot from the existing Climate preview."""
     if evaluated_at.tzinfo is None:
         raise ValueError("evaluated_at must be timezone aware")
@@ -251,7 +256,7 @@ def build_execution_preview(config: Mapping[str, Any], preview: Mapping[str, Any
         readiness = evaluate_physical_execution_readiness(
             plan, config, zone, config_trusted=True, state_trusted=True,
             current_plan=plan, config_revision=config_revision, state_revision=state_revision,
-            now=evaluated_at, linux_ha_validated=linux_ha_validated)
+            now=evaluated_at, linux_ha_validated=validation.linux_home_assistant)
         plan["physicalExecutionAllowed"] = readiness["allowed"]
         plan["physicalBlockers"] = readiness["blockers"]
         plans.append(plan)

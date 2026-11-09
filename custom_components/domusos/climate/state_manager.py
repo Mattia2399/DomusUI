@@ -21,6 +21,10 @@ from homeassistant.util import dt as dt_util
 from .auto_resolver import resolve_auto
 from .auto_timer import BoundaryTimer
 from .execution_plan import build_execution_preview
+from .execution_validation import (
+    CURRENT_EXECUTION_VALIDATION,
+    ExecutionValidationCapabilities,
+)
 from .intent import (
     STATE_STORAGE_KEY,
     STATE_VERSION,
@@ -47,7 +51,8 @@ DATA_CLIMATE_STATE_MANAGER = "climate_state_manager"
 
 class ClimateStateManager:
     def __init__(self, hass: HomeAssistant, config_manager: ClimateManager, *, store: Any = None,
-                 clock: Callable[[], datetime] | None = None, schedule: Callable[[float, Callable[[], None]], Any] | None = None) -> None:
+                 clock: Callable[[], datetime] | None = None, schedule: Callable[[float, Callable[[], None]], Any] | None = None,
+                 validation: ExecutionValidationCapabilities = CURRENT_EXECUTION_VALIDATION) -> None:
         self.hass = hass
         self.config_manager = config_manager
         self.store: Store[dict[str, Any]] = store if store is not None else Store(hass, STATE_VERSION, STATE_STORAGE_KEY)
@@ -58,6 +63,7 @@ class ClimateStateManager:
         self._unsub_states: Any = None
         self._unsub_config: Any = None
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._execution_validation = validation
         self._boundary = BoundaryTimer(self._clock, schedule or hass.loop.call_later, self._on_boundary)
         self._snapshot: dict[str, Any] | None = None
         self._execution_snapshot: dict[str, Any] | None = None
@@ -234,7 +240,7 @@ class ClimateStateManager:
         self._snapshot = preview(config, current_intent, states, auto_resolution=resolution, active_overrides=overrides, now=now)
         self._execution_snapshot = build_execution_preview(
             config, self._snapshot, states, config_revision=self.config_manager.revision,
-            state_revision=self.revision, evaluated_at=now)
+            state_revision=self.revision, evaluated_at=now, validation=self._execution_validation)
         expiries = [utc_instant(item["expiresAt"], "expiresAt") for item in overrides.values()]
         self._boundary.update(resolution, zone_name, expiries)
 

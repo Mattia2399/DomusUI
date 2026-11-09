@@ -65,6 +65,8 @@ async def test_execution_preview_is_read_only_and_bound_to_current_revisions(has
     config = scenario_a()
     config["zones"][0]["endpointIds"] = ["ac"]
     config["endpoints"] = [config["endpoints"][0]]
+    config["endpoints"][0]["executionOwnership"] = "domus_supervised"
+    config["zones"][0]["reference"].update(freshnessPolicy="max_age", maxAgeSeconds=300)
     config["circuits"] = []
     config["generators"] = []
     manager, store = await setup_state(hass, config=config)
@@ -73,7 +75,7 @@ async def test_execution_preview_is_read_only_and_bound_to_current_revisions(has
         hass.states.async_set("climate.ac", "cool", {"hvac_modes": ["heat", "cool", "off"], "supported_features": 1,
                               "temperature_unit": "°C", "temperature": 26, "current_temperature": 27,
                               "min_temp": 16, "max_temp": 30, "target_temp_step": 0.5})
-        with patch.object(type(hass.services), "async_call", side_effect=AssertionError("device command")):
+        with patch.object(type(hass.services), "async_call", side_effect=AssertionError("device command")) as service_call:
             await manager.async_set_house_intent("cooling", "manual", 0, USER)
             response = await manager.async_set_zone_intent("living", "follow_house", 24, 1, USER)
             plan = response["executionPreview"]["plans"][0]
@@ -81,9 +83,42 @@ async def test_execution_preview_is_read_only_and_bound_to_current_revisions(has
             assert plan["stateRevision"] == response["revision"] == 2
             assert plan["configRevision"] == response["configRevision"] == 1
             assert [action["kind"] for action in plan["actions"]] == ["set_temperature"]
-            assert not plan["physicalExecutionAllowed"]
+            assert plan["physicalExecutionAllowed"] and plan["physicalBlockers"] == []
             assert (await manager.async_get_state())["executionPreview"]["plans"][0]["status"] == "eligible"
+            hass.states.async_set("climate.ac", "cool", {"hvac_modes": ["heat", "cool", "off"], "supported_features": 1,
+                                  "temperature_unit": "°C", "temperature": 24, "current_temperature": 27,
+                                  "min_temp": 16, "max_temp": 30, "target_temp_step": 0.5})
+            await hass.async_block_till_done()
+            noop = manager.get_state()["executionPreview"]["plans"][0]
+            assert noop["status"] == "noop" and noop["actions"] == []
+            assert noop["physicalBlockers"] == ["no_command_required"]
+            service_call.assert_not_called()
         assert store.writes == 2
+    finally:
+        await manager.async_shutdown()
+
+
+async def test_execution_preview_observe_only_blocks_without_linux_reason(hass: HomeAssistant):
+    config = scenario_a()
+    config["zones"][0]["endpointIds"] = ["ac"]
+    config["endpoints"] = [config["endpoints"][0]]
+    config["circuits"] = []
+    config["generators"] = []
+    config["zones"][0]["reference"].update(freshnessPolicy="max_age", maxAgeSeconds=300)
+    manager, _ = await setup_state(hass, config=config)
+    try:
+        hass.states.async_set("sensor.living_temp", "27", {"device_class": "temperature", "unit_of_measurement": "°C"})
+        hass.states.async_set("climate.ac", "cool", {"hvac_modes": ["heat", "cool", "off"], "supported_features": 1,
+                              "temperature_unit": "°C", "temperature": 26, "current_temperature": 27,
+                              "min_temp": 16, "max_temp": 30, "target_temp_step": 0.5})
+        with patch.object(type(hass.services), "async_call", side_effect=AssertionError("device command")) as service_call:
+            await manager.async_set_house_intent("cooling", "manual", 0, USER)
+            response = await manager.async_set_zone_intent("living", "follow_house", 24, 1, USER)
+            plan = response["executionPreview"]["plans"][0]
+            assert plan["status"] == "eligible"
+            assert plan["physicalBlockers"] == ["endpoint_not_owned"]
+            assert not plan["physicalExecutionAllowed"]
+            service_call.assert_not_called()
     finally:
         await manager.async_shutdown()
 

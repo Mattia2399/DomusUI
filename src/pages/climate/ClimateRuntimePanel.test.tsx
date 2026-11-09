@@ -59,6 +59,23 @@ describe('Climate automatic runtime presentation', () => {
     expect(within(panel).getByText(/Dispositivo configurato per il solo monitoraggio/)).toBeTruthy();
     expect(within(panel).getByText(/Freschezza del sensore non verificata/)).toBeTruthy();
     expect(within(panel).getByText(/Validazione Home Assistant su Linux richiesta/)).toBeTruthy();
+    cleanup();
+    const plan = response.executionPreview!.plans[0];
+    plan.physicalExecutionAllowed = true;
+    plan.physicalBlockers = [];
+    show(response);
+    const ready = await waitFor(() => screen.getByText('Anteprima controllo supervisore').closest('section')!);
+    expect(within(ready).getByText(/Requisiti di esecuzione: soddisfatti/)).toBeTruthy();
+    expect(within(ready).getByText(/Pronto per adapter supervisore. Nessun comando inviato./)).toBeTruthy();
+    expect(within(ready).queryByText(/Validazione Home Assistant su Linux richiesta/)).toBeNull();
+    cleanup();
+    plan.status = 'noop';
+    plan.actions = [];
+    plan.physicalExecutionAllowed = false;
+    plan.physicalBlockers = ['no_command_required'];
+    show(response);
+    const aligned = await waitFor(() => screen.getByText('Anteprima controllo supervisore').closest('section')!);
+    expect(within(aligned).getByText(/Requisiti di esecuzione: nessuna azione richiesta/)).toBeTruthy();
   });
 
   it('shows active profile, next change and schedule target', async () => {

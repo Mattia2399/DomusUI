@@ -1,6 +1,6 @@
 # Domus Climate CLM.3C: supervisory execution safety
 
-CLM.3C defines a **read-only** contract for a future physical adapter. It creates no command record, HA service call, retry loop, generator or circuit action. Linux HA validation is `ENVIRONMENT_BLOCKED`, so the live `get_state` preview always includes `linux_ha_validation_required` and `physicalExecutionAllowed=false`.
+CLM.3C defines a **read-only** contract for a future physical adapter. It creates no command record, HA service call, retry loop, generator or circuit action. CLM.LNX2 records the successful Linux HA pre-execution validation as a code-defined capability. A direct supervisory plan can now report `physicalExecutionAllowed=true` when every other safety gate passes. This means ready for a future adapter, not that a command was sent. See [Linux validation evidence and decisions C102-C109](domus-climate-linux-validation.md).
 
 ## C88–C101 decisions
 
@@ -18,7 +18,7 @@ CLM.3C defines a **read-only** contract for a future physical adapter. It create
 | C97 | An identical desired command already pending must be suppressed. Observed equals desired yields a `noop` with no actions. |
 | C98 | A newer plan generation supersedes a pending correlation. It cannot keep governing the endpoint. |
 | C99 | Symbolic plan eligibility and physical readiness are distinct. All readiness blockers are returned in stable order. |
-| C100 | Linux HA validation is a mandatory environment gate. The pure evaluator accepts a future validation flag; the live runtime passes false. |
+| C100 | Linux HA validation is a mandatory environment gate. The evaluator accepts an injectable validation capability; the current live runtime passes the validated capability. |
 | C101 | CLM.3C makes zero HA service calls. |
 
 ## Stored configuration and reference selection
@@ -31,7 +31,7 @@ Endpoint `executionOwnership` accepts `observe_only` or `domus_supervised`. The 
 
 The pure readiness evaluator requires trusted config/state, a current plan generation (revision, fingerprint, plan ID and time boundary), an eligible action, valid target and room reference, verified freshness, one available direct supervisory `climate.*`, exact HVAC mode and supported in-range target, explicit ownership, and Linux HA validation. Plan eligibility already checks the endpoint capabilities and excludes unsupported topology. It returns all relevant blockers, including `endpoint_not_owned`, `sensor_freshness_unknown`, `sensor_stale`, `plan_stale` and `linux_ha_validation_required`.
 
-A unique autonomous direct split AC or explicitly declared autonomous thermostat, owned with a verified reference and valid target, has an eligible symbolic plan; **Linux validation is its only remaining readiness blocker**. A hydronic TRV remains blocked by `hydronic_dependency_unmanaged`; direct manifold switches/valves by `unsupported_direct_actuator`; composite fan coils by `composite_execution_not_supported`; shared multisplit by `shared_equipment_coordination_required`; radiant cooling by `condensation_safety_not_implemented`. No control of circuit, generator, dehumidifier or raw actuator is inferred.
+A unique autonomous direct split AC or explicitly declared autonomous thermostat, owned with a verified reference and valid target, has an eligible symbolic plan and can report **readiness with no blockers**. The Linux blocker remains available when an unvalidated capability is injected for tests or a future build. A hydronic TRV remains blocked by `hydronic_dependency_unmanaged`; direct manifold switches/valves by `unsupported_direct_actuator`; composite fan coils by `composite_execution_not_supported`; shared multisplit by `shared_equipment_coordination_required`; radiant cooling by `condensation_safety_not_implemented`. No control of circuit, generator, dehumidifier or raw actuator is inferred.
 
 ## Future reconciliation contract
 
@@ -41,4 +41,4 @@ Future failure reasons are `service_call_failed`, `entity_unavailable`, `state_n
 
 ## Next phase
 
-Run Linux HA validation for the existing Climate/Access integration and the CLM.3C config/preview contracts. Only after it passes, design the first direct supervisory `climate.*` adapter with an explicit runtime/build gate, action-level correlation and service-call tests. Physical execution stays disabled until that work exists.
+The pre-execution Linux HA validation passed on the two documented HA versions. The next phase can design the first direct supervisory `climate.*` adapter with action-level correlation and service-call tests. No physical execution exists until that work is implemented and tested.

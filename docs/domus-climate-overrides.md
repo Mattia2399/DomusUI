@@ -24,7 +24,7 @@ All modes persist one absolute UTC expiry, at most seven days after creation. Th
 
 The existing Climate cards show the effective temporary target, absolute local expiry and the scheduled target underneath. Controls offer next schedule change by default when available, 30 minutes, one hour, two hours, or a local `HH:MM`. When no next event is available, one hour is the default. The cancel action restores the current schedule immediately. View-only users see the override without controls; manual mode shows only manual target controls. No frontend countdown or browser timezone calculation is used.
 
-Pure tests cover A–Q and T with fixed instants and fake timer; HA state and WebSocket tests for persistence, restart, revision and direct authorization are prepared for the Linux harness. That harness remains `environment-blocked` by instruction. Physical execution remains blocked.
+Pure tests cover A–Q and T with fixed instants and fake timer. HA state and WebSocket tests for persistence, restart, revision and direct authorization passed in the [Linux HA validation](domus-climate-linux-validation.md). Physical execution still requires an adapter and separate validation.
 
 ## Decisions C59–C70
 
