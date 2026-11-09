@@ -1,5 +1,5 @@
 import React from 'react';
-import { parseDeviceTimers, type DeviceTimer } from '../../components/devices/model/deviceTimer';
+import { KNOWN_TIMER_DOMAINS, LEGACY_TIMER_DOMAINS, parseDeviceTimers, parseTimerDomains, type DeviceTimer } from '../../components/devices/model/deviceTimer';
 import type { RoomsApiCall } from '../../components/rooms/roomsDirectory';
 
 /*
@@ -31,23 +31,30 @@ export function useDeviceTimers({
 }) {
   const [timers, setTimers] = React.useState<Record<string, DeviceTimer>>({});
   const [available, setAvailable] = React.useState(demo);
+  // What the server can switch off: the demo can do all this interface knows.
+  const [domains, setDomains] = React.useState<ReadonlySet<string>>(demo ? KNOWN_TIMER_DOMAINS : LEGACY_TIMER_DOMAINS);
   const [now, setNow] = React.useState(() => Date.now());
 
   const readState = React.useCallback(async () => {
     if (!onCallApi) return false;
     const payload = await onCallApi({ type: 'domusos/device_timers/get_state' }, { reportError: false }).catch(() => null);
     const parsed = parseDeviceTimers(payload);
-    if (parsed) setTimers(parsed);
+    if (parsed) {
+      setTimers(parsed);
+      setDomains(parseTimerDomains(payload));
+    }
     return parsed !== null;
   }, [onCallApi]);
 
   React.useEffect(() => {
     if (demo) {
       setAvailable(true);
+      setDomains(KNOWN_TIMER_DOMAINS);
       return undefined;
     }
     setTimers({});
     setAvailable(false);
+    setDomains(LEGACY_TIMER_DOMAINS);
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
     let poll: number | null = null;
@@ -56,7 +63,10 @@ export function useDeviceTimers({
         try {
           const stop = await onSubscribeApi({ type: 'domusos/device_timers/subscribe' }, (event) => {
             const parsed = parseDeviceTimers(event);
-            if (parsed && !cancelled) setTimers(parsed);
+            if (parsed && !cancelled) {
+              setTimers(parsed);
+              setDomains(parseTimerDomains(event));
+            }
           });
           if (cancelled) stop();
           else {
@@ -129,6 +139,7 @@ export function useDeviceTimers({
       const parsed = parseDeviceTimers(payload);
       if (parsed) {
         setTimers(parsed);
+        setDomains(parseTimerDomains(payload));
         return true;
       }
       setTimers(previous);
@@ -138,5 +149,5 @@ export function useDeviceTimers({
     [demo, isOn, onCallApi, onDemoSwitch, readState, timers],
   );
 
-  return { available, timers, now, setTimer };
+  return { available, domains, timers, now, setTimer };
 }

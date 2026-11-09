@@ -2,7 +2,7 @@ import type { DevicesTranslator } from '../../../i18n/devicesTranslations';
 import type { DeviceModel } from './device';
 
 /*
- * The switch-off timers of plugs, fans and humidifiers. The integration runs
+ * The switch-off timers of plugs, fans, humidifiers and lights. The integration runs
  * them and switches the device off itself; the page only shows and sets them.
  * Times are on this device's clock, corrected by the server's "now".
  */
@@ -17,11 +17,27 @@ export type DeviceTimer = {
 /** The choices of the panel; 0 is no timer. */
 export const TIMER_PRESETS = [0, 15, 30, 60, 120] as const;
 
-const TIMER_DOMAINS = new Set(['switch', 'fan', 'humidifier']);
+/** The domains this interface can offer a timer for. */
+export const KNOWN_TIMER_DOMAINS: ReadonlySet<string> = new Set(['switch', 'fan', 'humidifier', 'light']);
+/** What a server that does not say can switch off: an older one, without lights. */
+export const LEGACY_TIMER_DOMAINS: ReadonlySet<string> = new Set(['switch', 'fan', 'humidifier']);
 
-export function canHaveTimer(model: DeviceModel) {
-  return model.kind !== 'cover' && model.kind !== 'virtual' && TIMER_DOMAINS.has(model.entityId.split('.')[0]);
+/**
+ * What the server says it can switch off, in its answer or its events. Without the field, an older
+ * server: the domains of then. With it, only those this interface knows as well.
+ */
+export function parseTimerDomains(payload: unknown): ReadonlySet<string> {
+  const domains = payload && typeof payload === 'object' ? (payload as { domains?: unknown }).domains : undefined;
+  if (!Array.isArray(domains)) return LEGACY_TIMER_DOMAINS;
+  return new Set(domains.filter((domain): domain is string => typeof domain === 'string' && KNOWN_TIMER_DOMAINS.has(domain)));
 }
+
+export function canHaveTimer(model: DeviceModel, domains: ReadonlySet<string> = LEGACY_TIMER_DOMAINS) {
+  return model.kind !== 'cover' && model.kind !== 'virtual' && domains.has(model.entityId.split('.')[0]);
+}
+
+/** A light has a timer only when the server says it switches lights off. */
+export const lightCanHaveTimer = (domains: ReadonlySet<string>) => domains.has('light');
 
 /** The timers in an answer or an event of domusos/device_timers; null when it is not one. */
 export function parseDeviceTimers(payload: unknown, receivedAt = Date.now()): Record<string, DeviceTimer> | null {

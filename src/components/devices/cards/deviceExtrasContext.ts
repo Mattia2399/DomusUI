@@ -17,6 +17,8 @@ export type DeviceExtras = {
   timers: Record<string, DeviceTimer>;
   timerNow: number;
   timersAvailable: boolean;
+  /** What the server can switch off: a light has a timer only when it is here. */
+  timerDomains: ReadonlySet<string>;
   setTimer: (entityId: string, minutes: number) => void;
 };
 

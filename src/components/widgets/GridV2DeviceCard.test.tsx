@@ -149,6 +149,7 @@ describe('Home cards with the v2 metrics', () => {
         timers: {},
         timerNow: 0,
         timersAvailable: false,
+        timerDomains: new Set(['switch', 'fan', 'humidifier']),
         setTimer: vi.fn(),
       };
       const onToggleOnly = vi.fn();

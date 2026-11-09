@@ -436,7 +436,7 @@ export function isValidAccessMessage(message: Record<string, unknown>) {
   );
 }
 
-const DEVICE_TIMER_ENTITY = /^(?:switch|fan|humidifier)\.[a-z0-9_]+$/;
+const DEVICE_TIMER_ENTITY = /^(?:switch|fan|humidifier|light)\.[a-z0-9_]+$/;
 
 /** Device timers: the device and the minutes only; Home Assistant checks the person may control it. */
 export function isValidDeviceTimerMessage(message: Record<string, unknown>) {

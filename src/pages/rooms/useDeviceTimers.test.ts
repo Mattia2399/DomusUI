@@ -42,6 +42,31 @@ describe('useDeviceTimers', () => {
     expect(Object.keys(result.current.timers)).toEqual(['switch.tv']);
   });
 
+  it('knows what the server can switch off: lights only when it says so', async () => {
+    let push: ((event: unknown) => void) | null = null;
+    const onSubscribeApi = vi.fn(async (_message: Record<string, unknown>, callback: (event: never) => void) => {
+      push = callback as (event: unknown) => void;
+      return () => undefined;
+    });
+    const onCallApi = vi.fn(async () => null);
+    const isOn = () => true;
+    const { result } = renderHook(() => useDeviceTimers({ demo: false, isOn, onCallApi, onSubscribeApi }));
+    await waitFor(() => expect(result.current.available).toBe(true));
+    expect(result.current.domains.has('light')).toBe(false);
+    act(() => push?.({ ...answer([]), domains: ['fan', 'humidifier', 'light', 'switch'] }));
+    expect(result.current.domains.has('light')).toBe(true);
+    // An older server: no field, no lights, and no error.
+    act(() => push?.(answer([])));
+    expect(result.current.domains.has('light')).toBe(false);
+    expect(result.current.available).toBe(true);
+  });
+
+  it('the demo can switch off everything this interface knows', () => {
+    const isOn = () => true;
+    const { result } = renderHook(() => useDeviceTimers({ demo: true, isOn }));
+    expect(result.current.domains.has('light')).toBe(true);
+  });
+
   it('has no timers without the integration, and puts a refused one back', async () => {
     const onSubscribeApi = vi.fn(async () => {
       throw new Error('unknown_command');

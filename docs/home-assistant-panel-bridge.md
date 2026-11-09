@@ -347,7 +347,7 @@ const isValidDevicePowerMessage = (message) => {
 };
 // Device timers: a device that switches itself off after a few minutes. Home Assistant
 // checks that the person may control the device, and switches it off itself.
-const DEVICE_TIMER_ENTITY = /^(?:switch|fan|humidifier)\.[a-z0-9_]+$/;
+const DEVICE_TIMER_ENTITY = /^(?:switch|fan|humidifier|light)\.[a-z0-9_]+$/;
 const isValidDeviceTimerMessage = (message) => {
   const isDevice = (value) => typeof value === "string" && DEVICE_TIMER_ENTITY.test(value);
   if (message.type === "domusos/device_timers/get_state" || message.type === "domusos/device_timers/subscribe") {

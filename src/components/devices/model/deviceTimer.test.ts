@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toDeviceModel } from './device';
-import { canHaveTimer, formatTimerDuration, minutesLeft, parseDeviceTimers, withTimer } from './deviceTimer';
+import { canHaveTimer, formatTimerDuration, lightCanHaveTimer, minutesLeft, parseDeviceTimers, parseTimerDomains, withTimer } from './deviceTimer';
 
 const dt = (key: string, parameters: Record<string, string | number> = {}) =>
   `${key}(${Object.entries(parameters).map(([name, value]) => `${name}=${value}`).join(',')})`;
@@ -14,6 +14,22 @@ describe('device timers', () => {
     expect(canHaveTimer(model('humidifier.bagno'))).toBe(true);
     expect(canHaveTimer(model('cover.tapparella'))).toBe(false);
     expect(canHaveTimer(model('input_boolean.ospiti'))).toBe(false);
+  });
+
+  it('belong to the domains the server says, lights only when it says so', () => {
+    const now = '2026-11-09T10:00:00+00:00';
+    const older = parseTimerDomains({ now, timers: [] });
+    expect([...older].sort()).toEqual(['fan', 'humidifier', 'switch']);
+    expect(lightCanHaveTimer(older)).toBe(false);
+    const withLights = parseTimerDomains({ now, timers: [], domains: ['fan', 'humidifier', 'light', 'switch'] });
+    expect(lightCanHaveTimer(withLights)).toBe(true);
+    const withoutLights = parseTimerDomains({ now, timers: [], domains: ['fan', 'switch'] });
+    expect(lightCanHaveTimer(withoutLights)).toBe(false);
+    expect(canHaveTimer(model('humidifier.bagno'), withoutLights)).toBe(false);
+    // Domains this interface does not know, and what is not a name, are left out.
+    expect([...parseTimerDomains({ domains: ['light', 'climate', 'lock', 3, null] })]).toEqual(['light']);
+    expect([...parseTimerDomains({ domains: 'light' })].sort()).toEqual(['fan', 'humidifier', 'switch']);
+    expect([...parseTimerDomains(null)].sort()).toEqual(['fan', 'humidifier', 'switch']);
   });
 
   it('read the server answer on this device clock', () => {

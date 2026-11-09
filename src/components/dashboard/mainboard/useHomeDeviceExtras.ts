@@ -73,9 +73,10 @@ export function useHomeDeviceExtras({
       timers: timers.timers,
       timerNow: timers.now,
       timersAvailable: timers.available,
+      timerDomains: timers.domains,
       setTimer: (entityId, minutes) => void setTimerNow.current(entityId, minutes),
     }),
-    [canProtect, deviceIdOf, protectedSet, setProtectedIds, steadyMeters, timers.available, timers.now, timers.timers],
+    [canProtect, deviceIdOf, protectedSet, setProtectedIds, steadyMeters, timers.available, timers.domains, timers.now, timers.timers],
   );
 
   return { extras, confirmOff, closeConfirmOff: () => setConfirmOff(null) };
