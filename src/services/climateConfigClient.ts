@@ -7,7 +7,7 @@ export type ClimateCallApi = <T = unknown>(message: Record<string, unknown>, opt
 export const CLIMATE_CONFIG_TYPES = { get: 'domusos/climate/get_config', save: 'domusos/climate/save_config' } as const;
 
 export function emptyClimateConfig(): ClimateHouseConfig {
-  return { version: 1, zones: [], endpoints: [], circuits: [], generators: [], profiles: [], schedules: [], strategy: null };
+  return { version: 1, physicalExecutionEnabled: false, zones: [], endpoints: [], circuits: [], generators: [], profiles: [], schedules: [], strategy: null };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -21,7 +21,7 @@ export function isClimateConfigResponse(value: unknown): value is ClimateConfigR
   const config = value.config;
   return isRecord(config) && config.version === 1 &&
     ['zones', 'endpoints', 'circuits', 'generators', 'profiles', 'schedules'].every((key) => Array.isArray(config[key])) &&
-    config.strategy === null;
+    config.strategy === null && (config.physicalExecutionEnabled === undefined || typeof config.physicalExecutionEnabled === 'boolean');
 }
 
 export async function getClimateConfig(callApi: ClimateCallApi): Promise<ClimateConfigResponse> {

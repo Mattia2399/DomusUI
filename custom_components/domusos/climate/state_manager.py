@@ -1,4 +1,4 @@
-"""Persist climate intent separately; observe configured HA entities without commanding them."""
+"""Persist Climate intent and coordinate explicit manual supervisory execution."""
 
 from __future__ import annotations
 
@@ -13,14 +13,16 @@ from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 from homeassistant.const import EVENT_CORE_CONFIG_UPDATE
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Context, HomeAssistant, callback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from ..core.audit import AuditEntry
 from .auto_resolver import resolve_auto
 from .auto_timer import BoundaryTimer
 from .execution_plan import build_execution_preview
+from .execution_runtime import ExecutionRuntime
 from .execution_validation import (
     CURRENT_EXECUTION_VALIDATION,
     ExecutionValidationCapabilities,
@@ -44,6 +46,7 @@ from .models import (
     UnsupportedSchema,
 )
 from .overrides import active_overrides, expiry_instant, utc_instant
+from .supervisory_adapter import AdapterBlocked, SupervisoryAdapter
 
 _LOGGER = logging.getLogger(__name__)
 DATA_CLIMATE_STATE_MANAGER = "climate_state_manager"
@@ -52,6 +55,7 @@ DATA_CLIMATE_STATE_MANAGER = "climate_state_manager"
 class ClimateStateManager:
     def __init__(self, hass: HomeAssistant, config_manager: ClimateManager, *, store: Any = None,
                  clock: Callable[[], datetime] | None = None, schedule: Callable[[float, Callable[[], None]], Any] | None = None,
+                 execution_schedule: Callable[[float, Callable[[], None]], Any] | None = None,
                  validation: ExecutionValidationCapabilities = CURRENT_EXECUTION_VALIDATION) -> None:
         self.hass = hass
         self.config_manager = config_manager
@@ -60,11 +64,14 @@ class ClimateStateManager:
         self.revision = 0
         self.intent: dict[str, Any] | None = None
         self._lock = asyncio.Lock()
+        self._execute_lock = asyncio.Lock()
         self._unsub_states: Any = None
         self._unsub_config: Any = None
         self._clock = clock or (lambda: datetime.now(UTC))
         self._execution_validation = validation
         self._boundary = BoundaryTimer(self._clock, schedule or hass.loop.call_later, self._on_boundary)
+        self._execution = ExecutionRuntime(hass, self._clock, execution_schedule or hass.loop.call_later, self._audit_execution)
+        self._adapter = SupervisoryAdapter(hass)
         self._snapshot: dict[str, Any] | None = None
         self._execution_snapshot: dict[str, Any] | None = None
         self._cleanup_queued = False
@@ -94,12 +101,14 @@ class ClimateStateManager:
                     self.state = ClimateStoreState.READY
         await self.async_cleanup_overrides()
         self._running = True
+        self._execution.start()
         self._unsub_config = self.hass.bus.async_listen(EVENT_CORE_CONFIG_UPDATE, self._on_core_config_update)
         self.refresh_config()
 
     async def async_shutdown(self) -> None:
         self._running = False
         self._boundary.cancel()
+        self._execution.stop()
         if self._unsub_config is not None:
             self._unsub_config()
             self._unsub_config = None
@@ -138,6 +147,7 @@ class ClimateStateManager:
     @callback
     def _on_state_change(self, _event: Any) -> None:
         self._recompute()
+        self._execution.reconcile_all()
 
     @callback
     def _on_core_config_update(self, _event: Any) -> None:
@@ -247,10 +257,113 @@ class ClimateStateManager:
     def get_state(self) -> dict[str, Any]:
         # Also recompute on read: a new config or a just-arrived HA state is immediately visible.
         self._recompute()
+        self._execution.reconcile_all()
         self._queue_cleanup()
         return {"state": self.state.value, "revision": self.revision, "configState": self.config_manager.state.value,
                 "configRevision": self.config_manager.revision, "preview": deepcopy(self._snapshot),
-                "executionPreview": deepcopy(self._execution_snapshot)}
+                "executionPreview": deepcopy(self._execution_snapshot),
+                "executionRuntime": self._execution.snapshot(self.config_manager.config)}
+
+    def _audit_execution(self, reason: str, correlation: Any) -> None:
+        try:
+            runtime = self.config_manager._runtime()
+            if runtime is not None and runtime.audit.running:
+                runtime.audit.record(AuditEntry.create(
+                    "climate.execution", reason, result=correlation["status"],
+                    correlation_id=correlation["correlationId"],
+                    metadata={"zoneId": correlation["zoneId"], "endpointId": correlation["endpointId"],
+                              "entityId": correlation["entityId"], "actionKinds": correlation["actionKinds"],
+                              "result": correlation["status"]},
+                ))
+        except Exception:
+            _LOGGER.debug("Climate execution audit could not be recorded", exc_info=True)
+
+    async def async_execute_plan(self, zone_id: Any, expected_plan_token: Any,
+                                 expected_config_revision: Any, expected_state_revision: Any,
+                                 user: Any) -> dict[str, Any]:
+        """Manually execute one freshly recomputed, armed and ready zone plan."""
+        self._require_account(user)
+        if type(zone_id) is not str or type(expected_plan_token) is not str or len(expected_plan_token) != 32:
+            raise InvalidConfig("plan", "invalid zone or plan token")
+        if type(expected_config_revision) is not int or type(expected_state_revision) is not int:
+            raise InvalidConfig("revision", "expected integers")
+        async with self._execute_lock:
+            if not self._running:
+                raise StoreUnavailable("Climate runtime is stopped")
+            await self.async_cleanup_overrides()
+            state = self.get_state()
+            config = self.config_manager.config
+            if config is None or state["executionPreview"] is None:
+                raise StoreUnavailable("Climate execution preview is unavailable")
+            plan = next((item for item in state["executionPreview"]["plans"] if item["zoneId"] == zone_id), None)
+            if plan is None:
+                raise InvalidConfig("zoneId", "unknown zone")
+            token = plan["planToken"]
+
+            def blocked(reason: str, blockers: list[str] | None = None) -> dict[str, Any]:
+                return {"result": "blocked", "status": "blocked", "planToken": token,
+                        "actionsAttempted": 0, "failureReason": reason, "blockers": blockers or []}
+
+            if (expected_config_revision != self.config_manager.revision
+                    or expected_state_revision != self.revision or expected_plan_token != token):
+                return blocked("plan_stale", ["plan_stale"])
+            if config.get("physicalExecutionEnabled") is not True:
+                return blocked("execution_disabled", ["execution_disabled"])
+            if plan["status"] == "noop":
+                return {"result": "noop", "status": "noop", "planToken": token,
+                        "actionsAttempted": 0, "failureReason": None, "blockers": []}
+            if not plan["physicalExecutionAllowed"]:
+                return blocked("execution_blocked", plan["physicalBlockers"])
+            if not plan["actions"]:
+                return {"result": "noop", "status": "noop", "planToken": token,
+                        "actionsAttempted": 0, "failureReason": None, "blockers": []}
+            try:
+                self._adapter.validate(config, plan, self._clock())
+            except AdapterBlocked as err:
+                return blocked("execution_blocked", [err.reason])
+            if not self._running:
+                return blocked("runtime_stopped", ["runtime_stopped"])
+            duplicate = self._execution.duplicate(plan)
+            if duplicate is not None:
+                return {"result": "duplicate", "status": duplicate["status"], "planToken": token,
+                        "correlationId": duplicate["correlationId"], "actionsAttempted": 0,
+                        "failureReason": None, "blockers": []}
+            correlation = self._execution.begin(plan)
+            correlation_id = correlation["correlationId"]
+            context = Context(user_id=user.id)
+            attempted = 0
+            for action in plan["actions"]:
+                if not self._running:
+                    return blocked("runtime_stopped", ["runtime_stopped"])
+                attempted += 1
+                try:
+                    live_config = self.config_manager.config
+                    if (live_config is None or self.config_manager.revision != plan["configRevision"]
+                            or self.revision != plan["stateRevision"]):
+                        raise AdapterBlocked("plan_stale")
+                    self._adapter.validate(live_config, plan, self._clock())
+                    await self._adapter.send_action(plan, action, context)
+                except AdapterBlocked as err:
+                    if not self._running:
+                        return blocked("runtime_stopped", ["runtime_stopped"])
+                    correlation = self._execution.fail(correlation_id, action["kind"], err.reason)
+                    break
+                except Exception:  # noqa: BLE001 - HA service handlers can raise arbitrary exceptions.
+                    if not self._running:
+                        return blocked("runtime_stopped", ["runtime_stopped"])
+                    _LOGGER.warning("Climate supervisory command failed for correlation %s", correlation_id)
+                    correlation = self._execution.fail(correlation_id, action["kind"], "service_call_failed")
+                    break
+                if not self._running:
+                    return blocked("runtime_stopped", ["runtime_stopped"])
+                self._execution.completed(correlation_id, action["kind"])
+            else:
+                self._execution.reconcile_all()
+                correlation = self._execution.correlation(correlation_id)
+            assert correlation is not None
+            return {"result": "dispatched", "status": correlation["status"], "planToken": token,
+                    "correlationId": correlation_id, "actionsAttempted": attempted,
+                    "failureReason": correlation["failureReason"], "blockers": []}
 
     async def async_get_state(self) -> dict[str, Any]:
         await self.async_cleanup_overrides()

@@ -1,4 +1,4 @@
-"""Closed WebSocket APIs for Climate configuration and read-only intent preview."""
+"""Closed WebSocket APIs for Climate configuration, intent and manual execution."""
 
 from __future__ import annotations
 
@@ -146,8 +146,28 @@ async def websocket_clear_zone_override(hass: HomeAssistant, connection: websock
         _error(connection, msg["id"], err)
 
 
+@websocket_api.websocket_command({
+    vol.Required("type"): f"{WS_PREFIX}/execute_plan",
+    vol.Required("zone_id"): str,
+    vol.Required("expected_plan_token"): str,
+    vol.Required("expected_config_revision"): vol.All(int, vol.Range(min=0)),
+    vol.Required("expected_state_revision"): vol.All(int, vol.Range(min=0)),
+})
+@websocket_api.async_response
+async def websocket_execute_plan(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    try:
+        if set(msg) != {"id", "type", "zone_id", "expected_plan_token", "expected_config_revision", "expected_state_revision"}:
+            raise InvalidFormat("Unexpected WebSocket fields")
+        result = await _state_manager(hass).async_execute_plan(
+            msg["zone_id"], msg["expected_plan_token"], msg["expected_config_revision"],
+            msg["expected_state_revision"], connection.user)
+        connection.send_result(msg["id"], result)
+    except ClimateError as err:
+        _error(connection, msg["id"], err)
+
+
 WEBSOCKET_COMMANDS = (websocket_get_config, websocket_save_config, websocket_get_state, websocket_set_house_intent, websocket_set_zone_intent,
-                      websocket_set_zone_override, websocket_clear_zone_override)
+                      websocket_set_zone_override, websocket_clear_zone_override, websocket_execute_plan)
 
 
 async def async_register_climate_api(hass: HomeAssistant) -> None:

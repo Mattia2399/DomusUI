@@ -169,10 +169,15 @@ def test_state_store_round_trip_and_closed_payload():
         intent.parse_intent(bad)
 
 
-def test_runtime_module_has_no_physical_execution_contract():
+def test_only_supervisory_adapter_has_a_physical_service_boundary():
     climate_dir = Path(__file__).resolve().parents[1] / "custom_components" / "domusos" / "climate"
     for module in climate_dir.glob("*.py"):
         source = module.read_text(encoding="utf-8")
-        assert "async_call(" not in source
-        assert "call_service(" not in source
-        assert "hass.services" not in source
+        if module.name == "supervisory_adapter.py":
+            assert source.count("hass.services.async_call(") == 2
+            assert '"climate", "set_hvac_mode"' in source
+            assert '"climate", "set_temperature"' in source
+        else:
+            assert "async_call(" not in source
+            assert "call_service(" not in source
+            assert "hass.services" not in source

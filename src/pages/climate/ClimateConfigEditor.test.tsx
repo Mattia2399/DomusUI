@@ -17,6 +17,11 @@ describe('Climate execution safety configuration', () => {
     const callApi: ClimateCallApi = async <T,>() => config as T;
     render(<I18nProvider forcedLocale="it"><ClimateConfigEditor initialConfig={config} revision={1}
       callApi={callApi} areas={[]} states={{}} registry={[]} onSaved={() => {}} onCancel={() => {}} onReload={() => {}} /></I18nProvider>);
+    const arm = screen.getByRole('checkbox', { name: 'Controllo fisico Domus' }) as HTMLInputElement;
+    expect(arm.checked).toBe(false);
+    expect(screen.getByText(/attivare questa opzione non invia comandi/)).toBeTruthy();
+    fireEvent.click(arm);
+    expect(arm.checked).toBe(true);
     const freshness = screen.getByRole('combobox', { name: 'Freschezza del sensore' }) as HTMLSelectElement;
     expect(freshness.value).toBe('none');
     fireEvent.change(freshness, { target: { value: 'max_age' } });
@@ -27,6 +32,6 @@ describe('Climate execution safety configuration', () => {
     expect(ownership.value).toBe('observe_only');
     fireEvent.change(ownership, { target: { value: 'domus_supervised' } });
     expect(ownership.value).toBe('domus_supervised');
-    expect(screen.getByText(/Oggi non invia comandi/)).toBeTruthy();
+    expect(screen.getByText(/richiesta manuale/)).toBeTruthy();
   });
 });

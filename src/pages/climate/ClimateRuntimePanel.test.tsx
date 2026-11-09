@@ -43,7 +43,7 @@ describe('Climate automatic runtime presentation', () => {
   it('shows supervisory plans as read-only technical preview with blocked reasons in details', async () => {
     const response = state({ control: 'manual', operating: 'cooling', target: 24 });
     response.executionPreview = { configRevision: 1, stateRevision: 1, evaluatedAt: '2026-01-05T12:00:00+00:00', plans: [{
-      planId: 'plan-1', zoneId: 'living', status: 'eligible', endpointId: 'ac', entityId: 'climate.ac', controlKind: 'supervisory',
+      planId: 'plan-1', planToken: 'a'.repeat(32), zoneId: 'living', status: 'eligible', endpointId: 'ac', entityId: 'climate.ac', controlKind: 'supervisory',
       desired: { hvacMode: 'cool', requestedTargetCelsius: 24, requestedTarget: 24, targetTemperature: 24, temperatureUnit: '°C', normalization: null, targetStep: 0.5 },
       observed: { hvacMode: 'cool', targetTemperature: 26, currentTemperature: 27, available: true, temperatureUnit: '°C' },
       diff: { hvacModeChanged: false, targetChanged: true }, actions: [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }],
@@ -55,7 +55,7 @@ describe('Climate automatic runtime presentation', () => {
     const panel = await waitFor(() => screen.getByText('Anteprima controllo supervisore').closest('section')!);
     expect(within(panel).getByText(/Piano simbolico disponibile/)).toBeTruthy();
     expect(within(panel).getByText(/set_temperature 24/)).toBeTruthy();
-    expect(within(panel).getByText(/Nessun comando viene inviato/)).toBeTruthy();
+    expect(within(panel).getByText(/la preview non invia comandi/)).toBeTruthy();
     expect(within(panel).getByText(/Dispositivo configurato per il solo monitoraggio/)).toBeTruthy();
     expect(within(panel).getByText(/Freschezza del sensore non verificata/)).toBeTruthy();
     expect(within(panel).getByText(/Validazione Home Assistant su Linux richiesta/)).toBeTruthy();
@@ -76,6 +76,42 @@ describe('Climate automatic runtime presentation', () => {
     show(response);
     const aligned = await waitFor(() => screen.getByText('Anteprima controllo supervisore').closest('section')!);
     expect(within(aligned).getByText(/Requisiti di esecuzione: nessuna azione richiesta/)).toBeTruthy();
+  });
+
+  it('requires an armed plan and explicit confirmation before manual dispatch', async () => {
+    const response = state({ control: 'manual', operating: 'cooling', target: 24 });
+    response.executionPreview = { configRevision: 1, stateRevision: 1, evaluatedAt: '2026-01-05T12:00:00+00:00', plans: [{
+      planId: 'plan-1', planToken: 'a'.repeat(32), zoneId: 'living', status: 'eligible', endpointId: 'ac', entityId: 'climate.ac', controlKind: 'supervisory',
+      desired: { hvacMode: 'cool', requestedTargetCelsius: 24, requestedTarget: 24, targetTemperature: 24, temperatureUnit: '°C', normalization: null, targetStep: 0.5 },
+      observed: { hvacMode: 'cool', targetTemperature: 26, currentTemperature: 27, available: true, temperatureUnit: '°C' },
+      diff: { hvacModeChanged: false, targetChanged: true }, actions: [{ kind: 'set_temperature', entityId: 'climate.ac', value: 24, temperatureUnit: '°C', expected: { targetTemperature: 24 } }],
+      sensor: { status: 'valid', valueCelsius: 27, source: 'sensor.living', unit: '°C', freshness: 'verified', lastUpdated: '2026-01-05T12:00:00+00:00' },
+      reasons: [], planSafe: true, physicalExecutionAllowed: true, physicalBlockers: [], configRevision: 1, stateRevision: 1,
+      inputFingerprint: 'input', evaluatedAt: '2026-01-05T12:00:00+00:00', validUntil: null,
+    }] };
+    response.executionRuntime = { armed: false, zones: { living: { currentCorrelation: null } } };
+    const messages: Record<string, unknown>[] = [];
+    const callApi: ClimateCallApi = async <T,>(message) => {
+      messages.push(message);
+      return (message.type === 'domusos/climate/execute_plan' ? {
+        result: 'dispatched', status: 'pending', planToken: 'a'.repeat(32), actionsAttempted: 1,
+        correlationId: 'corr-1', failureReason: null, blockers: [],
+      } : response) as T;
+    };
+    render(<I18nProvider forcedLocale="it"><ClimateRuntimePanel config={config} callApi={callApi} states={{}} canControl /></I18nProvider>);
+    await waitFor(() => expect(screen.getByText('Anteprima controllo supervisore')).toBeTruthy());
+    expect(screen.queryByRole('button', { name: 'Esegui piano' })).toBeNull();
+    response.executionRuntime = { armed: true, zones: { living: { currentCorrelation: null } } };
+    cleanup();
+    render(<I18nProvider forcedLocale="it"><ClimateRuntimePanel config={config} callApi={callApi} states={{}} canControl /></I18nProvider>);
+    const execute = await screen.findByRole('button', { name: 'Esegui piano' });
+    fireEvent.click(execute);
+    expect(messages.filter((item) => item.type === 'domusos/climate/execute_plan')).toHaveLength(0);
+    expect(screen.getByText(/Domus invierà un comando reale a/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Esegui comando' }));
+    await waitFor(() => expect(messages.filter((item) => item.type === 'domusos/climate/execute_plan')).toHaveLength(1));
+    const request = messages.find((item) => item.type === 'domusos/climate/execute_plan')!;
+    expect(request).toEqual({ type: 'domusos/climate/execute_plan', zone_id: 'living', expected_plan_token: 'a'.repeat(32), expected_config_revision: 1, expected_state_revision: 1 });
   });
 
   it('shows active profile, next change and schedule target', async () => {

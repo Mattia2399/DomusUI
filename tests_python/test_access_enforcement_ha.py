@@ -292,6 +292,7 @@ async def test_an_applied_refusal_is_a_security_record_and_an_enforced_deny(hass
         "domusos/climate/set_zone_intent",
         "domusos/climate/set_zone_override",
         "domusos/climate/clear_zone_override",
+        "domusos/climate/execute_plan",
     ))
     row = next(row for row in diagnostics["by_action"] if row["action"] == "domusos/device_power/get_state")
     assert row["enforced"] is True

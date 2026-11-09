@@ -31,6 +31,26 @@ def ready_config():
     return config, desired, states
 
 
+def test_house_arm_defaults_false_and_survives_store_roundtrip():
+    config, _, _ = fixture()
+    assert models.parse_config(config).get("physicalExecutionEnabled", False) is False
+    config["physicalExecutionEnabled"] = True
+    assert models.parse_stored(models.storage_document(3, config)) == (3, config)
+    config["physicalExecutionEnabled"] = "true"
+    with pytest.raises(models.InvalidConfig):
+        models.parse_config(config)
+
+
+def test_plan_token_is_stable_across_evaluations_and_changes_with_inputs():
+    config, desired, states = ready_config()
+    first = snapshot(config, desired, states)
+    second = snapshot(config, desired, states, now=NOW + timedelta(seconds=1))
+    assert first["planToken"] == second["planToken"]
+    assert first["planId"] != second["planId"]
+    desired["zones"]["camera"]["targetTemperature"] = 23
+    assert snapshot(config, desired, states)["planToken"] != first["planToken"]
+
+
 def assert_blocked_without_linux(config, desired, states, reason):
     result = snapshot(config, desired, states)
     assert not result["physicalExecutionAllowed"]

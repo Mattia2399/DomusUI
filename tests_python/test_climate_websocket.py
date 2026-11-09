@@ -204,3 +204,27 @@ async def test_override_ws_requires_climate_control_and_enforces_revision_withou
         assert (manager.revision, store.writes, store.data) == before
     finally:
         await manager.async_shutdown()
+
+
+async def test_execute_ws_rejects_entity_injection_and_denied_principal_without_service_call(
+    hass: HomeAssistant, hass_ws_client, hass_admin_user,
+):
+    _, manager = await setup_intent(hass, hass_admin_user)
+    request = {"type": "domusos/climate/execute_plan", "zone_id": "living",
+               "expected_plan_token": "0" * 32, "expected_config_revision": 1,
+               "expected_state_revision": 0}
+    try:
+        admin = await hass_ws_client(hass)
+        member = await hass.auth.async_create_user("Execution member", group_ids=["system-users"])
+        refresh = await hass.auth.async_create_refresh_token(member, "https://example.com/app")
+        client = await hass_ws_client(hass, hass.auth.async_create_access_token(refresh))
+        with patch.object(type(hass.services), "async_call", side_effect=AssertionError("physical call")) as calls:
+            injected = await ask(admin, {**request, "entity_id": "climate.other"})
+            assert injected["error"]["code"] == "invalid_format"
+            access = hass.data[DOMAIN][DATA_ACCESS_MANAGER]
+            await access.async_assign(hass_admin_user, member.id, "restricted", [], access.revision)
+            denied = await ask(client, request)
+            assert denied["error"]["code"] == "access_denied"
+            calls.assert_not_called()
+    finally:
+        await manager.async_shutdown()

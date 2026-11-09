@@ -189,6 +189,7 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
     _ws("climate/set_zone_intent", "climate.control", enforced=True),
     _ws("climate/set_zone_override", "climate.control", enforced=True),
     _ws("climate/clear_zone_override", "climate.control", enforced=True),
+    _ws("climate/execute_plan", "climate.control", enforced=True),
     # --- Irrigation ------------------------------------------------------------------------
     _ws("irrigation/get_config", "irrigation.view", _R),
     _ws("irrigation/get_state", "irrigation.view", _R),

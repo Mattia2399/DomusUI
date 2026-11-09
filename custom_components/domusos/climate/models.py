@@ -255,7 +255,7 @@ def parse_config(value: Any) -> dict[str, Any]:
             raise InvalidConfig("config", "too large")
     except (TypeError, ValueError, OverflowError) as err:
         raise InvalidConfig("config", "not JSON") from err
-    data = _extended(value, {"version", "zones", "endpoints", "circuits", "generators", "profiles", "schedules", "strategy"}, {"operatingMode", "controlMode", "auxiliaries", "equipmentGroups"}, "config")
+    data = _extended(value, {"version", "zones", "endpoints", "circuits", "generators", "profiles", "schedules", "strategy"}, {"operatingMode", "controlMode", "auxiliaries", "equipmentGroups", "physicalExecutionEnabled"}, "config")
     if type(data["version"]) is not int or data["version"] != VERSION:
         raise InvalidConfig("version")
     if data["strategy"] is not None:
@@ -264,6 +264,8 @@ def parse_config(value: Any) -> dict[str, Any]:
         raise InvalidConfig("operatingMode")
     if "controlMode" in data and data["controlMode"] not in ("manual", "auto"):
         raise InvalidConfig("controlMode")
+    if "physicalExecutionEnabled" in data:
+        _bool(data["physicalExecutionEnabled"], "physicalExecutionEnabled")
     zones: list[dict[str, Any]] = []
     for index, raw in enumerate(_list(data["zones"], "zones", 64)):
         field = f"zones[{index}]"
@@ -454,6 +456,8 @@ def parse_config(value: Any) -> dict[str, Any]:
     for key in ("operatingMode", "controlMode"):
         if key in data:
             result[key] = data[key]
+    if "physicalExecutionEnabled" in data:
+        result["physicalExecutionEnabled"] = data["physicalExecutionEnabled"]
     if "auxiliaries" in data:
         result["auxiliaries"] = auxiliaries
     if "equipmentGroups" in data:
@@ -487,7 +491,7 @@ def storage_document(revision: int, config: dict[str, Any]) -> dict[str, Any]:
 
 
 def empty_config() -> dict[str, Any]:
-    return {"version": VERSION, "zones": [], "endpoints": [], "circuits": [], "generators": [], "profiles": [], "schedules": [], "strategy": None}
+    return {"version": VERSION, "physicalExecutionEnabled": False, "zones": [], "endpoints": [], "circuits": [], "generators": [], "profiles": [], "schedules": [], "strategy": None}
 
 
 def resolve_temperature_source(zone: Mapping[str, Any], states: Mapping[str, Any]) -> str | None:

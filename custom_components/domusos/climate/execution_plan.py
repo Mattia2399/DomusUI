@@ -243,7 +243,7 @@ def build_execution_preview(config: Mapping[str, Any], preview: Mapping[str, Any
             plan["diff"] = {"hvacModeChanged": mode_changed, "targetChanged": target_changed}
             if mode_changed:
                 plan["actions"].append({"kind": "set_hvac_mode", "entityId": plan["entityId"], "value": desired["hvacMode"], "expected": {"hvacMode": desired["hvacMode"]}})
-            if target_changed or mode_changed:
+            if target_changed:
                 plan["actions"].append({"kind": "set_temperature", "entityId": plan["entityId"], "value": desired["targetTemperature"], "temperatureUnit": desired["temperatureUnit"], "expected": {"targetTemperature": desired["targetTemperature"]}})
             if not plan["actions"]:
                 plan["status"] = "noop"
@@ -252,6 +252,10 @@ def build_execution_preview(config: Mapping[str, Any], preview: Mapping[str, Any
         plan["inputFingerprint"] = _input_fingerprint(config, zone, zone_preview, states)
         plan["evaluatedAt"] = instant
         plan["validUntil"] = _valid_until(zone_preview, preview.get("autoResolution"))
+        # Stable across read/recompute calls; changes with every relevant input or revision.
+        token_input = {key: plan[key] for key in ("zoneId", "endpointId", "entityId", "status", "desired", "actions",
+                                                   "configRevision", "stateRevision", "inputFingerprint", "validUntil")}
+        plan["planToken"] = hashlib.sha256(json.dumps(token_input, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:32]
         plan["planId"] = hashlib.sha256(json.dumps(plan, sort_keys=True, separators=(",", ":")).encode()).hexdigest()[:24]
         readiness = evaluate_physical_execution_readiness(
             plan, config, zone, config_trusted=True, state_trusted=True,

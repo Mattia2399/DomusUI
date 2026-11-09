@@ -111,6 +111,7 @@ class ClimateManager:
                 _LOGGER.exception("Climate configuration could not be saved")
                 raise StoreUnavailable("Climate store write failed") from err
             before = self.revision
+            was_armed = bool(self.config and self.config.get("physicalExecutionEnabled") is True)
             self.config = candidate
             self.revision = next_revision
             self.state = ClimateStoreState.READY
@@ -119,10 +120,12 @@ class ClimateManager:
                     self.on_change()
                 except Exception:
                     _LOGGER.exception("Climate state listener could not refresh after configuration save")
-            self._audit_change(before, next_revision, user.id)
+            self._audit_change(before, next_revision, user.id, was_armed,
+                               candidate.get("physicalExecutionEnabled") is True)
             return self.get_config()
 
-    def _audit_change(self, before: int, after: int, principal_id: str) -> None:
+    def _audit_change(self, before: int, after: int, principal_id: str,
+                      was_armed: bool, is_armed: bool) -> None:
         try:
             runtime = self._runtime()
             if runtime is not None and runtime.audit.running:
@@ -131,5 +134,11 @@ class ClimateManager:
                     metadata={"action": "domusos/climate/save_config", "revision_before": before,
                               "revision_after": after, "principal_id": principal_id},
                 ))
+                if was_armed != is_armed:
+                    runtime.audit.record(AuditEntry.create(
+                        "climate.execution", "execution_armed" if is_armed else "execution_disarmed",
+                        result="success", metadata={"principal_id": principal_id,
+                                                    "revision_before": before, "revision_after": after},
+                    ))
         except Exception:
             _LOGGER.debug("Climate audit could not be recorded", exc_info=True)

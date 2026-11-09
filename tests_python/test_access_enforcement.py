@@ -30,7 +30,7 @@ DEVICE_POWER = (
     "domusos/device_power/bind_policy",
     "domusos/device_power/delete_policy",
 )
-CLIMATE = ("domusos/climate/get_config", "domusos/climate/save_config", "domusos/climate/get_state", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent", "domusos/climate/set_zone_override", "domusos/climate/clear_zone_override")
+CLIMATE = ("domusos/climate/get_config", "domusos/climate/save_config", "domusos/climate/get_state", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent", "domusos/climate/set_zone_override", "domusos/climate/clear_zone_override", "domusos/climate/execute_plan")
 ENFORCED = (*DEVICE_POWER, *CLIMATE)
 ADMIN = models.Principal(user_id="a" * 32, is_admin=True)
 MEMBER = models.Principal(user_id="b" * 32, is_admin=False)

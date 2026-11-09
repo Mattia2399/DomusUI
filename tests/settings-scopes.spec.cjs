@@ -48,6 +48,16 @@ test.beforeEach(async ({ page }) => {
         else { climateConfig = message.config; climateRevision += 1; reply({ state: 'ready', revision: climateRevision, config: climateConfig }); }
         return true;
       }
+      if (message.type === 'domusos/climate/execute_plan') {
+        if (!climateConfig?.physicalExecutionEnabled || page.climateExecutionScenario !== 'golden'
+          || message.expected_plan_token !== 'a'.repeat(32)
+          || message.expected_config_revision !== climateRevision
+          || message.expected_state_revision !== climateStateRevision) {
+          fail('plan_stale', 'The current plan is not executable');
+        } else reply({ result: 'dispatched', status: 'pending', planToken: 'a'.repeat(32), actionsAttempted: 1,
+          correlationId: 'test-correlation', failureReason: null, blockers: [] });
+        return true;
+      }
       if (['domusos/climate/get_state', 'domusos/climate/set_house_intent', 'domusos/climate/set_zone_intent', 'domusos/climate/set_zone_override', 'domusos/climate/clear_zone_override'].includes(message.type)) {
         if (message.type !== 'domusos/climate/get_state') {
           if (message.expected_revision !== climateStateRevision) { fail('conflict', 'Revision changed'); return true; }
@@ -88,7 +98,7 @@ test.beforeEach(async ({ page }) => {
         const scenario = page.climateExecutionScenario;
         const eligibleScenarios = ['eligible', 'golden', 'observe_only', 'stale_sensor'];
         const executionPlan = scenario && zones[0] ? {
-          planId: `preview-${scenario}`, zoneId: zones[0].zoneId,
+          planId: `preview-${scenario}`, planToken: 'a'.repeat(32), zoneId: zones[0].zoneId,
           status: eligibleScenarios.includes(scenario) || scenario === 'noop' ? scenario === 'noop' ? 'noop' : 'eligible' : 'blocked',
           endpointId: eligibleScenarios.includes(scenario) || scenario === 'noop' ? 'ac' : null,
           entityId: eligibleScenarios.includes(scenario) || scenario === 'noop' ? 'climate.ac' : null,
@@ -105,7 +115,8 @@ test.beforeEach(async ({ page }) => {
           evaluatedAt: houseNow.toISOString(), validUntil: null,
         } : null;
         const snapshot = { state: climateStateRevision ? 'ready' : 'absent', revision: climateStateRevision, configState: climateConfig ? 'ready' : 'absent', configRevision: climateRevision, preview: climateConfig ? { house: climateIntent.house, autoResolution, zones, deadbandCelsius: 0.2 } : null,
-          executionPreview: executionPlan ? { plans: [executionPlan], configRevision: climateRevision, stateRevision: climateStateRevision, evaluatedAt: houseNow.toISOString() } : null };
+          executionPreview: executionPlan ? { plans: [executionPlan], configRevision: climateRevision, stateRevision: climateStateRevision, evaluatedAt: houseNow.toISOString() } : null,
+          executionRuntime: { armed: climateConfig?.physicalExecutionEnabled === true, zones: Object.fromEntries(zones.map((zone) => [zone.zoneId, { currentCorrelation: null }])) } };
         page.climateLastState = snapshot;
         reply(snapshot);
         return true;
@@ -264,6 +275,37 @@ test('Climate safety preview shows validated readiness and remaining gates witho
     expect(page.climateLastState.executionPreview.plans[0].physicalBlockers).not.toContain('linux_ha_validation_required');
     expect(page.climateLastState.executionPreview.plans[0].actions).toHaveLength(1);
   }
+  expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
+});
+
+test('Climate physical arm still requires one confirmed manual execute request', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('checkbox', { name: 'Controllo fisico Domus' }).check();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Camera');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('combobox', { name: 'Freschezza del sensore' }).selectOption('max_age');
+  await page.getByRole('button', { name: '2. Dispositivi e ruoli' }).click();
+  await page.getByRole('button', { name: 'Aggiungi dispositivo' }).click();
+  await page.getByRole('textbox', { name: 'Nome dispositivo' }).fill('Split');
+  await page.getByRole('combobox', { name: 'Entità HA' }).selectOption('climate.ac');
+  await page.getByRole('combobox', { name: 'Controllo da Domus' }).selectOption('domus_supervised');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  page.climateExecutionScenario = 'golden';
+  const runtime = page.locator('[data-climate-runtime="true"]');
+  await runtime.getByRole('button', { name: 'Ricarica' }).click();
+  await expect(runtime.getByRole('button', { name: 'Esegui piano' })).toBeVisible();
+  expect(page.climateHome.messages.filter((message) => message.type === 'domusos/climate/execute_plan')).toHaveLength(0);
+  await runtime.getByRole('button', { name: 'Esegui piano' }).click();
+  await expect(runtime.getByText(/Domus invierà un comando reale a/)).toBeVisible();
+  await runtime.getByRole('button', { name: 'Annulla' }).click();
+  expect(page.climateHome.messages.filter((message) => message.type === 'domusos/climate/execute_plan')).toHaveLength(0);
+  await runtime.getByRole('button', { name: 'Esegui piano' }).click();
+  await runtime.getByRole('button', { name: 'Esegui comando' }).click();
+  await expect.poll(() => page.climateHome.messages.filter((message) => message.type === 'domusos/climate/execute_plan').length).toBe(1);
+  const request = page.climateHome.messages.find((message) => message.type === 'domusos/climate/execute_plan');
+  expect(Object.keys(request).sort()).toEqual(['expected_config_revision', 'expected_plan_token', 'expected_state_revision', 'id', 'type', 'zone_id']);
   expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 

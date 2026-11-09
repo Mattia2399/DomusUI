@@ -15,13 +15,20 @@ FailureReason = Literal["service_call_failed", "entity_unavailable", "state_not_
 
 class ClimateCommandCorrelation(TypedDict):
     correlationId: str
+    zoneId: str
+    endpointId: str
     planGeneration: str
+    planToken: str
     entityId: str
-    issuedAt: str | None
+    createdAt: str
+    issuedAt: str
     expectedState: dict[str, Any]
     status: CorrelationStatus
-    reconciliationDeadline: str | None
-    failureReason: FailureReason | None
+    completedActions: list[str]
+    actionKinds: list[str]
+    failedAction: str | None
+    reconciliationDeadline: str
+    failureReason: FailureReason | str | None
 
 
 def expected_state(plan: Mapping[str, Any]) -> dict[str, Any]:

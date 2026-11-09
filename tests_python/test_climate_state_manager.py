@@ -43,7 +43,7 @@ class MemoryStore:
 USER = SimpleNamespace(id="member-1", is_active=True, is_admin=False)
 
 
-async def setup_state(hass, state_data=None, *, config=None, clock=None, schedule=None):
+async def setup_state(hass, state_data=None, *, config=None, clock=None, schedule=None, execution_schedule=None):
     config = config or scenario_a()
     states = catalog(config)
     for generator in config["generators"]:
@@ -56,7 +56,8 @@ async def setup_state(hass, state_data=None, *, config=None, clock=None, schedul
     config_manager = ClimateManager(hass, store=MemoryStore(storage_document(1, config)), runtime=lambda: None)
     await config_manager.async_setup()
     store = MemoryStore(state_data)
-    manager = ClimateStateManager(hass, config_manager, store=store, clock=clock, schedule=schedule)
+    manager = ClimateStateManager(hass, config_manager, store=store, clock=clock, schedule=schedule,
+                                  execution_schedule=execution_schedule)
     await manager.async_setup()
     return manager, store
 

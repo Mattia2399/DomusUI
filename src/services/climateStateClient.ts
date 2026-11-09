@@ -18,7 +18,7 @@ export type ClimateZoneState = {
 };
 export type ClimateExecutionAction = { kind: 'set_hvac_mode' | 'set_temperature'; entityId: string; value: string | number; temperatureUnit?: '°C' | '°F'; expected: { hvacMode?: 'heat' | 'cool'; targetTemperature?: number } };
 export type ClimateExecutionPlan = {
-  planId: string; zoneId: string; status: 'eligible' | 'noop' | 'blocked' | 'unresolved';
+  planId: string; planToken: string; zoneId: string; status: 'eligible' | 'noop' | 'blocked' | 'unresolved';
   endpointId: string | null; entityId: string | null; controlKind: 'supervisory' | null;
   desired: { hvacMode: 'heat' | 'cool'; requestedTargetCelsius: number; requestedTarget: number; targetTemperature: number; temperatureUnit: '°C' | '°F'; normalization: 'endpoint_step' | null; targetStep: number | null } | null;
   observed: { hvacMode: string; targetTemperature: number | null; currentTemperature: number | null; available: boolean; temperatureUnit: '°C' | '°F' } | null;
@@ -29,9 +29,13 @@ export type ClimateExecutionPlan = {
   configRevision: number; stateRevision: number; inputFingerprint: string; evaluatedAt: string; validUntil: string | null;
 };
 export type ClimateExecutionPreview = { plans: ClimateExecutionPlan[]; configRevision: number; stateRevision: number; evaluatedAt: string };
-export type ClimateStateResponse = { state: 'absent' | 'ready' | 'corrupt' | 'unsupported' | 'migration_failed'; revision: number; configState: string; configRevision: number; preview: { house: { operatingMode: ClimateOperatingMode; controlMode: ClimateControlMode }; autoResolution?: ClimateAutoResolution | null; zones: ClimateZoneState[]; deadbandCelsius: number } | null; executionPreview?: ClimateExecutionPreview | null };
+export type ClimateCorrelation = { correlationId: string; status: 'pending' | 'converged' | 'failed' | 'partial_failure' | 'superseded'; issuedAt: string; failureReason: string | null; completedActions: string[] };
+export type ClimateExecutionRuntime = { armed: boolean; zones: Record<string, { currentCorrelation: ClimateCorrelation | null }> };
+export type ClimateStateResponse = { state: 'absent' | 'ready' | 'corrupt' | 'unsupported' | 'migration_failed'; revision: number; configState: string; configRevision: number; preview: { house: { operatingMode: ClimateOperatingMode; controlMode: ClimateControlMode }; autoResolution?: ClimateAutoResolution | null; zones: ClimateZoneState[]; deadbandCelsius: number } | null; executionPreview?: ClimateExecutionPreview | null; executionRuntime?: ClimateExecutionRuntime };
 
-export const CLIMATE_STATE_TYPES = { get: 'domusos/climate/get_state', house: 'domusos/climate/set_house_intent', zone: 'domusos/climate/set_zone_intent', override: 'domusos/climate/set_zone_override', clearOverride: 'domusos/climate/clear_zone_override' } as const;
+export type ClimateExecutionResult = { result: 'blocked' | 'noop' | 'duplicate' | 'dispatched'; status: 'blocked' | 'noop' | ClimateCorrelation['status']; planToken: string; actionsAttempted: number; correlationId?: string; failureReason: string | null; blockers: string[] };
+
+export const CLIMATE_STATE_TYPES = { get: 'domusos/climate/get_state', house: 'domusos/climate/set_house_intent', zone: 'domusos/climate/set_zone_intent', override: 'domusos/climate/set_zone_override', clearOverride: 'domusos/climate/clear_zone_override', execute: 'domusos/climate/execute_plan' } as const;
 
 function stateResponse(value: unknown): ClimateStateResponse {
   const record = (item: unknown): item is Record<string, unknown> => item !== null && typeof item === 'object' && !Array.isArray(item);
@@ -46,10 +50,11 @@ function stateResponse(value: unknown): ClimateStateResponse {
           Array.isArray(zone.derived.terminals) && Array.isArray(zone.derived.compatiblePaths))) throw new Error('Stato Clima non valido.');
   }
   if (value.executionPreview != null && (!record(value.executionPreview) || !Array.isArray(value.executionPreview.plans) ||
-      !value.executionPreview.plans.every((plan: unknown) => record(plan) && typeof plan.zoneId === 'string' &&
+      !value.executionPreview.plans.every((plan: unknown) => record(plan) && typeof plan.zoneId === 'string' && typeof plan.planToken === 'string' &&
         ['eligible', 'noop', 'blocked', 'unresolved'].includes(String(plan.status)) && Array.isArray(plan.actions) &&
         Array.isArray(plan.reasons) && typeof plan.physicalExecutionAllowed === 'boolean' &&
         Array.isArray(plan.physicalBlockers)))) throw new Error('Anteprima controllo non valida.');
+  if (value.executionRuntime !== undefined && (!record(value.executionRuntime) || typeof value.executionRuntime.armed !== 'boolean' || !record(value.executionRuntime.zones))) throw new Error('Stato esecuzione non valido.');
   return value as ClimateStateResponse;
 }
 
@@ -73,6 +78,20 @@ export async function setZoneOverride(callApi: ClimateCallApi, zoneId: string, t
 
 export async function clearZoneOverride(callApi: ClimateCallApi, zoneId: string, revision: number): Promise<ClimateStateResponse> {
   return stateResponse(await callApi<ClimateStateResponse>({ type: CLIMATE_STATE_TYPES.clearOverride, zone_id: zoneId, expected_revision: revision }, { reportError: false, throwOnError: true }));
+}
+
+export async function executeClimatePlan(callApi: ClimateCallApi, plan: ClimateExecutionPlan): Promise<ClimateExecutionResult> {
+  const value: unknown = await callApi<unknown>({ type: CLIMATE_STATE_TYPES.execute, zone_id: plan.zoneId,
+    expected_plan_token: plan.planToken, expected_config_revision: plan.configRevision,
+    expected_state_revision: plan.stateRevision }, { reportError: false, throwOnError: true });
+  const record = (item: unknown): item is Record<string, unknown> => item !== null && typeof item === 'object' && !Array.isArray(item);
+  if (!record(value) || !['blocked', 'noop', 'duplicate', 'dispatched'].includes(String(value.result)) ||
+      !['blocked', 'noop', 'pending', 'converged', 'failed', 'partial_failure', 'superseded'].includes(String(value.status)) ||
+      typeof value.planToken !== 'string' || !Number.isInteger(value.actionsAttempted) ||
+      (value.correlationId !== undefined && typeof value.correlationId !== 'string') ||
+      (value.failureReason !== null && typeof value.failureReason !== 'string') ||
+      !Array.isArray(value.blockers) || !value.blockers.every((item: unknown) => typeof item === 'string')) throw new Error('Risposta esecuzione Climate non valida.');
+  return value as ClimateExecutionResult;
 }
 
 /** Only configured entities trigger a refresh. No timer or HA-wide polling. */

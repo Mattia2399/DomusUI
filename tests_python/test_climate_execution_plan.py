@@ -62,12 +62,19 @@ def test_single_split_cooling_is_symbolic_and_revision_bound():
     assert not execution.plan_is_current(result, config_revision=4, state_revision=7, now=NOW, current_plan=changed)
 
 
-def test_mode_change_has_stable_order_and_reasserts_target():
+def test_mode_only_does_not_reassert_unchanged_target():
     config, desired, states = fixture(endpoint_mode="heat", endpoint_target=24)
     result = plan(config, desired, states)
-    assert [action["kind"] for action in result["actions"]] == ["set_hvac_mode", "set_temperature"]
+    assert [action["kind"] for action in result["actions"]] == ["set_hvac_mode"]
     assert result["diff"] == {"hvacModeChanged": True, "targetChanged": False}
     assert result["actions"][0]["expected"] == {"hvacMode": "cool"}
+
+
+def test_mode_and_target_have_stable_order():
+    config, desired, states = fixture(endpoint_mode="heat", endpoint_target=26)
+    result = plan(config, desired, states)
+    assert [action["kind"] for action in result["actions"]] == ["set_hvac_mode", "set_temperature"]
+    assert result["actions"][1]["expected"] == {"targetTemperature": 24}
 
 
 def test_noop_uses_numerical_tolerance_and_never_commands():
