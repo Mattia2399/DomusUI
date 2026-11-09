@@ -27,7 +27,7 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `dashboard.reset` | Ripristinare la configurazione iniziale | high | sì | ha_native | — |
 | `rooms.view` | Vedere le stanze | low | — | ha_native | — |
 | `devices.control` | Luci, prese, clima, tapparelle, media, aspirapolvere, ventole | medium | — | ha_native (`check_entity`) | — |
-| `devices.timers` | Spegnimento automatico di prese, ventilatori e umidificatori | medium | — | **domus** (+ `check_entity`) | — |
+| `devices.timers` | Spegnimento automatico di prese, ventilatori, umidificatori e luci | medium | — | **domus** (+ `check_entity`) | — |
 | `access.control` | Accesso fisico: serrature, porte, cancelli, garage, ingressi motorizzati | high | — | ha_native (+ codici HA) | **sì** |
 | `security.view` | Pagina Sicurezza, telecamere, sensori | medium | — | ha_native | — |
 | `security.control` | Antifurto: armare, disarmare, modalità | high | — | ha_native (+ codici HA) | **sì** |
@@ -59,7 +59,9 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `developer.use` | Modalità sviluppatore | low | — | local | — |
 
 35 capability (`waste.view` aggiunta in P2.2, `devices.timers` con i timer di
-spegnimento). Regole verificate dai test:
+spegnimento, estesi alle luci nel 2026-11). Chi può comandare una luce può
+impostarne il timer, come per le prese: stesso ruolo e stesso `check_entity`
+con il permesso di comando. Regole verificate dai test:
 
 - solo `access.control` e `security.control` sono concedibili, e da P2.4.1 un
   admin HA li concede da Impostazioni › Persone e accessi › Ruoli e permessi
@@ -224,7 +226,7 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | Irrigazione: zona, pausa, stop | WS o servizio | `domusos.*_irrigation*` | `irrigation/start_zone`, `stop_zone`, `pause`, `resume`, `stop_all` | `irrigation.control` | medium |
 | Irrigazione: configurazione | WS | — | `irrigation/save_config`, `prepare_legacy_removal` | `irrigation.manage` | medium |
 | Alimentazione | WS | (il controller agisce in HA) | `device_power/get_state`, `save_policy`, `bind_policy`, `delete_policy` | `device_power.manage` | high |
-| Timer di spegnimento | WS | (lo spegnimento lo fa l'integrazione in HA) | `device_timers/get_state`, `subscribe`, `set_timer`, `cancel_timer` | `devices.timers` | medium |
+| Timer di spegnimento | WS | (lo spegnimento lo fa l'integrazione in HA; la risposta dice i domini ammessi, `domains`) | `device_timers/get_state`, `subscribe`, `set_timer`, `cancel_timer` | `devices.timers` | medium |
 | Raccolta rifiuti: lettura | WS | — | `waste_collection/get_config`, `preview` (Q9 chiusa: tutti i ruoli) | `waste.view` | low |
 | Raccolta rifiuti: modifica | WS | — | `waste_collection/save_config`, `test_notification` | `waste.manage` | low |
 | Profilo | WS | — | `profile/get_self`, `save_self`, `*_device`, `test_self` | `profile.manage` | low |
