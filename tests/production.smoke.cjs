@@ -205,23 +205,22 @@ test('inside Home Assistant the page stays on index.html and Energia loads one i
 });
 
 /*
- * The Water and Gas charts and the chart library load on demand
+ * The Water and Gas chart entry loads on demand
  * (docs/performance-energy-bundle.md): Consumi and Energia never ask for
- * them, a detail asks once, and a chart that cannot load stays in its card.
+ * it, a detail asks once, and a chart that cannot load stays in its card.
+ * Recharts chunks can be shared with the Energy history and are not a signal
+ * that the Water and Gas chart entry loaded.
  * File names come from build/bundle-graph.json, never from guessed hashes.
  */
 const graph = JSON.parse(require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'build', 'bundle-graph.json'), 'utf8'));
 const { accessSelfFor } = require('./support/accessSelf.cjs');
-const CHART_FILES = Object.entries(graph.chunks)
-  .filter(([, chunk]) => chunk.src === 'src/pages/consumi/consumptionCharts.tsx' || Object.keys(chunk.modules).some((name) => name.startsWith('node_modules/recharts/')))
-  .map(([file]) => `/${file}`);
 const CHARTS_ENTRY = `/${Object.entries(graph.chunks).find(([, chunk]) => chunk.src === 'src/pages/consumi/consumptionCharts.tsx')[0]}`;
 
 function watchCharts(page) {
   const requested = [];
   page.on('request', (request) => {
     const path = new URL(request.url()).pathname;
-    if (CHART_FILES.includes(path)) requested.push(path);
+    if (path === CHARTS_ENTRY) requested.push(path);
   });
   return requested;
 }
@@ -236,7 +235,7 @@ async function expectChartDrawn(card) {
   await expect(card.locator('svg.recharts-surface path').first()).toBeAttached();
 }
 
-test('Consumi and Energia start without the chart library; a detail loads it once', async ({ page, baseURL }) => {
+test('Consumi and Energia defer Water and Gas charts; a detail loads them once', async ({ page, baseURL }) => {
   const problems = watchProblems(page);
   const charts = watchCharts(page);
   await simulateHomeAssistant(page, new URL(baseURL).origin);

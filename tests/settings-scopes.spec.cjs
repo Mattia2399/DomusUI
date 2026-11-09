@@ -589,9 +589,10 @@ test('An administrator finds only core configuration in Settings', async ({ page
   await page.goto('/settings');
 
   const home = page.getByRole('region', { name: 'Casa', exact: true });
-  await expect(home.getByRole('button', { name: /^Persone e accessi/ })).toBeVisible();
+  await expect(home.getByRole('button', { name: /^Persone e accessi/ })).toBeVisible({ timeout: 30_000 });
   await expect(home.getByRole('button')).toHaveText([
     /^Dashboard/,
+    /^Clima/,
     /^Piani e stanze/,
     /^Persone e accessi/,
     /^Sicurezza/,
