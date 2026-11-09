@@ -30,6 +30,7 @@ from custom_components.domusos.device_timers.models import (
 
 PLUG = "switch.presa_tv"
 FAN = "fan.ventilatore"
+LAMP = "light.lampada_salotto"
 ADMIN = SimpleNamespace(id="a" * 32, is_admin=True)
 
 
@@ -48,7 +49,7 @@ def calls(hass: HomeAssistant) -> list[ServiceCall]:
     async def record(call: ServiceCall) -> None:
         recorded.append(call)
 
-    for domain in ("switch", "fan"):
+    for domain in ("switch", "fan", "light"):
         for service in ("turn_on", "turn_off"):
             hass.services.async_register(domain, service, record)
     return recorded
@@ -74,11 +75,12 @@ async def advance(hass: HomeAssistant, freezer: FrozenDateTimeFactory, minutes: 
 # --- What is accepted and stored ------------------------------------------------------
 
 
-def test_a_timer_is_for_a_plug_fan_or_humidifier_and_lasts_a_day_at_most() -> None:
+def test_a_timer_is_for_a_plug_fan_humidifier_or_light_and_lasts_a_day_at_most() -> None:
     assert parse_timer_request("switch.tv", 15) == ("switch.tv", 15)
     assert parse_timer_request("fan.soffitto", 120) == ("fan.soffitto", 120)
     assert parse_timer_request("humidifier.bagno", 1440) == ("humidifier.bagno", 1440)
-    for entity_id in ("light.salotto", "cover.tapparella", "switch", "switch.TV", 3):
+    assert parse_timer_request("light.salotto", 30) == ("light.salotto", 30)
+    for entity_id in ("cover.tapparella", "climate.soggiorno", "lock.porta", "switch", "switch.TV", 3):
         with pytest.raises(InvalidTimerError) as err:
             parse_timer_request(entity_id, 15)
         assert err.value.field == "entity_id"
@@ -140,6 +142,44 @@ async def test_a_device_that_is_off_is_switched_on_first(hass: HomeAssistant, ca
     manager = await started(hass)
     await manager.async_set_timer(ADMIN, FAN, 15)
     assert commands(calls) == [("fan.turn_on", FAN, ADMIN.id)]
+    await manager.async_shutdown()
+
+
+async def test_a_light_that_is_off_is_switched_on_then_off_when_its_timer_ends(
+    hass: HomeAssistant, calls, freezer: FrozenDateTimeFactory
+) -> None:
+    hass.states.async_set(LAMP, "off")
+    manager = await started(hass)
+    await manager.async_set_timer(ADMIN, LAMP, 15)
+    assert commands(calls) == [("light.turn_on", LAMP, ADMIN.id)]
+    # The light came on: Home Assistant would say so.
+    hass.states.async_set(LAMP, "on")
+    await hass.async_block_till_done()
+    await advance(hass, freezer, 15)
+    assert commands(calls) == [("light.turn_on", LAMP, ADMIN.id), ("light.turn_off", LAMP, ADMIN.id)]
+    assert manager.state_for_user(ADMIN)["timers"] == []
+    await manager.async_shutdown()
+
+
+async def test_a_cancelled_light_timer_leaves_the_light_on(hass: HomeAssistant, calls, freezer: FrozenDateTimeFactory) -> None:
+    hass.states.async_set(LAMP, "on")
+    manager = await started(hass)
+    await manager.async_set_timer(ADMIN, LAMP, 30)
+    assert (await manager.async_cancel_timer(ADMIN, LAMP))["timers"] == []
+    await advance(hass, freezer, 31)
+    assert commands(calls) == []
+    await manager.async_shutdown()
+
+
+async def test_a_light_switched_off_by_hand_ends_its_timer(hass: HomeAssistant, calls, freezer: FrozenDateTimeFactory) -> None:
+    hass.states.async_set(LAMP, "on")
+    manager = await started(hass)
+    await manager.async_set_timer(ADMIN, LAMP, 30)
+    hass.states.async_set(LAMP, "off")
+    await hass.async_block_till_done()
+    assert manager.state_for_user(ADMIN)["timers"] == []
+    await advance(hass, freezer, 31)
+    assert commands(calls) == []
     await manager.async_shutdown()
 
 

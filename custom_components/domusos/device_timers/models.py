@@ -15,8 +15,8 @@ from typing import Any, Mapping
 STORAGE_KEY = "domusos.device_timers.v1"
 STORAGE_VERSION = 1
 
-# What can switch itself off: plugs and switches, fans, humidifiers.
-TIMER_DOMAINS = frozenset({"switch", "fan", "humidifier"})
+# What can switch itself off: plugs and switches, fans, humidifiers, lights.
+TIMER_DOMAINS = frozenset({"switch", "fan", "humidifier", "light"})
 MIN_MINUTES = 1
 MAX_MINUTES = 24 * 60
 MAX_TIMERS = 200

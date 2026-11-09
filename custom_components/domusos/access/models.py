@@ -189,7 +189,7 @@ ACCESS_CAPABILITIES: Mapping[str, AccessCapability] = {
         _capability("dashboard.reset", Risk.HIGH, _N, "Reset the shared dashboard", requires_ha_admin=True),
         _capability("rooms.view", Risk.LOW, _N, "See the rooms"),
         _capability("devices.control", Risk.MEDIUM, _N, "Lights, plugs, climate, blinds, media, vacuums, fans"),
-        _capability("devices.timers", Risk.MEDIUM, _D, "Switch a plug, fan or humidifier off after a while"),
+        _capability("devices.timers", Risk.MEDIUM, _D, "Switch a plug, fan, humidifier or light off after a while"),
         _capability(
             "access.control",
             Risk.HIGH,

@@ -56,9 +56,9 @@ async def test_refusals_carry_a_stable_code(hass: HomeAssistant, hass_ws_client)
     manager = await registered(hass)
     client = await hass_ws_client(hass)
 
-    await client.send_json_auto_id({"type": "domusos/device_timers/set_timer", "entity_id": "light.salotto", "minutes": 30})
-    light = await client.receive_json()
-    assert not light["success"] and light["error"]["code"] == "invalid_timer"
+    await client.send_json_auto_id({"type": "domusos/device_timers/set_timer", "entity_id": "cover.tapparella", "minutes": 30})
+    cover = await client.receive_json()
+    assert not cover["success"] and cover["error"]["code"] == "invalid_timer"
 
     await client.send_json_auto_id({"type": "domusos/device_timers/set_timer", "entity_id": PLUG, "minutes": 0})
     zero = await client.receive_json()
