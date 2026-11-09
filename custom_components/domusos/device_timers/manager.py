@@ -33,6 +33,7 @@ from .models import (
     MAX_TIMERS,
     STORAGE_KEY,
     STORAGE_VERSION,
+    TIMER_DOMAINS,
     CommandFailedError,
     DeviceTimer,
     DeviceTimersUnavailableError,
@@ -112,6 +113,8 @@ class DeviceTimerManager:
             raise PermissionDeniedError("Device timers need a Home Assistant account")
         return {
             "now": dt_util.utcnow().isoformat(),
+            # What this server can switch off: an interface offers a timer only for these.
+            "domains": sorted(TIMER_DOMAINS),
             "timers": [
                 timer.view()
                 for timer in self._timers.values()

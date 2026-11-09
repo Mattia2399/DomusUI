@@ -32,6 +32,8 @@ async def test_a_client_sets_follows_and_cancels_a_timer(hass: HomeAssistant, ha
     assert subscribed["success"]
     first = await client.receive_json()
     assert first["type"] == "event" and first["event"]["timers"] == []
+    # What this server can switch off, lights included: an interface offers a timer only for these.
+    assert first["event"]["domains"] == ["fan", "humidifier", "light", "switch"]
 
     await client.send_json_auto_id({"type": "domusos/device_timers/set_timer", "entity_id": PLUG, "minutes": 30})
     replies = [await client.receive_json(), await client.receive_json()]
@@ -43,6 +45,7 @@ async def test_a_client_sets_follows_and_cancels_a_timer(hass: HomeAssistant, ha
     await client.send_json_auto_id({"type": "domusos/device_timers/get_state"})
     state = await client.receive_json()
     assert state["success"] and state["result"]["timers"][0]["entity_id"] == PLUG
+    assert state["result"]["domains"] == ["fan", "humidifier", "light", "switch"]
 
     await client.send_json_auto_id({"type": "domusos/device_timers/cancel_timer", "entity_id": PLUG})
     replies = [await client.receive_json(), await client.receive_json()]
