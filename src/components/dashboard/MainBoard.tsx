@@ -7805,6 +7805,7 @@ export function MainBoard() {
           if (widget.kind === 'switch') toggleSwitchEntity(widget);
           else if (widget.kind === 'fan') toggleFan(widget);
           else if (widget.kind === 'humidifier') toggleHumidifier(widget);
+          else if (widget.kind === 'light') toggleLightEntity(widget);
         }
       : undefined,
   });
