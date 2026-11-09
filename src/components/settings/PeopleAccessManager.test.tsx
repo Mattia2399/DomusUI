@@ -166,7 +166,8 @@ describe('People and access', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Salva' }));
     const alert = await within(dialog()).findByRole('alert');
     expect(alert.textContent).toContain('Le autorizzazioni sono state aggiornate da un’altra sessione.');
-    expect(document.activeElement).toBe(alert);
+    // The focus moves in an effect after the alert is drawn: under load findByRole can see it first.
+    await waitFor(() => expect(document.activeElement).toBe(alert));
     expect(policy.assignments[MARIO]).toEqual({ role: 'wall_panel', grants: [] });
     fireEvent.click(within(alert).getByRole('button', { name: 'Ricarica' }));
     await waitFor(() => expect(within(dialog()).queryByRole('alert')).toBeNull());
