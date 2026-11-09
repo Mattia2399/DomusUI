@@ -1,5 +1,5 @@
 import React from 'react';
-import { KNOWN_TIMER_DOMAINS, LEGACY_TIMER_DOMAINS, parseDeviceTimers, parseTimerDomains, type DeviceTimer } from '../../components/devices/model/deviceTimer';
+import { parseDeviceTimers, parseTimerDomains, type DeviceTimer } from '../../components/devices/model/deviceTimer';
 import type { RoomsApiCall } from '../../components/rooms/roomsDirectory';
 
 /*
@@ -32,7 +32,7 @@ export function useDeviceTimers({
   const [timers, setTimers] = React.useState<Record<string, DeviceTimer>>({});
   const [available, setAvailable] = React.useState(demo);
   // What the server can switch off: the demo can do all this interface knows.
-  const [domains, setDomains] = React.useState<ReadonlySet<string>>(demo ? KNOWN_TIMER_DOMAINS : LEGACY_TIMER_DOMAINS);
+  const [domains, setDomains] = React.useState<ReadonlySet<string>>(() => parseTimerDomains(demo ? undefined : null));
   const [now, setNow] = React.useState(() => Date.now());
 
   const readState = React.useCallback(async () => {
@@ -49,12 +49,12 @@ export function useDeviceTimers({
   React.useEffect(() => {
     if (demo) {
       setAvailable(true);
-      setDomains(KNOWN_TIMER_DOMAINS);
+      setDomains(parseTimerDomains());
       return undefined;
     }
     setTimers({});
     setAvailable(false);
-    setDomains(LEGACY_TIMER_DOMAINS);
+    setDomains(parseTimerDomains(null));
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
     let poll: number | null = null;

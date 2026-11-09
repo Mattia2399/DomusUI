@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { toDeviceModel } from './device';
-import { canHaveTimer, formatTimerDuration, lightCanHaveTimer, minutesLeft, parseDeviceTimers, parseTimerDomains, withTimer } from './deviceTimer';
+import { canHaveTimer, formatTimerDuration, minutesLeft, parseDeviceTimers, parseTimerDomains, withTimer } from './deviceTimer';
+
+const lightCanHaveTimer = (domains: ReadonlySet<string>) => domains.has('light');
 
 const dt = (key: string, parameters: Record<string, string | number> = {}) =>
   `${key}(${Object.entries(parameters).map(([name, value]) => `${name}=${value}`).join(',')})`;
@@ -30,6 +32,8 @@ describe('device timers', () => {
     expect([...parseTimerDomains({ domains: ['light', 'climate', 'lock', 3, null] })]).toEqual(['light']);
     expect([...parseTimerDomains({ domains: 'light' })].sort()).toEqual(['fan', 'humidifier', 'switch']);
     expect([...parseTimerDomains(null)].sort()).toEqual(['fan', 'humidifier', 'switch']);
+    // The demo, with no answer at all, can do all this interface knows.
+    expect(lightCanHaveTimer(parseTimerDomains())).toBe(true);
   });
 
   it('read the server answer on this device clock', () => {

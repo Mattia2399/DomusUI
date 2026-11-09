@@ -69,7 +69,9 @@ export const surfaces = [
       'src/pages/rooms/RoomsManagePage.tsx',
       'src/pages/rooms/RoomManageSheets.tsx',
     ],
-    budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 46 * KB } },
+    // gzip limit 46 -> 47 KB (2026-11-09): the switch-off timer of the lights in the Rooms, and the bytes that
+    // move between these pieces each time the main package of the Home changes (the short names they import by).
+    budget: { metric: 'incremental', raw: { warning: 115 * KB, limit: 125 * KB }, gzip: { warning: 42 * KB, limit: 47 * KB } },
   },
   // /security. Baseline 123,400 / 41,400.
   {
