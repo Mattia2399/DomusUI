@@ -107,6 +107,8 @@ export function HomePanel(props: HomePanelProps) {
 
   if (panel === 'light') {
     const model = lampToLightModel(activeDevice.id, activeDevice.name, lamp);
+    // The entity of the card: a light has a timer only when the server says it switches lights off.
+    const timerEntity = owner?.startsWith('light.') ? owner : undefined;
     const input: LightPanelInput = {
       model,
       roomName,
@@ -119,6 +121,10 @@ export function HomePanel(props: HomePanelProps) {
       },
       onAction: (action) => runLightAction(action, model, actions),
       onExtraAction: (action) => runHomeLightExtra(action, actions),
+      timer: timerEntity ? deviceExtras?.timers[timerEntity] : undefined,
+      timerNow: deviceExtras?.timerNow,
+      onSetTimer:
+        timerEntity && deviceExtras?.timersAvailable && deviceExtras.timerDomains.has('light') ? (minutes) => deviceExtras.setTimer(timerEntity, minutes) : undefined,
     };
     return <Panel kind="light" input={input} live={live} closeLabel={closeLabel} onClose={onClose} related={related} />;
   }

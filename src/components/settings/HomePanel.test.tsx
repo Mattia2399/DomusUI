@@ -19,6 +19,8 @@ import {
 } from './homePanelModels';
 import { homePanelOf, type HomeClimate, type HomePanelActions, type HomePanelProps } from './homePanelRoute';
 import type { ActiveDevice } from './types';
+import { DeviceExtrasProvider, type DeviceExtras } from '../devices/cards/deviceExtrasContext';
+import { parseTimerDomains } from '../devices/model/deviceTimer';
 
 // Compiling a panel on its first import can take longer than a test is given.
 beforeAll(async () => {
@@ -296,5 +298,57 @@ describe('what the Home opens', () => {
     render(<HomePanel {...props} />);
     fireEvent.click(await screen.findByRole('button', { name: /Faretti/ }));
     expect(props.actions.toggleLamp).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the switch-off timer of a light', () => {
+  const LAMP = 'light.faretti';
+  const now = Date.now();
+  const extrasFor = (answer: unknown, setTimer = vi.fn()): DeviceExtras => ({
+    wattsOf: () => null,
+    isProtected: () => false,
+    canProtect: false,
+    setProtected: vi.fn(),
+    guardTurnOff: (_id, _name, turnOff) => turnOff(),
+    timers: { [LAMP]: { entityId: LAMP, minutes: 30, endsAt: now + 30 * 60_000 } },
+    timerNow: now,
+    timersAvailable: true,
+    timerDomains: parseTimerDomains(answer),
+    setTimer,
+  });
+  const draw = (extras: DeviceExtras) =>
+    render(
+      <DeviceExtrasProvider value={extras}>
+        <HomePanel {...propsFor({ type: 'light', id: 'card', name: 'Faretti' }, { cardEntityId: LAMP })} />
+      </DeviceExtrasProvider>,
+    );
+  const answer = { now: new Date(now).toISOString(), timers: [] };
+
+  it('is there when the server says it switches lights off: a pill sets it, Off takes it away', async () => {
+    const setTimer = vi.fn();
+    draw(extrasFor({ ...answer, domains: ['fan', 'humidifier', 'light', 'switch'] }, setTimer));
+    expect(await screen.findByRole('heading', { name: 'Faretti' })).toBeTruthy();
+    expect(screen.getAllByText('Timer').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole('radio', { name: /^15\s+min$/ })[0]);
+    expect(setTimer).toHaveBeenLastCalledWith(LAMP, 15);
+    fireEvent.click(screen.getAllByRole('radio', { name: 'Off' })[0]);
+    expect(setTimer).toHaveBeenLastCalledWith(LAMP, 0);
+    // What is left shows in the panel.
+    expect(screen.getAllByText(/30\s+min/).length).toBeGreaterThan(0);
+  });
+
+  it('is not there with an older server, that does not say: no error either', async () => {
+    const setTimer = vi.fn();
+    draw(extrasFor(answer, setTimer));
+    expect(await screen.findByRole('heading', { name: 'Faretti' })).toBeTruthy();
+    expect(screen.queryByText('Timer')).toBeNull();
+    expect(screen.queryByRole('radio', { name: /^15\s+min$/ })).toBeNull();
+    expect(setTimer).not.toHaveBeenCalled();
+  });
+
+  it('is not there when the server says it does not switch lights off', async () => {
+    draw(extrasFor({ ...answer, domains: ['fan', 'switch'] }));
+    expect(await screen.findByRole('heading', { name: 'Faretti' })).toBeTruthy();
+    expect(screen.queryByText('Timer')).toBeNull();
   });
 });

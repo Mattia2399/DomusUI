@@ -16,7 +16,8 @@ import type { LightExtraAction } from '../../model/lightExtras';
 import { hueToRgb, lightRgb, rgbCss } from '../../model/tileColor';
 import type { PanelControl, PanelEntry } from '../registry';
 import { PanelHeroValue } from '../shell/PanelHero';
-import { accentOf, ICON } from './shared';
+import { accentOf, ICON, useTimerControl } from './shared';
+import type { DeviceTimer } from '../../model/deviceTimer';
 import { usePanelSpecTranslations } from '../../../../i18n/panelSpecTranslations';
 import './light.css';
 
@@ -37,6 +38,10 @@ export type LightPanelInput = {
   };
   onAction: (action: LightAction) => void;
   onExtraAction?: (action: LightExtraAction) => void;
+  /** The switch-off timer, when the integration runs them for lights. */
+  timer?: DeviceTimer | null;
+  timerNow?: number;
+  onSetTimer?: (minutes: number) => void;
 };
 
 const TONE_PRESETS = [2700, 4000, 5500];
@@ -44,7 +49,7 @@ const FLASH_MS = 1700;
 const WHITES_GRADIENT = 'linear-gradient(to top, rgb(255 168 64), rgb(230 197 160), rgb(205 226 255))';
 const WHITE_FILL = { background: '#ffffff' };
 
-function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: LightPanelInput) {
+function useLightSpec({ model, roomName, extras, onAction, onExtraAction, timer, timerNow, onSetTimer }: LightPanelInput) {
   const dt = useDevicesTranslations();
   const sp = usePanelSpecTranslations();
   const { t } = useI18n();
@@ -115,7 +120,9 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
 
   const hasColors = model.caps === 'color';
   const hasWhites = model.caps === 'ct' || (hasColors && model.hasWhites !== false);
-  const controls: PanelControl[] = [];
+  // The switch-off timer: only when the server says it switches lights off.
+  const timerControls = useTimerControl(timer, timerNow, onSetTimer);
+  const controls: PanelControl[] = [...timerControls];
   if (hasWhites) {
     controls.push({
       id: 'whites',
@@ -282,7 +289,7 @@ function useLightSpec({ model, roomName, extras, onAction, onExtraAction }: Ligh
       <PanelHeroValue value={state} />
     ),
     controls,
-    below: model.caps === 'dim' && controls.length === 0 ? <p className="panel-screen-note">{dt('dimOnly')}</p> : undefined,
+    below: model.caps === 'dim' && controls.length === timerControls.length ? <p className="panel-screen-note">{dt('dimOnly')}</p> : undefined,
     action: {
       kind: 'power' as const,
       on: lit,

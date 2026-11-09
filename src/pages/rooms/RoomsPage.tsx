@@ -434,10 +434,12 @@ export function RoomsPage({
   }, []);
   const deviceTimers = useDeviceTimers({
     demo,
-    isOn: (entityId) => devices.modelOf(entityId)?.on ?? false,
+    // Lights have their own commands; the demo switches them as the integration would.
+    isOn: (entityId) => (entityId.startsWith('light.') ? lights.modelOf(entityId)?.on ?? false : devices.modelOf(entityId)?.on ?? false),
     onCallApi,
     onSubscribeApi,
-    onDemoSwitch: (entityId, on) => devices.act(entityId, { type: on ? 'turn_on' : 'turn_off' }),
+    onDemoSwitch: (entityId, on) =>
+      entityId.startsWith('light.') ? lights.act(entityId, { type: on ? 'turn_on' : 'turn_off' }) : devices.act(entityId, { type: on ? 'turn_on' : 'turn_off' }),
   });
   const [timerNotice, setTimerNotice] = React.useState<string | null>(null);
   React.useEffect(() => {
@@ -1648,6 +1650,9 @@ export function RoomsPage({
                   roomName: activeRoom?.name,
                   extras: lightExtrasOf(states[panelLight.entityId]),
                   onAction: (action: LightAction) => lights.act(panelLight.entityId, action),
+                  timer: deviceTimers.timers[panelLight.entityId],
+                  timerNow: deviceTimers.now,
+                  onSetTimer: deviceTimers.available && deviceTimers.domains.has('light') ? (minutes: number) => setDeviceTimer(panelLight.entityId, minutes) : undefined,
                   onExtraAction: (action: LightExtraAction) => {
                     const { domain, service, data } = lightExtraCall(panelLight.entityId, action);
                     void onCallService?.(domain, service, data);
