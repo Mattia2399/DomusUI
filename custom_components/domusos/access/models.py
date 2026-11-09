@@ -17,11 +17,11 @@ the two sets never mix, and only ids in ``ACCESS_CAPABILITIES`` are accepted.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-import re
 from typing import Any, NewType
 
 STORAGE_KEY = "domusos.access.v1"
@@ -211,6 +211,9 @@ ACCESS_CAPABILITIES: Mapping[str, AccessCapability] = {
         _capability("automations.manage", Risk.HIGH, _N, "Create and change automations", requires_ha_admin=True),
         _capability("energy.view", Risk.LOW, _D, "Energy state and history"),
         _capability("energy.manage", Risk.MEDIUM, _D, "The Energy installation profile and discovery", requires_ha_admin=True),
+        _capability("climate.view", Risk.LOW, _D, "See the house climate configuration"),
+        _capability("climate.control", Risk.MEDIUM, _D, "Change house and zone climate intent"),
+        _capability("climate.manage", Risk.MEDIUM, _D, "Configure climate zones, circuits and generators", requires_ha_admin=True),
         _capability("irrigation.view", Risk.LOW, _D, "Irrigation zones, calendar, activity and usage"),
         _capability("irrigation.control", Risk.MEDIUM, _D, "Start, stop and pause irrigation"),
         _capability("irrigation.manage", Risk.MEDIUM, _D, "Irrigation configuration", requires_ha_admin=True),
@@ -285,6 +288,8 @@ SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
         "automations.view",
         "automations.run",
         "energy.view",
+        "climate.view",
+        "climate.control",
         "irrigation.view",
         "irrigation.control",
         "waste.view",
@@ -303,6 +308,8 @@ SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
         "automations.view",
         "automations.run",
         "energy.view",
+        "climate.view",
+        "climate.control",
         "irrigation.view",
         "irrigation.control",
         "waste.view",
@@ -331,6 +338,8 @@ SYSTEM_ROLES: Mapping[RoleId, frozenset[AccessCapabilityId]] = {
         "security.view",
         "automations.run",
         "energy.view",
+        "climate.view",
+        "climate.control",
         "irrigation.view",
         "waste.view",
     ),
@@ -523,7 +532,7 @@ def migrate_document(
             raise MigrationFailedError(f"no migration from version {version}")
         try:
             document = step(document)
-        except Exception as err:  # noqa: BLE001 - any failure leaves the original untouched
+        except Exception as err:
             raise MigrationFailedError(f"the migration from version {version} failed ({err})") from err
         if not isinstance(document, Mapping) or document.get("version") != version + 1:
             raise MigrationFailedError(f"the migration from version {version} gave no version {version + 1}")

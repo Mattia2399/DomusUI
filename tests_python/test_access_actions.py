@@ -10,7 +10,6 @@ from __future__ import annotations
 import re
 
 import pytest
-
 from access_pure import INTEGRATION_DIR, load
 
 models = load("models")
@@ -32,6 +31,14 @@ EXPECTED = {
     "domusos/device_power/save_policy": "device_power.manage",
     "domusos/device_power/bind_policy": "device_power.manage",
     "domusos/device_power/delete_policy": "device_power.manage",
+    "domusos/climate/get_config": "climate.view",
+    "domusos/climate/save_config": "climate.manage",
+    "domusos/climate/get_state": "climate.view",
+    "domusos/climate/set_house_intent": "climate.control",
+    "domusos/climate/set_zone_intent": "climate.control",
+    "domusos/climate/set_zone_override": "climate.control",
+    "domusos/climate/clear_zone_override": "climate.control",
+    "domusos/climate/execute_plan": "climate.control",
     # Device timers
     "domusos/device_timers/get_state": "devices.timers",
     "domusos/device_timers/subscribe": "devices.timers",
@@ -82,7 +89,7 @@ _PREFIX = re.compile(r'WS_PREFIX\s*=\s*f"\{DOMAIN\}/([a-z_]+)"')
 _COMMAND = re.compile(r'f"\{WS_PREFIX\}/([a-z_]+)"')
 _GENERATED = re.compile(r'f"\{WS_PREFIX\}/\{command\}"')
 _SIMPLE = re.compile(r'_simple_command\("([a-z_]+)"\)')
-_SERVICE = re.compile(r'register_service\(\s*hass,\s*"([a-z_]+)"', re.S)
+_SERVICE = re.compile(r'register_service\(\s*hass,\s*"([a-z_]+)"', re.DOTALL)
 # The one module that hands registrations to Home Assistant, wrapping each for shadow authorization.
 INSTRUMENTATION = INTEGRATION_DIR / "access" / "instrumentation.py"
 _OTHER_REGISTRATIONS = (
@@ -150,10 +157,10 @@ def test_every_module_with_commands_registers_them_through_the_instrumentation()
     modules = 0
     for path in INTEGRATION_DIR.rglob("*.py"):
         source = path.read_text(encoding="utf-8")
-        if re.search(r"^WEBSOCKET_COMMANDS = \(", source, re.M):
+        if re.search(r"^WEBSOCKET_COMMANDS = \(", source, re.MULTILINE):
             modules += 1
             assert "register_websocket_commands(hass, WEBSOCKET_COMMANDS)" in source, path.name
-    assert modules == 7
+    assert modules == 8
 
 
 # --- The registry itself ------------------------------------------------------------------
@@ -167,7 +174,7 @@ def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
     # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1),
     # the four of device timers.
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 47
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 55
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:
@@ -186,7 +193,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 42
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 50
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 
@@ -247,7 +254,7 @@ def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> N
         assert len(contract.shadow_exemption) > 40, contract.id
     observed = actions.shadow_contracts()
     assert {contract.id for contract in observed} == set(EXPECTED) - SHADOW_EXEMPT
-    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 35
+    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 43
     assert len([contract for contract in observed if contract.surface is Surface.SERVICE]) == 5
 
 

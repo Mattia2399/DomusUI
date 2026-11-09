@@ -1,5 +1,7 @@
 # Domus Access Control — enforcement (design P2.5A, Q10 P2.5B, Alimentazione P2.5D.1)
 
+> CLM.2 registra `domusos/climate/get_config` e `save_config` come azioni enforced. La prima richiede `climate.view`, la seconda `climate.manage` e HA admin; i rifiuti sono auditati. Vedi [contratto Climate CLM.2](domus-climate-zone-mapping.md). Il resto del documento conserva la cronologia delle fasi precedenti.
+
 Come Domus passerà dallo shadow (P2.3) a un backend che blocca davvero le
 richieste, e dove passa la frontiera di fiducia per le esecuzioni di Home
 Assistant senza utente (Q10). P2.5A è il design; **P2.5B** ha messo la regola

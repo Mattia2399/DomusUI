@@ -67,6 +67,9 @@ async function simulateHomeAssistant(page, origin) {
           case 'domusos/access/get_self':
             reply(accessSelfFor({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] }));
             break;
+          case 'domusos/climate/get_config':
+            reply({ state: 'absent', revision: 0, config: null });
+            break;
           case 'auth/current_user':
             reply({ id: 'owner', name: 'Owner', is_owner: true, is_admin: true, credentials: [], mfa_modules: [] });
             break;
@@ -171,6 +174,18 @@ test('the production build starts and renders Home, Consumi and Energia', async 
   await expectHealthy(page, problems, '/consumi/energia');
   await expect(page.getByRole('list', { name: 'Componenti dell’impianto' })).toBeVisible();
   await expectSingleHouseImage(page, images);
+});
+
+test('the production Climate Settings route loads its lazy shell', async ({ page, baseURL }) => {
+  const problems = watchProblems(page);
+  await simulateHomeAssistant(page, new URL(baseURL).origin);
+  await page.goto('/');
+  await navigate(page, '/settings/climate');
+  await expect(page.getByRole('heading', { name: 'Clima', exact: true })).toBeVisible();
+  await expect(page.getByText('Clima non ancora configurato')).toBeVisible();
+  await page.getByRole('button', { name: 'Esplora l’anteprima' }).click();
+  await expect(page.getByText('Anteprima dimostrativa · dati fittizi')).toBeVisible();
+  await expectHealthy(page, problems, '/settings/climate');
 });
 
 test('inside Home Assistant the page stays on index.html and Energia loads one image', async ({ page, baseURL }) => {

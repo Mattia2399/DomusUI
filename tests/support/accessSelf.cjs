@@ -8,7 +8,7 @@
 const ALL = [
   'dashboard.view', 'dashboard.edit', 'dashboard.reset', 'rooms.view', 'devices.control', 'devices.timers', 'access.control',
   'security.view', 'security.control', 'security.manage', 'automations.view', 'automations.run',
-  'automations.manage', 'energy.view', 'energy.manage', 'irrigation.view', 'irrigation.control',
+  'automations.manage', 'energy.view', 'energy.manage', 'climate.view', 'climate.control', 'climate.manage', 'irrigation.view', 'irrigation.control',
   'irrigation.manage', 'waste.view', 'waste.manage', 'house.manage', 'people.view', 'people.manage',
   'access.manage', 'system.view', 'system.manage', 'backup.export', 'backup.restore', 'ha.restart',
   'ha_frontend.open', 'device.manage', 'device_power.manage', 'profile.manage', 'notifications.recipients',
@@ -19,25 +19,25 @@ const ROLE_CAPABILITIES = {
   admin: ALL,
   resident: [
     'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'access.control', 'security.view', 'security.control',
-    'automations.view', 'automations.run', 'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view',
+    'automations.view', 'automations.run', 'energy.view', 'climate.view', 'climate.control', 'irrigation.view', 'irrigation.control', 'waste.view',
     'people.view', 'system.view', 'device.manage', 'profile.manage',
   ],
   member: [
     'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'security.view', 'automations.view', 'automations.run',
-    'energy.view', 'irrigation.view', 'irrigation.control', 'waste.view', 'people.view', 'system.view',
+    'energy.view', 'climate.view', 'climate.control', 'irrigation.view', 'irrigation.control', 'waste.view', 'people.view', 'system.view',
     'device.manage', 'profile.manage',
   ],
   restricted: ['dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'irrigation.view', 'waste.view', 'profile.manage'],
   wall_panel: [
     'dashboard.view', 'rooms.view', 'devices.control', 'devices.timers', 'security.view', 'automations.run', 'energy.view',
-    'irrigation.view', 'waste.view',
+    'climate.view', 'climate.control', 'irrigation.view', 'waste.view',
   ],
   locked: ['dashboard.view', 'rooms.view', 'profile.manage'],
 };
 
 const HA_ADMIN_ONLY = [
   'dashboard.edit', 'dashboard.reset', 'security.manage', 'automations.manage', 'energy.manage',
-  'irrigation.manage', 'waste.manage', 'house.manage', 'people.manage', 'access.manage', 'system.manage',
+  'climate.manage', 'irrigation.manage', 'waste.manage', 'house.manage', 'people.manage', 'access.manage', 'system.manage',
   'backup.restore', 'ha.restart', 'device_power.manage', 'notifications.recipients',
 ];
 

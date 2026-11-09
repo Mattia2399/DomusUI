@@ -238,4 +238,24 @@ describe('Home Assistant panel bridge schema', () => {
     expect(parsePanelLocale({ language: '' })).toBeNull();
     expect(parsePanelLocale(null)).toBeNull();
   });
+
+  it('allows only the closed Climate intent command shapes through the panel bridge', () => {
+    expect(validatePanelApiMessage({ type: 'domusos/climate/get_state' })).toBe(true);
+    expect(validatePanelApiMessage({ type: 'domusos/climate/get_state', extra: true })).toBe(false);
+    const house = { type: 'domusos/climate/set_house_intent', operating_mode: 'heating', control_mode: 'manual', expected_revision: 0 };
+    expect(validatePanelApiMessage(house)).toBe(true);
+    expect(validatePanelApiMessage({ ...house, secret: 'x' })).toBe(false);
+    const zone = { type: 'domusos/climate/set_zone_intent', zone_id: 'living', mode: 'follow_house', target_temperature: 21, expected_revision: 1 };
+    expect(validatePanelApiMessage(zone)).toBe(true);
+    expect(validatePanelApiMessage({ ...zone, target_temperature: 21, extra: true })).toBe(false);
+    const override = { type: 'domusos/climate/set_zone_override', zone_id: 'living', target_temperature: 21, expiry_mode: 'duration', duration_minutes: 30, expected_revision: 1 };
+    expect(validatePanelApiMessage(override)).toBe(true);
+    expect(validatePanelApiMessage({ ...override, extra: true })).toBe(false);
+    const clearOverride = { type: 'domusos/climate/clear_zone_override', zone_id: 'living', expected_revision: 2 };
+    expect(validatePanelApiMessage(clearOverride)).toBe(true);
+    expect(validatePanelApiMessage({ ...clearOverride, extra: true })).toBe(false);
+    const execute = { type: 'domusos/climate/execute_plan', zone_id: 'living', expected_plan_token: 'plan-token', expected_config_revision: 1, expected_state_revision: 2 };
+    expect(validatePanelApiMessage(execute)).toBe(true);
+    expect(validatePanelApiMessage({ ...execute, extra: true })).toBe(false);
+  });
 });

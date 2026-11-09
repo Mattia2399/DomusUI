@@ -49,7 +49,7 @@ function backendRoles(): Record<string, string[]> {
 describe('the capability registry the frontend knows', () => {
   it('is exactly the registry of the backend', () => {
     const backend = backendCapabilities().map(({ id }) => id);
-    expect(backend).toHaveLength(35);
+    expect(backend).toHaveLength(38);
     expect([...ACCESS_CAPABILITY_IDS].sort()).toEqual(backend.sort());
   });
 

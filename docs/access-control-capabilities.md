@@ -1,5 +1,7 @@
 # Domus Access Control — capability, route e azioni (P2.0)
 
+> Domus Climate aggiunge `climate.view`, `climate.control` e `climate.manage` (38 capability totali) con enforcement backend. Contratto e decisioni: [Domus Climate CLM.2](domus-climate-zone-mapping.md).
+
 Registro capability e matrici, costruiti dalle funzioni reali del repository
 (base `f5eb98d`). Registro e ruoli sono implementati da P2.1
 ([fondamento](access-control-foundation.md)); l'enforcement non ancora.
@@ -37,6 +39,9 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `automations.manage` | Creare e modificare automazioni | high | sì (REST config) | ha_native | — |
 | `energy.view` | Stato e storia dell'energia | low | — | **domus** | — |
 | `energy.manage` | Profilo dell'impianto, discovery | medium | sì | **domus** | — |
+| `climate.view` | Vedere la configurazione climatica HOUSE | low | — | **domus** | — |
+| `climate.control` | Modificare intent e override, eseguire manualmente un piano valido | medium | — | **domus** | — |
+| `climate.manage` | Configurare zone, circuiti e generatori | medium | sì | **domus** | — |
 | `irrigation.view` | Zone, calendario, attività, consumi | low | — | **domus** (+ lettura HA) | — |
 | `irrigation.control` | Avviare, fermare, mettere in pausa | medium | — | **domus** (+ `check_entity`) | — |
 | `irrigation.manage` | Configurazione | medium | sì | **domus** | — |
@@ -58,7 +63,7 @@ Fonte: `custom_components/domusos/access/models.py` (`ACCESS_CAPABILITIES`).
 | `notifications.recipients` | Scegliere i destinatari | medium | sì | **domus** | — |
 | `developer.use` | Modalità sviluppatore | low | — | local | — |
 
-35 capability (`waste.view` aggiunta in P2.2, `devices.timers` con i timer di
+38 capability (`waste.view` aggiunta in P2.2, `devices.timers` con i timer di
 spegnimento, estesi alle luci nel 2026-11). Chi può comandare una luce può
 impostarne il timer, come per le prese: stesso ruolo e stesso `check_entity`
 con il permesso di comando. Regole verificate dai test:
@@ -89,6 +94,8 @@ HA, qualunque sia il ruolo.
 | `automations.run` | ● | ● | ● | — | ● | — |
 | `energy.view` | ● | ● | ● | — | ● | — |
 | `energy.manage` | ● | — | — | — | — | — |
+| `climate.view` | ● | ● | ● | — | ● | — |
+| `climate.control` | ● | ● | ● | — | ● | — |
 | `irrigation.view` | ● | ● | ● | ● | ● | — |
 | `waste.view` | ● | ● | ● | ● | ● | — |
 | `irrigation.control` | ● | ● | ● | — | — | — |
@@ -208,6 +215,11 @@ La demo resta un insieme a parte (`DEMO_CAPABILITIES`), fuori dalla policy.
 | --- | --- | --- | --- | --- | --- |
 | Accendere/spegnere luce, presa | `call_service` dal browser | `light.*`, `switch.*` | no | `devices.control` | medium |
 | Setpoint e modi clima | `call_service` | `climate.*` | no | `devices.control` | medium |
+| Domus Climate: lettura intent e preview | WebSocket | — | `domusos/climate/get_state` | `climate.view` | low |
+| Domus Climate: modifica intent casa/zona | WebSocket | nessuno | `domusos/climate/set_house_intent`, `set_zone_intent` | `climate.control` | medium |
+| Domus Climate: override zona | WebSocket | nessuno | `domusos/climate/set_zone_override`, `clear_zone_override` | `climate.control` | medium |
+| Domus Climate: arm del controllo fisico | WebSocket | nessuno | `domusos/climate/save_config` (`physicalExecutionEnabled`) | `climate.manage` + admin HA | medium |
+| Domus Climate: esecuzione manuale piano | WebSocket | `climate.set_hvac_mode`, `climate.set_temperature` | `domusos/climate/execute_plan` | `climate.control` | medium |
 | Tapparelle | `call_service` | `cover.*` | no | `devices.control` (garage/cancello: `access.control`) | medium/high |
 | Media, aspirapolvere, ventole | `call_service` | `media_player.*`, `vacuum.*`, `fan.*` | no | `devices.control` | low |
 | Sblocca/apri serratura | `call_service` + gate locale + codice | `lock.unlock`, `lock.open` | no | `access.control` | high |

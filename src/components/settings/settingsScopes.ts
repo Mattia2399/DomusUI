@@ -43,10 +43,13 @@ export type SettingsStorage =
   /** Live Home Assistant state and services; nothing saved by Domus. */
   | 'ha_runtime'
   /** This browser's local storage. */
-  | 'browser_local';
+  | 'browser_local'
+  /** CLM.1 declares the contract but saves no configuration yet. */
+  | 'not_persisted';
 
 export type SettingsEntryId =
   | 'dashboard'
+  | 'climate'
   | 'floors'
   | 'access'
   | 'security'
@@ -105,6 +108,16 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     storage: 'ha_shared_house',
     titleKey: 'settings.dashboard.title',
     descriptionKey: 'settings.dashboard.subtitle',
+  },
+  {
+    id: 'climate',
+    scope: 'house',
+    owner: 'core',
+    section: 'house',
+    route: '/settings/climate',
+    storage: 'integration_store',
+    titleKey: 'settings.climate.title',
+    descriptionKey: 'settings.climate.subtitle',
   },
   {
     id: 'floors',

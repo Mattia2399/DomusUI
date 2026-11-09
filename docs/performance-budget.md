@@ -63,7 +63,7 @@ Baseline: build A2.0 (`16a7226`). KB = 1000 byte.
 | --- | --- | --- | --- | --- |
 | Boot (entry + CSS globale) | freddo | 1.154,5 / 252,3 | 1.200 / 265 | 1.250 / 275 |
 | Home (shell di tutte le route) | freddo | 2.437,6 / 615,7 | 2.550 / 645 | 2.650 / 670 |
-| Onboarding | + boot | 89,4 / 28,1 | 105 / 33 | 120 / 38 |
+| Onboarding | + boot | 89,4 / 28,1 | 105 / 33 | 125 / 40 |
 | Consumi · Energia | + Home | 528,7 / 162,2 | 580 / 180 | 650 / 200 |
 | Stanze | + Home | 266,4 / 78,8 | 300 / 90 | 330 / 100 |
 | Sicurezza | + Home | 123,4 / 41,4 | 140 / 48 | 160 / 55 |
