@@ -113,7 +113,7 @@ export default function GridV2DeviceCard(props: GridV2DeviceCardProps) {
     });
     // A lit light that grew to three rows keeps the slider of a room's tile.
     const lightFormat = format === 'U×2' && widget.layout.h >= 3 ? 'U×3' : format;
-    return <LightCard model={model} format={lightFormat} {...common} onAction={onAction} onOpenPanel={openPanel} />;
+    return <LightCard model={model} format={lightFormat} {...common} timer={extras?.timers[widget.entityId]} timerNow={extras?.timerNow} onAction={onAction} onOpenPanel={openPanel} />;
   }
 
   if (widget.kind === 'switch' || widget.kind === 'fan' || widget.kind === 'humidifier' || widget.kind === 'cover') {

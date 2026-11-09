@@ -72,3 +72,17 @@ describe('the light card', () => {
     screen.getAllByRole('button').forEach((button) => expect((button as HTMLButtonElement).disabled).toBe(true));
   });
 });
+
+describe('the switch-off timer on the card of a light', () => {
+  it('says when it turns off while the light is on, as for a plug', () => {
+    const timer = { entityId: 'light.lamp', minutes: 60, endsAt: 47 * 60_000 };
+    render(<LightCard model={dimmable} format="U×2" timer={timer} timerNow={0} onAction={vi.fn()} onOpenPanel={vi.fn()} />);
+    expect(screen.getByRole('button', { name: /spegne tra 47\s+min/ })).toBeTruthy();
+  });
+
+  it('says nothing more without a timer', () => {
+    render(<LightCard model={dimmable} format="U×2" onAction={vi.fn()} onOpenPanel={vi.fn()} />);
+    expect(screen.queryByText(/spegne tra/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /spegne tra/ })).toBeNull();
+  });
+});

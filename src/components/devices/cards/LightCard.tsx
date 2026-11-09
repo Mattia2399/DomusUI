@@ -2,6 +2,7 @@ import { Lightbulb } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDevicesTranslations } from '../../../i18n/devicesTranslations';
 import { lightHasPanel, lightTone, type LightAction, type LightModel } from '../model/light';
+import { withTimer, type DeviceTimer } from '../model/deviceTimer';
 import { lightTileColor } from '../model/tileColor';
 import { CardFrame, CardHead, CardIcon } from './CardFrame';
 import { DeviceCardShell, deviceCardSize, type DeviceCardFormat } from './DeviceCardShell';
@@ -30,11 +31,14 @@ export type LightCardProps = {
   onAction: (action: LightAction) => void;
   onOpenPanel?: () => void;
   onSelect?: () => void;
+  /** Its switch-off timer: the status says when it turns off, as for a plug. */
+  timer?: DeviceTimer | null;
+  timerNow?: number;
 };
 
-export function LightCard({ model, format, editing = false, selected = false, hiddenItem = false, onAction, onOpenPanel, onSelect }: LightCardProps) {
+export function LightCard({ model, format, editing = false, selected = false, hiddenItem = false, onAction, onOpenPanel, onSelect, timer = null, timerNow = Date.now() }: LightCardProps) {
   const dt = useDevicesTranslations();
-  const status = formatLightStatus(model, dt);
+  const status = model.on ? withTimer(formatLightStatus(model, dt), timer, timerNow, dt) : formatLightStatus(model, dt);
   const lit = lightTileColor(model);
   const litColour = lit ? { background: lit.background, lightRgb: lit.light.join(' ') } : null;
   const dimmable = model.caps !== 'onoff' && model.available;

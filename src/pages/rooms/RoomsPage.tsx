@@ -993,6 +993,8 @@ export function RoomsPage({
     <LightCard
       model={item.model}
       format="U×2"
+      timer={deviceTimers.timers[item.id]}
+      timerNow={deviceTimers.now}
       editing={context.editing}
       selected={context.selected}
       onAction={(action) => lights.act(item.id, action)}
@@ -1504,6 +1506,8 @@ export function RoomsPage({
               <LightCard
                 model={item.model}
                 format="U×2"
+                timer={deviceTimers.timers[item.id]}
+                timerNow={deviceTimers.now}
                 editing={context.editing}
                 selected={context.selected}
                 hiddenItem={item.hidden}
