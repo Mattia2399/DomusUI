@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../../../i18n/I18nProvider';
 import { PanelView } from './PanelView';
 import { arrangeControls, MOST_IN_THE_ROW, PANEL_CONTROLS, type PanelControl, type PanelSpec } from './registry';
+import { relatedPanelControls } from './related/relatedPanelControls';
+import type { RelatedControl } from '../../../types/relatedControl';
 
 beforeEach(() => window.localStorage.setItem('domusui.language.v1', 'it'));
 afterEach(cleanup);
@@ -193,5 +195,42 @@ describe('the groups of the column and of the dialog', () => {
     expect(last.textContent).toContain('one 40% · two Acceso');
     fireEvent.click(last);
     expect(screen.getByRole('heading', { level: 3, name: 'Altro' })).toBeTruthy();
+  });
+});
+
+describe('the row with the choices saved in the edit mode', () => {
+  const STATES = {
+    'sensor.boiler': { state: '56.4', rawAttributes: { friendly_name: 'Boiler ACS', device_class: 'temperature', unit_of_measurement: '°C' } },
+    'number.power': { state: '3', rawAttributes: { friendly_name: 'Potenza fiamma', min: 1, max: 5, step: 1 } },
+    'switch.schedule': { state: 'on', rawAttributes: { friendly_name: 'Programma orario' } },
+    'sensor.pellet': { state: '40', rawAttributes: { friendly_name: 'Pellet', unit_of_measurement: '%' } },
+  };
+  const related: RelatedControl[] = [
+    { id: 'boiler', entityId: 'sensor.boiler', look: 'temperature', place: 'main', order: 1 },
+    { id: 'power', entityId: 'number.power', look: 'levels', place: 'more', order: 4 },
+    { id: 'schedule', entityId: 'switch.schedule', look: 'toggle-row', place: 'main', order: 3 },
+    { id: 'pellet', entityId: 'sensor.pellet', look: 'level', place: 'more', order: 6 },
+  ];
+  // Of the device: two in the row and two in Altro, the opposite of the defaults of the stove for two of them.
+  const panelControls = { modes: { place: 'main', order: 0 }, fan: { place: 'more', order: 5 }, align: { place: 'main', order: 2 }, preset: { place: 'more', order: 7 } } as const;
+
+  it('4 in the row and 4 in Altro, mixed, show 4 controls and Altro: in the row, in the groups and in Altro', () => {
+    const { controls, choices } = relatedPanelControls({ relatedControls: related, panelControls }, { states: STATES, demo: false, commands: {} }, 'it-IT', () => undefined);
+    const device = ['modes', 'fan', 'align', 'preset'].map((id) => action(id));
+    render(
+      <I18nProvider>
+        <PanelView spec={spec(device, { layout: 'stove' })} related={{ controls, choices }} onClose={vi.fn()} />
+      </I18nProvider>,
+    );
+    const shortcuts = row().getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent);
+    expect(shortcuts).toHaveLength(5);
+    expect(shortcuts.slice(0, 4)).toEqual(['modes', 'Boiler ACS', 'align', 'Programma orario']);
+    expect(shortcuts[4]).toContain('Altro');
+    const groups = [...document.querySelectorAll('section.panel-group')].map((group) => group.getAttribute('aria-label'));
+    expect(groups).toEqual(['modes', 'Boiler ACS', 'align', 'Programma orario']);
+    expect(document.querySelector('.panel-group-more')?.textContent).toContain('4 controlli');
+    fireEvent.click(row().getByRole('button', { name: /Altro/ }));
+    const inAltro = within(screen.getByRole('heading', { level: 3, name: 'Altro' }).closest('.panel-page') as HTMLElement).getAllByRole('button').map((button) => button.textContent ?? '');
+    for (const name of ['fan', 'Potenza fiamma', 'Pellet', 'preset']) expect(inAltro.some((text) => text.includes(name))).toBe(true);
   });
 });
