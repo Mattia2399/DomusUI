@@ -18,7 +18,8 @@ export function useRoomsRegistry(haConnected: boolean, onCallApi?: RoomsApiCall,
     try {
       const next = await fetchHouseTopology(onCallApi);
       if (request !== requestSeq.current) return false;
-      if (topologyRef.current?.topologyFingerprint !== next.topologyFingerprint) {
+      if (topologyRef.current?.topologyFingerprint !== next.topologyFingerprint ||
+          topologyRef.current?.topologyRevision !== next.topologyRevision) {
         topologyRef.current = next;
         setTopology(next);
       }

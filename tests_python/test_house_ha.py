@@ -77,6 +77,54 @@ async def test_native_area_environment_ref_matches_when_ha_exposes_it(hass: Home
     await manager.async_shutdown()
 
 
+async def test_2025_safe_device_pair_and_2026_primary_precedence(hass: HomeAssistant):
+    _, area, device, temperature = fixture_house(hass)
+    humidity = er.async_get(hass).async_get_or_create(
+        "sensor", "test", "house-humidity", suggested_object_id="house_humidity",
+        device_id=device.id, original_device_class="humidity", unit_of_measurement="%",
+    )
+    hass.states.async_set(humidity.entity_id, "47", {"unit_of_measurement": "%", "device_class": "humidity"})
+    manager = HouseManager(hass)
+    await manager.async_setup()
+    admin = SimpleNamespace(is_admin=True)
+    fallback = (await manager.async_get_snapshot(admin))["rooms"][0]
+    assert fallback["temperature"]["selectedEntityId"] == temperature.entity_id
+    assert fallback["temperature"]["selectionSource"] == "SAFE_ROOM_FALLBACK"
+    assert fallback["humidity"]["value"] == 47
+    if hasattr(area, "temperature_entity_id"):
+        ar.async_get(hass).async_update(area.id, temperature_entity_id=temperature.entity_id)
+        await hass.async_block_till_done()
+        primary = (await manager.async_get_snapshot(admin))["rooms"][0]["temperature"]
+        assert primary["selectionSource"] == "HA_AREA_PRIMARY"
+        assert primary["configuredPrimaryEntityId"] == temperature.entity_id
+    await manager.async_shutdown()
+
+
+async def test_candidate_index_respects_permissions_and_registry_metadata(hass: HomeAssistant):
+    _, area, device, temperature = fixture_house(hass)
+    humidity = er.async_get(hass).async_get_or_create(
+        "sensor", "test", "house-humidity", suggested_object_id="house_humidity",
+        device_id=device.id, original_device_class="humidity", unit_of_measurement="%",
+    )
+    manager = HouseManager(hass)
+    await manager.async_setup()
+    allowed = SimpleNamespace(is_admin=False, permissions=SimpleNamespace(
+        check_entity=Mock(side_effect=lambda entity_id, _policy: entity_id == humidity.entity_id),
+    ))
+    denied_temperature = (await manager.async_get_snapshot(allowed))["rooms"][0]["temperature"]
+    assert denied_temperature["selectedEntityId"] is None
+    admin = SimpleNamespace(is_admin=True)
+    before = (await manager.async_get_snapshot(admin))["rooms"][0]["temperature"]
+    assert before["selectedEntityId"] == temperature.entity_id
+    first_revision = (await manager.async_get_topology(admin))["topologyRevision"]
+    er.async_get(hass).async_update_entity(temperature.entity_id, disabled_by=er.RegistryEntryDisabler.USER)
+    await hass.async_block_till_done()
+    after = (await manager.async_get_snapshot(admin))["rooms"][0]["temperature"]
+    assert after["selectedEntityId"] is None
+    assert (await manager.async_get_topology(admin))["topologyRevision"] > first_revision
+    await manager.async_shutdown()
+
+
 async def test_all_four_registry_events_invalidate_but_state_change_only_updates_snapshot(hass: HomeAssistant):
     floor, area, device, entity = fixture_house(hass)
     await hass.async_block_till_done()

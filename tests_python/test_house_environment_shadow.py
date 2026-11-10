@@ -31,18 +31,18 @@ def row(topology, states, metric="temperature"):
     return next(item for item in result["rows"] if item["metric"] == metric)
 
 
-def test_2025_absent_area_reference_preserves_legacy_fallback_and_sanitizes():
+def test_2025_absent_area_reference_uses_safe_fallback_and_sanitizes():
     result = shadow.build_environment_shadow(house(), {"sensor.temp": state("21.5")}, generated_at="now")
     reading = result["rows"][0]
-    assert reading["category"] == "LEGACY_FALLBACK_ONLY"
+    assert reading["category"] == "MATCH"
     assert reading["legacy"]["resolutionSource"] == "AUTO_DISCOVERED_ENTITY"
-    assert reading["house"]["status"] == "unconfigured"
-    assert result["readiness"] == "NOT_READY" and result["roomsCompared"] == 1
-    assert result["counts"]["temperature"]["LEGACY_FALLBACK_ONLY"] == 1
+    assert reading["house"]["resolutionSource"] == "SAFE_ROOM_FALLBACK"
+    assert result["readiness"] == "READY" and result["roomsCompared"] == 1
+    assert result["counts"]["temperature"]["MATCH"] == 1
     assert "secret" not in str(result) and "attributes" not in str(result)
     unsafe_unit = row(house("sensor.temp"), {"sensor.temp": state("21", "PRIVATE_UNIT")})
     assert "PRIVATE_UNIT" not in str(unsafe_unit)
-    assert unsafe_unit["category"] == "DIFFERENT_VALUE"
+    assert unsafe_unit["category"] == "HOUSE_UNAVAILABLE"
 
 
 def test_2026_area_primary_matches_with_tolerance_and_fahrenheit_conversion():
@@ -86,7 +86,7 @@ def test_primary_unavailable_never_falls_back_and_multiple_candidates_keep_state
     reading = row(topology, states)
     assert reading["legacy"]["entityId"] == "sensor.first"
     assert reading["legacy"]["normalizedValue"] == 20
-    assert reading["category"] == "LEGACY_FALLBACK_ONLY"
+    assert reading["category"] == "HOUSE_UNAVAILABLE"
 
 
 def test_legacy_attribute_value_can_survive_unavailable_primary_state():
@@ -116,5 +116,5 @@ def test_entity_override_device_inheritance_and_excluded_domains():
     # Name-based legacy heuristic accepts a battery sensor called temperature.
     assert reading["legacy"]["entityId"] == "sensor.battery_temperature"
     assert reading["legacy"]["resolutionSource"] == "DEVICE_INHERITED_ENTITY"
-    assert reading["category"] == "LEGACY_FALLBACK_ONLY"
+    assert reading["category"] == "LEGACY_UNSAFE_FALLBACK_REJECTED"
     assert row(topology, {"climate.thermostat": state("heat"), "weather.home": state("20")})["legacy"]["entityId"] is None

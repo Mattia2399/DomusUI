@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { buildDeviceAreaMap, buildEntityAreaMap, parseRegistryDeviceEntries, parseRegistryEntityEntries, resolveRoomClimateReadings } from '../components/rooms/roomsDirectory';
-import { compareEnvironment, fetchHouseSnapshot, fetchHouseTopology, parseHouseTopology, projectHouseForRooms, type HouseTopology } from './houseCore';
+import { compareEnvironment, fetchHouseSnapshot, fetchHouseTopology, parseHouseTopology, projectHouseForRooms, type HouseReading, type HouseTopology } from './houseCore';
+
+function reading(available = true): HouseReading {
+  return { metric: 'temperature', configured: true, configuredPrimaryEntityId: 'sensor.temp',
+    selectedEntityId: 'sensor.temp', selectionSource: 'HA_AREA_PRIMARY', selectionReason: 'AREA_PRIMARY',
+    fallbackUsed: false, available, value: available ? 21 : null, unit: '°C',
+    sourceEntityId: 'sensor.temp', updatedAt: null, status: available ? 'available' : 'unavailable' };
+}
 
 function topology(): HouseTopology {
   return {
@@ -51,19 +58,20 @@ describe('House → Rooms structural projection', () => {
     const states = { 'sensor.temp': { state: '21', rawAttributes: { device_class: 'temperature', unit_of_measurement: '°C' } } };
     expect(resolveRoomClimateReadings(projectHouseForRooms(house).areas[0], ['sensor.temp'], states).temperature).toBe(21);
     expect(compareEnvironment({ value: 21, sourceEntityId: 'sensor.temp' },
-      { configured: false, available: false, value: null, unit: null, sourceEntityId: null, updatedAt: null, status: 'unconfigured' })).toBe('LEGACY_FALLBACK_ONLY');
+      { ...reading(false), configured: false, configuredPrimaryEntityId: null, selectedEntityId: null,
+        selectionSource: 'NONE', sourceEntityId: null, unit: null, status: 'unconfigured' })).toBe('LEGACY_FALLBACK_ONLY');
     house.rooms[0].temperatureEntityId = 'sensor.temp';
     expect(resolveRoomClimateReadings(projectHouseForRooms(house).areas[0], ['sensor.temp'], states).temperature).toBe(21);
     expect(compareEnvironment({ value: 21, sourceEntityId: 'sensor.temp' },
-      { configured: true, available: true, value: 21, unit: '°C', sourceEntityId: 'sensor.temp', updatedAt: null, status: 'available' })).toBe('MATCH');
+      reading())).toBe('MATCH');
   });
 
   it('classifies every environmental shadow outcome without changing display values', () => {
-    const reading = { configured: true, available: true, value: 21, unit: '°C', sourceEntityId: 'sensor.temp', updatedAt: null, status: 'available' };
-    expect(compareEnvironment({ value: undefined, sourceEntityId: null }, reading)).toBe('HOUSE_PRIMARY_ONLY');
-    expect(compareEnvironment({ value: undefined, sourceEntityId: null }, { ...reading, available: false, value: null })).toBe('UNAVAILABLE');
-    expect(compareEnvironment({ value: 21, sourceEntityId: 'sensor.other' }, reading)).toBe('DIFFERENT_SOURCE');
-    expect(compareEnvironment({ value: 22, sourceEntityId: 'sensor.temp' }, reading)).toBe('DIFFERENT_VALUE');
+    const houseReading = reading();
+    expect(compareEnvironment({ value: undefined, sourceEntityId: null }, houseReading)).toBe('HOUSE_PRIMARY_ONLY');
+    expect(compareEnvironment({ value: undefined, sourceEntityId: null }, { ...houseReading, available: false, value: null })).toBe('UNAVAILABLE');
+    expect(compareEnvironment({ value: 21, sourceEntityId: 'sensor.other' }, houseReading)).toBe('DIFFERENT_SOURCE');
+    expect(compareEnvironment({ value: 22, sourceEntityId: 'sensor.temp' }, houseReading)).toBe('DIFFERENT_VALUE');
   });
 
   it('rejects malformed topology and centralizes both House reads', async () => {

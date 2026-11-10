@@ -457,6 +457,53 @@ describe('the Rooms page with Home Assistant', () => {
     expect(screen.getByRole('button', { name: 'Riprova' })).toBeTruthy();
   });
 
+  it('renders canonical House readings and rejects the real legacy false positives', async () => {
+    const ids = ['cucina', 'giardino', 'soggiorno', 'mattia'];
+    const names = ['Cucina', 'Giardino', 'Soggiorno', 'Camera Mattia'];
+    const metric = (kind: 'temperature' | 'humidity', id: string | null, value: number | null,
+      primary: string | null = null) => ({
+      metric: kind, configured: primary !== null, configuredPrimaryEntityId: primary,
+      selectedEntityId: id, selectionSource: primary ? 'HA_AREA_PRIMARY' : id ? 'SAFE_ROOM_FALLBACK' : 'NONE',
+      selectionReason: primary ? 'AREA_PRIMARY' : id ? 'NO_AREA_PRIMARY' : 'NO_SAFE_SOURCE',
+      fallbackUsed: Boolean(id && !primary), available: value !== null, value,
+      unit: kind === 'temperature' ? '°C' : '%', sourceEntityId: id, updatedAt: null,
+      status: value === null ? 'unconfigured' : 'available',
+    });
+    const rooms = ids.map((id, index) => ({ id, name: names[index], floorId: null, aliases: [],
+      icon: null, picture: null, temperatureEntityId: id === 'mattia' ? 'sensor.ifiugg2_temperature' : null,
+      humidityEntityId: id === 'mattia' ? 'sensor.umidita_soffitta' : null }));
+    const readings = ids.map((id) => ({ roomId: id,
+      temperature: id === 'mattia' ? metric('temperature', 'sensor.ifiugg2_temperature', 21, 'sensor.ifiugg2_temperature')
+        : metric('temperature', null, null),
+      humidity: id === 'mattia' ? metric('humidity', 'sensor.umidita_soffitta', 48, 'sensor.umidita_soffitta')
+        : metric('humidity', null, null),
+    }));
+    const api = vi.fn(async (message: Record<string, unknown>) => message.type === 'domusos/house/get_topology'
+      ? { schemaVersion: 'domusos.house.v1', topologyRevision: 1, topologyFingerprint: 'qa', generatedAt: 'now',
+          floors: [], rooms, devices: [], entities: [
+            ['sensor.a55_di_angela_battery_level', 'cucina'],
+            ['sensor.stufa_casa_flame_temperature', 'giardino'],
+            ['sensor.hp_officejet_3830_series_nero', 'soggiorno'],
+          ].map(([entityId, areaId]) => ({ entityId, registryId: entityId, domain: 'sensor', deviceId: null,
+            explicitAreaId: areaId, effectiveAreaId: areaId, deviceClass: null })),
+          unassigned: { deviceIds: [], entityIds: [] }, issues: [] }
+      : { schemaVersion: 'domusos.house.v1', topologyFingerprint: 'qa', generatedAt: 'now', rooms: readings });
+    render(<RoomsPage runtimeMode="real" haConnected haAreas={[]} onCallApi={api} haStates={{
+      'sensor.a55_di_angela_battery_level': { state: '52', rawAttributes: { unit_of_measurement: '%' } },
+      'sensor.stufa_casa_flame_temperature': { state: '37', rawAttributes: { unit_of_measurement: '°C' } },
+      'sensor.hp_officejet_3830_series_nero': { state: '20', rawAttributes: { unit_of_measurement: '%' } },
+    }} />);
+    await vi.waitFor(() => expect(api).toHaveBeenCalledWith({ type: 'domusos/house/get_snapshot' }, expect.anything()));
+    for (const [name, rejected] of [['Cucina', '52%'], ['Giardino', '37°'], ['Soggiorno', '20%']] as const) {
+      fireEvent.click(await screen.findByRole('button', { name }));
+      await vi.waitFor(() => expect(screen.getByRole('heading', { name })).toBeTruthy());
+      expect(document.querySelector('.rooms-head-title p')?.textContent).not.toContain(rejected);
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Camera Mattia' }));
+    await vi.waitFor(() => expect(document.querySelector('.rooms-head-title p')?.textContent).toContain('21°'));
+    expect(document.querySelector('.rooms-head-title p')?.textContent).toContain('48%');
+  });
+
   function renderConnected(onCallApi: (message: Record<string, unknown>) => Promise<unknown>, onNavigate = vi.fn()) {
     const rooms = [{ id: 'living', name: 'Soggiorno', floorId: null, aliases: [], icon: null as string | null,
       picture: null, temperatureEntityId: null as string | null, humidityEntityId: null }];

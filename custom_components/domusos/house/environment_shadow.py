@@ -1,7 +1,7 @@
 """On-demand comparison with the current Rooms environmental display resolver.
 
-This mirrors the *selection* used by RoomsPage/roomsDirectory, without changing
-House Snapshot or making its fallback authoritative. Only safe scalar fields
+This mirrors the retired RoomsPage/roomsDirectory selection and compares it to
+the canonical House Snapshot. Only safe scalar fields
 leave this module; HA state attributes are read but never returned.
 """
 
@@ -20,7 +20,7 @@ METRICS = ("temperature", "humidity")
 CATEGORIES = (
     "MATCH", "LEGACY_FALLBACK_ONLY", "HOUSE_PRIMARY_ONLY",
     "DIFFERENT_SOURCE_SAME_VALUE", "DIFFERENT_VALUE", "BOTH_UNAVAILABLE",
-    "LEGACY_UNAVAILABLE", "HOUSE_UNAVAILABLE",
+    "LEGACY_UNAVAILABLE", "HOUSE_UNAVAILABLE", "LEGACY_UNSAFE_FALLBACK_REJECTED",
 )
 TOLERANCE = {"temperature": 0.05, "humidity": 0.1}
 _FLOAT_PREFIX = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?")
@@ -141,6 +141,8 @@ def compare_readings(metric: str, legacy: Mapping[str, Any], house: Mapping[str,
     if not legacy_available and not house_available:
         return "BOTH_UNAVAILABLE"
     if legacy_available and not house_available:
+        if legacy.get("resolutionSource") in ("AUTO_DISCOVERED_ENTITY", "DEVICE_INHERITED_ENTITY") and not house["entityId"]:
+            return "LEGACY_UNSAFE_FALLBACK_REJECTED"
         return "LEGACY_FALLBACK_ONLY" if not house["entityId"] else "HOUSE_UNAVAILABLE"
     if house_available and not legacy_available:
         return "HOUSE_PRIMARY_ONLY" if not legacy["entityId"] else "LEGACY_UNAVAILABLE"
@@ -153,9 +155,10 @@ def compare_readings(metric: str, legacy: Mapping[str, Any], house: Mapping[str,
 
 
 def build_environment_shadow(topology: HouseTopology, states: Mapping[str, Any],
-                             *, generated_at: str | None = None) -> dict[str, Any]:
+                             *, generated_at: str | None = None,
+                             candidates: Mapping[tuple[str, str], list[str]] | None = None) -> dict[str, Any]:
     """Compare every HA room once; caller supplies HA state insertion order."""
-    snapshot = build_snapshot(topology, states.get, generated_at=generated_at)
+    snapshot = build_snapshot(topology, states.get, generated_at=generated_at, candidates=candidates)
     snapshot_rooms = {room["roomId"]: room for room in snapshot["rooms"]}
     entities = {entity["entityId"]: entity for entity in topology["entities"]}
     # One pass in the same state insertion order as Rooms' Object.keys map.
@@ -173,18 +176,21 @@ def build_environment_shadow(topology: HouseTopology, states: Mapping[str, Any],
         for metric in METRICS:
             legacy = _legacy_reading(room, metric, entities, states, candidates)
             house_raw = snapshot_rooms[room["id"]][metric]
-            house = _provenance(room["id"], metric, house_raw["sourceEntityId"],
-                                "HA_AREA_PRIMARY" if house_raw["configured"] else "NONE", None,
+            house = _provenance(room["id"], metric, house_raw["selectedEntityId"],
+                                house_raw["selectionSource"], None,
                                 value=house_raw["value"], unit=house_raw["unit"])
             house["updatedAt"] = house_raw["updatedAt"]
+            house["configuredPrimaryEntityId"] = house_raw["configuredPrimaryEntityId"]
+            house["selectionReason"] = house_raw["selectionReason"]
             if house_raw["status"] != "available":
                 house["status"] = house_raw["status"]
             category = compare_readings(metric, legacy, house)
             counts[metric][category] += 1
             rows.append({"roomId": room["id"], "roomName": room["name"], "metric": metric,
                          "legacy": legacy, "house": house, "category": category})
+    accepted = sum(counts[metric]["LEGACY_UNSAFE_FALLBACK_REJECTED"] for metric in METRICS)
     mismatches = sum(count for metric in METRICS for category, count in counts[metric].items()
-                     if category not in ("MATCH", "BOTH_UNAVAILABLE"))
+                     if category not in ("MATCH", "BOTH_UNAVAILABLE", "LEGACY_UNSAFE_FALLBACK_REJECTED"))
     matches = sum(counts[metric]["MATCH"] for metric in METRICS)
     return {
         "schemaVersion": "domusos.house.environment-shadow.v1",
@@ -193,5 +199,5 @@ def build_environment_shadow(topology: HouseTopology, states: Mapping[str, Any],
         "generatedAt": generated_at or utc_now(), "roomsCompared": len(topology["rooms"]),
         "tolerance": {"temperatureCelsius": TOLERANCE["temperature"], "humidityPercent": TOLERANCE["humidity"]},
         "readiness": "READY" if not mismatches else ("PARTIAL" if matches else "NOT_READY"),
-        "counts": counts, "rows": rows,
+        "counts": counts, "acceptedDivergences": accepted, "rows": rows,
     }

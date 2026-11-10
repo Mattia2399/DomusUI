@@ -17,6 +17,7 @@ from homeassistant.helpers import floor_registry as fr
 
 from .models import HouseTopology
 from .environment_shadow import build_environment_shadow
+from .environment import build_environment_candidate_index, visible_environment_candidates
 from .resolver import (
     build_snapshot,
     build_topology,
@@ -58,6 +59,7 @@ class HouseManager:
         self._cache: HouseTopology | None = None
         self._cached_at = 0.0
         self._revision = 0
+        self._environment_candidates: dict[tuple[str, str], list[str]] = {}
         self.rebuild_count = 0
 
     async def async_setup(self) -> None:
@@ -87,10 +89,11 @@ class HouseManager:
         self._unsubscribers.clear()
         async with self._lock:
             self._cache = None
+            self._environment_candidates = {}
             self._dirty = True
             self._cached_at = 0.0
 
-    def _read_registries(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    def _read_registries(self) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str], dict[str, dict[str, Any]]]:
         unavailable: list[str] = []
 
         def read(name: str, fetch: Callable[[], list[dict[str, Any]]]) -> list[dict[str, Any]]:
@@ -104,8 +107,14 @@ class HouseManager:
         floors = read("floor", lambda: normalize_floors(fr.async_get(self.hass).async_list_floors()))
         rooms = read("area", lambda: normalize_rooms(ar.async_get(self.hass).async_list_areas()))
         devices = read("device", lambda: normalize_devices(dr.async_get(self.hass).devices.values()))
-        entities = read("entity", lambda: normalize_entities(er.async_get(self.hass).entities.values()))
-        return floors, rooms, devices, entities, unavailable
+        registry_entries = read("entity", lambda: list(er.async_get(self.hass).entities.values()))
+        entities = normalize_entities(registry_entries)
+        metadata = {entry.entity_id: {
+            "disabledBy": getattr(entry, "disabled_by", None),
+            "hiddenBy": getattr(entry, "hidden_by", None),
+            "entityCategory": getattr(entry, "entity_category", None),
+        } for entry in registry_entries}
+        return floors, rooms, devices, entities, unavailable, metadata
 
     async def _topology(self) -> HouseTopology:
         if not self._running:
@@ -115,12 +124,13 @@ class HouseManager:
                 raise HouseUnavailableError("Domus House is not running")
             ttl = _PARTIAL_RETRY_SECONDS if self._cache and any(issue["code"] == "registry_unavailable" for issue in self._cache["issues"]) else _CACHE_SECONDS
             if self._cache is None or self._dirty or monotonic() - self._cached_at >= ttl:
-                floors, rooms, devices, entities, unavailable = self._read_registries()
+                floors, rooms, devices, entities, unavailable, metadata = self._read_registries()
                 candidate = build_topology(floors, rooms, devices, entities, unavailable_registries=unavailable)
-                if self._cache is None or candidate["topologyFingerprint"] != self._cache["topologyFingerprint"]:
+                if self._cache is None or self._dirty or candidate["topologyFingerprint"] != self._cache["topologyFingerprint"]:
                     self._revision += 1
                 candidate["topologyRevision"] = self._revision
                 self._cache = candidate
+                self._environment_candidates = build_environment_candidate_index(candidate, metadata)
                 self._cached_at = monotonic()
                 self._dirty = False
                 self.rebuild_count += 1
@@ -167,15 +177,19 @@ class HouseManager:
         return self._project(await self._topology(), user)
 
     async def async_get_snapshot(self, user: Any) -> dict[str, Any]:
-        topology = await self.async_get_topology(user)
-        return build_snapshot(topology, self.hass.states.get)
+        topology = self._project(await self._topology(), user)
+        visible = {entity["entityId"] for entity in topology["entities"]}
+        candidates = visible_environment_candidates(self._environment_candidates, visible)
+        return build_snapshot(topology, self.hass.states.get, candidates=candidates)
 
     async def async_get_environment_shadow(self, user: Any) -> dict[str, Any]:
         """Admin-only, on-demand diagnostic; never cache HA states or telemetry."""
         if getattr(user, "is_admin", False) is not True:
             raise PermissionError("House diagnostics require an HA administrator")
-        topology = await self.async_get_topology(user)
+        topology = self._project(await self._topology(), user)
         # HA state insertion order is the order Rooms receives in its live map.
         # One snapshot avoids mixed state reads while topology remains cached.
         states = {state.entity_id: state for state in self.hass.states.async_all()}
-        return build_environment_shadow(topology, states)
+        visible = {entity["entityId"] for entity in topology["entities"]}
+        candidates = visible_environment_candidates(self._environment_candidates, visible)
+        return build_environment_shadow(topology, states, candidates=candidates)

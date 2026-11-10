@@ -28,7 +28,8 @@ The floor, area, device and entity registry modules expose public
 `EVENT_*_REGISTRY_UPDATED` constants in both versions. The resolver subscribes
 to those constants, not literal event strings. HA 2025.1.0 AreaEntry has no
 `temperature_entity_id` or `humidity_entity_id`; HA 2026.2.3 has both. Missing
-attributes normalize to `null`. The model does not infer another sensor.
+attributes normalize to `null`. HOUSE.3B can select a strict runtime fallback
+for a room without a primary; see `house-environment-resolver.md`.
 HA 2025.1.0 has no floor reorder method; 2026.2.3 adds one. The resolver only
 reads each version's registry order and reports its index.
 

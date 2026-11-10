@@ -3,7 +3,7 @@
 `domusos/house/get_environment_shadow` is an on-demand, read-only WebSocket
 command. It requires Domus `rooms.view` and a Home Assistant administrator.
 It returns HA rooms only; browser-local `custom:*` rooms and Demo are outside
-House topology. The normal Rooms page still displays the legacy reading.
+House topology. Connected Rooms displays the canonical House Snapshot reading.
 The command reads one current HA state map per request. It does not subscribe,
 poll, store history, write House configuration, or call HA services. Request it
 again after a topology or state change. When Domus House is offline, the command
@@ -12,7 +12,8 @@ returns `house_unavailable` rather than a misleading mismatch.
 The report contains room ID/name, metric, source entity ID, resolution source,
 availability, normalized scalar value, unit, update time, status, category,
 per-metric counters, and conservative readiness. No raw HA attributes are
-serialized. `READY` means every row is `MATCH` or `BOTH_UNAVAILABLE`;
+serialized. `READY` means every row is `MATCH`, `BOTH_UNAVAILABLE`, or an
+intentional `LEGACY_UNSAFE_FALLBACK_REJECTED` divergence;
 `PARTIAL` means at least one `MATCH` and one mismatch; `NOT_READY` means
 mismatches with no `MATCH`. `READY` from fixtures does not authorize migration.
 
@@ -39,8 +40,10 @@ distinct category even when values are equivalent; it does not count as
 | Numeric state wins, then `current_temperature` attribute, then a climate target attribute, then numeric-prefix state parsing | UI_ONLY | A configured sensor can show an attribute value even if its HA state is `unavailable`; House Snapshot reads the state only. |
 | Custom-room and Demo readings | DOMAIN_SPECIFIC | They are local to Rooms, not HA House topology. |
 
-The shadow command mirrors this selection for diagnosis only. It does not add
-a fallback to House Snapshot. For a configured primary that is unavailable,
+The shadow command mirrors the retired legacy selection for diagnosis only.
+It compares it to the canonical House Snapshot, including its strict fallback.
+`LEGACY_UNSAFE_FALLBACK_REJECTED` identifies a legacy fallback that House
+intentionally refused. For a configured primary that is unavailable,
 both sides remain unavailable; `status` and `entityId` distinguish that from
 an unconfigured Area. When the Area has no primary reference, HA 2025.1 can
 report `LEGACY_FALLBACK_ONLY`; HA 2026.2.3 can report `MATCH` with a configured

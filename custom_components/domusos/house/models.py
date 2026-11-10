@@ -19,6 +19,12 @@ class HouseIssue(TypedDict):
         "missing_temperature_entity",
         "missing_humidity_entity",
         "registry_unavailable",
+        "environment_primary_missing",
+        "environment_primary_unassigned",
+        "environment_primary_outside_room",
+        "environment_primary_metric_mismatch",
+        "environment_primary_unavailable",
+        "environment_multiple_safe_candidates",
     ]
     subjectId: str
     referenceId: str | None

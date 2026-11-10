@@ -66,7 +66,8 @@ def test_detects_real_missing_references_without_repairing_them():
     entities[0]["deviceId"] = "missing-device"
     topology = resolver.build_topology(floors, rooms, devices, entities)
     codes = {issue["code"] for issue in topology["issues"]}
-    assert codes == {"missing_floor_reference", "missing_area_reference", "missing_device_reference", "missing_temperature_entity", "missing_humidity_entity"}
+    assert {"missing_floor_reference", "missing_area_reference", "missing_device_reference",
+            "missing_temperature_entity", "missing_humidity_entity", "environment_primary_missing"} <= codes
     assert next(item for item in topology["entities"] if item["entityId"] == "light.loose")["effectiveAreaId"] is None
 
 
@@ -95,7 +96,9 @@ def test_snapshot_preserves_value_unit_timestamp_and_never_returns_raw_attribute
     }
     result = resolver.build_snapshot(topology, states.get)
     living = next(room for room in result["rooms"] if room["roomId"] == "living")
-    assert living["temperature"] == {"configured": True, "available": True, "value": 21.5, "unit": "°C", "sourceEntityId": "sensor.living_temp", "updatedAt": now.isoformat(), "status": "available"}
+    assert {key: living["temperature"][key] for key in ("configured", "available", "value", "unit", "sourceEntityId", "updatedAt", "status")} == {
+        "configured": True, "available": True, "value": 21.5, "unit": "°C", "sourceEntityId": "sensor.living_temp", "updatedAt": now.isoformat(), "status": "available"}
+    assert living["temperature"]["selectionSource"] == "HA_AREA_PRIMARY"
     assert living["humidity"]["value"] == 48 and living["humidity"]["unit"] == "%"
     assert "secret" not in str(result) and "coordinates" not in str(result)
     states["sensor.living_temp"].state = "22"

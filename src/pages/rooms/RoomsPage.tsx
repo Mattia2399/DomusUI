@@ -4,7 +4,6 @@ import {
   assignRoomAreaTargets,
   DEMO_ROOM_TABS,
   getEntityFriendlyName,
-  isAreaSensorEntityCandidate,
   mergeRoomTabs,
   resolveRoomClimateReadings,
   toCustomRoomTabs,
@@ -142,6 +141,8 @@ import { useDeviceCommands } from './useDeviceCommands';
 import { useClimateCommands } from './useClimateCommands';
 import { useLightCommands } from './useLightCommands';
 import { useRoomsRegistry } from './useRoomsRegistry';
+import { useHouseEnvironmentSnapshot } from './useHouseEnvironmentSnapshot';
+import type { HouseTopology } from '../../services/houseCore';
 import './rooms.css';
 
 /*
@@ -211,9 +212,14 @@ const NO_IDS: string[] = [];
 const DEMO_ROOM_IDS = new Set(DEMO_ROOM_TABS.map((tab) => tab.id));
 
 /** The sensors a room can read its temperature or humidity from, by name. */
-function sensorOptionsOf(states: MockEntityStateMap, kind: 'temperature' | 'humidity'): GlassDropdownOption[] {
-  return Object.keys(states)
-    .filter((entityId) => isAreaSensorEntityCandidate(entityId, states[entityId], kind))
+function sensorOptionsOf(states: MockEntityStateMap, topology: HouseTopology | null, kind: 'temperature' | 'humidity'): GlassDropdownOption[] {
+  const configured = (topology?.rooms ?? [])
+    .map((room) => kind === 'temperature' ? room.temperatureEntityId : room.humidityEntityId)
+    .filter((id): id is string => Boolean(id));
+  const candidates = (topology?.entities ?? [])
+    .filter((entity) => entity.domain === 'sensor' && entity.deviceClass === kind && states[entity.entityId])
+    .map((entity) => entity.entityId);
+  return [...new Set([...candidates, ...configured])]
     .map((entityId) => ({ id: entityId, name: getEntityFriendlyName(entityId, states[entityId]) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -321,6 +327,7 @@ export function RoomsPage({
     useRoomsStoredState(runtimeMode, canOrganize);
   const { pinnedByRoom, setPinnedByRoom } = useRoomPinnedEntities(runtimeMode, canOrganize);
   const registry = useRoomsRegistry(haConnected, onCallApi, !demo);
+  const houseSnapshot = useHouseEnvironmentSnapshot(haConnected && !demo, onCallApi, registry.topology, haStates);
   // The demo's plugs ask before turning off until the demo is changed.
   const { protectedIds, setProtectedIds } = useProtectedEntities(runtimeMode, canOrganize, demo ? DEMO_PROTECTED_ENTITIES : NO_IDS);
   const [demoRoomByEntity, setDemoRoomByEntity] = React.useState<Record<string, string>>(DEMO_ROOMS);
@@ -830,9 +837,13 @@ export function RoomsPage({
       : null,
   );
 
+  const houseReading = houseSnapshot?.rooms.find((room) => room.roomId === activeRoom?.id);
   const readings = demo
     ? (activeRoom && DEMO_ROOM_READINGS[activeRoom.id]) || {}
-    : resolveRoomClimateReadings(activeArea, buckets.sensors, haStates);
+    : activeRoom?.source === 'ha'
+      ? { temperature: houseReading?.temperature.available ? houseReading.temperature.value : undefined,
+          humidity: houseReading?.humidity.available ? houseReading.humidity.value : undefined }
+      : resolveRoomClimateReadings(activeArea, buckets.sensors, haStates);
   const activeCount =
     roomItems.filter((item) => item.active).length +
     deviceItems.filter((item) => item.active).length +
@@ -1122,8 +1133,8 @@ export function RoomsPage({
   // Who changes what: an area needs Home Assistant; the demo's own rooms change their look, not their name.
   const canEditRoom = (room: RoomTab | null): room is RoomTab =>
     room !== null && management.canManage && (room.source === 'custom' || management.canManageHa);
-  const temperatureSensors = sensorOptionsOf(haStates, 'temperature');
-  const humiditySensors = sensorOptionsOf(haStates, 'humidity');
+  const temperatureSensors = sensorOptionsOf(haStates, registry.topology, 'temperature');
+  const humiditySensors = sensorOptionsOf(haStates, registry.topology, 'humidity');
   const sheetRoom = roomSheet?.room ?? null;
   const newRoom = () => {
     management.clearError();

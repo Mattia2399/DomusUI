@@ -9,16 +9,17 @@ It copies `effectiveAreaId`; it never recomputes the entity/device area rule.
 |---|---|---|
 | Floor ID, name, level, aliases, order | `floors[]` | Existing local room order stays in browser layout. |
 | Area ID, name, floor, aliases, icon, picture | `rooms[]` | HA room identity is `area_id`. |
-| Environment references | `rooms[]` | Display still uses the legacy live-state fallback. |
+| Environment references | `rooms[]` | Explicit Area primary references remain topology facts. |
+| Environment readings | `get_snapshot.rooms[]` | Connected Rooms displays canonical House temperature and humidity. |
 | Device membership | `devices[].areaId` | Filtered to devices with readable entity refs. |
 | Entity ID, stable registry ID, device, direct/effective area | `entities[]` | House is authoritative for membership. |
 | Unassigned | `unassigned` | No synthesized HA assignment. |
 | Issues | `issues[]` | Available for diagnostics, not shown as technical warnings. |
 
-The House schema has **no new fields**. Its authorized projection now includes
+The topology schema has no new fields. Its authorized projection includes
 minimal registry references for the domains Rooms already uses, including
 sensor refs without a device class and HA-readable lock/camera refs. This is
-needed to preserve Rooms membership and 2025.1 environmental fallback. It
+needed to preserve Rooms membership and enable backend 2025.1 fallback. It
 contains no state or attributes. Person/alarm entities remain excluded. Every
 non-admin entity ref must pass Home Assistant `POLICY_READ`.
 
@@ -38,11 +39,10 @@ remain distinct from an empty topology. Rooms writes stay on HA registry
 commands; temporary room/floor presentation changes reconcile on the next
 House read. Settings Rooms uses the same client and refreshes after writes.
 
-Temperature/humidity presentation is unchanged. HA 2025.1 Area entries have no
-environment refs, so discoverable in-room live sensors remain the legacy
-fallback. HA 2026.2 Area refs remain the legacy primary choice when present.
-The non-UI shadow classifier covers MATCH, LEGACY_FALLBACK_ONLY,
-HOUSE_PRIMARY_ONLY, UNAVAILABLE, DIFFERENT_SOURCE and DIFFERENT_VALUE. HOUSE.3B
-should validate these outcomes against real homes before centralizing the
-environment resolver. No Climate file, House store or House write API changes
-in this phase.
+HOUSE.3B moves connected Rooms temperature and humidity to the canonical
+Snapshot. HA 2025.1 uses a strict backend fallback when no Area reference
+exists. HA 2026.2 Area references remain authoritative. The admin-only shadow
+command compares the retired legacy selection with House and calls out unsafe
+legacy fallbacks. See `house-environment-resolver.md` for candidate rules and
+the real-installation QA handoff. No Climate file, House store or House write
+API changes in this phase.

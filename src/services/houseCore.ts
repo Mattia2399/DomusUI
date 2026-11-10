@@ -23,10 +23,14 @@ export type HouseTopology = {
 export type HouseReading = {
   configured: boolean; available: boolean; value: number | null; unit: string | null;
   sourceEntityId: string | null; updatedAt: string | null; status: string;
+  metric: 'temperature' | 'humidity'; configuredPrimaryEntityId: string | null;
+  selectedEntityId: string | null; selectionSource: 'HA_AREA_PRIMARY' | 'SAFE_ROOM_FALLBACK' | 'NONE';
+  selectionReason: string; fallbackUsed: boolean;
 };
 export type HouseSnapshot = {
   schemaVersion: typeof HOUSE_SCHEMA; topologyFingerprint: string; generatedAt: string;
   rooms: Array<{ roomId: string; temperature: HouseReading; humidity: HouseReading }>;
+  issues?: HouseIssue[];
 };
 
 const record = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -64,7 +68,16 @@ export async function fetchHouseTopology(callApi: RoomsApiCall): Promise<HouseTo
 export async function fetchHouseSnapshot(callApi: RoomsApiCall): Promise<HouseSnapshot> {
   const value = await callApi({ type: 'domusos/house/get_snapshot' }, { reportError: false, throwOnError: true });
   if (!record(value) || value.schemaVersion !== HOUSE_SCHEMA || !string(value.topologyFingerprint) ||
-      !string(value.generatedAt) || !Array.isArray(value.rooms)) throw new Error('Invalid House snapshot');
+      !string(value.generatedAt) || !Array.isArray(value.rooms) ||
+      !value.rooms.every((room) => record(room) && string(room.roomId) &&
+        (['temperature', 'humidity'] as const).every((metric) => {
+          const reading = room[metric];
+          return record(reading) && reading.metric === metric && nullableString(reading.configuredPrimaryEntityId) &&
+            nullableString(reading.selectedEntityId) &&
+            ['HA_AREA_PRIMARY', 'SAFE_ROOM_FALLBACK', 'NONE'].includes(String(reading.selectionSource)) &&
+            string(reading.selectionReason) && typeof reading.available === 'boolean' &&
+            (reading.value === null || typeof reading.value === 'number') && typeof reading.fallbackUsed === 'boolean';
+        }))) throw new Error('Invalid House snapshot');
   return value as HouseSnapshot;
 }
 

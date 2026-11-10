@@ -190,6 +190,23 @@ def build_topology(
             if capability is not None:
                 capabilities[area_id].add(capability)
 
+    entity_by_id = {entity["entityId"]: entity for entity in entities}
+    for room in rooms:
+        for field, metric in (("temperatureEntityId", "temperature"), ("humidityEntityId", "humidity")):
+            primary = room[field]
+            if primary is None:
+                continue
+            entity = entity_by_id.get(primary)
+            if entity is None:
+                issues.append(_issue("environment_primary_missing", room["id"], primary))
+            elif entity["effectiveAreaId"] is None:
+                issues.append(_issue("environment_primary_unassigned", room["id"], primary))
+            elif entity["effectiveAreaId"] != room["id"]:
+                issues.append(_issue("environment_primary_outside_room", room["id"], primary))
+            if entity is not None and (entity["domain"] != "sensor" or
+                                       entity["deviceClass"] not in (None, metric)):
+                issues.append(_issue("environment_primary_metric_mismatch", room["id"], primary))
+
     for room in rooms:
         room["capabilities"] = [
             {"name": name, "present": True, "available": None, "permitted": True}
@@ -252,13 +269,28 @@ def environmental_reading(entity_id: str | None, state: Any) -> dict[str, Any]:
     return result
 
 
-def build_snapshot(topology: HouseTopology, state_getter: Any, *, generated_at: str | None = None) -> dict[str, Any]:
-    """Read current states on demand, without rebuilding topology or caching state."""
+def build_snapshot(topology: HouseTopology, state_getter: Any, *, generated_at: str | None = None,
+                   candidates: Mapping[tuple[str, str], list[str]] | None = None) -> dict[str, Any]:
+    """Read selected sources on demand; topology and semantic choice stay stable."""
+    from .environment import build_environment_candidate_index, resolve_environment
+
+    if candidates is None:
+        candidates = build_environment_candidate_index(topology)
     rooms = []
+    issues = []
+    entity_by_id = {entity["entityId"]: entity for entity in topology["entities"]}
     for room in topology["rooms"]:
         readings = {}
         for name, field in (("temperature", "temperatureEntityId"), ("humidity", "humidityEntityId")):
-            entity_id = room[field]
-            readings[name] = environmental_reading(entity_id, state_getter(entity_id) if entity_id else None)
+            reading = resolve_environment(room["id"], name, room[field], entity_by_id,
+                                          candidates.get((room["id"], name), []), state_getter)
+            readings[name] = reading
+            if room[field] and reading["status"] in ("missing", "unavailable", "unknown"):
+                issues.append(_issue("environment_primary_unavailable", room["id"], room[field]))
+            if room[field] and reading["status"] in ("metric_mismatch", "incompatible_unit"):
+                issues.append(_issue("environment_primary_metric_mismatch", room["id"], room[field]))
+            if len(candidates.get((room["id"], name), [])) > 1 and room[field] is None:
+                issues.append(_issue("environment_multiple_safe_candidates", room["id"], name))
         rooms.append({"roomId": room["id"], **readings})
-    return {"schemaVersion": SCHEMA, "topologyFingerprint": topology["topologyFingerprint"], "generatedAt": generated_at or utc_now(), "rooms": rooms}
+    return {"schemaVersion": SCHEMA, "topologyFingerprint": topology["topologyFingerprint"],
+            "generatedAt": generated_at or utc_now(), "rooms": rooms, "issues": issues}
