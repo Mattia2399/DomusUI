@@ -25,6 +25,19 @@ function readPanelBridgeSource() {
 }
 
 describe('Home Assistant panel distribution contract', () => {
+  it('allows exactly the two closed House reads in both bridge halves', () => {
+    const bridge = readPanelBridgeSource();
+    const expected = ['domusos/house/get_snapshot', 'domusos/house/get_topology'];
+    const hostTypes = [...new Set([...bridge.matchAll(/"(domusos\/house\/[a-z_]+)"/g)].map((match) => match[1]))].sort();
+    const appTypes = [...HA_PANEL_ALLOWED_API_TYPES].filter((type) => type.startsWith('domusos/house/')).sort();
+    expect(hostTypes).toEqual(expected);
+    expect(appTypes).toEqual(expected);
+    expect(bridge).toContain('return hasExactKeys(message, ["type"]);');
+    for (const type of expected) {
+      expect(validatePanelApiMessage({ type })).toBe(true);
+      expect(validatePanelApiMessage({ type, user_id: 'spoofed' })).toBe(false);
+    }
+  });
   it('keeps the HACS integration aligned with the registered custom element', () => {
     const installation = readProjectFile('docs/installation-beta.md');
     const bridgeDocumentation = readProjectFile('docs/home-assistant-panel-bridge.md');

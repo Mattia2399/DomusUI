@@ -39,6 +39,8 @@ EXPECTED = {
     "domusos/climate/set_zone_override": "climate.control",
     "domusos/climate/clear_zone_override": "climate.control",
     "domusos/climate/execute_plan": "climate.control",
+    "domusos/house/get_topology": "rooms.view",
+    "domusos/house/get_snapshot": "rooms.view",
     # Device timers
     "domusos/device_timers/get_state": "devices.timers",
     "domusos/device_timers/subscribe": "devices.timers",
@@ -160,7 +162,7 @@ def test_every_module_with_commands_registers_them_through_the_instrumentation()
         if re.search(r"^WEBSOCKET_COMMANDS = \(", source, re.MULTILINE):
             modules += 1
             assert "register_websocket_commands(hass, WEBSOCKET_COMMANDS)" in source, path.name
-    assert modules == 8
+    assert modules == 9
 
 
 # --- The registry itself ------------------------------------------------------------------
@@ -174,7 +176,7 @@ def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
     # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1),
     # the four of device timers.
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 55
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 57
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:
@@ -183,8 +185,12 @@ def test_every_capability_exists_and_is_enforced_by_domus() -> None:
             continue
         entry = models.capability(contract.capability)
         assert entry is not None, contract.id
-        # A backend action is guarded by what Domus enforces, never a browser-only or HA-native capability.
-        assert entry.enforcement is models.EnforcementKind.DOMUS, contract.id
+        # House reads reuse the established Rooms route capability, now also
+        # enforced by the backend command wrapper.
+        if contract.id.startswith("domusos/house/"):
+            assert entry.id == "rooms.view" and contract.enforced
+        else:
+            assert entry.enforcement is models.EnforcementKind.DOMUS, contract.id
 
 
 def test_surfaces_match_their_names() -> None:
@@ -193,7 +199,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 50
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 52
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 
@@ -221,7 +227,8 @@ def test_what_home_assistant_already_checks_is_recorded() -> None:
 
 
 @pytest.mark.parametrize("capability", sorted(
-    entry.id for entry in models.ACCESS_CAPABILITIES.values() if entry.enforcement is not models.EnforcementKind.DOMUS
+    entry.id for entry in models.ACCESS_CAPABILITIES.values()
+    if entry.enforcement is not models.EnforcementKind.DOMUS and entry.id != "rooms.view"
 ))
 def test_ha_native_and_local_capabilities_have_no_backend_action(capability) -> None:
     assert capability not in {contract.capability for contract in actions.ACTION_CONTRACT_LIST}
@@ -254,7 +261,7 @@ def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> N
         assert len(contract.shadow_exemption) > 40, contract.id
     observed = actions.shadow_contracts()
     assert {contract.id for contract in observed} == set(EXPECTED) - SHADOW_EXEMPT
-    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 43
+    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 45
     assert len([contract for contract in observed if contract.surface is Surface.SERVICE]) == 5
 
 

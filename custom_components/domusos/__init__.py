@@ -45,6 +45,8 @@ from .device_timers import DATA_DEVICE_TIMER_MANAGER, DeviceTimerManager
 from .device_timers.api import async_register_device_timers_api
 from .energy import EnergyProfileManager
 from .energy.api import async_register_energy_api
+from .house import DATA_HOUSE_MANAGER, HouseManager
+from .house.api import async_register_house_api
 from .irrigation import IrrigationManager
 from .irrigation.api import async_register_irrigation_api
 from .notifications import (
@@ -88,6 +90,7 @@ class DomusEntryData:
     access_manager: AccessPolicyManager | None = None
     climate_manager: ClimateManager | None = None
     climate_state_manager: ClimateStateManager | None = None
+    house_manager: HouseManager | None = None
 
 
 DomusConfigEntry = ConfigEntry[DomusEntryData]
@@ -115,6 +118,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await async_register_device_timers_api(hass)
     await async_register_access_api(hass)
     await async_register_climate_api(hass)
+    await async_register_house_api(hass)
     return True
 
 
@@ -207,6 +211,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
         await _async_setup_device_power(hass, entry_data)
         await _async_setup_device_timers(hass, entry_data)
         await _async_setup_access(hass, entry_data)
+        await _async_setup_house(hass, entry_data)
         await _async_setup_climate(hass, entry_data)
         await panel_custom.async_register_panel(hass=hass, **panel_options)
         domain_data["irrigation_manager"] = manager
@@ -225,6 +230,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> boo
             domain_data.pop("waste_collection_manager", None)
         if domain_data.get("runtime") is runtime:
             domain_data.pop("runtime", None)
+        await _async_teardown_house(hass, entry_data)
         _teardown_access(hass, entry_data)
         await _async_teardown_climate(hass, entry_data)
         await _async_teardown_device_timers(hass, entry_data)
@@ -259,6 +265,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: DomusConfigEntry) -> bo
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
     entry_data = getattr(entry, "runtime_data", None)
     if isinstance(entry_data, DomusEntryData):
+        await _async_teardown_house(hass, entry_data)
         _teardown_access(hass, entry_data)
         await _async_teardown_climate(hass, entry_data)
         await _async_teardown_device_timers(hass, entry_data)
@@ -553,6 +560,31 @@ async def _async_setup_access(hass: HomeAssistant, entry_data: DomusEntryData) -
         return
     entry_data.access_manager = manager
     hass.data.setdefault(DOMAIN, {})[DATA_ACCESS_MANAGER] = manager
+
+
+async def _async_setup_house(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    """Start the read-only resolver after Access; keep other modules independent."""
+    manager = HouseManager(hass)
+    try:
+        await manager.async_setup()
+    except Exception:
+        _LOGGER.exception("Domus House could not start")
+        await manager.async_shutdown()
+        return
+    entry_data.house_manager = manager
+    hass.data.setdefault(DOMAIN, {})[DATA_HOUSE_MANAGER] = manager
+
+
+async def _async_teardown_house(hass: HomeAssistant, entry_data: DomusEntryData) -> None:
+    manager = entry_data.house_manager
+    try:
+        if manager is not None:
+            await manager.async_shutdown()
+    finally:
+        entry_data.house_manager = None
+        domain_data = hass.data.get(DOMAIN, {})
+        if manager is not None and domain_data.get(DATA_HOUSE_MANAGER) is manager:
+            domain_data.pop(DATA_HOUSE_MANAGER, None)
 
 
 def _teardown_access(hass: HomeAssistant, entry_data: DomusEntryData) -> None:

@@ -73,6 +73,7 @@ const ALLOWED_WS_TYPES = new Set([
   "domusos/access/get_self",
   "domusos/access/list_accounts", "domusos/access/set_assignment",
   "domusos/access/remove_assignment", "domusos/access/reset_policy",
+  "domusos/house/get_topology", "domusos/house/get_snapshot",
   "calendar/event/subscribe", "calendar/event/create",
   "calendar/event/update", "calendar/event/delete",
   "person/list", "person/update", "person/create",
@@ -382,6 +383,9 @@ const isValidTranslationsMessage = (message) =>
   (message.category === "entity_component" || message.category === "entity");
 const isValidWsMessage = (message) => {
   if (!isRecord(message) || typeof message.type !== "string" || !ALLOWED_WS_TYPES.has(message.type)) return false;
+  if (message.type === "domusos/house/get_topology" || message.type === "domusos/house/get_snapshot") {
+    return hasExactKeys(message, ["type"]);
+  }
   if (message.type.startsWith("domusos/energy/")) {
     return isValidEnergyMessage(message);
   }

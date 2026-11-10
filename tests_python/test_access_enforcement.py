@@ -31,7 +31,8 @@ DEVICE_POWER = (
     "domusos/device_power/delete_policy",
 )
 CLIMATE = ("domusos/climate/get_config", "domusos/climate/save_config", "domusos/climate/get_state", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent", "domusos/climate/set_zone_override", "domusos/climate/clear_zone_override", "domusos/climate/execute_plan")
-ENFORCED = (*DEVICE_POWER, *CLIMATE)
+HOUSE = ("domusos/house/get_topology", "domusos/house/get_snapshot")
+ENFORCED = (*DEVICE_POWER, *CLIMATE, *HOUSE)
 ADMIN = models.Principal(user_id="a" * 32, is_admin=True)
 MEMBER = models.Principal(user_id="b" * 32, is_admin=False)
 
@@ -61,7 +62,7 @@ def test_enforcement_defaults_to_off() -> None:
     assert all(type(contract.enforced) is bool for contract in actions.ACTION_CONTRACT_LIST)
 
 
-def test_exactly_device_power_and_climate_commands_are_enforced() -> None:
+def test_exactly_device_power_climate_and_house_commands_are_enforced() -> None:
     assert [contract.id for contract in actions.enforced_contracts()] == list(ENFORCED)
     assert [contract.id for contract in actions.ACTION_CONTRACT_LIST if contract.enforced] == list(ENFORCED)
 
@@ -72,7 +73,7 @@ def test_an_enforced_action_is_an_observed_websocket_capability() -> None:
         assert contract.auth_mode is AuthMode.CAPABILITY, contract.id
         # Exempt means unwrapped: nothing would refuse it.
         assert contract.shadow_exemption is None, contract.id
-        assert contract.capability in {"device_power.manage", "climate.view", "climate.control", "climate.manage"}, contract.id
+        assert contract.capability in {"device_power.manage", "climate.view", "climate.control", "climate.manage", "rooms.view"}, contract.id
         assert contract.allow_unattributed_ha_context is False, contract.id
 
 

@@ -161,6 +161,15 @@ describe('Home Assistant panel bridge schema', () => {
     expect(validatePanelApiMessage({ type: 'call_service', domain: 'light!', service: 'turn_on' })).toBe(false);
   });
 
+  it('accepts only the two parameterless House reads', () => {
+    for (const type of ['domusos/house/get_topology', 'domusos/house/get_snapshot']) {
+      expect(validatePanelApiMessage({ type })).toBe(true);
+      expect(validatePanelApiMessage({ type, user_id: 'another-user' })).toBe(false);
+      expect(validatePanelApiMessage({ type, is_admin: true })).toBe(false);
+    }
+    expect(validatePanelApiMessage({ type: 'domusos/house/save_house' })).toBe(false);
+  });
+
   it('allows only the four Energy commands with their exact shapes', () => {
     for (const type of ['get_state', 'discover', 'get_profile']) {
       expect(validatePanelApiMessage({ type: `domusos/energy/${type}` })).toBe(true);
