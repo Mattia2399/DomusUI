@@ -37,7 +37,7 @@ def fixture_house(hass: HomeAssistant):
         "sensor", "test", "house-temp", suggested_object_id="house_temp",
         device_id=device.id, original_device_class="temperature", unit_of_measurement="°C",
     )
-    hass.states.async_set(entity.entity_id, "21.5", {"unit_of_measurement": "°C", "secret": "never-return"})
+    hass.states.async_set(entity.entity_id, "21.5", {"unit_of_measurement": "°C", "device_class": "temperature", "secret": "never-return"})
     return floor, area, device, entity
 
 
@@ -59,6 +59,21 @@ async def test_registry_contract_and_stable_entity_id_exist_on_both_versions(has
     assert topology["entities"][0]["registryId"] == entity.id
     assert topology["entities"][0]["effectiveAreaId"] == area.id
     assert topology["rooms"][0]["temperatureEntityId"] is None  # HA 2025 omits it; 2026 defaults to null.
+    await manager.async_shutdown()
+
+
+async def test_native_area_environment_ref_matches_when_ha_exposes_it(hass: HomeAssistant):
+    _, area, _, entity = fixture_house(hass)
+    if not hasattr(area, "temperature_entity_id"):
+        pytest.skip("HA 2025.1 Area has no environmental reference fields")
+    ar.async_get(hass).async_update(area.id, temperature_entity_id=entity.entity_id)
+    manager = HouseManager(hass)
+    await manager.async_setup()
+    report = await manager.async_get_environment_shadow(SimpleNamespace(is_admin=True))
+    temperature = next(item for item in report["rows"] if item["metric"] == "temperature")
+    assert temperature["category"] == "MATCH"
+    assert temperature["legacy"]["entityId"] == temperature["house"]["entityId"] == entity.entity_id
+    assert report["readiness"] == "READY"
     await manager.async_shutdown()
 
 
@@ -153,6 +168,12 @@ async def test_websocket_requires_rooms_access_and_never_accepts_spoofed_fields(
     assert topology["success"] and topology["result"]["rooms"]
     await client.send_json_auto_id({"type": "domusos/house/get_snapshot"})
     assert (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domusos/house/get_environment_shadow"})
+    diagnostic = await client.receive_json()
+    assert diagnostic["success"]
+    assert diagnostic["result"]["rows"][0]["category"] == "LEGACY_FALLBACK_ONLY"
+    assert diagnostic["result"]["readiness"] == "NOT_READY"
+    assert "secret" not in str(diagnostic)
 
     member = await hass.auth.async_create_user("House member", group_ids=["system-users"])
     refresh = await hass.auth.async_create_refresh_token(member, "https://example.com/domus-house")
@@ -160,15 +181,21 @@ async def test_websocket_requires_rooms_access_and_never_accepts_spoofed_fields(
     for command in ("get_topology", "get_snapshot"):
         await member_client.send_json_auto_id({"type": f"domusos/house/{command}"})
         assert (await member_client.receive_json())["success"]
+    await member_client.send_json_auto_id({"type": "domusos/house/get_environment_shadow"})
+    assert not (await member_client.receive_json())["success"]
     await member_client.send_json_auto_id({"type": "domusos/house/get_topology", "is_admin": True})
     assert not (await member_client.receive_json())["success"]
 
     await client.send_json_auto_id({"type": "domusos/house/get_topology", "is_admin": True})
     assert not (await client.receive_json())["success"]
+    await client.send_json_auto_id({"type": "domusos/house/get_environment_shadow", "is_admin": True})
+    assert not (await client.receive_json())["success"]
     hass.data[DOMAIN].pop(DATA_ACCESS_MANAGER)
     for denied_client in (client, member_client):
         await denied_client.send_json_auto_id({"type": "domusos/house/get_topology"})
         assert (await denied_client.receive_json())["error"]["code"] == "access_denied"
+    await client.send_json_auto_id({"type": "domusos/house/get_environment_shadow"})
+    assert (await client.receive_json())["error"]["code"] == "access_denied"
     hass.data[DOMAIN][DATA_ACCESS_MANAGER] = access
     await house.async_shutdown()
     await client.send_json_auto_id({"type": "domusos/house/get_topology"})

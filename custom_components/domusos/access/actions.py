@@ -193,6 +193,7 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
     # --- House Core: read-only, Rooms-scoped projection -------------------------------
     _ws("house/get_topology", "rooms.view", enforced=True),
     _ws("house/get_snapshot", "rooms.view", enforced=True),
+    _ws("house/get_environment_shadow", "rooms.view", HaCheck.ADMIN, enforced=True),
     # --- Irrigation ------------------------------------------------------------------------
     _ws("irrigation/get_config", "irrigation.view", _R),
     _ws("irrigation/get_state", "irrigation.view", _R),

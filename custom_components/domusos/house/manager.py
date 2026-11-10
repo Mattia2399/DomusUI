@@ -16,6 +16,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import floor_registry as fr
 
 from .models import HouseTopology
+from .environment_shadow import build_environment_shadow
 from .resolver import (
     build_snapshot,
     build_topology,
@@ -168,3 +169,13 @@ class HouseManager:
     async def async_get_snapshot(self, user: Any) -> dict[str, Any]:
         topology = await self.async_get_topology(user)
         return build_snapshot(topology, self.hass.states.get)
+
+    async def async_get_environment_shadow(self, user: Any) -> dict[str, Any]:
+        """Admin-only, on-demand diagnostic; never cache HA states or telemetry."""
+        if getattr(user, "is_admin", False) is not True:
+            raise PermissionError("House diagnostics require an HA administrator")
+        topology = await self.async_get_topology(user)
+        # HA state insertion order is the order Rooms receives in its live map.
+        # One snapshot avoids mixed state reads while topology remains cached.
+        states = {state.entity_id: state for state in self.hass.states.async_all()}
+        return build_environment_shadow(topology, states)
