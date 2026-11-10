@@ -19,7 +19,6 @@ from .models import HouseTopology
 from .resolver import (
     build_snapshot,
     build_topology,
-    capability_for_entity,
     normalize_devices,
     normalize_entities,
     normalize_floors,
@@ -30,6 +29,14 @@ DATA_HOUSE_MANAGER = "house_manager"
 _CACHE_SECONDS = 300.0
 _PARTIAL_RETRY_SECONDS = 30.0
 _LOGGER = logging.getLogger(__name__)
+# Rooms needs structural references for its existing live controls. These
+# records contain IDs/assignments only; state, camera data and attributes stay
+# in HA's separately authorized live stream.
+_ROOM_REF_DOMAINS = frozenset({
+    "light", "climate", "media_player", "cover", "sensor", "binary_sensor",
+    "switch", "input_boolean", "fan", "humidifier", "scene", "weather",
+    "lock", "camera",
+})
 
 
 class HouseUnavailableError(Exception):
@@ -129,15 +136,9 @@ class HouseManager:
 
     def _project(self, source: HouseTopology, user: Any) -> HouseTopology:
         """Allow only safe domains and HA-readable entities before serialization."""
-        room_refs = {
-            room[field]
-            for room in source["rooms"]
-            for field in ("temperatureEntityId", "humidityEntityId")
-            if room[field] is not None
-        }
         entities = [
             entity for entity in source["entities"]
-            if (capability_for_entity(entity) is not None or (entity["domain"] == "sensor" and entity["entityId"] in room_refs))
+            if entity["domain"] in _ROOM_REF_DOMAINS
             and self._may_read_entity(user, entity["entityId"])
         ]
         entity_ids = {entity["entityId"] for entity in entities}

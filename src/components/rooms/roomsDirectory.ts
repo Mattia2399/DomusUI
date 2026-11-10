@@ -7,7 +7,7 @@ import type { MockEntityState } from '../../types/ha';
 
 export type RoomsApiCall = (
   message: Record<string, unknown>,
-  options?: { reportError?: boolean },
+  options?: { reportError?: boolean; throwOnError?: boolean },
 ) => Promise<unknown | null>;
 
 export const ROOM_ID_CUSTOM_PREFIX = 'custom:';
@@ -33,6 +33,7 @@ export type RoomEntityBuckets = {
 
 export type HaRegistryEntityEntry = {
   entityId: string;
+  registryId?: string | null;
   deviceId: string | null;
   areaId: string | null;
   name: string | null;
@@ -49,12 +50,6 @@ export type HaRegistryDeviceEntry = {
   nameByUser: string | null;
   manufacturer: string | null;
   model: string | null;
-};
-
-export type RegistrySnapshot = {
-  entityAreaByEntityId: Record<string, string>;
-  registryEntities: HaRegistryEntityEntry[];
-  registryDevices: HaRegistryDeviceEntry[];
 };
 
 export const DEMO_ROOM_TABS: RoomTab[] = [
@@ -264,22 +259,6 @@ export function buildEntityAreaMap(
     }
   });
   return result;
-}
-
-export async function fetchRegistrySnapshot(
-  onCallApi: RoomsApiCall,
-): Promise<RegistrySnapshot> {
-  const [entityPayload, devicePayload] = await Promise.all([
-    (await onCallApi({ type: 'config/entity_registry/list' }, { reportError: false })) ??
-      (await onCallApi({ type: 'config/entity_registry/list_for_display' }, { reportError: false })),
-    (await onCallApi({ type: 'config/device_registry/list' }, { reportError: false })) ??
-      (await onCallApi({ type: 'config/device_registry/list_for_display' }, { reportError: false })),
-  ]);
-  const registryDevices = parseRegistryDeviceEntries(devicePayload);
-  const registryEntities = parseRegistryEntityEntries(entityPayload);
-  const deviceAreaByDeviceId = buildDeviceAreaMap(registryDevices);
-  const entityAreaByEntityId = buildEntityAreaMap(registryEntities, deviceAreaByDeviceId);
-  return { entityAreaByEntityId, registryEntities, registryDevices };
 }
 
 /** The Home Assistant areas, as rooms, in their order. */

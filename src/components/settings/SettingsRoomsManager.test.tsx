@@ -26,16 +26,34 @@ function home() {
   };
   const callApi = vi.fn(async (message: Record<string, unknown>) => {
     switch (message.type) {
-      case 'config/area_registry/list':
-        return state.areas;
-      case 'config/floor_registry/list':
-        return state.floors;
+      case 'domusos/house/get_topology':
+        return {
+          schemaVersion: 'domusos.house.v1', topologyRevision: 1,
+          topologyFingerprint: JSON.stringify(state), generatedAt: '2026-11-10T00:00:00Z',
+          floors: state.floors.map((floor, order) => ({ id: floor.floor_id, name: floor.name, level: floor.level, aliases: floor.aliases, order })),
+          rooms: state.areas.map((area) => ({ id: area.area_id, name: area.name, floorId: area.floor_id, aliases: area.aliases,
+            icon: 'icon' in area ? area.icon : null, picture: null, temperatureEntityId: null, humidityEntityId: null })),
+          devices: [{ id: 'tv', name: 'TV', areaId: 'soggiorno' }, { id: 'lamp', name: 'Lamp', areaId: 'soggiorno' }],
+          entities: [], unassigned: { deviceIds: [], entityIds: [] }, issues: [],
+        };
       case 'config/area_registry/create':
-        return { area_id: 'studio', name: message.name, floor_id: message.floor_id ?? null, aliases: message.aliases ?? [] };
+        state.areas.push({ area_id: 'studio', name: String(message.name), floor_id: String(message.floor_id ?? ''), aliases: message.aliases as string[] });
+        return { ...state.areas.at(-1), floor_id: message.floor_id ?? null };
       case 'config/area_registry/update':
+        state.areas = state.areas.map((area) => area.area_id === message.area_id ?
+          { ...area, name: String(message.name), floor_id: String(message.floor_id ?? ''), aliases: message.aliases as string[] } : area);
         return { area_id: message.area_id, name: message.name, floor_id: message.floor_id, aliases: message.aliases };
       case 'config/floor_registry/update':
+        state.floors = state.floors.map((floor) => floor.floor_id === message.floor_id ?
+          { ...floor, name: String(message.name), level: message.level as number, aliases: message.aliases as string[] } : floor);
         return { floor_id: message.floor_id, name: message.name, level: message.level, aliases: message.aliases };
+      case 'config/floor_registry/reorder':
+        state.floors.sort((a, b) => (message.floor_ids as string[]).indexOf(a.floor_id) - (message.floor_ids as string[]).indexOf(b.floor_id));
+        return {};
+      case 'config/floor_registry/delete':
+        state.floors = state.floors.filter((floor) => floor.floor_id !== message.floor_id);
+        state.areas = state.areas.map((area) => area.floor_id === message.floor_id ? { ...area, floor_id: null } : area);
+        return {};
       default:
         return null;
     }
@@ -53,7 +71,6 @@ function renderManager(overrides: Partial<Parameters<typeof SettingsRoomsManager
       callApi={callApi as never}
       connected
       canManage
-      deviceRegistry={[{ id: 'tv', areaId: 'soggiorno' }, { id: 'lamp', areaId: 'soggiorno' }]}
       onRoomsChanged={onRoomsChanged}
       {...overrides}
     />,

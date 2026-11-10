@@ -2,6 +2,7 @@ import React from 'react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RoomsPage } from './RoomsPage';
+import { CUSTOM_ROOMS_STORAGE_KEY } from '../../components/rooms/roomsStorage';
 
 // The parts the page opens on request, here at once: how they load is tested in roomsParts.test.tsx.
 vi.mock('./roomsParts', async () => {
@@ -428,7 +429,58 @@ describe('the Rooms page in the demo', () => {
 describe('the Rooms page with Home Assistant', () => {
   const living = { area_id: 'living', name: 'Soggiorno', floor_id: null, icon: null };
 
+  it('keeps a custom room offline and across reconnect without sending its ID to House', async () => {
+    window.localStorage.setItem(CUSTOM_ROOMS_STORAGE_KEY, JSON.stringify([{ id: 'custom:study', name: 'Studio locale', createdAt: 1 }]));
+    const api = vi.fn(async (_message: Record<string, unknown>) => ({
+      schemaVersion: 'domusos.house.v1', topologyRevision: 1, topologyFingerprint: 'living', generatedAt: 'now',
+      floors: [], rooms: [{ id: 'living', name: 'Soggiorno', floorId: null, aliases: [], icon: null,
+        picture: null, temperatureEntityId: null, humidityEntityId: null }],
+      devices: [], entities: [], unassigned: { deviceIds: [], entityIds: [] }, issues: [],
+    }));
+    const props = { runtimeMode: 'real' as const, canManageRooms: true, haAreas: [living], haStates: {} };
+    const view = render(<RoomsPage {...props} haConnected={false} onCallApi={api} />);
+    expect(screen.getByRole('heading', { name: 'Studio locale' })).toBeTruthy();
+    expect(api.mock.calls.filter((call) => call[0]?.type === 'domusos/house/get_topology')).toHaveLength(0);
+    view.rerender(<RoomsPage {...props} haConnected onCallApi={api} />);
+    expect(await screen.findByRole('button', { name: 'Soggiorno' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Studio locale' })).toBeTruthy();
+    expect(api.mock.calls.filter((call) => call[0]?.type === 'domusos/house/get_topology').map((call) => call[0]))
+      .toEqual([{ type: 'domusos/house/get_topology' }]);
+  });
+
+  it('distinguishes a failed House read from an empty house', async () => {
+    const api = vi.fn(async () => { throw new Error('house_unavailable'); });
+    render(<RoomsPage runtimeMode="real" haConnected haAreas={[living]} haStates={{}} onCallApi={api} />);
+    expect(screen.getByRole('heading', { name: 'Carico stanze' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Home Assistant non è disponibile in questo momento.' })).toBeTruthy();
+    expect(screen.queryByText('Nessuna stanza configurata')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Riprova' })).toBeTruthy();
+  });
+
   function renderConnected(onCallApi: (message: Record<string, unknown>) => Promise<unknown>, onNavigate = vi.fn()) {
+    const rooms = [{ id: 'living', name: 'Soggiorno', floorId: null, aliases: [], icon: null as string | null,
+      picture: null, temperatureEntityId: null as string | null, humidityEntityId: null }];
+    const floors: Array<{ id: string; name: string; level: number | null; aliases: string[]; order: number }> = [];
+    const houseApi = async (message: Record<string, unknown>) => {
+      if (message.type === 'domusos/house/get_topology') return {
+        schemaVersion: 'domusos.house.v1', topologyRevision: 1,
+        topologyFingerprint: JSON.stringify({ rooms, floors }), generatedAt: '2026-11-10T00:00:00Z',
+        rooms, floors, devices: [],
+        entities: [{ entityId: 'sensor.living_temperature', registryId: 'stable-temp', domain: 'sensor',
+          deviceId: null, explicitAreaId: 'living', effectiveAreaId: 'living', deviceClass: 'temperature' }],
+        unassigned: { deviceIds: [], entityIds: [] }, issues: [],
+      };
+      const result = await onCallApi(message);
+      if (message.type === 'config/floor_registry/create' && result && typeof result === 'object') {
+        const created = result as { floor_id: string; name: string };
+        floors.push({ id: created.floor_id, name: created.name, level: null, aliases: [], order: floors.length });
+      }
+      if (message.type === 'config/area_registry/update') {
+        rooms[0].icon = String(message.icon ?? '') || null;
+        rooms[0].temperatureEntityId = String(message.temperature_entity_id ?? '') || null;
+      }
+      return result;
+    };
     render(
       <RoomsPage
         runtimeMode="real"
@@ -436,7 +488,7 @@ describe('the Rooms page with Home Assistant', () => {
         canManageRooms
         haAreas={[living]}
         haStates={{ 'sensor.living_temperature': { state: '21', rawAttributes: { friendly_name: 'Temperatura soggiorno', device_class: 'temperature', unit_of_measurement: '°C' } } }}
-        onCallApi={onCallApi}
+        onCallApi={houseApi}
         onNavigate={onNavigate}
       />,
     );
@@ -448,7 +500,7 @@ describe('the Rooms page with Home Assistant', () => {
       message.type === 'config/area_registry/update' ? { ...living, icon: message.icon, temperature_entity_id: message.temperature_entity_id } : [],
     );
     renderConnected(onCallApi);
-    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Gestisci stanze e sezioni' }));
     fireEvent.click(within(screen.getByTestId('rooms-manage')).getByRole('button', { name: 'Modifica Soggiorno' }));
     fireEvent.click(screen.getByRole('radio', { name: 'Divano' }));
     fireEvent.click(screen.getByRole('button', { name: 'Entità temperatura' }));
@@ -471,7 +523,7 @@ describe('the Rooms page with Home Assistant', () => {
       message.type === 'config/floor_registry/create' ? { floor_id: 'attic', name: message.name } : [],
     );
     renderConnected(onCallApi);
-    fireEvent.click(screen.getByRole('button', { name: 'Gestisci stanze e sezioni' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Gestisci stanze e sezioni' }));
     const manage = screen.getByTestId('rooms-manage');
     fireEvent.click(within(manage).getByRole('radio', { name: 'Piani' }));
     fireEvent.click(within(manage).getByRole('button', { name: 'Nuovo piano' }));

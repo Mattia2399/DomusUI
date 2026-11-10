@@ -33,6 +33,7 @@ export function useRoomManagement({
   setLocalFloors,
   setCustomRooms,
   onRoomCreated,
+  onTopologyChanged,
 }: {
   demo: boolean;
   haConnected: boolean;
@@ -45,6 +46,7 @@ export function useRoomManagement({
   setLocalFloors: (change: (current: LocalFloor[]) => LocalFloor[]) => void;
   setCustomRooms: React.Dispatch<React.SetStateAction<CustomRoomRecord[]>>;
   onRoomCreated: (roomId: string) => void;
+  onTopologyChanged?: () => Promise<boolean>;
 }) {
   const rt = useRoomsTranslations();
   const [changedAreas, setChangedAreas] = React.useState<HaArea[]>([]);
@@ -59,6 +61,23 @@ export function useRoomManagement({
     () => (haConnected ? overlayAreas(haAreas, changedAreas, deletedAreaIds) : []),
     [changedAreas, deletedAreaIds, haAreas, haConnected],
   );
+
+  React.useEffect(() => {
+    const confirmed = (changed: HaArea) => haAreas.some((area) =>
+      area.area_id === changed.area_id && area.name === changed.name &&
+      (area.floor_id ?? null) === (changed.floor_id ?? null) &&
+      (area.icon ?? null) === (changed.icon ?? null) &&
+      (area.picture ?? null) === (changed.picture ?? null) &&
+      JSON.stringify(area.aliases ?? []) === JSON.stringify(changed.aliases ?? []));
+    setChangedAreas((current) => {
+      const next = current.filter((area) => !confirmed(area));
+      return next.length === current.length ? current : next;
+    });
+    setDeletedAreaIds((current) => {
+      const next = current.filter((id) => haAreas.some((area) => area.area_id === id));
+      return next.length === current.length ? current : next;
+    });
+  }, [haAreas]);
 
   /** Runs one change; false, with the message shown, when it fails. */
   const run = async (failure: string, change: () => Promise<boolean>) => {
@@ -107,6 +126,7 @@ export function useRoomManagement({
       setDeletedAreaIds((current) => current.filter((id) => id !== area.area_id));
       if (!room) onRoomCreated(area.area_id);
       savedId = area.area_id;
+      await onTopologyChanged?.();
       return true;
     });
     return done ? savedId : null;
@@ -126,6 +146,7 @@ export function useRoomManagement({
       if (result === null) return false;
       setDeletedAreaIds((current) => Array.from(new Set([...current, room.id])));
       setChangedAreas((current) => current.filter((area) => area.area_id !== room.id));
+      await onTopologyChanged?.();
       return true;
     });
   };
@@ -144,6 +165,7 @@ export function useRoomManagement({
       const floor = parseHaFloorList([await onCallApi({ type: 'config/floor_registry/create', name })])[0];
       if (!floor) return false;
       setHaFloors((current) => [...current, floor]);
+      await onTopologyChanged?.();
       return true;
     });
   };
@@ -158,6 +180,7 @@ export function useRoomManagement({
       const floor = parseHaFloorList([await onCallApi({ type: 'config/floor_registry/update', floor_id: floorId, name })])[0];
       if (!floor) return false;
       setHaFloors((current) => current.map((entry) => (entry.floor_id === floorId ? floor : entry)));
+      await onTopologyChanged?.();
       return true;
     });
   };
@@ -178,6 +201,7 @@ export function useRoomManagement({
       const result = await onCallApi({ type: 'config/floor_registry/reorder', floor_ids: ids });
       if (result === null) return false;
       setHaFloors((current) => byId(current, (floor) => floor.floor_id));
+      await onTopologyChanged?.();
       return true;
     });
   };
@@ -193,6 +217,7 @@ export function useRoomManagement({
       const result = await onCallApi({ type: 'config/floor_registry/delete', floor_id: floorId });
       if (result === null) return false;
       setHaFloors((current) => current.filter((floor) => floor.floor_id !== floorId));
+      await onTopologyChanged?.();
       return true;
     });
   };

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp, DoorOpen, LayoutGrid, Layers3, Plus, RefreshCw } from 'lucide-react';
 import type { HaArea } from '../../hooks/useHaLiveConnection';
 import { useI18n } from '../../i18n/I18nProvider';
-import type { HaDeviceRegistryEntry } from '../../services/haRegistryPresentation';
+import { fetchHouseTopology, projectHouseForRooms, type HouseDevice } from '../../services/houseCore';
 import GlassBottomSheet from '../ui/GlassBottomSheet';
 import GlassDropdown, { type GlassDropdownOption } from '../ui/GlassDropdown';
 import GlassModal from '../ui/GlassModal';
@@ -55,21 +55,16 @@ function parseFloor(value: unknown): Floor | null {
   };
 }
 
-const parseList = <T,>(value: unknown, parse: (entry: unknown) => T | null) =>
-  Array.isArray(value) ? value.map(parse).filter((entry): entry is T => entry !== null) : [];
-
 export function SettingsRoomsManager({
   callApi,
   connected,
   canManage,
-  deviceRegistry = [],
   onOpenRooms,
   onRoomsChanged,
 }: {
   callApi?: RoomsCallApi;
   connected: boolean;
   canManage: boolean;
-  deviceRegistry?: HaDeviceRegistryEntry[];
   onOpenRooms?: () => void;
   /** The rooms after a change, so the rest of the app shows them at once. */
   onRoomsChanged?: (areas: HaArea[]) => void;
@@ -77,6 +72,7 @@ export function SettingsRoomsManager({
   const { locale, t } = useI18n();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
+  const [houseDevices, setHouseDevices] = useState<HouseDevice[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [editor, setEditor] = useState<Editor | null>(null);
   const [editorError, setEditorError] = useState('');
@@ -103,12 +99,16 @@ export function SettingsRoomsManager({
     if (!callApi || !connected) return;
     setStatus('loading');
     try {
-      const [areaPayload, floorPayload] = await Promise.all([
-        callApi({ type: 'config/area_registry/list' }, { reportError: false, throwOnError: true }),
-        callApi({ type: 'config/floor_registry/list' }, { reportError: false, throwOnError: true }),
-      ]);
-      setRooms(parseList(areaPayload, parseRoom));
-      setFloors(parseList(floorPayload, parseFloor));
+      const topology = await fetchHouseTopology(callApi);
+      const projection = projectHouseForRooms(topology);
+      setRooms(projection.areas.map((area) => ({
+        id: area.area_id, name: area.name, floorId: area.floor_id ?? null,
+        aliases: area.aliases ?? [], raw: area as unknown as Record<string, unknown>,
+      })));
+      setFloors(projection.floors.map((floor) => ({
+        id: floor.floor_id, name: floor.name, level: floor.level ?? null, aliases: floor.aliases ?? [],
+      })));
+      setHouseDevices(topology.devices);
       setStatus('ready');
     } catch {
       setStatus('failed');
@@ -122,11 +122,11 @@ export function SettingsRoomsManager({
   // Devices per room, as Home Assistant assigns them.
   const deviceCountByRoom = useMemo(() => {
     const counts = new Map<string, number>();
-    deviceRegistry.forEach((device) => {
+    houseDevices.forEach((device) => {
       if (device.areaId) counts.set(device.areaId, (counts.get(device.areaId) ?? 0) + 1);
     });
     return counts;
-  }, [deviceRegistry]);
+  }, [houseDevices]);
 
   const sortedRooms = useMemo(
     () => [...rooms].sort((left, right) => left.name.localeCompare(right.name, locale, { sensitivity: 'base' })),
@@ -188,6 +188,7 @@ export function SettingsRoomsManager({
     setEditorError('');
     try {
       await action();
+      await load();
       changedRef.current = true;
       setEditor(null);
       setConfirmDelete(false);
@@ -286,7 +287,7 @@ export function SettingsRoomsManager({
       { type: 'config/floor_registry/reorder', floor_ids: next.map((floor) => floor.id) },
       { reportError: false, throwOnError: true },
     )
-      .then(() => setFloors(next))
+      .then(async () => { setFloors(next); await load(); })
       .catch(() => setEditorError(t('settings.rooms.saveFailed')))
       .finally(() => setBusy(false));
   };

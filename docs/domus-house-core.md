@@ -89,13 +89,15 @@ entity must pass `user.permissions.check_entity(entity_id, POLICY_READ)`; a
 missing or failing permission check denies the entity. Administrators bypass
 that HA entity check but still receive the safe House projection.
 
-Only entities supporting the initial deterministic categories are emitted:
-lighting (`light`), climate (`climate`), media (`media_player`), shading
-(`cover`), environment/energy (`sensor` with a matching device class), and
-presence (`binary_sensor` with occupancy or presence class). An explicitly
-configured Area environmental sensor may also be included. Camera, person,
-alarm, lock and other security-specific entities are excluded, including for
-administrators. Capability records indicate `present` and `permitted`; their
+HOUSE.3 also emits HA-readable structural references for the domains used by
+Rooms live controls: lights, climate, media players, covers, sensors, binary
+sensors, switches, input booleans, fans, humidifiers, scenes, weather, locks
+and cameras. A reference carries only the registry ID, current entity ID,
+device/area assignment and device class. Camera streams, lock state, security
+attributes, person and alarm entities remain outside House topology. The
+existing HA live stream supplies runtime state under its own authorization.
+Capability records still represent only the initial deterministic categories.
+They indicate `present` and `permitted`; their
 `available` value is `null` in topology because availability belongs to
 runtime snapshots. A device is emitted only if it owns an emitted entity.
 Consequently, registry-only devices and devices with only hidden or sensitive

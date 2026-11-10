@@ -102,6 +102,7 @@ async def test_entity_rename_preserves_registry_identity(hass: HomeAssistant):
 async def test_projection_filters_ha_unreadable_and_sensitive_entities(hass: HomeAssistant):
     _, _, device, entity = fixture_house(hass)
     camera = er.async_get(hass).async_get_or_create("camera", "test", "private-camera", device_id=device.id)
+    person = er.async_get(hass).async_get_or_create("person", "test", "private-person", device_id=device.id)
     manager = HouseManager(hass)
     await manager.async_setup()
     deny = SimpleNamespace(is_admin=False, permissions=SimpleNamespace(check_entity=Mock(return_value=False)))
@@ -110,11 +111,12 @@ async def test_projection_filters_ha_unreadable_and_sensitive_entities(hass: Hom
     assert deny.permissions.check_entity.called
     allow = SimpleNamespace(is_admin=False, permissions=SimpleNamespace(check_entity=Mock(return_value=True)))
     visible = await manager.async_get_topology(allow)
-    assert [item["entityId"] for item in visible["entities"]] == [entity.entity_id]
-    assert camera.entity_id not in str(visible)
+    assert {item["entityId"] for item in visible["entities"]} == {entity.entity_id, camera.entity_id}
+    assert person.entity_id not in str(visible)
     assert all("attributes" not in item for item in visible["entities"])
     admin = await manager.async_get_topology(SimpleNamespace(is_admin=True))
-    assert camera.entity_id not in str(admin)
+    assert person.entity_id not in str(admin)
+    assert "secret" not in str(admin)
     assert visible["topologyFingerprint"] != denied["topologyFingerprint"]
     await manager.async_shutdown()
 

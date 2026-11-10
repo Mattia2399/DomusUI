@@ -40,6 +40,15 @@ async function connectHomeAssistant(page, { user = OWNER, access = {}, states = 
           case 'auth/current_user':
             reply(user);
             break;
+          case 'domusos/house/get_topology':
+            reply({ schemaVersion: 'domusos.house.v1', topologyRevision: 1, topologyFingerprint: 'empty-house',
+              generatedAt: '2026-11-10T00:00:00Z', floors: [], rooms: [], devices: [], entities: [],
+              unassigned: { deviceIds: [], entityIds: [] }, issues: [] });
+            break;
+          case 'domusos/house/get_snapshot':
+            reply({ schemaVersion: 'domusos.house.v1', topologyFingerprint: 'empty-house',
+              generatedAt: '2026-11-10T00:00:00Z', rooms: [] });
+            break;
           case 'config/entity_registry/list_for_display':
             reply({ entity_categories: {}, entities: [] });
             break;

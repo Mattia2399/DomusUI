@@ -302,7 +302,6 @@ export function RoomsPage({
   isLoading = false,
   haConnected,
   canManageRooms = false,
-  haAreas,
   haStates,
   onCallService,
   onCallApi,
@@ -321,7 +320,7 @@ export function RoomsPage({
   const { customRooms, setCustomRooms, hiddenRoomEntitiesByRoom, setHiddenRoomEntitiesByRoom, roomsStateRuntime, activeRoomId, setActiveRoomId } =
     useRoomsStoredState(runtimeMode, canOrganize);
   const { pinnedByRoom, setPinnedByRoom } = useRoomPinnedEntities(runtimeMode, canOrganize);
-  const registry = useRoomsRegistry(haConnected, onCallApi);
+  const registry = useRoomsRegistry(haConnected, onCallApi, !demo);
   // The demo's plugs ask before turning off until the demo is changed.
   const { protectedIds, setProtectedIds } = useProtectedEntities(runtimeMode, canOrganize, demo ? DEMO_PROTECTED_ENTITIES : NO_IDS);
   const [demoRoomByEntity, setDemoRoomByEntity] = React.useState<Record<string, string>>(DEMO_ROOMS);
@@ -334,7 +333,7 @@ export function RoomsPage({
   const [chosenPlayerByRoom, setChosenPlayerByRoom] = React.useState<Record<string, string>>({});
   const [mediaSheet, setMediaSheet] = React.useState<'player' | 'pick' | 'start' | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -346,9 +345,9 @@ export function RoomsPage({
   const management = useRoomManagement({
     demo,
     haConnected,
-    canManageRooms,
+    canManageRooms: canManageRooms && (!haConnected || registry.status === 'ready'),
     onCallApi,
-    haAreas,
+    haAreas: registry.areas,
     haFloors: registry.floors,
     setHaFloors: registry.setFloors,
     localFloors: layout.floors,
@@ -358,6 +357,7 @@ export function RoomsPage({
       setSelectedFloorId('all');
       setActiveRoomId(roomId);
     },
+    onTopologyChanged: registry.refresh,
   });
   const areas = management.areas;
   const areaById = React.useMemo(() => new Map(areas.map((area) => [area.area_id, area])), [areas]);
@@ -590,7 +590,7 @@ export function RoomsPage({
   const candidatesFrom = (ids: string[], nameOf: (entityId: string) => string): SectionCandidate[] =>
     activeRoom
       ? ids
-          .filter((entityId) => roomOf(entityId) !== activeRoom.id)
+          .filter((entityId) => (demo || registry.visibleEntityIds.has(entityId)) && roomOf(entityId) !== activeRoom.id)
           .map((entityId) => {
             const room = roomOf(entityId);
             return { id: entityId, name: nameOf(entityId), roomName: room ? roomNameById.get(room) ?? null : null };
@@ -792,15 +792,7 @@ export function RoomsPage({
     setError(null);
     try {
       await assignRoomAreaTargets(onCallApi, targets, areaId, (id) => Boolean(registry.registryEntityById.get(id)?.areaId));
-      registry.setEntityAreaByEntityId((current) => {
-        const next = { ...current };
-        ids.forEach((id) => {
-          if (areaId) next[id] = areaId;
-          else delete next[id];
-        });
-        return next;
-      });
-      void registry.refresh().catch(() => undefined);
+      await registry.refresh();
       return true;
     } catch {
       setError(dt('updateFailed'));
@@ -969,7 +961,8 @@ export function RoomsPage({
           ? 'sectionSecurity'
           : null);
     return Object.keys(haStates)
-      .filter((entityId) => sectionKeyOf(entityId) && registry.entityAreaByEntityId[entityId] !== activeRoom.id)
+      .filter((entityId) => sectionKeyOf(entityId) && registry.visibleEntityIds.has(entityId) &&
+        (registry.unassignedEntityIds.has(entityId) || registry.entityAreaByEntityId[entityId] !== activeRoom.id))
       .map((entityId) => {
         const room = registry.entityAreaByEntityId[entityId];
         return {
@@ -980,7 +973,7 @@ export function RoomsPage({
         };
       })
       .sort(byRoomThenName);
-  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, mediaCandidates, registry.entityAreaByEntityId, roomNameById, sceneCandidates, securityCandidates, sensorCandidates]);
+  }, [activeRoom, candidates, climateCandidates, demo, deviceCandidates, dt, haStates, mediaCandidates, registry.entityAreaByEntityId, registry.unassignedEntityIds, registry.visibleEntityIds, roomNameById, sceneCandidates, securityCandidates, sensorCandidates]);
   const missing = missingSections(buckets).filter(
     (key) => (key !== 'security' || securityItems.length === 0) && (key !== 'media' || roomPlayers.length === 0),
   );
@@ -1283,10 +1276,15 @@ export function RoomsPage({
           <section className="dashboard-content-surface flex w-full max-w-xl flex-col items-center rounded-[2rem] px-6 py-10 text-center">
             <House size={24} aria-hidden="true" className="text-[color:var(--ui-text-secondary)]" />
             <h1 className="mt-5 text-2xl font-semibold tracking-tight text-[color:var(--ui-text-primary)]">
-              {isLoading ? rt('loadingRooms') : rt('noRooms')}
+              {isLoading || (haConnected && registry.status === 'loading') ? rt('loadingRooms') :
+                registry.status === 'unauthorized' ? t('dashboard.save.error.server_unauthorized') :
+                  registry.status === 'unavailable' || registry.status === 'disconnected' ? rt('haUnavailable') : rt('noRooms')}
             </h1>
-            {isLoading ? null : <p className="mt-2 max-w-md text-sm text-[color:var(--ui-text-secondary)]">{rt('noRoomsDescription')}</p>}
-            {!isLoading && management.canManage ? (
+            {registry.status === 'ready' || demo ? <p className="mt-2 max-w-md text-sm text-[color:var(--ui-text-secondary)]">{rt('noRoomsDescription')}</p> : null}
+            {haConnected && (registry.status === 'unavailable' || registry.status === 'unauthorized') ? (
+              <button type="button" className="rooms-sheet-button mt-6" onClick={() => void registry.refresh()}>{t('settings.rooms.retry')}</button>
+            ) : null}
+            {!isLoading && (registry.status === 'ready' || demo || !haConnected) && management.canManage ? (
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <button type="button" className="rooms-sheet-button is-primary !px-5" onClick={newRoom}>
                   <Plus size={16} strokeWidth={2.4} aria-hidden="true" />

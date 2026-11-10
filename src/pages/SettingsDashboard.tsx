@@ -1280,7 +1280,6 @@ export default function SettingsDashboard({
           callApi={onCallApi}
           connected={isConnected}
           canManage={security.can('manage_rooms')}
-          deviceRegistry={haDeviceRegistry}
           onOpenRooms={() => navigateTo('/rooms')}
           onRoomsChanged={onAreasChanged}
         />
