@@ -5,6 +5,8 @@ import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityStateMap } from '../../types/ha';
 import { DeviceTab } from './DeviceTab';
 import { cardEntityIdsOf, fitsRole, pickerEntitiesOf, sameDeviceEntity } from './deviceEntities';
+import { groupEntities } from '../editor/EntityPicker';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 
 const security = vi.hoisted(() => ({ can: true, unlocked: false, authorize: vi.fn() }));
 vi.mock('../../security/dashboardAccess', () => ({ useDashboardSecurity: () => ({ can: () => security.can }) }));
@@ -48,6 +50,35 @@ function setup(widget: Widget) {
 }
 
 describe('the entities it can choose from', () => {
+  it('groups inherited device rooms by House ID, including overrides and their removal', () => {
+    const registry = [
+      { entityId: 'switch.main', registryId: 'main', deviceId: 'main', areaId: 'a' },
+      { entityId: 'sensor.inherited', registryId: 'inherited', deviceId: 'd' },
+      { entityId: 'sensor.overridden', registryId: 'overridden', deviceId: 'd', areaId: 'b' },
+    ];
+    const context: DashboardHouseContext = {
+      schemaVersion: 'domusos.dashboard.house.v1', topologyRevision: 1,
+      rooms: [{ id: 'a', name: 'Camera' }, { id: 'b', name: 'Camera' }],
+      devices: [{ id: 'main', effectiveRoomId: 'a' }, { id: 'd', effectiveRoomId: 'a' }],
+      entities: [
+        { registryId: 'main', entityId: 'switch.main', deviceId: 'main', effectiveRoomId: 'a' },
+        { registryId: 'inherited', entityId: 'sensor.inherited', deviceId: 'd', effectiveRoomId: 'a' },
+        { registryId: 'overridden', entityId: 'sensor.overridden', deviceId: 'd', effectiveRoomId: 'b' },
+      ],
+    };
+    const ids = registry.map((entry) => entry.entityId);
+    const entities = pickerEntitiesOf(ids, {}, registry, [], context);
+    expect(entities.find((entity) => entity.entityId === 'sensor.inherited')?.areaId).toBe('a');
+    const grouped = groupEntities(entities, { near: { deviceId: 'main', areaId: 'a' } });
+    expect(grouped.sameRoom.map((entity) => entity.entityId)).toContain('sensor.inherited');
+    expect(grouped.others.map((entity) => entity.entityId)).toContain('sensor.overridden');
+    context.entities[2].effectiveRoomId = 'a';
+    const removed = groupEntities(pickerEntitiesOf(ids, {}, registry, [], context), { near: { deviceId: 'main', areaId: 'a' } });
+    expect(removed.sameRoom.map((entity) => entity.entityId)).toContain('sensor.overridden');
+    expect(pickerEntitiesOf(ids, {}, registry, [], null)[1].areaId).toBeUndefined();
+    context.entities[1].entityId = 'sensor.old_name';
+    expect(pickerEntitiesOf(['sensor.new_name'], {}, [{ entityId: 'sensor.new_name', registryId: 'inherited', deviceId: 'd' }], [], context)[0].areaId).toBe('a');
+  });
   it('by name, with their room and device', () => {
     const entities = pickerEntitiesOf(['switch.tv', 'sensor.x'], STATES, REGISTRY, AREAS);
     expect(entities[0]).toEqual({ entityId: 'switch.tv', name: 'Presa TV', areaId: 'sala', areaName: 'Sala', deviceId: 'tv' });

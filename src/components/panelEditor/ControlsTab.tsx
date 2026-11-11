@@ -12,8 +12,10 @@ import { ControlDetail } from './ControlDetail';
 import { controlSections, rowsFromSections, writeRows, type ControlRow } from './controlsModel';
 import { pickerEntitiesOf } from './deviceEntities';
 import type { PanelEditorProps } from './panelEditorTypes';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 
 export type ControlsTabProps = Pick<PanelEditorProps, 'widget' | 'haStates' | 'entityRegistry' | 'areas' | 'entityOptions' | 'haEntityIds' | 'onUpdateWidget'> & {
+  houseContext?: DashboardHouseContext | null;
   kit: PanelKit | null;
   rows: readonly ControlRow[];
   ready: boolean;
@@ -23,7 +25,7 @@ export type ControlsTabProps = Pick<PanelEditorProps, 'widget' | 'haStates' | 'e
 };
 
 /* All the controls of the card in one list: In primo piano, In Altro, Nascosti. A touch opens one. */
-export function ControlsTab({ widget, haStates, entityRegistry, areas, entityOptions, haEntityIds = [], onUpdateWidget, kit, rows, ready, fixed, selected, onSelect }: ControlsTabProps) {
+export function ControlsTab({ widget, haStates, entityRegistry, areas, houseContext, entityOptions, haEntityIds = [], onUpdateWidget, kit, rows, ready, fixed, selected, onSelect }: ControlsTabProps) {
   const words = usePanelEditorWords();
   const [adding, setAdding] = React.useState(false);
   React.useEffect(() => setAdding(false), [widget.id]);
@@ -31,7 +33,7 @@ export function ControlsTab({ widget, haStates, entityRegistry, areas, entityOpt
   const sections = kit ? controlSections(kit, rows) : { main: [], more: [], hidden: [] };
   const most = kit?.MOST_IN_THE_ROW ?? 8;
   const allIds = React.useMemo(() => [...new Set([...haEntityIds, ...Object.keys(haStates), ...Object.values(entityOptions ?? {}).flat()])], [entityOptions, haEntityIds, haStates]);
-  const entities = React.useMemo(() => pickerEntitiesOf(allIds, haStates, entityRegistry, areas), [allIds, areas, entityRegistry, haStates]);
+  const entities = React.useMemo(() => pickerEntitiesOf(allIds, haStates, entityRegistry, areas, houseContext), [allIds, areas, entityRegistry, haStates, houseContext]);
   // The looks of a device have their names here: the words of the row of the panels stay with the panels.
   const deviceLookName = (look: string) => words(`dlook_${look}` as 'dlook_action');
   const lookName = (row: ControlRow) => (row.source === 'device' ? deviceLookName(row.look) : lookNameOf(row.look));

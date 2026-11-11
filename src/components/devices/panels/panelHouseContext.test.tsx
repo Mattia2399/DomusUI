@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { dashboardHouseLookups } from '../../../services/dashboardHouseContext';
 import { usePanelHouseContext } from './panelData';
 import { PanelServicesProvider, type PanelApiCall } from './panelServicesContext';
+import { useDashboardHouseContext } from '../../../hooks/useDashboardHouseContext';
 
 const snapshot = (room: string, revision: number) => ({
   schemaVersion: 'domusos.dashboard.house.v1', topologyRevision: revision,
@@ -20,6 +21,18 @@ function Probe() {
 afterEach(cleanup);
 
 describe('panel House membership refresh', () => {
+  it('shares one Dashboard request with multiple panel consumers', async () => {
+    const callApi = vi.fn(async () => snapshot('a', 1)) as PanelApiCall;
+    function Owner() {
+      const houseContext = useDashboardHouseContext(callApi, true);
+      return <PanelServicesProvider value={{ callApi, callService: vi.fn(), houseConnected: true, houseContext }}>
+        <Probe /><Probe />
+      </PanelServicesProvider>;
+    }
+    render(<Owner />);
+    await waitFor(() => expect(screen.getAllByTestId('room').map((element) => element.textContent)).toEqual(['a', 'a']));
+    expect(callApi).toHaveBeenCalledTimes(1);
+  });
   it('updates an open panel after a move and ignores an older response', async () => {
     let resolveOld: ((value: unknown) => void) | undefined;
     let reads = 0;

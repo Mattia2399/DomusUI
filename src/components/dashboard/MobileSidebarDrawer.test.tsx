@@ -7,6 +7,7 @@ import { SIDEBAR_QUICK_CARD_STORAGE_KEY } from './sidebarQuickCard';
 import { AccessControlProvider } from '../../security/AccessControlProvider';
 import type { AccessSnapshot } from '../../security/accessControl';
 import { accessFor } from '../../test/accessFixtures';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 
 const { energyState } = vi.hoisted(() => ({
   energyState: {
@@ -90,6 +91,11 @@ function renderDrawer(overrides: Partial<Parameters<typeof MobileSidebarDrawer>[
   return handlers;
 }
 
+const house = (rooms: Array<{ id: string; name: string }>, memberships: Array<[string, string | null]>): DashboardHouseContext => ({
+  schemaVersion: 'domusos.dashboard.house.v1', topologyRevision: 1, rooms, devices: [],
+  entities: memberships.map(([entityId, effectiveRoomId]) => ({ registryId: entityId, entityId, deviceId: null, effectiveRoomId })),
+});
+
 const quickCard = () => screen.getByRole('region', { name: /Cose da controllare|Allarme|Luci accese|Scenari|Energia ora|Raccolta rifiuti/ });
 
 describe('MobileSidebarDrawer', () => {
@@ -137,6 +143,8 @@ describe('MobileSidebarDrawer', () => {
       ],
       deviceRegistry: [{ id: 'lamp', areaId: 'living' }],
       areas: [{ area_id: 'kitchen', name: 'Cucina' }, { area_id: 'living', name: 'Soggiorno' }] as never,
+      houseContext: house([{ id: 'kitchen', name: 'Cucina' }, { id: 'living', name: 'Soggiorno' }],
+        [['light.cucina', 'kitchen'], ['light.soggiorno', 'living']]),
     });
 
     const card = quickCard();
@@ -150,6 +158,15 @@ describe('MobileSidebarDrawer', () => {
     fireEvent.click(within(quickCard()).getByRole('button', { name: 'Spegni' }));
 
     expect(onCallService).toHaveBeenCalledWith('light', 'turn_off', { entity_id: ['light.cucina', 'light.soggiorno'] });
+  });
+
+  it('keeps same-name House rooms separate in the lights quick card', () => {
+    window.localStorage.setItem(SIDEBAR_QUICK_CARD_STORAGE_KEY, 'lights');
+    renderDrawer({ houseContext: house([{ id: 'floor-a-room', name: 'Camera' }, { id: 'floor-b-room', name: 'Camera' }],
+      [['light.cucina', 'floor-a-room'], ['light.soggiorno', 'floor-b-room']]) });
+    const card = quickCard();
+    expect(within(card).getByText('in 2 stanze')).toBeTruthy();
+    expect(within(card).getAllByText('Camera')).toHaveLength(2);
   });
 
   it('runs a scene of the Home scenes card', () => {

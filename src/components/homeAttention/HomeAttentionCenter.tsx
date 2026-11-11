@@ -27,6 +27,7 @@ import GlassButton from '../ui/GlassButton';
 import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { Widget } from '../../types/dashboardModels';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 import {
   formatHomeAttentionDuration,
   type HomeAttentionArea,
@@ -48,6 +49,7 @@ type HomeAttentionCenterProps = {
   entityRegistry?: HaEntityRegistryEntry[];
   deviceRegistry?: HaDeviceRegistryEntry[];
   areas?: HomeAttentionArea[];
+  houseContext?: DashboardHouseContext | null;
   widgets?: Widget[];
   onOpenItem?: (item: HomeAttentionItem) => void;
 };
@@ -252,6 +254,7 @@ export function HomeAttentionCenter({
   entityRegistry = [],
   deviceRegistry = [],
   areas = [],
+  houseContext,
   widgets = [],
   onOpenItem,
 }: HomeAttentionCenterProps) {
@@ -264,6 +267,7 @@ export function HomeAttentionCenter({
     entityRegistry,
     deviceRegistry,
     areas,
+    houseContext,
     widgets,
   });
 

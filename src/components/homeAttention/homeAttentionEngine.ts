@@ -2,6 +2,7 @@ import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../service
 import type { MockEntityStateMap } from '../../types/ha';
 import type { Widget } from '../../types/dashboardModels';
 import { buildDeviceHealthSnapshots } from '../settings/deviceHealthModel';
+import { dashboardHouseLookups, type DashboardHouseContext } from '../../services/dashboardHouseContext';
 import { translateForLocale, type AppLocale } from '../../i18n/I18nProvider';
 
 export type HomeAttentionSeverity = 'critical' | 'warning' | 'info';
@@ -44,6 +45,7 @@ export type BuildHomeAttentionItemsOptions = {
   entityRegistry?: HaEntityRegistryEntry[];
   deviceRegistry?: HaDeviceRegistryEntry[];
   areas?: HomeAttentionArea[];
+  houseContext?: DashboardHouseContext | null;
   widgets?: Widget[];
   now?: number;
   batteryWarningThreshold?: number;
@@ -121,19 +123,28 @@ function resolveContext(
   registryByEntityId: ReadonlyMap<string, HaEntityRegistryEntry>,
   deviceById: ReadonlyMap<string, HaDeviceRegistryEntry>,
   areaById: ReadonlyMap<string, HomeAttentionArea>,
+  houseContext: DashboardHouseContext | null | undefined,
+  house: ReturnType<typeof dashboardHouseLookups>,
 ) {
   const registryEntry = registryByEntityId.get(entityId.toLowerCase());
   const device = registryEntry?.deviceId
     ? deviceById.get(registryEntry.deviceId)
     : undefined;
-  const areaId = registryEntry?.areaId ?? device?.areaId;
-  const area = areaId ? areaById.get(areaId) : undefined;
+  // Security domains are outside the Dashboard projection and keep their existing association.
+  const securityDomain = /^(binary_sensor|lock|alarm_control_panel|camera)\./.test(entityId);
+  const effective = (registryEntry?.registryId ? house.entitiesByRegistryId.get(registryEntry.registryId) : undefined) ?? house.entities.get(entityId);
+  const areaId = securityDomain || houseContext === undefined
+    ? registryEntry?.areaId ?? device?.areaId
+    : effective?.effectiveRoomId ?? undefined;
+  const areaName = securityDomain || houseContext === undefined
+    ? (areaId ? areaById.get(areaId)?.name?.trim() : undefined)
+    : (areaId ? house.roomNames.get(areaId) : undefined);
   return {
     registryEntry,
     deviceId: device?.id ?? registryEntry?.deviceId,
     deviceName: device?.nameByUser?.trim() || device?.name?.trim() || undefined,
     areaId,
-    areaName: area?.name?.trim() || undefined,
+    areaName,
   };
 }
 
@@ -195,6 +206,7 @@ export function buildHomeAttentionItems({
   entityRegistry = [],
   deviceRegistry = [],
   areas = [],
+  houseContext,
   widgets = [],
   now = Date.now(),
   batteryWarningThreshold = 20,
@@ -215,6 +227,7 @@ export function buildHomeAttentionItems({
   );
   const deviceById = new Map(deviceRegistry.map((entry) => [entry.id, entry]));
   const areaById = new Map(areas.map((entry) => [entry.area_id, entry]));
+  const house = dashboardHouseLookups(houseContext ?? null);
   const monitoredWidgets = widgets.filter(
     (widget) => widget.dataSource !== 'mock' && widget.entityId.trim().length > 0,
   );
@@ -234,8 +247,8 @@ export function buildHomeAttentionItems({
     connected,
     states,
     entityRegistry,
-    deviceRegistry,
-    areas,
+    deviceRegistry: houseContext === undefined ? deviceRegistry : deviceRegistry.map((device) => ({ ...device, areaId: undefined })),
+    areas: houseContext === undefined ? areas : [],
     widgets,
     batteryWarningThreshold,
     locale,
@@ -253,6 +266,7 @@ export function buildHomeAttentionItems({
       const entity = states[entityId] ?? states[entityId.toLowerCase()];
       const registryEntry = registryByEntityId.get(entityId.toLowerCase());
       const name = resolveEntityName(entityId, entity?.rawAttributes, registryEntry);
+      const room = resolveContext(entityId, registryByEntityId, deviceById, areaById, houseContext, house);
       processedBatteryEntityIds.add(entityId.toLowerCase());
       emit(createItem({
         severity: device.batteryLevel <= 10 ? 'warning' : 'info',
@@ -262,8 +276,8 @@ export function buildHomeAttentionItems({
         entityId,
         deviceId: device.id,
         deviceName: device.name,
-        areaId: device.areaId,
-        areaName: device.areaName,
+        areaId: room.areaId,
+        areaName: room.areaName,
         activeSince:
           toTimestamp(entity?.rawAttributes?.__last_changed) ??
           toTimestamp(entity?.rawAttributes?.last_changed),
@@ -279,6 +293,7 @@ export function buildHomeAttentionItems({
       const entity = states[entityId] ?? states[entityId.toLowerCase()];
       const registryEntry = registryByEntityId.get(entityId.toLowerCase());
       const name = resolveEntityName(entityId, entity?.rawAttributes, registryEntry);
+      const room = resolveContext(entityId, registryByEntityId, deviceById, areaById, houseContext, house);
       processedConnectionEntityIds.add(entityId.toLowerCase());
       emit(createItem({
         severity: 'warning',
@@ -288,8 +303,8 @@ export function buildHomeAttentionItems({
         entityId,
         deviceId: device.id,
         deviceName: device.name,
-        areaId: device.areaId,
-        areaName: device.areaName,
+        areaId: room.areaId,
+        areaName: room.areaName,
         activeSince:
           toTimestamp(entity?.rawAttributes?.__last_changed) ??
           toTimestamp(entity?.rawAttributes?.last_changed),
@@ -309,7 +324,7 @@ export function buildHomeAttentionItems({
     const attributes = entity.rawAttributes;
     const deviceClass = normalize(registryEntry?.deviceClass ?? attributes?.device_class);
     const name = resolveEntityName(entityId, attributes, registryEntry);
-    const context = resolveContext(entityId, registryByEntityId, deviceById, areaById);
+    const context = resolveContext(entityId, registryByEntityId, deviceById, areaById, houseContext, house);
     const activeSince =
       toTimestamp(attributes?.__last_changed) ??
       toTimestamp(attributes?.last_changed);
@@ -451,7 +466,7 @@ export function buildHomeAttentionItems({
     if (states[entityId] || states[entityId.toLowerCase()]) {
       return;
     }
-    const context = resolveContext(entityId, registryByEntityId, deviceById, areaById);
+    const context = resolveContext(entityId, registryByEntityId, deviceById, areaById, houseContext, house);
     emit(createItem({
       severity: 'info',
       category: 'configuration',

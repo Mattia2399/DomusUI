@@ -3,6 +3,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityStateMap } from '../../types/ha';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 import { buildHomeAttentionItems, type HomeAttentionArea, type HomeAttentionItem } from './homeAttentionEngine';
 import { useHomeAttentionPreferences } from './homeAttentionPreferences';
 import { isHomeAttentionItemSuppressed, useHomeAttentionSuppressions } from './homeAttentionSuppressions';
@@ -14,6 +15,7 @@ export type UseHomeAttentionItemsOptions = {
   entityRegistry?: HaEntityRegistryEntry[];
   deviceRegistry?: HaDeviceRegistryEntry[];
   areas?: HomeAttentionArea[];
+  houseContext?: DashboardHouseContext | null;
   widgets?: Widget[];
   /** Skip the work while nothing shows the items. */
   enabled?: boolean;
@@ -32,6 +34,7 @@ export function useHomeAttentionItems({
   entityRegistry = [],
   deviceRegistry = [],
   areas = [],
+  houseContext,
   widgets = [],
   enabled = true,
 }: UseHomeAttentionItemsOptions) {
@@ -58,6 +61,7 @@ export function useHomeAttentionItems({
             entityRegistry,
             deviceRegistry,
             areas,
+            houseContext,
             widgets,
             now,
             batteryWarningThreshold: preferences.batteryWarningThreshold,
@@ -65,7 +69,7 @@ export function useHomeAttentionItems({
             locale,
           }).filter((item) => preferences.categories[item.category])
         : EMPTY,
-    [areas, connected, deviceRegistry, enabled, entityRegistry, locale, now, preferences, runtimeMode, states, widgets],
+    [areas, connected, deviceRegistry, enabled, entityRegistry, houseContext, locale, now, preferences, runtimeMode, states, widgets],
   );
 
   const items = useMemo(

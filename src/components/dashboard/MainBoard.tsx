@@ -448,6 +448,7 @@ import { HouseStatesProvider } from '../devices/cards/houseStatesContext';
 import { DeviceExtrasProvider } from '../devices/cards/deviceExtrasContext';
 import { useHomeDeviceExtras } from './mainboard/useHomeDeviceExtras';
 import { PanelServicesProvider } from '../devices/panels/panelServicesContext';
+import { useDashboardHouseContext } from '../../hooks/useDashboardHouseContext';
 import {
   createOAuthNonce,
   isAppGalleryNavigationTarget,
@@ -1842,9 +1843,10 @@ export function MainBoard() {
     },
     [effectiveRuntimeMode, rawCallHaApi],
   );
+  const dashboardHouseContext = useDashboardHouseContext(callHaApi, effectiveRuntimeMode === 'real' && isHaConnected);
   const panelServices = useMemo(
-    () => ({ callApi: callHaApi, callService: callHaService, houseConnected: effectiveRuntimeMode === 'real' && isHaConnected }),
-    [callHaApi, callHaService, effectiveRuntimeMode, isHaConnected],
+    () => ({ callApi: callHaApi, callService: callHaService, houseConnected: effectiveRuntimeMode === 'real' && isHaConnected, houseContext: dashboardHouseContext }),
+    [callHaApi, callHaService, dashboardHouseContext, effectiveRuntimeMode, isHaConnected],
   );
   const commandCoordinator = useDeviceCommandCoordinator({
     entities: haStates,
@@ -11923,6 +11925,7 @@ export function MainBoard() {
             entityRegistry={haEntityRegistry}
             deviceRegistry={haDeviceRegistry}
             areas={haAreas}
+            houseContext={dashboardHouseContext}
             widgets={widgets}
             onCallService={callHaService}
             energyCallApi={callHaApi}
@@ -12208,6 +12211,7 @@ export function MainBoard() {
                 entityRegistry={haEntityRegistry}
                 deviceRegistry={haDeviceRegistry}
                 areas={haAreas}
+                houseContext={dashboardHouseContext}
                 widgets={widgets}
                 onOpenItem={handleOpenHomeAttentionItem}
               />

@@ -1,9 +1,35 @@
 import { describe, expect, it } from 'vitest';
 import { buildHomeAttentionItems, createDemoHomeAttentionItems } from './homeAttentionEngine';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 
 const NOW = Date.parse('2026-07-30T10:00:00Z');
 
 describe('homeAttentionEngine', () => {
+  it('uses House room identity for alerts across inheritance, move, rename, deletion and duplicate names', () => {
+    const context: DashboardHouseContext = {
+      schemaVersion: 'domusos.dashboard.house.v1', topologyRevision: 1,
+      rooms: [{ id: 'a', name: 'Camera' }, { id: 'b', name: 'Camera' }],
+      devices: [{ id: 'd', effectiveRoomId: 'a' }],
+      entities: [{ registryId: 'stable', entityId: 'sensor.battery', deviceId: 'd', effectiveRoomId: 'a' }],
+    };
+    const input = {
+      runtimeMode: 'real' as const, connected: true, now: NOW,
+      states: { 'sensor.battery': { state: '9', numericValue: 9, rawAttributes: { device_class: 'battery' } } },
+      entityRegistry: [{ entityId: 'sensor.battery', deviceId: 'd', areaId: 'b' }],
+      deviceRegistry: [{ id: 'd', areaId: 'b' }],
+      areas: [{ area_id: 'b', name: 'Legacy' }],
+    };
+    const item = () => buildHomeAttentionItems({ ...input, houseContext: context })[0];
+    expect(item()).toMatchObject({ areaId: 'a', areaName: 'Camera' });
+    context.entities[0].effectiveRoomId = 'b';
+    expect(item()).toMatchObject({ areaId: 'b', areaName: 'Camera' });
+    context.rooms[1].name = 'Camera nuova';
+    expect(item()).toMatchObject({ areaId: 'b', areaName: 'Camera nuova' });
+    context.rooms.splice(1, 1);
+    context.entities[0].effectiveRoomId = null;
+    expect(item()).toMatchObject({ areaId: undefined, areaName: undefined });
+    expect(buildHomeAttentionItems({ ...input, houseContext: null })[0].areaId).toBeUndefined();
+  });
   it('detects and prioritizes safety, security, openings and low batteries', () => {
     const items = buildHomeAttentionItems({
       runtimeMode: 'real',

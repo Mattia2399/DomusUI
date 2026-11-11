@@ -4,6 +4,7 @@ const HA_FAVORITE_LABEL_ALIASES = new Set(['preferiti', 'preferito', 'favorites'
 
 export type HaEntityRegistryEntry = {
   entityId: string;
+  registryId?: string;
   deviceId?: string;
   areaId?: string;
   name?: string;
@@ -119,6 +120,7 @@ export function parseHaEntityRegistry(payload: unknown): HaEntityRegistryEntry[]
     if (!entityId) return [];
     return [{
       entityId,
+      ...(toTrimmedString(entry.id) ? { registryId: toTrimmedString(entry.id) } : {}),
       deviceId: toTrimmedString(entry.device_id),
       areaId: toTrimmedString(entry.area_id),
       name: toTrimmedString(entry.name),

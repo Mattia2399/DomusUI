@@ -3,6 +3,7 @@ import type { EnergyCallApi, EnergyQuantity } from '../../services/energyCoreCli
 import type { HaDeviceRegistryEntry, HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { HomeAttentionItem } from '../homeAttention/homeAttentionEngine';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 
 /*
  * The quick card at the bottom of the mobile side menu: one thing chosen on
@@ -90,29 +91,27 @@ export function formatCollectionDate(start: Date, locale: string) {
   return new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(start);
 }
 
-/**
- * The rooms with a light on, most lights first: the entity's area, else its
- * device's. Lights without a room are left out.
- */
+/** Group live lights by canonical room ID; names are only display labels. */
 export function roomsOfLights(
   lightIds: string[],
-  entityRegistry: HaEntityRegistryEntry[],
-  deviceRegistry: HaDeviceRegistryEntry[],
-  areas: { area_id: string; name: string }[],
+  houseContext: DashboardHouseContext | null | undefined,
+  demo?: { entityRegistry: HaEntityRegistryEntry[]; deviceRegistry: HaDeviceRegistryEntry[]; areas: { area_id: string; name: string }[] },
 ) {
-  const entities = new Map(entityRegistry.map((entry) => [entry.entityId, entry] as const));
-  const devices = new Map(deviceRegistry.map((entry) => [entry.id, entry] as const));
-  const names = new Map(areas.map((area) => [area.area_id, area.name] as const));
+  const roomOf = new Map(houseContext?.entities.map((entry) => [entry.entityId, entry.effectiveRoomId] as const) ?? []);
+  const names = new Map(houseContext?.rooms.map((room) => [room.id, room.name] as const) ?? []);
+  if (houseContext === undefined && demo) {
+    const deviceRoom = new Map(demo.deviceRegistry.map((device) => [device.id, device.areaId] as const));
+    demo.entityRegistry.forEach((entry) => roomOf.set(entry.entityId, entry.areaId ?? (entry.deviceId ? deviceRoom.get(entry.deviceId) : undefined) ?? null));
+    demo.areas.forEach((area) => names.set(area.area_id, area.name));
+  }
   const counts = new Map<string, number>();
   for (const id of lightIds) {
-    const entry = entities.get(id);
-    const areaId = entry?.areaId ?? (entry?.deviceId ? devices.get(entry.deviceId)?.areaId : undefined);
-    const name = areaId ? names.get(areaId) : undefined;
-    if (name) counts.set(name, (counts.get(name) ?? 0) + 1);
+    const roomId = roomOf.get(id);
+    if (roomId && names.has(roomId)) counts.set(roomId, (counts.get(roomId) ?? 0) + 1);
   }
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .map(([name]) => name);
+    .map(([roomId]) => names.get(roomId) ?? roomId);
 }
 
 export type EnergyNow = { homeW: number; solarW: number | null; gridW: number | null };

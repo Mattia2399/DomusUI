@@ -1,23 +1,28 @@
 import type { HaArea } from '../../hooks/useHaLiveConnection';
 import type { HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
+import { dashboardHouseLookups, type DashboardHouseContext } from '../../services/dashboardHouseContext';
 import { filterEntityIdsForWidgetKind } from '../../services/haRegistryPresentation';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { WidgetKind } from '../../types/dashboardModels';
 import type { PickerEntity } from '../editor/EntityPicker';
 
 /** Every entity the picker can show, with its name and its room. */
-export function pickerEntitiesOf(entityIds: readonly string[], states: MockEntityStateMap, registry: readonly HaEntityRegistryEntry[] = [], areas: readonly HaArea[] = []): PickerEntity[] {
+export function pickerEntitiesOf(entityIds: readonly string[], states: MockEntityStateMap, registry: readonly HaEntityRegistryEntry[] = [], areas: readonly HaArea[] = [], houseContext?: DashboardHouseContext | null): PickerEntity[] {
   const byId = new Map(registry.map((entry) => [entry.entityId.toLowerCase(), entry]));
   const areaName = new Map(areas.map((area) => [area.area_id, area.name]));
+  const house = dashboardHouseLookups(houseContext ?? null);
   return [...new Set(entityIds)].map((entityId) => {
     const entry = byId.get(entityId.toLowerCase());
     const friendly = states[entityId]?.rawAttributes?.friendly_name;
-    const areaId = entry?.areaId;
+    // Security domains remain on their existing editor path; House has no sensitive membership.
+    const legacyRoom = houseContext === undefined || /^(binary_sensor|lock|alarm_control_panel|camera)\./.test(entityId);
+    const houseEntity = (entry?.registryId ? house.entitiesByRegistryId.get(entry.registryId) : undefined) ?? house.entities.get(entityId);
+    const areaId = legacyRoom ? entry?.areaId : houseEntity?.effectiveRoomId ?? undefined;
     return {
       entityId,
       name: (typeof friendly === 'string' && friendly.trim()) || entry?.name || entityId,
       areaId,
-      areaName: areaId ? areaName.get(areaId) : undefined,
+      areaName: areaId ? (legacyRoom ? areaName.get(areaId) : house.roomNames.get(areaId)) : undefined,
       deviceId: entry?.deviceId,
     };
   });

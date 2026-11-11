@@ -9,6 +9,8 @@ import { useDeviceControls } from './deviceControls';
 import { DeviceTab } from './DeviceTab';
 import { usePanelKit } from './panelKit';
 import type { PanelEditorProps } from './panelEditorTypes';
+import { usePanelHouseContext } from '../devices/panels/panelData';
+import { usePanelServices } from '../devices/panels/panelServicesContext';
 import './panelEditor.css';
 
 export type PanelEditorTab = 'appearance' | 'device' | 'controls';
@@ -19,6 +21,9 @@ export type PanelEditorTab = 'appearance' | 'device' | 'controls';
  * the name of the card and Fine. It arrives only in edit mode.
  */
 export default function PanelEditor(props: PanelEditorProps) {
+  const services = usePanelServices();
+  const house = usePanelHouseContext();
+  const houseContext = services ? house : undefined;
   const words = usePanelEditorWords();
   const [tab, setTab] = React.useState<PanelEditorTab>('appearance');
   // The control open in Controlli, chosen in the list.
@@ -59,9 +64,9 @@ export default function PanelEditor(props: PanelEditorProps) {
         {tab === 'appearance' ? (
           <AppearanceTab {...props} showPreview />
         ) : tab === 'device' ? (
-          <DeviceTab {...props} />
+          <DeviceTab {...props} houseContext={houseContext} />
         ) : (
-          <ControlsTab {...props} kit={kit} rows={rows} ready={device.controls.ready} fixed={fixed} selected={control} onSelect={setControl} />
+          <ControlsTab {...props} houseContext={houseContext} kit={kit} rows={rows} ready={device.controls.ready} fixed={fixed} selected={control} onSelect={setControl} />
         )}
       </div>
       {tab === 'controls' && !fixed ? device.reader : null}

@@ -19,16 +19,17 @@ import { GlassToggleRow } from '../ui/GlassToggleRow';
 import { cardEntityIdsOf, fitsRole, pickerEntitiesOf, sameDeviceEntity, type ExtraRole } from './deviceEntities';
 import { ExtraEntityRow } from './ExtraEntityRow';
 import type { PanelEditorProps } from './panelEditorTypes';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 
 export const ACTIVITY_LIMITS = { entries: { min: 1, max: 30, standard: 6 }, hours: { min: 1, max: 168, standard: 24 } } as const;
 
 const storage = () => (typeof window === 'undefined' ? undefined : window.localStorage);
 
-type DeviceProps = Pick<PanelEditorProps, 'widget' | 'haStates' | 'entityRegistry' | 'areas' | 'entityOptions' | 'haEntityIds' | 'onUpdateWidget'>;
+type DeviceProps = Pick<PanelEditorProps, 'widget' | 'haStates' | 'entityRegistry' | 'areas' | 'entityOptions' | 'haEntityIds' | 'onUpdateWidget'> & { houseContext?: DashboardHouseContext | null };
 type FoldKey = 'entity' | ExtraRole | 'decimals' | 'meter' | 'entries' | 'hours';
 
 /* What the card commands, chosen by name; what tells more about it; its security; the few options of its kind, in words. */
-export function DeviceTab({ widget, haStates, entityRegistry = [], areas = [], entityOptions, haEntityIds = [], onUpdateWidget }: DeviceProps) {
+export function DeviceTab({ widget, haStates, entityRegistry = [], areas = [], houseContext, entityOptions, haEntityIds = [], onUpdateWidget }: DeviceProps) {
   const words = usePanelEditorWords();
   const fold = useOneOpen<FoldKey>();
   const security = useDashboardSecurity();
@@ -37,7 +38,7 @@ export function DeviceTab({ widget, haStates, entityRegistry = [], areas = [], e
   const update = (change: Partial<Widget>) => onUpdateWidget(widget.id, (current) => ({ ...current, ...change }));
   const demoIds = entityOptions?.[widget.kind] ?? [];
   const allIds = React.useMemo(() => [...new Set([...haEntityIds, ...Object.keys(haStates), ...Object.values(entityOptions ?? {}).flat()])], [entityOptions, haEntityIds, haStates]);
-  const entities = React.useMemo(() => pickerEntitiesOf(allIds, haStates, entityRegistry, areas), [allIds, areas, entityRegistry, haStates]);
+  const entities = React.useMemo(() => pickerEntitiesOf(allIds, haStates, entityRegistry, areas, houseContext), [allIds, areas, entityRegistry, haStates, houseContext]);
   const nameOf = (entityId: string) => entities.find((entity) => entity.entityId === entityId)?.name ?? entityId;
   const cardIds = new Set(cardEntityIdsOf(widget.kind, allIds, demoIds));
   const own = entities.find((entity) => entity.entityId === widget.entityId);

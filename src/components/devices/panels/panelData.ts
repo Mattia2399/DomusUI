@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { parseHaDeviceRegistry, parseHaEntityRegistry, type HaEntityRegistryEntry } from '../../../services/haRegistryPresentation';
-import { fetchDashboardHouseContext, type DashboardHouseContext } from '../../../services/dashboardHouseContext';
+import type { DashboardHouseContext } from '../../../services/dashboardHouseContext';
+import { useDashboardHouseContext } from '../../../hooks/useDashboardHouseContext';
 import { parseStateHistory, type StateChange } from '../model/security';
 import { parseHistoryPoints, type SeriesPoint } from '../model/sensor';
 import { parseStatistics, statisticsQuery, type SensorPanelPeriod, type StatisticPoint } from '../model/sensorPanel';
@@ -93,41 +94,8 @@ export function usePanelHouseContext(enabled = true): DashboardHouseContext | nu
   const services = usePanelServices();
   const callApi = services?.callApi;
   const connected = enabled && (services?.houseConnected ?? Boolean(callApi));
-  const [snapshot, setSnapshot] = useState<{ callApi: PanelApiCall; value: DashboardHouseContext } | null>(null);
-  useEffect(() => {
-    if (!callApi || !connected) {
-      setSnapshot(null);
-      return undefined;
-    }
-    setSnapshot(null);
-    let active = true;
-    let request = 0;
-    const refresh = async () => {
-      const serial = ++request;
-      try {
-        const next = await fetchDashboardHouseContext(callApi);
-        if (!active || serial !== request) return;
-        setSnapshot((current) => current?.callApi === callApi && current.value.topologyRevision === next.topologyRevision &&
-          JSON.stringify(current.value) === JSON.stringify(next) ? current : { callApi, value: next });
-      } catch {
-        if (active && serial === request) setSnapshot(null);
-      }
-    };
-    void refresh();
-    const timer = window.setInterval(() => void refresh(), 30_000);
-    const onFocus = () => void refresh();
-    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisible);
-    return () => {
-      active = false;
-      request += 1;
-      window.clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisible);
-    };
-  }, [callApi, connected]);
-  return connected && snapshot?.callApi === callApi ? snapshot.value : null;
+  const local = useDashboardHouseContext(callApi, connected && services?.houseContext === undefined);
+  return connected ? (services?.houseContext === undefined ? local : services.houseContext) : null;
 }
 
 export type SensorSeries = {

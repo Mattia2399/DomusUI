@@ -20,6 +20,7 @@ import { readSecurityCenterAlarm, securityAlarmCandidates } from '../../services
 import type { Widget } from '../../types/dashboardModels';
 import type { MockEntityStateMap } from '../../types/ha';
 import { useHomeAttentionItems } from '../homeAttention/useHomeAttentionItems';
+import type { DashboardHouseContext } from '../../services/dashboardHouseContext';
 import { haStatusLabel } from '../settings/haStatusLabel';
 import GlassModal from '../ui/GlassModal';
 import {
@@ -81,6 +82,7 @@ export type MobileSidebarDrawerProps = {
   entityRegistry?: HaEntityRegistryEntry[];
   deviceRegistry?: HaDeviceRegistryEntry[];
   areas?: HaArea[];
+  houseContext?: DashboardHouseContext | null;
   widgets?: Widget[];
   onCallService?: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
   /** Reads the energy core for the "Energy now" card. */
@@ -328,6 +330,7 @@ export function MobileSidebarDrawer({
   entityRegistry = [],
   deviceRegistry = [],
   areas = [],
+  houseContext,
   widgets = [],
   onCallService,
   energyCallApi,
@@ -361,6 +364,7 @@ export function MobileSidebarDrawer({
     entityRegistry,
     deviceRegistry,
     areas,
+    houseContext,
     widgets,
     enabled: isOpen,
   });
@@ -544,7 +548,8 @@ export function MobileSidebarDrawer({
         const name = states[id]?.rawAttributes?.friendly_name;
         return typeof name === 'string' && name.trim() ? name.trim() : id;
       }),
-      rooms: roomsOfLights(litLights, entityRegistry, deviceRegistry, areas),
+      rooms: roomsOfLights(litLights, runtimeMode === 'demo' ? undefined : houseContext ?? null,
+        runtimeMode === 'demo' ? { entityRegistry, deviceRegistry, areas } : undefined),
     },
     canTurnOffLights: Boolean(onCallService),
     waste: isOpen ? nextWasteCollection(states) : undefined,
