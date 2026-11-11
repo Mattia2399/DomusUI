@@ -3,6 +3,11 @@ import type { ReactElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import SettingsEntitiesList from './SettingsEntitiesList';
+import type { SettingsHouseContext } from '../../services/settingsHouseContext';
+
+const context = (rooms: SettingsHouseContext['rooms'], entities: SettingsHouseContext['entities']): SettingsHouseContext => ({
+  schemaVersion: 'domusos.system.house.v1', topologyRevision: 1, rooms, entities, devices: [],
+});
 
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
 
@@ -90,6 +95,9 @@ describe('SettingsEntitiesList', () => {
         haStates={states}
         entityRegistry={[{ entityId: 'switch.irrigazione', name: 'Irrigazione', disabledBy: 'user', areaId: 'giardino' }]}
         areas={[{ area_id: 'giardino', name: 'Giardino' }]}
+        houseContext={context([{ id: 'giardino', name: 'Giardino' }], [
+          { registryId: null, entityId: 'switch.irrigazione', effectiveRoomId: 'giardino' },
+        ])}
       />,
     );
 
@@ -116,6 +124,9 @@ describe('SettingsEntitiesList', () => {
         entityRegistry={[{ entityId: 'light.cucina', deviceId: 'd1', platform: 'hue' }]}
         deviceRegistry={[{ id: 'd1', name: 'Hue cucina', areaId: 'cucina' }]}
         areas={[{ area_id: 'cucina', name: 'Cucina' }]}
+        houseContext={context([{ id: 'cucina', name: 'Cucina' }], [
+          { registryId: null, entityId: 'light.cucina', effectiveRoomId: 'cucina' },
+        ])}
         onOpenDevice={onOpenDevice}
       />,
     );

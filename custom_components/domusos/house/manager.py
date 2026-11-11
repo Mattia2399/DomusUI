@@ -195,6 +195,35 @@ class HouseManager:
             for room in topology["rooms"]
         ]}
 
+    async def async_get_settings_room_context(self) -> dict[str, Any]:
+        """Admin Settings room membership from the unfiltered canonical resolver.
+
+        Inventory remains owned by the HA registries in Settings. This narrow
+        projection only supplies room identity and effective membership, even
+        for disabled, hidden, diagnostic, or otherwise filtered entities.
+        """
+        topology = await self._topology()
+        if any(issue["code"] == "registry_unavailable" and issue["subjectId"] in {"area", "device", "entity"}
+               for issue in topology["issues"]):
+            raise HouseUnavailableError("Domus House room context is incomplete")
+        rooms = {room["id"]: room["name"] for room in topology["rooms"]}
+
+        def room_id_of(area_id: str | None) -> str | None:
+            return area_id if area_id in rooms else None
+
+        return {
+            "schemaVersion": "domusos.system.house.v1",
+            "topologyRevision": topology["topologyRevision"],
+            "rooms": [{"id": room_id, "name": name} for room_id, name in rooms.items()],
+            "devices": [{"id": device["id"], "roomId": room_id_of(device["areaId"])}
+                        for device in topology["devices"]],
+            "entities": [{
+                "registryId": entity["registryId"],
+                "entityId": entity["entityId"],
+                "effectiveRoomId": room_id_of(entity["effectiveAreaId"]),
+            } for entity in topology["entities"]],
+        }
+
     async def async_get_room_contexts(self, user: Any, room_ids: set[str]) -> dict[str, Any]:
         """Return only requested rooms and HA-readable environmental readings.
 

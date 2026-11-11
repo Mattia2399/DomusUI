@@ -1,0 +1,1 @@
+"""System-scoped administrative projections."""

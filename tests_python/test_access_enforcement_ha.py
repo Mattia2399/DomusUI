@@ -298,6 +298,7 @@ async def test_an_applied_refusal_is_a_security_record_and_an_enforced_deny(hass
         "domusos/house/get_snapshot",
         "domusos/house/get_environment_shadow",
         "domusos/dashboard/get_house_context",
+        "domusos/system/get_house_context",
     ))
     row = next(row for row in diagnostics["by_action"] if row["action"] == "domusos/device_power/get_state")
     assert row["enforced"] is True

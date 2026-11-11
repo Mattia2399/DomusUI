@@ -44,6 +44,7 @@ EXPECTED = {
     "domusos/house/get_snapshot": "rooms.view",
     "domusos/house/get_environment_shadow": "rooms.view",
     "domusos/dashboard/get_house_context": "dashboard.view",
+    "domusos/system/get_house_context": "system.manage",
     # Device timers
     "domusos/device_timers/get_state": "devices.timers",
     "domusos/device_timers/subscribe": "devices.timers",
@@ -165,7 +166,7 @@ def test_every_module_with_commands_registers_them_through_the_instrumentation()
         if re.search(r"^WEBSOCKET_COMMANDS = \(", source, re.MULTILINE):
             modules += 1
             assert "register_websocket_commands(hass, WEBSOCKET_COMMANDS)" in source, path.name
-    assert modules == 10
+    assert modules == 11
 
 
 # --- The registry itself ------------------------------------------------------------------
@@ -179,7 +180,7 @@ def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
     # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1),
     # the four of device timers.
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 60
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 61
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:
@@ -204,7 +205,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 55
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 56
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 

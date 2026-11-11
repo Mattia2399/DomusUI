@@ -198,6 +198,7 @@ ACTION_CONTRACT_LIST: tuple[ActionContract, ...] = (
     # Home may be available to accounts without rooms.view. House still filters
     # every entity through HA POLICY_READ before this narrow projection is built.
     _ws("dashboard/get_house_context", "dashboard.view", enforced=True),
+    _ws("system/get_house_context", "system.manage", _A, enforced=True),
     # --- Irrigation ------------------------------------------------------------------------
     _ws("irrigation/get_config", "irrigation.view", _R),
     _ws("irrigation/get_state", "irrigation.view", _R),

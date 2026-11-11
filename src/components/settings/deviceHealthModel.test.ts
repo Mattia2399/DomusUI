@@ -72,7 +72,6 @@ describe('deviceHealthModel', () => {
     expect(devices[0]).toMatchObject({
       id: 'front-door',
       name: 'Porta ingresso',
-      areaName: 'Ingresso',
       status: 'warning',
       batteryLevel: 14,
       connectionState: 'online',

@@ -38,6 +38,7 @@ import type {
   HaEntityRegistryEntry,
 } from '../../services/haRegistryPresentation';
 import type { HaStateTranslations } from '../../services/haStateTranslations';
+import { settingsHouseLookups, type SettingsHouseContext } from '../../services/settingsHouseContext';
 import GlassBottomSheet from '../ui/GlassBottomSheet';
 import GlassSearchFilterBar, {
   type GlassSearchFilterOption,
@@ -97,6 +98,7 @@ export type EntityListEntry = {
   disabled: boolean;
   areaId: string;
   areaLabel: string;
+  roomContextUnavailable: boolean;
   deviceId: string;
   deviceName: string;
   platform: string;
@@ -166,7 +168,7 @@ export function buildEntityEntries({
   haStates,
   entityRegistry,
   deviceRegistry,
-  areas,
+  houseContext,
   translations,
   locale,
   t,
@@ -176,6 +178,7 @@ export function buildEntityEntries({
   entityRegistry: HaEntityRegistryEntry[];
   deviceRegistry: HaDeviceRegistryEntry[];
   areas: HaArea[];
+  houseContext?: SettingsHouseContext | null;
   translations: HaStateTranslations;
   locale: ReturnType<typeof useI18n>['locale'];
   t: ReturnType<typeof useI18n>['t'];
@@ -184,7 +187,7 @@ export function buildEntityEntries({
 }): EntityListEntry[] {
   const registryByEntityId = new Map(entityRegistry.map((entry) => [entry.entityId, entry]));
   const deviceById = new Map(deviceRegistry.map((entry) => [entry.id, entry]));
-  const areaNameById = new Map(areas.map((entry) => [entry.area_id, entry.name]));
+  const house = settingsHouseLookups(houseContext ?? null);
   const labels = {
     disabled: t('settings.entities.disabled'),
     unavailable: t('settings.common.unavailable'),
@@ -199,7 +202,7 @@ export function buildEntityEntries({
       const registryEntry = registryByEntityId.get(id);
       const device = registryEntry?.deviceId ? deviceById.get(registryEntry.deviceId) : undefined;
       const entityDomain = resolveDomain(id);
-      const areaId = registryEntry?.areaId || device?.areaId || '';
+      const areaId = house.entityRoomId(id, registryEntry?.registryId) ?? '';
       const formatted = formatEntityState({ entityId: id, entity, registry: registryEntry, translations, locale, labels });
       return {
         id,
@@ -211,7 +214,8 @@ export function buildEntityEntries({
         unavailable: formatted.unavailable,
         disabled: Boolean(registryEntry?.disabledBy),
         areaId,
-        areaLabel: areaId ? areaNameById.get(areaId) ?? areaId : '',
+        areaLabel: house.roomName(areaId) ?? '',
+        roomContextUnavailable: !houseContext,
         deviceId: registryEntry?.deviceId ?? '',
         deviceName: normalizeText(device?.nameByUser) || normalizeText(device?.name),
         platform: registryEntry?.platform ?? '',
@@ -272,7 +276,7 @@ function EntityDetail({
         <SettingsListRow
           icon={Home}
           title={t('settings.entities.detail.room')}
-          value={entry.areaLabel || t('settings.filters.noRoom')}
+          value={entry.roomContextUnavailable ? t('settings.common.unavailable') : entry.areaLabel || t('settings.filters.noRoom')}
         />
         {entry.deviceId ? (
           <SettingsListRow
@@ -370,6 +374,7 @@ export function SettingsEntitiesList({
   entityRegistry = [],
   deviceRegistry = [],
   areas = [],
+  houseContext,
   loadStateTranslations,
   developerMode = false,
   onOpenDevice,
@@ -378,6 +383,7 @@ export function SettingsEntitiesList({
   entityRegistry?: HaEntityRegistryEntry[];
   deviceRegistry?: HaDeviceRegistryEntry[];
   areas?: HaArea[];
+  houseContext?: SettingsHouseContext | null;
   /** Home Assistant's own state words for a language; absent when they cannot be asked for. */
   loadStateTranslations?: (language: string) => Promise<HaStateTranslations>;
   developerMode?: boolean;
@@ -401,8 +407,8 @@ export function SettingsEntitiesList({
   ];
 
   const entities = useMemo<EntityListEntry[]>(
-    () => buildEntityEntries({ haStates, entityRegistry, deviceRegistry, areas, translations, locale, t }),
-    [areas, deviceRegistry, entityRegistry, haStates, locale, t, translations],
+    () => buildEntityEntries({ haStates, entityRegistry, deviceRegistry, areas, houseContext, translations, locale, t }),
+    [areas, deviceRegistry, entityRegistry, haStates, houseContext, locale, t, translations],
   );
 
   const areaOptions = useMemo<GlassSearchFilterOption[]>(() => {
@@ -456,6 +462,7 @@ export function SettingsEntitiesList({
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [area, availability, deferredQuery, domain]);
+  useEffect(() => { if (!houseContext) setArea('all'); }, [houseContext]);
 
   // The selected type may disappear when another filter changes.
   useEffect(() => {
@@ -491,7 +498,7 @@ export function SettingsEntitiesList({
       icon={entityIcon(entry.domain)}
       tone={entry.tone}
       title={entry.name}
-      subtitle={entry.areaLabel || undefined}
+      subtitle={entry.roomContextUnavailable ? t('settings.common.unavailable') : entry.areaLabel || undefined}
       value={entry.value}
       onClick={() => setSelectedId(entry.id)}
     />
@@ -524,7 +531,7 @@ export function SettingsEntitiesList({
               defaultValue: 'all',
               onChange: (value) => setAvailability(value as AvailabilityFilter),
             },
-            {
+            ...(houseContext ? [{
               id: 'area',
               label: t('settings.filters.room'),
               ariaLabel: t('settings.filters.roomAria'),
@@ -532,7 +539,7 @@ export function SettingsEntitiesList({
               value: area,
               defaultValue: 'all',
               onChange: setArea,
-            },
+            }] : []),
           ]}
         />
       </div>

@@ -322,7 +322,7 @@ def test_the_snapshot_reports_the_current_policy_apart_from_the_window() -> None
     assert result["policy"] == {"state": "corrupt", "revision": 7}
     # Device power and CLM.2 Climate configuration are enforced.
     assert result["mode"] == "partial" and result["enforced"] is True
-    assert result["enforced_actions"] == ["domusos/climate/clear_zone_override", "domusos/climate/execute_plan", "domusos/climate/get_config", "domusos/climate/get_house_rooms", "domusos/climate/get_state", "domusos/climate/save_config", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent", "domusos/climate/set_zone_override", "domusos/dashboard/get_house_context", "domusos/device_power/bind_policy", "domusos/device_power/delete_policy", "domusos/device_power/get_state", "domusos/device_power/save_policy", "domusos/house/get_environment_shadow", "domusos/house/get_snapshot", "domusos/house/get_topology"]
+    assert result["enforced_actions"] == ["domusos/climate/clear_zone_override", "domusos/climate/execute_plan", "domusos/climate/get_config", "domusos/climate/get_house_rooms", "domusos/climate/get_state", "domusos/climate/save_config", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent", "domusos/climate/set_zone_override", "domusos/dashboard/get_house_context", "domusos/device_power/bind_policy", "domusos/device_power/delete_policy", "domusos/device_power/get_state", "domusos/device_power/save_policy", "domusos/house/get_environment_shadow", "domusos/house/get_snapshot", "domusos/house/get_topology", "domusos/system/get_house_context"]
 
 
 # --- Bounds ---------------------------------------------------------------------------

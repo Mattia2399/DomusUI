@@ -55,6 +55,8 @@ import SettingsDevicesList, {
   SettingsDeviceDetail,
 } from '../components/settings/SettingsDevicesList';
 import { buildDeviceHealthSnapshots } from '../components/settings/deviceHealthModel';
+import { useSettingsHouseContext } from '../hooks/useSettingsHouseContext';
+import { demoSettingsHouseContext, projectSettingsDeviceRooms } from '../services/settingsHouseContext';
 import { haStatusLabel } from '../components/settings/haStatusLabel';
 import NestedPageHeader from '../components/ui/NestedPageHeader';
 import { UpdatesCenterModal } from '../components/settings/UpdatesCenterModal';
@@ -770,6 +772,23 @@ export default function SettingsDashboard({
 
   const settingsPath =
     navigationRoute?.split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/settings';
+  const settingsRegistryRevision = useMemo(() => JSON.stringify([
+    haAreas.map((area) => [area.area_id, area.name]),
+    haDeviceRegistry.map((device) => [device.id, device.areaId]),
+    haEntityRegistry.map((entity) => [entity.registryId, entity.entityId, entity.areaId, entity.deviceId]),
+  ]), [haAreas, haDeviceRegistry, haEntityRegistry]);
+  const realSettingsHouseContext = useSettingsHouseContext(
+    onCallApi, isConnected && security.runtimeMode === 'real',
+    settingsPath.startsWith('/settings/entities') || settingsPath.startsWith('/settings/devices'),
+    settingsRegistryRevision,
+  );
+  const demoRoomContext = useMemo(
+    () => security.runtimeMode === 'demo'
+      ? demoSettingsHouseContext(haAreas, haDeviceRegistry, haEntityRegistry)
+      : null,
+    [security.runtimeMode, haAreas, haDeviceRegistry, haEntityRegistry],
+  );
+  const settingsRoomContext = demoRoomContext ?? realSettingsHouseContext;
   const navigateTo = (path: string) => onNavigate?.(path);
   useSettingsPageTransition(settingsPath);
   const isOverviewPath =
@@ -817,7 +836,7 @@ export default function SettingsDashboard({
         : t('settings.system.operational');
   const deviceHealthSnapshots = useMemo(
     () =>
-      buildDeviceHealthSnapshots({
+      projectSettingsDeviceRooms(buildDeviceHealthSnapshots({
         locale,
         connected: isConnected,
         states: haStates,
@@ -826,7 +845,7 @@ export default function SettingsDashboard({
         areas: haAreas,
         widgets,
         batteryWarningThreshold: attentionPreferences.batteryWarningThreshold,
-      }),
+      }), settingsRoomContext),
     [
       attentionPreferences.batteryWarningThreshold,
       locale,
@@ -834,6 +853,7 @@ export default function SettingsDashboard({
       haDeviceRegistry,
       haEntityRegistry,
       haStates,
+      settingsRoomContext,
       isConnected,
       widgets,
     ],
@@ -1347,6 +1367,7 @@ export default function SettingsDashboard({
           entityRegistry={haEntityRegistry}
           deviceRegistry={haDeviceRegistry}
           areas={haAreas}
+          houseContext={settingsRoomContext}
           widgets={widgets}
           batteryWarningThreshold={attentionPreferences.batteryWarningThreshold}
           onOpenDevice={(deviceId) =>
@@ -1383,6 +1404,7 @@ export default function SettingsDashboard({
             entityRegistry={haEntityRegistry}
             deviceRegistry={haDeviceRegistry}
             areas={haAreas}
+            houseContext={settingsRoomContext}
             loadStateTranslations={loadStateTranslations}
             developerMode={developerMode && security.can('developer_mode')}
           />
@@ -1414,6 +1436,7 @@ export default function SettingsDashboard({
           entityRegistry={haEntityRegistry}
           deviceRegistry={haDeviceRegistry}
           areas={haAreas}
+          houseContext={settingsRoomContext}
           loadStateTranslations={loadStateTranslations}
           developerMode={developerMode && security.can('developer_mode')}
           onOpenDevice={(deviceId) => navigateTo(`/settings/devices/${encodeURIComponent(deviceId)}`)}

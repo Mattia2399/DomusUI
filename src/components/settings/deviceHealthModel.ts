@@ -43,6 +43,7 @@ export type DeviceHealthSnapshot = {
   platforms?: string[];
   areaId?: string;
   areaName?: string;
+  roomContextUnavailable?: boolean;
   status: DeviceHealthStatus;
   statusLabel: string;
   issues: DeviceHealthIssue[];
@@ -257,12 +258,10 @@ export function buildDeviceHealthSnapshots({
   states,
   entityRegistry = [],
   deviceRegistry = [],
-  areas = [],
   widgets = [],
   batteryWarningThreshold = 20,
   locale = 'it',
 }: BuildDeviceHealthOptions): DeviceHealthSnapshot[] {
-  const areaById = new Map(areas.map((area) => [area.area_id, area.name]));
   const entriesByDevice = new Map<string, HaEntityRegistryEntry[]>();
   entityRegistry.forEach((entry) => {
     if (!entry.deviceId || entry.disabledBy || entry.hiddenBy) return;
@@ -378,8 +377,6 @@ export function buildDeviceHealthSnapshots({
         swVersion: text(device.swVersion) || undefined,
         hwVersion: text(device.hwVersion) || undefined,
         platforms: Array.from(new Set(entries.map((entry) => text(entry.platform)).filter(Boolean))),
-        areaId: device.areaId || undefined,
-        areaName: device.areaId ? areaById.get(device.areaId) ?? device.areaId : undefined,
         status,
         statusLabel: statusLabel(status, locale),
         issues,

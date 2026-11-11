@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider, LANGUAGE_STORAGE_KEY } from '../../i18n/I18nProvider';
 import { buildDeviceHealthSnapshots } from './deviceHealthModel';
 import { SettingsDeviceDetail, SettingsDevicesList } from './SettingsDevicesList';
+import { demoSettingsHouseContext, projectSettingsDeviceRooms } from '../../services/settingsHouseContext';
 
 const render = (ui: ReactElement) => renderTestingLibrary(ui, { wrapper: I18nProvider });
 
@@ -50,6 +51,7 @@ const areas = [
   { area_id: 'kitchen', name: 'Cucina' },
   { area_id: 'living', name: 'Soggiorno' },
 ];
+const houseContext = demoSettingsHouseContext(areas, deviceRegistry, entityRegistry);
 
 const groupTitles = () =>
   screen.getAllByRole('region').map((section) => section.querySelector('h2')?.textContent);
@@ -64,6 +66,7 @@ describe('SettingsDevicesList', () => {
         entityRegistry={entityRegistry}
         deviceRegistry={deviceRegistry}
         areas={areas}
+        houseContext={houseContext}
         onOpenDevice={onOpenDevice}
       />,
     );
@@ -87,6 +90,7 @@ describe('SettingsDevicesList', () => {
         entityRegistry={entityRegistry}
         deviceRegistry={deviceRegistry}
         areas={areas}
+        houseContext={houseContext}
         onOpenDevice={vi.fn()}
       />,
     );
@@ -101,13 +105,13 @@ describe('SettingsDevicesList', () => {
   });
 
   it('shows the device status, entities and information in grouped lists', () => {
-    const [kitchen] = buildDeviceHealthSnapshots({
+    const [kitchen] = projectSettingsDeviceRooms(buildDeviceHealthSnapshots({
       connected: true,
       states,
       entityRegistry,
       deviceRegistry: [deviceRegistry[0]],
       areas,
-    });
+    }), houseContext);
     render(
       <SettingsDeviceDetail
         device={{ ...kitchen, swVersion: '1.104.2', dashboardWidgetCount: 2 }}
@@ -116,6 +120,7 @@ describe('SettingsDevicesList', () => {
         entityRegistry={entityRegistry}
         deviceRegistry={deviceRegistry}
         areas={areas}
+        houseContext={houseContext}
       />,
     );
 

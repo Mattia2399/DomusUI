@@ -37,6 +37,7 @@ import type {
   HaEntityRegistryEntry,
 } from '../../services/haRegistryPresentation';
 import type { HaStateTranslations } from '../../services/haStateTranslations';
+import { projectSettingsDeviceRooms, type SettingsHouseContext } from '../../services/settingsHouseContext';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { Widget } from '../../types/dashboardModels';
 import GlassSearchFilterBar, {
@@ -189,6 +190,7 @@ export function SettingsDevicesList({
   entityRegistry = [],
   deviceRegistry = [],
   areas = [],
+  houseContext,
   widgets = [],
   batteryWarningThreshold = 20,
   onOpenDevice,
@@ -198,6 +200,7 @@ export function SettingsDevicesList({
   entityRegistry?: HaEntityRegistryEntry[];
   deviceRegistry?: HaDeviceRegistryEntry[];
   areas?: HaArea[];
+  houseContext?: SettingsHouseContext | null;
   widgets?: Widget[];
   batteryWarningThreshold?: number;
   onOpenDevice: (deviceId: string) => void;
@@ -210,7 +213,7 @@ export function SettingsDevicesList({
   const deferredQuery = useDeferredValue(query.trim().toLocaleLowerCase(locale));
   const devices = useMemo(
     () =>
-      buildDeviceHealthSnapshots({
+      projectSettingsDeviceRooms(buildDeviceHealthSnapshots({
         locale,
         connected,
         states: haStates,
@@ -219,8 +222,8 @@ export function SettingsDevicesList({
         areas,
         widgets,
         batteryWarningThreshold,
-      }),
-    [areas, batteryWarningThreshold, connected, deviceRegistry, entityRegistry, haStates, widgets, locale],
+      }), houseContext ?? null),
+    [areas, batteryWarningThreshold, connected, deviceRegistry, entityRegistry, haStates, houseContext, widgets, locale],
   );
 
   const areaOptions = useMemo<GlassSearchFilterOption[]>(() => {
@@ -276,6 +279,7 @@ export function SettingsDevicesList({
     if (filter !== 'all' && !chips.some((chip) => chip.id === filter)) setFilter('all');
   }, [chips, filter]);
   useEffect(() => setVisibleCount(PAGE_SIZE), [area, deferredQuery, filter]);
+  useEffect(() => { if (!houseContext) setArea('all'); }, [houseContext]);
 
   const filtered = useMemo(
     () => matching.filter((device) => matchesFilter(device, filter)),
@@ -316,7 +320,7 @@ export function SettingsDevicesList({
         title: group === 'attention'
           ? t('settings.devices.needsAttention')
           : group === 'none'
-            ? t('settings.filters.noRoom')
+            ? (houseContext ? t('settings.filters.noRoom') : t('settings.common.unavailable'))
             : device.areaName || device.areaId || '',
         total: totals.get(group) ?? 0,
         devices: [device],
@@ -348,7 +352,7 @@ export function SettingsDevicesList({
           resultCount={filtered.length}
           resultLabel={(count) => t('settings.devices.resultCount', { count })}
           onReset={resetFilters}
-          filters={[
+          filters={houseContext ? [
             {
               id: 'area',
               label: t('settings.filters.room'),
@@ -358,7 +362,7 @@ export function SettingsDevicesList({
               defaultValue: 'all',
               onChange: setArea,
             },
-          ]}
+          ] : []}
         />
       </div>
 
@@ -435,6 +439,7 @@ export function SettingsDeviceDetail({
   entityRegistry = [],
   deviceRegistry = [],
   areas = [],
+  houseContext,
   loadStateTranslations,
   developerMode = false,
 }: {
@@ -444,6 +449,7 @@ export function SettingsDeviceDetail({
   entityRegistry?: HaEntityRegistryEntry[];
   deviceRegistry?: HaDeviceRegistryEntry[];
   areas?: HaArea[];
+  houseContext?: SettingsHouseContext | null;
   loadStateTranslations?: (language: string) => Promise<HaStateTranslations>;
   developerMode?: boolean;
 }) {
@@ -464,6 +470,7 @@ export function SettingsDeviceDetail({
       entityRegistry,
       deviceRegistry,
       areas,
+      houseContext,
       translations,
       locale,
       t,
@@ -473,7 +480,7 @@ export function SettingsDeviceDetail({
       primary: entries.filter((entry) => !diagnosticIds.has(entry.id)),
       diagnostic: entries.filter((entry) => diagnosticIds.has(entry.id)),
     };
-  }, [areas, device.entities, deviceRegistry, entityRegistry, haStates, locale, t, translations]);
+  }, [areas, device.entities, deviceRegistry, entityRegistry, haStates, houseContext, locale, t, translations]);
 
   const issues = device.issues.filter((issue) => issue.code !== 'update_available');
   const statusRows = [
@@ -652,7 +659,7 @@ export function SettingsDeviceDetail({
         <SettingsListRow
           icon={Home}
           title={t('settings.entities.detail.room')}
-          value={device.areaName || t('settings.filters.noRoom')}
+          value={device.roomContextUnavailable ? t('settings.common.unavailable') : device.areaName || t('settings.filters.noRoom')}
         />
         {device.dashboardWidgetCount > 0 ? (
           <SettingsListRow
