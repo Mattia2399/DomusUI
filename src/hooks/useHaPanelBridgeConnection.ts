@@ -190,6 +190,7 @@ export const HA_PANEL_ALLOWED_API_TYPES = new Set([
   'domusos/climate/execute_plan',
   'domusos/house/get_topology',
   'domusos/house/get_snapshot',
+  'domusos/dashboard/get_house_context',
   'domusos/irrigation/save_config',
   'domusos/irrigation/get_state',
   'domusos/irrigation/subscribe',
@@ -501,6 +502,9 @@ export function validatePanelApiMessage(message: unknown): message is Record<str
     return hasExactKeys(message, ['type']);
   }
   if (message.type === 'domusos/house/get_topology' || message.type === 'domusos/house/get_snapshot') {
+    return hasExactKeys(message, ['type']);
+  }
+  if (message.type === 'domusos/dashboard/get_house_context') {
     return hasExactKeys(message, ['type']);
   }
   // The bridge enforces closed payload shapes; the Climate backend validates modes, bounds and account rights.

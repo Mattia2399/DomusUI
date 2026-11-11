@@ -24,7 +24,8 @@ import {
   statisticsToPoints,
   type SensorPanelPeriod,
 } from '../../model/sensorPanel';
-import { useEntityRegistry, useSensorSeries } from '../panelData';
+import { useEntityRegistry, usePanelHouseContext, usePanelTechnicalEntities, useSensorSeries } from '../panelData';
+import { dashboardHouseLookups } from '../../../../services/dashboardHouseContext';
 import { usePanelServices } from '../panelServicesContext';
 import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
 import { accentOf, ICON, PanelRows } from './shared';
@@ -132,11 +133,16 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
   const services = usePanelServices();
-  const registry = useEntityRegistry();
+  const legacySecurity = entityId.startsWith('binary_sensor.');
+  const registry = useEntityRegistry(legacySecurity);
+  const houseContext = usePanelHouseContext(!legacySecurity);
+  const houseLookups = React.useMemo(() => dashboardHouseLookups(houseContext), [houseContext]);
+  const technicalEntities = usePanelTechnicalEntities();
+  const roomIdOf = (id: string) => legacySecurity ? registry?.entityAreaByEntityId[id] ?? null : houseLookups.roomIdOf(id);
   const now = Date.now();
   const entity = haStates[entityId] ?? fallbackEntity;
 
-  const batteryId = findBatterySensor(entityId, haStates, (id) => registry?.registryEntities.find((entry) => entry.entityId === id)?.deviceId);
+  const batteryId = findBatterySensor(entityId, haStates, (id) => technicalEntities.find((entry) => entry.entityId === id)?.deviceId);
   const batteryValue = batteryId ? Number(haStates[batteryId]?.state) : Number.NaN;
   const battery = Number.isFinite(batteryValue) ? batteryValue : givenBattery ?? null;
   const model = toFamilySensorModel(entityId, entity, { name, battery, fallbackFamily: entityId.startsWith('binary_sensor.') ? 'device' : 'measure' });
@@ -185,8 +191,8 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   const unitText = reading.unit === '°' || reading.unit === '%' ? reading.unit : reading.unit ? ` ${reading.unit}` : '';
   const withUnit = (value: number, decimals?: number) => `${formatNumber(value, locale, decimals)}${unitText}`;
 
-  const area = registry?.entityAreaByEntityId[entityId] ?? null;
-  const areaName = roomName ?? (area ? registry?.areaNames[area] : undefined);
+  const area = roomIdOf(entityId);
+  const areaName = roomName ?? (legacySecurity ? (area ? registry?.areaNames[area] : undefined) : houseLookups.roomNameOf(entityId));
   const updatedAt = model.changedAt;
   const subtitle = [
     areaName,
@@ -194,7 +200,7 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   ].filter(Boolean).join(' · ');
 
   const inSameRoom = (prefix: string) =>
-    area ? Object.keys(haStates).filter((id) => id !== entityId && id.startsWith(prefix) && registry?.entityAreaByEntityId[id] === area) : [];
+    area ? Object.keys(haStates).filter((id) => id !== entityId && id.startsWith(prefix) && roomIdOf(id) === area) : [];
 
   /* ---- The alert ---- */
   const words = alert ? ALERT_WORDS[alert.reason] : undefined;
@@ -299,9 +305,9 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
   const scale = scaleOf(model.family, model.deviceClass, model.unit, model.value, 3.3);
 
   const rowsOf = (): { title: string; word: string; rows: BlockRow[] } | null => {
-    const currentRegistry = registry?.registryEntities.find((entry) => entry.entityId === entityId);
+    const currentRegistry = technicalEntities.find((entry) => entry.entityId === entityId);
     const sameDevice = currentRegistry?.deviceId
-      ? registry?.registryEntities.filter((entry) => entry.entityId !== entityId && entry.deviceId === currentRegistry.deviceId) ?? []
+      ? technicalEntities.filter((entry) => entry.entityId !== entityId && entry.deviceId === currentRegistry.deviceId)
       : [];
     const relatedRows = sameDevice.flatMap((entry) => {
       const relatedState = haStates[entry.entityId];
@@ -318,7 +324,7 @@ function useSensorSpec({ entityId, name, history, givenSeries, givenChanges, giv
       .slice(0, 6);
     const roomRows = (): BlockRow[] => [
       ...house.rows
-        .filter((row) => row.entityId !== entityId && row.available && (row.family === 'temperature' || row.family === 'humidity') && area !== null && registry?.entityAreaByEntityId[row.entityId] === area)
+        .filter((row) => row.entityId !== entityId && row.available && (row.family === 'temperature' || row.family === 'humidity') && area !== null && roomIdOf(row.entityId) === area)
         .map((row) => ({ key: row.entityId, label: row.name, value: row.value !== null ? `${formatNumber(row.value, locale)}${row.unit === '%' ? '%' : row.unit.includes('°') ? '°' : ` ${row.unit}`}` : row.state })),
       ...climates.map((id) => ({ key: id, label: String(haStates[id]?.rawAttributes?.friendly_name ?? id), value: String(haStates[id]?.state ?? '') })),
     ];

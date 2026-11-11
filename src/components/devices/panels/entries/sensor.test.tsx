@@ -182,12 +182,13 @@ describe('the panel of a family', () => {
     cleanup();
 
     const callApi = vi.fn(async (message: { type: string }) => {
-      if (message.type === 'config/entity_registry/list') return [
-        { entity_id: 'sensor.t', area_id: 'sala' },
-        { entity_id: 'climate.c', area_id: 'sala' },
-        { entity_id: 'cover.finestra', area_id: 'sala' },
-        { entity_id: 'cover.garage', area_id: 'sala' },
-      ];
+      if (message.type === 'domusos/dashboard/get_house_context') return {
+        schemaVersion: 'domusos.dashboard.house.v1', topologyRevision: 1,
+        rooms: [{ id: 'sala', name: 'Sala' }], devices: [],
+        entities: ['sensor.t', 'climate.c', 'cover.finestra', 'cover.garage'].map((entityId) => ({
+          registryId: entityId, entityId, deviceId: null, effectiveRoomId: 'sala',
+        })),
+      };
       return null;
     });
     const callService = vi.fn().mockResolvedValue(true);

@@ -41,7 +41,8 @@ import { resolveSensorFamily } from '../devices/model/sensorFamily';
 import { findEnergySource } from '../devices/model/plugEnergy';
 import { useDeviceExtras } from '../devices/cards/deviceExtrasContext';
 import { canHaveTimer } from '../devices/model/deviceTimer';
-import { useEntityRegistry, usePanelPlugEnergy, useSecurityHistory } from '../devices/panels/panelData';
+import { useEntityRegistry, usePanelHouseContext, usePanelPlugEnergy, usePanelTechnicalEntities, useSecurityHistory } from '../devices/panels/panelData';
+import { dashboardHouseLookups } from '../../services/dashboardHouseContext';
 
 /* The shared panel a card of the Home opens, in place of its old content. */
 
@@ -58,7 +59,12 @@ export function HomePanel(props: HomePanelProps) {
   // The icons chosen in the edit mode are drawn here, where the Home has them.
   const related = React.useMemo(() => (props.related ? { ...props.related, context: { ...props.related.context, iconOf: chosenIconOf } } : undefined), [props.related]);
   const panel = homePanelOf(props);
-  const registry = useEntityRegistry();
+  const legacySecurity = panel === 'alarm' || panel === 'security' || panel === 'camera' || panel === 'members' ||
+    (panel === 'sensor' && props.activeDevice.sensorEntityId?.startsWith('binary_sensor.'));
+  const registry = useEntityRegistry(Boolean(legacySecurity));
+  const house = usePanelHouseContext(!legacySecurity);
+  const houseLookups = React.useMemo(() => dashboardHouseLookups(house), [house]);
+  const technicalEntities = usePanelTechnicalEntities();
   const deviceExtras = useDeviceExtras();
   const pt = usePanelsTranslations();
   const { t } = useI18n();
@@ -90,8 +96,11 @@ export function HomePanel(props: HomePanelProps) {
     family,
     battery: Number.isFinite(batteryValue) ? batteryValue : null,
   });
-  const areaId = entityId ? registry?.entityAreaByEntityId[entityId] : undefined;
-  const roomName = areaId ? registry?.areaNames[areaId] : undefined;
+  const roomName = entityId
+    ? legacySecurity
+      ? (registry?.areaNames[registry.entityAreaByEntityId[entityId] ?? ''] ?? undefined)
+      : houseLookups.roomNameOf(entityId)
+    : undefined;
   const securityEntityId = panel === 'security' ? homeLiveEntityId(props, 'lock') : null;
   const securityHistory = useSecurityHistory(securityEntityId);
   const deviceEntityId = panel === 'device' && activeDevice.type === 'switch' ? activeDevice.switchEntityId ?? null : null;
@@ -100,7 +109,7 @@ export function HomePanel(props: HomePanelProps) {
         deviceEntityId,
         props.haStates,
         activeDevice.switchConsumptionEntityId ?? null,
-        (id) => registry?.registryEntities.find((entry) => entry.entityId === id)?.deviceId,
+        (id) => technicalEntities.find((entry) => entry.entityId === id)?.deviceId,
       )
     : null;
   const plugEnergy = usePanelPlugEnergy(energySource);

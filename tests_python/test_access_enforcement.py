@@ -32,7 +32,7 @@ DEVICE_POWER = (
 )
 CLIMATE = ("domusos/climate/get_config", "domusos/climate/save_config", "domusos/climate/get_house_rooms", "domusos/climate/get_state", "domusos/climate/set_house_intent", "domusos/climate/set_zone_intent", "domusos/climate/set_zone_override", "domusos/climate/clear_zone_override", "domusos/climate/execute_plan")
 HOUSE = ("domusos/house/get_topology", "domusos/house/get_snapshot", "domusos/house/get_environment_shadow")
-ENFORCED = (*DEVICE_POWER, *CLIMATE, *HOUSE)
+ENFORCED = (*DEVICE_POWER, *CLIMATE, *HOUSE, "domusos/dashboard/get_house_context")
 ADMIN = models.Principal(user_id="a" * 32, is_admin=True)
 MEMBER = models.Principal(user_id="b" * 32, is_admin=False)
 

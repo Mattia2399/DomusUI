@@ -1843,8 +1843,8 @@ export function MainBoard() {
     [effectiveRuntimeMode, rawCallHaApi],
   );
   const panelServices = useMemo(
-    () => ({ callApi: callHaApi, callService: callHaService }),
-    [callHaApi, callHaService],
+    () => ({ callApi: callHaApi, callService: callHaService, houseConnected: effectiveRuntimeMode === 'real' && isHaConnected }),
+    [callHaApi, callHaService, effectiveRuntimeMode, isHaConnected],
   );
   const commandCoordinator = useDeviceCommandCoordinator({
     entities: haStates,

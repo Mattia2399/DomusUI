@@ -14,6 +14,8 @@ export type PanelApiCall = <TResponse = unknown>(
 export type PanelServices = {
   callApi: PanelApiCall;
   callService: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
+  /** Real HA session only; no structural requests in demo or offline mode. */
+  houseConnected?: boolean;
 };
 
 const PanelServicesContext = React.createContext<PanelServices | null>(null);

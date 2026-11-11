@@ -38,6 +38,14 @@ describe('Home Assistant panel distribution contract', () => {
       expect(validatePanelApiMessage({ type, user_id: 'spoofed' })).toBe(false);
     }
   });
+  it('allows the narrow Dashboard House projection with an exact request shape', () => {
+    const bridge = readPanelBridgeSource();
+    const type = 'domusos/dashboard/get_house_context';
+    expect(bridge).toContain(`"${type}"`);
+    expect(HA_PANEL_ALLOWED_API_TYPES.has(type)).toBe(true);
+    expect(validatePanelApiMessage({ type })).toBe(true);
+    expect(validatePanelApiMessage({ type, user_id: 'spoofed' })).toBe(false);
+  });
   it('keeps the HACS integration aligned with the registered custom element', () => {
     const installation = readProjectFile('docs/installation-beta.md');
     const bridgeDocumentation = readProjectFile('docs/home-assistant-panel-bridge.md');

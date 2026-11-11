@@ -65,3 +65,6 @@ jobs:
         # still covered there, the Energy commands run there through their
         # handlers, and the complete websocket contract runs on current HA.
         run: pytest -q ${{ matrix.test_target }}
+      - name: Dashboard House HA contract on 2025.1
+        if: matrix.home_assistant == '2025.1'
+        run: pytest -q tests_python/test_dashboard_house_ha.py

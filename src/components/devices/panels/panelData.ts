@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { parseHaDeviceRegistry, parseHaEntityRegistry, type HaEntityRegistryEntry } from '../../../services/haRegistryPresentation';
+import { fetchDashboardHouseContext, type DashboardHouseContext } from '../../../services/dashboardHouseContext';
 import { parseStateHistory, type StateChange } from '../model/security';
 import { parseHistoryPoints, type SeriesPoint } from '../model/sensor';
 import { parseStatistics, statisticsQuery, type SensorPanelPeriod, type StatisticPoint } from '../model/sensorPanel';
@@ -22,8 +23,7 @@ export type PanelRegistry = {
   areaNames: Record<string, string>;
 };
 
-const registries = new WeakMap<PanelApiCall, Promise<PanelRegistry | null>>();
-
+/** Compatibility path for Alarm/Security only. It is not Home's room authority. */
 async function fetchRegistry(callApi: PanelApiCall): Promise<PanelRegistry | null> {
   const [entityPayload, devicePayload, areaPayload] = await Promise.all([
     callApi({ type: 'config/entity_registry/list' }, { reportError: false }),
@@ -45,31 +45,89 @@ async function fetchRegistry(callApi: PanelApiCall): Promise<PanelRegistry | nul
   return { entityAreaByEntityId, registryEntities, areaNames };
 }
 
-function loadRegistry(callApi: PanelApiCall) {
-  const known = registries.get(callApi);
-  if (known) return known;
-  const loading = fetchRegistry(callApi).catch(() => null);
-  registries.set(callApi, loading);
-  return loading;
-}
-
-/** Areas and devices of the entities; null until they arrive, or for who may not read them. */
-export function useEntityRegistry() {
+/** Only the Security compatibility path may request the legacy area map. */
+export function useEntityRegistry(enabled = true) {
   const callApi = usePanelServices()?.callApi;
   const [registry, setRegistry] = useState<PanelRegistry | null>(null);
 
   useEffect(() => {
-    if (!callApi) return undefined;
+    if (!callApi || !enabled) {
+      setRegistry(null);
+      return undefined;
+    }
     let alive = true;
-    void loadRegistry(callApi).then((snapshot) => {
+    void fetchRegistry(callApi).catch(() => null).then((snapshot) => {
       if (alive) setRegistry(snapshot);
     });
     return () => {
       alive = false;
     };
-  }, [callApi]);
+  }, [callApi, enabled]);
 
   return registry;
+}
+
+const technicalEntities = new WeakMap<PanelApiCall, Promise<HaEntityRegistryEntry[]>>();
+
+/** Technical same-device metadata; never computes room membership. */
+export function usePanelTechnicalEntities() {
+  const callApi = usePanelServices()?.callApi;
+  const [entities, setEntities] = useState<HaEntityRegistryEntry[]>([]);
+  useEffect(() => {
+    if (!callApi) return undefined;
+    let alive = true;
+    let request = technicalEntities.get(callApi);
+    if (!request) {
+      request = callApi({ type: 'config/entity_registry/list' }, { reportError: false })
+        .then(parseHaEntityRegistry).catch(() => []);
+      technicalEntities.set(callApi, request);
+    }
+    void request.then((value) => { if (alive) setEntities(value); });
+    return () => { alive = false; };
+  }, [callApi]);
+  return entities;
+}
+
+/** House owns every normal panel room relationship; polling is bounded recovery. */
+export function usePanelHouseContext(enabled = true): DashboardHouseContext | null {
+  const services = usePanelServices();
+  const callApi = services?.callApi;
+  const connected = enabled && (services?.houseConnected ?? Boolean(callApi));
+  const [snapshot, setSnapshot] = useState<{ callApi: PanelApiCall; value: DashboardHouseContext } | null>(null);
+  useEffect(() => {
+    if (!callApi || !connected) {
+      setSnapshot(null);
+      return undefined;
+    }
+    setSnapshot(null);
+    let active = true;
+    let request = 0;
+    const refresh = async () => {
+      const serial = ++request;
+      try {
+        const next = await fetchDashboardHouseContext(callApi);
+        if (!active || serial !== request) return;
+        setSnapshot((current) => current?.callApi === callApi && current.value.topologyRevision === next.topologyRevision &&
+          JSON.stringify(current.value) === JSON.stringify(next) ? current : { callApi, value: next });
+      } catch {
+        if (active && serial === request) setSnapshot(null);
+      }
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 30_000);
+    const onFocus = () => void refresh();
+    const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      active = false;
+      request += 1;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [callApi, connected]);
+  return connected && snapshot?.callApi === callApi ? snapshot.value : null;
 }
 
 export type SensorSeries = {

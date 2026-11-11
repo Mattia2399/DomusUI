@@ -6,7 +6,7 @@ import { usePanelsTranslations } from '../../../../i18n/panelsTranslations';
 import type { MockEntityStateMap } from '../../../../types/ha';
 import type { MembersPresenceEntry } from '../../../settings/types';
 import { entityChangedAt, formatPanelSpan, MEMBERS_MAP_ENABLED, memberBattery, memberIsHome } from '../../model/panelRules';
-import { useEntityRegistry } from '../panelData';
+import { usePanelTechnicalEntities } from '../panelData';
 import { GlassValueRows } from '../../../ui/GlassListRow';
 import type { PanelControl, PanelEntry, PanelSpec } from '../registry';
 import { PanelFitList } from './fitList';
@@ -50,7 +50,7 @@ function mapPins(members: MembersPresenceEntry[]) {
 function useMembersSpec({ name, entityId, members, haStates, mapEnabled = MEMBERS_MAP_ENABLED }: MembersPanelInput): PanelSpec {
   const pt = usePanelsTranslations();
   const { locale } = useI18n();
-  const registry = useEntityRegistry();
+  const technicalEntities = usePanelTechnicalEntities();
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [personOpen, setPersonOpen] = React.useState(false);
   const [allOpen, setAllOpen] = React.useState(false);
@@ -77,7 +77,7 @@ function useMembersSpec({ name, entityId, members, haStates, mapEnabled = MEMBER
     const entity = haStates[selected.personEntityId];
     const changedAt = entityChangedAt(entity);
     const updatedAt = entityChangedAt(entity, '__last_updated');
-    const battery = memberBattery(selected.trackerEntityIds, haStates, registry?.registryEntities ?? null);
+    const battery = memberBattery(selected.trackerEntityIds, haStates, technicalEntities);
     const deviceCount = selected.devices.smartphone + selected.devices.tablet + selected.devices.smartwatch + selected.devices.tracker;
     if (changedAt !== null) details.push([memberIsHome(selected.state) ? pt('mbHomeFrom') : pt('mbAwayFrom'), clock(changedAt, locale)]);
     if (battery !== null) details.push([pt('mbPhone'), `${Math.round(battery)}%`]);

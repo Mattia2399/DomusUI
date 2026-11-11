@@ -41,6 +41,7 @@ from .context_providers import register_core_bindings, register_energy_bindings
 from .core import DomusRuntime
 from .device_power import DATA_DEVICE_POWER_MANAGER, DevicePowerManager
 from .device_power.api import async_register_device_power_api
+from .dashboard.api import async_register_dashboard_api
 from .device_timers import DATA_DEVICE_TIMER_MANAGER, DeviceTimerManager
 from .device_timers.api import async_register_device_timers_api
 from .energy import EnergyProfileManager
@@ -119,6 +120,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await async_register_access_api(hass)
     await async_register_climate_api(hass)
     await async_register_house_api(hass)
+    await async_register_dashboard_api(hass)
     return True
 
 

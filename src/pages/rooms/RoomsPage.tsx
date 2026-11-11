@@ -1112,8 +1112,8 @@ export function RoomsPage({
   const panelSecurity = panel?.kind === 'security' ? securityModelOf(panel.id) ?? null : null;
   const panelCamera = cameraOpenId ? roomCameras.find((camera) => camera.entityId === cameraOpenId) ?? null : null;
   const panelServices = React.useMemo(
-    () => (onCallApi && onCallService ? { callApi: onCallApi as PanelApiCall, callService: onCallService } : null),
-    [onCallApi, onCallService],
+    () => (onCallApi && onCallService ? { callApi: onCallApi as PanelApiCall, callService: onCallService, houseConnected: haConnected && !demo } : null),
+    [onCallApi, onCallService, haConnected, demo],
   );
   // The states all panels share, with the entity behind the panel.
   const withLive = (entityId: string, render: (live: PanelLive, stale: boolean) => React.ReactNode) => (

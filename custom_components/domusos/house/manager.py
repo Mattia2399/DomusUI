@@ -145,11 +145,11 @@ class HouseManager:
         except Exception:  # noqa: BLE001 - missing/changed HA permission API fails closed
             return False
 
-    def _project(self, source: HouseTopology, user: Any) -> HouseTopology:
+    def _project(self, source: HouseTopology, user: Any, *, domains: frozenset[str] = _ROOM_REF_DOMAINS) -> HouseTopology:
         """Allow only safe domains and HA-readable entities before serialization."""
         entities = [
             entity for entity in source["entities"]
-            if entity["domain"] in _ROOM_REF_DOMAINS
+            if entity["domain"] in domains
             and self._may_read_entity(user, entity["entityId"])
         ]
         entity_ids = {entity["entityId"] for entity in entities}
@@ -173,8 +173,8 @@ class HouseManager:
             generated_at=source["generatedAt"],
         )
 
-    async def async_get_topology(self, user: Any) -> HouseTopology:
-        return self._project(await self._topology(), user)
+    async def async_get_topology(self, user: Any, *, domains: frozenset[str] = _ROOM_REF_DOMAINS) -> HouseTopology:
+        return self._project(await self._topology(), user, domains=domains)
 
     async def async_get_snapshot(self, user: Any) -> dict[str, Any]:
         topology = self._project(await self._topology(), user)
