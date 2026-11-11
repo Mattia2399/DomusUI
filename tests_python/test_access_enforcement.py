@@ -73,7 +73,7 @@ def test_an_enforced_action_is_an_observed_websocket_capability() -> None:
         assert contract.auth_mode is AuthMode.CAPABILITY, contract.id
         # Exempt means unwrapped: nothing would refuse it.
         assert contract.shadow_exemption is None, contract.id
-        assert contract.capability in {"device_power.manage", "climate.view", "climate.control", "climate.manage", "rooms.view"}, contract.id
+        assert contract.capability in {"device_power.manage", "climate.view", "climate.control", "climate.manage", "rooms.view", "dashboard.view"}, contract.id
         assert contract.allow_unattributed_ha_context is False, contract.id
 
 
