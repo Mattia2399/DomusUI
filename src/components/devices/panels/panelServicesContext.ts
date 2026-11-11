@@ -17,6 +17,8 @@ export type PanelServices = {
   callService: (domain: string, service: string, serviceData: Record<string, unknown>) => Promise<boolean>;
   /** Real HA session only; no structural requests in demo or offline mode. */
   houseConnected?: boolean;
+  /** Demo may use its local presentation rooms; real offline must not. */
+  houseDemo?: boolean;
   /** When supplied by Home, all Dashboard consumers share one refreshed projection. */
   houseContext?: DashboardHouseContext | null;
 };

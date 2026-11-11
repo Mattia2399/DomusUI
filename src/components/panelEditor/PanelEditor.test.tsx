@@ -5,12 +5,13 @@ import type { Widget } from '../../types/dashboardModels';
 import PanelEditor from './PanelEditor';
 import type { PanelEditorProps } from './panelEditorTypes';
 import { copyRuleToCard, removeRule, typeRuleBreakpoints } from './typeRule';
+import { PanelServicesProvider, type PanelServices } from '../devices/panels/panelServicesContext';
 
 afterEach(cleanup);
 
 const LAMP: Widget = { id: 'lamp', kind: 'light', title: 'Lampada', entityId: 'light.lamp', dataSource: 'ha', status: 'on', isOn: true, layout: { i: 'lamp', x: 4, y: 6, w: 2, h: 4 } };
 
-function setup(extra: Partial<PanelEditorProps> = {}) {
+function setup(extra: Partial<PanelEditorProps> = {}, services?: PanelServices) {
   const calls = {
     pick: vi.fn(),
     setGrowth: vi.fn(),
@@ -47,11 +48,29 @@ function setup(extra: Partial<PanelEditorProps> = {}) {
     onDone: calls.done,
     ...extra,
   };
-  render(<PanelEditor {...props} />);
+  render(services ? <PanelServicesProvider value={services}><PanelEditor {...props} /></PanelServicesProvider> : <PanelEditor {...props} />);
   return calls;
 }
 
 describe('the three tabs', () => {
+  it('keeps demo room suggestions while real offline room suggestions remain unavailable', () => {
+    const props: Partial<PanelEditorProps> = {
+      haStates: { 'light.lamp': { state: 'on' }, 'light.other': { state: 'on' } },
+      haEntityIds: ['light.lamp', 'light.other'],
+      entityRegistry: [{ entityId: 'light.lamp', areaId: 'a' }, { entityId: 'light.other', areaId: 'a' }],
+      areas: [{ area_id: 'a', name: 'Sala' }],
+    };
+    const services: PanelServices = { callApi: vi.fn(), callService: vi.fn(), houseConnected: false, houseContext: null, houseDemo: true };
+    setup(props, services);
+    fireEvent.click(screen.getByRole('radio', { name: 'Dispositivo' }));
+    fireEvent.click(screen.getByRole('button', { name: /Entit/ }));
+    expect(screen.getByText('Nella stessa stanza')).toBeTruthy();
+    cleanup();
+    setup(props, { ...services, houseDemo: false });
+    fireEvent.click(screen.getByRole('radio', { name: 'Dispositivo' }));
+    fireEvent.click(screen.getByRole('button', { name: /Entit/ }));
+    expect(screen.queryByText('Nella stessa stanza')).toBeNull();
+  });
   it('opens on Aspetto, with Dispositivo and Controlli beside it', () => {
     setup();
     const tabs = screen.getByRole('radiogroup', { name: 'Modifica della card' });

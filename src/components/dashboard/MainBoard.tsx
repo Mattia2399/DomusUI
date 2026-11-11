@@ -1845,7 +1845,7 @@ export function MainBoard() {
   );
   const dashboardHouseContext = useDashboardHouseContext(callHaApi, effectiveRuntimeMode === 'real' && isHaConnected);
   const panelServices = useMemo(
-    () => ({ callApi: callHaApi, callService: callHaService, houseConnected: effectiveRuntimeMode === 'real' && isHaConnected, houseContext: dashboardHouseContext }),
+    () => ({ callApi: callHaApi, callService: callHaService, houseConnected: effectiveRuntimeMode === 'real' && isHaConnected, houseDemo: effectiveRuntimeMode === 'demo', houseContext: dashboardHouseContext }),
     [callHaApi, callHaService, dashboardHouseContext, effectiveRuntimeMode, isHaConnected],
   );
   const commandCoordinator = useDeviceCommandCoordinator({

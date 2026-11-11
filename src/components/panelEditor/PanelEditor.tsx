@@ -23,7 +23,7 @@ export type PanelEditorTab = 'appearance' | 'device' | 'controls';
 export default function PanelEditor(props: PanelEditorProps) {
   const services = usePanelServices();
   const house = usePanelHouseContext();
-  const houseContext = services ? house : undefined;
+  const houseContext = services?.houseDemo ? undefined : services ? house : undefined;
   const words = usePanelEditorWords();
   const [tab, setTab] = React.useState<PanelEditorTab>('appearance');
   // The control open in Controlli, chosen in the list.
