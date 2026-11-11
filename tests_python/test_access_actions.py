@@ -263,7 +263,7 @@ def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> N
         assert len(contract.shadow_exemption) > 40, contract.id
     observed = actions.shadow_contracts()
     assert {contract.id for contract in observed} == set(EXPECTED) - SHADOW_EXEMPT
-    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 46
+    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 47
     assert len([contract for contract in observed if contract.surface is Surface.SERVICE]) == 5
 
 
