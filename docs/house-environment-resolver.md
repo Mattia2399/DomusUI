@@ -3,7 +3,8 @@
 `domusos/house/get_snapshot` now supplies the temperature and humidity shown
 for HA rooms. Each metric includes `configuredPrimaryEntityId`,
 `selectedEntityId`, `selectionSource`, `selectionReason`, `fallbackUsed`,
-`available`, scalar value, unit, timestamp and status. These are additive
+`safeFallbackEntityId`, `safeFallbackAvailable`, `available`, scalar value,
+unit, timestamp and status. These are additive
 fields in `domusos.house.v1`; topology still contains only registry facts and
 the configured Area references. Snapshot `issues` contains runtime diagnostics.
 

@@ -94,6 +94,19 @@ def resolve_environment(
         reading["status"] = "metric_mismatch"
     elif not compatible_unit:
         reading["status"] = "incompatible_unit"
+    alternate = next((candidate for candidate in safe_candidates if candidate != entity_id), None)
+    alternate_available = False
+    if primary and alternate:
+        alternate_state = state_getter(alternate)
+        alternate_attrs = getattr(alternate_state, "attributes", None)
+        if isinstance(alternate_state, Mapping):
+            alternate_attrs = alternate_state.get("attributes")
+        alternate_attrs = alternate_attrs if isinstance(alternate_attrs, Mapping) else {}
+        alternate_unit = alternate_attrs.get("unit_of_measurement")
+        alternate_available = (alternate_attrs.get("device_class") in (None, metric) and
+                               (alternate_unit is None or alternate_unit in (
+                                   ("°C", "°F", "C", "F", "c", "f") if metric == "temperature" else ("%",)
+                               )) and environmental_reading(alternate, alternate_state)["available"])
     source = "HA_AREA_PRIMARY" if primary else "SAFE_ROOM_FALLBACK" if entity_id else "NONE"
     reading.update({
         "metric": metric,
@@ -102,5 +115,7 @@ def resolve_environment(
         "selectionSource": source,
         "selectionReason": "AREA_PRIMARY" if primary else "NO_AREA_PRIMARY" if entity_id else "NO_SAFE_SOURCE",
         "fallbackUsed": primary is None and entity_id is not None,
+        "safeFallbackEntityId": alternate if primary else entity_id,
+        "safeFallbackAvailable": alternate_available if primary else reading["available"],
     })
     return reading

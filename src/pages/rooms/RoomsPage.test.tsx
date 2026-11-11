@@ -465,7 +465,8 @@ describe('the Rooms page with Home Assistant', () => {
       metric: kind, configured: primary !== null, configuredPrimaryEntityId: primary,
       selectedEntityId: id, selectionSource: primary ? 'HA_AREA_PRIMARY' : id ? 'SAFE_ROOM_FALLBACK' : 'NONE',
       selectionReason: primary ? 'AREA_PRIMARY' : id ? 'NO_AREA_PRIMARY' : 'NO_SAFE_SOURCE',
-      fallbackUsed: Boolean(id && !primary), available: value !== null, value,
+      fallbackUsed: Boolean(id && !primary), safeFallbackEntityId: primary ? null : id,
+      safeFallbackAvailable: Boolean(!primary && value !== null), available: value !== null, value,
       unit: kind === 'temperature' ? '°C' : '%', sourceEntityId: id, updatedAt: null,
       status: value === null ? 'unconfigured' : 'available',
     });

@@ -117,6 +117,7 @@ def test_primary_authority_provenance_and_permission_filter():
     reading = resolver.build_snapshot(house, states.get, candidates=index)["rooms"][0]["temperature"]
     assert reading["configuredPrimaryEntityId"] == reading["selectedEntityId"] == "sensor.outside"
     assert reading["status"] == "unavailable" and not reading["fallbackUsed"]
+    assert reading["safeFallbackEntityId"] == "sensor.local" and reading["safeFallbackAvailable"]
     assert any(issue["code"] == "environment_primary_outside_room" for issue in house["issues"])
     house["rooms"][0]["temperatureEntityId"] = "sensor.missing"
     missing = resolver.build_snapshot(house, states.get, candidates=index)["rooms"][0]["temperature"]

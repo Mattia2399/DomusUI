@@ -219,8 +219,8 @@ async def test_websocket_requires_rooms_access_and_never_accepts_spoofed_fields(
     await client.send_json_auto_id({"type": "domusos/house/get_environment_shadow"})
     diagnostic = await client.receive_json()
     assert diagnostic["success"]
-    assert diagnostic["result"]["rows"][0]["category"] == "LEGACY_FALLBACK_ONLY"
-    assert diagnostic["result"]["readiness"] == "NOT_READY"
+    assert diagnostic["result"]["rows"][0]["category"] == "LEGACY_UNSAFE_FALLBACK_REJECTED"
+    assert diagnostic["result"]["readiness"] == "READY"
     assert "secret" not in str(diagnostic)
 
     member = await hass.auth.async_create_user("House member", group_ids=["system-users"])

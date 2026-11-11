@@ -5,7 +5,8 @@ import { compareEnvironment, fetchHouseSnapshot, fetchHouseTopology, parseHouseT
 function reading(available = true): HouseReading {
   return { metric: 'temperature', configured: true, configuredPrimaryEntityId: 'sensor.temp',
     selectedEntityId: 'sensor.temp', selectionSource: 'HA_AREA_PRIMARY', selectionReason: 'AREA_PRIMARY',
-    fallbackUsed: false, available, value: available ? 21 : null, unit: '°C',
+    fallbackUsed: false, safeFallbackEntityId: null, safeFallbackAvailable: false,
+    available, value: available ? 21 : null, unit: '°C',
     sourceEntityId: 'sensor.temp', updatedAt: null, status: available ? 'available' : 'unavailable' };
 }
 

@@ -42,6 +42,7 @@ test('connected Rooms uses House topology while controls use live HA state', asy
         const reading = (metric, entityId, value, unit) => ({ metric, configured: true,
           configuredPrimaryEntityId: entityId, selectedEntityId: entityId,
           selectionSource: 'HA_AREA_PRIMARY', selectionReason: 'AREA_PRIMARY', fallbackUsed: false,
+          safeFallbackEntityId: null, safeFallbackAvailable: false,
           available: true, value, unit, sourceEntityId: entityId, updatedAt: null, status: 'available' });
         reply({ schemaVersion: 'domusos.house.v1', topologyFingerprint: house.topologyFingerprint,
           generatedAt: 'now', rooms: [{ roomId: 'living',

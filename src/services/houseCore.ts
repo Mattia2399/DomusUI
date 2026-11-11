@@ -26,6 +26,7 @@ export type HouseReading = {
   metric: 'temperature' | 'humidity'; configuredPrimaryEntityId: string | null;
   selectedEntityId: string | null; selectionSource: 'HA_AREA_PRIMARY' | 'SAFE_ROOM_FALLBACK' | 'NONE';
   selectionReason: string; fallbackUsed: boolean;
+  safeFallbackEntityId: string | null; safeFallbackAvailable: boolean;
 };
 export type HouseSnapshot = {
   schemaVersion: typeof HOUSE_SCHEMA; topologyFingerprint: string; generatedAt: string;
@@ -76,6 +77,7 @@ export async function fetchHouseSnapshot(callApi: RoomsApiCall): Promise<HouseSn
             nullableString(reading.selectedEntityId) &&
             ['HA_AREA_PRIMARY', 'SAFE_ROOM_FALLBACK', 'NONE'].includes(String(reading.selectionSource)) &&
             string(reading.selectionReason) && typeof reading.available === 'boolean' &&
+            nullableString(reading.safeFallbackEntityId) && typeof reading.safeFallbackAvailable === 'boolean' &&
             (reading.value === null || typeof reading.value === 'number') && typeof reading.fallbackUsed === 'boolean';
         }))) throw new Error('Invalid House snapshot');
   return value as HouseSnapshot;
