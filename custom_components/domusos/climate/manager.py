@@ -11,16 +11,18 @@ from enum import StrEnum
 from typing import Any
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import area_registry as ar
 from homeassistant.helpers.storage import Store
 
 from ..const import DOMAIN
 from ..core.audit import AuditEntry
+from ..house.manager import DATA_HOUSE_MANAGER, HouseManager, HouseUnavailableError
 from .models import (
     STORAGE_KEY,
     STORAGE_VERSION,
     ClimatePermissionError,
     Conflict,
+    AreaMissing,
+    HouseContextUnavailable,
     InvalidConfig,
     MigrationFailed,
     StoreUnavailable,
@@ -87,6 +89,76 @@ class ClimateManager:
     def get_config(self) -> dict[str, Any]:
         return {"state": self.state.value, "revision": self.revision, "config": deepcopy(self.config)}
 
+    def _house_manager(self) -> HouseManager | None:
+        manager = self.hass.data.get(DOMAIN, {}).get(DATA_HOUSE_MANAGER)
+        return manager if isinstance(manager, HouseManager) else None
+
+    async def async_get_house_context(self, user: Any) -> dict[str, Any]:
+        """Read-only, per-zone House context; never persisted or used by plans."""
+        zones = self.config["zones"] if self.config else []
+        linked = {zone["areaId"] for zone in zones if zone["areaId"] is not None}
+        manager = self._house_manager()
+        try:
+            projection = await manager.async_get_room_contexts(user, linked) if manager else None
+        except HouseUnavailableError:
+            projection = None
+        except Exception:
+            _LOGGER.exception("Climate could not read House room context")
+            projection = None
+        contexts: dict[str, dict[str, Any]] = {}
+        for zone in zones:
+            room_id = zone["areaId"]
+            if room_id is None:
+                contexts[zone["id"]] = {"status": "unlinked"}
+                continue
+            room = projection["rooms"].get(room_id, {"status": "house_unavailable"}) if projection else {"status": "house_unavailable"}
+            if room["status"] == "room_missing":
+                contexts[zone["id"]] = {"status": "room_orphaned", "issues": ["orphaned_house_room_reference"]}
+            elif room["status"] == "house_unavailable":
+                contexts[zone["id"]] = {"status": "house_unavailable", "issues": ["house_unavailable"]}
+            else:
+                contexts[zone["id"]] = room
+        return {"topologyRevision": projection["topologyRevision"] if projection else None, "zones": contexts}
+
+    async def async_get_config_for_user(self, user: Any) -> dict[str, Any]:
+        return {**self.get_config(), "houseContext": await self.async_get_house_context(user)}
+
+    async def async_get_room_choices(self) -> dict[str, Any]:
+        manager = self._house_manager()
+        if manager is None:
+            return {"status": "house_unavailable", "rooms": []}
+        try:
+            return await manager.async_get_room_choices()
+        except HouseUnavailableError:
+            return {"status": "house_unavailable", "rooms": []}
+        except Exception:
+            _LOGGER.exception("Climate could not list House rooms")
+            return {"status": "house_unavailable", "rooms": []}
+
+    async def _valid_house_area_ids(self, candidate: dict[str, Any]) -> set[str]:
+        """Validate only new links; unchanged legacy orphans remain editable."""
+        old_links = {zone["id"]: zone["areaId"] for zone in self.config["zones"]} if self.config else {}
+        unchanged = {zone["areaId"] for zone in candidate["zones"]
+                     if zone["areaId"] is not None and old_links.get(zone["id"]) == zone["areaId"]}
+        new_links = {zone["areaId"] for zone in candidate["zones"]
+                     if zone["areaId"] is not None and old_links.get(zone["id"]) != zone["areaId"]}
+        if not new_links:
+            return unchanged
+        manager = self._house_manager()
+        if manager is None:
+            raise HouseContextUnavailable("House room catalog is unavailable")
+        try:
+            choices = await manager.async_get_room_choices()
+        except HouseUnavailableError as err:
+            raise HouseContextUnavailable("House room catalog is unavailable") from err
+        if choices["status"] != "available":
+            raise HouseContextUnavailable("House room catalog is unavailable")
+        valid = {room["id"] for room in choices["rooms"]}
+        for zone in candidate["zones"]:
+            if zone["areaId"] in new_links and zone["areaId"] not in valid:
+                raise AreaMissing(f"zones.{zone['id']}.areaId", zone["areaId"])
+        return unchanged | valid
+
     async def async_save_config(self, payload: Any, expected_revision: int, user: Any) -> dict[str, Any]:
         if user is None or getattr(user, "is_active", False) is not True or getattr(user, "is_admin", False) is not True:
             raise ClimatePermissionError("Home Assistant administrator required")
@@ -96,10 +168,10 @@ class ClimateManager:
                 raise StoreUnavailable(f"Climate store is {self.state.value}")
             if type(expected_revision) is not int or expected_revision != self.revision:
                 raise Conflict("Climate configuration changed; reload before saving")
-            areas = ar.async_get(self.hass)
+            valid_area_ids = await self._valid_house_area_ids(candidate)
             validate_catalog(
                 candidate,
-                area_exists=lambda area_id: areas.async_get_area(area_id) is not None,
+                area_exists=lambda area_id: area_id in valid_area_ids,
                 get_state=self.hass.states.get,
             )
             if self.state is ClimateStoreState.READY and candidate == self.config:

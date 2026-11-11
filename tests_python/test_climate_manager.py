@@ -11,6 +11,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import area_registry as ar
 
 from custom_components.domusos.climate.manager import ClimateManager
+from custom_components.domusos.const import DOMAIN
+from custom_components.domusos.house.manager import DATA_HOUSE_MANAGER, HouseManager
 from custom_components.domusos.climate.models import (
     Conflict,
     StoreUnavailable,
@@ -47,14 +49,17 @@ def zone_config(area_id):
     }
 
 
-def prepare(hass):
+async def prepare(hass):
     area = ar.async_get(hass).async_create("Living")
     hass.states.async_set("sensor.living_temp", "21", {"device_class": "temperature", "unit_of_measurement": "°C"})
+    house = HouseManager(hass)
+    await house.async_setup()
+    hass.data.setdefault(DOMAIN, {})[DATA_HOUSE_MANAGER] = house
     return zone_config(area.id)
 
 
 async def test_absent_store_save_reload_idempotence_and_conflict(hass: HomeAssistant):
-    candidate = prepare(hass)
+    candidate = await prepare(hass)
     store = MemoryStore()
     manager = ClimateManager(hass, store=store, runtime=lambda: None)
     await manager.async_setup()
@@ -72,7 +77,7 @@ async def test_absent_store_save_reload_idempotence_and_conflict(hass: HomeAssis
 
 
 async def test_corrupt_and_future_store_are_never_overwritten(hass: HomeAssistant):
-    candidate = prepare(hass)
+    candidate = await prepare(hass)
     for raw, state in (({"bad": True}, "corrupt"), (storage_document(1, candidate) | {"version": 9}, "unsupported"), (storage_document(1, candidate) | {"version": 0}, "migration_failed")):
         store = MemoryStore(raw)
         manager = ClimateManager(hass, store=store, runtime=lambda: None)
@@ -84,7 +89,7 @@ async def test_corrupt_and_future_store_are_never_overwritten(hass: HomeAssistan
 
 
 async def test_failed_save_keeps_previous_revision(hass: HomeAssistant):
-    candidate = prepare(hass)
+    candidate = await prepare(hass)
     store = MemoryStore(fail_save=True)
     manager = ClimateManager(hass, store=store, runtime=lambda: None)
     await manager.async_setup()
@@ -94,7 +99,7 @@ async def test_failed_save_keeps_previous_revision(hass: HomeAssistant):
 
 
 async def test_non_admin_cannot_write_even_without_websocket_wrapper(hass: HomeAssistant):
-    candidate = prepare(hass)
+    candidate = await prepare(hass)
     store = MemoryStore()
     manager = ClimateManager(hass, store=store, runtime=lambda: None)
     await manager.async_setup()
@@ -125,7 +130,7 @@ async def test_extended_radiant_configuration_round_trip_and_idempotence(hass: H
 
 
 async def test_profiles_and_schedule_round_trip_revision_and_no_service_calls(hass: HomeAssistant):
-    candidate = prepare(hass)
+    candidate = await prepare(hass)
     candidate["profiles"] = [
         {"id": "comfort", "name": "Comfort", "zoneTargets": {"zone_living": 21}},
         {"id": "eco", "name": "Eco", "zoneTargets": {}},
@@ -159,7 +164,7 @@ async def test_execution_ownership_and_freshness_use_admin_config_store(hass: Ho
 
     from custom_components.domusos.climate.models import ClimatePermissionError
 
-    candidate = prepare(hass)
+    candidate = await prepare(hass)
     candidate["zones"][0]["reference"].update(freshnessPolicy="max_age", maxAgeSeconds=300)
     endpoint = terminal("ac", "zone_living")
     endpoint["executionOwnership"] = "domus_supervised"

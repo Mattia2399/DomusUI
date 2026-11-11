@@ -33,6 +33,13 @@ test.beforeEach(async ({ page }) => {
   let climateStateRevision = 0;
   let climateIntent = { house: { operatingMode: 'off', controlMode: 'manual' }, zones: {} };
   let climateOverrides = {};
+  const climateHouseContext = (config) => ({ topologyRevision: 1, zones: Object.fromEntries(
+    (config?.zones ?? []).map((zone) => [zone.id, zone.areaId === 'living' ? {
+      status: 'linked', room: { id: 'living', name: 'Soggiorno', floorId: 'ground', floorName: 'Piano terra', available: true },
+      environment: { temperature: { value: 20, unit: '°C', available: true, sourceEntityId: 'sensor.house_temp', updatedAt: null, status: 'available' },
+        humidity: { value: null, unit: null, available: false, sourceEntityId: null, updatedAt: null, status: 'unconfigured' } }, issues: [],
+    } : { status: 'unlinked' }]),
+  ) });
   const houseClock = { instant: '2026-01-05T17:00:00Z', timezone: 'Europe/Rome' };
   page.climateClock = houseClock;
   page.climateHome = await connectHomeAssistant(page, {
@@ -40,12 +47,18 @@ test.beforeEach(async ({ page }) => {
       'climate.ac': { state: 'cool', attributes: { friendly_name: 'Split', hvac_modes: ['heat', 'cool', 'off'], supported_features: 1, temperature_unit: '°C', temperature: 26, current_temperature: 27, min_temp: 16, max_temp: 30, target_temp_step: 0.5 } } },
     handle: (message, { reply, fail }) => {
       if (message.type === 'domusos/climate/get_config') {
-        reply({ state: climateConfig ? 'ready' : 'absent', revision: climateRevision, config: climateConfig });
+        reply({ state: climateConfig ? 'ready' : 'absent', revision: climateRevision, config: climateConfig,
+          houseContext: climateHouseContext(climateConfig) });
+        return true;
+      }
+      if (message.type === 'domusos/climate/get_house_rooms') {
+        reply({ status: 'available', rooms: [{ id: 'living', name: 'Soggiorno', floorId: 'ground', floorName: 'Piano terra' }] });
         return true;
       }
       if (message.type === 'domusos/climate/save_config') {
         if (message.expected_revision !== climateRevision) fail('conflict', 'Revision changed');
-        else { climateConfig = message.config; climateRevision += 1; reply({ state: 'ready', revision: climateRevision, config: climateConfig }); }
+        else { climateConfig = message.config; climateRevision += 1; reply({ state: 'ready', revision: climateRevision, config: climateConfig,
+          houseContext: climateHouseContext(climateConfig) }); }
         return true;
       }
       if (message.type === 'domusos/climate/execute_plan') {
@@ -202,6 +215,23 @@ test('Climate setup saves a real HOUSE zone and loads it again', async ({ page }
   await expect(page.locator('[data-climate-preview="demo"]')).toHaveCount(0);
   await page.reload();
   await expect(page.getByText('Soggiorno', { exact: true }).last()).toBeVisible();
+});
+
+test('Climate links a House room without triggering physical execution', async ({ page }) => {
+  await page.goto('/settings/climate');
+  await page.getByRole('button', { name: 'Configura Domus Climate' }).click();
+  await page.getByRole('button', { name: 'Aggiungi zona' }).click();
+  await page.getByRole('textbox', { name: 'Nome zona', exact: true }).fill('Zona Giorno');
+  const room = page.getByRole('combobox', { name: 'Stanza House' });
+  await expect(room.getByRole('option', { name: 'Piano terra · Soggiorno' })).toBeAttached();
+  await room.selectOption('living');
+  await page.getByRole('combobox', { name: 'Sensore principale' }).selectOption('sensor.living_temp');
+  await page.getByRole('button', { name: 'Salva configurazione' }).click();
+  const card = page.locator('[data-climate-config="ready"] article.dv-climate[data-tone="cl-auto"]');
+  await expect(card).toContainText('Zona Giorno');
+  await expect(card).toContainText('Stanza: Soggiorno · Piano: Piano terra');
+  expect(page.climateHome.messages.some((message) => message.type === 'domusos/climate/get_house_rooms')).toBe(true);
+  expect(page.climateHome.messages.filter((message) => message.type === 'call_service')).toHaveLength(0);
 });
 
 test('Climate intent controls update the live runtime preview without a device service call', async ({ page }) => {

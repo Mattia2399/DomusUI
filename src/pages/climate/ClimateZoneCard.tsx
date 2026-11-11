@@ -1,6 +1,7 @@
 import { ChevronRight, Flame, Snowflake, Thermometer, TriangleAlert } from 'lucide-react';
 import type { DemoZoneView, DemoZoneStatus } from './climatePreviewData';
 import type { ClimateZoneConfig } from './climateModel';
+import type { ClimateZoneHouseContext } from '../../services/climateConfigClient';
 import { useClimateConfigCopy } from './climateConfigCopy';
 import { useClimateCopy, type ClimateCopyKey } from './climateCopy';
 import '../../components/devices/theme/devices.css';
@@ -42,12 +43,15 @@ export function ClimateZoneCard({ view, onOpen }: { view: DemoZoneView; onOpen: 
 }
 
 /** The same Home/Rooms tile surface, with saved mapping instead of invented readings. */
-export function ConfiguredClimateZoneCard({ zone, sourceName, areaName }: {
-  zone: ClimateZoneConfig; sourceName: string; areaName?: string;
+export function ConfiguredClimateZoneCard({ zone, sourceName, houseContext }: {
+  zone: ClimateZoneConfig; sourceName: string; houseContext?: ClimateZoneHouseContext;
 }) {
   const { t } = useClimateConfigCopy();
+  const room = houseContext?.room;
+  const roomLabel = zone.areaId === null ? t('noArea') : room?.name ?? t('orphanedRoom');
+  const floorLabel = room?.floorName;
   return <article className="dv-tile dv-climate dv-cl-auto is-on !min-h-[208px] !h-full w-full !cursor-default text-left" data-tone="cl-auto">
-    <span className="dv-climate-top w-full"><span className="dv-icon-button !cursor-inherit" aria-hidden="true"><Thermometer size={21} strokeWidth={2} /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[15px] font-semibold">{zone.name}</strong><span className="mt-0.5 block truncate text-[13px] font-medium text-[color:var(--dv-tile-on-ink-2)]">{areaName || t('noArea')}</span></span></span>
+    <span className="dv-climate-top w-full"><span className="dv-icon-button !cursor-inherit" aria-hidden="true"><Thermometer size={21} strokeWidth={2} /></span><span className="min-w-0 flex-1"><strong className="block truncate text-[15px] font-semibold">{zone.name}</strong><span className="mt-0.5 block truncate text-[13px] font-medium text-[color:var(--dv-tile-on-ink-2)]">{t('roomLabel')}: {roomLabel}{floorLabel ? ` · ${t('floorLabel')}: ${floorLabel}` : ''}</span></span></span>
     <span className="dv-climate-mid w-full"><span className="min-w-0"><span className="block text-[12px] font-semibold text-[color:var(--dv-tile-on-ink-2)]">{t('reference')}</span><strong className="mt-2 block max-w-[13rem] break-words text-lg font-semibold leading-6">{sourceName}</strong></span><span className="dv-climate-room"><b>{zone.endpointIds.length}</b><span className="text-[color:var(--dv-tile-on-ink-2)]">{t('endpoints')}</span></span></span>
     <span className="dv-climate-foot w-full border-t border-current/10 pt-2 text-[12px] font-medium text-[color:var(--dv-tile-on-ink-2)]">{t('configured')}</span>
   </article>;

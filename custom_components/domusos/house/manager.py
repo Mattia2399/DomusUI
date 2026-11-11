@@ -182,6 +182,56 @@ class HouseManager:
         candidates = visible_environment_candidates(self._environment_candidates, visible)
         return build_snapshot(topology, self.hass.states.get, candidates=candidates)
 
+    async def async_get_room_choices(self) -> dict[str, Any]:
+        """Small internal room catalog for administrators editing a linked domain."""
+        topology = await self._topology()
+        if any(issue["code"] == "registry_unavailable" and issue["subjectId"] == "area"
+               for issue in topology["issues"]):
+            return {"status": "house_unavailable", "rooms": []}
+        floors = {floor["id"]: floor["name"] for floor in topology["floors"]}
+        return {"status": "available", "rooms": [
+            {"id": room["id"], "name": room["name"], "floorId": room["floorId"],
+             "floorName": floors.get(room["floorId"])}
+            for room in topology["rooms"]
+        ]}
+
+    async def async_get_room_contexts(self, user: Any, room_ids: set[str]) -> dict[str, Any]:
+        """Return only requested rooms and HA-readable environmental readings.
+
+        This is an internal domain projection. It never returns topology,
+        devices, unrelated rooms or raw entity attributes to its caller.
+        """
+        source = await self._topology()
+        topology = self._project(source, user)
+        rooms = {room["id"]: room for room in topology["rooms"] if room["id"] in room_ids}
+        floors = {floor["id"]: floor["name"] for floor in topology["floors"]}
+        visible = {entity["entityId"] for entity in topology["entities"]}
+        candidates = visible_environment_candidates(self._environment_candidates, visible)
+        selected = {**topology, "rooms": list(rooms.values())}
+        snapshot = build_snapshot(selected, self.hass.states.get, candidates=candidates)
+        readings = {item["roomId"]: item for item in snapshot["rooms"]}
+        area_unavailable = any(issue["code"] == "registry_unavailable" and issue["subjectId"] == "area"
+                               for issue in source["issues"])
+        result = {}
+        for room_id in room_ids:
+            room = rooms.get(room_id)
+            if room is None:
+                result[room_id] = {"status": "house_unavailable" if area_unavailable else "room_missing"}
+                continue
+            environment = readings[room_id]
+            result[room_id] = {
+                "status": "linked", "room": {"id": room_id, "name": room["name"],
+                                             "floorId": room["floorId"], "floorName": floors.get(room["floorId"]),
+                                             "available": True},
+                "environment": {metric: {
+                    key: environment[metric][key]
+                    for key in ("value", "unit", "available", "sourceEntityId", "updatedAt", "status")
+                } for metric in ("temperature", "humidity")},
+                "issues": [issue["code"] for issue in (*topology["issues"], *snapshot["issues"])
+                           if issue["subjectId"] == room_id],
+            }
+        return {"topologyRevision": topology["topologyRevision"], "rooms": result}
+
     async def async_get_environment_shadow(self, user: Any) -> dict[str, Any]:
         """Admin-only, on-demand diagnostic; never cache HA states or telemetry."""
         if getattr(user, "is_admin", False) is not True:

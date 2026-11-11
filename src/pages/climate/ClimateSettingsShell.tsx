@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { House, Info, Layers3, List, CalendarDays, ArrowLeft } from 'lucide-react';
 import GlassButton from '../../components/ui/GlassButton';
-import type { HaArea } from '../../hooks/useHaLiveConnection';
 import type { HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import type { MockEntityStateMap } from '../../types/ha';
 import { emptyClimateConfig, getClimateConfig, type ClimateCallApi, type ClimateConfigResponse } from '../../services/climateConfigClient';
@@ -24,8 +23,8 @@ import { ClimateProgramsEditor } from './ClimateProgramsEditor';
 type Section = 'overview' | 'zones' | 'programs' | 'plant';
 
 /** CLM UX: all controls below are local to a clearly labeled demo preview. */
-export default function ClimateSettingsShell({ callApi, connected, areas, states, registry, canManage, canControl }: {
-  callApi?: ClimateCallApi; connected: boolean; areas: readonly HaArea[]; states: MockEntityStateMap;
+export default function ClimateSettingsShell({ callApi, connected, states, registry, canManage, canControl }: {
+  callApi?: ClimateCallApi; connected: boolean; states: MockEntityStateMap;
   registry: readonly HaEntityRegistryEntry[]; canManage: boolean; canControl: boolean;
 }) {
   const { c } = useClimateCopy();
@@ -63,7 +62,7 @@ export default function ClimateSettingsShell({ callApi, connected, areas, states
   if (loading) return <div className={`${PANEL} p-6`} role="status">{t('loading')}</div>;
   if (loadError || !configResponse) return <div className={`${PANEL} space-y-4 p-6`} role="alert"><p>{t('unavailable')}</p><GlassButton onClick={() => setReloadCount((value) => value + 1)}>{t('retry')}</GlassButton></div>;
   if (configResponse.state !== 'ready' && configResponse.state !== 'absent') return <div className={`${PANEL} space-y-4 p-6`} role="alert"><p>{t(configResponse.state)}</p><GlassButton onClick={() => setReloadCount((value) => value + 1)}>{t('retry')}</GlassButton></div>;
-  if (editing && callApi) return <ClimateConfigEditor key={configResponse.revision} initialConfig={configResponse.config ?? emptyClimateConfig()} revision={configResponse.revision} callApi={callApi} areas={areas} states={states} registry={registry} onSaved={(response) => { setConfigResponse(response); setEditing(false); setPreview(false); }} onCancel={() => setEditing(false)} onReload={() => setReloadCount((value) => value + 1)} />;
+  if (editing && callApi) return <ClimateConfigEditor key={configResponse.revision} initialConfig={configResponse.config ?? emptyClimateConfig()} revision={configResponse.revision} callApi={callApi} states={states} registry={registry} onSaved={(response) => { setConfigResponse(response); setEditing(false); setPreview(false); }} onCancel={() => setEditing(false)} onReload={() => setReloadCount((value) => value + 1)} />;
   if (configResponse.state === 'ready' && configResponse.config) {
     const config = configResponse.config;
     return <div className="mx-auto w-full max-w-6xl space-y-6 pb-8" data-climate-config="ready">
@@ -73,7 +72,7 @@ export default function ClimateSettingsShell({ callApi, connected, areas, states
         {!canManage && <p className={`px-1 text-sm ${MUTED}`}>{t('readonly')}</p>}
         {callApi && <ClimateRuntimePanel config={config} callApi={callApi} states={states} canControl={canControl} />}
         <ClimateSectionHeading title={t('zones')} detail={`${config.zones.length} ${t('zones').toLowerCase()} · ${config.endpoints.length} ${t('endpoints').toLowerCase()} · ${config.circuits.length} ${t('circuits').toLowerCase()} · ${config.generators.length} ${t('generators').toLowerCase()}`} />
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{config.zones.map((zone) => <ConfiguredClimateZoneCard key={zone.id} zone={zone} sourceName={String(states[zone.reference.primaryEntityId]?.rawAttributes?.friendly_name ?? registry.find((entry) => entry.entityId === zone.reference.primaryEntityId)?.name ?? zone.reference.primaryEntityId)} areaName={areas.find((area) => area.area_id === zone.areaId)?.name} />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{config.zones.map((zone) => <ConfiguredClimateZoneCard key={zone.id} zone={zone} sourceName={String(states[zone.reference.primaryEntityId]?.rawAttributes?.friendly_name ?? registry.find((entry) => entry.entityId === zone.reference.primaryEntityId)?.name ?? zone.reference.primaryEntityId)} houseContext={configResponse.houseContext?.zones[zone.id]} />)}</div>
       </>}
     </div>;
   }

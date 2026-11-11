@@ -10,7 +10,7 @@ export type RoomTemperatureTarget = Readonly<{ kind: 'room_temperature'; celsius
 /** Hydronic generator setpoints have a different type and are never zone targets. */
 export type GeneratorWaterTarget = Readonly<{ kind: 'generator_water_temperature'; celsius: number }>;
 
-/** References the existing Home Assistant area registry; no second room tree. */
+/** References a canonical House room by its HA area ID; no second room tree. */
 export type ClimateZone = Readonly<{
   id: string;
   name: string;

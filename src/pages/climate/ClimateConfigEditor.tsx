@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
-import type { HaArea } from '../../hooks/useHaLiveConnection';
 import type { HaEntityRegistryEntry } from '../../services/haRegistryPresentation';
 import type { MockEntityStateMap } from '../../types/ha';
 import type { ClimateEndpointRole, ClimateHouseConfig } from './climateModel';
-import { type ClimateCallApi, type ClimateConfigResponse, saveClimateConfig } from '../../services/climateConfigClient';
+import { type ClimateCallApi, type ClimateConfigResponse, type ClimateRoomChoices, getClimateHouseRooms, saveClimateConfig } from '../../services/climateConfigClient';
 import { newCircuit, newEndpoint, newGenerator, newZone, syncClimateLinks } from './climateConfigDraft';
 import { ClimateBindingEditor } from './ClimateBindingEditor';
 import { ClimateEntityPicker } from './ClimateEntityPicker';
@@ -12,12 +11,12 @@ import { useClimateConfigCopy } from './climateConfigCopy';
 import { ClimateSectionHeading, MUTED, PANEL } from './ClimatePrimitives';
 
 type Tab = 'zones' | 'devices' | 'circuits' | 'generators';
-type ErrorKey = 'conflict' | 'invalid_config' | 'entity_missing' | 'entity_incompatible' | 'area_missing' | 'access_denied' | 'unavailable' | 'network' | 'cannotSave';
+type ErrorKey = 'conflict' | 'invalid_config' | 'entity_missing' | 'entity_incompatible' | 'area_missing' | 'house_unavailable' | 'access_denied' | 'unavailable' | 'network' | 'cannotSave';
 const FIELD = 'liquid-glass-control mt-1.5 min-h-11 w-full rounded-xl px-3 text-sm';
 
 function errorKey(error: unknown): ErrorKey {
   const code = typeof error === 'object' && error !== null ? String((error as { code?: unknown }).code ?? '') : '';
-  if (['conflict', 'invalid_config', 'entity_missing', 'entity_incompatible', 'area_missing', 'access_denied'].includes(code)) return code as ErrorKey;
+  if (['conflict', 'invalid_config', 'entity_missing', 'entity_incompatible', 'area_missing', 'house_unavailable', 'access_denied'].includes(code)) return code as ErrorKey;
   if (code === 'store_unavailable') return 'unavailable';
   const message = error instanceof Error ? error.message.toLowerCase() : '';
   if (message.includes('conflict')) return 'conflict';
@@ -26,8 +25,8 @@ function errorKey(error: unknown): ErrorKey {
   return 'network';
 }
 
-export function ClimateConfigEditor({ initialConfig, revision, callApi, areas, states, registry, onSaved, onCancel, onReload }: {
-  initialConfig: ClimateHouseConfig; revision: number; callApi: ClimateCallApi; areas: readonly HaArea[];
+export function ClimateConfigEditor({ initialConfig, revision, callApi, states, registry, onSaved, onCancel, onReload }: {
+  initialConfig: ClimateHouseConfig; revision: number; callApi: ClimateCallApi;
   states: MockEntityStateMap; registry: readonly HaEntityRegistryEntry[];
   onSaved: (response: ClimateConfigResponse) => void; onCancel: () => void; onReload: () => void;
 }) {
@@ -40,6 +39,13 @@ export function ClimateConfigEditor({ initialConfig, revision, callApi, areas, s
   const [generatorId, setGeneratorId] = useState(initialConfig.generators[0]?.id ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ErrorKey | null>(null);
+  const [roomChoices, setRoomChoices] = useState<ClimateRoomChoices>({ status: 'house_unavailable', rooms: [] });
+  useEffect(() => {
+    let active = true;
+    getClimateHouseRooms(callApi).then((choices) => { if (active) setRoomChoices(choices); })
+      .catch(() => { if (active) setRoomChoices({ status: 'house_unavailable', rooms: [] }); });
+    return () => { active = false; };
+  }, [callApi]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(initialConfig);
   useEffect(() => {
     if (!dirty) return;
@@ -88,7 +94,7 @@ export function ClimateConfigEditor({ initialConfig, revision, callApi, areas, s
 
     {tab === 'zones' && <section className="grid gap-4 lg:grid-cols-[15rem_1fr]"><div className={`${PANEL} space-y-2 p-3`}><h3 className="px-2 text-sm font-semibold">{t('zones')}</h3>{draft.zones.map((item) => <button key={item.id} type="button" onClick={() => setZoneId(item.id)} className={`block min-h-11 w-full rounded-xl px-3 text-left text-sm ${zoneId === item.id ? 'bg-[color:var(--ui-fill-tertiary)] font-semibold' : ''}`}>{item.name || t('zoneName')}</button>)}<button type="button" onClick={addZone} className="liquid-glass-control flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-sm font-semibold"><Plus size={16} />{t('addZone')}</button></div>
       {zone ? <div className={`${PANEL} space-y-5 p-4 sm:p-5`}><div className="flex items-center justify-between gap-2"><h3 className="font-semibold">{zone.name || t('zoneName')}</h3><button type="button" onClick={() => { edit((config) => { config.zones = config.zones.filter((item) => item.id !== zone.id); }); setZoneId(draft.zones.find((item) => item.id !== zone.id)?.id ?? ''); }} className="flex min-h-11 items-center gap-1 rounded-xl px-3 text-xs text-[color:var(--ui-danger)]"><Trash2 size={15} />{t('removeZone')}</button></div>
-        <div className="grid gap-4 sm:grid-cols-2"><label className={`text-xs font-semibold ${MUTED}`}>{t('zoneName')}<input value={zone.name} onChange={(event) => edit((config) => { config.zones.find((item) => item.id === zone.id)!.name = event.target.value; })} className={FIELD} /></label><label className={`text-xs font-semibold ${MUTED}`}>{t('area')}<select value={zone.areaId ?? ''} onChange={(event) => edit((config) => { config.zones.find((item) => item.id === zone.id)!.areaId = event.target.value || null; })} className={FIELD}><option value="">{t('noArea')}</option>{areas.map((area) => <option key={area.area_id} value={area.area_id}>{area.name}</option>)}</select></label></div>
+        <div className="grid gap-4 sm:grid-cols-2"><label className={`text-xs font-semibold ${MUTED}`}>{t('zoneName')}<input value={zone.name} onChange={(event) => edit((config) => { config.zones.find((item) => item.id === zone.id)!.name = event.target.value; })} className={FIELD} /></label><label className={`text-xs font-semibold ${MUTED}`}>{t('area')}<select value={zone.areaId ?? ''} onChange={(event) => edit((config) => { config.zones.find((item) => item.id === zone.id)!.areaId = event.target.value || null; })} className={FIELD}><option value="">{t('noArea')}</option>{zone.areaId && !roomChoices.rooms.some((room) => room.id === zone.areaId) && <option value={zone.areaId}>{t('orphanedRoom')}</option>}{roomChoices.rooms.map((room) => <option key={room.id} value={room.id}>{room.floorName ? `${room.floorName} · ${room.name}` : room.name}</option>)}</select></label></div>
         <ClimateEntityPicker id={`${zone.id}-reference`} label={t('primary')} value={zone.reference.primaryEntityId} onChange={(entityId) => edit((config) => { config.zones.find((item) => item.id === zone.id)!.reference.primaryEntityId = entityId; })} filter="temperature" states={states} registry={registry} />
         <div className="rounded-2xl border border-[color:var(--ui-border)] p-3 text-xs"><label className="block font-semibold">{t('freshnessPolicy')}<select value={zone.reference.freshnessPolicy ?? 'none'} onChange={(event) => edit((config) => { const reference = config.zones.find((item) => item.id === zone.id)!.reference; reference.freshnessPolicy = event.target.value as 'none' | 'max_age'; if (reference.freshnessPolicy === 'max_age') reference.maxAgeSeconds = 300; else delete reference.maxAgeSeconds; })} className={FIELD}><option value="none">{t('freshnessNone')}</option><option value="max_age">{t('freshnessMaxAge')}</option></select></label>{zone.reference.freshnessPolicy === 'max_age' && <label className="mt-3 block font-semibold">{t('maxAgeSeconds')}<input type="number" min="30" max="86400" step="1" value={zone.reference.maxAgeSeconds ?? 300} onChange={(event) => edit((config) => { config.zones.find((item) => item.id === zone.id)!.reference.maxAgeSeconds = Number(event.target.value); })} className={FIELD} /></label>}<p className={`mt-2 ${MUTED}`}>{t('freshnessHint')}</p></div>
         <div className="space-y-2"><div className="flex items-center justify-between gap-2"><h4 className="text-sm font-semibold">{t('fallbacks')}</h4><button type="button" onClick={() => edit((config) => { config.zones.find((item) => item.id === zone.id)!.reference.fallbacks.push(''); })} disabled={zone.reference.fallbacks.length >= 8} className="liquid-glass-control flex min-h-10 items-center gap-1 rounded-full px-3 text-xs"><Plus size={15} />{t('addFallback')}</button></div>{zone.reference.fallbacks.map((fallback, index) => <div key={`${zone.id}-fallback-${index}`} className="grid items-end gap-2 sm:grid-cols-[1fr_auto_auto_auto]"><ClimateEntityPicker id={`${zone.id}-fallback-${index}`} label={`${t('fallbacks')} ${index + 1}`} value={fallback} onChange={(entityId) => edit((config) => { config.zones.find((item) => item.id === zone.id)!.reference.fallbacks[index] = entityId; })} filter="temperature" states={states} registry={registry} /><button type="button" onClick={() => edit((config) => { const list = config.zones.find((item) => item.id === zone.id)!.reference.fallbacks; [list[index - 1], list[index]] = [list[index], list[index - 1]]; })} disabled={index === 0} aria-label={t('moveUp')} className="liquid-glass-control min-h-11 rounded-xl px-3"><ArrowUp size={16} /></button><button type="button" onClick={() => edit((config) => { const list = config.zones.find((item) => item.id === zone.id)!.reference.fallbacks; [list[index], list[index + 1]] = [list[index + 1], list[index]]; })} disabled={index === zone.reference.fallbacks.length - 1} aria-label={t('moveDown')} className="liquid-glass-control min-h-11 rounded-xl px-3"><ArrowDown size={16} /></button><button type="button" onClick={() => edit((config) => { config.zones.find((item) => item.id === zone.id)!.reference.fallbacks.splice(index, 1); })} aria-label={t('remove')} className="liquid-glass-control min-h-11 rounded-xl px-3"><Trash2 size={16} /></button></div>)}</div>

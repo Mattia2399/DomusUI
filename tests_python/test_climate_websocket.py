@@ -7,6 +7,7 @@ from unittest.mock import patch
 
 import pytest
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import area_registry as ar
 
 from custom_components.domusos.access import DATA_ACCESS_MANAGER, AccessPolicyManager
 from custom_components.domusos.access.adapters import authorize_user_action
@@ -24,6 +25,7 @@ from custom_components.domusos.climate.state_manager import (
     ClimateStateManager,
 )
 from custom_components.domusos.const import DOMAIN
+from custom_components.domusos.house.manager import DATA_HOUSE_MANAGER, HouseManager
 
 
 class MemoryStore:
@@ -74,6 +76,25 @@ async def test_member_can_read_but_direct_save_is_denied_without_a_write(hass: H
     denied = await ask(client, {"type": "domusos/climate/save_config", "config": program, "expected_revision": 1})
     assert denied["error"]["code"] == "access_denied"
     assert store.writes == 1 and manager.revision == 1
+
+
+async def test_house_room_selector_is_climate_manage_only(hass: HomeAssistant, hass_ws_client):
+    await setup_climate(hass)
+    area = ar.async_get(hass).async_create("Soggiorno")
+    house = HouseManager(hass)
+    await house.async_setup()
+    hass.data[DOMAIN][DATA_HOUSE_MANAGER] = house
+    admin = await hass_ws_client(hass)
+    listed = await ask(admin, {"type": "domusos/climate/get_house_rooms"})
+    assert listed["success"] is True
+    assert listed["result"]["rooms"] == [{"id": area.id, "name": "Soggiorno", "floorId": None, "floorName": None}]
+    assert "entities" not in listed["result"] and "devices" not in listed["result"]
+    member = await hass.auth.async_create_user("Member", group_ids=["system-users"])
+    refresh = await hass.auth.async_create_refresh_token(member, "https://example.com/app")
+    client = await hass_ws_client(hass, hass.auth.async_create_access_token(refresh))
+    denied = await ask(client, {"type": "domusos/climate/get_house_rooms"})
+    assert denied["error"]["code"] == "access_denied"
+    await house.async_shutdown()
 
 
 async def test_extra_websocket_fields_are_rejected_before_saving(hass: HomeAssistant, hass_ws_client):

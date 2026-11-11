@@ -95,7 +95,7 @@ def test_no_management_recovery_bootstrap_or_diagnostics_opts_in() -> None:
 
 
 def test_the_registry_keeps_its_surfaces() -> None:
-    assert len(actions.ACTION_CONTRACTS) == 58
+    assert len(actions.ACTION_CONTRACTS) == 59
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 

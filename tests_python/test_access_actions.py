@@ -177,7 +177,7 @@ def test_no_action_is_declared_twice() -> None:
     ids = [contract.id for contract in actions.ACTION_CONTRACT_LIST]
     # 38 in P2.2, the two shadow diagnostics commands of P2.3, the three of People and access (P2.4.1),
     # the four of device timers.
-    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 58
+    assert len(ids) == len(set(ids)) == len(actions.ACTION_CONTRACTS) == 59
 
 
 def test_every_capability_exists_and_is_enforced_by_domus() -> None:

@@ -72,6 +72,10 @@ class AreaMissing(InvalidConfig):
     code = "area_missing"
 
 
+class HouseContextUnavailable(ClimateError):
+    code = "house_unavailable"
+
+
 class Conflict(ClimateError):
     code = "conflict"
 

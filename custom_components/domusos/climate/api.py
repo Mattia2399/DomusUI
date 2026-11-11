@@ -41,7 +41,7 @@ async def websocket_get_config(hass: HomeAssistant, connection: websocket_api.Ac
     try:
         if set(msg) != {"id", "type"}:
             raise InvalidFormat("Unexpected WebSocket fields")
-        connection.send_result(msg["id"], _manager(hass).get_config())
+        connection.send_result(msg["id"], await _manager(hass).async_get_config_for_user(connection.user))
     except ClimateError as err:
         _error(connection, msg["id"], err)
 
@@ -57,7 +57,9 @@ async def websocket_save_config(hass: HomeAssistant, connection: websocket_api.A
     try:
         if set(msg) != {"id", "type", "config", "expected_revision"}:
             raise InvalidFormat("Unexpected WebSocket fields")
-        connection.send_result(msg["id"], await _manager(hass).async_save_config(msg["config"], msg["expected_revision"], connection.user))
+        manager = _manager(hass)
+        await manager.async_save_config(msg["config"], msg["expected_revision"], connection.user)
+        connection.send_result(msg["id"], await manager.async_get_config_for_user(connection.user))
     except ClimateError as err:
         _error(connection, msg["id"], err)
 
@@ -68,7 +70,22 @@ async def websocket_get_state(hass: HomeAssistant, connection: websocket_api.Act
     try:
         if set(msg) != {"id", "type"}:
             raise InvalidFormat("Unexpected WebSocket fields")
-        connection.send_result(msg["id"], await _state_manager(hass).async_get_state())
+        result = await _state_manager(hass).async_get_state()
+        result["houseContext"] = await _manager(hass).async_get_house_context(connection.user)
+        connection.send_result(msg["id"], result)
+    except ClimateError as err:
+        _error(connection, msg["id"], err)
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{WS_PREFIX}/get_house_rooms"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def websocket_get_house_rooms(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Room selector facts only; the House topology never crosses this API."""
+    try:
+        if set(msg) != {"id", "type"}:
+            raise InvalidFormat("Unexpected WebSocket fields")
+        connection.send_result(msg["id"], await _manager(hass).async_get_room_choices())
     except ClimateError as err:
         _error(connection, msg["id"], err)
 
@@ -166,7 +183,7 @@ async def websocket_execute_plan(hass: HomeAssistant, connection: websocket_api.
         _error(connection, msg["id"], err)
 
 
-WEBSOCKET_COMMANDS = (websocket_get_config, websocket_save_config, websocket_get_state, websocket_set_house_intent, websocket_set_zone_intent,
+WEBSOCKET_COMMANDS = (websocket_get_config, websocket_save_config, websocket_get_state, websocket_get_house_rooms, websocket_set_house_intent, websocket_set_zone_intent,
                       websocket_set_zone_override, websocket_clear_zone_override, websocket_execute_plan)
 
 
