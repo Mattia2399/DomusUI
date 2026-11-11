@@ -189,12 +189,14 @@ def test_every_capability_exists_and_is_enforced_by_domus() -> None:
             continue
         entry = models.capability(contract.capability)
         assert entry is not None, contract.id
-        # The narrow Dashboard and House reads enforce their existing route
-        # capabilities in the backend command wrapper.
+        # The narrow Dashboard, House, and Settings reads enforce their
+        # existing route capabilities in the backend command wrapper. The
+        # Settings capability still describes native HA writes elsewhere.
         if contract.id.startswith("domusos/house/"):
             assert entry.id == "rooms.view" and contract.enforced
-        elif contract.id == "domusos/dashboard/get_house_context":
-            assert entry.id == "dashboard.view" and contract.enforced
+        elif contract.id in {"domusos/dashboard/get_house_context", "domusos/system/get_house_context"}:
+            assert entry.id == ("dashboard.view" if "/dashboard/" in contract.id else "system.manage")
+            assert contract.enforced
         else:
             assert entry.enforcement is models.EnforcementKind.DOMUS, contract.id
 
@@ -234,7 +236,9 @@ def test_what_home_assistant_already_checks_is_recorded() -> None:
 
 @pytest.mark.parametrize("capability", sorted(
     entry.id for entry in models.ACCESS_CAPABILITIES.values()
-    if entry.enforcement is not models.EnforcementKind.DOMUS and entry.id not in {"rooms.view", "dashboard.view"}
+    # These three read projections intentionally cross an otherwise native
+    # route capability into an explicitly enforced Domus WebSocket command.
+    if entry.enforcement is not models.EnforcementKind.DOMUS and entry.id not in {"rooms.view", "dashboard.view", "system.manage"}
 ))
 def test_ha_native_and_local_capabilities_have_no_backend_action(capability) -> None:
     assert capability not in {contract.capability for contract in actions.ACTION_CONTRACT_LIST}
@@ -267,7 +271,7 @@ def test_only_named_entry_points_are_exempt_from_shadow_and_each_says_why() -> N
         assert len(contract.shadow_exemption) > 40, contract.id
     observed = actions.shadow_contracts()
     assert {contract.id for contract in observed} == set(EXPECTED) - SHADOW_EXEMPT
-    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 48
+    assert len([contract for contract in observed if contract.surface is Surface.WEBSOCKET]) == 49
     assert len([contract for contract in observed if contract.surface is Surface.SERVICE]) == 5
 
 
