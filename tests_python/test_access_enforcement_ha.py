@@ -286,6 +286,7 @@ async def test_an_applied_refusal_is_a_security_record_and_an_enforced_deny(hass
     assert diagnostics["enforced_actions"] == sorted((
         *DEVICE_POWER,
         "domusos/climate/get_config",
+        "domusos/climate/get_house_rooms",
         "domusos/climate/save_config",
         "domusos/climate/get_state",
         "domusos/climate/set_house_intent",

@@ -77,7 +77,7 @@ def test_only_plain_domus_services_can_opt_in() -> None:
 
 def test_no_websocket_command_opts_in() -> None:
     websocket = actions.contracts_for(Surface.WEBSOCKET)
-    assert len(websocket) == 53
+    assert len(websocket) == 54
     assert not any(contract.allow_unattributed_ha_context for contract in websocket)
 
 

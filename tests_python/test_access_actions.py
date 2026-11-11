@@ -32,6 +32,7 @@ EXPECTED = {
     "domusos/device_power/bind_policy": "device_power.manage",
     "domusos/device_power/delete_policy": "device_power.manage",
     "domusos/climate/get_config": "climate.view",
+    "domusos/climate/get_house_rooms": "climate.manage",
     "domusos/climate/save_config": "climate.manage",
     "domusos/climate/get_state": "climate.view",
     "domusos/climate/set_house_intent": "climate.control",
@@ -200,7 +201,7 @@ def test_surfaces_match_their_names() -> None:
             assert re.fullmatch(r"domusos/[a-z_]+/[a-z_]+", contract.id), contract.id
         else:
             assert contract.surface is Surface.SERVICE and re.fullmatch(r"domusos\.[a-z_]+", contract.id), contract.id
-    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 53
+    assert len(actions.contracts_for(Surface.WEBSOCKET)) == 54
     assert len(actions.contracts_for(Surface.SERVICE)) == 5
 
 
