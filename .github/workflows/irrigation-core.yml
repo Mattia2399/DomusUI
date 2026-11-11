@@ -68,3 +68,6 @@ jobs:
       - name: Dashboard House HA contract on 2025.1
         if: matrix.home_assistant == '2025.1'
         run: pytest -q tests_python/test_dashboard_house_ha.py
+      - name: Settings House HA contract on 2025.1
+        if: matrix.home_assistant == '2025.1'
+        run: pytest -q tests_python/test_settings_house_ha.py
