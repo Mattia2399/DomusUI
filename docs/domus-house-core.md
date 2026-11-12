@@ -1,5 +1,7 @@
 # Domus House Core — HOUSE.2
 
+> Historical HOUSE.2 phase record. For the current frozen contract after HOUSE.5C, including the safe environmental fallback and exact revision behavior, see [Domus House Core contract](domus-house-core-contract.md).
+
 The House Core is a **read-only backend projection** of the Home Assistant floor,
 area, device and entity registries. It has no persistent House store, no registry
 write endpoint, and no service call. Rooms, Climate, Energy and Security retain
