@@ -11,7 +11,7 @@ import type { HaConnectionStatus } from '../../hooks/useHaLiveConnection';
 import { useNotifications } from '../../context/NotificationProvider';
 import { useI18n } from '../../i18n/I18nProvider';
 import { DashboardProfileAvatar } from './DashboardProfileAvatar';
-import { DashboardNotificationsPanel } from './DashboardNotificationsPanel';
+import { LazyDashboardNotificationsPanel } from './LazyDashboardNotificationsPanel';
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
@@ -100,7 +100,7 @@ export function LeftSidebar({
 
   return (
     <>
-      <DashboardNotificationsPanel
+      <LazyDashboardNotificationsPanel
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
       />

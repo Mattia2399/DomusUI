@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationProvider';
-import { DashboardNotificationsPanel } from './DashboardNotificationsPanel';
+import { LazyDashboardNotificationsPanel } from './LazyDashboardNotificationsPanel';
 import { useI18n } from '../../i18n/I18nProvider';
 
 export function XsNotificationBell() {
@@ -29,7 +29,7 @@ export function XsNotificationBell() {
         ) : null}
       </button>
 
-      <DashboardNotificationsPanel
+      <LazyDashboardNotificationsPanel
         isOpen={isNotificationsOpen}
         onClose={() => {
           setIsNotificationsOpen(false);
