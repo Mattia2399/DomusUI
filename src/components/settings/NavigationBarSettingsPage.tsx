@@ -98,7 +98,7 @@ export function NavigationBarSettingsPage({ onBack }: { onBack: () => void }) {
         </section>
 
         <GlassList caption={t('navbar.inBar')} ariaLabel={t('navbar.inBar')} footer={t('navbar.inBarNote')}>
-          <GlassListRow title={name('home')} note={t('navbar.alwaysFirst')} icon={icon('home')} iconShape="square" tone="app" value={<Lock size={16} aria-hidden="true" />} />
+          <GlassListRow title={name('home')} note={t('navbar.alwaysFirst')} icon={icon('home')} iconShape="square" value={<Lock size={16} aria-hidden="true" />} />
           {inBar.map((id, index) => (
             <GlassListRow
               key={id}

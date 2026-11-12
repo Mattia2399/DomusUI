@@ -16,6 +16,19 @@
   font-family: var(--ui-font-system);
 }
 
+/* One column on a phone; two on a wide page (the query below comes after, so it wins). */
+.casa-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.casa-functions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
 @container page (min-width: 760px) {
   .casa-wrap {
     padding: 28px 32px 48px;
@@ -54,7 +67,8 @@
   font-weight: 700;
 }
 
-.casa-invite > span {
+/* The text only: the icon keeps its own colour. */
+.casa-invite > span:not(.casa-invite-icon) {
   color: var(--ui-text-secondary);
   font-size: 15px;
   font-weight: 500;
@@ -97,16 +111,4 @@
   color: var(--ui-text-secondary);
   font-size: 14px;
   font-weight: 500;
-}
-
-.casa-section {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.casa-functions {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
 }
