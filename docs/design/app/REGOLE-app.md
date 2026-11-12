@@ -23,10 +23,10 @@ Sono una **specifica**: misure, colori, testi, stati e comportamenti. Si riprodu
 
 ## 3. Navigazione
 - **Una sola barra, quella dell’app** (in basso sul telefono, a sinistra su tablet e desktop). Le funzioni non hanno barre proprie.
-- Barra consigliata: **Dashboard · Stanze · Casa · Profilo**, con un posto libero per una funzione.
-- **Barra personalizzabile per dispositivo** (Impostazioni › Questo dispositivo › Barra di navigazione): Dashboard sempre prima, Profilo sempre ultimo, in mezzo fino a 3 voci sul telefono (fino a 7 nella barra laterale). Voci possibili: pagine (Stanze, Casa, Calendario) e singole funzioni. Solo quelle permesse al ruolo. “Ripristina quella consigliata”.
-- Una funzione si fissa anche dalla sua pagina (puntina accanto all’ingranaggio) e tenendo premuta la sua riga in Casa.
-- L’icona di una funzione fissata **mostra lo stato** (es. scudo verde se l’allarme è inserito, puntino arancio se c’è qualcosa da guardare).
+- **Aspetto: quello di oggi.** `BottomBarNav` sul telefono e `LeftSidebar` su tablet e desktop: solo icone (i nomi restano per l’accessibilità), la goccia di vetro (`liquid-glass-drop`) con la sua animazione elastica e il piccolo ingrandimento dell’icona attiva. L’icona attiva usa il colore del testo (`--ui-text-primary`), non il blu; nella barra laterale la voce attiva ha un fondo neutro. **Niente pillola nera e niente nomi visibili**: la barra di `casa.html`, `sicurezza.html` e `impostazioni.html` è superata e non va copiata. **Niente colori di stato e niente puntini** sulle icone.
+- Barra consigliata: **Dashboard · Stanze · Casa · Profilo** (la foto, che apre Impostazioni). Sicurezza, Consumi, Automazioni e App Gallery si raggiungono da Casa.
+- **Le voci si scelgono solo da Impostazioni › Questo dispositivo › Barra di navigazione**, per dispositivo: Dashboard sempre prima, Profilo sempre ultimo, in mezzo fino a 3 voci sul telefono e fino a 7 nella barra laterale (un solo elenco: il telefono mostra le prime 3). Solo voci che il ruolo può aprire. “Ripristina quella consigliata”. Nella barra non c’è una voce “Aggiungi”; le voci non si modificano dalla modalità modifica della Dashboard.
+- Il pulsante Modifica della barra laterale compare solo sulla Dashboard.
 
 ## 4. Livelli: mai più di due
 - Livello 1: la pagina (Casa, una funzione, Impostazioni).

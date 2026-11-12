@@ -115,7 +115,7 @@ I modelli buoni nel codice sono pochi:
 - **Livelli:** al massimo due.
   - La sotto-pagina sul telefono copre la pagina; su tablet e desktop si apre nella colonna a destra.
   - Un terzo livello e le azioni rapide sono **fogli**. Nelle pagine nuove il foglio è `GlassSheet`, dentro un `PageFrame`; `GlassBottomSheet` resta solo per le pagine esistenti e non si usa in quelle nuove.
-- **Navigazione:** una sola barra, quella dell’app. Le funzioni non hanno barre proprie. Dettagli in `REGOLE-app.md` §3. Finché la nuova barra non è stata portata, resta la shell attuale.
+- **Navigazione:** una sola barra, quella dell’app, nell’aspetto di oggi (`BottomBarNav`, `LeftSidebar`): solo icone, goccia di vetro, icona attiva nel colore del testo; niente pillola nera, niente colori di stato. Le voci si scelgono solo da Impostazioni › Questo dispositivo › Barra di navigazione. Le funzioni non hanno barre proprie. Dettagli in `REGOLE-app.md` §3.
 - **Liste:** righe raggruppate in un unico blocco di vetro, con separatori interni e icona quadrata colorata a sinistra. Il valore a destra si mostra solo se dice qualcosa.
 - **Larghezze:** si usano container query, non la larghezza della finestra.
 - **Pagina di una funzione:** in alto lo stato e il comando principale, poi le sezioni in anteprima con "Tutte ›". Le impostazioni si aprono dall’ingranaggio.
