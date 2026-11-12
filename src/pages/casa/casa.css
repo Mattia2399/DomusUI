@@ -1,0 +1,112 @@
+/*
+ * The layout of the Casa page (docs/design/app/casa.html): only where its pieces stand. The pieces
+ * (PageHeader, GlassFeatureRow, GlassList, GlassSheet) and their colours come from src/components/ui.
+ */
+
+.casa-wrap {
+  display: flex;
+  width: 100%;
+  max-width: 1180px;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 22px;
+  margin: 0 auto;
+  padding: 16px 16px 120px;
+  color: var(--ui-text-primary);
+  font-family: var(--ui-font-system);
+}
+
+@container page (min-width: 760px) {
+  .casa-wrap {
+    padding: 28px 32px 48px;
+  }
+
+  .casa-functions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+
+/* The invitation to Domus 3D: text only, until it exists. */
+.casa-invite {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  border-radius: 30px;
+  padding: 24px;
+}
+
+.casa-invite-icon {
+  display: flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 15px;
+  background: linear-gradient(135deg, var(--fn-app), var(--fn-app-glow));
+  color: var(--fn-on-fill);
+}
+
+.casa-invite > b {
+  font-family: var(--ui-font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.casa-invite > span {
+  color: var(--ui-text-secondary);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+/* One line of summary: all is well, or the things to look at. */
+.casa-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 22px;
+  padding: 14px 16px;
+}
+
+.casa-summary-icon {
+  display: flex;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--state-ok) 20%, transparent);
+  color: var(--state-ok);
+}
+
+.casa-summary.is-warn .casa-summary-icon {
+  background: color-mix(in srgb, var(--state-warning) 20%, transparent);
+  color: var(--state-warning);
+}
+
+.casa-summary b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.casa-summary span {
+  color: var(--ui-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.casa-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.casa-functions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}

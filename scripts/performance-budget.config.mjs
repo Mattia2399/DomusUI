@@ -84,6 +84,11 @@ export const surfaces = [
     id: 'security', label: 'Sicurezza', sources: ['src/pages/SecurityDashboard.jsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 140 * KB, limit: 160 * KB }, gzip: { warning: 48 * KB, limit: 55 * KB } },
   },
+  // /casa: the house and its functions and tools (passo 2). New surface, with the limits of Sicurezza.
+  {
+    id: 'casa', label: 'Casa', sources: ['src/pages/casa/CasaPage.tsx'], requires: 'home', kind: 'route',
+    budget: { metric: 'incremental', raw: { warning: 140 * KB, limit: 160 * KB }, gzip: { warning: 48 * KB, limit: 55 * KB } },
+  },
   // /appgallery: Irrigazione and the technical-room preview (Locale Tecnico) are App Gallery apps. Baseline 234,000 / 65,000.
   {
     id: 'appgallery', label: 'App Gallery · Irrigazione · Locale Tecnico', sources: ['src/pages/AppGallery.jsx'], requires: 'home', kind: 'route',

@@ -27,6 +27,7 @@ import { humidifierTranslations } from './humidifierTranslations';
 import { calendarTranslations } from './calendarTranslations';
 import { securityDashboardTranslations } from './securityDashboardTranslations';
 import { automationTranslations } from './automationTranslations';
+import { casaTranslations } from './casaTranslations';
 
 export const homeTranslations = {
   it: {
@@ -52,6 +53,7 @@ export const homeTranslations = {
     ...homeMiscTranslations.it,
     ...calendarTranslations.it,
     ...securityDashboardTranslations.it,
+    ...casaTranslations.it,
     ...automationTranslations.it,
     ...homePersistenceTranslations.it,
     ...commonUiTranslations.it,
@@ -141,6 +143,7 @@ export const homeTranslations = {
     ...homeMiscTranslations.en,
     ...calendarTranslations.en,
     ...securityDashboardTranslations.en,
+    ...casaTranslations.en,
     ...automationTranslations.en,
     ...homePersistenceTranslations.en,
     ...commonUiTranslations.en,
@@ -186,6 +189,7 @@ export const homeTranslations = {
     ...homeMiscTranslations.fr,
     ...calendarTranslations.fr,
     ...securityDashboardTranslations.fr,
+    ...casaTranslations.fr,
     ...automationTranslations.fr,
     ...homePersistenceTranslations.fr,
     ...commonUiTranslations.fr,

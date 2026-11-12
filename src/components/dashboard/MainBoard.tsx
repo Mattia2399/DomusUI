@@ -481,6 +481,7 @@ const loadConsumptionDashboard = () => import('../../pages/Consumi');
 const loadAutomationsBuilder = () => import('../../pages/AutomationsBuilder');
 const loadAppGallery = () => import('../../pages/AppGallery');
 const loadRoomsDashboard = () => import('../../pages/rooms/RoomsPage');
+const loadCasaPage = () => import('../../pages/casa/CasaPage');
 const loadSecurityDashboard = () => import('../../pages/SecurityDashboard');
 const loadSettingsDashboard = () => import('../../pages/SettingsDashboard');
 const rightSidebarManagerOnce = onceLoaded(() =>
@@ -508,6 +509,7 @@ const ConsumptionDashboardPage = React.lazy(loadConsumptionDashboard);
 const AutomationsBuilder = React.lazy(loadAutomationsBuilder);
 const AppGallery = React.lazy(loadAppGallery);
 const RoomsDashboard = React.lazy(loadRoomsDashboard);
+const CasaPage = React.lazy(loadCasaPage);
 const SecurityDashboard = React.lazy(loadSecurityDashboard);
 const SettingsDashboard = React.lazy(loadSettingsDashboard);
 const RightSidebarManager = React.lazy(loadRightSidebarManager);
@@ -528,6 +530,7 @@ function prefetchDashboardWorkspace(path: string) {
   const normalizedPath = path.trim().toLowerCase().split(/[?#]/, 1)[0].replace(/\/+$/, '') || '/';
 
   if (normalizedPath === '/rooms') return void loadRoomsDashboard();
+  if (normalizedPath === '/casa') return void loadCasaPage();
   if (normalizedPath.startsWith('/security')) return void loadSecurityDashboard();
   if (normalizedPath.startsWith('/consumi')) return void loadConsumptionDashboard();
   if (normalizedPath.startsWith('/automations')) return void loadAutomationsBuilder();
@@ -11568,8 +11571,9 @@ export function MainBoard() {
     isAppGalleryView && isNestedDashboardNavigationTarget(currentNavigationRoute);
   const isImmersiveView =
     isSecurityImmersiveView || isConsumptionImmersiveView || isAppGalleryImmersiveView;
+  const isCasaView = currentNavigationRoute.split(/[?#]/, 1)[0].replace(/\/+$/, '').toLowerCase() === '/casa';
   const isDashboardCanvasView =
-    !isConsumptionView && !isAutomationView && !isAppGalleryView && !isRoomsView && !isSecurityView && !isSettingsView;
+    !isConsumptionView && !isAutomationView && !isAppGalleryView && !isRoomsView && !isSecurityView && !isSettingsView && !isCasaView;
   const viewportPreviewGridWidth = resolveDashboardViewportPreviewWidth(viewportPreviewMode);
   const availableViewportPreviewModes: readonly DashboardViewportPreviewMode[] = isDesktopViewport
     ? ['auto', 'desktop', 'tablet', 'compact', 'mobile']
@@ -12026,6 +12030,16 @@ export function MainBoard() {
               cameraPtzEntityIds={cameraPtzEntityIds}
               onCameraPtzMove={(entityId, direction) => moveCameraPtz(direction, entityId)}
               onCameraPtzStop={(entityId) => stopCameraPtz(entityId)}
+              onNavigate={navigateWithinDashboard}
+            />
+          </div>
+        ) : isCasaView ? (
+          <div className="h-full min-h-0 flex-1 overflow-hidden">
+            <CasaPage
+              runtimeMode={effectiveRuntimeMode}
+              haConnected={isHaConnected}
+              haStates={haStatesForUi}
+              onCallApi={callHaApi}
               onNavigate={navigateWithinDashboard}
             />
           </div>
