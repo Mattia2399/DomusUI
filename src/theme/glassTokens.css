@@ -76,6 +76,62 @@
   --surface-sheet-border: var(--ui-sheet-border);
   /* The column of the Home on a desktop stays neutral: the colour stays on the icon and the slider. */
   --surface-column: var(--ui-surface-glass);
+
+  /*
+   * The colours of the functions (Security, Irrigation, Climate, Energy, Waste) and of the app:
+   * for the lights of the background, the icons and the main command. DESIGN.md §4.
+   * `-ink` is what goes on the colour, `-soft` the colour behind an icon that is not lit.
+   */
+  --fn-app: var(--ui-accent);
+  --fn-app-ink: var(--ui-accent-contrast);
+  --fn-security-soft: color-mix(in srgb, var(--fn-security) 16%, transparent);
+  --fn-irrigation-soft: color-mix(in srgb, var(--fn-irrigation) 16%, transparent);
+  --fn-climate-soft: color-mix(in srgb, var(--fn-climate) 16%, transparent);
+  --fn-energy-soft: color-mix(in srgb, var(--fn-energy) 16%, transparent);
+  --fn-waste-soft: color-mix(in srgb, var(--fn-waste) 16%, transparent);
+  --fn-app-soft: color-mix(in srgb, var(--fn-app) 16%, transparent);
+
+  /* The colour of the function a page belongs to: the app's, unless the page says otherwise (data-fn). */
+  --fn-accent: var(--fn-app);
+  --fn-accent-ink: var(--fn-app-ink);
+  --fn-accent-soft: var(--fn-app-soft);
+  --fn-accent-glow: var(--fn-app-glow);
+}
+
+/* A page of a function says which one it is with data-fn: its colour is set once, here. */
+[data-fn='security'] {
+  --fn-accent: var(--fn-security);
+  --fn-accent-ink: var(--fn-security-ink);
+  --fn-accent-soft: var(--fn-security-soft);
+  --fn-accent-glow: var(--fn-security);
+}
+
+[data-fn='irrigation'] {
+  --fn-accent: var(--fn-irrigation);
+  --fn-accent-ink: var(--fn-irrigation-ink);
+  --fn-accent-soft: var(--fn-irrigation-soft);
+  --fn-accent-glow: var(--fn-irrigation);
+}
+
+[data-fn='climate'] {
+  --fn-accent: var(--fn-climate);
+  --fn-accent-ink: var(--fn-climate-ink);
+  --fn-accent-soft: var(--fn-climate-soft);
+  --fn-accent-glow: var(--fn-climate);
+}
+
+[data-fn='energy'] {
+  --fn-accent: var(--fn-energy);
+  --fn-accent-ink: var(--fn-energy-ink);
+  --fn-accent-soft: var(--fn-energy-soft);
+  --fn-accent-glow: var(--fn-energy);
+}
+
+[data-fn='waste'] {
+  --fn-accent: var(--fn-waste);
+  --fn-accent-ink: var(--fn-waste-ink);
+  --fn-accent-soft: var(--fn-waste-soft);
+  --fn-accent-glow: var(--fn-waste);
 }
 
 .dashboard-theme-dark {
@@ -88,6 +144,19 @@
   --control-knob: #ffffff;
   --control-ring: #1c1c1e;
   --surface-tint-alpha: 0.2;
+
+  /* The colours of the functions: lighter on the dark, with a dark ink on them. */
+  --fn-security: #30d158;
+  --fn-irrigation: #34d399;
+  --fn-climate: #ff8a4c;
+  --fn-energy: #ffc53d;
+  --fn-waste: #4ade80;
+  --fn-app-glow: #a66bff;
+  --fn-security-ink: #0b0b0f;
+  --fn-irrigation-ink: #0b0b0f;
+  --fn-climate-ink: #0b0b0f;
+  --fn-energy-ink: #0b0b0f;
+  --fn-waste-ink: #0b0b0f;
 }
 
 .dashboard-theme-light {
@@ -100,4 +169,17 @@
   --control-knob: #ffffff;
   --control-ring: #ffffff;
   --surface-tint-alpha: 0.24;
+
+  /* The colours of the functions: darker on the light, for AA contrast on small text and icons. */
+  --fn-security: #1f9d55;
+  --fn-irrigation: #0e9f6e;
+  --fn-climate: #e8590c;
+  --fn-energy: #b7791f;
+  --fn-waste: #2f855a;
+  --fn-app-glow: #8e44d9;
+  --fn-security-ink: #ffffff;
+  --fn-irrigation-ink: #ffffff;
+  --fn-climate-ink: #ffffff;
+  --fn-energy-ink: #ffffff;
+  --fn-waste-ink: #ffffff;
 }
