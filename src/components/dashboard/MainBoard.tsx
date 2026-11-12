@@ -234,6 +234,7 @@ import {
 import { useProfileSettings, type SidebarQuickPath } from '../../hooks/useProfileSettings';
 import { resolveApplicationRoutePath } from '../../navigation/applicationRoutes';
 import { isProfileSettingsRoute, resolveLegacySettingsRoute } from '../../navigation/settingsRoutes';
+import { useSettingsPageTransition } from '../settings/useSettingsPageTransition';
 import { loadHaStateTranslations } from '../../services/haStateTranslations';
 import { readSetupStart, shouldAskHomeStart } from '../../services/setupJourney';
 import { useHaLiveConnection, type HaArea } from '../../hooks/useHaLiveConnection';
@@ -1714,11 +1715,11 @@ export function MainBoard() {
     callApi: rawCallHaApi,
     subscribeApi: subscribeHaApi,
   } = activeHaConnection;
-  // Rooms changed from Settings, until Home Assistant sends its own list again.
+  // Keep the rest of the dashboard current when the shared Rooms manager changes areas.
   const [haAreasOverride, setHaAreasOverride] = useState<{ source: HaArea[]; areas: HaArea[] } | null>(null);
   const haAreas =
     haAreasOverride && haAreasOverride.source === connectionHaAreas ? haAreasOverride.areas : connectionHaAreas;
-  const handleSettingsAreasChanged = useCallback(
+  const handleRoomsAreasChanged = useCallback(
     (areas: HaArea[]) => setHaAreasOverride({ source: connectionHaAreas, areas }),
     [connectionHaAreas],
   );
@@ -11647,6 +11648,8 @@ export function MainBoard() {
     routeDepth,
   );
   const settingsPath = activeNavigationRoute.split(/[?#]/, 1)[0].replace(/\/+$/, '');
+  // Keep the Settings push animation across pages rendered by different modules.
+  useSettingsPageTransition(settingsPath.startsWith('/settings') ? settingsPath : '');
   const houseAccessView = resolveHouseAccessView(settingsPath);
   // The Dashboard page shows the layout part of Data and backup.
   const settingsManagementSection: SettingsManagementSectionId | null =
@@ -12040,9 +12043,11 @@ export function MainBoard() {
               onNotify={addNotification}
             />
           </div>
-        ) : isRoomsView ? (
+        ) : isRoomsView || settingsPath === '/settings/floors' ? (
           <div className="h-full min-h-0 flex-1 overflow-hidden">
             <RoomsDashboard
+              navigationRoute={activeNavigationRoute}
+              onAreasChanged={handleRoomsAreasChanged}
               runtimeMode={effectiveRuntimeMode}
               isLoading={haStatus === 'connecting'}
               haConnected={isHaConnected}
@@ -12134,7 +12139,6 @@ export function MainBoard() {
               devicePowerSupported={devicePowerSupported}
               kioskStartRoutes={kioskStartRoutes}
               loadStateTranslations={loadStateTranslations}
-              onAreasChanged={handleSettingsAreasChanged}
               alarmCards={securityAlarmProfiles.map(({ widgetId, entityId, requireDeviceConfirmation }) => ({
                 widgetId,
                 entityId,

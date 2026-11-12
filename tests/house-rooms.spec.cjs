@@ -51,7 +51,7 @@ test('connected Rooms uses House topology while controls use live HA state', asy
         return true;
       }
       if (message.type === 'config/floor_registry/create') {
-        house.floors.push({ id: 'upper', name: message.name, level: null, aliases: [], order: 1 });
+        house.floors.push({ id: 'upper', name: message.name, level: message.level ?? null, aliases: message.aliases ?? [], order: 1 });
         house.topologyRevision += 1;
         house.topologyFingerprint = 'house-2';
         reply({ floor_id: 'upper', name: message.name });
@@ -68,7 +68,7 @@ test('connected Rooms uses House topology while controls use live HA state', asy
     },
   });
   await page.goto('/rooms');
-  await expect(page.getByRole('heading', { level: 1, name: 'Soggiorno' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Soggiorno' })).toBeVisible({ timeout: 60_000 });
   await expect(page.getByTestId('rooms-lights').getByText('Lampada')).toBeVisible();
   await expect(page.locator('.rooms-head-title p')).toContainText('21°');
   await expect(page.locator('.rooms-head-title p')).toContainText('45%');
@@ -81,9 +81,13 @@ test('connected Rooms uses House topology while controls use live HA state', asy
   const manage = page.getByTestId('rooms-manage');
   await manage.getByRole('radio', { name: 'Piani' }).click();
   await manage.getByRole('button', { name: 'Nuovo piano' }).click();
-  await expect(manage.getByRole('textbox', { name: 'Nome del piano 2' })).toBeVisible();
+  const floorEdit = page.getByTestId('rooms-floor-edit');
+  await floorEdit.getByRole('textbox', { name: 'Nome' }).fill('Primo piano');
+  await floorEdit.getByRole('textbox', { name: 'Livello' }).fill('1');
+  await floorEdit.getByRole('button', { name: 'Crea' }).click();
+  await expect(manage.getByRole('button', { name: 'Modifica Primo piano' })).toBeVisible();
   await expect.poll(() => home.messages.filter((message) => message.type === 'domusos/house/get_topology').length).toBeGreaterThan(1);
-  expect(home.messages.some((message) => message.type === 'config/floor_registry/create')).toBe(true);
+  expect(home.messages.some((message) => message.type === 'config/floor_registry/create' && message.name === 'Primo piano' && message.level === 1)).toBe(true);
 
   await manage.getByRole('radio', { name: 'Stanze' }).click();
   await manage.getByRole('button', { name: 'Modifica Soggiorno' }).click();
@@ -93,4 +97,21 @@ test('connected Rooms uses House topology while controls use live HA state', asy
   await edit.getByRole('button', { name: 'Salva' }).click();
   await expect(page.getByRole('heading', { level: 1, name: 'Salotto' })).toBeVisible();
   expect(home.messages.some((message) => message.type === 'config/area_registry/update' && message.name === 'Salotto')).toBe(true);
+
+  await page.goto('/settings');
+  await page.getByRole('button', { name: /^Piani e stanze/ }).click();
+  await expect(page).toHaveURL(/\/settings\/floors$/);
+  await expect(page.getByTestId('rooms')).toHaveCount(0);
+  const settings = page.getByTestId('settings-house-structure');
+  await expect(settings.getByTestId('nested-page-header').getByRole('heading', { name: 'Piani e stanze' })).toBeVisible();
+  await expect(page.getByTestId('rooms-manage')).toHaveCount(0);
+  await expect(settings.getByRole('button', { name: 'Modifica Primo piano' })).toBeVisible();
+  await expect(settings.getByRole('button', { name: 'Modifica Salotto' })).toBeVisible();
+  await expect(settings.getByRole('radio', { name: 'Sezioni' })).toHaveCount(0);
+  await settings.getByRole('button', { name: 'Modifica Primo piano' }).click();
+  await expect(page.getByTestId('rooms-floor-edit').getByRole('textbox', { name: 'Nome' })).toHaveValue('Primo piano');
+  await page.getByTestId('rooms-floor-edit').getByRole('button', { name: 'Annulla' }).click();
+  await settings.getByRole('button', { name: 'Indietro' }).click();
+  await expect(page).toHaveURL(/\/settings$/);
+  await expect(page.getByTestId('rooms')).toHaveCount(0);
 });

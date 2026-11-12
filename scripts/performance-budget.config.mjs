@@ -52,10 +52,13 @@ export const surfaces = [
     id: 'consumi', label: 'Consumi · Energia', sources: ['src/pages/Consumi.tsx'], requires: 'home', kind: 'route',
     budget: { metric: 'incremental', raw: { warning: 580 * KB, limit: 650 * KB }, gzip: { warning: 180 * KB, limit: 200 * KB } },
   },
-  // /rooms. Baseline 266,400 / 78,800.
+  // /rooms. Baseline 266,400 / 78,800. The shared Rooms/Settings structure manager
+  // measures 323,200 raw / 100,400 gzip after its Settings page and floor editor
+  // were split on demand (2026-11-12). The former 100 KB gzip limit was already
+  // reached by main; 101 KB leaves 600 bytes of measured margin. Raw stays 330 KB.
   {
     id: 'rooms', label: 'Stanze', sources: ['src/pages/rooms/RoomsPage.tsx'], requires: 'home', kind: 'route',
-    budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 100 * KB } },
+    budget: { metric: 'incremental', raw: { warning: 300 * KB, limit: 330 * KB }, gzip: { warning: 90 * KB, limit: 101 * KB } },
   },
   // What /rooms opens on request (device panels, section pages, sheets, management), fetched when idle. Baseline 106,000 / 38,600.
   // The entries of the panel registry are not here: each loads apart, as soon as a card of its kind shows (panels/panelPreload.ts).

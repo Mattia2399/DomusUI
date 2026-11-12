@@ -91,7 +91,7 @@ import {
   demoSecurityHistory,
   demoSensorSeries,
 } from './demoRoomsFixtures';
-import type { RoomSheetResult } from './RoomManageSheets';
+import type { FloorChoice, FloorDraft, RoomSheetResult } from './RoomManageSheets';
 import type { ManagedRoom, ManageTab } from './RoomsManagePage';
 import {
   DEMO_LAYOUT,
@@ -132,6 +132,7 @@ import {
   MediaStartPanel,
   preloadRoomsParts,
   RoomEditPanel,
+  FloorEditPanel,
   RoomsManagePage,
   SectionPage,
   PanelLiveGate,
@@ -145,10 +146,12 @@ import { useHouseEnvironmentSnapshot } from './useHouseEnvironmentSnapshot';
 import type { HouseTopology } from '../../services/houseCore';
 import './rooms.css';
 
+const SettingsHouseStructurePage = React.lazy(() => import('./SettingsHouseStructurePage'));
+
 /*
  * The Rooms page, on the Rooms board of the design: the head of the room,
  * its sections in two columns where there is room, and what the room still
- * lacks. Rooms are changed from here; floors in Settings.
+ * lacks. Both Rooms and Settings open this page's shared manager.
  */
 
 export type RoomsPageProps = {
@@ -168,6 +171,8 @@ export type RoomsPageProps = {
   onCameraPtzStop?: (entityId: string) => void;
   /** Opens another page of the app, as Settings for the floors. */
   onNavigate?: (path: string) => void;
+  navigationRoute?: string;
+  onAreasChanged?: (areas: HaArea[]) => void;
 };
 
 const PHONE_QUERY = '(max-width: 760px)';
@@ -316,6 +321,8 @@ export function RoomsPage({
   onCameraPtzMove,
   onCameraPtzStop,
   onNavigate,
+  navigationRoute,
+  onAreasChanged,
 }: RoomsPageProps) {
   const rt = useRoomsTranslations();
   const dt = useDevicesTranslations();
@@ -348,7 +355,14 @@ export function RoomsPage({
   // floors changed from the page; the areas show those changes at once.
   const { layout, updateLayout } = useRoomLayout(runtimeMode, canOrganize, demo ? DEMO_LAYOUT : EMPTY_LAYOUT);
   const [roomSheet, setRoomSheet] = React.useState<{ room: RoomTab | null } | null>(null);
-  const [manageTab, setManageTab] = React.useState<ManageTab | null>(null);
+  const [floorSheet, setFloorSheet] = React.useState<{ floor: FloorChoice | null } | null>(null);
+  const settingsFloors = navigationRoute?.split(/[?#]/, 1)[0] === '/settings/floors';
+  const routeParams = new URLSearchParams(navigationRoute?.split('?')[1]);
+  const routeTab = routeParams.get('manage');
+  const requestedManageTab: ManageTab | null = settingsFloors ? 'floors'
+    : routeTab === 'rooms' || routeTab === 'floors' || routeTab === 'sections' ? routeTab : null;
+  const fromSettings = settingsFloors || routeParams.get('from') === 'settings';
+  const [manageTab, setManageTab] = React.useState<ManageTab | null>(requestedManageTab);
   const management = useRoomManagement({
     demo,
     haConnected,
@@ -365,7 +379,11 @@ export function RoomsPage({
       setActiveRoomId(roomId);
     },
     onTopologyChanged: registry.refresh,
+    onAreasChanged,
   });
+  React.useEffect(() => {
+    if (requestedManageTab && (demo || !haConnected || registry.status === 'ready')) setManageTab(requestedManageTab);
+  }, [demo, haConnected, requestedManageTab, registry.status]);
   const areas = management.areas;
   const areaById = React.useMemo(() => new Map(areas.map((area) => [area.area_id, area])), [areas]);
   // An area's floor is Home Assistant's; a local room's is kept with its look.
@@ -1144,6 +1162,22 @@ export function RoomsPage({
     management.clearError();
     setManageTab('rooms');
   };
+  const closeManage = () => {
+    setManageTab(null);
+    if (requestedManageTab) onNavigate?.('/rooms');
+  };
+  const openEditRoom = (room: RoomTab) => {
+    management.clearError();
+    setRoomSheet({ room });
+  };
+  const openNewFloor = () => {
+    management.clearError();
+    setFloorSheet({ floor: null });
+  };
+  const openEditFloor = (floor: FloorChoice) => {
+    management.clearError();
+    setFloorSheet({ floor });
+  };
 
   /** Saves the sheet: name, icon and floor of an area in Home Assistant; the rest, and all of a local room, here. */
   const saveRoomSheet = async (room: RoomTab | null, { draft, look }: RoomSheetResult) => {
@@ -1208,7 +1242,7 @@ export function RoomsPage({
 
   const roomSheetLayer = (
     <>
-      {manageTab ? (
+      {manageTab && !fromSettings ? (
         <Deferred>
           <RoomsManagePage
             tab={manageTab}
@@ -1216,22 +1250,19 @@ export function RoomsPage({
             currentRoom={activeRoom}
             rooms={managedRooms}
             floors={management.floors}
+            canManageRooms={management.canManage}
             canManageFloors={management.canManageFloors}
             sectionsAll={layout.sections.all}
             sectionsRoom={activeRoom ? layout.sections.rooms[activeRoom.id] ?? null : null}
             busy={management.busy}
-            error={roomSheet ? null : management.error}
-            onClose={() => setManageTab(null)}
+            error={roomSheet || floorSheet ? null : management.error}
+            onClose={closeManage}
             onNewRoom={newRoom}
-            onEditRoom={(room) => {
-              management.clearError();
-              setRoomSheet({ room });
-            }}
+            onEditRoom={openEditRoom}
             onMoveRoom={reorderRoom}
-            onNewFloor={() => void management.createFloor(rt('newFloor'))}
-            onRenameFloor={(floorId, name) => void management.renameFloor(floorId, name)}
+            onNewFloor={openNewFloor}
+            onEditFloor={openEditFloor}
             onMoveFloor={(floorId, direction) => void management.moveFloor(floorId, direction)}
-            onDeleteFloor={(floorId) => void management.deleteFloor(floorId)}
             onSections={(scope, next) =>
               updateLayout((current) => ({
                 ...current,
@@ -1253,6 +1284,35 @@ export function RoomsPage({
         </Deferred>
       ) : null}
 
+      <PanelHost fitContent presentation={phone ? 'sheet' : 'dialog'} isOpen={Boolean(floorSheet)} onClose={() => setFloorSheet(null)} title={floorSheet?.floor?.name ?? rt('newFloor')}>
+        {floorSheet ? (
+          <Deferred>
+            <FloorEditPanel
+              key={floorSheet.floor?.id ?? 'new'}
+              floor={floorSheet.floor}
+              haFields={haConnected && !demo}
+              roomCount={floorSheet.floor ? managedRooms.filter((room) => room.floorId === floorSheet.floor?.id).length : 0}
+              busy={management.busy}
+              error={management.error}
+              onSave={(draft: FloorDraft) => floorSheet.floor
+                ? management.updateFloor(floorSheet.floor.id, draft)
+                : management.createFloor(draft)}
+              onDelete={async () => {
+                if (!floorSheet.floor) return false;
+                const floorId = floorSheet.floor.id;
+                const done = await management.deleteFloor(floorId);
+                if (done && !haConnected) updateLayout((current) => ({
+                  ...current,
+                  looks: Object.fromEntries(Object.entries(current.looks).map(([id, look]) => [id, look.floor === floorId ? { ...look, floor: null } : look])),
+                }));
+                return done;
+              }}
+              onClose={() => setFloorSheet(null)}
+            />
+          </Deferred>
+        ) : null}
+      </PanelHost>
+
       <PanelHost fitContent presentation={phone ? 'sheet' : 'dialog'} isOpen={Boolean(roomSheet)} onClose={() => setRoomSheet(null)} title={sheetRoom ? rt('editRoom') : rt('newRoom')}>
         {roomSheet ? (
           <Deferred>
@@ -1267,7 +1327,7 @@ export function RoomsPage({
               floors={management.floors}
               sensors={{ temperature: temperatureSensors, humidity: humiditySensors }}
               canHide={sheetRoom !== null && visibleRooms.some((tab) => tab.id !== sheetRoom.id)}
-              canDelete={sheetRoom !== null && !DEMO_ROOM_IDS.has(sheetRoom.id) && allRoomTabs.length > 1}
+              canDelete={sheetRoom !== null && !DEMO_ROOM_IDS.has(sheetRoom.id) && (sheetRoom.source === 'ha' || allRoomTabs.length > 1)}
               busy={management.busy}
               error={management.error}
               onSave={(result) => saveRoomSheet(sheetRoom, result)}
@@ -1279,6 +1339,34 @@ export function RoomsPage({
       </PanelHost>
     </>
   );
+
+  if (fromSettings) {
+    return (
+      <>
+        <Deferred>
+          <SettingsHouseStructurePage
+          rooms={managedRooms}
+          floors={management.floors}
+          canManageRooms={management.canManage}
+          canManageFloors={management.canManageFloors}
+          loading={isLoading || (haConnected && registry.status === 'loading')}
+          unavailable={registry.status === 'unauthorized' ? t('dashboard.save.error.server_unauthorized') : registry.status === 'unavailable' ? rt('haUnavailable') : null}
+          busy={management.busy}
+          error={roomSheet || floorSheet ? null : management.error}
+          onRetry={() => void registry.refresh()}
+          onBack={() => onNavigate?.('/settings')}
+          onNewRoom={newRoom}
+          onEditRoom={openEditRoom}
+          onMoveRoom={reorderRoom}
+          onNewFloor={openNewFloor}
+          onEditFloor={openEditFloor}
+          onMoveFloor={(floorId, direction) => void management.moveFloor(floorId, direction)}
+          />
+        </Deferred>
+        {roomSheetLayer}
+      </>
+    );
+  }
 
   if (roomTabs.length === 0) {
     return (

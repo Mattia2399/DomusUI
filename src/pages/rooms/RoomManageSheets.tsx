@@ -35,18 +35,19 @@ export const ICON_LABEL: Record<RoomIconKind, RoomsTranslationKey> = {
 // Above the panel the dropdowns open in (260).
 const DROPDOWN_Z = 400;
 
-export type FloorChoice = { id: string; name: string };
+export type FloorChoice = { id: string; name: string; level?: number | null; aliases?: string[] };
+export type FloorDraft = { name: string; level: number | null; aliases: string[] };
 export type SensorOptions = { temperature: GlassDropdownOption[]; humidity: GlassDropdownOption[] };
 export type RoomSheetResult = { draft: RoomDraft; look: Pick<RoomLook, 'glow' | 'hidden'> };
 
 export const glowCss = ([a, b]: [string, string]) => `linear-gradient(145deg, ${a}, ${b})`;
 
 /** A field as the name of the room: its label above, the field across the sheet, a note below. */
-function TextField({ label, value, placeholder, note, onChange }: { label: string; value: string; placeholder?: string; note?: string; onChange: (value: string) => void }) {
+export function TextField({ label, value, placeholder, note, onChange }: { label: string; value: string; placeholder?: string; note?: string; onChange: (value: string) => void }) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="dv-t2 text-[13px] font-bold">{label}</span>
-      <input className="rooms-text-input" value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+      <input className="rooms-text-input" aria-label={label} value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
       {note ? <span className="dv-t2 text-xs leading-[1.4]">{note}</span> : null}
     </label>
   );

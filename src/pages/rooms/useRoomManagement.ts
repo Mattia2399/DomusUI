@@ -10,6 +10,7 @@ import type { CustomRoomRecord } from '../../components/rooms/roomsStorage';
 import type { HaArea } from '../../hooks/useHaLiveConnection';
 import { useRoomsTranslations } from '../../i18n/roomsTranslations';
 import { areaMessage, cleanName, overlayAreas, parseHaArea, type RoomDraft } from './roomManagement';
+import type { FloorChoice, FloorDraft } from './RoomManageSheets';
 import type { LocalFloor } from './roomLayout';
 
 /*
@@ -34,6 +35,7 @@ export function useRoomManagement({
   setCustomRooms,
   onRoomCreated,
   onTopologyChanged,
+  onAreasChanged,
 }: {
   demo: boolean;
   haConnected: boolean;
@@ -47,6 +49,7 @@ export function useRoomManagement({
   setCustomRooms: React.Dispatch<React.SetStateAction<CustomRoomRecord[]>>;
   onRoomCreated: (roomId: string) => void;
   onTopologyChanged?: () => Promise<boolean>;
+  onAreasChanged?: (areas: HaArea[]) => void;
 }) {
   const rt = useRoomsTranslations();
   const [changedAreas, setChangedAreas] = React.useState<HaArea[]>([]);
@@ -120,10 +123,11 @@ export function useRoomManagement({
     }
     let savedId: string | null = null;
     const done = await run(room ? rt('areaSaveFailed') : rt('areaCreateFailed'), async () => {
-      const area = parseHaArea(await onCallApi(areaMessage(draft, room?.id)));
+      const area = parseHaArea(await onCallApi(areaMessage(draft, room?.id), { reportError: false, throwOnError: true }));
       if (!area) return false;
       setChangedAreas((current) => [...current.filter((entry) => entry.area_id !== area.area_id), area]);
       setDeletedAreaIds((current) => current.filter((id) => id !== area.area_id));
+      onAreasChanged?.([...areas.filter((entry) => entry.area_id !== area.area_id), area]);
       if (!room) onRoomCreated(area.area_id);
       savedId = area.area_id;
       await onTopologyChanged?.();
@@ -142,44 +146,55 @@ export function useRoomManagement({
       return false;
     }
     return run(rt('areaDeleteFailed'), async () => {
-      const result = await onCallApi({ type: 'config/area_registry/delete', area_id: room.id });
-      if (result === null) return false;
+      await onCallApi({ type: 'config/area_registry/delete', area_id: room.id }, { reportError: false, throwOnError: true });
       setDeletedAreaIds((current) => Array.from(new Set([...current, room.id])));
       setChangedAreas((current) => current.filter((area) => area.area_id !== room.id));
+      onAreasChanged?.(areas.filter((area) => area.area_id !== room.id));
       await onTopologyChanged?.();
       return true;
     });
   };
 
   // Floors: Home Assistant's when it is connected, the local ones of the layout otherwise.
-  const floors: LocalFloor[] = haConnected ? haFloors.map((floor) => ({ id: floor.floor_id, name: floor.name })) : localFloors;
+  const floors: FloorChoice[] = haConnected
+    ? haFloors.map((floor) => ({ id: floor.floor_id, name: floor.name, level: floor.level, aliases: floor.aliases }))
+    : localFloors;
   const canManageFloors = haConnected ? canManageHa : canManage;
 
-  const createFloor = async (name: string) => {
+  const createFloor = async (draft: FloorDraft) => {
     if (!haConnected) {
-      setLocalFloors((current) => [...current, { id: `floor:${randomId()}`, name }]);
+      setLocalFloors((current) => [...current, { id: `floor:${randomId()}`, name: draft.name }]);
       return true;
     }
     if (!canManageHa || !onCallApi) return false;
     return run(rt('floorCreateFailed'), async () => {
-      const floor = parseHaFloorList([await onCallApi({ type: 'config/floor_registry/create', name })])[0];
-      if (!floor) return false;
-      setHaFloors((current) => [...current, floor]);
+      const message: Record<string, unknown> = { type: 'config/floor_registry/create', name: draft.name };
+      if (draft.level !== null) message.level = draft.level;
+      if (draft.aliases.length) message.aliases = draft.aliases;
+      const floor = parseHaFloorList([await onCallApi(message, { reportError: false, throwOnError: true })])[0];
+      if (floor) setHaFloors((current) => [
+        ...current.filter((entry) => entry.floor_id !== floor.floor_id),
+        { ...floor, level: draft.level, aliases: draft.aliases },
+      ]);
       await onTopologyChanged?.();
-      return true;
+      return Boolean(floor);
     });
   };
 
-  const renameFloor = async (floorId: string, name: string) => {
+  const updateFloor = async (floorId: string, draft: FloorDraft) => {
     if (!haConnected) {
-      setLocalFloors((current) => current.map((floor) => (floor.id === floorId ? { ...floor, name } : floor)));
+      setLocalFloors((current) => current.map((floor) => (floor.id === floorId ? { ...floor, name: draft.name } : floor)));
       return true;
     }
     if (!canManageHa || !onCallApi) return false;
     return run(rt('floorSaveFailed'), async () => {
-      const floor = parseHaFloorList([await onCallApi({ type: 'config/floor_registry/update', floor_id: floorId, name })])[0];
-      if (!floor) return false;
-      setHaFloors((current) => current.map((entry) => (entry.floor_id === floorId ? floor : entry)));
+      const parsed = parseHaFloorList([await onCallApi(
+        { type: 'config/floor_registry/update', floor_id: floorId, name: draft.name, level: draft.level, aliases: draft.aliases },
+        { reportError: false, throwOnError: true },
+      )])[0];
+      setHaFloors((current) => current.map((entry) => entry.floor_id === floorId
+        ? { ...entry, ...parsed, name: draft.name, level: draft.level, aliases: draft.aliases }
+        : entry));
       await onTopologyChanged?.();
       return true;
     });
@@ -198,15 +213,13 @@ export function useRoomManagement({
     }
     if (!canManageHa || !onCallApi) return false;
     return run(rt('floorReorderFailed'), async () => {
-      const result = await onCallApi({ type: 'config/floor_registry/reorder', floor_ids: ids });
-      if (result === null) return false;
+      await onCallApi({ type: 'config/floor_registry/reorder', floor_ids: ids }, { reportError: false, throwOnError: true });
       setHaFloors((current) => byId(current, (floor) => floor.floor_id));
       await onTopologyChanged?.();
       return true;
     });
   };
 
-  /** Only a floor without rooms goes; its rooms would otherwise be left on none. */
   const deleteFloor = async (floorId: string) => {
     if (!haConnected) {
       setLocalFloors((current) => current.filter((floor) => floor.id !== floorId));
@@ -214,9 +227,9 @@ export function useRoomManagement({
     }
     if (!canManageHa || !onCallApi) return false;
     return run(rt('floorDeleteFailed'), async () => {
-      const result = await onCallApi({ type: 'config/floor_registry/delete', floor_id: floorId });
-      if (result === null) return false;
+      await onCallApi({ type: 'config/floor_registry/delete', floor_id: floorId }, { reportError: false, throwOnError: true });
       setHaFloors((current) => current.filter((floor) => floor.floor_id !== floorId));
+      onAreasChanged?.(areas.map((area) => area.floor_id === floorId ? { ...area, floor_id: null } : area));
       await onTopologyChanged?.();
       return true;
     });
@@ -234,7 +247,7 @@ export function useRoomManagement({
     saveRoom,
     deleteRoom,
     createFloor,
-    renameFloor,
+    updateFloor,
     moveFloor,
     deleteFloor,
   };

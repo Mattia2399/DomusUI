@@ -22,6 +22,8 @@ const loaders = {
   roomSheets: onceLoaded(() => import('./RoomManageSheets')),
 };
 
+const loadFloorEditPanel = onceLoaded(() => import('./FloorEditPanel'));
+
 export const Panel = React.lazy(() => loaders.panel().then((module) => ({ default: module.Panel })));
 export const PanelLiveGate = React.lazy(() => loaders.live().then((module) => ({ default: module.PanelLiveGate })));
 export const SecurityPanel = React.lazy(() => loaders.security().then((module) => ({ default: module.SecurityPanel })));
@@ -32,6 +34,7 @@ export const SectionPage = React.lazy(() => loaders.section().then((module) => (
 export const AddAccessoriesSheet = React.lazy(() => loaders.accessories().then((module) => ({ default: module.AddAccessoriesSheet })));
 export const RoomsManagePage = React.lazy(() => loaders.manage().then((module) => ({ default: module.RoomsManagePage })));
 export const RoomEditPanel = React.lazy(() => loaders.roomSheets().then((module) => ({ default: module.RoomEditPanel })));
+export const FloorEditPanel = React.lazy(() => loadFloorEditPanel().then((module) => ({ default: module.FloorEditPanel })));
 
 /** Fetch every part once the page is idle; a part that fails here is asked again when it opens. */
 export function preloadRoomsParts() {

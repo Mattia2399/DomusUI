@@ -12,7 +12,6 @@ import {
   Plus,
   ShieldCheck,
   Thermometer,
-  Trash2,
   Tv,
   type LucideIcon,
 } from 'lucide-react';
@@ -22,6 +21,7 @@ import GlassToggle from '../../components/ui/GlassToggle';
 import type { RoomTab } from '../../components/rooms/roomsDirectory';
 import { useDevicesTranslations, type DevicesTranslationKey } from '../../i18n/devicesTranslations';
 import { useRoomsTranslations } from '../../i18n/roomsTranslations';
+import { useI18n } from '../../i18n/I18nProvider';
 import { ROOM_ICONS } from './RoomHead';
 import type { RoomIconKind } from './roomSummary';
 import { glowCss, type FloorChoice } from './RoomManageSheets';
@@ -69,41 +69,11 @@ export type ManagedRoom = {
   editable: boolean;
 };
 
-function Step({ label, disabled, onClick, children, danger = false }: { label: string; disabled?: boolean; onClick: () => void; children: React.ReactNode; danger?: boolean }) {
+function Step({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" className={clsx('rooms-step', danger && 'is-danger')} aria-label={label} aria-disabled={disabled || undefined} onClick={() => !disabled && onClick()}>
+    <button type="button" className="rooms-step" aria-label={label} aria-disabled={disabled || undefined} onClick={() => !disabled && onClick()}>
       {children}
     </button>
-  );
-}
-
-/** A floor's name, changed where it is; sent when the field is left or Enter is pressed. */
-function FloorName({ name, label, disabled, onRename }: { name: string; label: string; disabled: boolean; onRename: (name: string) => void }) {
-  const [value, setValue] = React.useState(name);
-  React.useEffect(() => setValue(name), [name]);
-  const commit = () => {
-    const next = value.replace(/\s+/g, ' ').trim();
-    if (next && next !== name) onRename(next);
-    else setValue(name);
-  };
-  return (
-    <label className="block">
-      <span className="sr-only">{label}</span>
-      <input
-        className="rooms-inline-input"
-        value={value}
-        disabled={disabled}
-        onChange={(event) => setValue(event.target.value)}
-        onBlur={commit}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') event.currentTarget.blur();
-          if (event.key === 'Escape') {
-            setValue(name);
-            event.stopPropagation();
-          }
-        }}
-      />
-    </label>
   );
 }
 
@@ -113,6 +83,7 @@ export function RoomsManagePage({
   currentRoom,
   rooms,
   floors,
+  canManageRooms,
   canManageFloors,
   sectionsAll,
   sectionsRoom,
@@ -123,9 +94,8 @@ export function RoomsManagePage({
   onEditRoom,
   onMoveRoom,
   onNewFloor,
-  onRenameFloor,
+  onEditFloor,
   onMoveFloor,
-  onDeleteFloor,
   onSections,
   onResetRoomSections,
 }: {
@@ -134,6 +104,7 @@ export function RoomsManagePage({
   currentRoom: RoomTab | null;
   rooms: ManagedRoom[];
   floors: FloorChoice[];
+  canManageRooms: boolean;
   canManageFloors: boolean;
   sectionsAll: SectionLayout;
   /** The open room's own sections; null when it uses those of every room. */
@@ -145,13 +116,13 @@ export function RoomsManagePage({
   onEditRoom: (room: RoomTab) => void;
   onMoveRoom: (roomId: string, direction: -1 | 1) => void;
   onNewFloor: () => void;
-  onRenameFloor: (floorId: string, name: string) => void;
+  onEditFloor: (floor: FloorChoice) => void;
   onMoveFloor: (floorId: string, direction: -1 | 1) => void;
-  onDeleteFloor: (floorId: string) => void;
   onSections: (scope: 'all' | 'room', next: SectionLayout) => void;
   onResetRoomSections: () => void;
 }) {
   const rt = useRoomsTranslations();
+  const { t } = useI18n();
   const dt = useDevicesTranslations();
   const pageRef = React.useRef<HTMLDivElement | null>(null);
   const [scope, setScope] = React.useState<'all' | 'room'>('all');
@@ -194,7 +165,7 @@ export function RoomsManagePage({
             <ChevronLeft size={18} strokeWidth={2.4} aria-hidden="true" />
             <span className="max-w-[40vw] truncate">{currentRoom?.name ?? rt('close')}</span>
           </button>
-          {tab === 'rooms' ? (
+          {tab === 'rooms' && canManageRooms ? (
             <button type="button" className="dv-glass rooms-pill inline-flex !h-11 items-center gap-1.5 !rounded-[22px] !pl-3 !pr-4 !text-[15px]" onClick={onNewRoom}>
               <Plus size={16} strokeWidth={2.4} aria-hidden="true" />
               {rt('newRoom')}
@@ -227,6 +198,7 @@ export function RoomsManagePage({
             {error}
           </p>
         ) : null}
+        {!canManageRooms ? <p className="dv-t2 m-0 px-1 text-[13px] font-medium">{t('settings.rooms.readOnly')}</p> : null}
 
         {tab === 'rooms' ? (
           <>
@@ -262,10 +234,10 @@ export function RoomsManagePage({
                             </span>
                             <span className="dv-t2 text-[13px] font-medium">{sub}</span>
                           </button>
-                          <Step label={rt('moveRoomBefore', { name: room.tab.name })} disabled={index === 0} onClick={() => onMoveRoom(room.tab.id, -1)}>
+                          <Step label={rt('moveRoomBefore', { name: room.tab.name })} disabled={!canManageRooms || index === 0} onClick={() => onMoveRoom(room.tab.id, -1)}>
                             <ChevronUp size={16} strokeWidth={2.4} aria-hidden="true" />
                           </Step>
-                          <Step label={rt('moveRoomAfter', { name: room.tab.name })} disabled={index === group.rooms.length - 1} onClick={() => onMoveRoom(room.tab.id, 1)}>
+                          <Step label={rt('moveRoomAfter', { name: room.tab.name })} disabled={!canManageRooms || index === group.rooms.length - 1} onClick={() => onMoveRoom(room.tab.id, 1)}>
                             <ChevronDown size={16} strokeWidth={2.4} aria-hidden="true" />
                           </Step>
                           {room.editable ? <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" className="dv-t3 flex-none" /> : <span className="w-4 flex-none" />}
@@ -286,35 +258,30 @@ export function RoomsManagePage({
               {floors.length === 0 ? <div className="rooms-manage-row dv-t2 text-sm font-medium">{rt('noFloors')}</div> : null}
               {floors.map((floor, index) => {
                 const count = rooms.filter((room) => room.floorId === floor.id).length;
-                const canDelete = canManageFloors && count === 0;
                 return (
                   <div key={floor.id} className="rooms-manage-row">
                     <span className="dv-icon-button pointer-events-none !h-10 !w-10 !rounded-[13px]" aria-hidden="true">
                       <Layers size={18} strokeWidth={2} />
                     </span>
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                      <FloorName name={floor.name} label={rt('floorNameAria', { n: index + 1 })} disabled={!canManageFloors || busy} onRename={(name) => onRenameFloor(floor.id, name)} />
-                      <span className="dv-t2 pl-0.5 text-[13px] font-medium">{countRooms(count)}</span>
-                    </span>
+                    <button type="button" className="rooms-manage-main" disabled={!canManageFloors || busy}
+                      aria-label={rt('editNamed', { name: floor.name })} onClick={() => onEditFloor(floor)}>
+                      <span className="truncate text-[15px] font-semibold">{floor.name}</span>
+                      <span className="dv-t2 text-[13px] font-medium">
+                        {countRooms(count)}{floor.level != null ? ` · ${t('settings.rooms.level')} ${floor.level}` : ''}
+                      </span>
+                    </button>
                     <Step label={rt('moveFloorBefore')} disabled={!canManageFloors || busy || index === 0} onClick={() => onMoveFloor(floor.id, -1)}>
                       <ChevronUp size={16} strokeWidth={2.4} aria-hidden="true" />
                     </Step>
                     <Step label={rt('moveFloorAfter')} disabled={!canManageFloors || busy || index === floors.length - 1} onClick={() => onMoveFloor(floor.id, 1)}>
                       <ChevronDown size={16} strokeWidth={2.4} aria-hidden="true" />
                     </Step>
-                    <Step
-                      danger
-                      label={count > 0 ? rt('floorNotEmpty', { name: floor.name }) : rt('deleteNamed', { name: floor.name })}
-                      disabled={!canDelete || busy}
-                      onClick={() => onDeleteFloor(floor.id)}
-                    >
-                      <Trash2 size={15} strokeWidth={2.2} aria-hidden="true" />
-                    </Step>
+                    {canManageFloors ? <ChevronRight size={16} strokeWidth={2.4} aria-hidden="true" className="dv-t3 flex-none" /> : null}
                   </div>
                 );
               })}
             </div>
-            <p className="dv-t2 m-0 max-w-[640px] px-1 text-[13px] font-medium leading-[1.45]">{rt('floorsNote')}</p>
+            {floors.length > 0 ? <p className="dv-t2 m-0 max-w-[640px] px-1 text-[13px] font-medium leading-[1.45]">{t('settings.rooms.deleteFloorBody')}</p> : null}
           </>
         ) : null}
 
@@ -338,7 +305,7 @@ export function RoomsManagePage({
                   <span className="dv-t2 text-[13px] font-semibold">
                     {sectionsRoom ? rt('sectionsCustom', { room: currentRoom.name }) : rt('sectionsShared', { room: currentRoom.name })}
                   </span>
-                  {sectionsRoom ? (
+                  {sectionsRoom && canManageRooms ? (
                     <button type="button" className="dv-option !h-8 !text-[13px]" onClick={onResetRoomSections}>
                       {rt('sectionsReset')}
                     </button>
@@ -358,13 +325,13 @@ export function RoomsManagePage({
                       <span className={clsx('min-w-0 flex-1 text-[15px] font-semibold', !on && 'opacity-45')}>
                         {name}
                       </span>
-                      <Step label={rt('moveSectionUp', { name })} disabled={index === 0} onClick={() => changeSections(moveSection(sections, key, -1))}>
+                      <Step label={rt('moveSectionUp', { name })} disabled={!canManageRooms || index === 0} onClick={() => changeSections(moveSection(sections, key, -1))}>
                         <ChevronUp size={16} strokeWidth={2.4} aria-hidden="true" />
                       </Step>
-                      <Step label={rt('moveSectionDown', { name })} disabled={index === sections.order.length - 1} onClick={() => changeSections(moveSection(sections, key, 1))}>
+                      <Step label={rt('moveSectionDown', { name })} disabled={!canManageRooms || index === sections.order.length - 1} onClick={() => changeSections(moveSection(sections, key, 1))}>
                         <ChevronDown size={16} strokeWidth={2.4} aria-hidden="true" />
                       </Step>
-                      <GlassToggle checked={on} label={name} onChange={() => changeSections(toggleSection(sections, key))} />
+                      <GlassToggle checked={on} label={name} disabled={!canManageRooms} onChange={() => changeSections(toggleSection(sections, key))} />
                     </div>
                   );
                 })}

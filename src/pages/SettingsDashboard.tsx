@@ -75,7 +75,7 @@ import {
 } from '../services/supportDiagnostics';
 import SettingsLayoutVersionsSection from '../components/settings/SettingsLayoutVersionsSection';
 import { SettingsListGroup, SettingsListRow } from '../components/settings/SettingsList';
-import { SETTINGS_PAGE_PROPS, useSettingsPageTransition } from '../components/settings/useSettingsPageTransition';
+import { SETTINGS_PAGE_PROPS } from '../components/settings/useSettingsPageTransition';
 import SupportFeedbackSection from '../components/settings/SupportFeedbackSection';
 import type {
   DashboardRevisionHistoryStatus,
@@ -88,8 +88,8 @@ import type { CardSizingEngine } from '../services/cardSizingEngine';
 import type { WasteCollectionCallApi } from '../services/wasteCollectionClient';
 import type { HaStateTranslations } from '../services/haStateTranslations';
 import WasteCollectionSettings from '../components/settings/WasteCollectionSettings';
-import SettingsRoomsManager from '../components/settings/SettingsRoomsManager';
 import SettingsSecurityPage, { type SecurityAlarmCard } from '../components/settings/SettingsSecurityPage';
+
 import type { AuthUserContext } from '../hooks/useDeviceAuth';
 import {
   SETTINGS_SECTIONS,
@@ -165,7 +165,6 @@ type SettingsDashboardProps = {
   /** Home Assistant's own words for entity states, when they can be asked for. */
   loadStateTranslations?: (language: string) => Promise<HaStateTranslations>;
   /** The rooms after a change made here, for the rest of the app. */
-  onAreasChanged?: (areas: HaArea[]) => void;
   /** The alarm cards of the dashboard, for their codes on this device. */
   alarmCards?: SecurityAlarmCard[];
   /** Whose device confirmation is shown (same identity as the Profile). */
@@ -563,7 +562,6 @@ export default function SettingsDashboard({
   kioskStartRoutes = [],
   resolveAssetUrl,
   loadStateTranslations,
-  onAreasChanged,
   alarmCards = [],
   deviceAuthUser,
   account,
@@ -790,7 +788,6 @@ export default function SettingsDashboard({
   );
   const settingsRoomContext = demoRoomContext ?? realSettingsHouseContext;
   const navigateTo = (path: string) => onNavigate?.(path);
-  useSettingsPageTransition(settingsPath);
   const isOverviewPath =
     settingsPath === '/settings' || settingsPath === '/settings/home' || settingsPath === DEVICE_SETTINGS_ROUTE;
   useEffect(() => {
@@ -1285,24 +1282,6 @@ export default function SettingsDashboard({
         <LazyLoadBoundary mode="section" fallback={null}>
           <ClimateSettingsShell callApi={onCallApi} connected={isConnected} states={haStates} registry={haEntityRegistry} canManage={access.can('climate.manage')} canControl={access.can('climate.control')} />
         </LazyLoadBoundary>
-      </SettingsDetailShell>
-    );
-  }
-
-  if (settingsPath === '/settings/floors') {
-    return (
-      <SettingsDetailShell
-        title={t('settings.home.floors')}
-        subtitle={t('settings.rooms.subtitle')}
-        onBack={() => navigateTo('/settings')}
-      >
-        <SettingsRoomsManager
-          callApi={onCallApi}
-          connected={isConnected}
-          canManage={security.can('manage_rooms')}
-          onOpenRooms={() => navigateTo('/rooms')}
-          onRoomsChanged={onAreasChanged}
-        />
       </SettingsDetailShell>
     );
   }
