@@ -1,6 +1,6 @@
 # Domus UI roadmap
 
-Aggiornata: 2026-10-08
+Aggiornata: 2026-11-12
 
 ## Obiettivo
 
@@ -8,7 +8,50 @@ Portare Domus UI da beta avanzata a prodotto distribuibile e vendibile, mantenen
 
 La regola fino alla chiusura dei gate P0 e': non aggiungere nuove famiglie di card. Prima consolidiamo quelle gia presenti e l'esperienza completa di `/home`.
 
-## Baseline del 14 luglio 2026
+## Stato corrente al 12 novembre 2026
+
+Questa sezione prevale sui checkpoint datati che seguono. Le diciture "completato" nelle sezioni storiche descrivono lo scope e le verifiche di allora, non certificano automaticamente la release corrente o tutti i dispositivi Home Assistant.
+
+| Blocco | Stato corrente | Prossimo risultato verificabile |
+| --- | --- | --- |
+| P1 - Freeze | Superato | Baseline storica conservata; lo sviluppo corrente e su `main`. |
+| P2 - Release gate automatico | **Rosso sul `main` verificato** | Il 2026-11-12 `release:gate` passa runtime, note, TypeScript, 3.671 unit test, build e budget app, poi fallisce al budget del sito. L'audit release eseguito separatamente trova anche una vulnerabilita high su `vite@6.4.3`. Correggere entrambi i blocchi e ripetere il gate completo. |
+| P3 - Sicurezza e permessi | **Aperto, da fare** | Progettare e realizzare la nuova esperienza/pagina Security e le protezioni aggiuntive richieste; chiudere la checklist manuale Alarm, Lock, CSP, ruoli, reset e backup/restore su dispositivi reali. La pagina Security esistente e operativa nello scope attuale, ma non conclude P3. |
+| P4 - Verita dei dati e comandi | **Aperto: certificazione** | Censire le entita e i dati ancora da certificare, associando a ciascuno fonte HA, disponibilita, timestamp, capability, comando e conferma reale. Completare i test hardware mancanti, inclusa la QA fisica Climate CLM.3D. |
+| P5 - Editor, griglia e persistenza | **Risolto per il problema originario con Grid Engine 2.0** | Conservare regressioni geometriche e di persistenza nel gate; l'attivazione delle Home esistenti resta esplicita e il rollout va verificato separatamente. |
+| P6 - Architettura e performance | **Permanente; regressione misurata aperta** | Il budget app passa con warning, ma `site:budget` fallisce: JS totale 1.456/1.200 KB raw e 440/330 KB gzip; CSS totale 393/320 KB raw e 73,7/53 KB gzip. Ridurre il peso prima del rilascio. |
+| P7 - Accessibilita, design e traduzioni | **Permanente; debito i18n aperto** | Ogni nuovo componente nasce con struttura i18n, cataloghi `it`/`en`/`fr`, formati locali e test. L'audit locale del 2026-11-12 segnala 89 possibili stringhe italiane residue: distinguere UI pubblica e laboratori, poi completare le traduzioni richieste, a partire da Security. |
+| P8 - Funzioni Domus UI | **Parzialmente completato** | Centro Attenzione, inventario dispositivi e rifinitura shell/editor sono implementati; restano timeline unificata, ricerca globale, layout personali, automazioni, funzioni avanzate e app segnate come future. |
+| P9 - Distribuzione | **Aperto: collaudo e lancio** | Pacchetto HACS e documentazione esistono; verificare installazione, aggiornamento e rollback su HA reale, i gate manuali della release e i materiali commerciali ancora mancanti. |
+| House Core | **Integrato in `main`** | Rooms, Climate, Home e Settings usano la topologia canonica; mantenere i contratti e verificare le integrazioni su ambienti HA reali. |
+| Climate | **Implementazione integrata; QA fisica bloccata** | Le letture read-only CLM.3D sono state effettuate, ma il precheck resta bloccato: nell'impianto verificato non c'erano zone/endpoints configurati ne un target sicuro. Configurare un target adatto, poi riprendere dry-run, rejection test e collaudo fisico controllato. |
+| Persistenza e condivisione | **Base HA implementata; estensioni aperte** | Layout e revisioni sono salvati su HA; servono prove manuali multi-dispositivo e reset. Pubblicazione per ruolo/utente/dispositivo e QR verificati restano futuri. |
+| Irrigazione Core | **Software implementato; QA hardware aperta** | Suite Linux storica verde su HA 2025.1 e 2026.2.3; mancano valvola/switch, pioggia, browser spento, reload, riavvio e Repair su impianto reale prima dell'uso non presidiato. |
+| Domus Core Security | **Pianificato** | Motore server autorevole post-beta; distinto dalla pagina Security e dai gate P3 ancora aperti. |
+| Domus 3D | **In sviluppo separato** | Il branch `feature/domus-3d-house-alignment` contiene fondazione, allineamento House Core, import immagine e geometria poligonale; ha ancora lavoro in corso e non va integrato in `main` fino a fine sviluppo e verifica. |
+
+### Coda operativa corrente
+
+1. P2/P6: correggere il budget del sito e la dipendenza Vite segnalata dall'audit; rieseguire `release:gate` completo sul nuovo commit.
+2. P3: definire lo scope della nuova pagina Security e il modello di protezione; implementare e collaudare con ruoli/dispositivi reali prima di chiudere il gate.
+3. P4: creare una matrice delle entita e dei dati non certificati e completare i collaudi HA/hardware, distinguendo test automatici da prove fisiche.
+4. P9: eseguire installazione, aggiornamento, rollback e controlli manuali della [checklist di rilascio](release-checklist.md); chiudere i materiali di vendita ancora aperti.
+5. P8: pianificare le funzioni future in base a dipendenze e valore; Automazioni, To-do, Mappa, Utility Room e Pool & Spa non sono da presentare come complete.
+6. P6 e P7: applicare performance, accessibilita e i18n come requisiti di ogni intervento, non come milestone chiuse; classificare e smaltire le segnalazioni dell'audit i18n.
+7. Domus 3D: proseguire e verificare nel branch dedicato. Non confluisce in `main` durante questa fase.
+
+Riferimenti di verifica: [stato delle funzioni](feature-status.md), [checklist sicurezza](security-beta-checklist.md), [checklist rilascio](release-checklist.md), [QA fisica Climate](climate-clm3d-physical-qa.md) e [specifica Grid Engine 2.0](home-cards-grid-engine-2.md).
+
+### Verifiche locali di questo aggiornamento
+
+- Commit verificato: `0a6b5f280a95c560c75accd151e70934136ef8a4` (`main`), prima della sola modifica a questa roadmap.
+- `npm run release:gate`: **FAIL** al passo `site:budget`; runtime, note release, TypeScript, 405 file/3.671 test unitari, build app, budget app e build sito hanno superato i rispettivi passi. Il budget app segnala margini ridotti: Home 100,4/101 KB gzip, chunk Home piu grande 1.098,8/1.100 KB raw, totale JS+CSS 1.617,9/1.650 KB gzip.
+- `site:budget`: initial JS/CSS entro soglia; totale JS 1.456 KB raw / 440 KB gzip contro 1.200 / 330; totale CSS 393 KB raw / 73,7 KB gzip contro 320 / 53. Il gate si e fermato qui: E2E del sito, smoke produzione, audit release ed E2E app non sono stati eseguiti da questa catena.
+- `npm run test:site`, eseguito separatamente sulla build generata: **6/6 PASS** (40,2 s).
+- `npm run audit:release`, eseguito separatamente: **FAIL**; `vite@6.4.3` ricade nel range high `<=6.4.3` segnalato da npm audit. La policy blocca il rilascio; npm indica una correzione disponibile. Verificare l'aggiornamento compatibile e rieseguire audit e gate.
+- `npm run i18n:audit`: **FAIL** con 89 possibili stringhe italiane residue; richiede classificazione e correzione, e non e attualmente incluso in `release:gate`.
+
+## Baseline storica del 14 luglio 2026
 
 ### Punti di forza gia disponibili
 
@@ -48,7 +91,7 @@ I tre test unitari rossi riguardano:
 6. Una card non deve tagliare contenuto in nessun breakpoint o larghezza reale.
 7. Ogni nuova funzione deve avere test proporzionati al rischio.
 
-## Checkpoint esecutivo del 30 luglio 2026
+## Checkpoint storico del 30 luglio 2026
 
 ### Stato sintetico
 
@@ -122,7 +165,7 @@ Done quando:
 
 Priorita: P0, blocca la beta.
 
-Stato: completato il 2026-07-14.
+Stato storico: completato il 2026-07-14. Il gate resta obbligatorio su ogni candidato di rilascio; l'esecuzione del 2026-11-12 sul `main` corrente e **fallita al budget del sito**. L'audit release separato ha trovato una vulnerabilita high su Vite. I risultati attuali sono riportati in apertura.
 
 Azioni:
 
@@ -154,7 +197,9 @@ Risultato verificato:
 
 Priorita: P0, blocca la beta commerciale.
 
-Stato: implementazione tecnica completata. Gate riconfermato il 2026-07-22 con `301/301` test unitari e build superata. Il fail-closed ora reagisce anche agli eventi reali della WebSocket: perdita connessione, autenticazione revocata e disconnessione volontaria sono stati separati. L'identita HA viene inoltre rivalidata ogni 15 secondi e al ritorno sulla pagina, per intercettare cambi ruolo che non chiudono la WebSocket. Admin non Owner e utente limitato sono stati verificati su HA reale; `/rooms` nasconde anche gli ingressi amministrativi all'utente limitato, oltre a proteggere callback e persistenza. Il flusso Alarm confronta anche il PIN HA configurato prima dell'invio e attende l'esito del servizio prima di chiudere la conferma. Le istanze della Conferma dispositivo sincronizzano ora immediatamente enrollment e rimozione nella stessa pagina, senza condividere la credential migrata tra utenti HA. La verifica WebAuthn dispone inoltre di un timeout applicativo e viene abortita se il prompt nativo resta pendente, consentendo il fallback al tastierino anche attraverso i re-render del pannello. I comandi Lock sensibili non recuperano piu silenziosamente il PIN salvato: un codice configurato forza il gate condiviso per sblocco e apertura. Batteria e connessione Lock restano informazioni del solo pannello contestuale e vengono rilevate automaticamente dagli attributi o dalle entita diagnostiche dello stesso dispositivo HA. Una famiglia di entita Lock diagnostiche isolate copre tutti gli stati visuali anche senza hardware compatibile. Restano obbligatorie le prove manuali rinviate che richiedono un impianto sicuro prima di dichiarare P3 chiuso per la beta commerciale.
+Stato corrente: **aperto**. La nuova pagina/esperienza Security e il rafforzamento della protezione sono lavoro da definire e realizzare. Restano aperte anche le prove manuali della [checklist sicurezza](security-beta-checklist.md) e della [checklist di rilascio](release-checklist.md). La pagina `/security` attuale e una base operativa, non la chiusura del gate.
+
+Stato tecnico storico: gate riconfermato il 2026-07-22 con `301/301` test unitari e build superata. Il fail-closed ora reagisce anche agli eventi reali della WebSocket: perdita connessione, autenticazione revocata e disconnessione volontaria sono stati separati. L'identita HA viene inoltre rivalidata ogni 15 secondi e al ritorno sulla pagina, per intercettare cambi ruolo che non chiudono la WebSocket. Admin non Owner e utente limitato sono stati verificati su HA reale; `/rooms` nasconde anche gli ingressi amministrativi all'utente limitato, oltre a proteggere callback e persistenza. Il flusso Alarm confronta anche il PIN HA configurato prima dell'invio e attende l'esito del servizio prima di chiudere la conferma. Le istanze della Conferma dispositivo sincronizzano ora immediatamente enrollment e rimozione nella stessa pagina, senza condividere la credential migrata tra utenti HA. La verifica WebAuthn dispone inoltre di un timeout applicativo e viene abortita se il prompt nativo resta pendente, consentendo il fallback al tastierino anche attraverso i re-render del pannello. I comandi Lock sensibili non recuperano piu silenziosamente il PIN salvato: un codice configurato forza il gate condiviso per sblocco e apertura. Batteria e connessione Lock restano informazioni del solo pannello contestuale e vengono rilevate automaticamente dagli attributi o dalle entita diagnostiche dello stesso dispositivo HA. Una famiglia di entita Lock diagnostiche isolate copre tutti gli stati visuali anche senza hardware compatibile. Restano obbligatorie le prove manuali rinviate che richiedono un impianto sicuro prima di dichiarare P3 chiuso per la beta commerciale.
 
 Aggiornamento `/security` del 3 agosto 2026: la pagina riusa ora lo stesso contratto Alarm di card e pannello contestuale. Le modalita derivano dalle feature HA, la conferma dispositivo precede il PIN quando configurata, il codice combinato resta locale e soltanto il PIN HA raggiunge il servizio. Offline il flusso e fail-closed; nessuno stato finale viene simulato nel client. SOS e disponibile solo con feature `TRIGGER`, richiede una conferma esplicita e attraversa lo stesso gate. Le griglie reattive sono validate automaticamente da 320 a 1024 px.
 
@@ -182,7 +227,9 @@ Done quando:
 
 Priorita: P0.
 
-Stato: completato per lo scope beta disponibile. Gate automatico riconfermato il 2026-07-22 con `307/307` test unitari, `28/28` scenari Playwright, type-check e build di produzione superati. Il collaudo HA reale ha verificato Light, Switch, Media Player e perdita fisica della connessione; Climate avanzato, Cover e Vacuum restano nella matrice hardware rinviata per assenza di entita reali compatibili. La macchina a stati condivisa `connected / reconnecting / offline / reauth_required / disconnected_by_user` dispone di watchdog WebSocket e panel bridge, ultimo snapshot conservato come dato non aggiornato, UI di recupero distinta e blocco centrale dei comandi quando la connessione reale non e affidabile. `useDeviceCommandCoordinator` gestisce `sending / awaiting_confirmation / confirmed / error / rollback`, timeout, perdita connessione e sostituzione sicura dei comandi concorrenti. Il coordinatore copre Light, Switch, Climate, Cover, Alarm, Lock, Media Player e Vacuum. Le regolazioni continue separano l'anteprima locale dal valore confermato; i comandi momentanei senza stato osservabile, come flash, cambio traccia, locate e PTZ, vengono confermati esplicitamente dalla risposta del servizio. Media e Vacuum espongono un feedback di attesa discreto. Gli script scena mantengono il proprio osservatore di esecuzione, mentre i servizi scena usano gia la risposta esplicita del servizio.
+Stato corrente: **aperto per la certificazione di entita e dati**. Il coordinamento automatico dei comandi e lo scope beta verificato restano acquisiti; serve una matrice esplicita delle entita/dati non certificati, con prove HA reali e criteri di conferma. Climate CLM.3D e bloccato sulla QA fisica per assenza di zona configurata e target sicuro nell'impianto verificato.
+
+Stato tecnico storico: gate automatico riconfermato il 2026-07-22 con `307/307` test unitari, `28/28` scenari Playwright, type-check e build di produzione superati. Il collaudo HA reale ha verificato Light, Switch, Media Player e perdita fisica della connessione; Climate avanzato, Cover e Vacuum restano nella matrice hardware rinviata per assenza di entita reali compatibili. La macchina a stati condivisa `connected / reconnecting / offline / reauth_required / disconnected_by_user` dispone di watchdog WebSocket e panel bridge, ultimo snapshot conservato come dato non aggiornato, UI di recupero distinta e blocco centrale dei comandi quando la connessione reale non e affidabile. `useDeviceCommandCoordinator` gestisce `sending / awaiting_confirmation / confirmed / error / rollback`, timeout, perdita connessione e sostituzione sicura dei comandi concorrenti. Il coordinatore copre Light, Switch, Climate, Cover, Alarm, Lock, Media Player e Vacuum. Le regolazioni continue separano l'anteprima locale dal valore confermato; i comandi momentanei senza stato osservabile, come flash, cambio traccia, locate e PTZ, vengono confermati esplicitamente dalla risposta del servizio. Media e Vacuum espongono un feedback di attesa discreto. Gli script scena mantengono il proprio osservatore di esecuzione, mentre i servizi scena usano gia la risposta esplicita del servizio.
 
 Audit dati Demo/Reale completato il 2026-08-28: fixture iniziali e catalogo Demo sono centralizzati e non vengono caricati nel runtime reale; una casa senza layout o registri HA resta vuota, Rooms non inventa stanze, vecchie card `mock` vengono migrate alla sorgente `ha` e i fallback locali di Climate, Alarm, Light, Camera, Cover e Vacuum sono confinati alla Demo esplicita. Security marca i soli eventi dimostrativi e Consumi dichiara chiaramente le parti ancora in anteprima. L'affidabilita autonoma di Irrigazione resta assegnata al blocco post-beta `Domus Core Irrigation` con backend autorevole.
 
@@ -208,7 +255,9 @@ Done quando:
 
 Priorita: P0/P1.
 
-Stato: completato per lo scope beta il 2026-07-28. I primi tre blocchi di persistenza ed editor sono stati completati e collaudati manualmente tra il 2026-07-22 e il 2026-07-23. Il salvataggio restituisce un esito esplicito, mostra `Salvataggio`, `Salvato` o l'errore specifico e impedisce l'uscita dall'editor quando la scrittura finale fallisce. La baseline di recupero viene creata entrando in Edit Mode, eliminata dopo un'uscita regolare e proposta tramite dialog dopo una sessione interrotta; snapshot Demo e Reale sono separati ed esclusi da backup e sync. La cronologia transazionale fino a 50 operazioni copre drag, resize, aggiunta, rimozione, configurazione e override responsive di card e sezioni. Gli aggiornamenti live HA non entrano nella cronologia, le regolazioni continue vengono accorpate e sono disponibili pulsanti accessibili e scorciatoie `Ctrl/Cmd+Z`, `Ctrl+Y` e `Ctrl/Cmd+Shift+Z`. Canvas e stack ricevono una revisione autorevole dopo undo/redo, evitando che la cache runtime della griglia rimandi l'aggiornamento visivo fino al refresh. Il quarto blocco introduce anteprime reali misurate senza trasformazioni CSS: su desktop sono disponibili `Auto`, `Desktop`, `Tablet`, `Verticale` e `Mobile`; su tablet soltanto `Auto`, MD, SM e XS; su smartphone il selettore non viene mostrato e si modifica direttamente il layout effettivo. Il breakpoint visualizzato e sempre lo stesso configurato dal Builder e modificato tramite drag. Su desktop anteprima, Undo, Redo e stato di salvataggio condividono un'unica barra inferiore; su tablet e smartphone la cronologia resta in alto per evitare compressioni.
+Stato corrente: **risolto per il problema originario tramite Grid Engine 2.0**. L'editor reale e coperto da test di produzione e l'attivazione delle Home esistenti e esplicita; mantenere i test di geometria, salvataggio e recupero e verificare separatamente il rollout. La migrazione delle singole card a container query rimane un miglioramento successivo, non riapre P5.
+
+Stato storico: completato per lo scope beta il 2026-07-28. I primi tre blocchi di persistenza ed editor sono stati completati e collaudati manualmente tra il 2026-07-22 e il 2026-07-23. Il salvataggio restituisce un esito esplicito, mostra `Salvataggio`, `Salvato` o l'errore specifico e impedisce l'uscita dall'editor quando la scrittura finale fallisce. La baseline di recupero viene creata entrando in Edit Mode, eliminata dopo un'uscita regolare e proposta tramite dialog dopo una sessione interrotta; snapshot Demo e Reale sono separati ed esclusi da backup e sync. La cronologia transazionale fino a 50 operazioni copre drag, resize, aggiunta, rimozione, configurazione e override responsive di card e sezioni. Gli aggiornamenti live HA non entrano nella cronologia, le regolazioni continue vengono accorpate e sono disponibili pulsanti accessibili e scorciatoie `Ctrl/Cmd+Z`, `Ctrl+Y` e `Ctrl/Cmd+Shift+Z`. Canvas e stack ricevono una revisione autorevole dopo undo/redo, evitando che la cache runtime della griglia rimandi l'aggiornamento visivo fino al refresh. Il quarto blocco introduce anteprime reali misurate senza trasformazioni CSS: su desktop sono disponibili `Auto`, `Desktop`, `Tablet`, `Verticale` e `Mobile`; su tablet soltanto `Auto`, MD, SM e XS; su smartphone il selettore non viene mostrato e si modifica direttamente il layout effettivo. Il breakpoint visualizzato e sempre lo stesso configurato dal Builder e modificato tramite drag. Su desktop anteprima, Undo, Redo e stato di salvataggio condividono un'unica barra inferiore; su tablet e smartphone la cronologia resta in alto per evitare compressioni.
 
 Il collaudo geometrico finale copre XS, SM, MD, XL e 2XL, apertura reale del Builder, testi lunghi, stack a piu righe, cambio della larghezza interna senza resize della finestra e larghezze equivalenti allo zoom browser 80%, 100%, 125% e 150%. Il nuovo test attende la stabilizzazione asincrona del reflow e fallisce se card o sezioni restano fuori dal canvas. Gli `8/8` E2E dedicati a griglia e stack e il gate complessivo con `432/432` test unitari su 110 file e `32/32` E2E risultano verdi. Le ulteriori migrazioni a container query restano intenzionalmente in pausa e saranno riprese dopo la prima beta.
 
@@ -256,6 +305,8 @@ La composizione Greeting basata esclusivamente sul proprio container e un criter
 ### P6 - Architettura e performance
 
 Priorita: P1.
+
+Stato corrente: **requisito permanente con budget sito rosso**. Ogni nuova funzione deve rispettare il budget e mantenere fluida l'interazione. Il peso e le responsabilita di `MainBoard.tsx` restano da ridurre: nel commit corrente il file supera 500 KB e il warning Babel e ricomparso rispetto al checkpoint storico sottostante. Il budget app passa con warning; quello del sito fallisce sui totali JS e CSS, con le misure riportate in apertura. Ridurre gli asset e misurare di nuovo build e dispositivi rappresentativi prima del rilascio.
 
 Avanzamento 27 luglio 2026:
 
@@ -396,6 +447,8 @@ Done quando:
 
 Priorita: P1.
 
+Stato corrente: **requisito permanente**, insieme a P7.1. Ogni componente nuovo deve prevedere accessibilita, temi e struttura di traduzione fin dalla prima implementazione; i gate visuali e i test vanno mantenuti a ogni release.
+
 Stato: baseline beta completata il 2026-07-30 e audit multipagina Light/Dark completato il 2026-08-03. Il documento dichiara lingua italiana, schema colore adattivo e colori browser coerenti con Light/Dark. `MotionConfig` e il fallback CSS rispettano globalmente `prefers-reduced-motion`; focus visibile, skip link, focus iniziale delle pagine nidificate e ritorno del focus sono uniformati. Modali, notifiche e drawer mobili mantengono il focus nel contenitore attivo e rendono inerti i controlli chiusi. I comandi principali mobili e le primitive condivise raggiungono il target touch da 44 px dove lo spazio lo consente. Rooms, Security, Consumi, Automazioni, App Library, Impostazioni e Profilo condividono ora il chrome semantico; anche le rispettive pagine nidificate vengono verificate automaticamente nei due temi e nei limiti del viewport mobile. Le visualizzazioni tecniche immersive mantengono superfici scure esplicite, indipendenti dal tema, per preservare il contrasto dei propri dati. Il gate completo del 2026-08-03 ha superato type-check, audit dipendenze, build, budget, `541/541` test unitari e `46/46` scenari Playwright.
 
 Il Builder e ora utilizzabile anche senza trascinamento: frecce per spostare e `Maiuscole + frecce` per ridimensionare card e sezioni nel canvas e negli stack, con annuncio live di posizione, dimensione o limite raggiunto. Salvataggio, notifiche e feedback di editing espongono regioni `status`/`alert`. Un contratto automatico verifica lingua, metadati, reduced motion, skip link e supporto tastiera; un audit numerico blocca regressioni sotto WCAG AA per testo primario, secondario e terziario sui canvas Light/Dark. Il collaudo Playwright dedicato copre nomi accessibili, focus, target touch, drawer/notifiche, editing da tastiera e riduzione del movimento.
@@ -423,6 +476,8 @@ Done quando:
 #### P7.1 - Internazionalizzazione dell'interfaccia
 
 Priorita: P1 per la crescita internazionale successiva alla prima beta pubblica.
+
+Stato corrente: **obbligo per ogni nuovo componente**. Usare chiavi tipizzate e cataloghi completi `it`, `en`, `fr`, formati `Intl` e test della UI nelle lingue supportate. Security e le altre route ancora sotto gate localizzato restano da completare. `npm run i18n:audit`, eseguito il 2026-11-12, fallisce segnalando 89 possibili stringhe italiane residue in Grid Engine 2.0, Climate e laboratori di sviluppo: classificare i falsi positivi e le superfici interne, quindi correggere la UI pubblica. Lo script non fa parte dell'attuale catena `release:gate`; decidere esplicitamente quando renderlo bloccante.
 
 Stato: scope essenziale pubblicato nella Beta 14 il 7 settembre 2026. Le lingue supportate sono italiano, inglese e francese. Al primo accesso Domus UI usa la lingua comunicata da Home Assistant e, se non disponibile o non supportata, quella del browser; l'italiano resta il fallback finale. Il Profilo espone soltanto le lingue disponibili e una scelta esplicita viene salvata esclusivamente sul dispositivo corrente. Non esiste una voce `Auto`: l'automatismo opera solo finche l'utente non effettua una scelta manuale. Ogni nuova funzione utente deve introdurre contestualmente testi, formati e test essenziali nelle tre lingue, senza creare nuovo debito di traduzione.
 
@@ -464,6 +519,8 @@ Done quando:
 ### P8 - Livello Domus UI
 
 Priorita: P1 dopo la stabilizzazione.
+
+Stato corrente: **parziale**. P8.1, P8.2 e P8.3 sono implementati nello scope descritto sotto. Timeline unificata, ricerca globale, layout personali e altre funzioni della lista restano da specificare e sviluppare; Automazioni e le app future restano indisponibili al pubblico.
 
 Stato: in corso dal 2026-07-30. Il primo blocco `P8.1 - Centro Attenzione` è implementato come funzione di sistema esterna alla griglia configurabile. La fascia compatta appare soltanto in presenza di elementi e non modifica il layout durante l’Edit Mode; su mobile apre un bottom sheet, mentre da desktop condivide con le notifiche lo stesso pannello laterale glass flottante, senza ridimensionare il canvas.
 
@@ -524,6 +581,8 @@ Done quando:
 
 Priorita: P1/P2.
 
+Stato corrente: **aperto**. L'integrazione e il pacchetto HACS sono presenti, ma la [checklist di rilascio](release-checklist.md) lascia aperti installazione pulita, aggiornamento/rollback su HA reale, vari collaudi manuali e materiali commerciali. La presenza dello ZIP non equivale al via libera di distribuzione.
+
 #### Gate identita e presentazione pubblica
 
 Stato: nome pubblico scelto il 31 agosto 2026; asset locali conformi alla policy Home Assistant 2026.3. La submission centralizzata e stata chiusa perché non e più richiesta per le custom integration.
@@ -553,11 +612,13 @@ Azioni:
 - [x] README GitHub con screenshot, matrice di disponibilità e installazione;
 - [ ] collaudo installazione, aggiornamento e rollback HACS su HA reale;
 - app ufficiale come secondo canale futuro;
-- landing page, tabella metodi di installazione e pagina Security & Privacy;
-- changelog, versionamento, procedura di aggiornamento e rollback;
+- [x] pagina [Security & Privacy](security-and-privacy.md) e guida al canale HACS;
+- [ ] tabella pubblica dei metodi di installazione quando sara disponibile un secondo canale;
+- [ ] landing page e video definitivi;
+- [x] changelog, versionamento, procedura di aggiornamento e rollback;
 - [x] centro Supporto e feedback nativo, Issue Form guidato, Discussions e segnalazione privata di sicurezza;
 - [x] diagnostica esportabile senza segreti, nomi o stati della casa;
-- matrice pubblica di card, capability e limitazioni supportate.
+- [x] matrice pubblica di card e limitazioni supportate nello [stato delle funzioni](feature-status.md); aggiornare le capability quando cambia il catalogo.
 
 Done quando:
 
@@ -593,7 +654,10 @@ altri client restano locali e non vengono cancellati. Il tombstone viene chiuso
 e verificato sul server, quindi rimosso in modo best-effort soltanto dopo una
 nuova configurazione confermata.
 
-La configurazione corrente contiene gia sezioni, card e layout distinti `2xl / xl / lg / md / sm / xs`, ma viene salvata nel `localStorage` del singolo browser. La preview Mobile del Builder modifica correttamente `sm/xs`; la sincronizzazione automatica verso un telefono diverso arrivera tramite un aggiornamento successivo.
+Nota storica: prima del repository HA la configurazione viveva soltanto nel
+`localStorage` del singolo browser. Il percorso reale corrente usa il documento
+condiviso su Home Assistant con cache locale non autorevole e revisioni; il
+collaudo manuale su due dispositivi resta nella checklist di rilascio.
 
 Intervento:
 
@@ -899,9 +963,12 @@ Done quando:
 
 ### Versione 3.0 - Domus 3D — Digital Twin della casa
 
-Stato: pianificato per la versione 3.0. `Domus 3D` è un nome provvisorio; questa
-sezione definisce esclusivamente la direzione di prodotto e architetturale e non
-autorizza l'avvio dell'implementazione durante le milestone correnti.
+Stato corrente: sviluppo avviato e mantenuto nel branch separato
+`feature/domus-3d-house-alignment`. La fondazione comprende editor 2D, prima
+vista 3D, allineamento a House Core, import di una planimetria immagine e
+geometria poligonale. Lo sviluppo non e concluso: proseguono editor, prestazioni,
+traduzioni e collaudi. `main` non contiene Domus 3D; l'integrazione avverra
+soltanto dopo completamento e verifica. `Domus 3D` resta un nome provvisorio.
 
 Priorità: funzionalità principale della versione 3.0, successiva alla
 stabilizzazione delle funzioni core e delle linee di rilascio già pianificate.
@@ -1490,7 +1557,9 @@ La beta puo essere distribuita a pagamento quando sono soddisfatti tutti questi 
 - installazione e aggiornamento documentati;
 - disclaimer chiaro: il prodotto non e un sistema di sicurezza certificato.
 
-## Ordine di esecuzione
+## Ordine di esecuzione storico
+
+L'ordine operativo corrente e nella sezione "Coda operativa corrente" in apertura.
 
 1. Freeze e checkpoint.
 2. Pipeline completamente verde.
@@ -1502,6 +1571,6 @@ La beta puo essere distribuita a pagamento quando sono soddisfatti tutti questi 
 8. Funzioni Domus UI.
 9. Distribuzione e crescita commerciale.
 10. Collaudare Calendar v1 su Home Assistant, quindi implementare To-do; Mappa segue dopo la relativa specifica tecnica.
-11. Avviare Domus 3D soltanto nella linea 3.0, procedendo per le cinque fasi
-    documentate e senza duplicare Domus Core, Energy Core o i dati Home
-    Assistant.
+11. Domus 3D e stato avviato su un branch separato; completare le fasi documentate
+    senza duplicare Domus Core, Energy Core o i dati Home Assistant e integrarlo
+    in `main` solo a sviluppo e verifica conclusi.
