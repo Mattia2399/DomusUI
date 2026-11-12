@@ -69,7 +69,6 @@ export type MobileSidebarDrawerProps = {
   isEditMode: boolean;
   canToggleEditMode: boolean;
   quickPaths: SidebarQuickPath[];
-  selectedPathId?: string | null;
   activeRoute?: string;
   isSettingsActive?: boolean;
   userAvatarUrl?: string;
@@ -317,7 +316,6 @@ export function MobileSidebarDrawer({
   isEditMode,
   canToggleEditMode,
   quickPaths,
-  selectedPathId = null,
   activeRoute,
   isSettingsActive = false,
   userAvatarUrl,
@@ -627,7 +625,7 @@ export function MobileSidebarDrawer({
                     detail={routeDetail?.detail}
                     detailTone={routeDetail?.tone}
                     badgeCount={routeDetail?.badge}
-                    active={isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute })}
+                    active={isDashboardNavigationEntryActive({ entry, activeRoute })}
                     onPrefetch={() => onPrefetchRoute?.(entry.path)}
                     onClick={() => handlePathClick(entry)}
                   />
@@ -643,7 +641,7 @@ export function MobileSidebarDrawer({
                   key={entry.id}
                   icon={getDashboardNavigationIcon(entry.icon)}
                   label={entry.label}
-                  active={isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute })}
+                  active={isDashboardNavigationEntryActive({ entry, activeRoute })}
                   onPrefetch={() => onPrefetchRoute?.(entry.path)}
                   onClick={() => handlePathClick(entry)}
                 />

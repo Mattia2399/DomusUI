@@ -1689,8 +1689,6 @@ export function MainBoard() {
     haRememberToken,
     setHaRememberToken,
     sidebarPaths,
-    updateSidebarPath,
-    removeSidebarPath,
   } = useProfileSettings();
   const { config: consumptionConfig } = useConsumptionConfig();
   const webSocketHaConnection =
@@ -2590,7 +2588,6 @@ export function MainBoard() {
   useEffect(() => {
     if (!isEditMode || (!selectedWidgetId && !selectedSectionId)) setCompactEditSheet('auto');
   }, [isEditMode, selectedSectionId, selectedWidgetId]);
-  const [selectedSidebarPathId, setSelectedSidebarPathId] = useState<string | null>(null);
   const [runningSceneBySectionId, setRunningSceneBySectionId] = useState<Partial<Record<string, SceneRunState>>>({});
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(
@@ -2884,10 +2881,6 @@ export function MainBoard() {
     };
   }, [pendingStackRemovalId, sections, widgets]);
 
-  const selectedSidebarPath = useMemo(
-    () => sidebarPaths.find((entry) => entry.id === selectedSidebarPathId) ?? null,
-    [selectedSidebarPathId, sidebarPaths],
-  );
   const LIGHT_WIDGET_HEIGHT_OFF = 1;
   const LIGHT_WIDGET_HEIGHT_ON = 2;
   const CLIMATE_WIDGET_WIDTH = 2;
@@ -6226,15 +6219,6 @@ export function MainBoard() {
   }, [selectedSectionId, sections]);
 
   useEffect(() => {
-    if (
-      selectedSidebarPathId &&
-      !sidebarPaths.some((entry) => entry.id === selectedSidebarPathId)
-    ) {
-      setSelectedSidebarPathId(null);
-    }
-  }, [selectedSidebarPathId, sidebarPaths]);
-
-  useEffect(() => {
     const currentRoute = canUseBrowserRouteNavigation
       ? `${routerLocation.pathname}${routerLocation.search}${routerLocation.hash}`
       : internalNavigationRoute;
@@ -6300,7 +6284,6 @@ export function MainBoard() {
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     if (isEditMode) {
       setIsEditMode(false);
       addNotification(
@@ -6875,7 +6858,6 @@ export function MainBoard() {
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     setIsEditMode(false);
     setEditConfirm(null);
     setStarterLayoutChoiceError(null);
@@ -10323,14 +10305,12 @@ export function MainBoard() {
     setActiveDevice(null);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
   };
 
   const openWeatherControls = () => {
     preloadDashboardDeviceContext();
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     setActiveDevice({
       id: 'weather.home',
       type: 'weather',
@@ -10534,19 +10514,16 @@ export function MainBoard() {
       }
       setSelectedWidgetId(widget.id);
       setSelectedSectionId(null);
-      setSelectedSidebarPathId(null);
       return;
     }
     setSelectedWidgetId(widget.id);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     openLiveControls(widget);
   };
 
   const handleWidgetLongPress = (widget: Widget) => {
     setSelectedWidgetId(widget.id);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     openLiveControls(widget, { performPrimaryAction: false });
   };
 
@@ -11152,7 +11129,6 @@ export function MainBoard() {
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     setIsEditMode(false);
     setEditConfirm(null);
   }, [applyDashboardEditorSnapshot, clearGridEngine2SaveSession, effectiveRuntimeMode]);
@@ -11193,7 +11169,6 @@ export function MainBoard() {
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     setIsEditMode(false);
     setEditConfirm(null);
   }, [
@@ -11293,7 +11268,6 @@ export function MainBoard() {
     setIsCatalogOpen(false);
     setSelectedWidgetId(null);
     setSelectedSectionId(null);
-    setSelectedSidebarPathId(null);
     setEditConfirm(null);
     setIsDashboardConflictOpen(false);
     setIsEditMode(false);
@@ -11430,7 +11404,6 @@ export function MainBoard() {
       setIsCatalogOpen(false);
       setSelectedWidgetId(null);
       setSelectedSectionId(null);
-      setSelectedSidebarPathId(null);
     }
     setIsEditMode((prev) => !prev);
     setEditConfirm(null);
@@ -11443,14 +11416,10 @@ export function MainBoard() {
     }
     const normalized = target;
 
+    // While the Dashboard is being edited, the bar does not leave it.
     if (isEditMode) {
-      setSelectedSidebarPathId(entry.id);
-      setSelectedWidgetId(null);
-      setSelectedSectionId(null);
       return;
     }
-
-    setSelectedSidebarPathId(null);
 
     if (!isExternalNavigationTarget(normalized)) {
       const currentRoute = `${routerLocation.pathname}${routerLocation.search}${routerLocation.hash}`;
@@ -11504,7 +11473,6 @@ export function MainBoard() {
       setActiveDevice(null);
       setSelectedWidgetId(null);
       setSelectedSectionId(null);
-      setSelectedSidebarPathId(null);
 
       if (!nextEditAvailability) {
         setIsEditMode(false);
@@ -11915,7 +11883,6 @@ export function MainBoard() {
             isEditMode={isEditMode}
             canToggleEditMode={canToggleEditMode}
             quickPaths={visibleSidebarPaths}
-            selectedPathId={selectedSidebarPathId}
             activeRoute={activeNavigationRoute}
             isSettingsActive={isSettingsView}
             userAvatarUrl={currentUserAvatarUrl}
@@ -11960,7 +11927,6 @@ export function MainBoard() {
           userAvatarAlt={stateWithConnectedUser.userName}
           haStatus={haStatus}
           quickPaths={visibleSidebarPaths}
-          selectedPathId={selectedSidebarPathId}
           activeRoute={activeNavigationRoute}
           canToggleEditMode={canToggleEditMode}
           onPathClick={handleSidebarPathClick}
@@ -12310,7 +12276,6 @@ export function MainBoard() {
                 setSelectedWidgetId(id);
                 if (id) {
                   setSelectedSectionId(null);
-                  setSelectedSidebarPathId(null);
                 }
               }}
               onSelectSection={(id) => {
@@ -12324,7 +12289,6 @@ export function MainBoard() {
                 setSelectedSectionId(id);
                 if (id) {
                   setSelectedWidgetId(null);
-                  setSelectedSidebarPathId(null);
                 }
               }}
               onWidgetClick={handleWidgetClick}
@@ -12674,8 +12638,6 @@ export function MainBoard() {
               selectedWidgetDisplayMetrics={selectedWidgetDisplayMetrics}
               selectedWidgetActiveLayout={selectedWidgetActiveLayout}
               selectedSection={selectedSection}
-              selectedSidebarPath={selectedSidebarPath}
-              sidebarPaths={sidebarPaths}
               weatherConfig={weatherSection}
               activeGridBreakpoint={canvasGridBreakpoint}
               activeGridWidth={canvasGridWidth}
@@ -12695,15 +12657,8 @@ export function MainBoard() {
               onUpdateWidgetTypeLayoutOverride={updateWidgetTypeLayoutOverride}
               onUpdateWidgetLayoutOverride={updateWidgetLayoutOverride}
               onUpdateSection={updateSection}
-              onUpdateSidebarPath={updateSidebarPath}
               onRemoveSelectedWidget={removeSelectedWidget}
               onRemoveSection={removeSection}
-              onRemoveSidebarPath={(id) => {
-                removeSidebarPath(id);
-                if (selectedSidebarPathId === id) {
-                  setSelectedSidebarPathId(null);
-                }
-              }}
               />
               </PanelServicesProvider>
               </DeviceExtrasProvider>
@@ -12722,7 +12677,6 @@ export function MainBoard() {
           isPushedByDrawer={isMobileSidebarOpen}
           isEditMode={isEditMode}
           quickPaths={visibleSidebarPaths}
-          selectedPathId={selectedSidebarPathId}
           activeRoute={activeNavigationRoute}
           isSettingsActive={isSettingsView}
           onPathClick={handleSidebarPathClick}

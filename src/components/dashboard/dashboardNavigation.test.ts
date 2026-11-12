@@ -19,28 +19,19 @@ describe('dashboardNavigation', () => {
     ]);
   });
 
-  it('preserves user labels and icons while keeping the canonical route', () => {
-    const configured: SidebarQuickPath[] = [
+  it('gives every entry the name and the icon of its route, whatever list it is given', () => {
+    const old: SidebarQuickPath[] = [
       { id: 'home', path: '/home', label: 'La mia casa', icon: 'light' },
     ];
 
-    const [home] = resolveDashboardNavigationEntries(configured, ['home']);
-    expect(home).toMatchObject({ id: 'home', path: '/home', label: 'La mia casa', icon: 'light' });
+    const [home] = resolveDashboardNavigationEntries(old, ['home']);
+    expect(home).toMatchObject({ id: 'home', path: '/home', label: 'Dashboard', icon: 'home' });
   });
 
-  it('resolves active routes from the embedded location and editor selection', () => {
+  it('marks the entry of the page in view, by its route only', () => {
     const [rooms] = resolveDashboardNavigationEntries([], ['rooms']);
-    expect(isDashboardNavigationEntryActive({
-      entry: rooms,
-      isEditMode: false,
-      activeRoute: '/rooms',
-    })).toBe(true);
-    expect(isDashboardNavigationEntryActive({
-      entry: rooms,
-      isEditMode: true,
-      selectedPathId: rooms.id,
-      activeRoute: '/home',
-    })).toBe(true);
+    expect(isDashboardNavigationEntryActive({ entry: rooms, activeRoute: '/rooms' })).toBe(true);
+    expect(isDashboardNavigationEntryActive({ entry: rooms, activeRoute: '/home' })).toBe(false);
   });
 
   it('separates primary routes from drawer-only tools', () => {

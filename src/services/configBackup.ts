@@ -21,6 +21,8 @@ const DEVICE_AUTH_CREDENTIAL_STORAGE_PREFIX = 'ha.dashboard.deviceAuth.credentia
 const DASHBOARD_SERVER_CACHE_STORAGE_PREFIX = 'ha.dashboard.cache.';
 // Developer mode is a device-local choice made from Settings (see useProfileSettings).
 const DEVELOPER_MODE_STORAGE_KEYS = ['ha.dashboard.developerMode.v2', 'ha.dashboard.developerMode'];
+// The old names and icons of the bar entries: no longer used, removed from the browser, never brought back.
+const LEGACY_SIDEBAR_PATHS_STORAGE_KEY = 'ha.dashboard.sidebarPaths';
 
 const MANAGED_STORAGE_PREFIXES = ['ha.dashboard.'];
 const MANAGED_STORAGE_KEYS = [HA_LIVE_STORAGE_KEY, HA_OAUTH_TOKENS_STORAGE_KEY];
@@ -34,6 +36,7 @@ const BACKUP_EXCLUDED_STORAGE_KEYS = new Set([
   REAL_DASHBOARD_RECOVERY_STORAGE_KEY,
   DEMO_DASHBOARD_RECOVERY_STORAGE_KEY,
   ...DEVELOPER_MODE_STORAGE_KEYS,
+  LEGACY_SIDEBAR_PATHS_STORAGE_KEY,
 ]);
 const BACKUP_EXCLUDED_STORAGE_PREFIXES = [
   DEVICE_AUTH_CREDENTIAL_STORAGE_PREFIX,

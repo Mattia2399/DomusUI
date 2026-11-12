@@ -3,20 +3,10 @@ import type { LockPanelData } from '../settings/lockPanelTypes';
 import { normalizeLockCardState, resolveLockLastChange, translateLockCardState } from '../widgets/lockCardModel';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
-  BarChart3,
-  DoorOpen,
   Eye,
   EyeOff,
   HelpCircle,
   Home,
-  LayoutGrid,
-  Lightbulb,
-  MonitorSmartphone,
-  Music2,
-  Rocket,
-  Settings,
-  ShieldCheck,
-  Thermometer,
   X,
 } from 'lucide-react';
 import type { MediaPlayRequest } from '../settings/deviceContextTypes';
@@ -78,12 +68,6 @@ import type {
   WidgetKind,
 } from '../../types/dashboardModels';
 import { FAVORITES_GRID_TITLE, ROOT_CANVAS_COLS } from '../../types/dashboardModels';
-import {
-  SIDEBAR_PATH_ICON_KEYS,
-  type SidebarQuickPath,
-  type SidebarQuickPathCustomization,
-  type SidebarQuickPathIconKey,
-} from '../../hooks/useProfileSettings';
 import type { DashboardAppearance } from '../../theme/dashboardTheme';
 import { getGreetingDefaults } from '../widgets/GreetingCard';
 import { ScenesCard, getSceneIconNode, SCENE_ICON_OPTIONS, SCENES_CATALOG } from '../widgets/ScenesCard';
@@ -211,21 +195,6 @@ type ContextSidebarActions = {
   runCameraRelatedEntityAction?: (
     request: CameraRelatedEntityActionRequest,
   ) => boolean | void | Promise<boolean | void>;
-};
-
-const SIDEBAR_PATH_ICON_MAP: Record<SidebarQuickPathIconKey, typeof LayoutGrid> = {
-  dashboard: LayoutGrid,
-  devices: MonitorSmartphone,
-  settings: Settings,
-  automation: Rocket,
-  security: ShieldCheck,
-  help: HelpCircle,
-  home: Home,
-  rooms: DoorOpen,
-  chart: BarChart3,
-  light: Lightbulb,
-  climate: Thermometer,
-  media: Music2,
 };
 
 const STACK_SECTION_MIN_COLUMNS = 2;
@@ -739,8 +708,6 @@ type RightSidebarManagerProps = {
   selectedWidgetDisplayMetrics?: WidgetDisplayMetrics | null;
   selectedWidgetActiveLayout?: { w: number; h: number } | null;
   selectedSection: DashboardSection | null;
-  selectedSidebarPath: SidebarQuickPath | null;
-  sidebarPaths?: SidebarQuickPath[];
   weatherConfig: DashboardSection | null;
   activeGridBreakpoint: DashboardGridBreakpoint;
   activeGridWidth?: number;
@@ -770,10 +737,8 @@ type RightSidebarManagerProps = {
     nextOverride: WidgetTypeBreakpointLayoutOverride | null,
   ) => void;
   onUpdateSection: (id: string, updater: (section: DashboardSection) => DashboardSection) => void;
-  onUpdateSidebarPath: (id: string, patch: SidebarQuickPathCustomization) => void;
   onRemoveSelectedWidget: () => void;
   onRemoveSection: (id: string) => void;
-  onRemoveSidebarPath: (id: string) => void;
 };
 
 
@@ -828,8 +793,6 @@ export function RightSidebarManager({
   selectedWidgetDisplayMetrics = null,
   selectedWidgetActiveLayout = null,
   selectedSection,
-  selectedSidebarPath,
-  sidebarPaths = [],
   weatherConfig,
   activeGridBreakpoint,
   activeGridWidth = 0,
@@ -849,10 +812,8 @@ export function RightSidebarManager({
   onUpdateWidgetTypeLayoutOverride,
   onUpdateWidgetLayoutOverride,
   onUpdateSection,
-  onUpdateSidebarPath,
   onRemoveSelectedWidget,
   onRemoveSection,
-  onRemoveSidebarPath,
 }: RightSidebarManagerProps) {
   const { locale, t } = useI18n();
   const bt = (value: string) => translateBuilderDetail(locale, value);
@@ -863,7 +824,7 @@ export function RightSidebarManager({
   const [sectionConfigTab, setSectionConfigTab] = React.useState<'layout' | 'settings'>('settings');
   const [greetingConfigTab, setGreetingConfigTab] = React.useState<'title' | 'weather'>('title');
   const [selectedSceneConfigId, setSelectedSceneConfigId] = React.useState<SceneKey | null>(null);
-  const hasEditSelection = Boolean(selectedWidget || selectedSection || selectedSidebarPath);
+  const hasEditSelection = Boolean(selectedWidget || selectedSection);
   const contextSheetStartYRef = React.useRef<number | null>(null);
   const contextSheetPointerIdRef = React.useRef<number | null>(null);
   const contextSheetDragOffsetRef = React.useRef(0);
@@ -2093,7 +2054,7 @@ export function RightSidebarManager({
           <div className="min-w-0">
             <p className="text-[13px] font-semibold text-[color:var(--ui-text-secondary)]">{t('builder.title')}</p>
             <h3 className="mt-0.5 truncate text-xl font-semibold text-[color:var(--ui-text-primary)]">
-              {selectedWidget?.title?.trim() || selectedSection?.title?.trim() || selectedSidebarPath?.label || t('builder.title')}
+              {selectedWidget?.title?.trim() || selectedSection?.title?.trim() || t('builder.title')}
             </h3>
           </div>
         ) : (
@@ -2115,70 +2076,9 @@ export function RightSidebarManager({
         ) : null}
       </div>
       )}
-      {!selectedWidget && !selectedSection && !selectedSidebarPath ? (
+      {!selectedWidget && !selectedSection ? (
         <div className="dashboard-content-surface-soft mt-5 flex flex-1 items-center justify-center rounded-2xl border-dashed p-6 text-center">
           <p className="text-sm text-[color:var(--ui-text-secondary)]">{t('builder.empty')}</p>
-        </div>
-      ) : selectedSidebarPath ? (
-        <div className="flex-1 mt-5 flex flex-col min-h-0">
-          <div className="space-y-4 overflow-y-auto glass-scrollbar pr-1">
-            <label className="block">
-              <p className={BUILDER_LABEL_CLASS}>{t('builder.pathName')}</p>
-              <input
-                value={selectedSidebarPath.label}
-                onChange={(event) =>
-                  onUpdateSidebarPath(selectedSidebarPath.id, {
-                    label: event.target.value,
-                  })
-                }
-                className={BUILDER_INPUT_CLASS}
-              />
-            </label>
-            <div className="block">
-              <p className={BUILDER_LABEL_CLASS}>{t('builder.destination')}</p>
-              <div className={`${BUILDER_INPUT_CLASS} cursor-default select-none text-[color:var(--ui-text-secondary)]`}>
-                {selectedSidebarPath.path}
-              </div>
-              <p className={BUILDER_HELPER_CLASS}>{t('builder.protectedDestination')}</p>
-            </div>
-            <div className="block">
-              <p className={BUILDER_LABEL_CLASS}>{t('builder.icon')}</p>
-              <div className="grid grid-cols-5 gap-2">
-                {SIDEBAR_PATH_ICON_KEYS.map((iconKey) => {
-                  const Icon = SIDEBAR_PATH_ICON_MAP[iconKey] ?? LayoutGrid;
-                  const active = selectedSidebarPath.icon === iconKey;
-                  return (
-                    <button
-                      key={iconKey}
-                      type="button"
-                      onClick={() =>
-                        onUpdateSidebarPath(selectedSidebarPath.id, {
-                          icon: iconKey,
-                        })
-                      }
-                      className={`h-10 w-10 rounded-xl border flex items-center justify-center transition-colors ${
-                        active
-                          ? 'liquid-glass-selection border-[color:var(--ui-border-strong)] text-[color:var(--ui-text-primary)]'
-                          : 'border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] text-[color:var(--ui-text-secondary)] hover:bg-[color:var(--ui-fill-secondary)] hover:text-[color:var(--ui-text-primary)]'
-                      }`}
-                      title={iconKey}
-                      aria-label={t('builder.setIcon', { icon: iconKey })}
-                    >
-                      <Icon size={16} />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onRemoveSidebarPath(selectedSidebarPath.id)}
-            className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-rose-300/45 bg-rose-500/16 px-4 py-2.5 text-sm font-semibold text-rose-100 hover:bg-rose-500/26"
-          >
-            <X size={16} />
-            {t('builder.hideFromBar')}
-          </button>
         </div>
       ) : selectedSection ? (
         <div className="flex-1 mt-5 flex flex-col min-h-0">

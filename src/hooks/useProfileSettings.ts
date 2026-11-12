@@ -8,14 +8,7 @@ import {
   type DashboardAppearanceMode,
   type DashboardBackgroundPreset,
 } from '../theme/dashboardTheme';
-import {
-  createDefaultSidebarPaths,
-  getApplicationRoute,
-  sanitizeSidebarQuickPaths,
-  SIDEBAR_PATH_ICON_KEYS,
-  type SidebarQuickPath,
-  type SidebarQuickPathCustomization,
-} from '../navigation/applicationRoutes';
+import { createDefaultSidebarPaths, type SidebarQuickPath } from '../navigation/applicationRoutes';
 import {
   DEFAULT_CARD_SIZING_ENGINE,
   readStoredCardSizingEngine,
@@ -35,7 +28,6 @@ export {
   SIDEBAR_PATH_ICON_KEYS,
   type ApplicationRouteId,
   type SidebarQuickPath,
-  type SidebarQuickPathCustomization,
   type SidebarQuickPathIconKey,
 } from '../navigation/applicationRoutes';
 
@@ -50,7 +42,12 @@ export type DashboardWallpaperPreset = DashboardBackgroundPreset;
 const THEME_STORAGE_KEY = 'ha.dashboard.theme';
 const BACKGROUND_STORAGE_KEY = 'ha.dashboard.background';
 const LEGACY_WALLPAPER_STORAGE_KEY = 'ha.dashboard.wallpaper';
-const SIDEBAR_PATHS_STORAGE_KEY = 'ha.dashboard.sidebarPaths';
+/**
+ * Where the names and icons chosen for the bar entries used to be kept. That editing is gone: the
+ * entries have the names and icons of their routes, so the key is removed from the browser and kept
+ * out of sync and backups (configBackup.ts), or a synced copy would bring it back.
+ */
+export const LEGACY_SIDEBAR_PATHS_STORAGE_KEY = 'ha.dashboard.sidebarPaths';
 /**
  * Developer mode is off by default and can only be turned on from Settings.
  * The preference is device-local: it is excluded from HA user sync and backups
@@ -96,21 +93,16 @@ function readInitialCardSizingEngine(): CardSizingEngine {
   return readStoredCardSizingEngine(window.localStorage);
 }
 
-function readStoredSidebarPaths(): SidebarQuickPath[] {
-  if (typeof window === 'undefined') {
-    return createDefaultSidebarPaths();
+/** The routes of the bar, with their own names and icons; it also forgets the old customizations. */
+function readSidebarPaths(): SidebarQuickPath[] {
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.removeItem(LEGACY_SIDEBAR_PATHS_STORAGE_KEY);
+    } catch {
+      // Storage can be unavailable (private mode): nothing to forget then.
+    }
   }
-
-  const raw = window.localStorage.getItem(SIDEBAR_PATHS_STORAGE_KEY);
-  if (!raw) {
-    return createDefaultSidebarPaths();
-  }
-
-  try {
-    return sanitizeSidebarQuickPaths(JSON.parse(raw));
-  } catch {
-    return createDefaultSidebarPaths();
-  }
+  return createDefaultSidebarPaths();
 }
 
 export function useProfileSettings() {
@@ -124,7 +116,7 @@ export function useProfileSettings() {
   const [haUrl, setHaUrlState] = useState<string>(initialHaConfig.url);
   const [haToken, setHaTokenState] = useState<string>(initialHaConfig.token);
   const [haRememberToken, setHaRememberTokenState] = useState<boolean>(initialHaConfig.rememberToken);
-  const [sidebarPaths, setSidebarPathsState] = useState<SidebarQuickPath[]>(readStoredSidebarPaths);
+  const [sidebarPaths] = useState<SidebarQuickPath[]>(readSidebarPaths);
 
   const setAppearanceMode = (next: DashboardAppearanceMode) => {
     setAppearanceModeState(next);
@@ -156,41 +148,6 @@ export function useProfileSettings() {
 
   const setHaRememberToken = (next: boolean) => {
     setHaRememberTokenState(next);
-  };
-
-  const updateSidebarPath = (id: string, patch: SidebarQuickPathCustomization) => {
-    setSidebarPathsState((current) =>
-      current.map((entry) => {
-        if (entry.id !== id) {
-          return entry;
-        }
-        return {
-          ...entry,
-          label:
-            patch.label === undefined
-              ? entry.label
-              : patch.label.trim().length > 0
-                ? patch.label.trim()
-                : entry.label,
-          path: entry.path,
-          icon:
-            patch.icon === undefined ||
-            !(SIDEBAR_PATH_ICON_KEYS as readonly string[]).includes(patch.icon)
-              ? entry.icon
-              : patch.icon,
-        };
-      }),
-    );
-  };
-
-  const removeSidebarPath = (id: string) => {
-    setSidebarPathsState((current) => {
-      const next = current.filter((entry) => entry.id !== id);
-      if (next.length > 0) {
-        return next;
-      }
-      return [getApplicationRoute('home')];
-    });
   };
 
   useEffect(() => {
@@ -257,13 +214,6 @@ export function useProfileSettings() {
     });
   }, [haRememberToken, haToken, haUrl]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    window.localStorage.setItem(SIDEBAR_PATHS_STORAGE_KEY, JSON.stringify(sidebarPaths));
-  }, [sidebarPaths]);
-
   return {
     appearance,
     appearanceMode,
@@ -281,7 +231,5 @@ export function useProfileSettings() {
     haRememberToken,
     setHaRememberToken,
     sidebarPaths,
-    updateSidebarPath,
-    removeSidebarPath,
   };
 }

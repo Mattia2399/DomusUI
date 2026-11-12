@@ -107,45 +107,24 @@ describe('useProfileSettings system defaults', () => {
     await waitFor(() => expect(localStorage.getItem('ha.dashboard.background')).toBe('neutral'));
   });
 
-  it('repairs persisted sidebar destinations and writes back only canonical routes', async () => {
+  it('forgets the old names and icons of the bar: removes their key and gives the routes', () => {
     localStorage.setItem(
       'ha.dashboard.sidebarPaths',
-      JSON.stringify([
-        { id: 'security', label: 'Allarme', path: 'https://example.com', icon: 'security' },
-        { id: 'unknown', label: 'Admin', path: '/admin', icon: 'settings' },
-      ]),
+      JSON.stringify([{ id: 'security', label: 'Allarme', path: '/security', icon: 'light' }]),
     );
     installSystemAppearance('dark');
 
     const { result } = renderHook(() => useProfileSettings());
 
-    expect(result.current.sidebarPaths).toEqual([
-      { id: 'security', label: 'Allarme', path: '/security', icon: 'security' },
-    ]);
-    await waitFor(() =>
-      expect(JSON.parse(localStorage.getItem('ha.dashboard.sidebarPaths') ?? '[]')).toEqual([
-        { id: 'security', label: 'Allarme', path: '/security', icon: 'security' },
-      ]),
-    );
-  });
-
-  it('ignores an attempted path mutation while applying presentation changes', () => {
-    installSystemAppearance('dark');
-    const { result } = renderHook(() => useProfileSettings());
-
-    act(() => {
-      result.current.updateSidebarPath('home', {
-        label: 'Casa',
-        path: 'https://example.com',
-      } as never);
+    expect(localStorage.getItem('ha.dashboard.sidebarPaths')).toBeNull();
+    expect(result.current.sidebarPaths.find((entry) => entry.id === 'security')).toEqual({
+      id: 'security',
+      label: 'Sicurezza',
+      path: '/security',
+      icon: 'security',
     });
-
-    expect(result.current.sidebarPaths.find((entry) => entry.id === 'home')).toEqual({
-      id: 'home',
-      label: 'Casa',
-      path: '/home',
-      icon: 'home',
-    });
+    expect('updateSidebarPath' in result.current).toBe(false);
+    expect('removeSidebarPath' in result.current).toBe(false);
   });
 
   it('defaults the local card sizing engine to Adaptive and persists it', async () => {

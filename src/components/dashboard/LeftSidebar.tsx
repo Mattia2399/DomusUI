@@ -26,7 +26,6 @@ type LeftSidebarProps = {
   userAvatarAlt?: string;
   haStatus: HaConnectionStatus;
   quickPaths: SidebarQuickPath[];
-  selectedPathId?: string | null;
   activeRoute?: string;
   isSettingsActive?: boolean;
   canToggleEditMode: boolean;
@@ -51,7 +50,6 @@ export function LeftSidebar({
   userAvatarAlt,
   haStatus,
   quickPaths,
-  selectedPathId = null,
   activeRoute,
   isSettingsActive = false,
   canToggleEditMode,
@@ -87,7 +85,7 @@ export function LeftSidebar({
   const { can } = useAccessControl();
   const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, SIDEBAR_ROUTE_IDS, t, can);
   const isPathEntryActive = (entry: SidebarQuickPath) =>
-    isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute });
+    isDashboardNavigationEntryActive({ entry, activeRoute });
   const sidebarWidthClass = isCompactSidebar ? 'w-14 sm:w-[3.75rem] lg:w-[4.25rem]' : 'w-14 sm:w-16 lg:w-20';
   const sidebarPaddingClass = isCompactSidebar ? 'py-4 sm:py-5' : 'py-5 sm:py-7';
   const profileMarginClass = isCompactSidebar ? 'mb-5 sm:mb-6' : 'mb-8 sm:mb-10';

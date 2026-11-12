@@ -15,7 +15,6 @@ type BottomBarNavProps = {
   isPushedByDrawer?: boolean;
   isEditMode: boolean;
   quickPaths: SidebarQuickPath[];
-  selectedPathId?: string | null;
   activeRoute?: string;
   isSettingsActive?: boolean;
   onPathClick: (entry: SidebarQuickPath) => void;
@@ -35,7 +34,6 @@ export function BottomBarNav({
   isPushedByDrawer = false,
   isEditMode,
   quickPaths,
-  selectedPathId = null,
   activeRoute,
   isSettingsActive = false,
   onPathClick,
@@ -55,7 +53,7 @@ export function BottomBarNav({
   ).map((entry) => ({ entry }) satisfies BottomBarPrimaryAction);
 
   const activeStates = primaryActions.map(({ entry }) =>
-    isDashboardNavigationEntryActive({ entry, isEditMode, selectedPathId, activeRoute }),
+    isDashboardNavigationEntryActive({ entry, activeRoute }),
   );
   // The drop sits under the active destination: one of the routes, or Settings last.
   const activeIndex = isSettingsActive ? primaryActions.length : activeStates.indexOf(true);

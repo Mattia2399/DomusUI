@@ -66,28 +66,28 @@ export function normalizeDashboardNavigationPath(path: string) {
     : normalized;
 }
 
+/**
+ * The entries of a navigation, in the order of `routeIds`, with the name and the icon of their route
+ * (they are no longer customized). `_quickPaths` is the list the callers already hold; it is not read.
+ */
 export function resolveDashboardNavigationEntries(
-  quickPaths: SidebarQuickPath[],
+  _quickPaths: SidebarQuickPath[],
   routeIds: readonly ApplicationRouteId[],
   translate?: (key: TranslationKey) => string,
   /** Access Control: only the pages the account may open (navigation/routeAccess.ts). */
   can?: (capability: AccessCapability) => boolean,
 ) {
-  const configuredByPath = new Map(
-    quickPaths.map((entry) => [normalizeDashboardNavigationPath(entry.path), entry] as const),
-  );
   const allowedRouteIds = can
     ? routeIds.filter((routeId) => canOpenRoute(getApplicationRoute(routeId).path, can))
     : routeIds;
 
   return allowedRouteIds.map((routeId) => {
-    const fallback = getApplicationRoute(routeId);
-    const configured = configuredByPath.get(normalizeDashboardNavigationPath(fallback.path));
+    const route = getApplicationRoute(routeId);
     return {
-      ...(configured ?? fallback),
+      ...route,
       label: translate
         ? translate(DASHBOARD_NAVIGATION_TRANSLATION_KEYS[routeId])
-        : configured?.label ?? DASHBOARD_NAVIGATION_LABELS[routeId] ?? fallback.label,
+        : DASHBOARD_NAVIGATION_LABELS[routeId] ?? route.label,
     };
   });
 }
@@ -99,18 +99,14 @@ export function isPrimaryDashboardNavigationEntry(entry: SidebarQuickPath) {
   return primaryPaths.includes(normalizeDashboardNavigationPath(entry.path));
 }
 
+/** The entry of the page in view: by its route only (the entries are no longer selected to be edited). */
 export function isDashboardNavigationEntryActive({
   entry,
-  isEditMode,
-  selectedPathId,
   activeRoute,
 }: {
   entry: SidebarQuickPath;
-  isEditMode: boolean;
-  selectedPathId?: string | null;
   activeRoute?: string;
 }) {
-  if (isEditMode) return selectedPathId === entry.id;
   return activeRoute
     ? isPathActiveForLocation(entry.path, activeRoute)
     : isPathActiveForCurrentLocation(entry.path);
