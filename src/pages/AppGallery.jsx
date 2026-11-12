@@ -7,7 +7,6 @@ import GlassBottomSheet from '../components/ui/GlassBottomSheet';
 import AppWorkspaceShell from '../components/apps/AppWorkspaceShell';
 import ComingSoonAppDemo from '../components/apps/ComingSoonAppDemo';
 import {
-  IrrigationConsumptionSnapshotCard,
   IrrigationScheduleSnapshotCard,
   IrrigationZoneCard,
 } from '../components/apps/irrigation/IrrigationDashboardCards';
@@ -15,9 +14,7 @@ import { IrrigationTodayFacts, IrrigationTodayHero, IrrigationTodayZones } from 
 import IrrigationConfigurationPage from '../components/apps/irrigation/IrrigationConfigurationPage';
 import IrrigationCalendarPage from '../components/apps/irrigation/IrrigationCalendarPage';
 import IrrigationConsumptionPage from '../components/apps/irrigation/IrrigationConsumptionPage';
-import IrrigationActivityPage, {
-  IrrigationActivitySnapshotCard,
-} from '../components/apps/irrigation/IrrigationActivityPage';
+import IrrigationActivityPage from '../components/apps/irrigation/IrrigationActivityPage';
 import IrrigationZonesManagementPage from '../components/apps/irrigation/IrrigationZonesManagementPage';
 import {
   buildIrrigationConsumptionSeries,
@@ -50,6 +47,7 @@ import { useI18n } from '../i18n/I18nProvider';
 import { useAccessControl, useCan } from '../security/AccessControlProvider';
 import { canOpenRoute } from '../navigation/routeAccess';
 import {
+  ChevronLeft,
   ChevronRight,
   CalendarDays,
   Clock3,
@@ -68,6 +66,7 @@ import {
   Plus,
   Square,
   Sprout,
+  Settings,
   Settings2,
   TreePine,
   Trees,
@@ -2785,6 +2784,19 @@ function IrrigationDashboardView({
       ? t('irrigation.summary.systemStopped')
       : t('irrigation.summary.systemPaused');
   const activeTodayZone = zones.find((zone) => zone.isManualActive && zone.manualSessionState === 'running');
+  const rainDetected = Boolean(rainSensorEnabled && rainSensorEntityId && !rainSensorUnavailable && rainSensorActive);
+  const weatherCondition = String(weatherEntity?.state ?? '').toLowerCase();
+  const weatherLabel = rainDetected || ['rainy', 'pouring', 'lightning-rainy'].includes(weatherCondition)
+    ? t('irrigation.today.raining')
+    : ['sunny', 'clear-night'].includes(weatherCondition) || (rainSensorEntityId && !rainSensorUnavailable && !rainSensorActive)
+      ? t('irrigation.today.dry')
+      : ['cloudy', 'partlycloudy'].includes(weatherCondition)
+        ? t('irrigation.today.cloudy')
+        : null;
+  const weatherDetail = [
+    outdoorTempValue === null ? null : `${Math.round(outdoorTempValue)}°`,
+    rainForecastProbability === undefined ? null : t('irrigation.today.rainChance', { probability: rainForecastProbability }),
+  ].filter(Boolean).join(' · ') || t('irrigation.today.noForecast');
   const todayState = runtimeMode !== 'demo' && !haConnected
     ? 'offline'
     : runtimeMode !== 'demo' && irrigationCoreStatus === 'loading'
@@ -2795,8 +2807,10 @@ function IrrigationDashboardView({
           ? 'fault'
           : activeTodayZone
             ? 'active'
-            : rainSensorEnabled && rainSensorEntityId && !rainSensorUnavailable && rainSensorActive
+            : rainDetected
               ? 'rain'
+              : masterIsStopped
+                ? 'stopped'
               : 'ready';
   const todayRemainingSeconds = activeTodayZone?.manualRemainingSeconds ?? 0;
   const todayValue = todayState === 'active' && todayRemainingSeconds > 0
@@ -2806,7 +2820,7 @@ function IrrigationDashboardView({
       : null;
   const todayValueLabel = todayState === 'active'
     ? t('irrigation.today.remaining')
-    : t('irrigation.today.nextDuration');
+    : t('irrigation.today.minutes');
   const todayTitle = todayState === 'offline'
     ? t('irrigation.today.offlineTitle')
     : todayState === 'loading'
@@ -2818,8 +2832,12 @@ function IrrigationDashboardView({
           : todayState === 'rain'
             ? t('irrigation.summary.pausedRain')
             : todayState === 'active'
-              ? t('irrigation.hero.running')
-              : t('irrigation.hero.ready');
+              ? t('irrigation.today.zoneIrrigating', { name: activeTodayZone.name })
+              : todayState === 'stopped'
+                ? t('irrigation.summary.systemStopped')
+                : overviewScheduleItems.length > 0
+                  ? t('irrigation.today.nextAt', { when: overviewScheduleItems[0].when })
+                  : t('irrigation.hero.ready');
   const todayDescription = todayState === 'offline'
     ? t('irrigation.today.offlineDescription')
     : todayState === 'loading'
@@ -2829,8 +2847,15 @@ function IrrigationDashboardView({
         : todayState === 'fault'
           ? t('irrigation.core.faultDescription')
           : todayState === 'active'
-            ? activeTodayZone.name
-            : `${rainSummaryTitle} · ${rainSummaryDescription}`;
+            ? t('irrigation.today.endsAt', { time: new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(new Date(Date.now() + todayRemainingSeconds * 1000)) })
+            : todayState === 'stopped'
+              ? t('irrigation.manual.stopped')
+              : todayState === 'ready' && overviewScheduleItems.length > 0
+                ? `${overviewScheduleItems[0].name} · ${overviewScheduleItems[0].durationMin} min`
+                : `${rainSummaryTitle} · ${rainSummaryDescription}`;
+  const todayProgressPercent = todayState === 'active' && todayRemainingSeconds > 0
+    ? Math.max(0, Math.min(100, 100 - activeTodayZone.progress))
+    : null;
   const handleMasterPrimaryAction = async () => {
     if (!canControlIrrigation) return;
     const nextState = masterIsRunning ? 'paused' : 'running';
@@ -3089,9 +3114,10 @@ function IrrigationDashboardView({
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="relative isolate grid min-h-full content-start grid-cols-1 gap-4 bg-[color:var(--ui-bg-grouped)] px-3 pb-6 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-5 md:gap-5 md:bg-transparent md:px-6 md:pt-6 lg:px-8 xl:grid-cols-12 xl:px-10"
-        style={activeWorkspaceSection === 'overview' ? { backgroundImage: 'radial-gradient(circle at 12% 8%, rgba(14,159,110,0.12), transparent 32%), radial-gradient(circle at 92% 42%, rgba(41,183,194,0.1), transparent 34%), radial-gradient(circle at 54% 88%, rgba(163,230,53,0.08), transparent 30%)' } : undefined}
+        className={`relative isolate grid min-h-full content-start grid-cols-1 bg-[color:var(--ui-bg-grouped)] pb-6 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-5 md:bg-transparent md:px-6 lg:px-8 xl:grid-cols-12 xl:px-10 ${activeWorkspaceSection === 'overview' && !isEditMode ? 'gap-[22px] px-4 md:pt-2' : 'gap-4 px-3 md:gap-5 md:pt-6'}`}
+        style={activeWorkspaceSection === 'overview' ? { backgroundImage: 'radial-gradient(circle at 0% 0%, rgba(16,185,129,0.26), transparent 37%), radial-gradient(circle at 100% 53%, rgba(6,182,212,0.19), transparent 37%), radial-gradient(circle at 42% 100%, rgba(132,204,22,0.12), transparent 35%)' } : undefined}
       >
+        {activeWorkspaceSection === 'overview' && !isEditMode && canConfigureApps ? <button type="button" onClick={() => handleWorkspaceNavigation('configuration')} aria-label={t('irrigation.nav.settings')} className="liquid-glass-control absolute right-6 top-2 z-10 hidden h-11 w-11 items-center justify-center rounded-full md:flex lg:right-8 xl:right-10"><Settings className="h-5 w-5" aria-hidden="true" /></button> : null}
         <motion.section
           id="irrigation-overview"
           variants={cardVariants}
@@ -3173,10 +3199,16 @@ function IrrigationDashboardView({
               ) : null}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-[22px]">
               <div>
-                <h1 className="text-[2.4rem] font-semibold leading-none tracking-[-0.05em] text-[color:var(--ui-text-primary)] sm:text-[3rem]">{t('irrigation.today.title')}</h1>
-                <p className="mt-1.5 text-sm capitalize text-[color:var(--ui-text-secondary)]">{new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <button type="button" onClick={() => onNavigate('/appgallery')} aria-label={t('irrigation.backLibrary')} className="liquid-glass-control flex h-11 w-11 items-center justify-center rounded-full md:hidden"><ChevronLeft className="h-5 w-5" aria-hidden="true" /></button>
+                  <span className="hidden items-center gap-1.5 text-[13px] font-semibold text-[color:var(--app-workspace-accent)] md:inline-flex"><Droplets className="h-3.5 w-3.5" aria-hidden="true" />{t('irrigation.today.eyebrow')}</span>
+                  {canConfigureApps ? <button type="button" onClick={() => handleWorkspaceNavigation('configuration')} aria-label={t('irrigation.nav.settings')} className="liquid-glass-control flex h-11 w-11 items-center justify-center rounded-full md:hidden"><Settings className="h-5 w-5" aria-hidden="true" /></button> : null}
+                </div>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[color:var(--app-workspace-accent)] md:hidden"><Droplets className="h-3.5 w-3.5" aria-hidden="true" />{t('irrigation.today.eyebrow')}</span>
+                <h1 className="mt-1 text-[2.15rem] font-bold leading-[1.05] tracking-[-0.025em] text-[color:var(--ui-text-primary)]">{t('irrigation.today.title')}</h1>
+                <p className="mt-1.5 text-[0.95rem] font-medium capitalize text-[color:var(--ui-text-secondary)]">{new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p>
               </div>
               <IrrigationTodayHero
                 state={todayState}
@@ -3184,27 +3216,24 @@ function IrrigationDashboardView({
                 description={todayDescription}
                 value={todayValue}
                 valueLabel={todayValueLabel}
-                masterTitle={masterTitle}
+                chipLabel={todayState === 'active' ? activeTodayZone.name : null}
+                progressPercent={todayProgressPercent}
                 masterIsRunning={masterIsRunning}
                 masterIsStopped={masterIsStopped}
-                masterIsPaused={masterIsPaused}
                 commandAvailable={runtimeMode === 'demo' || (irrigationCoreStatus === 'ready' && haConnected)}
-                rainSensorEnabled={rainSensorEnabled}
-                rainSensorSyncing={isRainSensorSyncing}
-                rainSensorEditable={canConfigureApps && (runtimeMode === 'demo' || (irrigationCoreStatus === 'ready' && haConnected))}
-                onRainSensorToggle={() => { void handleRainSensorToggle(); }}
                 onPrimaryAction={handleMasterPrimaryAction}
                 onStop={handleMasterStop}
               />
               <IrrigationTodayFacts
-                temperature={outdoorTempValue}
-                humidity={humidityValue}
-                rainProbability={rainForecastProbability}
-                rainStatusLabel={rainStatusLabel}
+                weatherLabel={weatherLabel}
+                weatherDetail={weatherDetail}
                 moisture={moisturePct}
                 moistureDescription={moistureText}
                 waterLiters={consumptionTotalLiters}
+                waterPeriodLabel={consumptionPeriod === '7d' ? t('irrigation.usage.week') : t(consumptionPeriod === '30d' ? 'irrigation.consumption.period30' : 'irrigation.consumption.period12m')}
                 formatNumber={(value) => new Intl.NumberFormat(locale).format(value)}
+                onOpenSettings={canConfigureApps ? () => handleWorkspaceNavigation('configuration') : undefined}
+                onOpenUsage={() => handleWorkspaceNavigation('usage')}
               />
             </div>
           )}
@@ -3276,7 +3305,7 @@ function IrrigationDashboardView({
 
         <motion.section
           variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-4 ${isEditMode ? 'rounded-[2rem] border border-white/10 bg-[#071723] p-6 text-center text-white backdrop-blur-3xl lg:p-8' : ''}`}
+          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-4 ${isEditMode ? 'rounded-[2rem] border border-white/10 bg-[#071723] p-6 text-center text-white backdrop-blur-3xl lg:p-8' : 'xl:pt-[6.4rem]'}`}
         >
           {isEditMode ? (
             <div className="flex h-full flex-col justify-between text-left">
@@ -3317,37 +3346,11 @@ function IrrigationDashboardView({
 
         <motion.section
           variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-8`}
+          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-12`}
         >
           <IrrigationTodayZones
             zones={zones}
-            nextCycleLabel={overviewNextCycleLabel}
             onOpen={() => handleWorkspaceNavigation('zones')}
-          />
-        </motion.section>
-
-        <motion.section
-          variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-4`}
-        >
-          <IrrigationConsumptionSnapshotCard
-            usage={consumptionTotalLiters}
-            average={consumptionReferenceLiters}
-            savingsLabel={consumptionSnapshotComparisonLabel}
-            positiveSavings={hasPositiveConsumptionComparison}
-            bars={consumptionSnapshotBars}
-            loading={consumptionHistory.status === 'loading'}
-            onOpen={() => handleWorkspaceNavigation('usage')}
-          />
-        </motion.section>
-
-        <motion.section
-          variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-12`}
-        >
-          <IrrigationActivitySnapshotCard
-            items={irrigationActivityItems}
-            onOpen={() => handleWorkspaceNavigation('activity')}
           />
         </motion.section>
 

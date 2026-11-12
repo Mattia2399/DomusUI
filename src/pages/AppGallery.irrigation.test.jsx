@@ -225,7 +225,7 @@ describe('Irrigation App Library configuration', () => {
     expect(screen.queryByRole('heading', { name: 'Impostazioni irrigazione' })).toBeNull();
   });
 
-  it('loads real Home Assistant history for the overview consumption chart', async () => {
+  it('loads real Home Assistant history for the overview water fact', async () => {
     const onCallApi = vi.fn(async (message) => {
       if (message.type === 'domusos/irrigation/get_config') return buildConsumptionCoreDocument();
       if (message.type === 'domusos/irrigation/get_state') return {
@@ -267,7 +267,7 @@ describe('Irrigation App Library configuration', () => {
       }),
       { reportError: false },
     ));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Apri riepilogo idrico' }).textContent).toContain('25 L'));
+    await waitFor(() => expect(within(screen.getByTestId('irrigation-today-facts')).getByRole('button', { name: /Acqua/ }).textContent).toContain('25 L'));
   });
 
   it('caches each consumption period and reuses it when the user goes back', async () => {
@@ -635,7 +635,7 @@ describe('Irrigation App Library configuration', () => {
     render(
       <AppGallery
         suppressBrowserNavigation
-        navigationRoute="/appgallery/irrigation"
+        navigationRoute="/appgallery/irrigation/settings"
         runtimeMode="real"
         canConfigureApps
         currentUserId="owner-1"
@@ -649,7 +649,7 @@ describe('Irrigation App Library configuration', () => {
 
     await waitFor(() => expect(pushState).toBeTypeOf('function'));
     await waitFor(() => {
-      expect(screen.getAllByRole('switch', { name: /sensore pioggia/i }).every((toggle) => toggle.getAttribute('aria-checked') === 'true')).toBe(true);
+      expect(screen.getByRole('switch', { name: 'Blocca quando piove' }).getAttribute('aria-checked')).toBe('true');
     });
 
     coreDocument = {
@@ -661,7 +661,7 @@ describe('Irrigation App Library configuration', () => {
 
     await waitFor(() => {
       expect(onCallApi.mock.calls.filter(([message]) => message.type === 'domusos/irrigation/get_config')).toHaveLength(2);
-      expect(screen.getAllByRole('switch', { name: /sensore pioggia/i }).every((toggle) => toggle.getAttribute('aria-checked') === 'false')).toBe(true);
+      expect(screen.getByRole('switch', { name: 'Blocca quando piove' }).getAttribute('aria-checked')).toBe('false');
     });
   });
 });

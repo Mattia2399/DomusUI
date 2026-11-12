@@ -44,6 +44,9 @@ test('App Library detail routes use an immersive contextual workspace', async ({
   await expect(page.getByRole('heading', { name: 'Oggi', exact: true })).toBeVisible();
   await expect(page.getByTestId('irrigation-today-hero')).toBeVisible();
   await expect(page.getByTestId('irrigation-today-hero').locator('img[src*="/irrigation/"]')).toBeVisible();
+  const overviewHero = await page.getByTestId('irrigation-today-hero').boundingBox();
+  const upcomingHeading = await page.getByRole('heading', { name: 'Prossimi' }).boundingBox();
+  expect(Math.abs((overviewHero?.y ?? 0) - (upcomingHeading?.y ?? 0))).toBeLessThan(25);
 
   await page.getByRole('button', { name: 'Zone' }).click();
   await expect(page.locator('#irrigation-zones')).toBeInViewport();
@@ -147,9 +150,11 @@ test('Irrigation Today keeps the shared mobile navigation and uses a rounded pho
   await scrollContainer.evaluate((element) => element.scrollTo({ top: 400, behavior: 'instant' }));
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const heroAfter = await hero.boundingBox();
-  expect(heroBefore?.height).toBeGreaterThanOrEqual(300);
-  expect(heroBefore?.height).toBeLessThanOrEqual(440);
-  expect(heroAfter?.y).toBeLessThan((heroBefore?.y ?? 0) - 150);
+  const scrollTop = await scrollContainer.evaluate((element) => element.scrollTop);
+  expect(heroBefore?.height).toBeGreaterThanOrEqual(236);
+  expect(heroBefore?.height).toBeLessThanOrEqual(350);
+  expect(scrollTop).toBeGreaterThan(0);
+  expect(Math.abs(((heroBefore?.y ?? 0) - (heroAfter?.y ?? 0)) - scrollTop)).toBeLessThan(3);
   const heroRadius = Number.parseFloat(await hero.evaluate((element) => getComputedStyle(element).borderTopLeftRadius));
   expect(heroRadius).toBeGreaterThanOrEqual(24);
 

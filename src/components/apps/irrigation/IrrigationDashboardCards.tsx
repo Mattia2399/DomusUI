@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { CalendarDays, ChevronRight, Clock3, LoaderCircle, Minus, Play, Plus, Square } from 'lucide-react';
+import { ChevronRight, Clock3, LoaderCircle, Minus, Play, Plus, Square } from 'lucide-react';
 import { useCan } from '../../../security/AccessControlProvider';
 import { IRRIGATION_ABSOLUTE_MAX_DURATION_MIN } from './irrigationConfigurationModel';
 import { useI18n } from '../../../i18n/I18nProvider';
@@ -182,44 +182,24 @@ export function IrrigationScheduleSnapshotCard({ items, onOpen }: ScheduleSnapsh
   const visibleItems = items.slice(0, 3);
 
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="flex min-h-[11.5rem] w-full flex-col self-start rounded-[1.65rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-surface-primary)] p-4 text-left text-[color:var(--ui-text-primary)] shadow-[var(--ui-shadow-card)] transition-transform active:scale-[0.99] sm:p-5"
-      aria-label={t('irrigation.schedule.open')}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-[color:var(--ui-text-tertiary)]">{t('irrigation.schedule.eyebrow')}</p>
-          <h2 className="mt-1 text-lg font-semibold tracking-[-0.035em]">{t('irrigation.schedule.next')}</h2>
-        </div>
-        <CalendarDays className="h-4 w-4 text-[color:var(--app-workspace-accent)]" />
+    <section className="space-y-3" aria-label={t('irrigation.schedule.next')}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-[1.4rem] font-bold tracking-[-0.02em] text-[color:var(--ui-text-primary)]">{t('irrigation.today.upcoming')}</h2>
+        <button type="button" onClick={onOpen} className="text-sm font-semibold text-[color:var(--app-workspace-accent)]">{t('irrigation.today.calendarLink')}</button>
       </div>
-
-      {visibleItems.length ? (
-        <div className="mt-3 overflow-hidden rounded-[1.1rem] border border-[color:var(--ui-border)] bg-[color:var(--ui-fill-tertiary)] divide-y divide-[color:var(--ui-separator)]">
-          {visibleItems.map((item, index) => (
-            <span key={item.id} className="flex min-h-12 items-center gap-2 px-3 py-2.5">
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${index === 0 ? 'bg-[color:var(--app-workspace-accent)]' : 'bg-[color:var(--ui-text-tertiary)]'}`} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[10px] font-semibold">{item.name}</span>
-                <span className="block truncate text-[9px] text-[color:var(--ui-text-tertiary)]">{item.when}</span>
-              </span>
-              <span className="shrink-0 text-[9px] font-semibold text-[color:var(--ui-text-secondary)]">{item.durationMin} min</span>
+      <div className="liquid-glass-panel !rounded-[1.5rem] divide-y divide-[color:var(--ui-separator)] overflow-hidden">
+        {visibleItems.length ? visibleItems.map((item) => (
+          <button key={item.id} type="button" onClick={onOpen} aria-label={t('irrigation.today.openCycle', { name: item.name })} className="flex min-h-[3.65rem] w-full items-center gap-3 px-4 text-left transition-colors hover:bg-[color:var(--ui-fill-tertiary)]">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.65rem] bg-[color:var(--app-workspace-accent)] text-white"><Clock3 className="h-[1.1rem] w-[1.1rem]" aria-hidden="true" /></span>
+            <span className="min-w-0 flex-1 py-2">
+              <span className="block truncate text-base font-semibold text-[color:var(--ui-text-primary)]">{item.name}</span>
+              <span className="block truncate text-xs font-medium text-[color:var(--ui-text-secondary)]">{item.when} · {item.durationMin} min</span>
             </span>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-3 flex min-h-20 items-center rounded-[1rem] bg-[color:var(--ui-fill-tertiary)] px-3 text-xs text-[color:var(--ui-text-secondary)]">
-          {t('irrigation.schedule.empty')}
-        </div>
-      )}
-
-      <span className="mt-2 flex items-center justify-end gap-1 text-[10px] font-semibold text-[color:var(--app-workspace-accent)]">
-        {t('irrigation.schedule.full')}
-        <ChevronRight className="h-3 w-3" />
-      </span>
-    </button>
+            <ChevronRight className="h-4 w-4 shrink-0 text-[color:var(--ui-text-tertiary)]" aria-hidden="true" />
+          </button>
+        )) : <p className="px-4 py-5 text-sm text-[color:var(--ui-text-secondary)]">{t('irrigation.schedule.empty')}</p>}
+      </div>
+    </section>
   );
 }
 

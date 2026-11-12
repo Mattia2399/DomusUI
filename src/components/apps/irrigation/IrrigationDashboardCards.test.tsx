@@ -178,7 +178,7 @@ describe('Irrigation dashboard cards', () => {
     expect(screen.getByText('Prato Nord · oggi alle 18:30')).toBeTruthy();
     expect(screen.getByText('1 attiva')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Apri riepilogo idrico' }).textContent).toContain('1240 L');
-    expect(screen.getByText('domani 05:30')).toBeTruthy();
+    expect(screen.getByText(/domani 05:30/)).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Apri riepilogo settori irrigui' }));
     fireEvent.click(screen.getByRole('button', { name: 'Apri riepilogo idrico' }));
