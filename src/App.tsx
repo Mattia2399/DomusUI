@@ -26,6 +26,8 @@ const GridTestView = import.meta.env.DEV
 const DevicesLab = import.meta.env.DEV ? React.lazy(() => import('./pages/DevicesLab')) : null;
 // Every shared control in its states, and the panel in its three shapes.
 const ComponentsLab = import.meta.env.DEV ? React.lazy(() => import('./pages/dev/ComponentsLab')) : null;
+// The pieces of the new pages (header, subpage, sheet, lists) put together, to compare with docs/design/app/.
+const PageKitLab = import.meta.env.DEV ? React.lazy(() => import('./pages/dev/PageKitLab')) : null;
 
 export default function App() {
   return (
@@ -57,6 +59,16 @@ export default function App() {
             element={
               <LazyLoadBoundary fallback={null}>
                 <ComponentsLab />
+              </LazyLoadBoundary>
+            }
+          />
+        ) : null}
+        {PageKitLab ? (
+          <Route
+            path="/dev/pagina"
+            element={
+              <LazyLoadBoundary fallback={null}>
+                <PageKitLab />
               </LazyLoadBoundary>
             }
           />
