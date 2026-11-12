@@ -15,11 +15,11 @@ import { LazyDashboardNotificationsPanel } from './LazyDashboardNotificationsPan
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
-  NAVIGATION_BAR_ROUTE_IDS,
   normalizeDashboardNavigationPath,
   resolveDashboardNavigationEntries,
 } from './dashboardNavigation';
 import { isPathActiveForLocation } from '../../utils/navigationPathMatch';
+import { navigationBarRoutes, useNavigationBar } from '../../navigation/navigationBarPreferences';
 
 type LeftSidebarProps = {
   isEditMode: boolean;
@@ -85,7 +85,9 @@ export function LeftSidebar({
 
   const badgeValue = unreadCount > 99 ? '99+' : `${unreadCount}`;
   const { can } = useAccessControl();
-  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, NAVIGATION_BAR_ROUTE_IDS, t, can);
+  // Dashboard, then the entries chosen on this device (up to 7); the photo stays at the top.
+  const deviceEntries = useNavigationBar();
+  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, navigationBarRoutes(deviceEntries, 'side'), t, can);
   // Edit belongs to the Dashboard: on the other pages it is not there (it stays while editing, to leave).
   const isDashboardRoute =
     !activeRoute ||

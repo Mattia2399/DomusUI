@@ -1,8 +1,10 @@
 import { settingsExtraTranslations } from './settingsExtraTranslations';
+import { navigationBarTranslations } from './navigationBarTranslations';
 
 export const settingsTranslations = {
   it: {
     ...settingsExtraTranslations.it,
+    ...navigationBarTranslations.it,
     'settings.backup.starterTitle': 'Ripristina layout iniziale',
     'settings.backup.starterDescription': 'Sostituisce la dashboard con il template responsive di Domus UI.',
     'settings.backup.starterPrompt': 'Ripristinare il layout iniziale?',
@@ -221,6 +223,7 @@ export const settingsTranslations = {
   },
   en: {
     ...settingsExtraTranslations.en,
+    ...navigationBarTranslations.en,
     'settings.backup.starterTitle': 'Restore starter layout',
     'settings.backup.starterDescription': 'Replaces the dashboard with the responsive Domus UI template.',
     'settings.backup.starterPrompt': 'Restore the starter layout?',
@@ -386,6 +389,7 @@ export const settingsTranslations = {
   },
   fr: {
     ...settingsExtraTranslations.fr,
+    ...navigationBarTranslations.fr,
     'settings.backup.starterTitle': 'Restaurer la disposition initiale',
     'settings.backup.starterDescription': 'Remplace le tableau de bord par le modèle adaptatif Domus UI.',
     'settings.backup.starterPrompt': 'Restaurer la disposition initiale ?',

@@ -19,6 +19,7 @@ import {
   Languages,
   MoonStar,
   LayoutDashboard,
+  PanelBottom,
   Layers3,
   Link2,
   LockKeyhole,
@@ -100,6 +101,7 @@ import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_KIOSK_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
+  DEVICE_NAVIGATION_ROUTE,
   DEVICE_POWER_ROUTE,
   DEVICE_SCREENSAVER_ROUTE,
   DEVICE_SETTINGS_ROUTE,
@@ -129,6 +131,8 @@ const DevicePowerSettings = React.lazy(() => import('../components/settings/Devi
 const ClimateSettingsShell = React.lazy(() => import('./climate/ClimateSettingsShell'));
 const ScreensaverSettings = React.lazy(() => import('../components/settings/ScreensaverSettings'));
 const KioskSettings = React.lazy(() => import('../components/settings/KioskSettings'));
+// Built with the pieces of the new pages; it loads only when opened.
+const NavigationBarSettingsPage = React.lazy(() => import('../components/settings/NavigationBarSettingsPage'));
 // The chart library loads only with the CPU trend of Settings › System, never with Settings itself.
 const MiniSparkline = React.lazy(() => import('../components/settings/SettingsMiniSparkline'));
 
@@ -961,6 +965,7 @@ export default function SettingsDashboard({
       data: { icon: Database, color: 'bg-amber-500', value: lastBackupLabel ?? undefined },
       appearance: { icon: Palette, color: 'bg-pink-500', value: appearanceLabel },
       language: { icon: Languages, color: 'bg-sky-600', value: t(`language.name.${locale}` as TranslationKey) },
+      navigation: { icon: PanelBottom, color: 'bg-blue-500' },
       screensaver: {
         icon: MoonStar,
         color: 'bg-indigo-500',
@@ -1186,6 +1191,16 @@ export default function SettingsDashboard({
           />
         </LazyLoadBoundary>
       </SettingsDetailShell>
+    );
+  }
+
+  if (settingsPath === DEVICE_NAVIGATION_ROUTE) {
+    return (
+      <div {...SETTINGS_PAGE_PROPS} className="dashboard-page-scroll !p-0 text-[color:var(--ui-text-primary)]">
+        <LazyLoadBoundary mode="section" fallback={null}>
+          <NavigationBarSettingsPage onBack={() => navigateTo('/settings')} />
+        </LazyLoadBoundary>
+      </div>
     );
   }
 

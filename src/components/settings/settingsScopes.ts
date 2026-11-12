@@ -3,6 +3,7 @@ import {
   DEVICE_APPEARANCE_ROUTE,
   DEVICE_KIOSK_ROUTE,
   DEVICE_LANGUAGE_ROUTE,
+  DEVICE_NAVIGATION_ROUTE,
   DEVICE_POWER_ROUTE,
   DEVICE_SCREENSAVER_ROUTE,
   PROFILE_ROUTE,
@@ -61,6 +62,7 @@ export type SettingsEntryId =
   | 'data'
   | 'appearance'
   | 'language'
+  | 'navigation'
   | 'screensaver'
   | 'kiosk'
   | 'power'
@@ -232,6 +234,17 @@ export const SETTINGS_ENTRIES: readonly SettingsEntry[] = [
     storage: 'browser_local',
     titleKey: 'language.selector.label',
     descriptionKey: 'settings.device.languageSubtitle',
+  },
+  {
+    // The entries of the app bar, chosen on this browser only (docs/design/app/REGOLE-app.md §3).
+    id: 'navigation',
+    scope: 'device',
+    owner: 'core',
+    section: 'device',
+    route: DEVICE_NAVIGATION_ROUTE,
+    storage: 'browser_local',
+    titleKey: 'settings.device.navigation',
+    descriptionKey: 'settings.device.navigationSubtitle',
   },
   {
     // Shown and timed by this browser alone (docs/device-screensaver.md).

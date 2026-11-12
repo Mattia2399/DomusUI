@@ -278,6 +278,7 @@ describe('SettingsDashboard', () => {
     expect(device.getAllByRole('button').map((card) => card.textContent)).toEqual([
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
+      expect.stringContaining('Barra di navigazione'),
       expect.stringContaining('Screensaver'),
       expect.stringContaining('Modalità Kiosk'),
       expect.stringContaining('Alimentazione e ricarica'),
@@ -362,6 +363,7 @@ describe('SettingsDashboard', () => {
     expect(cards('Questo dispositivo')).toEqual([
       expect.stringContaining('Aspetto'),
       expect.stringContaining('Lingua'),
+      expect.stringContaining('Barra di navigazione'),
       expect.stringContaining('Screensaver'),
       expect.stringContaining('Modalità Kiosk'),
     ]);

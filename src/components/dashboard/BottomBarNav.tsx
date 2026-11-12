@@ -1,11 +1,12 @@
 import type { SidebarQuickPath } from '../../hooks/useProfileSettings';
+import type { ApplicationRouteId } from '../../navigation/applicationRoutes';
+import { navigationBarRoutes, useNavigationBar } from '../../navigation/navigationBarPreferences';
 import { useAccessControl } from '../../security/AccessControlProvider';
 import type { HaConnectionStatus } from '../../services/haConnectionState';
 import { useI18n } from '../../i18n/I18nProvider';
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
-  NAVIGATION_BAR_ROUTE_IDS,
   resolveDashboardNavigationEntries,
 } from './dashboardNavigation';
 import { DashboardProfileAvatar } from './DashboardProfileAvatar';
@@ -24,6 +25,11 @@ type BottomBarNavProps = {
   userAvatarUrl?: string;
   userName?: string;
   haStatus?: HaConnectionStatus;
+  /**
+   * The look of the bar in Impostazioni › Barra di navigazione: these entries, in the page and not
+   * fixed at the bottom, and out of reach (a picture of the bar, not a second bar).
+   */
+  preview?: { entries: readonly ApplicationRouteId[] };
 };
 
 type BottomBarPrimaryAction = {
@@ -42,12 +48,15 @@ export function BottomBarNav({
   userAvatarUrl,
   userName,
   haStatus = 'disconnected',
+  preview,
 }: BottomBarNavProps) {
   const { t } = useI18n();
   const { can } = useAccessControl();
+  // Dashboard, then the entries chosen on this device (the first 3), then the photo.
+  const deviceEntries = useNavigationBar();
   const primaryActions = resolveDashboardNavigationEntries(
     quickPaths,
-    NAVIGATION_BAR_ROUTE_IDS,
+    navigationBarRoutes(preview?.entries ?? deviceEntries, 'phone'),
     t,
     can,
   ).map((entry) => ({ entry }) satisfies BottomBarPrimaryAction);
@@ -66,9 +75,15 @@ export function BottomBarNav({
 
   return (
     <div
-      data-drawer-push="bottom"
-      data-drawer-open={isPushedByDrawer}
-      className="mobile-drawer-push pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]"
+      data-drawer-push={preview ? undefined : 'bottom'}
+      data-drawer-open={preview ? undefined : isPushedByDrawer}
+      data-testid={preview ? 'bottom-bar-preview' : undefined}
+      inert={preview ? true : undefined}
+      className={
+        preview
+          ? 'pointer-events-none relative'
+          : 'mobile-drawer-push pointer-events-none fixed inset-x-0 bottom-0 z-[170] px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]'
+      }
     >
       <nav
         className="liquid-glass-navigation liquid-glass-tabbar pointer-events-auto relative mx-auto max-w-[21rem]"

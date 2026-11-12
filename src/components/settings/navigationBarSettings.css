@@ -1,0 +1,102 @@
+/*
+ * The layout of Impostazioni › Barra di navigazione (docs/design/app/impostazioni.html, navbar):
+ * only where its pieces stand and the small round buttons of the rows.
+ */
+
+.navbar-settings-wrap {
+  display: flex;
+  width: 100%;
+  max-width: 720px;
+  box-sizing: border-box;
+  flex-direction: column;
+  gap: 22px;
+  margin: 0 auto;
+  padding: 16px 16px 120px;
+  color: var(--ui-text-primary);
+  font-family: var(--ui-font-system);
+}
+
+@container page (min-width: 760px) {
+  .navbar-settings-wrap {
+    padding: 28px 32px 48px;
+  }
+}
+
+.navbar-preview-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The bar as it looks today, on the colours of the app. */
+.navbar-preview {
+  position: relative;
+  display: flex;
+  min-height: 84px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 24px;
+  padding: 10px 12px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--fn-app) 25%, transparent),
+    color-mix(in srgb, var(--fn-app-glow) 25%, transparent)
+  );
+}
+
+.navbar-preview > div {
+  width: 100%;
+}
+
+.navbar-row-tools {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* A round button of 32 px in a touch target of 44 px: move up, remove, add. */
+.navbar-mini {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--ui-text-secondary);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.navbar-mini > span {
+  display: flex;
+  width: 32px;
+  height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--control-track);
+}
+
+.navbar-mini.is-add > span {
+  background: var(--state-ok);
+  color: var(--fn-on-fill);
+}
+
+.navbar-mini.is-remove > span {
+  background: var(--state-error);
+  color: var(--fn-on-fill);
+}
+
+.navbar-mini:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.navbar-mini:focus-visible {
+  border-radius: 50%;
+  outline: 2px solid var(--control-focus);
+  outline-offset: -4px;
+}

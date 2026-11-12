@@ -91,7 +91,7 @@ describe('settings scopes', () => {
   });
 
   it('classifies the preferences saved in this browser as device settings', () => {
-    (['appearance', 'language', 'screensaver', 'kiosk', 'attention', 'advanced'] as const).forEach((id) => {
+    (['appearance', 'language', 'navigation', 'screensaver', 'kiosk', 'attention', 'advanced'] as const).forEach((id) => {
       expect(entry(id), id).toMatchObject({ scope: 'device', section: 'device', storage: 'browser_local' });
     });
     expect(entry('appearance').route).toBe(DEVICE_APPEARANCE_ROUTE);
@@ -140,7 +140,7 @@ describe('settings scopes', () => {
     // Who opens it is the route's rule: device_power.manage, which Home Assistant keeps to administrators.
     expect(resolveRouteAccess(DEVICE_POWER_ROUTE)).toEqual({ kind: 'capability', capability: 'device_power.manage' });
     const ids = SETTINGS_ENTRIES.filter(({ section }) => section === 'device').map(({ id }) => id);
-    expect(ids).toEqual(['appearance', 'language', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
+    expect(ids).toEqual(['appearance', 'language', 'navigation', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
   });
 
   it('keeps only the person in the Profile', () => {
@@ -168,11 +168,11 @@ describe('settings scopes', () => {
       selectVisibleSettingsEntries(section, (route) => canOpenRoute(route, accessFor(role).can)).map(({ id }) => id);
     expect(visible('admin', 'house')).toEqual(['dashboard', 'climate', 'floors', 'access', 'security', 'waste']);
     expect(visible('admin', 'system')).toEqual(['connection', 'devices', 'entities', 'system', 'data']);
-    expect(visible('admin', 'device')).toEqual(['appearance', 'language', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
+    expect(visible('admin', 'device')).toEqual(['appearance', 'language', 'navigation', 'screensaver', 'kiosk', 'power', 'attention', 'advanced']);
     // A member: the people of the house, the system status and this device's preferences.
     expect(visible('member', 'house')).toEqual(['climate', 'access']);
     expect(visible('member', 'system')).toEqual(['system']);
-    expect(visible('member', 'device')).toEqual(['appearance', 'language', 'screensaver', 'kiosk']);
+    expect(visible('member', 'device')).toEqual(['appearance', 'language', 'navigation', 'screensaver', 'kiosk']);
     // Restricted and wall panel accounts have no Settings entry of their own.
     for (const role of ['restricted', 'locked'] as const) {
       expect([...visible(role, 'house'), ...visible(role, 'system'), ...visible(role, 'device')], role).toEqual([]);

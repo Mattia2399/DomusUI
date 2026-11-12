@@ -72,6 +72,7 @@ export const ROUTE_ACCESS_RULES: readonly RouteRule[] = [
   { path: '/settings/data/history', access: needs('dashboard.edit') },
   { path: '/settings/device/appearance', access: needs('device.manage') },
   { path: '/settings/device/language', access: needs('device.manage') },
+  { path: '/settings/device/navigation', access: needs('device.manage') },
   { path: '/settings/device/screensaver', access: needs('device.manage') },
   { path: '/settings/device/kiosk', access: needs('device.manage') },
   { path: DEVICE_POWER_ROUTE, access: needs('device_power.manage') },
