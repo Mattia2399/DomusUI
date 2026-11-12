@@ -26,7 +26,7 @@ Questa sezione prevale sui checkpoint datati che seguono. Le diciture "completat
 | House Core | **Integrato in `main`** | Rooms, Climate, Home e Settings usano la topologia canonica; mantenere i contratti e verificare le integrazioni su ambienti HA reali. |
 | Climate | **Implementazione integrata; QA fisica bloccata** | Le letture read-only CLM.3D sono state effettuate, ma il precheck resta bloccato: nell'impianto verificato non c'erano zone/endpoints configurati ne un target sicuro. Configurare un target adatto, poi riprendere dry-run, rejection test e collaudo fisico controllato. |
 | Persistenza e condivisione | **Base HA implementata; estensioni aperte** | Layout e revisioni sono salvati su HA; servono prove manuali multi-dispositivo e reset. Pubblicazione per ruolo/utente/dispositivo e QR verificati restano futuri. |
-| Irrigazione Core | **Software implementato; QA hardware aperta** | Suite Linux storica verde su HA 2025.1 e 2026.2.3; mancano valvola/switch, pioggia, browser spento, reload, riavvio e Repair su impianto reale prima dell'uso non presidiato. |
+| Irrigazione | **Nuovo disegno approvato; UI da riallineare; Core da estendere** | [Prototipo e piano](design/irrigazione/approved-design.md) fissano Oggi, Programmi, Consumi, Tagliaerba, Impostazioni, wizard e card Home. Il Core attuale e operativo nello scope per zona; programmi ordinati, stagione, salta/rimanda, portata/perdite, previsioni/terreno e robot richiedono nuovi contratti HA. La QA hardware resta aperta. |
 | Domus Core Security | **Pianificato** | Motore server autorevole post-beta; distinto dalla pagina Security e dai gate P3 ancora aperti. |
 | Domus 3D | **In sviluppo separato** | Il branch `feature/domus-3d-house-alignment` contiene fondazione, allineamento House Core, import immagine e geometria poligonale; ha ancora lavoro in corso e non va integrato in `main` fino a fine sviluppo e verifica. |
 
@@ -838,6 +838,14 @@ Done quando:
   offline e permessi insufficienti.
 
 ### Aggiornamento post-beta prioritario - Domus Core Irrigation
+
+Aggiornamento design approvato il 2026-11-12: il [prototipo cliccabile e la mappa
+di implementazione](design/irrigazione/approved-design.md) sono il riferimento
+per mini app, card Home e nuovo lavoro sul Core. La UI esistente non riproduce
+ancora il disegno. Navigazione, pannelli e liste riusano componenti condivisi
+con varianti opzionali; il motore resta l'autorita per comandi e dati reali.
+La pagina Tagliaerba compare solo con un robot valido; dati, avanzamento,
+consumi e diagnostica perdite compaiono solo quando la fonte li supporta.
 
 Stato: Core implementato nell'integrazione HACS e collegato alla UI. Sono
 completati manager server-side, Store versionato, scheduler in ora locale,
