@@ -8,14 +8,24 @@ Data: 2026-11-12. Riferimento visivo e comportamentale: [prototipo cliccabile](i
 - Materiali delle Stanze: sfondo con luci sfocate verde, acqua e lime; card in vetro; tessere attive bianche; pillole di scelta attiva nere; titolo grande allineato a sinistra; liste di impostazioni raggruppate in vetro. Usare i token semantici esistenti e aggiungere soltanto token locali dell'app, senza alterare le altre route.
 - Font di sistema gia previsto dai token `--ui-font-system` e `--ui-font-display`; nessun font aggiuntivo.
 - Riquadro fotografico di stato: immagine leggermente sfocata (circa 3-4 px), velatura scura in basso, etichetta e numero in alto, titolo e frase in basso, massimo due azioni. Stati: in corso, pronto, pioggia, guasto.
-- Asset necessari: quattro fotografie reali, distinte per irrigatori attivi, prato al sole, pioggia e stato neutro di guasto, piu una fotografia del solo prato per il robot. Verificare provenienza/licenza e ottimizzare i formati e le dimensioni prima di inserirle nel bundle. L'immagine attuale `src/assets/irrigation-smart-hero.jpg` e una sola e non copre gli stati richiesti.
+- Asset fotografici: cinque immagini reali in WebP, larghezza massima 900 px, conservate in `src/assets/irrigation/`. La hero usa quelle di sessione attiva, pronto, pioggia e guasto; la foto del prato per il robot resta pronta per la card futura. Il WebP del guasto e riusato quando il Core non e disponibile.
+
+| Stato | Asset | Fonte |
+| --- | --- | --- |
+| In corso | `active.webp` | [Water Sprinklers on Green Grass, Pexels](https://www.pexels.com/photo/water-sprinklers-on-green-grass-12887876/) |
+| Pronto | `ready.webp` | [Grass in a Garden, Pexels](https://www.pexels.com/photo/a-lush-green-lawn-with-a-gate-and-trees-27397124/) |
+| Pioggia | `rain.webp` | [Water Drops on Grass, Pexels](https://www.pexels.com/photo/close-up-photo-of-water-drops-on-grass-4047727/) |
+| Guasto / Core assente | `fault.webp` | [Trees, Shrubs and Lawn in a Garden, Pexels](https://www.pexels.com/photo/trees-shrubs-and-lawn-in-a-garden-12220735/) |
+| Tagliaerba | `mower-lawn.webp` | [Sunlit Grass Lawn, Pexels](https://www.pexels.com/photo/sunlit-grass-lawn-with-lengthening-shadows-35015571/) |
+
+Le schede delle fotografie indicano licenza Free; la [licenza Pexels](https://www.pexels.com/license/) consente l'uso gratuito e non richiede attribuzione. Le fonti restano registrate per tracciabilita. Il prototipo e la vecchia `irrigation-smart-hero.jpg` non sono fonti dei nuovi asset.
 
 ## Navigazione e schermate
 
 | Area | Disegno approvato | Stato del codice al 2026-11-12 |
 | --- | --- | --- |
-| Shell | Telefono: Oggi, Programmi, Consumi, Tagliaerba solo con robot, Impostazioni. Tablet/desktop: le stesse voci in barra laterale di vetro. | `AppWorkspaceShell` esiste; la navigazione Irrigazione corrente e Panoramica, Zone, Calendario, Consumi, Attivita, Impostazioni. Sul telefono aggiunge Libreria e nasconde Impostazioni. Serve una variante configurabile della shell. |
-| Oggi | Data sotto il titolo; riquadro fotografico di stato; Meteo, Terreno, Acqua; prossimi programmi; tessere zone; card robot condizionale. Pannelli zona e avvio manuale apribili. | Esistono hero, riepilogo mobile, snapshot zone/programmi/consumi e attivita. Gerarchia, composizione e stati vanno riallineati al prototipo. I numeri si mostrano solo se HA/Core li forniscono. |
+| Shell | Il prototipo propone Oggi, Programmi, Consumi, Tagliaerba e Impostazioni. | Decisione successiva del 2026-11-12: mantenere la navigazione condivisa attuale. Restano Panoramica, Zone, Calendario, Consumi, Attivita e Impostazioni dove gia previste; sul telefono Libreria resta nella barra e Impostazioni resta fuori dalla barra. I nomi delle route cambieranno solo se concordati separatamente. |
+| Oggi | Data sotto il titolo; riquadro fotografico di stato; Meteo, Terreno, Acqua; prossimi programmi; tessere zone; card robot condizionale. Pannelli zona e avvio manuale apribili. | Prima ricostruzione: titolo/data, foto per stato, tre riquadri con valori disponibili, prossimi cicli raggruppati, tessere zona e snapshot consumi/attivita. Restano pannello di zona fedele al prototipo e card robot. I numeri si mostrano solo se HA/Core li forniscono. |
 | Programmi | Settimana, card per programma con giorni, ora, durata e zone in ordine; toggle; editor con nome, giorni, ora, minuti per zona, aggiunta/rimozione. Durate adattate alla stagione. | La pagina Calendar attuale mostra eventi per zona; il Core persiste giorni/orari/durata su ciascuna zona. Non esiste ancora un programma nominato e ordinato: l'editor completo dipende dal nuovo contratto server. |
 | Consumi | Settimana/Mese, totale, grafico, litri per zona e riga perdita/nessuna perdita quando misurabile. | La pagina attuale legge un contatore HA quando configurato e distingue stime. Mancano portata per zona autorevole e rilevamento perdite. Senza contatore, mostrare solo stime esplicite e omettere la diagnosi perdite. |
 | Tagliaerba | Pagina solo con robot: foto, stato, numero grande, batteria, altezza di taglio, lame, attesa dell'irrigazione. | La pagina e il supporto Core non esistono. Mostrare solo attributi/capability esposti dall'entita; niente avanzamento senza fine prevista. |
@@ -34,14 +44,16 @@ Data: 2026-11-12. Riferimento visivo e comportamentale: [prototipo cliccabile](i
 
 | Componente | Riuso previsto | Differenza dal prototipo |
 | --- | --- | --- |
-| `AppWorkspaceShell` | Sidebar e barra mobile, focus, navigazione, ritorno | Serve la possibilita di togliere Libreria dalla barra mobile e includere Impostazioni tra le voci; il ritorno passa nell'header. La scelta attiva del prototipo e una pillola nera, non la selezione accentata corrente. Variante opzionale confinata a Irrigazione. |
-| `GlassBottomSheet`/`GlassModal` | Sheet mobile, focus trap e chiusura | Su tablet/desktop oggi la sheet e una modale centrata; il prototipo richiede una colonna ancorata a destra. Serve una variante opzionale riutilizzabile, senza cambiare il comportamento esistente. |
+| `AppWorkspaceShell` | Sidebar e barra mobile, focus, navigazione, ritorno | Si conserva la navigazione attuale, inclusi Libreria nella barra mobile e Impostazioni fuori dalla barra mobile. La pillola nera del prototipo non prevale sullo stato attivo condiviso. Nessuna variante della shell necessaria per questa differenza. |
+| `GlassBottomSheet`/`GlassModal` | Sheet mobile, focus trap e chiusura | Si conserva il foglio dal basso sul telefono e la modale centrata su tablet/desktop. Nessuna variante laterale necessaria. |
 | `GlassListRow` | Righe di impostazioni e selezione entita | Le righe attuali hanno sfondo e angoli individuali con spazio tra loro; il prototipo usa un unico gruppo in vetro con separatori. Preferire una composizione/variante `Glass` raggruppata. |
 | `GlassTiles` | Scelte esclusive come stagione, se adatte | Non usare per le tessere Zona: sono stato + navigazione + azione, non un `radiogroup`. Creare una tessera Irrigazione sopra le superfici/tokens condivisi. |
 | `GlassToggle`, `GlassSegmented`, `GlassStepper`, `GlassButton`, grafici `Glass*` | Impostazioni, periodo, durata, azioni e Consumi | Riutilizzabili con accento locale e copy tradotto; verificare clipping e target touch ai breakpoint. |
 | `GlassBattery`/`GlassRing` | Semantica di batteria e progressione | `GlassBattery` e una barra e `GlassRing` e un timer grande; l'anello batteria compatto del robot con fulmine in carica richiede una piccola variante dedicata. |
 
-Le differenze del pannello destro e della navigazione sono in decisione con il committente. Evitare override CSS globali sui componenti condivisi; introdurre prop/varianti opzionali e testare le altre schermate che li usano.
+Le differenze di navigazione e posizione della modale sono state risolte dal committente il 2026-11-12. Le eventuali varianti per liste raggruppate e batteria del robot dovranno restare locali o opzionali e saranno verificate sulle altre schermate che usano i componenti condivisi. Evitare override CSS globali.
+
+La prima ricostruzione di Oggi usa `AppWorkspaceShell`, `GlassToggle`, superfici e token esistenti. `IrrigationTodayHero`, `IrrigationTodayFacts` e `IrrigationTodayZones` sono composizioni specifiche della mini app: la hero distingue una sessione attiva dal solo scheduler abilitato e le tessere zona aprono la route Zone. `IrrigationScheduleSnapshotCard` usa ora righe raggruppate nello stesso vetro. La modale e la navigazione restano condivise senza nuove varianti. L'anello batteria compatto e il pannello di zona del disegno non sono ancora implementati.
 
 ## Lavoro sul motore Home Assistant da pianificare
 
@@ -58,7 +70,7 @@ Per ogni fase: contratti WebSocket e servizi versionati, validazione server, per
 
 ## Sequenza di realizzazione
 
-1. Preparare varianti condivise approvate, token locali, asset ottimizzati e struttura i18n; verificare la shell su telefono/tablet/desktop in Light/Dark.
+1. Preparare solo le varianti ancora necessarie, token locali, asset ottimizzati e struttura i18n; verificare la shell attuale su telefono/tablet/desktop in Light/Dark.
 2. Ricostruire Oggi e le pagine di lettura con dati reali e stati vuoto/offline/fault; mantenere i comandi attuali del Core senza simularne di nuovi.
 3. Aggiungere wizard e sottopagine Impostazioni per i campi gia supportati, con salvataggio e conferma Core.
 4. Estendere il Core con programmi, eccezioni e stagione; poi abilitare editor Programmi, Salta/Rimanda e avvio completo.

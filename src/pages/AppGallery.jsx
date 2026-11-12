@@ -7,14 +7,11 @@ import GlassBottomSheet from '../components/ui/GlassBottomSheet';
 import AppWorkspaceShell from '../components/apps/AppWorkspaceShell';
 import ComingSoonAppDemo from '../components/apps/ComingSoonAppDemo';
 import {
-  IrrigationHero,
   IrrigationConsumptionSnapshotCard,
-  IrrigationMobileOverview,
-  IrrigationMoistureCard,
   IrrigationScheduleSnapshotCard,
   IrrigationZoneCard,
-  IrrigationZonesSnapshotCard,
 } from '../components/apps/irrigation/IrrigationDashboardCards';
+import { IrrigationTodayFacts, IrrigationTodayHero, IrrigationTodayZones } from '../components/apps/irrigation/IrrigationToday';
 import IrrigationConfigurationPage from '../components/apps/irrigation/IrrigationConfigurationPage';
 import IrrigationCalendarPage from '../components/apps/irrigation/IrrigationCalendarPage';
 import IrrigationConsumptionPage from '../components/apps/irrigation/IrrigationConsumptionPage';
@@ -1558,32 +1555,6 @@ function IrrigationDashboardView({
   }, [canConfigureApps, navigationRoute]);
 
   React.useEffect(() => {
-    if (activeWorkspaceSection === 'configuration' || activeWorkspaceSection === 'zonesManagement') return undefined;
-    const root = irrigationProgressRootRef.current;
-    const scrollContainer = root?.closest('main');
-    if (!root || !scrollContainer) return undefined;
-
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    let animationFrame = 0;
-    const updateProgress = () => {
-      animationFrame = 0;
-      const progress = reduceMotion ? 1 : Math.max(0, Math.min(1, scrollContainer.scrollTop / 220));
-      root.style.setProperty('--irrigation-scroll-progress', progress.toFixed(4));
-    };
-    const handleScroll = () => {
-      if (animationFrame) return;
-      animationFrame = window.requestAnimationFrame(updateProgress);
-    };
-
-    updateProgress();
-    scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      scrollContainer.removeEventListener('scroll', handleScroll);
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
-    };
-  }, [activeWorkspaceSection]);
-
-  React.useEffect(() => {
     haStatesRef.current = haStates;
   }, [haStates]);
 
@@ -2813,6 +2784,53 @@ function IrrigationDashboardView({
     : masterIsStopped
       ? t('irrigation.summary.systemStopped')
       : t('irrigation.summary.systemPaused');
+  const activeTodayZone = zones.find((zone) => zone.isManualActive && zone.manualSessionState === 'running');
+  const todayState = runtimeMode !== 'demo' && !haConnected
+    ? 'offline'
+    : runtimeMode !== 'demo' && irrigationCoreStatus === 'loading'
+      ? 'loading'
+      : runtimeMode !== 'demo' && irrigationCoreStatus !== 'ready'
+        ? 'unavailable'
+        : masterControlState === 'fault'
+          ? 'fault'
+          : activeTodayZone
+            ? 'active'
+            : rainSensorEnabled && rainSensorEntityId && !rainSensorUnavailable && rainSensorActive
+              ? 'rain'
+              : 'ready';
+  const todayRemainingSeconds = activeTodayZone?.manualRemainingSeconds ?? 0;
+  const todayValue = todayState === 'active' && todayRemainingSeconds > 0
+    ? `${Math.floor(todayRemainingSeconds / 60)}:${String(todayRemainingSeconds % 60).padStart(2, '0')}`
+    : todayState === 'ready' && overviewScheduleItems.length > 0
+      ? `${overviewScheduleItems[0].durationMin} min`
+      : null;
+  const todayValueLabel = todayState === 'active'
+    ? t('irrigation.today.remaining')
+    : t('irrigation.today.nextDuration');
+  const todayTitle = todayState === 'offline'
+    ? t('irrigation.today.offlineTitle')
+    : todayState === 'loading'
+      ? t('irrigation.today.loadingTitle')
+      : todayState === 'unavailable'
+        ? t('irrigation.core.updateTitle')
+        : todayState === 'fault'
+          ? t('irrigation.core.faultTitle')
+          : todayState === 'rain'
+            ? t('irrigation.summary.pausedRain')
+            : todayState === 'active'
+              ? t('irrigation.hero.running')
+              : t('irrigation.hero.ready');
+  const todayDescription = todayState === 'offline'
+    ? t('irrigation.today.offlineDescription')
+    : todayState === 'loading'
+      ? t('irrigation.today.loadingDescription')
+      : todayState === 'unavailable'
+        ? t('irrigation.core.updateDescription')
+        : todayState === 'fault'
+          ? t('irrigation.core.faultDescription')
+          : todayState === 'active'
+            ? activeTodayZone.name
+            : `${rainSummaryTitle} · ${rainSummaryDescription}`;
   const handleMasterPrimaryAction = async () => {
     if (!canControlIrrigation) return;
     const nextState = masterIsRunning ? 'paused' : 'running';
@@ -2952,7 +2970,7 @@ function IrrigationDashboardView({
       appName={t('irrigation.appName')}
       appSubtitle={t('irrigation.appSubtitle')}
       appIcon={Sprout}
-      accentColor="#34d399"
+      accentColor="light-dark(#0E9F6E, #34D399)"
       navigationItems={workspaceNavigationItems}
       activeNavigationId={activeWorkspaceSection === 'zonesManagement' ? 'zones' : activeWorkspaceSection}
       onNavigationChange={handleWorkspaceNavigation}
@@ -3005,7 +3023,7 @@ function IrrigationDashboardView({
           </div>
         </div>
       ) : null}
-      {runtimeMode !== 'demo' && irrigationCoreStatus === 'unavailable' ? (
+      {activeWorkspaceSection !== 'overview' && runtimeMode !== 'demo' && irrigationCoreStatus === 'unavailable' ? (
         <div className="mx-3 mt-3 hidden items-start gap-3 rounded-[1.25rem] border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)] md:mx-6 md:flex lg:mx-8 xl:mx-10">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
           <div><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.updateTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.core.updateDescription')}</p></div>
@@ -3017,7 +3035,7 @@ function IrrigationDashboardView({
           <div className="min-w-0 flex-1"><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.legacyTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.core.legacyDescription', { count: irrigationCoreState.legacyAutomations.length })}</p><p className="mt-1 truncate text-[10px] font-medium">{irrigationCoreState.legacyAutomations.join(' · ')}</p><button type="button" onClick={() => setLegacyMigrationGuideOpen(true)} className="liquid-glass-control mt-3 min-h-9 rounded-full px-3 text-xs font-semibold">{t('irrigation.core.guideAction')}</button></div>
         </div>
       ) : null}
-      {runtimeMode !== 'demo' && irrigationCoreState?.mode === 'fault' ? (
+      {activeWorkspaceSection !== 'overview' && runtimeMode !== 'demo' && irrigationCoreState?.mode === 'fault' ? (
         <div role="alert" className="mx-3 mt-3 hidden items-start gap-3 rounded-[1.25rem] border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-[color:var(--ui-text-secondary)] md:mx-6 md:flex lg:mx-8 xl:mx-10">
           <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-rose-500" />
           <div><p className="font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.faultTitle')}</p><p className="mt-0.5 text-xs leading-5">{t('irrigation.core.faultDescription')}</p></div>
@@ -3067,17 +3085,17 @@ function IrrigationDashboardView({
       <>
       <motion.div
         ref={irrigationProgressRootRef}
-        data-testid="irrigation-progressive-root"
+        data-testid="irrigation-today-root"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className={`relative isolate grid min-h-full content-start grid-cols-1 bg-[color:var(--ui-bg-grouped)] pb-6 md:bg-transparent xl:grid-cols-12 ${activeWorkspaceSection === 'overview' ? 'gap-0 md:gap-5 md:px-6 md:pt-6 lg:px-8 xl:px-10' : 'gap-4 px-3 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-5 md:gap-5 md:px-6 md:pt-6 lg:px-8 xl:px-10'}`}
-        style={{ '--irrigation-scroll-progress': 0 }}
+        className="relative isolate grid min-h-full content-start grid-cols-1 gap-4 bg-[color:var(--ui-bg-grouped)] px-3 pb-6 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-5 md:gap-5 md:bg-transparent md:px-6 md:pt-6 lg:px-8 xl:grid-cols-12 xl:px-10"
+        style={activeWorkspaceSection === 'overview' ? { backgroundImage: 'radial-gradient(circle at 12% 8%, rgba(14,159,110,0.12), transparent 32%), radial-gradient(circle at 92% 42%, rgba(41,183,194,0.1), transparent 34%), radial-gradient(circle at 54% 88%, rgba(163,230,53,0.08), transparent 30%)' } : undefined}
       >
         <motion.section
           id="irrigation-overview"
           variants={cardVariants}
-          className={`relative scroll-mt-5 overflow-hidden xl:col-span-8 ${activeWorkspaceSection !== 'overview' ? 'hidden' : isEditMode ? 'mx-3 mt-3 rounded-[2rem] border border-white/10 bg-[#071723] p-6 text-white backdrop-blur-3xl md:mx-0 md:mt-0 lg:p-8' : 'sticky top-0 z-0 md:static'}`}
+          className={`relative scroll-mt-5 xl:col-span-8 ${activeWorkspaceSection !== 'overview' ? 'hidden' : isEditMode ? 'rounded-[2rem] border border-white/10 bg-[#071723] p-6 text-white backdrop-blur-3xl lg:p-8' : ''}`}
         >
           {isEditMode ? <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-sky-500/15 blur-[90px]" /> : null}
 
@@ -3155,90 +3173,52 @@ function IrrigationDashboardView({
               ) : null}
             </div>
           ) : (
-            <IrrigationHero
-              masterTitle={masterTitle}
-              masterIsRunning={masterIsRunning}
-              masterIsStopped={masterIsStopped}
-              masterIsPaused={masterIsPaused}
-              temperature={outdoorTempValue}
-              humidity={humidityValue}
-              rainProbability={rainForecastProbability}
-              rainStatusLabel={rainStatusLabel}
-              rainSummaryTitle={rainSummaryTitle}
-              rainSummaryDescription={rainSummaryDescription}
-              rainSensorEnabled={rainSensorEnabled}
-              rainSensorSyncing={isRainSensorSyncing}
-              rainSensorEditable={canConfigureApps}
-              onRainSensorToggle={() => {
-                void handleRainSensorToggle();
-              }}
-              onPrimaryAction={handleMasterPrimaryAction}
-              onStop={handleMasterStop}
-            />
+            <div className="space-y-4">
+              <div>
+                <h1 className="text-[2.4rem] font-semibold leading-none tracking-[-0.05em] text-[color:var(--ui-text-primary)] sm:text-[3rem]">{t('irrigation.today.title')}</h1>
+                <p className="mt-1.5 text-sm capitalize text-[color:var(--ui-text-secondary)]">{new Intl.DateTimeFormat(locale, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())}</p>
+              </div>
+              <IrrigationTodayHero
+                state={todayState}
+                title={todayTitle}
+                description={todayDescription}
+                value={todayValue}
+                valueLabel={todayValueLabel}
+                masterTitle={masterTitle}
+                masterIsRunning={masterIsRunning}
+                masterIsStopped={masterIsStopped}
+                masterIsPaused={masterIsPaused}
+                commandAvailable={runtimeMode === 'demo' || (irrigationCoreStatus === 'ready' && haConnected)}
+                rainSensorEnabled={rainSensorEnabled}
+                rainSensorSyncing={isRainSensorSyncing}
+                rainSensorEditable={canConfigureApps && (runtimeMode === 'demo' || (irrigationCoreStatus === 'ready' && haConnected))}
+                onRainSensorToggle={() => { void handleRainSensorToggle(); }}
+                onPrimaryAction={handleMasterPrimaryAction}
+                onStop={handleMasterStop}
+              />
+              <IrrigationTodayFacts
+                temperature={outdoorTempValue}
+                humidity={humidityValue}
+                rainProbability={rainForecastProbability}
+                rainStatusLabel={rainStatusLabel}
+                moisture={moisturePct}
+                moistureDescription={moistureText}
+                waterLiters={consumptionTotalLiters}
+                formatNumber={(value) => new Intl.NumberFormat(locale).format(value)}
+              />
+            </div>
           )}
         </motion.section>
 
-        <div
-          data-testid="irrigation-progressive-sheet"
-          className={activeWorkspaceSection === 'overview'
-            ? 'sticky top-[calc(env(safe-area-inset-top)+0.5rem)] z-10 isolate -mt-28 min-h-[calc(100svh-env(safe-area-inset-top)-7.75rem)] rounded-t-[2rem] pb-4 pt-4 shadow-[0_-12px_34px_rgba(2,6,23,0.12)] md:contents md:min-h-0 md:rounded-none md:pb-0 md:pt-0 md:shadow-none'
-            : 'contents'}
-        >
-          {activeWorkspaceSection === 'overview' ? <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 -z-20 overflow-hidden rounded-t-[2rem] md:hidden"
-            style={{
-              background: 'linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--ui-bg-grouped) 62%, transparent) 8rem, var(--ui-bg-grouped) 15rem)',
-            }}
-          /> : null}
-          {activeWorkspaceSection === 'overview' ? <div
-            data-testid="irrigation-progressive-sheet-backdrop"
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 -z-10 rounded-t-[2rem] bg-[color:var(--ui-bg-grouped)] motion-reduce:!opacity-100 md:hidden"
-            style={{ opacity: 'calc(var(--irrigation-scroll-progress) * 0.96)' }}
-          /> : null}
-
-          {activeWorkspaceSection === 'overview' ? <div className="relative z-10 mx-3 mb-3 space-y-3 md:hidden">
-            {runtimeMode !== 'demo' && irrigationCoreStatus === 'unavailable' ? (
-              <section className="relative rounded-[1.55rem] border border-amber-500/30 bg-amber-500/[0.09] p-4 text-[color:var(--ui-text-secondary)] shadow-[var(--ui-shadow-card)]">
-                <TriangleAlert className="absolute right-4 top-4 h-4 w-4 text-amber-600 dark:text-amber-300" />
-                <div className="min-w-0"><p className="pr-7 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.updateTitle')}</p><p className="mt-1 text-[11px] leading-4">{t('irrigation.core.updateDescription')}</p></div>
-              </section>
-            ) : null}
-            {runtimeMode !== 'demo' && irrigationCoreState?.legacyAutomations?.length > 0 ? (
+        <div className="contents">
+          {activeWorkspaceSection === 'overview' && runtimeMode !== 'demo' && irrigationCoreState?.legacyAutomations?.length > 0 ? (
+            <div className="md:hidden">
               <section className="relative rounded-[1.55rem] border border-sky-500/30 bg-sky-500/[0.09] p-4 text-[color:var(--ui-text-secondary)] shadow-[var(--ui-shadow-card)]">
                 <TriangleAlert className="absolute right-4 top-4 h-4 w-4 text-sky-600 dark:text-sky-300" />
                 <div className="min-w-0"><p className="pr-7 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.legacyTitle')}</p><p className="mt-1 text-[11px] leading-4">{t('irrigation.core.legacyDescription', { count: irrigationCoreState.legacyAutomations.length })}</p><p className="mt-1 truncate text-[10px] font-medium">{irrigationCoreState.legacyAutomations.join(' · ')}</p><button type="button" onClick={() => setLegacyMigrationGuideOpen(true)} className="liquid-glass-control mt-3 min-h-9 rounded-full px-3 text-xs font-semibold">{t('irrigation.core.guideAction')}</button></div>
               </section>
-            ) : null}
-            {runtimeMode !== 'demo' && irrigationCoreState?.mode === 'fault' ? (
-              <section role="alert" className="relative rounded-[1.55rem] border border-rose-500/30 bg-rose-500/[0.09] p-4 text-[color:var(--ui-text-secondary)] shadow-[var(--ui-shadow-card)]">
-                <TriangleAlert className="absolute right-4 top-4 h-4 w-4 text-rose-600 dark:text-rose-300" />
-                <div className="min-w-0"><p className="pr-7 text-sm font-semibold text-[color:var(--ui-text-primary)]">{t('irrigation.core.faultTitle')}</p><p className="mt-1 text-[11px] leading-4">{t('irrigation.core.faultDescription')}</p></div>
-              </section>
-            ) : null}
-            <IrrigationMobileOverview
-              masterTitle={masterTitle}
-              masterIsRunning={masterIsRunning}
-              masterIsStopped={masterIsStopped}
-              masterIsPaused={masterIsPaused}
-              temperature={outdoorTempValue}
-              humidity={humidityValue}
-              rainProbability={rainForecastProbability}
-              rainStatusLabel={rainStatusLabel}
-              rainSummaryTitle={rainSummaryTitle}
-              rainSummaryDescription={rainSummaryDescription}
-              rainSensorEnabled={rainSensorEnabled}
-              rainSensorSyncing={isRainSensorSyncing}
-              rainSensorEditable={canConfigureApps}
-              onRainSensorToggle={() => {
-                void handleRainSensorToggle();
-              }}
-              onPrimaryAction={handleMasterPrimaryAction}
-              onStop={handleMasterStop}
-              onConfigure={canConfigureApps ? () => handleWorkspaceNavigation('configuration') : undefined}
-            />
-          </div> : null}
+            </div>
+          ) : null}
 
           {activeWorkspaceSection === 'zones' ? (
             <IrrigationRouteHeader
@@ -3296,7 +3276,7 @@ function IrrigationDashboardView({
 
         <motion.section
           variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-4 ${isEditMode ? 'mx-3 mb-3 rounded-[2rem] border border-white/10 bg-[#071723] p-6 text-center text-white backdrop-blur-3xl md:mx-0 md:mb-0 lg:p-8' : 'mx-3 mb-3 md:mx-0 md:mb-0'}`}
+          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-4 ${isEditMode ? 'rounded-[2rem] border border-white/10 bg-[#071723] p-6 text-center text-white backdrop-blur-3xl lg:p-8' : ''}`}
         >
           {isEditMode ? (
             <div className="flex h-full flex-col justify-between text-left">
@@ -3328,23 +3308,18 @@ function IrrigationDashboardView({
               </label>
             </div>
           ) : (
-            <div className="h-full xl:grid xl:h-[28rem] xl:min-h-0 xl:grid-rows-[minmax(0,1fr)_minmax(0,1fr)] xl:gap-5">
-              <IrrigationMoistureCard value={moisturePct} description={moistureText} />
-              <div className="hidden min-h-0 xl:block">
-                <IrrigationScheduleSnapshotCard
-                  items={overviewScheduleItems}
-                  onOpen={() => handleWorkspaceNavigation('calendar')}
-                />
-              </div>
-            </div>
+            <IrrigationScheduleSnapshotCard
+              items={overviewScheduleItems}
+              onOpen={() => handleWorkspaceNavigation('calendar')}
+            />
           )}
         </motion.section>
 
         <motion.section
           variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} mx-3 mb-3 md:mx-0 md:mb-0 xl:col-span-8`}
+          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-8`}
         >
-          <IrrigationZonesSnapshotCard
+          <IrrigationTodayZones
             zones={zones}
             nextCycleLabel={overviewNextCycleLabel}
             onOpen={() => handleWorkspaceNavigation('zones')}
@@ -3353,7 +3328,7 @@ function IrrigationDashboardView({
 
         <motion.section
           variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} mx-3 mb-3 md:mx-0 md:mb-0 xl:col-span-4`}
+          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-4`}
         >
           <IrrigationConsumptionSnapshotCard
             usage={consumptionTotalLiters}
@@ -3368,7 +3343,7 @@ function IrrigationDashboardView({
 
         <motion.section
           variants={cardVariants}
-          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} mx-3 mb-3 md:mx-0 md:mb-0 xl:col-span-12`}
+          className={`${activeWorkspaceSection !== 'overview' ? 'hidden' : ''} xl:col-span-12`}
         >
           <IrrigationActivitySnapshotCard
             items={irrigationActivityItems}

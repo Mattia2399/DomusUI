@@ -41,8 +41,9 @@ test('App Library detail routes use an immersive contextual workspace', async ({
   await expect(page.getByRole('button', { name: 'Panoramica' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Zone', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Consumi', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Il giardino è pronto' })).toBeVisible();
-  await expect(page.locator('img[src*="irrigation-smart-hero"]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Oggi', exact: true })).toBeVisible();
+  await expect(page.getByTestId('irrigation-today-hero')).toBeVisible();
+  await expect(page.getByTestId('irrigation-today-hero').locator('img[src*="/irrigation/"]')).toBeVisible();
 
   await page.getByRole('button', { name: 'Zone' }).click();
   await expect(page.locator('#irrigation-zones')).toBeInViewport();
@@ -122,7 +123,7 @@ test('App Library apps use a contextual bottom bar on mobile', async ({ page }) 
   expect(sheetAtRest?.y).toBeLessThan(24);
 });
 
-test('Irrigation uses the hero as mobile header and keeps the library exit in the bottom bar', async ({ page }) => {
+test('Irrigation Today keeps the shared mobile navigation and uses a rounded photo card', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await installCompletedRealWorkspace(page);
   await connectHomeAssistant(page);
@@ -130,41 +131,35 @@ test('Irrigation uses the hero as mobile header and keeps the library exit in th
   await page.goto('/appgallery/irrigation');
 
   await expect(page.getByTestId('app-workspace-sidebar')).toBeHidden();
-  await expect(page.getByRole('heading', { name: 'Il giardino è pronto' })).toBeVisible();
-  const heroEyebrow = page.getByText('Giardino intelligente');
-  await expect(heroEyebrow).toBeVisible();
-  const heroEyebrowBox = await heroEyebrow.boundingBox();
-  expect(heroEyebrowBox?.y).toBeLessThan(100);
-  const mobileOverview = page.getByTestId('irrigation-mobile-overview');
-  await expect(mobileOverview.getByText('Protezione pioggia')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Oggi', exact: true })).toBeVisible();
+  const hero = page.getByTestId('irrigation-today-hero');
+  const facts = page.getByTestId('irrigation-today-facts');
+  await expect(hero).toBeVisible();
+  await expect(facts).toBeVisible();
+  await expect(facts.getByText('Meteo', { exact: true })).toBeVisible();
+  await expect(facts.getByText('Terreno', { exact: true })).toBeVisible();
+  await expect(facts.getByText('Acqua', { exact: true })).toBeVisible();
+  await expect(hero).toHaveAttribute('data-state', 'unavailable');
+  await expect(hero.getByRole('button')).toHaveCount(0);
 
-  const hero = page.getByTestId('irrigation-progressive-hero');
-  const heroHeader = page.getByTestId('irrigation-progressive-header');
-  const sheet = page.getByTestId('irrigation-progressive-sheet');
-  const sheetBackdrop = page.getByTestId('irrigation-progressive-sheet-backdrop');
   const scrollContainer = page.getByTestId('app-workspace-shell').locator('main');
-  await page.waitForTimeout(450);
   const heroBefore = await hero.boundingBox();
-  const sheetBefore = await sheet.boundingBox();
-  const backdropOpacityBefore = Number.parseFloat(await sheetBackdrop.evaluate((element) => getComputedStyle(element).opacity));
   await scrollContainer.evaluate((element) => element.scrollTo({ top: 400, behavior: 'instant' }));
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
   const heroAfter = await hero.boundingBox();
-  const sheetAfter = await sheet.boundingBox();
-  const headerOpacityAfter = Number.parseFloat(await heroHeader.evaluate((element) => getComputedStyle(element).opacity));
-  const backdropOpacityAfter = Number.parseFloat(await sheetBackdrop.evaluate((element) => getComputedStyle(element).opacity));
-
-  expect(heroBefore?.height).toBeGreaterThanOrEqual(320);
-  expect(heroBefore?.height).toBeLessThanOrEqual(370);
-  expect(Math.abs((heroAfter?.y ?? 0) - (heroBefore?.y ?? 0))).toBeLessThan(3);
-  expect(sheetAfter?.y).toBeLessThan((sheetBefore?.y ?? 0) - 150);
-  expect(headerOpacityAfter).toBeLessThan(0.2);
-  expect(backdropOpacityBefore).toBeLessThan(0.05);
-  expect(backdropOpacityAfter).toBeGreaterThan(0.9);
+  expect(heroBefore?.height).toBeGreaterThanOrEqual(300);
+  expect(heroBefore?.height).toBeLessThanOrEqual(440);
+  expect(heroAfter?.y).toBeLessThan((heroBefore?.y ?? 0) - 150);
+  const heroRadius = Number.parseFloat(await hero.evaluate((element) => getComputedStyle(element).borderTopLeftRadius));
+  expect(heroRadius).toBeGreaterThanOrEqual(24);
 
   const mobileNavigation = page.getByRole('navigation', { name: 'Navigazione Irrigazione Smart' });
   await expect(mobileNavigation.getByRole('button', { name: 'Torna alla libreria' })).toBeVisible();
   await expect(page.locator('header')).toHaveCount(0);
+  const todayZones = page.getByTestId('irrigation-today-zones');
+  await expect(todayZones).toBeVisible();
+  await todayZones.getByRole('button', { name: 'Tutte' }).click();
+  await expect(page).toHaveURL(/\/appgallery\/irrigation\/zones$/);
 });
 
 test('Irrigation nested routes survive direct navigation and refresh', async ({ page }) => {

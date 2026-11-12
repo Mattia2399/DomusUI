@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, cleanup, fireEvent, render as renderUi, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render as renderUi, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppGallery } from './AppGallery';
 import { AccessControlProvider } from '../security/AccessControlProvider';
@@ -218,7 +218,10 @@ describe('Irrigation App Library configuration', () => {
       />,
     );
 
-    expect(screen.getByRole('heading', { name: 'Il giardino è pronto' })).toBeTruthy();
+    const todayHero = screen.getByTestId('irrigation-today-hero');
+    expect(within(todayHero).getByRole('heading', { name: 'Home Assistant non è raggiungibile' })).toBeTruthy();
+    expect(todayHero.getAttribute('data-state')).toBe('offline');
+    expect(within(todayHero).queryByRole('button')).toBeNull();
     expect(screen.queryByRole('heading', { name: 'Impostazioni irrigazione' })).toBeNull();
   });
 
@@ -592,7 +595,7 @@ describe('Irrigation App Library configuration', () => {
     );
 
     expect(await screen.findByText('4:39')).toBeTruthy();
-    expect(screen.getByText('Ciclo in pausa · ripresa manuale richiesta')).toBeTruthy();
+    expect(screen.getAllByText('Ciclo in pausa · ripresa manuale richiesta').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: 'Arresta Giardino e azzera il tempo residuo' })).toBeTruthy();
   });
 

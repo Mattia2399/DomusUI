@@ -3,13 +3,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Sprout } from 'lucide-react';
 import {
   IrrigationConsumptionSnapshotCard,
-  IrrigationHero,
-  IrrigationMoistureCard,
   IrrigationScheduleSnapshotCard,
   IrrigationUsageCard,
   IrrigationZoneCard,
   IrrigationZonesSnapshotCard,
 } from './IrrigationDashboardCards';
+import { IrrigationHero, IrrigationMoistureCard } from './IrrigationDashboardLegacyCards';
 import React from 'react';
 import { AccessControlProvider } from '../../../security/AccessControlProvider';
 import { accessFor } from '../../../test/accessFixtures';

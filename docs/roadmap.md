@@ -842,10 +842,20 @@ Done quando:
 Aggiornamento design approvato il 2026-11-12: il [prototipo cliccabile e la mappa
 di implementazione](design/irrigazione/approved-design.md) sono il riferimento
 per mini app, card Home e nuovo lavoro sul Core. La UI esistente non riproduce
-ancora il disegno. Navigazione, pannelli e liste riusano componenti condivisi
-con varianti opzionali; il motore resta l'autorita per comandi e dati reali.
+ancora il disegno. Decisione del 2026-11-12: restano la navigazione condivisa
+attuale e la modale centrata su tablet/desktop. Le liste e le tessere riusano
+componenti e token condivisi, con composizioni locali dove necessario; il
+motore resta l'autorita per comandi e dati reali.
 La pagina Tagliaerba compare solo con un robot valido; dati, avanzamento,
 consumi e diagnostica perdite compaiono solo quando la fonte li supporta.
+
+Prima tranche UI del 2026-11-12: Oggi ha titolo/data, hero con foto reali per stato
+arrotondata, stati sessione/pioggia/guasto/Core assente e riquadri Meteo,
+Terreno, Acqua collegati alle sorgenti esistenti. I prossimi cicli sono una
+lista di vetro raggruppata; le tessere zona aprono la route Zone. Restano
+aperti pannello zona dedicato, card Home, wizard,
+struttura completa Impostazioni, pagina e card
+Tagliaerba e le capability server descritte nel disegno approvato.
 
 Stato: Core implementato nell'integrazione HACS e collegato alla UI. Sono
 completati manager server-side, Store versionato, scheduler in ora locale,
