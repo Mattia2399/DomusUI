@@ -1,0 +1,129 @@
+/*
+ * The grouped list of the new pages (GlassList): one block of glass, separators inside.
+ * Spec: docs/design/app/sicurezza.html (.sec, .list, .li) and impostazioni.html (.gr, .cap, .foot).
+ * The glass itself is .page-glass (pageKit.css).
+ */
+.glass-list-group {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--ui-text-primary);
+  font-family: var(--ui-font-system);
+}
+
+.glass-list-head {
+  display: flex;
+  min-height: 44px;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+.glass-list-title {
+  margin: 0;
+  font-family: var(--ui-font-display);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.glass-list-detail {
+  min-width: 0;
+  color: var(--ui-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.glass-list-more {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  border: 0;
+  padding: 0 2px 0 8px;
+  background: none;
+  color: var(--fn-accent);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: center;
+}
+
+.glass-list-more:focus-visible {
+  border-radius: 12px;
+  outline: 2px solid var(--control-focus);
+}
+
+.glass-list-caption {
+  padding: 0 6px;
+  color: var(--ui-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.glass-list {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+.glass-list > .glass-list-row {
+  min-height: 58px;
+  border-radius: 0;
+  padding: 0 16px;
+  background: none;
+  color: var(--ui-text-primary);
+}
+
+.glass-list > .glass-list-row + .glass-list-row {
+  box-shadow: inset 0 1px 0 var(--dv-separator);
+}
+
+.glass-list > button.glass-list-row:active {
+  background: var(--control-soft);
+}
+
+.glass-list > button.glass-list-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.glass-list .glass-list-row-icon:not([data-tone]) {
+  background: var(--dv-icon-off);
+  color: var(--ui-text-secondary);
+}
+
+.glass-list .glass-list-row-text {
+  padding: 10px 0;
+}
+
+.glass-list .glass-list-row-text > span {
+  color: var(--ui-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.glass-list .glass-list-row > em {
+  color: var(--ui-text-secondary);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.glass-list .glass-list-row-opens {
+  color: var(--dv-t3);
+}
+
+.glass-list-footer {
+  margin: 0;
+  padding: 0 6px;
+  color: var(--dv-t3);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}

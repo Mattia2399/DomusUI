@@ -9,6 +9,10 @@ export type GlassListRowProps = {
   note?: React.ReactNode;
   /** A round icon at the left. */
   icon?: React.ReactNode;
+  /** `square`: the 32 px square of the grouped lists (GlassList), radius 10. */
+  iconShape?: 'round' | 'square';
+  /** The icon in the colour of a function (glassTokens.css --fn-*); `accent` is the one of the page. */
+  tone?: GlassListTone;
   /** A value at the right, for a row to read. */
   value?: React.ReactNode;
   /** What this row chooses is the one in use. */
@@ -24,12 +28,19 @@ export type GlassListRowProps = {
   className?: string;
 };
 
+export type GlassListTone = 'security' | 'irrigation' | 'climate' | 'energy' | 'waste' | 'app' | 'accent';
+
 /* A row of a list, as in the settings of a phone: it chooses, it opens, or it is read. */
-export function GlassListRow({ title, note, icon, value, selected = false, lit = false, opens = false, onPress, role, disabled, className }: GlassListRowProps) {
+export function GlassListRow({ title, note, icon, iconShape, tone, value, selected = false, lit = false, opens = false, onPress, role, disabled, className }: GlassListRowProps) {
   const body = (
     <>
       {icon ? (
-        <span className={clsx('glass-list-row-icon', (selected || lit) && 'is-lit')} aria-hidden="true">
+        <span
+          className={clsx('glass-list-row-icon', (selected || lit) && 'is-lit', iconShape === 'square' && 'is-square')}
+          data-tone={tone}
+          style={tone ? ({ '--row-tone': `var(--fn-${tone})`, '--row-tone-ink': `var(--fn-${tone}-ink)` } as React.CSSProperties) : undefined}
+          aria-hidden="true"
+        >
           {icon}
         </span>
       ) : null}

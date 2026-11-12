@@ -46,6 +46,16 @@ button.glass-list-row:focus-visible {
   color: var(--device-accent-ink, var(--control-on-ink));
 }
 
+.glass-list-row-icon.is-square {
+  border-radius: 10px;
+}
+
+/* The colour of a function: set by the row (tone), from glassTokens.css. */
+.glass-list-row-icon[data-tone] {
+  background: var(--row-tone);
+  color: var(--row-tone-ink);
+}
+
 .glass-list-row-text {
   display: flex;
   min-width: 0;
