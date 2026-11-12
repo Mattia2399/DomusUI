@@ -1,0 +1,97 @@
+/*
+ * The pieces every new page is built from: the header, the subpage, the sheet and the
+ * grouped lists. The specification is docs/design/app/REGOLE-app.md (§1, §2, §4) with the
+ * prototypes beside it; the colours are the glass of Rooms (devices/theme/tokens.css),
+ * the app tokens (--ui-*) and glassTokens.css. Nothing here is written by hand.
+ */
+@import '../devices/theme/tokens.css';
+
+/* The material of the prototypes and of Rooms (.dv-glass): one place for the new pages. */
+.page-glass {
+  border: 1px solid var(--dv-glass-border);
+  background: var(--dv-glass);
+  box-shadow:
+    inset 0 1px 0 var(--dv-glass-highlight),
+    0 26px 60px -32px var(--dv-glass-shadow);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+}
+
+/* ---------- The header: ‹ · title · tools, and a small line under it. ---------- */
+
+.page-header {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--ui-text-primary);
+  font-family: var(--ui-font-display);
+}
+
+.page-header-row {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-header-title {
+  min-width: 0;
+  flex: 1;
+  margin: 0;
+  overflow: hidden;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  outline: none;
+}
+
+.page-header-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-header-detail {
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-family: var(--ui-font-system);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+/* The round glass button: ‹, and the tools at the right (gear, pin, action). */
+.page-round-button {
+  display: flex;
+  height: 44px;
+  width: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  color: var(--ui-text-primary);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 160ms ease;
+}
+
+.page-round-button:active {
+  transform: scale(0.96);
+}
+
+.page-round-button:focus-visible {
+  outline: 2px solid var(--control-focus);
+  outline-offset: 2px;
+}
+
+.page-round-button[aria-pressed='true'] {
+  border-color: transparent;
+  background: var(--dv-pill-on);
+  color: var(--dv-pill-on-ink);
+}
