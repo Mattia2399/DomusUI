@@ -66,6 +66,7 @@ describe('route contract', () => {
       '/appgallery': { kind: 'capability', capability: 'dashboard.view' },
       '/home': { kind: 'capability', capability: 'dashboard.view' },
       '/rooms': { kind: 'capability', capability: 'rooms.view' },
+      '/casa': { kind: 'capability', capability: 'dashboard.view' },
       '/automations': { kind: 'capability', capability: 'automations.view' },
       '/security': { kind: 'capability', capability: 'security.view' },
       '/consumi': { kind: 'capability', capability: 'energy.view' },
@@ -99,11 +100,11 @@ describe('navigation contract', () => {
   });
 
   it.each([
-    ['admin', ['appgallery', 'home', 'rooms', 'automation', 'security', 'consumi']],
-    ['member', ['appgallery', 'home', 'rooms', 'automation', 'security', 'consumi']],
-    ['restricted', ['appgallery', 'home', 'rooms']],
-    ['wall_panel', ['appgallery', 'home', 'rooms', 'security', 'consumi']],
-    ['locked', ['appgallery', 'home', 'rooms']],
+    ['admin', ['appgallery', 'home', 'rooms', 'casa', 'automation', 'security', 'consumi']],
+    ['member', ['appgallery', 'home', 'rooms', 'casa', 'automation', 'security', 'consumi']],
+    ['restricted', ['appgallery', 'home', 'rooms', 'casa']],
+    ['wall_panel', ['appgallery', 'home', 'rooms', 'casa', 'security', 'consumi']],
+    ['locked', ['appgallery', 'home', 'rooms', 'casa']],
   ] as const)('shows %s its own pages only', (role, ids) => {
     expect(filterNavigation(createDefaultSidebarPaths(), accessFor(role).can).map(({ id }) => id)).toEqual(ids);
   });

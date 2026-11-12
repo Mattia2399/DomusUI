@@ -35,6 +35,8 @@ export const ROUTE_ACCESS_RULES: readonly RouteRule[] = [
   { path: '/', access: needs('dashboard.view') },
   { path: '/home', subpaths: true, access: needs('dashboard.view') },
   { path: '/rooms', subpaths: true, access: needs('rooms.view') },
+  // Casa, as the Dashboard: it shows only the rows of what the account may open.
+  { path: '/casa', access: needs('dashboard.view') },
   { path: '/security', subpaths: true, access: needs('security.view') },
   { path: '/automations', subpaths: true, access: needs('automations.view') },
   // Energy, and the water, gas and report previews that live beside it.

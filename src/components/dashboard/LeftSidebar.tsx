@@ -15,10 +15,11 @@ import { LazyDashboardNotificationsPanel } from './LazyDashboardNotificationsPan
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
-  PRIMARY_DASHBOARD_ROUTE_IDS,
+  NAVIGATION_BAR_ROUTE_IDS,
+  normalizeDashboardNavigationPath,
   resolveDashboardNavigationEntries,
-  TOOL_DASHBOARD_ROUTE_IDS,
 } from './dashboardNavigation';
+import { isPathActiveForLocation } from '../../utils/navigationPathMatch';
 
 type LeftSidebarProps = {
   isEditMode: boolean;
@@ -42,7 +43,8 @@ type LeftSidebarProps = {
 
 const COMPACT_SIDEBAR_MAX_WIDTH_PX = 1535;
 const COMPACT_SIDEBAR_MAX_HEIGHT_PX = 760;
-const SIDEBAR_ROUTE_IDS = [...PRIMARY_DASHBOARD_ROUTE_IDS, ...TOOL_DASHBOARD_ROUTE_IDS] as const;
+// The active destination: a neutral fill with the shape of today and the icon in the colour of the text.
+const ACTIVE_ENTRY_CLASS = 'bg-[color:var(--ui-fill-secondary)] text-[color:var(--ui-text-primary)]';
 
 export function LeftSidebar({
   isEditMode,
@@ -83,7 +85,13 @@ export function LeftSidebar({
 
   const badgeValue = unreadCount > 99 ? '99+' : `${unreadCount}`;
   const { can } = useAccessControl();
-  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, SIDEBAR_ROUTE_IDS, t, can);
+  const navigationQuickPaths = resolveDashboardNavigationEntries(quickPaths, NAVIGATION_BAR_ROUTE_IDS, t, can);
+  // Edit belongs to the Dashboard: on the other pages it is not there (it stays while editing, to leave).
+  const isDashboardRoute =
+    !activeRoute ||
+    normalizeDashboardNavigationPath(activeRoute.split(/[?#]/, 1)[0]) === '/' ||
+    isPathActiveForLocation('/home', activeRoute);
+  const showEditToggle = isDashboardRoute || isEditMode;
   const isPathEntryActive = (entry: SidebarQuickPath) =>
     isDashboardNavigationEntryActive({ entry, activeRoute });
   const sidebarWidthClass = isCompactSidebar ? 'w-14 sm:w-[3.75rem] lg:w-[4.25rem]' : 'w-14 sm:w-16 lg:w-20';
@@ -138,7 +146,7 @@ export function LeftSidebar({
                 aria-current={active ? 'page' : undefined}
                 className={`group ${navButtonSizeClass} flex items-center justify-center transition-colors ${
                   active
-                    ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
+                    ? ACTIVE_ENTRY_CLASS
                     : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]'
                 }`}
                 aria-label={t('navigation.open', { label: entry.label })}
@@ -154,6 +162,7 @@ export function LeftSidebar({
           })}
         </nav>
 
+        {showEditToggle ? (
         <div className={`relative ${isCompactSidebar ? 'mb-2' : 'mb-3'}`}>
           <button
             type="button"
@@ -180,6 +189,7 @@ export function LeftSidebar({
             <PencilLine size={utilityIconSize} />
           </button>
         </div>
+        ) : null}
 
         <div className={`relative ${isCompactSidebar ? 'mb-2' : 'mb-4'}`}>
           <button
@@ -211,7 +221,7 @@ export function LeftSidebar({
           onClick={onOpenSettings}
           className={`${navButtonSizeClass} flex items-center justify-center transition-colors ${
             isSettingsActive
-              ? 'liquid-glass-selection text-[color:var(--ui-accent)]'
+              ? ACTIVE_ENTRY_CLASS
               : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)] hover:bg-[color:var(--ui-fill-tertiary)]'
           }`}
           aria-label={t('navigation.settings.open')}

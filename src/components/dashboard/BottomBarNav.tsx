@@ -5,7 +5,7 @@ import { useI18n } from '../../i18n/I18nProvider';
 import {
   getDashboardNavigationIcon,
   isDashboardNavigationEntryActive,
-  PRIMARY_DASHBOARD_ROUTE_IDS,
+  NAVIGATION_BAR_ROUTE_IDS,
   resolveDashboardNavigationEntries,
 } from './dashboardNavigation';
 import { DashboardProfileAvatar } from './DashboardProfileAvatar';
@@ -47,7 +47,7 @@ export function BottomBarNav({
   const { can } = useAccessControl();
   const primaryActions = resolveDashboardNavigationEntries(
     quickPaths,
-    PRIMARY_DASHBOARD_ROUTE_IDS,
+    NAVIGATION_BAR_ROUTE_IDS,
     t,
     can,
   ).map((entry) => ({ entry }) satisfies BottomBarPrimaryAction);
@@ -60,7 +60,7 @@ export function BottomBarNav({
   const tabClassName = (active: boolean) =>
     `group relative z-10 flex h-12 min-w-0 items-center justify-center rounded-full transition-[color,transform] duration-[420ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] active:scale-[0.94] ${
       active
-        ? 'scale-110 text-[color:var(--ui-accent)]'
+        ? 'scale-110 text-[color:var(--ui-text-primary)]'
         : 'text-[color:var(--ui-text-secondary)] hover:text-[color:var(--ui-text-primary)]'
     }`;
 

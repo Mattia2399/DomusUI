@@ -11,6 +11,7 @@ export const SIDEBAR_PATH_ICON_KEYS = [
   'light',
   'climate',
   'media',
+  'cube',
 ] as const;
 
 export type SidebarQuickPathIconKey = (typeof SIDEBAR_PATH_ICON_KEYS)[number];
@@ -19,6 +20,7 @@ export const APPLICATION_ROUTE_IDS = [
   'appgallery',
   'home',
   'rooms',
+  'casa',
   'automation',
   'security',
   'consumi',
@@ -42,8 +44,10 @@ type ApplicationRouteDefinition = Readonly<{
 
 export const APPLICATION_ROUTE_REGISTRY: readonly ApplicationRouteDefinition[] = [
   { id: 'appgallery', label: 'App Gallery', path: '/appgallery', icon: 'dashboard' },
-  { id: 'home', label: 'Home', path: '/home', icon: 'home' },
+  { id: 'home', label: 'Dashboard', path: '/home', icon: 'home' },
   { id: 'rooms', label: 'Stanze', path: '/rooms', icon: 'rooms' },
+  // The house and its functions (Sicurezza, Clima, Energia, Irrigazione, Rifiuti) and tools.
+  { id: 'casa', label: 'Casa', path: '/casa', icon: 'cube' },
   { id: 'automation', label: 'Automazioni', path: '/automations', icon: 'automation' },
   { id: 'security', label: 'Sicurezza', path: '/security', icon: 'security' },
   { id: 'consumi', label: 'Consumi', path: '/consumi', icon: 'chart' },

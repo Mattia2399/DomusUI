@@ -48,14 +48,59 @@ describe('LeftSidebar tablet density', () => {
       </I18nProvider>,
     );
 
-    for (const label of ['Dashboard', 'Stanze', 'Sicurezza', 'Consumi', 'Automazioni', 'App Gallery']) {
+    for (const label of ['Dashboard', 'Stanze', 'Casa']) {
       expect(screen.getByRole('button', { name: `Apri ${label}` })).toBeTruthy();
     }
+    // Sicurezza and Consumi, Automazioni and App Gallery are reached from Casa.
+    for (const label of ['Sicurezza', 'Consumi', 'Automazioni', 'App Gallery']) {
+      expect(screen.queryByRole('button', { name: `Apri ${label}` })).toBeNull();
+    }
+    // The active destination: neutral fill and the colour of the text, no blue.
+    const active = screen.getByRole('button', { name: 'Apri Dashboard' });
+    expect(active.className).toContain('bg-[color:var(--ui-fill-secondary)]');
+    expect(active.className).toContain('text-[color:var(--ui-text-primary)]');
+    expect(active.className).not.toContain('liquid-glass-selection');
     expect(screen.getByRole('button', { name: 'Attiva o disattiva modalità modifica' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Apri altre sezioni' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apri App Gallery' }));
-    expect(onPathClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'appgallery' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apri Casa' }));
+    expect(onPathClick).toHaveBeenCalledWith(expect.objectContaining({ id: 'casa', path: '/casa' }));
+  });
+
+  it('shows Edit only on the Dashboard; Notifications and the return to Home Assistant stay everywhere', () => {
+    setViewport(1280, 800);
+    const renderAt = (activeRoute: string, isEditMode = false) => (
+      <I18nProvider>
+        <AccessControlProvider access={sidebarAccess}>
+          <NotificationProvider>
+            <LeftSidebar
+              isEditMode={isEditMode}
+              haStatus="connected"
+              quickPaths={createDefaultSidebarPaths()}
+              activeRoute={activeRoute}
+              canToggleEditMode
+              onPathClick={vi.fn()}
+              onToggleEditMode={vi.fn()}
+              onOpenProfile={vi.fn()}
+              onOpenSettings={vi.fn()}
+              showHomeAssistantReturn
+              onReturnToHomeAssistant={vi.fn()}
+            />
+          </NotificationProvider>
+        </AccessControlProvider>
+      </I18nProvider>
+    );
+    const edit = () => screen.queryByRole('button', { name: 'Attiva o disattiva modalità modifica' });
+    const { rerender } = render(renderAt('/home'));
+    expect(edit()).not.toBeNull();
+    for (const route of ['/rooms', '/casa', '/settings']) {
+      rerender(renderAt(route));
+      expect(edit(), route).toBeNull();
+      expect(screen.getByRole('button', { name: 'Apri notifiche' })).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Torna in Home Assistant' })).toBeTruthy();
+    }
+    rerender(renderAt('/'));
+    expect(edit()).not.toBeNull();
   });
 
   it('offers a separate Home Assistant return action only when the host bridge supports it', () => {
@@ -109,10 +154,10 @@ describe('LeftSidebar tablet density', () => {
         </AccessControlProvider>
       </I18nProvider>,
     );
-    for (const label of ['Dashboard', 'Stanze', 'App Gallery']) {
+    for (const label of ['Dashboard', 'Stanze', 'Casa']) {
       expect(screen.getByRole('button', { name: `Apri ${label}` })).toBeTruthy();
     }
-    for (const label of ['Sicurezza', 'Consumi', 'Automazioni']) {
+    for (const label of ['Sicurezza', 'Consumi', 'Automazioni', 'App Gallery']) {
       expect(screen.queryByRole('button', { name: `Apri ${label}` })).toBeNull();
     }
   });

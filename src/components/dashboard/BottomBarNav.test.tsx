@@ -94,6 +94,13 @@ describe('BottomBarNav', () => {
     expect(drop.style.transform).toBe('translateX(0%)');
     // Icons only: the names stay for assistive technology.
     expect(screen.getByRole('button', { name: 'Apri Dashboard' }).textContent).toBe('');
+    // Dashboard, Stanze, Casa and the photo; the functions and the tools are reached from Casa.
+    for (const label of ['Dashboard', 'Stanze', 'Casa']) expect(screen.getByRole('button', { name: `Apri ${label}` })).toBeTruthy();
+    for (const label of ['Sicurezza', 'Consumi', 'Automazioni', 'App Gallery']) expect(screen.queryByRole('button', { name: `Apri ${label}` })).toBeNull();
+    // The active icon takes the colour of the text, not the blue of the app.
+    const active = screen.getByRole('button', { name: 'Apri Dashboard' });
+    expect(active.className).toContain('text-[color:var(--ui-text-primary)]');
+    expect(active.className).not.toContain('--ui-accent');
 
     rerender(
       <BottomBarNav
@@ -105,8 +112,8 @@ describe('BottomBarNav', () => {
         onOpenSettings={vi.fn()}
       />,
     );
-    expect(drop.getAttribute('data-index')).toBe('4');
-    expect(drop.style.transform).toBe('translateX(400%)');
+    expect(drop.getAttribute('data-index')).toBe('3');
+    expect(drop.style.transform).toBe('translateX(300%)');
     expect(drop.style.opacity).toBe('1');
 
     window.history.replaceState({}, '', '/appgallery');

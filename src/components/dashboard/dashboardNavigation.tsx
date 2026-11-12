@@ -2,6 +2,7 @@ import type { AccessCapability } from '../../security/accessControl';
 import { canOpenRoute } from '../../navigation/routeAccess';
 import {
   BarChart3,
+  Box,
   DoorOpen,
   HelpCircle,
   Home,
@@ -29,6 +30,12 @@ import type { TranslationKey } from '../../i18n/translations';
 
 export const PRIMARY_DASHBOARD_ROUTE_IDS = ['home', 'rooms', 'security', 'consumi'] as const;
 export const TOOL_DASHBOARD_ROUTE_IDS = ['automation', 'appgallery'] as const;
+/**
+ * The recommended entries of the app bar (bottom bar and side bar): Dashboard, Stanze, Casa; the photo
+ * (Profilo) comes after them. The functions and the tools are reached from Casa. The phone menu keeps
+ * PRIMARY_ and TOOL_DASHBOARD_ROUTE_IDS. docs/design/app/REGOLE-app.md §3.
+ */
+export const NAVIGATION_BAR_ROUTE_IDS = ['home', 'rooms', 'casa'] as const;
 
 const DASHBOARD_NAVIGATION_LABELS: Partial<Record<ApplicationRouteId, string>> = {
   home: 'Dashboard',
@@ -38,6 +45,7 @@ const DASHBOARD_NAVIGATION_TRANSLATION_KEYS: Record<ApplicationRouteId, Translat
   appgallery: 'navigation.appGallery',
   home: 'navigation.dashboard',
   rooms: 'navigation.rooms',
+  casa: 'navigation.casa',
   automation: 'navigation.automations',
   security: 'navigation.security',
   consumi: 'navigation.consumption',
@@ -56,6 +64,7 @@ const DASHBOARD_NAVIGATION_ICONS: Record<SidebarQuickPathIconKey, LucideIcon> = 
   light: Lightbulb,
   climate: Thermometer,
   media: Music2,
+  cube: Box,
 };
 
 export function normalizeDashboardNavigationPath(path: string) {
