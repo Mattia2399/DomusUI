@@ -1,0 +1,131 @@
+/*
+ * The frame of a page and what opens over it: the sheet (level 3 and quick actions) and the
+ * subpage (level 2). docs/design/app/REGOLE-app.md §4; measures from docs/design/app/sicurezza.html
+ * (.sheet, .side). The shape comes from the width of the page (PageFrame), never of the window.
+ */
+
+.page-frame {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  container-type: inline-size;
+  container-name: page;
+}
+
+/* ---------- The sheet (GlassSheet): over GlassModal, in its portal. ---------- */
+
+/* The shape is written on the overlay as data-layout by GlassSheet, from the PageFrame around. */
+.page-sheet-overlay {
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+.page-sheet-overlay[data-layout='column'] {
+  align-items: stretch;
+  justify-content: flex-end;
+  padding: 16px;
+}
+
+.page-sheet-scrim {
+  background: var(--ui-scrim);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The material is the one of every sheet (.glass-sheet-surface), tinted with the colour of the function. */
+.page-sheet {
+  --page-sheet-tint: 6%;
+  width: 100%;
+  max-width: none;
+  height: var(--panel-sheet-height);
+  max-height: none;
+  border-bottom: 0;
+  border-radius: var(--panel-sheet-radius) var(--panel-sheet-radius) 0 0;
+  padding: 0 0 env(safe-area-inset-bottom);
+  background: color-mix(in srgb, var(--fn-accent) var(--page-sheet-tint), var(--ui-sheet-surface));
+}
+
+.dashboard-theme-dark .page-sheet {
+  --page-sheet-tint: 8%;
+}
+
+.page-sheet-overlay[data-layout='column'] .page-sheet {
+  width: 400px;
+  height: auto;
+  border-bottom: 1px solid var(--ui-sheet-border);
+  border-radius: var(--panel-sheet-radius);
+  padding-bottom: 0;
+}
+
+/* The handle, only where the sheet rises from the bottom. */
+.page-sheet-overlay[data-layout='sheet'] .page-sheet::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  width: 44px;
+  height: 5px;
+  margin-left: -22px;
+  border-radius: 3px;
+  background: var(--control-track);
+}
+
+/* The head: an empty place, the title in the middle, the X at the right. */
+.page-sheet > header {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  column-gap: 8px;
+  padding: 22px 18px 8px;
+  text-align: center;
+}
+
+.page-sheet > header > h2 {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: var(--ui-font-display);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-sheet > header > p {
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
+  overflow: hidden;
+  color: var(--ui-text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-sheet > header > .glass-sheet-close {
+  position: static;
+  grid-column: 3;
+  grid-row: 1 / span 2;
+  width: 44px;
+  height: 44px;
+  transform: none;
+  background: var(--control-track);
+}
+
+.page-sheet-body {
+  margin-top: 0;
+  padding: 8px 18px 18px;
+}
+
+.page-sheet-footer {
+  padding: 12px 18px 18px;
+}

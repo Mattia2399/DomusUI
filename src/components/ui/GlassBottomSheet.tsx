@@ -1,3 +1,7 @@
+/*
+ * Which sheet to use: GlassBottomSheet stays for the existing pages and is not used in new ones.
+ * The sheet of the new pages (level 3 and quick actions, inside a PageFrame) is GlassSheet.
+ */
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import GlassModal from './GlassModal';

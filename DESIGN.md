@@ -114,7 +114,7 @@ I modelli buoni nel codice sono pochi:
 - **Intestazione:** una sola riga con il pulsante rotondo in vetro ‹ (solo se si torna indietro), il titolo e gli strumenti a destra (ingranaggio, puntina, azione). Sotto, se serve, una riga piccola di dettaglio. Il ‹ è l’unico controllo per tornare indietro.
 - **Livelli:** al massimo due.
   - La sotto-pagina sul telefono copre la pagina; su tablet e desktop si apre nella colonna a destra.
-  - Un terzo livello e le azioni rapide sono **fogli**.
+  - Un terzo livello e le azioni rapide sono **fogli**. Nelle pagine nuove il foglio è `GlassSheet`, dentro un `PageFrame`; `GlassBottomSheet` resta solo per le pagine esistenti e non si usa in quelle nuove.
 - **Navigazione:** una sola barra, quella dell’app. Le funzioni non hanno barre proprie. Dettagli in `REGOLE-app.md` §3. Finché la nuova barra non è stata portata, resta la shell attuale.
 - **Liste:** righe raggruppate in un unico blocco di vetro, con separatori interni e icona quadrata colorata a sinistra. Il valore a destra si mostra solo se dice qualcosa.
 - **Larghezze:** si usano container query, non la larghezza della finestra.

@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import clsx from 'clsx';
 import { resolveOverlayThemeClass, type DashboardThemeClass } from './portalTheme';
+import { isTopOverlay, pushOverlay, removeOverlay } from './overlayStack';
 import { useI18n } from '../../i18n/I18nProvider';
 
 export type GlassModalSize = 'sm' | 'md' | 'lg' | 'xl';
@@ -34,6 +35,17 @@ export type GlassModalProps = {
   bodyClassName?: string;
   footerClassName?: string;
   backdropClassName?: string;
+  /** data-* attributes on the overlay, as the shape and the function of a GlassSheet. */
+  overlayData?: Record<string, string | undefined>;
+  /** How the panel comes in: as always (default), rising from the bottom, or from the right. */
+  panelMotion?: 'pop' | 'rise' | 'side';
+};
+
+// As the sheets of the prototypes (docs/design/app/sicurezza.html: up, side).
+const SHEET_EASE = [0.2, 0.8, 0.2, 1] as const;
+const PANEL_MOTION = {
+  rise: { initial: { opacity: 0.5, y: 40 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: 40 }, transition: { duration: 0.3, ease: SHEET_EASE } },
+  side: { initial: { opacity: 0.5, x: 30 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: 30 }, transition: { duration: 0.3, ease: SHEET_EASE } },
 };
 
 const SIZE_CLASS: Record<GlassModalSize, string> = {
@@ -61,7 +73,6 @@ const FOCUSABLE_SELECTOR = [
 
 let bodyLockCount = 0;
 let bodyOverflowBeforeLock = '';
-const openModalStack: string[] = [];
 
 function lockBodyScroll() {
   if (bodyLockCount === 0) {
@@ -108,6 +119,8 @@ export function GlassModal({
   bodyClassName,
   footerClassName,
   backdropClassName,
+  overlayData,
+  panelMotion = 'pop',
 }: GlassModalProps) {
   const { t } = useI18n();
   const resolvedCloseLabel = closeLabel ?? t('common.closeDialog');
@@ -133,7 +146,7 @@ export function GlassModal({
     if (!isOpen || typeof document === 'undefined') return;
 
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    openModalStack.push(modalId);
+    pushOverlay(modalId);
     lockBodyScroll();
 
     const focusTimer = window.setTimeout(() => {
@@ -145,7 +158,7 @@ export function GlassModal({
     }, 0);
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (openModalStack.at(-1) !== modalId) return;
+      if (!isTopOverlay(modalId)) return;
       if (event.key === 'Escape' && dismissible) {
         event.preventDefault();
         onCloseRef.current();
@@ -177,8 +190,7 @@ export function GlassModal({
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener('keydown', handleKeyDown);
-      const stackIndex = openModalStack.lastIndexOf(modalId);
-      if (stackIndex >= 0) openModalStack.splice(stackIndex, 1);
+      removeOverlay(modalId);
       unlockBodyScroll();
       previousFocusRef.current?.focus?.();
     };
@@ -208,6 +220,7 @@ export function GlassModal({
         <motion.div
           className={overlayClassName}
           style={{ zIndex }}
+          {...(overlayData && Object.fromEntries(Object.entries(overlayData).map(([key, value]) => [`data-${key}`, value])))}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -239,6 +252,7 @@ export function GlassModal({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.985 }}
             transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            {...(panelMotion === 'pop' ? null : PANEL_MOTION[panelMotion])}
             onClick={(event) => event.stopPropagation()}
           >
             <header
