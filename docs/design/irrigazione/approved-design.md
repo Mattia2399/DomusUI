@@ -1,6 +1,6 @@
 # Irrigazione - disegno approvato
 
-Data: 2026-11-12. Riferimento visivo e comportamentale: [prototipo cliccabile](irrigazione-prototipo.html), SHA-256 `45AB7D8F4CF227B1487136311A586388440BF387794DCDA72EA638D6BDB4DEB1`. Il file HTML e conservato solo come riferimento di design; la mini app va costruita con React, Tailwind, token Domus UI e componenti `Glass*`. La versione pubblicata del prototipo e [qui](https://claude.ai/artifact/TXBXPDrADcvVb4VqygEh9n); il file locale e la copia verificabile in repository.
+Data: 2026-11-12. Riferimento visivo e comportamentale: [prototipo cliccabile](irrigazione-prototipo.html), SHA-256 `2B2C56A33573F9195032F0640B87D4566F857C408294D8F1A9DEFE7BDB612B07`. Il file HTML e conservato solo come riferimento di design; la mini app va costruita con React, Tailwind, token Domus UI e componenti `Glass*`. La versione pubblicata del prototipo e [qui](https://claude.ai/artifact/TXBXPDrADcvVb4VqygEh9n); il file locale e la copia verificabile in repository.
 
 ## Contratto visivo
 

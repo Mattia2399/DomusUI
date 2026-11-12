@@ -1,0 +1,288 @@
+<title>Impostazioni DomusUI</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: barra di prova in alto; sotto il dispositivo con /settings nello stile delle Stanze e dell'Irrigazione. */
+:root{--pg-bg:#E4E7EE;--pg-ink:#16181D;--pg-ink2:rgba(60,60,67,.7);--pg-chip:#FFFFFF;--pg-line:rgba(60,60,67,.14);--pg-sel:#16181D;--pg-sel-ink:#FFFFFF;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI Variable",system-ui,sans-serif}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--pg-bg:#0A0B0D;--pg-ink:#F2F2F7;--pg-ink2:rgba(235,235,245,.62);--pg-chip:#1C1C1E;--pg-line:rgba(235,235,245,.14);--pg-sel:#F2F2F7;--pg-sel-ink:#0A0B0D;color-scheme:dark}}
+:root[data-theme="dark"]{--pg-bg:#0A0B0D;--pg-ink:#F2F2F7;--pg-ink2:rgba(235,235,245,.62);--pg-chip:#1C1C1E;--pg-line:rgba(235,235,245,.14);--pg-sel:#F2F2F7;--pg-sel-ink:#0A0B0D;color-scheme:dark}
+body{background:var(--pg-bg);color:var(--pg-ink);font-family:var(--font);-webkit-font-smoothing:antialiased;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px 40px}
+button{font:inherit;color:inherit;border:0;background:none;margin:0;cursor:pointer;-webkit-tap-highlight-color:transparent;text-align:inherit}
+button:focus-visible{outline:3px solid #0A84FF;outline-offset:2px}
+.lab{max-width:1320px;margin:0 auto 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.lab h1{font-size:19px;font-weight:700;margin:0 10px 0 0}
+.lab .grp{display:flex;align-items:center;gap:8px}
+.lab .lbl{font-size:12px;font-weight:600;color:var(--pg-ink2)}
+.seg{display:inline-flex;gap:2px;padding:3px;border-radius:12px;background:var(--pg-chip);box-shadow:0 0 0 1px var(--pg-line)}
+.seg button{height:30px;padding:0 11px;border-radius:9px;font-size:13px;font-weight:600;white-space:nowrap}
+.seg button.on{background:var(--pg-sel);color:var(--pg-sel-ink)}
+.stage{max-width:1320px;margin:0 auto;overflow:hidden}
+.dev{position:relative;transform-origin:top left;border-radius:46px;overflow:hidden;box-shadow:0 0 0 1px var(--pg-line),0 40px 90px -50px rgba(0,0,0,.5)}
+.dev.tablet{border-radius:32px}.dev.desktop{border-radius:18px}
+.note{max-width:1320px;margin:14px auto 0;font-size:13px;color:var(--pg-ink2);line-height:1.5}
+
+.app{--bg:#E9ECF2;--ink:#0B0B0F;--t2:rgba(60,60,67,.74);--t3:rgba(60,60,67,.48);--g-bg:rgba(255,255,255,.58);--g-bd:rgba(255,255,255,.85);--g-hi:rgba(255,255,255,.95);--g-sh:rgba(30,41,59,.26);
+  --pill-on:#0B0B0F;--pill-on-t:#FFFFFF;--sep:rgba(60,60,67,.1);--track:rgba(118,118,128,.16);--orb:.34;--sel:rgba(10,132,255,.12);
+  --acc:#0A84FF;--ok:#248A3D;--warn:#C93400;
+  position:absolute;inset:0;display:flex;background:var(--bg);color:var(--ink);font:15px/1.35 var(--font);container-type:inline-size;container-name:app;overflow:hidden}
+.app.dark{--bg:#000000;--ink:#F5F5F7;--t2:rgba(235,235,245,.66);--t3:rgba(235,235,245,.42);--g-bg:rgba(38,38,42,.52);--g-bd:rgba(255,255,255,.1);--g-hi:rgba(255,255,255,.1);--g-sh:rgba(0,0,0,.8);
+  --pill-on:#F5F5F7;--pill-on-t:#000000;--sep:rgba(255,255,255,.08);--track:rgba(255,255,255,.12);--orb:.6;--sel:rgba(10,132,255,.22);--acc:#0A84FF;--ok:#30D158;--warn:#FF9F0A}
+.app *,.app *::before,.app *::after{box-sizing:border-box}
+.app svg{flex:none}
+.orb{position:absolute;border-radius:50%;filter:blur(120px);opacity:var(--orb);pointer-events:none}
+.orb.a{width:520px;height:520px;left:-180px;top:-200px;background:#0A84FF}
+.orb.b{width:460px;height:460px;right:-200px;top:30%;background:#8E44D9}
+.glass{background:var(--g-bg);border:1px solid var(--g-bd);box-shadow:inset 0 1px 0 var(--g-hi),0 26px 60px -32px var(--g-sh);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%)}
+.circle{width:44px;height:44px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.t2{color:var(--t2)}
+
+/* struttura: telefono = una colonna che si sposta; tablet/desktop = elenco + pagina */
+.shell{position:relative;z-index:1;flex:1;min-width:0;display:flex}
+.col{min-width:0;overflow:auto;display:flex;flex-direction:column}
+.col.list-col{flex:1}
+.col.page-col{display:none}
+@container app (min-width:760px){
+  .shell{padding:16px;gap:16px}
+  .col.list-col{flex:none;width:380px;border-radius:30px}
+  .col.page-col{display:flex;flex:1;border-radius:30px}
+  .only-phone{display:none!important}
+}
+@container app (max-width:759px){.col.list-col.hide{display:none}.col.page-col.show{display:flex;flex:1}}
+.in{padding:14px 16px 110px;display:flex;flex-direction:column;gap:22px}
+@container app (min-width:760px){.in{padding:22px 20px 40px}.page-col .in{padding:26px 34px 40px;max-width:720px;width:100%}}
+.head h2{margin:0;font-size:34px;font-weight:700;letter-spacing:-.025em;line-height:1.05}
+.head p{margin:6px 0 0;font-size:15px;font-weight:500;color:var(--t2)}
+.topbar{display:flex;align-items:center;gap:10px;min-height:44px}
+.eb{padding:0;display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:600;color:var(--acc);margin-bottom:2px}
+.topbar .lbl{font-size:15px;font-weight:600;color:var(--acc);display:inline-flex;align-items:center;gap:2px}
+.search{height:44px;border-radius:14px;display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--track);color:var(--t2)}
+.search input{flex:1;min-width:0;border:0;background:none;outline:none;font:inherit;font-size:16px;color:var(--ink)}
+.me{display:flex;align-items:center;gap:14px;padding:14px;border-radius:24px;width:100%;text-align:left}
+.av{width:58px;height:58px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#FFF;background:linear-gradient(135deg,#FF6B6B,#C2185B);position:relative}
+.av i{position:absolute;right:1px;bottom:1px;width:14px;height:14px;border-radius:50%;background:#30D158;box-shadow:0 0 0 3px var(--bg)}
+.me b{font-size:19px;font-weight:700;display:block}
+.me span{font-size:14px;font-weight:500;color:var(--t2)}
+.gr{display:flex;flex-direction:column;gap:8px}
+.cap{font-size:13px;font-weight:600;color:var(--t2);padding:0 6px;text-transform:uppercase;letter-spacing:.05em}
+.foot{font-size:13px;font-weight:500;color:var(--t3);padding:0 6px;line-height:1.45;margin:0}
+.list{border-radius:24px;overflow:hidden}
+.li{display:flex;align-items:center;gap:12px;padding:0 14px;min-height:56px;width:100%;text-align:left;position:relative}
+.li+.li::before{content:'';position:absolute;left:58px;right:0;top:0;height:1px;background:var(--sep)}
+.li.flat+.li.flat::before{left:14px}
+.li.sel,.me.sel{background:var(--sel)}
+.sq{width:32px;height:32px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center;color:#FFF}
+.li .tx{flex:1;min-width:0;display:flex;flex-direction:column;padding:10px 0}
+.li .tx b{font-size:16px;font-weight:500}
+.li .tx span{font-size:13px;font-weight:500;color:var(--t2)}
+.li .val{font-size:15px;color:var(--t2);white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.li .chev{color:var(--t3)}
+.badge{min-width:22px;height:22px;border-radius:11px;padding:0 7px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#FF453A;color:#FFF}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.sw{width:51px;height:31px;border-radius:16px;background:var(--track);position:relative;flex:none;transition:background .2s}
+.sw i{position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#FFF;box-shadow:0 2px 6px rgba(0,0,0,.22);transition:left .2s}
+.sw.on{background:#30D158}
+.sw.on i{left:22px}
+.segm{display:flex;gap:3px;padding:3px;border-radius:14px;background:var(--track)}
+.segm button{flex:1;height:36px;border-radius:11px;font-size:14px;font-weight:600;text-align:center;color:var(--t2)}
+.segm button.on{background:#FFFFFF;color:#0B0B0F;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+.walls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.walls button{aspect-ratio:3/4;border-radius:16px;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px var(--sep)}
+.walls button.on{box-shadow:0 0 0 3px var(--acc)}
+.walls span{position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:11px;font-weight:600;color:#FFF;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.bigcard{border-radius:24px;padding:18px;display:flex;align-items:center;gap:14px}
+.bigcard .ic{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#FFF;flex:none}
+.bigcard b{font-size:18px;font-weight:700;display:block}
+.pill{height:44px;border-radius:22px;padding:0 18px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:600;white-space:nowrap;background:var(--track)}
+.pill.acc{background:var(--acc);color:#FFF}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chips button{height:34px;padding:0 14px;border-radius:17px;background:var(--track);font-size:14px;font-weight:600}
+.chips button.on{background:var(--pill-on);color:var(--pill-on-t)}
+.tabbar{position:absolute;z-index:6;left:14px;right:14px;bottom:16px;height:64px;border-radius:32px;display:grid;padding:0 6px}
+.tab{display:flex;align-items:center;justify-content:center;color:var(--t2)}
+.tab .ti{width:50px;height:42px;border-radius:21px;display:flex;align-items:center;justify-content:center}
+.tab.on .ti{background:var(--pill-on);color:var(--pill-on-t)}
+.tab .mini-av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#FF6B6B,#C2185B);color:#FFF;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+@container app (min-width:760px){.tabbar{display:none}}
+.mini{width:32px;height:32px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;background:var(--track);color:var(--t2)}
+.mini.rm{background:#FF453A;color:#FFF}
+.mini.add{background:#30D158;color:#FFF}
+.mini:disabled{opacity:.5}
+.pvwrap{position:relative;height:84px;border-radius:24px;overflow:hidden;background:linear-gradient(135deg,rgba(10,132,255,.25),rgba(142,68,217,.25))}
+.tabbar.pv{display:grid!important;position:absolute;left:10px;right:10px;bottom:10px;height:64px}
+.tab .tl{font-size:10px;font-weight:600;margin-top:1px}
+.tabbar.pv .tab{flex-direction:column}
+.tabbar.pv .ti{height:30px}
+.trow{display:flex;align-items:center;gap:12px;min-height:44px}
+.trow h2{flex:1;min-width:0;margin:0;font-size:30px;font-weight:700;letter-spacing:-.025em;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsub{margin:-14px 0 0;font-size:15px;font-weight:500;color:var(--t2)}
+.view{animation:fade .22s both}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.view{animation:none}}
+.toast{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);z-index:40;background:var(--pill-on);color:var(--pill-on-t);font-size:14px;font-weight:600;padding:11px 18px;border-radius:18px;white-space:nowrap;animation:fade .2s both}
+.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--t3);font-size:15px;font-weight:500}
+.status{border-radius:24px;padding:18px;display:flex;flex-direction:column;gap:6px}
+.status .row{display:flex;align-items:center;gap:10px}
+.status b{font-size:20px;font-weight:700}
+.dev-row .sq{border-radius:50%}
+</style>
+
+<div class="lab">
+  <h1>Impostazioni · prototipo</h1>
+  <div class="grp"><span class="lbl">Schermo</span><div class="seg" id="sDev"></div></div>
+  <div class="grp"><span class="lbl">Tema</span><div class="seg" id="sTheme"></div></div>
+</div>
+<div class="stage" id="stage"><div class="dev" id="dev"><div class="app" id="app"></div></div></div>
+<p class="note">Profilo, La casa, Home Assistant, Questo dispositivo, Supporto. Funzioni e strumenti ora vivono nella pagina Casa. Barra di navigazione consigliata: Dashboard · Stanze · Casa · Profilo, con un posto libero per una funzione (la Sicurezza fissata mostra lo scudo verde quando è inserita). Dati di esempio.</p>
+
+<script>
+(function(){
+const P={
+search:'<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',chevR:'<path d="m9 18 6-6-6-6"/>',chevL:'<path d="m15 18-6-6 6-6"/>',check:'<path d="m5 12 5 5 9-10"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>',plus:'<path d="M12 5v14M5 12h14"/>',
+layers:'<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.8c1.6.8 2.7 2.6 3 5.2"/>',
+grid:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
+shield:'<path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/>',lock:'<rect x="5" y="11" width="14" height="10" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',bell:'<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',chip:'<rect x="6" y="6" width="12" height="12" rx="2.5"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+refresh:'<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v4.5h-4.5"/>',db:'<ellipse cx="12" cy="5.5" rx="7.5" ry="2.8"/><path d="M4.5 5.5v13c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8v-13"/><path d="M4.5 12c0 1.5 3.4 2.8 7.5 2.8s7.5-1.3 7.5-2.8"/>',
+palette:'<path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-.9.8-1.7 1.7-1.7H16a5 5 0 0 0 5-5c0-4-4-7.2-9-7.2z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10" cy="7.5" r="1"/><circle cx="14.5" cy="7.5" r="1"/>',
+globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3z"/>',tablet:'<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M10.5 18h3"/>',
+help:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.5"/><path d="m6 6 3.5 3.5M14.5 14.5 18 18M18 6l-3.5 3.5M9.5 14.5 6 18"/>',user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/>',route:'<circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M8.5 18H16a3 3 0 0 0 0-6H8a3 3 0 0 1 0-6h7.5"/>',
+phone:'<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/>',key:'<circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M17 6l3 3M14 9l2 2"/>',home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+door:'<path d="M5 21V4a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v17"/><path d="M3 21h18"/><circle cx="15" cy="12.5" r=".9" fill="currentColor"/>',chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',bolt:'<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/>',bug:'<rect x="7" y="8" width="10" height="12" rx="5"/><path d="M12 8V5M9 5l-1.5-2M15 5l1.5-2M3 13h4M17 13h4M4 19l3.5-2M20 19l-3.5-2"/>',
+idea:'<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',download:'<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',code:'<path d="m8 8-5 4 5 4M16 8l5 4-5 4M14 4l-4 16"/>',
+wifi:'<path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/>',bulb:'<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+thermo:'<path d="M14 14.8V5a2 2 0 1 0-4 0v9.8a4 4 0 1 0 4 0z"/>',plug:'<path d="M9 7V3M15 7V3"/><path d="M6 7h12v4a6 6 0 0 1-12 0z"/><path d="M12 17v4"/>',sensor:'<circle cx="12" cy="12" r="2.5"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14"/>'
+};
+Object.assign(P,{cube:'<path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/>',wand:'<path d="m4 20 11-11"/><path d="m14 4 1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/><path d="m19 11 .7 1.3 1.3.7-1.3.7L19 15l-.7-1.3-1.3-.7 1.3-.7z"/>',pool:'<path d="M2 18c2 0 2-1.5 4-1.5S8 18 10 18s2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5"/><path d="M8 14V5a2 2 0 0 1 4 0M16 14V5a2 2 0 0 1 4 0M8 9h8"/>',wrench:'<path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L4 17l3 3 5.2-5.2a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.6-.6-.6-2.6z"/>',blind:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h16M4 12h16M4 16h16"/>',open:'<path d="M7 17 17 7M8 7h9v9"/>',grid4:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',flame:'<path d="M12 3c1 3 4 5 4 9a4 4 0 0 1-8 0c0-2 1-3 1.5-4.5C10 9 11 10.5 12 10c0-2-1-4 0-7z"/>',drop:'<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/>',recycle:'<path d="M7 19H4.5a2 2 0 0 1-1.7-3L5 12"/><path d="M11 19h7.5a2 2 0 0 0 1.7-3l-1.4-2.4"/><path d="m14 16-3 3 3 3"/><path d="M8.3 7.2 10.3 4a2 2 0 0 1 3.4 0l2.7 4.6"/>',up:'<path d="m6 15 6-6 6 6"/>',minus:'<path d="M5 12h14"/>',lockk:'<rect x="6" y="11" width="12" height="9" rx="2"/><path d="M9 11V8a3 3 0 0 1 6 0v3"/>'});
+const I=(k,s=20,w=2)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k]||''}</svg>`;
+const S={nav:['rooms','casa'],fn:null,device:'phone',theme:'dark',page:null,parent:null,toast:null,themeChoice:'system',wall:'aurora',kiosk:false,saver:true,saverMin:5,charge:true,start:true,dev:false,tab:'dev',filter:'all',lang:'it'};
+const app=document.getElementById('app'),dev=document.getElementById('dev'),stage=document.getElementById('stage');
+const SIZES={phone:[390,844],tablet:[1024,720],desktop:[1360,860]};
+function fit(){const [w,h]=SIZES[S.device];const a=stage.clientWidth;const sc=Math.min(1,a/w);dev.style.width=w+'px';dev.style.height=h+'px';dev.className='dev '+S.device;dev.style.transform=`scale(${sc})`;dev.style.marginLeft=Math.max(0,(a-w*sc)/2)+'px';stage.style.height=h*sc+'px';}
+window.addEventListener('resize',fit);
+function lab(){const mk=(id,o,k)=>{document.getElementById(id).innerHTML=o.map(x=>`<button type="button" class="${S[k]===x[0]?'on':''}" data-lab="${k}" data-v="${x[0]}">${x[1]}</button>`).join('');};mk('sDev',[['phone','Telefono'],['tablet','Tablet'],['desktop','Desktop']],'device');mk('sTheme',[['light','Chiaro'],['dark','Scuro']],'theme');}
+
+/* colori delle icone quadrate: una tavolozza ordinata, un colore per famiglia */
+const C={casa:'#0A84FF',persone:'#5E5CE6',sicurezza:'#34A853',avvisi:'#FF9F0A',ha:'#14B8C4',dati:'#8E8E93',dev:'#FF2D55',supporto:'#636366'};
+
+const NAV={rooms:['Stanze','door','#0A84FF'],casa:['Casa','cube','#5E5CE6'],security:['Sicurezza','shield','#30D158'],energy:['Energia','bolt','#E8A500'],clima:['Clima','flame','#FF6B35'],irrigation:['Irrigazione','drop','#10B981'],calendar:['Calendario','cal','#FF3B30'],waste:['Rifiuti','recycle','#34A853']};
+const MAXMID=3;
+function tabbarHtml(preview){
+  const items=[['home','Dashboard','home']].concat(S.nav.map(k=>[k,NAV[k][0],NAV[k][1]])).concat([['me','Profilo','me']]);
+  return `<nav class="tabbar glass ${preview?'pv':''}" style="grid-template-columns:repeat(${items.length},1fr)">${items.map(x=>`<span class="tab ${x[0]==='me'&&!preview?'on':''}"><span class="ti">${x[2]==='me'?'<span class="mini-av">M</span>':x[0]==='security'?`<span style="color:#30D158;position:relative;display:flex">${I(x[2],22)}</span>`:I(x[2],22)}</span>${preview?`<span class="tl">${x[1]}</span>`:''}</span>`).join('')}</nav>`;
+}
+function row(key,ic,col,label,sub,val,go){return `<button type="button" class="li ${S.page===go?'sel':''}" data-go="${go||''}" ${go?'':`data-toast="Si apre: ${label}"`}><span class="sq" style="background:${col}">${I(ic,18,2.1)}</span><span class="tx"><b>${label}</b>${sub?`<span>${sub}</span>`:''}</span>${val?`<span class="val">${val}</span>`:''}<span class="chev">${I('chevR',17,2.4)}</span></button>`;}
+function group(cap,inner,foot){return `<div class="gr">${cap?`<span class="cap">${cap}</span>`:''}<div class="list glass">${inner}</div>${foot?`<p class="foot">${foot}</p>`:''}</div>`;}
+
+function main(){
+  return `<div class="in view">
+  <div class="trow"><h2>Impostazioni</h2></div>
+  <label class="search">${I('search',17)}<input id="q" placeholder="Cerca nelle impostazioni" aria-label="Cerca nelle impostazioni"></label>
+  <button type="button" class="me glass ${S.page==='profile'?'sel':''}" data-go="profile"><span class="av">M<i></i></span><span style="flex:1;min-width:0"><b>Mattia</b><span>Creatore · Profilo e notifiche</span></span><span style="color:var(--t3)">${I('chevR',18,2.4)}</span></button>
+  ${group('La casa',
+    row('','layers',C.casa,'Piani e stanze','','9 stanze','')+
+    row('','users',C.persone,'Persone e accessi','','5','people')+
+    row('','grid',C.casa,'Dashboard','','','')+
+    row('','bell',C.avvisi,'Avvisi','','Spenti',''),'Valgono per tutti in casa.')}
+  ${group('Home Assistant',
+    row('','link',C.ha,'Connessione','',`<i class="dot"></i>Online`,'conn')+
+    row('','chip',C.ha,'Dispositivi ed entità','','160 · 595','devices')+
+    row('','refresh',C.ha,'Aggiornamenti e diagnostica','',`<span class="badge">1</span>`,'')+
+    row('','db',C.dati,'Dati e backup','','ieri 03:00',''))}
+  ${group('Questo dispositivo',
+    row('','palette',C.dev,'Aspetto','',S.themeChoice==='system'?'Sistema':S.themeChoice==='dark'?'Scuro':'Chiaro','look')+
+    row('','globe',C.dev,'Lingua','','Italiano','')+
+    row('','grid4',C.dev,'Barra di navigazione','',(S.nav.length+2)+' voci','navbar')+row('','tablet',C.dev,'Usare come pannello','',S.kiosk?'Sì':'No','panel'),'Solo su questo telefono o tablet.')}
+  ${group('',row('','help',C.supporto,'Supporto e informazioni','','1.5.0','support'))}
+  </div>`;
+}
+function sub(title,subtitle,body,back='main'){
+  const name=back==='profile'?'Profilo':'Impostazioni';
+  return `<div class="in view"><div class="trow"><button type="button" class="circle glass ${back==='profile'?'':'only-phone'}" data-back="${back}" aria-label="Torna a ${name}">${I('chevL',20,2.4)}</button><h2>${title}</h2></div>${subtitle?`<p class="tsub">${subtitle}</p>`:''}${body}</div>`;
+}
+const sw=(k,label,desc)=>`<div class="li flat"><span class="tx"><b>${label}</b>${desc?`<span>${desc}</span>`:''}</span><button type="button" class="sw ${S[k]?'on':''}" data-tog="${k}" role="switch" aria-checked="${S[k]}" aria-label="${label}"><i></i></button></div>`;
+
+const FN=[['security','Sicurezza','shield','#30D158','Disinserito'],['clima','Clima','flame','#FF6B35','21,4°'],['energy','Energia','bolt','#E8A500','0,6 kW'],['irrigation','Irrigazione','drop','#10B981','domani 05:30'],['waste','Rifiuti','recycle','#34A853','stasera plastica']];
+const FN_SET={
+ security:[['Per inserire e disinserire','Codice, oppure viso o impronta'],['Modalità','Fuori casa, In casa, Notte, Vacanza'],['Sensori protetti','12'],['Telecamere','4'],['Avvisi','Tutta la famiglia']],
+ clima:[['Zone','5 zone'],['Programmi','Settimana e weekend'],['Sorgenti','Termostufa, 2 split'],['Comfort','20° di giorno, 18° di notte']],
+ energy:[['Contatore','Trovato da solo'],['Fotovoltaico e batteria','3,4 kW · 10 kWh'],['Tariffa','Bioraria'],['Consumi per dispositivo','12 prese']],
+ irrigation:[['Stagione','Primavera 80%'],['Meteo','Ferma quando piove'],['Zone e valvole','4 zone'],['Sensori','Tutti trovati'],['Sicurezza','30 min al massimo']],
+ waste:[['Calendario','Comune di Roma'],['Promemoria','La sera prima alle 20:00'],['Bidoni','4 tipi']]};
+const FN_ADD=[['pool','#06B6D4','Piscina e spa','Filtrazione, temperatura e trattamenti','In arrivo'],['wrench','#8E8E93','Locale tecnico','Caldaia, pompe e allarmi tecnici in un posto',''],['blind','#5E5CE6','Tapparelle automatiche','Si alzano col sole e si chiudono la sera','']];
+const PAGES={
+ profile(){return `<div class="in view"><div class="trow"><button type="button" class="circle glass only-phone" data-back="main" aria-label="Torna a Impostazioni">${I('chevL',20,2.4)}</button><h2>Profilo</h2></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding-top:4px"><span class="av" style="width:96px;height:96px;font-size:36px">M<i style="width:18px;height:18px"></i></span><b style="font-size:24px;font-weight:700">Mattia</b><span class="t2" style="font-weight:500">Creatore · mattia@casa</span></div>
+  ${group('Account',row('','user','#636366','Informazioni personali','Nome, email e ruolo da Home Assistant','','')+row('','route','#636366','Attività e spostamenti','Nessun movimento recente','','')+row('','bell',C.avvisi,'Notifiche','Dove le ricevi','3','notif')+row('','key',C.sicurezza,'Codice e conferme','Per le azioni importanti','',''))}
+  ${group('Preferenze',`<div class="li"><span class="sq" style="background:${C.casa}">${I('home',18,2.1)}</span><span class="tx"><b>Apri Domus all’avvio</b><span>Quando entri in Home Assistant</span></span><button type="button" class="sw ${S.start?'on':''}" data-tog="start" role="switch" aria-checked="${S.start}" aria-label="Apri Domus all’avvio"><i></i></button></div>`)}
+  <button type="button" class="pill" style="color:#FF453A;align-self:flex-start" data-toast="Esci">Esci</button></div>`;},
+ notif(){return sub('Notifiche','Dove arrivano gli avvisi di Domus',group('I tuoi dispositivi',[['phone','iPhone di Mattia','Questo dispositivo',true],['phone','iPad cucina','Ultimo avviso ieri',true],['tablet','Tablet ingresso','Solo avvisi della casa',false]].map(d=>`<div class="li dev-row"><span class="sq" style="background:#636366">${I(d[0],17,2.1)}</span><span class="tx"><b>${d[1]}</b><span>${d[2]}</span></span><button type="button" class="sw ${d[3]?'on':''}" data-toast="${d[3]?'Notifiche spente':'Notifiche accese'}" role="switch" aria-checked="${d[3]}" aria-label="${d[1]}"><i></i></button></div>`).join(''),'Gli avvisi della casa si scelgono in Impostazioni › Avvisi.')+`<button type="button" class="pill" style="align-self:flex-start" data-toast="Notifica di prova inviata">${I('bell',16)}Manda una notifica di prova</button>`,'profile');},
+ people(){return sub('Persone e accessi','Chi vive o entra in casa',group('In casa',[['M','Mattia','Creatore','#C2185B','A casa'],['G','Giulia','Adulto','#5E5CE6','Fuori'],['L','Luca','Ragazzo','#0A84FF','A scuola'],['N','Nonna Anna','Ospite fisso','#FF9F0A','A casa']].map(p=>`<button type="button" class="li" data-toast="Si apre: ${p[1]}"><span class="sq" style="background:${p[3]};border-radius:50%;font-weight:700;font-size:14px">${p[0]}</span><span class="tx"><b>${p[1]}</b><span>${p[2]}</span></span><span class="val">${p[4]}</span><span class="chev">${I('chevR',17,2.4)}</span></button>`).join(''))+group('Ospiti',`<button type="button" class="li" data-toast="Si apre: Marco"><span class="sq" style="background:#8E8E93;border-radius:50%;font-weight:700;font-size:14px">M</span><span class="tx"><b>Marco</b><span>Ospite · scade domenica</span></span><span class="chev">${I('chevR',17,2.4)}</span></button>`,'Gli ospiti vedono solo le stanze e i comandi che scegli.')+`<button type="button" class="pill acc" style="align-self:flex-start" data-toast="Invita qualcuno">${I('plus',17,2.4)}Invita qualcuno</button>`);},
+ conn(){return sub('Connessione','Come Domus parla con Home Assistant',`<div class="status glass"><div class="row"><span class="sq" style="background:${C.ha};width:44px;height:44px;border-radius:13px">${I('link',22,2.1)}</span><div><b>Online</b><div class="t2" style="font-weight:500">Risponde in 42 ms</div></div><span class="dot" style="margin-left:auto;width:10px;height:10px"></span></div></div>`+group('Indirizzi',`<div class="li flat"><span class="tx"><b>In casa</b><span>http://homeassistant.local:8123</span></span><span class="val">in uso</span></div><div class="li flat"><span class="tx"><b>Fuori casa</b><span>https://casa.mattia.it</span></span></div>`,'Fuori casa Domus passa da solo all’indirizzo esterno.')+group('Accesso',`<div class="li flat"><span class="tx"><b>Accesso con Home Assistant</b><span>Accesso sicuro, senza password salvate qui</span></span><span class="val">Attivo</span></div>`)+`<button type="button" class="pill" style="align-self:flex-start" data-toast="Riconnesso">${I('refresh',16)}Riconnetti</button>`);},
+ devices(){
+  const items=S.tab==='dev'?[['bulb','#FF9F0A','Lampada divano','Soggiorno · Philips Hue','Accesa'],['thermo','#FF6B35','Termostufa Integrata','Cucina · Extraflame','Riscalda'],['plug','#34A853','Presa lavatrice','Lavanderia · Shelly','Spenta'],['sensor','#14B8C4','Sensore porta ingresso','Ingresso · Aqara','Chiusa'],['wifi','#8E8E93','Router','Studio · FritzBox','Non risponde']]:[['bulb','#FF9F0A','light.lampada_divano','Lampada divano','on'],['thermo','#FF6B35','climate.termostufa','Termostufa Integrata','heat'],['sensor','#14B8C4','binary_sensor.porta_ingresso','Porta ingresso','off'],['plug','#34A853','switch.presa_lavatrice','Presa lavatrice','off'],['chip','#8E8E93','sensor.router_uptime','Router uptime','12 d']];
+  const f=S.tab==='dev'?[['all','Tutti'],['ctl','Da comandare'],['bad','Non rispondono']]:[['all','Tutte'],['light','Luci'],['sensor','Sensori'],['hidden','Nascoste']];
+  return sub('Dispositivi ed entità','Tutto quello che c’è in Home Assistant',`<div class="segm"><button type="button" class="${S.tab==='dev'?'on':''}" data-tab="dev">Dispositivi · 160</button><button type="button" class="${S.tab==='ent'?'on':''}" data-tab="ent">Entità · 595</button></div>
+  <label class="search">${I('search',17)}<input id="qd" placeholder="Cerca per nome o stanza" aria-label="Cerca"></label>
+  <div class="chips">${f.map(x=>`<button type="button" class="${S.filter===x[0]?'on':''}" data-filter="${x[0]}">${x[1]}</button>`).join('')}</div>
+  <div class="list glass">${items.map(d=>`<button type="button" class="li" data-toast="Si apre: ${d[2]}"><span class="sq" style="background:${d[1]}">${I(d[0],17,2.1)}</span><span class="tx"><b style="${S.tab==='ent'?'font-size:14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace':''}">${d[2]}</b><span>${d[3]}</span></span><span class="val" style="${d[4]==='Non risponde'?'color:var(--warn)':''}">${d[4]}</span><span class="chev">${I('chevR',17,2.4)}</span></button>`).join('')}</div>
+  <p class="foot">Mostro 5 di ${S.tab==='dev'?'160':'595'}. Scorri o cerca per trovarne altri.</p>`);},
+ look(){const W=[['aurora','Aurora','radial-gradient(circle at 20% 20%,#0A84FF,transparent 60%),radial-gradient(circle at 80% 70%,#8E44D9,transparent 60%),#05060A'],['giardino','Giardino','radial-gradient(circle at 30% 25%,#10B981,transparent 60%),radial-gradient(circle at 75% 75%,#06B6D4,transparent 60%),#06120D'],['tramonto','Tramonto','radial-gradient(circle at 25% 30%,#FF9F0A,transparent 60%),radial-gradient(circle at 75% 75%,#FF2D55,transparent 60%),#140808'],['neutro','Neutro','linear-gradient(160deg,#2C2C2E,#000)']];
+  return sub('Aspetto','Solo su questo dispositivo',`<div class="gr"><span class="cap">Tema</span><div class="glass" style="border-radius:20px;padding:6px"><div class="segm">${[['light','Chiaro'],['dark','Scuro'],['system','Sistema']].map(o=>`<button type="button" class="${S.themeChoice===o[0]?'on':''}" data-theme-choice="${o[0]}">${o[1]}</button>`).join('')}</div></div><p class="foot">Con Sistema segue il chiaro e lo scuro del telefono.</p></div>
+  <div class="gr"><span class="cap">Sfondo</span><div class="walls">${W.map(w=>`<button type="button" class="${S.wall===w[0]?'on':''}" data-wall="${w[0]}" style="background:${w[2]}" aria-label="${w[1]}"><span>${w[1]}</span></button>`).join('')}</div><p class="foot">Le luci colorate dietro le pagine. Le mini app usano il loro colore.</p></div>`);},
+ panel(){return sub('Usare come pannello','Per un tablet fisso a muro o sul mobile',group('',sw('kiosk','Modalità pannello','Schermo sempre acceso, niente barra del browser, si esce con un codice'))+group('Quando nessuno lo usa',sw('saver','Salvaschermo','Orologio e meteo sopra lo sfondo')+(S.saver?`<div class="li flat"><span class="tx"><b>Dopo</b></span><div class="chips">${[2,5,10].map(m=>`<button type="button" class="${S.saverMin===m?'on':''}" data-saver="${m}">${m} min</button>`).join('')}</div></div>`:''))+group('Batteria',sw('charge','Proteggi la batteria','Tiene la carica tra 20% e 80% se il tablet è sempre collegato'),'Funziona con una presa smart collegata a Home Assistant.'));},
+ fn(){const f=FN.find(x=>x[0]===S.fn);const sets=FN_SET[S.fn];
+  return sub(f[1],'',`<div class="bigcard glass"><span class="ic" style="background:${f[3]}">${I(f[2],26,2)}</span><div style="flex:1;min-width:0"><b>${f[1]}</b><span class="t2" style="font-weight:500">Adesso: ${f[4]}</span></div><button type="button" class="pill" data-toast="Si apre la pagina ${f[1]}">Apri ${I('open',15,2.4)}</button></div>`
+  +group('Impostazioni',sets.map(r=>`<button type="button" class="li flat" data-toast="Si apre: ${r[0]}"><span class="tx"><b>${r[0]}</b><span>${r[1]}</span></span><span class="chev">${I('chevR',17,2.4)}</span></button>`).join(''),'Sono le stesse impostazioni che apri con l’ingranaggio dentro la pagina della funzione.')
+  +`<button type="button" class="pill" style="align-self:flex-start;color:#FF453A" data-toast="${f[1]} spenta">Spegni ${f[1]}</button>`);},
+ 'fn-add'(){return sub('Aggiungi una funzione','Quelle non ancora attive',group('',FN_ADD.map(a=>`<button type="button" class="li" data-toast="${a[4]?a[2]+' arriva presto':'Configurazione di '+a[2]}"><span class="sq" style="background:${a[1]}">${I(a[0],18,2.1)}</span><span class="tx"><b>${a[2]}</b><span>${a[3]}</span></span>${a[4]?`<span class="val" style="font-size:12px;font-weight:600">${a[4]}</span>`:`<span class="chev">${I('chevR',17,2.4)}</span>`}</button>`).join(''),'Ogni funzione si configura con una procedura guidata. Si spegne quando vuoi.'));},
+ 'tool-3d'(){return sub('Domus 3D','La tua casa in 3D',`<div class="bigcard glass" style="flex-direction:column;align-items:flex-start;gap:12px;padding:22px"><span class="ic" style="background:linear-gradient(135deg,#0A84FF,#5E5CE6)">${I('cube',26,2)}</span><b>Dalla planimetria alla casa in 3D</b><span class="t2" style="font-weight:500">Carichi la planimetria, segni muri e stanze, posizioni i dispositivi. Poi la casa si vede in 3D nella Dashboard e nelle Stanze, con luci e sensori dal vivo.</span><button type="button" class="pill acc" data-toast="Si apre Domus 3D">${I('cube',17,2.2)}Inizia</button></div>`+group('Il tuo progetto',`<div class="li flat"><span class="tx"><b>Nessun progetto</b><span>Il primo ti chiede una planimetria (immagine o PDF)</span></span></div>`));},
+ 'tool-cards'(){return sub('Editor di card','Card tue per la Dashboard',`<div class="bigcard glass" style="flex-direction:column;align-items:flex-start;gap:12px;padding:22px"><span class="ic" style="background:linear-gradient(135deg,#AF52DE,#FF2D55)">${I('wand',26,2)}</span><b>Crea una card tua</b><span class="t2" style="font-weight:500">Scegli cosa mostra, come appare e cosa fa al tocco. Poi la trovi tra le card da aggiungere nella Dashboard.</span><button type="button" class="pill acc" data-toast="Si apre l’editor">${I('plus',17,2.4)}Nuova card</button></div>`+group('Le tue card',[['Meteo e rifiuti','Usata nella Dashboard'],['Ingresso','Bozza']].map(c=>`<button type="button" class="li flat" data-toast="Si apre: ${c[0]}"><span class="tx"><b>${c[0]}</b><span>${c[1]}</span></span><span class="chev">${I('chevR',17,2.4)}</span></button>`).join(''),'Si apre anche dalla modifica della Dashboard, in “Aggiungi una card”.'));},
+ navbar(){
+  const mid=S.nav.map((k,i)=>`<div class="li"><span class="sq" style="background:${NAV[k][2]}">${I(NAV[k][1],18,2.1)}</span><span class="tx"><b>${NAV[k][0]}</b></span>${i>0?`<button type="button" class="mini" data-nup="${i}" aria-label="Sposta su">${I('up',16,2.6)}</button>`:''}<button type="button" class="mini rm" data-nrm="${k}" aria-label="Togli ${NAV[k][0]}">${I('minus',16,2.8)}</button></div>`).join('');
+  const lock=(ic,l,me)=>`<div class="li"><span class="sq" style="background:#636366">${me?'<span style="font-weight:700;font-size:13px">M</span>':I(ic,18,2.1)}</span><span class="tx"><b>${l}</b><span>Sempre ${me?'ultima':'prima'}</span></span><span style="color:var(--t3)">${I('lockk',16,2.2)}</span></div>`;
+  const full=S.nav.length>=MAXMID;
+  const avail=Object.keys(NAV).filter(k=>!S.nav.includes(k));
+  return sub('Barra di navigazione','Solo su questo dispositivo',`<div class="gr"><span class="cap">Anteprima</span><div class="pvwrap">${tabbarHtml(true)}</div></div>
+  ${group('Nella barra',lock('home','Dashboard')+mid+lock('','Profilo',true),'Fino a 3 voci tra Dashboard e Profilo. Su tablet e desktop la barra laterale ne mostra fino a 7.')}
+  ${group('Da aggiungere',avail.map(k=>`<div class="li" style="${full?'opacity:.5':''}"><span class="sq" style="background:${NAV[k][2]}">${I(NAV[k][1],18,2.1)}</span><span class="tx"><b>${NAV[k][0]}</b>${['security','energy','clima','irrigation','waste'].includes(k)?'<span>Funzione</span>':''}</span><button type="button" class="mini add" data-nadd="${k}" ${full?'disabled':''} aria-label="Aggiungi ${NAV[k][0]}">${I('plus',16,2.8)}</button></div>`).join(''),full?'La barra è piena: togli una voce per aggiungerne un’altra.':'Quello che non è nella barra resta raggiungibile da Casa e dalla Dashboard.')}
+  <button type="button" class="pill" style="align-self:flex-start" data-nreset="1">Ripristina quella consigliata</button>`);},
+ support(){return sub('Supporto e informazioni','',`<div class="bigcard glass"><span class="ic" style="background:linear-gradient(135deg,#0A84FF,#5E5CE6)">${I('home',26,2)}</span><div><b>Domus UI 1.5.0</b><span class="t2" style="font-weight:500">Aggiornato · componente Home Assistant 1.5.0</span></div></div>`+group('Aiuto',row('','bug','#FF453A','Segnala un problema','','','')+row('','idea','#FF9F0A','Proponi un’idea','','','')+row('','download','#636366','Scarica la diagnostica','Senza password né dati personali','',''))+group('Per chi sviluppa',sw('dev','Modalità sviluppatore','Mostra strumenti tecnici e dati grezzi')));}
+};
+
+function render(){
+  app.className='app'+(S.theme==='dark'?' dark':'');
+  const sc=[...app.querySelectorAll('.col')].map(c=>c.scrollTop);
+  const wide=app.clientWidth>=760;
+  if(wide&&!S.page){S.page='profile';S.parent='main';}
+  const page=S.page&&PAGES[S.page]?PAGES[S.page]():null;
+  app.style.setProperty('--deskback',wide&&S.parent==='profile'?'flex':'none');
+  app.innerHTML=`<i class="orb a"></i><i class="orb b"></i><div class="shell"><div class="col list-col ${wide?'glass':''} ${page?'hide':''}">${main()}</div><div class="col page-col ${wide?'glass':''} ${page?'show':''}">${page||`<div class="empty">${I('chevL',22,2)}Scegli una voce a sinistra</div>`}</div></div>
+  ${tabbarHtml(false)}${S.toast?`<div class="toast" role="status">${S.toast}</div>`:''}`;
+  if(S.keep){[...app.querySelectorAll('.col')].forEach((c,i)=>c.scrollTop=sc[i]||0);}S.keep=false;
+  lab();
+}
+let tt;function toast(x){S.toast=x;S.keep=true;render();clearTimeout(tt);tt=setTimeout(()=>{S.toast=null;S.keep=true;render();},1600);}
+const K=()=>{S.keep=true;render();};
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;const d=b.dataset;
+  if(d.lab){S[d.lab]=d.v;if(d.lab==='device')fit();render();return;}
+  if(d.fn){S.fn=d.fn;S.page='fn';S.parent='main';render();return;}
+  if(d.go){S.parent=['notif'].includes(d.go)?'profile':'main';S.page=d.go;render();return;}
+  if(d.back){if(d.back==='profile'){S.page='profile';S.parent='main';}else{S.page=null;}render();return;}
+  if(d.lab==='device'){}
+  if(d.tog){S[d.tog]=!S[d.tog];K();return;}
+  if(d.tab){S.tab=d.tab;S.filter='all';K();return;}
+  if(d.filter){S.filter=d.filter;K();return;}
+  if(d.themeChoice){S.themeChoice=d.themeChoice;if(d.themeChoice!=='system')S.theme=d.themeChoice;K();return;}
+  if(d.wall){S.wall=d.wall;K();return;}
+  if(d.saver){S.saverMin=+d.saver;K();return;}
+  if(d.nrm){S.nav=S.nav.filter(x=>x!==d.nrm);K();return;}
+  if(d.nadd){if(S.nav.length<MAXMID)S.nav=[...S.nav,d.nadd];K();return;}
+  if(d.nup){const i=+d.nup;const a=[...S.nav];[a[i-1],a[i]]=[a[i],a[i-1]];S.nav=a;K();return;}
+  if(d.nreset){S.nav=['rooms','casa'];K();return;}
+  if(d.toast){toast(d.toast);return;}
+},true);
+fit();render();new ResizeObserver(()=>{fit();}).observe(stage);
+})();
+</script>
