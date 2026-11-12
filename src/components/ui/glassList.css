@@ -127,3 +127,14 @@
   font-weight: 500;
   line-height: 1.45;
 }
+
+/* "Tutti i sensori · 12 ›": the last row, in the colour of the function, the number at the right. */
+.glass-list > .glass-list-all .glass-list-row-text > b {
+  color: var(--fn-accent);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.glass-list > .glass-list-all {
+  min-height: 52px;
+}

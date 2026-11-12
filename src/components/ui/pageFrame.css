@@ -37,6 +37,15 @@
   backdrop-filter: none;
 }
 
+/*
+ * In a column the page stays in view: no dark veil, only a very light one (10 % of the scrim:
+ * at most 7.4 % in every theme). The page under it stays readable but out of reach while the
+ * sheet is open: the veil takes the taps and closes the sheet. On a phone the scrim is as above.
+ */
+.page-sheet-overlay[data-layout='column'] .page-sheet-scrim {
+  background: color-mix(in srgb, var(--ui-scrim) 10%, transparent);
+}
+
 /* The border, shadow and blur of every sheet (.glass-sheet-surface); the ground of the page, tinted with the colour of the function, as in the prototype. */
 .page-sheet {
   --page-sheet-tint: 6%;
@@ -202,4 +211,34 @@
     transform: none;
     transition: none;
   }
+}
+
+/* ---------- The bottom of the sheet: the main command and its note, right under the choices. ---------- */
+
+.page-sheet-body {
+  flex: 0 1 auto;
+}
+
+.page-sheet-content {
+  outline: none;
+}
+
+.page-sheet-footer {
+  margin-top: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+
+/* The main command is the pill of GlassButton, as wide as the sheet. */
+.page-sheet-action {
+  width: 100%;
+}
+
+.page-sheet-note {
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
 }

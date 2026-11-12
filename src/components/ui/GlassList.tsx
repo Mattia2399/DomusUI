@@ -2,6 +2,7 @@ import { useId, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { ChevronRight } from 'lucide-react';
 import './pageKit.css';
+import './glassListRow.css';
 import './glassList.css';
 
 export type GlassListProps = {
@@ -15,6 +16,8 @@ export type GlassListProps = {
   caption?: ReactNode;
   /** "Tutte ›": opens the whole list as a subpage. */
   more?: { label: string; onPress: () => void };
+  /** "Tutti i sensori · 12 ›": a last row inside the block, in the colour of the function, that opens the whole list. */
+  allRow?: { label: string; count?: ReactNode; onPress: () => void };
   /** A note under the block. */
   footer?: ReactNode;
   headingLevel?: 2 | 3;
@@ -27,7 +30,7 @@ export type GlassListProps = {
  * A group of rows in one block of glass, with separators inside: the lists of the new pages.
  * docs/design/app/sicurezza.html (.sec, .list, .li) and impostazioni.html (.gr, .cap, .foot).
  */
-export function GlassList({ children, title, detail, caption, more, footer, headingLevel = 2, ariaLabel, className }: GlassListProps) {
+export function GlassList({ children, title, detail, caption, more, allRow, footer, headingLevel = 2, ariaLabel, className }: GlassListProps) {
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
   const titleId = useId();
   const hasHead = Boolean(title || detail || more);
@@ -50,7 +53,18 @@ export function GlassList({ children, title, detail, caption, more, footer, head
         </div>
       ) : null}
       {caption ? <span className="glass-list-caption">{caption}</span> : null}
-      <div className="glass-list page-glass">{children}</div>
+      <div className="glass-list page-glass">
+        {children}
+        {allRow ? (
+          <button type="button" className="glass-list-row glass-list-all" onClick={allRow.onPress}>
+            <span className="glass-list-row-text">
+              <b>{allRow.label}</b>
+            </span>
+            {allRow.count !== undefined ? <em>{allRow.count}</em> : null}
+            <ChevronRight className="glass-list-row-opens" size={18} strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
       {footer ? <p className="glass-list-footer">{footer}</p> : null}
     </section>
   );

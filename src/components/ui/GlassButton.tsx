@@ -2,9 +2,12 @@ import React from 'react';
 import clsx from 'clsx';
 import { controlBlocked, controlStateAria, controlStateClass, type GlassControlState, type GlassTone } from './glassControl';
 
-/** `filled`, `soft`, `destructive` and `text` are the ones of the panels; the others keep the old glass look. */
-type GlassButtonVariant = 'default' | 'primary' | 'danger' | 'ghost' | 'filled' | 'soft' | 'destructive' | 'text';
-type GlassButtonSize = 'sm' | 'md' | 'lg' | 'icon' | 'icon-40' | 'icon-48' | 'icon-56';
+/**
+ * `filled`, `soft`, `destructive` and `text` are the ones of the panels; `pill` is the main command of the
+ * new pages and sheets, in the colour of the function; the others keep the old glass look.
+ */
+type GlassButtonVariant = 'default' | 'primary' | 'danger' | 'ghost' | 'filled' | 'soft' | 'destructive' | 'text' | 'pill';
+type GlassButtonSize = 'sm' | 'md' | 'lg' | 'icon' | 'icon-40' | 'icon-48' | 'icon-56' | 'compact';
 
 export type GlassButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> &
   Pick<GlassControlState, 'pending' | 'error'> & {
@@ -25,6 +28,7 @@ const variantClass: Record<GlassButtonVariant, string> = {
   soft: 'glass-btn glass-btn-soft',
   destructive: 'glass-btn glass-btn-destructive',
   text: 'glass-btn glass-btn-text',
+  pill: 'glass-btn glass-btn-pill',
 };
 
 const sizeClass: Record<GlassButtonSize, string> = {
@@ -35,6 +39,8 @@ const sizeClass: Record<GlassButtonSize, string> = {
   'icon-40': 'glass-btn-icon-40',
   'icon-48': 'glass-btn-icon-48',
   'icon-56': 'glass-btn-icon-56',
+  /** The pill at 44 px. */
+  compact: 'glass-btn-compact',
 };
 
 export const GlassButton = React.forwardRef<HTMLButtonElement, GlassButtonProps>(function GlassButton(

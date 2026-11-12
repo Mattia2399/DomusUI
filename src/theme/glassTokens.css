@@ -84,6 +84,8 @@
    */
   --fn-app: var(--ui-accent);
   --fn-app-ink: var(--ui-accent-contrast);
+  /* What is drawn on a filled colour of a function (square icons, main command): white in both themes, as in the prototypes. */
+  --fn-on-fill: #ffffff;
   --fn-security-soft: color-mix(in srgb, var(--fn-security) 16%, transparent);
   --fn-irrigation-soft: color-mix(in srgb, var(--fn-irrigation) 16%, transparent);
   --fn-climate-soft: color-mix(in srgb, var(--fn-climate) 16%, transparent);

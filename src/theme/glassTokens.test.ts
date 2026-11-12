@@ -117,6 +117,10 @@ describe('the colours of the functions', () => {
     expect(valueOf(css, '--fn-app-ink')).toBe('var(--ui-accent-contrast)');
   });
 
+  it('draws in white on a filled colour, in both themes, as the prototypes do', () => {
+    expect(valueOf(css, '--fn-on-fill')).toBe('#ffffff');
+  });
+
   it('puts an ink on each colour that an icon on it can be read with (WCAG 1.4.11, 3:1)', () => {
     (['.dashboard-theme-light', '.dashboard-theme-dark'] as const).forEach((theme) => {
       const values = block(theme);

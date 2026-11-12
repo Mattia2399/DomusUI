@@ -94,6 +94,10 @@ describe('SubPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tutte' }));
     expect(screen.getByTestId('sub-page').dataset.layout).toBe('column');
     expect(main().hasAttribute('inert')).toBe(false);
+    // As in the prototype: no veil, and the page answers while the subpage is open.
+    expect(document.querySelector('.page-sheet-scrim, [role="dialog"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tutte' }));
+    expect(screen.getAllByTestId('sub-page')).toHaveLength(1);
   });
 
   it('lets Esc close a sheet opened from it first, then itself', async () => {

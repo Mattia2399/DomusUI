@@ -32,7 +32,7 @@ export function PageHeader({ title, detail, onBack, backLabel, tools, headingLev
   return (
     <header className={clsx('page-header', className)} data-testid="page-header">
       <div className="page-header-row">
-        {onBack ? <PageHeaderButton label={backLabel ?? t('common.back')} icon={<ChevronLeft size={20} strokeWidth={2.4} />} onClick={onBack} /> : null}
+        {onBack ? <PageHeaderButton label={backLabel ?? t('common.back')} icon={<ChevronLeft size={20} strokeWidth={2.4} />} onClick={onBack} neutral /> : null}
         <Heading id={titleId} ref={titleRef} tabIndex={-1} className="page-header-title">
           {title}
         </Heading>
@@ -50,13 +50,15 @@ export type PageHeaderButtonProps = {
   onClick: () => void;
   /** For a tool that stays on, as the pin of a function kept in the bar. */
   pressed?: boolean;
+  /** The neutral glass of the app (liquid-glass-control), never tinted by the page: the ‹ of the header. */
+  neutral?: boolean;
   className?: string;
 };
 
 /** A round glass button of 44 px, for ‹ and for the tools of a header. */
-export function PageHeaderButton({ label, icon, onClick, pressed, className }: PageHeaderButtonProps) {
+export function PageHeaderButton({ label, icon, onClick, pressed, neutral = false, className }: PageHeaderButtonProps) {
   return (
-    <button type="button" className={clsx('page-round-button page-glass', className)} aria-label={label} aria-pressed={pressed} onClick={onClick}>
+    <button type="button" className={clsx('page-round-button', neutral ? 'liquid-glass-control' : 'page-glass', className)} aria-label={label} aria-pressed={pressed} onClick={onClick}>
       <span aria-hidden="true" className="flex">
         {icon}
       </span>

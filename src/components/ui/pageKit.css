@@ -94,5 +94,5 @@
 .page-round-button[aria-pressed='true'] {
   border-color: transparent;
   background: var(--fn-accent);
-  color: var(--fn-accent-ink);
+  color: var(--fn-on-fill);
 }

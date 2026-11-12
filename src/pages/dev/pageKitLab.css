@@ -21,10 +21,8 @@
   height: 100%;
 }
 
-/* The function's command and the device colour of the shared button. */
+/* The main command of the function (GlassButton pill, in --fn-accent). */
 .page-kit-lab-command {
-  --device-accent: var(--fn-accent);
-  --device-accent-ink: var(--fn-accent-ink);
   display: flex;
 }
 

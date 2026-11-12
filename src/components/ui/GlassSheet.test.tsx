@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GlassSheet } from './GlassSheet';
 import { PAGE_COLUMN_MIN_WIDTH, PageFrame, pageLayoutFor } from './PageFrame';
@@ -84,6 +84,40 @@ describe('GlassSheet', () => {
     expect(overlay.parentElement).toBe(document.body);
   });
 
+  it('has a main command as wide as the sheet, and a note under it', () => {
+    const onPress = vi.fn();
+    render(
+      <GlassSheet isOpen onClose={vi.fn()} title="Inserisci" action={{ label: 'Inserisci · Fuori casa', icon: <span />, onPress }} note="Hai 45 secondi per uscire.">
+        <p>Modalità</p>
+      </GlassSheet>,
+    );
+    const command = screen.getByRole('button', { name: 'Inserisci · Fuori casa' });
+    expect(command.className).toContain('page-sheet-action');
+    fireEvent.click(command);
+    expect(onPress).toHaveBeenCalledTimes(1);
+    expect(screen.getByText('Hai 45 secondi per uscire.').className).toContain('page-sheet-note');
+  });
+
+  it('shows no note and no command when it is given none', () => {
+    render(
+      <GlassSheet isOpen onClose={vi.fn()} title="Inserisci">
+        <p>Modalità</p>
+      </GlassSheet>,
+    );
+    expect(document.querySelector('.page-sheet-action, .page-sheet-note, .page-sheet-footer')).toBeNull();
+  });
+
+  it('puts the focus on the sheet when it opens, not on the X', async () => {
+    render(
+      <GlassSheet isOpen onClose={vi.fn()} title="Inserisci">
+        <p>Modalità</p>
+      </GlassSheet>,
+    );
+    await waitFor(() => expect(document.activeElement?.className).toContain('page-sheet-content'));
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Chiudi finestra' }));
+    expect(screen.getByRole('dialog').contains(document.activeElement)).toBe(true);
+  });
+
   it('closes with the X, with Esc and with a tap outside', () => {
     const onClose = vi.fn();
     render(
@@ -95,5 +129,15 @@ describe('GlassSheet', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     fireEvent.click(overlayOf(screen.getByRole('dialog')).querySelector('.page-sheet-scrim')!);
     expect(onClose).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('GlassSheet in a column', () => {
+  it('leaves the page in view: only a very light veil, and only in the column; the phone keeps its scrim', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { resolve } = await import('node:path');
+    const css = readFileSync(resolve(process.cwd(), 'src/components/ui/pageFrame.css'), 'utf8');
+    expect(css).toMatch(/\.page-sheet-overlay\[data-layout='column'\] \.page-sheet-scrim \{\s*background: color-mix\(in srgb, var\(--ui-scrim\) 10%, transparent\);/);
+    expect(css).toMatch(/\.page-sheet-scrim \{\s*background: var\(--ui-scrim\);[^}]*backdrop-filter: none;/);
   });
 });

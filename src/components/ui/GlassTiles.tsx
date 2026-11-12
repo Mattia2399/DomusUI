@@ -19,8 +19,11 @@ export type GlassTilesProps<T extends string> = GlassControlState & {
   value: T | null | undefined;
   onChange: (value: T) => void;
   ariaLabel: string;
-  /** `hero` fills the space it is given: tall tiles that share its height. */
-  size?: 'default' | 'hero';
+  /**
+   * `hero` fills the space it is given: tall tiles that share its height.
+   * `choice`: one glass tile per line, as the modes in a sheet (docs/design/app/sicurezza.html .mode).
+   */
+  size?: 'default' | 'hero' | 'choice';
   tone?: GlassTone;
   className?: string;
 };
@@ -32,6 +35,7 @@ export function GlassTiles<T extends string>({ options, value, onChange, ariaLab
   const buttons = React.useRef(new Map<T, HTMLButtonElement>());
   const enabled = options.filter((option) => !option.disabled).map((option) => option.value);
   const firstStop = value && enabled.includes(value) ? value : enabled[0];
+  const wide = size !== 'default';
 
   return (
     <div className={clsx('glass-tiles-box', size === 'hero' && 'is-hero', className)}>
@@ -40,7 +44,7 @@ export function GlassTiles<T extends string>({ options, value, onChange, ariaLab
         aria-label={ariaLabel}
         aria-disabled={blocked || undefined}
         {...controlStateAria(state)}
-        className={clsx('glass-tiles', size === 'hero' && 'is-hero', size === 'hero' && options.length > 3 && 'is-two-wide', tone === 'device' && 'is-device', controlStateClass(state))}
+        className={clsx('glass-tiles', wide && `is-${size}`, size === 'hero' && options.length > 3 && 'is-two-wide', tone === 'device' && 'is-device', controlStateClass(state))}
         onKeyDown={(event) => {
           if (blocked) return;
           const next = choiceFromKey(event.key, enabled, value);
@@ -69,8 +73,8 @@ export function GlassTiles<T extends string>({ options, value, onChange, ariaLab
             >
               <span className="glass-tile-icon" aria-hidden="true">{option.icon}</span>
               <span className="glass-tile-name">{option.label}</span>
-              {size === 'hero' && option.note ? <span className="glass-tile-note">{option.note}</span> : null}
-              {size === 'hero' && on ? <Check className="glass-tile-check" size={20} strokeWidth={2.6} aria-hidden="true" /> : null}
+              {wide && option.note ? <span className="glass-tile-note">{option.note}</span> : null}
+              {wide && on ? <Check className="glass-tile-check" size={20} strokeWidth={2.6} aria-hidden="true" /> : null}
             </button>
           );
         })}

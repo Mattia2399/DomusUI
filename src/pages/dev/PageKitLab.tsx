@@ -1,12 +1,14 @@
 import React from 'react';
 import clsx from 'clsx';
-import { Bell, DoorClosed, Home, KeyRound, Lock, Moon, PersonStanding, Pin, Settings, ShieldCheck, Smartphone, Video, Wind } from 'lucide-react';
+import { Bell, DoorClosed, Home, KeyRound, Lock, Moon, Navigation, PersonStanding, Pin, Settings, ShieldCheck, Smartphone, Video } from 'lucide-react';
 import { AmbientBackground, AmbientProvider, useAmbient } from '../../theme/ambient/AmbientProvider';
 import { GlassButton } from '../../components/ui/GlassButton';
 import { GlassList } from '../../components/ui/GlassList';
 import { GlassListRow } from '../../components/ui/GlassListRow';
 import { GlassSegmented } from '../../components/ui/GlassSegmented';
 import { GlassSheet } from '../../components/ui/GlassSheet';
+import { WindowIcon } from '../../components/ui/glassIcons';
+import { GlassTiles, type GlassTileOption } from '../../components/ui/GlassTiles';
 import { PageFrame } from '../../components/ui/PageFrame';
 import { PageHeader, PageHeaderButton } from '../../components/ui/PageHeader';
 import { SubPage } from '../../components/ui/SubPage';
@@ -41,8 +43,18 @@ function readStart() {
 
 const OPENINGS = [
   { name: 'Ingresso', kind: 'Porta', icon: <DoorClosed size={18} /> },
-  { name: 'Cucina', kind: 'Finestra', icon: <Wind size={18} /> },
-  { name: 'Soggiorno', kind: 'Portafinestra', icon: <Wind size={18} /> },
+  { name: 'Cucina', kind: 'Finestra', icon: <WindowIcon size={18} /> },
+  { name: 'Soggiorno', kind: 'Portafinestra', icon: <WindowIcon size={18} /> },
+];
+
+type Mode = 'away' | 'home' | 'night' | 'vacation';
+
+// The four modes of the prototype, with its words, to compare one to one.
+const MODES: readonly GlassTileOption<Mode>[] = [
+  { value: 'away', label: 'Fuori casa', note: 'Tutti i sensori e i movimenti', icon: <Navigation size={20} /> },
+  { value: 'home', label: 'In casa', note: 'Solo porte e finestre', icon: <Home size={20} /> },
+  { value: 'night', label: 'Notte', note: 'Porte, finestre e piano terra', icon: <Moon size={20} /> },
+  { value: 'vacation', label: 'Vacanza', note: 'Come Fuori casa, più luci di presenza', icon: <Navigation size={20} /> },
 ];
 
 const EVENTS = [
@@ -75,13 +87,13 @@ function MainPage({ fromHome, pinned, onPin, openSub, openSheet }: { fromHome: b
       />
 
       <div className="page-kit-lab-command">
-        <GlassButton variant="filled" tone="device" onClick={openSheet}>
+        <GlassButton variant="pill" onClick={openSheet}>
           <ShieldCheck size={18} aria-hidden="true" /> Apri un foglio
         </GlassButton>
       </div>
 
       <div className="page-kit-lab-grid">
-        <GlassList title="Porte e finestre" detail="tutte chiuse" more={{ label: 'Tutte', onPress: () => openSub('sensori') }}>
+        <GlassList title="Porte e finestre" detail="tutte chiuse" allRow={{ label: 'Tutti i sensori', count: 12, onPress: () => openSub('sensori') }}>
           {OPENINGS.map((item) => (
             <GlassListRow key={item.name} title={item.name} note={item.kind} icon={item.icon} iconShape="square" value="Chiusa" opens onPress={() => openSub('sensori')} />
           ))}
@@ -148,6 +160,7 @@ export default function PageKitLab() {
   const [sub, setSub] = React.useState<Sub | null>(start.sub);
   const [sheet, setSheet] = React.useState(start.sheet);
   const [pinned, setPinned] = React.useState(true);
+  const [mode, setMode] = React.useState<Mode>('away');
 
   return (
     <div className={clsx('page-kit-lab', theme === 'dark' ? 'dashboard-theme-dark' : 'dashboard-theme-light')} data-testid="page-kit-lab">
@@ -167,12 +180,16 @@ export default function PageKitLab() {
           }
         >
           <MainPage fromHome={fromHome} pinned={pinned} onPin={() => setPinned((value) => !value)} openSub={setSub} openSheet={() => setSheet(true)} />
-          <GlassSheet isOpen={sheet} onClose={() => setSheet(false)} title="Inserisci" detail="Scegli come">
-            <GlassList ariaLabel="Modalità">
-              <GlassListRow title="Fuori casa" note="Tutti i sensori" icon={<ShieldCheck size={18} />} iconShape="square" tone="security" onPress={() => setSheet(false)} />
-              <GlassListRow title="In casa" note="Porte e finestre" icon={<Home size={18} />} iconShape="square" tone="security" onPress={() => setSheet(false)} />
-              <GlassListRow title="Notte" note="Tutto tranne la zona notte" icon={<Moon size={18} />} iconShape="square" tone="security" onPress={() => setSheet(false)} />
-            </GlassList>
+          <GlassSheet
+            isOpen={sheet}
+            onClose={() => setSheet(false)}
+            title="Inserisci"
+            detail="Scegli come"
+            action={{ label: `Inserisci · ${MODES.find((item) => item.value === mode)?.label}`, icon: <Lock size={18} />, onPress: () => setSheet(false) }}
+            // In the app this note shows only when the alarm says its exit delay.
+            note="Hai 45 secondi per uscire."
+          >
+            <GlassTiles<Mode> size="choice" ariaLabel="Modalità" options={MODES} value={mode} onChange={setMode} />
           </GlassSheet>
         </PageFrame>
       </AmbientProvider>

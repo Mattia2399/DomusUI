@@ -63,7 +63,8 @@ describe('GlassListRow in a grouped list', () => {
     expect(icon.className).toContain('is-square');
     expect(icon.dataset.tone).toBe('security');
     expect(icon.style.getPropertyValue('--row-tone')).toBe('var(--fn-security)');
-    expect(icon.style.getPropertyValue('--row-tone-ink')).toBe('var(--fn-security-ink)');
+    // The drawing is white in both themes (glassListRow.css, --fn-on-fill), not the ink of the theme.
+    expect(icon.style.getPropertyValue('--row-tone-ink')).toBe('');
   });
 
   it('stays round and uncoloured when nothing is asked: the rows that exist do not change', () => {
@@ -72,5 +73,23 @@ describe('GlassListRow in a grouped list', () => {
     expect(icon.className).toBe('glass-list-row-icon');
     expect(icon.dataset.tone).toBeUndefined();
     expect(icon.getAttribute('style')).toBeNull();
+  });
+});
+
+describe('GlassList, the last row that opens everything', () => {
+  it('is one button inside the block, with its number and ›', () => {
+    const onPress = vi.fn();
+    render(
+      <GlassList title="Porte e finestre" allRow={{ label: 'Tutti i sensori', count: 12, onPress }}>
+        <GlassListRow title="Ingresso" value="Chiusa" />
+      </GlassList>,
+    );
+    const all = screen.getByRole('button', { name: /Tutti i sensori/ });
+    expect(all.className).toContain('glass-list-all');
+    expect(all.parentElement!.className).toContain('glass-list');
+    expect(all.querySelector('em')!.textContent).toBe('12');
+    expect(all.querySelector('.glass-list-row-opens')).not.toBeNull();
+    fireEvent.click(all);
+    expect(onPress).toHaveBeenCalledTimes(1);
   });
 });

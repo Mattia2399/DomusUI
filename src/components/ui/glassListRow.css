@@ -50,10 +50,10 @@ button.glass-list-row:focus-visible {
   border-radius: 10px;
 }
 
-/* The colour of a function: set by the row (tone), from glassTokens.css. */
+/* The colour of a function: set by the row (tone), from glassTokens.css; the drawing on it is white. */
 .glass-list-row-icon[data-tone] {
   background: var(--row-tone);
-  color: var(--row-tone-ink);
+  color: var(--fn-on-fill);
 }
 
 .glass-list-row-text {

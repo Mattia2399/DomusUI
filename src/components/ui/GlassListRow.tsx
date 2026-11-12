@@ -38,7 +38,7 @@ export function GlassListRow({ title, note, icon, iconShape, tone, value, select
         <span
           className={clsx('glass-list-row-icon', (selected || lit) && 'is-lit', iconShape === 'square' && 'is-square')}
           data-tone={tone}
-          style={tone ? ({ '--row-tone': `var(--fn-${tone})`, '--row-tone-ink': `var(--fn-${tone}-ink)` } as React.CSSProperties) : undefined}
+          style={tone ? ({ '--row-tone': `var(--fn-${tone})` } as React.CSSProperties) : undefined}
           aria-hidden="true"
         >
           {icon}

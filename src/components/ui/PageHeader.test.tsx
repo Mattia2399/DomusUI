@@ -59,3 +59,13 @@ describe('PageHeaderButton', () => {
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('the ‹ of PageHeader', () => {
+  it('is of the neutral glass of the app, never tinted by the function; the tools keep theirs', () => {
+    render(<PageHeader title="Sensori" onBack={vi.fn()} tools={<PageHeaderButton label="Impostazioni" icon={<span />} onClick={vi.fn()} />} />);
+    const back = screen.getByRole('button', { name: 'Indietro' });
+    expect(back.className).toContain('liquid-glass-control');
+    expect(back.className).not.toContain('page-glass');
+    expect(screen.getByRole('button', { name: 'Impostazioni' }).className).toContain('page-glass');
+  });
+});

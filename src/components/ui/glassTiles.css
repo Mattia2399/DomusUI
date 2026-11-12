@@ -129,6 +129,74 @@
   grid-row: 1 / span 2;
 }
 
+/*
+ * The choices of a sheet: one glass tile per line, the icon on the soft colour of the
+ * function, a ring of 2 px on the one chosen (docs/design/app/sicurezza.html .mode). The glass
+ * is the one of Rooms and of the new pages (--dv-glass, devices/theme/tokens.css).
+ */
+.glass-tiles.is-choice {
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.glass-tiles.is-choice .glass-tile {
+  display: grid;
+  height: auto;
+  min-height: 72px;
+  line-height: 1.3;
+  align-items: center;
+  column-gap: 14px;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  border: 1px solid var(--dv-glass-border);
+  border-radius: 22px;
+  padding: 14px;
+  background: var(--dv-glass);
+  box-shadow:
+    inset 0 1px 0 var(--dv-glass-highlight),
+    0 26px 60px -32px var(--dv-glass-shadow);
+  color: var(--ui-text-primary);
+  text-align: left;
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+}
+
+.glass-tiles.is-choice .glass-tile.is-on {
+  background: var(--dv-glass);
+  color: var(--ui-text-primary);
+  box-shadow:
+    inset 0 0 0 2px var(--fn-accent),
+    0 26px 60px -32px var(--dv-glass-shadow);
+}
+
+.glass-tiles.is-choice .glass-tile-icon {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  background: var(--fn-accent-soft);
+  color: var(--fn-accent);
+}
+
+.glass-tiles.is-choice .glass-tile-name {
+  grid-column: 2;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.glass-tiles.is-choice .glass-tile-note {
+  color: var(--ui-text-secondary);
+  font-weight: 500;
+  opacity: 1;
+}
+
+.glass-tiles.is-choice .glass-tile-check {
+  color: var(--fn-accent);
+}
+
 /* One tile out of reach; when they all are, the group already fades. */
 .glass-tiles:not(.glass-is-disabled, .glass-is-pending) .glass-tile:disabled {
   opacity: 0.45;

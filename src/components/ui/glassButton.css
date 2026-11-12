@@ -106,3 +106,22 @@
     transform: none;
   }
 }
+
+/* The main command of a new page or sheet: a full pill in the colour of the function, with its soft
+   shadow (docs/design/app/sicurezza.html .pill.acc.lg). 52 px, or 44 px with size="compact". */
+.glass-btn-pill {
+  height: 52px;
+  border-radius: 999px;
+  padding: 0 26px;
+  background: var(--fn-accent);
+  box-shadow: 0 14px 30px -16px var(--fn-accent);
+  color: var(--fn-on-fill);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.glass-btn-pill.glass-btn-compact {
+  height: 44px;
+  padding: 0 18px;
+  font-size: 15px;
+}
