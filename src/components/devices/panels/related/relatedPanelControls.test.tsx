@@ -159,7 +159,8 @@ describe('the commands are those of today', () => {
     const big = controls[0];
     if (isActionControl(big)) throw new Error('a slider opens at full size');
     render(<div>{big.group}</div>);
-    const slider = await vi.waitFor(() => screen.getByRole('slider'));
+    // The slider is loaded on demand: under the load of the whole suite it can take more than a second.
+    const slider = await vi.waitFor(() => screen.getByRole('slider'), { timeout: 3000 });
     fireEvent.change(slider, { target: { value: '2' } });
     fireEvent.change(slider, { target: { value: '4' } });
     expect(setValue).not.toHaveBeenCalled();
