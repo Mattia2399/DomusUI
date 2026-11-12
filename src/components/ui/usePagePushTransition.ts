@@ -10,8 +10,10 @@ import { useLayoutEffect, useRef } from 'react';
 export const PUSH_PAGE_ATTRIBUTE = 'data-push-page';
 
 const PUSH_DISTANCE_PX = 44;
-const PUSH_DURATION_MS = 460;
-const PUSH_EASING = 'cubic-bezier(0.32, 0.72, 0, 1)';
+export const PUSH_DURATION_MS = 460;
+/** The same curve for framer-motion: the subpage (SubPage) comes in as these pages do. */
+export const PUSH_EASING_CURVE = [0.32, 0.72, 0, 1] as const;
+const PUSH_EASING = `cubic-bezier(${PUSH_EASING_CURVE.join(', ')})`;
 
 export type PushDirection = 'forward' | 'back';
 

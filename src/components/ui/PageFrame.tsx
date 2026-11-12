@@ -1,5 +1,6 @@
 import { createContext, useContext, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
+import { AnimatePresence } from 'framer-motion';
 import './pageKit.css';
 import './pageFrame.css';
 
@@ -16,7 +17,8 @@ export function pageLayoutFor(width: number): PageLayout {
   return width >= PAGE_COLUMN_MIN_WIDTH ? 'column' : 'sheet';
 }
 
-type PageFrameValue = { layout: PageLayout; fn?: PageFunction };
+/** `measured`: false only before the first measure, when the layout is not known yet. */
+type PageFrameValue = { layout: PageLayout; fn?: PageFunction; measured: boolean };
 
 const PageFrameContext = createContext<PageFrameValue | null>(null);
 
@@ -29,6 +31,8 @@ export type PageFrameProps = {
   children: ReactNode;
   /** The function the page belongs to: its colour reaches everything inside, sheets included. */
   fn?: PageFunction;
+  /** The open subpage (SubPage), or nothing. It covers the page when narrow, sits beside it when wide. */
+  subPage?: ReactNode;
   className?: string;
 };
 
@@ -36,25 +40,33 @@ export type PageFrameProps = {
  * The container of a new page. It measures its own width, so that what opens over it
  * (subpage, sheet) takes its shape from the page and not from the window.
  */
-export function PageFrame({ children, fn, className }: PageFrameProps) {
+export function PageFrame({ children, fn, subPage, className }: PageFrameProps) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [layout, setLayout] = useState<PageLayout>('sheet');
+  const [measured, setMeasured] = useState(false);
 
+  // Before the first paint: what opens with the page (a subpage, a sheet) already has its shape.
   useLayoutEffect(() => {
     const frame = frameRef.current;
     if (!frame) return;
     setLayout(pageLayoutFor(frame.clientWidth));
+    setMeasured(true);
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(([entry]) => setLayout(pageLayoutFor(entry.contentRect.width)));
     observer.observe(frame);
     return () => observer.disconnect();
   }, []);
 
-  const value = useMemo(() => ({ layout, fn }), [layout, fn]);
+  const value = useMemo(() => ({ layout, fn, measured }), [layout, fn, measured]);
+  const covered = measured && Boolean(subPage);
   return (
     <PageFrameContext.Provider value={value}>
       <div ref={frameRef} className={clsx('page-frame', className)} data-fn={fn} data-layout={layout} data-testid="page-frame">
-        {children}
+        {/* Covered by the subpage on a narrow page: out of reach of the keyboard and of screen readers. */}
+        <div className="page-frame-main" data-covered={covered || undefined} inert={covered && layout === 'sheet'}>
+          {children}
+        </div>
+        <AnimatePresence initial={false}>{measured ? subPage : null}</AnimatePresence>
       </div>
     </PageFrameContext.Provider>
   );

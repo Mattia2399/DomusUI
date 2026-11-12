@@ -90,8 +90,9 @@
   outline-offset: 2px;
 }
 
+/* A tool that stays on (the pin of a function kept in the bar): in the colour of the function. */
 .page-round-button[aria-pressed='true'] {
   border-color: transparent;
-  background: var(--dv-pill-on);
-  color: var(--dv-pill-on-ink);
+  background: var(--fn-accent);
+  color: var(--fn-accent-ink);
 }

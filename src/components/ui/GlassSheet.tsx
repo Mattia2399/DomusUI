@@ -34,7 +34,8 @@ export function GlassSheet({ isOpen, onClose, title, detail, children, footer, c
   const layout = frame?.layout ?? 'sheet';
   return (
     <GlassModal
-      isOpen={isOpen}
+      // Inside a page, it waits for the page to know its width: it opens with its shape, never with the other.
+      isOpen={isOpen && (frame ? frame.measured : true)}
       onClose={onClose}
       title={title}
       description={detail}
