@@ -24,7 +24,7 @@ Anche **dispositivo ≠ persona**: su un tablet a parete condiviso le
 impostazioni DEVICE (Alimentazione, Kiosk, Screensaver, in futuro la
 modalità pannello e il timeout della sessione personale) appartengono al
 tablet e non seguono chi lo usa; chi può cambiarle lo decide l'autorità della
-sessione ([pannello condiviso](shared-wall-panel-identity.md)).
+sessione.
 
 Ogni configurazione ha tre dimensioni indipendenti:
 

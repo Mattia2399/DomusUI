@@ -35,14 +35,8 @@ jobs:
             exit 1
           }
 
-      - name: Install Chromium for Playwright
-        run: npx playwright install --with-deps chromium
-
       - name: Release gate
         run: npm run release:gate
-
-      - name: Create release packages
-        run: npm run release:package
 
       - name: Create English release notes
         run: npm run release:notes
