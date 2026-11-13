@@ -16,7 +16,7 @@ npm run dev
 - Keep each pull request focused on one problem.
 - Never include tokens, PINs, Home Assistant URLs, real household data, or personal screenshots.
 - Preserve accessibility, Light/Dark themes, and supported breakpoints.
-- Add or update tests for the behavior you change.
+- Explain how you verified the behavior you changed.
 - Document visible changes, migrations, and hardware limitations.
 - Run `npm run release:gate` before requesting review.
 

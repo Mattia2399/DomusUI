@@ -121,7 +121,7 @@ npm ci
 npm run dev
 ```
 
-Run the complete verification suite before a release:
+Verify the public source and HACS package before a release:
 
 ```bash
 npm run release:gate
@@ -138,7 +138,6 @@ Packaging creates both the diagnostic web-app archive and `release-artifacts/dom
 - [Security and privacy](docs/security-and-privacy.md)
 - [Domus Core Irrigation](docs/irrigation-core.md)
 - [Domus Core architecture](docs/domus-core-architecture.md)
-- [Roadmap](docs/roadmap.md)
 - [Release checklist](docs/release-checklist.md)
 - [Changelog](CHANGELOG.md)
 
