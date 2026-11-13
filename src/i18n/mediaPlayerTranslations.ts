@@ -47,7 +47,21 @@ const fr: Record<MediaKey, string> = {
   mediaMuted: 'Muet',
 };
 
-const CATALOGS: Record<AppLocale, Record<MediaKey, string>> = { it, en, fr };
+const hu: Record<MediaKey, string> = {
+  mediaPausedOn: 'Szüneteltetve itt:',
+  mediaChoose: 'Válaszd ki a Forrás menüben, mit hallgatnál',
+  mediaSpeakers: 'Hangszórók',
+  mediaSpeakersNote: 'Koppints, hogy a többin is szóljon',
+  mediaSourceNote: 'Mi szól itt: {name}',
+  mediaAudioNote: '{name} hangzásmódja',
+  mediaOffTitle: 'A lejátszó ki van kapcsolva',
+  mediaOffNote: 'Koppints a fenti bekapcsológombra a visszakapcsoláshoz',
+  mediaMuteIt: 'Némítás',
+  mediaUnmute: 'Némítás feloldása',
+  mediaMuted: 'Némítva',
+};
+
+const CATALOGS: Record<AppLocale, Record<MediaKey, string>> = { it, en, fr, hu };
 
 export function useMediaPlayerWords() {
   const { locale } = useI18n();

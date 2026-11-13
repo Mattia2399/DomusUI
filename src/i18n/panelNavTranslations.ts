@@ -54,7 +54,24 @@ const fr: typeof it = {
   lookPad: 'Directions',
 };
 
-const WORDS = { it, en, fr };
+const hu: typeof it = {
+  more: 'Továbbiak',
+  moreCount: '{n} vezérlő',
+  lookAction: 'Művelet',
+  lookTiles: 'Választás',
+  lookList: 'Lista',
+  lookLevels: 'Szintek',
+  lookSlider: 'Szint',
+  lookWhites: 'Fehérek',
+  lookColor: 'Szín',
+  lookTimer: 'Időzítő',
+  lookChart: 'Diagram',
+  lookRows: 'Értékek',
+  lookImage: 'Kép',
+  lookPad: 'Irányok',
+};
+
+const WORDS = { it, en, fr, hu };
 
 export function usePanelNavWords() {
   const { locale } = useI18n();

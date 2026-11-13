@@ -111,7 +111,42 @@ const fr: Record<KioskCopyKey, string> = {
   storageUnavailable: 'Ce navigateur ne conserve aucune donnée locale : le choix ne vaut que tant que la page reste ouverte.',
 };
 
-const COPY: Record<AppLocale, Record<KioskCopyKey, string>> = { it, en, fr };
+const hu: Record<KioskCopyKey, string> = {
+  group: 'Kioszk mód',
+  toggle: 'Kioszk mód',
+  offBody: 'A Domust erre az eszközre szabott, dedikált felületté alakítja.',
+  onBody: 'Bekapcsolva ezen az eszközön: indítsd el lent a panelt.',
+  notSecurity: 'Ez nem védelem: elrejti a Domus navigációját, de nem korlátozza, mit lehet tenni az eszközzel.',
+  experienceGroup: 'Élmény',
+  hideNavigation: 'Navigáció elrejtése',
+  hideNavigationHint: 'Az oldalsáv, a menü és az alsó sáv nem jelenik meg.',
+  startPage: 'Kezdőoldal',
+  startPageHint: 'A Domus indulásakor itt nyílik meg a panel.',
+  displayGroup: 'Képernyő',
+  keepAwake: 'Képernyő ébren tartása',
+  keepAwakeHint: 'Arra kéri a böngészőt, hogy ne kapcsolja ki a képernyőt, amíg a Domus nyitva van.',
+  fullscreen: 'Teljes képernyő',
+  fullscreenHint: 'A panel indulásakor a Domus megpróbálja kitölteni a teljes képernyőt.',
+  statusGroup: 'Állapot',
+  statusFullscreen: 'Teljes képernyő',
+  statusWakeLock: 'Képernyő ébren tartva',
+  fullscreenActive: 'Be',
+  fullscreenInactive: 'Ki',
+  fullscreenUnsupported: 'A böngésző nem támogatja',
+  fullscreenRejected: 'A böngésző elutasította a teljes képernyőt',
+  fullscreenStandalone: 'Már teljes képernyő',
+  wakeLockActive: 'Be',
+  wakeLockInactive: 'Ki',
+  wakeLockReleased: 'Feloldva: visszaáll, amikor az oldal újra látható',
+  wakeLockUnsupported: 'A böngésző nem támogatja',
+  wakeLockError: 'A böngésző most nem engedi',
+  launch: 'Panel mód indítása',
+  launchHint: 'Teljes képernyőn megnyitja a kezdőoldalt, ha a böngésző engedi.',
+  exitHint: 'A kilépéshez nyomd hosszan a bal alsó sarkot 3 másodpercig, vagy nyomd meg a Ctrl+Alt+K billentyűket.',
+  storageUnavailable: 'Ez a böngésző nem őriz helyi adatot: a választás csak addig él, amíg az oldal nyitva van.',
+};
+
+const COPY: Record<AppLocale, Record<KioskCopyKey, string>> = { it, en, fr, hu };
 
 export type { KioskCopyKey };
 

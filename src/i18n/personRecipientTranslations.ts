@@ -137,7 +137,50 @@ const fr: Record<PersonRecipientCopyKey, string> = {
   'hint.ambiguous': 'Home Assistant contient plusieurs identités avec le même identifiant.',
 };
 
-const COPY: Record<AppLocale, Record<PersonRecipientCopyKey, string>> = { it, en, fr };
+const hu: Record<PersonRecipientCopyKey, string> = {
+  title: 'Címzettek',
+  'summary.none': 'Senki nincs kiválasztva',
+  'summary.one': '1 személy',
+  'summary.many': '{count} személy',
+  choose: 'Személyek kiválasztása',
+  sheetTitle: 'Címzettek kiválasztása',
+  sheetDescription: 'Válaszd ki, ki kapja meg. Mindenki maga dönti el, melyik eszközén.',
+  search: 'Személyek keresése',
+  refresh: 'Frissítés',
+  done: 'Kész',
+  loading: 'Személyek betöltése…',
+  error: 'A személyek nem tölthetők be.',
+  retry: 'Újra',
+  unauthorized: 'Címzetteket csak rendszergazda választhat.',
+  unsupported: 'A címzettek kiválasztása nem elérhető',
+  unsupportedHint: 'Frissítsd a Domus UI integrációt a címzettek kiválasztásához.',
+  offline: 'Csatlakozz a Home Assistanthoz a címzettek frissítéséhez.',
+  empty: 'Nincs elérhető személy',
+  emptyHint: 'Állíts be személyeket a Home Assistantban, mielőtt címzetteket választasz.',
+  noMatch: 'Senki nem felel meg a keresésnek.',
+  limit: 'Legfeljebb {count} személyt választhatsz.',
+  unnamed: 'Névtelen személy',
+  removed: 'Eltávolított személy',
+  removedHint: 'Már nem létezik a Home Assistantban. Eltávolíthatod a címzettek közül.',
+  unknownPerson: 'A személy nem elérhető',
+  remove: '{name} eltávolítása',
+  'status.ready': 'Kész',
+  'status.temporarily_unavailable': 'Átmenetileg nem elérhető',
+  'status.notifications_disabled': 'Értesítések kikapcsolva',
+  'status.no_devices': 'Eszközt kell beállítania',
+  'status.no_profile': 'Domus profil nincs beállítva',
+  'status.no_account': 'Nincs hozzákapcsolt Home Assistant fiók',
+  'status.account_disabled': 'Home Assistant fiók letiltva',
+  'status.account_unavailable': 'A fiók nem elérhető',
+  'status.profile_unavailable': 'A profil átmenetileg nem elérhető',
+  'status.ambiguous': 'A személy azonosságát ellenőrizni kell',
+  'status.unknown': 'Az állapot nem elérhető',
+  'hint.temporarily_unavailable': 'Az eszközei most nem érhetők el.',
+  'hint.notifications_disabled': 'Ez a személy kikapcsolta a Domus értesítéseket.',
+  'hint.ambiguous': 'A Home Assistantban több azonosság is ugyanazzal az azonosítóval rendelkezik.',
+};
+
+const COPY: Record<AppLocale, Record<PersonRecipientCopyKey, string>> = { it, en, fr, hu };
 
 export function personRecipientCopy(locale: AppLocale) {
   const table = COPY[locale] ?? COPY.it;

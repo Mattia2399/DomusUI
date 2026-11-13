@@ -42,6 +42,19 @@ export const binarySensorStateLabels: Record<AppLocale, StateLabels> = {
     tamper: ['Sabotage détecté', 'Aucun sabotage'], update: ['Mise à jour disponible', 'À jour'],
     vibration: ['Vibration détectée', 'Aucune vibration'], window: ['Ouverte', 'Fermée'],
   },
+  hu: {
+    battery: ['Akkumulátor alacsony', 'Akkumulátor rendben'], battery_charging: ['Töltés', 'Nem tölt'],
+    carbon_monoxide: ['Szén-monoxid észlelve', 'Nincs szén-monoxid'], cold: ['Hideg', 'Normál'],
+    connectivity: ['Csatlakoztatva', 'Leválasztva'], door: ['Megnyitás', 'Zárva'], garage_door: ['Megnyitás', 'Zárva'],
+    gas: ['Gáz észlelve', 'Nincs gáz'], heat: ['Forró', 'Normál'], light: ['Fény észlelve', 'Nincs fény'],
+    lock: ['Nyitva', 'Bezárva'], moisture: ['Nedves', 'Száraz'], motion: ['Mozgás észlelve', 'Nincs mozgás'],
+    moving: ['Mozog', 'Leállítva'], occupancy: ['Foglalt', 'Szabad'], opening: ['Megnyitás', 'Zárva'],
+    plug: ['Bedugva', 'Kihúzva'], power: ['Áram alatt', 'Nincs áram alatt'], presence: ['Otthon', 'Távol'],
+    problem: ['Probléma észlelve', 'Nincs probléma'], running: ['Fut', 'Leállítva'],
+    safety: ['Nem biztonságos', 'Biztonságos'], smoke: ['Füst észlelve', 'Nincs füst'], sound: ['Hang észlelve', 'Nincs hang'],
+    tamper: ['Szabotázs észlelve', 'Nincs szabotázs'], update: ['Frissítés elérhető', 'Naprakész'],
+    vibration: ['Rezgés észlelve', 'Nincs rezgés'], window: ['Megnyitás', 'Zárva'],
+  },
 };
 
 export const binarySensorCopy = {
@@ -59,5 +72,10 @@ export const binarySensorCopy = {
     fallback: ['Actif', 'Inactif'], unavailable: 'Indisponible', unknown: 'État inconnu',
     battery: 'Batterie', title: 'Capteur binaire', reported: 'État indiqué par Home Assistant',
     noReading: 'Aucune lecture fiable disponible',
+  },
+  hu: {
+    fallback: ['Aktív', 'Inaktív'], unavailable: 'Nem elérhető', unknown: 'Ismeretlen állapot',
+    battery: 'Akkumulátor', title: 'Bináris érzékelő', reported: 'A Home Assistant által jelentett állapot',
+    noReading: 'Nincs megbízható mérés',
   },
 } as const;

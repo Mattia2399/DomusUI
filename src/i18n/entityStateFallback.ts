@@ -45,6 +45,18 @@ const GENERIC: Record<AppLocale, StateWords> = {
     cleaning: 'Nettoyage', docked: 'À la base', returning: 'Retour à la base', error: 'Erreur',
     heat: 'Chauffage', cool: 'Climatisation', auto: 'Automatique', heat_cool: 'Chaud/froid', dry: 'Déshumidification', fan_only: 'Ventilation seule',
   },
+  hu: {
+    on: 'Be', off: 'Ki', home: 'Otthon', not_home: 'Távol',
+    locked: 'Bezárva', unlocked: 'Nyitva', locking: 'Zárás', unlocking: 'Nyitás', jammed: 'Beragadt',
+    open: 'Megnyitás', closed: 'Zárva', opening: 'Nyitás', closing: 'Zárás',
+    playing: 'Lejátszás', paused: 'Szüneteltetve', idle: 'Tétlen', standby: 'Készenlét', buffering: 'Pufferelés',
+    disarmed: 'Hatástalanítva', armed_home: 'Élesítve (otthon)', armed_away: 'Élesítve (távol)', armed_night: 'Élesítve (éjszaka)',
+    armed_vacation: 'Élesítve (szabadság)', armed_custom_bypass: 'Élesítve egyéni kiiktatással', arming: 'Élesítés', disarming: 'Hatástalanítás',
+    pending: 'Függőben', triggered: 'Riasztás',
+    above_horizon: 'Horizont felett', below_horizon: 'Horizont alatt',
+    cleaning: 'Takarítás', docked: 'Dokkolva', returning: 'Visszatérés a dokkolóra', error: 'Hiba',
+    heat: 'Fűtés', cool: 'Hűtés', auto: 'Auto', heat_cool: 'Fűtés/hűtés', dry: 'Száraz', fan_only: 'Csak ventilátor',
+  },
 };
 
 /** States whose meaning depends on the domain or the binary sensor class. */
@@ -66,6 +78,12 @@ const SPECIFIC: Record<AppLocale, Record<string, StateWords>> = {
     'binary_sensor.opening': { on: 'Ouvert', off: 'Fermé' },
     'binary_sensor.presence': { on: 'Présent', off: 'Absent' },
     binary_sensor: { on: 'Détecté', off: 'Normal' },
+  },
+  hu: {
+    update: { on: 'Frissítés elérhető', off: 'Naprakész' },
+    'binary_sensor.opening': { on: 'Megnyitás', off: 'Zárva' },
+    'binary_sensor.presence': { on: 'Otthon', off: 'Távol' },
+    binary_sensor: { on: 'Észlelve', off: 'Szabad' },
   },
 };
 

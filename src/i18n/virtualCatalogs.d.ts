@@ -14,3 +14,8 @@ declare module 'virtual:domus-i18n/fr' {
   const catalog: DomusTranslationCatalog;
   export default catalog;
 }
+
+declare module 'virtual:domus-i18n/hu' {
+  const catalog: DomusTranslationCatalog;
+  export default catalog;
+}

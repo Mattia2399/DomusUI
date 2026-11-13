@@ -62,7 +62,26 @@ const fr: PanelLiveCatalog = {
   lvStaleTip: 'Vérifiez qu’il est alimenté et joignable.',
 };
 
-const catalogs: Record<AppLocale, PanelLiveCatalog> = { it, en, fr };
+const hu: PanelLiveCatalog = {
+  spanMin: '{n} perc',
+  spanHour: '{n} óra',
+  spanDay: '{n} nap',
+  lvAway: 'Nem válaszol.',
+  lvAwayFor: '{time} óta nem válaszol.',
+  lvLastKnown: 'Utolsó ismert állapot: {state}, ekkor: {time}.',
+  lvAwayTip: 'Ellenőrizd, hogy be van-e kapcsolva és csatlakozik-e.',
+  lvRetry: 'Újrapróbálás',
+  lvOpenHa: 'Megnyitás a Home Assistantban',
+  lvSent: 'Parancs elküldve',
+  lvWaiting: 'Várakozás az eszköz megerősítésére',
+  lvNoAnswer: 'Az eszköz nem válaszolt. Próbáld újra',
+  lvStale: '{time} óta nincs adat.',
+  lvStaleAt: 'Utolsó érték ekkor: {time}.',
+  lvStaleBattery: 'Az akkumulátor {pct}%-on áll: valószínűleg cserélni kell.',
+  lvStaleTip: 'Ellenőrizd, hogy van-e tápja és elérhető-e.',
+};
+
+const catalogs: Record<AppLocale, PanelLiveCatalog> = { it, en, fr, hu };
 
 export function usePanelLiveTranslations() {
   const { locale } = useI18n();

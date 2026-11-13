@@ -73,7 +73,30 @@ const fr: Record<AccessCopyKey, string> = {
     'Les autorisations enregistrées sont illisibles : Domus n’affiche que l’essentiel. Un administrateur de Home Assistant peut les restaurer.',
 };
 
-const COPY: Record<AppLocale, Record<AccessCopyKey, string>> = { it, en, fr };
+const hu: Record<AccessCopyKey, string> = {
+  dismiss: 'Elvetés',
+  lockedAction: 'Szerepkörök és jogosultságok megnyitása',
+  cardUnavailable: 'Nem elérhető',
+  checking: 'Fiók ellenőrzése…',
+  deniedTitle: 'A fiókodhoz nem elérhető',
+  deniedBody: 'A Domus ezen része a fiókoddal nem érhető el. A többi részben folytathatod.',
+  goHome: 'Ugrás az Otthon oldalra',
+  offlineTitle: 'A Home Assistant nincs csatlakoztatva',
+  offlineBody: 'Kapcsolat nélkül a Domus nem tudja, melyik fiók van használatban: a részek visszatérnek, amint a Home Assistant válaszol.',
+  errorTitle: 'A jogosultságok nem elérhetők',
+  errorBody:
+    'A Domus nem tudta kiolvasni, mire jogosult a fiókod. Amíg ez nem sikerül, nem jeleníti meg az ettől függő részeket.',
+  retry: 'Újrapróbálás',
+  unavailableTitle: 'A Domus nem áll készen',
+  unavailableBody:
+    'A Home Assistant nem válaszol a Domus jogosultsági kérésére. Frissítsd vagy töltsd újra a Domus UI integrációt, majd próbáld újra.',
+  lockedTitle: 'A Domus jogosultságai figyelmet igényelnek',
+  lockedBody: 'A mentett jogosultságok nem olvashatók: a Domus csak a legszükségesebbet mutatja, amíg helyre nem állnak.',
+  lockedAdminBody:
+    'A mentett jogosultságok nem olvashatók: a Domus csak a legszükségesebbet mutatja. Egy Home Assistant rendszergazda helyreállíthatja őket.',
+};
+
+const COPY: Record<AppLocale, Record<AccessCopyKey, string>> = { it, en, fr, hu };
 
 export type { AccessCopyKey };
 

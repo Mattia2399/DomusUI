@@ -3,7 +3,7 @@ import { TRANSLATIONS } from '../src/i18n/translations';
 
 const VIRTUAL_PREFIX = 'virtual:domus-i18n/';
 const RESOLVED_PREFIX = `\0${VIRTUAL_PREFIX}`;
-const SUPPORTED_LOCALES = ['it', 'en', 'fr'] as const;
+const SUPPORTED_LOCALES = ['it', 'en', 'fr', 'hu'] as const;
 // The language I18nProvider falls back to (FALLBACK_LOCALE).
 const FALLBACK_LOCALE = 'en';
 

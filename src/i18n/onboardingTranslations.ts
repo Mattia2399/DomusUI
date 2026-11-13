@@ -14,6 +14,7 @@ const loaders: Record<AppLocale, () => Promise<{ default: OnboardingMessages }>>
   it: () => import('./onboarding/it'),
   en: () => import('./onboarding/en'),
   fr: () => import('./onboarding/fr'),
+  hu: () => import('./onboarding/hu'),
 };
 
 const loaded = new Map<AppLocale, OnboardingMessages>();

@@ -32,4 +32,15 @@ export const routeTranslations = {
     'route.comingSoon.description': 'Cette section est encore en cours de traduction. Elle sera disponible dans votre langue lors d’une prochaine mise à jour.',
     'route.comingSoon.back': 'Retour à l’accueil',
   },
+  hu: {
+    'route.loading.title': 'Irányítópult előkészítése…',
+    'route.loading.description': 'Az otthonod és vezérlőinek betöltése.',
+    'route.loadError.title': 'A tartalom nem tölthető be',
+    'route.loadError.description': 'Egy frissítés vagy hálózati hiba megszakította a betöltést. Töltsd újra a Domus UI-t, hogy a legfrissebb fájlokkal próbálja újra.',
+    'route.loadError.reload': 'Domus UI újratöltése',
+    'route.comingSoon.eyebrow': 'Domus UI',
+    'route.comingSoon.title': 'Hamarosan',
+    'route.comingSoon.description': 'Ez a szakasz fordítása még folyamatban van. Egy következő frissítésben a nyelveden is elérhető lesz.',
+    'route.comingSoon.back': 'Vissza az Otthon oldalra',
+  },
 } as const;

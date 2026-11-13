@@ -8,4 +8,7 @@ export const cardUiTranslations = {
   fr: {
     'card.configure': 'Configurer {name}', 'card.turnOn': 'Allumer {name}', 'card.turnOff': 'Éteindre {name}', 'card.timerActive': 'Minuteur actif', 'card.details': 'Détails de {name}', 'card.degrees': '{value} degrés', 'card.openingPercent': '{value} % ouvert', 'card.editSlats': 'Passer au contrôle des lames', 'card.editPosition': 'Revenir au contrôle de position', 'card.slats': 'Lames', 'card.quickCommands': 'Commandes rapides de {name}', 'card.editTilt': 'Inclinaison des lames de {name}', 'card.editPositionAria': 'Position de {name}', 'card.editEffect': 'Effet',
   },
+  hu: {
+    'card.configure': '{name} beállítása', 'card.turnOn': '{name} bekapcsolása', 'card.turnOff': '{name} kikapcsolása', 'card.timerActive': 'Időzítő aktív', 'card.details': '{name} részletei', 'card.degrees': '{value} fok', 'card.openingPercent': '{value}%-ban nyitva', 'card.editSlats': 'Váltás lamellavezérlésre', 'card.editPosition': 'Vissza a pozícióvezérléshez', 'card.slats': 'Lamellák', 'card.quickCommands': '{name} gyorsvezérlői', 'card.editTilt': '{name} lamelladőlése', 'card.editPositionAria': '{name} pozíciója', 'card.editEffect': 'Effekt',
+  },
 } as const;
