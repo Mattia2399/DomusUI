@@ -1,0 +1,12 @@
+# Cloudflare Pages response headers for the Domus UI website.
+# The Content-Security-Policy is delivered by the <meta> tag in index.html.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+# Vite emits content-hashed file names: safe to cache forever.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

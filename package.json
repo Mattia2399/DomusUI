@@ -11,6 +11,8 @@
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
+    "build:site": "vite build --config vite.site.config.ts",
+    "preview:site": "vite preview --config vite.site.config.ts",
     "runtime:check": "node scripts/check-runtime.mjs",
     "check": "tsc --noEmit",
     "lint": "tsc --noEmit",
@@ -22,7 +24,7 @@
     "release:notes:check": "node scripts/generate-release-notes.mjs --check",
     "release:package": "node scripts/build-release-package.mjs",
     "release:csp:check": "node scripts/verify-packaged-csp.mjs",
-    "release:gate": "npm run runtime:check && npm run release:notes:check && npm run check && npm run build && npm run build:budget && npm run audit:release && npm run release:package"
+    "release:gate": "npm run runtime:check && npm run release:notes:check && npm run check && npm run build && npm run build:budget && npm run build:site && npm run audit:release && npm run release:package"
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
