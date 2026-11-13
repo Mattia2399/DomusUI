@@ -22,6 +22,7 @@ describe('LazyDashboardNotificationsPanel', () => {
         <LazyDashboardNotificationsPanel isOpen onClose={onClose} />
       </NotificationProvider>,
     );
-    expect(await screen.findByRole('dialog', {}, { timeout: 3000 })).toBeTruthy();
+    // The default wait of the project (src/test/vitest.setup.ts): the panel loads on demand, slower under load.
+    expect(await screen.findByRole('dialog')).toBeTruthy();
   });
 });
