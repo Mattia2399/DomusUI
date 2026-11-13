@@ -669,7 +669,7 @@ export function FavoritesDrawer({ isOpen, onOpen, onClose, agentClient, haEntity
     }
 
     const recognition = new SpeechRecognitionCtor();
-    recognition.lang = locale === 'fr' ? 'fr-FR' : locale === 'en' ? 'en-US' : 'it-IT';
+    recognition.lang = locale === 'hu' ? 'hu-HU' : locale === 'fr' ? 'fr-FR' : locale === 'en' ? 'en-US' : 'it-IT';
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;

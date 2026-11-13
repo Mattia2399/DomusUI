@@ -17,4 +17,10 @@ export const vacuumTranslations = {
     'vacuum.stat.battery': 'Batterie', 'vacuum.stat.area': 'Surface', 'vacuum.stat.time': 'Durée', 'vacuum.stat.power': 'Puissance', 
     'vacuum.target.cleanOne': 'Nettoyer {count} zone', 'vacuum.target.cleanMany': 'Nettoyer {count} zones', 'vacuum.related.active': 'Actif', 'vacuum.related.inactive': 'Désactivé',
   },
+  hu: {
+    'vacuum.na': 'N/A', 'vacuum.state.docked': 'Dokkolva', 'vacuum.state.cleaning': 'Takarítás', 'vacuum.state.paused': 'Szüneteltetve', 'vacuum.state.error': 'Figyelmet igényel', 'vacuum.state.returning': 'Visszatérés a dokkolóra', 'vacuum.state.idle': 'Kész', 'vacuum.state.unavailable': 'Nem elérhető', 'vacuum.state.unknown': 'Ismeretlen állapot',
+    'vacuum.action.error': 'Hiba megjelenítése', 'vacuum.action.pause': 'Szünet', 'vacuum.action.cleaning': 'Takarítás', 'vacuum.action.resume': 'Folytatás', 'vacuum.action.start': 'Takarítás indítása', 'vacuum.action.controls': 'Vezérlők megnyitása', 'vacuum.action.returning': 'Visszatérés', 'vacuum.action.unavailable': 'Nem elérhető', 'vacuum.action.stop': 'Leállítás', 'vacuum.action.base': 'Dokkoló', 'vacuum.action.returnHome': 'Vissza a dokkolóra: {name}', 'vacuum.action.stopAria': 'Leállítás: {name}', 'vacuum.action.open': '{name} megnyitása',
+    'vacuum.stat.battery': 'Akkumulátor', 'vacuum.stat.area': 'Terület', 'vacuum.stat.time': 'Idő', 'vacuum.stat.power': 'Teljesítmény', 
+    'vacuum.target.cleanOne': '{count} terület takarítása', 'vacuum.target.cleanMany': '{count} terület takarítása', 'vacuum.related.active': 'Aktív', 'vacuum.related.inactive': 'Ki',
+  },
 } as const;

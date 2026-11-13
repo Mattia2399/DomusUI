@@ -79,7 +79,32 @@ const fr: Record<ScreensaverCopyKey, string> = {
   storageUnavailable: 'Ce navigateur ne conserve aucune donnée locale : le choix ne vaut que tant que la page reste ouverte.',
 };
 
-const COPY: Record<AppLocale, Record<ScreensaverCopyKey, string>> = { it, en, fr };
+const hu: Record<ScreensaverCopyKey, string> = {
+  group: 'Képernyővédő',
+  toggle: 'Képernyővédő',
+  offBody: 'Egy ideig tartó használaton kívüli állapot után automatikusan megjeleníti a képernyővédőt.',
+  onBody: 'Be: {duration} érintés nélküli idő után jelenik meg, és az első érintésre eltűnik.',
+  activationGroup: 'Aktiválás',
+  startAfter: 'Indítás ennyi idő után',
+  startAfterHint: 'Érintés, billentyű vagy egérmozgás nélküli idő. Az otthonból érkező frissítések nem számítanak.',
+  minuteOne: '{count} perc',
+  minuteMany: '{count} perc',
+  appearanceGroup: 'Megjelenés',
+  mode: 'Stílus',
+  minimal: 'Minimál',
+  ambient: 'Hangulatos',
+  minimalHint: 'Az idő mélyfekete háttéren: éjszaka és OLED kijelzőn a legjobb.',
+  ambientHint: 'Az idő a Domus háttéren, elhalványítva.',
+  showDate: 'Dátum megjelenítése',
+  previewGroup: 'Előnézet',
+  preview: 'Előnézet indítása',
+  previewHint: 'Most megjeleníti a képernyővédőt a beállítás szerint. Érintsd meg a képernyőt a kilépéshez.',
+  deviceNote:
+    'Csak erre az eszközre vonatkozik. A képernyővédő nem kapcsolja ki és nem tartja ébren a képernyőt: azt a tablet vagy a számítógép beállításai végzik.',
+  storageUnavailable: 'Ez a böngésző nem őriz helyi adatot: a választás csak addig él, amíg az oldal nyitva van.',
+};
+
+const COPY: Record<AppLocale, Record<ScreensaverCopyKey, string>> = { it, en, fr, hu };
 
 export type { ScreensaverCopyKey };
 

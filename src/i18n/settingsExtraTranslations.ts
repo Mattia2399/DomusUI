@@ -41,4 +41,18 @@ export const settingsExtraTranslations = {
     'settings.updates.restoreFailed': 'Impossible de rétablir la mise à jour.',
     'settings.updates.title': 'Centre de mises à jour', 'settings.updates.back': 'Retour', 'settings.updates.one': '{count} mise à jour disponible', 'settings.updates.many': '{count} mises à jour disponibles', 'settings.updates.current': 'À jour', 'settings.updates.none': 'Aucune mise à jour disponible pour le moment.', 'settings.updates.progress': 'Mise à jour en cours…', 'settings.updates.progressPercent': 'Mise à jour en cours · {value} %', 'settings.updates.available': 'Mise à jour disponible', 'settings.updates.skip': 'Ignorer', 'settings.updates.skipping': 'Ignorer…', 'settings.updates.install': 'Mettre à jour', 'settings.updates.installAll': 'Tout mettre à jour ({count})', 'settings.updates.offline': 'Connexion Home Assistant indisponible.', 'settings.updates.installFailed': 'La mise à jour n’a pas démarré.', 'settings.updates.skipFailed': 'Impossible d’ignorer la mise à jour.',
   },
+  hu: {
+    'settings.guide.description': 'Fedezd fel a legfontosabb funkciókat, és kezdd el testre szabni az élményt.', 'settings.guide.finish': 'Útmutató befejezése', 'settings.guide.skip': 'Útmutató kihagyása', 'settings.guide.back': 'Vissza', 'settings.guide.showMe': 'Mutasd', 'settings.guide.continue': 'Tovább', 'settings.guide.progress': '{current}. lépés / {total}', 'settings.guide.stepsAria': 'Irányított beállítás lépései', 'settings.guide.step': '{count}. lépés',
+    'settings.guide.quick': 'Gyors útmutató', 'settings.guide.noSteps': 'Nincs beállított lépés.',
+    'settings.updates.group.available': 'Elérhető',
+    'settings.updates.group.skipped': 'Kihagyott verziók',
+    'settings.updates.releaseNotes': 'Kiadási megjegyzések',
+    'settings.updates.backupFirst': 'Biztonsági mentés frissítés előtt',
+    'settings.updates.backupFirstHint': 'A Home Assistant biztonsági mentést készít, majd telepít.',
+    'settings.updates.skipVersion': 'Verzió kihagyása',
+    'settings.updates.skippedVersion': 'A(z) {version} verzió kihagyva',
+    'settings.updates.restore': 'Visszaállítás',
+    'settings.updates.restoreFailed': 'A frissítés nem állítható vissza.',
+    'settings.updates.title': 'Frissítési központ', 'settings.updates.back': 'Vissza', 'settings.updates.one': '{count} frissítés elérhető', 'settings.updates.many': '{count} frissítés elérhető', 'settings.updates.current': 'Naprakész', 'settings.updates.none': 'Jelenleg nincs elérhető frissítés.', 'settings.updates.progress': 'Frissítés…', 'settings.updates.progressPercent': 'Frissítés · {value}%', 'settings.updates.available': 'Frissítés elérhető', 'settings.updates.skip': 'Kihagyás', 'settings.updates.skipping': 'Kihagyás…', 'settings.updates.install': 'Frissítés', 'settings.updates.installAll': 'Összes frissítése ({count})', 'settings.updates.offline': 'A Home Assistant kapcsolat nem elérhető.', 'settings.updates.installFailed': 'A frissítés nem indult el.', 'settings.updates.skipFailed': 'A frissítés nem hagyható ki.',
+  },
 } as const;

@@ -120,7 +120,31 @@ const fr: Record<ClimateKey, string> = {
   emptyStates: 'Éléments à compléter', missingZone: 'Aucune zone', missingSensor: 'Capteur non choisi', missingGenerator: 'Générateur non configuré', missingSchedule: 'Programme absent', missingDevice: 'Zone sans appareil', emptyHint: 'Ces messages resteront dans leur section, pas comme des erreurs générales de Domus.',
 };
 
-const catalogs = { it, en, fr };
+const hu: Record<ClimateKey, string> = {
+  eyebrow: 'DOMUS CLIMATE', intro: 'Tanítsd meg a Domusnak, hogyan működik az otthonod klímája.', introDetail: 'Zónák, érzékelők, körök és források egy helyen. A beállítás a későbbi fázisokban érkezik.',
+  notConfigured: 'A klíma még nincs beállítva', setupTitle: 'Az otthonod, zónáról zónára', setupDetail: 'Kezdd a szobákkal, majd csatlakoztasd az eszközöket, és írd le, hogyan készül a hő.',
+  previewOpen: 'Az előnézet felfedezése', previewClose: 'Kilépés az előnézetből', previewBanner: 'Demó előnézet · mintaadatok', previewDetail: 'Az itteni választások helyiek: nem mentődnek, és nem vezérelnek eszközöket.',
+  future: 'Egy későbbi fázisban érhető el', planned: 'Beállítandó', editPreview: 'Előnézet szerkesztése', overview: 'Áttekintés', zones: 'Zónák', programs: 'Ütemezések', plant: 'Rendszer',
+  houseStatus: 'Otthoni klíma', houseStatusDetail: 'A Domus összehangolja az egyes zónák szándékát.', controlMode: 'Vezérlés', auto: 'Automatikus', manual: 'Kézi', autoDetail: 'Ütemezéseket és szabályokat követ.', manualDetail: 'A célértékeket kézzel választod.',
+  season: 'Évszak', heating: 'Fűtés', cooling: 'Hűtés', off: 'Ki', seasonDetail: 'Az évszak független az Automatikus / Kézi módtól.', activeProfile: 'Aktív profil', nextChange: 'Következő váltás', currentSource: 'Forrás',
+  comfort: 'Komfort', eco: 'Eco', night: 'Éjszaka', away: 'Távol', radiators: 'Radiátorok', airConditioners: 'Légkondicionálók', boiler: 'Kazán', thermostove: 'Vízteres kályha', automaticFuture: 'Automatikus · később',
+  zoneHeading: 'Otthoni zónák', zoneHeadingDetail: 'Minden szobának saját célértéke van. A folyosói termosztát nem az otthon fővezérlője.', allZones: 'Összes zóna megtekintése',
+  'zone.living': 'Nappali', 'zone.bedroom': 'Hálószoba', 'zone.guest': 'Vendégszoba', 'zone.bath': 'Fürdőszoba', 'zone.study': 'Dolgozószoba',
+  current: 'Aktuális hőmérséklet', roomTarget: 'Szoba célértéke', targetShort: 'Cél', satisfied: 'Célértéken', zoneHeating: 'Hőt igényel', zoneCooling: 'Hűtés', override: 'Ideiglenes felülbírálás', offline: 'Eszköz nem elérhető',
+  radiator: 'Radiátor', airConditioner: 'Légkondicionáló', noDevice: 'Nincs hozzárendelt eszköz', until: '{time}-ig', nextAt: '{time}-kor', openZone: '{name} megnyitása',
+  zoneDetail: 'Zóna részletei', zoneMode: 'Zóna módja', followsHouse: 'Az otthont követi', manualZone: 'Csak itt kézi', manualZoneDetail: 'Az otthon Automatikus marad; csak ez a zóna változik.',
+  temperatureReference: 'Referencia-érzékelő', temperatureReferenceDetail: 'Ezt a hőmérsékletet használja a Domus a zónáról szóló döntésekhez.', selectReference: 'Referencia kiválasztása', sensor: 'Szobaérzékelő', trvFallback: 'Szelep · jövőbeli tartalék', acFallback: 'Légkondicionáló · jövőbeli tartalék', notSelected: 'Nincs kiválasztott érzékelő', technicalId: 'Technikai azonosító',
+  deviceMapping: 'Zóna eszközei', deviceMappingDetail: 'Rendelj szerepkört minden eszközhöz, ne entitáslistát.', heatingDevice: 'Fűtés', coolingDevice: 'Hűtés', alternativeHeating: 'Alternatív fűtés', trv: 'Termosztatikus szelep', ac: 'Légkondicionáló', roomProgram: 'Zóna ütemezése',
+  overrideUntil: 'Felülbírálás eddig: {time}', overrideAction: 'Felülbírálás beállítása', overrideNext: 'A következő eseményig', overrideOneHour: '1 óráig', overrideTwoHours: '2 óráig', overrideCustom: 'Eddig…', overrideCancel: 'Felülbírálás visszavonása',
+  offlineDetail: 'Ellenőrizd a zóna eszközét. Az otthon többi része tovább működhet.', scheduleTitle: 'Heti ütemezés', scheduleDetail: 'Blokkok és profilok hétköznapokra és hétvégékre.', weekdays: 'H – P', weekend: 'Szo – V', time: 'Idő', profile: 'Profil', addBlock: 'Blokk hozzáadása', removeBlock: 'Blokk eltávolítása', localDraft: 'Helyi előnézeti piszkozat',
+  profileTitle: 'Klímaprofilok', profileDetail: 'A nevek testreszabhatók; később minden zónának profilonként saját célértéke lehet.', createProfile: 'Új profil', profileName: 'Profil neve', profileTarget: 'Példa célérték', addProfile: 'Hozzáadás az előnézethez', profileEmpty: 'Nincsenek profilok. Kezdj egy névvel és egy célértékkel.',
+  circuitTitle: 'Radiátorkör', circuitDetail: 'A hőt igénylő zónáktól az azt előállító forrásig.', demand: 'Hőigény', demandCount: '2 zóna igényel hőt', demandNone: 'Egy zóna sem igényel hőt', valves: 'Szelepek', controller: 'Körvezérlő', corridor: 'Folyosói termosztát', controllerDetail: 'A kört vezérli, nem minden szoba célértékét.',
+  generators: 'Források és hőtermelők', generatorsDetail: 'A kört táplálják; nem szobák.', spaceHeating: 'Fűtés', dhw: 'Használati melegvíz', waterTemperature: 'Vízhőmérséklet', waterSetpoint: 'Víz beállított értéke', waterWarning: 'A vízteres kályha víz-beállított értéke (55–80 °C) nem szobahőmérséklet.', roomTemperature: 'Szobahőmérséklet', sourceSelect: 'Fűtés ezen keresztül', generatorSelect: 'Radiátorforrás', strategyFuture: 'Az automatikus kiválasztás csak egy javasolt felület.', deviceControls: 'Eszközvezérlők', deviceControlsDetail: 'A be/ki, a ventilátor és az Eco az elsődleges eszköznél marad.', power: 'Teljesítmény', fan: 'Ventilátor', ecoControl: 'Eco',
+  setupZones: 'Zónák kiválasztása', setupZonesDetail: 'A Domusban már meglévő szobák használata.', setupDevices: 'Eszközök hozzárendelése', setupDevicesDetail: 'A klímák és a szelepek a zónáikhoz tartoznak.', setupCircuit: 'A kör leírása', setupCircuitDetail: 'Szelepek, termosztát és hőtermelők összekapcsolása.', setupSensors: 'Érzékelők kiválasztása', setupSensorsDetail: 'Minden zónának kifejezett referencia kell.', setupSchedule: 'Ütemezés előkészítése', setupScheduleDetail: 'Blokkok és profilok hozzárendelése a napokhoz.',
+  emptyStates: 'Kiegészítendők', missingZone: 'Nincsenek zónák', missingSensor: 'Nincs kiválasztott érzékelő', missingGenerator: 'Hőtermelő nincs beállítva', missingSchedule: 'Nincs ütemezés', missingDevice: 'Zóna eszköz nélkül', emptyHint: 'Ezek az üzenetek a saját szakaszuknál maradnak, nem általános Domus-hibaként jelennek meg.',
+};
+
+const catalogs = { it, en, fr, hu };
 export type ClimateCopyKey = ClimateKey;
 export function useClimateCopy() {
   const { locale, formatNumber } = useI18n();

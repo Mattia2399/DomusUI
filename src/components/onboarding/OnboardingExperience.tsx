@@ -71,7 +71,7 @@ const HA_OAUTH_CALLBACK_PARAM = 'ha_oauth_callback';
 const HA_OAUTH_SESSION_STATE_KEY = 'ha.dashboard.oauth.state';
 
 // Each language named in itself, as a language picker shows it.
-const LANGUAGE_NAMES: Record<AppLocale, string> = { it: 'Italiano', en: 'English', fr: 'Français' };
+const LANGUAGE_NAMES: Record<AppLocale, string> = { it: 'Italiano', en: 'English', fr: 'Français', hu: 'Magyar' };
 
 const SetupMosaic = lazy(() => import('./SetupMosaic'));
 const loadSetupHomeSteps = () => import('./SetupHomeSteps');

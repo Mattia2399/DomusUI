@@ -363,6 +363,185 @@ const copy = {
     "Tipo grafico": "Type de graphique",
     "Entita da associare": "Entité à associer",
   },
+  hu: {
+    "Meteo nella card": 'Időjárás a kártyán',
+    "Mostra il widget meteo dentro la card saluto.": 'Időjárás-widget megjelenítése az üdvözlőkártyán.',
+    "Mostra il meteo nella card saluto": 'Időjárás megjelenítése az üdvözlőkártyán',
+    "Il meteo usa il chip quando la card è stretta e le previsioni quando c’è spazio.": 'Az időjárás keskeny kártyán chipként, elég hely esetén előrejelzésként jelenik meg.',
+    "Data": 'Dátum',
+    "Mostra la data sopra il saluto.": 'Dátum megjelenítése az üdvözlés fölött.',
+    "Mostra la data nella card saluto": 'Dátum megjelenítése az üdvözlőkártyán',
+    Giornaliero: 'Napi',
+    Orario: 'Óránkénti',
+    Servizio: 'Szolgáltatás',
+    Automatico: 'Automatikus',
+    "1 decimale": '1 tizedes',
+    decimali: 'tizedes',
+    ore: 'óra',
+    giorni: 'nap',
+    colonne: 'oszlop',
+    righe: 'sor',
+    Pioggia: 'Eső',
+    Vento: 'Szél',
+    Umidita: 'Páratartalom',
+    Pressione: 'Légnyomás',
+    Visibilita: 'Látótávolság',
+    Nuvolosita: 'Felhőzet',
+    Condizione: 'Állapot',
+    "2 colonne": '2 oszlop',
+    "2 righe": '2 sor',
+    "4 colonne": '4 oszlop',
+    "4 righe": '4 sor',
+    "Stack verticale con una sola colonna.": 'Függőleges köteg egy oszloppal.',
+    "Stack orizzontale: usa la griglia derivata dal canvas.":
+      'Vízszintes köteg: a vászontól örökölt rácsot használja.',
+    "Stack a griglia: larghezza automatica derivata dalle card interne.":
+      'Rácsköteg: a szélesség a kártyái alapján automatikus.',
+    "Stack a griglia: larghezza manuale impostata dal pannello.":
+      'Rácsköteg: a szélesség a panelen kézzel beállítva.',
+    "Automatico usa la precisione suggerita da Home Assistant o il default del device class.":
+      'Az Automatikus a Home Assistant által javasolt vagy az eszközosztályhoz tartozó alapértelmezett pontosságot használja.',
+    "Entita opzionali per metadati sensore. Se lasci vuoto, il pannello contestuale prova a leggere batteria, stato e connessione dagli attributi dell'entita principale.":
+      'Nem kötelező entitások az érzékelő metaadataihoz. Ha üres, a környezeti panel az elsődleges entitás attribútumaiból olvassa ki az akkumulátort, az állapotot és a kapcsolatot.',
+    "Di base la dashboard usa il PIN Home Assistant. Se aggiungi un codice extra locale, nel popup inserirai PIN HA + codice extra: ad Home Assistant verra inviato solo il PIN HA. L'autenticazione dispositivo, se attiva, viene provata per prima.":
+      'Alapértelmezés szerint az irányítópult a Home Assistant PIN-t használja. Kiegészítő helyi kód esetén a párbeszédablak mindkettőt kéri, de a szerverre csak a Home Assistant PIN kerül. Ha be van kapcsolva, először az eszközös megerősítéssel próbálkozik.',
+    "Conservato solo fino al refresh. Puoi scegliere sotto se ricordarlo su questo dispositivo.":
+      'Csak frissítésig marad meg. Alább kérheted, hogy ezen az eszközön megjegyezze.',
+    "Usa Windows Hello, Face ID, impronta o passkey come metodo rapido prima del PIN allarme.":
+      'A riasztó PIN előtt Windows Hello, Face ID, ujjlenyomat vagy jelkulcs használata.',
+    "Viene inviato ad Home Assistant solo quando richiesto. Per default si cancella al refresh.":
+      'Csak szükség esetén kerül a Home Assistanthoz. Alapértelmezés szerint frissítéskor törlődik.',
+    "Prova prima Face ID, impronta, PIN dispositivo o passkey; se non riesce, richiede il codice serratura configurato.":
+      'Először Face ID-vel, ujjlenyomattal, eszköz-PIN-nel vagy jelkulccsal próbálkozik; ha nem sikerül, a beállított zárkódot kéri.',
+    "Automatico (Home Assistant)": 'Automatikus (Home Assistant)',
+    "Auto responsive": 'Reszponzív automatikus',
+    "Passa automaticamente tra chip e card in base allo spazio disponibile.":
+      'A rendelkezésre álló hely alapján automatikusan vált chip és kártya között.',
+    "Chip fisso 2x2": 'Rögzített 2×2 chip',
+    "Formato compatto: temperatura, icona animata e seconda info.":
+      'Kompakt formátum: hőmérséklet, animált ikon és másodlagos információ.',
+    "Card fissa 4x4": 'Rögzített 4×4 kártya',
+    "Formato esteso: header meteo completo con previsioni sottostanti.":
+      'Bővített formátum: teljes időjárás-fejléc, alatta előrejelzés.',
+    "Scelta automatica in base ai dati disponibili.":
+      'Automatikus választás az elérhető adatok alapján.',
+    "Probabilita di precipitazione.": 'Csapadék valószínűsége.',
+    "Velocita del vento.": 'Szélsebesség.',
+    "Percentuale umidita relativa.": 'Relatív páratartalom százalékban.',
+    "Pressione atmosferica.": 'Légnyomás.',
+    "Distanza di visibilita.": 'Látótávolság.',
+    "Indice UV": 'UV-index',
+    "Indice UV attuale.": 'Aktuális UV-index.',
+    "Copertura nuvolosa.": 'Felhőzet.',
+    "Punto di rugiada.": 'Harmatpont.',
+    "Descrizione meteo sintetica.": 'Rövid időjárás-leírás.',
+    "Temperatura minima e massima.": 'Minimum és maximum hőmérséklet.',
+    "Valore principale con label secondaria.":
+      'Elsődleges érték másodlagos címkével.',
+    "Indicatore stato con glow dinamico.":
+      'Állapotjelző dinamikus fénnyel.',
+    "Ring compatto con progress circolare.":
+      'Kompakt gyűrű kör alakú haladásjelzővel.',
+    "Interruttore mini con stato on/off.": 'Mini kapcsoló be/ki állapottal.',
+    "Pulsante con azione push, switch o pagina.":
+      'Gomb nyomó, kapcsoló vagy oldal művelettel.',
+    "Controllo numerico per entita input_number/number.":
+      'Számérték-vezérlő input_number/number entitásokhoz.',
+    "Controllo orizzontale con incremento/decremento su + e -.":
+      'Vízszintes vezérlő plusz és mínusz állítással.',
+    "Grafico mini live con scelta tipo line/area/bar.":
+      'Élő minidiagram vonal, terület vagy oszlop stílusban.',
+    "Auto (da contenuto)": 'Automatikus (a tartalomból)',
+    "Manca servizio": 'Hiányzó szolgáltatás',
+    "JSON non valido": 'Érvénytelen JSON',
+    "Manca script": 'Hiányzó szkript',
+    "Titolo e info": 'Cím és információ',
+    "Nome utente": 'Felhasználónév',
+    "Con Home Assistant connesso, il saluto usa automaticamente l utente autenticato.":
+      'Ha a Home Assistant csatlakoztatva van, az üdvözlés automatikusan a bejelentkezett felhasználót használja.',
+    "Usato nei saluti automatici.": 'Az automatikus üdvözlésekhez.',
+    Titolo: 'Cím',
+    Sottotitolo: 'Alcím',
+    "Layout meteo responsive": 'Reszponzív időjárás-elrendezés',
+    Unita: 'Mértékegység',
+    "Entita meteo": 'Időjárás-entitás',
+    "Seconda info": 'Másodlagos információ',
+    Forecast: 'Előrejelzés',
+    Layout: 'Elrendezés',
+    "Suggerimenti live dalle entita weather.* di Home Assistant.":
+      'Élő javaslatok a Home Assistant weather.* entitásaiból.',
+    "Inserisci manualmente l'entity id weather.* da usare per questa card.":
+      'Add meg a kártyához használandó weather.* entitás azonosítóját.',
+    "Consiglio provider": 'A szolgáltató ajánlása',
+    Anteprima: 'Előnézet',
+    "Scene visibili": 'Látható jelenetek',
+    Scene: 'Jelenetek',
+    "Nascondi scena": 'Jelenet elrejtése',
+    "Mostra scena": 'Jelenet megjelenítése',
+    "Nome scena": 'Jelenet neve',
+    Icona: 'Ikon',
+    "Tipo azione": 'Művelet típusa',
+    "Entity ID": 'Entitásazonosító',
+    "Payload JSON": 'JSON adat',
+    Colonne: 'Oszlopok',
+    "Auto: la larghezza viene calcolata dalle card interne.":
+      'Automatikus: a szélesség a benne lévő kártyákból számolódik.',
+    "Manuale: imposta quante colonne canvas deve occupare lo stack.":
+      'Kézi: add meg, hány vászonoszlopot foglaljon el a köteg.',
+    "Questa sezione non e configurabile.": 'Ez a szakasz nem konfigurálható.',
+    "Preview live": 'Élő előnézet',
+    Dimensione: 'Méret',
+    "Espansione automatica": 'Automatikus kibontás',
+    "Espansione automatica luce": 'Automatikus fénykibontás',
+    "Applica a": 'Alkalmazás erre',
+    "Questa card": 'Ez a kártya',
+    Tutte: 'Mind',
+    "Applica solo alla card selezionata": 'Csak a kiválasztott kártyára',
+    "Applica a tutte le card dello stesso tipo":
+      'Minden azonos típusú kártyára',
+    Avanzato: 'Speciális',
+    "Controllo manuale colonne × righe": 'Kézi oszlop × sor vezérlés',
+    Righe: 'Sorok',
+    Entita: 'Entitás',
+    "Suggerimenti live dalle entita disponibili in Home Assistant.":
+      'Élő javaslatok a Home Assistantban elérhető entitásokból.',
+    "Entita dimostrative disponibili esclusivamente nella Demo.":
+      'A demóentitások csak Demó módban érhetők el.',
+    "Digita un entity ID oppure verifica la connessione a Home Assistant.":
+      'Adj meg egy entitásazonosítót, vagy ellenőrizd a Home Assistant kapcsolatot.',
+    "Entita consumo": 'Fogyasztási entitás',
+    "Decimali visualizzati": 'Megjelenített tizedesek',
+    "Potenza del contatore (kW)": 'Mérő teljesítménye (kW)',
+    "La potenza che il contatore regge prima di staccare: un contratto da 3 kW arriva a 3,3 kW. La card avvisa dal 90%. Se lasci vuoto vale 3,3 kW.": 'Az a teljesítmény, amelyet a mérőd leoldás előtt elbír: egy 3 kW-os szerződés 3,3 kW-ig megy. A kártya 90%-tól figyelmeztet. Ha üres, 3,3 kW.',
+    "Entita batteria": 'Akkumulátor-entitás',
+    "Entita stato": 'Állapot-entitás',
+    "Entita connessione": 'Kapcsolat-entitás',
+    "Override batteria": 'Akkumulátor felülbírálása',
+    "Override connessione": 'Kapcsolat felülbírálása',
+    "Sbloccare i codici di sicurezza?": 'Feloldod a biztonsági kódokat?',
+    "I codici resteranno accessibili soltanto fino al refresh o alla chiusura della pagina.":
+      'A kódok csak frissítésig vagy az oldal bezárásáig maradnak elérhetők.',
+    "Sblocca configurazione sicurezza": 'Biztonsági beállítások feloldása',
+    "Come funziona": 'Hogyan működik',
+    "PIN Home Assistant": 'Home Assistant PIN',
+    "Codice extra locale": 'Kiegészítő helyi kód',
+    "Codice Home Assistant serratura": 'Home Assistant zárkód',
+    "Ricorda su questo dispositivo": 'Megjegyzés ezen az eszközön',
+    "Ricorda i codici di questa card sul dispositivo":
+      'A kártya kódjainak megjegyzése ezen az eszközön',
+    "Attivita recente": 'Legutóbbi tevékenység',
+    "Elementi visibili": 'Látható elemek',
+    "Finestra storico (ore)": 'Előzmények időablaka (óra)',
+    "Dispositivi correlati": 'Kapcsolódó eszközök',
+    "Anteprima pannello live": 'Élő panel-előnézet',
+    "Configurazione widget selezionato": 'A kiválasztott widget beállításai',
+    Funzione: 'Funkció',
+    "Invio segnale": 'Jel küldése',
+    "Pagina destinazione": 'Céloldal',
+    "Invio valore": 'Érték küldése',
+    "Tipo grafico": 'Diagram típusa',
+    "Entita da associare": 'Csatolandó entitás',
+  },
 } as const;
 
 export function translateBuilderDetail(locale: AppLocale, value: string) {

@@ -83,7 +83,33 @@ const fr: Words = {
   moved: '{name} en position {n}',
 };
 
-const WORDS: Record<string, Words> = { it, en, fr };
+const hu: Words = {
+  search: 'Keresés név, szoba vagy azonosító szerint',
+  filterAll: 'Mind',
+  filterControl: 'Vezérléshez',
+  filterRead: 'Olvasáshoz',
+  sameDevice: 'Ugyanabból az eszközből',
+  sameRoom: 'Ugyanabban a szobában',
+  otherRooms: 'Más szobák',
+  noRoom: 'Nincs szoba',
+  used: 'Már a panelen',
+  nothingFound: 'Nem található entitás',
+  moreToSearch: 'Még {n}: gépelj a kereséshez',
+  recommended: 'Ajánlott',
+  formCompact: 'Kompakt',
+  formHero: 'Nagy',
+  sizeMini: 'Mini',
+  sizeStandard: 'Normál',
+  sizeExpanded: 'Bővített',
+  sizeCurrent: 'Jelenlegi · {size}',
+  iconAuto: 'Automatikus',
+  dragHandle: '{name} húzása',
+  moveUp: 'Fel',
+  moveDown: 'Le',
+  moved: '{name} a(z) {n}. helyen',
+};
+
+const WORDS: Record<string, Words> = { it, en, fr, hu };
 
 export type EditorWordKey = keyof Words;
 export type EditorWords = (key: EditorWordKey, values?: Record<string, string | number>) => string;

@@ -1,0 +1,31 @@
+{
+  "title": "Domus UI",
+  "config": {
+    "step": {
+      "user": {
+        "title": "A Domus UI beállítása",
+        "description": "A Domus UI hozzáadása az oldalsávhoz. Az azonosításhoz, a jogosultságokhoz és a parancsokhoz az aktuális Home Assistant fiókot használja."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "A Domus UI már be van állítva."
+    }
+  },
+  "services": {
+    "start_irrigation_zone": { "name": "Öntözési zóna indítása", "description": "Elindít vagy sorba állít egy zónát szerveroldali biztonsági időzítővel.", "fields": { "zone_id": { "name": "Zónaazonosító", "description": "A Domus UI-ban beállított, állandó zónaazonosító." }, "duration_min": { "name": "Időtartam", "description": "Időtartam percben; ha nincs megadva, a zóna beállított időtartama érvényes." }, "request_id": { "name": "Kérésazonosító", "description": "Nem kötelező idempotencia-kulcs külső kliensekhez és automatizálásokhoz." } } },
+    "stop_irrigation_zone": { "name": "Öntözési zóna leállítása", "description": "Elzár egy zónát, és megszakítja a munkamenetét.", "fields": { "zone_id": { "name": "Zónaazonosító", "description": "A Domus UI-ban beállított, állandó zónaazonosító." } } },
+    "pause_irrigation": { "name": "Öntözés szüneteltetése", "description": "Elzárja az aktív zónákat, és megőrzi a hátralévő idejüket." },
+    "resume_irrigation": { "name": "Öntözés folytatása", "description": "Folytatja a kifejezetten szüneteltetett munkameneteket." },
+    "stop_all_irrigation": { "name": "Minden öntözés leállítása", "description": "Elzár minden zónát, kiüríti a sort, és leállítja az ütemezéseket." }
+  },
+  "issues": {
+    "irrigation_close_failed": {
+      "title": "Az öntözési zóna nem zárt el",
+      "description": "A Domus Core több próbálkozás után sem tudta megerősíteni, hogy {zone} elzárt ({reason}). Ellenőrizd a működtetőt, és szükség esetén zárd el kézzel a vizet."
+    },
+    "access_policy_untrusted": {
+      "title": "A Domus hozzáférési szabályzata nem olvasható",
+      "description": "A Domus hozzáférési szabályzata: {state}. A rendszergazdákon kívüli fiókok csak az alapnézeteket látják, amíg egy Home Assistant rendszergazda vissza nem állítja a szabályzatot a Domusból (domusos/access/reset_policy parancs). Az előző szabályzat a tároló mellett megmarad, sosem törlődik."
+    }
+  }
+}

@@ -82,7 +82,31 @@ const fr: Record<Key, string> = {
   cannotSave: 'Complétez les capteurs et entités avant d’enregistrer.', reload: 'Recharger la configuration', noZones: 'Ajoutez une première zone pour commencer.', entitySecondary: 'ID technique', configuredZone: '{count} appareils · référence {entity}',
 };
 
-const catalogs = { it, en, fr };
+const hu: Record<Key, string> = {
+  configure: 'Domus Climate beállítása', edit: 'Beállítás szerkesztése', save: 'Beállítás mentése', cancel: 'Mégse', retry: 'Újra',
+  loading: 'Klímabeállítás betöltése…', unavailable: 'A klímakapcsolat vagy -tároló nem elérhető.',
+  corrupt: 'A klímabeállítás sérült. Az adatok nem cserélődnek automatikusan.', unsupported: 'Ezt a beállítást a Domus egy újabb verziója írta.',
+  migration_failed: 'A klímabeállítás migrálása sikertelen. Az eredeti adatok érintetlenek.', conflict: 'A beállítás egy másik eszközön megváltozott. Mentés előtt töltsd újra.',
+  invalid_config: 'A beállítás érvénytelen. Ellenőrizd a megjelölt mezőket.', entity_missing: 'Egy kiválasztott entitás már nem létezik a Home Assistantban.',
+  entity_incompatible: 'Egy entitás nem támogatja a kiválasztott szerepkört vagy beállított értéket.', area_missing: 'Egy kiválasztott terület már nem létezik.', access_denied: 'A rendszert csak rendszergazda szerkesztheti.',
+  network: 'A Home Assistant nem érhető el. Próbáld újra, amikor csatlakozik.', configured: 'Klímarendszer beállítva',
+  configuredDetail: 'Zónák, érzékelők és eszközök mentve az egész házra.', readonly: 'Megtekintheted a beállítást. A szerkesztéshez rendszergazda szükséges.',
+  draft: 'Nem mentett módosítások', leaveWarning: 'A klímamódosítások nincsenek mentve.', saved: 'Beállítás mentve.',
+  zones: 'Klímazónák', addZone: 'Zóna hozzáadása', removeZone: 'Zóna eltávolítása', zoneName: 'Zóna neve', area: 'Szoba a házban', noArea: 'Nincs szoba', orphanedRoom: 'A szoba nem elérhető', roomLabel: 'Szoba', floorLabel: 'Szint', house_unavailable: 'A ház szobalistája nem elérhető.',
+  reference: 'Referencia-hőmérséklet', primary: 'Elsődleges érzékelő', fallbacks: 'Tartalékok sorrendben', addFallback: 'Tartalék hozzáadása', remove: 'Eltávolítás', moveUp: 'Fel', moveDown: 'Le',
+  freshnessPolicy: 'Érzékelő frissessége', freshnessNone: 'Nem ellenőrzött', freshnessMaxAge: 'Maximális kor a HA időbélyeg alapján', maxAgeSeconds: 'Maximális kor (másodperc)', freshnessHint: 'A HA időbélyeg ennél a rendszernél választott helyettesítő, nem bizonyítéka egy új fizikai mérésnek.',
+  executionOwnership: 'Domus vezérlés', observeOnly: 'Csak felügyelet', domusSupervised: 'Felügyeleti vezérlés engedélyezése', ownershipHint: 'Ez az eszköz csak akkor kaphat felügyeleti parancsokat, ha a ház fizikai vezérlése élesítve van, és egy felhasználó kézzel végrehajt egy érvényes tervet.',
+  physicalExecution: 'Domus fizikai vezérlés', physicalExecutionWarning: 'Bekapcsolva a Domus valós parancsokat küldhet a kifejezetten engedélyezett eszközöknek. Ebben a fázisban még kézi kérés szükséges; az opció bekapcsolása nem küld parancsot.',
+  endpoints: 'Zóna eszközei', addEndpoint: 'Eszköz hozzáadása', endpointName: 'Eszköz neve', entity: 'HA entitás', kind: 'Típus', ac: 'Légkondicionáló', trv: 'Radiátorszelep', other: 'Egyéb', heat: 'Fűtés', cool: 'Hűtés', radiatorRole: 'Körszelep',
+  related: 'Kapcsolódó vezérlők', addRelated: 'Vezérlő hozzáadása', role: 'Szerepkör', roleHint: 'Például be/ki, ventilátor, eco', circuits: 'Radiátorkörök', addCircuit: 'Kör hozzáadása', circuitName: 'Kör neve', controller: 'Termosztát / vezérlő', linkedValves: 'Kapcsolt szelepek', linkedGenerators: 'Kapcsolt hőtermelők',
+  generators: 'Hőtermelők', addGenerator: 'Hőtermelő hozzáadása', generatorName: 'Hőtermelő neve', boiler: 'Kazán', stove: 'Vízteres kályha', spaceHeating: 'Fűtés', dhw: 'Használati melegvíz', waterSetpoint: 'Víz/hőtermelő beállított értéke', noSetpoint: 'Nincs beállított érték',
+  noEntity: 'Nincs entitás', search: 'Keresés név vagy azonosító szerint', choose: 'Válassz entitást', results: 'Korlátozott találatok: pontosítsd a keresést', capabilities: 'Módok {modes} · funkciók {features} · tartomány {range} · lépés {step}',
+  extraModes: 'Ventilátor {fan} · lengetés {swing} · előbeállítások {preset}',
+  stepZones: '1. Zónák és érzékelők', stepDevices: '2. Eszközök és szerepkörök', stepCircuits: '3. Körök és vezérlő', stepGenerators: '4. Hőtermelők',
+  cannotSave: 'Mentés előtt egészítsd ki az érzékelőket és az eszközentitásokat.', reload: 'Beállítás újratöltése', noZones: 'A kezdéshez add hozzá az első zónát.', entitySecondary: 'Technikai azonosító', configuredZone: '{count} eszköz · referencia {entity}',
+};
+
+const catalogs = { it, en, fr, hu };
 export function useClimateConfigCopy() {
   const { locale } = useI18n();
   const catalog: Record<Key, string> = catalogs[locale];

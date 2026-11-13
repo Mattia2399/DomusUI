@@ -9,7 +9,7 @@ import {
 } from 'react';
 import type { TranslationKey } from './translations';
 
-export const SUPPORTED_LOCALES = ['it', 'en', 'fr'] as const;
+export const SUPPORTED_LOCALES = ['it', 'en', 'fr', 'hu'] as const;
 export type AppLocale = (typeof SUPPORTED_LOCALES)[number];
 
 export const LANGUAGE_STORAGE_KEY = 'domusui.language.v1';
@@ -22,6 +22,7 @@ const catalogLoaders: Record<AppLocale, () => Promise<TranslationCatalogModule>>
   it: () => import('virtual:domus-i18n/it'),
   en: () => import('virtual:domus-i18n/en'),
   fr: () => import('virtual:domus-i18n/fr'),
+  hu: () => import('virtual:domus-i18n/hu'),
 };
 const loadedCatalogs = new Map<AppLocale, TranslationCatalog>();
 const pendingCatalogs = new Map<AppLocale, Promise<TranslationCatalog>>();
